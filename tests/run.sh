@@ -143,6 +143,8 @@ if out="$(stagerun Q4 --apps-dir "$tmp/apps/run")"; then
     ok=yes
     grep -q '^FRAMEWORK_LAYER=YES' <<<"$out" || ok=no
     grep -q 'SableLauncher' "$v/sable-q25-framework.mk" || ok=no
+    grep -q 'etc/sable/battery/zinwa-q25.conf' "$v/sable-q25-framework.mk" || ok=no
+    [[ -f "$v/etc/battery/zinwa-q25.conf" ]] || ok=no
     grep -q 'name: "SableLauncher"' "$v/src/SableStart/Android.bp" || ok=no
     grep -q 'name: "sable_design_shared_srcs"' "$v/src/sabledesign/Android.bp" || ok=no
     grep -q 'overrides: \["LatinIME"\]' "$v/Android.bp" || ok=no

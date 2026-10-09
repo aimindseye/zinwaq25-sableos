@@ -130,6 +130,10 @@ if [[ "$FRAMEWORK" == YES ]]; then
     # resource overlays for the framework, SystemUI and the LineageOS
     # SetupWizard (product/common/overlay, with its own Android.bp).
     cp -a "$SABLE_REPO_ROOT/product/common/overlay" "$VENDOR_SABLE/overlay"
+    # Battery health/charging capability profile read by the Settings battery
+    # patches (BH1-BH5); every Q25 fact is UNKNOWN until device evidence.
+    mkdir -p "$VENDOR_SABLE/etc/battery"
+    cp "$SABLE_REPO_ROOT/device-profile/battery/zinwa-q25.conf" "$VENDOR_SABLE/etc/battery/"
     cat >> "$fw_mk" <<'MK'
 PRODUCT_PACKAGES += \
     SableLauncher \
@@ -138,6 +142,8 @@ PRODUCT_PACKAGES += \
     SableSetupWizardOverlay
 PRODUCT_SYSTEM_EXT_PROPERTIES += \
     ro.sable.home=org.sableos.launcher
+PRODUCT_COPY_FILES += \
+    vendor/sable/q25/etc/battery/zinwa-q25.conf:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/sable/battery/zinwa-q25.conf
 MK
     bash "$SABLE_REPO_ROOT/scripts/apply-framework-patches.sh" apply
 else
