@@ -33,6 +33,9 @@ data class HubConversation(
     val sourceNotificationKey: String? = null,
     val sourceLabel: String? = null,
     val canQuickReply: Boolean = false,
+    val profileBadge: String? = null,
+    /** Hub priority: ordering only, never a Do Not Disturb exception. */
+    val hubPriority: Boolean = false,
 )
 
 data class HubPerson(

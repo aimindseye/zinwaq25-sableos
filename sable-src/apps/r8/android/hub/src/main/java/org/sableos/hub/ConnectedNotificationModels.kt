@@ -30,8 +30,7 @@ object ConnectedNotificationRetention {
         retention: HistoryRetention,
         nowMillis: Long,
     ): Boolean {
-        val days = retention.days ?: return true
-        val cutoff = nowMillis - days * MILLIS_PER_DAY
+        val cutoff = nowMillis - retention.days * MILLIS_PER_DAY
         return record.timestampMillis >= cutoff
     }
 }
