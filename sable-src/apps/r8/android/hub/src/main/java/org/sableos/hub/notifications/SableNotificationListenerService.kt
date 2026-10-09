@@ -7,6 +7,8 @@ import android.os.Handler
 import android.os.Looper
 import android.os.UserManager
 import android.service.notification.NotificationListenerService
+import android.service.notification.NotificationListenerService.Ranking
+import android.service.notification.NotificationListenerService.RankingMap
 import android.service.notification.StatusBarNotification
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,9 +21,18 @@ import org.sableos.hub.ConnectedAppPolicy
 import org.sableos.hub.ConnectedAppsInventory
 import org.sableos.hub.ConnectedAppsRepository
 import org.sableos.hub.ConnectedNotificationHistoryStore
+import org.sableos.hub.policy.AndroidVisibility
+import org.sableos.hub.policy.ReplyActionFacts
+import org.sableos.hub.policy.ReplyEligibility
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
+/**
+ * Hub's NotificationListenerService. It only reads what Android delivers: it never cancels,
+ * snoozes, re-posts or re-ranks notifications, never changes interruption filters or channels,
+ * and never posts a notification of its own (DESIGN-KF-A: Android owns delivery and DND; the
+ * shade is the notification center). tests/kf-a-notification-policy-check.sh enforces this.
+ */
 class SableNotificationListenerService : NotificationListenerService() {
     private val workerScope =
         CoroutineScope(
@@ -32,6 +43,7 @@ class SableNotificationListenerService : NotificationListenerService() {
     private lateinit var history: ConnectedNotificationHistoryStore
     private lateinit var normalizer: ConnectedNotificationNormalizer
     private lateinit var userManager: UserManager
+    private lateinit var attention: AttentionDispatcher
     private val generationCounter = AtomicLong(0L)
     private val notificationGenerations = ConcurrentHashMap<String, Long>()
 
@@ -54,6 +66,7 @@ class SableNotificationListenerService : NotificationListenerService() {
             checkNotNull(
                 applicationContext.getSystemService(UserManager::class.java),
             )
+        attention = AttentionDispatcher(applicationContext)
 
         contentResolver.registerContentObserver(
             ConnectedAppsRepository.POLICY_URI,
@@ -67,11 +80,28 @@ class SableNotificationListenerService : NotificationListenerService() {
 
     override fun onListenerConnected() {
         super.onListenerConnected()
+        notifyHiddenAppsChanged()
         refreshPoliciesAndReprocess()
     }
 
+    override fun onNotificationPosted(
+        sbn: StatusBarNotification,
+        rankingMap: RankingMap?,
+    ) {
+        val ranking = rankingMap?.let { map -> Ranking().takeIf { map.getRanking(sbn.key, it) } }
+        attention.onPosted(sbn, ranking)
+        onNotificationPostedForHub(sbn, ranking)
+    }
+
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        val envelope = eligibleEnvelope(sbn)
+        onNotificationPosted(sbn, currentRanking)
+    }
+
+    private fun onNotificationPostedForHub(
+        sbn: StatusBarNotification,
+        ranking: Ranking?,
+    ) {
+        val envelope = eligibleEnvelope(sbn, ranking)
         if (envelope != null) {
             val generation = generationCounter.incrementAndGet()
             notificationGenerations[sbn.key] = generation
@@ -84,7 +114,10 @@ class SableNotificationListenerService : NotificationListenerService() {
         }
     }
 
-    private fun eligibleEnvelope(sbn: StatusBarNotification): ConnectedNotificationEnvelope? {
+    private fun eligibleEnvelope(
+        sbn: StatusBarNotification,
+        ranking: Ranking?,
+    ): ConnectedNotificationEnvelope? {
         val userSerial = userManager.getSerialNumberForUser(sbn.user)
         val key =
             userSerial
@@ -103,6 +136,7 @@ class SableNotificationListenerService : NotificationListenerService() {
                     sbn = sbn,
                     key = key,
                     policy = policy,
+                    contentRestricted = isSourceRestricted(sbn.notification, ranking),
                 ).takeIf { candidate ->
                     candidate.isConversationCandidate()
                 }
@@ -131,59 +165,87 @@ class SableNotificationListenerService : NotificationListenerService() {
                     category == Notification.CATEGORY_MESSAGE
             )
 
+    /**
+     * "Source restricted": the source (or its channel) marked the notification SECRET, i.e. not
+     * to be revealed on insecure surfaces. Hub then keeps source/count/action only and does not
+     * cache the text. Android 15+ additionally strips sensitive content (such as one-time codes)
+     * before it reaches non-system listeners like Hub.
+     */
+    private fun isSourceRestricted(
+        notification: Notification,
+        ranking: Ranking?,
+    ): Boolean =
+        AndroidVisibility.effective(
+            notificationVisibility = notification.visibility,
+            channelLockscreenVisibility =
+                ranking?.channel?.lockscreenVisibility ?: AndroidVisibility.VISIBILITY_NO_OVERRIDE,
+        ) == AndroidVisibility.Secret
+
     private fun captureEnvelope(
         sbn: StatusBarNotification,
         key: ConnectedAppKey,
         policy: ConnectedAppPolicy,
+        contentRestricted: Boolean,
     ): ConnectedNotificationEnvelope {
         val notification = sbn.notification
         val messagingUser = messagingUser(notification)
-        return ConnectedNotificationEnvelope(
-            key = key,
-            notificationKey = sbn.key,
-            notificationId = sbn.id,
-            notificationTag =
-                boundedText(
-                    sbn.tag,
-                    MAX_NOTIFICATION_ID_LENGTH,
-                ),
-            shortcutId =
-                boundedText(
-                    notification.shortcutId,
-                    MAX_NOTIFICATION_ID_LENGTH,
-                ),
-            postTimeMillis = sbn.postTime,
-            notificationTitle =
-                boundedText(
-                    notification.extras
-                        .getCharSequence(Notification.EXTRA_TITLE)
-                        ?.toString(),
-                    MAX_NOTIFICATION_LABEL_LENGTH,
-                ),
-            notificationBody = captureNotificationBody(notification),
-            conversationTitle =
-                boundedText(
-                    notification.extras
-                        .getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)
-                        ?.toString(),
-                    MAX_NOTIFICATION_LABEL_LENGTH,
-                ),
-            category =
-                boundedText(
-                    notification.category,
-                    MAX_NOTIFICATION_LABEL_LENGTH,
-                ),
-            isGroupSummary =
-                notification.flags and Notification.FLAG_GROUP_SUMMARY != 0,
-            messages =
-                captureMessages(
-                    notification = notification,
-                    fallbackTimestampMillis = sbn.postTime,
-                    messagingUser = messagingUser,
-                ),
-            replyCandidate = captureReplyCandidate(notification),
-            allowQuickReply = policy.allowQuickReply,
-        )
+        val envelope =
+            ConnectedNotificationEnvelope(
+                key = key,
+                notificationKey = sbn.key,
+                notificationId = sbn.id,
+                notificationTag =
+                    boundedText(
+                        sbn.tag,
+                        MAX_NOTIFICATION_ID_LENGTH,
+                    ),
+                shortcutId =
+                    boundedText(
+                        notification.shortcutId,
+                        MAX_NOTIFICATION_ID_LENGTH,
+                    ),
+                postTimeMillis = sbn.postTime,
+                notificationTitle =
+                    boundedText(
+                        notification.extras
+                            .getCharSequence(Notification.EXTRA_TITLE)
+                            ?.toString(),
+                        MAX_NOTIFICATION_LABEL_LENGTH,
+                    ),
+                notificationBody = captureNotificationBody(notification),
+                conversationTitle =
+                    boundedText(
+                        notification.extras
+                            .getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)
+                            ?.toString(),
+                        MAX_NOTIFICATION_LABEL_LENGTH,
+                    ),
+                category =
+                    boundedText(
+                        notification.category,
+                        MAX_NOTIFICATION_LABEL_LENGTH,
+                    ),
+                isGroupSummary =
+                    notification.flags and Notification.FLAG_GROUP_SUMMARY != 0,
+                messages =
+                    captureMessages(
+                        notification = notification,
+                        fallbackTimestampMillis = sbn.postTime,
+                        messagingUser = messagingUser,
+                    ),
+                replyCandidate = captureReplyCandidate(notification),
+                allowQuickReply = policy.allowQuickReply,
+            )
+        return if (contentRestricted) {
+            envelope.copy(
+                notificationTitle = null,
+                conversationTitle = null,
+                notificationBody = null,
+                messages = envelope.messages.map { it.copy(senderLabel = null, body = null) },
+            )
+        } else {
+            envelope
+        }
     }
 
     private fun captureNotificationBody(notification: Notification): String? =
@@ -280,13 +342,17 @@ class SableNotificationListenerService : NotificationListenerService() {
         }
     }
 
+    /**
+     * Only the source's own action is used (`HUB_INVENTS_PROVIDER_ACTIONS=NO`): a free-form
+     * RemoteInput with a PendingIntent, never a system-generated contextual (smart) action.
+     */
     private fun captureReplyCandidate(notification: Notification): ConnectedNotificationReplyCandidate? {
         val candidates =
             notification.actions
                 .orEmpty()
                 .asSequence()
                 .take(MAX_NOTIFICATION_ACTIONS)
-                .mapNotNull { action ->
+                .map { action ->
                     val pendingIntent = action.actionIntent
                     val remoteInput =
                         action.remoteInputs
@@ -295,25 +361,26 @@ class SableNotificationListenerService : NotificationListenerService() {
                             ?.firstOrNull { input ->
                                 input.allowFreeFormInput
                             }
-                    if (pendingIntent == null || remoteInput == null) {
-                        null
-                    } else {
-                        CapturedReplyCandidate(
-                            candidate =
-                                ConnectedNotificationReplyCandidate(
-                                    pendingIntent = pendingIntent,
-                                    remoteInput = remoteInput,
-                                ),
-                            semanticAction = action.semanticAction,
+                    val facts =
+                        ReplyActionFacts(
+                            hasPendingIntent = pendingIntent != null,
+                            hasFreeFormRemoteInput = remoteInput != null,
+                            isContextual = action.isContextual,
+                            semanticReply = action.semanticAction == Notification.Action.SEMANTIC_ACTION_REPLY,
                         )
-                    }
+                    val candidate =
+                        if (pendingIntent != null && remoteInput != null) {
+                            ConnectedNotificationReplyCandidate(
+                                pendingIntent = pendingIntent,
+                                remoteInput = remoteInput,
+                            )
+                        } else {
+                            null
+                        }
+                    facts to candidate
                 }.toList()
 
-        return candidates
-            .firstOrNull { candidate ->
-                candidate.semanticAction == Notification.Action.SEMANTIC_ACTION_REPLY
-            }?.candidate
-            ?: candidates.firstOrNull()?.candidate
+        return ReplyEligibility.chooseReplyAction(candidates)?.second
     }
 
     private suspend fun processEnvelope(
@@ -362,9 +429,14 @@ class SableNotificationListenerService : NotificationListenerService() {
         workerScope.launch(Dispatchers.IO) {
             policies.loadPolicies()
             withContext(Dispatchers.Main.immediate) {
+                // Re-derive Hub state only; never re-signal attention for old notifications.
+                val rankingMap = currentRanking
                 activeNotifications
                     .orEmpty()
-                    .forEach(::onNotificationPosted)
+                    .forEach { sbn ->
+                        val ranking = rankingMap?.let { map -> Ranking().takeIf { map.getRanking(sbn.key, it) } }
+                        onNotificationPostedForHub(sbn, ranking)
+                    }
             }
         }
     }
@@ -378,7 +450,9 @@ class SableNotificationListenerService : NotificationListenerService() {
 
     override fun onListenerDisconnected() {
         ConnectedNotificationActivityRegistry.clear()
+        ConnectedReplyRegistry.clear()
         notifyHubDataChanged()
+        notifyHiddenAppsChanged()
         super.onListenerDisconnected()
     }
 
@@ -389,6 +463,14 @@ class SableNotificationListenerService : NotificationListenerService() {
         )
         applicationContext.contentResolver.notifyChange(
             org.sableos.hub.HubSnapshotProvider.SNAPSHOT_URI,
+            null,
+        )
+    }
+
+    /** Notification access changed: Sable Start re-reads which apps Hub may hide. */
+    private fun notifyHiddenAppsChanged() {
+        applicationContext.contentResolver.notifyChange(
+            ConnectedAppsRepository.HIDDEN_URI,
             null,
         )
     }
@@ -409,9 +491,4 @@ class SableNotificationListenerService : NotificationListenerService() {
             ?.trim()
             ?.takeIf { it.isNotEmpty() }
             ?.take(maxLength)
-
-    private data class CapturedReplyCandidate(
-        val candidate: ConnectedNotificationReplyCandidate,
-        val semanticAction: Int,
-    )
 }

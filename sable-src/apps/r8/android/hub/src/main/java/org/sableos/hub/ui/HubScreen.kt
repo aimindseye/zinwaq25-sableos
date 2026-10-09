@@ -106,9 +106,20 @@ fun HubScreen(
     onOpenConnectedApps: () -> Unit,
     onReplyConnected: (String, String) -> HubSendResult,
     onOpenConnectedApp: (String, Long) -> Boolean,
+    onOpenSourceNotificationSettings: (String, Long) -> Boolean = { _, _ -> false },
+    pendingThreadId: Long? = null,
+    onPendingThreadConsumed: () -> Unit = {},
 ) {
     var route by remember {
         mutableStateOf<HubRoute>(HubRoute.Root(HubPivot.Priority))
+    }
+
+    // Shade "H" / Settings handoff: open the conversation Hub resolved for the notification.
+    LaunchedEffect(pendingThreadId, snapshot != null) {
+        if (pendingThreadId != null && snapshot != null) {
+            route = HubRoute.Conversation(threadId = pendingThreadId)
+            onPendingThreadConsumed()
+        }
     }
     var search by remember {
         mutableStateOf("")
@@ -320,6 +331,21 @@ fun HubScreen(
                                 } else {
                                     null
                                 },
+                            onOpenNotificationSettings =
+                                if (
+                                    conversation.source == HubConversationSource.ConnectedApp &&
+                                    sourcePackage != null &&
+                                    sourceUserSerial != null
+                                ) {
+                                    {
+                                        // Delivery policy is Android's: hand off, never mirror it.
+                                        if (!onOpenSourceNotificationSettings(sourcePackage, sourceUserSerial)) {
+                                            statusMessage = "Android notification settings are unavailable."
+                                        }
+                                    }
+                                } else {
+                                    null
+                                },
                         )
                     }
                 }
@@ -401,10 +427,15 @@ private fun ColumnScope.PriorityPivot(
     onConversation: (HubConversation) -> Unit,
     onOpenSableMail: () -> Boolean,
 ) {
+    // Hub priority is ordering/aggregation only; it is not a Do Not Disturb exception.
     val conversations =
-        snapshot.conversations.filter { conversation ->
-            conversation.unreadCount > 0 || conversation.canQuickReply
-        }
+        snapshot.conversations
+            .filter { conversation ->
+                conversation.unreadCount > 0 || conversation.canQuickReply || conversation.hubPriority
+            }.sortedWith(
+                compareByDescending<HubConversation> { it.hubPriority }
+                    .thenByDescending { it.lastDateMillis },
+            )
     val hasMailAlerts =
         snapshot.mail.available &&
             snapshot.mail.detail != "no mail alerts"
@@ -652,6 +683,11 @@ private fun ConversationRow(
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant
         }
+    val sourceLine =
+        listOfNotNull(
+            conversation.sourceLabel ?: "connected app",
+            conversation.profileBadge,
+        ).joinToString(" · ")
     val initial =
         conversation.displayName
             .trim()
@@ -706,11 +742,11 @@ private fun ConversationRow(
                         }
 
                         conversation.lastBody.isBlank() -> {
-                            "${conversation.sourceLabel ?: "connected app"} · content hidden"
+                            "$sourceLine · content hidden"
                         }
 
                         else -> {
-                            "${conversation.sourceLabel ?: "connected app"} · " +
+                            "$sourceLine · " +
                                 conversation.lastBody.take(CONNECTED_PREVIEW_LENGTH)
                         }
                     },
@@ -869,6 +905,7 @@ private fun ColumnScope.ConversationView(
     onReply: (() -> Unit)?,
     onSendConnectedReply: ((String) -> HubSendResult)?,
     onOpenSource: (() -> Unit)?,
+    onOpenNotificationSettings: (() -> Unit)? = null,
 ) {
     var connectedReplyBody by remember {
         mutableStateOf("")
@@ -882,6 +919,7 @@ private fun ColumnScope.ConversationView(
         subtitle =
             conversation.sourceLabel
                 ?.takeIf { conversation.source == HubConversationSource.ConnectedApp }
+                ?.let { label -> listOfNotNull(label, conversation.profileBadge).joinToString(" · ") }
                 ?: conversation.address,
     )
 
@@ -905,6 +943,14 @@ private fun ColumnScope.ConversationView(
         onOpenSource?.let { action ->
             SableActionButton(
                 text = "Open app",
+                modifier = Modifier.weight(1f),
+                primary = false,
+                onClick = action,
+            )
+        }
+        onOpenNotificationSettings?.let { action ->
+            SableActionButton(
+                text = "Notifications",
                 modifier = Modifier.weight(1f),
                 primary = false,
                 onClick = action,

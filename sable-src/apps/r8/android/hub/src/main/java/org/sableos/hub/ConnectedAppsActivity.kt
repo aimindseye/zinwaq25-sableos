@@ -4,7 +4,6 @@ import android.app.NotificationManager
 import android.content.ComponentName
 import android.content.Intent
 import android.os.Bundle
-import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.LaunchedEffect
@@ -21,23 +20,46 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.sableos.design.SableGlobalTheme
 import org.sableos.hub.notifications.ConnectedReplyRegistry
+import org.sableos.hub.notifications.SableNotificationListenerService
+import org.sableos.hub.platform.AndroidSettingsLauncher
+import org.sableos.hub.platform.DeviceAttention
+import org.sableos.hub.policy.AndroidSettingsRoutes
+import org.sableos.hub.policy.AttentionOutput
+import org.sableos.hub.policy.AttentionSelection
+import org.sableos.hub.policy.AttentionSelections
+import org.sableos.hub.policy.HubIntents
+import org.sableos.hub.policy.NotificationConcept
+import org.sableos.hub.policy.SettingsRoute
+import org.sableos.hub.policy.SettingsTarget
+import org.sableos.hub.ui.AttentionUi
 import org.sableos.hub.ui.ConnectedAppsScreen
 
+/**
+ * Connected apps: Hub inclusion, Hub priority, preview and history per Android user/profile +
+ * package, plus Sable Attention outputs the device profile supports. Android delivery policy is
+ * reached through Android Settings, never mirrored here. Also handles
+ * [HubIntents.ACTION_APP_NOTIFICATION_SETTINGS] from Settings' per-app notification page.
+ */
 class ConnectedAppsActivity : ComponentActivity() {
     private lateinit var repository: ConnectedAppsRepository
     private lateinit var inventory: ConnectedAppsInventory
     private lateinit var history: ConnectedNotificationHistoryStore
+    private lateinit var preferences: HubPreferences
     private val workerScope =
         CoroutineScope(
             SupervisorJob() + Dispatchers.IO,
         )
     private var refreshGeneration by mutableIntStateOf(0)
+    private var focusedKey by mutableStateOf<ConnectedAppKey?>(null)
+    private val attentionProfile by lazy { DeviceAttention.profile(applicationContext) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         repository = ConnectedAppsRepository(applicationContext)
         inventory = ConnectedAppsInventory(applicationContext)
         history = ConnectedNotificationHistoryStore(applicationContext)
+        preferences = HubPreferences(applicationContext)
+        focusedKey = focusedKeyFrom(intent)
 
         setContent {
             var candidates by remember {
@@ -52,6 +74,12 @@ class ConnectedAppsActivity : ComponentActivity() {
             var notificationAccessGranted by remember {
                 mutableStateOf(false)
             }
+            var attention by remember {
+                mutableStateOf(AttentionUi(emptyList(), emptyMap()))
+            }
+            var privateMode by remember {
+                mutableStateOf(false)
+            }
 
             LaunchedEffect(refreshGeneration) {
                 loading = true
@@ -64,6 +92,17 @@ class ConnectedAppsActivity : ComponentActivity() {
                     loaded.second.associateBy { policy ->
                         policy.key
                     }
+                val stored = withContext(Dispatchers.IO) { preferences.loadAttentionSelections() }
+                attention =
+                    AttentionUi(
+                        selectableOutputs = attentionProfile.selectableOutputs(),
+                        selections =
+                            candidates.associate { candidate ->
+                                candidate.key to
+                                    AttentionSelections.effectiveFor(candidate.key, stored, attentionProfile)
+                            },
+                    )
+                privateMode = preferences.privateMode()
                 notificationAccessGranted = hasNotificationAccess()
                 loading = false
             }
@@ -78,6 +117,18 @@ class ConnectedAppsActivity : ComponentActivity() {
                         refreshGeneration += 1
                     },
                     onOpenNotificationAccess = ::openNotificationAccess,
+                    attention = attention,
+                    focusedKey = focusedKey,
+                    privateMode = privateMode,
+                    onPrivateModeChanged = { enabled ->
+                        preferences.setPrivateMode(enabled)
+                        refreshGeneration += 1
+                    },
+                    onAttentionChanged = ::updateAttention,
+                    onOpenAndroidNotificationSettings = ::openAndroidNotificationSettings,
+                    onOpenAttentionSettings = {
+                        AndroidSettingsLauncher(this@ConnectedAppsActivity).open(SettingsRoute.SableAttention)
+                    },
                     onPolicyChanged = { policy ->
                         val normalized = policy.normalized()
                         repository.update(normalized)
@@ -94,6 +145,45 @@ class ConnectedAppsActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        focusedKey = focusedKeyFrom(intent)
+        refreshGeneration += 1
+    }
+
+    /** Package + uid from Settings (or Hub's own handoff) select one app in its own profile. */
+    private fun focusedKeyFrom(intent: Intent?): ConnectedAppKey? {
+        val packageName = intent?.getStringExtra(HubIntents.EXTRA_APP_PACKAGE) ?: return null
+        val uid = intent.getIntExtra(HubIntents.EXTRA_APP_UID, -1)
+        return if (uid >= 0) {
+            inventory.keyForUid(packageName, uid)
+        } else {
+            inventory.keyForUid(packageName, android.os.Process.myUid())
+        }
+    }
+
+    private fun updateAttention(
+        key: ConnectedAppKey,
+        outputs: Set<AttentionOutput>,
+    ) {
+        // Only profile-supported Sable outputs can be stored; this never touches importance.
+        val allowed = outputs.intersect(attentionProfile.selectableOutputs().toSet())
+        workerScope.launch {
+            preferences.updateAttention(AttentionSelection(key, allowed))
+        }
+        refreshGeneration += 1
+    }
+
+    private fun openAndroidNotificationSettings(key: ConnectedAppKey) {
+        AndroidSettingsLauncher(this).open(
+            AndroidSettingsRoutes.routeFor(
+                NotificationConcept.DeliveryImportance,
+                SettingsTarget(packageName = key.packageName, appUid = inventory.uidFor(key)),
+            ),
+        )
     }
 
     override fun onResume() {
@@ -113,20 +203,15 @@ class ConnectedAppsActivity : ComponentActivity() {
         return manager.isNotificationListenerAccessGranted(listenerComponent())
     }
 
+    /** Notification access is Android's: open Hub's own listener page (list page as fallback). */
     private fun openNotificationAccess() {
-        runCatching {
-            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-        }
-    }
-
-    private fun listenerComponent(): ComponentName =
-        ComponentName(
-            packageName,
-            NOTIFICATION_LISTENER_CLASS,
+        AndroidSettingsLauncher(this).open(
+            AndroidSettingsRoutes.routeFor(
+                NotificationConcept.NotificationAccess,
+                SettingsTarget(listenerComponent = listenerComponent().flattenToString()),
+            ),
         )
-
-    private companion object {
-        const val NOTIFICATION_LISTENER_CLASS =
-            "org.sableos.hub.notifications.SableNotificationListenerService"
     }
+
+    private fun listenerComponent(): ComponentName = ComponentName(this, SableNotificationListenerService::class.java)
 }

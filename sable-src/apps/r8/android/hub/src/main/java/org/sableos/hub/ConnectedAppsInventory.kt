@@ -2,15 +2,18 @@ package org.sableos.hub
 
 import android.content.Context
 import android.content.pm.LauncherApps
-import android.os.Process
 import android.os.UserHandle
 import android.os.UserManager
+import org.sableos.hub.platform.ProfileDirectory
+import org.sableos.hub.policy.ProfileKind
 import java.util.Locale
 
 data class ConnectedAppCandidate(
     val key: ConnectedAppKey,
     val label: String,
     val profileLabel: String,
+    val profileKind: ProfileKind = ProfileKind.Personal,
+    val profileLocked: Boolean = false,
 )
 
 class ConnectedAppsInventory(
@@ -22,39 +25,34 @@ class ConnectedAppsInventory(
     private val userManager =
         checkNotNull(appContext.getSystemService(UserManager::class.java))
 
+    private val profiles = ProfileDirectory(appContext)
+
     fun loadCandidates(): List<ConnectedAppCandidate> {
         val locale = Locale.getDefault()
-        val currentUser = Process.myUserHandle()
 
-        return userManager.userProfiles
-            .flatMap { user ->
-                val serial = userManager.getSerialNumberForUser(user)
-                if (serial < 0L) {
-                    emptyList()
-                } else {
-                    launcherApps
-                        .getActivityList(null, user)
-                        .asSequence()
-                        .filterNot { info ->
-                            info.componentName.packageName in EXCLUDED_PACKAGES
-                        }.map { info ->
-                            ConnectedAppCandidate(
-                                key =
-                                    ConnectedAppKey(
-                                        packageName = info.componentName.packageName,
-                                        userSerial = serial,
-                                    ),
-                                label = info.label.toString().trim(),
-                                profileLabel =
-                                    if (user == currentUser) {
-                                        "Current profile"
-                                    } else {
-                                        "Profile $serial"
-                                    },
-                            )
-                        }.filter { it.label.isNotBlank() }
-                        .toList()
-                }
+        return profiles
+            .profiles()
+            .flatMap { profile ->
+                val serial = profile.serial
+                launcherApps
+                    .getActivityList(null, profile.user)
+                    .asSequence()
+                    .filterNot { info ->
+                        info.componentName.packageName in EXCLUDED_PACKAGES
+                    }.map { info ->
+                        ConnectedAppCandidate(
+                            key =
+                                ConnectedAppKey(
+                                    packageName = info.componentName.packageName,
+                                    userSerial = serial,
+                                ),
+                            label = info.label.toString().trim(),
+                            profileLabel = profileLabel(profile.kind, serial),
+                            profileKind = profile.kind,
+                            profileLocked = profile.locked,
+                        )
+                    }.filter { it.label.isNotBlank() }
+                    .toList()
             }.distinctBy { it.key }
             .sortedWith(
                 compareBy<ConnectedAppCandidate> {
@@ -102,6 +100,32 @@ class ConnectedAppsInventory(
                     ?.trim()
             }?.takeIf { it.isNotBlank() }
             ?: key.packageName
+
+    /** Uid of the package in its own profile, for Settings' per-app pages; null if unknown. */
+    fun uidFor(key: ConnectedAppKey): Int? =
+        userForSerial(key.userSerial)?.let { user ->
+            runCatching { launcherApps.getApplicationInfo(key.packageName, 0, user).uid }.getOrNull()
+        }
+
+    /** The key for a package in the profile that owns [uid] (as Settings and SystemUI pass it). */
+    fun keyForUid(
+        packageName: String,
+        uid: Int,
+    ): ConnectedAppKey? {
+        val serial = userManager.getSerialNumberForUser(UserHandle.getUserHandleForUid(uid))
+        return if (serial >= 0L && packageName.isNotBlank()) ConnectedAppKey(packageName, serial) else null
+    }
+
+    private fun profileLabel(
+        kind: ProfileKind,
+        serial: Long,
+    ): String =
+        when (kind) {
+            ProfileKind.Personal -> "Personal"
+            ProfileKind.Work -> "Work profile"
+            ProfileKind.Private -> "Private space"
+            ProfileKind.Other -> "Profile $serial"
+        }
 
     private fun userForSerial(serial: Long): UserHandle? =
         userManager.userProfiles.firstOrNull { user ->

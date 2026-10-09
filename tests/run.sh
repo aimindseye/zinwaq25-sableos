@@ -330,6 +330,9 @@ fi
 # 13. Pure unit tests of framework patch classes (SKIP unless SABLE_KOTLINC and SABLE_JUNIT are set).
 if ! bash tests/framework/run-pure-tests.sh; then fail "framework pure tests"; fi
 
+# 14. DESIGN-KF-A static gates for Sable Hub and the notification framework patches.
+if bash tests/kf-a-notification-policy-check.sh; then pass "KF-A notification policy gates"; else fail "KF-A notification policy gates"; fi
+
 echo
 if ((fails)); then echo "CI=FAIL ($fails)"; exit 1; fi
 echo "CI=PASS"

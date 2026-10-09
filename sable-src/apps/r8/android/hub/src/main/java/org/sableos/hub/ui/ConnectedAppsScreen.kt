@@ -31,7 +31,15 @@ import org.sableos.design.SableSpacing
 import org.sableos.hub.ConnectedAppCandidate
 import org.sableos.hub.ConnectedAppKey
 import org.sableos.hub.ConnectedAppPolicy
+import org.sableos.hub.policy.AttentionOutput
+import org.sableos.hub.policy.ConnectedAppsParity
 import java.util.Locale
+
+/** Sable Attention state for the connected-apps screen: only profile-supported Sable outputs. */
+internal data class AttentionUi(
+    val selectableOutputs: List<AttentionOutput>,
+    val selections: Map<ConnectedAppKey, Set<AttentionOutput>>,
+)
 
 private enum class ConnectedAppsPivot {
     Favorites,
@@ -48,9 +56,18 @@ internal fun ConnectedAppsScreen(
     onRefresh: () -> Unit,
     onOpenNotificationAccess: () -> Unit,
     onPolicyChanged: (ConnectedAppPolicy) -> Unit,
+    attention: AttentionUi = AttentionUi(emptyList(), emptyMap()),
+    focusedKey: ConnectedAppKey? = null,
+    privateMode: Boolean = false,
+    onPrivateModeChanged: (Boolean) -> Unit = {},
+    onAttentionChanged: (ConnectedAppKey, Set<AttentionOutput>) -> Unit = { _, _ -> },
+    onOpenAndroidNotificationSettings: (ConnectedAppKey) -> Unit = {},
+    onOpenAttentionSettings: () -> Unit = {},
 ) {
     var pivot by remember {
-        mutableStateOf(ConnectedAppsPivot.Favorites)
+        mutableStateOf(
+            if (focusedKey != null) ConnectedAppsPivot.Available else ConnectedAppsPivot.Favorites,
+        )
     }
     var search by remember {
         mutableStateOf("")
@@ -88,6 +105,15 @@ internal fun ConnectedAppsScreen(
                     primary = !notificationAccessGranted,
                     onClick = onOpenNotificationAccess,
                 )
+                PolicySwitchRow(
+                    label = "Private mode: hide senders and message text in Hub",
+                    checked = privateMode,
+                    enabled = true,
+                    onCheckedChange = onPrivateModeChanged,
+                )
+                TextButton(onClick = onOpenAttentionSettings) {
+                    Text("Sable Attention")
+                }
             }
 
             Text(
@@ -104,6 +130,18 @@ internal fun ConnectedAppsScreen(
                     text = "Loading installed apps…",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else if (focusedKey != null && candidates.any { it.key == focusedKey }) {
+                // Opened from Android Settings for one app: show just that app's Hub/Attention.
+                val candidate = candidates.first { it.key == focusedKey }
+                ConnectedAppRow(
+                    candidate = candidate,
+                    policy = policies[candidate.key] ?: ConnectedAppPolicy(key = candidate.key),
+                    notificationAccessGranted = notificationAccessGranted,
+                    attention = attention,
+                    onPolicyChanged = onPolicyChanged,
+                    onAttentionChanged = onAttentionChanged,
+                    onOpenAndroidNotificationSettings = onOpenAndroidNotificationSettings,
                 )
             } else {
                 ConnectedAppsPivotRow(
@@ -176,7 +214,11 @@ internal fun ConnectedAppsScreen(
                             ConnectedAppRow(
                                 candidate = candidate,
                                 policy = policy,
+                                notificationAccessGranted = notificationAccessGranted,
+                                attention = attention,
                                 onPolicyChanged = onPolicyChanged,
+                                onAttentionChanged = onAttentionChanged,
+                                onOpenAndroidNotificationSettings = onOpenAndroidNotificationSettings,
                             )
                             HorizontalDivider()
                         }
@@ -245,7 +287,11 @@ private val CONNECTED_APPS_DESTINATIONS =
 private fun ConnectedAppRow(
     candidate: ConnectedAppCandidate,
     policy: ConnectedAppPolicy,
+    notificationAccessGranted: Boolean,
+    attention: AttentionUi,
     onPolicyChanged: (ConnectedAppPolicy) -> Unit,
+    onAttentionChanged: (ConnectedAppKey, Set<AttentionOutput>) -> Unit,
+    onOpenAndroidNotificationSettings: (ConnectedAppKey) -> Unit,
 ) {
     Column(
         modifier =
@@ -270,7 +316,15 @@ private fun ConnectedAppRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    text = candidate.profileLabel,
+                    text =
+                        candidate.profileLabel + " · " +
+                            ConnectedAppsParity.statusLabel(
+                                ConnectedAppsParity.status(
+                                    policy = policy,
+                                    notificationAccessGranted = notificationAccessGranted,
+                                    profileLocked = candidate.profileLocked,
+                                ),
+                            ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -285,8 +339,13 @@ private fun ConnectedAppRow(
             )
         }
 
+        // Delivery (alerting, sound, vibration, pop-up, badge, lock screen) is Android's.
+        TextButton(onClick = { onOpenAndroidNotificationSettings(candidate.key) }) {
+            Text("Delivery: Android notification settings")
+        }
+
         PolicySwitchRow(
-            label = "Favorite app",
+            label = "Hub priority (ordering only, not a Do Not Disturb exception)",
             checked = policy.favorite,
             enabled = true,
             onCheckedChange = { enabled ->
@@ -322,9 +381,42 @@ private fun ConnectedAppRow(
             ) {
                 Text("History retention: ${policy.retention.label}")
             }
+            TextButton(
+                onClick = {
+                    onPolicyChanged(policy.copy(previewPolicy = policy.previewPolicy.next()))
+                },
+            ) {
+                Text("Hub preview: ${policy.previewPolicy.label}")
+            }
+        }
+
+        // Attention: only outputs this device profile validated; unsupported ones are hidden.
+        val selected = attention.selections[candidate.key].orEmpty()
+        attention.selectableOutputs.forEach { output ->
+            PolicySwitchRow(
+                label = "Attention: ${attentionLabel(output)}",
+                checked = output in selected,
+                enabled = true,
+                onCheckedChange = { enabled ->
+                    onAttentionChanged(
+                        candidate.key,
+                        if (enabled) selected + output else selected - output,
+                    )
+                },
+            )
         }
     }
 }
+
+internal fun attentionLabel(output: AttentionOutput): String =
+    when (output) {
+        AttentionOutput.Audio -> "Sound"
+        AttentionOutput.Haptic -> "Vibration"
+        AttentionOutput.StatusLed -> "Notification light"
+        AttentionOutput.KeyboardBacklight -> "Keyboard backlight"
+        AttentionOutput.SecondaryDisplay -> "Glance display"
+        AttentionOutput.AlwaysOnDisplay -> "Always-on display"
+    }
 
 @Composable
 private fun PolicySwitchRow(

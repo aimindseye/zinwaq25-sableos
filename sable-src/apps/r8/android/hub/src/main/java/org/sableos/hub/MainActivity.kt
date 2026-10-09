@@ -19,11 +19,15 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.sableos.design.SableGlobalTheme
+import org.sableos.hub.policy.HubHandoffTarget
+import org.sableos.hub.policy.HubIntents
 import org.sableos.hub.ui.HubScreen
 
 class MainActivity : ComponentActivity() {
     private lateinit var repository: HubRepository
     private var refreshGeneration by mutableIntStateOf(0)
+    private var pendingHandoff by mutableStateOf<Intent?>(null)
+    private var pendingThreadId by mutableStateOf<Long?>(null)
 
     private val connectedHistoryObserver =
         object : ContentObserver(Handler(Looper.getMainLooper())) {
@@ -36,6 +40,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         repository = HubRepository(applicationContext)
+        pendingHandoff = intent.takeIf { it.action == HubIntents.ACTION_OPEN_NOTIFICATION }
         contentResolver.registerContentObserver(
             ConnectedAppsRepository.HISTORY_URI,
             false,
@@ -64,6 +69,16 @@ class MainActivity : ComponentActivity() {
                         repository.snapshot()
                     }
                 refreshing = false
+            }
+
+            // Shade "H": Hub decides eligibility; it never includes a source silently.
+            LaunchedEffect(snapshot, pendingHandoff) {
+                val loaded = snapshot
+                val handoff = pendingHandoff
+                if (loaded != null && handoff != null) {
+                    pendingHandoff = null
+                    handleHandoff(handoff, loaded)
+                }
             }
 
             SableGlobalTheme(window = window) {
@@ -135,7 +150,60 @@ class MainActivity : ComponentActivity() {
                             userSerial = userSerial,
                         )
                     },
+                    onOpenSourceNotificationSettings = { packageName, userSerial ->
+                        repository.openSourceNotificationSettings(
+                            packageName = packageName,
+                            userSerial = userSerial,
+                        )
+                    },
+                    pendingThreadId = pendingThreadId,
+                    onPendingThreadConsumed = {
+                        pendingThreadId = null
+                    },
                 )
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.action == HubIntents.ACTION_OPEN_NOTIFICATION) {
+            pendingHandoff = intent
+            refreshGeneration += 1
+        }
+    }
+
+    private suspend fun handleHandoff(
+        handoff: Intent,
+        snapshot: HubSnapshot,
+    ) {
+        val packageName = handoff.getStringExtra(HubIntents.EXTRA_APP_PACKAGE)
+        val uid = handoff.getIntExtra(HubIntents.EXTRA_APP_UID, -1).takeIf { it >= 0 }
+        val target =
+            withContext(Dispatchers.IO) {
+                repository.handoffTarget(
+                    packageName = packageName,
+                    uid = uid,
+                    notificationKey = handoff.getStringExtra(HubIntents.EXTRA_NOTIFICATION_KEY),
+                    snapshot = snapshot,
+                )
+            }
+        when (target) {
+            is HubHandoffTarget.Conversation -> {
+                pendingThreadId = target.threadId
+            }
+
+            is HubHandoffTarget.ConnectedAppSettings -> {
+                startActivity(
+                    Intent(this, ConnectedAppsActivity::class.java)
+                        .putExtra(HubIntents.EXTRA_APP_PACKAGE, packageName)
+                        .putExtra(HubIntents.EXTRA_APP_UID, uid ?: -1),
+                )
+            }
+
+            HubHandoffTarget.Home -> {
+                Unit
             }
         }
     }

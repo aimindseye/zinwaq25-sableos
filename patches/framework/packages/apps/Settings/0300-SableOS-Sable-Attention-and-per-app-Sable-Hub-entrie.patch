@@ -1,0 +1,251 @@
+From 7a07c22dd9a9cf189b151146478cbb011f4bf6d8 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 9 Oct 2026 22:00:31 +0000
+Subject: [PATCH] SableOS: Sable Attention and per-app Sable Hub entries
+
+DESIGN-KF-A Settings information architecture: keep Android's
+notification structure and add two links into Sable Hub, which owns only
+Hub aggregation and Sable hardware-attention preferences.
+
+* Settings > Notifications > Sable Attention opens
+  org.sableos.hub.action.ATTENTION_SETTINGS.
+* App notifications > (app) > Sable Hub and Attention opens
+  org.sableos.hub.action.APP_NOTIFICATION_SETTINGS with the package and
+  uid, so work-profile apps keep their own entry.
+
+Both entries are hidden when Sable Hub is not installed. Delivery,
+channels, conversations, lock screen and Do Not Disturb stay on these
+Android pages; Hub keeps no copy of them.
+---
+ res/values/sable_notification_strings.xml     | 25 ++++++
+ res/xml/app_notification_settings.xml         |  7 ++
+ res/xml/configure_notification_settings.xml   | 12 +++
+ .../SableAttentionPreferenceController.java   | 44 +++++++++++
+ .../app/AppNotificationSettings.java          |  1 +
+ .../app/SableHubAppPreferenceController.java  | 78 +++++++++++++++++++
+ 6 files changed, 167 insertions(+)
+ create mode 100644 res/values/sable_notification_strings.xml
+ create mode 100644 src/com/android/settings/notification/SableAttentionPreferenceController.java
+ create mode 100644 src/com/android/settings/notification/app/SableHubAppPreferenceController.java
+
+diff --git a/res/values/sable_notification_strings.xml b/res/values/sable_notification_strings.xml
+new file mode 100644
+index 0000000..4d52e47
+--- /dev/null
++++ b/res/values/sable_notification_strings.xml
+@@ -0,0 +1,25 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<resources>
++    <!-- Settings > Notifications entry for Sable Attention (hardware attention outputs). -->
++    <string name="sable_attention_title">Sable Attention</string>
++    <!-- Summary for the Sable Attention entry. -->
++    <string name="sable_attention_summary">Keyboard light, glance display and other outputs this device supports</string>
++    <!-- Per-app notification page link to Sable Hub settings for the app. -->
++    <string name="sable_hub_app_title">Sable Hub and Attention</string>
++    <!-- Summary for the per-app Sable Hub link. -->
++    <string name="sable_hub_app_summary">Include in Hub, Hub priority, previews and attention outputs</string>
++</resources>
+diff --git a/res/xml/app_notification_settings.xml b/res/xml/app_notification_settings.xml
+index b832a7f..4ecdad2 100644
+--- a/res/xml/app_notification_settings.xml
++++ b/res/xml/app_notification_settings.xml
+@@ -122,6 +122,13 @@
+             settings:restrictedSwitchSummary="@string/enabled_by_admin"
+             android:order="1001"/>
+ 
++        <!-- SableOS: Sable Hub and Attention for this app -->
++        <Preference
++            android:key="sable_hub_attention"
++            android:title="@string/sable_hub_app_title"
++            android:summary="@string/sable_hub_app_summary"
++            android:order="1002"/>
++
+         <Preference
+             android:key="app_link"
+             android:icon="@drawable/ic_settings_24dp"
+diff --git a/res/xml/configure_notification_settings.xml b/res/xml/configure_notification_settings.xml
+index a9bc541..57756dd 100644
+--- a/res/xml/configure_notification_settings.xml
++++ b/res/xml/configure_notification_settings.xml
+@@ -59,6 +59,18 @@
+             android:order="4"
+             android:title="@string/notification_bundle_title"
+             settings:controller="com.android.settings.notification.BundlePreferenceController" />
++
++        <!-- SableOS: Sable Attention (owned by Sable Hub; hidden when Hub is absent) -->
++        <Preference
++            android:key="sable_attention"
++            android:order="5"
++            android:title="@string/sable_attention_title"
++            android:summary="@string/sable_attention_summary"
++            settings:controller="com.android.settings.notification.SableAttentionPreferenceController">
++            <intent
++                android:action="org.sableos.hub.action.ATTENTION_SETTINGS"
++                android:targetPackage="org.sableos.hub" />
++        </Preference>
+     </PreferenceCategory>
+ 
+     <PreferenceCategory
+diff --git a/src/com/android/settings/notification/SableAttentionPreferenceController.java b/src/com/android/settings/notification/SableAttentionPreferenceController.java
+new file mode 100644
+index 0000000..1209043
+--- /dev/null
++++ b/src/com/android/settings/notification/SableAttentionPreferenceController.java
+@@ -0,0 +1,44 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.notification;
++
++import android.content.Context;
++import android.content.Intent;
++
++import com.android.settings.core.BasePreferenceController;
++
++/**
++ * Settings > Notifications > Sable Attention. Shown only when Sable Hub, which owns the Sable
++ * Attention screen, is installed. The screen itself lists only profile-supported outputs and
++ * links back here for anything Android owns.
++ */
++public class SableAttentionPreferenceController extends BasePreferenceController {
++
++    static final String HUB_PACKAGE = "org.sableos.hub";
++    static final String ACTION_ATTENTION_SETTINGS = "org.sableos.hub.action.ATTENTION_SETTINGS";
++
++    public SableAttentionPreferenceController(Context context, String preferenceKey) {
++        super(context, preferenceKey);
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        Intent intent = new Intent(ACTION_ATTENTION_SETTINGS).setPackage(HUB_PACKAGE);
++        return mContext.getPackageManager().resolveActivity(intent, 0) != null
++                ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
++    }
++}
+diff --git a/src/com/android/settings/notification/app/AppNotificationSettings.java b/src/com/android/settings/notification/app/AppNotificationSettings.java
+index 110224e..4e26329 100644
+--- a/src/com/android/settings/notification/app/AppNotificationSettings.java
++++ b/src/com/android/settings/notification/app/AppNotificationSettings.java
+@@ -120,6 +120,7 @@ public class AppNotificationSettings extends NotificationSettings {
+                 mBackend));
+         mControllers.add(new DndPreferenceController(context, mBackend));
+         mControllers.add(new AppLinkPreferenceController(context));
++        mControllers.add(new SableHubAppPreferenceController(context));
+         mControllers.add(new ChannelListPreferenceController(
+                 context, mDependentFieldListener, mBackend));
+         mControllers.add(new AppConversationListPreferenceController(context, mBackend));
+diff --git a/src/com/android/settings/notification/app/SableHubAppPreferenceController.java b/src/com/android/settings/notification/app/SableHubAppPreferenceController.java
+new file mode 100644
+index 0000000..c70984c
+--- /dev/null
++++ b/src/com/android/settings/notification/app/SableHubAppPreferenceController.java
+@@ -0,0 +1,78 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.notification.app;
++
++import android.content.Context;
++import android.content.Intent;
++import android.provider.Settings;
++
++import androidx.preference.Preference;
++
++import com.android.settings.core.PreferenceControllerMixin;
++
++/**
++ * Per-app notification page link to Sable Hub's Hub and Attention settings for this app
++ * (Include in Hub, Hub priority, preview, history, and profile-supported attention outputs).
++ * Delivery policy stays on this Android page; Hub stores none of it.
++ */
++public class SableHubAppPreferenceController extends NotificationPreferenceController
++        implements PreferenceControllerMixin {
++
++    private static final String KEY = "sable_hub_attention";
++    private static final String HUB_PACKAGE = "org.sableos.hub";
++    private static final String ACTION_APP_SETTINGS =
++            "org.sableos.hub.action.APP_NOTIFICATION_SETTINGS";
++    private static final String EXTRA_APP_UID = "app_uid";
++
++    public SableHubAppPreferenceController(Context context) {
++        super(context, null);
++    }
++
++    @Override
++    public String getPreferenceKey() {
++        return KEY;
++    }
++
++    @Override
++    public boolean isAvailable() {
++        if (!super.isAvailable() || HUB_PACKAGE.equals(mAppRow.pkg)) {
++            return false;
++        }
++        return mContext.getPackageManager().resolveActivity(intent(), 0) != null;
++    }
++
++    @Override
++    boolean isIncludedInFilter() {
++        return false;
++    }
++
++    @Override
++    public void updateState(Preference preference) {
++        if (preference.getParent() != null) {
++            preference.getParent().setVisible(true);
++        }
++        if (mAppRow != null) {
++            preference.setIntent(intent()
++                    .putExtra(Settings.EXTRA_APP_PACKAGE, mAppRow.pkg)
++                    .putExtra(EXTRA_APP_UID, mAppRow.uid));
++        }
++    }
++
++    private Intent intent() {
++        return new Intent(ACTION_APP_SETTINGS).setPackage(HUB_PACKAGE);
++    }
++}
+-- 
+2.43.0
+

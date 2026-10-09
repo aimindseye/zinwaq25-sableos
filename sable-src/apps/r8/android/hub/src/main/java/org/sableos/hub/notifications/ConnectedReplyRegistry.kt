@@ -7,6 +7,10 @@ import android.content.Intent
 import android.os.Bundle
 import org.sableos.hub.ConnectedAppKey
 import org.sableos.hub.HubSendResult
+import org.sableos.hub.platform.PrivacyReader
+import org.sableos.hub.platform.ProfileDirectory
+import org.sableos.hub.policy.PrivacyContext
+import org.sableos.hub.policy.PrivacyPosture
 import java.util.concurrent.ConcurrentHashMap
 
 internal data class ConnectedReplyHandle(
@@ -36,6 +40,10 @@ internal object ConnectedReplyRegistry {
         }
     }
 
+    fun clear() {
+        handles.clear()
+    }
+
     fun canReply(notificationKey: String): Boolean = handles.containsKey(notificationKey)
 
     fun send(
@@ -61,6 +69,13 @@ internal object ConnectedReplyRegistry {
                 )
             }
 
+            requiresUnlock(context, handle) -> {
+                HubSendResult(
+                    success = false,
+                    message = "Unlock the device and profile to reply.",
+                )
+            }
+
             else -> {
                 sendReply(
                     context = context,
@@ -70,6 +85,20 @@ internal object ConnectedReplyRegistry {
                 )
             }
         }
+    }
+
+    /** Reply needs the device and the source's profile unlocked (DESIGN-KF-A "Privacy states"). */
+    private fun requiresUnlock(
+        context: Context,
+        handle: ConnectedReplyHandle,
+    ): Boolean {
+        val profile = runCatching { ProfileDirectory(context).forSerial(handle.sourceKey.userSerial) }.getOrNull()
+        return PrivacyPosture.requiresUnlockForActions(
+            PrivacyContext(
+                deviceLocked = PrivacyReader(context).deviceLocked(),
+                profileLocked = profile?.locked ?: true,
+            ),
+        )
     }
 
     private fun sendReply(
@@ -92,6 +121,8 @@ internal object ConnectedReplyRegistry {
                 fillInIntent,
                 results,
             )
+            // The user typed this text; tell the source it is not a generated/choice reply.
+            RemoteInput.setResultsSource(fillInIntent, RemoteInput.SOURCE_FREE_FORM_INPUT)
             handle.pendingIntent.send(
                 context,
                 0,

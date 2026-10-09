@@ -60,7 +60,7 @@ class ConnectedAppPolicyTest {
     }
 
     @Test
-    fun retentionIsBoundedUnlessUserChoosesUntilDeleted() {
+    fun retentionIsAlwaysBounded() {
         val record =
             ConnectedNotificationRecord(
                 id = "record",
@@ -76,6 +76,8 @@ class ConnectedAppPolicyTest {
             )
         val afterEightDays =
             1_000L + 8L * 24L * 60L * 60L * 1_000L
+        val afterThirtyOneDays =
+            1_000L + 31L * 24L * 60L * 60L * 1_000L
 
         assertFalse(
             ConnectedNotificationRetention.shouldKeep(
@@ -87,9 +89,18 @@ class ConnectedAppPolicyTest {
         assertTrue(
             ConnectedNotificationRetention.shouldKeep(
                 record,
-                HistoryRetention.UntilDeleted,
+                HistoryRetention.ThirtyDays,
                 afterEightDays,
             ),
         )
+        HistoryRetention.entries.forEach { retention ->
+            assertFalse(
+                ConnectedNotificationRetention.shouldKeep(
+                    record,
+                    retention,
+                    afterThirtyOneDays,
+                ),
+            )
+        }
     }
 }
