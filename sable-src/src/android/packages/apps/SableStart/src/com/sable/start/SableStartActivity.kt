@@ -1,8 +1,12 @@
 package org.sableos.start
 
 import android.Manifest
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.LauncherApps
+import android.content.pm.PackageManager
 import android.database.ContentObserver
 import android.os.Build
 import android.os.Bundle
@@ -50,26 +54,38 @@ class SableStartActivity : ComponentActivity() {
 
     private val launcherCallback =
         object : LauncherApps.Callback() {
-            override fun onPackageRemoved(packageName: String, user: UserHandle) =
+            override fun onPackageRemoved(packageName: String, user: UserHandle) {
+                launcherAppsRepository.invalidatePrivacy(packageName, user)
                 scheduleInventoryRefresh()
+            }
 
-            override fun onPackageAdded(packageName: String, user: UserHandle) =
+            override fun onPackageAdded(packageName: String, user: UserHandle) {
+                launcherAppsRepository.invalidatePrivacy(packageName, user)
                 scheduleInventoryRefresh()
+            }
 
-            override fun onPackageChanged(packageName: String, user: UserHandle) =
+            override fun onPackageChanged(packageName: String, user: UserHandle) {
+                launcherAppsRepository.invalidatePrivacy(packageName, user)
                 scheduleInventoryRefresh()
+            }
 
             override fun onPackagesAvailable(
                 vararg packageNames: String,
                 user: UserHandle,
                 replacing: Boolean,
-            ) = scheduleInventoryRefresh()
+            ) {
+                packageNames.forEach { launcherAppsRepository.invalidatePrivacy(it, user) }
+                scheduleInventoryRefresh()
+            }
 
             override fun onPackagesUnavailable(
                 packageNames: Array<out String>,
                 user: UserHandle,
                 replacing: Boolean,
-            ) = scheduleInventoryRefresh()
+            ) {
+                packageNames.forEach { launcherAppsRepository.invalidatePrivacy(it, user) }
+                scheduleInventoryRefresh()
+            }
 
             override fun onPackagesSuspended(
                 vararg packageNames: String,
@@ -81,6 +97,29 @@ class SableStartActivity : ComponentActivity() {
                 user: UserHandle,
             ) = scheduleInventoryRefresh()
         }
+
+    /** Runtime-permission grant/revoke anywhere (signal carries a uid). */
+    private val permissionsChangedListener =
+        PackageManager.OnPermissionsChangedListener { uid ->
+            launcherAppsRepository.invalidatePrivacyForUid(uid)
+            runOnUiThread { scheduleInventoryRefresh() }
+        }
+    private var permissionsListenerRegistered = false
+
+    /** Work/private profile added, removed, paused or unlocked: drop that user's snapshots. */
+    private val profileReceiver =
+        object : BroadcastReceiver() {
+            override fun onReceive(
+                context: Context,
+                intent: Intent,
+            ) {
+                @Suppress("DEPRECATION")
+                val user = intent.getParcelableExtra<UserHandle>(Intent.EXTRA_USER)
+                launcherAppsRepository.invalidatePrivacyForUser(user)
+                scheduleInventoryRefresh()
+            }
+        }
+    private var profileReceiverRegistered = false
 
     private val liveContentObserver =
         object : ContentObserver(Handler(Looper.getMainLooper())) {
@@ -132,6 +171,7 @@ class SableStartActivity : ComponentActivity() {
             )
         }
 
+        registerPrivacySignals()
         scheduleInventoryRefresh()
 
         setContent {
@@ -177,6 +217,12 @@ class SableStartActivity : ComponentActivity() {
                 onOpenSystemSettings = ::openSystemSettings,
                 onOpenAppInfo = { entry ->
                     launcherAppsRepository.openAppDetails(entry)
+                },
+                onOpenNotificationSettings = { entry ->
+                    launcherAppsRepository.openNotificationSettings(entry)
+                },
+                onUninstallApp = { entry ->
+                    launcherAppsRepository.requestUninstall(entry)
                 },
                 onRequestLivePermissions = ::requestLivePermissions,
                 onRefreshLive = {
@@ -228,6 +274,7 @@ class SableStartActivity : ComponentActivity() {
         runCatching {
             contentResolver.unregisterContentObserver(appInventoryObserver)
         }
+        unregisterPrivacySignals()
         inventoryGeneration.incrementAndGet()
         inventoryExecutor.shutdownNow()
         super.onDestroy()
@@ -258,6 +305,44 @@ class SableStartActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    private fun registerPrivacySignals() {
+        if (!permissionsListenerRegistered) {
+            permissionsListenerRegistered =
+                runCatching {
+                    packageManager.addOnPermissionsChangeListener(permissionsChangedListener)
+                    true
+                }.getOrDefault(false)
+        }
+        if (!profileReceiverRegistered) {
+            val filter =
+                IntentFilter().apply {
+                    addAction(Intent.ACTION_MANAGED_PROFILE_ADDED)
+                    addAction(Intent.ACTION_MANAGED_PROFILE_REMOVED)
+                    addAction(Intent.ACTION_MANAGED_PROFILE_AVAILABLE)
+                    addAction(Intent.ACTION_MANAGED_PROFILE_UNAVAILABLE)
+                    addAction(Intent.ACTION_MANAGED_PROFILE_UNLOCKED)
+                    addAction(Intent.ACTION_PROFILE_ACCESSIBLE)
+                    addAction(Intent.ACTION_PROFILE_INACCESSIBLE)
+                }
+            profileReceiverRegistered =
+                runCatching {
+                    registerReceiver(profileReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+                    true
+                }.getOrDefault(false)
+        }
+    }
+
+    private fun unregisterPrivacySignals() {
+        if (permissionsListenerRegistered) {
+            runCatching { packageManager.removeOnPermissionsChangeListener(permissionsChangedListener) }
+            permissionsListenerRegistered = false
+        }
+        if (profileReceiverRegistered) {
+            runCatching { unregisterReceiver(profileReceiver) }
+            profileReceiverRegistered = false
         }
     }
 

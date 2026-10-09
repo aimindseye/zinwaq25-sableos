@@ -28,6 +28,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.sableos.design.SableActionButton
+import org.sableos.design.SableDenseRow
+import org.sableos.design.SableRowAction
 import org.sableos.design.SableSpacing
 import org.sableos.design.SableTile
 
@@ -99,6 +101,8 @@ internal fun QueueScreen(
             ) { offset ->
                 val item = queue[firstUpcomingPosition + offset]
                 val listIndex = firstUpcomingPosition + offset
+                val canMoveUp = listIndex > firstUpcomingPosition || item.index > playback.currentIndex + 1
+                val canMoveDown = item.index < queue.lastIndex
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = MaterialTheme.shapes.medium,
@@ -110,82 +114,29 @@ internal fun QueueScreen(
                         ),
                     tonalElevation = 0.dp,
                 ) {
-                    Column(
-                        modifier = Modifier.padding(SableSpacing.Md),
-                        verticalArrangement = Arrangement.spacedBy(SableSpacing.Md),
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(
-                                modifier = Modifier.weight(1f),
-                            ) {
-                                Text(
-                                    text = "up next",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Text(
-                                    text = item.title,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                Text(
-                                    text = item.source,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
+                    // Dense row: play stays visible, reordering/removal move to the row menu
+                    // (no four-button strip that clips at large font sizes).
+                    SableDenseRow(
+                        title = item.title,
+                        subtitle = item.source,
+                        onClick = { onPlayIndex(item.index) },
+                        modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Xs),
+                        actions =
+                            buildList {
+                                add(SableRowAction(QUEUE_ACTION_PLAY, "Play", primary = true))
+                                if (canMoveUp) add(SableRowAction(QUEUE_ACTION_UP, "Move up"))
+                                if (canMoveDown) add(SableRowAction(QUEUE_ACTION_DOWN, "Move down"))
+                                add(SableRowAction(QUEUE_ACTION_REMOVE, "Remove from up next"))
+                            },
+                        onAction = { action ->
+                            when (action.id) {
+                                QUEUE_ACTION_PLAY -> onPlayIndex(item.index)
+                                QUEUE_ACTION_UP -> onMove(item.index, item.index - 1)
+                                QUEUE_ACTION_DOWN -> onMove(item.index, item.index + 1)
+                                QUEUE_ACTION_REMOVE -> onRemove(item.index)
                             }
-
-                            SableActionButton(
-                                text = "Play",
-                                onClick = {
-                                    onPlayIndex(item.index)
-                                },
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
-                        ) {
-                            SableActionButton(
-                                text = "Move up",
-                                primary = false,
-                                modifier = Modifier.weight(1f),
-                                onClick = {
-                                    if (
-                                        listIndex > firstUpcomingPosition ||
-                                        item.index > playback.currentIndex + 1
-                                    ) {
-                                        onMove(item.index, item.index - 1)
-                                    }
-                                },
-                            )
-                            SableActionButton(
-                                text = "Move down",
-                                primary = false,
-                                modifier = Modifier.weight(1f),
-                                onClick = {
-                                    if (item.index < queue.lastIndex) {
-                                        onMove(item.index, item.index + 1)
-                                    }
-                                },
-                            )
-                            SableActionButton(
-                                text = "Remove",
-                                primary = false,
-                                modifier = Modifier.weight(1f),
-                                onClick = {
-                                    onRemove(item.index)
-                                },
-                            )
-                        }
-                    }
+                        },
+                    )
                 }
             }
         }
@@ -201,6 +152,11 @@ internal fun QueueScreen(
         }
     }
 }
+
+private const val QUEUE_ACTION_PLAY = "play"
+private const val QUEUE_ACTION_UP = "up"
+private const val QUEUE_ACTION_DOWN = "down"
+private const val QUEUE_ACTION_REMOVE = "remove"
 
 @Composable
 private fun QueueTransportControls(

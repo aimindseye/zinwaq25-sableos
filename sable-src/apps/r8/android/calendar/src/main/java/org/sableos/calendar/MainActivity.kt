@@ -52,6 +52,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.sableos.design.SableActionButton
+import org.sableos.design.SableAdaptiveTopNav
+import org.sableos.design.SableDestination
 import org.sableos.design.SableGlobalTheme
 import org.sableos.design.SableRefreshableSurface
 import org.sableos.design.SableSpacing
@@ -384,46 +386,16 @@ private fun CalendarPivot(
     selected: CalendarMode,
     onSelect: (CalendarMode) -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
-    ) {
-        CalendarMode.entries.forEach { mode ->
-            Column(
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .clickable { onSelect(mode) }
-                        .padding(vertical = 8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(
-                    text = mode.label,
-                    style = MaterialTheme.typography.labelLarge,
-                    color =
-                        if (mode == selected) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                )
-                Spacer(Modifier.height(6.dp))
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(if (mode == selected) 3.dp else 1.dp)
-                        .background(
-                            if (mode == selected) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.outlineVariant
-                            },
-                        ),
-                )
-            }
-        }
-    }
+    // Whole labels on one line at any font scale (no mid-word clipping).
+    SableAdaptiveTopNav(
+        destinations = CALENDAR_DESTINATIONS,
+        selectedId = selected.name,
+        onSelect = { id -> onSelect(CalendarMode.valueOf(id)) },
+    )
 }
+
+private val CALENDAR_DESTINATIONS =
+    CalendarMode.entries.map { mode -> SableDestination(mode.name, mode.label) }
 
 @Composable
 private fun AgendaView(

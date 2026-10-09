@@ -2,19 +2,14 @@ package org.sableos.media
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
@@ -22,7 +17,6 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -30,6 +24,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -40,7 +35,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -48,6 +42,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.sableos.design.SableActionButton
+import org.sableos.design.SableAdaptiveTopNav
+import org.sableos.design.SableAlphabetIndex
+import org.sableos.design.SableAlphabetRail
+import org.sableos.design.SableAlphabetRailWidth
+import org.sableos.design.SableDenseRow
+import org.sableos.design.SableDestination
+import org.sableos.design.SableResponsive
+import org.sableos.design.SableRowAction
+import org.sableos.design.sableLetterJump
 import org.sableos.design.SableHeroHeader
 import org.sableos.design.SableRefreshableSurface
 import org.sableos.design.SableSpacing
@@ -64,9 +67,12 @@ private val MediaPrimaryTouchHeight = 54.dp
 private val MediaPivotTouchHeight = 48.dp
 private val MediaPivotActiveWidth = 34.dp
 private val MediaPivotInactiveWidth = 12.dp
-private val MediaAlphabetRailWidth = 36.dp
 private val MediaCompactPadding = 12.dp
 private const val COLLECTION_FIXED_ITEM_COUNT = 6
+private const val ROW_ACTION_PLAY = "play"
+private const val ROW_ACTION_FAVORITE = "favorite"
+private const val ROW_ACTION_EDIT = "edit"
+private const val ROW_ACTION_REMOVE = "remove"
 private const val MILLIS_PER_SECOND = 1_000L
 private const val SECONDS_PER_MINUTE = 60L
 private const val LARGE_ARTWORK_ASPECT_RATIO = 1.9f
@@ -269,6 +275,9 @@ internal fun MediaScreen(
                     onOpenNowPlaying = {
                         onDestinationChange(MediaDestination.NowPlaying)
                     },
+                    onPlayPause = onPlayPause,
+                    onPrevious = onPrevious,
+                    onNext = onNext,
                 )
             }
 
@@ -309,12 +318,18 @@ internal fun MediaScreen(
             MediaDestination.Settings,
             -> {
                 val scrollableContent: @Composable () -> Unit = {
-                    LazyColumn(
+                    Column(
                         modifier =
                             Modifier
                                 .fillMaxSize()
                                 .safeDrawingPadding()
                                 .imePadding(),
+                    ) {
+                    LazyColumn(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
                         contentPadding =
                             PaddingValues(
                                 horizontal = SableSpacing.ScreenHorizontal,
@@ -394,7 +409,8 @@ internal fun MediaScreen(
                                                 busy = podcastBusy,
                                                 message = podcastMessage,
                                                 playback = playback,
-                                                showMiniPlayer = settings.showMiniPlayer,
+                                                // Pinned by this screen instead of inside the list.
+                                                showMiniPlayer = false,
                                             ),
                                         actions =
                                             PodcastScreenActions(
@@ -428,7 +444,7 @@ internal fun MediaScreen(
                                         playback = playback,
                                         favoriteStationIds = favoriteStationIds,
                                         showFavoritesOnly = showFavoriteStationsOnly,
-                                        showMiniPlayer = settings.showMiniPlayer,
+                                        showMiniPlayer = false,
                                         message = message,
                                         onPlay = onPlayStation,
                                         onToggleFavorite = onToggleFavoriteStation,
@@ -484,6 +500,23 @@ internal fun MediaScreen(
                             }
                         }
                     }
+
+                    if (
+                        destination == MediaDestination.Podcasts ||
+                        destination == MediaDestination.Radio
+                    ) {
+                        // Pinned below the list: current state visible on open.
+                        MediaPinnedMiniPlayer(
+                            playback = playback,
+                            enabled = settings.showMiniPlayer,
+                            onPlayPause = onPlayPause,
+                            onPrevious = onPrevious,
+                            onNext = onNext,
+                            onOpenNowPlaying = { onDestinationChange(MediaDestination.NowPlaying) },
+                            onOpenQueue = { onDestinationChange(MediaDestination.Queue) },
+                        )
+                    }
+                    }
                 }
 
                 if (destination == MediaDestination.Podcasts) {
@@ -532,62 +565,26 @@ private fun PrimaryPivot(
             else -> destination
         }
 
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(SableSpacing.Xl),
-    ) {
-        listOf(
-            MediaDestination.Collection,
-            MediaDestination.Podcasts,
-            MediaDestination.Radio,
-            MediaDestination.NowPlaying,
-        ).forEach { item ->
-            val active = current != null && item == current
-            Surface(
-                onClick = { onSelect(item) },
-                modifier = Modifier.heightIn(min = MediaPivotTouchHeight),
-                color = Color.Transparent,
-                contentColor =
-                    if (active) {
-                        MediaPink
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-            ) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Text(
-                        text = item.label,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight =
-                            if (active) {
-                                FontWeight.Medium
-                            } else {
-                                FontWeight.Light
-                            },
-                    )
-                    Box(
-                        modifier =
-                            Modifier
-                                .width(if (active) MediaPivotActiveWidth else MediaPivotInactiveWidth)
-                                .height(3.dp)
-                                .background(
-                                    if (active) {
-                                        MediaPink
-                                    } else {
-                                        MaterialTheme.colorScheme.outlineVariant
-                                    },
-                                ),
-                    )
-                }
-            }
-        }
-    }
+    // Four top destinations never fit a compact/square row without clipping:
+    // the adaptive nav shows what fits plus a keyboard-reachable "more" menu.
+    SableAdaptiveTopNav(
+        destinations = MEDIA_TOP_DESTINATIONS,
+        selectedId = current?.name,
+        onSelect = { id -> onSelect(MediaDestination.valueOf(id)) },
+        accent = MediaPink,
+    )
 }
+
+private val MEDIA_TOP_DESTINATIONS =
+    listOf(
+        MediaDestination.Collection,
+        MediaDestination.Podcasts,
+        MediaDestination.Radio,
+        MediaDestination.NowPlaying,
+    ).map { SableDestination(it.name, it.label) }
+
+private val LIBRARY_DESTINATIONS =
+    LibraryPivot.entries.map { SableDestination(it.name, it.label) }
 
 @Composable
 private fun MediaUtilityBar(
@@ -648,6 +645,9 @@ private fun CollectionScreen(
     onDeletePlaylist: (MediaPlaylist) -> Unit,
     onPlayPlaylist: (MediaPlaylist) -> Unit,
     onOpenNowPlaying: () -> Unit,
+    onPlayPause: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
 ) {
     val collectionIndex by
         produceState<MediaCollectionIndex?>(
@@ -673,296 +673,281 @@ private fun CollectionScreen(
     val artistGroups = collectionIndex?.artists.orEmpty()
     val albumGroups = collectionIndex?.albums.orEmpty()
     val favorites = collectionIndex?.favorites.orEmpty()
-    val sectionTargets =
+    val alphabet =
         collectionIndex
             ?.sections
             ?.get(pivot)
-            .orEmpty()
+            ?: EMPTY_ALPHABET
     val availableUris = collectionIndex?.availableUris.orEmpty()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    var activeSection by remember(sectionTargets) {
-        mutableStateOf(sectionTargets.firstOrNull()?.letter.orEmpty())
+    val firstVisible by remember { derivedStateOf { listState.firstVisibleItemIndex } }
+    fun jumpTo(itemIndex: Int) {
+        scope.launch {
+            listState.animateScrollToItem(COLLECTION_FIXED_ITEM_COUNT + itemIndex)
+        }
     }
 
-    Box(
+    Column(
         modifier =
             Modifier
                 .fillMaxSize()
                 .safeDrawingPadding()
                 .imePadding(),
     ) {
-        LazyColumn(
+        Box(
             modifier =
                 Modifier
-                    .fillMaxSize()
-                    .padding(
-                        end =
-                            if (sectionTargets.isEmpty()) {
-                                0.dp
-                            } else {
-                                MediaAlphabetRailWidth
-                            },
-                    ),
-            state = listState,
-            contentPadding =
-                PaddingValues(
-                    horizontal = SableSpacing.ScreenHorizontal,
-                    vertical = SableSpacing.ScreenVertical,
-                ),
-            verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
+                    .fillMaxWidth()
+                    .weight(1f),
         ) {
-            item {
-                SableHeroHeader(
-                    eyebrow = "Sable Media",
-                    title = "music",
-                    subtitle = "Your local collection, playlists, and one continuous playback queue.",
-                )
-            }
-
-            item {
-                PrimaryPivot(
-                    destination = MediaDestination.Collection,
-                    onSelect = onDestinationChange,
-                )
-            }
-
-            item {
-                MediaUtilityBar(
-                    queueCount = playback.queue.size,
-                    upNextCount = playback.upNextCount(),
-                    onQueue = {
-                        onDestinationChange(MediaDestination.Queue)
-                    },
-                    onSettings = {
-                        onDestinationChange(MediaDestination.Settings)
-                    },
-                )
-            }
-
-            item {
-                Text(
-                    text = "collection",
-                    style = MaterialTheme.typography.headlineLarge,
-                )
-            }
-
-            item {
-                Row(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
-                ) {
-                    LibraryPivot.entries.forEach { item ->
-                        Surface(
-                            onClick = { onPivotChange(item) },
-                            color = Color.Transparent,
-                            contentColor =
-                                if (item == pivot) {
-                                    MaterialTheme.colorScheme.primary
+            LazyColumn(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        // Keyboard A-Z jump is the primary index on keyboard devices.
+                        .sableLetterJump(alphabet, enabled = !alphabet.isEmpty, onJump = ::jumpTo)
+                        .padding(
+                            end =
+                                if (alphabet.isEmpty) {
+                                    0.dp
                                 } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                    SableAlphabetRailWidth
                                 },
-                        ) {
-                            Text(
-                                text = item.label,
-                                modifier = Modifier.padding(vertical = 8.dp),
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                        }
-                    }
-                }
-            }
-
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
-                ) {
-                    SableActionButton(
-                        text = "Add audio files",
-                        modifier = Modifier.weight(1f),
-                        onClick = onAddLocalAudio,
-                    )
-                    SableActionButton(
-                        text = "Import folder",
-                        primary = false,
-                        modifier = Modifier.weight(1f),
-                        onClick = onAddLocalFolder,
-                    )
-                }
-            }
-
-            if (localLibraryLoading) {
+                        ),
+                state = listState,
+                contentPadding =
+                    PaddingValues(
+                        horizontal = SableSpacing.ScreenHorizontal,
+                        vertical = SableSpacing.ScreenVertical,
+                    ),
+                verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
+            ) {
                 item {
-                    C2InfoPanel(
-                        title = "Loading local collection",
-                        detail = "Indexing saved songs, artists, and albums off the UI thread.",
+                    SableHeroHeader(
+                        eyebrow = "Sable Media",
+                        title = "music",
+                        subtitle = "Your local collection, playlists, and one continuous playback queue.",
                     )
                 }
-            } else if (localItems.isEmpty()) {
+
                 item {
-                    EmptyPanel(
-                        title = "No local audio yet",
-                        detail =
-                            "Choose audio with Android's document picker. " +
-                                "Sable keeps access only to files you explicitly select.",
+                    PrimaryPivot(
+                        destination = MediaDestination.Collection,
+                        onSelect = onDestinationChange,
                     )
                 }
-            } else if (collectionIndex == null) {
+
                 item {
-                    C2InfoPanel(
-                        title = "Indexing collection",
-                        detail = "Preparing songs, artists, albums, favorites, and A–Z navigation.",
+                    MediaUtilityBar(
+                        queueCount = playback.queue.size,
+                        upNextCount = playback.upNextCount(),
+                        onQueue = {
+                            onDestinationChange(MediaDestination.Queue)
+                        },
+                        onSettings = {
+                            onDestinationChange(MediaDestination.Settings)
+                        },
                     )
                 }
-            } else {
-                when (pivot) {
-                    LibraryPivot.Songs -> {
-                        items(
-                            count = songs.size,
-                            key = { index -> songs[index].item.uri },
-                        ) { index ->
-                            val indexedTrack = songs[index]
-                            val item = indexedTrack.item
-                            LocalTrackRow(
-                                item = item,
-                                accent = accentFor(indexedTrack.sourceIndex),
-                                favorite = item.uri in favoriteAudioUris,
-                                onToggleFavorite = { onToggleFavorite(item) },
-                                onPlay = { onPlay(indexedTrack.sourceIndex) },
-                            )
-                        }
-                    }
 
-                    LibraryPivot.Artists -> {
-                        items(
-                            count = artistGroups.size,
-                            key = { index -> artistGroups[index].name },
-                        ) { index ->
-                            val group = artistGroups[index]
-                            LibraryGroupRow(
-                                title = group.name,
-                                detail = group.detail,
-                                accent = accentFor(group.name.hashCode()),
-                                onClick = {
-                                    onPlay(group.sourceIndex)
-                                },
-                            )
-                        }
-                    }
+                item {
+                    Text(
+                        text = "collection",
+                        style = MaterialTheme.typography.headlineLarge,
+                    )
+                }
 
-                    LibraryPivot.Albums -> {
-                        items(
-                            count = albumGroups.size,
-                            key = { index -> albumGroups[index].name },
-                        ) { index ->
-                            val group = albumGroups[index]
-                            LibraryGroupRow(
-                                title = group.name,
-                                detail = group.detail,
-                                accent = accentFor(group.name.hashCode()),
-                                onClick = {
-                                    onPlay(group.sourceIndex)
-                                },
-                            )
-                        }
-                    }
+                item {
+                    SableAdaptiveTopNav(
+                        destinations = LIBRARY_DESTINATIONS,
+                        selectedId = pivot.name,
+                        onSelect = { id -> onPivotChange(LibraryPivot.valueOf(id)) },
+                    )
+                }
 
-                    LibraryPivot.Favorites -> {
-                        if (favorites.isEmpty()) {
-                            item {
-                                C2InfoPanel(
-                                    title = "No favorite tracks",
-                                    detail = "Mark local tracks with ★ to keep a quick local favorites view.",
-                                )
-                            }
-                        } else {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+                    ) {
+                        SableActionButton(
+                            text = "Add audio files",
+                            modifier = Modifier.weight(1f),
+                            onClick = onAddLocalAudio,
+                        )
+                        SableActionButton(
+                            text = "Import folder",
+                            primary = false,
+                            modifier = Modifier.weight(1f),
+                            onClick = onAddLocalFolder,
+                        )
+                    }
+                }
+
+                if (localLibraryLoading) {
+                    item {
+                        C2InfoPanel(
+                            title = "Loading local collection",
+                            detail = "Indexing saved songs, artists, and albums off the UI thread.",
+                        )
+                    }
+                } else if (localItems.isEmpty()) {
+                    item {
+                        EmptyPanel(
+                            title = "No local audio yet",
+                            detail =
+                                "Choose audio with Android's document picker. " +
+                                    "Sable keeps access only to files you explicitly select.",
+                        )
+                    }
+                } else if (collectionIndex == null) {
+                    item {
+                        C2InfoPanel(
+                            title = "Indexing collection",
+                            detail = "Preparing songs, artists, albums, favorites, and A–Z navigation.",
+                        )
+                    }
+                } else {
+                    when (pivot) {
+                        LibraryPivot.Songs -> {
                             items(
-                                count = favorites.size,
-                                key = { index -> favorites[index].item.uri },
-                            ) { favoriteIndex ->
-                                val indexedTrack = favorites[favoriteIndex]
+                                count = songs.size,
+                                key = { index -> songs[index].item.uri },
+                            ) { index ->
+                                val indexedTrack = songs[index]
                                 val item = indexedTrack.item
                                 LocalTrackRow(
                                     item = item,
                                     accent = accentFor(indexedTrack.sourceIndex),
-                                    favorite = true,
+                                    favorite = item.uri in favoriteAudioUris,
                                     onToggleFavorite = { onToggleFavorite(item) },
                                     onPlay = { onPlay(indexedTrack.sourceIndex) },
                                 )
                             }
                         }
-                    }
 
-                    LibraryPivot.Playlists -> {
-                        item {
-                            SableActionButton(
-                                text = "Create playlist",
-                                modifier = Modifier.fillMaxWidth(),
-                                onClick = onCreatePlaylist,
-                            )
-                        }
-
-                        if (playlists.isEmpty()) {
-                            item {
-                                C2InfoPanel(
-                                    title = "No playlists yet",
-                                    detail = "Create a local playlist from audio already added to Sable Media.",
-                                )
-                            }
-                        } else {
+                        LibraryPivot.Artists -> {
                             items(
-                                count = playlists.size,
-                                key = { index -> playlists[index].id },
+                                count = artistGroups.size,
+                                key = { index -> artistGroups[index].name },
                             ) { index ->
-                                val playlist = playlists[index]
-                                PlaylistCard(
-                                    playlist = playlist,
-                                    availableUris = availableUris,
-                                    onPlay = { onPlayPlaylist(playlist) },
-                                    onEdit = { onEditPlaylist(playlist) },
-                                    onDelete = { onDeletePlaylist(playlist) },
+                                val group = artistGroups[index]
+                                LibraryGroupRow(
+                                    title = group.name,
+                                    detail = group.detail,
+                                    accent = accentFor(group.name.hashCode()),
+                                    onClick = {
+                                        onPlay(group.sourceIndex)
+                                    },
                                 )
+                            }
+                        }
+
+                        LibraryPivot.Albums -> {
+                            items(
+                                count = albumGroups.size,
+                                key = { index -> albumGroups[index].name },
+                            ) { index ->
+                                val group = albumGroups[index]
+                                LibraryGroupRow(
+                                    title = group.name,
+                                    detail = group.detail,
+                                    accent = accentFor(group.name.hashCode()),
+                                    onClick = {
+                                        onPlay(group.sourceIndex)
+                                    },
+                                )
+                            }
+                        }
+
+                        LibraryPivot.Favorites -> {
+                            if (favorites.isEmpty()) {
+                                item {
+                                    C2InfoPanel(
+                                        title = "No favorite tracks",
+                                        detail = "Mark local tracks with ★ to keep a quick local favorites view.",
+                                    )
+                                }
+                            } else {
+                                items(
+                                    count = favorites.size,
+                                    key = { index -> favorites[index].item.uri },
+                                ) { favoriteIndex ->
+                                    val indexedTrack = favorites[favoriteIndex]
+                                    val item = indexedTrack.item
+                                    LocalTrackRow(
+                                        item = item,
+                                        accent = accentFor(indexedTrack.sourceIndex),
+                                        favorite = true,
+                                        onToggleFavorite = { onToggleFavorite(item) },
+                                        onPlay = { onPlay(indexedTrack.sourceIndex) },
+                                    )
+                                }
+                            }
+                        }
+
+                        LibraryPivot.Playlists -> {
+                            item {
+                                SableActionButton(
+                                    text = "Create playlist",
+                                    modifier = Modifier.fillMaxWidth(),
+                                    onClick = onCreatePlaylist,
+                                )
+                            }
+
+                            if (playlists.isEmpty()) {
+                                item {
+                                    C2InfoPanel(
+                                        title = "No playlists yet",
+                                        detail = "Create a local playlist from audio already added to Sable Media.",
+                                    )
+                                }
+                            } else {
+                                items(
+                                    count = playlists.size,
+                                    key = { index -> playlists[index].id },
+                                ) { index ->
+                                    val playlist = playlists[index]
+                                    PlaylistCard(
+                                        playlist = playlist,
+                                        availableUris = availableUris,
+                                        onPlay = { onPlayPlaylist(playlist) },
+                                        onEdit = { onEditPlaylist(playlist) },
+                                        onDelete = { onDeletePlaylist(playlist) },
+                                    )
+                                }
                             }
                         }
                     }
                 }
+
             }
 
-            if (showMiniPlayer && playback.title != "Nothing queued") {
-                item {
-                    MiniPlayer(
-                        playback = playback,
-                        onClick = onOpenNowPlaying,
-                    )
-                }
+            if (!alphabet.isEmpty) {
+                SableAlphabetRail(
+                    index = alphabet,
+                    activeKey = alphabet.sectionKeyAt((firstVisible - COLLECTION_FIXED_ITEM_COUNT).coerceAtLeast(0)),
+                    onJump = ::jumpTo,
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                )
             }
         }
 
-        if (sectionTargets.isNotEmpty()) {
-            MediaAlphabetRail(
-                targets = sectionTargets,
-                active = activeSection,
-                modifier =
-                    Modifier
-                        .align(Alignment.CenterEnd)
-                        .fillMaxHeight()
-                        .width(MediaAlphabetRailWidth),
-                onSelect = { target ->
-                    activeSection = target.letter
-                    scope.launch {
-                        listState.animateScrollToItem(
-                            COLLECTION_FIXED_ITEM_COUNT + target.itemIndex,
-                        )
-                    }
-                },
-            )
-        }
+        // Pinned: the current playback state is visible on open, never at the end of the list.
+        MediaPinnedMiniPlayer(
+            playback = playback,
+            enabled = showMiniPlayer,
+            onPlayPause = onPlayPause,
+            onPrevious = onPrevious,
+            onNext = onNext,
+            onOpenNowPlaying = onOpenNowPlaying,
+            onOpenQueue = { onDestinationChange(MediaDestination.Queue) },
+        )
     }
 }
+
+private val EMPTY_ALPHABET = SableAlphabetIndex.build(emptyList())
 
 private data class MediaIndexedTrack(
     val item: LocalAudioItem,
@@ -981,7 +966,7 @@ private data class MediaCollectionIndex(
     val albums: List<MediaGroupSummary>,
     val favorites: List<MediaIndexedTrack>,
     val availableUris: Set<String>,
-    val sections: Map<LibraryPivot, List<MediaSectionTarget>>,
+    val sections: Map<LibraryPivot, SableAlphabetIndex>,
 ) {
     companion object {
         val Empty =
@@ -1057,22 +1042,22 @@ private fun buildMediaCollectionIndex(
     val sections =
         mapOf(
             LibraryPivot.Songs to
-                buildMediaSectionTargets(
+                SableAlphabetIndex.build(
                     songs.map { indexed -> indexed.item.title },
                 ),
             LibraryPivot.Artists to
-                buildMediaSectionTargets(
+                SableAlphabetIndex.build(
                     artists.map { group -> group.name },
                 ),
             LibraryPivot.Albums to
-                buildMediaSectionTargets(
+                SableAlphabetIndex.build(
                     albums.map { group -> group.name },
                 ),
             LibraryPivot.Favorites to
-                buildMediaSectionTargets(
+                SableAlphabetIndex.build(
                     favorites.map { indexed -> indexed.item.title },
                 ),
-            LibraryPivot.Playlists to emptyList(),
+            LibraryPivot.Playlists to EMPTY_ALPHABET,
         )
 
     return MediaCollectionIndex(
@@ -1085,91 +1070,6 @@ private fun buildMediaCollectionIndex(
     )
 }
 
-private data class MediaSectionTarget(
-    val letter: String,
-    val itemIndex: Int,
-)
-
-private fun buildMediaSectionTargets(labels: List<String>): List<MediaSectionTarget> {
-    val seen = linkedSetOf<String>()
-    return labels.mapIndexedNotNull { index, label ->
-        val trimmed = label.trim()
-        val letter =
-            trimmed
-                .firstOrNull()
-                ?.takeIf { it.isLetter() }
-                ?.uppercaseChar()
-                ?.toString()
-                ?: "#"
-
-        if (seen.add(letter)) {
-            MediaSectionTarget(
-                letter = letter,
-                itemIndex = index,
-            )
-        } else {
-            null
-        }
-    }
-}
-
-@Composable
-private fun MediaAlphabetRail(
-    targets: List<MediaSectionTarget>,
-    active: String,
-    modifier: Modifier = Modifier,
-    onSelect: (MediaSectionTarget) -> Unit,
-) {
-    fun targetAt(
-        y: Float,
-        height: Int,
-    ): MediaSectionTarget? {
-        if (targets.isEmpty() || height <= 0) return null
-        val slot =
-            ((y / height) * targets.size)
-                .toInt()
-                .coerceIn(0, targets.lastIndex)
-        return targets[slot]
-    }
-
-    Column(
-        modifier =
-            modifier.pointerInput(targets) {
-                fun jump(y: Float) {
-                    targetAt(y, size.height)?.let(onSelect)
-                }
-                detectDragGestures(
-                    onDragStart = { offset -> jump(offset.y) },
-                    onDrag = { change, _ ->
-                        jump(change.position.y)
-                        change.consume()
-                    },
-                )
-            },
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        targets.forEach { target ->
-            Text(
-                text = target.letter,
-                modifier =
-                    Modifier
-                        .clickable { onSelect(target) }
-                        .padding(horizontal = 8.dp, vertical = 1.dp),
-                style = MaterialTheme.typography.labelMedium,
-                color =
-                    if (target.letter == active) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                fontWeight =
-                    if (target.letter == active) FontWeight.Bold else FontWeight.Normal,
-            )
-        }
-    }
-}
-
 @Composable
 private fun LocalTrackRow(
     item: LocalAudioItem,
@@ -1178,57 +1078,33 @@ private fun LocalTrackRow(
     onToggleFavorite: () -> Unit,
     onPlay: () -> Unit,
 ) {
+    // Dense row: one primary trailing action (play); favorite moves to the menu.
     Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = SableSpacing.Sm),
-            horizontalArrangement = Arrangement.spacedBy(SableSpacing.Md),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            ArtworkTile(
-                accent = accent,
-                modifier = Modifier.width(46.dp),
-            )
-
-            Column(
-                modifier = Modifier.weight(1f),
-            ) {
-                Text(
-                    text = item.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = item.artist,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (item.album.isNotBlank()) {
-                    Text(
-                        text = item.album,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = accent,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+        SableDenseRow(
+            title = item.title,
+            subtitle = listOf(item.artist, item.album).filter { it.isNotBlank() }.joinToString(" · "),
+            onClick = onPlay,
+            actions =
+                listOf(
+                    SableRowAction(ROW_ACTION_PLAY, "Play", primary = true),
+                    SableRowAction(
+                        ROW_ACTION_FAVORITE,
+                        if (favorite) "Remove from favorites ★" else "Add to favorites ☆",
+                    ),
+                ),
+            onAction = { action ->
+                when (action.id) {
+                    ROW_ACTION_PLAY -> onPlay()
+                    ROW_ACTION_FAVORITE -> onToggleFavorite()
                 }
-            }
-
-            CompactAction(
-                text = if (favorite) "★" else "☆",
-                onClick = onToggleFavorite,
-            )
-            CompactAction(
-                text = "▶",
-                active = true,
-                onClick = onPlay,
-            )
-        }
+            },
+            leading = {
+                ArtworkTile(
+                    accent = accent,
+                    modifier = Modifier.width(46.dp),
+                )
+            },
+        )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
@@ -1245,6 +1121,7 @@ private fun PlaylistCard(
         playlist.itemUris.count { uri ->
             uri in availableUris
         }
+    var confirmRemove by remember(playlist.id) { mutableStateOf(false) }
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -1252,40 +1129,45 @@ private fun PlaylistCard(
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
-        Column(
-            modifier = Modifier.padding(SableSpacing.Md),
-            verticalArrangement = Arrangement.spacedBy(SableSpacing.Md),
-        ) {
-            Text(
-                text = playlist.name,
-                style = MaterialTheme.typography.titleLarge,
+        Column(modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Xs)) {
+            SableDenseRow(
+                title = playlist.name,
+                subtitle = "$trackCount track${if (trackCount == 1) "" else "s"}",
+                onClick = onPlay,
+                actions =
+                    listOf(
+                        SableRowAction(ROW_ACTION_PLAY, "Play", primary = true),
+                        SableRowAction(ROW_ACTION_EDIT, "Edit"),
+                        SableRowAction(ROW_ACTION_REMOVE, "Remove", destructive = true),
+                    ),
+                onAction = { action ->
+                    when (action.id) {
+                        ROW_ACTION_PLAY -> onPlay()
+                        ROW_ACTION_EDIT -> onEdit()
+                        ROW_ACTION_REMOVE -> confirmRemove = true
+                    }
+                },
             )
-            Text(
-                text = "$trackCount track${if (trackCount == 1) "" else "s"}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
-            ) {
-                SableActionButton(
-                    text = "Play",
-                    modifier = Modifier.weight(1f),
-                    onClick = onPlay,
-                )
-                SableActionButton(
-                    text = "Edit",
-                    primary = false,
-                    modifier = Modifier.weight(1f),
-                    onClick = onEdit,
-                )
-                SableActionButton(
-                    text = "Remove",
-                    primary = false,
-                    modifier = Modifier.weight(1f),
-                    onClick = onDelete,
-                )
+            if (confirmRemove) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+                ) {
+                    SableActionButton(
+                        text = "Remove playlist",
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            confirmRemove = false
+                            onDelete()
+                        },
+                    )
+                    SableActionButton(
+                        text = "Keep",
+                        primary = false,
+                        modifier = Modifier.weight(1f),
+                        onClick = { confirmRemove = false },
+                    )
+                }
             }
         }
     }
@@ -1322,11 +1204,15 @@ private fun LibraryGroupRow(
                     Text(
                         text = title,
                         style = MaterialTheme.typography.titleMedium,
+                        maxLines = SableResponsive.PRIMARY_TEXT_MAX_LINES,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = detail,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = SableResponsive.SECONDARY_TEXT_MAX_LINES,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 Text(
@@ -1575,13 +1461,7 @@ private fun RadioScreen(
             modifier = Modifier.fillMaxWidth(),
             onClick = onAdd,
         )
-
-        if (showMiniPlayer && playback.title != "Nothing queued") {
-            MiniPlayer(
-                playback = playback,
-                onClick = onOpenNowPlaying,
-            )
-        }
+        // The mini-player is pinned below the list by MediaScreen (current state visible on open).
     }
 }
 
@@ -1602,53 +1482,45 @@ private fun RadioStationRow(
                 MaterialTheme.colorScheme.outlineVariant,
             ),
     ) {
-        Row(
-            modifier = Modifier.padding(SableSpacing.Md),
-            horizontalArrangement = Arrangement.spacedBy(SableSpacing.Md),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Surface(
-                modifier = Modifier.width(MediaControlSize),
-                shape = MaterialTheme.shapes.small,
-                color = MediaPink.copy(alpha = 0.18f),
-                border = BorderStroke(1.dp, MediaPink.copy(alpha = 0.7f)),
-            ) {
-                Box(
-                    modifier = Modifier.aspectRatio(1f),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = "LIVE",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MediaPink,
-                    )
+        SableDenseRow(
+            title = station.name,
+            subtitle = station.url,
+            onClick = onPlay,
+            modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Xs),
+            actions =
+                listOf(
+                    SableRowAction(ROW_ACTION_PLAY, "Play", primary = true),
+                    SableRowAction(
+                        ROW_ACTION_FAVORITE,
+                        if (favorite) "Remove from favorites ★" else "Add to favorites ☆",
+                    ),
+                ),
+            onAction = { action ->
+                when (action.id) {
+                    ROW_ACTION_PLAY -> onPlay()
+                    ROW_ACTION_FAVORITE -> onToggleFavorite()
                 }
-            }
-            Column(
-                modifier = Modifier.weight(1f),
-            ) {
-                Text(
-                    text = station.name,
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    text = station.url,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            CompactAction(
-                text = if (favorite) "★" else "☆",
-                onClick = onToggleFavorite,
-            )
-            CompactAction(
-                text = "▶",
-                active = true,
-                onClick = onPlay,
-            )
-        }
+            },
+            leading = {
+                Surface(
+                    modifier = Modifier.width(MediaControlSize),
+                    shape = MaterialTheme.shapes.small,
+                    color = MediaPink.copy(alpha = 0.18f),
+                    border = BorderStroke(1.dp, MediaPink.copy(alpha = 0.7f)),
+                ) {
+                    Box(
+                        modifier = Modifier.aspectRatio(1f),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "LIVE",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MediaPink,
+                        )
+                    }
+                }
+            },
+        )
     }
 }
 
@@ -1879,57 +1751,6 @@ private fun BackTitle(
 }
 
 @Composable
-private fun MiniPlayer(
-    playback: PlaybackUiState,
-    onClick: () -> Unit,
-) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        border =
-            BorderStroke(
-                1.dp,
-                MaterialTheme.colorScheme.outlineVariant,
-            ),
-    ) {
-        Row(
-            modifier = Modifier.padding(SableSpacing.Md),
-            horizontalArrangement = Arrangement.spacedBy(SableSpacing.Md),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            ArtworkTile(
-                accent = accentFor(playback.title.hashCode()),
-                modifier = Modifier.width(MediaControlSize),
-            )
-            Column(
-                modifier = Modifier.weight(1f),
-            ) {
-                Text(
-                    text = playback.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = playback.source,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            Text(
-                text = if (playback.isPlaying) "❚❚" else "▶",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.primary,
-            )
-        }
-    }
-}
-
-@Composable
 private fun ArtworkTile(
     accent: Color,
     modifier: Modifier = Modifier,
@@ -1975,47 +1796,6 @@ private fun ArtworkTile(
             fontWeight = FontWeight.Light,
             color = Color.White,
         )
-    }
-}
-
-@Composable
-private fun CompactAction(
-    text: String,
-    active: Boolean = false,
-    onClick: () -> Unit,
-) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.width(MediaControlSize),
-        shape = MaterialTheme.shapes.small,
-        color =
-            if (active) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                Color.Transparent
-            },
-        contentColor =
-            if (active) {
-                MaterialTheme.colorScheme.onPrimary
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
-        border =
-            if (active) {
-                null
-            } else {
-                BorderStroke(
-                    1.dp,
-                    MaterialTheme.colorScheme.outlineVariant,
-                )
-            },
-    ) {
-        Box(
-            modifier = Modifier.aspectRatio(1f),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(text)
-        }
     }
 }
 

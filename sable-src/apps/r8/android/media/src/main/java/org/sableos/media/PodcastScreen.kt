@@ -2,7 +2,6 @@ package org.sableos.media
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,7 +10,6 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -29,6 +27,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.sableos.design.SableActionButton
+import org.sableos.design.SableAdaptiveTopNav
+import org.sableos.design.SableDenseRow
+import org.sableos.design.SableDestination
+import org.sableos.design.SableRowAction
 import org.sableos.design.SableSpacing
 import java.text.DateFormat
 import java.util.Date
@@ -37,7 +39,6 @@ private const val LATEST_EPISODE_LIMIT = 36
 private const val PODCAST_SEED_MULTIPLIER = 31
 private const val MILLIS_PER_MINUTE = 60_000L
 private val PodcastHeroSize = 72.dp
-private val PodcastControlSize = 42.dp
 private val PodcastArtworkSize = 58.dp
 
 private enum class PodcastPivot(
@@ -80,15 +81,12 @@ internal fun PodcastScreen(
     val feedUrl = state.feedUrl
     val busy = state.busy
     val message = state.message
-    val playback = state.playback
-    val showMiniPlayer = state.showMiniPlayer
     val onFeedUrlChange = actions.onFeedUrlChange
     val onAddFeed = actions.onAddFeed
     val onRemoveSubscription = actions.onRemoveSubscription
     val onPlayEpisode = actions.onPlayEpisode
     val onQueueEpisode = actions.onQueueEpisode
     val onToggleSavedEpisode = actions.onToggleSavedEpisode
-    val onOpenNowPlaying = actions.onOpenNowPlaying
     var pivot by remember { mutableStateOf(PodcastPivot.Latest) }
 
     val latest =
@@ -120,38 +118,12 @@ internal fun PodcastScreen(
             episodeCount = latest.size,
         )
 
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(SableSpacing.Xl),
-        ) {
-            PodcastPivot.entries.forEach { item ->
-                Surface(
-                    onClick = { pivot = item },
-                    color = Color.Transparent,
-                    contentColor =
-                        if (pivot == item) {
-                            MediaPink
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                ) {
-                    Text(
-                        text = item.label,
-                        modifier = Modifier.padding(vertical = 8.dp),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight =
-                            if (pivot == item) {
-                                FontWeight.Medium
-                            } else {
-                                FontWeight.Light
-                            },
-                    )
-                }
-            }
-        }
+        SableAdaptiveTopNav(
+            destinations = PODCAST_DESTINATIONS,
+            selectedId = pivot.name,
+            onSelect = { id -> pivot = PodcastPivot.valueOf(id) },
+            accent = MediaPink,
+        )
 
         when (pivot) {
             PodcastPivot.Latest -> {
@@ -232,18 +204,11 @@ internal fun PodcastScreen(
         }
 
         PodcastPrivacyNote()
-
-        if (
-            showMiniPlayer &&
-            playback.title != "Nothing queued"
-        ) {
-            PodcastMiniPlayer(
-                playback = playback,
-                onClick = onOpenNowPlaying,
-            )
-        }
+        // The mini-player is pinned below the list by MediaScreen (current state visible on open).
     }
 }
+
+private val PODCAST_DESTINATIONS = PodcastPivot.entries.map { SableDestination(it.name, it.label) }
 
 @Composable
 private fun PodcastStatusDeck(
@@ -303,6 +268,8 @@ private fun PodcastEpisodeRow(
     onQueue: () -> Unit,
     onToggleSaved: () -> Unit,
 ) {
+    // Dense row: title (2 lines), one-line show/meta, play as the single trailing
+    // action; queue and save move to the row menu (also on the Menu key).
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
@@ -318,122 +285,42 @@ private fun PodcastEpisodeRow(
                 MaterialTheme.colorScheme.outlineVariant,
             ),
     ) {
-        Row(
-            modifier = Modifier.padding(SableSpacing.Md),
-            horizontalArrangement = Arrangement.spacedBy(SableSpacing.Md),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            PodcastArtworkTile(
-                seed = episode.podcastId.hashCode(),
-                label =
-                    episode.podcastTitle
-                        .trim()
-                        .firstOrNull()
-                        ?.uppercase()
-                        ?: "P",
-            )
-
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(3.dp),
-            ) {
-                Text(
-                    text = episode.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight =
-                        if (played) {
-                            FontWeight.Normal
-                        } else {
-                            FontWeight.Medium
-                        },
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = episode.podcastTitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = podcastEpisodeMeta(episode),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            Surface(
-                onClick = onQueue,
-                modifier = Modifier.width(PodcastControlSize),
-                shape = MaterialTheme.shapes.small,
-                color = Color.Transparent,
-                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                border =
-                    BorderStroke(
-                        1.dp,
-                        MaterialTheme.colorScheme.outlineVariant,
-                    ),
-            ) {
-                Box(
-                    modifier = Modifier.aspectRatio(1f),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = "+",
-                        style = MaterialTheme.typography.titleLarge,
-                    )
+        SableDenseRow(
+            title = episode.title,
+            subtitle = listOf(episode.podcastTitle, podcastEpisodeMeta(episode)).filter { it.isNotBlank() }.joinToString(" · "),
+            onClick = onPlay,
+            modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Xs),
+            actions =
+                listOf(
+                    SableRowAction(EPISODE_ACTION_PLAY, "Play", primary = true),
+                    SableRowAction(EPISODE_ACTION_QUEUE, "Add to up next"),
+                    SableRowAction(EPISODE_ACTION_SAVE, if (saved) "Remove from saved ★" else "Save ☆"),
+                ),
+            onAction = { action ->
+                when (action.id) {
+                    EPISODE_ACTION_PLAY -> onPlay()
+                    EPISODE_ACTION_QUEUE -> onQueue()
+                    EPISODE_ACTION_SAVE -> onToggleSaved()
                 }
-            }
-
-            Surface(
-                onClick = onToggleSaved,
-                modifier = Modifier.width(PodcastControlSize),
-                shape = MaterialTheme.shapes.small,
-                color = Color.Transparent,
-                contentColor =
-                    if (saved) {
-                        MediaPink
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                border =
-                    BorderStroke(
-                        1.dp,
-                        MaterialTheme.colorScheme.outlineVariant,
-                    ),
-            ) {
-                Box(
-                    modifier = Modifier.aspectRatio(1f),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = if (saved) "★" else "☆",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                }
-            }
-
-            Surface(
-                onClick = onPlay,
-                modifier = Modifier.width(PodcastControlSize),
-                shape = MaterialTheme.shapes.small,
-                color = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-            ) {
-                Box(
-                    modifier = Modifier.aspectRatio(1f),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = "▶",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                }
-            }
-        }
+            },
+            leading = {
+                PodcastArtworkTile(
+                    seed = episode.podcastId.hashCode(),
+                    label =
+                        episode.podcastTitle
+                            .trim()
+                            .firstOrNull()
+                            ?.uppercase()
+                            ?: "P",
+                )
+            },
+        )
     }
 }
+
+private const val EPISODE_ACTION_PLAY = "play"
+private const val EPISODE_ACTION_QUEUE = "queue"
+private const val EPISODE_ACTION_SAVE = "save"
 
 @Composable
 private fun PodcastSubscriptionCard(
@@ -629,57 +516,6 @@ private fun PodcastArtworkTile(
             fontWeight = FontWeight.Light,
             color = Color.White,
         )
-    }
-}
-
-@Composable
-private fun PodcastMiniPlayer(
-    playback: PlaybackUiState,
-    onClick: () -> Unit,
-) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        border =
-            BorderStroke(
-                1.dp,
-                MaterialTheme.colorScheme.outlineVariant,
-            ),
-    ) {
-        Row(
-            modifier = Modifier.padding(SableSpacing.Md),
-            horizontalArrangement = Arrangement.spacedBy(SableSpacing.Md),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            PodcastArtworkTile(
-                seed = playback.title.hashCode(),
-                label = "▶",
-            )
-            Column(
-                modifier = Modifier.weight(1f),
-            ) {
-                Text(
-                    text = playback.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = playback.source,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            Text(
-                text = if (playback.isPlaying) "playing" else "paused",
-                style = MaterialTheme.typography.labelLarge,
-                color = MediaPink,
-            )
-        }
     }
 }
 
