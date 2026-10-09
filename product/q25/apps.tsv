@@ -14,6 +14,9 @@
 #   overrides     comma-separated modules this app replaces, or -
 #   enabled       yes/no: whether scripts/build-apps.sh builds it by default
 #
+# SableRadioDiag is folded into SableTools (DESIGN-KF-C: one launcher-visible tools product); its row
+# stays, disabled, so `apps --all` still builds it for comparison, and SableTools overrides it.
+#
 # Package ids stay as they are in SableOS (for example org.sableos.titan2.keyboard):
 # the Q25 does not fork common apps.
 module	group	gradle_root	gradle_task	apk	package	signing	overrides	enabled
@@ -21,7 +24,8 @@ SableKeyboard	platform	apps/titan2/platform	:keyboard:assembleRelease	keyboard/b
 SableCamera	platform	apps/titan2/platform	:camera:assembleRelease	camera/build/outputs/apk/release/*.apk	org.sableos.titan2.camera	unsigned	-	yes
 SableDisplayCompat	platform	apps/titan2/platform	:displaycompat:assembleRelease	displaycompat/build/outputs/apk/release/*.apk	org.sableos.titan2.displaycompat	unsigned	-	yes
 SableSetup	platform	apps/titan2/platform	:setup:assembleRelease	setup/build/outputs/apk/release/*.apk	org.sableos.titan2.setup	unsigned	-	yes
-SableRadioDiag	platform	apps/titan2/platform	:radiodiag:assembleRelease	radiodiag/build/outputs/apk/release/*.apk	org.sableos.titan2.radiodiag	unsigned	-	yes
+SableRadioDiag	platform	apps/titan2/platform	:radiodiag:assembleRelease	radiodiag/build/outputs/apk/release/*.apk	org.sableos.titan2.radiodiag	unsigned	-	no
+SableTools	platform	apps/titan2/platform	:tools:assembleRelease	tools/build/outputs/apk/release/*.apk	org.sableos.tools	unsigned	SableRadioDiag	yes
 SableCalculator	common	apps/r8/android	:calculator:assembleDebug	calculator/build/outputs/apk/debug/calculator-debug.apk	org.sableos.calculator	presigned	ExactCalculator	yes
 SableSudoku	common	apps/r8/android	:games:assembleSudokuDebug	games/build/outputs/apk/sudoku/debug/games-sudoku-debug.apk	org.sableos.sudoku	presigned	-	yes
 SableMinesweeper	common	apps/r8/android	:games:assembleMinesweeperDebug	games/build/outputs/apk/minesweeper/debug/games-minesweeper-debug.apk	org.sableos.minesweeper	presigned	-	yes

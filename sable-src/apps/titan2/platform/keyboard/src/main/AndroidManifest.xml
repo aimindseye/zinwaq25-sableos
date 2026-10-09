@@ -33,9 +33,11 @@
             </intent-filter>
         </activity>
 
-        <!-- Diagnostic: shows the key events an ordinary app receives. Not a launcher entry (#83): open it from
-             Sable Keyboard settings, or with
-             adb shell am start -n org.sableos.titan2.keyboard/.android.KeyProbeActivity -->
+        <!--
+          Diagnostic: shows the key events an ordinary app receives. Not a launcher entry (#83, DESIGN-KF-C):
+          open it from Sable Keyboard settings or Sable Tools > Diagnostics > Keyboard event viewer, or with
+          adb shell am start -n org.sableos.titan2.keyboard/.android.KeyProbeActivity
+        -->
         <activity
             android:name=".android.KeyProbeActivity"
             android:exported="true"

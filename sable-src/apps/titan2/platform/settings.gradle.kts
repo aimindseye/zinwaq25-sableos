@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "sable-titan2-platform"
-include(":displaycompat", ":keyboard", ":camera", ":setup", ":radiodiag")
+include(":displaycompat", ":keyboard", ":camera", ":setup", ":radiodiag", ":tools")
