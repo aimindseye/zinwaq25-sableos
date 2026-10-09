@@ -1,0 +1,2 @@
+# A && B || C is used deliberately for PASS/FAIL reporting.
+disable=SC2015

@@ -1,0 +1,7 @@
+rule	max_count	scope	reason
+FunctionNaming	31	file-level, PascalCase @Composable functions only	Frozen canonical Detekt config cannot set ignoreAnnotated for Composable
+LongMethod	17	per @Composable screen function in the SableScreens prototype and displaycompat UI only	Uncompiled Compose state identity; real split deferred, tracked as KL-025
+CyclomaticComplexMethod	10	per @Composable screen function in the SableScreens prototype only	Same as LongMethod, tracked as KL-025
+LongParameterList	9	public Compose component signatures and the DeviceProfile capability record	Signature stability for callers; tracked as KL-025
+TooManyFunctions	1	SableImeService (InputMethodService overrides)	Overrides cannot be removed or merged
+UnusedParameter	1	public LockscreenScreen parameter passed by the catalog	Removing it changes a public composable signature

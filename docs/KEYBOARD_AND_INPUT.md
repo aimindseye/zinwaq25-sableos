@@ -1,0 +1,52 @@
+# Keyboard, trackpad and keys
+
+Status: **profile drafted from the LineageOS device tree; not verified on
+hardware.** Follows `platform_sable/docs/KEYBOARD_FIRST_DEVICE_PROFILE_MODEL.md`,
+`KEYBOARD_AND_POINTER_PROFILE_MODEL.md` and `NORMALIZED_KEY_INPUT_CONTRACT.md`.
+
+## What the device tree gives us
+
+The LineageOS tree installs three files to `/vendor/usr/`:
+
+| File | Content |
+|---|---|
+| `idc/Q25_keyboard.idc` | `keyboard.layout = Q25_keyboard`, `keyboard.builtIn = 1`, `device.internal = 1` |
+| `keylayout/Q25_keyboard.kl` | Based on AOSP's generic full-PC layout (481 lines): letters, digits, modifiers, DPAD, BACK (158), MENU (139), HOME (172), CALL (169/231), POWER (116), volume |
+| `keychars/Q25_keyboard.kcm` | `type ALPHA` with the BlackBerry Alt legends below |
+
+### Alt layer (from `Q25_keyboard.kcm`)
+
+```text
+Q #   W 1   E 2   R 3   T (   Y )   U _   I -   O +   P @
+A *   S 4   D 5   F 6   G /   H :   J ;   K '   L "
+Z 7   X 8   C 9   V ?   B !   N ,   M .   0 0
+```
+
+This matches the printed BlackBerry Classic legends. SPACE has a private-use alt
+code (``) that needs checking on device.
+
+## Sable profile `zinwa-q25`
+
+Sable apps read `ro.sable.profile.id`; the Q25 layer sets it to `zinwa-q25`.
+
+| Concern | Plan | Status |
+|---|---|---|
+| Sable Keyboard Alt layer | Add `ZinwaQ25Kcm` to `KeyLayout` with the table above, `verified=false`, and map `forProfile("zinwa-q25")` to it | to do (Q3), needs app source |
+| Sym key | Classic has a Sym key; scan code unknown. Capture with `getevent -lt` | unknown |
+| Call / End keys | Generic kl maps CALL; End is not mapped by name. Capture scan codes; decide End = ENDCALL vs POWER | unknown |
+| Menu / Back / Home | kl maps 139 MENU, 158 BACK, 172 HOME; confirm which physical keys send them | unknown |
+| Trackpad | Optical trackpad; find out whether it reports as DPAD keys, a relative pointer (`REL_X/REL_Y`) or a touchpad. Sable wants DPAD focus navigation plus an optional pointer mode | unknown |
+| Trackpad click | Expect `DPAD_CENTER` (353) or `BTN_MOUSE`; confirm | unknown |
+| Keyboard backlight | kl has KEYBOARD_BACKLIGHT_* codes; confirm sysfs LED and auto-off | unknown |
+| Critical text entry | Lock-screen PIN/password, Wi-Fi password, SIM PIN must work from the hardware keyboard and the soft-keyboard fallback (`CRITICAL_TEXT_ENTRY_GATES.md`) | gate in `QUALIFICATION.md` |
+
+## How to capture
+
+```bash
+adb shell getevent -lp          # list input devices and their capabilities
+adb shell getevent -lt          # press each key / move the trackpad and note codes
+adb shell dumpsys input         # keyboard type, layout and kcm Android picked
+```
+
+Write results into [`../device-profile/KEYMAP.md`](../device-profile/KEYMAP.md).
+Never copy Titan 2 or Q27 key evidence into the Q25 profile.

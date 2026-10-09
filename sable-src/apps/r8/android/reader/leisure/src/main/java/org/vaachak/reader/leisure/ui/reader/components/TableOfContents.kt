@@ -1,0 +1,207 @@
+/*
+ *  Copyright (c) 2026 Piyush Daiya
+ *  *
+ *  * Permission is hereby granted, free of charge, to any person obtaining a copy
+ *  * of this software and associated documentation files (the "Software"), to deal
+ *  * in the Software without restriction, including without limitation the rights
+ *  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ *  * copies of the Software, and to permit persons to whom the Software is
+ *  * furnished to do so, subject to the following conditions:
+ *  *
+ *  * The above copyright notice and this permission notice shall be included in all
+ *  * copies or substantial portions of the Software.
+ *  *
+ *  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *  * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ *  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ *  * SOFTWARE.
+ */
+
+package org.vaachak.reader.leisure.ui.reader.components
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import org.readium.r2.shared.publication.Link
+import org.vaachak.reader.leisure.ui.testability.Tid
+import org.vaachak.reader.leisure.ui.testability.tid
+import org.vaachak.reader.leisure.ui.testability.tids
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TableOfContents(
+    toc: List<Link>,
+    currentHref: String?,
+    onLinkSelected: (Link) -> Unit,
+    onDismiss: () -> Unit,
+    isEink: Boolean
+) {
+    val flattenedToc = remember(toc) {
+        flattenToc(toc)
+    }
+
+    val containerColor = if (isEink) Color.White else MaterialTheme.colorScheme.background
+    val contentColor = if (isEink) Color.Black else MaterialTheme.colorScheme.onBackground
+
+    Scaffold(
+        modifier = Modifier.tid(Tid.Screen.toc),
+        topBar = {
+            TopAppBar(
+                title = { Text("Table of Contents") },
+                // MOVED TO LEFT (navigationIcon)
+                navigationIcon = {
+                    IconButton(onClick = onDismiss, modifier = Modifier.tid(Tid.Reader.TOC_CLOSE)) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close TOC",
+                            tint = contentColor
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = containerColor,
+                    titleContentColor = contentColor,
+                    navigationIconContentColor = contentColor
+                )
+            )
+        },
+        containerColor = containerColor
+    ) { padding ->
+        if (flattenedToc.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("No table of contents found.", color = Color.Gray)
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.padding(padding).fillMaxSize()
+            ) {
+                itemsIndexed(flattenedToc) { index, (depth, link) ->
+                    // 1. VISUAL CHECK ONLY: Strip fragments for highlighting
+                    val isActive = remember(currentHref, link.href) {
+                        isCurrentChapter(currentHref, link.href.toString())
+                    }
+
+                    TocItem(
+                        link = link,
+                        depth = depth,
+                        isFirstVisibleItem = index == 0,
+                        isActive = isActive,
+                        isEink = isEink,
+                        // 2. NAVIGATION: Pass original link with fragments intact
+                        onClick = { onLinkSelected(link) }
+                    )
+                    HorizontalDivider(
+                        thickness = 0.5.dp,
+                        color = if (isEink) Color.LightGray else MaterialTheme.colorScheme.outlineVariant.copy(alpha=0.5f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+// --- HELPER: URL Normalization Logic ---
+private fun isCurrentChapter(currentHref: String?, linkHref: String): Boolean {
+    if (currentHref == null) return false
+
+    // Strip fragments (e.g., "chapter1.html#p1" -> "chapter1.html") just for comparison
+    val normalizedCurrent = currentHref.substringBefore('#')
+    val normalizedLink = linkHref.substringBefore('#')
+
+    return normalizedCurrent == normalizedLink
+}
+
+@Composable
+fun TocItem(
+    link: Link,
+    depth: Int,
+    isFirstVisibleItem: Boolean,
+    isActive: Boolean,
+    isEink: Boolean,
+    onClick: () -> Unit
+) {
+    val textColor = if (isActive) {
+        if (isEink) Color.Black else MaterialTheme.colorScheme.primary
+    } else {
+        if (isEink) Color.DarkGray else MaterialTheme.colorScheme.onSurface
+    }
+
+    val fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal
+
+    // Visual Indicator for Active Item
+    val backgroundColor = if (isActive) {
+        if (isEink) Color.LightGray.copy(alpha = 0.3f) else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+    } else Color.Transparent
+
+    val paddingStart = 16.dp + (24.dp * depth)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(backgroundColor) // Highlight background
+            .tids(
+                if (isFirstVisibleItem) Tid.Reader.TOC_ITEM_FIRST else "",
+                Tid.Reader.tocItemByHref(link.href.toString())
+            )
+            .clickable(onClick = onClick)
+            .semantics(mergeDescendants = true) {
+                contentDescription = "Chapter: ${link.title ?: "Untitled Section"}, ${if (isActive) "Current" else ""}"
+            }
+            .padding(start = paddingStart, end = 16.dp, top = 16.dp, bottom = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = link.title ?: "Untitled Section",
+            style = MaterialTheme.typography.bodyLarge,
+            color = textColor,
+            fontWeight = fontWeight,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+private fun flattenToc(links: List<Link>, depth: Int = 0): List<Pair<Int, Link>> {
+    val result = mutableListOf<Pair<Int, Link>>()
+    for (link in links) {
+        result.add(depth to link)
+        if (link.children.isNotEmpty()) {
+            result.addAll(flattenToc(link.children, depth + 1))
+        }
+    }
+    return result
+}

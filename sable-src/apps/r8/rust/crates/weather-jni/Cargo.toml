@@ -1,0 +1,14 @@
+[package]
+name = "sable-weather-jni"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "sable_weather_jni"
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
+
+[dependencies]
+jni = "=0.21.1"
+sable-weather-core = { path = "../weather-core" }

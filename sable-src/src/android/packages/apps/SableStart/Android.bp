@@ -1,0 +1,50 @@
+// R9 standalone Sable HOME.
+//
+// SableLauncher is the user-facing HOME application. Launcher3QuickStep stays
+// installed as Android's Quickstep/Recents substrate but no longer hosts Sable
+// presentation code.
+filegroup {
+    name: "sable_start_presentation_srcs",
+    srcs: [
+        "src/com/sable/start/live/LiveSurfaceModels.kt",
+        "src/com/sable/start/model/AppEntry.kt",
+        "src/com/sable/start/platform/LiveSurfaceRepository.kt",
+        "src/com/sable/start/platform/StartStateRepository.kt",
+        "src/com/sable/start/ui/SableStartScreen.kt",
+        "src/com/sable/start/ui/SableGlyphIcon.kt",
+    ],
+}
+
+android_app {
+    name: "SableLauncher",
+    v4_signature: false,
+    manifest: "AndroidManifest.xml",
+    certificate: "platform",
+
+    srcs: [
+        ":sable_start_presentation_srcs",
+        ":sable_design_shared_srcs",
+        "src/com/sable/start/SableStartActivity.kt",
+        "src/com/sable/start/platform/LauncherAppsRepository.kt",
+    ],
+
+    resource_dirs: ["res"],
+    sdk_version: "system_current",
+
+    static_libs: [
+        "androidx.activity_activity-compose",
+        "androidx.compose.runtime_runtime",
+        "androidx.compose.ui_ui",
+        "androidx.compose.foundation_foundation",
+        "androidx.compose.foundation_foundation-layout",
+        "androidx.compose.animation_animation",
+        "androidx.compose.ui_ui-text",
+        "androidx.compose.material3_material3",
+        "androidx.core_core-ktx",
+    ],
+
+    kotlincflags: [
+        "-Xjvm-default=all",
+        "-Xannotation-default-target=param-property",
+    ],
+}

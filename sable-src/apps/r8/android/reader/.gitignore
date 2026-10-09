@@ -1,0 +1,31 @@
+# IDE / OS
+*.iml
+.DS_Store
+.idea/
+.kotlin/
+
+# Gradle
+.gradle/
+local.properties
+
+# Build outputs
+build/
+*/build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Android artifacts
+*.apk
+*.ap_
+*.aab
+
+# Signing / secrets
+*.jks
+*.keystore
+secrets.properties
+/leisure/vaachak-key.jks
+
+# Local-only config/examples that should not be committed
+AppConfig.kt
+AppConfig.example.kt

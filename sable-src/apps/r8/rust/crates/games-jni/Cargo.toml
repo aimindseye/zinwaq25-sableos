@@ -1,0 +1,14 @@
+[package]
+name = "sable-games-jni"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "sable_games_jni"
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
+
+[dependencies]
+jni = "=0.21.1"
+sable-games-core = { path = "../games-core" }
