@@ -5,7 +5,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -89,12 +88,21 @@ private fun WeatherApp() {
                 message = "Refreshing forecast…",
             )
 
+        val requested = selectedLocation
         scope.launch {
-            state =
+            val result =
                 withContext(Dispatchers.IO) {
-                    repository.refresh(selectedLocation)
+                    repository.refresh(requested)
                 }
+            // A forecast is only shown for the city it was fetched for (IR-015); a late result for a city the
+            // user has since left stays in that city's cache entry.
             refreshing = false
+            if (requested == selectedLocation) {
+                state = result
+            } else {
+                state = repository.load(selectedLocation)
+                if (state.snapshot == null) refresh()
+            }
         }
     }
 
@@ -155,17 +163,12 @@ private fun WeatherApp() {
             }
 
             Spacer(Modifier.height(SableSpacing.Xl))
-            SectionHeader("locations")
-
-            DefaultWeatherLocations.forEach { location ->
-                LocationRow(
-                    location = location,
-                    selected = location == selectedLocation,
-                    onClick = {
-                        selectedLocation = location
-                    },
-                )
-            }
+            CitiesSection(
+                repository = repository,
+                onActiveCityChanged = { location ->
+                    selectedLocation = location
+                },
+            )
 
             Spacer(Modifier.height(SableSpacing.Xl))
             Text(
@@ -363,52 +366,6 @@ private fun DailySection(daily: List<DayWeather>) {
         }
         Hairline()
     }
-}
-
-@Composable
-private fun LocationRow(
-    location: WeatherLocation,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick)
-                .padding(vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Column {
-            Text(
-                text = location.name,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-            Text(
-                text =
-                    if (selected) {
-                        "selected · manual location"
-                    } else {
-                        location.timezone
-                    },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        Text(
-            text = if (selected) "current" else "›",
-            style = MaterialTheme.typography.labelLarge,
-            color =
-                if (selected) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-        )
-    }
-    Hairline()
 }
 
 @Composable

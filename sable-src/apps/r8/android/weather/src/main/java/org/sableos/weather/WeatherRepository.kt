@@ -1,9 +1,15 @@
 package org.sableos.weather
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.net.Uri
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
+import org.sableos.weather.cities.CityEdit
+import org.sableos.weather.cities.CityRepository
+import org.sableos.weather.cities.ForecastCache
+import org.sableos.weather.cities.KeyValueStore
+import org.sableos.weather.cities.LegacyWeatherCache
 
 internal class WeatherRepository(
     context: Context,
@@ -14,21 +20,26 @@ internal class WeatherRepository(
             WeatherSnapshotContract.PREFERENCES_NAME,
             Context.MODE_PRIVATE,
         )
+    private val store = PreferencesStore(preferences)
+
+    /** The user-managed city list and selection (IR-015). */
+    val cities = CityRepository(store)
+
+    /** One cached forecast per city, keyed by coordinates and timezone (IR-015). */
+    private val forecasts = ForecastCache(store)
+
+    init {
+        LegacyWeatherCache.migrate(store)
+    }
 
     fun load(
         location: WeatherLocation = loadLocation(),
         nowEpochSeconds: Long = System.currentTimeMillis() / 1000,
     ): WeatherUiState {
-        val protocol =
-            preferences.getString(
-                WeatherSnapshotContract.KEY_PROTOCOL,
-                null,
-            )
-        val observed =
-            preferences.getLong(
-                WeatherSnapshotContract.KEY_OBSERVED_EPOCH_SECONDS,
-                0L,
-            )
+        // Only this city's own cached forecast may be shown under its name.
+        val cached = forecasts.read(location.toCity())
+        val protocol = cached?.protocol
+        val observed = cached?.observedEpochSeconds ?: 0L
 
         if (protocol.isNullOrBlank() || observed <= 0L) {
             return WeatherUiState(
@@ -82,8 +93,6 @@ internal class WeatherRepository(
         fahrenheit: Boolean = true,
         nowEpochSeconds: Long = System.currentTimeMillis() / 1000,
     ): WeatherUiState {
-        saveLocation(location)
-
         val cached = load(location, nowEpochSeconds)
         val url =
             WeatherNative.buildForecastUrl(
@@ -144,15 +153,7 @@ internal class WeatherRepository(
             )
         }
 
-        preferences
-            .edit()
-            .putString(
-                WeatherSnapshotContract.KEY_PROTOCOL,
-                protocol,
-            ).putLong(
-                WeatherSnapshotContract.KEY_OBSERVED_EPOCH_SECONDS,
-                nowEpochSeconds,
-            ).apply()
+        forecasts.write(location.toCity(), protocol, nowEpochSeconds)
 
         appContext.contentResolver.notifyChange(
             WeatherSnapshotContract.SNAPSHOT_URI,
@@ -167,24 +168,21 @@ internal class WeatherRepository(
         )
     }
 
-    fun loadLocation(): WeatherLocation {
-        val name =
-            preferences.getString(
-                WeatherSnapshotContract.KEY_LOCATION_NAME,
+    fun loadLocation(): WeatherLocation = cities.load().selected.toLocation()
+
+    /**
+     * Applies the result of a city edit: drops cached forecasts of removed cities and, when the active city
+     * changed, tells the Start/Live snapshot to re-query (it reads the active city's own cache entry).
+     */
+    fun afterCityEdit(edit: CityEdit) {
+        if (!edit.changed) return
+        forecasts.retainOnly(edit.state.cities)
+        if (edit.refresh) {
+            appContext.contentResolver.notifyChange(
+                WeatherSnapshotContract.SNAPSHOT_URI,
                 null,
             )
-        return DefaultWeatherLocations.firstOrNull { location ->
-            location.name == name
-        } ?: DefaultWeatherLocations.first()
-    }
-
-    private fun saveLocation(location: WeatherLocation) {
-        preferences
-            .edit()
-            .putString(
-                WeatherSnapshotContract.KEY_LOCATION_NAME,
-                location.name,
-            ).apply()
+        }
     }
 
     private fun fetchHttps(url: String): String {
@@ -247,7 +245,27 @@ internal object WeatherSnapshotContract {
     const val COLUMN_OBSERVED_AT = "observed_at"
 
     const val PREFERENCES_NAME = "sable_weather_snapshot"
-    const val KEY_PROTOCOL = "protocol"
-    const val KEY_OBSERVED_EPOCH_SECONDS = "observed_epoch_seconds"
-    const val KEY_LOCATION_NAME = "location_name"
+}
+
+/**
+ * [KeyValueStore] over Weather's private preferences. Reads go through [SharedPreferences.getAll] so values that
+ * older builds stored as longs read back as text instead of throwing.
+ */
+internal class PreferencesStore(
+    private val preferences: SharedPreferences,
+) : KeyValueStore {
+    override fun get(key: String): String? = preferences.all[key]?.toString()
+
+    override fun put(
+        key: String,
+        value: String,
+    ) {
+        preferences.edit().putString(key, value).apply()
+    }
+
+    override fun remove(key: String) {
+        preferences.edit().remove(key).apply()
+    }
+
+    override fun keys(): Set<String> = preferences.all.keys.toSet()
 }

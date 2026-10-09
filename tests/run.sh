@@ -231,6 +231,74 @@ else
     fail "board check: $(cat "$tmp/err")"
 fi
 
+# 11. Crash evidence capture (#84): read-only adb use, hashed output, refuses repo paths.
+fakeadb="$tmp/adb"; adblog="$tmp/adb.log"
+cat > "$fakeadb" <<'ADB'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$FAKE_ADB_LOG"
+[[ "${1:-}" == -s ]] && shift 2
+case "${1:-}" in
+    devices) printf 'List of devices attached\nFAKE0001\tdevice\n'; [[ -n "${FAKE_ADB_TWO:-}" ]] && printf 'FAKE0002\tdevice\n'; exit 0 ;;
+    get-state) echo device ;;
+    logcat) case " $* " in *" -c "*) exit 99 ;; esac; echo "E AndroidRuntime: FATAL EXCEPTION: main" ;;
+    pull) printf 'tombstone\n' > "$3" ;;
+    shell)
+        case "$2" in
+            "ls /data/tombstones 2>/dev/null") echo tombstone_00 ;;
+            "ls /data/anr 2>/dev/null") exit 1 ;;
+            "pm list packages") printf 'package:org.sableos.weather\npackage:com.android.phone\n' ;;
+            "dumpsys package org.sableos.weather") printf 'Packages:\n  Package [org.sableos.weather] (abc):\n    versionCode=7 minSdk=30\n    versionName=0.1.0\n    lastUpdateTime=2026-10-09 10:00:00\n' ;;
+            "dumpsys package "*) echo "Unable to find package" ;;
+            getprop) printf '[ro.build.fingerprint]: [fake/q25/fp]\n[ro.sable.release]: [Q4]\n' ;;
+            *) echo "ok: $2" ;;
+        esac ;;
+    *) echo "unexpected adb $*" >&2; exit 99 ;;
+esac
+ADB
+chmod +x "$fakeadb"
+evout="$tmp/evidence"
+if out="$(FAKE_ADB_LOG="$adblog" SABLE_ADB="$fakeadb" bash scripts/capture-crash-evidence.sh --out "$evout" --label t 2>"$tmp/err")"; then
+    d="$(sed -n 's/^OUT=//p' <<<"$out")"
+    ok=yes
+    grep -q '^EVIDENCE=CAPTURED' <<<"$out" || ok=no
+    [[ "$d" == "$evout"/q25-crash-evidence-*-t ]] || ok=no
+    (cd "$d" && sha256sum -c --quiet SHA256SUMS.txt) || ok=no
+    grep -q 'FATAL EXCEPTION' "$d/logcat-crash.txt" || ok=no
+    grep -q '^org.sableos.weather	yes	7	0.1.0' "$d/packages/sable-apps.tsv" || ok=no
+    grep -q '^org.sableos.titan2.keyboard	no' "$d/packages/sable-apps.tsv" || ok=no
+    [[ -f "$d/tombstones/tombstone_00" && -f "$d/dropbox/data_app_crash.txt" && -f "$d/exit-info/all.txt" ]] || ok=no
+    grep -q '^FINGERPRINT=fake/q25/fp' "$d/SUMMARY.txt" || ok=no
+    grep -Eq -- '(^| )(-c|-w|root|unroot|reboot|install|uninstall|clear|rm|wipe|disable|push)( |$)' "$adblog" && ok=no
+    grep -q 'logcat -d -b crash' "$adblog" || ok=no
+    [[ "$ok" == yes ]] && pass "crash evidence capture (fake adb)" || fail "crash evidence capture: $out"
+else
+    fail "crash evidence capture: $(cat "$tmp/err")"
+fi
+if FAKE_ADB_LOG="$adblog" SABLE_ADB="$fakeadb" bash scripts/capture-crash-evidence.sh --out "$PWD/evidence-test" >/dev/null 2>&1; then
+    fail "crash evidence inside repo accepted"
+else
+    pass "crash evidence refuses repo path"
+fi
+rm -rf "$PWD/evidence-test"
+if FAKE_ADB_TWO=1 FAKE_ADB_LOG="$adblog" SABLE_ADB="$fakeadb" bash scripts/capture-crash-evidence.sh --out "$evout" >/dev/null 2>&1; then
+    fail "crash evidence accepted two devices without --serial"
+else
+    pass "crash evidence needs one device or --serial"
+fi
+
+# 12. Static icon/launch audit (#83): launcher entry, label and Sable icon are enforced for every enabled app;
+#     round/adaptive/monochrome are report-only (findings in docs/implementation/t3.md).
+enabled_apps="$(awk -F'\t' '!/^#/ && $1 != "module" && $9 == "yes"' product/q25/apps.tsv | grep -c .)"
+if out="$(python3 -I scripts/audit-app-icons.py 2>&1)" && grep -q '^AUDIT=PASS' <<<"$out" &&
+    grep -q "^AUDIT_APPS=$enabled_apps\$" <<<"$out" && ! grep -q 'extra launcher entries' <<<"$out"; then
+    pass "icon/launch audit ($enabled_apps apps)"
+else
+    fail "icon/launch audit: $out"
+fi
+
+# 13. Pure unit tests of framework patch classes (SKIP unless SABLE_KOTLINC and SABLE_JUNIT are set).
+if ! bash tests/framework/run-pure-tests.sh; then fail "framework pure tests"; fi
+
 echo
 if ((fails)); then echo "CI=FAIL ($fails)"; exit 1; fi
 echo "CI=PASS"
