@@ -272,6 +272,16 @@ else
     pass "crash evidence needs one device or --serial"
 fi
 
+# 12. Static icon/launch audit (#83): launcher entry, label and Sable icon are enforced for every enabled app;
+#     round/adaptive/monochrome are report-only (findings in docs/implementation/t3.md).
+enabled_apps="$(awk -F'\t' '!/^#/ && $1 != "module" && $9 == "yes"' product/q25/apps.tsv | grep -c .)"
+if out="$(python3 -I scripts/audit-app-icons.py 2>&1)" && grep -q '^AUDIT=PASS' <<<"$out" &&
+    grep -q "^AUDIT_APPS=$enabled_apps\$" <<<"$out" && ! grep -q 'extra launcher entries' <<<"$out"; then
+    pass "icon/launch audit ($enabled_apps apps)"
+else
+    fail "icon/launch audit: $out"
+fi
+
 echo
 if ((fails)); then echo "CI=FAIL ($fails)"; exit 1; fi
 echo "CI=PASS"
