@@ -50,7 +50,7 @@ More: [`docs/DEVICE_INFO.md`](docs/DEVICE_INFO.md).
 | [Roadmap](ROADMAP.md) | What's reused from SableOS, what's Q25-specific, and the phases |
 | [Build](docs/BUILD.md) | Host setup, source sync, blobs, building the image |
 | [Install](docs/INSTALL.md) | Unlock, flash, sideload (untested for SableOS) |
-| [Return to stock](docs/RETURN_TO_STOCK.md) | Getting back to Zinwa firmware |
+| [Return to stock](docs/RETURN_TO_STOCK.md) | Backup first, rehearse the restore, recovery ladder back to Zinwa firmware |
 | [Architecture](docs/ARCHITECTURE.md) | How the LineageOS base and Sable layer fit together |
 | [Keyboard and input](docs/KEYBOARD_AND_INPUT.md) | Q25 keyboard, trackpad and key profile |
 | [Qualification](docs/QUALIFICATION.md) | Gates each phase must pass |

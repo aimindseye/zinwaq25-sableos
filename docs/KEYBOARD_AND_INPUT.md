@@ -31,7 +31,7 @@ Sable apps read `ro.sable.profile.id`; the Q25 layer sets it to `zinwa-q25`.
 
 | Concern | Plan | Status |
 |---|---|---|
-| Sable Keyboard Alt layer | Add `ZinwaQ25Kcm` to `KeyLayout` with the table above, `verified=false`, and map `forProfile("zinwa-q25")` to it | to do (Q3), needs app source |
+| Sable Keyboard Alt layer | `KeyLayout.ZinwaQ25Kcm` holds the table above (`verified=false`); `forProfile("zinwa-q25")` selects it. The device's own kcm Alt chars still win when Android delivers them | done in source, not run on device |
 | Sym key | Classic has a Sym key; scan code unknown. Capture with `getevent -lt` | unknown |
 | Call / End keys | Generic kl maps CALL; End is not mapped by name. Capture scan codes; decide End = ENDCALL vs POWER | unknown |
 | Menu / Back / Home | kl maps 139 MENU, 158 BACK, 172 HOME; confirm which physical keys send them | unknown |

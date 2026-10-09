@@ -62,16 +62,33 @@ data class KeyLayout(
         )
 
         /**
-         * Layout for a Sable profile id (`ro.sable.profile.id`). Profiles never inherit each other's evidence: only
-         * "titan2" gets the Titan 2 legends; Elite, Q27 and unknown devices stay on the provisional convention until
-         * captured separately.
+         * Zinwa Q25 Alt layer transcribed from the device's own key character map (LineageOS device/xelex/Q25
+         * configs/keychars/Q25_keyboard.kcm), which matches the printed BlackBerry Classic legends. Not yet run on a
+         * Q25, so it stays unverified; the platform's own Alt char (nativeAlt) still wins when the kcm delivers one.
+         * Sym is not mapped: the Classic Sym key's behaviour has not been captured.
          */
-        fun forProfile(profileId: String?): KeyLayout = if (profileId ==
-            "titan2"
-        ) {
-            Titan2PhotoRead
-        } else {
-            SableProvisional
+        val ZinwaQ25Kcm = SableProvisional.copy(
+            id = "zinwa-q25-kcm-alt",
+            alt = mapOf(
+                'q' to "#", 'w' to "1", 'e' to "2", 'r' to "3", 't' to "(", 'y' to ")",
+                'u' to "_", 'i' to "-", 'o' to "+", 'p' to "@",
+                'a' to "*", 's' to "4", 'd' to "5", 'f' to "6", 'g' to "/", 'h' to ":", 'j' to ";",
+                'k' to "'", 'l' to "\"",
+                'z' to "7", 'x' to "8", 'c' to "9", 'v' to "?", 'b' to "!", 'n' to ",", 'm' to "."
+            ),
+            sym = emptyMap(),
+            verified = false
+        )
+
+        /**
+         * Layout for a Sable profile id (`ro.sable.profile.id`). Profiles never inherit each other's evidence: only
+         * "titan2" gets the Titan 2 legends and only "zinwa-q25" gets the Q25 legends; Elite, Q27 and unknown devices
+         * stay on the provisional convention until captured separately.
+         */
+        fun forProfile(profileId: String?): KeyLayout = when (profileId) {
+            "titan2" -> Titan2PhotoRead
+            "zinwa-q25" -> ZinwaQ25Kcm
+            else -> SableProvisional
         }
     }
 }

@@ -7,7 +7,7 @@ enum class EvidenceLevel { None, ResearchOnly, RetailValidated }
  * mode: modes come from what the device actually reports. Expectations that fail to match are
  * surfaced as [Mismatch]es so stale evidence cannot silently drive behaviour.
  * Titan 2 numbers are the org's research evidence (platform_sable CAMERA_CAPTURE_UX); Elite and
- * Q27 must be captured independently.
+ * Q27 and Q25 must be captured independently.
  */
 data class CameraDeviceProfile(
     val id: String,
@@ -44,8 +44,11 @@ data class CameraDeviceProfile(
         )
         val Titan2Elite = CameraDeviceProfile("titan2-elite", EvidenceLevel.None)
         val ZinwaQ27 = CameraDeviceProfile("zinwa-q27", EvidenceLevel.None)
+
+        // Public spec only (50 MP rear with flash, 8 MP front); ids, sizes and keys not captured on a Q25 yet.
+        val ZinwaQ25 = CameraDeviceProfile("zinwa-q25", EvidenceLevel.None)
         val Unknown = CameraDeviceProfile("unknown", EvidenceLevel.None)
         fun byId(id: String?) =
-            listOf(Titan2, Titan2Elite, ZinwaQ27).firstOrNull { it.id == id } ?: Unknown
+            listOf(Titan2, Titan2Elite, ZinwaQ27, ZinwaQ25).firstOrNull { it.id == id } ?: Unknown
     }
 }
