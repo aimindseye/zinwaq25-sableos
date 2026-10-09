@@ -73,13 +73,46 @@ SP Flash Tool's *Readback* (phone off, automatic mode) is an alternative.
 * Community Q25 files folder (from the asmtronic Q25 guide):
   https://drive.google.com/drive/folders/1dQ3V04yze6P7fXzjs7HB1Plg4L-vDGyQ
 
-Neither has been checked by this project. Use the **OS** archive (a community
-example name is `OS-new-camera-0120-Q25-GMS.zip`), not an OTA. Before use:
-unzip it, run `sha256sum` over the files, and record the build in
-`STOCK_BASIS.md`. Check that it carries `boot.img`, `vendor_boot.img`,
-`dtbo.img`, `vbmeta*.img` and either `super.img` or the logical images
-(`system.img`, `vendor.img`, ...). `restore-stock.sh` lists what it found and
-stops if something it needs is missing.
+Neither has been checked by this project. Use the full firmware package, not an
+OTA. Before use: unzip it, run `sha256sum` over the files, and record the build
+in `STOCK_BASIS.md`. `restore-stock.sh` lists what it found and stops if
+something it needs is missing.
+
+#### The "With-GMS" package (file list only, contents not inspected)
+
+The With-GMS folder holds a folder named `SP1A.210812.016RELEASE-KEYS`, which is
+an **SP Flash Tool package**. It has `MT6789_Android_scatter.xml` and
+`download_agent/`, so the same files work for rung 3. It contains:
+
+* everything rung 1 needs: `boot`, `dtbo`, `vendor_boot`, `vbmeta`,
+  `vbmeta_system`, `vbmeta_vendor` and a single `super.img`;
+* rung 2 firmware: `lk tee scp sspm dpm mcupm md1img gz spmfw pi_img logo`;
+* `preloader_q20_v12_factory.bin`, so the package targets the
+  **q20_v12_factory** board. Check `fastboot getvar product` on your phone
+  before you use it;
+* `userdata.img`, `boot-debug.img` and `vendor_boot-debug.img`, which
+  `restore-stock.sh` ignores.
+
+Its exact layout is tested in `tests/run.sh` (fixture
+`tests/fixtures/stock-gms-sp1a.files`).
+
+**Version.** Despite the folder name, the package is Android 14. Its
+`mssi_64_cn_armv82/build.prop` gives display id `Q25_20.01.2026`, build
+`UP1A.231005.007`, security patch 2024-03-05 and fingerprint
+`Xelex/Xelex10_Ultra/Xelex10_Ultra:14/20240427/UP1v:user/release-keys`. That is
+the same fingerprint as the build this port's blobs come from, but an older FOTA
+release: the package is `Q25_20.01.2026` and the blobs are `Q25_26.03.2026`.
+`mssi_64_cn` is MediaTek's name for the system build. The package uses locale
+`en-US` and carries Google client ids, so it isn't a China-only build.
+
+Check Settings > About > build number on your phone:
+
+* `Q25_20.01.2026` or older: every rung can use this package.
+* Newer, for example `Q25_26.03.2026`: rung 1 is fine, because it only writes
+  what SableOS changed and stock then boots on the newer firmware already on the
+  phone. Treat rungs 2 and 3 with this package as a downgrade of the boot chain.
+  Use them only if rung 1 fails, and prefer a package matching your build when
+  one is available.
 
 ### Rehearsal (gate R0)
 
