@@ -12,14 +12,17 @@
    a rehearsed stock restore ([`RETURN_TO_STOCK.md`](RETURN_TO_STOCK.md),
    [`QUALIFICATION.md`](QUALIFICATION.md)). Don't skip it: it's what makes every
    step below undoable.
-1. Boot stock once and check calls, SMS and (if your carrier has it) VoLTE/VoWiFi
+1. Update the keyboard firmware while still on stock, if Zinwa has a newer one
+   ([`KEYBOARD_AND_INPUT.md`](KEYBOARD_AND_INPUT.md#keyboard-firmware)).
+   SableOS has no updater for it.
+2. Boot stock once and check calls, SMS and (if your carrier has it) VoLTE/VoWiFi
    work. Some carriers provision IMS on first use.
-2. Record your stock build (Settings > About) in the
+3. Record your stock build (Settings > About) in the
    [`STOCK_BASIS.md`](STOCK_BASIS.md) fields.
-3. Remove Google accounts to avoid factory reset protection.
-4. Install `adb` and `fastboot`; enable Developer options > USB debugging and OEM
+4. Remove Google accounts to avoid factory reset protection.
+5. Install `adb` and `fastboot`; enable Developer options > USB debugging and OEM
    unlocking.
-5. Have the build outputs from `bash build/sable.sh q25 Q2 artifacts` and check
+6. Have the build outputs from `bash build/sable.sh q25 Q2 artifacts` and check
    them: `sha256sum -c SHA256SUMS.txt`.
 
 ## 1. Unlock the bootloader

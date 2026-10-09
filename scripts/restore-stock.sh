@@ -170,6 +170,19 @@ case "$product" in
     q20_v12_factory|q20_v1_factory|Q25) ;;
     *) sable_fail "fastboot product is '$product', not a Q25 board (q20_v12_factory, q20_v1_factory)" ;;
 esac
+# Q25 ships on two boards (q20_v1_factory, q20_v12_factory) and stock packages
+# are built per board; the preloader file name says which one.
+pkg_board=""
+if [[ -n "${image_for[preloader]:-}" ]]; then
+    pkg_board="$(basename "${image_for[preloader]}" .bin)"
+    pkg_board="${pkg_board#preloader_}"
+fi
+if [[ -n "$pkg_board" && "$product" != Q25 && "$pkg_board" != "$product" ]]; then
+    if [[ "$SCOPE" == full ]]; then
+        sable_fail "package is for board $pkg_board but the phone is $product; full scope needs a package for $product"
+    fi
+    sable_log "WARNING: package is for board $pkg_board but the phone is $product (scope sable only writes boot images and super)"
+fi
 unlocked="$("${fb[@]}" getvar unlocked 2>&1 | sed -n 's/^unlocked: *//p' | head -n1)"
 [[ "$unlocked" == yes ]] || sable_fail "bootloader reports unlocked='$unlocked'; fastboot flashing needs an unlocked bootloader"
 

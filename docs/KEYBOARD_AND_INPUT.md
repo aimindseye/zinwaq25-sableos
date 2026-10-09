@@ -40,6 +40,32 @@ Sable apps read `ro.sable.profile.id`; the Q25 layer sets it to `zinwa-q25`.
 | Keyboard backlight | kl has KEYBOARD_BACKLIGHT_* codes; confirm sysfs LED and auto-off | unknown |
 | Critical text entry | Lock-screen PIN/password, Wi-Fi password, SIM PIN must work from the hardware keyboard and the soft-keyboard fallback (`CRITICAL_TEXT_ENTRY_GATES.md`) | gate in `QUALIFICATION.md` |
 
+## Keyboard firmware
+
+The keyboard and trackpad run their own firmware on a separate controller.
+Neither SableOS nor `restore-stock.sh` touches it. The community *Update
+Keyboard Firmware* guide (PDF shared in the project, not stored here) updates
+it from **stock** Android:
+
+1. Get the firmware file from Zinwa (through the community mods).
+2. Dial `*#*#1122#*#*` to open the hidden menu and press **Turn off**.
+3. Connect USB (USB-A to USB-C recommended). Hold **Hang Up** and tap
+   **Firmware upgrade**. A USB drive appears on the computer.
+4. Copy the firmware file to the drive; it disconnects by itself.
+5. Press **Exit** and **reboot the phone** (the guide stresses this).
+
+Consequences for SableOS:
+
+* Update the keyboard firmware **on stock before installing SableOS**. The
+  `*#*#1122#*#*` menu is a stock app that LineageOS-based builds don't
+  include, so later updates mean returning to stock or porting that tool
+  (open item, Q3).
+* Record the keyboard firmware version with the Q3 key captures, because
+  scan codes and trackpad behaviour can change between firmware versions.
+* The guide notes that in this mode the keyboard and trackpad work as a USB
+  keyboard for the computer. The controller can present itself as USB HID,
+  which is useful when debugging input.
+
 ## How to capture
 
 ```bash

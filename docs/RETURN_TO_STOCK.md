@@ -39,7 +39,7 @@ Use the first rung that works.
 |---|---|---|---|
 | **1. Reflash what SableOS touched** | SableOS doesn't boot, boot loop, recovery broken | `bash scripts/restore-stock.sh --images DIR` (default scope `sable`: boot, dtbo, vendor_boot, vbmeta*, super, both slots) | fastboot works; stock OS archive |
 | **2. Full fastboot restore** | Rung 1 boots but something is still wrong, or slots are mixed | `bash scripts/restore-stock.sh --images DIR --scope full` (every image in the archive except `userdata`, both slots) | fastboot works; stock OS archive |
-| **3. SP Flash Tool "Firmware Upgrade"** | Fastboot unreachable; phone dead or stuck in a loop before fastboot | Power off, open SP Flash Tool V6, load the stock firmware package, *Firmware Upgrade*, connect USB. Leave `userdata` unticked for a normal update. Reported to also relock the bootloader | Windows/Linux PC; SP Flash firmware package with scatter |
+| **3. SP Flash Tool (Zinwa's own method)** | Fastboot unreachable; phone dead or stuck in a loop before fastboot | Zinwa's official procedure, below: SP Flash Tool V6, *Download-XML* = `download_agent/flash.xml` from the stock package, *Download Only*, then connect the powered-off phone. Writes the whole stock image including preloader and erases data | Windows PC, MediaTek driver; stock package **for your board** |
 | **4. mtkclient write-back of your own backup** | Radio/IMEI lost, or rungs 1-3 don't restore the device | `mtk wl <backup-dir>` (writes every image in the folder; remove images you don't want written first) | mtkclient; your rung-0 backup |
 
 After rung 1 or 2 the bootloader is still unlocked; relocking (`fastboot
@@ -114,6 +114,40 @@ Check Settings > About > build number on your phone:
   Use them only if rung 1 fails, and prefer a package matching your build when
   one is available.
 
+### Zinwa's official flash procedure (rung 3)
+
+From Zinwa's *Q25 Flash OS Tutorial* (EN, 2025-09-18), shared by phone owners.
+The PDF isn't stored in this repo. This is the factory method, so it is the most
+trustworthy way back from a phone that won't reach fastboot:
+
+1. Power the phone off. Use a USB-A to USB-C data cable on a **Windows** PC.
+2. Install the MediaTek driver (`Driver_Auto_Installer_SP_Drivers_20230214`,
+   `DriverInstall.exe`) and SP Flash Tool V6 (`SP_Flash_Tool_Selector_exe_Windows_v1.2308.00.000`,
+   `SPFlashToolV6.exe`). Zinwa distributes both as `Q25-driver-SPFlashTool-Windows.zip`.
+3. Unzip the stock OS package. In SP Flash Tool, go to **Download**, choose
+   **Download-XML** = `download_agent/flash.xml` inside the package, keep
+   **Download Only**, leave *Authentication File* empty, click **Download**, then
+   plug in the phone. If nothing happens for a long time, re-plug the cable.
+4. Wait for the completion pop-up, unplug, and hold Power to boot.
+
+What the screenshots show: chip `MT6789`, storage `UFS`, no authentication file
+needed, and every partition including both `preloader` entries ticked. The
+whole phone is rewritten and **all data is erased**. The calibration
+partitions (`nvram`, `nvdata`, ...) are not in the package, so they are kept.
+
+**Pick the package for your board.** Zinwa's own folder lists
+`Stable-OS-q20_v1_factory_20250910-user.zip`. The With-GMS package above is for
+`q20_v12_factory`. Download Only writes the preloader, so a package for the
+other board can leave the phone unbootable. Find your board with
+`fastboot getvar product` (or in `printgpt.txt`/the preloader name in your
+backup) before you flash. `restore-stock.sh` refuses a full-scope restore
+from a package built for the other board.
+
+The same folder also lists `Stable-OTA-SP1A-210812-016RELEASE-KEYS-20250910-sdcard.zip`,
+which looks like a stock-recovery (SD card) update. It is a possible way to
+reinstall stock without a PC once stock recovery works. It is untested here, so
+don't count on it.
+
 ### Rehearsal (gate R0)
 
 On the stock phone, after the backup and after unlocking:
@@ -137,3 +171,5 @@ result in `QUALIFICATION.md` (R0-RESTORE).
   Upgrade" full restore, mtkclient GPT backup, original GPT in
   https://github.com/MarathonOS/marathon-zinwa-q25/tree/main/gpt).
 * mtkclient: https://github.com/bkerler/mtkclient
+* Zinwa, *Q25 Flash OS Tutorial* (EN, 2025-09-18), PDF shared in the project
+  (SP Flash Tool V6 v1.2308, `flash.xml`, Download Only, file names above).

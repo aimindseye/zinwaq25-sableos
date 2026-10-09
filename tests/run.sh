@@ -140,6 +140,26 @@ else
     fail "restore-stock failed on With-GMS layout"
 fi
 
+# 10. Full-scope restore refuses a package built for the other Q25 board.
+fakefb="$tmp/fastboot"
+cat > "$fakefb" <<'FB'
+#!/usr/bin/env bash
+case "$*" in
+    devices) echo "FAKE0001 fastboot" ;;
+    "getvar product") echo "product: q20_v1_factory" >&2 ;;
+    "getvar unlocked") echo "unlocked: yes" >&2 ;;
+    *) echo "unexpected fastboot $*" >&2; exit 99 ;;
+esac
+FB
+chmod +x "$fakefb"
+if SABLE_FASTBOOT="$fakefb" bash scripts/restore-stock.sh --images "$gms" --scope full --execute --yes >/dev/null 2>"$tmp/err"; then
+    fail "full restore accepted a q20_v12 package on a q20_v1 phone"
+elif grep -q "needs a package for q20_v1_factory" "$tmp/err"; then
+    pass "restore-stock refuses other-board package in full scope"
+else
+    fail "board check: $(cat "$tmp/err")"
+fi
+
 echo
 if ((fails)); then echo "CI=FAIL ($fails)"; exit 1; fi
 echo "CI=PASS"
