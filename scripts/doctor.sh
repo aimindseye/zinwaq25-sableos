@@ -77,7 +77,7 @@ else
 fi
 
 if [[ -d "$SABLE_REPO_ROOT/sable-src" ]]; then
-    check sable-src yes "$(cat "$SABLE_REPO_ROOT/sable-src/SOURCE_IMPORT.txt" 2>/dev/null | head -n1)"
+    check sable-src yes "$(head -n1 "$SABLE_REPO_ROOT/sable-src/SOURCE_IMPORT.txt" 2>/dev/null)"
 else
     warn sable-src "not imported (Q1 builds don't need it; see apps/README.md)"
 fi
