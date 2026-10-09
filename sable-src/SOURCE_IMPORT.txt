@@ -1,5 +1,5 @@
 sableos c538fc0e57e4592e11b27c93870b79ee48f7fbfc
-imported 20261009T200909Z
+imported 20261009T210744Z
 path apps/titan2/platform
 path apps/r8/android
 path apps/r8/rust
@@ -16,3 +16,9 @@ path tools/gen_phonetic.py
 path tools/gen_pinyin_dict.py
 path tools/gen_pinyin_license_bundle.py
 path tools/indic_common.py
+titan2-temp 7570470d1c5a27ef94ed4751f5ccb91af41761fe
+overlay apps/titan2/platform
+overlay apps/common/reader
+overlay reference
+removed apps/r8/android/reader (superseded by apps/common/reader)
+patch 0001-zinwa-q25-keyboard-camera-profiles.patch

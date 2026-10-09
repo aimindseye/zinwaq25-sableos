@@ -1,0 +1,7 @@
+# Reader-owned Detekt overlay. It is listed BEFORE the canonical config/detekt.yml (byte-exact, never edited) so
+# these keys win. It exists for one reason: Compose requires PascalCase @Composable function names, and the frozen
+# canonical config does not set ignoreAnnotated. Nothing else is relaxed here.
+naming:
+  FunctionNaming:
+    ignoreAnnotated:
+      - Composable

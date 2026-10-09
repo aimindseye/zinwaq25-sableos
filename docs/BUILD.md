@@ -75,8 +75,8 @@ The app sources are already in `sable-src/`, imported from SableOS at a pinned
 commit (see [`../apps/README.md`](../apps/README.md)). Build them:
 
 ```bash
-bash build/sable.sh q25 Q2 apps          # rows with enabled=yes in product/q25/apps.tsv
-bash build/sable.sh q25 Q2 apps --all    # also the common R8 app set
+bash build/sable.sh q25 Q2 apps          # every row with enabled=yes in product/q25/apps.tsv (all of them)
+bash build/sable.sh q25 Q2 apps --all    # also rows set to enabled=no
 ```
 
 APKs, a manifest and SHA256SUMS land in `~/sable-q25/apps-out/<stamp>/`
