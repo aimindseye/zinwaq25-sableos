@@ -119,6 +119,20 @@ if fwrun check | grep -q '^APPLIES  packages/apps/Demo 0001-demo.patch' &&
 else
     fail "framework patches: $(cat "$tmp/err")"
 fi
+# A second patch in the same project may build on the first.
+git -C "$proj" apply "$fw/packages/apps/Demo/0001-demo.patch" && git -C "$proj" add config.txt
+printf 'home=sable\nrecents=quickstep\n' > "$proj/config.txt"
+git -C "$proj" diff > "$fw/packages/apps/Demo/0002-demo.patch"
+git -C "$proj" reset -q --hard
+if fwrun check | grep -q '^APPLIES  packages/apps/Demo 0001-demo.patch 0002-demo.patch' &&
+    fwrun apply | grep -q '^FRAMEWORK_PATCH_COUNT=2' && grep -q 'recents=quickstep' "$proj/config.txt" &&
+    fwrun check | grep -q '^APPLIED  packages/apps/Demo' &&
+    fwrun revert >/dev/null && grep -qx 'home=launcher3' "$proj/config.txt"; then
+    pass "framework patches stack within a project"
+else
+    fail "stacked framework patches: $(cat "$tmp/err")"
+fi
+rm "$fw/packages/apps/Demo/0002-demo.patch"
 printf 'home=vendor\n' > "$proj/config.txt"
 if fwrun apply >/dev/null || [[ -e "$stamp" ]]; then fail "framework patch conflict not refused"; else pass "framework patch conflict refused"; fi
 git -C "$proj" checkout -q -- config.txt

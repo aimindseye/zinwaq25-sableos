@@ -4,7 +4,8 @@
 #
 # patches/framework/<project path>/*.patch are `git format-patch` files for the
 # LineageOS project at <project path> (for example packages/apps/Launcher3),
-# applied in name order with `git apply`, so the projects stay on their synced
+# applied in name order with `git apply` (all patches of one project in one
+# call, so later ones may build on earlier ones), so the projects stay on their synced
 # commits and `repo sync` still works. What was applied is recorded in
 # $SABLE_ANDROID_ROOT/.sable-q25-framework-patches so `revert` undoes exactly
 # that, in reverse order.
@@ -39,41 +40,88 @@ project_dir() {
     printf '%s\n' "$dir"
 }
 
+# Patches of one project are checked and applied together, in name order, so a
+# later patch may build on an earlier one in the same project.
+patches_of() {
+    local want="$1" project patch_file
+    while IFS=$'\t' read -r project patch_file; do
+        [[ "$project" == "$want" ]] && printf '%s\n' "$patch_file"
+    done
+}
+
+projects_in() {
+    cut -f1 | awk '!seen[$0]++'
+}
+
+reverse_lines() {
+    awk '{ l[NR] = $0 } END { for (i = NR; i >= 1; i--) print l[i] }'
+}
+
+# seq_check DIR [--reverse] PATCH...: would the patches apply one after another
+# to the working tree? `git apply --check` with several patches checks each one
+# against the unpatched tree, so try them in order on a throwaway index holding
+# the working tree instead. The working tree and the real index are untouched.
+seq_check() {
+    local dir="$1"; shift
+    local -a flags=()
+    if [[ "${1:-}" == --reverse ]]; then flags=(--reverse); shift; fi
+    local idx rc=0 f
+    idx="$(mktemp)"
+    if GIT_INDEX_FILE="$idx" git -C "$dir" read-tree HEAD 2>/dev/null &&
+        GIT_INDEX_FILE="$idx" git -C "$dir" add -A . 2>/dev/null; then
+        for f in "$@"; do
+            GIT_INDEX_FILE="$idx" git -C "$dir" apply --cached "${flags[@]}" "$f" 2>/dev/null || { rc=1; break; }
+        done
+    else
+        rc=1
+    fi
+    rm -f "$idx"
+    return "$rc"
+}
+
 revert_stamped() {
     [[ -f "$STAMP" ]] || return 0
-    local -a lines=()
-    mapfile -t lines < "$STAMP"
-    local i project patch_file dir
-    for ((i = ${#lines[@]} - 1; i >= 0; i--)); do
-        IFS=$'\t' read -r project patch_file <<<"${lines[$i]}"
+    local project dir
+    local -a files=()
+    while IFS= read -r project; do
         [[ -n "$project" ]] || continue
         dir="$(project_dir "$project")"
-        [[ -f "$patch_file" ]] || sable_fail "recorded patch is gone: $patch_file (restore it or run 'repo sync $project')"
-        if git -C "$dir" apply --reverse --check "$patch_file" 2>/dev/null; then
-            git -C "$dir" apply --reverse "$patch_file"
-            sable_log "reverted $(basename "$patch_file") in $project"
+        mapfile -t files < <(patches_of "$project" < "$STAMP" | reverse_lines)
+        for f in "${files[@]}"; do
+            [[ -f "$f" ]] || sable_fail "recorded patch is gone: $f (restore it or run 'repo sync $project')"
+        done
+        if seq_check "$dir" --reverse "${files[@]}"; then
+            for f in "${files[@]}"; do git -C "$dir" apply --reverse "$f"; done
+            sable_log "reverted ${#files[@]} patch(es) in $project"
         else
-            sable_fail "can't revert $(basename "$patch_file") in $project; run 'repo sync -d $project'"
+            sable_fail "can't revert the Sable patches in $project; run 'repo sync -d $project'"
         fi
-    done
+    done < <(projects_in < "$STAMP" | reverse_lines)
     rm -f "$STAMP"
 }
+
+ALL="$(list_patches)"
+PROJECTS=()
+[[ -z "$ALL" ]] || mapfile -t PROJECTS < <(projects_in <<<"$ALL")
 
 case "$ACTION" in
     check)
         n=0
-        while IFS=$'\t' read -r project patch_file; do
+        for project in "${PROJECTS[@]}"; do
             dir="$(project_dir "$project")"
-            if git -C "$dir" apply --check "$patch_file" 2>/dev/null; then
-                echo "APPLIES  $project $(basename "$patch_file")"
-            elif git -C "$dir" apply --reverse --check "$patch_file" 2>/dev/null; then
-                echo "APPLIED  $project $(basename "$patch_file")"
+            mapfile -t files < <(patches_of "$project" <<<"$ALL")
+            names="$(for f in "${files[@]}"; do basename "$f"; done | paste -sd' ')"
+            mapfile -t rev < <(printf '%s\n' "${files[@]}" | reverse_lines)
+            if seq_check "$dir" "${files[@]}"; then
+                echo "APPLIES  $project $names"
+            elif seq_check "$dir" --reverse "${rev[@]}"; then
+                echo "APPLIED  $project $names"
             else
-                echo "CONFLICT $project $(basename "$patch_file")"
+                echo "CONFLICT $project $names"
                 n=$((n + 1))
             fi
-        done < <(list_patches)
-        ((n == 0)) || sable_fail "$n framework patch(es) don't apply to this tree"
+        done
+        ((n == 0)) || sable_fail "framework patches don't apply to $n project(s) in this tree"
         echo "FRAMEWORK_PATCHES=CHECK_PASS"
         ;;
     revert)
@@ -83,21 +131,25 @@ case "$ACTION" in
     apply)
         # Start from a clean state so re-staging is idempotent.
         revert_stamped
-        mapfile -t entries < <(list_patches)
-        for entry in "${entries[@]}"; do
-            IFS=$'\t' read -r project patch_file <<<"$entry"
+        for project in "${PROJECTS[@]}"; do
             dir="$(project_dir "$project")"
-            git -C "$dir" apply --check "$patch_file" 2>/dev/null \
-                || sable_fail "$(basename "$patch_file") doesn't apply to $project (LineageOS moved? see patches/README.md)"
+            mapfile -t files < <(patches_of "$project" <<<"$ALL")
+            seq_check "$dir" "${files[@]}" \
+                || sable_fail "the Sable patches don't apply to $project (LineageOS moved? see patches/README.md)"
         done
         : > "$STAMP"
-        for entry in "${entries[@]}"; do
-            IFS=$'\t' read -r project patch_file <<<"$entry"
-            git -C "$(project_dir "$project")" apply "$patch_file"
-            printf '%s\t%s\n' "$project" "$patch_file" >> "$STAMP"
-            sable_log "applied $(basename "$patch_file") in $project"
+        count=0
+        for project in "${PROJECTS[@]}"; do
+            dir="$(project_dir "$project")"
+            mapfile -t files < <(patches_of "$project" <<<"$ALL")
+            for f in "${files[@]}"; do
+                git -C "$dir" apply "$f"
+                printf '%s\t%s\n' "$project" "$f" >> "$STAMP"
+                sable_log "applied $(basename "$f") in $project"
+                count=$((count + 1))
+            done
         done
         echo "FRAMEWORK_PATCHES=APPLIED"
-        echo "FRAMEWORK_PATCH_COUNT=${#entries[@]}"
+        echo "FRAMEWORK_PATCH_COUNT=$count"
         ;;
 esac
