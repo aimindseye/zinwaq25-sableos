@@ -1,0 +1,51 @@
+From 9042064cfeaf1e7f417bd1db3da1811a103bd085 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 9 Oct 2026 21:54:00 +0000
+Subject: [PATCH 102/102] SableOS: Quick Settings tiles use the Sable card and
+ control radii
+
+Tiles morphed between a 50dp pill (inactive) and 24dp corners (active).
+Use the DESIGN-KF-B shape tokens instead: 12dp for tiles (card radius) and
+8dp for the active icon background (small control radius). Active and
+inactive tiles keep the same outline, so state is carried by color and
+the focus ring (which follows the tile shape) stays a stable rectangle.
+Constants only; no behaviour, semantics or click handling changes.
+---
+ .../qs/panels/ui/compose/infinitegrid/CommonTile.kt         | 3 ++-
+ .../systemui/qs/panels/ui/compose/infinitegrid/Tile.kt      | 6 ++++--
+ 2 files changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/CommonTile.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/CommonTile.kt
+index 0ae39661..f01c47a2 100644
+--- a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/CommonTile.kt
++++ b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/CommonTile.kt
+@@ -422,7 +422,8 @@ object CommonTileDefaults {
+     val TileEndPadding = 12.dp
+     val TileDualTargetEndPadding = 8.dp
+     val TileArrangementPadding = 6.dp
+-    val InactiveCornerRadius = 50.dp
++    // SableOS card radius (DESIGN-KF-B CARD_RADIUS=12dp) instead of the 50dp pill.
++    val InactiveCornerRadius = 12.dp
+     val TileLabelBlurWidth = 32.dp
+     const val TILE_MARQUEE_ITERATIONS = 1
+     const val TILE_INITIAL_DELAY_MILLIS = 2000
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt
+index 1d254bff..447878cb 100644
+--- a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt
++++ b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt
+@@ -479,8 +479,10 @@ data class TileColors(
+ )
+ 
+ private object TileDefaults {
+-    val ActiveIconCornerRadius = 16.dp
+-    val ActiveTileCornerRadius = 24.dp
++    // SableOS shape tokens (DESIGN-KF-B): small control 8dp, card 12dp. Active and inactive
++    // tiles share one shape; state is shown by color, never by a shape change alone.
++    val ActiveIconCornerRadius = 8.dp
++    val ActiveTileCornerRadius = 12.dp
+ 
+     /** An active tile uses the active color as background */
+     @Composable
+-- 
+2.43.0
+

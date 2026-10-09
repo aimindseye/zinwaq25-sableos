@@ -9,8 +9,8 @@
 
     <application
         android:allowBackup="false"
-        android:icon="@drawable/ic_sable_weather"
-        android:roundIcon="@drawable/ic_sable_weather"
+        android:icon="@mipmap/ic_sable_weather"
+        android:roundIcon="@mipmap/ic_sable_weather_round"
         android:label="Sable Weather"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar"

@@ -1,0 +1,465 @@
+From 24b5a6df64bf0e493e552f9f6a4eeed97d6b9ddc Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 9 Oct 2026 21:51:33 +0000
+Subject: [PATCH 402/402] SableOS: Sable Keyboard readiness step before Wi-Fi
+ and screen lock
+
+Adds a Keyboard step after Locale in the owner script. It reads whether
+Sable Keyboard is installed, enabled and selected, says so, and offers one
+system screen to fix it (Sable Keyboard settings, the input method picker,
+or input method settings), so Wi-Fi passwords and PINs in the following
+steps can be typed on the physical keys. It writes no setting and Next is
+always enabled; if the step cannot be resolved the wizard skips it.
+
+State decisions live in the pure SableKeyboardState class (IR-014).
+---
+ AndroidManifest.xml                           |  19 +++
+ res/drawable/ic_sable_keyboard_setup.xml      |  14 ++
+ res/layout/sable_keyboard_page.xml            |  62 +++++++
+ res/raw/lineage_wizard_script.xml             |   7 +
+ res/values/sable_strings.xml                  |  19 +++
+ .../setupwizard/SableKeyboardActivity.java    | 157 ++++++++++++++++++
+ .../setupwizard/sable/SableKeyboardState.java |  96 +++++++++++
+ 7 files changed, 374 insertions(+)
+ create mode 100644 res/drawable/ic_sable_keyboard_setup.xml
+ create mode 100644 res/layout/sable_keyboard_page.xml
+ create mode 100644 res/values/sable_strings.xml
+ create mode 100644 src/org/lineageos/setupwizard/SableKeyboardActivity.java
+ create mode 100644 src/org/lineageos/setupwizard/sable/SableKeyboardState.java
+
+diff --git a/AndroidManifest.xml b/AndroidManifest.xml
+index 1808b7b9..2b65ac44 100644
+--- a/AndroidManifest.xml
++++ b/AndroidManifest.xml
+@@ -46,6 +46,11 @@
+         android:name="org.lineageos.setupwizard.SETUP_FINISHED"
+         android:permission="lineageos.permission.FINISH_SETUP" />
+ 
++    <!-- SableOS: the keyboard readiness step checks that Sable Keyboard is installed. -->
++    <queries>
++        <package android:name="org.sableos.titan2.keyboard" />
++    </queries>
++
+     <application
+         android:label="@string/app_name"
+         android:icon="@mipmap/ic_launcher"
+@@ -140,6 +145,20 @@
+             </intent-filter>
+         </activity>
+ 
++        <!-- SableOS: keyboard readiness step (IR-014). -->
++        <activity
++            android:name=".SableKeyboardActivity"
++            android:label="@string/activity_label_empty"
++            android:configChanges="mcc|mnc|keyboard|keyboardHidden"
++            android:immersive="true"
++            android:exported="false"
++            android:windowSoftInputMode="stateAlwaysHidden">
++            <intent-filter>
++                <action android:name="org.sableos.setupwizard.SABLE_KEYBOARD" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
++        </activity>
++
+         <activity
+             android:name=".SimMissingActivity"
+             android:label="@string/activity_label_empty"
+diff --git a/res/drawable/ic_sable_keyboard_setup.xml b/res/drawable/ic_sable_keyboard_setup.xml
+new file mode 100644
+index 00000000..66a2bf46
+--- /dev/null
++++ b/res/drawable/ic_sable_keyboard_setup.xml
+@@ -0,0 +1,14 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     SPDX-FileCopyrightText: The SableOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp"
++    android:height="24dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <path
++        android:fillColor="#FFFFFFFF"
++        android:pathData="M20,5H4C2.9,5 2,5.9 2,7v10c0,1.1 0.9,2 2,2h16c1.1,0 2,-0.9 2,-2V7C22,5.9 21.1,5 20,5zM20,17H4V7h16V17zM6,8h2v2H6V8zM9,8h2v2H9V8zM12,8h2v2h-2V8zM15,8h2v2h-2V8zM6,11h2v2H6V11zM9,11h2v2H9V11zM12,11h2v2h-2V11zM15,11h2v2h-2V11zM8,14h8v2H8V14z" />
++</vector>
+diff --git a/res/layout/sable_keyboard_page.xml b/res/layout/sable_keyboard_page.xml
+new file mode 100644
+index 00000000..d42b8500
+--- /dev/null
++++ b/res/layout/sable_keyboard_page.xml
+@@ -0,0 +1,62 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     SPDX-FileCopyrightText: The SableOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<com.google.android.setupdesign.GlifLayout
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    android:id="@+id/setup_wizard_layout"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent">
++
++    <LinearLayout
++        android:orientation="vertical"
++        android:layout_width="match_parent"
++        android:layout_height="match_parent"
++        style="@style/SudContentFrame">
++
++        <ScrollView
++            android:id="@+id/page"
++            android:layout_width="match_parent"
++            android:layout_height="0dp"
++            android:layout_weight="1">
++
++            <LinearLayout
++                android:orientation="vertical"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content">
++
++                <TextView
++                    android:id="@+id/sable_keyboard_status"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:paddingVertical="8dp"
++                    android:textAppearance="?android:attr/textAppearanceMedium"
++                    android:textColor="?android:attr/textColorPrimary" />
++
++                <TextView
++                    android:id="@+id/sable_keyboard_hint"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:paddingVertical="8dp"
++                    android:text="@string/sable_keyboard_hint"
++                    android:textColor="?android:attr/textColorSecondary" />
++
++                <Button
++                    android:id="@+id/sable_keyboard_offer"
++                    android:layout_width="wrap_content"
++                    android:layout_height="wrap_content"
++                    android:minHeight="48dp"
++                    android:visibility="gone"
++                    style="@style/SudGlifButton.Secondary" />
++
++            </LinearLayout>
++        </ScrollView>
++
++        <org.lineageos.setupwizard.NavigationLayout
++            android:id="@+id/navigation_bar"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content" />
++
++    </LinearLayout>
++</com.google.android.setupdesign.GlifLayout>
+diff --git a/res/raw/lineage_wizard_script.xml b/res/raw/lineage_wizard_script.xml
+index 0ecce5a9..8dc45c93 100644
+--- a/res/raw/lineage_wizard_script.xml
++++ b/res/raw/lineage_wizard_script.xml
+@@ -23,6 +23,13 @@
+     <WizardAction
+         wizard:uri="intent:#Intent;action=org.lineageos.setupwizard.LINEAGE_LOCALE;end"
+         id="locale">
++        <result wizard:action="sable_keyboard" />
++    </WizardAction>
++
++    <!-- SableOS: keyboard readiness before Wi-Fi and screen lock text entry (IR-014). -->
++    <WizardAction
++        wizard:uri="intent:#Intent;action=org.sableos.setupwizard.SABLE_KEYBOARD;end"
++        id="sable_keyboard">
+         <result wizard:action="sim_missing" />
+     </WizardAction>
+ 
+diff --git a/res/values/sable_strings.xml b/res/values/sable_strings.xml
+new file mode 100644
+index 00000000..f36d1a1a
+--- /dev/null
++++ b/res/values/sable_strings.xml
+@@ -0,0 +1,19 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     SPDX-FileCopyrightText: The SableOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<resources>
++    <!-- SableOS keyboard readiness step (IR-014). -->
++    <string name="setup_sable_keyboard">Keyboard</string>
++    <string name="sable_keyboard_summary">Sable Keyboard types with the physical keys, including Wi‑Fi passwords and PINs in the next steps.</string>
++    <string name="sable_keyboard_selected">Sable Keyboard is ready.</string>
++    <string name="sable_keyboard_not_selected">Sable Keyboard is installed but another keyboard is selected. Choose Sable Keyboard, or continue with the current one.</string>
++    <string name="sable_keyboard_not_enabled">Sable Keyboard is not turned on. Turn it on in keyboard settings, or continue with the current keyboard.</string>
++    <string name="sable_keyboard_unavailable">Sable Keyboard is not part of this build. Setup continues with the standard keyboard.</string>
++    <string name="sable_keyboard_unknown">The keyboard state could not be read. You can choose a keyboard or continue.</string>
++    <string name="sable_keyboard_hint">Arrows and Tab move between items, Enter selects. Back returns to the previous step. You can change keyboards later in Settings, and Sable Setup checks keyboard and home defaults after setup.</string>
++    <string name="sable_keyboard_offer_settings">Keyboard settings</string>
++    <string name="sable_keyboard_offer_pick">Choose keyboard</string>
++    <string name="sable_keyboard_offer_enable">Turn on keyboard</string>
++</resources>
+diff --git a/src/org/lineageos/setupwizard/SableKeyboardActivity.java b/src/org/lineageos/setupwizard/SableKeyboardActivity.java
+new file mode 100644
+index 00000000..ca67a89d
+--- /dev/null
++++ b/src/org/lineageos/setupwizard/SableKeyboardActivity.java
+@@ -0,0 +1,157 @@
++/*
++ * SPDX-FileCopyrightText: The SableOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++package org.lineageos.setupwizard;
++
++import android.annotation.Nullable;
++import android.content.ComponentName;
++import android.content.Intent;
++import android.content.pm.PackageManager;
++import android.os.Bundle;
++import android.provider.Settings;
++import android.util.Log;
++import android.view.View;
++import android.view.inputmethod.InputMethodInfo;
++import android.view.inputmethod.InputMethodManager;
++import android.widget.Button;
++import android.widget.TextView;
++
++import org.lineageos.setupwizard.sable.SableKeyboardState;
++import org.lineageos.setupwizard.sable.SableKeyboardState.Availability;
++import org.lineageos.setupwizard.sable.SableKeyboardState.Offer;
++
++import java.util.ArrayList;
++import java.util.List;
++
++/**
++ * SableOS keyboard readiness step (IR-014), placed before Wi-Fi and screen lock so the
++ * user knows whether the physical keys will type passwords and PINs. It only reads state
++ * and opens system screens the user confirms in; Next is always enabled.
++ */
++public class SableKeyboardActivity extends BaseSetupWizardActivity {
++    private static final String TAG = "SableKeyboardActivity";
++
++    private TextView mStatus;
++    private Button mOffer;
++
++    @Override
++    protected void onCreate(@Nullable Bundle savedInstanceState) {
++        super.onCreate(savedInstanceState);
++        getGlifLayout().setDescriptionText(getString(R.string.sable_keyboard_summary));
++        mStatus = findViewById(R.id.sable_keyboard_status);
++        mOffer = findViewById(R.id.sable_keyboard_offer);
++        setNextAllowed(true);
++    }
++
++    @Override
++    protected void onResume() {
++        super.onResume();
++        // Re-read after returning from the picker or keyboard settings.
++        refresh();
++    }
++
++    private void refresh() {
++        final Availability availability = readAvailability();
++        mStatus.setText(statusText(availability));
++        bindOffer(SableKeyboardState.offer(availability));
++        setNextAllowed(SableKeyboardState.canContinue(availability));
++    }
++
++    private Availability readAvailability() {
++        try {
++            boolean installed;
++            try {
++                getPackageManager().getPackageInfo(SableKeyboardState.PACKAGE, 0);
++                installed = true;
++            } catch (PackageManager.NameNotFoundException e) {
++                installed = false;
++            }
++            final InputMethodManager imm = getSystemService(InputMethodManager.class);
++            List<String> enabled = null;
++            if (imm != null) {
++                enabled = new ArrayList<>();
++                for (InputMethodInfo info : imm.getEnabledInputMethodList()) {
++                    enabled.add(info.getId());
++                }
++            }
++            final String selected = Settings.Secure.getString(getContentResolver(),
++                    Settings.Secure.DEFAULT_INPUT_METHOD);
++            return SableKeyboardState.classify(true, installed, enabled, selected);
++        } catch (RuntimeException e) {
++            Log.w(TAG, "could not read input method state", e);
++            return SableKeyboardState.classify(false, false, null, null);
++        }
++    }
++
++    private int statusText(Availability availability) {
++        switch (availability) {
++            case SABLE_SELECTED: return R.string.sable_keyboard_selected;
++            case SABLE_ENABLED_NOT_SELECTED: return R.string.sable_keyboard_not_selected;
++            case SABLE_NOT_ENABLED: return R.string.sable_keyboard_not_enabled;
++            case UNAVAILABLE: return R.string.sable_keyboard_unavailable;
++            case UNKNOWN:
++            default:
++                return R.string.sable_keyboard_unknown;
++        }
++    }
++
++    private void bindOffer(Offer offer) {
++        final Intent target;
++        final int label;
++        switch (offer) {
++            case KEYBOARD_SETTINGS:
++                target = new Intent(Intent.ACTION_MAIN).setComponent(new ComponentName(
++                        SableKeyboardState.PACKAGE, SableKeyboardState.SETTINGS_CLASS));
++                label = R.string.sable_keyboard_offer_settings;
++                break;
++            case INPUT_SETTINGS:
++                target = new Intent(Settings.ACTION_INPUT_METHOD_SETTINGS);
++                label = R.string.sable_keyboard_offer_enable;
++                break;
++            case PICK_KEYBOARD:
++                target = null;
++                label = R.string.sable_keyboard_offer_pick;
++                break;
++            case NONE:
++            default:
++                mOffer.setVisibility(View.GONE);
++                return;
++        }
++        if (target != null && target.resolveActivity(getPackageManager()) == null) {
++            // Only offer screens that exist on this build.
++            mOffer.setVisibility(View.GONE);
++            return;
++        }
++        mOffer.setText(label);
++        mOffer.setVisibility(View.VISIBLE);
++        mOffer.setOnClickListener(v -> {
++            try {
++                if (target == null) {
++                    final InputMethodManager imm = getSystemService(InputMethodManager.class);
++                    if (imm != null) imm.showInputMethodPicker();
++                } else {
++                    startActivity(target);
++                }
++            } catch (RuntimeException e) {
++                Log.w(TAG, "could not open keyboard screen", e);
++            }
++        });
++    }
++
++    @Override
++    protected int getLayoutResId() {
++        return R.layout.sable_keyboard_page;
++    }
++
++    @Override
++    protected int getTitleResId() {
++        return R.string.setup_sable_keyboard;
++    }
++
++    @Override
++    protected int getIconResId() {
++        return R.drawable.ic_sable_keyboard_setup;
++    }
++}
+diff --git a/src/org/lineageos/setupwizard/sable/SableKeyboardState.java b/src/org/lineageos/setupwizard/sable/SableKeyboardState.java
+new file mode 100644
+index 00000000..b58852fb
+--- /dev/null
++++ b/src/org/lineageos/setupwizard/sable/SableKeyboardState.java
+@@ -0,0 +1,96 @@
++/*
++ * SPDX-FileCopyrightText: The SableOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++package org.lineageos.setupwizard.sable;
++
++import java.util.List;
++
++/**
++ * Sable Keyboard readiness for the setup keyboard step (SableOS IR-014). Pure Java: the
++ * activity reads the platform state and this class decides what to say and offer.
++ *
++ * <p>The step is informational: every state can continue. Sable Keyboard when it is the
++ * selected input method; otherwise the user can pick it, enable it, or go on with whatever
++ * keyboard the device has. Nothing here writes a setting.
++ */
++public final class SableKeyboardState {
++
++    private SableKeyboardState() {}
++
++    public static final String PACKAGE = "org.sableos.titan2.keyboard";
++    public static final String IME_CLASS = PACKAGE + ".android.SableImeService";
++    public static final String SETTINGS_CLASS = PACKAGE + ".android.KeyboardSettingsActivity";
++
++    public enum Availability {
++        /** Sable Keyboard is the selected input method. */
++        SABLE_SELECTED,
++        /** Enabled but another input method is selected. */
++        SABLE_ENABLED_NOT_SELECTED,
++        /** Installed but not enabled as an input method. */
++        SABLE_NOT_ENABLED,
++        /** Not installed on this build. */
++        UNAVAILABLE,
++        /** The input method state could not be read. */
++        UNKNOWN
++    }
++
++    /** The one extra action the step offers besides Next. */
++    public enum Offer { KEYBOARD_SETTINGS, PICK_KEYBOARD, INPUT_SETTINGS, NONE }
++
++    /** True for "pkg/.Cls", "pkg/pkg.Cls" and surrounding whitespace forms of Sable's IME id. */
++    public static boolean isSableIme(String id) {
++        if (id == null) return false;
++        final String clean = id.trim();
++        final int slash = clean.indexOf('/');
++        if (slash <= 0 || slash == clean.length() - 1) return false;
++        final String pkg = clean.substring(0, slash);
++        String cls = clean.substring(slash + 1);
++        if (cls.startsWith(".")) cls = pkg + cls;
++        return PACKAGE.equals(pkg) && IME_CLASS.equals(cls);
++    }
++
++    /**
++     * @param readOk the input method state was read without error
++     * @param installed the Sable Keyboard package is installed
++     * @param enabledIds ids of the enabled input methods (may be null when unreadable)
++     * @param selectedId the selected input method id (Settings.Secure.DEFAULT_INPUT_METHOD)
++     */
++    public static Availability classify(boolean readOk, boolean installed,
++            List<String> enabledIds, String selectedId) {
++        if (!readOk) return Availability.UNKNOWN;
++        if (!installed) return Availability.UNAVAILABLE;
++        if (isSableIme(selectedId)) return Availability.SABLE_SELECTED;
++        if (enabledIds == null) return Availability.UNKNOWN;
++        for (String id : enabledIds) {
++            if (isSableIme(id)) return Availability.SABLE_ENABLED_NOT_SELECTED;
++        }
++        return Availability.SABLE_NOT_ENABLED;
++    }
++
++    public static Offer offer(Availability availability) {
++        switch (availability) {
++            case SABLE_SELECTED: return Offer.KEYBOARD_SETTINGS;
++            case SABLE_ENABLED_NOT_SELECTED: return Offer.PICK_KEYBOARD;
++            case SABLE_NOT_ENABLED: return Offer.INPUT_SETTINGS;
++            case UNKNOWN: return Offer.PICK_KEYBOARD;
++            case UNAVAILABLE:
++            default:
++                return Offer.NONE;
++        }
++    }
++
++    /** Setup never stops here: every state may continue. */
++    public static boolean canContinue(Availability availability) {
++        return true;
++    }
++
++    /**
++     * A physical keyboard never forces the on-screen keyboard open; without one, the
++     * on-screen keyboard is always offered.
++     */
++    public static boolean showSoftOnFocus(boolean physicalKeyboard) {
++        return !physicalKeyboard;
++    }
++}
+-- 
+2.43.0
+

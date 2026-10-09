@@ -1,0 +1,133 @@
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt
+index 05bf875..38ad98b 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt
+@@ -21,7 +21,6 @@ import org.sableos.hub.platform.ProfileDirectory
+ import org.sableos.hub.policy.AndroidSettingsRoutes
+ import org.sableos.hub.policy.HubHandoffRouter
+ import org.sableos.hub.policy.HubHandoffTarget
+-import org.sableos.hub.policy.HubPreviewPolicy
+ import org.sableos.hub.policy.HubRedaction
+ import org.sableos.hub.policy.HubSourcePrivacy
+ import org.sableos.hub.policy.NotificationConcept
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
+index f5b17a4..2ba7073 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
+@@ -253,7 +253,7 @@ fun HubScreen(
+                     MissingConversationView(
+                         onBack = {
+                             statusMessage = null
+-                            route = HubRoute.Root(HubPivot.Messages)
++                            route = HubRoute.Root(current.origin)
+                         },
+                     )
+                 } else {
+@@ -475,18 +475,13 @@ private fun ColumnScope.PriorityPivot(
+             modifier = modifier.fillMaxWidth(),
+             verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
+         ) {
+-            itemsIndexed(
+-                items = visibleConversations,
+-                key = { _, conversation -> conversationKey(conversation) },
+-            ) { index, conversation ->
+-                val key = conversationKey(conversation)
++            items(
++                items = conversations.take(MAX_VISIBLE_CONVERSATIONS),
++                key = { conversation -> conversationKey(conversation) },
++            ) { conversation ->
+                 ConversationRow(
+                     conversation = conversation,
+-                    onClick = {
+-                        focusMemory.remember(FOCUS_SURFACE_MESSAGES, key, index)
+-                        onConversation(conversation)
+-                    },
+-                    modifier = Modifier.focusRequester(requesters.getOrPut(key) { FocusRequester() }),
++                    onClick = { onConversation(conversation) },
+                 )
+             }
+         }
+@@ -582,6 +577,8 @@ private fun ColumnScope.MessagesPivot(
+         if (!restoreDone) {
+             restoreDone = true
+             val target = if (query.isBlank()) focusMemory.restore(FOCUS_SURFACE_MESSAGES, rowKeys) else null
++            // One-shot: a later visit (pivot switch, handoff Back) opens on the newest again.
++            focusMemory.forget(FOCUS_SURFACE_MESSAGES)
+             if (target != null) {
+                 listState.scrollToItem(target)
+                 withFrameNanos { }
+@@ -621,15 +618,18 @@ private fun ColumnScope.MessagesPivot(
+             state = listState,
+             verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
+         ) {
+-            items(
+-                items = conversations.take(MAX_VISIBLE_CONVERSATIONS),
+-                key = { conversation ->
+-                    conversation.threadId.toString() + ":" + conversation.address
+-                },
+-            ) { conversation ->
++            itemsIndexed(
++                items = visibleConversations,
++                key = { _, conversation -> conversationKey(conversation) },
++            ) { index, conversation ->
++                val key = conversationKey(conversation)
+                 ConversationRow(
+                     conversation = conversation,
+-                    onClick = { onConversation(conversation) },
++                    onClick = {
++                        focusMemory.remember(FOCUS_SURFACE_MESSAGES, key, index)
++                        onConversation(conversation)
++                    },
++                    modifier = Modifier.focusRequester(requesters.getOrPut(key) { FocusRequester() }),
+                 )
+             }
+         }
+@@ -948,14 +948,16 @@ private fun ColumnScope.ConversationView(
+                 onClick = action,
+             )
+         }
+-        onOpenNotificationSettings?.let { action ->
+-            SableActionButton(
+-                text = "Notifications",
+-                modifier = Modifier.weight(1f),
+-                primary = false,
+-                onClick = action,
+-            )
+-        }
++    }
++    // Its own full-width row: a third equal-width "Notifications" button wraps mid-word
++    // on the square screen (KF-D: labels never clip).
++    onOpenNotificationSettings?.let { action ->
++        SableActionButton(
++            text = "Notifications",
++            modifier = Modifier.fillMaxWidth(),
++            primary = false,
++            onClick = action,
++        )
+     }
+ 
+     // Newest message at the bottom and visible on open (reverse layout, index 0 =
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+index 33f993a..28700cb 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+@@ -63,7 +63,6 @@ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.graphics.asImageBitmap
+ import androidx.compose.ui.input.key.KeyEvent
+ import androidx.compose.ui.input.key.KeyEventType
+-import androidx.compose.ui.input.key.nativeKeyEvent
+ import androidx.compose.ui.input.key.onPreviewKeyEvent
+ import androidx.compose.ui.input.key.type
+ import androidx.compose.ui.layout.ContentScale
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableResponsiveComponents.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableResponsiveComponents.kt
+index 9651fa3..c4ad478 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableResponsiveComponents.kt
++++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableResponsiveComponents.kt
+@@ -36,7 +36,6 @@ import androidx.compose.ui.focus.focusProperties
+ import androidx.compose.ui.focus.onFocusChanged
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.input.key.KeyEventType
+-import androidx.compose.ui.input.key.nativeKeyEvent
+ import androidx.compose.ui.input.key.onPreviewKeyEvent
+ import androidx.compose.ui.input.key.type
+ import androidx.compose.ui.input.pointer.pointerInput

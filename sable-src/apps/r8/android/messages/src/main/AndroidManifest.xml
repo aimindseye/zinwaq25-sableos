@@ -17,8 +17,8 @@
 
     <application
         android:allowBackup="false"
-        android:icon="@drawable/ic_sable_messages"
-        android:roundIcon="@drawable/ic_sable_messages"
+        android:icon="@mipmap/ic_sable_messages"
+        android:roundIcon="@mipmap/ic_sable_messages_round"
         android:label="Sable Messages"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar"

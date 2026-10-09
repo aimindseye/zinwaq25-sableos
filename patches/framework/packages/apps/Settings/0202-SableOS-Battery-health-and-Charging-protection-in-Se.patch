@@ -1,0 +1,3379 @@
+From 1c1685b31bddc205a409e417d8a51886feab48ba Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 9 Oct 2026 22:09:45 +0000
+Subject: [PATCH 2/3] SableOS: Battery health and Charging & protection in
+ Settings > Battery
+
+Adds two rows to the Battery page, in the design's order (Battery
+usage, Battery health, Charging & protection, Battery saver):
+
+* Battery health: each fact shows its value with source and confidence,
+  or an explicit "Not reported" / "Not yet verified on this device".
+  Facts come from the sticky ACTION_BATTERY_CHANGED broadcast and
+  BatteryManager properties only; no sysfs. A local history chart
+  (Today / 24 hours / 7 days) with keyboard inspection sits below.
+  History is sampled on the existing hourly battery-usage job and when
+  a Battery screen opens: no new alarm, wakelock or service.
+* Charging & protection: read-only capability discovery. Charge limit,
+  adaptive and overnight charging render as unavailable rows that stay
+  focusable; thermal protection and the reported charging policy are
+  status text. LineageOS charging control and charging speed are hidden
+  while the Sable gate (BH6) is closed. Unavailable controls are indexed
+  for search only with an explicit "(not available on this device)".
+* The Battery usage row summary lists the top system consumers from
+  BatteryUsageStats with the start of the accounting window.
+* Android's ungated Battery information row is hidden, and its page
+  dropped from the search index, in favour of the gated health page.
+* Keyboard: type-ahead over titles and aliases (U, H, C, B), MoveHome,
+  MoveEnd, PageUp, PageDown, "/" or Ctrl+K for search, and a
+  high-contrast focus ring, on the Battery, usage, health and charging
+  screens.
+
+The device capability profile is read from
+/system_ext/etc/sable/battery/<ro.sable.profile.id>.conf; without one
+everything stays unavailable.
+---
+ .../sable_battery_history_preference.xml      |  68 +++++
+ res/values/sable_battery_arrays.xml           |  35 +++
+ res/values/sable_battery_config.xml           |  28 ++
+ res/values/sable_battery_strings.xml          | 147 +++++++++++
+ res/xml/power_usage_summary.xml               |  27 +-
+ res/xml/sable_battery_charging.xml            |  66 +++++
+ res/xml/sable_battery_health.xml              |  99 ++++++++
+ .../batteryinfo/BatteryInfoFragment.java      |   5 +-
+ .../ChargingSpeedPreferenceController.java    |   4 +
+ .../batteryusage/PeriodicJobReceiver.java     |   4 +
+ .../batteryusage/PowerUsageAdvanced.java      |  20 ++
+ .../batteryusage/PowerUsageSummary.java       |  37 +++
+ .../fuelgauge/sable/SableBackCallback.java    |  66 +++++
+ .../SableBatteryHealthEntryController.java    |  58 +++++
+ .../sable/SableBatteryHealthFragment.java     |  91 +++++++
+ .../sable/SableBatteryHistoryPreference.java  | 142 +++++++++++
+ .../sable/SableBatteryHistoryStore.java       | 119 +++++++++
+ .../sable/SableBatteryKeyboardSupport.java    | 235 +++++++++++++++++
+ .../fuelgauge/sable/SableBatteryKeys.java     |  59 +++++
+ .../sable/SableBatteryProfileLoader.java      |  83 ++++++
+ .../fuelgauge/sable/SableBatteryState.java    | 154 +++++++++++
+ .../fuelgauge/sable/SableBatteryText.java     | 239 ++++++++++++++++++
+ .../sable/SableBatteryUsageSummary.java       | 101 ++++++++
+ ...leChargingControlPreferenceController.java | 128 ++++++++++
+ .../sable/SableChargingEntryController.java   |  52 ++++
+ .../fuelgauge/sable/SableChargingGate.java    |  51 ++++
+ .../SableChargingProtectionFragment.java      |  83 ++++++
+ .../fuelgauge/sable/SableFocusDecoration.java |  79 ++++++
+ .../SableHealthFactPreferenceController.java  |  78 ++++++
+ .../sable/SableHistoryChartView.java          | 222 ++++++++++++++++
+ .../SableLegacyBatteryInfoController.java     |  39 +++
+ .../sable/SableRangeSelectorView.java         | 196 ++++++++++++++
+ .../sable/SableUnavailablePreference.java     |  89 +++++++
+ .../SableVendorChargingGateController.java    |  40 +++
+ 34 files changed, 2939 insertions(+), 5 deletions(-)
+ create mode 100644 res/layout/sable_battery_history_preference.xml
+ create mode 100644 res/values/sable_battery_arrays.xml
+ create mode 100644 res/values/sable_battery_config.xml
+ create mode 100644 res/values/sable_battery_strings.xml
+ create mode 100644 res/xml/sable_battery_charging.xml
+ create mode 100644 res/xml/sable_battery_health.xml
+ create mode 100644 src/com/android/settings/fuelgauge/sable/SableBackCallback.java
+ create mode 100644 src/com/android/settings/fuelgauge/sable/SableBatteryHealthEntryController.java
+ create mode 100644 src/com/android/settings/fuelgauge/sable/SableBatteryHealthFragment.java
+ create mode 100644 src/com/android/settings/fuelgauge/sable/SableBatteryHistoryPreference.java
+ create mode 100644 src/com/android/settings/fuelgauge/sable/SableBatteryHistoryStore.java
+ create mode 100644 src/com/android/settings/fuelgauge/sable/SableBatteryKeyboardSupport.java
+ create mode 100644 src/com/android/settings/fuelgauge/sable/SableBatteryKeys.java
+ create mode 100644 src/com/android/settings/fuelgauge/sable/SableBatteryProfileLoader.java
+ create mode 100644 src/com/android/settings/fuelgauge/sable/SableBatteryState.java
+ create mode 100644 src/com/android/settings/fuelgauge/sable/SableBatteryText.java
+ create mode 100644 src/com/android/settings/fuelgauge/sable/SableBatteryUsageSummary.java
+ create mode 100644 src/com/android/settings/fuelgauge/sable/SableChargingControlPreferenceController.java
+ create mode 100644 src/com/android/settings/fuelgauge/sable/SableChargingEntryController.java
+ create mode 100644 src/com/android/settings/fuelgauge/sable/SableChargingGate.java
+ create mode 100644 src/com/android/settings/fuelgauge/sable/SableChargingProtectionFragment.java
+ create mode 100644 src/com/android/settings/fuelgauge/sable/SableFocusDecoration.java
+ create mode 100644 src/com/android/settings/fuelgauge/sable/SableHealthFactPreferenceController.java
+ create mode 100644 src/com/android/settings/fuelgauge/sable/SableHistoryChartView.java
+ create mode 100644 src/com/android/settings/fuelgauge/sable/SableLegacyBatteryInfoController.java
+ create mode 100644 src/com/android/settings/fuelgauge/sable/SableRangeSelectorView.java
+ create mode 100644 src/com/android/settings/fuelgauge/sable/SableUnavailablePreference.java
+ create mode 100644 src/com/android/settings/fuelgauge/sable/SableVendorChargingGateController.java
+
+diff --git a/res/layout/sable_battery_history_preference.xml b/res/layout/sable_battery_history_preference.xml
+new file mode 100644
+index 0000000..40ba41f
+--- /dev/null
++++ b/res/layout/sable_battery_history_preference.xml
+@@ -0,0 +1,68 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<!-- Battery history: range group, bounded chart, text for the selected bucket. The row itself
++     is not selectable; the range group and the chart are the focus targets. -->
++<LinearLayout
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    android:layout_width="match_parent"
++    android:layout_height="wrap_content"
++    android:orientation="vertical"
++    android:paddingStart="?android:attr/listPreferredItemPaddingStart"
++    android:paddingEnd="?android:attr/listPreferredItemPaddingEnd"
++    android:paddingTop="8dp"
++    android:paddingBottom="8dp">
++
++    <TextView
++        android:id="@android:id/title"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:textAppearance="?android:attr/textAppearanceListItem"
++        android:accessibilityHeading="true" />
++
++    <com.android.settings.fuelgauge.sable.SableRangeSelectorView
++        android:id="@+id/sable_battery_range"
++        android:layout_width="match_parent"
++        android:layout_height="@dimen/sable_battery_range_height"
++        android:layout_marginTop="8dp"
++        android:focusable="true"
++        android:defaultFocusHighlightEnabled="true" />
++
++    <com.android.settings.fuelgauge.sable.SableHistoryChartView
++        android:id="@+id/sable_battery_chart"
++        android:layout_width="match_parent"
++        android:layout_height="@dimen/sable_battery_chart_height"
++        android:layout_marginTop="8dp"
++        android:focusable="true"
++        android:defaultFocusHighlightEnabled="true" />
++
++    <TextView
++        android:id="@+id/sable_battery_bucket_text"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:layout_marginTop="4dp"
++        android:textAppearance="?android:attr/textAppearanceListItemSecondary"
++        android:textColor="?android:attr/textColorSecondary"
++        android:accessibilityLiveRegion="polite" />
++
++    <TextView
++        android:id="@+id/sable_battery_chart_hint"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:textAppearance="?android:attr/textAppearanceSmall"
++        android:textColor="?android:attr/textColorSecondary"
++        android:importantForAccessibility="no" />
++</LinearLayout>
+diff --git a/res/values/sable_battery_arrays.xml b/res/values/sable_battery_arrays.xml
+new file mode 100644
+index 0000000..c4d39c1
+--- /dev/null
++++ b/res/values/sable_battery_arrays.xml
+@@ -0,0 +1,35 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<!-- Type-ahead aliases for Battery rows, by preference key: entry 2n is a key, 2n+1 its
++     comma-separated aliases. Aliases outrank titles, so "b" reaches Battery saver even though
++     several titles start with "Battery". Translate the aliases, never the keys. -->
++<resources>
++    <string-array name="sable_battery_type_ahead_aliases" translatable="false">
++        <item>battery_usage_summary</item>
++        <item>@string/sable_battery_alias_usage</item>
++        <item>sable_battery_health</item>
++        <item>@string/sable_battery_alias_health</item>
++        <item>sable_charging_protection</item>
++        <item>@string/sable_battery_alias_charging</item>
++        <item>battery_saver_summary</item>
++        <item>@string/sable_battery_alias_saver</item>
++    </string-array>
++    <string name="sable_battery_alias_usage">usage, drain</string>
++    <string name="sable_battery_alias_health">health, maximum capacity</string>
++    <string name="sable_battery_alias_charging">charging, charge limit, protection</string>
++    <string name="sable_battery_alias_saver">battery saver, saver, power saver</string>
++</resources>
+diff --git a/res/values/sable_battery_config.xml b/res/values/sable_battery_config.xml
+new file mode 100644
+index 0000000..d5a7114
+--- /dev/null
++++ b/res/values/sable_battery_config.xml
+@@ -0,0 +1,28 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<resources>
++    <!-- SableOS Battery health/charging screens. When true, the Sable Battery health page
++         replaces Android's ungated "Battery information" page in Settings > Battery. -->
++    <bool name="config_sable_battery_enabled">true</bool>
++
++    <dimen name="sable_battery_chart_height">112dp</dimen>
++    <dimen name="sable_battery_chart_bar_gap">2dp</dimen>
++    <dimen name="sable_battery_focus_stroke">2dp</dimen>
++    <dimen name="sable_battery_focus_inset">2dp</dimen>
++    <dimen name="sable_battery_focus_radius">8dp</dimen>
++    <dimen name="sable_battery_range_height">40dp</dimen>
++</resources>
+diff --git a/res/values/sable_battery_strings.xml b/res/values/sable_battery_strings.xml
+new file mode 100644
+index 0000000..bf79f18
+--- /dev/null
++++ b/res/values/sable_battery_strings.xml
+@@ -0,0 +1,147 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<!-- SableOS Battery health, usage and charging (BATTERY_HEALTH_USAGE_UX). -->
++<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
++
++    <!-- Overview rows -->
++    <string name="sable_battery_health_title">Battery health</string>
++    <string name="sable_battery_charging_title">Charging &amp; protection</string>
++
++    <!-- Overview: Battery health row summary. %1$s is a percentage such as 92%. -->
++    <string name="sable_battery_health_summary_capacity">Maximum capacity <xliff:g id="percent">%1$s</xliff:g></string>
++    <string name="sable_battery_health_summary_partial_temperature">Partial data · temperature available</string>
++    <string name="sable_battery_health_summary_partial">Partial data</string>
++    <string name="sable_battery_health_summary_none">Not reported by this device</string>
++
++    <!-- Overview: Charging & protection row summary -->
++    <string name="sable_battery_charging_summary_not_qualified">Device controls not yet qualified</string>
++    <string name="sable_battery_charging_summary_not_available">Charging controls not available on this device</string>
++    <string name="sable_battery_charging_summary_platform">Managed by Android</string>
++
++    <!-- Overview: Battery usage row summary. %1$s is the start of the accounting window, %2$s the top consumers. -->
++    <string name="sable_battery_usage_summary">Since <xliff:g id="start">%1$s</xliff:g> · <xliff:g id="consumers">%2$s</xliff:g></string>
++    <!-- One consumer share, e.g. "Screen 24%". -->
++    <string name="sable_battery_usage_share"><xliff:g id="name">%1$s</xliff:g> <xliff:g id="percent">%2$s</xliff:g></string>
++    <string name="sable_battery_list_separator">" · "</string>
++
++    <!-- Health screen rows -->
++    <string name="sable_battery_capacity_health_title">Maximum capacity</string>
++    <string name="sable_battery_full_charge_title">Full-charge capacity</string>
++    <string name="sable_battery_design_capacity_title">Design capacity</string>
++    <string name="sable_battery_cycle_count_title">Cycle count</string>
++    <string name="sable_battery_temperature_title">Temperature</string>
++    <string name="sable_battery_condition_title">Condition</string>
++    <string name="sable_battery_charge_counter_title">Remaining charge</string>
++    <string name="sable_battery_manufactured_title">Manufactured</string>
++    <string name="sable_battery_first_used_title">First used</string>
++
++    <!-- Fact values -->
++    <string name="sable_battery_value_mah"><xliff:g id="mah">%1$s</xliff:g> mAh</string>
++    <string name="sable_battery_value_percent_of_design"><xliff:g id="percent">%1$s</xliff:g> of design capacity</string>
++    <plurals name="sable_battery_value_cycles">
++        <item quantity="one"><xliff:g id="count">%d</xliff:g> cycle</item>
++        <item quantity="other"><xliff:g id="count">%d</xliff:g> cycles</item>
++    </plurals>
++    <!-- %1$s temperature such as 31.2 °C, %2$s a class such as Normal. -->
++    <string name="sable_battery_value_temperature"><xliff:g id="temperature">%1$s</xliff:g> · <xliff:g id="class">%2$s</xliff:g></string>
++    <string name="sable_battery_temperature_normal">Normal</string>
++    <string name="sable_battery_temperature_warm">Warm</string>
++    <string name="sable_battery_temperature_hot">Hot</string>
++    <!-- %1$s month and year, %2$s a coarse age such as "1 year 6 months". -->
++    <string name="sable_battery_value_month_year_age"><xliff:g id="date">%1$s</xliff:g> · about <xliff:g id="age">%2$s</xliff:g> ago</string>
++    <plurals name="sable_battery_age_years">
++        <item quantity="one"><xliff:g id="count">%d</xliff:g> year</item>
++        <item quantity="other"><xliff:g id="count">%d</xliff:g> years</item>
++    </plurals>
++    <plurals name="sable_battery_age_months">
++        <item quantity="one"><xliff:g id="count">%d</xliff:g> month</item>
++        <item quantity="other"><xliff:g id="count">%d</xliff:g> months</item>
++    </plurals>
++    <string name="sable_battery_age_under_a_month">less than a month</string>
++    <string name="sable_battery_condition_good">Good</string>
++    <string name="sable_battery_condition_overheat">Overheating</string>
++    <string name="sable_battery_condition_dead">Battery failure</string>
++    <string name="sable_battery_condition_over_voltage">Over voltage</string>
++    <string name="sable_battery_condition_failure">Failure reported</string>
++    <string name="sable_battery_condition_cold">Too cold</string>
++
++    <!-- Unavailable states: never a placeholder number. -->
++    <string name="sable_battery_not_reported">Not reported by this device</string>
++    <string name="sable_battery_not_supported">Not available on this device</string>
++    <string name="sable_battery_not_qualified">Reported, but not yet verified on this device</string>
++    <string name="sable_battery_implausible">Reported value failed a consistency check</string>
++
++    <!-- Source and confidence line under a value. %1$s source, %2$s confidence. -->
++    <string name="sable_battery_source_line">Source: <xliff:g id="source">%1$s</xliff:g> · <xliff:g id="confidence">%2$s</xliff:g></string>
++    <string name="sable_battery_source_android">Android</string>
++    <string name="sable_battery_source_health_hal">battery hardware (Health HAL)</string>
++    <string name="sable_battery_source_vendor">vendor interface</string>
++    <string name="sable_battery_source_local">local estimate</string>
++    <string name="sable_battery_confidence_measured">measured</string>
++    <string name="sable_battery_confidence_platform">reported by the platform</string>
++    <string name="sable_battery_confidence_derived_high">calculated, high confidence</string>
++    <string name="sable_battery_confidence_derived_low">sources disagree, low confidence</string>
++
++    <string name="sable_battery_health_footer">Values come from Android and this device\'s battery hardware. Values this device has not been verified to report correctly are not shown. Battery history stays on this device and is kept for 7 days.</string>
++
++    <!-- History chart -->
++    <string name="sable_battery_history_title">Recent history</string>
++    <string name="sable_battery_range_today">Today</string>
++    <string name="sable_battery_range_24h">24 hours</string>
++    <string name="sable_battery_range_7d">7 days</string>
++    <string name="sable_battery_range_description">Time range: <xliff:g id="range">%1$s</xliff:g>. Press Enter, then Left or Right to change.</string>
++    <string name="sable_battery_series_temperature">Temperature</string>
++    <string name="sable_battery_series_level">Battery level</string>
++    <!-- %1$s series name, %2$s time span, %3$s value -->
++    <string name="sable_battery_bucket_text"><xliff:g id="series">%1$s</xliff:g>, <xliff:g id="span">%2$s</xliff:g>: <xliff:g id="value">%3$s</xliff:g></string>
++    <!-- Temperature bucket value: %1$s average, %2$s maximum -->
++    <string name="sable_battery_bucket_temperature"><xliff:g id="average">%1$s</xliff:g> average, <xliff:g id="max">%2$s</xliff:g> highest</string>
++    <string name="sable_battery_bucket_charging">charging</string>
++    <string name="sable_battery_bucket_empty">no samples</string>
++    <string name="sable_battery_history_empty">No history yet. Samples are taken about once an hour and kept on this device for 7 days.</string>
++    <string name="sable_battery_chart_description">Battery history chart. Press Enter to inspect, Left and Right to move between time periods, Up and Down to switch between temperature and battery level, Escape to stop.</string>
++    <string name="sable_battery_chart_hint_idle">Enter to inspect</string>
++    <string name="sable_battery_chart_hint_inspecting">Left/Right to move · Up/Down to switch · Esc to stop</string>
++
++    <!-- Charging & protection rows -->
++    <string name="sable_battery_charge_limit_title">Charge limit</string>
++    <string name="sable_battery_adaptive_charging_title">Adaptive charging</string>
++    <string name="sable_battery_scheduled_charging_title">Overnight charging</string>
++    <string name="sable_battery_thermal_protection_title">Thermal protection</string>
++    <string name="sable_battery_charging_policy_title">Charging mode</string>
++    <string name="sable_battery_control_unavailable">Not available on this device</string>
++    <string name="sable_battery_control_not_yet">Not available on this device yet</string>
++    <string name="sable_battery_control_not_qualified">Found on this device, not yet qualified for SableOS</string>
++    <string name="sable_battery_thermal_status">Managed by Android and the charger hardware</string>
++    <!-- %1$s a temperature such as 58 °C -->
++    <string name="sable_battery_thermal_status_shutdown">Managed by Android and the charger hardware. Android shuts the phone down if the battery reaches <xliff:g id="temperature">%1$s</xliff:g>.</string>
++    <!-- %1$s a charging mode name -->
++    <string name="sable_battery_charging_policy_status">Reported by Android: <xliff:g id="mode">%1$s</xliff:g></string>
++    <string name="sable_battery_charging_policy_default">Standard</string>
++    <string name="sable_battery_charging_policy_adaptive_aon">Adaptive</string>
++    <string name="sable_battery_charging_policy_adaptive_ac">Adaptive, alarm based</string>
++    <string name="sable_battery_charging_policy_adaptive_longlife">Long life</string>
++    <!-- Search result title for an unavailable control, e.g. "Charge limit (not available on this device)". -->
++    <string name="sable_battery_search_unavailable"><xliff:g id="title">%1$s</xliff:g> (not available on this device)</string>
++    <string name="sable_battery_charging_footer">SableOS turns on charging controls only after the device\'s charging backend has been qualified. Settings never writes to hardware files directly.</string>
++
++    <!-- Search keywords -->
++    <string name="sable_keywords_battery_usage">battery usage, battery drain, screen on time, background use, power usage</string>
++    <string name="sable_keywords_battery_health">battery health, capacity, maximum capacity, cycle count, temperature, battery info</string>
++    <string name="sable_keywords_battery_charging">charging, charge limit, adaptive charging, overnight charging, battery protection, power</string>
++    <string name="sable_keywords_battery_saver">battery saver, power saver, saver, power</string>
++</resources>
+diff --git a/res/xml/power_usage_summary.xml b/res/xml/power_usage_summary.xml
+index 950ca2d..4846c4d 100644
+--- a/res/xml/power_usage_summary.xml
++++ b/res/xml/power_usage_summary.xml
+@@ -51,13 +51,30 @@
+             android:key="battery_usage_summary"
+             android:title="@string/advanced_battery_preference_title"
+             android:summary="@string/advanced_battery_preference_summary"
+-            settings:keywords="@string/keywords_battery_usage" />
++            settings:keywords="@string/sable_keywords_battery_usage" />
++
++        <!-- SableOS: Battery health (BH3/BH4) and Charging & protection (BH5). -->
++        <Preference
++            android:fragment="com.android.settings.fuelgauge.sable.SableBatteryHealthFragment"
++            android:key="sable_battery_health"
++            android:title="@string/sable_battery_health_title"
++            android:summary="@string/summary_placeholder"
++            settings:keywords="@string/sable_keywords_battery_health"
++            settings:controller="com.android.settings.fuelgauge.sable.SableBatteryHealthEntryController" />
++
++        <Preference
++            android:fragment="com.android.settings.fuelgauge.sable.SableChargingProtectionFragment"
++            android:key="sable_charging_protection"
++            android:title="@string/sable_battery_charging_title"
++            android:summary="@string/summary_placeholder"
++            settings:keywords="@string/sable_keywords_battery_charging"
++            settings:controller="com.android.settings.fuelgauge.sable.SableChargingEntryController" />
+ 
+         <Preference
+             android:fragment="com.android.settings.fuelgauge.batterysaver.BatterySaverSettings"
+             android:key="battery_saver_summary"
+             android:title="@string/battery_saver"
+-            settings:keywords="@string/keywords_battery_saver"
++            settings:keywords="@string/sable_keywords_battery_saver"
+             settings:controller="com.android.settings.fuelgauge.BatterySaverController" />
+ 
+         <Preference
+@@ -79,7 +96,8 @@
+         <!-- Charging control -->
+         <lineageos.preference.LineagePartsPreference
+             android:key="charging_control"
+-            settings:requiresService="lineagehealth" />
++            settings:requiresService="lineagehealth"
++            settings:controller="com.android.settings.fuelgauge.sable.SableVendorChargingGateController" />
+ 
+         <!-- Charging speed -->
+         <ListPreference
+@@ -105,7 +123,8 @@
+         android:key="battery_info"
+         android:title="@string/battery_info"
+         android:fragment="com.android.settings.deviceinfo.batteryinfo.BatteryInfoFragment"
+-        settings:keywords="@string/keywords_battery_info"/>
++        settings:keywords="@string/keywords_battery_info"
++        settings:controller="com.android.settings.fuelgauge.sable.SableLegacyBatteryInfoController"/>
+ 
+     <com.android.settingslib.widget.FooterPreference
+         android:key="power_usage_footer"
+diff --git a/res/xml/sable_battery_charging.xml b/res/xml/sable_battery_charging.xml
+new file mode 100644
+index 0000000..2472381
+--- /dev/null
++++ b/res/xml/sable_battery_charging.xml
+@@ -0,0 +1,66 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<!-- Settings > Battery > Charging & protection (BH5 discovery; BH6 not authorized). -->
++<PreferenceScreen
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:settings="http://schemas.android.com/apk/res-auto"
++    android:key="sable_battery_charging_screen"
++    android:title="@string/sable_battery_charging_title"
++    settings:keywords="@string/sable_keywords_battery_charging">
++
++    <com.android.settings.fuelgauge.sable.SableUnavailablePreference
++        android:key="sable_charging_charge_limit"
++        android:title="@string/sable_battery_charge_limit_title"
++        android:summary="@string/summary_placeholder"
++        settings:controller="com.android.settings.fuelgauge.sable.SableChargingControlPreferenceController" />
++
++    <com.android.settings.fuelgauge.sable.SableUnavailablePreference
++        android:key="sable_charging_adaptive"
++        android:title="@string/sable_battery_adaptive_charging_title"
++        android:summary="@string/summary_placeholder"
++        settings:controller="com.android.settings.fuelgauge.sable.SableChargingControlPreferenceController" />
++
++    <com.android.settings.fuelgauge.sable.SableUnavailablePreference
++        android:key="sable_charging_scheduled"
++        android:title="@string/sable_battery_scheduled_charging_title"
++        android:summary="@string/summary_placeholder"
++        settings:controller="com.android.settings.fuelgauge.sable.SableChargingControlPreferenceController" />
++
++    <com.android.settings.fuelgauge.sable.SableUnavailablePreference
++        android:key="sable_charging_thermal"
++        android:title="@string/sable_battery_thermal_protection_title"
++        android:summary="@string/summary_placeholder"
++        settings:controller="com.android.settings.fuelgauge.sable.SableChargingControlPreferenceController" />
++
++    <com.android.settings.fuelgauge.sable.SableUnavailablePreference
++        android:key="sable_charging_policy"
++        android:title="@string/sable_battery_charging_policy_title"
++        android:summary="@string/summary_placeholder"
++        settings:controller="com.android.settings.fuelgauge.sable.SableChargingControlPreferenceController" />
++
++    <Preference
++        android:fragment="com.android.settings.fuelgauge.batterysaver.BatterySaverSettings"
++        android:key="sable_charging_battery_saver"
++        android:title="@string/battery_saver"
++        settings:searchable="false" />
++
++    <com.android.settingslib.widget.FooterPreference
++        android:key="sable_charging_footer"
++        android:title="@string/sable_battery_charging_footer"
++        android:selectable="false"
++        settings:searchable="false" />
++</PreferenceScreen>
+diff --git a/res/xml/sable_battery_health.xml b/res/xml/sable_battery_health.xml
+new file mode 100644
+index 0000000..2047acb
+--- /dev/null
++++ b/res/xml/sable_battery_health.xml
+@@ -0,0 +1,99 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<!-- Settings > Battery > Battery health. Row order is the keyboard focus order. -->
++<PreferenceScreen
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:settings="http://schemas.android.com/apk/res-auto"
++    android:key="sable_battery_health_screen"
++    android:title="@string/sable_battery_health_title"
++    settings:keywords="@string/sable_keywords_battery_health">
++
++    <Preference
++        android:key="sable_battery_fact_capacity_health"
++        android:title="@string/sable_battery_capacity_health_title"
++        android:summary="@string/summary_placeholder"
++        settings:keywords="@string/sable_keywords_battery_health"
++        settings:controller="com.android.settings.fuelgauge.sable.SableHealthFactPreferenceController"
++        settings:enableCopying="true" />
++
++    <Preference
++        android:key="sable_battery_fact_cycle_count"
++        android:title="@string/sable_battery_cycle_count_title"
++        android:summary="@string/summary_placeholder"
++        settings:controller="com.android.settings.fuelgauge.sable.SableHealthFactPreferenceController"
++        settings:enableCopying="true" />
++
++    <Preference
++        android:key="sable_battery_fact_temperature"
++        android:title="@string/sable_battery_temperature_title"
++        android:summary="@string/summary_placeholder"
++        settings:controller="com.android.settings.fuelgauge.sable.SableHealthFactPreferenceController"
++        settings:enableCopying="true" />
++
++    <Preference
++        android:key="sable_battery_fact_health_status"
++        android:title="@string/sable_battery_condition_title"
++        android:summary="@string/summary_placeholder"
++        settings:controller="com.android.settings.fuelgauge.sable.SableHealthFactPreferenceController"
++        settings:enableCopying="true" />
++
++    <Preference
++        android:key="sable_battery_fact_maximum_capacity"
++        android:title="@string/sable_battery_full_charge_title"
++        android:summary="@string/summary_placeholder"
++        settings:controller="com.android.settings.fuelgauge.sable.SableHealthFactPreferenceController"
++        settings:enableCopying="true" />
++
++    <Preference
++        android:key="sable_battery_fact_design_capacity"
++        android:title="@string/sable_battery_design_capacity_title"
++        android:summary="@string/summary_placeholder"
++        settings:controller="com.android.settings.fuelgauge.sable.SableHealthFactPreferenceController"
++        settings:enableCopying="true" />
++
++    <Preference
++        android:key="sable_battery_fact_charge_counter"
++        android:title="@string/sable_battery_charge_counter_title"
++        android:summary="@string/summary_placeholder"
++        settings:controller="com.android.settings.fuelgauge.sable.SableHealthFactPreferenceController"
++        settings:enableCopying="true" />
++
++    <!-- Dates are omitted entirely unless trustworthy (design section 5.3). -->
++    <Preference
++        android:key="sable_battery_fact_manufacturing_date"
++        android:title="@string/sable_battery_manufactured_title"
++        android:summary="@string/summary_placeholder"
++        settings:controller="com.android.settings.fuelgauge.sable.SableHealthFactPreferenceController" />
++
++    <Preference
++        android:key="sable_battery_fact_first_use_date"
++        android:title="@string/sable_battery_first_used_title"
++        android:summary="@string/summary_placeholder"
++        settings:controller="com.android.settings.fuelgauge.sable.SableHealthFactPreferenceController" />
++
++    <com.android.settings.fuelgauge.sable.SableBatteryHistoryPreference
++        android:key="sable_battery_history"
++        android:title="@string/sable_battery_history_title"
++        android:selectable="false"
++        settings:searchable="false" />
++
++    <com.android.settingslib.widget.FooterPreference
++        android:key="sable_battery_health_footer"
++        android:title="@string/sable_battery_health_footer"
++        android:selectable="false"
++        settings:searchable="false" />
++</PreferenceScreen>
+diff --git a/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoFragment.java b/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoFragment.java
+index 882901d..627dcf7 100644
+--- a/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoFragment.java
++++ b/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoFragment.java
+@@ -22,6 +22,7 @@ import android.os.Bundle;
+ 
+ import com.android.settings.R;
+ import com.android.settings.dashboard.DashboardFragment;
++import com.android.settings.fuelgauge.sable.SableChargingGate;
+ import com.android.settings.overlay.FeatureFactory;
+ import com.android.settings.search.BaseSearchIndexProvider;
+ import com.android.settingslib.search.SearchIndexable;
+@@ -68,9 +69,11 @@ public class BatteryInfoFragment extends DashboardFragment {
+             new BaseSearchIndexProvider(R.xml.battery_info) {
+                 @Override
+                 protected boolean isPageSearchEnabled(Context context) {
++                    // SableOS: the gated Sable Battery health page replaces this one.
+                     return FeatureFactory.getFeatureFactory()
+                             .getBatterySettingsFeatureProvider()
+-                            .isBatteryInfoEnabled(context);
++                            .isBatteryInfoEnabled(context)
++                            && !SableChargingGate.isSableBatteryEnabled(context);
+                 }
+             };
+ }
+diff --git a/src/com/android/settings/fuelgauge/ChargingSpeedPreferenceController.java b/src/com/android/settings/fuelgauge/ChargingSpeedPreferenceController.java
+index a120ca6..01d55af 100644
+--- a/src/com/android/settings/fuelgauge/ChargingSpeedPreferenceController.java
++++ b/src/com/android/settings/fuelgauge/ChargingSpeedPreferenceController.java
+@@ -24,6 +24,7 @@ import androidx.preference.PreferenceScreen;
+ 
+ import com.android.internal.util.ArrayUtils;
+ import com.android.settings.core.BasePreferenceController;
++import com.android.settings.fuelgauge.sable.SableChargingGate;
+ 
+ import lineageos.health.HealthInterface;
+ 
+@@ -82,7 +83,10 @@ public class ChargingSpeedPreferenceController extends BasePreferenceController
+ 
+     @Override
+     public int getAvailabilityStatus() {
++        // SableOS: vendor charging controls stay hidden until the Sable charging gate
++        // qualifies them (BATTERY_HEALTH_USAGE_UX section 7, BH6).
+         return mHealthInterface != null && mHealthInterface.isFastChargeSupported()
++                && SableChargingGate.vendorControlsAllowed(mContext)
+                 ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
+     }
+ 
+diff --git a/src/com/android/settings/fuelgauge/batteryusage/PeriodicJobReceiver.java b/src/com/android/settings/fuelgauge/batteryusage/PeriodicJobReceiver.java
+index 982cf40..c7aadb9 100644
+--- a/src/com/android/settings/fuelgauge/batteryusage/PeriodicJobReceiver.java
++++ b/src/com/android/settings/fuelgauge/batteryusage/PeriodicJobReceiver.java
+@@ -24,6 +24,7 @@ import android.util.Log;
+ 
+ import com.android.settings.fuelgauge.BatteryUsageHistoricalLogEntry.Action;
+ import com.android.settings.fuelgauge.batteryusage.bugreport.BatteryUsageLogUtils;
++import com.android.settings.fuelgauge.sable.SableBatteryHistoryStore;
+ import com.android.settingslib.fuelgauge.BatteryUtils;
+ 
+ /** Receives the periodic alarm {@link PendingIntent} callback. */
+@@ -58,6 +59,9 @@ public final class PeriodicJobReceiver extends BroadcastReceiver {
+         }
+         BatteryUsageLogUtils.writeLog(context, Action.EXECUTE_JOB, "");
+         BatteryUsageDataLoader.enqueueWork(context, /* isFullChargeStart= */ false);
++        // SableOS: piggyback the local battery-health history sample on this existing hourly
++        // job, so the history adds no alarm or wakeup of its own (BH4).
++        SableBatteryHistoryStore.sampleIfDue(context);
+         Log.d(TAG, "refresh periodic job from action=" + action);
+         PeriodicJobManager.getInstance(context).refreshJob(/* fromBoot= */ false);
+         DatabaseUtils.clearExpiredDataIfNeeded(context);
+diff --git a/src/com/android/settings/fuelgauge/batteryusage/PowerUsageAdvanced.java b/src/com/android/settings/fuelgauge/batteryusage/PowerUsageAdvanced.java
+index 9beff7a..492acc4 100644
+--- a/src/com/android/settings/fuelgauge/batteryusage/PowerUsageAdvanced.java
++++ b/src/com/android/settings/fuelgauge/batteryusage/PowerUsageAdvanced.java
+@@ -28,6 +28,7 @@ import android.os.Looper;
+ import android.provider.SearchIndexableResource;
+ import android.util.Log;
+ import android.util.Pair;
++import android.view.View;
+ 
+ import androidx.annotation.NonNull;
+ import androidx.annotation.Nullable;
+@@ -41,6 +42,7 @@ import com.android.settings.R;
+ import com.android.settings.SettingsActivity;
+ import com.android.settings.fuelgauge.BatteryBroadcastReceiver;
+ import com.android.settings.fuelgauge.PowerUsageFeatureProvider;
++import com.android.settings.fuelgauge.sable.SableBatteryKeyboardSupport;
+ import com.android.settings.overlay.FeatureFactory;
+ import com.android.settings.search.BaseSearchIndexProvider;
+ import com.android.settingslib.core.AbstractPreferenceController;
+@@ -75,6 +77,7 @@ public class PowerUsageAdvanced extends PowerUsageBase {
+ 
+     private boolean mIsChartDataLoaded = false;
+     private long mStartTimestamp;
++    private SableBatteryKeyboardSupport mSableKeyboard;
+     private Map<Integer, Map<Integer, BatteryDiffData>> mBatteryUsageMap;
+ 
+     private final ExecutorService mExecutor = Executors.newSingleThreadExecutor();
+@@ -160,6 +163,23 @@ public class PowerUsageAdvanced extends PowerUsageBase {
+         }
+     }
+ 
++    @Override
++    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
++        super.onViewCreated(view, savedInstanceState);
++        // SableOS: type-ahead, MoveHome/MoveEnd/PageUp/PageDown, search key, focus ring.
++        mSableKeyboard =
++                SableBatteryKeyboardSupport.attach(this, getListView(), getMetricsCategory());
++    }
++
++    @Override
++    public void onDestroyView() {
++        if (mSableKeyboard != null) {
++            mSableKeyboard.detach();
++            mSableKeyboard = null;
++        }
++        super.onDestroyView();
++    }
++
+     @Override
+     protected RecyclerView.Adapter onCreateAdapter(PreferenceScreen preferenceScreen) {
+         final RecyclerView.Adapter adapter = super.onCreateAdapter(preferenceScreen);
+diff --git a/src/com/android/settings/fuelgauge/batteryusage/PowerUsageSummary.java b/src/com/android/settings/fuelgauge/batteryusage/PowerUsageSummary.java
+index 60062da..94afc04 100644
+--- a/src/com/android/settings/fuelgauge/batteryusage/PowerUsageSummary.java
++++ b/src/com/android/settings/fuelgauge/batteryusage/PowerUsageSummary.java
+@@ -26,6 +26,7 @@ import android.net.Uri;
+ import android.os.Bundle;
+ import android.os.Handler;
+ import android.provider.Settings.Global;
++import android.view.View;
+ 
+ import androidx.annotation.NonNull;
+ import androidx.annotation.Nullable;
+@@ -45,6 +46,10 @@ import com.android.settings.fuelgauge.PowerUsageFeatureProvider;
+ import com.android.settings.fuelgauge.batterytip.BatteryTipLoader;
+ import com.android.settings.fuelgauge.batterytip.BatteryTipPreferenceController;
+ import com.android.settings.fuelgauge.batterytip.tips.BatteryTip;
++import com.android.settings.fuelgauge.sable.SableBatteryHistoryStore;
++import com.android.settings.fuelgauge.sable.SableBatteryKeyboardSupport;
++import com.android.settings.fuelgauge.sable.SableBatteryState;
++import com.android.settings.fuelgauge.sable.SableBatteryUsageSummary;
+ import com.android.settings.overlay.FeatureFactory;
+ import com.android.settings.search.BaseSearchIndexProvider;
+ import com.android.settingslib.search.SearchIndexable;
+@@ -73,6 +78,7 @@ public class PowerUsageSummary extends PowerUsageBase
+     @VisibleForTesting boolean mNeedUpdateBatteryTip;
+     @VisibleForTesting Preference mHelpPreference;
+     @VisibleForTesting Preference mBatteryUsagePreference;
++    private SableBatteryKeyboardSupport mSableKeyboard;
+ 
+     @VisibleForTesting
+     final ContentObserver mSettingsObserver =
+@@ -160,6 +166,9 @@ public class PowerUsageSummary extends PowerUsageBase
+ 
+     @Override
+     public void onResume() {
++        // SableOS: fresh health/charging summaries, and a local history sample if one is due.
++        SableBatteryState.invalidate();
++        SableBatteryHistoryStore.sampleIfDue(getContext());
+         super.onResume();
+         getContentResolver()
+                 .registerContentObserver(
+@@ -168,6 +177,22 @@ public class PowerUsageSummary extends PowerUsageBase
+                         mSettingsObserver);
+     }
+ 
++    @Override
++    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
++        super.onViewCreated(view, savedInstanceState);
++        mSableKeyboard =
++                SableBatteryKeyboardSupport.attach(this, getListView(), getMetricsCategory());
++    }
++
++    @Override
++    public void onDestroyView() {
++        if (mSableKeyboard != null) {
++            mSableKeyboard.detach();
++            mSableKeyboard = null;
++        }
++        super.onDestroyView();
++    }
++
+     @Override
+     public void onPause() {
+         getContentResolver().unregisterContentObserver(mSettingsObserver);
+@@ -212,6 +237,18 @@ public class PowerUsageSummary extends PowerUsageBase
+         }
+         // reload BatteryInfo and updateUI
+         restartBatteryInfoLoader();
++        updateSableUsageSummary();
++    }
++
++    /** SableOS: top consumers from Android's accounting, with the accounting window (BH2). */
++    private void updateSableUsageSummary() {
++        if (mBatteryUsagePreference == null) {
++            return;
++        }
++        final CharSequence summary =
++                SableBatteryUsageSummary.summarize(getContext(), mBatteryUsageStats);
++        mBatteryUsagePreference.setSummary(summary != null
++                ? summary : getText(R.string.advanced_battery_preference_summary));
+     }
+ 
+     @VisibleForTesting
+diff --git a/src/com/android/settings/fuelgauge/sable/SableBackCallback.java b/src/com/android/settings/fuelgauge/sable/SableBackCallback.java
+new file mode 100644
+index 0000000..0388d8d
+--- /dev/null
++++ b/src/com/android/settings/fuelgauge/sable/SableBackCallback.java
+@@ -0,0 +1,66 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.fuelgauge.sable;
++
++import android.view.View;
++
++import androidx.activity.OnBackPressedCallback;
++import androidx.activity.OnBackPressedDispatcher;
++import androidx.activity.OnBackPressedDispatcherOwner;
++import androidx.activity.ViewTreeOnBackPressedDispatcherOwner;
++
++/**
++ * Routes Back to a temporary keyboard mode (chart inspection, range group) while that mode is
++ * active. Settings opts into OnBackInvokedCallback, so KEYCODE_BACK does not reach views;
++ * this registers an androidx back callback that is enabled only while the mode is active and
++ * removed when the view detaches. Escape is handled by the view's own key handling.
++ */
++public final class SableBackCallback {
++    private final OnBackPressedCallback mCallback;
++    private boolean mRegistered;
++
++    public SableBackCallback(Runnable onBack) {
++        mCallback = new OnBackPressedCallback(false) {
++            @Override
++            public void handleOnBackPressed() {
++                onBack.run();
++            }
++        };
++    }
++
++    /** Enables or disables interception; registers lazily on the view's dispatcher. */
++    public void setActive(View view, boolean active) {
++        if (active && !mRegistered) {
++            final OnBackPressedDispatcherOwner owner =
++                    ViewTreeOnBackPressedDispatcherOwner.get(view);
++            if (owner == null) {
++                return; // No dispatcher: Escape still exits the mode.
++            }
++            final OnBackPressedDispatcher dispatcher = owner.getOnBackPressedDispatcher();
++            dispatcher.addCallback(mCallback);
++            mRegistered = true;
++        }
++        mCallback.setEnabled(active);
++    }
++
++    /** Unregisters; call from onDetachedFromWindow. */
++    public void release() {
++        mCallback.setEnabled(false);
++        mCallback.remove();
++        mRegistered = false;
++    }
++}
+diff --git a/src/com/android/settings/fuelgauge/sable/SableBatteryHealthEntryController.java b/src/com/android/settings/fuelgauge/sable/SableBatteryHealthEntryController.java
+new file mode 100644
+index 0000000..6666023
+--- /dev/null
++++ b/src/com/android/settings/fuelgauge/sable/SableBatteryHealthEntryController.java
+@@ -0,0 +1,58 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.fuelgauge.sable;
++
++import android.content.Context;
++
++import com.android.settings.R;
++import com.android.settings.core.BasePreferenceController;
++import com.android.settings.fuelgauge.sable.model.FactKind;
++import com.android.settings.fuelgauge.sable.model.HealthFactPresenter;
++import com.android.settingslib.Utils;
++
++/** Battery overview row "Battery health" with an availability-aware summary. */
++public class SableBatteryHealthEntryController extends BasePreferenceController {
++
++    public SableBatteryHealthEntryController(Context context, String key) {
++        super(context, key);
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        return SableChargingGate.isSableBatteryEnabled(mContext)
++                && com.android.settings.Utils.isBatteryPresent(mContext)
++                ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
++    }
++
++    @Override
++    public CharSequence getSummary() {
++        final SableBatteryState s = SableBatteryState.get(mContext);
++        switch (HealthFactPresenter.overview(s.report)) {
++            case CAPACITY_PERCENT:
++                return mContext.getString(R.string.sable_battery_health_summary_capacity,
++                        Utils.formatPercentage(
++                                (int) s.report.fact(FactKind.CAPACITY_HEALTH).value()));
++            case PARTIAL_TEMPERATURE:
++                return mContext.getText(R.string.sable_battery_health_summary_partial_temperature);
++            case PARTIAL:
++                return mContext.getText(R.string.sable_battery_health_summary_partial);
++            case NONE:
++            default:
++                return mContext.getText(R.string.sable_battery_health_summary_none);
++        }
++    }
++}
+diff --git a/src/com/android/settings/fuelgauge/sable/SableBatteryHealthFragment.java b/src/com/android/settings/fuelgauge/sable/SableBatteryHealthFragment.java
+new file mode 100644
+index 0000000..2e880d4
+--- /dev/null
++++ b/src/com/android/settings/fuelgauge/sable/SableBatteryHealthFragment.java
+@@ -0,0 +1,91 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.fuelgauge.sable;
++
++import android.app.settings.SettingsEnums;
++import android.content.Context;
++import android.os.Bundle;
++import android.view.View;
++
++import com.android.settings.R;
++import com.android.settings.dashboard.DashboardFragment;
++import com.android.settings.search.BaseSearchIndexProvider;
++import com.android.settingslib.search.SearchIndexable;
++
++/**
++ * Settings > Battery > Battery health (BH3, BH4). Each row carries availability, source and
++ * confidence; unavailable facts say so instead of showing a number. Below the facts, a bounded
++ * local history chart with keyboard inspection.
++ */
++@SearchIndexable
++public class SableBatteryHealthFragment extends DashboardFragment {
++    private static final String TAG = "SableBatteryHealth";
++
++    private SableBatteryKeyboardSupport mKeyboard;
++
++    @Override
++    public int getMetricsCategory() {
++        return SettingsEnums.SETTINGS_BATTERY_INFORMATION;
++    }
++
++    @Override
++    protected String getLogTag() {
++        return TAG;
++    }
++
++    @Override
++    protected int getPreferenceScreenResId() {
++        return R.xml.sable_battery_health;
++    }
++
++    @Override
++    public void onResume() {
++        SableBatteryState.invalidate();
++        // The user is looking at battery state anyway: take a history sample if one is due
++        // (at most one per 30 minutes; no background work).
++        SableBatteryHistoryStore.sampleIfDue(getContext());
++        super.onResume();
++        final SableBatteryHistoryPreference history = findPreference(
++                SableBatteryHistoryPreference.KEY);
++        if (history != null) {
++            history.reload();
++        }
++    }
++
++    @Override
++    public void onViewCreated(View view, Bundle savedInstanceState) {
++        super.onViewCreated(view, savedInstanceState);
++        mKeyboard = SableBatteryKeyboardSupport.attach(this, getListView(), getMetricsCategory());
++    }
++
++    @Override
++    public void onDestroyView() {
++        if (mKeyboard != null) {
++            mKeyboard.detach();
++            mKeyboard = null;
++        }
++        super.onDestroyView();
++    }
++
++    public static final BaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
++            new BaseSearchIndexProvider(R.xml.sable_battery_health) {
++                @Override
++                protected boolean isPageSearchEnabled(Context context) {
++                    return SableChargingGate.isSableBatteryEnabled(context);
++                }
++            };
++}
+diff --git a/src/com/android/settings/fuelgauge/sable/SableBatteryHistoryPreference.java b/src/com/android/settings/fuelgauge/sable/SableBatteryHistoryPreference.java
+new file mode 100644
+index 0000000..78ae07e
+--- /dev/null
++++ b/src/com/android/settings/fuelgauge/sable/SableBatteryHistoryPreference.java
+@@ -0,0 +1,142 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.fuelgauge.sable;
++
++import android.content.Context;
++import android.util.AttributeSet;
++import android.widget.TextView;
++
++import androidx.preference.Preference;
++import androidx.preference.PreferenceViewHolder;
++
++import com.android.settings.R;
++import com.android.settings.fuelgauge.sable.model.ChartInspectionCursor;
++import com.android.settings.fuelgauge.sable.model.HistoryBuckets;
++import com.android.settings.fuelgauge.sable.model.HistoryRange;
++import com.android.settings.fuelgauge.sable.model.HistorySample;
++
++import java.time.ZoneId;
++import java.util.Collections;
++import java.util.List;
++
++/**
++ * Battery health history row (BH4): range group, bounded chart and a text line for the
++ * inspected bucket. Data comes only from {@link SableBatteryHistoryStore} (local, 7 days).
++ */
++public class SableBatteryHistoryPreference extends Preference
++        implements SableHistoryChartView.Listener, SableRangeSelectorView.Listener {
++    static final String KEY = "sable_battery_history";
++    private static final HistoryRange[] RANGES = {
++        HistoryRange.TODAY, HistoryRange.LAST_24_HOURS, HistoryRange.LAST_7_DAYS,
++    };
++
++    private int mRangeIndex = 1; // 24 hours
++    private List<HistorySample> mSamples = Collections.emptyList();
++    private HistoryBuckets.Bucket[] mBuckets = new HistoryBuckets.Bucket[0];
++    private final ChartInspectionCursor mCursor =
++            new ChartInspectionCursor(new boolean[][] {new boolean[0]}, 6);
++    private TextView mBucketText;
++    private TextView mHint;
++    private SableHistoryChartView mChart;
++
++    public SableBatteryHistoryPreference(Context context, AttributeSet attrs) {
++        super(context, attrs);
++        setLayoutResource(R.layout.sable_battery_history_preference);
++        setSelectable(false);
++        setPersistent(false);
++    }
++
++    /** Reloads samples from the local store (screen resumed). */
++    public void reload() {
++        mSamples = SableBatteryHistoryStore.load(getContext());
++        rebucket();
++        notifyChanged();
++    }
++
++    private void rebucket() {
++        final HistoryRange.Window w = RANGES[mRangeIndex].window(System.currentTimeMillis(),
++                ZoneId.systemDefault());
++        mBuckets = HistoryBuckets.bucketize(mSamples, w);
++        final boolean[][] valid = new boolean[HistoryBuckets.SERIES_COUNT][];
++        for (int s = 0; s < HistoryBuckets.SERIES_COUNT; s++) {
++            valid[s] = HistoryBuckets.validity(mBuckets, s);
++        }
++        mCursor.setData(valid);
++    }
++
++    @Override
++    public void onBindViewHolder(PreferenceViewHolder holder) {
++        super.onBindViewHolder(holder);
++        holder.itemView.setFocusable(false);
++        final Context c = getContext();
++        final SableRangeSelectorView range =
++                (SableRangeSelectorView) holder.findViewById(R.id.sable_battery_range);
++        range.setLabels(new CharSequence[] {
++            c.getText(R.string.sable_battery_range_today),
++            c.getText(R.string.sable_battery_range_24h),
++            c.getText(R.string.sable_battery_range_7d),
++        }, mRangeIndex);
++        range.setListener(this);
++
++        mChart = (SableHistoryChartView) holder.findViewById(R.id.sable_battery_chart);
++        mChart.setModel(mBuckets, mCursor);
++        mChart.setListener(this);
++        mBucketText = (TextView) holder.findViewById(R.id.sable_battery_bucket_text);
++        mHint = (TextView) holder.findViewById(R.id.sable_battery_chart_hint);
++        updateText();
++    }
++
++    private void updateText() {
++        if (mBucketText == null) {
++            return;
++        }
++        final Context c = getContext();
++        final boolean any = mCursor.bucket() >= 0;
++        final CharSequence text = any
++                ? SableHistoryChartView.bucketText(c, mBuckets[mCursor.bucket()],
++                        mCursor.series())
++                : c.getText(R.string.sable_battery_history_empty);
++        mBucketText.setText(text);
++        mHint.setText(mCursor.isInspecting() ? R.string.sable_battery_chart_hint_inspecting
++                : R.string.sable_battery_chart_hint_idle);
++        mHint.setVisibility(any ? android.view.View.VISIBLE : android.view.View.GONE);
++        if (mChart != null) {
++            mChart.setContentDescription(c.getString(R.string.sable_battery_chart_description)
++                    + " " + text);
++        }
++    }
++
++    @Override
++    public void onCursorMoved() {
++        updateText();
++    }
++
++    @Override
++    public void onInspectionChanged(boolean inspecting) {
++        updateText();
++    }
++
++    @Override
++    public void onRangeConfirmed(int index) {
++        mRangeIndex = index;
++        rebucket();
++        if (mChart != null) {
++            mChart.setModel(mBuckets, mCursor);
++        }
++        updateText();
++    }
++}
+diff --git a/src/com/android/settings/fuelgauge/sable/SableBatteryHistoryStore.java b/src/com/android/settings/fuelgauge/sable/SableBatteryHistoryStore.java
+new file mode 100644
+index 0000000..1d20ad3
+--- /dev/null
++++ b/src/com/android/settings/fuelgauge/sable/SableBatteryHistoryStore.java
+@@ -0,0 +1,119 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.fuelgauge.sable;
++
++import android.content.Context;
++import android.os.UserManager;
++import android.util.AtomicFile;
++import android.util.Log;
++
++import com.android.settings.fuelgauge.sable.model.HistoryRingBuffer;
++import com.android.settings.fuelgauge.sable.model.HistorySample;
++
++import java.io.File;
++import java.io.FileOutputStream;
++import java.io.IOException;
++import java.nio.charset.StandardCharsets;
++import java.util.Collections;
++import java.util.List;
++
++/**
++ * Local bounded battery history (BH4), stored in Settings' credential-encrypted files dir.
++ * See {@link HistoryRingBuffer} for the sampling and retention policy. Callers:
++ *
++ * <ul>
++ *   <li>PeriodicJobReceiver: the existing hourly battery-usage job (no new alarm);
++ *   <li>Battery screens on resume (the user is looking anyway).
++ * </ul>
++ *
++ * Nothing here schedules work, holds a wakelock or touches the network. The file never leaves
++ * the device; there is no export.
++ */
++public final class SableBatteryHistoryStore {
++    private static final String TAG = "SableBatteryHistory";
++    static final String FILE_NAME = "sable_battery_history.txt";
++    private static final Object LOCK = new Object();
++
++    private SableBatteryHistoryStore() {}
++
++    /** Records a sample if one is due. Safe to call from a broadcast receiver. */
++    public static void sampleIfDue(Context context) {
++        try {
++            if (!context.getSystemService(UserManager.class).isUserUnlocked()) {
++                return;
++            }
++            final SableBatteryState state = SableBatteryState.get(context);
++            final HistorySample sample = HistorySample.from(state.readings, state.report);
++            synchronized (LOCK) {
++                final HistoryRingBuffer buffer = read(context);
++                buffer.prune(sample.timeMillis);
++                if (buffer.add(sample)) {
++                    write(context, buffer);
++                }
++            }
++        } catch (RuntimeException e) {
++            Log.w(TAG, "sample failed", e);
++        }
++    }
++
++    /** Retained samples, oldest first; empty when none or unreadable. */
++    public static List<HistorySample> load(Context context) {
++        try {
++            synchronized (LOCK) {
++                final HistoryRingBuffer buffer = read(context);
++                buffer.prune(System.currentTimeMillis());
++                return buffer.toList();
++            }
++        } catch (RuntimeException e) {
++            Log.w(TAG, "load failed", e);
++            return Collections.emptyList();
++        }
++    }
++
++    private static AtomicFile file(Context context) {
++        return new AtomicFile(new File(context.getFilesDir(), FILE_NAME));
++    }
++
++    private static HistoryRingBuffer read(Context context) {
++        final AtomicFile f = file(context);
++        if (!f.exists()) {
++            return new HistoryRingBuffer();
++        }
++        try {
++            return HistoryRingBuffer.decode(
++                    new String(f.readFully(), StandardCharsets.UTF_8), HistoryRingBuffer.CAPACITY);
++        } catch (IOException e) {
++            Log.w(TAG, "unreadable history, starting over", e);
++            return new HistoryRingBuffer();
++        }
++    }
++
++    private static void write(Context context, HistoryRingBuffer buffer) {
++        final AtomicFile f = file(context);
++        FileOutputStream out = null;
++        try {
++            out = f.startWrite();
++            out.write(buffer.encode().getBytes(StandardCharsets.UTF_8));
++            f.finishWrite(out);
++        } catch (IOException e) {
++            if (out != null) {
++                f.failWrite(out);
++            }
++            Log.w(TAG, "cannot write history", e);
++        }
++    }
++}
+diff --git a/src/com/android/settings/fuelgauge/sable/SableBatteryKeyboardSupport.java b/src/com/android/settings/fuelgauge/sable/SableBatteryKeyboardSupport.java
+new file mode 100644
+index 0000000..847bbd8
+--- /dev/null
++++ b/src/com/android/settings/fuelgauge/sable/SableBatteryKeyboardSupport.java
+@@ -0,0 +1,235 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.fuelgauge.sable;
++
++import android.content.Context;
++import android.content.Intent;
++import android.os.SystemClock;
++import android.text.TextUtils;
++import android.view.KeyEvent;
++import android.view.View;
++
++import androidx.fragment.app.Fragment;
++import androidx.preference.Preference;
++import androidx.preference.PreferenceGroupAdapter;
++import androidx.recyclerview.widget.LinearLayoutManager;
++import androidx.recyclerview.widget.RecyclerView;
++
++import com.android.settings.R;
++import com.android.settings.fuelgauge.sable.model.ListFocusNavigator;
++import com.android.settings.fuelgauge.sable.model.NavKey;
++import com.android.settings.fuelgauge.sable.model.TypeAheadMatcher;
++import com.android.settings.overlay.FeatureFactory;
++
++import java.util.ArrayList;
++import java.util.Collections;
++import java.util.HashMap;
++import java.util.List;
++import java.util.Map;
++
++/**
++ * Keyboard-first behaviour for the Battery screens (BATTERY_HEALTH_USAGE_UX section 9), on top
++ * of the platform's Up/Down focus search and Enter activation:
++ *
++ * <ul>
++ *   <li>type-ahead focus navigation over row titles and aliases (no text field on these
++ *       screens, so every unhandled printable key is type-ahead);
++ *   <li>MoveHome / MoveEnd / PageUp / PageDown to the first / last / next-page row;
++ *   <li>{@code /}, the Search key or Ctrl+K open Settings search;
++ *   <li>a high-contrast focus ring.
++ * </ul>
++ *
++ * Only keys no view handled reach this code (View#addOnUnhandledKeyEventListener), so focused
++ * widgets such as the chart keep their own keys and nothing here can trap focus.
++ */
++public final class SableBatteryKeyboardSupport implements View.OnUnhandledKeyEventListener {
++    private final Fragment mFragment;
++    private final RecyclerView mList;
++    private final int mPageId;
++    private final TypeAheadMatcher mTypeAhead = new TypeAheadMatcher();
++    private final SableFocusDecoration mDecoration;
++    private final Map<String, List<String>> mAliases;
++
++    private SableBatteryKeyboardSupport(Fragment fragment, RecyclerView list, int pageId) {
++        mFragment = fragment;
++        mList = list;
++        mPageId = pageId;
++        mDecoration = new SableFocusDecoration(fragment.requireContext(), list);
++        mAliases = loadAliases(fragment.requireContext());
++    }
++
++    /** Installs keyboard support on a preference list; returns null when there is no list. */
++    public static SableBatteryKeyboardSupport attach(Fragment fragment, RecyclerView list,
++            int pageId) {
++        if (list == null || !SableChargingGate.isSableBatteryEnabled(fragment.requireContext())) {
++            return null;
++        }
++        final SableBatteryKeyboardSupport s =
++                new SableBatteryKeyboardSupport(fragment, list, pageId);
++        list.addOnUnhandledKeyEventListener(s);
++        s.mDecoration.install();
++        return s;
++    }
++
++    public void detach() {
++        mList.removeOnUnhandledKeyEventListener(this);
++        mDecoration.uninstall();
++        mTypeAhead.reset();
++    }
++
++    static Map<String, List<String>> loadAliases(Context context) {
++        final String[] raw =
++                context.getResources().getStringArray(R.array.sable_battery_type_ahead_aliases);
++        final Map<String, List<String>> map = new HashMap<>();
++        for (int i = 0; i + 1 < raw.length; i += 2) {
++            final List<String> aliases = new ArrayList<>();
++            for (String a : raw[i + 1].split(",")) {
++                if (!a.trim().isEmpty()) {
++                    aliases.add(a.trim());
++                }
++            }
++            map.put(raw[i], aliases);
++        }
++        return map;
++    }
++
++    @Override
++    public boolean onUnhandledKeyEvent(View v, KeyEvent event) {
++        if (event.getAction() != KeyEvent.ACTION_DOWN) {
++            return false;
++        }
++        final int code = event.getKeyCode();
++        if (code == KeyEvent.KEYCODE_SEARCH
++                || (code == KeyEvent.KEYCODE_SLASH && !event.isShiftPressed())
++                || (code == KeyEvent.KEYCODE_K
++                        && (event.isCtrlPressed() || event.isMetaPressed()))) {
++            return openSearch();
++        }
++        final NavKey nav = SableBatteryKeys.toNavKey(code);
++        if (nav == NavKey.MOVE_HOME || nav == NavKey.MOVE_END || nav == NavKey.PAGE_UP
++                || nav == NavKey.PAGE_DOWN) {
++            final int target = ListFocusNavigator.target(nav, focusableMask(), currentIndex(),
++                    pageSize());
++            return target >= 0 && focusPosition(target);
++        }
++        if (event.isCtrlPressed() || event.isAltPressed() || event.isMetaPressed()) {
++            return false;
++        }
++        final int unicode = event.getUnicodeChar();
++        if (unicode <= 0 || Character.isISOControl(unicode)) {
++            return false;
++        }
++        final List<TypeAheadMatcher.Row> rows = new ArrayList<>();
++        final List<Integer> positions = new ArrayList<>();
++        collectRows(rows, positions);
++        final int current = positions.indexOf(currentIndex());
++        final int match = mTypeAhead.onChar((char) unicode, SystemClock.uptimeMillis(), rows,
++                current);
++        if (match < 0) {
++            return false; // no match: focus stays where it is
++        }
++        return focusPosition(positions.get(match));
++    }
++
++    private boolean openSearch() {
++        final Context c = mFragment.getContext();
++        if (c == null) {
++            return false;
++        }
++        final Intent i = FeatureFactory.getFeatureFactory().getSearchFeatureProvider()
++                .buildSearchIntent(c, mPageId);
++        if (i == null) {
++            return false;
++        }
++        mFragment.startActivity(i);
++        return true;
++    }
++
++    private PreferenceGroupAdapter adapter() {
++        final RecyclerView.Adapter<?> a = mList.getAdapter();
++        return a instanceof PreferenceGroupAdapter ? (PreferenceGroupAdapter) a : null;
++    }
++
++    private static boolean isFocusTarget(Preference p) {
++        return p != null && p.isVisible()
++                && (p.isSelectable() || p instanceof SableBatteryHistoryPreference);
++    }
++
++    private boolean[] focusableMask() {
++        final PreferenceGroupAdapter a = adapter();
++        if (a == null) {
++            return new boolean[0];
++        }
++        final boolean[] mask = new boolean[a.getItemCount()];
++        for (int i = 0; i < mask.length; i++) {
++            mask[i] = isFocusTarget(a.getItem(i));
++        }
++        return mask;
++    }
++
++    private void collectRows(List<TypeAheadMatcher.Row> rows, List<Integer> positions) {
++        final PreferenceGroupAdapter a = adapter();
++        if (a == null) {
++            return;
++        }
++        for (int i = 0; i < a.getItemCount(); i++) {
++            final Preference p = a.getItem(i);
++            if (!isFocusTarget(p) || TextUtils.isEmpty(p.getTitle())) {
++                continue;
++            }
++            final List<String> aliases = p.getKey() == null ? null : mAliases.get(p.getKey());
++            rows.add(new TypeAheadMatcher.Row(p.getTitle().toString(),
++                    aliases != null ? aliases : Collections.emptyList()));
++            positions.add(i);
++        }
++    }
++
++    private int currentIndex() {
++        final View focused = mList.getFocusedChild();
++        return focused == null ? -1 : mList.getChildAdapterPosition(focused);
++    }
++
++    private int pageSize() {
++        final View first = mList.getChildCount() > 0 ? mList.getChildAt(0) : null;
++        if (first == null || first.getHeight() == 0) {
++            return 5;
++        }
++        return Math.max(1, mList.getHeight() / first.getHeight() - 1);
++    }
++
++    /** Scrolls to and focuses an adapter position (after layout when it is off screen). */
++    private boolean focusPosition(int position) {
++        final RecyclerView.ViewHolder vh = mList.findViewHolderForAdapterPosition(position);
++        if (vh != null && vh.itemView.requestFocus()) {
++            mList.smoothScrollToPosition(position);
++            return true;
++        }
++        if (mList.getLayoutManager() instanceof LinearLayoutManager) {
++            ((LinearLayoutManager) mList.getLayoutManager())
++                    .scrollToPositionWithOffset(position, 0);
++        } else {
++            mList.scrollToPosition(position);
++        }
++        mList.post(() -> {
++            final RecyclerView.ViewHolder later = mList.findViewHolderForAdapterPosition(position);
++            if (later != null) {
++                later.itemView.requestFocus();
++            }
++        });
++        return true;
++    }
++}
+diff --git a/src/com/android/settings/fuelgauge/sable/SableBatteryKeys.java b/src/com/android/settings/fuelgauge/sable/SableBatteryKeys.java
+new file mode 100644
+index 0000000..172c545
+--- /dev/null
++++ b/src/com/android/settings/fuelgauge/sable/SableBatteryKeys.java
+@@ -0,0 +1,59 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.fuelgauge.sable;
++
++import android.view.KeyEvent;
++
++import com.android.settings.fuelgauge.sable.model.NavKey;
++
++/** Maps Android key codes to the normalized {@link NavKey}s. System HOME is never MOVE_HOME. */
++public final class SableBatteryKeys {
++    private SableBatteryKeys() {}
++
++    public static NavKey toNavKey(int keyCode) {
++        switch (keyCode) {
++            case KeyEvent.KEYCODE_DPAD_UP:
++                return NavKey.UP;
++            case KeyEvent.KEYCODE_DPAD_DOWN:
++                return NavKey.DOWN;
++            case KeyEvent.KEYCODE_DPAD_LEFT:
++                return NavKey.LEFT;
++            case KeyEvent.KEYCODE_DPAD_RIGHT:
++                return NavKey.RIGHT;
++            case KeyEvent.KEYCODE_ENTER:
++            case KeyEvent.KEYCODE_NUMPAD_ENTER:
++            case KeyEvent.KEYCODE_DPAD_CENTER:
++                return NavKey.ENTER;
++            case KeyEvent.KEYCODE_SPACE:
++                return NavKey.SPACE;
++            case KeyEvent.KEYCODE_ESCAPE:
++                return NavKey.ESCAPE;
++            case KeyEvent.KEYCODE_BACK:
++                return NavKey.BACK;
++            case KeyEvent.KEYCODE_PAGE_UP:
++                return NavKey.PAGE_UP;
++            case KeyEvent.KEYCODE_PAGE_DOWN:
++                return NavKey.PAGE_DOWN;
++            case KeyEvent.KEYCODE_MOVE_HOME:
++                return NavKey.MOVE_HOME;
++            case KeyEvent.KEYCODE_MOVE_END:
++                return NavKey.MOVE_END;
++            default:
++                return NavKey.OTHER;
++        }
++    }
++}
+diff --git a/src/com/android/settings/fuelgauge/sable/SableBatteryProfileLoader.java b/src/com/android/settings/fuelgauge/sable/SableBatteryProfileLoader.java
+new file mode 100644
+index 0000000..b269889
+--- /dev/null
++++ b/src/com/android/settings/fuelgauge/sable/SableBatteryProfileLoader.java
+@@ -0,0 +1,83 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.fuelgauge.sable;
++
++import android.os.SystemProperties;
++import android.util.Log;
++
++import com.android.settings.fuelgauge.sable.model.BatteryCapabilityProfile;
++import com.android.settings.fuelgauge.sable.model.BatteryProfileParser;
++
++import java.io.File;
++import java.io.IOException;
++import java.nio.charset.StandardCharsets;
++import java.nio.file.Files;
++
++/**
++ * Loads the device's battery capability profile. The profile id comes from
++ * {@code ro.sable.profile.id}; the data file is
++ * {@code /system_ext/etc/sable/battery/<id>.conf} (or the same path under /product). A missing,
++ * unreadable or malformed file yields {@link BatteryCapabilityProfile#EMPTY}: every capability
++ * UNKNOWN, every strict fact unavailable, every charging control unqualified. Common code never
++ * branches on a device model; device differences live only in that data file.
++ */
++public final class SableBatteryProfileLoader {
++    private static final String TAG = "SableBatteryProfile";
++    static final String PROP_PROFILE_ID = "ro.sable.profile.id";
++    private static final String[] DIRS = {
++        "/system_ext/etc/sable/battery", "/product/etc/sable/battery",
++    };
++    private static final long MAX_BYTES = 16 * 1024;
++
++    private static volatile BatteryCapabilityProfile sCached;
++
++    private SableBatteryProfileLoader() {}
++
++    /** The profile for this device, read once per process. */
++    public static BatteryCapabilityProfile get() {
++        BatteryCapabilityProfile p = sCached;
++        if (p == null) {
++            p = load(SystemProperties.get(PROP_PROFILE_ID, ""));
++            sCached = p;
++        }
++        return p;
++    }
++
++    static BatteryCapabilityProfile load(String profileId) {
++        if (!BatteryProfileParser.isValidProfileId(profileId)) {
++            return BatteryCapabilityProfile.EMPTY;
++        }
++        for (String dir : DIRS) {
++            final File f = new File(dir, profileId + ".conf");
++            if (!f.isFile() || f.length() > MAX_BYTES) {
++                continue;
++            }
++            try {
++                final String text =
++                        new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
++                final BatteryCapabilityProfile p = BatteryProfileParser.parse(text, profileId);
++                for (String w : p.warnings()) {
++                    Log.w(TAG, f + ": " + w);
++                }
++                return p;
++            } catch (IOException | SecurityException e) {
++                Log.w(TAG, "cannot read " + f, e);
++            }
++        }
++        return BatteryCapabilityProfile.EMPTY;
++    }
++}
+diff --git a/src/com/android/settings/fuelgauge/sable/SableBatteryState.java b/src/com/android/settings/fuelgauge/sable/SableBatteryState.java
+new file mode 100644
+index 0000000..fad1711
+--- /dev/null
++++ b/src/com/android/settings/fuelgauge/sable/SableBatteryState.java
+@@ -0,0 +1,154 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.fuelgauge.sable;
++
++import android.content.Context;
++import android.content.Intent;
++import android.content.res.Resources;
++import android.os.BatteryManager;
++import android.os.ServiceManager;
++import android.os.SystemClock;
++
++import com.android.settings.fuelgauge.sable.model.BatteryCapabilityProfile;
++import com.android.settings.fuelgauge.sable.model.BatteryHealthEvaluator;
++import com.android.settings.fuelgauge.sable.model.BatteryReadings;
++import com.android.settings.fuelgauge.sable.model.ChargingDiscovery;
++import com.android.settings.fuelgauge.sable.model.HealthReport;
++import com.android.settingslib.fuelgauge.BatteryUtils;
++
++/**
++ * One read of everything the Sable Battery screens show, from Android framework APIs only:
++ * the sticky ACTION_BATTERY_CHANGED broadcast, BatteryManager properties (Settings holds
++ * BATTERY_STATS) and framework configuration. No sysfs/procfs access, no writes, no network.
++ *
++ * <p>Several preference controllers render from the same snapshot, so it is cached for a
++ * short time instead of re-reading the binder properties per row.
++ */
++public final class SableBatteryState {
++    /** LineageOS charging-control service name (vendor.lineage.health backed). */
++    static final String LINEAGE_HEALTH_SERVICE = "lineagehealth";
++    private static final long CACHE_MILLIS = 2_000;
++
++    private static SableBatteryState sCached;
++    private static long sCachedAt;
++
++    public final BatteryCapabilityProfile profile;
++    public final BatteryReadings readings;
++    public final HealthReport report;
++    public final ChargingDiscovery discovery;
++
++    private SableBatteryState(BatteryCapabilityProfile profile, BatteryReadings readings,
++            ChargingDiscovery discovery) {
++        this.profile = profile;
++        this.readings = readings;
++        this.discovery = discovery;
++        this.report = BatteryHealthEvaluator.evaluate(readings, profile,
++                System.currentTimeMillis());
++    }
++
++    /** A recent snapshot (at most two seconds old). */
++    public static synchronized SableBatteryState get(Context context) {
++        final long now = SystemClock.elapsedRealtime();
++        if (sCached == null || now - sCachedAt > CACHE_MILLIS) {
++            sCached = read(context.getApplicationContext());
++            sCachedAt = now;
++        }
++        return sCached;
++    }
++
++    /** Drops the cached snapshot (screen resumed). */
++    public static synchronized void invalidate() {
++        sCached = null;
++    }
++
++    private static SableBatteryState read(Context context) {
++        final BatteryCapabilityProfile profile = SableBatteryProfileLoader.get();
++        final Intent i = BatteryUtils.getBatteryIntent(context);
++        final BatteryManager bm = context.getSystemService(BatteryManager.class);
++        final BatteryReadings.Builder b = BatteryReadings.builder()
++                .sampleTimeMillis(System.currentTimeMillis());
++        if (i != null) {
++            b.fullChargeUah(extra(i, BatteryManager.EXTRA_MAXIMUM_CAPACITY))
++                    .designCapacityUah(extra(i, BatteryManager.EXTRA_DESIGN_CAPACITY))
++                    .cycleCount(extra(i, BatteryManager.EXTRA_CYCLE_COUNT))
++                    .temperatureDeciC(extra(i, BatteryManager.EXTRA_TEMPERATURE))
++                    .healthStatus(extra(i, BatteryManager.EXTRA_HEALTH))
++                    .chargeCounterUah(extra(i, BatteryManager.EXTRA_CHARGE_COUNTER));
++            final int level = i.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
++            final int scale = i.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
++            if (level >= 0 && scale > 0) {
++                b.levelPercent(Math.round(level * 100f / scale));
++            }
++            final int status = i.getIntExtra(BatteryManager.EXTRA_STATUS,
++                    BatteryManager.BATTERY_STATUS_UNKNOWN);
++            b.charging(status == BatteryManager.BATTERY_STATUS_CHARGING
++                    || status == BatteryManager.BATTERY_STATUS_FULL);
++        }
++        long chargingPolicy = BatteryReadings.MISSING;
++        if (bm != null) {
++            b.stateOfHealthPercent(property(bm, BatteryManager.BATTERY_PROPERTY_STATE_OF_HEALTH))
++                    .manufacturingDateSec(
++                            property(bm, BatteryManager.BATTERY_PROPERTY_MANUFACTURING_DATE))
++                    .firstUseDateSec(
++                            property(bm, BatteryManager.BATTERY_PROPERTY_FIRST_USAGE_DATE));
++            chargingPolicy = property(bm, BatteryManager.BATTERY_PROPERTY_CHARGING_POLICY);
++        }
++        final ChargingDiscovery discovery = new ChargingDiscovery(
++                isServicePresent(LINEAGE_HEALTH_SERVICE), chargingPolicy,
++                shutdownTemperatureDeciC());
++        return new SableBatteryState(profile, b.build(), discovery);
++    }
++
++    private static long extra(Intent i, String name) {
++        return i.hasExtra(name)
++                ? BatteryReadings.fromInt(i.getIntExtra(name, Integer.MIN_VALUE))
++                : BatteryReadings.MISSING;
++    }
++
++    private static long property(BatteryManager bm, int id) {
++        try {
++            final long v = bm.getLongProperty(id);
++            return v == Long.MIN_VALUE ? BatteryReadings.MISSING : v;
++        } catch (RuntimeException e) {
++            // Unsupported property, missing permission or HAL error: fail closed.
++            return BatteryReadings.MISSING;
++        }
++    }
++
++    private static boolean isServicePresent(String name) {
++        try {
++            return ServiceManager.checkService(name) != null;
++        } catch (RuntimeException e) {
++            return false;
++        }
++    }
++
++    /** config_shutdownBatteryTemperature (tenths of C) from the framework, 0 when absent. */
++    static int shutdownTemperatureDeciC() {
++        final Resources r = Resources.getSystem();
++        final int id = r.getIdentifier("config_shutdownBatteryTemperature", "integer",
++                "android");
++        if (id == 0) {
++            return 0;
++        }
++        try {
++            return Math.max(0, r.getInteger(id));
++        } catch (Resources.NotFoundException e) {
++            return 0;
++        }
++    }
++}
+diff --git a/src/com/android/settings/fuelgauge/sable/SableBatteryText.java b/src/com/android/settings/fuelgauge/sable/SableBatteryText.java
+new file mode 100644
+index 0000000..ded17ef
+--- /dev/null
++++ b/src/com/android/settings/fuelgauge/sable/SableBatteryText.java
+@@ -0,0 +1,239 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.fuelgauge.sable;
++
++import android.content.Context;
++import android.icu.text.DateFormat;
++import android.icu.text.MeasureFormat;
++import android.icu.util.Calendar;
++import android.icu.util.Measure;
++import android.icu.util.MeasureUnit;
++import android.text.format.DateUtils;
++
++import com.android.settings.R;
++import com.android.settings.fuelgauge.sable.model.ChargingControlPolicy;
++import com.android.settings.fuelgauge.sable.model.ChargingDiscovery;
++import com.android.settings.fuelgauge.sable.model.FactConfidence;
++import com.android.settings.fuelgauge.sable.model.FactSource;
++import com.android.settings.fuelgauge.sable.model.FactText;
++import com.android.settings.fuelgauge.sable.model.TemperatureClass;
++import com.android.settingslib.Utils;
++
++import java.text.NumberFormat;
++import java.util.Locale;
++import java.util.TimeZone;
++
++/** Localized rendering of the model's locale-free text descriptions. */
++public final class SableBatteryText {
++    private SableBatteryText() {}
++
++    private static Locale locale(Context c) {
++        return c.getResources().getConfiguration().getLocales().get(0);
++    }
++
++    /** The value line for a fact row. */
++    public static CharSequence value(Context c, FactText t) {
++        switch (t.template) {
++            case CAPACITY_MAH:
++                return c.getString(R.string.sable_battery_value_mah,
++                        NumberFormat.getIntegerInstance(locale(c)).format(t.args[0]));
++            case CAPACITY_PERCENT:
++                return c.getString(R.string.sable_battery_value_percent_of_design,
++                        Utils.formatPercentage((int) t.args[0]));
++            case CYCLES:
++                return c.getResources().getQuantityString(R.plurals.sable_battery_value_cycles,
++                        (int) Math.min(Integer.MAX_VALUE, t.args[0]), (int) t.args[0]);
++            case TEMPERATURE:
++                return c.getString(R.string.sable_battery_value_temperature,
++                        temperature(c, t.args[0]),
++                        temperatureClass(c, TemperatureClass.values()[(int) t.args[1]]));
++            case HEALTH_STATUS:
++                return condition(c, (int) t.args[0]);
++            case MONTH_YEAR:
++                return monthYear(c, (int) t.args[0], (int) t.args[1]);
++            case MONTH_YEAR_WITH_AGE:
++                return c.getString(R.string.sable_battery_value_month_year_age,
++                        monthYear(c, (int) t.args[0], (int) t.args[1]),
++                        age(c, (int) t.args[2], (int) t.args[3]));
++            case NOT_SUPPORTED:
++                return c.getText(R.string.sable_battery_not_supported);
++            case NOT_QUALIFIED:
++                return c.getText(R.string.sable_battery_not_qualified);
++            case IMPLAUSIBLE:
++                return c.getText(R.string.sable_battery_implausible);
++            case NOT_REPORTED:
++            default:
++                return c.getText(R.string.sable_battery_not_reported);
++        }
++    }
++
++    /** "Source: ... · ..." line, or null for unavailable facts. */
++    public static CharSequence sourceLine(Context c, FactText t) {
++        if (!t.showsValue()) {
++            return null;
++        }
++        return c.getString(R.string.sable_battery_source_line, source(c, t.source),
++                confidence(c, t.confidence));
++    }
++
++    /** Value plus source line, for a two-line preference summary. */
++    public static CharSequence summary(Context c, FactText t) {
++        final CharSequence source = sourceLine(c, t);
++        return source == null ? value(c, t) : value(c, t) + "\n" + source;
++    }
++
++    static String source(Context c, FactSource s) {
++        switch (s) {
++            case HEALTH_HAL:
++                return c.getString(R.string.sable_battery_source_health_hal);
++            case VENDOR_SUPPORTED_INTERFACE:
++                return c.getString(R.string.sable_battery_source_vendor);
++            case DERIVED_LOCAL_ESTIMATE:
++                return c.getString(R.string.sable_battery_source_local);
++            case ANDROID_FRAMEWORK:
++            default:
++                return c.getString(R.string.sable_battery_source_android);
++        }
++    }
++
++    static String confidence(Context c, FactConfidence f) {
++        switch (f) {
++            case MEASURED:
++                return c.getString(R.string.sable_battery_confidence_measured);
++            case DERIVED_HIGH_CONFIDENCE:
++                return c.getString(R.string.sable_battery_confidence_derived_high);
++            case DERIVED_LOW_CONFIDENCE:
++                return c.getString(R.string.sable_battery_confidence_derived_low);
++            case PLATFORM_REPORTED:
++            default:
++                return c.getString(R.string.sable_battery_confidence_platform);
++        }
++    }
++
++    /** Tenths of a degree Celsius as a localized temperature. */
++    public static String temperature(Context c, long deciC) {
++        return MeasureFormat.getInstance(locale(c), MeasureFormat.FormatWidth.SHORT)
++                .format(new Measure(deciC / 10f, MeasureUnit.CELSIUS));
++    }
++
++    static String temperatureClass(Context c, TemperatureClass t) {
++        switch (t) {
++            case HOT:
++                return c.getString(R.string.sable_battery_temperature_hot);
++            case WARM:
++                return c.getString(R.string.sable_battery_temperature_warm);
++            case NORMAL:
++            default:
++                return c.getString(R.string.sable_battery_temperature_normal);
++        }
++    }
++
++    static String condition(Context c, int health) {
++        switch (health) {
++            case android.os.BatteryManager.BATTERY_HEALTH_GOOD:
++                return c.getString(R.string.sable_battery_condition_good);
++            case android.os.BatteryManager.BATTERY_HEALTH_OVERHEAT:
++                return c.getString(R.string.sable_battery_condition_overheat);
++            case android.os.BatteryManager.BATTERY_HEALTH_DEAD:
++                return c.getString(R.string.sable_battery_condition_dead);
++            case android.os.BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE:
++                return c.getString(R.string.sable_battery_condition_over_voltage);
++            case android.os.BatteryManager.BATTERY_HEALTH_COLD:
++                return c.getString(R.string.sable_battery_condition_cold);
++            case android.os.BatteryManager.BATTERY_HEALTH_UNSPECIFIED_FAILURE:
++            default:
++                return c.getString(R.string.sable_battery_condition_failure);
++        }
++    }
++
++    static String monthYear(Context c, int year, int month) {
++        final Calendar cal = Calendar.getInstance(android.icu.util.TimeZone.getDefault(),
++                locale(c));
++        cal.clear();
++        cal.set(year, month - 1, 1);
++        return DateFormat.getInstanceForSkeleton("yMMMM", locale(c)).format(cal.getTime());
++    }
++
++    static String age(Context c, int years, int months) {
++        if (years <= 0 && months <= 0) {
++            return c.getString(R.string.sable_battery_age_under_a_month);
++        }
++        final String y = years > 0
++                ? c.getResources().getQuantityString(R.plurals.sable_battery_age_years, years,
++                        years) : null;
++        final String m = months > 0
++                ? c.getResources().getQuantityString(R.plurals.sable_battery_age_months, months,
++                        months) : null;
++        if (y == null) {
++            return m;
++        }
++        return m == null ? y : y + " " + m;
++    }
++
++    /** Text for a charging/protection row. */
++    public static CharSequence controlSummary(Context c, ChargingControlPolicy.State state,
++            ChargingDiscovery d, boolean policyRow) {
++        switch (state) {
++            case UNAVAILABLE_ON_DEVICE:
++                return c.getText(R.string.sable_battery_control_unavailable);
++            case NOT_AVAILABLE_YET:
++                return c.getText(R.string.sable_battery_control_not_yet);
++            case BACKEND_NOT_QUALIFIED:
++                return c.getText(R.string.sable_battery_control_not_qualified);
++            case READ_ONLY_STATUS:
++                if (policyRow) {
++                    return c.getString(R.string.sable_battery_charging_policy_status,
++                            chargingPolicy(c, d.chargingPolicy));
++                }
++                return d.shutdownTemperatureDeciC > 0
++                        ? c.getString(R.string.sable_battery_thermal_status_shutdown,
++                                temperature(c, d.shutdownTemperatureDeciC))
++                        : c.getText(R.string.sable_battery_thermal_status);
++            default:
++                return null;
++        }
++    }
++
++    static String chargingPolicy(Context c, long policy) {
++        if (policy == ChargingDiscovery.CHARGING_POLICY_ADAPTIVE_AON) {
++            return c.getString(R.string.sable_battery_charging_policy_adaptive_aon);
++        } else if (policy == ChargingDiscovery.CHARGING_POLICY_ADAPTIVE_AC) {
++            return c.getString(R.string.sable_battery_charging_policy_adaptive_ac);
++        } else if (policy == ChargingDiscovery.CHARGING_POLICY_ADAPTIVE_LONGLIFE) {
++            return c.getString(R.string.sable_battery_charging_policy_adaptive_longlife);
++        }
++        return c.getString(R.string.sable_battery_charging_policy_default);
++    }
++
++    /** "Since <date/time>" start of an accounting window. */
++    public static String windowStart(Context c, long startMillis) {
++        return DateUtils.formatDateTime(c, startMillis,
++                DateUtils.FORMAT_SHOW_TIME | DateUtils.FORMAT_SHOW_DATE
++                        | DateUtils.FORMAT_ABBREV_MONTH | DateUtils.FORMAT_NO_YEAR);
++    }
++
++    /** A bucket time span such as "13:00–14:00" or "Sep 20, 00:00–12:00". */
++    public static String span(Context c, long startMillis, long endMillis) {
++        return DateUtils.formatDateRange(c, startMillis, endMillis,
++                DateUtils.FORMAT_SHOW_TIME | DateUtils.FORMAT_ABBREV_MONTH
++                        | DateUtils.FORMAT_NO_YEAR);
++    }
++
++    static TimeZone zone() {
++        return TimeZone.getDefault();
++    }
++}
+diff --git a/src/com/android/settings/fuelgauge/sable/SableBatteryUsageSummary.java b/src/com/android/settings/fuelgauge/sable/SableBatteryUsageSummary.java
+new file mode 100644
+index 0000000..29c3fe2
+--- /dev/null
++++ b/src/com/android/settings/fuelgauge/sable/SableBatteryUsageSummary.java
+@@ -0,0 +1,101 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.fuelgauge.sable;
++
++import android.content.Context;
++import android.os.BatteryConsumer;
++import android.os.BatteryUsageStats;
++import android.util.Log;
++
++import com.android.settings.R;
++import com.android.settings.fuelgauge.batteryusage.BatteryEntry;
++import com.android.settings.fuelgauge.sable.model.BatteryCapabilityProfile;
++import com.android.settings.fuelgauge.sable.model.Capability;
++import com.android.settings.fuelgauge.sable.model.UsageSummary;
++import com.android.settingslib.Utils;
++
++import java.util.ArrayList;
++import java.util.List;
++
++/**
++ * Battery overview "Battery usage" summary (BH2): the top system consumers from Android's own
++ * BatteryUsageStats, labelled with the start of the accounting window, e.g.
++ * "Since Oct 9, 07:12 · Screen 24% · Mobile network 17%". No Sable-side accounting.
++ */
++public final class SableBatteryUsageSummary {
++    private static final String TAG = "SableBatteryUsage";
++    private static final int[] COMPONENTS = {
++        BatteryConsumer.POWER_COMPONENT_SCREEN,
++        BatteryConsumer.POWER_COMPONENT_CPU,
++        BatteryConsumer.POWER_COMPONENT_BLUETOOTH,
++        BatteryConsumer.POWER_COMPONENT_CAMERA,
++        BatteryConsumer.POWER_COMPONENT_FLASHLIGHT,
++        BatteryConsumer.POWER_COMPONENT_MOBILE_RADIO,
++        BatteryConsumer.POWER_COMPONENT_GNSS,
++        BatteryConsumer.POWER_COMPONENT_WIFI,
++        BatteryConsumer.POWER_COMPONENT_PHONE,
++    };
++
++    private SableBatteryUsageSummary() {}
++
++    /** The summary, or null to keep Android's default summary. */
++    public static CharSequence summarize(Context context, BatteryUsageStats stats) {
++        if (stats == null || !SableChargingGate.isSableBatteryEnabled(context)) {
++            return null;
++        }
++        final BatteryCapabilityProfile profile = SableBatteryProfileLoader.get();
++        if (profile.capability(BatteryCapabilityProfile.KEY_USAGE_PLATFORM_ACCOUNTING)
++                == Capability.UNSUPPORTED) {
++            return null;
++        }
++        try {
++            final BatteryConsumer device = stats.getAggregateBatteryConsumer(
++                    BatteryUsageStats.AGGREGATE_BATTERY_CONSUMER_SCOPE_DEVICE);
++            final List<UsageSummary.Component> components = new ArrayList<>();
++            for (int id : COMPONENTS) {
++                components.add(new UsageSummary.Component(id, device.getConsumedPower(id)));
++            }
++            final UsageSummary s = UsageSummary.build(stats.getStatsStartTimestamp(),
++                    stats.getStatsEndTimestamp(), device.getConsumedPower(), components, 2, 1);
++            if (s == null || s.shares.isEmpty()) {
++                return null;
++            }
++            final StringBuilder joined = new StringBuilder();
++            for (UsageSummary.Share share : s.shares) {
++                final String name =
++                        BatteryEntry.getNameAndIconFromPowerComponent(context, share.componentId)
++                                .mName;
++                if (name == null) {
++                    continue;
++                }
++                if (joined.length() > 0) {
++                    joined.append(context.getString(R.string.sable_battery_list_separator));
++                }
++                joined.append(context.getString(R.string.sable_battery_usage_share, name,
++                        Utils.formatPercentage(share.percent)));
++            }
++            if (joined.length() == 0) {
++                return null;
++            }
++            return context.getString(R.string.sable_battery_usage_summary,
++                    SableBatteryText.windowStart(context, s.windowStartMillis), joined);
++        } catch (RuntimeException e) {
++            Log.w(TAG, "usage summary unavailable", e);
++            return null;
++        }
++    }
++}
+diff --git a/src/com/android/settings/fuelgauge/sable/SableChargingControlPreferenceController.java b/src/com/android/settings/fuelgauge/sable/SableChargingControlPreferenceController.java
+new file mode 100644
+index 0000000..b4c2363
+--- /dev/null
++++ b/src/com/android/settings/fuelgauge/sable/SableChargingControlPreferenceController.java
+@@ -0,0 +1,128 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.fuelgauge.sable;
++
++import android.content.Context;
++
++import androidx.preference.Preference;
++
++import com.android.settings.R;
++import com.android.settings.core.BasePreferenceController;
++import com.android.settings.fuelgauge.sable.model.ChargingControl;
++import com.android.settings.fuelgauge.sable.model.ChargingControlPolicy;
++import com.android.settingslib.search.SearchIndexableRaw;
++
++import java.util.List;
++
++/**
++ * One Charging and protection row, driven by {@link ChargingControlPolicy}. While BH6 is not
++ * authorized every mutable control renders as an unavailable row; nothing here writes to any
++ * backend.
++ */
++public class SableChargingControlPreferenceController extends BasePreferenceController {
++    static final String KEY_CHARGE_LIMIT = "sable_charging_charge_limit";
++    static final String KEY_ADAPTIVE = "sable_charging_adaptive";
++    static final String KEY_SCHEDULED = "sable_charging_scheduled";
++    static final String KEY_THERMAL = "sable_charging_thermal";
++    static final String KEY_POLICY = "sable_charging_policy";
++
++    private final ChargingControl mControl;
++
++    public SableChargingControlPreferenceController(Context context, String key) {
++        super(context, key);
++        mControl = controlForKey(key);
++    }
++
++    static ChargingControl controlForKey(String key) {
++        if (KEY_CHARGE_LIMIT.equals(key)) {
++            return ChargingControl.CHARGE_LIMIT;
++        } else if (KEY_ADAPTIVE.equals(key)) {
++            return ChargingControl.ADAPTIVE_CHARGING;
++        } else if (KEY_SCHEDULED.equals(key)) {
++            return ChargingControl.SCHEDULED_CHARGING;
++        } else if (KEY_THERMAL.equals(key)) {
++            return ChargingControl.THERMAL_PROTECTION;
++        } else if (KEY_POLICY.equals(key)) {
++            return ChargingControl.CHARGING_POLICY_STATUS;
++        }
++        return null;
++    }
++
++    private ChargingControlPolicy.State state() {
++        return mControl == null ? ChargingControlPolicy.State.HIDDEN
++                : SableChargingGate.state(mContext, mControl);
++    }
++
++    private static boolean isUnavailable(ChargingControlPolicy.State s) {
++        return s == ChargingControlPolicy.State.UNAVAILABLE_ON_DEVICE
++                || s == ChargingControlPolicy.State.NOT_AVAILABLE_YET
++                || s == ChargingControlPolicy.State.BACKEND_NOT_QUALIFIED;
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        final ChargingControlPolicy.State s = state();
++        if (s == ChargingControlPolicy.State.HIDDEN) {
++            return CONDITIONALLY_UNAVAILABLE;
++        }
++        // Unavailable controls are not indexed under their plain title; see
++        // updateDynamicRawDataToIndex for the explicit "(not available)" search entry.
++        return isUnavailable(s) ? AVAILABLE_UNSEARCHABLE : AVAILABLE;
++    }
++
++    @Override
++    public CharSequence getSummary() {
++        final SableBatteryState s = SableBatteryState.get(mContext);
++        return SableBatteryText.controlSummary(mContext, state(), s.discovery,
++                mControl == ChargingControl.CHARGING_POLICY_STATUS);
++    }
++
++    @Override
++    public void updateState(Preference preference) {
++        super.updateState(preference);
++        if (preference instanceof SableUnavailablePreference) {
++            ((SableUnavailablePreference) preference).setUnavailable(isUnavailable(state()));
++        }
++    }
++
++    @Override
++    public void updateDynamicRawDataToIndex(List<SearchIndexableRaw> rawData) {
++        if (mControl == null || !mControl.isMutable() || !isUnavailable(state())) {
++            return;
++        }
++        final SearchIndexableRaw raw = new SearchIndexableRaw(mContext);
++        final String title = mContext.getString(titleRes());
++        raw.key = getPreferenceKey();
++        raw.title = mContext.getString(R.string.sable_battery_search_unavailable, title);
++        raw.keywords = title;
++        raw.screenTitle = mContext.getString(R.string.sable_battery_charging_title);
++        raw.className = SableChargingProtectionFragment.class.getName();
++        rawData.add(raw);
++    }
++
++    private int titleRes() {
++        switch (mControl) {
++            case ADAPTIVE_CHARGING:
++                return R.string.sable_battery_adaptive_charging_title;
++            case SCHEDULED_CHARGING:
++                return R.string.sable_battery_scheduled_charging_title;
++            case CHARGE_LIMIT:
++            default:
++                return R.string.sable_battery_charge_limit_title;
++        }
++    }
++}
+diff --git a/src/com/android/settings/fuelgauge/sable/SableChargingEntryController.java b/src/com/android/settings/fuelgauge/sable/SableChargingEntryController.java
+new file mode 100644
+index 0000000..4935b83
+--- /dev/null
++++ b/src/com/android/settings/fuelgauge/sable/SableChargingEntryController.java
+@@ -0,0 +1,52 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.fuelgauge.sable;
++
++import android.content.Context;
++
++import com.android.settings.R;
++import com.android.settings.core.BasePreferenceController;
++import com.android.settings.fuelgauge.sable.model.ChargingControlPolicy;
++
++/** Battery overview row "Charging & protection". */
++public class SableChargingEntryController extends BasePreferenceController {
++
++    public SableChargingEntryController(Context context, String key) {
++        super(context, key);
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        return SableChargingGate.isSableBatteryEnabled(mContext)
++                && com.android.settings.Utils.isBatteryPresent(mContext)
++                ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
++    }
++
++    @Override
++    public CharSequence getSummary() {
++        final SableBatteryState s = SableBatteryState.get(mContext);
++        switch (ChargingControlPolicy.overview(s.profile, s.discovery)) {
++            case NOT_AVAILABLE:
++                return mContext.getText(R.string.sable_battery_charging_summary_not_available);
++            case PLATFORM_ONLY:
++                return mContext.getText(R.string.sable_battery_charging_summary_platform);
++            case NOT_QUALIFIED:
++            default:
++                return mContext.getText(R.string.sable_battery_charging_summary_not_qualified);
++        }
++    }
++}
+diff --git a/src/com/android/settings/fuelgauge/sable/SableChargingGate.java b/src/com/android/settings/fuelgauge/sable/SableChargingGate.java
+new file mode 100644
+index 0000000..b971c02
+--- /dev/null
++++ b/src/com/android/settings/fuelgauge/sable/SableChargingGate.java
+@@ -0,0 +1,51 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.fuelgauge.sable;
++
++import android.content.Context;
++
++import com.android.settings.R;
++import com.android.settings.fuelgauge.sable.model.ChargingControl;
++import com.android.settings.fuelgauge.sable.model.ChargingControlPolicy;
++
++/** Settings-side entry to {@link ChargingControlPolicy}. */
++public final class SableChargingGate {
++    private SableChargingGate() {}
++
++    /** True when the Sable Battery layer is on in this build. */
++    public static boolean isSableBatteryEnabled(Context context) {
++        return context.getResources().getBoolean(R.bool.config_sable_battery_enabled);
++    }
++
++    public static ChargingControlPolicy.State state(Context context, ChargingControl control) {
++        final SableBatteryState s = SableBatteryState.get(context);
++        return ChargingControlPolicy.state(control, s.profile, s.discovery);
++    }
++
++    /**
++     * Whether charging controls that Sable does not own (LineageOS charging control and
++     * charging speed) may be offered. Always false while BH6 is not authorized: an unqualified
++     * backend must not be mutable from the common Settings UI.
++     */
++    public static boolean vendorControlsAllowed(Context context) {
++        if (!isSableBatteryEnabled(context)) {
++            return true; // Sable layer off: stock LineageOS behaviour.
++        }
++        return state(context, ChargingControl.VENDOR_CHARGING_CONTROLS)
++                == ChargingControlPolicy.State.ENABLED;
++    }
++}
+diff --git a/src/com/android/settings/fuelgauge/sable/SableChargingProtectionFragment.java b/src/com/android/settings/fuelgauge/sable/SableChargingProtectionFragment.java
+new file mode 100644
+index 0000000..72e55fa
+--- /dev/null
++++ b/src/com/android/settings/fuelgauge/sable/SableChargingProtectionFragment.java
+@@ -0,0 +1,83 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.fuelgauge.sable;
++
++import android.app.settings.SettingsEnums;
++import android.content.Context;
++import android.os.Bundle;
++import android.view.View;
++
++import com.android.settings.R;
++import com.android.settings.dashboard.DashboardFragment;
++import com.android.settings.search.BaseSearchIndexProvider;
++import com.android.settingslib.search.SearchIndexable;
++
++/**
++ * Settings > Battery > Charging and protection. BH5 capability discovery, read-only: every
++ * mutable control is capability-gated and, while BH6 is unauthorized, shown unavailable.
++ * Battery saver remains Android's own control on the Battery page.
++ */
++@SearchIndexable
++public class SableChargingProtectionFragment extends DashboardFragment {
++    private static final String TAG = "SableChargingProtection";
++
++    private SableBatteryKeyboardSupport mKeyboard;
++
++    @Override
++    public int getMetricsCategory() {
++        return SettingsEnums.FUELGAUGE_POWER_USAGE_SUMMARY_V2;
++    }
++
++    @Override
++    protected String getLogTag() {
++        return TAG;
++    }
++
++    @Override
++    protected int getPreferenceScreenResId() {
++        return R.xml.sable_battery_charging;
++    }
++
++    @Override
++    public void onResume() {
++        SableBatteryState.invalidate();
++        super.onResume();
++    }
++
++    @Override
++    public void onViewCreated(View view, Bundle savedInstanceState) {
++        super.onViewCreated(view, savedInstanceState);
++        mKeyboard = SableBatteryKeyboardSupport.attach(this, getListView(), getMetricsCategory());
++    }
++
++    @Override
++    public void onDestroyView() {
++        if (mKeyboard != null) {
++            mKeyboard.detach();
++            mKeyboard = null;
++        }
++        super.onDestroyView();
++    }
++
++    public static final BaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
++            new BaseSearchIndexProvider(R.xml.sable_battery_charging) {
++                @Override
++                protected boolean isPageSearchEnabled(Context context) {
++                    return SableChargingGate.isSableBatteryEnabled(context);
++                }
++            };
++}
+diff --git a/src/com/android/settings/fuelgauge/sable/SableFocusDecoration.java b/src/com/android/settings/fuelgauge/sable/SableFocusDecoration.java
+new file mode 100644
+index 0000000..0582bb2
+--- /dev/null
++++ b/src/com/android/settings/fuelgauge/sable/SableFocusDecoration.java
+@@ -0,0 +1,79 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.fuelgauge.sable;
++
++import android.content.Context;
++import android.graphics.Canvas;
++import android.graphics.Paint;
++import android.graphics.RectF;
++import android.view.View;
++import android.view.ViewTreeObserver;
++
++import androidx.recyclerview.widget.RecyclerView;
++
++import com.android.settings.R;
++
++/**
++ * High-contrast focus ring for the focused Settings row: a stroke in the primary text color
++ * (not the accent color alone), so keyboard focus is visible on any theme. Redraws on every
++ * global focus change.
++ */
++final class SableFocusDecoration extends RecyclerView.ItemDecoration {
++    private final Paint mPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
++    private final RectF mRect = new RectF();
++    private final float mInset;
++    private final float mRadius;
++    private final RecyclerView mList;
++    private final ViewTreeObserver.OnGlobalFocusChangeListener mFocusListener;
++
++    SableFocusDecoration(Context context, RecyclerView list) {
++        mList = list;
++        mPaint.setStyle(Paint.Style.STROKE);
++        mPaint.setStrokeWidth(
++                context.getResources().getDimension(R.dimen.sable_battery_focus_stroke));
++        mPaint.setColor(SableRangeSelectorView.color(context, android.R.attr.textColorPrimary));
++        mInset = context.getResources().getDimension(R.dimen.sable_battery_focus_inset);
++        mRadius = context.getResources().getDimension(R.dimen.sable_battery_focus_radius);
++        mFocusListener = (oldFocus, newFocus) -> mList.invalidate();
++    }
++
++    void install() {
++        mList.addItemDecoration(this);
++        mList.getViewTreeObserver().addOnGlobalFocusChangeListener(mFocusListener);
++    }
++
++    void uninstall() {
++        mList.removeItemDecoration(this);
++        if (mList.getViewTreeObserver().isAlive()) {
++            mList.getViewTreeObserver().removeOnGlobalFocusChangeListener(mFocusListener);
++        }
++    }
++
++    @Override
++    public void onDrawOver(Canvas c, RecyclerView parent, RecyclerView.State state) {
++        final View focused = parent.getFocusedChild();
++        // Rows only: inner widgets (range group, chart) draw their own focus state.
++        if (focused == null || !focused.isFocused() || parent.isInTouchMode()) {
++            return;
++        }
++        final float half = mPaint.getStrokeWidth() / 2f;
++        mRect.set(focused.getLeft() + mInset + half, focused.getTop() + mInset + half,
++                focused.getRight() - mInset - half, focused.getBottom() - mInset - half);
++        mRect.offset(focused.getTranslationX(), focused.getTranslationY());
++        c.drawRoundRect(mRect, mRadius, mRadius, mPaint);
++    }
++}
+diff --git a/src/com/android/settings/fuelgauge/sable/SableHealthFactPreferenceController.java b/src/com/android/settings/fuelgauge/sable/SableHealthFactPreferenceController.java
+new file mode 100644
+index 0000000..603477e
+--- /dev/null
++++ b/src/com/android/settings/fuelgauge/sable/SableHealthFactPreferenceController.java
+@@ -0,0 +1,78 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.fuelgauge.sable;
++
++import android.content.Context;
++
++import com.android.settings.core.BasePreferenceController;
++import com.android.settings.fuelgauge.sable.model.FactKind;
++import com.android.settings.fuelgauge.sable.model.FactText;
++import com.android.settings.fuelgauge.sable.model.HealthFactPresenter;
++
++import java.time.ZoneId;
++
++/**
++ * One Battery health row. The preference key selects the fact. Unavailable facts stay visible
++ * with an honest "Not reported" / "Not verified" summary, except dates, which the design says
++ * to omit when untrustworthy.
++ */
++public class SableHealthFactPreferenceController extends BasePreferenceController {
++    static final String PREFIX = "sable_battery_fact_";
++
++    private final FactKind mKind;
++
++    public SableHealthFactPreferenceController(Context context, String key) {
++        super(context, key);
++        mKind = kindForKey(key);
++    }
++
++    static FactKind kindForKey(String key) {
++        if (key == null || !key.startsWith(PREFIX)) {
++            return null;
++        }
++        try {
++            return FactKind.valueOf(
++                    key.substring(PREFIX.length()).toUpperCase(java.util.Locale.ROOT));
++        } catch (IllegalArgumentException e) {
++            return null;
++        }
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        if (mKind == null) {
++            return UNSUPPORTED_ON_DEVICE;
++        }
++        if (mKind == FactKind.MANUFACTURING_DATE || mKind == FactKind.FIRST_USE_DATE) {
++            return SableBatteryState.get(mContext).report.fact(mKind).isAvailable()
++                    ? AVAILABLE : CONDITIONALLY_UNAVAILABLE;
++        }
++        return AVAILABLE;
++    }
++
++    private FactText text() {
++        final SableBatteryState s = SableBatteryState.get(mContext);
++        return HealthFactPresenter.present(s.report.fact(mKind),
++                s.discovery.shutdownTemperatureDeciC, ZoneId.systemDefault(),
++                System.currentTimeMillis());
++    }
++
++    @Override
++    public CharSequence getSummary() {
++        return mKind == null ? null : SableBatteryText.summary(mContext, text());
++    }
++}
+diff --git a/src/com/android/settings/fuelgauge/sable/SableHistoryChartView.java b/src/com/android/settings/fuelgauge/sable/SableHistoryChartView.java
+new file mode 100644
+index 0000000..5d440a8
+--- /dev/null
++++ b/src/com/android/settings/fuelgauge/sable/SableHistoryChartView.java
+@@ -0,0 +1,222 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.fuelgauge.sable;
++
++import android.content.Context;
++import android.graphics.Canvas;
++import android.graphics.Paint;
++import android.graphics.Rect;
++import android.graphics.RectF;
++import android.util.AttributeSet;
++import android.view.KeyEvent;
++import android.view.MotionEvent;
++import android.view.View;
++
++import com.android.settings.R;
++import com.android.settings.fuelgauge.sable.model.ChartInspectionCursor;
++import com.android.settings.fuelgauge.sable.model.HistoryBuckets;
++import com.android.settings.fuelgauge.sable.model.NavKey;
++
++/**
++ * Bounded bar chart of local battery history with keyboard inspection
++ * ({@link ChartInspectionCursor}). The inspected bucket is drawn solid with an outline; the
++ * others are faded; empty buckets show only a baseline tick. The selected bucket's value is
++ * always also given as text by the owning preference, so color is never the only channel.
++ */
++public class SableHistoryChartView extends View {
++    /** Callbacks to the owning preference. */
++    public interface Listener {
++        /** The inspected bucket or series changed (also after a tap). */
++        void onCursorMoved();
++
++        /** Inspection mode was entered or left. */
++        void onInspectionChanged(boolean inspecting);
++    }
++
++    /** Fixed temperature scale for bars: 0 C to 60 C. */
++    private static final int TEMP_SCALE_MAX_DECI_C = 600;
++
++    private final Paint mBar = new Paint(Paint.ANTI_ALIAS_FLAG);
++    private final Paint mOutline = new Paint(Paint.ANTI_ALIAS_FLAG);
++    private final Paint mBaseline = new Paint(Paint.ANTI_ALIAS_FLAG);
++    private final RectF mRect = new RectF();
++    private final SableBackCallback mBack;
++    private final float mGap;
++    private HistoryBuckets.Bucket[] mBuckets = new HistoryBuckets.Bucket[0];
++    private ChartInspectionCursor mCursor;
++    private Listener mListener;
++
++    public SableHistoryChartView(Context context, AttributeSet attrs) {
++        super(context, attrs);
++        setFocusable(true);
++        setClickable(true);
++        final int fg = SableRangeSelectorView.color(context, android.R.attr.textColorPrimary);
++        mBar.setColor(SableRangeSelectorView.color(context, android.R.attr.colorAccent));
++        mOutline.setStyle(Paint.Style.STROKE);
++        mOutline.setStrokeWidth(getResources().getDimension(R.dimen.sable_battery_focus_stroke));
++        mOutline.setColor(fg);
++        mBaseline.setColor(fg);
++        mBaseline.setAlpha(0x60);
++        mBaseline.setStrokeWidth(getResources().getDisplayMetrics().density);
++        mGap = getResources().getDimension(R.dimen.sable_battery_chart_bar_gap);
++        mBack = new SableBackCallback(() -> handle(NavKey.BACK));
++    }
++
++    public void setListener(Listener l) {
++        mListener = l;
++    }
++
++    /** Binds data. The cursor is owned by the preference so it survives rebinds. */
++    public void setModel(HistoryBuckets.Bucket[] buckets, ChartInspectionCursor cursor) {
++        mBuckets = buckets;
++        mCursor = cursor;
++        mCursor.setRtl(getLayoutDirection() == LAYOUT_DIRECTION_RTL);
++        mBack.setActive(this, mCursor.isInspecting() && hasFocus());
++        invalidate();
++    }
++
++    @Override
++    public boolean onKeyDown(int keyCode, KeyEvent event) {
++        if (mCursor != null && handle(SableBatteryKeys.toNavKey(keyCode))) {
++            return true;
++        }
++        return super.onKeyDown(keyCode, event);
++    }
++
++    private boolean handle(NavKey key) {
++        final boolean wasInspecting = mCursor.isInspecting();
++        final ChartInspectionCursor.Result r = mCursor.handle(key);
++        if (r.moved && mListener != null) {
++            mListener.onCursorMoved();
++        }
++        if (wasInspecting != mCursor.isInspecting()) {
++            mBack.setActive(this, mCursor.isInspecting());
++            if (mListener != null) {
++                mListener.onInspectionChanged(mCursor.isInspecting());
++            }
++        }
++        if (r.consumed) {
++            invalidate();
++        }
++        return r.consumed;
++    }
++
++    @Override
++    protected void onFocusChanged(boolean gainFocus, int direction, Rect previous) {
++        super.onFocusChanged(gainFocus, direction, previous);
++        if (!gainFocus && mCursor != null && mCursor.isInspecting()) {
++            mCursor.exit();
++            mBack.setActive(this, false);
++            if (mListener != null) {
++                mListener.onInspectionChanged(false);
++            }
++            invalidate();
++        }
++    }
++
++    @Override
++    protected void onDetachedFromWindow() {
++        mBack.release();
++        super.onDetachedFromWindow();
++    }
++
++    @Override
++    public boolean onTouchEvent(MotionEvent e) {
++        if (mCursor == null || mBuckets.length == 0) {
++            return super.onTouchEvent(e);
++        }
++        if (e.getAction() == MotionEvent.ACTION_UP) {
++            final float slot = getWidth() / (float) mBuckets.length;
++            int index = (int) (e.getX() / slot);
++            if (getLayoutDirection() == LAYOUT_DIRECTION_RTL) {
++                index = mBuckets.length - 1 - index;
++            }
++            if (mCursor.select(Math.max(0, Math.min(mBuckets.length - 1, index)))
++                    && mListener != null) {
++                mListener.onCursorMoved();
++            }
++            invalidate();
++            performClick();
++        }
++        return true;
++    }
++
++    @Override
++    public boolean performClick() {
++        return super.performClick();
++    }
++
++    @Override
++    protected void onDraw(Canvas canvas) {
++        super.onDraw(canvas);
++        if (mCursor == null || mBuckets.length == 0) {
++            return;
++        }
++        final int series = mCursor.series();
++        final float slot = getWidth() / (float) mBuckets.length;
++        final float top = mOutline.getStrokeWidth();
++        final float bottom = getHeight() - mOutline.getStrokeWidth();
++        final boolean rtl = getLayoutDirection() == LAYOUT_DIRECTION_RTL;
++        canvas.drawLine(0, bottom, getWidth(), bottom, mBaseline);
++        for (int i = 0; i < mBuckets.length; i++) {
++            final int pos = rtl ? mBuckets.length - 1 - i : i;
++            final float left = pos * slot + mGap / 2f;
++            final float right = (pos + 1) * slot - mGap / 2f;
++            final HistoryBuckets.Bucket b = mBuckets[i];
++            final boolean selected = i == mCursor.bucket();
++            if (b.hasValue(series)) {
++                final float fraction = series == HistoryBuckets.SERIES_TEMPERATURE
++                        ? clamp(b.averageTemperatureDeciC / (float) TEMP_SCALE_MAX_DECI_C)
++                        : clamp(b.lastLevelPercent / 100f);
++                mRect.set(left, bottom - (bottom - top) * Math.max(fraction, 0.02f), right,
++                        bottom);
++                mBar.setAlpha(selected ? 0xff : 0x80);
++                canvas.drawRect(mRect, mBar);
++            }
++            if (selected && (mCursor.isInspecting() || hasFocus())) {
++                mRect.set(left, top, right, bottom);
++                canvas.drawRect(mRect, mOutline);
++            }
++        }
++    }
++
++    private static float clamp(float f) {
++        return Math.max(0f, Math.min(1f, f));
++    }
++
++    /** Text for the current bucket: series, time span and value. */
++    static CharSequence bucketText(Context c, HistoryBuckets.Bucket b, int series) {
++        final String seriesName = c.getString(series == HistoryBuckets.SERIES_TEMPERATURE
++                ? R.string.sable_battery_series_temperature : R.string.sable_battery_series_level);
++        String value;
++        if (!b.hasValue(series)) {
++            value = c.getString(R.string.sable_battery_bucket_empty);
++        } else if (series == HistoryBuckets.SERIES_TEMPERATURE) {
++            value = c.getString(R.string.sable_battery_bucket_temperature,
++                    SableBatteryText.temperature(c, b.averageTemperatureDeciC),
++                    SableBatteryText.temperature(c, b.maxTemperatureDeciC));
++        } else {
++            value = com.android.settingslib.Utils.formatPercentage(b.lastLevelPercent);
++        }
++        if (b.anyCharging && b.sampleCount > 0) {
++            value = value + c.getString(R.string.sable_battery_list_separator)
++                    + c.getString(R.string.sable_battery_bucket_charging);
++        }
++        return c.getString(R.string.sable_battery_bucket_text, seriesName,
++                SableBatteryText.span(c, b.startMillis, b.endMillis), value);
++    }
++}
+diff --git a/src/com/android/settings/fuelgauge/sable/SableLegacyBatteryInfoController.java b/src/com/android/settings/fuelgauge/sable/SableLegacyBatteryInfoController.java
+new file mode 100644
+index 0000000..2c1755b
+--- /dev/null
++++ b/src/com/android/settings/fuelgauge/sable/SableLegacyBatteryInfoController.java
+@@ -0,0 +1,39 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.fuelgauge.sable;
++
++import android.content.Context;
++
++import com.android.settings.core.BasePreferenceController;
++
++/**
++ * Hides Android's "Battery information" row when the Sable Battery health page is on: that
++ * page shows capacity and cycle count without device-profile gating, which the design forbids
++ * (FABRICATED_HEALTH_PERCENTAGE=PASS_ABSENT). The Sable page shows the same facts, gated.
++ */
++public class SableLegacyBatteryInfoController extends BasePreferenceController {
++
++    public SableLegacyBatteryInfoController(Context context, String key) {
++        super(context, key);
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        return SableChargingGate.isSableBatteryEnabled(mContext)
++                ? CONDITIONALLY_UNAVAILABLE : AVAILABLE;
++    }
++}
+diff --git a/src/com/android/settings/fuelgauge/sable/SableRangeSelectorView.java b/src/com/android/settings/fuelgauge/sable/SableRangeSelectorView.java
+new file mode 100644
+index 0000000..5d47b66
+--- /dev/null
++++ b/src/com/android/settings/fuelgauge/sable/SableRangeSelectorView.java
+@@ -0,0 +1,196 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.fuelgauge.sable;
++
++import android.content.Context;
++import android.graphics.Canvas;
++import android.graphics.Paint;
++import android.graphics.RectF;
++import android.util.AttributeSet;
++import android.util.TypedValue;
++import android.view.KeyEvent;
++import android.view.MotionEvent;
++import android.view.View;
++import android.view.accessibility.AccessibilityNodeInfo;
++
++import com.android.settings.R;
++import com.android.settings.fuelgauge.sable.model.NavKey;
++import com.android.settings.fuelgauge.sable.model.SegmentedRangeGroup;
++
++/**
++ * Segmented range control (Today / 24 hours / 7 days) as one focus stop, driven by
++ * {@link SegmentedRangeGroup}. The selected segment is marked by a filled background and bold
++ * text, the pending segment by an outline: never by color alone. Tapping a segment is the
++ * touch fallback.
++ */
++public class SableRangeSelectorView extends View {
++    /** Called when the confirmed segment changes. */
++    public interface Listener {
++        void onRangeConfirmed(int index);
++    }
++
++    private final Paint mText = new Paint(Paint.ANTI_ALIAS_FLAG);
++    private final Paint mFill = new Paint(Paint.ANTI_ALIAS_FLAG);
++    private final Paint mStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
++    private final RectF mRect = new RectF();
++    private final SableBackCallback mBack;
++    private CharSequence[] mLabels = new CharSequence[0];
++    private SegmentedRangeGroup mGroup;
++    private Listener mListener;
++
++    public SableRangeSelectorView(Context context, AttributeSet attrs) {
++        super(context, attrs);
++        setFocusable(true);
++        setClickable(true);
++        mText.setTextAlign(Paint.Align.CENTER);
++        mText.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 14,
++                getResources().getDisplayMetrics()));
++        mText.setColor(color(context, android.R.attr.textColorPrimary));
++        mFill.setColor(color(context, android.R.attr.colorControlHighlight));
++        mStroke.setStyle(Paint.Style.STROKE);
++        mStroke.setStrokeWidth(getResources().getDimension(R.dimen.sable_battery_focus_stroke));
++        mStroke.setColor(color(context, android.R.attr.textColorPrimary));
++        mBack = new SableBackCallback(() -> handle(NavKey.BACK));
++    }
++
++    static int color(Context c, int attr) {
++        final TypedValue v = new TypedValue();
++        if (!c.getTheme().resolveAttribute(attr, v, true)) {
++            return 0xff000000;
++        }
++        return v.resourceId != 0 ? c.getColorStateList(v.resourceId).getDefaultColor() : v.data;
++    }
++
++    public void setLabels(CharSequence[] labels, int confirmed) {
++        mLabels = labels;
++        mGroup = new SegmentedRangeGroup(labels.length, confirmed);
++        mGroup.setRtl(getLayoutDirection() == LAYOUT_DIRECTION_RTL);
++        updateDescription();
++        invalidate();
++    }
++
++    public void setListener(Listener l) {
++        mListener = l;
++    }
++
++    private void updateDescription() {
++        if (mGroup != null) {
++            setContentDescription(getContext().getString(R.string.sable_battery_range_description,
++                    mLabels[mGroup.pending()]));
++        }
++    }
++
++    @Override
++    public boolean onKeyDown(int keyCode, KeyEvent event) {
++        if (mGroup != null && handle(SableBatteryKeys.toNavKey(keyCode))) {
++            return true;
++        }
++        return super.onKeyDown(keyCode, event);
++    }
++
++    private boolean handle(NavKey key) {
++        final SegmentedRangeGroup.Result r = mGroup.handle(key);
++        if (r.pendingChanged) {
++            updateDescription();
++            invalidate();
++            announceForAccessibility(mLabels[mGroup.pending()]);
++        }
++        if (r.confirmedChanged && mListener != null) {
++            mListener.onRangeConfirmed(mGroup.confirmed());
++        }
++        mBack.setActive(this, mGroup.isActive());
++        return r.consumed;
++    }
++
++    @Override
++    protected void onFocusChanged(boolean gainFocus, int direction,
++            android.graphics.Rect previouslyFocusedRect) {
++        super.onFocusChanged(gainFocus, direction, previouslyFocusedRect);
++        if (!gainFocus && mGroup != null) {
++            mGroup.blur();
++            mBack.setActive(this, false);
++            updateDescription();
++            invalidate();
++        }
++    }
++
++    @Override
++    protected void onDetachedFromWindow() {
++        mBack.release();
++        super.onDetachedFromWindow();
++    }
++
++    @Override
++    public boolean onTouchEvent(MotionEvent e) {
++        if (mGroup == null || mLabels.length == 0) {
++            return super.onTouchEvent(e);
++        }
++        if (e.getAction() == MotionEvent.ACTION_UP) {
++            final float w = getWidth() / (float) mLabels.length;
++            int index = (int) (e.getX() / w);
++            if (getLayoutDirection() == LAYOUT_DIRECTION_RTL) {
++                index = mLabels.length - 1 - index;
++            }
++            if (mGroup.tap(Math.max(0, Math.min(mLabels.length - 1, index)))
++                    && mListener != null) {
++                mListener.onRangeConfirmed(mGroup.confirmed());
++            }
++            updateDescription();
++            invalidate();
++            performClick();
++        }
++        return true;
++    }
++
++    @Override
++    public boolean performClick() {
++        return super.performClick();
++    }
++
++    @Override
++    public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfo info) {
++        super.onInitializeAccessibilityNodeInfo(info);
++        info.setClassName(android.widget.RadioGroup.class.getName());
++    }
++
++    @Override
++    protected void onDraw(Canvas canvas) {
++        super.onDraw(canvas);
++        if (mGroup == null || mLabels.length == 0) {
++            return;
++        }
++        final float w = getWidth() / (float) mLabels.length;
++        final float h = getHeight();
++        final float r = getResources().getDimension(R.dimen.sable_battery_focus_radius);
++        final float inset = mStroke.getStrokeWidth();
++        final boolean rtl = getLayoutDirection() == LAYOUT_DIRECTION_RTL;
++        for (int i = 0; i < mLabels.length; i++) {
++            final int slot = rtl ? mLabels.length - 1 - i : i;
++            mRect.set(slot * w + inset, inset, (slot + 1) * w - inset, h - inset);
++            final boolean confirmed = i == mGroup.confirmed();
++            if (confirmed) {
++                canvas.drawRoundRect(mRect, r, r, mFill);
++            }
++            if (mGroup.isActive() && i == mGroup.pending()) {
++                canvas.drawRoundRect(mRect, r, r, mStroke);
++            }
++            mText.setFakeBoldText(confirmed);
++            final float y = h / 2f - (mText.descent() + mText.ascent()) / 2f;
++            canvas.drawText(mLabels[i].toString(), mRect.centerX(), y, mText);
++        }
++    }
++}
+diff --git a/src/com/android/settings/fuelgauge/sable/SableUnavailablePreference.java b/src/com/android/settings/fuelgauge/sable/SableUnavailablePreference.java
+new file mode 100644
+index 0000000..71d37fb
+--- /dev/null
++++ b/src/com/android/settings/fuelgauge/sable/SableUnavailablePreference.java
+@@ -0,0 +1,89 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.fuelgauge.sable;
++
++import android.content.Context;
++import android.util.AttributeSet;
++import android.view.View;
++import android.view.accessibility.AccessibilityNodeInfo;
++import android.widget.TextView;
++
++import androidx.preference.Preference;
++import androidx.preference.PreferenceViewHolder;
++
++/**
++ * A row for a control the device cannot offer. It looks disabled and reports itself disabled
++ * to accessibility services, but the row stays focusable so keyboard-only users can reach and
++ * read it (a disabled View cannot take focus). Activating it does nothing.
++ */
++public class SableUnavailablePreference extends Preference {
++    private boolean mUnavailable = true;
++
++    public SableUnavailablePreference(Context context, AttributeSet attrs) {
++        super(context, attrs);
++        setPersistent(false);
++    }
++
++    public SableUnavailablePreference(Context context) {
++        this(context, null);
++    }
++
++    /** True: shown as an unavailable control. False: a normal read-only status row. */
++    public void setUnavailable(boolean unavailable) {
++        if (mUnavailable != unavailable) {
++            mUnavailable = unavailable;
++            notifyChanged();
++        }
++    }
++
++    public boolean isUnavailable() {
++        return mUnavailable;
++    }
++
++    @Override
++    public void onBindViewHolder(PreferenceViewHolder holder) {
++        super.onBindViewHolder(holder);
++        final View title = holder.findViewById(android.R.id.title);
++        final View summary = holder.findViewById(android.R.id.summary);
++        final View icon = holder.findViewById(android.R.id.icon);
++        for (View v : new View[] {title, summary, icon}) {
++            if (v != null) {
++                v.setEnabled(!mUnavailable);
++            }
++        }
++        if (summary instanceof TextView) {
++            ((TextView) summary).setMaxLines(4);
++        }
++        holder.itemView.setAccessibilityDelegate(new View.AccessibilityDelegate() {
++            @Override
++            public void onInitializeAccessibilityNodeInfo(View host,
++                    AccessibilityNodeInfo info) {
++                super.onInitializeAccessibilityNodeInfo(host, info);
++                if (mUnavailable) {
++                    info.setEnabled(false);
++                    info.setClickable(false);
++                    info.removeAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_CLICK);
++                }
++            }
++        });
++    }
++
++    @Override
++    protected void onClick() {
++        // Nothing to do: unavailable controls and status rows have no action.
++    }
++}
+diff --git a/src/com/android/settings/fuelgauge/sable/SableVendorChargingGateController.java b/src/com/android/settings/fuelgauge/sable/SableVendorChargingGateController.java
+new file mode 100644
+index 0000000..d7be6e3
+--- /dev/null
++++ b/src/com/android/settings/fuelgauge/sable/SableVendorChargingGateController.java
+@@ -0,0 +1,40 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.fuelgauge.sable;
++
++import android.content.Context;
++
++import com.android.settings.core.BasePreferenceController;
++
++/**
++ * Hides the LineageOS "Charging control" entry (a mutable charge limit backed by the
++ * lineagehealth service) unless the Sable charging gate allows vendor controls, which it does
++ * not while BH6 is unauthorized. The Charging and protection page reports a detected backend
++ * as "found, not yet qualified" instead.
++ */
++public class SableVendorChargingGateController extends BasePreferenceController {
++
++    public SableVendorChargingGateController(Context context, String key) {
++        super(context, key);
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        return SableChargingGate.vendorControlsAllowed(mContext)
++                ? AVAILABLE : CONDITIONALLY_UNAVAILABLE;
++    }
++}
+-- 
+2.43.0
+

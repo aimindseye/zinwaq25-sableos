@@ -15,6 +15,19 @@ import android.telephony.PhoneNumberUtils
 import android.telephony.SmsManager
 import android.telephony.SubscriptionManager
 import org.sableos.hub.notifications.ConnectedReplyRegistry
+import org.sableos.hub.platform.AndroidSettingsLauncher
+import org.sableos.hub.platform.PrivacyReader
+import org.sableos.hub.platform.ProfileDirectory
+import org.sableos.hub.policy.AndroidSettingsRoutes
+import org.sableos.hub.policy.HubHandoffRouter
+import org.sableos.hub.policy.HubHandoffTarget
+import org.sableos.hub.policy.HubRedaction
+import org.sableos.hub.policy.HubSourcePrivacy
+import org.sableos.hub.policy.NotificationConcept
+import org.sableos.hub.policy.PrivacyContext
+import org.sableos.hub.policy.PrivacyPosture
+import org.sableos.hub.policy.ProfileKind
+import org.sableos.hub.policy.SettingsTarget
 import java.util.Locale
 
 class HubRepository(
@@ -23,6 +36,8 @@ class HubRepository(
     private val connectedApps = ConnectedAppsRepository(context)
     private val connectedHistory = ConnectedNotificationHistoryStore(context)
     private val connectedInventory = ConnectedAppsInventory(context)
+    private val profiles = ProfileDirectory(context)
+    private val privacyReader = PrivacyReader(context)
 
     fun snapshot(): HubSnapshot {
         val capabilities = capabilities()
@@ -61,27 +76,98 @@ class HubRepository(
             connectedHistory.load(
                 policies = connectedPolicies,
             )
-        val connected =
+        val reduced =
             HubConnectedConversationReducer.reduce(
                 records = connectedRecords,
                 canReply = ConnectedReplyRegistry::canReply,
+            )
+        val prioritized =
+            reduced.conversations.map { conversation ->
+                val key =
+                    conversation.sourcePackage?.let { pkg ->
+                        conversation.sourceUserSerial?.let { serial -> ConnectedAppKey(pkg, serial) }
+                    }
+                conversation.copy(hubPriority = key?.let { connectedPolicies[it]?.favorite } == true)
+            }
+        val (connectedConversations, connectedMessages) =
+            HubRedaction.apply(
+                conversations = prioritized,
+                messages = reduced.messages,
+                privacyFor = sourcePrivacy(connectedPolicies),
             )
 
         return HubSnapshot(
             capabilities = capabilities,
             conversations =
-                (smsConversations + connected.conversations)
+                (smsConversations + connectedConversations)
                     .sortedByDescending { conversation ->
                         conversation.lastDateMillis
                     },
             messages =
-                (messages + connected.messages)
+                (messages + connectedMessages)
                     .sortedByDescending { message ->
                         message.dateMillis
                     },
             people = people,
             mail = loadMailSnapshot(),
         )
+    }
+
+    /**
+     * Privacy for each connected source, applied before any screen sees the snapshot: locked
+     * device, Hub private mode, locked work profile / private space, and the per-app preview
+     * preference (DESIGN-KF-A "Privacy states").
+     */
+    private fun sourcePrivacy(
+        policies: Map<ConnectedAppKey, ConnectedAppPolicy>,
+    ): (ConnectedAppKey) -> HubSourcePrivacy {
+        val profileStates = profiles.profiles().associateBy { it.serial }
+        val deviceLocked = privacyReader.deviceLocked()
+        val privateMode = HubPreferences(context).privateMode()
+        return { key ->
+            val profile = profileStates[key.userSerial]
+            val context =
+                PrivacyContext(
+                    deviceLocked = deviceLocked,
+                    privateMode = privateMode,
+                    profile = profile?.kind ?: ProfileKind.Other,
+                    // A profile that no longer exists is treated as locked (fail closed).
+                    profileLocked = profile?.locked ?: true,
+                )
+            val preview = policies[key]?.previewPolicy ?: HubPreviewPolicy.ShowContent
+            HubSourcePrivacy(
+                listLevel = PrivacyPosture.hubLevel(context, preview),
+                contentLevel = PrivacyPosture.hubLevel(context, HubPreviewPolicy.ShowContent),
+                profileBadge = context.profile.badge(),
+            )
+        }
+    }
+
+    /** Shade "H" / Settings handoff target for a source package in the profile owning [uid]. */
+    fun handoffTarget(
+        packageName: String?,
+        uid: Int?,
+        notificationKey: String?,
+        snapshot: HubSnapshot,
+    ): HubHandoffTarget {
+        val key =
+            if (packageName != null && uid != null) connectedInventory.keyForUid(packageName, uid) else null
+        val policies = connectedApps.loadPolicies().associateBy(ConnectedAppPolicy::key)
+        return HubHandoffRouter.route(key, notificationKey, snapshot.conversations, policies)
+    }
+
+    /** Delivery policy is Android's: open the source's Android notification settings page. */
+    fun openSourceNotificationSettings(
+        packageName: String,
+        userSerial: Long,
+    ): Boolean {
+        val key = ConnectedAppKey(packageName, userSerial)
+        val route =
+            AndroidSettingsRoutes.routeFor(
+                NotificationConcept.DeliveryImportance,
+                SettingsTarget(packageName = packageName, appUid = connectedInventory.uidFor(key)),
+            )
+        return AndroidSettingsLauncher(context).open(route)
     }
 
     fun replyToConnected(

@@ -18,8 +18,8 @@
 
     <application
         android:allowBackup="false"
-        android:icon="@drawable/ic_sable_radiodiag"
-        android:roundIcon="@drawable/ic_sable_radiodiag"
+        android:icon="@mipmap/ic_sable_radiodiag"
+        android:roundIcon="@mipmap/ic_sable_radiodiag_round"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar">

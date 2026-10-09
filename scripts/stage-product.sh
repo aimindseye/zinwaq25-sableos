@@ -5,8 +5,9 @@
 #   vendor/extra/product.mk    LineageOS hook that inherits the Sable layer
 #
 # Q4 and later also add the framework integration: Sable Start (SableLauncher)
-# as HOME, Sable Keyboard overriding LatinIME, and patches/framework applied to
-# the LineageOS projects (scripts/apply-framework-patches.sh). Staging an
+# as HOME, Sable Keyboard overriding LatinIME, the Sable resource overlays
+# (product/common/overlay), and patches/framework applied to the LineageOS
+# projects (scripts/apply-framework-patches.sh). Staging an
 # earlier release reverts those patches.
 #
 # The Android.bp and sable-q25-apps.mk are generated from the APK manifest that
@@ -125,11 +126,24 @@ if [[ "$FRAMEWORK" == YES ]]; then
     mkdir -p "$VENDOR_SABLE/src"
     cp -a "$SABLE_REPO_ROOT/sable-src/src/android/packages/apps/SableStart" "$VENDOR_SABLE/src/SableStart"
     cp -a "$SABLE_REPO_ROOT/sable-src/src/android/shared/sabledesign" "$VENDOR_SABLE/src/sabledesign"
+    # DESIGN-KF-B SystemUI visual convergence and Sable branding: static
+    # resource overlays for the framework, SystemUI and the LineageOS
+    # SetupWizard (product/common/overlay, with its own Android.bp).
+    cp -a "$SABLE_REPO_ROOT/product/common/overlay" "$VENDOR_SABLE/overlay"
+    # Battery health/charging capability profile read by the Settings battery
+    # patches (BH1-BH5); every Q25 fact is UNKNOWN until device evidence.
+    mkdir -p "$VENDOR_SABLE/etc/battery"
+    cp "$SABLE_REPO_ROOT/device-profile/battery/zinwa-q25.conf" "$VENDOR_SABLE/etc/battery/"
     cat >> "$fw_mk" <<'MK'
 PRODUCT_PACKAGES += \
-    SableLauncher
+    SableLauncher \
+    SableFrameworkOverlay \
+    SableSystemUIOverlay \
+    SableSetupWizardOverlay
 PRODUCT_SYSTEM_EXT_PROPERTIES += \
     ro.sable.home=org.sableos.launcher
+PRODUCT_COPY_FILES += \
+    vendor/sable/q25/etc/battery/zinwa-q25.conf:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/sable/battery/zinwa-q25.conf
 MK
     bash "$SABLE_REPO_ROOT/scripts/apply-framework-patches.sh" apply
 else

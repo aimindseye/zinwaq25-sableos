@@ -1,6 +1,7 @@
 package org.sableos.titan2.keyboard.android
 
 import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
 import android.view.ViewGroup
 import android.widget.Button
@@ -82,6 +83,14 @@ class KeyboardSettingsActivity : Activity() {
                 }
             )
         }
+        col.addView(
+            Button(this).apply {
+                text = "Key event probe (diagnostic)"
+                setOnClickListener {
+                    startActivity(Intent(this@KeyboardSettingsActivity, KeyProbeActivity::class.java))
+                }
+            }
+        )
         refresh()
         refreshStatus = ::refresh
         setContentView(

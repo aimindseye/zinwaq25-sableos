@@ -372,8 +372,26 @@ def main() -> None:
     manifest = app / "src/main/AndroidManifest.xml"
     require_text(
         manifest,
-        'android:icon="@drawable/ic_sable_mail"',
+        'android:icon="@mipmap/ic_sable_mail"',
         "SABLE_MAIL_ICON",
+    )
+    require_text(
+        manifest,
+        'android:roundIcon="@mipmap/ic_sable_mail_round"',
+        "SABLE_MAIL_ROUND_ICON",
+    )
+    for icon_res in (
+        "drawable/ic_sable_mail.xml",
+        "mipmap/ic_sable_mail.xml",
+        "mipmap-anydpi-v26/ic_sable_mail.xml",
+        "mipmap-anydpi-v26/ic_sable_mail_round.xml",
+    ):
+        if not (app / "src/main/res" / icon_res).is_file():
+            fail("SABLE_MAIL_ICON", f"missing=res/{icon_res}")
+    require_text(
+        app / "src/main/res/mipmap-anydpi-v26/ic_sable_mail.xml",
+        "<monochrome",
+        "SABLE_MAIL_ICON_MONOCHROME",
     )
     require_text(
         manifest,

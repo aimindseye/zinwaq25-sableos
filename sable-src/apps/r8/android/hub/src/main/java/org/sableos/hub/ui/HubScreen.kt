@@ -7,20 +7,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,32 +26,44 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.sableos.design.SableActionButton
+import org.sableos.design.SableAdaptiveTopNav
+import org.sableos.design.SableAlphabetIndex
+import org.sableos.design.SableAlphabetRail
+import org.sableos.design.SableDestination
+import org.sableos.design.SableFocusMemory
+import org.sableos.design.SableLatestContentPolicy
+import org.sableos.design.SableListOrder
 import org.sableos.design.SableListRow
 import org.sableos.design.SablePageHeader
 import org.sableos.design.SablePanel
 import org.sableos.design.SableRefreshableSurface
+import org.sableos.design.SableReturnToCurrent
 import org.sableos.design.SableScreen
 import org.sableos.design.SableScrollableScreen
 import org.sableos.design.SableSpacing
+import org.sableos.design.sableFocusRing
+import org.sableos.design.sableLetterJump
 import org.sableos.hub.HubConversation
 import org.sableos.hub.HubConversationSource
 import org.sableos.hub.HubMessage
-import org.sableos.hub.HubPerson
 import org.sableos.hub.HubSendResult
 import org.sableos.hub.HubSnapshot
 import java.text.DateFormat
@@ -71,12 +81,16 @@ private sealed interface HubRoute {
         val pivot: HubPivot,
     ) : HubRoute
 
+    /** [origin]: the pivot Back returns to (BACK_RETURNS_ONE_LOGICAL_LAYER). */
     data class Conversation(
         val threadId: Long,
+        val origin: HubPivot = HubPivot.Messages,
     ) : HubRoute
 
+    /** [back]: the route Back returns to (the pivot or conversation it was opened from). */
     data class Compose(
         val recipient: String = "",
+        val back: HubRoute = Root(HubPivot.Messages),
     ) : HubRoute
 }
 
@@ -92,9 +106,20 @@ fun HubScreen(
     onOpenConnectedApps: () -> Unit,
     onReplyConnected: (String, String) -> HubSendResult,
     onOpenConnectedApp: (String, Long) -> Boolean,
+    onOpenSourceNotificationSettings: (String, Long) -> Boolean = { _, _ -> false },
+    pendingThreadId: Long? = null,
+    onPendingThreadConsumed: () -> Unit = {},
 ) {
     var route by remember {
         mutableStateOf<HubRoute>(HubRoute.Root(HubPivot.Priority))
+    }
+
+    // Shade "H" / Settings handoff: open the conversation Hub resolved for the notification.
+    LaunchedEffect(pendingThreadId, snapshot != null) {
+        if (pendingThreadId != null && snapshot != null) {
+            route = HubRoute.Conversation(threadId = pendingThreadId)
+            onPendingThreadConsumed()
+        }
     }
     var search by remember {
         mutableStateOf("")
@@ -102,6 +127,8 @@ fun HubScreen(
     var statusMessage by remember {
         mutableStateOf<String?>(null)
     }
+    // Back from a conversation lands on the row it was opened from (FOCUS_RESTORATION).
+    val focusMemory = remember { SableFocusMemory() }
 
     if (snapshot == null) {
         SableScreen {
@@ -166,6 +193,7 @@ fun HubScreen(
                                     route =
                                         HubRoute.Conversation(
                                             threadId = conversation.threadId,
+                                            origin = HubPivot.Priority,
                                         )
                                 },
                                 onOpenSableMail = onOpenSableMail,
@@ -176,6 +204,7 @@ fun HubScreen(
                             MessagesPivot(
                                 modifier = Modifier.weight(1f),
                                 snapshot = snapshot,
+                                focusMemory = focusMemory,
                                 search = search,
                                 onSearchChange = { search = it },
                                 onConversation = { conversation ->
@@ -205,7 +234,7 @@ fun HubScreen(
                                 search = search,
                                 onSearchChange = { search = it },
                                 onCompose = { number ->
-                                    route = HubRoute.Compose(number)
+                                    route = HubRoute.Compose(number, back = HubRoute.Root(HubPivot.People))
                                 },
                                 onRequestAccess = onRequestAccess,
                             )
@@ -224,7 +253,7 @@ fun HubScreen(
                     MissingConversationView(
                         onBack = {
                             statusMessage = null
-                            route = HubRoute.Root(HubPivot.Messages)
+                            route = HubRoute.Root(current.origin)
                         },
                     )
                 } else {
@@ -245,7 +274,7 @@ fun HubScreen(
                             messages = threadMessages,
                             onBack = {
                                 statusMessage = null
-                                route = HubRoute.Root(HubPivot.Messages)
+                                route = HubRoute.Root(current.origin)
                             },
                             onReply =
                                 when {
@@ -254,6 +283,7 @@ fun HubScreen(
                                             route =
                                                 HubRoute.Compose(
                                                     recipient = conversation.address,
+                                                    back = current,
                                                 )
                                         }
                                     }
@@ -301,6 +331,21 @@ fun HubScreen(
                                 } else {
                                     null
                                 },
+                            onOpenNotificationSettings =
+                                if (
+                                    conversation.source == HubConversationSource.ConnectedApp &&
+                                    sourcePackage != null &&
+                                    sourceUserSerial != null
+                                ) {
+                                    {
+                                        // Delivery policy is Android's: hand off, never mirror it.
+                                        if (!onOpenSourceNotificationSettings(sourcePackage, sourceUserSerial)) {
+                                            statusMessage = "Android notification settings are unavailable."
+                                        }
+                                    }
+                                } else {
+                                    null
+                                },
                         )
                     }
                 }
@@ -312,7 +357,7 @@ fun HubScreen(
                         initialRecipient = current.recipient,
                         canSendSms = snapshot.capabilities.canSendSms,
                         onBack = {
-                            route = HubRoute.Root(HubPivot.Messages)
+                            route = current.back
                         },
                         onRequestAccess = onRequestAccess,
                         onSendSms = { recipient, body ->
@@ -363,32 +408,17 @@ private fun HubPivotRow(
     selected: HubPivot,
     onSelect: (HubPivot) -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        HubPivot.entries.forEach { pivot ->
-            TextButton(
-                onClick = { onSelect(pivot) },
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .heightIn(min = HubTouchTarget),
-                contentPadding = PaddingValues(horizontal = 0.dp),
-            ) {
-                Text(
-                    text = pivot.name.lowercase(),
-                    style = MaterialTheme.typography.titleMedium,
-                    color =
-                        if (pivot == selected) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                )
-            }
-        }
-    }
+    // Four equal-width labels clip mid-word on a square screen or at large font
+    // scale; the adaptive nav keeps whole labels and puts the rest under "more".
+    SableAdaptiveTopNav(
+        destinations = HUB_DESTINATIONS,
+        selectedId = selected.name,
+        onSelect = { id -> onSelect(HubPivot.valueOf(id)) },
+    )
 }
+
+private val HUB_DESTINATIONS =
+    HubPivot.entries.map { pivot -> SableDestination(pivot.name, pivot.name.lowercase()) }
 
 @Composable
 private fun ColumnScope.PriorityPivot(
@@ -397,10 +427,15 @@ private fun ColumnScope.PriorityPivot(
     onConversation: (HubConversation) -> Unit,
     onOpenSableMail: () -> Boolean,
 ) {
+    // Hub priority is ordering/aggregation only; it is not a Do Not Disturb exception.
     val conversations =
-        snapshot.conversations.filter { conversation ->
-            conversation.unreadCount > 0 || conversation.canQuickReply
-        }
+        snapshot.conversations
+            .filter { conversation ->
+                conversation.unreadCount > 0 || conversation.canQuickReply || conversation.hubPriority
+            }.sortedWith(
+                compareByDescending<HubConversation> { it.hubPriority }
+                    .thenByDescending { it.lastDateMillis },
+            )
     val hasMailAlerts =
         snapshot.mail.available &&
             snapshot.mail.detail != "no mail alerts"
@@ -442,9 +477,7 @@ private fun ColumnScope.PriorityPivot(
         ) {
             items(
                 items = conversations.take(MAX_VISIBLE_CONVERSATIONS),
-                key = { conversation ->
-                    conversation.threadId.toString() + ":" + conversation.address
-                },
+                key = { conversation -> conversationKey(conversation) },
             ) { conversation ->
                 ConversationRow(
                     conversation = conversation,
@@ -490,6 +523,7 @@ private fun ColumnScope.EmailPivot(
 private fun ColumnScope.MessagesPivot(
     modifier: Modifier,
     snapshot: HubSnapshot,
+    focusMemory: SableFocusMemory,
     search: String,
     onSearchChange: (String) -> Unit,
     onConversation: (HubConversation) -> Unit,
@@ -529,12 +563,30 @@ private fun ColumnScope.MessagesPivot(
         }
     val listState = rememberLazyListState()
     val newestConversation = conversations.firstOrNull()
+    val visibleConversations = conversations.take(MAX_VISIBLE_CONVERSATIONS)
+    val rowKeys = visibleConversations.map(::conversationKey)
+    val requesters = remember { mutableMapOf<String, FocusRequester>() }
+    var restoreDone by remember { mutableStateOf(false) }
 
     LaunchedEffect(
         query,
         newestConversation?.threadId,
         newestConversation?.lastDateMillis,
     ) {
+        // First visit after Back: restore the conversation row the user opened.
+        if (!restoreDone) {
+            restoreDone = true
+            val target = if (query.isBlank()) focusMemory.restore(FOCUS_SURFACE_MESSAGES, rowKeys) else null
+            // One-shot: a later visit (pivot switch, handoff Back) opens on the newest again.
+            focusMemory.forget(FOCUS_SURFACE_MESSAGES)
+            if (target != null) {
+                listState.scrollToItem(target)
+                withFrameNanos { }
+                runCatching { requesters[rowKeys[target]]?.requestFocus() }
+                return@LaunchedEffect
+            }
+        }
+        // Otherwise the newest conversation is what is visible on open.
         if (query.isBlank() && newestConversation != null) {
             listState.scrollToItem(0)
         }
@@ -566,15 +618,18 @@ private fun ColumnScope.MessagesPivot(
             state = listState,
             verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
         ) {
-            items(
-                items = conversations.take(MAX_VISIBLE_CONVERSATIONS),
-                key = { conversation ->
-                    conversation.threadId.toString() + ":" + conversation.address
-                },
-            ) { conversation ->
+            itemsIndexed(
+                items = visibleConversations,
+                key = { _, conversation -> conversationKey(conversation) },
+            ) { index, conversation ->
+                val key = conversationKey(conversation)
                 ConversationRow(
                     conversation = conversation,
-                    onClick = { onConversation(conversation) },
+                    onClick = {
+                        focusMemory.remember(FOCUS_SURFACE_MESSAGES, key, index)
+                        onConversation(conversation)
+                    },
+                    modifier = Modifier.focusRequester(requesters.getOrPut(key) { FocusRequester() }),
                 )
             }
         }
@@ -619,6 +674,7 @@ private fun MessagesAccessPrompt(
 private fun ConversationRow(
     conversation: HubConversation,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val unread = conversation.unreadCount > 0
     val accent =
@@ -627,6 +683,11 @@ private fun ConversationRow(
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant
         }
+    val sourceLine =
+        listOfNotNull(
+            conversation.sourceLabel ?: "connected app",
+            conversation.profileBadge,
+        ).joinToString(" · ")
     val initial =
         conversation.displayName
             .trim()
@@ -637,8 +698,9 @@ private fun ConversationRow(
 
     Row(
         modifier =
-            Modifier
+            modifier
                 .fillMaxWidth()
+                .sableFocusRing()
                 .clickable(onClick = onClick)
                 .padding(vertical = HubRowVerticalPadding),
         verticalAlignment = Alignment.CenterVertically,
@@ -680,11 +742,11 @@ private fun ConversationRow(
                         }
 
                         conversation.lastBody.isBlank() -> {
-                            "${conversation.sourceLabel ?: "connected app"} · content hidden"
+                            "$sourceLine · content hidden"
                         }
 
                         else -> {
-                            "${conversation.sourceLabel ?: "connected app"} · " +
+                            "$sourceLine · " +
                                 conversation.lastBody.take(CONNECTED_PREVIEW_LENGTH)
                         }
                     },
@@ -720,6 +782,11 @@ private fun ConversationRow(
                 .background(MaterialTheme.colorScheme.surfaceVariant),
     )
 }
+
+private fun conversationKey(conversation: HubConversation): String =
+    conversation.threadId.toString() + ":" + conversation.address
+
+private const val FOCUS_SURFACE_MESSAGES = "hub-messages"
 
 private fun clockTime(epochMillis: Long): String =
     DateFormat
@@ -779,16 +846,28 @@ private fun ColumnScope.PeoplePivot(
         val visiblePeople = people.take(MAX_VISIBLE_PEOPLE)
         val listState = rememberLazyListState()
         val scope = rememberCoroutineScope()
-        val alphabetTargets =
+        // One functional index: starred people form one section, then A-Z; the
+        // rail shows only letters that exist and the keyboard jumps by letter.
+        val alphabet =
             remember(visiblePeople) {
-                buildPeopleAlphabetTargets(visiblePeople)
+                SableAlphabetIndex.build(
+                    labels = visiblePeople.map { it.displayName },
+                    pinnedCount = visiblePeople.takeWhile { it.favorite }.size,
+                )
             }
+        val firstVisible by remember { derivedStateOf { listState.firstVisibleItemIndex } }
+        val jumpTo: (Int) -> Unit = { position ->
+            scope.launch { listState.scrollToItem(position) }
+        }
 
         Row(
             modifier = modifier.fillMaxWidth(),
         ) {
             LazyColumn(
-                modifier = Modifier.weight(1f),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .sableLetterJump(alphabet, enabled = query.isBlank(), onJump = jumpTo),
                 state = listState,
                 verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
             ) {
@@ -807,66 +886,12 @@ private fun ColumnScope.PeoplePivot(
             }
 
             if (query.isBlank()) {
-                PeopleAlphabetRail(
-                    targets = alphabetTargets,
-                    onTarget = { position ->
-                        scope.launch {
-                            listState.scrollToItem(position)
-                        }
-                    },
+                SableAlphabetRail(
+                    index = alphabet,
+                    activeKey = alphabet.sectionKeyAt(firstVisible),
+                    onJump = jumpTo,
                 )
             }
-        }
-    }
-}
-
-private fun buildPeopleAlphabetTargets(people: List<HubPerson>): Map<Char, Int> {
-    val targets = linkedMapOf<Char, Int>()
-    people.forEachIndexed { index, person ->
-        val letter =
-            person.displayName
-                .trim()
-                .firstOrNull()
-                ?.uppercaseChar()
-                ?.takeIf { it in 'A'..'Z' }
-                ?: return@forEachIndexed
-        targets.putIfAbsent(letter, index)
-    }
-    return targets
-}
-
-@Composable
-private fun PeopleAlphabetRail(
-    targets: Map<Char, Int>,
-    onTarget: (Int) -> Unit,
-) {
-    Column(
-        modifier =
-            Modifier
-                .fillMaxHeight()
-                .width(HubPeopleAlphabetRailWidth),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceEvenly,
-    ) {
-        for (letter in 'A'..'Z') {
-            val target = targets[letter]
-            Text(
-                text = letter.toString(),
-                modifier =
-                    Modifier
-                        .width(HubPeopleAlphabetRailWidth)
-                        .clickable(enabled = target != null) {
-                            target?.let(onTarget)
-                        },
-                style = MaterialTheme.typography.labelSmall,
-                color =
-                    if (target != null) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.28f)
-                    },
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            )
         }
     }
 }
@@ -880,6 +905,7 @@ private fun ColumnScope.ConversationView(
     onReply: (() -> Unit)?,
     onSendConnectedReply: ((String) -> HubSendResult)?,
     onOpenSource: (() -> Unit)?,
+    onOpenNotificationSettings: (() -> Unit)? = null,
 ) {
     var connectedReplyBody by remember {
         mutableStateOf("")
@@ -893,6 +919,7 @@ private fun ColumnScope.ConversationView(
         subtitle =
             conversation.sourceLabel
                 ?.takeIf { conversation.source == HubConversationSource.ConnectedApp }
+                ?.let { label -> listOfNotNull(label, conversation.profileBadge).joinToString(" · ") }
                 ?: conversation.address,
     )
 
@@ -922,18 +949,51 @@ private fun ColumnScope.ConversationView(
             )
         }
     }
+    // Its own full-width row: a third equal-width "Notifications" button wraps mid-word
+    // on the square screen (KF-D: labels never clip).
+    onOpenNotificationSettings?.let { action ->
+        SableActionButton(
+            text = "Notifications",
+            modifier = Modifier.fillMaxWidth(),
+            primary = false,
+            onClick = action,
+        )
+    }
 
-    LazyColumn(
-        modifier = modifier.fillMaxWidth(),
-        reverseLayout = true,
-        verticalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
-    ) {
-        items(
-            items = messages.asReversed(),
-            key = HubMessage::id,
-        ) { message ->
-            MessageBubble(message)
+    // Newest message at the bottom and visible on open (reverse layout, index 0 =
+    // newest); a "latest" action returns there whenever history is scrolled into.
+    val conversationState = rememberLazyListState()
+    val conversationScope = rememberCoroutineScope()
+    val showLatest by remember(messages.size) {
+        derivedStateOf {
+            val visible = conversationState.layoutInfo.visibleItemsInfo
+            SableLatestContentPolicy.showReturnToCurrent(
+                firstVisibleIndex = visible.firstOrNull()?.index ?: 0,
+                lastVisibleIndex = visible.lastOrNull()?.index ?: 0,
+                count = messages.size,
+                order = SableListOrder.NewestFirst,
+            )
         }
+    }
+    Box(modifier = modifier.fillMaxWidth()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            state = conversationState,
+            reverseLayout = true,
+            verticalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+        ) {
+            items(
+                items = messages.asReversed(),
+                key = HubMessage::id,
+            ) { message ->
+                MessageBubble(message)
+            }
+        }
+        SableReturnToCurrent(
+            visible = showLatest,
+            onClick = { conversationScope.launch { conversationState.animateScrollToItem(0) } },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(SableSpacing.Sm),
+        )
     }
 
     onSendConnectedReply?.let { sendReply ->
@@ -1126,12 +1186,10 @@ private fun relativeTime(timestamp: Long): String =
             DateUtils.MINUTE_IN_MILLIS,
         ).toString()
 
-private val HubTouchTarget = 48.dp
 private val HubAvatarSize = 48.dp
 private val HubRowVerticalPadding = 10.dp
 private val HubAvatarTextGap = 14.dp
 private val HubTrailingGap = 10.dp
-private val HubPeopleAlphabetRailWidth = 28.dp
 private val HubBubbleMaxWidth = 320.dp
 private val HubBubbleCornerRadius = 18.dp
 private val HubUnreadAccent = Color(0xFF35C66B)

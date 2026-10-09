@@ -22,6 +22,12 @@ object SableGlobalAppearanceContract {
     const val COLUMN_MODE = "mode"
     const val COLUMN_ACCENT = "accent"
 
+    /**
+     * Sable app corner style (compact, rounded). Written only by Settings and App display
+     * compatibility; a provider without the column reads as Compact.
+     */
+    const val COLUMN_CORNER_STYLE = "corner_style"
+
     val CONTENT_URI: Uri =
         Uri.parse("content://$AUTHORITY/$PATH_APPEARANCE")
 }
@@ -36,6 +42,7 @@ fun readGlobalSableAppearance(
                 arrayOf(
                     SableGlobalAppearanceContract.COLUMN_MODE,
                     SableGlobalAppearanceContract.COLUMN_ACCENT,
+                    SableGlobalAppearanceContract.COLUMN_CORNER_STYLE,
                 ),
                 null,
                 null,
@@ -59,9 +66,17 @@ fun readGlobalSableAppearance(
                         ),
                     )
 
+                val cornerIndex =
+                    cursor.getColumnIndex(
+                        SableGlobalAppearanceContract.COLUMN_CORNER_STYLE,
+                    )
+                val cornerStyle =
+                    if (cornerIndex >= 0) cursor.getString(cornerIndex) else null
+
                 SableAppearance(
                     mode = AppearanceMode.fromStableValue(mode),
                     accent = AccentPreset.fromStableValue(accent),
+                    cornerStyle = SableCornerStyle.fromStableValue(cornerStyle),
                 )
             }
             ?: SableAppearance()
@@ -82,6 +97,32 @@ fun writeGlobalSableAppearance(
                 put(
                     SableGlobalAppearanceContract.COLUMN_ACCENT,
                     appearance.accent.stableValue,
+                )
+            }
+
+        context.contentResolver.update(
+            SableGlobalAppearanceContract.CONTENT_URI,
+            values,
+            null,
+            null,
+        ) == 1
+    }.getOrDefault(false)
+
+/**
+ * Stores the Sable app corner style. Only Settings and App display compatibility may write
+ * it; any other caller gets false. [writeGlobalSableAppearance] never writes this column, so
+ * an appearance reset from Sable Start leaves the user's corner style alone.
+ */
+fun writeGlobalSableCornerStyle(
+    context: Context,
+    style: SableCornerStyle,
+): Boolean =
+    runCatching {
+        val values =
+            ContentValues().apply {
+                put(
+                    SableGlobalAppearanceContract.COLUMN_CORNER_STYLE,
+                    style.stableValue,
                 )
             }
 

@@ -7,6 +7,14 @@
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
+    <!-- All Apps privacy row (DESIGN-KF-D): read each profile's own permission
+         state, hear runtime-permission changes, and hand uninstall to the
+         system uninstaller (which confirms again). SableLauncher is
+         platform-signed, so the signature permissions are granted. -->
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
+    <uses-permission android:name="android.permission.OBSERVE_GRANT_REVOKE_PERMISSIONS" />
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />

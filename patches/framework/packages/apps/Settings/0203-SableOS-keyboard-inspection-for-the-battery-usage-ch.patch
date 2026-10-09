@@ -1,0 +1,136 @@
+From efeef5643264cbbef73a514a102d22f222a99ddc Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 9 Oct 2026 22:09:45 +0000
+Subject: [PATCH 3/3] SableOS: keyboard inspection for the battery usage chart
+
+The usage chart was a keyboard dead zone. With focus on the chart,
+Enter starts inspection at the selected (or newest) time slot,
+Left/Right move between slots with data and select them as a tap
+would, PageUp/PageDown/MoveHome/MoveEnd jump, Enter on the selected
+slot returns to "all" like a second tap, and Escape or Back leave
+inspection. Outside inspection no key is consumed, so focus cannot be
+trapped. The inspected slot is announced through its existing content
+description.
+---
+ .../batteryusage/BatteryChartView.java        | 81 +++++++++++++++++++
+ 1 file changed, 81 insertions(+)
+
+diff --git a/src/com/android/settings/fuelgauge/batteryusage/BatteryChartView.java b/src/com/android/settings/fuelgauge/batteryusage/BatteryChartView.java
+index 393d751..2e0017b 100644
+--- a/src/com/android/settings/fuelgauge/batteryusage/BatteryChartView.java
++++ b/src/com/android/settings/fuelgauge/batteryusage/BatteryChartView.java
+@@ -39,6 +39,7 @@ import android.util.ArraySet;
+ import android.util.AttributeSet;
+ import android.util.Log;
+ import android.view.HapticFeedbackConstants;
++import android.view.KeyEvent;
+ import android.view.MotionEvent;
+ import android.view.View;
+ import android.view.ViewParent;
+@@ -54,6 +55,10 @@ import androidx.annotation.VisibleForTesting;
+ import androidx.appcompat.widget.AppCompatImageView;
+ 
+ import com.android.settings.R;
++import com.android.settings.fuelgauge.sable.SableBackCallback;
++import com.android.settings.fuelgauge.sable.SableBatteryKeys;
++import com.android.settings.fuelgauge.sable.model.ChartInspectionCursor;
++import com.android.settings.fuelgauge.sable.model.NavKey;
+ import com.android.settingslib.Utils;
+ 
+ import java.util.ArrayList;
+@@ -108,6 +113,12 @@ public class BatteryChartView extends AppCompatImageView implements View.OnClick
+     private AccessibilityNodeProvider mAccessibilityNodeProvider;
+     private BatteryChartView.OnSelectListener mOnSelectListener;
+ 
++    // SableOS: keyboard chart inspection (BATTERY_HEALTH_USAGE_UX section 9.4).
++    private final ChartInspectionCursor mSableCursor =
++            new ChartInspectionCursor(new boolean[][] {new boolean[0]}, /* pageSize= */ 6);
++    private final SableBackCallback mSableBack =
++            new SableBackCallback(() -> onSableKey(NavKey.BACK));
++
+     @VisibleForTesting TrapezoidSlot[] mTrapezoidSlots;
+     // Records the location to calculate selected index.
+     @VisibleForTesting float mTouchUpEventX = Float.MIN_VALUE;
+@@ -144,9 +155,79 @@ public class BatteryChartView extends AppCompatImageView implements View.OnClick
+         initializeAxisLabelsBounds();
+         initializeTrapezoidSlots(viewModel.size() - 1);
+         setClickable(hasAnyValidTrapezoid(viewModel));
++        updateSableCursor();
+         requestLayout();
+     }
+ 
++    /** SableOS: feeds the valid trapezoids to the keyboard inspection cursor. */
++    private void updateSableCursor() {
++        final boolean[] valid = new boolean[mTrapezoidSlots.length];
++        for (int i = 0; i < valid.length; i++) {
++            valid[i] = isValidToDraw(mViewModel, i);
++        }
++        mSableCursor.setRtl(isRTL());
++        mSableCursor.setData(new boolean[][] {valid});
++        mSableCursor.select(mViewModel.selectedIndex());
++        setFocusable(hasAnyValidTrapezoid(mViewModel));
++        if (mSableCursor.isInspecting()) {
++            mHoveredIndex = mSableCursor.bucket();
++        }
++    }
++
++    @Override
++    public boolean onKeyDown(int keyCode, KeyEvent event) {
++        if (mViewModel != null && onSableKey(SableBatteryKeys.toNavKey(keyCode))) {
++            return true;
++        }
++        return super.onKeyDown(keyCode, event);
++    }
++
++    /**
++     * SableOS: Enter starts inspection at the selected (or newest) time slot, Left/Right move
++     * between slots with data and select them (as a tap would, so the usage list and the slot
++     * label follow), PageUp/PageDown/MoveHome/MoveEnd jump, Enter on the selected slot toggles
++     * back to "all" (as a second tap does), Escape/Back leave inspection. Keys are not consumed
++     * outside inspection, so focus never gets trapped in the chart.
++     */
++    private boolean onSableKey(NavKey key) {
++        final boolean wasInspecting = mSableCursor.isInspecting();
++        final ChartInspectionCursor.Result r = mSableCursor.handle(key);
++        final int bucket = mSableCursor.bucket();
++        if (r.moved && bucket >= 0 && mOnSelectListener != null) {
++            mOnSelectListener.onSelect(bucket);
++            announceForAccessibility(mViewModel.getContentDescription(bucket));
++        }
++        if (r.confirmed && bucket >= 0 && mOnSelectListener != null) {
++            mOnSelectListener.onSelect(
++                    bucket == mViewModel.selectedIndex() ? SELECTED_INDEX_ALL : bucket);
++        }
++        if (wasInspecting != mSableCursor.isInspecting()) {
++            mSableBack.setActive(this, mSableCursor.isInspecting());
++        }
++        if (r.consumed) {
++            mHoveredIndex = mSableCursor.isInspecting() ? bucket : SELECTED_INDEX_INVALID;
++            invalidate();
++        }
++        return r.consumed;
++    }
++
++    @Override
++    protected void onFocusChanged(boolean gainFocus, int direction, Rect previouslyFocusedRect) {
++        super.onFocusChanged(gainFocus, direction, previouslyFocusedRect);
++        if (!gainFocus && mSableCursor.isInspecting()) {
++            mSableCursor.exit();
++            mSableBack.setActive(this, false);
++            mHoveredIndex = SELECTED_INDEX_INVALID;
++            invalidate();
++        }
++    }
++
++    @Override
++    protected void onDetachedFromWindow() {
++        mSableBack.release();
++        super.onDetachedFromWindow();
++    }
++
+     /** Sets the callback to monitor the selected group index. */
+     public void setOnSelectListener(BatteryChartView.OnSelectListener listener) {
+         mOnSelectListener = listener;
+-- 
+2.43.0
+

@@ -119,6 +119,20 @@ if fwrun check | grep -q '^APPLIES  packages/apps/Demo 0001-demo.patch' &&
 else
     fail "framework patches: $(cat "$tmp/err")"
 fi
+# A second patch in the same project may build on the first.
+git -C "$proj" apply "$fw/packages/apps/Demo/0001-demo.patch" && git -C "$proj" add config.txt
+printf 'home=sable\nrecents=quickstep\n' > "$proj/config.txt"
+git -C "$proj" diff > "$fw/packages/apps/Demo/0002-demo.patch"
+git -C "$proj" reset -q --hard
+if fwrun check | grep -q '^APPLIES  packages/apps/Demo 0001-demo.patch 0002-demo.patch' &&
+    fwrun apply | grep -q '^FRAMEWORK_PATCH_COUNT=2' && grep -q 'recents=quickstep' "$proj/config.txt" &&
+    fwrun check | grep -q '^APPLIED  packages/apps/Demo' &&
+    fwrun revert >/dev/null && grep -qx 'home=launcher3' "$proj/config.txt"; then
+    pass "framework patches stack within a project"
+else
+    fail "stacked framework patches: $(cat "$tmp/err")"
+fi
+rm "$fw/packages/apps/Demo/0002-demo.patch"
 printf 'home=vendor\n' > "$proj/config.txt"
 if fwrun apply >/dev/null || [[ -e "$stamp" ]]; then fail "framework patch conflict not refused"; else pass "framework patch conflict refused"; fi
 git -C "$proj" checkout -q -- config.txt
@@ -129,17 +143,25 @@ if out="$(stagerun Q4 --apps-dir "$tmp/apps/run")"; then
     ok=yes
     grep -q '^FRAMEWORK_LAYER=YES' <<<"$out" || ok=no
     grep -q 'SableLauncher' "$v/sable-q25-framework.mk" || ok=no
+    grep -q 'etc/sable/battery/zinwa-q25.conf' "$v/sable-q25-framework.mk" || ok=no
+    [[ -f "$v/etc/battery/zinwa-q25.conf" ]] || ok=no
     grep -q 'name: "SableLauncher"' "$v/src/SableStart/Android.bp" || ok=no
     grep -q 'name: "sable_design_shared_srcs"' "$v/src/sabledesign/Android.bp" || ok=no
     grep -q 'overrides: \["LatinIME"\]' "$v/Android.bp" || ok=no
     grep -q 'home=sable' "$proj/config.txt" || ok=no
+    for o in SableFrameworkOverlay SableSystemUIOverlay SableSetupWizardOverlay; do
+        grep -q "$o" "$v/sable-q25-framework.mk" || ok=no
+        grep -q "name: \"$o\"" "$v/overlay/Android.bp" || ok=no
+    done
+    [[ -f "$v/overlay/SableSystemUIOverlay/res/values-notlong/config.xml" ]] || ok=no
     [[ "$ok" == yes ]] && pass "stage Q4 adds framework layer" || fail "stage Q4: generated files wrong: $out"
 else
     fail "stage Q4: $(cat "$tmp/err")"
 fi
 if out="$(stagerun Q2 --apps-dir "$tmp/apps/run")" && grep -q '^FRAMEWORK_LAYER=NO' <<<"$out" &&
     grep -q 'home=launcher3' "$proj/config.txt" && ! grep -q 'SableLauncher' "$tmp/android/vendor/sable/q25/sable-q25-framework.mk" &&
-    [[ ! -e "$tmp/android/vendor/sable/q25/src" ]]; then
+    [[ ! -e "$tmp/android/vendor/sable/q25/src" && ! -e "$tmp/android/vendor/sable/q25/overlay" ]] &&
+    ! grep -q 'SableSystemUIOverlay' "$tmp/android/vendor/sable/q25/sable-q25-framework.mk"; then
     pass "stage Q2 reverts framework layer"
 else
     fail "stage Q2 after Q4: $(cat "$tmp/err")"
@@ -152,6 +174,31 @@ while IFS= read -r -d '' p; do
     git apply --stat "$p" >/dev/null 2>&1 || bad="$bad $p"
 done < <(find patches/framework -name '*.patch' -print0)
 if [[ -z "$bad" ]]; then pass "framework patches parse"; else fail "malformed framework patches:$bad"; fi
+
+# 6d. DESIGN-KF-B tokens, overlays, branding and density (static).
+if python3 tests/check-sable-design.py >"$tmp/design" 2>&1; then
+    pass "Sable design tokens, overlays and branding ($(grep -c '^PASS' "$tmp/design") checks)"
+else
+    fail "Sable design check: $(grep '^FAIL' "$tmp/design" | head -5)"
+fi
+
+# 6e. Pure Settings classes from the framework patches, compiled on the host.
+if command -v javac >/dev/null 2>&1; then
+    st="$tmp/settings-policy"
+    mkdir -p "$st"
+    for p in patches/framework/packages/apps/Settings/010[123]-*.patch; do
+        (cd "$st" && git apply --include='src/com/android/settings/sable/SableAppearancePolicy.java' \
+            --include='src/com/android/settings/sable/SableBuildInfo.java' "$ROOT/$p")
+    done
+    if javac -d "$st/out" "$st"/src/com/android/settings/sable/*.java tests/java/SableSettingsPolicyTest.java 2>"$tmp/err" &&
+        java -cp "$st/out" SableSettingsPolicyTest >"$tmp/out" 2>&1; then
+        pass "Settings appearance policy and About summary ($(grep -o 'CHECKS=[0-9]*' "$tmp/out"))"
+    else
+        fail "Settings policy test: $(cat "$tmp/err" "$tmp/out" | grep -v JAVA_TOOL | head -5)"
+    fi
+else
+    printf 'SKIP  javac not installed (Settings policy test)\n'
+fi
 
 # 7. Entry point refuses flashing and unknown devices.
 if bash build/sable.sh q25 Q2 flash >/dev/null 2>&1; then fail "flash should be blocked"; else pass "flash blocked"; fi
@@ -216,6 +263,85 @@ elif grep -q "needs a package for q20_v1_factory" "$tmp/err"; then
 else
     fail "board check: $(cat "$tmp/err")"
 fi
+
+# 11. Crash evidence capture (#84): read-only adb use, hashed output, refuses repo paths.
+fakeadb="$tmp/adb"; adblog="$tmp/adb.log"
+cat > "$fakeadb" <<'ADB'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$FAKE_ADB_LOG"
+[[ "${1:-}" == -s ]] && shift 2
+case "${1:-}" in
+    devices) printf 'List of devices attached\nFAKE0001\tdevice\n'; [[ -n "${FAKE_ADB_TWO:-}" ]] && printf 'FAKE0002\tdevice\n'; exit 0 ;;
+    get-state) echo device ;;
+    logcat) case " $* " in *" -c "*) exit 99 ;; esac; echo "E AndroidRuntime: FATAL EXCEPTION: main" ;;
+    pull) printf 'tombstone\n' > "$3" ;;
+    shell)
+        case "$2" in
+            "ls /data/tombstones 2>/dev/null") echo tombstone_00 ;;
+            "ls /data/anr 2>/dev/null") exit 1 ;;
+            "pm list packages") printf 'package:org.sableos.weather\npackage:com.android.phone\n' ;;
+            "dumpsys package org.sableos.weather") printf 'Packages:\n  Package [org.sableos.weather] (abc):\n    versionCode=7 minSdk=30\n    versionName=0.1.0\n    lastUpdateTime=2026-10-09 10:00:00\n' ;;
+            "dumpsys package "*) echo "Unable to find package" ;;
+            getprop) printf '[ro.build.fingerprint]: [fake/q25/fp]\n[ro.sable.release]: [Q4]\n' ;;
+            *) echo "ok: $2" ;;
+        esac ;;
+    *) echo "unexpected adb $*" >&2; exit 99 ;;
+esac
+ADB
+chmod +x "$fakeadb"
+evout="$tmp/evidence"
+if out="$(FAKE_ADB_LOG="$adblog" SABLE_ADB="$fakeadb" bash scripts/capture-crash-evidence.sh --out "$evout" --label t 2>"$tmp/err")"; then
+    d="$(sed -n 's/^OUT=//p' <<<"$out")"
+    ok=yes
+    grep -q '^EVIDENCE=CAPTURED' <<<"$out" || ok=no
+    [[ "$d" == "$evout"/q25-crash-evidence-*-t ]] || ok=no
+    (cd "$d" && sha256sum -c --quiet SHA256SUMS.txt) || ok=no
+    grep -q 'FATAL EXCEPTION' "$d/logcat-crash.txt" || ok=no
+    grep -q '^org.sableos.weather	yes	7	0.1.0' "$d/packages/sable-apps.tsv" || ok=no
+    grep -q '^org.sableos.titan2.keyboard	no' "$d/packages/sable-apps.tsv" || ok=no
+    [[ -f "$d/tombstones/tombstone_00" && -f "$d/dropbox/data_app_crash.txt" && -f "$d/exit-info/all.txt" ]] || ok=no
+    grep -q '^FINGERPRINT=fake/q25/fp' "$d/SUMMARY.txt" || ok=no
+    grep -Eq -- '(^| )(-c|-w|root|unroot|reboot|install|uninstall|clear|rm|wipe|disable|push)( |$)' "$adblog" && ok=no
+    grep -q 'logcat -d -b crash' "$adblog" || ok=no
+    [[ "$ok" == yes ]] && pass "crash evidence capture (fake adb)" || fail "crash evidence capture: $out"
+else
+    fail "crash evidence capture: $(cat "$tmp/err")"
+fi
+if FAKE_ADB_LOG="$adblog" SABLE_ADB="$fakeadb" bash scripts/capture-crash-evidence.sh --out "$PWD/evidence-test" >/dev/null 2>&1; then
+    fail "crash evidence inside repo accepted"
+else
+    pass "crash evidence refuses repo path"
+fi
+rm -rf "$PWD/evidence-test"
+if FAKE_ADB_TWO=1 FAKE_ADB_LOG="$adblog" SABLE_ADB="$fakeadb" bash scripts/capture-crash-evidence.sh --out "$evout" >/dev/null 2>&1; then
+    fail "crash evidence accepted two devices without --serial"
+else
+    pass "crash evidence needs one device or --serial"
+fi
+
+# 12. Static icon/launch audit (#83): launcher entry, label, Sable icon, round icon, adaptive icon and its
+#     monochrome layer are enforced for every enabled app (docs/implementation/t3.md, icon section).
+enabled_apps="$(awk -F'\t' '!/^#/ && $1 != "module" && $9 == "yes"' product/q25/apps.tsv | grep -c .)"
+if out="$(python3 -I scripts/audit-app-icons.py --enforce launcher,label,icon,round,adaptive,mono 2>&1)" &&
+    grep -q '^AUDIT=PASS (enforced: launcher,label,icon,round,adaptive,mono)' <<<"$out" &&
+    grep -q "^AUDIT_APPS=$enabled_apps\$" <<<"$out" && ! grep -q 'extra launcher entries' <<<"$out"; then
+    pass "icon/launch audit ($enabled_apps apps, adaptive + monochrome + round enforced)"
+else
+    fail "icon/launch audit: $out"
+fi
+
+# 12b. The launcher icons are exactly what the Phosphor icon generator produces from the pinned glyphs.
+if out="$(python3 -I sable-src/tools/gen_first_party_icons.py --check 2>&1)"; then
+    pass "icon generator check ($(grep -o 'files=[0-9]*' <<<"$out"))"
+else
+    fail "icon generator drift: $(head -5 <<<"$out")"
+fi
+
+# 13. Pure unit tests of framework patch classes (SKIP unless SABLE_KOTLINC and SABLE_JUNIT are set).
+if ! bash tests/framework/run-pure-tests.sh; then fail "framework pure tests"; fi
+
+# 14. DESIGN-KF-A static gates for Sable Hub and the notification framework patches.
+if bash tests/kf-a-notification-policy-check.sh; then pass "KF-A notification policy gates"; else fail "KF-A notification policy gates"; fi
 
 echo
 if ((fails)); then echo "CI=FAIL ($fails)"; exit 1; fi

@@ -59,8 +59,26 @@ on that phone. Procedure: [`RETURN_TO_STOCK.md`](RETURN_TO_STOCK.md).
 | Q4-RECENTS | Recents opens from Sable Start (Launcher3QuickStep fallback Recents); swiping an app away works; no Launcher3 home screen appears | NOT_RUN |
 | Q4-IME | Sable Keyboard is the only and default IME on a fresh install (LatinIME overridden); Q3-TEXT re-run passes. **Do not stage Q4 before Q3-TEXT passes** | NOT_RUN |
 | Q4-MESSAGES | One Messages entry in Sable Start (AOSP Messaging hidden, still the SMS app); sending and receiving SMS work (sableos #82) | NOT_RUN |
-| Q4-BRANDING | Sable branding in Settings > About and Setup | NOT_RUN |
+| Q4-BRANDING | About phone shows the SableOS version above the LineageOS version (LineageOS legal pages unchanged); Setup says "Welcome to SableOS" ([KF-B](implementation/kf-b.md)) | NOT_RUN |
+| Q4-VISUAL | The three `org.sableos.overlay` overlays are enabled (`adb shell cmd overlay list`); Quick Settings shows two labelled tiles per row; Settings > Display > Accent changes Quick Settings and Sable app accents; App display compatibility > Sable app style is Compact on a fresh install, and switching it to Rounded and back restyles open Sable apps (8dp controls, 12dp cards) without a restart ([corners](implementation/corners.md)); the DESIGN-KF-B visual regression set captured at font scale 1.0 and 1.3; lockscreen PIN/password entry, emergency call and notification redaction unchanged | NOT_RUN |
 | Q4-SYSTEMUI | Quick settings and notifications usable at 720x720 with keyboard | NOT_RUN |
+| Q4-SHADE-KEYS | On a focused notification row: Space expands, R reply, D dismiss, Z snooze, M delivery options, C channel settings, H open in Hub; a focused text field always gets the keys ([KF-A](implementation/kf-a.md)) | NOT_RUN |
+| Q4-HUB-PARITY | With Android notification access for Hub turned off, Sable Start hides nothing and Hub shows "Paused"; turning it back on restores the user's choices | NOT_RUN |
+| Q4-HUB-PROFILES | Paused work profile shows "Work profile" with no text or reply; locked private space is hidden; Hub on a locked device follows the user's own choice in Settings > Notifications > lock screen (sensitive content shown or hidden; Android's default is kept) | NOT_RUN |
+| Q4-HUB-SETTINGS | Settings > Notifications > Sable Attention and the per-app "Sable Hub and Attention" link open Hub; Hub's "Delivery" links open Android's own pages | NOT_RUN |
+| Q4-ALLAPPS-PRIVACY | With a work profile: the 11 DESIGN-KF-D capture states; toggling a permission or precise location in Settings updates the row on return; Enter, Space, Fn+Enter, `/` and letters behave as listed; uninstall needs a confirm step ([KF-D](implementation/kf-d.md)) | NOT_RUN |
+| Q4-RESPONSIVE | Media, Hub and Calendar navigation doesn't clip at 720x720 and font scale 1.3; the media mini-player shows state and play/pause; the alphabet index jumps from the keyboard; focus returns to the item after Back | NOT_RUN |
+| Q4-SETUP-KEYS | Factory-reset phone, no touch: Welcome to home screen with the keyboard only; first key focuses Start; the Keyboard step says Sable Keyboard is ready; Wi-Fi password and screen-lock PIN type from the physical keys; Back works on every step. Repeat with touch only ([T3](implementation/t3.md)) | NOT_RUN |
+| Q4-SETUP-FALLBACK | With Sable Keyboard disabled on a test build, the Keyboard step offers to turn it on and Next still completes setup | NOT_RUN |
+| Q4-WEATHER-CITIES | Add a city by name and by `Name, lat, lon, Area/Zone`, select, remove, reset; list and selection survive a reboot; switching city never shows the previous city's forecast; the Sable Start weather line follows | NOT_RUN |
+| Q4-BATTERY | Settings > Battery shows usage, Battery health, Charging & protection, saver in that order; every Q25 health fact shows Unavailable (no fabricated percentage); LineageOS charging control is hidden; chart inspection, type-ahead (U/H/C/B), visible focus and touch all work; `dumpsys alarm` shows no new Settings alarm ([Battery](implementation/battery.md)) | NOT_RUN |
+| Q4-BATTERY-EVIDENCE | Each key in `device-profile/battery/zinwa-q25.conf` moved from UNKNOWN only with the evidence `device-profile/BATTERY.md` asks for | NOT_RUN |
+| Q4-TOOLS | Sable Tools opens from the launcher; Radio Diag is not installed separately; on the Q25 a normal user sees no Utilities and no IR or SubScreen entries; reports start with sensitive sections unselected ([KF-C](implementation/kf-c.md)) | NOT_RUN |
+| Q4-TOOLS-I5 | Each developer-only tool run on the phone and compared with the capability status screen; proven entries moved to SUPPORTED in `ToolsDeviceProfile` with evidence | NOT_RUN |
+
+Crash rule (sableos #84): after any first-boot or launcher crash, run
+`scripts/capture-crash-evidence.sh` before clearing anything and keep its
+`SUMMARY.txt` with the gate evidence ([`CRASH_EVIDENCE.md`](CRASH_EVIDENCE.md)).
 
 ## Q5: security and release
 

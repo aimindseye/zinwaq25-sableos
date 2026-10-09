@@ -9,7 +9,14 @@ filegroup {
         "src/com/sable/start/live/LiveSurfaceModels.kt",
         "src/com/sable/start/model/AppEntry.kt",
         "src/com/sable/start/platform/LiveSurfaceRepository.kt",
+        "src/com/sable/start/platform/PrivacyFactsReader.kt",
         "src/com/sable/start/platform/StartStateRepository.kt",
+        // DESIGN-KF-D All Apps privacy row: pure policy (unit tested in
+        // apps/r8/android/sablestart-presentation-check/src/test).
+        "src/com/sable/start/privacy/AllAppsInteraction.kt",
+        "src/com/sable/start/privacy/PrivacyModel.kt",
+        "src/com/sable/start/privacy/PrivacySnapshotCache.kt",
+        "src/com/sable/start/privacy/PrivacySummaryPolicy.kt",
         "src/com/sable/start/ui/SableStartScreen.kt",
         "src/com/sable/start/ui/SableGlyphIcon.kt",
     ],

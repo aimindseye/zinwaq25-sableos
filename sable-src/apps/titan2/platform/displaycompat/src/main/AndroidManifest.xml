@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- No permissions. App discovery uses a <queries> launcher intent, not QUERY_ALL_PACKAGES. -->
+    <!-- No permissions. App discovery uses a <queries> launcher intent, not QUERY_ALL_PACKAGES.
+         The Sable appearance authority (Settings) holds the global Sable app corner style. -->
     <queries>
+        <provider android:authorities="org.sableos.appearance" />
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
@@ -17,8 +19,8 @@
     <application
         android:name=".android.DisplayCompatApp"
         android:allowBackup="false"
-        android:icon="@drawable/ic_sable_displaycompat"
-        android:roundIcon="@drawable/ic_sable_displaycompat"
+        android:icon="@mipmap/ic_sable_displaycompat"
+        android:roundIcon="@mipmap/ic_sable_displaycompat_round"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar">

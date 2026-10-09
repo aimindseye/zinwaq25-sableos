@@ -4,14 +4,22 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import org.sableos.hub.platform.ProfileDirectory
+import org.sableos.hub.policy.HubHistoryBounds
 
 internal const val CONNECTED_LOCAL_REPLY_PREFIX = "local-reply:"
 
+/**
+ * Hub's bounded, derived cache of conversation notifications from included sources
+ * (`HUB_NOTIFICATION_HISTORY=BOUNDED_DERIVED_CACHE_ONLY`). Android owns notification history;
+ * this store only keeps what [HubHistoryBounds] allows and is pruned on every read and write.
+ */
 class ConnectedNotificationHistoryStore(
     context: Context,
 ) {
     private val appContext = context.applicationContext
     private val helper = HistoryDatabaseHelper(appContext)
+    private val profiles = ProfileDirectory(appContext)
 
     fun load(
         policies: Map<ConnectedAppKey, ConnectedAppPolicy>,
@@ -163,16 +171,12 @@ class ConnectedNotificationHistoryStore(
     ): List<ConnectedNotificationRecord> {
         val allRecords = queryRecords(database)
         val retained =
-            allRecords
-                .asSequence()
-                .filter { record ->
-                    shouldRetain(
-                        record = record,
-                        policy = policies[record.key],
-                        nowMillis = nowMillis,
-                    )
-                }.take(MAX_HISTORY_RECORDS)
-                .toList()
+            HubHistoryBounds.retain(
+                records = allRecords,
+                policies = policies,
+                nowMillis = nowMillis,
+                liveUserSerials = runCatching { profiles.liveSerials() }.getOrNull(),
+            )
 
         deleteRecordsExcept(
             database = database,
@@ -180,20 +184,6 @@ class ConnectedNotificationHistoryStore(
             retained = retained,
         )
         return retained
-    }
-
-    private fun shouldRetain(
-        record: ConnectedNotificationRecord,
-        policy: ConnectedAppPolicy?,
-        nowMillis: Long,
-    ): Boolean {
-        val normalized = policy?.normalized()
-        return normalized?.includeInMessages == true &&
-            ConnectedNotificationRetention.shouldKeep(
-                record = record,
-                retention = normalized.retention,
-                nowMillis = nowMillis,
-            )
     }
 
     private fun queryRecords(database: SQLiteDatabase): List<ConnectedNotificationRecord> =
@@ -355,7 +345,6 @@ class ConnectedNotificationHistoryStore(
         const val COLUMN_BODY = "body"
         const val COLUMN_TIMESTAMP_MILLIS = "timestamp_millis"
         const val COLUMN_INCOMING = "incoming"
-        const val MAX_HISTORY_RECORDS = 1200
         val lock = Any()
 
         val historyColumns =

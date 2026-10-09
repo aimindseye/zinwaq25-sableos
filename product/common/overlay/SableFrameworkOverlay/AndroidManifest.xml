@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Framework values for the Sable visual system (DESIGN-KF-B). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="org.sableos.overlay.framework">
+    <overlay
+        android:targetPackage="android"
+        android:isStatic="true"
+        android:priority="20" />
+    <application android:hasCode="false" />
+</manifest>

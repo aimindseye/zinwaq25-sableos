@@ -1,0 +1,557 @@
+From 1c4207cc59f9402427da1a41c8cacb0d0ce31a95 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 9 Oct 2026 21:59:31 +0000
+Subject: [PATCH] SableOS: keyboard notification commands in the shade
+
+DESIGN-KF-A keyboard-first notification interaction for a focused
+notification row: Space expands/collapses (it no longer opens), R opens
+the source's RemoteInput reply when the row shows one, D dismisses, Z
+opens snooze, M opens the delivery options (Android's NotificationInfo),
+C opens the notification's Android channel/conversation settings, and H
+asks Sable Hub to open the notification when Hub is installed.
+
+Commands are contextual: they act only when the row itself has focus,
+never with a modifier held, and a focused text editor (inline reply)
+always receives printable keys. Arrows, Enter and Back keep their
+existing paths. Each command reuses an existing SystemUI path
+(performDismiss, the long-press menu, the RemoteInput button,
+NotificationActivityStarter, which dismisses the keyguard first), so no
+notification policy changes here.
+---
+ .../row/SableNotificationKeyRouterTest.kt     | 149 ++++++++++++++++
+ .../row/ExpandableNotificationRow.java        |  12 ++
+ .../row/SableNotificationKeyCommands.kt       | 168 ++++++++++++++++++
+ .../row/SableNotificationKeyRouter.kt         | 153 ++++++++++++++++
+ 4 files changed, 482 insertions(+)
+ create mode 100644 packages/SystemUI/multivalentTests/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouterTest.kt
+ create mode 100644 packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyCommands.kt
+ create mode 100644 packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouter.kt
+
+diff --git a/packages/SystemUI/multivalentTests/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouterTest.kt b/packages/SystemUI/multivalentTests/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouterTest.kt
+new file mode 100644
+index 000000000..fae3e1288
+--- /dev/null
++++ b/packages/SystemUI/multivalentTests/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouterTest.kt
+@@ -0,0 +1,149 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package com.android.systemui.statusbar.notification.row
++
++import androidx.test.ext.junit.runners.AndroidJUnit4
++import androidx.test.filters.SmallTest
++import com.android.systemui.SysuiTestCase
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.junit.runner.RunWith
++
++@SmallTest
++@RunWith(AndroidJUnit4::class)
++class SableNotificationKeyRouterTest : SysuiTestCase() {
++    private val focused =
++        SableNotificationKeyContext(
++            rowFocused = true,
++            textInputFocused = false,
++            hasModifiers = false,
++            isRepeat = false,
++            canExpand = true,
++            canReply = true,
++            canDismiss = true,
++            canOpenMenu = true,
++            hubAvailable = true,
++        )
++
++    private val letters =
++        listOf(
++            SableNotificationKey.Reply,
++            SableNotificationKey.Dismiss,
++            SableNotificationKey.Snooze,
++            SableNotificationKey.Mute,
++            SableNotificationKey.Settings,
++            SableNotificationKey.Hub,
++            SableNotificationKey.Space,
++        )
++
++    @Test
++    fun lettersMapToTheDesignCommands() {
++        assertEquals(SableNotificationCommand.Reply, route(SableNotificationKey.Reply))
++        assertEquals(SableNotificationCommand.Dismiss, route(SableNotificationKey.Dismiss))
++        assertEquals(SableNotificationCommand.Snooze, route(SableNotificationKey.Snooze))
++        assertEquals(SableNotificationCommand.DeliveryOptions, route(SableNotificationKey.Mute))
++        assertEquals(SableNotificationCommand.Settings, route(SableNotificationKey.Settings))
++        assertEquals(SableNotificationCommand.OpenInHub, route(SableNotificationKey.Hub))
++        assertEquals(SableNotificationCommand.ToggleExpand, route(SableNotificationKey.Space))
++    }
++
++    @Test
++    fun textInputAlwaysWins() {
++        val typing = focused.copy(textInputFocused = true)
++        (letters + SableNotificationKey.Enter + SableNotificationKey.Back).forEach { key ->
++            assertEquals(SableNotificationCommand.PassThrough, SableNotificationKeyRouter.route(key, typing))
++        }
++    }
++
++    @Test
++    fun commandsAreContextualNeverGlobal() {
++        val notOnRow = focused.copy(rowFocused = false)
++        letters.forEach { key ->
++            assertEquals(SableNotificationCommand.PassThrough, SableNotificationKeyRouter.route(key, notOnRow))
++        }
++    }
++
++    @Test
++    fun modifiedKeysAreNotCommands() {
++        letters.forEach { key ->
++            assertEquals(
++                SableNotificationCommand.PassThrough,
++                SableNotificationKeyRouter.route(key, focused.copy(hasModifiers = true)),
++            )
++        }
++    }
++
++    @Test
++    fun replyOnlyWhenTheSourceOffersRemoteInput() {
++        assertEquals(
++            SableNotificationCommand.Consume,
++            SableNotificationKeyRouter.route(SableNotificationKey.Reply, focused.copy(canReply = false)),
++        )
++    }
++
++    @Test
++    fun unavailableOrRepeatedCommandsAreSwallowedNotPassedOn() {
++        val nothing =
++            focused.copy(canExpand = false, canReply = false, canDismiss = false, canOpenMenu = false, hubAvailable = false)
++        listOf(
++            SableNotificationKey.Space,
++            SableNotificationKey.Reply,
++            SableNotificationKey.Dismiss,
++            SableNotificationKey.Snooze,
++            SableNotificationKey.Mute,
++            SableNotificationKey.Hub,
++        ).forEach { key ->
++            assertEquals(SableNotificationCommand.Consume, SableNotificationKeyRouter.route(key, nothing))
++        }
++        letters.forEach { key ->
++            assertEquals(
++                SableNotificationCommand.Consume,
++                SableNotificationKeyRouter.route(key, focused.copy(isRepeat = true)),
++            )
++        }
++    }
++
++    @Test
++    fun navigationOpenAndBackKeepExistingPaths() {
++        listOf(
++            SableNotificationKey.Up,
++            SableNotificationKey.Down,
++            SableNotificationKey.Left,
++            SableNotificationKey.Right,
++            SableNotificationKey.Enter,
++            SableNotificationKey.Back,
++            SableNotificationKey.Other,
++        ).forEach { key ->
++            assertEquals(SableNotificationCommand.PassThrough, route(key))
++        }
++    }
++
++    @Test
++    fun keyCodesMapToKeys() {
++        assertEquals(SableNotificationKey.Reply, SableNotificationKeyRouter.keyFor(46))
++        assertEquals(SableNotificationKey.Dismiss, SableNotificationKeyRouter.keyFor(32))
++        assertEquals(SableNotificationKey.Snooze, SableNotificationKeyRouter.keyFor(54))
++        assertEquals(SableNotificationKey.Mute, SableNotificationKeyRouter.keyFor(41))
++        assertEquals(SableNotificationKey.Settings, SableNotificationKeyRouter.keyFor(31))
++        assertEquals(SableNotificationKey.Hub, SableNotificationKeyRouter.keyFor(36))
++        assertEquals(SableNotificationKey.Space, SableNotificationKeyRouter.keyFor(62))
++        assertEquals(SableNotificationKey.Enter, SableNotificationKeyRouter.keyFor(66))
++        assertEquals(SableNotificationKey.Back, SableNotificationKeyRouter.keyFor(111))
++        assertEquals(SableNotificationKey.Other, SableNotificationKeyRouter.keyFor(29))
++    }
++
++    private fun route(key: SableNotificationKey) = SableNotificationKeyRouter.route(key, focused)
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/ExpandableNotificationRow.java b/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/ExpandableNotificationRow.java
+index 8a539747f..60449e243 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/ExpandableNotificationRow.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/ExpandableNotificationRow.java
+@@ -2645,6 +2645,10 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
+ 
+     @Override
+     public boolean onKeyDown(int keyCode, KeyEvent event) {
++        // Sable: contextual single-key commands on the focused row; text input always wins.
++        if (SableNotificationKeyCommands.onKeyDown(this, keyCode, event)) {
++            return true;
++        }
+         if (KeyEvent.isConfirmKey(keyCode)) {
+             event.startTracking();
+             return true;
+@@ -2654,6 +2658,9 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
+ 
+     @Override
+     public boolean onKeyUp(int keyCode, KeyEvent event) {
++        if (SableNotificationKeyCommands.onKeyUp(this, keyCode, event)) {
++            return true;
++        }
+         if (KeyEvent.isConfirmKey(keyCode)) {
+             if (!event.isCanceled()) {
+                 performClick();
+@@ -2672,6 +2679,11 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
+         return false;
+     }
+ 
++    /** Sable key commands: Settings / Hub handoff through the keyguard-aware starter. */
++    NotificationActivityStarter getNotificationActivityStarterForSable() {
++        return mNotificationActivityStarter;
++    }
++
+     public void resetTranslation() {
+         if (mTranslateAnim != null) {
+             mTranslateAnim.cancel();
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyCommands.kt b/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyCommands.kt
+new file mode 100644
+index 000000000..ebd9b5de0
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyCommands.kt
+@@ -0,0 +1,168 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package com.android.systemui.statusbar.notification.row
++
++import android.app.ActivityManager
++import android.content.Intent
++import android.os.UserHandle
++import android.provider.Settings
++import android.service.notification.StatusBarNotification
++import android.view.KeyEvent
++import android.view.View
++import android.view.ViewGroup
++import com.android.systemui.res.R
++import com.android.systemui.statusbar.notification.shared.NotificationBundleUi
++
++/**
++ * Executes [SableNotificationKeyRouter] commands on a focused [ExpandableNotificationRow].
++ *
++ * Every action goes through an existing SystemUI path: dismiss through the row's own dismiss,
++ * snooze and delivery options through the row's long-press menu (Android's NotificationInfo /
++ * NotificationSnooze), reply through the source's RemoteInput button (SystemUI's RemoteInput
++ * flow handles keyguard authentication), and Settings / Hub through NotificationActivityStarter,
++ * which dismisses the keyguard first. Nothing here changes notification policy.
++ */
++object SableNotificationKeyCommands {
++    private const val HUB_PACKAGE = "org.sableos.hub"
++    private const val ACTION_OPEN_IN_HUB = "org.sableos.hub.action.OPEN_NOTIFICATION"
++    private const val EXTRA_NOTIFICATION_KEY = "org.sableos.hub.extra.NOTIFICATION_KEY"
++    private const val EXTRA_APP_UID = "app_uid"
++    private const val MODIFIERS =
++        KeyEvent.META_ALT_MASK or KeyEvent.META_CTRL_MASK or KeyEvent.META_META_MASK or
++            KeyEvent.META_SHIFT_MASK or KeyEvent.META_SYM_ON or KeyEvent.META_FUNCTION_ON
++
++    @JvmStatic
++    fun onKeyDown(
++        row: ExpandableNotificationRow,
++        keyCode: Int,
++        event: KeyEvent,
++    ): Boolean {
++        val command = commandFor(row, keyCode, event)
++        return when (command) {
++            SableNotificationCommand.PassThrough -> false
++            SableNotificationCommand.Consume -> true
++            else -> execute(row, command)
++        }
++    }
++
++    /** Swallow the key-up of anything handled on key-down (Space would otherwise open the row). */
++    @JvmStatic
++    fun onKeyUp(
++        row: ExpandableNotificationRow,
++        keyCode: Int,
++        event: KeyEvent,
++    ): Boolean = commandFor(row, keyCode, event) != SableNotificationCommand.PassThrough
++
++    private fun commandFor(
++        row: ExpandableNotificationRow,
++        keyCode: Int,
++        event: KeyEvent,
++    ): SableNotificationCommand {
++        val key = SableNotificationKeyRouter.keyFor(keyCode)
++        if (key == SableNotificationKey.Other) return SableNotificationCommand.PassThrough
++        val sbn = sbnOf(row)
++        val context =
++            SableNotificationKeyContext(
++                rowFocused = row.isFocused,
++                textInputFocused = row.findFocus()?.onCheckIsTextEditor() == true,
++                hasModifiers = event.metaState and MODIFIERS != 0,
++                isRepeat = event.repeatCount > 0,
++                canExpand = row.isExpandable,
++                canReply = findReplyButton(row) != null,
++                canDismiss = row.canViewBeDismissed(),
++                canOpenMenu = row.provider != null,
++                hubAvailable = sbn != null && sbn.packageName != HUB_PACKAGE && hubResolves(row),
++            )
++        val command = SableNotificationKeyRouter.route(key, context)
++        return if (command == SableNotificationCommand.Settings && sbn == null) {
++            SableNotificationCommand.Consume
++        } else {
++            command
++        }
++    }
++
++    private fun execute(
++        row: ExpandableNotificationRow,
++        command: SableNotificationCommand,
++    ): Boolean {
++        when (command) {
++            SableNotificationCommand.ToggleExpand -> row.toggleExpansionState()
++            SableNotificationCommand.Reply -> findReplyButton(row)?.performClick()
++            SableNotificationCommand.Dismiss -> row.performDismiss(false)
++            SableNotificationCommand.Snooze -> row.performAccessibilityAction(R.id.action_snooze, null)
++            SableNotificationCommand.DeliveryOptions -> row.doLongClickCallback(row.width / 2, row.height / 2)
++            SableNotificationCommand.Settings -> sbnOf(row)?.let { openSettings(row, it) }
++            SableNotificationCommand.OpenInHub -> sbnOf(row)?.let { openInHub(row, it) }
++            SableNotificationCommand.PassThrough,
++            SableNotificationCommand.Consume,
++            -> Unit
++        }
++        return true
++    }
++
++    /** "C": the notification's Android channel (and conversation) page. */
++    private fun openSettings(
++        row: ExpandableNotificationRow,
++        sbn: StatusBarNotification,
++    ) {
++        val notification = sbn.notification
++        val intent =
++            Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
++                .putExtra(Settings.EXTRA_APP_PACKAGE, sbn.packageName)
++                .putExtra(Settings.EXTRA_CHANNEL_ID, notification.channelId)
++                .putExtra(EXTRA_APP_UID, sbn.uid)
++        notification.shortcutId?.let { intent.putExtra(Settings.EXTRA_CONVERSATION_ID, it) }
++        row.notificationActivityStarterForSable?.startNotificationGutsIntent(intent, sbn.uid, row)
++    }
++
++    /** "H": ask Hub; Hub decides whether it represents this source (it never includes one silently). */
++    private fun openInHub(
++        row: ExpandableNotificationRow,
++        sbn: StatusBarNotification,
++    ) {
++        val intent =
++            Intent(ACTION_OPEN_IN_HUB)
++                .setPackage(HUB_PACKAGE)
++                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
++                .putExtra(Settings.EXTRA_APP_PACKAGE, sbn.packageName)
++                .putExtra(EXTRA_APP_UID, sbn.uid)
++                .putExtra(EXTRA_NOTIFICATION_KEY, sbn.key)
++        // Hub aggregates the current user's profiles, so it runs in the current (parent) user.
++        val hubUid = UserHandle.getUid(ActivityManager.getCurrentUser(), android.os.Process.SYSTEM_UID)
++        row.notificationActivityStarterForSable?.startNotificationGutsIntent(intent, hubUid, row)
++    }
++
++    private fun hubResolves(row: ExpandableNotificationRow): Boolean =
++        row.context.packageManager
++            .queryIntentActivities(Intent(ACTION_OPEN_IN_HUB).setPackage(HUB_PACKAGE), 0)
++            .isNotEmpty()
++
++    private fun sbnOf(row: ExpandableNotificationRow): StatusBarNotification? =
++        if (NotificationBundleUi.isEnabled) row.entryAdapter.sbn else row.entryLegacy.sbn
++
++    /** The source's own RemoteInput action button, if the visible layout shows one. */
++    private fun findReplyButton(view: View): View? {
++        if (view.isShown && view.isEnabled && view.getTag(com.android.internal.R.id.remote_input_tag) != null) {
++            return view
++        }
++        if (view is ViewGroup) {
++            for (i in 0 until view.childCount) {
++                findReplyButton(view.getChildAt(i))?.let { return it }
++            }
++        }
++        return null
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouter.kt b/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouter.kt
+new file mode 100644
+index 000000000..292e69119
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouter.kt
+@@ -0,0 +1,153 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package com.android.systemui.statusbar.notification.row
++
++/** Keys the Sable keyboard-first shade understands on a focused notification row. */
++enum class SableNotificationKey {
++    Up,
++    Down,
++    Left,
++    Right,
++    Enter,
++    Space,
++    Reply,
++    Dismiss,
++    Snooze,
++    Mute,
++    Settings,
++    Hub,
++    Back,
++    Other,
++}
++
++/** What the focused row can do right now, and what owns the key. */
++data class SableNotificationKeyContext(
++    /** The notification row itself has focus inside the shade. */
++    val rowFocused: Boolean,
++    /** A text editor (inline-reply RemoteInput, search) owns focus. */
++    val textInputFocused: Boolean,
++    /** Alt, Ctrl, Meta, Shift, Sym or Fn is held: the key means something else. */
++    val hasModifiers: Boolean,
++    val isRepeat: Boolean,
++    val canExpand: Boolean,
++    /** The source published a RemoteInput reply action that is shown for this row. */
++    val canReply: Boolean,
++    val canDismiss: Boolean,
++    /** The row's long-press menu (snooze, delivery options) exists. */
++    val canOpenMenu: Boolean,
++    /** Sable Hub is installed and may be asked about this notification. */
++    val hubAvailable: Boolean,
++)
++
++enum class SableNotificationCommand {
++    /** Not ours: default focus navigation, Back handling or the existing confirm-key path. */
++    PassThrough,
++
++    /** Ours, but nothing to do (unavailable action or key repeat); swallow it. */
++    Consume,
++    ToggleExpand,
++    Reply,
++    Dismiss,
++    Snooze,
++    DeliveryOptions,
++    Settings,
++    OpenInHub,
++}
++
++/**
++ * DESIGN-KF-A "Keyboard-first notification interaction".
++ *
++ * Single-letter commands are contextual to the focused notification row and never global, and
++ * text entry always wins: once an inline-reply editor owns focus, printable keys edit text.
++ * Up/Down/Left/Right use the default focus navigation (rows and action buttons), Enter keeps the
++ * existing open path, Back/Esc keep the existing close path.
++ */
++object SableNotificationKeyRouter {
++    // android.view.KeyEvent key codes (kept here so the router stays a pure function).
++    private const val KEYCODE_BACK = 4
++    private const val KEYCODE_DPAD_UP = 19
++    private const val KEYCODE_DPAD_DOWN = 20
++    private const val KEYCODE_DPAD_LEFT = 21
++    private const val KEYCODE_DPAD_RIGHT = 22
++    private const val KEYCODE_DPAD_CENTER = 23
++    private const val KEYCODE_C = 31
++    private const val KEYCODE_D = 32
++    private const val KEYCODE_H = 36
++    private const val KEYCODE_M = 41
++    private const val KEYCODE_R = 46
++    private const val KEYCODE_Z = 54
++    private const val KEYCODE_SPACE = 62
++    private const val KEYCODE_ENTER = 66
++    private const val KEYCODE_ESCAPE = 111
++    private const val KEYCODE_NUMPAD_ENTER = 160
++
++    @JvmStatic
++    fun keyFor(keyCode: Int): SableNotificationKey =
++        when (keyCode) {
++            KEYCODE_DPAD_UP -> SableNotificationKey.Up
++            KEYCODE_DPAD_DOWN -> SableNotificationKey.Down
++            KEYCODE_DPAD_LEFT -> SableNotificationKey.Left
++            KEYCODE_DPAD_RIGHT -> SableNotificationKey.Right
++            KEYCODE_ENTER, KEYCODE_NUMPAD_ENTER, KEYCODE_DPAD_CENTER -> SableNotificationKey.Enter
++            KEYCODE_SPACE -> SableNotificationKey.Space
++            KEYCODE_R -> SableNotificationKey.Reply
++            KEYCODE_D -> SableNotificationKey.Dismiss
++            KEYCODE_Z -> SableNotificationKey.Snooze
++            KEYCODE_M -> SableNotificationKey.Mute
++            KEYCODE_C -> SableNotificationKey.Settings
++            KEYCODE_H -> SableNotificationKey.Hub
++            KEYCODE_BACK, KEYCODE_ESCAPE -> SableNotificationKey.Back
++            else -> SableNotificationKey.Other
++        }
++
++    @JvmStatic
++    fun route(
++        key: SableNotificationKey,
++        context: SableNotificationKeyContext,
++    ): SableNotificationCommand {
++        // TEXT_INPUT_ALWAYS_WINS, then KEYBOARD_NOTIFICATION_COMMANDS_CONTEXTUAL.
++        if (context.textInputFocused || !context.rowFocused || context.hasModifiers) {
++            return SableNotificationCommand.PassThrough
++        }
++        return when (key) {
++            SableNotificationKey.Up,
++            SableNotificationKey.Down,
++            SableNotificationKey.Left,
++            SableNotificationKey.Right,
++            SableNotificationKey.Enter,
++            SableNotificationKey.Back,
++            SableNotificationKey.Other,
++            -> SableNotificationCommand.PassThrough
++
++            // Space is a confirm key in Android; here it expands/collapses and never opens.
++            SableNotificationKey.Space -> commandIf(context, context.canExpand, SableNotificationCommand.ToggleExpand)
++            SableNotificationKey.Reply -> commandIf(context, context.canReply, SableNotificationCommand.Reply)
++            SableNotificationKey.Dismiss -> commandIf(context, context.canDismiss, SableNotificationCommand.Dismiss)
++            SableNotificationKey.Snooze -> commandIf(context, context.canOpenMenu, SableNotificationCommand.Snooze)
++            SableNotificationKey.Mute ->
++                commandIf(context, context.canOpenMenu, SableNotificationCommand.DeliveryOptions)
++            SableNotificationKey.Settings -> commandIf(context, true, SableNotificationCommand.Settings)
++            SableNotificationKey.Hub -> commandIf(context, context.hubAvailable, SableNotificationCommand.OpenInHub)
++        }
++    }
++
++    private fun commandIf(
++        context: SableNotificationKeyContext,
++        available: Boolean,
++        command: SableNotificationCommand,
++    ): SableNotificationCommand =
++        if (available && !context.isRepeat) command else SableNotificationCommand.Consume
++}
+-- 
+2.43.0
+

@@ -299,8 +299,10 @@ fun SableListRow(
                 .fillMaxWidth()
                 .clip(MaterialTheme.shapes.small)
                 .background(background)
+                .sableFocusRing()
                 .clickable(onClick = onClick)
-                .height(SableSize.ListRowHeight),
+                // Minimum, not fixed: large font scales grow the row instead of clipping it.
+                .heightIn(min = SableSize.ListRowHeight),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -327,7 +329,7 @@ fun SableListRow(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
+                maxLines = SableResponsive.PRIMARY_TEXT_MAX_LINES,
                 overflow = TextOverflow.Ellipsis,
             )
             if (subtitle != null) {

@@ -1,5 +1,8 @@
 package org.sableos.weather
 
+import org.sableos.weather.cities.City
+import org.sableos.weather.cities.DefaultCities
+
 internal enum class WeatherAvailability {
     Local,
     Fetching,
@@ -169,30 +172,9 @@ internal object WeatherProtocol {
         }
 }
 
-internal val DefaultWeatherLocations =
-    listOf(
-        WeatherLocation(
-            name = "Jersey City",
-            latitude = 40.7178,
-            longitude = -74.0430,
-            timezone = "America/New_York",
-        ),
-        WeatherLocation(
-            name = "New York",
-            latitude = 40.7128,
-            longitude = -74.0060,
-            timezone = "America/New_York",
-        ),
-        WeatherLocation(
-            name = "Edison",
-            latitude = 40.5187,
-            longitude = -74.4121,
-            timezone = "America/New_York",
-        ),
-        WeatherLocation(
-            name = "Mumbai",
-            latitude = 19.0760,
-            longitude = 72.8777,
-            timezone = "Asia/Kolkata",
-        ),
-    )
+/** The built-in cities; the user-managed list lives in [org.sableos.weather.cities.CityRepository]. */
+internal val DefaultWeatherLocations: List<WeatherLocation> = DefaultCities.ALL.map { it.toLocation() }
+
+internal fun City.toLocation(): WeatherLocation = WeatherLocation(name, latitude, longitude, timezone)
+
+internal fun WeatherLocation.toCity(): City = City(name, latitude, longitude, timezone)

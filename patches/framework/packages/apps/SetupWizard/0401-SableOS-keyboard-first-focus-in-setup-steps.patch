@@ -1,0 +1,389 @@
+From cea20e483571039bfd13bfccd328b4c5cd334219 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 9 Oct 2026 21:49:37 +0000
+Subject: [PATCH 401/402] SableOS: keyboard-first focus in setup steps
+
+On a hardware keyboard the first key press with nothing focused now lands
+on the step's initial control (first text field, else Start/Next, else the
+first control) instead of doing nothing; MoveHome/MoveEnd jump to the
+first/last control; a held Enter/Space/Tab does not repeat an action; and
+Enter in a step's last text field runs its primary action. All other keys
+(arrows, Tab, Enter on a button, Back/Escape, text keys, system Home,
+PageUp/PageDown, Ctrl/Meta shortcuts) keep their platform behaviour, and
+any failure falls back to it, so no step can be blocked.
+
+The decisions live in a pure SableKeyPolicy class (no android.* types),
+ported from the SableOS keyboard-first setup flow reference (IR-014).
+---
+ .../setupwizard/BaseSetupWizardActivity.java  |  30 +++
+ .../setupwizard/sable/SableKeyFocus.java      | 121 ++++++++++++
+ .../setupwizard/sable/SableKeyPolicy.java     | 174 ++++++++++++++++++
+ 3 files changed, 325 insertions(+)
+ create mode 100644 src/org/lineageos/setupwizard/sable/SableKeyFocus.java
+ create mode 100644 src/org/lineageos/setupwizard/sable/SableKeyPolicy.java
+
+diff --git a/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java b/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java
+index 828f12f8..96bd6054 100644
+--- a/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java
++++ b/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java
+@@ -23,6 +23,7 @@ import android.net.wifi.WifiManager;
+ import android.os.Bundle;
+ import android.text.TextUtils;
+ import android.util.Log;
++import android.view.KeyEvent;
+ import android.view.View;
+ import android.widget.Button;
+ 
+@@ -40,6 +41,7 @@ import com.google.android.setupdesign.transition.TransitionHelper;
+ import com.google.android.setupdesign.util.ThemeHelper;
+ 
+ import org.lineageos.setupwizard.NavigationLayout.NavigationBarListener;
++import org.lineageos.setupwizard.sable.SableKeyFocus;
+ import org.lineageos.setupwizard.util.SetupWizardUtils;
+ 
+ public abstract class BaseSetupWizardActivity extends AppCompatActivity implements
+@@ -161,6 +163,34 @@ public abstract class BaseSetupWizardActivity extends AppCompatActivity implemen
+         }
+     }
+ 
++    @Override
++    public boolean dispatchKeyEvent(KeyEvent event) {
++        // SableOS IR-014: keyboard-first focus for hardware keyboards. Never blocks a step:
++        // unclaimed keys and any failure fall through to the platform.
++        final View primary = getSablePrimaryView();
++        if (SableKeyFocus.dispatch(this, event, primary,
++                primary == null ? null : primary::performClick)) {
++            return true;
++        }
++        return super.dispatchKeyEvent(event);
++    }
++
++    /**
++     * The step's forward action for keyboard focus: the Welcome screen's Start button, else
++     * the navigation bar's Next button when it is shown.
++     */
++    protected View getSablePrimaryView() {
++        final View start = findViewById(R.id.start);
++        if (start != null && start.isShown()) {
++            return start;
++        }
++        final NavigationLayout bar = mNavigationBar;
++        if (bar != null && bar.getNextButton().isShown()) {
++            return bar.getNextButton();
++        }
++        return null;
++    }
++
+     /**
+      * @return The navigation bar instance in the layout, or null if the layout does not have a
+      * navigation bar.
+diff --git a/src/org/lineageos/setupwizard/sable/SableKeyFocus.java b/src/org/lineageos/setupwizard/sable/SableKeyFocus.java
+new file mode 100644
+index 00000000..c008bf25
+--- /dev/null
++++ b/src/org/lineageos/setupwizard/sable/SableKeyFocus.java
+@@ -0,0 +1,121 @@
++/*
++ * SPDX-FileCopyrightText: The SableOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++package org.lineageos.setupwizard.sable;
++
++import android.app.Activity;
++import android.util.Log;
++import android.view.KeyEvent;
++import android.view.View;
++import android.view.ViewGroup;
++import android.widget.EditText;
++
++import java.util.ArrayList;
++import java.util.List;
++
++/**
++ * Applies {@link SableKeyPolicy} to a setup step's view hierarchy (SableOS IR-014).
++ *
++ * <p>It never blocks a step: any failure falls back to the platform's normal key handling,
++ * and keys the policy does not claim are left untouched.
++ */
++public final class SableKeyFocus {
++    private static final String TAG = "SableKeyFocus";
++
++    private SableKeyFocus() {}
++
++    /**
++     * @param primary the step's primary (forward) action, or null if none is shown
++     * @param onPrimary runs the primary action
++     * @return true when the key was handled here and must not be dispatched further
++     */
++    public static boolean dispatch(Activity activity, KeyEvent event, View primary,
++            Runnable onPrimary) {
++        try {
++            return dispatchUnchecked(activity, event, primary, onPrimary);
++        } catch (RuntimeException e) {
++            Log.w(TAG, "keyboard focus helper failed; using platform handling", e);
++            return false;
++        }
++    }
++
++    private static boolean dispatchUnchecked(Activity activity, KeyEvent event, View primary,
++            Runnable onPrimary) {
++        if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
++        final View root = activity.findViewById(android.R.id.content);
++        if (!(root instanceof ViewGroup)) return false;
++
++        final List<View> controls = focusables((ViewGroup) root);
++        final View focused = activity.getCurrentFocus();
++        final int focusedIndex = focused == null ? -1 : controls.indexOf(focused);
++        final SableKeyPolicy.Focus focus;
++        if (focusedIndex < 0) {
++            focus = SableKeyPolicy.Focus.NONE;
++        } else if (focused instanceof EditText) {
++            focus = SableKeyPolicy.Focus.TEXT;
++        } else {
++            focus = SableKeyPolicy.Focus.CONTROL;
++        }
++
++        final boolean primaryAvailable = primary != null && primary.isShown()
++                && primary.isEnabled();
++        final SableKeyPolicy.Decision decision = SableKeyPolicy.decide(
++                SableKeyPolicy.kindOf(event.getKeyCode(), event.getUnicodeChar()),
++                focus,
++                SableKeyPolicy.hasCommandModifier(event.getMetaState()),
++                event.getRepeatCount() > 0,
++                focus == SableKeyPolicy.Focus.TEXT && isLastText(controls, focusedIndex),
++                primaryAvailable);
++
++        switch (decision) {
++            case CONSUME:
++                return true;
++            case FOCUS_INITIAL: {
++                final List<SableKeyPolicy.Candidate> kinds = new ArrayList<>();
++                for (View v : controls) {
++                    kinds.add(v instanceof EditText ? SableKeyPolicy.Candidate.TEXT
++                            : v == primary ? SableKeyPolicy.Candidate.PRIMARY
++                            : SableKeyPolicy.Candidate.CONTROL);
++                }
++                return focusAt(controls, SableKeyPolicy.initialIndex(kinds));
++            }
++            case FOCUS_FIRST:
++                return focusAt(controls, 0);
++            case FOCUS_LAST:
++                return focusAt(controls, controls.size() - 1);
++            case SUBMIT_PRIMARY:
++                if (onPrimary == null) return false;
++                onPrimary.run();
++                return true;
++            case PASS:
++            default:
++                return false;
++        }
++    }
++
++    private static boolean focusAt(List<View> controls, int index) {
++        if (index < 0 || index >= controls.size()) return false;
++        // requestFocusFromTouch leaves touch mode, so the focus highlight becomes visible.
++        return controls.get(index).requestFocusFromTouch();
++    }
++
++    private static boolean isLastText(List<View> controls, int index) {
++        for (int i = index + 1; i < controls.size(); i++) {
++            if (controls.get(i) instanceof EditText) return false;
++        }
++        return true;
++    }
++
++    private static List<View> focusables(ViewGroup root) {
++        // All focusables, not only touch-mode ones: the first key may arrive while still in touch mode.
++        final ArrayList<View> all = new ArrayList<>();
++        root.addFocusables(all, View.FOCUS_FORWARD, View.FOCUSABLES_ALL);
++        final List<View> out = new ArrayList<>(all.size());
++        for (View v : all) {
++            if (v.isShown() && v.isEnabled()) out.add(v);
++        }
++        return out;
++    }
++}
+diff --git a/src/org/lineageos/setupwizard/sable/SableKeyPolicy.java b/src/org/lineageos/setupwizard/sable/SableKeyPolicy.java
+new file mode 100644
+index 00000000..5382b6b4
+--- /dev/null
++++ b/src/org/lineageos/setupwizard/sable/SableKeyPolicy.java
+@@ -0,0 +1,174 @@
++/*
++ * SPDX-FileCopyrightText: The SableOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++package org.lineageos.setupwizard.sable;
++
++import java.util.List;
++
++/**
++ * Keyboard-first decisions for one setup step (SableOS IR-014), ported from the Sable
++ * setup flow reference model. Pure Java: no android.* types, so it is unit-tested off-device.
++ *
++ * <p>The policy only adds what the platform's own focus handling lacks on a hardware
++ * keyboard: a first key press with nothing focused lands on the step's initial control
++ * instead of doing nothing, MoveHome/MoveEnd jump to the first/last control, a held
++ * Enter/Space/Tab does not repeat an action, and Enter in the last text field runs the
++ * step's primary action. Everything else (arrows, Tab, Enter on a button, Back/Escape,
++ * text keys in a field, system Home, PageUp/PageDown, Ctrl/Meta shortcuts) is passed
++ * through unchanged, so the policy can never block a step.
++ */
++public final class SableKeyPolicy {
++
++    private SableKeyPolicy() {}
++
++    /** Normalized key meaning (same vocabulary as the Sable normalized key contract). */
++    public enum Kind {
++        UP, DOWN, LEFT, RIGHT, ACTIVATE, SPACE, BACK, ESCAPE, MOVE_HOME, MOVE_END,
++        PAGE_UP, PAGE_DOWN, TAB, BACKSPACE, PRINTABLE, OTHER
++    }
++
++    /** What owns focus when the key arrives. */
++    public enum Focus { NONE, TEXT, CONTROL }
++
++    /** What the host should do with the key. */
++    public enum Decision {
++        /** Leave the key to the platform (view focus search, IME, Back handling). */
++        PASS,
++        /** Swallow the key and do nothing (held-key repeat of a one-shot key). */
++        CONSUME,
++        /** Focus the step's initial control and make focus visible. */
++        FOCUS_INITIAL,
++        FOCUS_FIRST,
++        FOCUS_LAST,
++        /** Run the step's primary action (Next/Start). */
++        SUBMIT_PRIMARY
++    }
++
++    /** A focusable control as the policy sees it, in focus order. */
++    public enum Candidate { TEXT, PRIMARY, CONTROL }
++
++    // Public Android key codes and meta flags (android.view.KeyEvent); no device scan codes.
++    public static final int KEYCODE_HOME = 3;
++    public static final int KEYCODE_BACK = 4;
++    public static final int KEYCODE_DPAD_UP = 19;
++    public static final int KEYCODE_DPAD_DOWN = 20;
++    public static final int KEYCODE_DPAD_LEFT = 21;
++    public static final int KEYCODE_DPAD_RIGHT = 22;
++    public static final int KEYCODE_DPAD_CENTER = 23;
++    public static final int KEYCODE_TAB = 61;
++    public static final int KEYCODE_SPACE = 62;
++    public static final int KEYCODE_ENTER = 66;
++    public static final int KEYCODE_DEL = 67;
++    public static final int KEYCODE_PAGE_UP = 92;
++    public static final int KEYCODE_PAGE_DOWN = 93;
++    public static final int KEYCODE_ESCAPE = 111;
++    public static final int KEYCODE_MOVE_HOME = 122;
++    public static final int KEYCODE_MOVE_END = 123;
++    public static final int KEYCODE_NUMPAD_ENTER = 160;
++    public static final int META_CTRL_ON = 0x1000;
++    public static final int META_META_ON = 0x10000;
++
++    public static Kind kindOf(int keyCode, int unicodeChar) {
++        switch (keyCode) {
++            case KEYCODE_DPAD_UP: return Kind.UP;
++            case KEYCODE_DPAD_DOWN: return Kind.DOWN;
++            case KEYCODE_DPAD_LEFT: return Kind.LEFT;
++            case KEYCODE_DPAD_RIGHT: return Kind.RIGHT;
++            case KEYCODE_DPAD_CENTER:
++            case KEYCODE_ENTER:
++            case KEYCODE_NUMPAD_ENTER: return Kind.ACTIVATE;
++            case KEYCODE_SPACE: return Kind.SPACE;
++            case KEYCODE_BACK: return Kind.BACK;
++            case KEYCODE_ESCAPE: return Kind.ESCAPE;
++            case KEYCODE_HOME: return Kind.OTHER;
++            case KEYCODE_MOVE_HOME: return Kind.MOVE_HOME;
++            case KEYCODE_MOVE_END: return Kind.MOVE_END;
++            case KEYCODE_PAGE_UP: return Kind.PAGE_UP;
++            case KEYCODE_PAGE_DOWN: return Kind.PAGE_DOWN;
++            case KEYCODE_TAB: return Kind.TAB;
++            case KEYCODE_DEL: return Kind.BACKSPACE;
++            default:
++                return isPrintable(unicodeChar) ? Kind.PRINTABLE : Kind.OTHER;
++        }
++    }
++
++    public static boolean hasCommandModifier(int metaState) {
++        return (metaState & (META_CTRL_ON | META_META_ON)) != 0;
++    }
++
++    /**
++     * @param lastTextField the focused text field is the last text field of the step
++     * @param primaryAvailable the step has a visible, enabled primary action
++     */
++    public static Decision decide(Kind kind, Focus focus, boolean commandModifier,
++            boolean repeat, boolean lastTextField, boolean primaryAvailable) {
++        if (commandModifier) return Decision.PASS;
++        switch (kind) {
++            case OTHER:
++            case PAGE_UP:
++            case PAGE_DOWN:
++            case BACK:
++            case ESCAPE:
++                // System Home, paging and Back/Escape keep their platform meaning.
++                return Decision.PASS;
++            default:
++                break;
++        }
++        if (focus == Focus.TEXT) {
++            if (kind == Kind.ACTIVATE) {
++                if (repeat) return Decision.CONSUME;
++                return lastTextField && primaryAvailable ? Decision.SUBMIT_PRIMARY : Decision.PASS;
++            }
++            // Text keys, cursor keys and Tab stay with the field and the IME.
++            return Decision.PASS;
++        }
++        if (repeat && (kind == Kind.ACTIVATE || kind == Kind.SPACE || kind == Kind.TAB)) {
++            return Decision.CONSUME;
++        }
++        if (focus == Focus.NONE) {
++            switch (kind) {
++                case MOVE_HOME: return Decision.FOCUS_FIRST;
++                case MOVE_END: return Decision.FOCUS_LAST;
++                case UP:
++                case DOWN:
++                case LEFT:
++                case RIGHT:
++                case TAB:
++                case ACTIVATE:
++                case SPACE:
++                    // First key with nothing focused: show where focus is instead of acting.
++                    return Decision.FOCUS_INITIAL;
++                default:
++                    return Decision.PASS;
++            }
++        }
++        switch (kind) {
++            case MOVE_HOME: return Decision.FOCUS_FIRST;
++            case MOVE_END: return Decision.FOCUS_LAST;
++            default: return Decision.PASS;
++        }
++    }
++
++    /**
++     * Initial focus of a step: its first text field so typing works at once, else its
++     * primary action, else its first control. Returns -1 for a step with no controls.
++     */
++    public static int initialIndex(List<Candidate> candidates) {
++        int primary = -1;
++        for (int i = 0; i < candidates.size(); i++) {
++            if (candidates.get(i) == Candidate.TEXT) return i;
++            if (primary < 0 && candidates.get(i) == Candidate.PRIMARY) primary = i;
++        }
++        if (primary >= 0) return primary;
++        return candidates.isEmpty() ? -1 : 0;
++    }
++
++    private static boolean isPrintable(int unicode) {
++        if (unicode <= 0 || unicode > Character.MAX_VALUE) return false;
++        if ((unicode & 0x80000000) != 0) return false;
++        char c = (char) unicode;
++        return !Character.isISOControl(c) && !Character.isWhitespace(c);
++    }
++}
+-- 
+2.43.0
+
