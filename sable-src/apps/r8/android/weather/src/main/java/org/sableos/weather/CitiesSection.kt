@@ -106,7 +106,12 @@ internal fun CitiesSection(
         return runEffect(reduction.effect)
     }
 
+    // Not on first composition: grabbing focus at launch would scroll the forecast away. The first arrow key
+    // reaches the section through normal focus traversal.
+    var focusPasses by remember { mutableStateOf(0) }
     LaunchedEffect(screen.screen) {
+        focusPasses += 1
+        if (focusPasses == 1) return@LaunchedEffect
         runCatching {
             if (screen.screen == CityScreen.Add) fieldFocus.requestFocus() else listFocus.requestFocus()
         }
