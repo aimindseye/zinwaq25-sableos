@@ -4,14 +4,16 @@ import android.content.Context
 import android.content.pm.LauncherApps
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.os.SystemClock
+import android.util.LruCache
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -30,47 +32,78 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.nativeKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.sableos.design.AccentPreset
 import org.sableos.design.AppearanceMode
+import org.sableos.design.SableAlphabetIndex
+import org.sableos.design.SableAlphabetRail
+import org.sableos.design.SableAlphabetRailWidth
 import org.sableos.design.SableAppearance
+import org.sableos.design.SableFocusMemory
 import org.sableos.design.SableRefreshableSurface
 import org.sableos.design.SableTheme
+import org.sableos.design.SableTypeToJump
+import org.sableos.design.sableFocusRing
 import org.sableos.start.live.LiveAvailability
 import org.sableos.start.live.LiveDatum
 import org.sableos.start.live.LiveSurfaceSnapshot
 import org.sableos.start.model.AppEntry
+import org.sableos.start.model.inLauncherUser
 import org.sableos.start.model.stableKey
 import org.sableos.start.platform.LiveSurfaceRepository
+import org.sableos.start.privacy.AllAppsKeyAction
+import org.sableos.start.privacy.AllAppsKeyPolicy
+import org.sableos.start.privacy.AppAction
+import org.sableos.start.privacy.AppActionContext
+import org.sableos.start.privacy.AppActionPolicy
+import org.sableos.start.privacy.PrivacySummaryPolicy
 import java.time.LocalTime
 import java.util.Locale
 
@@ -148,6 +181,8 @@ fun SableStartScreen(
     onOpenAppInfo: (AppEntry) -> Unit,
     onRequestLivePermissions: () -> Unit,
     onRefreshLive: () -> Unit,
+    onOpenNotificationSettings: (AppEntry) -> Unit = onOpenAppInfo,
+    onUninstallApp: (AppEntry) -> Unit = {},
 ) {
     var destination by remember(initialScreen) {
         mutableStateOf(
@@ -169,6 +204,8 @@ fun SableStartScreen(
         mutableStateOf(initialStartTileKeys?.toList())
     }
     var recentKeys by remember { mutableStateOf<List<String>>(emptyList()) }
+    // Survives Peek / App info / Search round trips (FOCUS_RESTORATION=REQUIRED).
+    val focusMemory = remember { SableFocusMemory() }
     var liveSnapshot by remember {
         mutableStateOf(liveSurfaceRepository.initialSnapshot())
     }
@@ -291,6 +328,7 @@ fun SableStartScreen(
                     SableStartDestination.Apps ->
                         AppsScreen(
                             apps = apps,
+                            focusMemory = focusMemory,
                             onBack = ::navigateBack,
                             onSearch = {
                                 openSearch(SableStartDestination.Apps)
@@ -355,6 +393,8 @@ fun SableStartScreen(
                                 onClose = ::navigateBack,
                                 onOpen = { launchApp(app) },
                                 onOpenAppInfo = { onOpenAppInfo(app) },
+                                onOpenNotificationSettings = { onOpenNotificationSettings(app) },
+                                onUninstall = { onUninstallApp(app) },
                                 onToggleFavorite = {
                                     favoriteKeys =
                                         if (key in favoriteKeys) {
@@ -885,17 +925,92 @@ private fun SearchLaunchButton(
 @Composable
 private fun AppsScreen(
     apps: List<AppEntry>,
+    focusMemory: SableFocusMemory,
     onBack: () -> Unit,
     onSearch: () -> Unit,
     onLaunchApp: (AppEntry) -> Unit,
     onOpenPeek: (AppEntry) -> Unit,
 ) {
     val rows = remember(apps) { buildRailRows(apps) }
-    val letters = remember(rows) { rows.map { it.section }.distinct() }
+    val keys = remember(rows) { rows.map { it.app.stableKey() } }
+    val labels = remember(rows) { rows.map { it.app.label } }
+    // One alphabet-index concept: section headers, the right-hand rail and
+    // keyboard letters all come from this index (no second, hidden rail).
+    val alphabet = remember(labels) { SableAlphabetIndex.build(labels) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    var activeLetter by remember(letters) {
-        mutableStateOf(letters.firstOrNull().orEmpty())
+    val typeToJump = remember { SableTypeToJump() }
+    val requesters = remember { mutableMapOf<String, FocusRequester>() }
+    var focusedIndex by remember { mutableStateOf(-1) }
+    var expandedKeys by remember { mutableStateOf(emptySet<String>()) }
+    var restoreDone by remember { mutableStateOf(false) }
+
+    fun requesterFor(key: String): FocusRequester = requesters.getOrPut(key) { FocusRequester() }
+
+    fun focusIndex(index: Int) {
+        val key = keys.getOrNull(index) ?: return
+        scope.launch {
+            listState.scrollToItem(index)
+            withFrameNanos { }
+            runCatching { requesterFor(key).requestFocus() }
+        }
+    }
+
+    // FOCUS_RESTORATION: back from Peek / App info / Search lands on the same app
+    // (or the app now at its old position if it was removed). Runs once per visit
+    // so inventory refreshes never move focus under the user.
+    LaunchedEffect(keys.isNotEmpty()) {
+        if (!restoreDone && keys.isNotEmpty()) {
+            restoreDone = true
+            focusMemory.restore(FOCUS_SURFACE_ALL_APPS, keys)?.let(::focusIndex)
+        }
+    }
+
+    fun openActions(index: Int) {
+        val row = rows.getOrNull(index) ?: return
+        focusMemory.remember(FOCUS_SURFACE_ALL_APPS, keys[index], index)
+        onOpenPeek(row.app)
+    }
+
+    fun onRowKey(
+        index: Int,
+        event: KeyEvent,
+    ): Boolean {
+        val native = event.nativeKeyEvent
+        val decision =
+            AllAppsKeyPolicy.decide(
+                keyCode = native.keyCode,
+                unicode = native.unicodeChar,
+                metaState = native.metaState,
+                repeat = native.repeatCount > 0,
+            )
+        if (!decision.consumed) return false
+        // Act on key down only; swallow the matching key up so clickable does not fire twice.
+        if (event.type != KeyEventType.KeyDown) return true
+        val row = rows.getOrNull(index) ?: return true
+        when (decision.action) {
+            AllAppsKeyAction.Open -> {
+                focusMemory.remember(FOCUS_SURFACE_ALL_APPS, keys[index], index)
+                onLaunchApp(row.app)
+            }
+            AllAppsKeyAction.ToggleDetail -> {
+                val key = keys[index]
+                expandedKeys = if (key in expandedKeys) expandedKeys - key else expandedKeys + key
+            }
+            AllAppsKeyAction.Actions -> openActions(index)
+            AllAppsKeyAction.Search -> {
+                focusMemory.remember(FOCUS_SURFACE_ALL_APPS, keys[index], index)
+                onSearch()
+            }
+            AllAppsKeyAction.TypeToJump -> {
+                val target =
+                    typeToJump.onChar(decision.char, SystemClock.uptimeMillis(), labels, index)
+                        ?: alphabet.indexForChar(decision.char)
+                if (target != null) focusIndex(target)
+            }
+            AllAppsKeyAction.IgnoreRepeat, AllAppsKeyAction.PassThrough -> Unit
+        }
+        return true
     }
 
     Box(
@@ -908,7 +1023,7 @@ private fun AppsScreen(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(start = 20.dp, end = 38.dp),
+                    .padding(start = 20.dp, end = if (alphabet.isEmpty) 20.dp else SableAlphabetRailWidth + 4.dp),
         ) {
             MetroHeader(
                 title = "all apps",
@@ -926,126 +1041,55 @@ private fun AppsScreen(
                     state = listState,
                     contentPadding = PaddingValues(bottom = 24.dp),
                 ) {
-                    items(
+                    itemsIndexed(
                         items = rows,
-                        key = { it.app.stableKey() },
-                    ) { row ->
+                        key = { _, row -> row.app.stableKey() },
+                    ) { index, row ->
                         if (row.startsSection) {
                             Text(
                                 text = row.section,
                                 style = MaterialTheme.typography.headlineLarge,
                                 color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+                                modifier =
+                                    Modifier
+                                        .padding(top = 12.dp, bottom = 4.dp)
+                                        .semantics { heading() },
                             )
                         }
+                        val key = keys[index]
                         AppRow(
                             app = row.app,
-                            onClick = { onLaunchApp(row.app) },
-                            onContext = { onOpenPeek(row.app) },
+                            expanded = key in expandedKeys,
+                            onClick = {
+                                focusMemory.remember(FOCUS_SURFACE_ALL_APPS, key, index)
+                                onLaunchApp(row.app)
+                            },
+                            onContext = { openActions(index) },
+                            modifier =
+                                Modifier
+                                    .focusRequester(requesterFor(key))
+                                    .onFocusChanged { state ->
+                                        if (state.hasFocus) {
+                                            focusedIndex = index
+                                            focusMemory.remember(FOCUS_SURFACE_ALL_APPS, key, index)
+                                        }
+                                    }.onPreviewKeyEvent { event -> onRowKey(index, event) },
                         )
                     }
                 }
             }
         }
 
-        if (letters.isNotEmpty()) {
-            Box(
-                modifier =
-                    Modifier
-                        .align(Alignment.CenterStart)
-                        .fillMaxHeight()
-                        .width(22.dp)
-                        .pointerInput(letters, rows) {
-                            fun jumpTo(y: Float) {
-                                if (letters.isEmpty() || size.height <= 0) return
-                                val slot =
-                                    ((y / size.height) * letters.size)
-                                        .toInt()
-                                        .coerceIn(0, letters.lastIndex)
-                                val letter = letters[slot]
-                                val index = rows.indexOfFirst { it.section == letter }
-                                if (index >= 0) {
-                                    activeLetter = letter
-                                    scope.launch {
-                                        listState.scrollToItem(index)
-                                    }
-                                }
-                            }
-
-                            detectDragGestures(
-                                onDragStart = { offset -> jumpTo(offset.y) },
-                                onDrag = { change, _ ->
-                                    jumpTo(change.position.y)
-                                    change.consume()
-                                },
-                            )
-                        },
+        if (!alphabet.isEmpty) {
+            val firstVisible by remember { derivedStateOf { listState.firstVisibleItemIndex } }
+            SableAlphabetRail(
+                index = alphabet,
+                activeKey = alphabet.sectionKeyAt(if (focusedIndex >= 0) focusedIndex else firstVisible),
+                onJump = { target ->
+                    scope.launch { listState.animateScrollToItem(target) }
+                },
+                modifier = Modifier.align(Alignment.CenterEnd),
             )
-
-            Column(
-                modifier =
-                    Modifier
-                        .align(Alignment.CenterEnd)
-                        .width(38.dp)
-                        .pointerInput(letters, rows) {
-                            fun jumpTo(y: Float) {
-                                if (letters.isEmpty() || size.height <= 0) return
-                                val slot =
-                                    ((y / size.height) * letters.size)
-                                        .toInt()
-                                        .coerceIn(0, letters.lastIndex)
-                                val letter = letters[slot]
-                                val index = rows.indexOfFirst { it.section == letter }
-                                if (index >= 0) {
-                                    activeLetter = letter
-                                    scope.launch {
-                                        listState.scrollToItem(index)
-                                    }
-                                }
-                            }
-
-                            detectDragGestures(
-                                onDragStart = { offset -> jumpTo(offset.y) },
-                                onDrag = { change, _ ->
-                                    jumpTo(change.position.y)
-                                    change.consume()
-                                },
-                            )
-                        },
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                letters.forEach { letter ->
-                    val selected = letter == activeLetter
-                    Text(
-                        text = letter,
-                        modifier =
-                            Modifier
-                                .clickable {
-                                    val index = rows.indexOfFirst { it.section == letter }
-                                    if (index >= 0) {
-                                        activeLetter = letter
-                                        scope.launch {
-                                            listState.animateScrollToItem(index)
-                                        }
-                                    }
-                                }
-                                .padding(horizontal = 10.dp, vertical = 2.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                        color =
-                            if (selected) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                        fontWeight =
-                            if (selected) {
-                                FontWeight.Bold
-                            } else {
-                                FontWeight.Normal
-                            },
-                    )
-                }
-            }
         }
     }
 }
@@ -1069,9 +1113,18 @@ private fun SearchScreen(
             if (normalizedQuery.isEmpty()) {
                 apps.take(6)
             } else {
-                apps.filter { app ->
-                    app.label.contains(normalizedQuery, ignoreCase = true)
-                }.take(12)
+                // Name matches first, then apps whose effective access matches
+                // privacy words ("camera", "mic", "location", ...).
+                val byName =
+                    apps.filter { app ->
+                        app.label.contains(normalizedQuery, ignoreCase = true)
+                    }
+                val byPrivacy =
+                    apps.filter { app ->
+                        app !in byName &&
+                            PrivacySummaryPolicy.matchesPrivacyQuery(app.privacy, normalizedQuery)
+                    }
+                (byName + byPrivacy).take(12)
             }
         }
 
@@ -1271,54 +1324,179 @@ private fun AppRow(
     app: AppEntry,
     onClick: () -> Unit,
     onContext: () -> Unit,
+    modifier: Modifier = Modifier,
+    expanded: Boolean = false,
 ) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .heightIn(min = 58.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier =
                 Modifier
-                    .weight(1f)
-                    .heightIn(min = 58.dp)
-                    .clickable(onClick = onClick)
-                    .padding(vertical = 6.dp),
+                    .fillMaxWidth()
+                    .heightIn(min = 58.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            AppMark(app = app, size = 42)
-            Spacer(Modifier.width(14.dp))
-            Column(
-                modifier = Modifier.weight(1f),
+            Row(
+                modifier =
+                    modifier
+                        .weight(1f)
+                        .heightIn(min = 58.dp)
+                        .sableFocusRing()
+                        .combinedClickable(
+                            onClick = onClick,
+                            onLongClick = onContext,
+                        ).padding(vertical = 6.dp, horizontal = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = app.label,
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 2,
-                )
-                if (app.privacySummary.isNotBlank()) {
-                    Text(
-                        text = app.privacySummary,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                    )
+                AppMark(app = app, size = 42)
+                Spacer(Modifier.width(14.dp))
+                Column(
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = app.label,
+                            modifier = Modifier.weight(1f, fill = false),
+                            style = MaterialTheme.typography.bodyLarge,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        app.profileLabel?.let { profile ->
+                            Spacer(Modifier.width(6.dp))
+                            ProfileBadge(profile)
+                        }
+                    }
+                    PrivacySummaryLine(app)
                 }
             }
-        }
 
-        TextButton(
-            onClick = onContext,
-            modifier = Modifier.heightIn(min = 48.dp),
-        ) {
+            // Actions are also reachable with Menu / Fn+Enter; never touch-only.
+            TextButton(
+                onClick = onContext,
+                modifier =
+                    Modifier
+                        .heightIn(min = 48.dp)
+                        .semantics { contentDescription = "Actions for ${app.label}" },
+            ) {
+                Text(
+                    text = "›",
+                    fontSize = 26.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        if (expanded) {
+            PrivacyDetail(
+                app = app,
+                modifier = Modifier.padding(start = 56.dp, bottom = 8.dp),
+            )
+        }
+    }
+}
+
+/** WORK_PROFILE_BADGE=REQUIRED: visible text plus a spoken label, beside the app name. */
+@Composable
+private fun ProfileBadge(profile: String) {
+    Text(
+        text = profile,
+        modifier =
+            Modifier
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(4.dp))
+                .padding(horizontal = 6.dp, vertical = 1.dp)
+                .semantics { contentDescription = "$profile profile" },
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+    )
+}
+
+/**
+ * The one-line privacy/security summary. Whole labels fold into "+N" until the
+ * line fits the row width at the current font scale (no mid-word clipping);
+ * special access shows a warning mark that always carries a spoken label.
+ * Reads only the precomputed snapshot on [AppEntry]; no platform query here.
+ */
+@Composable
+private fun PrivacySummaryLine(app: AppEntry) {
+    val style = MaterialTheme.typography.bodySmall
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val maxWidthPx = constraints.maxWidth
+        val badgePx = with(density) { PrivacyBadgeWidth.roundToPx() }
+        val row =
+            remember(app.privacy, maxWidthPx, style, density.fontScale) {
+                val probe = PrivacySummaryPolicy.compact(app.privacy)
+                val available = if (probe.badgeLabels.isNotEmpty()) maxWidthPx - badgePx else maxWidthPx
+                PrivacySummaryPolicy.compact(app.privacy) { text ->
+                    measurer.measure(text, style, maxLines = 1).size.width <= available
+                }
+            }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (row.badgeLabels.isNotEmpty()) {
+                Text(
+                    text = "⚠",
+                    modifier =
+                        Modifier
+                            .width(PrivacyBadgeWidth)
+                            .semantics {
+                                contentDescription = "Special access: " + row.badgeLabels.joinToString(", ")
+                            },
+                    style = style,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
             Text(
-                text = "›",
-                fontSize = 26.sp,
+                text = row.text,
+                modifier = Modifier.semantics { contentDescription = row.accessibleText(app.privacy) },
+                style = style,
+                color =
+                    if (row.warning && row.badgeLabels.isEmpty()) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+/** Expanded privacy detail (Space in All Apps, and in Peek). */
+@Composable
+private fun PrivacyDetail(
+    app: AppEntry,
+    modifier: Modifier = Modifier,
+) {
+    val lines = PrivacySummaryPolicy.detail(app.privacy)
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        if (lines.isEmpty()) {
+            Text(
+                text = PrivacySummaryPolicy.compact(app.privacy).text,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        lines.forEach { line ->
+            Text(
+                text = if (line.special) "special access · ${line.label}" else line.label,
+                style = MaterialTheme.typography.bodySmall,
+                color =
+                    if (line.special) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+            )
+        }
+        Text(
+            text = PrivacySummaryPolicy.DETAIL_FOOTER,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -1377,18 +1555,23 @@ private fun AppMark(
 
     val context = LocalContext.current
     val densityDpi = context.resources.displayMetrics.densityDpi
-    val icon =
-        remember(app.stableKey(), size, densityDpi) {
-            loadLauncherIcon(
-                context = context,
-                app = app,
-                sizeDp = size,
-            )
+    val iconKey = "${app.stableKey()}@$size@$densityDpi"
+    // Loaded off the main thread and cached for the process: binding a row never
+    // waits on LauncherApps (ROW_BIND_BLOCKING_QUERY=NO).
+    val icon by
+        produceState<Bitmap?>(initialValue = LauncherIconCache.get(iconKey), iconKey) {
+            if (value == null) {
+                value =
+                    withContext(Dispatchers.IO) {
+                        loadLauncherIcon(context = context, app = app, sizeDp = size)
+                    }?.also { LauncherIconCache.put(iconKey, it) }
+            }
         }
 
-    if (icon != null) {
+    val loadedIcon = icon
+    if (loadedIcon != null) {
         Image(
-            bitmap = icon.asImageBitmap(),
+            bitmap = loadedIcon.asImageBitmap(),
             contentDescription = null,
             modifier =
                 Modifier
@@ -1451,6 +1634,8 @@ private fun approvedGlyphPackage(app: AppEntry): String? {
     }
 }
 
+private object LauncherIconCache : LruCache<String, Bitmap>(LAUNCHER_ICON_CACHE_ENTRIES)
+
 private fun loadLauncherIcon(
     context: Context,
     app: AppEntry,
@@ -1499,9 +1684,31 @@ private fun SablePeekScreen(
     onClose: () -> Unit,
     onOpen: () -> Unit,
     onOpenAppInfo: () -> Unit,
+    onOpenNotificationSettings: () -> Unit,
+    onUninstall: () -> Unit,
     onToggleFavorite: () -> Unit,
     onToggleStartTile: () -> Unit,
 ) {
+    val actions =
+        remember(app, isStartTile) {
+            AppActionPolicy.actions(
+                AppActionContext(
+                    pinnedToStart = isStartTile,
+                    // This host has no base bar surface yet: the action is not offered.
+                    inBaseBar = null,
+                    launcherUser = app.inLauncherUser,
+                    canUninstall = app.canUninstall && app.inLauncherUser,
+                ),
+            )
+        }
+    // UNINSTALL_ONE_KEY=NO: a destructive action first arms, then needs an explicit confirm.
+    var pendingConfirm by remember(app) { mutableStateOf<AppAction?>(null) }
+    val openFocus = remember { FocusRequester() }
+    LaunchedEffect(app) {
+        withFrameNanos { }
+        runCatching { openFocus.requestFocus() }
+    }
+
     Box(
         modifier =
             Modifier
@@ -1514,6 +1721,7 @@ private fun SablePeekScreen(
                 Modifier
                     .align(Alignment.TopStart)
                     .heightIn(min = 48.dp)
+                    .sableFocusRing()
                     .clickable(onClick = onClose)
                     .padding(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 12.dp),
             style = MaterialTheme.typography.titleMedium,
@@ -1525,6 +1733,7 @@ private fun SablePeekScreen(
                 Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp, vertical = 28.dp),
         ) {
             Box(
@@ -1547,22 +1756,24 @@ private fun SablePeekScreen(
                         fontSize = 34.sp,
                         lineHeight = 38.sp,
                         fontWeight = FontWeight.Light,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                     )
-                    Text(
-                        text = "peek",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    if (app.privacySummary.isNotBlank()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = app.privacySummary,
-                            style = MaterialTheme.typography.bodySmall,
+                            text = "privacy & security",
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 2,
                         )
+                        app.profileLabel?.let { profile ->
+                            Spacer(Modifier.width(6.dp))
+                            ProfileBadge(profile)
+                        }
                     }
                 }
             }
+            Spacer(Modifier.height(8.dp))
+            PrivacyDetail(app = app)
 
             Spacer(Modifier.height(18.dp))
 
@@ -1571,6 +1782,8 @@ private fun SablePeekScreen(
                     Modifier
                         .fillMaxWidth()
                         .heightIn(min = 54.dp)
+                        .focusRequester(openFocus)
+                        .sableFocusRing()
                         .background(MaterialTheme.colorScheme.primary)
                         .clickable(onClick = onOpen)
                         .padding(horizontal = 16.dp, vertical = 14.dp),
@@ -1593,11 +1806,43 @@ private fun SablePeekScreen(
 
             Spacer(Modifier.height(6.dp))
 
-            ContextAction(
-                mark = if (isStartTile) "−" else "+",
-                label = if (isStartTile) "remove from start" else "pin to start",
-                onClick = onToggleStartTile,
-            )
+            actions.filterNot { it == AppAction.Open }.forEach { action ->
+                val confirming = pendingConfirm == action
+                ContextAction(
+                    mark =
+                        when (action) {
+                            AppAction.PinToStart, AppAction.AddToBaseBar -> "+"
+                            AppAction.RemoveFromStart, AppAction.RemoveFromBaseBar -> "−"
+                            AppAction.AppInfo -> "ⓘ"
+                            AppAction.NotificationSettings -> "◔"
+                            AppAction.Uninstall, AppAction.Disable -> "⌫"
+                            AppAction.Open -> "→"
+                        },
+                    label = if (confirming) AppActionPolicy.confirmationLabel(action) else action.label,
+                    onClick = {
+                        if (AppActionPolicy.requiresConfirmation(action) && !confirming) {
+                            pendingConfirm = action
+                        } else {
+                            pendingConfirm = null
+                            when (action) {
+                                AppAction.Open -> onOpen()
+                                AppAction.AppInfo -> onOpenAppInfo()
+                                AppAction.NotificationSettings -> onOpenNotificationSettings()
+                                AppAction.PinToStart, AppAction.RemoveFromStart -> onToggleStartTile()
+                                AppAction.Uninstall -> onUninstall()
+                                AppAction.AddToBaseBar, AppAction.RemoveFromBaseBar, AppAction.Disable -> Unit
+                            }
+                        }
+                    },
+                )
+                if (confirming) {
+                    ContextAction(
+                        mark = "×",
+                        label = "cancel",
+                        onClick = { pendingConfirm = null },
+                    )
+                }
+            }
             ContextAction(
                 mark = if (isFavorite) "−" else "+",
                 label =
@@ -1607,11 +1852,6 @@ private fun SablePeekScreen(
                         "pin to favorites"
                     },
                 onClick = onToggleFavorite,
-            )
-            ContextAction(
-                mark = "ⓘ",
-                label = "permissions + app info",
-                onClick = onOpenAppInfo,
             )
 
             Text(
@@ -2194,6 +2434,7 @@ private fun ContextAction(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = 52.dp)
+                .sableFocusRing()
                 .clickable(onClick = onClick)
                 .padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -2234,30 +2475,15 @@ private fun buildRailRows(apps: List<AppEntry>): List<AppRailRow> {
         )
 
     return sorted.mapIndexed { index, app ->
-        val section = alphabetSection(app.label, locale)
+        val section = SableAlphabetIndex.keyFor(app.label, locale)
         AppRailRow(
             app = app,
             section = section,
             startsSection =
                 index == 0 ||
-                    alphabetSection(sorted[index - 1].label, locale) != section,
+                    SableAlphabetIndex.keyFor(sorted[index - 1].label, locale) != section,
         )
     }
-}
-
-private fun alphabetSection(
-    label: String,
-    locale: Locale,
-): String {
-    val first =
-        label
-            .trim()
-            .firstOrNull()
-            ?.toString()
-            ?.uppercase(locale)
-            .orEmpty()
-
-    return if (first.firstOrNull()?.isLetter() == true) first else "#"
 }
 
 private fun resolveStartApps(
@@ -2440,3 +2666,6 @@ private val PREFERRED_START_APP_GROUPS =
 private const val DEFAULT_START_TILE_TARGET = 10
 private const val MAX_FAVORITES_ON_START = 4
 private const val MAX_SESSION_RECENTS = 8
+private const val LAUNCHER_ICON_CACHE_ENTRIES = 160
+private const val FOCUS_SURFACE_ALL_APPS = "all-apps"
+private val PrivacyBadgeWidth = 18.dp

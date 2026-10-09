@@ -49,7 +49,12 @@ val canonicalPresentationSources =
         "com/sable/start/live/LiveSurfaceModels.kt",
         "com/sable/start/model/AppEntry.kt",
         "com/sable/start/platform/LiveSurfaceRepository.kt",
+        "com/sable/start/platform/PrivacyFactsReader.kt",
         "com/sable/start/platform/StartStateRepository.kt",
+        "com/sable/start/privacy/AllAppsInteraction.kt",
+        "com/sable/start/privacy/PrivacyModel.kt",
+        "com/sable/start/privacy/PrivacySnapshotCache.kt",
+        "com/sable/start/privacy/PrivacySummaryPolicy.kt",
         "com/sable/start/ui/SableStartScreen.kt",
         "com/sable/start/ui/SableGlyphIcon.kt",
     )
@@ -71,7 +76,9 @@ tasks.configureEach {
         (
             name == "preBuild" ||
                 name.contains("lint", ignoreCase = true) ||
-                name.startsWith("compileDebugKotlin")
+                name.startsWith("compileDebugKotlin") ||
+                name.startsWith("compileReleaseKotlin") ||
+                name.contains("UnitTestKotlin")
         )
     ) {
         dependsOn(syncSableStartPresentationSources)
@@ -106,4 +113,7 @@ dependencies {
     implementation("androidx.compose.animation:animation")
     implementation("androidx.compose.material3:material3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+
+    // Pure JVM tests for the All Apps privacy policy (DESIGN-KF-D).
+    testImplementation("junit:junit:4.13.2")
 }

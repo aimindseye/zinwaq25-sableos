@@ -26,6 +26,10 @@ class SableDesignContractTest {
         assertEquals(2, SableDesignContract.SCHEMA_VERSION)
         assertTrue(SableDesignContract.MIN_TOUCH_TARGET_DP >= 48)
         assertTrue(SableDesignContract.MAX_STANDARD_CORNER_RADIUS_DP <= 6)
+        assertEquals(
+            SableDesignContract.MIN_TOUCH_TARGET_DP,
+            SableResponsive.TOUCH_TARGET_MIN_DP,
+        )
         assertTrue(
             SableDesignContract.SCREEN_HORIZONTAL_PADDING_DP >=
                 SableDesignContract.SCREEN_VERTICAL_PADDING_DP,

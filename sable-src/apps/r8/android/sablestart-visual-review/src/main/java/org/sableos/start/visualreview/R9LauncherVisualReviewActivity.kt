@@ -1,13 +1,14 @@
 package org.sableos.start.visualreview
 
 import android.Manifest
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.LauncherApps
-import android.content.pm.PackageInfo
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Process
+import android.os.UserHandle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -21,6 +22,10 @@ import org.sableos.design.resolveSableDarkAppearance
 import org.sableos.start.model.AppEntry
 import org.sableos.start.model.stableKey
 import org.sableos.start.platform.LiveSurfaceRepository
+import org.sableos.start.platform.PrivacyFactsReader
+import org.sableos.start.privacy.AppPrivacy
+import org.sableos.start.privacy.GroupState
+import org.sableos.start.privacy.PrivacyGroup
 import org.sableos.start.ui.SableStartScreen
 import java.util.Locale
 
@@ -161,14 +166,14 @@ class R9LauncherVisualReviewActivity : ComponentActivity() {
                                 label = label,
                                 component = component,
                                 user = info.user,
-                                privacySummary =
-                                    buildPrivacyPermissionSummary(
-                                        packageName = component.packageName,
-                                    ),
+                                privacy = privacyReader.read(component.packageName, info.user),
+                                profileLabel = if (info.user == Process.myUserHandle()) null else "work",
                             )
                         }
                     }
-                }.distinctBy { entry -> entry.stableKey() }
+                }.plus(
+                    if (intent.getBooleanExtra(EXTRA_PRIVACY_FIXTURES, false)) privacyFixtureApps() else emptyList(),
+                ).distinctBy { entry -> entry.stableKey() }
                 .sortedWith(
                     compareBy<AppEntry> { entry ->
                         entry.label.lowercase(locale)
@@ -180,53 +185,66 @@ class R9LauncherVisualReviewActivity : ComponentActivity() {
                 )
     }
 
-    private fun buildPrivacyPermissionSummary(packageName: String): String {
-        val packageInfo =
-            runCatching {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    packageManager.getPackageInfo(
-                        packageName,
-                        PackageManager.PackageInfoFlags.of(
-                            PackageManager.GET_PERMISSIONS.toLong(),
-                        ),
-                    )
+    /**
+     * Same reader as SableLauncher (public SDK only); the review host reads only
+     * its own user. Review-only: runs during inventory refresh on this activity.
+     */
+    private val privacyReader =
+        PrivacyFactsReader(
+            contextForUser = { user -> if (user == Process.myUserHandle()) this else null },
+            isLauncherUser = { user -> user == Process.myUserHandle() },
+        )
+
+    /**
+     * DESIGN-KF-D visual-confirmation fixtures (review APK only, never product):
+     * no-sensitive, 1, 3 and >3 permissions, special access, partial access, and
+     * the same package in a work profile with a different state.
+     */
+    private fun privacyFixtureApps(): List<AppEntry> {
+        fun entry(
+            label: String,
+            privacy: AppPrivacy?,
+            work: Boolean = false,
+        ) = AppEntry(
+            label = label,
+            component = ComponentName(FIXTURE_PACKAGE, "$FIXTURE_PACKAGE.${label.filter(Char::isLetter)}"),
+            user =
+                if (work) {
+                    UserHandle.getUserHandleForUid(FIXTURE_WORK_USER * PER_USER_RANGE + FIXTURE_APP_ID)
                 } else {
-                    @Suppress("DEPRECATION")
-                    packageManager.getPackageInfo(
-                        packageName,
-                        PackageManager.GET_PERMISSIONS,
-                    )
-                }
-            }.getOrNull() ?: return "permissions · unavailable"
-
-        val requested = packageInfo.requestedPermissions.orEmpty()
-        val flags = packageInfo.requestedPermissionsFlags ?: IntArray(0)
-
-        val granted =
-            buildSet {
-                requested.forEachIndexed { index, permission ->
-                    val permissionFlags = flags.getOrNull(index) ?: 0
-                    if (
-                        permissionFlags and
-                        PackageInfo.REQUESTED_PERMISSION_GRANTED != 0
-                    ) {
-                        add(permission)
-                    }
-                }
-            }
-
-        val labels =
-            PRIVACY_PERMISSION_GROUPS.mapNotNull { group ->
-                group.label.takeIf { _ ->
-                    group.permissions.any(granted::contains)
-                }
-            }
-
-        return if (labels.isEmpty()) {
-            "permissions · none sensitive"
-        } else {
-            "permissions · " + labels.joinToString(" · ")
-        }
+                    Process.myUserHandle()
+                },
+            privacy = privacy,
+            profileLabel = if (work) "work" else null,
+        )
+        fun allowed(vararg groups: PrivacyGroup) = AppPrivacy(groups.associateWith { GroupState.Allowed })
+        return listOf(
+            entry("Fixture Calculator", allowed()),
+            entry("Fixture Camera", allowed(PrivacyGroup.Camera)),
+            entry("Fixture Recorder", allowed(PrivacyGroup.Location, PrivacyGroup.Camera, PrivacyGroup.Microphone)),
+            entry(
+                "Fixture Maps",
+                allowed(
+                    PrivacyGroup.Location,
+                    PrivacyGroup.Contacts,
+                    PrivacyGroup.Notifications,
+                    PrivacyGroup.Nearby,
+                    PrivacyGroup.Overlay,
+                ),
+            ),
+            entry("Fixture Maps", allowed(PrivacyGroup.Notifications), work = true),
+            entry(
+                "Fixture Gallery",
+                AppPrivacy(
+                    mapOf(
+                        PrivacyGroup.Photos to GroupState.Partial("Photos limited"),
+                        PrivacyGroup.Location to GroupState.Partial("Location approximate"),
+                    ),
+                ),
+            ),
+            entry("Fixture Unknown", AppPrivacy(mapOf(PrivacyGroup.Camera to GroupState.Unknown))),
+            entry("Fixture Unreadable", null),
+        )
     }
 
     private fun launchApp(entry: AppEntry): Boolean =
@@ -320,11 +338,6 @@ class R9LauncherVisualReviewActivity : ComponentActivity() {
             .mapTo(linkedSetOf()) { entry -> entry.stableKey() }
     }
 
-    private data class PrivacyPermissionGroup(
-        val label: String,
-        val permissions: Set<String>,
-    )
-
     private companion object {
         const val GRAPHENE_MESSAGING_PACKAGE = "com.android.messaging"
         val REVIEW_INTERNAL_COMPONENTS =
@@ -341,6 +354,11 @@ class R9LauncherVisualReviewActivity : ComponentActivity() {
         const val EXTRA_EXTENDED_START_TILES = "extendedStartTiles"
         const val EXTRA_APPEARANCE_MODE = "appearanceMode"
         const val EXTRA_INITIAL_SCREEN = "initialScreen"
+        const val EXTRA_PRIVACY_FIXTURES = "privacyFixtures"
+        const val FIXTURE_PACKAGE = "org.sableos.start.visualreview.fixture"
+        const val FIXTURE_WORK_USER = 10
+        const val FIXTURE_APP_ID = 10_999
+        const val PER_USER_RANGE = 100_000
         const val REVIEW_PIN_COUNT = 3
         const val REVIEW_START_TILE_COUNT = 14
 
@@ -370,90 +388,6 @@ class R9LauncherVisualReviewActivity : ComponentActivity() {
                 "Calculator",
                 "Files",
                 "Settings",
-            )
-
-        val PRIVACY_PERMISSION_GROUPS =
-            listOf(
-                PrivacyPermissionGroup(
-                    label = "location",
-                    permissions =
-                        setOf(
-                            Manifest.permission.ACCESS_COARSE_LOCATION,
-                            Manifest.permission.ACCESS_FINE_LOCATION,
-                            Manifest.permission.ACCESS_BACKGROUND_LOCATION,
-                        ),
-                ),
-                PrivacyPermissionGroup(
-                    label = "camera",
-                    permissions = setOf(Manifest.permission.CAMERA),
-                ),
-                PrivacyPermissionGroup(
-                    label = "microphone",
-                    permissions = setOf(Manifest.permission.RECORD_AUDIO),
-                ),
-                PrivacyPermissionGroup(
-                    label = "contacts",
-                    permissions =
-                        setOf(
-                            Manifest.permission.READ_CONTACTS,
-                            Manifest.permission.WRITE_CONTACTS,
-                            Manifest.permission.GET_ACCOUNTS,
-                        ),
-                ),
-                PrivacyPermissionGroup(
-                    label = "phone",
-                    permissions =
-                        setOf(
-                            Manifest.permission.READ_PHONE_STATE,
-                            Manifest.permission.READ_PHONE_NUMBERS,
-                            Manifest.permission.CALL_PHONE,
-                            Manifest.permission.ANSWER_PHONE_CALLS,
-                        ),
-                ),
-                PrivacyPermissionGroup(
-                    label = "messages",
-                    permissions =
-                        setOf(
-                            Manifest.permission.READ_SMS,
-                            Manifest.permission.RECEIVE_SMS,
-                            Manifest.permission.SEND_SMS,
-                            Manifest.permission.RECEIVE_MMS,
-                        ),
-                ),
-                PrivacyPermissionGroup(
-                    label = "calendar",
-                    permissions =
-                        setOf(
-                            Manifest.permission.READ_CALENDAR,
-                            Manifest.permission.WRITE_CALENDAR,
-                        ),
-                ),
-                PrivacyPermissionGroup(
-                    label = "photos",
-                    permissions =
-                        setOf(
-                            Manifest.permission.READ_MEDIA_IMAGES,
-                            Manifest.permission.READ_MEDIA_VIDEO,
-                            Manifest.permission.READ_EXTERNAL_STORAGE,
-                        ),
-                ),
-                PrivacyPermissionGroup(
-                    label = "audio",
-                    permissions = setOf(Manifest.permission.READ_MEDIA_AUDIO),
-                ),
-                PrivacyPermissionGroup(
-                    label = "nearby",
-                    permissions =
-                        setOf(
-                            Manifest.permission.BLUETOOTH_SCAN,
-                            Manifest.permission.BLUETOOTH_CONNECT,
-                            Manifest.permission.NEARBY_WIFI_DEVICES,
-                        ),
-                ),
-                PrivacyPermissionGroup(
-                    label = "notifications",
-                    permissions = setOf(Manifest.permission.POST_NOTIFICATIONS),
-                ),
             )
     }
 }
