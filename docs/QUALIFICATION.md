@@ -64,7 +64,7 @@ on that phone. Procedure: [`RETURN_TO_STOCK.md`](RETURN_TO_STOCK.md).
 | Q4-SYSTEMUI | Quick settings and notifications usable at 720x720 with keyboard | NOT_RUN |
 | Q4-SHADE-KEYS | On a focused notification row: Space expands, R reply, D dismiss, Z snooze, M delivery options, C channel settings, H open in Hub; a focused text field always gets the keys ([KF-A](implementation/kf-a.md)) | NOT_RUN |
 | Q4-HUB-PARITY | With Android notification access for Hub turned off, Sable Start hides nothing and Hub shows "Paused"; turning it back on restores the user's choices | NOT_RUN |
-| Q4-HUB-PROFILES | Paused work profile shows "Work profile" with no text or reply; locked private space is hidden; locked device shows app name and count only | NOT_RUN |
+| Q4-HUB-PROFILES | Paused work profile shows "Work profile" with no text or reply; locked private space is hidden; Hub on a locked device follows the user's own choice in Settings > Notifications > lock screen (sensitive content shown or hidden; Android's default is kept) | NOT_RUN |
 | Q4-HUB-SETTINGS | Settings > Notifications > Sable Attention and the per-app "Sable Hub and Attention" link open Hub; Hub's "Delivery" links open Android's own pages | NOT_RUN |
 | Q4-ALLAPPS-PRIVACY | With a work profile: the 11 DESIGN-KF-D capture states; toggling a permission or precise location in Settings updates the row on return; Enter, Space, Fn+Enter, `/` and letters behave as listed; uninstall needs a confirm step ([KF-D](implementation/kf-d.md)) | NOT_RUN |
 | Q4-RESPONSIVE | Media, Hub and Calendar navigation doesn't clip at 720x720 and font scale 1.3; the media mini-player shows state and play/pause; the alphabet index jumps from the keyboard; focus returns to the item after Back | NOT_RUN |

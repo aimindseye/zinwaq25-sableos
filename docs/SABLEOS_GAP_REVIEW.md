@@ -68,7 +68,7 @@ Each item has a gate in [`QUALIFICATION.md`](QUALIFICATION.md); none has run.
   * Which attention outputs (status LED, keyboard backlight) are real.
   * The measured battery capacity for `power_profile.xml`.
 * **Runtime unknowns:**
-  * Whether Hub may read the lock-screen notification settings. If it can't, it assumes "show, no private content".
+  * Whether Hub may read the user's lock-screen notification setting. If it can't, it assumes "show, no private content".
   * Whether SELinux allows Settings to see the LineageOS health service. If it doesn't, charging controls stay hidden.
   * Whether Android 16 lets the Sable Tools dialer code open its screen.
   * Whether a normal app can read the default keyboard setting.
@@ -84,7 +84,6 @@ Each item has a gate in [`QUALIFICATION.md`](QUALIFICATION.md); none has run.
 |---|---|
 | Adaptive and monochrome app icons | None of the 17 apps has one, so Android's themed icons and the launcher mask don't apply. The icon audit reports it. Needs approved artwork. |
 | Sable app corner shapes | Sable apps keep 2-6dp corners; the SystemUI design uses 8/12dp. Changing it restyles every app. |
-| Lock-screen notification default | Proposed: hide private content on the lock screen by default (`lock_screen_allow_private_notifications=0`). Not set. |
 | Attention outputs for the Q25 | `ro.sable.attention.outputs` is not set, so every attention output is off. Set it once outputs are proven on the phone. |
 | Display density | `SABLE_LCD_DENSITY` is empty, so the vendor's 193 stays. One value in `product/q25/sable-q25.mk`. |
 | Charging-limit controls (BH6) | Not allowed by the design without a device-verified backend. They stay hidden. |

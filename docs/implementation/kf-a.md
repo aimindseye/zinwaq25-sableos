@@ -216,8 +216,8 @@ Repository static checks: `bash tests/run.sh` (includes the KF-A gates).
    PRODUCT_SYSTEM_EXT_PROPERTIES += \
        ro.sable.attention.outputs=zinwa-q25:status_led=candidate,keyboard_backlight=candidate,secondary_display=absent,aod=absent
    ```
-3. Proposed default (Sable posture, "locked: redacted by default"): ship
-   `lock_screen_allow_private_notifications=0` through the Settings provider defaults overlay.
-   This is not done here.
+3. Lock-screen privacy stays the user's choice in Android Settings > Notifications (owner
+   decision): no Sable default overlay; Android's default is kept and Hub follows whatever the
+   user picks.
 4. Proposed QUALIFICATION gates: KF-A-SHADE-KEYS, KF-A-HUB-PARITY, KF-A-WORK-PROFILE,
    KF-A-SETTINGS-LINKS (the device checks listed above).
