@@ -8,6 +8,11 @@ No Android tree, no network. Checks that:
     values as the token table (radii, default tiles, palette seed);
   * the Settings framework patch uses the same accent table, and so does
     AccentPreset in SableTheme.kt;
+  * Sable app corner shapes come from one user setting with two allowed
+    styles: Compact (<= 6dp, the default) and Rounded (8dp controls, 12dp
+    cards = the token radii). The style values agree between sabledesign,
+    the reader's copy, App display compatibility and Settings patch 0103,
+    and only Settings and App display compatibility may write it;
   * branding only changes Sable-owned strings: the SetupWizard overlay
     replaces the welcome title and logo, never os_name or LineageOS legal
     and attribution text;
@@ -30,6 +35,12 @@ OVERLAY = ROOT / "product/common/overlay"
 SETTINGS_PATCHES = ROOT / "patches/framework/packages/apps/Settings"
 SYSTEMUI_PATCHES = ROOT / "patches/framework/frameworks/base"
 PRODUCT_MK = ROOT / "product/q25/sable-q25.mk"
+DESIGN_DIR = ROOT / "sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design"
+READER_DESIGN_DIR = ROOT / "sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design"
+DISPLAYCOMPAT_STYLE = (
+    ROOT / "sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/AppStyle.kt"
+)
+APPS_TSV = ROOT / "product/q25/apps.tsv"
 SHIELD_SHA256 = "eed1b1277a77fa1f94b514585622c403c85c95191cfa3ba90edf526d02e5aea7"
 
 failures = 0
@@ -145,6 +156,94 @@ report(
     presets == {n: a["seed"] for n, a in accents.items()},
     "AccentPreset seeds equal SableAccentTokens seeds",
     f"{presets}",
+)
+
+# --- Sable app corner style (user setting, two allowed styles) ----------------
+
+
+def corner_style(path: pathlib.Path) -> tuple[list[str], str, dict[str, list[int]]]:
+    src = path.read_text(encoding="utf-8")
+    m = re.search(r"enum class SableCornerStyle\((.*?)\n\s*companion", src, re.S)
+    values = re.findall(r'^\s*\w+\("(\w+)", "[^"]+"\)', m.group(1), re.M) if m else []
+    d = re.search(r"val DEFAULT: SableCornerStyle = (\w+)", src)
+    tables = {
+        name.lower(): [int(x) for x in re.findall(r"= (\d+)", body)]
+        for name, body in re.findall(r"val (Compact|Rounded) = SableShapeScale\(([^)]*)\)", src)
+    }
+    return values, (d.group(1).lower() if d else ""), tables
+
+
+styles, default_style, shape_tables = corner_style(DESIGN_DIR / "SableCornerStyle.kt")
+report(
+    styles == ["compact", "rounded"] and default_style == "compact",
+    "corner style is compact (default) or rounded",
+    f"{styles} default={default_style}",
+)
+report(
+    corner_style(READER_DESIGN_DIR / "SableCornerStyle.kt") == (styles, default_style, shape_tables),
+    "reader design copy has the same corner styles and shape table",
+)
+compact_shapes, rounded_shapes = shape_tables.get("compact", []), shape_tables.get("rounded", [])
+report(
+    compact_shapes == [2, 3, 4, 6, 6],
+    "Compact keeps the original Sable app shapes (2-6dp, nothing changes by default)",
+    str(compact_shapes),
+)
+report(
+    rounded_shapes == [small, small, card, card, card],
+    "Rounded uses the token radii (8dp controls, 12dp cards and sheets)",
+    str(rounded_shapes),
+)
+bad_contract = []
+for theme_path in (THEME, READER_DESIGN_DIR / "SableTheme.kt"):
+    src = theme_path.read_text(encoding="utf-8")
+    rel = theme_path.relative_to(ROOT)
+    limits = {
+        n: re.search(rf"const val {n} = (\w+)", src)
+        for n in ("MAX_COMPACT_CORNER_RADIUS_DP", "MAX_ROUNDED_CORNER_RADIUS_DP", "MAX_STANDARD_CORNER_RADIUS_DP")
+    }
+    got = {n: (v.group(1) if v else None) for n, v in limits.items()}
+    if got != {
+        "MAX_COMPACT_CORNER_RADIUS_DP": str(max(compact_shapes or [0])),
+        "MAX_ROUNDED_CORNER_RADIUS_DP": str(max(rounded_shapes or [0])),
+        "MAX_STANDARD_CORNER_RADIUS_DP": "MAX_ROUNDED_CORNER_RADIUS_DP",
+    }:
+        bad_contract.append(f"{rel}: {got}")
+    if re.search(r"RoundedCornerShape\(\d+\.dp\)", src) or "sableShapes(appearance.cornerStyle)" not in src:
+        bad_contract.append(f"{rel}: theme shapes not taken from the corner style")
+report(
+    not bad_contract,
+    "MAX_STANDARD_CORNER_RADIUS_DP covers the two styles and SableTheme picks shapes from the setting",
+    "; ".join(bad_contract),
+)
+for appearance_path in (DESIGN_DIR / "SableGlobalAppearance.kt", READER_DESIGN_DIR / "SableGlobalAppearance.kt"):
+    src = appearance_path.read_text(encoding="utf-8")
+    report(
+        'COLUMN_CORNER_STYLE = "corner_style"' in src
+        and "SableCornerStyle.fromStableValue(cornerStyle)" in src
+        and "registerContentObserver" in src,
+        f"{appearance_path.relative_to(ROOT / 'sable-src')} reads corner_style live",
+    )
+dc = DISPLAYCOMPAT_STYLE.read_text(encoding="utf-8")
+dc_values = re.findall(r'^\s*\w+\("(\w+)", "[^"]+", "[^"]*"\)', dc, re.M)
+report(
+    dc_values == styles and "val DEFAULT = Compact" in dc,
+    "App display compatibility offers the same corner styles",
+    str(dc_values),
+)
+corner_patch_path = next(SETTINGS_PATCHES.glob("0103-*.patch"), None)
+corner_patch = corner_patch_path.read_text(encoding="utf-8") if corner_patch_path else ""
+m = re.search(r'CORNER_STYLES = \{([^}]*)\}', corner_patch)
+settings_styles = re.findall(r'"(\w+)"', m.group(1)) if m else []
+dc_rows = [r.split("\t") for r in APPS_TSV.read_text(encoding="utf-8").splitlines() if r.startswith("SableDisplayCompat\t")]
+dc_package = dc_rows[0][5] if dc_rows else None
+report(
+    settings_styles == styles
+    and f'DEFAULT_CORNER_STYLE = "{default_style}"' in corner_patch
+    and f'DISPLAY_COMPAT_PACKAGE = "{dc_package}"' in corner_patch
+    and "FLAG_UPDATED_SYSTEM_APP" in corner_patch,
+    "Settings 0103 stores the same corner styles and lets only the factory DisplayCompat write them",
+    f"{settings_styles} package={dc_package}",
 )
 
 # --- overlays ----------------------------------------------------------------

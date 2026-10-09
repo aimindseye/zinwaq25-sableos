@@ -70,10 +70,14 @@ from it.
   status, privacy, accent and focus ≥ 3:1 non-text contrast; text on an accent
   fill ≥ 4.5:1; privacy never equal to danger; spaces on the 4dp grid.
 
-The shared `SableTheme` is unchanged, so Sable apps look the same as before.
-`SableDesignContract.MAX_STANDARD_CORNER_RADIUS_DP = 6` and the app `Shapes`
-(2-6dp) predate DESIGN-KF-B's 8/12dp. Moving the apps to the new radii is a
-visible change to every Sable app, so it is left as an open item (see below).
+Sable app corner shapes are a user setting, added after this package by
+[corners](corners.md): App display compatibility > Sable app style offers
+Compact (the original 2-6dp app `Shapes`, the default, so Sable apps look the
+same until the user picks) and Rounded (these 8dp control / 12dp card tokens).
+`SableTheme` builds its `Shapes` from `SableShapeTable` for the style read from
+`org.sableos.appearance` (column `corner_style`, Settings patch 0103), and
+`MAX_STANDARD_CORNER_RADIUS_DP` is now the larger of the two allowed styles
+(`MAX_COMPACT_CORNER_RADIUS_DP = 6`, `MAX_ROUNDED_CORNER_RADIUS_DP = 12`).
 
 ### 2. Runtime resource overlays (`product/common/overlay`)
 
@@ -119,6 +123,11 @@ preinstalled overlay may set these values.
 | `framework/frameworks/base/0102-SableOS-Quick-Settings-tiles-use-the-Sable-card-and-.patch` | same | Tile shape constants: tiles use 12dp (the card radius) instead of a 50dp pill when inactive and 24dp when active. The active icon background uses 8dp instead of 16dp. The focus ring (`borderOnFocus`, which follows the tile's corner) becomes a stable rectangle. State is shown by color, not by a shape change. |
 | `framework/packages/apps/Settings/0101-SableOS-Sable-appearance-authority-and-Display-Accen.patch` | `8d8f6486b274bcf0aa6e5d0cbba52c0b05ae5c65` | Adds `SableAppearanceProvider` (`org.sableos.appearance`, exported, direct-boot aware), which Sable apps and Sable Start already read but nothing on LineageOS provided. `mode` always reads `follow-system`. A light/dark write maps to `UiModeManager.setNightMode`. An accent write stores the accent (device-protected prefs) and seeds `THEME_CUSTOMIZATION_OVERLAY_PACKAGES` as a preset color (`color_source=preset`, `system_palette`, `accent_color`, `TONAL_SPOT`). Only Settings and `org.sableos.launcher` may write. Also adds an **Accent** list next to Dark theme in Settings > Display. The information architecture is unchanged: no new top-level entry. The pure policy is in `SableAppearancePolicy`. |
 | `framework/packages/apps/Settings/0102-SableOS-SableOS-version-row-in-About-phone.patch` | same | Adds **SableOS version** (order 41, above Android version) to About phone, built from `ro.sable.release`, `ro.sable.base` and `ro.sable.build_source`. The LineageOS version row and LineageOS legal information are untouched. The pure formatter is in `SableBuildInfo`. |
+
+Settings patch `0103-SableOS-Sable-app-corner-style-in-the-appearance-aut.patch`
+(package [corners](corners.md)) stacks on 0101 and 0102: it adds the
+`corner_style` column to the same provider and lets App display compatibility
+write only that column. Mode and accent keep the writers listed above.
 
 All four patches were checked with `git apply --check` and applied in order
 on a checkout of their base. They were produced with `git format-patch` from
@@ -173,9 +182,9 @@ earlier release removes them along with the rest of `vendor/sable/q25`.
 
 ## Not done, and why
 
-* **Sable app shapes.** `SableTheme` shapes (2-6dp) and
-  `MAX_STANDARD_CORNER_RADIUS_DP = 6` were not moved to the 8/12dp tokens,
-  because that changes every Sable app. Owner decision.
+* **Sable app shapes.** Not forced to 8/12dp here. The owner chose a user
+  setting instead: App display compatibility > Sable app style (Compact by
+  default, or Rounded = 8/12dp), implemented by [corners](corners.md).
 * **Sliders.** Upstream Material3 `Slider` already gives bounded arrow-key steps
   and Home/End, plus an accessible role and value. The brightness slider has an
   icon and an a11y label but no visible text label or percentage. Adding one is
@@ -274,7 +283,8 @@ Results here: `SableSystemTokensTest` RAN=13 FAILED=0;
 * **`org.sableos.appearance`.** If another package also ports the Settings
   appearance provider (the GrapheneOS-era `r9_settings_cohesion` one), keep
   one. This one deliberately drops the stored light/dark mode and the
-  override bookkeeping in favour of the system theme.
+  override bookkeeping in favour of the system theme. Settings patch 0103
+  (corners) adds the `corner_style` column on top of it.
 * **SystemUI.** KF-A attention controls in QS may add tiles. Profile-gated tiles
   should be appended through a validated profile, not added to
   `quick_settings_tiles_default`.

@@ -2,6 +2,7 @@ package org.sableos.titan2.displaycompat.android
 
 import android.app.Application
 import android.content.Context
+import org.sableos.titan2.displaycompat.core.AppStyleController
 import org.sableos.titan2.displaycompat.core.ProfileController
 import org.sableos.titan2.displaycompat.core.ProfileStore
 
@@ -10,10 +11,16 @@ class DisplayCompatApp : Application() {
         private set
     lateinit var controller: ProfileController
         private set
+    lateinit var appStyleStore: AppearanceStyleStore
+        private set
+    lateinit var appStyle: AppStyleController
+        private set
 
     override fun onCreate() {
         super.onCreate()
         store = PrefsProfileStore(this)
+        appStyleStore = AppearanceStyleStore(this)
+        appStyle = AppStyleController(appStyleStore)
         controller =
             ProfileController(
                 store,

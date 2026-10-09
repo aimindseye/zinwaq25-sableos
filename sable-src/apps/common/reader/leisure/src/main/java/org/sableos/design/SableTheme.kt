@@ -8,6 +8,7 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -46,6 +47,7 @@ enum class AccentPreset(
 data class SableAppearance(
     val mode: AppearanceMode = AppearanceMode.FollowSystem,
     val accent: AccentPreset = AccentPreset.Blue,
+    val cornerStyle: SableCornerStyle = SableCornerStyle.DEFAULT,
 )
 
 object SableDesignContract {
@@ -56,7 +58,15 @@ object SableDesignContract {
     const val MIN_TOUCH_TARGET_DP = 48
     const val SCREEN_HORIZONTAL_PADDING_DP = 24
     const val SCREEN_VERTICAL_PADDING_DP = 20
-    const val MAX_STANDARD_CORNER_RADIUS_DP = 6
+    const val KEY_CORNER_STYLE = "sable.appearance.corner_style"
+
+    /** Largest radius of each allowed corner style (Compact, Rounded); see SableShapeTable. */
+    const val MAX_COMPACT_CORNER_RADIUS_DP = 6
+    const val MAX_ROUNDED_CORNER_RADIUS_DP = 12
+
+    /** Upper bound across the two allowed styles. */
+    const val MAX_STANDARD_CORNER_RADIUS_DP = MAX_ROUNDED_CORNER_RADIUS_DP
+
     const val FAST_MOTION_MS = 120
     const val STANDARD_MOTION_MS = 180
     const val EMPHASIZED_MOTION_MS = 240
@@ -141,13 +151,17 @@ private val SableTypography = Typography(
     ),
 )
 
-private val SableShapes = Shapes(
-    extraSmall = RoundedCornerShape(2.dp),
-    small = RoundedCornerShape(3.dp),
-    medium = RoundedCornerShape(4.dp),
-    large = RoundedCornerShape(6.dp),
-    extraLarge = RoundedCornerShape(6.dp),
-)
+/** Material shapes for a corner style, built from [SableShapeTable]. */
+fun sableShapes(style: SableCornerStyle): Shapes {
+    val scale = SableShapeTable.forStyle(style)
+    return Shapes(
+        extraSmall = RoundedCornerShape(scale.extraSmallDp.dp),
+        small = RoundedCornerShape(scale.smallDp.dp),
+        medium = RoundedCornerShape(scale.mediumDp.dp),
+        large = RoundedCornerShape(scale.largeDp.dp),
+        extraLarge = RoundedCornerShape(scale.extraLargeDp.dp),
+    )
+}
 
 @Composable
 fun SableTheme(
@@ -192,10 +206,12 @@ fun SableTheme(
         )
     }
 
+    val shapes = remember(appearance.cornerStyle) { sableShapes(appearance.cornerStyle) }
+
     MaterialTheme(
         colorScheme = colors,
         typography = SableTypography,
-        shapes = SableShapes,
+        shapes = shapes,
         content = content,
     )
 }
