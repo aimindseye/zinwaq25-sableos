@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Cards: notifications (shade and lockscreen), media card, controls
+         popups. SableGeometryTokens.CARD_RADIUS_DP. Upstream 28dp. -->
+    <dimen name="notification_corner_radius">12dp</dimen>
+    <!-- Large surfaces: the shade scrim and the Quick Settings panel.
+         SableGeometryTokens.SHAPE_LARGE_DP. Upstream 32dp and 28dp. -->
+    <dimen name="notification_scrim_corner_radius">16dp</dimen>
+    <dimen name="qs_corner_radius">16dp</dimen>
+    <!-- Media artwork: SableGeometryTokens.SMALL_CONTROL_RADIUS_DP. Upstream 14dp. -->
+    <dimen name="qs_media_album_radius">8dp</dimen>
+    <!-- Tile grid gaps on the 4dp grid (SPACE_2). Upstream 8dp, stated
+         explicitly so the token table owns it. -->
+    <dimen name="qs_tile_margin_horizontal">8dp</dimen>
+</resources>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Replaces the LineageOS logo on the SetupWizard welcome and finish pages
+     (@drawable/logo). The square Sable shield is padded to the 2:1 shape the
+     LineageOS layouts were drawn for, so it never fills a square screen. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/sableos_shield"
+    android:insetLeft="25%"
+    android:insetRight="25%" />

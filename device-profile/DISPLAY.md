@@ -43,6 +43,10 @@ LineageOS uses density 193, which gives a 597 dp wide screen: lots of room, but
 on a 290 ppi panel each dp is about two thirds of its usual physical size, so
 text and touch targets are small. Sable's keyboard-first layouts were designed
 around roughly 400 to 480 dp. A density near 240 (480 dp) or 280 (411 dp) may
-suit Sable better. Decide on hardware: override it with
-`PRODUCT_PROPERTY_OVERRIDES += ro.sf.lcd_density=<value>` in
-`product/q25/sable-q25.mk`, and record the result here.
+suit Sable better. Decide on hardware, then set the one value
+`SABLE_LCD_DENSITY := <value>` in `product/q25/sable-q25.mk` (empty keeps 193;
+it is written as `ro.sf.lcd_density` to the product partition, which init loads
+after vendor) and record the result here. `tests/check-sable-design.py` checks
+the value. Sable layouts follow from the resulting size through resource
+qualifiers (`notlong` for square screens, `sw<N>dp`), not from the device
+model, so no other file changes with it.

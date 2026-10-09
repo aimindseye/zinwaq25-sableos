@@ -22,6 +22,20 @@ PRODUCT_SYSTEM_EXT_PROPERTIES += \
 
 -include $(SABLE_Q25_PATH)/release.mk
 
+# Display density: the one value for the open decision in
+# device-profile/DISPLAY.md. Empty keeps the LineageOS device value
+# (TARGET_SCREEN_DENSITY 193, about 596 dp wide). Set it to the density chosen
+# on hardware (for example 240 for 480 dp or 280 for 411 dp). It is written to
+# the product partition, whose build.prop init loads after vendor's, so it
+# replaces the device value. Sable layouts follow from the resulting display
+# size and resource qualifiers (sw<N>dp, notlong), never from the device model.
+# tests/check-sable-design.py checks the value.
+SABLE_LCD_DENSITY :=
+ifneq ($(SABLE_LCD_DENSITY),)
+PRODUCT_PRODUCT_PROPERTIES += \
+    ro.sf.lcd_density=$(SABLE_LCD_DENSITY)
+endif
+
 # Keep the LineageOS Updater from offering LineageOS OTAs, which would replace
 # SableOS. The .invalid TLD never resolves (RFC 6761). Replace with a Sable OTA
 # server in phase Q5.

@@ -147,13 +147,19 @@ if out="$(stagerun Q4 --apps-dir "$tmp/apps/run")"; then
     grep -q 'name: "sable_design_shared_srcs"' "$v/src/sabledesign/Android.bp" || ok=no
     grep -q 'overrides: \["LatinIME"\]' "$v/Android.bp" || ok=no
     grep -q 'home=sable' "$proj/config.txt" || ok=no
+    for o in SableFrameworkOverlay SableSystemUIOverlay SableSetupWizardOverlay; do
+        grep -q "$o" "$v/sable-q25-framework.mk" || ok=no
+        grep -q "name: \"$o\"" "$v/overlay/Android.bp" || ok=no
+    done
+    [[ -f "$v/overlay/SableSystemUIOverlay/res/values-notlong/config.xml" ]] || ok=no
     [[ "$ok" == yes ]] && pass "stage Q4 adds framework layer" || fail "stage Q4: generated files wrong: $out"
 else
     fail "stage Q4: $(cat "$tmp/err")"
 fi
 if out="$(stagerun Q2 --apps-dir "$tmp/apps/run")" && grep -q '^FRAMEWORK_LAYER=NO' <<<"$out" &&
     grep -q 'home=launcher3' "$proj/config.txt" && ! grep -q 'SableLauncher' "$tmp/android/vendor/sable/q25/sable-q25-framework.mk" &&
-    [[ ! -e "$tmp/android/vendor/sable/q25/src" ]]; then
+    [[ ! -e "$tmp/android/vendor/sable/q25/src" && ! -e "$tmp/android/vendor/sable/q25/overlay" ]] &&
+    ! grep -q 'SableSystemUIOverlay' "$tmp/android/vendor/sable/q25/sable-q25-framework.mk"; then
     pass "stage Q2 reverts framework layer"
 else
     fail "stage Q2 after Q4: $(cat "$tmp/err")"
@@ -166,6 +172,31 @@ while IFS= read -r -d '' p; do
     git apply --stat "$p" >/dev/null 2>&1 || bad="$bad $p"
 done < <(find patches/framework -name '*.patch' -print0)
 if [[ -z "$bad" ]]; then pass "framework patches parse"; else fail "malformed framework patches:$bad"; fi
+
+# 6d. DESIGN-KF-B tokens, overlays, branding and density (static).
+if python3 tests/check-sable-design.py >"$tmp/design" 2>&1; then
+    pass "Sable design tokens, overlays and branding ($(grep -c '^PASS' "$tmp/design") checks)"
+else
+    fail "Sable design check: $(grep '^FAIL' "$tmp/design" | head -5)"
+fi
+
+# 6e. Pure Settings classes from the framework patches, compiled on the host.
+if command -v javac >/dev/null 2>&1; then
+    st="$tmp/settings-policy"
+    mkdir -p "$st"
+    for p in patches/framework/packages/apps/Settings/010[12]-*.patch; do
+        (cd "$st" && git apply --include='src/com/android/settings/sable/SableAppearancePolicy.java' \
+            --include='src/com/android/settings/sable/SableBuildInfo.java' "$ROOT/$p")
+    done
+    if javac -d "$st/out" "$st"/src/com/android/settings/sable/*.java tests/java/SableSettingsPolicyTest.java 2>"$tmp/err" &&
+        java -cp "$st/out" SableSettingsPolicyTest >"$tmp/out" 2>&1; then
+        pass "Settings appearance policy and About summary ($(grep -o 'CHECKS=[0-9]*' "$tmp/out"))"
+    else
+        fail "Settings policy test: $(cat "$tmp/err" "$tmp/out" | grep -v JAVA_TOOL | head -5)"
+    fi
+else
+    printf 'SKIP  javac not installed (Settings policy test)\n'
+fi
 
 # 7. Entry point refuses flashing and unknown devices.
 if bash build/sable.sh q25 Q2 flash >/dev/null 2>&1; then fail "flash should be blocked"; else pass "flash blocked"; fi

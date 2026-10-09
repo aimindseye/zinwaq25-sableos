@@ -1,0 +1,185 @@
+From ec3e70e3f885f538321207cd09a98468e8dddba5 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 9 Oct 2026 21:54:01 +0000
+Subject: [PATCH 102/102] SableOS: SableOS version row in About phone
+
+Add a SableOS version row above Android version in Settings > About
+phone, built from ro.sable.release, ro.sable.base and
+ro.sable.build_source (written by the Sable product layer). The LineageOS
+version row and LineageOS legal information are unchanged and remain the
+base attribution (DESIGN-KF-B Branding).
+---
+ res/values/strings_sable_about.xml            | 10 +++
+ res/xml/my_device_info.xml                    | 10 +++
+ .../settings/sable/SableBuildInfo.java        | 68 +++++++++++++++++++
+ .../SableVersionPreferenceController.java     | 45 ++++++++++++
+ 4 files changed, 133 insertions(+)
+ create mode 100644 res/values/strings_sable_about.xml
+ create mode 100644 src/com/android/settings/sable/SableBuildInfo.java
+ create mode 100644 src/com/android/settings/sable/SableVersionPreferenceController.java
+
+diff --git a/res/values/strings_sable_about.xml b/res/values/strings_sable_about.xml
+new file mode 100644
+index 0000000..d01f8af
+--- /dev/null
++++ b/res/values/strings_sable_about.xml
+@@ -0,0 +1,10 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++  Copyright (C) 2026 The SableOS Project
++  SPDX-License-Identifier: Apache-2.0
++-->
++<resources>
++    <!-- Settings > About phone: the SableOS product version. The LineageOS version row and
++         LineageOS legal information stay as the base attribution. -->
++    <string name="sable_version_title">SableOS version</string>
++</resources>
+diff --git a/res/xml/my_device_info.xml b/res/xml/my_device_info.xml
+index 9148a9d..6266009 100644
+--- a/res/xml/my_device_info.xml
++++ b/res/xml/my_device_info.xml
+@@ -136,6 +136,16 @@
+             settings:isPreferenceVisible="@bool/config_show_sim_info"
+             settings:controller="com.android.settings.deviceinfo.imei.ImeiInfoPreferenceController"/>
+ 
++        <!-- SableOS version (SableOS product layer) -->
++        <Preference
++            android:key="sable_os_version"
++            android:order="41"
++            android:title="@string/sable_version_title"
++            android:summary="@string/summary_placeholder"
++            android:selectable="false"
++            settings:enableCopying="true"
++            settings:controller="com.android.settings.sable.SableVersionPreferenceController"/>
++
+         <!-- Android version -->
+         <Preference
+             android:key="firmware_version"
+diff --git a/src/com/android/settings/sable/SableBuildInfo.java b/src/com/android/settings/sable/SableBuildInfo.java
+new file mode 100644
+index 0000000..45d623f
+--- /dev/null
++++ b/src/com/android/settings/sable/SableBuildInfo.java
+@@ -0,0 +1,68 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++/**
++ * Pure formatting of the "SableOS version" row in Settings > About phone from the properties the
++ * Sable product layer writes (ro.sable.release, ro.sable.base, ro.sable.build_source). No Android
++ * imports, so it is unit-tested on the host. The LineageOS version row stays below it as the base
++ * attribution.
++ */
++public final class SableBuildInfo {
++    public static final String PROP_RELEASE = "ro.sable.release";
++    public static final String PROP_BASE = "ro.sable.base";
++    public static final String PROP_BUILD_SOURCE = "ro.sable.build_source";
++
++    static final int SHORT_SOURCE_LENGTH = 12;
++
++    private SableBuildInfo() {}
++
++    /**
++     * "Q4 · lineage-23.2 · 0afdeef1c2d3"; parts that are missing are left out, and
++     * {@code unknown} is returned when nothing is set.
++     */
++    public static String summary(String release, String base, String buildSource, String unknown) {
++        StringBuilder out = new StringBuilder();
++        append(out, release);
++        append(out, base);
++        append(out, shortSource(buildSource));
++        return out.length() == 0 ? unknown : out.toString();
++    }
++
++    static String shortSource(String buildSource) {
++        if (isBlank(buildSource) || "uncommitted".equals(buildSource.trim())) {
++            return null;
++        }
++        String trimmed = buildSource.trim();
++        return trimmed.length() > SHORT_SOURCE_LENGTH
++                ? trimmed.substring(0, SHORT_SOURCE_LENGTH) : trimmed;
++    }
++
++    private static void append(StringBuilder out, String part) {
++        if (isBlank(part)) {
++            return;
++        }
++        if (out.length() > 0) {
++            out.append(" · ");
++        }
++        out.append(part.trim());
++    }
++
++    private static boolean isBlank(String value) {
++        return value == null || value.trim().isEmpty();
++    }
++}
+diff --git a/src/com/android/settings/sable/SableVersionPreferenceController.java b/src/com/android/settings/sable/SableVersionPreferenceController.java
+new file mode 100644
+index 0000000..53a6f3f
+--- /dev/null
++++ b/src/com/android/settings/sable/SableVersionPreferenceController.java
+@@ -0,0 +1,45 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++import android.content.Context;
++import android.os.SystemProperties;
++
++import com.android.settings.R;
++import com.android.settings.core.BasePreferenceController;
++
++/** Settings > About phone > SableOS version, from the Sable product properties. */
++public class SableVersionPreferenceController extends BasePreferenceController {
++
++    public SableVersionPreferenceController(Context context, String preferenceKey) {
++        super(context, preferenceKey);
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        return AVAILABLE;
++    }
++
++    @Override
++    public CharSequence getSummary() {
++        return SableBuildInfo.summary(
++                SystemProperties.get(SableBuildInfo.PROP_RELEASE),
++                SystemProperties.get(SableBuildInfo.PROP_BASE),
++                SystemProperties.get(SableBuildInfo.PROP_BUILD_SOURCE),
++                mContext.getString(R.string.unknown));
++    }
++}
+-- 
+2.43.0
+
