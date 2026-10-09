@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SystemUI tokens for the Sable visual system (DESIGN-KF-B): card and panel
+     radii, the Quick Settings default tiles and, on square screens, the
+     two-column labeled tile grid. Behaviour, Keyguard security and
+     notification policy are untouched. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="org.sableos.overlay.systemui">
+    <overlay
+        android:targetPackage="com.android.systemui"
+        android:isStatic="true"
+        android:priority="20" />
+    <application android:hasCode="false" />
+</manifest>

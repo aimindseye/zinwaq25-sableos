@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- First-boot system palette (SystemUI ThemeOverlayController, flag
+         hardware_color_styles): seed the Material palette from Sable Blue
+         (SableAccentTokens.Blue.seed) instead of the wallpaper, so Quick
+         Settings, Settings and SetupWizard start in the Sable accent. After
+         setup the Settings > Display > Accent choice rewrites
+         THEME_CUSTOMIZATION_OVERLAY_PACKAGES with the chosen preset. -->
+    <string-array name="theming_defaults" translatable="false">
+        <item>*|TONAL_SPOT|#4D9CFF</item>
+    </string-array>
+</resources>

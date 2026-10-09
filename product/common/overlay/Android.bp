@@ -1,0 +1,31 @@
+// SableOS runtime resource overlays (DESIGN-KF-B SystemUI visual convergence
+// and Sable branding). Staged to vendor/sable/q25/overlay by
+// scripts/stage-product.sh for Q4 and later. Static, product partition,
+// resource-only: no code, no permissions, no platform certificate.
+//
+// Values mirror sable-src/.../sabledesign/SableSystemTokens.kt;
+// tests/check-sable-design.py keeps the two in step.
+
+runtime_resource_overlay {
+    name: "SableFrameworkOverlay",
+    manifest: "SableFrameworkOverlay/AndroidManifest.xml",
+    resource_dirs: ["SableFrameworkOverlay/res"],
+    product_specific: true,
+    sdk_version: "current",
+}
+
+runtime_resource_overlay {
+    name: "SableSystemUIOverlay",
+    manifest: "SableSystemUIOverlay/AndroidManifest.xml",
+    resource_dirs: ["SableSystemUIOverlay/res"],
+    product_specific: true,
+    sdk_version: "current",
+}
+
+runtime_resource_overlay {
+    name: "SableSetupWizardOverlay",
+    manifest: "SableSetupWizardOverlay/AndroidManifest.xml",
+    resource_dirs: ["SableSetupWizardOverlay/res"],
+    product_specific: true,
+    sdk_version: "current",
+}

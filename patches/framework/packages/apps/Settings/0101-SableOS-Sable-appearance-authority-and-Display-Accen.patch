@@ -1,0 +1,527 @@
+From 4b0c2d3a74c88dc13d555520c661a7604a6d4d48 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 9 Oct 2026 21:54:00 +0000
+Subject: [PATCH 101/102] SableOS: Sable appearance authority and Display >
+ Accent
+
+Host the org.sableos.appearance provider that Sable apps and Sable Start
+read for the Sable accent, and add an Accent list next to Dark theme in
+Settings > Display.
+
+The system theme stays the single source of light/dark (DESIGN-KF-B):
+the provider always reports mode=follow-system and maps an explicit
+light/dark write to UiModeManager. Choosing an accent stores it and seeds
+the system palette (THEME_CUSTOMIZATION_OVERLAY_PACKAGES, preset color),
+so Quick Settings, Settings and SetupWizard follow the same accent.
+Writes are limited to Settings and org.sableos.launcher. The pure policy
+lives in SableAppearancePolicy.
+---
+ AndroidManifest.xml                           |   9 +
+ res/values/strings_sable_appearance.xml       |  25 +++
+ res/xml/display_settings.xml                  |  10 +
+ .../SableAccentPreferenceController.java      |  65 ++++++
+ .../settings/sable/SableAppearancePolicy.java | 141 +++++++++++++
+ .../sable/SableAppearanceProvider.java        | 198 ++++++++++++++++++
+ 6 files changed, 448 insertions(+)
+ create mode 100644 res/values/strings_sable_appearance.xml
+ create mode 100644 src/com/android/settings/sable/SableAccentPreferenceController.java
+ create mode 100644 src/com/android/settings/sable/SableAppearancePolicy.java
+ create mode 100644 src/com/android/settings/sable/SableAppearanceProvider.java
+
+diff --git a/AndroidManifest.xml b/AndroidManifest.xml
+index f4691b4..55169ad 100644
+--- a/AndroidManifest.xml
++++ b/AndroidManifest.xml
+@@ -170,6 +170,15 @@
+ 
+         <uses-library android:name="org.apache.http.legacy" />
+ 
++        <!-- SableOS appearance authority: accent for Sable apps (read by anyone, written by
++             Settings and Sable Start only, enforced in SableAppearanceProvider). -->
++        <provider
++            android:name=".sable.SableAppearanceProvider"
++            android:authorities="org.sableos.appearance"
++            android:exported="true"
++            android:directBootAware="true"
++            android:grantUriPermissions="false" />
++
+ 
+         <property
+             android:name="android.window.PROPERTY_ACTIVITY_EMBEDDING_SPLITS_ENABLED"
+diff --git a/res/values/strings_sable_appearance.xml b/res/values/strings_sable_appearance.xml
+new file mode 100644
+index 0000000..4c2ebd4
+--- /dev/null
++++ b/res/values/strings_sable_appearance.xml
+@@ -0,0 +1,25 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++  Copyright (C) 2026 The SableOS Project
++  SPDX-License-Identifier: Apache-2.0
++-->
++<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
++    <!-- Settings > Display > Accent. -->
++    <string name="sable_accent_title">Accent</string>
++    <string name="sable_accent_keywords">color, colour, accent, theme, sable</string>
++
++    <string-array name="sable_accent_entries">
++        <item>Sable Blue</item>
++        <item>Green</item>
++        <item>Purple</item>
++        <item>Orange</item>
++        <item>Slate</item>
++    </string-array>
++    <string-array name="sable_accent_values" translatable="false">
++        <item>blue</item>
++        <item>green</item>
++        <item>purple</item>
++        <item>orange</item>
++        <item>slate</item>
++    </string-array>
++</resources>
+diff --git a/res/xml/display_settings.xml b/res/xml/display_settings.xml
+index 05e7c2a..e4fa926 100644
+--- a/res/xml/display_settings.xml
++++ b/res/xml/display_settings.xml
+@@ -110,6 +110,16 @@
+             settings:controller="com.android.settings.display.DarkUIPreferenceController"
+             settings:keywords="@string/keywords_dark_ui_mode"/>
+ 
++        <!-- SableOS: accent for Sable apps and the system palette. -->
++        <ListPreference
++            android:key="sable_accent"
++            android:title="@string/sable_accent_title"
++            android:entries="@array/sable_accent_entries"
++            android:entryValues="@array/sable_accent_values"
++            android:persistent="false"
++            settings:keywords="@string/sable_accent_keywords"
++            settings:controller="com.android.settings.sable.SableAccentPreferenceController"/>
++
+         <Preference
+             android:fragment="com.android.settings.accessibility.TextReadingPreferenceFragment"
+             android:key="text_reading_options"
+diff --git a/src/com/android/settings/sable/SableAccentPreferenceController.java b/src/com/android/settings/sable/SableAccentPreferenceController.java
+new file mode 100644
+index 0000000..ebd79c9
+--- /dev/null
++++ b/src/com/android/settings/sable/SableAccentPreferenceController.java
+@@ -0,0 +1,65 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++import android.content.Context;
++
++import androidx.preference.ListPreference;
++import androidx.preference.Preference;
++
++import com.android.settings.core.BasePreferenceController;
++
++/**
++ * Settings > Display > Accent: picks the Sable accent used by Sable apps and, through the system
++ * palette, by Quick Settings, Settings and SetupWizard. Sits next to Android's Dark theme, which
++ * stays the only light/dark control (DESIGN-KF-B: one system theme source).
++ */
++public class SableAccentPreferenceController extends BasePreferenceController
++        implements Preference.OnPreferenceChangeListener {
++
++    public SableAccentPreferenceController(Context context, String preferenceKey) {
++        super(context, preferenceKey);
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        return AVAILABLE;
++    }
++
++    @Override
++    public void updateState(Preference preference) {
++        super.updateState(preference);
++        if (preference instanceof ListPreference) {
++            ListPreference list = (ListPreference) preference;
++            list.setValue(SableAppearanceProvider.readAccent(mContext));
++            list.setSummary(list.getEntry());
++        }
++    }
++
++    @Override
++    public boolean onPreferenceChange(Preference preference, Object newValue) {
++        boolean stored = SableAppearanceProvider.writeAccent(mContext, String.valueOf(newValue));
++        if (stored && preference instanceof ListPreference) {
++            ListPreference list = (ListPreference) preference;
++            int index = list.findIndexOfValue(String.valueOf(newValue));
++            if (index >= 0) {
++                list.setSummary(list.getEntries()[index]);
++            }
++        }
++        return stored;
++    }
++}
+diff --git a/src/com/android/settings/sable/SableAppearancePolicy.java b/src/com/android/settings/sable/SableAppearancePolicy.java
+new file mode 100644
+index 0000000..2828778
+--- /dev/null
++++ b/src/com/android/settings/sable/SableAppearancePolicy.java
+@@ -0,0 +1,141 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++import java.util.Arrays;
++import java.util.LinkedHashMap;
++import java.util.Map;
++
++/**
++ * Pure policy for the Sable appearance authority (content://org.sableos.appearance/appearance).
++ * No Android imports, so it is unit-tested on the host.
++ *
++ * DESIGN-KF-B: the system theme is the single source of truth. Light/dark belongs to Android's
++ * Dark theme (Quick Settings tile, Settings > Display); this authority therefore always reports
++ * "follow-system" and turns an explicit light/dark request into the system night mode. It owns
++ * only the Sable accent, which it also hands to the system palette so SystemUI, Settings and
++ * SetupWizard use the same accent as Sable apps.
++ *
++ * Accent values and seeds equal SableAccentTokens in sable-src sabledesign
++ * (tests/check-sable-design.py compares them).
++ */
++public final class SableAppearancePolicy {
++    public static final String AUTHORITY = "org.sableos.appearance";
++    public static final String PATH_APPEARANCE = "appearance";
++    public static final String COLUMN_MODE = "mode";
++    public static final String COLUMN_ACCENT = "accent";
++
++    public static final String MODE_FOLLOW_SYSTEM = "follow-system";
++    public static final String MODE_LIGHT = "light";
++    public static final String MODE_DARK = "dark";
++
++    /** Stable accent values, in display order. */
++    public static final String[] ACCENTS = {"blue", "green", "purple", "orange", "slate"};
++    /** System palette seeds (RRGGBB), parallel to {@link #ACCENTS}. */
++    public static final String[] ACCENT_SEEDS = {"4D9CFF", "35C66B", "7A42E8", "F28C45", "64748B"};
++    public static final String DEFAULT_ACCENT = "blue";
++
++    /** Mirrors UiModeManager.MODE_NIGHT_NO / MODE_NIGHT_YES. */
++    public static final int NIGHT_MODE_NO = 1;
++    public static final int NIGHT_MODE_YES = 2;
++    public static final int NIGHT_MODE_UNCHANGED = -1;
++
++    /** Package allowed to write besides Settings itself (Sable Start's appearance control). */
++    public static final String LAUNCHER_PACKAGE = "org.sableos.launcher";
++
++    // Keys of Settings.Secure.THEME_CUSTOMIZATION_OVERLAY_PACKAGES read by SystemUI's
++    // ThemeOverlayController.
++    public static final String KEY_COLOR_SOURCE = "android.theme.customization.color_source";
++    public static final String KEY_SYSTEM_PALETTE = "android.theme.customization.system_palette";
++    public static final String KEY_ACCENT_COLOR = "android.theme.customization.accent_color";
++    public static final String KEY_THEME_STYLE = "android.theme.customization.theme_style";
++    public static final String KEY_COLOR_INDEX = "android.theme.customization.color_index";
++    public static final String KEY_APPLIED_TIMESTAMP = "_applied_timestamp";
++    public static final String COLOR_SOURCE_PRESET = "preset";
++    public static final String THEME_STYLE = "TONAL_SPOT";
++
++    private SableAppearancePolicy() {}
++
++    public static boolean isValidMode(String mode) {
++        return MODE_FOLLOW_SYSTEM.equals(mode) || MODE_LIGHT.equals(mode)
++                || MODE_DARK.equals(mode);
++    }
++
++    public static boolean isValidAccent(String accent) {
++        return indexOfAccent(accent) >= 0;
++    }
++
++    /** A stored or requested accent, falling back to Sable Blue when unknown. */
++    public static String normalizeAccent(String accent) {
++        return isValidAccent(accent) ? accent : DEFAULT_ACCENT;
++    }
++
++    public static String seedHexForAccent(String accent) {
++        return ACCENT_SEEDS[indexOfAccent(normalizeAccent(accent))];
++    }
++
++    /** What readers see in the mode column: always the system. */
++    public static String reportedMode() {
++        return MODE_FOLLOW_SYSTEM;
++    }
++
++    /** The system night mode a mode request maps to, or {@link #NIGHT_MODE_UNCHANGED}. */
++    public static int nightModeFor(String mode) {
++        if (MODE_LIGHT.equals(mode)) {
++            return NIGHT_MODE_NO;
++        }
++        if (MODE_DARK.equals(mode)) {
++            return NIGHT_MODE_YES;
++        }
++        return NIGHT_MODE_UNCHANGED;
++    }
++
++    /** Writes come from Settings itself or from Sable Start. Everyone may read. */
++    public static boolean isAllowedWriter(boolean callerIsSelf, String[] callerPackages) {
++        if (callerIsSelf) {
++            return true;
++        }
++        return callerPackages != null && Arrays.asList(callerPackages).contains(LAUNCHER_PACKAGE);
++    }
++
++    /**
++     * The fields to set in THEME_CUSTOMIZATION_OVERLAY_PACKAGES for an accent, as a user-chosen
++     * preset color (the same form the wallpaper picker writes). The caller adds the timestamp and
++     * removes {@link #KEY_COLOR_INDEX}, which only the picker's own preset list understands.
++     */
++    public static Map<String, String> themeCustomizationFor(String accent) {
++        String seed = seedHexForAccent(accent);
++        Map<String, String> fields = new LinkedHashMap<>();
++        fields.put(KEY_COLOR_SOURCE, COLOR_SOURCE_PRESET);
++        fields.put(KEY_SYSTEM_PALETTE, seed);
++        fields.put(KEY_ACCENT_COLOR, seed);
++        fields.put(KEY_THEME_STYLE, THEME_STYLE);
++        return fields;
++    }
++
++    private static int indexOfAccent(String accent) {
++        if (accent == null) {
++            return -1;
++        }
++        for (int i = 0; i < ACCENTS.length; i++) {
++            if (ACCENTS[i].equals(accent)) {
++                return i;
++            }
++        }
++        return -1;
++    }
++}
+diff --git a/src/com/android/settings/sable/SableAppearanceProvider.java b/src/com/android/settings/sable/SableAppearanceProvider.java
+new file mode 100644
+index 0000000..d1fdfc0
+--- /dev/null
++++ b/src/com/android/settings/sable/SableAppearanceProvider.java
+@@ -0,0 +1,198 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++import android.app.UiModeManager;
++import android.content.ContentProvider;
++import android.content.ContentValues;
++import android.content.Context;
++import android.content.SharedPreferences;
++import android.database.Cursor;
++import android.database.MatrixCursor;
++import android.net.Uri;
++import android.os.Binder;
++import android.os.Process;
++import android.provider.Settings;
++import android.util.Log;
++
++import org.json.JSONException;
++import org.json.JSONObject;
++
++import java.util.Map;
++
++/**
++ * The Sable appearance authority read by Sable apps (org.sableos.design.SableGlobalAppearance)
++ * and Sable Start. Hosted by Settings so the launcher never owns system theme state.
++ *
++ * <p>Columns: {@code mode} (always "follow-system": Android's Dark theme is the single source)
++ * and {@code accent} (blue, green, purple, orange, slate). Writing an accent also seeds the
++ * system palette; writing light/dark sets the system night mode. See
++ * {@link SableAppearancePolicy}.
++ */
++public final class SableAppearanceProvider extends ContentProvider {
++    private static final String TAG = "SableAppearance";
++    private static final String PREFS = "sable_system_appearance";
++    private static final String KEY_ACCENT = "accent";
++
++    public static final Uri CONTENT_URI = Uri.parse(
++            "content://" + SableAppearancePolicy.AUTHORITY + "/"
++                    + SableAppearancePolicy.PATH_APPEARANCE);
++
++    @Override
++    public boolean onCreate() {
++        return true;
++    }
++
++    private static SharedPreferences prefs(Context context) {
++        return context.createDeviceProtectedStorageContext()
++                .getSharedPreferences(PREFS, Context.MODE_PRIVATE);
++    }
++
++    /** The stored Sable accent for the current user. */
++    public static String readAccent(Context context) {
++        return SableAppearancePolicy.normalizeAccent(
++                prefs(context).getString(KEY_ACCENT, SableAppearancePolicy.DEFAULT_ACCENT));
++    }
++
++    /**
++     * Stores the accent, seeds the system palette with it and notifies observers.
++     *
++     * @return false when the accent is not a Sable preset.
++     */
++    public static boolean writeAccent(Context context, String accent) {
++        if (!SableAppearancePolicy.isValidAccent(accent)) {
++            return false;
++        }
++        prefs(context).edit().putString(KEY_ACCENT, accent).apply();
++        applySystemPalette(context, accent);
++        context.getContentResolver().notifyChange(CONTENT_URI, null);
++        return true;
++    }
++
++    /** Applies an explicit light/dark request to the system theme. */
++    public static void applyMode(Context context, String mode) {
++        int nightMode = SableAppearancePolicy.nightModeFor(mode);
++        if (nightMode == SableAppearancePolicy.NIGHT_MODE_UNCHANGED) {
++            return;
++        }
++        UiModeManager uiModeManager = context.getSystemService(UiModeManager.class);
++        if (uiModeManager != null) {
++            uiModeManager.setNightMode(nightMode);
++        }
++    }
++
++    private static void applySystemPalette(Context context, String accent) {
++        String current = Settings.Secure.getString(context.getContentResolver(),
++                Settings.Secure.THEME_CUSTOMIZATION_OVERLAY_PACKAGES);
++        try {
++            JSONObject json = new JSONObject(current == null || current.isEmpty() ? "{}" : current);
++            for (Map.Entry<String, String> field
++                    : SableAppearancePolicy.themeCustomizationFor(accent).entrySet()) {
++                json.put(field.getKey(), field.getValue());
++            }
++            json.remove(SableAppearancePolicy.KEY_COLOR_INDEX);
++            json.put(SableAppearancePolicy.KEY_APPLIED_TIMESTAMP, System.currentTimeMillis());
++            Settings.Secure.putString(context.getContentResolver(),
++                    Settings.Secure.THEME_CUSTOMIZATION_OVERLAY_PACKAGES, json.toString());
++        } catch (JSONException e) {
++            Log.w(TAG, "Could not update the system palette for accent " + accent, e);
++        }
++    }
++
++    @Override
++    public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs,
++            String sortOrder) {
++        enforceUri(uri);
++        Context context = requireContextOrThrow();
++        MatrixCursor cursor = new MatrixCursor(new String[] {
++                SableAppearancePolicy.COLUMN_MODE, SableAppearancePolicy.COLUMN_ACCENT}, 1);
++        final long token = Binder.clearCallingIdentity();
++        try {
++            cursor.addRow(new Object[] {SableAppearancePolicy.reportedMode(), readAccent(context)});
++        } finally {
++            Binder.restoreCallingIdentity(token);
++        }
++        cursor.setNotificationUri(context.getContentResolver(), CONTENT_URI);
++        return cursor;
++    }
++
++    @Override
++    public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs) {
++        enforceUri(uri);
++        Context context = requireContextOrThrow();
++        String[] callerPackages =
++                context.getPackageManager().getPackagesForUid(Binder.getCallingUid());
++        if (!SableAppearancePolicy.isAllowedWriter(
++                Binder.getCallingUid() == Process.myUid(), callerPackages)) {
++            throw new SecurityException(
++                    "Sable appearance writes are limited to Settings and Sable Start");
++        }
++        String mode = values == null ? null : values.getAsString(SableAppearancePolicy.COLUMN_MODE);
++        String accent =
++                values == null ? null : values.getAsString(SableAppearancePolicy.COLUMN_ACCENT);
++        if (mode != null && !SableAppearancePolicy.isValidMode(mode)) {
++            throw new IllegalArgumentException("Invalid Sable appearance mode: " + mode);
++        }
++        if (accent != null && !SableAppearancePolicy.isValidAccent(accent)) {
++            throw new IllegalArgumentException("Invalid Sable accent: " + accent);
++        }
++        final long token = Binder.clearCallingIdentity();
++        try {
++            if (mode != null) {
++                applyMode(context, mode);
++            }
++            if (accent != null) {
++                writeAccent(context, accent);
++            } else {
++                context.getContentResolver().notifyChange(CONTENT_URI, null);
++            }
++        } finally {
++            Binder.restoreCallingIdentity(token);
++        }
++        return 1;
++    }
++
++    @Override
++    public String getType(Uri uri) {
++        enforceUri(uri);
++        return "vnd.android.cursor.item/vnd.org.sableos.appearance";
++    }
++
++    @Override
++    public Uri insert(Uri uri, ContentValues values) {
++        throw new UnsupportedOperationException("Use update for Sable appearance");
++    }
++
++    @Override
++    public int delete(Uri uri, String selection, String[] selectionArgs) {
++        throw new UnsupportedOperationException("Sable appearance cannot be deleted");
++    }
++
++    private Context requireContextOrThrow() {
++        Context context = getContext();
++        if (context == null) {
++            throw new IllegalStateException("Settings context unavailable");
++        }
++        return context;
++    }
++
++    private static void enforceUri(Uri uri) {
++        if (!CONTENT_URI.equals(uri)) {
++            throw new IllegalArgumentException("Unsupported Sable appearance URI: " + uri);
++        }
++    }
++}
+-- 
+2.43.0
+

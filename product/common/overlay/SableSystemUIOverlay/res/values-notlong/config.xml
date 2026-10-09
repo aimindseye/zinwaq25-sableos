@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Square and near-square screens (aspect below 5:3, Android's "notlong"
+         qualifier; SableDisplayClass.SquareKeyboard): every default tile is a
+         large labeled tile, so the 4-column grid shows two labeled tiles per
+         row and the compact shade shows the first four controls with their
+         state. Read by SystemUI only with framework patch
+         frameworks/base/0101 (DefaultLargeTilesRepository); without it this
+         value is unused and upstream's four large tiles apply. -->
+    <string-array name="quick_settings_default_large_tiles" translatable="false">
+        <item>internet</item>
+        <item>bt</item>
+        <item>dark</item>
+        <item>battery</item>
+        <item>dnd</item>
+        <item>flashlight</item>
+        <item>location</item>
+        <item>hotspot</item>
+        <item>airplane</item>
+    </string-array>
+</resources>

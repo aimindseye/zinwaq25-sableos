@@ -1,0 +1,112 @@
+From d9f5acbd113e4ecaf8c64039f264d5187ff8a53c Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 9 Oct 2026 21:54:00 +0000
+Subject: [PATCH 101/102] SableOS: read default large Quick Settings tiles from
+ a resource
+
+DefaultLargeTilesRepositoryImpl hard-coded the tiles that start as large
+tiles. Read them from R.array.quick_settings_default_large_tiles instead,
+defaulting to the same upstream set (internet, bt, dnd, cast), so a product
+runtime resource overlay can choose them. SableOS overlays it on square
+screens (values-notlong) to give the two-column labeled tile grid of
+DESIGN-KF-B. Tile behaviour, state and user resizing are unchanged.
+---
+ .../res/values/config_qs_large_tiles.xml      | 26 +++++++++++++++++++
+ .../repository/DefaultLargeTilesRepository.kt | 25 ++++++++++++------
+ .../DefaultLargeTilesRepositoryKosmos.kt      |  3 ++-
+ 3 files changed, 45 insertions(+), 9 deletions(-)
+ create mode 100644 packages/SystemUI/res/values/config_qs_large_tiles.xml
+
+diff --git a/packages/SystemUI/res/values/config_qs_large_tiles.xml b/packages/SystemUI/res/values/config_qs_large_tiles.xml
+new file mode 100644
+index 00000000..d8d5c3fd
+--- /dev/null
++++ b/packages/SystemUI/res/values/config_qs_large_tiles.xml
+@@ -0,0 +1,26 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++  Copyright (C) 2026 The SableOS Project
++
++  Licensed under the Apache License, Version 2.0 (the "License");
++  you may not use this file except in compliance with the License.
++  You may obtain a copy of the License at
++
++       http://www.apache.org/licenses/LICENSE-2.0
++
++  Unless required by applicable law or agreed to in writing, software
++  distributed under the License is distributed on an "AS IS" BASIS,
++  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++  See the License for the specific language governing permissions and
++  limitations under the License.
++-->
++<resources>
++    <!-- Tile specs shown as large (labeled) tiles in Quick Settings until the user
++         resizes them. Overlayable per product; the default is the upstream set. -->
++    <string-array name="quick_settings_default_large_tiles" translatable="false">
++        <item>internet</item>
++        <item>bt</item>
++        <item>dnd</item>
++        <item>cast</item>
++    </string-array>
++</resources>
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/data/repository/DefaultLargeTilesRepository.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/data/repository/DefaultLargeTilesRepository.kt
+index 9a1671df..6dbf6ea3 100644
+--- a/packages/SystemUI/src/com/android/systemui/qs/panels/data/repository/DefaultLargeTilesRepository.kt
++++ b/packages/SystemUI/src/com/android/systemui/qs/panels/data/repository/DefaultLargeTilesRepository.kt
+@@ -16,8 +16,11 @@
+ 
+ package com.android.systemui.qs.panels.data.repository
+ 
++import android.content.res.Resources
+ import com.android.systemui.dagger.SysUISingleton
++import com.android.systemui.dagger.qualifiers.Main
+ import com.android.systemui.qs.pipeline.shared.TileSpec
++import com.android.systemui.res.R
+ import javax.inject.Inject
+ 
+ /** Repository for the default set of [TileSpec] that should be displayed as large tiles. */
+@@ -25,13 +28,19 @@ interface DefaultLargeTilesRepository {
+     val defaultLargeTiles: Set<TileSpec>
+ }
+ 
++/**
++ * Reads the default large tiles from [R.array.quick_settings_default_large_tiles] so a product
++ * overlay can choose them (SableOS: every default tile is large on square screens). The resource
++ * defaults to the upstream set.
++ */
+ @SysUISingleton
+-class DefaultLargeTilesRepositoryImpl @Inject constructor() : DefaultLargeTilesRepository {
+-    override val defaultLargeTiles =
+-        setOf(
+-            TileSpec.create("internet"),
+-            TileSpec.create("bt"),
+-            TileSpec.create("dnd"),
+-            TileSpec.create("cast"),
+-        )
++class DefaultLargeTilesRepositoryImpl @Inject constructor(@Main resources: Resources) :
++    DefaultLargeTilesRepository {
++    override val defaultLargeTiles: Set<TileSpec> =
++        resources
++            .getStringArray(R.array.quick_settings_default_large_tiles)
++            .map { it.trim() }
++            .filter { it.isNotEmpty() }
++            .map { TileSpec.create(it) }
++            .toSet()
+ }
+diff --git a/packages/SystemUI/tests/utils/src/com/android/systemui/qs/panels/data/repository/DefaultLargeTilesRepositoryKosmos.kt b/packages/SystemUI/tests/utils/src/com/android/systemui/qs/panels/data/repository/DefaultLargeTilesRepositoryKosmos.kt
+index 92ac0894..8b99f1ad 100644
+--- a/packages/SystemUI/tests/utils/src/com/android/systemui/qs/panels/data/repository/DefaultLargeTilesRepositoryKosmos.kt
++++ b/packages/SystemUI/tests/utils/src/com/android/systemui/qs/panels/data/repository/DefaultLargeTilesRepositoryKosmos.kt
+@@ -16,7 +16,8 @@
+ 
+ package com.android.systemui.qs.panels.data.repository
+ 
++import android.content.res.mainResources
+ import com.android.systemui.kosmos.Kosmos
+ 
+ var Kosmos.defaultLargeTilesRepository: DefaultLargeTilesRepository by
+-    Kosmos.Fixture { DefaultLargeTilesRepositoryImpl() }
++    Kosmos.Fixture { DefaultLargeTilesRepositoryImpl(mainResources) }
+-- 
+2.43.0
+
