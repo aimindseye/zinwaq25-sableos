@@ -1,0 +1,76 @@
+From 3f3fcd36d26acbc933074301af23c001eae297c2 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 9 Oct 2026 21:18:54 +0000
+Subject: [PATCH] SableOS: keep Launcher3QuickStep for Recents only, not HOME
+
+Sable Start (org.sableos.launcher) is the HOME app on SableOS. Remove the
+HOME/MAIN/ALL_APPS intent filter from QuickstepLauncher and stop resolving
+it through the HOME intent in OverviewComponentObserver. Quickstep keeps
+working through its fallback RecentsActivity, as on SableOS Pixel builds.
+Users can still pick any other launcher.
+---
+ quickstep/AndroidManifest-launcher.xml        | 14 ++++---------
+ .../quickstep/OverviewComponentObserver.java  | 21 ++++++++++++-------
+ 2 files changed, 17 insertions(+), 18 deletions(-)
+
+diff --git a/quickstep/AndroidManifest-launcher.xml b/quickstep/AndroidManifest-launcher.xml
+index 88de67f..44946fc 100644
+--- a/quickstep/AndroidManifest-launcher.xml
++++ b/quickstep/AndroidManifest-launcher.xml
+@@ -52,17 +52,11 @@
+             android:resizeableActivity="true"
+             android:resumeWhilePausing="true"
+             android:taskAffinity=""
+-            android:exported="true"
++            android:exported="false"
+             android:enabled="true">
+-            <intent-filter>
+-                <action android:name="android.intent.action.MAIN" />
+-                <action android:name="android.intent.action.SHOW_WORK_APPS" />
+-                <action android:name="android.intent.action.ALL_APPS" />
+-                <category android:name="android.intent.category.HOME" />
+-                <category android:name="android.intent.category.DEFAULT" />
+-                <category android:name="android.intent.category.MONKEY"/>
+-                <category android:name="android.intent.category.LAUNCHER_APP" />
+-            </intent-filter>
++            <!-- SableOS: Sable Start (org.sableos.launcher) is the HOME app.
++                 Launcher3QuickStep stays installed only for Quickstep/Recents,
++                 which falls back to RecentsActivity when another app is HOME. -->
+             <meta-data
+                 android:name="com.android.launcher3.grid.control"
+                 android:value="${packageName}.grid_control" />
+diff --git a/quickstep/src/com/android/quickstep/OverviewComponentObserver.java b/quickstep/src/com/android/quickstep/OverviewComponentObserver.java
+index 68a056d..652e336 100644
+--- a/quickstep/src/com/android/quickstep/OverviewComponentObserver.java
++++ b/quickstep/src/com/android/quickstep/OverviewComponentObserver.java
+@@ -113,14 +113,19 @@ public final class OverviewComponentObserver {
+         mRecentsWindowManagerRepository = recentsWindowManagerRepository;
+         // Set up primary intents
+         mCurrentPrimaryHomeIntent = createHomeIntent();
+-        mMyPrimaryHomeIntent = new Intent(mCurrentPrimaryHomeIntent).setPackage(
+-                context.getPackageName());
+-        ResolveInfo info = context.getPackageManager().resolveActivity(mMyPrimaryHomeIntent, 0);
+-        ComponentName myHomeComponent =
+-                new ComponentName(context.getPackageName(), info.activityInfo.name);
+-        mMyPrimaryHomeIntent.setComponent(myHomeComponent);
+-
+-        mConfigChangesMap.append(myHomeComponent.hashCode(), info.activityInfo.configChanges);
++        // SableOS: QuickstepLauncher is no longer a HOME candidate, so it can't be
++        // resolved through the HOME intent. Name it explicitly instead.
++        ComponentName myHomeComponent = new ComponentName(context,
++                com.android.launcher3.uioverrides.QuickstepLauncher.class);
++        mMyPrimaryHomeIntent = new Intent(mCurrentPrimaryHomeIntent)
++                .setComponent(myHomeComponent);
++        try {
++            ActivityInfo info = context.getPackageManager().getActivityInfo(
++                    myHomeComponent, 0 /* flags */);
++            mConfigChangesMap.append(myHomeComponent.hashCode(), info.configChanges);
++        } catch (PackageManager.NameNotFoundException e) {
++            throw new IllegalStateException("QuickstepLauncher activity missing", e);
++        }
+         mSetupWizardPkg = context.getString(R.string.setup_wizard_pkg);
+ 
+         ComponentName fallbackComponent = new ComponentName(context, RecentsActivity.class);
+-- 
+2.43.0
+

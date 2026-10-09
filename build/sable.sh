@@ -17,6 +17,8 @@ usage:
 releases:
   Q1    plain LineageOS lineage_Q25 control image (no Sable layer)
   Q2    LineageOS base + Sable product layer and apps
+  Q4    Q2 + framework integration: Sable Start as HOME, Sable Keyboard as the
+        only IME, patches/framework applied to LineageOS (needs gate Q3-TEXT)
 
 functions:
   doctor                      check the build host
@@ -24,7 +26,9 @@ functions:
   import --sableos PATH       copy Sable sources from a sableos checkout
                               (needs --authorize-public-copy; see apps/README.md)
   apps [--all]                build Sable APKs listed in product/q25/apps.tsv
-  stage                       inject (Q2+) or remove (Q1) the Sable layer
+  stage                       inject (Q2+) or remove (Q1) the Sable layer;
+                              Q4+ also applies patches/framework, earlier
+                              releases revert them
   build                       lunch + m bacon
   artifacts                   collect and hash build outputs
   ci                          static repository checks

@@ -29,6 +29,18 @@ sable_release_has_sable_layer() {
     esac
 }
 
+# Q4 and later add the framework integration (phase Q4): Sable Start as HOME,
+# Sable Keyboard as the only IME, and patches/framework applied to LineageOS.
+sable_release_level() {
+    local digits="${1#Q}"
+    digits="${digits%%[!0-9]*}"
+    printf '%s\n' "${digits:-0}"
+}
+
+sable_release_has_framework_layer() {
+    (( $(sable_release_level "$1") >= 4 ))
+}
+
 sable_require_release() {
     [[ "${1:-}" =~ ^Q[0-9]+[A-Za-z0-9._-]*$ ]] ||
         sable_fail "release must look like Q1, Q2, Q2b...: got '${1:-}'"
