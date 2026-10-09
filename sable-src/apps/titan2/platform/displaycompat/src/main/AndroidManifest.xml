@@ -17,8 +17,8 @@
     <application
         android:name=".android.DisplayCompatApp"
         android:allowBackup="false"
-        android:icon="@drawable/ic_sable_displaycompat"
-        android:roundIcon="@drawable/ic_sable_displaycompat"
+        android:icon="@mipmap/ic_sable_displaycompat"
+        android:roundIcon="@mipmap/ic_sable_displaycompat_round"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar">

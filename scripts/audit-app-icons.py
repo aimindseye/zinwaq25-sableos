@@ -10,16 +10,19 @@ sable-src/ (nothing is built) and reports:
               Gradle resValue
   icon        android:icon resolves to a resource in the module and is not an
               upstream/placeholder icon (ic_launcher, sym_def_app_icon)
-  round       android:roundIcon resolves, or the icon itself is adaptive
-  adaptive    the icon resolves to an <adaptive-icon>
-  mono        that adaptive icon has a <monochrome> layer (Android 13+ themed icons)
+  round       android:roundIcon resolves (and is adaptive when the icon is)
+  adaptive    the icon resolves to an <adaptive-icon> whose layers resolve
+  mono        the adaptive icon and round icon have a <monochrome> layer (Android 13+
+              themed icons)
 
 Rows built as a Sable flavor over a pinned upstream (gradle_root flavor:NAME) have
 no manifest in the tree; their apply_sable_flavor.py is scanned for the icon,
-roundIcon and label it writes, and the row is marked "flavor".
+roundIcon and label it writes, the refs are resolved in the res/ tree it copies
+from sable-src/apps/r8/NAME/res (written by sable-src/tools/gen_first_party_icons.py),
+and the row is marked "flavor".
 
-Checks in --enforce (default: launcher,label,icon) make the exit status 1 when they
-fail; the others are reported only. Launch timing needs a device and is not here.
+Every check is enforced by default (exit status 1 when one fails); --enforce narrows
+that. Launch timing needs a device and is not here.
 """
 from __future__ import annotations
 
@@ -139,16 +142,28 @@ def launcher_activities(app: ET.Element) -> list[str]:
     return out
 
 
-def adaptive_info(files: list[Path]) -> tuple[bool, bool]:
+def adaptive_info(files: list[Path], dirs: list[Path]) -> tuple[bool, bool, bytes]:
+    """(adaptive, monochrome, identity bytes). An <adaptive-icon> counts only when its background and
+    foreground drawables resolve; identity is the bytes of the resolved layers, so two apps whose adaptive XML
+    names the same drawables but whose layers differ are not reported as sharing an icon."""
     adaptive = mono = False
+    ident = b""
     for f in files:
         if f.suffix != ".xml":
             continue
         root = ET.parse(f).getroot()
-        if root.tag == "adaptive-icon":
+        if root.tag != "adaptive-icon":
+            continue
+        layers = {}
+        for tag in ("background", "foreground", "monochrome"):
+            el = root.find(tag)
+            ref = el.get(ANDROID + "drawable") if el is not None else None
+            layers[tag] = resolve(ref, dirs)
+        if layers["background"] and layers["foreground"]:
             adaptive = True
-            mono = mono or root.find("monochrome") is not None
-    return adaptive, mono
+            mono = mono or bool(layers["monochrome"])
+            ident = b"".join(p.read_bytes() for tag in ("background", "foreground") for p in layers[tag][:1])
+    return adaptive, mono, ident
 
 
 def audit_module(src: Path, row: dict[str, str]) -> dict[str, object]:
@@ -195,18 +210,32 @@ def audit_module(src: Path, row: dict[str, str]) -> dict[str, object]:
     elif icon_ref and not icon_files:
         res["notes"].append("icon does not resolve: " + icon_ref)
 
-    adaptive, mono = adaptive_info(icon_files)
-    round_ref = app.get(ANDROID + "roundIcon")
+    icon_checks(res, icon_ref, icon_files, app.get(ANDROID + "roundIcon"), dirs)
+    return res
+
+
+def icon_checks(res: dict[str, object], icon_ref: str | None, icon_files: list[Path], round_ref: str | None,
+                dirs: list[Path]) -> None:
+    adaptive, mono, ident = adaptive_info(icon_files, dirs)
     round_files = resolve(round_ref, dirs)
-    r_adaptive, r_mono = adaptive_info(round_files)
-    res["round"] = bool(round_files) or adaptive
+    r_adaptive, r_mono, _ = adaptive_info(round_files, dirs)
+    res["round"] = bool(round_files) and (r_adaptive or not adaptive)
     res["adaptive"] = adaptive
-    res["mono"] = mono and (not round_files or r_mono or not r_adaptive)
-    if round_files and round_ref == icon_ref:
+    res["mono"] = mono and r_mono
+    if ident:
+        res["icon_ident"] = ident
+    if not round_ref:
+        res["notes"].append("no roundIcon")
+    elif not round_files:
+        res["notes"].append("roundIcon does not resolve: " + round_ref)
+    elif round_ref == icon_ref:
         res["notes"].append("roundIcon = icon")
+    elif adaptive and not r_adaptive:
+        res["notes"].append("roundIcon is not adaptive")
     if not adaptive:
         res["notes"].append("icon is a plain " + ("vector" if any(f.suffix == ".xml" for f in icon_files) else "bitmap"))
-    return res
+    elif not mono:
+        res["notes"].append("adaptive icon without monochrome layer")
 
 
 def audit_flavor(src: Path, row: dict[str, str]) -> dict[str, object]:
@@ -214,23 +243,29 @@ def audit_flavor(src: Path, row: dict[str, str]) -> dict[str, object]:
     spec = src / "apps" / "r8" / name / "apply_sable_flavor.py"
     res: dict[str, object] = {"module": row["module"], "package": row["package"], "notes": ["flavor: upstream manifest not in tree"]}
     text = spec.read_text(encoding="utf-8") if spec.is_file() else ""
-    icon = re.findall(r'android:icon="(@drawable/[A-Za-z0-9_]+)"', text)
-    rnd = re.findall(r'android:roundIcon="(@drawable/[A-Za-z0-9_]+)"', text)
+    ref_re = r'(@(?:drawable|mipmap)/[A-Za-z0-9_]+)'
+    icon = re.findall(r'android:icon="%s"' % ref_re, text)
+    rnd = re.findall(r'android:roundIcon="%s"' % ref_re, text)
     icon_ref = icon[-1] if icon else None
-    writes_icon = bool(icon_ref and (icon_ref.split("/")[1] + ".xml") in text)
+    round_ref = rnd[-1] if rnd else None
+    # The applicator copies sable-src/apps/r8/NAME/res into the upstream app (Path(__file__).parent / "res").
+    res_dir = spec.parent / "res"
+    copies = res_dir.is_dir() and re.search(r'parent\s*/\s*"res"', text) is not None
+    dirs = [res_dir] if copies else []
+    icon_files = resolve(icon_ref, dirs)
+    placeholder = bool(icon_ref and PLACEHOLDER.search(icon_ref))
     res["launcher"] = True
     res["launcher_detail"] = "upstream"
     res["label"] = row["package"] in text or "app_name" in text or "LABEL" in text
     res["label_detail"] = "flavor"
-    res["icon"] = writes_icon
+    res["icon"] = bool(icon_files) and not placeholder
     res["icon_detail"] = icon_ref or "-"
-    res["round"] = bool(rnd)
-    res["adaptive"] = "<adaptive-icon" in text
-    res["mono"] = "<monochrome" in text
-    if not rnd:
-        res["notes"].append("no Sable roundIcon written (launchers fall back to icon)")
-    if not res["adaptive"]:
-        res["notes"].append("icon is a plain vector")
+    res["icon_file"] = icon_files[0] if icon_files else None
+    if not copies:
+        res["notes"].append("applicator does not copy %s" % res_dir.relative_to(src))
+    elif icon_ref and not icon_files:
+        res["notes"].append("icon does not resolve in %s: %s" % (res_dir.relative_to(src), icon_ref))
+    icon_checks(res, icon_ref, icon_files, round_ref, dirs)
     return res
 
 
@@ -243,7 +278,7 @@ def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--src", type=Path, default=repo / "sable-src")
     p.add_argument("--apps", type=Path, default=repo / "product" / "q25" / "apps.tsv")
-    p.add_argument("--enforce", default="launcher,label,icon",
+    p.add_argument("--enforce", default=",".join(ALL_CHECKS),
                    help="comma-separated checks that fail the run (from: %s); 'none' for report only" % ",".join(ALL_CHECKS))
     p.add_argument("--all", action="store_true", help="include rows with enabled=no")
     args = p.parse_args()
@@ -255,15 +290,22 @@ def main() -> int:
     rows = [r for r in read_rows(args.apps) if args.all or r.get("enabled") == "yes"]
     results = [audit_flavor(args.src, r) if r["gradle_root"].startswith("flavor:") else audit_module(args.src, r) for r in rows]
 
+    def identity(r: dict[str, object]) -> bytes | None:
+        ident = r.get("icon_ident")
+        if isinstance(ident, bytes):
+            return ident
+        f = r.get("icon_file")
+        return f.read_bytes() if isinstance(f, Path) else None
+
     by_content: dict[bytes, list[str]] = {}
     for r in results:
-        f = r.get("icon_file")
-        if isinstance(f, Path):
-            by_content.setdefault(f.read_bytes(), []).append(str(r["module"]))
+        ident = identity(r)
+        if ident is not None:
+            by_content.setdefault(ident, []).append(str(r["module"]))
     for r in results:
-        f = r.get("icon_file")
-        if isinstance(f, Path):
-            others = [m for m in by_content[f.read_bytes()] if m != r["module"]]
+        ident = identity(r)
+        if ident is not None:
+            others = [m for m in by_content[ident] if m != r["module"]]
             if others:
                 r["notes"].append("same icon as " + ", ".join(others))
 

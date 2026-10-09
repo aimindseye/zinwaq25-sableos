@@ -9,8 +9,8 @@
     </queries>
 
     <application
-        android:icon="@drawable/ic_sable_media"
-        android:roundIcon="@drawable/ic_sable_media"
+        android:icon="@mipmap/ic_sable_media"
+        android:roundIcon="@mipmap/ic_sable_media_round"
         android:label="Sable Media"
         android:theme="@android:style/Theme.Material.NoActionBar">
         <activity android:name=".MainActivity" android:exported="true">

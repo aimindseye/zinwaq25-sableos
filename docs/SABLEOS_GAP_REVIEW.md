@@ -82,7 +82,6 @@ Each item has a gate in [`QUALIFICATION.md`](QUALIFICATION.md); none has run.
 
 | Decision | Today |
 |---|---|
-| Adaptive and monochrome app icons | None of the 17 apps has one, so Android's themed icons and the launcher mask don't apply. The icon audit reports it. Needs approved artwork. |
 | Sable app corner shapes | Sable apps keep 2-6dp corners; the SystemUI design uses 8/12dp. Changing it restyles every app. |
 | Lock-screen notification default | Proposed: hide private content on the lock screen by default (`lock_screen_allow_private_notifications=0`). Not set. |
 | Attention outputs for the Q25 | `ro.sable.attention.outputs` is not set, so every attention output is off. Set it once outputs are proven on the phone. |
@@ -100,7 +99,6 @@ Each item has a gate in [`QUALIFICATION.md`](QUALIFICATION.md); none has run.
 * LineageOS's boot animation is kept.
 * Keyboard type-ahead in Settings covers the Battery screens only.
 * Battery and Sable Tools strings are English only.
-* Sable Mail has no round icon (launchers fall back to its normal icon).
 * Connected apps in Hub still calls its ordering list "favorites", while the
   toggle is now "Hub priority".
 * Titan 2 GSI, cellular and IMS work does not apply: the Q25 runs a full

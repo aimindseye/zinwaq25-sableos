@@ -5,8 +5,8 @@
     </queries>
 
     <application
-        android:icon="@drawable/ic_sable_game"
-        android:roundIcon="@drawable/ic_sable_game"
+        android:icon="@mipmap/ic_sable_game"
+        android:roundIcon="@mipmap/ic_sable_game_round"
         android:label="@string/app_name"
         android:theme="@android:style/Theme.Material.NoActionBar">
         <activity
