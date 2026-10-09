@@ -21,6 +21,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import org.sableos.design.SableActionButton
+import org.sableos.design.SableAdaptiveTopNav
+import org.sableos.design.SableDestination
 import org.sableos.design.SablePageHeader
 import org.sableos.design.SablePanel
 import org.sableos.design.SableRefreshableSurface
@@ -227,28 +229,17 @@ private fun ConnectedAppsPivotRow(
     selected: ConnectedAppsPivot,
     onSelect: (ConnectedAppsPivot) -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
-    ) {
-        ConnectedAppsPivot.entries.forEach { pivot ->
-            TextButton(
-                onClick = { onSelect(pivot) },
-            ) {
-                Text(
-                    text = pivot.name.lowercase(),
-                    style = MaterialTheme.typography.titleLarge,
-                    color =
-                        if (pivot == selected) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                )
-            }
-        }
-    }
+    // Three titleLarge labels overflow a fixed row on square screens; the adaptive
+    // nav keeps whole labels (and uses "more" if they still do not fit).
+    SableAdaptiveTopNav(
+        destinations = CONNECTED_APPS_DESTINATIONS,
+        selectedId = selected.name,
+        onSelect = { id -> onSelect(ConnectedAppsPivot.valueOf(id)) },
+    )
 }
+
+private val CONNECTED_APPS_DESTINATIONS =
+    ConnectedAppsPivot.entries.map { pivot -> SableDestination(pivot.name, pivot.name.lowercase()) }
 
 @Composable
 private fun ConnectedAppRow(

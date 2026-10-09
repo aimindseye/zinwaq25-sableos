@@ -50,8 +50,10 @@ class SableAlphabetIndex private constructor(
         val key = keyFor(char.toString())
         indexOf(key)?.let { return it }
         if (key == OTHER) return null
-        val next = sections.firstOrNull { it.key != OTHER && it.key > key }
-        return (next ?: sections.last()).firstIndex
+        val lettered = sections.filter { it.key != OTHER && it.key != PINNED }
+        if (lettered.isEmpty()) return null
+        val next = lettered.firstOrNull { it.key > key }
+        return (next ?: lettered.last()).firstIndex
     }
 
     /** Touch rail: section under a pointer at [fraction] (0..1) of the rail's height. */
@@ -63,6 +65,9 @@ class SableAlphabetIndex private constructor(
 
     companion object {
         const val OTHER = "#"
+
+        /** Section of items pinned above the alphabetical list (e.g. starred contacts). */
+        const val PINNED = "★"
 
         /** Section key of a label: its first letter without accents, upper case; anything else is "#". */
         fun keyFor(
@@ -78,16 +83,21 @@ class SableAlphabetIndex private constructor(
             return base.toString().uppercase(locale)
         }
 
-        /** [labels] must already be in display order; sections follow that order. */
+        /**
+         * [labels] must already be in display order; sections follow that order.
+         * The first [pinnedCount] items (favourites listed before the A–Z list)
+         * form one [PINNED] section so letters never point into them.
+         */
         fun build(
             labels: List<String>,
             locale: Locale = Locale.ROOT,
+            pinnedCount: Int = 0,
         ): SableAlphabetIndex {
             val sections = mutableListOf<Section>()
             val sectionByKey = HashMap<String, Int>()
             val itemSections = IntArray(labels.size)
             labels.forEachIndexed { index, label ->
-                val key = keyFor(label, locale)
+                val key = if (index < pinnedCount) PINNED else keyFor(label, locale)
                 val sectionIndex =
                     sectionByKey.getOrPut(key) {
                         sections += Section(key, index)

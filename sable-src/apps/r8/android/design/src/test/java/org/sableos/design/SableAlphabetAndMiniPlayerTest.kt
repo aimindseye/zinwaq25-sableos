@@ -35,6 +35,18 @@ class SableAlphabetAndMiniPlayerTest {
     }
 
     @Test
+    fun pinnedFavouritesFormOneSectionAndLettersSkipThem() {
+        // Starred contacts first (Zed, Amy), then the alphabetical list.
+        val labels = listOf("Zed", "Amy", "Bob", "Cara", "Yuri")
+        val index = SableAlphabetIndex.build(labels, pinnedCount = 2)
+        assertEquals(listOf("★", "B", "C", "Y"), index.railKeys)
+        assertEquals(2, index.indexForChar('a')) // next lettered section, not the starred Amy
+        assertEquals(4, index.indexForChar('z')) // past the end: last lettered section, never ★
+        assertEquals(0, index.indexOf(SableAlphabetIndex.PINNED))
+        assertNull(SableAlphabetIndex.build(listOf("Zed"), pinnedCount = 1).indexForChar('a'))
+    }
+
+    @Test
     fun activeSectionAndTouchSlots() {
         val index = SableAlphabetIndex.build(people)
         assertEquals("A", index.sectionKeyAt(3))
