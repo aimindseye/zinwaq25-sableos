@@ -68,13 +68,6 @@ class ConnectedAppsRepository(
 
     fun allowsQuickReply(key: ConnectedAppKey): Boolean = policyFor(key).allowQuickReply
 
-    fun hiddenKeys(): Set<ConnectedAppKey> =
-        loadPolicies()
-            .asSequence()
-            .filter { it.hideFromLauncher }
-            .map { it.key }
-            .toSet()
-
     private fun updateCachedPolicy(policy: ConnectedAppPolicy) {
         synchronized(CACHE_LOCK) {
             val next = cachedPolicies.toMutableMap()
@@ -113,7 +106,7 @@ class ConnectedAppsRepository(
         val HISTORY_URI: Uri =
             Uri.parse("content://$AUTHORITY/history")
 
-        private const val PREFERENCES_NAME = "sable_connected_apps"
+        internal const val PREFERENCES_NAME = "sable_connected_apps"
         private const val KEY_RECORDS = "records"
     }
 }

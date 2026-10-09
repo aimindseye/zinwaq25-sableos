@@ -44,6 +44,7 @@ naming:
       - "**/media/PodcastScreen.kt"
       - "**/hub/ui/HubScreen.kt"
       - "**/hub/ui/ConnectedAppsScreen.kt"
+      - "**/hub/ui/AttentionSettingsScreen.kt"
 
 style:
   MagicNumber:

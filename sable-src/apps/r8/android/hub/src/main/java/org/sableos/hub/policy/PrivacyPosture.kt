@@ -12,6 +12,37 @@ enum class ProfileKind {
 
     /** Any other secondary profile Android reports. */
     Other,
+    ;
+
+    /** Badge shown on rows from this profile (`WORK_PROFILE_BADGING=REQUIRED`); null for personal. */
+    fun badge(): String? =
+        when (this) {
+            Personal -> null
+            Work -> "Work"
+            Private -> "Private"
+            Other -> "Profile"
+        }
+
+    companion object {
+        // android.os.UserManager.USER_TYPE_PROFILE_* values.
+        const val USER_TYPE_PROFILE_MANAGED = "android.os.usertype.profile.MANAGED"
+        const val USER_TYPE_PROFILE_PRIVATE = "android.os.usertype.profile.PRIVATE"
+
+        /**
+         * [userType] comes from LauncherApps.getLauncherUserInfo (Android 15+); null on older
+         * releases, where a non-current profile is treated as [Other] (badged, never merged).
+         */
+        fun fromUserType(
+            userType: String?,
+            isCurrentUser: Boolean,
+        ): ProfileKind =
+            when {
+                isCurrentUser -> Personal
+                userType == USER_TYPE_PROFILE_MANAGED -> Work
+                userType == USER_TYPE_PROFILE_PRIVATE -> Private
+                else -> Other
+            }
+    }
 }
 
 /**

@@ -63,7 +63,9 @@ class PrivacyPostureTest {
         assertEquals(
             AttentionContent.Full,
             PrivacyPosture.attentionContent(
-                base.copy(lockscreen = LockscreenNotificationPolicy(showNotifications = true, allowPrivateContent = true)),
+                base.copy(
+                    lockscreen = LockscreenNotificationPolicy(showNotifications = true, allowPrivateContent = true),
+                ),
             ),
         )
         assertEquals(

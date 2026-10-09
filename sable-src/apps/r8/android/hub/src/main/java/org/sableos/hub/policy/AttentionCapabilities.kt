@@ -99,21 +99,34 @@ class AttentionDeviceProfile private constructor(
         ): Map<AttentionOutput, CapabilityEvidence> {
             val text = declaration?.trim().orEmpty()
             val separator = text.indexOf(':')
-            if (text.length > MAX_DECLARATION_LENGTH || separator <= 0) return emptyMap()
-            if (text.substring(0, separator) != profileId) return emptyMap()
-
-            val entries = text.substring(separator + 1).split(',').map(String::trim).filter(String::isNotEmpty)
-            val parsed = mutableMapOf<AttentionOutput, CapabilityEvidence>()
-            for (entry in entries) {
-                val parts = entry.split('=')
-                val output = parts.firstOrNull()?.let(AttentionOutput::fromToken)
-                val level = parts.getOrNull(1)?.let(::evidenceFromToken)
-                // Malformed declaration: fail closed for every declared output.
-                if (parts.size != 2 || output == null || level == null) return emptyMap()
-                // Audio and haptic are Android facts; a declaration cannot claim or remove them.
-                if (output !in PLATFORM_OUTPUTS) parsed[output] = level
+            val ownDeclaration =
+                text.length <= MAX_DECLARATION_LENGTH &&
+                    separator > 0 &&
+                    text.substring(0, separator) == profileId
+            val entries =
+                if (ownDeclaration) {
+                    text.substring(separator + 1).split(',').map(String::trim).filter(String::isNotEmpty)
+                } else {
+                    emptyList()
+                }
+            val parsed = entries.map(::parseEntry)
+            // A malformed entry fails the whole declaration closed. Audio and haptic are Android
+            // facts; a declaration can neither claim nor remove them.
+            return if (parsed.any { it == null }) {
+                emptyMap()
+            } else {
+                parsed
+                    .filterNotNull()
+                    .filterNot { (output, _) -> output in PLATFORM_OUTPUTS }
+                    .toMap()
             }
-            return parsed
+        }
+
+        private fun parseEntry(entry: String): Pair<AttentionOutput, CapabilityEvidence>? {
+            val parts = entry.split('=')
+            val output = parts.firstOrNull()?.let(AttentionOutput::fromToken)
+            val level = parts.getOrNull(1)?.let(::evidenceFromToken)
+            return if (parts.size == 2 && output != null && level != null) output to level else null
         }
 
         private fun evidenceFromToken(token: String): CapabilityEvidence? =

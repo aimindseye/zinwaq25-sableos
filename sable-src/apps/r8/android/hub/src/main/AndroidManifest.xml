@@ -19,6 +19,37 @@
         <provider android:authorities="org.sableos.appearance" />
         <provider android:authorities="org.sableos.mail.snapshot" />
         <package android:name="org.sableos.mail" />
+        <!-- DESIGN-KF-A Settings handoff: Android owns these pages; Hub only links to them. -->
+        <intent>
+            <action android:name="android.settings.NOTIFICATION_SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.APP_NOTIFICATION_SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.CHANNEL_NOTIFICATION_SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.CONVERSATION_SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.NOTIFICATION_HISTORY" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.ZEN_MODE_SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.NOTIFICATION_LISTENER_DETAIL_SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.LOCK_SCREEN_SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.DISPLAY_SETTINGS" />
+        </intent>
     </queries>
 
     <application
@@ -44,18 +75,41 @@
 
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Shade "H" (patches/framework/frameworks/base 0301): open a notification in Hub. -->
+            <intent-filter>
+                <action android:name="org.sableos.hub.action.OPEN_NOTIFICATION" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
 
         <activity
             android:name=".ConnectedAppsActivity"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="org.sableos.hub.action.CONNECTED_APPS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <!-- Settings > App notifications > (app) > Sable Hub and Attention (patch 0300). -->
+            <intent-filter>
+                <action android:name="org.sableos.hub.action.APP_NOTIFICATION_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- Settings > Notifications > Sable Attention (patch 0300). -->
+        <activity
+            android:name=".AttentionSettingsActivity"
+            android:exported="true"
+            android:label="Sable Attention">
+            <intent-filter>
+                <action android:name="org.sableos.hub.action.ATTENTION_SETTINGS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>

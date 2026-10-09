@@ -1,5 +1,7 @@
 package org.sableos.hub
 
+import android.app.NotificationManager
+import android.content.ComponentName
 import android.content.ContentProvider
 import android.content.ContentValues
 import android.database.Cursor
@@ -7,6 +9,8 @@ import android.database.MatrixCursor
 import android.net.Uri
 import android.os.Binder
 import android.os.Process
+import org.sableos.hub.notifications.SableNotificationListenerService
+import org.sableos.hub.policy.ConnectedAppsParity
 
 class ConnectedAppsPolicyProvider : ContentProvider() {
     override fun onCreate(): Boolean = true
@@ -24,9 +28,15 @@ class ConnectedAppsPolicyProvider : ContentProvider() {
             "Unsupported connected-app policy query: $uri"
         }
 
+        // HUB_CONNECTED_APPS_PARITY: without Android notification access Hub cannot show these
+        // apps, so Sable Start must not hide them either.
+        val hidden =
+            ConnectedAppsParity.effectiveHiddenKeys(
+                policies = ConnectedAppsRepository(appContext).loadPolicies(),
+                notificationAccessGranted = notificationAccessGranted(appContext),
+            )
         return MatrixCursor(COLUMNS).apply {
-            ConnectedAppsRepository(appContext)
-                .hiddenKeys()
+            hidden
                 .sortedWith(
                     compareBy<ConnectedAppKey> { it.userSerial }
                         .thenBy { it.packageName },
@@ -64,6 +74,14 @@ class ConnectedAppsPolicyProvider : ContentProvider() {
         selection: String?,
         selectionArgs: Array<out String>?,
     ): Int = throw UnsupportedOperationException("Read-only provider")
+
+    private fun notificationAccessGranted(context: android.content.Context): Boolean =
+        runCatching {
+            checkNotNull(context.getSystemService(NotificationManager::class.java))
+                .isNotificationListenerAccessGranted(
+                    ComponentName(context, SableNotificationListenerService::class.java),
+                )
+        }.getOrDefault(false)
 
     private fun enforceLauncherCaller(context: android.content.Context) {
         val callingUid = Binder.getCallingUid()

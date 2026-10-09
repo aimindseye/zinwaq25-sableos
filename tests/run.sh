@@ -217,6 +217,9 @@ else
     fail "board check: $(cat "$tmp/err")"
 fi
 
+# 11. DESIGN-KF-A static gates for Sable Hub and the notification framework patches.
+if bash tests/kf-a-notification-policy-check.sh; then pass "KF-A notification policy gates"; else fail "KF-A notification policy gates"; fi
+
 echo
 if ((fails)); then echo "CI=FAIL ($fails)"; exit 1; fi
 echo "CI=PASS"

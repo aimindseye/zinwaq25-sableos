@@ -31,11 +31,18 @@ object HubHandoffRouter {
         notificationKey: String?,
         conversations: List<HubConversation>,
         policies: Map<ConnectedAppKey, ConnectedAppPolicy>,
-    ): HubHandoffTarget {
-        if (key == null) return HubHandoffTarget.Home
-        if (policies[key]?.normalized()?.includeInMessages != true) {
-            return HubHandoffTarget.ConnectedAppSettings(key)
+    ): HubHandoffTarget =
+        when {
+            key == null -> HubHandoffTarget.Home
+            policies[key]?.normalized()?.includeInMessages != true -> HubHandoffTarget.ConnectedAppSettings(key)
+            else -> conversationFor(key, notificationKey, conversations)
         }
+
+    private fun conversationFor(
+        key: ConnectedAppKey,
+        notificationKey: String?,
+        conversations: List<HubConversation>,
+    ): HubHandoffTarget {
         val fromSource =
             conversations.filter { conversation ->
                 conversation.source == HubConversationSource.ConnectedApp &&

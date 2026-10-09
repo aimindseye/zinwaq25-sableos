@@ -45,7 +45,14 @@ class HubRedactionTest {
         )
 
     private val sms =
-        HubConversation(threadId = 5L, address = "+1", displayName = "Bo", lastBody = "sms", lastDateMillis = 2L, unreadCount = 1)
+        HubConversation(
+            threadId = 5L,
+            address = "+1",
+            displayName = "Bo",
+            lastBody = "sms",
+            lastDateMillis = 2L,
+            unreadCount = 1,
+        )
 
     @Test
     fun lockedWorkProfileContentNeverReachesUi() {

@@ -15,9 +15,12 @@
 | Patch | Base (lineage-23.2) | What it does |
 |---|---|---|
 | `framework/packages/apps/Launcher3/0001-SableOS-keep-Launcher3QuickStep-for-Recents-only-not.patch` | `ee25ab865b59ecda9c8fd6f901e80b48d7b789ea` | Removes `QuickstepLauncher`'s HOME intent filter, so `SableLauncher` is the only HOME app, and makes `OverviewComponentObserver` name its own activity explicitly instead of resolving HOME. Launcher3QuickStep then serves Recents through its fallback `RecentsActivity`, as in SableOS R9. |
+| `framework/packages/apps/Settings/0300-SableOS-Sable-Attention-and-per-app-Sable-Hub-entrie.patch` | `8d8f6486b274bcf0aa6e5d0cbba52c0b05ae5c65` | KF-A: adds Settings > Notifications > Sable Attention and a per-app "Sable Hub and Attention" link into Sable Hub; both hidden when Hub is absent. |
+| `framework/frameworks/base/0301-SableOS-keyboard-notification-commands-in-the-shade.patch` | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` | KF-A: contextual single-key commands on a focused notification row (Space, R, D, Z, M, C, H); text input always wins. New router, command glue and a router unit test; three small hooks in `ExpandableNotificationRow`. |
 
-The patch was checked against that commit (`check` says `APPLIES`); no
-LineageOS build ran here. When LineageOS moves, regenerate the patch in a
+Each patch was checked against its base commit (`git apply --check`); no
+LineageOS build ran here. Range 0300-0399 is KF-A (notification policy,
+attention, Hub); 0100-0199 is KF-B (SystemUI styling). When LineageOS moves, regenerate the patch in a
 synced tree with `git format-patch -1` and update the base above.
 
 Reserved:

@@ -21,7 +21,10 @@ class AttentionPolicyTest {
         selection: Set<AttentionOutput> = both,
         android: AndroidAlertState = alerting,
         privacy: PrivacyContext = unlocked,
-    ): AttentionDecision? = AttentionPolicy.decide(profile, selection, android, privacy).firstOrNull { it.output == output }
+    ): AttentionDecision? =
+        AttentionPolicy
+            .decide(profile, selection, android, privacy)
+            .firstOrNull { it.output == output }
 
     @Test
     fun androidOwnedOutputsAreDelegatedNeverDrivenBySable() {
@@ -66,7 +69,10 @@ class AttentionPolicyTest {
             AndroidAlertState.IMPORTANCE_LOW,
         ).forEach { importance ->
             assertEquals(
-                AttentionDecision.Suppressed(AttentionOutput.SecondaryDisplay, SuppressionReason.QuietOrBlockedByAndroid),
+                AttentionDecision.Suppressed(
+                    AttentionOutput.SecondaryDisplay,
+                    SuppressionReason.QuietOrBlockedByAndroid,
+                ),
                 decision(AttentionOutput.SecondaryDisplay, android = alerting.copy(importance = importance)),
             )
         }

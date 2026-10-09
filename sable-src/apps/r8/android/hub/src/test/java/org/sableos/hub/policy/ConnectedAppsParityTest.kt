@@ -15,7 +15,9 @@ class ConnectedAppsParityTest {
 
     @Test
     fun withoutNotificationAccessNothingIsHiddenFromStart() {
-        assertTrue(ConnectedAppsParity.effectiveHiddenKeys(listOf(hiddenChat), notificationAccessGranted = false).isEmpty())
+        assertTrue(
+            ConnectedAppsParity.effectiveHiddenKeys(listOf(hiddenChat), notificationAccessGranted = false).isEmpty(),
+        )
         assertEquals(setOf(chat), ConnectedAppsParity.effectiveHiddenKeys(listOf(hiddenChat), true))
     }
 

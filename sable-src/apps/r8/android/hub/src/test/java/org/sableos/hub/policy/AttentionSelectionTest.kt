@@ -41,7 +41,10 @@ class AttentionSelectionTest {
                 "titan2:keyboard_backlight=validated,secondary_display=validated",
                 facts,
             )
-        assertEquals(setOf(AttentionOutput.SecondaryDisplay), AttentionSelections.effectiveFor(key, emptyMap(), profile))
+        assertEquals(
+            setOf(AttentionOutput.SecondaryDisplay),
+            AttentionSelections.effectiveFor(key, emptyMap(), profile),
+        )
     }
 
     @Test
