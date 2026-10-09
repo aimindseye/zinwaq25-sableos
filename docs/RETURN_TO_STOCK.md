@@ -96,16 +96,23 @@ an **SP Flash Tool package**. It has `MT6789_Android_scatter.xml` and
 Its exact layout is tested in `tests/run.sh` (fixture
 `tests/fixtures/stock-gms-sp1a.files`).
 
-**Check the version before using rung 2 or 3.** `SP1A` is an Android 12 build
-tag. The stock build this port's blobs came from reports Android 14
-(`STOCK_BASIS.md`). If this package is older than the firmware on your phone,
-only use rung 1, which writes just the partitions SableOS changed. Don't use the
-full restore or SP Flash with it: writing an older boot chain (`lk`, `tee`,
-preloader) over newer firmware can be refused or brick the phone on some
-MediaTek devices. Compare `ro.build.fingerprint` in the package's
-`mssi_64_cn_armv82/build.prop` and `q20_v12_factory/build.prop` with
-Settings > About. `mssi_64_cn` also suggests a China-region system build;
-check the region before relying on it.
+**Version.** Despite the folder name, the package is Android 14. Its
+`mssi_64_cn_armv82/build.prop` gives display id `Q25_20.01.2026`, build
+`UP1A.231005.007`, security patch 2024-03-05 and fingerprint
+`Xelex/Xelex10_Ultra/Xelex10_Ultra:14/20240427/UP1v:user/release-keys`. That is
+the same fingerprint as the build this port's blobs come from, but an older FOTA
+release: the package is `Q25_20.01.2026` and the blobs are `Q25_26.03.2026`.
+`mssi_64_cn` is MediaTek's name for the system build. The package uses locale
+`en-US` and carries Google client ids, so it isn't a China-only build.
+
+Check Settings > About > build number on your phone:
+
+* `Q25_20.01.2026` or older: every rung can use this package.
+* Newer, for example `Q25_26.03.2026`: rung 1 is fine, because it only writes
+  what SableOS changed and stock then boots on the newer firmware already on the
+  phone. Treat rungs 2 and 3 with this package as a downgrade of the boot chain.
+  Use them only if rung 1 fails, and prefer a package matching your build when
+  one is available.
 
 ### Rehearsal (gate R0)
 

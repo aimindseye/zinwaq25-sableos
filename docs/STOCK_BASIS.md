@@ -36,14 +36,16 @@ stock_image_sha256=
 stock_image_build=        (fingerprint inside the image)
 ```
 
-Known so far from the file list only (2026-10-09). The images themselves are not
-inspected or hashed:
+Known from the package's file list and `mssi_64_cn_armv82/build.prop`
+(2026-10-09). The images themselves are not inspected or hashed:
 
 ```text
 stock_image_file=SP1A.210812.016RELEASE-KEYS/ (SP Flash package, scatter MT6789_Android_scatter.xml)
 board=q20_v12_factory (from preloader_q20_v12_factory.bin)
 system_build=mssi_64_cn_armv82
-stock_image_build=UNKNOWN (read ro.build.fingerprint from mssi_64_cn_armv82/build.prop)
+stock_image_build=Xelex/Xelex10_Ultra/Xelex10_Ultra:14/20240427/UP1v:user/release-keys
+stock_image_display=Q25_20.01.2026 (ro.fota.version; build UP1A.231005.007, incremental 2026032)
+stock_image_security_patch=2024-03-05
 ```
 
 ## Blob basis
