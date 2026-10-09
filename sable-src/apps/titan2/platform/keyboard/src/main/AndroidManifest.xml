@@ -33,15 +33,14 @@
             </intent-filter>
         </activity>
 
-        <!-- Diagnostic: shows the key events an ordinary app receives. -->
+        <!--
+          Diagnostic: shows the key events an ordinary app receives. Not launcher-visible: Sable Tools >
+          Diagnostics > Keyboard event viewer is the user entry (DESIGN-KF-C SEPARATE_DIAGNOSTICS_LAUNCHER_APP=NO).
+          Still reachable for bring-up with: adb shell am start -n org.sableos.titan2.keyboard/.android.KeyProbeActivity
+        -->
         <activity
             android:name=".android.KeyProbeActivity"
             android:exported="true"
-            android:label="Sable Key Probe">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+            android:label="Sable Key Probe" />
     </application>
 </manifest>
