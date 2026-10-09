@@ -253,7 +253,7 @@ fun HubScreen(
                     MissingConversationView(
                         onBack = {
                             statusMessage = null
-                            route = HubRoute.Root(HubPivot.Messages)
+                            route = HubRoute.Root(current.origin)
                         },
                     )
                 } else {
@@ -475,18 +475,13 @@ private fun ColumnScope.PriorityPivot(
             modifier = modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
         ) {
-            itemsIndexed(
-                items = visibleConversations,
-                key = { _, conversation -> conversationKey(conversation) },
-            ) { index, conversation ->
-                val key = conversationKey(conversation)
+            items(
+                items = conversations.take(MAX_VISIBLE_CONVERSATIONS),
+                key = { conversation -> conversationKey(conversation) },
+            ) { conversation ->
                 ConversationRow(
                     conversation = conversation,
-                    onClick = {
-                        focusMemory.remember(FOCUS_SURFACE_MESSAGES, key, index)
-                        onConversation(conversation)
-                    },
-                    modifier = Modifier.focusRequester(requesters.getOrPut(key) { FocusRequester() }),
+                    onClick = { onConversation(conversation) },
                 )
             }
         }
@@ -582,6 +577,8 @@ private fun ColumnScope.MessagesPivot(
         if (!restoreDone) {
             restoreDone = true
             val target = if (query.isBlank()) focusMemory.restore(FOCUS_SURFACE_MESSAGES, rowKeys) else null
+            // One-shot: a later visit (pivot switch, handoff Back) opens on the newest again.
+            focusMemory.forget(FOCUS_SURFACE_MESSAGES)
             if (target != null) {
                 listState.scrollToItem(target)
                 withFrameNanos { }
@@ -621,15 +618,18 @@ private fun ColumnScope.MessagesPivot(
             state = listState,
             verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
         ) {
-            items(
-                items = conversations.take(MAX_VISIBLE_CONVERSATIONS),
-                key = { conversation ->
-                    conversation.threadId.toString() + ":" + conversation.address
-                },
-            ) { conversation ->
+            itemsIndexed(
+                items = visibleConversations,
+                key = { _, conversation -> conversationKey(conversation) },
+            ) { index, conversation ->
+                val key = conversationKey(conversation)
                 ConversationRow(
                     conversation = conversation,
-                    onClick = { onConversation(conversation) },
+                    onClick = {
+                        focusMemory.remember(FOCUS_SURFACE_MESSAGES, key, index)
+                        onConversation(conversation)
+                    },
+                    modifier = Modifier.focusRequester(requesters.getOrPut(key) { FocusRequester() }),
                 )
             }
         }
@@ -948,14 +948,16 @@ private fun ColumnScope.ConversationView(
                 onClick = action,
             )
         }
-        onOpenNotificationSettings?.let { action ->
-            SableActionButton(
-                text = "Notifications",
-                modifier = Modifier.weight(1f),
-                primary = false,
-                onClick = action,
-            )
-        }
+    }
+    // Its own full-width row: a third equal-width "Notifications" button wraps mid-word
+    // on the square screen (KF-D: labels never clip).
+    onOpenNotificationSettings?.let { action ->
+        SableActionButton(
+            text = "Notifications",
+            modifier = Modifier.fillMaxWidth(),
+            primary = false,
+            onClick = action,
+        )
     }
 
     // Newest message at the bottom and visible on open (reverse layout, index 0 =
