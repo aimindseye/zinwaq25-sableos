@@ -1,8 +1,12 @@
 # Patches
 
-* `sable-src/` Q25 changes to the imported Sable app sources (the `zinwa-q25`
-  keyboard and camera profiles). `scripts/import-sable-sources.sh` applies them
-  in name order after every import. Regenerate a patch with `git diff` against a
+* `sable-src/` Q25 changes to the imported Sable app sources, applied by
+  `scripts/import-sable-sources.sh` in name order after every import:
+  0001 keyboard and camera profiles, 0002 Weather cities and the Key Probe
+  launcher entry (T3), 0003 system tokens (KF-B), 0004 All Apps privacy and
+  responsive polish (KF-D), 0005 Hub notification policy (KF-A), 0006 Sable
+  Tools (KF-C), 0007 fixes found while integrating them. Applied in order to a
+  fresh import they reproduce `sable-src/` exactly. Regenerate a patch with `git diff` against a
   fresh import when you change these files.
 
 * `framework/<project path>/` phase Q4 changes to LineageOS 23.2 projects, as

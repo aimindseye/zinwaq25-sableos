@@ -1,0 +1,2749 @@
+diff --git a/sable-src/apps/r8/android/weather/build.gradle.kts b/sable-src/apps/r8/android/weather/build.gradle.kts
+index 1a3b6fc..2a12f06 100644
+--- a/sable-src/apps/r8/android/weather/build.gradle.kts
++++ b/sable-src/apps/r8/android/weather/build.gradle.kts
+@@ -58,6 +58,7 @@ dependencies {
+     implementation("androidx.compose.ui:ui")
+     implementation("androidx.compose.material3:material3")
+     debugImplementation("androidx.compose.ui:ui-tooling")
++    testImplementation("junit:junit:4.13.2")
+ }
+ 
+ tasks
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/CitiesSection.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/CitiesSection.kt
+new file mode 100644
+index 0000000..d0ce62d
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/CitiesSection.kt
+@@ -0,0 +1,352 @@
++package org.sableos.weather
++
++import androidx.compose.foundation.border
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.focusable
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.Spacer
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.width
++import androidx.compose.material3.HorizontalDivider
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.OutlinedTextField
++import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.LaunchedEffect
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.focus.FocusRequester
++import androidx.compose.ui.focus.focusRequester
++import androidx.compose.ui.focus.onFocusChanged
++import androidx.compose.ui.input.key.onPreviewKeyEvent
++import androidx.compose.ui.unit.dp
++import org.sableos.weather.cities.City
++import org.sableos.weather.cities.CityCatalog
++import org.sableos.weather.cities.CityEdit
++import org.sableos.weather.cities.CityEffect
++import org.sableos.weather.cities.CityIds
++import org.sableos.weather.cities.CityScreen
++import org.sableos.weather.cities.CityScreenModel
++import org.sableos.weather.cities.DialogButton
++import org.sableos.weather.input.KeyMapper
++import org.sableos.weather.input.RawKey
++import android.view.KeyEvent as AndroidKeyEvent
++
++/**
++ * User-managed cities (IR-015): select, add from the offline catalog or a manual "Name, lat, lon, Area/Zone" entry,
++ * remove, and reset to the built-in cities. Keyboard behaviour comes from [CityScreenModel]; every item stays a
++ * touch target. [onActiveCityChanged] is called whenever an edit changes the active city.
++ */
++@Composable
++internal fun CitiesSection(
++    repository: WeatherRepository,
++    onActiveCityChanged: (WeatherLocation) -> Unit,
++) {
++    var cityState by remember { mutableStateOf(repository.cities.load()) }
++    var results by remember { mutableStateOf(emptyList<City>()) }
++    val model = CityScreenModel(cityState.cities, results.size)
++    var screen by remember { mutableStateOf(model.initial(cityState.selected)) }
++    var fieldFocused by remember { mutableStateOf(false) }
++    val listFocus = remember { FocusRequester() }
++    val fieldFocus = remember { FocusRequester() }
++
++    fun applyEdit(edit: CityEdit) {
++        repository.afterCityEdit(edit)
++        cityState = edit.state
++        results = emptyList()
++        screen = CityScreenModel(edit.state.cities).afterChange(screen, edit.state.selected.name)
++        if (edit.refresh) onActiveCityChanged(edit.state.selected.toLocation())
++    }
++
++    fun runEffect(effect: CityEffect): Boolean =
++        when (effect) {
++            is CityEffect.Select -> {
++                applyEdit(repository.cities.select(effect.name))
++                true
++            }
++
++            is CityEffect.AddResult -> {
++                results.getOrNull(effect.index)?.let { applyEdit(repository.cities.add(it)) }
++                true
++            }
++
++            is CityEffect.Remove -> {
++                applyEdit(repository.cities.remove(effect.name))
++                true
++            }
++
++            CityEffect.Reset -> {
++                applyEdit(repository.cities.reset())
++                true
++            }
++
++            is CityEffect.Search -> {
++                results = CityCatalog.search(effect.text, exclude = cityState.cities)
++                true
++            }
++
++            // Leaving the section: let the system handle Back, and let Tab move focus on.
++            CityEffect.Exit, is CityEffect.FocusLeaves -> false
++
++            CityEffect.None -> true
++        }
++
++    fun onKey(event: AndroidKeyEvent): Boolean {
++        if (event.action != AndroidKeyEvent.ACTION_DOWN) return false
++        val raw = RawKey(event.keyCode, event.unicodeChar, event.metaState, event.repeatCount > 0)
++        val reduction = model.reduce(screen, KeyMapper.map(raw, editableFocused = fieldFocused))
++        screen = reduction.state
++        if (!reduction.consumed) return false
++        return runEffect(reduction.effect)
++    }
++
++    // Not on first composition: grabbing focus at launch would scroll the forecast away. The first arrow key
++    // reaches the section through normal focus traversal.
++    var focusPasses by remember { mutableStateOf(0) }
++    LaunchedEffect(screen.screen) {
++        focusPasses += 1
++        if (focusPasses == 1) return@LaunchedEffect
++        runCatching {
++            if (screen.screen == CityScreen.Add) fieldFocus.requestFocus() else listFocus.requestFocus()
++        }
++    }
++
++    Column(
++        modifier =
++            Modifier
++                .fillMaxWidth()
++                .focusRequester(listFocus)
++                .focusable()
++                .onPreviewKeyEvent { onKey(it.nativeKeyEvent) },
++    ) {
++        Text(
++            text = "cities",
++            style = MaterialTheme.typography.headlineMedium,
++            color = MaterialTheme.colorScheme.onBackground,
++        )
++        when (screen.screen) {
++            CityScreen.List -> {
++                CityList(
++                    cities = cityState.cities,
++                    selected = cityState.selected,
++                    focusedId = if (screen.focusVisible) model.focusedId(screen) else null,
++                    onSelect = { runEffect(CityEffect.Select(it)) },
++                    onRemove = { name ->
++                        screen =
++                            model.onTouch(screen).copy(
++                                screen = CityScreen.ConfirmRemove,
++                                pendingRemove = name,
++                                dialog = DialogButton.Cancel,
++                            )
++                    },
++                    onAdd = { screen = model.onTouch(screen).copy(screen = CityScreen.Add, query = "") },
++                    onReset = {
++                        screen = model.onTouch(screen).copy(screen = CityScreen.ConfirmReset, dialog = DialogButton.Cancel)
++                    },
++                )
++            }
++
++            CityScreen.Add -> {
++                OutlinedTextField(
++                    value = screen.query,
++                    onValueChange = { text ->
++                        val r = model.onQueryChanged(screen, text)
++                        screen = r.state
++                        runEffect(r.effect)
++                    },
++                    singleLine = true,
++                    label = { Text("city, or Name, lat, lon, Area/Zone") },
++                    modifier =
++                        Modifier
++                            .fillMaxWidth()
++                            .padding(vertical = 8.dp)
++                            .focusRequester(fieldFocus)
++                            .onFocusChanged { fieldFocused = it.isFocused },
++                )
++                if (results.isEmpty() && screen.query.isNotBlank()) {
++                    Text(
++                        text = "No match. Enter Name, latitude, longitude, Area/Zone.",
++                        style = MaterialTheme.typography.bodyMedium,
++                        color = MaterialTheme.colorScheme.onSurfaceVariant,
++                    )
++                }
++                results.forEachIndexed { index, city ->
++                    CityRow(
++                        title = city.name,
++                        detail = city.timezone,
++                        trailing = "add",
++                        focused = screen.focusVisible && screen.resultFocus == index,
++                        onClick = { runEffect(CityEffect.AddResult(index)) },
++                    )
++                }
++                CityRow(
++                    title = "cancel",
++                    detail = null,
++                    trailing = "",
++                    focused = false,
++                    onClick = { screen = model.afterChange(screen, cityState.selected.name) },
++                )
++            }
++
++            CityScreen.ConfirmRemove, CityScreen.ConfirmReset -> {
++                ConfirmBlock(
++                    question =
++                        if (screen.screen == CityScreen.ConfirmRemove) {
++                            "Remove ${screen.pendingRemove}?"
++                        } else {
++                            "Reset to the built-in cities? Added cities are removed."
++                        },
++                    focused = if (screen.focusVisible) screen.dialog else null,
++                    onCancel = { screen = screen.copy(screen = CityScreen.List, pendingRemove = null) },
++                    onConfirm = {
++                        val effect = screen.pendingRemove?.let { CityEffect.Remove(it) } ?: CityEffect.Reset
++                        screen = screen.copy(screen = CityScreen.List)
++                        runEffect(effect)
++                    },
++                )
++            }
++        }
++    }
++}
++
++@Composable
++private fun CityList(
++    cities: List<City>,
++    selected: City,
++    focusedId: String?,
++    onSelect: (String) -> Unit,
++    onRemove: (String) -> Unit,
++    onAdd: () -> Unit,
++    onReset: () -> Unit,
++) {
++    cities.forEach { city ->
++        val isSelected = city == selected
++        Row(
++            modifier = Modifier.fillMaxWidth(),
++            horizontalArrangement = Arrangement.SpaceBetween,
++        ) {
++            Column(
++                modifier =
++                    Modifier
++                        .weight(1f)
++                        .focusOutline(focusedId == CityIds.row(city.name))
++                        .clickable { onSelect(city.name) }
++                        .padding(vertical = 12.dp),
++            ) {
++                Text(
++                    text = city.name,
++                    style = MaterialTheme.typography.titleMedium,
++                    color = MaterialTheme.colorScheme.onBackground,
++                )
++                Text(
++                    text = if (isSelected) "current · manual city" else city.timezone,
++                    style = MaterialTheme.typography.bodyMedium,
++                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
++                )
++            }
++            Spacer(Modifier.width(8.dp))
++            Text(
++                text = "remove",
++                style = MaterialTheme.typography.labelLarge,
++                color = MaterialTheme.colorScheme.onSurfaceVariant,
++                modifier =
++                    Modifier
++                        .focusOutline(focusedId == CityIds.remove(city.name))
++                        .clickable { onRemove(city.name) }
++                        .padding(12.dp),
++            )
++        }
++        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
++    }
++    CityRow("add city", "type a name, or press any letter", "+", focusedId == CityIds.ADD, onAdd)
++    CityRow("reset to built-in cities", null, "", focusedId == CityIds.RESET, onReset)
++}
++
++@Composable
++private fun CityRow(
++    title: String,
++    detail: String?,
++    trailing: String,
++    focused: Boolean,
++    onClick: () -> Unit,
++) {
++    Row(
++        modifier =
++            Modifier
++                .fillMaxWidth()
++                .focusOutline(focused)
++                .clickable(onClick = onClick)
++                .padding(vertical = 12.dp),
++        horizontalArrangement = Arrangement.SpaceBetween,
++    ) {
++        Column(modifier = Modifier.weight(1f)) {
++            Text(
++                text = title,
++                style = MaterialTheme.typography.titleMedium,
++                color = MaterialTheme.colorScheme.onBackground,
++            )
++            if (detail != null) {
++                Text(
++                    text = detail,
++                    style = MaterialTheme.typography.bodyMedium,
++                    color = MaterialTheme.colorScheme.onSurfaceVariant,
++                )
++            }
++        }
++        Text(
++            text = trailing,
++            style = MaterialTheme.typography.labelLarge,
++            color = MaterialTheme.colorScheme.primary,
++        )
++    }
++    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
++}
++
++@Composable
++private fun ConfirmBlock(
++    question: String,
++    focused: DialogButton?,
++    onCancel: () -> Unit,
++    onConfirm: () -> Unit,
++) {
++    Column(modifier = Modifier.padding(vertical = 12.dp)) {
++        Text(
++            text = question,
++            style = MaterialTheme.typography.titleMedium,
++            color = MaterialTheme.colorScheme.onBackground,
++        )
++        Row(modifier = Modifier.padding(top = 8.dp)) {
++            Text(
++                text = "cancel",
++                style = MaterialTheme.typography.labelLarge,
++                color = MaterialTheme.colorScheme.onBackground,
++                modifier =
++                    Modifier
++                        .focusOutline(focused == DialogButton.Cancel)
++                        .clickable(onClick = onCancel)
++                        .padding(12.dp),
++            )
++            Spacer(Modifier.width(16.dp))
++            Text(
++                text = "confirm",
++                style = MaterialTheme.typography.labelLarge,
++                color = MaterialTheme.colorScheme.primary,
++                modifier =
++                    Modifier
++                        .focusOutline(focused == DialogButton.Confirm)
++                        .clickable(onClick = onConfirm)
++                        .padding(12.dp),
++            )
++        }
++    }
++}
++
++@Composable
++private fun Modifier.focusOutline(focused: Boolean): Modifier =
++    if (focused) border(2.dp, MaterialTheme.colorScheme.primary) else this
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/MainActivity.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/MainActivity.kt
+index a455f2c..77f5758 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/MainActivity.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/MainActivity.kt
+@@ -5,7 +5,6 @@ import androidx.activity.ComponentActivity
+ import androidx.activity.compose.setContent
+ import androidx.activity.enableEdgeToEdge
+ import androidx.compose.foundation.background
+-import androidx.compose.foundation.clickable
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.Column
+@@ -89,12 +88,21 @@ private fun WeatherApp() {
+                 message = "Refreshing forecast…",
+             )
+ 
++        val requested = selectedLocation
+         scope.launch {
+-            state =
++            val result =
+                 withContext(Dispatchers.IO) {
+-                    repository.refresh(selectedLocation)
++                    repository.refresh(requested)
+                 }
++            // A forecast is only shown for the city it was fetched for (IR-015); a late result for a city the
++            // user has since left stays in that city's cache entry.
+             refreshing = false
++            if (requested == selectedLocation) {
++                state = result
++            } else {
++                state = repository.load(selectedLocation)
++                if (state.snapshot == null) refresh()
++            }
+         }
+     }
+ 
+@@ -155,17 +163,12 @@ private fun WeatherApp() {
+             }
+ 
+             Spacer(Modifier.height(SableSpacing.Xl))
+-            SectionHeader("locations")
+-
+-            DefaultWeatherLocations.forEach { location ->
+-                LocationRow(
+-                    location = location,
+-                    selected = location == selectedLocation,
+-                    onClick = {
+-                        selectedLocation = location
+-                    },
+-                )
+-            }
++            CitiesSection(
++                repository = repository,
++                onActiveCityChanged = { location ->
++                    selectedLocation = location
++                },
++            )
+ 
+             Spacer(Modifier.height(SableSpacing.Xl))
+             Text(
+@@ -365,52 +368,6 @@ private fun DailySection(daily: List<DayWeather>) {
+     }
+ }
+ 
+-@Composable
+-private fun LocationRow(
+-    location: WeatherLocation,
+-    selected: Boolean,
+-    onClick: () -> Unit,
+-) {
+-    Row(
+-        modifier =
+-            Modifier
+-                .fillMaxWidth()
+-                .clickable(onClick = onClick)
+-                .padding(vertical = 12.dp),
+-        horizontalArrangement = Arrangement.SpaceBetween,
+-    ) {
+-        Column {
+-            Text(
+-                text = location.name,
+-                style = MaterialTheme.typography.titleMedium,
+-                color = MaterialTheme.colorScheme.onBackground,
+-            )
+-            Text(
+-                text =
+-                    if (selected) {
+-                        "selected · manual location"
+-                    } else {
+-                        location.timezone
+-                    },
+-                style = MaterialTheme.typography.bodyMedium,
+-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+-            )
+-        }
+-
+-        Text(
+-            text = if (selected) "current" else "›",
+-            style = MaterialTheme.typography.labelLarge,
+-            color =
+-                if (selected) {
+-                    MaterialTheme.colorScheme.primary
+-                } else {
+-                    MaterialTheme.colorScheme.onSurfaceVariant
+-                },
+-        )
+-    }
+-    Hairline()
+-}
+-
+ @Composable
+ private fun WeatherNotice(
+     title: String,
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherModels.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherModels.kt
+index 47942ba..90e00f0 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherModels.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherModels.kt
+@@ -1,5 +1,8 @@
+ package org.sableos.weather
+ 
++import org.sableos.weather.cities.City
++import org.sableos.weather.cities.DefaultCities
++
+ internal enum class WeatherAvailability {
+     Local,
+     Fetching,
+@@ -169,30 +172,9 @@ internal object WeatherProtocol {
+         }
+ }
+ 
+-internal val DefaultWeatherLocations =
+-    listOf(
+-        WeatherLocation(
+-            name = "Jersey City",
+-            latitude = 40.7178,
+-            longitude = -74.0430,
+-            timezone = "America/New_York",
+-        ),
+-        WeatherLocation(
+-            name = "New York",
+-            latitude = 40.7128,
+-            longitude = -74.0060,
+-            timezone = "America/New_York",
+-        ),
+-        WeatherLocation(
+-            name = "Edison",
+-            latitude = 40.5187,
+-            longitude = -74.4121,
+-            timezone = "America/New_York",
+-        ),
+-        WeatherLocation(
+-            name = "Mumbai",
+-            latitude = 19.0760,
+-            longitude = 72.8777,
+-            timezone = "Asia/Kolkata",
+-        ),
+-    )
++/** The built-in cities; the user-managed list lives in [org.sableos.weather.cities.CityRepository]. */
++internal val DefaultWeatherLocations: List<WeatherLocation> = DefaultCities.ALL.map { it.toLocation() }
++
++internal fun City.toLocation(): WeatherLocation = WeatherLocation(name, latitude, longitude, timezone)
++
++internal fun WeatherLocation.toCity(): City = City(name, latitude, longitude, timezone)
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRepository.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRepository.kt
+index 4acce87..bc47cd7 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRepository.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRepository.kt
+@@ -1,9 +1,15 @@
+ package org.sableos.weather
+ 
+ import android.content.Context
++import android.content.SharedPreferences
+ import android.net.Uri
+ import java.net.URL
+ import javax.net.ssl.HttpsURLConnection
++import org.sableos.weather.cities.CityEdit
++import org.sableos.weather.cities.CityRepository
++import org.sableos.weather.cities.ForecastCache
++import org.sableos.weather.cities.KeyValueStore
++import org.sableos.weather.cities.LegacyWeatherCache
+ 
+ internal class WeatherRepository(
+     context: Context,
+@@ -14,21 +20,26 @@ internal class WeatherRepository(
+             WeatherSnapshotContract.PREFERENCES_NAME,
+             Context.MODE_PRIVATE,
+         )
++    private val store = PreferencesStore(preferences)
++
++    /** The user-managed city list and selection (IR-015). */
++    val cities = CityRepository(store)
++
++    /** One cached forecast per city, keyed by coordinates and timezone (IR-015). */
++    private val forecasts = ForecastCache(store)
++
++    init {
++        LegacyWeatherCache.migrate(store)
++    }
+ 
+     fun load(
+         location: WeatherLocation = loadLocation(),
+         nowEpochSeconds: Long = System.currentTimeMillis() / 1000,
+     ): WeatherUiState {
+-        val protocol =
+-            preferences.getString(
+-                WeatherSnapshotContract.KEY_PROTOCOL,
+-                null,
+-            )
+-        val observed =
+-            preferences.getLong(
+-                WeatherSnapshotContract.KEY_OBSERVED_EPOCH_SECONDS,
+-                0L,
+-            )
++        // Only this city's own cached forecast may be shown under its name.
++        val cached = forecasts.read(location.toCity())
++        val protocol = cached?.protocol
++        val observed = cached?.observedEpochSeconds ?: 0L
+ 
+         if (protocol.isNullOrBlank() || observed <= 0L) {
+             return WeatherUiState(
+@@ -82,8 +93,6 @@ internal class WeatherRepository(
+         fahrenheit: Boolean = true,
+         nowEpochSeconds: Long = System.currentTimeMillis() / 1000,
+     ): WeatherUiState {
+-        saveLocation(location)
+-
+         val cached = load(location, nowEpochSeconds)
+         val url =
+             WeatherNative.buildForecastUrl(
+@@ -144,15 +153,7 @@ internal class WeatherRepository(
+             )
+         }
+ 
+-        preferences
+-            .edit()
+-            .putString(
+-                WeatherSnapshotContract.KEY_PROTOCOL,
+-                protocol,
+-            ).putLong(
+-                WeatherSnapshotContract.KEY_OBSERVED_EPOCH_SECONDS,
+-                nowEpochSeconds,
+-            ).apply()
++        forecasts.write(location.toCity(), protocol, nowEpochSeconds)
+ 
+         appContext.contentResolver.notifyChange(
+             WeatherSnapshotContract.SNAPSHOT_URI,
+@@ -167,24 +168,21 @@ internal class WeatherRepository(
+         )
+     }
+ 
+-    fun loadLocation(): WeatherLocation {
+-        val name =
+-            preferences.getString(
+-                WeatherSnapshotContract.KEY_LOCATION_NAME,
++    fun loadLocation(): WeatherLocation = cities.load().selected.toLocation()
++
++    /**
++     * Applies the result of a city edit: drops cached forecasts of removed cities and, when the active city
++     * changed, tells the Start/Live snapshot to re-query (it reads the active city's own cache entry).
++     */
++    fun afterCityEdit(edit: CityEdit) {
++        if (!edit.changed) return
++        forecasts.retainOnly(edit.state.cities)
++        if (edit.refresh) {
++            appContext.contentResolver.notifyChange(
++                WeatherSnapshotContract.SNAPSHOT_URI,
+                 null,
+             )
+-        return DefaultWeatherLocations.firstOrNull { location ->
+-            location.name == name
+-        } ?: DefaultWeatherLocations.first()
+-    }
+-
+-    private fun saveLocation(location: WeatherLocation) {
+-        preferences
+-            .edit()
+-            .putString(
+-                WeatherSnapshotContract.KEY_LOCATION_NAME,
+-                location.name,
+-            ).apply()
++        }
+     }
+ 
+     private fun fetchHttps(url: String): String {
+@@ -247,7 +245,27 @@ internal object WeatherSnapshotContract {
+     const val COLUMN_OBSERVED_AT = "observed_at"
+ 
+     const val PREFERENCES_NAME = "sable_weather_snapshot"
+-    const val KEY_PROTOCOL = "protocol"
+-    const val KEY_OBSERVED_EPOCH_SECONDS = "observed_epoch_seconds"
+-    const val KEY_LOCATION_NAME = "location_name"
++}
++
++/**
++ * [KeyValueStore] over Weather's private preferences. Reads go through [SharedPreferences.getAll] so values that
++ * older builds stored as longs read back as text instead of throwing.
++ */
++internal class PreferencesStore(
++    private val preferences: SharedPreferences,
++) : KeyValueStore {
++    override fun get(key: String): String? = preferences.all[key]?.toString()
++
++    override fun put(
++        key: String,
++        value: String,
++    ) {
++        preferences.edit().putString(key, value).apply()
++    }
++
++    override fun remove(key: String) {
++        preferences.edit().remove(key).apply()
++    }
++
++    override fun keys(): Set<String> = preferences.all.keys.toSet()
+ }
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/Cities.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/Cities.kt
+new file mode 100644
+index 0000000..fabe526
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/Cities.kt
+@@ -0,0 +1,159 @@
++package org.sableos.weather.cities
++
++// Ported from sable-src/reference/sable-weather-cities (IR-015) into canonical Weather.
++
++import java.time.ZoneId
++import kotlin.math.abs
++
++/** A user-visible city: the only things Weather needs to ask Open-Meteo for a forecast. */
++data class City(val name: String, val latitude: Double, val longitude: Double, val timezone: String)
++
++enum class Reason {
++    BlankName,
++    NameTooLong,
++    NotFinite,
++    LatitudeOutOfRange,
++    LongitudeOutOfRange,
++    BadTimezone,
++    Duplicate,
++    TooManyCities,
++    NotFound,
++    LastCity
++}
++
++/** The four built-in cities of canonical Weather (same values as `DefaultWeatherLocations`). */
++object DefaultCities {
++    val ALL: List<City> =
++        listOf(
++            City("Jersey City", 40.7178, -74.0430, "America/New_York"),
++            City("New York", 40.7128, -74.0060, "America/New_York"),
++            City("Edison", 40.5187, -74.4121, "America/New_York"),
++            City("Mumbai", 19.0760, 72.8777, "Asia/Kolkata")
++        )
++}
++
++object CityRules {
++    const val MAX_NAME = 60
++    const val MAX_CITIES = 20
++    const val DUPLICATE_DEGREES = 0.01
++
++    fun normalizedName(name: String): String = name.trim().replace(Regex("\\s+"), " ")
++
++    fun sameName(a: String, b: String): Boolean =
++        normalizedName(a).equals(normalizedName(b), ignoreCase = true)
++
++    fun validTimezone(timezone: String): Boolean = timezone in ZoneId.getAvailableZoneIds()
++
++    /** Null means the city is valid. Nothing here needs a network or a location permission. */
++    fun validate(city: City): Reason? {
++        val name = normalizedName(city.name)
++        val finite = city.latitude.isFinite() && city.longitude.isFinite()
++        return when {
++            name.isEmpty() -> Reason.BlankName
++            name.length > MAX_NAME -> Reason.NameTooLong
++            !finite -> Reason.NotFinite
++            city.latitude !in -90.0..90.0 -> Reason.LatitudeOutOfRange
++            city.longitude !in -180.0..180.0 -> Reason.LongitudeOutOfRange
++            !validTimezone(city.timezone) -> Reason.BadTimezone
++            else -> null
++        }
++    }
++
++    fun samePlace(a: City, b: City): Boolean {
++        val near = abs(a.latitude - b.latitude) < DUPLICATE_DEGREES &&
++            abs(a.longitude - b.longitude) < DUPLICATE_DEGREES
++        return sameName(a.name, b.name) || near
++    }
++}
++
++/** What an edit did. [refresh] is true when the active city changed, so Start/Live must refresh. */
++data class CityEdit(
++    val state: CityState,
++    val reason: Reason? = null,
++    val refresh: Boolean = false
++) {
++    val changed: Boolean get() = reason == null
++}
++
++/**
++ * The user's city list and the selected city. It is never empty and always has a selection.
++ * Every edit returns a new state and says whether the active city changed.
++ */
++data class CityState(val cities: List<City>, val selectedName: String) {
++    val selected: City
++        get() = cities.firstOrNull { CityRules.sameName(it.name, selectedName) } ?: cities.first()
++
++    fun add(city: City, select: Boolean = true): CityEdit {
++        val clean = city.copy(name = CityRules.normalizedName(city.name))
++        val reason = CityRules.validate(clean) ?: addConflict(clean)
++        if (reason != null) return CityEdit(this, reason)
++        val next =
++            copy(cities = cities + clean, selectedName = if (select) clean.name else selectedName)
++        return done(next)
++    }
++
++    fun remove(name: String): CityEdit {
++        val index = cities.indexOfFirst { CityRules.sameName(it.name, name) }
++        val reason = removeConflict(index)
++        if (reason != null) return CityEdit(this, reason)
++        val left = cities.filterIndexed { i, _ -> i != index }
++        val keep = CityRules.sameName(selected.name, name).not()
++        val selectedNext = if (keep) selected.name else neighbour(left, index)
++        return done(copy(cities = left, selectedName = selectedNext))
++    }
++
++    fun select(name: String): CityEdit {
++        val found = cities.firstOrNull { CityRules.sameName(it.name, name) }
++        if (found == null) return CityEdit(this, Reason.NotFound)
++        return done(copy(selectedName = found.name))
++    }
++
++    /** Back to the built-in cities; the selection is kept only if it is one of them. */
++    fun reset(): CityEdit {
++        val keep = DefaultCities.ALL.firstOrNull { CityRules.sameName(it.name, selected.name) }
++        return done(CityState(DefaultCities.ALL, (keep ?: DefaultCities.ALL.first()).name))
++    }
++
++    private fun neighbour(left: List<City>, index: Int): String =
++        left[index.coerceAtMost(left.lastIndex)].name
++
++    private fun removeConflict(index: Int): Reason? = when {
++        index < 0 -> Reason.NotFound
++        cities.size == 1 -> Reason.LastCity
++        else -> null
++    }
++
++    private fun addConflict(city: City): Reason? = when {
++        cities.any { CityRules.samePlace(it, city) } -> Reason.Duplicate
++        cities.size >= CityRules.MAX_CITIES -> Reason.TooManyCities
++        else -> null
++    }
++
++    private fun done(next: CityState) =
++        CityEdit(next, null, StartLiveRefresh.needsRefresh(selected, next.selected))
++
++    companion object {
++        fun defaults() = CityState(DefaultCities.ALL, DefaultCities.ALL.first().name)
++
++        /** Repairs anything unusable: no valid city means the defaults, an unknown selection means the first. */
++        fun of(cities: List<City>, selectedName: String?): CityState {
++            val valid = cities.filter { CityRules.validate(it) == null }
++            val unique = valid.fold(emptyList<City>()) { acc, c ->
++                if (acc.any { CityRules.samePlace(it, c) }) {
++                    acc
++                } else {
++                    acc +
++                        c
++                }
++            }
++            val list = unique.take(CityRules.MAX_CITIES)
++            if (list.isEmpty()) return defaults()
++            val chosen =
++                list.firstOrNull {
++                    selectedName != null && CityRules.sameName(it.name, selectedName)
++                }
++                    ?: list.first()
++            return CityState(list, chosen.name)
++        }
++    }
++}
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityCatalog.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityCatalog.kt
+new file mode 100644
+index 0000000..05aed62
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityCatalog.kt
+@@ -0,0 +1,104 @@
++package org.sableos.weather.cities
++
++/**
++ * Offline search source for the add-city screen. Weather has no geocoding backend and adds none: search runs over
++ * this built-in list, and a city that is not listed can be entered as "Name, latitude, longitude, Area/Zone".
++ */
++object CityCatalog {
++    const val MAX_RESULTS = 8
++
++    val ALL: List<City> =
++        listOf(
++            City("Amsterdam", 52.3676, 4.9041, "Europe/Amsterdam"),
++            City("Athens", 37.9838, 23.7275, "Europe/Athens"),
++            City("Atlanta", 33.7490, -84.3880, "America/New_York"),
++            City("Auckland", -36.8485, 174.7633, "Pacific/Auckland"),
++            City("Bangalore", 12.9716, 77.5946, "Asia/Kolkata"),
++            City("Bangkok", 13.7563, 100.5018, "Asia/Bangkok"),
++            City("Barcelona", 41.3874, 2.1686, "Europe/Madrid"),
++            City("Beijing", 39.9042, 116.4074, "Asia/Shanghai"),
++            City("Berlin", 52.5200, 13.4050, "Europe/Berlin"),
++            City("Boston", 42.3601, -71.0589, "America/New_York"),
++            City("Buenos Aires", -34.6037, -58.3816, "America/Argentina/Buenos_Aires"),
++            City("Cairo", 30.0444, 31.2357, "Africa/Cairo"),
++            City("Cape Town", -33.9249, 18.4241, "Africa/Johannesburg"),
++            City("Chennai", 13.0827, 80.2707, "Asia/Kolkata"),
++            City("Chicago", 41.8781, -87.6298, "America/Chicago"),
++            City("Dallas", 32.7767, -96.7970, "America/Chicago"),
++            City("Delhi", 28.6139, 77.2090, "Asia/Kolkata"),
++            City("Denver", 39.7392, -104.9903, "America/Denver"),
++            City("Dubai", 25.2048, 55.2708, "Asia/Dubai"),
++            City("Dublin", 53.3498, -6.2603, "Europe/Dublin"),
++            City("Edison", 40.5187, -74.4121, "America/New_York"),
++            City("Hong Kong", 22.3193, 114.1694, "Asia/Hong_Kong"),
++            City("Houston", 29.7604, -95.3698, "America/Chicago"),
++            City("Hyderabad", 17.3850, 78.4867, "Asia/Kolkata"),
++            City("Istanbul", 41.0082, 28.9784, "Europe/Istanbul"),
++            City("Jakarta", -6.2088, 106.8456, "Asia/Jakarta"),
++            City("Jersey City", 40.7178, -74.0430, "America/New_York"),
++            City("Johannesburg", -26.2041, 28.0473, "Africa/Johannesburg"),
++            City("Kolkata", 22.5726, 88.3639, "Asia/Kolkata"),
++            City("Lagos", 6.5244, 3.3792, "Africa/Lagos"),
++            City("Lisbon", 38.7223, -9.1393, "Europe/Lisbon"),
++            City("London", 51.5074, -0.1278, "Europe/London"),
++            City("Los Angeles", 34.0522, -118.2437, "America/Los_Angeles"),
++            City("Madrid", 40.4168, -3.7038, "Europe/Madrid"),
++            City("Melbourne", -37.8136, 144.9631, "Australia/Melbourne"),
++            City("Mexico City", 19.4326, -99.1332, "America/Mexico_City"),
++            City("Miami", 25.7617, -80.1918, "America/New_York"),
++            City("Montreal", 45.5019, -73.5674, "America/Toronto"),
++            City("Moscow", 55.7558, 37.6173, "Europe/Moscow"),
++            City("Mumbai", 19.0760, 72.8777, "Asia/Kolkata"),
++            City("Nairobi", -1.2921, 36.8219, "Africa/Nairobi"),
++            City("New York", 40.7128, -74.0060, "America/New_York"),
++            City("Newark", 40.7357, -74.1724, "America/New_York"),
++            City("Paris", 48.8566, 2.3522, "Europe/Paris"),
++            City("Philadelphia", 39.9526, -75.1652, "America/New_York"),
++            City("Phoenix", 33.4484, -112.0740, "America/Phoenix"),
++            City("Pune", 18.5204, 73.8567, "Asia/Kolkata"),
++            City("Rome", 41.9028, 12.4964, "Europe/Rome"),
++            City("San Francisco", 37.7749, -122.4194, "America/Los_Angeles"),
++            City("Sao Paulo", -23.5505, -46.6333, "America/Sao_Paulo"),
++            City("Seattle", 47.6062, -122.3321, "America/Los_Angeles"),
++            City("Seoul", 37.5665, 126.9780, "Asia/Seoul"),
++            City("Shanghai", 31.2304, 121.4737, "Asia/Shanghai"),
++            City("Shenzhen", 22.5431, 114.0579, "Asia/Shanghai"),
++            City("Singapore", 1.3521, 103.8198, "Asia/Singapore"),
++            City("Stockholm", 59.3293, 18.0686, "Europe/Stockholm"),
++            City("Sydney", -33.8688, 151.2093, "Australia/Sydney"),
++            City("Taipei", 25.0330, 121.5654, "Asia/Taipei"),
++            City("Tokyo", 35.6762, 139.6503, "Asia/Tokyo"),
++            City("Toronto", 43.6532, -79.3832, "America/Toronto"),
++            City("Vancouver", 49.2827, -123.1207, "America/Vancouver"),
++            City("Vienna", 48.2082, 16.3738, "Europe/Vienna"),
++            City("Warsaw", 52.2297, 21.0122, "Europe/Warsaw"),
++            City("Washington", 38.9072, -77.0369, "America/New_York"),
++            City("Zurich", 47.3769, 8.5417, "Europe/Zurich")
++        )
++
++    /**
++     * Cities whose name starts with [query] first, then names containing it; an exact manual entry
++     * ("Name, lat, lon, Area/Zone") is offered first when it parses and validates. Cities already in [exclude] are
++     * left out. A blank query has no results.
++     */
++    fun search(query: String, exclude: List<City> = emptyList()): List<City> {
++        val q = CityRules.normalizedName(query)
++        if (q.isEmpty()) return emptyList()
++        val manual = parseManual(q)?.let { listOf(it) }.orEmpty()
++        val prefix = ALL.filter { it.name.startsWith(q, ignoreCase = true) }
++        val contains = ALL.filter { it.name.contains(q, ignoreCase = true) && it !in prefix }
++        return (manual + prefix + contains)
++            .filter { c -> exclude.none { CityRules.samePlace(it, c) } }
++            .take(MAX_RESULTS)
++    }
++
++    /** "Name, latitude, longitude, Area/Zone" -> a valid [City], or null. */
++    fun parseManual(text: String): City? {
++        val parts = text.split(',').map { it.trim() }
++        if (parts.size != 4) return null
++        val lat = parts[1].toDoubleOrNull() ?: return null
++        val lon = parts[2].toDoubleOrNull() ?: return null
++        val city = City(CityRules.normalizedName(parts[0]), lat, lon, parts[3])
++        return if (CityRules.validate(city) == null) city else null
++    }
++}
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityKeys.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityKeys.kt
+new file mode 100644
+index 0000000..6417e4b
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityKeys.kt
+@@ -0,0 +1,294 @@
++package org.sableos.weather.cities
++
++// Ported from sable-src/reference/sable-weather-cities (IR-015) into canonical Weather.
++
++import org.sableos.weather.input.KeyInput
++import org.sableos.weather.input.KeyKind
++
++enum class CityScreen { List, Add, ConfirmRemove, ConfirmReset }
++
++enum class DialogButton { Cancel, Confirm }
++
++object CityIds {
++    const val ADD = "add_city"
++    const val RESET = "reset_defaults"
++    const val QUERY = "query"
++    private const val CITY_PREFIX = "city:"
++    private const val REMOVE_SUFFIX = ":remove"
++    private const val RESULT_PREFIX = "result:"
++
++    fun row(name: String) = CITY_PREFIX + name
++
++    fun remove(name: String) = CITY_PREFIX + name + REMOVE_SUFFIX
++
++    fun result(index: Int) = RESULT_PREFIX + index
++
++    fun isRemove(id: String) = id.startsWith(CITY_PREFIX) && id.endsWith(REMOVE_SUFFIX)
++
++    fun isRow(id: String) = id.startsWith(CITY_PREFIX) && !id.endsWith(REMOVE_SUFFIX)
++
++    fun cityName(id: String) = id.removePrefix(CITY_PREFIX).removeSuffix(REMOVE_SUFFIX)
++}
++
++data class CityScreenState(
++    val screen: CityScreen = CityScreen.List,
++    /** List focus, by id. */
++    val focusId: String? = null,
++    val focusIndex: Int = 0,
++    val query: String = "",
++    /** -1 is the search field; 0.. are results. */
++    val resultFocus: Int = -1,
++    val pendingRemove: String? = null,
++    val dialog: DialogButton = DialogButton.Cancel,
++    val softKeyboard: Boolean = false,
++    val focusVisible: Boolean = false
++)
++
++sealed interface CityEffect {
++    object None : CityEffect
++
++    data class Select(val name: String) : CityEffect
++
++    data class AddResult(val index: Int) : CityEffect
++
++    data class Remove(val name: String) : CityEffect
++
++    object Reset : CityEffect
++
++    /** The search text changed; the host runs its own search and calls the model again with the results. */
++    data class Search(val text: String) : CityEffect
++
++    object Exit : CityEffect
++
++    data class FocusLeaves(val forward: Boolean) : CityEffect
++}
++
++data class CityReduction(
++    val state: CityScreenState,
++    val effect: CityEffect = CityEffect.None,
++    val consumed: Boolean = true
++)
++
++/**
++ * Keyboard behaviour of the manual city screen, independent of who draws it. A printable key opens the add-city
++ * search with that first character kept; the soft keyboard is requested only by touching the search field.
++ */
++class CityScreenModel(private val cities: List<City>, private val resultCount: Int = 0) {
++    private val ids: List<String> =
++        cities.flatMap { listOf(CityIds.row(it.name)) } + CityIds.ADD + CityIds.RESET
++
++    fun initial(selected: City): CityScreenState = at(CityScreenState(), CityIds.row(selected.name))
++
++    fun focusIndex(s: CityScreenState): Int {
++        val byId = s.focusId?.let { ids.indexOf(rowOf(it)) } ?: -1
++        return if (byId >= 0) byId else s.focusIndex.coerceIn(0, ids.lastIndex)
++    }
++
++    /** The focused item: a row, its remove action, Add or Reset. */
++    fun focusedId(s: CityScreenState): String {
++        val id = s.focusId
++        val remove = id != null && CityIds.isRemove(id) && ids.indexOf(rowOf(id)) >= 0
++        return if (remove) id.orEmpty() else ids[focusIndex(s)]
++    }
++
++    private fun rowOf(id: String) =
++        if (CityIds.isRemove(id)) CityIds.row(CityIds.cityName(id)) else id
++
++    fun reduce(s: CityScreenState, k: KeyInput): CityReduction {
++        val shown = s.copy(focusVisible = true)
++        return when {
++            k.hasCommandModifier -> CityReduction(s, consumed = false)
++            k.kind in UNHANDLED -> CityReduction(s, consumed = false)
++            k.editableFocused && k.kind in TEXT_KINDS -> CityReduction(s, consumed = false)
++            s.screen == CityScreen.List -> list(shown, k)
++            s.screen == CityScreen.Add -> add(shown, k)
++            else -> dialog(shown, k)
++        }
++    }
++
++    fun onTouch(s: CityScreenState) = s.copy(focusVisible = false)
++
++    fun onSearchFieldTapped(s: CityScreenState) = s.copy(softKeyboard = true, focusVisible = false)
++
++    /** The host edited the search text (typing, paste, clear). */
++    fun onQueryChanged(s: CityScreenState, text: String): CityReduction =
++        CityReduction(s.copy(query = text, resultFocus = -1), CityEffect.Search(text))
++
++    /** After an add, remove, select or reset: back to the list with focus on [focusName] or the nearest row. */
++    fun afterChange(s: CityScreenState, focusName: String?): CityScreenState {
++        val base = s.copy(
++            screen = CityScreen.List,
++            query = "",
++            resultFocus = -1,
++            pendingRemove = null,
++            softKeyboard = false
++        )
++        val id = focusName?.let { CityIds.row(it) }
++        return if (id != null && id in ids) at(base, id) else base.copy(focusId = null)
++    }
++
++    private fun at(s: CityScreenState, id: String): CityScreenState {
++        val i = ids.indexOf(rowOf(id)).coerceAtLeast(0)
++        return s.copy(focusId = if (CityIds.isRemove(id)) id else ids[i], focusIndex = i)
++    }
++
++    private fun move(s: CityScreenState, delta: Int) =
++        at(s, ids[(focusIndex(s) + delta).coerceIn(0, ids.lastIndex)])
++
++    private fun list(s: CityScreenState, k: KeyInput): CityReduction {
++        val id = focusedId(s)
++        return when (k.kind) {
++            KeyKind.Up -> CityReduction(move(s, -1))
++            KeyKind.Down -> CityReduction(move(s, 1))
++            KeyKind.MoveHome -> CityReduction(at(s, ids.first()))
++            KeyKind.MoveEnd -> CityReduction(at(s, ids.last()))
++            KeyKind.Tab -> tab(s, !k.shift)
++            KeyKind.Right -> CityReduction(toRemove(s, id))
++            KeyKind.Left -> CityReduction(toRow(s, id))
++            KeyKind.Activate, KeyKind.Space -> if (k.repeat) CityReduction(s) else activate(s, id)
++            KeyKind.Backspace -> removeRow(s, id, k)
++            KeyKind.Back, KeyKind.Escape -> CityReduction(s, CityEffect.Exit)
++            KeyKind.Printable -> if (k.repeat) CityReduction(s) else openAdd(s, k.char.toString())
++            else -> CityReduction(s, consumed = false)
++        }
++    }
++
++    private fun toRemove(s: CityScreenState, id: String): CityScreenState =
++        if (CityIds.isRow(id)) at(s, CityIds.remove(CityIds.cityName(id))) else s
++
++    private fun toRow(s: CityScreenState, id: String): CityScreenState =
++        if (CityIds.isRemove(id)) at(s, CityIds.row(CityIds.cityName(id))) else s
++
++    private fun removeRow(s: CityScreenState, id: String, k: KeyInput): CityReduction {
++        val allowed = CityIds.isRow(id) && !k.repeat
++        return if (allowed) askRemove(s, id) else CityReduction(s)
++    }
++
++    private fun tab(s: CityScreenState, forward: Boolean): CityReduction {
++        val next = focusIndex(s) + if (forward) 1 else -1
++        return if (next in
++            ids.indices
++        ) {
++            CityReduction(at(s, ids[next]))
++        } else {
++            CityReduction(s, CityEffect.FocusLeaves(forward))
++        }
++    }
++
++    private fun activate(s: CityScreenState, id: String): CityReduction = when {
++        id == CityIds.ADD -> openAdd(s, "")
++
++        id == CityIds.RESET -> CityReduction(
++            s.copy(screen = CityScreen.ConfirmReset, dialog = DialogButton.Cancel)
++        )
++
++        CityIds.isRemove(id) -> askRemove(s, id)
++
++        else -> CityReduction(s, CityEffect.Select(CityIds.cityName(id)))
++    }
++
++    private fun askRemove(s: CityScreenState, id: String) = CityReduction(
++        s.copy(
++            screen = CityScreen.ConfirmRemove,
++            pendingRemove = CityIds.cityName(id),
++            dialog = DialogButton.Cancel
++        )
++    )
++
++    private fun openAdd(s: CityScreenState, first: String): CityReduction {
++        val opened = s.copy(screen = CityScreen.Add, query = first, resultFocus = -1)
++        return CityReduction(
++            opened,
++            if (first.isEmpty()) CityEffect.None else CityEffect.Search(first)
++        )
++    }
++
++    private fun add(s: CityScreenState, k: KeyInput): CityReduction {
++        val onField = s.resultFocus < 0
++        val textKey = k.kind in TEXT_KINDS
++        return when {
++            onField && textKey -> CityReduction(s, consumed = false)
++
++            k.kind == KeyKind.Down -> CityReduction(
++                s.copy(resultFocus = (s.resultFocus + 1).coerceAtMost(resultCount - 1))
++            )
++
++            k.kind == KeyKind.Up -> CityReduction(
++                s.copy(resultFocus = (s.resultFocus - 1).coerceAtLeast(-1))
++            )
++
++            k.kind == KeyKind.Activate || k.kind == KeyKind.Space -> chooseResult(s, k)
++
++            k.kind == KeyKind.MoveHome -> CityReduction(resultEdge(s, first = true))
++
++            k.kind == KeyKind.MoveEnd -> CityReduction(resultEdge(s, first = false))
++
++            k.kind == KeyKind.Tab -> CityReduction(s, CityEffect.FocusLeaves(!k.shift))
++
++            k.kind == KeyKind.Back || k.kind == KeyKind.Escape -> CityReduction(close(s))
++
++            else -> CityReduction(s, consumed = false)
++        }
++    }
++
++    /** MoveHome/MoveEnd on the results (never on the search field, which keeps them). */
++    private fun resultEdge(s: CityScreenState, first: Boolean): CityScreenState {
++        val index = if (first) 0 else resultCount - 1
++        return s.copy(resultFocus = if (resultCount > 0) index else -1)
++    }
++
++    private fun chooseResult(s: CityScreenState, k: KeyInput): CityReduction {
++        val index = if (s.resultFocus >= 0) s.resultFocus else 0
++        val none = resultCount == 0 || k.repeat
++        return if (none) CityReduction(s) else CityReduction(s, CityEffect.AddResult(index))
++    }
++
++    private fun close(s: CityScreenState) = afterChange(s, s.focusId?.let { CityIds.cityName(it) })
++
++    private fun dialog(s: CityScreenState, k: KeyInput): CityReduction {
++        val toggle =
++            k.kind in setOf(KeyKind.Left, KeyKind.Right, KeyKind.Up, KeyKind.Down, KeyKind.Tab)
++        return when {
++            toggle -> CityReduction(s.copy(dialog = other(s.dialog)))
++            k.kind == KeyKind.Back || k.kind == KeyKind.Escape -> CityReduction(cancel(s))
++            k.kind == KeyKind.Activate || k.kind == KeyKind.Space -> confirm(s, k)
++            else -> CityReduction(s)
++        }
++    }
++
++    private fun other(b: DialogButton) = if (b ==
++        DialogButton.Cancel
++    ) {
++        DialogButton.Confirm
++    } else {
++        DialogButton.Cancel
++    }
++
++    private fun cancel(s: CityScreenState) =
++        s.copy(screen = CityScreen.List, pendingRemove = null, dialog = DialogButton.Cancel)
++
++    private fun confirm(s: CityScreenState, k: KeyInput): CityReduction {
++        if (k.repeat) return CityReduction(s)
++        if (s.dialog == DialogButton.Cancel) return CityReduction(cancel(s))
++        val effect = s.pendingRemove?.let { CityEffect.Remove(it) } ?: CityEffect.Reset
++        return CityReduction(s.copy(screen = CityScreen.List, dialog = DialogButton.Cancel), effect)
++    }
++
++    private companion object {
++        val TEXT_KINDS =
++            setOf(
++                KeyKind.Printable,
++                KeyKind.Space,
++                KeyKind.Backspace,
++                KeyKind.Left,
++                KeyKind.Right,
++                KeyKind.MoveHome,
++                KeyKind.MoveEnd,
++                KeyKind.PageUp,
++                KeyKind.PageDown
++            )
++
++        /** System HOME (Other) and PageUp/PageDown have no city behaviour: they stay unhandled, state unchanged. */
++        val UNHANDLED = setOf(KeyKind.Other, KeyKind.PageUp, KeyKind.PageDown)
++    }
++}
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityStore.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityStore.kt
+new file mode 100644
+index 0000000..15c25aa
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityStore.kt
+@@ -0,0 +1,102 @@
++package org.sableos.weather.cities
++
++// Ported from sable-src/reference/sable-weather-cities (IR-015) into canonical Weather.
++
++/**
++ * The only storage the model needs. The host backs it with its own private preferences.
++ * [remove] and [keys] are used only by the per-city forecast cache to drop entries of removed cities.
++ */
++interface KeyValueStore {
++    fun get(key: String): String?
++
++    fun put(key: String, value: String)
++
++    fun remove(key: String) {}
++
++    fun keys(): Set<String> = emptySet()
++}
++
++/** Plain-text, versioned encoding of the city list and the selection. Unreadable lines are dropped, never fatal. */
++object CityCodec {
++    const val HEADER = "SABLE_CITIES_V1"
++    private const val SELECTED = "SELECTED"
++    private const val CITY = "CITY"
++
++    fun encode(state: CityState): String {
++        val lines = mutableListOf(HEADER, "$SELECTED|${escape(state.selected.name)}")
++        state.cities.forEach {
++            lines +=
++                "$CITY|${escape(it.name)}|${it.latitude}|${it.longitude}|${escape(it.timezone)}"
++        }
++        return lines.joinToString("\n")
++    }
++
++    fun decode(text: String?): CityState {
++        val lines = text?.lines().orEmpty()
++        if (lines.firstOrNull() != HEADER) return CityState.defaults()
++        val selected = lines.firstOrNull {
++            it.startsWith("$SELECTED|")
++        }?.let { unescape(it.substringAfter('|')) }
++        val cities = lines.mapNotNull { city(it) }
++        return CityState.of(cities, selected)
++    }
++
++    private fun city(line: String): City? {
++        val parts = line.split('|')
++        if (parts.size != 5 || parts[0] != CITY) return null
++        val lat = parts[2].toDoubleOrNull()
++        val lon = parts[3].toDoubleOrNull()
++        return if (lat == null ||
++            lon == null
++        ) {
++            null
++        } else {
++            City(unescape(parts[1]), lat, lon, unescape(parts[4]))
++        }
++    }
++
++    private fun escape(s: String) =
++        s.replace("\\", "\\\\").replace("|", "\\p").replace("\n", "\\n").replace("\r", "\\r")
++
++    private fun unescape(s: String): String {
++        val out = StringBuilder()
++        var i = 0
++        while (i < s.length) {
++            val c = s[i]
++            val next = if (c == '\\' && i + 1 < s.length) s[i + 1] else null
++            val mapped = when (next) {
++                'p' -> '|'
++                'n' -> '\n'
++                'r' -> '\r'
++                '\\' -> '\\'
++                else -> null
++            }
++            out.append(mapped ?: c)
++            i += if (mapped != null) 2 else 1
++        }
++        return out.toString()
++    }
++}
++
++/** Load, edit and save. Every successful edit is written before it is reported, so a restart sees it. */
++class CityRepository(private val store: KeyValueStore) {
++    fun load(): CityState = CityCodec.decode(store.get(KEY))
++
++    fun add(city: City, select: Boolean = true): CityEdit = edit { it.add(city, select) }
++
++    fun remove(name: String): CityEdit = edit { it.remove(name) }
++
++    fun select(name: String): CityEdit = edit { it.select(name) }
++
++    fun reset(): CityEdit = edit { it.reset() }
++
++    private fun edit(op: (CityState) -> CityEdit): CityEdit {
++        val result = op(load())
++        if (result.changed) store.put(KEY, CityCodec.encode(result.state))
++        return result
++    }
++
++    companion object {
++        const val KEY = "cities_v1"
++    }
++}
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/ForecastCache.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/ForecastCache.kt
+new file mode 100644
+index 0000000..b5f7c0f
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/ForecastCache.kt
+@@ -0,0 +1,88 @@
++package org.sableos.weather.cities
++
++/**
++ * A cached forecast for exactly one city. [cacheKey] is [StartLiveRefresh.cacheKey] of the city it was fetched
++ * for, so a forecast can never be shown under another city's name.
++ */
++data class CachedForecast(val cacheKey: String, val protocol: String, val observedEpochSeconds: Long)
++
++/**
++ * Per-city forecast cache over the same [KeyValueStore] as the city list (IR-015).
++ *
++ * Each city has its own entry under `forecast_v1:<cacheKey>`. The entry repeats its cache key on its first line;
++ * [read] returns it only when that key matches the active city ([StartLiveRefresh.cacheValidFor]). Entries of
++ * cities that are no longer in the list are dropped by [retainOnly].
++ */
++class ForecastCache(private val store: KeyValueStore) {
++    fun read(city: City): CachedForecast? {
++        val text = store.get(entryKey(city)) ?: return null
++        val entry = decode(text) ?: return null
++        val valid =
++            StartLiveRefresh.cacheValidFor(entry.cacheKey, city) &&
++                entry.observedEpochSeconds > 0L &&
++                entry.protocol.isNotBlank()
++        return if (valid) entry else null
++    }
++
++    fun write(city: City, protocol: String, observedEpochSeconds: Long): CachedForecast {
++        val entry = CachedForecast(StartLiveRefresh.cacheKey(city), protocol, observedEpochSeconds)
++        store.put(entryKey(city), encode(entry))
++        return entry
++    }
++
++    /** Removes cached forecasts for cities not in [cities]. Returns the removed store keys. */
++    fun retainOnly(cities: List<City>): Set<String> {
++        val keep = cities.map { entryKey(it) }.toSet()
++        val drop = store.keys().filter { it.startsWith(PREFIX) && it !in keep }.toSet()
++        drop.forEach { store.remove(it) }
++        return drop
++    }
++
++    companion object {
++        const val PREFIX = "forecast_v1:"
++        private const val HEADER = "SABLE_FORECAST_V1"
++
++        fun entryKey(city: City): String = PREFIX + StartLiveRefresh.cacheKey(city)
++
++        fun encode(entry: CachedForecast): String =
++            listOf(HEADER, entry.cacheKey, entry.observedEpochSeconds.toString()).joinToString("\n") +
++                "\n" + entry.protocol
++
++        fun decode(text: String): CachedForecast? {
++            val parts = text.split('\n', limit = 4)
++            if (parts.size != 4 || parts[0] != HEADER) return null
++            val observed = parts[2].toLongOrNull() ?: return null
++            return CachedForecast(parts[1], parts[3], observed)
++        }
++    }
++}
++
++/**
++ * One-time move from the single-cache layout of earlier Weather builds (one `protocol`, one `observed_epoch_seconds`
++ * and a `location_name` for all cities) to the per-city layout.
++ *
++ * The old protocol is dropped, not migrated: `location_name` was written before each fetch, so after a failed fetch
++ * it named a different city than the cached forecast, and the forecast's real city cannot be recovered. The old
++ * selection is kept when it names a built-in city and no city list has been stored yet.
++ */
++object LegacyWeatherCache {
++    const val KEY_PROTOCOL = "protocol"
++    const val KEY_OBSERVED_EPOCH_SECONDS = "observed_epoch_seconds"
++    const val KEY_LOCATION_NAME = "location_name"
++
++    /** Returns true when anything was changed. */
++    fun migrate(store: KeyValueStore): Boolean {
++        val legacyName = store.get(KEY_LOCATION_NAME)
++        val hasLegacy =
++            listOf(KEY_LOCATION_NAME, KEY_PROTOCOL, KEY_OBSERVED_EPOCH_SECONDS).any { store.get(it) != null }
++        if (!hasLegacy) return false
++        if (store.get(CityRepository.KEY) == null) {
++            val state = CityState.of(DefaultCities.ALL, legacyName)
++            store.put(CityRepository.KEY, CityCodec.encode(state))
++        }
++        store.remove(KEY_PROTOCOL)
++        store.remove(KEY_OBSERVED_EPOCH_SECONDS)
++        store.remove(KEY_LOCATION_NAME)
++        return true
++    }
++}
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/StartLiveRefresh.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/StartLiveRefresh.kt
+new file mode 100644
+index 0000000..ecb9f47
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/StartLiveRefresh.kt
+@@ -0,0 +1,28 @@
++package org.sableos.weather.cities
++
++// Ported from sable-src/reference/sable-weather-cities (IR-015) into canonical Weather.
++
++/**
++ * What the Start/Live weather snapshot must do when the active city changes. The snapshot provider reads the
++ * active city on every query; this decides when it has to be refreshed and when a cached forecast may be shown.
++ */
++object StartLiveRefresh {
++    /** Manual cities never need a precise (or any) location permission. */
++    const val MANUAL_CITY_PRECISE_LOCATION_REQUIRED = false
++    const val NOTIFY_SNAPSHOT_ON_ACTIVE_CITY_CHANGE = true
++
++    /** Locale-independent identity of what a forecast was fetched for. */
++    fun cacheKey(city: City): String = "${city.latitude},${city.longitude},${city.timezone}"
++
++    fun needsRefresh(before: City?, after: City?): Boolean {
++        if (after == null) return false
++        return before == null || cacheKey(before) != cacheKey(after) || before.name != after.name
++    }
++
++    /**
++     * A cached forecast belongs to one city. Showing it under another city's name would be wrong, so it is
++     * valid only when the stored key matches the active city.
++     */
++    fun cacheValidFor(storedKey: String?, active: City): Boolean =
++        storedKey != null && storedKey == cacheKey(active)
++}
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/input/KeyInput.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/input/KeyInput.kt
+new file mode 100644
+index 0000000..27ee7f2
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/input/KeyInput.kt
+@@ -0,0 +1,115 @@
++package org.sableos.weather.input
++
++// Ported from sable-src/reference/sable-start-type-to-find (P1 normalized keys) into canonical Weather.
++
++/** Normalized key meaning. Device scan codes and device names never reach this layer. */
++enum class KeyKind {
++    Up,
++    Down,
++    Left,
++    Right,
++    Activate,
++    Space,
++    Back,
++    Escape,
++    MoveHome,
++    MoveEnd,
++    PageUp,
++    PageDown,
++    Tab,
++    Backspace,
++    Printable,
++    Other
++}
++
++/**
++ * One normalized key event. [char] is the character the platform key map already produced for the active
++ * layout (so Alt/Sym composition is the keyboard's business), and [editableFocused] says that a text field owns
++ * focus, in which case the model leaves text keys to the normal InputConnection/IME path.
++ */
++data class KeyInput(
++    val kind: KeyKind,
++    val char: Char = NO_CHAR,
++    val shift: Boolean = false,
++    val ctrl: Boolean = false,
++    val alt: Boolean = false,
++    val meta: Boolean = false,
++    val repeat: Boolean = false,
++    val editableFocused: Boolean = false
++) {
++    val hasCommandModifier: Boolean get() = ctrl || meta
++
++    companion object {
++        const val NO_CHAR = '\u0000'
++    }
++}
++
++/** A platform key event reduced to integers so the mapper stays pure (no framework types). */
++data class RawKey(val keyCode: Int, val unicode: Int, val metaState: Int, val repeat: Boolean)
++
++/**
++ * Maps public Android key codes and meta flags to [KeyInput]. Only documented, device-independent codes appear
++ * here: no scan codes, no per-device tables, no Build.* values.
++ */
++object KeyMapper {
++    const val KEYCODE_HOME = 3
++    const val KEYCODE_BACK = 4
++    const val KEYCODE_DPAD_UP = 19
++    const val KEYCODE_DPAD_DOWN = 20
++    const val KEYCODE_DPAD_LEFT = 21
++    const val KEYCODE_DPAD_RIGHT = 22
++    const val KEYCODE_DPAD_CENTER = 23
++    const val KEYCODE_PAGE_UP = 92
++    const val KEYCODE_PAGE_DOWN = 93
++    const val KEYCODE_TAB = 61
++    const val KEYCODE_SPACE = 62
++    const val KEYCODE_ENTER = 66
++    const val KEYCODE_DEL = 67
++    const val KEYCODE_ESCAPE = 111
++    const val KEYCODE_MOVE_HOME = 122
++    const val KEYCODE_MOVE_END = 123
++    const val KEYCODE_NUMPAD_ENTER = 160
++    const val META_SHIFT_ON = 0x1
++    const val META_ALT_ON = 0x2
++    const val META_CTRL_ON = 0x1000
++    const val META_META_ON = 0x10000
++    private const val COMBINING_ACCENT_MASK = 0x80000000.toInt()
++
++    fun map(raw: RawKey, editableFocused: Boolean = false): KeyInput {
++        val kind = kindOf(raw)
++        val char = if (kind == KeyKind.Printable) raw.unicode.toChar() else KeyInput.NO_CHAR
++        return KeyInput(
++            kind = kind,
++            char = char,
++            shift = raw.metaState and META_SHIFT_ON != 0,
++            ctrl = raw.metaState and META_CTRL_ON != 0,
++            alt = raw.metaState and META_ALT_ON != 0,
++            meta = raw.metaState and META_META_ON != 0,
++            repeat = raw.repeat,
++            editableFocused = editableFocused
++        )
++    }
++
++    private fun kindOf(raw: RawKey): KeyKind = when (raw.keyCode) {
++        KEYCODE_DPAD_UP -> KeyKind.Up
++        KEYCODE_DPAD_DOWN -> KeyKind.Down
++        KEYCODE_DPAD_LEFT -> KeyKind.Left
++        KEYCODE_DPAD_RIGHT -> KeyKind.Right
++        KEYCODE_DPAD_CENTER, KEYCODE_ENTER, KEYCODE_NUMPAD_ENTER -> KeyKind.Activate
++        KEYCODE_SPACE -> KeyKind.Space
++        KEYCODE_BACK -> KeyKind.Back
++        KEYCODE_ESCAPE -> KeyKind.Escape
++        KEYCODE_HOME -> KeyKind.Other
++        KEYCODE_MOVE_HOME -> KeyKind.MoveHome
++        KEYCODE_MOVE_END -> KeyKind.MoveEnd
++        KEYCODE_PAGE_UP -> KeyKind.PageUp
++        KEYCODE_PAGE_DOWN -> KeyKind.PageDown
++        KEYCODE_TAB -> KeyKind.Tab
++        KEYCODE_DEL -> KeyKind.Backspace
++        else -> if (isPrintable(raw.unicode)) KeyKind.Printable else KeyKind.Other
++    }
++
++    private fun isPrintable(unicode: Int): Boolean =
++        unicode > 0 && unicode and COMBINING_ACCENT_MASK == 0 && unicode <= Char.MAX_VALUE.code &&
++            !unicode.toChar().isISOControl() && !unicode.toChar().isWhitespace()
++}
+diff --git a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityCatalogTest.kt b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityCatalogTest.kt
+new file mode 100644
+index 0000000..4149dc9
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityCatalogTest.kt
+@@ -0,0 +1,49 @@
++package org.sableos.weather.cities
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class CityCatalogTest {
++    @Test fun everyCatalogCityIsValidAndUnique() {
++        CityCatalog.ALL.forEach { assertEquals(it.name, null, CityRules.validate(it)) }
++        val state = CityState.of(CityCatalog.ALL, null)
++        assertEquals(CityRules.MAX_CITIES, state.cities.size)
++        assertEquals(CityCatalog.ALL.size, CityCatalog.ALL.map { it.name.lowercase() }.toSet().size)
++    }
++
++    @Test fun theBuiltInCitiesAreInTheCatalogWithTheSameCoordinates() {
++        DefaultCities.ALL.forEach { d -> assertTrue(d.name, d in CityCatalog.ALL) }
++    }
++
++    @Test fun prefixMatchesComeFirstThenContains() {
++        val names = CityCatalog.search("par").map { it.name }
++        assertEquals("Paris", names.first())
++        val sea = CityCatalog.search("an").map { it.name }
++        assertTrue(sea.isNotEmpty())
++        assertTrue(sea.size <= CityCatalog.MAX_RESULTS)
++    }
++
++    @Test fun aBlankQueryHasNoResults() {
++        assertTrue(CityCatalog.search("   ").isEmpty())
++    }
++
++    @Test fun citiesAlreadyInTheListAreLeftOut() {
++        val names = CityCatalog.search("new", exclude = DefaultCities.ALL).map { it.name }
++        assertTrue(names.contains("Newark"))
++        assertTrue(!names.contains("New York"))
++    }
++
++    @Test fun aManualEntryIsOfferedFirstWhenValid() {
++        val r = CityCatalog.search("Hoboken, 40.7440, -74.0324, America/New_York")
++        assertEquals(City("Hoboken", 40.7440, -74.0324, "America/New_York"), r.first())
++        assertNull(CityCatalog.parseManual("Nowhere, 99, 0, UTC"))
++        assertNull(CityCatalog.parseManual("Nowhere, 1, 2, Not/AZone"))
++        assertNull(CityCatalog.parseManual("Nowhere, 1, 2"))
++    }
++
++    @Test fun searchIsOfflineAndCaseInsensitive() {
++        assertEquals(CityCatalog.search("TOKYO"), CityCatalog.search("tokyo"))
++    }
++}
+diff --git a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityKeysTest.kt b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityKeysTest.kt
+new file mode 100644
+index 0000000..80870f8
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityKeysTest.kt
+@@ -0,0 +1,382 @@
++package org.sableos.weather.cities
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++import org.sableos.weather.input.KeyInput
++import org.sableos.weather.input.KeyKind
++
++class CityKeysTest {
++    private val cities = DefaultCities.ALL
++    private val model = CityScreenModel(cities, resultCount = 3)
++    private val start = model.initial(cities.first())
++
++    private fun key(
++        kind: KeyKind,
++        c: Char = KeyInput.NO_CHAR,
++        shift: Boolean = false,
++        ctrl: Boolean = false,
++        repeat: Boolean = false,
++        editable: Boolean = false
++    ) = KeyInput(kind, c, shift = shift, ctrl = ctrl, repeat = repeat, editableFocused = editable)
++
++    private fun CityScreenModel.press(s: CityScreenState, kind: KeyKind) = reduce(s, key(kind))
++
++    private fun CityScreenModel.pressAll(
++        s0: CityScreenState,
++        vararg kinds: KeyKind
++    ): CityScreenState = kinds.fold(s0) { s, k -> reduce(s, key(k)).state }
++
++    // --- focus ---
++
++    @Test fun focusStartsOnTheSelectedCity() {
++        assertEquals("city:Jersey City", model.focusedId(start))
++        assertEquals("city:Mumbai", model.focusedId(model.initial(cities.last())))
++    }
++
++    @Test fun focusIsHiddenUntilAKeyIsPressedAndTouchHidesItAgain() {
++        assertFalse(start.focusVisible)
++        val s = model.press(start, KeyKind.Down).state
++        assertTrue(s.focusVisible)
++        assertFalse(model.onTouch(s).focusVisible)
++    }
++
++    @Test fun arrowsWalkTheRowsThenAddAndResetAndStopAtTheEnds() {
++        var s = start
++        val seen = mutableListOf(model.focusedId(s))
++        repeat(8) {
++            s = model.press(s, KeyKind.Down).state
++            seen += model.focusedId(s)
++        }
++        assertEquals(
++            listOf(
++                "city:Jersey City",
++                "city:New York",
++                "city:Edison",
++                "city:Mumbai",
++                "add_city",
++                "reset_defaults"
++            ),
++            seen.distinct()
++        )
++        assertEquals("reset_defaults", seen.last())
++        repeat(9) { s = model.press(s, KeyKind.Up).state }
++        assertEquals("city:Jersey City", model.focusedId(s))
++    }
++
++    @Test fun moveHomeGoesToTheFirstItemAndMoveEndToTheLast() {
++        val mid = model.pressAll(start, KeyKind.Down, KeyKind.Down)
++        assertEquals("city:Jersey City", model.focusedId(model.press(mid, KeyKind.MoveHome).state))
++        assertEquals("reset_defaults", model.focusedId(model.press(mid, KeyKind.MoveEnd).state))
++    }
++
++    @Test fun moveKeysLeaveARemoveActionForTheEdgeRows() {
++        val onRemove = model.pressAll(start, KeyKind.Right)
++        assertEquals("city:Jersey City:remove", onRemove.focusId)
++        assertEquals(
++            "reset_defaults",
++            model.focusedId(model.press(onRemove, KeyKind.MoveEnd).state)
++        )
++    }
++
++    @Test fun moveKeysNeverActivateOrLeaveTheScreen() {
++        listOf(KeyKind.MoveHome, KeyKind.MoveEnd).forEach {
++            val r = model.press(start, it)
++            assertEquals(it.name, CityEffect.None, r.effect)
++            assertEquals(it.name, CityScreen.List, r.state.screen)
++            assertTrue(it.name, r.consumed)
++        }
++    }
++
++    @Test fun systemHomeAsOtherIsNeverConsumedOnAnyScreen() {
++        val add = model.reduce(start, key(KeyKind.Printable, 'p')).state
++        val dialog = model.press(start, KeyKind.Backspace).state
++        listOf(start, add, dialog).forEach {
++            val r = model.reduce(it, key(KeyKind.Other))
++            assertFalse(r.consumed)
++            assertEquals(it, r.state)
++        }
++    }
++
++    @Test fun pageUpAndPageDownAreNeverHandledOnAnyScreenAndStayWithTheEditor() {
++        val add = model.reduce(start, key(KeyKind.Printable, 'p')).state
++        val dialog = model.press(start, KeyKind.Backspace).state
++        listOf(KeyKind.PageUp, KeyKind.PageDown).forEach { kind ->
++            listOf(start, add, dialog).forEach {
++                listOf(false, true).forEach { editable ->
++                    val r = model.reduce(it, key(kind, editable = editable))
++                    assertFalse(kind.name, r.consumed)
++                    assertEquals(it, r.state)
++                    assertEquals(CityEffect.None, r.effect)
++                }
++            }
++        }
++    }
++
++    @Test fun theSearchFieldKeepsMoveHomeAndMoveEnd() {
++        val open = model.reduce(start, key(KeyKind.Printable, 'p')).state
++        listOf(KeyKind.MoveHome, KeyKind.MoveEnd).forEach {
++            val r = model.press(open, it)
++            assertFalse(it.name, r.consumed)
++            assertEquals(open.query, r.state.query)
++            assertEquals(-1, r.state.resultFocus)
++        }
++    }
++
++    @Test fun anEditableFlagKeepsMoveKeysOnAnyScreen() {
++        listOf(KeyKind.MoveHome, KeyKind.MoveEnd).forEach {
++            val r = model.reduce(start, key(it, editable = true))
++            assertFalse(it.name, r.consumed)
++            assertEquals(start, r.state)
++        }
++    }
++
++    @Test fun moveKeysJumpBetweenTheFirstAndLastResultOnceFocusIsOnAResult() {
++        val open = model.reduce(start, key(KeyKind.Printable, 'p')).state
++        val onResult = model.press(open, KeyKind.Down).state
++        assertEquals(2, model.press(onResult, KeyKind.MoveEnd).state.resultFocus)
++        assertEquals(
++            0,
++            model.press(
++                model.press(onResult, KeyKind.MoveEnd).state,
++                KeyKind.MoveHome
++            ).state.resultFocus
++        )
++    }
++
++    @Test fun moveKeysOnResultsWithNoResultsStayOnTheField() {
++        val none = CityScreenModel(cities, resultCount = 0)
++        val open = none.reduce(none.initial(cities.first()), key(KeyKind.Printable, 'z')).state
++        assertEquals(-1, none.press(open.copy(resultFocus = 0), KeyKind.MoveEnd).state.resultFocus)
++    }
++
++    @Test fun moveKeysAreIgnoredInsideADialogButNotConsumedAsHome() {
++        val dlg = model.press(start, KeyKind.Backspace).state
++        val r = model.press(dlg, KeyKind.MoveEnd)
++        assertEquals(CityScreen.ConfirmRemove, r.state.screen)
++        assertEquals(DialogButton.Cancel, r.state.dialog)
++    }
++
++    @Test fun tabWalksAndHandsFocusOutAtTheEndsInsteadOfTrapping() {
++        assertEquals(
++            CityEffect.FocusLeaves(false),
++            model.reduce(start, key(KeyKind.Tab, shift = true)).effect
++        )
++        var s = start
++        repeat(5) { s = model.press(s, KeyKind.Tab).state }
++        assertEquals("reset_defaults", model.focusedId(s))
++        assertEquals(CityEffect.FocusLeaves(true), model.press(s, KeyKind.Tab).effect)
++    }
++
++    @Test fun rightReachesTheRemoveActionAndLeftComesBack() {
++        val s = model.press(start, KeyKind.Right).state
++        assertEquals("city:Jersey City:remove", s.focusId)
++        assertEquals(
++            "city:Jersey City",
++            model.focusedId(model.press(s, KeyKind.Left).state).removeSuffix(":remove")
++        )
++    }
++
++    // --- activation ---
++
++    @Test fun enterAndSpaceSelectTheFocusedCity() {
++        val s = model.press(start, KeyKind.Down).state
++        listOf(KeyKind.Activate, KeyKind.Space).forEach {
++            assertEquals(CityEffect.Select("New York"), model.press(s, it).effect)
++        }
++    }
++
++    @Test fun heldEnterDoesNotActivateRepeatedly() {
++        assertEquals(
++            CityEffect.None,
++            model.reduce(start, key(KeyKind.Activate, repeat = true)).effect
++        )
++    }
++
++    @Test fun backAndEscapeLeaveTheScreenFromTheList() {
++        listOf(KeyKind.Back, KeyKind.Escape).forEach {
++            assertEquals(CityEffect.Exit, model.press(start, it).effect)
++        }
++    }
++
++    // --- type to search/add ---
++
++    @Test fun aPrintableKeyOpensAddWithTheFirstCharacterKept() {
++        val r = model.reduce(start, key(KeyKind.Printable, 'p'))
++        assertEquals(CityScreen.Add, r.state.screen)
++        assertEquals("p", r.state.query)
++        assertEquals(CityEffect.Search("p"), r.effect)
++    }
++
++    @Test fun aKeyboardOpenedSearchNeverAsksForTheSoftKeyboard() {
++        assertFalse(model.reduce(start, key(KeyKind.Printable, 'p')).state.softKeyboard)
++        assertFalse(
++            model.pressAll(
++                start,
++                KeyKind.Down,
++                KeyKind.Down,
++                KeyKind.Down,
++                KeyKind.Down,
++                KeyKind.Activate
++            ).softKeyboard
++        )
++    }
++
++    @Test fun touchingTheSearchFieldIsWhatRequestsTheSoftKeyboard() {
++        val open = model.reduce(start, key(KeyKind.Printable, 'p')).state
++        assertTrue(model.onSearchFieldTapped(open).softKeyboard)
++    }
++
++    @Test fun aHeldKeyCannotStartASearch() {
++        val r = model.reduce(start, key(KeyKind.Printable, 'p', repeat = true))
++        assertEquals(CityScreen.List, r.state.screen)
++    }
++
++    @Test fun textKeysInTheSearchFieldAreLeftToTheEditable() {
++        val open = model.reduce(start, key(KeyKind.Printable, 'p')).state
++        listOf(
++            KeyKind.Printable,
++            KeyKind.Space,
++            KeyKind.Backspace,
++            KeyKind.Left,
++            KeyKind.Right
++        ).forEach {
++            val r = model.reduce(open, key(it, 'a'))
++            assertFalse(it.name, r.consumed)
++        }
++    }
++
++    @Test fun commandChordsAreNotConsumed() {
++        assertFalse(model.reduce(start, key(KeyKind.Printable, 'c', ctrl = true)).consumed)
++    }
++
++    @Test fun editingTheQueryAsksTheHostToSearchAndResetsResultFocus() {
++        val open = model.reduce(start, key(KeyKind.Printable, 'p')).state
++        val r = model.onQueryChanged(open.copy(resultFocus = 1), "par")
++        assertEquals(CityEffect.Search("par"), r.effect)
++        assertEquals(-1, r.state.resultFocus)
++    }
++
++    @Test fun downMovesFromTheFieldIntoTheResultsAndUpComesBack() {
++        val open = model.reduce(start, key(KeyKind.Printable, 'p')).state
++        var s = open
++        repeat(5) { s = model.press(s, KeyKind.Down).state }
++        assertEquals(2, s.resultFocus)
++        repeat(5) { s = model.press(s, KeyKind.Up).state }
++        assertEquals(-1, s.resultFocus)
++    }
++
++    @Test fun enterOnAResultAddsThatResultAndOnTheFieldAddsTheFirst() {
++        val open = model.reduce(start, key(KeyKind.Printable, 'p')).state
++        assertEquals(CityEffect.AddResult(0), model.press(open, KeyKind.Activate).effect)
++        val onSecond = model.pressAll(open, KeyKind.Down, KeyKind.Down)
++        assertEquals(CityEffect.AddResult(1), model.press(onSecond, KeyKind.Activate).effect)
++        assertEquals(CityEffect.AddResult(1), model.press(onSecond, KeyKind.Space).effect)
++    }
++
++    @Test fun enterWithNoResultsDoesNothing() {
++        val none = CityScreenModel(cities, resultCount = 0)
++        val open = none.reduce(none.initial(cities.first()), key(KeyKind.Printable, 'z')).state
++        assertEquals(CityEffect.None, none.press(open, KeyKind.Activate).effect)
++    }
++
++    @Test fun backFromAddReturnsToTheListWithFocusWhereItWas() {
++        val s = model.pressAll(start, KeyKind.Down)
++        val open = model.reduce(s, key(KeyKind.Printable, 'p')).state
++        val back = model.press(open, KeyKind.Escape).state
++        assertEquals(CityScreen.List, back.screen)
++        assertEquals("", back.query)
++        assertEquals("city:New York", model.focusedId(back))
++    }
++
++    @Test fun theAddRowOpensAnEmptySearchWithNoSearchYet() {
++        val s = model.pressAll(start, KeyKind.Down, KeyKind.Down, KeyKind.Down, KeyKind.Down)
++        val r = model.press(s, KeyKind.Activate)
++        assertEquals(CityScreen.Add, r.state.screen)
++        assertEquals(CityEffect.None, r.effect)
++        val closed = model.press(r.state, KeyKind.Back).state
++        assertEquals("add_city", model.focusedId(closed))
++    }
++
++    @Test fun tabInAddHandsFocusOutAndNeverTraps() {
++        val open = model.reduce(start, key(KeyKind.Printable, 'p')).state
++        assertEquals(CityEffect.FocusLeaves(true), model.press(open, KeyKind.Tab).effect)
++    }
++
++    // --- remove / reset dialogs ---
++
++    @Test fun backspaceOnACityAsksToRemoveItWithCancelFocused() {
++        val r = model.press(start, KeyKind.Backspace)
++        assertEquals(CityScreen.ConfirmRemove, r.state.screen)
++        assertEquals("Jersey City", r.state.pendingRemove)
++        assertEquals(DialogButton.Cancel, r.state.dialog)
++        assertEquals(CityEffect.None, r.effect)
++    }
++
++    @Test fun theRemoveActionAlsoOpensTheConfirmation() {
++        val s = model.pressAll(start, KeyKind.Right)
++        assertEquals(CityScreen.ConfirmRemove, model.press(s, KeyKind.Activate).state.screen)
++    }
++
++    @Test fun enterOnCancelKeepsTheCityAndRestoresFocus() {
++        val dlg = model.pressAll(model.press(start, KeyKind.Down).state, KeyKind.Backspace)
++        val r = model.press(dlg, KeyKind.Activate)
++        assertEquals(CityEffect.None, r.effect)
++        assertEquals(CityScreen.List, r.state.screen)
++        assertEquals("city:New York", model.focusedId(r.state))
++    }
++
++    @Test fun confirmingRemovesTheCityAndFocusLandsOnTheNeighbour() {
++        val dlg = model.press(model.press(start, KeyKind.Down).state, KeyKind.Backspace).state
++        val toggled = model.press(dlg, KeyKind.Right).state
++        assertEquals(DialogButton.Confirm, toggled.dialog)
++        val r = model.press(toggled, KeyKind.Activate)
++        assertEquals(CityEffect.Remove("New York"), r.effect)
++        val after = CityScreenModel(cities.filter { it.name != "New York" })
++        assertEquals("city:Edison", after.focusedId(after.afterChange(r.state, null)))
++    }
++
++    @Test fun removingTheLastRowFocusesTheNewLastRowNotOutOfRange() {
++        var s = model.pressAll(start, KeyKind.Down, KeyKind.Down, KeyKind.Down)
++        s = model.pressAll(s, KeyKind.Backspace, KeyKind.Right)
++        val r = model.press(s, KeyKind.Activate)
++        assertEquals(CityEffect.Remove("Mumbai"), r.effect)
++        val after = CityScreenModel(cities.dropLast(1))
++        assertEquals("add_city", after.focusedId(after.afterChange(r.state, null)))
++    }
++
++    @Test fun escapeAndBackCancelADialogAndRestoreFocus() {
++        val dlg = model.press(start, KeyKind.Backspace).state
++        listOf(KeyKind.Back, KeyKind.Escape).forEach {
++            val s = model.press(dlg, it).state
++            assertEquals(CityScreen.List, s.screen)
++            assertEquals("city:Jersey City", model.focusedId(s))
++        }
++    }
++
++    @Test fun resetAsksForConfirmationAndThenResets() {
++        var s = start
++        repeat(5) { s = model.press(s, KeyKind.Down).state }
++        assertEquals("reset_defaults", model.focusedId(s))
++        val dlg = model.press(s, KeyKind.Activate).state
++        assertEquals(CityScreen.ConfirmReset, dlg.screen)
++        assertEquals(CityEffect.None, model.press(dlg, KeyKind.Activate).effect)
++        val confirmed = model.pressAll(dlg, KeyKind.Right)
++        assertEquals(CityEffect.Reset, model.press(confirmed, KeyKind.Activate).effect)
++    }
++
++    @Test fun theDialogNeverTrapsFocusAndIgnoresStrayKeys() {
++        val dlg = model.press(start, KeyKind.Backspace).state
++        assertEquals(
++            CityScreen.ConfirmRemove,
++            model.reduce(dlg, key(KeyKind.Printable, 'q')).state.screen
++        )
++    }
++
++    @Test fun focusFallsBackToTheNearestIndexWhenTheRowVanishes() {
++        val s = model.pressAll(start, KeyKind.Down, KeyKind.Down)
++        val smaller = CityScreenModel(cities.filter { it.name != "Edison" })
++        assertEquals("city:Mumbai", smaller.focusedId(s))
++    }
++}
+diff --git a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityStateTest.kt b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityStateTest.kt
+new file mode 100644
+index 0000000..f9c6c5b
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityStateTest.kt
+@@ -0,0 +1,175 @@
++package org.sableos.weather.cities
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class CityStateTest {
++    private val paris = City("Paris", 48.8566, 2.3522, "Europe/Paris")
++    private val tokyo = City("Tokyo", 35.6762, 139.6503, "Asia/Tokyo")
++
++    private fun names(s: CityState) = s.cities.map { it.name }
++
++    @Test fun defaultsAreTheFourCanonicalCitiesAndTheFirstIsSelected() {
++        val s = CityState.defaults()
++        assertEquals(listOf("Jersey City", "New York", "Edison", "Mumbai"), names(s))
++        assertEquals("Jersey City", s.selected.name)
++        assertEquals("Asia/Kolkata", s.cities.last().timezone)
++    }
++
++    @Test fun addingACityAppendsAndSelectsItAndAsksForARefresh() {
++        val e = CityState.defaults().add(paris)
++        assertNull(e.reason)
++        assertTrue(e.changed)
++        assertEquals("Paris", e.state.selected.name)
++        assertEquals(5, e.state.cities.size)
++        assertTrue(e.refresh)
++    }
++
++    @Test fun anAddedCityKeepsNameCoordinatesAndTimezone() {
++        val c = CityState.defaults().add(tokyo).state.selected
++        assertEquals(tokyo, c)
++    }
++
++    @Test fun addWithoutSelectKeepsTheActiveCityAndNeedsNoRefresh() {
++        val e = CityState.defaults().add(paris, select = false)
++        assertEquals("Jersey City", e.state.selected.name)
++        assertFalse(e.refresh)
++    }
++
++    @Test fun theNameIsTrimmedAndWhitespaceCollapsed() {
++        val e = CityState.defaults().add(paris.copy(name = "  Port   Louis "))
++        assertEquals("Port Louis", e.state.selected.name)
++    }
++
++    @Test fun aDuplicateNameIgnoringCaseIsRejected() {
++        val e = CityState.defaults().add(paris.copy(name = "  new york "))
++        assertEquals(Reason.Duplicate, e.reason)
++        assertFalse(e.changed)
++        assertEquals(4, e.state.cities.size)
++    }
++
++    @Test fun theSamePlaceUnderAnotherNameIsADuplicate() {
++        val e = CityState.defaults().add(City("NYC", 40.7129, -74.0061, "America/New_York"))
++        assertEquals(Reason.Duplicate, e.reason)
++    }
++
++    @Test fun invalidInputIsRejectedWithAReasonAndChangesNothing() {
++        val s = CityState.defaults()
++        val cases =
++            mapOf(
++                paris.copy(name = "   ") to Reason.BlankName,
++                paris.copy(name = "x".repeat(61)) to Reason.NameTooLong,
++                paris.copy(latitude = 90.5) to Reason.LatitudeOutOfRange,
++                paris.copy(latitude = -91.0) to Reason.LatitudeOutOfRange,
++                paris.copy(longitude = 180.1) to Reason.LongitudeOutOfRange,
++                paris.copy(longitude = -181.0) to Reason.LongitudeOutOfRange,
++                paris.copy(latitude = Double.NaN) to Reason.NotFinite,
++                paris.copy(longitude = Double.POSITIVE_INFINITY) to Reason.NotFinite,
++                paris.copy(timezone = "") to Reason.BadTimezone,
++                paris.copy(timezone = "Mars/Olympus") to Reason.BadTimezone
++            )
++        cases.forEach { (city, reason) ->
++            val e = s.add(city)
++            assertEquals(city.toString(), reason, e.reason)
++            assertEquals(s, e.state)
++        }
++    }
++
++    @Test fun boundaryCoordinatesAreValid() {
++        assertNull(CityRules.validate(City("Pole", 90.0, 180.0, "UTC")))
++        assertNull(CityRules.validate(City("Pole", -90.0, -180.0, "UTC")))
++    }
++
++    @Test fun theTimezoneMustBeAKnownRegionId() {
++        assertTrue(CityRules.validTimezone("America/New_York"))
++        assertFalse(CityRules.validTimezone("new york"))
++    }
++
++    @Test fun theListIsCappedAtTheMaximum() {
++        var s = CityState.defaults()
++        var i = 0
++        while (s.cities.size < CityRules.MAX_CITIES) {
++            i += 1
++            s = s.add(City("Town$i", 10.0 + i, 20.0 + i, "UTC")).state
++        }
++        assertEquals(Reason.TooManyCities, s.add(City("Extra", -50.0, -50.0, "UTC")).reason)
++    }
++
++    @Test fun removingACityDropsItAndKeepsTheOthers() {
++        val e = CityState.defaults().remove("Edison")
++        assertEquals(listOf("Jersey City", "New York", "Mumbai"), names(e.state))
++        assertEquals("Jersey City", e.state.selected.name)
++        assertFalse(e.refresh)
++    }
++
++    @Test fun removingTheActiveCitySelectsItsNeighbourAndAsksForARefresh() {
++        val s = CityState.defaults().select("New York").state
++        val e = s.remove("New York")
++        assertEquals("Edison", e.state.selected.name)
++        assertTrue(e.refresh)
++        val last = CityState.defaults().select("Mumbai").state.remove("Mumbai")
++        assertEquals("Edison", last.state.selected.name)
++    }
++
++    @Test fun removingAnUnknownCityIsNotFound() {
++        assertEquals(Reason.NotFound, CityState.defaults().remove("Atlantis").reason)
++    }
++
++    @Test fun theLastCityCannotBeRemoved() {
++        var s = CityState.defaults()
++        listOf("Jersey City", "New York", "Edison").forEach { s = s.remove(it).state }
++        assertEquals(listOf("Mumbai"), names(s))
++        val e = s.remove("Mumbai")
++        assertEquals(Reason.LastCity, e.reason)
++        assertEquals(1, e.state.cities.size)
++    }
++
++    @Test fun selectingChangesTheActiveCityAndAsksForARefresh() {
++        val e = CityState.defaults().select("mumbai")
++        assertEquals("Mumbai", e.state.selected.name)
++        assertTrue(e.refresh)
++    }
++
++    @Test fun selectingTheActiveCityAgainNeedsNoRefresh() {
++        assertFalse(CityState.defaults().select("Jersey City").refresh)
++    }
++
++    @Test fun selectingAnUnknownCityIsNotFound() {
++        assertEquals(Reason.NotFound, CityState.defaults().select("Atlantis").reason)
++    }
++
++    @Test fun resetRestoresTheDefaultsAndDropsUserCities() {
++        val s = CityState.defaults().add(paris).state.remove("Edison").state
++        val e = s.reset()
++        assertEquals(DefaultCities.ALL, e.state.cities)
++        assertTrue(DefaultCities.ALL.all { d -> e.state.cities.any { it == d } })
++    }
++
++    @Test fun resetKeepsABuiltInSelectionAndFallsBackToTheFirstOtherwise() {
++        val onMumbai = CityState.defaults().select(
++            "Mumbai"
++        ).state.add(paris, select = false).state.reset()
++        assertEquals("Mumbai", onMumbai.state.selected.name)
++        assertFalse(onMumbai.refresh)
++        val onParis = CityState.defaults().add(paris).state.reset()
++        assertEquals("Jersey City", onParis.state.selected.name)
++        assertTrue(onParis.refresh)
++    }
++
++    @Test fun aRemovedDefaultComesBackAfterReset() {
++        val s = CityState.defaults().remove("Mumbai").state
++        assertFalse(names(s).contains("Mumbai"))
++        assertTrue(names(s.reset().state).contains("Mumbai"))
++    }
++
++    @Test fun repairingBadInputNeverProducesAnEmptyOrDuplicateList() {
++        assertEquals(CityState.defaults(), CityState.of(emptyList(), "x"))
++        assertEquals(CityState.defaults(), CityState.of(listOf(paris.copy(latitude = 999.0)), null))
++        val s = CityState.of(listOf(paris, paris.copy(name = "paris"), tokyo), "Nowhere")
++        assertEquals(listOf("Paris", "Tokyo"), names(s))
++        assertEquals("Paris", s.selected.name)
++    }
++}
+diff --git a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityStoreTest.kt b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityStoreTest.kt
+new file mode 100644
+index 0000000..68d0e04
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityStoreTest.kt
+@@ -0,0 +1,143 @@
++package org.sableos.weather.cities
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class CityStoreTest {
++    private class MemoryStore : KeyValueStore {
++        val data = mutableMapOf<String, String>()
++        var writes = 0
++
++        override fun get(key: String): String? = data[key]
++
++        override fun put(key: String, value: String) {
++            writes += 1
++            data[key] = value
++        }
++    }
++
++    private val paris = City("Paris", 48.8566, 2.3522, "Europe/Paris")
++
++    @Test fun anEmptyStoreLoadsTheDefaults() {
++        assertEquals(CityState.defaults(), CityRepository(MemoryStore()).load())
++    }
++
++    @Test fun theCityListSurvivesARestart() {
++        val store = MemoryStore()
++        CityRepository(store).add(paris)
++        val reopened = CityRepository(store).load()
++        assertEquals(5, reopened.cities.size)
++        assertEquals(paris, reopened.cities.last())
++    }
++
++    @Test fun theSelectedCitySurvivesARestart() {
++        val store = MemoryStore()
++        CityRepository(store).select("Mumbai")
++        assertEquals("Mumbai", CityRepository(store).load().selected.name)
++    }
++
++    @Test fun anAddedAndSelectedCityIsTheSelectionAfterARestart() {
++        val store = MemoryStore()
++        CityRepository(store).add(paris)
++        assertEquals(paris, CityRepository(store).load().selected)
++    }
++
++    @Test fun aRemovalSurvivesARestart() {
++        val store = MemoryStore()
++        CityRepository(store).remove("Edison")
++        assertFalse(CityRepository(store).load().cities.any { it.name == "Edison" })
++    }
++
++    @Test fun resetSurvivesARestartAndTheDefaultsRemain() {
++        val store = MemoryStore()
++        val repo = CityRepository(store)
++        repo.add(paris)
++        repo.remove("Mumbai")
++        repo.reset()
++        val back = CityRepository(store).load()
++        assertEquals(DefaultCities.ALL, back.cities)
++    }
++
++    @Test fun aRejectedEditWritesNothing() {
++        val store = MemoryStore()
++        val repo = CityRepository(store)
++        repo.add(paris.copy(latitude = 123.0))
++        repo.remove("Atlantis")
++        repo.select("Atlantis")
++        assertEquals(0, store.writes)
++        assertNull(store.get(CityRepository.KEY))
++    }
++
++    @Test fun theTimezoneIsStoredWithTheCity() {
++        val store = MemoryStore()
++        CityRepository(store).add(paris)
++        assertTrue(store.get(CityRepository.KEY)!!.contains("Europe/Paris"))
++        assertEquals("Europe/Paris", CityRepository(store).load().selected.timezone)
++    }
++
++    @Test fun codecRoundTripsAwkwardNames() {
++        val odd = City("A|B\\C\nD", -33.8688, 151.2093, "Australia/Sydney")
++        val s = CityState(listOf(odd), odd.name)
++        assertEquals(s, CityCodec.decode(CityCodec.encode(s)))
++        val piped = CityState.defaults().add(
++            City("A|B\\C", -33.8688, 151.2093, "Australia/Sydney")
++        ).state
++        assertEquals(piped, CityCodec.decode(CityCodec.encode(piped)))
++    }
++
++    @Test fun coordinatesRoundTripExactly() {
++        val c = City("Exact", 12.345678901234, -98.765432109876, "UTC")
++        assertEquals(
++            c,
++            CityCodec.decode(CityCodec.encode(CityState.of(listOf(c), "Exact"))).selected
++        )
++    }
++
++    @Test fun garbageAndUnknownVersionsFallBackToTheDefaults() {
++        assertEquals(CityState.defaults(), CityCodec.decode(null))
++        assertEquals(CityState.defaults(), CityCodec.decode(""))
++        assertEquals(CityState.defaults(), CityCodec.decode("not cities"))
++        assertEquals(CityState.defaults(), CityCodec.decode("SABLE_CITIES_V9\nCITY|X|1|2|UTC"))
++    }
++
++    @Test fun badLinesAreSkippedAndGoodOnesKept() {
++        val text =
++            listOf(
++                "SABLE_CITIES_V1",
++                "SELECTED|Paris",
++                "CITY|Paris|48.8|2.3|Europe/Paris",
++                "CITY|Bad|abc|2|UTC",
++                "CITY|Far|100|2|UTC",
++                "CITY|x"
++            ).joinToString("\n")
++        val s = CityCodec.decode(text)
++        assertEquals(listOf("Paris"), s.cities.map { it.name })
++        assertEquals("Paris", s.selected.name)
++    }
++
++    @Test fun aSelectionThatNoLongerExistsFallsBackToTheFirstCity() {
++        val text =
++            listOf(
++                "SABLE_CITIES_V1",
++                "SELECTED|Gone",
++                "CITY|Paris|48.8|2.3|Europe/Paris",
++                "CITY|Rome|41.9|12.5|Europe/Rome"
++            ).joinToString("\n")
++        assertEquals("Paris", CityCodec.decode(text).selected.name)
++    }
++
++    @Test fun theStoredTextHasNoPersonalOrDeviceData() {
++        val store = MemoryStore()
++        CityRepository(store).add(paris)
++        val text = store.get(CityRepository.KEY)!!
++        assertTrue(
++            text.lines().all {
++                it.startsWith("SABLE_CITIES_V1") || it.startsWith("SELECTED|") ||
++                    it.startsWith("CITY|")
++            }
++        )
++    }
++}
+diff --git a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/ForecastCacheTest.kt b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/ForecastCacheTest.kt
+new file mode 100644
+index 0000000..9ddb0ce
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/ForecastCacheTest.kt
+@@ -0,0 +1,91 @@
++package org.sableos.weather.cities
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class ForecastCacheTest {
++    private val ny = DefaultCities.ALL[1]
++    private val mumbai = DefaultCities.ALL[3]
++    private val paris = City("Paris", 48.8566, 2.3522, "Europe/Paris")
++    private val protocol = "OK\nCURRENT|70|71|40|0|5|180|CLEAR\n"
++
++    @Test fun eachCityHasItsOwnEntry() {
++        val cache = ForecastCache(MemoryStore())
++        cache.write(ny, protocol, 100L)
++        cache.write(mumbai, protocol.replace("70", "90"), 200L)
++        assertEquals(100L, cache.read(ny)?.observedEpochSeconds)
++        assertEquals(200L, cache.read(mumbai)?.observedEpochSeconds)
++        assertTrue(cache.read(mumbai)!!.protocol.contains("90"))
++    }
++
++    @Test fun aCityWithoutItsOwnForecastShowsNothingNotAnotherCitysForecast() {
++        val cache = ForecastCache(MemoryStore())
++        cache.write(ny, protocol, 100L)
++        assertNull(cache.read(mumbai))
++        assertNull(cache.read(paris))
++    }
++
++    @Test fun theKeyIsTheLocaleIndependentCacheKey() {
++        assertEquals("forecast_v1:40.7128,-74.006,America/New_York", ForecastCache.entryKey(ny))
++    }
++
++    @Test fun renamingACityKeepsItsCoordinatesForecast() {
++        val cache = ForecastCache(MemoryStore())
++        cache.write(ny, protocol, 100L)
++        assertEquals(100L, cache.read(ny.copy(name = "NYC"))?.observedEpochSeconds)
++    }
++
++    @Test fun anEntryWhoseStoredKeyDoesNotMatchIsRejected() {
++        val store = MemoryStore()
++        val forged = CachedForecast(StartLiveRefresh.cacheKey(mumbai), protocol, 100L)
++        store.put(ForecastCache.entryKey(ny), ForecastCache.encode(forged))
++        assertNull(ForecastCache(store).read(ny))
++    }
++
++    @Test fun corruptOrEmptyEntriesAreIgnoredNotFatal() {
++        val store = MemoryStore()
++        val cache = ForecastCache(store)
++        listOf("", "garbage", "SABLE_FORECAST_V1\nkey\nnot-a-number\nOK").forEach {
++            store.put(ForecastCache.entryKey(ny), it)
++            assertEquals(it, null, cache.read(ny))
++        }
++        cache.write(ny, protocol, 0L)
++        assertNull(cache.read(ny))
++        cache.write(ny, "  ", 5L)
++        assertNull(cache.read(ny))
++    }
++
++    @Test fun aProtocolWithManyLinesRoundTrips() {
++        val long = protocol + "HOURLY|2026-10-09T10:00|70|10|0|CLEAR\nDAILY|2026-10-09|0|75|60|10|CLEAR\n"
++        val cache = ForecastCache(MemoryStore())
++        cache.write(ny, long, 42L)
++        assertEquals(long, cache.read(ny)?.protocol)
++    }
++
++    @Test fun retainOnlyDropsRemovedCitiesAndKeepsOtherKeys() {
++        val store = MemoryStore(mapOf(CityRepository.KEY to "x"))
++        val cache = ForecastCache(store)
++        cache.write(ny, protocol, 1L)
++        cache.write(mumbai, protocol, 2L)
++        cache.write(paris, protocol, 3L)
++        val dropped = cache.retainOnly(listOf(ny, mumbai))
++        assertEquals(setOf(ForecastCache.entryKey(paris)), dropped)
++        assertNull(cache.read(paris))
++        assertEquals(1L, cache.read(ny)?.observedEpochSeconds)
++        assertEquals("x", store.get(CityRepository.KEY))
++    }
++
++    @Test fun selectingACityNeverReturnsThePreviousCitysForecast() {
++        val store = MemoryStore()
++        val repo = CityRepository(store)
++        val cache = ForecastCache(store)
++        cache.write(repo.load().selected, protocol, 10L)
++        val edit = repo.select("Mumbai")
++        assertTrue(edit.refresh)
++        assertNull(cache.read(edit.state.selected))
++        assertFalse(StartLiveRefresh.cacheValidFor(StartLiveRefresh.cacheKey(DefaultCities.ALL[0]), edit.state.selected))
++    }
++}
+diff --git a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/LegacyWeatherCacheTest.kt b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/LegacyWeatherCacheTest.kt
+new file mode 100644
+index 0000000..8ede734
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/LegacyWeatherCacheTest.kt
+@@ -0,0 +1,59 @@
++package org.sableos.weather.cities
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class LegacyWeatherCacheTest {
++    private fun legacy(name: String?) =
++        MemoryStore(
++            buildMap {
++                put(LegacyWeatherCache.KEY_PROTOCOL, "OK\nCURRENT|1|1|1|1|1|1|CLEAR")
++                put(LegacyWeatherCache.KEY_OBSERVED_EPOCH_SECONDS, "123")
++                if (name != null) put(LegacyWeatherCache.KEY_LOCATION_NAME, name)
++            }
++        )
++
++    @Test fun aFreshInstallHasNothingToMigrate() {
++        val store = MemoryStore()
++        assertFalse(LegacyWeatherCache.migrate(store))
++        assertTrue(store.data.isEmpty())
++    }
++
++    @Test fun theOldSingleForecastIsDroppedBecauseItsCityIsUnknown() {
++        val store = legacy("Mumbai")
++        assertTrue(LegacyWeatherCache.migrate(store))
++        assertNull(store.get(LegacyWeatherCache.KEY_PROTOCOL))
++        assertNull(store.get(LegacyWeatherCache.KEY_OBSERVED_EPOCH_SECONDS))
++        assertNull(store.get(LegacyWeatherCache.KEY_LOCATION_NAME))
++        DefaultCities.ALL.forEach { assertNull(ForecastCache(store).read(it)) }
++    }
++
++    @Test fun theOldSelectionIsKept() {
++        val store = legacy("Mumbai")
++        LegacyWeatherCache.migrate(store)
++        assertEquals("Mumbai", CityRepository(store).load().selected.name)
++        assertEquals(DefaultCities.ALL, CityRepository(store).load().cities)
++    }
++
++    @Test fun anUnknownOldSelectionFallsBackToTheFirstCity() {
++        val store = legacy("Atlantis")
++        LegacyWeatherCache.migrate(store)
++        assertEquals("Jersey City", CityRepository(store).load().selected.name)
++    }
++
++    @Test fun anExistingCityListIsNeverOverwritten() {
++        val store = legacy("Mumbai")
++        CityRepository(store).add(City("Paris", 48.8566, 2.3522, "Europe/Paris"))
++        LegacyWeatherCache.migrate(store)
++        assertEquals("Paris", CityRepository(store).load().selected.name)
++    }
++
++    @Test fun migrationRunsOnce() {
++        val store = legacy("Edison")
++        assertTrue(LegacyWeatherCache.migrate(store))
++        assertFalse(LegacyWeatherCache.migrate(store))
++    }
++}
+diff --git a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/MemoryStore.kt b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/MemoryStore.kt
+new file mode 100644
+index 0000000..064105f
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/MemoryStore.kt
+@@ -0,0 +1,18 @@
++package org.sableos.weather.cities
++
++/** In-memory [KeyValueStore] for tests, standing in for Weather's private preferences. */
++class MemoryStore(initial: Map<String, String> = emptyMap()) : KeyValueStore {
++    val data = initial.toMutableMap()
++
++    override fun get(key: String): String? = data[key]
++
++    override fun put(key: String, value: String) {
++        data[key] = value
++    }
++
++    override fun remove(key: String) {
++        data.remove(key)
++    }
++
++    override fun keys(): Set<String> = data.keys.toSet()
++}
+diff --git a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/RefreshTest.kt b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/RefreshTest.kt
+new file mode 100644
+index 0000000..e526478
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/RefreshTest.kt
+@@ -0,0 +1,49 @@
++package org.sableos.weather.cities
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class RefreshTest {
++    private val ny = DefaultCities.ALL[1]
++    private val mumbai = DefaultCities.ALL[3]
++
++    @Test fun manualCitiesNeverNeedALocationPermission() {
++        assertFalse(StartLiveRefresh.MANUAL_CITY_PRECISE_LOCATION_REQUIRED)
++    }
++
++    @Test fun aChangedActiveCityNeedsARefreshAndANotification() {
++        assertTrue(StartLiveRefresh.needsRefresh(ny, mumbai))
++        assertTrue(StartLiveRefresh.NOTIFY_SNAPSHOT_ON_ACTIVE_CITY_CHANGE)
++    }
++
++    @Test fun theSameCityNeedsNoRefresh() {
++        assertFalse(StartLiveRefresh.needsRefresh(ny, ny.copy()))
++    }
++
++    @Test fun theFirstCityNeedsARefreshAndNoCityNeedsNone() {
++        assertTrue(StartLiveRefresh.needsRefresh(null, ny))
++        assertFalse(StartLiveRefresh.needsRefresh(ny, null))
++        assertFalse(StartLiveRefresh.needsRefresh(null, null))
++    }
++
++    @Test fun aCachedForecastIsOnlyValidForTheCityItWasFetchedFor() {
++        val key = StartLiveRefresh.cacheKey(ny)
++        assertTrue(StartLiveRefresh.cacheValidFor(key, ny))
++        assertFalse(StartLiveRefresh.cacheValidFor(key, mumbai))
++        assertFalse(StartLiveRefresh.cacheValidFor(null, ny))
++    }
++
++    @Test fun theCacheKeyIsLocaleIndependent() {
++        assertEquals("40.7128,-74.006,America/New_York", StartLiveRefresh.cacheKey(ny))
++    }
++
++    @Test fun everyEditThatChangesTheActiveCityRequestsARefresh() {
++        val s = CityState.defaults()
++        assertTrue(s.select("Mumbai").refresh)
++        assertTrue(s.add(City("Paris", 48.8566, 2.3522, "Europe/Paris")).refresh)
++        assertTrue(s.remove("Jersey City").refresh)
++        assertFalse(s.remove("Mumbai").refresh)
++    }
++}
+diff --git a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/WeatherCitiesContractTest.kt b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/WeatherCitiesContractTest.kt
+new file mode 100644
+index 0000000..e076ff7
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/WeatherCitiesContractTest.kt
+@@ -0,0 +1,61 @@
++package org.sableos.weather.cities
++
++import java.io.File
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++import org.sableos.weather.DefaultWeatherLocations
++
++/** Source-level negatives for the pure city/cache/key layers: no framework, network, permission or device identity. */
++class WeatherCitiesContractTest {
++    private fun weatherDir(): File? {
++        var d: File? = File(System.getProperty("user.dir") ?: ".").absoluteFile
++        while (d != null) {
++            listOf("", "apps/r8/android/", "sable-src/apps/r8/android/").forEach { prefix ->
++                val w = File(d, prefix + "weather/src/main/java/org/sableos/weather")
++                if (w.isDirectory) return w
++            }
++            d = d.parentFile
++        }
++        return null
++    }
++
++    private fun pureSources(): List<File> =
++        listOf("cities", "input").flatMap { sub ->
++            File(weatherDir() ?: File("/nonexistent"), sub).walkTopDown().filter { it.isFile && it.name.endsWith(".kt") }.toList()
++        }
++
++    @Test fun thePureLayersExist() {
++        assertTrue(pureSources().size >= 6)
++    }
++
++    @Test fun pureLayersAreFrameworkFreeNetworkFreeAndDeviceFree() {
++        val banned =
++            listOf(
++                "import android.",
++                "import androidx.",
++                "java.net.",
++                "HttpsURLConnection",
++                "Build." + "MODEL",
++                "Build." + "DEVICE",
++                "SystemProperties",
++                "LocationManager",
++                "ACCESS_" + "FINE_LOCATION",
++                "http"
++            )
++        pureSources().forEach { f -> banned.forEach { assertFalse("${f.name}: $it", f.readText().contains(it)) } }
++    }
++
++    @Test fun manualCitiesNeedNoLocationPermission() {
++        assertFalse(StartLiveRefresh.MANUAL_CITY_PRECISE_LOCATION_REQUIRED)
++    }
++
++    @Test fun theAppDefaultsAreTheCityDefaults() {
++        assertEquals(DefaultCities.ALL.map { it.name }, DefaultWeatherLocations.map { it.name })
++        assertEquals(
++            listOf("Jersey City", "New York", "Edison", "Mumbai"),
++            DefaultCities.ALL.map { it.name }
++        )
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/keyboard/src/main/AndroidManifest.xml
+index ed2356e..0baaa2d 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/AndroidManifest.xml
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/AndroidManifest.xml
+@@ -33,15 +33,12 @@
+             </intent-filter>
+         </activity>
+ 
+-        <!-- Diagnostic: shows the key events an ordinary app receives. -->
++        <!-- Diagnostic: shows the key events an ordinary app receives. Not a launcher entry (#83): open it from
++             Sable Keyboard settings, or with
++             adb shell am start -n org.sableos.titan2.keyboard/.android.KeyProbeActivity -->
+         <activity
+             android:name=".android.KeyProbeActivity"
+             android:exported="true"
+-            android:label="Sable Key Probe">
+-            <intent-filter>
+-                <action android:name="android.intent.action.MAIN" />
+-                <category android:name="android.intent.category.LAUNCHER" />
+-            </intent-filter>
+-        </activity>
++            android:label="Sable Key Probe" />
+     </application>
+ </manifest>
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardSettingsActivity.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardSettingsActivity.kt
+index 00a4930..1a8dd26 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardSettingsActivity.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardSettingsActivity.kt
+@@ -1,6 +1,7 @@
+ package org.sableos.titan2.keyboard.android
+ 
+ import android.app.Activity
++import android.content.Intent
+ import android.os.Bundle
+ import android.view.ViewGroup
+ import android.widget.Button
+@@ -82,6 +83,14 @@ class KeyboardSettingsActivity : Activity() {
+                 }
+             )
+         }
++        col.addView(
++            Button(this).apply {
++                text = "Key event probe (diagnostic)"
++                setOnClickListener {
++                    startActivity(Intent(this@KeyboardSettingsActivity, KeyProbeActivity::class.java))
++                }
++            }
++        )
+         refresh()
+         refreshStatus = ::refresh
+         setContentView(
