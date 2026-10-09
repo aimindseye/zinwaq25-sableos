@@ -4,7 +4,8 @@
 #   module        Soong module name in vendor/sable/q25
 #   group         platform = keyboard-first platform apps (Titan 2 C3B set)
 #                 common   = common Sable apps (Panther R9 set)
-#   gradle_root   Gradle project, relative to sable-src/
+#   gradle_root   Gradle project, relative to sable-src/, or flavor:NAME for an app
+#                 built as a Sable flavor over a pinned upstream (sable-src/apps/r8/NAME)
 #   gradle_task   task that produces the APK
 #   apk           APK path relative to gradle_root (one glob match required)
 #   package       expected application id
@@ -21,11 +22,15 @@ SableCamera	platform	apps/titan2/platform	:camera:assembleRelease	camera/build/o
 SableDisplayCompat	platform	apps/titan2/platform	:displaycompat:assembleRelease	displaycompat/build/outputs/apk/release/*.apk	org.sableos.titan2.displaycompat	unsigned	-	yes
 SableSetup	platform	apps/titan2/platform	:setup:assembleRelease	setup/build/outputs/apk/release/*.apk	org.sableos.titan2.setup	unsigned	-	yes
 SableRadioDiag	platform	apps/titan2/platform	:radiodiag:assembleRelease	radiodiag/build/outputs/apk/release/*.apk	org.sableos.titan2.radiodiag	unsigned	-	yes
-SableCalculator	common	apps/r8/android	:calculator:assembleDebug	calculator/build/outputs/apk/debug/calculator-debug.apk	org.sableos.calculator	presigned	ExactCalculator	no
-SableSudoku	common	apps/r8/android	:games:assembleSudokuDebug	games/build/outputs/apk/sudoku/debug/games-sudoku-debug.apk	org.sableos.sudoku	presigned	-	no
-SableMinesweeper	common	apps/r8/android	:games:assembleMinesweeperDebug	games/build/outputs/apk/minesweeper/debug/games-minesweeper-debug.apk	org.sableos.minesweeper	presigned	-	no
-Sable2048	common	apps/r8/android	:games:assembleGame2048Debug	games/build/outputs/apk/game2048/debug/games-game2048-debug.apk	org.sableos.game2048	presigned	-	no
-SableMedia	common	apps/r8/android	:media:assembleDebug	media/build/outputs/apk/debug/media-debug.apk	org.sableos.media	presigned	-	no
-SableHub	common	apps/r8/android	:hub:assembleDebug	hub/build/outputs/apk/debug/hub-debug.apk	org.sableos.hub	presigned	-	no
-SableWeather	common	apps/r8/android	:weather:assembleDebug	weather/build/outputs/apk/debug/weather-debug.apk	org.sableos.weather	presigned	-	no
-SableCalendar	common	apps/r8/android	:calendar:assembleDebug	calendar/build/outputs/apk/debug/calendar-debug.apk	org.sableos.calendar	presigned	-	no
+SableCalculator	common	apps/r8/android	:calculator:assembleDebug	calculator/build/outputs/apk/debug/calculator-debug.apk	org.sableos.calculator	presigned	ExactCalculator	yes
+SableSudoku	common	apps/r8/android	:games:assembleSudokuDebug	games/build/outputs/apk/sudoku/debug/games-sudoku-debug.apk	org.sableos.sudoku	presigned	-	yes
+SableMinesweeper	common	apps/r8/android	:games:assembleMinesweeperDebug	games/build/outputs/apk/minesweeper/debug/games-minesweeper-debug.apk	org.sableos.minesweeper	presigned	-	yes
+Sable2048	common	apps/r8/android	:games:assembleGame2048Debug	games/build/outputs/apk/game2048/debug/games-game2048-debug.apk	org.sableos.game2048	presigned	-	yes
+SableMedia	common	apps/r8/android	:media:assembleDebug	media/build/outputs/apk/debug/media-debug.apk	org.sableos.media	presigned	-	yes
+SableHub	common	apps/r8/android	:hub:assembleDebug	hub/build/outputs/apk/debug/hub-debug.apk	org.sableos.hub	presigned	-	yes
+SableWeather	common	apps/r8/android	:weather:assembleDebug	weather/build/outputs/apk/debug/weather-debug.apk	org.sableos.weather	presigned	-	yes
+SableCalendar	common	apps/r8/android	:calendar:assembleDebug	calendar/build/outputs/apk/debug/calendar-debug.apk	org.sableos.calendar	presigned	-	yes
+SableMessages	common	apps/r8/android	:messages:assembleDebug	messages/build/outputs/apk/debug/messages-debug.apk	org.sableos.messages	presigned	-	yes
+SableReader	common	apps/common/reader	:leisure:assembleSableDebug	leisure/build/outputs/apk/sable/debug/*.apk	org.sableos.reader	presigned	-	yes
+SableMail	common	flavor:mail	:app-thunderbird:assembleFossRelease -Pci=true	app-thunderbird/build/outputs/apk/foss/release/*.apk	org.sableos.mail	unsigned	-	yes
+SableTextReader	common	flavor:textreader	:app:assembleDebug	app/build/outputs/apk/debug/SableTextReader-*.apk	org.sableos.textreader	presigned	-	yes

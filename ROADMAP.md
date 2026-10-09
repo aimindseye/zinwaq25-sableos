@@ -108,7 +108,7 @@ any app; it adds a `zinwa-q25` profile where an app needs device facts.
 | Calculator, Convert, Games (Sudoku, Minesweeper, 2048) | `sableos/apps/r8/android/{calculator,convert,games}` | Copy | Check 720x720 layouts. |
 | Sable Hub / Messages | `sableos/apps/r8/android/{hub,messages}` | Copy | Must keep the Hub portability contract (`platform_sable/docs/SABLE_HUB_PORTABILITY_CONTRACT.md`). |
 | Sable Media, Weather, Calendar | `sableos/apps/r8/android/{media,weather,calendar}` | Copy | Keyboard-first pass. |
-| Sable Reader v2, Text Reader | `sableos/apps/r8/android/{reader,textreader}` | Copy | Reader v2 is a separate P5 train; take the frozen version. |
+| Sable Reader v2, Text Reader | Reader v2: `titan2-temp/apps/common/reader` (P5A-P5F); Text Reader: `sableos/apps/r8/textreader` flavor | Copy | Reader v2 imported from titan2-temp; Text Reader is tranche T2 in `docs/SABLEOS_GAP_REVIEW.md`. |
 | Sable Mail | `sableos/apps/r8/mail` (Thunderbird 23.0 based) | Copy | Large; optional for Q2. |
 | Sable design tokens | `sableos/apps/r8/android/design`, `sableos/src/android/shared/sabledesign` | Copy | Shared by all apps. |
 | Sable Start (HOME presentation) | `sableos/src/android/packages/apps/SableStart` + Launcher3 patch | Adapt (Q4) | Today it is hosted inside a patched GrapheneOS Launcher3. On LineageOS the launcher is Trebuchet, so the host patch must be re-done (section 2.3). |

@@ -1,15 +1,16 @@
 package org.sableos.titan2.keyboard.android
 
 import android.app.Activity
-import android.content.Intent
 import android.os.Bundle
-import android.provider.Settings
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.TextView
+import org.sableos.titan2.keyboard.core.ImeAction
+import org.sableos.titan2.keyboard.core.ImeLaunchReport
+import org.sableos.titan2.keyboard.core.ImeStatusModel
 
 /** Plain-View settings so it works with the hardware keyboard (Tab/arrows/Enter) with no extra dependencies. */
 class KeyboardSettingsActivity : Activity() {
@@ -17,6 +18,13 @@ class KeyboardSettingsActivity : Activity() {
         const val PAD_PX = 24
         const val TITLE_SP = 20f
         const val NOTE_SP = 12f
+    }
+
+    private var refreshStatus: () -> Unit = {}
+
+    override fun onResume() {
+        super.onResume()
+        refreshStatus()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -55,12 +63,27 @@ class KeyboardSettingsActivity : Activity() {
         sw("Show on-screen keyboard for numeric/PIN fields", "softForNumeric", true)
         sw("Always show on-screen keyboard", "forceSoft", false)
         sw("Compact status strip when the on-screen keyboard is hidden", "compactStrip", true)
-        col.addView(
-            Button(this).apply {
-                text = "Enable / choose input method"
-                setOnClickListener { startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)) }
-            }
-        )
+        val status = TextView(this).apply { textSize = NOTE_SP }
+        val failure = TextView(this).apply { textSize = NOTE_SP }
+        col.addView(status)
+        col.addView(failure)
+        val launcher = ImeLauncher(this)
+        fun refresh() {
+            status.text = ImeStatusModel.describe(launcher.status())
+        }
+        ImeAction.values().forEach { action ->
+            col.addView(
+                Button(this).apply {
+                    text = action.label
+                    setOnClickListener {
+                        failure.text =
+                            ImeLaunchReport.message(action, launcher.run(action)).orEmpty()
+                    }
+                }
+            )
+        }
+        refresh()
+        refreshStatus = ::refresh
         setContentView(
             ScrollView(this).apply {
                 addView(

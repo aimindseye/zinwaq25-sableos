@@ -1,0 +1,116 @@
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/DeviceProfile.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/DeviceProfile.kt
+index d55c935..d76238b 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/DeviceProfile.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/DeviceProfile.kt
+@@ -7,7 +7,7 @@ enum class EvidenceLevel { None, ResearchOnly, RetailValidated }
+  * mode: modes come from what the device actually reports. Expectations that fail to match are
+  * surfaced as [Mismatch]es so stale evidence cannot silently drive behaviour.
+  * Titan 2 numbers are the org's research evidence (platform_sable CAMERA_CAPTURE_UX); Elite and
+- * Q27 must be captured independently.
++ * Q27 and Q25 must be captured independently.
+  */
+ data class CameraDeviceProfile(
+     val id: String,
+@@ -44,8 +44,11 @@ data class CameraDeviceProfile(
+         )
+         val Titan2Elite = CameraDeviceProfile("titan2-elite", EvidenceLevel.None)
+         val ZinwaQ27 = CameraDeviceProfile("zinwa-q27", EvidenceLevel.None)
++
++        // Public spec only (50 MP rear with flash, 8 MP front); ids, sizes and keys not captured on a Q25 yet.
++        val ZinwaQ25 = CameraDeviceProfile("zinwa-q25", EvidenceLevel.None)
+         val Unknown = CameraDeviceProfile("unknown", EvidenceLevel.None)
+         fun byId(id: String?) =
+-            listOf(Titan2, Titan2Elite, ZinwaQ27).firstOrNull { it.id == id } ?: Unknown
++            listOf(Titan2, Titan2Elite, ZinwaQ27, ZinwaQ25).firstOrNull { it.id == id } ?: Unknown
+     }
+ }
+diff --git a/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/CameraCoreTest.kt b/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/CameraCoreTest.kt
+index c300581..98e1067 100644
+--- a/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/CameraCoreTest.kt
++++ b/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/CameraCoreTest.kt
+@@ -133,6 +133,10 @@ class CameraCoreTest {
+                 CameraDeviceProfile.ZinwaQ27.expectedRaw.isEmpty()
+         )
+         assertEquals("unknown", CameraDeviceProfile.byId("bogus").id)
++        val q25 = CameraDeviceProfile.byId("zinwa-q25")
++        assertEquals(CameraDeviceProfile.ZinwaQ25, q25)
++        assertEquals(EvidenceLevel.None, q25.evidence)
++        assertTrue(q25.expectedPublicIds.isEmpty() && q25.keyOverrides.isEmpty())
+     }
+ 
+     @Test fun zoomPlannerStepsAndClamps() {
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/KeyLayout.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/KeyLayout.kt
+index b8ee3f5..8c4c660 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/KeyLayout.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/KeyLayout.kt
+@@ -61,17 +61,34 @@ data class KeyLayout(
+             verified = false
+         )
+ 
++        /**
++         * Zinwa Q25 Alt layer transcribed from the device's own key character map (LineageOS device/xelex/Q25
++         * configs/keychars/Q25_keyboard.kcm), which matches the printed BlackBerry Classic legends. Not yet run on a
++         * Q25, so it stays unverified; the platform's own Alt char (nativeAlt) still wins when the kcm delivers one.
++         * Sym is not mapped: the Classic Sym key's behaviour has not been captured.
++         */
++        val ZinwaQ25Kcm = SableProvisional.copy(
++            id = "zinwa-q25-kcm-alt",
++            alt = mapOf(
++                'q' to "#", 'w' to "1", 'e' to "2", 'r' to "3", 't' to "(", 'y' to ")",
++                'u' to "_", 'i' to "-", 'o' to "+", 'p' to "@",
++                'a' to "*", 's' to "4", 'd' to "5", 'f' to "6", 'g' to "/", 'h' to ":", 'j' to ";",
++                'k' to "'", 'l' to "\"",
++                'z' to "7", 'x' to "8", 'c' to "9", 'v' to "?", 'b' to "!", 'n' to ",", 'm' to "."
++            ),
++            sym = emptyMap(),
++            verified = false
++        )
++
+         /**
+          * Layout for a Sable profile id (`ro.sable.profile.id`). Profiles never inherit each other's evidence: only
+-         * "titan2" gets the Titan 2 legends; Elite, Q27 and unknown devices stay on the provisional convention until
+-         * captured separately.
++         * "titan2" gets the Titan 2 legends and only "zinwa-q25" gets the Q25 legends; Elite, Q27 and unknown devices
++         * stay on the provisional convention until captured separately.
+          */
+-        fun forProfile(profileId: String?): KeyLayout = if (profileId ==
+-            "titan2"
+-        ) {
+-            Titan2PhotoRead
+-        } else {
+-            SableProvisional
++        fun forProfile(profileId: String?): KeyLayout = when (profileId) {
++            "titan2" -> Titan2PhotoRead
++            "zinwa-q25" -> ZinwaQ25Kcm
++            else -> SableProvisional
+         }
+     }
+ }
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/core/KeyboardCoreTest.kt b/sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/core/KeyboardCoreTest.kt
+index f5c507f..515bcb1 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/core/KeyboardCoreTest.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/core/KeyboardCoreTest.kt
+@@ -232,6 +232,23 @@ class KeyboardCoreTest {
+         assertEquals("_", l.alt['i'])
+     }
+ 
++    @Test fun zinwaQ25LayoutMatchesKcmEvidenceAndStaysUnverified() {
++        val l = KeyLayout.forProfile("zinwa-q25")
++        assertEquals(KeyLayout.ZinwaQ25Kcm, l)
++        assertFalse(l.verified)
++        assertEquals("#", l.alt['q'])
++        assertEquals("@", l.alt['p'])
++        assertEquals("\"", l.alt['l'])
++        assertEquals(26, l.alt.size)
++        assertTrue(l.sym.isEmpty())
++    }
++
++    @Test fun profilesDoNotShareLegends() {
++        assertEquals(KeyLayout.SableProvisional, KeyLayout.forProfile("zinwa-q27"))
++        assertEquals(KeyLayout.SableProvisional, KeyLayout.forProfile(null))
++        assertEquals(KeyLayout.Titan2PhotoRead, KeyLayout.forProfile("titan2"))
++    }
++
+     @Test fun deviceCharacterMapBeatsProvisionalTable() {
+         // Titan 2 stock evidence: Alt+Q yields '0', where the provisional table says '1'.
+         val x = r()
