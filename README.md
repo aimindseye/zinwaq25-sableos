@@ -55,6 +55,8 @@ More: [`docs/DEVICE_INFO.md`](docs/DEVICE_INFO.md).
 | [Architecture](docs/ARCHITECTURE.md) | How the LineageOS base and Sable layer fit together |
 | [Keyboard and input](docs/KEYBOARD_AND_INPUT.md) | Q25 keyboard, trackpad and key profile |
 | [Qualification](docs/QUALIFICATION.md) | Gates each phase must pass |
+| [Crash evidence](docs/CRASH_EVIDENCE.md) | Capture crash logs over adb before anything is cleared |
+| [Implementation notes](docs/implementation/) | What each Sable design package (KF-A..D, Battery, T3) changed and what still needs the phone |
 | [Stock basis](docs/STOCK_BASIS.md) | Firmware facts to record before flashing |
 | [Sources](docs/SOURCES.md) | Every upstream with its pin and licence |
 | [Lessons from Titan 2](docs/LESSONS_FROM_TITAN2.md) | Mistakes not to repeat |
