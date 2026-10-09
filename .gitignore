@@ -7,3 +7,4 @@ out/
 local.properties
 # Upstream dictionary inputs shipped with the Sable sources (see their PROVENANCE.env).
 !/sable-src/third_party/pinyin_zh/inputs/*.zip
+__pycache__/

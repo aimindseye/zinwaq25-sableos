@@ -1,0 +1,1106 @@
+diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableCornerStyle.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableCornerStyle.kt
+new file mode 100644
+index 0000000..2263bf2
+--- /dev/null
++++ b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableCornerStyle.kt
+@@ -0,0 +1,66 @@
++package org.sableos.design
++
++/*
++ * Sable app corner style (pure Kotlin: no android.* or Compose imports, so the
++ * codec and the shape table are unit-tested on the JVM). SableTheme turns the
++ * table into Material Shapes; SableGlobalAppearance reads the style from
++ * content://org.sableos.appearance/appearance (column corner_style).
++ *
++ * Copy of sable-src/src/android/shared/sabledesign/.../SableCornerStyle.kt; keep
++ * them equal (tests/check-sable-design.py compares them).
++ */
++
++/**
++ * Corner style for Sable apps, chosen by the user in App display compatibility >
++ * Sable app style and published through org.sableos.appearance (column corner_style).
++ * Compact is the default, so nothing changes until the user picks Rounded.
++ */
++enum class SableCornerStyle(
++    val stableValue: String,
++    val displayName: String,
++) {
++    Compact("compact", "Compact"),
++    Rounded("rounded", "Rounded");
++
++    companion object {
++        val DEFAULT: SableCornerStyle = Compact
++
++        fun fromStableValue(value: String?): SableCornerStyle =
++            entries.firstOrNull { it.stableValue == value } ?: DEFAULT
++    }
++}
++
++/** Corner radii in dp for the five Material shape roles. */
++data class SableShapeScale(
++    val extraSmallDp: Int,
++    val smallDp: Int,
++    val mediumDp: Int,
++    val largeDp: Int,
++    val extraLargeDp: Int,
++) {
++    val radiiDp: List<Int>
++        get() = listOf(extraSmallDp, smallDp, mediumDp, largeDp, extraLargeDp)
++
++    val maxDp: Int
++        get() = radiiDp.max()
++}
++
++/**
++ * The shape table per corner style. Pure, so it is unit-tested on the JVM.
++ *
++ * Compact is the original Sable app geometry (2-6dp). Rounded is the DESIGN-KF-B
++ * geometry shared with SystemUI: 8dp controls (extraSmall, small) and 12dp cards,
++ * sheets and dialogs (medium, large, extraLarge); these equal
++ * SableGeometryTokens.SMALL_CONTROL_RADIUS_DP and CARD_RADIUS_DP, which
++ * SableSystemTokensTest and tests/check-sable-design.py cross-check.
++ */
++object SableShapeTable {
++    val Compact = SableShapeScale(extraSmallDp = 2, smallDp = 3, mediumDp = 4, largeDp = 6, extraLargeDp = 6)
++    val Rounded = SableShapeScale(extraSmallDp = 8, smallDp = 8, mediumDp = 12, largeDp = 12, extraLargeDp = 12)
++
++    fun forStyle(style: SableCornerStyle): SableShapeScale =
++        when (style) {
++            SableCornerStyle.Compact -> Compact
++            SableCornerStyle.Rounded -> Rounded
++        }
++}
+diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableGlobalAppearance.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableGlobalAppearance.kt
+index 7069ccd..adc6610 100644
+--- a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableGlobalAppearance.kt
++++ b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableGlobalAppearance.kt
+@@ -22,6 +22,12 @@ object SableGlobalAppearanceContract {
+     const val COLUMN_MODE = "mode"
+     const val COLUMN_ACCENT = "accent"
+ 
++    /**
++     * Sable app corner style (compact, rounded). Written only by Settings and App display
++     * compatibility; a provider without the column reads as Compact.
++     */
++    const val COLUMN_CORNER_STYLE = "corner_style"
++
+     val CONTENT_URI: Uri =
+         Uri.parse("content://$AUTHORITY/$PATH_APPEARANCE")
+ }
+@@ -36,6 +42,7 @@ fun readGlobalSableAppearance(
+                 arrayOf(
+                     SableGlobalAppearanceContract.COLUMN_MODE,
+                     SableGlobalAppearanceContract.COLUMN_ACCENT,
++                    SableGlobalAppearanceContract.COLUMN_CORNER_STYLE,
+                 ),
+                 null,
+                 null,
+@@ -59,9 +66,17 @@ fun readGlobalSableAppearance(
+                         ),
+                     )
+ 
++                val cornerIndex =
++                    cursor.getColumnIndex(
++                        SableGlobalAppearanceContract.COLUMN_CORNER_STYLE,
++                    )
++                val cornerStyle =
++                    if (cornerIndex >= 0) cursor.getString(cornerIndex) else null
++
+                 SableAppearance(
+                     mode = AppearanceMode.fromStableValue(mode),
+                     accent = AccentPreset.fromStableValue(accent),
++                    cornerStyle = SableCornerStyle.fromStableValue(cornerStyle),
+                 )
+             }
+             ?: SableAppearance()
+@@ -93,6 +108,32 @@ fun writeGlobalSableAppearance(
+         ) == 1
+     }.getOrDefault(false)
+ 
++/**
++ * Stores the Sable app corner style. Only Settings and App display compatibility may write
++ * it; any other caller gets false. [writeGlobalSableAppearance] never writes this column, so
++ * an appearance reset from Sable Start leaves the user's corner style alone.
++ */
++fun writeGlobalSableCornerStyle(
++    context: Context,
++    style: SableCornerStyle,
++): Boolean =
++    runCatching {
++        val values =
++            ContentValues().apply {
++                put(
++                    SableGlobalAppearanceContract.COLUMN_CORNER_STYLE,
++                    style.stableValue,
++                )
++            }
++
++        context.contentResolver.update(
++            SableGlobalAppearanceContract.CONTENT_URI,
++            values,
++            null,
++            null,
++        ) == 1
++    }.getOrDefault(false)
++
+ @Composable
+ fun rememberGlobalSableAppearance(
+     context: Context = LocalContext.current,
+diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableTheme.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableTheme.kt
+index ef88011..13917f5 100644
+--- a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableTheme.kt
++++ b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableTheme.kt
+@@ -8,6 +8,7 @@ import androidx.compose.material3.Typography
+ import androidx.compose.material3.darkColorScheme
+ import androidx.compose.material3.lightColorScheme
+ import androidx.compose.runtime.Composable
++import androidx.compose.runtime.remember
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.text.TextStyle
+ import androidx.compose.ui.text.font.FontWeight
+@@ -46,6 +47,7 @@ enum class AccentPreset(
+ data class SableAppearance(
+     val mode: AppearanceMode = AppearanceMode.FollowSystem,
+     val accent: AccentPreset = AccentPreset.Blue,
++    val cornerStyle: SableCornerStyle = SableCornerStyle.DEFAULT,
+ )
+ 
+ object SableDesignContract {
+@@ -56,7 +58,15 @@ object SableDesignContract {
+     const val MIN_TOUCH_TARGET_DP = 48
+     const val SCREEN_HORIZONTAL_PADDING_DP = 24
+     const val SCREEN_VERTICAL_PADDING_DP = 20
+-    const val MAX_STANDARD_CORNER_RADIUS_DP = 6
++    const val KEY_CORNER_STYLE = "sable.appearance.corner_style"
++
++    /** Largest radius of each allowed corner style (Compact, Rounded); see SableShapeTable. */
++    const val MAX_COMPACT_CORNER_RADIUS_DP = 6
++    const val MAX_ROUNDED_CORNER_RADIUS_DP = 12
++
++    /** Upper bound across the two allowed styles. */
++    const val MAX_STANDARD_CORNER_RADIUS_DP = MAX_ROUNDED_CORNER_RADIUS_DP
++
+     const val FAST_MOTION_MS = 120
+     const val STANDARD_MOTION_MS = 180
+     const val EMPHASIZED_MOTION_MS = 240
+@@ -141,13 +151,17 @@ private val SableTypography = Typography(
+     ),
+ )
+ 
+-private val SableShapes = Shapes(
+-    extraSmall = RoundedCornerShape(2.dp),
+-    small = RoundedCornerShape(3.dp),
+-    medium = RoundedCornerShape(4.dp),
+-    large = RoundedCornerShape(6.dp),
+-    extraLarge = RoundedCornerShape(6.dp),
+-)
++/** Material shapes for a corner style, built from [SableShapeTable]. */
++fun sableShapes(style: SableCornerStyle): Shapes {
++    val scale = SableShapeTable.forStyle(style)
++    return Shapes(
++        extraSmall = RoundedCornerShape(scale.extraSmallDp.dp),
++        small = RoundedCornerShape(scale.smallDp.dp),
++        medium = RoundedCornerShape(scale.mediumDp.dp),
++        large = RoundedCornerShape(scale.largeDp.dp),
++        extraLarge = RoundedCornerShape(scale.extraLargeDp.dp),
++    )
++}
+ 
+ @Composable
+ fun SableTheme(
+@@ -192,10 +206,12 @@ fun SableTheme(
+         )
+     }
+ 
++    val shapes = remember(appearance.cornerStyle) { sableShapes(appearance.cornerStyle) }
++
+     MaterialTheme(
+         colorScheme = colors,
+         typography = SableTypography,
+-        shapes = SableShapes,
++        shapes = shapes,
+         content = content,
+     )
+ }
+diff --git a/sable-src/apps/r8/android/design/src/test/java/org/sableos/design/SableDesignContractTest.kt b/sable-src/apps/r8/android/design/src/test/java/org/sableos/design/SableDesignContractTest.kt
+index a775486..e30f78d 100644
+--- a/sable-src/apps/r8/android/design/src/test/java/org/sableos/design/SableDesignContractTest.kt
++++ b/sable-src/apps/r8/android/design/src/test/java/org/sableos/design/SableDesignContractTest.kt
+@@ -9,6 +9,9 @@ class SableDesignContractTest {
+     fun corruptValuesFallBackSafely() {
+         assertEquals(AppearanceMode.FollowSystem, AppearanceMode.fromStableValue("bad"))
+         assertEquals(AccentPreset.Blue, AccentPreset.fromStableValue(null))
++        assertEquals(SableCornerStyle.Compact, SableCornerStyle.fromStableValue(null))
++        assertEquals(SableCornerStyle.Compact, SableCornerStyle.fromStableValue("pill"))
++        assertEquals(SableCornerStyle.Compact, SableCornerStyle.fromStableValue("ROUNDED"))
+     }
+ 
+     @Test
+@@ -19,13 +22,26 @@ class SableDesignContractTest {
+         AccentPreset.entries.forEach { accent ->
+             assertEquals(accent, AccentPreset.fromStableValue(accent.stableValue))
+         }
++        SableCornerStyle.entries.forEach { style ->
++            assertEquals(style, SableCornerStyle.fromStableValue(style.stableValue))
++        }
++        assertEquals(
++            listOf("compact", "rounded"),
++            SableCornerStyle.entries.map { it.stableValue },
++        )
+     }
+ 
+     @Test
+     fun uiContractKeepsTouchTargetsAndCornersIntentional() {
+         assertEquals(2, SableDesignContract.SCHEMA_VERSION)
+         assertTrue(SableDesignContract.MIN_TOUCH_TARGET_DP >= 48)
+-        assertTrue(SableDesignContract.MAX_STANDARD_CORNER_RADIUS_DP <= 6)
++        // Two allowed corner styles: Compact (<= 6dp) and Rounded (<= 12dp).
++        assertEquals(6, SableDesignContract.MAX_COMPACT_CORNER_RADIUS_DP)
++        assertEquals(12, SableDesignContract.MAX_ROUNDED_CORNER_RADIUS_DP)
++        assertEquals(
++            SableDesignContract.MAX_ROUNDED_CORNER_RADIUS_DP,
++            SableDesignContract.MAX_STANDARD_CORNER_RADIUS_DP,
++        )
+         assertEquals(
+             SableDesignContract.MIN_TOUCH_TARGET_DP,
+             SableResponsive.TOUCH_TARGET_MIN_DP,
+@@ -58,6 +74,45 @@ class SableDesignContractTest {
+             "accent",
+             SableGlobalAppearanceContract.COLUMN_ACCENT,
+         )
++        assertEquals(
++            "corner_style",
++            SableGlobalAppearanceContract.COLUMN_CORNER_STYLE,
++        )
++    }
++
++    @Test
++    fun compactIsTheDefaultSoNothingChangesUntilTheUserPicks() {
++        assertEquals(SableCornerStyle.Compact, SableCornerStyle.DEFAULT)
++        assertEquals(SableCornerStyle.Compact, SableAppearance().cornerStyle)
++        assertEquals(
++            listOf(2, 3, 4, 6, 6),
++            SableShapeTable.forStyle(SableCornerStyle.DEFAULT).radiiDp,
++        )
++    }
++
++    @Test
++    fun roundedUsesTheDesignControlAndCardRadii() {
++        val rounded = SableShapeTable.forStyle(SableCornerStyle.Rounded)
++        // Controls (extraSmall, small) 8dp; cards, sheets and dialogs 12dp.
++        assertEquals(listOf(8, 8, 12, 12, 12), rounded.radiiDp)
++        assertEquals(SableGeometryTokens.SMALL_CONTROL_RADIUS_DP, rounded.smallDp)
++        assertEquals(SableGeometryTokens.CARD_RADIUS_DP, rounded.mediumDp)
++    }
++
++    @Test
++    fun everyStyleStaysWithinItsAllowedMaximumAndIsMonotonic() {
++        val limits =
++            mapOf(
++                SableCornerStyle.Compact to SableDesignContract.MAX_COMPACT_CORNER_RADIUS_DP,
++                SableCornerStyle.Rounded to SableDesignContract.MAX_ROUNDED_CORNER_RADIUS_DP,
++            )
++        assertEquals(SableCornerStyle.entries.toSet(), limits.keys)
++        limits.forEach { (style, max) ->
++            val scale = SableShapeTable.forStyle(style)
++            assertEquals("$style max", max, scale.maxDp)
++            assertTrue("$style radii grow with the role", scale.radiiDp.zipWithNext().all { (a, b) -> a <= b })
++            assertTrue("$style radii are positive", scale.radiiDp.all { it > 0 })
++        }
+     }
+ 
+     @Test
+diff --git a/sable-src/apps/r8/textreader/apply_sable_flavor.py b/sable-src/apps/r8/textreader/apply_sable_flavor.py
+index f064a79..d6cdad5 100644
+--- a/sable-src/apps/r8/textreader/apply_sable_flavor.py
++++ b/sable-src/apps/r8/textreader/apply_sable_flavor.py
+@@ -489,6 +489,7 @@ object TextReaderUtil {
+     design_destination.mkdir(parents=True, exist_ok=True)
+     for name in (
+         "SableTheme.kt",
++        "SableCornerStyle.kt",
+         "SableGlobalAppearance.kt",
+         "SableSystemBars.kt",
+     ):
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml
+index d793db9..9dc85c8 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml
+@@ -1,8 +1,10 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+ 
+-    <!-- No permissions. App discovery uses a <queries> launcher intent, not QUERY_ALL_PACKAGES. -->
++    <!-- No permissions. App discovery uses a <queries> launcher intent, not QUERY_ALL_PACKAGES.
++         The Sable appearance authority (Settings) holds the global Sable app corner style. -->
+     <queries>
++        <provider android:authorities="org.sableos.appearance" />
+         <intent>
+             <action android:name="android.intent.action.MAIN" />
+             <category android:name="android.intent.category.LAUNCHER" />
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/AppearanceStyleStore.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/AppearanceStyleStore.kt
+new file mode 100644
+index 0000000..9843b4c
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/AppearanceStyleStore.kt
+@@ -0,0 +1,49 @@
++package org.sableos.titan2.displaycompat.android
++
++import android.content.ContentValues
++import android.content.Context
++import android.database.ContentObserver
++import android.net.Uri
++import android.os.Handler
++import android.os.Looper
++import org.sableos.titan2.displaycompat.core.AppCornerStyle
++import org.sableos.titan2.displaycompat.core.AppStyleStore
++
++/**
++ * The Sable appearance authority hosted by Settings (patch 0103): one corner style for every
++ * Sable app. Settings lets this package write only the corner_style column, and only as the copy
++ * on the system image. A build without the authority reads null, so the section is read-only.
++ */
++class AppearanceStyleStore(private val context: Context) : AppStyleStore {
++    override fun read(): AppCornerStyle? =
++        runCatching {
++            context.contentResolver.query(URI, arrayOf(COLUMN_CORNER_STYLE), null, null, null)?.use { c ->
++                if (!c.moveToFirst()) return@use null
++                val i = c.getColumnIndex(COLUMN_CORNER_STYLE)
++                AppCornerStyle.fromStableValue(if (i >= 0) c.getString(i) else null)
++            }
++        }.getOrNull()
++
++    override fun write(style: AppCornerStyle): Boolean =
++        runCatching {
++            val values = ContentValues().apply { put(COLUMN_CORNER_STYLE, style.stableValue) }
++            context.contentResolver.update(URI, values, null, null) == 1
++        }.getOrDefault(false)
++
++    /** Calls [onChange] on the main thread when the style changes elsewhere; returns the unregister action. */
++    fun observe(onChange: () -> Unit): () -> Unit {
++        val observer =
++            object : ContentObserver(Handler(Looper.getMainLooper())) {
++                override fun onChange(selfChange: Boolean) = onChange()
++            }
++        val registered =
++            runCatching { context.contentResolver.registerContentObserver(URI, false, observer) }.isSuccess
++        return { if (registered) runCatching { context.contentResolver.unregisterContentObserver(observer) } }
++    }
++
++    companion object {
++        const val AUTHORITY = "org.sableos.appearance"
++        const val COLUMN_CORNER_STYLE = "corner_style"
++        val URI: Uri = Uri.parse("content://$AUTHORITY/appearance")
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt
+index a7e0c50..65b7da8 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt
+@@ -2,6 +2,7 @@ package org.sableos.titan2.displaycompat.android
+ 
+ import android.app.Application
+ import android.content.Context
++import org.sableos.titan2.displaycompat.core.AppStyleController
+ import org.sableos.titan2.displaycompat.core.ProfileController
+ import org.sableos.titan2.displaycompat.core.ProfileStore
+ 
+@@ -10,10 +11,16 @@ class DisplayCompatApp : Application() {
+         private set
+     lateinit var controller: ProfileController
+         private set
++    lateinit var appStyleStore: AppearanceStyleStore
++        private set
++    lateinit var appStyle: AppStyleController
++        private set
+ 
+     override fun onCreate() {
+         super.onCreate()
+         store = PrefsProfileStore(this)
++        appStyleStore = AppearanceStyleStore(this)
++        appStyle = AppStyleController(appStyleStore)
+         controller =
+             ProfileController(
+                 store,
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/AppStyle.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/AppStyle.kt
+new file mode 100644
+index 0000000..a37fa92
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/AppStyle.kt
+@@ -0,0 +1,111 @@
++package org.sableos.titan2.displaycompat.core
++
++/*
++ * "Sable app style" section of App display compatibility: the global corner style every Sable
++ * app reads from the appearance authority (content://org.sableos.appearance/appearance, column
++ * corner_style, hosted by Settings, patch 0103). Pure Kotlin, unit-tested on the JVM.
++ *
++ * This is a global style for Sable apps, not a per-app display profile: it does not touch the
++ * profile store and it does not need the gated platform backend.
++ */
++
++/**
++ * Corner styles. The stable values equal SableCornerStyle in sabledesign and
++ * SableAppearancePolicy.CORNER_STYLES in the Settings patch (tests/check-sable-design.py compares
++ * them). Compact is the default, so Sable apps look the same until the user picks Rounded.
++ */
++enum class AppCornerStyle(val stableValue: String, val label: String, val summary: String) {
++    Compact("compact", "Compact", "Tight 2-6dp corners, the original Sable app look."),
++    Rounded("rounded", "Rounded", "8dp controls, 12dp cards and sheets, like Quick Settings.");
++
++    companion object {
++        val DEFAULT = Compact
++
++        fun fromStableValue(value: String?): AppCornerStyle =
++            entries.firstOrNull { it.stableValue == value } ?: DEFAULT
++    }
++}
++
++/** What the section can do on this build. */
++enum class AppStyleAvailability {
++    /** The authority answered; the style can be read and changed. */
++    AVAILABLE,
++
++    /** No appearance authority (a build before the Settings patch); the section is read-only. */
++    UNAVAILABLE,
++}
++
++/** Reads and writes the global corner style; the Android side talks to the authority. */
++interface AppStyleStore {
++    /** The current style, or null when the authority is missing or unreadable. */
++    fun read(): AppCornerStyle?
++
++    /** Stores the style; false when the authority is missing or refused the write. */
++    fun write(style: AppCornerStyle): Boolean
++}
++
++/** Keys the section reacts to while it holds the selection. */
++enum class AppStyleKey { LEFT, RIGHT, ENTER }
++
++/** Snapshot shown by the section. */
++data class AppStyleState(val style: AppCornerStyle, val availability: AppStyleAvailability) {
++    val enabled: Boolean get() = availability == AppStyleAvailability.AVAILABLE
++}
++
++object AppStylePolicy {
++    /**
++     * The style a key picks, or null when the key changes nothing. The options are laid out left
++     * to right in [AppCornerStyle] order: Left picks the previous one, Right the next one (both
++     * stop at the ends), Enter switches to the other style.
++     */
++    fun styleForKey(current: AppCornerStyle, key: AppStyleKey): AppCornerStyle? {
++        val all = AppCornerStyle.entries
++        val i = all.indexOf(current)
++        val next =
++            when (key) {
++                AppStyleKey.LEFT -> all[(i - 1).coerceAtLeast(0)]
++                AppStyleKey.RIGHT -> all[(i + 1).coerceAtMost(all.size - 1)]
++                AppStyleKey.ENTER -> all[(i + 1) % all.size]
++            }
++        return next.takeIf { it != current }
++    }
++
++    fun stateFrom(read: AppCornerStyle?): AppStyleState =
++        if (read == null) {
++            AppStyleState(AppCornerStyle.DEFAULT, AppStyleAvailability.UNAVAILABLE)
++        } else {
++            AppStyleState(read, AppStyleAvailability.AVAILABLE)
++        }
++
++    /** Status line after a change. Failure text contains "could not" (the screen tints it). */
++    fun message(style: AppCornerStyle, saved: Boolean): String =
++        if (saved) {
++            "Sable apps now use ${style.label} corners."
++        } else {
++            "Sable app style could not be saved; Sable apps keep their current corners."
++        }
++
++    const val UNAVAILABLE_TEXT =
++        "Sable app style needs the SableOS appearance service in Settings; not on this build."
++}
++
++/** Applies a choice through the store and reports the resulting state and message. */
++class AppStyleController(private val store: AppStyleStore) {
++    fun load(): AppStyleState = AppStylePolicy.stateFrom(store.read())
++
++    /** Handles a key; null when the key changed nothing (so the caller does not consume it). */
++    fun onKey(state: AppStyleState, key: AppStyleKey): Pair<AppStyleState, String>? {
++        if (!state.enabled) return null
++        val target = AppStylePolicy.styleForKey(state.style, key) ?: return null
++        return choose(state, target)
++    }
++
++    /** Picks a style directly (pointer or touch on an option). */
++    fun choose(state: AppStyleState, target: AppCornerStyle): Pair<AppStyleState, String>? {
++        if (!state.enabled || target == state.style) return null
++        val saved = store.write(target)
++        // Re-read so the section shows what Sable apps will actually see.
++        val after = if (saved) AppStylePolicy.stateFrom(store.read()) else state
++        return after to AppStylePolicy.message(target, saved && after.style == target)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt
+index f7fc597..ed86b68 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt
+@@ -19,12 +19,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
+ import androidx.compose.foundation.text.BasicTextField
+ import androidx.compose.material3.Text
+ import androidx.compose.runtime.Composable
++import androidx.compose.runtime.DisposableEffect
+ import androidx.compose.runtime.LaunchedEffect
+ import androidx.compose.runtime.getValue
+ import androidx.compose.runtime.mutableIntStateOf
+ import androidx.compose.runtime.mutableStateOf
+ import androidx.compose.runtime.remember
+ import androidx.compose.runtime.setValue
++import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.focus.FocusRequester
+ import androidx.compose.ui.focus.focusRequester
+@@ -41,6 +43,10 @@ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+ import org.sableos.titan2.displaycompat.android.DisplayCompatApp
+ import org.sableos.titan2.displaycompat.android.TraitsResolver
++import org.sableos.titan2.displaycompat.core.AppCornerStyle
++import org.sableos.titan2.displaycompat.core.AppStyleKey
++import org.sableos.titan2.displaycompat.core.AppStylePolicy
++import org.sableos.titan2.displaycompat.core.AppStyleState
+ import org.sableos.titan2.displaycompat.core.BackendAvailability
+ import org.sableos.titan2.displaycompat.core.DisplayProfile
+ 
+@@ -51,6 +57,10 @@ private class ListState {
+     var version by mutableIntStateOf(0) // bumps after reset-all so profile badges refresh
+     var confirmReset by mutableStateOf(false)
+     var msg by mutableStateOf<String?>(null)
++
++    /** The Sable app style row above the app list holds the selection (Up from the first app). */
++    var styleFocused by mutableStateOf(false)
++    var style by mutableStateOf<AppStyleState?>(null)
+ }
+ 
+ /** Key and reset handling of the list; created per composition so it always sees the latest parameters. */
+@@ -71,21 +81,47 @@ private class ListActions(
+         }
+     }
+ 
++    /** Pointer or touch on a style option. */
++    fun chooseStyle(target: AppCornerStyle) {
++        val s = st.style ?: return
++        app.appStyle.choose(s, target)?.let { (next, m) ->
++            st.style = next
++            st.msg = m
++        }
++    }
++
++    private fun styleKey(key: AppStyleKey) {
++        val s = st.style ?: return
++        app.appStyle.onKey(s, key)?.let { (next, m) ->
++            st.style = next
++            st.msg = m
++        }
++    }
++
+     fun onKey(e: KeyEvent): Boolean {
+         if (e.type != KeyEventType.KeyDown) return false
+         return when (e.key) {
+             Key.DirectionDown -> {
+-                st.sel = (st.sel + 1).coerceAtMost((rows.size - 1).coerceAtLeast(0))
++                if (st.styleFocused) {
++                    st.styleFocused = false
++                    st.sel = 0
++                } else {
++                    st.sel = (st.sel + 1).coerceAtMost((rows.size - 1).coerceAtLeast(0))
++                }
+                 true
+             }
+ 
+             Key.DirectionUp -> {
+-                st.sel = (st.sel - 1).coerceAtLeast(0)
++                if (st.sel == 0) st.styleFocused = true else st.sel = (st.sel - 1).coerceAtLeast(0)
+                 true
+             }
+ 
++            // Left/Right choose a style only while the style row is selected; otherwise they stay
++            // with the filter field (text input wins).
++            Key.DirectionLeft, Key.DirectionRight -> styleArrow(e.key == Key.DirectionLeft)
++
+             Key.Enter, Key.NumPadEnter -> {
+-                rows.getOrNull(st.sel)?.let(onOpen)
++                if (st.styleFocused) styleKey(AppStyleKey.ENTER) else rows.getOrNull(st.sel)?.let(onOpen)
+                 true
+             }
+ 
+@@ -100,6 +136,12 @@ private class ListActions(
+         }
+     }
+ 
++    private fun styleArrow(left: Boolean): Boolean {
++        if (!st.styleFocused) return false
++        styleKey(if (left) AppStyleKey.LEFT else AppStyleKey.RIGHT)
++        return true
++    }
++
+     private fun ctrlReset(e: KeyEvent): Boolean {
+         if (!e.isCtrlPressed) return false
+         doReset()
+@@ -117,7 +159,10 @@ private class ListActions(
+     }
+ }
+ 
+-/** Keyboard-first list: type to filter (text input always wins), Up/Down move, Enter opens, Esc clears then exits. */
++/**
++ * Keyboard-first list: type to filter (text input always wins), Up/Down move, Enter opens, Esc clears
++ * then exits. Up from the first app selects the global Sable app style row (Left/Right or Enter choose).
++ */
+ @Composable
+ fun AppListScreen(
+     app: DisplayCompatApp,
+@@ -138,6 +183,12 @@ fun AppListScreen(
+     val list = rememberLazyListState()
+     val actions = ListActions(app, st, rows, onOpen, onExit)
+     LaunchedEffect(Unit) { fr.requestFocus() }
++    DisposableEffect(app) {
++        st.style = app.appStyle.load()
++        // Follow changes made elsewhere (Settings), so the row always shows what Sable apps use.
++        val stop = app.appStyleStore.observe { st.style = app.appStyle.load() }
++        onDispose { stop() }
++    }
+     LaunchedEffect(rows.size) { st.sel = st.sel.coerceIn(0, (rows.size - 1).coerceAtLeast(0)) }
+     LaunchedEffect(st.sel) { if (rows.isNotEmpty()) list.animateScrollToItem(st.sel) }
+ 
+@@ -152,6 +203,7 @@ fun AppListScreen(
+             color = if (availability == BackendAvailability.CLOSED) C.warn else C.muted,
+             fontSize = 11.sp
+         )
++        AppStyleSection(st.style, st.styleFocused) { actions.chooseStyle(it) }
+         FilterField(st.query, { st.query = it }, fr)
+         if (rows.isEmpty()) {
+             Text(
+@@ -164,11 +216,11 @@ fun AppListScreen(
+         LazyColumn(Modifier.weight(1f), state = list) {
+             itemsIndexed(rows, key = { _, e -> e.pkg }) { i, e ->
+                 val p = remember(st.version, e.pkg) { app.store.get(e.pkg) }
+-                AppRow(e.label, p, i == st.sel)
++                AppRow(e.label, p, !st.styleFocused && i == st.sel)
+             }
+         }
+         st.msg?.let { Text(it, color = messageTint(it), fontSize = 11.sp) }
+-        ListFooter(st.confirmReset) { actions.doReset() }
++        ListFooter(st.confirmReset, st.styleFocused) { actions.doReset() }
+     }
+ }
+ 
+@@ -232,12 +284,16 @@ private fun AppRow(label: String, p: DisplayProfile, selected: Boolean) {
+ }
+ 
+ @Composable
+-private fun ListFooter(confirmReset: Boolean, onReset: () -> Unit) {
++private fun ListFooter(confirmReset: Boolean, styleFocused: Boolean, onReset: () -> Unit) {
+     Row(
+         Modifier.fillMaxWidth().padding(top = 6.dp),
+         horizontalArrangement = Arrangement.SpaceBetween
+     ) {
+-        Text("↑↓ select · Enter edit · Esc back", color = C.muted, fontSize = 11.sp)
++        Text(
++            if (styleFocused) "←→ choose · Enter switch · ↓ apps" else "↑↓ select · Enter edit · Esc back",
++            color = C.muted,
++            fontSize = 11.sp
++        )
+         Text(
+             if (confirmReset) {
+                 "Press Ctrl+R again to reset ALL profiles"
+@@ -250,3 +306,60 @@ private fun ListFooter(confirmReset: Boolean, onReset: () -> Unit) {
+         )
+     }
+ }
++
++/**
++ * Global "Sable app style" section: the corner style every Sable app uses. Selected with Up from the
++ * first app; Left/Right or Enter choose. Each option is drawn with its own corner shape as a preview.
++ */
++@Composable
++private fun AppStyleSection(state: AppStyleState?, focused: Boolean, onPick: (AppCornerStyle) -> Unit) {
++    val s = state ?: return
++    Column(
++        Modifier.fillMaxWidth().padding(top = 8.dp)
++            .background(if (focused) C.surface else C.window, RoundedCornerShape(6.dp))
++            .border(
++                if (focused) 2.dp else 1.dp,
++                if (focused) C.accent else C.surface,
++                RoundedCornerShape(6.dp)
++            )
++            .padding(10.dp)
++    ) {
++        Row(
++            Modifier.fillMaxWidth(),
++            horizontalArrangement = Arrangement.SpaceBetween,
++            verticalAlignment = Alignment.CenterVertically
++        ) {
++            Text("Sable app style", color = C.text, fontSize = 14.sp)
++            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
++                AppCornerStyle.entries.forEach { option ->
++                    StyleOption(option, option == s.style, s.enabled) { onPick(option) }
++                }
++            }
++        }
++        Text(
++            if (s.enabled) "Corners for all Sable apps. ${s.style.summary}" else AppStylePolicy.UNAVAILABLE_TEXT,
++            color = if (s.enabled) C.muted else C.warn,
++            fontSize = 11.sp,
++            modifier = Modifier.padding(top = 4.dp)
++        )
++    }
++}
++
++@Composable
++private fun StyleOption(option: AppCornerStyle, selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
++    val shape = RoundedCornerShape(if (option == AppCornerStyle.Rounded) 8.dp else 3.dp)
++    Text(
++        (if (selected) "● " else "") + option.label,
++        color = when {
++            selected -> C.window
++            enabled -> C.text
++            else -> C.muted
++        },
++        fontSize = 12.sp,
++        modifier = Modifier
++            .background(if (selected) C.accent else C.window, shape)
++            .border(1.dp, if (enabled) C.accent else C.muted, shape)
++            .clickable(enabled = enabled) { onClick() }
++            .padding(horizontal = 10.dp, vertical = 6.dp)
++    )
++}
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/AppStyleTest.kt b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/AppStyleTest.kt
+new file mode 100644
+index 0000000..4a36172
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/AppStyleTest.kt
+@@ -0,0 +1,85 @@
++package org.sableos.titan2.displaycompat.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class AppStyleTest {
++    private class FakeStore(var value: AppCornerStyle?, var accept: Boolean = true) : AppStyleStore {
++        val writes = mutableListOf<AppCornerStyle>()
++
++        override fun read(): AppCornerStyle? = value
++
++        override fun write(style: AppCornerStyle): Boolean {
++            writes += style
++            if (!accept || value == null) return false
++            value = style
++            return true
++        }
++    }
++
++    @Test fun stableValuesMatchTheAuthority() {
++        assertEquals(listOf("compact", "rounded"), AppCornerStyle.entries.map { it.stableValue })
++        AppCornerStyle.entries.forEach { assertEquals(it, AppCornerStyle.fromStableValue(it.stableValue)) }
++    }
++
++    @Test fun compactIsTheDefaultAndUnknownValuesFallBack() {
++        assertEquals(AppCornerStyle.Compact, AppCornerStyle.DEFAULT)
++        assertEquals(AppCornerStyle.Compact, AppCornerStyle.fromStableValue(null))
++        assertEquals(AppCornerStyle.Compact, AppCornerStyle.fromStableValue("Rounded"))
++        assertEquals(AppCornerStyle.Compact, AppCornerStyle.fromStableValue("pill"))
++    }
++
++    @Test fun leftAndRightMoveAcrossTheOptionsAndStopAtTheEnds() {
++        assertEquals(AppCornerStyle.Rounded, AppStylePolicy.styleForKey(AppCornerStyle.Compact, AppStyleKey.RIGHT))
++        assertNull(AppStylePolicy.styleForKey(AppCornerStyle.Rounded, AppStyleKey.RIGHT))
++        assertEquals(AppCornerStyle.Compact, AppStylePolicy.styleForKey(AppCornerStyle.Rounded, AppStyleKey.LEFT))
++        assertNull(AppStylePolicy.styleForKey(AppCornerStyle.Compact, AppStyleKey.LEFT))
++    }
++
++    @Test fun enterSwitchesToTheOtherStyle() {
++        assertEquals(AppCornerStyle.Rounded, AppStylePolicy.styleForKey(AppCornerStyle.Compact, AppStyleKey.ENTER))
++        assertEquals(AppCornerStyle.Compact, AppStylePolicy.styleForKey(AppCornerStyle.Rounded, AppStyleKey.ENTER))
++    }
++
++    @Test fun missingAuthorityMakesTheSectionReadOnly() {
++        val store = FakeStore(null)
++        val c = AppStyleController(store)
++        val state = c.load()
++        assertEquals(AppStyleAvailability.UNAVAILABLE, state.availability)
++        assertEquals(AppCornerStyle.Compact, state.style)
++        assertFalse(state.enabled)
++        assertNull(c.onKey(state, AppStyleKey.ENTER))
++        assertNull(c.choose(state, AppCornerStyle.Rounded))
++        assertTrue(store.writes.isEmpty())
++    }
++
++    @Test fun choosingWritesReReadsAndReports() {
++        val store = FakeStore(AppCornerStyle.Compact)
++        val c = AppStyleController(store)
++        val (state, msg) = c.onKey(c.load(), AppStyleKey.RIGHT)!!
++        assertEquals(AppCornerStyle.Rounded, state.style)
++        assertEquals(listOf(AppCornerStyle.Rounded), store.writes)
++        assertEquals("Sable apps now use Rounded corners.", msg)
++        assertFalse(msg.contains("could not"))
++    }
++
++    @Test fun unchangedKeysAndSameChoiceDoNotWrite() {
++        val store = FakeStore(AppCornerStyle.Rounded)
++        val c = AppStyleController(store)
++        val state = c.load()
++        assertNull(c.onKey(state, AppStyleKey.RIGHT))
++        assertNull(c.choose(state, AppCornerStyle.Rounded))
++        assertTrue(store.writes.isEmpty())
++    }
++
++    @Test fun refusedWriteKeepsTheOldStyleAndSaysSo() {
++        val store = FakeStore(AppCornerStyle.Compact, accept = false)
++        val c = AppStyleController(store)
++        val (state, msg) = c.choose(c.load(), AppCornerStyle.Rounded)!!
++        assertEquals(AppCornerStyle.Compact, state.style)
++        assertTrue(msg.contains("could not"))
++    }
++}
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableCornerStyle.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableCornerStyle.kt
+new file mode 100644
+index 0000000..331fa6d
+--- /dev/null
++++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableCornerStyle.kt
+@@ -0,0 +1,63 @@
++package org.sableos.design
++
++/*
++ * Sable app corner style (pure Kotlin: no android.* or Compose imports, so the
++ * codec and the shape table are unit-tested on the JVM). SableTheme turns the
++ * table into Material Shapes; SableGlobalAppearance reads the style from
++ * content://org.sableos.appearance/appearance (column corner_style).
++ */
++
++/**
++ * Corner style for Sable apps, chosen by the user in App display compatibility >
++ * Sable app style and published through org.sableos.appearance (column corner_style).
++ * Compact is the default, so nothing changes until the user picks Rounded.
++ */
++enum class SableCornerStyle(
++    val stableValue: String,
++    val displayName: String,
++) {
++    Compact("compact", "Compact"),
++    Rounded("rounded", "Rounded"),
++    ;
++
++    companion object {
++        val DEFAULT: SableCornerStyle = Compact
++
++        fun fromStableValue(value: String?): SableCornerStyle = entries.firstOrNull { it.stableValue == value } ?: DEFAULT
++    }
++}
++
++/** Corner radii in dp for the five Material shape roles. */
++data class SableShapeScale(
++    val extraSmallDp: Int,
++    val smallDp: Int,
++    val mediumDp: Int,
++    val largeDp: Int,
++    val extraLargeDp: Int,
++) {
++    val radiiDp: List<Int>
++        get() = listOf(extraSmallDp, smallDp, mediumDp, largeDp, extraLargeDp)
++
++    val maxDp: Int
++        get() = radiiDp.max()
++}
++
++/**
++ * The shape table per corner style. Pure, so it is unit-tested on the JVM.
++ *
++ * Compact is the original Sable app geometry (2-6dp). Rounded is the DESIGN-KF-B
++ * geometry shared with SystemUI: 8dp controls (extraSmall, small) and 12dp cards,
++ * sheets and dialogs (medium, large, extraLarge); these equal
++ * SableGeometryTokens.SMALL_CONTROL_RADIUS_DP and CARD_RADIUS_DP, which
++ * SableSystemTokensTest and tests/check-sable-design.py cross-check.
++ */
++object SableShapeTable {
++    val Compact = SableShapeScale(extraSmallDp = 2, smallDp = 3, mediumDp = 4, largeDp = 6, extraLargeDp = 6)
++    val Rounded = SableShapeScale(extraSmallDp = 8, smallDp = 8, mediumDp = 12, largeDp = 12, extraLargeDp = 12)
++
++    fun forStyle(style: SableCornerStyle): SableShapeScale =
++        when (style) {
++            SableCornerStyle.Compact -> Compact
++            SableCornerStyle.Rounded -> Rounded
++        }
++}
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableGlobalAppearance.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableGlobalAppearance.kt
+index 59ee135..d6dd567 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableGlobalAppearance.kt
++++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableGlobalAppearance.kt
+@@ -22,6 +22,12 @@ object SableGlobalAppearanceContract {
+     const val COLUMN_MODE = "mode"
+     const val COLUMN_ACCENT = "accent"
+ 
++    /**
++     * Sable app corner style (compact, rounded). Written only by Settings and App display
++     * compatibility; a provider without the column reads as Compact.
++     */
++    const val COLUMN_CORNER_STYLE = "corner_style"
++
+     val CONTENT_URI: Uri =
+         Uri.parse("content://$AUTHORITY/$PATH_APPEARANCE")
+ }
+@@ -34,6 +40,7 @@ fun readGlobalSableAppearance(context: Context): SableAppearance =
+                 arrayOf(
+                     SableGlobalAppearanceContract.COLUMN_MODE,
+                     SableGlobalAppearanceContract.COLUMN_ACCENT,
++                    SableGlobalAppearanceContract.COLUMN_CORNER_STYLE,
+                 ),
+                 null,
+                 null,
+@@ -56,9 +63,17 @@ fun readGlobalSableAppearance(context: Context): SableAppearance =
+                         ),
+                     )
+ 
++                val cornerIndex =
++                    cursor.getColumnIndex(
++                        SableGlobalAppearanceContract.COLUMN_CORNER_STYLE,
++                    )
++                val cornerStyle =
++                    if (cornerIndex >= 0) cursor.getString(cornerIndex) else null
++
+                 SableAppearance(
+                     mode = AppearanceMode.fromStableValue(mode),
+                     accent = AccentPreset.fromStableValue(accent),
++                    cornerStyle = SableCornerStyle.fromStableValue(cornerStyle),
+                 )
+             }
+             ?: SableAppearance()
+@@ -89,6 +104,32 @@ fun writeGlobalSableAppearance(
+         ) == 1
+     }.getOrDefault(false)
+ 
++/**
++ * Stores the Sable app corner style. Only Settings and App display compatibility may write
++ * it; any other caller gets false. [writeGlobalSableAppearance] never writes this column, so
++ * an appearance reset from Sable Start leaves the user's corner style alone.
++ */
++fun writeGlobalSableCornerStyle(
++    context: Context,
++    style: SableCornerStyle,
++): Boolean =
++    runCatching {
++        val values =
++            ContentValues().apply {
++                put(
++                    SableGlobalAppearanceContract.COLUMN_CORNER_STYLE,
++                    style.stableValue,
++                )
++            }
++
++        context.contentResolver.update(
++            SableGlobalAppearanceContract.CONTENT_URI,
++            values,
++            null,
++            null,
++        ) == 1
++    }.getOrDefault(false)
++
+ @Composable
+ fun rememberGlobalSableAppearance(context: Context = LocalContext.current): SableAppearance {
+     var appearance by remember(context) {
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTheme.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTheme.kt
+index 28ac45f..ffa996f 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTheme.kt
++++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTheme.kt
+@@ -8,6 +8,7 @@ import androidx.compose.material3.Typography
+ import androidx.compose.material3.darkColorScheme
+ import androidx.compose.material3.lightColorScheme
+ import androidx.compose.runtime.Composable
++import androidx.compose.runtime.remember
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.text.TextStyle
+ import androidx.compose.ui.text.font.FontWeight
+@@ -48,6 +49,7 @@ enum class AccentPreset(
+ data class SableAppearance(
+     val mode: AppearanceMode = AppearanceMode.FollowSystem,
+     val accent: AccentPreset = AccentPreset.Blue,
++    val cornerStyle: SableCornerStyle = SableCornerStyle.DEFAULT,
+ )
+ 
+ object SableDesignContract {
+@@ -58,7 +60,15 @@ object SableDesignContract {
+     const val MIN_TOUCH_TARGET_DP = 48
+     const val SCREEN_HORIZONTAL_PADDING_DP = 24
+     const val SCREEN_VERTICAL_PADDING_DP = 20
+-    const val MAX_STANDARD_CORNER_RADIUS_DP = 6
++    const val KEY_CORNER_STYLE = "sable.appearance.corner_style"
++
++    /** Largest radius of each allowed corner style (Compact, Rounded); see SableShapeTable. */
++    const val MAX_COMPACT_CORNER_RADIUS_DP = 6
++    const val MAX_ROUNDED_CORNER_RADIUS_DP = 12
++
++    /** Upper bound across the two allowed styles. */
++    const val MAX_STANDARD_CORNER_RADIUS_DP = MAX_ROUNDED_CORNER_RADIUS_DP
++
+     const val FAST_MOTION_MS = 120
+     const val STANDARD_MOTION_MS = 180
+     const val EMPHASIZED_MOTION_MS = 240
+@@ -152,14 +162,17 @@ private val SableTypography =
+             ),
+     )
+ 
+-private val SableShapes =
+-    Shapes(
+-        extraSmall = RoundedCornerShape(2.dp),
+-        small = RoundedCornerShape(3.dp),
+-        medium = RoundedCornerShape(4.dp),
+-        large = RoundedCornerShape(6.dp),
+-        extraLarge = RoundedCornerShape(6.dp),
++/** Material shapes for a corner style, built from [SableShapeTable]. */
++fun sableShapes(style: SableCornerStyle): Shapes {
++    val scale = SableShapeTable.forStyle(style)
++    return Shapes(
++        extraSmall = RoundedCornerShape(scale.extraSmallDp.dp),
++        small = RoundedCornerShape(scale.smallDp.dp),
++        medium = RoundedCornerShape(scale.mediumDp.dp),
++        large = RoundedCornerShape(scale.largeDp.dp),
++        extraLarge = RoundedCornerShape(scale.extraLargeDp.dp),
+     )
++}
+ 
+ @Composable
+ fun SableTheme(
+@@ -206,10 +219,12 @@ fun SableTheme(
+             )
+         }
+ 
++    val shapes = remember(appearance.cornerStyle) { sableShapes(appearance.cornerStyle) }
++
+     MaterialTheme(
+         colorScheme = colors,
+         typography = SableTypography,
+-        shapes = SableShapes,
++        shapes = shapes,
+         content = content,
+     )
+ }
+diff --git a/sable-src/src/android/shared/sabledesign/src/test/java/org/sableos/design/SableSystemTokensTest.kt b/sable-src/src/android/shared/sabledesign/src/test/java/org/sableos/design/SableSystemTokensTest.kt
+index 25e3de1..095af82 100644
+--- a/sable-src/src/android/shared/sabledesign/src/test/java/org/sableos/design/SableSystemTokensTest.kt
++++ b/sable-src/src/android/shared/sabledesign/src/test/java/org/sableos/design/SableSystemTokensTest.kt
+@@ -140,4 +140,16 @@ class SableSystemTokensTest {
+         assertTrue(tiles.none { it in SableQuickSettingsTiles.PROFILE_GATED })
+         assertEquals(tiles.size, tiles.toSet().size)
+     }
++
++    @Test
++    fun roundedCornerStyleEqualsTheSystemShapeTokens() {
++        // Sable apps in the Rounded style match SystemUI cards and controls (DESIGN-KF-B).
++        val rounded = SableShapeTable.forStyle(SableCornerStyle.Rounded)
++        assertEquals(SableGeometryTokens.SMALL_CONTROL_RADIUS_DP, rounded.extraSmallDp)
++        assertEquals(SableGeometryTokens.SMALL_CONTROL_RADIUS_DP, rounded.smallDp)
++        assertEquals(SableGeometryTokens.CARD_RADIUS_DP, rounded.mediumDp)
++        assertEquals(SableGeometryTokens.CARD_RADIUS_DP, rounded.largeDp)
++        assertEquals(SableGeometryTokens.CARD_RADIUS_DP, rounded.extraLargeDp)
++        assertTrue(SableShapeTable.Compact.maxDp < SableGeometryTokens.SMALL_CONTROL_RADIUS_DP)
++    }
+ }
