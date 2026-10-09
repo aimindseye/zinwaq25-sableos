@@ -42,6 +42,20 @@ def write(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+def copy_icon_resources(dest_res: Path) -> None:
+    """Copy the generated launcher icon (sable-src/tools/gen_first_party_icons.py, row mail) into the app.
+
+    res/ next to this script holds the legacy vector (drawable/ic_sable_mail.xml, also the in-app logo and the
+    pre-26 icon via mipmap/), the adaptive layers and mipmap-anydpi-v26/ic_sable_mail{,_round}.xml.
+    """
+    source = Path(__file__).resolve().parent / "res"
+    files = sorted(source.rglob("*.xml"))
+    if not any(f.name == "ic_sable_mail.xml" and f.parent.name == "mipmap-anydpi-v26" for f in files):
+        fail(f"SABLE_MAIL_ICON=FAIL_MISSING_ADAPTIVE path={source}")
+    for f in files:
+        write(dest_res / f.relative_to(source), f.read_text(encoding="utf-8"))
+
+
 def git_head(root: Path) -> str:
     return subprocess.check_output(
         ["git", "-C", str(root), "rev-parse", "HEAD"],
@@ -1113,7 +1127,7 @@ class SableMailSnapshotProvider : ContentProvider() {
     replace_once(
         manifest,
         'android:icon="@mipmap/ic_launcher"',
-        'android:icon="@drawable/ic_sable_mail"',
+        'android:icon="@mipmap/ic_sable_mail"\n        android:roundIcon="@mipmap/ic_sable_mail_round"',
     )
     replace_once(
         manifest,
@@ -1142,24 +1156,7 @@ class SableMailSnapshotProvider : ContentProvider() {
     )
     manifest.write_text(manifest_text, encoding="utf-8")
 
-    write(
-        app / "src/main/res/drawable/ic_sable_mail.xml",
-        '''<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="48dp"
-    android:height="48dp"
-    android:viewportWidth="256"
-    android:viewportHeight="256">
-    <path android:fillColor="#161C24"
-        android:pathData="M32,16h192c8.8,0 16,7.2 16,16v192c0,8.8 -7.2,16 -16,16H32c-8.8,0 -16,-7.2 -16,-16V32c0,-8.8 7.2,-16 16,-16z" />
-    <group android:scaleX="0.70" android:scaleY="0.70"
-        android:translateX="38.4" android:translateY="34">
-        <path android:fillColor="#F7F9FC"
-            android:pathData="M224,48H32a8,8,0,0,0-8,8V192a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A8,8,0,0,0,224,48ZM203.43,64,128,133.15,52.57,64ZM216,192H40V74.19l82.59,75.71a8,8,0,0,0,10.82,0L216,74.19V192Z" />
-    </group>
-    <path android:fillColor="#64748B" android:pathData="M28,226h200v6H28z" />
-</vector>
-''',
-    )
+    copy_icon_resources(app / "src/main/res")
     write(
         app / "src/main/res/drawable/ic_sable_mail_notification.xml",
         '''<vector xmlns:android="http://schemas.android.com/apk/res/android"

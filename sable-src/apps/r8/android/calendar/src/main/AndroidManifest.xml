@@ -7,8 +7,8 @@
     </queries>
     <application
         android:allowBackup="false"
-        android:icon="@drawable/ic_sable_calendar"
-        android:roundIcon="@drawable/ic_sable_calendar"
+        android:icon="@mipmap/ic_sable_calendar"
+        android:roundIcon="@mipmap/ic_sable_calendar_round"
         android:label="Sable Calendar"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar">

@@ -187,7 +187,7 @@ class MainActivity : Activity() {
         }.take(sm.maxShortcutCountPerActivity).map { t ->
             ShortcutInfo.Builder(this, t.name)
                 .setShortLabel(t.title)
-                .setIcon(Icon.createWithResource(this, R.drawable.ic_sable_tools))
+                .setIcon(Icon.createWithResource(this, R.mipmap.ic_sable_tools))
                 .setIntent(ToolActivity.intent(this, t).setAction(ToolActivity.ACTION_OPEN_TOOL))
                 .build()
         }

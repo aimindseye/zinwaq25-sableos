@@ -319,14 +319,22 @@ else
     pass "crash evidence needs one device or --serial"
 fi
 
-# 12. Static icon/launch audit (#83): launcher entry, label and Sable icon are enforced for every enabled app;
-#     round/adaptive/monochrome are report-only (findings in docs/implementation/t3.md).
+# 12. Static icon/launch audit (#83): launcher entry, label, Sable icon, round icon, adaptive icon and its
+#     monochrome layer are enforced for every enabled app (docs/implementation/t3.md, icon section).
 enabled_apps="$(awk -F'\t' '!/^#/ && $1 != "module" && $9 == "yes"' product/q25/apps.tsv | grep -c .)"
-if out="$(python3 -I scripts/audit-app-icons.py 2>&1)" && grep -q '^AUDIT=PASS' <<<"$out" &&
+if out="$(python3 -I scripts/audit-app-icons.py --enforce launcher,label,icon,round,adaptive,mono 2>&1)" &&
+    grep -q '^AUDIT=PASS (enforced: launcher,label,icon,round,adaptive,mono)' <<<"$out" &&
     grep -q "^AUDIT_APPS=$enabled_apps\$" <<<"$out" && ! grep -q 'extra launcher entries' <<<"$out"; then
-    pass "icon/launch audit ($enabled_apps apps)"
+    pass "icon/launch audit ($enabled_apps apps, adaptive + monochrome + round enforced)"
 else
     fail "icon/launch audit: $out"
+fi
+
+# 12b. The launcher icons are exactly what the Phosphor icon generator produces from the pinned glyphs.
+if out="$(python3 -I sable-src/tools/gen_first_party_icons.py --check 2>&1)"; then
+    pass "icon generator check ($(grep -o 'files=[0-9]*' <<<"$out"))"
+else
+    fail "icon generator drift: $(head -5 <<<"$out")"
 fi
 
 # 13. Pure unit tests of framework patch classes (SKIP unless SABLE_KOTLINC and SABLE_JUNIT are set).
