@@ -78,7 +78,7 @@ bash build/sable.sh q25 Q2 artifacts                               # hash output
 ```
 
 `Q1` builds plain `lineage_Q25` (the control image, no Sable layer). `Q2` adds
-the Sable layer. The `apps` step needs the Sable sources in `sable-src/` first
+the Sable layer. The Sable app sources are in `sable-src/`
 (see [`apps/README.md`](apps/README.md)). Full guide: [`docs/BUILD.md`](docs/BUILD.md).
 
 ## Repository layout
@@ -91,7 +91,8 @@ scripts/                  bootstrap, apps, stage, build, artifacts, import
 manifests/local_manifests Q25 device/kernel/blob projects at pinned commits
 product/q25/              Sable product layer copied to vendor/sable/q25
 device-profile/           Q25 hardware capability profile and key map
-apps/                     how Sable application sources are brought in
+apps/                     how the Sable application sources are managed
+sable-src/                Sable app sources imported from SableOS (pinned commit)
 patches/                  reserved for device-tree and framework patches
 docs/                     guides
 tests/run.sh              static checks (also run by GitHub Actions)

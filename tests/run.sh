@@ -58,7 +58,7 @@ if awk -F'\t' '
 ' product/q25/apps.tsv; then pass "apps.tsv"; else fail "apps.tsv"; fi
 
 # 5. Nothing that must never be committed.
-forbidden="$(git ls-files 2>/dev/null | grep -E '\.(img|zip|apk|jks|keystore|pk8|bin)$|(^|/)proprietary/' | grep -v '^\.github/' || true)"
+forbidden="$(git ls-files 2>/dev/null | grep -E '\.(img|zip|apk|jks|keystore|pk8|bin)$|(^|/)proprietary/' | grep -v -e '^\.github/' -e '^sable-src/third_party/pinyin_zh/inputs/' || true)"
 if [[ -z "$forbidden" ]]; then pass "no images, archives, APKs or keys tracked"; else fail "forbidden files tracked: $forbidden"; fi
 
 # 6. Stage dry run against a fake Android tree.

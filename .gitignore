@@ -1,5 +1,3 @@
-# Imported Sable sources stay local until the owner decides to publish them.
-/sable-src/
 # Build outputs never belong here.
 *.img
 *.zip
@@ -7,3 +5,5 @@
 out/
 .gradle/
 local.properties
+# Upstream dictionary inputs shipped with the Sable sources (see their PROVENANCE.env).
+!/sable-src/third_party/pinyin_zh/inputs/*.zip

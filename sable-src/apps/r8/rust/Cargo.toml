@@ -1,0 +1,13 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/calculator-core",
+    "crates/convert-core",
+    "crates/games-core",
+    "crates/media-domain",
+    "crates/weather-core",
+    "crates/calculator-jni",
+    "crates/convert-jni",
+    "crates/games-jni",
+    "crates/weather-jni",
+]

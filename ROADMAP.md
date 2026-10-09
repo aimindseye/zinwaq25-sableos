@@ -210,10 +210,10 @@ makes this possible. It is not the primary path because it inherits every Titan
 
 ## 5. Risks and open questions
 
-* **Licensing.** `aimindseye/sableos` has no LICENSE file and is private. This
-  repo is public. Copying Sable app source here publishes it; that is a decision
-  for the owner, not something scripts do silently
-  (`scripts/import-sable-sources.sh` copies only on request).
+* **Licensing.** The owner approved publishing the Sable app sources here
+  (`sable-src/`), but neither sableos nor this repo has a LICENSE file yet, so
+  others have no stated right to reuse them. Third-party inputs keep their own
+  licences (`sable-src/third_party/*/licenses`).
 * **LineageOS vs SableOS security model.** LineageOS is not GrapheneOS. Q2-Q4
   images are engineering builds and must say so. Hardening is Q5/Q6.
 * **Blob drift.** TheMuppets blobs come from the 2026-03-26 stock release. A newer

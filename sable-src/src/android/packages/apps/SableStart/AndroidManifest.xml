@@ -1,0 +1,45 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="org.sableos.launcher"
+    android:versionCode="90">
+
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <provider android:authorities="org.sableos.appearance" />
+        <provider android:authorities="org.sableos.weather.snapshot" />
+        <provider android:authorities="org.sableos.calendar.snapshot" />
+        <provider android:authorities="org.sableos.hub.snapshot" />
+        <provider android:authorities="org.sableos.hub.connected_apps" />
+        <provider android:authorities="org.sableos.mail.snapshot" />
+        <provider android:authorities="org.sableos.media.snapshot" />
+    </queries>
+
+    <application
+        android:allowBackup="false"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.SableLauncher">
+
+        <activity
+            android:name="org.sableos.start.SableStartActivity"
+            android:clearTaskOnLaunch="true"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:stateNotNeeded="true">
+
+            <intent-filter android:priority="10">
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

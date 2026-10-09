@@ -71,8 +71,8 @@ bash build/sable.sh q25 Q1 artifacts
 
 ### 4a. Sable application sources
 
-The app sources come from SableOS. See [`../apps/README.md`](../apps/README.md)
-for how they get into `sable-src/`. Then:
+The app sources are already in `sable-src/`, imported from SableOS at a pinned
+commit (see [`../apps/README.md`](../apps/README.md)). Build them:
 
 ```bash
 bash build/sable.sh q25 Q2 apps          # rows with enabled=yes in product/q25/apps.tsv

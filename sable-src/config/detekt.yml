@@ -1,0 +1,50 @@
+config:
+  validation: true
+  warningsAsErrors: true
+
+complexity:
+  CyclomaticComplexMethod:
+    excludes:
+      - "**/media/MediaApp.kt"
+      - "**/media/MediaScreen.kt"
+      - "**/media/MediaC2Screens.kt"
+      - "**/media/PodcastScreen.kt"
+      - "**/hub/ui/HubScreen.kt"
+      - "**/hub/ui/ConnectedAppsScreen.kt"
+      - "**/hub/MainActivity.kt"
+      - "**/hub/ConnectedAppsActivity.kt"
+  LongMethod:
+    excludes:
+      - "**/media/MediaApp.kt"
+      - "**/media/MediaScreen.kt"
+      - "**/media/MediaC2Screens.kt"
+      - "**/media/PodcastScreen.kt"
+      - "**/hub/ui/HubScreen.kt"
+      - "**/hub/ui/ConnectedAppsScreen.kt"
+      - "**/hub/MainActivity.kt"
+      - "**/hub/ConnectedAppsActivity.kt"
+  LongParameterList:
+    excludes:
+      - "**/media/MediaScreen.kt"
+      - "**/media/MediaC2Screens.kt"
+      - "**/media/PodcastScreen.kt"
+      - "**/hub/ui/HubScreen.kt"
+      - "**/hub/ui/ConnectedAppsScreen.kt"
+  TooManyFunctions:
+    ignorePrivate: true
+    ignoreAnnotatedFunctions:
+      - Composable
+
+naming:
+  FunctionNaming:
+    excludes:
+      - "**/media/MediaApp.kt"
+      - "**/media/MediaScreen.kt"
+      - "**/media/MediaC2Screens.kt"
+      - "**/media/PodcastScreen.kt"
+      - "**/hub/ui/HubScreen.kt"
+      - "**/hub/ui/ConnectedAppsScreen.kt"
+
+style:
+  MagicNumber:
+    ignorePropertyDeclaration: true

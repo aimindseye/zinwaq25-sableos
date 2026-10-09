@@ -1,0 +1,9 @@
+# Full local CI must consume existing local security state only.
+# Do not fetch the RustSec DB or update the crates.io index during qualification.
+[database]
+fetch = false
+stale = false
+
+[yanked]
+enabled = true
+update_index = false

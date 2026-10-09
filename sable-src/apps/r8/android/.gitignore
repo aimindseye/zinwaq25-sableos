@@ -1,0 +1,6 @@
+.gradle/
+**/build/
+
+# Android Studio / local SDK state
+.idea/
+local.properties

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-feature
+        android:name="android.hardware.telephony"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.telephony.messaging"
+        android:required="false" />
+
+    <uses-permission android:name="android.permission.READ_SMS" />
+    <uses-permission android:name="android.permission.SEND_SMS" />
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <provider android:authorities="org.sableos.appearance" />
+        <provider android:authorities="org.sableos.mail.snapshot" />
+        <package android:name="org.sableos.mail" />
+    </queries>
+
+    <application
+        android:allowBackup="false"
+        android:icon="@drawable/ic_sable_messages"
+        android:roundIcon="@drawable/ic_sable_messages"
+        android:label="Sable Hub"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.NoActionBar"
+        android:usesCleartextTraffic="false">
+
+        <provider
+            android:name=".HubSnapshotProvider"
+            android:authorities="org.sableos.hub.snapshot"
+            android:exported="true"
+            android:grantUriPermissions="false" />
+
+        <provider
+            android:name=".ConnectedAppsPolicyProvider"
+            android:authorities="org.sableos.hub.connected_apps"
+            android:exported="true"
+            android:grantUriPermissions="false" />
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".ConnectedAppsActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="org.sableos.hub.action.CONNECTED_APPS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".notifications.SableNotificationListenerService"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+
+    </application>
+</manifest>

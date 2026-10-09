@@ -1,0 +1,159 @@
+[versions]
+# -- Android SDK --
+android-compileSdk = "36"
+android-targetSdk = "36"
+android-minSdk = "30"
+
+# -- App Versioning --
+app-versionCode = "2"
+app-versionName = "1.0.1"
+
+# -- Kotlin / Java --
+kotlin = "2.3.10"
+ksp = "2.3.6"
+agp = "8.13.2"
+
+# -- Core Libraries --
+coreKtx = "1.15.0"
+appcompat = "1.7.1"
+material = "1.13.0"
+desugar = "2.1.5"
+activityCompose = "1.12.4"
+serializationJson = "1.10.0"
+coroutines = "1.10.2"
+
+# -- Compose --
+composeBom = "2026.02.01"
+material3 = "1.4.0"
+foundation = "1.10.4"
+uiText = "1.10.4"
+foundationLayout = "1.10.4"
+
+# -- Navigation & DI --
+navigation = "2.9.7"
+hilt = "2.57.2"
+hiltNavigationCompose = "1.3.0"
+
+# -- Networking & Data --
+retrofit = "2.12.0"
+okhttp = "4.12.0"
+ktor = "2.3.13"
+datastore = "1.2.0"
+
+# -- Readium & AI --
+readium = "3.1.2"
+gemini = "0.9.0"
+coil = "2.7.0"
+
+# -- Testing & Tooling --
+junit = "4.13.2"
+junitVersion = "1.3.0"
+espressoCore = "3.7.0"
+dokka = "1.9.20"
+robolectric = "4.16.1"
+mockk = "1.14.9"
+turbine = "1.2.1"
+coroutinesTest = "1.10.2"
+jacoco = "0.8.12"
+
+# -- Utilities --
+timber = "5.0.1"
+media3 = "1.9.2"
+splashscreen = "1.0.1"
+leakcanary = "2.14"
+
+# -- KMP & Database --
+room = "2.8.4"
+sqlite = "2.6.2"
+
+[libraries]
+# -- Android Core --
+android-desugar = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugar" }
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "splashscreen" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
+androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version = "1.1.0" }
+
+# -- Compose --
+androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+androidx-ui = { group = "androidx.compose.ui", name = "ui" }
+androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
+androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
+androidx-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
+androidx-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
+androidx-ui-text = { group = "androidx.compose.ui", name = "ui-text", version.ref = "uiText" }
+androidx-ui-viewbinding = { group = "androidx.compose.ui", name = "ui-viewbinding" }
+androidx-material-icons = { group = "androidx.compose.material", name = "material-icons-extended" }
+androidx-foundation-layout = { group = "androidx.compose.foundation", name = "foundation-layout", version.ref = "foundationLayout" }
+
+# -- Navigation --
+androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation" }
+
+# -- Hilt (Dependency Injection) --
+hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
+hilt-compiler = { group = "com.google.dagger", name = "hilt-android-compiler", version.ref = "hilt" }
+androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
+
+# -- Room Database KMP --
+androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+androidx-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqlite" }
+
+# -- Networking (Retrofit/OkHttp/Ktor) --
+retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
+retrofit-gson = { group = "com.squareup.retrofit2", name = "converter-gson", version.ref = "retrofit" }
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }
+ktor-client-cio = { group = "io.ktor", name = "ktor-client-cio", version.ref = "ktor" }
+ktor-client-android = { group = "io.ktor", name = "ktor-client-android", version.ref = "ktor" }
+ktor-client-content-negotiation = { group = "io.ktor", name = "ktor-client-content-negotiation", version.ref = "ktor" }
+ktor-serialization-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json", version.ref = "ktor" }
+ktor-client-logging = { group = "io.ktor", name = "ktor-client-logging", version.ref = "ktor" }
+
+# -- Readium & AI --
+readium-shared = { group = "org.readium.kotlin-toolkit", name = "readium-shared", version.ref = "readium" }
+readium-streamer = { group = "org.readium.kotlin-toolkit", name = "readium-streamer", version.ref = "readium" }
+readium-navigator = { group = "org.readium.kotlin-toolkit", name = "readium-navigator", version.ref = "readium" }
+readium-opds = { group = "org.readium.kotlin-toolkit", name = "readium-opds", version.ref = "readium" }
+readium-lcp = { group = "org.readium.kotlin-toolkit", name = "readium-lcp", version.ref = "readium" }
+readium-navigator-media-tts = { group = "org.readium.kotlin-toolkit", name = "readium-navigator-media-tts", version.ref = "readium" }
+google-generativeai = { group = "com.google.ai.client.generativeai", name = "generativeai", version.ref = "gemini" }
+androidx-media3-session = { group = "androidx.media3", name = "media3-session", version.ref = "media3" }
+androidx-media3-common = { group = "androidx.media3", name = "media3-common", version.ref = "media3" }
+
+# -- Utilities --
+androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
+androidx-datastore-preferences-core = { module = "androidx.datastore:datastore-preferences-core", version.ref = "datastore" }
+coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serializationJson" }
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
+apache-commons = { group = "org.apache.commons", name = "commons-compress", version = "1.28.0" }
+timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }
+leakcanary-android = { group = "com.squareup.leakcanary", name = "leakcanary-android", version.ref = "leakcanary" }
+
+# -- Testing --
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
+androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
+mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
+turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+dagger-hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+devtools-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+jetbrains-dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
+kotlin-parcelize = { id = "org.jetbrains.kotlin.plugin.parcelize", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+
+# -- KMP Plugins --
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+androidx-room = { id = "androidx.room", version.ref = "room" }

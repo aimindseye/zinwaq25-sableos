@@ -4,12 +4,14 @@ The Sable apps are common SableOS source. The Q25 does not fork them; it builds
 them unchanged (plus `zinwa-q25` profile entries) and imports the APKs into the
 image.
 
-They live in the private `aimindseye/sableos` repository. This repository is
-public, so bringing them here publishes them. That is the owner's call.
+They come from the private `aimindseye/sableos` repository. The owner approved
+publishing them here, so they are committed under `sable-src/` at the commit in
+`sable-src/SOURCE_IMPORT.txt`. You don't need sableos access to build.
 
-## Getting the sources into `sable-src/`
+## Refreshing `sable-src/` (maintainers)
 
-With a local clone of `aimindseye/sableos`:
+To move to a newer sableos commit, update `SABLE_Q25_SABLEOS_COMMIT` in
+`build/config/q25.env`, then with a local clone of `aimindseye/sableos`:
 
 ```bash
 bash build/sable.sh q25 Q2 import --sableos /path/to/sableos --authorize-public-copy
@@ -26,7 +28,9 @@ sable-src/src/android/...          Sable design tokens, Sable Start
 sable-src/config, third_party, tools   lint config, icons, pinyin data, generators
 ```
 
-`sable-src/` is git-ignored until the owner decides to commit it.
+The script leaves out files listed in its `EXCLUDE` array (for example a
+mislabelled "font" that was really a saved web page) and refuses to finish if
+anything looks like web-page account data. Review the diff before committing.
 
 ## Which apps go into the image
 

@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <queries>
+        <provider android:authorities="org.sableos.weather.snapshot" />
+        <provider android:authorities="org.sableos.calendar.snapshot" />
+        <provider android:authorities="org.sableos.hub.snapshot" />
+        <provider android:authorities="org.sableos.mail.snapshot" />
+        <provider android:authorities="org.sableos.media.snapshot" />
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
+    <application
+        android:allowBackup="false"
+        android:label="Sable Launcher Visual Review"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.NoActionBar">
+        <provider
+            android:name=".ReviewWeatherSnapshotProvider"
+            android:authorities="org.sableos.weather.snapshot"
+            android:exported="true"
+            android:grantUriPermissions="false" />
+        <provider
+            android:name=".ReviewMailSnapshotProvider"
+            android:authorities="org.sableos.mail.snapshot"
+            android:exported="true"
+            android:grantUriPermissions="false" />
+
+        <activity
+            android:name=".R9DailyDriverDesignReviewActivity"
+            android:exported="true"
+            android:label="Sable R9 Daily Driver Design Review" />
+
+        <activity
+            android:name=".WeatherFixtureActivity"
+            android:exported="true"
+            android:icon="@drawable/ic_review_weather"
+            android:roundIcon="@drawable/ic_review_weather"
+            android:label="Sable Weather">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".MailFixtureActivity"
+            android:exported="true"
+            android:icon="@drawable/ic_review_mail"
+            android:roundIcon="@drawable/ic_review_mail"
+            android:label="Sable Mail">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".CalculatorFixtureActivity"
+            android:exported="true"
+            android:icon="@drawable/ic_review_calculator"
+            android:roundIcon="@drawable/ic_review_calculator"
+            android:label="Sable Calculator">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".R9LauncherVisualReviewActivity"
+            android:exported="true"
+            android:label="Sable Launcher Visual Review">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

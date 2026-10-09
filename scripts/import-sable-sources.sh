@@ -77,6 +77,22 @@ git -C "$SABLEOS" archive "$COMMIT" -- "${present[@]}" | tar -x -C "$DEST"
     printf 'path %s\n' "${present[@]}"
 } > "$DEST/SOURCE_IMPORT.txt"
 
+# Files never published, with the reason. Paths are relative to sable-src/.
+EXCLUDE=(
+    # Not a font: a saved GitHub web page that embeds the owner's GitHub
+    # account details. Unreferenced by the Reader build.
+    apps/r8/android/reader/leisure/src/main/res/font/accessible_dfa_vf.ttf
+)
+for p in "${EXCLUDE[@]}"; do
+    rm -f "$DEST/$p"
+done
+
+# A last guard against saved web pages or account data sneaking in.
+if grep -rIl -e 'csrf_tokens' -e '"userEmail"' "$DEST" >/dev/null 2>&1; then
+    grep -rIl -e 'csrf_tokens' -e '"userEmail"' "$DEST" >&2
+    sable_fail "imported files contain web-page account data; add them to EXCLUDE"
+fi
+
 # Never import build outputs or local signing material.
 find "$DEST" \( -name build -o -name .gradle -o -name '*.jks' -o -name '*.keystore' -o -name local.properties \) -prune -exec rm -rf {} +
 

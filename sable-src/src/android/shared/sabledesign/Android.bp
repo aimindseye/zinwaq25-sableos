@@ -1,0 +1,7 @@
+filegroup {
+    name: "sable_design_shared_srcs",
+    srcs: [
+        "src/main/java/**/*.kt",
+    ],
+    visibility: ["//visibility:public"],
+}
