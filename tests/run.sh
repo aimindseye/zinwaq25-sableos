@@ -282,6 +282,9 @@ else
     fail "icon/launch audit: $out"
 fi
 
+# 13. Pure unit tests of framework patch classes (SKIP unless SABLE_KOTLINC and SABLE_JUNIT are set).
+if ! bash tests/framework/run-pure-tests.sh; then fail "framework pure tests"; fi
+
 echo
 if ((fails)); then echo "CI=FAIL ($fails)"; exit 1; fi
 echo "CI=PASS"
