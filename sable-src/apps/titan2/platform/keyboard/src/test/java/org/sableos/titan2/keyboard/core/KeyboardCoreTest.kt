@@ -232,6 +232,23 @@ class KeyboardCoreTest {
         assertEquals("_", l.alt['i'])
     }
 
+    @Test fun zinwaQ25LayoutMatchesKcmEvidenceAndStaysUnverified() {
+        val l = KeyLayout.forProfile("zinwa-q25")
+        assertEquals(KeyLayout.ZinwaQ25Kcm, l)
+        assertFalse(l.verified)
+        assertEquals("#", l.alt['q'])
+        assertEquals("@", l.alt['p'])
+        assertEquals("\"", l.alt['l'])
+        assertEquals(26, l.alt.size)
+        assertTrue(l.sym.isEmpty())
+    }
+
+    @Test fun profilesDoNotShareLegends() {
+        assertEquals(KeyLayout.SableProvisional, KeyLayout.forProfile("zinwa-q27"))
+        assertEquals(KeyLayout.SableProvisional, KeyLayout.forProfile(null))
+        assertEquals(KeyLayout.Titan2PhotoRead, KeyLayout.forProfile("titan2"))
+    }
+
     @Test fun deviceCharacterMapBeatsProvisionalTable() {
         // Titan 2 stock evidence: Alt+Q yields '0', where the provisional table says '1'.
         val x = r()

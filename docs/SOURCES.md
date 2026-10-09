@@ -15,6 +15,7 @@
 | [LineageOS wiki: Q25](https://wiki.lineageos.org/devices/Q25/) | Device info, install flow | reference | CC BY-SA |
 | [Zinwa Q25 product page](https://zinwa.com/product/q25-full-device/) | Specs | reference | n/a |
 | [Q25 Tutorials (Notion)](https://duc1607.notion.site/Q25-Tutorials-2a5709b7d17c8086a351c999e13f5551) | Community guides | reference; page needs JavaScript and wasn't machine-read | n/a |
+| [Q25 stock images (Google Drive, "With-GMS")](https://drive.google.com/drive/folders/1RlhjXInYh7t_ITkWS6fqKY4quZAAKmuT) | Stock firmware for return-to-stock and blob extraction | reference; contents not yet verified or hashed | Zinwa proprietary |
 | [LineageOS Q25 builds](https://download.lineageos.org/devices/Q25/builds) | Official builds to compare against the Q1 control | reference | n/a |
 
 To change a pin: update `build/config/q25.env` and

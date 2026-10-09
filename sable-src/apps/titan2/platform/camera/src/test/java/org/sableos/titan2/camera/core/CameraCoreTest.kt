@@ -133,6 +133,10 @@ class CameraCoreTest {
                 CameraDeviceProfile.ZinwaQ27.expectedRaw.isEmpty()
         )
         assertEquals("unknown", CameraDeviceProfile.byId("bogus").id)
+        val q25 = CameraDeviceProfile.byId("zinwa-q25")
+        assertEquals(CameraDeviceProfile.ZinwaQ25, q25)
+        assertEquals(EvidenceLevel.None, q25.evidence)
+        assertTrue(q25.expectedPublicIds.isEmpty() && q25.keyOverrides.isEmpty())
     }
 
     @Test fun zoomPlannerStepsAndClamps() {

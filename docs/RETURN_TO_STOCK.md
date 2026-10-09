@@ -7,8 +7,12 @@ What is known:
 
 * The Q25 bootloader unlocks with standard `fastboot flashing unlock`.
 * Zinwa ships stock OTA updates (`ro.fota.version=Q25_26.03.2026` in the stock
-  release LineageOS used). A public full stock firmware download has not been
-  confirmed by this project.
+  release LineageOS used).
+* Stock Q25 images are shared in this Google Drive folder (folder title
+  "With-GMS"): https://drive.google.com/drive/folders/1RlhjXInYh7t_ITkWS6fqKY4quZAAKmuT.
+  Its contents haven't been checked by this project: before relying on it,
+  record each file's name, size and SHA-256 in `STOCK_BASIS.md` and confirm the
+  build matches your device. Never copy the images into this repository.
 * MediaTek devices can usually be recovered from BROM mode with tools such as
   SP Flash Tool or mtkclient, given a matching scatter/firmware package. Whether
   the Q25's BROM is reachable and unprotected has not been checked here.

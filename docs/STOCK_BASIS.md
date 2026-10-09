@@ -24,6 +24,18 @@ active_slot_at_capture=
 unlocked=
 ```
 
+## Stock image source
+
+Stock images: https://drive.google.com/drive/folders/1RlhjXInYh7t_ITkWS6fqKY4quZAAKmuT
+(folder "With-GMS", unverified). When you download one, record here:
+
+```text
+stock_image_file=
+stock_image_bytes=
+stock_image_sha256=
+stock_image_build=        (fingerprint inside the image)
+```
+
 ## Blob basis
 
 The local manifest uses TheMuppets blobs extracted from
