@@ -124,6 +124,22 @@ if bash scripts/restore-stock.sh --images "$img" >/dev/null 2>&1; then fail "res
 if bash scripts/backup-device.sh --out "$PWD/backup-test" --mtk true >/dev/null 2>&1; then fail "backup inside repo accepted"; else pass "backup refuses repo path"; fi
 rm -rf "$PWD/backup-test"
 
+# 9. Restore plan for the real "With-GMS" stock package layout.
+gms="$tmp/gms"
+while IFS= read -r f; do mkdir -p "$gms/$(dirname "$f")"; printf x > "$gms/$f"; done < tests/fixtures/stock-gms-sp1a.files
+if out="$(bash scripts/restore-stock.sh --images "$gms" --scope full 2>/dev/null)"; then
+    ok=yes
+    for p in boot dtbo vendor_boot vbmeta vbmeta_system vbmeta_vendor lk tee md1img; do
+        grep -q "flash --slot=all $p $gms/$p.img" <<<"$out" || ok=no
+    done
+    grep -q "flash super $gms/super.img" <<<"$out" || ok=no
+    grep -q "flash logo $gms/logo.bin" <<<"$out" || ok=no
+    grep -Eq 'debug|userdata|preloader|DA_BR' <<<"$out" && ok=no
+    [[ "$ok" == yes ]] && pass "restore-stock plan for With-GMS layout" || fail "With-GMS plan wrong: $out"
+else
+    fail "restore-stock failed on With-GMS layout"
+fi
+
 echo
 if ((fails)); then echo "CI=FAIL ($fails)"; exit 1; fi
 echo "CI=PASS"

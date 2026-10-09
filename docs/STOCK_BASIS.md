@@ -36,6 +36,16 @@ stock_image_sha256=
 stock_image_build=        (fingerprint inside the image)
 ```
 
+Known so far from the file list only (2026-10-09). The images themselves are not
+inspected or hashed:
+
+```text
+stock_image_file=SP1A.210812.016RELEASE-KEYS/ (SP Flash package, scatter MT6789_Android_scatter.xml)
+board=q20_v12_factory (from preloader_q20_v12_factory.bin)
+system_build=mssi_64_cn_armv82
+stock_image_build=UNKNOWN (read ro.build.fingerprint from mssi_64_cn_armv82/build.prop)
+```
+
 ## Blob basis
 
 The local manifest uses TheMuppets blobs extracted from

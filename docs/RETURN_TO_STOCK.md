@@ -73,13 +73,39 @@ SP Flash Tool's *Readback* (phone off, automatic mode) is an alternative.
 * Community Q25 files folder (from the asmtronic Q25 guide):
   https://drive.google.com/drive/folders/1dQ3V04yze6P7fXzjs7HB1Plg4L-vDGyQ
 
-Neither has been checked by this project. Use the **OS** archive (a community
-example name is `OS-new-camera-0120-Q25-GMS.zip`), not an OTA. Before use:
-unzip it, run `sha256sum` over the files, and record the build in
-`STOCK_BASIS.md`. Check that it carries `boot.img`, `vendor_boot.img`,
-`dtbo.img`, `vbmeta*.img` and either `super.img` or the logical images
-(`system.img`, `vendor.img`, ...). `restore-stock.sh` lists what it found and
-stops if something it needs is missing.
+Neither has been checked by this project. Use the full firmware package, not an
+OTA. Before use: unzip it, run `sha256sum` over the files, and record the build
+in `STOCK_BASIS.md`. `restore-stock.sh` lists what it found and stops if
+something it needs is missing.
+
+#### The "With-GMS" package (file list only, contents not inspected)
+
+The With-GMS folder holds a folder named `SP1A.210812.016RELEASE-KEYS`, which is
+an **SP Flash Tool package**. It has `MT6789_Android_scatter.xml` and
+`download_agent/`, so the same files work for rung 3. It contains:
+
+* everything rung 1 needs: `boot`, `dtbo`, `vendor_boot`, `vbmeta`,
+  `vbmeta_system`, `vbmeta_vendor` and a single `super.img`;
+* rung 2 firmware: `lk tee scp sspm dpm mcupm md1img gz spmfw pi_img logo`;
+* `preloader_q20_v12_factory.bin`, so the package targets the
+  **q20_v12_factory** board. Check `fastboot getvar product` on your phone
+  before you use it;
+* `userdata.img`, `boot-debug.img` and `vendor_boot-debug.img`, which
+  `restore-stock.sh` ignores.
+
+Its exact layout is tested in `tests/run.sh` (fixture
+`tests/fixtures/stock-gms-sp1a.files`).
+
+**Check the version before using rung 2 or 3.** `SP1A` is an Android 12 build
+tag. The stock build this port's blobs came from reports Android 14
+(`STOCK_BASIS.md`). If this package is older than the firmware on your phone,
+only use rung 1, which writes just the partitions SableOS changed. Don't use the
+full restore or SP Flash with it: writing an older boot chain (`lk`, `tee`,
+preloader) over newer firmware can be refused or brick the phone on some
+MediaTek devices. Compare `ro.build.fingerprint` in the package's
+`mssi_64_cn_armv82/build.prop` and `q20_v12_factory/build.prop` with
+Settings > About. `mssi_64_cn` also suggests a China-region system build;
+check the region before relying on it.
 
 ### Rehearsal (gate R0)
 
