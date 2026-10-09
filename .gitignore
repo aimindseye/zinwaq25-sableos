@@ -1,0 +1,9 @@
+# Imported Sable sources stay local until the owner decides to publish them.
+/sable-src/
+# Build outputs never belong here.
+*.img
+*.zip
+*.apk
+out/
+.gradle/
+local.properties

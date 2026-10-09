@@ -1,0 +1,31 @@
+# Sable application set for the Zinwa Q25.
+#
+# Columns (tab-separated):
+#   module        Soong module name in vendor/sable/q25
+#   group         platform = keyboard-first platform apps (Titan 2 C3B set)
+#                 common   = common Sable apps (Panther R9 set)
+#   gradle_root   Gradle project, relative to sable-src/
+#   gradle_task   task that produces the APK
+#   apk           APK path relative to gradle_root (one glob match required)
+#   package       expected application id
+#   signing       unsigned  = release APK, signed by the platform build (default dev cert)
+#                 presigned = APK already signed (debug-signed engineering APK)
+#   overrides     comma-separated modules this app replaces, or -
+#   enabled       yes/no: whether scripts/build-apps.sh builds it by default
+#
+# Package ids stay as they are in SableOS (for example org.sableos.titan2.keyboard):
+# the Q25 does not fork common apps.
+module	group	gradle_root	gradle_task	apk	package	signing	overrides	enabled
+SableKeyboard	platform	apps/titan2/platform	:keyboard:assembleRelease	keyboard/build/outputs/apk/release/*.apk	org.sableos.titan2.keyboard	unsigned	-	yes
+SableCamera	platform	apps/titan2/platform	:camera:assembleRelease	camera/build/outputs/apk/release/*.apk	org.sableos.titan2.camera	unsigned	-	yes
+SableDisplayCompat	platform	apps/titan2/platform	:displaycompat:assembleRelease	displaycompat/build/outputs/apk/release/*.apk	org.sableos.titan2.displaycompat	unsigned	-	yes
+SableSetup	platform	apps/titan2/platform	:setup:assembleRelease	setup/build/outputs/apk/release/*.apk	org.sableos.titan2.setup	unsigned	-	yes
+SableRadioDiag	platform	apps/titan2/platform	:radiodiag:assembleRelease	radiodiag/build/outputs/apk/release/*.apk	org.sableos.titan2.radiodiag	unsigned	-	yes
+SableCalculator	common	apps/r8/android	:calculator:assembleDebug	calculator/build/outputs/apk/debug/calculator-debug.apk	org.sableos.calculator	presigned	ExactCalculator	no
+SableSudoku	common	apps/r8/android	:games:assembleSudokuDebug	games/build/outputs/apk/sudoku/debug/games-sudoku-debug.apk	org.sableos.sudoku	presigned	-	no
+SableMinesweeper	common	apps/r8/android	:games:assembleMinesweeperDebug	games/build/outputs/apk/minesweeper/debug/games-minesweeper-debug.apk	org.sableos.minesweeper	presigned	-	no
+Sable2048	common	apps/r8/android	:games:assembleGame2048Debug	games/build/outputs/apk/game2048/debug/games-game2048-debug.apk	org.sableos.game2048	presigned	-	no
+SableMedia	common	apps/r8/android	:media:assembleDebug	media/build/outputs/apk/debug/media-debug.apk	org.sableos.media	presigned	-	no
+SableHub	common	apps/r8/android	:hub:assembleDebug	hub/build/outputs/apk/debug/hub-debug.apk	org.sableos.hub	presigned	-	no
+SableWeather	common	apps/r8/android	:weather:assembleDebug	weather/build/outputs/apk/debug/weather-debug.apk	org.sableos.weather	presigned	-	no
+SableCalendar	common	apps/r8/android	:calendar:assembleDebug	calendar/build/outputs/apk/debug/calendar-debug.apk	org.sableos.calendar	presigned	-	no

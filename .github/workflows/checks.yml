@@ -1,0 +1,19 @@
+name: checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  static:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck and xmllint
+        run: sudo apt-get update && sudo apt-get install -y shellcheck libxml2-utils
+      - name: Static checks
+        run: bash tests/run.sh
