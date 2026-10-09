@@ -489,6 +489,7 @@ object TextReaderUtil {
     design_destination.mkdir(parents=True, exist_ok=True)
     for name in (
         "SableTheme.kt",
+        "SableCornerStyle.kt",
         "SableGlobalAppearance.kt",
         "SableSystemBars.kt",
     ):

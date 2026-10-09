@@ -186,7 +186,7 @@ fi
 if command -v javac >/dev/null 2>&1; then
     st="$tmp/settings-policy"
     mkdir -p "$st"
-    for p in patches/framework/packages/apps/Settings/010[12]-*.patch; do
+    for p in patches/framework/packages/apps/Settings/010[123]-*.patch; do
         (cd "$st" && git apply --include='src/com/android/settings/sable/SableAppearancePolicy.java' \
             --include='src/com/android/settings/sable/SableBuildInfo.java' "$ROOT/$p")
     done

@@ -140,4 +140,16 @@ class SableSystemTokensTest {
         assertTrue(tiles.none { it in SableQuickSettingsTiles.PROFILE_GATED })
         assertEquals(tiles.size, tiles.toSet().size)
     }
+
+    @Test
+    fun roundedCornerStyleEqualsTheSystemShapeTokens() {
+        // Sable apps in the Rounded style match SystemUI cards and controls (DESIGN-KF-B).
+        val rounded = SableShapeTable.forStyle(SableCornerStyle.Rounded)
+        assertEquals(SableGeometryTokens.SMALL_CONTROL_RADIUS_DP, rounded.extraSmallDp)
+        assertEquals(SableGeometryTokens.SMALL_CONTROL_RADIUS_DP, rounded.smallDp)
+        assertEquals(SableGeometryTokens.CARD_RADIUS_DP, rounded.mediumDp)
+        assertEquals(SableGeometryTokens.CARD_RADIUS_DP, rounded.largeDp)
+        assertEquals(SableGeometryTokens.CARD_RADIUS_DP, rounded.extraLargeDp)
+        assertTrue(SableShapeTable.Compact.maxDp < SableGeometryTokens.SMALL_CONTROL_RADIUS_DP)
+    }
 }

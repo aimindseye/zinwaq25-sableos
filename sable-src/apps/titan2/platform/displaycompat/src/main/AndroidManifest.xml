@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- No permissions. App discovery uses a <queries> launcher intent, not QUERY_ALL_PACKAGES. -->
+    <!-- No permissions. App discovery uses a <queries> launcher intent, not QUERY_ALL_PACKAGES.
+         The Sable appearance authority (Settings) holds the global Sable app corner style. -->
     <queries>
+        <provider android:authorities="org.sableos.appearance" />
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />

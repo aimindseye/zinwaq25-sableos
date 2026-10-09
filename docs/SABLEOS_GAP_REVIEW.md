@@ -82,7 +82,6 @@ Each item has a gate in [`QUALIFICATION.md`](QUALIFICATION.md); none has run.
 
 | Decision | Today |
 |---|---|
-| Sable app corner shapes | Sable apps keep 2-6dp corners; the SystemUI design uses 8/12dp. Changing it restyles every app. |
 | Attention outputs for the Q25 | `ro.sable.attention.outputs` is not set, so every attention output is off. Set it once outputs are proven on the phone. |
 | Display density | `SABLE_LCD_DENSITY` is empty, so the vendor's 193 stays. One value in `product/q25/sable-q25.mk`. |
 | Charging-limit controls (BH6) | Not allowed by the design without a device-verified backend. They stay hidden. |
@@ -96,6 +95,11 @@ Each item has a gate in [`QUALIFICATION.md`](QUALIFICATION.md); none has run.
 * The brightness slider has no visible text label, and the focus ring stays at
   Android's 3dp.
 * LineageOS's boot animation is kept.
+* Sable app corners are a user setting (App display compatibility > Sable app
+  style: Compact, the default, or Rounded). Shapes drawn through the Sable theme
+  follow it. Views that hard-code a radius (parts of Sable Start, Reader, Hub,
+  Calendar and Messages), the keyboard-first platform apps with their own
+  palette (Camera, DisplayCompat, Tools) and Sable Mail keep their own corners.
 * Keyboard type-ahead in Settings covers the Battery screens only.
 * Battery and Sable Tools strings are English only.
 * Connected apps in Hub still calls its ordering list "favorites", while the

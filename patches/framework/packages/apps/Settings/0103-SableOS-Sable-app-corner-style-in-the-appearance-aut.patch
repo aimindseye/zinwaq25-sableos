@@ -1,0 +1,304 @@
+From 7a5b9bdac93af4f0cbe0cf68b1ba434709d73cf7 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 9 Oct 2026 22:59:38 +0000
+Subject: [PATCH] SableOS: Sable app corner style in the appearance authority
+
+Add a corner_style column (compact, rounded) to org.sableos.appearance so
+every Sable app reads one user setting for its corner shapes. compact is
+the default (the original 2-6dp Sable app shapes), so nothing changes
+until the user picks rounded (the DESIGN-KF-B 8dp control / 12dp card
+shapes) in App display compatibility > Sable app style.
+
+Writes are checked per column: mode and accent keep their writers
+(Settings and org.sableos.launcher); the corner style may be written by
+Settings and by App display compatibility (org.sableos.titan2.displaycompat)
+when it is the copy on the system image, not an installed update. That app
+is signed with the build's default certificate rather than the platform
+certificate, so a signature permission defined by Settings could not be
+granted to it. Changing the corner style notifies observers, so open
+Sable apps restyle live. The pure rules live in SableAppearancePolicy.
+---
+ AndroidManifest.xml                           |  5 +-
+ .../settings/sable/SableAppearancePolicy.java | 68 ++++++++++++++-
+ .../sable/SableAppearanceProvider.java        | 83 ++++++++++++++++---
+ 3 files changed, 140 insertions(+), 16 deletions(-)
+
+diff --git a/AndroidManifest.xml b/AndroidManifest.xml
+index 55169ade09b..855d61ff68b 100644
+--- a/AndroidManifest.xml
++++ b/AndroidManifest.xml
+@@ -170,8 +170,9 @@
+ 
+         <uses-library android:name="org.apache.http.legacy" />
+ 
+-        <!-- SableOS appearance authority: accent for Sable apps (read by anyone, written by
+-             Settings and Sable Start only, enforced in SableAppearanceProvider). -->
++        <!-- SableOS appearance authority: accent and corner style for Sable apps (read by
++             anyone; accent written by Settings and Sable Start, corner style by Settings and
++             App display compatibility; enforced in SableAppearanceProvider). -->
+         <provider
+             android:name=".sable.SableAppearanceProvider"
+             android:authorities="org.sableos.appearance"
+diff --git a/src/com/android/settings/sable/SableAppearancePolicy.java b/src/com/android/settings/sable/SableAppearancePolicy.java
+index 2828778fb55..cde2380c0e8 100644
+--- a/src/com/android/settings/sable/SableAppearancePolicy.java
++++ b/src/com/android/settings/sable/SableAppearancePolicy.java
+@@ -19,6 +19,7 @@ package com.android.settings.sable;
+ import java.util.Arrays;
+ import java.util.LinkedHashMap;
+ import java.util.Map;
++import java.util.function.Predicate;
+ 
+ /**
+  * Pure policy for the Sable appearance authority (content://org.sableos.appearance/appearance).
+@@ -28,7 +29,8 @@ import java.util.Map;
+  * Dark theme (Quick Settings tile, Settings > Display); this authority therefore always reports
+  * "follow-system" and turns an explicit light/dark request into the system night mode. It owns
+  * only the Sable accent, which it also hands to the system palette so SystemUI, Settings and
+- * SetupWizard use the same accent as Sable apps.
++ * SetupWizard use the same accent as Sable apps, and the Sable app corner style (compact or
++ * rounded), which the user picks in App display compatibility > Sable app style.
+  *
+  * Accent values and seeds equal SableAccentTokens in sable-src sabledesign
+  * (tests/check-sable-design.py compares them).
+@@ -38,6 +40,7 @@ public final class SableAppearancePolicy {
+     public static final String PATH_APPEARANCE = "appearance";
+     public static final String COLUMN_MODE = "mode";
+     public static final String COLUMN_ACCENT = "accent";
++    public static final String COLUMN_CORNER_STYLE = "corner_style";
+ 
+     public static final String MODE_FOLLOW_SYSTEM = "follow-system";
+     public static final String MODE_LIGHT = "light";
+@@ -49,6 +52,14 @@ public final class SableAppearancePolicy {
+     public static final String[] ACCENT_SEEDS = {"4D9CFF", "35C66B", "7A42E8", "F28C45", "64748B"};
+     public static final String DEFAULT_ACCENT = "blue";
+ 
++    /**
++     * Sable app corner styles, equal to SableCornerStyle stable values in sable-src sabledesign.
++     * compact = the original 2-6dp app shapes (default, so nothing changes until the user picks);
++     * rounded = the DESIGN-KF-B 8dp control / 12dp card shapes.
++     */
++    public static final String[] CORNER_STYLES = {"compact", "rounded"};
++    public static final String DEFAULT_CORNER_STYLE = "compact";
++
+     /** Mirrors UiModeManager.MODE_NIGHT_NO / MODE_NIGHT_YES. */
+     public static final int NIGHT_MODE_NO = 1;
+     public static final int NIGHT_MODE_YES = 2;
+@@ -57,6 +68,15 @@ public final class SableAppearancePolicy {
+     /** Package allowed to write besides Settings itself (Sable Start's appearance control). */
+     public static final String LAUNCHER_PACKAGE = "org.sableos.launcher";
+ 
++    /**
++     * App display compatibility (Settings > Display > App display compatibility), which owns the
++     * Sable app style section and may write the corner style only. It is a product app signed
++     * with the build's default certificate, not the platform certificate, so a signature
++     * permission defined by Settings could not be granted to it; the provider instead requires
++     * the package to be the copy on the system image, not an installed update.
++     */
++    public static final String DISPLAY_COMPAT_PACKAGE = "org.sableos.titan2.displaycompat";
++
+     // Keys of Settings.Secure.THEME_CUSTOMIZATION_OVERLAY_PACKAGES read by SystemUI's
+     // ThemeOverlayController.
+     public static final String KEY_COLOR_SOURCE = "android.theme.customization.color_source";
+@@ -112,6 +132,52 @@ public final class SableAppearancePolicy {
+         return callerPackages != null && Arrays.asList(callerPackages).contains(LAUNCHER_PACKAGE);
+     }
+ 
++    public static boolean isValidCornerStyle(String style) {
++        return style != null && Arrays.asList(CORNER_STYLES).contains(style);
++    }
++
++    /** A stored or requested corner style, falling back to compact when unknown. */
++    public static String normalizeCornerStyle(String style) {
++        return isValidCornerStyle(style) ? style : DEFAULT_CORNER_STYLE;
++    }
++
++    /**
++     * Corner style writes come from Settings itself or from App display compatibility as
++     * installed on the system image ({@code isFactorySystemPackage} is false for a package that
++     * is not a system app or that was replaced by an update).
++     */
++    public static boolean isAllowedCornerStyleWriter(boolean callerIsSelf, String[] callerPackages,
++            Predicate<String> isFactorySystemPackage) {
++        if (callerIsSelf) {
++            return true;
++        }
++        if (callerPackages == null || isFactorySystemPackage == null) {
++            return false;
++        }
++        for (String pkg : callerPackages) {
++            if (DISPLAY_COMPAT_PACKAGE.equals(pkg) && isFactorySystemPackage.test(pkg)) {
++                return true;
++            }
++        }
++        return false;
++    }
++
++    /**
++     * Whether one update may proceed. Each column is checked against its own writers, so App
++     * display compatibility cannot change the accent and Sable Start cannot change the corner
++     * style. An update with no known column (a bare refresh) needs either right.
++     */
++    public static boolean isAllowedUpdate(boolean writesModeOrAccent, boolean writesCornerStyle,
++            boolean appearanceWriter, boolean cornerStyleWriter) {
++        if (writesModeOrAccent && !appearanceWriter) {
++            return false;
++        }
++        if (writesCornerStyle && !cornerStyleWriter) {
++            return false;
++        }
++        return writesModeOrAccent || writesCornerStyle || appearanceWriter || cornerStyleWriter;
++    }
++
+     /**
+      * The fields to set in THEME_CUSTOMIZATION_OVERLAY_PACKAGES for an accent, as a user-chosen
+      * preset color (the same form the wallpaper picker writes). The caller adds the timestamp and
+diff --git a/src/com/android/settings/sable/SableAppearanceProvider.java b/src/com/android/settings/sable/SableAppearanceProvider.java
+index d1fdfc0098a..b56f8dad583 100644
+--- a/src/com/android/settings/sable/SableAppearanceProvider.java
++++ b/src/com/android/settings/sable/SableAppearanceProvider.java
+@@ -21,6 +21,8 @@ import android.content.ContentProvider;
+ import android.content.ContentValues;
+ import android.content.Context;
+ import android.content.SharedPreferences;
++import android.content.pm.ApplicationInfo;
++import android.content.pm.PackageManager;
+ import android.database.Cursor;
+ import android.database.MatrixCursor;
+ import android.net.Uri;
+@@ -38,15 +40,17 @@ import java.util.Map;
+  * The Sable appearance authority read by Sable apps (org.sableos.design.SableGlobalAppearance)
+  * and Sable Start. Hosted by Settings so the launcher never owns system theme state.
+  *
+- * <p>Columns: {@code mode} (always "follow-system": Android's Dark theme is the single source)
+- * and {@code accent} (blue, green, purple, orange, slate). Writing an accent also seeds the
+- * system palette; writing light/dark sets the system night mode. See
++ * <p>Columns: {@code mode} (always "follow-system": Android's Dark theme is the single
++ * source), {@code accent} (blue, green, purple, orange, slate) and {@code corner_style}
++ * (compact, rounded). Writing an accent also seeds the system palette; writing light/dark sets the system
++ * night mode; the corner style is only stored and published to Sable apps. See
+  * {@link SableAppearancePolicy}.
+  */
+ public final class SableAppearanceProvider extends ContentProvider {
+     private static final String TAG = "SableAppearance";
+     private static final String PREFS = "sable_system_appearance";
+     private static final String KEY_ACCENT = "accent";
++    private static final String KEY_CORNER_STYLE = "corner_style";
+ 
+     public static final Uri CONTENT_URI = Uri.parse(
+             "content://" + SableAppearancePolicy.AUTHORITY + "/"
+@@ -83,6 +87,37 @@ public final class SableAppearanceProvider extends ContentProvider {
+         return true;
+     }
+ 
++    /** The stored Sable app corner style for the current user (compact unless chosen). */
++    public static String readCornerStyle(Context context) {
++        return SableAppearancePolicy.normalizeCornerStyle(prefs(context).getString(
++                KEY_CORNER_STYLE, SableAppearancePolicy.DEFAULT_CORNER_STYLE));
++    }
++
++    /**
++     * Stores the corner style and notifies observers, so open Sable apps restyle live.
++     *
++     * @return false when the style is not compact or rounded.
++     */
++    public static boolean writeCornerStyle(Context context, String style) {
++        if (!SableAppearancePolicy.isValidCornerStyle(style)) {
++            return false;
++        }
++        prefs(context).edit().putString(KEY_CORNER_STYLE, style).apply();
++        context.getContentResolver().notifyChange(CONTENT_URI, null);
++        return true;
++    }
++
++    /** True for a system-image app that has not been replaced by an installed update. */
++    private static boolean isFactorySystemPackage(PackageManager pm, String pkg) {
++        try {
++            ApplicationInfo info = pm.getApplicationInfo(pkg, 0);
++            return (info.flags & ApplicationInfo.FLAG_SYSTEM) != 0
++                    && (info.flags & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) == 0;
++        } catch (PackageManager.NameNotFoundException e) {
++            return false;
++        }
++    }
++
+     /** Applies an explicit light/dark request to the system theme. */
+     public static void applyMode(Context context, String mode) {
+         int nightMode = SableAppearancePolicy.nightModeFor(mode);
+@@ -119,10 +154,12 @@ public final class SableAppearanceProvider extends ContentProvider {
+         enforceUri(uri);
+         Context context = requireContextOrThrow();
+         MatrixCursor cursor = new MatrixCursor(new String[] {
+-                SableAppearancePolicy.COLUMN_MODE, SableAppearancePolicy.COLUMN_ACCENT}, 1);
++                SableAppearancePolicy.COLUMN_MODE, SableAppearancePolicy.COLUMN_ACCENT,
++                SableAppearancePolicy.COLUMN_CORNER_STYLE}, 1);
+         final long token = Binder.clearCallingIdentity();
+         try {
+-            cursor.addRow(new Object[] {SableAppearancePolicy.reportedMode(), readAccent(context)});
++            cursor.addRow(new Object[] {SableAppearancePolicy.reportedMode(), readAccent(context),
++                    readCornerStyle(context)});
+         } finally {
+             Binder.restoreCallingIdentity(token);
+         }
+@@ -134,30 +171,50 @@ public final class SableAppearanceProvider extends ContentProvider {
+     public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs) {
+         enforceUri(uri);
+         Context context = requireContextOrThrow();
+-        String[] callerPackages =
+-                context.getPackageManager().getPackagesForUid(Binder.getCallingUid());
+-        if (!SableAppearancePolicy.isAllowedWriter(
+-                Binder.getCallingUid() == Process.myUid(), callerPackages)) {
+-            throw new SecurityException(
+-                    "Sable appearance writes are limited to Settings and Sable Start");
+-        }
+         String mode = values == null ? null : values.getAsString(SableAppearancePolicy.COLUMN_MODE);
+         String accent =
+                 values == null ? null : values.getAsString(SableAppearancePolicy.COLUMN_ACCENT);
++        String cornerStyle = values == null
++                ? null : values.getAsString(SableAppearancePolicy.COLUMN_CORNER_STYLE);
++        final int callingUid = Binder.getCallingUid();
++        final boolean callerIsSelf = callingUid == Process.myUid();
++        final PackageManager pm = context.getPackageManager();
++        final boolean appearanceWriter;
++        final boolean cornerStyleWriter;
++        final long checkToken = Binder.clearCallingIdentity();
++        try {
++            String[] callerPackages = pm.getPackagesForUid(callingUid);
++            appearanceWriter = SableAppearancePolicy.isAllowedWriter(callerIsSelf, callerPackages);
++            cornerStyleWriter = SableAppearancePolicy.isAllowedCornerStyleWriter(
++                    callerIsSelf, callerPackages, pkg -> isFactorySystemPackage(pm, pkg));
++        } finally {
++            Binder.restoreCallingIdentity(checkToken);
++        }
++        if (!SableAppearancePolicy.isAllowedUpdate(mode != null || accent != null,
++                cornerStyle != null, appearanceWriter, cornerStyleWriter)) {
++            throw new SecurityException("Sable appearance writes are limited to Settings, Sable"
++                    + " Start (mode, accent) and App display compatibility (corner style)");
++        }
+         if (mode != null && !SableAppearancePolicy.isValidMode(mode)) {
+             throw new IllegalArgumentException("Invalid Sable appearance mode: " + mode);
+         }
+         if (accent != null && !SableAppearancePolicy.isValidAccent(accent)) {
+             throw new IllegalArgumentException("Invalid Sable accent: " + accent);
+         }
++        if (cornerStyle != null && !SableAppearancePolicy.isValidCornerStyle(cornerStyle)) {
++            throw new IllegalArgumentException("Invalid Sable corner style: " + cornerStyle);
++        }
+         final long token = Binder.clearCallingIdentity();
+         try {
+             if (mode != null) {
+                 applyMode(context, mode);
+             }
++            if (cornerStyle != null) {
++                writeCornerStyle(context, cornerStyle);
++            }
+             if (accent != null) {
+                 writeAccent(context, accent);
+-            } else {
++            } else if (cornerStyle == null) {
+                 context.getContentResolver().notifyChange(CONTENT_URI, null);
+             }
+         } finally {
+-- 
+2.43.0
+

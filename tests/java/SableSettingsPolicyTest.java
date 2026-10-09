@@ -1,5 +1,5 @@
 // Host test for the pure classes added to LineageOS Settings by
-// patches/framework/packages/apps/Settings/0101 and 0102. tests/run.sh
+// patches/framework/packages/apps/Settings/0101, 0102 and 0103. tests/run.sh
 // extracts SableAppearancePolicy.java and SableBuildInfo.java from the
 // patches, compiles them with this file and runs main().
 
@@ -8,6 +8,7 @@ import com.android.settings.sable.SableBuildInfo;
 
 import java.util.Arrays;
 import java.util.Map;
+import java.util.function.Predicate;
 
 public final class SableSettingsPolicyTest {
     private static int failures = 0;
@@ -63,6 +64,59 @@ public final class SableSettingsPolicyTest {
         check("other app may not write", !SableAppearancePolicy.isAllowedWriter(false,
                 new String[] {"org.sableos.hub"}));
         check("unknown uid may not write", !SableAppearancePolicy.isAllowedWriter(false, null));
+
+        // Corner style (0103): compact default, rounded opt-in, values equal SableCornerStyle.
+        eq("corner styles", Arrays.asList("compact", "rounded"),
+                Arrays.asList(SableAppearancePolicy.CORNER_STYLES));
+        eq("default corner style", "compact", SableAppearancePolicy.DEFAULT_CORNER_STYLE);
+        eq("corner column", "corner_style", SableAppearancePolicy.COLUMN_CORNER_STYLE);
+        check("valid corner", SableAppearancePolicy.isValidCornerStyle("rounded"));
+        check("invalid corner", !SableAppearancePolicy.isValidCornerStyle("pill"));
+        check("null corner", !SableAppearancePolicy.isValidCornerStyle(null));
+        check("case-sensitive corner", !SableAppearancePolicy.isValidCornerStyle("Rounded"));
+        eq("normalize corner unknown", "compact", SableAppearancePolicy.normalizeCornerStyle("pill"));
+        eq("normalize corner null", "compact", SableAppearancePolicy.normalizeCornerStyle(null));
+        eq("normalize corner known", "rounded", SableAppearancePolicy.normalizeCornerStyle("rounded"));
+
+        // Corner style writers: Settings, or DisplayCompat as shipped on the system image.
+        String dc = "org.sableos.titan2.displaycompat";
+        eq("displaycompat package", dc, SableAppearancePolicy.DISPLAY_COMPAT_PACKAGE);
+        Predicate<String> factory = pkg -> true;
+        Predicate<String> updatedOrUser = pkg -> false;
+        check("self may write corner",
+                SableAppearancePolicy.isAllowedCornerStyleWriter(true, null, null));
+        check("factory displaycompat may write corner",
+                SableAppearancePolicy.isAllowedCornerStyleWriter(false, new String[] {dc}, factory));
+        check("updated or sideloaded displaycompat may not write corner",
+                !SableAppearancePolicy.isAllowedCornerStyleWriter(false, new String[] {dc},
+                        updatedOrUser));
+        check("launcher may not write corner",
+                !SableAppearancePolicy.isAllowedCornerStyleWriter(false,
+                        new String[] {"org.sableos.launcher"}, factory));
+        check("other system app may not write corner",
+                !SableAppearancePolicy.isAllowedCornerStyleWriter(false,
+                        new String[] {"org.sableos.hub"}, factory));
+        check("unknown uid may not write corner",
+                !SableAppearancePolicy.isAllowedCornerStyleWriter(false, null, factory));
+        check("predicate is asked about displaycompat only",
+                !SableAppearancePolicy.isAllowedCornerStyleWriter(false,
+                        new String[] {"org.sableos.hub", dc}, pkg -> !pkg.equals(dc)));
+        check("displaycompat is not an accent writer",
+                !SableAppearancePolicy.isAllowedWriter(false, new String[] {dc}));
+
+        // Per-column update rule: (writesModeOrAccent, writesCorner, appearanceW, cornerW).
+        check("launcher accent", SableAppearancePolicy.isAllowedUpdate(true, false, true, false));
+        check("launcher corner refused",
+                !SableAppearancePolicy.isAllowedUpdate(false, true, true, false));
+        check("launcher accent+corner refused",
+                !SableAppearancePolicy.isAllowedUpdate(true, true, true, false));
+        check("displaycompat corner", SableAppearancePolicy.isAllowedUpdate(false, true, false, true));
+        check("displaycompat accent refused",
+                !SableAppearancePolicy.isAllowedUpdate(true, false, false, true));
+        check("settings both", SableAppearancePolicy.isAllowedUpdate(true, true, true, true));
+        check("bare refresh by a writer", SableAppearancePolicy.isAllowedUpdate(false, false, false, true));
+        check("bare refresh by a stranger refused",
+                !SableAppearancePolicy.isAllowedUpdate(false, false, false, false));
 
         // System palette fields in the form ThemeOverlayController reads.
         Map<String, String> fields = SableAppearancePolicy.themeCustomizationFor("green");
