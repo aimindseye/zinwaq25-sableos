@@ -7,6 +7,17 @@ output kept with the artifact directory). Status values follow SableOS:
 Support level today: **RESEARCH** (SableOS `DEVICE_SUPPORT_LEVELS.md`).
 Promotion to **PORTABILITY** needs Q2 + Q3 gates passing.
 
+## R0: way back to stock (before any flash)
+
+Nothing other than the stock archive is flashed on a phone until all three pass
+on that phone. Procedure: [`RETURN_TO_STOCK.md`](RETURN_TO_STOCK.md).
+
+| Gate | Check | Status |
+|---|---|---|
+| R0-BACKUP | `scripts/backup-device.sh` prints `BACKUP=PASS`; backup copied to two places off the machine; `nvram`, `nvdata`, `proinfo`, `persist`, `protect1/2` present | NOT_RUN |
+| R0-STOCK | Stock OS archive hashed and recorded in `STOCK_BASIS.md`; `restore-stock.sh` plan lists every required image | NOT_RUN |
+| R0-RESTORE | On the unlocked stock phone, `restore-stock.sh --execute` flashes the stock archive and stock Android boots with calls and data | NOT_RUN |
+
 ## Q1: LineageOS control build
 
 | Gate | Check | Status |

@@ -100,6 +100,30 @@ fi
 if bash build/sable.sh q25 Q2 flash >/dev/null 2>&1; then fail "flash should be blocked"; else pass "flash blocked"; fi
 if bash build/sable.sh titan2 Q2 doctor >/dev/null 2>&1; then fail "non-q25 device accepted"; else pass "only q25 accepted"; fi
 
+# 8. Stock restore: plan only by default, never writes identity/user partitions.
+img="$tmp/stock"; mkdir -p "$img"
+for n in boot_a dtbo vendor_boot vbmeta vbmeta_system vbmeta_vendor super lk nvram nvdata proinfo userdata; do
+    printf x > "$img/$n.img"
+done
+printf x > "$img/preloader_q20_v12_factory.bin"
+(cd "$img" && sha256sum ./*.img ./*.bin > SHA256SUMS.txt)
+if out="$(bash scripts/restore-stock.sh --images "$img" --scope full 2>/dev/null)"; then
+    ok=yes
+    grep -q '^RESTORE=PLAN_ONLY' <<<"$out" || ok=no
+    grep -q 'flash --slot=all vendor_boot ' <<<"$out" || ok=no
+    grep -q 'flash super ' <<<"$out" || ok=no
+    grep -q 'flash --slot=all lk ' <<<"$out" || ok=no
+    grep -Eq 'flash [^ ]* ?(nvram|nvdata|proinfo|userdata|preloader) ' <<<"$out" && ok=no
+    grep -q -- "fastboot -w" <<<"$out" && ok=no
+    [[ "$ok" == yes ]] && pass "restore-stock plan" || fail "restore-stock plan wrong: $out"
+else
+    fail "restore-stock plan run failed"
+fi
+rm "$img/vendor_boot.img"
+if bash scripts/restore-stock.sh --images "$img" >/dev/null 2>&1; then fail "restore-stock should need vendor_boot"; else pass "restore-stock requires boot set"; fi
+if bash scripts/backup-device.sh --out "$PWD/backup-test" --mtk true >/dev/null 2>&1; then fail "backup inside repo accepted"; else pass "backup refuses repo path"; fi
+rm -rf "$PWD/backup-test"
+
 echo
 if ((fails)); then echo "CI=FAIL ($fails)"; exit 1; fi
 echo "CI=PASS"

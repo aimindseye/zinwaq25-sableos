@@ -1,34 +1,106 @@
 # Return to stock
 
-Status: **not yet verified for the Q25.** Fill this in with tested steps before
-anyone relies on it.
+Status: **plan written from LineageOS's install flow and Q25 community reports;
+not yet run by this project.** Gate R0 in [`QUALIFICATION.md`](QUALIFICATION.md)
+turns it into evidence, and **nobody flashes SableOS until R0 passes.**
 
-What is known:
+## The short version
 
-* The Q25 bootloader unlocks with standard `fastboot flashing unlock`.
-* Zinwa ships stock OTA updates (`ro.fota.version=Q25_26.03.2026` in the stock
-  release LineageOS used).
-* Stock Q25 images are shared in this Google Drive folder (folder title
-  "With-GMS"): https://drive.google.com/drive/folders/1RlhjXInYh7t_ITkWS6fqKY4quZAAKmuT.
-  Its contents haven't been checked by this project: before relying on it,
-  record each file's name, size and SHA-256 in `STOCK_BASIS.md` and confirm the
-  build matches your device. Never copy the images into this repository.
-* MediaTek devices can usually be recovered from BROM mode with tools such as
-  SP Flash Tool or mtkclient, given a matching scatter/firmware package. Whether
-  the Q25's BROM is reachable and unprotected has not been checked here.
-* The MarathonOS/Droidian port publishes Q25 GPT images, including
-  `gpt_untouched.bin` (stock layout), in
-  https://github.com/MarathonOS/marathon-zinwa-q25/tree/main/gpt. Treat it as
-  community material, not verified stock.
+1. **Before anything else, back up the phone** while it is still stock
+   (`scripts/backup-device.sh`). This saves every partition except `userdata`,
+   including the ones that can never be re-downloaded (`nvram`, `nvdata`,
+   `proinfo`, `persist`, `protect1/2`: IMEI, radio calibration, keys).
+2. **Get the stock "OS" archive** that matches your phone (not an OTA zip) and
+   record its hash in [`STOCK_BASIS.md`](STOCK_BASIS.md).
+3. **Rehearse the restore on stock** (gate R0): flash the stock archive back with
+   `scripts/restore-stock.sh` and confirm the phone boots. Now you know the way
+   back works before you ever leave.
+4. Only then install SableOS ([`INSTALL.md`](INSTALL.md)).
 
-Before your first flash, do this so you can come back:
+## Why this is low risk on the Q25
 
-1. Note your stock build and board name (`fastboot getvar product`).
-2. If you have a way to dump partitions (for example mtkclient from BROM), back
-   up at least `boot_a/b`, `vendor_boot_a/b`, `dtbo_a/b`, `vbmeta*`, `super`,
-   `nvram`, `nvdata`, `nvcfg`, `protect1`, `protect2`, `persist`, `proinfo`.
-   `nvram`/`nvdata` hold IMEI and radio calibration; losing them can break
-   cellular for good.
-3. Keep the backups off the device and out of this repository.
+Installing SableOS (like LineageOS) only writes `boot`, `dtbo`, `vbmeta`,
+`vendor_boot` and the contents of `super` (system, system_ext, product, vendor,
+vendor_dlkm, odm_dlkm). It never writes the boot chain (`preloader`, `lk`,
+`tee`, ...), the modem, or the calibration partitions. As long as the boot chain
+is intact, the phone can always reach **fastboot** (Volume Up + Power, choose
+fastboot), and everything SableOS changed can be overwritten from there.
 
-Contributions with a tested procedure are welcome.
+Below fastboot, MediaTek phones have a ROM-level download mode (BROM) that works
+even when nothing on the storage boots. Community guides report both
+**SP Flash Tool** and **mtkclient** working on the Q25 (sources below), which is
+the last line of defence.
+
+## Recovery ladder
+
+Use the first rung that works.
+
+| Rung | When | How | Needs |
+|---|---|---|---|
+| **1. Reflash what SableOS touched** | SableOS doesn't boot, boot loop, recovery broken | `bash scripts/restore-stock.sh --images DIR` (default scope `sable`: boot, dtbo, vendor_boot, vbmeta*, super, both slots) | fastboot works; stock OS archive |
+| **2. Full fastboot restore** | Rung 1 boots but something is still wrong, or slots are mixed | `bash scripts/restore-stock.sh --images DIR --scope full` (every image in the archive except `userdata`, both slots) | fastboot works; stock OS archive |
+| **3. SP Flash Tool "Firmware Upgrade"** | Fastboot unreachable; phone dead or stuck in a loop before fastboot | Power off, open SP Flash Tool V6, load the stock firmware package, *Firmware Upgrade*, connect USB. Leave `userdata` unticked for a normal update. Reported to also relock the bootloader | Windows/Linux PC; SP Flash firmware package with scatter |
+| **4. mtkclient write-back of your own backup** | Radio/IMEI lost, or rungs 1-3 don't restore the device | `mtk wl <backup-dir>` (writes every image in the folder; remove images you don't want written first) | mtkclient; your rung-0 backup |
+
+After rung 1 or 2 the bootloader is still unlocked; relocking (`fastboot
+flashing lock`) only on a fully stock device, because locking with non-stock
+images can make it unbootable.
+
+## Step details
+
+### Back up (do this first, on stock)
+
+```bash
+pip install mtkclient          # or follow https://github.com/bkerler/mtkclient
+bash scripts/backup-device.sh --out ~/q25-backup-$(date +%Y%m%d)
+```
+
+The script only reads: it prints the partition table, saves both GPT copies and
+reads back every partition except `userdata` with mtkclient, then writes
+`SHA256SUMS.txt`. When it says `waiting for device`, power the phone off and
+plug in USB (if it isn't detected, hold Volume Up + Volume Down while plugging
+in). Expect roughly 15-20 GB without `userdata`.
+
+Keep at least two copies off the phone. **Never** put them in this repository:
+`nvram`/`nvdata`/`proinfo` contain your IMEI and serial.
+
+SP Flash Tool's *Readback* (phone off, automatic mode) is an alternative.
+
+### Stock images
+
+* Phone owners' Drive folder ("With-GMS"):
+  https://drive.google.com/drive/folders/1RlhjXInYh7t_ITkWS6fqKY4quZAAKmuT
+* Community Q25 files folder (from the asmtronic Q25 guide):
+  https://drive.google.com/drive/folders/1dQ3V04yze6P7fXzjs7HB1Plg4L-vDGyQ
+
+Neither has been checked by this project. Use the **OS** archive (a community
+example name is `OS-new-camera-0120-Q25-GMS.zip`), not an OTA. Before use:
+unzip it, run `sha256sum` over the files, and record the build in
+`STOCK_BASIS.md`. Check that it carries `boot.img`, `vendor_boot.img`,
+`dtbo.img`, `vbmeta*.img` and either `super.img` or the logical images
+(`system.img`, `vendor.img`, ...). `restore-stock.sh` lists what it found and
+stops if something it needs is missing.
+
+### Rehearsal (gate R0)
+
+On the stock phone, after the backup and after unlocking:
+
+```bash
+bash scripts/restore-stock.sh --images ~/q25-stock/OS-...   # prints the plan only
+bash scripts/restore-stock.sh --images ~/q25-stock/OS-... --execute
+```
+
+The phone should boot stock Android with calls and data working. Record the
+result in `QUALIFICATION.md` (R0-RESTORE).
+
+## Sources
+
+* LineageOS Q25 install guide: https://wiki.lineageos.org/devices/Q25/install/
+  (partitions written by an install).
+* asmtronic Q25 guide: https://github.com/asmtronic/Zinwa-Q25-Guide (SP Flash
+  Tool V6 readback and firmware download on the Q25).
+* Droidian Q25 wiki: https://github.com/JamiKettunen/droidian-zinwa-q25/wiki
+  (stock OS archive flashed per partition with fastboot, SP Flash "Firmware
+  Upgrade" full restore, mtkclient GPT backup, original GPT in
+  https://github.com/MarathonOS/marathon-zinwa-q25/tree/main/gpt).
+* mtkclient: https://github.com/bkerler/mtkclient

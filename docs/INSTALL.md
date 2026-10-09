@@ -8,6 +8,10 @@
 
 ## Before you start
 
+0. **Gate R0 must pass on this phone first**: a full backup taken while stock and
+   a rehearsed stock restore ([`RETURN_TO_STOCK.md`](RETURN_TO_STOCK.md),
+   [`QUALIFICATION.md`](QUALIFICATION.md)). Don't skip it: it's what makes every
+   step below undoable.
 1. Boot stock once and check calls, SMS and (if your carrier has it) VoLTE/VoWiFi
    work. Some carriers provision IMS on first use.
 2. Record your stock build (Settings > About) in the
