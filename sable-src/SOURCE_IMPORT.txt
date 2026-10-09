@@ -1,8 +1,10 @@
 sableos c538fc0e57e4592e11b27c93870b79ee48f7fbfc
-imported 20261009T210744Z
+imported 20261009T211258Z
 path apps/titan2/platform
 path apps/r8/android
 path apps/r8/rust
+path apps/r8/mail
+path apps/r8/textreader
 path src/android/shared/sabledesign
 path src/android/packages/apps/SableStart
 path config/detekt.yml

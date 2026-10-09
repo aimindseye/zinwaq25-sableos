@@ -4,7 +4,8 @@
 #   module        Soong module name in vendor/sable/q25
 #   group         platform = keyboard-first platform apps (Titan 2 C3B set)
 #                 common   = common Sable apps (Panther R9 set)
-#   gradle_root   Gradle project, relative to sable-src/
+#   gradle_root   Gradle project, relative to sable-src/, or flavor:NAME for an app
+#                 built as a Sable flavor over a pinned upstream (sable-src/apps/r8/NAME)
 #   gradle_task   task that produces the APK
 #   apk           APK path relative to gradle_root (one glob match required)
 #   package       expected application id
@@ -31,3 +32,5 @@ SableWeather	common	apps/r8/android	:weather:assembleDebug	weather/build/outputs
 SableCalendar	common	apps/r8/android	:calendar:assembleDebug	calendar/build/outputs/apk/debug/calendar-debug.apk	org.sableos.calendar	presigned	-	yes
 SableMessages	common	apps/r8/android	:messages:assembleDebug	messages/build/outputs/apk/debug/messages-debug.apk	org.sableos.messages	presigned	-	yes
 SableReader	common	apps/common/reader	:leisure:assembleSableDebug	leisure/build/outputs/apk/sable/debug/*.apk	org.sableos.reader	presigned	-	yes
+SableMail	common	flavor:mail	:app-thunderbird:assembleFossRelease -Pci=true	app-thunderbird/build/outputs/apk/foss/release/*.apk	org.sableos.mail	unsigned	-	yes
+SableTextReader	common	flavor:textreader	:app:assembleDebug	app/build/outputs/apk/debug/SableTextReader-*.apk	org.sableos.textreader	presigned	-	yes

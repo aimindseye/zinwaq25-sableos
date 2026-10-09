@@ -15,13 +15,12 @@ hand**, and what is missing?
   Keyboard provisioning (P2), Reader v2 (P5A-P5F) and the Start, Setup and
   Weather reference sources (P1, P3, P4), none of which reached `sableos`
   `main`. **This change brings all of it in** and enables the full Sable app set
-  (15 apps instead of 5).
+  (17 apps instead of 5, with Mail and Text Reader built from pinned upstreams).
 * About 230 of the 335 `sableos` PRs are Titan 2 GSI, cellular and IMS work
   (N0-N1I, C3A/C3B). The Q25 doesn't need them: it is a full LineageOS device
   build with working vendor telephony. Their process lessons are already in
   [`LESSONS_FROM_TITAN2.md`](LESSONS_FROM_TITAN2.md).
-* What remains is in four tranches below. T2 and T3 can be written without a
-  Q25. T4 is new shared feature code that the plan assigns to Developers A
+* T1 and T2 are done in this change. T3 can be written without a Q25. T4 is new shared feature code that the plan assigns to Developers A
   and B. Everything marked *device* waits for the phone.
 * Limits of this environment: Google's Maven repository is unreachable here,
   so no Gradle/AGP or AOSP build ran. The pure-Kotlin cores were compiled and
@@ -71,11 +70,14 @@ merged.
 * Make the import reproducible: `--titan2-temp` overlay plus `patches/sable-src/`.
 * Enable the full app set, including Messages and Reader v2.
 
-**T2, Sable Mail and Text Reader (no Q25 needed).** Both are built in
-`sableos` as Sable flavors applied over a pinned upstream
-(`apps/r8/mail`: Thunderbird 23.0; `apps/r8/textreader`: Vaachak). The Text
-Reader sources in `apps/r8/android/textreader` have no Gradle entry point. T2
-adds a fetch-flavor-build script for each and wires them into `apps.tsv`.
+**T2, Sable Mail and Text Reader: done in this change (build unverified).**
+* Both are built the way `sableos` builds them: the pinned upstream
+  (Thunderbird 23.0 for Mail, Vaachak Text Reader) with
+  `apply_sable_flavor.py` and `verify_sable_*.py` applied.
+* `apps.tsv` rows use `flavor:mail` and `flavor:textreader`.
+* `build-apps.sh` caches each upstream once, with network access authorized
+  explicitly.
+* The first real build runs on the operator host.
 
 **T3, LineageOS framework integration (phase Q4, no Q25 needed to write).**
 * **IR-005:** Sable Keyboard as the default IME.

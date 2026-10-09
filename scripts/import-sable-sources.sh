@@ -57,6 +57,8 @@ PATHS=(
     apps/titan2/platform
     apps/r8/android
     apps/r8/rust
+    apps/r8/mail
+    apps/r8/textreader
     src/android/shared/sabledesign
     src/android/packages/apps/SableStart
     config/detekt.yml

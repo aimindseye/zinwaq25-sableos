@@ -46,5 +46,9 @@ anything looks like web-page account data. Review the diff before committing.
 
 `product/q25/apps.tsv` lists them. Every row is enabled: the five
 keyboard-first platform apps and the common set (Calculator, the three games,
-Media, Hub, Weather, Calendar, Messages, Reader v2). `apps --all` also builds
+Media, Hub, Weather, Calendar, Messages, Reader v2, Mail, Text Reader).
+Mail and Text Reader are `flavor:` rows: the build fetches the pinned upstream
+(Thunderbird, Vaachak Text Reader) once into `SABLE_UPSTREAM_CACHE`, which needs
+`NETWORK_FETCH_AUTHORIZED=YES`, then applies the Sable flavor scripts from
+`sable-src/apps/r8/{mail,textreader}`. `apps --all` also builds
 rows someone has set to `enabled=no`.
