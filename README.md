@@ -105,6 +105,12 @@ images, extracted proprietary blobs, signing keys, or device identifiers (serial
 IMEI). Proprietary blobs come from `TheMuppets/proprietary_vendor_xelex_Q25` at
 sync time or from your own device with `scripts/extract-blobs.sh`.
 
+## Licence
+
+Apache License 2.0 ([`LICENSE`](LICENSE), [`NOTICE`](NOTICE)). Third-party
+components keep their own licences: see
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+
 ## Credits
 
 * LineageOS Q25 maintainers (electimon, basamaryan, npjohnson, Androbots) for the

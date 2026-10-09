@@ -1,0 +1,10 @@
+SableOS for the Zinwa Q25
+Copyright 2026 The SableOS for Zinwa Q25 contributors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE),
+except for the third-party components listed in THIRD_PARTY_NOTICES.md, which
+keep their own licences.
+
+The build fetches LineageOS, the Q25 device tree, kernel (GPL-2.0) and
+proprietary vendor blobs at sync time. None of those are contained in this
+repository and they are not covered by this licence.
