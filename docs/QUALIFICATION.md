@@ -55,7 +55,10 @@ on that phone. Procedure: [`RETURN_TO_STOCK.md`](RETURN_TO_STOCK.md).
 
 | Gate | Check | Status |
 |---|---|---|
-| Q4-HOME | Sable Start presentation hosted in Trebuchet/Launcher3; user can pick another launcher | NOT_RUN |
+| Q4-HOME | Sable Start (SableLauncher) is HOME after first boot; Home key and gesture return to it; user can pick another launcher in Settings > Apps > Default apps | NOT_RUN |
+| Q4-RECENTS | Recents opens from Sable Start (Launcher3QuickStep fallback Recents); swiping an app away works; no Launcher3 home screen appears | NOT_RUN |
+| Q4-IME | Sable Keyboard is the only and default IME on a fresh install (LatinIME overridden); Q3-TEXT re-run passes. **Do not stage Q4 before Q3-TEXT passes** | NOT_RUN |
+| Q4-MESSAGES | One Messages entry in Sable Start (AOSP Messaging hidden, still the SMS app); sending and receiving SMS work (sableos #82) | NOT_RUN |
 | Q4-BRANDING | Sable branding in Settings > About and Setup | NOT_RUN |
 | Q4-SYSTEMUI | Quick settings and notifications usable at 720x720 with keyboard | NOT_RUN |
 

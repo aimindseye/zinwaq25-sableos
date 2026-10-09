@@ -96,6 +96,63 @@ else
     fail "stage Q1: $(cat "$tmp/err")"
 fi
 
+# 6b. Framework patches (phase Q4): apply, record, check, revert, and staging.
+fw="$tmp/fw"; proj="$tmp/android/packages/apps/Demo"
+mkdir -p "$proj" "$fw/packages/apps/Demo"
+git -C "$proj" init -q
+printf 'home=launcher3\n' > "$proj/config.txt"
+git -C "$proj" -c user.name=t -c user.email=t@t add config.txt
+git -C "$proj" -c user.name=t -c user.email=t@t commit -qm base
+printf 'home=sable\n' > "$proj/config.txt"
+git -C "$proj" diff > "$fw/packages/apps/Demo/0001-demo.patch"
+git -C "$proj" checkout -q -- config.txt
+fwrun() { SABLE_ANDROID_ROOT="$tmp/android" SABLE_FRAMEWORK_PATCHES="$fw" bash scripts/apply-framework-patches.sh "$@" 2>"$tmp/err"; }
+stamp="$tmp/android/.sable-q25-framework-patches"
+if fwrun check | grep -q '^APPLIES  packages/apps/Demo 0001-demo.patch' &&
+    fwrun apply | grep -q '^FRAMEWORK_PATCH_COUNT=1' &&
+    grep -q 'home=sable' "$proj/config.txt" && grep -q 'packages/apps/Demo' "$stamp" &&
+    fwrun apply >/dev/null && grep -q 'home=sable' "$proj/config.txt" &&
+    fwrun check | grep -q '^APPLIED  packages/apps/Demo' &&
+    fwrun revert | grep -q '^FRAMEWORK_PATCHES=REVERTED' &&
+    grep -q 'home=launcher3' "$proj/config.txt" && [[ ! -e "$stamp" ]]; then
+    pass "framework patches apply, re-apply, check and revert"
+else
+    fail "framework patches: $(cat "$tmp/err")"
+fi
+printf 'home=vendor\n' > "$proj/config.txt"
+if fwrun apply >/dev/null || [[ -e "$stamp" ]]; then fail "framework patch conflict not refused"; else pass "framework patch conflict refused"; fi
+git -C "$proj" checkout -q -- config.txt
+
+stagerun() { SABLE_ANDROID_ROOT="$tmp/android" SABLE_FRAMEWORK_PATCHES="$fw" bash scripts/stage-product.sh "$@" 2>"$tmp/err"; }
+if out="$(stagerun Q4 --apps-dir "$tmp/apps/run")"; then
+    v="$tmp/android/vendor/sable/q25"
+    ok=yes
+    grep -q '^FRAMEWORK_LAYER=YES' <<<"$out" || ok=no
+    grep -q 'SableLauncher' "$v/sable-q25-framework.mk" || ok=no
+    grep -q 'name: "SableLauncher"' "$v/src/SableStart/Android.bp" || ok=no
+    grep -q 'name: "sable_design_shared_srcs"' "$v/src/sabledesign/Android.bp" || ok=no
+    grep -q 'overrides: \["LatinIME"\]' "$v/Android.bp" || ok=no
+    grep -q 'home=sable' "$proj/config.txt" || ok=no
+    [[ "$ok" == yes ]] && pass "stage Q4 adds framework layer" || fail "stage Q4: generated files wrong: $out"
+else
+    fail "stage Q4: $(cat "$tmp/err")"
+fi
+if out="$(stagerun Q2 --apps-dir "$tmp/apps/run")" && grep -q '^FRAMEWORK_LAYER=NO' <<<"$out" &&
+    grep -q 'home=launcher3' "$proj/config.txt" && ! grep -q 'SableLauncher' "$tmp/android/vendor/sable/q25/sable-q25-framework.mk" &&
+    [[ ! -e "$tmp/android/vendor/sable/q25/src" ]]; then
+    pass "stage Q2 reverts framework layer"
+else
+    fail "stage Q2 after Q4: $(cat "$tmp/err")"
+fi
+if stagerun Q1 >/dev/null && grep -q 'home=launcher3' "$proj/config.txt"; then pass "stage Q1 after Q4"; else fail "stage Q1 after Q4: $(cat "$tmp/err")"; fi
+
+# 6c. The real framework patches are well-formed git patches.
+bad=""
+while IFS= read -r -d '' p; do
+    git apply --stat "$p" >/dev/null 2>&1 || bad="$bad $p"
+done < <(find patches/framework -name '*.patch' -print0)
+if [[ -z "$bad" ]]; then pass "framework patches parse"; else fail "malformed framework patches:$bad"; fi
+
 # 7. Entry point refuses flashing and unknown devices.
 if bash build/sable.sh q25 Q2 flash >/dev/null 2>&1; then fail "flash should be blocked"; else pass "flash blocked"; fi
 if bash build/sable.sh titan2 Q2 doctor >/dev/null 2>&1; then fail "non-q25 device accepted"; else pass "only q25 accepted"; fi

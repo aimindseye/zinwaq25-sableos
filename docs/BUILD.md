@@ -94,6 +94,20 @@ bash build/sable.sh q25 Q2 artifacts
 from the APK manifest, and writes `vendor/extra/product.mk`. A props-only layer
 with no apps is possible with `stage --allow-no-apps`.
 
+`Q4` stages the same layer plus the framework integration: it copies Sable
+Start and the Sable design sources into `vendor/sable/q25/src` and builds them
+as `SableLauncher` (HOME, platform-signed), makes Sable Keyboard override
+LatinIME, and applies `patches/framework` to the LineageOS projects (see
+[`../patches/README.md`](../patches/README.md)). Staging Q1 or Q2 again reverts
+those patches. Stage Q4 only after gate Q3-TEXT passes, because Sable Keyboard
+is then the only keyboard on the phone.
+
+```bash
+bash scripts/apply-framework-patches.sh check   # after repo sync: do the patches still apply?
+bash build/sable.sh q25 Q4 stage
+bash build/sable.sh q25 Q4 build
+```
+
 ## 5. Outputs
 
 `~/sable-q25/artifacts/q25/<release>/<stamp>/`:

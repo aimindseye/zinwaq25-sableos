@@ -111,7 +111,7 @@ any app; it adds a `zinwa-q25` profile where an app needs device facts.
 | Sable Reader v2, Text Reader | Reader v2: `titan2-temp/apps/common/reader` (P5A-P5F); Text Reader: `sableos/apps/r8/textreader` flavor | Copy | Reader v2 imported from titan2-temp; Text Reader is tranche T2 in `docs/SABLEOS_GAP_REVIEW.md`. |
 | Sable Mail | `sableos/apps/r8/mail` (Thunderbird 23.0 based) | Copy | Large; optional for Q2. |
 | Sable design tokens | `sableos/apps/r8/android/design`, `sableos/src/android/shared/sabledesign` | Copy | Shared by all apps. |
-| Sable Start (HOME presentation) | `sableos/src/android/packages/apps/SableStart` + Launcher3 patch | Adapt (Q4) | Today it is hosted inside a patched GrapheneOS Launcher3. On LineageOS the launcher is Trebuchet, so the host patch must be re-done (section 2.3). |
+| Sable Start (HOME presentation) | `sableos/src/android/packages/apps/SableStart` + Launcher3 patch | Adapt (Q4) | SableOS R9 ships it as the standalone `SableLauncher` HOME app, with Launcher3QuickStep kept only for Recents. LineageOS 23.2 ships Launcher3QuickStep (no Trebuchet), so Q4 builds `SableLauncher` and applies `patches/framework/packages/apps/Launcher3` (section 2.3). |
 
 How the apps reach the image is the Titan 2 pattern: Gradle builds unsigned
 APKs, they're hashed, and `product/q25/Android.bp` imports them as
@@ -121,7 +121,7 @@ non-privileged `android_app_import` modules signed by the build.
 
 | Source | Action | Notes |
 |---|---|---|
-| `sableos/patches/android-17-grapheneos-2026081300/apply_*.py` (branding, Launcher3 host, Settings cohesion, SystemUI, SetupWizard) | Adapt (Q4) | Written against GrapheneOS Android 17 trees. Lineage 23.2 is Android 16 with different Settings/SystemUI/Trebuchet code, so each patcher needs a Lineage target. Do branding first; Launcher3 host second. |
+| `sableos/patches/android-17-grapheneos-2026081300/apply_*.py` (branding, Launcher3 host, Settings cohesion, SystemUI, SetupWizard) | Adapt (Q4) | Written against GrapheneOS Android 17 trees. Lineage 23.2 is Android 16 with different Settings/SystemUI/Launcher3 code, so each patcher needs a Lineage target. Do branding first; Launcher3 host second. |
 | `sableos/patches/android-16-n1d-trebledroid/**` | Drop | TrebleDroid/GSI compatibility fixes; not needed on a real device tree. |
 | `sableos/patches/android-12.1`, `android-14.0.0_r28`, `android-16-bp4a`, `android-16-n1i-c1` | Drop | Historical Pixel/Titan baselines. |
 
@@ -173,7 +173,7 @@ non-privileged `android_app_import` modules signed by the build.
 4. **Q25 entries in common apps**: `zinwa-q25` in Keyboard `KeyLayout`, Camera
    `CameraDeviceProfile`, and DisplayCompat defaults.
 5. **Framework patch retarget** from GrapheneOS Android 17 to LineageOS 23.2
-   (branding, Trebuchet host for Sable Start, Settings, SystemUI, SetupWizard).
+   (branding, Launcher3 Recents-only patch for Sable Start, Settings, SystemUI, SetupWizard).
 6. **Q25 install and recovery docs**: unlock, flash, sideload, return to stock.
    Based on the LineageOS Q25 install flow; marked untested until a device run.
 7. **Q25 qualification gates** ([`docs/QUALIFICATION.md`](docs/QUALIFICATION.md)):
@@ -194,7 +194,7 @@ it's done when its exit condition has evidence.
 | **Q1 Control build** | Build unmodified `lineage_Q25` with our scripts | `bash build/sable.sh q25 Q1 build` produces a LineageOS zip whose boot on a Q25 is recorded. This is the boot-qualified baseline, so later failures can be bisected (the lesson Titan 2 learned the hard way). |
 | **Q2 Sable product layer** | Add the Sable app set and props via `vendor/extra` | Image boots; every Sable app launches; `ro.sable.profile.id=zinwa-q25`; no LineageOS OTA offered. |
 | **Q3 Q25 device profile** | Keyboard, trackpad, display, camera, radio profiles | Keyboard-first gates in `docs/QUALIFICATION.md` pass on device: critical text entry, Alt layer, Call/End, trackpad navigation, camera shutter, calls/SMS/VoLTE. |
-| **Q4 Framework integration** | Retarget GrapheneOS patches to Lineage 23.2 | Sable Start hosted as HOME, Sable branding in Settings/Setup, SystemUI convergence on the 720x720 display. |
+| **Q4 Framework integration** | Retarget GrapheneOS patches to Lineage 23.2. First part written: `stage Q4` builds Sable Start as HOME, makes Sable Keyboard the only IME and applies `patches/framework` | Gates Q4-* in `docs/QUALIFICATION.md`: Sable Start as HOME with working Recents, Sable Keyboard default, one Messages entry, Sable branding in Settings/Setup, SystemUI convergence on the 720x720 display. |
 | **Q5 Security and release** | Release keys, own AVB key, OTA channel, relock study | Signed build; GSI developer keys removed; documented relock result (pass or fail); OTA from our own server. |
 | **Q6 Base evolution** | Android 17 (`lineage-24.0`, already branched for Q25) and/or AOSP/GrapheneOS-derived base | Same gates pass on the new base. |
 
