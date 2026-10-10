@@ -17,6 +17,7 @@ compiled into `Launcher3QuickStepLib` through
 ```text
 src/com/sable/start/live/LiveSurfaceModels.kt
 src/com/sable/start/model/AppEntry.kt
+src/com/sable/start/model/CoreAppIdentity.kt
 src/com/sable/start/platform/LiveSurfaceRepository.kt
 src/com/sable/start/platform/StartStateRepository.kt
 src/com/sable/start/ui/SableGlyphIcon.kt

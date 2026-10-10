@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- R9 daily-driver presentation on LineageOS: Gallery2 is no longer the
+     gallery (its launcher entry is disabled; Glimpse is), but its photo
+     editor, crop and photo-frame widget picker are still reachable. Replace
+     its Holo blue accent and grey chrome with the Sable accent and Sable dark
+     surfaces. Colors only: no code, behaviour, permissions or storage change. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="org.sableos.overlay.gallery2">
+    <overlay
+        android:targetPackage="com.android.gallery3d"
+        android:isStatic="true"
+        android:priority="20" />
+    <application android:hasCode="false" />
+</manifest>

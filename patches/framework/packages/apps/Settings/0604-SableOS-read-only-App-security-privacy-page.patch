@@ -1,0 +1,1294 @@
+From 0b26c75af3abbfc0f7cfc6c93efe72061141d46c Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 10 Oct 2026 00:41:52 +0000
+Subject: [PATCH] SableOS: read-only App security & privacy page
+
+Port of the GrapheneOS-era UI5B Application Security & Privacy page.
+One read-only page per app in its own user; every row names its
+evidence class (DECLARED, ENFORCED, OBSERVED, INFERRED, UNKNOWN):
+
+* identity and provenance: package, version, SDK, installer chain,
+  signing certificate SHA-256 and rotation, install type, build flags;
+* effective access per sensitive group, from the same evaluator as
+  the All apps row (allowed, approximate, limited, not allowed,
+  unknown), with a hand-off to the platform App permissions page;
+* components: activities, services, receivers and providers (total,
+  enabled, exported, exported without a permission, first names),
+  instrumentation and powerful bindings (accessibility, notification
+  listener, VPN, input method, autofill, device admin);
+* code: packaged native libraries and ABIs from a bounded scan of the
+  installed APK entry names (UNKNOWN if nothing could be read, "at
+  least" when a bound is hit), shared libraries; tracker signatures
+  UNKNOWN (no dataset is installed);
+* network and background: network state from the same policy as
+  Network access (link to it), battery optimization, stopped state;
+  destinations UNKNOWN;
+* history: first install and last update; permission history UNKNOWN.
+
+Entries: App info > App security & privacy, and Settings > Apps > App
+security & privacy (a list with the sensitive-access summary).
+Exported as org.sableos.settings.APP_SECURITY for Sable Tools (action
+alone); a package: URI opens that app's page. Nothing is changed by
+the page; everything is read off the main thread.
+---
+ AndroidManifest.xml                           |  21 +
+ res/values/strings_sable_app_security.xml     | 115 ++++
+ res/xml/app_info_settings.xml                 |   7 +
+ res/xml/apps.xml                              |   9 +
+ res/xml/sable_app_security.xml                |  46 ++
+ res/xml/sable_app_security_apps.xml           |  31 +
+ src/com/android/settings/Settings.java        |   2 +
+ .../appinfo/AppInfoDashboardFragment.java     |   2 +
+ .../sable/SableAppSecurityAppsFragment.java   | 213 ++++++
+ .../sable/SableAppSecurityFragment.java       | 638 ++++++++++++++++++
+ .../SableAppSecurityPreferenceController.java |  36 +
+ .../core/gateway/SettingsGateway.java         |   2 +
+ 12 files changed, 1122 insertions(+)
+ create mode 100644 res/values/strings_sable_app_security.xml
+ create mode 100644 res/xml/sable_app_security.xml
+ create mode 100644 res/xml/sable_app_security_apps.xml
+ create mode 100644 src/com/android/settings/applications/sable/SableAppSecurityAppsFragment.java
+ create mode 100644 src/com/android/settings/applications/sable/SableAppSecurityFragment.java
+ create mode 100644 src/com/android/settings/applications/sable/SableAppSecurityPreferenceController.java
+
+diff --git a/AndroidManifest.xml b/AndroidManifest.xml
+index a3146788c69..bf0f7a0318e 100644
+--- a/AndroidManifest.xml
++++ b/AndroidManifest.xml
+@@ -2011,6 +2011,27 @@
+                 android:value="@string/menu_key_apps"/>
+         </activity>
+ 
++        <!-- SableOS: App security & privacy. Sable Tools sends the action alone; a package:
++             URI opens that app's page for the current user. -->
++        <activity
++            android:name="Settings$SableAppSecurityActivity"
++            android:exported="true"
++            android:label="@string/sable_app_security_title">
++            <intent-filter>
++                <action android:name="org.sableos.settings.APP_SECURITY" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
++            <intent-filter>
++                <action android:name="org.sableos.settings.APP_SECURITY" />
++                <category android:name="android.intent.category.DEFAULT" />
++                <data android:scheme="package" />
++            </intent-filter>
++            <meta-data android:name="com.android.settings.FRAGMENT_CLASS"
++                android:value="com.android.settings.applications.sable.SableAppSecurityAppsFragment" />
++            <meta-data android:name="com.android.settings.HIGHLIGHT_MENU_KEY"
++                android:value="@string/menu_key_apps"/>
++        </activity>
++
+         <activity android:name="Settings$UserAspectRatioAppListActivity"
+             android:exported="true"
+             android:label="@string/aspect_ratio_title">
+diff --git a/res/values/strings_sable_app_security.xml b/res/values/strings_sable_app_security.xml
+new file mode 100644
+index 00000000000..48d2654115e
+--- /dev/null
++++ b/res/values/strings_sable_app_security.xml
+@@ -0,0 +1,115 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
++    <!-- SableOS App Security & Privacy: read-only per-app evidence page. -->
++    <string name="sable_app_security_title">App security &amp; privacy</string>
++    <string name="sable_app_security_entry_summary">Identity, effective access, components and local evidence</string>
++    <string name="sable_app_security_keywords">app security, app privacy, signing certificate, installer, exported components, trackers, native code</string>
++    <string name="sable_security_apps_intro">Read-only. Choose an app to see where it came from, what it can access now and what it exposes. Nothing is changed here.</string>
++    <string name="sable_security_apps_category">Apps</string>
++
++    <string name="sable_security_notice_title">How to read this page</string>
++    <string name="sable_security_notice">Read-only local evidence. DECLARED is package metadata, ENFORCED is current Android policy, OBSERVED is recorded by the system, INFERRED is a bounded scan of the installed files, and UNKNOWN means the system cannot tell.</string>
++
++    <string name="sable_security_identity_title">Identity &amp; provenance</string>
++    <string name="sable_security_access_category">Effective access</string>
++    <string name="sable_security_components_category">Components &amp; exposure</string>
++    <string name="sable_security_code_category">Code &amp; libraries</string>
++    <string name="sable_security_network_category">Network &amp; background</string>
++    <string name="sable_security_history_category">History</string>
++
++    <string name="sable_security_evidence_format"><xliff:g id="evidence">%1$s</xliff:g> · <xliff:g id="detail">%2$s</xliff:g></string>
++    <string name="sable_security_evidence_declared">DECLARED</string>
++    <string name="sable_security_evidence_enforced">ENFORCED</string>
++    <string name="sable_security_evidence_observed">OBSERVED</string>
++    <string name="sable_security_evidence_inferred">INFERRED</string>
++    <string name="sable_security_evidence_unknown">UNKNOWN</string>
++
++    <string name="sable_security_unavailable">Not available</string>
++    <string name="sable_security_none">None</string>
++    <string name="sable_security_yes">Yes</string>
++    <string name="sable_security_no">No</string>
++
++    <string name="sable_security_package">Package</string>
++    <string name="sable_security_version">Version</string>
++    <string name="sable_security_version_format"><xliff:g id="name">%1$s</xliff:g> · code <xliff:g id="code">%2$d</xliff:g></string>
++    <string name="sable_security_sdk">SDK</string>
++    <string name="sable_security_sdk_format">min <xliff:g id="min">%1$d</xliff:g> · target <xliff:g id="target">%2$d</xliff:g></string>
++    <string name="sable_security_installer">Installer</string>
++    <string name="sable_security_installer_none">None recorded</string>
++    <string name="sable_security_signer">Signing certificate</string>
++    <string name="sable_security_signer_format">SHA-256 <xliff:g id="digest">%1$s</xliff:g></string>
++    <string name="sable_security_signing_lineage">Signing history</string>
++    <string name="sable_security_signers_single">One certificate, not rotated</string>
++    <string name="sable_security_signers_rotated">Rotated · <xliff:g id="count">%1$d</xliff:g> certificates in history</string>
++    <string name="sable_security_signers_multiple">Signed by <xliff:g id="count">%1$d</xliff:g> certificates</string>
++    <string name="sable_security_install_class">Install type</string>
++    <string name="sable_security_install_system">System image</string>
++    <string name="sable_security_install_updated_system">Updated system app</string>
++    <string name="sable_security_install_user">Installed by the user</string>
++    <string name="sable_security_build_flags">Build flags</string>
++    <string name="sable_security_flag_debuggable">Debuggable</string>
++    <string name="sable_security_flag_test_only">Test only</string>
++    <string name="sable_security_flag_release">Release build</string>
++
++    <string name="sable_security_access_title">Sensitive access</string>
++    <string name="sable_security_access_none">No monitored sensitive permissions requested</string>
++    <string name="sable_security_state_allowed">Allowed</string>
++    <string name="sable_security_state_not_allowed">Requested, not allowed</string>
++    <string name="sable_security_open_permissions">App permissions</string>
++    <string name="sable_security_open_permissions_summary">Change what this app may access</string>
++
++    <string name="sable_security_components">Components</string>
++    <string name="sable_security_components_too_large">The package is too large to list its components here</string>
++    <string name="sable_security_activities">Activities</string>
++    <string name="sable_security_services">Services</string>
++    <string name="sable_security_receivers">Receivers</string>
++    <string name="sable_security_providers">Providers</string>
++    <string name="sable_security_components_format"><xliff:g id="total">%1$d</xliff:g> total · <xliff:g id="enabled">%2$d</xliff:g> enabled · <xliff:g id="exported">%3$d</xliff:g> exported · <xliff:g id="unguarded">%4$d</xliff:g> exported without a permission</string>
++    <string name="sable_security_components_names_format"><xliff:g id="detail">%1$s</xliff:g> · exported: <xliff:g id="names">%2$s</xliff:g></string>
++    <string name="sable_security_components_more_format"><xliff:g id="detail">%1$s</xliff:g> +<xliff:g id="count">%2$d</xliff:g></string>
++    <string name="sable_security_instrumentation">Instrumentation</string>
++    <string name="sable_security_elevated">Powerful bindings</string>
++    <string name="sable_security_elevated_accessibility">Accessibility service</string>
++    <string name="sable_security_elevated_notification_listener">Notification listener</string>
++    <string name="sable_security_elevated_vpn">VPN service</string>
++    <string name="sable_security_elevated_input_method">Keyboard (input method)</string>
++    <string name="sable_security_elevated_autofill">Autofill service</string>
++    <string name="sable_security_elevated_device_admin">Device admin receiver</string>
++
++    <string name="sable_security_native">Native code</string>
++    <string name="sable_security_native_format"><xliff:g id="count">%1$d</xliff:g> native libraries · ABIs: <xliff:g id="abis">%2$s</xliff:g></string>
++    <string name="sable_security_native_format_truncated">At least <xliff:g id="count">%1$d</xliff:g> native libraries · ABIs: <xliff:g id="abis">%2$s</xliff:g> (scan limit reached)</string>
++    <string name="sable_security_shared_libraries">Shared libraries</string>
++    <string name="sable_security_trackers">Tracker libraries</string>
++    <string name="sable_security_trackers_unknown">No tracker signature list is installed; nothing is claimed either way</string>
++
++    <string name="sable_security_internet">Requests network access</string>
++    <string name="sable_security_network_usage">Network destinations</string>
++    <string name="sable_security_network_usage_unknown">Not recorded on this device</string>
++    <string name="sable_security_background">Battery optimization</string>
++    <string name="sable_security_battery_unrestricted">Not optimized (may run in the background)</string>
++    <string name="sable_security_battery_optimized">Optimized</string>
++    <string name="sable_security_stopped">Stopped state</string>
++    <string name="sable_security_stopped_yes">Stopped until opened</string>
++    <string name="sable_security_stopped_no">Not stopped</string>
++
++    <string name="sable_security_first_install">First installed</string>
++    <string name="sable_security_last_update">Last updated</string>
++    <string name="sable_security_change_history">Permission change history</string>
++    <string name="sable_security_change_history_unknown">Not kept on this device</string>
++</resources>
+diff --git a/res/xml/app_info_settings.xml b/res/xml/app_info_settings.xml
+index 78b9552e726..4acce3e1a35 100644
+--- a/res/xml/app_info_settings.xml
++++ b/res/xml/app_info_settings.xml
+@@ -59,6 +59,13 @@
+         settings:summaryLineCount="1"
+         settings:controller="com.android.settings.applications.appinfo.AppPermissionPreferenceController" />
+ 
++    <!-- SableOS: read-only App security & privacy page. -->
++    <Preference
++        android:key="sable_app_security"
++        android:title="@string/sable_app_security_title"
++        android:summary="@string/sable_app_security_entry_summary"
++        settings:controller="com.android.settings.applications.sable.SableAppSecurityPreferenceController" />
++
+     <Preference
+         android:key="manage_target_app_function_access_settings"
+         android:title="@string/manage_target_app_function_access_settings_title"
+diff --git a/res/xml/apps.xml b/res/xml/apps.xml
+index 79da9c0be36..80db734cd24 100644
+--- a/res/xml/apps.xml
++++ b/res/xml/apps.xml
+@@ -118,6 +118,15 @@
+         settings:keywords="@string/sable_network_manager_keywords"
+         android:fragment="com.android.settings.applications.sable.SableNetworkManagerFragment"/>
+ 
++    <!-- SableOS: read-only App security & privacy, per app. -->
++    <Preference
++        android:key="sable_app_security_apps"
++        android:title="@string/sable_app_security_title"
++        android:summary="@string/sable_app_security_entry_summary"
++        android:order="19"
++        settings:keywords="@string/sable_app_security_keywords"
++        android:fragment="com.android.settings.applications.sable.SableAppSecurityAppsFragment"/>
++
+     <Preference
+         android:key="special_access"
+         android:fragment="com.android.settings.applications.specialaccess.SpecialAccessSettings"
+diff --git a/res/xml/sable_app_security.xml b/res/xml/sable_app_security.xml
+new file mode 100644
+index 00000000000..896b899f54b
+--- /dev/null
++++ b/res/xml/sable_app_security.xml
+@@ -0,0 +1,46 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<PreferenceScreen
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    android:key="sable_app_security_screen"
++    android:title="@string/sable_app_security_title">
++
++    <PreferenceCategory
++        android:key="sable_security_identity"
++        android:title="@string/sable_security_identity_title" />
++
++    <PreferenceCategory
++        android:key="sable_security_access"
++        android:title="@string/sable_security_access_category" />
++
++    <PreferenceCategory
++        android:key="sable_security_components"
++        android:title="@string/sable_security_components_category" />
++
++    <PreferenceCategory
++        android:key="sable_security_code"
++        android:title="@string/sable_security_code_category" />
++
++    <PreferenceCategory
++        android:key="sable_security_network"
++        android:title="@string/sable_security_network_category" />
++
++    <PreferenceCategory
++        android:key="sable_security_history"
++        android:title="@string/sable_security_history_category" />
++
++</PreferenceScreen>
+diff --git a/res/xml/sable_app_security_apps.xml b/res/xml/sable_app_security_apps.xml
+new file mode 100644
+index 00000000000..2e75fe9f6b3
+--- /dev/null
++++ b/res/xml/sable_app_security_apps.xml
+@@ -0,0 +1,31 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<PreferenceScreen
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    android:key="sable_app_security_apps_screen"
++    android:title="@string/sable_app_security_title">
++
++    <Preference
++        android:key="sable_security_apps_intro"
++        android:summary="@string/sable_security_apps_intro"
++        android:selectable="false" />
++
++    <PreferenceCategory
++        android:key="sable_security_apps"
++        android:title="@string/sable_security_apps_category" />
++
++</PreferenceScreen>
+diff --git a/src/com/android/settings/Settings.java b/src/com/android/settings/Settings.java
+index b4a5b7f0cd5..b242f4da86e 100644
+--- a/src/com/android/settings/Settings.java
++++ b/src/com/android/settings/Settings.java
+@@ -160,6 +160,8 @@ public class Settings extends SettingsActivity {
+     public static class ManageApplicationsActivity extends SettingsActivity { /* empty */ }
+     /** SableOS: org.sableos.settings.NETWORK_MANAGER. */
+     public static class SableNetworkManagerActivity extends SettingsActivity { /* empty */ }
++    /** SableOS: org.sableos.settings.APP_SECURITY. */
++    public static class SableAppSecurityActivity extends SettingsActivity { /* empty */ }
+     public static class AppStorageSettingsActivity extends CatalystSettingsActivity {
+         public AppStorageSettingsActivity() {
+             super(AppInfoStorageScreen.KEY, AppStorageSettings.class);
+diff --git a/src/com/android/settings/applications/appinfo/AppInfoDashboardFragment.java b/src/com/android/settings/applications/appinfo/AppInfoDashboardFragment.java
+index 3a255901702..17f7cb204a7 100644
+--- a/src/com/android/settings/applications/appinfo/AppInfoDashboardFragment.java
++++ b/src/com/android/settings/applications/appinfo/AppInfoDashboardFragment.java
+@@ -59,6 +59,7 @@ import com.android.settings.SettingsPreferenceFragment;
+ import com.android.settings.applications.manageapplications.ManageApplications;
+ import com.android.settings.applications.specialaccess.interactacrossprofiles.InteractAcrossProfilesDetailsPreferenceController;
+ import com.android.settings.applications.specialaccess.pictureinpicture.PictureInPictureDetailPreferenceController;
++import com.android.settings.applications.sable.SableAppSecurityPreferenceController;
+ import com.android.settings.core.SubSettingLauncher;
+ import com.android.settings.dashboard.DashboardFragment;
+ import com.android.settingslib.RestrictedLockUtilsInternal;
+@@ -172,6 +173,7 @@ public class AppInfoDashboardFragment extends DashboardFragment
+ 
+         use(AppPermissionPreferenceController.class).setParentFragment(this);
+         use(AppPermissionPreferenceController.class).setPackageName(packageName);
++        use(SableAppSecurityPreferenceController.class).setParentFragment(this);
+         use(ManageAgentAppFunctionAccessPreferenceController.class).setParentFragment(this);
+         use(ManageTargetAppFunctionAccessPreferenceController.class).setParentFragment(this);
+         use(AppSettingPreferenceController.class)
+diff --git a/src/com/android/settings/applications/sable/SableAppSecurityAppsFragment.java b/src/com/android/settings/applications/sable/SableAppSecurityAppsFragment.java
+new file mode 100644
+index 00000000000..4c442922c9a
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/SableAppSecurityAppsFragment.java
+@@ -0,0 +1,213 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable;
++
++import android.app.Activity;
++import android.app.settings.SettingsEnums;
++import android.content.Context;
++import android.content.Intent;
++import android.content.pm.ApplicationInfo;
++import android.content.pm.PackageManager;
++import android.graphics.drawable.Drawable;
++import android.net.Uri;
++import android.os.Bundle;
++import android.os.UserHandle;
++import android.text.TextUtils;
++import android.util.IconDrawableFactory;
++import android.view.View;
++
++import androidx.preference.Preference;
++import androidx.preference.PreferenceCategory;
++
++import com.android.settings.R;
++import com.android.settings.SettingsPreferenceFragment;
++import com.android.settings.applications.AppInfoBase;
++import com.android.settings.applications.InstalledAppCounter;
++import com.android.settings.applications.sable.model.PrivacyEvaluator;
++import com.android.settings.applications.sable.model.PrivacyFacts;
++import com.android.settings.applications.sable.model.PrivacyRow;
++import com.android.settings.core.SubSettingLauncher;
++import com.android.settingslib.utils.ThreadUtils;
++
++import java.text.Collator;
++import java.util.ArrayList;
++import java.util.List;
++
++/**
++ * Settings &gt; Apps &gt; App security &amp; privacy: the current user's apps with their
++ * sensitive-access summary; choosing one opens {@link SableAppSecurityFragment}. This is the
++ * page {@code org.sableos.settings.APP_SECURITY} opens. When that intent carries a
++ * {@code package:} URI for an app of the current user, that app's page opens at once (Back
++ * returns to this list); Sable Tools sends the action alone.
++ */
++public class SableAppSecurityAppsFragment extends SettingsPreferenceFragment {
++    private static final String KEY_APPS = "sable_security_apps";
++    private static final String STATE_HANDLED_URI = "sable_handled_uri";
++
++    private PreferenceCategory mApps;
++    private SableAppListKeyboard mKeyboard;
++    private boolean mHandledUri;
++    private int mLoadGeneration;
++
++    /** One loaded row. */
++    private static final class AppRow {
++        final ApplicationInfo info;
++        final String label;
++        final Drawable icon;
++        final CharSequence summary;
++
++        AppRow(ApplicationInfo info, String label, Drawable icon, CharSequence summary) {
++            this.info = info;
++            this.label = label;
++            this.icon = icon;
++            this.summary = summary;
++        }
++    }
++
++    @Override
++    public int getMetricsCategory() {
++        return SettingsEnums.MANAGE_APPLICATIONS;
++    }
++
++    @Override
++    public void onCreate(Bundle icicle) {
++        super.onCreate(icicle);
++        addPreferencesFromResource(R.xml.sable_app_security_apps);
++        mApps = findPreference(KEY_APPS);
++        mHandledUri = icicle != null && icicle.getBoolean(STATE_HANDLED_URI);
++        if (!mHandledUri) {
++            mHandledUri = true;
++            openFromIntent();
++        }
++    }
++
++    @Override
++    public void onSaveInstanceState(Bundle outState) {
++        super.onSaveInstanceState(outState);
++        outState.putBoolean(STATE_HANDLED_URI, mHandledUri);
++    }
++
++    /** package:<name> in the launching intent opens that app's page for the current user. */
++    private void openFromIntent() {
++        final Activity activity = getActivity();
++        final Intent intent = activity == null ? null : activity.getIntent();
++        final Uri data = intent == null ? null : intent.getData();
++        if (data == null || !"package".equals(data.getScheme())
++                || TextUtils.isEmpty(data.getSchemeSpecificPart())) {
++            return;
++        }
++        try {
++            final ApplicationInfo ai = getPrefContext().getPackageManager().getApplicationInfo(
++                    data.getSchemeSpecificPart(), PackageManager.ApplicationInfoFlags.of(0));
++            openApp(ai);
++        } catch (PackageManager.NameNotFoundException e) {
++            // Unknown package for this user: stay on the list.
++        }
++    }
++
++    @Override
++    public void onViewCreated(View view, Bundle savedInstanceState) {
++        super.onViewCreated(view, savedInstanceState);
++        mKeyboard = SableAppListKeyboard.attach(this, getListView(), getMetricsCategory());
++    }
++
++    @Override
++    public void onDestroyView() {
++        if (mKeyboard != null) {
++            mKeyboard.detach();
++            mKeyboard = null;
++        }
++        super.onDestroyView();
++    }
++
++    @Override
++    public void onResume() {
++        super.onResume();
++        final Context context = getPrefContext().getApplicationContext();
++        final int generation = ++mLoadGeneration;
++        ThreadUtils.postOnBackgroundThread(() -> {
++            final List<AppRow> rows = load(context);
++            ThreadUtils.postOnMainThread(() -> {
++                if (generation == mLoadGeneration && isAdded()) {
++                    show(rows);
++                }
++            });
++        });
++    }
++
++    private static List<AppRow> load(Context context) {
++        final PackageManager pm = context.getPackageManager();
++        final List<AppRow> rows = new ArrayList<>();
++        final List<ApplicationInfo> apps;
++        try {
++            apps = pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(
++                    PackageManager.MATCH_DISABLED_COMPONENTS
++                            | PackageManager.MATCH_DISABLED_UNTIL_USED_COMPONENTS));
++        } catch (RuntimeException e) {
++            return rows;
++        }
++        final SablePrivacyFactsReader reader = new SablePrivacyFactsReader(context);
++        final SablePrivacyLabels labels = new SablePrivacyLabels(context);
++        final IconDrawableFactory icons = IconDrawableFactory.newInstance(context);
++        for (ApplicationInfo ai : apps) {
++            if (!InstalledAppCounter.includeInCount(InstalledAppCounter.IGNORE_INSTALL_REASON,
++                    pm, ai)) {
++                continue;
++            }
++            final CharSequence label = ai.loadLabel(pm);
++            final PrivacyFacts facts = reader.read(ai);
++            final PrivacyRow row = PrivacyRow.of(facts == null ? null
++                    : PrivacyEvaluator.evaluate(facts));
++            rows.add(new AppRow(ai, label == null ? ai.packageName : label.toString(),
++                    icons.getBadgedIcon(ai), row.text(labels)));
++        }
++        final Collator collator = Collator.getInstance();
++        rows.sort((a, b) -> collator.compare(a.label, b.label));
++        return rows;
++    }
++
++    private void show(List<AppRow> rows) {
++        mApps.removeAll();
++        for (AppRow row : rows) {
++            final Preference p = new Preference(getPrefContext());
++            p.setKey(row.info.packageName);
++            p.setTitle(row.label);
++            p.setSummary(row.summary);
++            p.setIcon(row.icon);
++            p.setPersistent(false);
++            p.setOnPreferenceClickListener(pref -> {
++                openApp(row.info);
++                return true;
++            });
++            mApps.addPreference(p);
++        }
++    }
++
++    private void openApp(ApplicationInfo ai) {
++        final Bundle args = new Bundle();
++        args.putString(AppInfoBase.ARG_PACKAGE_NAME, ai.packageName);
++        args.putInt(AppInfoBase.ARG_PACKAGE_UID, ai.uid);
++        new SubSettingLauncher(getPrefContext())
++                .setDestination(SableAppSecurityFragment.class.getName())
++                .setArguments(args)
++                .setTitleRes(R.string.sable_app_security_title)
++                .setUserHandle(UserHandle.getUserHandleForUid(ai.uid))
++                .setSourceMetricsCategory(getMetricsCategory())
++                .launch();
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/SableAppSecurityFragment.java b/src/com/android/settings/applications/sable/SableAppSecurityFragment.java
+new file mode 100644
+index 00000000000..0446a6ab18a
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/SableAppSecurityFragment.java
+@@ -0,0 +1,638 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable;
++
++import android.Manifest;
++import android.app.settings.SettingsEnums;
++import android.content.Context;
++import android.content.Intent;
++import android.content.pm.ActivityInfo;
++import android.content.pm.ApplicationInfo;
++import android.content.pm.InstallSourceInfo;
++import android.content.pm.PackageInfo;
++import android.content.pm.PackageManager;
++import android.content.pm.ProviderInfo;
++import android.content.pm.ServiceInfo;
++import android.content.pm.Signature;
++import android.content.pm.SigningInfo;
++import android.content.res.Resources;
++import android.net.NetworkPolicyManager;
++import android.os.Bundle;
++import android.os.PowerManager;
++import android.os.UserHandle;
++import android.text.TextUtils;
++import android.text.format.DateUtils;
++import android.util.Log;
++
++import androidx.preference.Preference;
++import androidx.preference.PreferenceCategory;
++
++import com.android.settings.R;
++import com.android.settings.SettingsPreferenceFragment;
++import com.android.settings.applications.AppInfoBase;
++import com.android.settings.applications.sable.model.AppPrivacy;
++import com.android.settings.applications.sable.model.AppSecurityFacts;
++import com.android.settings.applications.sable.model.ComponentExposure;
++import com.android.settings.applications.sable.model.Evidence;
++import com.android.settings.applications.sable.model.GroupState;
++import com.android.settings.applications.sable.model.NativeCodeScan;
++import com.android.settings.applications.sable.model.NetworkAccessPolicy;
++import com.android.settings.applications.sable.model.PrivacyEvaluator;
++import com.android.settings.applications.sable.model.PrivacyFacts;
++import com.android.settings.applications.sable.model.PrivacyGroup;
++import com.android.settings.core.SubSettingLauncher;
++import com.android.settingslib.utils.ThreadUtils;
++
++import java.io.IOException;
++import java.security.MessageDigest;
++import java.security.NoSuchAlgorithmException;
++import java.util.ArrayList;
++import java.util.Arrays;
++import java.util.Enumeration;
++import java.util.LinkedHashSet;
++import java.util.List;
++import java.util.Map;
++import java.util.Set;
++import java.util.zip.ZipEntry;
++import java.util.zip.ZipFile;
++
++/**
++ * App Security &amp; Privacy: a read-only page for one app in its own user, opened from
++ * App info, from Settings &gt; Apps &gt; App security &amp; privacy and by
++ * {@code org.sableos.settings.APP_SECURITY}. Port of the GrapheneOS-era UI5B page.
++ *
++ * <p>Every row names its evidence class (DECLARED, ENFORCED, OBSERVED, INFERRED, UNKNOWN). Facts
++ * come from PackageManager, AppOps, the network policy, the power policy and a bounded scan
++ * of the installed APK entry names; what the platform cannot tell is shown as UNKNOWN. The
++ * page changes nothing: the two links hand off to the platform permission page and to
++ * Network access. Everything is read off the main thread.
++ */
++public class SableAppSecurityFragment extends SettingsPreferenceFragment {
++    private static final String TAG = "SableAppSecurity";
++
++    static final String KEY_IDENTITY = "sable_security_identity";
++    static final String KEY_ACCESS = "sable_security_access";
++    static final String KEY_COMPONENTS = "sable_security_components";
++    static final String KEY_CODE = "sable_security_code";
++    static final String KEY_NETWORK = "sable_security_network";
++    static final String KEY_HISTORY = "sable_security_history";
++
++    private static final long COMPONENT_FLAGS = PackageManager.GET_ACTIVITIES
++            | PackageManager.GET_SERVICES | PackageManager.GET_RECEIVERS
++            | PackageManager.GET_PROVIDERS | PackageManager.GET_INSTRUMENTATION;
++    private static final long BASE_FLAGS = PackageManager.GET_PERMISSIONS
++            | PackageManager.GET_SIGNING_CERTIFICATES | PackageManager.MATCH_DISABLED_COMPONENTS;
++
++    private String mPackageName;
++    private int mUid = -1;
++    private SableAppListKeyboard mKeyboard;
++
++    /** One row: category key, title, summary and an optional click action. */
++    private static final class Row {
++        final String category;
++        final CharSequence title;
++        final CharSequence summary;
++        final Runnable onClick;
++
++        Row(String category, CharSequence title, CharSequence summary, Runnable onClick) {
++            this.category = category;
++            this.title = title;
++            this.summary = summary;
++            this.onClick = onClick;
++        }
++    }
++
++    @Override
++    public int getMetricsCategory() {
++        return SettingsEnums.APPLICATIONS_INSTALLED_APP_DETAILS;
++    }
++
++    @Override
++    public void onCreate(Bundle icicle) {
++        super.onCreate(icicle);
++        addPreferencesFromResource(R.xml.sable_app_security);
++        final Bundle args = getArguments();
++        if (args != null) {
++            mPackageName = args.getString(AppInfoBase.ARG_PACKAGE_NAME);
++            mUid = args.getInt(AppInfoBase.ARG_PACKAGE_UID, -1);
++        }
++        if (TextUtils.isEmpty(mPackageName) || mUid < 0) {
++            Log.w(TAG, "Missing package or uid");
++            finish();
++            return;
++        }
++        getActivity().setTitle(R.string.sable_app_security_title);
++    }
++
++    @Override
++    public void onViewCreated(android.view.View view, Bundle savedInstanceState) {
++        super.onViewCreated(view, savedInstanceState);
++        mKeyboard = SableAppListKeyboard.attach(this, getListView(), getMetricsCategory());
++    }
++
++    @Override
++    public void onDestroyView() {
++        if (mKeyboard != null) {
++            mKeyboard.detach();
++            mKeyboard = null;
++        }
++        super.onDestroyView();
++    }
++
++    @Override
++    public void onResume() {
++        super.onResume();
++        if (TextUtils.isEmpty(mPackageName)) {
++            return;
++        }
++        final Context context = getPrefContext().getApplicationContext();
++        final String packageName = mPackageName;
++        final int uid = mUid;
++        ThreadUtils.postOnBackgroundThread(() -> {
++            final List<Row> rows = collect(context, packageName, uid);
++            ThreadUtils.postOnMainThread(() -> {
++                if (isAdded()) {
++                    show(rows);
++                }
++            });
++        });
++    }
++
++    private void show(List<Row> rows) {
++        if (rows == null) {
++            finish(); // the package is gone for this user
++            return;
++        }
++        for (String key : new String[] {KEY_IDENTITY, KEY_ACCESS, KEY_COMPONENTS, KEY_CODE,
++                KEY_NETWORK, KEY_HISTORY}) {
++            final PreferenceCategory c = findPreference(key);
++            if (c != null) {
++                c.removeAll();
++            }
++        }
++        for (Row row : rows) {
++            final PreferenceCategory c = findPreference(row.category);
++            if (c == null) {
++                continue;
++            }
++            final Preference p = new Preference(getPrefContext());
++            p.setTitle(row.title);
++            p.setSummary(row.summary);
++            p.setPersistent(false);
++            // Selectable so a keyboard can focus and read every row; long-press copies.
++            p.setSelectable(true);
++            p.setCopyingEnabled(row.onClick == null);
++            if (row.onClick != null) {
++                p.setOnPreferenceClickListener(pref -> {
++                    row.onClick.run();
++                    return true;
++                });
++            }
++            c.addPreference(p);
++        }
++    }
++
++    /** All rows for one app, or null when the package is not installed for that user. */
++    private List<Row> collect(Context context, String packageName, int uid) {
++        final Resources res = context.getResources();
++        final UserHandle user = UserHandle.getUserHandleForUid(uid);
++        final Context userContext;
++        final PackageManager pm;
++        try {
++            userContext = context.createContextAsUser(user, 0);
++            pm = userContext.getPackageManager();
++        } catch (RuntimeException e) {
++            return null;
++        }
++        PackageInfo pi;
++        boolean componentsRead = true;
++        try {
++            pi = pm.getPackageInfo(packageName,
++                    PackageManager.PackageInfoFlags.of(BASE_FLAGS | COMPONENT_FLAGS));
++        } catch (PackageManager.NameNotFoundException e) {
++            return null;
++        } catch (RuntimeException e) {
++            // A very large manifest can exceed the binder limit: read without components.
++            componentsRead = false;
++            try {
++                pi = pm.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(BASE_FLAGS));
++            } catch (PackageManager.NameNotFoundException | RuntimeException e2) {
++                return null;
++            }
++        }
++        final ApplicationInfo ai = pi.applicationInfo;
++        if (ai == null) {
++            return null;
++        }
++        final List<Row> rows = new ArrayList<>();
++        rows.add(new Row(KEY_IDENTITY, res.getString(R.string.sable_security_notice_title),
++                res.getString(R.string.sable_security_notice), null));
++        identity(res, pm, pi, ai, rows);
++        access(context, res, ai, packageName, rows);
++        components(res, pi, componentsRead, rows);
++        code(res, ai, rows);
++        network(context, res, userContext, pi, ai, rows);
++        history(context, res, pi, rows);
++        return rows;
++    }
++
++    private static String ev(Resources res, Evidence e, CharSequence detail) {
++        return res.getString(R.string.sable_security_evidence_format, evidenceLabel(res, e),
++                detail);
++    }
++
++    static String evidenceLabel(Resources res, Evidence e) {
++        switch (e) {
++            case DECLARED:
++                return res.getString(R.string.sable_security_evidence_declared);
++            case ENFORCED:
++                return res.getString(R.string.sable_security_evidence_enforced);
++            case OBSERVED:
++                return res.getString(R.string.sable_security_evidence_observed);
++            case INFERRED:
++                return res.getString(R.string.sable_security_evidence_inferred);
++            default:
++                return res.getString(R.string.sable_security_evidence_unknown);
++        }
++    }
++
++    private void identity(Resources res, PackageManager pm, PackageInfo pi, ApplicationInfo ai,
++            List<Row> rows) {
++        rows.add(new Row(KEY_IDENTITY, res.getString(R.string.sable_security_package),
++                ev(res, Evidence.DECLARED, pi.packageName), null));
++        final String version = TextUtils.isEmpty(pi.versionName)
++                ? res.getString(R.string.sable_security_unavailable) : pi.versionName;
++        rows.add(new Row(KEY_IDENTITY, res.getString(R.string.sable_security_version),
++                ev(res, Evidence.DECLARED, res.getString(R.string.sable_security_version_format,
++                        version, pi.getLongVersionCode())), null));
++        rows.add(new Row(KEY_IDENTITY, res.getString(R.string.sable_security_sdk),
++                ev(res, Evidence.DECLARED, res.getString(R.string.sable_security_sdk_format,
++                        ai.minSdkVersion, ai.targetSdkVersion)), null));
++
++        List<String> chain;
++        try {
++            final InstallSourceInfo src = pm.getInstallSourceInfo(pi.packageName);
++            chain = AppSecurityFacts.installerChain(src.getInstallingPackageName(),
++                    src.getInitiatingPackageName(), src.getOriginatingPackageName());
++        } catch (PackageManager.NameNotFoundException | RuntimeException e) {
++            chain = null;
++        }
++        rows.add(new Row(KEY_IDENTITY, res.getString(R.string.sable_security_installer),
++                chain == null
++                        ? ev(res, Evidence.UNKNOWN, res.getString(R.string.sable_security_unavailable))
++                        : ev(res, Evidence.OBSERVED, chain.isEmpty()
++                                ? res.getString(R.string.sable_security_installer_none)
++                                : TextUtils.join(" · ", chain)), null));
++
++        final SigningInfo signing = pi.signingInfo;
++        final Signature[] signers = signing == null ? null : signing.getApkContentsSigners();
++        final String digest = signers == null || signers.length == 0 ? null : sha256(signers[0]);
++        rows.add(new Row(KEY_IDENTITY, res.getString(R.string.sable_security_signer),
++                digest == null
++                        ? ev(res, Evidence.UNKNOWN, res.getString(R.string.sable_security_unavailable))
++                        : ev(res, Evidence.DECLARED, res.getString(
++                                R.string.sable_security_signer_format, digest)), null));
++        if (signing != null) {
++            final String lineage;
++            if (signing.hasMultipleSigners()) {
++                lineage = res.getString(R.string.sable_security_signers_multiple,
++                        signers == null ? 0 : signers.length);
++            } else if (signing.hasPastSigningCertificates()) {
++                final Signature[] history = signing.getSigningCertificateHistory();
++                lineage = res.getString(R.string.sable_security_signers_rotated,
++                        history == null ? 0 : history.length);
++            } else {
++                lineage = res.getString(R.string.sable_security_signers_single);
++            }
++            rows.add(new Row(KEY_IDENTITY, res.getString(R.string.sable_security_signing_lineage),
++                    ev(res, Evidence.DECLARED, lineage), null));
++        }
++
++        final AppSecurityFacts.InstallClass ic = AppSecurityFacts.installClass(
++                (ai.flags & ApplicationInfo.FLAG_SYSTEM) != 0,
++                (ai.flags & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0);
++        final int icRes = ic == AppSecurityFacts.InstallClass.SYSTEM_IMAGE
++                ? R.string.sable_security_install_system
++                : ic == AppSecurityFacts.InstallClass.UPDATED_SYSTEM_APP
++                        ? R.string.sable_security_install_updated_system
++                        : R.string.sable_security_install_user;
++        rows.add(new Row(KEY_IDENTITY, res.getString(R.string.sable_security_install_class),
++                ev(res, Evidence.DECLARED, res.getString(icRes)), null));
++
++        final List<String> flags = new ArrayList<>();
++        if ((ai.flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
++            flags.add(res.getString(R.string.sable_security_flag_debuggable));
++        }
++        if ((ai.flags & ApplicationInfo.FLAG_TEST_ONLY) != 0) {
++            flags.add(res.getString(R.string.sable_security_flag_test_only));
++        }
++        rows.add(new Row(KEY_IDENTITY, res.getString(R.string.sable_security_build_flags),
++                ev(res, Evidence.DECLARED, flags.isEmpty()
++                        ? res.getString(R.string.sable_security_flag_release)
++                        : TextUtils.join(" · ", flags)), null));
++    }
++
++    private void access(Context context, Resources res, ApplicationInfo ai, String packageName,
++            List<Row> rows) {
++        final PrivacyFacts facts = new SablePrivacyFactsReader(context).read(ai);
++        if (facts == null) {
++            rows.add(new Row(KEY_ACCESS, res.getString(R.string.sable_security_access_title),
++                    ev(res, Evidence.UNKNOWN, res.getString(R.string.sable_security_unavailable)),
++                    null));
++        } else {
++            final AppPrivacy privacy = PrivacyEvaluator.evaluate(facts);
++            final SablePrivacyLabels labels = new SablePrivacyLabels(context);
++            for (Map.Entry<PrivacyGroup, GroupState> e : privacy.groups().entrySet()) {
++                final GroupState state = e.getValue();
++                final Evidence evidence = state == GroupState.UNKNOWN
++                        ? Evidence.UNKNOWN : Evidence.ENFORCED;
++                rows.add(new Row(KEY_ACCESS,
++                        res.getString(SablePrivacyLabels.groupRes(e.getKey())),
++                        ev(res, evidence, stateLabel(res, labels, e.getKey(), state)), null));
++            }
++            if (privacy.groups().isEmpty()) {
++                rows.add(new Row(KEY_ACCESS,
++                        res.getString(R.string.sable_security_access_title),
++                        ev(res, Evidence.DECLARED,
++                                res.getString(R.string.sable_security_access_none)), null));
++            }
++        }
++        rows.add(new Row(KEY_ACCESS, res.getString(R.string.sable_security_open_permissions),
++                res.getString(R.string.sable_security_open_permissions_summary),
++                () -> openPermissions(packageName)));
++    }
++
++    private static String stateLabel(Resources res, SablePrivacyLabels labels, PrivacyGroup g,
++            GroupState state) {
++        switch (state) {
++            case ALLOWED:
++                return res.getString(R.string.sable_security_state_allowed);
++            case APPROXIMATE:
++            case LIMITED:
++                return labels.group(g, state);
++            case NOT_ALLOWED:
++                return res.getString(R.string.sable_security_state_not_allowed);
++            default:
++                return res.getString(R.string.sable_security_unavailable);
++        }
++    }
++
++    private void openPermissions(String packageName) {
++        final Context context = getContext();
++        if (context == null) {
++            return;
++        }
++        final Intent intent = new Intent(Intent.ACTION_MANAGE_APP_PERMISSIONS)
++                .setPackage(context.getPackageManager().getPermissionControllerPackageName())
++                .putExtra(Intent.EXTRA_PACKAGE_NAME, packageName);
++        try {
++            startActivity(intent);
++        } catch (RuntimeException e) {
++            Log.w(TAG, "No permission page for " + packageName, e);
++        }
++    }
++
++    private void components(Resources res, PackageInfo pi, boolean read, List<Row> rows) {
++        if (!read) {
++            rows.add(new Row(KEY_COMPONENTS, res.getString(R.string.sable_security_components),
++                    ev(res, Evidence.UNKNOWN,
++                            res.getString(R.string.sable_security_components_too_large)), null));
++            return;
++        }
++        final ComponentExposure activities = new ComponentExposure();
++        if (pi.activities != null) {
++            for (ActivityInfo a : pi.activities) {
++                activities.add(a.name, a.enabled, a.exported, !TextUtils.isEmpty(a.permission));
++            }
++        }
++        final ComponentExposure services = new ComponentExposure();
++        final Set<AppSecurityFacts.Elevated> elevated = new LinkedHashSet<>();
++        if (pi.services != null) {
++            for (ServiceInfo s : pi.services) {
++                services.add(s.name, s.enabled, s.exported, !TextUtils.isEmpty(s.permission));
++                final AppSecurityFacts.Elevated e = AppSecurityFacts.Elevated.of(s.permission);
++                if (e != null && e != AppSecurityFacts.Elevated.DEVICE_ADMIN) {
++                    elevated.add(e);
++                }
++            }
++        }
++        final ComponentExposure receivers = new ComponentExposure();
++        if (pi.receivers != null) {
++            for (ActivityInfo r : pi.receivers) {
++                receivers.add(r.name, r.enabled, r.exported, !TextUtils.isEmpty(r.permission));
++                if (AppSecurityFacts.Elevated.of(r.permission)
++                        == AppSecurityFacts.Elevated.DEVICE_ADMIN) {
++                    elevated.add(AppSecurityFacts.Elevated.DEVICE_ADMIN);
++                }
++            }
++        }
++        final ComponentExposure providers = new ComponentExposure();
++        if (pi.providers != null) {
++            for (ProviderInfo p : pi.providers) {
++                providers.add(p.name, p.enabled, p.exported,
++                        !TextUtils.isEmpty(p.readPermission)
++                                || !TextUtils.isEmpty(p.writePermission));
++            }
++        }
++        componentRow(res, R.string.sable_security_activities, activities, rows);
++        componentRow(res, R.string.sable_security_services, services, rows);
++        componentRow(res, R.string.sable_security_receivers, receivers, rows);
++        componentRow(res, R.string.sable_security_providers, providers, rows);
++        rows.add(new Row(KEY_COMPONENTS, res.getString(R.string.sable_security_instrumentation),
++                ev(res, Evidence.DECLARED, Integer.toString(
++                        pi.instrumentation == null ? 0 : pi.instrumentation.length)), null));
++        final List<String> names = new ArrayList<>();
++        for (AppSecurityFacts.Elevated e : elevated) {
++            names.add(res.getString(elevatedRes(e)));
++        }
++        rows.add(new Row(KEY_COMPONENTS, res.getString(R.string.sable_security_elevated),
++                ev(res, Evidence.DECLARED, names.isEmpty()
++                        ? res.getString(R.string.sable_security_none)
++                        : TextUtils.join(" · ", names)), null));
++    }
++
++    private static int elevatedRes(AppSecurityFacts.Elevated e) {
++        switch (e) {
++            case ACCESSIBILITY:
++                return R.string.sable_security_elevated_accessibility;
++            case NOTIFICATION_LISTENER:
++                return R.string.sable_security_elevated_notification_listener;
++            case VPN:
++                return R.string.sable_security_elevated_vpn;
++            case INPUT_METHOD:
++                return R.string.sable_security_elevated_input_method;
++            case AUTOFILL:
++                return R.string.sable_security_elevated_autofill;
++            default:
++                return R.string.sable_security_elevated_device_admin;
++        }
++    }
++
++    private static void componentRow(Resources res, int titleRes, ComponentExposure c,
++            List<Row> rows) {
++        String detail = res.getString(R.string.sable_security_components_format, c.total(),
++                c.enabled(), c.exported(), c.exportedUnguarded());
++        if (!c.exportedNames().isEmpty()) {
++            detail = res.getString(R.string.sable_security_components_names_format, detail,
++                    TextUtils.join(", ", c.exportedNames()));
++            if (c.unlistedExported() > 0) {
++                detail = res.getString(R.string.sable_security_components_more_format, detail,
++                        c.unlistedExported());
++            }
++        }
++        rows.add(new Row(KEY_COMPONENTS, res.getString(titleRes),
++                ev(res, Evidence.DECLARED, detail), null));
++    }
++
++    private static void code(Resources res, ApplicationInfo ai, List<Row> rows) {
++        final NativeCodeScan scan = new NativeCodeScan();
++        final List<String> apks = new ArrayList<>();
++        if (!TextUtils.isEmpty(ai.sourceDir)) {
++            apks.add(ai.sourceDir);
++        }
++        if (ai.splitSourceDirs != null) {
++            apks.addAll(Arrays.asList(ai.splitSourceDirs));
++        }
++        for (String path : apks) {
++            if (!scan.acceptsApk()) {
++                break;
++            }
++            try (ZipFile zip = new ZipFile(path)) {
++                scan.apkOpened();
++                final Enumeration<? extends ZipEntry> entries = zip.entries();
++                while (entries.hasMoreElements()) {
++                    if (!scan.entry(entries.nextElement().getName())) {
++                        break;
++                    }
++                }
++            } catch (IOException | RuntimeException e) {
++                // An unreadable APK adds nothing; UNKNOWN only when none could be read.
++            }
++        }
++        final String nativeDetail;
++        if (scan.evidence() == Evidence.UNKNOWN) {
++            nativeDetail = res.getString(R.string.sable_security_unavailable);
++        } else {
++            final String abis = scan.abis().isEmpty() ? res.getString(R.string.sable_security_none)
++                    : TextUtils.join(", ", scan.abis());
++            nativeDetail = res.getString(scan.truncated()
++                            ? R.string.sable_security_native_format_truncated
++                            : R.string.sable_security_native_format,
++                    scan.libraries().size(), abis);
++        }
++        rows.add(new Row(KEY_CODE, res.getString(R.string.sable_security_native),
++                ev(res, scan.evidence(), nativeDetail), null));
++        rows.add(new Row(KEY_CODE, res.getString(R.string.sable_security_shared_libraries),
++                ev(res, Evidence.DECLARED, Integer.toString(
++                        ai.sharedLibraryFiles == null ? 0 : ai.sharedLibraryFiles.length)), null));
++        rows.add(new Row(KEY_CODE, res.getString(R.string.sable_security_trackers),
++                ev(res, Evidence.UNKNOWN, res.getString(R.string.sable_security_trackers_unknown)),
++                null));
++    }
++
++    private void network(Context context, Resources res, Context userContext, PackageInfo pi,
++            ApplicationInfo ai, List<Row> rows) {
++        final boolean internet = pi.requestedPermissions != null
++                && Arrays.asList(pi.requestedPermissions).contains(Manifest.permission.INTERNET);
++        rows.add(new Row(KEY_NETWORK, res.getString(R.string.sable_security_internet),
++                ev(res, Evidence.DECLARED, res.getString(internet
++                        ? R.string.sable_security_yes : R.string.sable_security_no)), null));
++        if (internet) {
++            String summary;
++            try {
++                final NetworkPolicyManager npm = NetworkPolicyManager.from(context);
++                final NetworkAccessPolicy.State state = NetworkAccessPolicy.evaluate(
++                        npm.getUidPolicy(ai.uid), UserHandle.isApp(ai.uid),
++                        new NetworkAccessPolicy.Masks(NetworkPolicyManager.POLICY_REJECT_ALL,
++                                NetworkPolicyManager.POLICY_REJECT_CELLULAR,
++                                NetworkPolicyManager.POLICY_REJECT_WIFI,
++                                NetworkPolicyManager.POLICY_REJECT_VPN,
++                                NetworkPolicyManager.POLICY_REJECT_METERED_BACKGROUND));
++                summary = ev(res, Evidence.ENFORCED,
++                        SableNetworkManagerFragment.summaryFor(res, state, 0));
++            } catch (RuntimeException e) {
++                summary = ev(res, Evidence.UNKNOWN,
++                        res.getString(R.string.sable_security_unavailable));
++            }
++            final boolean currentUser = UserHandle.getUserId(ai.uid) == UserHandle.myUserId();
++            rows.add(new Row(KEY_NETWORK, res.getString(R.string.sable_network_manager_title),
++                    summary, currentUser ? this::openNetworkManager : null));
++        }
++        rows.add(new Row(KEY_NETWORK, res.getString(R.string.sable_security_network_usage),
++                ev(res, Evidence.UNKNOWN,
++                        res.getString(R.string.sable_security_network_usage_unknown)), null));
++        String background;
++        try {
++            final PowerManager power = userContext.getSystemService(PowerManager.class);
++            background = power == null
++                    ? ev(res, Evidence.UNKNOWN, res.getString(R.string.sable_security_unavailable))
++                    : ev(res, Evidence.ENFORCED, res.getString(
++                            power.isIgnoringBatteryOptimizations(pi.packageName)
++                                    ? R.string.sable_security_battery_unrestricted
++                                    : R.string.sable_security_battery_optimized));
++        } catch (RuntimeException e) {
++            background = ev(res, Evidence.UNKNOWN,
++                    res.getString(R.string.sable_security_unavailable));
++        }
++        rows.add(new Row(KEY_NETWORK, res.getString(R.string.sable_security_background),
++                background, null));
++        rows.add(new Row(KEY_NETWORK, res.getString(R.string.sable_security_stopped),
++                ev(res, Evidence.ENFORCED, res.getString(
++                        (ai.flags & ApplicationInfo.FLAG_STOPPED) != 0
++                                ? R.string.sable_security_stopped_yes
++                                : R.string.sable_security_stopped_no)), null));
++    }
++
++    private void openNetworkManager() {
++        if (getContext() == null) {
++            return;
++        }
++        new SubSettingLauncher(getContext())
++                .setDestination(SableNetworkManagerFragment.class.getName())
++                .setSourceMetricsCategory(getMetricsCategory())
++                .launch();
++    }
++
++    private static void history(Context context, Resources res, PackageInfo pi, List<Row> rows) {
++        rows.add(new Row(KEY_HISTORY, res.getString(R.string.sable_security_first_install),
++                ev(res, Evidence.OBSERVED, time(context, res, pi.firstInstallTime)), null));
++        rows.add(new Row(KEY_HISTORY, res.getString(R.string.sable_security_last_update),
++                ev(res, Evidence.OBSERVED, time(context, res, pi.lastUpdateTime)), null));
++        rows.add(new Row(KEY_HISTORY, res.getString(R.string.sable_security_change_history),
++                ev(res, Evidence.UNKNOWN, res.getString(R.string.sable_security_change_history_unknown)),
++                null));
++    }
++
++    private static String time(Context context, Resources res, long millis) {
++        if (millis <= 0) {
++            return res.getString(R.string.sable_security_unavailable);
++        }
++        return DateUtils.formatDateTime(context, millis,
++                DateUtils.FORMAT_SHOW_DATE | DateUtils.FORMAT_SHOW_YEAR
++                        | DateUtils.FORMAT_SHOW_TIME);
++    }
++
++    private static String sha256(Signature signature) {
++        try {
++            return AppSecurityFacts.hex(
++                    MessageDigest.getInstance("SHA-256").digest(signature.toByteArray()));
++        } catch (NoSuchAlgorithmException e) {
++            return null;
++        }
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/SableAppSecurityPreferenceController.java b/src/com/android/settings/applications/sable/SableAppSecurityPreferenceController.java
+new file mode 100644
+index 00000000000..953b6432815
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/SableAppSecurityPreferenceController.java
+@@ -0,0 +1,36 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable;
++
++import android.content.Context;
++
++import com.android.settings.SettingsPreferenceFragment;
++import com.android.settings.applications.appinfo.AppInfoPreferenceControllerBase;
++
++/** App info &gt; App security &amp; privacy, opening {@link SableAppSecurityFragment}. */
++public class SableAppSecurityPreferenceController extends AppInfoPreferenceControllerBase {
++
++    public SableAppSecurityPreferenceController(Context context, String preferenceKey) {
++        super(context, preferenceKey);
++    }
++
++    @Override
++    protected Class<? extends SettingsPreferenceFragment> getDetailFragmentClass() {
++        return SableAppSecurityFragment.class;
++    }
++}
+diff --git a/src/com/android/settings/core/gateway/SettingsGateway.java b/src/com/android/settings/core/gateway/SettingsGateway.java
+index 430318f0999..00e209b2f15 100644
+--- a/src/com/android/settings/core/gateway/SettingsGateway.java
++++ b/src/com/android/settings/core/gateway/SettingsGateway.java
+@@ -74,6 +74,7 @@ import com.android.settings.applications.specialaccess.pictureinpicture.PictureI
+ import com.android.settings.applications.specialaccess.premiumsms.PremiumSmsAccess;
+ import com.android.settings.applications.specialaccess.vrlistener.VrListenerSettings;
+ import com.android.settings.applications.specialaccess.zenaccess.ZenAccessDetails;
++import com.android.settings.applications.sable.SableAppSecurityAppsFragment;
+ import com.android.settings.applications.sable.SableNetworkManagerFragment;
+ import com.android.settings.backup.PrivacySettings;
+ import com.android.settings.backup.ToggleBackupSettingFragment;
+@@ -232,6 +233,7 @@ public class SettingsGateway {
+     public static final String[] ENTRY_FRAGMENTS = {
+             AdvancedConnectedDeviceDashboardFragment.class.getName(),
+             SableNetworkManagerFragment.class.getName(),
++            SableAppSecurityAppsFragment.class.getName(),
+             CreateShortcut.class.getName(),
+             BluetoothPairingDetail.class.getName(),
+             BluetoothDashboardFragment.class.getName(),
+-- 
+2.43.0
+

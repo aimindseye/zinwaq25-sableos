@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Default locale only, as in SableOS R9. Locales that LineageOS translated
+     keep their translated name until Sable translations exist. -->
+<resources>
+    <string name="app_name">Photos</string>
+</resources>

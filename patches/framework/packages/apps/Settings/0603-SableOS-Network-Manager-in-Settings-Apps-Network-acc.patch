@@ -1,0 +1,781 @@
+From a91a9592129d234cd9d2b414ef1130970220b1f6 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 10 Oct 2026 00:38:44 +0000
+Subject: [PATCH] SableOS: Network Manager in Settings > Apps > Network access
+
+Port of the GrapheneOS-era Sable Network Manager (R9 settings
+cohesion) to LineageOS. GrapheneOS made the Network permission
+revocable; LineageOS does not, and instead already enforces a per-UID
+network restriction that App info > Mobile data & Wi-Fi exposes
+(NetworkPolicyManager.POLICY_REJECT_ALL and the per-transport bits).
+Network Manager is one list over that same store
+(DUPLICATE_NETWORK_POLICY_STORE=NO, no second blocker):
+
+* one switch per app (per UID; shared-UID apps share a row), sorted by
+  name, current user, apps the All apps list shows;
+* the switch adds or removes only POLICY_REJECT_ALL; Wi-Fi, mobile
+  data, VPN and background-data restrictions set in App info are shown
+  in the row and kept;
+* blocking an app that sends messages, mail or calls asks first;
+* the page says what it does and does not do (no website/DNS filter).
+
+Entry: Settings > Apps > Network access (searchable). Exported as
+org.sableos.settings.NETWORK_MANAGER for Sable Tools, which sends the
+action with no extras. Keyboard: type-ahead on app names, Home/End,
+Page Up/Down, / or Ctrl+K for search (reusing the Battery keyboard
+model); Space toggles through the platform switch.
+---
+ AndroidManifest.xml                           |  16 +
+ res/values/strings_sable_network.xml          |  45 +++
+ res/xml/apps.xml                              |   9 +
+ res/xml/sable_network_manager.xml             |  37 ++
+ src/com/android/settings/Settings.java        |   2 +
+ .../sable/SableAppListKeyboard.java           | 192 ++++++++++
+ .../sable/SableNetworkManagerFragment.java    | 359 ++++++++++++++++++
+ .../core/gateway/SettingsGateway.java         |   2 +
+ 8 files changed, 662 insertions(+)
+ create mode 100644 res/values/strings_sable_network.xml
+ create mode 100644 res/xml/sable_network_manager.xml
+ create mode 100644 src/com/android/settings/applications/sable/SableAppListKeyboard.java
+ create mode 100644 src/com/android/settings/applications/sable/SableNetworkManagerFragment.java
+
+diff --git a/AndroidManifest.xml b/AndroidManifest.xml
+index 855d61ff68b..a3146788c69 100644
+--- a/AndroidManifest.xml
++++ b/AndroidManifest.xml
+@@ -1995,6 +1995,22 @@
+                        android:value="@string/menu_key_apps"/>
+         </activity-alias>
+ 
++        <!-- SableOS: Network Manager (Settings > Apps > Network access). Sable Tools opens it
++             with the action alone; no extras or data. -->
++        <activity
++            android:name="Settings$SableNetworkManagerActivity"
++            android:exported="true"
++            android:label="@string/sable_network_manager_title">
++            <intent-filter>
++                <action android:name="org.sableos.settings.NETWORK_MANAGER" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
++            <meta-data android:name="com.android.settings.FRAGMENT_CLASS"
++                android:value="com.android.settings.applications.sable.SableNetworkManagerFragment" />
++            <meta-data android:name="com.android.settings.HIGHLIGHT_MENU_KEY"
++                android:value="@string/menu_key_apps"/>
++        </activity>
++
+         <activity android:name="Settings$UserAspectRatioAppListActivity"
+             android:exported="true"
+             android:label="@string/aspect_ratio_title">
+diff --git a/res/values/strings_sable_network.xml b/res/values/strings_sable_network.xml
+new file mode 100644
+index 00000000000..7fc22dc538e
+--- /dev/null
++++ b/res/values/strings_sable_network.xml
+@@ -0,0 +1,45 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
++    <!-- SableOS Network Manager (Settings > Apps > Network access). -->
++    <string name="sable_network_manager_title">Network access</string>
++    <string name="sable_network_manager_summary">Turn network access on or off for each app</string>
++    <string name="sable_network_manager_keywords">network manager, firewall, internet access, block internet, data access, offline</string>
++    <string name="sable_network_manager_explanation_title">Per-app network access</string>
++    <string name="sable_network_manager_explanation">Turning an app off blocks its traffic on Wi‑Fi, mobile data and VPN, using the same per-app restriction as App info &gt; Mobile data &amp; Wi‑Fi. It does not filter websites or DNS. Blocking an app can stop its notifications, sync and sign-in.</string>
++    <string name="sable_network_manager_apps_title">Apps that request network access</string>
++    <string name="sable_network_manager_transport_note">Wi‑Fi, mobile data and VPN can also be blocked one at a time in each app’s App info &gt; Mobile data &amp; Wi‑Fi. Those choices are shown here and kept when you use the switch.</string>
++    <string name="sable_network_manager_empty">No apps request network access</string>
++
++    <string name="sable_network_allowed_all">Allowed on all networks</string>
++    <string name="sable_network_blocked_all">Blocked on all networks</string>
++    <string name="sable_network_blocked_some">Blocked on <xliff:g id="networks">%1$s</xliff:g> (App info)</string>
++    <string name="sable_network_background_off">background mobile data off</string>
++    <string name="sable_network_not_manageable">Managed by the system</string>
++    <string name="sable_network_transport_mobile">mobile data</string>
++    <string name="sable_network_transport_wifi">Wi‑Fi</string>
++    <string name="sable_network_transport_vpn">VPN</string>
++    <string name="sable_network_separator" translatable="false">" · "</string>
++    <plurals name="sable_network_shared_uid">
++        <item quantity="one">shared with <xliff:g id="count">%1$d</xliff:g> other app</item>
++        <item quantity="other">shared with <xliff:g id="count">%1$d</xliff:g> other apps</item>
++    </plurals>
++
++    <string name="sable_network_confirm_title">Block network access for <xliff:g id="app">%1$s</xliff:g>?</string>
++    <string name="sable_network_confirm_message">This app sends messages, mail or calls. Without network access it may stop showing new notifications, syncing and signing in.</string>
++    <string name="sable_network_confirm_block">Block</string>
++</resources>
+diff --git a/res/xml/apps.xml b/res/xml/apps.xml
+index b6874973b22..79da9c0be36 100644
+--- a/res/xml/apps.xml
++++ b/res/xml/apps.xml
+@@ -109,6 +109,15 @@
+             android:value="com.android.settings.Settings$AppBatteryUsageActivity"/>
+     </Preference>
+ 
++    <!-- SableOS: Network Manager, Settings > Apps > Network access. -->
++    <Preference
++        android:key="sable_network_access"
++        android:title="@string/sable_network_manager_title"
++        android:summary="@string/sable_network_manager_summary"
++        android:order="18"
++        settings:keywords="@string/sable_network_manager_keywords"
++        android:fragment="com.android.settings.applications.sable.SableNetworkManagerFragment"/>
++
+     <Preference
+         android:key="special_access"
+         android:fragment="com.android.settings.applications.specialaccess.SpecialAccessSettings"
+diff --git a/res/xml/sable_network_manager.xml b/res/xml/sable_network_manager.xml
+new file mode 100644
+index 00000000000..5a74e245e94
+--- /dev/null
++++ b/res/xml/sable_network_manager.xml
+@@ -0,0 +1,37 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<PreferenceScreen
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    android:key="sable_network_manager_screen"
++    android:title="@string/sable_network_manager_title">
++
++    <Preference
++        android:key="sable_network_explanation"
++        android:title="@string/sable_network_manager_explanation_title"
++        android:summary="@string/sable_network_manager_explanation"
++        android:selectable="false" />
++
++    <PreferenceCategory
++        android:key="sable_network_apps"
++        android:title="@string/sable_network_manager_apps_title" />
++
++    <Preference
++        android:key="sable_network_transport_note"
++        android:summary="@string/sable_network_manager_transport_note"
++        android:selectable="false" />
++
++</PreferenceScreen>
+diff --git a/src/com/android/settings/Settings.java b/src/com/android/settings/Settings.java
+index 76d8f1667d9..b4a5b7f0cd5 100644
+--- a/src/com/android/settings/Settings.java
++++ b/src/com/android/settings/Settings.java
+@@ -158,6 +158,8 @@ public class Settings extends SettingsActivity {
+     public static class ModuleLicensesActivity extends SettingsActivity { /* empty */ }
+     public static class ApplicationSettingsActivity extends SettingsActivity { /* empty */ }
+     public static class ManageApplicationsActivity extends SettingsActivity { /* empty */ }
++    /** SableOS: org.sableos.settings.NETWORK_MANAGER. */
++    public static class SableNetworkManagerActivity extends SettingsActivity { /* empty */ }
+     public static class AppStorageSettingsActivity extends CatalystSettingsActivity {
+         public AppStorageSettingsActivity() {
+             super(AppInfoStorageScreen.KEY, AppStorageSettings.class);
+diff --git a/src/com/android/settings/applications/sable/SableAppListKeyboard.java b/src/com/android/settings/applications/sable/SableAppListKeyboard.java
+new file mode 100644
+index 00000000000..a70c4560113
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/SableAppListKeyboard.java
+@@ -0,0 +1,192 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable;
++
++import android.content.Context;
++import android.content.Intent;
++import android.os.SystemClock;
++import android.text.TextUtils;
++import android.view.KeyEvent;
++import android.view.View;
++
++import androidx.fragment.app.Fragment;
++import androidx.preference.Preference;
++import androidx.preference.PreferenceGroupAdapter;
++import androidx.recyclerview.widget.LinearLayoutManager;
++import androidx.recyclerview.widget.RecyclerView;
++
++import com.android.settings.fuelgauge.sable.SableBatteryKeys;
++import com.android.settings.fuelgauge.sable.model.ListFocusNavigator;
++import com.android.settings.fuelgauge.sable.model.NavKey;
++import com.android.settings.fuelgauge.sable.model.TypeAheadMatcher;
++import com.android.settings.overlay.FeatureFactory;
++
++import java.util.ArrayList;
++import java.util.Collections;
++import java.util.List;
++
++/**
++ * Keyboard-first behaviour for the Sable app lists (KEYBOARD_FIRST_SETTINGS_UX), on top of
++ * the platform's Up/Down focus search, Enter activation and Space on switches: letters jump
++ * to app names (TypeAheadMatcher, 800 ms, accent-insensitive, wraps), MoveHome/MoveEnd and
++ * PageUp/PageDown move by list position, and {@code /}, Search or Ctrl+K open Settings
++ * search. It only sees keys no view handled, so it never traps focus or eats text input.
++ * Reuses the Battery package's pure keyboard model.
++ */
++public final class SableAppListKeyboard implements View.OnUnhandledKeyEventListener {
++    private final Fragment mFragment;
++    private final RecyclerView mList;
++    private final int mPageId;
++    private final TypeAheadMatcher mTypeAhead = new TypeAheadMatcher();
++
++    private SableAppListKeyboard(Fragment fragment, RecyclerView list, int pageId) {
++        mFragment = fragment;
++        mList = list;
++        mPageId = pageId;
++    }
++
++    /** Installs keyboard support on a preference list; returns null when there is no list. */
++    public static SableAppListKeyboard attach(Fragment fragment, RecyclerView list, int pageId) {
++        if (list == null) {
++            return null;
++        }
++        final SableAppListKeyboard k = new SableAppListKeyboard(fragment, list, pageId);
++        list.addOnUnhandledKeyEventListener(k);
++        return k;
++    }
++
++    public void detach() {
++        mList.removeOnUnhandledKeyEventListener(this);
++        mTypeAhead.reset();
++    }
++
++    @Override
++    public boolean onUnhandledKeyEvent(View v, KeyEvent event) {
++        if (event.getAction() != KeyEvent.ACTION_DOWN) {
++            return false;
++        }
++        final int code = event.getKeyCode();
++        if (code == KeyEvent.KEYCODE_SEARCH
++                || (code == KeyEvent.KEYCODE_SLASH && !event.isShiftPressed())
++                || (code == KeyEvent.KEYCODE_K
++                        && (event.isCtrlPressed() || event.isMetaPressed()))) {
++            return openSearch();
++        }
++        final NavKey nav = SableBatteryKeys.toNavKey(code);
++        if (nav == NavKey.MOVE_HOME || nav == NavKey.MOVE_END || nav == NavKey.PAGE_UP
++                || nav == NavKey.PAGE_DOWN) {
++            final int target = ListFocusNavigator.target(nav, focusableMask(), currentIndex(),
++                    pageSize());
++            return target >= 0 && focusPosition(target);
++        }
++        if (event.isCtrlPressed() || event.isAltPressed() || event.isMetaPressed()
++                || event.getRepeatCount() > 0) {
++            return false;
++        }
++        final int unicode = event.getUnicodeChar();
++        if (unicode <= 0 || Character.isISOControl(unicode) || Character.isSpaceChar(unicode)) {
++            return false;
++        }
++        final List<TypeAheadMatcher.Row> rows = new ArrayList<>();
++        final List<Integer> positions = new ArrayList<>();
++        final PreferenceGroupAdapter a = adapter();
++        if (a != null) {
++            for (int i = 0; i < a.getItemCount(); i++) {
++                final Preference p = a.getItem(i);
++                if (!isFocusTarget(p) || TextUtils.isEmpty(p.getTitle())) {
++                    continue;
++                }
++                rows.add(new TypeAheadMatcher.Row(p.getTitle().toString(),
++                        Collections.<String>emptyList()));
++                positions.add(i);
++            }
++        }
++        final int match = mTypeAhead.onChar((char) unicode, SystemClock.uptimeMillis(), rows,
++                positions.indexOf(currentIndex()));
++        return match >= 0 && focusPosition(positions.get(match));
++    }
++
++    private boolean openSearch() {
++        final Context c = mFragment.getContext();
++        if (c == null) {
++            return false;
++        }
++        final Intent i = FeatureFactory.getFeatureFactory().getSearchFeatureProvider()
++                .buildSearchIntent(c, mPageId);
++        if (i == null) {
++            return false;
++        }
++        mFragment.startActivity(i);
++        return true;
++    }
++
++    private PreferenceGroupAdapter adapter() {
++        final RecyclerView.Adapter<?> a = mList.getAdapter();
++        return a instanceof PreferenceGroupAdapter ? (PreferenceGroupAdapter) a : null;
++    }
++
++    private static boolean isFocusTarget(Preference p) {
++        return p != null && p.isVisible() && p.isSelectable();
++    }
++
++    private boolean[] focusableMask() {
++        final PreferenceGroupAdapter a = adapter();
++        if (a == null) {
++            return new boolean[0];
++        }
++        final boolean[] mask = new boolean[a.getItemCount()];
++        for (int i = 0; i < mask.length; i++) {
++            mask[i] = isFocusTarget(a.getItem(i));
++        }
++        return mask;
++    }
++
++    private int currentIndex() {
++        final View focused = mList.getFocusedChild();
++        return focused == null ? -1 : mList.getChildAdapterPosition(focused);
++    }
++
++    private int pageSize() {
++        final View first = mList.getChildCount() > 0 ? mList.getChildAt(0) : null;
++        if (first == null || first.getHeight() == 0) {
++            return 5;
++        }
++        return Math.max(1, mList.getHeight() / first.getHeight() - 1);
++    }
++
++    private boolean focusPosition(int position) {
++        final RecyclerView.ViewHolder vh = mList.findViewHolderForAdapterPosition(position);
++        if (vh != null && vh.itemView.requestFocus()) {
++            mList.smoothScrollToPosition(position);
++            return true;
++        }
++        if (mList.getLayoutManager() instanceof LinearLayoutManager) {
++            ((LinearLayoutManager) mList.getLayoutManager())
++                    .scrollToPositionWithOffset(position, 0);
++        } else {
++            mList.scrollToPosition(position);
++        }
++        mList.post(() -> {
++            final RecyclerView.ViewHolder later = mList.findViewHolderForAdapterPosition(position);
++            if (later != null) {
++                later.itemView.requestFocus();
++            }
++        });
++        return true;
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/SableNetworkManagerFragment.java b/src/com/android/settings/applications/sable/SableNetworkManagerFragment.java
+new file mode 100644
+index 00000000000..c3f79cc1ecc
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/SableNetworkManagerFragment.java
+@@ -0,0 +1,359 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable;
++
++import android.Manifest;
++import android.app.settings.SettingsEnums;
++import android.content.Context;
++import android.content.Intent;
++import android.content.pm.ApplicationInfo;
++import android.content.pm.PackageInfo;
++import android.content.pm.PackageManager;
++import android.content.pm.ResolveInfo;
++import android.content.res.Resources;
++import android.graphics.drawable.Drawable;
++import android.net.NetworkPolicyManager;
++import android.net.Uri;
++import android.os.Bundle;
++import android.os.UserHandle;
++import android.util.IconDrawableFactory;
++import android.util.Log;
++import android.view.View;
++
++import androidx.appcompat.app.AlertDialog;
++import androidx.preference.Preference;
++import androidx.preference.PreferenceCategory;
++import androidx.preference.SwitchPreferenceCompat;
++
++import com.android.settings.R;
++import com.android.settings.SettingsPreferenceFragment;
++import com.android.settings.applications.InstalledAppCounter;
++import com.android.settings.applications.sable.model.NetworkAccessPolicy;
++import com.android.settings.applications.sable.model.NetworkAppRows;
++import com.android.settingslib.utils.ThreadUtils;
++
++import java.util.ArrayList;
++import java.util.Arrays;
++import java.util.HashSet;
++import java.util.List;
++import java.util.Locale;
++import java.util.Set;
++
++/**
++ * Sable Network Manager: one network switch per app (per UID), Settings &gt; Apps &gt;
++ * Network access, also opened by {@code org.sableos.settings.NETWORK_MANAGER}.
++ *
++ * <p>It is a view over the per-UID restriction LineageOS already enforces and already shows in
++ * App info &gt; Mobile data &amp; Wi-Fi ({@link NetworkPolicyManager#POLICY_REJECT_ALL}); it
++ * keeps no policy of its own. The switch touches only that bit. Per-network restrictions set
++ * in App info are listed in the row summary and left as they are. Blocking a messaging, mail
++ * or calling app asks first, because it can stop notifications, sync and sign-in.
++ */
++public class SableNetworkManagerFragment extends SettingsPreferenceFragment
++        implements Preference.OnPreferenceChangeListener {
++    private static final String TAG = "SableNetworkManager";
++    private static final String KEY_APPS = "sable_network_apps";
++    private static final String KEY_EMPTY = "sable_network_empty";
++    private static final String KEY_PREFIX = "sable_net:";
++
++    private NetworkPolicyManager mPolicyManager;
++    private NetworkAccessPolicy.Masks mMasks;
++    private PreferenceCategory mApps;
++    private SableAppListKeyboard mKeyboard;
++    private final List<RowData> mRows = new ArrayList<>();
++    private int mLoadGeneration;
++
++    /** One loaded row: model row, icon and whether blocking it asks first. */
++    private static final class RowData {
++        final NetworkAppRows.Row row;
++        final Drawable icon;
++        final boolean messaging;
++
++        RowData(NetworkAppRows.Row row, Drawable icon, boolean messaging) {
++            this.row = row;
++            this.icon = icon;
++            this.messaging = messaging;
++        }
++    }
++
++    @Override
++    public int getMetricsCategory() {
++        return SettingsEnums.MANAGE_APPLICATIONS;
++    }
++
++    @Override
++    public void onCreate(Bundle icicle) {
++        super.onCreate(icicle);
++        addPreferencesFromResource(R.xml.sable_network_manager);
++        mApps = findPreference(KEY_APPS);
++        mPolicyManager = NetworkPolicyManager.from(getPrefContext());
++        mMasks = new NetworkAccessPolicy.Masks(NetworkPolicyManager.POLICY_REJECT_ALL,
++                NetworkPolicyManager.POLICY_REJECT_CELLULAR,
++                NetworkPolicyManager.POLICY_REJECT_WIFI,
++                NetworkPolicyManager.POLICY_REJECT_VPN,
++                NetworkPolicyManager.POLICY_REJECT_METERED_BACKGROUND);
++    }
++
++    @Override
++    public void onViewCreated(View view, Bundle savedInstanceState) {
++        super.onViewCreated(view, savedInstanceState);
++        mKeyboard = SableAppListKeyboard.attach(this, getListView(), getMetricsCategory());
++    }
++
++    @Override
++    public void onDestroyView() {
++        if (mKeyboard != null) {
++            mKeyboard.detach();
++            mKeyboard = null;
++        }
++        super.onDestroyView();
++    }
++
++    @Override
++    public void onResume() {
++        super.onResume();
++        load();
++    }
++
++    private void load() {
++        final Context context = getPrefContext().getApplicationContext();
++        final int generation = ++mLoadGeneration;
++        ThreadUtils.postOnBackgroundThread(() -> {
++            final List<RowData> rows = loadRows(context);
++            ThreadUtils.postOnMainThread(() -> {
++                if (generation == mLoadGeneration && isAdded()) {
++                    show(rows);
++                }
++            });
++        });
++    }
++
++    /** Apps of the current user that request network access, one row per UID. */
++    private static List<RowData> loadRows(Context context) {
++        final PackageManager pm = context.getPackageManager();
++        final Set<String> messaging = new HashSet<>();
++        messaging.addAll(handlers(pm, new Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:"))));
++        messaging.addAll(handlers(pm, new Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:"))));
++        final List<NetworkAppRows.App> apps = new ArrayList<>();
++        final Set<Integer> messagingUids = new HashSet<>();
++        final List<ApplicationInfo> infos = new ArrayList<>();
++        final List<PackageInfo> packages;
++        try {
++            packages = pm.getInstalledPackages(
++                    PackageManager.PackageInfoFlags.of(PackageManager.GET_PERMISSIONS));
++        } catch (RuntimeException e) {
++            Log.w(TAG, "Cannot list packages", e);
++            return new ArrayList<>();
++        }
++        for (PackageInfo pi : packages) {
++            final ApplicationInfo ai = pi.applicationInfo;
++            if (ai == null || pi.requestedPermissions == null
++                    || !Arrays.asList(pi.requestedPermissions)
++                            .contains(Manifest.permission.INTERNET)
++                    || !UserHandle.isApp(ai.uid)
++                    || !InstalledAppCounter.includeInCount(
++                            InstalledAppCounter.IGNORE_INSTALL_REASON, pm, ai)) {
++                continue;
++            }
++            final CharSequence label = ai.loadLabel(pm);
++            apps.add(new NetworkAppRows.App(ai.uid, pi.packageName,
++                    label == null ? null : label.toString()));
++            infos.add(ai);
++            if (NetworkAccessPolicy.isMessagingApp(Arrays.asList(pi.requestedPermissions),
++                    messaging.contains(pi.packageName), false)) {
++                messagingUids.add(ai.uid);
++            }
++        }
++        final IconDrawableFactory icons = IconDrawableFactory.newInstance(context);
++        final List<RowData> out = new ArrayList<>();
++        for (NetworkAppRows.Row row : NetworkAppRows.build(apps, Locale.getDefault())) {
++            Drawable icon = null;
++            for (ApplicationInfo ai : infos) {
++                if (ai.packageName.equals(row.primary.packageName)) {
++                    icon = icons.getBadgedIcon(ai);
++                    break;
++                }
++            }
++            out.add(new RowData(row, icon, messagingUids.contains(row.uid)));
++        }
++        return out;
++    }
++
++    private static Set<String> handlers(PackageManager pm, Intent intent) {
++        final Set<String> out = new HashSet<>();
++        try {
++            for (ResolveInfo ri : pm.queryIntentActivities(intent,
++                    PackageManager.ResolveInfoFlags.of(0))) {
++                if (ri.activityInfo != null) {
++                    out.add(ri.activityInfo.packageName);
++                }
++            }
++        } catch (RuntimeException e) {
++            // No handler information: nobody counts as messaging through this path.
++        }
++        return out;
++    }
++
++    private void show(List<RowData> rows) {
++        mRows.clear();
++        mRows.addAll(rows);
++        mApps.removeAll();
++        if (rows.isEmpty()) {
++            final Preference empty = new Preference(getPrefContext());
++            empty.setKey(KEY_EMPTY);
++            empty.setTitle(R.string.sable_network_manager_empty);
++            empty.setSelectable(false);
++            mApps.addPreference(empty);
++            return;
++        }
++        for (RowData data : rows) {
++            final SwitchPreferenceCompat pref = new SwitchPreferenceCompat(getPrefContext());
++            pref.setKey(KEY_PREFIX + data.row.uid);
++            pref.setTitle(data.row.primary.label);
++            if (data.icon != null) {
++                pref.setIcon(data.icon);
++            }
++            pref.setPersistent(false);
++            pref.setOnPreferenceChangeListener(this);
++            bind(pref, data);
++            mApps.addPreference(pref);
++        }
++    }
++
++    private NetworkAccessPolicy.State stateOf(int uid) {
++        int policy;
++        try {
++            policy = mPolicyManager.getUidPolicy(uid);
++        } catch (RuntimeException e) {
++            policy = 0;
++            Log.w(TAG, "Cannot read network policy for " + uid, e);
++        }
++        return NetworkAccessPolicy.evaluate(policy, UserHandle.isApp(uid), mMasks);
++    }
++
++    private void bind(SwitchPreferenceCompat pref, RowData data) {
++        final NetworkAccessPolicy.State state = stateOf(data.row.uid);
++        pref.setChecked(state.switchChecked());
++        pref.setEnabled(state.summary != NetworkAccessPolicy.Summary.NOT_MANAGEABLE);
++        pref.setSummary(summaryFor(getResources(), state, data.row.othersCount()));
++    }
++
++    /** Row summary; also used by App Security &amp; Privacy. */
++    static String summaryFor(Resources res, NetworkAccessPolicy.State state, int others) {
++        final StringBuilder sb = new StringBuilder();
++        switch (state.summary) {
++            case BLOCKED:
++                sb.append(res.getString(R.string.sable_network_blocked_all));
++                break;
++            case NOT_MANAGEABLE:
++                sb.append(res.getString(R.string.sable_network_not_manageable));
++                break;
++            case PARTIAL: {
++                final List<String> blocked = new ArrayList<>();
++                if (state.blockedCellular) {
++                    blocked.add(res.getString(R.string.sable_network_transport_mobile));
++                }
++                if (state.blockedWifi) {
++                    blocked.add(res.getString(R.string.sable_network_transport_wifi));
++                }
++                if (state.blockedVpn) {
++                    blocked.add(res.getString(R.string.sable_network_transport_vpn));
++                }
++                if (!blocked.isEmpty()) {
++                    sb.append(res.getString(R.string.sable_network_blocked_some,
++                            String.join(", ", blocked)));
++                } else {
++                    sb.append(res.getString(R.string.sable_network_allowed_all));
++                }
++                if (state.backgroundDataRestricted) {
++                    sb.append(res.getString(R.string.sable_network_separator))
++                            .append(res.getString(R.string.sable_network_background_off));
++                }
++                break;
++            }
++            default:
++                sb.append(res.getString(R.string.sable_network_allowed_all));
++                break;
++        }
++        if (others > 0) {
++            sb.append(res.getString(R.string.sable_network_separator)).append(
++                    res.getQuantityString(R.plurals.sable_network_shared_uid, others, others));
++        }
++        return sb.toString();
++    }
++
++    private RowData rowFor(Preference preference) {
++        final String key = preference.getKey();
++        if (key == null || !key.startsWith(KEY_PREFIX)) {
++            return null;
++        }
++        final int uid;
++        try {
++            uid = Integer.parseInt(key.substring(KEY_PREFIX.length()));
++        } catch (NumberFormatException e) {
++            return null;
++        }
++        for (RowData d : mRows) {
++            if (d.row.uid == uid) {
++                return d;
++            }
++        }
++        return null;
++    }
++
++    @Override
++    public boolean onPreferenceChange(Preference preference, Object newValue) {
++        final RowData data = rowFor(preference);
++        if (data == null || !(newValue instanceof Boolean)
++                || !(preference instanceof SwitchPreferenceCompat)) {
++            return false;
++        }
++        final boolean allow = (Boolean) newValue;
++        final SwitchPreferenceCompat pref = (SwitchPreferenceCompat) preference;
++        if (NetworkAccessPolicy.needsConfirmation(allow, data.messaging)) {
++            new AlertDialog.Builder(getPrefContext())
++                    .setTitle(getString(R.string.sable_network_confirm_title,
++                            data.row.primary.label))
++                    .setMessage(R.string.sable_network_confirm_message)
++                    .setPositiveButton(R.string.sable_network_confirm_block,
++                            (dialog, which) -> apply(pref, data, false))
++                    .setNegativeButton(android.R.string.cancel, null)
++                    .show();
++            return false;
++        }
++        apply(pref, data, allow);
++        return false; // bind() shows what the platform now holds
++    }
++
++    private void apply(SwitchPreferenceCompat pref, RowData data, boolean allow) {
++        final NetworkAccessPolicy.Change change =
++                NetworkAccessPolicy.changeFor(stateOf(data.row.uid), allow, mMasks);
++        if (change != null) {
++            try {
++                if (change.add) {
++                    mPolicyManager.addUidPolicy(data.row.uid, change.bits);
++                } else {
++                    mPolicyManager.removeUidPolicy(data.row.uid, change.bits);
++                }
++            } catch (RuntimeException e) {
++                Log.e(TAG, "Cannot change network policy for " + data.row.uid, e);
++            }
++        }
++        bind(pref, data);
++    }
++}
+diff --git a/src/com/android/settings/core/gateway/SettingsGateway.java b/src/com/android/settings/core/gateway/SettingsGateway.java
+index 4b86248264a..430318f0999 100644
+--- a/src/com/android/settings/core/gateway/SettingsGateway.java
++++ b/src/com/android/settings/core/gateway/SettingsGateway.java
+@@ -74,6 +74,7 @@ import com.android.settings.applications.specialaccess.pictureinpicture.PictureI
+ import com.android.settings.applications.specialaccess.premiumsms.PremiumSmsAccess;
+ import com.android.settings.applications.specialaccess.vrlistener.VrListenerSettings;
+ import com.android.settings.applications.specialaccess.zenaccess.ZenAccessDetails;
++import com.android.settings.applications.sable.SableNetworkManagerFragment;
+ import com.android.settings.backup.PrivacySettings;
+ import com.android.settings.backup.ToggleBackupSettingFragment;
+ import com.android.settings.backup.UserBackupSettingsActivity;
+@@ -230,6 +231,7 @@ public class SettingsGateway {
+      */
+     public static final String[] ENTRY_FRAGMENTS = {
+             AdvancedConnectedDeviceDashboardFragment.class.getName(),
++            SableNetworkManagerFragment.class.getName(),
+             CreateShortcut.class.getName(),
+             BluetoothPairingDetail.class.getName(),
+             BluetoothDashboardFragment.class.getName(),
+-- 
+2.43.0
+

@@ -1,6 +1,6 @@
 # SableOS gaps for the Zinwa Q25
 
-Status: 2026-10-09. This page lists only what is still open. What each part
+Status: 2026-10-10. This page lists only what is still open. What each part
 does, and how it was tested, is in [`implementation/`](implementation/).
 
 ## Where the port stands
@@ -18,6 +18,13 @@ Every planned SableOS feature for the Q25 is written in this repository:
   * Attention and Hub follow Android's notification policy.
   * All Apps privacy row.
   * Battery health and usage in Settings.
+  * Settings > Apps privacy rows, Network Manager and App security & privacy.
+  * Phone and Contacts lists: one A-Z rail, letter-key jumps, and the default
+    number under each name.
+  * Daily-driver apps: Glimpse is "Photos" with the Sable focus ring, Gallery2's
+    editor uses Sable colours, and Sable Start's Photos, Camera, Files and Clock
+    tiles use the Sable glyphs. The Camera tile opens Sable Camera, with
+    Aperture kept as the fallback.
 
   The framework patches are listed in [`../patches/README.md`](../patches/README.md).
 
@@ -35,7 +42,9 @@ catches most errors, but it is not an Android build.
 |---|---|
 | Apps (`bash build/sable.sh q25 Q2 apps --all`) | Sable Start, Hub, Media, Calendar, Weather, Tools and the design module were edited without a compiler. Run each module's unit tests too. Lint may flag `LauncherApps.getLauncherUserInfo` in Hub (guarded by an SDK check). |
 | Flavor apps (Mail, Text Reader) | First build from the pinned upstreams; needs `NETWORK_FETCH_AUTHORIZED=YES`. |
-| Framework patches | After `repo sync`, `bash scripts/apply-framework-patches.sh check` must say `APPLIES` for Launcher3, frameworks/base, Settings and SetupWizard. Then build SystemUI, Settings, SetupWizard, `SableLauncher` and the three overlays. |
+| Framework patches | After `repo sync`, `bash scripts/apply-framework-patches.sh check` must say `APPLIES` for Launcher3, frameworks/base, Settings, SetupWizard, Dialer, Contacts and Glimpse. Then build SystemUI, Settings, SetupWizard, Dialer, Contacts, Glimpse, `SableLauncher` and the five overlays. Each patch's added and changed files were type-checked by hand against the Android 16 jar when it was written; a second pass over the whole Launcher3 and SystemUI trees was started and not finished. |
+| Settings Apps screens (0601-0604) | Type-checked against the Android 16 jar with stubbed androidx and SettingsLib; check resource linking, the `tests/sable-apps` host test module and the LineageOS `NetworkPolicyManager` calls. |
+| Phone and Contacts (0701-0752) | Type-checked against the Android 16 jar and the real Dialer and Contacts sources, with stubbed androidx; check resource linking and that the scroll thumb hides while the A-Z rail shows. |
 | Settings battery screens | `ViewTreeOnBackPressedDispatcherOwner.get` and the `PreferenceGroupAdapter` assumption in the battery keyboard support. |
 | Packaging | Soong accepting Sable Tools' `overrides: ["SableRadioDiag"]` when Radio Diag isn't built. |
 
@@ -62,6 +71,10 @@ Each item has a gate in [`QUALIFICATION.md`](QUALIFICATION.md); none has run.
   * Q4-WEATHER-CITIES.
   * Battery: Q4-BATTERY, Q4-BATTERY-EVIDENCE.
   * Tools: Q4-TOOLS, Q4-TOOLS-I5.
+  * Settings apps: Q4-SETTINGS-APPS, Q4-NETWORK-MANAGER, Q4-APP-SECURITY.
+  * Phone and Contacts: Q4-PHONE-CONTACTS, Q4-PHONE-CONTACTS-OWNER, Q4-PHONE-CORE.
+  * Daily-driver apps: Q4-DAILY-DRIVER, Q4-DAILY-DRIVER-BEHAVIOUR. Sable Camera
+    on the Q25 also needs the Q3 camera check before Aperture can be dropped.
 * **Facts only the phone can give:**
   * The battery facts (capacity health, cycle count, temperature source, charging limits). Each stays Unavailable until [`../device-profile/BATTERY.md`](../device-profile/BATTERY.md) evidence exists.
   * Which Sable Tools utilities really work.
@@ -106,3 +119,9 @@ Each item has a gate in [`QUALIFICATION.md`](QUALIFICATION.md); none has run.
   toggle is now "Hub priority".
 * Titan 2 GSI, cellular and IMS work does not apply: the Q25 runs a full
   LineageOS device build with the vendor's own radio stack.
+* Settings > Apps: no search by permission words or "sensitive access" filter,
+  no "show system apps" in Network Manager, and the privacy row is cut at three
+  labels plus "+N" ([settings-ui5](implementation/settings-ui5.md)).
+* Phone: `/` does not open search (it does in Contacts), and "No contacts
+  under X" is a short pop-up message, not a line in the list. Person detail and
+  the Hub handoff stay LineageOS's own ([phone-contacts](implementation/phone-contacts.md)).

@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.addSvg
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.unit.dp
+import org.sableos.start.model.CoreAppIdentity
 
 internal data class SableGlyphSpec(
     val pathData: String,
@@ -85,7 +86,7 @@ private object SableGlyphs {
 }
 
 internal fun sableGlyphForPackage(packageName: String): SableGlyphSpec? =
-    when (packageName) {
+    when (CoreAppIdentity.canonicalPackage(packageName)) {
         "com.android.dialer" -> SableGlyphs.Phone
         "org.sableos.hub" -> SableGlyphs.Messages
         "org.sableos.mail" -> SableGlyphs.Mail
@@ -93,7 +94,8 @@ internal fun sableGlyphForPackage(packageName: String): SableGlyphSpec? =
         "org.sableos.weather" -> SableGlyphs.Weather
         "com.android.gallery3d" -> SableGlyphs.Photos
         "org.sableos.media" -> SableGlyphs.Media
-        "app.grapheneos.camera" -> SableGlyphs.Camera
+        "app.grapheneos.camera",
+        CoreAppIdentity.SABLE_CAMERA -> SableGlyphs.Camera
         "org.sableos.calculator" -> SableGlyphs.Calculator
         "com.android.documentsui" -> SableGlyphs.Files
         "com.android.deskclock" -> SableGlyphs.Clock

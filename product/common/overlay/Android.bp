@@ -29,3 +29,20 @@ runtime_resource_overlay {
     product_specific: true,
     sdk_version: "current",
 }
+
+// R9 daily-driver presentation (docs/implementation/daily-driver.md).
+runtime_resource_overlay {
+    name: "SableGlimpseOverlay",
+    manifest: "SableGlimpseOverlay/AndroidManifest.xml",
+    resource_dirs: ["SableGlimpseOverlay/res"],
+    product_specific: true,
+    sdk_version: "current",
+}
+
+runtime_resource_overlay {
+    name: "SableGallery2Overlay",
+    manifest: "SableGallery2Overlay/AndroidManifest.xml",
+    resource_dirs: ["SableGallery2Overlay/res"],
+    product_specific: true,
+    sdk_version: "current",
+}

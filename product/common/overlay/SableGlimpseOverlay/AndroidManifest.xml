@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- R9 daily-driver presentation on LineageOS: the gallery (Glimpse) is
+     labeled "Photos", as the GrapheneOS-era Gallery was in SableOS R9 and as
+     Sable Start titles it. Label only: no code, behaviour, permissions or
+     media access change. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="org.sableos.overlay.glimpse">
+    <overlay
+        android:targetPackage="org.lineageos.glimpse"
+        android:isStatic="true"
+        android:priority="20" />
+    <application android:hasCode="false" />
+</manifest>

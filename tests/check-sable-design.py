@@ -269,10 +269,12 @@ report(
     targets
     == {
         "SableFrameworkOverlay": ("android", "true"),
+        "SableGallery2Overlay": ("com.android.gallery3d", "true"),
+        "SableGlimpseOverlay": ("org.lineageos.glimpse", "true"),
         "SableSetupWizardOverlay": ("org.lineageos.setupwizard", "true"),
         "SableSystemUIOverlay": ("com.android.systemui", "true"),
     },
-    "overlay manifests target framework, SystemUI and SetupWizard as static overlays",
+    "overlay manifests target framework, SystemUI, SetupWizard and the daily-driver apps as static overlays",
     str(targets),
 )
 bp = (OVERLAY / "Android.bp").read_text(encoding="utf-8")
