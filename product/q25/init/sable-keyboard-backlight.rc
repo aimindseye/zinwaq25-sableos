@@ -1,0 +1,13 @@
+# SableOS Zinwa Q25: keyboard backlight choice from Settings > System > Keyboard.
+#
+# Settings writes the persist properties; init copies them to the bbqX0kbd
+# driver's module parameters (kernel patch
+# patches/framework/kernel/xelex/mt6789/0901), which apply them at once and
+# on every screen wake. Persist properties load at boot, so the saved choice
+# is restored then too. Installed to system_ext/etc/init at Q4.
+
+on property:persist.sys.sable.kbd_backlight=*
+    write /sys/module/bbqX0kbd/parameters/kbd_backlight ${persist.sys.sable.kbd_backlight}
+
+on property:persist.sys.sable.kbd_backlight_level=*
+    write /sys/module/bbqX0kbd/parameters/kbd_backlight_level ${persist.sys.sable.kbd_backlight_level}

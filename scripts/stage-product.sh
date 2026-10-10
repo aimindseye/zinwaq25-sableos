@@ -135,6 +135,10 @@ if [[ "$FRAMEWORK" == YES ]]; then
     # patches (BH1-BH5); every Q25 fact is UNKNOWN until device evidence.
     mkdir -p "$VENDOR_SABLE/etc/battery"
     cp "$SABLE_REPO_ROOT/device-profile/battery/zinwa-q25.conf" "$VENDOR_SABLE/etc/battery/"
+    # Keyboard backlight: init rule that hands the Settings choice to the
+    # bbqX0kbd driver (kernel and Settings patches 0901).
+    mkdir -p "$VENDOR_SABLE/etc/init"
+    cp "$SABLE_REPO_ROOT/product/q25/init/sable-keyboard-backlight.rc" "$VENDOR_SABLE/etc/init/"
     cat >> "$fw_mk" <<'MK'
 PRODUCT_PACKAGES += \
     SableLauncher \
@@ -144,9 +148,11 @@ PRODUCT_PACKAGES += \
     SableGlimpseOverlay \
     SableGallery2Overlay
 PRODUCT_SYSTEM_EXT_PROPERTIES += \
-    ro.sable.home=org.sableos.launcher
+    ro.sable.home=org.sableos.launcher \
+    ro.sable.keyboard_backlight=true
 PRODUCT_COPY_FILES += \
-    vendor/sable/q25/etc/battery/zinwa-q25.conf:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/sable/battery/zinwa-q25.conf
+    vendor/sable/q25/etc/battery/zinwa-q25.conf:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/sable/battery/zinwa-q25.conf \
+    vendor/sable/q25/etc/init/sable-keyboard-backlight.rc:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/init/sable-keyboard-backlight.rc
 MK
     bash "$SABLE_REPO_ROOT/scripts/apply-framework-patches.sh" apply
 else
