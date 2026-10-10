@@ -1,6 +1,7 @@
 package org.sableos.calculator
 
 import android.os.Bundle
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.BorderStroke
@@ -13,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,7 +58,30 @@ private val scientificChoices =
         ScientificChoice(7, "log₁₀"),
     )
 
+/** The keypad currently on screen, if any; hardware keys go to it (see [CalculatorKeys]). */
+private object HardwareKeypad {
+    var handler: ((CalcKey) -> Unit)? = null
+}
+
 class MainActivity : ComponentActivity() {
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val handler = HardwareKeypad.handler
+        if (handler != null) {
+            val key =
+                CalculatorKeys.resolve(
+                    event.keyCode,
+                    event.unicodeChar.printable(),
+                    event.getUnicodeChar(KeyEvent.META_ALT_ON).printable(),
+                    event.isCtrlPressed || event.isMetaPressed,
+                )
+            if (key != null) {
+                if (event.action == KeyEvent.ACTION_DOWN) handler(key)
+                return true
+            }
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val nativeQualification = NativeBridge.selfTest()
@@ -164,6 +189,18 @@ private fun CalculatorPad(scientific: Boolean) {
         }
     }
 
+    fun backspace() {
+        if (!replaceInput) {
+            display =
+                display
+                    .dropLast(1)
+                    .ifEmpty { "0" }
+            if (display == "-") {
+                display = "0"
+            }
+        }
+    }
+
     fun applyBinaryNow(
         left: String,
         op: Int,
@@ -256,6 +293,25 @@ private fun CalculatorPad(scientific: Boolean) {
         }
     }
 
+    fun onHardwareKey(key: CalcKey) {
+        when (key) {
+            is CalcKey.Digit -> enterDigit(key.digit)
+            is CalcKey.Operation -> chooseOperation(key.code)
+            CalcKey.Decimal -> enterDecimal()
+            CalcKey.Equals -> equals()
+            CalcKey.Backspace -> backspace()
+            CalcKey.Clear -> clear()
+        }
+    }
+
+    DisposableEffect(scientific) {
+        val handler: (CalcKey) -> Unit = ::onHardwareKey
+        HardwareKeypad.handler = handler
+        onDispose {
+            if (HardwareKeypad.handler === handler) HardwareKeypad.handler = null
+        }
+    }
+
     Column(
         verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
     ) {
@@ -305,17 +361,7 @@ private fun CalculatorPad(scientific: Boolean) {
                         display
                     }
             },
-            onBackspace = {
-                if (!replaceInput) {
-                    display =
-                        display
-                            .dropLast(1)
-                            .ifEmpty { "0" }
-                    if (display == "-") {
-                        display = "0"
-                    }
-                }
-            },
+            onBackspace = ::backspace,
         )
 
         Text(
@@ -435,6 +481,9 @@ private fun CalculatorKey(
         }
     }
 }
+
+/** getUnicodeChar result as a character; 0 (none) and dead keys (negative, combining accent) give null. */
+private fun Int.printable(): Char? = takeIf { it > 0 }?.toChar()
 
 private data class RenderedResult(
     val value: String,

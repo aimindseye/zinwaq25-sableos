@@ -1,0 +1,469 @@
+diff --git a/sable-src/apps/r8/android/calculator/build.gradle.kts b/sable-src/apps/r8/android/calculator/build.gradle.kts
+index ae3667f..098c94a 100644
+--- a/sable-src/apps/r8/android/calculator/build.gradle.kts
++++ b/sable-src/apps/r8/android/calculator/build.gradle.kts
+@@ -34,6 +34,7 @@ dependencies {
+     implementation("androidx.compose.material3:material3")
+     implementation("androidx.compose.foundation:foundation")
+     debugImplementation("androidx.compose.ui:ui-tooling")
++    testImplementation("junit:junit:4.13.2")
+ }
+ 
+ android {
+diff --git a/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/CalculatorKeys.kt b/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/CalculatorKeys.kt
+new file mode 100644
+index 0000000..7aa2cdd
+--- /dev/null
++++ b/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/CalculatorKeys.kt
+@@ -0,0 +1,73 @@
++package org.sableos.calculator
++
++/** What a hardware key does on the calculator keypad. */
++internal sealed interface CalcKey {
++    data class Digit(
++        val digit: String,
++    ) : CalcKey
++
++    /** 0 +, 1 −, 2 ×, 3 ÷, the same codes the keypad and the native bridge use. */
++    data class Operation(
++        val code: Int,
++    ) : CalcKey {
++        companion object {
++            const val ADD = 0
++            const val SUBTRACT = 1
++            const val MULTIPLY = 2
++            const val DIVIDE = 3
++        }
++    }
++
++    data object Decimal : CalcKey
++
++    data object Equals : CalcKey
++
++    data object Backspace : CalcKey
++
++    data object Clear : CalcKey
++}
++
++/**
++ * Hardware keyboard input for the keypad. Pure, so it is unit-tested on the JVM.
++ *
++ * Keyboards without a number row (Q25, Titan 2) put digits and operators on the Alt layer. The calculator has no
++ * text field, so a plain key press also counts as its Alt character, the way a phone-style keypad works: on the
++ * Q25 W E R give 1 2 3 without holding Alt. A printable plain character wins when it means something here, so a
++ * number row or a numeric keypad behaves as printed.
++ */
++internal object CalculatorKeys {
++    // android.view.KeyEvent key codes (stable public ABI).
++    const val KEYCODE_ENTER = 66
++    const val KEYCODE_DEL = 67
++    const val KEYCODE_ESCAPE = 111
++    const val KEYCODE_FORWARD_DEL = 112
++    const val KEYCODE_NUMPAD_ENTER = 160
++
++    fun resolve(
++        keyCode: Int,
++        plain: Char?,
++        alt: Char?,
++        ctrlOrMeta: Boolean,
++    ): CalcKey? {
++        // Shortcuts stay with the system and the app.
++        if (ctrlOrMeta) return null
++        return when (keyCode) {
++            KEYCODE_ENTER, KEYCODE_NUMPAD_ENTER -> CalcKey.Equals
++            KEYCODE_DEL -> CalcKey.Backspace
++            KEYCODE_ESCAPE, KEYCODE_FORWARD_DEL -> CalcKey.Clear
++            else -> plain?.let(::forChar) ?: alt?.let(::forChar)
++        }
++    }
++
++    private fun forChar(c: Char): CalcKey? =
++        when (c) {
++            in '0'..'9' -> CalcKey.Digit(c.toString())
++            '.', ',' -> CalcKey.Decimal
++            '+' -> CalcKey.Operation(CalcKey.Operation.ADD)
++            '-', '−' -> CalcKey.Operation(CalcKey.Operation.SUBTRACT)
++            '*', '×' -> CalcKey.Operation(CalcKey.Operation.MULTIPLY)
++            '/', '÷' -> CalcKey.Operation(CalcKey.Operation.DIVIDE)
++            '=' -> CalcKey.Equals
++            else -> null
++        }
++}
+diff --git a/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/MainActivity.kt b/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/MainActivity.kt
+index 4775aad..46fe7ca 100644
+--- a/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/MainActivity.kt
++++ b/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/MainActivity.kt
+@@ -1,6 +1,7 @@
+ package org.sableos.calculator
+ 
+ import android.os.Bundle
++import android.view.KeyEvent
+ import androidx.activity.ComponentActivity
+ import androidx.activity.compose.setContent
+ import androidx.compose.foundation.BorderStroke
+@@ -13,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.Surface
+ import androidx.compose.material3.Text
+ import androidx.compose.runtime.Composable
++import androidx.compose.runtime.DisposableEffect
+ import androidx.compose.runtime.getValue
+ import androidx.compose.runtime.mutableStateOf
+ import androidx.compose.runtime.remember
+@@ -56,7 +58,30 @@ private val scientificChoices =
+         ScientificChoice(7, "log₁₀"),
+     )
+ 
++/** The keypad currently on screen, if any; hardware keys go to it (see [CalculatorKeys]). */
++private object HardwareKeypad {
++    var handler: ((CalcKey) -> Unit)? = null
++}
++
+ class MainActivity : ComponentActivity() {
++    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
++        val handler = HardwareKeypad.handler
++        if (handler != null) {
++            val key =
++                CalculatorKeys.resolve(
++                    event.keyCode,
++                    event.unicodeChar.printable(),
++                    event.getUnicodeChar(KeyEvent.META_ALT_ON).printable(),
++                    event.isCtrlPressed || event.isMetaPressed,
++                )
++            if (key != null) {
++                if (event.action == KeyEvent.ACTION_DOWN) handler(key)
++                return true
++            }
++        }
++        return super.dispatchKeyEvent(event)
++    }
++
+     override fun onCreate(savedInstanceState: Bundle?) {
+         super.onCreate(savedInstanceState)
+         val nativeQualification = NativeBridge.selfTest()
+@@ -164,6 +189,18 @@ private fun CalculatorPad(scientific: Boolean) {
+         }
+     }
+ 
++    fun backspace() {
++        if (!replaceInput) {
++            display =
++                display
++                    .dropLast(1)
++                    .ifEmpty { "0" }
++            if (display == "-") {
++                display = "0"
++            }
++        }
++    }
++
+     fun applyBinaryNow(
+         left: String,
+         op: Int,
+@@ -256,6 +293,25 @@ private fun CalculatorPad(scientific: Boolean) {
+         }
+     }
+ 
++    fun onHardwareKey(key: CalcKey) {
++        when (key) {
++            is CalcKey.Digit -> enterDigit(key.digit)
++            is CalcKey.Operation -> chooseOperation(key.code)
++            CalcKey.Decimal -> enterDecimal()
++            CalcKey.Equals -> equals()
++            CalcKey.Backspace -> backspace()
++            CalcKey.Clear -> clear()
++        }
++    }
++
++    DisposableEffect(scientific) {
++        val handler: (CalcKey) -> Unit = ::onHardwareKey
++        HardwareKeypad.handler = handler
++        onDispose {
++            if (HardwareKeypad.handler === handler) HardwareKeypad.handler = null
++        }
++    }
++
+     Column(
+         verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
+     ) {
+@@ -305,17 +361,7 @@ private fun CalculatorPad(scientific: Boolean) {
+                         display
+                     }
+             },
+-            onBackspace = {
+-                if (!replaceInput) {
+-                    display =
+-                        display
+-                            .dropLast(1)
+-                            .ifEmpty { "0" }
+-                    if (display == "-") {
+-                        display = "0"
+-                    }
+-                }
+-            },
++            onBackspace = ::backspace,
+         )
+ 
+         Text(
+@@ -436,6 +482,9 @@ private fun CalculatorKey(
+     }
+ }
+ 
++/** getUnicodeChar result as a character; 0 (none) and dead keys (negative, combining accent) give null. */
++private fun Int.printable(): Char? = takeIf { it > 0 }?.toChar()
++
+ private data class RenderedResult(
+     val value: String,
+     val error: String?,
+diff --git a/sable-src/apps/r8/android/calculator/src/test/java/org/sableos/calculator/CalculatorKeysTest.kt b/sable-src/apps/r8/android/calculator/src/test/java/org/sableos/calculator/CalculatorKeysTest.kt
+new file mode 100644
+index 0000000..ad752e4
+--- /dev/null
++++ b/sable-src/apps/r8/android/calculator/src/test/java/org/sableos/calculator/CalculatorKeysTest.kt
+@@ -0,0 +1,44 @@
++package org.sableos.calculator
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Test
++
++class CalculatorKeysTest {
++    private fun key(
++        plain: Char?,
++        alt: Char? = null,
++        keyCode: Int = 0,
++        ctrl: Boolean = false,
++    ) = CalculatorKeys.resolve(keyCode, plain, alt, ctrl)
++
++    @Test fun numberRowAndKeypadDigitsWorkAsPrinted() {
++        assertEquals(CalcKey.Digit("7"), key('7', '&'))
++        assertEquals(CalcKey.Operation(CalcKey.Operation.ADD), key('+'))
++        assertEquals(CalcKey.Operation(CalcKey.Operation.DIVIDE), key('/'))
++        assertEquals(CalcKey.Decimal, key('.'))
++    }
++
++    @Test fun lettersUseTheirAltDigitWithoutHoldingAlt() {
++        // Q25 / BlackBerry phone pad: W E R = 1 2 3, the mic key = 0.
++        assertEquals(CalcKey.Digit("1"), key('w', '1'))
++        assertEquals(CalcKey.Digit("3"), key('r', '3'))
++        assertEquals(CalcKey.Digit("0"), key(null, '0'))
++        // A letter is never an operator by itself: X is 8 on the phone pad, not multiply.
++        assertEquals(CalcKey.Digit("8"), key('x', '8'))
++        assertNull(key('q', null))
++    }
++
++    @Test fun editingKeys() {
++        assertEquals(CalcKey.Equals, key(null, keyCode = CalculatorKeys.KEYCODE_ENTER))
++        assertEquals(CalcKey.Equals, key(null, keyCode = CalculatorKeys.KEYCODE_NUMPAD_ENTER))
++        assertEquals(CalcKey.Equals, key('='))
++        assertEquals(CalcKey.Backspace, key(null, keyCode = CalculatorKeys.KEYCODE_DEL))
++        assertEquals(CalcKey.Clear, key(null, keyCode = CalculatorKeys.KEYCODE_ESCAPE))
++    }
++
++    @Test fun shortcutsAreLeftAlone() {
++        assertNull(key('c', '9', ctrl = true))
++        assertNull(key(null, keyCode = CalculatorKeys.KEYCODE_ENTER, ctrl = true))
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardPrefs.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardPrefs.kt
+index c9fb121..e3f08cc 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardPrefs.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardPrefs.kt
+@@ -4,6 +4,9 @@ import android.content.Context
+ import android.content.SharedPreferences
+ import org.sableos.titan2.keyboard.core.KeyboardConfig
+ 
++/** Enter performs the field's Send action (core KeyShortcuts.enterSends); off by default. */
++internal const val ENTER_SENDS = "enterSends"
++
+ /**
+  * Stored in device-protected storage so the keyboard works at the lockscreen and during direct boot
+  * (critical text entry).
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardSettingsActivity.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardSettingsActivity.kt
+index 4ee8ccf..4d83d32 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardSettingsActivity.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardSettingsActivity.kt
+@@ -45,6 +45,7 @@ class KeyboardSettingsActivity : Activity() {
+         sw("Show on-screen keyboard for numeric/PIN fields", "softForNumeric", true)
+         sw("Always show on-screen keyboard", "forceSoft", false)
+         sw("Compact status strip when the on-screen keyboard is hidden", "compactStrip", true)
++        sw("Enter sends in apps that offer Send (Shift+Enter: new line)", ENTER_SENDS, false)
+     }
+ 
+     override fun onCreate(savedInstanceState: Bundle?) {
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt
+index bdf4a73..c54c163 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt
+@@ -19,6 +19,7 @@ import org.sableos.titan2.keyboard.core.FieldPolicy
+ import org.sableos.titan2.keyboard.core.InputClass
+ import org.sableos.titan2.keyboard.core.Key
+ import org.sableos.titan2.keyboard.core.KeyEv
++import org.sableos.titan2.keyboard.core.KeyShortcuts
+ import org.sableos.titan2.keyboard.core.Mod
+ import org.sableos.titan2.keyboard.core.Out
+ import org.sableos.titan2.keyboard.core.PinyinDict
+@@ -312,6 +313,11 @@ class SableImeService : InputMethodService() {
+     }
+ 
+     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
++        if (handleShortcut(keyCode, event)) {
++            handledDown.add(keyCode)
++            refreshStrip()
++            return true
++        }
+         val key = KeyMapper.map(keyCode)
+         val ours = !event.isCtrlPressed && !event.isMetaPressed && key !is Key.Other
+         val handled = ours && (handleComposingKey(keyCode) || resolveKeyDown(key, keyCode, event))
+@@ -319,6 +325,37 @@ class SableImeService : InputMethodService() {
+         return handled || super.onKeyDown(keyCode, event)
+     }
+ 
++    /** Candidate picks (Ctrl+1/2/3, Ctrl+W/E/R) and Enter-to-send; true when the key was handled here. */
++    private fun handleShortcut(keyCode: Int, event: KeyEvent): Boolean =
++        pickCandidate(keyCode, event) || sendWithEnter(keyCode, event)
++
++    private fun pickCandidate(keyCode: Int, event: KeyEvent): Boolean {
++        val comp = composer
++        val pick = KeyShortcuts.candidateIndex(
++            keyCode,
++            event.isCtrlPressed,
++            event.isAltPressed || event.isMetaPressed || event.isShiftPressed,
++            comp?.candidates?.size ?: 0
++        )
++        if (comp == null || pick == null) return false
++        applyComposition(comp.pick(pick))
++        return true
++    }
++
++    private fun sendWithEnter(keyCode: Int, event: KeyEvent): Boolean {
++        val send = keyCode == KeyEvent.KEYCODE_ENTER && event.repeatCount == 0 &&
++            KeyShortcuts.enterSends(
++                prefs.getBool(ENTER_SENDS, false),
++                currentInputEditorInfo?.imeOptions,
++                event.isShiftPressed || resolver.mods.active(Mod.Shift),
++                event.isAltPressed || resolver.mods.active(Mod.Alt),
++                event.isCtrlPressed || event.isMetaPressed
++            )
++        if (!send) return false
++        composer?.let { applyComposition(it.flush()) }
++        return currentInputConnection?.performEditorAction(EditorInfo.IME_ACTION_SEND) == true
++    }
++
+     /** Composition-aware Backspace/Enter/Space; true when the key was fully handled here. */
+     private fun handleComposingKey(keyCode: Int): Boolean {
+         val comp = composer ?: return false
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/KeyShortcuts.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/KeyShortcuts.kt
+new file mode 100644
+index 0000000..8e3927a
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/KeyShortcuts.kt
+@@ -0,0 +1,54 @@
++package org.sableos.titan2.keyboard.core
++
++/**
++ * Hardware-keyboard shortcuts that act on the IME itself rather than on text. Pure, so they are unit-tested on a
++ * JVM; the constants mirror android.view.KeyEvent and android.view.inputmethod.EditorInfo (stable public ABI).
++ */
++object KeyShortcuts {
++    const val KEYCODE_1 = 8
++    const val KEYCODE_2 = 9
++    const val KEYCODE_3 = 10
++    const val KEYCODE_E = 33
++    const val KEYCODE_R = 46
++    const val KEYCODE_W = 51
++    const val IME_MASK_ACTION = 0x000000ff
++    const val IME_ACTION_SEND = 4
++
++    private val CANDIDATE_KEYS = mapOf(
++        KEYCODE_1 to 0,
++        KEYCODE_2 to 1,
++        KEYCODE_3 to 2,
++        // W E R carry 1 2 3 on the Alt layer of phone-pad keyboards (Q25, Titan 2), so Ctrl needs no Alt.
++        KEYCODE_W to 0,
++        KEYCODE_E to 1,
++        KEYCODE_R to 2
++    )
++
++    /**
++     * Ctrl+1/2/3 (or Ctrl+W/E/R) picks candidate 1-3. Only while that candidate is showing: otherwise the key stays
++     * an ordinary app shortcut (Ctrl+W, Ctrl+R in a browser).
++     */
++    fun candidateIndex(
++        keyCode: Int,
++        ctrl: Boolean,
++        otherModifier: Boolean,
++        candidateCount: Int
++    ): Int? {
++        if (!ctrl || otherModifier) return null
++        return CANDIDATE_KEYS[keyCode]?.takeIf { it < candidateCount }
++    }
++
++    /**
++     * Enter performs the field's Send action when the user turned this on and the app declares Send for the field.
++     * Shift+Enter or Alt+Enter keep the platform's Enter (a new line in a multi-line message box); Ctrl and Meta
++     * combinations stay app shortcuts.
++     */
++    fun enterSends(
++        enabled: Boolean,
++        imeOptions: Int?,
++        shift: Boolean,
++        alt: Boolean,
++        ctrlOrMeta: Boolean
++    ): Boolean = enabled && imeOptions != null && !shift && !alt && !ctrlOrMeta &&
++        imeOptions and IME_MASK_ACTION == IME_ACTION_SEND
++}
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/core/KeyShortcutsTest.kt b/sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/core/KeyShortcutsTest.kt
+new file mode 100644
+index 0000000..6dcb7f2
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/core/KeyShortcutsTest.kt
+@@ -0,0 +1,49 @@
++package org.sableos.titan2.keyboard.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class KeyShortcutsTest {
++    private val send = KeyShortcuts.IME_ACTION_SEND
++    private val noEnterAction = 0x40000000
++
++    @Test fun androidConstantsArePinned() {
++        // android.view.KeyEvent and EditorInfo values.
++        assertEquals(8, KeyShortcuts.KEYCODE_1)
++        assertEquals(51, KeyShortcuts.KEYCODE_W)
++        assertEquals(33, KeyShortcuts.KEYCODE_E)
++        assertEquals(46, KeyShortcuts.KEYCODE_R)
++        assertEquals(4, KeyShortcuts.IME_ACTION_SEND)
++    }
++
++    @Test fun ctrlPicksAShowingCandidate() {
++        assertEquals(0, KeyShortcuts.candidateIndex(KeyShortcuts.KEYCODE_W, true, false, 3))
++        assertEquals(2, KeyShortcuts.candidateIndex(KeyShortcuts.KEYCODE_3, true, false, 3))
++        assertEquals(1, KeyShortcuts.candidateIndex(KeyShortcuts.KEYCODE_E, true, false, 2))
++    }
++
++    @Test fun withoutThatCandidateCtrlStaysAnAppShortcut() {
++        assertNull(KeyShortcuts.candidateIndex(KeyShortcuts.KEYCODE_W, true, false, 0))
++        assertNull(KeyShortcuts.candidateIndex(KeyShortcuts.KEYCODE_R, true, false, 2))
++        assertNull(KeyShortcuts.candidateIndex(KeyShortcuts.KEYCODE_W, false, false, 3))
++        assertNull(KeyShortcuts.candidateIndex(KeyShortcuts.KEYCODE_W, true, true, 3))
++        assertNull(KeyShortcuts.candidateIndex(29, true, false, 3)) // Ctrl+A
++    }
++
++    @Test fun enterSendsOnlyWhenOnAndTheFieldOffersSend() {
++        assertTrue(KeyShortcuts.enterSends(true, send, false, false, false))
++        assertTrue(KeyShortcuts.enterSends(true, send or noEnterAction, false, false, false))
++        assertFalse(KeyShortcuts.enterSends(false, send, false, false, false))
++        assertFalse(KeyShortcuts.enterSends(true, 6, false, false, false)) // IME_ACTION_DONE
++        assertFalse(KeyShortcuts.enterSends(true, null, false, false, false))
++    }
++
++    @Test fun modifiedEnterKeepsItsPlatformMeaning() {
++        assertFalse(KeyShortcuts.enterSends(true, send, true, false, false))
++        assertFalse(KeyShortcuts.enterSends(true, send, false, true, false))
++        assertFalse(KeyShortcuts.enterSends(true, send, false, false, true))
++    }
++}

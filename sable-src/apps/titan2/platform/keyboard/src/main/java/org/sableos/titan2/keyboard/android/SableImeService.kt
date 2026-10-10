@@ -19,6 +19,7 @@ import org.sableos.titan2.keyboard.core.FieldPolicy
 import org.sableos.titan2.keyboard.core.InputClass
 import org.sableos.titan2.keyboard.core.Key
 import org.sableos.titan2.keyboard.core.KeyEv
+import org.sableos.titan2.keyboard.core.KeyShortcuts
 import org.sableos.titan2.keyboard.core.Mod
 import org.sableos.titan2.keyboard.core.Out
 import org.sableos.titan2.keyboard.core.PinyinDict
@@ -312,11 +313,47 @@ class SableImeService : InputMethodService() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        if (handleShortcut(keyCode, event)) {
+            handledDown.add(keyCode)
+            refreshStrip()
+            return true
+        }
         val key = KeyMapper.map(keyCode)
         val ours = !event.isCtrlPressed && !event.isMetaPressed && key !is Key.Other
         val handled = ours && (handleComposingKey(keyCode) || resolveKeyDown(key, keyCode, event))
         if (ours) refreshStrip()
         return handled || super.onKeyDown(keyCode, event)
+    }
+
+    /** Candidate picks (Ctrl+1/2/3, Ctrl+W/E/R) and Enter-to-send; true when the key was handled here. */
+    private fun handleShortcut(keyCode: Int, event: KeyEvent): Boolean =
+        pickCandidate(keyCode, event) || sendWithEnter(keyCode, event)
+
+    private fun pickCandidate(keyCode: Int, event: KeyEvent): Boolean {
+        val comp = composer
+        val pick = KeyShortcuts.candidateIndex(
+            keyCode,
+            event.isCtrlPressed,
+            event.isAltPressed || event.isMetaPressed || event.isShiftPressed,
+            comp?.candidates?.size ?: 0
+        )
+        if (comp == null || pick == null) return false
+        applyComposition(comp.pick(pick))
+        return true
+    }
+
+    private fun sendWithEnter(keyCode: Int, event: KeyEvent): Boolean {
+        val send = keyCode == KeyEvent.KEYCODE_ENTER && event.repeatCount == 0 &&
+            KeyShortcuts.enterSends(
+                prefs.getBool(ENTER_SENDS, false),
+                currentInputEditorInfo?.imeOptions,
+                event.isShiftPressed || resolver.mods.active(Mod.Shift),
+                event.isAltPressed || resolver.mods.active(Mod.Alt),
+                event.isCtrlPressed || event.isMetaPressed
+            )
+        if (!send) return false
+        composer?.let { applyComposition(it.flush()) }
+        return currentInputConnection?.performEditorAction(EditorInfo.IME_ACTION_SEND) == true
     }
 
     /** Composition-aware Backspace/Enter/Space; true when the key was fully handled here. */
