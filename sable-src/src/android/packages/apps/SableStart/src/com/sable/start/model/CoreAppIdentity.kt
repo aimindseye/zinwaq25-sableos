@@ -24,6 +24,9 @@ object CoreAppIdentity {
     const val FILES = "com.android.documentsui"
     const val CLOCK = "com.android.deskclock"
 
+    /** Sable Camera, the Sable-designed camera app. A separate app, not an equivalent of [CAMERA]. */
+    const val SABLE_CAMERA = "org.sableos.titan2.camera"
+
     /** Equivalent package -> canonical package. Canonical packages map to themselves implicitly. */
     private val EQUIVALENTS: Map<String, String> =
         mapOf(
@@ -39,4 +42,17 @@ object CoreAppIdentity {
 
     /** True when [packageName] is the canonical package or a known equivalent of it. */
     fun isRole(packageName: String, canonical: String): Boolean = canonicalPackage(packageName) == canonical
+
+    /**
+     * Canonical packages that can fill the Start tile for [canonical], best first.
+     *
+     * The Camera tile opens Sable Camera when it is installed and falls back to
+     * the base's camera (Aperture on LineageOS), which stays installed until
+     * Sable Camera passes the camera check on the device.
+     */
+    fun startTileCandidates(canonical: String): List<String> =
+        when (canonical) {
+            CAMERA, SABLE_CAMERA -> listOf(SABLE_CAMERA, CAMERA)
+            else -> listOf(canonical)
+        }
 }

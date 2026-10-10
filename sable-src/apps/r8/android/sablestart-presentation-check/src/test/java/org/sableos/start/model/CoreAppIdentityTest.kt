@@ -48,4 +48,18 @@ class CoreAppIdentityTest {
         assertTrue(CoreAppIdentity.isRole(CoreAppIdentity.PHOTOS, CoreAppIdentity.PHOTOS))
         assertFalse(CoreAppIdentity.isRole("com.android.gallery2", CoreAppIdentity.PHOTOS))
     }
+
+    @Test
+    fun cameraTilePrefersSableCameraThenTheBaseCamera() {
+        val expected = listOf(CoreAppIdentity.SABLE_CAMERA, CoreAppIdentity.CAMERA)
+        assertEquals(expected, CoreAppIdentity.startTileCandidates(CoreAppIdentity.CAMERA))
+        assertEquals(expected, CoreAppIdentity.startTileCandidates(CoreAppIdentity.SABLE_CAMERA))
+        assertEquals("org.sableos.titan2.camera", CoreAppIdentity.SABLE_CAMERA)
+    }
+
+    @Test
+    fun otherTilesHaveOneCandidate() {
+        assertEquals(listOf(CoreAppIdentity.PHOTOS), CoreAppIdentity.startTileCandidates(CoreAppIdentity.PHOTOS))
+        assertEquals(listOf("org.sableos.hub"), CoreAppIdentity.startTileCandidates("org.sableos.hub"))
+    }
 }

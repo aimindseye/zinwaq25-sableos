@@ -56,6 +56,11 @@ on both bases. `SableGlyphIcon.sableGlyphForPackage`, and in
 `findLiveApp` and the default Start order (`PREFERRED_START_APP_GROUPS`), now
 compare canonical packages. Labels, components, launch and permissions are the
 app's own. Sable Camera is not remapped: it keeps its own label and identity.
+The default Camera tile (owner decision) prefers Sable Camera:
+`CoreAppIdentity.startTileCandidates(CAMERA)` is Sable Camera, then the base
+camera, and `PREFERRED_START_APP_GROUPS` takes the first one installed. Aperture
+stays in the image as the fallback until Sable Camera passes the Q3 camera check.
+Sable Camera also gets the Camera glyph and accent.
 The mapping is base-specific data, not device branching, and the GrapheneOS
 names still match themselves.
 

@@ -2500,8 +2500,10 @@ private fun resolveStartApps(
 
     PREFERRED_START_APP_GROUPS.forEach { group ->
         val selectedApp =
-            apps.firstOrNull { app ->
-                CoreAppIdentity.canonicalPackage(app.component.packageName) in group.packageNames
+            group.packageNames.firstNotNullOfOrNull { packageName ->
+                apps.firstOrNull { app ->
+                    CoreAppIdentity.canonicalPackage(app.component.packageName) == packageName
+                }
             } ?: apps.firstOrNull { app ->
                 group.labels.any { preferred ->
                     app.label.equals(preferred, ignoreCase = true)
@@ -2572,6 +2574,7 @@ private fun appColor(app: AppEntry): Color =
         CoreAppIdentity.isRole(app.component.packageName, CoreAppIdentity.PHOTOS) ||
             app.label.equals("Photos", ignoreCase = true) -> SablePurple
         CoreAppIdentity.isRole(app.component.packageName, CoreAppIdentity.CAMERA) ||
+            app.component.packageName == CoreAppIdentity.SABLE_CAMERA ||
             app.label.equals("Camera", ignoreCase = true) -> SableSlate
         app.component.packageName == "org.sableos.calculator" ||
             app.label.equals("Sable Calculator", ignoreCase = true) -> SableBlue
@@ -2615,50 +2618,51 @@ private fun isWideStartTile(app: AppEntry): Boolean =
         app.component.packageName == "org.sableos.media"
 
 private data class PreferredStartAppGroup(
-    val packageNames: Set<String> = emptySet(),
+    /** Canonical packages for this tile, best first. */
+    val packageNames: List<String> = emptyList(),
     val labels: List<String>,
 )
 
 private val PREFERRED_START_APP_GROUPS =
     listOf(
         PreferredStartAppGroup(
-            packageNames = setOf("org.sableos.calendar"),
+            packageNames = listOf("org.sableos.calendar"),
             labels = listOf("Sable Calendar", "Calendar"),
         ),
         PreferredStartAppGroup(
-            packageNames = setOf("org.sableos.hub"),
+            packageNames = listOf("org.sableos.hub"),
             labels = listOf("Sable Hub", "Hub", "Sable Messages", "Messages"),
         ),
         PreferredStartAppGroup(
-            packageNames = setOf("org.sableos.weather"),
+            packageNames = listOf("org.sableos.weather"),
             labels = listOf("Sable Weather", "Weather"),
         ),
         PreferredStartAppGroup(
-            packageNames = setOf("org.sableos.media"),
+            packageNames = listOf("org.sableos.media"),
             labels = listOf("Sable Media", "Media"),
         ),
         PreferredStartAppGroup(
-            packageNames = setOf("org.sableos.mail"),
+            packageNames = listOf("org.sableos.mail"),
             labels = listOf("Sable Mail", "Mail"),
         ),
         PreferredStartAppGroup(
-            packageNames = setOf("com.android.dialer"),
+            packageNames = listOf("com.android.dialer"),
             labels = listOf("Phone"),
         ),
         PreferredStartAppGroup(
-            packageNames = setOf("app.grapheneos.camera"),
+            packageNames = CoreAppIdentity.startTileCandidates(CoreAppIdentity.CAMERA),
             labels = listOf("Camera"),
         ),
         PreferredStartAppGroup(
-            packageNames = setOf("com.android.gallery3d"),
+            packageNames = listOf("com.android.gallery3d"),
             labels = listOf("Photos", "Gallery"),
         ),
         PreferredStartAppGroup(
-            packageNames = setOf("org.sableos.calculator"),
+            packageNames = listOf("org.sableos.calculator"),
             labels = listOf("Sable Calculator", "Calculator"),
         ),
         PreferredStartAppGroup(
-            packageNames = setOf("com.android.documentsui"),
+            packageNames = listOf("com.android.documentsui"),
             labels = listOf("Files"),
         ),
     )

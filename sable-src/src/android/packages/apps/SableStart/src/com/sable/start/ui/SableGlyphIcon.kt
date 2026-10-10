@@ -94,7 +94,8 @@ internal fun sableGlyphForPackage(packageName: String): SableGlyphSpec? =
         "org.sableos.weather" -> SableGlyphs.Weather
         "com.android.gallery3d" -> SableGlyphs.Photos
         "org.sableos.media" -> SableGlyphs.Media
-        "app.grapheneos.camera" -> SableGlyphs.Camera
+        "app.grapheneos.camera",
+        CoreAppIdentity.SABLE_CAMERA -> SableGlyphs.Camera
         "org.sableos.calculator" -> SableGlyphs.Calculator
         "com.android.documentsui" -> SableGlyphs.Files
         "com.android.deskclock" -> SableGlyphs.Clock
