@@ -1,6 +1,7 @@
 package org.sableos.tools.android
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.telephony.TelephonyManager
 import org.sableos.tools.core.Capability
@@ -50,6 +51,9 @@ class RadioCollector(env: ToolsEnv) : CollectorBase(env) {
     private fun basic() = ctx.checkSelfPermission(Manifest.permission.READ_BASIC_PHONE_STATE) ==
         PackageManager.PERMISSION_GRANTED
 
+    // READ_BASIC_PHONE_STATE reads are gated on basic() and run inside read {}, which reports a
+    // SecurityException as NeedsPermission; Lint cannot see either through the helpers.
+    @SuppressLint("MissingPermission")
     private fun simRows(tm: TelephonyManager?): List<ReportRow> {
         if (tm ==
             null
