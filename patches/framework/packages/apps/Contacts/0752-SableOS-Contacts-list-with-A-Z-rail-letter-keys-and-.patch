@@ -1,0 +1,735 @@
+From 6204b6ee2785526af7c71a5be83afecdef79e886 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 10 Oct 2026 00:45:06 +0000
+Subject: [PATCH 752/752] SableOS: Contacts list with A-Z rail, letter keys and
+ numbers
+
+Ports the approved SableOS Contacts presentation to LineageOS Contacts:
+
+* One alphabet rail: an A-Z rail at the end edge of the list reads the
+  adapter's existing section indexer (ListView header views counted);
+  letters without contacts are dimmed and skipped by focus. While it
+  shows, the upstream fast-scroll thumb is off so there is one rail; it
+  hides in search mode.
+* Physical keyboard (CONTACTS_PEOPLE_UX): with search closed a letter
+  key moves the list selection to the first contact under that letter
+  and repeating it cycles; with no match the selection stays and "No
+  contacts under X" is shown; "/" opens an empty search. Letters never
+  open, call, message or edit anyone. Ctrl/Alt/Meta combinations and
+  every other character keep the upstream type-to-search, and nothing
+  changes in search or selection mode.
+* Local-directory rows show the contact's default number with its type
+  label under the name, from one read-only ContactsProvider Phone query
+  reduced off the main thread into the bounded SablePreferredNumbers
+  map; it reloads on provider changes and writes nothing.
+* Section letters are larger and lighter (22sp, light, not all caps)
+  and the people toolbar is flat. Colours keep following the system
+  palette, which the Sable accent drives.
+
+ContactsProvider stays the owner of contact data; accounts, sync,
+permissions, linking and editing are unchanged. No second index or
+database is added.
+---
+ res/layout/people_activity_toolbar.xml        |   2 +-
+ res/values/sable_strings.xml                  |  22 +++
+ res/values/styles.xml                         |   8 +-
+ .../contacts/activities/PeopleActivity.java   |   4 +
+ .../DefaultContactBrowseListFragment.java     | 182 ++++++++++++++++++
+ .../list/DefaultContactListAdapter.java       |  27 +++
+ .../contacts/list/SableNumbersLoader.java     | 138 +++++++++++++
+ .../contacts/sable/SableAlphabetRail.java     | 122 ++++++++++++
+ 8 files changed, 501 insertions(+), 4 deletions(-)
+ create mode 100644 res/values/sable_strings.xml
+ create mode 100644 src/com/android/contacts/list/SableNumbersLoader.java
+ create mode 100644 src/com/android/contacts/sable/SableAlphabetRail.java
+
+diff --git a/res/layout/people_activity_toolbar.xml b/res/layout/people_activity_toolbar.xml
+index 4e8ea2f..98a00e2 100644
+--- a/res/layout/people_activity_toolbar.xml
++++ b/res/layout/people_activity_toolbar.xml
+@@ -18,7 +18,7 @@
+     android:id="@+id/toolbar_parent"
+     android:orientation="vertical"
+     android:layout_width="match_parent"
+-    android:elevation="@dimen/tab_elevation"
++    android:elevation="0dp"
+     android:layout_height="wrap_content" >
+ 
+     <FrameLayout
+diff --git a/res/values/sable_strings.xml b/res/values/sable_strings.xml
+new file mode 100644
+index 0000000..c18cd30
+--- /dev/null
++++ b/res/values/sable_strings.xml
+@@ -0,0 +1,22 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++  ~ Copyright (C) 2026 The SableOS Project
++  ~
++  ~ Licensed under the Apache License, Version 2.0 (the "License");
++  ~ you may not use this file except in compliance with the License.
++  ~ You may obtain a copy of the License at
++  ~
++  ~      http://www.apache.org/licenses/LICENSE-2.0
++  ~
++  ~ Unless required by applicable law or agreed to in writing, software
++  ~ distributed under the License is distributed on an "AS IS" BASIS,
++  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++  ~ See the License for the specific language governing permissions and
++  ~ limitations under the License
++  -->
++<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
++    <!-- Accessible name of one letter on the contacts alphabet rail. [CHAR LIMIT=40] -->
++    <string name="sable_alphabet_jump_to">Jump to <xliff:g id="letter" example="A">%1$s</xliff:g></string>
++    <!-- Shown when a letter key is pressed and no contact files under it. [CHAR LIMIT=40] -->
++    <string name="sable_alphabet_no_contacts">No contacts under <xliff:g id="letter" example="Q">%1$s</xliff:g></string>
++</resources>
+diff --git a/res/values/styles.xml b/res/values/styles.xml
+index a4c10b8..15f2bda 100644
+--- a/res/values/styles.xml
++++ b/res/values/styles.xml
+@@ -401,11 +401,13 @@
+         <item name="android:textAllCaps">true</item>
+     </style>
+ 
++    <!-- Sable: lighter, larger section letters (approved Contacts presentation). -->
+     <style name="SectionHeaderStyle" parent="@android:style/TextAppearance.Large">
+-        <item name="android:textSize">16sp</item>
+-        <item name="android:textAllCaps">true</item>
++        <item name="android:textSize">22sp</item>
++        <item name="android:textAllCaps">false</item>
+         <item name="android:textColor">@color/section_header_text_color</item>
+-        <item name="android:textStyle">bold</item>
++        <item name="android:textStyle">normal</item>
++        <item name="android:fontFamily">sans-serif-light</item>
+     </style>
+ 
+     <style name="DirectoryHeaderStyle" parent="@android:style/TextAppearance.Small">
+diff --git a/src/com/android/contacts/activities/PeopleActivity.java b/src/com/android/contacts/activities/PeopleActivity.java
+index 62dc48e..5edf131 100644
+--- a/src/com/android/contacts/activities/PeopleActivity.java
++++ b/src/com/android/contacts/activities/PeopleActivity.java
+@@ -776,6 +776,10 @@ public class PeopleActivity extends AppCompatContactsActivity implements
+             }
+             return false;
+         }
++        // Sable: A-Z jumps in the list and "/" opens search; other keys keep type-to-search.
++        if (mContactsListFragment != null && mContactsListFragment.onSableKey(event)) {
++            return true;
++        }
+         // Bring up the search UI if the user starts typing
+         final int unicodeChar = event.getUnicodeChar();
+         if ((unicodeChar != 0)
+diff --git a/src/com/android/contacts/list/DefaultContactBrowseListFragment.java b/src/com/android/contacts/list/DefaultContactBrowseListFragment.java
+index e8d1661..6b69904 100644
+--- a/src/com/android/contacts/list/DefaultContactBrowseListFragment.java
++++ b/src/com/android/contacts/list/DefaultContactBrowseListFragment.java
+@@ -17,6 +17,7 @@ package com.android.contacts.list;
+ 
+ import android.accounts.Account;
+ import android.app.Activity;
++import android.app.LoaderManager;
+ import android.content.ActivityNotFoundException;
+ import android.content.ContentResolver;
+ import android.content.ContentUris;
+@@ -40,6 +41,8 @@ import android.provider.ContactsContract.Directory;
+ import android.text.TextUtils;
+ import android.util.Log;
+ import android.view.Gravity;
++import android.view.KeyCharacterMap;
++import android.view.KeyEvent;
+ import android.view.LayoutInflater;
+ import android.view.Menu;
+ import android.view.MenuInflater;
+@@ -52,6 +55,8 @@ import android.widget.Button;
+ import android.widget.FrameLayout;
+ import android.widget.ImageView;
+ import android.widget.LinearLayout.LayoutParams;
++import android.widget.ListView;
++import android.widget.SectionIndexer;
+ import android.widget.TextView;
+ import android.widget.Toast;
+ 
+@@ -76,6 +81,10 @@ import com.android.contacts.model.account.AccountInfo;
+ import com.android.contacts.model.account.AccountWithDataSet;
+ import com.android.contacts.preference.ContactsPreferences;
+ import com.android.contacts.quickcontact.QuickContactActivity;
++import com.android.contacts.sable.SableAlphabetIndex;
++import com.android.contacts.sable.SableAlphabetRail;
++import com.android.contacts.sable.SableListKeys;
++import com.android.contacts.sable.SablePreferredNumbers;
+ import com.android.contacts.util.AccountFilterUtil;
+ import com.android.contacts.util.ImplicitIntentsUtil;
+ import com.android.contacts.util.SharedPreferenceUtil;
+@@ -104,6 +113,33 @@ public class DefaultContactBrowseListFragment extends ContactBrowseListFragment
+     private static final String KEY_SEARCH_RESULT_CLICKED = "search_result_clicked";
+ 
+     private static final int ACTIVITY_REQUEST_CODE_SHARE = 0;
++    // Sable: partitions use ids from 0 and the directory list uses -1.
++    private static final int SABLE_NUMBERS_LOADER_ID = -2;
++
++    private SableAlphabetRail mSableRail;
++    private SablePreferredNumbers mSableNumbers = SablePreferredNumbers.empty();
++    private int mSableLastJump = ListView.INVALID_POSITION;
++    private Toast mSableToast;
++
++    /** Sable: the subtitle numbers come from their own read-only loader. */
++    private final LoaderManager.LoaderCallbacks<SablePreferredNumbers> mSableNumbersCallbacks =
++            new LoaderManager.LoaderCallbacks<SablePreferredNumbers>() {
++                @Override
++                public Loader<SablePreferredNumbers> onCreateLoader(int id, Bundle args) {
++                    return new SableNumbersLoader(getContext());
++                }
++
++                @Override
++                public void onLoadFinished(
++                        Loader<SablePreferredNumbers> loader, SablePreferredNumbers numbers) {
++                    setSableNumbers(numbers);
++                }
++
++                @Override
++                public void onLoaderReset(Loader<SablePreferredNumbers> loader) {
++                    setSableNumbers(null);
++                }
++            };
+ 
+     private View mSearchHeaderView;
+     private View mSearchProgress;
+@@ -243,6 +279,7 @@ public class DefaultContactBrowseListFragment extends ContactBrowseListFragment
+                 private void setQueryTextToFragment(String query) {
+                     setQueryString(query, true);
+                     setVisibleScrollbarEnabled(!isSearchMode());
++                    updateSableAlphabetRail();
+                 }
+ 
+                 @Override
+@@ -296,6 +333,7 @@ public class DefaultContactBrowseListFragment extends ContactBrowseListFragment
+             bindListHeader(data == null ? 0 : data.getCount());
+         }
+         super.onLoadFinished(loader, data);
++        updateSableAlphabetRail();
+         if (!isSearchMode()) {
+             maybeShowHamburgerFeatureHighlight();
+         }
+@@ -427,6 +465,7 @@ public class DefaultContactBrowseListFragment extends ContactBrowseListFragment
+         adapter.setDisplayPhotos(true);
+         adapter.setPhotoPosition(
+                 ContactListItemView.getDefaultPhotoPosition(/* opposite= */ false));
++        adapter.setSableNumbers(mSableNumbers);
+         return adapter;
+     }
+ 
+@@ -447,10 +486,146 @@ public class DefaultContactBrowseListFragment extends ContactBrowseListFragment
+         mEmptyHomeView = getEmptyHomeView(inflater);
+         contactListLayout.addView(mEmptyAccountView);
+         contactListLayout.addView(mEmptyHomeView);
++        installSableAlphabetRail(contactListLayout);
+ 
+         return view;
+     }
+ 
++    /**
++     * Sable: the one A-Z rail at the end edge of the list. It reads the adapter's existing
++     * section indexer; while it shows, the upstream fast-scroll thumb is off so there is one
++     * rail, not two.
++     */
++    private void installSableAlphabetRail(FrameLayout container) {
++        mSableRail = new SableAlphabetRail(
++                getContext(), letter -> getString(R.string.sable_alphabet_jump_to, letter));
++        mSableRail.setLetterColor(
++                ContextCompat.getColorStateList(getContext(), R.color.primary_color));
++        mSableRail.setListener(codePoint -> sableJump(codePoint, false));
++        mSableRail.setVisibility(View.GONE);
++        container.addView(mSableRail, SableAlphabetRail.frameParams(getContext()));
++    }
++
++    private void updateSableAlphabetRail() {
++        if (mSableRail == null || getView() == null) {
++            return;
++        }
++        final SableAlphabetIndex index = isSearchMode()
++                ? SableAlphabetIndex.empty() : getSableAlphabetIndex();
++        final boolean show = index.sectionCount() > 0;
++        mSableRail.setAvailable(index);
++        mSableRail.setVisibility(show ? View.VISIBLE : View.GONE);
++        final ListView list = getListView();
++        if (list != null) {
++            list.setPaddingRelative(list.getPaddingStart(), list.getPaddingTop(),
++                    show ? mSableRail.getLayoutParams().width : 0, list.getPaddingBottom());
++            if (show) {
++                list.setFastScrollEnabled(false);
++            }
++        }
++    }
++
++    /** Sable: letter navigation over the adapter's section indexer, in ListView positions. */
++    private SableAlphabetIndex getSableAlphabetIndex() {
++        final ContactListAdapter adapter = getAdapter();
++        final ListView list = getListView();
++        if (adapter == null || list == null || adapter.getPartitionCount() == 0) {
++            return SableAlphabetIndex.empty();
++        }
++        final SectionIndexer indexer = adapter.getIndexer();
++        final int partition = adapter.getIndexedPartition();
++        if (indexer == null || partition < 0 || partition >= adapter.getPartitionCount()) {
++            return SableAlphabetIndex.empty();
++        }
++        final Object[] sections = indexer.getSections();
++        final Cursor cursor = adapter.getCursor(partition);
++        if (sections == null || cursor == null || cursor.isClosed()) {
++            return SableAlphabetIndex.empty();
++        }
++        final int[] positions = new int[sections.length];
++        for (int i = 0; i < sections.length; i++) {
++            positions[i] = indexer.getPositionForSection(i);
++        }
++        final int start = list.getHeaderViewsCount()
++                + adapter.getPositionForPartition(partition)
++                + (adapter.hasHeader(partition) ? 1 : 0);
++        return SableAlphabetIndex.fromPositions(sections, positions, cursor.getCount(), start);
++    }
++
++    private void setSableNumbers(SablePreferredNumbers numbers) {
++        mSableNumbers = numbers == null ? SablePreferredNumbers.empty() : numbers;
++        final ContactListAdapter adapter = getAdapter();
++        if (adapter instanceof DefaultContactListAdapter) {
++            ((DefaultContactListAdapter) adapter).setSableNumbers(mSableNumbers);
++        }
++    }
++
++    /**
++     * Sable: keyboard shortcuts on the list (CONTACTS_PEOPLE_UX). A letter jumps to the
++     * contacts filed under it and repeating it cycles through them; "/" opens search. Letters
++     * never open, call, message or edit a contact. Returns false to keep the upstream
++     * type-to-search for every other key.
++     */
++    public boolean onSableKey(KeyEvent event) {
++        if (event.getAction() != KeyEvent.ACTION_DOWN || !isVisible()
++                || mActionBarAdapter == null) {
++            return false;
++        }
++        final int unicodeChar = event.getUnicodeChar();
++        if ((unicodeChar & KeyCharacterMap.COMBINING_ACCENT) != 0) {
++            return false;
++        }
++        final SableListKeys.Action action = SableListKeys.decide(
++                unicodeChar,
++                event.isCtrlPressed() || event.isAltPressed() || event.isMetaPressed(),
++                event.getRepeatCount() > 0,
++                mActionBarAdapter.isSearchMode(),
++                mActionBarAdapter.isSelectionMode(),
++                /* canOpenSearch= */ true);
++        switch (action) {
++            case JUMP:
++                sableJump(unicodeChar, true);
++                return true;
++            case OPEN_SEARCH:
++                mActionBarAdapter.setSearchMode(true);
++                return true;
++            case IGNORE:
++                return true;
++            default:
++                return false;
++        }
++    }
++
++    private void sableJump(int codePoint, boolean fromKeyboard) {
++        final ListView list = getListView();
++        if (list == null) {
++            return;
++        }
++        final SableAlphabetIndex index = getSableAlphabetIndex();
++        int current = list.getSelectedItemPosition();
++        if (current == ListView.INVALID_POSITION) {
++            current = mSableLastJump;
++        }
++        final int target = fromKeyboard
++                ? index.nextJump(codePoint, current) : index.firstPosition(codePoint);
++        if (target == SableAlphabetIndex.NO_POSITION) {
++            final int key = SableAlphabetIndex.keyOf(codePoint);
++            final String letter = new String(Character.toChars(key == 0 ? codePoint : key));
++            if (mSableToast != null) {
++                mSableToast.cancel();
++            }
++            mSableToast = Toast.makeText(getContext(),
++                    getString(R.string.sable_alphabet_no_contacts, letter), Toast.LENGTH_SHORT);
++            mSableToast.show();
++            return;
++        }
++        mSableLastJump = target;
++        if (fromKeyboard) {
++            list.requestFocus();
++        }
++        list.setSelection(target);
++    }
++
+     private View getEmptyHomeView(LayoutInflater inflater) {
+         final View emptyHomeView = inflater.inflate(R.layout.empty_home_view, null);
+         // Set image margins.
+@@ -781,6 +956,7 @@ public class DefaultContactBrowseListFragment extends ContactBrowseListFragment
+ 
+         setQueryString(mActionBarAdapter.getQueryString(), true);
+         setVisibleScrollbarEnabled(!isSearchMode());
++        updateSableAlphabetRail();
+     }
+ 
+     private void setDirectorySearchMode() {
+@@ -795,6 +971,11 @@ public class DefaultContactBrowseListFragment extends ContactBrowseListFragment
+     public void onResume() {
+         super.onResume();
+         configureFragment();
++        if (getContext().checkSelfPermission(android.Manifest.permission.READ_CONTACTS)
++                == PackageManager.PERMISSION_GRANTED) {
++            getLoaderManager().initLoader(
++                    SABLE_NUMBERS_LOADER_ID, null, mSableNumbersCallbacks);
++        }
+         maybeShowHamburgerFeatureHighlight();
+         // Re-register the listener, which may have been cleared when onSaveInstanceState was
+         // called. See also: onSaveInstanceState
+@@ -844,6 +1025,7 @@ public class DefaultContactBrowseListFragment extends ContactBrowseListFragment
+         super.setSearchMode(flag);
+         checkHeaderViewVisibility();
+         if (!flag) showSearchProgress(false);
++        updateSableAlphabetRail();
+     }
+ 
+     /** Show or hide the directory-search progress spinner. */
+diff --git a/src/com/android/contacts/list/DefaultContactListAdapter.java b/src/com/android/contacts/list/DefaultContactListAdapter.java
+index 0744f6d..b3f57d3 100644
+--- a/src/com/android/contacts/list/DefaultContactListAdapter.java
++++ b/src/com/android/contacts/list/DefaultContactListAdapter.java
+@@ -33,6 +33,7 @@ import android.view.View;
+ import com.android.contacts.compat.ContactsCompat;
+ import com.android.contacts.model.account.AccountWithDataSet;
+ import com.android.contacts.preference.ContactsPreferences;
++import com.android.contacts.sable.SablePreferredNumbers;
+ import java.util.ArrayList;
+ import java.util.List;
+ 
+@@ -44,11 +45,19 @@ public class DefaultContactListAdapter extends ContactListAdapter {
+     public static final char SNIPPET_START_MATCH = '[';
+     public static final char SNIPPET_END_MATCH = ']';
+ 
++    // Sable: read-only numbers for the line under each name (ContactsProvider stays the owner).
++    private SablePreferredNumbers mSableNumbers = SablePreferredNumbers.empty();
+ 
+     public DefaultContactListAdapter(Context context) {
+         super(context);
+     }
+ 
++    /** Sable: numbers shown under the names of local contacts; empty hides the line. */
++    public void setSableNumbers(SablePreferredNumbers numbers) {
++        mSableNumbers = numbers == null ? SablePreferredNumbers.empty() : numbers;
++        notifyDataSetChanged();
++    }
++
+     @Override
+     public void configureLoader(CursorLoader loader, long directoryId) {
+         if (loader instanceof FavoritesAndContactsLoader) {
+@@ -256,6 +265,7 @@ public class DefaultContactListAdapter extends ContactListAdapter {
+         }
+ 
+         bindNameAndViewId(view, cursor);
++        bindSableNumber(view, partition, cursor);
+         bindPresenceAndStatusMessage(view, cursor);
+ 
+         if (isSearchMode()) {
+@@ -265,6 +275,23 @@ public class DefaultContactListAdapter extends ContactListAdapter {
+         }
+     }
+ 
++    /**
++     * Sable: the contact's default number and its type under the name, for rows of the local
++     * directory only (remote directory rows have no local contact id).
++     */
++    private void bindSableNumber(ContactListItemView view, int partition, Cursor cursor) {
++        SablePreferredNumbers.Entry number = null;
++        if (getPartition(partition) instanceof DirectoryPartition) {
++            final long directoryId =
++                    ((DirectoryPartition) getPartition(partition)).getDirectoryId();
++            if (directoryId == Directory.DEFAULT || directoryId == Directory.LOCAL_INVISIBLE) {
++                number = mSableNumbers.get(cursor.getLong(ContactQuery.CONTACT_ID));
++            }
++        }
++        view.setLabel(number == null ? null : number.label);
++        view.setPhoneNumber(number == null ? null : number.number, null);
++    }
++
+     private boolean isCustomFilterForPhoneNumbersOnly() {
+         // TODO: this flag should not be stored in shared prefs.  It needs to be in the db.
+         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
+diff --git a/src/com/android/contacts/list/SableNumbersLoader.java b/src/com/android/contacts/list/SableNumbersLoader.java
+new file mode 100644
+index 0000000..61a0909
+--- /dev/null
++++ b/src/com/android/contacts/list/SableNumbersLoader.java
+@@ -0,0 +1,138 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.contacts.list;
++
++import android.content.AsyncTaskLoader;
++import android.content.Context;
++import android.content.res.Resources;
++import android.database.Cursor;
++import android.net.Uri;
++import android.provider.ContactsContract;
++import android.provider.ContactsContract.CommonDataKinds.Phone;
++import android.util.Log;
++
++import com.android.contacts.sable.SablePreferredNumbers;
++
++/**
++ * Sable: one read-only ContactsProvider query of Phone rows, reduced off the main thread to the
++ * bounded {@link SablePreferredNumbers} map used for the line under each contact's name.
++ * Reloads when the provider's Phone data changes. Writes nothing.
++ */
++final class SableNumbersLoader extends AsyncTaskLoader<SablePreferredNumbers> {
++
++    private static final String[] PROJECTION = {
++        Phone.CONTACT_ID, Phone.NUMBER, Phone.TYPE, Phone.LABEL, Phone.IS_SUPER_PRIMARY,
++        Phone.IS_PRIMARY,
++    };
++    private static final int CONTACT_ID = 0;
++    private static final int NUMBER = 1;
++    private static final int TYPE = 2;
++    private static final int LABEL = 3;
++    private static final int IS_SUPER_PRIMARY = 4;
++    private static final int IS_PRIMARY = 5;
++
++    private static final String SELECTION = Phone.NUMBER + " IS NOT NULL";
++    private static final String SORT_ORDER =
++            Phone.CONTACT_ID
++                    + " ASC, "
++                    + Phone.IS_SUPER_PRIMARY
++                    + " DESC, "
++                    + Phone.IS_PRIMARY
++                    + " DESC, "
++                    + Phone._ID
++                    + " ASC";
++
++    private final ForceLoadContentObserver observer = new ForceLoadContentObserver();
++    private boolean observing;
++    private SablePreferredNumbers result;
++
++    SableNumbersLoader(Context context) {
++        super(context);
++    }
++
++    @Override
++    public SablePreferredNumbers loadInBackground() {
++        Uri uri =
++                Phone.CONTENT_URI
++                        .buildUpon()
++                        .appendQueryParameter(
++                                ContactsContract.LIMIT_PARAM_KEY, String.valueOf(SablePreferredNumbers.MAX_ROWS))
++                        .build();
++        SablePreferredNumbers.Builder builder = new SablePreferredNumbers.Builder();
++        Resources res = getContext().getResources();
++        try (Cursor cursor =
++                getContext().getContentResolver().query(uri, PROJECTION, SELECTION, null, SORT_ORDER)) {
++            if (cursor == null) {
++                return SablePreferredNumbers.empty();
++            }
++            while (!isLoadInBackgroundCanceled() && cursor.moveToNext()) {
++                CharSequence label =
++                        Phone.getTypeLabel(res, cursor.getInt(TYPE), cursor.getString(LABEL));
++                if (!builder.offer(
++                        cursor.getLong(CONTACT_ID),
++                        cursor.getString(NUMBER),
++                        label == null ? null : label.toString(),
++                        cursor.getInt(IS_SUPER_PRIMARY) != 0,
++                        cursor.getInt(IS_PRIMARY) != 0)) {
++                    break;
++                }
++            }
++        } catch (RuntimeException e) {
++            // Missing permission or provider trouble: show names only, never fail the list.
++            Log.w("SableNumbersLoader", "phone query failed", e);
++            return SablePreferredNumbers.empty();
++        }
++        return builder.build();
++    }
++
++    @Override
++    public void deliverResult(SablePreferredNumbers data) {
++        result = data;
++        if (isStarted()) {
++            super.deliverResult(data);
++        }
++    }
++
++    @Override
++    protected void onStartLoading() {
++        if (!observing) {
++            getContext().getContentResolver().registerContentObserver(Phone.CONTENT_URI, true, observer);
++            observing = true;
++        }
++        if (result != null) {
++            deliverResult(result);
++        }
++        if (takeContentChanged() || result == null) {
++            forceLoad();
++        }
++    }
++
++    @Override
++    protected void onStopLoading() {
++        cancelLoad();
++    }
++
++    @Override
++    protected void onReset() {
++        onStopLoading();
++        if (observing) {
++            getContext().getContentResolver().unregisterContentObserver(observer);
++            observing = false;
++        }
++        result = null;
++    }
++}
+diff --git a/src/com/android/contacts/sable/SableAlphabetRail.java b/src/com/android/contacts/sable/SableAlphabetRail.java
+new file mode 100644
+index 0000000..cdf5037
+--- /dev/null
++++ b/src/com/android/contacts/sable/SableAlphabetRail.java
+@@ -0,0 +1,122 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.contacts.sable;
++
++import android.content.Context;
++import android.content.res.ColorStateList;
++import android.util.TypedValue;
++import android.view.Gravity;
++import android.view.View;
++import android.view.ViewGroup;
++import android.widget.LinearLayout;
++import android.widget.TextView;
++
++/**
++ * The one A-Z rail on the right of a contact list. It reads the list's existing section index
++ * through {@link SableAlphabetIndex}: letters with no contacts are dimmed and skipped by focus,
++ * and choosing a letter asks the list to jump. It keeps no contact data.
++ */
++public final class SableAlphabetRail extends LinearLayout {
++
++    /** Width of the rail in dp. */
++    public static final int WIDTH_DP = 28;
++
++    private static final float UNAVAILABLE_ALPHA = 0.38f;
++
++    /** Called when a letter is chosen by touch, pointer, Enter or accessibility. */
++    public interface Listener {
++        void onRailLetter(int codePoint);
++    }
++
++    /** Accessible names, from the app's string resources. */
++    public interface Labels {
++        String jumpTo(String letter);
++    }
++
++    private final TextView[] letters = new TextView[SableAlphabetIndex.RAIL_LETTERS.length()];
++    private Listener listener;
++
++    public SableAlphabetRail(Context context, Labels labels) {
++        super(context);
++        setOrientation(VERTICAL);
++        setGravity(Gravity.CENTER_HORIZONTAL);
++        setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
++
++        TypedValue background = new TypedValue();
++        boolean hasBackground =
++                context
++                        .getTheme()
++                        .resolveAttribute(android.R.attr.selectableItemBackground, background, true);
++
++        for (int i = 0; i < letters.length; i++) {
++            final char letter = SableAlphabetIndex.RAIL_LETTERS.charAt(i);
++            TextView view = new TextView(context);
++            view.setText(String.valueOf(letter));
++            view.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
++            view.setGravity(Gravity.CENTER);
++            view.setIncludeFontPadding(false);
++            view.setContentDescription(labels.jumpTo(String.valueOf(letter)));
++            if (hasBackground && background.resourceId != 0) {
++                view.setBackgroundResource(background.resourceId);
++            }
++            view.setOnClickListener(
++                    v -> {
++                        if (listener != null) {
++                            listener.onRailLetter(letter);
++                        }
++                    });
++            view.setLayoutParams(new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
++            letters[i] = view;
++            addView(view);
++        }
++        setAvailable(SableAlphabetIndex.empty());
++    }
++
++    /** Layout params for a rail at the end edge of a FrameLayout, full height. */
++    public static android.widget.FrameLayout.LayoutParams frameParams(Context context) {
++        int width =
++                (int)
++                        TypedValue.applyDimension(
++                                TypedValue.COMPLEX_UNIT_DIP,
++                                WIDTH_DP,
++                                context.getResources().getDisplayMetrics());
++        return new android.widget.FrameLayout.LayoutParams(
++                width, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.END);
++    }
++
++    public void setListener(Listener listener) {
++        this.listener = listener;
++    }
++
++    public void setLetterColor(ColorStateList color) {
++        for (TextView view : letters) {
++            view.setTextColor(color);
++        }
++    }
++
++    /** Dims and unfocuses the letters that have no rows in {@code index}. */
++    public void setAvailable(SableAlphabetIndex index) {
++        for (int i = 0; i < letters.length; i++) {
++            boolean available = index.hasLetter(SableAlphabetIndex.RAIL_LETTERS.charAt(i));
++            TextView view = letters[i];
++            view.setAlpha(available ? 1f : UNAVAILABLE_ALPHA);
++            view.setFocusable(available);
++            view.setClickable(available);
++            view.setEnabled(available);
++        }
++    }
++}
+-- 
+2.43.0
+

@@ -32,14 +32,19 @@
 | `framework/frameworks/base/0301-SableOS-keyboard-notification-commands-in-the-shade.patch` | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` | KF-A: contextual single-key commands on a focused notification row (Space, R, D, Z, M, C, H); text input always wins. New router, command glue and a router unit test; three small hooks in `ExpandableNotificationRow`. |
 | `framework/packages/apps/SetupWizard/0401-SableOS-keyboard-first-focus-in-setup-steps.patch` | `715b772f07c52ce0fdb83b9891765f3de992ffb5` | IR-014: on a hardware keyboard the first key with nothing focused lands on the step's first text field, else Start/Next; MoveHome/MoveEnd jump to the first/last control; a held Enter/Space/Tab does not repeat; Enter in the last text field runs the primary action. Every other key keeps its platform meaning, and failures fall back to it. Pure policy: `sable/SableKeyPolicy.java`. |
 | `framework/packages/apps/SetupWizard/0402-SableOS-Sable-Keyboard-readiness-step-before-Wi-Fi-a.patch` | `715b772f07c52ce0fdb83b9891765f3de992ffb5` | IR-014: a Keyboard step after Locale (owner script) that reports whether Sable Keyboard is installed, enabled and selected and offers one system screen to fix it, before Wi-Fi passwords and the screen-lock PIN. Read-only; Next is always enabled. Pure state: `sable/SableKeyboardState.java`. |
+| `framework/packages/apps/Dialer/0701-SableOS-pure-contact-list-letter-and-number-model-fo.patch` | `6da8042323a97d5b3cba1fd975709cc42f29916f` | Phone + Contacts: pure Java for the Phone contacts list (`sable/`): letter navigation over the existing address-book index (accents fold, repeat cycles), the bounded read-only subtitle number map (default number first; 5000 contacts / 20000 rows), the subtitle text and the list key policy. |
+| `framework/packages/apps/Dialer/0702-SableOS-Phone-contacts-list-with-A-Z-rail-letter-key.patch` | `6da8042323a97d5b3cba1fd975709cc42f29916f` + 0701 | Phone + Contacts: one A-Z rail on the contacts tab (replaces the scroll thumb while shown), A-Z keys jump and cycle (never call or open), "Type · number" under each name from one read-only Phone query off the main thread, flat bottom bar. Telephony, dialpad, in-call untouched. |
+| `framework/packages/apps/Contacts/0751-SableOS-pure-contact-list-letter-and-number-model-fo.patch` | `02bbe49b4ed8e8094d9573ff52747ff8050d9813` | Phone + Contacts: the same pure classes in `com.android.contacts.sable`. |
+| `framework/packages/apps/Contacts/0752-SableOS-Contacts-list-with-A-Z-rail-letter-keys-and-.patch` | `02bbe49b4ed8e8094d9573ff52747ff8050d9813` + 0751 | Phone + Contacts: one A-Z rail on the list (fast-scroll thumb off while shown, hidden in search), A-Z keys jump and cycle, `/` opens search, other keys keep type-to-search, default number and type under local contacts, 22sp light section letters, flat toolbar. ContactsProvider stays the owner. |
 
 Patch ranges: 0001-0099 HOME/Recents, 0100-0199 KF-B (SystemUI styling and
 branding), 0200-0299 Battery, 0300-0399 KF-A (notification policy, attention,
-Hub), 0400-0499 setup wizard (IR-014). Each patch was checked against its base
+Hub), 0400-0499 setup wizard (IR-014), 0700-0799 Phone + Contacts (0701-0749
+Dialer, 0751-0799 Contacts). Each patch was checked against its base
 commit; patches of one project are applied in name order and may build on each
 other (`apply-framework-patches.sh check` tries them in sequence). No LineageOS
 build ran here. `tests/framework/run-pure-tests.sh` unit-tests the pure classes
-the SetupWizard patches add. When LineageOS moves, regenerate the patch in a
+the SetupWizard, Dialer and Contacts patches add. When LineageOS moves, regenerate the patch in a
 synced tree with `git format-patch -1` and update the base above.
 
 Reserved:

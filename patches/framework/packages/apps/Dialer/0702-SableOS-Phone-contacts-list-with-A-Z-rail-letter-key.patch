@@ -1,0 +1,774 @@
+From fa8d2301637de9cf37bca33836660d01ace2ec2c Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 10 Oct 2026 00:44:51 +0000
+Subject: [PATCH 702/702] SableOS: Phone contacts list with A-Z rail, letter
+ keys and numbers
+
+Ports the approved SableOS Phone presentation to the LineageOS Dialer
+contacts tab:
+
+* One alphabet rail: an A-Z rail at the end edge reads the adapter's
+  existing address-book index; letters without contacts are dimmed and
+  skipped by focus, and while it shows the upstream scroll thumb is
+  hidden so there is a single rail.
+* Physical keyboard: on the contacts tab a letter key (no Ctrl, Alt or
+  Meta, not held) moves focus to the first contact under that letter
+  and repeating it cycles; with no match focus stays and "No contacts
+  under X" is shown. Letters never open or call anyone. Keys reach the
+  list only when no view handled them, so text fields keep them.
+* Each row shows the contact's default number and its type under the
+  name, from one read-only ContactsProvider Phone query reduced off the
+  main thread into the bounded SablePreferredNumbers map. It reloads on
+  provider changes and writes nothing.
+* The bottom navigation bar is flat (no elevation). Colours keep
+  following the system palette, which the Sable accent drives.
+
+ContactsProvider stays the owner of contact data; accounts, sync,
+permissions and contact semantics are unchanged. Telephony, dialpad,
+in-call and Call/End key behaviour are untouched.
+---
+ .../contactsfragment/ContactViewHolder.java   |  12 +-
+ .../contactsfragment/ContactsAdapter.java     |  32 +++-
+ .../contactsfragment/ContactsFragment.java    | 154 +++++++++++++++++-
+ .../contactsfragment/SableNumbersLoader.java  | 139 ++++++++++++++++
+ .../res/layout/contact_row.xml                |  40 +++--
+ .../contactsfragment/res/values/dimens.xml    |   2 +
+ .../res/values/sable_strings.xml              |  22 +++
+ .../res/layout/bottom_nav_bar_layout.xml      |   2 +-
+ .../dialer/sable/SableAlphabetRail.java       | 122 ++++++++++++++
+ 9 files changed, 511 insertions(+), 14 deletions(-)
+ create mode 100644 java/com/android/dialer/contactsfragment/SableNumbersLoader.java
+ create mode 100644 java/com/android/dialer/contactsfragment/res/values/sable_strings.xml
+ create mode 100644 java/com/android/dialer/sable/SableAlphabetRail.java
+
+diff --git a/java/com/android/dialer/contactsfragment/ContactViewHolder.java b/java/com/android/dialer/contactsfragment/ContactViewHolder.java
+index 25eab26..de724d9 100644
+--- a/java/com/android/dialer/contactsfragment/ContactViewHolder.java
++++ b/java/com/android/dialer/contactsfragment/ContactViewHolder.java
+@@ -36,6 +36,7 @@ final class ContactViewHolder extends RecyclerView.ViewHolder implements OnClick
+ 
+   private final TextView header;
+   private final BidiTextView name;
++  private final TextView subtitle;
+   private final QuickContactBadge photo;
+   private final OnContactSelectedListener onContactSelectedListener;
+ 
+@@ -49,6 +50,7 @@ final class ContactViewHolder extends RecyclerView.ViewHolder implements OnClick
+     itemView.findViewById(R.id.click_target).setOnClickListener(this);
+     header = itemView.findViewById(R.id.header);
+     name = itemView.findViewById(R.id.contact_name);
++    subtitle = itemView.findViewById(R.id.contact_subtitle);
+     photo = itemView.findViewById(R.id.photo);
+   }
+ 
+@@ -57,17 +59,25 @@ final class ContactViewHolder extends RecyclerView.ViewHolder implements OnClick
+    *
+    * @param headerText populates the header view.
+    * @param displayName populates the name view.
++   * @param subtitleText the line under the name (type label and number), or null for none.
+    * @param contactUri to be shown by the contact card on photo click.
+    * @param showHeader if header view should be shown {@code True}, {@code False} otherwise.
+    */
+   public void bind(
+-      String headerText, String displayName, Uri contactUri, long contactId, boolean showHeader) {
++      String headerText,
++      String displayName,
++      String subtitleText,
++      Uri contactUri,
++      long contactId,
++      boolean showHeader) {
+     Assert.checkArgument(!TextUtils.isEmpty(displayName));
+     this.contactUri = contactUri;
+     this.contactId = contactId;
+     this.headerText = headerText;
+ 
+     name.setText(displayName);
++    subtitle.setText(subtitleText);
++    subtitle.setVisibility(TextUtils.isEmpty(subtitleText) ? View.GONE : View.VISIBLE);
+     header.setText(headerText);
+     header.setVisibility(showHeader ? View.VISIBLE : View.INVISIBLE);
+   }
+diff --git a/java/com/android/dialer/contactsfragment/ContactsAdapter.java b/java/com/android/dialer/contactsfragment/ContactsAdapter.java
+index 611afc8..1fc7252 100644
+--- a/java/com/android/dialer/contactsfragment/ContactsAdapter.java
++++ b/java/com/android/dialer/contactsfragment/ContactsAdapter.java
+@@ -36,6 +36,9 @@ import com.android.dialer.contactphoto.ContactPhotoManager;
+ import com.android.dialer.contactsfragment.ContactsFragment.Header;
+ import com.android.dialer.contactsfragment.ContactsFragment.OnContactSelectedListener;
+ import com.android.dialer.lettertile.LetterTileDrawable;
++import com.android.dialer.sable.SableAlphabetIndex;
++import com.android.dialer.sable.SablePreferredNumbers;
++import com.android.dialer.sable.SableSubtitle;
+ 
+ import java.lang.annotation.Retention;
+ import java.lang.annotation.RetentionPolicy;
+@@ -63,6 +66,8 @@ final class ContactsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
+   private int[] counts = new int[0];
+   // Cursor with list of contacts
+   private Cursor cursor;
++  // Sable: read-only numbers for the line under each name (ContactsProvider stays the owner).
++  private SablePreferredNumbers sableNumbers = SablePreferredNumbers.empty();
+ 
+   ContactsAdapter(
+       Context context, @Header int header, OnContactSelectedListener onContactSelectedListener) {
+@@ -89,6 +94,28 @@ final class ContactsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
+     notifyDataSetChanged();
+   }
+ 
++  /** Sable: numbers shown under the names; empty hides the line. */
++  void setSableNumbers(SablePreferredNumbers numbers) {
++    sableNumbers = numbers == null ? SablePreferredNumbers.empty() : numbers;
++    notifyDataSetChanged();
++  }
++
++  /** Sable: true when the list has at least one contact row. */
++  boolean hasContacts() {
++    return cursor != null && !cursor.isClosed() && cursor.getCount() > 0;
++  }
++
++  /**
++   * Sable: letter navigation over the address-book index this adapter already carries
++   * (Contacts.EXTRA_ADDRESS_BOOK_INDEX_TITLES/COUNTS), in adapter positions.
++   */
++  SableAlphabetIndex getSableIndex() {
++    if (!hasContacts()) {
++      return SableAlphabetIndex.empty();
++    }
++    return SableAlphabetIndex.fromCounts(headers, counts, header == Header.NONE ? 0 : 1);
++  }
++
+   @Override
+   public RecyclerView.ViewHolder onCreateViewHolder(
+       ViewGroup parent, @ContactsViewType int viewType) {
+@@ -121,6 +148,9 @@ final class ContactsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
+ 
+     String name = getDisplayName(cursor);
+     String header = getHeaderString(position);
++    long contactId = getContactId(cursor);
++    SablePreferredNumbers.Entry number = sableNumbers.get(contactId);
++    String subtitle = number == null ? null : SableSubtitle.format(number.label, number.number);
+     Uri contactUri = getContactUri(cursor);
+ 
+     ContactPhotoManager.getInstance(context)
+@@ -139,7 +169,7 @@ final class ContactsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
+     // it to the previous element and only show the anchored header if the row elements fall into
+     // the same sublists.
+     boolean showHeader = position == 0 || !header.equals(getHeaderString(position - 1));
+-    contactViewHolder.bind(header, name, contactUri, getContactId(cursor), showHeader);
++    contactViewHolder.bind(header, name, subtitle, contactUri, contactId, showHeader);
+   }
+ 
+   /**
+diff --git a/java/com/android/dialer/contactsfragment/ContactsFragment.java b/java/com/android/dialer/contactsfragment/ContactsFragment.java
+index 6dbbbad..ced6a3f 100644
+--- a/java/com/android/dialer/contactsfragment/ContactsFragment.java
++++ b/java/com/android/dialer/contactsfragment/ContactsFragment.java
+@@ -25,12 +25,16 @@ import android.content.Intent;
+ import android.database.Cursor;
+ import android.net.Uri;
+ import android.os.Bundle;
++import android.view.KeyCharacterMap;
++import android.view.KeyEvent;
+ import android.view.LayoutInflater;
+ import android.view.View;
+ import android.view.View.OnScrollChangeListener;
+ import android.view.ViewGroup;
++import android.widget.FrameLayout;
+ import android.widget.ImageView;
+ import android.widget.TextView;
++import android.widget.Toast;
+ 
+ import androidx.activity.result.ActivityResultLauncher;
+ import androidx.activity.result.contract.ActivityResultContracts;
+@@ -46,6 +50,10 @@ import com.android.dialer.R;
+ import com.android.dialer.common.Assert;
+ import com.android.dialer.common.FragmentUtils;
+ import com.android.dialer.common.LogUtil;
++import com.android.dialer.sable.SableAlphabetIndex;
++import com.android.dialer.sable.SableAlphabetRail;
++import com.android.dialer.sable.SableListKeys;
++import com.android.dialer.sable.SablePreferredNumbers;
+ import com.android.dialer.util.DialerUtils;
+ import com.android.dialer.util.IntentUtil;
+ import com.android.dialer.util.PermissionsUtil;
+@@ -73,6 +81,7 @@ public class ContactsFragment extends Fragment
+ 
+   private static final String EXTRA_HEADER = "extra_header";
+   private static final String EXTRA_HAS_PHONE_NUMBERS = "extra_has_phone_numbers";
++  private static final int SABLE_NUMBERS_LOADER_ID = 1;
+ 
+   /**
+    * Listen to broadcast events about permissions in order to be notified if the READ_CONTACTS
+@@ -102,6 +111,36 @@ public class ContactsFragment extends Fragment
+   private LinearLayoutManager manager;
+   private ContactsAdapter adapter;
+   private EmptyContentView emptyContentView;
++  private SableAlphabetRail sableRail;
++  private SablePreferredNumbers sableNumbers = SablePreferredNumbers.empty();
++  private int sableLastJump = RecyclerView.NO_POSITION;
++  private Toast sableToast;
++
++  /** Sable: the subtitle numbers come from their own read-only loader. */
++  private final LoaderManager.LoaderCallbacks<SablePreferredNumbers> sableNumbersCallbacks =
++      new LoaderManager.LoaderCallbacks<SablePreferredNumbers>() {
++        @Override
++        public Loader<SablePreferredNumbers> onCreateLoader(int id, Bundle args) {
++          return new SableNumbersLoader(getContext());
++        }
++
++        @Override
++        public void onLoadFinished(
++            Loader<SablePreferredNumbers> loader, SablePreferredNumbers numbers) {
++          sableNumbers = numbers == null ? SablePreferredNumbers.empty() : numbers;
++          if (adapter != null) {
++            adapter.setSableNumbers(sableNumbers);
++          }
++        }
++
++        @Override
++        public void onLoaderReset(Loader<SablePreferredNumbers> loader) {
++          sableNumbers = SablePreferredNumbers.empty();
++          if (adapter != null) {
++            adapter.setSableNumbers(sableNumbers);
++          }
++        }
++      };
+ 
+   private @Header int header;
+ 
+@@ -182,7 +221,8 @@ public class ContactsFragment extends Fragment
+             super.onLayoutChildren(recycler, state);
+             int itemsShown = findLastVisibleItemPosition() - findFirstVisibleItemPosition() + 1;
+             if (adapter.getItemCount() > itemsShown) {
+-              fastScroller.setVisibility(View.VISIBLE);
++              // Sable: one rail. The A-Z rail replaces the upstream scroll thumb when shown.
++              fastScroller.setVisibility(isSableRailShown() ? View.GONE : View.VISIBLE);
+               recyclerView.setOnScrollChangeListener(ContactsFragment.this);
+             } else {
+               fastScroller.setVisibility(View.GONE);
+@@ -195,6 +235,8 @@ public class ContactsFragment extends Fragment
+     emptyContentView.setImage(R.drawable.empty_contacts);
+     emptyContentView.setActionClickedListener(this);
+ 
++    installSableAlphabetRail((FrameLayout) view);
++
+     if (PermissionsUtil.hasContactsReadPermissions(getContext())) {
+       loadContacts();
+     } else {
+@@ -237,9 +279,11 @@ public class ContactsFragment extends Fragment
+       emptyContentView.setVisibility(View.GONE);
+       recyclerView.setVisibility(View.VISIBLE);
+       adapter.updateCursor(cursor);
++      adapter.setSableNumbers(sableNumbers);
+ 
+       fastScroller.setup(adapter, manager);
+     }
++    updateSableAlphabetRail();
+   }
+ 
+   @Override
+@@ -247,6 +291,112 @@ public class ContactsFragment extends Fragment
+     recyclerView.setAdapter(null);
+     recyclerView.setOnScrollChangeListener(null);
+     adapter = null;
++    updateSableAlphabetRail();
++  }
++
++  /**
++   * Sable: the A-Z rail at the end edge and the letter keys. Both use the address-book index
++   * the adapter already carries; nothing here reads or writes contact data.
++   */
++  private void installSableAlphabetRail(FrameLayout container) {
++    sableRail =
++        new SableAlphabetRail(
++            getContext(), letter -> getString(R.string.sable_alphabet_jump_to, letter));
++    sableRail.setListener(codePoint -> sableJump(codePoint, false));
++    sableRail.setVisibility(View.GONE);
++    container.addView(sableRail, SableAlphabetRail.frameParams(getContext()));
++    container.addOnUnhandledKeyEventListener((v, event) -> onSableKey(event));
++    updateSableAlphabetRail();
++  }
++
++  private boolean isSableRailShown() {
++    return sableRail != null && sableRail.getVisibility() == View.VISIBLE;
++  }
++
++  private void updateSableAlphabetRail() {
++    if (sableRail == null) {
++      return;
++    }
++    boolean show = adapter != null && adapter.hasContacts();
++    sableRail.setAvailable(show ? adapter.getSableIndex() : SableAlphabetIndex.empty());
++    sableRail.setVisibility(show ? View.VISIBLE : View.GONE);
++    int end = show ? sableRail.getLayoutParams().width : 0;
++    recyclerView.setPaddingRelative(
++        recyclerView.getPaddingStart(),
++        recyclerView.getPaddingTop(),
++        end,
++        recyclerView.getPaddingBottom());
++    if (show) {
++      fastScroller.setVisibility(View.GONE);
++    }
++  }
++
++  private boolean onSableKey(KeyEvent event) {
++    if (event.getAction() != KeyEvent.ACTION_DOWN || !isVisible() || adapter == null) {
++      return false;
++    }
++    int unicode = event.getUnicodeChar();
++    if ((unicode & KeyCharacterMap.COMBINING_ACCENT) != 0) {
++      return false;
++    }
++    SableListKeys.Action action =
++        SableListKeys.decide(
++            unicode,
++            event.isCtrlPressed() || event.isAltPressed() || event.isMetaPressed(),
++            event.getRepeatCount() > 0,
++            /* searchActive= */ false,
++            /* selectionActive= */ false,
++            /* canOpenSearch= */ false);
++    switch (action) {
++      case JUMP:
++        sableJump(unicode, true);
++        return true;
++      case IGNORE:
++        return true;
++      default:
++        return false;
++    }
++  }
++
++  /**
++   * Moves to the rows filed under {@code codePoint}. From the keyboard, pressing the same letter
++   * again cycles through them and focus follows; it never opens or calls the contact.
++   */
++  private void sableJump(int codePoint, boolean fromKeyboard) {
++    if (adapter == null) {
++      return;
++    }
++    SableAlphabetIndex index = adapter.getSableIndex();
++    int current = sableLastJump;
++    View focused = recyclerView.getFocusedChild();
++    if (focused != null) {
++      current = recyclerView.getChildAdapterPosition(focused);
++    }
++    int target =
++        fromKeyboard ? index.nextJump(codePoint, current) : index.firstPosition(codePoint);
++    if (target == SableAlphabetIndex.NO_POSITION) {
++      int key = SableAlphabetIndex.keyOf(codePoint);
++      String letter = new String(Character.toChars(key == 0 ? codePoint : key));
++      String message = getString(R.string.sable_alphabet_no_contacts, letter);
++      if (sableToast != null) {
++        sableToast.cancel();
++      }
++      sableToast = Toast.makeText(getContext(), message, Toast.LENGTH_SHORT);
++      sableToast.show();
++      return;
++    }
++    sableLastJump = target;
++    manager.scrollToPositionWithOffset(target, 0);
++    if (fromKeyboard) {
++      recyclerView.post(
++          () -> {
++            RecyclerView.ViewHolder holder = recyclerView.findViewHolderForAdapterPosition(target);
++            if (holder != null) {
++              View row = holder.itemView.findViewById(R.id.click_target);
++              (row != null ? row : holder.itemView).requestFocus();
++            }
++          });
++    }
+   }
+ 
+   /*
+@@ -337,6 +487,8 @@ public class ContactsFragment extends Fragment
+ 
+   private void loadContacts() {
+     LoaderManager.getInstance(this).initLoader(0, null, this);
++    LoaderManager.getInstance(this)
++        .initLoader(SABLE_NUMBERS_LOADER_ID, null, sableNumbersCallbacks);
+     recyclerView.setVisibility(View.VISIBLE);
+     emptyContentView.setVisibility(View.GONE);
+   }
+diff --git a/java/com/android/dialer/contactsfragment/SableNumbersLoader.java b/java/com/android/dialer/contactsfragment/SableNumbersLoader.java
+new file mode 100644
+index 0000000..d2b7a83
+--- /dev/null
++++ b/java/com/android/dialer/contactsfragment/SableNumbersLoader.java
+@@ -0,0 +1,139 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.dialer.contactsfragment;
++
++import android.content.Context;
++import android.content.res.Resources;
++import android.database.Cursor;
++import android.net.Uri;
++import android.provider.ContactsContract;
++import android.provider.ContactsContract.CommonDataKinds.Phone;
++
++import androidx.loader.content.AsyncTaskLoader;
++
++import com.android.dialer.common.LogUtil;
++import com.android.dialer.sable.SablePreferredNumbers;
++
++/**
++ * Sable: one read-only ContactsProvider query of Phone rows, reduced off the main thread to the
++ * bounded {@link SablePreferredNumbers} map used for the line under each contact's name.
++ * Reloads when the provider's Phone data changes. Writes nothing.
++ */
++final class SableNumbersLoader extends AsyncTaskLoader<SablePreferredNumbers> {
++
++  private static final String[] PROJECTION = {
++    Phone.CONTACT_ID, Phone.NUMBER, Phone.TYPE, Phone.LABEL, Phone.IS_SUPER_PRIMARY,
++    Phone.IS_PRIMARY,
++  };
++  private static final int CONTACT_ID = 0;
++  private static final int NUMBER = 1;
++  private static final int TYPE = 2;
++  private static final int LABEL = 3;
++  private static final int IS_SUPER_PRIMARY = 4;
++  private static final int IS_PRIMARY = 5;
++
++  private static final String SELECTION = Phone.NUMBER + " IS NOT NULL";
++  private static final String SORT_ORDER =
++      Phone.CONTACT_ID
++          + " ASC, "
++          + Phone.IS_SUPER_PRIMARY
++          + " DESC, "
++          + Phone.IS_PRIMARY
++          + " DESC, "
++          + Phone._ID
++          + " ASC";
++
++  private final ForceLoadContentObserver observer = new ForceLoadContentObserver();
++  private boolean observing;
++  private SablePreferredNumbers result;
++
++  SableNumbersLoader(Context context) {
++    super(context);
++  }
++
++  @Override
++  public SablePreferredNumbers loadInBackground() {
++    Uri uri =
++        Phone.CONTENT_URI
++            .buildUpon()
++            .appendQueryParameter(
++                ContactsContract.LIMIT_PARAM_KEY, String.valueOf(SablePreferredNumbers.MAX_ROWS))
++            .build();
++    SablePreferredNumbers.Builder builder = new SablePreferredNumbers.Builder();
++    Resources res = getContext().getResources();
++    try (Cursor cursor =
++        getContext().getContentResolver().query(uri, PROJECTION, SELECTION, null, SORT_ORDER)) {
++      if (cursor == null) {
++        return SablePreferredNumbers.empty();
++      }
++      while (!isLoadInBackgroundCanceled() && cursor.moveToNext()) {
++        CharSequence label =
++            Phone.getTypeLabel(res, cursor.getInt(TYPE), cursor.getString(LABEL));
++        if (!builder.offer(
++            cursor.getLong(CONTACT_ID),
++            cursor.getString(NUMBER),
++            label == null ? null : label.toString(),
++            cursor.getInt(IS_SUPER_PRIMARY) != 0,
++            cursor.getInt(IS_PRIMARY) != 0)) {
++          break;
++        }
++      }
++    } catch (RuntimeException e) {
++      // Missing permission or provider trouble: show names only, never fail the list.
++      LogUtil.e("SableNumbersLoader.loadInBackground", "phone query failed", e);
++      return SablePreferredNumbers.empty();
++    }
++    return builder.build();
++  }
++
++  @Override
++  public void deliverResult(SablePreferredNumbers data) {
++    result = data;
++    if (isStarted()) {
++      super.deliverResult(data);
++    }
++  }
++
++  @Override
++  protected void onStartLoading() {
++    if (!observing) {
++      getContext().getContentResolver().registerContentObserver(Phone.CONTENT_URI, true, observer);
++      observing = true;
++    }
++    if (result != null) {
++      deliverResult(result);
++    }
++    if (takeContentChanged() || result == null) {
++      forceLoad();
++    }
++  }
++
++  @Override
++  protected void onStopLoading() {
++    cancelLoad();
++  }
++
++  @Override
++  protected void onReset() {
++    onStopLoading();
++    if (observing) {
++      getContext().getContentResolver().unregisterContentObserver(observer);
++      observing = false;
++    }
++    result = null;
++  }
++}
+diff --git a/java/com/android/dialer/contactsfragment/res/layout/contact_row.xml b/java/com/android/dialer/contactsfragment/res/layout/contact_row.xml
+index 1310363..b6b06e0 100644
+--- a/java/com/android/dialer/contactsfragment/res/layout/contact_row.xml
++++ b/java/com/android/dialer/contactsfragment/res/layout/contact_row.xml
+@@ -42,17 +42,37 @@
+         android:clickable="false"
+         android:forceDarkAllowed="false" />
+ 
+-    <com.android.dialer.widget.BidiTextView
+-        android:id="@+id/contact_name"
+-        android:layout_width="wrap_content"
+-        android:layout_height="match_parent"
++    <!-- Sable: name with the contact's default number underneath. -->
++    <LinearLayout
++        android:orientation="vertical"
++        android:layout_width="0dp"
++        android:layout_height="wrap_content"
++        android:layout_weight="1"
+         android:paddingStart="@dimen/text_padding_start"
+         android:paddingEnd="@dimen/text_padding_end"
+-        android:maxLines="1"
+-        android:ellipsize="end"
+-        android:gravity="center_vertical"
+-        android:textSize="@dimen/text_size"
+-        android:textColor="?android:attr/textColorPrimary"
+-        android:fontFamily="@*android:string/config_bodyFontFamily"/>
++        android:gravity="center_vertical">
++
++      <com.android.dialer.widget.BidiTextView
++          android:id="@+id/contact_name"
++          android:layout_width="match_parent"
++          android:layout_height="wrap_content"
++          android:maxLines="1"
++          android:ellipsize="end"
++          android:textSize="@dimen/text_size"
++          android:textColor="?android:attr/textColorPrimary"
++          android:fontFamily="@*android:string/config_bodyFontFamily"/>
++
++      <TextView
++          android:id="@+id/contact_subtitle"
++          android:layout_width="match_parent"
++          android:layout_height="wrap_content"
++          android:maxLines="1"
++          android:ellipsize="end"
++          android:textAlignment="viewStart"
++          android:textSize="@dimen/sable_subtitle_text_size"
++          android:textColor="?android:attr/textColorSecondary"
++          android:fontFamily="@*android:string/config_bodyFontFamily"
++          android:visibility="gone"/>
++    </LinearLayout>
+   </LinearLayout>
+ </FrameLayout>
+\ No newline at end of file
+diff --git a/java/com/android/dialer/contactsfragment/res/values/dimens.xml b/java/com/android/dialer/contactsfragment/res/values/dimens.xml
+index f120014..4ad3394 100644
+--- a/java/com/android/dialer/contactsfragment/res/values/dimens.xml
++++ b/java/com/android/dialer/contactsfragment/res/values/dimens.xml
+@@ -25,6 +25,8 @@
+   <dimen name="text_padding_start">16dp</dimen>
+   <dimen name="text_padding_end">8dp</dimen>
+   <dimen name="text_size">16sp</dimen>
++  <!-- Sable: the number line under a contact's name. -->
++  <dimen name="sable_subtitle_text_size">13sp</dimen>
+ 
+   <dimen name="fast_scroller_touch_target_width">20dp</dimen>
+ 
+diff --git a/java/com/android/dialer/contactsfragment/res/values/sable_strings.xml b/java/com/android/dialer/contactsfragment/res/values/sable_strings.xml
+new file mode 100644
+index 0000000..af1f197
+--- /dev/null
++++ b/java/com/android/dialer/contactsfragment/res/values/sable_strings.xml
+@@ -0,0 +1,22 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++ ~ Copyright (C) 2026 The SableOS Project
++ ~
++ ~ Licensed under the Apache License, Version 2.0 (the "License");
++ ~ you may not use this file except in compliance with the License.
++ ~ You may obtain a copy of the License at
++ ~
++ ~      http://www.apache.org/licenses/LICENSE-2.0
++ ~
++ ~ Unless required by applicable law or agreed to in writing, software
++ ~ distributed under the License is distributed on an "AS IS" BASIS,
++ ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ ~ See the License for the specific language governing permissions and
++ ~ limitations under the License
++ -->
++<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
++  <!-- Accessible name of one letter on the contacts alphabet rail. [CHAR LIMIT=40] -->
++  <string name="sable_alphabet_jump_to">Jump to <xliff:g id="letter" example="A">%1$s</xliff:g></string>
++  <!-- Shown when a letter key is pressed and no contact files under it. [CHAR LIMIT=40] -->
++  <string name="sable_alphabet_no_contacts">No contacts under <xliff:g id="letter" example="Q">%1$s</xliff:g></string>
++</resources>
+diff --git a/java/com/android/dialer/main/impl/bottomnav/res/layout/bottom_nav_bar_layout.xml b/java/com/android/dialer/main/impl/bottomnav/res/layout/bottom_nav_bar_layout.xml
+index 668a655..a1b46a0 100644
+--- a/java/com/android/dialer/main/impl/bottomnav/res/layout/bottom_nav_bar_layout.xml
++++ b/java/com/android/dialer/main/impl/bottomnav/res/layout/bottom_nav_bar_layout.xml
+@@ -20,7 +20,7 @@
+     android:layout_width="match_parent"
+     android:layout_height="wrap_content"
+     android:background="@color/rounded_dialpad_bg_color"
+-    android:elevation="8dp">
++    android:elevation="0dp">
+ 
+   <include
+       android:id="@+id/speed_dial_tab"
+diff --git a/java/com/android/dialer/sable/SableAlphabetRail.java b/java/com/android/dialer/sable/SableAlphabetRail.java
+new file mode 100644
+index 0000000..ec6eb88
+--- /dev/null
++++ b/java/com/android/dialer/sable/SableAlphabetRail.java
+@@ -0,0 +1,122 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.dialer.sable;
++
++import android.content.Context;
++import android.content.res.ColorStateList;
++import android.util.TypedValue;
++import android.view.Gravity;
++import android.view.View;
++import android.view.ViewGroup;
++import android.widget.LinearLayout;
++import android.widget.TextView;
++
++/**
++ * The one A-Z rail on the right of a contact list. It reads the list's existing section index
++ * through {@link SableAlphabetIndex}: letters with no contacts are dimmed and skipped by focus,
++ * and choosing a letter asks the list to jump. It keeps no contact data.
++ */
++public final class SableAlphabetRail extends LinearLayout {
++
++  /** Width of the rail in dp. */
++  public static final int WIDTH_DP = 28;
++
++  private static final float UNAVAILABLE_ALPHA = 0.38f;
++
++  /** Called when a letter is chosen by touch, pointer, Enter or accessibility. */
++  public interface Listener {
++    void onRailLetter(int codePoint);
++  }
++
++  /** Accessible names, from the app's string resources. */
++  public interface Labels {
++    String jumpTo(String letter);
++  }
++
++  private final TextView[] letters = new TextView[SableAlphabetIndex.RAIL_LETTERS.length()];
++  private Listener listener;
++
++  public SableAlphabetRail(Context context, Labels labels) {
++    super(context);
++    setOrientation(VERTICAL);
++    setGravity(Gravity.CENTER_HORIZONTAL);
++    setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
++
++    TypedValue background = new TypedValue();
++    boolean hasBackground =
++        context
++            .getTheme()
++            .resolveAttribute(android.R.attr.selectableItemBackground, background, true);
++
++    for (int i = 0; i < letters.length; i++) {
++      final char letter = SableAlphabetIndex.RAIL_LETTERS.charAt(i);
++      TextView view = new TextView(context);
++      view.setText(String.valueOf(letter));
++      view.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
++      view.setGravity(Gravity.CENTER);
++      view.setIncludeFontPadding(false);
++      view.setContentDescription(labels.jumpTo(String.valueOf(letter)));
++      if (hasBackground && background.resourceId != 0) {
++        view.setBackgroundResource(background.resourceId);
++      }
++      view.setOnClickListener(
++          v -> {
++            if (listener != null) {
++              listener.onRailLetter(letter);
++            }
++          });
++      view.setLayoutParams(new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
++      letters[i] = view;
++      addView(view);
++    }
++    setAvailable(SableAlphabetIndex.empty());
++  }
++
++  /** Layout params for a rail at the end edge of a FrameLayout, full height. */
++  public static android.widget.FrameLayout.LayoutParams frameParams(Context context) {
++    int width =
++        (int)
++            TypedValue.applyDimension(
++                TypedValue.COMPLEX_UNIT_DIP,
++                WIDTH_DP,
++                context.getResources().getDisplayMetrics());
++    return new android.widget.FrameLayout.LayoutParams(
++        width, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.END);
++  }
++
++  public void setListener(Listener listener) {
++    this.listener = listener;
++  }
++
++  public void setLetterColor(ColorStateList color) {
++    for (TextView view : letters) {
++      view.setTextColor(color);
++    }
++  }
++
++  /** Dims and unfocuses the letters that have no rows in {@code index}. */
++  public void setAvailable(SableAlphabetIndex index) {
++    for (int i = 0; i < letters.length; i++) {
++      boolean available = index.hasLetter(SableAlphabetIndex.RAIL_LETTERS.charAt(i));
++      TextView view = letters[i];
++      view.setAlpha(available ? 1f : UNAVAILABLE_ALPHA);
++      view.setFocusable(available);
++      view.setClickable(available);
++      view.setEnabled(available);
++    }
++  }
++}
+-- 
+2.43.0
+
