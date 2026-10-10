@@ -1,5 +1,12 @@
 # Daily driver: R9 core-app presentation on LineageOS 23.2
 
+> **Update 2026-10-10:** the Sable app code from this package (the `sable-src`
+> side) now builds in GitHub Actions, with unit tests, Android Lint, detekt and
+> ktlint passing (PR #9; the fixes those gates needed are in `sable-src` patch
+> 0011). The LineageOS framework patches are still uncompiled, and nothing has
+> run on a device. Statements below about uncompiled app code describe the
+> state when the package was written.
+
 Package `daily-driver` ports SableOS R9 *daily driver core presentation*
 (`sableos/patches/android-17-grapheneos-2026081300/apply_r9_daily_driver_core_presentation.py`)
 to the LineageOS 23.2 base of the Q25. The port follows

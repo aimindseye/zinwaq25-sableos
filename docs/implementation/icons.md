@@ -1,5 +1,11 @@
 # Icons: adaptive and monochrome launcher icons from the pinned Phosphor glyphs
 
+> **Update 2026-10-10:** the app code from this package now builds in GitHub
+> Actions, with unit tests, Android Lint, detekt and ktlint passing (PR #9; the
+> fixes those gates needed are in `sable-src` patch 0011). Nothing has run on a
+> device. Statements below about uncompiled code describe the state when the
+> package was written.
+
 This gives every enabled app in `product/q25/apps.tsv` (17 apps, plus the disabled SableRadioDiag) an adaptive
 launcher icon with a monochrome layer and an adaptive round icon. All of it is generated from the app's pinned
 Phosphor glyph. The design and per-app table are in [t3.md, "Launcher icons"](t3.md#launcher-icons-adaptive--monochrome).

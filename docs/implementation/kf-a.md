@@ -1,5 +1,12 @@
 # KF-A: notification policy, attention and Hub ownership
 
+> **Update 2026-10-10:** the Sable app code from this package (the `sable-src`
+> side) now builds in GitHub Actions, with unit tests, Android Lint, detekt and
+> ktlint passing (PR #9; the fixes those gates needed are in `sable-src` patch
+> 0011). The LineageOS framework patches are still uncompiled, and nothing has
+> run on a device. Statements below about uncompiled app code describe the
+> state when the package was written.
+
 Implements DESIGN-KF-A (`platform_sable/docs/design/NOTIFICATION_POLICY_ATTENTION_HUB_OWNERSHIP.md`)
 for all Sable devices, in common Sable Hub source plus two small LineageOS framework patches.
 Device differences come only from the device profile (`ro.sable.profile.id` and the new

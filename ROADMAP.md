@@ -1,8 +1,11 @@
 # SableOS for Zinwa Q25: port roadmap
 
-Status: **Q0 repository foundation. Nothing in this repository has been built or booted on a Q25 yet.**
+Status: **Q2 (Sable apps) and Q4 (framework layer) are written; the Sable apps
+build and pass their quality gates in GitHub Actions. No LineageOS image has
+been built and nothing has run on a Q25 yet, so Q1 (control build) is next.**
+What is still open is in [`docs/SABLEOS_GAP_REVIEW.md`](docs/SABLEOS_GAP_REVIEW.md).
 
-Date: 2026-10-09
+Date: 2026-10-09, status updated 2026-10-10
 
 This roadmap says what this port reuses from existing SableOS work, what has to
 be written for the Zinwa Q25, and the order the work happens in. It is meant to
@@ -86,7 +89,7 @@ Paths starting with `platform_sable/` are in the public
 | `sableos/build/titan2/stage-n1d-c3b-e2-product-composition.sh` | Pattern | `scripts/stage-product.sh` | Stages `product/q25` into `vendor/sable/q25` and writes `vendor/extra/product.mk`. |
 | `sableos/build/deploy/artifact_registry.py` | Adapt (Q2) | `scripts/` | Its `full-device-images` artifact kind fits the Q25. Not needed until artifacts are registered. |
 | `sableos/build/deploy/flash.sh`, `target_files_plan.py` | Pattern (Q5) | n/a yet | Panther's A/B flash assumptions must not be reused for MediaTek until the Q25 flash contract is proven. |
-| `sableos/build/local-ci/run.sh` | Pattern | `tests/run.sh` | Static checks only for now. |
+| `sableos/build/local-ci/run.sh` and SableOS's earlier GitHub workflows (`b3b6587b`) | Pattern | `tests/run.sh`, `.github/workflows/` | `tests/run.sh` runs static checks and host unit tests; GitHub Actions also builds every Sable app with unit tests, Lint, detekt, ktlint and Kover, plus the Rust and security gates. |
 | `sableos/build/gates/**`, `build/titan2/**` (N1B/N1D/N1I/C3A gate scripts) | Drop | none | Titan 2 GSI/fastbootd/LP-resize specific. The *lessons* are kept in `docs/LESSONS_FROM_TITAN2.md`. |
 | `sableos/build/panther/**`, `build/macos/**` | Drop | none | Pixel-only. |
 | `sableos/tools/sablectl` (host validation CLI) | Adapt (Q3) | `tools/sablectl` | Device-agnostic parts (doctor, baseline capture, preserved-data) port; Panther target-files checks don't. |
@@ -105,7 +108,7 @@ any app; it adds a `zinwa-q25` profile where an app needs device facts.
 | Display Compat | `sableos/apps/titan2/platform/displaycompat` | Copy | `SquareSafe` profile already exists (Titan 2 is also square). Tune for 720x720 at 193 dpi. |
 | Setup (first-boot readiness) | `sableos/apps/titan2/platform/setup` | Copy | Reads `ro.sable.profile.id`; nothing Q25-specific. |
 | Radio Diag | `sableos/apps/titan2/platform/radiodiag` | Folded into Sable Tools | Validates MTK IMS/VoLTE state; MT6789 IMS comes from `hardware/mediatek` in the Lineage tree. Now Sable Tools > Diagnostics > Radio, IMS and FM status ([KF-C](docs/implementation/kf-c.md)). |
-| Calculator, Convert, Games (Sudoku, Minesweeper, 2048) | `sableos/apps/r8/android/{calculator,convert,games}` | Copy | Check 720x720 layouts. |
+| Calculator, Convert, Games (Sudoku, Minesweeper, 2048) | `sableos/apps/r8/android/{calculator,convert,games}` | Copy | Check 720x720 layouts. Convert is linted in CI but is not in `apps.tsv`, so it is not in the image. |
 | Sable Hub / Messages | `sableos/apps/r8/android/{hub,messages}` | Copy | Must keep the Hub portability contract (`platform_sable/docs/SABLE_HUB_PORTABILITY_CONTRACT.md`). |
 | Sable Media, Weather, Calendar | `sableos/apps/r8/android/{media,weather,calendar}` | Copy | Keyboard-first pass. |
 | Sable Reader v2, Text Reader | Reader v2: `titan2-temp/apps/common/reader` (P5A-P5F); Text Reader: `sableos/apps/r8/textreader` flavor | Copy | Reader v2 imported from titan2-temp; Text Reader is built as a Sable flavor (`flavor:textreader` in `apps.tsv`). |
@@ -121,7 +124,7 @@ non-privileged `android_app_import` modules signed by the build.
 
 | Source | Action | Notes |
 |---|---|---|
-| `sableos/patches/android-17-grapheneos-2026081300/apply_*.py` (branding, Launcher3 host, Settings cohesion, SystemUI, SetupWizard) | Adapt (Q4) | Written against GrapheneOS Android 17 trees. Lineage 23.2 is Android 16 with different Settings/SystemUI/Launcher3 code, so each patcher needs a Lineage target. Do branding first; Launcher3 host second. |
+| `sableos/patches/android-17-grapheneos-2026081300/apply_*.py` (branding, Launcher3 host, Settings cohesion, SystemUI, SetupWizard, Phone/Contacts, daily driver) | Adapt (Q4), done | Re-written as `git format-patch` files against LineageOS 23.2 in `patches/framework/` (Launcher3, frameworks/base, Settings, SetupWizard, Dialer, Contacts, Glimpse), applied by `scripts/apply-framework-patches.sh`. Each was checked with `git apply` against its base commit; none has been compiled in a LineageOS tree yet. List: [`patches/README.md`](patches/README.md). |
 | `sableos/patches/android-16-n1d-trebledroid/**` | Drop | TrebleDroid/GSI compatibility fixes; not needed on a real device tree. |
 | `sableos/patches/android-12.1`, `android-14.0.0_r28`, `android-16-bp4a`, `android-16-n1i-c1` | Drop | Historical Pixel/Titan baselines. |
 
@@ -129,7 +132,7 @@ non-privileged `android_app_import` modules signed by the build.
 
 | Source | Action | Q25 destination |
 |---|---|---|
-| `sableos/product/titan2/c3b/{sable_titan2.mk,sable-titan2-apps.mk,Android.bp}` | Adapt | `product/q25/{sable-q25.mk,sable-q25-apps.mk,Android.bp}` |
+| `sableos/product/titan2/c3b/{sable_titan2.mk,sable-titan2-apps.mk,Android.bp}` | Adapt | `product/q25/sable-q25.mk`; `sable-q25-apps.mk` and `Android.bp` are generated from `apps.tsv` by `stage` |
 | `sableos/product/r8/panther/permissions/*` | Reference | Only if a Sable app becomes privileged (none are in Q2). |
 | `sableos/device/sable/titan2/n0/{STOCK_BASIS,DEPLOYMENT_GATE,ARTIFACT_DECISION}.md` | Adapt | `docs/STOCK_BASIS.md`, `docs/QUALIFICATION.md` |
 | `sableos/device/sable/bramble/**` (powerd, oxynoded, sepolicy) | Drop | Pixel 4a 5G research daemons. |
@@ -162,6 +165,9 @@ non-privileged `android_app_import` modules signed by the build.
 
 ## 3. What has to be created specifically for the Q25
 
+Items 1-7 are written; item 8 is phase Q5. What each still needs (a build, the
+phone or an owner decision) is in [`docs/SABLEOS_GAP_REVIEW.md`](docs/SABLEOS_GAP_REVIEW.md).
+
 1. **Local manifest** that adds the device tree, kernel, MTK hardware, sepolicy and
    blobs at pinned commits ([`manifests/local_manifests/sable_q25.xml`](manifests/local_manifests/sable_q25.xml)).
 2. **Sable product layer for a LineageOS base** ([`product/q25`](product/q25)):
@@ -188,15 +194,15 @@ non-privileged `android_app_import` modules signed by the build.
 Each phase has an exit condition. A phase is not done because its scripts exist;
 it's done when its exit condition has evidence.
 
-| Phase | Goal | Exit condition |
-|---|---|---|
-| **Q0 Foundation** (this PR) | Repo layout, roadmap, build scripts, product layer, docs | Static checks pass (`tests/run.sh`). |
-| **Q1 Control build** | Build unmodified `lineage_Q25` with our scripts | `bash build/sable.sh q25 Q1 build` produces a LineageOS zip whose boot on a Q25 is recorded. This is the boot-qualified baseline, so later failures can be bisected (the lesson Titan 2 learned the hard way). |
-| **Q2 Sable product layer** | Add the Sable app set and props via `vendor/extra` | Image boots; every Sable app launches; `ro.sable.profile.id=zinwa-q25`; no LineageOS OTA offered. |
-| **Q3 Q25 device profile** | Keyboard, trackpad, display, camera, radio profiles | Keyboard-first gates in `docs/QUALIFICATION.md` pass on device: critical text entry, Alt layer, Call/End, trackpad navigation, camera shutter, calls/SMS/VoLTE. |
-| **Q4 Framework integration** | Retarget GrapheneOS patches to Lineage 23.2. First part written: `stage Q4` builds Sable Start as HOME, makes Sable Keyboard the only IME and applies `patches/framework` | Gates Q4-* in `docs/QUALIFICATION.md`: Sable Start as HOME with working Recents, Sable Keyboard default, one Messages entry, Sable branding in Settings/Setup, SystemUI convergence on the 720x720 display. |
-| **Q5 Security and release** | Release keys, own AVB key, OTA channel, relock study | Signed build; GSI developer keys removed; documented relock result (pass or fail); OTA from our own server. |
-| **Q6 Base evolution** | Android 17 (`lineage-24.0`, already branched for Q25) and/or AOSP/GrapheneOS-derived base | Same gates pass on the new base. |
+| Phase | Goal | Exit condition | Status (2026-10-10) |
+|---|---|---|---|
+| **Q0 Foundation** | Repo layout, roadmap, build scripts, product layer, docs | Static checks pass (`tests/run.sh`). | Done (PR #1). |
+| **Q1 Control build** | Build unmodified `lineage_Q25` with our scripts | `bash build/sable.sh q25 Q1 build` produces a LineageOS zip whose boot on a Q25 is recorded. This is the boot-qualified baseline, so later failures can be bisected (the lesson Titan 2 learned the hard way). | Next. Needs a build host and, before any flash, gate R0 (backup and stock restore). |
+| **Q2 Sable product layer** | Add the Sable app set and props via `vendor/extra` | Image boots; every Sable app launches; `ro.sable.profile.id=zinwa-q25`; no LineageOS OTA offered. | Written. All 17 apps build and pass unit tests, Lint, detekt and ktlint in GitHub Actions (PR #9). Image build and boot not run. |
+| **Q3 Q25 device profile** | Keyboard, trackpad, display, camera, radio profiles | Keyboard-first gates in `docs/QUALIFICATION.md` pass on device: critical text entry, Alt layer, Call/End, trackpad navigation, camera shutter, calls/SMS/VoLTE. | Profiles written from the device tree (`verified=false`); needs the phone. |
+| **Q4 Framework integration** | Retarget GrapheneOS patches to Lineage 23.2: `stage Q4` builds Sable Start as HOME, makes Sable Keyboard the only IME and applies `patches/framework` | Gates Q4-* in `docs/QUALIFICATION.md`: Sable Start as HOME with working Recents, Sable Keyboard default, one Messages entry, Sable branding in Settings/Setup, SystemUI convergence on the 720x720 display. | Written (PRs #6-#8): HOME/Recents, IME, KF-A..D, Battery, setup, Settings Apps, Phone/Contacts, daily driver. Patches checked with `git apply`; uncompiled in a LineageOS tree. |
+| **Q5 Security and release** | Release keys, own AVB key, OTA channel, relock study | Signed build; GSI developer keys removed; documented relock result (pass or fail); OTA from our own server. | Not started. |
+| **Q6 Base evolution** | Android 17 (`lineage-24.0`, already branched for Q25) and/or AOSP/GrapheneOS-derived base | Same gates pass on the new base. | Not started. |
 
 ### Lane G (fallback only): Treble GSI
 

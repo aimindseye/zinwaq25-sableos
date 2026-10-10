@@ -33,19 +33,22 @@ running on the phone, a few owner decisions, and known limits.
 
 ## 1. Needs a build machine
 
-Google's Maven repository is unreachable where this code was written, so no
-Android code has been built yet. Pure logic is unit-tested. The app UI code was
-type-checked against desktop Compose and Android 16 framework jars, which
-catches most errors, but it is not an Android build.
+The Sable apps are now built in GitHub Actions (PR #9): all 17 apps in
+`apps.tsv`, including the Mail and Text Reader flavors, compile, and their unit
+tests, Android Lint, detekt and ktlint pass. Sable Start's presentation sources
+compile there too. The fixes those gates needed are in `sable-src` patch 0011.
+So app code is no longer "uncompiled"; what follows needs the LineageOS tree,
+which hosted runners can't hold.
 
 | What to build | Things to watch |
 |---|---|
-| Apps (`bash build/sable.sh q25 Q2 apps --all`) | Sable Start, Hub, Media, Calendar, Weather, Tools and the design module were edited without a compiler. Run each module's unit tests too. Lint may flag `LauncherApps.getLauncherUserInfo` in Hub (guarded by an SDK check). |
-| Flavor apps (Mail, Text Reader) | First build from the pinned upstreams; needs `NETWORK_FETCH_AUTHORIZED=YES`. |
+| LineageOS control image (`bash build/sable.sh q25 Q1 build`) | First run of `bootstrap` and `build` on a real host; record the pinned manifest and artifacts (gate Q1-BUILD). |
+| `SableLauncher` (Sable Start as a Soong module) | Built only at Q4 staging, in the tree. CI compiles its presentation sources, not the Soong module. |
 | Framework patches | After `repo sync`, `bash scripts/apply-framework-patches.sh check` must say `APPLIES` for Launcher3, frameworks/base, Settings, SetupWizard, Dialer, Contacts and Glimpse. Then build SystemUI, Settings, SetupWizard, Dialer, Contacts, Glimpse, `SableLauncher` and the five overlays. Each patch's added and changed files were type-checked by hand against the Android 16 jar when it was written; a second pass over the whole Launcher3 and SystemUI trees was started and not finished. |
 | Settings Apps screens (0601-0604) | Type-checked against the Android 16 jar with stubbed androidx and SettingsLib; check resource linking, the `tests/sable-apps` host test module and the LineageOS `NetworkPolicyManager` calls. |
 | Phone and Contacts (0701-0752) | Type-checked against the Android 16 jar and the real Dialer and Contacts sources, with stubbed androidx; check resource linking and that the scroll thumb hides while the A-Z rail shows. |
 | Settings battery screens | `ViewTreeOnBackPressedDispatcherOwner.get` and the `PreferenceGroupAdapter` assumption in the battery keyboard support. |
+| Framework pure tests | `tests/framework/run-pure-tests.sh` (SetupWizard, Dialer, Contacts) needs `SABLE_KOTLINC`, `SABLE_JUNIT` and `javac`; GitHub Actions skips it. |
 | Packaging | Soong accepting Sable Tools' `overrides: ["SableRadioDiag"]` when Radio Diag isn't built. |
 
 ## 2. Needs the phone

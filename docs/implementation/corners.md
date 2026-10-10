@@ -1,5 +1,12 @@
 # Corners: Sable app corner style as a user setting
 
+> **Update 2026-10-10:** the Sable app code from this package (the `sable-src`
+> side) now builds in GitHub Actions, with unit tests, Android Lint, detekt and
+> ktlint passing (PR #9; the fixes those gates needed are in `sable-src` patch
+> 0011). The LineageOS framework patches are still uncompiled, and nothing has
+> run on a device. Statements below about uncompiled app code describe the
+> state when the package was written.
+
 Package `corners` resolves the open KF-B item "Sable app corner shapes". KF-B
 left Sable app shapes at 2-6dp while the SystemUI design
 (`SYSTEMUI_VISUAL_CONVERGENCE_CONTRACT.md`) uses 8dp controls and 12dp cards.

@@ -1,5 +1,11 @@
 # KF-C: Sable Tools product consolidation
 
+> **Update 2026-10-10:** the app code from this package now builds in GitHub
+> Actions, with unit tests, Android Lint, detekt and ktlint passing (PR #9; the
+> fixes those gates needed are in `sable-src` patch 0011). Nothing has run on a
+> device. Statements below about uncompiled code describe the state when the
+> package was written.
+
 Package: **KF-C** (DESIGN-KF-C, TOOLS-I1 to TOOLS-I4; TOOLS-I5 is device qualification and is not done).
 Branch: `q25/kf-c`.
 

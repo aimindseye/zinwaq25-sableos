@@ -1,5 +1,12 @@
 # KF-B: SystemUI visual convergence and Sable branding
 
+> **Update 2026-10-10:** the Sable app code from this package (the `sable-src`
+> side) now builds in GitHub Actions, with unit tests, Android Lint, detekt and
+> ktlint passing (PR #9; the fixes those gates needed are in `sable-src` patch
+> 0011). The LineageOS framework patches are still uncompiled, and nothing has
+> run on a device. Statements below about uncompiled app code describe the
+> state when the package was written.
+
 Package `kf-b` implements DESIGN-KF-B, *SystemUI Visual Convergence Contract*
 (`platform_sable/docs/design/SYSTEMUI_VISUAL_CONVERGENCE_CONTRACT.md`), on the
 LineageOS 23.2 (Android 16 QPR2) base. It also covers the T3 branding item

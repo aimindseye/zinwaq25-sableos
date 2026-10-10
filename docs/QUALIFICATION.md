@@ -30,7 +30,7 @@ on that phone. Procedure: [`RETURN_TO_STOCK.md`](RETURN_TO_STOCK.md).
 
 | Gate | Check | Status |
 |---|---|---|
-| Q2-BUILD | `apps`, `stage`, `build` succeed with the enabled app set | NOT_RUN |
+| Q2-BUILD | `apps`, `stage`, `build` succeed with the enabled app set | NOT_RUN (the `apps` part passes in GitHub Actions, `Sable apps` workflow, PR #9; `stage` passes as a dry run in `tests/run.sh`; `build` not run) |
 | Q2-BOOT | Boots; no boot loop; `sys.boot_completed=1` within 10 min | NOT_RUN |
 | Q2-PROPS | `ro.sable.profile.id=zinwa-q25`, `ro.sable.release=Q2` | NOT_RUN |
 | Q2-APPS | Each Sable app in `apps-manifest.tsv` installs and launches | NOT_RUN |

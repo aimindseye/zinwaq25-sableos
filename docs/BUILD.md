@@ -1,7 +1,8 @@
 # Build SableOS for the Zinwa Q25
 
-Status: **scripts written and statically checked; a full build has not been run
-yet.** Report what you see; the first successful build closes phase Q1/Q2.
+Status: **the Sable apps build and pass their quality gates in GitHub Actions
+(section 7). A LineageOS image build (Q1, Q2 or Q4) has not been run yet.**
+Report what you see; the first successful image build closes gate Q1-BUILD.
 
 ## 1. Host
 
@@ -143,18 +144,32 @@ m bacon
 
 ## 7. GitHub Actions
 
-GitHub runs the same app build and the SableOS quality gates on every pull
-request that touches them. This is the set SableOS ran in GitHub Actions before
-its CI moved to a local machine, and that `build/local-ci/run.sh` still runs there:
+GitHub runs the same app build and the SableOS quality gates on pull requests
+and on pushes to `main`. This is the set SableOS ran in GitHub Actions before
+its own CI moved to a local machine (`build/local-ci/run.sh` in sableos). All
+four workflows are green for PR #9, the change that added them.
 
 * `Sable apps` (`.github/workflows/android.yml`): `scripts/build-apps.sh --all
   --root ...` for each Gradle project (platform apps, r8 apps, Reader, Mail, Text
   Reader), with unit tests, Android Lint, detekt, ktlint, Kover, and the Mail
-  runtime-dependency check. The APKs are uploaded as artifacts for inspection
-  only. Image builds still use APKs built on the build host.
-* `Rust`: fmt, clippy, tests, `cargo audit`, `cargo deny` and line coverage.
-* `Security`: Gitleaks over the history and a MobSF source scan (findings recorded).
-* `checks`: `tests/run.sh`.
+  runtime-dependency check. Gradle verifies dependencies against the
+  committed dependency-verification metadata. The r8 job also compiles Sable Start's
+  presentation sources (`sablestart-presentation-check`); the `SableLauncher`
+  module itself is a Soong module and only builds in the LineageOS tree. The
+  APKs are uploaded as artifacts for inspection only. Image builds still use
+  APKs built on the build host. Runs when `sable-src/`, `apps.tsv`,
+  `build-apps.sh` or the workflow change.
+* `Rust` (`rust.yml`): fmt, clippy, tests, `cargo audit`, `cargo deny` and line
+  coverage for `sable-src/apps/r8/rust`. Runs when that directory changes.
+* `Security` (`security.yml`): Gitleaks over the history and a MobSF source
+  scan (findings recorded). Also runs weekly.
+* `checks` (`checks.yml`): `tests/run.sh` with shellcheck and xmllint. The
+  framework pure tests (`tests/framework/run-pure-tests.sh`) are skipped there
+  because no Kotlin compiler is installed.
+
+The detekt/ktlint fixes these gates needed in Q25-edited app code are carried
+as `patches/sable-src/0011-zinwa-q25-ci-quality-fixes.patch`, so a re-import
+keeps them.
 
 The LineageOS image itself is too large for hosted runners and stays on the
 build host.
