@@ -10,10 +10,18 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/build/lib/common.sh"
 
 ALL=NO
+ONLY_ROOT=""
 while (($#)); do
     case "$1" in
         --all) ALL=YES; shift ;;
-        -h|--help) echo "usage: scripts/build-apps.sh [--all]   (--all also builds rows with enabled=no)"; exit 0 ;;
+        --root) [[ $# -ge 2 ]] || sable_fail "--root needs a gradle_root from apps.tsv"; ONLY_ROOT="$2"; shift 2 ;;
+        -h|--help)
+            echo "usage: scripts/build-apps.sh [--all] [--root GRADLE_ROOT]"
+            echo "  --all   also build rows with enabled=no"
+            echo "  --root  build only the rows of one gradle_root (as written in apps.tsv)"
+            echo "  SABLE_EXTRA_GRADLE_TASKS adds Gradle tasks (unit tests, lint, detekt)"
+            echo "  to the selected Gradle project; use it with --root"
+            exit 0 ;;
         *) sable_fail "unknown argument $1" ;;
     esac
 done
@@ -71,6 +79,7 @@ rows=()
 while IFS=$'\t' read -r module group root task apk package signing overrides enabled; do
     [[ -z "$module" || "$module" == \#* || "$module" == module ]] && continue
     [[ "$enabled" == yes || "$ALL" == YES ]] || continue
+    [[ -z "$ONLY_ROOT" || "$root" == "$ONLY_ROOT" ]] || continue
     rows+=("$module"$'\t'"$group"$'\t'"$root"$'\t'"$apk"$'\t'"$package"$'\t'"$signing"$'\t'"$overrides")
     tasks_by_root[$root]+=" $task"
 done < "$TSV"
@@ -86,9 +95,10 @@ done
 for root in "${!tasks_by_root[@]}"; do
     dir="$(root_dir "$root")"
     [[ -x "$dir/gradlew" ]] || sable_fail "missing $dir/gradlew"
-    sable_log "gradle ($root):${tasks_by_root[$root]}"
+    tasks="${tasks_by_root[$root]} ${SABLE_EXTRA_GRADLE_TASKS:-}"
+    sable_log "gradle ($root):$tasks"
     # shellcheck disable=SC2086 # task list is intentionally word-split
-    (cd "$dir" && ./gradlew --no-daemon --console=plain ${tasks_by_root[$root]})
+    (cd "$dir" && ./gradlew --no-daemon --console=plain $tasks)
 done
 
 OUT="$SABLE_APPS_OUT/$(sable_utc_stamp)"

@@ -141,6 +141,24 @@ lunch lineage_Q25-bp4a-userdebug
 m bacon
 ```
 
+## 7. GitHub Actions
+
+GitHub runs the same app build and the SableOS quality gates on every pull
+request that touches them. This is the set SableOS ran in GitHub Actions before
+its CI moved to a local machine, and that `build/local-ci/run.sh` still runs there:
+
+* `Sable apps` (`.github/workflows/android.yml`): `scripts/build-apps.sh --all
+  --root ...` for each Gradle project (platform apps, r8 apps, Reader, Mail, Text
+  Reader), with unit tests, Android Lint, detekt, ktlint, Kover, and the Mail
+  runtime-dependency check. The APKs are uploaded as artifacts for inspection
+  only. Image builds still use APKs built on the build host.
+* `Rust`: fmt, clippy, tests, `cargo audit`, `cargo deny` and line coverage.
+* `Security`: Gitleaks over the history and a MobSF source scan (findings recorded).
+* `checks`: `tests/run.sh`.
+
+The LineageOS image itself is too large for hosted runners and stays on the
+build host.
+
 ## Troubleshooting
 
 * **`lunch` can't find the product:** check `device/xelex/Q25` synced and that
