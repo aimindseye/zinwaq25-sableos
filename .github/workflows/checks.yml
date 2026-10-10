@@ -1,9 +1,20 @@
 name: checks
 
+# Docs-only changes skip this workflow: no check here reads documentation.
 on:
   pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - 'LICENSE'
+      - 'NOTICE'
   push:
     branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - 'LICENSE'
+      - 'NOTICE'
 
 permissions:
   contents: read
