@@ -6,7 +6,9 @@
   launcher entry (T3), 0003 system tokens (KF-B), 0004 All Apps privacy and
   responsive polish (KF-D), 0005 Hub notification policy (KF-A), 0006 Sable
   Tools (KF-C), 0007 fixes found while integrating them, 0008 adaptive
-  Phosphor launcher icons, 0009 the App display corner style. Applied in order to a
+  Phosphor launcher icons, 0009 the App display corner style, 0010 R9 daily-driver core apps in
+  Sable Start (Photos, Camera, Files, Clock tiles; Camera prefers Sable Camera).
+  Applied in order to a
   fresh import they reproduce `sable-src/` exactly. Regenerate a patch with `git diff` against a
   fresh import when you change these files.
 
