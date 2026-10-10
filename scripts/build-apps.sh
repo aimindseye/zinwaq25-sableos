@@ -21,6 +21,8 @@ while (($#)); do
             echo "  --root  build only the rows of one gradle_root (as written in apps.tsv)"
             echo "  SABLE_EXTRA_GRADLE_TASKS adds Gradle tasks (unit tests, lint, detekt)"
             echo "  to the selected Gradle project; use it with --root"
+            echo "  SABLE_GRADLE_ARGS adds Gradle options, for example"
+            echo "  --write-verification-metadata sha256"
             exit 0 ;;
         *) sable_fail "unknown argument $1" ;;
     esac
@@ -98,7 +100,8 @@ for root in "${!tasks_by_root[@]}"; do
     tasks="${tasks_by_root[$root]} ${SABLE_EXTRA_GRADLE_TASKS:-}"
     sable_log "gradle ($root):$tasks"
     # shellcheck disable=SC2086 # task list is intentionally word-split
-    (cd "$dir" && ./gradlew --no-daemon --console=plain $tasks)
+    # shellcheck disable=SC2086 # SABLE_GRADLE_ARGS is intentionally word-split
+    (cd "$dir" && ./gradlew --no-daemon --console=plain ${SABLE_GRADLE_ARGS:-} $tasks)
 done
 
 OUT="$SABLE_APPS_OUT/$(sable_utc_stamp)"

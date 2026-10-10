@@ -106,7 +106,13 @@ jobs:
         env:
           NETWORK_FETCH_AUTHORIZED: 'YES'
           SABLE_EXTRA_GRADLE_TASKS: ${{ matrix.extra }}
+          # TEMPORARY: record the artifacts hosted CI resolves that the SableOS
+          # build host never did; the delta is printed below and committed.
+          SABLE_GRADLE_ARGS: --write-verification-metadata sha256
         run: bash scripts/build-apps.sh --all --root '${{ matrix.root }}'
+      - name: Verification metadata delta (temporary)
+        if: always()
+        run: git diff -- 'sable-src/**/verification-metadata.xml' || true
       - name: Mail runtime dependencies stay Sable-composed
         if: matrix.root == 'flavor:mail'
         run: |
