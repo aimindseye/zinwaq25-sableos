@@ -1,0 +1,614 @@
+From 557e694fc799a83d1a4d321764c8a410dc40669a Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 10 Oct 2026 00:44:51 +0000
+Subject: [PATCH 701/702] SableOS: pure contact-list letter and number model
+ for Phone
+
+Plain Java (no android.* types) behind the Sable Phone contacts list:
+
+* SableAlphabetIndex maps a letter to list positions inside the
+  address-book index the list already carries (section titles and
+  counts from ContactsProvider). Accents fold to their base letter,
+  sections that start with no letter are never targets, and pressing
+  the same letter again cycles through its rows and wraps.
+* SablePreferredNumbers is a bounded, read-only, in-memory map from
+  contact id to the number shown under the name: the default number
+  (IS_SUPER_PRIMARY) first, then the account primary, then the first
+  row; at most 5000 contacts from at most 20000 provider rows; blank
+  or over-long numbers skipped. Never written back or persisted.
+* SableSubtitle formats "Mobile . number" with the number in Unicode
+  left-to-right isolates.
+* SableListKeys decides what a typed character does on the list:
+  letters jump (never open, call or edit), "/" opens search where
+  there is one, held keys do nothing, modified keys and everything
+  else keep their upstream meaning, and nothing applies while search
+  or selection is active.
+
+Host tests live in the SableOS Q25 repository under
+tests/framework/packages/apps/Dialer.
+---
+ .../dialer/sable/SableAlphabetIndex.java      | 209 ++++++++++++++++++
+ .../android/dialer/sable/SableListKeys.java   |  79 +++++++
+ .../dialer/sable/SablePreferredNumbers.java   | 158 +++++++++++++
+ .../android/dialer/sable/SableSubtitle.java   | 102 +++++++++
+ 4 files changed, 548 insertions(+)
+ create mode 100644 java/com/android/dialer/sable/SableAlphabetIndex.java
+ create mode 100644 java/com/android/dialer/sable/SableListKeys.java
+ create mode 100644 java/com/android/dialer/sable/SablePreferredNumbers.java
+ create mode 100644 java/com/android/dialer/sable/SableSubtitle.java
+
+diff --git a/java/com/android/dialer/sable/SableAlphabetIndex.java b/java/com/android/dialer/sable/SableAlphabetIndex.java
+new file mode 100644
+index 0000000..3c5c1a5
+--- /dev/null
++++ b/java/com/android/dialer/sable/SableAlphabetIndex.java
+@@ -0,0 +1,209 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.dialer.sable;
++
++import java.text.Normalizer;
++import java.util.Locale;
++
++/**
++ * Letter navigation over the section index the list already has.
++ *
++ * <p>Sable's alphabet rail and the A-Z keys read the ContactsProvider address-book index
++ * (section titles and counts) that the upstream list carries. This class builds no index of
++ * its own and never reads contact data: it only maps a letter to list positions inside the
++ * existing sections. Pure Java so it can be tested on the host.
++ */
++public final class SableAlphabetIndex {
++
++  /** Letters shown on the rail, in order. */
++  public static final String RAIL_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
++
++  /** Returned when no position matches. */
++  public static final int NO_POSITION = -1;
++
++  private static final SableAlphabetIndex EMPTY =
++      new SableAlphabetIndex(new int[0], new int[0], new int[0]);
++
++  // Parallel arrays, one entry per section: bucket key code point, first list position, size.
++  private final int[] keys;
++  private final int[] starts;
++  private final int[] sizes;
++
++  private SableAlphabetIndex(int[] keys, int[] starts, int[] sizes) {
++    this.keys = keys;
++    this.starts = starts;
++    this.sizes = sizes;
++  }
++
++  /** An index with no sections. */
++  public static SableAlphabetIndex empty() {
++    return EMPTY;
++  }
++
++  /**
++   * From section titles and per-section counts (Contacts.EXTRA_ADDRESS_BOOK_INDEX_TITLES and
++   * _COUNTS). {@code listOffset} is the list position of the first indexed row, for example 1
++   * when an "add contact" row comes first.
++   */
++  public static SableAlphabetIndex fromCounts(String[] titles, int[] counts, int listOffset) {
++    if (titles == null || counts == null) {
++      return EMPTY;
++    }
++    int n = Math.min(titles.length, counts.length);
++    int[] keys = new int[n];
++    int[] starts = new int[n];
++    int[] sizes = new int[n];
++    int position = Math.max(0, listOffset);
++    for (int i = 0; i < n; i++) {
++      int count = Math.max(0, counts[i]);
++      keys[i] = bucketKey(titles[i]);
++      starts[i] = position;
++      sizes[i] = count;
++      position += count;
++    }
++    return new SableAlphabetIndex(keys, starts, sizes);
++  }
++
++  /**
++   * From section titles and each section's first position relative to the indexed partition
++   * (a SectionIndexer), plus the number of rows in that partition.
++   */
++  public static SableAlphabetIndex fromPositions(
++      Object[] titles, int[] positions, int total, int listOffset) {
++    if (titles == null || positions == null) {
++      return EMPTY;
++    }
++    int n = Math.min(titles.length, positions.length);
++    int[] keys = new int[n];
++    int[] starts = new int[n];
++    int[] sizes = new int[n];
++    int offset = Math.max(0, listOffset);
++    for (int i = 0; i < n; i++) {
++      int start = Math.max(0, positions[i]);
++      int end = i + 1 < n ? positions[i + 1] : total;
++      keys[i] = bucketKey(titles[i] == null ? null : String.valueOf(titles[i]));
++      starts[i] = offset + start;
++      sizes[i] = Math.max(0, end - start);
++    }
++    return new SableAlphabetIndex(keys, starts, sizes);
++  }
++
++  /**
++   * The letter a section title files under: its first letter, upper-cased, without accents
++   * ("é" files under "E"). Titles that do not start with a letter (favorites star, "#", digits,
++   * the blank "…" section) return 0 and are never jump targets.
++   */
++  public static int bucketKey(String title) {
++    if (title == null) {
++      return 0;
++    }
++    String trimmed = title.trim();
++    if (trimmed.isEmpty()) {
++      return 0;
++    }
++    int first = trimmed.codePointAt(0);
++    if (!Character.isLetter(first)) {
++      return 0;
++    }
++    String base = Normalizer.normalize(new String(Character.toChars(first)), Normalizer.Form.NFD);
++    int letter = base.codePointAt(0);
++    if (!Character.isLetter(letter)) {
++      letter = first;
++    }
++    return new String(Character.toChars(letter)).toUpperCase(Locale.ROOT).codePointAt(0);
++  }
++
++  /** Normalizes a typed character the same way as section titles; 0 if it is not a letter. */
++  public static int keyOf(int codePoint) {
++    if (!Character.isValidCodePoint(codePoint) || !Character.isLetter(codePoint)) {
++      return 0;
++    }
++    return bucketKey(new String(Character.toChars(codePoint)));
++  }
++
++  /** Number of sections. */
++  public int sectionCount() {
++    return keys.length;
++  }
++
++  /** True when at least one row files under {@code codePoint}. */
++  public boolean hasLetter(int codePoint) {
++    return firstPosition(codePoint) != NO_POSITION;
++  }
++
++  /** The first list position filed under {@code codePoint}, or {@link #NO_POSITION}. */
++  public int firstPosition(int codePoint) {
++    int key = keyOf(codePoint);
++    if (key == 0) {
++      return NO_POSITION;
++    }
++    for (int i = 0; i < keys.length; i++) {
++      if (keys[i] == key && sizes[i] > 0) {
++        return starts[i];
++      }
++    }
++    return NO_POSITION;
++  }
++
++  /** True when {@code position} lies in a section filed under {@code codePoint}. */
++  public boolean isInBucket(int codePoint, int position) {
++    int key = keyOf(codePoint);
++    if (key == 0) {
++      return false;
++    }
++    for (int i = 0; i < keys.length; i++) {
++      if (keys[i] == key && position >= starts[i] && position < starts[i] + sizes[i]) {
++        return true;
++      }
++    }
++    return false;
++  }
++
++  /**
++   * Where pressing {@code codePoint} moves focus. From outside the letter's rows it goes to the
++   * first row; from a row under that letter it goes to the next one, wrapping to the first, so
++   * pressing the same letter again cycles through the bucket. {@link #NO_POSITION} when nothing
++   * files under the letter (focus must then stay where it is).
++   */
++  public int nextJump(int codePoint, int currentPosition) {
++    int key = keyOf(codePoint);
++    if (key == 0) {
++      return NO_POSITION;
++    }
++    int first = NO_POSITION;
++    boolean inBucket = false;
++    for (int i = 0; i < keys.length; i++) {
++      if (keys[i] != key || sizes[i] <= 0) {
++        continue;
++      }
++      if (first == NO_POSITION) {
++        first = starts[i];
++      }
++      int end = starts[i] + sizes[i];
++      if (currentPosition >= starts[i] && currentPosition < end) {
++        inBucket = true;
++        if (currentPosition + 1 < end) {
++          return currentPosition + 1;
++        }
++      } else if (inBucket && starts[i] > currentPosition) {
++        // The letter continues in a later section (for example "A" then "Ä" in some locales).
++        return starts[i];
++      }
++    }
++    return first;
++  }
++}
+diff --git a/java/com/android/dialer/sable/SableListKeys.java b/java/com/android/dialer/sable/SableListKeys.java
+new file mode 100644
+index 0000000..da1ab08
+--- /dev/null
++++ b/java/com/android/dialer/sable/SableListKeys.java
+@@ -0,0 +1,79 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.dialer.sable;
++
++/**
++ * What a typed character does on a contact list (CONTACTS_PEOPLE_UX "Physical keyboard alphabet
++ * shortcuts"). Pure Java.
++ *
++ * <ul>
++ *   <li>A letter, with search inactive and no Ctrl/Alt/Meta held, jumps focus to the letter's
++ *       rows (repeating cycles). It never calls, messages, opens or edits anyone.
++ *   <li>"/" opens search with an empty query, when the surface has a search to open.
++ *   <li>Everything else keeps the upstream meaning (in Contacts: start a search with that
++ *       character, so digits still search numbers).
++ *   <li>While search or selection is active nothing here applies: the text field owns letters.
++ * </ul>
++ */
++public final class SableListKeys {
++
++  /** The decision for one key press. */
++  public enum Action {
++    /** Move focus to the letter's rows. */
++    JUMP,
++    /** Open search with an empty query. */
++    OPEN_SEARCH,
++    /** Consume the key and do nothing (a held letter or "/"). */
++    IGNORE,
++    /** Not ours: leave the key to the upstream handling. */
++    UPSTREAM
++  }
++
++  private SableListKeys() {}
++
++  /**
++   * @param codePoint the character the key produces (KeyEvent.getUnicodeChar), 0 if none
++   * @param commandModifier Ctrl, Alt or Meta is held (Alt/Sym/Fn characters are for text fields)
++   * @param repeat the key is auto-repeating (held down)
++   * @param searchActive search is open, so letters are query text
++   * @param selectionActive multi-select mode is active
++   * @param canOpenSearch the surface can open its search from here
++   */
++  public static Action decide(
++      int codePoint,
++      boolean commandModifier,
++      boolean repeat,
++      boolean searchActive,
++      boolean selectionActive,
++      boolean canOpenSearch) {
++    if (searchActive || selectionActive || commandModifier || codePoint <= 0) {
++      return Action.UPSTREAM;
++    }
++    if (codePoint == '/') {
++      if (!canOpenSearch) {
++        return Action.UPSTREAM;
++      }
++      return repeat ? Action.IGNORE : Action.OPEN_SEARCH;
++    }
++    if (Character.isValidCodePoint(codePoint) && Character.isLetter(codePoint)) {
++      // A held letter must not race through the list or fall through to type-to-search;
++      // one press is one step.
++      return repeat ? Action.IGNORE : Action.JUMP;
++    }
++    return Action.UPSTREAM;
++  }
++}
+diff --git a/java/com/android/dialer/sable/SablePreferredNumbers.java b/java/com/android/dialer/sable/SablePreferredNumbers.java
+new file mode 100644
+index 0000000..2877147
+--- /dev/null
++++ b/java/com/android/dialer/sable/SablePreferredNumbers.java
+@@ -0,0 +1,158 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.dialer.sable;
++
++import java.util.Collections;
++import java.util.HashMap;
++import java.util.Map;
++
++/**
++ * Bounded, read-only, in-memory map from contact id to the number shown under the contact's
++ * name in the list.
++ *
++ * <p>ContactsProvider stays the owner of contact data. The map is filled from one read-only
++ * query of the provider's Phone rows each time the list loads, is never written back, never
++ * persisted and only feeds the list subtitle. It is not an index: section headers, the rail and
++ * search keep using the provider's own results. Pure Java so it can be tested on the host.
++ */
++public final class SablePreferredNumbers {
++
++  /** Most contacts kept; rows for further contacts are ignored. */
++  public static final int MAX_CONTACTS = 5000;
++
++  /** Most provider rows read, passed to the query as its limit. */
++  public static final int MAX_ROWS = 20000;
++
++  /** Longest number kept, in characters; longer values are not shown. */
++  public static final int MAX_NUMBER_LENGTH = 64;
++
++  private static final SablePreferredNumbers EMPTY =
++      new SablePreferredNumbers(Collections.<Long, Entry>emptyMap(), false);
++
++  /** The chosen number for one contact, with its type label (may be empty). */
++  public static final class Entry {
++    public final String number;
++    public final String label;
++    final int rank;
++
++    Entry(String number, String label, int rank) {
++      this.number = number;
++      this.label = label;
++      this.rank = rank;
++    }
++  }
++
++  private final Map<Long, Entry> entries;
++  private final boolean truncated;
++
++  private SablePreferredNumbers(Map<Long, Entry> entries, boolean truncated) {
++    this.entries = entries;
++    this.truncated = truncated;
++  }
++
++  /** A map with no numbers. */
++  public static SablePreferredNumbers empty() {
++    return EMPTY;
++  }
++
++  /** The number to show for {@code contactId}, or null. */
++  public Entry get(long contactId) {
++    return entries.get(contactId);
++  }
++
++  /** The number text to show for {@code contactId}, or null. */
++  public String numberFor(long contactId) {
++    Entry entry = entries.get(contactId);
++    return entry == null ? null : entry.number;
++  }
++
++  /** Number of contacts with a number. */
++  public int size() {
++    return entries.size();
++  }
++
++  /** True when the row or contact bound was reached, so some contacts show no subtitle. */
++  public boolean isTruncated() {
++    return truncated;
++  }
++
++  /**
++   * Rank of a Phone row: the default number (IS_SUPER_PRIMARY) first, then the account's
++   * primary number (IS_PRIMARY), then any other.
++   */
++  static int rank(boolean superPrimary, boolean primary) {
++    return superPrimary ? 2 : primary ? 1 : 0;
++  }
++
++  /** Collects provider rows into a bounded map. Not thread-safe; use on one thread. */
++  public static final class Builder {
++    private final int maxContacts;
++    private final int maxRows;
++    private final HashMap<Long, Entry> entries = new HashMap<>();
++    private int rows;
++    private boolean truncated;
++
++    public Builder() {
++      this(MAX_CONTACTS, MAX_ROWS);
++    }
++
++    public Builder(int maxContacts, int maxRows) {
++      this.maxContacts = Math.max(0, maxContacts);
++      this.maxRows = Math.max(0, maxRows);
++    }
++
++    /**
++     * Offers one Phone row. For each contact the highest-ranked row wins; among rows of equal
++     * rank the first one offered wins, so rows sorted by the provider's _ID give a stable
++     * choice. Blank or over-long numbers are skipped. Returns false once the row bound is
++     * reached and the caller should stop reading.
++     */
++    public boolean offer(
++        long contactId, String number, String label, boolean superPrimary, boolean primary) {
++      if (rows >= maxRows) {
++        truncated = true;
++        return false;
++      }
++      rows++;
++      String clean = SableSubtitle.cleanNumber(number);
++      if (clean == null || clean.length() > MAX_NUMBER_LENGTH) {
++        return true;
++      }
++      int rank = rank(superPrimary, primary);
++      Entry existing = entries.get(contactId);
++      if (existing == null) {
++        if (entries.size() >= maxContacts) {
++          truncated = true;
++          return true;
++        }
++        entries.put(contactId, new Entry(clean, SableSubtitle.cleanLabel(label), rank));
++      } else if (rank > existing.rank) {
++        entries.put(contactId, new Entry(clean, SableSubtitle.cleanLabel(label), rank));
++      }
++      return true;
++    }
++
++    /** An immutable snapshot of what was collected. */
++    public SablePreferredNumbers build() {
++      if (entries.isEmpty() && !truncated) {
++        return EMPTY;
++      }
++      return new SablePreferredNumbers(
++          Collections.unmodifiableMap(new HashMap<>(entries)), truncated);
++    }
++  }
++}
+diff --git a/java/com/android/dialer/sable/SableSubtitle.java b/java/com/android/dialer/sable/SableSubtitle.java
+new file mode 100644
+index 0000000..4808c93
+--- /dev/null
++++ b/java/com/android/dialer/sable/SableSubtitle.java
+@@ -0,0 +1,102 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.dialer.sable;
++
++/**
++ * Text of the line under a contact's name: "Mobile · +1 555 0101". Pure Java.
++ *
++ * <p>The number is wrapped in Unicode left-to-right isolates so it reads correctly next to a
++ * right-to-left label, and is shown as the provider stored it (no reformatting, no lookups).
++ */
++public final class SableSubtitle {
++
++  /** Separator between the type label and the number. */
++  public static final String SEPARATOR = " · ";
++
++  /** Longest label kept, in characters; longer custom labels are cut with an ellipsis. */
++  public static final int MAX_LABEL_LENGTH = 24;
++
++  private static final char LRI = '⁦';
++  private static final char PDI = '⁩';
++
++  private SableSubtitle() {}
++
++  /** Trims and collapses whitespace; null when nothing visible is left. */
++  public static String cleanNumber(String number) {
++    String collapsed = collapse(number);
++    if (collapsed == null) {
++      return null;
++    }
++    for (int i = 0; i < collapsed.length(); i++) {
++      if (Character.isLetterOrDigit(collapsed.charAt(i))) {
++        return collapsed;
++      }
++    }
++    return null;
++  }
++
++  /** Trims, collapses and bounds a type label; empty when there is none. */
++  public static String cleanLabel(String label) {
++    String collapsed = collapse(label);
++    if (collapsed == null) {
++      return "";
++    }
++    if (collapsed.length() > MAX_LABEL_LENGTH) {
++      int end = MAX_LABEL_LENGTH - 1;
++      if (Character.isHighSurrogate(collapsed.charAt(end - 1))) {
++        end--;
++      }
++      return collapsed.substring(0, end).trim() + "…";
++    }
++    return collapsed;
++  }
++
++  /**
++   * The subtitle for a label and number, or null when there is no number (the row then shows
++   * the name only).
++   */
++  public static String format(String label, String number) {
++    String cleanNumber = cleanNumber(number);
++    if (cleanNumber == null) {
++      return null;
++    }
++    String isolated = LRI + cleanNumber + PDI;
++    String cleanLabel = cleanLabel(label);
++    return cleanLabel.isEmpty() ? isolated : cleanLabel + SEPARATOR + isolated;
++  }
++
++  private static String collapse(String text) {
++    if (text == null) {
++      return null;
++    }
++    StringBuilder out = new StringBuilder(text.length());
++    boolean space = false;
++    for (int i = 0; i < text.length(); i++) {
++      char c = text.charAt(i);
++      if (Character.isWhitespace(c) || Character.isSpaceChar(c) || Character.isISOControl(c)) {
++        space = out.length() > 0;
++      } else {
++        if (space) {
++          out.append(' ');
++          space = false;
++        }
++        out.append(c);
++      }
++    }
++    return out.length() == 0 ? null : out.toString();
++  }
++}
+-- 
+2.43.0
+
