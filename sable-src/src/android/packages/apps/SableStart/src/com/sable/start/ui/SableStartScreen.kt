@@ -94,6 +94,7 @@ import org.sableos.start.live.LiveAvailability
 import org.sableos.start.live.LiveDatum
 import org.sableos.start.live.LiveSurfaceSnapshot
 import org.sableos.start.model.AppEntry
+import org.sableos.start.model.CoreAppIdentity
 import org.sableos.start.model.inLauncherUser
 import org.sableos.start.model.stableKey
 import org.sableos.start.platform.LiveSurfaceRepository
@@ -877,8 +878,8 @@ private fun approvedCompactDetail(
     app: AppEntry,
     detail: String,
 ): String =
-    when (app.component.packageName) {
-        "com.android.gallery3d" ->
+    when (CoreAppIdentity.canonicalPackage(app.component.packageName)) {
+        CoreAppIdentity.PHOTOS ->
             detail.replace(" photos", " local")
         else -> detail
     }
@@ -2157,7 +2158,7 @@ private fun findLiveApp(
     apps: List<AppEntry>,
     packageName: String,
 ): AppEntry? =
-    apps.firstOrNull { it.component.packageName == packageName }
+    apps.firstOrNull { CoreAppIdentity.canonicalPackage(it.component.packageName) == packageName }
         ?: when (packageName) {
             "org.sableos.weather" ->
                 apps.firstOrNull { it.label.equals("Sable Weather", ignoreCase = true) }
@@ -2500,7 +2501,7 @@ private fun resolveStartApps(
     PREFERRED_START_APP_GROUPS.forEach { group ->
         val selectedApp =
             apps.firstOrNull { app ->
-                app.component.packageName in group.packageNames
+                CoreAppIdentity.canonicalPackage(app.component.packageName) in group.packageNames
             } ?: apps.firstOrNull { app ->
                 group.labels.any { preferred ->
                     app.label.equals(preferred, ignoreCase = true)
@@ -2536,7 +2537,7 @@ private fun startTileComparator(): Comparator<AppEntry> =
 private fun preferredStartRank(app: AppEntry): Int {
     val index =
         PREFERRED_START_APP_GROUPS.indexOfFirst { group ->
-            app.component.packageName in group.packageNames ||
+            CoreAppIdentity.canonicalPackage(app.component.packageName) in group.packageNames ||
                 group.labels.any { preferred ->
                     app.label.equals(preferred, ignoreCase = true)
                 }
@@ -2568,9 +2569,9 @@ private fun appColor(app: AppEntry): Color =
             app.label.equals("Sable Weather", ignoreCase = true) -> SableBlue
         app.component.packageName == "org.sableos.media" ||
             app.label.equals("Sable Media", ignoreCase = true) -> SablePurple
-        app.component.packageName == "com.android.gallery3d" ||
+        CoreAppIdentity.isRole(app.component.packageName, CoreAppIdentity.PHOTOS) ||
             app.label.equals("Photos", ignoreCase = true) -> SablePurple
-        app.component.packageName == "app.grapheneos.camera" ||
+        CoreAppIdentity.isRole(app.component.packageName, CoreAppIdentity.CAMERA) ||
             app.label.equals("Camera", ignoreCase = true) -> SableSlate
         app.component.packageName == "org.sableos.calculator" ||
             app.label.equals("Sable Calculator", ignoreCase = true) -> SableBlue
@@ -2604,7 +2605,7 @@ private fun liveDatumForApp(
             app.label.equals("Sable Weather", ignoreCase = true) -> snapshot.weather
         app.component.packageName == "org.sableos.media" ||
             app.label.equals("Sable Media", ignoreCase = true) -> snapshot.music
-        app.component.packageName == "com.android.gallery3d" ||
+        CoreAppIdentity.isRole(app.component.packageName, CoreAppIdentity.PHOTOS) ||
             app.label.equals("Photos", ignoreCase = true) -> snapshot.photos
         else -> null
     }

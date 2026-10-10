@@ -149,7 +149,7 @@ if out="$(stagerun Q4 --apps-dir "$tmp/apps/run")"; then
     grep -q 'name: "sable_design_shared_srcs"' "$v/src/sabledesign/Android.bp" || ok=no
     grep -q 'overrides: \["LatinIME"\]' "$v/Android.bp" || ok=no
     grep -q 'home=sable' "$proj/config.txt" || ok=no
-    for o in SableFrameworkOverlay SableSystemUIOverlay SableSetupWizardOverlay; do
+    for o in SableFrameworkOverlay SableSystemUIOverlay SableSetupWizardOverlay SableGlimpseOverlay SableGallery2Overlay; do
         grep -q "$o" "$v/sable-q25-framework.mk" || ok=no
         grep -q "name: \"$o\"" "$v/overlay/Android.bp" || ok=no
     done
@@ -180,6 +180,13 @@ if python3 tests/check-sable-design.py >"$tmp/design" 2>&1; then
     pass "Sable design tokens, overlays and branding ($(grep -c '^PASS' "$tmp/design") checks)"
 else
     fail "Sable design check: $(grep '^FAIL' "$tmp/design" | head -5)"
+fi
+
+# 6d2. R9 daily-driver presentation overlays, Glimpse patch and Sable Start roles (static).
+if python3 tests/check-daily-driver.py >"$tmp/daily" 2>&1; then
+    pass "daily-driver overlays and patch ($(grep -c '^PASS' "$tmp/daily") checks)"
+else
+    fail "daily-driver check: $(grep '^FAIL' "$tmp/daily" | head -5)"
 fi
 
 # 6e. Pure Settings classes from the framework patches, compiled on the host.

@@ -32,10 +32,12 @@
 | `framework/frameworks/base/0301-SableOS-keyboard-notification-commands-in-the-shade.patch` | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` | KF-A: contextual single-key commands on a focused notification row (Space, R, D, Z, M, C, H); text input always wins. New router, command glue and a router unit test; three small hooks in `ExpandableNotificationRow`. |
 | `framework/packages/apps/SetupWizard/0401-SableOS-keyboard-first-focus-in-setup-steps.patch` | `715b772f07c52ce0fdb83b9891765f3de992ffb5` | IR-014: on a hardware keyboard the first key with nothing focused lands on the step's first text field, else Start/Next; MoveHome/MoveEnd jump to the first/last control; a held Enter/Space/Tab does not repeat; Enter in the last text field runs the primary action. Every other key keeps its platform meaning, and failures fall back to it. Pure policy: `sable/SableKeyPolicy.java`. |
 | `framework/packages/apps/SetupWizard/0402-SableOS-Sable-Keyboard-readiness-step-before-Wi-Fi-a.patch` | `715b772f07c52ce0fdb83b9891765f3de992ffb5` | IR-014: a Keyboard step after Locale (owner script) that reports whether Sable Keyboard is installed, enabled and selected and offers one system screen to fix it, before Wi-Fi passwords and the screen-lock PIN. Read-only; Next is always enabled. Pure state: `sable/SableKeyboardState.java`. |
+| `framework/packages/apps/Glimpse/0801-SableOS-Sable-keyboard-focus-ring-on-gallery-thumbna.patch` | `c7b5e8cfbb4e941473f3179322ec8513d83b4ca9` | R9 daily driver: photo thumbnails and album tiles draw the Sable focus ring (2dp `colorPrimary` outline, 2dp gap, no fill) instead of the platform's grey focus highlight, and are explicitly focusable. Resources only; touch, selection and media access unchanged. The rest of the R9 daily-driver port is overlays (`SableGlimpseOverlay`, `SableGallery2Overlay`) and Sable Start ([daily-driver](../docs/implementation/daily-driver.md)). |
 
 Patch ranges: 0001-0099 HOME/Recents, 0100-0199 KF-B (SystemUI styling and
 branding), 0200-0299 Battery, 0300-0399 KF-A (notification policy, attention,
-Hub), 0400-0499 setup wizard (IR-014). Each patch was checked against its base
+Hub), 0400-0499 setup wizard (IR-014), 0800-0899 R9 daily-driver core
+apps (Clock, Files, Photos, Camera, Browser presentation). Each patch was checked against its base
 commit; patches of one project are applied in name order and may build on each
 other (`apply-framework-patches.sh check` tries them in sequence). No LineageOS
 build ran here. `tests/framework/run-pure-tests.sh` unit-tests the pure classes

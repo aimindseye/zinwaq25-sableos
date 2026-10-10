@@ -128,7 +128,8 @@ if [[ "$FRAMEWORK" == YES ]]; then
     cp -a "$SABLE_REPO_ROOT/sable-src/src/android/shared/sabledesign" "$VENDOR_SABLE/src/sabledesign"
     # DESIGN-KF-B SystemUI visual convergence and Sable branding: static
     # resource overlays for the framework, SystemUI and the LineageOS
-    # SetupWizard (product/common/overlay, with its own Android.bp).
+    # SetupWizard (product/common/overlay, with its own Android.bp). The R9
+    # daily-driver overlays (Glimpse label, Gallery2 colors) live there too.
     cp -a "$SABLE_REPO_ROOT/product/common/overlay" "$VENDOR_SABLE/overlay"
     # Battery health/charging capability profile read by the Settings battery
     # patches (BH1-BH5); every Q25 fact is UNKNOWN until device evidence.
@@ -139,7 +140,9 @@ PRODUCT_PACKAGES += \
     SableLauncher \
     SableFrameworkOverlay \
     SableSystemUIOverlay \
-    SableSetupWizardOverlay
+    SableSetupWizardOverlay \
+    SableGlimpseOverlay \
+    SableGallery2Overlay
 PRODUCT_SYSTEM_EXT_PROPERTIES += \
     ro.sable.home=org.sableos.launcher
 PRODUCT_COPY_FILES += \

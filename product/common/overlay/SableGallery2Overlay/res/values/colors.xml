@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Values mirror SableSystemTokens.kt (tests/check-daily-driver.py).
+     accent follows the system accent palette, which Settings seeds from the
+     Sable accent (Settings patch 0101), so a user accent change reaches it;
+     it replaces Holo blue #33b5e5 as SableOS R9 did. -->
+<resources>
+    <!-- Sable dark surface.overlay (was #333333). -->
+    <color name="primary">#FF161C24</color>
+    <!-- Sable dark surface.base (was #000000). -->
+    <color name="primaryDark">#FF05070A</color>
+    <color name="accent">@android:color/system_accent1_400</color>
+</resources>
