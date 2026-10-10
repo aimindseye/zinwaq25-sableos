@@ -12,6 +12,10 @@
 #
 # The Android.bp and sable-q25-apps.mk are generated from the APK manifest that
 # scripts/build-apps.sh wrote, so they name only APKs that were really built.
+#
+# SABLE_Q25_CAMERA_50MP=YES (default NO, build/config/q25.env) also stages the
+# optional 50 MP camera change (product/q25/camera-50mp, scripts/camera-50mp.py)
+# for any release with the Sable layer. Every run reverts it first.
 set -euo pipefail
 
 # shellcheck source=build/lib/common.sh
@@ -36,6 +40,11 @@ VENDOR_SABLE="$SABLE_ANDROID_ROOT/vendor/sable/q25"
 FRAMEWORK=NO
 sable_release_has_framework_layer "$RELEASE" && FRAMEWORK=YES
 EXTRA="$SABLE_ANDROID_ROOT/vendor/extra/product.mk"
+CAMERA_50MP="${SABLE_Q25_CAMERA_50MP:-NO}"
+[[ "$CAMERA_50MP" == YES || "$CAMERA_50MP" == NO ]] || sable_fail "SABLE_Q25_CAMERA_50MP must be YES or NO"
+
+# Undo the optional 50 MP change from an earlier stage; re-applied below when on.
+python3 -I "$SABLE_REPO_ROOT/scripts/camera-50mp.py" revert --android-root "$SABLE_ANDROID_ROOT" >/dev/null
 
 if ! sable_release_has_sable_layer "$RELEASE"; then
     # Only remove what this script created.
@@ -159,6 +168,14 @@ else
     bash "$SABLE_REPO_ROOT/scripts/apply-framework-patches.sh" revert >/dev/null
 fi
 
+# Optional 50 MP camera: the remosaic library source next to the product layer,
+# then the kernel patch and checked vendor byte edits in the tree.
+if [[ "$CAMERA_50MP" == YES ]]; then
+    mkdir -p "$VENDOR_SABLE/camera-50mp"
+    cp "$SABLE_REPO_ROOT"/product/q25/camera-50mp/{Android.bp,LICENSE,remosaic_shim_v4_rc1.c} "$VENDOR_SABLE/camera-50mp/"
+    python3 -I "$SABLE_REPO_ROOT/scripts/camera-50mp.py" apply --android-root "$SABLE_ANDROID_ROOT" >&2
+fi
+
 if (( count == 0 )) && [[ "$ALLOW_NO_APPS" != YES ]]; then
     sable_fail "no Sable APKs at $APPS_DIR (run 'apps' first, or pass --allow-no-apps for a props-only layer)"
 fi
@@ -168,3 +185,4 @@ echo "SABLE_LAYER=STAGED"
 echo "VENDOR_SABLE=$VENDOR_SABLE"
 echo "APP_COUNT=$count"
 echo "FRAMEWORK_LAYER=$FRAMEWORK"
+echo "CAMERA_50MP=$CAMERA_50MP"

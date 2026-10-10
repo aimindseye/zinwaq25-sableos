@@ -1,0 +1,146 @@
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/CapabilityInterpreter.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/CapabilityInterpreter.kt
+index b5885a9..c1f078e 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/CapabilityInterpreter.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/CapabilityInterpreter.kt
+@@ -10,7 +10,7 @@ object CapabilityInterpreter {
+         cameras: List<CameraInfo>,
+         profile: CameraDeviceProfile = CameraDeviceProfile.Unknown
+     ): CapabilityReport {
+-        val reports = cameras.map { report(it) }
++        val reports = cameras.map { report(it, profile) }
+         return CapabilityReport(
+             reports,
+             validate(cameras, profile),
+@@ -34,23 +34,20 @@ object CapabilityInterpreter {
+             ?: sizes.maxByOrNull { it.pixels }
+     }
+ 
+-    fun report(c: CameraInfo): CameraReport {
++    fun report(
++        c: CameraInfo,
++        profile: CameraDeviceProfile = CameraDeviceProfile.Unknown
++    ): CameraReport {
+         // Titan 2 evidence: 8192x6144 sits in the ORDINARY JPEG map (not the high-res or
+         // maximum-resolution maps), so "normal" must be defined against the sensor: JPEG sizes
+-        // with more pixels than the active array are vendor high-res.
++        // with more pixels than the active array are vendor high-res. Sizes the profile marks as
++        // slow remosaic output are high-res whatever the active array says.
+         val limit = c.activeArray?.pixels
+-        val normal = if (limit != null) {
+-            c.jpegSizes.filter { it.pixels <= limit }.ifEmpty { c.jpegSizes }
+-        } else {
+-            c.jpegSizes
+-        }
++        fun isHigh(s: Size) = s in profile.remosaicJpegSizes || (limit != null && s.pixels > limit)
++        val normal = c.jpegSizes.filterNot { isHigh(it) }.ifEmpty { c.jpegSizes }
+         val bestJpeg = conventional(normal, c.activeArray)
+             ?: Size(FALLBACK_JPEG_W, FALLBACK_JPEG_H)
+-        val aboveActive = if (limit != null) {
+-            c.jpegSizes.filter { it.pixels > limit }
+-        } else {
+-            emptyList()
+-        }
++        val aboveActive = c.jpegSizes.filter { isHigh(it) }
+         val bestHigh = (aboveActive + c.jpegHighResSizes + c.jpegMaxResSizes).maxByOrNull {
+             it.pixels
+         }?.takeIf {
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/DeviceProfile.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/DeviceProfile.kt
+index d76238b..3648246 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/DeviceProfile.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/DeviceProfile.kt
+@@ -15,7 +15,12 @@ data class CameraDeviceProfile(
+     val expectedPublicIds: Map<String, Facing> = emptyMap(),
+     val expectedHighResJpeg: Map<String, Size> = emptyMap(),
+     val expectedRaw: Map<String, Size> = emptyMap(),
+-    val keyOverrides: Map<Binding, CameraAction> = emptyMap()
++    val keyOverrides: Map<Binding, CameraAction> = emptyMap(),
++    /**
++     * JPEG sizes the HAL produces through a slow full-resolution remosaic path. They are never the
++     * Auto default, only High-res. Restricts what a reported size is used for; grants nothing.
++     */
++    val remosaicJpegSizes: Set<Size> = emptySet()
+ ) {
+     companion object {
+         private const val HIRES_BACK_W = 8192
+@@ -45,8 +50,17 @@ data class CameraDeviceProfile(
+         val Titan2Elite = CameraDeviceProfile("titan2-elite", EvidenceLevel.None)
+         val ZinwaQ27 = CameraDeviceProfile("zinwa-q27", EvidenceLevel.None)
+ 
++        private const val Q25_REMOSAIC_W = 8160
++        private const val Q25_REMOSAIC_H = 6144
++
+         // Public spec only (50 MP rear with flash, 8 MP front); ids, sizes and keys not captured on a Q25 yet.
+-        val ZinwaQ25 = CameraDeviceProfile("zinwa-q25", EvidenceLevel.None)
++        // 8160x6144 is the full-resolution JN1 size the optional 50 MP vendor change
++        // (SABLE_Q25_CAMERA_50MP) adds to the ordinary JPEG map; each shot takes seconds.
++        val ZinwaQ25 = CameraDeviceProfile(
++            "zinwa-q25",
++            EvidenceLevel.None,
++            remosaicJpegSizes = setOf(Size(Q25_REMOSAIC_W, Q25_REMOSAIC_H))
++        )
+         val Unknown = CameraDeviceProfile("unknown", EvidenceLevel.None)
+         fun byId(id: String?) =
+             listOf(Titan2, Titan2Elite, ZinwaQ27, ZinwaQ25).firstOrNull { it.id == id } ?: Unknown
+diff --git a/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/CameraCoreTest.kt b/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/CameraCoreTest.kt
+index 98e1067..2666cdc 100644
+--- a/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/CameraCoreTest.kt
++++ b/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/CameraCoreTest.kt
+@@ -86,6 +86,58 @@ class CameraCoreTest {
+         assertEquals(Size(8192, 6144), r.bestHighRes)
+     }
+ 
++    // Q25 with the optional 50 MP vendor change: 8160x6144 joins the ordinary JPEG map. Whether
++    // the active array is the binned or the full sensor size is unknown until a Q25 reports it,
++    // so both shapes must keep Auto on the conventional size.
++    private val q25 =
++        CameraInfo(
++            "0",
++            Facing.Back,
++            activeArray = Size(8160, 6144),
++            jpegSizes = listOf(Size(8160, 6144), Size(4080, 3072), Size(1920, 1080))
++        )
++
++    @Test fun q25RemosaicSizeIsHighResNeverAuto() {
++        val r = CapabilityInterpreter.report(q25, CameraDeviceProfile.ZinwaQ25)
++        assertEquals(Size(4080, 3072), r.bestJpeg)
++        assertEquals(Size(8160, 6144), r.bestHighRes)
++        assertTrue(r.modes.getValue(CaptureMode.HighRes).ok)
++        val binned = CapabilityInterpreter.report(
++            q25.copy(activeArray = Size(4080, 3072)),
++            CameraDeviceProfile.ZinwaQ25
++        )
++        assertEquals(Size(4080, 3072), binned.bestJpeg)
++        assertEquals(Size(8160, 6144), binned.bestHighRes)
++        val noArray = CapabilityInterpreter.report(
++            q25.copy(activeArray = null),
++            CameraDeviceProfile.ZinwaQ25
++        )
++        assertEquals(Size(4080, 3072), noArray.bestJpeg)
++        assertEquals(Size(8160, 6144), noArray.bestHighRes)
++    }
++
++    @Test fun q25WithoutThe50MpChangeKeepsItsReportedSizes() {
++        val stock = q25.copy(
++            activeArray = Size(4080, 3072),
++            jpegSizes = listOf(Size(4080, 3072), Size(1920, 1080))
++        )
++        val r = CapabilityInterpreter.report(stock, CameraDeviceProfile.ZinwaQ25)
++        assertEquals(Size(4080, 3072), r.bestJpeg)
++        assertNull(r.bestHighRes)
++        assertFalse(r.modes.getValue(CaptureMode.HighRes).ok)
++    }
++
++    @Test fun otherProfilesTreatTheFullSizeAsOrdinary() {
++        // Without the Q25 profile a size inside the active array stays conventional.
++        val r = CapabilityInterpreter.report(q25)
++        assertEquals(Size(8160, 6144), r.bestJpeg)
++    }
++
++    @Test fun interpretAppliesTheProfileRules() {
++        val rep = CapabilityInterpreter.interpret(listOf(q25), CameraDeviceProfile.ZinwaQ25)
++        assertEquals(Size(4080, 3072), rep.defaultCamera()?.bestJpeg)
++    }
++
+     @Test fun rawFlagWithoutSizesIsUnavailable() {
+         assertFalse(
+             CapabilityInterpreter.report(

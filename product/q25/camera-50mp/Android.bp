@@ -1,0 +1,22 @@
+// Remosaic library for the optional Q25 50 MP camera (SABLE_Q25_CAMERA_50MP). Staged to
+// vendor/sable/q25/camera-50mp only when that option is on. scripts/camera-50mp.py apply then
+// sets `prefer: false` on the vendor prebuilt of the same name, so this source module is the one
+// installed as /vendor/lib64/libremosaic_wrapper.so.
+//
+// Source: bellhopsw/q25-50mp src/shim/remosaic_shim_v4_rc1.c, MIT (LICENSE in this directory).
+
+cc_library_shared {
+    name: "libremosaic_wrapper",
+    soc_specific: true,
+    compile_multilib: "64",
+    srcs: ["remosaic_shim_v4_rc1.c"],
+    shared_libs: ["liblog"],
+    cflags: [
+        "-O3",
+        "-Wall",
+        "-Werror",
+        "-Wno-unused-function",
+    ],
+    // As in the upstream build (q25-50mp src/shim/README.md).
+    ldflags: ["-Wl,-z,nodelete"],
+}

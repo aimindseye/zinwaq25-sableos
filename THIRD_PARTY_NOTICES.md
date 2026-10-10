@@ -16,6 +16,8 @@ are kept next to it.
 | iA Writer Duospace fonts | `.../res/font/ia_writer_duospace_*.otf` | **To verify.** Upstream publishes it under SIL OFL 1.1 (IBM Plex derivative) | https://github.com/iaolo/iA-Fonts |
 | OpenDyslexic fonts | `.../res/font/open_dyslexic_*.otf` | **To verify.** Upstream publishes it under SIL OFL 1.1 | https://opendyslexic.org |
 | "Monospace" fonts | `.../res/font/monospace_*.ttf` | **To verify.** Name table credits George Williams (FontForge); likely GNU FreeFont, GPL-3.0+ with font exception | unknown |
+| Q25 50 MP remosaic library (`remosaic_shim_v4_rc1.c`) and the byte-edit table in `scripts/camera-50mp.py` | `product/q25/camera-50mp/`, `scripts/camera-50mp.py` | MIT (`product/q25/camera-50mp/LICENSE`) | https://github.com/bellhopsw/q25-50mp @ `caf855d5` |
+| Q25 50 MP kernel change (s5kjn1 sensor driver) | `product/q25/camera-50mp/kernel/` | GPL-2.0, like the kernel it patches | https://github.com/bellhopsw/q25-50mp @ `caf855d5` |
 
 Rows marked **To verify** were identified from the files' own metadata and
 upstream projects, not from a licence file in this repository. Add the upstream

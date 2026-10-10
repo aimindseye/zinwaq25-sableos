@@ -1,0 +1,2 @@
+# Kernel patch keeps the upstream source file's CRLF line endings byte for byte.
+product/q25/camera-50mp/kernel/*.patch -text

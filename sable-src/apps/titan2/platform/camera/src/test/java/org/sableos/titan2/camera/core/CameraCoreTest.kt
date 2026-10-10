@@ -86,6 +86,58 @@ class CameraCoreTest {
         assertEquals(Size(8192, 6144), r.bestHighRes)
     }
 
+    // Q25 with the optional 50 MP vendor change: 8160x6144 joins the ordinary JPEG map. Whether
+    // the active array is the binned or the full sensor size is unknown until a Q25 reports it,
+    // so both shapes must keep Auto on the conventional size.
+    private val q25 =
+        CameraInfo(
+            "0",
+            Facing.Back,
+            activeArray = Size(8160, 6144),
+            jpegSizes = listOf(Size(8160, 6144), Size(4080, 3072), Size(1920, 1080))
+        )
+
+    @Test fun q25RemosaicSizeIsHighResNeverAuto() {
+        val r = CapabilityInterpreter.report(q25, CameraDeviceProfile.ZinwaQ25)
+        assertEquals(Size(4080, 3072), r.bestJpeg)
+        assertEquals(Size(8160, 6144), r.bestHighRes)
+        assertTrue(r.modes.getValue(CaptureMode.HighRes).ok)
+        val binned = CapabilityInterpreter.report(
+            q25.copy(activeArray = Size(4080, 3072)),
+            CameraDeviceProfile.ZinwaQ25
+        )
+        assertEquals(Size(4080, 3072), binned.bestJpeg)
+        assertEquals(Size(8160, 6144), binned.bestHighRes)
+        val noArray = CapabilityInterpreter.report(
+            q25.copy(activeArray = null),
+            CameraDeviceProfile.ZinwaQ25
+        )
+        assertEquals(Size(4080, 3072), noArray.bestJpeg)
+        assertEquals(Size(8160, 6144), noArray.bestHighRes)
+    }
+
+    @Test fun q25WithoutThe50MpChangeKeepsItsReportedSizes() {
+        val stock = q25.copy(
+            activeArray = Size(4080, 3072),
+            jpegSizes = listOf(Size(4080, 3072), Size(1920, 1080))
+        )
+        val r = CapabilityInterpreter.report(stock, CameraDeviceProfile.ZinwaQ25)
+        assertEquals(Size(4080, 3072), r.bestJpeg)
+        assertNull(r.bestHighRes)
+        assertFalse(r.modes.getValue(CaptureMode.HighRes).ok)
+    }
+
+    @Test fun otherProfilesTreatTheFullSizeAsOrdinary() {
+        // Without the Q25 profile a size inside the active array stays conventional.
+        val r = CapabilityInterpreter.report(q25)
+        assertEquals(Size(8160, 6144), r.bestJpeg)
+    }
+
+    @Test fun interpretAppliesTheProfileRules() {
+        val rep = CapabilityInterpreter.interpret(listOf(q25), CameraDeviceProfile.ZinwaQ25)
+        assertEquals(Size(4080, 3072), rep.defaultCamera()?.bestJpeg)
+    }
+
     @Test fun rawFlagWithoutSizesIsUnavailable() {
         assertFalse(
             CapabilityInterpreter.report(
