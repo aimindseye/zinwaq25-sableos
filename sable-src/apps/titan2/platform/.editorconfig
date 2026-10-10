@@ -1,5 +1,8 @@
 root = false
 
 [*.{kt,kts}]
+# build.gradle.kts asks for the Android style (android.set(true)), which ktlint 1.x only
+# honours through .editorconfig.
+ktlint_code_style = android_studio
 # Preserve the existing Sable Compose naming convention (same rule as apps/r8/android).
 ktlint_function_naming_ignore_when_annotated_with = Composable
