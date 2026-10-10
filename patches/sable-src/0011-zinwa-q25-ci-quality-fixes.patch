@@ -860,13 +860,16 @@ index 154de26..0b05422 100644
              actions =
 diff --git a/sable-src/apps/titan2/platform/.editorconfig b/sable-src/apps/titan2/platform/.editorconfig
 new file mode 100644
-index 0000000..f07b475
+index 0000000..3c09cd8
 --- /dev/null
 +++ b/sable-src/apps/titan2/platform/.editorconfig
-@@ -0,0 +1,5 @@
+@@ -0,0 +1,8 @@
 +root = false
 +
 +[*.{kt,kts}]
++# build.gradle.kts asks for the Android style (android.set(true)), which ktlint 1.x only
++# honours through .editorconfig.
++ktlint_code_style = android_studio
 +# Preserve the existing Sable Compose naming convention (same rule as apps/r8/android).
 +ktlint_function_naming_ignore_when_annotated_with = Composable
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/AppearanceStyleStore.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/AppearanceStyleStore.kt

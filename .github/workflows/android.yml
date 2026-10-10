@@ -106,27 +106,9 @@ jobs:
         env:
           NETWORK_FETCH_AUTHORIZED: 'YES'
           SABLE_EXTRA_GRADLE_TASKS: ${{ matrix.extra }}
-          # TEMPORARY: record the artifacts hosted CI resolves that the SableOS
-          # build host never did; the delta is printed below and committed.
-          SABLE_GRADLE_ARGS: --continue --write-verification-metadata sha256
+          # Report every failing gate in one run.
+          SABLE_GRADLE_ARGS: --continue
         run: bash scripts/build-apps.sh --all --root '${{ matrix.root }}'
-      - name: Verification metadata delta (temporary)
-        if: always()
-        shell: python3 {0}
-        run: |
-          import re, subprocess
-          files = subprocess.run(["git", "diff", "--name-only", "--", "sable-src/**/verification-metadata.xml"],
-                                 capture_output=True, text=True).stdout.split()
-          def entries(text):
-              out = set()
-              for c in re.finditer(r'<component group="([^"]+)" name="([^"]+)" version="([^"]+)">(.*?)</component>', text, re.S):
-                  for a in re.finditer(r'<artifact name="([^"]+)">\s*<sha256 value="([0-9a-f]+)"', c.group(4)):
-                      out.add("%s:%s:%s:%s=%s" % (c.group(1), c.group(2), c.group(3), a.group(1), a.group(2)))
-              return out
-          for f in files:
-              old = subprocess.run(["git", "show", "HEAD:" + f], capture_output=True, text=True).stdout
-              for e in sorted(entries(open(f).read()) - entries(old)):
-                  print("VMADD", f, e)
       - name: Mail runtime dependencies stay Sable-composed
         if: matrix.root == 'flavor:mail'
         run: |
