@@ -75,6 +75,9 @@ on that phone. Procedure: [`RETURN_TO_STOCK.md`](RETURN_TO_STOCK.md).
 | Q4-BATTERY-EVIDENCE | Each key in `device-profile/battery/zinwa-q25.conf` moved from UNKNOWN only with the evidence `device-profile/BATTERY.md` asks for | NOT_RUN |
 | Q4-TOOLS | Sable Tools opens from the launcher; Radio Diag is not installed separately; on the Q25 a normal user sees no Utilities and no IR or SubScreen entries; reports start with sensitive sections unselected ([KF-C](implementation/kf-c.md)) | NOT_RUN |
 | Q4-TOOLS-I5 | Each developer-only tool run on the phone and compared with the capability status screen; proven entries moved to SUPPORTED in `ToolsDeviceProfile` with evidence | NOT_RUN |
+| Q4-SETTINGS-APPS | Settings home keeps Android's order; Apps shows "N apps · permissions, network access and defaults" and N matches All apps; each All apps row shows the KF-D privacy row and updates on return after a permission or precise-location change; TalkBack reads the spoken form ([settings-ui5](implementation/settings-ui5.md)) | NOT_RUN |
+| Q4-NETWORK-MANAGER | Settings > Apps > Network access: turning an app off blocks it on Wi-Fi, mobile data and VPN, and App info > Mobile data & Wi-Fi shows the same state; a messaging app asks first; App info per-network blocks show "(App info)"; type-ahead, Home/End, Page keys and `/` work; Sable Tools' Network Manager link opens it | NOT_RUN |
+| Q4-APP-SECURITY | App security & privacy opens from Settings > Apps, App info and Sable Tools; every fact has an evidence tag; nothing on it changes the app; a large app opens without stalling the UI | NOT_RUN |
 
 Crash rule (sableos #84): after any first-boot or launcher crash, run
 `scripts/capture-crash-evidence.sh` before clearing anything and keep its

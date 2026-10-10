@@ -18,6 +18,7 @@ Every planned SableOS feature for the Q25 is written in this repository:
   * Attention and Hub follow Android's notification policy.
   * All Apps privacy row.
   * Battery health and usage in Settings.
+  * Settings > Apps privacy rows, Network Manager and App security & privacy.
 
   The framework patches are listed in [`../patches/README.md`](../patches/README.md).
 
@@ -36,6 +37,7 @@ catches most errors, but it is not an Android build.
 | Apps (`bash build/sable.sh q25 Q2 apps --all`) | Sable Start, Hub, Media, Calendar, Weather, Tools and the design module were edited without a compiler. Run each module's unit tests too. Lint may flag `LauncherApps.getLauncherUserInfo` in Hub (guarded by an SDK check). |
 | Flavor apps (Mail, Text Reader) | First build from the pinned upstreams; needs `NETWORK_FETCH_AUTHORIZED=YES`. |
 | Framework patches | After `repo sync`, `bash scripts/apply-framework-patches.sh check` must say `APPLIES` for Launcher3, frameworks/base, Settings and SetupWizard. Then build SystemUI, Settings, SetupWizard, `SableLauncher` and the three overlays. |
+| Settings Apps screens (0601-0604) | Type-checked against the Android 16 jar with stubbed androidx and SettingsLib; check resource linking, the `tests/sable-apps` host test module and the LineageOS `NetworkPolicyManager` calls. |
 | Settings battery screens | `ViewTreeOnBackPressedDispatcherOwner.get` and the `PreferenceGroupAdapter` assumption in the battery keyboard support. |
 | Packaging | Soong accepting Sable Tools' `overrides: ["SableRadioDiag"]` when Radio Diag isn't built. |
 
@@ -62,6 +64,7 @@ Each item has a gate in [`QUALIFICATION.md`](QUALIFICATION.md); none has run.
   * Q4-WEATHER-CITIES.
   * Battery: Q4-BATTERY, Q4-BATTERY-EVIDENCE.
   * Tools: Q4-TOOLS, Q4-TOOLS-I5.
+  * Settings apps: Q4-SETTINGS-APPS, Q4-NETWORK-MANAGER, Q4-APP-SECURITY.
 * **Facts only the phone can give:**
   * The battery facts (capacity health, cycle count, temperature source, charging limits). Each stays Unavailable until [`../device-profile/BATTERY.md`](../device-profile/BATTERY.md) evidence exists.
   * Which Sable Tools utilities really work.

@@ -29,17 +29,22 @@
 | `framework/packages/apps/Settings/0202-SableOS-Battery-health-and-Charging-protection-in-Se.patch` | `8d8f6486b274bcf0aa6e5d0cbba52c0b05ae5c65` | Battery: Battery health and Charging & protection under Settings > Battery; LineageOS charging controls and the legacy Battery information page hidden; history sampled only on existing jobs; keyboard type-ahead, Home/End/Page and focus ring. |
 | `framework/packages/apps/Settings/0203-SableOS-keyboard-inspection-for-the-battery-usage-ch.patch` | `8d8f6486b274bcf0aa6e5d0cbba52c0b05ae5c65` | Battery: keyboard inspection mode for the Battery usage chart. |
 | `framework/packages/apps/Settings/0300-SableOS-Sable-Attention-and-per-app-Sable-Hub-entrie.patch` | `8d8f6486b274bcf0aa6e5d0cbba52c0b05ae5c65` | KF-A: adds Settings > Notifications > Sable Attention and a per-app "Sable Hub and Attention" link into Sable Hub; both hidden when Hub is absent. |
+| `framework/packages/apps/Settings/0601-SableOS-Applications-privacy-Network-Manager-and-App.patch` | `8d8f6486b274bcf0aa6e5d0cbba52c0b05ae5c65` + 0101-0300 | settings-ui5: pure Java model (KF-D privacy evaluator and row text, per-UID network access policy on LineageOS `POLICY_REJECT_ALL`, app security facts with evidence tags, bounded native-code scan) and its 40 host tests (`tests/sable-apps`). |
+| `framework/packages/apps/Settings/0602-SableOS-sensitive-access-under-app-names-and-the-App.patch` | `8d8f6486b274bcf0aa6e5d0cbba52c0b05ae5c65` + 0101-0601 | settings-ui5: the KF-D privacy row under each name in Settings > Apps > All apps (read in the background; spoken form for TalkBack) and the app count on the Apps row; Android's Settings order is unchanged. |
+| `framework/packages/apps/Settings/0603-SableOS-Network-Manager-in-Settings-Apps-Network-acc.patch` | `8d8f6486b274bcf0aa6e5d0cbba52c0b05ae5c65` + 0101-0602 | settings-ui5: Settings > Apps > Network access, one switch per UID that adds or removes `POLICY_REJECT_ALL` (the store App info uses), confirmation for messaging apps, keyboard type-ahead; exported action `org.sableos.settings.NETWORK_MANAGER`. Needs 0201/0202. |
+| `framework/packages/apps/Settings/0604-SableOS-read-only-App-security-privacy-page.patch` | `8d8f6486b274bcf0aa6e5d0cbba52c0b05ae5c65` + 0101-0603 | settings-ui5: read-only App security & privacy page (identity, effective access, components, code, network, history; each fact tagged DECLARED/ENFORCED/OBSERVED/INFERRED/UNKNOWN), from Settings > Apps and App info; exported action `org.sableos.settings.APP_SECURITY` (plain or with a `package:` URI). |
 | `framework/frameworks/base/0301-SableOS-keyboard-notification-commands-in-the-shade.patch` | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` | KF-A: contextual single-key commands on a focused notification row (Space, R, D, Z, M, C, H); text input always wins. New router, command glue and a router unit test; three small hooks in `ExpandableNotificationRow`. |
 | `framework/packages/apps/SetupWizard/0401-SableOS-keyboard-first-focus-in-setup-steps.patch` | `715b772f07c52ce0fdb83b9891765f3de992ffb5` | IR-014: on a hardware keyboard the first key with nothing focused lands on the step's first text field, else Start/Next; MoveHome/MoveEnd jump to the first/last control; a held Enter/Space/Tab does not repeat; Enter in the last text field runs the primary action. Every other key keeps its platform meaning, and failures fall back to it. Pure policy: `sable/SableKeyPolicy.java`. |
 | `framework/packages/apps/SetupWizard/0402-SableOS-Sable-Keyboard-readiness-step-before-Wi-Fi-a.patch` | `715b772f07c52ce0fdb83b9891765f3de992ffb5` | IR-014: a Keyboard step after Locale (owner script) that reports whether Sable Keyboard is installed, enabled and selected and offers one system screen to fix it, before Wi-Fi passwords and the screen-lock PIN. Read-only; Next is always enabled. Pure state: `sable/SableKeyboardState.java`. |
 
 Patch ranges: 0001-0099 HOME/Recents, 0100-0199 KF-B (SystemUI styling and
 branding), 0200-0299 Battery, 0300-0399 KF-A (notification policy, attention,
-Hub), 0400-0499 setup wizard (IR-014). Each patch was checked against its base
+Hub), 0400-0499 setup wizard (IR-014), 0600-0699 settings-ui5 (Applications
+privacy, Network Manager, App security). Each patch was checked against its base
 commit; patches of one project are applied in name order and may build on each
 other (`apply-framework-patches.sh check` tries them in sequence). No LineageOS
 build ran here. `tests/framework/run-pure-tests.sh` unit-tests the pure classes
-the SetupWizard patches add. When LineageOS moves, regenerate the patch in a
+the SetupWizard patches add; `tests/run.sh` runs the Settings 0601 model tests. When LineageOS moves, regenerate the patch in a
 synced tree with `git format-patch -1` and update the base above.
 
 Reserved:

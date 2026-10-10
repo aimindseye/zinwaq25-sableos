@@ -200,6 +200,33 @@ else
     printf 'SKIP  javac not installed (Settings policy test)\n'
 fi
 
+# 6f. Sable Applications model (Settings patch 0601) host tests, and the Sable Tools
+# Settings actions the Settings patches must export (settings-ui5).
+if command -v javac >/dev/null 2>&1; then
+    sa="$tmp/settings-apps"
+    mkdir -p "$sa/out"
+    (cd "$sa" && git apply --include='src/com/android/settings/applications/sable/model/*' \
+        --include='tests/sable-apps/src/*' "$ROOT"/patches/framework/packages/apps/Settings/0601-*.patch)
+    mapfile -t sa_src < <(find "$sa/src" "$sa/tests" tests/java/junit-shim -name '*.java')
+    mapfile -t sa_tests < <(cd "$sa/tests/sable-apps/src" && find . -name '*Test.java' | sed 's#^\./##; s#\.java$##; s#/#.#g' | sort)
+    if javac -encoding UTF-8 -d "$sa/out" "${sa_src[@]}" 2>"$tmp/err" &&
+        java -cp "$sa/out" org.junit.Run "${sa_tests[@]}" >"$tmp/out" 2>&1; then
+        pass "Settings Applications model host tests ($(grep -o 'RAN=[0-9]*' "$tmp/out"))"
+    else
+        fail "Settings Applications model tests: $(cat "$tmp/err" "$tmp/out" | grep -v JAVA_TOOL | head -5)"
+    fi
+else
+    printf 'SKIP  javac not installed (Settings Applications model tests)\n'
+fi
+tools_link=sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
+missing=""
+for action in org.sableos.settings.NETWORK_MANAGER org.sableos.settings.APP_SECURITY; do
+    grep -q "\"$action\"" "$tools_link" || missing="$missing tools:$action"
+    grep -q "<action android:name=\"$action\" />" patches/framework/packages/apps/Settings/060*.patch ||
+        missing="$missing settings:$action"
+done
+if [[ -z "$missing" ]]; then pass "Sable Tools Settings links land on exported Settings actions"; else fail "Settings actions missing:$missing"; fi
+
 # 7. Entry point refuses flashing and unknown devices.
 if bash build/sable.sh q25 Q2 flash >/dev/null 2>&1; then fail "flash should be blocked"; else pass "flash blocked"; fi
 if bash build/sable.sh titan2 Q2 doctor >/dev/null 2>&1; then fail "non-q25 device accepted"; else pass "only q25 accepted"; fi
