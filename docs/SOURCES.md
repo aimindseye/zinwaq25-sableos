@@ -9,6 +9,9 @@
 | [LineageOS/android_device_mediatek_sepolicy_vndr](https://github.com/LineageOS/android_device_mediatek_sepolicy_vndr) | Vendor sepolicy | `b1c50f4903504168e7bd0e32b44c72d139d38d09` | Apache-2.0 |
 | [TheMuppets/proprietary_vendor_xelex_Q25](https://github.com/TheMuppets/proprietary_vendor_xelex_Q25) | Proprietary blobs | `b8c2c8f90a211dbe16d14b198743e4ba8ea000e4` | proprietary (redistributed by TheMuppets; never copied here) |
 | aimindseye/sableos (private) | Sable apps, product pattern, build entry point pattern | `c538fc0e57e4592e11b27c93870b79ee48f7fbfc` | published here under Apache-2.0 by the owner (see `THIRD_PARTY_NOTICES.md` for exceptions) |
+| aimindseye/titan2-temp (private) | Keyboard P2, Reader v2 (P5A-P5F), reference sources layered over the sableos import | `7570470d1c5a27ef94ed4751f5ccb91af41761fe` | as sableos |
+| [thunderbird/thunderbird-android](https://github.com/thunderbird/thunderbird-android) | Upstream for the Sable Mail flavor | `THUNDERBIRD_23_0` (`c733317d933c22bcd790a4790306f30ccf2026b8`) | Apache-2.0 |
+| [vaachak-platform/vaachak-textreader](https://github.com/vaachak-platform/vaachak-textreader) | Upstream for the Sable Text Reader flavor | `50fca365baae9869264716569830690fb62029a7` | see repo |
 | [sableos-project/platform_sable](https://github.com/sableos-project/platform_sable) | Design and portability rules | reference | see repo |
 | [sableos-project/device_sable_titan2](https://github.com/sableos-project/device_sable_titan2) | Repo structure, boundaries | reference | see repo |
 | [MarathonOS/marathon-zinwa-q25](https://github.com/MarathonOS/marathon-zinwa-q25) | GPT layouts, multiboot notes | reference | see repo |
@@ -20,4 +23,7 @@
 
 To change a pin: update `build/config/q25.env` and
 `manifests/local_manifests/sable_q25.xml` together (`tests/run.sh` checks they
-match) and say why in the commit.
+match) and say why in the commit. The Mail and Text Reader pins live in
+`sable-src/apps/r8/{mail,textreader}/upstream.env`; the sableos and titan2-temp
+pins are recorded in `sable-src/SOURCE_IMPORT.txt`. The LineageOS framework
+patches name their base commits in [`../patches/README.md`](../patches/README.md).

@@ -1,5 +1,11 @@
 # KF-D: All Apps privacy row and responsive app polish
 
+> **Update 2026-10-10:** the app code from this package now builds in GitHub
+> Actions, with unit tests, Android Lint, detekt and ktlint passing (PR #9; the
+> fixes those gates needed are in `sable-src` patch 0011). Nothing has run on a
+> device. Statements below about uncompiled code describe the state when the
+> package was written.
+
 Package `kf-d`, branch `q25/kf-d`. Implements DESIGN-KF-D (KF-D-I in the plan):
 `docs/design/ALL_APPS_PRIVACY_RESPONSIVE_POLISH.md` and its predecessor
 `ALL_APPS_PRIVACY_UX.md` in `platform_sable`.

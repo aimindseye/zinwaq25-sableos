@@ -5,17 +5,21 @@ repository holds everything needed to build SableOS for the **Zinwa Q25** (the
 BlackBerry Classic restomod, codename `Q25`), without needing the Pixel 7,
 Titan 2 or Q27 SableOS lanes.
 
-> **Status: engineering, not yet booted.** No SableOS image has been built and
-> booted on a Q25 from this repository yet. The build scripts are written; the
-> install steps are derived from the LineageOS Q25 guide and are **untested for
-> SableOS**. Read [`ROADMAP.md`](ROADMAP.md) before flashing anything.
+> **Status: engineering, not yet booted.** Every planned SableOS feature for the
+> Q25 is written (Q2 apps and the Q4 framework layer), and GitHub Actions builds
+> and checks all 17 Sable apps. No LineageOS image has been built, and nothing
+> has run on a Q25 yet. The install steps are derived from the LineageOS Q25
+> guide and are **untested for SableOS**. Read [`ROADMAP.md`](ROADMAP.md) and
+> [`docs/SABLEOS_GAP_REVIEW.md`](docs/SABLEOS_GAP_REVIEW.md) before flashing anything.
 
 ```text
 DEVICE=Q25
-PHASE=Q0_FOUNDATION
-BASE=LineageOS 23.2 (Android 16 QPR2), official lineage_Q25 device
-SABLE_LAYER=vendor/extra/product.mk -> vendor/sable/q25
-BUILD_TESTED=NO
+PHASE=Q2 + Q4 written; Q1 (control build) is next
+BASE=LineageOS 23.2 (Android 16 QPR2), official lineage_Q25 device (not a GSI)
+SABLE_LAYER=vendor/extra/product.mk -> vendor/sable/q25 (+ patches/framework at Q4)
+APPS_BUILD=PASS in GitHub Actions (Gradle build, unit tests, Lint, detekt, ktlint)
+IMAGE_BUILD_TESTED=NO   (LineageOS tree; needs a build host)
+FRAMEWORK_PATCHES=checked with git apply against their base commits; uncompiled
 BOOT_TESTED=NO
 FLASH_SCRIPT=NONE (manual, documented steps only)
 ```
@@ -48,7 +52,7 @@ More: [`docs/DEVICE_INFO.md`](docs/DEVICE_INFO.md).
 | Guide | What it covers |
 |---|---|
 | [Roadmap](ROADMAP.md) | What's reused from SableOS, what's Q25-specific, and the phases |
-| [Build](docs/BUILD.md) | Host setup, source sync, blobs, building the image |
+| [Build](docs/BUILD.md) | Host setup, source sync, blobs, building the image, GitHub Actions |
 | [Install](docs/INSTALL.md) | Unlock, flash, sideload (untested for SableOS) |
 | [SableOS gaps](docs/SABLEOS_GAP_REVIEW.md) | What is still open: build, device checks, owner decisions, known limits |
 | [Return to stock](docs/RETURN_TO_STOCK.md) | Backup first, rehearse the restore, recovery ladder back to Zinwa firmware |
@@ -56,7 +60,8 @@ More: [`docs/DEVICE_INFO.md`](docs/DEVICE_INFO.md).
 | [Keyboard and input](docs/KEYBOARD_AND_INPUT.md) | Q25 keyboard, trackpad and key profile |
 | [Qualification](docs/QUALIFICATION.md) | Gates each phase must pass |
 | [Crash evidence](docs/CRASH_EVIDENCE.md) | Capture crash logs over adb before anything is cleared |
-| [Implementation notes](docs/implementation/) | What each Sable design package (KF-A..D, Battery, T3) changed and what still needs the phone |
+| [Implementation notes](docs/implementation/) | What each Sable design package (KF-A..D, Battery, T3, corners, icons, settings-ui5, Phone + Contacts, daily driver) changed and what still needs the phone |
+| [Patches](patches/README.md) | Q25 changes to the Sable app sources (`sable-src` 0001-0011) and the LineageOS framework patches |
 | [Stock basis](docs/STOCK_BASIS.md) | Firmware facts to record before flashing |
 | [Sources](docs/SOURCES.md) | Every upstream with its pin and licence |
 | [Lessons from Titan 2](docs/LESSONS_FROM_TITAN2.md) | Mistakes not to repeat |
@@ -81,7 +86,9 @@ bash build/sable.sh q25 Q2 artifacts                               # hash output
 ```
 
 `Q1` builds plain `lineage_Q25` (the control image, no Sable layer). `Q2` adds
-the Sable layer. The Sable app sources are in `sable-src/`
+the Sable layer. `Q4` adds the framework layer (Sable Start as HOME, Sable
+Keyboard as the only IME, `patches/framework`); stage it only after gate
+Q3-TEXT passes. The Sable app sources are in `sable-src/`
 (see [`apps/README.md`](apps/README.md)). Full guide: [`docs/BUILD.md`](docs/BUILD.md).
 
 ## Repository layout
@@ -96,10 +103,28 @@ product/q25/              Sable product layer copied to vendor/sable/q25
 device-profile/           Q25 hardware capability profile and key map
 apps/                     how the Sable application sources are managed
 sable-src/                Sable app sources imported from SableOS (pinned commit)
-patches/                  reserved for device-tree and framework patches
+patches/sable-src/        Q25 changes re-applied to sable-src/ after every import (0001-0011)
+patches/framework/        Q4 patches to LineageOS 23.2 projects (Settings, SystemUI, Dialer, ...)
+product/common/overlay/   Q4 static overlays (framework, SystemUI, SetupWizard, Glimpse, Gallery2)
 docs/                     guides
-tests/run.sh              static checks (also run by GitHub Actions)
+tests/run.sh              static checks and host unit tests
+.github/workflows/        GitHub Actions: checks, Sable apps, Rust, Security
 ```
+
+## Continuous integration
+
+GitHub Actions runs on every pull request and on `main`:
+
+| Workflow | What it runs |
+|---|---|
+| `checks` | `tests/run.sh`: shellcheck, pins, staging dry runs, framework patch apply/revert, design and policy checks, host unit tests |
+| `Sable apps` | `scripts/build-apps.sh` for each Gradle project (platform apps, r8 apps, Reader, Mail, Text Reader) with unit tests, Android Lint, detekt, ktlint and Kover |
+| `Rust` | fmt, clippy, tests, `cargo audit`, `cargo deny`, coverage for `sable-src/apps/r8/rust` |
+| `Security` | Gitleaks history scan and MobSF source scan (also weekly) |
+
+`Sable apps` and `Rust` only run when their sources change. The LineageOS image
+is too large for hosted runners and is built on a build host. Details:
+[`docs/BUILD.md`](docs/BUILD.md#7-github-actions).
 
 ## Boundaries
 
