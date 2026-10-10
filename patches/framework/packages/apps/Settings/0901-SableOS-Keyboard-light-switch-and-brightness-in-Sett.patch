@@ -1,0 +1,345 @@
+From f3e6bac9412aa30ea3baad51d852e424053a4c17 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 10 Oct 2026 13:04:46 +0000
+Subject: [PATCH] SableOS: Keyboard light switch and brightness in Settings >
+ Keyboard
+
+Adds a Keyboard light section under Settings > System > Keyboard with a
+Keyboard backlight switch and a ten-step Brightness slider. They write
+persist.sys.sable.kbd_backlight (0/1) and
+persist.sys.sable.kbd_backlight_level (1-255); the Sable product layer's
+init rule copies those to the keyboard driver, which applies them now and
+on every screen wake.
+
+The section is shown only when ro.sable.keyboard_backlight is true, which
+the Q25 layer sets. Pure mapping and parsing in
+sable/SableKeyboardBacklight.java.
+---
+ .../sable_keyboard_backlight_strings.xml      | 25 +++++++
+ res/xml/keyboard_settings.xml                 | 23 ++++++
+ .../sable/SableKeyboardBacklight.java         | 70 +++++++++++++++++++
+ ...leKeyboardBacklightCategoryController.java | 39 +++++++++++
+ ...ardBacklightLevelPreferenceController.java | 59 ++++++++++++++++
+ ...KeyboardBacklightPreferenceController.java | 55 +++++++++++++++
+ 6 files changed, 271 insertions(+)
+ create mode 100644 res/values/sable_keyboard_backlight_strings.xml
+ create mode 100644 src/com/android/settings/sable/SableKeyboardBacklight.java
+ create mode 100644 src/com/android/settings/sable/SableKeyboardBacklightCategoryController.java
+ create mode 100644 src/com/android/settings/sable/SableKeyboardBacklightLevelPreferenceController.java
+ create mode 100644 src/com/android/settings/sable/SableKeyboardBacklightPreferenceController.java
+
+diff --git a/res/values/sable_keyboard_backlight_strings.xml b/res/values/sable_keyboard_backlight_strings.xml
+new file mode 100644
+index 00000000000..b805d57215e
+--- /dev/null
++++ b/res/values/sable_keyboard_backlight_strings.xml
+@@ -0,0 +1,25 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<resources>
++    <!-- Settings > System > Keyboard: section for the hardware keyboard's backlight. -->
++    <string name="sable_keyboard_backlight_category">Keyboard light</string>
++    <!-- Switch that lights the hardware keyboard while the screen is on. -->
++    <string name="sable_keyboard_backlight_title">Keyboard backlight</string>
++    <!-- Summary for the keyboard backlight switch. -->
++    <string name="sable_keyboard_backlight_summary">Light the keys whenever the screen is on</string>
++    <!-- Slider for the hardware keyboard backlight brightness. -->
++    <string name="sable_keyboard_backlight_level_title">Brightness</string>
++</resources>
+diff --git a/res/xml/keyboard_settings.xml b/res/xml/keyboard_settings.xml
+index 4afd9c95f02..d5b0873b8fe 100644
+--- a/res/xml/keyboard_settings.xml
++++ b/res/xml/keyboard_settings.xml
+@@ -54,6 +54,29 @@
+             settings:controller="com.android.settings.language.UserDictionaryPreferenceController" />
+     </PreferenceCategory>
+ 
++    <!-- SableOS: hardware keyboard backlight, on devices that set ro.sable.keyboard_backlight -->
++    <PreferenceCategory
++        android:key="sable_keyboard_backlight_category"
++        android:title="@string/sable_keyboard_backlight_category"
++        settings:controller="com.android.settings.sable.SableKeyboardBacklightCategoryController">
++
++        <SwitchPreferenceCompat
++            android:key="sable_keyboard_backlight"
++            android:title="@string/sable_keyboard_backlight_title"
++            android:summary="@string/sable_keyboard_backlight_summary"
++            android:persistent="false"
++            settings:controller="com.android.settings.sable.SableKeyboardBacklightPreferenceController" />
++
++        <com.android.settingslib.widget.SliderPreference
++            android:key="sable_keyboard_backlight_level"
++            android:title="@string/sable_keyboard_backlight_level_title"
++            android:dependency="sable_keyboard_backlight"
++            android:persistent="false"
++            android:selectable="false"
++            settings:seekBarIncrement="1"
++            settings:controller="com.android.settings.sable.SableKeyboardBacklightLevelPreferenceController" />
++    </PreferenceCategory>
++
+     <lineageos.preference.LineageSecureSettingSwitchPreference
+         android:key="feature_touch_hovering"
+         android:title="@string/touchscreen_hovering_title"
+diff --git a/src/com/android/settings/sable/SableKeyboardBacklight.java b/src/com/android/settings/sable/SableKeyboardBacklight.java
+new file mode 100644
+index 00000000000..d74f742783b
+--- /dev/null
++++ b/src/com/android/settings/sable/SableKeyboardBacklight.java
+@@ -0,0 +1,70 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++/**
++ * Keyboard backlight choice for devices whose keyboard driver takes it from the system (Zinwa
++ * Q25: bbqX0kbd). Settings writes the two persist properties; an init rule in the Sable product
++ * layer copies them to the driver's module parameters, which apply them at once and every time
++ * the screen wakes. Pure Java so it can be tested off-device.
++ */
++public final class SableKeyboardBacklight {
++
++    /** Set to true by the device's product layer when the driver honours the properties. */
++    public static final String PROP_SUPPORTED = "ro.sable.keyboard_backlight";
++    /** "1" lights the keys while the screen is on, "0" keeps them dark. */
++    public static final String PROP_ENABLED = "persist.sys.sable.kbd_backlight";
++    /** Driver brightness, 1-255. */
++    public static final String PROP_LEVEL = "persist.sys.sable.kbd_backlight_level";
++
++    public static final int MAX_LEVEL = 255;
++    /** Slider positions; position STEPS is full brightness, the driver's default. */
++    public static final int STEPS = 10;
++
++    private SableKeyboardBacklight() {
++    }
++
++    /** Missing or unreadable means on, matching the driver's default. */
++    public static boolean isEnabled(String value) {
++        return !"0".equals(value == null ? null : value.trim());
++    }
++
++    public static String enabledValue(boolean enabled) {
++        return enabled ? "1" : "0";
++    }
++
++    /** Driver level for slider position 1..STEPS (out-of-range positions are clamped). */
++    public static int levelForStep(int step) {
++        int s = Math.max(1, Math.min(STEPS, step));
++        return (s * MAX_LEVEL + STEPS / 2) / STEPS;
++    }
++
++    /** Slider position for a stored level; missing or invalid values read as full brightness. */
++    public static int stepForLevel(String value) {
++        int level;
++        try {
++            level = Integer.parseInt(value == null ? "" : value.trim());
++        } catch (NumberFormatException e) {
++            return STEPS;
++        }
++        if (level < 1 || level > MAX_LEVEL) {
++            return STEPS;
++        }
++        int step = (level * STEPS + MAX_LEVEL / 2) / MAX_LEVEL;
++        return Math.max(1, Math.min(STEPS, step));
++    }
++}
+diff --git a/src/com/android/settings/sable/SableKeyboardBacklightCategoryController.java b/src/com/android/settings/sable/SableKeyboardBacklightCategoryController.java
+new file mode 100644
+index 00000000000..ae115d6abeb
+--- /dev/null
++++ b/src/com/android/settings/sable/SableKeyboardBacklightCategoryController.java
+@@ -0,0 +1,39 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++import android.content.Context;
++import android.os.SystemProperties;
++
++import com.android.settings.core.BasePreferenceController;
++
++/** Settings > System > Keyboard > Keyboard light: shown only where the device supports it. */
++public class SableKeyboardBacklightCategoryController extends BasePreferenceController {
++
++    public SableKeyboardBacklightCategoryController(Context context, String preferenceKey) {
++        super(context, preferenceKey);
++    }
++
++    static boolean isSupported() {
++        return SystemProperties.getBoolean(SableKeyboardBacklight.PROP_SUPPORTED, false);
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        return isSupported() ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
++    }
++}
+diff --git a/src/com/android/settings/sable/SableKeyboardBacklightLevelPreferenceController.java b/src/com/android/settings/sable/SableKeyboardBacklightLevelPreferenceController.java
+new file mode 100644
+index 00000000000..b7cfe1770c1
+--- /dev/null
++++ b/src/com/android/settings/sable/SableKeyboardBacklightLevelPreferenceController.java
+@@ -0,0 +1,59 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++import android.content.Context;
++import android.os.SystemProperties;
++
++import com.android.settings.core.SliderPreferenceController;
++
++/** Keyboard backlight brightness, in SableKeyboardBacklight.STEPS steps. */
++public class SableKeyboardBacklightLevelPreferenceController extends SliderPreferenceController {
++
++    public SableKeyboardBacklightLevelPreferenceController(Context context, String preferenceKey) {
++        super(context, preferenceKey);
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        return SableKeyboardBacklightCategoryController.isSupported()
++                ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
++    }
++
++    @Override
++    public int getSliderPosition() {
++        return SableKeyboardBacklight.stepForLevel(
++                SystemProperties.get(SableKeyboardBacklight.PROP_LEVEL));
++    }
++
++    @Override
++    public boolean setSliderPosition(int position) {
++        SystemProperties.set(SableKeyboardBacklight.PROP_LEVEL,
++                Integer.toString(SableKeyboardBacklight.levelForStep(position)));
++        return true;
++    }
++
++    @Override
++    public int getMax() {
++        return SableKeyboardBacklight.STEPS;
++    }
++
++    @Override
++    public int getMin() {
++        return 1;
++    }
++}
+diff --git a/src/com/android/settings/sable/SableKeyboardBacklightPreferenceController.java b/src/com/android/settings/sable/SableKeyboardBacklightPreferenceController.java
+new file mode 100644
+index 00000000000..4b958aa7e43
+--- /dev/null
++++ b/src/com/android/settings/sable/SableKeyboardBacklightPreferenceController.java
+@@ -0,0 +1,55 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++import android.content.Context;
++import android.os.SystemProperties;
++
++import com.android.settings.R;
++import com.android.settings.core.TogglePreferenceController;
++
++/** Keyboard backlight on or off while the screen is on. */
++public class SableKeyboardBacklightPreferenceController extends TogglePreferenceController {
++
++    public SableKeyboardBacklightPreferenceController(Context context, String preferenceKey) {
++        super(context, preferenceKey);
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        return SableKeyboardBacklightCategoryController.isSupported()
++                ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
++    }
++
++    @Override
++    public boolean isChecked() {
++        return SableKeyboardBacklight.isEnabled(
++                SystemProperties.get(SableKeyboardBacklight.PROP_ENABLED));
++    }
++
++    @Override
++    public boolean setChecked(boolean isChecked) {
++        SystemProperties.set(SableKeyboardBacklight.PROP_ENABLED,
++                SableKeyboardBacklight.enabledValue(isChecked));
++        return true;
++    }
++
++    @Override
++    public int getSliceHighlightMenuRes() {
++        return R.string.menu_key_system;
++    }
++}
+-- 
+2.43.0
+

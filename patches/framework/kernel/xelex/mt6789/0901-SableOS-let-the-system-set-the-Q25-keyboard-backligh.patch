@@ -1,0 +1,119 @@
+From 94379bb2a9fddef2c26e0ca71ed62bfd35f094f7 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 10 Oct 2026 13:03:14 +0000
+Subject: [PATCH] SableOS: let the system set the Q25 keyboard backlight
+
+Add kbd_backlight (0/1) and kbd_backlight_level (1-255) module
+parameters to bbqX0kbd. Writing either one applies it at once, and probe
+and screen-on resume restore that choice instead of full brightness.
+Right-Alt + Z/X/0 still work until the screen next turns off.
+---
+ .../input/keyboard/bbqX0kbd/bbqX0kbd_main.c   | 78 ++++++++++++++++++-
+ 1 file changed, 74 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/input/keyboard/bbqX0kbd/bbqX0kbd_main.c b/drivers/input/keyboard/bbqX0kbd/bbqX0kbd_main.c
+index 0ce96c18e191..1b83edf041fc 100644
+--- a/drivers/input/keyboard/bbqX0kbd/bbqX0kbd_main.c
++++ b/drivers/input/keyboard/bbqX0kbd/bbqX0kbd_main.c
+@@ -18,6 +18,76 @@ static int  bbqX0kbd_disp_notifier_callback(struct notifier_block *self, unsigne
+ /* use disp_notifier */
+ #endif
+ 
++/*
++ * SableOS: keyboard backlight set by the system. The OS writes these module
++ * parameters (/sys/module/bbqX0kbd/parameters/) from the saved Settings
++ * choice; the driver applies them now and every time the screen wakes,
++ * instead of always restoring full brightness. Right-Alt + Z/X/0 still
++ * change the light until the screen next turns off.
++ */
++static unsigned int kbd_backlight = 1;
++static unsigned int kbd_backlight_level = 0xFF;
++
++static uint8_t bbqX0kbd_backlight_target(void)
++{
++	return kbd_backlight ? (uint8_t)kbd_backlight_level : 0;
++}
++
++static void bbqX0kbd_apply_backlight(void)
++{
++	struct bbqX0kbd_data *data = g_bbqX0kbd_data;
++
++	if (!data || !data->i2c_client || data->suspended)
++		return;
++	data->keyboardBrightness = bbqX0kbd_backlight_target();
++	if (data->keyboardBrightness)
++		data->lastKeyboardBrightness = data->keyboardBrightness;
++	bbqX0kbd_write(data->i2c_client, BBQX0KBD_I2C_ADDRESS, REG_BKL, &data->keyboardBrightness, sizeof(uint8_t));
++}
++
++static int kbd_backlight_set(const char *val, const struct kernel_param *kp)
++{
++	unsigned int v;
++	int ret = kstrtouint(val, 0, &v);
++
++	if (ret)
++		return ret;
++	if (v > 1)
++		return -EINVAL;
++	kbd_backlight = v;
++	bbqX0kbd_apply_backlight();
++	return 0;
++}
++
++static int kbd_backlight_level_set(const char *val, const struct kernel_param *kp)
++{
++	unsigned int v;
++	int ret = kstrtouint(val, 0, &v);
++
++	if (ret)
++		return ret;
++	if (v < 1 || v > 0xFF)
++		return -EINVAL;
++	kbd_backlight_level = v;
++	bbqX0kbd_apply_backlight();
++	return 0;
++}
++
++static const struct kernel_param_ops kbd_backlight_ops = {
++	.set = kbd_backlight_set,
++	.get = param_get_uint,
++};
++
++static const struct kernel_param_ops kbd_backlight_level_ops = {
++	.set = kbd_backlight_level_set,
++	.get = param_get_uint,
++};
++
++module_param_cb(kbd_backlight, &kbd_backlight_ops, &kbd_backlight, 0644);
++MODULE_PARM_DESC(kbd_backlight, "Keyboard backlight on (1) or off (0) while the screen is on");
++module_param_cb(kbd_backlight_level, &kbd_backlight_level_ops, &kbd_backlight_level, 0644);
++MODULE_PARM_DESC(kbd_backlight_level, "Keyboard backlight brightness, 1-255");
++
+ static int q20_switch_key_mouse_debug_read(struct seq_file *m, void *v);
+ static ssize_t q20_switch_key_mouse_debug_write(struct file *filp, const char  *buff, size_t len, loff_t *data);
+ static int hodafone_q20_switch_key_mouse_open(struct inode *inode, struct file *file);
+@@ -1076,8 +1146,8 @@ static int bbqX0kbd_probe(struct i2c_client *client, const struct i2c_device_id
+ 	bbqX0kbd_data->lastScreenBrightness = bbqX0kbd_data->screenBrightness;
+ 	bbqX0kbd_write(client, BBQX0KBD_I2C_ADDRESS, REG_BK2, &bbqX0kbd_data->screenBrightness, sizeof(uint8_t));
+ #endif
+-	bbqX0kbd_data->keyboardBrightness = 0xFF;
+-	bbqX0kbd_data->lastKeyboardBrightness = bbqX0kbd_data->keyboardBrightness;
++	bbqX0kbd_data->keyboardBrightness = bbqX0kbd_backlight_target();
++	bbqX0kbd_data->lastKeyboardBrightness = kbd_backlight_level;
+ 	bbqX0kbd_write(client, BBQX0KBD_I2C_ADDRESS, REG_BKL, &bbqX0kbd_data->keyboardBrightness, sizeof(uint8_t));
+ 
+ #if (BBQX0KBD_INT == BBQX0KBD_USE_INT)
+@@ -1218,8 +1288,8 @@ static int bbqX0kbd_resume(struct device *dev)
+         enable_irq(client->irq);
+ 	}
+ 
+-	/* Restore backlight level */
+-	bbqX0kbd_data->keyboardBrightness = 0xFF;
++	/* Restore the backlight the system chose (SableOS) */
++	bbqX0kbd_data->keyboardBrightness = bbqX0kbd_backlight_target();
+ 	returnValue = bbqX0kbd_write(client, BBQX0KBD_I2C_ADDRESS, REG_BKL, &(bbqX0kbd_data->keyboardBrightness), sizeof(uint8_t));
+ 	if (returnValue != 0) {
+ 		BBQX0KBD_KEYBOARD_ERR("%s Could not write to BBQX0KBD Backlight. Error: %d\n", __func__, returnValue);
+-- 
+2.43.0
+

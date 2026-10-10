@@ -145,6 +145,9 @@ if out="$(stagerun Q4 --apps-dir "$tmp/apps/run")"; then
     grep -q 'SableLauncher' "$v/sable-q25-framework.mk" || ok=no
     grep -q 'etc/sable/battery/zinwa-q25.conf' "$v/sable-q25-framework.mk" || ok=no
     [[ -f "$v/etc/battery/zinwa-q25.conf" ]] || ok=no
+    [[ -f "$v/etc/init/sable-keyboard-backlight.rc" ]] || ok=no
+    grep -q 'etc/init/sable-keyboard-backlight.rc' "$v/sable-q25-framework.mk" || ok=no
+    grep -q 'ro.sable.keyboard_backlight=true' "$v/sable-q25-framework.mk" || ok=no
     grep -q 'name: "SableLauncher"' "$v/src/SableStart/Android.bp" || ok=no
     grep -q 'name: "sable_design_shared_srcs"' "$v/src/sabledesign/Android.bp" || ok=no
     grep -q 'overrides: \["LatinIME"\]' "$v/Android.bp" || ok=no
@@ -225,6 +228,36 @@ if command -v javac >/dev/null 2>&1; then
 else
     printf 'SKIP  javac not installed (Settings Applications model tests)\n'
 fi
+# 6g. Keyboard backlight (kernel + Settings patches 0901 and the init rule):
+# the pure Settings class, and the property and module parameter names that
+# tie Settings, init and the driver together.
+if command -v javac >/dev/null 2>&1; then
+    kb="$tmp/settings-kbd"
+    mkdir -p "$kb"
+    (cd "$kb" && git apply --include='src/com/android/settings/sable/SableKeyboardBacklight.java' \
+        "$ROOT"/patches/framework/packages/apps/Settings/0901-*.patch)
+    if javac -d "$kb/out" "$kb"/src/com/android/settings/sable/SableKeyboardBacklight.java \
+        tests/java/SableKeyboardBacklightTest.java 2>"$tmp/err" &&
+        java -cp "$kb/out" SableKeyboardBacklightTest >"$tmp/out" 2>&1; then
+        pass "Settings keyboard backlight model ($(grep -o 'CHECKS=[0-9]*' "$tmp/out"))"
+    else
+        fail "Settings keyboard backlight test: $(cat "$tmp/err" "$tmp/out" | grep -v JAVA_TOOL | head -5)"
+    fi
+else
+    printf 'SKIP  javac not installed (Settings keyboard backlight test)\n'
+fi
+kbd_rc=product/q25/init/sable-keyboard-backlight.rc
+kbd_missing=""
+for pair in kbd_backlight:persist.sys.sable.kbd_backlight kbd_backlight_level:persist.sys.sable.kbd_backlight_level; do
+    param="${pair%%:*}"; prop="${pair#*:}"
+    grep -q "^+module_param_cb($param, " patches/framework/kernel/xelex/mt6789/0901-*.patch || kbd_missing="$kbd_missing kernel:$param"
+    grep -q "write /sys/module/bbqX0kbd/parameters/$param \${$prop}\$" "$kbd_rc" || kbd_missing="$kbd_missing rc:$param"
+    grep -q "on property:$prop=\*" "$kbd_rc" || kbd_missing="$kbd_missing rc:$prop"
+    grep -q "\"$prop\";" patches/framework/packages/apps/Settings/0901-*.patch || kbd_missing="$kbd_missing settings:$prop"
+done
+grep -q '"ro.sable.keyboard_backlight"' patches/framework/packages/apps/Settings/0901-*.patch || kbd_missing="$kbd_missing settings:ro.sable.keyboard_backlight"
+if [[ -z "$kbd_missing" ]]; then pass "keyboard backlight names agree (Settings, init, driver)"; else fail "keyboard backlight names:$kbd_missing"; fi
+
 tools_link=sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
 missing=""
 for action in org.sableos.settings.NETWORK_MANAGER org.sableos.settings.APP_SECURITY; do
