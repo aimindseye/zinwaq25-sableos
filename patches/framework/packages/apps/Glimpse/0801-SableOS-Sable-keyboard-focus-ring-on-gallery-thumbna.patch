@@ -1,0 +1,105 @@
+From 4cb30681a8ff4d6ca9f10f31a0366f3c5f3ae53c Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 10 Oct 2026 00:31:25 +0000
+Subject: [PATCH] SableOS: Sable keyboard focus ring on gallery thumbnails
+
+On a hardware keyboard the focused photo or album tile was shown only by
+the platform's default translucent focus highlight. Draw the Sable focus
+language instead: a 2dp accent (colorPrimary) outline with a 2dp gap
+around the thumbnail, never a fill, so focus stays distinct from the
+selection check and blur. The tiles are made explicitly focusable (they
+were already focusable through their click listener). Touch, selection,
+navigation and media access are unchanged; resources only.
+---
+ .../res/drawable/sable_focus_ring_album.xml   | 21 +++++++++++++++++++
+ .../drawable/sable_focus_ring_thumbnail.xml   | 20 ++++++++++++++++++
+ .../main/res/layout/album_thumbnail_view.xml  |  3 +++
+ app/src/main/res/layout/thumbnail_view.xml    |  3 +++
+ 4 files changed, 47 insertions(+)
+ create mode 100644 app/src/main/res/drawable/sable_focus_ring_album.xml
+ create mode 100644 app/src/main/res/drawable/sable_focus_ring_thumbnail.xml
+
+diff --git a/app/src/main/res/drawable/sable_focus_ring_album.xml b/app/src/main/res/drawable/sable_focus_ring_album.xml
+new file mode 100644
+index 0000000..12d1b2b
+--- /dev/null
++++ b/app/src/main/res/drawable/sable_focus_ring_album.xml
+@@ -0,0 +1,21 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     SPDX-FileCopyrightText: The LineageOS Project
++     SPDX-FileCopyrightText: SableOS
++     SPDX-License-Identifier: Apache-2.0
++-->
++<!-- SableOS keyboard focus ring for an album tile: a 2dp accent outline around
++     the thumbnail and its labels, inset 8dp so it sits 2dp outside the
++     thumbnail (the item has 12dp padding). Drawn only for state_focused. -->
++<selector xmlns:android="http://schemas.android.com/apk/res/android">
++    <item android:state_focused="true">
++        <inset android:inset="8dp">
++            <shape android:shape="rectangle">
++                <corners android:radius="8dp" />
++                <stroke
++                    android:width="2dp"
++                    android:color="?attr/colorPrimary" />
++            </shape>
++        </inset>
++    </item>
++</selector>
+diff --git a/app/src/main/res/drawable/sable_focus_ring_thumbnail.xml b/app/src/main/res/drawable/sable_focus_ring_thumbnail.xml
+new file mode 100644
+index 0000000..d73507f
+--- /dev/null
++++ b/app/src/main/res/drawable/sable_focus_ring_thumbnail.xml
+@@ -0,0 +1,20 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     SPDX-FileCopyrightText: The LineageOS Project
++     SPDX-FileCopyrightText: SableOS
++     SPDX-License-Identifier: Apache-2.0
++-->
++<!-- SableOS keyboard focus ring for a media thumbnail: a 2dp accent outline,
++     2dp outside the thumbnail (the item has 4dp padding), never a fill, so a
++     focused item stays distinguishable from a selected one. Touch is unchanged:
++     only state_focused draws anything. -->
++<selector xmlns:android="http://schemas.android.com/apk/res/android">
++    <item android:state_focused="true">
++        <shape android:shape="rectangle">
++            <corners android:radius="8dp" />
++            <stroke
++                android:width="2dp"
++                android:color="?attr/colorPrimary" />
++        </shape>
++    </item>
++</selector>
+diff --git a/app/src/main/res/layout/album_thumbnail_view.xml b/app/src/main/res/layout/album_thumbnail_view.xml
+index b56efc5..8a92867 100644
+--- a/app/src/main/res/layout/album_thumbnail_view.xml
++++ b/app/src/main/res/layout/album_thumbnail_view.xml
+@@ -7,6 +7,9 @@
+     xmlns:app="http://schemas.android.com/apk/res-auto"
+     android:layout_width="match_parent"
+     android:layout_height="wrap_content"
++    android:defaultFocusHighlightEnabled="false"
++    android:focusable="true"
++    android:foreground="@drawable/sable_focus_ring_album"
+     android:padding="12dp">
+ 
+     <ImageView
+diff --git a/app/src/main/res/layout/thumbnail_view.xml b/app/src/main/res/layout/thumbnail_view.xml
+index ed50d86..9030db9 100644
+--- a/app/src/main/res/layout/thumbnail_view.xml
++++ b/app/src/main/res/layout/thumbnail_view.xml
+@@ -7,6 +7,9 @@
+     xmlns:app="http://schemas.android.com/apk/res-auto"
+     android:layout_width="match_parent"
+     android:layout_height="wrap_content"
++    android:defaultFocusHighlightEnabled="false"
++    android:focusable="true"
++    android:foreground="@drawable/sable_focus_ring_thumbnail"
+     android:padding="4dp">
+ 
+     <ImageView
+-- 
+2.43.0
+
