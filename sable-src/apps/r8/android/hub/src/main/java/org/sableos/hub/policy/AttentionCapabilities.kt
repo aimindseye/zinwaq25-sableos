@@ -105,7 +105,11 @@ class AttentionDeviceProfile private constructor(
                     text.substring(0, separator) == profileId
             val entries =
                 if (ownDeclaration) {
-                    text.substring(separator + 1).split(',').map(String::trim).filter(String::isNotEmpty)
+                    text
+                        .substring(separator + 1)
+                        .split(',')
+                        .map(String::trim)
+                        .filter(String::isNotEmpty)
                 } else {
                     emptyList()
                 }
@@ -155,7 +159,9 @@ object AttentionDefaults {
     fun defaultFor(output: AttentionOutput): AttentionDefault =
         when (output) {
             AttentionOutput.KeyboardBacklight -> AttentionDefault.Off
+
             AttentionOutput.SecondaryDisplay -> AttentionDefault.ProfileAndPrivacyGated
+
             AttentionOutput.Audio,
             AttentionOutput.Haptic,
             AttentionOutput.StatusLed,

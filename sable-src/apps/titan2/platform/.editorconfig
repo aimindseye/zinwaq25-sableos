@@ -1,0 +1,5 @@
+root = false
+
+[*.{kt,kts}]
+# Preserve the existing Sable Compose naming convention (same rule as apps/r8/android).
+ktlint_function_naming_ignore_when_annotated_with = Composable

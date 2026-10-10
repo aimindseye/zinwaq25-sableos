@@ -32,7 +32,7 @@ enum class AppStyleAvailability {
     AVAILABLE,
 
     /** No appearance authority (a build before the Settings patch); the section is read-only. */
-    UNAVAILABLE,
+    UNAVAILABLE
 }
 
 /** Reads and writes the global corner style; the Android side talks to the authority. */
@@ -70,20 +70,18 @@ object AppStylePolicy {
         return next.takeIf { it != current }
     }
 
-    fun stateFrom(read: AppCornerStyle?): AppStyleState =
-        if (read == null) {
-            AppStyleState(AppCornerStyle.DEFAULT, AppStyleAvailability.UNAVAILABLE)
-        } else {
-            AppStyleState(read, AppStyleAvailability.AVAILABLE)
-        }
+    fun stateFrom(read: AppCornerStyle?): AppStyleState = if (read == null) {
+        AppStyleState(AppCornerStyle.DEFAULT, AppStyleAvailability.UNAVAILABLE)
+    } else {
+        AppStyleState(read, AppStyleAvailability.AVAILABLE)
+    }
 
     /** Status line after a change. Failure text contains "could not" (the screen tints it). */
-    fun message(style: AppCornerStyle, saved: Boolean): String =
-        if (saved) {
-            "Sable apps now use ${style.label} corners."
-        } else {
-            "Sable app style could not be saved; Sable apps keep their current corners."
-        }
+    fun message(style: AppCornerStyle, saved: Boolean): String = if (saved) {
+        "Sable apps now use ${style.label} corners."
+    } else {
+        "Sable app style could not be saved; Sable apps keep their current corners."
+    }
 
     const val UNAVAILABLE_TEXT =
         "Sable app style needs the SableOS appearance service in Settings; not on this build."
@@ -94,11 +92,8 @@ class AppStyleController(private val store: AppStyleStore) {
     fun load(): AppStyleState = AppStylePolicy.stateFrom(store.read())
 
     /** Handles a key; null when the key changed nothing (so the caller does not consume it). */
-    fun onKey(state: AppStyleState, key: AppStyleKey): Pair<AppStyleState, String>? {
-        if (!state.enabled) return null
-        val target = AppStylePolicy.styleForKey(state.style, key) ?: return null
-        return choose(state, target)
-    }
+    fun onKey(state: AppStyleState, key: AppStyleKey): Pair<AppStyleState, String>? =
+        AppStylePolicy.styleForKey(state.style, key)?.let { target -> choose(state, target) }
 
     /** Picks a style directly (pointer or touch on an option). */
     fun choose(state: AppStyleState, target: AppCornerStyle): Pair<AppStyleState, String>? {

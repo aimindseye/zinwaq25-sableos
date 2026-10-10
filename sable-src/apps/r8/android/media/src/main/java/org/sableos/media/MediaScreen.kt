@@ -48,12 +48,12 @@ import org.sableos.design.SableAlphabetRail
 import org.sableos.design.SableAlphabetRailWidth
 import org.sableos.design.SableDenseRow
 import org.sableos.design.SableDestination
-import org.sableos.design.SableResponsive
-import org.sableos.design.SableRowAction
-import org.sableos.design.sableLetterJump
 import org.sableos.design.SableHeroHeader
 import org.sableos.design.SableRefreshableSurface
+import org.sableos.design.SableResponsive
+import org.sableos.design.SableRowAction
 import org.sableos.design.SableSpacing
+import org.sableos.design.sableLetterJump
 import java.util.Locale
 
 internal val MediaPink = Color(0xFFFF4F9A)
@@ -64,9 +64,6 @@ internal val MediaOrange = Color(0xFFF28C45)
 
 private val MediaControlSize = 48.dp
 private val MediaPrimaryTouchHeight = 54.dp
-private val MediaPivotTouchHeight = 48.dp
-private val MediaPivotActiveWidth = 34.dp
-private val MediaPivotInactiveWidth = 12.dp
 private val MediaCompactPadding = 12.dp
 private const val COLLECTION_FIXED_ITEM_COUNT = 6
 private const val ROW_ACTION_PLAY = "play"
@@ -325,197 +322,192 @@ internal fun MediaScreen(
                                 .safeDrawingPadding()
                                 .imePadding(),
                     ) {
-                    LazyColumn(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
-                        contentPadding =
-                            PaddingValues(
-                                horizontal = SableSpacing.ScreenHorizontal,
-                                vertical = SableSpacing.ScreenVertical,
-                            ),
-                        verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
-                    ) {
-                        item {
-                            SableHeroHeader(
-                                eyebrow = "Sable Media",
-                                title =
-                                    when (destination) {
-                                        MediaDestination.Podcasts -> "podcasts"
+                        LazyColumn(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                            contentPadding =
+                                PaddingValues(
+                                    horizontal = SableSpacing.ScreenHorizontal,
+                                    vertical = SableSpacing.ScreenVertical,
+                                ),
+                            verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
+                        ) {
+                            item {
+                                SableHeroHeader(
+                                    eyebrow = "Sable Media",
+                                    title =
+                                        when (destination) {
+                                            MediaDestination.Podcasts -> "podcasts"
 
-                                        MediaDestination.Radio,
-                                        MediaDestination.ManageStations,
-                                        MediaDestination.AddStation,
-                                        -> "radio"
+                                            MediaDestination.Radio,
+                                            MediaDestination.ManageStations,
+                                            MediaDestination.AddStation,
+                                            -> "radio"
 
-                                        MediaDestination.NowPlaying,
-                                        MediaDestination.Queue,
-                                        -> "playing"
+                                            MediaDestination.NowPlaying,
+                                            MediaDestination.Queue,
+                                            -> "playing"
 
-                                        MediaDestination.Settings -> "settings"
+                                            MediaDestination.Settings -> "settings"
 
-                                        MediaDestination.Collection,
-                                        MediaDestination.PlaylistEditor,
-                                        -> "media"
-                                    },
-                                subtitle = "Music, podcasts, and radio in one private playback flow.",
-                            )
-                        }
+                                            MediaDestination.Collection,
+                                            MediaDestination.PlaylistEditor,
+                                            -> "media"
+                                        },
+                                    subtitle = "Music, podcasts, and radio in one private playback flow.",
+                                )
+                            }
 
-                        item {
-                            PrimaryPivot(
-                                destination = destination,
-                                onSelect = onDestinationChange,
-                            )
+                            item {
+                                PrimaryPivot(
+                                    destination = destination,
+                                    onSelect = onDestinationChange,
+                                )
+                            }
+
+                            if (
+                                destination == MediaDestination.NowPlaying ||
+                                destination == MediaDestination.Podcasts ||
+                                destination == MediaDestination.Radio
+                            ) {
+                                item {
+                                    MediaUtilityBar(
+                                        queueCount = playback.queue.size,
+                                        upNextCount = playback.upNextCount(),
+                                        onQueue = {
+                                            onDestinationChange(MediaDestination.Queue)
+                                        },
+                                        onSettings = {
+                                            onDestinationChange(MediaDestination.Settings)
+                                        },
+                                    )
+                                }
+                            }
+
+                            item {
+                                when (destination) {
+                                    MediaDestination.Collection,
+                                    MediaDestination.Queue,
+                                    MediaDestination.PlaylistEditor,
+                                    -> {
+                                        Unit
+                                    }
+
+                                    MediaDestination.Podcasts -> {
+                                        PodcastScreen(
+                                            state =
+                                                PodcastScreenState(
+                                                    subscriptions = podcastSubscriptions,
+                                                    savedEpisodeIds = savedPodcastEpisodeIds,
+                                                    playedEpisodeIds = playedPodcastEpisodeIds,
+                                                    feedUrl = podcastFeedUrl,
+                                                    busy = podcastBusy,
+                                                    message = podcastMessage,
+                                                    playback = playback,
+                                                    // Pinned by this screen instead of inside the list.
+                                                    showMiniPlayer = false,
+                                                ),
+                                            actions =
+                                                PodcastScreenActions(
+                                                    onFeedUrlChange = onPodcastFeedUrlChange,
+                                                    onAddFeed = onAddPodcastFeed,
+                                                    onRemoveSubscription = onRemovePodcastSubscription,
+                                                    onPlayEpisode = onPlayPodcastEpisode,
+                                                    onQueueEpisode = onQueuePodcastEpisode,
+                                                    onToggleSavedEpisode = onToggleSavedPodcastEpisode,
+                                                    onOpenNowPlaying = {
+                                                        onDestinationChange(MediaDestination.NowPlaying)
+                                                    },
+                                                ),
+                                        )
+                                    }
+
+                                    MediaDestination.NowPlaying -> {
+                                        NowPlayingScreen(
+                                            playback = playback,
+                                            onPlayPause = onPlayPause,
+                                            onPrevious = onPrevious,
+                                            onNext = onNext,
+                                            onStop = onStop,
+                                            onSeek = onSeek,
+                                        )
+                                    }
+
+                                    MediaDestination.Radio -> {
+                                        RadioScreen(
+                                            stations = stations,
+                                            favoriteStationIds = favoriteStationIds,
+                                            showFavoritesOnly = showFavoriteStationsOnly,
+                                            message = message,
+                                            onPlay = onPlayStation,
+                                            onToggleFavorite = onToggleFavoriteStation,
+                                            onFavoritesOnlyChange = onRadioFavoritesOnlyChange,
+                                            onManage = onManageStations,
+                                            onAdd = onAddStation,
+                                        )
+                                    }
+
+                                    MediaDestination.ManageStations -> {
+                                        ManageStationsScreen(
+                                            stations = stations,
+                                            editingStation = editingStation,
+                                            stationName = stationName,
+                                            stationUrl = stationUrl,
+                                            message = message,
+                                            onEdit = onEditStation,
+                                            onDelete = onDeleteStation,
+                                            onStationNameChange = onStationNameChange,
+                                            onStationUrlChange = onStationUrlChange,
+                                            onSave = onSaveEditedStation,
+                                            onCancelEdit = onCancelStationFlow,
+                                            onBack = {
+                                                onDestinationChange(MediaDestination.Radio)
+                                            },
+                                        )
+                                    }
+
+                                    MediaDestination.AddStation -> {
+                                        AddStationScreen(
+                                            stationName = stationName,
+                                            stationUrl = stationUrl,
+                                            message = message,
+                                            onStationNameChange = onStationNameChange,
+                                            onStationUrlChange = onStationUrlChange,
+                                            onSave = onSaveNewStation,
+                                            onCancel = onCancelStationFlow,
+                                        )
+                                    }
+
+                                    MediaDestination.Settings -> {
+                                        SettingsScreen(
+                                            settings = settings,
+                                            onSettingsChange = onSettingsChange,
+                                            onBack = {
+                                                onDestinationChange(MediaDestination.Collection)
+                                            },
+                                        )
+                                    }
+                                }
+                            }
                         }
 
                         if (
-                            destination == MediaDestination.NowPlaying ||
                             destination == MediaDestination.Podcasts ||
                             destination == MediaDestination.Radio
                         ) {
-                            item {
-                                MediaUtilityBar(
-                                    queueCount = playback.queue.size,
-                                    upNextCount = playback.upNextCount(),
-                                    onQueue = {
-                                        onDestinationChange(MediaDestination.Queue)
-                                    },
-                                    onSettings = {
-                                        onDestinationChange(MediaDestination.Settings)
-                                    },
-                                )
-                            }
+                            // Pinned below the list: current state visible on open.
+                            MediaPinnedMiniPlayer(
+                                playback = playback,
+                                enabled = settings.showMiniPlayer,
+                                onPlayPause = onPlayPause,
+                                onPrevious = onPrevious,
+                                onNext = onNext,
+                                onOpenNowPlaying = { onDestinationChange(MediaDestination.NowPlaying) },
+                                onOpenQueue = { onDestinationChange(MediaDestination.Queue) },
+                            )
                         }
-
-                        item {
-                            when (destination) {
-                                MediaDestination.Collection,
-                                MediaDestination.Queue,
-                                MediaDestination.PlaylistEditor,
-                                -> {
-                                    Unit
-                                }
-
-                                MediaDestination.Podcasts -> {
-                                    PodcastScreen(
-                                        state =
-                                            PodcastScreenState(
-                                                subscriptions = podcastSubscriptions,
-                                                savedEpisodeIds = savedPodcastEpisodeIds,
-                                                playedEpisodeIds = playedPodcastEpisodeIds,
-                                                feedUrl = podcastFeedUrl,
-                                                busy = podcastBusy,
-                                                message = podcastMessage,
-                                                playback = playback,
-                                                // Pinned by this screen instead of inside the list.
-                                                showMiniPlayer = false,
-                                            ),
-                                        actions =
-                                            PodcastScreenActions(
-                                                onFeedUrlChange = onPodcastFeedUrlChange,
-                                                onAddFeed = onAddPodcastFeed,
-                                                onRemoveSubscription = onRemovePodcastSubscription,
-                                                onPlayEpisode = onPlayPodcastEpisode,
-                                                onQueueEpisode = onQueuePodcastEpisode,
-                                                onToggleSavedEpisode = onToggleSavedPodcastEpisode,
-                                                onOpenNowPlaying = {
-                                                    onDestinationChange(MediaDestination.NowPlaying)
-                                                },
-                                            ),
-                                    )
-                                }
-
-                                MediaDestination.NowPlaying -> {
-                                    NowPlayingScreen(
-                                        playback = playback,
-                                        onPlayPause = onPlayPause,
-                                        onPrevious = onPrevious,
-                                        onNext = onNext,
-                                        onStop = onStop,
-                                        onSeek = onSeek,
-                                    )
-                                }
-
-                                MediaDestination.Radio -> {
-                                    RadioScreen(
-                                        stations = stations,
-                                        playback = playback,
-                                        favoriteStationIds = favoriteStationIds,
-                                        showFavoritesOnly = showFavoriteStationsOnly,
-                                        showMiniPlayer = false,
-                                        message = message,
-                                        onPlay = onPlayStation,
-                                        onToggleFavorite = onToggleFavoriteStation,
-                                        onFavoritesOnlyChange = onRadioFavoritesOnlyChange,
-                                        onManage = onManageStations,
-                                        onAdd = onAddStation,
-                                        onOpenNowPlaying = {
-                                            onDestinationChange(MediaDestination.NowPlaying)
-                                        },
-                                    )
-                                }
-
-                                MediaDestination.ManageStations -> {
-                                    ManageStationsScreen(
-                                        stations = stations,
-                                        editingStation = editingStation,
-                                        stationName = stationName,
-                                        stationUrl = stationUrl,
-                                        message = message,
-                                        onEdit = onEditStation,
-                                        onDelete = onDeleteStation,
-                                        onStationNameChange = onStationNameChange,
-                                        onStationUrlChange = onStationUrlChange,
-                                        onSave = onSaveEditedStation,
-                                        onCancelEdit = onCancelStationFlow,
-                                        onBack = {
-                                            onDestinationChange(MediaDestination.Radio)
-                                        },
-                                    )
-                                }
-
-                                MediaDestination.AddStation -> {
-                                    AddStationScreen(
-                                        stationName = stationName,
-                                        stationUrl = stationUrl,
-                                        message = message,
-                                        onStationNameChange = onStationNameChange,
-                                        onStationUrlChange = onStationUrlChange,
-                                        onSave = onSaveNewStation,
-                                        onCancel = onCancelStationFlow,
-                                    )
-                                }
-
-                                MediaDestination.Settings -> {
-                                    SettingsScreen(
-                                        settings = settings,
-                                        onSettingsChange = onSettingsChange,
-                                        onBack = {
-                                            onDestinationChange(MediaDestination.Collection)
-                                        },
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    if (
-                        destination == MediaDestination.Podcasts ||
-                        destination == MediaDestination.Radio
-                    ) {
-                        // Pinned below the list: current state visible on open.
-                        MediaPinnedMiniPlayer(
-                            playback = playback,
-                            enabled = settings.showMiniPlayer,
-                            onPlayPause = onPlayPause,
-                            onPrevious = onPrevious,
-                            onNext = onNext,
-                            onOpenNowPlaying = { onDestinationChange(MediaDestination.NowPlaying) },
-                            onOpenQueue = { onDestinationChange(MediaDestination.Queue) },
-                        )
-                    }
                     }
                 }
 
@@ -682,6 +674,7 @@ private fun CollectionScreen(
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val firstVisible by remember { derivedStateOf { listState.firstVisibleItemIndex } }
+
     fun jumpTo(itemIndex: Int) {
         scope.launch {
             listState.animateScrollToItem(COLLECTION_FIXED_ITEM_COUNT + itemIndex)
@@ -921,7 +914,6 @@ private fun CollectionScreen(
                         }
                     }
                 }
-
             }
 
             if (!alphabet.isEmpty) {
@@ -1346,17 +1338,14 @@ private fun NowPlayingScreen(
 @Composable
 private fun RadioScreen(
     stations: List<RadioStation>,
-    playback: PlaybackUiState,
     favoriteStationIds: Set<String>,
     showFavoritesOnly: Boolean,
-    showMiniPlayer: Boolean,
     message: String?,
     onPlay: (RadioStation) -> Unit,
     onToggleFavorite: (RadioStation) -> Unit,
     onFavoritesOnlyChange: (Boolean) -> Unit,
     onManage: () -> Unit,
     onAdd: () -> Unit,
-    onOpenNowPlaying: () -> Unit,
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),

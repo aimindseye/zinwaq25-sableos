@@ -146,6 +146,8 @@ object AndroidSettingsRoutes {
             SettingsRoute.Android(listOf(ACTION_LISTENER_LIST))
         }
 
-    private fun uidExtra(target: SettingsTarget): Map<String, Int> =
-        target.appUid?.let { mapOf(EXTRA_APP_UID to it) }.orEmpty()
+    private fun uidExtra(target: SettingsTarget): Map<String, Int> {
+        val uid = target.appUid ?: return emptyMap()
+        return mapOf(EXTRA_APP_UID to uid)
+    }
 }

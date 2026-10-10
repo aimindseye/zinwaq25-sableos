@@ -121,7 +121,13 @@ private class ListActions(
             Key.DirectionLeft, Key.DirectionRight -> styleArrow(e.key == Key.DirectionLeft)
 
             Key.Enter, Key.NumPadEnter -> {
-                if (st.styleFocused) styleKey(AppStyleKey.ENTER) else rows.getOrNull(st.sel)?.let(onOpen)
+                if (st.styleFocused) {
+                    styleKey(
+                        AppStyleKey.ENTER
+                    )
+                } else {
+                    rows.getOrNull(st.sel)?.let(onOpen)
+                }
                 true
             }
 
@@ -290,7 +296,11 @@ private fun ListFooter(confirmReset: Boolean, styleFocused: Boolean, onReset: ()
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
-            if (styleFocused) "←→ choose · Enter switch · ↓ apps" else "↑↓ select · Enter edit · Esc back",
+            if (styleFocused) {
+                "←→ choose · Enter switch · ↓ apps"
+            } else {
+                "↑↓ select · Enter edit · Esc back"
+            },
             color = C.muted,
             fontSize = 11.sp
         )
@@ -312,7 +322,11 @@ private fun ListFooter(confirmReset: Boolean, styleFocused: Boolean, onReset: ()
  * first app; Left/Right or Enter choose. Each option is drawn with its own corner shape as a preview.
  */
 @Composable
-private fun AppStyleSection(state: AppStyleState?, focused: Boolean, onPick: (AppCornerStyle) -> Unit) {
+private fun AppStyleSection(
+    state: AppStyleState?,
+    focused: Boolean,
+    onPick: (AppCornerStyle) -> Unit
+) {
     val s = state ?: return
     Column(
         Modifier.fillMaxWidth().padding(top = 8.dp)
@@ -337,7 +351,11 @@ private fun AppStyleSection(state: AppStyleState?, focused: Boolean, onPick: (Ap
             }
         }
         Text(
-            if (s.enabled) "Corners for all Sable apps. ${s.style.summary}" else AppStylePolicy.UNAVAILABLE_TEXT,
+            if (s.enabled) {
+                "Corners for all Sable apps. ${s.style.summary}"
+            } else {
+                AppStylePolicy.UNAVAILABLE_TEXT
+            },
             color = if (s.enabled) C.muted else C.warn,
             fontSize = 11.sp,
             modifier = Modifier.padding(top = 4.dp)
@@ -346,7 +364,12 @@ private fun AppStyleSection(state: AppStyleState?, focused: Boolean, onPick: (Ap
 }
 
 @Composable
-private fun StyleOption(option: AppCornerStyle, selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
+private fun StyleOption(
+    option: AppCornerStyle,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
     val shape = RoundedCornerShape(if (option == AppCornerStyle.Rounded) 8.dp else 3.dp)
     Text(
         (if (selected) "● " else "") + option.label,
