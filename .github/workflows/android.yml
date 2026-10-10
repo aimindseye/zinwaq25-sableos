@@ -11,6 +11,7 @@ on:
       - 'product/q25/apps.tsv'
       - 'scripts/build-apps.sh'
       - '.github/workflows/android.yml'
+      - '!**/*.md'
   push:
     branches: [main]
     paths:
@@ -18,6 +19,7 @@ on:
       - 'product/q25/apps.tsv'
       - 'scripts/build-apps.sh'
       - '.github/workflows/android.yml'
+      - '!**/*.md'
   workflow_dispatch:
 
 permissions:

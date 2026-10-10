@@ -159,6 +159,13 @@ its CI moved to a local machine, and that `build/local-ci/run.sh` still runs the
 The LineageOS image itself is too large for hosted runners and stays on the
 build host.
 
+A change that only touches documentation (`docs/`, any Markdown file, `LICENSE`,
+`NOTICE`) does not start `checks`, `Sable apps` or `Rust`; none of them reads
+those files. `Security` still runs, so Gitleaks scans documentation changes too.
+None of these checks is required on `main`. If one is made a required status
+check, a docs-only pull request will wait on it, because a workflow skipped by
+its path filter never reports.
+
 ## Troubleshooting
 
 * **`lunch` can't find the product:** check `device/xelex/Q25` synced and that

@@ -7,11 +7,13 @@ on:
     paths:
       - 'sable-src/apps/r8/rust/**'
       - '.github/workflows/rust.yml'
+      - '!**/*.md'
   push:
     branches: [main]
     paths:
       - 'sable-src/apps/r8/rust/**'
       - '.github/workflows/rust.yml'
+      - '!**/*.md'
   workflow_dispatch:
 
 permissions:
