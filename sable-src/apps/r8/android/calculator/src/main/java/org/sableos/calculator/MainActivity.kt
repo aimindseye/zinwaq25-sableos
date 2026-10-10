@@ -1,5 +1,6 @@
 package org.sableos.calculator
 
+import android.annotation.SuppressLint
 import android.os.Bundle
 import android.view.KeyEvent
 import androidx.activity.ComponentActivity
@@ -64,6 +65,8 @@ private object HardwareKeypad {
 }
 
 class MainActivity : ComponentActivity() {
+    // Overrides the public Activity method; androidx re-declares it as restricted, which lint misreports.
+    @SuppressLint("RestrictedApi")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         val handler = HardwareKeypad.handler
         if (handler != null) {

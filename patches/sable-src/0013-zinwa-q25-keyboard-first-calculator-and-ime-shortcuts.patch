@@ -106,18 +106,19 @@ index 0000000..7aa2cdd
 +        }
 +}
 diff --git a/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/MainActivity.kt b/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/MainActivity.kt
-index 4775aad..46fe7ca 100644
+index 4775aad..92beb67 100644
 --- a/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/MainActivity.kt
 +++ b/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/MainActivity.kt
-@@ -1,6 +1,7 @@
+@@ -1,6 +1,8 @@
  package org.sableos.calculator
  
++import android.annotation.SuppressLint
  import android.os.Bundle
 +import android.view.KeyEvent
  import androidx.activity.ComponentActivity
  import androidx.activity.compose.setContent
  import androidx.compose.foundation.BorderStroke
-@@ -13,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
+@@ -13,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
  import androidx.compose.material3.Surface
  import androidx.compose.material3.Text
  import androidx.compose.runtime.Composable
@@ -125,7 +126,7 @@ index 4775aad..46fe7ca 100644
  import androidx.compose.runtime.getValue
  import androidx.compose.runtime.mutableStateOf
  import androidx.compose.runtime.remember
-@@ -56,7 +58,30 @@ private val scientificChoices =
+@@ -56,7 +59,32 @@ private val scientificChoices =
          ScientificChoice(7, "log₁₀"),
      )
  
@@ -135,6 +136,8 @@ index 4775aad..46fe7ca 100644
 +}
 +
  class MainActivity : ComponentActivity() {
++    // Overrides the public Activity method; androidx re-declares it as restricted, which lint misreports.
++    @SuppressLint("RestrictedApi")
 +    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
 +        val handler = HardwareKeypad.handler
 +        if (handler != null) {
@@ -156,7 +159,7 @@ index 4775aad..46fe7ca 100644
      override fun onCreate(savedInstanceState: Bundle?) {
          super.onCreate(savedInstanceState)
          val nativeQualification = NativeBridge.selfTest()
-@@ -164,6 +189,18 @@ private fun CalculatorPad(scientific: Boolean) {
+@@ -164,6 +192,18 @@ private fun CalculatorPad(scientific: Boolean) {
          }
      }
  
@@ -175,7 +178,7 @@ index 4775aad..46fe7ca 100644
      fun applyBinaryNow(
          left: String,
          op: Int,
-@@ -256,6 +293,25 @@ private fun CalculatorPad(scientific: Boolean) {
+@@ -256,6 +296,25 @@ private fun CalculatorPad(scientific: Boolean) {
          }
      }
  
@@ -201,7 +204,7 @@ index 4775aad..46fe7ca 100644
      Column(
          verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
      ) {
-@@ -305,17 +361,7 @@ private fun CalculatorPad(scientific: Boolean) {
+@@ -305,17 +364,7 @@ private fun CalculatorPad(scientific: Boolean) {
                          display
                      }
              },
@@ -220,7 +223,7 @@ index 4775aad..46fe7ca 100644
          )
  
          Text(
-@@ -436,6 +482,9 @@ private fun CalculatorKey(
+@@ -436,6 +485,9 @@ private fun CalculatorKey(
      }
  }
  
