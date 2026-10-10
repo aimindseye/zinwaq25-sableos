@@ -49,7 +49,11 @@ jobs:
         with:
           tool: cargo-audit,cargo-deny,cargo-llvm-cov
       - name: RustSec audit
-        run: cargo audit --deny warnings
+        run: |
+          # cargo-audit's own database fetch leaves an empty checkout on hosted
+          # runners; clone the database explicitly and audit against it.
+          git clone --quiet --depth 1 https://github.com/rustsec/advisory-db "$RUNNER_TEMP/advisory-db"
+          cargo audit --deny warnings --no-fetch --db "$RUNNER_TEMP/advisory-db"
       - name: Advisory, ban and source policy
         run: cargo deny check advisories bans sources
       - name: Line coverage (baseline, no threshold)
