@@ -1,0 +1,691 @@
+From 7adaa856d2baee58d5a6c1b8e0a403798372bafd Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 10 Oct 2026 00:35:54 +0000
+Subject: [PATCH] SableOS: sensitive access under app names and the Apps app
+ count
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Port of the GrapheneOS-era UI5A Settings work, kept inside Android's
+Settings structure (KEYBOARD_FIRST_SETTINGS_UX: Apps keeps its place
+and its dashboard):
+
+* Settings > Apps > All apps: each row shows the app's effective
+  sensitive access under its name instead of its size, e.g.
+  "permissions · Location · Contacts · Nearby · +1", with a spoken
+  form that names every group. The words, groups, order and rules are
+  Sable Start's (DESIGN-KF-D): only grants effective in the app's own
+  user count, unreadable state reads "see app info", never "none".
+  AppStateSablePrivacyBridge reads it on the ApplicationsState
+  background thread; binding a row does no binder call. Returning from
+  App info refreshes that app (existing forceUpdate path).
+* Top-level Apps summary: "N apps · permissions, network access and
+  defaults", counted off the main thread for the current user with the
+  upstream InstalledAppCounter rule.
+
+Every specialised app list keeps its upstream summary.
+---
+ res/values/strings_sable_apps.xml             |  54 +++++
+ res/xml/top_level_settings.xml                |   3 +-
+ res/xml/top_level_settings_expressive.xml     |   3 +-
+ .../ManageApplications.java                   |  17 ++
+ .../sable/AppStateSablePrivacyBridge.java     |  81 ++++++++
+ .../sable/SablePrivacyFactsReader.java        | 186 ++++++++++++++++++
+ .../sable/SablePrivacyLabels.java             | 129 ++++++++++++
+ .../TopLevelAppsPreferenceController.java     |  95 +++++++++
+ 8 files changed, 566 insertions(+), 2 deletions(-)
+ create mode 100644 res/values/strings_sable_apps.xml
+ create mode 100644 src/com/android/settings/applications/sable/AppStateSablePrivacyBridge.java
+ create mode 100644 src/com/android/settings/applications/sable/SablePrivacyFactsReader.java
+ create mode 100644 src/com/android/settings/applications/sable/SablePrivacyLabels.java
+ create mode 100644 src/com/android/settings/applications/sable/TopLevelAppsPreferenceController.java
+
+diff --git a/res/values/strings_sable_apps.xml b/res/values/strings_sable_apps.xml
+new file mode 100644
+index 00000000000..e7a5272e60a
+--- /dev/null
++++ b/res/values/strings_sable_apps.xml
+@@ -0,0 +1,54 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
++    <!-- SableOS: top-level Apps summary with the current user's app count. -->
++    <plurals name="sable_top_level_apps_summary">
++        <item quantity="one"><xliff:g id="count">%1$d</xliff:g> app · permissions, network access and defaults</item>
++        <item quantity="other"><xliff:g id="count">%1$d</xliff:g> apps · permissions, network access and defaults</item>
++    </plurals>
++
++    <!-- SableOS: sensitive-access groups. Same words as Sable Start's All Apps row. -->
++    <string name="sable_privacy_group_location">Location</string>
++    <string name="sable_privacy_group_camera">Camera</string>
++    <string name="sable_privacy_group_microphone">Microphone</string>
++    <string name="sable_privacy_group_contacts">Contacts</string>
++    <string name="sable_privacy_group_phone">Phone</string>
++    <string name="sable_privacy_group_messages">Messages</string>
++    <string name="sable_privacy_group_calendar">Calendar</string>
++    <string name="sable_privacy_group_photos">Photos</string>
++    <string name="sable_privacy_group_audio">Audio</string>
++    <string name="sable_privacy_group_nearby">Nearby</string>
++    <string name="sable_privacy_group_notifications">Notifications</string>
++    <string name="sable_privacy_group_accessibility">Accessibility</string>
++    <string name="sable_privacy_group_device_admin">Device admin</string>
++    <string name="sable_privacy_group_install_apps">Install apps</string>
++    <string name="sable_privacy_group_overlay">Overlay</string>
++    <string name="sable_privacy_group_usage_access">Usage access</string>
++    <string name="sable_privacy_location_approximate">Location approximate</string>
++    <string name="sable_privacy_photos_limited">Photos limited</string>
++
++    <!-- SableOS: the one-line sensitive-access summary under an app name in All apps. -->
++    <string name="sable_privacy_row_prefix">permissions</string>
++    <string name="sable_privacy_row_separator" translatable="false">" · "</string>
++    <string name="sable_privacy_row_more">+<xliff:g id="count">%1$d</xliff:g></string>
++    <string name="sable_privacy_row_none_sensitive">permissions · none sensitive</string>
++    <string name="sable_privacy_row_not_confirmed">permissions · see app info</string>
++    <string name="sable_privacy_row_unavailable">permissions · unavailable</string>
++    <string name="sable_privacy_row_warning_marker" translatable="false">⚠</string>
++    <string name="sable_privacy_spoken_everyday">Permissions: <xliff:g id="groups">%1$s</xliff:g></string>
++    <string name="sable_privacy_spoken_special">Special access: <xliff:g id="groups">%1$s</xliff:g></string>
++</resources>
+diff --git a/res/xml/top_level_settings.xml b/res/xml/top_level_settings.xml
+index 975a97a3aa4..7939c767091 100644
+--- a/res/xml/top_level_settings.xml
++++ b/res/xml/top_level_settings.xml
+@@ -62,7 +62,8 @@
+             android:order="-60"
+             android:title="@string/apps_dashboard_title"
+             android:summary="@string/app_and_notification_dashboard_summary"
+-            settings:highlightableMenuKey="@string/menu_key_apps"/>
++            settings:highlightableMenuKey="@string/menu_key_apps"
++            settings:controller="com.android.settings.applications.sable.TopLevelAppsPreferenceController"/>
+ 
+         <com.android.settings.widget.HomepagePreference
+             android:fragment="com.android.settings.notification.ConfigureNotificationSettings"
+diff --git a/res/xml/top_level_settings_expressive.xml b/res/xml/top_level_settings_expressive.xml
+index 73e1a82303c..cf407ec64cf 100644
+--- a/res/xml/top_level_settings_expressive.xml
++++ b/res/xml/top_level_settings_expressive.xml
+@@ -54,7 +54,8 @@
+             android:order="-60"
+             android:title="@string/apps_dashboard_title"
+             android:summary="@string/app_and_notification_dashboard_summary"
+-            settings:highlightableMenuKey="@string/menu_key_apps"/>
++            settings:highlightableMenuKey="@string/menu_key_apps"
++            settings:controller="com.android.settings.applications.sable.TopLevelAppsPreferenceController"/>
+ 
+         <com.android.settings.widget.HomepagePreference
+             android:fragment="com.android.settings.notification.ConfigureNotificationSettings"
+diff --git a/src/com/android/settings/applications/manageapplications/ManageApplications.java b/src/com/android/settings/applications/manageapplications/ManageApplications.java
+index 9e1cb8d067c..d37f3d12064 100644
+--- a/src/com/android/settings/applications/manageapplications/ManageApplications.java
++++ b/src/com/android/settings/applications/manageapplications/ManageApplications.java
+@@ -133,6 +133,8 @@ import com.android.settings.applications.AppStateTurnScreenOnBridge;
+ import com.android.settings.applications.AppStateUsageBridge;
+ import com.android.settings.applications.AppStateUsageBridge.UsageState;
+ import com.android.settings.applications.AppStateWriteSettingsBridge;
++import com.android.settings.applications.sable.AppStateSablePrivacyBridge;
++import com.android.settings.applications.sable.AppStateSablePrivacyBridge.SablePrivacyInfo;
+ import com.android.settings.applications.AppStorageSettings;
+ import com.android.settings.applications.UsageAccessDetails;
+ import com.android.settings.applications.appinfo.AlarmsAndRemindersDetails;
+@@ -1327,6 +1329,9 @@ public class ManageApplications extends InstrumentedFragment
+                 mExtraInfoBridge = new AppStateNfcTagAppsBridge(mContext, mState, this);
+             } else if (mManageApplications.mListType == LIST_TYPE_TURN_SCREEN_ON) {
+                 mExtraInfoBridge = new AppStateTurnScreenOnBridge(mContext, mState, this);
++            } else if (mManageApplications.mListType == LIST_TYPE_MAIN) {
++                // SableOS: sensitive-access summary under each app name.
++                mExtraInfoBridge = new AppStateSablePrivacyBridge(mContext, mState, this);
+             } else {
+                 mExtraInfoBridge = null;
+             }
+@@ -1884,6 +1889,18 @@ public class ManageApplications extends InstrumentedFragment
+                 case LIST_TYPE_TURN_SCREEN_ON:
+                     holder.setSummary(TurnScreenOnDetails.getSummary(mContext, entry));
+                     break;
++                case LIST_TYPE_MAIN:
++                    // SableOS: effective sensitive access instead of the app size.
++                    if (entry.extraInfo instanceof SablePrivacyInfo) {
++                        final SablePrivacyInfo info = (SablePrivacyInfo) entry.extraInfo;
++                        holder.setSummary(info.text);
++                        holder.mSummary.setContentDescription(info.spoken);
++                    } else {
++                        holder.mSummary.setContentDescription(null);
++                        holder.updateSizeText(entry, mManageApplications.mInvalidSizeStr,
++                                mWhichSize);
++                    }
++                    break;
+                 default:
+                     holder.updateSizeText(entry, mManageApplications.mInvalidSizeStr, mWhichSize);
+                     break;
+diff --git a/src/com/android/settings/applications/sable/AppStateSablePrivacyBridge.java b/src/com/android/settings/applications/sable/AppStateSablePrivacyBridge.java
+new file mode 100644
+index 00000000000..9f010e96888
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/AppStateSablePrivacyBridge.java
+@@ -0,0 +1,81 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable;
++
++import android.content.Context;
++
++import com.android.settings.applications.AppStateBaseBridge;
++import com.android.settings.applications.sable.model.PrivacyEvaluator;
++import com.android.settings.applications.sable.model.PrivacyFacts;
++import com.android.settings.applications.sable.model.PrivacyRow;
++import com.android.settingslib.applications.ApplicationsState;
++import com.android.settingslib.applications.ApplicationsState.AppEntry;
++
++import java.util.List;
++
++/**
++ * Loads the sensitive-access row of every app in the main "All apps" list on the
++ * ApplicationsState background thread, so binding a row only formats a stored result
++ * (no binder call per row). ManageApplications already calls {@link #forceUpdate} for the
++ * app the user returns from, so a permission change in App info shows at once.
++ */
++public final class AppStateSablePrivacyBridge extends AppStateBaseBridge {
++
++    /** Stored in {@link AppEntry#extraInfo} for the main list. */
++    public static final class SablePrivacyInfo {
++        public final CharSequence text;
++        public final CharSequence spoken;
++
++        SablePrivacyInfo(CharSequence text, CharSequence spoken) {
++            this.text = text;
++            this.spoken = spoken;
++        }
++    }
++
++    private final SablePrivacyFactsReader mReader;
++    private final SablePrivacyLabels mLabels;
++
++    public AppStateSablePrivacyBridge(Context context, ApplicationsState appState,
++            Callback callback) {
++        super(appState, callback);
++        mReader = new SablePrivacyFactsReader(context);
++        mLabels = new SablePrivacyLabels(context);
++    }
++
++    @Override
++    protected void loadAllExtraInfo() {
++        mReader.reset();
++        final List<AppEntry> apps = mAppSession.getAllApps();
++        for (AppEntry app : apps) {
++            app.extraInfo = infoFor(app);
++        }
++    }
++
++    @Override
++    protected void updateExtraInfo(AppEntry app, String pkg, int uid) {
++        mReader.reset();
++        app.extraInfo = infoFor(app);
++    }
++
++    private SablePrivacyInfo infoFor(AppEntry app) {
++        final PrivacyFacts facts = mReader.read(app.info);
++        final PrivacyRow row = PrivacyRow.of(facts == null ? null
++                : PrivacyEvaluator.evaluate(facts));
++        return new SablePrivacyInfo(row.text(mLabels), row.spokenText(mLabels));
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/SablePrivacyFactsReader.java b/src/com/android/settings/applications/sable/SablePrivacyFactsReader.java
+new file mode 100644
+index 00000000000..75e09121549
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/SablePrivacyFactsReader.java
+@@ -0,0 +1,186 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable;
++
++import android.app.AppOpsManager;
++import android.app.admin.DevicePolicyManager;
++import android.content.ComponentName;
++import android.content.Context;
++import android.content.pm.ApplicationInfo;
++import android.content.pm.PackageInfo;
++import android.content.pm.PackageManager;
++import android.os.Build;
++import android.os.UserHandle;
++import android.text.TextUtils;
++import android.util.SparseArray;
++
++import com.android.settings.applications.sable.model.OpMode;
++import com.android.settings.applications.sable.model.PermissionFact;
++import com.android.settings.applications.sable.model.PrivacyFacts;
++import com.android.settings.applications.sable.model.PrivacyPermissions;
++import com.android.settingslib.accessibility.AccessibilityUtils;
++
++import java.util.HashSet;
++import java.util.List;
++import java.util.Set;
++
++/**
++ * Reads {@link PrivacyFacts} for one app instance in its own Android user from
++ * PackageManager (requested permissions and their grant flags), AppOpsManager, the enabled
++ * accessibility services and the active device admins. Nothing is cached beyond one load
++ * and nothing is persisted. Call from a background thread.
++ */
++public final class SablePrivacyFactsReader {
++    private final Context mContext;
++    private final AppOpsManager mAppOps;
++    private final DevicePolicyManager mDpm;
++    /** Per-user sets, valid for one load. */
++    private final SparseArray<Set<String>> mAccessibilityPackages = new SparseArray<>();
++    private final SparseArray<Set<String>> mAdminPackages = new SparseArray<>();
++
++    public SablePrivacyFactsReader(Context context) {
++        mContext = context.getApplicationContext() != null
++                ? context.getApplicationContext() : context;
++        mAppOps = mContext.getSystemService(AppOpsManager.class);
++        mDpm = mContext.getSystemService(DevicePolicyManager.class);
++    }
++
++    /** Forgets per-user state so the next read sees current settings. */
++    public void reset() {
++        mAccessibilityPackages.clear();
++        mAdminPackages.clear();
++    }
++
++    /** Facts for one app in its user, or null when its state cannot be read. */
++    public PrivacyFacts read(ApplicationInfo info) {
++        if (info == null || TextUtils.isEmpty(info.packageName)) {
++            return null;
++        }
++        final UserHandle user = UserHandle.getUserHandleForUid(info.uid);
++        final PackageInfo pi;
++        try {
++            final PackageManager pm = mContext.createContextAsUser(user, 0).getPackageManager();
++            pi = pm.getPackageInfo(info.packageName,
++                    PackageManager.PackageInfoFlags.of(PackageManager.GET_PERMISSIONS
++                            | PackageManager.MATCH_DISABLED_COMPONENTS
++                            | PackageManager.MATCH_UNINSTALLED_PACKAGES));
++        } catch (PackageManager.NameNotFoundException | RuntimeException e) {
++            return null;
++        }
++        final PrivacyFacts.Builder b = PrivacyFacts.builder(info.targetSdkVersion,
++                Build.VERSION.SDK_INT);
++        final String[] requested = pi.requestedPermissions;
++        final int[] flags = pi.requestedPermissionsFlags;
++        if (requested != null) {
++            for (int i = 0; i < requested.length; i++) {
++                final String perm = requested[i];
++                if (!PrivacyPermissions.ALL.contains(perm)) {
++                    continue;
++                }
++                final boolean granted = flags != null && i < flags.length
++                        && (flags[i] & PackageInfo.REQUESTED_PERMISSION_GRANTED) != 0;
++                b.permission(perm, new PermissionFact(granted, opModeFor(perm, info)));
++            }
++        }
++        final int userId = user.getIdentifier();
++        b.accessibilityServiceEnabled(accessibilityPackages(userId) == null ? null
++                : accessibilityPackages(userId).contains(info.packageName));
++        b.activeDeviceAdmin(adminPackages(userId) == null ? null
++                : adminPackages(userId).contains(info.packageName));
++        b.installAppsOp(op(AppOpsManager.OPSTR_REQUEST_INSTALL_PACKAGES, info));
++        b.overlayOp(op(AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW, info));
++        b.usageAccessOp(op(AppOpsManager.OPSTR_GET_USAGE_STATS, info));
++        return b.build();
++    }
++
++    private OpMode opModeFor(String permission, ApplicationInfo info) {
++        final String opStr = AppOpsManager.permissionToOp(permission);
++        if (opStr == null) {
++            return OpMode.NOT_APPLICABLE;
++        }
++        return op(opStr, info);
++    }
++
++    private OpMode op(String opStr, ApplicationInfo info) {
++        if (mAppOps == null) {
++            return OpMode.UNKNOWN;
++        }
++        try {
++            return toOpMode(mAppOps.unsafeCheckOpNoThrow(opStr, info.uid, info.packageName));
++        } catch (RuntimeException e) {
++            return OpMode.UNKNOWN;
++        }
++    }
++
++    /** Maps AppOpsManager.MODE_* onto the model. */
++    public static OpMode toOpMode(int mode) {
++        switch (mode) {
++            case AppOpsManager.MODE_ALLOWED:
++                return OpMode.ALLOWED;
++            case AppOpsManager.MODE_FOREGROUND:
++                return OpMode.FOREGROUND;
++            case AppOpsManager.MODE_DEFAULT:
++                return OpMode.DEFAULT;
++            case AppOpsManager.MODE_IGNORED:
++                return OpMode.IGNORED;
++            case AppOpsManager.MODE_ERRORED:
++                return OpMode.ERRORED;
++            default:
++                return OpMode.UNKNOWN;
++        }
++    }
++
++    private Set<String> accessibilityPackages(int userId) {
++        if (mAccessibilityPackages.indexOfKey(userId) < 0) {
++            Set<String> pkgs;
++            try {
++                pkgs = new HashSet<>();
++                for (ComponentName cn
++                        : AccessibilityUtils.getEnabledServicesFromSettings(mContext, userId)) {
++                    pkgs.add(cn.getPackageName());
++                }
++            } catch (RuntimeException e) {
++                pkgs = null;
++            }
++            mAccessibilityPackages.put(userId, pkgs);
++        }
++        return mAccessibilityPackages.get(userId);
++    }
++
++    private Set<String> adminPackages(int userId) {
++        if (mAdminPackages.indexOfKey(userId) < 0) {
++            Set<String> pkgs;
++            try {
++                pkgs = new HashSet<>();
++                final List<ComponentName> admins =
++                        mDpm == null ? null : mDpm.getActiveAdminsAsUser(userId);
++                if (mDpm == null) {
++                    pkgs = null;
++                } else if (admins != null) {
++                    for (ComponentName cn : admins) {
++                        pkgs.add(cn.getPackageName());
++                    }
++                }
++            } catch (RuntimeException e) {
++                pkgs = null;
++            }
++            mAdminPackages.put(userId, pkgs);
++        }
++        return mAdminPackages.get(userId);
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/SablePrivacyLabels.java b/src/com/android/settings/applications/sable/SablePrivacyLabels.java
+new file mode 100644
+index 00000000000..fd8e9a50f0c
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/SablePrivacyLabels.java
+@@ -0,0 +1,129 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable;
++
++import android.content.Context;
++import android.content.res.Resources;
++
++import com.android.settings.R;
++import com.android.settings.applications.sable.model.GroupState;
++import com.android.settings.applications.sable.model.PrivacyGroup;
++import com.android.settings.applications.sable.model.PrivacyRow;
++
++/** Localized words for the sensitive-access row and the App Security page. */
++public final class SablePrivacyLabels implements PrivacyRow.Labels {
++    private final Resources mRes;
++
++    public SablePrivacyLabels(Context context) {
++        mRes = context.getResources();
++    }
++
++    @Override
++    public String group(PrivacyGroup group, GroupState state) {
++        if (state == GroupState.APPROXIMATE) {
++            return mRes.getString(R.string.sable_privacy_location_approximate);
++        }
++        if (state == GroupState.LIMITED) {
++            return mRes.getString(R.string.sable_privacy_photos_limited);
++        }
++        return mRes.getString(groupRes(group));
++    }
++
++    /** Plain group name. */
++    public static int groupRes(PrivacyGroup group) {
++        switch (group) {
++            case LOCATION:
++                return R.string.sable_privacy_group_location;
++            case CAMERA:
++                return R.string.sable_privacy_group_camera;
++            case MICROPHONE:
++                return R.string.sable_privacy_group_microphone;
++            case CONTACTS:
++                return R.string.sable_privacy_group_contacts;
++            case PHONE:
++                return R.string.sable_privacy_group_phone;
++            case MESSAGES:
++                return R.string.sable_privacy_group_messages;
++            case CALENDAR:
++                return R.string.sable_privacy_group_calendar;
++            case PHOTOS:
++                return R.string.sable_privacy_group_photos;
++            case AUDIO:
++                return R.string.sable_privacy_group_audio;
++            case NEARBY:
++                return R.string.sable_privacy_group_nearby;
++            case NOTIFICATIONS:
++                return R.string.sable_privacy_group_notifications;
++            case ACCESSIBILITY:
++                return R.string.sable_privacy_group_accessibility;
++            case DEVICE_ADMIN:
++                return R.string.sable_privacy_group_device_admin;
++            case INSTALL_APPS:
++                return R.string.sable_privacy_group_install_apps;
++            case OVERLAY:
++                return R.string.sable_privacy_group_overlay;
++            default:
++                return R.string.sable_privacy_group_usage_access;
++        }
++    }
++
++    @Override
++    public String prefix() {
++        return mRes.getString(R.string.sable_privacy_row_prefix);
++    }
++
++    @Override
++    public String separator() {
++        return mRes.getString(R.string.sable_privacy_row_separator);
++    }
++
++    @Override
++    public String more(int count) {
++        return mRes.getString(R.string.sable_privacy_row_more, count);
++    }
++
++    @Override
++    public String noneSensitive() {
++        return mRes.getString(R.string.sable_privacy_row_none_sensitive);
++    }
++
++    @Override
++    public String notConfirmed() {
++        return mRes.getString(R.string.sable_privacy_row_not_confirmed);
++    }
++
++    @Override
++    public String unavailable() {
++        return mRes.getString(R.string.sable_privacy_row_unavailable);
++    }
++
++    @Override
++    public String warningMarker() {
++        return mRes.getString(R.string.sable_privacy_row_warning_marker);
++    }
++
++    @Override
++    public String spokenEveryday(String joined) {
++        return mRes.getString(R.string.sable_privacy_spoken_everyday, joined);
++    }
++
++    @Override
++    public String spokenSpecial(String joined) {
++        return mRes.getString(R.string.sable_privacy_spoken_special, joined);
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/TopLevelAppsPreferenceController.java b/src/com/android/settings/applications/sable/TopLevelAppsPreferenceController.java
+new file mode 100644
+index 00000000000..2e7a44f163f
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/TopLevelAppsPreferenceController.java
+@@ -0,0 +1,95 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable;
++
++import android.content.Context;
++import android.content.pm.ApplicationInfo;
++import android.content.pm.PackageManager;
++
++import androidx.preference.Preference;
++import androidx.preference.PreferenceScreen;
++
++import com.android.settings.R;
++import com.android.settings.applications.InstalledAppCounter;
++import com.android.settings.core.BasePreferenceController;
++import com.android.settingslib.core.lifecycle.LifecycleObserver;
++import com.android.settingslib.core.lifecycle.events.OnStart;
++import com.android.settingslib.utils.ThreadUtils;
++
++import java.util.List;
++
++/**
++ * Top-level Apps row: "N apps · permissions, network access and defaults". N counts the apps
++ * of the current user that the All apps list shows by default, with the same rule as the
++ * upstream app counters ({@link InstalledAppCounter#includeInCount}). Counted off the main
++ * thread on every start; nothing is cached or shared.
++ */
++public final class TopLevelAppsPreferenceController extends BasePreferenceController
++        implements LifecycleObserver, OnStart {
++    private Preference mPreference;
++
++    public TopLevelAppsPreferenceController(Context context, String preferenceKey) {
++        super(context, preferenceKey);
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        return AVAILABLE;
++    }
++
++    @Override
++    public void displayPreference(PreferenceScreen screen) {
++        super.displayPreference(screen);
++        mPreference = screen.findPreference(getPreferenceKey());
++    }
++
++    @Override
++    public void onStart() {
++        final Context context = mContext;
++        ThreadUtils.postOnBackgroundThread(() -> {
++            final int count = countApps(context);
++            ThreadUtils.postOnMainThread(() -> {
++                if (mPreference != null && count >= 0) {
++                    mPreference.setSummary(context.getResources().getQuantityString(
++                            R.plurals.sable_top_level_apps_summary, count, count));
++                }
++            });
++        });
++    }
++
++    /** Apps of the current user shown by default in All apps, or -1 when unreadable. */
++    static int countApps(Context context) {
++        try {
++            final PackageManager pm = context.getPackageManager();
++            final List<ApplicationInfo> apps = pm.getInstalledApplications(
++                    PackageManager.ApplicationInfoFlags.of(
++                            PackageManager.MATCH_DISABLED_COMPONENTS
++                                    | PackageManager.MATCH_DISABLED_UNTIL_USED_COMPONENTS));
++            int count = 0;
++            for (ApplicationInfo info : apps) {
++                if (InstalledAppCounter.includeInCount(InstalledAppCounter.IGNORE_INSTALL_REASON,
++                        pm, info)) {
++                    count++;
++                }
++            }
++            return count;
++        } catch (RuntimeException e) {
++            return -1;
++        }
++    }
++}
+-- 
+2.43.0
+

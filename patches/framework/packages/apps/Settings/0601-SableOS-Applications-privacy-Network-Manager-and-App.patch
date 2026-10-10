@@ -1,0 +1,2428 @@
+From 020582149f020ef07e8d6dff111ed7ece79cd317 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 10 Oct 2026 00:32:53 +0000
+Subject: [PATCH] SableOS: Applications privacy, Network Manager and App
+ Security model
+
+Pure Java (no android.* imports) model for the SableOS Applications
+work ported from the GrapheneOS-era UI5A/UI5B/R9 Settings patches:
+
+* PrivacyEvaluator, AppPrivacy, PrivacyRow: the sensitive-access
+  summary under an app name. Same groups, order, density (three labels
+  then +N, special access as a warning marker) and truthfulness rule
+  as Sable Start's All Apps row (DESIGN-KF-D): a group needs an
+  effective grant in the app's own user, an ignored/errored App-op
+  cancels it, an unreadable op is UNKNOWN and never shown as access.
+* NetworkAccessPolicy, NetworkAppRows: Network Manager over the
+  per-UID restriction bits LineageOS already enforces. The one switch
+  adds or removes only the all-networks bit; transport bits set in
+  App info are reported, never hidden or cleared. Shared-UID packages
+  share one row. Blocking a messaging app asks first.
+* ComponentExposure, NativeCodeScan, AppSecurityFacts, Evidence: the
+  read-only App Security & Privacy page (component exposure, bounded
+  APK native-code inspection that is UNKNOWN when nothing was read,
+  install class, installer chain, signer digest).
+
+SettingsSableAppsModelTests runs them on the host JVM.
+---
+ Android.bp                                    |   7 +
+ .../applications/sable/model/AppPrivacy.java  |  61 ++++++
+ .../sable/model/AppSecurityFacts.java         | 101 +++++++++
+ .../sable/model/ComponentExposure.java        |  86 ++++++++
+ .../applications/sable/model/Evidence.java    |  35 +++
+ .../applications/sable/model/GroupState.java  |  37 ++++
+ .../sable/model/NativeCodeScan.java           |  90 ++++++++
+ .../sable/model/NetworkAccessPolicy.java      | 174 +++++++++++++++
+ .../sable/model/NetworkAppRows.java           |  89 ++++++++
+ .../applications/sable/model/OpMode.java      |  34 +++
+ .../sable/model/PermissionFact.java           |  77 +++++++
+ .../sable/model/PrivacyEvaluator.java         | 204 ++++++++++++++++++
+ .../sable/model/PrivacyFacts.java             | 106 +++++++++
+ .../sable/model/PrivacyGroup.java             |  57 +++++
+ .../sable/model/PrivacyPermissions.java       | 133 ++++++++++++
+ .../applications/sable/model/PrivacyRow.java  | 182 ++++++++++++++++
+ tests/sable-apps/Android.bp                   |  33 +++
+ tests/sable-apps/TEST_MAPPING                 |   7 +
+ .../sable/model/AppSecurityModelTest.java     | 146 +++++++++++++
+ .../sable/model/EnglishLabels.java            | 103 +++++++++
+ .../sable/model/NetworkAccessPolicyTest.java  | 131 +++++++++++
+ .../sable/model/PrivacyEvaluatorTest.java     | 199 +++++++++++++++++
+ .../sable/model/PrivacyRowTest.java           | 119 ++++++++++
+ 23 files changed, 2211 insertions(+)
+ create mode 100644 src/com/android/settings/applications/sable/model/AppPrivacy.java
+ create mode 100644 src/com/android/settings/applications/sable/model/AppSecurityFacts.java
+ create mode 100644 src/com/android/settings/applications/sable/model/ComponentExposure.java
+ create mode 100644 src/com/android/settings/applications/sable/model/Evidence.java
+ create mode 100644 src/com/android/settings/applications/sable/model/GroupState.java
+ create mode 100644 src/com/android/settings/applications/sable/model/NativeCodeScan.java
+ create mode 100644 src/com/android/settings/applications/sable/model/NetworkAccessPolicy.java
+ create mode 100644 src/com/android/settings/applications/sable/model/NetworkAppRows.java
+ create mode 100644 src/com/android/settings/applications/sable/model/OpMode.java
+ create mode 100644 src/com/android/settings/applications/sable/model/PermissionFact.java
+ create mode 100644 src/com/android/settings/applications/sable/model/PrivacyEvaluator.java
+ create mode 100644 src/com/android/settings/applications/sable/model/PrivacyFacts.java
+ create mode 100644 src/com/android/settings/applications/sable/model/PrivacyGroup.java
+ create mode 100644 src/com/android/settings/applications/sable/model/PrivacyPermissions.java
+ create mode 100644 src/com/android/settings/applications/sable/model/PrivacyRow.java
+ create mode 100644 tests/sable-apps/Android.bp
+ create mode 100644 tests/sable-apps/TEST_MAPPING
+ create mode 100644 tests/sable-apps/src/com/android/settings/applications/sable/model/AppSecurityModelTest.java
+ create mode 100644 tests/sable-apps/src/com/android/settings/applications/sable/model/EnglishLabels.java
+ create mode 100644 tests/sable-apps/src/com/android/settings/applications/sable/model/NetworkAccessPolicyTest.java
+ create mode 100644 tests/sable-apps/src/com/android/settings/applications/sable/model/PrivacyEvaluatorTest.java
+ create mode 100644 tests/sable-apps/src/com/android/settings/applications/sable/model/PrivacyRowTest.java
+
+diff --git a/Android.bp b/Android.bp
+index 00b4663ad75..22b1a289d57 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -215,3 +215,10 @@ filegroup {
+     name: "SettingsSableBatteryModel-srcs",
+     srcs: ["src/com/android/settings/fuelgauge/sable/model/**/*.java"],
+ }
++
++// SableOS: pure-Java Applications model (privacy summary, Network Manager, App Security;
++// no android.* imports), shared with its host-side unit tests in tests/sable-apps.
++filegroup {
++    name: "SettingsSableAppsModel-srcs",
++    srcs: ["src/com/android/settings/applications/sable/model/**/*.java"],
++}
+diff --git a/src/com/android/settings/applications/sable/model/AppPrivacy.java b/src/com/android/settings/applications/sable/model/AppPrivacy.java
+new file mode 100644
+index 00000000000..09cd0a29811
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/AppPrivacy.java
+@@ -0,0 +1,61 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable.model;
++
++import java.util.ArrayList;
++import java.util.Collections;
++import java.util.EnumMap;
++import java.util.List;
++import java.util.Map;
++
++/** Evaluated groups of one app instance. Groups that were not requested are absent. */
++public final class AppPrivacy {
++    private final Map<PrivacyGroup, GroupState> mGroups;
++
++    public AppPrivacy(Map<PrivacyGroup, GroupState> groups) {
++        final Map<PrivacyGroup, GroupState> m = new EnumMap<>(PrivacyGroup.class);
++        if (groups != null) {
++            m.putAll(groups);
++        }
++        mGroups = Collections.unmodifiableMap(m);
++    }
++
++    public Map<PrivacyGroup, GroupState> groups() {
++        return mGroups;
++    }
++
++    /** State of a group, or null when the app did not request it. */
++    public GroupState stateOf(PrivacyGroup group) {
++        return mGroups.get(group);
++    }
++
++    /** Groups with effective (full or partial) access, in design order. */
++    public List<PrivacyGroup> effective() {
++        final List<PrivacyGroup> out = new ArrayList<>();
++        for (Map.Entry<PrivacyGroup, GroupState> e : mGroups.entrySet()) {
++            if (e.getValue().isEffective()) {
++                out.add(e.getKey());
++            }
++        }
++        return out;
++    }
++
++    public boolean hasUnknown() {
++        return mGroups.containsValue(GroupState.UNKNOWN);
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/model/AppSecurityFacts.java b/src/com/android/settings/applications/sable/model/AppSecurityFacts.java
+new file mode 100644
+index 00000000000..dfa98fb8ad9
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/AppSecurityFacts.java
+@@ -0,0 +1,101 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable.model;
++
++import java.util.ArrayList;
++import java.util.List;
++import java.util.Locale;
++
++/** Small pure helpers for the App Security &amp; Privacy page. */
++public final class AppSecurityFacts {
++
++    /** How the package came to be on the device (from ApplicationInfo flags). */
++    public enum InstallClass {
++        SYSTEM_IMAGE,
++        UPDATED_SYSTEM_APP,
++        USER_INSTALLED
++    }
++
++    /** Services and receivers that ask for a powerful platform binding. */
++    public enum Elevated {
++        ACCESSIBILITY("android.permission.BIND_ACCESSIBILITY_SERVICE"),
++        NOTIFICATION_LISTENER("android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"),
++        VPN("android.permission.BIND_VPN_SERVICE"),
++        INPUT_METHOD("android.permission.BIND_INPUT_METHOD"),
++        AUTOFILL("android.permission.BIND_AUTOFILL_SERVICE"),
++        DEVICE_ADMIN("android.permission.BIND_DEVICE_ADMIN");
++
++        public final String bindPermission;
++
++        Elevated(String bindPermission) {
++            this.bindPermission = bindPermission;
++        }
++
++        /** The elevated kind a component permission declares, or null. */
++        public static Elevated of(String componentPermission) {
++            if (componentPermission == null) {
++                return null;
++            }
++            for (Elevated e : values()) {
++                if (e.bindPermission.equals(componentPermission)) {
++                    return e;
++                }
++            }
++            return null;
++        }
++    }
++
++    private AppSecurityFacts() {}
++
++    public static InstallClass installClass(boolean systemFlag, boolean updatedSystemFlag) {
++        if (updatedSystemFlag) {
++            return InstallClass.UPDATED_SYSTEM_APP;
++        }
++        return systemFlag ? InstallClass.SYSTEM_IMAGE : InstallClass.USER_INSTALLED;
++    }
++
++    /** "AB:CD:..." upper-case hex of a digest, or null for no digest. */
++    public static String hex(byte[] digest) {
++        if (digest == null || digest.length == 0) {
++            return null;
++        }
++        final StringBuilder sb = new StringBuilder(digest.length * 3);
++        for (int i = 0; i < digest.length; i++) {
++            if (i > 0) {
++                sb.append(':');
++            }
++            sb.append(String.format(Locale.ROOT, "%02X", digest[i] & 0xff));
++        }
++        return sb.toString();
++    }
++
++    /**
++     * Installer chain without repeats: installing, initiating, originating package. Nulls and
++     * empties are skipped; an empty list means the platform recorded none.
++     */
++    public static List<String> installerChain(String installing, String initiating,
++            String originating) {
++        final List<String> out = new ArrayList<>();
++        for (String s : new String[] {installing, initiating, originating}) {
++            if (s != null && !s.isEmpty() && !out.contains(s)) {
++                out.add(s);
++            }
++        }
++        return out;
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/model/ComponentExposure.java b/src/com/android/settings/applications/sable/model/ComponentExposure.java
+new file mode 100644
+index 00000000000..f30ea8c0e91
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/ComponentExposure.java
+@@ -0,0 +1,86 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable.model;
++
++import java.util.ArrayList;
++import java.util.Collections;
++import java.util.List;
++
++/**
++ * Exposure of one component type (activities, services, receivers or providers) from the
++ * parsed package metadata: total, enabled, exported, exported without a guarding permission,
++ * and the first few exported short names.
++ */
++public final class ComponentExposure {
++    public static final int MAX_NAMES = 4;
++
++    private int mTotal;
++    private int mEnabled;
++    private int mExported;
++    private int mExportedUnguarded;
++    private final List<String> mNames = new ArrayList<>();
++
++    /**
++     * Adds one component. {@code guarded} is true when a permission protects it (for a
++     * provider: a read or a write permission).
++     */
++    public ComponentExposure add(String className, boolean enabled, boolean exported,
++            boolean guarded) {
++        mTotal++;
++        if (enabled) {
++            mEnabled++;
++        }
++        if (exported) {
++            mExported++;
++            if (!guarded) {
++                mExportedUnguarded++;
++            }
++            if (mNames.size() < MAX_NAMES && className != null && !className.isEmpty()) {
++                final int dot = className.lastIndexOf('.');
++                mNames.add(dot >= 0 ? className.substring(dot + 1) : className);
++            }
++        }
++        return this;
++    }
++
++    public int total() {
++        return mTotal;
++    }
++
++    public int enabled() {
++        return mEnabled;
++    }
++
++    public int exported() {
++        return mExported;
++    }
++
++    public int exportedUnguarded() {
++        return mExportedUnguarded;
++    }
++
++    /** Short names of the first {@link #MAX_NAMES} exported components. */
++    public List<String> exportedNames() {
++        return Collections.unmodifiableList(mNames);
++    }
++
++    /** Exported components beyond the listed names. */
++    public int unlistedExported() {
++        return mExported - mNames.size();
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/model/Evidence.java b/src/com/android/settings/applications/sable/model/Evidence.java
+new file mode 100644
+index 00000000000..e1a1cb2f022
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/Evidence.java
+@@ -0,0 +1,35 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable.model;
++
++/**
++ * Where a fact on the App Security &amp; Privacy page comes from. Every row names its class so
++ * nothing reads as more certain than it is; UNKNOWN is shown instead of a guess.
++ */
++public enum Evidence {
++    /** Package metadata: manifest, signing block, flags. */
++    DECLARED,
++    /** Current Android policy state: permission grants, App-ops, power policy. */
++    ENFORCED,
++    /** State the platform recorded locally: install source, install and update times. */
++    OBSERVED,
++    /** Bounded local static inspection of the installed APK files. */
++    INFERRED,
++    /** The OS cannot support a reliable conclusion here. */
++    UNKNOWN
++}
+diff --git a/src/com/android/settings/applications/sable/model/GroupState.java b/src/com/android/settings/applications/sable/model/GroupState.java
+new file mode 100644
+index 00000000000..2a4464b6532
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/GroupState.java
+@@ -0,0 +1,37 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable.model;
++
++/** What the evaluator concluded for one requested group. */
++public enum GroupState {
++    /** Effective access. */
++    ALLOWED,
++    /** Coarse location granted and precise location known to be off (or never requested). */
++    APPROXIMATE,
++    /** Only the selected-photos grant (Android 14+), full photo access known to be off. */
++    LIMITED,
++    /** Requested, not effectively allowed. */
++    NOT_ALLOWED,
++    /** Requested, but the effective state could not be read: omitted, never inferred. */
++    UNKNOWN;
++
++    /** Full or partial effective access. */
++    public boolean isEffective() {
++        return this == ALLOWED || this == APPROXIMATE || this == LIMITED;
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/model/NativeCodeScan.java b/src/com/android/settings/applications/sable/model/NativeCodeScan.java
+new file mode 100644
+index 00000000000..7d7f67b3b2e
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/NativeCodeScan.java
+@@ -0,0 +1,90 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable.model;
++
++import java.util.Collections;
++import java.util.Set;
++import java.util.TreeSet;
++
++/**
++ * Bounded inspection of APK entry names for packaged native code ({@code lib/<abi>/<name>.so}).
++ * The Android layer feeds the entry names of the base and split APKs. Work is bounded by
++ * {@link #MAX_APKS} files and {@link #MAX_ENTRIES} entries in total; when a bound is hit the
++ * result is marked truncated and reads "at least". If no APK could be opened the result is
++ * UNKNOWN, never "none".
++ */
++public final class NativeCodeScan {
++    public static final int MAX_APKS = 32;
++    public static final int MAX_ENTRIES = 100_000;
++
++    private final Set<String> mAbis = new TreeSet<>();
++    private final Set<String> mLibraries = new TreeSet<>();
++    private int mApksOpened;
++    private int mEntries;
++    private boolean mTruncated;
++
++    /** Whether another APK may be opened. */
++    public boolean acceptsApk() {
++        if (mApksOpened >= MAX_APKS) {
++            mTruncated = true;
++            return false;
++        }
++        return !mTruncated;
++    }
++
++    /** Records that an APK was opened. */
++    public void apkOpened() {
++        mApksOpened++;
++    }
++
++    /** Offers one entry name; returns false once the entry budget is used up. */
++    public boolean entry(String name) {
++        if (mEntries >= MAX_ENTRIES) {
++            mTruncated = true;
++            return false;
++        }
++        mEntries++;
++        if (name == null || !name.startsWith("lib/") || !name.endsWith(".so")) {
++            return true;
++        }
++        final String[] parts = name.split("/");
++        if (parts.length == 3 && !parts[1].isEmpty() && parts[2].length() > 3) {
++            mAbis.add(parts[1]);
++            mLibraries.add(parts[2]);
++        }
++        return true;
++    }
++
++    /** INFERRED when at least one APK was read, else UNKNOWN. */
++    public Evidence evidence() {
++        return mApksOpened > 0 ? Evidence.INFERRED : Evidence.UNKNOWN;
++    }
++
++    public boolean truncated() {
++        return mTruncated;
++    }
++
++    public Set<String> abis() {
++        return Collections.unmodifiableSet(mAbis);
++    }
++
++    /** Distinct library file names (one libfoo.so for several ABIs counts once). */
++    public Set<String> libraries() {
++        return Collections.unmodifiableSet(mLibraries);
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/model/NetworkAccessPolicy.java b/src/com/android/settings/applications/sable/model/NetworkAccessPolicy.java
+new file mode 100644
+index 00000000000..71e913488e0
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/NetworkAccessPolicy.java
+@@ -0,0 +1,174 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable.model;
++
++/**
++ * Network Manager policy over the platform's existing per-UID network restrictions.
++ *
++ * <p>On LineageOS the Network permission is not revocable; the platform blocker is the
++ * NetworkPolicyManager UID policy LineageOS already enforces and already exposes in
++ * App info &gt; Mobile data &amp; Wi-Fi (POLICY_REJECT_ALL, _CELLULAR, _WIFI, _VPN). Network
++ * Manager is one more view of that same store (DUPLICATE_NETWORK_POLICY_STORE=NO): its single
++ * switch adds or removes only the "all networks" bit, and it reports the transport bits set
++ * elsewhere instead of hiding them. The bit values come from the Android layer through
++ * {@link Masks}, so nothing here hard-codes them.
++ */
++public final class NetworkAccessPolicy {
++
++    /** The platform's policy bits (NetworkPolicyManager.POLICY_*). */
++    public static final class Masks {
++        public final int rejectAll;
++        public final int rejectCellular;
++        public final int rejectWifi;
++        public final int rejectVpn;
++        public final int rejectMeteredBackground;
++
++        public Masks(int rejectAll, int rejectCellular, int rejectWifi, int rejectVpn,
++                int rejectMeteredBackground) {
++            this.rejectAll = rejectAll;
++            this.rejectCellular = rejectCellular;
++            this.rejectWifi = rejectWifi;
++            this.rejectVpn = rejectVpn;
++            this.rejectMeteredBackground = rejectMeteredBackground;
++        }
++    }
++
++    /** What the switch and summary of one app row show. */
++    public enum Summary {
++        /** No restriction bit set. */
++        ALLOWED,
++        /** Allowed, but some transports are blocked in App info (see the flags). */
++        PARTIAL,
++        /** The all-networks bit is set. */
++        BLOCKED,
++        /** Not an app UID (system/shared core UID): shown, never changed here. */
++        NOT_MANAGEABLE
++    }
++
++    /** Evaluated state of one UID. */
++    public static final class State {
++        public final Summary summary;
++        public final boolean blockedAll;
++        public final boolean blockedCellular;
++        public final boolean blockedWifi;
++        public final boolean blockedVpn;
++        public final boolean backgroundDataRestricted;
++
++        State(Summary summary, boolean all, boolean cellular, boolean wifi, boolean vpn,
++                boolean background) {
++            this.summary = summary;
++            blockedAll = all;
++            blockedCellular = cellular;
++            blockedWifi = wifi;
++            blockedVpn = vpn;
++            backgroundDataRestricted = background;
++        }
++
++        /** The switch: on = network access allowed (not blocked on all networks). */
++        public boolean switchChecked() {
++            return !blockedAll;
++        }
++
++        /** Number of transports (mobile data, Wi-Fi, VPN) blocked by App info bits. */
++        public int blockedTransportCount() {
++            return (blockedCellular ? 1 : 0) + (blockedWifi ? 1 : 0) + (blockedVpn ? 1 : 0);
++        }
++    }
++
++    /** One change to the UID policy: add or remove exactly these bits. */
++    public static final class Change {
++        public final boolean add;
++        public final int bits;
++
++        Change(boolean add, int bits) {
++            this.add = add;
++            this.bits = bits;
++        }
++    }
++
++    private NetworkAccessPolicy() {}
++
++    public static State evaluate(int uidPolicy, boolean manageableUid, Masks m) {
++        final boolean all = (uidPolicy & m.rejectAll) != 0;
++        final boolean cell = (uidPolicy & m.rejectCellular) != 0;
++        final boolean wifi = (uidPolicy & m.rejectWifi) != 0;
++        final boolean vpn = (uidPolicy & m.rejectVpn) != 0;
++        final boolean bg = (uidPolicy & m.rejectMeteredBackground) != 0;
++        final Summary s;
++        if (!manageableUid) {
++            s = Summary.NOT_MANAGEABLE;
++        } else if (all) {
++            s = Summary.BLOCKED;
++        } else if (cell || wifi || vpn || bg) {
++            s = Summary.PARTIAL;
++        } else {
++            s = Summary.ALLOWED;
++        }
++        return new State(s, all, cell, wifi, vpn, bg);
++    }
++
++    /**
++     * The change for the switch, or null when nothing may change (not an app UID, or the
++     * switch already shows the requested state). Only the all-networks bit is ever touched;
++     * transport bits from App info are left as they are.
++     */
++    public static Change changeFor(State current, boolean allow, Masks m) {
++        if (current.summary == Summary.NOT_MANAGEABLE || current.switchChecked() == allow) {
++            return null;
++        }
++        return new Change(!allow, m.rejectAll);
++    }
++
++    /** Applies a change to a policy value (what the platform will hold afterwards). */
++    public static int apply(int uidPolicy, Change change) {
++        if (change == null) {
++            return uidPolicy;
++        }
++        return change.add ? (uidPolicy | change.bits) : (uidPolicy & ~change.bits);
++    }
++
++    /**
++     * Blocking an app that delivers messages, mail or calls can silently break notifications,
++     * sync and sign-in (MOBILE_MANAGER_APP_CONTROLS_UX: CONFIRM_FOR_MESSAGING_APPS=YES), so
++     * blocking one asks first. Allowing never asks.
++     */
++    public static boolean needsConfirmation(boolean allow, boolean messagingApp) {
++        return !allow && messagingApp;
++    }
++
++    /**
++     * A messaging, mail or calling app for {@link #needsConfirmation}: it requests SMS or call
++     * permissions, or handles smsto:/mailto: links.
++     */
++    public static boolean isMessagingApp(java.util.Collection<String> requestedPermissions,
++            boolean handlesSmsTo, boolean handlesMailTo) {
++        if (handlesSmsTo || handlesMailTo) {
++            return true;
++        }
++        if (requestedPermissions == null) {
++            return false;
++        }
++        for (String p : requestedPermissions) {
++            if (PrivacyPermissions.RUNTIME_GROUPS.get(PrivacyGroup.MESSAGES).contains(p)
++                    || PrivacyPermissions.ANSWER_PHONE_CALLS.equals(p)) {
++                return true;
++            }
++        }
++        return false;
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/model/NetworkAppRows.java b/src/com/android/settings/applications/sable/model/NetworkAppRows.java
+new file mode 100644
+index 00000000000..9faa51d3bf7
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/NetworkAppRows.java
+@@ -0,0 +1,89 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable.model;
++
++import java.text.Collator;
++import java.util.ArrayList;
++import java.util.Collections;
++import java.util.Comparator;
++import java.util.LinkedHashMap;
++import java.util.List;
++import java.util.Locale;
++import java.util.Map;
++
++/**
++ * Network Manager rows. The platform restriction is per UID, so packages that share a UID
++ * share one row (and one switch); the row is titled by the alphabetically first label and
++ * says how many other apps it covers. Rows are sorted by title for type-ahead.
++ */
++public final class NetworkAppRows {
++
++    /** One package that requests network access. */
++    public static final class App {
++        public final int uid;
++        public final String packageName;
++        public final String label;
++
++        public App(int uid, String packageName, String label) {
++            this.uid = uid;
++            this.packageName = packageName;
++            this.label = label == null || label.isEmpty() ? packageName : label;
++        }
++    }
++
++    /** One switch row. */
++    public static final class Row {
++        public final int uid;
++        public final App primary;
++        public final List<App> members;
++
++        Row(int uid, List<App> members) {
++            this.uid = uid;
++            this.members = Collections.unmodifiableList(members);
++            this.primary = members.get(0);
++        }
++
++        /** Other apps sharing this UID (and switch). */
++        public int othersCount() {
++            return members.size() - 1;
++        }
++    }
++
++    private NetworkAppRows() {}
++
++    public static List<Row> build(List<App> apps, Locale locale) {
++        final Collator collator = Collator.getInstance(locale == null ? Locale.ROOT : locale);
++        collator.setStrength(Collator.PRIMARY);
++        final Comparator<App> byLabel = (a, b) -> {
++            final int c = collator.compare(a.label, b.label);
++            return c != 0 ? c : a.packageName.compareTo(b.packageName);
++        };
++        final Map<Integer, List<App>> byUid = new LinkedHashMap<>();
++        for (App a : apps) {
++            byUid.computeIfAbsent(a.uid, k -> new ArrayList<>()).add(a);
++        }
++        final List<Row> rows = new ArrayList<>();
++        for (Map.Entry<Integer, List<App>> e : byUid.entrySet()) {
++            final List<App> members = new ArrayList<>(e.getValue());
++            members.sort(byLabel);
++            rows.add(new Row(e.getKey(), members));
++        }
++        rows.sort((a, b) -> byLabel.compare(a.primary, b.primary));
++        return rows;
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/model/OpMode.java b/src/com/android/settings/applications/sable/model/OpMode.java
+new file mode 100644
+index 00000000000..89b8529a5e3
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/OpMode.java
+@@ -0,0 +1,34 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable.model;
++
++/**
++ * The effective App-op mode of one permission for one app, as read in the app's own user.
++ * The Android layer maps AppOpsManager.MODE_* onto this; nothing here knows the numbers.
++ */
++public enum OpMode {
++    ALLOWED,
++    FOREGROUND,
++    DEFAULT,
++    IGNORED,
++    ERRORED,
++    /** The permission has no App-op: the runtime grant alone decides. */
++    NOT_APPLICABLE,
++    /** The op exists but could not be read. Never treated as access or as no access. */
++    UNKNOWN
++}
+diff --git a/src/com/android/settings/applications/sable/model/PermissionFact.java b/src/com/android/settings/applications/sable/model/PermissionFact.java
+new file mode 100644
+index 00000000000..8bdfae5ad82
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/PermissionFact.java
+@@ -0,0 +1,77 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable.model;
++
++import java.util.Objects;
++
++/** Grant state of one permission the app requested, in the app's own user. */
++public final class PermissionFact {
++    public final boolean granted;
++    public final OpMode opMode;
++
++    public PermissionFact(boolean granted, OpMode opMode) {
++        this.granted = granted;
++        this.opMode = opMode == null ? OpMode.UNKNOWN : opMode;
++    }
++
++    public static PermissionFact granted() {
++        return new PermissionFact(true, OpMode.NOT_APPLICABLE);
++    }
++
++    public static PermissionFact denied() {
++        return new PermissionFact(false, OpMode.NOT_APPLICABLE);
++    }
++
++    /** TRUE = effective, FALSE = not effective, null = cannot tell. */
++    public Boolean effective() {
++        if (!granted) {
++            return Boolean.FALSE;
++        }
++        switch (opMode) {
++            case ALLOWED:
++            case FOREGROUND:
++            case DEFAULT:
++            case NOT_APPLICABLE:
++                return Boolean.TRUE;
++            case IGNORED:
++            case ERRORED:
++                return Boolean.FALSE;
++            default:
++                return null;
++        }
++    }
++
++    @Override
++    public boolean equals(Object o) {
++        if (!(o instanceof PermissionFact)) {
++            return false;
++        }
++        final PermissionFact f = (PermissionFact) o;
++        return granted == f.granted && opMode == f.opMode;
++    }
++
++    @Override
++    public int hashCode() {
++        return Objects.hash(granted, opMode);
++    }
++
++    @Override
++    public String toString() {
++        return (granted ? "granted" : "denied") + "/" + opMode;
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/model/PrivacyEvaluator.java b/src/com/android/settings/applications/sable/model/PrivacyEvaluator.java
+new file mode 100644
+index 00000000000..8daff5470c3
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/PrivacyEvaluator.java
+@@ -0,0 +1,204 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable.model;
++
++import java.util.EnumMap;
++import java.util.LinkedHashSet;
++import java.util.Map;
++import java.util.Set;
++
++/**
++ * Decides which sensitive access may be shown for one app instance. A Java port of Sable
++ * Start's PrivacyEvaluator (DESIGN-KF-D) with the same rules, so the two surfaces agree:
++ *
++ * <ul>
++ *   <li>REQUESTED_PERMISSION_ONLY=INSUFFICIENT: a group needs an effective grant;
++ *   <li>an ignored/errored App-op cancels a grant; an op that could not be read makes the
++ *       group UNKNOWN, which is never shown as access;
++ *   <li>"approximate" location only when precise location is known to be off; "limited"
++ *       photos only when full photo access is known to be off;
++ *   <li>notifications count from Android 13, where the POST_NOTIFICATIONS grant is the
++ *       app-level switch;
++ *   <li>READ_EXTERNAL_STORAGE counts as photos and audio only for apps targeting 32 or lower;
++ *   <li>nothing is persisted.
++ * </ul>
++ */
++public final class PrivacyEvaluator {
++    public static final int SDK_TIRAMISU = 33;
++    public static final int SDK_UPSIDE_DOWN_CAKE = 34;
++
++    private PrivacyEvaluator() {}
++
++    public static AppPrivacy evaluate(PrivacyFacts facts) {
++        final Map<PrivacyGroup, GroupState> groups = new EnumMap<>(PrivacyGroup.class);
++        put(groups, PrivacyGroup.LOCATION, location(facts));
++        for (Map.Entry<PrivacyGroup, Set<String>> e
++                : PrivacyPermissions.RUNTIME_GROUPS.entrySet()) {
++            final Set<String> perms = new LinkedHashSet<>(e.getValue());
++            if (e.getKey() == PrivacyGroup.AUDIO) {
++                perms.addAll(legacyStorage(facts));
++            }
++            put(groups, e.getKey(), groupOf(facts, perms));
++        }
++        put(groups, PrivacyGroup.PHOTOS, photos(facts));
++        put(groups, PrivacyGroup.NOTIFICATIONS, notifications(facts));
++        if (Boolean.TRUE.equals(facts.accessibilityServiceEnabled)) {
++            groups.put(PrivacyGroup.ACCESSIBILITY, GroupState.ALLOWED);
++        }
++        if (Boolean.TRUE.equals(facts.activeDeviceAdmin)) {
++            groups.put(PrivacyGroup.DEVICE_ADMIN, GroupState.ALLOWED);
++        }
++        put(groups, PrivacyGroup.INSTALL_APPS, specialOp(facts.installAppsOp,
++                facts.permissions.get(PrivacyPermissions.REQUEST_INSTALL_PACKAGES)));
++        put(groups, PrivacyGroup.OVERLAY, specialOp(facts.overlayOp,
++                facts.permissions.get(PrivacyPermissions.SYSTEM_ALERT_WINDOW)));
++        put(groups, PrivacyGroup.USAGE_ACCESS, specialOp(facts.usageAccessOp,
++                facts.permissions.get(PrivacyPermissions.PACKAGE_USAGE_STATS)));
++        return new AppPrivacy(groups);
++    }
++
++    private static void put(Map<PrivacyGroup, GroupState> m, PrivacyGroup g, GroupState s) {
++        if (s != null) {
++            m.put(g, s);
++        }
++    }
++
++    /** Null when none of the permissions was requested. */
++    static GroupState groupOf(PrivacyFacts facts, Set<String> permissions) {
++        boolean requested = false;
++        boolean unknown = false;
++        for (String p : permissions) {
++            final PermissionFact f = facts.permissions.get(p);
++            if (f == null) {
++                continue;
++            }
++            requested = true;
++            final Boolean eff = f.effective();
++            if (Boolean.TRUE.equals(eff)) {
++                return GroupState.ALLOWED;
++            }
++            if (eff == null) {
++                unknown = true;
++            }
++        }
++        if (!requested) {
++            return null;
++        }
++        return unknown ? GroupState.UNKNOWN : GroupState.NOT_ALLOWED;
++    }
++
++    private static GroupState location(PrivacyFacts facts) {
++        final PermissionFact fine = facts.permissions.get(PrivacyPermissions.ACCESS_FINE_LOCATION);
++        final PermissionFact coarse =
++                facts.permissions.get(PrivacyPermissions.ACCESS_COARSE_LOCATION);
++        if (fine == null && coarse == null) {
++            return null;
++        }
++        final Boolean fineState = fine == null ? null : fine.effective();
++        final Boolean coarseState = coarse == null ? null : coarse.effective();
++        if (Boolean.TRUE.equals(fineState)) {
++            return GroupState.ALLOWED;
++        }
++        if (Boolean.TRUE.equals(coarseState) && fine != null && fineState == null) {
++            // Access is certain, precision is not: plain "Location".
++            return GroupState.ALLOWED;
++        }
++        if (Boolean.TRUE.equals(coarseState)) {
++            return GroupState.APPROXIMATE;
++        }
++        if (fine != null && fineState == null) {
++            return GroupState.UNKNOWN;
++        }
++        if (coarse != null && coarseState == null) {
++            return GroupState.UNKNOWN;
++        }
++        return GroupState.NOT_ALLOWED;
++    }
++
++    private static Set<String> legacyStorage(PrivacyFacts facts) {
++        final Set<String> s = new LinkedHashSet<>();
++        if (facts.deviceSdk < SDK_TIRAMISU || facts.targetSdk < SDK_TIRAMISU) {
++            s.add(PrivacyPermissions.READ_EXTERNAL_STORAGE);
++        }
++        return s;
++    }
++
++    private static GroupState photos(PrivacyFacts facts) {
++        final Set<String> full = new LinkedHashSet<>();
++        full.add(PrivacyPermissions.READ_MEDIA_IMAGES);
++        full.add(PrivacyPermissions.READ_MEDIA_VIDEO);
++        full.addAll(legacyStorage(facts));
++        final GroupState fullState = groupOf(facts, full);
++        final boolean selectedSupported = facts.deviceSdk >= SDK_UPSIDE_DOWN_CAKE;
++        final PermissionFact selectedFact = selectedSupported
++                ? facts.permissions.get(PrivacyPermissions.READ_MEDIA_VISUAL_USER_SELECTED)
++                : null;
++        final Boolean selected = selectedFact == null ? null : selectedFact.effective();
++        if (fullState == GroupState.ALLOWED) {
++            return GroupState.ALLOWED;
++        }
++        if (fullState == GroupState.UNKNOWN) {
++            return GroupState.UNKNOWN;
++        }
++        if (Boolean.TRUE.equals(selected)) {
++            return GroupState.LIMITED;
++        }
++        if (selectedFact != null && selected == null) {
++            return GroupState.UNKNOWN;
++        }
++        if (fullState == null && selectedFact == null) {
++            return null;
++        }
++        return GroupState.NOT_ALLOWED;
++    }
++
++    private static GroupState notifications(PrivacyFacts facts) {
++        if (facts.deviceSdk < SDK_TIRAMISU) {
++            return null;
++        }
++        final PermissionFact f = facts.permissions.get(PrivacyPermissions.POST_NOTIFICATIONS);
++        if (f == null) {
++            return null;
++        }
++        final Boolean eff = f.effective();
++        if (eff == null) {
++            return GroupState.UNKNOWN;
++        }
++        return eff ? GroupState.ALLOWED : GroupState.NOT_ALLOWED;
++    }
++
++    /** App-op backed special access: MODE_DEFAULT defers to the permission grant. */
++    private static GroupState specialOp(OpMode op, PermissionFact permission) {
++        if (permission == null) {
++            return null;
++        }
++        if (op == null || op == OpMode.UNKNOWN) {
++            return GroupState.UNKNOWN;
++        }
++        switch (op) {
++            case ALLOWED:
++            case FOREGROUND:
++                return GroupState.ALLOWED;
++            case DEFAULT:
++            case NOT_APPLICABLE:
++                return permission.granted ? GroupState.ALLOWED : GroupState.NOT_ALLOWED;
++            default:
++                return GroupState.NOT_ALLOWED;
++        }
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/model/PrivacyFacts.java b/src/com/android/settings/applications/sable/model/PrivacyFacts.java
+new file mode 100644
+index 00000000000..f44ac0d9361
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/PrivacyFacts.java
+@@ -0,0 +1,106 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable.model;
++
++import java.util.Collections;
++import java.util.LinkedHashMap;
++import java.util.Map;
++
++/**
++ * Everything the Android layer could read about one app in one Android user. Only requested
++ * permissions appear in {@link #permissions}. A null special-access field means "could not be
++ * determined" and is left out, never guessed.
++ */
++public final class PrivacyFacts {
++    public final Map<String, PermissionFact> permissions;
++    public final int targetSdk;
++    public final int deviceSdk;
++    public final Boolean accessibilityServiceEnabled;
++    public final Boolean activeDeviceAdmin;
++    public final OpMode installAppsOp;
++    public final OpMode overlayOp;
++    public final OpMode usageAccessOp;
++
++    private PrivacyFacts(Builder b) {
++        permissions = Collections.unmodifiableMap(new LinkedHashMap<>(b.mPermissions));
++        targetSdk = b.mTargetSdk;
++        deviceSdk = b.mDeviceSdk;
++        accessibilityServiceEnabled = b.mAccessibility;
++        activeDeviceAdmin = b.mDeviceAdmin;
++        installAppsOp = b.mInstallAppsOp;
++        overlayOp = b.mOverlayOp;
++        usageAccessOp = b.mUsageAccessOp;
++    }
++
++    public static Builder builder(int targetSdk, int deviceSdk) {
++        return new Builder(targetSdk, deviceSdk);
++    }
++
++    /** Builder; permissions keep insertion order. */
++    public static final class Builder {
++        private final Map<String, PermissionFact> mPermissions = new LinkedHashMap<>();
++        private final int mTargetSdk;
++        private final int mDeviceSdk;
++        private Boolean mAccessibility;
++        private Boolean mDeviceAdmin;
++        private OpMode mInstallAppsOp;
++        private OpMode mOverlayOp;
++        private OpMode mUsageAccessOp;
++
++        Builder(int targetSdk, int deviceSdk) {
++            mTargetSdk = targetSdk;
++            mDeviceSdk = deviceSdk;
++        }
++
++        public Builder permission(String name, PermissionFact fact) {
++            if (name != null && fact != null) {
++                mPermissions.put(name, fact);
++            }
++            return this;
++        }
++
++        public Builder accessibilityServiceEnabled(Boolean enabled) {
++            mAccessibility = enabled;
++            return this;
++        }
++
++        public Builder activeDeviceAdmin(Boolean active) {
++            mDeviceAdmin = active;
++            return this;
++        }
++
++        public Builder installAppsOp(OpMode mode) {
++            mInstallAppsOp = mode;
++            return this;
++        }
++
++        public Builder overlayOp(OpMode mode) {
++            mOverlayOp = mode;
++            return this;
++        }
++
++        public Builder usageAccessOp(OpMode mode) {
++            mUsageAccessOp = mode;
++            return this;
++        }
++
++        public PrivacyFacts build() {
++            return new PrivacyFacts(this);
++        }
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/model/PrivacyGroup.java b/src/com/android/settings/applications/sable/model/PrivacyGroup.java
+new file mode 100644
+index 00000000000..bf5f70c622b
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/PrivacyGroup.java
+@@ -0,0 +1,57 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable.model;
++
++/**
++ * Sensitive access groups, in the order the compact app row lists them. Same groups and order
++ * as Sable Start's All Apps row (DESIGN-KF-D, ALL_APPS_PRIVACY_UX "Sensitive groups"), so an
++ * app reads the same in Sable Start and in Settings.
++ *
++ * <p>The five special-access groups go into a warning marker and the detail page; they join
++ * the compact row only when there is no everyday group to show.
++ */
++public enum PrivacyGroup {
++    LOCATION(false),
++    CAMERA(false),
++    MICROPHONE(false),
++    CONTACTS(false),
++    PHONE(false),
++    MESSAGES(false),
++    CALENDAR(false),
++    PHOTOS(false),
++    AUDIO(false),
++    NEARBY(false),
++    NOTIFICATIONS(false),
++
++    ACCESSIBILITY(true),
++    DEVICE_ADMIN(true),
++    INSTALL_APPS(true),
++    OVERLAY(true),
++    USAGE_ACCESS(true);
++
++    private final boolean mSpecial;
++
++    PrivacyGroup(boolean special) {
++        mSpecial = special;
++    }
++
++    /** True for special access (accessibility, device admin, install apps, overlay, usage). */
++    public boolean isSpecial() {
++        return mSpecial;
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/model/PrivacyPermissions.java b/src/com/android/settings/applications/sable/model/PrivacyPermissions.java
+new file mode 100644
+index 00000000000..18f0584f261
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/PrivacyPermissions.java
+@@ -0,0 +1,133 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable.model;
++
++import java.util.Arrays;
++import java.util.Collections;
++import java.util.EnumMap;
++import java.util.LinkedHashSet;
++import java.util.Map;
++import java.util.Set;
++
++/** Permission names per group (same table as Sable Start's PrivacyPermissions). */
++public final class PrivacyPermissions {
++    public static final String ACCESS_FINE_LOCATION = "android.permission.ACCESS_FINE_LOCATION";
++    public static final String ACCESS_COARSE_LOCATION =
++            "android.permission.ACCESS_COARSE_LOCATION";
++    public static final String ACCESS_BACKGROUND_LOCATION =
++            "android.permission.ACCESS_BACKGROUND_LOCATION";
++    public static final String CAMERA = "android.permission.CAMERA";
++    public static final String RECORD_AUDIO = "android.permission.RECORD_AUDIO";
++    public static final String READ_CONTACTS = "android.permission.READ_CONTACTS";
++    public static final String WRITE_CONTACTS = "android.permission.WRITE_CONTACTS";
++    public static final String GET_ACCOUNTS = "android.permission.GET_ACCOUNTS";
++    public static final String READ_PHONE_STATE = "android.permission.READ_PHONE_STATE";
++    public static final String READ_PHONE_NUMBERS = "android.permission.READ_PHONE_NUMBERS";
++    public static final String CALL_PHONE = "android.permission.CALL_PHONE";
++    public static final String ANSWER_PHONE_CALLS = "android.permission.ANSWER_PHONE_CALLS";
++    public static final String READ_CALL_LOG = "android.permission.READ_CALL_LOG";
++    public static final String WRITE_CALL_LOG = "android.permission.WRITE_CALL_LOG";
++    public static final String READ_SMS = "android.permission.READ_SMS";
++    public static final String RECEIVE_SMS = "android.permission.RECEIVE_SMS";
++    public static final String SEND_SMS = "android.permission.SEND_SMS";
++    public static final String RECEIVE_MMS = "android.permission.RECEIVE_MMS";
++    public static final String RECEIVE_WAP_PUSH = "android.permission.RECEIVE_WAP_PUSH";
++    public static final String READ_CALENDAR = "android.permission.READ_CALENDAR";
++    public static final String WRITE_CALENDAR = "android.permission.WRITE_CALENDAR";
++    public static final String READ_MEDIA_IMAGES = "android.permission.READ_MEDIA_IMAGES";
++    public static final String READ_MEDIA_VIDEO = "android.permission.READ_MEDIA_VIDEO";
++    public static final String READ_MEDIA_VISUAL_USER_SELECTED =
++            "android.permission.READ_MEDIA_VISUAL_USER_SELECTED";
++    public static final String READ_MEDIA_AUDIO = "android.permission.READ_MEDIA_AUDIO";
++    public static final String READ_EXTERNAL_STORAGE = "android.permission.READ_EXTERNAL_STORAGE";
++    public static final String BLUETOOTH_SCAN = "android.permission.BLUETOOTH_SCAN";
++    public static final String BLUETOOTH_CONNECT = "android.permission.BLUETOOTH_CONNECT";
++    public static final String BLUETOOTH_ADVERTISE = "android.permission.BLUETOOTH_ADVERTISE";
++    public static final String NEARBY_WIFI_DEVICES = "android.permission.NEARBY_WIFI_DEVICES";
++    public static final String UWB_RANGING = "android.permission.UWB_RANGING";
++    public static final String POST_NOTIFICATIONS = "android.permission.POST_NOTIFICATIONS";
++    public static final String SYSTEM_ALERT_WINDOW = "android.permission.SYSTEM_ALERT_WINDOW";
++    public static final String REQUEST_INSTALL_PACKAGES =
++            "android.permission.REQUEST_INSTALL_PACKAGES";
++    public static final String PACKAGE_USAGE_STATS = "android.permission.PACKAGE_USAGE_STATS";
++    public static final String INTERNET = "android.permission.INTERNET";
++
++    /** Runtime permissions per everyday group; location, photos and notifications are special-cased. */
++    public static final Map<PrivacyGroup, Set<String>> RUNTIME_GROUPS;
++
++    /** Every permission whose grant/op state the reader must fetch. */
++    public static final Set<String> ALL;
++
++    static {
++        final Map<PrivacyGroup, Set<String>> m = new EnumMap<>(PrivacyGroup.class);
++        m.put(PrivacyGroup.CAMERA, set(CAMERA));
++        m.put(PrivacyGroup.MICROPHONE, set(RECORD_AUDIO));
++        m.put(PrivacyGroup.CONTACTS, set(READ_CONTACTS, WRITE_CONTACTS, GET_ACCOUNTS));
++        m.put(PrivacyGroup.PHONE, set(READ_PHONE_STATE, READ_PHONE_NUMBERS, CALL_PHONE,
++                ANSWER_PHONE_CALLS, READ_CALL_LOG, WRITE_CALL_LOG));
++        m.put(PrivacyGroup.MESSAGES,
++                set(READ_SMS, RECEIVE_SMS, SEND_SMS, RECEIVE_MMS, RECEIVE_WAP_PUSH));
++        m.put(PrivacyGroup.CALENDAR, set(READ_CALENDAR, WRITE_CALENDAR));
++        m.put(PrivacyGroup.AUDIO, set(READ_MEDIA_AUDIO));
++        m.put(PrivacyGroup.NEARBY, set(BLUETOOTH_SCAN, BLUETOOTH_CONNECT, BLUETOOTH_ADVERTISE,
++                NEARBY_WIFI_DEVICES, UWB_RANGING));
++        RUNTIME_GROUPS = Collections.unmodifiableMap(m);
++
++        final Set<String> all = new LinkedHashSet<>();
++        for (Set<String> s : m.values()) {
++            all.addAll(s);
++        }
++        all.addAll(Arrays.asList(ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION,
++                ACCESS_BACKGROUND_LOCATION, READ_MEDIA_IMAGES, READ_MEDIA_VIDEO,
++                READ_MEDIA_VISUAL_USER_SELECTED, READ_EXTERNAL_STORAGE, POST_NOTIFICATIONS,
++                SYSTEM_ALERT_WINDOW, REQUEST_INSTALL_PACKAGES, PACKAGE_USAGE_STATS));
++        ALL = Collections.unmodifiableSet(all);
++    }
++
++    private PrivacyPermissions() {}
++
++    private static Set<String> set(String... names) {
++        return Collections.unmodifiableSet(new LinkedHashSet<>(Arrays.asList(names)));
++    }
++
++    /** Permissions that belong to a group, for the detail page ("declared" column). */
++    public static Set<String> permissionsOf(PrivacyGroup group) {
++        switch (group) {
++            case LOCATION:
++                return set(ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION,
++                        ACCESS_BACKGROUND_LOCATION);
++            case PHOTOS:
++                return set(READ_MEDIA_IMAGES, READ_MEDIA_VIDEO, READ_MEDIA_VISUAL_USER_SELECTED,
++                        READ_EXTERNAL_STORAGE);
++            case NOTIFICATIONS:
++                return set(POST_NOTIFICATIONS);
++            case INSTALL_APPS:
++                return set(REQUEST_INSTALL_PACKAGES);
++            case OVERLAY:
++                return set(SYSTEM_ALERT_WINDOW);
++            case USAGE_ACCESS:
++                return set(PACKAGE_USAGE_STATS);
++            case ACCESSIBILITY:
++            case DEVICE_ADMIN:
++                return Collections.emptySet();
++            default:
++                final Set<String> s = RUNTIME_GROUPS.get(group);
++                return s == null ? Collections.<String>emptySet() : s;
++        }
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/model/PrivacyRow.java b/src/com/android/settings/applications/sable/model/PrivacyRow.java
+new file mode 100644
+index 00000000000..c2a650f65cf
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/PrivacyRow.java
+@@ -0,0 +1,182 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable.model;
++
++import java.util.ArrayList;
++import java.util.Collections;
++import java.util.List;
++
++/**
++ * The one-line sensitive-access summary under an app name, and its spoken form. Same states,
++ * density and wording rules as Sable Start's All Apps row (DESIGN-KF-D):
++ *
++ * <pre>
++ * MAX_INLINE_PERMISSION_LABELS=3   EXCESS_LABELS=+N   RAW_PERMISSION_NAMES=NO
++ * PACKAGE_NAME=NO   UNKNOWN_ACCESS_STATE=DO_NOT_DISPLAY_AS_FACT
++ * </pre>
++ *
++ * Text comes from a {@link Labels} implementation, so Settings uses its localized resources
++ * and the host tests use the English wording Sable Start uses.
++ */
++public final class PrivacyRow {
++    public static final int MAX_INLINE_LABELS = 3;
++
++    /** What the row says. */
++    public enum State {
++        /** At least one effective group is listed. */
++        LABELS,
++        /** Every requested sensitive group is known and none is effectively allowed. */
++        NONE_SENSITIVE,
++        /** Nothing effective, but some requested group could not be read. */
++        NOT_CONFIRMED,
++        /** The app's permission state could not be read at all. */
++        UNAVAILABLE
++    }
++
++    /** Localized words for the row. */
++    public interface Labels {
++        /** Label of an effective group in its state (ALLOWED, APPROXIMATE or LIMITED). */
++        String group(PrivacyGroup group, GroupState state);
++
++        /** The row prefix ("permissions"), or "" for none. */
++        String prefix();
++
++        String separator();
++
++        /** "+N" for N folded labels. */
++        String more(int count);
++
++        String noneSensitive();
++
++        String notConfirmed();
++
++        String unavailable();
++
++        /** Warning marker put before the row when special access is effective ("⚠"). */
++        String warningMarker();
++
++        /** Spoken: "Permissions: a, b" for everyday groups. */
++        String spokenEveryday(String joined);
++
++        /** Spoken: "Special access: a, b". */
++        String spokenSpecial(String joined);
++    }
++
++    public final State state;
++    /** Inline groups, in design order. */
++    public final List<PrivacyGroup> inline;
++    /** Groups folded into "+N". */
++    public final int overflow;
++    /** Special-access groups carried by the warning marker instead of inline. */
++    public final List<PrivacyGroup> badge;
++    /** True when any special access is effective, inline or in the marker. */
++    public final boolean warning;
++
++    private final AppPrivacy mPrivacy;
++
++    private PrivacyRow(State state, List<PrivacyGroup> inline, int overflow,
++            List<PrivacyGroup> badge, boolean warning, AppPrivacy privacy) {
++        this.state = state;
++        this.inline = Collections.unmodifiableList(new ArrayList<>(inline));
++        this.overflow = overflow;
++        this.badge = Collections.unmodifiableList(new ArrayList<>(badge));
++        this.warning = warning;
++        mPrivacy = privacy;
++    }
++
++    /** Builds the compact row; {@code privacy == null} means the state could not be read. */
++    public static PrivacyRow of(AppPrivacy privacy) {
++        return of(privacy, MAX_INLINE_LABELS);
++    }
++
++    public static PrivacyRow of(AppPrivacy privacy, int maxInline) {
++        final List<PrivacyGroup> none = Collections.emptyList();
++        if (privacy == null) {
++            return new PrivacyRow(State.UNAVAILABLE, none, 0, none, false, null);
++        }
++        final List<PrivacyGroup> everyday = new ArrayList<>();
++        final List<PrivacyGroup> special = new ArrayList<>();
++        for (PrivacyGroup g : privacy.effective()) {
++            (g.isSpecial() ? special : everyday).add(g);
++        }
++        if (everyday.isEmpty() && special.isEmpty()) {
++            return new PrivacyRow(privacy.hasUnknown() ? State.NOT_CONFIRMED
++                    : State.NONE_SENSITIVE, none, 0, none, false, privacy);
++        }
++        final List<PrivacyGroup> inline = everyday.isEmpty() ? special : everyday;
++        final List<PrivacyGroup> badge = everyday.isEmpty() ? none : special;
++        final int limit = Math.max(1, Math.min(MAX_INLINE_LABELS, maxInline));
++        final int shown = Math.min(limit, inline.size());
++        return new PrivacyRow(State.LABELS, inline.subList(0, shown), inline.size() - shown,
++                badge, !special.isEmpty(), privacy);
++    }
++
++    /** The visible row text. */
++    public String text(Labels l) {
++        switch (state) {
++            case NONE_SENSITIVE:
++                return l.noneSensitive();
++            case NOT_CONFIRMED:
++                return l.notConfirmed();
++            case UNAVAILABLE:
++                return l.unavailable();
++            default:
++                break;
++        }
++        final StringBuilder sb = new StringBuilder();
++        if (warning && !l.warningMarker().isEmpty()) {
++            sb.append(l.warningMarker()).append(' ');
++        }
++        boolean first = true;
++        if (!l.prefix().isEmpty()) {
++            sb.append(l.prefix());
++            first = false;
++        }
++        for (PrivacyGroup g : inline) {
++            if (!first) {
++                sb.append(l.separator());
++            }
++            sb.append(l.group(g, mPrivacy.stateOf(g)));
++            first = false;
++        }
++        if (overflow > 0) {
++            sb.append(l.separator()).append(l.more(overflow));
++        }
++        return sb.toString();
++    }
++
++    /** Spoken text: names every group, including the folded ones and the marker's. */
++    public String spokenText(Labels l) {
++        if (state != State.LABELS) {
++            return text(l);
++        }
++        final List<String> everyday = new ArrayList<>();
++        final List<String> special = new ArrayList<>();
++        for (PrivacyGroup g : mPrivacy.effective()) {
++            (g.isSpecial() ? special : everyday).add(l.group(g, mPrivacy.stateOf(g)));
++        }
++        final List<String> parts = new ArrayList<>();
++        if (!everyday.isEmpty()) {
++            parts.add(l.spokenEveryday(String.join(", ", everyday)));
++        }
++        if (!special.isEmpty()) {
++            parts.add(l.spokenSpecial(String.join(", ", special)));
++        }
++        return String.join(". ", parts);
++    }
++}
+diff --git a/tests/sable-apps/Android.bp b/tests/sable-apps/Android.bp
+new file mode 100644
+index 00000000000..868ba6b6ed8
+--- /dev/null
++++ b/tests/sable-apps/Android.bp
+@@ -0,0 +1,33 @@
++// Copyright (C) 2026 The SableOS Project
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package {
++    default_applicable_licenses: ["packages_apps_Settings_license"],
++}
++
++// Host JVM tests for the SableOS Applications model (privacy summary, Network Manager,
++// App Security). No Android runtime needed:
++//   atest SettingsSableAppsModelTests   (or m SettingsSableAppsModelTests)
++java_test_host {
++    name: "SettingsSableAppsModelTests",
++    srcs: [
++        "src/**/*.java",
++        ":SettingsSableAppsModel-srcs",
++    ],
++    static_libs: ["junit"],
++    test_options: {
++        unit_test: true,
++    },
++    test_suites: ["general-tests"],
++}
+diff --git a/tests/sable-apps/TEST_MAPPING b/tests/sable-apps/TEST_MAPPING
+new file mode 100644
+index 00000000000..a29aa7057fb
+--- /dev/null
++++ b/tests/sable-apps/TEST_MAPPING
+@@ -0,0 +1,7 @@
++{
++  "presubmit": [
++    {
++      "name": "SettingsSableAppsModelTests"
++    }
++  ]
++}
+diff --git a/tests/sable-apps/src/com/android/settings/applications/sable/model/AppSecurityModelTest.java b/tests/sable-apps/src/com/android/settings/applications/sable/model/AppSecurityModelTest.java
+new file mode 100644
+index 00000000000..47a0399f0c8
+--- /dev/null
++++ b/tests/sable-apps/src/com/android/settings/applications/sable/model/AppSecurityModelTest.java
+@@ -0,0 +1,146 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable.model;
++
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertFalse;
++import static org.junit.Assert.assertNull;
++import static org.junit.Assert.assertTrue;
++
++import org.junit.Test;
++
++import java.util.Arrays;
++import java.util.Collections;
++
++/** App Security & Privacy: component exposure, bounded native scan, identity helpers. */
++public class AppSecurityModelTest {
++
++    @Test
++    public void componentExposureCountsAndNames() {
++        final ComponentExposure c = new ComponentExposure()
++                .add("org.example.MainActivity", true, true, false)
++                .add("org.example.Hidden", true, false, false)
++                .add("org.example.Guarded", false, true, true)
++                .add("Bare", true, true, false)
++                .add("org.example.Four", true, true, false)
++                .add("org.example.Five", true, true, false);
++        assertEquals(6, c.total());
++        assertEquals(5, c.enabled());
++        assertEquals(5, c.exported());
++        assertEquals(4, c.exportedUnguarded());
++        assertEquals(Arrays.asList("MainActivity", "Guarded", "Bare", "Four"), c.exportedNames());
++        assertEquals(1, c.unlistedExported());
++    }
++
++    @Test
++    public void emptyComponentsAreZero() {
++        final ComponentExposure c = new ComponentExposure();
++        assertEquals(0, c.total());
++        assertTrue(c.exportedNames().isEmpty());
++    }
++
++    @Test
++    public void nativeScanFindsAbisAndDistinctLibraries() {
++        final NativeCodeScan s = new NativeCodeScan();
++        assertTrue(s.acceptsApk());
++        s.apkOpened();
++        for (String n : new String[] {"classes.dex", "lib/arm64-v8a/libfoo.so",
++                "lib/armeabi-v7a/libfoo.so", "lib/arm64-v8a/libbar.so", "lib/x86/readme.txt",
++                "lib/.so", "assets/lib/x/libz.so", "lib/arm64-v8a/sub/libdeep.so"}) {
++            s.entry(n);
++        }
++        assertEquals(Evidence.INFERRED, s.evidence());
++        assertEquals(Arrays.asList("arm64-v8a", "armeabi-v7a"),
++                Arrays.asList(s.abis().toArray(new String[0])));
++        assertEquals(Arrays.asList("libbar.so", "libfoo.so"),
++                Arrays.asList(s.libraries().toArray(new String[0])));
++        assertFalse(s.truncated());
++    }
++
++    @Test
++    public void nativeScanWithNoApkIsUnknownNotNone() {
++        assertEquals(Evidence.UNKNOWN, new NativeCodeScan().evidence());
++    }
++
++    @Test
++    public void nativeScanIsBounded() {
++        final NativeCodeScan s = new NativeCodeScan();
++        s.apkOpened();
++        boolean more = true;
++        int offered = 0;
++        while (more) {
++            more = s.entry("assets/f" + offered);
++            offered++;
++        }
++        assertEquals(NativeCodeScan.MAX_ENTRIES + 1, offered);
++        assertTrue(s.truncated());
++        assertFalse(s.acceptsApk());
++
++        final NativeCodeScan apks = new NativeCodeScan();
++        for (int i = 0; i < NativeCodeScan.MAX_APKS; i++) {
++            assertTrue(apks.acceptsApk());
++            apks.apkOpened();
++        }
++        assertFalse(apks.acceptsApk());
++        assertTrue(apks.truncated());
++    }
++
++    @Test
++    public void installClass() {
++        assertEquals(AppSecurityFacts.InstallClass.USER_INSTALLED,
++                AppSecurityFacts.installClass(false, false));
++        assertEquals(AppSecurityFacts.InstallClass.SYSTEM_IMAGE,
++                AppSecurityFacts.installClass(true, false));
++        assertEquals(AppSecurityFacts.InstallClass.UPDATED_SYSTEM_APP,
++                AppSecurityFacts.installClass(true, true));
++    }
++
++    @Test
++    public void hexDigest() {
++        assertEquals("00:0A:FF", AppSecurityFacts.hex(new byte[] {0, 10, (byte) 0xff}));
++        assertNull(AppSecurityFacts.hex(new byte[0]));
++        assertNull(AppSecurityFacts.hex(null));
++    }
++
++    @Test
++    public void installerChainSkipsEmptiesAndRepeats() {
++        assertEquals(Arrays.asList("org.fdroid.fdroid", "com.android.shell"),
++                AppSecurityFacts.installerChain("org.fdroid.fdroid", "com.android.shell",
++                        "org.fdroid.fdroid"));
++        assertEquals(Collections.emptyList(), AppSecurityFacts.installerChain(null, "", null));
++    }
++
++    @Test
++    public void elevatedComponents() {
++        assertEquals(AppSecurityFacts.Elevated.VPN,
++                AppSecurityFacts.Elevated.of("android.permission.BIND_VPN_SERVICE"));
++        assertEquals(AppSecurityFacts.Elevated.DEVICE_ADMIN,
++                AppSecurityFacts.Elevated.of("android.permission.BIND_DEVICE_ADMIN"));
++        assertNull(AppSecurityFacts.Elevated.of("android.permission.CAMERA"));
++        assertNull(AppSecurityFacts.Elevated.of(null));
++    }
++
++    @Test
++    public void groupPermissionTableCoversEveryGroupButFlagBackedOnes() {
++        for (PrivacyGroup g : PrivacyGroup.values()) {
++            final boolean flagBacked =
++                    g == PrivacyGroup.ACCESSIBILITY || g == PrivacyGroup.DEVICE_ADMIN;
++            assertEquals(g.name(), flagBacked, PrivacyPermissions.permissionsOf(g).isEmpty());
++        }
++    }
++}
+diff --git a/tests/sable-apps/src/com/android/settings/applications/sable/model/EnglishLabels.java b/tests/sable-apps/src/com/android/settings/applications/sable/model/EnglishLabels.java
+new file mode 100644
+index 00000000000..23324a79e29
+--- /dev/null
++++ b/tests/sable-apps/src/com/android/settings/applications/sable/model/EnglishLabels.java
+@@ -0,0 +1,103 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable.model;
++
++import java.util.EnumMap;
++import java.util.Map;
++
++/** English labels identical to Sable Start's All Apps row, for the host tests. */
++final class EnglishLabels implements PrivacyRow.Labels {
++    static final EnglishLabels INSTANCE = new EnglishLabels();
++
++    private static final Map<PrivacyGroup, String> NAMES = new EnumMap<>(PrivacyGroup.class);
++
++    static {
++        NAMES.put(PrivacyGroup.LOCATION, "Location");
++        NAMES.put(PrivacyGroup.CAMERA, "Camera");
++        NAMES.put(PrivacyGroup.MICROPHONE, "Microphone");
++        NAMES.put(PrivacyGroup.CONTACTS, "Contacts");
++        NAMES.put(PrivacyGroup.PHONE, "Phone");
++        NAMES.put(PrivacyGroup.MESSAGES, "Messages");
++        NAMES.put(PrivacyGroup.CALENDAR, "Calendar");
++        NAMES.put(PrivacyGroup.PHOTOS, "Photos");
++        NAMES.put(PrivacyGroup.AUDIO, "Audio");
++        NAMES.put(PrivacyGroup.NEARBY, "Nearby");
++        NAMES.put(PrivacyGroup.NOTIFICATIONS, "Notifications");
++        NAMES.put(PrivacyGroup.ACCESSIBILITY, "Accessibility");
++        NAMES.put(PrivacyGroup.DEVICE_ADMIN, "Device admin");
++        NAMES.put(PrivacyGroup.INSTALL_APPS, "Install apps");
++        NAMES.put(PrivacyGroup.OVERLAY, "Overlay");
++        NAMES.put(PrivacyGroup.USAGE_ACCESS, "Usage access");
++    }
++
++    @Override
++    public String group(PrivacyGroup group, GroupState state) {
++        if (state == GroupState.APPROXIMATE) {
++            return "Location approximate";
++        }
++        if (state == GroupState.LIMITED) {
++            return "Photos limited";
++        }
++        return NAMES.get(group);
++    }
++
++    @Override
++    public String prefix() {
++        return "permissions";
++    }
++
++    @Override
++    public String separator() {
++        return " · ";
++    }
++
++    @Override
++    public String more(int count) {
++        return "+" + count;
++    }
++
++    @Override
++    public String noneSensitive() {
++        return "permissions · none sensitive";
++    }
++
++    @Override
++    public String notConfirmed() {
++        return "permissions · see app info";
++    }
++
++    @Override
++    public String unavailable() {
++        return "permissions · unavailable";
++    }
++
++    @Override
++    public String warningMarker() {
++        return "⚠";
++    }
++
++    @Override
++    public String spokenEveryday(String joined) {
++        return "Permissions: " + joined;
++    }
++
++    @Override
++    public String spokenSpecial(String joined) {
++        return "Special access: " + joined;
++    }
++}
+diff --git a/tests/sable-apps/src/com/android/settings/applications/sable/model/NetworkAccessPolicyTest.java b/tests/sable-apps/src/com/android/settings/applications/sable/model/NetworkAccessPolicyTest.java
+new file mode 100644
+index 00000000000..2fffc51f9f4
+--- /dev/null
++++ b/tests/sable-apps/src/com/android/settings/applications/sable/model/NetworkAccessPolicyTest.java
+@@ -0,0 +1,131 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable.model;
++
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertFalse;
++import static org.junit.Assert.assertNull;
++import static org.junit.Assert.assertTrue;
++
++import org.junit.Test;
++
++import java.util.Arrays;
++import java.util.Collections;
++import java.util.List;
++import java.util.Locale;
++
++/** Network Manager over the LineageOS per-UID restriction bits. */
++public class NetworkAccessPolicyTest {
++    // LineageOS 23.2 NetworkPolicyManager values (frameworks/base f4ed08a0).
++    static final int REJECT_METERED_BACKGROUND = 0x1;
++    static final int REJECT_WIFI = 0x8000;
++    static final int REJECT_CELLULAR = 0x10000;
++    static final int REJECT_VPN = 0x20000;
++    static final int REJECT_ALL = 0x40000;
++    private static final NetworkAccessPolicy.Masks M = new NetworkAccessPolicy.Masks(
++            REJECT_ALL, REJECT_CELLULAR, REJECT_WIFI, REJECT_VPN, REJECT_METERED_BACKGROUND);
++
++    @Test
++    public void noBitsIsAllowed() {
++        final NetworkAccessPolicy.State s = NetworkAccessPolicy.evaluate(0, true, M);
++        assertEquals(NetworkAccessPolicy.Summary.ALLOWED, s.summary);
++        assertTrue(s.switchChecked());
++    }
++
++    @Test
++    public void rejectAllIsBlockedAndSwitchOff() {
++        final NetworkAccessPolicy.State s = NetworkAccessPolicy.evaluate(REJECT_ALL, true, M);
++        assertEquals(NetworkAccessPolicy.Summary.BLOCKED, s.summary);
++        assertFalse(s.switchChecked());
++    }
++
++    @Test
++    public void transportBitsFromAppInfoAreReportedNotHidden() {
++        final NetworkAccessPolicy.State s =
++                NetworkAccessPolicy.evaluate(REJECT_CELLULAR | REJECT_VPN, true, M);
++        assertEquals(NetworkAccessPolicy.Summary.PARTIAL, s.summary);
++        assertTrue(s.switchChecked());
++        assertTrue(s.blockedCellular);
++        assertFalse(s.blockedWifi);
++        assertTrue(s.blockedVpn);
++        assertEquals(2, s.blockedTransportCount());
++        assertEquals(NetworkAccessPolicy.Summary.PARTIAL,
++                NetworkAccessPolicy.evaluate(REJECT_METERED_BACKGROUND, true, M).summary);
++    }
++
++    @Test
++    public void blockingTouchesOnlyTheAllNetworksBit() {
++        final int before = REJECT_WIFI | 0x4; // 0x4: POLICY_ALLOW_METERED_BACKGROUND, untouched
++        final NetworkAccessPolicy.State s = NetworkAccessPolicy.evaluate(before, true, M);
++        final NetworkAccessPolicy.Change block = NetworkAccessPolicy.changeFor(s, false, M);
++        assertTrue(block.add);
++        assertEquals(REJECT_ALL, block.bits);
++        final int after = NetworkAccessPolicy.apply(before, block);
++        assertEquals(before | REJECT_ALL, after);
++
++        final NetworkAccessPolicy.Change allow = NetworkAccessPolicy.changeFor(
++                NetworkAccessPolicy.evaluate(after, true, M), true, M);
++        assertFalse(allow.add);
++        assertEquals("allow restores exactly the previous policy", before,
++                NetworkAccessPolicy.apply(after, allow));
++    }
++
++    @Test
++    public void noChangeWhenAlreadyInStateOrNotAnAppUid() {
++        assertNull(NetworkAccessPolicy.changeFor(NetworkAccessPolicy.evaluate(0, true, M), true, M));
++        final NetworkAccessPolicy.State system = NetworkAccessPolicy.evaluate(0, false, M);
++        assertEquals(NetworkAccessPolicy.Summary.NOT_MANAGEABLE, system.summary);
++        assertNull(NetworkAccessPolicy.changeFor(system, false, M));
++        assertEquals(5, NetworkAccessPolicy.apply(5, null));
++    }
++
++    @Test
++    public void blockingAMessagingAppAsksFirst() {
++        assertTrue(NetworkAccessPolicy.needsConfirmation(false, true));
++        assertFalse(NetworkAccessPolicy.needsConfirmation(true, true));
++        assertFalse(NetworkAccessPolicy.needsConfirmation(false, false));
++    }
++
++    @Test
++    public void messagingAppDetection() {
++        assertTrue(NetworkAccessPolicy.isMessagingApp(
++                Collections.singletonList(PrivacyPermissions.RECEIVE_SMS), false, false));
++        assertTrue(NetworkAccessPolicy.isMessagingApp(
++                Collections.singletonList(PrivacyPermissions.ANSWER_PHONE_CALLS), false, false));
++        assertTrue(NetworkAccessPolicy.isMessagingApp(null, false, true));
++        assertTrue(NetworkAccessPolicy.isMessagingApp(null, true, false));
++        assertFalse(NetworkAccessPolicy.isMessagingApp(
++                Arrays.asList(PrivacyPermissions.INTERNET, PrivacyPermissions.CAMERA),
++                false, false));
++    }
++
++    @Test
++    public void sharedUidAppsShareOneSortedRow() {
++        final List<NetworkAppRows.Row> rows = NetworkAppRows.build(Arrays.asList(
++                new NetworkAppRows.App(10050, "org.example.zeta", "Zeta"),
++                new NetworkAppRows.App(10020, "org.example.shared.b", "beta tools"),
++                new NetworkAppRows.App(10020, "org.example.shared.a", "Alpha"),
++                new NetworkAppRows.App(10030, "org.example.nolabel", "")), Locale.ROOT);
++        assertEquals(3, rows.size());
++        assertEquals("Alpha", rows.get(0).primary.label);
++        assertEquals(1, rows.get(0).othersCount());
++        assertEquals("org.example.nolabel", rows.get(1).primary.label);
++        assertEquals("Zeta", rows.get(2).primary.label);
++        assertEquals(10050, rows.get(2).uid);
++    }
++}
+diff --git a/tests/sable-apps/src/com/android/settings/applications/sable/model/PrivacyEvaluatorTest.java b/tests/sable-apps/src/com/android/settings/applications/sable/model/PrivacyEvaluatorTest.java
+new file mode 100644
+index 00000000000..89071a7e3bc
+--- /dev/null
++++ b/tests/sable-apps/src/com/android/settings/applications/sable/model/PrivacyEvaluatorTest.java
+@@ -0,0 +1,199 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable.model;
++
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertFalse;
++import static org.junit.Assert.assertNull;
++import static org.junit.Assert.assertTrue;
++
++import org.junit.Test;
++
++import java.util.Arrays;
++import java.util.Collections;
++
++/** Truthfulness rule shared with Sable Start: effective, current-user access only. */
++public class PrivacyEvaluatorTest {
++    private static final PermissionFact GRANTED = PermissionFact.granted();
++    private static final PermissionFact DENIED = PermissionFact.denied();
++
++    private static PermissionFact op(OpMode m) {
++        return new PermissionFact(true, m);
++    }
++
++    private static PrivacyFacts.Builder facts() {
++        return PrivacyFacts.builder(36, 36);
++    }
++
++    @Test
++    public void requestedButNotGrantedShowsNothing() {
++        final AppPrivacy p = PrivacyEvaluator.evaluate(facts()
++                .permission(PrivacyPermissions.CAMERA, DENIED)
++                .permission(PrivacyPermissions.RECORD_AUDIO, DENIED).build());
++        assertTrue(p.effective().isEmpty());
++        assertEquals(GroupState.NOT_ALLOWED, p.stateOf(PrivacyGroup.CAMERA));
++        assertFalse(p.hasUnknown());
++    }
++
++    @Test
++    public void notRequestedIsAbsent() {
++        final AppPrivacy p = PrivacyEvaluator.evaluate(facts().build());
++        assertTrue(p.groups().isEmpty());
++        assertNull(p.stateOf(PrivacyGroup.CAMERA));
++    }
++
++    @Test
++    public void grantedRuntimePermissionIsEffectiveInDesignOrder() {
++        final AppPrivacy p = PrivacyEvaluator.evaluate(facts()
++                .permission(PrivacyPermissions.READ_CONTACTS, GRANTED)
++                .permission(PrivacyPermissions.CAMERA, GRANTED).build());
++        assertEquals(Arrays.asList(PrivacyGroup.CAMERA, PrivacyGroup.CONTACTS), p.effective());
++    }
++
++    @Test
++    public void ignoredAppOpCancelsGrantAndForegroundCounts() {
++        final AppPrivacy p = PrivacyEvaluator.evaluate(facts()
++                .permission(PrivacyPermissions.CAMERA, op(OpMode.IGNORED))
++                .permission(PrivacyPermissions.RECORD_AUDIO, op(OpMode.FOREGROUND))
++                .permission(PrivacyPermissions.READ_CALENDAR, op(OpMode.ERRORED))
++                .permission(PrivacyPermissions.READ_SMS, op(OpMode.DEFAULT)).build());
++        assertEquals(Arrays.asList(PrivacyGroup.MICROPHONE, PrivacyGroup.MESSAGES),
++                p.effective());
++    }
++
++    @Test
++    public void unreadableAppOpIsUnknownNotGuessed() {
++        final AppPrivacy p = PrivacyEvaluator.evaluate(facts()
++                .permission(PrivacyPermissions.CAMERA, op(OpMode.UNKNOWN)).build());
++        assertTrue(p.effective().isEmpty());
++        assertEquals(GroupState.UNKNOWN, p.stateOf(PrivacyGroup.CAMERA));
++        assertTrue(p.hasUnknown());
++        final AppPrivacy mixed = PrivacyEvaluator.evaluate(facts()
++                .permission(PrivacyPermissions.READ_CONTACTS, op(OpMode.UNKNOWN))
++                .permission(PrivacyPermissions.WRITE_CONTACTS, GRANTED).build());
++        assertEquals(Collections.singletonList(PrivacyGroup.CONTACTS), mixed.effective());
++    }
++
++    @Test
++    public void locationApproximateOnlyWhenPreciseIsKnownOff() {
++        assertEquals(GroupState.APPROXIMATE, PrivacyEvaluator.evaluate(facts()
++                .permission(PrivacyPermissions.ACCESS_FINE_LOCATION, DENIED)
++                .permission(PrivacyPermissions.ACCESS_COARSE_LOCATION, GRANTED).build())
++                .stateOf(PrivacyGroup.LOCATION));
++        assertEquals(GroupState.ALLOWED, PrivacyEvaluator.evaluate(facts()
++                .permission(PrivacyPermissions.ACCESS_FINE_LOCATION, GRANTED)
++                .permission(PrivacyPermissions.ACCESS_COARSE_LOCATION, GRANTED).build())
++                .stateOf(PrivacyGroup.LOCATION));
++        assertEquals("precision unknown reads plain Location", GroupState.ALLOWED,
++                PrivacyEvaluator.evaluate(facts()
++                        .permission(PrivacyPermissions.ACCESS_FINE_LOCATION, op(OpMode.UNKNOWN))
++                        .permission(PrivacyPermissions.ACCESS_COARSE_LOCATION, GRANTED).build())
++                        .stateOf(PrivacyGroup.LOCATION));
++        assertEquals(GroupState.APPROXIMATE, PrivacyEvaluator.evaluate(facts()
++                .permission(PrivacyPermissions.ACCESS_COARSE_LOCATION, GRANTED).build())
++                .stateOf(PrivacyGroup.LOCATION));
++        assertEquals(GroupState.UNKNOWN, PrivacyEvaluator.evaluate(facts()
++                .permission(PrivacyPermissions.ACCESS_FINE_LOCATION, op(OpMode.UNKNOWN)).build())
++                .stateOf(PrivacyGroup.LOCATION));
++        assertEquals(GroupState.NOT_ALLOWED, PrivacyEvaluator.evaluate(facts()
++                .permission(PrivacyPermissions.ACCESS_FINE_LOCATION, DENIED)
++                .permission(PrivacyPermissions.ACCESS_COARSE_LOCATION, DENIED).build())
++                .stateOf(PrivacyGroup.LOCATION));
++    }
++
++    @Test
++    public void photosLimitedOnlyOnAndroid14WithSelectedPhotos() {
++        assertEquals(GroupState.LIMITED, PrivacyEvaluator.evaluate(facts()
++                .permission(PrivacyPermissions.READ_MEDIA_IMAGES, DENIED)
++                .permission(PrivacyPermissions.READ_MEDIA_VIDEO, DENIED)
++                .permission(PrivacyPermissions.READ_MEDIA_VISUAL_USER_SELECTED, GRANTED).build())
++                .stateOf(PrivacyGroup.PHOTOS));
++        assertEquals(GroupState.ALLOWED, PrivacyEvaluator.evaluate(facts()
++                .permission(PrivacyPermissions.READ_MEDIA_IMAGES, GRANTED).build())
++                .stateOf(PrivacyGroup.PHOTOS));
++        assertTrue(PrivacyEvaluator.evaluate(PrivacyFacts.builder(36, 33)
++                .permission(PrivacyPermissions.READ_MEDIA_VISUAL_USER_SELECTED, GRANTED).build())
++                .effective().isEmpty());
++    }
++
++    @Test
++    public void legacyStorageMeansMediaOnlyForOldTargets() {
++        assertEquals(Arrays.asList(PrivacyGroup.PHOTOS, PrivacyGroup.AUDIO),
++                PrivacyEvaluator.evaluate(PrivacyFacts.builder(29, 36)
++                        .permission(PrivacyPermissions.READ_EXTERNAL_STORAGE, GRANTED).build())
++                        .effective());
++        assertTrue(PrivacyEvaluator.evaluate(PrivacyFacts.builder(34, 36)
++                .permission(PrivacyPermissions.READ_EXTERNAL_STORAGE, GRANTED).build())
++                .effective().isEmpty());
++    }
++
++    @Test
++    public void notificationsNeedTheEffectiveGrant() {
++        assertFalse(PrivacyEvaluator.evaluate(facts()
++                .permission(PrivacyPermissions.POST_NOTIFICATIONS, DENIED).build())
++                .effective().contains(PrivacyGroup.NOTIFICATIONS));
++        assertEquals(Collections.singletonList(PrivacyGroup.NOTIFICATIONS),
++                PrivacyEvaluator.evaluate(facts()
++                        .permission(PrivacyPermissions.POST_NOTIFICATIONS, GRANTED).build())
++                        .effective());
++        assertNull(PrivacyEvaluator.evaluate(PrivacyFacts.builder(36, 32)
++                .permission(PrivacyPermissions.POST_NOTIFICATIONS, GRANTED).build())
++                .stateOf(PrivacyGroup.NOTIFICATIONS));
++    }
++
++    @Test
++    public void specialAccessUsesAppOpsAndKnownFlagsOnly() {
++        final AppPrivacy p = PrivacyEvaluator.evaluate(facts()
++                .permission(PrivacyPermissions.SYSTEM_ALERT_WINDOW, DENIED)
++                .permission(PrivacyPermissions.REQUEST_INSTALL_PACKAGES, DENIED)
++                .permission(PrivacyPermissions.PACKAGE_USAGE_STATS, GRANTED)
++                .accessibilityServiceEnabled(true)
++                .activeDeviceAdmin(null)
++                .overlayOp(OpMode.ALLOWED)
++                .installAppsOp(OpMode.DEFAULT)
++                .usageAccessOp(OpMode.IGNORED).build());
++        assertEquals(Arrays.asList(PrivacyGroup.ACCESSIBILITY, PrivacyGroup.OVERLAY),
++                p.effective());
++        assertNull(p.stateOf(PrivacyGroup.DEVICE_ADMIN));
++        assertEquals(GroupState.NOT_ALLOWED, p.stateOf(PrivacyGroup.INSTALL_APPS));
++        assertEquals(GroupState.NOT_ALLOWED, p.stateOf(PrivacyGroup.USAGE_ACCESS));
++    }
++
++    @Test
++    public void specialOpWithoutReadableModeIsUnknown() {
++        final AppPrivacy p = PrivacyEvaluator.evaluate(facts()
++                .permission(PrivacyPermissions.SYSTEM_ALERT_WINDOW, GRANTED).build());
++        assertEquals(GroupState.UNKNOWN, p.stateOf(PrivacyGroup.OVERLAY));
++        assertTrue(p.effective().isEmpty());
++    }
++
++    @Test
++    public void groupListMatchesSableStart() {
++        int everyday = 0;
++        for (PrivacyGroup g : PrivacyGroup.values()) {
++            if (!g.isSpecial()) {
++                everyday++;
++            }
++        }
++        assertEquals(11, everyday);
++        assertEquals(16, PrivacyGroup.values().length);
++        assertTrue(PrivacyPermissions.ALL.contains(PrivacyPermissions.POST_NOTIFICATIONS));
++        assertFalse("INTERNET is not a privacy group",
++                PrivacyPermissions.ALL.contains(PrivacyPermissions.INTERNET));
++    }
++}
+diff --git a/tests/sable-apps/src/com/android/settings/applications/sable/model/PrivacyRowTest.java b/tests/sable-apps/src/com/android/settings/applications/sable/model/PrivacyRowTest.java
+new file mode 100644
+index 00000000000..c2e6baf730b
+--- /dev/null
++++ b/tests/sable-apps/src/com/android/settings/applications/sable/model/PrivacyRowTest.java
+@@ -0,0 +1,119 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.settings.applications.sable.model;
++
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertFalse;
++import static org.junit.Assert.assertTrue;
++
++import org.junit.Test;
++
++import java.util.EnumMap;
++import java.util.Map;
++
++/** The compact row wording matches Sable Start's All Apps row. */
++public class PrivacyRowTest {
++    private static final EnglishLabels L = EnglishLabels.INSTANCE;
++
++    private static AppPrivacy of(Object... pairs) {
++        final Map<PrivacyGroup, GroupState> m = new EnumMap<>(PrivacyGroup.class);
++        for (int i = 0; i < pairs.length; i += 2) {
++            m.put((PrivacyGroup) pairs[i], (GroupState) pairs[i + 1]);
++        }
++        return new AppPrivacy(m);
++    }
++
++    @Test
++    public void unreadableStateSaysUnavailable() {
++        final PrivacyRow r = PrivacyRow.of(null);
++        assertEquals(PrivacyRow.State.UNAVAILABLE, r.state);
++        assertEquals("permissions · unavailable", r.text(L));
++    }
++
++    @Test
++    public void nothingRequestedOrAllDeniedIsNoneSensitive() {
++        assertEquals("permissions · none sensitive", PrivacyRow.of(of()).text(L));
++        assertEquals("permissions · none sensitive",
++                PrivacyRow.of(of(PrivacyGroup.CAMERA, GroupState.NOT_ALLOWED)).text(L));
++    }
++
++    @Test
++    public void unknownWithoutAccessIsNotConfirmedNeverNone() {
++        final PrivacyRow r = PrivacyRow.of(of(PrivacyGroup.CAMERA, GroupState.UNKNOWN,
++                PrivacyGroup.CONTACTS, GroupState.NOT_ALLOWED));
++        assertEquals(PrivacyRow.State.NOT_CONFIRMED, r.state);
++        assertEquals("permissions · see app info", r.text(L));
++    }
++
++    @Test
++    public void unknownIsNeverListedBesideKnownAccess() {
++        final PrivacyRow r = PrivacyRow.of(of(PrivacyGroup.CAMERA, GroupState.UNKNOWN,
++                PrivacyGroup.CONTACTS, GroupState.ALLOWED));
++        assertEquals("permissions · Contacts", r.text(L));
++    }
++
++    @Test
++    public void atMostThreeInlineLabelsThenPlusN() {
++        final PrivacyRow r = PrivacyRow.of(of(PrivacyGroup.LOCATION, GroupState.ALLOWED,
++                PrivacyGroup.CONTACTS, GroupState.ALLOWED, PrivacyGroup.NEARBY, GroupState.ALLOWED,
++                PrivacyGroup.NOTIFICATIONS, GroupState.ALLOWED));
++        assertEquals("permissions · Location · Contacts · Nearby · +1", r.text(L));
++        assertEquals(1, r.overflow);
++        assertEquals("Permissions: Location, Contacts, Nearby, Notifications", r.spokenText(L));
++    }
++
++    @Test
++    public void maxInlineIsClampedToOneToThree() {
++        final AppPrivacy p = of(PrivacyGroup.CAMERA, GroupState.ALLOWED,
++                PrivacyGroup.MICROPHONE, GroupState.ALLOWED);
++        assertEquals("permissions · Camera · +1", PrivacyRow.of(p, 0).text(L));
++        assertEquals("permissions · Camera · Microphone", PrivacyRow.of(p, 9).text(L));
++    }
++
++    @Test
++    public void partialLabels() {
++        assertEquals("permissions · Location approximate · Photos limited",
++                PrivacyRow.of(of(PrivacyGroup.LOCATION, GroupState.APPROXIMATE,
++                        PrivacyGroup.PHOTOS, GroupState.LIMITED)).text(L));
++    }
++
++    @Test
++    public void specialAccessIsAMarkerBesideEverydayGroups() {
++        final PrivacyRow r = PrivacyRow.of(of(PrivacyGroup.CAMERA, GroupState.ALLOWED,
++                PrivacyGroup.ACCESSIBILITY, GroupState.ALLOWED));
++        assertTrue(r.warning);
++        assertEquals("⚠ permissions · Camera", r.text(L));
++        assertEquals(1, r.badge.size());
++        assertEquals("Permissions: Camera. Special access: Accessibility", r.spokenText(L));
++    }
++
++    @Test
++    public void specialAccessGoesInlineWhenNothingEverydayIsEffective() {
++        final PrivacyRow r = PrivacyRow.of(of(PrivacyGroup.OVERLAY, GroupState.ALLOWED,
++                PrivacyGroup.CAMERA, GroupState.NOT_ALLOWED));
++        assertEquals("⚠ permissions · Overlay", r.text(L));
++        assertTrue(r.badge.isEmpty());
++    }
++
++    @Test
++    public void noRawPermissionOrPackageNames() {
++        final PrivacyRow r = PrivacyRow.of(of(PrivacyGroup.MESSAGES, GroupState.ALLOWED));
++        assertFalse(r.text(L).contains("android.permission"));
++        assertEquals("permissions · Messages", r.text(L));
++    }
++}
+-- 
+2.43.0
+
