@@ -8,7 +8,8 @@
   Tools (KF-C), 0007 fixes found while integrating them, 0008 adaptive
   Phosphor launcher icons, 0009 the App display corner style, 0010 R9 daily-driver core apps in
   Sable Start (Photos, Camera, Files, Clock tiles; Camera prefers Sable Camera), 0011 fixes
-  for the detekt/ktlint gates and dependency-verification entries GitHub Actions needs.
+  for the detekt/ktlint gates and dependency-verification entries GitHub Actions needs, 0012 the
+  Q25 camera profile's remosaic sizes (the optional 50 MP size is High-res only, never Auto).
   Applied in order to a
   fresh import they reproduce `sable-src/` exactly. Regenerate a patch with `git diff` against a
   fresh import when you change these files.
@@ -58,6 +59,10 @@ other (`apply-framework-patches.sh check` tries them in sequence). No LineageOS
 build ran here. `tests/framework/run-pure-tests.sh` unit-tests the pure classes
 the SetupWizard, Dialer and Contacts patches add; `tests/run.sh` runs the Settings 0601 model tests. When LineageOS moves, regenerate the patch in a
 synced tree with `git format-patch -1` and update the base above.
+
+The optional 50 MP camera kernel patch is not here: it lives with the rest of
+that option in `product/q25/camera-50mp/` and is applied by
+`scripts/camera-50mp.py` only when `SABLE_Q25_CAMERA_50MP=YES`.
 
 Reserved:
 

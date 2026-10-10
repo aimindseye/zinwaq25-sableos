@@ -109,6 +109,13 @@ bash build/sable.sh q25 Q4 stage
 bash build/sable.sh q25 Q4 build
 ```
 
+### Optional: 50 MP rear camera
+
+Off by default. `SABLE_Q25_CAMERA_50MP=YES` before `stage` (any release with the Sable layer) also
+patches the kernel sensor driver and three vendor camera libraries and builds the remosaic library
+from source. Untested on hardware; see
+[`../product/q25/camera-50mp/README.md`](../product/q25/camera-50mp/README.md).
+
 ## 5. Outputs
 
 `~/sable-q25/artifacts/q25/<release>/<stamp>/`:

@@ -171,6 +171,25 @@ else
 fi
 if stagerun Q1 >/dev/null && grep -q 'home=launcher3' "$proj/config.txt"; then pass "stage Q1 after Q4"; else fail "stage Q1 after Q4: $(cat "$tmp/err")"; fi
 
+# 6b2. Optional 50 MP camera: the patcher on a synthetic vendor tree, and off by default.
+if python3 -I tests/test_camera_50mp.py >"$tmp/cam50" 2>&1; then
+    pass "camera 50 MP patcher ($(grep -o 'Ran [0-9]* tests' "$tmp/cam50"))"
+else
+    fail "camera 50 MP patcher: $(tail -5 "$tmp/cam50")"
+fi
+if out="$(stagerun Q2 --apps-dir "$tmp/apps/run")" && grep -q '^CAMERA_50MP=NO' <<<"$out" &&
+    [[ ! -e "$tmp/android/vendor/sable/q25/camera-50mp" ]]; then
+    pass "stage leaves the 50 MP camera off by default"
+else
+    fail "stage 50 MP default: $(cat "$tmp/err")"
+fi
+if SABLE_Q25_CAMERA_50MP=YES stagerun Q2 --apps-dir "$tmp/apps/run" >/dev/null; then
+    fail "stage with SABLE_Q25_CAMERA_50MP=YES did not refuse a tree without the Q25 kernel and blobs"
+else
+    pass "stage refuses the 50 MP camera without its kernel and blobs"
+fi
+stagerun Q1 >/dev/null || fail "stage Q1 after the 50 MP checks: $(cat "$tmp/err")"
+
 # 6c. The real framework patches are well-formed git patches.
 bad=""
 while IFS= read -r -d '' p; do

@@ -10,7 +10,7 @@ object CapabilityInterpreter {
         cameras: List<CameraInfo>,
         profile: CameraDeviceProfile = CameraDeviceProfile.Unknown
     ): CapabilityReport {
-        val reports = cameras.map { report(it) }
+        val reports = cameras.map { report(it, profile) }
         return CapabilityReport(
             reports,
             validate(cameras, profile),
@@ -34,23 +34,20 @@ object CapabilityInterpreter {
             ?: sizes.maxByOrNull { it.pixels }
     }
 
-    fun report(c: CameraInfo): CameraReport {
+    fun report(
+        c: CameraInfo,
+        profile: CameraDeviceProfile = CameraDeviceProfile.Unknown
+    ): CameraReport {
         // Titan 2 evidence: 8192x6144 sits in the ORDINARY JPEG map (not the high-res or
         // maximum-resolution maps), so "normal" must be defined against the sensor: JPEG sizes
-        // with more pixels than the active array are vendor high-res.
+        // with more pixels than the active array are vendor high-res. Sizes the profile marks as
+        // slow remosaic output are high-res whatever the active array says.
         val limit = c.activeArray?.pixels
-        val normal = if (limit != null) {
-            c.jpegSizes.filter { it.pixels <= limit }.ifEmpty { c.jpegSizes }
-        } else {
-            c.jpegSizes
-        }
+        fun isHigh(s: Size) = s in profile.remosaicJpegSizes || (limit != null && s.pixels > limit)
+        val normal = c.jpegSizes.filterNot { isHigh(it) }.ifEmpty { c.jpegSizes }
         val bestJpeg = conventional(normal, c.activeArray)
             ?: Size(FALLBACK_JPEG_W, FALLBACK_JPEG_H)
-        val aboveActive = if (limit != null) {
-            c.jpegSizes.filter { it.pixels > limit }
-        } else {
-            emptyList()
-        }
+        val aboveActive = c.jpegSizes.filter { isHigh(it) }
         val bestHigh = (aboveActive + c.jpegHighResSizes + c.jpegMaxResSizes).maxByOrNull {
             it.pixels
         }?.takeIf {

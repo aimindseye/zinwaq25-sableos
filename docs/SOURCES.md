@@ -12,6 +12,7 @@
 | aimindseye/titan2-temp (private) | Keyboard P2, Reader v2 (P5A-P5F), reference sources layered over the sableos import | `7570470d1c5a27ef94ed4751f5ccb91af41761fe` | as sableos |
 | [thunderbird/thunderbird-android](https://github.com/thunderbird/thunderbird-android) | Upstream for the Sable Mail flavor | `THUNDERBIRD_23_0` (`c733317d933c22bcd790a4790306f30ccf2026b8`) | Apache-2.0 |
 | [vaachak-platform/vaachak-textreader](https://github.com/vaachak-platform/vaachak-textreader) | Upstream for the Sable Text Reader flavor | `50fca365baae9869264716569830690fb62029a7` | see repo |
+| [bellhopsw/q25-50mp](https://github.com/bellhopsw/q25-50mp) | Optional 50 MP camera (`product/q25/camera-50mp`, off by default) | `caf855d5adc9578f3231f73947b6872b8786db8a` | MIT (library, tools); GPL-2.0 (kernel change) |
 | [sableos-project/platform_sable](https://github.com/sableos-project/platform_sable) | Design and portability rules | reference | see repo |
 | [sableos-project/device_sable_titan2](https://github.com/sableos-project/device_sable_titan2) | Repo structure, boundaries | reference | see repo |
 | [MarathonOS/marathon-zinwa-q25](https://github.com/MarathonOS/marathon-zinwa-q25) | GPT layouts, multiboot notes | reference | see repo |

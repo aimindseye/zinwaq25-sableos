@@ -15,7 +15,12 @@ data class CameraDeviceProfile(
     val expectedPublicIds: Map<String, Facing> = emptyMap(),
     val expectedHighResJpeg: Map<String, Size> = emptyMap(),
     val expectedRaw: Map<String, Size> = emptyMap(),
-    val keyOverrides: Map<Binding, CameraAction> = emptyMap()
+    val keyOverrides: Map<Binding, CameraAction> = emptyMap(),
+    /**
+     * JPEG sizes the HAL produces through a slow full-resolution remosaic path. They are never the
+     * Auto default, only High-res. Restricts what a reported size is used for; grants nothing.
+     */
+    val remosaicJpegSizes: Set<Size> = emptySet()
 ) {
     companion object {
         private const val HIRES_BACK_W = 8192
@@ -45,8 +50,17 @@ data class CameraDeviceProfile(
         val Titan2Elite = CameraDeviceProfile("titan2-elite", EvidenceLevel.None)
         val ZinwaQ27 = CameraDeviceProfile("zinwa-q27", EvidenceLevel.None)
 
+        private const val Q25_REMOSAIC_W = 8160
+        private const val Q25_REMOSAIC_H = 6144
+
         // Public spec only (50 MP rear with flash, 8 MP front); ids, sizes and keys not captured on a Q25 yet.
-        val ZinwaQ25 = CameraDeviceProfile("zinwa-q25", EvidenceLevel.None)
+        // 8160x6144 is the full-resolution JN1 size the optional 50 MP vendor change
+        // (SABLE_Q25_CAMERA_50MP) adds to the ordinary JPEG map; each shot takes seconds.
+        val ZinwaQ25 = CameraDeviceProfile(
+            "zinwa-q25",
+            EvidenceLevel.None,
+            remosaicJpegSizes = setOf(Size(Q25_REMOSAIC_W, Q25_REMOSAIC_H))
+        )
         val Unknown = CameraDeviceProfile("unknown", EvidenceLevel.None)
         fun byId(id: String?) =
             listOf(Titan2, Titan2Elite, ZinwaQ27, ZinwaQ25).firstOrNull { it.id == id } ?: Unknown
