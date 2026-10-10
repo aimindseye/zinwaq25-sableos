@@ -95,3 +95,16 @@ Charging & protection
 
 The temperature and condition values above are examples; nothing here has run
 on a Q25.
+
+## Leads from q25toolbox (LineageOS 23, not verified here)
+
+[nozerorma/q25toolbox](https://github.com/nozerorma/q25toolbox) reports two facts from its own
+Q25 testing. Both point to `NO`, but the profile stays `UNKNOWN` until the evidence steps above run:
+
+* **Battery usage never populates** because the charger never reports `BATTERY_STATUS_FULL`, which
+  Android's usage accounting waits for. Expect `usage_platform_accounting_supported=NO`; the
+  toolbox works around it by reading `dumpsys batterystats --checkin`.
+* **Cycle count is static**: the fuel gauge reports a fixed value. Expect
+  `health_cycle_count_supported=NO`. The Settings patches already fail closed on `UNKNOWN`, so a
+  static value is not shown as a measurement.
+

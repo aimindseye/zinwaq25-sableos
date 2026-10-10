@@ -49,7 +49,7 @@ jobs:
             # SableOS build/local-ci/run.sh run_android + quality, plus the Q25 test modules
             extra: >-
               :design:testDebugUnitTest :hub:testDebugUnitTest :messages:testDebugUnitTest
-              :weather:testDebugUnitTest :sablestart-presentation-check:testDebugUnitTest
+              :weather:testDebugUnitTest :calculator:testDebugUnitTest :sablestart-presentation-check:testDebugUnitTest
               :sablestart-visual-review:assembleDebug
               :design:lintDebug :calculator:lintDebug :convert:lintDebug
               :games:lintSudokuDebug :games:lintMinesweeperDebug :games:lintGame2048Debug

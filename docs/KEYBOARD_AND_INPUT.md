@@ -38,6 +38,7 @@ Sable apps read `ro.sable.profile.id`; the Q25 layer sets it to `zinwa-q25`.
 | Trackpad | Optical trackpad; find out whether it reports as DPAD keys, a relative pointer (`REL_X/REL_Y`) or a touchpad. Sable wants DPAD focus navigation plus an optional pointer mode | unknown |
 | Trackpad click | Expect `DPAD_CENTER` (353) or `BTN_MOUSE`; confirm | unknown |
 | Keyboard backlight | The `bbqX0kbd` kernel driver sets it over I2C (`REG_BKL`): full on screen-on, off on screen-off, Right-Alt + Z/X/0 adjust it (confirmed on a Q25 by the owner). No sysfs LED or lights HAL entry. Q4 adds a Settings switch and brightness slider through kernel and Settings patches 0901 and `product/q25/init/sable-keyboard-backlight.rc` | written, not run on device |
+| Keyboard-first app shortcuts | From the q25toolbox review: Sable Calculator takes digits and operators from the keyboard (a plain key counts as its Alt character, so W E R = 1 2 3); Sable Keyboard picks candidates with Ctrl+1/2/3 or Ctrl+W/E/R and can send with Enter where the app offers Send (Settings switch, off by default); Phone in-call M mute, S speaker, D dialpad (Dialer 0703). Q25 key leads in `device-profile/KEYMAP.md` | written, not run on device |
 | Critical text entry | Lock-screen PIN/password, Wi-Fi password, SIM PIN must work from the hardware keyboard and the soft-keyboard fallback (`CRITICAL_TEXT_ENTRY_GATES.md`) | gate in `QUALIFICATION.md` |
 
 ## Keyboard firmware

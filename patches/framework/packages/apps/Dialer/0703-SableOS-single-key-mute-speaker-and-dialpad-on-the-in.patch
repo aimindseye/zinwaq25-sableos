@@ -1,0 +1,182 @@
+From a0614c515e1f50c43434a9b788727f0957b3f60c Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 10 Oct 2026 17:02:19 +0000
+Subject: [PATCH 703/703] SableOS: single-key mute, speaker and dialpad on the in-call
+ screen
+
+For phones with a hardware keyboard (Q25): during a call that is
+active, on hold or dialling out, with the dialpad hidden, M toggles
+mute, S toggles the speaker and D opens the dialpad.
+
+* Never while a call is ringing, so no key answers or rejects.
+* With the dialpad open letters stay DTMF digits (W E R = 1 2 3 on a
+  phone-pad keyboard), unchanged.
+* Held keys and keys with Shift, Alt, Sym, Ctrl, Meta or Fn keep the
+  upstream meaning.
+* S does nothing when Bluetooth is a route: the on-screen picker
+  chooses between three routes.
+
+The decision is the pure SableInCallKeys class; host tests live in the
+SableOS Q25 repository under tests/framework/packages/apps/Dialer.
+---
+ .../android/dialer/sable/SableInCallKeys.java | 80 +++++++++++++++++++
+ java/com/android/incallui/InCallActivity.java | 42 ++++++++++
+ 2 files changed, 122 insertions(+)
+ create mode 100644 java/com/android/dialer/sable/SableInCallKeys.java
+
+diff --git a/java/com/android/dialer/sable/SableInCallKeys.java b/java/com/android/dialer/sable/SableInCallKeys.java
+new file mode 100644
+index 000000000..0bec7f702
+--- /dev/null
++++ b/java/com/android/dialer/sable/SableInCallKeys.java
+@@ -0,0 +1,80 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++
++package com.android.dialer.sable;
++
++/**
++ * Single-key commands on the in-call screen for phones with a hardware keyboard. Pure Java.
++ *
++ * <ul>
++ *   <li>M toggles mute, S toggles the speaker, D opens the dialpad.
++ *   <li>Only during a call that is active, on hold or dialling out: never on the incoming-call
++ *       screen, where keys must not answer or reject anything.
++ *   <li>Only while the dialpad is hidden: with it open, letters are DTMF digits (W E R = 1 2 3 on
++ *       a phone-pad keyboard) and keep that meaning.
++ *   <li>Held keys and any key with Shift, Alt, Sym, Ctrl, Meta or Fn keep the upstream meaning.
++ * </ul>
++ *
++ * Key codes and meta masks mirror android.view.KeyEvent (stable public ABI); the host test pins
++ * them.
++ */
++public final class SableInCallKeys {
++  public enum Action {
++    NONE,
++    TOGGLE_MUTE,
++    TOGGLE_SPEAKER,
++    SHOW_DIALPAD
++  }
++
++  public static final int KEYCODE_D = 32;
++  public static final int KEYCODE_M = 41;
++  public static final int KEYCODE_S = 47;
++
++  public static final int META_SHIFT_MASK = 0xc1;
++  public static final int META_ALT_MASK = 0x32;
++  public static final int META_SYM_ON = 0x4;
++  public static final int META_FUNCTION_ON = 0x8;
++  public static final int META_CTRL_MASK = 0x7000;
++  public static final int META_META_MASK = 0x70000;
++
++  private static final int ANY_MODIFIER =
++      META_SHIFT_MASK
++          | META_ALT_MASK
++          | META_SYM_ON
++          | META_FUNCTION_ON
++          | META_CTRL_MASK
++          | META_META_MASK;
++
++  private SableInCallKeys() {}
++
++  public static Action decide(
++      int keyCode, int metaState, int repeatCount, boolean callInProgress, boolean dialpadVisible) {
++    if (!callInProgress || dialpadVisible || repeatCount > 0 || (metaState & ANY_MODIFIER) != 0) {
++      return Action.NONE;
++    }
++    switch (keyCode) {
++      case KEYCODE_M:
++        return Action.TOGGLE_MUTE;
++      case KEYCODE_S:
++        return Action.TOGGLE_SPEAKER;
++      case KEYCODE_D:
++        return Action.SHOW_DIALPAD;
++      default:
++        return Action.NONE;
++    }
++  }
++}
+diff --git a/java/com/android/incallui/InCallActivity.java b/java/com/android/incallui/InCallActivity.java
+index e95bbaf2e..c19be860d 100644
+--- a/java/com/android/incallui/InCallActivity.java
++++ b/java/com/android/incallui/InCallActivity.java
+@@ -68,6 +68,7 @@ import com.android.dialer.preferredsim.PreferredAccountRecorder;
+ import com.android.dialer.preferredsim.PreferredAccountWorker;
+ import com.android.dialer.preferredsim.PreferredAccountWorker.Result;
+ import com.android.dialer.preferredsim.PreferredSimComponent;
++import com.android.dialer.sable.SableInCallKeys;
+ import com.android.dialer.util.ViewUtil;
+ import com.android.incallui.answer.bindings.AnswerBindings;
+ import com.android.incallui.answer.protocol.AnswerScreen;
+@@ -730,6 +731,10 @@ public class InCallActivity extends TransactionSafeFragmentActivity
+       default: // fall out
+     }
+ 
++    if (handleSableInCallKey(keyCode, event)) {
++      return true;
++    }
++
+     // Pass other key events to DialpadFragment's "onDialerKeyDown" method in case the user types
+     // in DTMF (Dual-tone multi-frequency signaling) code.
+     DialpadFragment dialpadFragment = getDialpadFragment();
+@@ -742,6 +747,43 @@ public class InCallActivity extends TransactionSafeFragmentActivity
+     return super.onKeyDown(keyCode, event);
+   }
+ 
++  /** SableOS: M mute, S speaker, D dialpad during a call (see SableInCallKeys). */
++  private boolean handleSableInCallKey(int keyCode, KeyEvent event) {
++    CallList callList = CallList.getInstance();
++    // Never while a call is ringing: then the answer screen owns the keys.
++    boolean callInProgress =
++        callList.getIncomingCall() == null
++            && (callList.getOutgoingOrActive() != null || callList.getBackgroundCall() != null);
++    switch (SableInCallKeys.decide(
++        keyCode,
++        event.getMetaState(),
++        event.getRepeatCount(),
++        callInProgress,
++        isDialpadVisible())) {
++      case TOGGLE_MUTE:
++        TelecomAdapter.getInstance()
++            .mute(!AudioModeProvider.getInstance().getAudioState().isMuted());
++        return true;
++      case TOGGLE_SPEAKER:
++        CallAudioState audio = AudioModeProvider.getInstance().getAudioState();
++        if ((audio.getSupportedRouteMask() & CallAudioState.ROUTE_BLUETOOTH) != 0) {
++          // With Bluetooth there are three routes; the on-screen route picker decides.
++          return false;
++        }
++        TelecomAdapter.getInstance()
++            .setAudioRoute(
++                audio.getRoute() == CallAudioState.ROUTE_SPEAKER
++                    ? CallAudioState.ROUTE_WIRED_OR_EARPIECE
++                    : CallAudioState.ROUTE_SPEAKER);
++        return true;
++      case SHOW_DIALPAD:
++        showDialpadFragment(true /* show */, true /* animate */);
++        return true;
++      default:
++        return false;
++    }
++  }
++
+   public boolean isInCallScreenAnimating() {
+     return false;
+   }
+-- 
+2.43.0
+

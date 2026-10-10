@@ -4,6 +4,9 @@ import android.content.Context
 import android.content.SharedPreferences
 import org.sableos.titan2.keyboard.core.KeyboardConfig
 
+/** Enter performs the field's Send action (core KeyShortcuts.enterSends); off by default. */
+internal const val ENTER_SENDS = "enterSends"
+
 /**
  * Stored in device-protected storage so the keyboard works at the lockscreen and during direct boot
  * (critical text entry).
