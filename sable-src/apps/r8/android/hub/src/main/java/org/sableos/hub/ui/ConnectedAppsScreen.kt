@@ -35,12 +35,6 @@ import org.sableos.hub.policy.AttentionOutput
 import org.sableos.hub.policy.ConnectedAppsParity
 import java.util.Locale
 
-/** Sable Attention state for the connected-apps screen: only profile-supported Sable outputs. */
-internal data class AttentionUi(
-    val selectableOutputs: List<AttentionOutput>,
-    val selections: Map<ConnectedAppKey, Set<AttentionOutput>>,
-)
-
 private enum class ConnectedAppsPivot {
     Favorites,
     Enabled,

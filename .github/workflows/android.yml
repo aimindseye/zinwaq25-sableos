@@ -1,0 +1,155 @@
+name: Sable apps
+
+# Builds every Sable app in product/q25/apps.tsv with scripts/build-apps.sh, and
+# runs the quality gates SableOS ran in GitHub Actions before its CI moved to a
+# local machine (and still runs in build/local-ci/run.sh): unit tests, Android
+# Lint, detekt, ktlint and Kover. One job per Gradle project.
+on:
+  pull_request:
+    paths:
+      - 'sable-src/**'
+      - 'product/q25/apps.tsv'
+      - 'scripts/build-apps.sh'
+      - '.github/workflows/android.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'sable-src/**'
+      - 'product/q25/apps.tsv'
+      - 'scripts/build-apps.sh'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: platform apps
+            root: apps/titan2/platform
+            java: '17'
+            # SableOS qualify-c3b-product-source.sh: assembleRelease test lint detekt ktlintCheck
+            extra: test lint detekt ktlintCheck
+          - name: r8 apps
+            root: apps/r8/android
+            java: '17'
+            # SableOS build/local-ci/run.sh run_android + quality, plus the Q25 test modules
+            extra: >-
+              :design:testDebugUnitTest :hub:testDebugUnitTest :messages:testDebugUnitTest
+              :weather:testDebugUnitTest :sablestart-presentation-check:testDebugUnitTest
+              :sablestart-visual-review:assembleDebug
+              :design:lintDebug :calculator:lintDebug :convert:lintDebug
+              :games:lintSudokuDebug :games:lintMinesweeperDebug :games:lintGame2048Debug
+              :media:lintDebug :hub:lintDebug :messages:lintDebug :weather:lintDebug
+              :calendar:lintDebug :sablestart-presentation-check:lintDebug
+              :design:detekt :calculator:detekt :convert:detekt :games:detekt :media:detekt
+              :hub:detekt :messages:detekt :weather:detekt :calendar:detekt
+              :design:ktlintCheck :calculator:ktlintCheck :convert:ktlintCheck
+              :games:ktlintCheck :media:ktlintCheck :hub:ktlintCheck :messages:ktlintCheck
+              :weather:ktlintCheck :calendar:ktlintCheck
+              :design:koverXmlReportDebug :design:koverHtmlReportDebug
+          - name: reader
+            root: apps/common/reader
+            java: '21'
+            extra: test :leisure:lintSableDebug :leisure:processSableDebugMainManifest detekt
+          - name: mail
+            root: flavor:mail
+            java: '21'
+            extra: >-
+              :feature:account:setup:compileReleaseKotlin
+              :feature:onboarding:main:compileReleaseKotlin
+              :feature:launcher:compileReleaseKotlin
+              :app-thunderbird:lintFossRelease
+          - name: text reader
+            root: flavor:textreader
+            java: '17'
+            extra: testDebugUnitTest lintDebug
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Work directory
+        run: echo "SABLE_BUILD_ROOT=$RUNNER_TEMP/sable" >> "$GITHUB_ENV"
+      - name: Free disk space
+        run: sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /usr/local/lib/node_modules /opt/hostedtoolcache/CodeQL
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - uses: dtolnay/rust-toolchain@master
+        if: matrix.root == 'apps/r8/android'
+        with:
+          toolchain: '1.98.1'
+          targets: aarch64-linux-android
+      - name: Android SDK 36 (and NDK for the r8 apps)
+        run: |
+          set -euo pipefail
+          sdkmanager="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          test -n "$sdkmanager"
+          yes | "$sdkmanager" --licenses > /dev/null || true
+          pkgs=('platforms;android-36' 'build-tools;36.0.0')
+          [[ '${{ matrix.root }}' != apps/r8/android ]] || pkgs+=('ndk;30.0.16248370')
+          "$sdkmanager" "${pkgs[@]}"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build, test and check
+        env:
+          NETWORK_FETCH_AUTHORIZED: 'YES'
+          SABLE_EXTRA_GRADLE_TASKS: ${{ matrix.extra }}
+          # Report every failing gate in one run.
+          SABLE_GRADLE_ARGS: --continue
+        run: bash scripts/build-apps.sh --all --root '${{ matrix.root }}'
+      - name: Mail runtime dependencies stay Sable-composed
+        if: matrix.root == 'flavor:mail'
+        run: |
+          set -euo pipefail
+          cd "$SABLE_BUILD_ROOT/flavor-work/mail"
+          ./gradlew --no-daemon --console=plain :app-thunderbird:dependencies \
+            --configuration fossReleaseRuntimeClasspath > deps.txt
+          if grep -E 'feature:thundermail|feature:funding:(link|googleplay)|feature:telemetry:glean|feature:onboarding:migration:thunderbird|feature:migration:launcher:thunderbird|backend:demo|autodiscovery:demo' deps.txt; then
+            echo "SABLE_MAIL_STALE_RUNTIME_DEPENDENCY=FAIL"; exit 1
+          fi
+          for expected in feature:funding:noop feature:telemetry:noop feature:onboarding:migration:noop feature:migration:launcher:noop; do
+            grep -Fq "$expected" deps.txt || { echo "SABLE_MAIL_EXPECTED_RUNTIME_DEPENDENCY=FAIL missing=$expected"; exit 1; }
+          done
+          echo "SABLE_MAIL_STALE_RUNTIME_DEPENDENCY=PASS_ABSENT"
+      - name: Kover line coverage (baseline, no threshold)
+        if: matrix.root == 'apps/r8/android'
+        run: |
+          python3 - <<'PY'
+          import os, xml.etree.ElementTree as ET
+          r = ET.parse("sable-src/apps/r8/android/design/build/reports/kover/reportDebug.xml").getroot()
+          c = next(x for x in r.findall("counter") if x.attrib.get("type") == "LINE")
+          cov, mis = int(c.attrib["covered"]), int(c.attrib["missed"])
+          pct = cov * 100.0 / (cov + mis) if cov + mis else 0.0
+          print(f"KOVER_LINE_PERCENT={pct:.2f}")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write(f"Kover line coverage (design): **{pct:.2f}%** ({cov}/{cov + mis}), baseline only\n")
+          PY
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: apks-${{ strategy.job-index }}
+          path: ${{ env.SABLE_BUILD_ROOT }}/apps-out/latest/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-${{ strategy.job-index }}
+          path: |
+            sable-src/**/build/reports/
+            ${{ env.SABLE_BUILD_ROOT }}/flavor-work/*/**/build/reports/lint-results*.html
+          if-no-files-found: ignore
+          retention-days: 14

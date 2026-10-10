@@ -1,0 +1,62 @@
+name: Rust
+
+# SableOS r8-rust, r8-rust-security and the Rust half of quality-coverage:
+# format, clippy, tests, RustSec audit, cargo-deny policy and line coverage.
+on:
+  pull_request:
+    paths:
+      - 'sable-src/apps/r8/rust/**'
+      - '.github/workflows/rust.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'sable-src/apps/r8/rust/**'
+      - '.github/workflows/rust.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: sable-src/apps/r8/rust
+
+jobs:
+  rust:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: '1.98.1'
+          components: rustfmt, clippy, llvm-tools-preview
+      - name: Committed dependency lock
+        run: cargo metadata --locked --no-deps --format-version 1 > /dev/null
+      - name: Formatting
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+      - name: Unit tests
+        run: cargo test --locked --workspace --all-targets
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit,cargo-deny,cargo-llvm-cov
+      - name: RustSec audit
+        run: |
+          # cargo-audit's own database fetch leaves an empty checkout on hosted
+          # runners; clone the database explicitly and audit against it.
+          git clone --quiet --depth 1 https://github.com/rustsec/advisory-db "$RUNNER_TEMP/advisory-db"
+          cargo audit --deny warnings --no-fetch --db "$RUNNER_TEMP/advisory-db"
+      - name: Advisory, ban and source policy
+        run: cargo deny check advisories bans sources
+      - name: Line coverage (baseline, no threshold)
+        run: |
+          cargo llvm-cov --workspace --locked --lcov --output-path coverage.lcov
+          awk -F: '/^LF:/{f+=$2} /^LH:/{h+=$2} END{p=f?h*100/f:0; printf "RUST_COVERAGE_LINE_PERCENT=%.2f\n", p; printf "Rust line coverage: **%.2f%%** (%d/%d), baseline only\n", p, h, f >> ENVIRON["GITHUB_STEP_SUMMARY"]}' coverage.lcov

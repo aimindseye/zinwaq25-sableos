@@ -7,6 +7,7 @@ complexity:
     excludes:
       - "**/media/MediaApp.kt"
       - "**/media/MediaScreen.kt"
+      - "**/media/MediaResponsive.kt"
       - "**/media/MediaC2Screens.kt"
       - "**/media/PodcastScreen.kt"
       - "**/hub/ui/HubScreen.kt"
@@ -17,6 +18,7 @@ complexity:
     excludes:
       - "**/media/MediaApp.kt"
       - "**/media/MediaScreen.kt"
+      - "**/media/MediaResponsive.kt"
       - "**/media/MediaC2Screens.kt"
       - "**/media/PodcastScreen.kt"
       - "**/hub/ui/HubScreen.kt"
@@ -26,6 +28,7 @@ complexity:
   LongParameterList:
     excludes:
       - "**/media/MediaScreen.kt"
+      - "**/media/MediaResponsive.kt"
       - "**/media/MediaC2Screens.kt"
       - "**/media/PodcastScreen.kt"
       - "**/hub/ui/HubScreen.kt"
@@ -40,6 +43,7 @@ naming:
     excludes:
       - "**/media/MediaApp.kt"
       - "**/media/MediaScreen.kt"
+      - "**/media/MediaResponsive.kt"
       - "**/media/MediaC2Screens.kt"
       - "**/media/PodcastScreen.kt"
       - "**/hub/ui/HubScreen.kt"

@@ -236,17 +236,16 @@ class SableNotificationListenerService : NotificationListenerService() {
                 replyCandidate = captureReplyCandidate(notification),
                 allowQuickReply = policy.allowQuickReply,
             )
-        return if (contentRestricted) {
-            envelope.copy(
-                notificationTitle = null,
-                conversationTitle = null,
-                notificationBody = null,
-                messages = envelope.messages.map { it.copy(senderLabel = null, body = null) },
-            )
-        } else {
-            envelope
-        }
+        return if (contentRestricted) envelope.withoutContent() else envelope
     }
+
+    private fun ConnectedNotificationEnvelope.withoutContent(): ConnectedNotificationEnvelope =
+        copy(
+            notificationTitle = null,
+            conversationTitle = null,
+            notificationBody = null,
+            messages = messages.map { it.copy(senderLabel = null, body = null) },
+        )
 
     private fun captureNotificationBody(notification: Notification): String? =
         boundedText(

@@ -28,6 +28,25 @@ class KeyboardSettingsActivity : Activity() {
         refreshStatus()
     }
 
+    private fun addPreferenceSwitches(col: LinearLayout, prefs: KeyboardPrefs) {
+        fun sw(label: String, key: String, def: Boolean) = col.addView(
+            Switch(this).apply {
+                text = label
+                isChecked = prefs.getBool(key, def)
+                setOnCheckedChangeListener { _, v -> prefs.setBool(key, v) }
+            }
+        )
+        sw("Auto-capitalise sentences", "autoCap", true)
+        sw("Double space inserts period", "doubleSpace", true)
+        sw("Long-press a letter for its Alt character", "longPressAlt", true)
+        sw("Letters type digits in numeric fields", "numericAutoAlt", true)
+        sw("Nav mode (IJKL arrows) enabled", "navMode", true)
+        sw("Alt+Space toggles Nav mode", "altSpaceNav", true)
+        sw("Show on-screen keyboard for numeric/PIN fields", "softForNumeric", true)
+        sw("Always show on-screen keyboard", "forceSoft", false)
+        sw("Compact status strip when the on-screen keyboard is hidden", "compactStrip", true)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val prefs = KeyboardPrefs(this)
@@ -48,22 +67,7 @@ class KeyboardSettingsActivity : Activity() {
                 textSize = NOTE_SP
             }
         )
-        fun sw(label: String, key: String, def: Boolean) = col.addView(
-            Switch(this).apply {
-                text = label
-                isChecked = prefs.getBool(key, def)
-                setOnCheckedChangeListener { _, v -> prefs.setBool(key, v) }
-            }
-        )
-        sw("Auto-capitalise sentences", "autoCap", true)
-        sw("Double space inserts period", "doubleSpace", true)
-        sw("Long-press a letter for its Alt character", "longPressAlt", true)
-        sw("Letters type digits in numeric fields", "numericAutoAlt", true)
-        sw("Nav mode (IJKL arrows) enabled", "navMode", true)
-        sw("Alt+Space toggles Nav mode", "altSpaceNav", true)
-        sw("Show on-screen keyboard for numeric/PIN fields", "softForNumeric", true)
-        sw("Always show on-screen keyboard", "forceSoft", false)
-        sw("Compact status strip when the on-screen keyboard is hidden", "compactStrip", true)
+        addPreferenceSwitches(col, prefs)
         val status = TextView(this).apply { textSize = NOTE_SP }
         val failure = TextView(this).apply { textSize = NOTE_SP }
         col.addView(status)
@@ -87,7 +91,9 @@ class KeyboardSettingsActivity : Activity() {
             Button(this).apply {
                 text = "Key event probe (diagnostic)"
                 setOnClickListener {
-                    startActivity(Intent(this@KeyboardSettingsActivity, KeyProbeActivity::class.java))
+                    startActivity(
+                        Intent(this@KeyboardSettingsActivity, KeyProbeActivity::class.java)
+                    )
                 }
             }
         )

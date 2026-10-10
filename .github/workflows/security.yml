@@ -1,0 +1,69 @@
+name: Security
+
+# SableOS security-baseline: Gitleaks over the history and a MobSF source scan
+# of the Android apps (findings recorded, not failing, as in SableOS).
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '17 5 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gitleaks:
+    name: Gitleaks secret scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install Gitleaks 8.30.1
+        run: |
+          set -euo pipefail
+          v=8.30.1
+          curl -sSfL -o gl.tgz "https://github.com/gitleaks/gitleaks/releases/download/v$v/gitleaks_${v}_linux_x64.tar.gz"
+          curl -sSfL -o sums.txt "https://github.com/gitleaks/gitleaks/releases/download/v$v/gitleaks_${v}_checksums.txt"
+          grep " gitleaks_${v}_linux_x64.tar.gz\$" sums.txt | sed "s/gitleaks_${v}_linux_x64.tar.gz/gl.tgz/" | sha256sum -c -
+          tar -xzf gl.tgz gitleaks && sudo install gitleaks /usr/local/bin/
+      - name: Scan history
+        run: gitleaks git --redact --no-banner --exit-code 1 .
+
+  mobsfscan:
+    name: MobSF Android source scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Scan
+        run: |
+          set -euo pipefail
+          pip install --quiet mobsfscan
+          mobsfscan sable-src/apps --sarif --output mobsfscan-results.sarif --type android --no-fail
+          python3 - <<'PY'
+          import json, os
+          doc = json.load(open("mobsfscan-results.sarif"))
+          n = sum(len(r.get("results", [])) for r in doc.get("runs", []))
+          print(f"MOBSFSCAN_SARIF_RESULT_COUNT={n}")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write(f"MobSF findings recorded: **{n}**\n")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mobsfscan-results
+          path: mobsfscan-results.sarif
+          retention-days: 30

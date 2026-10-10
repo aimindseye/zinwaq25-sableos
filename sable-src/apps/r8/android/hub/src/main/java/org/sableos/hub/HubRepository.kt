@@ -39,6 +39,38 @@ class HubRepository(
     private val profiles = ProfileDirectory(context)
     private val privacyReader = PrivacyReader(context)
 
+    /** Conversations and messages from opted-in connected apps, with Hub priority and privacy applied. */
+    private fun loadConnected(): Pair<List<HubConversation>, List<HubMessage>> {
+        val connectedPolicies =
+            connectedApps
+                .loadPolicies()
+                .associateBy { policy ->
+                    policy.key
+                }
+        val connectedRecords =
+            connectedHistory.load(
+                policies = connectedPolicies,
+            )
+        val reduced =
+            HubConnectedConversationReducer.reduce(
+                records = connectedRecords,
+                canReply = ConnectedReplyRegistry::canReply,
+            )
+        val prioritized =
+            reduced.conversations.map { conversation ->
+                val key =
+                    conversation.sourcePackage?.let { pkg ->
+                        conversation.sourceUserSerial?.let { serial -> ConnectedAppKey(pkg, serial) }
+                    }
+                conversation.copy(hubPriority = key?.let { connectedPolicies[it]?.favorite } == true)
+            }
+        return HubRedaction.apply(
+            conversations = prioritized,
+            messages = reduced.messages,
+            privacyFor = sourcePrivacy(connectedPolicies),
+        )
+    }
+
     fun snapshot(): HubSnapshot {
         val capabilities = capabilities()
         val messages =
@@ -66,35 +98,7 @@ class HubRepository(
                     ?: address
             }
 
-        val connectedPolicies =
-            connectedApps
-                .loadPolicies()
-                .associateBy { policy ->
-                    policy.key
-                }
-        val connectedRecords =
-            connectedHistory.load(
-                policies = connectedPolicies,
-            )
-        val reduced =
-            HubConnectedConversationReducer.reduce(
-                records = connectedRecords,
-                canReply = ConnectedReplyRegistry::canReply,
-            )
-        val prioritized =
-            reduced.conversations.map { conversation ->
-                val key =
-                    conversation.sourcePackage?.let { pkg ->
-                        conversation.sourceUserSerial?.let { serial -> ConnectedAppKey(pkg, serial) }
-                    }
-                conversation.copy(hubPriority = key?.let { connectedPolicies[it]?.favorite } == true)
-            }
-        val (connectedConversations, connectedMessages) =
-            HubRedaction.apply(
-                conversations = prioritized,
-                messages = reduced.messages,
-                privacyFor = sourcePrivacy(connectedPolicies),
-            )
+        val (connectedConversations, connectedMessages) = loadConnected()
 
         return HubSnapshot(
             capabilities = capabilities,

@@ -2,5 +2,7 @@ root = false
 
 [*.{kt,kts}]
 ktlint_code_style = ktlint_official
+# Match detekt MaxLineLength so the two tools agree on wrapping.
+max_line_length = 120
 # Preserve the existing Sable Compose naming convention.
 ktlint_function_naming_ignore_when_annotated_with = Composable

@@ -287,7 +287,10 @@ private fun PodcastEpisodeRow(
     ) {
         SableDenseRow(
             title = episode.title,
-            subtitle = listOf(episode.podcastTitle, podcastEpisodeMeta(episode)).filter { it.isNotBlank() }.joinToString(" · "),
+            subtitle =
+                listOf(episode.podcastTitle, podcastEpisodeMeta(episode))
+                    .filter { it.isNotBlank() }
+                    .joinToString(" · "),
             onClick = onPlay,
             modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Xs),
             actions =

@@ -7,7 +7,8 @@
   responsive polish (KF-D), 0005 Hub notification policy (KF-A), 0006 Sable
   Tools (KF-C), 0007 fixes found while integrating them, 0008 adaptive
   Phosphor launcher icons, 0009 the App display corner style, 0010 R9 daily-driver core apps in
-  Sable Start (Photos, Camera, Files, Clock tiles; Camera prefers Sable Camera).
+  Sable Start (Photos, Camera, Files, Clock tiles; Camera prefers Sable Camera), 0011 fixes
+  for the detekt/ktlint gates and dependency-verification entries GitHub Actions needs.
   Applied in order to a
   fresh import they reproduce `sable-src/` exactly. Regenerate a patch with `git diff` against a
   fresh import when you change these files.
