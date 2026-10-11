@@ -202,6 +202,8 @@ class SableStartActivity : ComponentActivity() {
                 onFavoriteKeysChanged = startStateRepository::saveFavoriteKeys,
                 initialStartTileKeys = startStateRepository.loadStartTileKeys(),
                 onStartTileKeysChanged = startStateRepository::saveStartTileKeys,
+                initialQuickBar = startStateRepository.loadQuickBar(),
+                onQuickBarChanged = startStateRepository::saveQuickBar,
                 onAppearanceChanged = { next ->
                     writeGlobalSableAppearance(this@SableStartActivity, next)
                 },

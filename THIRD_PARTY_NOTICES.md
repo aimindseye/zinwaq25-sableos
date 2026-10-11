@@ -16,6 +16,7 @@ are kept next to it.
 | iA Writer Duospace fonts | `.../res/font/ia_writer_duospace_*.otf` | **To verify.** Upstream publishes it under SIL OFL 1.1 (IBM Plex derivative) | https://github.com/iaolo/iA-Fonts |
 | OpenDyslexic fonts | `.../res/font/open_dyslexic_*.otf` | **To verify.** Upstream publishes it under SIL OFL 1.1 | https://opendyslexic.org |
 | "Monospace" fonts | `.../res/font/monospace_*.ttf` | **To verify.** Name table credits George Williams (FontForge); likely GNU FreeFont, GPL-3.0+ with font exception | unknown |
+| Titan AI status rings: ring drawing and device stats sampler, ported and trimmed | `sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStatusRings.kt`, `.../platform/DeviceStatsSampler.kt` | MIT (`sable-src/third_party/titan-ai/LICENSE`; notice kept in each file header) | https://github.com/andrehafner/aiassistant @ `2f4b5d76` |
 | Q25 50 MP remosaic library (`remosaic_shim_v4_rc1.c`) and the byte-edit table in `scripts/camera-50mp.py` | `product/q25/camera-50mp/`, `scripts/camera-50mp.py` | MIT (`product/q25/camera-50mp/LICENSE`) | https://github.com/bellhopsw/q25-50mp @ `caf855d5` |
 | Q25 50 MP kernel change (s5kjn1 sensor driver) | `product/q25/camera-50mp/kernel/` | GPL-2.0, like the kernel it patches | https://github.com/bellhopsw/q25-50mp @ `caf855d5` |
 
