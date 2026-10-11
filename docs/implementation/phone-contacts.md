@@ -151,7 +151,8 @@ This repository: `patches/framework/packages/apps/{Dialer,Contacts}/*.patch`,
   account headers, favorites, linking and editing paths are not changed. A
   failed query (for example permission revoked mid-load) shows names only.
 * **Telephony:** the dialpad, call log, in-call UI, emergency path, SIM choice
-  and Call/End keys are untouched. Call/End behaviour belongs to the device key
+  and Call/End keys are untouched by these patches (the later in-call key
+  patches 0703/0704 add M/S/D and Space-to-answer, see `patches/README.md`). Call/End behaviour belongs to the device key
   map (`device-profile/KEYMAP.md`), not the apps.
 * **Device neutrality:** no model checks. The rail width is 28dp and the row
   text uses existing dimensions, so it follows the density chosen for the

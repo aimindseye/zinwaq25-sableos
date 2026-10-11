@@ -1,0 +1,227 @@
+From 4398de08166b3f2414300ea81d68177bae91d594 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sun, 11 Oct 2026 04:16:58 +0000
+Subject: [PATCH] SableOS: Space answers a ringing call on the in-call screen
+
+For phones with a hardware keyboard (Q25): when a call rings and no
+other call is active, on hold or dialling out, Space answers it as an
+audio call, the same as the green CALL key.
+
+* Behind Settings > Sounds and vibration > In-call > "Space answers
+  calls" (sable_space_answers, device-protected preferences so it works
+  before first unlock), on by default.
+* Handled in dispatchKeyEvent, before the view hierarchy, so a focused
+  Decline control never takes the press; the repeats and release of
+  the press that answered are swallowed so they cannot reach the
+  in-call controls that replace the answer screen.
+* With call waiting the on-screen choice (hold or end the other call)
+  decides; Space does nothing there.
+* Space never hangs up. Ending a call is unchanged: the red key per
+  platform policy (ENDCALL, or Power when "Power button ends call" is
+  on) and the on-screen End button.
+* Held keys and Space with Shift, Alt, Sym, Ctrl, Meta or Fn keep the
+  upstream meaning.
+
+The decision is SableInCallKeys.decideIncoming (pure); host tests live
+in the SableOS Q25 repository under tests/framework/packages/apps/Dialer.
+---
+ .../dialer/app/res/values/sable_strings.xml   | 22 ++++++++
+ .../dialer/app/res/xml/sound_settings.xml     |  8 +++
+ .../android/dialer/sable/SableInCallKeys.java | 37 +++++++++++-
+ java/com/android/incallui/InCallActivity.java | 56 +++++++++++++++++++
+ 4 files changed, 121 insertions(+), 2 deletions(-)
+ create mode 100644 java/com/android/dialer/app/res/values/sable_strings.xml
+
+diff --git a/java/com/android/dialer/app/res/values/sable_strings.xml b/java/com/android/dialer/app/res/values/sable_strings.xml
+new file mode 100644
+index 000000000..178fa4255
+--- /dev/null
++++ b/java/com/android/dialer/app/res/values/sable_strings.xml
+@@ -0,0 +1,22 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++ ~ Copyright (C) 2026 The SableOS Project
++ ~
++ ~ Licensed under the Apache License, Version 2.0 (the "License");
++ ~ you may not use this file except in compliance with the License.
++ ~ You may obtain a copy of the License at
++ ~
++ ~      http://www.apache.org/licenses/LICENSE-2.0
++ ~
++ ~ Unless required by applicable law or agreed to in writing, software
++ ~ distributed under the License is distributed on an "AS IS" BASIS,
++ ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ ~ See the License for the specific language governing permissions and
++ ~ limitations under the License
++ -->
++<resources>
++    <!-- Settings > Sounds and vibration > In-call: switch title. Space is the keyboard key. -->
++    <string name="sable_space_answers_title">Space answers calls</string>
++    <!-- Summary of the switch above. -->
++    <string name="sable_space_answers_summary">Press Space on the keyboard to answer a ringing call. Space never ends a call.</string>
++</resources>
+diff --git a/java/com/android/dialer/app/res/xml/sound_settings.xml b/java/com/android/dialer/app/res/xml/sound_settings.xml
+index 86f928486..93358d7ec 100644
+--- a/java/com/android/dialer/app/res/xml/sound_settings.xml
++++ b/java/com/android/dialer/app/res/xml/sound_settings.xml
+@@ -53,6 +53,14 @@
+         android:title="@string/incall_category_title"
+         app:iconSpaceReserved="false">
+ 
++        <!-- SableOS: key must equal SableInCallKeys.PREF_SPACE_ANSWERS and the default
++             SableInCallKeys.DEFAULT_SPACE_ANSWERS. -->
++        <SwitchPreferenceCompat
++            android:defaultValue="true"
++            android:key="sable_space_answers"
++            android:summary="@string/sable_space_answers_summary"
++            android:title="@string/sable_space_answers_title" />
++
+         <SwitchPreferenceCompat
+             android:defaultValue="false"
+             android:key="incall_enable_dnd"
+diff --git a/java/com/android/dialer/sable/SableInCallKeys.java b/java/com/android/dialer/sable/SableInCallKeys.java
+index 0bec7f702..b70b51e5a 100644
+--- a/java/com/android/dialer/sable/SableInCallKeys.java
++++ b/java/com/android/dialer/sable/SableInCallKeys.java
+@@ -23,7 +23,11 @@ package com.android.dialer.sable;
+  * <ul>
+  *   <li>M toggles mute, S toggles the speaker, D opens the dialpad.
+  *   <li>Only during a call that is active, on hold or dialling out: never on the incoming-call
+- *       screen, where keys must not answer or reject anything.
++ *       screen, where no letter answers or rejects anything.
++ *   <li>Space answers a ringing call ({@link #decideIncoming}) when it is the only call and the
++ *       "Space answers calls" setting is on (the default). With another call in progress (call
++ *       waiting) the on-screen choice decides. Space never hangs up: ending a call is unchanged
++ *       (the red key per platform policy, and the on-screen End button).
+  *   <li>Only while the dialpad is hidden: with it open, letters are DTMF digits (W E R = 1 2 3 on
+  *       a phone-pad keyboard) and keep that meaning.
+  *   <li>Held keys and any key with Shift, Alt, Sym, Ctrl, Meta or Fn keep the upstream meaning.
+@@ -37,9 +41,18 @@ public final class SableInCallKeys {
+     NONE,
+     TOGGLE_MUTE,
+     TOGGLE_SPEAKER,
+-    SHOW_DIALPAD
++    SHOW_DIALPAD,
++    ANSWER
+   }
+ 
++  /** Dialer preference (device-protected default SharedPreferences): Space answers calls. */
++  public static final String PREF_SPACE_ANSWERS = "sable_space_answers";
++
++  /** Space answers by default: the Q25 is keyboard-first, and Space never ends a call. */
++  public static final boolean DEFAULT_SPACE_ANSWERS = true;
++
++  public static final int KEYCODE_SPACE = 62;
++
+   public static final int KEYCODE_D = 32;
+   public static final int KEYCODE_M = 41;
+   public static final int KEYCODE_S = 47;
+@@ -77,4 +90,24 @@ public final class SableInCallKeys {
+         return Action.NONE;
+     }
+   }
++
++  /**
++   * Space on the incoming-call screen. {@code ringingAlone} is true when a call is ringing and no
++   * other call is active, on hold or dialling out.
++   */
++  public static Action decideIncoming(
++      int keyCode,
++      int metaState,
++      int repeatCount,
++      boolean ringingAlone,
++      boolean spaceAnswers) {
++    if (keyCode != KEYCODE_SPACE
++        || !ringingAlone
++        || !spaceAnswers
++        || repeatCount > 0
++        || (metaState & ANY_MODIFIER) != 0) {
++      return Action.NONE;
++    }
++    return Action.ANSWER;
++  }
+ }
+diff --git a/java/com/android/incallui/InCallActivity.java b/java/com/android/incallui/InCallActivity.java
+index c19be860d..89578dcd6 100644
+--- a/java/com/android/incallui/InCallActivity.java
++++ b/java/com/android/incallui/InCallActivity.java
+@@ -34,6 +34,7 @@ import android.telecom.Call;
+ import android.telecom.CallAudioState;
+ import android.telecom.PhoneAccountHandle;
+ import android.telecom.PhoneAccountSuggestion;
++import android.telecom.VideoProfile;
+ import android.telephony.TelephonyManager;
+ import android.view.KeyEvent;
+ import android.view.MenuItem;
+@@ -55,6 +56,7 @@ import androidx.core.graphics.ColorUtils;
+ import androidx.fragment.app.DialogFragment;
+ import androidx.fragment.app.FragmentManager;
+ import androidx.fragment.app.FragmentTransaction;
++import androidx.preference.PreferenceManager;
+ 
+ import com.android.contacts.common.widget.SelectPhoneAccountDialogFragment;
+ import com.android.dialer.R;
+@@ -666,6 +668,60 @@ public class InCallActivity extends TransactionSafeFragmentActivity
+     return super.onOptionsItemSelected(item);
+   }
+ 
++  /** SableOS: true from the Space press that answered a call until its release. */
++  private boolean sableAnswerKeyDown;
++
++  @Override
++  public boolean dispatchKeyEvent(KeyEvent event) {
++    // Before the view hierarchy, so a focused Decline control never takes the Space press.
++    if (event.getKeyCode() == KeyEvent.KEYCODE_SPACE && handleSableAnswerKey(event)) {
++      return true;
++    }
++    return super.dispatchKeyEvent(event);
++  }
++
++  /** SableOS: Space answers a ringing call (see SableInCallKeys.decideIncoming). */
++  private boolean handleSableAnswerKey(KeyEvent event) {
++    if (sableAnswerKeyDown) {
++      // Swallow the repeats and release of the press that answered, so they cannot reach a
++      // control of the in-call screen that replaces the answer screen.
++      if (event.getAction() == KeyEvent.ACTION_UP) {
++        sableAnswerKeyDown = false;
++      }
++      return true;
++    }
++    if (event.getAction() != KeyEvent.ACTION_DOWN) {
++      return false;
++    }
++    CallList callList = CallList.getInstance();
++    DialerCall incoming = callList.getIncomingCall();
++    boolean ringingAlone =
++        incoming != null
++            && callList.getOutgoingOrActive() == null
++            && callList.getBackgroundCall() == null;
++    if (!ringingAlone) {
++      return false;
++    }
++    boolean spaceAnswers =
++        PreferenceManager.getDefaultSharedPreferences(createDeviceProtectedStorageContext())
++            .getBoolean(
++                SableInCallKeys.PREF_SPACE_ANSWERS, SableInCallKeys.DEFAULT_SPACE_ANSWERS);
++    if (SableInCallKeys.decideIncoming(
++            event.getKeyCode(),
++            event.getMetaState(),
++            event.getRepeatCount(),
++            ringingAlone,
++            spaceAnswers)
++        != SableInCallKeys.Action.ANSWER) {
++      return false;
++    }
++    LogUtil.i("InCallActivity.handleSableAnswerKey", "Space answers " + incoming);
++    // Same as the green CALL key (InCallPresenter.handleCallKey): answer as audio.
++    incoming.answer(VideoProfile.STATE_AUDIO_ONLY);
++    sableAnswerKeyDown = true;
++    return true;
++  }
++
+   @Override
+   public boolean onKeyUp(int keyCode, KeyEvent event) {
+     DialpadFragment dialpadFragment = getDialpadFragment();
+-- 
+2.43.0
+
