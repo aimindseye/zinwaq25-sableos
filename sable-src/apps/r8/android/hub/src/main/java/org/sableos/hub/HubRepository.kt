@@ -39,8 +39,8 @@ class HubRepository(
     private val profiles = ProfileDirectory(context)
     private val privacyReader = PrivacyReader(context)
 
-    /** Conversations and messages from opted-in connected apps, with Hub priority and privacy applied. */
-    private fun loadConnected(): Pair<List<HubConversation>, List<HubMessage>> {
+    /** Conversations and messages from opted-in connected apps, with Hub priority applied. */
+    private fun loadConnected(): ConnectedLoad {
         val connectedPolicies =
             connectedApps
                 .loadPolicies()
@@ -64,12 +64,14 @@ class HubRepository(
                     }
                 conversation.copy(hubPriority = key?.let { connectedPolicies[it]?.favorite } == true)
             }
-        return HubRedaction.apply(
-            conversations = prioritized,
-            messages = reduced.messages,
-            privacyFor = sourcePrivacy(connectedPolicies),
-        )
+        return ConnectedLoad(prioritized, reduced.messages, sourcePrivacy(connectedPolicies))
     }
+
+    private class ConnectedLoad(
+        val conversations: List<HubConversation>,
+        val messages: List<HubMessage>,
+        val privacyFor: (ConnectedAppKey) -> HubSourcePrivacy,
+    )
 
     fun snapshot(): HubSnapshot {
         val capabilities = capabilities()
@@ -98,23 +100,41 @@ class HubRepository(
                     ?: address
             }
 
-        val (connectedConversations, connectedMessages) = loadConnected()
+        val connected = loadConnected()
+        val (conversations, visibleMessages) =
+            HubRedaction.apply(
+                conversations = smsConversations + connected.conversations,
+                messages = messages + connected.messages,
+                smsPrivacy = smsPrivacy(),
+                privacyFor = connected.privacyFor,
+            )
 
         return HubSnapshot(
             capabilities = capabilities,
             conversations =
-                (smsConversations + connectedConversations)
+                conversations
                     .sortedByDescending { conversation ->
                         conversation.lastDateMillis
                     },
             messages =
-                (messages + connectedMessages)
+                visibleMessages
                     .sortedByDescending { message ->
                         message.dateMillis
                     },
             people = people,
             mail = loadMailSnapshot(),
         )
+    }
+
+    /** Privacy for Hub's own SMS: personal-profile data, redacted by the locked device and private mode. */
+    private fun smsPrivacy(): HubSourcePrivacy {
+        val privacy =
+            PrivacyContext(
+                deviceLocked = privacyReader.deviceLocked(),
+                privateMode = HubPreferences(context).privateMode(),
+            )
+        val level = PrivacyPosture.hubLevel(privacy, HubPreviewPolicy.ShowContent)
+        return HubSourcePrivacy(listLevel = level, contentLevel = level)
     }
 
     /**

@@ -5,6 +5,7 @@ import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -114,6 +115,19 @@ private enum class CalendarMode(
     NewEvent("NEW"),
 }
 
+/** An unsaved new event kept while the user backs out to the agenda, restored on re-entry this session. */
+private data class NewEventDraft(
+    val title: String,
+    val startMillis: Long,
+)
+
+private fun defaultEventStart(date: LocalDate): Long =
+    date
+        .atTime(9, 0)
+        .atZone(ZoneId.systemDefault())
+        .toInstant()
+        .toEpochMilli()
+
 @Composable
 private fun CalendarApp(
     repository: CalendarRepository,
@@ -125,6 +139,12 @@ private fun CalendarApp(
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
     var events by remember { mutableStateOf<List<CalendarEvent>>(emptyList()) }
     var refreshing by remember { mutableStateOf(false) }
+    var eventDraft by remember { mutableStateOf<NewEventDraft?>(null) }
+
+    // Hardware Back/Esc returns from month or new event to the agenda; only the agenda leaves Calendar.
+    BackHandler(enabled = mode != CalendarMode.Agenda) {
+        mode = CalendarMode.Agenda
+    }
 
     LaunchedEffect(refreshGeneration, selectedDate) {
         refreshing = true
@@ -210,8 +230,12 @@ private fun CalendarApp(
                         Spacer(Modifier.height(SableSpacing.Md))
                         NewEventView(
                             repository = repository,
-                            selectedDate = selectedDate,
+                            draft =
+                                eventDraft
+                                    ?: NewEventDraft(title = "", startMillis = defaultEventStart(selectedDate)),
+                            onDraftChange = { eventDraft = it },
                             onSaved = {
+                                eventDraft = null
                                 onRefresh()
                                 mode = CalendarMode.Agenda
                             },
@@ -570,22 +594,15 @@ private fun MonthView(
 @Composable
 private fun NewEventView(
     repository: CalendarRepository,
-    selectedDate: LocalDate,
+    draft: NewEventDraft,
+    onDraftChange: (NewEventDraft) -> Unit,
     onSaved: () -> Unit,
     onRequestPermissions: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var title by remember { mutableStateOf("") }
-    var startMillis by remember(selectedDate) {
-        mutableStateOf(
-            selectedDate
-                .atTime(9, 0)
-                .atZone(ZoneId.systemDefault())
-                .toInstant()
-                .toEpochMilli(),
-        )
-    }
+    val title = draft.title
+    val startMillis = draft.startMillis
     var status by remember { mutableStateOf<String?>(null) }
 
     if (!repository.canWrite()) {
@@ -595,7 +612,7 @@ private fun NewEventView(
 
     OutlinedTextField(
         value = title,
-        onValueChange = { title = it },
+        onValueChange = { onDraftChange(draft.copy(title = it)) },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
         label = { Text("Event title") },
@@ -629,7 +646,7 @@ private fun NewEventView(
                             timeInMillis = startMillis
                             set(year, month, day)
                         }
-                    startMillis = picked.timeInMillis
+                    onDraftChange(draft.copy(startMillis = picked.timeInMillis))
                 },
                 calendar.get(Calendar.YEAR),
                 calendar.get(Calendar.MONTH),
@@ -653,7 +670,7 @@ private fun NewEventView(
                             set(Calendar.SECOND, 0)
                             set(Calendar.MILLISECOND, 0)
                         }
-                    startMillis = picked.timeInMillis
+                    onDraftChange(draft.copy(startMillis = picked.timeInMillis))
                 },
                 calendar.get(Calendar.HOUR_OF_DAY),
                 calendar.get(Calendar.MINUTE),
