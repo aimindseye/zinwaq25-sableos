@@ -78,8 +78,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -103,6 +105,7 @@ import org.sableos.start.live.LiveSurfaceSnapshot
 import org.sableos.start.model.AppEntry
 import org.sableos.start.model.CoreAppIdentity
 import org.sableos.start.model.QuickBar
+import org.sableos.start.model.StartTypeToSearch
 import org.sableos.start.model.inLauncherUser
 import org.sableos.start.model.stableKey
 import org.sableos.start.platform.LiveSurfaceRepository
@@ -223,6 +226,8 @@ fun SableStartScreen(
         mutableStateOf(initialStartTileKeys?.toList())
     }
     var recentKeys by remember { mutableStateOf<List<String>>(emptyList()) }
+    // Text typed on Start before Search opened (type-to-launch).
+    var searchSeed by remember { mutableStateOf("") }
     var quickBarTokens by remember(initialQuickBar) {
         mutableStateOf(QuickBar.normalize(initialQuickBar))
     }
@@ -272,7 +277,11 @@ fun SableStartScreen(
         destination = SableStartDestination.Peek
     }
 
-    fun openSearch(from: SableStartDestination) {
+    fun openSearch(
+        from: SableStartDestination,
+        seed: String = "",
+    ) {
+        searchSeed = seed
         returnDestination = from
         destination = SableStartDestination.Search
     }
@@ -349,6 +358,10 @@ fun SableStartScreen(
                                 onAppearance = {
                                     destination = SableStartDestination.Appearance
                                 },
+                                favoriteApps = favoriteApps.take(MAX_FAVORITES_ON_START),
+                                onTypeToSearch = { char ->
+                                    openSearch(SableStartDestination.Start, char.toString())
+                                },
                                 quickSlots = quickSlots,
                                 onQuickSlot = { slot ->
                                     when (slot.token) {
@@ -392,11 +405,13 @@ fun SableStartScreen(
                             onOpenPeek = { app ->
                                 openPeek(app, SableStartDestination.Apps)
                             },
+                            onOpenAppInfo = onOpenAppInfo,
                         )
 
                     SableStartDestination.Search ->
                         SearchScreen(
                             apps = apps,
+                            initialQuery = searchSeed,
                             onBack = ::navigateBack,
                             onLaunchApp = ::launchApp,
                             onOpenPeek = { app ->
@@ -441,9 +456,31 @@ fun SableStartScreen(
                             destination = returnDestination
                         } else {
                             val key = app.stableKey()
+                            val barIndex = quickSlots.indexOfFirst { it.app?.stableKey() == key }
                             SablePeekScreen(
                                 app = app,
                                 isFavorite = key in favoriteKeys,
+                                inBaseBar =
+                                    when {
+                                        !app.inLauncherUser -> null
+                                        barIndex >= 0 -> true
+                                        quickBarTokens.size < QuickBar.MAX_SLOTS -> false
+                                        // Full bar: Add is not offered until a slot is freed.
+                                        else -> null
+                                    },
+                                onToggleBaseBar = {
+                                    val slotToken = quickSlots.getOrNull(barIndex)?.token
+                                    val next =
+                                        if (slotToken != null) {
+                                            QuickBar.remove(quickBarTokens, quickBarTokens.indexOf(slotToken))
+                                        } else {
+                                            QuickBar.add(quickBarTokens, QuickBar.appToken(key))
+                                        }
+                                    if (next != quickBarTokens) {
+                                        quickBarTokens = next
+                                        onQuickBarChanged(next)
+                                    }
+                                },
                                 isStartTile = startApps.any { it.stableKey() == key },
                                 onClose = ::navigateBack,
                                 onOpen = { launchApp(app) },
@@ -492,12 +529,16 @@ private fun StartScreen(
     onSearch: () -> Unit,
     onLive: () -> Unit,
     onAppearance: () -> Unit,
+    favoriteApps: List<AppEntry>,
+    onTypeToSearch: (Char) -> Unit,
     quickSlots: List<QuickSlot>,
     onQuickSlot: (QuickSlot) -> Unit,
     onEditQuickBar: () -> Unit,
 ) {
-    // Fn+1..Fn+5 open the quick bar slots from anywhere on Start. The column
-    // takes focus on arrival so the shortcuts work before anything is focused.
+    // Alt+1..Alt+5 (Fn+1..Fn+5 on Fn keyboards) open the quick bar slots from
+    // anywhere on Start, and any other printable key opens Search seeded with
+    // it. The column takes focus on arrival so keys work before anything is
+    // focused.
     val startFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) {
         runCatching { startFocus.requestFocus() }
@@ -518,8 +559,19 @@ private fun StartScreen(
                             keyCode = native.keyCode,
                             metaState = native.metaState,
                             slotCount = quickSlots.size,
+                            unicode = native.unicodeChar,
+                        )
+                    if (index != null) {
+                        onQuickSlot(quickSlots[index])
+                        return@onPreviewKeyEvent true
+                    }
+                    val seed =
+                        StartTypeToSearch.seed(
+                            unicode = native.unicodeChar,
+                            metaState = native.metaState,
+                            repeat = false,
                         ) ?: return@onPreviewKeyEvent false
-                    onQuickSlot(quickSlots[index])
+                    onTypeToSearch(seed)
                     true
                 },
     ) {
@@ -595,6 +647,14 @@ private fun StartScreen(
                     }
 
                 TileGrid(tiles)
+                if (favoriteApps.isNotEmpty()) {
+                    Spacer(Modifier.height(18.dp))
+                    FavoritesRow(
+                        apps = favoriteApps,
+                        onLaunchApp = onLaunchApp,
+                        onOpenPeek = onOpenPeek,
+                    )
+                }
                 Spacer(Modifier.height(18.dp))
                 ApprovedStartNavigationRow(
                     onAllApps = onAllApps,
@@ -611,9 +671,50 @@ private fun StartScreen(
     }
 }
 
+/** Pinned favorites on Start: up to four apps under the tiles, Peek on long press. */
+@Composable
+private fun FavoritesRow(
+    apps: List<AppEntry>,
+    onLaunchApp: (AppEntry) -> Unit,
+    onOpenPeek: (AppEntry) -> Unit,
+) {
+    Column {
+        SectionLabel("favorites")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            apps.forEach { app ->
+                Column(
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .sableFocusRing()
+                            .combinedClickable(
+                                onClick = { onLaunchApp(app) },
+                                onLongClick = { onOpenPeek(app) },
+                            ).padding(vertical = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    AppMark(app = app, size = 40)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = app.label,
+                        style = MaterialTheme.typography.labelLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            repeat(MAX_FAVORITES_ON_START - apps.size) { Spacer(Modifier.weight(1f)) }
+        }
+    }
+}
+
 /**
  * Persistent base quick bar: labelled slots across the bottom of Start.
- * Long press, Menu or Fn+Enter on a slot opens the quick bar editor.
+ * Long press, Menu or Alt+Enter (Fn+Enter) on a slot opens the quick bar editor.
  */
 @Composable
 private fun SableQuickBar(
@@ -644,7 +745,7 @@ private fun SableQuickBar(
                                 native.keyCode == AllAppsKeyPolicy.KEYCODE_MENU ||
                                     (
                                         native.keyCode == AllAppsKeyPolicy.KEYCODE_ENTER &&
-                                            native.metaState and QuickBar.META_FUNCTION_ON != 0
+                                            native.metaState and (QuickBar.META_FUNCTION_ON or QuickBar.META_ALT_ON) != 0
                                     )
                             if (opensEditor && event.type == KeyEventType.KeyDown) onEdit()
                             opensEditor
@@ -652,7 +753,7 @@ private fun SableQuickBar(
                             onClick = { onSlot(slot) },
                             onLongClick = onEdit,
                         ).semantics {
-                            contentDescription = "${slot.label}, Fn+${index + 1}"
+                            contentDescription = "${slot.label}, ${QuickBar.shortcutLabel(index)}"
                         }.padding(vertical = 6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
@@ -746,7 +847,9 @@ private fun QuickBarScreen(
                 MetroHeader(title = "quick bar", onBack = onBack)
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "Fn+1 to Fn+${tokens.size} open these from Home. Search and All Apps always stay on the bar.",
+                    text =
+                        "${QuickBar.shortcutLabel(0)} to ${QuickBar.shortcutLabel(tokens.lastIndex)} open these from Home. " +
+                            "Search and All Apps always stay on the bar.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -762,7 +865,7 @@ private fun QuickBarScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "Fn+${index + 1}",
+                        text = QuickBar.shortcutLabel(index),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.width(52.dp),
@@ -910,6 +1013,7 @@ private fun SableControlShortcut(
         modifier =
             Modifier
                 .size(46.dp)
+                .sableFocusRing()
                 .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -934,7 +1038,7 @@ private fun ApprovedStartNavigationRow(
     ) {
         Text(
             text = "all apps",
-            modifier = Modifier.clickable(onClick = onAllApps),
+            modifier = Modifier.sableFocusRing().clickable(onClick = onAllApps).padding(vertical = 8.dp),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary,
         )
@@ -945,7 +1049,7 @@ private fun ApprovedStartNavigationRow(
         )
         Text(
             text = "search",
-            modifier = Modifier.clickable(onClick = onSearch),
+            modifier = Modifier.sableFocusRing().clickable(onClick = onSearch).padding(vertical = 8.dp),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary,
         )
@@ -956,7 +1060,7 @@ private fun ApprovedStartNavigationRow(
         )
         Text(
             text = "live",
-            modifier = Modifier.clickable(onClick = onLive),
+            modifier = Modifier.sableFocusRing().clickable(onClick = onLive).padding(vertical = 8.dp),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary,
         )
@@ -1042,7 +1146,7 @@ private fun MetroTile(
                     width = 1.dp,
                     color = tile.accent.copy(alpha = 0.30f),
                     shape = shape,
-                )
+                ).sableFocusRing()
                 .combinedClickable(
                     onClick = tile.onClick,
                     onLongClick = tile.onLongClick,
@@ -1284,6 +1388,7 @@ private fun SearchLaunchButton(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = 54.dp)
+                .sableFocusRing()
                 .clickable(onClick = onClick)
                 .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -1320,6 +1425,7 @@ private fun AppsScreen(
     onSearch: () -> Unit,
     onLaunchApp: (AppEntry) -> Unit,
     onOpenPeek: (AppEntry) -> Unit,
+    onOpenAppInfo: (AppEntry) -> Unit,
 ) {
     val rows = remember(apps) { buildRailRows(apps) }
     val keys = remember(rows) { rows.map { it.app.stableKey() } }
@@ -1388,6 +1494,10 @@ private fun AppsScreen(
                 expandedKeys = if (key in expandedKeys) expandedKeys - key else expandedKeys + key
             }
             AllAppsKeyAction.Actions -> openActions(index)
+            AllAppsKeyAction.AppInfo -> {
+                focusMemory.remember(FOCUS_SURFACE_ALL_APPS, keys[index], index)
+                onOpenAppInfo(row.app)
+            }
             AllAppsKeyAction.Search -> {
                 focusMemory.remember(FOCUS_SURFACE_ALL_APPS, keys[index], index)
                 onSearch()
@@ -1487,6 +1597,7 @@ private fun AppsScreen(
 @Composable
 private fun SearchScreen(
     apps: List<AppEntry>,
+    initialQuery: String,
     onBack: () -> Unit,
     onLaunchApp: (AppEntry) -> Unit,
     onOpenPeek: (AppEntry) -> Unit,
@@ -1495,8 +1606,11 @@ private fun SearchScreen(
     onLive: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    var query by remember { mutableStateOf("") }
-    val normalizedQuery = query.trim()
+    // Seeded by type-to-launch; the cursor sits after the seed so typing continues.
+    var query by remember(initialQuery) {
+        mutableStateOf(TextFieldValue(initialQuery, TextRange(initialQuery.length)))
+    }
+    val normalizedQuery = query.text.trim()
     val locale = Locale.getDefault()
     val filteredApps =
         remember(apps, normalizedQuery) {
@@ -1567,6 +1681,11 @@ private fun SearchScreen(
         SableSearchField(
             value = query,
             onValueChange = { query = it },
+            // Enter opens the top result: first app, else first command.
+            onSubmit = {
+                filteredApps.firstOrNull()?.let(onLaunchApp)
+                    ?: filteredCommands.firstOrNull()?.onClick?.invoke()
+            },
         )
 
         Spacer(Modifier.height(16.dp))
@@ -1618,9 +1737,16 @@ private fun SearchScreen(
 
 @Composable
 private fun SableSearchField(
-    value: String,
-    onValueChange: (String) -> Unit,
+    value: TextFieldValue,
+    onValueChange: (TextFieldValue) -> Unit,
+    onSubmit: () -> Unit,
 ) {
+    // The field takes focus on arrival so the keyboard types straight into it.
+    val fieldFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        withFrameNanos { }
+        runCatching { fieldFocus.requestFocus() }
+    }
     Row(
         modifier =
             Modifier
@@ -1645,14 +1771,30 @@ private fun SableSearchField(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp),
+                        .focusRequester(fieldFocus)
+                        .onPreviewKeyEvent { event ->
+                            val native = event.nativeKeyEvent
+                            when {
+                                event.type != KeyEventType.KeyDown -> false
+                                // Holding Backspace clears the whole query.
+                                native.keyCode == KEYCODE_DEL && native.repeatCount > 0 -> {
+                                    if (value.text.isNotEmpty()) onValueChange(TextFieldValue(""))
+                                    true
+                                }
+                                native.keyCode == AllAppsKeyPolicy.KEYCODE_ENTER && native.repeatCount == 0 -> {
+                                    onSubmit()
+                                    true
+                                }
+                                else -> false
+                            }
+                        }.padding(vertical = 8.dp),
                 singleLine = true,
                 textStyle =
                     MaterialTheme.typography.titleLarge.copy(
                         color = MaterialTheme.colorScheme.onSurface,
                     ),
                 decorationBox = { innerTextField ->
-                    if (value.isEmpty()) {
+                    if (value.text.isEmpty()) {
                         Text(
                             text = "search apps + Sable actions",
                             style = MaterialTheme.typography.titleLarge,
@@ -1682,6 +1824,7 @@ private fun SearchCommandRow(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = 58.dp)
+                .sableFocusRing()
                 .clickable(onClick = command.onClick)
                 .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -2071,6 +2214,8 @@ private fun SablePeekScreen(
     app: AppEntry,
     isFavorite: Boolean,
     isStartTile: Boolean,
+    inBaseBar: Boolean?,
+    onToggleBaseBar: () -> Unit,
     onClose: () -> Unit,
     onOpen: () -> Unit,
     onOpenAppInfo: () -> Unit,
@@ -2080,12 +2225,12 @@ private fun SablePeekScreen(
     onToggleStartTile: () -> Unit,
 ) {
     val actions =
-        remember(app, isStartTile) {
+        remember(app, isStartTile, inBaseBar) {
             AppActionPolicy.actions(
                 AppActionContext(
                     pinnedToStart = isStartTile,
-                    // This host has no base bar surface yet: the action is not offered.
-                    inBaseBar = null,
+                    // null when the bar is full or the app is in another profile.
+                    inBaseBar = inBaseBar,
                     launcherUser = app.inLauncherUser,
                     canUninstall = app.canUninstall && app.inLauncherUser,
                 ),
@@ -2220,7 +2365,8 @@ private fun SablePeekScreen(
                                 AppAction.NotificationSettings -> onOpenNotificationSettings()
                                 AppAction.PinToStart, AppAction.RemoveFromStart -> onToggleStartTile()
                                 AppAction.Uninstall -> onUninstall()
-                                AppAction.AddToBaseBar, AppAction.RemoveFromBaseBar, AppAction.Disable -> Unit
+                                AppAction.AddToBaseBar, AppAction.RemoveFromBaseBar -> onToggleBaseBar()
+                                AppAction.Disable -> Unit
                             }
                         }
                     },
@@ -2324,6 +2470,7 @@ private fun AppearanceScreen(
                     Modifier
                         .fillMaxWidth()
                         .heightIn(min = 48.dp)
+                        .sableFocusRing()
                         .clickable(onClick = onReset)
                         .padding(vertical = 12.dp),
                 style = MaterialTheme.typography.bodyLarge,
@@ -2345,6 +2492,7 @@ private fun AppearanceChoiceRow(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = 54.dp)
+                .sableFocusRing()
                 .clickable(onClick = onClick)
                 .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -2402,6 +2550,7 @@ private fun AccentChoiceRow(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = 54.dp)
+                .sableFocusRing()
                 .clickable(onClick = onClick)
                 .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -2807,6 +2956,7 @@ private fun MetroLink(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = 48.dp)
+                .sableFocusRing()
                 .clickable(onClick = onClick)
                 .padding(vertical = 12.dp),
         style = MaterialTheme.typography.titleLarge,
@@ -3061,6 +3211,7 @@ private const val DEFAULT_START_TILE_TARGET = 10
 private val StatusRingsInlineMinWidth = 500.dp
 private const val MAX_FAVORITES_ON_START = 4
 private const val MAX_SESSION_RECENTS = 8
+private const val KEYCODE_DEL = 67
 private const val LAUNCHER_ICON_CACHE_ENTRIES = 160
 private const val FOCUS_SURFACE_ALL_APPS = "all-apps"
 private val PrivacyBadgeWidth = 18.dp

@@ -1,0 +1,1468 @@
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts b/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
+index ae81c25..865c605 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
+@@ -49,6 +49,8 @@ val canonicalPresentationSources =
+         "com/sable/start/live/LiveSurfaceModels.kt",
+         "com/sable/start/model/AppEntry.kt",
+         "com/sable/start/model/CoreAppIdentity.kt",
++        "com/sable/start/model/QuickBar.kt",
++        "com/sable/start/platform/DeviceStatsSampler.kt",
+         "com/sable/start/platform/LiveSurfaceRepository.kt",
+         "com/sable/start/platform/PrivacyFactsReader.kt",
+         "com/sable/start/platform/StartStateRepository.kt",
+@@ -58,6 +60,7 @@ val canonicalPresentationSources =
+         "com/sable/start/privacy/PrivacySummaryPolicy.kt",
+         "com/sable/start/ui/SableStartScreen.kt",
+         "com/sable/start/ui/SableGlyphIcon.kt",
++        "com/sable/start/ui/SableStatusRings.kt",
+     )
+ 
+ val syncSableStartPresentationSources =
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/QuickBarTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/QuickBarTest.kt
+new file mode 100644
+index 0000000..1c87e8d
+--- /dev/null
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/QuickBarTest.kt
+@@ -0,0 +1,64 @@
++package org.sableos.start.model
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Test
++
++/** Base quick bar contract (platform_sable SABLE_START_VISUAL_CONFIRMATION.md). */
++class QuickBarTest {
++    private val default = QuickBar.DEFAULT
++
++    @Test
++    fun neverCustomisedShowsPhoneHubCommandAllApps() {
++        assertEquals(listOf("phone", "hub", "command", "apps"), QuickBar.normalize(null))
++    }
++
++    @Test
++    fun normalizeKeepsCommandAndAllAppsAndCapsAtFive() {
++        assertEquals(listOf("phone", "command", "apps"), QuickBar.normalize(listOf("phone", "bogus", "phone")))
++        val tooMany = listOf("phone", "hub", "camera", "app:1", "app:2", "app:3")
++        val normalized = QuickBar.normalize(tooMany)
++        assertEquals(QuickBar.MAX_SLOTS, normalized.size)
++        assertEquals(listOf("phone", "hub", "camera", "command", "apps"), normalized)
++    }
++
++    @Test
++    fun reorderMovesSlotsAndStopsAtTheEdges() {
++        assertEquals(listOf("hub", "phone", "command", "apps"), QuickBar.move(default, 0, 1))
++        assertEquals(default, QuickBar.move(default, 0, -1))
++        assertEquals(default, QuickBar.move(default, 3, 1))
++    }
++
++    @Test
++    fun hubSlotIsReplaceableButCommandAndAllAppsAreNot() {
++        assertEquals(listOf("phone", "app:7", "command", "apps"), QuickBar.replace(default, 1, "app:7"))
++        assertEquals(default, QuickBar.replace(default, 2, "app:7"))
++        assertEquals(default, QuickBar.replace(default, 3, "app:7"))
++        assertEquals(default, QuickBar.replace(default, 1, "phone"))
++        assertEquals(default, QuickBar.remove(default, 2))
++        assertEquals(listOf("phone", "command", "apps"), QuickBar.remove(default, 1))
++    }
++
++    @Test
++    fun addGoesBeforeCommandUpToFiveSlots() {
++        val five = QuickBar.add(default, "camera")
++        assertEquals(listOf("phone", "hub", "camera", "command", "apps"), five)
++        assertEquals(five, QuickBar.add(five, "app:9"))
++    }
++
++    @Test
++    fun fnDigitsOpenSlots() {
++        val fn = QuickBar.META_FUNCTION_ON
++        assertEquals(0, QuickBar.shortcutSlot(QuickBar.KEYCODE_1, fn, 4))
++        assertEquals(3, QuickBar.shortcutSlot(QuickBar.KEYCODE_1 + 3, fn, 4))
++        assertNull(QuickBar.shortcutSlot(QuickBar.KEYCODE_1 + 4, fn, 4))
++        assertNull(QuickBar.shortcutSlot(QuickBar.KEYCODE_1, 0, 4))
++    }
++
++    @Test
++    fun appTokensRoundTrip() {
++        assertEquals("0:com.example/.Main", QuickBar.appKey(QuickBar.appToken("0:com.example/.Main")))
++        assertNull(QuickBar.appKey("phone"))
++        assertNull(QuickBar.appKey("app:"))
++    }
++}
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/platform/DeviceStatsFormatTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/platform/DeviceStatsFormatTest.kt
+new file mode 100644
+index 0000000..fdbc14c
+--- /dev/null
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/platform/DeviceStatsFormatTest.kt
+@@ -0,0 +1,35 @@
++package org.sableos.start.platform
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++/** Header status rings: the labels and arc fill shown on the Start header. */
++class DeviceStatsFormatTest {
++    @Test
++    fun rateIsShortEnoughForARing() {
++        assertEquals("–", DeviceStatsFormat.rate(null))
++        assertEquals("0", DeviceStatsFormat.rate(512))
++        assertEquals("12K", DeviceStatsFormat.rate(12L * 1024))
++        assertEquals("1.5M", DeviceStatsFormat.rate(1536L * 1024))
++        assertEquals("24M", DeviceStatsFormat.rate(24L * 1024 * 1024))
++    }
++
++    @Test
++    fun heatIsLogScaledAndClamped() {
++        assertEquals(0f, DeviceStatsFormat.heat(null))
++        assertEquals(0f, DeviceStatsFormat.heat(100))
++        val slow = DeviceStatsFormat.heat(10L * 1024)
++        val fast = DeviceStatsFormat.heat(5L * 1024 * 1024)
++        assertTrue(slow in 0f..fast)
++        assertEquals(1f, DeviceStatsFormat.heat(Long.MAX_VALUE))
++    }
++
++    @Test
++    fun hoursLeftReadsAsMinutesHoursOrDays() {
++        assertEquals("–", DeviceStatsFormat.hours(null))
++        assertEquals("30m", DeviceStatsFormat.hours(0.5f))
++        assertEquals("4h", DeviceStatsFormat.hours(4.2f))
++        assertEquals("3d", DeviceStatsFormat.hours(72f))
++    }
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/Android.bp b/sable-src/src/android/packages/apps/SableStart/Android.bp
+index 33746d3..5209aea 100644
+--- a/sable-src/src/android/packages/apps/SableStart/Android.bp
++++ b/sable-src/src/android/packages/apps/SableStart/Android.bp
+@@ -9,6 +9,8 @@ filegroup {
+         "src/com/sable/start/live/LiveSurfaceModels.kt",
+         "src/com/sable/start/model/AppEntry.kt",
+         "src/com/sable/start/model/CoreAppIdentity.kt",
++        "src/com/sable/start/model/QuickBar.kt",
++        "src/com/sable/start/platform/DeviceStatsSampler.kt",
+         "src/com/sable/start/platform/LiveSurfaceRepository.kt",
+         "src/com/sable/start/platform/PrivacyFactsReader.kt",
+         "src/com/sable/start/platform/StartStateRepository.kt",
+@@ -20,6 +22,7 @@ filegroup {
+         "src/com/sable/start/privacy/PrivacySummaryPolicy.kt",
+         "src/com/sable/start/ui/SableStartScreen.kt",
+         "src/com/sable/start/ui/SableGlyphIcon.kt",
++        "src/com/sable/start/ui/SableStatusRings.kt",
+     ],
+ }
+ 
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+index 95ec560..8d20565 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+@@ -202,6 +202,8 @@ class SableStartActivity : ComponentActivity() {
+                 onFavoriteKeysChanged = startStateRepository::saveFavoriteKeys,
+                 initialStartTileKeys = startStateRepository.loadStartTileKeys(),
+                 onStartTileKeysChanged = startStateRepository::saveStartTileKeys,
++                initialQuickBar = startStateRepository.loadQuickBar(),
++                onQuickBarChanged = startStateRepository::saveQuickBar,
+                 onAppearanceChanged = { next ->
+                     writeGlobalSableAppearance(this@SableStartActivity, next)
+                 },
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/QuickBar.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/QuickBar.kt
+new file mode 100644
+index 0000000..14a5e2d
+--- /dev/null
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/QuickBar.kt
+@@ -0,0 +1,114 @@
++package org.sableos.start.model
++
++/**
++ * Base quick bar on Center Start (platform_sable SABLE_START_SCREEN_DESIGN.md
++ * "Base quick bar", SABLE_START_VISUAL_CONFIRMATION.md "Base quick bar
++ * contract"). Pure policy, unit tested in
++ * apps/r8/android/sablestart-presentation-check/src/test.
++ *
++ * A slot is stored as a token:
++ *   "phone", "hub", "camera"  role slots, resolved to the installed app
++ *   "command", "apps"         Search/Command and All Apps (always present)
++ *   "app:<stableKey>"         one app the user picked
++ */
++object QuickBar {
++    const val PHONE = "phone"
++    const val HUB = "hub"
++    const val CAMERA = "camera"
++    const val COMMAND = "command"
++    const val ALL_APPS = "apps"
++    private const val APP_PREFIX = "app:"
++
++    const val MAX_SLOTS = 5
++
++    /** Phone | Hub | Command | All Apps. */
++    val DEFAULT: List<String> = listOf(PHONE, HUB, COMMAND, ALL_APPS)
++
++    /** COMMAND_ACCESS_REQUIRED and ALL_APPS_ACCESS_REQUIRED: never removed or replaced. */
++    val REQUIRED: Set<String> = setOf(COMMAND, ALL_APPS)
++
++    private val ROLES = setOf(PHONE, HUB, CAMERA)
++
++    fun appToken(stableKey: String): String = APP_PREFIX + stableKey
++
++    /** The app's stable key for an "app:" token, else null. */
++    fun appKey(token: String): String? = token.removePrefix(APP_PREFIX).takeIf { token.startsWith(APP_PREFIX) && it.isNotEmpty() }
++
++    fun isRequired(token: String): Boolean = token in REQUIRED
++
++    fun isValid(token: String): Boolean = token in ROLES || token in REQUIRED || appKey(token) != null
++
++    /**
++     * Drops unknown and duplicate tokens, puts back a missing Command or All
++     * Apps slot and caps the bar at [MAX_SLOTS]; required slots win the cap.
++     * Null (never customised) gives [DEFAULT].
++     */
++    fun normalize(tokens: List<String>?): List<String> {
++        if (tokens == null) return DEFAULT
++        val kept = tokens.filter(::isValid).distinct().toMutableList()
++        REQUIRED.filterNot { it in kept }.forEach { kept += it }
++        while (kept.size > MAX_SLOTS) {
++            val drop = kept.indexOfLast { !isRequired(it) }
++            kept.removeAt(drop)
++        }
++        return kept
++    }
++
++    fun move(
++        tokens: List<String>,
++        index: Int,
++        delta: Int,
++    ): List<String> {
++        val target = index + delta
++        if (index !in tokens.indices || target !in tokens.indices) return tokens
++        return tokens.toMutableList().also { list ->
++            list[index] = list[target].also { list[target] = list[index] }
++        }
++    }
++
++    /** BASE_BAR_REPLACE_SLOTS; required slots and duplicates are refused. */
++    fun replace(
++        tokens: List<String>,
++        index: Int,
++        token: String,
++    ): List<String> {
++        if (index !in tokens.indices || isRequired(tokens[index])) return tokens
++        if (!isValid(token) || isRequired(token) || token in tokens) return tokens
++        return tokens.toMutableList().also { it[index] = token }
++    }
++
++    fun remove(
++        tokens: List<String>,
++        index: Int,
++    ): List<String> {
++        if (index !in tokens.indices || isRequired(tokens[index])) return tokens
++        return tokens.filterIndexed { i, _ -> i != index }
++    }
++
++    /** Adds before Command so the default order reads naturally. */
++    fun add(
++        tokens: List<String>,
++        token: String,
++    ): List<String> {
++        if (tokens.size >= MAX_SLOTS || !isValid(token) || token in tokens) return tokens
++        val at = tokens.indexOf(COMMAND).takeIf { it >= 0 } ?: tokens.size
++        return tokens.toMutableList().also { it.add(at, token) }
++    }
++
++    /**
++     * Fn+1..Fn+5 open slots 1..5. Returns the slot index, or null when the
++     * key is not a quick-bar shortcut.
++     */
++    fun shortcutSlot(
++        keyCode: Int,
++        metaState: Int,
++        slotCount: Int,
++    ): Int? {
++        if (metaState and META_FUNCTION_ON == 0) return null
++        val index = keyCode - KEYCODE_1
++        return index.takeIf { it in 0 until minOf(slotCount, MAX_SLOTS) }
++    }
++
++    const val KEYCODE_1 = 8
++    const val META_FUNCTION_ON = 0x8
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/DeviceStatsSampler.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/DeviceStatsSampler.kt
+new file mode 100644
+index 0000000..1c57656
+--- /dev/null
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/DeviceStatsSampler.kt
+@@ -0,0 +1,236 @@
++// Ported from Titan AI (https://github.com/andrehafner/aiassistant,
++// util/SystemStats.kt), Copyright (c) 2026 Andre Hafner, MIT License.
++// See THIRD_PARTY_NOTICES.md. Trimmed for Sable Start: no storage ring, no
++// network-type label (it needs READ_PHONE_STATE), battery from BatteryManager
++// properties instead of the sticky broadcast.
++
++package org.sableos.start.platform
++
++import android.app.ActivityManager
++import android.content.Context
++import android.net.TrafficStats
++import android.os.BatteryManager
++import android.os.SystemClock
++import android.telephony.TelephonyManager
++import java.io.File
++import java.util.Locale
++import kotlin.math.abs
++import kotlin.math.log10
++
++/**
++ * One reading for the Start header rings. Fractions are 0..1. A null value
++ * means the device does not expose it (CPU on locked-down kernels, network
++ * rates until a second sample exists, signal without a ready SIM).
++ */
++data class DeviceStats(
++    val cpu: Float?,
++    val ram: Float,
++    val wifiUp: Long? = null,
++    val wifiDown: Long? = null,
++    val mobileUp: Long? = null,
++    val mobileDown: Long? = null,
++    val battery: Float = 0f,
++    val charging: Boolean = false,
++    /** Hours until empty while discharging; null while charging or unknown. */
++    val hoursLeft: Float? = null,
++    /** Cell signal as bars out of four; null when there is no ready SIM. */
++    val signal: Float? = null,
++)
++
++/** Pure formatting for the rings, kept separate so it can be unit tested on the JVM. */
++object DeviceStatsFormat {
++    /** Throughput on a log scale: 0 below 1 KiB/s, 1 at about 30 MiB/s. */
++    fun heat(bytesPerSec: Long?): Float {
++        val kib = (bytesPerSec ?: 0L) / 1024.0
++        return if (kib < 1) 0f else (log10(kib + 1) / 4.5).toFloat().coerceIn(0f, 1f)
++    }
++
++    /** "0", "12K", "1.3M", "24M" per second. */
++    fun rate(bytesPerSec: Long?): String {
++        val bytes = bytesPerSec ?: return "–"
++        val kib = bytes / 1024.0
++        return when {
++            kib < 1 -> "0"
++            kib < 1000 -> "${kib.toInt()}K"
++            kib < 10_240 -> String.format(Locale.US, "%.1fM", kib / 1024)
++            else -> "${(kib / 1024).toInt()}M"
++        }
++    }
++
++    /** "35m", "4h", "2d" for a time-to-empty. */
++    fun hours(hours: Float?): String {
++        val h = hours ?: return "–"
++        return when {
++            h < 1f -> "${(h * 60).toInt()}m"
++            h < 48f -> "${h.toInt()}h"
++            else -> "${(h / 24).toInt()}d"
++        }
++    }
++}
++
++/**
++ * Samples device load from on-device sources only: ActivityManager, the
++ * kernel's /proc/stat or cpufreq files, TrafficStats, BatteryManager and
++ * TelephonyManager. Keeps the previous counters, so call [sample] from one
++ * coroutine at a time, off the main thread.
++ */
++class DeviceStatsSampler {
++    private var lastIdle = 0L
++    private var lastTotal = 0L
++
++    private var lastNetAt = 0L
++    private var lastTotalRx = -1L
++    private var lastTotalTx = -1L
++    private var lastMobileRx = -1L
++    private var lastMobileTx = -1L
++
++    fun sample(context: Context): DeviceStats {
++        val net = network()
++        val battery = battery(context)
++        return DeviceStats(
++            cpu = procStat() ?: cpuFreq(),
++            ram = ram(context),
++            wifiUp = net?.get(0),
++            wifiDown = net?.get(1),
++            mobileUp = net?.get(2),
++            mobileDown = net?.get(3),
++            battery = battery.first,
++            charging = battery.second,
++            hoursLeft = battery.third,
++            signal = signal(context),
++        )
++    }
++
++    private fun ram(context: Context): Float =
++        try {
++            val am = context.getSystemService(ActivityManager::class.java)
++            val info = ActivityManager.MemoryInfo()
++            am.getMemoryInfo(info)
++            val total = info.totalMem.coerceAtLeast(1)
++            val used = (info.totalMem - info.availMem).coerceIn(0, total)
++            used.toFloat() / total.toFloat()
++        } catch (_: RuntimeException) {
++            0f
++        }
++
++    private fun signal(context: Context): Float? =
++        try {
++            val tm = context.getSystemService(TelephonyManager::class.java)
++            if (tm == null || tm.simState != TelephonyManager.SIM_STATE_READY) {
++                null
++            } else {
++                ((tm.signalStrength?.level ?: 0) / 4f).coerceIn(0f, 1f)
++            }
++        } catch (_: RuntimeException) {
++            null
++        }
++
++    /** Level, charging, and hours left from the charge counter and current draw. */
++    private fun battery(context: Context): Triple<Float, Boolean, Float?> =
++        try {
++            val bm = context.getSystemService(BatteryManager::class.java)
++            val level = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
++            val charging = bm.isCharging
++            val hours =
++                if (charging) {
++                    null
++                } else {
++                    val chargeUah = bm.getLongProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)
++                    val draw = abs(bm.getLongProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW))
++                    if (chargeUah > 0 && draw > 20_000) {
++                        (chargeUah.toFloat() / draw.toFloat()).coerceIn(0.1f, 99f)
++                    } else {
++                        null
++                    }
++                }
++            Triple((level.coerceIn(0, 100)) / 100f, charging, hours)
++        } catch (_: RuntimeException) {
++            Triple(0f, false, null)
++        }
++
++    /**
++     * Bytes per second since the previous sample as [wifiUp, wifiDown,
++     * mobileUp, mobileDown]. "Wi-Fi" is everything that is not mobile.
++     */
++    private fun network(): List<Long?>? {
++        val now = SystemClock.elapsedRealtime()
++        val rx = TrafficStats.getTotalRxBytes()
++        val tx = TrafficStats.getTotalTxBytes()
++        if (rx == TrafficStats.UNSUPPORTED.toLong() || tx == TrafficStats.UNSUPPORTED.toLong()) return null
++        val mrx = TrafficStats.getMobileRxBytes().coerceAtLeast(0)
++        val mtx = TrafficStats.getMobileTxBytes().coerceAtLeast(0)
++        val result: List<Long?> =
++            if (lastNetAt > 0 && now > lastNetAt && lastTotalRx >= 0) {
++                val secs = (now - lastNetAt) / 1000.0
++                fun per(
++                    cur: Long,
++                    prev: Long,
++                ) = ((cur - prev).coerceAtLeast(0) / secs).toLong()
++                val mobileUp = per(mtx, lastMobileTx)
++                val mobileDown = per(mrx, lastMobileRx)
++                val wifiUp = (per(tx, lastTotalTx) - mobileUp).coerceAtLeast(0)
++                val wifiDown = (per(rx, lastTotalRx) - mobileDown).coerceAtLeast(0)
++                listOf(wifiUp, wifiDown, mobileUp, mobileDown)
++            } else {
++                listOf(null, null, null, null)
++            }
++        lastNetAt = now
++        lastTotalRx = rx
++        lastTotalTx = tx
++        lastMobileRx = mrx
++        lastMobileTx = mtx
++        return result
++    }
++
++    private fun procStat(): Float? =
++        try {
++            val line =
++                File("/proc/stat").useLines { lines ->
++                    lines.firstOrNull { it.startsWith("cpu ") }
++                }
++            val fields =
++                line?.trim()?.split(Regex("\\s+"))?.drop(1)?.mapNotNull { it.toLongOrNull() }.orEmpty()
++            if (fields.size < 4) {
++                null
++            } else {
++                val idle = fields[3] + (fields.getOrNull(4) ?: 0L)
++                val total = fields.sum()
++                val dIdle = idle - lastIdle
++                val dTotal = total - lastTotal
++                lastIdle = idle
++                lastTotal = total
++                if (dTotal <= 0) null else (1f - dIdle.toFloat() / dTotal.toFloat()).coerceIn(0f, 1f)
++            }
++        } catch (_: Exception) {
++            null
++        }
++
++    /** Each core's current clock between its min and max, averaged. */
++    private fun cpuFreq(): Float? =
++        try {
++            val cores =
++                File("/sys/devices/system/cpu").listFiles { f -> f.name.matches(Regex("cpu\\d+")) }
++                    .orEmpty()
++            var sum = 0f
++            var n = 0
++            for (core in cores) {
++                val dir = File(core, "cpufreq")
++                val cur = readLong(File(dir, "scaling_cur_freq")) ?: continue
++                val max = readLong(File(dir, "cpuinfo_max_freq")) ?: continue
++                val min = readLong(File(dir, "cpuinfo_min_freq")) ?: 0L
++                if (max <= min) continue
++                sum += ((cur - min).toFloat() / (max - min).toFloat()).coerceIn(0f, 1f)
++                n++
++            }
++            if (n == 0) null else sum / n
++        } catch (_: Exception) {
++            null
++        }
++
++    private fun readLong(file: File): Long? =
++        try {
++            file.readText().trim().toLongOrNull()
++        } catch (_: Exception) {
++            null
++        }
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/StartStateRepository.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/StartStateRepository.kt
+index 4ed0b48..066b0b0 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/StartStateRepository.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/StartStateRepository.kt
+@@ -80,10 +80,35 @@ class StartStateRepository(
+             .apply()
+     }
+ 
++    /**
++     * Ordered quick bar slot tokens (see QuickBar). Null means never
++     * customised, so the UI shows the default bar. Stored as one string
++     * because a string set would lose the order.
++     */
++    fun loadQuickBar(): List<String>? =
++        preferences
++            .getString(KEY_QUICK_BAR, null)
++            ?.split(QUICK_BAR_SEPARATOR)
++            ?.filter { it.isNotEmpty() }
++
++    fun saveQuickBar(tokens: List<String>?) {
++        preferences
++            .edit()
++            .apply {
++                if (tokens == null) {
++                    remove(KEY_QUICK_BAR)
++                } else {
++                    putString(KEY_QUICK_BAR, tokens.joinToString(QUICK_BAR_SEPARATOR))
++                }
++            }.apply()
++    }
++
+     private companion object {
+         const val PREFERENCES_NAME = "sable_start_state"
+         const val KEY_FAVORITE_APPS = "favorite_apps"
+         const val KEY_START_TILES = "start_tiles"
+         const val KEY_PINNED_APPS_LEGACY = "pinned_apps"
++        const val KEY_QUICK_BAR = "quick_bar"
++        const val QUICK_BAR_SEPARATOR = "\n"
+     }
+ }
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+index 53a10df..79e467b 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+@@ -7,10 +7,12 @@ import android.graphics.Canvas
+ import android.os.SystemClock
+ import android.util.LruCache
+ import androidx.compose.foundation.Image
++import androidx.compose.foundation.Canvas as ComposeCanvas
+ import androidx.compose.foundation.background
+ import androidx.compose.foundation.border
+ import androidx.compose.foundation.clickable
+ import androidx.compose.foundation.combinedClickable
++import androidx.compose.foundation.focusable
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.BoxWithConstraints
+@@ -55,12 +57,17 @@ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+ import androidx.compose.ui.draw.shadow
++import androidx.compose.ui.geometry.CornerRadius
++import androidx.compose.ui.geometry.Offset
++import androidx.compose.ui.geometry.Size
+ import androidx.compose.ui.focus.FocusRequester
+ import androidx.compose.ui.focus.focusRequester
+ import androidx.compose.ui.focus.onFocusChanged
+ import androidx.compose.ui.graphics.Brush
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.graphics.asImageBitmap
++import androidx.compose.ui.graphics.StrokeCap
++import androidx.compose.ui.graphics.drawscope.Stroke
+ import androidx.compose.ui.input.key.KeyEvent
+ import androidx.compose.ui.input.key.KeyEventType
+ import androidx.compose.ui.input.key.onPreviewKeyEvent
+@@ -95,6 +102,7 @@ import org.sableos.start.live.LiveDatum
+ import org.sableos.start.live.LiveSurfaceSnapshot
+ import org.sableos.start.model.AppEntry
+ import org.sableos.start.model.CoreAppIdentity
++import org.sableos.start.model.QuickBar
+ import org.sableos.start.model.inLauncherUser
+ import org.sableos.start.model.stableKey
+ import org.sableos.start.platform.LiveSurfaceRepository
+@@ -114,6 +122,7 @@ private enum class SableStartDestination {
+     Live,
+     Appearance,
+     Peek,
++    QuickBar,
+ }
+ 
+ private data class HomeTile(
+@@ -126,6 +135,14 @@ private data class HomeTile(
+     val onLongClick: () -> Unit,
+ )
+ 
++/** One quick bar slot resolved against the installed apps. */
++private data class QuickSlot(
++    val token: String,
++    val label: String,
++    /** The app a role or app slot opens; null for Command and All Apps. */
++    val app: AppEntry?,
++)
++
+ private data class AppRailRow(
+     val app: AppEntry,
+     val section: String,
+@@ -174,6 +191,8 @@ fun SableStartScreen(
+     onFavoriteKeysChanged: (Set<String>) -> Unit = {},
+     initialStartTileKeys: Set<String>? = null,
+     onStartTileKeysChanged: (Set<String>) -> Unit = {},
++    initialQuickBar: List<String>? = null,
++    onQuickBarChanged: (List<String>?) -> Unit = {},
+     onAppearanceChanged: (SableAppearance) -> Unit = {},
+     onResetAppearance: () -> Unit = {},
+     onLaunchApp: (AppEntry) -> Boolean,
+@@ -204,6 +223,9 @@ fun SableStartScreen(
+         mutableStateOf(initialStartTileKeys?.toList())
+     }
+     var recentKeys by remember { mutableStateOf<List<String>>(emptyList()) }
++    var quickBarTokens by remember(initialQuickBar) {
++        mutableStateOf(QuickBar.normalize(initialQuickBar))
++    }
+     // Survives Peek / App info / Search round trips (FOCUS_RESTORATION=REQUIRED).
+     val focusMemory = remember { SableFocusMemory() }
+     var liveSnapshot by remember {
+@@ -227,6 +249,10 @@ fun SableStartScreen(
+             explicitKeys = startTileKeys?.toSet(),
+         )
+     val recentApps = recentKeys.mapNotNull(appByKey::get)
++    val quickSlots =
++        quickBarTokens.mapNotNull { token ->
++            resolveQuickSlot(token, apps, appByKey)
++        }
+ 
+     fun launchApp(entry: AppEntry) {
+         if (onLaunchApp(entry)) {
+@@ -261,6 +287,7 @@ fun SableStartScreen(
+                 SableStartDestination.Apps,
+                 SableStartDestination.Live,
+                 SableStartDestination.Appearance,
++                SableStartDestination.QuickBar,
+                 -> SableStartDestination.Start
+             }
+     }
+@@ -322,9 +349,37 @@ fun SableStartScreen(
+                                 onAppearance = {
+                                     destination = SableStartDestination.Appearance
+                                 },
++                                quickSlots = quickSlots,
++                                onQuickSlot = { slot ->
++                                    when (slot.token) {
++                                        QuickBar.COMMAND ->
++                                            openSearch(SableStartDestination.Start)
++                                        QuickBar.ALL_APPS ->
++                                            destination = SableStartDestination.Apps
++                                        else -> slot.app?.let(::launchApp)
++                                    }
++                                },
++                                onEditQuickBar = {
++                                    destination = SableStartDestination.QuickBar
++                                },
+                             )
+                         }
+ 
++                    SableStartDestination.QuickBar ->
++                        QuickBarScreen(
++                            tokens = quickBarTokens,
++                            apps = apps,
++                            onBack = ::navigateBack,
++                            onChange = { next ->
++                                quickBarTokens = QuickBar.normalize(next)
++                                onQuickBarChanged(quickBarTokens)
++                            },
++                            onReset = {
++                                quickBarTokens = QuickBar.DEFAULT
++                                onQuickBarChanged(null)
++                            },
++                        )
++
+                     SableStartDestination.Apps ->
+                         AppsScreen(
+                             apps = apps,
+@@ -437,73 +492,408 @@ private fun StartScreen(
+     onSearch: () -> Unit,
+     onLive: () -> Unit,
+     onAppearance: () -> Unit,
++    quickSlots: List<QuickSlot>,
++    onQuickSlot: (QuickSlot) -> Unit,
++    onEditQuickBar: () -> Unit,
+ ) {
+-    LazyColumn(
+-        modifier = Modifier.fillMaxSize(),
+-        contentPadding =
+-            PaddingValues(
+-                start = 20.dp,
+-                end = 20.dp,
+-                top = 10.dp,
+-                bottom = 28.dp,
+-            ),
+-        verticalArrangement = Arrangement.spacedBy(10.dp),
++    // Fn+1..Fn+5 open the quick bar slots from anywhere on Start. The column
++    // takes focus on arrival so the shortcuts work before anything is focused.
++    val startFocus = remember { FocusRequester() }
++    LaunchedEffect(Unit) {
++        runCatching { startFocus.requestFocus() }
++    }
++    Column(
++        modifier =
++            Modifier
++                .fillMaxSize()
++                .focusRequester(startFocus)
++                .focusable()
++                .onPreviewKeyEvent { event ->
++                    val native = event.nativeKeyEvent
++                    if (event.type != KeyEventType.KeyDown || native.repeatCount > 0) {
++                        return@onPreviewKeyEvent false
++                    }
++                    val index =
++                        QuickBar.shortcutSlot(
++                            keyCode = native.keyCode,
++                            metaState = native.metaState,
++                            slotCount = quickSlots.size,
++                        ) ?: return@onPreviewKeyEvent false
++                    onQuickSlot(quickSlots[index])
++                    true
++                },
+     ) {
+-        item {
+-            Row(
+-                modifier = Modifier.fillMaxWidth(),
+-                verticalAlignment = Alignment.Bottom,
++        LazyColumn(
++            modifier = Modifier.weight(1f).fillMaxWidth(),
++            contentPadding =
++                PaddingValues(
++                    start = 20.dp,
++                    end = 20.dp,
++                    top = 10.dp,
++                    bottom = 28.dp,
++                ),
++            verticalArrangement = Arrangement.spacedBy(10.dp),
++        ) {
++            item {
++                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
++                    // Status rings sit between the clock and the shortcut when the
++                    // header has room (Q25: 557 dp), else on their own row below.
++                    val ringsInline = maxWidth >= StatusRingsInlineMinWidth
++                    Column {
++                        Row(
++                            modifier = Modifier.fillMaxWidth(),
++                            verticalAlignment = Alignment.Bottom,
++                        ) {
++                            Column {
++                                Text(
++                                    text = snapshot.timeText,
++                                    fontSize = 56.sp,
++                                    fontWeight = FontWeight.Light,
++                                    lineHeight = 58.sp,
++                                )
++                                Text(
++                                    text = snapshot.dateText,
++                                    style = MaterialTheme.typography.bodyLarge,
++                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
++                                )
++                            }
++                            Spacer(Modifier.weight(1f))
++                            if (ringsInline) {
++                                SableStatusRings(
++                                    modifier = Modifier.padding(end = 10.dp),
++                                )
++                            }
++                            SableControlShortcut(
++                                onClick = onAppearance,
++                            )
++                        }
++                        if (!ringsInline) {
++                            Spacer(Modifier.height(10.dp))
++                            SableStatusRings()
++                        }
++                    }
++                }
++
++                Spacer(Modifier.height(18.dp))
++                Text(
++                    text = startGreeting(),
++                    style = MaterialTheme.typography.headlineLarge,
++                )
++                Spacer(Modifier.height(14.dp))
++
++                val tiles =
++                    startApps.map { app ->
++                        HomeTile(
++                            title = app.label,
++                            app = app,
++                            accent = appColor(app),
++                            liveDatum = liveDatumForApp(app, snapshot),
++                            wide = isWideStartTile(app),
++                            onClick = { onLaunchApp(app) },
++                            onLongClick = { onOpenPeek(app) },
++                        )
++                    }
++
++                TileGrid(tiles)
++                Spacer(Modifier.height(18.dp))
++                ApprovedStartNavigationRow(
++                    onAllApps = onAllApps,
++                    onSearch = onSearch,
++                    onLive = onLive,
++                )
++            }
++        }
++        SableQuickBar(
++            slots = quickSlots,
++            onSlot = onQuickSlot,
++            onEdit = onEditQuickBar,
++        )
++    }
++}
++
++/**
++ * Persistent base quick bar: labelled slots across the bottom of Start.
++ * Long press, Menu or Fn+Enter on a slot opens the quick bar editor.
++ */
++@Composable
++private fun SableQuickBar(
++    slots: List<QuickSlot>,
++    onSlot: (QuickSlot) -> Unit,
++    onEdit: () -> Unit,
++) {
++    Row(
++        modifier =
++            Modifier
++                .fillMaxWidth()
++                .background(MaterialTheme.colorScheme.surface)
++                .border(1.dp, MaterialTheme.colorScheme.outlineVariant)
++                .padding(horizontal = 8.dp, vertical = 6.dp),
++        horizontalArrangement = Arrangement.spacedBy(4.dp),
++    ) {
++        slots.forEachIndexed { index, slot ->
++            Column(
++                modifier =
++                    Modifier
++                        .weight(1f)
++                        .heightIn(min = 56.dp)
++                        .clip(RoundedCornerShape(8.dp))
++                        .sableFocusRing()
++                        .onPreviewKeyEvent { event ->
++                            val native = event.nativeKeyEvent
++                            val opensEditor =
++                                native.keyCode == AllAppsKeyPolicy.KEYCODE_MENU ||
++                                    (
++                                        native.keyCode == AllAppsKeyPolicy.KEYCODE_ENTER &&
++                                            native.metaState and QuickBar.META_FUNCTION_ON != 0
++                                    )
++                            if (opensEditor && event.type == KeyEventType.KeyDown) onEdit()
++                            opensEditor
++                        }.combinedClickable(
++                            onClick = { onSlot(slot) },
++                            onLongClick = onEdit,
++                        ).semantics {
++                            contentDescription = "${slot.label}, Fn+${index + 1}"
++                        }.padding(vertical = 6.dp),
++                horizontalAlignment = Alignment.CenterHorizontally,
++                verticalArrangement = Arrangement.Center,
+             ) {
+-                Column {
+-                    Text(
+-                        text = snapshot.timeText,
+-                        fontSize = 56.sp,
+-                        fontWeight = FontWeight.Light,
+-                        lineHeight = 58.sp,
++                QuickSlotMark(slot = slot, size = 26)
++                Spacer(Modifier.height(3.dp))
++                Text(
++                    text = slot.label,
++                    style = MaterialTheme.typography.labelLarge,
++                    maxLines = 1,
++                    overflow = TextOverflow.Ellipsis,
++                )
++            }
++        }
++    }
++}
++
++@Composable
++private fun QuickSlotMark(
++    slot: QuickSlot,
++    size: Int,
++) {
++    val app = slot.app
++    if (app != null) {
++        AppMark(app = app, size = size)
++        return
++    }
++    val color = MaterialTheme.colorScheme.primary
++    ComposeCanvas(Modifier.size(size.dp)) {
++        val unit = this.size.minDimension
++        val stroke = unit * 0.1f
++        if (slot.token == QuickBar.COMMAND) {
++            // Magnifier: Search or command.
++            drawCircle(
++                color = color,
++                radius = unit * 0.28f,
++                center = Offset(unit * 0.42f, unit * 0.42f),
++                style = Stroke(stroke),
++            )
++            drawLine(
++                color = color,
++                start = Offset(unit * 0.62f, unit * 0.62f),
++                end = Offset(unit * 0.88f, unit * 0.88f),
++                strokeWidth = stroke,
++                cap = StrokeCap.Round,
++            )
++        } else {
++            // Four squares: All Apps.
++            val cell = unit * 0.36f
++            val gap = unit * 0.14f
++            for (row in 0..1) {
++                for (col in 0..1) {
++                    drawRoundRect(
++                        color = color,
++                        topLeft = Offset(unit * 0.07f + col * (cell + gap), unit * 0.07f + row * (cell + gap)),
++                        size = Size(cell, cell),
++                        cornerRadius = CornerRadius(unit * 0.06f),
+                     )
++                }
++            }
++        }
++    }
++}
++
++/**
++ * Quick bar editor (BASE_BAR_REORDER, BASE_BAR_REPLACE_SLOTS,
++ * BASE_BAR_RESET_TO_DEFAULT). Command and All Apps can move but never leave.
++ */
++@Composable
++private fun QuickBarScreen(
++    tokens: List<String>,
++    apps: List<AppEntry>,
++    onBack: () -> Unit,
++    onChange: (List<String>) -> Unit,
++    onReset: () -> Unit,
++) {
++    val appByKey = apps.associateBy { it.stableKey() }
++    // null: editing the bar; -1: adding a slot; otherwise the slot being replaced.
++    var picking by remember { mutableStateOf<Int?>(null) }
++    val pickIndex = picking
++
++    LazyColumn(
++        modifier =
++            Modifier
++                .fillMaxSize()
++                .padding(horizontal = 20.dp, vertical = 18.dp),
++        contentPadding = PaddingValues(bottom = 28.dp),
++    ) {
++        if (pickIndex == null) {
++            item {
++                MetroHeader(title = "quick bar", onBack = onBack)
++                Spacer(Modifier.height(8.dp))
++                Text(
++                    text = "Fn+1 to Fn+${tokens.size} open these from Home. Search and All Apps always stay on the bar.",
++                    style = MaterialTheme.typography.bodyMedium,
++                    color = MaterialTheme.colorScheme.onSurfaceVariant,
++                )
++                Spacer(Modifier.height(12.dp))
++            }
++            itemsIndexed(tokens) { index, token ->
++                val label = resolveQuickSlot(token, apps, appByKey)?.label ?: quickSlotFallbackLabel(token)
++                Row(
++                    modifier =
++                        Modifier
++                            .fillMaxWidth()
++                            .heightIn(min = 52.dp),
++                    verticalAlignment = Alignment.CenterVertically,
++                ) {
+                     Text(
+-                        text = snapshot.dateText,
+-                        style = MaterialTheme.typography.bodyLarge,
++                        text = "Fn+${index + 1}",
++                        style = MaterialTheme.typography.labelLarge,
+                         color = MaterialTheme.colorScheme.onSurfaceVariant,
++                        modifier = Modifier.width(52.dp),
++                    )
++                    Text(
++                        text = label,
++                        style = MaterialTheme.typography.titleMedium,
++                        modifier = Modifier.weight(1f),
++                        maxLines = 1,
++                        overflow = TextOverflow.Ellipsis,
+                     )
++                    TextButton(
++                        onClick = { onChange(QuickBar.move(tokens, index, -1)) },
++                        enabled = index > 0,
++                    ) { Text("◂") }
++                    TextButton(
++                        onClick = { onChange(QuickBar.move(tokens, index, 1)) },
++                        enabled = index < tokens.lastIndex,
++                    ) { Text("▸") }
++                    if (!QuickBar.isRequired(token)) {
++                        TextButton(onClick = { picking = index }) { Text("change") }
++                        TextButton(onClick = { onChange(QuickBar.remove(tokens, index)) }) { Text("remove") }
++                    }
+                 }
+-                Spacer(Modifier.weight(1f))
+-                SableControlShortcut(
+-                    onClick = onAppearance,
++            }
++            item {
++                Spacer(Modifier.height(12.dp))
++                if (tokens.size < QuickBar.MAX_SLOTS) {
++                    MetroLink(text = "add a slot", onClick = { picking = -1 })
++                }
++                MetroLink(text = "reset to Phone · Hub · Search · All Apps", onClick = onReset)
++            }
++        } else {
++            val choices = quickBarChoices(apps, appByKey, tokens)
++            item {
++                MetroHeader(
++                    title = if (pickIndex < 0) "add a slot" else "change slot",
++                    onBack = { picking = null },
+                 )
++                Spacer(Modifier.height(12.dp))
+             }
+-
+-            Spacer(Modifier.height(18.dp))
+-            Text(
+-                text = startGreeting(),
+-                style = MaterialTheme.typography.headlineLarge,
+-            )
+-            Spacer(Modifier.height(14.dp))
+-
+-            val tiles =
+-                startApps.map { app ->
+-                    HomeTile(
+-                        title = app.label,
+-                        app = app,
+-                        accent = appColor(app),
+-                        liveDatum = liveDatumForApp(app, snapshot),
+-                        wide = isWideStartTile(app),
+-                        onClick = { onLaunchApp(app) },
+-                        onLongClick = { onOpenPeek(app) },
+-                    )
++            if (choices.isEmpty()) {
++                item { EmptyState("Every available app is already on the bar.") }
++            }
++            items(choices, key = { it.token }) { choice ->
++                Row(
++                    modifier =
++                        Modifier
++                            .fillMaxWidth()
++                            .heightIn(min = 52.dp)
++                            .sableFocusRing()
++                            .clickable {
++                                onChange(
++                                    if (pickIndex < 0) {
++                                        QuickBar.add(tokens, choice.token)
++                                    } else {
++                                        QuickBar.replace(tokens, pickIndex, choice.token)
++                                    },
++                                )
++                                picking = null
++                            }.padding(vertical = 8.dp),
++                    verticalAlignment = Alignment.CenterVertically,
++                ) {
++                    QuickSlotMark(slot = choice, size = 32)
++                    Spacer(Modifier.width(14.dp))
++                    Text(choice.label, style = MaterialTheme.typography.bodyLarge)
+                 }
+-
+-            TileGrid(tiles)
+-            Spacer(Modifier.height(18.dp))
+-            ApprovedStartNavigationRow(
+-                onAllApps = onAllApps,
+-                onSearch = onSearch,
+-                onLive = onLive,
+-            )
++            }
+         }
+     }
+ }
+ 
++/** Role slots first (Phone, Hub, Camera), then every other personal app A to Z. */
++private fun quickBarChoices(
++    apps: List<AppEntry>,
++    appByKey: Map<String, AppEntry>,
++    current: List<String>,
++): List<QuickSlot> {
++    val roles =
++        listOf(QuickBar.PHONE, QuickBar.HUB, QuickBar.CAMERA)
++            .filterNot { it in current }
++            .mapNotNull { resolveQuickSlot(it, apps, appByKey) }
++    val taken =
++        current.mapNotNull { resolveQuickSlot(it, apps, appByKey)?.app?.stableKey() }.toSet() +
++            roles.mapNotNull { it.app?.stableKey() }
++    val others =
++        apps
++            .filter { it.inLauncherUser && it.stableKey() !in taken }
++            .sortedBy { it.label.lowercase(Locale.getDefault()) }
++            .map { QuickSlot(QuickBar.appToken(it.stableKey()), it.label, it) }
++    return roles + others
++}
++
++/** Null when the slot's app is not installed; the bar then skips it. */
++private fun resolveQuickSlot(
++    token: String,
++    apps: List<AppEntry>,
++    appByKey: Map<String, AppEntry>,
++): QuickSlot? {
++    fun role(
++        packages: List<String>,
++        labels: List<String>,
++    ): AppEntry? {
++        val personal = apps.filter { it.inLauncherUser }
++        return packages.firstNotNullOfOrNull { pkg ->
++            personal.firstOrNull { CoreAppIdentity.canonicalPackage(it.component.packageName) == pkg }
++        } ?: personal.firstOrNull { app -> labels.any { app.label.equals(it, ignoreCase = true) } }
++    }
++    return when (token) {
++        QuickBar.COMMAND -> QuickSlot(token, "Search", null)
++        QuickBar.ALL_APPS -> QuickSlot(token, "Apps", null)
++        QuickBar.PHONE ->
++            role(listOf("com.android.dialer"), listOf("Phone"))?.let { QuickSlot(token, "Phone", it) }
++        QuickBar.HUB ->
++            role(listOf("org.sableos.hub"), listOf("Sable Hub", "Hub"))?.let { QuickSlot(token, "Hub", it) }
++        QuickBar.CAMERA ->
++            role(CoreAppIdentity.startTileCandidates(CoreAppIdentity.CAMERA), listOf("Camera"))
++                ?.let { QuickSlot(token, "Camera", it) }
++        else ->
++            QuickBar.appKey(token)?.let(appByKey::get)?.let { QuickSlot(token, it.label, it) }
++    }
++}
++
++private fun quickSlotFallbackLabel(token: String): String =
++    when (token) {
++        QuickBar.PHONE -> "Phone (not installed)"
++        QuickBar.HUB -> "Hub (not installed)"
++        QuickBar.CAMERA -> "Camera (not installed)"
++        else -> "App not installed"
++    }
++
+ private fun startGreeting(): String =
+     when (LocalTime.now().hour) {
+         in 5..11 -> "good morning"
+@@ -2668,6 +3058,7 @@ private val PREFERRED_START_APP_GROUPS =
+     )
+ 
+ private const val DEFAULT_START_TILE_TARGET = 10
++private val StatusRingsInlineMinWidth = 500.dp
+ private const val MAX_FAVORITES_ON_START = 4
+ private const val MAX_SESSION_RECENTS = 8
+ private const val LAUNCHER_ICON_CACHE_ENTRIES = 160
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStatusRings.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStatusRings.kt
+new file mode 100644
+index 0000000..69c0d9c
+--- /dev/null
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStatusRings.kt
+@@ -0,0 +1,256 @@
++// Ring drawing ported from Titan AI (https://github.com/andrehafner/aiassistant,
++// ui/LauncherScreens.kt StatRing/NetRing), Copyright (c) 2026 Andre Hafner,
++// MIT License. See THIRD_PARTY_NOTICES.md. Sable keeps the eased value change
++// and drops Titan AI's always-running shimmer and glow pulse to save battery.
++
++package org.sableos.start.ui
++
++import androidx.compose.animation.core.FastOutSlowInEasing
++import androidx.compose.animation.core.animateFloatAsState
++import androidx.compose.animation.core.tween
++import androidx.compose.foundation.Canvas
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.offset
++import androidx.compose.foundation.layout.size
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.LaunchedEffect
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.geometry.Offset
++import androidx.compose.ui.geometry.Size
++import androidx.compose.ui.graphics.Color
++import androidx.compose.ui.graphics.StrokeCap
++import androidx.compose.ui.graphics.drawscope.Stroke
++import androidx.compose.ui.platform.LocalContext
++import androidx.compose.ui.semantics.contentDescription
++import androidx.compose.ui.semantics.semantics
++import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.text.style.TextAlign
++import androidx.compose.ui.unit.Dp
++import androidx.compose.ui.unit.dp
++import androidx.compose.ui.unit.sp
++import androidx.lifecycle.Lifecycle
++import androidx.lifecycle.compose.LocalLifecycleOwner
++import androidx.lifecycle.repeatOnLifecycle
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.delay
++import kotlinx.coroutines.withContext
++import org.sableos.start.platform.DeviceStats
++import org.sableos.start.platform.DeviceStatsFormat
++import org.sableos.start.platform.DeviceStatsSampler
++import kotlin.math.cos
++import kotlin.math.roundToInt
++import kotlin.math.sin
++
++private val RingGreen = Color(0xFF35C66B)
++private val RingPurple = Color(0xFF7A42E8)
++private val RingOrange = Color(0xFFF28C45)
++private const val SAMPLE_INTERVAL_MS = 3_000L
++
++/**
++ * Live device rings for the Start header: Wi-Fi, Mobile, CPU, RAM, Battery
++ * and Cell. Samples every three seconds while HOME is started and stops when
++ * it is not, so the rings cost nothing behind another app.
++ */
++@Composable
++fun SableStatusRings(
++    modifier: Modifier = Modifier,
++    ringSize: Dp = 36.dp,
++) {
++    val context = LocalContext.current.applicationContext
++    val lifecycle = LocalLifecycleOwner.current.lifecycle
++    val sampler = remember { DeviceStatsSampler() }
++    var stats by remember { mutableStateOf<DeviceStats?>(null) }
++
++    LaunchedEffect(lifecycle, sampler) {
++        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
++            while (true) {
++                stats = withContext(Dispatchers.IO) { sampler.sample(context) }
++                delay(SAMPLE_INTERVAL_MS)
++            }
++        }
++    }
++
++    val st = stats ?: return
++    val primary = MaterialTheme.colorScheme.primary
++    val error = MaterialTheme.colorScheme.error
++    Row(
++        modifier = modifier,
++        horizontalArrangement = Arrangement.spacedBy(6.dp),
++        verticalAlignment = Alignment.CenterVertically,
++    ) {
++        NetRing(label = "Wi-Fi", up = st.wifiUp, down = st.wifiDown, size = ringSize)
++        NetRing(label = "Mobile", up = st.mobileUp, down = st.mobileDown, size = ringSize)
++        StatRing(label = "CPU", fraction = st.cpu, color = primary, size = ringSize)
++        StatRing(label = "RAM", fraction = st.ram, color = RingPurple, size = ringSize)
++        StatRing(
++            label =
++                when {
++                    st.charging -> "⚡ BAT"
++                    st.hoursLeft != null -> DeviceStatsFormat.hours(st.hoursLeft) + " left"
++                    else -> "BAT"
++                },
++            fraction = st.battery,
++            color = if (st.battery <= 0.2f && !st.charging) error else RingGreen,
++            size = ringSize,
++            hotAbove = 2f,
++        )
++        StatRing(
++            label = "Cell",
++            fraction = st.signal,
++            color = RingOrange,
++            size = ringSize,
++            center = listOf(st.signal?.let { "${(it * 4).roundToInt()}/4" } ?: "–"),
++            hotAbove = 2f,
++        )
++    }
++}
++
++/**
++ * A 270° gauge: a dim track, an arc that eases to each new sample, a bright
++ * cap at its tip and the value in the middle. A null fraction shows a dash.
++ */
++@Composable
++private fun StatRing(
++    label: String,
++    fraction: Float?,
++    color: Color,
++    size: Dp,
++    /** A thinner arc just inside the first (upload under download). */
++    innerFraction: Float? = null,
++    innerColor: Color = color,
++    /** Replaces the percentage in the middle; two short lines at most. */
++    center: List<String>? = null,
++    /** Fraction above which the arc turns the error colour; above 1 never. */
++    hotAbove: Float = 0.85f,
++) {
++    val value by animateFloatAsState(
++        targetValue = (fraction ?: 0f).coerceIn(0f, 1f),
++        animationSpec = tween(durationMillis = 900, easing = FastOutSlowInEasing),
++        label = "ring",
++    )
++    val innerValue by animateFloatAsState(
++        targetValue = (innerFraction ?: 0f).coerceIn(0f, 1f),
++        animationSpec = tween(durationMillis = 900, easing = FastOutSlowInEasing),
++        label = "inner",
++    )
++    val track = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.18f)
++    val arcColor = if (fraction != null && fraction > hotAbove) MaterialTheme.colorScheme.error else color
++    val textColor = MaterialTheme.colorScheme.onBackground
++    val muted = MaterialTheme.colorScheme.onSurfaceVariant
++    val centerLines = center ?: listOf(if (fraction == null) "–" else "${(value * 100).roundToInt()}")
++
++    Column(
++        horizontalAlignment = Alignment.CenterHorizontally,
++        modifier = Modifier.semantics { contentDescription = "$label ${centerLines.joinToString(" ")}" },
++    ) {
++        Box(Modifier.size(size), contentAlignment = Alignment.Center) {
++            Canvas(Modifier.fillMaxSize()) {
++                val stroke = size.toPx() * 0.11f
++                val inset = stroke / 2 + 1.dp.toPx()
++                val arcSize = Size(this.size.width - inset * 2, this.size.height - inset * 2)
++                val topLeft = Offset(inset, inset)
++                val startAngle = 135f
++                val sweepMax = 270f
++                drawArc(track, startAngle, sweepMax, false, topLeft, arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
++                if (fraction != null && value > 0.005f) {
++                    val sweep = sweepMax * value
++                    drawArc(
++                        arcColor.copy(alpha = 0.22f),
++                        startAngle,
++                        sweep,
++                        false,
++                        topLeft,
++                        arcSize,
++                        style = Stroke(stroke * 1.9f, cap = StrokeCap.Round),
++                    )
++                    drawArc(arcColor, startAngle, sweep, false, topLeft, arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
++                    val rad = Math.toRadians((startAngle + sweep).toDouble())
++                    val r = arcSize.width / 2
++                    drawCircle(
++                        Color.White.copy(alpha = 0.9f),
++                        radius = stroke * 0.45f,
++                        center =
++                            Offset(
++                                this.size.width / 2 + (r * cos(rad)).toFloat(),
++                                this.size.height / 2 + (r * sin(rad)).toFloat(),
++                            ),
++                    )
++                }
++                if (innerFraction != null) {
++                    val innerInset = inset + stroke * 1.15f
++                    val innerSize = Size(this.size.width - innerInset * 2, this.size.height - innerInset * 2)
++                    val innerTopLeft = Offset(innerInset, innerInset)
++                    val innerStroke = Stroke(stroke * 0.45f, cap = StrokeCap.Round)
++                    drawArc(track, startAngle, sweepMax, false, innerTopLeft, innerSize, style = innerStroke)
++                    if (innerValue > 0.005f) {
++                        drawArc(
++                            innerColor.copy(alpha = 0.9f),
++                            startAngle,
++                            sweepMax * innerValue,
++                            false,
++                            innerTopLeft,
++                            innerSize,
++                            style = innerStroke,
++                        )
++                    }
++                }
++            }
++            Column(horizontalAlignment = Alignment.CenterHorizontally) {
++                val twoLines = centerLines.size > 1
++                centerLines.take(2).forEachIndexed { i, line ->
++                    Text(
++                        text = line,
++                        fontSize = if (twoLines) 9.sp else 11.sp,
++                        lineHeight = if (twoLines) 10.sp else 12.sp,
++                        color = if (i == 0 && fraction != null) textColor else muted,
++                        fontWeight = if (i == 0) FontWeight.SemiBold else FontWeight.Normal,
++                        textAlign = TextAlign.Center,
++                        maxLines = 1,
++                        softWrap = false,
++                    )
++                }
++            }
++        }
++        Text(
++            text = label,
++            fontSize = 10.sp,
++            color = muted,
++            maxLines = 1,
++            modifier = Modifier.offset(y = (-3).dp),
++        )
++    }
++}
++
++/**
++ * Throughput: the outer arc is download, the thin inner arc upload, both on a
++ * log scale that fills at about 30 MiB/s.
++ */
++@Composable
++private fun NetRing(
++    label: String,
++    up: Long?,
++    down: Long?,
++    size: Dp,
++) {
++    StatRing(
++        label = label,
++        fraction = if (down == null && up == null) null else DeviceStatsFormat.heat(down),
++        color = RingGreen,
++        size = size,
++        innerFraction = DeviceStatsFormat.heat(up),
++        innerColor = MaterialTheme.colorScheme.primary,
++        center = listOf("↓" + DeviceStatsFormat.rate(down), "↑" + DeviceStatsFormat.rate(up)),
++        hotAbove = 2f,
++    )
++}
+diff --git a/sable-src/third_party/titan-ai/LICENSE b/sable-src/third_party/titan-ai/LICENSE
+new file mode 100644
+index 0000000..cfd2a23
+--- /dev/null
++++ b/sable-src/third_party/titan-ai/LICENSE
+@@ -0,0 +1,21 @@
++MIT License
++
++Copyright (c) 2026 Andre Hafner
++
++Permission is hereby granted, free of charge, to any person obtaining a copy
++of this software and associated documentation files (the "Software"), to deal
++in the Software without restriction, including without limitation the rights
++to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++copies of the Software, and to permit persons to whom the Software is
++furnished to do so, subject to the following conditions:
++
++The above copyright notice and this permission notice shall be included in all
++copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++SOFTWARE.
