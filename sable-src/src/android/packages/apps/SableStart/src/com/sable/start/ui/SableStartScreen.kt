@@ -7,10 +7,12 @@ import android.graphics.Canvas
 import android.os.SystemClock
 import android.util.LruCache
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas as ComposeCanvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -55,12 +57,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -95,6 +102,7 @@ import org.sableos.start.live.LiveDatum
 import org.sableos.start.live.LiveSurfaceSnapshot
 import org.sableos.start.model.AppEntry
 import org.sableos.start.model.CoreAppIdentity
+import org.sableos.start.model.QuickBar
 import org.sableos.start.model.inLauncherUser
 import org.sableos.start.model.stableKey
 import org.sableos.start.platform.LiveSurfaceRepository
@@ -114,6 +122,7 @@ private enum class SableStartDestination {
     Live,
     Appearance,
     Peek,
+    QuickBar,
 }
 
 private data class HomeTile(
@@ -124,6 +133,14 @@ private data class HomeTile(
     val wide: Boolean,
     val onClick: () -> Unit,
     val onLongClick: () -> Unit,
+)
+
+/** One quick bar slot resolved against the installed apps. */
+private data class QuickSlot(
+    val token: String,
+    val label: String,
+    /** The app a role or app slot opens; null for Command and All Apps. */
+    val app: AppEntry?,
 )
 
 private data class AppRailRow(
@@ -174,6 +191,8 @@ fun SableStartScreen(
     onFavoriteKeysChanged: (Set<String>) -> Unit = {},
     initialStartTileKeys: Set<String>? = null,
     onStartTileKeysChanged: (Set<String>) -> Unit = {},
+    initialQuickBar: List<String>? = null,
+    onQuickBarChanged: (List<String>?) -> Unit = {},
     onAppearanceChanged: (SableAppearance) -> Unit = {},
     onResetAppearance: () -> Unit = {},
     onLaunchApp: (AppEntry) -> Boolean,
@@ -204,6 +223,9 @@ fun SableStartScreen(
         mutableStateOf(initialStartTileKeys?.toList())
     }
     var recentKeys by remember { mutableStateOf<List<String>>(emptyList()) }
+    var quickBarTokens by remember(initialQuickBar) {
+        mutableStateOf(QuickBar.normalize(initialQuickBar))
+    }
     // Survives Peek / App info / Search round trips (FOCUS_RESTORATION=REQUIRED).
     val focusMemory = remember { SableFocusMemory() }
     var liveSnapshot by remember {
@@ -227,6 +249,10 @@ fun SableStartScreen(
             explicitKeys = startTileKeys?.toSet(),
         )
     val recentApps = recentKeys.mapNotNull(appByKey::get)
+    val quickSlots =
+        quickBarTokens.mapNotNull { token ->
+            resolveQuickSlot(token, apps, appByKey)
+        }
 
     fun launchApp(entry: AppEntry) {
         if (onLaunchApp(entry)) {
@@ -261,6 +287,7 @@ fun SableStartScreen(
                 SableStartDestination.Apps,
                 SableStartDestination.Live,
                 SableStartDestination.Appearance,
+                SableStartDestination.QuickBar,
                 -> SableStartDestination.Start
             }
     }
@@ -322,8 +349,36 @@ fun SableStartScreen(
                                 onAppearance = {
                                     destination = SableStartDestination.Appearance
                                 },
+                                quickSlots = quickSlots,
+                                onQuickSlot = { slot ->
+                                    when (slot.token) {
+                                        QuickBar.COMMAND ->
+                                            openSearch(SableStartDestination.Start)
+                                        QuickBar.ALL_APPS ->
+                                            destination = SableStartDestination.Apps
+                                        else -> slot.app?.let(::launchApp)
+                                    }
+                                },
+                                onEditQuickBar = {
+                                    destination = SableStartDestination.QuickBar
+                                },
                             )
                         }
+
+                    SableStartDestination.QuickBar ->
+                        QuickBarScreen(
+                            tokens = quickBarTokens,
+                            apps = apps,
+                            onBack = ::navigateBack,
+                            onChange = { next ->
+                                quickBarTokens = QuickBar.normalize(next)
+                                onQuickBarChanged(quickBarTokens)
+                            },
+                            onReset = {
+                                quickBarTokens = QuickBar.DEFAULT
+                                onQuickBarChanged(null)
+                            },
+                        )
 
                     SableStartDestination.Apps ->
                         AppsScreen(
@@ -437,72 +492,407 @@ private fun StartScreen(
     onSearch: () -> Unit,
     onLive: () -> Unit,
     onAppearance: () -> Unit,
+    quickSlots: List<QuickSlot>,
+    onQuickSlot: (QuickSlot) -> Unit,
+    onEditQuickBar: () -> Unit,
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding =
-            PaddingValues(
-                start = 20.dp,
-                end = 20.dp,
-                top = 10.dp,
-                bottom = 28.dp,
-            ),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+    // Fn+1..Fn+5 open the quick bar slots from anywhere on Start. The column
+    // takes focus on arrival so the shortcuts work before anything is focused.
+    val startFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        runCatching { startFocus.requestFocus() }
+    }
+    Column(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .focusRequester(startFocus)
+                .focusable()
+                .onPreviewKeyEvent { event ->
+                    val native = event.nativeKeyEvent
+                    if (event.type != KeyEventType.KeyDown || native.repeatCount > 0) {
+                        return@onPreviewKeyEvent false
+                    }
+                    val index =
+                        QuickBar.shortcutSlot(
+                            keyCode = native.keyCode,
+                            metaState = native.metaState,
+                            slotCount = quickSlots.size,
+                        ) ?: return@onPreviewKeyEvent false
+                    onQuickSlot(quickSlots[index])
+                    true
+                },
     ) {
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Bottom,
-            ) {
-                Column {
-                    Text(
-                        text = snapshot.timeText,
-                        fontSize = 56.sp,
-                        fontWeight = FontWeight.Light,
-                        lineHeight = 58.sp,
-                    )
-                    Text(
-                        text = snapshot.dateText,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+        LazyColumn(
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            contentPadding =
+                PaddingValues(
+                    start = 20.dp,
+                    end = 20.dp,
+                    top = 10.dp,
+                    bottom = 28.dp,
+                ),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            item {
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    // Status rings sit between the clock and the shortcut when the
+                    // header has room (Q25: 557 dp), else on their own row below.
+                    val ringsInline = maxWidth >= StatusRingsInlineMinWidth
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.Bottom,
+                        ) {
+                            Column {
+                                Text(
+                                    text = snapshot.timeText,
+                                    fontSize = 56.sp,
+                                    fontWeight = FontWeight.Light,
+                                    lineHeight = 58.sp,
+                                )
+                                Text(
+                                    text = snapshot.dateText,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Spacer(Modifier.weight(1f))
+                            if (ringsInline) {
+                                SableStatusRings(
+                                    modifier = Modifier.padding(end = 10.dp),
+                                )
+                            }
+                            SableControlShortcut(
+                                onClick = onAppearance,
+                            )
+                        }
+                        if (!ringsInline) {
+                            Spacer(Modifier.height(10.dp))
+                            SableStatusRings()
+                        }
+                    }
                 }
-                Spacer(Modifier.weight(1f))
-                SableControlShortcut(
-                    onClick = onAppearance,
+
+                Spacer(Modifier.height(18.dp))
+                Text(
+                    text = startGreeting(),
+                    style = MaterialTheme.typography.headlineLarge,
+                )
+                Spacer(Modifier.height(14.dp))
+
+                val tiles =
+                    startApps.map { app ->
+                        HomeTile(
+                            title = app.label,
+                            app = app,
+                            accent = appColor(app),
+                            liveDatum = liveDatumForApp(app, snapshot),
+                            wide = isWideStartTile(app),
+                            onClick = { onLaunchApp(app) },
+                            onLongClick = { onOpenPeek(app) },
+                        )
+                    }
+
+                TileGrid(tiles)
+                Spacer(Modifier.height(18.dp))
+                ApprovedStartNavigationRow(
+                    onAllApps = onAllApps,
+                    onSearch = onSearch,
+                    onLive = onLive,
                 )
             }
+        }
+        SableQuickBar(
+            slots = quickSlots,
+            onSlot = onQuickSlot,
+            onEdit = onEditQuickBar,
+        )
+    }
+}
 
-            Spacer(Modifier.height(18.dp))
-            Text(
-                text = startGreeting(),
-                style = MaterialTheme.typography.headlineLarge,
-            )
-            Spacer(Modifier.height(14.dp))
-
-            val tiles =
-                startApps.map { app ->
-                    HomeTile(
-                        title = app.label,
-                        app = app,
-                        accent = appColor(app),
-                        liveDatum = liveDatumForApp(app, snapshot),
-                        wide = isWideStartTile(app),
-                        onClick = { onLaunchApp(app) },
-                        onLongClick = { onOpenPeek(app) },
-                    )
-                }
-
-            TileGrid(tiles)
-            Spacer(Modifier.height(18.dp))
-            ApprovedStartNavigationRow(
-                onAllApps = onAllApps,
-                onSearch = onSearch,
-                onLive = onLive,
-            )
+/**
+ * Persistent base quick bar: labelled slots across the bottom of Start.
+ * Long press, Menu or Fn+Enter on a slot opens the quick bar editor.
+ */
+@Composable
+private fun SableQuickBar(
+    slots: List<QuickSlot>,
+    onSlot: (QuickSlot) -> Unit,
+    onEdit: () -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        slots.forEachIndexed { index, slot ->
+            Column(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .heightIn(min = 56.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .sableFocusRing()
+                        .onPreviewKeyEvent { event ->
+                            val native = event.nativeKeyEvent
+                            val opensEditor =
+                                native.keyCode == AllAppsKeyPolicy.KEYCODE_MENU ||
+                                    (
+                                        native.keyCode == AllAppsKeyPolicy.KEYCODE_ENTER &&
+                                            native.metaState and QuickBar.META_FUNCTION_ON != 0
+                                    )
+                            if (opensEditor && event.type == KeyEventType.KeyDown) onEdit()
+                            opensEditor
+                        }.combinedClickable(
+                            onClick = { onSlot(slot) },
+                            onLongClick = onEdit,
+                        ).semantics {
+                            contentDescription = "${slot.label}, Fn+${index + 1}"
+                        }.padding(vertical = 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                QuickSlotMark(slot = slot, size = 26)
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    text = slot.label,
+                    style = MaterialTheme.typography.labelLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
+
+@Composable
+private fun QuickSlotMark(
+    slot: QuickSlot,
+    size: Int,
+) {
+    val app = slot.app
+    if (app != null) {
+        AppMark(app = app, size = size)
+        return
+    }
+    val color = MaterialTheme.colorScheme.primary
+    ComposeCanvas(Modifier.size(size.dp)) {
+        val unit = this.size.minDimension
+        val stroke = unit * 0.1f
+        if (slot.token == QuickBar.COMMAND) {
+            // Magnifier: Search or command.
+            drawCircle(
+                color = color,
+                radius = unit * 0.28f,
+                center = Offset(unit * 0.42f, unit * 0.42f),
+                style = Stroke(stroke),
+            )
+            drawLine(
+                color = color,
+                start = Offset(unit * 0.62f, unit * 0.62f),
+                end = Offset(unit * 0.88f, unit * 0.88f),
+                strokeWidth = stroke,
+                cap = StrokeCap.Round,
+            )
+        } else {
+            // Four squares: All Apps.
+            val cell = unit * 0.36f
+            val gap = unit * 0.14f
+            for (row in 0..1) {
+                for (col in 0..1) {
+                    drawRoundRect(
+                        color = color,
+                        topLeft = Offset(unit * 0.07f + col * (cell + gap), unit * 0.07f + row * (cell + gap)),
+                        size = Size(cell, cell),
+                        cornerRadius = CornerRadius(unit * 0.06f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Quick bar editor (BASE_BAR_REORDER, BASE_BAR_REPLACE_SLOTS,
+ * BASE_BAR_RESET_TO_DEFAULT). Command and All Apps can move but never leave.
+ */
+@Composable
+private fun QuickBarScreen(
+    tokens: List<String>,
+    apps: List<AppEntry>,
+    onBack: () -> Unit,
+    onChange: (List<String>) -> Unit,
+    onReset: () -> Unit,
+) {
+    val appByKey = apps.associateBy { it.stableKey() }
+    // null: editing the bar; -1: adding a slot; otherwise the slot being replaced.
+    var picking by remember { mutableStateOf<Int?>(null) }
+    val pickIndex = picking
+
+    LazyColumn(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(horizontal = 20.dp, vertical = 18.dp),
+        contentPadding = PaddingValues(bottom = 28.dp),
+    ) {
+        if (pickIndex == null) {
+            item {
+                MetroHeader(title = "quick bar", onBack = onBack)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "Fn+1 to Fn+${tokens.size} open these from Home. Search and All Apps always stay on the bar.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(12.dp))
+            }
+            itemsIndexed(tokens) { index, token ->
+                val label = resolveQuickSlot(token, apps, appByKey)?.label ?: quickSlotFallbackLabel(token)
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 52.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "Fn+${index + 1}",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.width(52.dp),
+                    )
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    TextButton(
+                        onClick = { onChange(QuickBar.move(tokens, index, -1)) },
+                        enabled = index > 0,
+                    ) { Text("◂") }
+                    TextButton(
+                        onClick = { onChange(QuickBar.move(tokens, index, 1)) },
+                        enabled = index < tokens.lastIndex,
+                    ) { Text("▸") }
+                    if (!QuickBar.isRequired(token)) {
+                        TextButton(onClick = { picking = index }) { Text("change") }
+                        TextButton(onClick = { onChange(QuickBar.remove(tokens, index)) }) { Text("remove") }
+                    }
+                }
+            }
+            item {
+                Spacer(Modifier.height(12.dp))
+                if (tokens.size < QuickBar.MAX_SLOTS) {
+                    MetroLink(text = "add a slot", onClick = { picking = -1 })
+                }
+                MetroLink(text = "reset to Phone · Hub · Search · All Apps", onClick = onReset)
+            }
+        } else {
+            val choices = quickBarChoices(apps, appByKey, tokens)
+            item {
+                MetroHeader(
+                    title = if (pickIndex < 0) "add a slot" else "change slot",
+                    onBack = { picking = null },
+                )
+                Spacer(Modifier.height(12.dp))
+            }
+            if (choices.isEmpty()) {
+                item { EmptyState("Every available app is already on the bar.") }
+            }
+            items(choices, key = { it.token }) { choice ->
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 52.dp)
+                            .sableFocusRing()
+                            .clickable {
+                                onChange(
+                                    if (pickIndex < 0) {
+                                        QuickBar.add(tokens, choice.token)
+                                    } else {
+                                        QuickBar.replace(tokens, pickIndex, choice.token)
+                                    },
+                                )
+                                picking = null
+                            }.padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    QuickSlotMark(slot = choice, size = 32)
+                    Spacer(Modifier.width(14.dp))
+                    Text(choice.label, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+        }
+    }
+}
+
+/** Role slots first (Phone, Hub, Camera), then every other personal app A to Z. */
+private fun quickBarChoices(
+    apps: List<AppEntry>,
+    appByKey: Map<String, AppEntry>,
+    current: List<String>,
+): List<QuickSlot> {
+    val roles =
+        listOf(QuickBar.PHONE, QuickBar.HUB, QuickBar.CAMERA)
+            .filterNot { it in current }
+            .mapNotNull { resolveQuickSlot(it, apps, appByKey) }
+    val taken =
+        current.mapNotNull { resolveQuickSlot(it, apps, appByKey)?.app?.stableKey() }.toSet() +
+            roles.mapNotNull { it.app?.stableKey() }
+    val others =
+        apps
+            .filter { it.inLauncherUser && it.stableKey() !in taken }
+            .sortedBy { it.label.lowercase(Locale.getDefault()) }
+            .map { QuickSlot(QuickBar.appToken(it.stableKey()), it.label, it) }
+    return roles + others
+}
+
+/** Null when the slot's app is not installed; the bar then skips it. */
+private fun resolveQuickSlot(
+    token: String,
+    apps: List<AppEntry>,
+    appByKey: Map<String, AppEntry>,
+): QuickSlot? {
+    fun role(
+        packages: List<String>,
+        labels: List<String>,
+    ): AppEntry? {
+        val personal = apps.filter { it.inLauncherUser }
+        return packages.firstNotNullOfOrNull { pkg ->
+            personal.firstOrNull { CoreAppIdentity.canonicalPackage(it.component.packageName) == pkg }
+        } ?: personal.firstOrNull { app -> labels.any { app.label.equals(it, ignoreCase = true) } }
+    }
+    return when (token) {
+        QuickBar.COMMAND -> QuickSlot(token, "Search", null)
+        QuickBar.ALL_APPS -> QuickSlot(token, "Apps", null)
+        QuickBar.PHONE ->
+            role(listOf("com.android.dialer"), listOf("Phone"))?.let { QuickSlot(token, "Phone", it) }
+        QuickBar.HUB ->
+            role(listOf("org.sableos.hub"), listOf("Sable Hub", "Hub"))?.let { QuickSlot(token, "Hub", it) }
+        QuickBar.CAMERA ->
+            role(CoreAppIdentity.startTileCandidates(CoreAppIdentity.CAMERA), listOf("Camera"))
+                ?.let { QuickSlot(token, "Camera", it) }
+        else ->
+            QuickBar.appKey(token)?.let(appByKey::get)?.let { QuickSlot(token, it.label, it) }
+    }
+}
+
+private fun quickSlotFallbackLabel(token: String): String =
+    when (token) {
+        QuickBar.PHONE -> "Phone (not installed)"
+        QuickBar.HUB -> "Hub (not installed)"
+        QuickBar.CAMERA -> "Camera (not installed)"
+        else -> "App not installed"
+    }
 
 private fun startGreeting(): String =
     when (LocalTime.now().hour) {
@@ -2668,6 +3058,7 @@ private val PREFERRED_START_APP_GROUPS =
     )
 
 private const val DEFAULT_START_TILE_TARGET = 10
+private val StatusRingsInlineMinWidth = 500.dp
 private const val MAX_FAVORITES_ON_START = 4
 private const val MAX_SESSION_RECENTS = 8
 private const val LAUNCHER_ICON_CACHE_ENTRIES = 160

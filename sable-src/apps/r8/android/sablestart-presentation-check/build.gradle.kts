@@ -49,6 +49,8 @@ val canonicalPresentationSources =
         "com/sable/start/live/LiveSurfaceModels.kt",
         "com/sable/start/model/AppEntry.kt",
         "com/sable/start/model/CoreAppIdentity.kt",
+        "com/sable/start/model/QuickBar.kt",
+        "com/sable/start/platform/DeviceStatsSampler.kt",
         "com/sable/start/platform/LiveSurfaceRepository.kt",
         "com/sable/start/platform/PrivacyFactsReader.kt",
         "com/sable/start/platform/StartStateRepository.kt",
@@ -58,6 +60,7 @@ val canonicalPresentationSources =
         "com/sable/start/privacy/PrivacySummaryPolicy.kt",
         "com/sable/start/ui/SableStartScreen.kt",
         "com/sable/start/ui/SableGlyphIcon.kt",
+        "com/sable/start/ui/SableStatusRings.kt",
     )
 
 val syncSableStartPresentationSources =
