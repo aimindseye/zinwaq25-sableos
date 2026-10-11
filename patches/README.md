@@ -11,7 +11,9 @@
   for the detekt/ktlint gates and dependency-verification entries GitHub Actions needs, 0012 the
   Q25 camera profile's remosaic sizes (the optional 50 MP size is High-res only, never Auto), 0013
   hardware keys on the Sable Calculator keypad, and Sable Keyboard's Ctrl+1/2/3 (or Ctrl+W/E/R)
-  candidate picks and its optional Enter-to-send.
+  candidate picks and its optional Enter-to-send, 0014 Sable Start's live status rings and base quick
+  bar, 0015 the design-gap waves (Start Alt shortcuts, type-to-search, Command groups and prefixes,
+  focus rings, favorites and base bar actions; Hub and Calendar Back and drafts; SMS redaction).
   Applied in order to a
   fresh import they reproduce `sable-src/` exactly. Regenerate a patch with `git diff` against a
   fresh import when you change these files.
