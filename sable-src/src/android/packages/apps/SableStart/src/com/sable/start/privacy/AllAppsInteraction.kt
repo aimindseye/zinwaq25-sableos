@@ -8,6 +8,7 @@ package org.sableos.start.privacy
  * Enter             open app
  * Space             expand compact privacy detail
  * Menu / Fn+Enter   actions
+ * Alt+Enter         app info (Q25 and other keyboards without Fn)
  * / or Search       search
  * Printable letters type-to-jump when search is not active
  * ```
@@ -19,6 +20,7 @@ enum class AllAppsKeyAction {
     Open,
     ToggleDetail,
     Actions,
+    AppInfo,
     Search,
     TypeToJump,
 
@@ -71,7 +73,11 @@ object AllAppsKeyPolicy {
         val action =
             when (keyCode) {
                 KEYCODE_ENTER, KEYCODE_NUMPAD_ENTER, KEYCODE_DPAD_CENTER ->
-                    if (metaState and META_FUNCTION_ON != 0) AllAppsKeyAction.Actions else AllAppsKeyAction.Open
+                    when {
+                        metaState and META_FUNCTION_ON != 0 -> AllAppsKeyAction.Actions
+                        metaState and META_ALT_ON != 0 -> AllAppsKeyAction.AppInfo
+                        else -> AllAppsKeyAction.Open
+                    }
                 KEYCODE_MENU -> AllAppsKeyAction.Actions
                 KEYCODE_SEARCH -> AllAppsKeyAction.Search
                 KEYCODE_SPACE -> if (commandModifier) null else AllAppsKeyAction.ToggleDetail

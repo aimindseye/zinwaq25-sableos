@@ -48,6 +48,7 @@ val canonicalPresentationSources =
     listOf(
         "com/sable/start/live/LiveSurfaceModels.kt",
         "com/sable/start/model/AppEntry.kt",
+        "com/sable/start/model/CommandQuery.kt",
         "com/sable/start/model/CoreAppIdentity.kt",
         "com/sable/start/model/QuickBar.kt",
         "com/sable/start/platform/DeviceStatsSampler.kt",

@@ -9,7 +9,8 @@ Every planned SableOS feature for the Q25 is written in this repository:
 
 * **Q2, Sable apps:** 17 apps in [`../product/q25/apps.tsv`](../product/q25/apps.tsv),
   including Reader v2, Mail, Text Reader and Sable Tools (which replaces Radio
-  Diag).
+  Diag). 16 ship: Sable Messages is a demo (hard-coded threads, no SMS access),
+  so it is built but disabled, and Hub is the SMS surface until it is rebuilt.
 * **Q4, framework layer** (`bash build/sable.sh q25 Q4 stage`):
   * Sable Start is the home screen and Launcher3 is kept only for Recents.
   * Sable Keyboard is the only keyboard.

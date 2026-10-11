@@ -95,6 +95,7 @@ class PrivacyCacheAndInteractionTest {
         val k = AllAppsKeyPolicy
         assertEquals(AllAppsKeyAction.Open, k.decide(k.KEYCODE_ENTER, 0, 0).action)
         assertEquals(AllAppsKeyAction.Actions, k.decide(k.KEYCODE_ENTER, 0, k.META_FUNCTION_ON).action)
+        assertEquals(AllAppsKeyAction.AppInfo, k.decide(k.KEYCODE_ENTER, 0, k.META_ALT_ON).action)
         assertEquals(AllAppsKeyAction.Actions, k.decide(k.KEYCODE_MENU, 0, 0).action)
         assertEquals(AllAppsKeyAction.ToggleDetail, k.decide(k.KEYCODE_SPACE, ' '.code, 0).action)
         assertEquals(AllAppsKeyAction.Search, k.decide(k.KEYCODE_SEARCH, 0, 0).action)

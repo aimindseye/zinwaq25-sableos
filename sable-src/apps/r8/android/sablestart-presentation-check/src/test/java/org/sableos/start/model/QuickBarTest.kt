@@ -56,6 +56,32 @@ class QuickBarTest {
     }
 
     @Test
+    fun q25AltLayerDigitsOpenSlots() {
+        // The Q25 has no Fn key: Alt+W/E/R/S/D type 1..5 through the key map.
+        val alt = QuickBar.META_ALT_ON
+        val keycodeW = 51
+        val keycodeD = 32
+        assertEquals(0, QuickBar.shortcutSlot(keycodeW, alt, 4, unicode = '1'.code))
+        assertEquals(3, QuickBar.shortcutSlot(keycodeD, alt, 4, unicode = '4'.code))
+        assertNull(QuickBar.shortcutSlot(keycodeD, alt, 3, unicode = '4'.code))
+        // Alt on a key with no digit on its Alt layer is not a shortcut.
+        assertNull(QuickBar.shortcutSlot(29, alt, 4, unicode = '@'.code))
+        // A plain digit (no modifier) types into Search instead.
+        assertNull(QuickBar.shortcutSlot(keycodeW, 0, 4, unicode = '1'.code))
+        assertEquals("Alt+1", QuickBar.shortcutLabel(0))
+    }
+
+    @Test
+    fun printableKeysOnStartSeedSearch() {
+        assertEquals('m', StartTypeToSearch.seed('m'.code, 0, repeat = false))
+        assertEquals('M', StartTypeToSearch.seed('M'.code, 0x1, repeat = false))
+        assertNull(StartTypeToSearch.seed(' '.code, 0, repeat = false))
+        assertNull(StartTypeToSearch.seed(0, 0, repeat = false))
+        assertNull(StartTypeToSearch.seed('1'.code, QuickBar.META_ALT_ON, repeat = false))
+        assertNull(StartTypeToSearch.seed('m'.code, 0, repeat = true))
+    }
+
+    @Test
     fun appTokensRoundTrip() {
         assertEquals("0:com.example/.Main", QuickBar.appKey(QuickBar.appToken("0:com.example/.Main")))
         assertNull(QuickBar.appKey("phone"))

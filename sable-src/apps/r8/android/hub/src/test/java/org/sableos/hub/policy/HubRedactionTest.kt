@@ -107,4 +107,48 @@ class HubRedactionTest {
         assertTrue(conversations.isEmpty())
         assertTrue(messages.isEmpty())
     }
+
+    private fun smsMessage() =
+        HubMessage(
+            id = 50L,
+            threadId = 5L,
+            address = "+1",
+            body = "sms",
+            dateMillis = 2L,
+            incoming = true,
+            read = false,
+        )
+
+    @Test
+    fun smsIsUnchangedWhenSmsPrivacyIsFull() {
+        val smsMessage = smsMessage()
+        val (conversations, messages) =
+            HubRedaction.apply(listOf(sms), listOf(smsMessage)) {
+                HubSourcePrivacy(HubContentLevel.Hidden, HubContentLevel.Hidden)
+            }
+        assertEquals(listOf(sms), conversations)
+        assertEquals(listOf(smsMessage), messages)
+    }
+
+    @Test
+    fun privateModeRedactsSmsBodiesLikeOtherSources() {
+        val smsMessage = smsMessage()
+        val privateMode = HubSourcePrivacy(HubContentLevel.SourceAndCount, HubContentLevel.SourceAndCount)
+        val (conversations, messages) =
+            HubRedaction.apply(
+                listOf(sms, conversation(personal, -1L)),
+                listOf(smsMessage, message(-1L)),
+                smsPrivacy = privateMode,
+            ) { privateMode }
+        val smsRow = conversations.first { it.threadId == 5L }
+        assertEquals(HubRedaction.SMS_LABEL, smsRow.displayName)
+        assertEquals("", smsRow.lastBody)
+        assertEquals(1, smsRow.unreadCount)
+        assertEquals("+1", smsRow.address)
+        val smsBody = messages.first { it.threadId == 5L }
+        assertEquals("", smsBody.body)
+        assertEquals("", smsBody.address)
+        assertEquals("", conversations.first { it.threadId == -1L }.lastBody)
+        assertTrue(messages.none { it.body.isNotEmpty() })
+    }
 }

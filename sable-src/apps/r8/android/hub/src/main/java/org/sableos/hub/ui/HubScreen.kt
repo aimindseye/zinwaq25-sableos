@@ -1,6 +1,7 @@
 package org.sableos.hub.ui
 
 import android.text.format.DateUtils
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -30,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -94,6 +96,12 @@ private sealed interface HubRoute {
     ) : HubRoute
 }
 
+/** An unsent SMS kept while the user backs out of compose, restored on re-entry this session. */
+private data class HubSmsDraft(
+    val recipient: String,
+    val body: String,
+)
+
 @Composable
 fun HubScreen(
     snapshot: HubSnapshot?,
@@ -129,6 +137,29 @@ fun HubScreen(
     }
     // Back from a conversation lands on the row it was opened from (FOCUS_RESTORATION).
     val focusMemory = remember { SableFocusMemory() }
+
+    // Unsent drafts survive Back: SMS compose keyed by the recipient it was opened for,
+    // connected inline replies keyed by thread.
+    val smsDrafts = remember { mutableStateMapOf<String, HubSmsDraft>() }
+    val connectedDrafts = remember { mutableStateMapOf<Long, String>() }
+
+    // Hardware Back/Esc goes up one level (BACK_RETURNS_ONE_LOGICAL_LAYER); only the root leaves Hub.
+    BackHandler(enabled = route !is HubRoute.Root) {
+        when (val current = route) {
+            is HubRoute.Root -> {
+                Unit
+            }
+
+            is HubRoute.Conversation -> {
+                statusMessage = null
+                route = HubRoute.Root(current.origin)
+            }
+
+            is HubRoute.Compose -> {
+                route = current.back
+            }
+        }
+    }
 
     if (snapshot == null) {
         SableScreen {
@@ -272,6 +303,14 @@ fun HubScreen(
                             modifier = Modifier.weight(1f),
                             conversation = conversation,
                             messages = threadMessages,
+                            connectedReplyDraft = connectedDrafts[conversation.threadId].orEmpty(),
+                            onConnectedReplyDraftChange = { body ->
+                                if (body.isEmpty()) {
+                                    connectedDrafts.remove(conversation.threadId)
+                                } else {
+                                    connectedDrafts[conversation.threadId] = body
+                                }
+                            },
                             onBack = {
                                 statusMessage = null
                                 route = HubRoute.Root(current.origin)
@@ -354,7 +393,8 @@ fun HubScreen(
             is HubRoute.Compose -> {
                 SableScrollableScreen {
                     ComposeView(
-                        initialRecipient = current.recipient,
+                        draft = smsDrafts[current.recipient] ?: HubSmsDraft(current.recipient, ""),
+                        onDraftChange = { draft -> smsDrafts[current.recipient] = draft },
                         canSendSms = snapshot.capabilities.canSendSms,
                         onBack = {
                             route = current.back
@@ -364,6 +404,7 @@ fun HubScreen(
                             val result = onSendSms(recipient, body)
                             statusMessage = result.message
                             if (result.success) {
+                                smsDrafts.remove(current.recipient)
                                 route = HubRoute.Root(HubPivot.Messages)
                             }
                             result
@@ -901,15 +942,15 @@ private fun ColumnScope.ConversationView(
     modifier: Modifier,
     conversation: HubConversation,
     messages: List<HubMessage>,
+    connectedReplyDraft: String,
+    onConnectedReplyDraftChange: (String) -> Unit,
     onBack: () -> Unit,
     onReply: (() -> Unit)?,
     onSendConnectedReply: ((String) -> HubSendResult)?,
     onOpenSource: (() -> Unit)?,
     onOpenNotificationSettings: (() -> Unit)? = null,
 ) {
-    var connectedReplyBody by remember {
-        mutableStateOf("")
-    }
+    val connectedReplyBody = connectedReplyDraft
     var connectedReplyStatus by remember {
         mutableStateOf<String?>(null)
     }
@@ -999,7 +1040,7 @@ private fun ColumnScope.ConversationView(
     onSendConnectedReply?.let { sendReply ->
         OutlinedTextField(
             value = connectedReplyBody,
-            onValueChange = { connectedReplyBody = it },
+            onValueChange = onConnectedReplyDraftChange,
             modifier = Modifier.fillMaxWidth(),
             minLines = HUB_INLINE_REPLY_MIN_LINES,
             label = { Text("Reply") },
@@ -1017,7 +1058,7 @@ private fun ColumnScope.ConversationView(
                 val result = sendReply(connectedReplyBody)
                 connectedReplyStatus = result.message
                 if (result.success) {
-                    connectedReplyBody = ""
+                    onConnectedReplyDraftChange("")
                 }
             },
         )
@@ -1095,19 +1136,16 @@ private fun MessageBubble(message: HubMessage) {
 
 @Composable
 private fun ComposeView(
-    initialRecipient: String,
+    draft: HubSmsDraft,
+    onDraftChange: (HubSmsDraft) -> Unit,
     canSendSms: Boolean,
     onBack: () -> Unit,
     onRequestAccess: () -> Unit,
     onSendSms: (String, String) -> HubSendResult,
     onOpenMmsComposer: (String, String) -> Unit,
 ) {
-    var recipient by remember(initialRecipient) {
-        mutableStateOf(initialRecipient)
-    }
-    var body by remember {
-        mutableStateOf("")
-    }
+    val recipient = draft.recipient
+    val body = draft.body
     var localStatus by remember {
         mutableStateOf<String?>(null)
     }
@@ -1119,7 +1157,7 @@ private fun ComposeView(
 
     OutlinedTextField(
         value = recipient,
-        onValueChange = { recipient = it },
+        onValueChange = { onDraftChange(draft.copy(recipient = it)) },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
         label = { Text("Phone number") },
@@ -1127,7 +1165,7 @@ private fun ComposeView(
 
     OutlinedTextField(
         value = body,
-        onValueChange = { body = it },
+        onValueChange = { onDraftChange(draft.copy(body = it)) },
         modifier = Modifier.fillMaxWidth(),
         minLines = SMS_COMPOSE_MIN_LINES,
         label = { Text("Message") },

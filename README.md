@@ -7,7 +7,8 @@ Titan 2 or Q27 SableOS lanes.
 
 > **Status: engineering, not yet booted.** Every planned SableOS feature for the
 > Q25 is written (Q2 apps and the Q4 framework layer), and GitHub Actions builds
-> and checks all 17 Sable apps. No LineageOS image has been built, and nothing
+> and checks all 17 Sable apps (16 ship in the image; Sable Messages is built
+> but not shipped until it is rebuilt on the SMS provider). No LineageOS image has been built, and nothing
 > has run on a Q25 yet. The install steps are derived from the LineageOS Q25
 > guide and are **untested for SableOS**. Read [`ROADMAP.md`](ROADMAP.md) and
 > [`docs/SABLEOS_GAP_REVIEW.md`](docs/SABLEOS_GAP_REVIEW.md) before flashing anything.

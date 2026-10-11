@@ -96,19 +96,53 @@ object QuickBar {
     }
 
     /**
-     * Fn+1..Fn+5 open slots 1..5. Returns the slot index, or null when the
+     * Slot shortcuts: Fn+1..Fn+5 on keyboards with an Fn key (Titan 2), and
+     * Alt+1..Alt+5 on keyboards that type digits on the Alt layer (the Q25's
+     * Alt+W/E/R/S/D). [unicode] is the character the platform key map produced
+     * with the event's own meta state. Returns the slot index, or null when the
      * key is not a quick-bar shortcut.
      */
     fun shortcutSlot(
         keyCode: Int,
         metaState: Int,
         slotCount: Int,
+        unicode: Int = 0,
     ): Int? {
-        if (metaState and META_FUNCTION_ON == 0) return null
-        val index = keyCode - KEYCODE_1
+        val index =
+            when {
+                metaState and META_FUNCTION_ON != 0 -> keyCode - KEYCODE_1
+                metaState and META_ALT_ON != 0 ->
+                    if (unicode in '1'.code..'9'.code) unicode - '1'.code else keyCode - KEYCODE_1
+                else -> return null
+            }
         return index.takeIf { it in 0 until minOf(slotCount, MAX_SLOTS) }
     }
 
+    /** "Alt+1".."Alt+5": the shortcut as printed on the keys (Fn devices accept it too). */
+    fun shortcutLabel(index: Int): String = "Alt+${index + 1}"
+
     const val KEYCODE_1 = 8
+    const val META_ALT_ON = 0x2
     const val META_FUNCTION_ON = 0x8
+}
+
+/**
+ * Type-to-launch on Start (SABLE_START_SCREEN_DESIGN.md "typing on Home goes
+ * straight to Search"): a printable key with no Alt, Ctrl or Fn held opens
+ * Search seeded with that character. Returns the character, or null when the
+ * key is not one that starts a search.
+ */
+object StartTypeToSearch {
+    private const val META_CTRL_ON = 0x1000
+
+    fun seed(
+        unicode: Int,
+        metaState: Int,
+        repeat: Boolean,
+    ): Char? {
+        if (repeat || unicode <= 0) return null
+        if (metaState and (QuickBar.META_ALT_ON or QuickBar.META_FUNCTION_ON or META_CTRL_ON) != 0) return null
+        val char = unicode.toChar()
+        return char.takeUnless { it.isISOControl() || it.isWhitespace() }
+    }
 }

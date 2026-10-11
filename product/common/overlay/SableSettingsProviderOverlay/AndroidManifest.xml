@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- First-boot Settings defaults (LOCKSCREEN_SECURE_ENTRY_UX: notifications
+     on the lockscreen are redacted by default). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="org.sableos.overlay.settingsprovider">
+    <overlay
+        android:targetPackage="com.android.providers.settings"
+        android:isStatic="true"
+        android:priority="20" />
+    <application android:hasCode="false" />
+</manifest>

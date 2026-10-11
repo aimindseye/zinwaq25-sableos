@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings.Secure.LOCK_SCREEN_ALLOW_PRIVATE_NOTIFICATIONS when the
+         settings database is created (first boot, and each new user): while
+         locked, notifications show their app and count only, their content is
+         hidden until unlock (LOCKSCREEN_SECURE_ENTRY_UX
+         LOCKED_NOTIFICATION_MODE=REDACTED_BY_DEFAULT, PRIVATE_MODE=COUNTS_ONLY).
+         LineageOS 23.2 ships true in frameworks/base
+         packages/SettingsProvider/res/values/defaults.xml. The user can still
+         choose to show all notification content in Settings > Notifications;
+         an existing install keeps its stored value. -->
+    <bool name="def_lock_screen_allow_private_notifications">false</bool>
+</resources>

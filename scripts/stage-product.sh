@@ -138,7 +138,8 @@ if [[ "$FRAMEWORK" == YES ]]; then
     # DESIGN-KF-B SystemUI visual convergence and Sable branding: static
     # resource overlays for the framework, SystemUI and the LineageOS
     # SetupWizard (product/common/overlay, with its own Android.bp). The R9
-    # daily-driver overlays (Glimpse label, Gallery2 colors) live there too.
+    # daily-driver overlays (Glimpse label, Gallery2 colors) live there too,
+    # and the SettingsProvider defaults (lockscreen notification content hidden).
     cp -a "$SABLE_REPO_ROOT/product/common/overlay" "$VENDOR_SABLE/overlay"
     # Battery health/charging capability profile read by the Settings battery
     # patches (BH1-BH5); every Q25 fact is UNKNOWN until device evidence.
@@ -155,7 +156,8 @@ PRODUCT_PACKAGES += \
     SableSystemUIOverlay \
     SableSetupWizardOverlay \
     SableGlimpseOverlay \
-    SableGallery2Overlay
+    SableGallery2Overlay \
+    SableSettingsProviderOverlay
 PRODUCT_SYSTEM_EXT_PROPERTIES += \
     ro.sable.home=org.sableos.launcher \
     ro.sable.keyboard_backlight=true

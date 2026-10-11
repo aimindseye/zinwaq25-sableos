@@ -1,0 +1,147 @@
+package org.sableos.start.model
+
+/**
+ * Command layer query model (platform_sable SABLE_COMMAND_LAYER.md "Prefix
+ * syntax" and "Result groups"). Pure policy, unit tested in
+ * apps/r8/android/sablestart-presentation-check/src/test.
+ */
+enum class CommandScope {
+    All,
+    Apps,
+    People,
+    Settings,
+    Hub,
+    Actions,
+}
+
+data class CommandQuery(
+    val scope: CommandScope,
+    val term: String,
+) {
+    fun includes(scope: CommandScope): Boolean = this.scope == CommandScope.All || this.scope == scope
+
+    companion object {
+        /**
+         * `?app`, `/apps` apps only; `@name`, `#name` people; `/settings`
+         * Settings; `/hub` Hub; `!action` Sable actions. Anything else
+         * searches every group.
+         */
+        fun parse(raw: String): CommandQuery {
+            val text = raw.trimStart()
+            val words =
+                listOf(
+                    "/settings" to CommandScope.Settings,
+                    "/apps" to CommandScope.Apps,
+                    "/hub" to CommandScope.Hub,
+                )
+            words.firstOrNull { (word, _) ->
+                text.equals(word, ignoreCase = true) || text.startsWith("$word ", ignoreCase = true)
+            }?.let { (word, scope) ->
+                return CommandQuery(scope, text.drop(word.length).trim())
+            }
+            val scope =
+                when (text.firstOrNull()) {
+                    '?' -> CommandScope.Apps
+                    '@', '#' -> CommandScope.People
+                    '!' -> CommandScope.Actions
+                    else -> return CommandQuery(CommandScope.All, text.trim())
+                }
+            return CommandQuery(scope, text.drop(1).trim())
+        }
+
+        /** A dialable number: digits with optional + ( ) - . and spaces, at least three digits. */
+        fun dialable(term: String): String? {
+            if (term.isEmpty() || term.any { !it.isDigit() && it !in "+()-. " }) return null
+            val digits = term.filter { it.isDigit() || it == '+' }
+            return digits.takeIf { it.count(Char::isDigit) >= 3 }
+        }
+    }
+}
+
+/** One Settings page Command can open directly. */
+data class SettingsDestination(
+    val title: String,
+    val action: String,
+    val keywords: List<String> = emptyList(),
+)
+
+object CommandRanking {
+    /**
+     * Settings destinations every LineageOS build has, by their public
+     * android.provider.Settings actions.
+     */
+    val SETTINGS: List<SettingsDestination> =
+        listOf(
+            SettingsDestination("Wi-Fi", "android.settings.WIFI_SETTINGS", listOf("wifi", "wlan", "network")),
+            SettingsDestination("Bluetooth", "android.settings.BLUETOOTH_SETTINGS", listOf("pair", "headphones")),
+            SettingsDestination("Mobile network", "android.settings.NETWORK_OPERATOR_SETTINGS", listOf("sim", "data", "cellular")),
+            SettingsDestination("Airplane mode", "android.settings.AIRPLANE_MODE_SETTINGS", listOf("flight")),
+            SettingsDestination("Display", "android.settings.DISPLAY_SETTINGS", listOf("brightness", "dark", "theme", "accent")),
+            SettingsDestination("Sound", "android.settings.SOUND_SETTINGS", listOf("volume", "ringtone", "vibrate")),
+            SettingsDestination("Notifications", "android.settings.NOTIFICATION_SETTINGS", listOf("hub", "attention")),
+            SettingsDestination("Do Not Disturb", "android.settings.ZEN_MODE_SETTINGS", listOf("dnd", "quiet", "focus")),
+            SettingsDestination("Battery", "android.intent.action.POWER_USAGE_SUMMARY", listOf("power", "charging", "health")),
+            SettingsDestination("Apps", "android.settings.MANAGE_APPLICATIONS_SETTINGS", listOf("applications", "uninstall")),
+            SettingsDestination("Storage", "android.settings.INTERNAL_STORAGE_SETTINGS", listOf("space", "files")),
+            SettingsDestination("Location", "android.settings.LOCATION_SOURCE_SETTINGS", listOf("gps")),
+            SettingsDestination("Security", "android.settings.SECURITY_SETTINGS", listOf("lock", "pin", "password")),
+            SettingsDestination("Privacy", "android.settings.PRIVACY_SETTINGS", listOf("permissions")),
+            SettingsDestination("Keyboard", "android.settings.HARD_KEYBOARD_SETTINGS", listOf("physical", "layout", "backlight")),
+            SettingsDestination("Language", "android.settings.LOCALE_SETTINGS", listOf("locale")),
+            SettingsDestination("Date & time", "android.settings.DATE_SETTINGS", listOf("clock", "timezone")),
+            SettingsDestination("Accessibility", "android.settings.ACCESSIBILITY_SETTINGS", listOf("talkback", "font")),
+            SettingsDestination("Hotspot & tethering", "android.settings.TETHER_SETTINGS", listOf("tether", "hotspot")),
+            SettingsDestination("About phone", "android.settings.DEVICE_INFO_SETTINGS", listOf("version", "build", "sableos")),
+        )
+
+    /** Title prefix first, then title contains, then keyword prefix. */
+    fun settings(
+        term: String,
+        limit: Int = 4,
+    ): List<SettingsDestination> {
+        if (term.isBlank()) return emptyList()
+        val t = term.trim().lowercase()
+        fun score(d: SettingsDestination): Int? {
+            val title = d.title.lowercase()
+            return when {
+                title.startsWith(t) -> 0
+                title.contains(t) -> 1
+                d.keywords.any { it.startsWith(t) } -> 2
+                else -> null
+            }
+        }
+        return SETTINGS.mapNotNull { d -> score(d)?.let { d to it } }
+            .sortedBy { it.second }
+            .take(limit)
+            .map { it.first }
+    }
+
+    /**
+     * Apps for a term: with no term, recents then the rest; with a term,
+     * label-prefix matches before contains matches, recents first within
+     * each, then everything else A to Z.
+     */
+    fun <T> apps(
+        items: List<T>,
+        label: (T) -> String,
+        recentRank: (T) -> Int?,
+        term: String,
+    ): List<T> {
+        val t = term.trim()
+        if (t.isEmpty()) {
+            return items.sortedWith(compareBy({ recentRank(it) ?: Int.MAX_VALUE }, { label(it).lowercase() }))
+        }
+        return items.mapNotNull { item ->
+            val l = label(item)
+            val tier =
+                when {
+                    l.startsWith(t, ignoreCase = true) -> 0
+                    l.split(' ', '-', '.').any { it.startsWith(t, ignoreCase = true) } -> 1
+                    l.contains(t, ignoreCase = true) -> 2
+                    else -> null
+                }
+            tier?.let { Triple(item, it, recentRank(item) ?: Int.MAX_VALUE) }
+        }.sortedWith(compareBy({ it.second }, { it.third }, { label(it.first).lowercase() }))
+            .map { it.first }
+    }
+}
