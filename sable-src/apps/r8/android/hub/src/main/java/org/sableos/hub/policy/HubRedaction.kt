@@ -16,21 +16,28 @@ data class HubSourcePrivacy(
 )
 
 /**
- * Applies [HubSourcePrivacy] to the connected-app part of a Hub snapshot before it reaches UI, so
- * redaction cannot be skipped by a screen (`CROSS_PROFILE_PREVIEW_LEAK=NO`). SMS rows are left
- * alone: they are Hub's own telephony data, not notification-derived.
+ * Applies [HubSourcePrivacy] to a Hub snapshot before it reaches UI, so redaction cannot be skipped
+ * by a screen (`CROSS_PROFILE_PREVIEW_LEAK=NO`). Connected-app rows use their source's privacy;
+ * Hub's own SMS rows use [smsPrivacy], so private mode and the locked device redact SMS bodies too.
  */
 object HubRedaction {
     const val WORK_PROFILE_LABEL = "Work profile"
+    const val SMS_LABEL = "SMS"
+
+    private val FULL = HubSourcePrivacy(HubContentLevel.Full, HubContentLevel.Full)
 
     fun apply(
         conversations: List<HubConversation>,
         messages: List<HubMessage>,
+        smsPrivacy: HubSourcePrivacy = FULL,
         privacyFor: (ConnectedAppKey) -> HubSourcePrivacy,
     ): Pair<List<HubConversation>, List<HubMessage>> {
         val byThread = mutableMapOf<Long, HubSourcePrivacy>()
         val redactedConversations =
             conversations.mapNotNull { conversation ->
+                if (conversation.source != HubConversationSource.ConnectedApp) {
+                    return@mapNotNull redactConversation(conversation, smsPrivacy)
+                }
                 val key = conversation.connectedKey() ?: return@mapNotNull conversation
                 val privacy = privacyFor(key)
                 byThread[conversation.threadId] = privacy
@@ -39,7 +46,7 @@ object HubRedaction {
         val redactedMessages =
             messages.mapNotNull { message ->
                 if (message.source != HubConversationSource.ConnectedApp) {
-                    message
+                    redactMessage(message, smsPrivacy.contentLevel)
                 } else {
                     // A connected message without a visible conversation is dropped (fail closed).
                     byThread[message.threadId]?.let { redactMessage(message, it.contentLevel) }
@@ -65,7 +72,7 @@ object HubRedaction {
 
             HubContentLevel.SourceAndCount -> {
                 badged.copy(
-                    displayName = conversation.sourceLabel ?: conversation.displayName,
+                    displayName = conversation.sourceLabel ?: conversation.sourceFallbackLabel(),
                     lastBody = "",
                 )
             }
@@ -106,6 +113,9 @@ object HubRedaction {
             HubContentLevel.Hidden,
             -> null
         }
+
+    private fun HubConversation.sourceFallbackLabel(): String =
+        if (source == HubConversationSource.Sms) SMS_LABEL else displayName
 
     private fun HubConversation.connectedKey(): ConnectedAppKey? {
         val packageName = sourcePackage
