@@ -17,6 +17,11 @@
 # SableRadioDiag is folded into SableTools (DESIGN-KF-C: one launcher-visible tools product); its row
 # stays, disabled, so `apps --all` still builds it for comparison, and SableTools overrides it.
 #
+# SableMessages is disabled: it is a demo with hard-coded threads and no SMS access (no READ_SMS,
+# SEND_SMS or default-SMS role). Sable Hub is the SMS surface (Sable Start's Messages entry opens
+# Hub; AOSP Messaging stays the default SMS app, hidden) until Messages is rebuilt on the SMS
+# provider. Its row stays so `apps --all` and CI keep building and testing it.
+#
 # Package ids stay as they are in SableOS (for example org.sableos.titan2.keyboard):
 # the Q25 does not fork common apps.
 module	group	gradle_root	gradle_task	apk	package	signing	overrides	enabled
@@ -34,7 +39,7 @@ SableMedia	common	apps/r8/android	:media:assembleDebug	media/build/outputs/apk/d
 SableHub	common	apps/r8/android	:hub:assembleDebug	hub/build/outputs/apk/debug/hub-debug.apk	org.sableos.hub	presigned	-	yes
 SableWeather	common	apps/r8/android	:weather:assembleDebug	weather/build/outputs/apk/debug/weather-debug.apk	org.sableos.weather	presigned	-	yes
 SableCalendar	common	apps/r8/android	:calendar:assembleDebug	calendar/build/outputs/apk/debug/calendar-debug.apk	org.sableos.calendar	presigned	-	yes
-SableMessages	common	apps/r8/android	:messages:assembleDebug	messages/build/outputs/apk/debug/messages-debug.apk	org.sableos.messages	presigned	-	yes
+SableMessages	common	apps/r8/android	:messages:assembleDebug	messages/build/outputs/apk/debug/messages-debug.apk	org.sableos.messages	presigned	-	no
 SableReader	common	apps/common/reader	:leisure:assembleSableDebug	leisure/build/outputs/apk/sable/debug/*.apk	org.sableos.reader	presigned	-	yes
 SableMail	common	flavor:mail	:app-thunderbird:assembleFossRelease -Pci=true	app-thunderbird/build/outputs/apk/foss/release/*.apk	org.sableos.mail	unsigned	-	yes
 SableTextReader	common	flavor:textreader	:app:assembleDebug	app/build/outputs/apk/debug/SableTextReader-*.apk	org.sableos.textreader	presigned	-	yes

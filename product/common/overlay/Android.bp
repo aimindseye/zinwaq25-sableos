@@ -46,3 +46,13 @@ runtime_resource_overlay {
     product_specific: true,
     sdk_version: "current",
 }
+
+// First-boot Settings defaults: lockscreen notifications hide their content
+// (LOCKSCREEN_SECURE_ENTRY_UX, REDACTED_BY_DEFAULT).
+runtime_resource_overlay {
+    name: "SableSettingsProviderOverlay",
+    manifest: "SableSettingsProviderOverlay/AndroidManifest.xml",
+    resource_dirs: ["SableSettingsProviderOverlay/res"],
+    product_specific: true,
+    sdk_version: "current",
+}

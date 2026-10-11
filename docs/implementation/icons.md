@@ -6,7 +6,7 @@
 > device. Statements below about uncompiled code describe the state when the
 > package was written.
 
-This gives every enabled app in `product/q25/apps.tsv` (17 apps, plus the disabled SableRadioDiag) an adaptive
+This gives every enabled app in `product/q25/apps.tsv` (16 apps, plus the disabled SableRadioDiag and SableMessages) an adaptive
 launcher icon with a monochrome layer and an adaptive round icon. All of it is generated from the app's pinned
 Phosphor glyph. The design and per-app table are in [t3.md, "Launcher icons"](t3.md#launcher-icons-adaptive--monochrome).
 

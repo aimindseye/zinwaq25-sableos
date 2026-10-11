@@ -271,10 +271,11 @@ report(
         "SableFrameworkOverlay": ("android", "true"),
         "SableGallery2Overlay": ("com.android.gallery3d", "true"),
         "SableGlimpseOverlay": ("org.lineageos.glimpse", "true"),
+        "SableSettingsProviderOverlay": ("com.android.providers.settings", "true"),
         "SableSetupWizardOverlay": ("org.lineageos.setupwizard", "true"),
         "SableSystemUIOverlay": ("com.android.systemui", "true"),
     },
-    "overlay manifests target framework, SystemUI, SetupWizard and the daily-driver apps as static overlays",
+    "overlay manifests target framework, SettingsProvider, SystemUI, SetupWizard and the daily-driver apps as static overlays",
     str(targets),
 )
 bp = (OVERLAY / "Android.bp").read_text(encoding="utf-8")
@@ -290,6 +291,20 @@ def resources(path: pathlib.Path) -> dict[tuple[str, str], ET.Element]:
         out[(el.tag, el.get("name"))] = el
     return out
 
+
+# LOCKSCREEN_SECURE_ENTRY_UX: LOCKED_NOTIFICATION_MODE=REDACTED_BY_DEFAULT. The resource
+# exists as a bool in LineageOS 23.2 packages/SettingsProvider/res/values/defaults.xml
+# (upstream true) and is read by DatabaseHelper.loadSecureSettings.
+sp_defaults = resources(OVERLAY / "SableSettingsProviderOverlay/res/values/defaults.xml")
+report(
+    list(sp_defaults) == [("bool", "def_lock_screen_allow_private_notifications")]
+    and (sp_defaults[("bool", "def_lock_screen_allow_private_notifications")].text or "").strip() == "false",
+    "SettingsProvider overlay hides lockscreen notification content by default",
+    str({k: (v.text or "").strip() for k, v in sp_defaults.items()}),
+)
+stage = (ROOT / "scripts/stage-product.sh").read_text(encoding="utf-8")
+missing_stage = [n for n in sorted(targets) if not re.search(rf"^    {n}( \\)?$", stage, re.M)]
+report(not missing_stage, "stage-product.sh installs every overlay (PRODUCT_PACKAGES)", str(missing_stage))
 
 sysui = resources(OVERLAY / "SableSystemUIOverlay/res/values/dimens.xml")
 want = {
