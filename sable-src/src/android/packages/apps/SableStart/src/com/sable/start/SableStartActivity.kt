@@ -217,6 +217,9 @@ class SableStartActivity : ComponentActivity() {
                     launcherAppsRepository.launch(entry)
                 },
                 onOpenSystemSettings = ::openSystemSettings,
+                onStartIntent = { intent ->
+                    runCatching { startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                },
                 onOpenAppInfo = { entry ->
                     launcherAppsRepository.openAppDetails(entry)
                 },

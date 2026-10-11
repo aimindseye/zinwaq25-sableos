@@ -1,9 +1,12 @@
 package org.sableos.start.ui
 
+import android.app.SearchManager
 import android.content.Context
+import android.content.Intent
 import android.content.pm.LauncherApps
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.net.Uri
 import android.os.SystemClock
 import android.util.LruCache
 import androidx.compose.foundation.Image
@@ -103,6 +106,9 @@ import org.sableos.start.live.LiveAvailability
 import org.sableos.start.live.LiveDatum
 import org.sableos.start.live.LiveSurfaceSnapshot
 import org.sableos.start.model.AppEntry
+import org.sableos.start.model.CommandQuery
+import org.sableos.start.model.CommandRanking
+import org.sableos.start.model.CommandScope
 import org.sableos.start.model.CoreAppIdentity
 import org.sableos.start.model.QuickBar
 import org.sableos.start.model.StartTypeToSearch
@@ -156,6 +162,8 @@ private data class SearchCommand(
     val title: String,
     val subtitle: String,
     val mark: String,
+    /** Where the result comes from, shown on the row ("Settings", "Contacts"). */
+    val source: String,
     val onClick: () -> Unit,
 )
 
@@ -205,6 +213,7 @@ fun SableStartScreen(
     onRefreshLive: () -> Unit,
     onOpenNotificationSettings: (AppEntry) -> Unit = onOpenAppInfo,
     onUninstallApp: (AppEntry) -> Unit = {},
+    onStartIntent: (Intent) -> Unit = {},
 ) {
     var destination by remember(initialScreen) {
         mutableStateOf(
@@ -213,6 +222,7 @@ fun SableStartScreen(
                 "apps" -> SableStartDestination.Apps
                 "search" -> SableStartDestination.Search
                 "appearance" -> SableStartDestination.Appearance
+                "quickbar" -> SableStartDestination.QuickBar
                 else -> SableStartDestination.Start
             },
         )
@@ -411,6 +421,7 @@ fun SableStartScreen(
                     SableStartDestination.Search ->
                         SearchScreen(
                             apps = apps,
+                            recentKeys = recentKeys,
                             initialQuery = searchSeed,
                             onBack = ::navigateBack,
                             onLaunchApp = ::launchApp,
@@ -426,7 +437,11 @@ fun SableStartScreen(
                             onLive = {
                                 destination = SableStartDestination.Live
                             },
+                            onEditQuickBar = {
+                                destination = SableStartDestination.QuickBar
+                            },
                             onOpenSettings = onOpenSystemSettings,
+                            onStartIntent = onStartIntent,
                         )
 
                     SableStartDestination.Live ->
@@ -563,6 +578,11 @@ private fun StartScreen(
                         )
                     if (index != null) {
                         onQuickSlot(quickSlots[index])
+                        return@onPreviewKeyEvent true
+                    }
+                    // Menu on Home opens the quick bar editor (home layout).
+                    if (native.keyCode == AllAppsKeyPolicy.KEYCODE_MENU) {
+                        onEditQuickBar()
                         return@onPreviewKeyEvent true
                     }
                     val seed =
@@ -1597,6 +1617,7 @@ private fun AppsScreen(
 @Composable
 private fun SearchScreen(
     apps: List<AppEntry>,
+    recentKeys: List<String>,
     initialQuery: String,
     onBack: () -> Unit,
     onLaunchApp: (AppEntry) -> Unit,
@@ -1604,31 +1625,40 @@ private fun SearchScreen(
     onAllApps: () -> Unit,
     onAppearance: () -> Unit,
     onLive: () -> Unit,
+    onEditQuickBar: () -> Unit,
     onOpenSettings: () -> Unit,
+    onStartIntent: (Intent) -> Unit,
 ) {
     // Seeded by type-to-launch; the cursor sits after the seed so typing continues.
     var query by remember(initialQuery) {
         mutableStateOf(TextFieldValue(initialQuery, TextRange(initialQuery.length)))
     }
-    val normalizedQuery = query.text.trim()
+    val parsed = CommandQuery.parse(query.text)
+    val term = parsed.term
     val locale = Locale.getDefault()
     val filteredApps =
-        remember(apps, normalizedQuery) {
-            if (normalizedQuery.isEmpty()) {
-                apps.take(6)
+        remember(apps, recentKeys, parsed) {
+            if (!parsed.includes(CommandScope.Apps)) {
+                emptyList()
             } else {
-                // Name matches first, then apps whose effective access matches
-                // privacy words ("camera", "mic", "location", ...).
+                // Recents first, label prefix before contains; then apps whose
+                // effective access matches privacy words ("camera", "mic", ...).
                 val byName =
-                    apps.filter { app ->
-                        app.label.contains(normalizedQuery, ignoreCase = true)
-                    }
+                    CommandRanking.apps(
+                        items = apps,
+                        label = { it.label },
+                        recentRank = { app -> recentKeys.indexOf(app.stableKey()).takeIf { it >= 0 } },
+                        term = term,
+                    )
                 val byPrivacy =
-                    apps.filter { app ->
-                        app !in byName &&
-                            PrivacySummaryPolicy.matchesPrivacyQuery(app.privacy, normalizedQuery)
+                    if (term.isEmpty()) {
+                        emptyList()
+                    } else {
+                        apps.filter { app ->
+                            app !in byName && PrivacySummaryPolicy.matchesPrivacyQuery(app.privacy, term)
+                        }
                     }
-                (byName + byPrivacy).take(12)
+                (byName + byPrivacy).take(if (term.isEmpty()) 6 else 12)
             }
         }
 
@@ -1638,33 +1668,120 @@ private fun SearchScreen(
                 title = "All apps",
                 subtitle = "Alphabetical launcher list",
                 mark = "A",
+                source = "Start",
                 onClick = onAllApps,
+            ),
+            SearchCommand(
+                title = "Edit quick bar",
+                subtitle = "Reorder or change the Home slots",
+                mark = "▭",
+                source = "Start",
+                onClick = onEditQuickBar,
             ),
             SearchCommand(
                 title = "Appearance",
                 subtitle = "Theme and Sable accent",
                 mark = "◐",
+                source = "Start",
                 onClick = onAppearance,
             ),
             SearchCommand(
                 title = "Local context",
                 subtitle = "Calendar, photos and local media state",
                 mark = "◫",
+                source = "Start",
                 onClick = onLive,
             ),
             SearchCommand(
                 title = "System Settings",
                 subtitle = "Open Android settings",
                 mark = "⚙",
+                source = "Settings",
                 onClick = onOpenSettings,
             ),
         )
     val filteredCommands =
-        commands.filter { command ->
-            normalizedQuery.isEmpty() ||
-                command.title.lowercase(locale).contains(normalizedQuery.lowercase(locale)) ||
-                command.subtitle.lowercase(locale).contains(normalizedQuery.lowercase(locale))
+        if (!parsed.includes(CommandScope.Actions)) {
+            emptyList()
+        } else {
+            commands.filter { command ->
+                term.isEmpty() ||
+                    command.title.lowercase(locale).contains(term.lowercase(locale)) ||
+                    command.subtitle.lowercase(locale).contains(term.lowercase(locale))
+            }
         }
+    val settingsResults =
+        if (!parsed.includes(CommandScope.Settings)) {
+            emptyList()
+        } else {
+            CommandRanking.settings(term, limit = if (parsed.scope == CommandScope.Settings) 12 else 4).map { dest ->
+                SearchCommand(
+                    title = dest.title,
+                    subtitle = "Open ${dest.title} settings",
+                    mark = "⚙",
+                    source = "Settings",
+                    onClick = { onStartIntent(Intent(dest.action)) },
+                )
+            }
+        }
+    // People: dial a typed number, or hand the name to Contacts' own search
+    // (Start holds no contacts permission and keeps no copy).
+    val peopleResults =
+        buildList {
+            if (term.isEmpty() || !parsed.includes(CommandScope.People)) return@buildList
+            CommandQuery.dialable(term)?.let { number ->
+                add(
+                    SearchCommand(
+                        title = "Call $number",
+                        subtitle = "Opens the dialer with the number",
+                        mark = "☎",
+                        source = "Phone",
+                        onClick = { onStartIntent(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number"))) },
+                    ),
+                )
+            }
+            if (parsed.scope == CommandScope.People || term.length >= 2) {
+                add(
+                    SearchCommand(
+                        title = "Find “$term” in Contacts",
+                        subtitle = "Search people by name, number or email",
+                        mark = "@",
+                        source = "Contacts",
+                        onClick = {
+                            onStartIntent(
+                                Intent(Intent.ACTION_SEARCH)
+                                    .setPackage("com.android.contacts")
+                                    .putExtra(SearchManager.QUERY, term),
+                            )
+                        },
+                    ),
+                )
+            }
+        }
+    val hubResults =
+        if (!parsed.includes(CommandScope.Hub) || (term.isEmpty() && parsed.scope != CommandScope.Hub)) {
+            emptyList()
+        } else {
+            listOf(
+                SearchCommand(
+                    title = if (term.isEmpty()) "Open Hub" else "Search Hub for “$term”",
+                    subtitle = "Messages, calls and notifications",
+                    mark = "◉",
+                    source = "Hub",
+                    onClick = {
+                        onStartIntent(
+                            Intent(Intent.ACTION_MAIN)
+                                .setPackage(HUB_PACKAGE)
+                                .addCategory(Intent.CATEGORY_LAUNCHER)
+                                .putExtra(HUB_EXTRA_QUERY, term),
+                        )
+                    },
+                ),
+            )
+        }
+    val topCommand =
+        (filteredCommands.takeIf { term.isNotEmpty() }.orEmpty() + settingsResults + peopleResults + hubResults)
+            .firstOrNull()
 
     Column(
         modifier =
@@ -1681,10 +1798,10 @@ private fun SearchScreen(
         SableSearchField(
             value = query,
             onValueChange = { query = it },
-            // Enter opens the top result: first app, else first command.
+            // Enter opens the top result: first app, else the first other result.
             onSubmit = {
                 filteredApps.firstOrNull()?.let(onLaunchApp)
-                    ?: filteredCommands.firstOrNull()?.onClick?.invoke()
+                    ?: topCommand?.onClick?.invoke()
             },
         )
 
@@ -1694,27 +1811,9 @@ private fun SearchScreen(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 24.dp),
         ) {
-            if (filteredCommands.isNotEmpty()) {
-                item {
-                    SectionLabel(
-                        if (normalizedQuery.isEmpty()) {
-                            "quick actions"
-                        } else {
-                            "commands"
-                        },
-                    )
-                }
-                items(filteredCommands) { command ->
-                    SearchCommandRow(command)
-                }
-                item {
-                    Spacer(Modifier.height(12.dp))
-                }
-            }
-
             if (filteredApps.isNotEmpty()) {
                 item {
-                    SectionLabel("apps")
+                    SectionLabel(if (term.isEmpty()) "recent + apps" else "apps")
                 }
                 items(
                     items = filteredApps,
@@ -1726,9 +1825,27 @@ private fun SearchScreen(
                         onContext = { onOpenPeek(app) },
                     )
                 }
-            } else if (filteredCommands.isEmpty()) {
                 item {
-                    EmptyState("No local results match “$normalizedQuery”.")
+                    Spacer(Modifier.height(12.dp))
+                }
+            }
+            listOf(
+                "people" to peopleResults,
+                "settings" to settingsResults,
+                "hub" to hubResults,
+                (if (term.isEmpty()) "quick actions" else "actions") to filteredCommands,
+            ).forEach { (label, rows) ->
+                if (rows.isNotEmpty()) {
+                    item { SectionLabel(label) }
+                    items(rows) { command -> SearchCommandRow(command) }
+                    item { Spacer(Modifier.height(12.dp)) }
+                }
+            }
+            if (filteredApps.isEmpty() && filteredCommands.isEmpty() && settingsResults.isEmpty() &&
+                peopleResults.isEmpty() && hubResults.isEmpty()
+            ) {
+                item {
+                    EmptyState("No local results match “$term”. Prefixes: ?app @person /settings /hub !action")
                 }
             }
         }
@@ -1837,18 +1954,28 @@ private fun SearchCommandRow(
             color = MaterialTheme.colorScheme.primary,
         )
         Spacer(Modifier.width(8.dp))
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = command.title,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = command.subtitle,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
+        Text(
+            text = command.source,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 8.dp),
+        )
     }
 }
 
@@ -3212,6 +3339,8 @@ private val StatusRingsInlineMinWidth = 500.dp
 private const val MAX_FAVORITES_ON_START = 4
 private const val MAX_SESSION_RECENTS = 8
 private const val KEYCODE_DEL = 67
+private const val HUB_PACKAGE = "org.sableos.hub"
+private const val HUB_EXTRA_QUERY = "org.sableos.hub.extra.QUERY"
 private const val LAUNCHER_ICON_CACHE_ENTRIES = 160
 private const val FOCUS_SURFACE_ALL_APPS = "all-apps"
 private val PrivacyBadgeWidth = 18.dp
