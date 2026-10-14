@@ -67,6 +67,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.NavGraphBuilder
+import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -142,15 +144,6 @@ class MainActivity : AppCompatActivity() {
         return null
     }
 
-    private fun BookshelfUiState.findBookByUri(uri: String): BookEntity? {
-        if (heroBook?.localUri == uri) return heroBook
-        for (list in groupedLibrary.values) {
-            val found = list.find { it.localUri == uri }
-            if (found != null) return found
-        }
-        return null
-    }
-
     private fun BookshelfUiState.findBookByTitle(title: String): BookEntity? {
         val cleanTitle = title.trim()
         if (heroBook?.title?.trim().equals(cleanTitle, ignoreCase = true)) return heroBook
@@ -174,188 +167,215 @@ class MainActivity : AppCompatActivity() {
             processExternalIntent(intent)
         }
 
-        setContent {
-            val navController = rememberNavController()
+        setContent { ReaderApp() }
+    }
 
-            // Read from the ultra-lightweight RootViewModel
-            val currentTheme by rootViewModel.appThemeMode.collectAsState()
-            val einkContrast by rootViewModel.einkContrastVal.collectAsState()
-            val hasCompletedOnboarding by rootViewModel.hasCompletedOnboarding.collectAsState(initial = false)
-            val isMultiUser by rootViewModel.isMultiUserMode.collectAsState(initial = false)
-            val activeVaultId by rootViewModel.activeVaultId.collectAsState(initial = VaultRepository.DEFAULT_VAULT_ID)
+    @Composable
+    private fun ReaderApp() {
+        val navController = rememberNavController()
 
-            val isEink = currentTheme == ThemeMode.E_INK
+        // Read from the ultra-lightweight RootViewModel
+        val currentTheme by rootViewModel.appThemeMode.collectAsState()
+        val einkContrast by rootViewModel.einkContrastVal.collectAsState()
+        val hasCompletedOnboarding by rootViewModel.hasCompletedOnboarding.collectAsState(initial = false)
+        val isMultiUser by rootViewModel.isMultiUserMode.collectAsState(initial = false)
+        val activeVaultId by rootViewModel.activeVaultId.collectAsState(initial = VaultRepository.DEFAULT_VAULT_ID)
 
-            val startDestination = remember(hasCompletedOnboarding, isMultiUser, activeVaultId) {
-                if (!hasCompletedOnboarding) "profile_picker"
-                else if (isMultiUser && activeVaultId == VaultRepository.DEFAULT_VAULT_ID) "profile_picker"
-                else Screen.Library.route
-            }
+        val isEink = currentTheme == ThemeMode.E_INK
 
-            CompositionLocalProvider(
-                LocalIndication provides if (isEink) NoIndication else LocalIndication.current,
-                LocalReaderKeyDispatcher provides readerKeyDispatcher,
-                LocalEditableFocus provides editableFocus
+        val startDestination = remember(hasCompletedOnboarding, isMultiUser, activeVaultId) {
+            startDestinationFor(hasCompletedOnboarding, isMultiUser, activeVaultId)
+        }
+
+        CompositionLocalProvider(
+            LocalIndication provides if (isEink) NoIndication else LocalIndication.current,
+            LocalReaderKeyDispatcher provides readerKeyDispatcher,
+            LocalEditableFocus provides editableFocus
+        ) {
+            // Maestro's `id:` selector maps to Android resource-id, so this must wrap
+            // the full Compose hierarchy to surface all test tags from screens and overlays.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .semantics { testTagsAsResourceId = true }
             ) {
-                // Maestro's `id:` selector maps to Android resource-id, so this must wrap
-                // the full Compose hierarchy to surface all test tags from screens and overlays.
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .semantics { testTagsAsResourceId = true }
-                ) {
-                    ProductReaderTheme(themeMode = currentTheme, contrast = einkContrast) {
-                        Scaffold(
-                            containerColor = if (isEink) Color.White else MaterialTheme.colorScheme.background
-                        ) { padding ->
-                            Surface(
-                                modifier = Modifier.padding(padding).fillMaxSize(),
-                                color = if (isEink) Color.White else MaterialTheme.colorScheme.background
+                ProductReaderTheme(themeMode = currentTheme, contrast = einkContrast) {
+                    val background = if (isEink) Color.White else MaterialTheme.colorScheme.background
+                    Scaffold(containerColor = background) { padding ->
+                        Surface(
+                            modifier = Modifier.padding(padding).fillMaxSize(),
+                            color = background
+                        ) {
+                            NavHost(
+                                navController = navController,
+                                startDestination = startDestination
                             ) {
-                                NavHost(
-                                    navController = navController,
-                                    startDestination = startDestination
-                                ) {
-                                composable("welcome") {
-                                    val settingsViewModel: SettingsViewModel = hiltViewModel()
-                                    WelcomeScreen(
-                                        onComplete = { multi ->
-                                            settingsViewModel.completeOnboarding(multi)
-                                            val nextScreen = if (multi) "profile_picker" else Screen.Library.route
-                                            navController.navigate(nextScreen) {
-                                                popUpTo("welcome") { inclusive = true }
-                                            }
-                                        }
-                                    )
-                                }
-
-                                composable("profile_picker") {
-                                    // INJECT THE VIEWMODEL HERE
-                                    val profileViewModel: org.vaachak.reader.leisure.ui.settings.ProfileViewModel = hiltViewModel()
-
-                                    ProfilePickerScreen(
-                                        isEink = isEink,
-                                        viewModel = profileViewModel,
-                                        onProfileSelected = {
-                                            navController.navigate(Screen.Library.route) {
-                                                popUpTo("profile_picker") { inclusive = true }
-                                            }
-                                        }
-                                    )
-                                }
-
-                                composable(Screen.Library.route) {
-                                    MainAppScreen(
-                                        navController = navController,
-                                        bookshelfViewModel = bookshelfViewModel,
-                                        isEink = isEink,
-                                        isMultiUser = isMultiUser, // <-- 1. PASS IT DOWN HERE
-                                        onBookClick = { bookHash ->
-                                            val book = bookshelfViewModel.uiState.value.findBookByHash(bookHash)
-                                            if (book != null) {
-                                                when (book.kind) {
-                                                    PublicationKind.PDF.stableValue ->
-                                                        navController.navigate(Screen.PdfReader.createRoute(book.bookHash))
-                                                    PublicationKind.COMIC.stableValue ->
-                                                        navController.navigate(Screen.ComicReader.createRoute(book.bookHash))
-                                                    PublicationKind.AUDIOBOOK.stableValue ->
-                                                        navController.navigate(Screen.AudiobookReader.createRoute(book.bookHash))
-                                                    else ->
-                                                        navController.navigate(Screen.Reader.createRoute(book.bookHash, book.lastCfiLocation))
-                                                }
-                                            }
-                                        },
-                                        onHighlightsClick = { navController.navigate(Screen.Highlights.route) },
-                                        onSwitchProfileClick = {
-                                            navController.navigate("profile_picker")
-                                        }
-                                    )
-                                }
-                                composable(
-                                    route = Screen.Reader.route,
-                                    arguments = listOf(
-                                        navArgument("bookId") { type = NavType.StringType },
-                                        navArgument("locator") { type = NavType.StringType; nullable = true }
-                                    )
-                                ) { backStackEntry ->
-                                    val bookHash = backStackEntry.arguments?.getString("bookId") ?: ""
-                                    val locatorJson = backStackEntry.arguments?.getString("locator")
-
-                                    val book by remember(bookHash) {
-                                        bookshelfViewModel.uiState.map { it.findBookByHash(bookHash) }.distinctUntilChanged()
-                                    }.collectAsState(initial = null)
-
-                                    if (book != null) {
-                                        ReaderScreen(
-                                            bookHash = bookHash,
-                                            initialUri = book?.localUri,
-                                            initialLocatorJson = locatorJson,
-                                            onBack = {
-                                                isTtsActive = false
-                                                navController.popBackStack()
-                                            },
-                                            onTtsStatusChange = { active -> isTtsActive = active }
-                                        )
-                                    } else {
-                                        Box(Modifier.fillMaxSize()) { Text("Loading Book...", Modifier.align(Alignment.Center)) }
-                                        LaunchedEffect(Unit) {
-                                            delay(1000)
-                                            if (bookshelfViewModel.uiState.value.findBookByHash(bookHash) == null) {
-                                                navController.popBackStack()
-                                            }
-                                        }
-                                    }
-                                }
-
-                                composable(
-                                    route = Screen.PdfReader.route,
-                                    arguments = listOf(navArgument("bookId") { type = NavType.StringType })
-                                ) { backStackEntry ->
-                                    PdfReaderScreen(
-                                        bookHash = backStackEntry.arguments?.getString("bookId") ?: "",
-                                        onBack = { navController.popBackStack() }
-                                    )
-                                }
-
-                                composable(
-                                    route = Screen.ComicReader.route,
-                                    arguments = listOf(navArgument("bookId") { type = NavType.StringType })
-                                ) { backStackEntry ->
-                                    ComicReaderScreen(
-                                        bookHash = backStackEntry.arguments?.getString("bookId") ?: "",
-                                        onBack = { navController.popBackStack() }
-                                    )
-                                }
-
-                                composable(
-                                    route = Screen.AudiobookReader.route,
-                                    arguments = listOf(navArgument("bookId") { type = NavType.StringType })
-                                ) { backStackEntry ->
-                                    AudiobookReaderScreen(
-                                        bookHash = backStackEntry.arguments?.getString("bookId") ?: "",
-                                        onBack = { navController.popBackStack() }
-                                    )
-                                }
-
-                                composable(Screen.Backup.route) { BackupScreen(onBack = { navController.popBackStack() }) }
-
-                                composable(Screen.Highlights.route) { AllHighlightsScreen(onBack = { navController.popBackStack() }, onHighlightClick = { bookId, locator -> navController.navigate(Screen.Reader.createRoute(bookId, locator)) }) }
-                                composable(Screen.Settings.route) { SettingsScreen(navController = navController) }
-                                composable(Screen.ReaderProfiles.route) { ReaderProfilesScreen(navController = navController) }
-                                composable(Screen.About.route) { AboutScreen(onBack = { navController.popBackStack() }) }
-                                composable(Screen.Appearance.route) { DefaultAppearanceScreen(onBack = { navController.popBackStack() }) }
-                                composable(Screen.TTS.route) { TtsSettingsScreen(onBack = { navController.popBackStack() }) }
-                                composable(Screen.AppAppearance.route) { AppAppearanceScreen(onBack = { navController.popBackStack() }) }
-                                composable(Screen.Dictionary.route) { DictionarySettingsScreen(onBack = { navController.popBackStack() }) }
-                                composable(Screen.Bookshelf.route) { LibrarySettingsScreen(navController = navController) }
-                                }
+                                onboardingDestinations(navController, isEink)
+                                libraryDestination(navController, isEink, isMultiUser)
+                                readerDestinations(navController)
+                                settingsDestinations(navController)
                             }
                         }
                     }
                 }
             }
         }
-    } // <--- THIS WAS THE MISSING BRACE!
+    }
+
+    private fun startDestinationFor(hasCompletedOnboarding: Boolean, isMultiUser: Boolean, activeVaultId: String): String =
+        when {
+            !hasCompletedOnboarding -> PROFILE_PICKER_ROUTE
+            isMultiUser && activeVaultId == VaultRepository.DEFAULT_VAULT_ID -> PROFILE_PICKER_ROUTE
+            else -> Screen.Library.route
+        }
+
+    private fun NavGraphBuilder.onboardingDestinations(navController: NavHostController, isEink: Boolean) {
+        composable(WELCOME_ROUTE) {
+            val settingsViewModel: SettingsViewModel = hiltViewModel()
+            WelcomeScreen(
+                onComplete = { multi ->
+                    settingsViewModel.completeOnboarding(multi)
+                    val nextScreen = if (multi) PROFILE_PICKER_ROUTE else Screen.Library.route
+                    navController.navigate(nextScreen) {
+                        popUpTo(WELCOME_ROUTE) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(PROFILE_PICKER_ROUTE) {
+            val profileViewModel: org.vaachak.reader.leisure.ui.settings.ProfileViewModel = hiltViewModel()
+
+            ProfilePickerScreen(
+                isEink = isEink,
+                viewModel = profileViewModel,
+                onProfileSelected = {
+                    navController.navigate(Screen.Library.route) {
+                        popUpTo(PROFILE_PICKER_ROUTE) { inclusive = true }
+                    }
+                }
+            )
+        }
+    }
+
+    private fun NavGraphBuilder.libraryDestination(navController: NavHostController, isEink: Boolean, isMultiUser: Boolean) {
+        composable(Screen.Library.route) {
+            MainAppScreen(
+                navController = navController,
+                bookshelfViewModel = bookshelfViewModel,
+                isEink = isEink,
+                isMultiUser = isMultiUser,
+                onBookClick = { bookHash -> openBook(navController, bookHash) },
+                onHighlightsClick = { navController.navigate(Screen.Highlights.route) },
+                onSwitchProfileClick = { navController.navigate(PROFILE_PICKER_ROUTE) }
+            )
+        }
+    }
+
+    /** Opens a library item in the reader that matches its publication kind. */
+    private fun openBook(navController: NavHostController, bookHash: String) {
+        val book = bookshelfViewModel.uiState.value.findBookByHash(bookHash) ?: return
+        val route = when (book.kind) {
+            PublicationKind.PDF.stableValue -> Screen.PdfReader.createRoute(book.bookHash)
+            PublicationKind.COMIC.stableValue -> Screen.ComicReader.createRoute(book.bookHash)
+            PublicationKind.AUDIOBOOK.stableValue -> Screen.AudiobookReader.createRoute(book.bookHash)
+            else -> Screen.Reader.createRoute(book.bookHash, book.lastCfiLocation)
+        }
+        navController.navigate(route)
+    }
+
+    private fun NavGraphBuilder.readerDestinations(navController: NavHostController) {
+        composable(
+            route = Screen.Reader.route,
+            arguments = listOf(
+                navArgument(BOOK_ID_ARG) { type = NavType.StringType },
+                navArgument("locator") { type = NavType.StringType; nullable = true }
+            )
+        ) { backStackEntry ->
+            EpubReaderRoute(
+                navController = navController,
+                bookHash = backStackEntry.arguments?.getString(BOOK_ID_ARG).orEmpty(),
+                locatorJson = backStackEntry.arguments?.getString("locator")
+            )
+        }
+
+        composable(
+            route = Screen.PdfReader.route,
+            arguments = listOf(navArgument(BOOK_ID_ARG) { type = NavType.StringType })
+        ) { backStackEntry ->
+            PdfReaderScreen(
+                bookHash = backStackEntry.arguments?.getString(BOOK_ID_ARG).orEmpty(),
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.ComicReader.route,
+            arguments = listOf(navArgument(BOOK_ID_ARG) { type = NavType.StringType })
+        ) { backStackEntry ->
+            ComicReaderScreen(
+                bookHash = backStackEntry.arguments?.getString(BOOK_ID_ARG).orEmpty(),
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.AudiobookReader.route,
+            arguments = listOf(navArgument(BOOK_ID_ARG) { type = NavType.StringType })
+        ) { backStackEntry ->
+            AudiobookReaderScreen(
+                bookHash = backStackEntry.arguments?.getString(BOOK_ID_ARG).orEmpty(),
+                onBack = { navController.popBackStack() }
+            )
+        }
+    }
+
+    @Composable
+    private fun EpubReaderRoute(navController: NavHostController, bookHash: String, locatorJson: String?) {
+        val book by remember(bookHash) {
+            bookshelfViewModel.uiState.map { it.findBookByHash(bookHash) }.distinctUntilChanged()
+        }.collectAsState(initial = null)
+
+        val loaded = book
+        if (loaded != null) {
+            ReaderScreen(
+                initialUri = loaded.localUri,
+                initialLocatorJson = locatorJson,
+                onBack = {
+                    isTtsActive = false
+                    navController.popBackStack()
+                },
+                onTtsStatusChange = { active -> isTtsActive = active }
+            )
+        } else {
+            Box(Modifier.fillMaxSize()) { Text("Loading Book...", Modifier.align(Alignment.Center)) }
+            LaunchedEffect(Unit) {
+                delay(1000)
+                if (bookshelfViewModel.uiState.value.findBookByHash(bookHash) == null) {
+                    navController.popBackStack()
+                }
+            }
+        }
+    }
+
+    private fun NavGraphBuilder.settingsDestinations(navController: NavHostController) {
+        val back: () -> Unit = { navController.popBackStack() }
+        composable(Screen.Backup.route) { BackupScreen(onBack = back) }
+        composable(Screen.Highlights.route) {
+            AllHighlightsScreen(
+                onBack = back,
+                onHighlightClick = { bookId, locator -> navController.navigate(Screen.Reader.createRoute(bookId, locator)) }
+            )
+        }
+        composable(Screen.Settings.route) { SettingsScreen(navController = navController) }
+        composable(Screen.ReaderProfiles.route) { ReaderProfilesScreen(navController = navController) }
+        composable(Screen.About.route) { AboutScreen(onBack = back) }
+        composable(Screen.Appearance.route) { DefaultAppearanceScreen(onBack = back) }
+        composable(Screen.TTS.route) { TtsSettingsScreen(onBack = back) }
+        composable(Screen.AppAppearance.route) { AppAppearanceScreen(onBack = back) }
+        composable(Screen.Dictionary.route) { DictionarySettingsScreen(onBack = back) }
+        composable(Screen.Bookshelf.route) { LibrarySettingsScreen(navController = navController) }
+    }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -364,58 +384,62 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun processExternalIntent(intent: Intent?) {
-        if (intent?.action == Intent.ACTION_VIEW && intent.data != null) {
-            val contentUri = intent.data!!
+        val contentUri = intent?.data
+        if (intent?.action != Intent.ACTION_VIEW || contentUri == null) return
+        val mimeType = intent.type
 
-            lifecycleScope.launch {
-                try {
-                    Toast.makeText(this@MainActivity, "Importing book...", Toast.LENGTH_SHORT).show()
-                    val kind = PublicationTypes.detect(
-                        intent.type ?: contentResolver.getType(contentUri),
-                        contentUri.lastPathSegment
-                    )
-                    if (kind == PublicationKind.COMIC) {
-                        // The comic importer streams the content URI into its own private copy; no second copy here.
-                        bookshelfViewModel.importBook(contentUri)
-                        return@launch
-                    }
-                    val extension = if (kind == PublicationKind.PDF) "pdf" else "epub"
-                    val localFile = withContext(Dispatchers.IO) { copyToExternalStorage(contentUri, extension) }
-
-                    if (localFile != null && localFile.exists() && localFile.length() > 0) {
-                        // PDFs are de-duplicated by content hash during import; EPUBs also by title.
-                        val tempTitle = if (kind == PublicationKind.PDF) {
-                            ""
-                        } else {
-                            withContext(Dispatchers.IO) { getEpubTitle(localFile) } ?: ""
-                        }
-                        waitForDatabaseToLoad()
-
-                        val existingBook = if (kind == PublicationKind.PDF) {
-                            null
-                        } else {
-                            bookshelfViewModel.uiState.value.findBookByTitle(tempTitle)
-                        }
-
-                        if (existingBook != null) {
-                            Timber.d("Duplicate found: '${existingBook.title}'")
-                            withContext(Dispatchers.IO) { localFile.delete() }
-                            Toast.makeText(this@MainActivity, "Book already exists", Toast.LENGTH_SHORT).show()
-                        } else {
-                            Timber.d("Importing New Book")
-                            val localUri = Uri.fromFile(localFile)
-                            bookshelfViewModel.importBook(localUri)
-                            Toast.makeText(this@MainActivity, "Import Successful", Toast.LENGTH_SHORT).show()
-                        }
-                    } else {
-                        Toast.makeText(this@MainActivity, "Failed to load file", Toast.LENGTH_SHORT).show()
-                    }
-                } catch (e: Exception) {
-                    Timber.e(e, "Error opening book")
-                    Toast.makeText(this@MainActivity, "Error opening book", Toast.LENGTH_SHORT).show()
-                }
+        lifecycleScope.launch {
+            try {
+                Toast.makeText(this@MainActivity, "Importing book...", Toast.LENGTH_SHORT).show()
+                importExternal(contentUri, mimeType)
+            } catch (e: Exception) {
+                Timber.e(e, "Error opening book")
+                toast("Error opening book")
             }
         }
+    }
+
+    private suspend fun importExternal(contentUri: Uri, mimeType: String?) {
+        val kind = PublicationTypes.detect(mimeType ?: contentResolver.getType(contentUri), contentUri.lastPathSegment)
+        if (kind == PublicationKind.COMIC) {
+            // The comic importer streams the content URI into its own private copy; no second copy here.
+            bookshelfViewModel.importBook(contentUri)
+            return
+        }
+        val extension = if (kind == PublicationKind.PDF) "pdf" else "epub"
+        val localFile = withContext(Dispatchers.IO) { copyToExternalStorage(contentUri, extension) }
+        if (localFile != null && localFile.exists() && localFile.length() > 0) {
+            importCopiedFile(localFile, isPdf = kind == PublicationKind.PDF)
+        } else {
+            toast("Failed to load file")
+        }
+    }
+
+    /** PDFs are de-duplicated by content hash during import; EPUBs also by title, checked here. */
+    private suspend fun importCopiedFile(localFile: File, isPdf: Boolean) {
+        val existingBook = if (isPdf) {
+            waitForDatabaseToLoad()
+            null
+        } else {
+            val tempTitle = withContext(Dispatchers.IO) { getEpubTitle(localFile) }.orEmpty()
+            waitForDatabaseToLoad()
+            bookshelfViewModel.uiState.value.findBookByTitle(tempTitle)
+        }
+
+        if (existingBook != null) {
+            Timber.d("Duplicate found: '${existingBook.title}'")
+            val deleted = withContext(Dispatchers.IO) { localFile.delete() }
+            if (!deleted) Timber.w("Could not delete the duplicate copy %s", localFile.name)
+            toast("Book already exists")
+        } else {
+            Timber.d("Importing New Book")
+            bookshelfViewModel.importBook(Uri.fromFile(localFile))
+            toast("Import Successful")
+        }
+    }
+
+    private fun toast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
     private suspend fun waitForDatabaseToLoad() {
@@ -465,10 +489,16 @@ class MainActivity : AppCompatActivity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean =
         readerKeyDispatcher.dispatch(event) || super.dispatchKeyEvent(event)
 
+    private companion object {
+        const val WELCOME_ROUTE = "welcome"
+        const val PROFILE_PICKER_ROUTE = "profile_picker"
+        const val BOOK_ID_ARG = "bookId"
+    }
+
     private object NoIndication : IndicationNodeFactory {
         override fun create(interactionSource: InteractionSource): DelegatableNode { return object : Modifier.Node(), DelegatableNode {} }
         override fun hashCode(): Int = -1
-        override fun equals(other: Any?): Boolean = other === this
+        override fun equals(other: Any?): Boolean = other is NoIndication
     }
 }
 

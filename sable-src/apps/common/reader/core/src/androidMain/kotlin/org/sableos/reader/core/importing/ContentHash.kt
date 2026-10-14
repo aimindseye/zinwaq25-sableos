@@ -8,6 +8,8 @@ object ContentHash {
     private const val BUFFER_SIZE = 8192
     private const val HEX_BYTE_FORMAT = "%02x"
 
+    // MD5 is the persisted library identity (book hash, backups, relink), not a security control.
+    @Suppress("kotlin:S4790")
     fun md5(stream: InputStream): String {
         val buffer = ByteArray(BUFFER_SIZE)
         val digest = MessageDigest.getInstance("MD5")

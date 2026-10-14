@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -101,24 +102,33 @@ sealed class ShelfEntry {
     data class Stack(val name: String, val books: List<BookEntity>) : ShelfEntry()
 }
 
+private const val MIME_EPUB = "application/epub+zip"
+private const val MIME_PDF = "application/pdf"
+private const val MIME_COMIC = "application/vnd.comicbook+zip"
+private const val MIME_CBZ = "application/x-cbz"
+private const val MIME_ZIP = "application/zip"
+private const val MIME_OCTET_STREAM = "application/octet-stream"
+private const val MIME_AUDIO = "audio/*"
+private const val FOLDER_FORMAT = "inode/directory"
+
 // Picker types for choosing the file of a restored ("needs file") title again.
 private fun relinkMimeTypes(kind: String): Array<String> = when (kind) {
-    "PDF" -> arrayOf("application/pdf")
-    "COMIC" -> arrayOf("application/vnd.comicbook+zip", "application/x-cbz", "application/zip", "application/octet-stream")
-    "AUDIOBOOK" -> arrayOf("audio/*", "application/octet-stream")
-    else -> arrayOf("application/epub+zip")
+    "PDF" -> arrayOf(MIME_PDF)
+    "COMIC" -> arrayOf(MIME_COMIC, MIME_CBZ, MIME_ZIP, MIME_OCTET_STREAM)
+    "AUDIOBOOK" -> arrayOf(MIME_AUDIO, MIME_OCTET_STREAM)
+    else -> arrayOf(MIME_EPUB)
 }
 
 // EPUB, PDF, comic archives and audio files. Some providers report a .cbz as a generic zip or binary, so those are offered too
 // and the importer decides by file name; anything it does not recognise is refused with a message.
 private val ADD_BOOK_MIME_TYPES = arrayOf(
-    "application/epub+zip",
-    "application/pdf",
-    "application/vnd.comicbook+zip",
-    "application/x-cbz",
-    "application/zip",
-    "application/octet-stream",
-    "audio/*",
+    MIME_EPUB,
+    MIME_PDF,
+    MIME_COMIC,
+    MIME_CBZ,
+    MIME_ZIP,
+    MIME_OCTET_STREAM,
+    MIME_AUDIO,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -182,187 +192,60 @@ fun BookshelfScreen(
     val containerColor = if (state.isEink) Color.White else MaterialTheme.colorScheme.background
     val contentColor = if (state.isEink) Color.Black else MaterialTheme.colorScheme.onBackground
 
-    val readingItems = state.groupedLibrary.values.flatten()
-        .filter { it.progress > 0f && it.progress < .99f }
-        .sortedByDescending { it.progress }
-        .map { ShelfEntry.Book(it) }
-
-    // Always present the physical library count. Smart Stacks collapsed many books into a handful
-    // of grouped entries, which made the library report fewer items than actually imported.
-    val shelfItems = remember(state.groupedLibrary) {
-        state.groupedLibrary.values
-            .flatten()
-            .distinctBy { it.bookHash }
-            .map { ShelfEntry.Book(it) }
-    }
-
     TidScreen(Tid.Screen.bookshelf) {
         Scaffold(
             containerColor = containerColor,
             snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
-                Column(modifier = Modifier.background(containerColor)) {
-                    Row(modifier = Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-
-                        IconButton(onClick = { selectedTab = 0; viewModel.closeStack() }) {
-                            Icon(if (selectedTab == 0) Icons.Filled.Schedule else Icons.Outlined.Schedule, "Reading", tint = contentColor)
-                        }
-                        IconButton(onClick = { selectedTab = 1 }) {
-                            Icon(if (selectedTab == 1) Icons.Filled.Folder else Icons.Outlined.Folder, "Bookshelf", tint = contentColor)
-                        }
-                        Spacer(Modifier.weight(1f))
-
-                        if (selectedTab != 0) {
-                            if (isSearchActive) {
-                                TextField(
-                                    value = state.searchQuery,
-                                    onValueChange = { viewModel.updateSearchQuery(it) },
-                                    modifier = Modifier.weight(1f).height(50.dp),
-                                    placeholder = { Text("Search...") },
-                                    singleLine = true,
-                                    trailingIcon = {
-                                        IconButton(onClick = { isSearchActive = false; viewModel.updateSearchQuery("") }) {
-                                            // --- MAESTRO FIX 2: Added contentDescription instead of null ---
-                                            Icon(Icons.Default.Close, "Clear search")
-                                        }
-                                    },
-                                    colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent)
-                                )
-                            } else {
-                                IconButton(onClick = { isSearchActive = true }, modifier = Modifier.tid(Tid.Library.SEARCH)) { Icon(Icons.Default.Search, "Search", tint = contentColor) }
-                                IconButton(onClick = onHighlightsClick, modifier = Modifier.tid(Tid.Library.HIGHLIGHTS)) { Icon(Icons.Default.EditNote, "Highlights", tint = contentColor) }
-                                var menuExpanded by remember { mutableStateOf(false) }
-                                Box {
-                                    IconButton(onClick = { menuExpanded = true }, modifier = Modifier.tid(Tid.Library.SORT)) { Icon(Icons.AutoMirrored.Filled.Sort, "Sort", tint = contentColor) }
-                                    DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                                        DropdownMenuItem(text = { Text("Sort by Progress") }, modifier = Modifier.tid(Tid.Library.SORT_PROGRESS), onClick = { viewModel.updateSortOrder(SortOrder.PROGRESS); menuExpanded = false })
-                                        DropdownMenuItem(text = { Text("Sort by Recent") }, modifier = Modifier.tid(Tid.Library.SORT_RECENT), onClick = { viewModel.updateSortOrder(SortOrder.DATE_ADDED); menuExpanded = false })
-                                        DropdownMenuItem(text = { Text("Sort by Title") }, modifier = Modifier.tid(Tid.Library.SORT_TITLE), onClick = { viewModel.updateSortOrder(SortOrder.TITLE); menuExpanded = false })
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    HorizontalDivider(color = contentColor.copy(alpha = 0.1f))
-                }
+                BookshelfTopBar(
+                    state = state,
+                    selectedTab = selectedTab,
+                    onSelectTab = { tab ->
+                        selectedTab = tab
+                        if (tab == READING_TAB) viewModel.closeStack()
+                    },
+                    isSearchActive = isSearchActive,
+                    onSearchActiveChange = { active ->
+                        isSearchActive = active
+                        if (!active) viewModel.updateSearchQuery("")
+                    },
+                    containerColor = containerColor,
+                    contentColor = contentColor,
+                    viewModel = viewModel,
+                    onHighlightsClick = onHighlightsClick
+                )
             },
             floatingActionButton = {
-                if (selectedTab == 1 && state.selectedStackName == null) {
-                    Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        SmallFloatingActionButton(
-                            onClick = { folderLauncher.launch(null) },
-                            modifier = Modifier.tid("library_add_folder"),
-                            containerColor = if (state.isEink) Color.Black else MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = if (state.isEink) Color.White else MaterialTheme.colorScheme.onSecondaryContainer
-                        ) { Icon(Icons.Default.Folder, "Add folder of comic pages or audio files") }
-                        FloatingActionButton(
-                            onClick = { launcher.launch(ADD_BOOK_MIME_TYPES) },
-                            modifier = Modifier.tid(Tid.Library.ADD),
-                            containerColor = if (state.isEink) Color.Black else MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = if (state.isEink) Color.White else MaterialTheme.colorScheme.onPrimaryContainer
-                        ) { Icon(Icons.Default.Add, "Add Book") }
-                    }
+                if (selectedTab == SHELF_TAB && state.selectedStackName == null) {
+                    BookshelfAddButtons(
+                        isEink = state.isEink,
+                        onAddFolder = { folderLauncher.launch(null) },
+                        onAddBook = { launcher.launch(ADD_BOOK_MIME_TYPES) }
+                    )
                 }
             }
         ) { paddingValues ->
-
-            BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
-                val cardWidth = 110.dp
-                val cardHeight = if (state.bookshelfPrefs.coverAspectRatio == CoverAspectRatio.UNIFORM) 180.dp else 200.dp
-                val columns = maxOf(3, (maxWidth.value / cardWidth.value).toInt())
-
-                if (selectedTab == 0) {
-                    ContinuousLibraryGrid(
-                        items = readingItems,
-                        columns = columns,
-                        state = state,
-                        contentColor = contentColor,
-                        viewModel = viewModel,
-                        onBookClick = handleBookClick,
-                        onDeleteBook = { bookToDelete = it },
-                        bottomBarTextLeft = "Recent Reading: ${readingItems.size}"
-                    )
-                } else {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        if (state.selectedStackName != null) {
-                            val stackBooks = state.groupedLibrary[state.selectedStackName]?.map { ShelfEntry.Book(it) } ?: emptyList()
-
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { viewModel.closeStack() }
-                                    // --- MAESTRO FIX 3: Semantics for Stack Back Button ---
-                                    .semantics(mergeDescendants = true) {
-                                        contentDescription = "Back to Bookshelf"
-                                    }
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = contentColor)
-                                Spacer(Modifier.width(16.dp))
-                                Column {
-                                    Text(state.selectedStackName ?: "", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = contentColor)
-                                    Text("${stackBooks.size} Books", style = MaterialTheme.typography.bodySmall, color = contentColor.copy(alpha = 0.6f))
-                                }
-                            }
-                            HorizontalDivider(color = contentColor.copy(alpha = 0.1f))
-
-                            ContinuousLibraryGrid(
-                                items = stackBooks,
-                                        columns = columns,
-                                state = state,
-                                contentColor = contentColor,
-                                viewModel = viewModel,
-                                onBookClick = handleBookClick,
-                                onDeleteBook = { bookToDelete = it },
-                                bottomBarTextLeft = "Books in series: ${stackBooks.size}"
-                            )
-                        } else {
-                            LazyRow(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                items(state.availableFilters) { filter ->
-                                    val isSelected = state.activeFilter == filter
-                                    Text(
-                                        text = filter,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (isSelected) contentColor else contentColor.copy(alpha = 0.5f),
-                                        modifier = Modifier.clickable { viewModel.setFilter(filter) }.padding(8.dp)
-                                    )
-                                }
-                            }
-
-                            ContinuousLibraryGrid(
-                                items = shelfItems,
-                                        columns = columns,
-                                state = state,
-                                contentColor = contentColor,
-                                viewModel = viewModel,
-                                onBookClick = handleBookClick,
-                                onDeleteBook = { bookToDelete = it },
-                                bottomBarTextLeft = "Total Library: ${shelfItems.size}"
-                            )
-                        }
-                    }
-                }
-            }
+            val shelf = ShelfCallbacks(
+                viewModel = viewModel,
+                onBookClick = handleBookClick,
+                onDeleteBook = { bookToDelete = it }
+            )
+            BookshelfContent(
+                state = state,
+                selectedTab = selectedTab,
+                contentColor = contentColor,
+                shelf = shelf,
+                modifier = Modifier.fillMaxSize().padding(paddingValues)
+            )
 
             relinkTarget?.takeIf { !relinkPicking }?.let { target ->
-                val isFolder = target.format == "inode/directory"
-                AlertDialog(
-                    onDismissRequest = { relinkTarget = null },
-                    title = { Text("Needs file") },
-                    text = {
-                        Text(
-                            "'${target.title}' was restored from a backup, which holds your place and notes but not the " +
-                                if (isFolder) "folder itself. Choose the same folder again to link it." else "file itself. Choose the same file again to link it."
-                        )
-                    },
-                    confirmButton = {
-                        TextButton(onClick = {
-                            relinkPicking = true
-                            if (isFolder) relinkFolderLauncher.launch(null) else relinkFileLauncher.launch(relinkMimeTypes(target.kind))
-                        }) { Text("Choose") }
-                    },
-                    dismissButton = { TextButton(onClick = { relinkTarget = null }) { Text("Cancel") } }
+                RelinkDialog(
+                    target = target,
+                    onDismiss = { relinkTarget = null },
+                    onChoose = { isFolder ->
+                        relinkPicking = true
+                        if (isFolder) relinkFolderLauncher.launch(null) else relinkFileLauncher.launch(relinkMimeTypes(target.kind))
+                    }
                 )
             }
 
@@ -378,6 +261,236 @@ fun BookshelfScreen(
             }
         }
     }
+}
+
+private const val READING_TAB = 0
+private const val SHELF_TAB = 1
+
+/** What every library grid needs to act on a tapped or deleted item. */
+private class ShelfCallbacks(
+    val viewModel: BookshelfViewModel,
+    val onBookClick: (String) -> Unit,
+    val onDeleteBook: (BookEntity) -> Unit,
+)
+
+@Composable
+private fun BookshelfTopBar(
+    state: BookshelfUiState,
+    selectedTab: Int,
+    onSelectTab: (Int) -> Unit,
+    isSearchActive: Boolean,
+    onSearchActiveChange: (Boolean) -> Unit,
+    containerColor: Color,
+    contentColor: Color,
+    viewModel: BookshelfViewModel,
+    onHighlightsClick: () -> Unit,
+) {
+    Column(modifier = Modifier.background(containerColor)) {
+        Row(modifier = Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+
+            IconButton(onClick = { onSelectTab(READING_TAB) }) {
+                Icon(if (selectedTab == READING_TAB) Icons.Filled.Schedule else Icons.Outlined.Schedule, "Reading", tint = contentColor)
+            }
+            IconButton(onClick = { onSelectTab(SHELF_TAB) }) {
+                Icon(if (selectedTab == SHELF_TAB) Icons.Filled.Folder else Icons.Outlined.Folder, "Bookshelf", tint = contentColor)
+            }
+            Spacer(Modifier.weight(1f))
+
+            if (selectedTab != READING_TAB && isSearchActive) {
+                TextField(
+                    value = state.searchQuery,
+                    onValueChange = { viewModel.updateSearchQuery(it) },
+                    modifier = Modifier.weight(1f).height(50.dp),
+                    placeholder = { Text("Search...") },
+                    singleLine = true,
+                    trailingIcon = {
+                        IconButton(onClick = { onSearchActiveChange(false) }) {
+                            // --- MAESTRO FIX 2: Added contentDescription instead of null ---
+                            Icon(Icons.Default.Close, "Clear search")
+                        }
+                    },
+                    colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent)
+                )
+            } else if (selectedTab != READING_TAB) {
+                IconButton(onClick = { onSearchActiveChange(true) }, modifier = Modifier.tid(Tid.Library.SEARCH)) { Icon(Icons.Default.Search, "Search", tint = contentColor) }
+                IconButton(onClick = onHighlightsClick, modifier = Modifier.tid(Tid.Library.HIGHLIGHTS)) { Icon(Icons.Default.EditNote, "Highlights", tint = contentColor) }
+                SortMenu(contentColor = contentColor, onSort = { viewModel.updateSortOrder(it) })
+            }
+        }
+        HorizontalDivider(color = contentColor.copy(alpha = 0.1f))
+    }
+}
+
+@Composable
+private fun SortMenu(contentColor: Color, onSort: (SortOrder) -> Unit) {
+    var menuExpanded by remember { mutableStateOf(false) }
+    val choose = { order: SortOrder ->
+        onSort(order)
+        menuExpanded = false
+    }
+    Box {
+        IconButton(onClick = { menuExpanded = true }, modifier = Modifier.tid(Tid.Library.SORT)) { Icon(Icons.AutoMirrored.Filled.Sort, "Sort", tint = contentColor) }
+        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+            DropdownMenuItem(text = { Text("Sort by Progress") }, modifier = Modifier.tid(Tid.Library.SORT_PROGRESS), onClick = { choose(SortOrder.PROGRESS) })
+            DropdownMenuItem(text = { Text("Sort by Recent") }, modifier = Modifier.tid(Tid.Library.SORT_RECENT), onClick = { choose(SortOrder.DATE_ADDED) })
+            DropdownMenuItem(text = { Text("Sort by Title") }, modifier = Modifier.tid(Tid.Library.SORT_TITLE), onClick = { choose(SortOrder.TITLE) })
+        }
+    }
+}
+
+@Composable
+private fun BookshelfAddButtons(isEink: Boolean, onAddFolder: () -> Unit, onAddBook: () -> Unit) {
+    Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SmallFloatingActionButton(
+            onClick = onAddFolder,
+            modifier = Modifier.tid("library_add_folder"),
+            containerColor = if (isEink) Color.Black else MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = if (isEink) Color.White else MaterialTheme.colorScheme.onSecondaryContainer
+        ) { Icon(Icons.Default.Folder, "Add folder of comic pages or audio files") }
+        FloatingActionButton(
+            onClick = onAddBook,
+            modifier = Modifier.tid(Tid.Library.ADD),
+            containerColor = if (isEink) Color.Black else MaterialTheme.colorScheme.primaryContainer,
+            contentColor = if (isEink) Color.White else MaterialTheme.colorScheme.onPrimaryContainer
+        ) { Icon(Icons.Default.Add, "Add Book") }
+    }
+}
+
+@Composable
+private fun BookshelfContent(
+    state: BookshelfUiState,
+    selectedTab: Int,
+    contentColor: Color,
+    shelf: ShelfCallbacks,
+    modifier: Modifier = Modifier,
+) {
+    BoxWithConstraints(modifier = modifier) {
+        val cardWidth = 110.dp
+        val columns = maxOf(3, (maxWidth.value / cardWidth.value).toInt())
+        val stackName = state.selectedStackName
+
+        when {
+            selectedTab == READING_TAB -> {
+                val readingItems = state.groupedLibrary.values.flatten()
+                    .filter { it.progress > 0f && it.progress < .99f }
+                    .sortedByDescending { it.progress }
+                    .map { ShelfEntry.Book(it) }
+                ContinuousLibraryGrid(
+                    items = readingItems,
+                    columns = columns,
+                    state = state,
+                    contentColor = contentColor,
+                    viewModel = shelf.viewModel,
+                    onBookClick = shelf.onBookClick,
+                    onDeleteBook = shelf.onDeleteBook,
+                    bottomBarTextLeft = "Recent Reading: ${readingItems.size}"
+                )
+            }
+            stackName != null -> StackContent(stackName, state, columns, contentColor, shelf)
+            else -> ShelfContent(state, columns, contentColor, shelf)
+        }
+    }
+}
+
+@Composable
+private fun StackContent(
+    stackName: String,
+    state: BookshelfUiState,
+    columns: Int,
+    contentColor: Color,
+    shelf: ShelfCallbacks,
+) {
+    val stackBooks = state.groupedLibrary[stackName]?.map { ShelfEntry.Book(it) } ?: emptyList()
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { shelf.viewModel.closeStack() }
+                // --- MAESTRO FIX 3: Semantics for Stack Back Button ---
+                .semantics(mergeDescendants = true) {
+                    contentDescription = "Back to Bookshelf"
+                }
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = contentColor)
+            Spacer(Modifier.width(16.dp))
+            Column {
+                Text(stackName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = contentColor)
+                Text("${stackBooks.size} Books", style = MaterialTheme.typography.bodySmall, color = contentColor.copy(alpha = 0.6f))
+            }
+        }
+        HorizontalDivider(color = contentColor.copy(alpha = 0.1f))
+
+        ContinuousLibraryGrid(
+            items = stackBooks,
+            columns = columns,
+            state = state,
+            contentColor = contentColor,
+            viewModel = shelf.viewModel,
+            onBookClick = shelf.onBookClick,
+            onDeleteBook = shelf.onDeleteBook,
+            bottomBarTextLeft = "Books in series: ${stackBooks.size}"
+        )
+    }
+}
+
+@Composable
+private fun ShelfContent(
+    state: BookshelfUiState,
+    columns: Int,
+    contentColor: Color,
+    shelf: ShelfCallbacks,
+) {
+    // Always present the physical library count. Smart Stacks collapsed many books into a handful
+    // of grouped entries, which made the library report fewer items than actually imported.
+    val shelfItems = remember(state.groupedLibrary) {
+        state.groupedLibrary.values
+            .flatten()
+            .distinctBy { it.bookHash }
+            .map { ShelfEntry.Book(it) }
+    }
+    Column(modifier = Modifier.fillMaxSize()) {
+        LazyRow(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(state.availableFilters) { filter ->
+                val isSelected = state.activeFilter == filter
+                Text(
+                    text = filter,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                    color = if (isSelected) contentColor else contentColor.copy(alpha = 0.5f),
+                    modifier = Modifier.clickable { shelf.viewModel.setFilter(filter) }.padding(8.dp)
+                )
+            }
+        }
+
+        ContinuousLibraryGrid(
+            items = shelfItems,
+            columns = columns,
+            state = state,
+            contentColor = contentColor,
+            viewModel = shelf.viewModel,
+            onBookClick = shelf.onBookClick,
+            onDeleteBook = shelf.onDeleteBook,
+            bottomBarTextLeft = "Total Library: ${shelfItems.size}"
+        )
+    }
+}
+
+@Composable
+private fun RelinkDialog(target: BookEntity, onDismiss: () -> Unit, onChoose: (isFolder: Boolean) -> Unit) {
+    val isFolder = target.format == FOLDER_FORMAT
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Needs file") },
+        text = {
+            Text(
+                "'${target.title}' was restored from a backup, which holds your place and notes but not the " +
+                    if (isFolder) "folder itself. Choose the same folder again to link it." else "file itself. Choose the same file again to link it."
+            )
+        },
+        confirmButton = { TextButton(onClick = { onChoose(isFolder) }) { Text("Choose") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }
 
 @Composable
@@ -446,11 +559,42 @@ fun NeoReaderCoverCard(
     val prefs = state.bookshelfPrefs
     val isEink = state.isEink
     val shouldDither = prefs.ditheringMode == DitheringMode.ALWAYS_ON || (prefs.ditheringMode == DitheringMode.AUTO && isEink)
-    val hasBookmarks = state.booksWithBookmarks.contains(book.bookHash)
 
     val modifier = if (prefs.coverAspectRatio == CoverAspectRatio.UNIFORM) Modifier.fillMaxWidth().aspectRatio(0.7f)
     else Modifier.fillMaxWidth().heightIn(min = 150.dp, max = 220.dp)
 
+    // --- MAESTRO FIX 4: Merging Descendants on the Book Card ---
+    Column(
+        modifier = cardTids(isFirstVisibleBook, Tid.Library.bookByHash(book.bookHash), Tid.Library.FIRST)
+            .semantics(mergeDescendants = true) {
+                contentDescription = "Book: ${book.title}, Progress: ${(book.progress * 100).toInt()}%"
+            }
+            .clickable { onClick() }
+    ) {
+        Card(
+            modifier = modifier, shape = RoundedCornerShape(8.dp), border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.3f)),
+            colors = CardDefaults.cardColors(containerColor = if (isEink) Color.White else Color.LightGray.copy(0.2f))
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                CoverImage(book = book, shouldDither = shouldDither)
+                CoverBadges(
+                    book = book,
+                    state = state,
+                    isFirstVisibleBook = isFirstVisibleBook
+                )
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        CoverTitleRow(book = book, isEink = isEink, onDelete = onDelete)
+    }
+}
+
+/** The first visible card also carries the shared "first" test id, so tests can address it without knowing its hash. */
+private fun cardTids(isFirstVisibleBook: Boolean, id: String, firstId: String): Modifier =
+    if (isFirstVisibleBook) Modifier.tids(id, firstId) else Modifier.tid(id)
+
+@Composable
+private fun CoverImage(book: BookEntity, shouldDither: Boolean) {
     // --- NON-BLOCKING FIX: Cover check moved off main thread ---
     val coverPath = book.coverPath
     var hasCover by remember(coverPath) { mutableStateOf(false) }
@@ -462,105 +606,74 @@ fun NeoReaderCoverCard(
         }
     }
 
-    // --- MAESTRO FIX 4: Merging Descendants on the Book Card ---
-    Column(
-        modifier = if (isFirstVisibleBook) {
-            Modifier
-                .tids(Tid.Library.bookByHash(book.bookHash), Tid.Library.FIRST)
-                .semantics(mergeDescendants = true) {
-                    contentDescription = "Book: ${book.title}, Progress: ${(book.progress * 100).toInt()}%"
-                }
-                .clickable { onClick() }
-        } else {
-            Modifier
-                .tid(Tid.Library.bookByHash(book.bookHash))
-                .semantics(mergeDescendants = true) {
-                    contentDescription = "Book: ${book.title}, Progress: ${(book.progress * 100).toInt()}%"
-                }
-                .clickable { onClick() }
-        }
-    ) {
-        Card(
-            modifier = modifier, shape = RoundedCornerShape(8.dp), border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.3f)),
-            colors = CardDefaults.cardColors(containerColor = if (isEink) Color.White else Color.LightGray.copy(0.2f))
-        ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                if (hasCover && coverPath != null) {
-                    AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(File(coverPath)).crossfade(true).apply { if (shouldDither) transformations(EinkDitherTransformation()) }.build(), contentDescription = "Cover for ${book.title}", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                } else { Box(Modifier.fillMaxSize().background(Color.LightGray.copy(0.5f)), contentAlignment = Alignment.Center) { Text(book.title.take(1).uppercase(), style = MaterialTheme.typography.headlineMedium) } }
+    if (hasCover && coverPath != null) {
+        AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(File(coverPath)).crossfade(true).apply { if (shouldDither) transformations(EinkDitherTransformation()) }.build(), contentDescription = "Cover for ${book.title}", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+    } else { Box(Modifier.fillMaxSize().background(Color.LightGray.copy(0.5f)), contentAlignment = Alignment.Center) { Text(book.title.take(1).uppercase(), style = MaterialTheme.typography.headlineMedium) } }
+}
 
-                if (prefs.showProgressBadge && book.progress > 0f) {
-                    Box(
-                        modifier = (if (isFirstVisibleBook) {
-                            Modifier.tids(Tid.Library.progressByHash(book.bookHash), Tid.Library.PROGRESS_FIRST)
-                        } else {
-                            Modifier.tid(Tid.Library.progressByHash(book.bookHash))
-                        })
-                            .align(Alignment.TopStart)
-                            .background(Color.White.copy(alpha = 0.9f), RoundedCornerShape(bottomEnd = 8.dp))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) { Text("${if (book.progress > 0.99) 100 else (book.progress * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, color = Color.Black, fontWeight = FontWeight.Bold) }
-                }
-                if (prefs.showFavoriteIcon && hasBookmarks) {
-                    Icon(
-                        Icons.Default.Star,
-                        contentDescription = "Bookmark",
-                        tint = Color.White,
-                        modifier = (if (isFirstVisibleBook) {
-                            Modifier.tids(Tid.Library.bookmarkByHash(book.bookHash), Tid.Library.BOOKMARK_FIRST)
-                        } else {
-                            Modifier.tid(Tid.Library.bookmarkByHash(book.bookHash))
-                        })
-                            .align(Alignment.TopEnd)
-                            .padding(4.dp)
-                            .size(20.dp)
-                    )
-                }
-                if (prefs.showFormatBadge || book.localUri == null) {
-                    Box(
-                        modifier = (if (isFirstVisibleBook) {
-                            Modifier.tids(Tid.Library.formatByHash(book.bookHash), Tid.Library.FORMAT_FIRST)
-                        } else {
-                            Modifier.tid(Tid.Library.formatByHash(book.bookHash))
-                        })
-                            .align(Alignment.BottomStart)
-                            .background(Color.White.copy(alpha = 0.9f), RoundedCornerShape(topEnd = 8.dp))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) { Text(if (book.localUri == null) "NEEDS FILE" else book.kind, style = MaterialTheme.typography.labelSmall, color = Color.Black, fontWeight = FontWeight.Bold) }
-                }
-            }
-        }
-        Spacer(Modifier.height(4.dp))
+@Composable
+private fun BoxScope.CoverBadges(book: BookEntity, state: BookshelfUiState, isFirstVisibleBook: Boolean) {
+    val prefs = state.bookshelfPrefs
+    val hasBookmarks = state.booksWithBookmarks.contains(book.bookHash)
+    if (prefs.showProgressBadge && book.progress > 0f) {
+        Box(
+            modifier = cardTids(isFirstVisibleBook, Tid.Library.progressByHash(book.bookHash), Tid.Library.PROGRESS_FIRST)
+                .align(Alignment.TopStart)
+                .background(Color.White.copy(alpha = 0.9f), RoundedCornerShape(bottomEnd = 8.dp))
+                .padding(horizontal = 6.dp, vertical = 2.dp)
+        ) { Text("${if (book.progress > 0.99) 100 else (book.progress * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, color = Color.Black, fontWeight = FontWeight.Bold) }
+    }
+    if (prefs.showFavoriteIcon && hasBookmarks) {
+        Icon(
+            Icons.Default.Star,
+            contentDescription = "Bookmark",
+            tint = Color.White,
+            modifier = cardTids(isFirstVisibleBook, Tid.Library.bookmarkByHash(book.bookHash), Tid.Library.BOOKMARK_FIRST)
+                .align(Alignment.TopEnd)
+                .padding(4.dp)
+                .size(20.dp)
+        )
+    }
+    if (prefs.showFormatBadge || book.localUri == null) {
+        Box(
+            modifier = cardTids(isFirstVisibleBook, Tid.Library.formatByHash(book.bookHash), Tid.Library.FORMAT_FIRST)
+                .align(Alignment.BottomStart)
+                .background(Color.White.copy(alpha = 0.9f), RoundedCornerShape(topEnd = 8.dp))
+                .padding(horizontal = 6.dp, vertical = 2.dp)
+        ) { Text(if (book.localUri == null) "NEEDS FILE" else book.kind, style = MaterialTheme.typography.labelSmall, color = Color.Black, fontWeight = FontWeight.Bold) }
+    }
+}
 
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-            Text(
-                text = book.title,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Medium,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                color = if(isEink) Color.Black else MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.weight(1f)
-            )
-            Box(
-                modifier = Modifier
-                    .padding(start = 4.dp)
-                    .size(24.dp)
-                    .background(
-                        color = if (isEink) Color.Black else MaterialTheme.colorScheme.onBackground,
-                        shape = RoundedCornerShape(4.dp)
-                    )
-                    .tid(Tid.Library.deleteByHash(book.bookHash))
-                    .clickable { onDelete() },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Delete,
-                    contentDescription = "Delete ${book.title}",
-                    tint = if (isEink) Color.White else MaterialTheme.colorScheme.background,
-                    modifier = Modifier.size(16.dp)
+@Composable
+private fun CoverTitleRow(book: BookEntity, isEink: Boolean, onDelete: () -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        Text(
+            text = book.title,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Medium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            color = if(isEink) Color.Black else MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.weight(1f)
+        )
+        Box(
+            modifier = Modifier
+                .padding(start = 4.dp)
+                .size(24.dp)
+                .background(
+                    color = if (isEink) Color.Black else MaterialTheme.colorScheme.onBackground,
+                    shape = RoundedCornerShape(4.dp)
                 )
-            }
+                .tid(Tid.Library.deleteByHash(book.bookHash))
+                .clickable { onDelete() },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Delete,
+                contentDescription = "Delete ${book.title}",
+                tint = if (isEink) Color.White else MaterialTheme.colorScheme.background,
+                modifier = Modifier.size(16.dp)
+            )
         }
     }
 }

@@ -10,6 +10,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import org.sableos.reader.core.documents.DocumentTreeLister
 import org.sableos.reader.core.documents.TreeListingException
+import org.sableos.reader.core.io.deleteQuietly
 import org.sableos.reader.engine.audio.AudioCatalog
 import org.sableos.reader.engine.audio.AudioCatalogException
 import org.sableos.reader.engine.audio.AudioCatalogFailure
@@ -62,7 +63,7 @@ class AudiobookSourceLoader @Inject constructor(
     }
 
     fun deleteCache(bookHash: String) {
-        cacheFile(bookHash).delete()
+        cacheFile(bookHash).deleteQuietly("audiobook manifest cache")
     }
 
     private fun buildFile(uri: Uri, title: String, author: String?, limits: AudioLimits): AudioManifest {

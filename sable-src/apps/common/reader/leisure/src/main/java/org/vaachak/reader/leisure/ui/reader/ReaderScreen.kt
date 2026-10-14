@@ -2,7 +2,6 @@ package org.vaachak.reader.leisure.ui.reader
 
 // --- MAESTRO FIX 1: Import semantics ---
 import android.app.Activity
-import android.content.pm.ApplicationInfo
 import android.view.ActionMode
 import android.view.Menu
 import android.view.MenuItem
@@ -97,14 +96,17 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.launch
 import org.readium.navigator.media.tts.android.AndroidTtsEngine.Voice
+import org.readium.r2.navigator.Decoration
 import org.readium.r2.navigator.DecorableNavigator
 import org.readium.r2.navigator.epub.EpubNavigatorFactory
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
+import org.readium.r2.navigator.epub.EpubPreferences
 import org.readium.r2.navigator.input.InputListener
 import org.readium.r2.navigator.input.TapEvent
 import org.readium.r2.navigator.preferences.Theme
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Locator
+import org.readium.r2.shared.publication.Publication
 import org.readium.r2.shared.util.AbsoluteUrl
 import org.sableos.design.AppearanceMode
 import org.sableos.design.rememberGlobalSableAppearance
@@ -128,11 +130,13 @@ import kotlin.math.roundToInt
 
 private const val MENU_HIGHLIGHT = 102
 private const val MENU_DEFINE = 103
+private const val USER_HIGHLIGHTS = "user_highlights"
+private const val TTS_HIGHLIGHTS = "tts_highlights"
+private const val EPUB_READER_FRAGMENT = "EPUB_READER_FRAGMENT"
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalReadiumApi::class)
 @Composable
 fun ReaderScreen(
-    bookHash: String,
     initialUri: String?,
     initialLocatorJson: String?,
     onBack: () -> Unit,
@@ -140,81 +144,34 @@ fun ReaderScreen(
     viewModel: ReaderViewModel = hiltViewModel()
 ) {
     val activity = LocalActivity.current as AppCompatActivity
-    val view = LocalView.current
-    val lifecycleOwner = LocalLifecycleOwner.current
-    val isDebugBuild = (view.context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
     val publication by viewModel.publication.collectAsState()
     val isEink by viewModel.isEinkEnabled.collectAsState()
 
     val showToc by viewModel.showToc.collectAsState()
-    val currentLocator by viewModel.currentLocator.collectAsState()
-
     val showReaderSettings by viewModel.showReaderSettings.collectAsState()
     val epubPreferences by viewModel.epubPreferences.collectAsState()
-
-    // Bind the Readium EPUB canvas to SableOS Light/Dark so book content and chrome never disagree.
-    // Sepia and E-Ink remain deliberate reading-only overrides.
-    val sableAppearance = rememberGlobalSableAppearance()
-    val systemDark = isSystemInDarkTheme()
-    val sableDark =
-        when (sableAppearance.mode) {
-            AppearanceMode.FollowSystem -> systemDark
-            AppearanceMode.Light -> false
-            AppearanceMode.Dark -> true
-        }
-    val effectiveEpubPreferences =
-        remember(epubPreferences, sableAppearance, systemDark, isEink) {
-            when {
-                // E-Ink is intentionally a white-page, high-contrast reading mode.
-                isEink -> epubPreferences.copy(theme = Theme.LIGHT)
-
-                // Sepia is the only normal page-colour override retained independently of the
-                // operating-system Light/Dark selection.
-                epubPreferences.theme == Theme.SEPIA -> epubPreferences
-
-                else ->
-                    epubPreferences.copy(
-                        theme = if (sableDark) Theme.DARK else Theme.LIGHT,
-                    )
-            }
-        }
+    val effectiveEpubPreferences = rememberEffectiveEpubPreferences(epubPreferences, isEink)
 
     val showSearch by viewModel.showSearch.collectAsState()
-    val bookSearchQuery by viewModel.bookSearchQuery.collectAsState()
-    val searchResults by viewModel.searchResults.collectAsState()
-    val isBookSearching by viewModel.isBookSearching.collectAsState()
-
     val showHighlights by viewModel.showHighlights.collectAsState()
-    val highlightsList by viewModel.bookmarksList.collectAsState()
-
     val showBookmarks by viewModel.showBookmarks.collectAsState()
-    val savedBookmarks by viewModel.savedBookmarks.collectAsState()
     val isPageBookmarked by viewModel.isCurrentPageBookmarked.collectAsState()
 
     // TTS State
     val isTtsActive by viewModel.isTtsActive.collectAsState()
-    val showTtsBar by viewModel.showTtsBar.collectAsState()
-    val ttsSettings by viewModel.ttsSettings.collectAsState()
 
     var showDeleteDialogId by remember { mutableStateOf<String?>(null) }
 
     val isBottomSheetVisible by viewModel.isBottomSheetVisible.collectAsState()
-    val dictionaryResponse by viewModel.dictionaryResponse.collectAsState()
-    val isDictionaryLoading by viewModel.isDictionaryLoading.collectAsState()
-
     val showTagSelector by viewModel.showTagSelector.collectAsState()
     val pageInfo by viewModel.currentPageInfo.collectAsState()
-    val initialLocatorState by viewModel.initialLocator.collectAsState()
     val savedHighlights by viewModel.currentBookHighlights.collectAsState()
     val snackbarMessage by viewModel.snackbarMessage.collectAsState()
 
     val scope = rememberCoroutineScope()
     var currentNavigatorFragment by remember { mutableStateOf<EpubNavigatorFragment?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
-    val showTtsSettingsSheet by viewModel.showTtsSettingsSheet.collectAsState()
-
-    val hasChapterError by viewModel.hasChapterError.collectAsState()
 
     LaunchedEffect(snackbarMessage) {
         snackbarMessage?.let {
@@ -227,69 +184,15 @@ fun ReaderScreen(
         onTtsStatusChange(isTtsActive)
     }
 
-    LaunchedEffect(currentNavigatorFragment) {
-        if (currentNavigatorFragment != null) {
-            viewModel.setVisualNavigatorProvider { currentNavigatorFragment }
-        }
-    }
-
-    LaunchedEffect(currentNavigatorFragment, publication) {
-        if (currentNavigatorFragment != null && publication != null) {
-            viewModel.initTts()
-        }
-    }
-
-    val ttsDecoration by viewModel.ttsDecoration.collectAsState()
-
-    LaunchedEffect(ttsDecoration, currentNavigatorFragment) {
-        val navigator = currentNavigatorFragment ?: return@LaunchedEffect
-        if (navigator.view != null) {
-            navigator.applyDecorations(ttsDecoration, "tts_highlights")
-        }
-    }
-
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_PAUSE) {
-                val json = currentLocator?.toJSON()?.toString() ?: ""
-                viewModel.onReaderPause(json)
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            val json = currentLocator?.toJSON()?.toString() ?: ""
-            viewModel.onReaderPause(json)
-        }
-    }
-
-    DisposableEffect(Unit) {
-        val window = (view.context as? Activity)?.window
-        if (window != null) {
-            val insetsController = WindowCompat.getInsetsController(window, view)
-            insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            insetsController.hide(WindowInsetsCompat.Type.systemBars())
-            onDispose { insetsController.show(WindowInsetsCompat.Type.systemBars()) }
-        } else {
-            onDispose { }
-        }
-    }
-
-    LaunchedEffect(Unit) { viewModel.navigationEvent.collect { link -> currentNavigatorFragment?.go(link, animated = false) } }
-    LaunchedEffect(Unit) { viewModel.jumpEvent.collect { locator -> currentNavigatorFragment?.go(locator, animated = false) } }
-
-    LaunchedEffect(effectiveEpubPreferences, currentNavigatorFragment) {
-        if (currentNavigatorFragment?.view != null) {
-            currentNavigatorFragment?.submitPreferences(effectiveEpubPreferences)
-        }
-    }
-
-    LaunchedEffect(savedHighlights, currentNavigatorFragment) {
-        val navigator = currentNavigatorFragment ?: return@LaunchedEffect
-        if (navigator.view != null) {
-            navigator.applyDecorations(savedHighlights, "user_highlights")
-        }
-    }
+    NavigatorStateEffects(
+        navigator = currentNavigatorFragment,
+        hasPublication = publication != null,
+        preferences = effectiveEpubPreferences,
+        savedHighlights = savedHighlights,
+        viewModel = viewModel
+    )
+    SaveProgressOnPauseEffect(viewModel)
+    HideSystemBarsEffect()
 
     LaunchedEffect(initialUri, initialLocatorJson) {
         if (initialUri != null) {
@@ -301,7 +204,9 @@ fun ReaderScreen(
     val navListener = remember {
         object : EpubNavigatorFragment.Listener {
             override fun onJumpToLocator(locator: Locator) { viewModel.updateProgress(locator) }
-            override fun onExternalLinkActivated(url: AbsoluteUrl) {}
+            override fun onExternalLinkActivated(url: AbsoluteUrl) {
+                // Sable Reader is offline: links that leave the book are deliberately not opened.
+            }
         }
     }
 
@@ -330,116 +235,31 @@ fun ReaderScreen(
     )
 
     BackHandler {
-        if (showDeleteDialogId != null) showDeleteDialogId = null
-        else if (showTagSelector) viewModel.dismissTagSelector()
-        else if (showReaderSettings) viewModel.dismissReaderSettings()
-        else if (showToc) viewModel.toggleToc()
-        else if (showSearch) viewModel.toggleSearch()
-        else if (showHighlights) viewModel.toggleHighlights()
-        else if (showBookmarks) viewModel.toggleBookmarksList()
-        else if (isBottomSheetVisible) viewModel.dismissBottomSheet()
-        else if (transientChrome && chromeVisible) chromeVisible = false
-        else { viewModel.closeBook(); onBack() }
-    }
-
-    val decorationListener = remember {
-        object : DecorableNavigator.Listener {
-            override fun onDecorationActivated(event: DecorableNavigator.OnActivatedEvent): Boolean {
-                if (event.group == "user_highlights") {
-                    showDeleteDialogId = event.decoration.id
-                    return true
-                }
-                return false
+        when {
+            showDeleteDialogId != null -> showDeleteDialogId = null
+            showTagSelector -> viewModel.dismissTagSelector()
+            showReaderSettings -> viewModel.dismissReaderSettings()
+            showToc -> viewModel.toggleToc()
+            showSearch -> viewModel.toggleSearch()
+            showHighlights -> viewModel.toggleHighlights()
+            showBookmarks -> viewModel.toggleBookmarksList()
+            isBottomSheetVisible -> viewModel.dismissBottomSheet()
+            transientChrome && chromeVisible -> chromeVisible = false
+            else -> {
+                viewModel.closeBook()
+                onBack()
             }
         }
     }
 
-    val inputListener = remember {
-        object : InputListener {
-            override fun onTap(event: TapEvent): Boolean {
-                val screenWidth = view.width.toFloat()
-                val x = event.point.x
-                val leftZoneEnd = screenWidth * 0.2f
-                val rightZoneStart = screenWidth * 0.8f
-                return if (x > leftZoneEnd && x < rightZoneStart) {
-                    if (transientChrome) chromeVisible = !chromeVisible else viewModel.toggleReaderSettings()
-                    true
-                } else false
-            }
-        }
-    }
+    NavigatorListenersEffect(
+        navigator = currentNavigatorFragment,
+        savedHighlights = savedHighlights,
+        onHighlightActivated = { showDeleteDialogId = it },
+        onCenterTap = { if (transientChrome) chromeVisible = !chromeVisible else viewModel.toggleReaderSettings() }
+    )
 
-    DisposableEffect(currentNavigatorFragment) {
-        val navigator = currentNavigatorFragment ?: return@DisposableEffect onDispose {}
-        val fm = activity.supportFragmentManager
-
-        val lifecycleObserver = object : DefaultLifecycleObserver {
-            override fun onResume(owner: LifecycleOwner) {
-                scope.launch {
-                    if (navigator.isAdded && navigator.view != null) {
-                        navigator.applyDecorations(savedHighlights, "user_highlights")
-                    }
-                }
-            }
-        }
-
-        val fmCallbacks = object : FragmentManager.FragmentLifecycleCallbacks() {
-            override fun onFragmentStarted(fm: FragmentManager, f: Fragment) {
-                if (f == navigator) {
-                    navigator.addDecorationListener("user_highlights", decorationListener)
-                    f.lifecycle.addObserver(lifecycleObserver)
-                    scope.launch {
-                        navigator.applyDecorations(savedHighlights, "user_highlights")
-                    }
-                }
-            }
-        }
-
-        if (navigator.isAdded) {
-            navigator.addDecorationListener("user_highlights", decorationListener)
-            navigator.addInputListener(inputListener)
-            navigator.lifecycle.addObserver(lifecycleObserver)
-            scope.launch {
-                navigator.applyDecorations(savedHighlights, "user_highlights")
-            }
-        }
-        fm.registerFragmentLifecycleCallbacks(fmCallbacks, false)
-
-        onDispose {
-            fm.unregisterFragmentLifecycleCallbacks(fmCallbacks)
-            if (navigator.isAdded) {
-                try {
-                    navigator.removeDecorationListener(decorationListener)
-                    navigator.lifecycle.removeObserver(lifecycleObserver)
-                } catch (_: Exception) {}
-            }
-        }
-    }
-
-    val selectionCallback = remember {
-        object : ActionMode.Callback {
-            override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
-                menu?.add(Menu.NONE, MENU_HIGHLIGHT, 0, "Highlight")
-                menu?.add(Menu.NONE, MENU_DEFINE, 1, "Define")
-                return true
-            }
-            override fun onPrepareActionMode(mode: ActionMode?, menu: Menu?) = false
-            override fun onActionItemClicked(mode: ActionMode?, item: MenuItem?): Boolean {
-                scope.launch {
-                    val selection = currentNavigatorFragment?.currentSelection()
-                    val locator = selection?.locator ?: return@launch
-                    val text = locator.text.highlight ?: ""
-                    when (item?.itemId) {
-                        MENU_HIGHLIGHT -> viewModel.prepareHighlight(locator)
-                        MENU_DEFINE -> viewModel.lookupWord(text)
-                    }
-                    mode?.finish()
-                }
-                return true
-            }
-            override fun onDestroyActionMode(mode: ActionMode?) {}
-        }
-    }
+    val selectionCallback = rememberSelectionCallback(viewModel) { currentNavigatorFragment }
 
     TidScreen(Tid.Screen.reader) {
         Scaffold(
@@ -447,7 +267,6 @@ fun ReaderScreen(
                 if (chromeVisible) ReaderTopBar(
                     bookTitle = publication?.metadata?.title ?: "Loading...",
                     isEink = isEink,
-                    showDebugHighlightButton = isDebugBuild,
                     isBookmarked = isPageBookmarked,
                     isTtsActive = isTtsActive,
                     onBack = { viewModel.closeBook(); onBack() },
@@ -457,16 +276,16 @@ fun ReaderScreen(
                     onBookmarksListClick = { viewModel.toggleBookmarksList() },
                     onBookmarkToggleClick = { viewModel.toggleBookmarkOnCurrentPage() },
                     onTtsClick = { viewModel.toggleTts() },
-                    onAddHighlightClick = { viewModel.addTestHighlightAtCurrentLocator() },
                     onSettingsClick = { viewModel.toggleReaderSettings() }
                 )
             },
             bottomBar = {
+                val panelOpen = showReaderSettings || showToc || showSearch || showHighlights || showBookmarks
                 Column (
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.Bottom
                 ){
-                    if (chromeVisible && publication != null && !showReaderSettings && !showToc && !showSearch && !showHighlights && !showBookmarks) {
+                    if (chromeVisible && publication != null && !panelOpen) {
                         ReaderSystemFooter(chapterTitle = pageInfo, isEink = isEink)
                     }
                 }
@@ -479,128 +298,437 @@ fun ReaderScreen(
             }
         ) { padding ->
             Box(modifier = Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
-                if (publication == null) {
+                val loaded = publication
+                if (loaded == null) {
                     CircularProgressIndicator(color = Color.Black)
                 } else {
-                    AndroidView(
-                        factory = { context ->
-                            FrameLayout(context).apply {
-                                id = View.generateViewId()
-                                val fm = activity.supportFragmentManager
-                                val existing = fm.findFragmentByTag("EPUB_READER_FRAGMENT")
-                                if (existing != null) fm.beginTransaction().remove(existing).commitNow()
-
-                                val factory = EpubNavigatorFactory(publication!!)
-                                val fragment = factory.createFragmentFactory(
-                                    initialLocator = initialLocatorState,
-                                    configuration = EpubNavigatorFragment.Configuration().apply {
-                                        selectionActionModeCallback = selectionCallback
-                                    },
-                                    listener = navListener
-                                ).instantiate(activity.classLoader, EpubNavigatorFragment::class.java.name) as EpubNavigatorFragment
-
-                                scope.launch { fragment.currentLocator.collect { locator -> viewModel.updateProgress(locator) } }
-                                currentNavigatorFragment = fragment
-                                fm.beginTransaction().replace(this.id, fragment, "EPUB_READER_FRAGMENT").commit()
-                            }
-                        },
-                        modifier = Modifier.fillMaxSize()
+                    EpubNavigatorHost(
+                        activity = activity,
+                        publication = loaded,
+                        viewModel = viewModel,
+                        selectionCallback = selectionCallback,
+                        navListener = navListener,
+                        onFragmentCreated = { fragment ->
+                            scope.launch { fragment.currentLocator.collect { locator -> viewModel.updateProgress(locator) } }
+                            currentNavigatorFragment = fragment
+                        }
                     )
                 }
-                if (hasChapterError) {
-                    ChapterErrorOverlay(
-                        isEink = isEink,
-                        onReturnToLibrary = { viewModel.dismissChapterErrorAndClose() }
+                ReaderPanels(viewModel = viewModel, isEink = isEink)
+
+                showDeleteDialogId?.let { highlightId ->
+                    DeleteHighlightDialog(
+                        onConfirm = { viewModel.deleteHighlight(highlightId); showDeleteDialogId = null },
+                        onDismiss = { showDeleteDialogId = null }
                     )
                 }
 
-                if (showSearch) {
-                    Surface(modifier = Modifier.fillMaxSize().zIndex(15f).tid(Tid.Screen.readerSearch)) {
-                        BookSearchOverlay(query = bookSearchQuery, results = searchResults, isSearching = isBookSearching, onQueryChange = { viewModel.searchInBook(it) }, onSearch = { viewModel.searchInBook(it) }, onResultClick = { viewModel.onSearchResultClicked(it) }, onDismiss = { viewModel.toggleSearch() }, isEink = isEink)
-                    }
-                }
+                ReaderTtsControls(viewModel = viewModel, isEink = isEink)
+            }
+        }
+    }
+}
 
-                if (showHighlights) {
-                    Surface(modifier = Modifier.fillMaxSize().zIndex(15f)) {
-                        BookHighlightsOverlay(highlights = highlightsList, onHighlightClick = { viewModel.onHighlightClicked(it) }, onDismiss = { viewModel.toggleHighlights() }, isEink = isEink)
-                    }
-                }
+/**
+ * Binds the Readium EPUB canvas to SableOS Light/Dark so book content and chrome never disagree.
+ * Sepia and E-Ink remain deliberate reading-only overrides.
+ */
+@OptIn(ExperimentalReadiumApi::class)
+@Composable
+private fun rememberEffectiveEpubPreferences(epubPreferences: EpubPreferences, isEink: Boolean): EpubPreferences {
+    val sableAppearance = rememberGlobalSableAppearance()
+    val systemDark = isSystemInDarkTheme()
+    val sableDark =
+        when (sableAppearance.mode) {
+            AppearanceMode.FollowSystem -> systemDark
+            AppearanceMode.Light -> false
+            AppearanceMode.Dark -> true
+        }
+    return remember(epubPreferences, sableAppearance, systemDark, isEink) {
+        when {
+            // E-Ink is intentionally a white-page, high-contrast reading mode.
+            isEink -> epubPreferences.copy(theme = Theme.LIGHT)
 
-                if (showBookmarks) {
-                    Surface(modifier = Modifier.fillMaxSize().zIndex(15f).tid(Tid.Screen.bookmarks)) {
-                        BookBookmarksOverlay(bookmarks = savedBookmarks, onBookmarkClick = { viewModel.onBookmarkClicked(it) }, onDismiss = { viewModel.toggleBookmarksList() }, isEink = isEink)
-                    }
-                }
+            // Sepia is the only normal page-colour override retained independently of the
+            // operating-system Light/Dark selection.
+            epubPreferences.theme == Theme.SEPIA -> epubPreferences
 
-                if (showToc && publication != null) {
-                    Surface(modifier = Modifier.fillMaxSize().zIndex(15f)) {
-                        TableOfContents(toc = publication!!.tableOfContents, currentHref = currentLocator?.href?.toString(), onLinkSelected = { link -> viewModel.onTocItemSelected(link) }, onDismiss = { viewModel.toggleToc() }, isEink = isEink)
-                    }
-                }
+            else ->
+                epubPreferences.copy(
+                    theme = if (sableDark) Theme.DARK else Theme.LIGHT,
+                )
+        }
+    }
+}
 
-                if (showReaderSettings) {
-                    Surface(modifier = Modifier.fillMaxSize().zIndex(10f).tid(Tid.Screen.readerSettings)) {
-                        ReaderSettingsSheet(viewModel = viewModel, isEink = isEink, onDismiss = { viewModel.dismissReaderSettings() })
-                    }
-                }
+/** Keeps the navigator in step with the view model: TTS, decorations, preferences and navigation requests. */
+@OptIn(ExperimentalReadiumApi::class)
+@Composable
+private fun NavigatorStateEffects(
+    navigator: EpubNavigatorFragment?,
+    hasPublication: Boolean,
+    preferences: EpubPreferences,
+    savedHighlights: List<Decoration>,
+    viewModel: ReaderViewModel,
+) {
+    val currentNavigator by rememberUpdatedState(navigator)
+    val ttsDecoration by viewModel.ttsDecoration.collectAsState()
 
-                if (isBottomSheetVisible) {
-                    DictionaryBottomSheet(responseText = dictionaryResponse, isLoading = isDictionaryLoading, isEink = isEink, onDismiss = { viewModel.dismissBottomSheet() })
-                }
+    LaunchedEffect(navigator) {
+        if (navigator != null) {
+            viewModel.setVisualNavigatorProvider { currentNavigator }
+        }
+    }
 
-                if (showTagSelector) {
-                    TagSelectorDialog(onTagSelected = { tag -> viewModel.saveHighlightWithTag(tag) }, onDismiss = { viewModel.dismissTagSelector() })
-                }
+    LaunchedEffect(navigator, hasPublication) {
+        if (navigator != null && hasPublication) {
+            viewModel.initTts()
+        }
+    }
 
-                if (showDeleteDialogId != null) {
-                    AlertDialog(onDismissRequest = { showDeleteDialogId = null }, title = { Text("Delete Highlight?") }, text = { Text("This action cannot be undone.") }, confirmButton = { TextButton(onClick = { viewModel.deleteHighlight(showDeleteDialogId!!); showDeleteDialogId = null }) { Text("Delete", color = Color.Red) } }, dismissButton = { TextButton(onClick = { showDeleteDialogId = null }) { Text("Cancel") } }, modifier = Modifier.zIndex(4f))
-                }
+    LaunchedEffect(ttsDecoration, navigator) {
+        if (navigator?.view != null) {
+            navigator.applyDecorations(ttsDecoration, TTS_HIGHLIGHTS)
+        }
+    }
 
-                if (showTtsBar) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(end = 16.dp)
-                            .zIndex(20f),
-                        contentAlignment = Alignment.CenterEnd
-                    ) {
-                        TtsVerticalFloatingPill(
-                            isVisible = showTtsBar,
-                            isPlaying = isTtsActive,
-                            isEink = isEink,
-                            onPlayPause = { viewModel.toggleTts() },
-                            onStop = { viewModel.closeTts() },
-                            onSkipForward = { viewModel.skipForward() },
-                            onSkipBackward = { viewModel.skipBackward() },
-                            onOpenSettings = { viewModel.openTtsSettings() }
-                        )
-                        TtsSettingsBottomSheet(
-                            isVisible = showTtsSettingsSheet,
-                            onDismiss = { viewModel.closeTtsSettings() },
-                            ttsSettings = ttsSettings,
-                            isEink = isEink,
-                            onSpeedChange = { speed: Float ->
-                                viewModel.updateTtsSpeed(speed)
-                            },
-                            onPitchChange = { pitch: Float ->
-                                viewModel.updateTtsPitch(pitch)
-                            },
-                            onStyleChange = { style: String ->
-                                viewModel.setTtsVisualStyle(style)
-                            },
-                            onAutoPageTurnChange = { enabled: Boolean ->
-                                viewModel.setTtsAutoPageTurn(enabled)
-                            },
-                            onVoiceChange = { voice: Voice ->
-                                viewModel.setBookSpecificVoice(voice)
-                            },
-                            viewModel =viewModel,
-                            onLanguageChange = { languageCode: String -> viewModel.setTtsLanguage(languageCode)}
-                        )
-                    }
+    LaunchedEffect(Unit) { viewModel.navigationEvent.collect { link -> currentNavigator?.go(link, animated = false) } }
+    LaunchedEffect(Unit) { viewModel.jumpEvent.collect { locator -> currentNavigator?.go(locator, animated = false) } }
+
+    LaunchedEffect(preferences, navigator) {
+        if (navigator?.view != null) {
+            navigator.submitPreferences(preferences)
+        }
+    }
+
+    LaunchedEffect(savedHighlights, navigator) {
+        if (navigator?.view != null) {
+            navigator.applyDecorations(savedHighlights, USER_HIGHLIGHTS)
+        }
+    }
+}
+
+/** Saves the reading position whenever the screen pauses and when it leaves composition. */
+@Composable
+private fun SaveProgressOnPauseEffect(viewModel: ReaderViewModel) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val savePosition = {
+            val json = viewModel.currentLocator.value?.toJSON()?.toString() ?: ""
+            viewModel.onReaderPause(json)
+        }
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE) savePosition()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            savePosition()
+        }
+    }
+}
+
+/** Reading is full screen: system bars are hidden while the reader is shown and restored on exit. */
+@Composable
+private fun HideSystemBarsEffect() {
+    val view = LocalView.current
+    DisposableEffect(Unit) {
+        val window = (view.context as? Activity)?.window
+        val insetsController = window?.let { WindowCompat.getInsetsController(it, view) }
+        insetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        insetsController?.hide(WindowInsetsCompat.Type.systemBars())
+        onDispose { insetsController?.show(WindowInsetsCompat.Type.systemBars()) }
+    }
+}
+
+/** Attaches the highlight-tap and centre-tap listeners to the navigator fragment for as long as it is shown. */
+@OptIn(ExperimentalReadiumApi::class)
+@Composable
+private fun NavigatorListenersEffect(
+    navigator: EpubNavigatorFragment?,
+    savedHighlights: List<Decoration>,
+    onHighlightActivated: (String) -> Unit,
+    onCenterTap: () -> Unit,
+) {
+    val activity = LocalActivity.current as AppCompatActivity
+    val view = LocalView.current
+    val scope = rememberCoroutineScope()
+    val latestHighlights by rememberUpdatedState(savedHighlights)
+    val latestOnHighlightActivated by rememberUpdatedState(onHighlightActivated)
+    val latestOnCenterTap by rememberUpdatedState(onCenterTap)
+
+    val decorationListener = remember {
+        object : DecorableNavigator.Listener {
+            override fun onDecorationActivated(event: DecorableNavigator.OnActivatedEvent): Boolean {
+                if (event.group != USER_HIGHLIGHTS) return false
+                latestOnHighlightActivated(event.decoration.id)
+                return true
+            }
+        }
+    }
+
+    val inputListener = remember {
+        object : InputListener {
+            override fun onTap(event: TapEvent): Boolean {
+                val screenWidth = view.width.toFloat()
+                val x = event.point.x
+                val inCenter = x > screenWidth * 0.2f && x < screenWidth * 0.8f
+                if (inCenter) latestOnCenterTap()
+                return inCenter
+            }
+        }
+    }
+
+    DisposableEffect(navigator) {
+        if (navigator == null) return@DisposableEffect onDispose {}
+        val fm = activity.supportFragmentManager
+        val applyHighlights = { scope.launch { navigator.applyDecorations(latestHighlights, USER_HIGHLIGHTS) } }
+
+        val lifecycleObserver = object : DefaultLifecycleObserver {
+            override fun onResume(owner: LifecycleOwner) {
+                if (navigator.isAdded && navigator.view != null) applyHighlights()
+            }
+        }
+
+        val fmCallbacks = object : FragmentManager.FragmentLifecycleCallbacks() {
+            override fun onFragmentStarted(fm: FragmentManager, f: Fragment) {
+                if (f == navigator) {
+                    navigator.addDecorationListener(USER_HIGHLIGHTS, decorationListener)
+                    f.lifecycle.addObserver(lifecycleObserver)
+                    applyHighlights()
                 }
             }
         }
+
+        if (navigator.isAdded) {
+            navigator.addDecorationListener(USER_HIGHLIGHTS, decorationListener)
+            navigator.addInputListener(inputListener)
+            navigator.lifecycle.addObserver(lifecycleObserver)
+            applyHighlights()
+        }
+        fm.registerFragmentLifecycleCallbacks(fmCallbacks, false)
+
+        onDispose {
+            fm.unregisterFragmentLifecycleCallbacks(fmCallbacks)
+            if (navigator.isAdded) {
+                try {
+                    navigator.removeDecorationListener(decorationListener)
+                    navigator.lifecycle.removeObserver(lifecycleObserver)
+                } catch (_: Exception) {
+                    // The fragment can be torn down while the screen leaves; there is nothing left to detach.
+                }
+            }
+        }
+    }
+}
+
+/** The text-selection menu: Highlight and Define act on the navigator's current selection. */
+@Composable
+private fun rememberSelectionCallback(
+    viewModel: ReaderViewModel,
+    navigator: () -> EpubNavigatorFragment?,
+): ActionMode.Callback {
+    val scope = rememberCoroutineScope()
+    val latestNavigator by rememberUpdatedState(navigator)
+    return remember {
+        object : ActionMode.Callback {
+            override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
+                menu?.add(Menu.NONE, MENU_HIGHLIGHT, 0, "Highlight")
+                menu?.add(Menu.NONE, MENU_DEFINE, 1, "Define")
+                return true
+            }
+            override fun onPrepareActionMode(mode: ActionMode?, menu: Menu?) = false
+            override fun onActionItemClicked(mode: ActionMode?, item: MenuItem?): Boolean {
+                scope.launch {
+                    val selection = latestNavigator()?.currentSelection()
+                    val locator = selection?.locator ?: return@launch
+                    val text = locator.text.highlight ?: ""
+                    when (item?.itemId) {
+                        MENU_HIGHLIGHT -> viewModel.prepareHighlight(locator)
+                        MENU_DEFINE -> viewModel.lookupWord(text)
+                    }
+                    mode?.finish()
+                }
+                return true
+            }
+            override fun onDestroyActionMode(mode: ActionMode?) {
+                // Nothing to release: the menu holds no state beyond the action mode itself.
+            }
+        }
+    }
+}
+
+/** Hosts the Readium EPUB navigator fragment, replacing any fragment left over from a previous book. */
+@OptIn(ExperimentalReadiumApi::class)
+@Composable
+private fun EpubNavigatorHost(
+    activity: AppCompatActivity,
+    publication: Publication,
+    viewModel: ReaderViewModel,
+    selectionCallback: ActionMode.Callback,
+    navListener: EpubNavigatorFragment.Listener,
+    onFragmentCreated: (EpubNavigatorFragment) -> Unit,
+) {
+    val initialLocatorState by viewModel.initialLocator.collectAsState()
+    AndroidView(
+        factory = { context ->
+            FrameLayout(context).apply {
+                id = View.generateViewId()
+                val fm = activity.supportFragmentManager
+                val existing = fm.findFragmentByTag(EPUB_READER_FRAGMENT)
+                if (existing != null) fm.beginTransaction().remove(existing).commitNow()
+
+                val factory = EpubNavigatorFactory(publication)
+                val fragment = factory.createFragmentFactory(
+                    initialLocator = initialLocatorState,
+                    configuration = EpubNavigatorFragment.Configuration().apply {
+                        selectionActionModeCallback = selectionCallback
+                    },
+                    listener = navListener
+                ).instantiate(activity.classLoader, EpubNavigatorFragment::class.java.name) as EpubNavigatorFragment
+
+                onFragmentCreated(fragment)
+                fm.beginTransaction().replace(this.id, fragment, EPUB_READER_FRAGMENT).commit()
+            }
+        },
+        modifier = Modifier.fillMaxSize()
+    )
+}
+
+/** The panels and dialogs drawn over the page: error, find, highlights, bookmarks, contents, settings, dictionary, tags. */
+@Composable
+private fun ReaderPanels(viewModel: ReaderViewModel, isEink: Boolean) {
+    val hasChapterError by viewModel.hasChapterError.collectAsState()
+    val showSearch by viewModel.showSearch.collectAsState()
+    val showHighlights by viewModel.showHighlights.collectAsState()
+    val showBookmarks by viewModel.showBookmarks.collectAsState()
+    val showToc by viewModel.showToc.collectAsState()
+    val showReaderSettings by viewModel.showReaderSettings.collectAsState()
+    val isBottomSheetVisible by viewModel.isBottomSheetVisible.collectAsState()
+    val showTagSelector by viewModel.showTagSelector.collectAsState()
+
+    if (hasChapterError) {
+        ChapterErrorOverlay(
+            isEink = isEink,
+            onReturnToLibrary = { viewModel.dismissChapterErrorAndClose() }
+        )
+    }
+
+    if (showSearch) SearchPanel(viewModel, isEink)
+    if (showHighlights) HighlightsPanel(viewModel, isEink)
+    if (showBookmarks) BookmarksPanel(viewModel, isEink)
+    if (showToc) TocPanel(viewModel, isEink)
+
+    if (showReaderSettings) {
+        Surface(modifier = Modifier.fillMaxSize().zIndex(10f).tid(Tid.Screen.readerSettings)) {
+            ReaderSettingsSheet(viewModel = viewModel, isEink = isEink, onDismiss = { viewModel.dismissReaderSettings() })
+        }
+    }
+
+    if (isBottomSheetVisible) DictionaryPanel(viewModel, isEink)
+
+    if (showTagSelector) {
+        TagSelectorDialog(onTagSelected = { tag -> viewModel.saveHighlightWithTag(tag) }, onDismiss = { viewModel.dismissTagSelector() })
+    }
+}
+
+@Composable
+private fun SearchPanel(viewModel: ReaderViewModel, isEink: Boolean) {
+    val bookSearchQuery by viewModel.bookSearchQuery.collectAsState()
+    val searchResults by viewModel.searchResults.collectAsState()
+    val isBookSearching by viewModel.isBookSearching.collectAsState()
+    Surface(modifier = Modifier.fillMaxSize().zIndex(15f).tid(Tid.Screen.readerSearch)) {
+        BookSearchOverlay(query = bookSearchQuery, results = searchResults, isSearching = isBookSearching, onQueryChange = { viewModel.searchInBook(it) }, onSearch = { viewModel.searchInBook(it) }, onResultClick = { viewModel.onSearchResultClicked(it) }, onDismiss = { viewModel.toggleSearch() }, isEink = isEink)
+    }
+}
+
+@Composable
+private fun HighlightsPanel(viewModel: ReaderViewModel, isEink: Boolean) {
+    val highlightsList by viewModel.bookmarksList.collectAsState()
+    Surface(modifier = Modifier.fillMaxSize().zIndex(15f)) {
+        BookHighlightsOverlay(highlights = highlightsList, onHighlightClick = { viewModel.onHighlightClicked(it) }, onDismiss = { viewModel.toggleHighlights() }, isEink = isEink)
+    }
+}
+
+@Composable
+private fun BookmarksPanel(viewModel: ReaderViewModel, isEink: Boolean) {
+    val savedBookmarks by viewModel.savedBookmarks.collectAsState()
+    Surface(modifier = Modifier.fillMaxSize().zIndex(15f).tid(Tid.Screen.bookmarks)) {
+        BookBookmarksOverlay(bookmarks = savedBookmarks, onBookmarkClick = { viewModel.onBookmarkClicked(it) }, onDismiss = { viewModel.toggleBookmarksList() }, isEink = isEink)
+    }
+}
+
+@Composable
+private fun TocPanel(viewModel: ReaderViewModel, isEink: Boolean) {
+    val publication by viewModel.publication.collectAsState()
+    val currentLocator by viewModel.currentLocator.collectAsState()
+    val toc = publication?.tableOfContents ?: return
+    Surface(modifier = Modifier.fillMaxSize().zIndex(15f)) {
+        TableOfContents(toc = toc, currentHref = currentLocator?.href?.toString(), onLinkSelected = { link -> viewModel.onTocItemSelected(link) }, onDismiss = { viewModel.toggleToc() }, isEink = isEink)
+    }
+}
+
+@Composable
+private fun DictionaryPanel(viewModel: ReaderViewModel, isEink: Boolean) {
+    val dictionaryResponse by viewModel.dictionaryResponse.collectAsState()
+    val isDictionaryLoading by viewModel.isDictionaryLoading.collectAsState()
+    DictionaryBottomSheet(responseText = dictionaryResponse, isLoading = isDictionaryLoading, isEink = isEink, onDismiss = { viewModel.dismissBottomSheet() })
+}
+
+@Composable
+private fun DeleteHighlightDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("Delete Highlight?") }, text = { Text("This action cannot be undone.") }, confirmButton = { TextButton(onClick = onConfirm) { Text("Delete", color = Color.Red) } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }, modifier = Modifier.zIndex(4f))
+}
+
+/** The floating read-aloud controls and their settings sheet, shown while the TTS bar is up. */
+@OptIn(ExperimentalReadiumApi::class)
+@Composable
+private fun ReaderTtsControls(viewModel: ReaderViewModel, isEink: Boolean) {
+    val showTtsBar by viewModel.showTtsBar.collectAsState()
+    if (!showTtsBar) return
+    val isTtsActive by viewModel.isTtsActive.collectAsState()
+    val ttsSettings by viewModel.ttsSettings.collectAsState()
+    val showTtsSettingsSheet by viewModel.showTtsSettingsSheet.collectAsState()
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(end = 16.dp)
+            .zIndex(20f),
+        contentAlignment = Alignment.CenterEnd
+    ) {
+        TtsVerticalFloatingPill(
+            isVisible = true,
+            isPlaying = isTtsActive,
+            isEink = isEink,
+            onPlayPause = { viewModel.toggleTts() },
+            onStop = { viewModel.closeTts() },
+            onSkipForward = { viewModel.skipForward() },
+            onSkipBackward = { viewModel.skipBackward() },
+            onOpenSettings = { viewModel.openTtsSettings() }
+        )
+        TtsSettingsBottomSheet(
+            isVisible = showTtsSettingsSheet,
+            onDismiss = { viewModel.closeTtsSettings() },
+            ttsSettings = ttsSettings,
+            isEink = isEink,
+            onSpeedChange = { speed: Float ->
+                viewModel.updateTtsSpeed(speed)
+            },
+            onPitchChange = { pitch: Float ->
+                viewModel.updateTtsPitch(pitch)
+            },
+            onStyleChange = { style: String ->
+                viewModel.setTtsVisualStyle(style)
+            },
+            onAutoPageTurnChange = { enabled: Boolean ->
+                viewModel.setTtsAutoPageTurn(enabled)
+            },
+            onVoiceChange = { voice: Voice ->
+                viewModel.setBookSpecificVoice(voice)
+            },
+            viewModel =viewModel,
+            onLanguageChange = { languageCode: String -> viewModel.setTtsLanguage(languageCode)}
+        )
     }
 }
 

@@ -96,18 +96,19 @@ fun ReaderSettingsSheet(
 
     // 2. UI State
     val isPublisherStyles = prefs.publisherStyles ?: true
-    val areSettingsEnabled = !isPublisherStyles
     var selectedTab by remember { mutableIntStateOf(0) }
 
     // 3. Theme Colors
     val containerColor = if (isEink) Color.White else MaterialTheme.colorScheme.background
-    val contentColor = if (isEink) Color.Black else MaterialTheme.colorScheme.onBackground
-    val primaryColor = if (isEink) Color.Black else MaterialTheme.colorScheme.primary
+    val style = SettingsStyle(
+        enabled = !isPublisherStyles,
+        isEink = isEink,
+        contentColor = if (isEink) Color.Black else MaterialTheme.colorScheme.onBackground,
+        primaryColor = if (isEink) Color.Black else MaterialTheme.colorScheme.primary,
+    )
 
     // Helper to update prefs immediately
-    fun update(newPrefs: EpubPreferences) {
-        viewModel.savePreferences(newPrefs)
-    }
+    val update: (EpubPreferences) -> Unit = { viewModel.savePreferences(it) }
 
     // --- FULL SCREEN SURFACE ---
     // Fix: Explicit background and elevation to prevent scrolling artifacts (blurring)
@@ -117,29 +118,11 @@ fun ReaderSettingsSheet(
             .fillMaxSize()
             .background(containerColor),
         color = containerColor,
-        contentColor = contentColor,
+        contentColor = style.contentColor,
         shadowElevation = 0.dp
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-
-            // --- HEADER ---
-            TopAppBar(
-                title = { Text("Reader Settings", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onDismiss, modifier = Modifier.tid(Tid.Reader.SETTINGS_CLOSE)) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close Settings",
-                            tint = contentColor
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = containerColor,
-                    titleContentColor = contentColor,
-                    navigationIconContentColor = contentColor
-                )
-            )
+            SettingsHeader(containerColor = containerColor, contentColor = style.contentColor, onDismiss = onDismiss)
 
             // --- GLOBAL TOGGLES ---
             Row(
@@ -152,7 +135,7 @@ fun ReaderSettingsSheet(
                     title = "Publisher Styles",
                     subtitle = "Original layout",
                     checked = isPublisherStyles,
-                    primaryColor = primaryColor,
+                    primaryColor = style.primaryColor,
                     isEink = isEink,
                     onCheckedChange = { update(prefs.copy(publisherStyles = it)) },
                     modifier = Modifier.weight(1f).tid(Tid.ReaderSettings.togglePublisherStyles)
@@ -161,38 +144,12 @@ fun ReaderSettingsSheet(
 
             HorizontalDivider(color = Color.Gray.copy(alpha = 0.1f))
 
-            // --- TABS ---
-            Box(modifier = Modifier.alpha(if (areSettingsEnabled) 1f else 0.5f)) {
-                SecondaryTabRow(
-                    selectedTabIndex = selectedTab,
-                    containerColor = containerColor,
-                    contentColor = primaryColor,
-                    divider = { HorizontalDivider(color = Color.Gray.copy(alpha = 0.1f)) }
-                ) {
-                    Tab(
-                        selected = selectedTab == 0,
-                        onClick = { if (areSettingsEnabled) selectedTab = 0 },
-                        text = { Text("Display", fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal) },
-                        enabled = areSettingsEnabled,
-                        selectedContentColor = primaryColor,
-                        unselectedContentColor = contentColor.copy(alpha = 0.6f),
-                        modifier = Modifier.semantics(mergeDescendants = true) {
-                            contentDescription = "Display Settings Tab, ${if (selectedTab == 0) "Selected" else "Not Selected"}"
-                        }
-                    )
-                    Tab(
-                        selected = selectedTab == 1,
-                        onClick = { if (areSettingsEnabled) selectedTab = 1 },
-                        text = { Text("Layout", fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal) },
-                        enabled = areSettingsEnabled,
-                        selectedContentColor = primaryColor,
-                        unselectedContentColor = contentColor.copy(alpha = 0.6f),
-                        modifier = Modifier.semantics(mergeDescendants = true) {
-                            contentDescription = "Layout Settings Tab, ${if (selectedTab == 1) "Selected" else "Not Selected"}"
-                        }
-                    )
-                }
-            }
+            SettingsTabs(
+                selectedTab = selectedTab,
+                onSelectTab = { selectedTab = it },
+                containerColor = containerColor,
+                style = style
+            )
 
             // --- SCROLLABLE CONTENT ---
             LazyColumn(
@@ -200,256 +157,336 @@ fun ReaderSettingsSheet(
                     .fillMaxWidth()
                     .weight(1f)
                     .padding(horizontal = 16.dp)
-                    .alpha(if (areSettingsEnabled) 1f else 0.38f),
+                    .alpha(if (style.enabled) 1f else 0.38f),
                 verticalArrangement = Arrangement.spacedBy(24.dp),
                 contentPadding = PaddingValues(top = 24.dp, bottom = 48.dp)
             ) {
                 if (selectedTab == 0) {
                     // ================= DISPLAY TAB =================
-
-                    item {
-                        SettingsSectionTitle("Preview")
-                        CustomThemePreviewCard(
-                            themeStr = prefs.theme?.name?.lowercase() ?: "light",
-                            fontName = prefs.fontFamily?.name ?: "Original",
-                            fontSize = prefs.fontSize ?: 1.0,
-                            lineHeight = prefs.lineHeight ?: 1.2
-                        )
-                    }
-
-                    item {
-                        SettingsSectionTitle("Page Color")
-                        val currentTheme = prefs.theme ?: Theme.LIGHT
-                        Text(
-                            "Light and Dark follow SableOS. Sepia is an optional reading override.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = contentColor.copy(alpha = 0.72f),
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            ThemeOption(
-                                name = "Sepia",
-                                bg = Color(0xFFF5E6D3),
-                                fg = Color(0xFF5F4B32),
-                                selected = currentTheme == Theme.SEPIA,
-                                enabled = areSettingsEnabled,
-                                modifier = Modifier.tid(Tid.ReaderSettings.themeSepia)
-                            ) {
-                                update(prefs.copy(theme = Theme.SEPIA))
-                            }
-                            if (currentTheme == Theme.SEPIA) {
-                                OutlinedButton(
-                                    onClick = { update(prefs.copy(theme = Theme.LIGHT)) },
-                                    enabled = areSettingsEnabled,
-                                ) {
-                                    Text("Follow SableOS")
-                                }
-                            } else {
-                                Text(
-                                    "Following SableOS",
-                                    modifier = Modifier.padding(vertical = 12.dp),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = primaryColor,
-                                )
-                            }
-                        }
-                    }
-
-                    item {
-                        SettingsSectionTitle("Font Family")
-                        FontFamilyGrid(
-                            currentFamily = prefs.fontFamily,
-                            enabled = areSettingsEnabled
-                        ) { family ->
-                            update(prefs.copy(fontFamily = family))
-                        }
-                    }
-
-                    item {
-                        LabelledSlider(
-                            label = "Base Font Size",
-                            value = (prefs.fontSize ?: 1.0).toFloat(),
-                            range = 0.5f..2.5f,
-                            unit = "x",
-                            activeColor = primaryColor,
-                            enabled = areSettingsEnabled,
-                            defaultVisualValue = 1.0f,
-                            modifier = Modifier.tid(Tid.ReaderSettings.fontSizeSlider)
-                        ) {
-                            update(prefs.copy(fontSize = it.toDouble()))
-                        }
-                    }
-
+                    item { DisplayPreviewSection(prefs) }
+                    item { PageColorSection(prefs, style, update) }
+                    item { FontFamilySection(prefs, style, update) }
+                    item { FontSizeSection(prefs, style, update) }
                 } else {
                     // ================= LAYOUT TAB =================
-
-                    item {
-                        SettingsSectionTitle("Paragraph Preview")
-                        LayoutPreviewCard(
-                            themeStr = prefs.theme?.name?.lowercase() ?: "light",
-                            fontName = prefs.fontFamily?.name ?: "Original",
-                            fontSize = prefs.fontSize ?: 1.0,
-                            textAlignStr = prefs.textAlign?.name ?: "START",
-                            lineHeight = prefs.lineHeight ?: 1.2,
-                            paraSpacing = prefs.paragraphSpacing ?: 0.5,
-                            marginScale = prefs.pageMargins ?: 1.0,
-                            letterSpacing = prefs.letterSpacing ?: 0.1
-                        )
-                    }
-
-                    item {
-                        SettingsSectionTitle("Text Alignment")
-                        val align = prefs.textAlign ?: ReadiumTextAlign.START
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            AlignmentOption(Icons.AutoMirrored.Filled.FormatAlignLeft, "Auto", align == ReadiumTextAlign.START, primaryColor, areSettingsEnabled) {
-                                update(prefs.copy(textAlign = ReadiumTextAlign.START))
-                            }
-                            AlignmentOption(Icons.AutoMirrored.Filled.FormatAlignLeft, "Left", align == ReadiumTextAlign.LEFT, primaryColor, areSettingsEnabled) {
-                                update(prefs.copy(textAlign = ReadiumTextAlign.LEFT))
-                            }
-                            AlignmentOption(Icons.Default.FormatAlignJustify, "Justify", align == ReadiumTextAlign.JUSTIFY, primaryColor, areSettingsEnabled) {
-                                update(prefs.copy(textAlign = ReadiumTextAlign.JUSTIFY))
-                            }
-                        }
-                    }
-
-                    item {
-                        SettingsSectionTitle("Spacing & Margins")
-
-                        // LINE HEIGHT
-                        LabelledSlider(
-                            label = "Line Height",
-                            value = prefs.lineHeight?.toFloat(),
-                            defaultVisualValue = 1.2f,
-                            range = 1.0f..2.5f,
-                            unit = "x",
-                            activeColor = primaryColor,
-                            enabled = areSettingsEnabled,
-                            modifier = Modifier.tid(Tid.ReaderSettings.lineHeightSlider)
-                        ) {
-                            update(prefs.copy(lineHeight = it.toDouble()))
-                        }
-
-                        Spacer(Modifier.height(16.dp))
-
-                        // PARAGRAPH GAP
-                        LabelledSlider(
-                            label = "Paragraph Gap",
-                            value = prefs.paragraphSpacing?.toFloat(),
-                            defaultVisualValue = 0.5f,
-                            range = 0f..2.0f,
-                            unit = "em",
-                            activeColor = primaryColor,
-                            enabled = areSettingsEnabled
-                        ) {
-                            update(prefs.copy(paragraphSpacing = it.toDouble()))
-                        }
-
-                        // LETTER SPACING
-                        LabelledSlider(
-                            label = "Letter Spacing",
-                            value = prefs.letterSpacing?.toFloat(),
-                            defaultVisualValue = 0.1f,
-                            range = 0f..0.5f,
-                            unit = "em",
-                            activeColor = primaryColor,
-                            enabled = areSettingsEnabled
-                        ) {
-                            update(prefs.copy(letterSpacing = it.toDouble()))
-                        }
-
-                        Spacer(Modifier.height(16.dp))
-
-                        // SIDE MARGINS
-                        LabelledSlider(
-                            label = "Side Margins",
-                            value = prefs.pageMargins?.toFloat(),
-                            defaultVisualValue = 1.0f,
-                            range = 0.5f..3.0f,
-                            unit = "x",
-                            activeColor = primaryColor,
-                            enabled = areSettingsEnabled
-                        ) {
-                            update(prefs.copy(pageMargins = it.toDouble()))
-                        }
-                    }
-
-                    // --- NEW: ADVANCED TYPOGRAPHY ---
-                    item {
-                        SettingsSectionTitle("Advanced Typography")
-
-                        // WORD SPACING
-                        LabelledSlider(
-                            label = "Word Spacing",
-                            value = prefs.wordSpacing?.toFloat(),
-                            defaultVisualValue = 0.0f,
-                            range = 0f..2.0f,
-                            unit = "rem",
-                            activeColor = primaryColor,
-                            enabled = areSettingsEnabled
-                        ) {
-                            update(prefs.copy(wordSpacing = it.toDouble()))
-                        }
-
-                        Spacer(Modifier.height(16.dp))
-
-                        // PARAGRAPH INDENT
-                        LabelledSlider(
-                            label = "Paragraph Indent",
-                            value = prefs.paragraphIndent?.toFloat(),
-                            defaultVisualValue = 0.0f,
-                            range = 0f..3.0f,
-                            unit = "em",
-                            activeColor = primaryColor,
-                            enabled = areSettingsEnabled
-                        ) {
-                            update(prefs.copy(paragraphIndent = it.toDouble()))
-                        }
-
-                        Spacer(Modifier.height(16.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            CompactSettingsToggle(
-                                title = "Hyphenation",
-                                subtitle = "Split long words",
-                                checked = prefs.hyphens ?: false,
-                                primaryColor = primaryColor,
-                                isEink = isEink,
-                                onCheckedChange = { if (areSettingsEnabled) update(prefs.copy(hyphens = it)) },
-                                modifier = Modifier.weight(1f)
-                            )
-                            CompactSettingsToggle(
-                                title = "Ligatures",
-                                subtitle = "Combine characters",
-                                checked = prefs.ligatures ?: false,
-                                primaryColor = primaryColor,
-                                isEink = isEink,
-                                onCheckedChange = { if (areSettingsEnabled) update(prefs.copy(ligatures = it)) },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-
-                    item {
-                        Spacer(Modifier.height(8.dp))
-                        OutlinedButton(
-                            onClick = {
-                                viewModel.resetLayoutToDefaults()
-                            },
-                            enabled = areSettingsEnabled,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                        ) {
-                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Reset Layout to Defaults", fontSize = 12.sp)
-                        }
-                    }
+                    item { LayoutPreviewSection(prefs) }
+                    item { TextAlignmentSection(prefs, style, update) }
+                    item { SpacingSection(prefs, style, update) }
+                    item { AdvancedTypographySection(prefs, style, update) }
+                    item { ResetLayoutSection(style) { viewModel.resetLayoutToDefaults() } }
                 }
             }
         }
+    }
+}
+
+/** Shared look of the settings sections: whether they are editable, and the e-ink aware colours. */
+private class SettingsStyle(
+    val enabled: Boolean,
+    val isEink: Boolean,
+    val contentColor: Color,
+    val primaryColor: Color,
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettingsHeader(containerColor: Color, contentColor: Color, onDismiss: () -> Unit) {
+    TopAppBar(
+        title = { Text("Reader Settings", fontWeight = FontWeight.Bold) },
+        navigationIcon = {
+            IconButton(onClick = onDismiss, modifier = Modifier.tid(Tid.Reader.SETTINGS_CLOSE)) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Close Settings",
+                    tint = contentColor
+                )
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = containerColor,
+            titleContentColor = contentColor,
+            navigationIconContentColor = contentColor
+        )
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettingsTabs(selectedTab: Int, onSelectTab: (Int) -> Unit, containerColor: Color, style: SettingsStyle) {
+    Box(modifier = Modifier.alpha(if (style.enabled) 1f else 0.5f)) {
+        SecondaryTabRow(
+            selectedTabIndex = selectedTab,
+            containerColor = containerColor,
+            contentColor = style.primaryColor,
+            divider = { HorizontalDivider(color = Color.Gray.copy(alpha = 0.1f)) }
+        ) {
+            Tab(
+                selected = selectedTab == 0,
+                onClick = { if (style.enabled) onSelectTab(0) },
+                text = { Text("Display", fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal) },
+                enabled = style.enabled,
+                selectedContentColor = style.primaryColor,
+                unselectedContentColor = style.contentColor.copy(alpha = 0.6f),
+                modifier = Modifier.semantics(mergeDescendants = true) {
+                    contentDescription = "Display Settings Tab, ${if (selectedTab == 0) "Selected" else "Not Selected"}"
+                }
+            )
+            Tab(
+                selected = selectedTab == 1,
+                onClick = { if (style.enabled) onSelectTab(1) },
+                text = { Text("Layout", fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal) },
+                enabled = style.enabled,
+                selectedContentColor = style.primaryColor,
+                unselectedContentColor = style.contentColor.copy(alpha = 0.6f),
+                modifier = Modifier.semantics(mergeDescendants = true) {
+                    contentDescription = "Layout Settings Tab, ${if (selectedTab == 1) "Selected" else "Not Selected"}"
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun DisplayPreviewSection(prefs: EpubPreferences) {
+    SettingsSectionTitle("Preview")
+    CustomThemePreviewCard(
+        themeStr = prefs.theme?.name?.lowercase() ?: "light",
+        fontName = prefs.fontFamily?.name ?: "Original",
+        fontSize = prefs.fontSize ?: 1.0,
+        lineHeight = prefs.lineHeight ?: 1.2
+    )
+}
+
+@Composable
+private fun PageColorSection(prefs: EpubPreferences, style: SettingsStyle, update: (EpubPreferences) -> Unit) {
+    SettingsSectionTitle("Page Color")
+    val currentTheme = prefs.theme ?: Theme.LIGHT
+    Text(
+        "Light and Dark follow SableOS. Sepia is an optional reading override.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = style.contentColor.copy(alpha = 0.72f),
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        ThemeOption(
+            name = "Sepia",
+            bg = Color(0xFFF5E6D3),
+            fg = Color(0xFF5F4B32),
+            selected = currentTheme == Theme.SEPIA,
+            enabled = style.enabled,
+            modifier = Modifier.tid(Tid.ReaderSettings.themeSepia)
+        ) {
+            update(prefs.copy(theme = Theme.SEPIA))
+        }
+        if (currentTheme == Theme.SEPIA) {
+            OutlinedButton(
+                onClick = { update(prefs.copy(theme = Theme.LIGHT)) },
+                enabled = style.enabled,
+            ) {
+                Text("Follow SableOS")
+            }
+        } else {
+            Text(
+                "Following SableOS",
+                modifier = Modifier.padding(vertical = 12.dp),
+                style = MaterialTheme.typography.labelLarge,
+                color = style.primaryColor,
+            )
+        }
+    }
+}
+
+@Composable
+private fun FontFamilySection(prefs: EpubPreferences, style: SettingsStyle, update: (EpubPreferences) -> Unit) {
+    SettingsSectionTitle("Font Family")
+    FontFamilyGrid(
+        currentFamily = prefs.fontFamily,
+        enabled = style.enabled
+    ) { family ->
+        update(prefs.copy(fontFamily = family))
+    }
+}
+
+@Composable
+private fun FontSizeSection(prefs: EpubPreferences, style: SettingsStyle, update: (EpubPreferences) -> Unit) {
+    LabelledSlider(
+        label = "Base Font Size",
+        value = (prefs.fontSize ?: 1.0).toFloat(),
+        range = 0.5f..2.5f,
+        unit = "x",
+        activeColor = style.primaryColor,
+        enabled = style.enabled,
+        defaultVisualValue = 1.0f,
+        modifier = Modifier.tid(Tid.ReaderSettings.fontSizeSlider)
+    ) {
+        update(prefs.copy(fontSize = it.toDouble()))
+    }
+}
+
+@Composable
+private fun LayoutPreviewSection(prefs: EpubPreferences) {
+    SettingsSectionTitle("Paragraph Preview")
+    LayoutPreviewCard(
+        themeStr = prefs.theme?.name?.lowercase() ?: "light",
+        fontName = prefs.fontFamily?.name ?: "Original",
+        fontSize = prefs.fontSize ?: 1.0,
+        textAlignStr = prefs.textAlign?.name ?: "START",
+        lineHeight = prefs.lineHeight ?: 1.2,
+        paraSpacing = prefs.paragraphSpacing ?: 0.5,
+        marginScale = prefs.pageMargins ?: 1.0,
+        letterSpacing = prefs.letterSpacing ?: 0.1
+    )
+}
+
+@Composable
+private fun TextAlignmentSection(prefs: EpubPreferences, style: SettingsStyle, update: (EpubPreferences) -> Unit) {
+    SettingsSectionTitle("Text Alignment")
+    val align = prefs.textAlign ?: ReadiumTextAlign.START
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        AlignmentOption(Icons.AutoMirrored.Filled.FormatAlignLeft, "Auto", align == ReadiumTextAlign.START, style.primaryColor, style.enabled) {
+            update(prefs.copy(textAlign = ReadiumTextAlign.START))
+        }
+        AlignmentOption(Icons.AutoMirrored.Filled.FormatAlignLeft, "Left", align == ReadiumTextAlign.LEFT, style.primaryColor, style.enabled) {
+            update(prefs.copy(textAlign = ReadiumTextAlign.LEFT))
+        }
+        AlignmentOption(Icons.Default.FormatAlignJustify, "Justify", align == ReadiumTextAlign.JUSTIFY, style.primaryColor, style.enabled) {
+            update(prefs.copy(textAlign = ReadiumTextAlign.JUSTIFY))
+        }
+    }
+}
+
+@Composable
+private fun SpacingSection(prefs: EpubPreferences, style: SettingsStyle, update: (EpubPreferences) -> Unit) {
+    SettingsSectionTitle("Spacing & Margins")
+
+    // LINE HEIGHT
+    LabelledSlider(
+        label = "Line Height",
+        value = prefs.lineHeight?.toFloat(),
+        defaultVisualValue = 1.2f,
+        range = 1.0f..2.5f,
+        unit = "x",
+        activeColor = style.primaryColor,
+        enabled = style.enabled,
+        modifier = Modifier.tid(Tid.ReaderSettings.lineHeightSlider)
+    ) {
+        update(prefs.copy(lineHeight = it.toDouble()))
+    }
+
+    Spacer(Modifier.height(16.dp))
+
+    // PARAGRAPH GAP
+    LabelledSlider(
+        label = "Paragraph Gap",
+        value = prefs.paragraphSpacing?.toFloat(),
+        defaultVisualValue = 0.5f,
+        range = 0f..2.0f,
+        unit = "em",
+        activeColor = style.primaryColor,
+        enabled = style.enabled
+    ) {
+        update(prefs.copy(paragraphSpacing = it.toDouble()))
+    }
+
+    // LETTER SPACING
+    LabelledSlider(
+        label = "Letter Spacing",
+        value = prefs.letterSpacing?.toFloat(),
+        defaultVisualValue = 0.1f,
+        range = 0f..0.5f,
+        unit = "em",
+        activeColor = style.primaryColor,
+        enabled = style.enabled
+    ) {
+        update(prefs.copy(letterSpacing = it.toDouble()))
+    }
+
+    Spacer(Modifier.height(16.dp))
+
+    // SIDE MARGINS
+    LabelledSlider(
+        label = "Side Margins",
+        value = prefs.pageMargins?.toFloat(),
+        defaultVisualValue = 1.0f,
+        range = 0.5f..3.0f,
+        unit = "x",
+        activeColor = style.primaryColor,
+        enabled = style.enabled
+    ) {
+        update(prefs.copy(pageMargins = it.toDouble()))
+    }
+}
+
+@Composable
+private fun AdvancedTypographySection(prefs: EpubPreferences, style: SettingsStyle, update: (EpubPreferences) -> Unit) {
+    SettingsSectionTitle("Advanced Typography")
+
+    // WORD SPACING
+    LabelledSlider(
+        label = "Word Spacing",
+        value = prefs.wordSpacing?.toFloat(),
+        defaultVisualValue = 0.0f,
+        range = 0f..2.0f,
+        unit = "rem",
+        activeColor = style.primaryColor,
+        enabled = style.enabled
+    ) {
+        update(prefs.copy(wordSpacing = it.toDouble()))
+    }
+
+    Spacer(Modifier.height(16.dp))
+
+    // PARAGRAPH INDENT
+    LabelledSlider(
+        label = "Paragraph Indent",
+        value = prefs.paragraphIndent?.toFloat(),
+        defaultVisualValue = 0.0f,
+        range = 0f..3.0f,
+        unit = "em",
+        activeColor = style.primaryColor,
+        enabled = style.enabled
+    ) {
+        update(prefs.copy(paragraphIndent = it.toDouble()))
+    }
+
+    Spacer(Modifier.height(16.dp))
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        CompactSettingsToggle(
+            title = "Hyphenation",
+            subtitle = "Split long words",
+            checked = prefs.hyphens ?: false,
+            primaryColor = style.primaryColor,
+            isEink = style.isEink,
+            onCheckedChange = { if (style.enabled) update(prefs.copy(hyphens = it)) },
+            modifier = Modifier.weight(1f)
+        )
+        CompactSettingsToggle(
+            title = "Ligatures",
+            subtitle = "Combine characters",
+            checked = prefs.ligatures ?: false,
+            primaryColor = style.primaryColor,
+            isEink = style.isEink,
+            onCheckedChange = { if (style.enabled) update(prefs.copy(ligatures = it)) },
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun ResetLayoutSection(style: SettingsStyle, onReset: () -> Unit) {
+    Spacer(Modifier.height(8.dp))
+    OutlinedButton(
+        onClick = onReset,
+        enabled = style.enabled,
+        modifier = Modifier.fillMaxWidth(),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+    ) {
+        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
+        Spacer(Modifier.width(8.dp))
+        Text("Reset Layout to Defaults", fontSize = 12.sp)
     }
 }
 

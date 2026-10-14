@@ -45,7 +45,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FilterList
@@ -84,7 +84,6 @@ import org.vaachak.reader.leisure.ui.testability.TidScreen
 import org.vaachak.reader.leisure.ui.testability.tid
 import org.vaachak.reader.leisure.ui.testability.tids
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun AllHighlightsScreen(
     onBack: () -> Unit,
@@ -95,7 +94,6 @@ fun AllHighlightsScreen(
     val tags by viewModel.availableTags.collectAsState()
     val selectedTag by viewModel.selectedTag.collectAsState()
     val isEink by viewModel.isEinkEnabled.collectAsState()
-    var isFilterExpanded by remember { mutableStateOf(false) }
 
     // Colors
     val containerColor = if (isEink) Color.White else MaterialTheme.colorScheme.background
@@ -118,137 +116,193 @@ fun AllHighlightsScreen(
                     .padding(padding)
                     .fillMaxSize()
             ) {
-            // --- 1. COMPACT FILTER BAR ---
-            Surface(
-                color = if (isEink) Color.White else MaterialTheme.colorScheme.surface,
-                modifier = Modifier
-                    .tid(Tid.Highlights.FILTER_BAR)
-                    .fillMaxWidth()
-                    .clickable { isFilterExpanded = !isFilterExpanded }
-                    .semantics(mergeDescendants = true) {
-                        contentDescription = "Filter Highlights: Currently showing $selectedTag. Tap to change."
+                // --- 1. COMPACT FILTER BAR ---
+                HighlightsFilterBar(
+                    tags = tags,
+                    selectedTag = selectedTag,
+                    isEink = isEink,
+                    contentColor = contentColor,
+                    onSelectTag = { viewModel.updateFilter(it) }
+                )
+
+                // --- 2. LIST AREA ---
+                if (groupedHighlights.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("No highlights found.", color = if(isEink) Color.Black else Color.Gray)
                     }
+                } else {
+                    HighlightsList(
+                        groupedHighlights = groupedHighlights,
+                        isEink = isEink,
+                        contentColor = contentColor,
+                        onHighlightClick = onHighlightClick,
+                        onDelete = { viewModel.deleteHighlight(it) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun HighlightsFilterBar(
+    tags: List<AllHighlightsViewModel.TagWithCount>,
+    selectedTag: String,
+    isEink: Boolean,
+    contentColor: Color,
+    onSelectTag: (String) -> Unit,
+) {
+    var isFilterExpanded by remember { mutableStateOf(false) }
+    Surface(
+        color = if (isEink) Color.White else MaterialTheme.colorScheme.surface,
+        modifier = Modifier
+            .tid(Tid.Highlights.FILTER_BAR)
+            .fillMaxWidth()
+            .clickable { isFilterExpanded = !isFilterExpanded }
+            .semantics(mergeDescendants = true) {
+                contentDescription = "Filter Highlights: Currently showing $selectedTag. Tap to change."
+            }
+    ) {
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp), // Reduced Padding
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 8.dp), // Reduced Padding
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.FilterList, contentDescription = null, modifier = Modifier.size(14.dp), tint = contentColor)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Filter: $selectedTag",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = contentColor
-                            )
-                        }
-                        Icon(
-                            imageVector = if (isFilterExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                            contentDescription = if (isFilterExpanded) "Collapse Filter" else "Expand Filter",
-                            tint = contentColor,
-                            modifier = Modifier
-                                .tid(Tid.Highlights.FILTER_TOGGLE)
-                                .size(16.dp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.FilterList, contentDescription = null, modifier = Modifier.size(14.dp), tint = contentColor)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Filter: $selectedTag",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = contentColor
+                    )
+                }
+                Icon(
+                    imageVector = if (isFilterExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = if (isFilterExpanded) "Collapse Filter" else "Expand Filter",
+                    tint = contentColor,
+                    modifier = Modifier
+                        .tid(Tid.Highlights.FILTER_TOGGLE)
+                        .size(16.dp)
+                )
+            }
+
+            AnimatedVisibility(
+                visible = isFilterExpanded,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                FlowRow(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    tags.forEachIndexed { index, tagData ->
+                        TagFilterChip(
+                            tagData = tagData,
+                            isFirst = index == 0,
+                            selected = selectedTag == tagData.name,
+                            isEink = isEink,
+                            contentColor = contentColor,
+                            onClick = {
+                                onSelectTag(tagData.name)
+                                isFilterExpanded = false
+                            }
                         )
                     }
+                }
+            }
+            HorizontalDivider(color = if (isEink) Color.Black else MaterialTheme.colorScheme.outlineVariant)
+        }
+    }
+}
 
-                    AnimatedVisibility(
-                        visible = isFilterExpanded,
-                        enter = expandVertically() + fadeIn(),
-                        exit = shrinkVertically() + fadeOut()
-                    ) {
-                        FlowRow(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            tags.forEachIndexed { index, tagData ->
-                                val chipModifier = if (index == 0) {
-                                    Modifier.tids(
-                                        Tid.Highlights.filterChip(tagData.name),
-                                        Tid.Highlights.FILTER_CHIP_FIRST
-                                    )
-                                } else {
-                                    Modifier.tid(Tid.Highlights.filterChip(tagData.name))
-                                }
-                                FilterChip(
-                                    selected = selectedTag == tagData.name,
-                                    onClick = {
-                                        viewModel.updateFilter(tagData.name)
-                                        isFilterExpanded = false
-                                    },
-                                    label = { Text("${tagData.name} (${tagData.count})", fontSize = 11.sp) },
-                                    modifier = chipModifier.height(28.dp), // Slimmer chips
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = if (isEink) Color.Black else MaterialTheme.colorScheme.primary,
-                                        selectedLabelColor = if (isEink) Color.White else MaterialTheme.colorScheme.onPrimary,
-                                        containerColor = Color.Transparent,
-                                        labelColor = contentColor
-                                    ),
-                                    border = if (isEink) BorderStroke(1.dp, Color.Black) else FilterChipDefaults.filterChipBorder(enabled = true, selected = selectedTag == tagData.name)
-                                )
-                            }
-                        }
-                    }
-                    HorizontalDivider(color = if (isEink) Color.Black else MaterialTheme.colorScheme.outlineVariant)
-                }
-            }
+@Composable
+private fun TagFilterChip(
+    tagData: AllHighlightsViewModel.TagWithCount,
+    isFirst: Boolean,
+    selected: Boolean,
+    isEink: Boolean,
+    contentColor: Color,
+    onClick: () -> Unit,
+) {
+    val chipModifier = if (isFirst) {
+        Modifier.tids(
+            Tid.Highlights.filterChip(tagData.name),
+            Tid.Highlights.FILTER_CHIP_FIRST
+        )
+    } else {
+        Modifier.tid(Tid.Highlights.filterChip(tagData.name))
+    }
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text("${tagData.name} (${tagData.count})", fontSize = 11.sp) },
+        modifier = chipModifier.height(28.dp), // Slimmer chips
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = if (isEink) Color.Black else MaterialTheme.colorScheme.primary,
+            selectedLabelColor = if (isEink) Color.White else MaterialTheme.colorScheme.onPrimary,
+            containerColor = Color.Transparent,
+            labelColor = contentColor
+        ),
+        border = if (isEink) BorderStroke(1.dp, Color.Black) else FilterChipDefaults.filterChipBorder(enabled = true, selected = selected)
+    )
+}
 
-            // --- 2. LIST AREA ---
-            if (groupedHighlights.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No highlights found.", color = if(isEink) Color.Black else Color.Gray)
-                }
-            } else {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    var firstHighlightAssigned = false
-                    groupedHighlights.forEach { (bookTitle, highlights) ->
-                        stickyHeader {
-                            Surface(
-                                color = if (isEink) Color.White else MaterialTheme.colorScheme.surfaceVariant,
-                                border = if(isEink) BorderStroke(1.dp, Color.Black) else null,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                                ) {
-                                    Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null, modifier = Modifier.size(14.dp), tint = contentColor)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = bookTitle,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        color = contentColor
-                                    )
-                                }
-                            }
-                        }
-                        itemsIndexed(highlights, key = { _, highlight -> highlight.id }) { index, highlight ->
-                            val isFirstVisibleItem = !firstHighlightAssigned
-                            if (isFirstVisibleItem) {
-                                firstHighlightAssigned = true
-                            }
-                            CompactHighlightItem(
-                                highlight = highlight,
-                                isEink = isEink,
-                                isFirstItem = isFirstVisibleItem,
-                                onClick = { onHighlightClick(highlight.bookHashId, highlight.locatorJson) },
-                                onDelete = { viewModel.deleteHighlight(highlight.id) }
-                            )
-                            if (!isEink) HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha=0.2f))
-                        }
-                    }
-                }
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun HighlightsList(
+    groupedHighlights: Map<String, List<HighlightEntity>>,
+    isEink: Boolean,
+    contentColor: Color,
+    onHighlightClick: (String, String) -> Unit,
+    onDelete: (String) -> Unit,
+) {
+    // The first highlight of the first book carries the shared "first" test ids.
+    val firstHighlightId = groupedHighlights.values.firstNotNullOfOrNull { it.firstOrNull() }?.id
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        groupedHighlights.forEach { (bookTitle, highlights) ->
+            stickyHeader { BookHeader(bookTitle = bookTitle, isEink = isEink, contentColor = contentColor) }
+            items(highlights, key = { highlight -> highlight.id }) { highlight ->
+                CompactHighlightItem(
+                    highlight = highlight,
+                    isEink = isEink,
+                    isFirstItem = highlight.id == firstHighlightId,
+                    onClick = { onHighlightClick(highlight.bookHashId, highlight.locatorJson) },
+                    onDelete = { onDelete(highlight.id) }
+                )
+                if (!isEink) HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha=0.2f))
             }
-            }
+        }
+    }
+}
+
+@Composable
+private fun BookHeader(bookTitle: String, isEink: Boolean, contentColor: Color) {
+    Surface(
+        color = if (isEink) Color.White else MaterialTheme.colorScheme.surfaceVariant,
+        border = if(isEink) BorderStroke(1.dp, Color.Black) else null,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+        ) {
+            Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null, modifier = Modifier.size(14.dp), tint = contentColor)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = bookTitle,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = contentColor
+            )
         }
     }
 }
