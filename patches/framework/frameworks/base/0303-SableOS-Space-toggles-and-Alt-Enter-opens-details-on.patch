@@ -1,0 +1,270 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 14 Oct 2026 13:12:42 +0000
+Subject: [PATCH] SableOS: Space toggles and Alt+Enter opens details on Quick
+ Settings tiles
+
+Keyboard-first shade design for Quick Settings tiles. Arrows keep
+Compose focus traversal between tiles and Enter keeps the tile's click
+(its dialog or details on dual-target tiles), with the existing
+borderOnFocus focus ring. Added on a focused tile:
+
+* Space toggles: the switch of a dual-target tile (Internet,
+  Bluetooth...), else the tile's normal click.
+* Alt+Enter, the design's Menu / Fn+Enter on keyboards without Fn
+  (Q25), runs the tile's long-press action: details or settings.
+
+The action runs on the first key-down and its repeats and key-up are
+consumed, so the clickable never also clicks; any other modifier
+leaves the key alone. Pure policy: qs/sable/SableTileKeys.java. The
+tile's click lambda is only moved into a val so both paths share it.
+---
+ .../qs/panels/ui/compose/infinitegrid/Tile.kt | 115 ++++++++++++------
+ .../systemui/qs/sable/SableTileKeys.java      |  79 ++++++++++++
+ 2 files changed, 159 insertions(+), 35 deletions(-)
+ create mode 100644 packages/SystemUI/src/com/android/systemui/qs/sable/SableTileKeys.java
+
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt
+index 447878cba6af..a586e0563ed7 100644
+--- a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt
++++ b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt
+@@ -60,6 +60,7 @@ import androidx.compose.ui.draw.clip
+ import androidx.compose.ui.geometry.Size
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.graphics.Shape
++import androidx.compose.ui.input.key.onPreviewKeyEvent
+ import androidx.compose.ui.platform.LocalConfiguration
+ import androidx.compose.ui.platform.LocalDensity
+ import androidx.compose.ui.platform.LocalResources
+@@ -103,6 +104,7 @@ import com.android.systemui.qs.panels.ui.viewmodel.TileViewModel
+ import com.android.systemui.qs.panels.ui.viewmodel.toIconProvider
+ import com.android.systemui.qs.panels.ui.viewmodel.toUiState
+ import com.android.systemui.qs.pipeline.shared.TileSpec
++import com.android.systemui.qs.sable.SableTileKeys
+ import com.android.systemui.qs.tileimpl.QSTileImpl
+ import com.android.systemui.qs.ui.composable.QuickSettingsShade
+ import com.android.systemui.qs.ui.compose.borderOnFocus
+@@ -259,50 +261,69 @@ fun ContentScope.Tile(
+                 remember(currentBounceableInfo) {
+                     currentBounceableInfo?.bounceable ?: BounceableTileViewModel()
+                 }
+-            TileContainer(
+-                interactionSource = interactionSource.takeIf { bounceContainer },
+-                onClick = onClick@{
+-                        if (!isClickable) return@onClick
+-
+-                        val hasDetails =
+-                            QsDetailedView.isEnabled &&
+-                                detailsViewModel?.onTileClicked(tile.spec) == true
+-                        if (hasDetails) return@onClick
+-
+-                        // For those tile's who doesn't have a detailed view, process with
+-                        // their `onClick` behavior.
+-                        if (iconOnly && isDualTarget) {
+-                            tile.toggleClick()
++            val onTileClick: () -> Unit =
++                onClick@{
++                    if (!isClickable) return@onClick
++
++                    val hasDetails =
++                        QsDetailedView.isEnabled &&
++                            detailsViewModel?.onTileClicked(tile.spec) == true
++                    if (hasDetails) return@onClick
++
++                    // For those tile's who doesn't have a detailed view, process with
++                    // their `onClick` behavior.
++                    if (iconOnly && isDualTarget) {
++                        tile.toggleClick()
++                    } else {
++                        tile.mainClick(expandable)
++                    }
++
++                    // Side effects of the click
++                    hapticsViewModel?.setTileInteractionState(
++                        TileHapticsViewModel.TileInteractionState.CLICKED
++                    )
++
++                    coroutineScope.launch {
++                        // Bounce the tile's container if it is toggleable and is not a large
++                        // dual target tile. These don't toggle on main click. Otherwise bounce
++                        // the content of the tile.
++                        if (bounceContainer) {
++                            // Only bounce the container ourselves if a BounceableInfo was given
++                            currentBounceableInfo?.bounceable?.animateContainerBounce()
+                         } else {
+-                            tile.mainClick(expandable)
++                            contentBounceable.animateContentBounce(iconOnly)
+                         }
+-
+-                        // Side effects of the click
++                    }
++                    if (uiState.isToggleable && iconOnly) {
++                        // And show footer text feedback for icons
++                        requestToggleTextFeedback(tile.spec)
++                    }
++                }
++            // Sable: Space toggles, Alt+Enter (Menu / Fn+Enter) opens details or settings.
++            val onTileToggle: () -> Unit = {
++                if (isClickable) {
++                    if (isDualTarget) {
+                         hapticsViewModel?.setTileInteractionState(
+                             TileHapticsViewModel.TileInteractionState.CLICKED
+                         )
+-
+-                        coroutineScope.launch {
+-                            // Bounce the tile's container if it is toggleable and is not a large
+-                            // dual target tile. These don't toggle on main click. Otherwise bounce
+-                            // the content of the tile.
+-                            if (bounceContainer) {
+-                                // Only bounce the container ourselves if a BounceableInfo was given
+-                                currentBounceableInfo?.bounceable?.animateContainerBounce()
+-                            } else {
+-                                contentBounceable.animateContentBounce(iconOnly)
+-                            }
+-                        }
+-                        if (uiState.isToggleable && iconOnly) {
+-                            // And show footer text feedback for icons
+-                            requestToggleTextFeedback(tile.spec)
+-                        }
+-                    },
++                        tile.toggleClick()
++                    } else {
++                        onTileClick()
++                    }
++                }
++            }
++            TileContainer(
++                interactionSource = interactionSource.takeIf { bounceContainer },
++                onClick = onTileClick,
+                 onLongClick = longClick,
+                 accessibilityUiState = uiState.accessibilityUiState,
+                 iconOnly = iconOnly,
+                 isDualTarget = isDualTarget,
+-                modifier = contentRevealModifier,
++                modifier =
++                    contentRevealModifier.sableTileKeys(
++                        onToggle = onTileToggle,
++                        onDetails = { longClick?.invoke() },
++                    ),
+             ) {
+                 val iconProvider: Context.() -> Icon = { getTileIcon(icon = icon) }
+                 if (iconOnly) {
+@@ -346,6 +367,30 @@ fun ContentScope.Tile(
+     }
+ }
+ 
++/**
++ * Sable keyboard-first tile keys ([SableTileKeys]): Space toggles, Alt+Enter opens details or
++ * settings. Arrows and Enter stay with Compose focus traversal and the tile's clickable, whose
++ * focus ring is drawn by [borderOnFocus]. Placed before the clickable so it sees the key first.
++ */
++private fun Modifier.sableTileKeys(onToggle: () -> Unit, onDetails: () -> Unit): Modifier =
++    onPreviewKeyEvent { keyEvent ->
++        val event = keyEvent.nativeKeyEvent
++        when (
++            SableTileKeys.actionFor(event.keyCode, event.metaState, event.action, event.repeatCount)
++        ) {
++            SableTileKeys.TOGGLE -> {
++                onToggle()
++                true
++            }
++            SableTileKeys.DETAILS -> {
++                onDetails()
++                true
++            }
++            SableTileKeys.CONSUME -> true
++            else -> false
++        }
++    }
++
+ @Composable
+ private fun TileExpandable(
+     color: () -> Color,
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/sable/SableTileKeys.java b/packages/SystemUI/src/com/android/systemui/qs/sable/SableTileKeys.java
+new file mode 100644
+index 000000000000..1980f4230ab9
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/qs/sable/SableTileKeys.java
+@@ -0,0 +1,79 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.systemui.qs.sable;
++
++/**
++ * Keys on a focused Quick Settings tile (keyboard-first shade design).
++ *
++ * <ul>
++ *   <li>Arrows move focus and Enter activates the tile: both stay with Compose (focus traversal
++ *       and the tile's clickable), so they are {@link #PASS}.
++ *   <li>Space toggles the tile. On a dual-target tile (Internet, Bluetooth...) Enter opens the
++ *       tile's dialog or details while Space flips the switch.
++ *   <li>Alt+Enter is the design's Menu / Fn+Enter for keyboards without Fn: the tile's details or
++ *       settings, as a long press opens them.
++ * </ul>
++ *
++ * <p>The action runs on the first key-down; its repeats and its key-up are {@link #CONSUME}d so
++ * the tile's clickable never also clicks. Any other modifier (Ctrl, Meta, Sym, Fn, Shift) leaves
++ * the key alone. Pure: android.view.KeyEvent values are copied so it can be tested off-device.
++ */
++public final class SableTileKeys {
++    /** Not ours: Compose focus navigation and the tile's own click handling. */
++    public static final int PASS = 0;
++    /** Ours but nothing to do now (repeat or key-up of a handled key). */
++    public static final int CONSUME = 1;
++    /** Toggle the tile. */
++    public static final int TOGGLE = 2;
++    /** Open the tile's details or settings (its long-press action). */
++    public static final int DETAILS = 3;
++
++    // android.view.KeyEvent key codes, actions and meta state bits.
++    static final int KEYCODE_DPAD_CENTER = 23;
++    static final int KEYCODE_SPACE = 62;
++    static final int KEYCODE_ENTER = 66;
++    static final int KEYCODE_NUMPAD_ENTER = 160;
++    static final int ACTION_DOWN = 0;
++    private static final int META_SHIFT_MASK = 0x01 | 0x40 | 0x80;
++    private static final int META_ALT_MASK = 0x02 | 0x10 | 0x20;
++    private static final int META_SYM_ON = 0x04;
++    private static final int META_FUNCTION_ON = 0x08;
++    private static final int META_CTRL_MASK = 0x1000 | 0x2000 | 0x4000;
++    private static final int META_META_MASK = 0x10000 | 0x20000 | 0x40000;
++    private static final int NON_ALT_MODIFIERS =
++            META_SHIFT_MASK | META_SYM_ON | META_FUNCTION_ON | META_CTRL_MASK | META_META_MASK;
++
++    private SableTileKeys() {}
++
++    /** What a key event on a focused tile does; {@code action} is the KeyEvent action. */
++    public static int actionFor(int keyCode, int metaState, int action, int repeatCount) {
++        if ((metaState & NON_ALT_MODIFIERS) != 0) {
++            return PASS;
++        }
++        final boolean alt = (metaState & META_ALT_MASK) != 0;
++        final int command;
++        if (keyCode == KEYCODE_SPACE && !alt) {
++            command = TOGGLE;
++        } else if (alt && (keyCode == KEYCODE_ENTER || keyCode == KEYCODE_NUMPAD_ENTER
++                || keyCode == KEYCODE_DPAD_CENTER)) {
++            command = DETAILS;
++        } else {
++            return PASS;
++        }
++        return action == ACTION_DOWN && repeatCount == 0 ? command : CONSUME;
++    }
++}
+-- 
+2.43.0
+
