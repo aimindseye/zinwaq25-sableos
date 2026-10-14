@@ -47,7 +47,7 @@ dependencies {
     implementation(libs.androidx.media3.session)
     debugImplementation("androidx.compose.ui:ui-tooling")
 
-    testImplementation("junit:junit:4.13.2")
+    testImplementation(libs.junit)
 }
 
 extensions.configure<io.gitlab.arturbosch.detekt.extensions.DetektExtension> {
