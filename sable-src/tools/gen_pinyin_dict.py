@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Builds the Sable keyboard's Simplified Chinese pinyin dictionary asset, offline and reproducibly.
 
-Usage: gen_pinyin_dict.py <out.tsv>            (writes the asset)
+Usage: gen_pinyin_dict.py <out.tsv>            (writes the asset; must be the keyboard's pinyin_zh.tsv)
        gen_pinyin_dict.py --check <asset.tsv>  (regenerates in memory; exit 1 unless byte-identical)
 The asset path must be inside this sable-src tree (normally
 apps/titan2/platform/keyboard/src/main/assets/pinyin_zh.tsv).
@@ -151,13 +151,14 @@ def build(pins):
     return ''.join('%s\t%s\t%d\n' % (k, w, wt) for (k, w), wt in rows).encode('utf8'), len(rows)
 
 
+ASSET = os.path.join(ROOT, 'apps', 'titan2', 'platform', 'keyboard', 'src', 'main', 'assets', 'pinyin_zh.tsv')
+
+
 def tree_path(arg):
-    """arg resolved; the asset is read or written only inside this sable-src tree."""
-    root = os.path.realpath(ROOT)
-    path = os.path.realpath(arg)
-    if not path.startswith(root + os.sep):
-        die('%s is outside %s' % (arg, root))
-    return path
+    """The keyboard's pinyin asset, the only file this tool reads back or writes; arg must name it."""
+    if os.path.realpath(arg) != os.path.realpath(ASSET):
+        die('%s is not %s' % (arg, ASSET))
+    return ASSET
 
 
 def main(argv):

@@ -495,10 +495,9 @@ class MainActivity : AppCompatActivity() {
         const val BOOK_ID_ARG = "bookId"
     }
 
-    private object NoIndication : IndicationNodeFactory {
+    // A data object supplies the equals/hashCode IndicationNodeFactory requires.
+    private data object NoIndication : IndicationNodeFactory {
         override fun create(interactionSource: InteractionSource): DelegatableNode { return object : Modifier.Node(), DelegatableNode {} }
-        override fun hashCode(): Int = -1
-        override fun equals(other: Any?): Boolean = other is NoIndication
     }
 }
 
