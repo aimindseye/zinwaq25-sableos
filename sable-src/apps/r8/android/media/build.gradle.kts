@@ -39,12 +39,12 @@ android {
 
 dependencies {
     implementation(project(":design"))
-    implementation(platform("androidx.compose:compose-bom:2026.02.01"))
-    implementation("androidx.activity:activity-compose:1.12.4")
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.activity.compose)
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.foundation:foundation")
-    implementation("androidx.media3:media3-exoplayer:1.9.2")
-    implementation("androidx.media3:media3-session:1.9.2")
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.session)
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     testImplementation("junit:junit:4.13.2")

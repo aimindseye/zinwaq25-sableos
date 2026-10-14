@@ -2,6 +2,7 @@ package org.sableos.hub.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -66,6 +67,14 @@ internal fun ConnectedAppsScreen(
     var search by remember {
         mutableStateOf("")
     }
+    val rowContext =
+        ConnectedAppRowContext(
+            notificationAccessGranted = notificationAccessGranted,
+            attention = attention,
+            onPolicyChanged = onPolicyChanged,
+            onAttentionChanged = onAttentionChanged,
+            onOpenAndroidNotificationSettings = onOpenAndroidNotificationSettings,
+        )
 
     SableRefreshableSurface(
         isRefreshing = loading,
@@ -78,37 +87,13 @@ internal fun ConnectedAppsScreen(
                     "Choose installed apps that may contribute notification-derived conversations.",
             )
 
-            SablePanel {
-                Text(
-                    text =
-                        if (notificationAccessGranted) {
-                            "Notification access is enabled."
-                        } else {
-                            "Notification access is required before connected apps can " +
-                                "contribute messages."
-                        },
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                SableActionButton(
-                    text =
-                        if (notificationAccessGranted) {
-                            "Review notification access"
-                        } else {
-                            "Enable notification access"
-                        },
-                    primary = !notificationAccessGranted,
-                    onClick = onOpenNotificationAccess,
-                )
-                PolicySwitchRow(
-                    label = "Private mode: hide senders and message text in Hub",
-                    checked = privateMode,
-                    enabled = true,
-                    onCheckedChange = onPrivateModeChanged,
-                )
-                TextButton(onClick = onOpenAttentionSettings) {
-                    Text("Sable Attention")
-                }
-            }
+            NotificationAccessPanel(
+                notificationAccessGranted = notificationAccessGranted,
+                onOpenNotificationAccess = onOpenNotificationAccess,
+                privateMode = privateMode,
+                onPrivateModeChanged = onPrivateModeChanged,
+                onOpenAttentionSettings = onOpenAttentionSettings,
+            )
 
             Text(
                 text =
@@ -119,109 +104,172 @@ internal fun ConnectedAppsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            if (loading) {
-                Text(
-                    text = "Loading installed apps…",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else if (focusedKey != null && candidates.any { it.key == focusedKey }) {
-                // Opened from Android Settings for one app: show just that app's Hub/Attention.
-                val candidate = candidates.first { it.key == focusedKey }
-                ConnectedAppRow(
-                    candidate = candidate,
-                    policy = policies[candidate.key] ?: ConnectedAppPolicy(key = candidate.key),
-                    notificationAccessGranted = notificationAccessGranted,
-                    attention = attention,
-                    onPolicyChanged = onPolicyChanged,
-                    onAttentionChanged = onAttentionChanged,
-                    onOpenAndroidNotificationSettings = onOpenAndroidNotificationSettings,
-                )
-            } else {
-                ConnectedAppsPivotRow(
-                    selected = pivot,
-                    onSelect = { selected ->
-                        pivot = selected
-                        search = ""
-                    },
-                )
-
-                if (pivot != ConnectedAppsPivot.Enabled) {
-                    OutlinedTextField(
-                        value = search,
-                        onValueChange = { search = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        label = { Text("Search installed apps") },
+            // Opened from Android Settings for one app: show just that app's Hub/Attention.
+            val focusedCandidate = focusedKey?.let { key -> candidates.firstOrNull { it.key == key } }
+            when {
+                loading -> {
+                    Text(
+                        text = "Loading installed apps…",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
 
-                val visibleCandidates =
-                    visibleCandidates(
+                focusedCandidate != null -> {
+                    ConnectedAppRow(
+                        candidate = focusedCandidate,
+                        policy = policyFor(policies, focusedCandidate),
+                        context = rowContext,
+                    )
+                }
+
+                else -> {
+                    ConnectedAppsBrowser(
                         candidates = candidates,
                         policies = policies,
                         pivot = pivot,
                         search = search,
+                        onPivotChange = { selected ->
+                            pivot = selected
+                            search = ""
+                        },
+                        onSearchChange = { search = it },
+                        rowContext = rowContext,
                     )
-
-                if (visibleCandidates.isEmpty()) {
-                    Text(
-                        text =
-                            when (pivot) {
-                                ConnectedAppsPivot.Favorites -> {
-                                    if (search.isBlank()) {
-                                        "No favorite apps are set."
-                                    } else {
-                                        "No favorite apps match this search."
-                                    }
-                                }
-
-                                ConnectedAppsPivot.Enabled -> {
-                                    "No connected apps are enabled."
-                                }
-
-                                ConnectedAppsPivot.Available -> {
-                                    if (search.isBlank()) {
-                                        "No additional installed apps are available."
-                                    } else {
-                                        "No installed apps match this search."
-                                    }
-                                }
-                            },
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
-                    ) {
-                        items(
-                            items = visibleCandidates,
-                            key = { candidate ->
-                                candidate.key.packageName + ":" + candidate.key.userSerial
-                            },
-                        ) { candidate ->
-                            val policy =
-                                policies[candidate.key]
-                                    ?: ConnectedAppPolicy(key = candidate.key)
-                            ConnectedAppRow(
-                                candidate = candidate,
-                                policy = policy,
-                                notificationAccessGranted = notificationAccessGranted,
-                                attention = attention,
-                                onPolicyChanged = onPolicyChanged,
-                                onAttentionChanged = onAttentionChanged,
-                                onOpenAndroidNotificationSettings = onOpenAndroidNotificationSettings,
-                            )
-                            HorizontalDivider()
-                        }
-                    }
                 }
             }
         }
     }
 }
+
+/** What every connected-app row needs besides its own candidate and policy. */
+private class ConnectedAppRowContext(
+    val notificationAccessGranted: Boolean,
+    val attention: AttentionUi,
+    val onPolicyChanged: (ConnectedAppPolicy) -> Unit,
+    val onAttentionChanged: (ConnectedAppKey, Set<AttentionOutput>) -> Unit,
+    val onOpenAndroidNotificationSettings: (ConnectedAppKey) -> Unit,
+)
+
+private fun policyFor(
+    policies: Map<ConnectedAppKey, ConnectedAppPolicy>,
+    candidate: ConnectedAppCandidate,
+): ConnectedAppPolicy = policies[candidate.key] ?: ConnectedAppPolicy(key = candidate.key)
+
+@Composable
+private fun NotificationAccessPanel(
+    notificationAccessGranted: Boolean,
+    onOpenNotificationAccess: () -> Unit,
+    privateMode: Boolean,
+    onPrivateModeChanged: (Boolean) -> Unit,
+    onOpenAttentionSettings: () -> Unit,
+) {
+    SablePanel {
+        Text(
+            text =
+                if (notificationAccessGranted) {
+                    "Notification access is enabled."
+                } else {
+                    "Notification access is required before connected apps can " +
+                        "contribute messages."
+                },
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        SableActionButton(
+            text =
+                if (notificationAccessGranted) {
+                    "Review notification access"
+                } else {
+                    "Enable notification access"
+                },
+            primary = !notificationAccessGranted,
+            onClick = onOpenNotificationAccess,
+        )
+        PolicySwitchRow(
+            label = "Private mode: hide senders and message text in Hub",
+            checked = privateMode,
+            enabled = true,
+            onCheckedChange = onPrivateModeChanged,
+        )
+        TextButton(onClick = onOpenAttentionSettings) {
+            Text("Sable Attention")
+        }
+    }
+}
+
+@Composable
+private fun ColumnScope.ConnectedAppsBrowser(
+    candidates: List<ConnectedAppCandidate>,
+    policies: Map<ConnectedAppKey, ConnectedAppPolicy>,
+    pivot: ConnectedAppsPivot,
+    search: String,
+    onPivotChange: (ConnectedAppsPivot) -> Unit,
+    onSearchChange: (String) -> Unit,
+    rowContext: ConnectedAppRowContext,
+) {
+    ConnectedAppsPivotRow(
+        selected = pivot,
+        onSelect = onPivotChange,
+    )
+
+    if (pivot != ConnectedAppsPivot.Enabled) {
+        OutlinedTextField(
+            value = search,
+            onValueChange = onSearchChange,
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            label = { Text("Search installed apps") },
+        )
+    }
+
+    val visibleCandidates =
+        visibleCandidates(
+            candidates = candidates,
+            policies = policies,
+            pivot = pivot,
+            search = search,
+        )
+
+    if (visibleCandidates.isEmpty()) {
+        Text(
+            text = emptyCandidatesText(pivot, search),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
+
+    LazyColumn(
+        modifier = Modifier.weight(1f),
+        verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
+    ) {
+        items(
+            items = visibleCandidates,
+            key = { candidate ->
+                candidate.key.packageName + ":" + candidate.key.userSerial
+            },
+        ) { candidate ->
+            ConnectedAppRow(
+                candidate = candidate,
+                policy = policyFor(policies, candidate),
+                context = rowContext,
+            )
+            HorizontalDivider()
+        }
+    }
+}
+
+private fun emptyCandidatesText(
+    pivot: ConnectedAppsPivot,
+    search: String,
+): String =
+    when {
+        pivot == ConnectedAppsPivot.Enabled -> "No connected apps are enabled."
+        pivot == ConnectedAppsPivot.Favorites && search.isBlank() -> "No favorite apps are set."
+        pivot == ConnectedAppsPivot.Favorites -> "No favorite apps match this search."
+        search.isBlank() -> "No additional installed apps are available."
+        else -> "No installed apps match this search."
+    }
 
 private fun visibleCandidates(
     candidates: List<ConnectedAppCandidate>,
@@ -281,12 +329,9 @@ private val CONNECTED_APPS_DESTINATIONS =
 private fun ConnectedAppRow(
     candidate: ConnectedAppCandidate,
     policy: ConnectedAppPolicy,
-    notificationAccessGranted: Boolean,
-    attention: AttentionUi,
-    onPolicyChanged: (ConnectedAppPolicy) -> Unit,
-    onAttentionChanged: (ConnectedAppKey, Set<AttentionOutput>) -> Unit,
-    onOpenAndroidNotificationSettings: (ConnectedAppKey) -> Unit,
+    context: ConnectedAppRowContext,
 ) {
+    val onPolicyChanged = context.onPolicyChanged
     Column(
         modifier =
             Modifier
@@ -294,47 +339,15 @@ private fun ConnectedAppRow(
                 .padding(vertical = SableSpacing.Sm),
         verticalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(SableSpacing.Md),
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = candidate.label,
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    text = candidate.key.packageName,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text =
-                        candidate.profileLabel + " · " +
-                            ConnectedAppsParity.statusLabel(
-                                ConnectedAppsParity.status(
-                                    policy = policy,
-                                    notificationAccessGranted = notificationAccessGranted,
-                                    profileLocked = candidate.profileLocked,
-                                ),
-                            ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Switch(
-                checked = policy.includeInMessages,
-                onCheckedChange = { enabled ->
-                    onPolicyChanged(
-                        policy.copy(includeInMessages = enabled).normalized(),
-                    )
-                },
-            )
-        }
+        ConnectedAppSummary(
+            candidate = candidate,
+            policy = policy,
+            notificationAccessGranted = context.notificationAccessGranted,
+            onPolicyChanged = onPolicyChanged,
+        )
 
         // Delivery (alerting, sound, vibration, pop-up, badge, lock screen) is Android's.
-        TextButton(onClick = { onOpenAndroidNotificationSettings(candidate.key) }) {
+        TextButton(onClick = { context.onOpenAndroidNotificationSettings(candidate.key) }) {
             Text("Delivery: Android notification settings")
         }
 
@@ -348,59 +361,133 @@ private fun ConnectedAppRow(
         )
 
         if (policy.includeInMessages) {
-            PolicySwitchRow(
-                label = "Allow quick reply",
-                checked = policy.allowQuickReply,
-                enabled = true,
-                onCheckedChange = { enabled ->
-                    onPolicyChanged(policy.copy(allowQuickReply = enabled))
-                },
+            ConnectedAppMessageOptions(
+                policy = policy,
+                onPolicyChanged = onPolicyChanged,
             )
-            PolicySwitchRow(
-                label = "Hide from SableLauncher",
-                checked = policy.hideFromLauncher,
-                enabled = true,
-                onCheckedChange = { enabled ->
-                    onPolicyChanged(policy.copy(hideFromLauncher = enabled))
-                },
-            )
-            TextButton(
-                onClick = {
-                    onPolicyChanged(
-                        policy.copy(
-                            retention = policy.retention.next(),
-                        ),
-                    )
-                },
-            ) {
-                Text("History retention: ${policy.retention.label}")
-            }
-            TextButton(
-                onClick = {
-                    onPolicyChanged(policy.copy(previewPolicy = policy.previewPolicy.next()))
-                },
-            ) {
-                Text("Hub preview: ${policy.previewPolicy.label}")
-            }
         }
 
-        // Attention: only outputs this device profile validated; unsupported ones are hidden.
-        val selected = attention.selections[candidate.key].orEmpty()
-        attention.selectableOutputs.forEach { output ->
-            PolicySwitchRow(
-                label = "Attention: ${attentionLabel(output)}",
-                checked = output in selected,
-                enabled = true,
-                onCheckedChange = { enabled ->
-                    onAttentionChanged(
-                        candidate.key,
-                        if (enabled) selected + output else selected - output,
-                    )
-                },
-            )
-        }
+        ConnectedAppAttentionSwitches(
+            key = candidate.key,
+            attention = context.attention,
+            onAttentionChanged = context.onAttentionChanged,
+        )
     }
 }
+
+@Composable
+private fun ConnectedAppSummary(
+    candidate: ConnectedAppCandidate,
+    policy: ConnectedAppPolicy,
+    notificationAccessGranted: Boolean,
+    onPolicyChanged: (ConnectedAppPolicy) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(SableSpacing.Md),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = candidate.label,
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text = candidate.key.packageName,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text =
+                    candidate.profileLabel + " · " +
+                        ConnectedAppsParity.statusLabel(
+                            ConnectedAppsParity.status(
+                                policy = policy,
+                                notificationAccessGranted = notificationAccessGranted,
+                                profileLocked = candidate.profileLocked,
+                            ),
+                        ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(
+            checked = policy.includeInMessages,
+            onCheckedChange = { enabled ->
+                onPolicyChanged(
+                    policy.copy(includeInMessages = enabled).normalized(),
+                )
+            },
+        )
+    }
+}
+
+@Composable
+private fun ConnectedAppMessageOptions(
+    policy: ConnectedAppPolicy,
+    onPolicyChanged: (ConnectedAppPolicy) -> Unit,
+) {
+    PolicySwitchRow(
+        label = "Allow quick reply",
+        checked = policy.allowQuickReply,
+        enabled = true,
+        onCheckedChange = { enabled ->
+            onPolicyChanged(policy.copy(allowQuickReply = enabled))
+        },
+    )
+    PolicySwitchRow(
+        label = "Hide from SableLauncher",
+        checked = policy.hideFromLauncher,
+        enabled = true,
+        onCheckedChange = { enabled ->
+            onPolicyChanged(policy.copy(hideFromLauncher = enabled))
+        },
+    )
+    TextButton(
+        onClick = {
+            onPolicyChanged(
+                policy.copy(
+                    retention = policy.retention.next(),
+                ),
+            )
+        },
+    ) {
+        Text("History retention: ${policy.retention.label}")
+    }
+    TextButton(
+        onClick = {
+            onPolicyChanged(policy.copy(previewPolicy = policy.previewPolicy.next()))
+        },
+    ) {
+        Text("Hub preview: ${policy.previewPolicy.label}")
+    }
+}
+
+/** Attention: only outputs this device profile validated; unsupported ones are hidden. */
+@Composable
+private fun ConnectedAppAttentionSwitches(
+    key: ConnectedAppKey,
+    attention: AttentionUi,
+    onAttentionChanged: (ConnectedAppKey, Set<AttentionOutput>) -> Unit,
+) {
+    val selected = attention.selections[key].orEmpty()
+    attention.selectableOutputs.forEach { output ->
+        PolicySwitchRow(
+            label = "Attention: ${attentionLabel(output)}",
+            checked = output in selected,
+            enabled = true,
+            onCheckedChange = { enabled ->
+                onAttentionChanged(key, toggled(selected, output, enabled))
+            },
+        )
+    }
+}
+
+private fun toggled(
+    selected: Set<AttentionOutput>,
+    output: AttentionOutput,
+    enabled: Boolean,
+): Set<AttentionOutput> = if (enabled) selected + output else selected - output
 
 internal fun attentionLabel(output: AttentionOutput): String =
     when (output) {
