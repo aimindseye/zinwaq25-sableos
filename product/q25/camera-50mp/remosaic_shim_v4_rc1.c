@@ -183,6 +183,22 @@ static void run_rows(void (*fn)(int, int, void *), void *ctx, int rows)
 }
 #define run_strips(fn, ctx) run_rows(fn, ctx, 32)
 
+/* dst[i] += parts[j][i] for every job j in order (fixed merge order: independent of the thread count) */
+static void sum_parts(double *dst, const double *parts, int nj, size_t n)
+{
+	for (int j = 0; j < nj; j++)
+		for (size_t i = 0; i < n; i++) dst[i] += parts[(size_t)j * n + i];
+}
+/* per position k: residual sigma from the pass-2 sums (count, sum of squares) of every job; `none` without data */
+static void parts_sigma(const double *p2, int nj, int nk, double *sig, double none)
+{
+	for (int k = 0; k < nk; k++) {
+		double n = 0;
+		double ss = 0;
+		for (int j = 0; j < nj; j++) { n += p2[((size_t)j * nk + k) * 2]; ss += p2[((size_t)j * nk + k) * 2 + 1]; }
+		sig[k] = n > 0 ? sqrt(ss / n) : none;
+	}
+}
 struct ctx {
 	const uint16_t *src;                   /* generic in/out for the current stage */
 	uint16_t *dst;
@@ -213,33 +229,36 @@ static int g_pdedge = PDEDGE_DEFAULT;          /* persist.vendor.remoshim.pdedge
 static double g_pdthr = 0.01;                  /* persist.vendor.remoshim.pdthr, in 0.1% units */
 static unsigned char g_pdm[16][16];
 struct pdst { const uint16_t *in; int S; unsigned char ex[16][16]; double (*part)[PDP * PDP][3]; };
+/* one pixel of pd_job: its relative deviation from the non-excluded same-colour pixels 4 px away, in flat spots only */
+static inline void pd_acc_px(const struct pdst *f, int y, int x, double (*A)[3])
+{
+	static const int off[4][2] = { { -4, 0 }, { 4, 0 }, { 0, -4 }, { 0, 4 } };
+	double s = 0;
+	double big = -1e9;
+	double small = 1e9; int cnt = 0;
+	for (int k = 0; k < 4; k++) {
+		int yy = y + off[k][0];
+		int xx = x + off[k][1];
+		if (f->ex[yy & 15][xx & 15]) continue;
+		double v = (double)f->in[(size_t)yy * f->S + xx] - g_ped;
+		s += v; cnt++;
+		if (v > big) big = v;
+		if (v < small) small = v;
+	}
+	if (cnt < 2) return;
+	double m = s / cnt;
+	if (m < 20 || big - small > 0.10 * m + 10) return;
+	double d = ((double)f->in[(size_t)y * f->S + x] - g_ped) / m - 1;
+	double *a = A[(y % PDP) * PDP + (x % PDP)];
+	a[0] += 1; a[1] += d; a[2] += d * d;
+}
 static void pd_job(int y0, int y1, void *p)
 {
 	struct pdst *f = p; int job = y0 / 64;
-	static const int off[4][2] = { { -4, 0 }, { 4, 0 }, { 0, -4 }, { 0, 4 } };
 	double (*A)[3] = f->part[job];
 	memset(A, 0, sizeof(f->part[0]));
 	for (int y = y0 > 4 ? y0 : 4; y < y1 && y < g_h - 4; y++)
-		for (int x = 4; x < g_w - 4; x++) {
-			double s = 0;
-			double big = -1e9;
-			double small = 1e9; int cnt = 0;
-			for (int k = 0; k < 4; k++) {
-				int yy = y + off[k][0];
-				int xx = x + off[k][1];
-				if (f->ex[yy & 15][xx & 15]) continue;
-				double v = (double)f->in[(size_t)yy * f->S + xx] - g_ped;
-				s += v; cnt++;
-				if (v > big) big = v;
-				if (v < small) small = v;
-			}
-			if (cnt < 2) continue;
-			double m = s / cnt;
-			if (m < 20 || big - small > 0.10 * m + 10) continue;
-			double d = ((double)f->in[(size_t)y * f->S + x] - g_ped) / m - 1;
-			double *a = A[(y % PDP) * PDP + (x % PDP)];
-			a[0] += 1; a[1] += d; a[2] += d * d;
-		}
+		for (int x = 4; x < g_w - 4; x++) pd_acc_px(f, y, x, A);
 }
 static int g_pdshot = 0;
 static int g_pdw = 0;
@@ -285,11 +304,12 @@ static int pd_detect_fix(const uint16_t *in, int S, char *msg, size_t msgsz)
 	if (g_pdw != g_w || g_pdh != g_h) memset(g_pdunion, 0, sizeof g_pdunion);
 	pd_detect_fix_scan(in, S, g_pdmsg, sizeof g_pdmsg);
 	/* PDAF response depends on the scene (light angle, focus): keep every strong position ever found */
-	{
-	  int n = 0;
-	  for (int y = 0; y < 16; y++) for (int x = 0; x < 16; x++) { g_pdunion[y][x] |= g_pdm[y][x]; n += g_pdunion[y][x]; }
-	  memcpy(g_pdm, g_pdunion, sizeof g_pdm); g_pdn = n;
-	  size_t l = strlen(g_pdmsg); snprintf(g_pdmsg + l, sizeof g_pdmsg - l, "; repairing %d (all found so far)", n); }
+	int n = 0;
+	for (int y = 0; y < 16; y++)
+		for (int x = 0; x < 16; x++) { g_pdunion[y][x] |= g_pdm[y][x]; n += g_pdunion[y][x]; }
+	memcpy(g_pdm, g_pdunion, sizeof g_pdm); g_pdn = n;
+	size_t l = strlen(g_pdmsg);
+	snprintf(g_pdmsg + l, sizeof g_pdmsg - l, "; repairing %d (all found so far)", n);
 	g_pdw = g_w; g_pdh = g_h;
 	snprintf(msg, msgsz, "%s", g_pdmsg);
 	return g_pdn;
@@ -308,10 +328,35 @@ static int pd_is_pdaf(int y, int x, double minn, const double T[][3], const doub
 		}
 	return 1;
 }
+/* merge the per-job sums of pd_job (fixed order) and derive the mean deviation and its standard error per position */
+static void pd_scan_stats(const struct pdst *f, int nj, double T[][3], double *mean, double *se)
+{
+	memset(T, 0, sizeof(double) * PDP * PDP * 3);
+	sum_parts(&T[0][0], &f->part[0][0][0], nj, PDP * PDP * 3);
+	for (int k = 0; k < PDP * PDP; k++) {
+		double N = T[k][0];
+		mean[k] = N > 0 ? T[k][1] / N : 0;
+		double var = N > 1 ? T[k][2] / N - mean[k] * mean[k] : 1.0;
+		se[k] = sqrt((var > 0 ? var : 0) / (N > 1 ? N : 1));
+	}
+}
+/* "pdaf: (y,x)+d% ...; n positions per 16x16"; returns the number of positions */
+static int pd_scan_msg(const double *mean, char *msg, size_t msgsz)
+{
+	int npd = 0;
+	int o = snprintf(msg, msgsz, "pdaf:");
+	for (int y = 0; y < 16; y++)
+		for (int x = 0; x < 16; x++) {
+			if (!g_pdm[y][x]) continue;
+			npd++;
+			if (o < (int)msgsz - 24) o += snprintf(msg + o, msgsz - o, " (%d,%d)%+.0f%%", y, x, 100 * mean[y * PDP + x]);
+		}
+	snprintf(msg + o, msgsz - o, "%s; %d positions per 16x16", npd ? "" : " none found", npd);
+	return npd;
+}
 static int pd_detect_fix_scan(const uint16_t *in, int S, char *msg, size_t msgsz)
 {
 	struct pdst f; int nj = (g_h + 63) / 64;
-	int npd = 0;
 	double minn = 0.02 * (double)g_h * g_w / (PDP * PDP); if (minn < 50) minn = 50;
 	static double T[PDP * PDP][3];
 	static double mean[PDP * PDP];
@@ -323,28 +368,13 @@ static int pd_detect_fix_scan(const uint16_t *in, int S, char *msg, size_t msgsz
 	for (int pass = 0; pass < 2; pass++) {
 		memcpy(f.ex, g_pdm, sizeof g_pdm);
 		run_rows(pd_job, &f, 64);
-		memset(T, 0, sizeof T);
-		for (int j = 0; j < nj; j++) for (int k = 0; k < PDP * PDP; k++) { T[k][0] += f.part[j][k][0]; T[k][1] += f.part[j][k][1]; T[k][2] += f.part[j][k][2]; }
-		for (int k = 0; k < PDP * PDP; k++) {
-			double N = T[k][0];
-			mean[k] = N > 0 ? T[k][1] / N : 0;
-			double var = N > 1 ? T[k][2] / N - mean[k] * mean[k] : 1.0;
-			se[k] = sqrt((var > 0 ? var : 0) / (N > 1 ? N : 1));
-		}
+		pd_scan_stats(&f, nj, T, mean, se);
 		memset(g_pdm, 0, sizeof g_pdm);
 		for (int y = 0; y < 16; y++)
-			for (int x = 0; x < 16; x++) {
-				g_pdm[y][x] = (unsigned char)pd_is_pdaf(y, x, minn, (const double (*)[3])T, mean, se);
-			}
+			for (int x = 0; x < 16; x++) g_pdm[y][x] = (unsigned char)pd_is_pdaf(y, x, minn, (const double (*)[3])T, mean, se);
 	}
 	free(f.part);
-	int o = snprintf(msg, msgsz, "pdaf:");
-	for (int y = 0; y < 16; y++) for (int x = 0; x < 16; x++) if (g_pdm[y][x]) {
-		npd++;
-		if (o < (int)msgsz - 24) o += snprintf(msg + o, msgsz - o, " (%d,%d)%+.0f%%", y, x, 100 * mean[y * PDP + x]);
-	}
-	snprintf(msg + o, msgsz - o, "%s; %d positions per 16x16", npd ? "" : " none found", npd);
-	return npd;
+	return pd_scan_msg(mean, msg, msgsz);
 }
 struct pdfix { uint16_t *in; int S; };
 /* PDAF repair. A PDAF pixel is replaced from its same-colour, same-phase neighbours 4 px away (a quad-Bayer colour
@@ -354,79 +384,98 @@ struct pdfix { uint16_t *in; int S; };
  * lying along the edge. The pair is used only when it is clearly better than the worst pair: the margin is
  * 24 DN plus 1/16 of the local level, so noise alone never triggers it. Neighbours that are PDAF pixels are skipped,
  * and only non-PDAF pixels are read, so the result does not depend on the order or the threading of the rows. */
-static void pd_fix_job(int y0, int y1, void *p)
+static inline int pd_inside(int y, int x) { return y >= 0 && y < g_h && x >= 0 && x < g_w; }
+/* rounded mean of the non-PDAF axis neighbours 4 px away, -1 when there is none */
+static inline int pd_fix_mean4(const struct pdfix *f, int y, int x)
 {
-	struct pdfix *f = p;
 	static const int off[4][2] = { { -4, 0 }, { 4, 0 }, { 0, -4 }, { 0, 4 } };
+	long s = 0; int n = 0;
+	for (int k = 0; k < 4; k++) {
+		int yy = y + off[k][0];
+		int xx = x + off[k][1];
+		if (!pd_inside(yy, xx) || g_pdm[yy & 15][xx & 15]) continue;
+		s += f->in[(size_t)yy * f->S + xx]; n++;
+	}
+	return n ? (int)((s + n / 2) / n) : -1;
+}
+/* edge-aware value: the mean of the opposite pair that agrees best, when it is clearly better than the worst pair;
+ * otherwise val unchanged */
+static inline int pd_fix_edge(const struct pdfix *f, int y, int x, int val)
+{
 	/* opposite pairs: horizontal, vertical, diagonal, anti-diagonal (dy1,dx1,dy2,dx2) */
 	static const int pr[4][4] = { { 0, -4, 0, 4 }, { -4, 0, 4, 0 }, { -4, -4, 4, 4 }, { -4, 4, 4, -4 } };
+	int np = 0;
+	int dmin = 1 << 30;
+	int dmax = -1;
+	int best = 0; long lvl = 0;
+	for (int k = 0; k < 4; k++) {
+		int ya = y + pr[k][0];
+		int xa = x + pr[k][1];
+		int yb = y + pr[k][2];
+		int xb = x + pr[k][3];
+		if (!pd_inside(ya, xa) || !pd_inside(yb, xb)) continue;
+		if (g_pdm[ya & 15][xa & 15] || g_pdm[yb & 15][xb & 15]) continue;
+		int a = f->in[(size_t)ya * f->S + xa];
+		int b = f->in[(size_t)yb * f->S + xb];
+		int d = a > b ? a - b : b - a;
+		lvl += a + b; np++;
+		if (d < dmin) { dmin = d; best = (a + b + 1) / 2; }
+		if (d > dmax) dmax = d;
+	}
+	if (np >= 2 && dmax - dmin > 24 + (int)(lvl / (2 * np)) / 16) return best;
+	return val;
+}
+static void pd_fix_job(int y0, int y1, void *p)
+{
+	const struct pdfix *f = p;
 	for (int y = y0; y < y1; y++)
 		for (int x = 0; x < g_w; x++) {
 			if (!g_pdm[y & 15][x & 15]) continue;
-			long s = 0; int n = 0;
-			for (int k = 0; k < 4; k++) {
-				int yy = y + off[k][0];
-				int xx = x + off[k][1];
-				if (yy < 0 || yy >= g_h || xx < 0 || xx >= g_w || g_pdm[yy & 15][xx & 15]) continue;
-				s += f->in[(size_t)yy * f->S + xx]; n++;
-			}
-			int val = n ? (int)((s + n / 2) / n) : -1;
-			if (g_pdedge) {
-				int np = 0;
-				int dmin = 1 << 30;
-				int dmax = -1;
-				int best = 0; long lvl = 0;
-				for (int k = 0; k < 4; k++) {
-					int ya = y + pr[k][0];
-					int xa = x + pr[k][1];
-					int yb = y + pr[k][2];
-					int xb = x + pr[k][3];
-					if (ya < 0 || ya >= g_h || xa < 0 || xa >= g_w || yb < 0 || yb >= g_h || xb < 0 || xb >= g_w) continue;
-					if (g_pdm[ya & 15][xa & 15] || g_pdm[yb & 15][xb & 15]) continue;
-					int a = f->in[(size_t)ya * f->S + xa];
-					int b = f->in[(size_t)yb * f->S + xb];
-					int d = a > b ? a - b : b - a;
-					lvl += a + b; np++;
-					if (d < dmin) { dmin = d; best = (a + b + 1) / 2; }
-					if (d > dmax) dmax = d;
-				}
-				if (np >= 2 && dmax - dmin > 24 + (int)(lvl / (2 * np)) / 16) val = best;
-			}
+			int val = pd_fix_mean4(f, y, x);
+			if (g_pdedge) val = pd_fix_edge(f, y, x, val);
 			if (val >= 0) f->in[(size_t)y * f->S + x] = (uint16_t)val;
 		}
 }
 
 /* --------------------------------------------------------------- 1. equalisation */
 struct eqm { const uint16_t *in; int stride; pthread_mutex_t mu; int64_t sum[4][4]; int64_t cnt[4][4]; int64_t nflat; };
+/* a 4x4 tile is flat when every colour is unclipped and spreads by at most a quarter of its level + 16 DN */
+static inline int eqm_tile_flat(const struct eqm *e, int ty, int tx)
+{
+	int mn[3] = { 65535, 65535, 65535 };
+	int mx[3] = { -1, -1, -1 };
+	for (int py = 0; py < 4; py++)
+		for (int px = 0; px < 4; px++) {
+			int v = e->in[(size_t)(ty + py) * e->stride + tx + px];
+			int c = g_qcol[py][px];
+			if (v < mn[c]) mn[c] = v;
+			if (v > mx[c]) mx[c] = v;
+		}
+	int flat = 1;
+	for (int c = 0; c < 3; c++)
+		if (!(mx[c] < 1000 && mx[c] - mn[c] <= (mn[c] - g_ped) / 4.0 + 16)) flat = 0;
+	return flat;
+}
+static inline void eqm_tile_acc(const struct eqm *e, int ty, int tx, int64_t sum[4][4], int64_t cnt[4][4])
+{
+	for (int py = 0; py < 4; py++)
+		for (int px = 0; px < 4; px++) {
+			int v = e->in[(size_t)(ty + py) * e->stride + tx + px] - g_ped;
+			if (v > 0) { sum[py][px] += v; cnt[py][px] += 1; }
+		}
+}
 static void eqm_job(int y0, int y1, void *p)    /* rows are 64-aligned, so tiles start at multiples of 8 */
 {
 	struct eqm *e = p; int64_t sum[4][4] = { { 0 } };
 	int64_t cnt[4][4] = { { 0 } };
 	int64_t nflat = 0;
-	int c;
 	int h4 = g_h & ~3;
 	int w4 = g_w & ~3;
 	for (int ty = (y0 + 7) & ~7; ty < y1 && ty + 4 <= h4; ty += 8)
 		for (int tx = 0; tx + 4 <= w4; tx += 8) {
-			int mn[3] = { 65535, 65535, 65535 };
-			int mx[3] = { -1, -1, -1 };
-			int flat = 1;
-			for (int py = 0; py < 4; py++)
-				for (int px = 0; px < 4; px++) {
-					int v = e->in[(size_t)(ty + py) * e->stride + tx + px];
-					c = g_qcol[py][px];
-					if (v < mn[c]) mn[c] = v;
-					if (v > mx[c]) mx[c] = v;
-				}
-			for (c = 0; c < 3; c++)
-				if (!(mx[c] < 1000 && mx[c] - mn[c] <= (mn[c] - g_ped) / 4.0 + 16)) flat = 0;
-			if (!flat) continue;
+			if (!eqm_tile_flat(e, ty, tx)) continue;
 			nflat++;
-			for (int py = 0; py < 4; py++)
-				for (int px = 0; px < 4; px++) {
-					int v = e->in[(size_t)(ty + py) * e->stride + tx + px] - g_ped;
-					if (v > 0) { sum[py][px] += v; cnt[py][px] += 1; }
-				}
+			eqm_tile_acc(e, ty, tx, sum, cnt);
 		}
 	pthread_mutex_lock(&e->mu);
 	for (int py = 0; py < 4; py++) for (int px = 0; px < 4; px++) { e->sum[py][px] += sum[py][px]; e->cnt[py][px] += cnt[py][px]; }
@@ -511,29 +560,33 @@ static float quantile_sel(float *v, int n, double p)
 	return (float)(a + (b - a) * f);
 }
 struct nblk { const uint16_t *q; int stride; int wb; int hb; float *sd; float *lv; float scl; };
+/* one 16x16 block: robust sigma from horizontal pair differences, and the mean level above the pedestal */
+static inline void nblk_block(const struct nblk *nb, int i, int j)
+{
+	const int B = 16;
+	float d[128];
+	double l = 0; int m = 0;
+	for (int r = 0; r < B; r++) {
+		const uint16_t *row = nb->q + (size_t)(i * B + r) * nb->stride + j * B;
+		for (int k = 0; k < B / 2; k++) {
+			float a = row[2 * k] * nb->scl;
+			float b = row[2 * k + 1] * nb->scl;
+			d[m++] = fabsf(a - b) * 0.70710678f;
+			l += (a + b) * 0.5 - g_ped;
+		}
+	}
+	/* numpy median of 128 = mean of the 64th and 65th smallest */
+	float m1 = sel_k(d, 128, 63);
+	float m2 = d[64];
+	for (int k = 65; k < 128; k++) if (d[k] < m2) m2 = d[k];
+	nb->sd[i * nb->wb + j] = (m1 + m2) * 0.5f / 0.6745f;
+	nb->lv[i * nb->wb + j] = (float)(l / 128.0);
+}
 static void nblk_job(int y0, int y1, void *p)   /* rows are 64-aligned: whole 16-row blocks */
 {
-	struct nblk *nb = p; const int B = 16;
-	float d[128];
+	const struct nblk *nb = p; const int B = 16;
 	for (int i = y0 / B; i < (y1 + B - 1) / B && i < nb->hb; i++)
-		for (int j = 0; j < nb->wb; j++) {
-			double l = 0; int m = 0;
-			for (int r = 0; r < B; r++) {
-				const uint16_t *row = nb->q + (size_t)(i * B + r) * nb->stride + j * B;
-				for (int k = 0; k < B / 2; k++) {
-					float a = row[2 * k] * nb->scl;
-					float b = row[2 * k + 1] * nb->scl;
-					d[m++] = fabsf(a - b) * 0.70710678f;
-					l += (a + b) * 0.5 - g_ped;
-				}
-			}
-			/* numpy median of 128 = mean of the 64th and 65th smallest */
-			float m1 = sel_k(d, 128, 63);
-			float m2 = d[64];
-			for (int k = 65; k < 128; k++) if (d[k] < m2) m2 = d[k];
-			nb->sd[i * nb->wb + j] = (m1 + m2) * 0.5f / 0.6745f;
-			nb->lv[i * nb->wb + j] = (float)(l / 128.0);
-		}
+		for (int j = 0; j < nb->wb; j++) nblk_block(nb, i, j);
 }
 /* exact ascending sort of floats: LSD radix on order-preserving keys (4 passes of 8 bits) */
 static void sort_floats(float *v, int n)
@@ -559,6 +612,33 @@ static void sort_floats(float *v, int n)
 	}
 	free(a); free(b);
 }
+/* one brightness bin [lo, hi]: median level and 1.12 x the 10th-percentile sigma; 0 when it has fewer than 20 blocks */
+static int noise_bin(const float *lv, const float *sd, float *tmp, int n, float lo, float hi, float *x, float *v)
+{
+	int cnt = 0;
+	for (int j = 0; j < n; j++) if (lv[j] >= lo && lv[j] <= hi) tmp[cnt++] = lv[j];
+	if (cnt < 20) return 0;
+	float med = quantile_sel(tmp, cnt, 0.5);
+	cnt = 0;
+	for (int j = 0; j < n; j++) if (lv[j] >= lo && lv[j] <= hi) tmp[cnt++] = sd[j];
+	float p10 = quantile_sel(tmp, cnt, 0.10) * 1.12f;
+	*x = med > 0 ? med : 0; *v = p10 * p10;
+	return 1;
+}
+/* least-squares line through (xs, vs), like np.polyfit(..., 1); a >= 0, b >= 0.25 */
+static void noise_line(const float *xs, const float *vs, int nx, float *pa, float *pb)
+{
+	double sx = 0;
+	double sy = 0;
+	double sxx = 0;
+	double sxy = 0;
+	for (int i = 0; i < nx; i++) { sx += xs[i]; sy += vs[i]; sxx += (double)xs[i] * xs[i]; sxy += (double)xs[i] * vs[i]; }
+	double den = nx * sxx - sx * sx;
+	if (den == 0) return;
+	double a = (nx * sxy - sx * sy) / den;
+	double b = (sy - a * sx) / nx;
+	*pa = (float)(a > 0 ? a : 0); *pb = (float)(b > 0.25 ? b : 0.25);
+}
 static void estimate_noise(const uint16_t *q, int stride, float scl, float *pa, float *pb)
 {
 	const int B = 16; int hb = g_h / B;
@@ -577,30 +657,9 @@ static void estimate_noise(const uint16_t *q, int stride, float scl, float *pa, 
 	{ struct nblk nb = { q, stride, wb, hb, sd, lv, scl }; run_rows(nblk_job, &nb, 64); }
 	memcpy(ls, lv, sizeof(float) * n); sort_floats(ls, n);
 	for (int i = 0; i < 9; i++) edges[i] = quantile_sorted(ls, n, i / 8.0);
-	for (int i = 0; i < 8; i++) {
-		int cnt = 0; float lo = edges[i];
-		float hi = edges[i + 1];
-		for (int j = 0; j < n; j++) if (lv[j] >= lo && lv[j] <= hi) tmp[cnt++] = lv[j];
-		if (cnt < 20) continue;
-		float med = quantile_sel(tmp, cnt, 0.5);
-		cnt = 0;
-		for (int j = 0; j < n; j++) if (lv[j] >= lo && lv[j] <= hi) tmp[cnt++] = sd[j];
-		float p10 = quantile_sel(tmp, cnt, 0.10) * 1.12f;
-		xs[nx] = med > 0 ? med : 0; vs[nx] = p10 * p10; nx++;
-	}
-	if (nx >= 3) {                        /* least-squares line, like np.polyfit(..., 1) */
-		double sx = 0;
-		double sy = 0;
-		double sxx = 0;
-		double sxy = 0;
-		for (int i = 0; i < nx; i++) { sx += xs[i]; sy += vs[i]; sxx += (double)xs[i] * xs[i]; sxy += (double)xs[i] * vs[i]; }
-		double den = nx * sxx - sx * sx;
-		if (den != 0) {
-			double a = (nx * sxy - sx * sy) / den;
-			double b = (sy - a * sx) / nx;
-			*pa = (float)(a > 0 ? a : 0); *pb = (float)(b > 0.25 ? b : 0.25);
-		}
-	}
+	for (int i = 0; i < 8; i++)
+		nx += noise_bin(lv, sd, tmp, n, edges[i], edges[i + 1], &xs[nx], &vs[nx]);
+	if (nx >= 3) noise_line(xs, vs, nx, pa, pb);
 out:
 	free(sd); free(lv); free(tmp); free(ls);
 }
@@ -629,48 +688,51 @@ static int go_region(int ty, int tx)
 	if (ry == 2 && rx == 2) return 5;
 	return -1;
 }
+/* strictly flat 4x4 tile (per colour: mean >= 2 DN, spread <= 10% of the mean + 10 DN); v = the 16 values above the
+ * pedestal, cm = the colour means */
+static inline int tile_flat(const uint16_t *in, int S, int ty, int tx, int v[16], double cm[3])
+{
+	double cs[3] = { 0, 0, 0 }; int cn[3] = { 0, 0, 0 };
+	int mn[3] = { 1 << 20, 1 << 20, 1 << 20 };
+	int mx[3] = { -1, -1, -1 };
+	for (int py = 0; py < 4; py++)
+		for (int px = 0; px < 4; px++) {
+			int a = in[(size_t)(ty + py) * S + tx + px] - g_ped;
+			int c = g_qcol[py][px]; v[py * 4 + px] = a; cs[c] += a; cn[c]++;
+			if (a < mn[c]) mn[c] = a;
+			if (a > mx[c]) mx[c] = a;
+		}
+	for (int c = 0; c < 3; c++) { cm[c] = cs[c] / cn[c]; if (cm[c] < 2 || mx[c] - mn[c] > 0.10 * cm[c] + 10) return 0; }
+	return 1;
+}
+/* least-squares sums n, x, x^2, v, x*v */
+static inline void acc5(double *a, double x, double v) { a[0] += 1; a[1] += x; a[2] += x * x; a[3] += v; a[4] += x * v; }
+/* one flat tile of the current gofit pass */
+static inline void gofit_tile(const struct gofit *f, int job, int reg, const int v[16], const double cm[3])
+{
+	for (int k = 0; k < 16; k++) {
+		double x = cm[g_qcol[k >> 2][k & 3]];
+		double vv = v[k];
+		if (f->pass == 1) { acc5(f->p1[job][k], x, vv); continue; }
+		double r = vv - (f->g[k] * x + f->o[k]);
+		if (f->pass == 2) { f->p2[job][k][0] += 1; f->p2[job][k][1] += r * r; continue; }
+		if (fabs(r) > 3 * f->sig[k]) continue;
+		acc5(f->p3[job][0][k], x, vv);
+		if (reg >= 0) acc5(f->p3[job][reg][k], x, vv);
+	}
+}
 static void gofit_job(int y0, int y1, void *p)    /* rows 64-aligned, one partial per job */
 {
-	struct gofit *f = p; int job = y0 / 64;
-	int c;
+	const struct gofit *f = p; int job = y0 / 64;
+	int v[16];
+	double cm[3];
 	if (f->pass == 1) memset(f->p1[job], 0, sizeof(f->p1[0]));
 	if (f->pass == 2) memset(f->p2[job], 0, sizeof(f->p2[0]));
 	if (f->pass == 3) memset(f->p3[job], 0, sizeof(f->p3[0]));
 	for (int ty = (y0 + 7) & ~7; ty < y1 && ty + 4 <= g_h; ty += 8)
 		for (int tx = 0; tx + 4 <= g_w; tx += 8) {
-			double cs[3] = { 0, 0, 0 }; int cn[3] = { 0, 0, 0 };
-			int mn[3] = { 1 << 20, 1 << 20, 1 << 20 };
-			int mx[3] = { -1, -1, -1 };
-			int ok = 1;
-			int v[16];
-			for (int py = 0; py < 4; py++)
-				for (int px = 0; px < 4; px++) {
-					int a = f->in[(size_t)(ty + py) * f->stride + tx + px] - g_ped;
-					c = g_qcol[py][px]; v[py * 4 + px] = a;
-					cs[c] += a; cn[c]++;
-					if (a < mn[c]) mn[c] = a;
-					if (a > mx[c]) mx[c] = a;
-				}
-			double cm[3];
-			for (c = 0; c < 3; c++) { cm[c] = cs[c] / cn[c]; if (cm[c] < 2 || mx[c] - mn[c] > 0.10 * cm[c] + 10) ok = 0; }
-			if (!ok) continue;
-			int reg = f->pass == 3 ? go_region(ty, tx) : -1;
-			for (int k = 0; k < 16; k++) {
-				double x = cm[g_qcol[k >> 2][k & 3]];
-				double vv = v[k];
-				if (f->pass == 1) { double *a = f->p1[job][k]; a[0] += 1; a[1] += x; a[2] += x * x; a[3] += vv; a[4] += x * vv; }
-				else {
-					double r = vv - (f->g[k] * x + f->o[k]);
-					if (f->pass == 2) { f->p2[job][k][0] += 1; f->p2[job][k][1] += r * r; }
-					else if (fabs(r) <= 3 * f->sig[k]) {
-						int regs[2] = { 0, reg };
-						for (int rr = 0; rr < 2; rr++) {
-							if (regs[rr] < 0) continue;
-							double *a = f->p3[job][regs[rr]][k]; a[0] += 1; a[1] += x; a[2] += x * x; a[3] += vv; a[4] += x * vv;
-						}
-					}
-				}
-			}
+			if (!tile_flat(f->in, f->stride, ty, tx, v, cm)) continue;
+			gofit_tile(f, job, f->pass == 3 ? go_region(ty, tx) : -1, v, cm);
 		}
 }
 static int go_solve(const double a[5], double *g, double *o)   /* ridge 1e-3 on (g-1), like fit_go() */
@@ -713,6 +775,76 @@ static long g_pdc_cnt[2];
  * CORRECTED, the 2nd, 4th... UNCORRECTED, and every shot says which in the log. The map16 sums are reset whenever the mate
  * correction flips (g_accpdc), so each shot gets its own per-frame map and the two arms are treated alike. */
 struct calfile { uint32_t magic; uint32_t ver; uint32_t w; uint32_t h; uint32_t bayer; uint32_t shots; double s[16][5]; };
+/* total-signal gate: the flat-tile test only needs each colour mean >= 2 DN, so in a near-black frame noise alone picks the
+ * tiles and the regression is biased (gains 0.74..1.19 seen on a black frame). Keep the previous gains (sg, so) instead.
+ * Returns 1 when the frame is skipped. */
+static int go_low_signal(const double S1[16][5], const float *sg, const float *so, char *msg, size_t msgsz)
+{
+	double gs = 0;
+	double gn = 0;
+	for (int k = 0; k < 16; k++) {
+		if (g_qcol[k >> 2][k & 3] != CG || !(S1[k][0] > 0)) continue;
+		gs += S1[k][1]; gn += S1[k][0];
+	}
+	double gmean = gn > 0 ? gs / gn : 0;
+	if (!(g_eqmin > 0 && gmean < g_eqmin)) return 0;
+	int have = sg[0] > 0.5f;
+	for (int k = 0; k < 16; k++) { g_gog[k] = have ? sg[k] : 1.0f; g_goo[k] = have ? so[k] : 0.0f; }
+	snprintf(msg, msgsz, "gain+offset fit SKIPPED: flat tiles average %.1f DN of green above the pedestal (eqmin %d), keeping %s gains, shot not counted",
+	         gmean, g_eqmin, have ? "the previous" : "unity");
+	snprintf(g_candmsg, sizeof g_candmsg, "candidates: not refitted (low-signal frame)");
+	return 1;
+}
+/* centre vs corners: largest difference of the predicted value at 300 DN (% of 300 DN) and of the offsets;
+ * returns 0 when a region has too few tiles */
+static int go_region_diff(const double S3[GO_NREG][16][5], double *dg, double *dofs)
+{
+	double gc[16];
+	double oc[16];
+	int regok = 1;
+	for (int k = 0; k < 16; k++) if (!go_solve(S3[1][k], &gc[k], &oc[k])) regok = 0;
+	for (int r = 2; r < GO_NREG; r++) {
+		if (!regok) break;
+		for (int k = 0; k < 16; k++) {
+			double g2;
+			double o2;
+			if (!go_solve(S3[r][k], &g2, &o2)) { regok = 0; break; }
+			/* compare predicted value at a mid level (300 DN) rather than raw g/o, which trade off */
+			double d = fabs((g2 * 300 + o2) - (gc[k] * 300 + oc[k])) / 3.0;   /* % of 300 DN */
+			if (d > *dg) *dg = d;
+			if (fabs(o2 - oc[k]) > *dofs) *dofs = fabs(o2 - oc[k]);
+		}
+	}
+	return regok;
+}
+static void cal_add(struct calfile *cf, const double s[16][5], double sign)
+{
+	for (int k = 0; k < 16; k++)
+		for (int m = 0; m < 5; m++) cf->s[k][m] += sign * s[k][m];
+}
+/* stored calibration: accumulate this frame's pass-3 sums in the file and, once trusted, fit gg/oo from the file.
+ * Returns 1 when the stored fit is used; *wrote = the file was updated. */
+static int go_stored_cal(const double S30[16][5], struct calfile *cf, double *gg, double *oo, int *wrote)
+{
+	int have = 0;
+	FILE *fp = fopen(g_calpath, "rb");
+	if (fp) {
+		if (fread(cf, sizeof *cf, 1, fp) == 1 && cf->magic == 0x51324343u && cf->ver == 1 &&
+		    cf->w == (uint32_t)g_w && cf->h == (uint32_t)g_h && cf->bayer == (uint32_t)g_bayer) have = 1;
+		fclose(fp);
+	}
+	if (!have) { memset(cf, 0, sizeof *cf); cf->magic = 0x51324343u; cf->ver = 1; cf->w = g_w; cf->h = g_h; cf->bayer = g_bayer; }
+	if (S30[0][0] >= 500) {
+		cal_add(cf, S30, 1);
+		cf->shots++;
+		fp = fopen(g_calpath, "wb");
+		if (fp) { *wrote = fwrite(cf, sizeof *cf, 1, fp) == 1; fclose(fp); }
+		if (!*wrote) { cf->shots--; cal_add(cf, S30, -1); }
+	}
+	if (!(cf->shots >= 3 && cf->s[0][0] >= 1e6)) return 0;
+	for (int k = 0; k < 16; k++) go_solve(cf->s[k], &gg[k], &oo[k]);
+	return 1;
+}
 /* returns 1 when the gains were refitted, 0 when the frame carries too little signal and the previous gains were kept */
 static int go_fit(const uint16_t *in, int stride, char *msg, size_t msgsz)
 {
@@ -727,33 +859,14 @@ static int go_fit(const uint16_t *in, int stride, char *msg, size_t msgsz)
 	double S3[GO_NREG][16][5];
 	f.pass = 1; run_rows(gofit_job, &f, 64);
 	memset(S1, 0, sizeof S1);
-	for (int j = 0; j < nj; j++) for (int k = 0; k < 16; k++) for (int m = 0; m < 5; m++) S1[k][m] += f.p1[j][k][m];
-	{   /* total-signal gate: the flat-tile test only needs each colour mean >= 2 DN, so in a near-black frame noise alone picks the
-		 * tiles and the regression is biased (gains 0.74..1.19 seen on a black frame). Keep the previous gains instead. */
-	  double gs = 0;
-	  double gn = 0;
-	  double gmean;
-	  for (int k = 0; k < 16; k++) if (g_qcol[k >> 2][k & 3] == CG && S1[k][0] > 0) { gs += S1[k][1]; gn += S1[k][0]; }
-	  gmean = gn > 0 ? gs / gn : 0;
-	  if (g_eqmin > 0 && gmean < g_eqmin) {
-		int have = sg[0] > 0.5f;
-		for (int k = 0; k < 16; k++) { g_gog[k] = have ? sg[k] : 1.0f; g_goo[k] = have ? so[k] : 0.0f; }
-		snprintf(msg, msgsz, "gain+offset fit SKIPPED: flat tiles average %.1f DN of green above the pedestal (eqmin %d), keeping %s gains, shot not counted",
-		         gmean, g_eqmin, have ? "the previous" : "unity");
-		snprintf(g_candmsg, sizeof g_candmsg, "candidates: not refitted (low-signal frame)");
-		ret = 0; goto out;
-	  } }
+	sum_parts(&S1[0][0], &f.p1[0][0][0], nj, 16 * 5);
+	if (go_low_signal((const double (*)[5])S1, sg, so, msg, msgsz)) { ret = 0; goto out; }
 	for (int k = 0; k < 16; k++) go_solve(S1[k], &f.g[k], &f.o[k]);
 	f.pass = 2; run_rows(gofit_job, &f, 64);
-	for (int k = 0; k < 16; k++) {
-		double n = 0;
-		double ss = 0;
-		for (int j = 0; j < nj; j++) { n += f.p2[j][k][0]; ss += f.p2[j][k][1]; }
-		f.sig[k] = n > 0 ? sqrt(ss / n) : 1e9;
-	}
+	parts_sigma(&f.p2[0][0][0], nj, 16, f.sig, 1e9);
 	f.pass = 3; run_rows(gofit_job, &f, 64);
 	memset(S3, 0, sizeof S3);
-	for (int j = 0; j < nj; j++) for (int r = 0; r < GO_NREG; r++) for (int k = 0; k < 16; k++) for (int m = 0; m < 5; m++) S3[r][k][m] += f.p3[j][r][k][m];
+	sum_parts(&S3[0][0][0], &f.p3[0][0][0][0], nj, GO_NREG * 16 * 5);
 	/* per-frame result */
 	double gg[16];
 	double oo[16];
@@ -761,48 +874,14 @@ static int go_fit(const uint16_t *in, int stride, char *msg, size_t msgsz)
 	cand_fit(in, stride, gg, oo, f.sig, g_candmsg, sizeof g_candmsg);
 	/* centre vs corners */
 	double dg = 0;
-	double dofs = 0; int regok = 1;
-	{ double gc[16];
-	  double oc[16];
-	  for (int k = 0; k < 16; k++) if (!go_solve(S3[1][k], &gc[k], &oc[k])) regok = 0;
-	  for (int r = 2; r < GO_NREG; r++) {
-		if (!regok) break;
-		for (int k = 0; k < 16; k++) {
-			double g2;
-			double o2;
-			if (!go_solve(S3[r][k], &g2, &o2)) { regok = 0; break; }
-			/* compare predicted value at a mid level (300 DN) rather than raw g/o, which trade off */
-			double d = fabs((g2 * 300 + o2) - (gc[k] * 300 + oc[k])) / 3.0;   /* % of 300 DN */
-			if (d > dg) dg = d;
-			if (fabs(o2 - oc[k]) > dofs) dofs = fabs(o2 - oc[k]);
-		}
-	  }
-	}
+	double dofs = 0;
+	int regok = go_region_diff((const double (*)[16][5])S3, &dg, &dofs);
 	/* stored calibration: accumulate pass-3 sums, use them once trusted */
-	struct calfile cf; int have = 0;
+	struct calfile cf;
 	int wrote = 0;
 	int used = 0;
 	memset(&cf, 0, sizeof cf);                 /* cf.shots is logged below even when usecal=0 */
-	if (g_usecal) {
-		FILE *fp = fopen(g_calpath, "rb");
-		if (fp) {
-			if (fread(&cf, sizeof cf, 1, fp) == 1 && cf.magic == 0x51324343u && cf.ver == 1 &&
-			    cf.w == (uint32_t)g_w && cf.h == (uint32_t)g_h && cf.bayer == (uint32_t)g_bayer) have = 1;
-			fclose(fp);
-		}
-		if (!have) { memset(&cf, 0, sizeof cf); cf.magic = 0x51324343u; cf.ver = 1; cf.w = g_w; cf.h = g_h; cf.bayer = g_bayer; }
-		if (S3[0][0][0] >= 500) {
-			for (int k = 0; k < 16; k++) for (int m = 0; m < 5; m++) cf.s[k][m] += S3[0][k][m];
-			cf.shots++;
-			fp = fopen(g_calpath, "wb");
-			if (fp) { wrote = fwrite(&cf, sizeof cf, 1, fp) == 1; fclose(fp); }
-			if (!wrote) { cf.shots--; for (int k = 0; k < 16; k++) for (int m = 0; m < 5; m++) cf.s[k][m] -= S3[0][k][m]; }
-		}
-		if (cf.shots >= 3 && cf.s[0][0] >= 1e6) {
-			for (int k = 0; k < 16; k++) go_solve(cf.s[k], &gg[k], &oo[k]);
-			used = 1;
-		}
-	}
+	if (g_usecal) used = go_stored_cal((const double (*)[5])S3[0], &cf, gg, oo, &wrote);
 	g_calused = used;
 	double gmin = 9;
 	double gmax = -9;
@@ -847,22 +926,6 @@ static double (*g_cand_o)[GY][GX][16];
 struct cand { const uint16_t *in; int stride; double gsig[16]; double gg[16]; double go[16];
               double (*cs)[GY * GX][16][5];           /* per job: fine-cell fit sums */
               double (*ev)[NCAND][5][17]; };          /* per job: per cand, band: 16 sums + count */
-static inline int tile_flat(const uint16_t *in, int S, int ty, int tx, int v[16], double cm[3])
-{
-	double cs[3] = { 0, 0, 0 }; int cn[3] = { 0, 0, 0 };
-	int mn[3] = { 1 << 20, 1 << 20, 1 << 20 };
-	int mx[3] = { -1, -1, -1 };
-	int c;
-	for (int py = 0; py < 4; py++)
-		for (int px = 0; px < 4; px++) {
-			int a = in[(size_t)(ty + py) * S + tx + px] - g_ped;
-			c = g_qcol[py][px]; v[py * 4 + px] = a; cs[c] += a; cn[c]++;
-			if (a < mn[c]) mn[c] = a;
-			if (a > mx[c]) mx[c] = a;
-		}
-	for (c = 0; c < 3; c++) { cm[c] = cs[c] / cn[c]; if (cm[c] < 2 || mx[c] - mn[c] > 0.10 * cm[c] + 10) return 0; }
-	return 1;
-}
 static inline int tile_ok(const struct cand *f, const int v[16], const double cm[3])   /* 3-sigma vs global fit */
 {
 	for (int k = 0; k < 16; k++) {
@@ -881,12 +944,7 @@ static void cand_fit_job(int y0, int y1, void *p)
 			if ((((ty >> 6) + (tx >> 6)) & 1) != 0) continue;           /* fit half: 64x64-px checkerboard */
 			if (!tile_flat(f->in, f->stride, ty, tx, v, cm) || !tile_ok(f, v, cm)) continue;
 			int cell = (ty * GY / g_h) * GX + (tx * GX / g_w);
-			for (int k = 0; k < 16; k++) {
-				double x = cm[g_qcol[k >> 2][k & 3]];
-				double vv = v[k];
-				double *a = f->cs[job][cell][k];
-				a[0] += 1; a[1] += x; a[2] += x * x; a[3] += vv; a[4] += x * vv;
-			}
+			for (int k = 0; k < 16; k++) acc5(f->cs[job][cell][k], cm[g_qcol[k >> 2][k & 3]], v[k]);
 		}
 }
 /* one axis of cand_coef: cells i0, i1 in [0, n-1] around the fractional position f, and the weight of i1. Outside the
@@ -927,31 +985,87 @@ static inline void cand_coef(int c, double y, double x, int k, double *g, double
 	*o = (1 - wy) * ((1 - wx) * O[y0][x0][k] + wx * O[y0][x1][k]) + wy * ((1 - wx) * O[y1][x0][k] + wx * O[y1][x1][k]);
 }
 static const int g_band[6] = { 0, 100, 300, 600, 850, 2000 };
+/* green-level band of a tile (0..4), 5 when outside all bands */
+static inline int cand_band(double gl)
+{
+	int b;
+	for (b = 0; b < 5; b++) if (gl >= g_band[b] && gl < g_band[b + 1]) break;
+	return b;
+}
+/* corrected 16 values of a tile under candidate c, relative to their colour means, added to the band's sums */
+static inline void cand_eval_tile(const struct cand *f, int job, int c, int b, int ty, int tx, const int v[16])
+{
+	double cv[16];
+	double s3[3] = { 0, 0, 0 }; int n3[3] = { 0, 0, 0 };
+	for (int k = 0; k < 16; k++) {
+		double g;
+		double o; cand_coef(c, ty + 2.0, tx + 2.0, k, &g, &o);
+		cv[k] = (v[k] - o) / g; int col = g_qcol[k >> 2][k & 3]; s3[col] += cv[k]; n3[col]++;
+	}
+	for (int k = 0; k < 16; k++) { int col = g_qcol[k >> 2][k & 3]; f->ev[job][c][b][k] += cv[k] / (s3[col] / n3[col]); }
+	f->ev[job][c][b][16] += 1;
+}
 static void cand_eval_job(int y0, int y1, void *p)
 {
-	struct cand *f = p; int job = y0 / 64;
-	int b;
+	const struct cand *f = p; int job = y0 / 64;
 	int v[16]; double cm[3];
 	memset(f->ev[job], 0, sizeof(f->ev[0]));
 	for (int ty = (y0 + 7) & ~7; ty < y1 && ty + 4 <= g_h; ty += 8)
 		for (int tx = 0; tx + 4 <= g_w; tx += 8) {
 			if ((((ty >> 6) + (tx >> 6)) & 1) != 1) continue;           /* evaluation half */
 			if (!tile_flat(f->in, f->stride, ty, tx, v, cm) || !tile_ok(f, v, cm)) continue;
-			double gl = cm[CG];
-			for (b = 0; b < 5; b++) if (gl >= g_band[b] && gl < g_band[b + 1]) break;
+			int b = cand_band(cm[CG]);
 			if (b == 5) continue;
-			for (int c = 0; c < NCAND; c++) {
-				double cv[16];
-				double s3[3] = { 0, 0, 0 }; int n3[3] = { 0, 0, 0 };
-				for (int k = 0; k < 16; k++) {
-					double g;
-					double o; cand_coef(c, ty + 2.0, tx + 2.0, k, &g, &o);
-					cv[k] = (v[k] - o) / g; int col = g_qcol[k >> 2][k & 3]; s3[col] += cv[k]; n3[col]++;
-				}
-				for (int k = 0; k < 16; k++) { int col = g_qcol[k >> 2][k & 3]; f->ev[job][c][b][k] += cv[k] / (s3[col] / n3[col]); }
-				f->ev[job][c][b][16] += 1;
-			}
+			for (int c = 0; c < NCAND; c++) cand_eval_tile(f, job, c, b, ty, tx, v);
 		}
+}
+/* candidate c, region (ry, rx): fit from the fine cells it covers; with too few tiles the global fit (c = 0) or the
+ * parent region of the previous, coarser candidate */
+static void cand_region_fit(int c, int ry, int rx, const double S[GY * GX][16][5], const double gg[16], const double go[16])
+{
+	int gw = g_cgx[c];
+	int gh = g_cgy[c];
+	double a[16][5]; memset(a, 0, sizeof a);
+	for (int cy = ry * GY / gh; cy < (ry + 1) * GY / gh; cy++)
+		for (int cx = rx * GX / gw; cx < (rx + 1) * GX / gw; cx++) sum_parts(&a[0][0], &S[cy * GX + cx][0][0], 1, 16 * 5);
+	int py = 0;
+	int px = 0;
+	if (c > 0) { py = (int)((ry + 0.5) * g_cgy[c - 1] / gh); px = (int)((rx + 0.5) * g_cgx[c - 1] / gw); }
+	for (int k = 0; k < 16; k++) {
+		double g;
+		double o;
+		if (a[k][0] >= 300 && go_solve(a[k], &g, &o)) { g_cand_g[c][ry][rx][k] = g; g_cand_o[c][ry][rx][k] = o; }
+		else if (c == 0) { g_cand_g[c][ry][rx][k] = gg[k]; g_cand_o[c][ry][rx][k] = go[k]; }
+		else { g_cand_g[c][ry][rx][k] = g_cand_g[c - 1][py][px][k]; g_cand_o[c][ry][rx][k] = g_cand_o[c - 1][py][px][k]; }
+	}
+}
+/* holdout pattern rms (%) of candidate c in band b */
+static inline double cand_rms(const double E[NCAND][5][17], int c, int b)
+{
+	double ss = 0;
+	for (int k = 0; k < 16; k++) { double d = E[c][b][k] / E[c][b][16] - 1; ss += d * d; }
+	return 100 * sqrt(ss / 16);
+}
+/* score of candidate c: mean rms over the bright bands with data (over the dark one in a dark-only scene); its
+ * per-band values go to msg at *o2 */
+static double cand_score(const double E[NCAND][5][17], int c, char *msg, size_t msgsz, int *o2)
+{
+	double ssum = 0; int sn = 0;
+	int bright = 0;
+	*o2 += snprintf(msg + *o2, msgsz - *o2, " %dx%d", g_cgx[c], g_cgy[c]);
+	for (int b = 0; b < 5; b++) {
+		if (E[c][b][16] < 200) { *o2 += snprintf(msg + *o2, msgsz - *o2, "%s-", b ? "/" : " "); continue; }
+		double r = cand_rms(E, c, b);
+		*o2 += snprintf(msg + *o2, msgsz - *o2, "%s%.2f", b ? "/" : " ", r);
+		if (b >= 1) { ssum += r; sn++; bright = 1; }
+	}
+	if (!bright) {
+		for (int b = 0; b < 5; b++) {   /* dark-only scene: use what exists */
+			if (E[c][b][16] < 200) continue;
+			ssum += cand_rms(E, c, b); sn++;
+		}
+	}
+	return sn ? ssum / sn : 1e9;
 }
 static void cand_fit(const uint16_t *in, int stride, const double gg[16], const double go[16], const double gsig[16], char *msg, size_t msgsz)
 {
@@ -964,61 +1078,27 @@ static void cand_fit(const uint16_t *in, int stride, const double gg[16], const 
 	run_rows(cand_fit_job, &f, 64);
 	static double S[GY * GX][16][5];
 	memset(S, 0, sizeof S);
-	for (int j = 0; j < nj; j++) for (int c = 0; c < GY * GX; c++) for (int k = 0; k < 16; k++) for (int m = 0; m < 5; m++) S[c][k][m] += f.cs[j][c][k][m];
+	sum_parts(&S[0][0][0], &f.cs[0][0][0][0], nj, GY * GX * 16 * 5);
 	/* hierarchical fits: candidate c groups fine cells; sparse regions inherit the parent (previous c) */
-	for (int c = 0; c < NCAND; c++) {
-		int gw = g_cgx[c];
-		int gh = g_cgy[c];
-		for (int ry = 0; ry < gh; ry++)
-			for (int rx = 0; rx < gw; rx++) {
-				double a[16][5]; memset(a, 0, sizeof a);
-				for (int cy = ry * GY / gh; cy < (ry + 1) * GY / gh; cy++)
-					for (int cx = rx * GX / gw; cx < (rx + 1) * GX / gw; cx++)
-						for (int k = 0; k < 16; k++) for (int m = 0; m < 5; m++) a[k][m] += S[cy * GX + cx][k][m];
-				for (int k = 0; k < 16; k++) {
-					double g;
-					double o;
-					if (a[k][0] >= 300 && go_solve(a[k], &g, &o)) { g_cand_g[c][ry][rx][k] = g; g_cand_o[c][ry][rx][k] = o; }
-					else if (c == 0) { g_cand_g[c][ry][rx][k] = gg[k]; g_cand_o[c][ry][rx][k] = go[k]; }
-					else {   /* parent region of the previous (coarser) candidate */
-						int py = (int)((ry + 0.5) * g_cgy[c - 1] / gh);
-						int px = (int)((rx + 0.5) * g_cgx[c - 1] / gw);
-						g_cand_g[c][ry][rx][k] = g_cand_g[c - 1][py][px][k]; g_cand_o[c][ry][rx][k] = g_cand_o[c - 1][py][px][k];
-					}
-				}
-			}
-	}
+	for (int c = 0; c < NCAND; c++)
+		for (int ry = 0; ry < g_cgy[c]; ry++)
+			for (int rx = 0; rx < g_cgx[c]; rx++) cand_region_fit(c, ry, rx, (const double (*)[16][5])S, gg, go);
 	run_rows(cand_eval_job, &f, 64);
 	static double E[NCAND][5][17];
 	memset(E, 0, sizeof E);
-	for (int j = 0; j < nj; j++) for (int c = 0; c < NCAND; c++) for (int b = 0; b < 5; b++) for (int k = 0; k < 17; k++) E[c][b][k] += f.ev[j][c][b][k];
+	sum_parts(&E[0][0][0], &f.ev[0][0][0][0], nj, NCAND * 5 * 17);
 	double score[NCAND]; int o2 = 0;
 	o2 += snprintf(msg + o2, msgsz - o2, "candidates, holdout pattern rms%% per band [0-100,100-300,300-600,600-850,850+]:");
-	for (int c = 0; c < NCAND; c++) {
-		double ssum = 0; int sn = 0;
-		int bright = 0;
-		o2 += snprintf(msg + o2, msgsz - o2, " %dx%d", g_cgx[c], g_cgy[c]);
-		for (int b = 0; b < 5; b++) {
-			if (E[c][b][16] < 200) { o2 += snprintf(msg + o2, msgsz - o2, "%s-", b ? "/" : " "); continue; }
-			double ss = 0;
-			for (int k = 0; k < 16; k++) { double d = E[c][b][k] / E[c][b][16] - 1; ss += d * d; }
-			double r = 100 * sqrt(ss / 16);
-			o2 += snprintf(msg + o2, msgsz - o2, "%s%.2f", b ? "/" : " ", r);
-			if (b >= 1) { ssum += r; sn++; bright = 1; }
-		}
-		if (!bright) for (int b = 0; b < 5; b++) if (E[c][b][16] >= 200) {   /* dark-only scene: use what exists */
-			double ss = 0; for (int k = 0; k < 16; k++) { double d = E[c][b][k] / E[c][b][16] - 1; ss += d * d; }
-			ssum += 100 * sqrt(ss / 16); sn++;
-		}
-		score[c] = sn ? ssum / sn : 1e9;
-	}
+	for (int c = 0; c < NCAND; c++) score[c] = cand_score((const double (*)[5][17])E, c, msg, msgsz, &o2);
 	int best = 0;
 	for (int c = 1; c < NCAND; c++) if (score[c] < score[best] - 0.01) best = c;   /* finer only if clearly better */
 	g_gridused = (g_grid >= 0 && g_grid < NCAND) ? g_grid : best;
 	g_cgw = g_cgx[g_gridused]; g_cgh = g_cgy[g_gridused];
-	for (int cy = 0; cy < g_cgh; cy++) for (int cx = 0; cx < g_cgw; cx++) for (int k = 0; k < 16; k++) {
-		g_cg[cy][cx][k] = (float)g_cand_g[g_gridused][cy][cx][k]; g_co[cy][cx][k] = (float)g_cand_o[g_gridused][cy][cx][k];
-	}
+	for (int cy = 0; cy < g_cgh; cy++)
+		for (int cx = 0; cx < g_cgw; cx++)
+			for (int k = 0; k < 16; k++) {
+				g_cg[cy][cx][k] = (float)g_cand_g[g_gridused][cy][cx][k]; g_co[cy][cx][k] = (float)g_cand_o[g_gridused][cy][cx][k];
+			}
 	snprintf(msg + o2, msgsz - o2, "; using %dx%d%s", g_cgw, g_cgh, (g_grid >= 0 && g_grid < NCAND) ? " (forced)" : " (best)");
 out:
 	free(f.cs); free(f.ev);
@@ -1114,9 +1194,21 @@ static int t16_tile(const uint16_t *b, int S, int ty, int tx, double v[256], dou
 	for (int py = 0; py < 16; py++) for (int px = 0; px < 16; px++) x[py * 16 + px] = ph[(py & 3) * 4 + (px & 3)] / 16.0;
 	return 1;
 }
+/* one flat 16x16 tile of the current t16 pass */
+static inline void t16_tile_acc(const struct t16 *f, int job, int reg, const double v[256], const double x[256])
+{
+	for (int k = 0; k < 256; k++) {
+		if (f->pass == 1) { acc5(f->p1[job][k], x[k], v[k]); continue; }
+		double r = v[k] - (f->g[k] * x[k] + f->o[k]);
+		if (f->pass == 2) { f->p2[job][k][0] += 1; f->p2[job][k][1] += r * r; continue; }
+		if (fabs(r) > 3 * f->sig[k]) continue;
+		acc5(f->p3[job][0][k], x[k], v[k]);
+		if (reg >= 0) acc5(f->p3[job][reg][k], x[k], v[k]);
+	}
+}
 static void t16_job(int y0, int y1, void *p)
 {
-	struct t16 *f = p; int job = y0 / 64;
+	const struct t16 *f = p; int job = y0 / 64;
 	double v[256];
 	double x[256];
 	if (f->pass == 1) memset(f->p1[job], 0, sizeof(f->p1[0]));
@@ -1125,18 +1217,7 @@ static void t16_job(int y0, int y1, void *p)
 	for (int ty = (y0 + 15) & ~15; ty < y1 && ty + 16 <= g_h; ty += 16)
 		for (int tx = 0; tx + 16 <= g_w; tx += 16) {
 			if (!t16_tile(f->b, f->S, ty, tx, v, x)) continue;
-			int reg = f->pass == 3 ? go_region(ty, tx) : -1;
-			for (int k = 0; k < 256; k++) {
-				if (f->pass == 1) { double *a = f->p1[job][k]; a[0] += 1; a[1] += x[k]; a[2] += x[k] * x[k]; a[3] += v[k]; a[4] += x[k] * v[k]; continue; }
-				double r = v[k] - (f->g[k] * x[k] + f->o[k]);
-				if (f->pass == 2) { f->p2[job][k][0] += 1; f->p2[job][k][1] += r * r; continue; }
-				if (fabs(r) > 3 * f->sig[k]) continue;
-				int regs[2] = { 0, reg };
-				for (int rr = 0; rr < 2; rr++) {
-					if (regs[rr] < 0) continue;
-					double *a = f->p3[job][regs[rr]][k]; a[0] += 1; a[1] += x[k]; a[2] += x[k] * x[k]; a[3] += v[k]; a[4] += x[k] * v[k];
-				}
-			}
+			t16_tile_acc(f, job, f->pass == 3 ? go_region(ty, tx) : -1, v, x);
 		}
 }
 static int t16_solve(const double a[5], double minn, double *g, double *o)
@@ -1160,6 +1241,42 @@ static int t16_solve(const double a[5], double minn, double *g, double *o)
 	return 1;
 }
 static int g_t16shot = 0;
+/* accumulate across shots (sensor property): sums decay 0.9 per shot, ~10-shot memory; from 2 shots on, gf/of come from
+ * the accumulated sums. Returns 1 when they do. */
+static int t16_accumulate(const double S30[256][5], double ntile, double *gf, double *of)
+{
+	if (g_accw != g_w || g_acch != g_h || g_accb != g_bayer || g_accpdc != g_pdc_on) {
+		memset(g_accs, 0, sizeof g_accs); g_accshots = 0; g_accw = g_w; g_acch = g_h; g_accb = g_bayer; g_accpdc = g_pdc_on;
+	}
+	if (ntile >= 200) {
+		for (int k = 0; k < 256; k++)
+			for (int m = 0; m < 5; m++) g_accs[k][m] = 0.9 * g_accs[k][m] + S30[k][m];
+		g_accshots++;
+	}
+	if (g_accshots < 2) return 0;
+	for (int k = 0; k < 256; k++) t16_solve(g_accs[k], 200, &gf[k], &of[k]);
+	return 1;
+}
+/* centre vs corners, compared at each corner's own mean level: rms difference (%) in *dmax; 0 when a region is too sparse */
+static int t16_region_diff(const double S3[6][256][5], double *dmax)
+{
+	int regok = 1; double dss = 0; int dn = 0;
+	for (int r = 2; r < 6; r++) {
+		if (!regok) break;
+		for (int k = 0; k < 256; k++) {
+			double gc;
+			double oc;
+			double g2;
+			double o2;
+			if (!t16_solve(S3[1][k], 200, &gc, &oc) || !t16_solve(S3[r][k], 200, &g2, &o2)) { regok = 0; break; }
+			double X = S3[r][k][1] / S3[r][k][0];
+			double d = ((g2 * X + o2) - (gc * X + oc)) / (X > 1 ? X : 1) * 100;
+			dss += d * d; dn++;
+		}
+	}
+	*dmax = dn ? sqrt(dss / dn) : 0;
+	return regok;
+}
 static void t16_fit(const uint16_t *b, int S, char *msg, size_t msgsz)
 {
 	/* calibrated: the map is a fixed sensor property; reuse it and only refit every 5th shot */
@@ -1177,37 +1294,20 @@ static void t16_fit(const uint16_t *b, int S, char *msg, size_t msgsz)
 	if (!f.p1 || !f.p2 || !f.p3) { snprintf(msg, msgsz, "map16: alloc failed"); goto out; }
 	f.pass = 1; run_rows(t16_job, &f, 64);
 	memset(S1, 0, sizeof S1);
-	for (int j = 0; j < nj; j++) for (int k = 0; k < 256; k++) for (int m = 0; m < 5; m++) S1[k][m] += f.p1[j][k][m];
+	sum_parts(&S1[0][0], &f.p1[0][0][0], nj, 256 * 5);
 	double ntile = S1[0][0];
 	if (ntile < 200) { snprintf(msg, msgsz, "map16: only %.0f flat 16x16 tiles, map not changed this shot", ntile); }
 	for (int k = 0; k < 256; k++) { f.g[k] = 1; f.o[k] = 0; t16_solve(S1[k], 200, &f.g[k], &f.o[k]); }
 	f.pass = 2; run_rows(t16_job, &f, 64);
-	for (int k = 0; k < 256; k++) {
-		double n = 0;
-		double ss = 0;
-		for (int j = 0; j < nj; j++) { n += f.p2[j][k][0]; ss += f.p2[j][k][1]; }
-		f.sig[k] = n > 0 ? sqrt(ss / n) : 1e30;
-	}
+	parts_sigma(&f.p2[0][0][0], nj, 256, f.sig, 1e30);
 	f.pass = 3; run_rows(t16_job, &f, 64);
 	memset(S3, 0, sizeof S3);
-	for (int j = 0; j < nj; j++) for (int r = 0; r < 6; r++) for (int k = 0; k < 256; k++) for (int m = 0; m < 5; m++) S3[r][k][m] += f.p3[j][r][k][m];
+	sum_parts(&S3[0][0][0], &f.p3[0][0][0][0], nj, 6 * 256 * 5);
 	/* this frame's map (as fit16(): refit if enough tiles survive, else keep pass 1) */
 	double gf[256];
 	double of[256];
 	for (int k = 0; k < 256; k++) { gf[k] = f.g[k]; of[k] = f.o[k]; t16_solve(S3[0][k], 200, &gf[k], &of[k]); }
-	/* accumulate across shots (sensor property): sums decay 0.9 per shot, ~10-shot memory */
-	int using_acc = 0;
-	if (g_acc) {
-		if (g_accw != g_w || g_acch != g_h || g_accb != g_bayer || g_accpdc != g_pdc_on) { memset(g_accs, 0, sizeof g_accs); g_accshots = 0; g_accw = g_w; g_acch = g_h; g_accb = g_bayer; g_accpdc = g_pdc_on; }
-		if (ntile >= 200) {
-			for (int k = 0; k < 256; k++) for (int m = 0; m < 5; m++) g_accs[k][m] = 0.9 * g_accs[k][m] + S3[0][k][m];
-			g_accshots++;
-		}
-		if (g_accshots >= 2) {
-			for (int k = 0; k < 256; k++) t16_solve(g_accs[k], 200, &gf[k], &of[k]);
-			using_acc = 1;
-		}
-	}
+	int using_acc = g_acc ? t16_accumulate((const double (*)[5])S3[0], ntile, gf, of) : 0;
 	if (ntile < 200 && !using_acc) goto out;
 	double gmin = 9;
 	double gmax = -9;
@@ -1217,22 +1317,7 @@ static void t16_fit(const uint16_t *b, int S, char *msg, size_t msgsz)
 		if (gf[k] < gmin) gmin = gf[k];
 		if (gf[k] > gmax) gmax = gf[k];
 	}
-	/* centre vs corners, compared at each corner's own mean level */
-	int regok = 1; double dss = 0; int dn = 0;
-	for (int r = 2; r < 6; r++) {
-		if (!regok) break;
-		for (int k = 0; k < 256; k++) {
-			double gc;
-			double oc;
-			double g2;
-			double o2;
-			if (!t16_solve(S3[1][k], 200, &gc, &oc) || !t16_solve(S3[r][k], 200, &g2, &o2)) { regok = 0; break; }
-			double X = S3[r][k][1] / S3[r][k][0];
-			double d = ((g2 * X + o2) - (gc * X + oc)) / (X > 1 ? X : 1) * 100;
-			dss += d * d; dn++;
-		}
-	}
-	dmax = dn ? sqrt(dss / dn) : 0;
+	int regok = t16_region_diff((const double (*)[256][5])S3, &dmax);
 	snprintf(msg, msgsz, "map16: %.0f flat tiles this shot, gains %.3f..%.3f, %s (%d shots), centre-vs-corner rms diff %s%.2f%%",
 	         ntile, gmin, gmax, using_acc ? "accumulated" : "this shot only", g_accshots, regok ? "" : "n/a ", dmax);
 out:
