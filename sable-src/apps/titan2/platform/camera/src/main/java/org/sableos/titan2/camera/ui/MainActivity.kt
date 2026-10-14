@@ -3,7 +3,6 @@
 package org.sableos.titan2.camera.ui
 
 import android.Manifest
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Matrix
@@ -12,7 +11,6 @@ import android.graphics.SurfaceTexture
 import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
-import android.provider.MediaStore
 import android.view.KeyEvent
 import android.view.Surface
 import android.view.TextureView
@@ -52,13 +50,13 @@ import org.sableos.titan2.camera.android.CameraController
 import org.sableos.titan2.camera.android.CameraInfoReader
 import org.sableos.titan2.camera.android.MediaStoreSaver
 import org.sableos.titan2.camera.android.RecordingSpec
+import org.sableos.titan2.camera.android.ReviewActions
 import org.sableos.titan2.camera.android.StillCallbacks
 import org.sableos.titan2.camera.android.SysProps
 import org.sableos.titan2.camera.core.ActionRouter
 import org.sableos.titan2.camera.core.BackResult
 import org.sableos.titan2.camera.core.CameraAction
 import org.sableos.titan2.camera.core.CameraDeviceProfile
-import org.sableos.titan2.camera.core.CameraKeyMap
 import org.sableos.titan2.camera.core.CapabilityInterpreter
 import org.sableos.titan2.camera.core.CapabilityReport
 import org.sableos.titan2.camera.core.CaptureMode
@@ -79,7 +77,6 @@ import org.sableos.titan2.camera.core.ProControls
 import org.sableos.titan2.camera.core.ProField
 import org.sableos.titan2.camera.core.ProLimits
 import org.sableos.titan2.camera.core.ProState
-import org.sableos.titan2.camera.core.RawKeys
 import org.sableos.titan2.camera.core.RecEvent
 import org.sableos.titan2.camera.core.RecState
 import org.sableos.titan2.camera.core.RecStateMachine
@@ -98,13 +95,13 @@ private const val HALF_TURN_DEGREES = 180f
 private const val RECORDING_POLL_MS = 250L
 
 private val accentBlue = Color(0xFF55B9FF)
-private val mutedText = Color(0xFF8BA6B8)
 
 /**
  * Keyboard-first camera with three modes: Video, Photo, Pro (stock order, minus Timelapse/More
  * which are not built).
  * Left/Right change mode. Space/Enter/volume = shutter (record in Video). Photo: Up/Down zoom, M
- * capture mode, E/Alt+E exposure, B compare.
+ * capture mode, E/Alt+E exposure, B compare, hold F/E lock focus/exposure. G reviews this
+ * session's captures (Left/Right, Del with confirm, S share, F Files, Esc back).
  * Pro: W/I/E/S/F pick WB/ISO/EV/shutter/focus, Up/Down change it, A returns it to Auto. Video: P
  * pause, Q quality. +/- zoom everywhere.
  */
@@ -129,8 +126,9 @@ class MainActivity : ComponentActivity() {
     private var rotation by mutableStateOf(Surface.ROTATION_0)
     private var texture: SurfaceTexture? = null
     private var textureView: TextureView? = null
-    private var lastUri: Uri? = null
     private var busy = false
+    private lateinit var review: QuickReviewHost
+    private lateinit var keys: CameraKeys
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -138,6 +136,9 @@ class MainActivity : ComponentActivity() {
         profile = CameraDeviceProfile.byId(SysProps.get("ro.sable.profile.id").ifBlank { null })
         val reader = CameraInfoReader(this)
         controller = CameraController(this, reader, MediaStoreSaver(this))
+        review = QuickReviewHost(ReviewActions(this)) { status = it }
+        onBackPressedDispatcher.addCallback(this, review.back)
+        keys = CameraKeys(profile, review, ::deckContext, ::act)
         rotation = display?.rotation ?: Surface.ROTATION_0
         setContent { Screen() }
         micGranted =
@@ -274,11 +275,11 @@ class MainActivity : ComponentActivity() {
                 refreshHud()
             }
         },
-        onSaved = { msg ->
+        onSaved = { saved ->
             runOnUiThread {
                 busy = false
-                status = "Saved $msg"
-                lastUri = null
+                status = "Saved ${saved.name}  ${saved.detail}"
+                review.remember(saved)
             }
         },
         onError = { msg ->
@@ -347,7 +348,7 @@ class MainActivity : ComponentActivity() {
             UiMode.Video ->
                 "cam $camId · ${videoOption?.label ?: "no recordable size"} · ${zoomText}x" +
                     if (!micGranted) " · no mic" else ""
-        }
+        } + lockBadges(controller.locks)
     }
 
     private fun setPro(s: ProState) {
@@ -459,6 +460,8 @@ class MainActivity : ComponentActivity() {
             CameraAction.CompareToggle -> doCaptureAction(a, cam)
 
             CameraAction.Autofocus,
+            CameraAction.AfLockToggle,
+            CameraAction.AeLockToggle,
             CameraAction.ZoomIn,
             CameraAction.ZoomOut,
             CameraAction.ExposureUp,
@@ -471,7 +474,10 @@ class MainActivity : ComponentActivity() {
                 restart()
             }
 
-            CameraAction.OpenLast -> openLast()
+            CameraAction.OpenLast -> {
+                keys.clear()
+                review.open()
+            }
 
             CameraAction.Back -> if (recState == RecState.Idle) finish() else toggleRecording()
 
@@ -539,6 +545,12 @@ class MainActivity : ComponentActivity() {
             CameraAction.Autofocus -> {
                 controller.triggerFocus()
                 status = "Focus"
+                refreshHud()
+            }
+
+            CameraAction.AfLockToggle, CameraAction.AeLockToggle -> {
+                status = toggleLock(a, controller.locks)
+                refreshHud()
             }
 
             CameraAction.ZoomIn -> {
@@ -596,11 +608,12 @@ class MainActivity : ComponentActivity() {
             )
         } else {
             controller.video.stop(
-                onSavedCb = { name ->
+                onSavedCb = { saved ->
                     runOnUiThread {
                         recState = RecState.Idle
                         status =
-                            "Saved $name"
+                            "Saved ${saved.name}"
+                        review.remember(saved)
                         restart()
                     }
                 },
@@ -640,7 +653,10 @@ class MainActivity : ComponentActivity() {
                 tex,
                 StillCallbacks(
                     onReady = { controller.takePicture(degrees()) },
-                    onSaved = { next() },
+                    onSaved = { saved ->
+                        runOnUiThread { review.remember(saved) }
+                        next()
+                    },
                     onError = { msg ->
                         runOnUiThread {
                             busy = false
@@ -653,36 +669,12 @@ class MainActivity : ComponentActivity() {
         next()
     }
 
-    private val repeatable =
-        setOf(
-            CameraAction.StepUp,
-            CameraAction.StepDown,
-            CameraAction.ZoomIn,
-            CameraAction.ZoomOut,
-            CameraAction.ExposureUp,
-            CameraAction.ExposureDown
-        )
-
-    private fun openLast() {
-        val i = Intent(Intent.ACTION_VIEW, MediaStore.Images.Media.EXTERNAL_CONTENT_URI).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        runCatching { startActivity(i) }.onFailure { status = "No gallery app available." }
-    }
-
-    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        val action = RawKeys.nameOf(keyCode)?.let {
-            CameraKeyMap.resolve(it, event.isAltPressed, profile)
-        }
-        return if (action == null) {
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean =
+        keys.down(keyCode, event.isAltPressed, event.repeatCount) ||
             super.onKeyDown(keyCode, event)
-        } else {
-            // Held keys repeat only for stepping actions; toggles and shutter fire once per press.
-            val ignoredRepeat = event.repeatCount > 0 && action !in repeatable
-            if (!ignoredRepeat) act(action)
-            true
-        }
-    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean =
+        keys.up(keyCode) || super.onKeyUp(keyCode, event)
 
     override fun onPause() {
         if (recState != RecState.Idle) toggleRecording()
@@ -722,7 +714,10 @@ class MainActivity : ComponentActivity() {
                 RecordingBadge(recState, recMs, Modifier.align(Alignment.TopEnd).padding(8.dp))
             }
             val avail = report?.camera(camId)?.let { ActionRouter.available(it) }.orEmpty()
-            Column(Modifier.align(Alignment.BottomCenter).padding(bottom = 6.dp)) {
+            Column(
+                Modifier.align(Alignment.BottomCenter).padding(bottom = 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 if (DeckOrientation.touchChromeVisible(presentation, deck.touchChromeRevealed)) {
                     ModeSelector(
                         avail,
@@ -732,12 +727,7 @@ class MainActivity : ComponentActivity() {
                         TouchControlBar(TouchFallback.controls(dc), ::act, Modifier)
                     }
                 }
-                Text(
-                    "H or ? shows the controls",
-                    color = mutedText,
-                    fontSize = 11.sp,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
+                LastCaptureRow(review.state.latest, review::load) { act(CameraAction.OpenLast) }
             }
             DeckOverlays(
                 deck,
@@ -746,6 +736,7 @@ class MainActivity : ComponentActivity() {
                 { deck = ControlDeck.dismissStrip(deck) },
                 { deck = ControlDeck.dismissLegend(deck) }
             )
+            if (review.isOpen) QuickReviewOverlay(review.state, status, review::load, review::act)
         }
     }
 
@@ -860,6 +851,28 @@ fun ControlLegendOverlay(entries: List<LegendEntry>, onDismiss: () -> Unit, modi
                 }
             }
             Text(
+                "Quick review (G or the thumbnail)",
+                color = deckAccent,
+                fontSize = 14.sp,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+            ControlLegend.reviewEntries().forEach { (keys, label) ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                    Text(
+                        keys,
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        label,
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+            Text(
                 "Esc, H, ? or a tap closes this. Touch controls do everything the keys do.",
                 color = deckMuted,
                 fontSize = 11.sp
@@ -896,6 +909,17 @@ fun TouchControlBar(
 }
 
 private val stripBottomInset = 96.dp
+
+/** Hold F / hold E: flip the lock and say what it is now. */
+private fun toggleLock(a: CameraAction, locks: CameraController.LockControls): String =
+    if (a == CameraAction.AfLockToggle) {
+        if (locks.toggleAf()) "AF locked: hold F again to release" else "AF unlocked"
+    } else {
+        if (locks.toggleAe()) "AE locked: hold E again to release" else "AE unlocked"
+    }
+
+private fun lockBadges(locks: CameraController.LockControls): String =
+    (if (locks.afLocked) " · AF-L" else "") + (if (locks.aeLocked) " · AE-L" else "")
 
 /**
  * The transient layer over the preview: the parameter strip (bottom, above touch chrome) and the

@@ -10,6 +10,7 @@ import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CameraMetadata
 import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.CaptureResult
 import android.hardware.camera2.DngCreator
 import android.hardware.camera2.TotalCaptureResult
 import android.hardware.camera2.params.OutputConfiguration
@@ -17,6 +18,7 @@ import android.hardware.camera2.params.SessionConfiguration
 import android.media.Image
 import android.media.ImageReader
 import android.media.MediaRecorder
+import android.net.Uri
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.SystemClock
@@ -47,10 +49,13 @@ private const val VIDEO_FRAME_RATE = 30
 private const val AUDIO_BIT_RATE = 128_000
 private const val AUDIO_SAMPLE_RATE = 44_100
 
+/** One file the camera has just published: its MediaStore row, name, type and a short detail. */
+class Saved(val uri: Uri, val name: String, val mime: String, val detail: String)
+
 /** The three callbacks a still/preview configuration reports through. */
 class StillCallbacks(
     val onReady: () -> Unit,
-    val onSaved: (String) -> Unit,
+    val onSaved: (Saved) -> Unit,
     val onError: (String) -> Unit
 )
 
@@ -95,7 +100,7 @@ class CameraController(
     private var report: CameraReport? = null
     private var plan: StillPlan? = null
     private var previewSurface: Surface? = null
-    private var savedCb: ((String) -> Unit)? = null
+    private var savedCb: ((Saved) -> Unit)? = null
     private var errorCb: ((String) -> Unit)? = null
 
     // Pro mode: null state = ordinary auto camera. The seed is the camera's own last AE/AF choice
@@ -117,6 +122,9 @@ class CameraController(
 
     /** Video recording controls (start/pause/resume/stop and the elapsed clock). */
     val video = VideoControls()
+
+    /** AF/AE locks (hold F / hold E) and the tap-F refocus. */
+    val locks = LockControls()
 
     var zoom = 1f
         private set
@@ -142,6 +150,7 @@ class CameraController(
         this.plan = p
         this.savedCb = callbacks.onSaved
         this.errorCb = callbacks.onError
+        locks.reset() // a new session starts unlocked
         val c = reader.characteristics(p.cameraId)
         chars = c
         val pv = PreviewChooser.choose(previewSizes(c), previewFor)
@@ -251,6 +260,7 @@ class CameraController(
             val ns = result.get(android.hardware.camera2.CaptureResult.SENSOR_EXPOSURE_TIME)
             val fd = result.get(android.hardware.camera2.CaptureResult.LENS_FOCUS_DISTANCE)
             seed = AutoSeed(iso ?: seed.iso, ns ?: seed.exposureNs, fd ?: seed.focusDiopters)
+            locks.onResult(result)
         }
     }
 
@@ -262,6 +272,7 @@ class CameraController(
         if (ps == null || pl == null) {
             b.set(CaptureRequest.CONTROL_AF_MODE, CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
             b.set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, aeSteps)
+            b.set(CaptureRequest.CONTROL_AE_LOCK, locks.aeLocked)
         } else {
             val pr = ProControls.toRequest(ps, pl, seed)
             b.set(CaptureRequest.CONTROL_AWB_MODE, pr.awbMode)
@@ -311,6 +322,7 @@ class CameraController(
             // Recording owns AF/AE mode; only zoom and exposure compensation may change mid-clip.
             report?.camera?.zoomRatio?.let { b.set(CaptureRequest.CONTROL_ZOOM_RATIO, zoom) }
             b.set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, aeSteps)
+            b.set(CaptureRequest.CONTROL_AE_LOCK, locks.aeLocked)
         } else {
             applyCommon(b, p)
         }
@@ -328,17 +340,8 @@ class CameraController(
         refreshPreview()
     }
 
-    /** One-shot autofocus trigger; continuous AF resumes afterwards. */
-    fun triggerFocus() {
-        val b = previewBuilder ?: return
-        val s = session ?: return
-        runCatching {
-            b.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_START)
-            s.capture(b.build(), null, handler)
-            b.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_IDLE)
-            s.setRepeatingRequest(b.build(), seedCallback, handler)
-        }
-    }
+    /** One-shot autofocus trigger; continuous AF resumes afterwards (see [LockControls.refocus]). */
+    fun triggerFocus() = locks.refocus()
 
     fun takePicture(displayRotationDegrees: Int) {
         val d = device
@@ -434,7 +437,7 @@ class CameraController(
             val bytes = ByteArray(buf.remaining()).also { buf.get(it) }
             val uri = saver.save(name, "image/jpeg") { it.write(bytes) }
             if (uri != null) {
-                savedCb?.invoke("$name  ${p.size}")
+                savedCb?.invoke(Saved(uri, name, "image/jpeg", "${p.size}"))
             } else {
                 errorCb?.invoke("Could not save $name")
             }
@@ -469,7 +472,7 @@ class CameraController(
             val uri = saver.save(name, "image/x-adobe-dng") { dng.writeImage(it, image) }
             dng.close()
             if (uri != null) {
-                savedCb?.invoke("$name  ${p.size}")
+                savedCb?.invoke(Saved(uri, name, "image/x-adobe-dng", "${p.size}"))
             } else {
                 errorCb?.invoke("Could not save $name")
             }
@@ -627,7 +630,9 @@ class CameraController(
                                 set(CaptureRequest.CONTROL_ZOOM_RATIO, zoom)
                             }
                             set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, aeSteps)
+                            set(CaptureRequest.CONTROL_AE_LOCK, locks.aeLocked)
                         }
+                        locks.focusReleased() // the record session starts in continuous AF
                         previewBuilder = b
                         s.setRepeatingRequest(b.build(), seedCallback, handler)
                         rec.start()
@@ -679,7 +684,7 @@ class CameraController(
          * Stop and publish the clip. A recording stopped within moments can fail in the encoder;
          * that clip is discarded and reported.
          */
-        fun stop(onSavedCb: (String) -> Unit, onErrorCb: (String) -> Unit) {
+        fun stop(onSavedCb: (Saved) -> Unit, onErrorCb: (String) -> Unit) {
             val rec = recorder ?: return
             val target = videoTarget
             val name = videoName ?: "video.mp4"
@@ -693,11 +698,86 @@ class CameraController(
             if (target == null) return
             if (ok) {
                 saver.finishVideo(target)
-                onSavedCb(name)
+                onSavedCb(Saved(target.uri, name, "video/mp4", "video"))
             } else {
                 saver.discard(target)
                 onErrorCb("Recording was too short to save")
             }
+        }
+    }
+
+    /**
+     * Hold F locks focus where an AF scan lands (CONTROL_AF_TRIGGER START, held until CANCEL);
+     * hold E holds auto exposure (CONTROL_AE_LOCK). A tap of F scans once and then returns to
+     * continuous AF, so only a hold leaves focus locked. Every new session starts unlocked.
+     */
+    inner class LockControls {
+        var afLocked = false
+            private set
+        var aeLocked = false
+            private set
+
+        @Volatile private var refocusing = false
+
+        fun refocus() {
+            if (sendAfTrigger(CameraMetadata.CONTROL_AF_TRIGGER_START)) {
+                afLocked = false
+                refocusing = true
+            }
+        }
+
+        /** Returns the new AF lock state. */
+        fun toggleAf(): Boolean {
+            val trigger = if (afLocked) {
+                CameraMetadata.CONTROL_AF_TRIGGER_CANCEL
+            } else {
+                CameraMetadata.CONTROL_AF_TRIGGER_START
+            }
+            if (sendAfTrigger(trigger)) {
+                afLocked = !afLocked
+                refocusing = false
+            }
+            return afLocked
+        }
+
+        /** Returns the new AE lock state. */
+        fun toggleAe(): Boolean {
+            aeLocked = !aeLocked
+            refreshPreview()
+            return aeLocked
+        }
+
+        internal fun reset() {
+            focusReleased()
+            aeLocked = false
+        }
+
+        internal fun focusReleased() {
+            afLocked = false
+            refocusing = false
+        }
+
+        /** Tap-F scan finished (locked either way): release it back to continuous AF. */
+        internal fun onResult(result: TotalCaptureResult) {
+            if (!refocusing) return
+            val state = result.get(CaptureResult.CONTROL_AF_STATE)
+            if (state == CameraMetadata.CONTROL_AF_STATE_FOCUSED_LOCKED ||
+                state == CameraMetadata.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED
+            ) {
+                refocusing = false
+                sendAfTrigger(CameraMetadata.CONTROL_AF_TRIGGER_CANCEL)
+            }
+        }
+
+        private fun sendAfTrigger(trigger: Int): Boolean {
+            val b = previewBuilder
+            val s = session
+            return b != null && s != null && runCatching {
+                b.set(CaptureRequest.CONTROL_AF_TRIGGER, trigger)
+                s.capture(b.build(), null, handler)
+                b.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_IDLE)
+                s.setRepeatingRequest(b.build(), seedCallback, handler)
+            }.isSuccess
         }
     }
 

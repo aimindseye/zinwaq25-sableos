@@ -15,7 +15,8 @@
   bar, 0015 the design-gap waves (Start Alt shortcuts, type-to-search, Command groups and prefixes,
   focus rings, favorites and base bar actions; Hub and Calendar Back and drafts; SMS redaction), 0016 the follow-up
   waves (Private Space in All Apps, Q25 diagnostics, Display Compat ratios and per-app link, the
-  quick bar editor action, and the waves' other app changes).
+  quick bar editor action, three-page Start, the Sable Camera quick review with AF/AE hold locks
+  and the Q25 volume shutter, and the waves' other app changes).
   Applied in order to a
   fresh import they reproduce `sable-src/` exactly. Regenerate a patch with `git diff` against a
   fresh import when you change these files.

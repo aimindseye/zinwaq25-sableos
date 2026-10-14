@@ -53,12 +53,19 @@ data class CameraDeviceProfile(
         private const val Q25_REMOSAIC_W = 8160
         private const val Q25_REMOSAIC_H = 6144
 
-        // Public spec only (50 MP rear with flash, 8 MP front); ids, sizes and keys not captured on a Q25 yet.
+        // Public spec only (50 MP rear with flash, 8 MP front); ids and sizes not captured on a Q25 yet.
         // 8160x6144 is the full-resolution JN1 size the optional 50 MP vendor change
         // (SABLE_Q25_CAMERA_50MP) adds to the ordinary JPEG map; each shot takes seconds.
+        // The Q25 has no camera key and no Fn key, so the side volume rocker is the physical
+        // shutter (as on Titan 2). Both are ordinary KEYCODE_VOLUME_UP/DOWN reaching the app; the
+        // Q3 key capture has to confirm no vendor policy eats them first.
         val ZinwaQ25 = CameraDeviceProfile(
             "zinwa-q25",
             EvidenceLevel.None,
+            keyOverrides = mapOf(
+                Binding("volume_up") to CameraAction.Shutter,
+                Binding("volume_down") to CameraAction.Shutter
+            ),
             remosaicJpegSizes = setOf(Size(Q25_REMOSAIC_W, Q25_REMOSAIC_H))
         )
         val Unknown = CameraDeviceProfile("unknown", EvidenceLevel.None)
