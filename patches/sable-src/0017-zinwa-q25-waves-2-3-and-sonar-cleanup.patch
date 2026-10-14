@@ -4539,7 +4539,7 @@ index 7847f44..3e08636 100644
      }
  }
 diff --git a/sable-src/apps/r8/android/calculator/build.gradle.kts b/sable-src/apps/r8/android/calculator/build.gradle.kts
-index 098c94a..8b90a77 100644
+index 098c94a..56e2783 100644
 --- a/sable-src/apps/r8/android/calculator/build.gradle.kts
 +++ b/sable-src/apps/r8/android/calculator/build.gradle.kts
 @@ -18,6 +18,13 @@ android {
@@ -4556,6 +4556,22 @@ index 098c94a..8b90a77 100644
      buildFeatures { compose = true }
      compileOptions {
          sourceCompatibility = JavaVersion.VERSION_17
+@@ -29,12 +36,12 @@ android {
+ dependencies {
+     implementation(project(":design"))
+     implementation(project(":convert"))
+-    implementation(platform("androidx.compose:compose-bom:2026.02.01"))
+-    implementation("androidx.activity:activity-compose:1.12.4")
++    implementation(platform(libs.androidx.compose.bom))
++    implementation(libs.androidx.activity.compose)
+     implementation("androidx.compose.material3:material3")
+     implementation("androidx.compose.foundation:foundation")
+     debugImplementation("androidx.compose.ui:ui-tooling")
+-    testImplementation("junit:junit:4.13.2")
++    testImplementation(libs.junit)
+ }
+ 
+ android {
 diff --git a/sable-src/apps/r8/android/calculator/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/calculator/src/main/AndroidManifest.xml
 index dd13b9f..900ca00 100644
 --- a/sable-src/apps/r8/android/calculator/src/main/AndroidManifest.xml
@@ -4751,7 +4767,7 @@ index 92beb67..354c3e6 100644
  private fun Keypad(
      onDigit: (String) -> Unit,
 diff --git a/sable-src/apps/r8/android/calendar/build.gradle.kts b/sable-src/apps/r8/android/calendar/build.gradle.kts
-index 39a1fc7..dc19468 100644
+index 39a1fc7..6996a6b 100644
 --- a/sable-src/apps/r8/android/calendar/build.gradle.kts
 +++ b/sable-src/apps/r8/android/calendar/build.gradle.kts
 @@ -13,6 +13,13 @@ android {
@@ -4768,12 +4784,21 @@ index 39a1fc7..dc19468 100644
      buildFeatures { compose = true }
      compileOptions {
          sourceCompatibility = JavaVersion.VERSION_17
-@@ -33,4 +40,6 @@ dependencies {
+@@ -26,11 +33,13 @@ android {
+ }
+ dependencies {
+     implementation(project(":design"))
+-    implementation(platform("androidx.compose:compose-bom:2026.02.01"))
+-    implementation("androidx.activity:activity-compose:1.12.4")
++    implementation(platform(libs.androidx.compose.bom))
++    implementation(libs.androidx.activity.compose)
+     implementation("androidx.compose.runtime:runtime")
+     implementation("androidx.compose.foundation:foundation")
      implementation("androidx.compose.ui:ui")
      implementation("androidx.compose.material3:material3")
      debugImplementation("androidx.compose.ui:ui-tooling")
 +
-+    testImplementation("junit:junit:4.13.2")
++    testImplementation(libs.junit)
  }
 diff --git a/sable-src/apps/r8/android/calendar/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/calendar/src/main/AndroidManifest.xml
 index 2ab6416..f901a7d 100644
@@ -6187,6 +6212,52 @@ index 0000000..c831541
 +        assertEquals("SAT · 17", CalendarLabels.dayHeading(today.plusDays(3), today))
 +    }
 +}
+diff --git a/sable-src/apps/r8/android/convert/build.gradle.kts b/sable-src/apps/r8/android/convert/build.gradle.kts
+index cf71a1d..7b67281 100644
+--- a/sable-src/apps/r8/android/convert/build.gradle.kts
++++ b/sable-src/apps/r8/android/convert/build.gradle.kts
+@@ -30,8 +30,8 @@ androidComponents {
+ 
+ dependencies {
+     implementation(project(":design"))
+-    implementation(platform("androidx.compose:compose-bom:2026.02.01"))
+-    implementation("androidx.activity:activity-compose:1.12.4")
++    implementation(platform(libs.androidx.compose.bom))
++    implementation(libs.androidx.activity.compose)
+     implementation("androidx.compose.material3:material3")
+     implementation("androidx.compose.foundation:foundation")
+     debugImplementation("androidx.compose.ui:ui-tooling")
+diff --git a/sable-src/apps/r8/android/design/build.gradle.kts b/sable-src/apps/r8/android/design/build.gradle.kts
+index a6b9fe6..228c93b 100644
+--- a/sable-src/apps/r8/android/design/build.gradle.kts
++++ b/sable-src/apps/r8/android/design/build.gradle.kts
+@@ -25,9 +25,9 @@ android {
+ }
+ 
+ dependencies {
+-    implementation(platform("androidx.compose:compose-bom:2026.02.01"))
++    implementation(platform(libs.androidx.compose.bom))
+     implementation("androidx.compose.ui:ui")
+     implementation("androidx.compose.foundation:foundation")
+     implementation("androidx.compose.material3:material3")
+-    testImplementation("junit:junit:4.13.2")
++    testImplementation(libs.junit)
+ }
+diff --git a/sable-src/apps/r8/android/games/build.gradle.kts b/sable-src/apps/r8/android/games/build.gradle.kts
+index c621acd..77a98c4 100644
+--- a/sable-src/apps/r8/android/games/build.gradle.kts
++++ b/sable-src/apps/r8/android/games/build.gradle.kts
+@@ -73,8 +73,8 @@ android {
+ 
+ dependencies {
+     implementation(project(":design"))
+-    implementation(platform("androidx.compose:compose-bom:2026.02.01"))
+-    implementation("androidx.activity:activity-compose:1.12.4")
++    implementation(platform(libs.androidx.compose.bom))
++    implementation(libs.androidx.activity.compose)
+     implementation("androidx.compose.material3:material3")
+     implementation("androidx.compose.foundation:foundation")
+     debugImplementation("androidx.compose.ui:ui-tooling")
 diff --git a/sable-src/apps/r8/android/games/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/games/src/main/AndroidManifest.xml
 index bf06ec9..39050ba 100644
 --- a/sable-src/apps/r8/android/games/src/main/AndroidManifest.xml
@@ -6440,8 +6511,46 @@ index b49901a..8cb7738 100644
  @Composable
  private fun SudokuNumberKey(
      value: Int,
+diff --git a/sable-src/apps/r8/android/gradle/libs.versions.toml b/sable-src/apps/r8/android/gradle/libs.versions.toml
+new file mode 100644
+index 0000000..2c40324
+--- /dev/null
++++ b/sable-src/apps/r8/android/gradle/libs.versions.toml
+@@ -0,0 +1,32 @@
++# Dependency coordinates for the R8 app modules. Versions are pinned and covered
++# by gradle/verification-metadata.xml and the per-module gradle.lockfile files;
++# changing one here changes what every module resolves.
++[versions]
++activity-compose = "1.12.4"
++androidx-collection = "1.5.0"
++androidx-core = "1.16.0"
++androidx-lifecycle = "2.9.4"
++compose-bom = "2026.02.01"
++junit = "4.13.2"
++kotlinx-coroutines = "1.9.0"
++media3 = "1.9.2"
++
++[libraries]
++androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }
++androidx-collection = { module = "androidx.collection:collection", version.ref = "androidx-collection" }
++androidx-collection-jvm = { module = "androidx.collection:collection-jvm", version.ref = "androidx-collection" }
++androidx-collection-ktx = { module = "androidx.collection:collection-ktx", version.ref = "androidx-collection" }
++androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose-bom" }
++androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidx-core" }
++androidx-lifecycle-common = { module = "androidx.lifecycle:lifecycle-common", version.ref = "androidx-lifecycle" }
++androidx-lifecycle-common-java8 = { module = "androidx.lifecycle:lifecycle-common-java8", version.ref = "androidx-lifecycle" }
++androidx-lifecycle-common-jvm = { module = "androidx.lifecycle:lifecycle-common-jvm", version.ref = "androidx-lifecycle" }
++androidx-lifecycle-process = { module = "androidx.lifecycle:lifecycle-process", version.ref = "androidx-lifecycle" }
++androidx-lifecycle-runtime = { module = "androidx.lifecycle:lifecycle-runtime", version.ref = "androidx-lifecycle" }
++androidx-lifecycle-runtime-android = { module = "androidx.lifecycle:lifecycle-runtime-android", version.ref = "androidx-lifecycle" }
++androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "androidx-lifecycle" }
++androidx-lifecycle-runtime-ktx-android = { module = "androidx.lifecycle:lifecycle-runtime-ktx-android", version.ref = "androidx-lifecycle" }
++androidx-media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
++androidx-media3-session = { module = "androidx.media3:media3-session", version.ref = "media3" }
++junit = { module = "junit:junit", version.ref = "junit" }
++kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
 diff --git a/sable-src/apps/r8/android/hub/build.gradle.kts b/sable-src/apps/r8/android/hub/build.gradle.kts
-index 374a480..493351b 100644
+index 374a480..bafdf20 100644
 --- a/sable-src/apps/r8/android/hub/build.gradle.kts
 +++ b/sable-src/apps/r8/android/hub/build.gradle.kts
 @@ -16,6 +16,14 @@ android {
@@ -6459,6 +6568,26 @@ index 374a480..493351b 100644
      buildFeatures {
          compose = true
      }
+@@ -48,15 +56,15 @@ androidComponents {
+ 
+ dependencies {
+     implementation(project(":design"))
+-    implementation(platform("androidx.compose:compose-bom:2026.02.01"))
+-    implementation("androidx.activity:activity-compose:1.12.4")
++    implementation(platform(libs.androidx.compose.bom))
++    implementation(libs.androidx.activity.compose)
+     implementation("androidx.compose.material3:material3")
+     implementation("androidx.compose.foundation:foundation")
+     implementation("androidx.compose.ui:ui")
+-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
++    implementation(libs.kotlinx.coroutines.android)
+     debugImplementation("androidx.compose.ui:ui-tooling")
+ 
+-    testImplementation("junit:junit:4.13.2")
++    testImplementation(libs.junit)
+ }
+ 
+ extensions.configure<io.gitlab.arturbosch.detekt.extensions.DetektExtension> {
 diff --git a/sable-src/apps/r8/android/hub/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/hub/src/main/AndroidManifest.xml
 index 42b7ed0..da10052 100644
 --- a/sable-src/apps/r8/android/hub/src/main/AndroidManifest.xml
@@ -6927,6 +7056,34 @@ index ac1968b..11d8a5b 100644
 +            )
 +    }
  }
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/ConnectedNotificationNormalizer.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/ConnectedNotificationNormalizer.kt
+index 7f321bb..b7d2d24 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/ConnectedNotificationNormalizer.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/ConnectedNotificationNormalizer.kt
+@@ -57,11 +57,7 @@ internal class ConnectedNotificationNormalizer(
+         val conversationTitle =
+             envelope.conversationTitle
+                 ?: envelope.notificationTitle
+-                ?: envelope.messages
+-                    .asReversed()
+-                    .firstNotNullOfOrNull { message ->
+-                        message.senderLabel
+-                    }
++                ?: latestSenderLabel(envelope)
+                 ?: sourceLabel
+ 
+         return ConnectedNotificationNormalization(
+@@ -88,6 +84,10 @@ internal class ConnectedNotificationNormalizer(
+         )
+     }
+ 
++    /** The newest message's sender, or null when no message names one. */
++    private fun latestSenderLabel(envelope: ConnectedNotificationEnvelope): String? =
++        envelope.messages.lastOrNull { message -> message.senderLabel != null }?.senderLabel
++
+     private fun buildRecords(
+         envelope: ConnectedNotificationEnvelope,
+         conversationId: String,
 diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubComposer.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubComposer.kt
 new file mode 100644
 index 0000000..faaad4e
@@ -7211,11 +7368,596 @@ index ead25ab..557e167 100644
 +            ?.trim()
 +            ?.takeIf { it.isNotEmpty() }
  }
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt
+index 6473c26..87005fd 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt
+@@ -2,6 +2,7 @@ package org.sableos.hub.ui
+ 
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.ColumnScope
+ import androidx.compose.foundation.layout.Row
+ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.padding
+@@ -66,6 +67,14 @@ internal fun ConnectedAppsScreen(
+     var search by remember {
+         mutableStateOf("")
+     }
++    val rowContext =
++        ConnectedAppRowContext(
++            notificationAccessGranted = notificationAccessGranted,
++            attention = attention,
++            onPolicyChanged = onPolicyChanged,
++            onAttentionChanged = onAttentionChanged,
++            onOpenAndroidNotificationSettings = onOpenAndroidNotificationSettings,
++        )
+ 
+     SableRefreshableSurface(
+         isRefreshing = loading,
+@@ -78,37 +87,13 @@ internal fun ConnectedAppsScreen(
+                     "Choose installed apps that may contribute notification-derived conversations.",
+             )
+ 
+-            SablePanel {
+-                Text(
+-                    text =
+-                        if (notificationAccessGranted) {
+-                            "Notification access is enabled."
+-                        } else {
+-                            "Notification access is required before connected apps can " +
+-                                "contribute messages."
+-                        },
+-                    style = MaterialTheme.typography.bodyMedium,
+-                )
+-                SableActionButton(
+-                    text =
+-                        if (notificationAccessGranted) {
+-                            "Review notification access"
+-                        } else {
+-                            "Enable notification access"
+-                        },
+-                    primary = !notificationAccessGranted,
+-                    onClick = onOpenNotificationAccess,
+-                )
+-                PolicySwitchRow(
+-                    label = "Private mode: hide senders and message text in Hub",
+-                    checked = privateMode,
+-                    enabled = true,
+-                    onCheckedChange = onPrivateModeChanged,
+-                )
+-                TextButton(onClick = onOpenAttentionSettings) {
+-                    Text("Sable Attention")
+-                }
+-            }
++            NotificationAccessPanel(
++                notificationAccessGranted = notificationAccessGranted,
++                onOpenNotificationAccess = onOpenNotificationAccess,
++                privateMode = privateMode,
++                onPrivateModeChanged = onPrivateModeChanged,
++                onOpenAttentionSettings = onOpenAttentionSettings,
++            )
+ 
+             Text(
+                 text =
+@@ -119,110 +104,173 @@ internal fun ConnectedAppsScreen(
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+ 
+-            if (loading) {
+-                Text(
+-                    text = "Loading installed apps…",
+-                    style = MaterialTheme.typography.bodyLarge,
+-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+-                )
+-            } else if (focusedKey != null && candidates.any { it.key == focusedKey }) {
+-                // Opened from Android Settings for one app: show just that app's Hub/Attention.
+-                val candidate = candidates.first { it.key == focusedKey }
+-                ConnectedAppRow(
+-                    candidate = candidate,
+-                    policy = policies[candidate.key] ?: ConnectedAppPolicy(key = candidate.key),
+-                    notificationAccessGranted = notificationAccessGranted,
+-                    attention = attention,
+-                    onPolicyChanged = onPolicyChanged,
+-                    onAttentionChanged = onAttentionChanged,
+-                    onOpenAndroidNotificationSettings = onOpenAndroidNotificationSettings,
+-                )
+-            } else {
+-                ConnectedAppsPivotRow(
+-                    selected = pivot,
+-                    onSelect = { selected ->
+-                        pivot = selected
+-                        search = ""
+-                    },
+-                )
++            // Opened from Android Settings for one app: show just that app's Hub/Attention.
++            val focusedCandidate = focusedKey?.let { key -> candidates.firstOrNull { it.key == key } }
++            when {
++                loading -> {
++                    Text(
++                        text = "Loading installed apps…",
++                        style = MaterialTheme.typography.bodyLarge,
++                        color = MaterialTheme.colorScheme.onSurfaceVariant,
++                    )
++                }
+ 
+-                if (pivot != ConnectedAppsPivot.Enabled) {
+-                    OutlinedTextField(
+-                        value = search,
+-                        onValueChange = { search = it },
+-                        modifier = Modifier.fillMaxWidth(),
+-                        singleLine = true,
+-                        label = { Text("Search installed apps") },
++                focusedCandidate != null -> {
++                    ConnectedAppRow(
++                        candidate = focusedCandidate,
++                        policy = policyFor(policies, focusedCandidate),
++                        context = rowContext,
+                     )
+                 }
+ 
+-                val visibleCandidates =
+-                    visibleCandidates(
++                else -> {
++                    ConnectedAppsBrowser(
+                         candidates = candidates,
+                         policies = policies,
+                         pivot = pivot,
+                         search = search,
++                        onPivotChange = { selected ->
++                            pivot = selected
++                            search = ""
++                        },
++                        onSearchChange = { search = it },
++                        rowContext = rowContext,
+                     )
+-
+-                if (visibleCandidates.isEmpty()) {
+-                    Text(
+-                        text =
+-                            when (pivot) {
+-                                ConnectedAppsPivot.Favorites -> {
+-                                    if (search.isBlank()) {
+-                                        "No favorite apps are set."
+-                                    } else {
+-                                        "No favorite apps match this search."
+-                                    }
+-                                }
+-
+-                                ConnectedAppsPivot.Enabled -> {
+-                                    "No connected apps are enabled."
+-                                }
+-
+-                                ConnectedAppsPivot.Available -> {
+-                                    if (search.isBlank()) {
+-                                        "No additional installed apps are available."
+-                                    } else {
+-                                        "No installed apps match this search."
+-                                    }
+-                                }
+-                            },
+-                        style = MaterialTheme.typography.bodyLarge,
+-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+-                    )
+-                } else {
+-                    LazyColumn(
+-                        modifier = Modifier.weight(1f),
+-                        verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
+-                    ) {
+-                        items(
+-                            items = visibleCandidates,
+-                            key = { candidate ->
+-                                candidate.key.packageName + ":" + candidate.key.userSerial
+-                            },
+-                        ) { candidate ->
+-                            val policy =
+-                                policies[candidate.key]
+-                                    ?: ConnectedAppPolicy(key = candidate.key)
+-                            ConnectedAppRow(
+-                                candidate = candidate,
+-                                policy = policy,
+-                                notificationAccessGranted = notificationAccessGranted,
+-                                attention = attention,
+-                                onPolicyChanged = onPolicyChanged,
+-                                onAttentionChanged = onAttentionChanged,
+-                                onOpenAndroidNotificationSettings = onOpenAndroidNotificationSettings,
+-                            )
+-                            HorizontalDivider()
+-                        }
+-                    }
+                 }
+             }
+         }
+     }
+ }
+ 
++/** What every connected-app row needs besides its own candidate and policy. */
++private class ConnectedAppRowContext(
++    val notificationAccessGranted: Boolean,
++    val attention: AttentionUi,
++    val onPolicyChanged: (ConnectedAppPolicy) -> Unit,
++    val onAttentionChanged: (ConnectedAppKey, Set<AttentionOutput>) -> Unit,
++    val onOpenAndroidNotificationSettings: (ConnectedAppKey) -> Unit,
++)
++
++private fun policyFor(
++    policies: Map<ConnectedAppKey, ConnectedAppPolicy>,
++    candidate: ConnectedAppCandidate,
++): ConnectedAppPolicy = policies[candidate.key] ?: ConnectedAppPolicy(key = candidate.key)
++
++@Composable
++private fun NotificationAccessPanel(
++    notificationAccessGranted: Boolean,
++    onOpenNotificationAccess: () -> Unit,
++    privateMode: Boolean,
++    onPrivateModeChanged: (Boolean) -> Unit,
++    onOpenAttentionSettings: () -> Unit,
++) {
++    SablePanel {
++        Text(
++            text =
++                if (notificationAccessGranted) {
++                    "Notification access is enabled."
++                } else {
++                    "Notification access is required before connected apps can " +
++                        "contribute messages."
++                },
++            style = MaterialTheme.typography.bodyMedium,
++        )
++        SableActionButton(
++            text =
++                if (notificationAccessGranted) {
++                    "Review notification access"
++                } else {
++                    "Enable notification access"
++                },
++            primary = !notificationAccessGranted,
++            onClick = onOpenNotificationAccess,
++        )
++        PolicySwitchRow(
++            label = "Private mode: hide senders and message text in Hub",
++            checked = privateMode,
++            enabled = true,
++            onCheckedChange = onPrivateModeChanged,
++        )
++        TextButton(onClick = onOpenAttentionSettings) {
++            Text("Sable Attention")
++        }
++    }
++}
++
++@Composable
++private fun ColumnScope.ConnectedAppsBrowser(
++    candidates: List<ConnectedAppCandidate>,
++    policies: Map<ConnectedAppKey, ConnectedAppPolicy>,
++    pivot: ConnectedAppsPivot,
++    search: String,
++    onPivotChange: (ConnectedAppsPivot) -> Unit,
++    onSearchChange: (String) -> Unit,
++    rowContext: ConnectedAppRowContext,
++) {
++    ConnectedAppsPivotRow(
++        selected = pivot,
++        onSelect = onPivotChange,
++    )
++
++    if (pivot != ConnectedAppsPivot.Enabled) {
++        OutlinedTextField(
++            value = search,
++            onValueChange = onSearchChange,
++            modifier = Modifier.fillMaxWidth(),
++            singleLine = true,
++            label = { Text("Search installed apps") },
++        )
++    }
++
++    val visibleCandidates =
++        visibleCandidates(
++            candidates = candidates,
++            policies = policies,
++            pivot = pivot,
++            search = search,
++        )
++
++    if (visibleCandidates.isEmpty()) {
++        Text(
++            text = emptyCandidatesText(pivot, search),
++            style = MaterialTheme.typography.bodyLarge,
++            color = MaterialTheme.colorScheme.onSurfaceVariant,
++        )
++        return
++    }
++
++    LazyColumn(
++        modifier = Modifier.weight(1f),
++        verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
++    ) {
++        items(
++            items = visibleCandidates,
++            key = { candidate ->
++                candidate.key.packageName + ":" + candidate.key.userSerial
++            },
++        ) { candidate ->
++            ConnectedAppRow(
++                candidate = candidate,
++                policy = policyFor(policies, candidate),
++                context = rowContext,
++            )
++            HorizontalDivider()
++        }
++    }
++}
++
++private fun emptyCandidatesText(
++    pivot: ConnectedAppsPivot,
++    search: String,
++): String =
++    when {
++        pivot == ConnectedAppsPivot.Enabled -> "No connected apps are enabled."
++        pivot == ConnectedAppsPivot.Favorites && search.isBlank() -> "No favorite apps are set."
++        pivot == ConnectedAppsPivot.Favorites -> "No favorite apps match this search."
++        search.isBlank() -> "No additional installed apps are available."
++        else -> "No installed apps match this search."
++    }
++
+ private fun visibleCandidates(
+     candidates: List<ConnectedAppCandidate>,
+     policies: Map<ConnectedAppKey, ConnectedAppPolicy>,
+@@ -281,12 +329,9 @@ private val CONNECTED_APPS_DESTINATIONS =
+ private fun ConnectedAppRow(
+     candidate: ConnectedAppCandidate,
+     policy: ConnectedAppPolicy,
+-    notificationAccessGranted: Boolean,
+-    attention: AttentionUi,
+-    onPolicyChanged: (ConnectedAppPolicy) -> Unit,
+-    onAttentionChanged: (ConnectedAppKey, Set<AttentionOutput>) -> Unit,
+-    onOpenAndroidNotificationSettings: (ConnectedAppKey) -> Unit,
++    context: ConnectedAppRowContext,
+ ) {
++    val onPolicyChanged = context.onPolicyChanged
+     Column(
+         modifier =
+             Modifier
+@@ -294,47 +339,15 @@ private fun ConnectedAppRow(
+                 .padding(vertical = SableSpacing.Sm),
+         verticalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+     ) {
+-        Row(
+-            modifier = Modifier.fillMaxWidth(),
+-            verticalAlignment = Alignment.CenterVertically,
+-            horizontalArrangement = Arrangement.spacedBy(SableSpacing.Md),
+-        ) {
+-            Column(modifier = Modifier.weight(1f)) {
+-                Text(
+-                    text = candidate.label,
+-                    style = MaterialTheme.typography.titleMedium,
+-                )
+-                Text(
+-                    text = candidate.key.packageName,
+-                    style = MaterialTheme.typography.bodySmall,
+-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+-                )
+-                Text(
+-                    text =
+-                        candidate.profileLabel + " · " +
+-                            ConnectedAppsParity.statusLabel(
+-                                ConnectedAppsParity.status(
+-                                    policy = policy,
+-                                    notificationAccessGranted = notificationAccessGranted,
+-                                    profileLocked = candidate.profileLocked,
+-                                ),
+-                            ),
+-                    style = MaterialTheme.typography.bodySmall,
+-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+-                )
+-            }
+-            Switch(
+-                checked = policy.includeInMessages,
+-                onCheckedChange = { enabled ->
+-                    onPolicyChanged(
+-                        policy.copy(includeInMessages = enabled).normalized(),
+-                    )
+-                },
+-            )
+-        }
++        ConnectedAppSummary(
++            candidate = candidate,
++            policy = policy,
++            notificationAccessGranted = context.notificationAccessGranted,
++            onPolicyChanged = onPolicyChanged,
++        )
+ 
+         // Delivery (alerting, sound, vibration, pop-up, badge, lock screen) is Android's.
+-        TextButton(onClick = { onOpenAndroidNotificationSettings(candidate.key) }) {
++        TextButton(onClick = { context.onOpenAndroidNotificationSettings(candidate.key) }) {
+             Text("Delivery: Android notification settings")
+         }
+ 
+@@ -348,60 +361,134 @@ private fun ConnectedAppRow(
+         )
+ 
+         if (policy.includeInMessages) {
+-            PolicySwitchRow(
+-                label = "Allow quick reply",
+-                checked = policy.allowQuickReply,
+-                enabled = true,
+-                onCheckedChange = { enabled ->
+-                    onPolicyChanged(policy.copy(allowQuickReply = enabled))
+-                },
++            ConnectedAppMessageOptions(
++                policy = policy,
++                onPolicyChanged = onPolicyChanged,
+             )
+-            PolicySwitchRow(
+-                label = "Hide from SableLauncher",
+-                checked = policy.hideFromLauncher,
+-                enabled = true,
+-                onCheckedChange = { enabled ->
+-                    onPolicyChanged(policy.copy(hideFromLauncher = enabled))
+-                },
++        }
++
++        ConnectedAppAttentionSwitches(
++            key = candidate.key,
++            attention = context.attention,
++            onAttentionChanged = context.onAttentionChanged,
++        )
++    }
++}
++
++@Composable
++private fun ConnectedAppSummary(
++    candidate: ConnectedAppCandidate,
++    policy: ConnectedAppPolicy,
++    notificationAccessGranted: Boolean,
++    onPolicyChanged: (ConnectedAppPolicy) -> Unit,
++) {
++    Row(
++        modifier = Modifier.fillMaxWidth(),
++        verticalAlignment = Alignment.CenterVertically,
++        horizontalArrangement = Arrangement.spacedBy(SableSpacing.Md),
++    ) {
++        Column(modifier = Modifier.weight(1f)) {
++            Text(
++                text = candidate.label,
++                style = MaterialTheme.typography.titleMedium,
++            )
++            Text(
++                text = candidate.key.packageName,
++                style = MaterialTheme.typography.bodySmall,
++                color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+-            TextButton(
+-                onClick = {
+-                    onPolicyChanged(
+-                        policy.copy(
+-                            retention = policy.retention.next(),
++            Text(
++                text =
++                    candidate.profileLabel + " · " +
++                        ConnectedAppsParity.statusLabel(
++                            ConnectedAppsParity.status(
++                                policy = policy,
++                                notificationAccessGranted = notificationAccessGranted,
++                                profileLocked = candidate.profileLocked,
++                            ),
+                         ),
+-                    )
+-                },
+-            ) {
+-                Text("History retention: ${policy.retention.label}")
+-            }
+-            TextButton(
+-                onClick = {
+-                    onPolicyChanged(policy.copy(previewPolicy = policy.previewPolicy.next()))
+-                },
+-            ) {
+-                Text("Hub preview: ${policy.previewPolicy.label}")
+-            }
++                style = MaterialTheme.typography.bodySmall,
++                color = MaterialTheme.colorScheme.onSurfaceVariant,
++            )
+         }
++        Switch(
++            checked = policy.includeInMessages,
++            onCheckedChange = { enabled ->
++                onPolicyChanged(
++                    policy.copy(includeInMessages = enabled).normalized(),
++                )
++            },
++        )
++    }
++}
+ 
+-        // Attention: only outputs this device profile validated; unsupported ones are hidden.
+-        val selected = attention.selections[candidate.key].orEmpty()
+-        attention.selectableOutputs.forEach { output ->
+-            PolicySwitchRow(
+-                label = "Attention: ${attentionLabel(output)}",
+-                checked = output in selected,
+-                enabled = true,
+-                onCheckedChange = { enabled ->
+-                    onAttentionChanged(
+-                        candidate.key,
+-                        if (enabled) selected + output else selected - output,
+-                    )
+-                },
++@Composable
++private fun ConnectedAppMessageOptions(
++    policy: ConnectedAppPolicy,
++    onPolicyChanged: (ConnectedAppPolicy) -> Unit,
++) {
++    PolicySwitchRow(
++        label = "Allow quick reply",
++        checked = policy.allowQuickReply,
++        enabled = true,
++        onCheckedChange = { enabled ->
++            onPolicyChanged(policy.copy(allowQuickReply = enabled))
++        },
++    )
++    PolicySwitchRow(
++        label = "Hide from SableLauncher",
++        checked = policy.hideFromLauncher,
++        enabled = true,
++        onCheckedChange = { enabled ->
++            onPolicyChanged(policy.copy(hideFromLauncher = enabled))
++        },
++    )
++    TextButton(
++        onClick = {
++            onPolicyChanged(
++                policy.copy(
++                    retention = policy.retention.next(),
++                ),
+             )
+-        }
++        },
++    ) {
++        Text("History retention: ${policy.retention.label}")
++    }
++    TextButton(
++        onClick = {
++            onPolicyChanged(policy.copy(previewPolicy = policy.previewPolicy.next()))
++        },
++    ) {
++        Text("Hub preview: ${policy.previewPolicy.label}")
++    }
++}
++
++/** Attention: only outputs this device profile validated; unsupported ones are hidden. */
++@Composable
++private fun ConnectedAppAttentionSwitches(
++    key: ConnectedAppKey,
++    attention: AttentionUi,
++    onAttentionChanged: (ConnectedAppKey, Set<AttentionOutput>) -> Unit,
++) {
++    val selected = attention.selections[key].orEmpty()
++    attention.selectableOutputs.forEach { output ->
++        PolicySwitchRow(
++            label = "Attention: ${attentionLabel(output)}",
++            checked = output in selected,
++            enabled = true,
++            onCheckedChange = { enabled ->
++                onAttentionChanged(key, toggled(selected, output, enabled))
++            },
++        )
+     }
+ }
+ 
++private fun toggled(
++    selected: Set<AttentionOutput>,
++    output: AttentionOutput,
++    enabled: Boolean,
++): Set<AttentionOutput> = if (enabled) selected + output else selected - output
++
+ internal fun attentionLabel(output: AttentionOutput): String =
+     when (output) {
+         AttentionOutput.Audio -> "Sound"
 diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
-index 61a74ff..3fd4c0b 100644
+index 61a74ff..9ece4b3 100644
 --- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
 +++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
-@@ -4,6 +4,7 @@ import android.text.format.DateUtils
+@@ -4,11 +4,13 @@ import android.text.format.DateUtils
  import androidx.activity.compose.BackHandler
  import androidx.compose.foundation.background
  import androidx.compose.foundation.clickable
@@ -7223,7 +7965,17 @@ index 61a74ff..3fd4c0b 100644
  import androidx.compose.foundation.layout.Arrangement
  import androidx.compose.foundation.layout.Box
  import androidx.compose.foundation.layout.Column
-@@ -21,8 +22,12 @@ import androidx.compose.foundation.lazy.LazyColumn
+ import androidx.compose.foundation.layout.ColumnScope
+ import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.RowScope
+ import androidx.compose.foundation.layout.Spacer
+ import androidx.compose.foundation.layout.fillMaxSize
+ import androidx.compose.foundation.layout.fillMaxWidth
+@@ -18,17 +20,23 @@ import androidx.compose.foundation.layout.size
+ import androidx.compose.foundation.layout.width
+ import androidx.compose.foundation.layout.widthIn
+ import androidx.compose.foundation.lazy.LazyColumn
++import androidx.compose.foundation.lazy.LazyListState
  import androidx.compose.foundation.lazy.items
  import androidx.compose.foundation.lazy.itemsIndexed
  import androidx.compose.foundation.lazy.rememberLazyListState
@@ -7236,7 +7988,14 @@ index 61a74ff..3fd4c0b 100644
  import androidx.compose.material3.MaterialTheme
  import androidx.compose.material3.OutlinedTextField
  import androidx.compose.material3.Surface
-@@ -42,6 +47,18 @@ import androidx.compose.ui.Modifier
+ import androidx.compose.material3.Text
+ import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.LaunchedEffect
++import androidx.compose.runtime.Stable
+ import androidx.compose.runtime.derivedStateOf
+ import androidx.compose.runtime.getValue
+ import androidx.compose.runtime.mutableStateMapOf
+@@ -42,6 +50,18 @@ import androidx.compose.ui.Modifier
  import androidx.compose.ui.focus.FocusRequester
  import androidx.compose.ui.focus.focusRequester
  import androidx.compose.ui.graphics.Color
@@ -7255,7 +8014,7 @@ index 61a74ff..3fd4c0b 100644
  import androidx.compose.ui.text.style.TextOverflow
  import androidx.compose.ui.unit.dp
  import kotlinx.coroutines.launch
-@@ -63,17 +80,29 @@ import org.sableos.design.SableScrollableScreen
+@@ -63,17 +83,29 @@ import org.sableos.design.SableScrollableScreen
  import org.sableos.design.SableSpacing
  import org.sableos.design.sableFocusRing
  import org.sableos.design.sableLetterJump
@@ -7286,7 +8045,7 @@ index 61a74ff..3fd4c0b 100644
      Email,
      People,
  }
-@@ -83,20 +112,24 @@ private sealed interface HubRoute {
+@@ -83,25 +115,135 @@ private sealed interface HubRoute {
          val pivot: HubPivot,
      ) : HubRoute
  
@@ -7315,7 +8074,118 @@ index 61a74ff..3fd4c0b 100644
  private data class HubSmsDraft(
      val recipient: String,
      val body: String,
-@@ -115,6 +148,11 @@ fun HubScreen(
+ )
+ 
++/** Hub's navigation and the transient UI state its routes share. */
++@Stable
++private class HubUiState {
++    var route by mutableStateOf<HubRoute>(HubRoute.Root(HubPivot.Priority))
++    var search by mutableStateOf("")
++    var inboxFilter by mutableStateOf(HubInboxFilter.All)
++    var statusMessage by mutableStateOf<String?>(null)
++
++    /** Shade "H" / Settings handoff: open the conversation Hub resolved for the notification. */
++    fun openPendingThread(
++        threadId: Long?,
++        hasSnapshot: Boolean,
++    ): Boolean {
++        if (threadId == null || !hasSnapshot) return false
++        route = HubRoute.Conversation(threadId = threadId)
++        return true
++    }
++
++    /** Start's Command "Search Hub for …": open the inbox, all sources, with the search filled in. */
++    fun applyLaunchQuery(query: HubLaunchQuery) {
++        route = HubRoute.Root(HubPivot.Inbox)
++        inboxFilter = HubInboxFilter.All
++        search = query.query
++        statusMessage = null
++    }
++
++    /** Hardware Back/Esc goes up one level (BACK_RETURNS_ONE_LOGICAL_LAYER); only the root leaves Hub. */
++    fun back() {
++        when (val current = route) {
++            is HubRoute.Root -> Unit
++            is HubRoute.Conversation -> closeConversation(current.origin)
++            is HubRoute.Compose -> route = current.back
++        }
++    }
++
++    fun selectPivot(pivot: HubPivot) {
++        route = HubRoute.Root(pivot)
++        search = ""
++        statusMessage = null
++    }
++
++    fun selectInboxFilter(filter: HubInboxFilter) {
++        inboxFilter = filter
++        statusMessage = null
++    }
++
++    fun openThread(target: HubRoute.Conversation) {
++        statusMessage = null
++        route = target
++    }
++
++    fun closeConversation(origin: HubPivot) {
++        statusMessage = null
++        route = HubRoute.Root(origin)
++    }
++
++    fun dial(
++        number: String,
++        onDial: (String) -> Boolean,
++    ) {
++        statusMessage =
++            when {
++                number.isBlank() -> "This caller's number is not available."
++                onDial(number) -> null
++                else -> "The Phone app is unavailable."
++            }
++    }
++
++    /** Sent messages are shown in place: land in the thread, composer ready. */
++    fun composeSent(
++        result: HubSendResult,
++        recipient: String,
++    ) {
++        statusMessage = result.message
++        if (result.success) {
++            route =
++                HubRoute.Conversation(
++                    threadId = HubThreadResolver.NEW_THREAD_ID,
++                    address = recipient,
++                )
++        }
++    }
++
++    fun mmsHandoff(opened: Boolean) {
++        statusMessage = mmsHandoffStatus(opened)
++    }
++}
++
++private fun mmsHandoffStatus(opened: Boolean): String =
++    if (opened) "Opened the system MMS composer." else "MMS composer is unavailable."
++
++/** The activity's callbacks and persisted thread drafts, handed down to every route. */
++private class HubActions(
++    val onRequestAccess: () -> Unit,
++    val onSendSms: (String, String) -> HubSendResult,
++    val onOpenAndroidMessaging: (String?, String?) -> Boolean,
++    val onOpenSableMail: () -> Boolean,
++    val onOpenConnectedApps: () -> Unit,
++    val onReplyConnected: (String, String) -> HubSendResult,
++    val onOpenConnectedApp: (String, Long) -> Boolean,
++    val onOpenSourceNotificationSettings: (String, Long) -> Boolean,
++    val onDial: (String) -> Boolean,
++    val drafts: Map<String, String>,
++    val onDraftChange: (String, String) -> Unit,
++)
++
+ @Composable
+ fun HubScreen(
+     snapshot: HubSnapshot?,
+@@ -115,320 +257,442 @@ fun HubScreen(
      onReplyConnected: (String, String) -> HubSendResult,
      onOpenConnectedApp: (String, Long) -> Boolean,
      onOpenSourceNotificationSettings: (String, Long) -> Boolean = { _, _ -> false },
@@ -7327,26 +8197,30 @@ index 61a74ff..3fd4c0b 100644
      pendingThreadId: Long? = null,
      onPendingThreadConsumed: () -> Unit = {},
  ) {
-@@ -132,16 +170,28 @@ fun HubScreen(
-     var search by remember {
-         mutableStateOf("")
+-    var route by remember {
+-        mutableStateOf<HubRoute>(HubRoute.Root(HubPivot.Priority))
+-    }
++    val state = remember { HubUiState() }
+ 
+-    // Shade "H" / Settings handoff: open the conversation Hub resolved for the notification.
+     LaunchedEffect(pendingThreadId, snapshot != null) {
+-        if (pendingThreadId != null && snapshot != null) {
+-            route = HubRoute.Conversation(threadId = pendingThreadId)
++        if (state.openPendingThread(pendingThreadId, snapshot != null)) {
+             onPendingThreadConsumed()
+         }
      }
-+    var inboxFilter by remember {
-+        mutableStateOf(HubInboxFilter.All)
-+    }
-     var statusMessage by remember {
-         mutableStateOf<String?>(null)
-     }
+-    var search by remember {
+-        mutableStateOf("")
+-    }
+-    var statusMessage by remember {
+-        mutableStateOf<String?>(null)
 +
-+    // Start's Command "Search Hub for …": open the inbox, all sources, with the search filled in.
 +    LaunchedEffect(launchQuery) {
 +        val query = launchQuery ?: return@LaunchedEffect
-+        route = HubRoute.Root(HubPivot.Inbox)
-+        inboxFilter = HubInboxFilter.All
-+        search = query.query
-+        statusMessage = null
++        state.applyLaunchQuery(query)
 +        onLaunchQueryConsumed()
-+    }
+     }
      // Back from a conversation lands on the row it was opened from (FOCUS_RESTORATION).
      val focusMemory = remember { SableFocusMemory() }
  
@@ -7358,40 +8232,141 @@ index 61a74ff..3fd4c0b 100644
 +    // thread drafts are persisted by the activity ([drafts], keyed by HubDrafts).
 +    val composeDrafts = remember { mutableStateMapOf<String, HubSmsDraft>() }
  
-     // Hardware Back/Esc goes up one level (BACK_RETURNS_ONE_LOGICAL_LAYER); only the root leaves Hub.
-     BackHandler(enabled = route !is HubRoute.Root) {
-@@ -165,7 +215,7 @@ fun HubScreen(
-         SableScreen {
-             SablePageHeader(
-                 title = "hub",
--                subtitle = "Priority, messages, email and people, kept local to this device.",
-+                subtitle = "Priority, messages, calls, email and people, kept local to this device.",
-             )
-             SablePanel {
-                 Text(
-@@ -178,6 +228,19 @@ fun HubScreen(
-         return
-     }
- 
-+    val openThread: (HubRoute.Conversation) -> Unit = { target ->
-+        statusMessage = null
-+        route = target
-+    }
-+    val dial: (String) -> Unit = { number ->
-+        statusMessage =
-+            when {
-+                number.isBlank() -> "This caller's number is not available."
-+                onDial(number) -> null
-+                else -> "The Phone app is unavailable."
-+            }
+-    // Hardware Back/Esc goes up one level (BACK_RETURNS_ONE_LOGICAL_LAYER); only the root leaves Hub.
+-    BackHandler(enabled = route !is HubRoute.Root) {
+-        when (val current = route) {
++    BackHandler(enabled = state.route !is HubRoute.Root) {
++        state.back()
 +    }
 +
-     SableRefreshableSurface(
-         isRefreshing = isRefreshing,
-         onRefresh = onRefresh,
-@@ -199,14 +262,6 @@ fun HubScreen(
-                         },
-                     )
++    if (snapshot == null) {
++        HubLoadingView()
++        return
++    }
++
++    val actions =
++        HubActions(
++            onRequestAccess = onRequestAccess,
++            onSendSms = onSendSms,
++            onOpenAndroidMessaging = onOpenAndroidMessaging,
++            onOpenSableMail = onOpenSableMail,
++            onOpenConnectedApps = onOpenConnectedApps,
++            onReplyConnected = onReplyConnected,
++            onOpenConnectedApp = onOpenConnectedApp,
++            onOpenSourceNotificationSettings = onOpenSourceNotificationSettings,
++            onDial = onDial,
++            drafts = drafts,
++            onDraftChange = onDraftChange,
++        )
++
++    SableRefreshableSurface(
++        isRefreshing = isRefreshing,
++        onRefresh = onRefresh,
++    ) {
++        when (val current = state.route) {
+             is HubRoute.Root -> {
+-                Unit
++                HubRootView(
++                    state = state,
++                    pivot = current.pivot,
++                    snapshot = snapshot,
++                    actions = actions,
++                    focusMemory = focusMemory,
++                )
+             }
+ 
+             is HubRoute.Conversation -> {
+-                statusMessage = null
+-                route = HubRoute.Root(current.origin)
++                HubConversationHost(
++                    state = state,
++                    route = current,
++                    snapshot = snapshot,
++                    actions = actions,
++                )
+             }
+ 
+             is HubRoute.Compose -> {
+-                route = current.back
++                HubComposeHost(
++                    state = state,
++                    route = current,
++                    snapshot = snapshot,
++                    actions = actions,
++                    composeDrafts = composeDrafts,
++                )
+             }
+         }
+     }
++}
+ 
+-    if (snapshot == null) {
+-        SableScreen {
+-            SablePageHeader(
+-                title = "hub",
+-                subtitle = "Priority, messages, email and people, kept local to this device.",
++@Composable
++private fun HubLoadingView() {
++    SableScreen {
++        SablePageHeader(
++            title = "hub",
++            subtitle = "Priority, messages, calls, email and people, kept local to this device.",
++        )
++        SablePanel {
++            Text(
++                text = "Loading conversations…",
++                style = MaterialTheme.typography.bodyLarge,
++                color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+-            SablePanel {
+-                Text(
+-                    text = "Loading conversations…",
+-                    style = MaterialTheme.typography.bodyLarge,
+-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+-                )
+-            }
+         }
+-        return
+     }
++}
+ 
+-    SableRefreshableSurface(
+-        isRefreshing = isRefreshing,
+-        onRefresh = onRefresh,
+-    ) {
+-        when (val current = route) {
+-            is HubRoute.Root -> {
+-                SableScreen {
+-                    SablePageHeader(
+-                        title = "hub",
+-                        subtitle = "Local communication across your enabled sources.",
+-                    )
++@Composable
++private fun HubRootView(
++    state: HubUiState,
++    pivot: HubPivot,
++    snapshot: HubSnapshot,
++    actions: HubActions,
++    focusMemory: SableFocusMemory,
++) {
++    SableScreen {
++        SablePageHeader(
++            title = "hub",
++            subtitle = "Local communication across your enabled sources.",
++        )
+ 
+-                    HubPivotRow(
+-                        selected = current.pivot,
+-                        onSelect = { pivot ->
+-                            route = HubRoute.Root(pivot)
+-                            search = ""
+-                            statusMessage = null
+-                        },
+-                    )
++        HubPivotRow(
++            selected = pivot,
++            onSelect = state::selectPivot,
++        )
  
 -                    if (current.pivot == HubPivot.Messages) {
 -                        SableActionButton(
@@ -7400,96 +8375,123 @@ index 61a74ff..3fd4c0b 100644
 -                            onClick = onOpenConnectedApps,
 -                        )
 -                    }
--
-                     statusMessage?.let { message ->
-                         Text(
-                             text = message,
-@@ -221,32 +276,45 @@ fun HubScreen(
-                                 modifier = Modifier.weight(1f),
-                                 snapshot = snapshot,
-                                 onConversation = { conversation ->
--                                    route =
-+                                    openThread(
-                                         HubRoute.Conversation(
-                                             threadId = conversation.threadId,
-                                             origin = HubPivot.Priority,
--                                        )
-+                                        ),
-+                                    )
-                                 },
-                                 onOpenSableMail = onOpenSableMail,
-                             )
-                         }
++        state.statusMessage?.let { message ->
++            Text(
++                text = message,
++                style = MaterialTheme.typography.bodyMedium,
++                color = MaterialTheme.colorScheme.onSurfaceVariant,
++            )
++        }
  
+-                    statusMessage?.let { message ->
+-                        Text(
+-                            text = message,
+-                            style = MaterialTheme.typography.bodyMedium,
+-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
++        when (pivot) {
++            HubPivot.Priority -> {
++                PriorityPivot(
++                    modifier = Modifier.weight(1f),
++                    snapshot = snapshot,
++                    onConversation = { conversation ->
++                        state.openThread(
++                            HubRoute.Conversation(
++                                threadId = conversation.threadId,
++                                origin = HubPivot.Priority,
++                            ),
+                         )
+-                    }
+-
+-                    when (current.pivot) {
+-                        HubPivot.Priority -> {
+-                            PriorityPivot(
+-                                modifier = Modifier.weight(1f),
+-                                snapshot = snapshot,
+-                                onConversation = { conversation ->
+-                                    route =
+-                                        HubRoute.Conversation(
+-                                            threadId = conversation.threadId,
+-                                            origin = HubPivot.Priority,
+-                                        )
+-                                },
+-                                onOpenSableMail = onOpenSableMail,
+-                            )
+-                        }
+-
 -                        HubPivot.Messages -> {
 -                            MessagesPivot(
-+                        HubPivot.Inbox -> {
-+                            InboxPivot(
-                                 modifier = Modifier.weight(1f),
-                                 snapshot = snapshot,
-                                 focusMemory = focusMemory,
-+                                filter = inboxFilter,
-+                                onFilterChange = { filter ->
-+                                    inboxFilter = filter
-+                                    statusMessage = null
-+                                },
-                                 search = search,
-                                 onSearchChange = { search = it },
-                                 onConversation = { conversation ->
+-                                modifier = Modifier.weight(1f),
+-                                snapshot = snapshot,
+-                                focusMemory = focusMemory,
+-                                search = search,
+-                                onSearchChange = { search = it },
+-                                onConversation = { conversation ->
 -                                    route =
-+                                    openThread(HubRoute.Conversation(threadId = conversation.threadId))
-+                                },
-+                                onCall = { call -> dial(call.number) },
-+                                onTextCaller = { call ->
-+                                    openThread(
-                                         HubRoute.Conversation(
+-                                        HubRoute.Conversation(
 -                                            threadId = conversation.threadId,
 -                                        )
-+                                            threadId = HubThreadResolver.NEW_THREAD_ID,
-+                                            address = call.number,
-+                                        ),
-+                                    )
-                                 },
-                                 onCompose = {
-                                     route = HubRoute.Compose()
-                                 },
-+                                onOpenConnectedApps = onOpenConnectedApps,
-                                 onRequestAccess = onRequestAccess,
-                             )
-                         }
-@@ -265,7 +333,13 @@ fun HubScreen(
-                                 search = search,
-                                 onSearchChange = { search = it },
-                                 onCompose = { number ->
--                                    route = HubRoute.Compose(number, back = HubRoute.Root(HubPivot.People))
-+                                    openThread(
-+                                        HubRoute.Conversation(
-+                                            threadId = HubThreadResolver.NEW_THREAD_ID,
-+                                            origin = HubPivot.People,
-+                                            address = number,
-+                                        ),
-+                                    )
-                                 },
-                                 onRequestAccess = onRequestAccess,
-                             )
-@@ -276,9 +350,10 @@ fun HubScreen(
+-                                },
+-                                onCompose = {
+-                                    route = HubRoute.Compose()
+-                                },
+-                                onRequestAccess = onRequestAccess,
+-                            )
+-                        }
++                    },
++                    onOpenSableMail = actions.onOpenSableMail,
++                )
++            }
  
-             is HubRoute.Conversation -> {
-                 val conversation =
+-                        HubPivot.Email -> {
+-                            EmailPivot(
+-                                snapshot = snapshot,
+-                                onOpenSableMail = onOpenSableMail,
+-                            )
+-                        }
+-
+-                        HubPivot.People -> {
+-                            PeoplePivot(
+-                                modifier = Modifier.weight(1f),
+-                                snapshot = snapshot,
+-                                search = search,
+-                                onSearchChange = { search = it },
+-                                onCompose = { number ->
+-                                    route = HubRoute.Compose(number, back = HubRoute.Root(HubPivot.People))
+-                                },
+-                                onRequestAccess = onRequestAccess,
+-                            )
+-                        }
+-                    }
+-                }
++            HubPivot.Inbox -> {
++                HubInboxView(
++                    state = state,
++                    snapshot = snapshot,
++                    actions = actions,
++                    focusMemory = focusMemory,
++                )
+             }
+ 
+-            is HubRoute.Conversation -> {
+-                val conversation =
 -                    snapshot.conversations.firstOrNull { candidate ->
 -                        candidate.threadId == current.threadId
 -                    }
-+                    HubThreadResolver.resolve(snapshot.conversations, current.threadId, current.address)
-+                        ?: current.address?.takeIf(String::isNotBlank)?.let { address ->
-+                            newSmsConversation(address, snapshot)
-+                        }
++            HubPivot.Email -> {
++                EmailPivot(
++                    snapshot = snapshot,
++                    onOpenSableMail = actions.onOpenSableMail,
++                )
++            }
  
-                 if (conversation == null) {
-                     MissingConversationView(
-@@ -288,113 +363,33 @@ fun HubScreen(
-                         },
-                     )
-                 } else {
+-                if (conversation == null) {
+-                    MissingConversationView(
+-                        onBack = {
+-                            statusMessage = null
+-                            route = HubRoute.Root(current.origin)
+-                        },
+-                    )
+-                } else {
 -                    val threadMessages =
 -                        snapshot.messages
 -                            .filter { message ->
@@ -7587,60 +8589,165 @@ index 61a74ff..3fd4c0b 100644
 -                                } else {
 -                                    null
 -                                },
--                        )
++            HubPivot.People -> {
++                PeoplePivot(
++                    modifier = Modifier.weight(1f),
++                    snapshot = snapshot,
++                    search = state.search,
++                    onSearchChange = { state.search = it },
++                    onCompose = { number ->
++                        state.openThread(
++                            HubRoute.Conversation(
++                                threadId = HubThreadResolver.NEW_THREAD_ID,
++                                origin = HubPivot.People,
++                                address = number,
++                            ),
+                         )
 -                    }
-+                    ConversationRoute(
-+                        snapshot = snapshot,
-+                        conversation = conversation,
-+                        statusMessage = statusMessage,
-+                        onStatus = { statusMessage = it },
-+                        drafts = drafts,
-+                        onDraftChange = onDraftChange,
-+                        onBack = {
-+                            statusMessage = null
-+                            route = HubRoute.Root(current.origin)
-+                        },
-+                        onSendSms = onSendSms,
-+                        onDial = dial,
-+                        onRequestAccess = onRequestAccess,
-+                        onOpenAndroidMessaging = onOpenAndroidMessaging,
-+                        onReplyConnected = onReplyConnected,
-+                        onOpenConnectedApp = onOpenConnectedApp,
-+                        onOpenSourceNotificationSettings = onOpenSourceNotificationSettings,
-+                    )
-                 }
+-                }
++                    },
++                    onRequestAccess = actions.onRequestAccess,
++                )
              }
++        }
++    }
++}
  
-             is HubRoute.Compose -> {
-                 SableScrollableScreen {
-                     ComposeView(
+-            is HubRoute.Compose -> {
+-                SableScrollableScreen {
+-                    ComposeView(
 -                        draft = smsDrafts[current.recipient] ?: HubSmsDraft(current.recipient, ""),
 -                        onDraftChange = { draft -> smsDrafts[current.recipient] = draft },
-+                        draft = composeDrafts[current.recipient] ?: HubSmsDraft(current.recipient, ""),
-+                        onDraftChange = { draft -> composeDrafts[current.recipient] = draft },
-                         canSendSms = snapshot.capabilities.canSendSms,
-                         onBack = {
-                             route = current.back
-@@ -404,8 +399,13 @@ fun HubScreen(
-                             val result = onSendSms(recipient, body)
-                             statusMessage = result.message
-                             if (result.success) {
+-                        canSendSms = snapshot.capabilities.canSendSms,
+-                        onBack = {
+-                            route = current.back
+-                        },
+-                        onRequestAccess = onRequestAccess,
+-                        onSendSms = { recipient, body ->
+-                            val result = onSendSms(recipient, body)
+-                            statusMessage = result.message
+-                            if (result.success) {
 -                                smsDrafts.remove(current.recipient)
 -                                route = HubRoute.Root(HubPivot.Messages)
-+                                composeDrafts.remove(current.recipient)
-+                                // Sent messages are shown in place: land in the thread, composer ready.
-+                                route =
-+                                    HubRoute.Conversation(
-+                                        threadId = HubThreadResolver.NEW_THREAD_ID,
-+                                        address = recipient,
-+                                    )
-                             }
-                             result
-                         },
-@@ -429,6 +429,153 @@ fun HubScreen(
-     }
- }
- 
+-                            }
+-                            result
+-                        },
+-                        onOpenMmsComposer = { recipient, body ->
+-                            val opened =
+-                                onOpenAndroidMessaging(
+-                                    recipient.takeIf { it.isNotBlank() },
+-                                    body.takeIf { it.isNotBlank() },
+-                                )
+-                            statusMessage =
+-                                if (opened) {
+-                                    "Opened the system MMS composer."
+-                                } else {
+-                                    "MMS composer is unavailable."
+-                                }
+-                        },
+-                    )
+-                }
++@Composable
++private fun ColumnScope.HubInboxView(
++    state: HubUiState,
++    snapshot: HubSnapshot,
++    actions: HubActions,
++    focusMemory: SableFocusMemory,
++) {
++    InboxPivot(
++        modifier = Modifier.weight(1f),
++        snapshot = snapshot,
++        focusMemory = focusMemory,
++        filter = state.inboxFilter,
++        onFilterChange = state::selectInboxFilter,
++        search = state.search,
++        onSearchChange = { state.search = it },
++        onConversation = { conversation ->
++            state.openThread(HubRoute.Conversation(threadId = conversation.threadId))
++        },
++        onCall = { call -> state.dial(call.number, actions.onDial) },
++        onTextCaller = { call ->
++            state.openThread(
++                HubRoute.Conversation(
++                    threadId = HubThreadResolver.NEW_THREAD_ID,
++                    address = call.number,
++                ),
++            )
++        },
++        onCompose = {
++            state.route = HubRoute.Compose()
++        },
++        onOpenConnectedApps = actions.onOpenConnectedApps,
++        onRequestAccess = actions.onRequestAccess,
++    )
++}
++
++@Composable
++private fun HubConversationHost(
++    state: HubUiState,
++    route: HubRoute.Conversation,
++    snapshot: HubSnapshot,
++    actions: HubActions,
++) {
++    val conversation =
++        HubThreadResolver.resolve(snapshot.conversations, route.threadId, route.address)
++            ?: route.address?.takeIf(String::isNotBlank)?.let { address ->
++                newSmsConversation(address, snapshot)
+             }
++    val onBack = { state.closeConversation(route.origin) }
++
++    if (conversation == null) {
++        MissingConversationView(onBack = onBack)
++    } else {
++        ConversationRoute(
++            snapshot = snapshot,
++            conversation = conversation,
++            statusMessage = state.statusMessage,
++            onStatus = { state.statusMessage = it },
++            onBack = onBack,
++            onDial = { number -> state.dial(number, actions.onDial) },
++            actions = actions,
++        )
++    }
++}
++
++@Composable
++private fun HubComposeHost(
++    state: HubUiState,
++    route: HubRoute.Compose,
++    snapshot: HubSnapshot,
++    actions: HubActions,
++    composeDrafts: MutableMap<String, HubSmsDraft>,
++) {
++    SableScrollableScreen {
++        ComposeView(
++            draft = composeDrafts[route.recipient] ?: HubSmsDraft(route.recipient, ""),
++            onDraftChange = { draft -> composeDrafts[route.recipient] = draft },
++            canSendSms = snapshot.capabilities.canSendSms,
++            onBack = {
++                state.route = route.back
++            },
++            onRequestAccess = actions.onRequestAccess,
++            onSendSms = { recipient, body ->
++                val result = actions.onSendSms(recipient, body)
++                if (result.success) {
++                    composeDrafts.remove(route.recipient)
++                }
++                state.composeSent(result, recipient)
++                result
++            },
++            onOpenMmsComposer = { recipient, body ->
++                state.mmsHandoff(
++                    actions.onOpenAndroidMessaging(
++                        recipient.takeIf { it.isNotBlank() },
++                        body.takeIf { it.isNotBlank() },
++                    ),
++                )
++            },
++        )
++    }
++}
++
 +/** An SMS thread that does not exist yet: the first message creates it in the provider. */
 +private fun newSmsConversation(
 +    address: String,
@@ -7665,121 +8772,121 @@ index 61a74ff..3fd4c0b 100644
 +    conversation: HubConversation,
 +    statusMessage: String?,
 +    onStatus: (String?) -> Unit,
-+    drafts: Map<String, String>,
-+    onDraftChange: (String, String) -> Unit,
 +    onBack: () -> Unit,
-+    onSendSms: (String, String) -> HubSendResult,
 +    onDial: (String) -> Unit,
-+    onRequestAccess: () -> Unit,
-+    onOpenAndroidMessaging: (String?, String?) -> Boolean,
-+    onReplyConnected: (String, String) -> HubSendResult,
-+    onOpenConnectedApp: (String, Long) -> Boolean,
-+    onOpenSourceNotificationSettings: (String, Long) -> Boolean,
++    actions: HubActions,
 +) {
-+    val threadMessages =
-+        if (conversation.threadId == HubThreadResolver.NEW_THREAD_ID) {
-+            emptyList()
-+        } else {
-+            snapshot.messages
-+                .filter { message ->
-+                    message.threadId == conversation.threadId
-+                }.sortedBy { message ->
-+                    message.dateMillis
-+                }.takeLast(MAX_VISIBLE_THREAD_MESSAGES)
-+        }
-+    val sourcePackage = conversation.sourcePackage
-+    val sourceUserSerial = conversation.sourceUserSerial
-+    val isSms = conversation.source == HubConversationSource.Sms
-+    val connectedSource =
-+        if (!isSms && sourcePackage != null && sourceUserSerial != null) {
-+            sourcePackage to sourceUserSerial
-+        } else {
-+            null
-+        }
-+    val draftKey =
-+        if (isSms) {
-+            HubDrafts.smsKey(conversation.address)
-+        } else {
-+            HubDrafts.connectedKey(conversation.threadId)
-+        }
-+    val composer =
-+        when {
-+            isSms && conversation.address.isNotBlank() -> {
-+                HubComposerSpec(
-+                    label = "Text message",
-+                    canSend = snapshot.capabilities.canSendSms,
-+                    send = { body -> onSendSms(conversation.address, body) },
-+                )
-+            }
-+
-+            !isSms && conversation.canQuickReply && conversation.sourceNotificationKey != null -> {
-+                HubComposerSpec(
-+                    label = "Reply",
-+                    canSend = true,
-+                    send = { body -> onReplyConnected(conversation.sourceNotificationKey, body) },
-+                )
-+            }
-+
-+            else -> {
-+                null
-+            }
-+        }
++    val draftKey = draftKeyFor(conversation)
++    val drafts = actions.drafts
++    val smsAddress =
++        conversation.address.takeIf { address ->
++            conversation.source == HubConversationSource.Sms && address.isNotBlank()
+         }
++    val connectedSource = connectedSourceOf(conversation)
 +
 +    SableScreen {
 +        ConversationView(
 +            modifier = Modifier.weight(1f),
 +            conversation = conversation,
-+            messages = threadMessages,
++            messages = threadMessagesFor(snapshot, conversation),
 +            statusMessage = statusMessage,
 +            draft = drafts[draftKey].orEmpty(),
-+            onDraftChange = { body -> onDraftChange(draftKey, body) },
-+            composer = composer,
-+            onRequestAccess = onRequestAccess,
++            onDraftChange = { body -> actions.onDraftChange(draftKey, body) },
++            composer = composerFor(conversation, snapshot, actions),
++            onRequestAccess = actions.onRequestAccess,
 +            onBack = onBack,
-+            onCall =
-+                if (isSms && conversation.address.isNotBlank()) {
-+                    { onDial(conversation.address) }
-+                } else {
-+                    null
-+                },
++            onCall = smsAddress?.let { address -> { onDial(address) } },
 +            onAttach =
-+                if (isSms && conversation.address.isNotBlank()) {
++                smsAddress?.let { address ->
 +                    {
 +                        val opened =
-+                            onOpenAndroidMessaging(
-+                                conversation.address,
++                            actions.onOpenAndroidMessaging(
++                                address,
 +                                drafts[draftKey]?.takeIf(String::isNotBlank),
 +                            )
-+                        onStatus(if (opened) "Opened the system MMS composer." else "MMS composer is unavailable.")
++                        onStatus(mmsHandoffStatus(opened))
 +                    }
-+                } else {
-+                    null
 +                },
 +            onOpenSource =
 +                connectedSource?.let { (packageName, serial) ->
 +                    {
-+                        val opened = onOpenConnectedApp(packageName, serial)
-+                        onStatus(
-+                            if (opened) {
-+                                "Opened ${conversation.sourceLabel ?: packageName}."
-+                            } else {
-+                                "The source app is unavailable."
-+                            },
-+                        )
++                        val opened = actions.onOpenConnectedApp(packageName, serial)
++                        onStatus(openSourceStatus(opened, conversation.sourceLabel ?: packageName))
 +                    }
 +                },
 +            onOpenNotificationSettings =
 +                connectedSource?.let { (packageName, serial) ->
 +                    {
 +                        // Delivery policy is Android's: hand off, never mirror it.
-+                        if (!onOpenSourceNotificationSettings(packageName, serial)) {
-+                            onStatus("Android notification settings are unavailable.")
-+                        }
++                        val opened = actions.onOpenSourceNotificationSettings(packageName, serial)
++                        if (!opened) onStatus("Android notification settings are unavailable.")
 +                    }
 +                },
 +        )
 +    }
 +}
++
++private fun openSourceStatus(
++    opened: Boolean,
++    label: String,
++): String = if (opened) "Opened $label." else "The source app is unavailable."
++
++private fun threadMessagesFor(
++    snapshot: HubSnapshot,
++    conversation: HubConversation,
++): List<HubMessage> =
++    if (conversation.threadId == HubThreadResolver.NEW_THREAD_ID) {
++        emptyList()
++    } else {
++        snapshot.messages
++            .filter { message ->
++                message.threadId == conversation.threadId
++            }.sortedBy { message ->
++                message.dateMillis
++            }.takeLast(MAX_VISIBLE_THREAD_MESSAGES)
++    }
++
++/** The source app (package, user serial) of a connected-app thread; null for SMS. */
++private fun connectedSourceOf(conversation: HubConversation): Pair<String, Long>? {
++    val sourcePackage = conversation.sourcePackage
++    val sourceUserSerial = conversation.sourceUserSerial
++    return if (conversation.source != HubConversationSource.Sms && sourcePackage != null && sourceUserSerial != null) {
++        sourcePackage to sourceUserSerial
++    } else {
++        null
+     }
+ }
+ 
++private fun draftKeyFor(conversation: HubConversation): String =
++    if (conversation.source == HubConversationSource.Sms) {
++        HubDrafts.smsKey(conversation.address)
++    } else {
++        HubDrafts.connectedKey(conversation.threadId)
++    }
++
++/** SMS through Android telephony, or a source RemoteInput reply; null when the thread cannot be answered here. */
++private fun composerFor(
++    conversation: HubConversation,
++    snapshot: HubSnapshot,
++    actions: HubActions,
++): HubComposerSpec? =
++    if (conversation.source == HubConversationSource.Sms) {
++        conversation.address.takeIf(String::isNotBlank)?.let { address ->
++            HubComposerSpec(
++                label = "Text message",
++                canSend = snapshot.capabilities.canSendSms,
++                send = { body -> actions.onSendSms(address, body) },
++            )
++        }
++    } else {
++        conversation.sourceNotificationKey?.takeIf { conversation.canQuickReply }?.let { notificationKey ->
++            HubComposerSpec(
++                label = "Reply",
++                canSend = true,
++                send = { body -> actions.onReplyConnected(notificationKey, body) },
++            )
++        }
++    }
 +
 +/** The inline composer of an open thread: SMS through Android telephony, or a source RemoteInput reply. */
 +private class HubComposerSpec(
@@ -7791,7 +8898,7 @@ index 61a74ff..3fd4c0b 100644
  @Composable
  private fun MissingConversationView(onBack: () -> Unit) {
      SableScreen {
-@@ -437,7 +584,7 @@ private fun MissingConversationView(onBack: () -> Unit) {
+@@ -437,7 +701,7 @@ private fun MissingConversationView(onBack: () -> Unit) {
              subtitle = "The source conversation is no longer available in local Sable history.",
          )
          SableActionButton(
@@ -7800,7 +8907,7 @@ index 61a74ff..3fd4c0b 100644
              primary = false,
              onClick = onBack,
          )
-@@ -561,65 +708,96 @@ private fun ColumnScope.EmailPivot(
+@@ -561,141 +825,292 @@ private fun ColumnScope.EmailPivot(
  }
  
  @Composable
@@ -7823,14 +8930,7 @@ index 61a74ff..3fd4c0b 100644
 -    if (!snapshot.capabilities.canReadSms || !snapshot.capabilities.canSendSms) {
 -        MessagesAccessPrompt(
 +    val capabilities = snapshot.capabilities
-+    val needsAccess =
-+        when (filter) {
-+            HubInboxFilter.All -> !capabilities.canReadSms || !capabilities.canSendSms || !capabilities.canReadCallLog
-+            HubInboxFilter.Messages -> !capabilities.canReadSms || !capabilities.canSendSms
-+            HubInboxFilter.Calls -> !capabilities.canReadCallLog
-+            HubInboxFilter.Notifications -> false
-+        }
-+    if (needsAccess) {
++    if (inboxNeedsAccess(capabilities, filter)) {
 +        InboxAccessPrompt(
              snapshot = snapshot,
              onRequestAccess = onRequestAccess,
@@ -7911,25 +9011,34 @@ index 61a74ff..3fd4c0b 100644
 +        newestItem?.dateMillis,
      ) {
 -        // First visit after Back: restore the conversation row the user opened.
-+        // First visit after Back: restore the row the user opened.
-         if (!restoreDone) {
-             restoreDone = true
+-        if (!restoreDone) {
+-            restoreDone = true
 -            val target = if (query.isBlank()) focusMemory.restore(FOCUS_SURFACE_MESSAGES, rowKeys) else null
-+            val target = if (query.isBlank()) focusMemory.restore(FOCUS_SURFACE_INBOX, rowKeys) else null
-             // One-shot: a later visit (pivot switch, handoff Back) opens on the newest again.
+-            // One-shot: a later visit (pivot switch, handoff Back) opens on the newest again.
 -            focusMemory.forget(FOCUS_SURFACE_MESSAGES)
-+            focusMemory.forget(FOCUS_SURFACE_INBOX)
-             if (target != null) {
-                 listState.scrollToItem(target)
-                 withFrameNanos { }
-@@ -627,75 +805,145 @@ private fun ColumnScope.MessagesPivot(
-                 return@LaunchedEffect
-             }
-         }
+-            if (target != null) {
+-                listState.scrollToItem(target)
+-                withFrameNanos { }
+-                runCatching { requesters[rowKeys[target]]?.requestFocus() }
+-                return@LaunchedEffect
+-            }
+-        }
 -        // Otherwise the newest conversation is what is visible on open.
 -        if (query.isBlank() && newestConversation != null) {
++        // First visit after Back: restore the row the user opened.
++        val firstVisit = !restoreDone
++        restoreDone = true
++        val restored =
++            firstVisit &&
++                restoreInboxRow(
++                    restore = query.isBlank(),
++                    focusMemory = focusMemory,
++                    rowKeys = rowKeys,
++                    listState = listState,
++                    requesters = requesters,
++                )
 +        // Otherwise the newest row is what is visible on open, and after a new arrival.
-+        if (newestItem != null && listState.firstVisibleItemIndex <= 1) {
++        if (!restored && newestItem != null && listState.firstVisibleItemIndex <= 1) {
              listState.scrollToItem(0)
          }
      }
@@ -7945,16 +9054,7 @@ index 61a74ff..3fd4c0b 100644
 +        modifier =
 +            modifier
 +                .fillMaxWidth()
-+                .onKeyEvent { event ->
-+                    val plain = !event.isAltPressed && !event.isCtrlPressed && !event.isMetaPressed
-+                    val shortcut =
-+                        if (event.type == KeyEventType.KeyDown && plain && event.utf16CodePoint > 0) {
-+                            HubInboxFilter.forShortcut(event.utf16CodePoint.toChar())
-+                        } else {
-+                            null
-+                        }
-+                    shortcut?.let(selectFilter) != null
-+                },
++                .inboxFilterShortcuts(selectFilter),
 +        verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
 +    ) {
 +        InboxFilterChips(
@@ -7984,36 +9084,23 @@ index 61a74ff..3fd4c0b 100644
 +                    items = visibleItems,
 +                    key = { _, item -> item.key },
 +                ) { index, item ->
-+                    val rowModifier = Modifier.focusRequester(requesters.getOrPut(item.key) { FocusRequester() })
-+                    when (item) {
-+                        is HubInboxItem.Conversation -> {
-+                            ConversationRow(
-+                                conversation = item.conversation,
-+                                onClick = {
-+                                    focusMemory.remember(FOCUS_SURFACE_INBOX, item.key, index)
-+                                    onConversation(item.conversation)
-+                                },
-+                                modifier = rowModifier,
-+                            )
-+                        }
++                    InboxItemRow(
++                        item = item,
++                        modifier = Modifier.focusRequester(requesters.getOrPut(item.key) { FocusRequester() }),
++                        onOpen = { focusMemory.remember(FOCUS_SURFACE_INBOX, item.key, index) },
++                        onConversation = onConversation,
++                        onCall = onCall,
++                        onTextCaller = onTextCaller,
++                    )
++                }
++            }
++        }
++    }
++}
  
 -                    else -> {
 -                        "No conversations yet."
-+                        is HubInboxItem.Call -> {
-+                            CallRow(
-+                                call = item.call,
-+                                onCall = {
-+                                    focusMemory.remember(FOCUS_SURFACE_INBOX, item.key, index)
-+                                    onCall(item.call)
-+                                },
-+                                onText = {
-+                                    focusMemory.remember(FOCUS_SURFACE_INBOX, item.key, index)
-+                                    onTextCaller(item.call)
-+                                },
-+                                modifier = rowModifier,
-+                            )
-+                        }
-                     }
+-                    }
 -                },
 -            modifier = Modifier.padding(vertical = SableSpacing.Lg),
 -            style = MaterialTheme.typography.bodyLarge,
@@ -8038,12 +9125,93 @@ index 61a74ff..3fd4c0b 100644
 -                    },
 -                    modifier = Modifier.focusRequester(requesters.getOrPut(key) { FocusRequester() }),
 -                )
-+                }
++private fun inboxNeedsAccess(
++    capabilities: HubCapabilities,
++    filter: HubInboxFilter,
++): Boolean {
++    val smsMissing = !capabilities.canReadSms || !capabilities.canSendSms
++    val callLogMissing = !capabilities.canReadCallLog
++    return when (filter) {
++        HubInboxFilter.All -> smsMissing || callLogMissing
++        HubInboxFilter.Messages -> smsMissing
++        HubInboxFilter.Calls -> callLogMissing
++        HubInboxFilter.Notifications -> false
++    }
++}
++
++/**
++ * Brings back the inbox row remembered before the last open, once; returns whether one was restored.
++ * [restore] is false while a search is active, where the remembered row may not be listed.
++ */
++private suspend fun restoreInboxRow(
++    restore: Boolean,
++    focusMemory: SableFocusMemory,
++    rowKeys: List<String>,
++    listState: LazyListState,
++    requesters: Map<String, FocusRequester>,
++): Boolean {
++    val target = if (restore) focusMemory.restore(FOCUS_SURFACE_INBOX, rowKeys) else null
++    // One-shot: a later visit (pivot switch, handoff Back) opens on the newest again.
++    focusMemory.forget(FOCUS_SURFACE_INBOX)
++    if (target == null) return false
++    listState.scrollToItem(target)
++    withFrameNanos { }
++    runCatching { requesters[rowKeys[target]]?.requestFocus() }
++    return true
++}
++
++/** A/M/C/N pick an inbox filter; Alt, Ctrl and Meta chords are left to the system. */
++private fun Modifier.inboxFilterShortcuts(onSelect: (HubInboxFilter) -> Unit): Modifier =
++    onKeyEvent { event ->
++        val plain = !event.isAltPressed && !event.isCtrlPressed && !event.isMetaPressed
++        val shortcut =
++            if (event.type == KeyEventType.KeyDown && plain && event.utf16CodePoint > 0) {
++                HubInboxFilter.forShortcut(event.utf16CodePoint.toChar())
++            } else {
++                null
              }
-         }
-     }
- }
- 
++        shortcut?.let(onSelect) != null
++    }
++
++/** [onOpen] records the row for focus restoration before it opens a thread or hands off a call. */
++@Composable
++private fun InboxItemRow(
++    item: HubInboxItem,
++    modifier: Modifier,
++    onOpen: () -> Unit,
++    onConversation: (HubConversation) -> Unit,
++    onCall: (HubCall) -> Unit,
++    onTextCaller: (HubCall) -> Unit,
++) {
++    when (item) {
++        is HubInboxItem.Conversation -> {
++            ConversationRow(
++                conversation = item.conversation,
++                onClick = {
++                    onOpen()
++                    onConversation(item.conversation)
++                },
++                modifier = modifier,
++            )
++        }
++
++        is HubInboxItem.Call -> {
++            CallRow(
++                call = item.call,
++                onCall = {
++                    onOpen()
++                    onCall(item.call)
++                },
++                onText = {
++                    onOpen()
++                    onTextCaller(item.call)
++                },
++                modifier = modifier,
++            )
++        }
++    }
++}
++
 +private fun inboxEmptyText(
 +    capabilities: HubCapabilities,
 +    filter: HubInboxFilter,
@@ -8058,8 +9226,7 @@ index 61a74ff..3fd4c0b 100644
 +        else -> "No conversations yet."
 +    }
 +
- @Composable
--private fun MessagesAccessPrompt(
++@Composable
 +private fun InboxFilterChips(
 +    snapshot: HubSnapshot,
 +    selected: HubInboxFilter,
@@ -8084,11 +9251,12 @@ index 61a74ff..3fd4c0b 100644
 +                },
 +                modifier = Modifier.focusRequester(requesters.getValue(filter)),
 +            )
-+        }
-+    }
-+}
-+
-+@Composable
+         }
+     }
+ }
+ 
+ @Composable
+-private fun MessagesAccessPrompt(
 +private fun InboxAccessPrompt(
      snapshot: HubSnapshot,
      onRequestAccess: () -> Unit,
@@ -8115,7 +9283,15 @@ index 61a74ff..3fd4c0b 100644
              style = MaterialTheme.typography.titleMedium,
          )
          Text(
-@@ -711,6 +959,101 @@ private fun MessagesAccessPrompt(
+@@ -704,13 +1119,108 @@ private fun MessagesAccessPrompt(
+             color = MaterialTheme.colorScheme.onSurfaceVariant,
+         )
+         SableActionButton(
+-            text = "Review access",
++            text = REVIEW_ACCESS_LABEL,
+             primary = false,
+             onClick = onRequestAccess,
+         )
      }
  }
  
@@ -8127,6 +9303,9 @@ index 61a74ff..3fd4c0b 100644
 +    modifier: Modifier = Modifier,
 +) {
 +    val attention = call.kind.needsAttention
++    val avatarBackground = if (attention) HubUnreadBackground else MaterialTheme.colorScheme.surfaceVariant
++    val glyphColor = if (attention) HubUnreadAccent else MaterialTheme.colorScheme.onSurface
++    val detailColor = if (attention) HubUnreadAccent else MaterialTheme.colorScheme.onSurfaceVariant
 +    Row(
 +        modifier = Modifier.fillMaxWidth(),
 +        verticalAlignment = Alignment.CenterVertically,
@@ -8145,16 +9324,13 @@ index 61a74ff..3fd4c0b 100644
 +                modifier =
 +                    Modifier
 +                        .size(HubAvatarSize)
-+                        .background(
-+                            if (attention) HubUnreadBackground else MaterialTheme.colorScheme.surfaceVariant,
-+                            CircleShape,
-+                        ),
++                        .background(avatarBackground, CircleShape),
 +                contentAlignment = Alignment.Center,
 +            ) {
 +                Text(
 +                    text = callGlyph(call.kind),
 +                    style = MaterialTheme.typography.titleLarge,
-+                    color = if (attention) HubUnreadAccent else MaterialTheme.colorScheme.onSurface,
++                    color = glyphColor,
 +                )
 +            }
 +            Spacer(Modifier.width(HubAvatarTextGap))
@@ -8169,7 +9345,7 @@ index 61a74ff..3fd4c0b 100644
 +                Text(
 +                    text = "Call · " + callKindLabel(call.kind) + " · " + clockTime(call.dateMillis),
 +                    style = MaterialTheme.typography.bodyLarge,
-+                    color = if (attention) HubUnreadAccent else MaterialTheme.colorScheme.onSurfaceVariant,
++                    color = detailColor,
 +                    maxLines = 1,
 +                    overflow = TextOverflow.Ellipsis,
 +                )
@@ -8217,23 +9393,79 @@ index 61a74ff..3fd4c0b 100644
  @Composable
  private fun ConversationRow(
      conversation: HubConversation,
-@@ -778,8 +1121,14 @@ private fun ConversationRow(
+@@ -724,11 +1234,7 @@ private fun ConversationRow(
+         } else {
+             MaterialTheme.colorScheme.onSurfaceVariant
+         }
+-    val sourceLine =
+-        listOfNotNull(
+-            conversation.sourceLabel ?: "connected app",
+-            conversation.profileBadge,
+-        ).joinToString(" · ")
++    val avatarBackground = if (unread) HubUnreadBackground else MaterialTheme.colorScheme.surfaceVariant
+     val initial =
+         conversation.displayName
+             .trim()
+@@ -750,14 +1256,7 @@ private fun ConversationRow(
+             modifier =
+                 Modifier
+                     .size(HubAvatarSize)
+-                    .background(
+-                        if (unread) {
+-                            HubUnreadBackground
+-                        } else {
+-                            MaterialTheme.colorScheme.surfaceVariant
+-                        },
+-                        CircleShape,
+-                    ),
++                    .background(avatarBackground, CircleShape),
+             contentAlignment = Alignment.Center,
+         ) {
              Text(
-                 text =
-                     when {
-+                        // Source label on every row: the inbox mixes SMS, calls and connected apps.
-+                        conversation.source != HubConversationSource.ConnectedApp &&
-+                            conversation.lastBody.isBlank() -> {
-+                            "SMS"
-+                        }
-+
-                         conversation.source != HubConversationSource.ConnectedApp -> {
+@@ -776,21 +1275,7 @@ private fun ConversationRow(
+                 overflow = TextOverflow.Ellipsis,
+             )
+             Text(
+-                text =
+-                    when {
+-                        conversation.source != HubConversationSource.ConnectedApp -> {
 -                            conversation.lastBody.take(SMS_PREVIEW_LENGTH)
-+                            "SMS · " + conversation.lastBody.take(SMS_PREVIEW_LENGTH)
-                         }
+-                        }
+-
+-                        conversation.lastBody.isBlank() -> {
+-                            "$sourceLine · content hidden"
+-                        }
+-
+-                        else -> {
+-                            "$sourceLine · " +
+-                                conversation.lastBody.take(CONNECTED_PREVIEW_LENGTH)
+-                        }
+-                    },
++                text = conversationPreview(conversation),
+                 style = MaterialTheme.typography.bodyLarge,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                 maxLines = 1,
+@@ -824,10 +1309,27 @@ private fun ConversationRow(
+     )
+ }
  
-                         conversation.lastBody.isBlank() -> {
-@@ -827,7 +1176,7 @@ private fun ConversationRow(
++/** Source label on every row: the inbox mixes SMS, calls and connected apps. */
++private fun conversationPreview(conversation: HubConversation): String {
++    if (conversation.source != HubConversationSource.ConnectedApp) {
++        return if (conversation.lastBody.isBlank()) "SMS" else "SMS · " + conversation.lastBody.take(SMS_PREVIEW_LENGTH)
++    }
++    val sourceLine =
++        listOfNotNull(
++            conversation.sourceLabel ?: "connected app",
++            conversation.profileBadge,
++        ).joinToString(" · ")
++    return if (conversation.lastBody.isBlank()) {
++        "$sourceLine · content hidden"
++    } else {
++        "$sourceLine · " + conversation.lastBody.take(CONNECTED_PREVIEW_LENGTH)
++    }
++}
++
  private fun conversationKey(conversation: HubConversation): String =
      conversation.threadId.toString() + ":" + conversation.address
  
@@ -8242,7 +9474,16 @@ index 61a74ff..3fd4c0b 100644
  
  private fun clockTime(epochMillis: Long): String =
      DateFormat
-@@ -942,16 +1291,18 @@ private fun ColumnScope.ConversationView(
+@@ -850,7 +1352,7 @@ private fun ColumnScope.PeoplePivot(
+                 style = MaterialTheme.typography.bodyMedium,
+             )
+             SableActionButton(
+-                text = "Review access",
++                text = REVIEW_ACCESS_LABEL,
+                 primary = false,
+                 onClick = onRequestAccess,
+             )
+@@ -942,19 +1444,17 @@ private fun ColumnScope.ConversationView(
      modifier: Modifier,
      conversation: HubConversation,
      messages: List<HubMessage>,
@@ -8263,36 +9504,43 @@ index 61a74ff..3fd4c0b 100644
  ) {
 -    val connectedReplyBody = connectedReplyDraft
 -    var connectedReplyStatus by remember {
-+    var composerStatus by remember(conversation.threadId, conversation.address) {
-         mutableStateOf<String?>(null)
-     }
- 
-@@ -974,10 +1325,19 @@ private fun ColumnScope.ConversationView(
+-        mutableStateOf<String?>(null)
+-    }
+-
+     SablePageHeader(
+         title = conversation.displayName,
+         subtitle =
+@@ -974,21 +1474,9 @@ private fun ColumnScope.ConversationView(
              primary = false,
              onClick = onBack,
          )
 -        onReply?.let { action ->
-+        onCall?.let { action ->
-             SableActionButton(
+-            SableActionButton(
 -                text = "Reply",
-+                text = "Call",
-                 modifier = Modifier.weight(1f),
-+                primary = false,
-+                onClick = action,
-+            )
-+        }
-+        onAttach?.let { action ->
-+            SableActionButton(
-+                text = "Attach",
-+                modifier = Modifier.weight(1f),
-+                primary = false,
-                 onClick = action,
-             )
-         }
-@@ -1001,6 +1361,14 @@ private fun ColumnScope.ConversationView(
+-                modifier = Modifier.weight(1f),
+-                onClick = action,
+-            )
+-        }
+-        onOpenSource?.let { action ->
+-            SableActionButton(
+-                text = "Open app",
+-                modifier = Modifier.weight(1f),
+-                primary = false,
+-                onClick = action,
+-            )
+-        }
++        ConversationActionButton("Call", onCall)
++        ConversationActionButton("Attach", onAttach)
++        ConversationActionButton("Open app", onOpenSource)
+     }
+     // Its own full-width row: a third equal-width "Notifications" button wraps mid-word
+     // on the square screen (KF-D: labels never clip).
+@@ -1001,13 +1489,63 @@ private fun ColumnScope.ConversationView(
          )
      }
  
+-    // Newest message at the bottom and visible on open (reverse layout, index 0 =
+-    // newest); a "latest" action returns there whenever history is scrolled into.
 +    statusMessage?.let { message ->
 +        Text(
 +            text = message,
@@ -8301,10 +9549,60 @@ index 61a74ff..3fd4c0b 100644
 +        )
 +    }
 +
-     // Newest message at the bottom and visible on open (reverse layout, index 0 =
-     // newest); a "latest" action returns there whenever history is scrolled into.
++    // Newest message at the bottom and visible on open (reverse layout, index 0 = newest).
      val conversationState = rememberLazyListState()
-@@ -1016,7 +1384,23 @@ private fun ColumnScope.ConversationView(
+     val conversationScope = rememberCoroutineScope()
++    ConversationMessages(
++        modifier = modifier,
++        messages = messages,
++        listState = conversationState,
++        emptyText = if (composer != null) "No messages yet. Write the first one below." else "No messages yet.",
++    )
++
++    composer?.let { spec ->
++        ConversationComposer(
++            conversation = conversation,
++            composer = spec,
++            draft = draft,
++            onDraftChange = onDraftChange,
++            onRequestAccess = onRequestAccess,
++            onSent = { conversationScope.launch { conversationState.animateScrollToItem(0) } },
++        )
++    }
++}
++
++@Composable
++private fun RowScope.ConversationActionButton(
++    text: String,
++    action: (() -> Unit)?,
++) {
++    action?.let { onClick ->
++        SableActionButton(
++            text = text,
++            modifier = Modifier.weight(1f),
++            primary = false,
++            onClick = onClick,
++        )
++    }
++}
++
++/** A "latest" action returns to the newest message whenever history is scrolled into. */
++@Composable
++private fun ConversationMessages(
++    modifier: Modifier,
++    messages: List<HubMessage>,
++    listState: LazyListState,
++    emptyText: String,
++) {
++    val scope = rememberCoroutineScope()
+     val showLatest by remember(messages.size) {
+         derivedStateOf {
+-            val visible = conversationState.layoutInfo.visibleItemsInfo
++            val visible = listState.layoutInfo.visibleItemsInfo
+             SableLatestContentPolicy.showReturnToCurrent(
+                 firstVisibleIndex = visible.firstOrNull()?.index ?: 0,
+                 lastVisibleIndex = visible.lastOrNull()?.index ?: 0,
+@@ -1016,10 +1554,26 @@ private fun ColumnScope.ConversationView(
              )
          }
      }
@@ -8312,14 +9610,14 @@ index 61a74ff..3fd4c0b 100644
 +    // reading history is never yanked away except by the user's own sent message.
 +    val newest = messages.lastOrNull()
 +    LaunchedEffect(newest?.id) {
-+        if (newest != null && (conversationState.firstVisibleItemIndex <= 1 || !newest.incoming)) {
-+            conversationState.animateScrollToItem(0)
++        if (newest != null && (listState.firstVisibleItemIndex <= 1 || !newest.incoming)) {
++            listState.animateScrollToItem(0)
 +        }
 +    }
      Box(modifier = modifier.fillMaxWidth()) {
 +        if (messages.isEmpty()) {
 +            Text(
-+                text = if (composer != null) "No messages yet. Write the first one below." else "No messages yet.",
++                text = emptyText,
 +                modifier = Modifier.align(Alignment.BottomStart).padding(vertical = SableSpacing.Md),
 +                style = MaterialTheme.typography.bodyLarge,
 +                color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -8327,10 +9625,21 @@ index 61a74ff..3fd4c0b 100644
 +        }
          LazyColumn(
              modifier = Modifier.fillMaxSize(),
-             state = conversationState,
-@@ -1037,30 +1421,116 @@ private fun ColumnScope.ConversationView(
+-            state = conversationState,
++            state = listState,
+             reverseLayout = true,
+             verticalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+         ) {
+@@ -1032,35 +1586,129 @@ private fun ColumnScope.ConversationView(
+         }
+         SableReturnToCurrent(
+             visible = showLatest,
+-            onClick = { conversationScope.launch { conversationState.animateScrollToItem(0) } },
++            onClick = { scope.launch { listState.animateScrollToItem(0) } },
+             modifier = Modifier.align(Alignment.BottomEnd).padding(SableSpacing.Sm),
          )
      }
++}
  
 -    onSendConnectedReply?.let { sendReply ->
 -        OutlinedTextField(
@@ -8341,46 +9650,52 @@ index 61a74ff..3fd4c0b 100644
 -            label = { Text("Reply") },
 -        )
 -        connectedReplyStatus?.let { message ->
--            Text(
++/** The thread's composer, or the permission prompt when SMS sending is not allowed yet. */
++@Composable
++private fun ConversationComposer(
++    conversation: HubConversation,
++    composer: HubComposerSpec,
++    draft: String,
++    onDraftChange: (String) -> Unit,
++    onRequestAccess: () -> Unit,
++    onSent: () -> Unit,
++) {
++    var composerStatus by remember(conversation.threadId, conversation.address) {
++        mutableStateOf<String?>(null)
++    }
++
++    if (!composer.canSend) {
++        SablePanel {
+             Text(
 -                text = message,
 -                style = MaterialTheme.typography.bodySmall,
 -                color = MaterialTheme.colorScheme.onSurfaceVariant,
-+    when {
-+        composer == null -> {
-+            Unit
-+        }
-+
-+        !composer.canSend -> {
-+            SablePanel {
-+                Text(
-+                    text = "SMS sending needs permission.",
-+                    style = MaterialTheme.typography.bodyMedium,
-+                )
-+                SableActionButton(
-+                    text = "Review access",
-+                    primary = false,
-+                    onClick = onRequestAccess,
-+                )
-+            }
-+        }
-+
-+        else -> {
-+            HubInlineComposer(
-+                label = composer.label,
-+                draft = draft,
-+                onDraftChange = onDraftChange,
-+                status = composerStatus,
-+                onSend = { body ->
-+                    val result = composer.send(body)
-+                    composerStatus = result.message.takeUnless { result.success }
-+                    if (result.success) {
-+                        onDraftChange("")
-+                        conversationScope.launch { conversationState.animateScrollToItem(0) }
-+                    }
-+                },
++                text = "SMS sending needs permission.",
++                style = MaterialTheme.typography.bodyMedium,
              )
-         }
++            SableActionButton(
++                text = REVIEW_ACCESS_LABEL,
++                primary = false,
++                onClick = onRequestAccess,
++            )
++        }
++        return
 +    }
++
++    HubInlineComposer(
++        label = composer.label,
++        draft = draft,
++        onDraftChange = onDraftChange,
++        status = composerStatus,
++        onSend = { body ->
++            val result = composer.send(body)
++            composerStatus = result.message.takeUnless { result.success }
++            if (result.success) {
++                onDraftChange("")
++                onSent()
++            }
++        },
++    )
 +}
 +
 +/** Hardware Enter sends and Shift+Enter inserts a line break ([HubComposerKeys]). */
@@ -8426,7 +9741,7 @@ index 61a74ff..3fd4c0b 100644
 +    val send = {
 +        if (draft.isNotBlank()) {
 +            onSend(draft)
-+        }
+         }
 +    }
 +    Row(
 +        modifier = Modifier.fillMaxWidth(),
@@ -8466,7 +9781,54 @@ index 61a74ff..3fd4c0b 100644
          )
      }
  }
-@@ -1166,7 +1636,12 @@ private fun ComposeView(
+@@ -1090,42 +1738,20 @@ private fun MessageBubble(message: HubMessage) {
+                 modifier = Modifier.padding(SableSpacing.Md),
+                 verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
+             ) {
+-                if (
+-                    message.source == HubConversationSource.ConnectedApp &&
+-                    message.incoming &&
+-                    !message.senderLabel.isNullOrBlank()
+-                ) {
++                visibleSenderLabel(message)?.let { sender ->
+                     Text(
+-                        text = message.senderLabel.orEmpty(),
++                        text = sender,
+                         style = MaterialTheme.typography.labelLarge,
+                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                     )
+                 }
+                 Text(
+-                    text =
+-                        when {
+-                            message.body.isNotBlank() -> {
+-                                message.body
+-                            }
+-
+-                            message.source == HubConversationSource.ConnectedApp -> {
+-                                "Content hidden by source app"
+-                            }
+-
+-                            else -> {
+-                                "Empty SMS body"
+-                            }
+-                        },
++                    text = messageBodyText(message),
+                     style = MaterialTheme.typography.bodyLarge,
+                     color = MaterialTheme.colorScheme.onSurface,
+                 )
+                 Text(
+-                    text =
+-                        if (message.handoffOnly) {
+-                            "Handed off · " + relativeTime(message.dateMillis)
+-                        } else {
+-                            relativeTime(message.dateMillis)
+-                        },
++                    text = messageTimeText(message),
+                     style = MaterialTheme.typography.bodySmall,
+                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                 )
+@@ -1166,7 +1792,12 @@ private fun ComposeView(
      OutlinedTextField(
          value = body,
          onValueChange = { onDraftChange(draft.copy(body = it)) },
@@ -8480,8 +9842,47 @@ index 61a74ff..3fd4c0b 100644
          minLines = SMS_COMPOSE_MIN_LINES,
          label = { Text("Message") },
      )
-@@ -1235,7 +1710,7 @@ private val HubUnreadBackground = Color(0xFF0B3524)
+@@ -1194,7 +1825,7 @@ private fun ComposeView(
+                 style = MaterialTheme.typography.bodyMedium,
+             )
+             SableActionButton(
+-                text = "Review access",
++                text = REVIEW_ACCESS_LABEL,
+                 primary = false,
+                 onClick = onRequestAccess,
+             )
+@@ -1216,6 +1847,26 @@ private fun ComposeView(
+     )
+ }
  
++/** Connected-app group threads name each incoming sender; SMS threads have one other party. */
++private fun visibleSenderLabel(message: HubMessage): String? =
++    message.senderLabel?.takeIf { label ->
++        message.source == HubConversationSource.ConnectedApp && message.incoming && label.isNotBlank()
++    }
++
++private fun messageBodyText(message: HubMessage): String =
++    when {
++        message.body.isNotBlank() -> message.body
++        message.source == HubConversationSource.ConnectedApp -> "Content hidden by source app"
++        else -> "Empty SMS body"
++    }
++
++private fun messageTimeText(message: HubMessage): String =
++    if (message.handoffOnly) {
++        "Handed off · " + relativeTime(message.dateMillis)
++    } else {
++        relativeTime(message.dateMillis)
++    }
++
+ private fun relativeTime(timestamp: Long): String =
+     DateUtils
+         .getRelativeTimeSpanString(
+@@ -1233,9 +1884,10 @@ private val HubBubbleCornerRadius = 18.dp
+ private val HubUnreadAccent = Color(0xFF35C66B)
+ private val HubUnreadBackground = Color(0xFF0B3524)
+ 
++private const val REVIEW_ACCESS_LABEL = "Review access"
  private const val SMS_PREVIEW_LENGTH = 120
  private const val CONNECTED_PREVIEW_LENGTH = 100
 -private const val HUB_INLINE_REPLY_MIN_LINES = 2
@@ -8719,7 +10120,7 @@ index 0000000..3582159
 +    }
 +}
 diff --git a/sable-src/apps/r8/android/media/build.gradle.kts b/sable-src/apps/r8/android/media/build.gradle.kts
-index 9d648e8..972691b 100644
+index 9d648e8..0c51e9c 100644
 --- a/sable-src/apps/r8/android/media/build.gradle.kts
 +++ b/sable-src/apps/r8/android/media/build.gradle.kts
 @@ -17,6 +17,13 @@ android {
@@ -8736,12 +10137,23 @@ index 9d648e8..972691b 100644
      buildFeatures { compose = true }
      compileOptions {
          sourceCompatibility = JavaVersion.VERSION_17
-@@ -39,6 +46,8 @@ dependencies {
-     implementation("androidx.media3:media3-exoplayer:1.9.2")
-     implementation("androidx.media3:media3-session:1.9.2")
+@@ -32,13 +39,15 @@ android {
+ 
+ dependencies {
+     implementation(project(":design"))
+-    implementation(platform("androidx.compose:compose-bom:2026.02.01"))
+-    implementation("androidx.activity:activity-compose:1.12.4")
++    implementation(platform(libs.androidx.compose.bom))
++    implementation(libs.androidx.activity.compose)
+     implementation("androidx.compose.material3:material3")
+     implementation("androidx.compose.foundation:foundation")
+-    implementation("androidx.media3:media3-exoplayer:1.9.2")
+-    implementation("androidx.media3:media3-session:1.9.2")
++    implementation(libs.androidx.media3.exoplayer)
++    implementation(libs.androidx.media3.session)
      debugImplementation("androidx.compose.ui:ui-tooling")
 +
-+    testImplementation("junit:junit:4.13.2")
++    testImplementation(libs.junit)
  }
  
  extensions.configure<io.gitlab.arturbosch.detekt.extensions.DetektExtension> {
@@ -11130,7 +12542,7 @@ index 0000000..7fbc4be
 +    }
 +}
 diff --git a/sable-src/apps/r8/android/messages/build.gradle.kts b/sable-src/apps/r8/android/messages/build.gradle.kts
-index ae8240a..6d32cc6 100644
+index ae8240a..8c80d57 100644
 --- a/sable-src/apps/r8/android/messages/build.gradle.kts
 +++ b/sable-src/apps/r8/android/messages/build.gradle.kts
 @@ -16,6 +16,14 @@ android {
@@ -11148,6 +12560,86 @@ index ae8240a..6d32cc6 100644
      buildFeatures {
          compose = true
      }
+@@ -45,14 +53,14 @@ androidComponents {
+ 
+ dependencies {
+     implementation(project(":design"))
+-    implementation(platform("androidx.compose:compose-bom:2026.02.01"))
+-    implementation("androidx.activity:activity-compose:1.12.4")
++    implementation(platform(libs.androidx.compose.bom))
++    implementation(libs.androidx.activity.compose)
+     implementation("androidx.compose.material3:material3")
+     implementation("androidx.compose.foundation:foundation")
+     implementation("androidx.compose.ui:ui")
+     debugImplementation("androidx.compose.ui:ui-tooling")
+ 
+-    testImplementation("junit:junit:4.13.2")
++    testImplementation(libs.junit)
+ }
+ 
+ extensions.configure<io.gitlab.arturbosch.detekt.extensions.DetektExtension> {
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts b/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
+index 30cc780..67fb5c4 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
+@@ -66,6 +66,8 @@ val canonicalPresentationSources =
+ 
+ val syncSableStartPresentationSources =
+     tasks.register<Sync>("syncSableStartPresentationSources") {
++        group = "build"
++        description = "Copy the canonical SableStart presentation sources into this check module"
+         into(generatedPresentationDir)
+         canonicalPresentationSources.forEach { relativePath ->
+             val parent = relativePath.substringBeforeLast("/")
+@@ -92,24 +94,24 @@ tasks.configureEach {
+ 
+ dependencies {
+     constraints {
+-        implementation("androidx.core:core-ktx:1.16.0")
+-        implementation("androidx.collection:collection:1.5.0")
+-        implementation("androidx.collection:collection-jvm:1.5.0")
+-        implementation("androidx.collection:collection-ktx:1.5.0")
+-        implementation("androidx.lifecycle:lifecycle-common:2.9.4")
+-        implementation("androidx.lifecycle:lifecycle-common-java8:2.9.4")
+-        implementation("androidx.lifecycle:lifecycle-common-jvm:2.9.4")
+-        implementation("androidx.lifecycle:lifecycle-process:2.9.4")
+-        implementation("androidx.lifecycle:lifecycle-runtime:2.9.4")
+-        implementation("androidx.lifecycle:lifecycle-runtime-android:2.9.4")
+-        implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.4")
+-        implementation("androidx.lifecycle:lifecycle-runtime-ktx-android:2.9.4")
++        implementation(libs.androidx.core.ktx)
++        implementation(libs.androidx.collection)
++        implementation(libs.androidx.collection.jvm)
++        implementation(libs.androidx.collection.ktx)
++        implementation(libs.androidx.lifecycle.common)
++        implementation(libs.androidx.lifecycle.common.java8)
++        implementation(libs.androidx.lifecycle.common.jvm)
++        implementation(libs.androidx.lifecycle.process)
++        implementation(libs.androidx.lifecycle.runtime)
++        implementation(libs.androidx.lifecycle.runtime.android)
++        implementation(libs.androidx.lifecycle.runtime.ktx)
++        implementation(libs.androidx.lifecycle.runtime.ktx.android)
+     }
+ 
+     implementation(project(":design"))
+ 
+     implementation(
+-        platform("androidx.compose:compose-bom:2026.02.01"),
++        platform(libs.androidx.compose.bom),
+     )
+ 
+     implementation("androidx.compose.runtime:runtime")
+@@ -117,8 +119,8 @@ dependencies {
+     implementation("androidx.compose.foundation:foundation")
+     implementation("androidx.compose.animation:animation")
+     implementation("androidx.compose.material3:material3")
+-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
++    implementation(libs.kotlinx.coroutines.android)
+ 
+     // Pure JVM tests for the All Apps privacy policy (DESIGN-KF-D).
+-    testImplementation("junit:junit:4.13.2")
++    testImplementation(libs.junit)
+ }
 diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/QuickBarTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/QuickBarTest.kt
 index f84c848..905bb55 100644
 --- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/QuickBarTest.kt
@@ -11174,7 +12666,7 @@ index f84c848..905bb55 100644
 +    }
  }
 diff --git a/sable-src/apps/r8/android/sablestart-visual-review/build.gradle.kts b/sable-src/apps/r8/android/sablestart-visual-review/build.gradle.kts
-index 7948eb0..1ba64c9 100644
+index 7948eb0..1696623 100644
 --- a/sable-src/apps/r8/android/sablestart-visual-review/build.gradle.kts
 +++ b/sable-src/apps/r8/android/sablestart-visual-review/build.gradle.kts
 @@ -16,6 +16,14 @@ android {
@@ -11192,6 +12684,49 @@ index 7948eb0..1ba64c9 100644
      buildFeatures {
          compose = true
      }
+@@ -40,28 +48,28 @@ android {
+ 
+ dependencies {
+     constraints {
+-        implementation("androidx.core:core-ktx:1.16.0")
+-        implementation("androidx.collection:collection:1.5.0")
+-        implementation("androidx.collection:collection-jvm:1.5.0")
+-        implementation("androidx.collection:collection-ktx:1.5.0")
+-        implementation("androidx.lifecycle:lifecycle-common:2.9.4")
+-        implementation("androidx.lifecycle:lifecycle-common-java8:2.9.4")
+-        implementation("androidx.lifecycle:lifecycle-common-jvm:2.9.4")
+-        implementation("androidx.lifecycle:lifecycle-process:2.9.4")
+-        implementation("androidx.lifecycle:lifecycle-runtime:2.9.4")
+-        implementation("androidx.lifecycle:lifecycle-runtime-android:2.9.4")
+-        implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.4")
+-        implementation("androidx.lifecycle:lifecycle-runtime-ktx-android:2.9.4")
++        implementation(libs.androidx.core.ktx)
++        implementation(libs.androidx.collection)
++        implementation(libs.androidx.collection.jvm)
++        implementation(libs.androidx.collection.ktx)
++        implementation(libs.androidx.lifecycle.common)
++        implementation(libs.androidx.lifecycle.common.java8)
++        implementation(libs.androidx.lifecycle.common.jvm)
++        implementation(libs.androidx.lifecycle.process)
++        implementation(libs.androidx.lifecycle.runtime)
++        implementation(libs.androidx.lifecycle.runtime.android)
++        implementation(libs.androidx.lifecycle.runtime.ktx)
++        implementation(libs.androidx.lifecycle.runtime.ktx.android)
+     }
+ 
+     implementation(project(":design"))
+     implementation(project(":sablestart-presentation-check"))
+ 
+     implementation(
+-        platform("androidx.compose:compose-bom:2026.02.01"),
++        platform(libs.androidx.compose.bom),
+     )
+ 
+-    implementation("androidx.activity:activity-compose:1.12.4")
++    implementation(libs.androidx.activity.compose)
+     implementation("androidx.compose.runtime:runtime")
+     implementation("androidx.compose.ui:ui")
+     implementation("androidx.compose.foundation:foundation")
 diff --git a/sable-src/apps/r8/android/sablestart-visual-review/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/sablestart-visual-review/src/main/AndroidManifest.xml
 index 0e694f8..e776cbf 100644
 --- a/sable-src/apps/r8/android/sablestart-visual-review/src/main/AndroidManifest.xml
@@ -11836,7 +13371,7 @@ index 1cc4258..4d15955 100644
 \ No newline at end of file
 +</data-extraction-rules>
 diff --git a/sable-src/apps/r8/android/weather/build.gradle.kts b/sable-src/apps/r8/android/weather/build.gradle.kts
-index 2a12f06..a88066f 100644
+index 2a12f06..588f0ca 100644
 --- a/sable-src/apps/r8/android/weather/build.gradle.kts
 +++ b/sable-src/apps/r8/android/weather/build.gradle.kts
 @@ -20,6 +20,14 @@ android {
@@ -11854,6 +13389,24 @@ index 2a12f06..a88066f 100644
      buildFeatures {
          compose = true
      }
+@@ -51,14 +59,14 @@ android {
+ 
+ dependencies {
+     implementation(project(":design"))
+-    implementation(platform("androidx.compose:compose-bom:2026.02.01"))
+-    implementation("androidx.activity:activity-compose:1.12.4")
++    implementation(platform(libs.androidx.compose.bom))
++    implementation(libs.androidx.activity.compose)
+     implementation("androidx.compose.runtime:runtime")
+     implementation("androidx.compose.foundation:foundation")
+     implementation("androidx.compose.ui:ui")
+     implementation("androidx.compose.material3:material3")
+     debugImplementation("androidx.compose.ui:ui-tooling")
+-    testImplementation("junit:junit:4.13.2")
++    testImplementation(libs.junit)
+ }
+ 
+ tasks
 diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRepository.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRepository.kt
 index bc47cd7..7c6e49b 100644
 --- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRepository.kt
