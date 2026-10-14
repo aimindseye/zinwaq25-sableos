@@ -1419,16 +1419,15 @@ static int lk_tile_flat(const struct lkfit *f, int ty, int tx, double cm[3])
 	int mn[3] = { 65535, 65535, 65535 };
 	int mx[3] = { -1, -1, -1 };
 	int flat = 1; double sm[3] = { 0, 0, 0 }; int cn[3] = { 0, 0, 0 };
-	int c;
 	for (int py = 0; py < 4; py++)
 		for (int px = 0; px < 4; px++) {
 			int v = f->in[(size_t)(ty + py) * f->stride + tx + px];
-			c = g_qcol[py][px];
+			int c = g_qcol[py][px];
 			if (v < mn[c]) mn[c] = v;
 			if (v > mx[c]) mx[c] = v;
 			sm[c] += v - g_ped; cn[c]++;
 		}
-	for (c = 0; c < 3; c++) {
+	for (int c = 0; c < 3; c++) {
 		double lvl = mn[c] - g_ped > 0 ? mn[c] - g_ped : 0;
 		double sig = sqrt(f->na * lvl + f->nb);
 		double lim = (mn[c] - g_ped) / 4.0 + 16;
@@ -1436,7 +1435,7 @@ static int lk_tile_flat(const struct lkfit *f, int ty, int tx, double cm[3])
 		if (!(mx[c] < 1000 && mx[c] - mn[c] <= lim)) flat = 0;
 	}
 	if (!flat) return 0;
-	for (c = 0; c < 3; c++) cm[c] = sm[c] / cn[c];
+	for (int c = 0; c < 3; c++) cm[c] = sm[c] / cn[c];
 	return 1;
 }
 /* normal equations of one sample: a[k*3+m] += x[k]*x[m], a[9+k] += x[k]*t */
@@ -2224,7 +2223,7 @@ static void ri_out_edges(const struct ri *r, const float *const *Er, uint16_t *o
 	}
 	for (; x < X1 && x < 3; x += 4) orow[x] = ri_out_edge(r, Er, y, x);
 	xr = x > g_w - 3 ? x : g_w - 3;
-	for (x = xr + ((px - xr) & 3); x < X1; x += 4) orow[x] = ri_out_edge(r, Er, y, x);
+	for (int xx = xr + ((px - xr) & 3); xx < X1; xx += 4) orow[xx] = ri_out_edge(r, Er, y, xx);
 }
 static void ri_out(struct ri *r, int y)
 {
@@ -3209,17 +3208,16 @@ static int pdc_tile_stats(const uint16_t *in, int S, int ty, int tx, unsigned ch
 {
 	double s1[3] = { 0, 0, 0 };
 	double s2[3] = { 0, 0, 0 }; long n[3] = { 0, 0, 0 }; int clipped = 0;
-	int c;
 	int flat[3];
 	for (int y = 0; y < 16; y++)
 		for (int x = 0; x < 16; x++) {
 			int v = in[(size_t)(ty * 16 + y) * S + tx * 16 + x];
 			if (v >= 1015) clipped = 1;
 			if (ex[y][x]) continue;
-			c = g_qcol[y & 3][x & 3]; s1[c] += v - g_ped; s2[c] += (double)(v - g_ped) * (v - g_ped); n[c]++;
+			int c = g_qcol[y & 3][x & 3]; s1[c] += v - g_ped; s2[c] += (double)(v - g_ped) * (v - g_ped); n[c]++;
 		}
 	if (clipped) return 0;
-	for (c = 0; c < 3; c++) {
+	for (int c = 0; c < 3; c++) {
 		double m = n[c] ? s1[c] / n[c] : 0;
 		double var = n[c] ? s2[c] / n[c] - m * m : 1e9;
 		t->m[c] = m; flat[c] = sqrt(var > 0 ? var : 0) <= 0.05 * (m > 0 ? m : 0) + 6;
@@ -3280,7 +3278,6 @@ static int pdc_solve(const double A[3], const double B[2], double N, const doubl
 static void pdc_fit(const uint16_t *in, int S, double th[8][2], long nt[2], double nn[8], int fitted[8])
 {
 	unsigned char ex[16][16]; int slot[2];
-	int k;
 	int ty = 0;
 	int tx = 0;
 	struct pdc_tile T;
@@ -3289,15 +3286,15 @@ static void pdc_fit(const uint16_t *in, int S, double th[8][2], long nt[2], doub
 	double N[8];
 	memset(A, 0, sizeof A); memset(B, 0, sizeof B); memset(N, 0, sizeof N); nt[0] = 0; nt[1] = 0;
 	pdc_setup(ex, slot);
-	if (!g_pdc_have) { for (k = 0; k < 8; k++) { g_pdc_hist[k][0] = kPdcPrior[pdc_type(k)][0]; g_pdc_hist[k][1] = kPdcPrior[pdc_type(k)][1]; } g_pdc_have = 1; }
+	if (!g_pdc_have) { for (int k = 0; k < 8; k++) { g_pdc_hist[k][0] = kPdcPrior[pdc_type(k)][0]; g_pdc_hist[k][1] = kPdcPrior[pdc_type(k)][1]; } g_pdc_have = 1; }
 	while (pdc_next_tile(in, S, &ty, &tx, ex, slot, &T))
 		for (int t = 0; t < 2; t++) {
 			if (!T.ok[t]) continue;
 			nt[t]++;
 			pdc_fit_acc(in, S, &T, slot[t], t, A, B, N);
 		}
-	for (k = 0; k < 8; k++) { nn[k] = N[k]; fitted[k] = pdc_solve(A[k], B[k], N[k], g_pdc_hist[k], th[k]); }
-	for (k = 0; k < 8; k++) if (fitted[k]) { g_pdc_hist[k][0] = 0.7 * g_pdc_hist[k][0] + 0.3 * th[k][0]; g_pdc_hist[k][1] = 0.7 * g_pdc_hist[k][1] + 0.3 * th[k][1]; }
+	for (int k = 0; k < 8; k++) { nn[k] = N[k]; fitted[k] = pdc_solve(A[k], B[k], N[k], g_pdc_hist[k], th[k]); }
+	for (int k = 0; k < 8; k++) if (fitted[k]) { g_pdc_hist[k][0] = 0.7 * g_pdc_hist[k][0] + 0.3 * th[k][0]; g_pdc_hist[k][1] = 0.7 * g_pdc_hist[k][1] + 0.3 * th[k][1]; }
 }
 /* diag: mate bias against the tile mean of its own colour, by green/slot ratio, before and after the correction */
 struct pdcchk { double sb[2][3]; double sa[2][3]; double sx[2][3]; double nb[2][3]; };
@@ -3319,7 +3316,7 @@ static void pdc_check(const uint16_t *in, int S, double th[8][2])
 	unsigned char ex[16][16]; int slot[2];
 	int ty = 0;
 	int tx = 0;
-	int b; struct pdc_tile T;
+	struct pdc_tile T;
 	struct pdcchk ck;
 	static const char *bn[3] = { "G/S<0.9", "0.9..1.4", "G/S>=1.4" };
 	memset(&ck, 0, sizeof ck);
@@ -3328,13 +3325,13 @@ static void pdc_check(const uint16_t *in, int S, double th[8][2])
 		for (int t = 0; t < 2; t++) {
 			if (!T.ok[t]) continue;
 			double r = T.m[CG] / T.m[slot[t]];
-			b = 2;
+			int b = 2;
 			if (r < 0.9) b = 0;
 			else if (r < 1.4) b = 1;
 			pdc_check_acc(&ck, in, S, &T, T.m[slot[t]], t, b, th);
 		}
 	for (int t = 0; t < 2; t++)
-		for (b = 0; b < 3; b++) {
+		for (int b = 0; b < 3; b++) {
 			const char *tn = t ? "strong" : "weak  ";
 			double n = ck.nb[t][b];
 			if (n < 50) { LOGI("pdcolor check %s mates, %s: n=%.0f (too few)", tn, bn[b], n); continue; }
