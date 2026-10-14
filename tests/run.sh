@@ -318,6 +318,32 @@ grep -q 'HARDWARE_TESTS(' sable-src/apps/titan2/platform/tools/src/main/java/org
     missing="$missing tools:HARDWARE_TESTS"
 if [[ -z "$missing" ]]; then pass "Settings Sable entries land on actions the Sable apps declare"; else fail "Sable entry actions missing:$missing"; fi
 
+# 6h. Stock app keyboard model (Files, Photos, Browser patches 1001-1099): the pure sable/
+# classes taken from the patches, compiled with their host tests (tests/java/stock-apps).
+if command -v javac >/dev/null 2>&1; then
+    sk="$tmp/stock-keys"
+    mkdir -p "$sk/out"
+    for app in DocumentsUI Glimpse Jelly; do
+        mkdir -p "$sk/$app"
+        for p in patches/framework/packages/apps/"$app"/10[0-9][0-9]-*.patch; do
+            (cd "$sk/$app" && git apply --include='*/sable/*.java' "$ROOT/$p")
+        done
+    done
+    mapfile -t sk_src < <(find "$sk/DocumentsUI" "$sk/Glimpse" "$sk/Jelly" tests/java/stock-apps tests/java/junit-shim -name '*.java')
+    mapfile -t sk_tests < <(cd tests/java/stock-apps && find . -name '*Test.java' | sed 's#^\./[^/]*/##; s#\.java$##; s#/#.#g' | sort)
+    sk_android="$(find "$sk/DocumentsUI" "$sk/Glimpse" "$sk/Jelly" -name '*.java' -exec grep -l '^import android\.' {} + || true)"
+    if [[ -n "$sk_android" ]]; then
+        fail "stock app key models must be pure Java: $sk_android"
+    elif javac -encoding UTF-8 -d "$sk/out" "${sk_src[@]}" 2>"$tmp/err" &&
+        java -cp "$sk/out" org.junit.Run "${sk_tests[@]}" >"$tmp/out" 2>&1; then
+        pass "stock app keyboard models (Files, Photos, Browser) host tests ($(grep -o 'RAN=[0-9]*' "$tmp/out"))"
+    else
+        fail "stock app keyboard model tests: $(cat "$tmp/err" "$tmp/out" | grep -v JAVA_TOOL | head -5)"
+    fi
+else
+    printf 'SKIP  javac not installed (stock app keyboard model tests)\n'
+fi
+
 # 7. Entry point refuses flashing and unknown devices.
 if bash build/sable.sh q25 Q2 flash >/dev/null 2>&1; then fail "flash should be blocked"; else pass "flash blocked"; fi
 if bash build/sable.sh titan2 Q2 doctor >/dev/null 2>&1; then fail "non-q25 device accepted"; else pass "only q25 accepted"; fi
