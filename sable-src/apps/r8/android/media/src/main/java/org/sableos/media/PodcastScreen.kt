@@ -434,7 +434,7 @@ private fun PodcastFeedEntry(
             OutlinedTextField(
                 value = value,
                 onValueChange = onValueChange,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().mediaTextInput(),
                 enabled = enabled,
                 singleLine = true,
                 label = {
