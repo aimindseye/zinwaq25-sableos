@@ -63,6 +63,9 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.io.File
 import java.util.Locale
 
+private const val PLAY_UTTERANCE = "play_text"
+private const val EXPORT_UTTERANCE = "export_audio"
+
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private lateinit var tts: TextToSpeech
     private var isTtsReady by mutableStateOf(false)
@@ -100,7 +103,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                             if (isTtsReady && text.isNotBlank()) {
                                 tts.language = locale
                                 // Pass a unique Utterance ID so our listener can track it
-                                tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "play_text")
+                                tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, PLAY_UTTERANCE)
                             }
                         },
                         onStopText = {
@@ -116,40 +119,46 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
             isTtsReady = true
-
             // Unified Listener for both Playback UI and Audio Export
-            tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                override fun onStart(utteranceId: String?) {
-                    if (utteranceId == "play_text") runOnUiThread { isPlaying = true }
-                }
-
-                override fun onError(utteranceId: String?) {
-                    if (utteranceId == "play_text") runOnUiThread { isPlaying = false }
-                    else runOnUiThread { Toast.makeText(this@MainActivity, "Error processing audio.", Toast.LENGTH_SHORT).show() }
-                }
-
-                override fun onDone(utteranceId: String?) {
-                    if (utteranceId == "play_text") {
-                        runOnUiThread { isPlaying = false } // Reset Play button when reading finishes
-                    } else if (utteranceId == "export_audio") {
-                        // The temporary file is ready, copy it to the user's chosen location
-                        pendingAudioFile?.let { file ->
-                            targetExportUri?.let { uri ->
-                                try {
-                                    contentResolver.openOutputStream(uri)?.use { os ->
-                                        file.inputStream().use { input -> input.copyTo(os) }
-                                    }
-                                    file.delete() // Clean up the temp file
-                                    runOnUiThread { Toast.makeText(this@MainActivity, "Audio saved successfully!", Toast.LENGTH_LONG).show() }
-                                } catch (e: Exception) {
-                                    runOnUiThread { Toast.makeText(this@MainActivity, "Failed to save file.", Toast.LENGTH_SHORT).show() }
-                                }
-                            }
-                        }
-                    }
-                }
-            })
+            tts.setOnUtteranceProgressListener(utteranceListener)
         }
+    }
+
+    private val utteranceListener = object : UtteranceProgressListener() {
+        override fun onStart(utteranceId: String?) {
+            if (utteranceId == PLAY_UTTERANCE) runOnUiThread { isPlaying = true }
+        }
+
+        override fun onError(utteranceId: String?) {
+            if (utteranceId == PLAY_UTTERANCE) runOnUiThread { isPlaying = false }
+            else showToast("Error processing audio.", Toast.LENGTH_SHORT)
+        }
+
+        override fun onDone(utteranceId: String?) {
+            when (utteranceId) {
+                PLAY_UTTERANCE -> runOnUiThread { isPlaying = false } // Reset Play button when reading finishes
+                EXPORT_UTTERANCE -> saveExportedAudio()
+            }
+        }
+    }
+
+    /** The temporary file is ready: copy it to the location the user chose, then remove it. */
+    private fun saveExportedAudio() {
+        val file = pendingAudioFile ?: return
+        val uri = targetExportUri ?: return
+        try {
+            contentResolver.openOutputStream(uri)?.use { os ->
+                file.inputStream().use { input -> input.copyTo(os) }
+            }
+            if (!file.delete()) file.deleteOnExit() // Clean up the temp file
+            showToast("Audio saved successfully!", Toast.LENGTH_LONG)
+        } catch (e: Exception) {
+            showToast("Failed to save file.", Toast.LENGTH_SHORT)
+        }
+    }
+
+    private fun showToast(message: String, duration: Int) {
+        runOnUiThread { Toast.makeText(this@MainActivity, message, duration).show() }
     }
 
     override fun onDestroy() {
@@ -198,32 +207,18 @@ fun MainScreen(
             }
 
             val params = Bundle()
-            params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "export_audio")
+            params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, EXPORT_UTTERANCE)
 
             ttsEngine.language = currentTtsLocale
-            ttsEngine.synthesizeToFile(currentText, params, tempFile, "export_audio")
+            ttsEngine.synthesizeToFile(currentText, params, tempFile, EXPORT_UTTERANCE)
         }
     }
 
     val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let { safeUri ->
-            Toast.makeText(context, "Analyzing image...", Toast.LENGTH_SHORT).show()
-            try {
-                val image = InputImage.fromFilePath(context, safeUri)
-                val options = if (useDevanagari) DevanagariTextRecognizerOptions.Builder().build() else TextRecognizerOptions.DEFAULT_OPTIONS
-                val recognizer = TextRecognition.getClient(options)
-
-                recognizer.process(image)
-                    .addOnSuccessListener { visionText ->
-                        if (visionText.text.isNotBlank()) setCurrentText(visionText.text)
-                        else Toast.makeText(context, "No text found in image.", Toast.LENGTH_SHORT).show()
-                        if (isScannerOpen) setScannerOpen(false)
-                    }
-                    .addOnFailureListener {
-                        Toast.makeText(context, "Failed to recognize text.", Toast.LENGTH_SHORT).show()
-                    }
-            } catch (e: Exception) {
-                Toast.makeText(context, "Error loading image.", Toast.LENGTH_SHORT).show()
+            recognizeImageText(context, safeUri, useDevanagari) { recognized ->
+                recognized?.let(setCurrentText)
+                if (isScannerOpen) setScannerOpen(false)
             }
         }
     }
@@ -247,17 +242,7 @@ fun MainScreen(
         ) { padding ->
             Column(modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp, vertical = 10.dp)) {
 
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                    var expanded by remember { mutableStateOf(false) }
-                    TextButton(onClick = { expanded = true }) {
-                        Text(if (useDevanagari) "OCR: Hindi/Marathi" else "OCR: English/Spanish", fontSize = 12.sp)
-                        Icon(Icons.Default.ArrowDropDown, null)
-                    }
-                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                        DropdownMenuItem(text = { Text("English/Spanish") }, onClick = { setUseDevanagari(false); expanded = false })
-                        DropdownMenuItem(text = { Text("Hindi/Marathi") }, onClick = { setUseDevanagari(true); expanded = false })
-                    }
-                }
+                OcrScriptMenu(useDevanagari = useDevanagari, onScriptChange = setUseDevanagari)
 
                 OutlinedTextField(
                     value = currentText,
@@ -297,62 +282,117 @@ fun MainScreen(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // DYNAMIC MEDIA CONTROLS
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-
-                    // STOP BUTTON: Enabled & highlighted (Error Red) ONLY when playing
-                    IconButton(
-                        onClick = onStopText,
-                        modifier = Modifier.size(56.dp),
-                        enabled = isPlaying
-                    ) {
-                        Icon(
-                            Icons.Default.StopCircle, "Stop",
-                            modifier = Modifier.size(36.dp),
-                            tint = if (isPlaying) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outlineVariant
-                        )
-                    }
-
-                    // PLAY BUTTON: Disabled/Dimmed when already playing or empty text
-                    IconButton(
-                        onClick = { onSpeakText(currentText, currentTtsLocale) },
-                        modifier = Modifier.size(72.dp),
-                        enabled = isTtsReady && currentText.isNotBlank() && !isPlaying
-                    ) {
-                        Icon(
-                            Icons.Default.PlayCircleFilled, "Play",
-                            modifier = Modifier.size(64.dp),
-                            tint = if (currentText.isNotBlank() && !isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
-                        )
-                    }
-
-                    // EXPORT AUDIO BUTTON (Uses Native File Picker)
-                    IconButton(
-                        onClick = {
-                            if (isTtsReady && currentText.isNotBlank() && !isPlaying) {
-                                // Triggers the Android File Picker!
-                                exportLauncher.launch("Vaachak_Audio_${System.currentTimeMillis()}.wav")
-                            }
-                        },
-                        modifier = Modifier.size(56.dp),
-                        enabled = isTtsReady && currentText.isNotBlank() && !isPlaying
-                    ) {
-                        Icon(
-                            Icons.Default.SaveAlt, "Export Audio",
-                            modifier = Modifier.size(36.dp),
-                            tint = if (currentText.isNotBlank() && !isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
-                        )
-                    }
-
-                    // SETTINGS BUTTON
-                    IconButton(onClick = { setShowTtsSettings(true) }, modifier = Modifier.size(56.dp)) {
-                        Icon(Icons.Default.Tune, "Settings", modifier = Modifier.size(36.dp), tint = MaterialTheme.colorScheme.outline)
-                    }
-                }
+                PlaybackControls(
+                    isPlaying = isPlaying,
+                    hasText = currentText.isNotBlank(),
+                    canSpeak = isTtsReady && currentText.isNotBlank() && !isPlaying,
+                    onStop = onStopText,
+                    onPlay = { onSpeakText(currentText, currentTtsLocale) },
+                    // Triggers the Android File Picker!
+                    onExport = { exportLauncher.launch("Vaachak_Audio_${System.currentTimeMillis()}.wav") },
+                    onOpenSettings = { setShowTtsSettings(true) },
+                )
             }
         }
     }
 
     if (showTtsSettings) {
         TtsSettingsDialog(ttsEngine, currentTtsLocale) { setShowTtsSettings(false) }
+    }
+}
+
+/** Runs on-device OCR over a picked image; [onResult] gets the text, or null when there was none or it failed. */
+private fun recognizeImageText(context: Context, uri: Uri, useDevanagari: Boolean, onResult: (String?) -> Unit) {
+    Toast.makeText(context, "Analyzing image...", Toast.LENGTH_SHORT).show()
+    try {
+        val image = InputImage.fromFilePath(context, uri)
+        val options = if (useDevanagari) DevanagariTextRecognizerOptions.Builder().build() else TextRecognizerOptions.DEFAULT_OPTIONS
+        val recognizer = TextRecognition.getClient(options)
+
+        recognizer.process(image)
+            .addOnSuccessListener { visionText ->
+                val found = visionText.text.takeIf { it.isNotBlank() }
+                if (found == null) Toast.makeText(context, "No text found in image.", Toast.LENGTH_SHORT).show()
+                onResult(found)
+            }
+            .addOnFailureListener {
+                Toast.makeText(context, "Failed to recognize text.", Toast.LENGTH_SHORT).show()
+            }
+    } catch (e: Exception) {
+        Toast.makeText(context, "Error loading image.", Toast.LENGTH_SHORT).show()
+    }
+}
+
+@Composable
+private fun OcrScriptMenu(useDevanagari: Boolean, onScriptChange: (Boolean) -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+        var expanded by remember { mutableStateOf(false) }
+        TextButton(onClick = { expanded = true }) {
+            Text(if (useDevanagari) "OCR: Hindi/Marathi" else "OCR: English/Spanish", fontSize = 12.sp)
+            Icon(Icons.Default.ArrowDropDown, null)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(text = { Text("English/Spanish") }, onClick = { onScriptChange(false); expanded = false })
+            DropdownMenuItem(text = { Text("Hindi/Marathi") }, onClick = { onScriptChange(true); expanded = false })
+        }
+    }
+}
+
+@Composable
+private fun PlaybackControls(
+    isPlaying: Boolean,
+    hasText: Boolean,
+    canSpeak: Boolean,
+    onStop: () -> Unit,
+    onPlay: () -> Unit,
+    onExport: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
+    val idleTint = if (hasText && !isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+
+        // STOP BUTTON: Enabled & highlighted (Error Red) ONLY when playing
+        IconButton(
+            onClick = onStop,
+            modifier = Modifier.size(56.dp),
+            enabled = isPlaying
+        ) {
+            Icon(
+                Icons.Default.StopCircle, "Stop",
+                modifier = Modifier.size(36.dp),
+                tint = if (isPlaying) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outlineVariant
+            )
+        }
+
+        // PLAY BUTTON: Disabled/Dimmed when already playing or empty text
+        IconButton(
+            onClick = onPlay,
+            modifier = Modifier.size(72.dp),
+            enabled = canSpeak
+        ) {
+            Icon(
+                Icons.Default.PlayCircleFilled, "Play",
+                modifier = Modifier.size(64.dp),
+                tint = idleTint
+            )
+        }
+
+        // EXPORT AUDIO BUTTON (Uses Native File Picker)
+        IconButton(
+            onClick = { if (canSpeak) onExport() },
+            modifier = Modifier.size(56.dp),
+            enabled = canSpeak
+        ) {
+            Icon(
+                Icons.Default.SaveAlt, "Export Audio",
+                modifier = Modifier.size(36.dp),
+                tint = idleTint
+            )
+        }
+
+        // SETTINGS BUTTON
+        IconButton(onClick = onOpenSettings, modifier = Modifier.size(56.dp)) {
+            Icon(Icons.Default.Tune, "Settings", modifier = Modifier.size(36.dp), tint = MaterialTheme.colorScheme.outline)
+        }
     }
 }
