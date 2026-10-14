@@ -1,0 +1,743 @@
+From 1bb3504fa58d097f0535e94fcf61a44030dab3c6 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sun, 11 Oct 2026 08:26:33 +0000
+Subject: [PATCH 404/407] SableOS: keyboard test step after keyboard readiness
+
+Adds a Keyboard test step after the keyboard readiness step and before
+Wi-Fi. The user types a sentence into one field and seven checks are
+ticked as they register: letters, Shift capitals, numbers, Alt
+characters, Sym symbols, Space and Backspace. The Q25 has no Fn key, so
+there is no Fn check. A modifier key alone shows as pressed; its layer
+passes when a character typed with it reaches the field. The field
+reports key downs before the IME, so Shift, Alt and Sym register even
+when Sable Keyboard consumes them; text from the on-screen keyboard
+still passes the checks that need no modifier.
+
+Enter (or the IME's Next action) continues, Skip and Next are always
+enabled, and Back/Esc return to the readiness step. If the keys do not
+work, the step links to physical keyboard settings (Use on-screen
+keyboard) and to Accessibility, each shown only when the screen exists.
+The field is focused on entry so the first key types; typed text is not
+saved, autofilled, suggested or learned, and only pass states are kept
+in memory for the life of the step.
+
+The checks live in the pure SableKeyTest class (IR-014).
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01FqvfFQhAvko2gkqcxM25Aa
+---
+ AndroidManifest.xml                           |  14 ++
+ res/layout/sable_keyboard_test_page.xml       | 107 ++++++++++
+ res/raw/lineage_wizard_script.xml             |   7 +
+ res/values/sable_strings.xml                  |  26 ++-
+ .../SableKeyboardTestActivity.java            | 178 ++++++++++++++++
+ src/org/lineageos/setupwizard/SableLinks.java |  49 +++++
+ .../setupwizard/sable/SableKeyTest.java       | 196 ++++++++++++++++++
+ .../setupwizard/widget/SableKeyTestField.java |  52 +++++
+ 8 files changed, 628 insertions(+), 1 deletion(-)
+ create mode 100644 res/layout/sable_keyboard_test_page.xml
+ create mode 100644 src/org/lineageos/setupwizard/SableKeyboardTestActivity.java
+ create mode 100644 src/org/lineageos/setupwizard/SableLinks.java
+ create mode 100644 src/org/lineageos/setupwizard/sable/SableKeyTest.java
+ create mode 100644 src/org/lineageos/setupwizard/widget/SableKeyTestField.java
+
+diff --git a/AndroidManifest.xml b/AndroidManifest.xml
+index 2b65ac44..feacac0b 100644
+--- a/AndroidManifest.xml
++++ b/AndroidManifest.xml
+@@ -159,6 +159,20 @@
+             </intent-filter>
+         </activity>
+ 
++        <!-- SableOS: keyboard test step (IR-014). -->
++        <activity
++            android:name=".SableKeyboardTestActivity"
++            android:label="@string/activity_label_empty"
++            android:configChanges="mcc|mnc|keyboard|keyboardHidden"
++            android:immersive="true"
++            android:exported="false"
++            android:windowSoftInputMode="stateHidden|adjustResize">
++            <intent-filter>
++                <action android:name="org.sableos.setupwizard.SABLE_KEYBOARD_TEST" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
++        </activity>
++
+         <activity
+             android:name=".SimMissingActivity"
+             android:label="@string/activity_label_empty"
+diff --git a/res/layout/sable_keyboard_test_page.xml b/res/layout/sable_keyboard_test_page.xml
+new file mode 100644
+index 00000000..0e870a7b
+--- /dev/null
++++ b/res/layout/sable_keyboard_test_page.xml
+@@ -0,0 +1,107 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     SPDX-FileCopyrightText: The SableOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<com.google.android.setupdesign.GlifLayout
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:app="http://schemas.android.com/apk/res-auto"
++    android:id="@+id/setup_wizard_layout"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent">
++
++    <LinearLayout
++        android:orientation="vertical"
++        android:layout_width="match_parent"
++        android:layout_height="match_parent"
++        style="@style/SudContentFrame">
++
++        <ScrollView
++            android:id="@+id/page"
++            android:layout_width="match_parent"
++            android:layout_height="0dp"
++            android:layout_weight="1">
++
++            <LinearLayout
++                android:orientation="vertical"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content">
++
++                <!-- Typed text is never saved, autofilled, suggested or learned. -->
++                <org.lineageos.setupwizard.widget.SableKeyTestField
++                    android:id="@+id/sable_key_test_field"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:minHeight="48dp"
++                    android:hint="@string/sable_key_test_hint"
++                    android:inputType="text|textNoSuggestions"
++                    android:imeOptions="actionNext|flagNoExtractUi|flagNoPersonalizedLearning"
++                    android:importantForAutofill="no"
++                    android:saveEnabled="false" />
++
++                <!-- One row per check, filled in by SableKeyboardTestActivity. -->
++                <GridLayout
++                    android:id="@+id/sable_key_test_checks"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:paddingVertical="4dp"
++                    android:columnCount="2" />
++
++                <TextView
++                    android:id="@+id/sable_key_test_progress"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:paddingVertical="4dp"
++                    android:accessibilityLiveRegion="polite"
++                    android:textColor="?android:attr/textColorPrimary" />
++
++                <TextView
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:paddingVertical="4dp"
++                    android:text="@string/sable_key_test_layers"
++                    android:textColor="?android:attr/textColorSecondary" />
++
++                <TextView
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:paddingTop="4dp"
++                    android:text="@string/sable_key_test_trouble"
++                    android:textColor="?android:attr/textColorSecondary" />
++
++                <LinearLayout
++                    android:orientation="horizontal"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content">
++
++                    <Button
++                        android:id="@+id/sable_key_test_soft"
++                        android:layout_width="wrap_content"
++                        android:layout_height="wrap_content"
++                        android:minHeight="48dp"
++                        android:text="@string/sable_key_test_soft"
++                        android:visibility="gone"
++                        style="@style/SudGlifButton.Secondary" />
++
++                    <Button
++                        android:id="@+id/sable_key_test_accessibility"
++                        android:layout_width="wrap_content"
++                        android:layout_height="wrap_content"
++                        android:minHeight="48dp"
++                        android:text="@string/sable_key_test_accessibility"
++                        android:visibility="gone"
++                        style="@style/SudGlifButton.Secondary" />
++
++                </LinearLayout>
++
++            </LinearLayout>
++        </ScrollView>
++
++        <org.lineageos.setupwizard.NavigationLayout
++            android:id="@+id/navigation_bar"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            app:showSkipButton="true" />
++
++    </LinearLayout>
++</com.google.android.setupdesign.GlifLayout>
+diff --git a/res/raw/lineage_wizard_script.xml b/res/raw/lineage_wizard_script.xml
+index 8dc45c93..0be0d260 100644
+--- a/res/raw/lineage_wizard_script.xml
++++ b/res/raw/lineage_wizard_script.xml
+@@ -30,6 +30,13 @@
+     <WizardAction
+         wizard:uri="intent:#Intent;action=org.sableos.setupwizard.SABLE_KEYBOARD;end"
+         id="sable_keyboard">
++        <result wizard:action="sable_keyboard_test" />
++    </WizardAction>
++
++    <!-- SableOS: type a sentence and see each key register; Skip and Next always work (IR-014). -->
++    <WizardAction
++        wizard:uri="intent:#Intent;action=org.sableos.setupwizard.SABLE_KEYBOARD_TEST;end"
++        id="sable_keyboard_test">
+         <result wizard:action="sim_missing" />
+     </WizardAction>
+ 
+diff --git a/res/values/sable_strings.xml b/res/values/sable_strings.xml
+index f36d1a1a..d3be6716 100644
+--- a/res/values/sable_strings.xml
++++ b/res/values/sable_strings.xml
+@@ -3,7 +3,7 @@
+      SPDX-FileCopyrightText: The SableOS Project
+      SPDX-License-Identifier: Apache-2.0
+ -->
+-<resources>
++<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+     <!-- SableOS keyboard readiness step (IR-014). -->
+     <string name="setup_sable_keyboard">Keyboard</string>
+     <string name="sable_keyboard_summary">Sable Keyboard types with the physical keys, including Wi‑Fi passwords and PINs in the next steps.</string>
+@@ -16,4 +16,28 @@
+     <string name="sable_keyboard_offer_settings">Keyboard settings</string>
+     <string name="sable_keyboard_offer_pick">Choose keyboard</string>
+     <string name="sable_keyboard_offer_enable">Turn on keyboard</string>
++
++    <!-- SableOS keyboard test step (IR-014). The Q25 has no Fn key: Shift, Alt and Sym only. -->
++    <string name="setup_sable_keyboard_test">Keyboard test</string>
++    <string name="sable_key_test_summary">Type a sentence, for example: Meet at 7:30 &amp; bring 2 maps! Each kind of key is ticked below when it registers.</string>
++    <string name="sable_key_test_hint">Type here</string>
++    <string name="sable_key_test_letters">Letters</string>
++    <string name="sable_key_test_capitals">Shift capitals</string>
++    <string name="sable_key_test_numbers">Numbers</string>
++    <string name="sable_key_test_alt">Alt characters</string>
++    <string name="sable_key_test_sym">Sym symbols</string>
++    <string name="sable_key_test_space">Space</string>
++    <string name="sable_key_test_backspace">Backspace</string>
++    <string name="sable_key_test_row_waiting">○ <xliff:g id="check" example="Letters">%1$s</xliff:g></string>
++    <string name="sable_key_test_row_pressed">◐ <xliff:g id="check" example="Alt characters">%1$s</xliff:g></string>
++    <string name="sable_key_test_row_pass">✓ <xliff:g id="check" example="Letters">%1$s</xliff:g></string>
++    <string name="sable_key_test_row_waiting_spoken"><xliff:g id="check" example="Letters">%1$s</xliff:g>: not yet</string>
++    <string name="sable_key_test_row_pressed_spoken"><xliff:g id="check" example="Alt characters">%1$s</xliff:g>: key pressed, now type a character with it</string>
++    <string name="sable_key_test_row_pass_spoken"><xliff:g id="check" example="Letters">%1$s</xliff:g>: works</string>
++    <string name="sable_key_test_progress"><xliff:g id="passed" example="3">%1$d</xliff:g> of <xliff:g id="total" example="7">%2$d</xliff:g> work</string>
++    <string name="sable_key_test_all">All keys work. Press Enter to continue.</string>
++    <string name="sable_key_test_layers">Shift types capitals. Alt types the second character printed on a key, such as numbers. Sym opens symbols that are not printed on the keys. Enter continues; Skip if you would rather test later in Sable Tools. Nothing you type here is kept.</string>
++    <string name="sable_key_test_trouble">Keys not working? Use the on-screen keyboard or accessibility options.</string>
++    <string name="sable_key_test_soft">On-screen keyboard</string>
++    <string name="sable_key_test_accessibility">Accessibility</string>
+ </resources>
+diff --git a/src/org/lineageos/setupwizard/SableKeyboardTestActivity.java b/src/org/lineageos/setupwizard/SableKeyboardTestActivity.java
+new file mode 100644
+index 00000000..91bbfa64
+--- /dev/null
++++ b/src/org/lineageos/setupwizard/SableKeyboardTestActivity.java
+@@ -0,0 +1,178 @@
++/*
++ * SPDX-FileCopyrightText: The SableOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++package org.lineageos.setupwizard;
++
++import android.annotation.Nullable;
++import android.content.Intent;
++import android.content.res.ColorStateList;
++import android.os.Bundle;
++import android.provider.Settings;
++import android.text.Editable;
++import android.text.TextWatcher;
++import android.util.TypedValue;
++import android.view.Gravity;
++import android.view.inputmethod.EditorInfo;
++import android.widget.GridLayout;
++import android.widget.TextView;
++
++import com.android.settingslib.Utils;
++
++import org.lineageos.setupwizard.sable.SableKeyTest;
++import org.lineageos.setupwizard.sable.SableKeyTest.Check;
++import org.lineageos.setupwizard.sable.SableKeyTest.State;
++import org.lineageos.setupwizard.widget.SableKeyTestField;
++
++import java.util.EnumMap;
++import java.util.Map;
++
++/**
++ * SableOS keyboard test step (IR-014, SETUP_WIZARD_FIRST_BOOT_UX "Keyboard verification"),
++ * after the keyboard readiness step and before Wi-Fi. The user types a sentence and each kind
++ * of key (letters, Shift capitals, numbers, Alt, Sym, Space, Backspace) is ticked as it
++ * registers. Enter continues, Skip and Next are always available, and the on-screen keyboard
++ * and accessibility settings are offered as the recovery path. Nothing typed is stored.
++ */
++public class SableKeyboardTestActivity extends BaseSetupWizardActivity {
++    private static final float ROW_MIN_HEIGHT_DP = 28f;
++
++    private final SableKeyTest mTest = new SableKeyTest();
++    private final Map<Check, TextView> mRows = new EnumMap<>(Check.class);
++    private SableKeyTestField mField;
++    private TextView mProgress;
++    private ColorStateList mWaitingColor;
++    private ColorStateList mPassColor;
++    private CharSequence mBefore = "";
++
++    @Override
++    protected void onCreate(@Nullable Bundle savedInstanceState) {
++        super.onCreate(savedInstanceState);
++        getGlifLayout().setDescriptionText(getString(R.string.sable_key_test_summary));
++        setNextAllowed(true);
++
++        mProgress = findViewById(R.id.sable_key_test_progress);
++        mPassColor = Utils.getColorAccent(this);
++        buildRows(findViewById(R.id.sable_key_test_checks));
++
++        mField = findViewById(R.id.sable_key_test_field);
++        mField.setKeyObserver(event -> {
++            if (mTest.onKeyDown(event.getKeyCode(), event.getMetaState())) render();
++        });
++        mField.addTextChangedListener(new TextWatcher() {
++            @Override
++            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
++                mBefore = s.subSequence(start, start + count).toString();
++            }
++
++            @Override
++            public void onTextChanged(CharSequence s, int start, int before, int count) {
++                if (mTest.onReplace(mBefore, s.subSequence(start, start + count))) render();
++                mBefore = "";
++            }
++
++            @Override
++            public void afterTextChanged(Editable s) {}
++        });
++        // The IME's Next/Done action continues, the same as Enter on the physical keys.
++        mField.setOnEditorActionListener((v, actionId, event) -> {
++            if (actionId == EditorInfo.IME_ACTION_NEXT || actionId == EditorInfo.IME_ACTION_DONE) {
++                onNavigateNext();
++                return true;
++            }
++            return false;
++        });
++
++        SableLinks.bind(this, findViewById(R.id.sable_key_test_soft),
++                new Intent(Settings.ACTION_HARD_KEYBOARD_SETTINGS),
++                new Intent(Settings.ACTION_INPUT_METHOD_SETTINGS));
++        SableLinks.bind(this, findViewById(R.id.sable_key_test_accessibility),
++                new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
++        render();
++    }
++
++    @Override
++    protected void onResume() {
++        super.onResume();
++        // Typing works at once: the first key goes into the field, not into finding focus.
++        if (getCurrentFocus() == null) mField.requestFocus();
++    }
++
++    private void buildRows(GridLayout grid) {
++        for (Check check : SableKeyTest.checks()) {
++            final TextView row = new TextView(this);
++            row.setMinHeight(Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
++                    ROW_MIN_HEIGHT_DP, getResources().getDisplayMetrics())));
++            row.setGravity(Gravity.CENTER_VERTICAL);
++            final GridLayout.LayoutParams lp = new GridLayout.LayoutParams(
++                    GridLayout.spec(GridLayout.UNDEFINED),
++                    GridLayout.spec(GridLayout.UNDEFINED, 1f));
++            lp.width = 0;
++            grid.addView(row, lp);
++            if (mWaitingColor == null) mWaitingColor = row.getTextColors();
++            mRows.put(check, row);
++        }
++    }
++
++    private void render() {
++        for (Check check : SableKeyTest.checks()) {
++            final TextView row = mRows.get(check);
++            final String label = getString(labelOf(check));
++            final State state = mTest.state(check);
++            final int text;
++            final int spoken;
++            switch (state) {
++                case PASS:
++                    text = R.string.sable_key_test_row_pass;
++                    spoken = R.string.sable_key_test_row_pass_spoken;
++                    break;
++                case PRESSED:
++                    text = R.string.sable_key_test_row_pressed;
++                    spoken = R.string.sable_key_test_row_pressed_spoken;
++                    break;
++                case WAITING:
++                default:
++                    text = R.string.sable_key_test_row_waiting;
++                    spoken = R.string.sable_key_test_row_waiting_spoken;
++                    break;
++            }
++            row.setText(getString(text, label));
++            row.setContentDescription(getString(spoken, label));
++            row.setTextColor(state == State.PASS ? mPassColor : mWaitingColor);
++        }
++        mProgress.setText(mTest.allPassed()
++                ? getString(R.string.sable_key_test_all)
++                : getString(R.string.sable_key_test_progress, mTest.passedCount(),
++                        SableKeyTest.checks().size()));
++    }
++
++    private static int labelOf(Check check) {
++        switch (check) {
++            case LETTERS: return R.string.sable_key_test_letters;
++            case CAPITALS: return R.string.sable_key_test_capitals;
++            case NUMBERS: return R.string.sable_key_test_numbers;
++            case ALT: return R.string.sable_key_test_alt;
++            case SYM: return R.string.sable_key_test_sym;
++            case SPACE: return R.string.sable_key_test_space;
++            case BACKSPACE:
++            default:
++                return R.string.sable_key_test_backspace;
++        }
++    }
++
++    @Override
++    protected int getLayoutResId() {
++        return R.layout.sable_keyboard_test_page;
++    }
++
++    @Override
++    protected int getTitleResId() {
++        return R.string.setup_sable_keyboard_test;
++    }
++
++    @Override
++    protected int getIconResId() {
++        return R.drawable.ic_sable_keyboard_setup;
++    }
++}
+diff --git a/src/org/lineageos/setupwizard/SableLinks.java b/src/org/lineageos/setupwizard/SableLinks.java
+new file mode 100644
+index 00000000..10088141
+--- /dev/null
++++ b/src/org/lineageos/setupwizard/SableLinks.java
+@@ -0,0 +1,49 @@
++/*
++ * SPDX-FileCopyrightText: The SableOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++package org.lineageos.setupwizard;
++
++import android.app.Activity;
++import android.content.Intent;
++import android.util.Log;
++import android.view.View;
++import android.widget.Button;
++
++/**
++ * Links from SableOS setup steps to system screens (IR-014). A link is shown only when one of
++ * its screens exists on this build, so a step never offers a dead button; opening it can never
++ * fail the step.
++ */
++final class SableLinks {
++    private static final String TAG = "SableLinks";
++
++    private SableLinks() {}
++
++    /**
++     * Shows {@code button} when one of {@code candidates} resolves and makes it open the first
++     * that does; hides it otherwise.
++     *
++     * @return true when the button is shown
++     */
++    static boolean bind(Activity activity, Button button, Intent... candidates) {
++        for (Intent target : candidates) {
++            if (target == null || target.resolveActivity(activity.getPackageManager()) == null) {
++                continue;
++            }
++            button.setVisibility(View.VISIBLE);
++            button.setOnClickListener(v -> {
++                try {
++                    activity.startActivity(target);
++                } catch (RuntimeException e) {
++                    Log.w(TAG, "could not open " + target, e);
++                }
++            });
++            return true;
++        }
++        button.setVisibility(View.GONE);
++        button.setOnClickListener(null);
++        return false;
++    }
++}
+diff --git a/src/org/lineageos/setupwizard/sable/SableKeyTest.java b/src/org/lineageos/setupwizard/sable/SableKeyTest.java
+new file mode 100644
+index 00000000..a26bfcf0
+--- /dev/null
++++ b/src/org/lineageos/setupwizard/sable/SableKeyTest.java
+@@ -0,0 +1,196 @@
++/*
++ * SPDX-FileCopyrightText: The SableOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++package org.lineageos.setupwizard.sable;
++
++import java.util.Arrays;
++import java.util.Collections;
++import java.util.EnumMap;
++import java.util.List;
++import java.util.Map;
++
++/**
++ * The setup keyboard test (SableOS IR-014, SETUP_WIZARD_FIRST_BOOT_UX "Keyboard
++ * verification"): the user types a sentence and each kind of key shows as registered.
++ * Pure Java: the activity feeds it the key events the test field sees before the IME and
++ * the text that reaches the field, and shows {@link #state} for each {@link Check}.
++ *
++ * <p>The Zinwa Q25 has no Fn key, so the layers checked are Shift, Alt and Sym. A modifier
++ * key alone shows as {@link State#PRESSED}; its layer passes when a character typed with it
++ * reaches the field. Text that arrives without key events (on-screen keyboard, a symbol
++ * picker) still passes Letters, Capitals, Numbers, Space and Backspace. Nothing typed is
++ * kept: the model only remembers which checks passed.
++ */
++public final class SableKeyTest {
++
++    public enum Check { LETTERS, CAPITALS, NUMBERS, ALT, SYM, SPACE, BACKSPACE }
++
++    public enum State {
++        /** Nothing registered yet. */
++        WAITING,
++        /** The modifier key registered; no character typed with it yet. */
++        PRESSED,
++        /** Registered. */
++        PASS
++    }
++
++    /** Which modifier the next typed character is credited to. */
++    private enum Armed { NONE, ALT, SYM }
++
++    // Public Android key codes and meta flags (android.view.KeyEvent).
++    public static final int KEYCODE_SPACE = 62;
++    public static final int KEYCODE_ALT_LEFT = 57;
++    public static final int KEYCODE_ALT_RIGHT = 58;
++    public static final int KEYCODE_SHIFT_LEFT = 59;
++    public static final int KEYCODE_SHIFT_RIGHT = 60;
++    public static final int KEYCODE_SYM = 63;
++    public static final int KEYCODE_DEL = 67;
++    public static final int KEYCODE_FORWARD_DEL = 112;
++    public static final int KEYCODE_CAPS_LOCK = 115;
++    public static final int META_SHIFT_ON = 0x1;
++    public static final int META_ALT_ON = 0x2;
++    public static final int META_SYM_ON = 0x4;
++    public static final int META_CAPS_LOCK_ON = 0x100000;
++
++    private static final List<Check> ORDER = Collections.unmodifiableList(
++            Arrays.asList(Check.values()));
++
++    private final Map<Check, State> mStates = new EnumMap<>(Check.class);
++    private Armed mArmed = Armed.NONE;
++
++    public SableKeyTest() {
++        reset();
++    }
++
++    /** The checks in display order. */
++    public static List<Check> checks() {
++        return ORDER;
++    }
++
++    public void reset() {
++        for (Check c : Check.values()) mStates.put(c, State.WAITING);
++        mArmed = Armed.NONE;
++    }
++
++    public State state(Check check) {
++        return mStates.get(check);
++    }
++
++    public int passedCount() {
++        int n = 0;
++        for (State s : mStates.values()) {
++            if (s == State.PASS) n++;
++        }
++        return n;
++    }
++
++    public boolean allPassed() {
++        return passedCount() == ORDER.size();
++    }
++
++    /**
++     * A key down the test field saw before the IME.
++     *
++     * @return true when a check changed state
++     */
++    public boolean onKeyDown(int keyCode, int metaState) {
++        switch (keyCode) {
++            case KEYCODE_ALT_LEFT:
++            case KEYCODE_ALT_RIGHT:
++                mArmed = Armed.ALT;
++                return press(Check.ALT);
++            case KEYCODE_SYM:
++                mArmed = Armed.SYM;
++                return press(Check.SYM);
++            case KEYCODE_SHIFT_LEFT:
++            case KEYCODE_SHIFT_RIGHT:
++            case KEYCODE_CAPS_LOCK:
++                return press(Check.CAPITALS);
++            case KEYCODE_DEL:
++            case KEYCODE_FORWARD_DEL:
++                return pass(Check.BACKSPACE);
++            default:
++                break;
++        }
++        // A key held with a modifier: credit the character it produces to that layer.
++        if ((metaState & META_SYM_ON) != 0) {
++            mArmed = Armed.SYM;
++        } else if ((metaState & META_ALT_ON) != 0) {
++            mArmed = Armed.ALT;
++        }
++        return false;
++    }
++
++    /**
++     * One edit of the field: {@code before} was replaced by {@code after}. An IME that
++     * rewrites its composing word reports the whole word again, so only what follows the
++     * common prefix counts as typed.
++     *
++     * @return true when a check changed state
++     */
++    public boolean onReplace(CharSequence before, CharSequence after) {
++        final String b = before == null ? "" : before.toString();
++        final String a = after == null ? "" : after.toString();
++        int prefix = 0;
++        final int max = Math.min(a.length(), b.length());
++        while (prefix < max && a.charAt(prefix) == b.charAt(prefix)) prefix++;
++        if (prefix > 0 && Character.isHighSurrogate(a.charAt(prefix - 1))) prefix--;
++        return onText(a.substring(prefix), b.length() - prefix);
++    }
++
++    /**
++     * Text that reached the field.
++     *
++     * @param inserted the characters added (may be empty)
++     * @param removedCount how many characters were removed
++     * @return true when a check changed state
++     */
++    public boolean onText(CharSequence inserted, int removedCount) {
++        boolean changed = false;
++        if (removedCount > 0 && (inserted == null || inserted.length() == 0)) {
++            changed |= pass(Check.BACKSPACE);
++        }
++        if (inserted == null) return changed;
++        final String s = inserted.toString();
++        for (int i = 0; i < s.length(); ) {
++            final int c = s.codePointAt(i);
++            i += Character.charCount(c);
++            changed |= onChar(c);
++        }
++        return changed;
++    }
++
++    private boolean onChar(int c) {
++        boolean changed = false;
++        final Armed armed = mArmed;
++        mArmed = Armed.NONE;
++        if (Character.isLetter(c)) {
++            changed |= pass(Check.LETTERS);
++            if (Character.isUpperCase(c)) changed |= pass(Check.CAPITALS);
++            // A letter means the modifier did not apply; it gets no credit.
++            return changed;
++        }
++        if (Character.isSpaceChar(c) || c == '\t') {
++            return pass(Check.SPACE);
++        }
++        if (Character.isDigit(c)) changed |= pass(Check.NUMBERS);
++        if (Character.isISOControl(c)) return changed;
++        if (armed == Armed.ALT) changed |= pass(Check.ALT);
++        if (armed == Armed.SYM) changed |= pass(Check.SYM);
++        return changed;
++    }
++
++    private boolean press(Check check) {
++        if (mStates.get(check) != State.WAITING) return false;
++        mStates.put(check, State.PRESSED);
++        return true;
++    }
++
++    private boolean pass(Check check) {
++        if (mStates.get(check) == State.PASS) return false;
++        mStates.put(check, State.PASS);
++        return true;
++    }
++}
+diff --git a/src/org/lineageos/setupwizard/widget/SableKeyTestField.java b/src/org/lineageos/setupwizard/widget/SableKeyTestField.java
+new file mode 100644
+index 00000000..289c75bb
+--- /dev/null
++++ b/src/org/lineageos/setupwizard/widget/SableKeyTestField.java
+@@ -0,0 +1,52 @@
++/*
++ * SPDX-FileCopyrightText: The SableOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++package org.lineageos.setupwizard.widget;
++
++import android.content.Context;
++import android.util.AttributeSet;
++import android.view.KeyEvent;
++import android.widget.EditText;
++
++/**
++ * The keyboard test field (SableOS IR-014). It reports each key down before the IME sees it,
++ * so modifier keys (Shift, Alt, Sym) register even when the IME consumes them, and then
++ * behaves exactly like an EditText.
++ */
++public class SableKeyTestField extends EditText {
++
++    /** Receives key downs before the IME; it must not consume them. */
++    public interface KeyObserver {
++        void onKeyDownPreIme(KeyEvent event);
++    }
++
++    private KeyObserver mObserver;
++
++    public SableKeyTestField(Context context) {
++        super(context);
++    }
++
++    public SableKeyTestField(Context context, AttributeSet attrs) {
++        super(context, attrs);
++    }
++
++    public SableKeyTestField(Context context, AttributeSet attrs, int defStyleAttr) {
++        super(context, attrs, defStyleAttr);
++    }
++
++    public void setKeyObserver(KeyObserver observer) {
++        mObserver = observer;
++    }
++
++    @Override
++    public boolean onKeyPreIme(int keyCode, KeyEvent event) {
++        final KeyObserver observer = mObserver;
++        if (observer != null && event.getAction() == KeyEvent.ACTION_DOWN
++                && event.getRepeatCount() == 0) {
++            observer.onKeyDownPreIme(event);
++        }
++        return super.onKeyPreIme(keyCode, event);
++    }
++}
+-- 
+2.43.0
+
