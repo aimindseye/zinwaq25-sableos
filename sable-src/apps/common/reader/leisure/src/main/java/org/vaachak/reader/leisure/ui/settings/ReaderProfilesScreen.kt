@@ -83,80 +83,25 @@ fun ReaderProfilesScreen(
             }
         ) { paddingValues ->
 
-            if (profileToEdit != null) {
-            // --- FULL-SCREEN: CHANGE PIN FORM ---
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background)
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text("Change PIN for ${profileToEdit?.name}", style = MaterialTheme.typography.headlineMedium)
-                Spacer(modifier = Modifier.height(32.dp))
-
-                // Only ask for Old PIN if they actually have one set
-                if (profileToEdit?.pinHash != null) {
-                    OutlinedTextField(
-                        value = oldPin,
-                        onValueChange = { oldPin = it; viewModel.clearPinError() },
-                        label = { Text("Current PIN") },
-                        singleLine = true,
-                        isError = pinError != null,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                        visualTransformation = PasswordVisualTransformation(),
-                        modifier = Modifier.tid("reader_profiles_old_pin")
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                OutlinedTextField(
-                    value = newPin,
-                    onValueChange = { newPin = it; viewModel.clearPinError() },
-                    label = { Text("New PIN (Optional)") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.tid("reader_profiles_new_pin")
+            val editing = profileToEdit
+            if (editing != null) {
+                ChangePinForm(
+                    profile = editing,
+                    pinError = pinError,
+                    oldPin = oldPin,
+                    newPin = newPin,
+                    onOldPinChange = { oldPin = it; viewModel.clearPinError() },
+                    onNewPinChange = { newPin = it; viewModel.clearPinError() },
+                    onCancel = {
+                        profileToEdit = null
+                        viewModel.clearPinError()
+                    },
+                    onSave = {
+                        if (viewModel.changePin(editing, oldPin, newPin)) profileToEdit = null
+                    }
                 )
-
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Leave New PIN blank to remove password.", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
-
-                if (pinError != null) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(pinError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
-                }
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    TextButton(
-                        onClick = {
-                            profileToEdit = null
-                            viewModel.clearPinError()
-                        },
-                        modifier = Modifier.tid("reader_profiles_cancel_pin")
-                    ) {
-                        Text("Cancel")
-                    }
-                    Button(
-                        onClick = {
-                            val success = viewModel.changePin(profileToEdit!!, oldPin, newPin)
-                            if (success) {
-                                profileToEdit = null
-                            }
-                        },
-                        modifier = Modifier.tid("reader_profiles_save_pin")
-                    ) {
-                        Text("Save Changes")
-                    }
-                }
-            }
-            } else {
-            // --- MAIN LIST: SHOW PROFILES ---
-            if (profiles.isEmpty()) {
+            } else if (profiles.isEmpty()) {
+                // --- MAIN LIST: SHOW PROFILES ---
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("No profiles found", color = Color.Gray)
                 }
@@ -169,66 +114,148 @@ fun ReaderProfilesScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(profiles) { profile ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .tid(Tid.Vault.profile(profile.profileId))
-                                .semantics(mergeDescendants = true) {
-                                    contentDescription = "Profile: ${profile.name}, ${if (profile.pinHash != null) "Locked" else "Unlocked"}"
-                                },
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                // Avatar Box
-                                Box(
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = profile.name.take(1).uppercase(),
-                                        color = MaterialTheme.colorScheme.onPrimary,
-                                        style = MaterialTheme.typography.titleLarge,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.width(16.dp))
-
-                                // Name
-                                Text(
-                                    text = profile.name,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    modifier = Modifier.weight(1f)
-                                )
-
-                                // Change PIN Action
-                                IconButton(
-                                    onClick = {
-                                        oldPin = ""
-                                        newPin = ""
-                                        viewModel.clearPinError()
-                                        profileToEdit = profile
-                                    },
-                                    modifier = Modifier.tid("reader_profiles_edit_pin_${profile.profileId}")
-                                ) {
-                                    val icon = if (profile.pinHash != null) Icons.Default.Lock else Icons.Default.LockOpen
-                                    Icon(
-                                        imageVector = icon,
-                                        contentDescription = if (profile.pinHash != null) "Change PIN" else "Set PIN"
-                                    )
-                                }
+                        ProfileCard(
+                            profile = profile,
+                            onEditPin = {
+                                oldPin = ""
+                                newPin = ""
+                                viewModel.clearPinError()
+                                profileToEdit = profile
                             }
-                        }
+                        )
                     }
                 }
             }
+        }
+    }
+}
+
+/** Full-screen form for setting, changing or removing a profile PIN. */
+@Composable
+private fun ChangePinForm(
+    profile: ProfileEntity,
+    pinError: String?,
+    oldPin: String,
+    newPin: String,
+    onOldPinChange: (String) -> Unit,
+    onNewPinChange: (String) -> Unit,
+    onCancel: () -> Unit,
+    onSave: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Change PIN for ${profile.name}", style = MaterialTheme.typography.headlineMedium)
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Only ask for Old PIN if they actually have one set
+        if (profile.pinHash != null) {
+            OutlinedTextField(
+                value = oldPin,
+                onValueChange = onOldPinChange,
+                label = { Text("Current PIN") },
+                singleLine = true,
+                isError = pinError != null,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.tid("reader_profiles_old_pin")
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        OutlinedTextField(
+            value = newPin,
+            onValueChange = onNewPinChange,
+            label = { Text("New PIN (Optional)") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+            visualTransformation = PasswordVisualTransformation(),
+            modifier = Modifier.tid("reader_profiles_new_pin")
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+        Text("Leave New PIN blank to remove password.", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+
+        if (pinError != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(pinError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            TextButton(
+                onClick = onCancel,
+                modifier = Modifier.tid("reader_profiles_cancel_pin")
+            ) {
+                Text("Cancel")
+            }
+            Button(
+                onClick = onSave,
+                modifier = Modifier.tid("reader_profiles_save_pin")
+            ) {
+                Text("Save Changes")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileCard(profile: ProfileEntity, onEditPin: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .tid(Tid.Vault.profile(profile.profileId))
+            .semantics(mergeDescendants = true) {
+                contentDescription = "Profile: ${profile.name}, ${if (profile.pinHash != null) "Locked" else "Unlocked"}"
+            },
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Avatar Box
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = profile.name.take(1).uppercase(),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Name
+            Text(
+                text = profile.name,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f)
+            )
+
+            // Change PIN Action
+            IconButton(
+                onClick = onEditPin,
+                modifier = Modifier.tid("reader_profiles_edit_pin_${profile.profileId}")
+            ) {
+                val icon = if (profile.pinHash != null) Icons.Default.Lock else Icons.Default.LockOpen
+                Icon(
+                    imageVector = icon,
+                    contentDescription = if (profile.pinHash != null) "Change PIN" else "Set PIN"
+                )
             }
         }
     }

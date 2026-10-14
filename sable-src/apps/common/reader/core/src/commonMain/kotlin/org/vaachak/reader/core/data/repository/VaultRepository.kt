@@ -54,11 +54,6 @@ class VaultRepository(
         initialValue = false
     )
 
-    @Deprecated("Use setActiveVaultId for clarity", ReplaceWith("setActiveVaultId(vaultId)"))
-    suspend fun setActiveVault(vaultId: String) {
-        setActiveVaultId(vaultId)
-    }
-
     suspend fun setMultiUserMode(enabled: Boolean) {
         globalDataStore.edit { it[IS_MULTI_USER_MODE] = enabled }
     }

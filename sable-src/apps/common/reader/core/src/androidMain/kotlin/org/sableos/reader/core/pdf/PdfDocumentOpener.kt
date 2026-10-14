@@ -11,6 +11,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.sableos.reader.core.io.deleteQuietly
 import org.sableos.reader.engine.pdf.PdfDocumentSession
 import timber.log.Timber
 
@@ -87,7 +88,7 @@ class PdfDocumentOpener @Inject constructor(
         input != null
     } catch (e: IOException) {
         Timber.w(e, "PDF cache copy failed")
-        target.delete()
+        target.deleteQuietly("partial PDF cache copy")
         false
     }
 

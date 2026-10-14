@@ -149,37 +149,18 @@ private fun CalculatorPad(scientific: Boolean) {
     var leftOperand by remember { mutableStateOf<String?>(null) }
     var operation by remember { mutableStateOf<Int?>(null) }
     var replaceInput by remember { mutableStateOf(false) }
-    var status by remember {
-        mutableStateOf(
-            if (scientific) {
-                "Scientific functions use degrees."
-            } else {
-                "Exact decimal arithmetic runs in the Rust domain."
-            },
-        )
-    }
+    var status by remember { mutableStateOf(initialStatus(scientific)) }
 
     fun clear() {
         display = "0"
         leftOperand = null
         operation = null
         replaceInput = false
-        status =
-            if (scientific) {
-                "Scientific functions use degrees."
-            } else {
-                "Exact decimal arithmetic runs in the Rust domain."
-            }
+        status = initialStatus(scientific)
     }
 
     fun enterDigit(digit: String) {
-        display =
-            when {
-                replaceInput -> digit
-                display == "0" -> digit
-                display == "-0" -> "-$digit"
-                else -> display + digit
-            }
+        display = withDigit(display, digit, replaceInput)
         replaceInput = false
     }
 
@@ -194,13 +175,7 @@ private fun CalculatorPad(scientific: Boolean) {
 
     fun backspace() {
         if (!replaceInput) {
-            display =
-                display
-                    .dropLast(1)
-                    .ifEmpty { "0" }
-            if (display == "-") {
-                display = "0"
-            }
+            display = withoutLastChar(display)
         }
     }
 
@@ -319,33 +294,13 @@ private fun CalculatorPad(scientific: Boolean) {
         verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
     ) {
         SableValuePanel(
-            label =
-                operation?.let { index ->
-                    "${leftOperand.orEmpty()} ${operationLabels[index]}"
-                } ?: if (scientific) {
-                    "scientific"
-                } else {
-                    "display"
-                },
+            label = panelLabel(leftOperand, operation, scientific),
             value = display,
             supportingText = status,
         )
 
         if (scientific) {
-            scientificChoices.chunked(4).forEach { rowChoices ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
-                ) {
-                    rowChoices.forEach { choice ->
-                        SableTile(
-                            title = choice.label,
-                            modifier = Modifier.weight(1f),
-                            onClick = { applyScientific(choice) },
-                        )
-                    }
-                }
-            }
+            ScientificGrid(onChoice = ::applyScientific)
         }
 
         Keypad(
@@ -354,16 +309,7 @@ private fun CalculatorPad(scientific: Boolean) {
             onOperation = ::chooseOperation,
             onEquals = ::equals,
             onClear = ::clear,
-            onToggleSign = {
-                display =
-                    if (display.startsWith("-")) {
-                        display.removePrefix("-")
-                    } else if (display != "0") {
-                        "-$display"
-                    } else {
-                        display
-                    }
-            },
+            onToggleSign = { display = withToggledSign(display) },
             onBackspace = ::backspace,
         )
 
@@ -377,6 +323,66 @@ private fun CalculatorPad(scientific: Boolean) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+private fun initialStatus(scientific: Boolean): String =
+    if (scientific) {
+        "Scientific functions use degrees."
+    } else {
+        "Exact decimal arithmetic runs in the Rust domain."
+    }
+
+private fun withDigit(
+    display: String,
+    digit: String,
+    replaceInput: Boolean,
+): String =
+    when {
+        replaceInput -> digit
+        display == "0" -> digit
+        display == "-0" -> "-$digit"
+        else -> display + digit
+    }
+
+private fun withoutLastChar(display: String): String {
+    val shorter = display.dropLast(1).ifEmpty { "0" }
+    return if (shorter == "-") "0" else shorter
+}
+
+private fun withToggledSign(display: String): String =
+    when {
+        display.startsWith("-") -> display.removePrefix("-")
+        display != "0" -> "-$display"
+        else -> display
+    }
+
+private fun panelLabel(
+    leftOperand: String?,
+    operation: Int?,
+    scientific: Boolean,
+): String =
+    when {
+        operation != null -> "${leftOperand.orEmpty()} ${operationLabels[operation]}"
+        scientific -> "scientific"
+        else -> "display"
+    }
+
+@Composable
+private fun ScientificGrid(onChoice: (ScientificChoice) -> Unit) {
+    scientificChoices.chunked(4).forEach { rowChoices ->
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+        ) {
+            rowChoices.forEach { choice ->
+                SableTile(
+                    title = choice.label,
+                    modifier = Modifier.weight(1f),
+                    onClick = { onChoice(choice) },
+                )
+            }
+        }
     }
 }
 

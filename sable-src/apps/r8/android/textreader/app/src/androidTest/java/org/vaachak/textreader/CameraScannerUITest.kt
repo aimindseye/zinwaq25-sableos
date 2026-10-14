@@ -40,7 +40,7 @@ class CameraScannerUITest {
     val composeTestRule = createComposeRule()
 
     @Test
-    fun scanner_top_bar_displays_correct_script_text_for_latin() {
+    fun scannerTopBarDisplaysCorrectScriptTextForLatin() {
         composeTestRule.setContent {
             ScannerTopBar(
                 isDevanagari = false,
@@ -54,7 +54,7 @@ class CameraScannerUITest {
     }
 
     @Test
-    fun scanner_top_bar_displays_correct_script_text_for_devanagari() {
+    fun scannerTopBarDisplaysCorrectScriptTextForDevanagari() {
         composeTestRule.setContent {
             ScannerTopBar(
                 isDevanagari = true,
@@ -67,7 +67,7 @@ class CameraScannerUITest {
     }
 
     @Test
-    fun scanner_bottom_controls_display_detected_text_and_buttons() {
+    fun scannerBottomControlsDisplayDetectedTextAndButtons() {
         val testDetectedText = "Café Menu: Espresso $3"
 
         composeTestRule.setContent {

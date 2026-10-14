@@ -47,7 +47,7 @@ class MainScreenTest {
     val composeTestRule = createComposeRule()
 
     @Test
-    fun app_displays_minimalist_title_and_empty_text_box_on_launch() {
+    fun appDisplaysMinimalistTitleAndEmptyTextBoxOnLaunch() {
         val mockTts: TextToSpeech = mock(TextToSpeech::class.java)
 
         composeTestRule.setContent {
@@ -66,7 +66,7 @@ class MainScreenTest {
     }
 
     @Test
-    fun playback_buttons_enable_correctly_when_text_is_typed() {
+    fun playbackButtonsEnableCorrectlyWhenTextIsTyped() {
         val mockTts: TextToSpeech = mock(TextToSpeech::class.java)
 
         composeTestRule.setContent {
@@ -100,7 +100,7 @@ class MainScreenTest {
     }
 
     @Test
-    fun playing_state_disables_play_and_save_and_enables_stop() {
+    fun playingStateDisablesPlayAndSaveAndEnablesStop() {
         val mockTts: TextToSpeech = mock(TextToSpeech::class.java)
         val testText = "Reading this text out loud."
 
@@ -124,7 +124,7 @@ class MainScreenTest {
     }
 
     @Test
-    fun app_loads_shared_text_from_intent_properly() {
+    fun appLoadsSharedTextFromIntentProperly() {
         val mockTts: TextToSpeech = mock(TextToSpeech::class.java)
         val sharedIntentText = "This text was shared from a browser!"
 
@@ -147,7 +147,7 @@ class MainScreenTest {
     }
 
     @Test
-    fun clicking_settings_icon_opens_audio_settings_dialog() {
+    fun clickingSettingsIconOpensAudioSettingsDialog() {
         val mockTts: TextToSpeech = mock(TextToSpeech::class.java)
 
         composeTestRule.setContent {

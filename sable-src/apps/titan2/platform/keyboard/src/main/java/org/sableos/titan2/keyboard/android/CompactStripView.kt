@@ -59,7 +59,7 @@ class CompactStripView(
         addView(status)
         addView(content, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
         applyPadding(0, 0, 0, 0, 0)
-        setOnApplyWindowInsetsListener { v, insets ->
+        setOnApplyWindowInsetsListener { _, insets ->
             val cut = insets.getInsets(WindowInsets.Type.displayCutout())
             val nav = insets.getInsets(WindowInsets.Type.navigationBars())
             applyPadding(

@@ -57,7 +57,7 @@ class ReportTest {
                 listOf(ReportRow("model", "Q25"), ReportRow("blank", ""))
             ),
             ReportSection(ReportCategory.APPS, "Apps", listOf(ReportRow("pkg", "com.bank.secret"))),
-            ReportSection(ReportCategory.NETWORK, "Network", listOf(ReportRow("ip", "10.0.0.7")))
+            ReportSection(ReportCategory.NETWORK, "Network", listOf(ReportRow("ip", "192.0.2.7")))
         )
         val text = ReportPolicy.render(
             "Sable Tools report",
@@ -68,7 +68,7 @@ class ReportTest {
         assertTrue(text.contains("## Device"))
         assertTrue(text.contains("blank: -"))
         assertFalse(text.contains("com.bank.secret"))
-        assertTrue(text.contains("ip: 10.0.0.*"))
+        assertTrue(text.contains("ip: 192.0.2.*"))
         assertTrue(text.contains("Never included: message bodies"))
     }
 

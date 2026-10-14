@@ -17,6 +17,8 @@ object ComicInfoParser {
     private const val ENTITY = "<!entity"
     private const val FRONT_COVER = "frontcover"
     private const val MAX_FIELD_LENGTH = 4_000
+    // These http:// strings are SAX/Xerces feature identifiers passed to setFeature, never URLs that are fetched.
+    @Suppress("kotlin:S5332")
     private val hardeningFeatures = listOf(
         "http://apache.org/xml/features/disallow-doctype-decl" to true,
         "http://xml.org/sax/features/external-general-entities" to false,

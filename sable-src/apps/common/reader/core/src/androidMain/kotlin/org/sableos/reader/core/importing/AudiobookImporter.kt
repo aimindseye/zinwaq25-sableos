@@ -102,6 +102,8 @@ class AudiobookImporter @Inject constructor(
 
     private fun duplicateMessage(title: String) = "Duplicate: '$title' is already in your library."
 
+    // MD5 is the persisted library identity (book hash, backups, relink), not a security control.
+    @Suppress("kotlin:S4790")
     private fun md5Hex(text: String): String =
         java.security.MessageDigest.getInstance("MD5").digest(text.toByteArray()).joinToString("") { "%02x".format(it) }
 

@@ -426,11 +426,10 @@ class SoftKeyboardView(
 
     /** Press-and-hold repeats (backspace): first fire on touch-down, then 400 ms delay, then every 50 ms. */
     private fun installRepeat(target: View, click: () -> Unit) {
-        val tick = object : Runnable {
-            override fun run() {
-                click()
-                handler.postDelayed(this, REPEAT_INTERVAL_MS)
-            }
+        lateinit var tick: Runnable
+        tick = Runnable {
+            click()
+            handler.postDelayed(tick, REPEAT_INTERVAL_MS)
         }
         target.setOnTouchListener { v, e ->
             when (e.actionMasked) {

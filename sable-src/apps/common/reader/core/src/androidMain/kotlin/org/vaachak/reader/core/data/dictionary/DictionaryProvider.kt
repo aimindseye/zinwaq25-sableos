@@ -22,6 +22,6 @@
 
 package org.vaachak.reader.core.data.dictionary
 
-interface DictionaryProvider {
+fun interface DictionaryProvider {
     suspend fun lookup(word: String): String?
 }

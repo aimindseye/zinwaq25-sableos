@@ -18,6 +18,7 @@ import org.sableos.reader.core.comic.ComicBitmapDecoder
 import org.sableos.reader.core.comic.ComicOpenOutcome
 import org.sableos.reader.core.comic.ComicOpener
 import org.sableos.reader.core.comic.PageDecode
+import org.sableos.reader.core.io.deleteQuietly
 import org.sableos.reader.backup.Relink
 import org.sableos.reader.engine.comic.ComicInfo
 import org.sableos.reader.engine.comic.ComicLimits
@@ -48,17 +49,17 @@ class ComicImporter @Inject constructor(
         val profileId = vaultRepository.activeVaultId.first()
         val existing = bookDao.getBookByHash(staged.hash, profileId)
         if (existing != null) {
-            staged.file.delete()
+            staged.file.deleteQuietly(STAGING_FILE)
             return@withContext Result.failure(IllegalStateException(duplicateMessage(existing.title)))
         }
         val owned = File(comicsDir(context), "${staged.hash}.$EXTENSION")
         if (!staged.file.renameTo(owned)) {
-            staged.file.delete()
+            staged.file.deleteQuietly(STAGING_FILE)
             return@withContext Result.failure(IllegalStateException(UNREADABLE))
         }
         val name = fallbackName(uri)
         val result = register(Target(Uri.fromFile(owned), staged.hash, profileId, PublicationTypes.COMIC_MIME, name))
-        if (result.isFailure) owned.delete()
+        if (result.isFailure) owned.deleteQuietly(OWNED_FILE)
         result
     }
 
@@ -68,7 +69,7 @@ class ComicImporter @Inject constructor(
         val owned = File(comicsDir(context), "${staged.hash}.$EXTENSION")
         val sameFile = Relink.sameContent(bookHash, staged.hash)
         val placed = sameFile && staged.file.renameTo(owned)
-        if (!placed) staged.file.delete()
+        if (!placed) staged.file.deleteQuietly(STAGING_FILE)
         when {
             !sameFile -> Result.failure(IllegalStateException(NOT_THE_SAME_FILE))
             !placed -> Result.failure(IllegalStateException(UNREADABLE))
@@ -85,7 +86,7 @@ class ComicImporter @Inject constructor(
             cover?.let { bookDao.setCover(bookHash, profileId, platformHelper.saveCoverBitmapToStorage(it, bookHash)) }
             Result.success("Linked the comic.")
         } else {
-            owned.delete()
+            owned.deleteQuietly(OWNED_FILE)
             Result.failure(IllegalStateException(UNREADABLE))
         }
     }
@@ -103,7 +104,7 @@ class ComicImporter @Inject constructor(
     /** Removes the app-private copy behind a deleted library item. Anything outside the comics directory is ignored. */
     fun deleteOwnedCopy(localUri: String) {
         val file = Uri.parse(localUri).takeIf { it.scheme == "file" }?.path?.let(::File) ?: return
-        if (file.canonicalFile.parentFile == comicsDir(context).canonicalFile) file.delete()
+        if (file.canonicalFile.parentFile == comicsDir(context).canonicalFile) file.deleteQuietly(OWNED_FILE)
     }
 
     private class Target(
@@ -172,10 +173,12 @@ class ComicImporter @Inject constructor(
         val dir = comicsDir(context).apply { mkdirs() }
         val temp = File(dir, "${UUID.randomUUID()}.part")
         val hash = runCatching { platformHelper.openInputStream(uri)?.use { copyHashing(it, temp) } }.getOrNull()
-        if (hash == null) temp.delete()
+        if (hash == null) temp.deleteQuietly(STAGING_FILE)
         return hash?.let { Staged(temp, it) }
     }
 
+    // MD5 is the persisted library identity (book hash, backups, relink), not a security control.
+    @Suppress("kotlin:S4790")
     private fun copyHashing(source: InputStream, target: File): String {
         val digest = MessageDigest.getInstance("MD5")
         val buffer = ByteArray(COPY_BUFFER)
@@ -211,6 +214,8 @@ class ComicImporter @Inject constructor(
         private const val COVER_WIDTH_PX = 400
         private const val COVER_HEIGHT_PX = 560
         private const val COPY_BUFFER = 64 * 1024
+        private const val STAGING_FILE = "staged comic archive"
+        private const val OWNED_FILE = "imported comic archive"
         private const val UNKNOWN_AUTHOR = "Unknown Author"
         private const val UNTITLED = "Untitled comic"
         private const val UNREADABLE = "Could not read this comic."
@@ -219,6 +224,8 @@ class ComicImporter @Inject constructor(
 
         fun comicsDir(context: Context): File = File(context.filesDir, COMICS_DIR)
 
+        // MD5 is the persisted library identity (book hash, backups, relink), not a security control.
+        @Suppress("kotlin:S4790")
         private fun md5Hex(bytes: ByteArray): String = MessageDigest.getInstance("MD5").digest(bytes).toHex()
 
         private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }

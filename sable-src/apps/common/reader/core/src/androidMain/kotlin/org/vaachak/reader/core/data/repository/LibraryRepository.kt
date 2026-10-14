@@ -182,6 +182,8 @@ class LibraryRepository @Inject constructor(
         }
     }
 
+    // MD5 is the persisted library identity (book hash, backups, relink), not a security control.
+    @Suppress("kotlin:S4790")
     private fun calculateMd5Hash(stream: InputStream): String {
         val buffer = ByteArray(8192)
         val digest = MessageDigest.getInstance("MD5")

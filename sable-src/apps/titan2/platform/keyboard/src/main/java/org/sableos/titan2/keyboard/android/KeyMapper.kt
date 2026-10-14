@@ -49,7 +49,12 @@ object KeyMapper {
     fun map(code: Int): Key = when (code) {
         in KeyEvent.KEYCODE_A..KeyEvent.KEYCODE_Z -> Key.Letter('a' + (code - KeyEvent.KEYCODE_A))
         in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9 -> Key.Digit('0' + (code - KeyEvent.KEYCODE_0))
-        else -> special[code] ?: punct[code]?.let { Key.Punct(it) } ?: Key.Other(code)
+        else -> special[code] ?: punctOrOther(code)
+    }
+
+    private fun punctOrOther(code: Int): Key {
+        val char = punct[code]
+        return if (char != null) Key.Punct(char) else Key.Other(code)
     }
 
     private val keyCodes: Map<Key, Int> = mapOf(

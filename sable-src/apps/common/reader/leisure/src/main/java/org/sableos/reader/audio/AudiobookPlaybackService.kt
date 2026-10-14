@@ -76,12 +76,12 @@ class AudiobookPlaybackService : MediaLibraryService() {
     private var playback: AudiobookPlayback? = null
     private var profileId: String = ""
 
-    private val tick = object : Runnable {
-        override fun run() {
-            val active = playback
-            active?.tick()
-            if (active?.needsTick == true) handler.postDelayed(this, TICK_MS)
-        }
+    private val tick: Runnable = Runnable { onTick() }
+
+    private fun onTick() {
+        val active = playback
+        active?.tick()
+        if (active?.needsTick == true) handler.postDelayed(tick, TICK_MS)
     }
 
     override fun onCreate() {

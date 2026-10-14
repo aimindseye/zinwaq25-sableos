@@ -112,28 +112,21 @@ class StarDictParser @Inject constructor(
 
         if (failedLookups.containsKey(cleanTarget)) return@withContext null
 
-        cachedDictionaries?.forEach { dict ->
-            try {
-                // 1. Search main index (.idx)
-                var entry = findWordInIdx(dict.idxUri, cleanTarget, dict.offsetBits)
+        val definition = cachedDictionaries?.firstNotNullOfOrNull { dict -> lookupIn(dict, cleanTarget) }
+        if (definition == null) failedLookups[cleanTarget] = true
+        definition
+    }
 
-                // 2. Fallback: Search category index (.cdi) if word not in main
-                if (entry == null && dict.cdiUri != null) {
-                    entry = findWordInIdx(dict.cdiUri, cleanTarget, dict.offsetBits)
-                }
-
-                if (entry != null) {
-                    val raw = readFromDict(dict.dictUri, entry.offset, entry.size, dict.isCompressed)
-                    if (!raw.isNullOrBlank()) {
-                        return@withContext polishDefinition(raw, dict.baseName)
-                    }
-                }
-            } catch (e: Exception) {
-                Timber.e(e, "Error searching ${dict.baseName}: ${e.message}")
-            }
-        }
-
-        failedLookups[cleanTarget] = true
+    /** Looks [target] up in one dictionary: main index first, then the optional category index. */
+    private fun lookupIn(dict: StarDictMetadata, target: String): String? = try {
+        val entry = findWordInIdx(dict.idxUri, target, dict.offsetBits)
+            ?: dict.cdiUri?.let { findWordInIdx(it, target, dict.offsetBits) }
+        entry
+            ?.let { readFromDict(dict.dictUri, it.offset, it.size, dict.isCompressed) }
+            ?.takeUnless { it.isBlank() }
+            ?.let { polishDefinition(it, dict.baseName) }
+    } catch (e: Exception) {
+        Timber.e(e, "Error searching ${dict.baseName}: ${e.message}")
         null
     }
 
@@ -141,7 +134,6 @@ class StarDictParser @Inject constructor(
      * Performs binary-like stream search in .idx or .cdi files.
      */
     private fun findWordInIdx(uri: Uri, target: String, offsetBits: Int): IdxEntry? {
-        // Explicitly define the return type for the .use block to avoid inference errors
         return context.contentResolver.openInputStream(uri)?.use { rawInput ->
             val bis = BufferedInputStream(rawInput)
             val wordBuffer = ByteArray(256)
@@ -149,37 +141,39 @@ class StarDictParser @Inject constructor(
             val dataBuffer = ByteArray(offsetBytes + 4)
 
             var result: IdxEntry? = null
-
-            while (true) {
-                var byteIdx = 0
-                var b = bis.read()
-                if (b == -1) break
-
+            while (result == null) {
                 // 1. Read null-terminated word string
-                while (b != 0 && b != -1) {
-                    if (byteIdx < 255) wordBuffer[byteIdx++] = b.toByte()
-                    b = bis.read()
-                }
-                val word = String(wordBuffer, 0, byteIdx, Charsets.UTF_8)
+                val word = readIdxWord(bis, wordBuffer) ?: break
 
                 // 2. Read binary data: Offset (4 or 8 bytes) + Size (4 bytes)
-                val bytesRead = bis.read(dataBuffer)
-                if (bytesRead < dataBuffer.size) break
+                if (bis.read(dataBuffer) < dataBuffer.size) break
 
                 // 3. Comparison
-                if (word.lowercase() == target) {
-                    val offset = if (offsetBits == 64) {
-                        readBigEndianLong(dataBuffer, 0)
-                    } else {
-                        readBigEndianInt(dataBuffer, 0).toLong()
-                    }
-                    val size = readBigEndianInt(dataBuffer, offsetBytes)
-                    result = IdxEntry(offset, size)
-                    break // Found it, exit the while loop
-                }
+                if (word.lowercase() == target) result = toIdxEntry(dataBuffer, offsetBits)
             }
-            result // This is the value returned by the .use block
+            result
         }
+    }
+
+    /** Reads one null-terminated index word, or returns null at end of stream. Overlong words are truncated. */
+    private fun readIdxWord(input: BufferedInputStream, wordBuffer: ByteArray): String? {
+        var b = input.read()
+        if (b == -1) return null
+        var byteIdx = 0
+        while (b != 0 && b != -1) {
+            if (byteIdx < wordBuffer.size - 1) wordBuffer[byteIdx++] = b.toByte()
+            b = input.read()
+        }
+        return String(wordBuffer, 0, byteIdx, Charsets.UTF_8)
+    }
+
+    private fun toIdxEntry(dataBuffer: ByteArray, offsetBits: Int): IdxEntry {
+        val offset = if (offsetBits == 64) {
+            readBigEndianLong(dataBuffer, 0)
+        } else {
+            readBigEndianInt(dataBuffer, 0).toLong()
+        }
+        return IdxEntry(offset, readBigEndianInt(dataBuffer, offsetBits / 8))
     }
 
     /**

@@ -30,7 +30,9 @@ abstract class BaseDaoTest {
      * Optional: Override this in subclasses if you need specific
      * setup logic (like initializing a specific DAO).
      */
-    open fun onSetup() {}
+    open fun onSetup() {
+        // No extra setup by default; subclasses override this to create their DAOs.
+    }
 
     @After
     fun teardown() {
