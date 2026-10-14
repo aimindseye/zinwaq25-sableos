@@ -223,16 +223,7 @@ fun SableStartScreen(
     onTogglePrivateSpace: () -> Unit = {},
 ) {
     var destination by remember(initialScreen) {
-        mutableStateOf(
-            when (initialScreen.lowercase(Locale.ROOT)) {
-                "live" -> SableStartDestination.Live
-                "apps" -> SableStartDestination.Apps
-                "search" -> SableStartDestination.Search
-                "appearance" -> SableStartDestination.Appearance
-                "quickbar" -> SableStartDestination.QuickBar
-                else -> SableStartDestination.Start
-            },
-        )
+        mutableStateOf(destinationFor(initialScreen))
     }
     var returnDestination by remember { mutableStateOf(SableStartDestination.Start) }
     var selectedApp by remember { mutableStateOf<AppEntry?>(null) }
@@ -312,18 +303,7 @@ fun SableStartScreen(
     }
 
     fun navigateBack() {
-        destination =
-            when (destination) {
-                SableStartDestination.Start -> SableStartDestination.Start
-                SableStartDestination.Search,
-                SableStartDestination.Peek,
-                -> returnDestination
-                SableStartDestination.Apps,
-                SableStartDestination.Live,
-                SableStartDestination.Appearance,
-                SableStartDestination.QuickBar,
-                -> SableStartDestination.Start
-            }
+        destination = backDestination(destination, returnDestination)
     }
 
     LaunchedEffect(homeGeneration) {
@@ -522,22 +502,10 @@ fun SableStartScreen(
                             SablePeekScreen(
                                 app = app,
                                 isFavorite = key in favoriteKeys,
-                                inBaseBar =
-                                    when {
-                                        !app.inLauncherUser -> null
-                                        barIndex >= 0 -> true
-                                        quickBarTokens.size < QuickBar.MAX_SLOTS -> false
-                                        // Full bar: Add is not offered until a slot is freed.
-                                        else -> null
-                                    },
+                                inBaseBar = QuickBar.appState(app.inLauncherUser, barIndex >= 0, quickBarTokens),
                                 onToggleBaseBar = {
-                                    val slotToken = quickSlots.getOrNull(barIndex)?.token
                                     val next =
-                                        if (slotToken != null) {
-                                            QuickBar.remove(quickBarTokens, quickBarTokens.indexOf(slotToken))
-                                        } else {
-                                            QuickBar.add(quickBarTokens, QuickBar.appToken(key))
-                                        }
+                                        QuickBar.toggleApp(quickBarTokens, quickSlots.getOrNull(barIndex)?.token, key)
                                     if (next != quickBarTokens) {
                                         quickBarTokens = next
                                         onQuickBarChanged(next)
@@ -550,24 +518,11 @@ fun SableStartScreen(
                                 onOpenNotificationSettings = { onOpenNotificationSettings(app) },
                                 onUninstall = { onUninstallApp(app) },
                                 onToggleFavorite = {
-                                    favoriteKeys =
-                                        if (key in favoriteKeys) {
-                                            favoriteKeys.filterNot { it == key }
-                                        } else {
-                                            (favoriteKeys + key).distinct()
-                                        }
+                                    favoriteKeys = favoriteKeys.toggled(key)
                                     onFavoriteKeysChanged(favoriteKeys.toSet())
                                 },
                                 onToggleStartTile = {
-                                    val current =
-                                        startTileKeys
-                                            ?: startApps.map { it.stableKey() }
-                                    startTileKeys =
-                                        if (key in current) {
-                                            current.filterNot { it == key }
-                                        } else {
-                                            (current + key).distinct()
-                                        }
+                                    startTileKeys = (startTileKeys ?: startApps.map { it.stableKey() }).toggled(key)
                                     onStartTileKeysChanged(
                                         startTileKeys.orEmpty().toSet(),
                                     )
@@ -738,6 +693,28 @@ private fun StartScreen(
     }
 }
 
+private fun destinationFor(screen: String): SableStartDestination =
+    when (screen.lowercase(Locale.ROOT)) {
+        "live" -> SableStartDestination.Live
+        "apps" -> SableStartDestination.Apps
+        "search" -> SableStartDestination.Search
+        "appearance" -> SableStartDestination.Appearance
+        "quickbar" -> SableStartDestination.QuickBar
+        else -> SableStartDestination.Start
+    }
+
+private fun backDestination(
+    current: SableStartDestination,
+    returnTo: SableStartDestination,
+): SableStartDestination =
+    when (current) {
+        SableStartDestination.Search, SableStartDestination.Peek -> returnTo
+        else -> SableStartDestination.Start
+    }
+
+/** Adds [key] at the end, or removes it when present. */
+private fun List<String>.toggled(key: String): List<String> = if (key in this) filterNot { it == key } else this + key
+
 /**
  * The three-page Start (SABLE_START_THREE_PAGE_MODEL.md): swipe, or
  * Alt+Left / Alt+Right (Fn on Fn keyboards), moves between Glance, Start and
@@ -786,12 +763,12 @@ private fun HubPage(
     apps: List<AppEntry>,
     onLaunchApp: (AppEntry) -> Unit,
 ) {
-    val hubApp = findLiveApp(apps, "org.sableos.hub")
+    val hubApp = findLiveApp(apps, HUB_PACKAGE)
     val rows =
         listOf(
             Triple("Messages", snapshot.messages, hubApp),
-            Triple("Mail", snapshot.mail, findLiveApp(apps, "org.sableos.mail")),
-            Triple("Calendar", snapshot.calendar, findLiveApp(apps, "org.sableos.calendar")),
+            Triple("Mail", snapshot.mail, findLiveApp(apps, MAIL_PACKAGE)),
+            Triple("Calendar", snapshot.calendar, findLiveApp(apps, CALENDAR_PACKAGE)),
         )
     LazyColumn(
         modifier =
@@ -1152,9 +1129,9 @@ private fun resolveQuickSlot(
         QuickBar.COMMAND -> QuickSlot(token, "Search", null)
         QuickBar.ALL_APPS -> QuickSlot(token, "Apps", null)
         QuickBar.PHONE ->
-            role(listOf("com.android.dialer"), listOf("Phone"))?.let { QuickSlot(token, "Phone", it) }
+            role(listOf(DIALER_PACKAGE), listOf("Phone"))?.let { QuickSlot(token, "Phone", it) }
         QuickBar.HUB ->
-            role(listOf("org.sableos.hub"), listOf("Sable Hub", "Hub"))?.let { QuickSlot(token, "Hub", it) }
+            role(listOf(HUB_PACKAGE), listOf(HUB_LABEL, "Hub"))?.let { QuickSlot(token, "Hub", it) }
         QuickBar.CAMERA ->
             role(CoreAppIdentity.startTileCandidates(CoreAppIdentity.CAMERA), listOf("Camera"))
                 ?.let { QuickSlot(token, "Camera", it) }
@@ -1295,11 +1272,11 @@ private fun MetroTile(
         }
     val liveTile =
         tile.app.component.packageName in
-            setOf("org.sableos.hub", "org.sableos.weather", "org.sableos.mail") ||
-            tile.app.label.equals("Sable Hub", ignoreCase = true) ||
+            setOf(HUB_PACKAGE, WEATHER_PACKAGE, MAIL_PACKAGE) ||
+            tile.app.label.equals(HUB_LABEL, ignoreCase = true) ||
             tile.app.label.equals("Sable Messages", ignoreCase = true) ||
-            tile.app.label.equals("Sable Weather", ignoreCase = true) ||
-            tile.app.label.equals("Sable Mail", ignoreCase = true)
+            tile.app.label.equals(WEATHER_LABEL, ignoreCase = true) ||
+            tile.app.label.equals(MAIL_LABEL, ignoreCase = true)
 
     Box(
         modifier =
@@ -1471,14 +1448,14 @@ private fun approvedWideContent(
     live: LiveDatum?,
 ): ApprovedWideContent =
     when (tile.app.component.packageName) {
-        "org.sableos.calendar" ->
+        CALENDAR_PACKAGE ->
             ApprovedWideContent(
                 first = "NEXT",
                 second = live?.detail ?: "nothing scheduled",
                 third = "Calendar",
             )
 
-        "org.sableos.media" -> {
+        MEDIA_PACKAGE -> {
             val parts = live?.detail.orEmpty().split(" · ")
             ApprovedWideContent(
                 first = "NOW PLAYING",
@@ -1504,8 +1481,8 @@ private fun approvedMetric(
 ): Pair<String, String> {
     val detail = live?.detail.orEmpty()
     return when {
-        app.component.packageName == "org.sableos.weather" ||
-            app.label.equals("Sable Weather", ignoreCase = true) -> {
+        app.component.packageName == WEATHER_PACKAGE ||
+            app.label.equals(WEATHER_LABEL, ignoreCase = true) -> {
             val parts = detail.split(" · ")
             val temperature =
                 parts.firstOrNull { it.trim().endsWith("°") }
@@ -1519,8 +1496,8 @@ private fun approvedMetric(
             temperature to condition
         }
 
-        app.component.packageName == "org.sableos.hub" ||
-            app.label.equals("Sable Hub", ignoreCase = true) ||
+        app.component.packageName == HUB_PACKAGE ||
+            app.label.equals(HUB_LABEL, ignoreCase = true) ||
             app.label.equals("Sable Messages", ignoreCase = true) -> {
             val count =
                 detail.substringBefore(" ")
@@ -1532,8 +1509,8 @@ private fun approvedMetric(
             count to label
         }
 
-        app.component.packageName == "org.sableos.mail" ||
-            app.label.equals("Sable Mail", ignoreCase = true) -> {
+        app.component.packageName == MAIL_PACKAGE ||
+            app.label.equals(MAIL_LABEL, ignoreCase = true) -> {
             val count = detail.substringBefore(" ").takeIf { it.all(Char::isDigit) } ?: "0"
             count to "unread"
         }
@@ -1943,75 +1920,9 @@ private fun SearchScreen(
                     command.subtitle.lowercase(locale).contains(term.lowercase(locale))
             }
         }
-    val settingsResults =
-        if (!parsed.includes(CommandScope.Settings)) {
-            emptyList()
-        } else {
-            CommandRanking.settings(term, limit = if (parsed.scope == CommandScope.Settings) 12 else 4).map { dest ->
-                SearchCommand(
-                    title = dest.title,
-                    subtitle = "Open ${dest.title} settings",
-                    mark = "⚙",
-                    source = "Settings",
-                    onClick = { onStartIntent(Intent(dest.action)) },
-                )
-            }
-        }
-    // People: dial a typed number, or hand the name to Contacts' own search
-    // (Start holds no contacts permission and keeps no copy).
-    val peopleResults =
-        buildList {
-            if (term.isEmpty() || !parsed.includes(CommandScope.People)) return@buildList
-            CommandQuery.dialable(term)?.let { number ->
-                add(
-                    SearchCommand(
-                        title = "Call $number",
-                        subtitle = "Opens the dialer with the number",
-                        mark = "☎",
-                        source = "Phone",
-                        onClick = { onStartIntent(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number"))) },
-                    ),
-                )
-            }
-            if (parsed.scope == CommandScope.People || term.length >= 2) {
-                add(
-                    SearchCommand(
-                        title = "Find “$term” in Contacts",
-                        subtitle = "Search people by name, number or email",
-                        mark = "@",
-                        source = "Contacts",
-                        onClick = {
-                            onStartIntent(
-                                Intent(Intent.ACTION_SEARCH)
-                                    .setPackage("com.android.contacts")
-                                    .putExtra(SearchManager.QUERY, term),
-                            )
-                        },
-                    ),
-                )
-            }
-        }
-    val hubResults =
-        if (!parsed.includes(CommandScope.Hub) || (term.isEmpty() && parsed.scope != CommandScope.Hub)) {
-            emptyList()
-        } else {
-            listOf(
-                SearchCommand(
-                    title = if (term.isEmpty()) "Open Hub" else "Search Hub for “$term”",
-                    subtitle = "Messages, calls and notifications",
-                    mark = "◉",
-                    source = "Hub",
-                    onClick = {
-                        onStartIntent(
-                            Intent(Intent.ACTION_MAIN)
-                                .setPackage(HUB_PACKAGE)
-                                .addCategory(Intent.CATEGORY_LAUNCHER)
-                                .putExtra(HUB_EXTRA_QUERY, term),
-                        )
-                    },
-                ),
-            )
-        }
+    val settingsResults = settingsResults(parsed, onStartIntent)
+    val peopleResults = peopleResults(parsed, onStartIntent)
+    val hubResults = hubResults(parsed, onStartIntent)
     val topCommand =
         (filteredCommands.takeIf { term.isNotEmpty() }.orEmpty() + settingsResults + peopleResults + hubResults)
             .firstOrNull()
@@ -2083,6 +1994,84 @@ private fun SearchScreen(
             }
         }
     }
+}
+
+private fun settingsResults(
+    parsed: CommandQuery,
+    onStartIntent: (Intent) -> Unit,
+): List<SearchCommand> {
+    if (!parsed.includes(CommandScope.Settings)) return emptyList()
+    val limit = if (parsed.scope == CommandScope.Settings) 12 else 4
+    return CommandRanking.settings(parsed.term, limit = limit).map { dest ->
+        SearchCommand(
+            title = dest.title,
+            subtitle = "Open ${dest.title} settings",
+            mark = "⚙",
+            source = "Settings",
+            onClick = { onStartIntent(Intent(dest.action)) },
+        )
+    }
+}
+
+/**
+ * People: dial a typed number, or hand the name to Contacts' own search
+ * (Start holds no contacts permission and keeps no copy).
+ */
+private fun peopleResults(
+    parsed: CommandQuery,
+    onStartIntent: (Intent) -> Unit,
+): List<SearchCommand> {
+    val term = parsed.term
+    if (term.isEmpty() || !parsed.includes(CommandScope.People)) return emptyList()
+    val dial =
+        CommandQuery.dialable(term)?.let { number ->
+            SearchCommand(
+                title = "Call $number",
+                subtitle = "Opens the dialer with the number",
+                mark = "☎",
+                source = "Phone",
+                onClick = { onStartIntent(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number"))) },
+            )
+        }
+    val contacts =
+        SearchCommand(
+            title = "Find “$term” in Contacts",
+            subtitle = "Search people by name, number or email",
+            mark = "@",
+            source = "Contacts",
+            onClick = {
+                onStartIntent(
+                    Intent(Intent.ACTION_SEARCH)
+                        .setPackage("com.android.contacts")
+                        .putExtra(SearchManager.QUERY, term),
+                )
+            },
+        ).takeIf { parsed.scope == CommandScope.People || term.length >= 2 }
+    return listOfNotNull(dial, contacts)
+}
+
+private fun hubResults(
+    parsed: CommandQuery,
+    onStartIntent: (Intent) -> Unit,
+): List<SearchCommand> {
+    val term = parsed.term
+    if (!parsed.includes(CommandScope.Hub) || (term.isEmpty() && parsed.scope != CommandScope.Hub)) return emptyList()
+    return listOf(
+        SearchCommand(
+            title = if (term.isEmpty()) "Open Hub" else "Search Hub for “$term”",
+            subtitle = "Messages, calls and notifications",
+            mark = "◉",
+            source = "Hub",
+            onClick = {
+                onStartIntent(
+                    Intent(Intent.ACTION_MAIN)
+                        .setPackage(HUB_PACKAGE)
+                        .addCategory(Intent.CATEGORY_LAUNCHER)
+                        .putExtra(HUB_EXTRA_QUERY, term),
+                )
+            },
+        ),
+    )
 }
 
 @Composable
@@ -2501,25 +2490,25 @@ private fun approvedGlyphPackage(app: AppEntry): String? {
     if (sableGlyphForPackage(packageName) != null) return packageName
 
     return when {
-        app.label.equals("Phone", ignoreCase = true) -> "com.android.dialer"
-        app.label.equals("Sable Hub", ignoreCase = true) ||
+        app.label.equals("Phone", ignoreCase = true) -> DIALER_PACKAGE
+        app.label.equals(HUB_LABEL, ignoreCase = true) ||
             app.label.equals("Hub", ignoreCase = true) ||
             app.label.equals("Sable Messages", ignoreCase = true) ||
-            app.label.equals("Messages", ignoreCase = true) -> "org.sableos.hub"
-        app.label.equals("Sable Mail", ignoreCase = true) ||
-            app.label.equals("Mail", ignoreCase = true) -> "org.sableos.mail"
+            app.label.equals("Messages", ignoreCase = true) -> HUB_PACKAGE
+        app.label.equals(MAIL_LABEL, ignoreCase = true) ||
+            app.label.equals("Mail", ignoreCase = true) -> MAIL_PACKAGE
         app.label.equals("Sable Calendar", ignoreCase = true) ||
-            app.label.equals("Calendar", ignoreCase = true) -> "org.sableos.calendar"
-        app.label.equals("Sable Weather", ignoreCase = true) ||
-            app.label.equals("Weather", ignoreCase = true) -> "org.sableos.weather"
+            app.label.equals("Calendar", ignoreCase = true) -> CALENDAR_PACKAGE
+        app.label.equals(WEATHER_LABEL, ignoreCase = true) ||
+            app.label.equals("Weather", ignoreCase = true) -> WEATHER_PACKAGE
         app.label.equals("Photos", ignoreCase = true) ||
-            app.label.equals("Gallery", ignoreCase = true) -> "com.android.gallery3d"
+            app.label.equals("Gallery", ignoreCase = true) -> GALLERY_PACKAGE
         app.label.equals("Sable Media", ignoreCase = true) ||
-            app.label.equals("Media", ignoreCase = true) -> "org.sableos.media"
+            app.label.equals("Media", ignoreCase = true) -> MEDIA_PACKAGE
         app.label.equals("Camera", ignoreCase = true) -> "app.grapheneos.camera"
         app.label.equals("Sable Calculator", ignoreCase = true) ||
-            app.label.equals("Calculator", ignoreCase = true) -> "org.sableos.calculator"
-        app.label.equals("Files", ignoreCase = true) -> "com.android.documentsui"
+            app.label.equals("Calculator", ignoreCase = true) -> CALCULATOR_PACKAGE
+        app.label.equals("Files", ignoreCase = true) -> FILES_PACKAGE
         app.label.equals("Clock", ignoreCase = true) -> "com.android.deskclock"
         app.label.equals("Vanadium", ignoreCase = true) -> "app.vanadium.browser"
         app.label.equals("Settings", ignoreCase = true) -> "com.android.settings"
@@ -2988,37 +2977,37 @@ private fun LiveSurfaceScreen(
             Spacer(Modifier.height(18.dp))
 
             ApprovedLiveRow(
-                app = findLiveApp(apps, "org.sableos.weather"),
-                title = "Sable Weather",
+                app = findLiveApp(apps, WEATHER_PACKAGE),
+                title = WEATHER_LABEL,
                 datum = snapshot.weather,
                 kind = "weather",
             )
             ApprovedLiveRow(
-                app = findLiveApp(apps, "org.sableos.calendar"),
+                app = findLiveApp(apps, CALENDAR_PACKAGE),
                 title = "Calendar",
                 datum = snapshot.calendar,
                 kind = "calendar",
             )
             ApprovedLiveRow(
-                app = findLiveApp(apps, "org.sableos.hub"),
-                title = "Sable Hub",
+                app = findLiveApp(apps, HUB_PACKAGE),
+                title = HUB_LABEL,
                 datum = snapshot.messages,
                 kind = "messages",
             )
             ApprovedLiveRow(
-                app = findLiveApp(apps, "org.sableos.mail"),
-                title = "Sable Mail",
+                app = findLiveApp(apps, MAIL_PACKAGE),
+                title = MAIL_LABEL,
                 datum = snapshot.mail,
                 kind = "mail",
             )
             ApprovedLiveRow(
-                app = findLiveApp(apps, "org.sableos.media"),
+                app = findLiveApp(apps, MEDIA_PACKAGE),
                 title = "Sable Media",
                 datum = snapshot.music,
                 kind = "media",
             )
             ApprovedLiveRow(
-                app = findLiveApp(apps, "com.android.gallery3d"),
+                app = findLiveApp(apps, GALLERY_PACKAGE),
                 title = "Photos",
                 datum = snapshot.photos,
                 kind = "photos",
@@ -3060,10 +3049,10 @@ private fun findLiveApp(
 ): AppEntry? =
     apps.firstOrNull { CoreAppIdentity.canonicalPackage(it.component.packageName) == packageName }
         ?: when (packageName) {
-            "org.sableos.weather" ->
-                apps.firstOrNull { it.label.equals("Sable Weather", ignoreCase = true) }
-            "org.sableos.mail" ->
-                apps.firstOrNull { it.label.equals("Sable Mail", ignoreCase = true) }
+            WEATHER_PACKAGE ->
+                apps.firstOrNull { it.label.equals(WEATHER_LABEL, ignoreCase = true) }
+            MAIL_PACKAGE ->
+                apps.firstOrNull { it.label.equals(MAIL_LABEL, ignoreCase = true) }
             else -> null
         }
 
@@ -3461,27 +3450,27 @@ private fun appMark(app: AppEntry): String =
 
 private fun appColor(app: AppEntry): Color =
     when {
-        app.component.packageName == "org.sableos.hub" ||
-            app.label.equals("Sable Hub", ignoreCase = true) ||
+        app.component.packageName == HUB_PACKAGE ||
+            app.label.equals(HUB_LABEL, ignoreCase = true) ||
             app.label.equals("Sable Messages", ignoreCase = true) -> SableGreen
-        app.component.packageName == "org.sableos.mail" ||
-            app.label.equals("Sable Mail", ignoreCase = true) -> SableSlate
-        app.component.packageName == "org.sableos.calendar" ||
+        app.component.packageName == MAIL_PACKAGE ||
+            app.label.equals(MAIL_LABEL, ignoreCase = true) -> SableSlate
+        app.component.packageName == CALENDAR_PACKAGE ||
             app.label.equals("Calendar", ignoreCase = true) -> SableOrange
-        app.component.packageName == "org.sableos.weather" ||
-            app.label.equals("Sable Weather", ignoreCase = true) -> SableBlue
-        app.component.packageName == "org.sableos.media" ||
+        app.component.packageName == WEATHER_PACKAGE ||
+            app.label.equals(WEATHER_LABEL, ignoreCase = true) -> SableBlue
+        app.component.packageName == MEDIA_PACKAGE ||
             app.label.equals("Sable Media", ignoreCase = true) -> SablePurple
         CoreAppIdentity.isRole(app.component.packageName, CoreAppIdentity.PHOTOS) ||
             app.label.equals("Photos", ignoreCase = true) -> SablePurple
         CoreAppIdentity.isRole(app.component.packageName, CoreAppIdentity.CAMERA) ||
             app.component.packageName == CoreAppIdentity.SABLE_CAMERA ||
             app.label.equals("Camera", ignoreCase = true) -> SableSlate
-        app.component.packageName == "org.sableos.calculator" ||
+        app.component.packageName == CALCULATOR_PACKAGE ||
             app.label.equals("Sable Calculator", ignoreCase = true) -> SableBlue
-        app.component.packageName == "com.android.documentsui" ||
+        app.component.packageName == FILES_PACKAGE ||
             app.label.equals("Files", ignoreCase = true) -> SableOrange
-        app.component.packageName == "com.android.dialer" ||
+        app.component.packageName == DIALER_PACKAGE ||
             app.label.equals("Phone", ignoreCase = true) -> SableBlue
         else -> {
             val index =
@@ -3498,16 +3487,16 @@ private fun liveDatumForApp(
     snapshot: LiveSurfaceSnapshot,
 ): LiveDatum? =
     when {
-        app.component.packageName == "org.sableos.calendar" ||
+        app.component.packageName == CALENDAR_PACKAGE ||
             app.label.equals("Calendar", ignoreCase = true) -> snapshot.calendar
-        app.component.packageName == "org.sableos.hub" ||
-            app.label.equals("Sable Hub", ignoreCase = true) ||
+        app.component.packageName == HUB_PACKAGE ||
+            app.label.equals(HUB_LABEL, ignoreCase = true) ||
             app.label.equals("Sable Messages", ignoreCase = true) -> snapshot.messages
-        app.component.packageName == "org.sableos.mail" ||
-            app.label.equals("Sable Mail", ignoreCase = true) -> snapshot.mail
-        app.component.packageName == "org.sableos.weather" ||
-            app.label.equals("Sable Weather", ignoreCase = true) -> snapshot.weather
-        app.component.packageName == "org.sableos.media" ||
+        app.component.packageName == MAIL_PACKAGE ||
+            app.label.equals(MAIL_LABEL, ignoreCase = true) -> snapshot.mail
+        app.component.packageName == WEATHER_PACKAGE ||
+            app.label.equals(WEATHER_LABEL, ignoreCase = true) -> snapshot.weather
+        app.component.packageName == MEDIA_PACKAGE ||
             app.label.equals("Sable Media", ignoreCase = true) -> snapshot.music
         CoreAppIdentity.isRole(app.component.packageName, CoreAppIdentity.PHOTOS) ||
             app.label.equals("Photos", ignoreCase = true) -> snapshot.photos
@@ -3515,8 +3504,8 @@ private fun liveDatumForApp(
     }
 
 private fun isWideStartTile(app: AppEntry): Boolean =
-    app.component.packageName == "org.sableos.calendar" ||
-        app.component.packageName == "org.sableos.media"
+    app.component.packageName == CALENDAR_PACKAGE ||
+        app.component.packageName == MEDIA_PACKAGE
 
 private data class PreferredStartAppGroup(
     /** Canonical packages for this tile, best first. */
@@ -3527,27 +3516,27 @@ private data class PreferredStartAppGroup(
 private val PREFERRED_START_APP_GROUPS =
     listOf(
         PreferredStartAppGroup(
-            packageNames = listOf("org.sableos.calendar"),
+            packageNames = listOf(CALENDAR_PACKAGE),
             labels = listOf("Sable Calendar", "Calendar"),
         ),
         PreferredStartAppGroup(
-            packageNames = listOf("org.sableos.hub"),
-            labels = listOf("Sable Hub", "Hub", "Sable Messages", "Messages"),
+            packageNames = listOf(HUB_PACKAGE),
+            labels = listOf(HUB_LABEL, "Hub", "Sable Messages", "Messages"),
         ),
         PreferredStartAppGroup(
-            packageNames = listOf("org.sableos.weather"),
-            labels = listOf("Sable Weather", "Weather"),
+            packageNames = listOf(WEATHER_PACKAGE),
+            labels = listOf(WEATHER_LABEL, "Weather"),
         ),
         PreferredStartAppGroup(
-            packageNames = listOf("org.sableos.media"),
+            packageNames = listOf(MEDIA_PACKAGE),
             labels = listOf("Sable Media", "Media"),
         ),
         PreferredStartAppGroup(
-            packageNames = listOf("org.sableos.mail"),
-            labels = listOf("Sable Mail", "Mail"),
+            packageNames = listOf(MAIL_PACKAGE),
+            labels = listOf(MAIL_LABEL, "Mail"),
         ),
         PreferredStartAppGroup(
-            packageNames = listOf("com.android.dialer"),
+            packageNames = listOf(DIALER_PACKAGE),
             labels = listOf("Phone"),
         ),
         PreferredStartAppGroup(
@@ -3555,15 +3544,15 @@ private val PREFERRED_START_APP_GROUPS =
             labels = listOf("Camera"),
         ),
         PreferredStartAppGroup(
-            packageNames = listOf("com.android.gallery3d"),
+            packageNames = listOf(GALLERY_PACKAGE),
             labels = listOf("Photos", "Gallery"),
         ),
         PreferredStartAppGroup(
-            packageNames = listOf("org.sableos.calculator"),
+            packageNames = listOf(CALCULATOR_PACKAGE),
             labels = listOf("Sable Calculator", "Calculator"),
         ),
         PreferredStartAppGroup(
-            packageNames = listOf("com.android.documentsui"),
+            packageNames = listOf(FILES_PACKAGE),
             labels = listOf("Files"),
         ),
     )
@@ -3573,6 +3562,18 @@ private val StatusRingsInlineMinWidth = 500.dp
 private const val MAX_FAVORITES_ON_START = 4
 private const val MAX_SESSION_RECENTS = 8
 private const val KEYCODE_DEL = 67
+private const val HUB_PACKAGE = "org.sableos.hub"
+private const val MAIL_PACKAGE = "org.sableos.mail"
+private const val CALENDAR_PACKAGE = "org.sableos.calendar"
+private const val WEATHER_PACKAGE = "org.sableos.weather"
+private const val MEDIA_PACKAGE = "org.sableos.media"
+private const val DIALER_PACKAGE = "com.android.dialer"
+private const val GALLERY_PACKAGE = "com.android.gallery3d"
+private const val CALCULATOR_PACKAGE = "org.sableos.calculator"
+private const val FILES_PACKAGE = "com.android.documentsui"
+private const val HUB_LABEL = "Sable Hub"
+private const val WEATHER_LABEL = "Sable Weather"
+private const val MAIL_LABEL = "Sable Mail"
 private const val START_PAGE_COUNT = 3
 private const val START_PAGE_GLANCE = 0
 private const val START_PAGE_CENTER = 1
@@ -3580,7 +3581,6 @@ private const val START_PAGE_HUB = 2
 
 // Matches LauncherAppsRepository.PROFILE_PRIVATE.
 private const val PROFILE_PRIVATE_LABEL = "private"
-private const val HUB_PACKAGE = "org.sableos.hub"
 private const val HUB_EXTRA_QUERY = "org.sableos.hub.extra.QUERY"
 private const val LAUNCHER_ICON_CACHE_ENTRIES = 160
 private const val FOCUS_SURFACE_ALL_APPS = "all-apps"

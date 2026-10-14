@@ -72,12 +72,7 @@ object AllAppsKeyPolicy {
         val commandModifier = metaState and (META_CTRL_ON or META_META_ON) != 0
         val action =
             when (keyCode) {
-                KEYCODE_ENTER, KEYCODE_NUMPAD_ENTER, KEYCODE_DPAD_CENTER ->
-                    when {
-                        metaState and META_FUNCTION_ON != 0 -> AllAppsKeyAction.Actions
-                        metaState and META_ALT_ON != 0 -> AllAppsKeyAction.AppInfo
-                        else -> AllAppsKeyAction.Open
-                    }
+                KEYCODE_ENTER, KEYCODE_NUMPAD_ENTER, KEYCODE_DPAD_CENTER -> enterAction(metaState)
                 KEYCODE_MENU -> AllAppsKeyAction.Actions
                 KEYCODE_SEARCH -> AllAppsKeyAction.Search
                 KEYCODE_SPACE -> if (commandModifier) null else AllAppsKeyAction.ToggleDetail
@@ -94,6 +89,14 @@ object AllAppsKeyPolicy {
         if (!c.isLetterOrDigit()) return pass
         return if (repeat) ignoreRepeat() else AllAppsKeyDecision(AllAppsKeyAction.TypeToJump, c)
     }
+
+    /** Enter opens; Alt+Enter is App info; Fn+Enter (Fn keyboards) is the actions sheet. */
+    private fun enterAction(metaState: Int): AllAppsKeyAction =
+        when {
+            metaState and META_FUNCTION_ON != 0 -> AllAppsKeyAction.Actions
+            metaState and META_ALT_ON != 0 -> AllAppsKeyAction.AppInfo
+            else -> AllAppsKeyAction.Open
+        }
 
     private fun ignoreRepeat() = AllAppsKeyDecision(AllAppsKeyAction.IgnoreRepeat)
 

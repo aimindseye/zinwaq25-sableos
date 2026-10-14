@@ -61,17 +61,16 @@ class SableStartActivity : ComponentActivity() {
 
     private val launcherCallback =
         object : LauncherApps.Callback() {
-            override fun onPackageRemoved(packageName: String, user: UserHandle) {
-                launcherAppsRepository.invalidatePrivacy(packageName, user)
-                scheduleInventoryRefresh()
-            }
+            override fun onPackageRemoved(packageName: String, user: UserHandle) = onPackageEvent(packageName, user)
 
-            override fun onPackageAdded(packageName: String, user: UserHandle) {
-                launcherAppsRepository.invalidatePrivacy(packageName, user)
-                scheduleInventoryRefresh()
-            }
+            override fun onPackageAdded(packageName: String, user: UserHandle) = onPackageEvent(packageName, user)
 
-            override fun onPackageChanged(packageName: String, user: UserHandle) {
+            override fun onPackageChanged(packageName: String, user: UserHandle) = onPackageEvent(packageName, user)
+
+            private fun onPackageEvent(
+                packageName: String,
+                user: UserHandle,
+            ) {
                 launcherAppsRepository.invalidatePrivacy(packageName, user)
                 scheduleInventoryRefresh()
             }
