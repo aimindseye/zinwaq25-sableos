@@ -2754,6 +2754,17 @@ static void diag_pdcol(const uint16_t *in, int S)
  * pddark: mean raw of PD pixels, mates and clean pixels of the same colour. Only a true black-level comparison
  * in a dark (lens-covered) frame; in a lit scene it just shows the usual PD excess. */
 #define PMK 16
+/* forward elimination with partial pivoting of the n x (n+1) augmented system M; 0 when singular */
+static int pm_eliminate(double M[4][5], int n)
+{
+	for (int i = 0; i < n; i++) {
+		int p = i; for (int k = i + 1; k < n; k++) if (fabs(M[k][i]) > fabs(M[p][i])) p = k;
+		if (fabs(M[p][i]) < 1e-12) return 0;
+		if (p != i) for (int j = 0; j <= n; j++) { double t = M[i][j]; M[i][j] = M[p][j]; M[p][j] = t; }
+		for (int k = i + 1; k < n; k++) { double f = M[k][i] / M[i][i]; for (int j = i; j <= n; j++) M[k][j] -= f * M[i][j]; }
+	}
+	return 1;
+}
 static int pm_solve(const double *A, const double *b, int n, double *x)
 {
 	double M[4][5];
@@ -2763,12 +2774,7 @@ static int pm_solve(const double *A, const double *b, int n, double *x)
 		M[i][n] = b[i];
 		M[i][i] += 1e-9 * (A[0] + A[5] + A[10] + 1.0);
 	}
-	for (int i = 0; i < n; i++) {
-		int p = i; for (int k = i + 1; k < n; k++) if (fabs(M[k][i]) > fabs(M[p][i])) p = k;
-		if (fabs(M[p][i]) < 1e-12) return 0;
-		if (p != i) for (int j = 0; j <= n; j++) { double t = M[i][j]; M[i][j] = M[p][j]; M[p][j] = t; }
-		for (int k = i + 1; k < n; k++) { double f = M[k][i] / M[i][i]; for (int j = i; j <= n; j++) M[k][j] -= f * M[i][j]; }
-	}
+	if (!pm_eliminate(M, n)) return 0;
 	for (int i = n - 1; i >= 0; i--) {
 		double t = M[i][n];
 		for (int j = i + 1; j < n; j++) t -= M[i][j] * x[j];
@@ -2776,130 +2782,152 @@ static int pm_solve(const double *A, const double *b, int n, double *x)
 	}
 	return 1;
 }
-static void diag_pdmix(const uint16_t *in, int S)
+/* ex = the PD pixels' 3x3 neighbourhoods (mod 16); mate[i] = the cell-mate of PD position i (same row, x ^ 1) */
+static void pd_ex_mates(unsigned char ex[][16], int mate[8][2])
 {
-	static double A[PMK][2][16];
-	static double Bv[PMK][2][4];
-	static double Syy[PMK][2];
-	static double N[PMK][2];
-	unsigned char isp[16][16];
-	unsigned char ex[16][16];
-	int mate[8][2];
-	int reg;
-	int nx = g_w / 16;
-	int ny = g_h / 16;
-	double dsum[3] = { 0, 0, 0 };
-	double dcnt[3] = { 0, 0, 0 };
-	double cs[3] = { 0, 0, 0 };
-	double cn[3] = { 0, 0, 0 };   /* [0] weak PD, [1] strong PD, [2] unused  */
-	double msum[2] = { 0, 0 };
-	double mcnt[2] = { 0, 0 };
-	double psum[2] = { 0, 0 };
-	double pcnt[2] = { 0, 0 };
-	int slot[2] = { g_qcol[kPdPos[0][0] & 3][kPdPos[0][1] & 3], g_qcol[kPdPos[2][0] & 3][kPdPos[2][1] & 3] };
-	long ntile = 0;
-	long nok = 0;
-	memset(A, 0, sizeof A); memset(Bv, 0, sizeof Bv); memset(Syy, 0, sizeof Syy); memset(N, 0, sizeof N);
-	memset(isp, 0, sizeof isp); memset(ex, 0, sizeof ex);
 	for (int i = 0; i < 8; i++) {
-		isp[kPdPos[i][0]][kPdPos[i][1]] = 1; mate[i][0] = kPdPos[i][0]; mate[i][1] = kPdPos[i][1] ^ 1;
+		mate[i][0] = kPdPos[i][0]; mate[i][1] = kPdPos[i][1] ^ 1;
 		for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++) ex[(kPdPos[i][0] + dy) & 15][(kPdPos[i][1] + dx) & 15] = 1;
 	}
+}
+struct pdmix {
+	const uint16_t *in;
+	int S;
+	unsigned char ex[16][16];       /* PD pixels and their 3x3 neighbourhoods */
+	int mate[8][2];
+	int slot[2];
+	double A[PMK][2][16];           /* normal equations per target position k and region (centre, outer) */
+	double Bv[PMK][2][4];
+	double Syy[PMK][2];
+	double N[PMK][2];
+	double cs[3];
+	double cn[3];
+	double msum[2];
+	double mcnt[2];
+	double psum[2];
+	double pcnt[2];
+};
+static inline int pdmix_py(const struct pdmix *st, int k) { return k < 8 ? kPdPos[k][0] : st->mate[k - 8][0]; }
+static inline int pdmix_px(const struct pdmix *st, int k) { return k < 8 ? kPdPos[k][1] : st->mate[k - 8][1]; }
+/* clean colour means of the tile into m; 0 when it is clipped, not flat, or green is outside 16..600 DN.
+ * The raw sums for the pddark line are taken from every sampled tile. */
+static int pdmix_tile(struct pdmix *st, int ty, int tx, double m[3])
+{
+	double s1[3] = { 0, 0, 0 };
+	double s2[3] = { 0, 0, 0 };
+	long n[3] = { 0, 0, 0 }; int clipped = 0;
+	int ok = 1;
+	for (int y = 0; y < 16; y++)
+		for (int x = 0; x < 16; x++) {
+			int v = st->in[(size_t)(ty * 16 + y) * st->S + tx * 16 + x];
+			if (v >= 1015) clipped = 1;
+			if (st->ex[y][x]) continue;
+			int c = g_qcol[y & 3][x & 3];
+			s1[c] += v - g_ped; s2[c] += (double)(v - g_ped) * (v - g_ped); n[c]++;
+			st->cs[c] += v; st->cn[c]++;
+		}
+	if (clipped) return 0;
+	for (int k = 0; k < 3; k++) {
+		m[k] = n[k] ? s1[k] / n[k] : 0;
+		double sd = 1e9;
+		if (n[k]) {
+			double var = s2[k] / n[k] - m[k] * m[k];
+			sd = sqrt(var > 0 ? var : 0);
+		}
+		if (sd > 0.05 * (m[k] > 0 ? m[k] : 0) + 6) ok = 0;      /* the third colour may be small, but it must be flat */
+	}
+	return ok && m[CG] >= 16 && m[CG] < 600;
+}
+/* target k (PD 0..7, mate 8..15) of the tile: regressors xv = (R, G, B, 1) */
+static void pdmix_sample(struct pdmix *st, int ty, int tx, int k, int reg, const double xv[4])
+{
+	double yv = st->in[(size_t)(ty * 16 + pdmix_py(st, k)) * st->S + tx * 16 + pdmix_px(st, k)] - g_ped;
+	if (yv + g_ped >= 1015) return;
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) st->A[k][reg][i * 4 + j] += xv[i] * xv[j];
+		st->Bv[k][reg][i] += xv[i] * yv;
+	}
+	st->Syy[k][reg] += yv * yv; st->N[k][reg] += 1;
+	int t = (k & 7) == 2 || (k & 7) == 3 || (k & 7) == 6 || (k & 7) == 7;
+	if (k < 8) { st->psum[t] += yv + g_ped; st->pcnt[t] += 1; } else { st->msum[t] += yv + g_ped; st->mcnt[t] += 1; }
+}
+/* sums of type t, kind (PD / mate) over the regions selected by rr (0 all, 1 centre, 2 outer) */
+static void pdmix_pool(const struct pdmix *st, int t, int kind, int rr, double AA[16], double BB[4], double *syy, double *nn)
+{
+	for (int i = 0; i < 4; i++) {
+		int kk = kind * 8 + kPdcPos[t][i];
+		for (int reg = 0; reg < 2; reg++) {
+			if (rr == 1 && reg != 0) continue;
+			if (rr == 2 && reg != 1) continue;
+			for (int j = 0; j < 16; j++) AA[j] += st->A[kk][reg][j];
+			for (int j = 0; j < 4; j++) BB[j] += st->Bv[kk][reg][j];
+			*syy += st->Syy[kk][reg]; *nn += st->N[kk][reg];
+		}
+	}
+}
+static void pdmix_report_pool(const struct pdmix *st, int t, int kind, int rr)
+{
+	static const char *tn[2] = { "weak  ", "strong" };
+	static const char *kn[2] = { "PD  ", "mate" };
+	static const char *rn[3] = { "all   ", "centre", "outer " };
+	double AA[16] = { 0 };
+	double BB[4] = { 0 };
+	double syy = 0;
+	double nn = 0;
+	double x4[4] = { 0 };
+	double x3[4] = { 0 };
+	pdmix_pool(st, t, kind, rr, AA, BB, &syy, &nn);
+	if (nn < 300) return;
+	if (!pm_solve(AA, BB, 4, x4)) return;
+	double sse4 = syy; for (int j = 0; j < 4; j++) sse4 -= x4[j] * BB[j];
+	/* two-colour model: green and the slot colour + offset */
+	int idx[3] = { CG, st->slot[t], 3 }; double A2[16] = { 0 };
+	double B2[4] = { 0 };
+	for (int a = 0; a < 3; a++) { B2[a] = BB[idx[a]]; for (int b2 = 0; b2 < 3; b2++) A2[a * 4 + b2] = AA[idx[a] * 4 + idx[b2]]; }
+	double sse3 = syy; if (pm_solve(A2, B2, 3, x3)) for (int a = 0; a < 3; a++) sse3 -= x3[a] * B2[a];
+	LOGI("pdmix %s %s %s: R %+.3f G %+.3f B %+.3f off %+5.2f DN (sum of colours %.3f) | rms3 %.2f DN, rms2(G,slot) %.2f DN  n=%.0f", tn[t], kn[kind], rn[rr],
+	     x4[0], x4[1], x4[2], x4[3], x4[0] + x4[1] + x4[2], sqrt(sse4 > 0 ? sse4 / nn : 0), sqrt(sse3 > 0 ? sse3 / nn : 0), nn);
+}
+static void pdmix_report_pos(const struct pdmix *st, int k)
+{
+	double AA[16];
+	double BB[4];
+	double x4[4];
+	for (int j = 0; j < 16; j++) AA[j] = st->A[k][0][j] + st->A[k][1][j];
+	for (int j = 0; j < 4; j++) BB[j] = st->Bv[k][0][j] + st->Bv[k][1][j];
+	if (st->N[k][0] + st->N[k][1] < 300 || !pm_solve(AA, BB, 4, x4)) return;
+	LOGI("pdmix pos (%2d,%2d) %s: R %+.3f G %+.3f B %+.3f off %+5.2f DN  n=%.0f", pdmix_py(st, k), pdmix_px(st, k), k < 8 ? "PD  " : "mate", x4[0], x4[1], x4[2], x4[3], st->N[k][0] + st->N[k][1]);
+}
+static inline double ratio0(double s, double n) { return n ? s / n : 0.0; }
+static void diag_pdmix(const uint16_t *in, int S)
+{
+	static struct pdmix st;
+	int nx = g_w / 16;
+	int ny = g_h / 16;
+	long ntile = 0;
+	long nok = 0;
+	memset(&st, 0, sizeof st);
+	st.in = in; st.S = S;
+	st.slot[0] = g_qcol[kPdPos[0][0] & 3][kPdPos[0][1] & 3]; st.slot[1] = g_qcol[kPdPos[2][0] & 3][kPdPos[2][1] & 3];
+	pd_ex_mates(st.ex, st.mate);
 	for (int ty = 1; ty * 16 + 20 < g_h; ty += 3)
 		for (int tx = 1; tx * 16 + 20 < g_w; tx += 5) {
-			double s1[3] = { 0, 0, 0 };
-			double s2[3] = { 0, 0, 0 };
 			double m[3];
-			double xv[4]; long n[3] = { 0, 0, 0 }; int clipped = 0;
-			int ok = 1;
 			ntile++;
-			for (int y = 0; y < 16; y++)
-				for (int x = 0; x < 16; x++) {
-					int v = in[(size_t)(ty * 16 + y) * S + tx * 16 + x];
-					if (v >= 1015) clipped = 1;
-					if (ex[y][x]) continue;
-					int c = g_qcol[y & 3][x & 3];
-					s1[c] += v - g_ped; s2[c] += (double)(v - g_ped) * (v - g_ped); n[c]++;
-					cs[c] += v; cn[c]++;
-				}
-			if (clipped) continue;
-			for (int k = 0; k < 3; k++) {
-				m[k] = n[k] ? s1[k] / n[k] : 0;
-				double sd = 1e9;
-				if (n[k]) {
-					double var = s2[k] / n[k] - m[k] * m[k];
-					sd = sqrt(var > 0 ? var : 0);
-				}
-				if (sd > 0.05 * (m[k] > 0 ? m[k] : 0) + 6) ok = 0;      /* the third colour may be small, but it must be flat */
-			}
-			if (!ok || m[CG] < 16 || m[CG] >= 600) continue;
+			if (!pdmix_tile(&st, ty, tx, m)) continue;
 			nok++;
-			reg = (tx >= nx / 3 && tx < 2 * nx / 3 && ty >= ny / 3 && ty < 2 * ny / 3) ? 0 : 1;
-			xv[0] = m[CR]; xv[1] = m[CG]; xv[2] = m[CB]; xv[3] = 1.0;
-			for (int k = 0; k < 16; k++) {
-				int py = k < 8 ? kPdPos[k][0] : mate[k - 8][0];
-				int px = k < 8 ? kPdPos[k][1] : mate[k - 8][1];
-				double yv = in[(size_t)(ty * 16 + py) * S + tx * 16 + px] - g_ped;
-				if (yv + g_ped >= 1015) continue;
-				for (int i = 0; i < 4; i++) {
-					for (int j = 0; j < 4; j++) A[k][reg][i * 4 + j] += xv[i] * xv[j];
-					Bv[k][reg][i] += xv[i] * yv;
-				}
-				Syy[k][reg] += yv * yv; N[k][reg] += 1;
-				{ int t = (k & 7) == 2 || (k & 7) == 3 || (k & 7) == 6 || (k & 7) == 7;
-				  if (k < 8) { psum[t] += yv + g_ped; pcnt[t] += 1; } else { msum[t] += yv + g_ped; mcnt[t] += 1; } }
-			}
-			(void)dsum; (void)dcnt;
+			int reg = (tx >= nx / 3 && tx < 2 * nx / 3 && ty >= ny / 3 && ty < 2 * ny / 3) ? 0 : 1;
+			double xv[4] = { m[CR], m[CG], m[CB], 1.0 };
+			for (int k = 0; k < 16; k++) pdmix_sample(&st, ty, tx, k, reg, xv);
 		}
 	LOGI("pdmix: %ld tiles sampled, %ld flat/unclipped with green 16..600 DN; centre third = tile rows/cols in the middle third of the frame", ntile, nok);
-	{ static const char *tn[2] = { "weak  ", "strong" };
-	  static const char *kn[2] = { "PD  ", "mate" };
-	  static const char *rn[3] = { "all   ", "centre", "outer " };
-	  for (int t = 0; t < 2; t++)
+	for (int t = 0; t < 2; t++)
 		for (int kind = 0; kind < 2; kind++)
-			for (int rr = 0; rr < 3; rr++) {
-				double AA[16] = { 0 };
-				double BB[4] = { 0 };
-				double syy = 0;
-				double nn = 0;
-				double x4[4] = { 0 };
-				double x3[4] = { 0 };
-				for (int i = 0; i < 4; i++) {
-					int pos = kPdcPos[t][i];
-					int kk = kind * 8 + pos;
-					for (reg = 0; reg < 2; reg++) {
-						if (rr == 1 && reg != 0) continue;
-						if (rr == 2 && reg != 1) continue;
-						for (int j = 0; j < 16; j++) AA[j] += A[kk][reg][j];
-						for (int j = 0; j < 4; j++) BB[j] += Bv[kk][reg][j];
-						syy += Syy[kk][reg]; nn += N[kk][reg];
-					}
-				}
-				if (nn < 300) continue;
-				if (!pm_solve(AA, BB, 4, x4)) continue;
-				double sse4 = syy; for (int j = 0; j < 4; j++) sse4 -= x4[j] * BB[j];
-				/* two-colour model: green and the slot colour + offset */
-				{ int idx[3] = { CG, slot[t], 3 }; double A2[16] = { 0 };
-				  double B2[4] = { 0 };
-				  for (int a = 0; a < 3; a++) { B2[a] = BB[idx[a]]; for (int b2 = 0; b2 < 3; b2++) A2[a * 4 + b2] = AA[idx[a] * 4 + idx[b2]]; }
-				  double sse3 = syy; if (pm_solve(A2, B2, 3, x3)) for (int a = 0; a < 3; a++) sse3 -= x3[a] * B2[a];
-				  double meany = 0; (void)meany;
-				  LOGI("pdmix %s %s %s: R %+.3f G %+.3f B %+.3f off %+5.2f DN (sum of colours %.3f) | rms3 %.2f DN, rms2(G,slot) %.2f DN  n=%.0f", tn[t], kn[kind], rn[rr],
-				       x4[0], x4[1], x4[2], x4[3], x4[0] + x4[1] + x4[2], sqrt(sse4 > 0 ? sse4 / nn : 0), sqrt(sse3 > 0 ? sse3 / nn : 0), nn); }
-			} }
-	for (int k = 0; k < 16; k++) {
-		double AA[16];
-		double BB[4];
-		double x4[4]; int reg2;
-		for (int j = 0; j < 16; j++) AA[j] = A[k][0][j] + A[k][1][j];
-		for (int j = 0; j < 4; j++) BB[j] = Bv[k][0][j] + Bv[k][1][j];
-		(void)reg2;
-		if (N[k][0] + N[k][1] < 300 || !pm_solve(AA, BB, 4, x4)) continue;
-		LOGI("pdmix pos (%2d,%2d) %s: R %+.3f G %+.3f B %+.3f off %+5.2f DN  n=%.0f", k < 8 ? kPdPos[k][0] : mate[k - 8][0], k < 8 ? kPdPos[k][1] : mate[k - 8][1], k < 8 ? "PD  " : "mate", x4[0], x4[1], x4[2], x4[3], N[k][0] + N[k][1]);
-	}
+			for (int rr = 0; rr < 3; rr++) pdmix_report_pool(&st, t, kind, rr);
+	for (int k = 0; k < 16; k++) pdmix_report_pos(&st, k);
 	LOGI("pddark: mean raw  weak PD %.1f  weak mate %.1f  clean R %.1f | strong PD %.1f  strong mate %.1f  clean B %.1f | clean G %.1f  (a black-level comparison only if the frame is dark)",
-	     pcnt[0] ? psum[0] / pcnt[0] : 0.0, mcnt[0] ? msum[0] / mcnt[0] : 0.0, cn[slot[0]] ? cs[slot[0]] / cn[slot[0]] : 0.0,
-	     pcnt[1] ? psum[1] / pcnt[1] : 0.0, mcnt[1] ? msum[1] / mcnt[1] : 0.0, cn[slot[1]] ? cs[slot[1]] / cn[slot[1]] : 0.0, cn[CG] ? cs[CG] / cn[CG] : 0.0);
+	     ratio0(st.psum[0], st.pcnt[0]), ratio0(st.msum[0], st.mcnt[0]), ratio0(st.cs[st.slot[0]], st.cn[st.slot[0]]),
+	     ratio0(st.psum[1], st.pcnt[1]), ratio0(st.msum[1], st.mcnt[1]), ratio0(st.cs[st.slot[1]], st.cn[st.slot[1]]), ratio0(st.cs[CG], st.cn[CG]));
 }
 
 /* --------------------------------------------------------------- calibration kept across library reloads
@@ -2992,82 +3020,97 @@ static void cal_restore(void) { /* the process store is Android-only (see above)
  * excluding the 3x3 neighbourhood of every PD pixel. In a dark frame the difference is the PD / mate black-level offset
  * in DN. Pooled lines (weak/strong x PD/mate) average the per-position differences. se = standard error of the mean. */
 #define PDK_DARK 20.0
-static void diag_pddark2(const uint16_t *in, int S)
-{
+struct pdd2 {
+	const uint16_t *in;
+	int S;
 	unsigned char ex[16][16];
-	double ks[16] = { 0 };
-	double kq[16] = { 0 };
-	double kn[16] = { 0 };
-	double ps[4][4] = { { 0 } };
-	double pn[4][4] = { { 0 } };
+	int mate[8][2];
+	double ks[16];
+	double kq[16];
+	double kn[16];
+	double ps[4][4];
+	double pn[4][4];
 	double df[16];
 	double se[16];
-	double mn[16];
-	int mate[8][2];
+};
+/* 1: dark tile (unclipped, clean green mean < PDK_DARK above the pedestal), 0: not dark, -1: clipped */
+static int pdd2_tile_class(const struct pdd2 *st, int ty, int tx)
+{
+	double gs = 0;
+	double gn = 0; int clipped = 0;
+	for (int y = 0; y < 16; y++)
+		for (int x = 0; x < 16; x++) {
+			int v = st->in[(size_t)(ty * 16 + y) * st->S + tx * 16 + x];
+			if (v >= 1015) clipped = 1;
+			if (!st->ex[y][x] && g_qcol[y & 3][x & 3] == CG) { gs += v - g_ped; gn += 1; }
+		}
+	if (clipped) return -1;
+	return gn >= 1 && gs / gn < PDK_DARK;
+}
+static void pdd2_acc(struct pdd2 *st, int ty, int tx)
+{
+	for (int y = 0; y < 16; y++)
+		for (int x = 0; x < 16; x++) {
+			if (st->ex[y][x]) continue;
+			st->ps[y & 3][x & 3] += st->in[(size_t)(ty * 16 + y) * st->S + tx * 16 + x]; st->pn[y & 3][x & 3] += 1;
+		}
+	for (int k = 0; k < 16; k++) {
+		int py = k < 8 ? kPdPos[k][0] : st->mate[k - 8][0];
+		int px = k < 8 ? kPdPos[k][1] : st->mate[k - 8][1];
+		double v = st->in[(size_t)(ty * 16 + py) * st->S + tx * 16 + px];
+		st->ks[k] += v; st->kq[k] += v * v; st->kn[k] += 1;
+	}
+}
+static void pdd2_report_pos(struct pdd2 *st, int k)
+{
+	int py = k < 8 ? kPdPos[k][0] : st->mate[k - 8][0];
+	int px = k < 8 ? kPdPos[k][1] : st->mate[k - 8][1];
+	double m = st->ks[k] / st->kn[k];
+	double var = st->kq[k] / st->kn[k] - m * m;
+	double ph = st->ps[py & 3][px & 3] / st->pn[py & 3][px & 3];
+	st->df[k] = m - ph; st->se[k] = sqrt((var > 0 ? var : 0) / st->kn[k]);
+	LOGI("pddark2 %s (%2d,%2d) %s: mean %.2f  same-phase clean %.2f  diff %+.2f DN (se %.2f)  n=%.0f", k < 8 ? "PD  " : "mate", py, px,
+	     ((k & 7) == 2 || (k & 7) == 3 || (k & 7) == 6 || (k & 7) == 7) ? "strong" : "weak  ", m, ph, st->df[k], st->se[k], st->kn[k]);
+}
+static void pdd2_report_pooled(const struct pdd2 *st, int t, int kind)
+{
+	static const char *tn[2] = { "weak  ", "strong" };
+	static const char *kn2[2] = { "PD  ", "mate" };
+	double d = 0;
+	double s2 = 0;
+	for (int j = 0; j < 4; j++) {
+		int kk = kind * 8 + kPdcPos[t][j];
+		d += st->df[kk] / 4; s2 += st->se[kk] * st->se[kk] / 16;
+	}
+	LOGI("pddark2 pooled %s %s: diff vs same-phase clean %+.2f DN (se %.2f)", tn[t], kn2[kind], d, sqrt(s2));
+}
+static void diag_pddark2(const uint16_t *in, int S)
+{
+	struct pdd2 st;
 	long ntile = 0;
 	long ndark = 0;
 	long nclip = 0;
-	memset(ex, 0, sizeof ex);
-	for (int i = 0; i < 8; i++) {
-		mate[i][0] = kPdPos[i][0]; mate[i][1] = kPdPos[i][1] ^ 1;
-		for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++) ex[(kPdPos[i][0] + dy) & 15][(kPdPos[i][1] + dx) & 15] = 1;
-	}
+	memset(&st, 0, sizeof st);
+	st.in = in; st.S = S;
+	pd_ex_mates(st.ex, st.mate);
 	for (int ty = 1; ty * 16 + 20 < g_h; ty += 3)
 		for (int tx = 1; tx * 16 + 20 < g_w; tx += 5) {
-			double gs = 0;
-			double gn = 0; int clipped = 0;
 			ntile++;
-			for (int y = 0; y < 16; y++)
-				for (int x = 0; x < 16; x++) {
-					int v = in[(size_t)(ty * 16 + y) * S + tx * 16 + x];
-					if (v >= 1015) clipped = 1;
-					if (!ex[y][x] && g_qcol[y & 3][x & 3] == CG) { gs += v - g_ped; gn += 1; }
-				}
-			if (clipped) { nclip++; continue; }
-			if (gn < 1 || gs / gn >= PDK_DARK) continue;
+			int cls = pdd2_tile_class(&st, ty, tx);
+			if (cls < 0) nclip++;
+			if (cls <= 0) continue;
 			ndark++;
-			for (int y = 0; y < 16; y++)
-				for (int x = 0; x < 16; x++) {
-					if (ex[y][x]) continue;
-					ps[y & 3][x & 3] += in[(size_t)(ty * 16 + y) * S + tx * 16 + x]; pn[y & 3][x & 3] += 1;
-				}
-			for (int k = 0; k < 16; k++) {
-				int py = k < 8 ? kPdPos[k][0] : mate[k - 8][0];
-				int px = k < 8 ? kPdPos[k][1] : mate[k - 8][1];
-				double v = in[(size_t)(ty * 16 + py) * S + tx * 16 + px];
-				ks[k] += v; kq[k] += v * v; kn[k] += 1;
-			}
+			pdd2_acc(&st, ty, tx);
 		}
 	LOGI("pddark2: %ld tiles sampled, %ld dark (green < %.0f DN above pedestal, unclipped), %ld dropped for clipped/hot samples", ntile, ndark, PDK_DARK, nclip);
 	if (ndark < 100) { LOGI("pddark2: too few dark tiles (need >= 100) - no result; use a darker, unclipped scene"); return; }
-	for (int k = 0; k < 16; k++) {
-		int py = k < 8 ? kPdPos[k][0] : mate[k - 8][0];
-		int px = k < 8 ? kPdPos[k][1] : mate[k - 8][1];
-		double m = ks[k] / kn[k];
-		double var = kq[k] / kn[k] - m * m;
-		double ph = ps[py & 3][px & 3] / pn[py & 3][px & 3];
-		mn[k] = m; df[k] = m - ph; se[k] = sqrt((var > 0 ? var : 0) / kn[k]);
-		LOGI("pddark2 %s (%2d,%2d) %s: mean %.2f  same-phase clean %.2f  diff %+.2f DN (se %.2f)  n=%.0f", k < 8 ? "PD  " : "mate", py, px,
-		     ((k & 7) == 2 || (k & 7) == 3 || (k & 7) == 6 || (k & 7) == 7) ? "strong" : "weak  ", m, ph, df[k], se[k], kn[k]);
-	}
-	{ static const char *tn[2] = { "weak  ", "strong" };
-	  static const char *kn2[2] = { "PD  ", "mate" };
-	  for (int t = 0; t < 2; t++)
-		for (int kind = 0; kind < 2; kind++) {
-			double d = 0;
-			double s2 = 0;
-			for (int j = 0; j < 4; j++) {
-				int pos = kPdcPos[t][j];
-				int kk = kind * 8 + pos;
-				d += df[kk] / 4; s2 += se[kk] * se[kk] / 16;
-			}
-			LOGI("pddark2 pooled %s %s: diff vs same-phase clean %+.2f DN (se %.2f)", tn[t], kn2[kind], d, sqrt(s2));
-		} }
-	{ char b[300]; int o = 0;
-	  o += snprintf(b, sizeof b, "pddark2 clean mean raw per quad phase [y&3][x&3]:");
-	  for (int py = 0; py < 4; py++) for (int px = 0; px < 4; px++) o += snprintf(b + o, sizeof b - o, " %.2f", pn[py][px] > 0 ? ps[py][px] / pn[py][px] : 0.0);
-	  LOGI("%s", b); }
-	(void)mn;
+	for (int k = 0; k < 16; k++) pdd2_report_pos(&st, k);
+	for (int t = 0; t < 2; t++)
+		for (int kind = 0; kind < 2; kind++) pdd2_report_pooled(&st, t, kind);
+	char b[300]; int o = 0;
+	o += snprintf(b, sizeof b, "pddark2 clean mean raw per quad phase [y&3][x&3]:");
+	for (int py = 0; py < 4; py++) for (int px = 0; px < 4; px++) o += snprintf(b + o, sizeof b - o, " %.2f", st.pn[py][px] > 0 ? st.ps[py][px] / st.pn[py][px] : 0.0);
+	LOGI("%s", b);
 }
 
 /* --------------------------------------------------------------- v9: pdcolor - per-frame correction of the 8 cell-mates
