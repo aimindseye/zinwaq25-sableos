@@ -15,6 +15,8 @@ import org.sableos.tools.ui.ToolActivity
  */
 class SecretCodeReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        // Only the system sends this protected broadcast; ignore intents another app addresses to us directly.
+        if (intent.action != ACTION_SECRET_CODE) return
         if (DialerCodes.secretCodeFromUri(intent.dataString) !=
             DialerCodes.FACTORY_TEST_CODE
         ) {
@@ -33,5 +35,9 @@ class SecretCodeReceiver : BroadcastReceiver() {
                 .putExtra(ToolActivity.EXTRA_NOTICE, decision.reason)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         )
+    }
+
+    private companion object {
+        const val ACTION_SECRET_CODE = "android.telephony.action.SECRET_CODE"
     }
 }
