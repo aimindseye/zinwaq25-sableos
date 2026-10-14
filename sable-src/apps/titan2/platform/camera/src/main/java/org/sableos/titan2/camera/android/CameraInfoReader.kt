@@ -65,6 +65,7 @@ class CameraInfoReader(context: Context) {
             physicalIdCount = c.physicalCameraIds.size,
             sensorOrientation = c.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 90,
             awbModes = c.get(CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES)?.toSet().orEmpty(),
+            aeLockAvailable = c.get(CameraCharacteristics.CONTROL_AE_LOCK_AVAILABLE) == true,
             videoSizes = sizes(map?.getOutputSizes(MediaRecorder::class.java))
         )
     }

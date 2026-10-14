@@ -21,11 +21,13 @@ object RawKeys {
     private const val KEYCODE_TAB = 61
     private const val KEYCODE_SPACE = 62
     private const val KEYCODE_ENTER = 66
+    private const val KEYCODE_DEL = 67
     private const val KEYCODE_MINUS = 69
     private const val KEYCODE_EQUALS = 70
     private const val KEYCODE_SLASH = 76
     private const val KEYCODE_PLUS = 81
     private const val KEYCODE_ESCAPE = 111
+    private const val KEYCODE_FORWARD_DEL = 112
     private const val KEYCODE_NUMPAD_ENTER = 160
 
     private val named: Map<Int, String> = mapOf(
@@ -42,6 +44,8 @@ object RawKeys {
         KEYCODE_DPAD_RIGHT to "right",
         KEYCODE_TAB to "tab",
         KEYCODE_ESCAPE to "escape",
+        KEYCODE_DEL to "backspace",
+        KEYCODE_FORWARD_DEL to "delete",
         KEYCODE_BACK to "back",
         KEYCODE_PLUS to "plus",
         KEYCODE_EQUALS to "plus",

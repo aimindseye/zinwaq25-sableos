@@ -18,13 +18,15 @@ object ControlLegend {
         "space" to "Space", "enter" to "Enter", "camera" to "Camera", "up" to "↑",
         "down" to "↓", "left" to "←", "right" to "→", "plus" to "+", "minus" to "-",
         "tab" to "Tab", "escape" to "Esc", "back" to "Back", "slash" to "/",
-        "volume_up" to "Vol+", "volume_down" to "Vol-"
+        "volume_up" to "Vol+", "volume_down" to "Vol-", "backspace" to "Del",
+        "delete" to "Delete"
     )
 
     /** Display order; every action appears once. */
     private val order = listOf(
         CameraAction.Shutter, CameraAction.VideoToggle, CameraAction.PauseToggle,
-        CameraAction.Autofocus, CameraAction.ExposureUp, CameraAction.ExposureDown,
+        CameraAction.Autofocus, CameraAction.AfLockToggle, CameraAction.ExposureUp,
+        CameraAction.ExposureDown, CameraAction.AeLockToggle,
         CameraAction.SelectIso, CameraAction.SelectWb, CameraAction.SelectShutter,
         CameraAction.StepUp, CameraAction.StepDown, CameraAction.ProAuto,
         CameraAction.ZoomIn, CameraAction.ZoomOut, CameraAction.PrevMode,
@@ -38,6 +40,8 @@ object ControlLegend {
         CameraAction.VideoToggle to "Video record",
         CameraAction.PauseToggle to "Pause",
         CameraAction.Autofocus to "Autofocus",
+        CameraAction.AfLockToggle to "AF lock on/off",
+        CameraAction.AeLockToggle to "AE lock on/off",
         CameraAction.ExposureUp to "Exposure +",
         CameraAction.ExposureDown to "Exposure -",
         CameraAction.SelectIso to "ISO",
@@ -54,7 +58,7 @@ object ControlLegend {
         CameraAction.NextCaptureMode to "Photo size",
         CameraAction.QualityNext to "Video quality",
         CameraAction.CompareToggle to "Compare bracket",
-        CameraAction.OpenLast to "Last capture",
+        CameraAction.OpenLast to "Review last capture",
         CameraAction.ToggleLegend to "This legend",
         CameraAction.Back to "Close / exit"
     )
@@ -81,10 +85,53 @@ object ControlLegend {
         a: CameraAction,
         profile: CameraDeviceProfile = CameraDeviceProfile.Unknown
     ): List<Binding> = (CameraKeyMap.standard + profile.keyOverrides).filterValues { it == a }.keys
-        .sortedWith(compareBy({ it.alt }, { it.key }))
+        .sortedWith(compareBy({ it.hold }, { it.alt }, { it.key }))
 
-    fun keyText(b: Binding): String =
+    fun keyText(b: Binding): String = (if (b.hold) "Hold " else "") +
         (if (b.alt) "Alt+" else "") + (displayName[b.key] ?: b.key.uppercase())
+
+    private val reviewOrder = listOf(
+        ReviewAction.Older,
+        ReviewAction.Newer,
+        ReviewAction.Delete,
+        ReviewAction.Share,
+        ReviewAction.ShowInFiles,
+        ReviewAction.Open,
+        ReviewAction.Close
+    )
+
+    private val reviewLabels = mapOf(
+        ReviewAction.Older to "Older capture",
+        ReviewAction.Newer to "Newer capture",
+        ReviewAction.Delete to "Delete (asks first)",
+        ReviewAction.Share to "Share",
+        ReviewAction.ShowInFiles to "Show in Files",
+        ReviewAction.Open to "Open in another app",
+        ReviewAction.Close to "Back to the viewfinder",
+        ReviewAction.Confirm to "Delete it",
+        ReviewAction.Cancel to "Keep it"
+    )
+
+    fun reviewLabel(a: ReviewAction): String = reviewLabels.getValue(a)
+
+    /** Every review action has a label; used by tests. */
+    fun reviewLabelled(): Set<ReviewAction> = reviewLabels.keys
+
+    /**
+     * Quick-review lines (key text, label), generated from [ReviewKeyMap] like the viewfinder
+     * legend, for the browse layer or the delete confirmation.
+     */
+    fun reviewEntries(confirming: Boolean = false): List<Pair<String, String>> {
+        val actions = if (confirming) {
+            listOf(ReviewAction.Confirm, ReviewAction.Cancel)
+        } else {
+            reviewOrder
+        }
+        return actions.mapNotNull { a ->
+            ReviewKeyMap.keys(a, confirming).sortedBy { it.key }.takeIf { it.isNotEmpty() }
+                ?.let { keys -> keys.joinToString(" / ", transform = ::keyText) to reviewLabel(a) }
+        }
+    }
 
     fun entries(c: DeckContext, profile: CameraDeviceProfile): List<LegendEntry> =
         order.mapNotNull { a ->
@@ -102,6 +149,24 @@ object ControlLegend {
         }
 }
 
+/** On-screen buttons of the quick review: the same [ReviewAction]s the keys reach. */
+object ReviewTouch {
+    val browse: List<Pair<ReviewAction, String>> = listOf(
+        ReviewAction.Older to "◀",
+        ReviewAction.Newer to "▶",
+        ReviewAction.Delete to "Delete",
+        ReviewAction.Share to "Share",
+        ReviewAction.ShowInFiles to "Files",
+        ReviewAction.Open to "Open",
+        ReviewAction.Close to "Close"
+    )
+
+    val confirm: List<Pair<ReviewAction, String>> = listOf(
+        ReviewAction.Confirm to "Delete",
+        ReviewAction.Cancel to "Keep"
+    )
+}
+
 /** Touch controls for every semantic action, so touch alone can run the whole camera. */
 data class TouchControl(val action: CameraAction, val label: String, val gate: Gate)
 
@@ -114,6 +179,8 @@ object TouchFallback {
         CameraAction.VideoToggle to "Video",
         CameraAction.PauseToggle to "Pause",
         CameraAction.Autofocus to "AF",
+        CameraAction.AfLockToggle to "AF-L",
+        CameraAction.AeLockToggle to "AE-L",
         CameraAction.ExposureUp to "EV",
         CameraAction.ExposureDown to "EV-",
         CameraAction.SelectIso to "ISO",
