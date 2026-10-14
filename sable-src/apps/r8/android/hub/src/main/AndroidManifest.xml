@@ -10,6 +10,8 @@
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.SEND_SMS" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- Hub Calls filter: read-only recent calls; callback hands off to the Phone app (ACTION_DIAL). -->
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
 
     <queries>
         <intent>
