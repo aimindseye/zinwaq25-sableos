@@ -229,13 +229,16 @@ else
     printf 'SKIP  javac not installed (Settings policy test)\n'
 fi
 
-# 6f. Sable Applications model (Settings patch 0601) host tests, and the Sable Tools
-# Settings actions the Settings patches must export (settings-ui5).
+# 6f. Sable Applications model (Settings patches 0601 and 1101) host tests, and the Sable
+# Tools Settings actions the Settings patches must export (settings-ui5).
 if command -v javac >/dev/null 2>&1; then
     sa="$tmp/settings-apps"
     mkdir -p "$sa/out"
-    (cd "$sa" && git apply --include='src/com/android/settings/applications/sable/model/*' \
-        --include='tests/sable-apps/src/*' "$ROOT"/patches/framework/packages/apps/Settings/0601-*.patch)
+    for p in "$ROOT"/patches/framework/packages/apps/Settings/0601-*.patch \
+        "$ROOT"/patches/framework/packages/apps/Settings/1101-*.patch; do
+        (cd "$sa" && git apply --include='src/com/android/settings/applications/sable/model/*' \
+            --include='tests/sable-apps/src/*' "$p")
+    done
     mapfile -t sa_src < <(find "$sa/src" "$sa/tests" tests/java/junit-shim -name '*.java')
     mapfile -t sa_tests < <(cd "$sa/tests/sable-apps/src" && find . -name '*Test.java' | sed 's#^\./##; s#\.java$##; s#/#.#g' | sort)
     if javac -encoding UTF-8 -d "$sa/out" "${sa_src[@]}" 2>"$tmp/err" &&
@@ -286,16 +289,27 @@ for action in org.sableos.settings.NETWORK_MANAGER org.sableos.settings.APP_SECU
 done
 if [[ -z "$missing" ]]; then pass "Sable Tools Settings links land on exported Settings actions"; else fail "Settings actions missing:$missing"; fi
 
+# Mobile Manager (Settings patches 1101/1102): exported actions, the suspended-app details
+# handler, the Focus receiver, and App lock never claimed as enforced.
+mm=(patches/framework/packages/apps/Settings/1102-*.patch)
+missing=""
+for action in org.sableos.settings.MOBILE_MANAGER org.sableos.settings.FOCUS_MODE \
+    android.intent.action.SHOW_SUSPENDED_APP_DETAILS android.app.action.AUTOMATIC_ZEN_RULE_STATUS_CHANGED; do
+    grep -q "<action android:name=\"$action\" />" "${mm[@]}" || missing="$missing $action"
+done
+grep -q 'PLATFORM_ENFORCEMENT = Enforcement.NOT_ENFORCED' patches/framework/packages/apps/Settings/1101-*.patch ||
+    missing="$missing app-lock-not-enforced"
+if [[ -z "$missing" ]]; then pass "Mobile Manager actions, Focus receiver and App lock status"; else fail "Mobile Manager:$missing"; fi
+
 # Settings > Sable, Display and App info (Settings patch 1001) open actions the Sable apps declare.
-sable_links=patches/framework/packages/apps/Settings/1001-*.patch
+sable_links=(patches/framework/packages/apps/Settings/1001-*.patch)
 missing=""
 for pair in \
     org.sableos.start.action.EDIT_QUICK_BAR:sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml \
     org.sableos.titan2.displaycompat.action.APP_PROFILE:sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml \
     org.sableos.tools.action.OPEN_TOOL:sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml; do
     action="${pair%%:*}"; manifest="${pair#*:}"
-    # shellcheck disable=SC2086 # the glob names one patch
-    grep -q "\"$action\"" $sable_links || missing="$missing settings:$action"
+    grep -q "\"$action\"" "${sable_links[@]}" || missing="$missing settings:$action"
     grep -q "<action android:name=\"$action\" />" "$manifest" || missing="$missing app:$action"
 done
 grep -q 'HARDWARE_TESTS(' sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt ||
