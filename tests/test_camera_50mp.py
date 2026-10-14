@@ -147,5 +147,63 @@ class Camera50MpTest(unittest.TestCase):
             self.assertIn(b"\r\n", f.read())
 
 
+SHIM = os.path.join(ROOT, "product/q25/camera-50mp/remosaic_shim_v4_rc1.c")
+SHIM_DRIVER = r"""
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+int remosaic_init(int, int, int, int);
+int remosaic_process(void *, unsigned long, void *, unsigned long);
+int __android_log_print(int p, const char *t, const char *f, ...) { (void)p; (void)t; (void)f; return 0; }
+int __system_property_get(const char *n, char *v)   /* defaults, but no calibration file on the host */
+{ if (strcmp(n, "persist.vendor.remoshim.usecal") == 0) { strcpy(v, "0"); return 1; } v[0] = 0; return 0; }
+int main(void)
+{
+    enum { W = 200, H = 136, S = 208 };
+    static uint16_t in[S * H], out[S * H];
+    unsigned r = 1;
+    for (int y = 0; y < H; y++)
+        for (int x = 0; x < S; x++) { r = r * 1103515245u + 12345u; in[y * S + x] = (uint16_t)(64 + (x * 3 + y * 2) % 600 + (r >> 16) % 9); }
+    if (remosaic_init(W, H, 2, 64) != 0 || remosaic_process(in, sizeof in, out, sizeof out) != 0) return 1;
+    if (remosaic_process(NULL, sizeof in, out, sizeof out) != -1 || remosaic_process(in, sizeof in, out, 2) != -1) return 2;
+    for (int y = 0; y < H; y++)
+        for (int x = 0; x < W; x++) if (out[y * S + x] > 1023) return 3;
+    fwrite(out, sizeof out, 1, stdout);
+    return 0;
+}
+"""
+
+
+class RemosaicShimHostTest(unittest.TestCase):
+    """The remosaic library builds warning-free with the Android.bp flags and runs a small frame on the host."""
+
+    def test_builds_and_runs_on_the_host(self):
+        cc = shutil.which("clang") or shutil.which("gcc")
+        if not cc:
+            self.skipTest("no host C compiler")
+        tmp = tempfile.mkdtemp()
+        try:
+            for name, text in {
+                "android/log.h": "#define ANDROID_LOG_INFO 4\n#define ANDROID_LOG_ERROR 6\n"
+                                 "int __android_log_print(int, const char *, const char *, ...);\n",
+                "sys/system_properties.h": "#define PROP_VALUE_MAX 92\nint __system_property_get(const char *, char *);\n",
+                "driver.c": SHIM_DRIVER,
+            }.items():
+                os.makedirs(os.path.dirname(os.path.join(tmp, name)), exist_ok=True)
+                with open(os.path.join(tmp, name), "w") as f:
+                    f.write(text)
+            flags = ["-O3", "-Wall", "-Werror", "-Wno-unused-function", "-pthread", "-I" + tmp]
+            if "gcc" in os.path.basename(cc):
+                flags.append("-Wno-format-truncation")   # gcc only: the shim truncates its log lines on purpose
+            exe = os.path.join(tmp, "shim")
+            subprocess.run([cc, *flags, SHIM, os.path.join(tmp, "driver.c"), "-lm", "-o", exe], check=True)
+            first = subprocess.run([exe], capture_output=True, check=True).stdout
+            self.assertEqual(first, subprocess.run([exe], capture_output=True, check=True).stdout)   # deterministic
+            self.assertEqual(208 * 136 * 2, len(first))
+        finally:
+            shutil.rmtree(tmp)
+
+
 if __name__ == "__main__":
     unittest.main()
