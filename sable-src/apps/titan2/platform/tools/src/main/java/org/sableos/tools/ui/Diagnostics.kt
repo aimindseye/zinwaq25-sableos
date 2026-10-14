@@ -192,11 +192,14 @@ class TextEntryController(private val host: ToolHost) : ToolController {
     private val ctx = host.activity
     private val root = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
 
+    /** Only the keys this profile's keyboard declares (no Fn case where there is no Fn key). */
+    private val cases = TextEntryTest.casesFor(host.env.profile.keyboard)
+
     override fun view(): View = ScrollView(ctx).apply { addView(root) }.also { build() }
 
     private fun build() {
         root.removeAllViews()
-        TextEntryTest.CASES.forEach { c ->
+        cases.forEach { c ->
             val result = Ui.subtitle(ctx, (Session.textEntry[c.id] ?: CaseResult.NOT_RUN).name)
             val keys = mutableListOf<TypedKey>()
             val field = EditText(ctx).apply {
@@ -251,11 +254,10 @@ class TextEntryController(private val host: ToolHost) : ToolController {
     }
 
     override fun info() =
-        "Covers letters, numbers, symbols, Alt, Sym, Fn, a Bluetooth pairing code, a Wi-" +
-            "Fi password, a PIN and the software keyboard fallback. Press Enter in a field to" +
-            " check it. Only pass/fail is kept."
+        "Covers " + cases.joinToString { it.title } + ". Only keys this keyboard has are " +
+            "tested. Press Enter in a field to check it. Only pass/fail is kept."
 
-    override fun copyText() = TextEntryTest.summary(Session.textEntry).joinToString("\n") {
+    override fun copyText() = TextEntryTest.summary(Session.textEntry, cases).joinToString("\n") {
         "${it.key}: ${it.value}"
     }
 }

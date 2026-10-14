@@ -61,6 +61,8 @@ class LauncherAppsRepository(
                 .flatMap { user ->
                     val userSerial = userManager.getSerialNumberForUser(user)
                     val profileLabel = profileLabelFor(user)
+                    // A locked private space lists nothing (its apps cannot start).
+                    if (profileLabel == PROFILE_PRIVATE && isLocked(user)) return@flatMap emptyList()
                     launcherApps
                         .getActivityList(null, user)
                         .asSequence()
@@ -126,6 +128,22 @@ class LauncherAppsRepository(
     fun invalidatePrivacyForUser(user: UserHandle?) {
         if (user == null) privacyCache.clear() else privacyCache.invalidateUser(user.identifier)
     }
+
+    /** The private space profile, when the device has one; null otherwise. */
+    fun privateSpace(): UserHandle? =
+        runCatching { userManager.userProfiles.firstOrNull { profileLabelFor(it) == PROFILE_PRIVATE } }.getOrNull()
+
+    /** Locked means quiet mode: its apps cannot run and are not listed. */
+    fun isLocked(user: UserHandle): Boolean = runCatching { userManager.isQuietModeEnabled(user) }.getOrDefault(true)
+
+    /**
+     * Locks or unlocks the private space. Unlocking may first show the
+     * system's own credential screen; the profile broadcasts then refresh.
+     */
+    fun setLocked(
+        user: UserHandle,
+        locked: Boolean,
+    ): Boolean = runCatching { userManager.requestQuietModeEnabled(locked, user) }.getOrDefault(false)
 
     private fun profileLabelFor(user: UserHandle): String? {
         if (user == launcherUser) return null

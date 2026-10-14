@@ -51,7 +51,15 @@ data class DeckContext(
 /** Capability gate: no control is offered that existing Camera2 support does not back. */
 object ControlGate {
     fun check(a: CameraAction, c: DeckContext): Gate =
-        captureGate(a, c) ?: parameterGate(a, c) ?: navigationGate(a, c)
+        captureGate(a, c) ?: parameterGate(a, c) ?: lockGate(a, c) ?: navigationGate(a, c)
+
+    /** Hold-F/hold-E locks belong to the auto camera; Pro sets focus and exposure by hand. */
+    private fun lockGate(a: CameraAction, c: DeckContext): Gate? = when {
+        a != CameraAction.AfLockToggle && a != CameraAction.AeLockToggle -> null
+        c.ui == UiMode.Pro -> Gate.Closed("Pro sets it by hand")
+        a == CameraAction.AfLockToggle -> need(hasAf(c.cam), "Fixed focus")
+        else -> need(c.cam.camera.aeLockAvailable, "No AE lock on this camera")
+    }
 
     private fun captureGate(a: CameraAction, c: DeckContext): Gate? = when (a) {
         CameraAction.Shutter -> need(c.ui in ActionRouter.available(c.cam), "No ${c.ui.label} here")
@@ -107,6 +115,8 @@ object ControlGate {
 
         CameraAction.NextMode, CameraAction.PrevMode ->
             need(ActionRouter.available(c.cam).size > 1 && !c.recording, "Single mode")
+
+        CameraAction.OpenLast -> need(!c.recording, "Not while recording")
 
         else -> Gate.Open
     }

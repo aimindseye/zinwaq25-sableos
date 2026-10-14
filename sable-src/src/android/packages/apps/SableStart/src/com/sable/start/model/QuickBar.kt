@@ -146,3 +146,22 @@ object StartTypeToSearch {
         return char.takeUnless { it.isISOControl() || it.isWhitespace() }
     }
 }
+
+/** Three-page Start keys: Alt+Left / Alt+Right (Fn+Left / Fn+Right on Fn keyboards). */
+object StartPages {
+    private const val KEYCODE_DPAD_LEFT = 21
+    private const val KEYCODE_DPAD_RIGHT = 22
+
+    /** -1 toward Glance, +1 toward Hub, or null when the key does not move pages. */
+    fun keyDelta(
+        keyCode: Int,
+        metaState: Int,
+    ): Int? {
+        if (metaState and (QuickBar.META_ALT_ON or QuickBar.META_FUNCTION_ON) == 0) return null
+        return when (keyCode) {
+            KEYCODE_DPAD_LEFT -> -1
+            KEYCODE_DPAD_RIGHT -> 1
+            else -> null
+        }
+    }
+}

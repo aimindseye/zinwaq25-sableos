@@ -72,6 +72,15 @@ class QuickBarTest {
     }
 
     @Test
+    fun altArrowsMoveBetweenStartPages() {
+        assertEquals(-1, StartPages.keyDelta(21, QuickBar.META_ALT_ON))
+        assertEquals(1, StartPages.keyDelta(22, QuickBar.META_FUNCTION_ON))
+        // Plain arrows stay with focus traversal.
+        assertNull(StartPages.keyDelta(22, 0))
+        assertNull(StartPages.keyDelta(29, QuickBar.META_ALT_ON))
+    }
+
+    @Test
     fun printableKeysOnStartSeedSearch() {
         assertEquals('m', StartTypeToSearch.seed('m'.code, 0, repeat = false))
         assertEquals('M', StartTypeToSearch.seed('M'.code, 0x1, repeat = false))

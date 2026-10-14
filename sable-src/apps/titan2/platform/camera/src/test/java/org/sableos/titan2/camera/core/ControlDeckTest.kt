@@ -127,7 +127,7 @@ class ControlDeckTest {
         for (ui in UiMode.entries) {
             for (t in TouchFallback.controls(ctx(ui))) {
                 val key = CameraKeyMap.keys(t.action).first()
-                val viaKey = ActionRouter.route(ui, CameraKeyMap.resolve(key.key, key.alt)!!)
+                val viaKey = ActionRouter.route(ui, CameraKeyMap.resolve(key)!!)
                 assertEquals(viaKey, ActionRouter.route(ui, t.action))
             }
         }
@@ -360,7 +360,7 @@ class ControlDeckTest {
                 for (b in ControlLegend.keysFor(e.action, CameraDeviceProfile.Titan2)) {
                     assertEquals(
                         e.action,
-                        CameraKeyMap.resolve(b.key, b.alt, CameraDeviceProfile.Titan2)
+                        CameraKeyMap.resolve(b, CameraDeviceProfile.Titan2)
                     )
                 }
             }

@@ -1,0 +1,298 @@
+From 5bea640b086c4840c4906419df54116e3378e244 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 14 Oct 2026 13:01:45 +0000
+Subject: [PATCH 405/407] SableOS: privacy summary step after Wi-Fi
+
+Adds a Privacy step after Wi-Fi that states Sable's privacy defaults in
+six short paragraphs: Sable apps send no analytics (LineageOS statistics
+stay a separate choice on the LineageOS features step), accounts and
+their data stay with their providers, Sable Hub reads notifications and
+not accounts, any app can be blocked from the network, Android shows
+notification content on the lock screen until the user hides it, and
+restore uses Android's backup app.
+
+Under the paragraphs it belongs to, each link opens the Settings screen
+that controls it: Network access (org.sableos.settings.NETWORK_MANAGER),
+lock screen notifications (Lock screen settings, else Notifications) and
+Privacy. A link is shown only when its screen exists on the build
+(SableLinks). The step changes no setting, Next is always enabled, and
+Back/Esc return to Wi-Fi.
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01FqvfFQhAvko2gkqcxM25Aa
+---
+ AndroidManifest.xml                           | 14 ++++
+ res/drawable/ic_sable_privacy.xml             | 14 ++++
+ res/layout/sable_privacy_page.xml             | 78 +++++++++++++++++++
+ res/raw/lineage_wizard_script.xml             |  7 ++
+ res/values/sable_strings.xml                  | 13 ++++
+ res/values/sable_styles.xml                   | 22 ++++++
+ .../setupwizard/SablePrivacyActivity.java     | 56 +++++++++++++
+ 7 files changed, 204 insertions(+)
+ create mode 100644 res/drawable/ic_sable_privacy.xml
+ create mode 100644 res/layout/sable_privacy_page.xml
+ create mode 100644 res/values/sable_styles.xml
+ create mode 100644 src/org/lineageos/setupwizard/SablePrivacyActivity.java
+
+diff --git a/AndroidManifest.xml b/AndroidManifest.xml
+index feacac0b..3b4158f9 100644
+--- a/AndroidManifest.xml
++++ b/AndroidManifest.xml
+@@ -173,6 +173,20 @@
+             </intent-filter>
+         </activity>
+ 
++        <!-- SableOS: privacy summary step after Wi-Fi. -->
++        <activity
++            android:name=".SablePrivacyActivity"
++            android:label="@string/activity_label_empty"
++            android:configChanges="mcc|mnc|keyboard|keyboardHidden"
++            android:immersive="true"
++            android:exported="false"
++            android:windowSoftInputMode="stateAlwaysHidden">
++            <intent-filter>
++                <action android:name="org.sableos.setupwizard.SABLE_PRIVACY" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
++        </activity>
++
+         <activity
+             android:name=".SimMissingActivity"
+             android:label="@string/activity_label_empty"
+diff --git a/res/drawable/ic_sable_privacy.xml b/res/drawable/ic_sable_privacy.xml
+new file mode 100644
+index 00000000..2ec5bb60
+--- /dev/null
++++ b/res/drawable/ic_sable_privacy.xml
+@@ -0,0 +1,14 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     SPDX-FileCopyrightText: The SableOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp"
++    android:height="24dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <path
++        android:fillColor="#FFFFFFFF"
++        android:pathData="M12,1L3,5v6c0,5.55 3.84,10.74 9,12c5.16,-1.26 9,-6.45 9,-12V5L12,1zM12,11.99h7c-0.53,4.12 -3.28,7.79 -7,8.94V12H5V6.3l7,-3.11V11.99z" />
++</vector>
+diff --git a/res/layout/sable_privacy_page.xml b/res/layout/sable_privacy_page.xml
+new file mode 100644
+index 00000000..ea8af8d2
+--- /dev/null
++++ b/res/layout/sable_privacy_page.xml
+@@ -0,0 +1,78 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     SPDX-FileCopyrightText: The SableOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<com.google.android.setupdesign.GlifLayout
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    android:id="@+id/setup_wizard_layout"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent">
++
++    <LinearLayout
++        android:orientation="vertical"
++        android:layout_width="match_parent"
++        android:layout_height="match_parent"
++        style="@style/SudContentFrame">
++
++        <!-- Each link sits under the paragraph it belongs to, so arrow keys read down the page. -->
++        <ScrollView
++            android:id="@+id/page"
++            android:layout_width="match_parent"
++            android:layout_height="0dp"
++            android:layout_weight="1">
++
++            <LinearLayout
++                android:orientation="vertical"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content">
++
++                <TextView
++                    style="@style/SableSetupItem"
++                    android:text="@string/sable_privacy_analytics" />
++
++                <TextView
++                    style="@style/SableSetupItem"
++                    android:text="@string/sable_privacy_accounts" />
++
++                <TextView
++                    style="@style/SableSetupItem"
++                    android:text="@string/sable_privacy_hub" />
++
++                <TextView
++                    style="@style/SableSetupItem"
++                    android:text="@string/sable_privacy_network" />
++
++                <Button
++                    android:id="@+id/sable_privacy_network_link"
++                    style="@style/SableSetupLink"
++                    android:text="@string/sable_privacy_network_link" />
++
++                <TextView
++                    style="@style/SableSetupItem"
++                    android:text="@string/sable_privacy_lock_screen" />
++
++                <Button
++                    android:id="@+id/sable_privacy_lock_screen_link"
++                    style="@style/SableSetupLink"
++                    android:text="@string/sable_privacy_lock_screen_link" />
++
++                <TextView
++                    style="@style/SableSetupItem"
++                    android:text="@string/sable_privacy_restore" />
++
++                <Button
++                    android:id="@+id/sable_privacy_settings_link"
++                    style="@style/SableSetupLink"
++                    android:text="@string/sable_privacy_settings_link" />
++
++            </LinearLayout>
++        </ScrollView>
++
++        <org.lineageos.setupwizard.NavigationLayout
++            android:id="@+id/navigation_bar"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content" />
++
++    </LinearLayout>
++</com.google.android.setupdesign.GlifLayout>
+diff --git a/res/raw/lineage_wizard_script.xml b/res/raw/lineage_wizard_script.xml
+index 0be0d260..9530765f 100644
+--- a/res/raw/lineage_wizard_script.xml
++++ b/res/raw/lineage_wizard_script.xml
+@@ -49,6 +49,13 @@
+     <WizardAction
+         wizard:uri="intent:#Intent;action=org.lineageos.setupwizard.LINEAGE_NETWORK_SETUP;end"
+         id="network_setup">
++        <result wizard:action="sable_privacy" />
++    </WizardAction>
++
++    <!-- SableOS: privacy defaults, read-only, with links to the screens that change them. -->
++    <WizardAction
++        wizard:uri="intent:#Intent;action=org.sableos.setupwizard.SABLE_PRIVACY;end"
++        id="sable_privacy">
+         <result wizard:action="datetime" />
+     </WizardAction>
+ 
+diff --git a/res/values/sable_strings.xml b/res/values/sable_strings.xml
+index d3be6716..ffb4539a 100644
+--- a/res/values/sable_strings.xml
++++ b/res/values/sable_strings.xml
+@@ -40,4 +40,17 @@
+     <string name="sable_key_test_trouble">Keys not working? Use the on-screen keyboard or accessibility options.</string>
+     <string name="sable_key_test_soft">On-screen keyboard</string>
+     <string name="sable_key_test_accessibility">Accessibility</string>
++
++    <!-- SableOS privacy step (SETUP_WIZARD_FIRST_BOOT_UX "Privacy posture"). Read-only. -->
++    <string name="setup_sable_privacy">Privacy</string>
++    <string name="sable_privacy_summary">How SableOS treats your data. Nothing on this page changes a setting.</string>
++    <string name="sable_privacy_analytics"><b>No analytics.</b> Sable apps send no usage data, ads or crash reports. Anonymous LineageOS statistics are a separate choice on the LineageOS features step.</string>
++    <string name="sable_privacy_accounts"><b>Accounts stay with their providers.</b> Mail, messages, contacts and calendars belong to the apps and services you sign in to. SableOS does not hold their passwords or keep a copy of their data.</string>
++    <string name="sable_privacy_hub"><b>Sable Hub reads notifications, not accounts.</b> Hub shows the notifications Android already gives it and follows your notification settings.</string>
++    <string name="sable_privacy_network"><b>Internet access per app.</b> You can block any app from the network in Settings, Apps, Network access.</string>
++    <string name="sable_privacy_network_link">Network access</string>
++    <string name="sable_privacy_lock_screen"><b>Lock screen.</b> Android shows notification content on the lock screen until you choose to hide it.</string>
++    <string name="sable_privacy_lock_screen_link">Lock screen notifications</string>
++    <string name="sable_privacy_restore"><b>Restore.</b> Restoring a backup uses Android’s own backup app. SableOS keeps no copy of your backup.</string>
++    <string name="sable_privacy_settings_link">Privacy settings</string>
+ </resources>
+diff --git a/res/values/sable_styles.xml b/res/values/sable_styles.xml
+new file mode 100644
+index 00000000..bdc7e871
+--- /dev/null
++++ b/res/values/sable_styles.xml
+@@ -0,0 +1,22 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     SPDX-FileCopyrightText: The SableOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<resources>
++    <!-- A paragraph on a SableOS setup step (privacy, ready). -->
++    <style name="SableSetupItem">
++        <item name="android:layout_width">match_parent</item>
++        <item name="android:layout_height">wrap_content</item>
++        <item name="android:paddingVertical">6dp</item>
++        <item name="android:textColor">?android:attr/textColorPrimary</item>
++    </style>
++
++    <!-- A link to a system screen; starts hidden and is shown by SableLinks when it resolves. -->
++    <style name="SableSetupLink" parent="@style/SudGlifButton.Secondary">
++        <item name="android:layout_width">wrap_content</item>
++        <item name="android:layout_height">wrap_content</item>
++        <item name="android:minHeight">48dp</item>
++        <item name="android:visibility">gone</item>
++    </style>
++</resources>
+diff --git a/src/org/lineageos/setupwizard/SablePrivacyActivity.java b/src/org/lineageos/setupwizard/SablePrivacyActivity.java
+new file mode 100644
+index 00000000..97ff4ebe
+--- /dev/null
++++ b/src/org/lineageos/setupwizard/SablePrivacyActivity.java
+@@ -0,0 +1,56 @@
++/*
++ * SPDX-FileCopyrightText: The SableOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++package org.lineageos.setupwizard;
++
++import android.annotation.Nullable;
++import android.content.Intent;
++import android.os.Bundle;
++import android.provider.Settings;
++
++/**
++ * SableOS privacy step (SETUP_WIZARD_FIRST_BOOT_UX "Privacy posture"), after Wi-Fi: a short,
++ * read-only summary of Sable's privacy defaults (no analytics, provider-owned accounts, the
++ * Hub boundary, per-app network access, lock screen notifications, restore) with links to the
++ * Settings screens that control them. It changes no setting and Next is always enabled.
++ */
++public class SablePrivacyActivity extends BaseSetupWizardActivity {
++
++    /** Settings > Apps > Network access (Settings patch 0603). */
++    static final String ACTION_NETWORK_MANAGER = "org.sableos.settings.NETWORK_MANAGER";
++    /** Settings > Lock screen, else Settings > Notifications (both hold lock screen privacy). */
++    static final String ACTION_LOCK_SCREEN_SETTINGS = "android.settings.LOCK_SCREEN_SETTINGS";
++    static final String ACTION_NOTIFICATION_SETTINGS = "android.settings.NOTIFICATION_SETTINGS";
++
++    @Override
++    protected void onCreate(@Nullable Bundle savedInstanceState) {
++        super.onCreate(savedInstanceState);
++        getGlifLayout().setDescriptionText(getString(R.string.sable_privacy_summary));
++        setNextAllowed(true);
++
++        SableLinks.bind(this, findViewById(R.id.sable_privacy_network_link),
++                new Intent(ACTION_NETWORK_MANAGER));
++        SableLinks.bind(this, findViewById(R.id.sable_privacy_lock_screen_link),
++                new Intent(ACTION_LOCK_SCREEN_SETTINGS),
++                new Intent(ACTION_NOTIFICATION_SETTINGS));
++        SableLinks.bind(this, findViewById(R.id.sable_privacy_settings_link),
++                new Intent(Settings.ACTION_PRIVACY_SETTINGS));
++    }
++
++    @Override
++    protected int getLayoutResId() {
++        return R.layout.sable_privacy_page;
++    }
++
++    @Override
++    protected int getTitleResId() {
++        return R.string.setup_sable_privacy;
++    }
++
++    @Override
++    protected int getIconResId() {
++        return R.drawable.ic_sable_privacy;
++    }
++}
+-- 
+2.43.0
+

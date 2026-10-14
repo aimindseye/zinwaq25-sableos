@@ -33,6 +33,13 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Settings > Apps > (app) > Display compatibility: package:<name> opens that app's
+                 profile (core/ProfileLink). The user still reviews and applies every change. -->
+            <intent-filter>
+                <action android:name="org.sableos.titan2.displaycompat.action.APP_PROFILE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="package" />
+            </intent-filter>
         </activity>
     </application>
 </manifest>

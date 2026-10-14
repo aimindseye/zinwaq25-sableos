@@ -57,6 +57,8 @@ data class CameraInfo(
     val sensorOrientation: Int = 90,
     /** CONTROL_AWB_AVAILABLE_MODES as raw Camera2 ints. Empty = not reported (only Auto offered). */
     val awbModes: Set<Int> = emptySet(),
+    /** CONTROL_AE_LOCK_AVAILABLE: the camera can hold auto exposure where it is. */
+    val aeLockAvailable: Boolean = false,
     /**
      * Output sizes usable by MediaRecorder
      * (StreamConfigurationMap.getOutputSizes(MediaRecorder::class.java)).

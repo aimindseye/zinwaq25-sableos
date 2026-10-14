@@ -108,4 +108,14 @@ class SableKeyPolicyTest {
             }
         }
     }
+
+    @Test fun plainEscapeGoesBackOneStep() {
+        // Patch 0403: Esc without Ctrl/Meta does what Back does; other keys never do.
+        assertEquals(true, SableKeyPolicy.escapeGoesBack(SableKeyPolicy.KEYCODE_ESCAPE, 0))
+        assertEquals(true, SableKeyPolicy.escapeGoesBack(SableKeyPolicy.KEYCODE_ESCAPE, 0x1 /* shift */))
+        assertEquals(false, SableKeyPolicy.escapeGoesBack(SableKeyPolicy.KEYCODE_ESCAPE, SableKeyPolicy.META_CTRL_ON))
+        assertEquals(false, SableKeyPolicy.escapeGoesBack(SableKeyPolicy.KEYCODE_ESCAPE, SableKeyPolicy.META_META_ON))
+        assertEquals(false, SableKeyPolicy.escapeGoesBack(SableKeyPolicy.KEYCODE_BACK, 0))
+        assertEquals(false, SableKeyPolicy.escapeGoesBack(SableKeyPolicy.KEYCODE_ENTER, 0))
+    }
 }

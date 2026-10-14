@@ -15,6 +15,13 @@
     <uses-permission android:name="android.permission.OBSERVE_GRANT_REVOKE_PERMISSIONS" />
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
 
+    <!-- Private Space in All Apps: see the private profile and lock or unlock
+         it (quiet mode). The system asks for the private space credential
+         itself when unlocking. -->
+    <uses-permission android:name="android.permission.ACCESS_HIDDEN_PROFILES" />
+    <uses-permission android:name="android.permission.ACCESS_HIDDEN_PROFILES_FULL" />
+    <uses-permission android:name="android.permission.MODIFY_QUIET_MODE" />
+
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />
@@ -46,6 +53,12 @@
             <intent-filter android:priority="10">
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
+            <!-- Settings > Sable > Quick bar: opens the quick bar editor. -->
+            <intent-filter>
+                <action android:name="org.sableos.start.action.EDIT_QUICK_BAR" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>

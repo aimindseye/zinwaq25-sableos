@@ -84,7 +84,7 @@ object Handoffs {
         Tool.NETWORK -> listOf(SettingsLink.NETWORK, SettingsLink.VPN)
         Tool.STORAGE -> listOf(SettingsLink.STORAGE)
         Tool.APPS -> listOf(SettingsLink.APP_SECURITY)
-        Tool.ATTENTION -> listOf(SettingsLink.NOTIFICATIONS)
+        Tool.ATTENTION -> listOf(SettingsLink.NOTIFICATIONS, SettingsLink.KEYBOARD)
         Tool.DEVICE_IDENTITY -> listOf(SettingsLink.ABOUT, SettingsLink.SECURITY)
         Tool.BUGREPORT -> listOf(SettingsLink.DEVELOPER)
         else -> emptyList()

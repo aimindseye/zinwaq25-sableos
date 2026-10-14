@@ -39,6 +39,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -111,6 +114,7 @@ import org.sableos.start.model.CommandRanking
 import org.sableos.start.model.CommandScope
 import org.sableos.start.model.CoreAppIdentity
 import org.sableos.start.model.QuickBar
+import org.sableos.start.model.StartPages
 import org.sableos.start.model.StartTypeToSearch
 import org.sableos.start.model.inLauncherUser
 import org.sableos.start.model.stableKey
@@ -214,6 +218,9 @@ fun SableStartScreen(
     onOpenNotificationSettings: (AppEntry) -> Unit = onOpenAppInfo,
     onUninstallApp: (AppEntry) -> Unit = {},
     onStartIntent: (Intent) -> Unit = {},
+    /** null: no private space on this device; true: locked; false: unlocked. */
+    privateSpaceLocked: Boolean? = null,
+    onTogglePrivateSpace: () -> Unit = {},
 ) {
     var destination by remember(initialScreen) {
         mutableStateOf(
@@ -269,6 +276,14 @@ fun SableStartScreen(
             resolveQuickSlot(token, apps, appByKey)
         }
 
+    val startPager = rememberPagerState(initialPage = START_PAGE_CENTER) { START_PAGE_COUNT }
+    val pagerScope = rememberCoroutineScope()
+
+    fun movePage(delta: Int) {
+        val target = (startPager.currentPage + delta).coerceIn(0, START_PAGE_COUNT - 1)
+        pagerScope.launch { startPager.animateScrollToPage(target) }
+    }
+
     fun launchApp(entry: AppEntry) {
         if (onLaunchApp(entry)) {
             val key = entry.stableKey()
@@ -316,17 +331,25 @@ fun SableStartScreen(
             destination = SableStartDestination.Start
             returnDestination = SableStartDestination.Start
             selectedApp = null
+            startPager.animateScrollToPage(START_PAGE_CENTER)
         }
     }
 
     LaunchedEffect(backGeneration) {
-        if (backGeneration > 0 && destination != SableStartDestination.Start) {
-            navigateBack()
+        if (backGeneration > 0) {
+            if (destination != SableStartDestination.Start) {
+                navigateBack()
+            } else if (startPager.currentPage != START_PAGE_CENTER) {
+                // Back on Glance or Hub returns to the center page.
+                startPager.animateScrollToPage(START_PAGE_CENTER)
+            }
         }
     }
 
-    LaunchedEffect(destination) {
-        onCanNavigateBackChanged(destination != SableStartDestination.Start)
+    LaunchedEffect(destination, startPager.currentPage) {
+        onCanNavigateBackChanged(
+            destination != SableStartDestination.Start || startPager.currentPage != START_PAGE_CENTER,
+        )
         if (destination == SableStartDestination.Live) {
             onRefreshLive()
         }
@@ -345,47 +368,69 @@ fun SableStartScreen(
             ) {
                 when (destination) {
                     SableStartDestination.Start ->
-                        SableRefreshableSurface(
-                            isRefreshing = liveRefreshing,
-                            onRefresh = onRefreshLive,
+                        // Three pages: Glance (left), Start (center), Hub (right).
+                        StartPager(
+                            state = startPager,
+                            onMovePage = { delta -> movePage(delta) },
+                            glance = {
+                                LiveSurfaceScreen(
+                                    snapshot = liveSnapshot,
+                                    apps = apps,
+                                    onBack = { movePage(1) },
+                                    onRequestPermissions = onRequestLivePermissions,
+                                    title = "glance",
+                                )
+                            },
+                            hub = {
+                                HubPage(
+                                    snapshot = liveSnapshot,
+                                    apps = apps,
+                                    onLaunchApp = ::launchApp,
+                                )
+                            },
                         ) {
-                            StartScreen(
-                                snapshot = liveSnapshot,
-                                startApps = startApps,
-                                onLaunchApp = ::launchApp,
-                                onOpenPeek = { app ->
-                                    openPeek(app, SableStartDestination.Start)
-                                },
-                                onAllApps = {
-                                    destination = SableStartDestination.Apps
-                                },
-                                onSearch = {
-                                    openSearch(SableStartDestination.Start)
-                                },
-                                onLive = {
-                                    destination = SableStartDestination.Live
-                                },
-                                onAppearance = {
-                                    destination = SableStartDestination.Appearance
-                                },
-                                favoriteApps = favoriteApps.take(MAX_FAVORITES_ON_START),
-                                onTypeToSearch = { char ->
-                                    openSearch(SableStartDestination.Start, char.toString())
-                                },
-                                quickSlots = quickSlots,
-                                onQuickSlot = { slot ->
-                                    when (slot.token) {
-                                        QuickBar.COMMAND ->
-                                            openSearch(SableStartDestination.Start)
-                                        QuickBar.ALL_APPS ->
-                                            destination = SableStartDestination.Apps
-                                        else -> slot.app?.let(::launchApp)
-                                    }
-                                },
-                                onEditQuickBar = {
-                                    destination = SableStartDestination.QuickBar
-                                },
-                            )
+                            SableRefreshableSurface(
+                                isRefreshing = liveRefreshing,
+                                onRefresh = onRefreshLive,
+                            ) {
+                                StartScreen(
+                                    snapshot = liveSnapshot,
+                                    startApps = startApps,
+                                    onLaunchApp = ::launchApp,
+                                    onOpenPeek = { app ->
+                                        openPeek(app, SableStartDestination.Start)
+                                    },
+                                    onAllApps = {
+                                        destination = SableStartDestination.Apps
+                                    },
+                                    onSearch = {
+                                        openSearch(SableStartDestination.Start)
+                                    },
+                                    onLive = {
+                                        destination = SableStartDestination.Live
+                                    },
+                                    onAppearance = {
+                                        destination = SableStartDestination.Appearance
+                                    },
+                                    favoriteApps = favoriteApps.take(MAX_FAVORITES_ON_START),
+                                    onTypeToSearch = { char ->
+                                        openSearch(SableStartDestination.Start, char.toString())
+                                    },
+                                    quickSlots = quickSlots,
+                                    onQuickSlot = { slot ->
+                                        when (slot.token) {
+                                            QuickBar.COMMAND ->
+                                                openSearch(SableStartDestination.Start)
+                                            QuickBar.ALL_APPS ->
+                                                destination = SableStartDestination.Apps
+                                            else -> slot.app?.let(::launchApp)
+                                        }
+                                    },
+                                    onEditQuickBar = {
+                                        destination = SableStartDestination.QuickBar
+                                    },
+                                )
+                            }
                         }
 
                     SableStartDestination.QuickBar ->
@@ -416,6 +461,8 @@ fun SableStartScreen(
                                 openPeek(app, SableStartDestination.Apps)
                             },
                             onOpenAppInfo = onOpenAppInfo,
+                            privateSpaceLocked = privateSpaceLocked,
+                            onTogglePrivateSpace = onTogglePrivateSpace,
                         )
 
                     SableStartDestination.Search ->
@@ -688,6 +735,113 @@ private fun StartScreen(
             onSlot = onQuickSlot,
             onEdit = onEditQuickBar,
         )
+    }
+}
+
+/**
+ * The three-page Start (SABLE_START_THREE_PAGE_MODEL.md): swipe, or
+ * Alt+Left / Alt+Right (Fn on Fn keyboards), moves between Glance, Start and
+ * Hub. Only the current page is composed into focus traversal.
+ */
+@Composable
+private fun StartPager(
+    state: PagerState,
+    onMovePage: (Int) -> Unit,
+    glance: @Composable () -> Unit,
+    hub: @Composable () -> Unit,
+    start: @Composable () -> Unit,
+) {
+    HorizontalPager(
+        state = state,
+        beyondViewportPageCount = 0,
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .onPreviewKeyEvent { event ->
+                    val native = event.nativeKeyEvent
+                    val delta =
+                        StartPages.keyDelta(
+                            keyCode = native.keyCode,
+                            metaState = native.metaState,
+                        ) ?: return@onPreviewKeyEvent false
+                    if (event.type == KeyEventType.KeyDown && native.repeatCount == 0) onMovePage(delta)
+                    true
+                },
+    ) { page ->
+        when (page) {
+            START_PAGE_GLANCE -> glance()
+            START_PAGE_HUB -> hub()
+            else -> start()
+        }
+    }
+}
+
+/**
+ * Right page: close communications. Counts and next event from the same
+ * local snapshots the tiles read; Enter on a row opens the owning app.
+ */
+@Composable
+private fun HubPage(
+    snapshot: LiveSurfaceSnapshot,
+    apps: List<AppEntry>,
+    onLaunchApp: (AppEntry) -> Unit,
+) {
+    val hubApp = findLiveApp(apps, "org.sableos.hub")
+    val rows =
+        listOf(
+            Triple("Messages", snapshot.messages, hubApp),
+            Triple("Mail", snapshot.mail, findLiveApp(apps, "org.sableos.mail")),
+            Triple("Calendar", snapshot.calendar, findLiveApp(apps, "org.sableos.calendar")),
+        )
+    LazyColumn(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(horizontal = 20.dp, vertical = 18.dp),
+        contentPadding = PaddingValues(bottom = 28.dp),
+    ) {
+        item {
+            Text(text = "hub", style = MaterialTheme.typography.displayLarge)
+            Text(
+                text = "Priority messages, mail and what's next. Alt+Left returns to Start.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(14.dp))
+        }
+        items(rows) { (title, datum, app) ->
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 58.dp)
+                        .sableFocusRing()
+                        .clickable(enabled = app != null) { app?.let(onLaunchApp) }
+                        .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        text =
+                            when (datum.availability) {
+                                LiveAvailability.LIVE, LiveAvailability.EMPTY -> datum.detail
+                                else -> if (app == null) "not installed" else "open ${app.label}"
+                            },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+        if (hubApp != null) {
+            item {
+                Spacer(Modifier.height(12.dp))
+                MetroLink(text = "open Sable Hub", onClick = { onLaunchApp(hubApp) })
+            }
+        }
     }
 }
 
@@ -1446,8 +1600,12 @@ private fun AppsScreen(
     onLaunchApp: (AppEntry) -> Unit,
     onOpenPeek: (AppEntry) -> Unit,
     onOpenAppInfo: (AppEntry) -> Unit,
+    privateSpaceLocked: Boolean?,
+    onTogglePrivateSpace: () -> Unit,
 ) {
-    val rows = remember(apps) { buildRailRows(apps) }
+    // Private Space apps live in their own section at the end, never in the A-Z list.
+    val (privateApps, listedApps) = remember(apps) { apps.partition { it.profileLabel == PROFILE_PRIVATE_LABEL } }
+    val rows = remember(listedApps) { buildRailRows(listedApps) }
     val keys = remember(rows) { rows.map { it.app.stableKey() } }
     val labels = remember(rows) { rows.map { it.app.label } }
     // One alphabet-index concept: section headers, the right-hand rail and
@@ -1553,7 +1711,7 @@ private fun AppsScreen(
             SearchLaunchButton(onClick = onSearch)
             Spacer(Modifier.height(12.dp))
 
-            if (rows.isEmpty()) {
+            if (rows.isEmpty() && privateSpaceLocked == null) {
                 EmptyState("No launchable apps are available.")
             } else {
                 LazyColumn(
@@ -1596,6 +1754,17 @@ private fun AppsScreen(
                                     }.onPreviewKeyEvent { event -> onRowKey(index, event) },
                         )
                     }
+                    if (privateSpaceLocked != null) {
+                        item(key = "private-space") {
+                            PrivateSpaceSection(
+                                locked = privateSpaceLocked,
+                                apps = privateApps,
+                                onToggle = onTogglePrivateSpace,
+                                onLaunchApp = onLaunchApp,
+                                onOpenPeek = onOpenPeek,
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -1610,6 +1779,70 @@ private fun AppsScreen(
                 },
                 modifier = Modifier.align(Alignment.CenterEnd),
             )
+        }
+    }
+}
+
+/**
+ * Private Space at the end of All Apps: one row that locks or unlocks it
+ * (the system asks for its credential), and its apps only while unlocked.
+ */
+@Composable
+private fun PrivateSpaceSection(
+    locked: Boolean,
+    apps: List<AppEntry>,
+    onToggle: () -> Unit,
+    onLaunchApp: (AppEntry) -> Unit,
+    onOpenPeek: (AppEntry) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(top = 18.dp)) {
+        Text(
+            text = "private space",
+            style = MaterialTheme.typography.headlineLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.semantics { heading() },
+        )
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 54.dp)
+                    .sableFocusRing()
+                    .clickable(onClick = onToggle)
+                    .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = if (locked) "🔒" else "🔓",
+                modifier = Modifier.width(38.dp),
+                fontSize = 20.sp,
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (locked) "Unlock private space" else "Lock private space",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                )
+                Text(
+                    text =
+                        if (locked) {
+                            "Its apps stay hidden and stopped until you unlock"
+                        } else {
+                            "${apps.size} apps · locking stops them and hides them again"
+                        },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        if (!locked) {
+            apps.forEach { app ->
+                AppRow(
+                    app = app,
+                    onClick = { onLaunchApp(app) },
+                    onContext = { onOpenPeek(app) },
+                )
+            }
         }
     }
 }
@@ -2723,6 +2956,7 @@ private fun LiveSurfaceScreen(
     apps: List<AppEntry>,
     onBack: () -> Unit,
     onRequestPermissions: () -> Unit,
+    title: String = "live",
 ) {
     LazyColumn(
         modifier =
@@ -2733,7 +2967,7 @@ private fun LiveSurfaceScreen(
     ) {
         item {
             Text(
-                text = "live",
+                text = title,
                 style = MaterialTheme.typography.displayLarge,
             )
             Text(
@@ -3339,6 +3573,13 @@ private val StatusRingsInlineMinWidth = 500.dp
 private const val MAX_FAVORITES_ON_START = 4
 private const val MAX_SESSION_RECENTS = 8
 private const val KEYCODE_DEL = 67
+private const val START_PAGE_COUNT = 3
+private const val START_PAGE_GLANCE = 0
+private const val START_PAGE_CENTER = 1
+private const val START_PAGE_HUB = 2
+
+// Matches LauncherAppsRepository.PROFILE_PRIVATE.
+private const val PROFILE_PRIVATE_LABEL = "private"
 private const val HUB_PACKAGE = "org.sableos.hub"
 private const val HUB_EXTRA_QUERY = "org.sableos.hub.extra.QUERY"
 private const val LAUNCHER_ICON_CACHE_ENTRIES = 160

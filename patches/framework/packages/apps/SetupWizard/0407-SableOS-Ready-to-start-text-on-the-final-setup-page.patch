@@ -1,0 +1,101 @@
+From e7a1eaf40b3ad25e4b68791b340ab555d5f0b414 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 14 Oct 2026 13:05:20 +0000
+Subject: [PATCH 407/407] SableOS: Ready to start text on the final setup page
+
+The final page (FinishActivity, shared by the owner and secondary-user
+scripts) keeps the logo and its Start button and now explains how the
+phone works after setup: Home opens Sable Start; the bar at the bottom
+of Start opens Phone, Hub, Command and All apps (Command searches apps
+and settings and runs actions); Sable Hub gathers messages and
+notifications; swiping down from the top opens notifications and Quick
+Settings; the arrows or trackpad move, Enter opens and Back returns, and
+Sable Tools has the full keyboard test.
+
+The text sits in a focusable scroll view so the arrow keys can scroll it
+on the 720x720 screen; Start is still the first focus and Enter on it
+finishes setup. The finish animation and its states are unchanged. The
+Q25 has no Fn key, so no Fn shortcuts are mentioned.
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01FqvfFQhAvko2gkqcxM25Aa
+---
+ res/layout/finish_activity.xml | 44 ++++++++++++++++++++++++++++++++++
+ res/values/sable_strings.xml   |  8 +++++++
+ 2 files changed, 52 insertions(+)
+
+diff --git a/res/layout/finish_activity.xml b/res/layout/finish_activity.xml
+index d6444c8f..2446f165 100644
+--- a/res/layout/finish_activity.xml
++++ b/res/layout/finish_activity.xml
+@@ -39,6 +39,50 @@
+             android:gravity="center"
+             android:padding="@dimen/content_margin_left"/>
+ 
++        <!-- SableOS Ready screen: how the phone works after setup. The text scrolls with the
++             arrow keys when focused; Start stays the first focus. -->
++        <ScrollView
++            android:id="@+id/sable_ready"
++            android:layout_width="match_parent"
++            android:layout_height="0px"
++            android:layout_weight="2"
++            android:focusable="true"
++            android:paddingHorizontal="@dimen/content_margin_left">
++
++            <LinearLayout
++                android:orientation="vertical"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content">
++
++                <TextView
++                    style="@style/SableSetupItem"
++                    android:text="@string/sable_ready_title"
++                    android:textAppearance="?android:attr/textAppearanceLarge"
++                    android:accessibilityHeading="true" />
++
++                <TextView
++                    style="@style/SableSetupItem"
++                    android:text="@string/sable_ready_home" />
++
++                <TextView
++                    style="@style/SableSetupItem"
++                    android:text="@string/sable_ready_bar" />
++
++                <TextView
++                    style="@style/SableSetupItem"
++                    android:text="@string/sable_ready_hub" />
++
++                <TextView
++                    style="@style/SableSetupItem"
++                    android:text="@string/sable_ready_shade" />
++
++                <TextView
++                    style="@style/SableSetupItem"
++                    android:text="@string/sable_ready_keys" />
++
++            </LinearLayout>
++        </ScrollView>
++
+         <org.lineageos.setupwizard.NavigationLayout
+             android:id="@+id/navigation_bar"
+             android:layout_width="match_parent"
+diff --git a/res/values/sable_strings.xml b/res/values/sable_strings.xml
+index 7fd07865..6d7d7c29 100644
+--- a/res/values/sable_strings.xml
++++ b/res/values/sable_strings.xml
+@@ -65,4 +65,12 @@
+         <item>Orange</item>
+         <item>Slate</item>
+     </string-array>
++
++    <!-- SableOS Ready screen on the final setup page (SETUP_WIZARD_FIRST_BOOT_UX "Ready screen"). -->
++    <string name="sable_ready_title">Ready to start</string>
++    <string name="sable_ready_home"><b>Home</b> opens Sable Start, your home screen.</string>
++    <string name="sable_ready_bar"><b>The bar at the bottom of Start</b> opens Phone, Hub, Command and All apps. Command searches apps and settings and runs actions.</string>
++    <string name="sable_ready_hub"><b>Sable Hub</b> gathers your messages and notifications in one list.</string>
++    <string name="sable_ready_shade"><b>Notifications and Quick Settings:</b> swipe down from the top of the screen.</string>
++    <string name="sable_ready_keys"><b>Keys:</b> the arrows or trackpad move, Enter opens, Back returns. Sable Tools has the full keyboard test.</string>
+ </resources>
+-- 
+2.43.0
+

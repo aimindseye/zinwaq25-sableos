@@ -1,0 +1,83 @@
+From e04bf7c9c0e2edbd01c6844e11ebe5af60bfecba Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sun, 11 Oct 2026 08:22:35 +0000
+Subject: [PATCH 403/407] SableOS: Esc returns to the previous setup step
+
+Esc without Ctrl or Meta now does what Back does in every setup step: it
+goes back one step through the activity's back dispatcher. The activity
+only sees Esc after no view used it, so a text field or the IME keeps its
+own Esc handling, and because the key is handled the platform's
+Esc-to-Back fallback cannot fire a second time. The step changes on key
+up, after a tracked key down, so a cancelled key does nothing.
+
+The decision is SableKeyPolicy.escapeGoesBack (IR-014).
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01FqvfFQhAvko2gkqcxM25Aa
+---
+ .../setupwizard/BaseSetupWizardActivity.java  | 22 +++++++++++++++++++
+ .../setupwizard/sable/SableKeyPolicy.java     |  8 +++++++
+ 2 files changed, 30 insertions(+)
+
+diff --git a/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java b/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java
+index 96bd6054..db423785 100644
+--- a/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java
++++ b/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java
+@@ -42,6 +42,7 @@ import com.google.android.setupdesign.util.ThemeHelper;
+ 
+ import org.lineageos.setupwizard.NavigationLayout.NavigationBarListener;
+ import org.lineageos.setupwizard.sable.SableKeyFocus;
++import org.lineageos.setupwizard.sable.SableKeyPolicy;
+ import org.lineageos.setupwizard.util.SetupWizardUtils;
+ 
+ public abstract class BaseSetupWizardActivity extends AppCompatActivity implements
+@@ -175,6 +176,27 @@ public abstract class BaseSetupWizardActivity extends AppCompatActivity implemen
+         return super.dispatchKeyEvent(event);
+     }
+ 
++    @Override
++    public boolean onKeyDown(int keyCode, KeyEvent event) {
++        // SableOS IR-014: Esc returns to the previous step, the same as Back. It only reaches
++        // here when no view (text field, IME, list) used it; the step changes on key up.
++        if (SableKeyPolicy.escapeGoesBack(keyCode, event.getMetaState())) {
++            event.startTracking();
++            return true;
++        }
++        return super.onKeyDown(keyCode, event);
++    }
++
++    @Override
++    public boolean onKeyUp(int keyCode, KeyEvent event) {
++        if (SableKeyPolicy.escapeGoesBack(keyCode, event.getMetaState())
++                && event.isTracking() && !event.isCanceled()) {
++            getOnBackPressedDispatcher().onBackPressed();
++            return true;
++        }
++        return super.onKeyUp(keyCode, event);
++    }
++
+     /**
+      * The step's forward action for keyboard focus: the Welcome screen's Start button, else
+      * the navigation bar's Next button when it is shown.
+diff --git a/src/org/lineageos/setupwizard/sable/SableKeyPolicy.java b/src/org/lineageos/setupwizard/sable/SableKeyPolicy.java
+index 5382b6b4..e17003dc 100644
+--- a/src/org/lineageos/setupwizard/sable/SableKeyPolicy.java
++++ b/src/org/lineageos/setupwizard/sable/SableKeyPolicy.java
+@@ -98,6 +98,14 @@ public final class SableKeyPolicy {
+         return (metaState & (META_CTRL_ON | META_META_ON)) != 0;
+     }
+ 
++    /**
++     * Esc without Ctrl/Meta goes back one step, like Back. The host only asks once no view
++     * has used the key, so Esc inside a text field or the IME keeps its own meaning.
++     */
++    public static boolean escapeGoesBack(int keyCode, int metaState) {
++        return keyCode == KEYCODE_ESCAPE && !hasCommandModifier(metaState);
++    }
++
+     /**
+      * @param lastTextField the focused text field is the last text field of the step
+      * @param primaryAvailable the step has a visible, enabled primary action
+-- 
+2.43.0
+

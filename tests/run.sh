@@ -286,6 +286,21 @@ for action in org.sableos.settings.NETWORK_MANAGER org.sableos.settings.APP_SECU
 done
 if [[ -z "$missing" ]]; then pass "Sable Tools Settings links land on exported Settings actions"; else fail "Settings actions missing:$missing"; fi
 
+# Settings > Sable, Display and App info (Settings patch 1001) open actions the Sable apps declare.
+sable_links=(patches/framework/packages/apps/Settings/1001-*.patch)
+missing=""
+for pair in \
+    org.sableos.start.action.EDIT_QUICK_BAR:sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml \
+    org.sableos.titan2.displaycompat.action.APP_PROFILE:sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml \
+    org.sableos.tools.action.OPEN_TOOL:sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml; do
+    action="${pair%%:*}"; manifest="${pair#*:}"
+    grep -q "\"$action\"" "${sable_links[@]}" || missing="$missing settings:$action"
+    grep -q "<action android:name=\"$action\" />" "$manifest" || missing="$missing app:$action"
+done
+grep -q 'HARDWARE_TESTS(' sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt ||
+    missing="$missing tools:HARDWARE_TESTS"
+if [[ -z "$missing" ]]; then pass "Settings Sable entries land on actions the Sable apps declare"; else fail "Sable entry actions missing:$missing"; fi
+
 # 7. Entry point refuses flashing and unknown devices.
 if bash build/sable.sh q25 Q2 flash >/dev/null 2>&1; then fail "flash should be blocked"; else pass "flash blocked"; fi
 if bash build/sable.sh titan2 Q2 doctor >/dev/null 2>&1; then fail "non-q25 device accepted"; else pass "only q25 accepted"; fi

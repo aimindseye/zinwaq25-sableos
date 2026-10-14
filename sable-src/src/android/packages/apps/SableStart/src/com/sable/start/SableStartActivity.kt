@@ -18,6 +18,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import org.sableos.design.applySableSystemBars
 import org.sableos.design.rememberGlobalSableAppearance
@@ -43,9 +44,15 @@ class SableStartActivity : ComponentActivity() {
     private lateinit var startStateRepository: StartStateRepository
 
     private val appsState = mutableStateOf<List<AppEntry>>(emptyList())
+
+    /** null: no private space; true: locked; false: unlocked. */
+    private val privateSpaceLockedState = mutableStateOf<Boolean?>(null)
     private val liveRefreshGeneration = mutableStateOf(0)
     private val homeGeneration = mutableStateOf(0)
     private val backGeneration = mutableStateOf(0)
+
+    /** Screen asked for by Settings (EDIT_QUICK_BAR), and a serial so a repeat opens it again. */
+    private val startRequest = mutableStateOf(StartRequest(SCREEN_START, 0))
 
     private var callbackRegistered = false
     private var canNavigateBack = false
@@ -173,6 +180,10 @@ class SableStartActivity : ComponentActivity() {
 
         registerPrivacySignals()
         scheduleInventoryRefresh()
+        // A recreated activity keeps its own place instead of reopening the requested screen.
+        if (savedInstanceState == null) {
+            startRequest.value = StartRequest(screenFor(intent), 0)
+        }
 
         setContent {
             val appearance = rememberGlobalSableAppearance()
@@ -188,52 +199,58 @@ class SableStartActivity : ComponentActivity() {
                 )
             }
 
-            SableStartScreen(
-                apps = appsState.value,
-                liveSurfaceRepository = liveSurfaceRepository,
-                appearance = appearance,
-                refreshGeneration = liveRefreshGeneration.value,
-                homeGeneration = homeGeneration.value,
-                backGeneration = backGeneration.value,
-                onCanNavigateBackChanged = { value ->
-                    canNavigateBack = value
-                },
-                initialFavoriteKeys = startStateRepository.loadFavoriteKeys(),
-                onFavoriteKeysChanged = startStateRepository::saveFavoriteKeys,
-                initialStartTileKeys = startStateRepository.loadStartTileKeys(),
-                onStartTileKeysChanged = startStateRepository::saveStartTileKeys,
-                initialQuickBar = startStateRepository.loadQuickBar(),
-                onQuickBarChanged = startStateRepository::saveQuickBar,
-                onAppearanceChanged = { next ->
-                    writeGlobalSableAppearance(this@SableStartActivity, next)
-                },
-                onResetAppearance = {
-                    writeGlobalSableAppearance(
-                        this@SableStartActivity,
-                        org.sableos.design.SableAppearance(),
-                    )
-                },
-                onLaunchApp = { entry ->
-                    launcherAppsRepository.launch(entry)
-                },
-                onOpenSystemSettings = ::openSystemSettings,
-                onStartIntent = { intent ->
-                    runCatching { startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                },
-                onOpenAppInfo = { entry ->
-                    launcherAppsRepository.openAppDetails(entry)
-                },
-                onOpenNotificationSettings = { entry ->
-                    launcherAppsRepository.openNotificationSettings(entry)
-                },
-                onUninstallApp = { entry ->
-                    launcherAppsRepository.requestUninstall(entry)
-                },
-                onRequestLivePermissions = ::requestLivePermissions,
-                onRefreshLive = {
-                    liveRefreshGeneration.value += 1
-                },
-            )
+            val request = startRequest.value
+            key(request.serial) {
+                SableStartScreen(
+                    apps = appsState.value,
+                    privateSpaceLocked = privateSpaceLockedState.value,
+                    onTogglePrivateSpace = ::togglePrivateSpace,
+                    liveSurfaceRepository = liveSurfaceRepository,
+                    appearance = appearance,
+                    refreshGeneration = liveRefreshGeneration.value,
+                    homeGeneration = homeGeneration.value,
+                    backGeneration = backGeneration.value,
+                    initialScreen = request.screen,
+                    onCanNavigateBackChanged = { value ->
+                        canNavigateBack = value
+                    },
+                    initialFavoriteKeys = startStateRepository.loadFavoriteKeys(),
+                    onFavoriteKeysChanged = startStateRepository::saveFavoriteKeys,
+                    initialStartTileKeys = startStateRepository.loadStartTileKeys(),
+                    onStartTileKeysChanged = startStateRepository::saveStartTileKeys,
+                    initialQuickBar = startStateRepository.loadQuickBar(),
+                    onQuickBarChanged = startStateRepository::saveQuickBar,
+                    onAppearanceChanged = { next ->
+                        writeGlobalSableAppearance(this@SableStartActivity, next)
+                    },
+                    onResetAppearance = {
+                        writeGlobalSableAppearance(
+                            this@SableStartActivity,
+                            org.sableos.design.SableAppearance(),
+                        )
+                    },
+                    onLaunchApp = { entry ->
+                        launcherAppsRepository.launch(entry)
+                    },
+                    onOpenSystemSettings = ::openSystemSettings,
+                    onStartIntent = { intent ->
+                        runCatching { startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                    },
+                    onOpenAppInfo = { entry ->
+                        launcherAppsRepository.openAppDetails(entry)
+                    },
+                    onOpenNotificationSettings = { entry ->
+                        launcherAppsRepository.openNotificationSettings(entry)
+                    },
+                    onUninstallApp = { entry ->
+                        launcherAppsRepository.requestUninstall(entry)
+                    },
+                    onRequestLivePermissions = ::requestLivePermissions,
+                    onRefreshLive = {
+                        liveRefreshGeneration.value += 1
+                    },
+                )
+            }
         }
     }
 
@@ -255,7 +272,13 @@ class SableStartActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        if (intent.action == Intent.ACTION_MAIN) {
+        if (intent.action == ACTION_EDIT_QUICK_BAR) {
+            // The Screen is recomposed fresh for the request: its Home/Back effects act only on
+            // counts above zero, so they restart from zero rather than undo the request at once.
+            homeGeneration.value = 0
+            backGeneration.value = 0
+            startRequest.value = StartRequest(screenFor(intent), startRequest.value.serial + 1)
+        } else if (intent.action == Intent.ACTION_MAIN) {
             homeGeneration.value += 1
         }
     }
@@ -301,12 +324,15 @@ class SableStartActivity : ComponentActivity() {
         runCatching {
             inventoryExecutor.execute {
                 val apps = launcherAppsRepository.loadApps()
+                val privateSpaceLocked =
+                    launcherAppsRepository.privateSpace()?.let(launcherAppsRepository::isLocked)
                 runOnUiThread {
                     if (
                         !isDestroyed &&
                         inventoryGeneration.get() == generation
                     ) {
                         appsState.value = apps
+                        privateSpaceLockedState.value = privateSpaceLocked
                     }
                 }
             }
@@ -331,6 +357,10 @@ class SableStartActivity : ComponentActivity() {
                     addAction(Intent.ACTION_MANAGED_PROFILE_UNLOCKED)
                     addAction(Intent.ACTION_PROFILE_ACCESSIBLE)
                     addAction(Intent.ACTION_PROFILE_INACCESSIBLE)
+                    addAction(Intent.ACTION_PROFILE_AVAILABLE)
+                    addAction(Intent.ACTION_PROFILE_UNAVAILABLE)
+                    addAction(Intent.ACTION_PROFILE_ADDED)
+                    addAction(Intent.ACTION_PROFILE_REMOVED)
                 }
             profileReceiverRegistered =
                 runCatching {
@@ -348,6 +378,16 @@ class SableStartActivity : ComponentActivity() {
         if (profileReceiverRegistered) {
             runCatching { unregisterReceiver(profileReceiver) }
             profileReceiverRegistered = false
+        }
+    }
+
+    /** Lock or unlock the private space; the profile broadcasts refresh All Apps. */
+    private fun togglePrivateSpace() {
+        val locked = privateSpaceLockedState.value ?: return
+        inventoryExecutor.execute {
+            val user = launcherAppsRepository.privateSpace() ?: return@execute
+            launcherAppsRepository.setLocked(user, !locked)
+            runOnUiThread { scheduleInventoryRefresh() }
         }
     }
 
@@ -371,7 +411,20 @@ class SableStartActivity : ComponentActivity() {
         )
     }
 
+    private data class StartRequest(
+        val screen: String,
+        val serial: Int,
+    )
+
     private companion object {
         const val LIVE_PERMISSION_REQUEST_CODE = 0x534D
+
+        /** Settings > Sable > Quick bar: open Sable Start's quick bar editor. */
+        const val ACTION_EDIT_QUICK_BAR = "org.sableos.start.action.EDIT_QUICK_BAR"
+        const val SCREEN_START = "start"
+        const val SCREEN_QUICK_BAR = "quickbar"
+
+        fun screenFor(intent: Intent?): String =
+            if (intent?.action == ACTION_EDIT_QUICK_BAR) SCREEN_QUICK_BAR else SCREEN_START
     }
 }

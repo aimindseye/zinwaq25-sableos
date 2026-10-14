@@ -1,0 +1,275 @@
+From d203fce720fe0069a85b4a67ef6afa61dbfcd69c Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sun, 11 Oct 2026 08:26:48 +0000
+Subject: [PATCH 1002/1002] SableOS: keyboard type-ahead on the Settings
+ homepage
+
+KEYBOARD_FIRST_SETTINGS_UX "Type-ahead focus navigation" at the top
+level: with no text field focused, printable keys move the focus ring
+to the matching homepage row (800 ms buffer, case- and accent-
+insensitive, repeat cycles, wraps): S to Sound, SY to System. The /,
+Search key or Ctrl+K open Settings search; Home/End/PageUp/PageDown move
+by row. The keys work while the search bar or nothing is focused.
+
+Reuses SableAppListKeyboard (Network access, App security) with a new
+attachToWindow variant: it listens on the homepage window and adds
+per-row extra words (sable_homepage_type_ahead_words, translatable)
+that match only after titles, so "vol" reaches Sound and "lang"
+System without taking a first letter from a title. Only keys no view
+handled reach it, so the search field and IME keep their keys.
+---
+ res/values/strings_sable_homepage_keys.xml    | 89 +++++++++++++++++++
+ .../sable/SableAppListKeyboard.java           | 50 +++++++++--
+ .../settings/homepage/TopLevelSettings.java   | 21 +++++
+ 3 files changed, 155 insertions(+), 5 deletions(-)
+ create mode 100644 res/values/strings_sable_homepage_keys.xml
+
+diff --git a/res/values/strings_sable_homepage_keys.xml b/res/values/strings_sable_homepage_keys.xml
+new file mode 100644
+index 00000000000..df72de67676
+--- /dev/null
++++ b/res/values/strings_sable_homepage_keys.xml
+@@ -0,0 +1,89 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<!-- Settings homepage type-ahead (KEYBOARD_FIRST_SETTINGS_UX): pairs of homepage row key and
++     extra comma-separated words that also reach that row. The words match only after row titles
++     do (TypeAheadMatcher word rank), so S still reaches Sound and SY System, while "vol" reaches
++     Sound and "lang" System. Translate the words, never the keys. -->
++<resources>
++    <!-- Extra type-ahead words for the Settings homepage row "network". -->
++    <string name="sable_homepage_words_network">wifi, wi-fi, mobile, sim, data, hotspot, airplane</string>
++    <!-- Extra type-ahead words for the Settings homepage row "connected devices". -->
++    <string name="sable_homepage_words_connected_devices">bluetooth, usb, cast, nfc, printing</string>
++    <!-- Extra type-ahead words for the Settings homepage row "apps". -->
++    <string name="sable_homepage_words_apps">applications, default apps, network access, app security</string>
++    <!-- Extra type-ahead words for the Settings homepage row "notifications". -->
++    <string name="sable_homepage_words_notifications">lock screen, attention, hub</string>
++    <!-- Extra type-ahead words for the Settings homepage row "sound". -->
++    <string name="sable_homepage_words_sound">volume, vibration, ringtone, do not disturb</string>
++    <!-- Extra type-ahead words for the Settings homepage row "display". -->
++    <string name="sable_homepage_words_display">brightness, dark theme, accent, timeout, font, compatibility</string>
++    <!-- Extra type-ahead words for the Settings homepage row "wallpaper". -->
++    <string name="sable_homepage_words_wallpaper">theme, colors</string>
++    <!-- Extra type-ahead words for the Settings homepage row "battery". -->
++    <string name="sable_homepage_words_battery">power, charging, health, usage</string>
++    <!-- Extra type-ahead words for the Settings homepage row "system". -->
++    <string name="sable_homepage_words_system">keyboard, language, date, time, backup, reset, update, gestures</string>
++    <!-- Extra type-ahead words for the Settings homepage row "sable". -->
++    <string name="sable_homepage_words_sable">start, quick bar, hub, tools, diagnostics, compatibility</string>
++    <!-- Extra type-ahead words for the Settings homepage row "security". -->
++    <string name="sable_homepage_words_security">lock, pin, password, fingerprint</string>
++    <!-- Extra type-ahead words for the Settings homepage row "privacy". -->
++    <string name="sable_homepage_words_privacy">permissions, camera access, microphone access</string>
++    <!-- Extra type-ahead words for the Settings homepage row "location". -->
++    <string name="sable_homepage_words_location">gps</string>
++    <!-- Extra type-ahead words for the Settings homepage row "accounts". -->
++    <string name="sable_homepage_words_accounts">passwords, autofill</string>
++    <!-- Extra type-ahead words for the Settings homepage row "about device". -->
++    <string name="sable_homepage_words_about_device">phone number, imei, build, version</string>
++    <!-- Extra type-ahead words for the Settings homepage row "accessibility". -->
++    <string name="sable_homepage_words_accessibility">talkback, magnification</string>
++
++    <string-array name="sable_homepage_type_ahead_words" translatable="false">
++        <item>top_level_network</item>
++        <item>@string/sable_homepage_words_network</item>
++        <item>top_level_connected_devices</item>
++        <item>@string/sable_homepage_words_connected_devices</item>
++        <item>top_level_apps</item>
++        <item>@string/sable_homepage_words_apps</item>
++        <item>top_level_notifications</item>
++        <item>@string/sable_homepage_words_notifications</item>
++        <item>top_level_sound</item>
++        <item>@string/sable_homepage_words_sound</item>
++        <item>top_level_display</item>
++        <item>@string/sable_homepage_words_display</item>
++        <item>top_level_wallpaper</item>
++        <item>@string/sable_homepage_words_wallpaper</item>
++        <item>top_level_battery</item>
++        <item>@string/sable_homepage_words_battery</item>
++        <item>top_level_system</item>
++        <item>@string/sable_homepage_words_system</item>
++        <item>top_level_sable</item>
++        <item>@string/sable_homepage_words_sable</item>
++        <item>top_level_security</item>
++        <item>@string/sable_homepage_words_security</item>
++        <item>top_level_privacy</item>
++        <item>@string/sable_homepage_words_privacy</item>
++        <item>top_level_location</item>
++        <item>@string/sable_homepage_words_location</item>
++        <item>top_level_accounts</item>
++        <item>@string/sable_homepage_words_accounts</item>
++        <item>top_level_about_device</item>
++        <item>@string/sable_homepage_words_about_device</item>
++        <item>top_level_accessibility</item>
++        <item>@string/sable_homepage_words_accessibility</item>
++    </string-array>
++</resources>
+diff --git a/src/com/android/settings/applications/sable/SableAppListKeyboard.java b/src/com/android/settings/applications/sable/SableAppListKeyboard.java
+index a70c4560113..bd5228fd0c3 100644
+--- a/src/com/android/settings/applications/sable/SableAppListKeyboard.java
++++ b/src/com/android/settings/applications/sable/SableAppListKeyboard.java
+@@ -38,7 +38,9 @@ import com.android.settings.overlay.FeatureFactory;
+ 
+ import java.util.ArrayList;
+ import java.util.Collections;
++import java.util.HashMap;
+ import java.util.List;
++import java.util.Map;
+ 
+ /**
+  * Keyboard-first behaviour for the Sable app lists (KEYBOARD_FIRST_SETTINGS_UX), on top of
+@@ -47,17 +49,26 @@ import java.util.List;
+  * PageUp/PageDown move by list position, and {@code /}, Search or Ctrl+K open Settings
+  * search. It only sees keys no view handled, so it never traps focus or eats text input.
+  * Reuses the Battery package's pure keyboard model.
++ *
++ * <p>{@link #attachToWindow} is the Settings homepage variant: it listens on the window, so the
++ * keys also work while the search bar or nothing at all is focused, and it can add extra words
++ * per row that match after the titles do.
+  */
+ public final class SableAppListKeyboard implements View.OnUnhandledKeyEventListener {
+     private final Fragment mFragment;
+     private final RecyclerView mList;
++    private final View mHost;
+     private final int mPageId;
++    private final Map<String, String> mExtraWords;
+     private final TypeAheadMatcher mTypeAhead = new TypeAheadMatcher();
+ 
+-    private SableAppListKeyboard(Fragment fragment, RecyclerView list, int pageId) {
++    private SableAppListKeyboard(Fragment fragment, RecyclerView list, View host, int pageId,
++            Map<String, String> extraWords) {
+         mFragment = fragment;
+         mList = list;
++        mHost = host;
+         mPageId = pageId;
++        mExtraWords = extraWords;
+     }
+ 
+     /** Installs keyboard support on a preference list; returns null when there is no list. */
+@@ -65,13 +76,40 @@ public final class SableAppListKeyboard implements View.OnUnhandledKeyEventListe
+         if (list == null) {
+             return null;
+         }
+-        final SableAppListKeyboard k = new SableAppListKeyboard(fragment, list, pageId);
++        final SableAppListKeyboard k = new SableAppListKeyboard(fragment, list, list, pageId,
++                Collections.<String, String>emptyMap());
+         list.addOnUnhandledKeyEventListener(k);
+         return k;
+     }
+ 
++    /**
++     * Installs keyboard support for a list on its whole window (the Settings homepage). {@code
++     * extraWordsRes} is a string array of preference key, words pairs; the words match only after
++     * row titles (TypeAheadMatcher word rank), so they never take a first letter from a title.
++     * Returns null when there is no list or window.
++     */
++    public static SableAppListKeyboard attachToWindow(Fragment fragment, RecyclerView list,
++            int pageId, int extraWordsRes) {
++        if (list == null || fragment.getActivity() == null
++                || fragment.getActivity().getWindow() == null) {
++            return null;
++        }
++        final View host = fragment.getActivity().getWindow().getDecorView();
++        final Map<String, String> words = new HashMap<>();
++        if (extraWordsRes != 0) {
++            final String[] raw = fragment.getResources().getStringArray(extraWordsRes);
++            for (int i = 0; i + 1 < raw.length; i += 2) {
++                words.put(raw[i], raw[i + 1].replace(',', ' '));
++            }
++        }
++        final SableAppListKeyboard k = new SableAppListKeyboard(fragment, list, host, pageId,
++                words);
++        host.addOnUnhandledKeyEventListener(k);
++        return k;
++    }
++
+     public void detach() {
+-        mList.removeOnUnhandledKeyEventListener(this);
++        mHost.removeOnUnhandledKeyEventListener(this);
+         mTypeAhead.reset();
+     }
+ 
+@@ -111,8 +149,10 @@ public final class SableAppListKeyboard implements View.OnUnhandledKeyEventListe
+                 if (!isFocusTarget(p) || TextUtils.isEmpty(p.getTitle())) {
+                     continue;
+                 }
+-                rows.add(new TypeAheadMatcher.Row(p.getTitle().toString(),
+-                        Collections.<String>emptyList()));
++                final String extra = p.getKey() == null ? null : mExtraWords.get(p.getKey());
++                final String text = extra == null ? p.getTitle().toString()
++                        : p.getTitle() + " " + extra;
++                rows.add(new TypeAheadMatcher.Row(text, Collections.<String>emptyList()));
+                 positions.add(i);
+             }
+         }
+diff --git a/src/com/android/settings/homepage/TopLevelSettings.java b/src/com/android/settings/homepage/TopLevelSettings.java
+index fedc05e9fef..8a5dfcf5158 100644
+--- a/src/com/android/settings/homepage/TopLevelSettings.java
++++ b/src/com/android/settings/homepage/TopLevelSettings.java
+@@ -28,6 +28,7 @@ import android.provider.SearchIndexableResource;
+ import android.text.TextUtils;
+ import android.util.Log;
+ import android.view.LayoutInflater;
++import android.view.View;
+ import android.view.ViewGroup;
+ import android.view.WindowManager;
+ 
+@@ -45,6 +46,7 @@ import androidx.window.embedding.ActivityEmbeddingController;
+ import com.android.settings.R;
+ import com.android.settings.activityembedding.ActivityEmbeddingRulesController;
+ import com.android.settings.activityembedding.ActivityEmbeddingUtils;
++import com.android.settings.applications.sable.SableAppListKeyboard;
+ import com.android.settings.core.RoundCornerPreferenceAdapter;
+ import com.android.settings.core.SubSettingLauncher;
+ import com.android.settings.dashboard.DashboardFragment;
+@@ -74,6 +76,7 @@ public class TopLevelSettings extends DashboardFragment implements SplitLayoutLi
+     private boolean mScrollNeeded = true;
+     private boolean mFirstStarted = true;
+     private ActivityEmbeddingController mActivityEmbeddingController;
++    private SableAppListKeyboard mKeyboard;
+ 
+     public TopLevelSettings() {
+         final Bundle args = new Bundle();
+@@ -241,6 +244,24 @@ public class TopLevelSettings extends DashboardFragment implements SplitLayoutLi
+         }
+     }
+ 
++    @Override
++    public void onViewCreated(View view, Bundle savedInstanceState) {
++        super.onViewCreated(view, savedInstanceState);
++        // SableOS: printable keys jump to homepage rows (type-ahead), / Search Ctrl+K open
++        // search, Home/End/Page move; only keys no view handled, so text input always wins.
++        mKeyboard = SableAppListKeyboard.attachToWindow(this, getListView(),
++                getMetricsCategory(), R.array.sable_homepage_type_ahead_words);
++    }
++
++    @Override
++    public void onDestroyView() {
++        if (mKeyboard != null) {
++            mKeyboard.detach();
++            mKeyboard = null;
++        }
++        super.onDestroyView();
++    }
++
+     @Override
+     public RecyclerView onCreateRecyclerView(LayoutInflater inflater, ViewGroup parent,
+             Bundle savedInstanceState) {
+-- 
+2.43.0
+
