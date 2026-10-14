@@ -16,7 +16,9 @@
   focus rings, favorites and base bar actions; Hub and Calendar Back and drafts; SMS redaction), 0016 the follow-up
   waves (Private Space in All Apps, Q25 diagnostics, Display Compat ratios and per-app link, the
   quick bar editor action, three-page Start, the Sable Camera quick review with AF/AE hold locks
-  and the Q25 volume shutter, and the waves' other app changes).
+  and the Q25 volume shutter, and the waves' other app changes), 0017 waves 2 and 3 (Hub inline
+  replies, live refresh, Inbox filters and launch query; Calendar event detail, edit and delete; Sable
+  Media and Mail keys and search) and the SonarCloud cleanup across the Sable apps.
   Applied in order to a
   fresh import they reproduce `sable-src/` exactly. Regenerate a patch with `git diff` against a
   fresh import when you change these files.
