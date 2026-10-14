@@ -29,7 +29,7 @@ class GatedPlatformBackend(private val context: Context) : DisplayBackend {
     private fun open() = SysProps.get("persist.sable.displaycompat.backend") == "validated"
 
     override fun apply(pkg: String, plan: CanvasPlan, p: DisplayProfile): ApplyResult {
-        val value = platformValue(p.profile)
+        val value = UserMinAspectRatio.forProfile(p.profile)
         return when {
             !open() -> ApplyResult.NoOp
 
@@ -41,16 +41,8 @@ class GatedPlatformBackend(private val context: Context) : DisplayBackend {
         }
     }
 
-    private fun platformValue(profile: AspectProfile): Int? = when (profile) {
-        AspectProfile.Ratio16x9Letterbox -> ASPECT_16_9
-        AspectProfile.Ratio4x3Letterbox -> ASPECT_4_3
-        AspectProfile.FullscreenMedia -> ASPECT_FULLSCREEN
-        AspectProfile.SquareSafe -> ASPECT_DISPLAY_SIZE
-        else -> null
-    }
-
     override fun clear(pkg: String): ApplyResult =
-        if (!open()) ApplyResult.NoOp else set(pkg, ASPECT_UNSET, "unset")
+        if (!open()) ApplyResult.NoOp else set(pkg, UserMinAspectRatio.UNSET, "unset")
 
     private fun set(pkg: String, value: Int, detail: String): ApplyResult = try {
         PackageManager::class.java.getMethod(
@@ -71,15 +63,27 @@ class GatedPlatformBackend(private val context: Context) : DisplayBackend {
     private fun unsupported(t: Throwable): ApplyResult = ApplyResult.Unsupported(
         (t.cause ?: t).javaClass.simpleName + ": " + ((t.cause ?: t).message ?: "no detail")
     )
+}
 
-    private companion object {
-        // Values of the hidden PackageManager.USER_MIN_ASPECT_RATIO_* constants as of Android 14.
-        // The public SDK does not expose them, so they are literals here.
-        // VERIFY against the Android 16 source before the backend gate is opened.
-        const val ASPECT_UNSET = 0
-        const val ASPECT_DISPLAY_SIZE = 2
-        const val ASPECT_16_9 = 3
-        const val ASPECT_4_3 = 4
-        const val ASPECT_FULLSCREEN = 6
+/**
+ * Values of the hidden `PackageManager.USER_MIN_ASPECT_RATIO_*` constants (AOSP 14+: UNSET 0, SPLIT_SCREEN 1,
+ * DISPLAY_SIZE 2, 4_3 3, 16_9 4, 3_2 5, FULLSCREEN 6, APP_DEFAULT 7). The public SDK does not expose them, so they are
+ * literals here. Note 4:3 is 3 and 16:9 is 4 (an earlier version had them swapped, which would have put a 16:9 profile
+ * in a 4:3 window and vice versa). Re-check against the Android 16 source before the backend gate is opened.
+ */
+internal object UserMinAspectRatio {
+    const val UNSET = 0
+    const val DISPLAY_SIZE = 2
+    const val RATIO_4_3 = 3
+    const val RATIO_16_9 = 4
+    const val FULLSCREEN = 6
+
+    /** Platform value for a profile with a real platform equivalent, else null (stored only). */
+    fun forProfile(profile: AspectProfile): Int? = when (profile) {
+        AspectProfile.Ratio16x9Letterbox -> RATIO_16_9
+        AspectProfile.Ratio4x3Letterbox -> RATIO_4_3
+        AspectProfile.FullscreenMedia -> FULLSCREEN
+        AspectProfile.SquareSafe -> DISPLAY_SIZE
+        else -> null
     }
 }

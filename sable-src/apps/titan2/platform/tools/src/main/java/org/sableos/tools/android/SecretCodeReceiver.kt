@@ -20,6 +20,8 @@ class SecretCodeReceiver : BroadcastReceiver() {
         ) {
             return
         }
+        // Enabled from install; defer to (and disable for) a vendor factory-test app that answers the same code.
+        if (!SecretCodeSync.sync(context)) return
         val env = ToolsEnv(context)
         val decision = DialerCodes.bridge(
             env.resolutions.getValue(Capability.FACTORY_TEST_BRIDGE),

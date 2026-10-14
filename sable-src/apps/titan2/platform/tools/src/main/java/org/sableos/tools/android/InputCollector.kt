@@ -5,6 +5,8 @@ import android.hardware.input.InputManager
 import android.os.VibratorManager
 import android.provider.Settings
 import android.view.InputDevice
+import org.sableos.tools.core.KeyboardLight
+import org.sableos.tools.core.KeyboardLightSource
 import org.sableos.tools.core.ReportCategory
 import org.sableos.tools.core.ReportRow
 import org.sableos.tools.core.ReportSection
@@ -114,20 +116,28 @@ class InputCollector(env: ToolsEnv) : CollectorBase(env) {
         return listOf(profile(), devices) + text
     }
 
+    private fun inputLights(): List<String> = devices().flatMap { d ->
+        val lights = try {
+            d.lightsManager.lights
+        } catch (_: RuntimeException) {
+            emptyList()
+        }
+        lights.map { l -> "${l.name} type=${l.type} on ${d.name}" }
+    }
+
     fun attention(): ReportSection {
         val v = ctx.getSystemService(VibratorManager::class.java)?.defaultVibrator
         val rows = mutableListOf(
             row("vibrator", (v?.hasVibrator() == true).toString()),
             row("amplitude control", (v?.hasAmplitudeControl() == true).toString())
         )
-        devices().forEach { d ->
-            val lights = try {
-                d.lightsManager.lights
-            } catch (_: RuntimeException) {
-                emptyList()
-            }
-            lights.forEach { l -> rows += row("light on ${d.name}", "${l.name} type=${l.type}") }
-        }
+        // Keyboard light: read the way this profile drives it (the Q25 has no lights HAL; its driver takes
+        // persist.sys.sable.kbd_backlight*), or say honestly that it is unknown / not supported.
+        val source = env.profile.keyboard.light
+        val inputLights =
+            if (source == KeyboardLightSource.INPUT_LIGHTS) inputLights() else emptyList()
+        val light = KeyboardLight.read(source, SysProps::get, inputLights)
+        rows += row("keyboard light", "${light.state.name}: ${light.detail}")
         val modes = SubscreenModes.available(env.resolutions)
         rows +=
             row(

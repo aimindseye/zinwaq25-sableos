@@ -109,7 +109,10 @@ class ReportController(private val host: ToolHost) : ToolController {
             host.collectors.collect(
                 c,
                 sessionLog = Session.keyLog.toList(),
-                textEntry = TextEntryTest.summary(Session.textEntry)
+                textEntry = TextEntryTest.summary(
+                    Session.textEntry,
+                    TextEntryTest.casesFor(host.env.profile.keyboard)
+                )
             )
         }
         lastText =
