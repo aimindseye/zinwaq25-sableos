@@ -71,6 +71,25 @@ else
     fail "KF-A: SystemUI notification key-command patch missing"
 fi
 
+if compgen -G "$shade/0302-*.patch" >/dev/null && compgen -G "$shade/0303-*.patch" >/dev/null &&
+    grep -q 'SableShadeKeys.systemKeyFor' "$shade"/0302-*.patch &&
+    grep -q 'KEYCODE_DPAD_UP && event.hasModifiers(KeyEvent.META_ALT_ON)' "$shade"/0302-*.patch &&
+    grep -q 'SableNotificationCommand.RowMenu' "$shade"/0302-*.patch &&
+    grep -q 'SableTileKeys.actionFor' "$shade"/0303-*.patch; then
+    pass "Shade: Alt replaces Fn (Alt+Down, Alt+Up, Alt+Enter) and tiles take Space and Alt+Enter"
+else
+    fail "Shade: Alt shortcuts or Quick Settings tile keys missing"
+fi
+
+lock="$(compgen -G "$shade/0304-*.patch" || true)"
+if [[ -n "$lock" ]] && grep -q 'sable_keyguard_hint_pin">Type PIN · Enter unlocks' "$lock" &&
+    grep -q 'SableKeyguardTypeAhead.get().take' "$lock" &&
+    ! grep -E '^\+' "$lock" | grep -q -E 'verifyCredential|checkCredential|LockPatternChecker|verifyPasswordAndUnlock|dismissWithAction|keyguardDone'; then
+    pass "Lock screen: keyboard hint and type-ahead fill the field and never check or submit a credential"
+else
+    fail "Lock screen keyboard patch missing, or it reaches credential checks"
+fi
+
 settings="$ROOT/patches/framework/packages/apps/Settings"
 if compgen -G "$settings/03*-*.patch" >/dev/null &&
     grep -q 'org.sableos.hub.action.ATTENTION_SETTINGS' "$settings"/03*-*.patch &&

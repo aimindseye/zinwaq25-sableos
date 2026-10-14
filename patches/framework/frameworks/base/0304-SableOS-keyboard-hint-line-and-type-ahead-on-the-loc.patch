@@ -1,0 +1,653 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 14 Oct 2026 18:11:06 +0000
+Subject: [PATCH] SableOS: keyboard hint line and type-ahead on the lock screen
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+LOCKSCREEN_SECURE_ENTRY_UX for phones with a hardware keyboard and no
+number row (Q25: Alt, Shift, Sym, letters):
+
+* Hint line: with a QWERTY keyboard the lock screen indication area
+  adds "Type PIN · Enter unlocks" ("Type password · Enter unlocks",
+  or "Enter unlocks" for a swipe lock; none for a pattern). The
+  credential type is read off the main thread. Nothing shows without a
+  hardware keyboard.
+* Type-ahead: a printable key from a physical keyboard on the locked
+  glance of a secure keyguard opens the primary bouncer, as Enter
+  already does, and is typed into the PIN or password field when that
+  field resumes, together with any key typed while it was opening.
+  The keys are held in SableKeyguardTypeAhead for at most 3 s after
+  the last one, are cleared when taken, never logged, and nothing is
+  checked or submitted: Enter still submits. Confirm, Back, Escape,
+  Tab and delete keys, repeats and Ctrl/Meta/Fn chords keep their
+  meaning; focused notification rows keep their commands.
+* PIN digits from a keyboard without a number row: the PIN view also
+  accepts the digit a key types with its modifiers (Alt+W on the Q25)
+  and, for plain presses, the key map's phone-pad number.
+
+Legacy (non scene-container) keyguard only; the scene container path
+is unchanged. Pure policy: keyguard/sable/SableKeyguardKeys.java and
+SableKeyguardTypeAhead.java.
+---
+ .../res/values/sable_keyguard_strings.xml     |  24 +++
+ .../KeyguardPasswordViewController.java       |   8 +
+ .../keyguard/KeyguardPinBasedInputView.java   |  16 ++
+ .../keyguard/KeyguardPinViewController.java   |  11 ++
+ .../keyguard/sable/SableKeyguardKeys.java     | 141 ++++++++++++++++++
+ .../sable/SableKeyguardTypeAhead.java         | 107 +++++++++++++
+ ...ardIndicationRotateTextViewController.java |   7 +-
+ .../interactor/KeyguardKeyEventInteractor.kt  |  60 ++++++++
+ .../KeyguardIndicationController.java         |  50 +++++++
+ 9 files changed, 423 insertions(+), 1 deletion(-)
+ create mode 100644 packages/SystemUI/res/values/sable_keyguard_strings.xml
+ create mode 100644 packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardKeys.java
+ create mode 100644 packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardTypeAhead.java
+
+diff --git a/packages/SystemUI/res/values/sable_keyguard_strings.xml b/packages/SystemUI/res/values/sable_keyguard_strings.xml
+new file mode 100644
+index 000000000000..69ca7e8acd81
+--- /dev/null
++++ b/packages/SystemUI/res/values/sable_keyguard_strings.xml
+@@ -0,0 +1,24 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<resources>
++    <!-- Lock screen hint on a phone with a hardware keyboard and a PIN: typing opens the PIN field with those digits, Enter submits. [CHAR LIMIT=40] -->
++    <string name="sable_keyguard_hint_pin">Type PIN · Enter unlocks</string>
++    <!-- Lock screen hint on a phone with a hardware keyboard and a password. [CHAR LIMIT=40] -->
++    <string name="sable_keyguard_hint_password">Type password · Enter unlocks</string>
++    <!-- Lock screen hint on a phone with a hardware keyboard and a swipe lock. [CHAR LIMIT=40] -->
++    <string name="sable_keyguard_hint_enter">Enter unlocks</string>
++</resources>
+diff --git a/packages/SystemUI/src/com/android/keyguard/KeyguardPasswordViewController.java b/packages/SystemUI/src/com/android/keyguard/KeyguardPasswordViewController.java
+index 4b46370ac1ff..d381b3784bd5 100644
+--- a/packages/SystemUI/src/com/android/keyguard/KeyguardPasswordViewController.java
++++ b/packages/SystemUI/src/com/android/keyguard/KeyguardPasswordViewController.java
+@@ -23,6 +23,7 @@ import android.content.Context;
+ import android.content.pm.PackageManager;
+ import android.content.res.Resources;
+ import android.graphics.drawable.Drawable;
++import android.os.SystemClock;
+ import android.os.UserHandle;
+ import android.os.UserManager;
+ import android.text.Editable;
+@@ -46,6 +47,7 @@ import com.android.internal.util.LatencyTracker;
+ import com.android.internal.widget.LockPatternUtils;
+ import com.android.keyguard.KeyguardSecurityModel.SecurityMode;
+ import com.android.keyguard.domain.interactor.KeyguardKeyboardInteractor;
++import com.android.keyguard.sable.SableKeyguardTypeAhead;
+ import com.android.systemui.Flags;
+ import com.android.systemui.bouncer.ui.helper.BouncerHapticPlayer;
+ import com.android.systemui.classifier.FalsingCollector;
+@@ -280,6 +282,12 @@ public class KeyguardPasswordViewController
+     public void onResume(int reason) {
+         super.onResume(reason);
+         mPaused = false;
++        // Sable: characters typed on the locked glance while this field was opening.
++        final String typed = SableKeyguardTypeAhead.get().takeText(SystemClock.uptimeMillis());
++        if (!typed.isEmpty() && mPasswordEntry.isEnabled()) {
++            mPasswordEntry.append(typed);
++            mPasswordEntry.setSelection(mPasswordEntry.length());
++        }
+         if (reason != KeyguardSecurityView.SCREEN_ON || mShowImeAtScreenOn) {
+             showInput();
+         }
+diff --git a/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputView.java b/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputView.java
+index fb5494b1cf1a..7905c2d50b4c 100644
+--- a/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputView.java
++++ b/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputView.java
+@@ -41,6 +41,7 @@ import androidx.annotation.CallSuper;
+ 
+ import com.android.app.animation.Interpolators;
+ import com.android.internal.widget.LockscreenCredential;
++import com.android.keyguard.sable.SableKeyguardKeys;
+ import com.android.systemui.Flags;
+ import com.android.systemui.res.R;
+ 
+@@ -109,9 +110,24 @@ public abstract class KeyguardPinBasedInputView extends KeyguardAbsKeyInputView
+             performNumberClick(number);
+             return true;
+         }
++        // Sable: keyboards without a number row (Q25) type digits with Alt+letter, or plain
++        // letters where the key map gives them a phone-pad number.
++        final int sableDigit = SableKeyguardKeys.digitFor(
++                event.getUnicodeChar(), event.getNumber(), event.getMetaState());
++        if (sableDigit >= 0) {
++            performNumberClick(sableDigit);
++            return true;
++        }
+         return super.onKeyDown(keyCode, event);
+     }
+ 
++    /** Sable: a digit typed on the locked glance before this field had focus. */
++    void typeSableDigit(int digit) {
++        if (mPasswordEntry.isEnabled()) {
++            performNumberClick(digit);
++        }
++    }
++
+     @Override
+     public boolean onKeyUp(int keyCode, KeyEvent event) {
+         if (KeyEvent.isConfirmKey(keyCode)) {
+diff --git a/packages/SystemUI/src/com/android/keyguard/KeyguardPinViewController.java b/packages/SystemUI/src/com/android/keyguard/KeyguardPinViewController.java
+index e6c1e535ad3e..bf8c09da66a8 100644
+--- a/packages/SystemUI/src/com/android/keyguard/KeyguardPinViewController.java
++++ b/packages/SystemUI/src/com/android/keyguard/KeyguardPinViewController.java
+@@ -19,6 +19,7 @@ package com.android.keyguard;
+ import static com.android.systemui.flags.Flags.LOCKSCREEN_ENABLE_LANDSCAPE;
+ 
+ import android.hardware.input.InputManager;
++import android.os.SystemClock;
+ import android.view.View;
+ 
+ import com.android.internal.logging.UiEvent;
+@@ -27,6 +28,7 @@ import com.android.internal.util.LatencyTracker;
+ import com.android.internal.widget.LockPatternUtils;
+ import com.android.keyguard.KeyguardSecurityModel.SecurityMode;
+ import com.android.keyguard.domain.interactor.KeyguardKeyboardInteractor;
++import com.android.keyguard.sable.SableKeyguardTypeAhead;
+ import com.android.systemui.bouncer.ui.helper.BouncerHapticPlayer;
+ import com.android.systemui.classifier.FalsingCollector;
+ import com.android.systemui.flags.FeatureFlags;
+@@ -87,6 +89,15 @@ public class KeyguardPinViewController
+         mUiEventLogger = uiEventLogger;
+     }
+ 
++    @Override
++    public void onResume(int reason) {
++        super.onResume(reason);
++        // Sable: digits typed on the locked glance while this field was opening.
++        for (int digit : SableKeyguardTypeAhead.get().takeDigits(SystemClock.uptimeMillis())) {
++            mView.typeSableDigit(digit);
++        }
++    }
++
+     @Override
+     protected void onViewAttached() {
+         super.onViewAttached();
+diff --git a/packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardKeys.java b/packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardKeys.java
+new file mode 100644
+index 000000000000..e1bd149a7a7f
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardKeys.java
+@@ -0,0 +1,141 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.keyguard.sable;
++
++/**
++ * Keyboard-first secure entry on the lock screen (LOCKSCREEN_SECURE_ENTRY_UX), for phones whose
++ * keyboard has no number row, such as the Q25: digits come from Alt+letter, or from the key map's
++ * number behavior where it defines one (BlackBerry-style phone pad).
++ *
++ * <p>Nothing here authenticates or skips anything: it only decides which character a key types
++ * into the PIN or password field, which keys typed on the locked glance open that field, and
++ * which hint line the lock screen shows. Pure: android.view.KeyEvent and LockPatternUtils values
++ * are copied so it can be tested off-device.
++ */
++public final class SableKeyguardKeys {
++    /** No hint line. */
++    public static final int HINT_NONE = 0;
++    /** "Type PIN · Enter unlocks". */
++    public static final int HINT_PIN = 1;
++    /** "Type password · Enter unlocks". */
++    public static final int HINT_PASSWORD = 2;
++    /** "Enter unlocks" (swipe lock). */
++    public static final int HINT_ENTER = 3;
++
++    // LockPatternUtils credential types.
++    static final int CREDENTIAL_TYPE_NONE = -1;
++    static final int CREDENTIAL_TYPE_PATTERN = 1;
++    static final int CREDENTIAL_TYPE_PIN = 3;
++    static final int CREDENTIAL_TYPE_PASSWORD = 4;
++
++    // android.view.KeyEvent key codes and meta state bits.
++    static final int KEYCODE_BACK = 4;
++    static final int KEYCODE_DPAD_CENTER = 23;
++    static final int KEYCODE_TAB = 61;
++    static final int KEYCODE_SPACE = 62;
++    static final int KEYCODE_ENTER = 66;
++    static final int KEYCODE_DEL = 67;
++    static final int KEYCODE_ESCAPE = 111;
++    static final int KEYCODE_FORWARD_DEL = 112;
++    static final int KEYCODE_NUMPAD_ENTER = 160;
++    private static final int META_SHIFT_MASK = 0x01 | 0x40 | 0x80;
++    private static final int META_ALT_MASK = 0x02 | 0x10 | 0x20;
++    private static final int META_SYM_ON = 0x04;
++    private static final int META_FUNCTION_ON = 0x08;
++    private static final int META_CTRL_MASK = 0x1000 | 0x2000 | 0x4000;
++    private static final int META_META_MASK = 0x10000 | 0x20000 | 0x40000;
++    /** Chords that are shortcuts, never text. */
++    private static final int SHORTCUT_MODIFIERS = META_CTRL_MASK | META_META_MASK | META_FUNCTION_ON;
++    /** Modifiers that make a key type something other than its number behavior. */
++    private static final int TEXT_MODIFIERS = META_SHIFT_MASK | META_ALT_MASK | META_SYM_ON;
++
++    private SableKeyguardKeys() {}
++
++    /**
++     * The PIN digit a key types, or -1. {@code unicodeChar} is {@code KeyEvent.getUnicodeChar()}
++     * (with the event's Alt/Shift state applied: Alt+W on the Q25), {@code numberChar} is
++     * {@code KeyEvent.getNumber()} (the key map's phone-pad digit, used for plain presses only).
++     */
++    public static int digitFor(int unicodeChar, int numberChar, int metaState) {
++        if ((metaState & SHORTCUT_MODIFIERS) != 0) {
++            return -1;
++        }
++        if (unicodeChar >= '0' && unicodeChar <= '9') {
++            return unicodeChar - '0';
++        }
++        if ((metaState & TEXT_MODIFIERS) == 0 && numberChar >= '0' && numberChar <= '9') {
++            return numberChar - '0';
++        }
++        return -1;
++    }
++
++    /** A character a password field accepts from this key, or 0. */
++    public static int textCharFor(int unicodeChar, int metaState) {
++        if ((metaState & SHORTCUT_MODIFIERS) != 0) {
++            return 0;
++        }
++        // Printable only: no controls, no space (a confirm key), no dead keys (COMBINING_ACCENT).
++        if (unicodeChar <= 0x20 || unicodeChar == 0x7f
++                || (unicodeChar >= 0x80 && unicodeChar < 0xa0)) {
++            return 0;
++        }
++        return unicodeChar;
++    }
++
++    /**
++     * Whether a key typed on the locked glance (no bouncer yet) should open the PIN or password
++     * field and be typed into it. Confirm, Back, Escape, Tab and delete keys keep their meaning
++     * (Enter and Space already open the field upstream); repeats and shortcuts never count.
++     */
++    public static boolean isTypeAheadKey(int keyCode, int metaState, int repeatCount,
++            int unicodeChar, int numberChar) {
++        if (repeatCount != 0) {
++            return false;
++        }
++        switch (keyCode) {
++            case KEYCODE_BACK:
++            case KEYCODE_DPAD_CENTER:
++            case KEYCODE_TAB:
++            case KEYCODE_SPACE:
++            case KEYCODE_ENTER:
++            case KEYCODE_DEL:
++            case KEYCODE_ESCAPE:
++            case KEYCODE_FORWARD_DEL:
++            case KEYCODE_NUMPAD_ENTER:
++                return false;
++            default:
++                break;
++        }
++        return digitFor(unicodeChar, numberChar, metaState) >= 0
++                || textCharFor(unicodeChar, metaState) != 0;
++    }
++
++    /** The lock screen hint for the user's credential type ({@code LockPatternUtils}). */
++    public static int hintFor(int credentialType) {
++        switch (credentialType) {
++            case CREDENTIAL_TYPE_PIN:
++                return HINT_PIN;
++            case CREDENTIAL_TYPE_PASSWORD:
++                return HINT_PASSWORD;
++            case CREDENTIAL_TYPE_NONE:
++                return HINT_ENTER;
++            default:
++                // Pattern (and anything new): Enter opens it, but nothing is typed.
++                return HINT_NONE;
++        }
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardTypeAhead.java b/packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardTypeAhead.java
+new file mode 100644
+index 000000000000..08603add12d8
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardTypeAhead.java
+@@ -0,0 +1,107 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.keyguard.sable;
++
++/**
++ * Keys typed on the locked glance while the PIN or password field is still opening.
++ *
++ * <p>The first key opens the bouncer; it and any key typed before the field has focus are held
++ * here and handed to the field once, when it resumes. Entries are short-lived: they are dropped
++ * {@link #TIMEOUT_MS} after the last key, on {@link #clear()}, and when taken, and they never
++ * leave SystemUI or reach a log. Holding a few typed characters for the field the user is about
++ * to see is all this does: it never checks or submits a credential.
++ *
++ * <p>Main thread only in SystemUI; synchronized anyway. Pure Java, tested off-device.
++ */
++public final class SableKeyguardTypeAhead {
++    /** Entries older than this (since the last key) are dropped unseen. */
++    public static final long TIMEOUT_MS = 3000;
++    /** At most this many keys are held; later ones are dropped. */
++    public static final int MAX_KEYS = 64;
++
++    private static final SableKeyguardTypeAhead INSTANCE = new SableKeyguardTypeAhead();
++
++    private final int[] mDigits = new int[MAX_KEYS];
++    private final int[] mTextChars = new int[MAX_KEYS];
++    private int mCount;
++    private long mLastOfferMs;
++
++    /** The SystemUI-wide buffer shared by the key handler and the bouncer views. */
++    public static SableKeyguardTypeAhead get() {
++        return INSTANCE;
++    }
++
++    /**
++     * Holds one key: its PIN digit (or -1) and its password character (or 0), as
++     * {@link SableKeyguardKeys} computed them.
++     */
++    public synchronized void offer(int digit, int textChar, long nowMs) {
++        expire(nowMs);
++        if (mCount < MAX_KEYS) {
++            mDigits[mCount] = digit;
++            mTextChars[mCount] = textChar;
++            mCount++;
++        }
++        mLastOfferMs = nowMs;
++    }
++
++    /** Keys are held and not yet expired: the field is still opening. */
++    public synchronized boolean isPending(long nowMs) {
++        expire(nowMs);
++        return mCount > 0;
++    }
++
++    /** The held PIN digits, in order (keys without a digit skipped); empties the buffer. */
++    public synchronized int[] takeDigits(long nowMs) {
++        expire(nowMs);
++        int n = 0;
++        for (int i = 0; i < mCount; i++) {
++            if (mDigits[i] >= 0) n++;
++        }
++        final int[] digits = new int[n];
++        n = 0;
++        for (int i = 0; i < mCount; i++) {
++            if (mDigits[i] >= 0) digits[n++] = mDigits[i];
++        }
++        clear();
++        return digits;
++    }
++
++    /** The held password characters, in order (keys without one skipped); empties the buffer. */
++    public synchronized String takeText(long nowMs) {
++        expire(nowMs);
++        final StringBuilder text = new StringBuilder(mCount);
++        for (int i = 0; i < mCount; i++) {
++            if (mTextChars[i] != 0) text.appendCodePoint(mTextChars[i]);
++        }
++        clear();
++        return text.toString();
++    }
++
++    /** Drops everything held, overwriting it. */
++    public synchronized void clear() {
++        java.util.Arrays.fill(mDigits, 0, MAX_KEYS, -1);
++        java.util.Arrays.fill(mTextChars, 0, MAX_KEYS, 0);
++        mCount = 0;
++    }
++
++    private void expire(long nowMs) {
++        if (mCount > 0 && (nowMs - mLastOfferMs > TIMEOUT_MS || nowMs < mLastOfferMs)) {
++            clear();
++        }
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardIndicationRotateTextViewController.java b/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardIndicationRotateTextViewController.java
+index 61b661f8bb6d..2e80aa7fa33d 100644
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardIndicationRotateTextViewController.java
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardIndicationRotateTextViewController.java
+@@ -397,6 +397,8 @@ public class KeyguardIndicationRotateTextViewController extends
+     public static final int INDICATION_TYPE_ADAPTIVE_AUTH = 14;
+     public static final int INDICATION_TYPE_WATCH_DISCONNECTED = 15;
+     public static final int INDICATION_TYPE_SECURE_LOCK_DEVICE = 16;
++    /** Sable: the hardware-keyboard unlock hint ("Type PIN · Enter unlocks"). */
++    public static final int INDICATION_TYPE_SABLE_KEYBOARD_HINT = 17;
+ 
+     @IntDef({
+             INDICATION_TYPE_NONE,
+@@ -415,7 +417,8 @@ public class KeyguardIndicationRotateTextViewController extends
+             INDICATION_IS_DISMISSIBLE,
+             INDICATION_TYPE_ADAPTIVE_AUTH,
+             INDICATION_TYPE_WATCH_DISCONNECTED,
+-            INDICATION_TYPE_SECURE_LOCK_DEVICE
++            INDICATION_TYPE_SECURE_LOCK_DEVICE,
++            INDICATION_TYPE_SABLE_KEYBOARD_HINT
+     })
+     @Retention(RetentionPolicy.SOURCE)
+     public @interface IndicationType{}
+@@ -457,6 +460,8 @@ public class KeyguardIndicationRotateTextViewController extends
+                 return "watch_disconnected";
+             case INDICATION_TYPE_SECURE_LOCK_DEVICE:
+                 return "secure_lock_device";
++            case INDICATION_TYPE_SABLE_KEYBOARD_HINT:
++                return "sable_keyboard_hint";
+             default:
+                 return "unknown[" + type + "]";
+         }
+diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/domain/interactor/KeyguardKeyEventInteractor.kt b/packages/SystemUI/src/com/android/systemui/keyguard/domain/interactor/KeyguardKeyEventInteractor.kt
+index d3380ed3c303..0cbc8e61c59e 100644
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/domain/interactor/KeyguardKeyEventInteractor.kt
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/domain/interactor/KeyguardKeyEventInteractor.kt
+@@ -18,7 +18,12 @@ package com.android.systemui.keyguard.domain.interactor
+ 
+ import android.content.Context
+ import android.media.AudioManager
++import android.os.SystemClock
++import android.view.InputDevice
++import android.view.KeyCharacterMap
+ import android.view.KeyEvent
++import com.android.keyguard.sable.SableKeyguardKeys
++import com.android.keyguard.sable.SableKeyguardTypeAhead
+ import com.android.systemui.back.domain.interactor.BackActionInteractor
+ import com.android.systemui.dagger.SysUISingleton
+ import com.android.systemui.deviceentry.domain.interactor.DeviceEntryInteractor
+@@ -58,6 +63,10 @@ constructor(
+             }
+         }
+ 
++        if (dispatchSableTypeAhead(event)) {
++            return true
++        }
++
+         if (event.handleAction()) {
+             if (KeyEvent.isConfirmKey(event.keyCode)) {
+                 if (isDeviceAwake()) {
+@@ -110,6 +119,57 @@ constructor(
+         }
+     }
+ 
++    /**
++     * Sable (LOCKSCREEN_SECURE_ENTRY_UX): typing on the locked glance goes straight into the PIN
++     * or password field. A printable key from a physical keyboard opens the primary bouncer, as
++     * Enter already does, and is held in [SableKeyguardTypeAhead] with any key typed before the
++     * field has focus; the PIN or password view takes them when it resumes. Nothing is checked or
++     * submitted here and no key path unlocks: the user still confirms with Enter.
++     */
++    private fun dispatchSableTypeAhead(event: KeyEvent): Boolean {
++        if (SceneContainerFlag.isEnabled || event.action != KeyEvent.ACTION_DOWN) return false
++        if (statusBarStateController.state != StatusBarState.KEYGUARD || !isDeviceAwake()) {
++            return false
++        }
++        if (
++            event.deviceId == KeyCharacterMap.VIRTUAL_KEYBOARD ||
++                !event.isFromSource(InputDevice.SOURCE_KEYBOARD)
++        ) {
++            return false
++        }
++        val unicodeChar = event.unicodeChar
++        val numberChar = event.number.code
++        if (
++            !SableKeyguardKeys.isTypeAheadKey(
++                event.keyCode,
++                event.metaState,
++                event.repeatCount,
++                unicodeChar,
++                numberChar,
++            )
++        ) {
++            return false
++        }
++        val typeAhead = SableKeyguardTypeAhead.get()
++        val now = SystemClock.uptimeMillis()
++        val bouncerOpening = statusBarKeyguardViewManager.primaryBouncerIsOrWillBeShowing()
++        // Once the field is up and focused it gets keys itself; until then keep collecting.
++        if (bouncerOpening && !typeAhead.isPending(now)) return false
++        if (!statusBarKeyguardViewManager.isSecure()) return false
++        typeAhead.offer(
++            SableKeyguardKeys.digitFor(unicodeChar, numberChar, event.metaState),
++            SableKeyguardKeys.textCharFor(unicodeChar, event.metaState),
++            now,
++        )
++        if (!bouncerOpening) {
++            statusBarKeyguardViewManager.showPrimaryBouncer(
++                true,
++                "KeyguardKeyEventInteractor#dispatchSableTypeAhead",
++            )
++        }
++        return true
++    }
++
+     private fun dispatchMenuKeyEvent(): Boolean {
+         val shouldUnlockOnMenuPressed =
+             isDeviceAwake() &&
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/KeyguardIndicationController.java b/packages/SystemUI/src/com/android/systemui/statusbar/KeyguardIndicationController.java
+index 7f0926a44e01..37005f285b6b 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/KeyguardIndicationController.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/KeyguardIndicationController.java
+@@ -43,6 +43,7 @@ import static com.android.systemui.keyguard.KeyguardIndicationRotateTextViewCont
+ import static com.android.systemui.keyguard.KeyguardIndicationRotateTextViewController.INDICATION_TYPE_LOGOUT;
+ import static com.android.systemui.keyguard.KeyguardIndicationRotateTextViewController.INDICATION_TYPE_OWNER_INFO;
+ import static com.android.systemui.keyguard.KeyguardIndicationRotateTextViewController.INDICATION_TYPE_PERSISTENT_UNLOCK_MESSAGE;
++import static com.android.systemui.keyguard.KeyguardIndicationRotateTextViewController.INDICATION_TYPE_SABLE_KEYBOARD_HINT;
+ import static com.android.systemui.keyguard.KeyguardIndicationRotateTextViewController.INDICATION_TYPE_SECURE_LOCK_DEVICE;
+ import static com.android.systemui.keyguard.KeyguardIndicationRotateTextViewController.INDICATION_TYPE_TRUST;
+ import static com.android.systemui.keyguard.KeyguardIndicationRotateTextViewController.INDICATION_TYPE_USER_LOCKED;
+@@ -60,6 +61,7 @@ import android.content.Intent;
+ import android.content.IntentFilter;
+ import android.content.pm.UserInfo;
+ import android.content.res.ColorStateList;
++import android.content.res.Configuration;
+ import android.content.res.Resources;
+ import android.graphics.Color;
+ import android.hardware.biometrics.BiometricSourceType;
+@@ -87,6 +89,7 @@ import com.android.keyguard.KeyguardUpdateMonitor;
+ import com.android.keyguard.KeyguardUpdateMonitorCallback;
+ import com.android.keyguard.TrustGrantFlags;
+ import com.android.keyguard.logging.KeyguardLogger;
++import com.android.keyguard.sable.SableKeyguardKeys;
+ import com.android.settingslib.Utils;
+ import com.android.settingslib.fuelgauge.BatteryStatus;
+ import com.android.systemui.Flags;
+@@ -537,6 +540,7 @@ public class KeyguardIndicationController {
+         updateLockScreenLogoutView();
+         updateLockScreenPersistentUnlockMsg();
+         updateLockScreenAdaptiveAuthMsg(userId);
++        updateLockScreenSableKeyboardHint(userId);
+         if (showLockedByYourWatchKeyguardIndicator()) {
+             updateLockScreenWatchDisconnectedMsg(userId);
+         }
+@@ -645,6 +649,52 @@ public class KeyguardIndicationController {
+         });
+     }
+ 
++    /**
++     * Sable (LOCKSCREEN_SECURE_ENTRY_UX): a keyboard hint line, "Type PIN · Enter unlocks", on
++     * phones with a hardware keyboard. Typing goes straight into the field (see
++     * KeyguardKeyEventInteractor); the hint only says so. Nothing shows without a keyboard.
++     */
++    private void updateLockScreenSableKeyboardHint(int userId) {
++        if (mContext.getResources().getConfiguration().keyboard
++                != Configuration.KEYBOARD_QWERTY) {
++            mRotateTextViewController.hideIndication(INDICATION_TYPE_SABLE_KEYBOARD_HINT);
++            return;
++        }
++        // The credential type is a LockSettings IPC: read it off the main thread.
++        mBackgroundExecutor.execute(() -> {
++            final int hint = SableKeyguardKeys.hintFor(
++                    mLockPatternUtils.getCredentialTypeForUser(userId));
++            mExecutor.execute(() -> {
++                final int hintRes;
++                switch (hint) {
++                    case SableKeyguardKeys.HINT_PIN:
++                        hintRes = R.string.sable_keyguard_hint_pin;
++                        break;
++                    case SableKeyguardKeys.HINT_PASSWORD:
++                        hintRes = R.string.sable_keyguard_hint_password;
++                        break;
++                    case SableKeyguardKeys.HINT_ENTER:
++                        hintRes = R.string.sable_keyguard_hint_enter;
++                        break;
++                    default:
++                        hintRes = 0;
++                        break;
++                }
++                if (hintRes != 0 && mKeyguardStateController.isShowing()) {
++                    mRotateTextViewController.updateIndication(
++                            INDICATION_TYPE_SABLE_KEYBOARD_HINT,
++                            new KeyguardIndication.Builder()
++                                    .setMessage(mContext.getString(hintRes))
++                                    .setTextColor(getInitialTextColorState())
++                                    .build(),
++                            false);
++                } else {
++                    mRotateTextViewController.hideIndication(INDICATION_TYPE_SABLE_KEYBOARD_HINT);
++                }
++            });
++        });
++    }
++
+     private void updateLockScreenBatteryMsg(boolean animate) {
+         if (mBatteryPresent && (mPowerPluggedIn || mEnableBatteryDefender)) {
+             String powerIndication = computePowerIndication();
+-- 
+2.43.0
+
