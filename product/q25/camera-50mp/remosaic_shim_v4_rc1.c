@@ -1338,6 +1338,50 @@ static void t16_apply(int y0, int y1, void *p)
 }
 /* lattice diagnostic: rms (%) of the 256 position means in flat 16x16 tiles, relative to their group mean
  * (group = quad phase for raw frames, Bayer colour for our output) */
+static inline int d16_grp(int bayer_out, int py, int px) { return bayer_out ? g_tcol[py & 1][px & 1] : (py & 3) * 4 + (px & 3); }
+static inline int d16_col(int bayer_out, int py, int px) { return bayer_out ? g_tcol[py & 1][px & 1] : g_qcol[py & 3][px & 3]; }
+/* every colour bright enough (mean >= 20) and flat across the tile's four 8x8 quadrants */
+static int diag16_flat(const double csum[3], const int cn[3], double qs[][4], int qn[][4])
+{
+	int ok = 1;
+	for (int c = 0; c < 3; c++) {
+		double m = csum[c] / cn[c];
+		double mn = 1e30;
+		double mx = -1e30;
+		if (m < 20) return 0;
+		for (int q = 0; q < 4; q++) {
+			double qm = qs[c][q] / qn[c][q];
+			if (qm < mn) mn = qm;
+			if (qm > mx) mx = qm;
+		}
+		if (mx - mn > 0.05 * m + 4) ok = 0;
+	}
+	return ok;
+}
+/* one 16x16 tile: pedestal-free values into v, per-group sums into gs/gn; returns whether the tile is usable */
+static int diag16_tile(const uint16_t *b, int S, float scl, int bayer_out, int ty, int tx, double *v, double *gs, int *gn)
+{
+	double csum[3] = { 0 };
+	double qs[3][4] = { { 0 } }; int cn[3] = { 0 };
+	int qn[3][4] = { { 0 } };
+	for (int py = 0; py < 16; py++)
+		for (int px = 0; px < 16; px++) {
+			double a = b[(size_t)(ty + py) * S + tx + px] * scl - g_ped; v[py * 16 + px] = a;
+			int grp = d16_grp(bayer_out, py, px);
+			gs[grp] += a; gn[grp]++;
+			int c = d16_col(bayer_out, py, px);
+			int qd = (py >> 3) * 2 + (px >> 3); csum[c] += a; cn[c]++; qs[c][qd] += a; qn[c][qd]++;
+		}
+	return diag16_flat(csum, cn, qs, qn);
+}
+static void diag16_add(double *sum, const double *v, const double *gs, const int *gn, int bayer_out)
+{
+	for (int py = 0; py < 16; py++)
+		for (int px = 0; px < 16; px++) {
+			int grp = d16_grp(bayer_out, py, px);
+			sum[py * 16 + px] += v[py * 16 + px] / (gs[grp] / gn[grp]);
+		}
+}
 static void diag16(const uint16_t *b, int S, float scl, int bayer_out, const char *tag, char *out, size_t outsz)
 {
 	double sum[256] = { 0 }; long n = 0;
@@ -1345,37 +1389,8 @@ static void diag16(const uint16_t *b, int S, float scl, int bayer_out, const cha
 		for (int tx = 0; tx + 16 <= g_w; tx += 16) {
 			double v[256];
 			double gs[16] = { 0 }; int gn[16] = { 0 };
-			int ok = 1;
-			int c;
-			double csum[3] = { 0 };
-			double qs[3][4] = { { 0 } }; int cn[3] = { 0 };
-			int qn[3][4] = { { 0 } };
-			for (int py = 0; py < 16; py++)
-				for (int px = 0; px < 16; px++) {
-					double a = b[(size_t)(ty + py) * S + tx + px] * scl - g_ped; v[py * 16 + px] = a;
-					int grp = bayer_out ? g_tcol[py & 1][px & 1] : (py & 3) * 4 + (px & 3);
-					gs[grp] += a; gn[grp]++;
-					c = bayer_out ? g_tcol[py & 1][px & 1] : g_qcol[py & 3][px & 3];
-					int qd = (py >> 3) * 2 + (px >> 3); csum[c] += a; cn[c]++; qs[c][qd] += a; qn[c][qd]++;
-				}
-			for (c = 0; c < 3; c++) {
-				double m = csum[c] / cn[c];
-				double mn = 1e30;
-				double mx = -1e30;
-				if (m < 20) { ok = 0; break; }
-				for (int q = 0; q < 4; q++) {
-					double qm = qs[c][q] / qn[c][q];
-					if (qm < mn) mn = qm;
-					if (qm > mx) mx = qm;
-				}
-				if (mx - mn > 0.05 * m + 4) ok = 0;
-			}
-			if (!ok) continue;
-			for (int py = 0; py < 16; py++)
-				for (int px = 0; px < 16; px++) {
-					int grp = bayer_out ? g_tcol[py & 1][px & 1] : (py & 3) * 4 + (px & 3);
-					sum[py * 16 + px] += v[py * 16 + px] / (gs[grp] / gn[grp]);
-				}
+			if (!diag16_tile(b, S, scl, bayer_out, ty, tx, v, gs, gn)) continue;
+			diag16_add(sum, v, gs, gn, bayer_out);
 			n++;
 		}
 	if (n < 50) { snprintf(out, outsz, "%s n=%ld -", tag, n); return; }
@@ -1398,48 +1413,63 @@ static void diag16(const uint16_t *b, int S, float scl, int bayer_out, const cha
 static float g_lk[4][4][3];                    /* a, l1, l2 per position */
 static int g_oc[3][2] = { { CG, CB }, { CR, CB }, { CR, CG } };   /* other colours, ascending */
 struct lkfit { const uint16_t *in; int stride; float na; float nb; double (*part)[4][4][12]; long *nflat; };
+/* noise-aware flat test of the 4x4 tile at (ty,tx); when flat, its colour means (pedestal removed) go to cm */
+static int lk_tile_flat(const struct lkfit *f, int ty, int tx, double cm[3])
+{
+	int mn[3] = { 65535, 65535, 65535 };
+	int mx[3] = { -1, -1, -1 };
+	int flat = 1; double sm[3] = { 0, 0, 0 }; int cn[3] = { 0, 0, 0 };
+	int c;
+	for (int py = 0; py < 4; py++)
+		for (int px = 0; px < 4; px++) {
+			int v = f->in[(size_t)(ty + py) * f->stride + tx + px];
+			c = g_qcol[py][px];
+			if (v < mn[c]) mn[c] = v;
+			if (v > mx[c]) mx[c] = v;
+			sm[c] += v - g_ped; cn[c]++;
+		}
+	for (c = 0; c < 3; c++) {
+		double lvl = mn[c] - g_ped > 0 ? mn[c] - g_ped : 0;
+		double sig = sqrt(f->na * lvl + f->nb);
+		double lim = (mn[c] - g_ped) / 4.0 + 16;
+		if (4.5 * sig > lim) lim = 4.5 * sig;
+		if (!(mx[c] < 1000 && mx[c] - mn[c] <= lim)) flat = 0;
+	}
+	if (!flat) return 0;
+	for (c = 0; c < 3; c++) cm[c] = sm[c] / cn[c];
+	return 1;
+}
+/* normal equations of one sample: a[k*3+m] += x[k]*x[m], a[9+k] += x[k]*t */
+static inline void lk_acc_px(double *a, const double x[3], double t)
+{
+	for (int k = 0; k < 3; k++) {
+		for (int m = 0; m < 3; m++) a[k * 3 + m] += x[k] * x[m];
+		a[9 + k] += x[k] * t;
+	}
+}
+static void lk_tile_acc(double (*A)[4][12], const struct lkfit *f, int ty, int tx, const double cm[3])
+{
+	for (int py = 0; py < 4; py++)
+		for (int px = 0; px < 4; px++) {
+			int cc = g_qcol[py][px];
+			double x[3] = { cm[cc], cm[g_oc[cc][0]], cm[g_oc[cc][1]] };
+			double t = f->in[(size_t)(ty + py) * f->stride + tx + px] - g_ped;
+			lk_acc_px(A[py][px], x, t);
+		}
+}
 static void lkfit_job(int y0, int y1, void *p)  /* rows 64-aligned; one partial per job, merged in order */
 {
 	struct lkfit *f = p; int job = y0 / 64;
-	int c;
 	double (*A)[4][12] = f->part[job]; long nfl = 0;
 	memset(A, 0, sizeof(double) * 4 * 4 * 12);
 	int h4 = g_h & ~3;
 	int w4 = g_w & ~3;
 	for (int ty = (y0 + 7) & ~7; ty < y1 && ty + 4 <= h4; ty += 8)
 		for (int tx = 0; tx + 4 <= w4; tx += 8) {
-			int mn[3] = { 65535, 65535, 65535 };
-			int mx[3] = { -1, -1, -1 };
-			int flat = 1; double sm[3] = { 0, 0, 0 }; int cn[3] = { 0, 0, 0 };
-			for (int py = 0; py < 4; py++)
-				for (int px = 0; px < 4; px++) {
-					int v = f->in[(size_t)(ty + py) * f->stride + tx + px];
-					c = g_qcol[py][px];
-					if (v < mn[c]) mn[c] = v;
-					if (v > mx[c]) mx[c] = v;
-					sm[c] += v - g_ped; cn[c]++;
-				}
-			for (c = 0; c < 3; c++) {
-				double lvl = mn[c] - g_ped > 0 ? mn[c] - g_ped : 0;
-				double sig = sqrt(f->na * lvl + f->nb);
-				double lim = (mn[c] - g_ped) / 4.0 + 16;
-				if (4.5 * sig > lim) lim = 4.5 * sig;
-				if (!(mx[c] < 1000 && mx[c] - mn[c] <= lim)) flat = 0;
-			}
-			if (!flat) continue;
+			double cm[3];
+			if (!lk_tile_flat(f, ty, tx, cm)) continue;
 			nfl++;
-			double cm[3]; for (c = 0; c < 3; c++) cm[c] = sm[c] / cn[c];
-			for (int py = 0; py < 4; py++)
-				for (int px = 0; px < 4; px++) {
-					int cc = g_qcol[py][px];
-					double x[3] = { cm[cc], cm[g_oc[cc][0]], cm[g_oc[cc][1]] };
-					double t = f->in[(size_t)(ty + py) * f->stride + tx + px] - g_ped;
-					double *a = A[py][px];
-					for (int k = 0; k < 3; k++) {
-						for (int m = 0; m < 3; m++) a[k * 3 + m] += x[k] * x[m];
-						a[9 + k] += x[k] * t;
-					}
-				}
+			lk_tile_acc(A, f, ty, tx, cm);
 		}
 	f->nflat[job] = nfl;
 }
@@ -1451,6 +1481,24 @@ static int solve3(const double M[9], const double r[3], double out[3])
 	out[1] = (M[0] * (r[1] * M[8] - M[5] * r[2]) - r[0] * (M[3] * M[8] - M[5] * M[6]) + M[2] * (M[3] * r[2] - r[1] * M[6])) / d;
 	out[2] = (M[0] * (M[4] * r[2] - r[1] * M[7]) - M[1] * (M[3] * r[2] - r[1] * M[6]) + r[0] * (M[3] * M[7] - M[4] * M[6])) / d;
 	return 1;
+}
+/* ridge solve of one position's normal equations a[12]; g (a, l1, l2) is kept when the system is singular */
+static void lk_solve_pos(const double *a, float *g)
+{
+	double M[9];
+	double r[3];
+	double o[3];
+	double lam = 1e-3 * (a[0] + a[4] + a[8]) / 3;
+	for (int k = 0; k < 9; k++) M[k] = a[k];
+	M[0] += lam; M[4] += lam; M[8] += lam;
+	r[0] = a[9] + lam; r[1] = a[10]; r[2] = a[11];
+	if (solve3(M, r, o)) { g[0] = (float)o[0]; g[1] = (float)o[1]; g[2] = (float)o[2]; }
+}
+static void lk_normalise(int k)                        /* normalise a within colour k */
+{
+	double s = 0; int n = 0;
+	for (int py = 0; py < 4; py++) for (int px = 0; px < 4; px++) if (g_qcol[py][px] == k) { s += g_lk[py][px][0]; n++; }
+	for (int py = 0; py < 4; py++) for (int px = 0; px < 4; px++) if (g_qcol[py][px] == k) g_lk[py][px][0] = (float)(g_lk[py][px][0] / (s / n));
 }
 static long lk_fit(const uint16_t *in, int stride)
 {
@@ -1465,48 +1513,34 @@ static long lk_fit(const uint16_t *in, int stride)
 	run_rows(lkfit_job, &f, 64);
 	double S[4][4][12]; long nflat = 0;
 	memset(S, 0, sizeof S);
-	for (int j = 0; j < nj; j++) {                       /* fixed merge order: thread-count independent */
-		nflat += f.nflat[j];
-		for (int py = 0; py < 4; py++) for (int px = 0; px < 4; px++) for (int k = 0; k < 12; k++) S[py][px][k] += f.part[j][py][px][k];
-	}
+	for (int j = 0; j < nj; j++) nflat += f.nflat[j];   /* fixed merge order: thread-count independent */
+	sum_parts(&S[0][0][0], &f.part[0][0][0][0], nj, 4 * 4 * 12);
 	free(f.part); free(f.nflat);
 	if (nflat <= 500) return nflat;
 	for (int py = 0; py < 4; py++)
-		for (int px = 0; px < 4; px++) {
-			const double *a = S[py][px];
-			double M[9];
-			double r[3];
-			double o[3];
-			double lam = 1e-3 * (a[0] + a[4] + a[8]) / 3;
-			for (int k = 0; k < 9; k++) M[k] = a[k];
-			M[0] += lam; M[4] += lam; M[8] += lam;
-			r[0] = a[9] + lam; r[1] = a[10]; r[2] = a[11];
-			if (solve3(M, r, o)) { g_lk[py][px][0] = (float)o[0]; g_lk[py][px][1] = (float)o[1]; g_lk[py][px][2] = (float)o[2]; }
-		}
-	for (int k = 0; k < 3; k++) {                        /* normalise a within each colour */
-		double s = 0; int n = 0;
-		for (int py = 0; py < 4; py++) for (int px = 0; px < 4; px++) if (g_qcol[py][px] == k) { s += g_lk[py][px][0]; n++; }
-		for (int py = 0; py < 4; py++) for (int px = 0; px < 4; px++) if (g_qcol[py][px] == k) g_lk[py][px][0] = (float)(g_lk[py][px][0] / (s / n));
-	}
+		for (int px = 0; px < 4; px++) lk_solve_pos(S[py][px], g_lk[py][px]);
+	for (int k = 0; k < 3; k++) lk_normalise(k);
 	return nflat;
 }
 /* interior same-colour offsets in the 5x5 ring, per position and colour */
 static signed char g_lo_off[4][4][3][24][2];
 static int g_lo_n[4][4][3];
+static void lk_ring(int py, int px, int c)            /* same-colour offsets of colour c around phase (py,px) */
+{
+	int n = 0;
+	for (int dy = -2; dy <= 2; dy++)
+		for (int dx = -2; dx <= 2; dx++) {
+			if (!dx && !dy) continue;
+			if (g_qcol[(py + dy + 8) & 3][(px + dx + 8) & 3] != c) continue;
+			g_lo_off[py][px][c][n][0] = (signed char)dy; g_lo_off[py][px][c][n][1] = (signed char)dx; n++;
+		}
+	g_lo_n[py][px][c] = n;
+}
 static void lk_tables(void)
 {
 	for (int py = 0; py < 4; py++)
 		for (int px = 0; px < 4; px++)
-			for (int c = 0; c < 3; c++) {
-				int n = 0;
-				for (int dy = -2; dy <= 2; dy++)
-					for (int dx = -2; dx <= 2; dx++) {
-						if (!dx && !dy) continue;
-						if (g_qcol[(py + dy + 8) & 3][(px + dx + 8) & 3] != c) continue;
-						g_lo_off[py][px][c][n][0] = (signed char)dy; g_lo_off[py][px][c][n][1] = (signed char)dx; n++;
-					}
-				g_lo_n[py][px][c] = n;
-			}
+			for (int c = 0; c < 3; c++) lk_ring(py, px, c);
 }
 static inline float lk_level(const uint16_t *in, int S, int x, int y, int c, int interior)
 {
@@ -1566,20 +1600,22 @@ struct off { int dx; int dy; float sw; };
 static struct off g_offs[4][4][81];           /* same-colour offsets per 4x4 phase */
 static int g_noffs[4][4];
 
+static void dn_phase_offs(int py, int px)
+{
+	int n = 0;
+	for (int dy = -g_dnr; dy <= g_dnr; dy++)
+		for (int dx = -g_dnr; dx <= g_dnr; dx++) {
+			if (g_qcol[(py + dy + 8) & 3][(px + dx + 8) & 3] != g_qcol[py][px]) continue;
+			g_offs[py][px][n].dx = dx; g_offs[py][px][n].dy = dy;
+			g_offs[py][px][n].sw = expf(-(dx * dx + dy * dy) / 8.0f); n++;
+		}
+	g_noffs[py][px] = n;
+}
 static void dn_tables(void)
 {
 	for (int i = 0; i <= LUTN; i++) g_lut[i] = expf(-LUTMAX * i / LUTN);
 	for (int py = 0; py < 4; py++)
-		for (int px = 0; px < 4; px++) {
-			int n = 0;
-			for (int dy = -g_dnr; dy <= g_dnr; dy++)
-				for (int dx = -g_dnr; dx <= g_dnr; dx++)
-					if (g_qcol[(py + dy + 8) & 3][(px + dx + 8) & 3] == g_qcol[py][px]) {
-						g_offs[py][px][n].dx = dx; g_offs[py][px][n].dy = dy;
-						g_offs[py][px][n].sw = expf(-(dx * dx + dy * dy) / 8.0f); n++;
-					}
-			g_noffs[py][px] = n;
-		}
+		for (int px = 0; px < 4; px++) dn_phase_offs(py, px);
 }
 static inline float rw(float t)       /* exp(-t), interpolated LUT; 0 beyond LUTMAX */
 {
@@ -1820,20 +1856,22 @@ struct rtap { int dy; int dx; float w; };
 static struct rtap g_ftap[4][4][49];
 static int g_nftap[4][4];
 static float g_fden[4][4];
+static void refine_phase_taps(int py, int px)
+{
+	int n = 0;
+	int cc = g_qcol[py][px]; float den = 0;
+	for (int i = 0; i < 7; i++)
+		for (int j = 0; j < 7; j++) {
+			if (g_qcol[(py + i - 3 + 8) & 3][(px + j - 3 + 8) & 3] != cc) continue;
+			g_ftap[py][px][n].dy = i - 3; g_ftap[py][px][n].dx = j - 3;
+			g_ftap[py][px][n].w = g_k1[i][j]; den += g_k1[i][j]; n++;
+		}
+	g_nftap[py][px] = n; g_fden[py][px] = den;
+}
 static void refine_tables(void)
 {
 	for (int py = 0; py < 4; py++)
-		for (int px = 0; px < 4; px++) {
-			int n = 0;
-			int cc = g_qcol[py][px]; float den = 0;
-			for (int i = 0; i < 7; i++)
-				for (int j = 0; j < 7; j++)
-					if (g_qcol[(py + i - 3 + 8) & 3][(px + j - 3 + 8) & 3] == cc) {
-						g_ftap[py][px][n].dy = i - 3; g_ftap[py][px][n].dx = j - 3;
-						g_ftap[py][px][n].w = g_k1[i][j]; den += g_k1[i][j]; n++;
-					}
-			g_nftap[py][px] = n; g_fden[py][px] = den;
-		}
+		for (int px = 0; px < 4; px++) refine_phase_taps(py, px);
 }
 static void refine_px(const struct ctx *c, int16_t *G2, int x, int y)    /* border pixel, mirrored */
 {
@@ -1933,20 +1971,22 @@ static void refine_run(int y0, int y1, void *p)
 static struct rtap g_rtap[3][4][4][49];      /* [C][y&3][x&3] */
 static int g_nrtap[3][4][4];
 static float g_rden[3][4][4];
+static void ri_phase_taps(int C, int py, int px)
+{
+	int n = 0; float d = 0;
+	for (int i = 0; i < 7; i++)
+		for (int j = 0; j < 7; j++) {
+			if (g_qcol[(py + i - 3 + 8) & 3][(px + j - 3 + 8) & 3] != C) continue;
+			g_rtap[C][py][px][n].dy = i - 3; g_rtap[C][py][px][n].dx = j - 3;
+			g_rtap[C][py][px][n].w = g_k15[i][j]; d += g_k15[i][j]; n++;
+		}
+	g_nrtap[C][py][px] = n; g_rden[C][py][px] = d;
+}
 static void ri_tables(void)
 {
 	for (int C = 0; C < 3; C += 2)
 		for (int py = 0; py < 4; py++)
-			for (int px = 0; px < 4; px++) {
-				int n = 0; float d = 0;
-				for (int i = 0; i < 7; i++)
-					for (int j = 0; j < 7; j++)
-						if (g_qcol[(py + i - 3 + 8) & 3][(px + j - 3 + 8) & 3] == C) {
-							g_rtap[C][py][px][n].dy = i - 3; g_rtap[C][py][px][n].dx = j - 3;
-							g_rtap[C][py][px][n].w = g_k15[i][j]; d += g_k15[i][j]; n++;
-						}
-				g_nrtap[C][py][px] = n; g_rden[C][py][px] = d;
-			}
+			for (int px = 0; px < 4; px++) ri_phase_taps(C, py, px);
 }
 /* Streaming RI in single precision with planar rows, so every inner loop vectorises.
  * g and q are shifted by RIK before summing: the local fit a = cov/(var+eps) does not change
@@ -1959,7 +1999,8 @@ static void ri_masks(void)
 		for (int py = 0; py < 4; py++) {
 			free(g_mask[C][py]);
 			g_mask[C][py] = malloc(sizeof(float) * g_w);
-			if (g_mask[C][py]) for (int x = 0; x < g_w; x++) g_mask[C][py][x] = g_qcol[py][x & 3] == C;
+			float *mk = g_mask[C][py];
+			for (int x = 0; mk && x < g_w; x++) mk[x] = g_qcol[py][x & 3] == C;
 		}
 }
 /* RI is processed in column tiles so its 8-row rings stay in L2 (full-width rings were
