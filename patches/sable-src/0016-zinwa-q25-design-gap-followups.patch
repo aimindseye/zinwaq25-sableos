@@ -18,6 +18,1934 @@ index 65f437d..f84c848 100644
      @Test
      fun printableKeysOnStartSeedSearch() {
          assertEquals('m', StartTypeToSearch.seed('m'.code, 0, repeat = false))
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/android/CameraController.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/android/CameraController.kt
+index 1c1314c..0b4fe3a 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/android/CameraController.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/android/CameraController.kt
+@@ -10,6 +10,7 @@ import android.hardware.camera2.CameraDevice
+ import android.hardware.camera2.CameraManager
+ import android.hardware.camera2.CameraMetadata
+ import android.hardware.camera2.CaptureRequest
++import android.hardware.camera2.CaptureResult
+ import android.hardware.camera2.DngCreator
+ import android.hardware.camera2.TotalCaptureResult
+ import android.hardware.camera2.params.OutputConfiguration
+@@ -17,6 +18,7 @@ import android.hardware.camera2.params.SessionConfiguration
+ import android.media.Image
+ import android.media.ImageReader
+ import android.media.MediaRecorder
++import android.net.Uri
+ import android.os.Handler
+ import android.os.HandlerThread
+ import android.os.SystemClock
+@@ -47,10 +49,13 @@ private const val VIDEO_FRAME_RATE = 30
+ private const val AUDIO_BIT_RATE = 128_000
+ private const val AUDIO_SAMPLE_RATE = 44_100
+ 
++/** One file the camera has just published: its MediaStore row, name, type and a short detail. */
++class Saved(val uri: Uri, val name: String, val mime: String, val detail: String)
++
+ /** The three callbacks a still/preview configuration reports through. */
+ class StillCallbacks(
+     val onReady: () -> Unit,
+-    val onSaved: (String) -> Unit,
++    val onSaved: (Saved) -> Unit,
+     val onError: (String) -> Unit
+ )
+ 
+@@ -95,7 +100,7 @@ class CameraController(
+     private var report: CameraReport? = null
+     private var plan: StillPlan? = null
+     private var previewSurface: Surface? = null
+-    private var savedCb: ((String) -> Unit)? = null
++    private var savedCb: ((Saved) -> Unit)? = null
+     private var errorCb: ((String) -> Unit)? = null
+ 
+     // Pro mode: null state = ordinary auto camera. The seed is the camera's own last AE/AF choice
+@@ -118,6 +123,9 @@ class CameraController(
+     /** Video recording controls (start/pause/resume/stop and the elapsed clock). */
+     val video = VideoControls()
+ 
++    /** AF/AE locks (hold F / hold E) and the tap-F refocus. */
++    val locks = LockControls()
++
+     var zoom = 1f
+         private set
+     var aeSteps = 0
+@@ -142,6 +150,7 @@ class CameraController(
+         this.plan = p
+         this.savedCb = callbacks.onSaved
+         this.errorCb = callbacks.onError
++        locks.reset() // a new session starts unlocked
+         val c = reader.characteristics(p.cameraId)
+         chars = c
+         val pv = PreviewChooser.choose(previewSizes(c), previewFor)
+@@ -251,6 +260,7 @@ class CameraController(
+             val ns = result.get(android.hardware.camera2.CaptureResult.SENSOR_EXPOSURE_TIME)
+             val fd = result.get(android.hardware.camera2.CaptureResult.LENS_FOCUS_DISTANCE)
+             seed = AutoSeed(iso ?: seed.iso, ns ?: seed.exposureNs, fd ?: seed.focusDiopters)
++            locks.onResult(result)
+         }
+     }
+ 
+@@ -262,6 +272,7 @@ class CameraController(
+         if (ps == null || pl == null) {
+             b.set(CaptureRequest.CONTROL_AF_MODE, CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+             b.set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, aeSteps)
++            b.set(CaptureRequest.CONTROL_AE_LOCK, locks.aeLocked)
+         } else {
+             val pr = ProControls.toRequest(ps, pl, seed)
+             b.set(CaptureRequest.CONTROL_AWB_MODE, pr.awbMode)
+@@ -311,6 +322,7 @@ class CameraController(
+             // Recording owns AF/AE mode; only zoom and exposure compensation may change mid-clip.
+             report?.camera?.zoomRatio?.let { b.set(CaptureRequest.CONTROL_ZOOM_RATIO, zoom) }
+             b.set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, aeSteps)
++            b.set(CaptureRequest.CONTROL_AE_LOCK, locks.aeLocked)
+         } else {
+             applyCommon(b, p)
+         }
+@@ -328,17 +340,8 @@ class CameraController(
+         refreshPreview()
+     }
+ 
+-    /** One-shot autofocus trigger; continuous AF resumes afterwards. */
+-    fun triggerFocus() {
+-        val b = previewBuilder ?: return
+-        val s = session ?: return
+-        runCatching {
+-            b.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_START)
+-            s.capture(b.build(), null, handler)
+-            b.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_IDLE)
+-            s.setRepeatingRequest(b.build(), seedCallback, handler)
+-        }
+-    }
++    /** One-shot autofocus trigger; continuous AF resumes afterwards (see [LockControls.refocus]). */
++    fun triggerFocus() = locks.refocus()
+ 
+     fun takePicture(displayRotationDegrees: Int) {
+         val d = device
+@@ -434,7 +437,7 @@ class CameraController(
+             val bytes = ByteArray(buf.remaining()).also { buf.get(it) }
+             val uri = saver.save(name, "image/jpeg") { it.write(bytes) }
+             if (uri != null) {
+-                savedCb?.invoke("$name  ${p.size}")
++                savedCb?.invoke(Saved(uri, name, "image/jpeg", "${p.size}"))
+             } else {
+                 errorCb?.invoke("Could not save $name")
+             }
+@@ -469,7 +472,7 @@ class CameraController(
+             val uri = saver.save(name, "image/x-adobe-dng") { dng.writeImage(it, image) }
+             dng.close()
+             if (uri != null) {
+-                savedCb?.invoke("$name  ${p.size}")
++                savedCb?.invoke(Saved(uri, name, "image/x-adobe-dng", "${p.size}"))
+             } else {
+                 errorCb?.invoke("Could not save $name")
+             }
+@@ -627,7 +630,9 @@ class CameraController(
+                                 set(CaptureRequest.CONTROL_ZOOM_RATIO, zoom)
+                             }
+                             set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, aeSteps)
++                            set(CaptureRequest.CONTROL_AE_LOCK, locks.aeLocked)
+                         }
++                        locks.focusReleased() // the record session starts in continuous AF
+                         previewBuilder = b
+                         s.setRepeatingRequest(b.build(), seedCallback, handler)
+                         rec.start()
+@@ -679,7 +684,7 @@ class CameraController(
+          * Stop and publish the clip. A recording stopped within moments can fail in the encoder;
+          * that clip is discarded and reported.
+          */
+-        fun stop(onSavedCb: (String) -> Unit, onErrorCb: (String) -> Unit) {
++        fun stop(onSavedCb: (Saved) -> Unit, onErrorCb: (String) -> Unit) {
+             val rec = recorder ?: return
+             val target = videoTarget
+             val name = videoName ?: "video.mp4"
+@@ -693,7 +698,7 @@ class CameraController(
+             if (target == null) return
+             if (ok) {
+                 saver.finishVideo(target)
+-                onSavedCb(name)
++                onSavedCb(Saved(target.uri, name, "video/mp4", "video"))
+             } else {
+                 saver.discard(target)
+                 onErrorCb("Recording was too short to save")
+@@ -701,6 +706,81 @@ class CameraController(
+         }
+     }
+ 
++    /**
++     * Hold F locks focus where an AF scan lands (CONTROL_AF_TRIGGER START, held until CANCEL);
++     * hold E holds auto exposure (CONTROL_AE_LOCK). A tap of F scans once and then returns to
++     * continuous AF, so only a hold leaves focus locked. Every new session starts unlocked.
++     */
++    inner class LockControls {
++        var afLocked = false
++            private set
++        var aeLocked = false
++            private set
++
++        @Volatile private var refocusing = false
++
++        fun refocus() {
++            if (sendAfTrigger(CameraMetadata.CONTROL_AF_TRIGGER_START)) {
++                afLocked = false
++                refocusing = true
++            }
++        }
++
++        /** Returns the new AF lock state. */
++        fun toggleAf(): Boolean {
++            val trigger = if (afLocked) {
++                CameraMetadata.CONTROL_AF_TRIGGER_CANCEL
++            } else {
++                CameraMetadata.CONTROL_AF_TRIGGER_START
++            }
++            if (sendAfTrigger(trigger)) {
++                afLocked = !afLocked
++                refocusing = false
++            }
++            return afLocked
++        }
++
++        /** Returns the new AE lock state. */
++        fun toggleAe(): Boolean {
++            aeLocked = !aeLocked
++            refreshPreview()
++            return aeLocked
++        }
++
++        internal fun reset() {
++            focusReleased()
++            aeLocked = false
++        }
++
++        internal fun focusReleased() {
++            afLocked = false
++            refocusing = false
++        }
++
++        /** Tap-F scan finished (locked either way): release it back to continuous AF. */
++        internal fun onResult(result: TotalCaptureResult) {
++            if (!refocusing) return
++            val state = result.get(CaptureResult.CONTROL_AF_STATE)
++            if (state == CameraMetadata.CONTROL_AF_STATE_FOCUSED_LOCKED ||
++                state == CameraMetadata.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED
++            ) {
++                refocusing = false
++                sendAfTrigger(CameraMetadata.CONTROL_AF_TRIGGER_CANCEL)
++            }
++        }
++
++        private fun sendAfTrigger(trigger: Int): Boolean {
++            val b = previewBuilder
++            val s = session
++            return b != null && s != null && runCatching {
++                b.set(CaptureRequest.CONTROL_AF_TRIGGER, trigger)
++                s.capture(b.build(), null, handler)
++                b.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_IDLE)
++                s.setRepeatingRequest(b.build(), seedCallback, handler)
++            }.isSuccess
++        }
++    }
++
+     private fun abortRecording() {
+         val rec = recorder
+         val target = videoTarget
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/android/CameraInfoReader.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/android/CameraInfoReader.kt
+index 2756356..da25916 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/android/CameraInfoReader.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/android/CameraInfoReader.kt
+@@ -65,6 +65,7 @@ class CameraInfoReader(context: Context) {
+             physicalIdCount = c.physicalCameraIds.size,
+             sensorOrientation = c.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 90,
+             awbModes = c.get(CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES)?.toSet().orEmpty(),
++            aeLockAvailable = c.get(CameraCharacteristics.CONTROL_AE_LOCK_AVAILABLE) == true,
+             videoSizes = sizes(map?.getOutputSizes(MediaRecorder::class.java))
+         )
+     }
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/android/ReviewActions.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/android/ReviewActions.kt
+new file mode 100644
+index 0000000..d69b09d
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/android/ReviewActions.kt
+@@ -0,0 +1,67 @@
++package org.sableos.titan2.camera.android
++
++import android.content.ClipData
++import android.content.Context
++import android.content.Intent
++import android.graphics.Bitmap
++import android.net.Uri
++import android.provider.DocumentsContract
++import android.util.Size
++import org.sableos.titan2.camera.core.Capture
++
++/**
++ * The platform side of quick review. Every call here is the result of an explicit key press or
++ * tap; nothing is shared, opened or deleted on its own. Only files this app saved are touched, so
++ * no storage permission is needed.
++ */
++class ReviewActions(private val context: Context) {
++    /** Share sheet for one capture, with read access granted to the chosen app only. */
++    fun share(c: Capture<Uri>): Boolean {
++        val send = Intent(Intent.ACTION_SEND).apply {
++            type = c.mime
++            putExtra(Intent.EXTRA_STREAM, c.ref)
++            clipData = ClipData.newRawUri(c.name, c.ref)
++            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
++        }
++        return start(Intent.createChooser(send, c.name))
++    }
++
++    /** Files (DocumentsUI) at the folder the camera saves into. */
++    fun showInFiles(): Boolean {
++        val folder = DocumentsContract.buildDocumentUri(
++            EXTERNAL_STORAGE_AUTHORITY,
++            "primary:$CAPTURE_FOLDER"
++        )
++        val view = Intent(Intent.ACTION_VIEW).apply {
++            setDataAndType(folder, DocumentsContract.Document.MIME_TYPE_DIR)
++        }
++        return start(view)
++    }
++
++    /** Hand the capture itself to the gallery or video player. */
++    fun open(c: Capture<Uri>): Boolean = start(
++        Intent(Intent.ACTION_VIEW).apply {
++            setDataAndType(c.ref, c.mime)
++            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
++        }
++    )
++
++    /** Remove the MediaStore row and its file. Callers confirm first. */
++    fun delete(c: Capture<Uri>): Boolean =
++        runCatching { context.contentResolver.delete(c.ref, null, null) > 0 }.getOrDefault(false)
++
++    /** A decoded preview of at most [edgePx] square, or null (for example a RAW the HAL cannot preview). */
++    fun thumbnail(c: Capture<Uri>, edgePx: Int): Bitmap? = runCatching {
++        context.contentResolver.loadThumbnail(c.ref, Size(edgePx, edgePx), null)
++    }.getOrNull()
++
++    private fun start(i: Intent): Boolean = runCatching {
++        context.startActivity(i)
++    }.isSuccess
++
++    companion object {
++        /** Same folder [MediaStoreSaver] writes to. */
++        const val CAPTURE_FOLDER = "DCIM/SableCamera"
++        private const val EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.documents"
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlDeck.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlDeck.kt
+index 170e489..3f601c2 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlDeck.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlDeck.kt
+@@ -51,7 +51,15 @@ data class DeckContext(
+ /** Capability gate: no control is offered that existing Camera2 support does not back. */
+ object ControlGate {
+     fun check(a: CameraAction, c: DeckContext): Gate =
+-        captureGate(a, c) ?: parameterGate(a, c) ?: navigationGate(a, c)
++        captureGate(a, c) ?: parameterGate(a, c) ?: lockGate(a, c) ?: navigationGate(a, c)
++
++    /** Hold-F/hold-E locks belong to the auto camera; Pro sets focus and exposure by hand. */
++    private fun lockGate(a: CameraAction, c: DeckContext): Gate? = when {
++        a != CameraAction.AfLockToggle && a != CameraAction.AeLockToggle -> null
++        c.ui == UiMode.Pro -> Gate.Closed("Pro sets it by hand")
++        a == CameraAction.AfLockToggle -> need(hasAf(c.cam), "Fixed focus")
++        else -> need(c.cam.camera.aeLockAvailable, "No AE lock on this camera")
++    }
+ 
+     private fun captureGate(a: CameraAction, c: DeckContext): Gate? = when (a) {
+         CameraAction.Shutter -> need(c.ui in ActionRouter.available(c.cam), "No ${c.ui.label} here")
+@@ -108,6 +116,8 @@ object ControlGate {
+         CameraAction.NextMode, CameraAction.PrevMode ->
+             need(ActionRouter.available(c.cam).size > 1 && !c.recording, "Single mode")
+ 
++        CameraAction.OpenLast -> need(!c.recording, "Not while recording")
++
+         else -> Gate.Open
+     }
+ 
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlLegend.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlLegend.kt
+index ab6beb8..c22d7cb 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlLegend.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlLegend.kt
+@@ -18,13 +18,15 @@ object ControlLegend {
+         "space" to "Space", "enter" to "Enter", "camera" to "Camera", "up" to "↑",
+         "down" to "↓", "left" to "←", "right" to "→", "plus" to "+", "minus" to "-",
+         "tab" to "Tab", "escape" to "Esc", "back" to "Back", "slash" to "/",
+-        "volume_up" to "Vol+", "volume_down" to "Vol-"
++        "volume_up" to "Vol+", "volume_down" to "Vol-", "backspace" to "Del",
++        "delete" to "Delete"
+     )
+ 
+     /** Display order; every action appears once. */
+     private val order = listOf(
+         CameraAction.Shutter, CameraAction.VideoToggle, CameraAction.PauseToggle,
+-        CameraAction.Autofocus, CameraAction.ExposureUp, CameraAction.ExposureDown,
++        CameraAction.Autofocus, CameraAction.AfLockToggle, CameraAction.ExposureUp,
++        CameraAction.ExposureDown, CameraAction.AeLockToggle,
+         CameraAction.SelectIso, CameraAction.SelectWb, CameraAction.SelectShutter,
+         CameraAction.StepUp, CameraAction.StepDown, CameraAction.ProAuto,
+         CameraAction.ZoomIn, CameraAction.ZoomOut, CameraAction.PrevMode,
+@@ -38,6 +40,8 @@ object ControlLegend {
+         CameraAction.VideoToggle to "Video record",
+         CameraAction.PauseToggle to "Pause",
+         CameraAction.Autofocus to "Autofocus",
++        CameraAction.AfLockToggle to "AF lock on/off",
++        CameraAction.AeLockToggle to "AE lock on/off",
+         CameraAction.ExposureUp to "Exposure +",
+         CameraAction.ExposureDown to "Exposure -",
+         CameraAction.SelectIso to "ISO",
+@@ -54,7 +58,7 @@ object ControlLegend {
+         CameraAction.NextCaptureMode to "Photo size",
+         CameraAction.QualityNext to "Video quality",
+         CameraAction.CompareToggle to "Compare bracket",
+-        CameraAction.OpenLast to "Last capture",
++        CameraAction.OpenLast to "Review last capture",
+         CameraAction.ToggleLegend to "This legend",
+         CameraAction.Back to "Close / exit"
+     )
+@@ -81,11 +85,54 @@ object ControlLegend {
+         a: CameraAction,
+         profile: CameraDeviceProfile = CameraDeviceProfile.Unknown
+     ): List<Binding> = (CameraKeyMap.standard + profile.keyOverrides).filterValues { it == a }.keys
+-        .sortedWith(compareBy({ it.alt }, { it.key }))
++        .sortedWith(compareBy({ it.hold }, { it.alt }, { it.key }))
+ 
+-    fun keyText(b: Binding): String =
++    fun keyText(b: Binding): String = (if (b.hold) "Hold " else "") +
+         (if (b.alt) "Alt+" else "") + (displayName[b.key] ?: b.key.uppercase())
+ 
++    private val reviewOrder = listOf(
++        ReviewAction.Older,
++        ReviewAction.Newer,
++        ReviewAction.Delete,
++        ReviewAction.Share,
++        ReviewAction.ShowInFiles,
++        ReviewAction.Open,
++        ReviewAction.Close
++    )
++
++    private val reviewLabels = mapOf(
++        ReviewAction.Older to "Older capture",
++        ReviewAction.Newer to "Newer capture",
++        ReviewAction.Delete to "Delete (asks first)",
++        ReviewAction.Share to "Share",
++        ReviewAction.ShowInFiles to "Show in Files",
++        ReviewAction.Open to "Open in another app",
++        ReviewAction.Close to "Back to the viewfinder",
++        ReviewAction.Confirm to "Delete it",
++        ReviewAction.Cancel to "Keep it"
++    )
++
++    fun reviewLabel(a: ReviewAction): String = reviewLabels.getValue(a)
++
++    /** Every review action has a label; used by tests. */
++    fun reviewLabelled(): Set<ReviewAction> = reviewLabels.keys
++
++    /**
++     * Quick-review lines (key text, label), generated from [ReviewKeyMap] like the viewfinder
++     * legend, for the browse layer or the delete confirmation.
++     */
++    fun reviewEntries(confirming: Boolean = false): List<Pair<String, String>> {
++        val actions = if (confirming) {
++            listOf(ReviewAction.Confirm, ReviewAction.Cancel)
++        } else {
++            reviewOrder
++        }
++        return actions.mapNotNull { a ->
++            ReviewKeyMap.keys(a, confirming).sortedBy { it.key }.takeIf { it.isNotEmpty() }
++                ?.let { keys -> keys.joinToString(" / ", transform = ::keyText) to reviewLabel(a) }
++        }
++    }
++
+     fun entries(c: DeckContext, profile: CameraDeviceProfile): List<LegendEntry> =
+         order.mapNotNull { a ->
+             val keys = keysFor(a, profile)
+@@ -102,6 +149,24 @@ object ControlLegend {
+         }
+ }
+ 
++/** On-screen buttons of the quick review: the same [ReviewAction]s the keys reach. */
++object ReviewTouch {
++    val browse: List<Pair<ReviewAction, String>> = listOf(
++        ReviewAction.Older to "◀",
++        ReviewAction.Newer to "▶",
++        ReviewAction.Delete to "Delete",
++        ReviewAction.Share to "Share",
++        ReviewAction.ShowInFiles to "Files",
++        ReviewAction.Open to "Open",
++        ReviewAction.Close to "Close"
++    )
++
++    val confirm: List<Pair<ReviewAction, String>> = listOf(
++        ReviewAction.Confirm to "Delete",
++        ReviewAction.Cancel to "Keep"
++    )
++}
++
+ /** Touch controls for every semantic action, so touch alone can run the whole camera. */
+ data class TouchControl(val action: CameraAction, val label: String, val gate: Gate)
+ 
+@@ -114,6 +179,8 @@ object TouchFallback {
+         CameraAction.VideoToggle to "Video",
+         CameraAction.PauseToggle to "Pause",
+         CameraAction.Autofocus to "AF",
++        CameraAction.AfLockToggle to "AF-L",
++        CameraAction.AeLockToggle to "AE-L",
+         CameraAction.ExposureUp to "EV",
+         CameraAction.ExposureDown to "EV-",
+         CameraAction.SelectIso to "ISO",
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/DeviceProfile.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/DeviceProfile.kt
+index 3648246..1748e03 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/DeviceProfile.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/DeviceProfile.kt
+@@ -53,12 +53,19 @@ data class CameraDeviceProfile(
+         private const val Q25_REMOSAIC_W = 8160
+         private const val Q25_REMOSAIC_H = 6144
+ 
+-        // Public spec only (50 MP rear with flash, 8 MP front); ids, sizes and keys not captured on a Q25 yet.
++        // Public spec only (50 MP rear with flash, 8 MP front); ids and sizes not captured on a Q25 yet.
+         // 8160x6144 is the full-resolution JN1 size the optional 50 MP vendor change
+         // (SABLE_Q25_CAMERA_50MP) adds to the ordinary JPEG map; each shot takes seconds.
++        // The Q25 has no camera key and no Fn key, so the side volume rocker is the physical
++        // shutter (as on Titan 2). Both are ordinary KEYCODE_VOLUME_UP/DOWN reaching the app; the
++        // Q3 key capture has to confirm no vendor policy eats them first.
+         val ZinwaQ25 = CameraDeviceProfile(
+             "zinwa-q25",
+             EvidenceLevel.None,
++            keyOverrides = mapOf(
++                Binding("volume_up") to CameraAction.Shutter,
++                Binding("volume_down") to CameraAction.Shutter
++            ),
+             remosaicJpegSizes = setOf(Size(Q25_REMOSAIC_W, Q25_REMOSAIC_H))
+         )
+         val Unknown = CameraDeviceProfile("unknown", EvidenceLevel.None)
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/KeyMap.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/KeyMap.kt
+index 0adf762..e6d1224 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/KeyMap.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/KeyMap.kt
+@@ -3,6 +3,10 @@ package org.sableos.titan2.camera.core
+ enum class CameraAction {
+     Shutter,
+     Autofocus,
++
++    /** Hold F / hold E: lock focus or exposure until the next hold. Not in Pro (manual there). */
++    AfLockToggle,
++    AeLockToggle,
+     VideoToggle,
+     ZoomIn,
+     ZoomOut,
+@@ -33,10 +37,12 @@ enum class CameraAction {
+ }
+ 
+ /**
+- * A binding is a named key plus an optional Alt. Names are core-level, not Android keycodes, so
+- * the map is JVM-testable.
++ * A binding is a named key plus an optional Alt, pressed or held. Names are core-level, not
++ * Android keycodes, so the map is JVM-testable. A held binding fires once the key has been down
++ * for the platform long-press time; the plain binding of the same key then fires on release
++ * instead of on press (see [HoldTracker]).
+  */
+-data class Binding(val key: String, val alt: Boolean = false)
++data class Binding(val key: String, val alt: Boolean = false, val hold: Boolean = false)
+ 
+ /**
+  * Standard bindings use only common keys (Space/Enter shutter per the org's standard binding
+@@ -48,6 +54,8 @@ object CameraKeyMap {
+         Binding("space") to CameraAction.Shutter, Binding("enter") to CameraAction.Shutter,
+         Binding("camera") to CameraAction.Shutter,
+         Binding("f") to CameraAction.Autofocus,
++        Binding("f", hold = true) to CameraAction.AfLockToggle,
++        Binding("e", hold = true) to CameraAction.AeLockToggle,
+         Binding("v") to CameraAction.VideoToggle,
+         Binding("up") to CameraAction.StepUp, Binding("down") to CameraAction.StepDown,
+         Binding("plus") to CameraAction.ZoomIn, Binding("minus") to CameraAction.ZoomOut,
+@@ -68,12 +76,23 @@ object CameraKeyMap {
+     fun resolve(
+         key: String,
+         alt: Boolean,
+-        profile: CameraDeviceProfile = CameraDeviceProfile.Unknown
++        profile: CameraDeviceProfile = CameraDeviceProfile.Unknown,
++        hold: Boolean = false
+     ): CameraAction? {
+-        val b = Binding(key.lowercase(), alt)
++        val b = Binding(key.lowercase(), alt, hold)
+         return profile.keyOverrides[b] ?: standard[b]
+     }
+ 
++    fun resolve(b: Binding, profile: CameraDeviceProfile = CameraDeviceProfile.Unknown) =
++        resolve(b.key, b.alt, profile, b.hold)
++
++    /** True when [key] (with [alt]) has a held meaning, so its press must wait for release. */
++    fun hasHold(
++        key: String,
++        alt: Boolean,
++        profile: CameraDeviceProfile = CameraDeviceProfile.Unknown
++    ): Boolean = resolve(key, alt, profile, hold = true) != null
++
+     /** Bindings for [a] under the standard map (touch/legend parity checks). */
+     fun keys(a: CameraAction): List<Binding> = standard.filterValues { it == a }.keys.toList()
+ 
+@@ -82,3 +101,84 @@ object CameraKeyMap {
+         profile: CameraDeviceProfile = CameraDeviceProfile.Unknown
+     ): Set<CameraAction> = (standard + profile.keyOverrides).values.toSet()
+ }
++
++/**
++ * Keys of the quick review. It is a separate layer over the viewfinder, so Left/Right, S and F mean
++ * something else here; the viewfinder map is untouched. While a delete is being confirmed only
++ * [confirm] applies.
++ */
++object ReviewKeyMap {
++    val browse: Map<Binding, ReviewAction> = mapOf(
++        Binding("left") to ReviewAction.Older, Binding("right") to ReviewAction.Newer,
++        Binding("backspace") to ReviewAction.Delete, Binding("delete") to ReviewAction.Delete,
++        Binding("s") to ReviewAction.Share,
++        Binding("f") to ReviewAction.ShowInFiles,
++        Binding("enter") to ReviewAction.Open,
++        Binding("escape") to ReviewAction.Close, Binding("back") to ReviewAction.Close,
++        Binding("g") to ReviewAction.Close
++    )
++
++    /** Deleting needs Enter or Y; Del again does not confirm, so a double press cannot delete. */
++    val confirm: Map<Binding, ReviewAction> = mapOf(
++        Binding("enter") to ReviewAction.Confirm,
++        Binding("y") to ReviewAction.Confirm,
++        Binding("n") to ReviewAction.Cancel,
++        Binding("escape") to ReviewAction.Cancel,
++        Binding("back") to ReviewAction.Cancel
++    )
++
++    fun resolve(key: String, alt: Boolean, confirming: Boolean): ReviewAction? =
++        (if (confirming) confirm else browse)[Binding(key.lowercase(), alt)]
++
++    fun keys(a: ReviewAction, confirming: Boolean): List<Binding> =
++        (if (confirming) confirm else browse).filterValues { it == a }.keys.toList()
++}
++
++/** What one key-down means for a key that has both a press and a hold meaning. */
++enum class HoldStep {
++    /** First down: wait, the press fires on release unless the key is held. */
++    Wait,
++
++    /** Held past the long-press time: run the hold action now. */
++    Hold,
++
++    /** Further auto-repeats of a key already handled: nothing. */
++    Ignore
++}
++
++/**
++ * Tells a press from a hold for keys such as F and E. Android reports a held key as auto-repeated
++ * key-downs; the first repeat arrives after the long-press timeout. Pure, so it is unit-tested.
++ */
++class HoldTracker {
++    private enum class Phase { Pending, Held, Refused }
++
++    private val down = mutableMapOf<String, Phase>()
++
++    fun down(key: String, repeatCount: Int): HoldStep = when {
++        repeatCount == 0 -> {
++            down[key] = Phase.Pending
++            HoldStep.Wait
++        }
++
++        down[key] == Phase.Pending -> {
++            down[key] = Phase.Held
++            HoldStep.Hold
++        }
++
++        else -> HoldStep.Ignore
++    }
++
++    /** The hold could not run (gated off): the release fires the ordinary press instead. */
++    fun holdRefused(key: String) {
++        if (key in down) down[key] = Phase.Refused
++    }
++
++    /** Key released: true when the ordinary press action should run now. */
++    fun up(key: String): Boolean {
++        val phase = down.remove(key)
++        return phase == Phase.Pending || phase == Phase.Refused
++    }
++
++    fun clear() = down.clear()
++}
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/Model.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/Model.kt
+index cb8f9af..0b299fe 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/Model.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/Model.kt
+@@ -57,6 +57,8 @@ data class CameraInfo(
+     val sensorOrientation: Int = 90,
+     /** CONTROL_AWB_AVAILABLE_MODES as raw Camera2 ints. Empty = not reported (only Auto offered). */
+     val awbModes: Set<Int> = emptySet(),
++    /** CONTROL_AE_LOCK_AVAILABLE: the camera can hold auto exposure where it is. */
++    val aeLockAvailable: Boolean = false,
+     /**
+      * Output sizes usable by MediaRecorder
+      * (StreamConfigurationMap.getOutputSizes(MediaRecorder::class.java)).
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/QuickReview.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/QuickReview.kt
+new file mode 100644
+index 0000000..269855f
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/QuickReview.kt
+@@ -0,0 +1,168 @@
++package org.sableos.titan2.camera.core
++
++/** What a saved file is, from its MIME type. Decides the share type and the review placeholder. */
++enum class CaptureKind(val label: String) {
++    Photo("Photo"),
++    Raw("RAW"),
++    Video("Video");
++
++    companion object {
++        fun ofMime(mime: String): CaptureKind = when {
++            mime.startsWith("video/") -> Video
++            mime == "image/x-adobe-dng" -> Raw
++            else -> Photo
++        }
++    }
++}
++
++/**
++ * One file this camera saved in this session. [ref] is the MediaStore Uri on the device; the core
++ * never looks inside it, so tests use plain strings.
++ */
++data class Capture<T>(val ref: T, val name: String, val mime: String) {
++    val kind: CaptureKind get() = CaptureKind.ofMime(mime)
++}
++
++/** Keys and touch buttons of the quick review. Nothing here acts without an explicit press. */
++enum class ReviewAction {
++    Older,
++    Newer,
++    Delete,
++    Share,
++    ShowInFiles,
++    Open,
++    Close,
++
++    /** Only in the delete confirmation: delete for real, or keep the file. */
++    Confirm,
++    Cancel
++}
++
++/**
++ * Quick review state. [captures] are oldest first and hold only this session's saves; [index]
++ * points at the one shown. [confirmingDelete] is the explicit second step before a delete.
++ */
++data class ReviewState<T>(
++    val captures: List<Capture<T>> = emptyList(),
++    val open: Boolean = false,
++    val index: Int = -1,
++    val confirmingDelete: Boolean = false
++) {
++    val latest: Capture<T>? get() = captures.lastOrNull()
++    val current: Capture<T>? get() = if (open) captures.getOrNull(index) else null
++
++    /** "2 / 5", counted from the oldest capture of the session. */
++    val position: String get() = if (current == null) "" else "${index + 1} / ${captures.size}"
++}
++
++/** Work the activity must do for a review step; the core only decides, it never touches files. */
++sealed interface ReviewEffect<out T> {
++    data class Delete<T>(val capture: Capture<T>) : ReviewEffect<T>
++    data class Share<T>(val capture: Capture<T>) : ReviewEffect<T>
++    data class ShowInFiles<T>(val capture: Capture<T>) : ReviewEffect<T>
++    data class Open<T>(val capture: Capture<T>) : ReviewEffect<T>
++}
++
++data class ReviewStep<T>(
++    val state: ReviewState<T>,
++    val effect: ReviewEffect<T>? = null,
++    val status: String? = null
++)
++
++object QuickReview {
++    /** The session list is bounded so a long shoot cannot grow it without limit. */
++    const val MAX_SESSION_CAPTURES = 200
++
++    /** Remember a new save. An open review keeps showing what it showed. */
++    fun <T> added(s: ReviewState<T>, c: Capture<T>): ReviewState<T> {
++        val all = (s.captures + c).takeLast(MAX_SESSION_CAPTURES)
++        val dropped = s.captures.size + 1 - all.size
++        return s.copy(
++            captures = all,
++            index = if (s.open) (s.index - dropped).coerceAtLeast(0) else all.lastIndex
++        )
++    }
++
++    /** G or the thumbnail: show the latest capture, or say there is none yet. */
++    fun <T> open(s: ReviewState<T>): ReviewStep<T> = if (s.captures.isEmpty()) {
++        ReviewStep(s, status = "Nothing captured yet in this session")
++    } else {
++        ReviewStep(s.copy(open = true, index = s.captures.lastIndex, confirmingDelete = false))
++    }
++
++    fun <T> close(s: ReviewState<T>): ReviewState<T> =
++        s.copy(open = false, confirmingDelete = false)
++
++    /**
++     * One review action. While the delete confirmation shows, only [ReviewAction.Confirm] and
++     * [ReviewAction.Cancel] (and Close, which cancels) do anything, so a stray key can neither
++     * delete nor leave the question behind.
++     */
++    fun <T> apply(s: ReviewState<T>, a: ReviewAction): ReviewStep<T> {
++        val c = s.current ?: return ReviewStep(close(s))
++        return if (s.confirmingDelete) confirming(s, c, a) else browsing(s, c, a)
++    }
++
++    private fun <T> confirming(s: ReviewState<T>, c: Capture<T>, a: ReviewAction): ReviewStep<T> =
++        when (a) {
++            ReviewAction.Confirm ->
++                ReviewStep(s.copy(confirmingDelete = false), ReviewEffect.Delete(c))
++
++            ReviewAction.Cancel, ReviewAction.Close ->
++                ReviewStep(s.copy(confirmingDelete = false), status = "Kept ${c.name}")
++
++            else -> ReviewStep(s, status = confirmText(c))
++        }
++
++    private fun <T> browsing(s: ReviewState<T>, c: Capture<T>, a: ReviewAction): ReviewStep<T> =
++        when (a) {
++            ReviewAction.Older -> step(s, -1, "Oldest capture of this session")
++
++            ReviewAction.Newer -> step(s, 1, "Latest capture")
++
++            ReviewAction.Delete ->
++                ReviewStep(s.copy(confirmingDelete = true), status = confirmText(c))
++
++            ReviewAction.Share -> ReviewStep(s, ReviewEffect.Share(c))
++
++            ReviewAction.ShowInFiles -> ReviewStep(s, ReviewEffect.ShowInFiles(c))
++
++            ReviewAction.Open -> ReviewStep(s, ReviewEffect.Open(c))
++
++            ReviewAction.Close -> ReviewStep(close(s))
++
++            ReviewAction.Confirm, ReviewAction.Cancel -> ReviewStep(s)
++        }
++
++    private fun <T> step(s: ReviewState<T>, dir: Int, edge: String): ReviewStep<T> {
++        val next = s.index + dir
++        return if (next in s.captures.indices) {
++            ReviewStep(s.copy(index = next))
++        } else {
++            ReviewStep(s, status = edge)
++        }
++    }
++
++    fun confirmText(c: Capture<*>): String = "Delete ${c.name}? Enter or Y deletes, Esc or N keeps"
++
++    /**
++     * After the file is gone: drop it and show its newer neighbour (or the new latest). The
++     * review closes when nothing is left.
++     */
++    fun <T> removed(s: ReviewState<T>, ref: T): ReviewState<T> {
++        val at = s.captures.indexOfFirst { it.ref == ref }
++        if (at < 0) return s
++        val rest = s.captures.filterIndexed { i, _ -> i != at }
++        val index = when {
++            rest.isEmpty() -> -1
++            s.index > at -> s.index - 1
++            else -> s.index.coerceAtMost(rest.lastIndex)
++        }
++        return s.copy(
++            captures = rest,
++            index = index,
++            open = s.open && rest.isNotEmpty(),
++            confirmingDelete = false
++        )
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/RawKeys.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/RawKeys.kt
+index 8b4f921..16a32ba 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/RawKeys.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/RawKeys.kt
+@@ -21,11 +21,13 @@ object RawKeys {
+     private const val KEYCODE_TAB = 61
+     private const val KEYCODE_SPACE = 62
+     private const val KEYCODE_ENTER = 66
++    private const val KEYCODE_DEL = 67
+     private const val KEYCODE_MINUS = 69
+     private const val KEYCODE_EQUALS = 70
+     private const val KEYCODE_SLASH = 76
+     private const val KEYCODE_PLUS = 81
+     private const val KEYCODE_ESCAPE = 111
++    private const val KEYCODE_FORWARD_DEL = 112
+     private const val KEYCODE_NUMPAD_ENTER = 160
+ 
+     private val named: Map<Int, String> = mapOf(
+@@ -42,6 +44,8 @@ object RawKeys {
+         KEYCODE_DPAD_RIGHT to "right",
+         KEYCODE_TAB to "tab",
+         KEYCODE_ESCAPE to "escape",
++        KEYCODE_DEL to "backspace",
++        KEYCODE_FORWARD_DEL to "delete",
+         KEYCODE_BACK to "back",
+         KEYCODE_PLUS to "plus",
+         KEYCODE_EQUALS to "plus",
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/CameraKeys.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/CameraKeys.kt
+new file mode 100644
+index 0000000..683a74c
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/CameraKeys.kt
+@@ -0,0 +1,73 @@
++package org.sableos.titan2.camera.ui
++
++import org.sableos.titan2.camera.core.CameraAction
++import org.sableos.titan2.camera.core.CameraDeviceProfile
++import org.sableos.titan2.camera.core.CameraKeyMap
++import org.sableos.titan2.camera.core.ControlGate
++import org.sableos.titan2.camera.core.DeckContext
++import org.sableos.titan2.camera.core.HoldStep
++import org.sableos.titan2.camera.core.HoldTracker
++import org.sableos.titan2.camera.core.RawKeys
++
++/**
++ * Physical keys to actions. The quick review, when open, gets every key first. Keys with a hold
++ * meaning (F, E) wait for release so a hold can become AF/AE lock; held keys otherwise repeat
++ * only for stepping actions, while toggles and the shutter fire once per press.
++ */
++class CameraKeys(
++    private val profile: CameraDeviceProfile,
++    private val review: QuickReviewHost,
++    private val context: () -> DeckContext?,
++    private val act: (CameraAction) -> Unit
++) {
++    private val holds = HoldTracker()
++
++    private val repeatable = setOf(
++        CameraAction.StepUp,
++        CameraAction.StepDown,
++        CameraAction.ZoomIn,
++        CameraAction.ZoomOut,
++        CameraAction.ExposureUp,
++        CameraAction.ExposureDown
++    )
++
++    /** True when the key was used; otherwise the activity passes it on (volume outside a profile). */
++    fun down(keyCode: Int, alt: Boolean, repeat: Int): Boolean {
++        val name = RawKeys.nameOf(keyCode)
++        return when {
++            name == null -> false
++
++            review.isOpen -> review.key(name, alt, repeat)
++
++            CameraKeyMap.hasHold(name, alt, profile) -> {
++                holdDown(name, alt, repeat)
++                true
++            }
++
++            else -> press(name, alt, repeat)
++        }
++    }
++
++    /** A key with a hold meaning runs its ordinary press on release unless it was held. */
++    fun up(keyCode: Int): Boolean {
++        val tapped = RawKeys.nameOf(keyCode)?.takeIf { holds.up(it) }
++        tapped?.let { CameraKeyMap.resolve(it, false, profile) }?.let(act)
++        return tapped != null
++    }
++
++    /** Forget keys that are down, for example when the review opens over them. */
++    fun clear() = holds.clear()
++
++    private fun press(name: String, alt: Boolean, repeat: Int): Boolean {
++        val action = CameraKeyMap.resolve(name, alt, profile) ?: return false
++        if (repeat == 0 || action in repeatable) act(action)
++        return true
++    }
++
++    private fun holdDown(name: String, alt: Boolean, repeat: Int) {
++        val hold = CameraKeyMap.resolve(name, alt, profile, hold = true)
++        if (holds.down(name, repeat) != HoldStep.Hold || hold == null) return
++        val open = context()?.let { ControlGate.check(hold, it).isOpen } == true
++        if (open) act(hold) else holds.holdRefused(name)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/MainActivity.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/MainActivity.kt
+index 29b6b35..1a1da6e 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/MainActivity.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/MainActivity.kt
+@@ -3,7 +3,6 @@
+ package org.sableos.titan2.camera.ui
+ 
+ import android.Manifest
+-import android.content.Intent
+ import android.content.pm.PackageManager
+ import android.content.res.Configuration
+ import android.graphics.Matrix
+@@ -12,7 +11,6 @@ import android.graphics.SurfaceTexture
+ import android.net.Uri
+ import android.os.Bundle
+ import android.os.SystemClock
+-import android.provider.MediaStore
+ import android.view.KeyEvent
+ import android.view.Surface
+ import android.view.TextureView
+@@ -52,13 +50,13 @@ import org.sableos.titan2.camera.android.CameraController
+ import org.sableos.titan2.camera.android.CameraInfoReader
+ import org.sableos.titan2.camera.android.MediaStoreSaver
+ import org.sableos.titan2.camera.android.RecordingSpec
++import org.sableos.titan2.camera.android.ReviewActions
+ import org.sableos.titan2.camera.android.StillCallbacks
+ import org.sableos.titan2.camera.android.SysProps
+ import org.sableos.titan2.camera.core.ActionRouter
+ import org.sableos.titan2.camera.core.BackResult
+ import org.sableos.titan2.camera.core.CameraAction
+ import org.sableos.titan2.camera.core.CameraDeviceProfile
+-import org.sableos.titan2.camera.core.CameraKeyMap
+ import org.sableos.titan2.camera.core.CapabilityInterpreter
+ import org.sableos.titan2.camera.core.CapabilityReport
+ import org.sableos.titan2.camera.core.CaptureMode
+@@ -79,7 +77,6 @@ import org.sableos.titan2.camera.core.ProControls
+ import org.sableos.titan2.camera.core.ProField
+ import org.sableos.titan2.camera.core.ProLimits
+ import org.sableos.titan2.camera.core.ProState
+-import org.sableos.titan2.camera.core.RawKeys
+ import org.sableos.titan2.camera.core.RecEvent
+ import org.sableos.titan2.camera.core.RecState
+ import org.sableos.titan2.camera.core.RecStateMachine
+@@ -98,13 +95,13 @@ private const val HALF_TURN_DEGREES = 180f
+ private const val RECORDING_POLL_MS = 250L
+ 
+ private val accentBlue = Color(0xFF55B9FF)
+-private val mutedText = Color(0xFF8BA6B8)
+ 
+ /**
+  * Keyboard-first camera with three modes: Video, Photo, Pro (stock order, minus Timelapse/More
+  * which are not built).
+  * Left/Right change mode. Space/Enter/volume = shutter (record in Video). Photo: Up/Down zoom, M
+- * capture mode, E/Alt+E exposure, B compare.
++ * capture mode, E/Alt+E exposure, B compare, hold F/E lock focus/exposure. G reviews this
++ * session's captures (Left/Right, Del with confirm, S share, F Files, Esc back).
+  * Pro: W/I/E/S/F pick WB/ISO/EV/shutter/focus, Up/Down change it, A returns it to Auto. Video: P
+  * pause, Q quality. +/- zoom everywhere.
+  */
+@@ -129,8 +126,9 @@ class MainActivity : ComponentActivity() {
+     private var rotation by mutableStateOf(Surface.ROTATION_0)
+     private var texture: SurfaceTexture? = null
+     private var textureView: TextureView? = null
+-    private var lastUri: Uri? = null
+     private var busy = false
++    private lateinit var review: QuickReviewHost
++    private lateinit var keys: CameraKeys
+ 
+     override fun onCreate(savedInstanceState: Bundle?) {
+         super.onCreate(savedInstanceState)
+@@ -138,6 +136,9 @@ class MainActivity : ComponentActivity() {
+         profile = CameraDeviceProfile.byId(SysProps.get("ro.sable.profile.id").ifBlank { null })
+         val reader = CameraInfoReader(this)
+         controller = CameraController(this, reader, MediaStoreSaver(this))
++        review = QuickReviewHost(ReviewActions(this)) { status = it }
++        onBackPressedDispatcher.addCallback(this, review.back)
++        keys = CameraKeys(profile, review, ::deckContext, ::act)
+         rotation = display?.rotation ?: Surface.ROTATION_0
+         setContent { Screen() }
+         micGranted =
+@@ -274,11 +275,11 @@ class MainActivity : ComponentActivity() {
+                 refreshHud()
+             }
+         },
+-        onSaved = { msg ->
++        onSaved = { saved ->
+             runOnUiThread {
+                 busy = false
+-                status = "Saved $msg"
+-                lastUri = null
++                status = "Saved ${saved.name}  ${saved.detail}"
++                review.remember(saved)
+             }
+         },
+         onError = { msg ->
+@@ -347,7 +348,7 @@ class MainActivity : ComponentActivity() {
+             UiMode.Video ->
+                 "cam $camId · ${videoOption?.label ?: "no recordable size"} · ${zoomText}x" +
+                     if (!micGranted) " · no mic" else ""
+-        }
++        } + lockBadges(controller.locks)
+     }
+ 
+     private fun setPro(s: ProState) {
+@@ -459,6 +460,8 @@ class MainActivity : ComponentActivity() {
+             CameraAction.CompareToggle -> doCaptureAction(a, cam)
+ 
+             CameraAction.Autofocus,
++            CameraAction.AfLockToggle,
++            CameraAction.AeLockToggle,
+             CameraAction.ZoomIn,
+             CameraAction.ZoomOut,
+             CameraAction.ExposureUp,
+@@ -471,7 +474,10 @@ class MainActivity : ComponentActivity() {
+                 restart()
+             }
+ 
+-            CameraAction.OpenLast -> openLast()
++            CameraAction.OpenLast -> {
++                keys.clear()
++                review.open()
++            }
+ 
+             CameraAction.Back -> if (recState == RecState.Idle) finish() else toggleRecording()
+ 
+@@ -539,6 +545,12 @@ class MainActivity : ComponentActivity() {
+             CameraAction.Autofocus -> {
+                 controller.triggerFocus()
+                 status = "Focus"
++                refreshHud()
++            }
++
++            CameraAction.AfLockToggle, CameraAction.AeLockToggle -> {
++                status = toggleLock(a, controller.locks)
++                refreshHud()
+             }
+ 
+             CameraAction.ZoomIn -> {
+@@ -596,11 +608,12 @@ class MainActivity : ComponentActivity() {
+             )
+         } else {
+             controller.video.stop(
+-                onSavedCb = { name ->
++                onSavedCb = { saved ->
+                     runOnUiThread {
+                         recState = RecState.Idle
+                         status =
+-                            "Saved $name"
++                            "Saved ${saved.name}"
++                        review.remember(saved)
+                         restart()
+                     }
+                 },
+@@ -640,7 +653,10 @@ class MainActivity : ComponentActivity() {
+                 tex,
+                 StillCallbacks(
+                     onReady = { controller.takePicture(degrees()) },
+-                    onSaved = { next() },
++                    onSaved = { saved ->
++                        runOnUiThread { review.remember(saved) }
++                        next()
++                    },
+                     onError = { msg ->
+                         runOnUiThread {
+                             busy = false
+@@ -653,36 +669,12 @@ class MainActivity : ComponentActivity() {
+         next()
+     }
+ 
+-    private val repeatable =
+-        setOf(
+-            CameraAction.StepUp,
+-            CameraAction.StepDown,
+-            CameraAction.ZoomIn,
+-            CameraAction.ZoomOut,
+-            CameraAction.ExposureUp,
+-            CameraAction.ExposureDown
+-        )
+-
+-    private fun openLast() {
+-        val i = Intent(Intent.ACTION_VIEW, MediaStore.Images.Media.EXTERNAL_CONTENT_URI).apply {
+-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+-        }
+-        runCatching { startActivity(i) }.onFailure { status = "No gallery app available." }
+-    }
+-
+-    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+-        val action = RawKeys.nameOf(keyCode)?.let {
+-            CameraKeyMap.resolve(it, event.isAltPressed, profile)
+-        }
+-        return if (action == null) {
++    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean =
++        keys.down(keyCode, event.isAltPressed, event.repeatCount) ||
+             super.onKeyDown(keyCode, event)
+-        } else {
+-            // Held keys repeat only for stepping actions; toggles and shutter fire once per press.
+-            val ignoredRepeat = event.repeatCount > 0 && action !in repeatable
+-            if (!ignoredRepeat) act(action)
+-            true
+-        }
+-    }
++
++    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean =
++        keys.up(keyCode) || super.onKeyUp(keyCode, event)
+ 
+     override fun onPause() {
+         if (recState != RecState.Idle) toggleRecording()
+@@ -722,7 +714,10 @@ class MainActivity : ComponentActivity() {
+                 RecordingBadge(recState, recMs, Modifier.align(Alignment.TopEnd).padding(8.dp))
+             }
+             val avail = report?.camera(camId)?.let { ActionRouter.available(it) }.orEmpty()
+-            Column(Modifier.align(Alignment.BottomCenter).padding(bottom = 6.dp)) {
++            Column(
++                Modifier.align(Alignment.BottomCenter).padding(bottom = 6.dp),
++                horizontalAlignment = Alignment.CenterHorizontally
++            ) {
+                 if (DeckOrientation.touchChromeVisible(presentation, deck.touchChromeRevealed)) {
+                     ModeSelector(
+                         avail,
+@@ -732,12 +727,7 @@ class MainActivity : ComponentActivity() {
+                         TouchControlBar(TouchFallback.controls(dc), ::act, Modifier)
+                     }
+                 }
+-                Text(
+-                    "H or ? shows the controls",
+-                    color = mutedText,
+-                    fontSize = 11.sp,
+-                    modifier = Modifier.align(Alignment.CenterHorizontally)
+-                )
++                LastCaptureRow(review.state.latest, review::load) { act(CameraAction.OpenLast) }
+             }
+             DeckOverlays(
+                 deck,
+@@ -746,6 +736,7 @@ class MainActivity : ComponentActivity() {
+                 { deck = ControlDeck.dismissStrip(deck) },
+                 { deck = ControlDeck.dismissLegend(deck) }
+             )
++            if (review.isOpen) QuickReviewOverlay(review.state, status, review::load, review::act)
+         }
+     }
+ 
+@@ -859,6 +850,28 @@ fun ControlLegendOverlay(entries: List<LegendEntry>, onDismiss: () -> Unit, modi
+                     )
+                 }
+             }
++            Text(
++                "Quick review (G or the thumbnail)",
++                color = deckAccent,
++                fontSize = 14.sp,
++                modifier = Modifier.padding(top = 8.dp)
++            )
++            ControlLegend.reviewEntries().forEach { (keys, label) ->
++                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
++                    Text(
++                        keys,
++                        color = Color.White,
++                        fontSize = 13.sp,
++                        modifier = Modifier.weight(1f)
++                    )
++                    Text(
++                        label,
++                        color = Color.White,
++                        fontSize = 13.sp,
++                        modifier = Modifier.weight(1f)
++                    )
++                }
++            }
+             Text(
+                 "Esc, H, ? or a tap closes this. Touch controls do everything the keys do.",
+                 color = deckMuted,
+@@ -897,6 +910,17 @@ fun TouchControlBar(
+ 
+ private val stripBottomInset = 96.dp
+ 
++/** Hold F / hold E: flip the lock and say what it is now. */
++private fun toggleLock(a: CameraAction, locks: CameraController.LockControls): String =
++    if (a == CameraAction.AfLockToggle) {
++        if (locks.toggleAf()) "AF locked: hold F again to release" else "AF unlocked"
++    } else {
++        if (locks.toggleAe()) "AE locked: hold E again to release" else "AE unlocked"
++    }
++
++private fun lockBadges(locks: CameraController.LockControls): String =
++    (if (locks.afLocked) " · AF-L" else "") + (if (locks.aeLocked) " · AE-L" else "")
++
+ /**
+  * The transient layer over the preview: the parameter strip (bottom, above touch chrome) and the
+  * legend. Both are dismissed through the callbacks, which only touch [DeckState].
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/QuickReviewHost.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/QuickReviewHost.kt
+new file mode 100644
+index 0000000..7c60058
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/QuickReviewHost.kt
+@@ -0,0 +1,95 @@
++package org.sableos.titan2.camera.ui
++
++import android.net.Uri
++import androidx.activity.OnBackPressedCallback
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.graphics.ImageBitmap
++import androidx.compose.ui.graphics.asImageBitmap
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.withContext
++import org.sableos.titan2.camera.android.ReviewActions
++import org.sableos.titan2.camera.android.Saved
++import org.sableos.titan2.camera.core.Capture
++import org.sableos.titan2.camera.core.QuickReview
++import org.sableos.titan2.camera.core.ReviewAction
++import org.sableos.titan2.camera.core.ReviewEffect
++import org.sableos.titan2.camera.core.ReviewKeyMap
++import org.sableos.titan2.camera.core.ReviewState
++import org.sableos.titan2.camera.core.ReviewStep
++
++/**
++ * Glue between the pure [QuickReview] model and the platform: holds this session's captures,
++ * answers review keys, and runs share/Files/open/delete only after an explicit press.
++ */
++class QuickReviewHost(private val actions: ReviewActions, private val onStatus: (String) -> Unit) {
++    var state by mutableStateOf(ReviewState<Uri>())
++        private set
++
++    /** Back (gesture or key) closes the review, or cancels its delete question, first. */
++    val back = object : OnBackPressedCallback(false) {
++        override fun handleOnBackPressed() = act(ReviewAction.Close)
++    }
++
++    val isOpen: Boolean get() = state.open
++
++    /** Keep a saved file for G and the thumbnail. Only this session's saves are listed. */
++    fun remember(saved: Saved) = set(
++        QuickReview.added(state, Capture(saved.uri, saved.name, saved.mime))
++    )
++
++    fun open() = apply(QuickReview.open(state))
++
++    fun act(a: ReviewAction) = apply(QuickReview.apply(state, a))
++
++    /** Review keys; Left/Right may repeat to flick through, nothing else does. */
++    fun key(name: String, alt: Boolean, repeat: Int): Boolean {
++        val a = ReviewKeyMap.resolve(name, alt, state.confirmingDelete) ?: return false
++        if (repeat == 0 || a == ReviewAction.Older || a == ReviewAction.Newer) act(a)
++        return true
++    }
++
++    suspend fun load(c: Capture<Uri>, edgePx: Int): ImageBitmap? = withContext(Dispatchers.IO) {
++        actions.thumbnail(c, edgePx)?.asImageBitmap()
++    }
++
++    private fun set(s: ReviewState<Uri>) {
++        state = s
++        back.isEnabled = s.open
++    }
++
++    private fun apply(step: ReviewStep<Uri>) {
++        set(step.state)
++        step.status?.let(onStatus)
++        step.effect?.let(::run)
++    }
++
++    private fun run(e: ReviewEffect<Uri>) {
++        when (e) {
++            is ReviewEffect.Delete -> {
++                val c = e.capture
++                if (actions.delete(c)) {
++                    set(QuickReview.removed(state, c.ref))
++                    onStatus("Deleted ${c.name}")
++                } else {
++                    onStatus("Could not delete ${c.name}")
++                }
++            }
++
++            is ReviewEffect.Share ->
++                if (!actions.share(e.capture)) onStatus("No app can share this")
++
++            is ReviewEffect.ShowInFiles -> onStatus(
++                if (actions.showInFiles()) {
++                    "Files: ${ReviewActions.CAPTURE_FOLDER}"
++                } else {
++                    "Files is not available"
++                }
++            )
++
++            is ReviewEffect.Open ->
++                if (!actions.open(e.capture)) onStatus("No app can open this file")
++        }
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/QuickReviewOverlay.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/QuickReviewOverlay.kt
+new file mode 100644
+index 0000000..cbb5d1d
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/QuickReviewOverlay.kt
+@@ -0,0 +1,191 @@
++@file:Suppress("FunctionNaming")
++
++package org.sableos.titan2.camera.ui
++
++import android.net.Uri
++import androidx.compose.foundation.Image
++import androidx.compose.foundation.background
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.horizontalScroll
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.size
++import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.shape.RoundedCornerShape
++import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.produceState
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.draw.clip
++import androidx.compose.ui.graphics.Color
++import androidx.compose.ui.graphics.ImageBitmap
++import androidx.compose.ui.layout.ContentScale
++import androidx.compose.ui.text.style.TextAlign
++import androidx.compose.ui.unit.dp
++import androidx.compose.ui.unit.sp
++import org.sableos.titan2.camera.core.Capture
++import org.sableos.titan2.camera.core.ControlLegend
++import org.sableos.titan2.camera.core.QuickReview
++import org.sableos.titan2.camera.core.ReviewAction
++import org.sableos.titan2.camera.core.ReviewState
++import org.sableos.titan2.camera.core.ReviewTouch
++
++/** Loads a preview bitmap off the main thread; null when the file has none (for example RAW). */
++typealias CaptureLoader = suspend (Capture<Uri>, Int) -> ImageBitmap?
++
++private val reviewMuted = Color(0xFF8BA6B8)
++private val reviewCell = Color(0x66FFFFFF)
++private val reviewDanger = Color(0xFFFF5252)
++private val reviewScrim = Color(0xE6000000)
++private val reviewCard = Color(0xFF1B1F24)
++private const val REVIEW_EDGE_PX = 1080
++private const val THUMB_EDGE_PX = 160
++private val thumbEdge = 44.dp
++
++/** One capture's preview, or a labelled placeholder while it loads or when it has none. */
++@Composable
++fun CaptureImage(
++    c: Capture<Uri>,
++    edgePx: Int,
++    load: CaptureLoader,
++    modifier: Modifier,
++    scale: ContentScale = ContentScale.Fit
++) {
++    val bitmap by produceState<ImageBitmap?>(null, c.ref, edgePx) { value = load(c, edgePx) }
++    val b = bitmap
++    if (b != null) {
++        Image(b, contentDescription = c.name, modifier = modifier, contentScale = scale)
++    } else {
++        Box(modifier, contentAlignment = Alignment.Center) {
++            Text(c.kind.label, color = reviewMuted, fontSize = 12.sp)
++        }
++    }
++}
++
++/**
++ * Bottom row of the Control Deck: the last capture's thumbnail (tap = G) and the help hint. An
++ * empty slot of the same size keeps the hint centred before the first capture.
++ */
++@Composable
++fun LastCaptureRow(latest: Capture<Uri>?, load: CaptureLoader, onOpen: () -> Unit) {
++    val shape = RoundedCornerShape(8.dp)
++    Row(
++        Modifier.fillMaxWidth().padding(horizontal = 8.dp),
++        verticalAlignment = Alignment.CenterVertically
++    ) {
++        if (latest == null) {
++            Box(Modifier.size(thumbEdge))
++        } else {
++            CaptureImage(
++                latest,
++                THUMB_EDGE_PX,
++                load,
++                Modifier.size(thumbEdge).clip(shape).background(reviewCell, shape)
++                    .clickable { onOpen() },
++                ContentScale.Crop
++            )
++        }
++        Text(
++            if (latest ==
++                null
++            ) {
++                "H or ? shows the controls"
++            } else {
++                "H or ? shows the controls · G reviews"
++            },
++            color = reviewMuted,
++            fontSize = 11.sp,
++            textAlign = TextAlign.Center,
++            modifier = Modifier.weight(1f)
++        )
++        Box(Modifier.size(thumbEdge))
++    }
++}
++
++/**
++ * Quick review over the viewfinder: the shown capture, its place in this session, and the same
++ * actions the keys reach as buttons. A delete always asks first in its own card.
++ */
++@Composable
++fun QuickReviewOverlay(
++    state: ReviewState<Uri>,
++    status: String,
++    load: CaptureLoader,
++    onAction: (ReviewAction) -> Unit
++) {
++    val c = state.current ?: return
++    Box(Modifier.fillMaxSize().background(Color.Black)) {
++        CaptureImage(
++            c,
++            REVIEW_EDGE_PX,
++            load,
++            Modifier.fillMaxSize().padding(top = 36.dp, bottom = 96.dp)
++        )
++        Column(Modifier.align(Alignment.TopStart).padding(8.dp)) {
++            Text("${state.position} · ${c.name}", color = Color.White, fontSize = 13.sp)
++            Text(status, color = reviewMuted, fontSize = 12.sp)
++        }
++        Column(
++            Modifier.align(Alignment.BottomCenter).padding(bottom = 6.dp),
++            horizontalAlignment = Alignment.CenterHorizontally
++        ) {
++            ReviewButtons(ReviewTouch.browse, onAction)
++            Text(
++                ControlLegend.reviewEntries().joinToString("  ·  ") { "${it.first} ${it.second}" },
++                color = reviewMuted,
++                fontSize = 11.sp,
++                textAlign = TextAlign.Center,
++                modifier = Modifier.padding(horizontal = 8.dp)
++            )
++        }
++        if (state.confirmingDelete) DeleteConfirm(c, onAction)
++    }
++}
++
++@Composable
++private fun DeleteConfirm(c: Capture<Uri>, onAction: (ReviewAction) -> Unit) {
++    Box(Modifier.fillMaxSize().background(reviewScrim), contentAlignment = Alignment.Center) {
++        Column(
++            Modifier.padding(24.dp).background(reviewCard, RoundedCornerShape(12.dp))
++                .padding(16.dp),
++            horizontalAlignment = Alignment.CenterHorizontally
++        ) {
++            Text(QuickReview.confirmText(c), color = Color.White, fontSize = 14.sp)
++            Text(
++                "The file is removed from the phone.",
++                color = reviewMuted,
++                fontSize = 12.sp,
++                modifier = Modifier.padding(vertical = 6.dp)
++            )
++            ReviewButtons(ReviewTouch.confirm, onAction)
++        }
++    }
++}
++
++@Composable
++private fun ReviewButtons(
++    buttons: List<Pair<ReviewAction, String>>,
++    onAction: (ReviewAction) -> Unit
++) {
++    Row(Modifier.horizontalScroll(rememberScrollState())) {
++        buttons.forEach { (a, label) ->
++            val danger = a == ReviewAction.Confirm
++            Text(
++                label,
++                color = Color.White,
++                fontSize = 13.sp,
++                modifier = Modifier
++                    .padding(2.dp)
++                    .background(if (danger) reviewDanger else reviewCell, RoundedCornerShape(10.dp))
++                    .clickable { onAction(a) }
++                    .padding(horizontal = 12.dp, vertical = 8.dp)
++            )
++        }
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/CameraCoreTest.kt b/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/CameraCoreTest.kt
+index 2666cdc..cbd696e 100644
+--- a/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/CameraCoreTest.kt
++++ b/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/CameraCoreTest.kt
+@@ -188,7 +188,7 @@ class CameraCoreTest {
+         val q25 = CameraDeviceProfile.byId("zinwa-q25")
+         assertEquals(CameraDeviceProfile.ZinwaQ25, q25)
+         assertEquals(EvidenceLevel.None, q25.evidence)
+-        assertTrue(q25.expectedPublicIds.isEmpty() && q25.keyOverrides.isEmpty())
++        assertTrue(q25.expectedPublicIds.isEmpty())
+     }
+ 
+     @Test fun zoomPlannerStepsAndClamps() {
+diff --git a/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/ControlDeckTest.kt b/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/ControlDeckTest.kt
+index 101603e..65cdf24 100644
+--- a/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/ControlDeckTest.kt
++++ b/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/ControlDeckTest.kt
+@@ -127,7 +127,7 @@ class ControlDeckTest {
+         for (ui in UiMode.entries) {
+             for (t in TouchFallback.controls(ctx(ui))) {
+                 val key = CameraKeyMap.keys(t.action).first()
+-                val viaKey = ActionRouter.route(ui, CameraKeyMap.resolve(key.key, key.alt)!!)
++                val viaKey = ActionRouter.route(ui, CameraKeyMap.resolve(key)!!)
+                 assertEquals(viaKey, ActionRouter.route(ui, t.action))
+             }
+         }
+@@ -360,7 +360,7 @@ class ControlDeckTest {
+                 for (b in ControlLegend.keysFor(e.action, CameraDeviceProfile.Titan2)) {
+                     assertEquals(
+                         e.action,
+-                        CameraKeyMap.resolve(b.key, b.alt, CameraDeviceProfile.Titan2)
++                        CameraKeyMap.resolve(b, CameraDeviceProfile.Titan2)
+                     )
+                 }
+             }
+diff --git a/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/HoldKeysTest.kt b/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/HoldKeysTest.kt
+new file mode 100644
+index 0000000..3d640da
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/HoldKeysTest.kt
+@@ -0,0 +1,147 @@
++package org.sableos.titan2.camera.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class HoldKeysTest {
++    private val rear = CapabilityInterpreter.report(
++        CameraInfo(
++            "0",
++            Facing.Back,
++            jpegSizes = listOf(Size(4096, 3072)),
++            minFocusDistance = 10f,
++            aeLockAvailable = true,
++            manualSensor = true,
++            isoRange = IntBounds(100, 3200),
++            exposureNsRange = LongBounds(100_000, 1_000_000_000)
++        )
++    )
++    private val fixedFocusNoLock = CapabilityInterpreter.report(
++        CameraInfo("1", Facing.Front, jpegSizes = listOf(Size(1280, 960)))
++    )
++
++    private fun ctx(ui: UiMode, cam: CameraReport = rear) = DeckContext(ui, cam, 2)
++
++    // ---- bindings ------------------------------------------------------------------------------
++
++    @Test fun holdFAndHoldELockWhileTheirTapsKeepTheirMeaning() {
++        assertEquals(CameraAction.AfLockToggle, CameraKeyMap.resolve("f", false, hold = true))
++        assertEquals(CameraAction.AeLockToggle, CameraKeyMap.resolve("e", false, hold = true))
++        assertEquals(CameraAction.Autofocus, CameraKeyMap.resolve("f", false))
++        assertEquals(CameraAction.ExposureUp, CameraKeyMap.resolve("e", false))
++        assertTrue(CameraKeyMap.hasHold("f", false))
++        assertTrue(CameraKeyMap.hasHold("E", false))
++        // Alt+E keeps its plain, repeatable EV- with no hold meaning.
++        assertFalse(CameraKeyMap.hasHold("e", true))
++        assertFalse(CameraKeyMap.hasHold("space", false))
++    }
++
++    @Test fun legendShowsHeldBindings() {
++        assertEquals("Hold F", ControlLegend.keyText(Binding("f", hold = true)))
++        val e = ControlLegend.entries(ctx(UiMode.Photo), CameraDeviceProfile.ZinwaQ25)
++        assertEquals("Hold F", e.first { it.action == CameraAction.AfLockToggle }.keys)
++        assertEquals("Hold E", e.first { it.action == CameraAction.AeLockToggle }.keys)
++        assertEquals("F", e.first { it.action == CameraAction.Autofocus }.keys)
++    }
++
++    @Test fun reviewKeyIsInTheLegend() {
++        val e = ControlLegend.entries(ctx(UiMode.Photo), CameraDeviceProfile.ZinwaQ25)
++        val g = e.first { it.action == CameraAction.OpenLast }
++        assertEquals("G", g.keys)
++        assertEquals("Review last capture", g.label)
++    }
++
++    // ---- gates ---------------------------------------------------------------------------------
++
++    @Test fun locksAreOfferedOnlyWhenTheCameraBacksThemAndNotInPro() {
++        for (ui in listOf(UiMode.Photo, UiMode.Video)) {
++            assertTrue(ControlGate.check(CameraAction.AfLockToggle, ctx(ui)).isOpen)
++            assertTrue(ControlGate.check(CameraAction.AeLockToggle, ctx(ui)).isOpen)
++        }
++        assertFalse(ControlGate.check(CameraAction.AfLockToggle, ctx(UiMode.Pro)).isOpen)
++        assertFalse(ControlGate.check(CameraAction.AeLockToggle, ctx(UiMode.Pro)).isOpen)
++        val front = ctx(UiMode.Photo, fixedFocusNoLock)
++        assertEquals(
++            Gate.Closed("Fixed focus"),
++            ControlGate.check(CameraAction.AfLockToggle, front)
++        )
++        assertEquals(
++            Gate.Closed("No AE lock on this camera"),
++            ControlGate.check(CameraAction.AeLockToggle, front)
++        )
++    }
++
++    @Test fun reviewIsNotOpenedWhileRecording() {
++        assertTrue(ControlGate.check(CameraAction.OpenLast, ctx(UiMode.Video)).isOpen)
++        val rec = DeckContext(UiMode.Video, rear, 2, recording = true)
++        assertFalse(ControlGate.check(CameraAction.OpenLast, rec).isOpen)
++    }
++
++    @Test fun locksRouteToTheCameraUnchanged() {
++        for (ui in UiMode.entries) {
++            assertEquals(
++                Cmd.Act(CameraAction.AfLockToggle),
++                ActionRouter.route(ui, CameraAction.AfLockToggle)
++            )
++            assertEquals(
++                Cmd.Act(CameraAction.AeLockToggle),
++                ActionRouter.route(ui, CameraAction.AeLockToggle)
++            )
++        }
++    }
++
++    // ---- press versus hold -----------------------------------------------------------------
++
++    @Test fun aQuickPressFiresOnReleaseOnly() {
++        val t = HoldTracker()
++        assertEquals(HoldStep.Wait, t.down("f", 0))
++        assertTrue(t.up("f"))
++        assertFalse(t.up("f")) // nothing left over
++    }
++
++    @Test fun aHoldFiresOnceAndSwallowsTheRelease() {
++        val t = HoldTracker()
++        assertEquals(HoldStep.Wait, t.down("e", 0))
++        assertEquals(HoldStep.Hold, t.down("e", 1))
++        assertEquals(HoldStep.Ignore, t.down("e", 2))
++        assertEquals(HoldStep.Ignore, t.down("e", 3))
++        assertFalse(t.up("e"))
++    }
++
++    @Test fun aRefusedHoldFallsBackToThePressOnRelease() {
++        val t = HoldTracker()
++        t.down("f", 0)
++        assertEquals(HoldStep.Hold, t.down("f", 1))
++        t.holdRefused("f")
++        assertEquals(HoldStep.Ignore, t.down("f", 2)) // no repeated refusals
++        assertTrue(t.up("f"))
++    }
++
++    @Test fun keysAreTrackedSeparatelyAndClearForgetsThem() {
++        val t = HoldTracker()
++        t.down("f", 0)
++        t.down("e", 0)
++        assertEquals(HoldStep.Hold, t.down("e", 1))
++        assertTrue(t.up("f"))
++        assertFalse(t.up("e"))
++        t.down("f", 0)
++        t.clear()
++        assertFalse(t.up("f"))
++        assertEquals(HoldStep.Ignore, t.down("f", 1)) // a repeat without its first press
++    }
++
++    // ---- Q25 volume shutter ----------------------------------------------------------------
++
++    @Test fun q25VolumeKeysAreTheShutter() {
++        val q25 = CameraDeviceProfile.ZinwaQ25
++        assertEquals(CameraAction.Shutter, CameraKeyMap.resolve("volume_up", false, q25))
++        assertEquals(CameraAction.Shutter, CameraKeyMap.resolve("volume_down", false, q25))
++        assertNull(CameraKeyMap.resolve("func1", false, q25))
++        val shutter = ControlLegend.entries(ctx(UiMode.Photo), q25)
++            .first { it.action == CameraAction.Shutter }.keys
++        assertTrue(shutter.contains("Vol+") && shutter.contains("Vol-"))
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/QuickReviewTest.kt b/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/QuickReviewTest.kt
+new file mode 100644
+index 0000000..8b42db8
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/QuickReviewTest.kt
+@@ -0,0 +1,199 @@
++package org.sableos.titan2.camera.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class QuickReviewTest {
++    private val a = Capture("uri/a", "SBL_a.jpg", "image/jpeg")
++    private val b = Capture("uri/b", "SBL_b.dng", "image/x-adobe-dng")
++    private val c = Capture("uri/c", "SBL_c.mp4", "video/mp4")
++
++    private fun session(vararg cs: Capture<String>): ReviewState<String> =
++        cs.fold(ReviewState()) { s, x -> QuickReview.added(s, x) }
++
++    private fun ReviewState<String>.press(vararg actions: ReviewAction): ReviewStep<String> =
++        actions.fold(ReviewStep(this)) { step, x -> QuickReview.apply(step.state, x) }
++
++    // ---- last capture -------------------------------------------------------------------------
++
++    @Test fun lastCaptureIsRememberedAndKindComesFromMime() {
++        val s = session(a, b, c)
++        assertEquals(c, s.latest)
++        assertFalse(s.open)
++        assertNull(s.current)
++        assertEquals(
++            listOf(CaptureKind.Photo, CaptureKind.Raw, CaptureKind.Video),
++            s.captures.map { it.kind }
++        )
++    }
++
++    @Test fun openWithNothingCapturedSaysSoAndStaysClosed() {
++        val step = QuickReview.open(ReviewState<String>())
++        assertFalse(step.state.open)
++        assertTrue(step.status!!.isNotBlank())
++        assertNull(step.effect)
++    }
++
++    @Test fun openShowsTheLatestCapture() {
++        val s = QuickReview.open(session(a, b, c)).state
++        assertTrue(s.open)
++        assertEquals(c, s.current)
++        assertEquals("3 / 3", s.position)
++    }
++
++    @Test fun leftAndRightWalkThisSessionAndStopAtTheEnds() {
++        val s = QuickReview.open(session(a, b, c)).state
++        assertEquals(b, s.press(ReviewAction.Older).state.current)
++        assertEquals(a, s.press(ReviewAction.Older, ReviewAction.Older).state.current)
++        val oldest = s.press(ReviewAction.Older, ReviewAction.Older, ReviewAction.Older)
++        assertEquals(a, oldest.state.current)
++        assertTrue(oldest.status!!.isNotBlank())
++        val newest = s.press(ReviewAction.Newer)
++        assertEquals(c, newest.state.current)
++        assertTrue(newest.status!!.isNotBlank())
++    }
++
++    @Test fun aNewCaptureDoesNotMoveAnOpenReview() {
++        val s = QuickReview.open(session(a, b)).state.press(ReviewAction.Older).state
++        val after = QuickReview.added(s, c)
++        assertEquals(a, after.current)
++        assertEquals("1 / 3", after.position)
++    }
++
++    @Test fun sessionListIsBounded() {
++        var s = ReviewState<String>()
++        repeat(QuickReview.MAX_SESSION_CAPTURES + 5) {
++            s = QuickReview.added(s, Capture("u$it", "n$it", "image/jpeg"))
++        }
++        assertEquals(QuickReview.MAX_SESSION_CAPTURES, s.captures.size)
++        assertEquals("u${QuickReview.MAX_SESSION_CAPTURES + 4}", s.latest!!.ref)
++        assertEquals(s.captures.lastIndex, s.index)
++    }
++
++    // ---- delete needs an explicit confirm ----------------------------------------------------
++
++    @Test fun deleteAsksFirstAndDoesNothingUntilConfirmed() {
++        val s = QuickReview.open(session(a, b, c)).state
++        val asked = s.press(ReviewAction.Delete)
++        assertTrue(asked.state.confirmingDelete)
++        assertNull(asked.effect)
++        assertTrue(asked.status!!.contains("SBL_c.mp4"))
++        val confirmed = asked.state.press(ReviewAction.Confirm)
++        assertEquals(ReviewEffect.Delete(c), confirmed.effect)
++        assertFalse(confirmed.state.confirmingDelete)
++    }
++
++    @Test fun deletePressedTwiceNeverDeletes() {
++        val s = QuickReview.open(session(a)).state
++        val twice = s.press(ReviewAction.Delete, ReviewAction.Delete)
++        assertNull(twice.effect)
++        assertTrue(twice.state.confirmingDelete)
++    }
++
++    @Test fun cancelOrBackKeepsTheFileAndTheReview() {
++        val s = QuickReview.open(session(a, b)).state.press(ReviewAction.Delete).state
++        for (x in listOf(ReviewAction.Cancel, ReviewAction.Close)) {
++            val kept = s.press(x)
++            assertNull(kept.effect)
++            assertFalse(kept.state.confirmingDelete)
++            assertTrue(kept.state.open)
++            assertEquals(b, kept.state.current)
++        }
++    }
++
++    @Test fun otherKeysAreIgnoredWhileConfirming() {
++        val s = QuickReview.open(session(a, b)).state.press(ReviewAction.Delete).state
++        for (x in listOf(ReviewAction.Older, ReviewAction.Share, ReviewAction.ShowInFiles)) {
++            val step = s.press(x)
++            assertNull(step.effect)
++            assertEquals(s, step.state)
++        }
++    }
++
++    @Test fun removedShowsTheNeighbourAndClosesWhenEmpty() {
++        val s = QuickReview.open(session(a, b, c)).state.press(ReviewAction.Older).state
++        val afterB = QuickReview.removed(s, b.ref)
++        assertEquals(listOf(a, c), afterB.captures)
++        assertEquals(c, afterB.current)
++        val afterOlderRemoved = QuickReview.removed(QuickReview.open(session(a, b)).state, a.ref)
++        assertEquals(b, afterOlderRemoved.current)
++        val last = QuickReview.removed(QuickReview.open(session(a)).state, a.ref)
++        assertFalse(last.open)
++        assertNull(last.latest)
++        assertEquals(s, QuickReview.removed(s, "unknown"))
++    }
++
++    // ---- share and Files only on request ----------------------------------------------------
++
++    @Test fun shareFilesAndOpenAreExplicitEffectsOnTheShownCapture() {
++        val s = QuickReview.open(session(a, b)).state
++        assertEquals(ReviewEffect.Share(b), s.press(ReviewAction.Share).effect)
++        assertEquals(ReviewEffect.ShowInFiles(b), s.press(ReviewAction.ShowInFiles).effect)
++        assertEquals(ReviewEffect.Open(b), s.press(ReviewAction.Open).effect)
++        // Opening, browsing and saving never share anything by themselves.
++        assertNull(QuickReview.open(session(a, b)).effect)
++        assertNull(s.press(ReviewAction.Older).effect)
++    }
++
++    @Test fun closeReturnsToTheViewfinderAndKeepsTheSession() {
++        val s = QuickReview.open(session(a, b)).state.press(ReviewAction.Close).state
++        assertFalse(s.open)
++        assertEquals(b, s.latest)
++        assertNull(QuickReview.apply(s, ReviewAction.Delete).effect)
++    }
++
++    // ---- review keys ------------------------------------------------------------------------
++
++    @Test fun reviewKeysMatchTheSpec() {
++        fun k(key: String, confirming: Boolean = false) =
++            ReviewKeyMap.resolve(key, false, confirming)
++        assertEquals(ReviewAction.Older, k("left"))
++        assertEquals(ReviewAction.Newer, k("right"))
++        assertEquals(ReviewAction.Delete, k("backspace"))
++        assertEquals(ReviewAction.Delete, k("delete"))
++        assertEquals(ReviewAction.Share, k("s"))
++        assertEquals(ReviewAction.ShowInFiles, k("f"))
++        assertEquals(ReviewAction.Close, k("escape"))
++        assertEquals(ReviewAction.Close, k("back"))
++        assertEquals(ReviewAction.Confirm, k("enter", true))
++        assertEquals(ReviewAction.Confirm, k("y", true))
++        assertEquals(ReviewAction.Cancel, k("n", true))
++        assertEquals(ReviewAction.Cancel, k("escape", true))
++        assertNull(k("backspace", true)) // Del never confirms its own question
++        assertNull(k("space")) // the shutter does nothing inside the review
++    }
++
++    @Test fun reviewKeyNamesAreReachableFromRawKeyCodes() {
++        assertEquals("backspace", RawKeys.nameOf(67))
++        assertEquals("delete", RawKeys.nameOf(112))
++        val bound = (ReviewKeyMap.browse.keys + ReviewKeyMap.confirm.keys).map { it.key }.toSet()
++        assertTrue(RawKeys.allNames().containsAll(bound))
++    }
++
++    @Test fun reviewLegendIsGeneratedFromTheKeysAndCoversEveryAction() {
++        assertEquals(ReviewAction.entries.toSet(), ControlLegend.reviewLabelled())
++        val browse = ControlLegend.reviewEntries()
++        assertEquals(ReviewKeyMap.browse.values.toSet().size, browse.size)
++        assertTrue(browse.any { it.first == "Del / Delete" && it.second.contains("Delete") })
++        assertTrue(browse.any { it.first == "S" && it.second == "Share" })
++        assertTrue(browse.any { it.first == "F" && it.second == "Show in Files" })
++        assertEquals(
++            listOf("Enter / Y", "Back / Esc / N").sorted(),
++            ControlLegend.reviewEntries(confirming = true).map { it.first }.sorted()
++        )
++    }
++
++    @Test fun everyReviewKeyActionHasATouchButton() {
++        assertEquals(
++            ReviewKeyMap.browse.values.toSet(),
++            ReviewTouch.browse.map { it.first }.toSet()
++        )
++        assertEquals(
++            ReviewKeyMap.confirm.values.toSet(),
++            ReviewTouch.confirm.map { it.first }.toSet()
++        )
++    }
++}
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml
 index 9dc85c8..e093029 100644
 --- a/sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml
