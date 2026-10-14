@@ -1,0 +1,305 @@
+From f1fefadeb23fd1d5275300678f3a37d7e6622964 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 14 Oct 2026 23:15:23 +0000
+Subject: [PATCH 1002/1002] SableOS: Files keys for copy, move, rename, new
+ folder and delete
+
+Wire the Files keyboard model into the Files app (FilesActivity; the
+picker is unchanged):
+
+* FilesActivity.dispatchKeyEvent asks SableFilesKeys first, so an Alt
+  command is not typed into type-to-focus. FocusManager reports whether
+  a type-to-focus search is running.
+* Commands that act on files go through
+  DirectoryFragment.runKeyboardAction: it uses the selection or, when
+  nothing is selected, selects the focused file so the selection bar
+  shows what the command applies to, builds the selection menu with
+  MenuManager.updateActionMenu, and runs the item only when that menu
+  would offer it, through handleMenuItemClick. So Delete still asks
+  first, Copy to and Move to still open the destination picker, and
+  read-only files cannot be renamed or deleted from the keyboard.
+* New folder and select all use the existing option menu paths; "/"
+  opens the search bar.
+* Esc with no search or selection to cancel goes up one folder like
+  Back (it did nothing); SharedInputHandlerTest is updated.
+* The Alt shortcuts, Del and / are listed in the keyboard shortcuts
+  helper next to the Ctrl ones.
+
+Focus stays visible through the Material 3 focus ring upstream already
+draws on list and grid items.
+---
+ src/com/android/documentsui/FocusManager.java |  7 ++
+ .../documentsui/SharedInputHandler.java       |  3 +
+ .../dirlist/DirectoryFragment.java            | 51 +++++++++++++
+ .../documentsui/files/FilesActivity.java      | 74 +++++++++++++++++++
+ .../documentsui/files/MenuManager.java        | 25 +++++++
+ .../documentsui/SharedInputHandlerTest.java   |  5 +-
+ 6 files changed, 163 insertions(+), 2 deletions(-)
+
+diff --git a/src/com/android/documentsui/FocusManager.java b/src/com/android/documentsui/FocusManager.java
+index 9d9f4c75b..7f76d5969 100644
+--- a/src/com/android/documentsui/FocusManager.java
++++ b/src/com/android/documentsui/FocusManager.java
+@@ -231,6 +231,13 @@ public final class FocusManager extends FocusDelegate<String> implements FocusHa
+         return mScope.lastFocusPosition != RecyclerView.NO_POSITION;
+     }
+ 
++    /**
++     * SableOS: whether a type-to-focus search is running, so the keys typed now belong to it.
++     */
++    public boolean isTypeToFocusActive() {
++        return mSearchHelper.mActive;
++    }
++
+     @Override
+     public @Nullable String getFocusModelId() {
+         if (mScope.lastFocusPosition != RecyclerView.NO_POSITION) {
+diff --git a/src/com/android/documentsui/SharedInputHandler.java b/src/com/android/documentsui/SharedInputHandler.java
+index a70a805dd..0416325e9 100644
+--- a/src/com/android/documentsui/SharedInputHandler.java
++++ b/src/com/android/documentsui/SharedInputHandler.java
+@@ -146,6 +146,9 @@ public class SharedInputHandler {
+             return true;
+         }
+ 
++        // SableOS: with nothing to cancel, Esc goes up one folder like Back (FILES_DOCUMENTS_UX
++        // "Back or Esc"). At the top it still does nothing, so Esc never leaves the app.
++        mDirPopper.run();
+         return true;
+     }
+ }
+diff --git a/src/com/android/documentsui/dirlist/DirectoryFragment.java b/src/com/android/documentsui/dirlist/DirectoryFragment.java
+index 85344a106..05a44e2bc 100644
+--- a/src/com/android/documentsui/dirlist/DirectoryFragment.java
++++ b/src/com/android/documentsui/dirlist/DirectoryFragment.java
+@@ -55,6 +55,7 @@ import android.util.Log;
+ import android.util.SparseArray;
+ import android.view.ContextMenu;
+ import android.view.LayoutInflater;
++import android.view.Menu;
+ import android.view.MenuInflater;
+ import android.view.MenuItem;
+ import android.view.MotionEvent;
+@@ -62,9 +63,11 @@ import android.view.View;
+ import android.view.ViewGroup;
+ import android.view.ViewTreeObserver;
+ import android.widget.ImageView;
++import android.widget.PopupMenu;
+ 
+ import androidx.annotation.DimenRes;
+ import androidx.annotation.FractionRes;
++import androidx.annotation.IdRes;
+ import androidx.annotation.IntDef;
+ import androidx.annotation.Nullable;
+ import androidx.fragment.app.Fragment;
+@@ -1474,6 +1477,54 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
+         return mModel;
+     }
+ 
++    /**
++     * SableOS: the model id of the document that has keyboard focus in the list, or null when
++     * focus is elsewhere (the roots, the toolbar, a dialog).
++     */
++    public @Nullable String getKeyboardFocusedModelId() {
++        if (mRecView == null || !mRecView.hasFocus()) {
++            return null;
++        }
++        final View child = mRecView.getFocusedChild();
++        if (child == null) {
++            return null;
++        }
++        final ViewHolder holder = mRecView.getChildViewHolder(child);
++        return (holder instanceof DocumentHolder) ? ((DocumentHolder) holder).getModelId() : null;
++    }
++
++    /**
++     * SableOS: runs an item of the selection menu (action_mode_menu) from the keyboard, on the
++     * selection or, when nothing is selected, on the focused document. The focused document is
++     * then selected, so the selection bar shows what the action applies to. It runs only when
++     * the on-screen menu would offer the item for that selection, and through the same code as a
++     * tap on it: Delete still asks first, Copy to and Move to still pick a visible destination.
++     *
++     * @return whether the item ran
++     */
++    public boolean runKeyboardAction(@IdRes int menuItemId) {
++        String selectedForKey = null;
++        if (!mSelectionMgr.hasSelection()) {
++            final String focused = getKeyboardFocusedModelId();
++            if (focused == null || !mSelectionMgr.select(focused)) {
++                return false;
++            }
++            selectedForKey = focused;
++        }
++        final PopupMenu popup = new PopupMenu(mRecView.getContext(), mRecView);
++        final Menu menu = popup.getMenu();
++        popup.getMenuInflater().inflate(getRes(R.menu.action_mode_menu), menu);
++        mInjector.menuManager.updateActionMenu(menu, mSelectionMetadata);
++        final MenuItem item = menu.findItem(getRes(menuItemId));
++        if (item != null && item.isVisible() && item.isEnabled() && handleMenuItemClick(item)) {
++            return true;
++        }
++        if (selectedForKey != null) {
++            mSelectionMgr.deselect(selectedForKey);
++        }
++        return false;
++    }
++
+     /**
+      * Paste selection files from the primary clip into the current window.
+      */
+diff --git a/src/com/android/documentsui/files/FilesActivity.java b/src/com/android/documentsui/files/FilesActivity.java
+index 5abafa4b4..5e0646702 100644
+--- a/src/com/android/documentsui/files/FilesActivity.java
++++ b/src/com/android/documentsui/files/FilesActivity.java
+@@ -76,6 +76,7 @@ import com.android.documentsui.dirlist.AppsRowManager;
+ import com.android.documentsui.dirlist.DirectoryFragment;
+ import com.android.documentsui.peek.PeekViewManager;
+ import com.android.documentsui.peek.PeekViewModel;
++import com.android.documentsui.sable.SableFilesKeys;
+ import com.android.documentsui.services.FileOperationService;
+ import com.android.documentsui.sidebar.RootsFragment;
+ import com.android.documentsui.ui.DialogController;
+@@ -497,6 +498,79 @@ public class FilesActivity extends BaseActivity implements AbstractActionHandler
+         return getCurrentDirectory() != null && mInjector.getModel().doc != null;
+     }
+ 
++    @Override
++    public boolean dispatchKeyEvent(KeyEvent event) {
++        return onSableKey(event) || super.dispatchKeyEvent(event);
++    }
++
++    /**
++     * SableOS: the Files keyboard model (sable/SableFilesKeys.java), looked at before the focused
++     * view so Alt chords are not typed into type-to-focus. Returns true when the key is consumed.
++     */
++    private boolean onSableKey(KeyEvent event) {
++        final View focus = getCurrentFocus();
++        final DirectoryFragment dir = getDirectoryFragment();
++        final boolean hasTarget = mInjector.selectionMgr.hasSelection()
++                || (dir != null && dir.getKeyboardFocusedModelId() != null);
++        final SableFilesKeys.Action action = SableFilesKeys.decide(
++                event.getKeyCode(),
++                event.getUnicodeChar(event.getMetaState()),
++                event.isAltPressed(),
++                event.isCtrlPressed(),
++                event.isShiftPressed(),
++                event.isMetaPressed(),
++                focus != null && focus.onCheckIsTextEditor(),
++                mInjector.focusManager.isTypeToFocusActive(),
++                hasTarget);
++        if (action == SableFilesKeys.Action.UPSTREAM) {
++            return false;
++        }
++        // The release and repeats of a command are consumed; a held key runs it once.
++        if (event.getAction() != KeyEvent.ACTION_DOWN || event.getRepeatCount() > 0) {
++            return true;
++        }
++        switch (action) {
++            case SEARCH:
++                mInjector.searchManager.onSearchBarClicked();
++                break;
++            case NEW_FOLDER:
++                if (canCreateDirectory()) {
++                    mInjector.actions.showCreateDirectoryDialog();
++                }
++                break;
++            case SELECT_ALL:
++                mInjector.actions.selectAllFiles();
++                break;
++            case COPY_TO:
++                runKeyboardAction(dir, R.id.action_menu_copy_to);
++                break;
++            case MOVE_TO:
++                runKeyboardAction(dir, R.id.action_menu_move_to);
++                break;
++            case RENAME:
++                runKeyboardAction(dir, R.id.action_menu_rename);
++                break;
++            case INFO:
++                runKeyboardAction(dir, R.id.action_menu_inspect);
++                break;
++            case OPEN_WITH:
++                runKeyboardAction(dir, R.id.action_menu_open_with);
++                break;
++            case DELETE:
++                runKeyboardAction(dir, R.id.action_menu_delete);
++                break;
++            default:
++                break;
++        }
++        return true;
++    }
++
++    private static void runKeyboardAction(@Nullable DirectoryFragment dir, int menuItemId) {
++        if (dir != null) {
++            dir.runKeyboardAction(menuItemId);
++        }
++    }
++
+     @CallSuper
+     @Override
+     public boolean onKeyDown(int keyCode, KeyEvent event) {
+diff --git a/src/com/android/documentsui/files/MenuManager.java b/src/com/android/documentsui/files/MenuManager.java
+index 1ed749bdf..8597b291f 100644
+--- a/src/com/android/documentsui/files/MenuManager.java
++++ b/src/com/android/documentsui/files/MenuManager.java
+@@ -123,9 +123,34 @@ public final class MenuManager extends com.android.documentsui.MenuManager {
+                         stringSupplier.apply(getRes(R.string.menu_new_window)),
+                         KeyEvent.KEYCODE_N,
+                         KeyEvent.META_CTRL_ON));
++        // SableOS: the Alt commands of sable/SableFilesKeys, for keyboards without Ctrl.
++        addSableShortcut(group, stringSupplier, R.string.menu_copy, KeyEvent.KEYCODE_C);
++        addSableShortcut(group, stringSupplier, R.string.menu_move, KeyEvent.KEYCODE_M);
++        addSableShortcut(group, stringSupplier, R.string.menu_rename, KeyEvent.KEYCODE_R);
++        addSableShortcut(group, stringSupplier, R.string.menu_create_dir, KeyEvent.KEYCODE_N);
++        addSableShortcut(group, stringSupplier, R.string.menu_inspect, KeyEvent.KEYCODE_I);
++        addSableShortcut(group, stringSupplier, R.string.menu_open_with, KeyEvent.KEYCODE_O);
++        addSableShortcut(group, stringSupplier, R.string.menu_select_all, KeyEvent.KEYCODE_A);
++        group.addItem(
++                new KeyboardShortcutInfo(
++                        stringSupplier.apply(getRes(R.string.menu_delete)),
++                        KeyEvent.KEYCODE_DEL,
++                        0));
++        group.addItem(
++                new KeyboardShortcutInfo(
++                        stringSupplier.apply(getRes(R.string.menu_search)),
++                        KeyEvent.KEYCODE_SLASH,
++                        0));
+         data.add(group);
+     }
+ 
++    private static void addSableShortcut(KeyboardShortcutGroup group,
++            IntFunction<String> stringSupplier, int stringRes, int keyCode) {
++        group.addItem(
++                new KeyboardShortcutInfo(
++                        stringSupplier.apply(getRes(stringRes)), keyCode, KeyEvent.META_ALT_ON));
++    }
++
+     @Override
+     public void showContextMenu(Fragment f, View v, float x, float y) {
+         // Register context menu here so long-press doesn't trigger this context floating menu.
+diff --git a/tests/unit/com/android/documentsui/SharedInputHandlerTest.java b/tests/unit/com/android/documentsui/SharedInputHandlerTest.java
+index 6546117eb..3e4b93973 100644
+--- a/tests/unit/com/android/documentsui/SharedInputHandlerTest.java
++++ b/tests/unit/com/android/documentsui/SharedInputHandlerTest.java
+@@ -178,14 +178,15 @@ public class SharedInputHandlerTest {
+     }
+ 
+     @Test
+-    public void testEscButton_DoesNotPopDirectory() {
++    public void testEscButton_PopsDirectory() {
++        // SableOS: with no search or selection to cancel, Esc goes up one folder like Back.
+         KeyEvent escapeEvent =
+                 new KeyEvent(0, 0, MotionEvent.ACTION_DOWN, KeyEvent.KEYCODE_ESCAPE, 0, 0);
+         assertTrue(mSharedInputHandler.onKeyDown(escapeEvent.getKeyCode(), escapeEvent));
+ 
+         assertFalse(mCanceledSearch);
+         assertEquals(mSelectionMgr.getSelection().size(), 0);
+-        assertFalse(mDirPopHappened);
++        assertTrue(mDirPopHappened);
+     }
+ 
+     @Test
+-- 
+2.43.0
+
