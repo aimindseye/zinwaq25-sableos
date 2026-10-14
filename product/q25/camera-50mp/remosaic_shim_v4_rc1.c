@@ -2356,50 +2356,63 @@ static void swap_run(int y0, int y1, void *p)
  * layout) and on the output Bayer (colours by Bayer layout): shows whether OUR output carries the
  * period-4 pattern, and at which brightness. persist.vendor.remoshim.diag=0 disables it. */
 static int g_diag = 0;
+static const int kDpEdges[6] = { 0, 100, 300, 600, 850, 2000 };
+static inline int dp_col(int bayer_out, int py, int px) { return bayer_out ? g_tcol[py & 1][px & 1] : g_qcol[py][px]; }
+/* 4x4 tile at (ty,tx): colour sums and counts into cs/cn; returns 1 when every colour is flat and above 2 DN */
+static int dp_tile(const uint16_t *b, int S, int bayer_out, float scl, int ty, int tx, double cs[3], int cn[3])
+{
+	int mn[3] = { 1 << 20, 1 << 20, 1 << 20 };
+	int mx[3] = { -1, -1, -1 };
+	int ok = 1;
+	for (int py = 0; py < 4; py++)
+		for (int px = 0; px < 4; px++) {
+			int v = (int)lrintf(b[(size_t)(ty + py) * S + tx + px] * scl) - g_ped;
+			int c = dp_col(bayer_out, py, px);
+			cs[c] += v; cn[c]++;
+			if (v < mn[c]) mn[c] = v;
+			if (v > mx[c]) mx[c] = v;
+		}
+	for (int c = 0; c < 3; c++) {
+		double m = cs[c] / cn[c];
+		if (m < 2 || mx[c] - mn[c] > 0.10 * m + 10) ok = 0;
+	}
+	return ok;
+}
+static void dp_add(double *sum, const uint16_t *b, int S, int bayer_out, float scl, int ty, int tx, const double cs[3], const int cn[3])
+{
+	for (int py = 0; py < 4; py++)
+		for (int px = 0; px < 4; px++) {
+			int c = dp_col(bayer_out, py, px);
+			sum[py * 4 + px] += (b[(size_t)(ty + py) * S + tx + px] * scl - g_ped) / (cs[c] / cn[c]);
+		}
+}
+static void dp_report(const char *tag, double (*sum)[16], const long *n)
+{
+	char line[400]; int o = 0;
+	o += snprintf(line + o, sizeof line - o, "diag %s 4x4 pattern rms%% by green level:", tag);
+	for (int bi = 0; bi < 5; bi++) {
+		if (n[bi] < 50) { o += snprintf(line + o, sizeof line - o, " [%d-%d) n=%ld -", kDpEdges[bi], kDpEdges[bi + 1], n[bi]); continue; }
+		double ss = 0;
+		for (int k = 0; k < 16; k++) { double d = sum[bi][k] / n[bi] - 1.0; ss += d * d; }
+		o += snprintf(line + o, sizeof line - o, " [%d-%d) n=%ld %.2f", kDpEdges[bi], kDpEdges[bi + 1], n[bi], 100.0 * sqrt(ss / 16));
+	}
+	LOGI("%s", line);
+}
 static void diag_pattern_s(const uint16_t *b, int S, int bayer_out, const char *tag, float scl)
 {
-	static const int edges[6] = { 0, 100, 300, 600, 850, 2000 };
 	double sum[5][16]; long n[5]; int bi;
-	int c;
 	memset(sum, 0, sizeof sum); memset(n, 0, sizeof n);
 	for (int ty = 0; ty + 4 <= g_h; ty += 8)
 		for (int tx = 0; tx + 4 <= g_w; tx += 8) {
 			double cs[3] = { 0, 0, 0 }; int cn[3] = { 0, 0, 0 };
-			int mn[3] = { 1 << 20, 1 << 20, 1 << 20 };
-			int mx[3] = { -1, -1, -1 };
-			int ok = 1;
-			for (int py = 0; py < 4; py++)
-				for (int px = 0; px < 4; px++) {
-					int v = (int)lrintf(b[(size_t)(ty + py) * S + tx + px] * scl) - g_ped;
-					c = bayer_out ? g_tcol[py & 1][px & 1] : g_qcol[py][px];
-					cs[c] += v; cn[c]++;
-					if (v < mn[c]) mn[c] = v;
-					if (v > mx[c]) mx[c] = v;
-				}
-			for (c = 0; c < 3; c++) {
-				double m = cs[c] / cn[c];
-				if (m < 2 || mx[c] - mn[c] > 0.10 * m + 10) ok = 0;
-			}
-			if (!ok) continue;
+			if (!dp_tile(b, S, bayer_out, scl, ty, tx, cs, cn)) continue;
 			double gl = cs[CG] / cn[CG];
-			for (bi = 0; bi < 5; bi++) if (gl >= edges[bi] && gl < edges[bi + 1]) break;
+			for (bi = 0; bi < 5 && !(gl >= kDpEdges[bi] && gl < kDpEdges[bi + 1]); bi++) ;
 			if (bi == 5) continue;
-			for (int py = 0; py < 4; py++)
-				for (int px = 0; px < 4; px++) {
-					c = bayer_out ? g_tcol[py & 1][px & 1] : g_qcol[py][px];
-					sum[bi][py * 4 + px] += (b[(size_t)(ty + py) * S + tx + px] * scl - g_ped) / (cs[c] / cn[c]);
-				}
+			dp_add(sum[bi], b, S, bayer_out, scl, ty, tx, cs, cn);
 			n[bi]++;
 		}
-	char line[400]; int o = 0;
-	o += snprintf(line + o, sizeof line - o, "diag %s 4x4 pattern rms%% by green level:", tag);
-	for (bi = 0; bi < 5; bi++) {
-		if (n[bi] < 50) { o += snprintf(line + o, sizeof line - o, " [%d-%d) n=%ld -", edges[bi], edges[bi + 1], n[bi]); continue; }
-		double ss = 0;
-		for (int k = 0; k < 16; k++) { double d = sum[bi][k] / n[bi] - 1.0; ss += d * d; }
-		o += snprintf(line + o, sizeof line - o, " [%d-%d) n=%ld %.2f", edges[bi], edges[bi + 1], n[bi], 100.0 * sqrt(ss / 16));
-	}
-	LOGI("%s", line);
+	dp_report(tag, sum, n);
 }
 static void diag_pattern(const uint16_t *b, int S, int bayer_out, const char *tag) { diag_pattern_s(b, S, bayer_out, tag, 1.0f); }
 static void diag_clip(const uint16_t *b, int S)
@@ -2429,112 +2442,145 @@ static void diag_clip(const uint16_t *b, int S)
  * neighbours 4 px away, which can themselves carry some leakage, so the d1..d3 values are lower bounds.
  * "c00 c01 c10 c11" = PD deviation in the copy (tile row parity, tile column parity). */
 #define DPB 6
-static void diag_pdraw(const uint16_t *in, int S)
+static const int kNb4[4][2] = { { -4, 0 }, { 4, 0 }, { 0, -4 }, { 0, 4 } };     /* same-phase neighbours 4 px away */
+/* mean (above the pedestal) of the four same-phase neighbours of (y,x) when none is a PD pixel, none is clipped (>= 1015)
+ * and they are flat (spread <= 10 % + 10 DN) at >= 16 DN; -1 otherwise */
+static double nb4_flat(const uint16_t *in, int S, const unsigned char (*isp)[16], int y, int x)
 {
-	static const int blo[DPB + 1] = { 0, 16, 48, 128, 300, 600, 1 << 20 };
-	static const int off[4][2] = { { -4, 0 }, { 4, 0 }, { 0, -4 }, { 0, 4 } };
+	int nb[4];
+	int mn = 1 << 30;
+	int mx = -1;
+	for (int k = 0; k < 4; k++) {
+		int y2 = y + kNb4[k][0];
+		int x2 = x + kNb4[k][1];
+		if (isp[y2 & 15][x2 & 15]) return -1;
+		nb[k] = in[(size_t)y2 * S + x2];
+		if (nb[k] < mn) mn = nb[k];
+		if (nb[k] > mx) mx = nb[k];
+	}
+	if (mx >= 1015) return -1;
+	double m = (nb[0] + nb[1] + nb[2] + nb[3]) / 4.0 - g_ped;
+	if (m < 16 || mx - mn > 0.10 * m + 10) return -1;
+	return m;
+}
+static const int kPdrawBlo[DPB + 1] = { 0, 16, 48, 128, 300, 600, 1 << 20 };
+struct pdraw {
+	const uint16_t *in;
+	int S;
 	unsigned char isp[16][16];
-	const size_t NN = (size_t)DPB * 4 * 256;
-	double *sum = calloc(NN, sizeof(double));
-	long *cnt = calloc(NN, sizeof(long));
-	long *clp = calloc(NN, sizeof(long));
-	long *hist = calloc(4096, sizeof(long));
-	long nh = 0;
-	long bc[16] = { 0 }; double bs[16] = { 0 };
-	int b;
-	int vmax = 0;
-	if (!sum || !cnt || !clp || !hist) { free(sum); free(cnt); free(clp); free(hist); return; }
-	memset(isp, 0, sizeof isp);
-	for (int i = 0; i < 8; i++) isp[kPdPos[i][0]][kPdPos[i][1]] = 1;
+	double *sum;            /* [bin][copy][pos] */
+	long *cnt;
+	long *clp;
+	long *hist;
+	long nh;
+	long bc[16];
+	double bs[16];
+	int vmax;
+};
 #define IX(b, cp, pos) (((size_t)(b) * 4 + (cp)) * 256 + (pos))
-	for (int ty = 1; ty * 16 + 20 < g_h; ty += 3)
-		for (int tx = 1; tx * 16 + 20 < g_w; tx += 5) {
-			int cp = (ty & 1) * 2 + (tx & 1);
-			for (int y = 0; y < 16; y++)
-				for (int x = 0; x < 16; x++) {
-					int yy = ty * 16 + y;
-					int xx = tx * 16 + x;
-					int v = in[(size_t)yy * S + xx];
-					int nb[4];
-					int mn = 1 << 30;
-					int mx = -1;
-					int ok = 1;
-					hist[v < 4095 ? v : 4095]++; nh++; if (v > vmax) vmax = v;
-					if (v < g_ped + 40) { bs[(yy & 3) * 4 + (xx & 3)] += v; bc[(yy & 3) * 4 + (xx & 3)]++; }
-					for (int k = 0; k < 4; k++) {
-						int y2 = yy + off[k][0];
-						int x2 = xx + off[k][1];
-						if (isp[y2 & 15][x2 & 15]) { ok = 0; break; }
-						nb[k] = in[(size_t)y2 * S + x2];
-						if (nb[k] < mn) mn = nb[k];
-						if (nb[k] > mx) mx = nb[k];
-					}
-					if (!ok || mx >= 1015) continue;
-					double m = (nb[0] + nb[1] + nb[2] + nb[3]) / 4.0 - g_ped;
-					if (m < 16 || mx - mn > 0.10 * m + 10) continue;
-					for (b = 0; b < DPB - 1 && m >= blo[b + 1]; b++) ;
-					sum[IX(b, cp, y * 16 + x)] += (v - g_ped) / m - 1; cnt[IX(b, cp, y * 16 + x)]++;
-					if (isp[y][x] && v >= 1015) clp[IX(b, cp, y * 16 + x)]++;
-				}
-		}
-	{ long acc = 0;
-	  long tot = nh; int p01 = -1;
-	  int p1 = -1;
-	  int p50 = -1; double mean = 0;
-	  for (int i = 0; i < 4096; i++) { mean += (double)i * hist[i]; acc += hist[i];
+static void pdraw_px(struct pdraw *st, int yy, int xx, int y, int x, int cp)
+{
+	int v = st->in[(size_t)yy * st->S + xx];
+	int b;
+	st->hist[v < 4095 ? v : 4095]++; st->nh++; if (v > st->vmax) st->vmax = v;
+	if (v < g_ped + 40) { st->bs[(yy & 3) * 4 + (xx & 3)] += v; st->bc[(yy & 3) * 4 + (xx & 3)]++; }
+	double m = nb4_flat(st->in, st->S, (const unsigned char (*)[16])st->isp, yy, xx);
+	if (m < 0) return;
+	for (b = 0; b < DPB - 1 && m >= kPdrawBlo[b + 1]; b++) ;
+	st->sum[IX(b, cp, y * 16 + x)] += (v - g_ped) / m - 1; st->cnt[IX(b, cp, y * 16 + x)]++;
+	if (st->isp[y][x] && v >= 1015) st->clp[IX(b, cp, y * 16 + x)]++;
+}
+static void pdraw_tile(struct pdraw *st, int ty, int tx)
+{
+	int cp = (ty & 1) * 2 + (tx & 1);
+	for (int y = 0; y < 16; y++)
+		for (int x = 0; x < 16; x++) pdraw_px(st, ty * 16 + y, tx * 16 + x, y, x, cp);
+}
+/* raw level percentiles and the per-phase mean of near-pedestal pixels */
+static void pdraw_levels(const struct pdraw *st)
+{
+	long acc = 0;
+	long tot = st->nh; int p01 = -1;
+	int p1 = -1;
+	int p50 = -1; double mean = 0;
+	for (int i = 0; i < 4096; i++) {
+		mean += (double)i * st->hist[i]; acc += st->hist[i];
 		if (p01 < 0 && acc >= tot * 0.001) p01 = i;
 		if (p1 < 0 && acc >= tot * 0.01) p1 = i;
 		if (p50 < 0 && acc >= tot * 0.5) p50 = i;
-	  }
-	  LOGI("pdraw: raw mean %.1f  p0.1 %d  p1 %d  median %d  max %d  (pedestal assumed %d)", mean / (double)(tot > 0 ? tot : 1), p01, p1, p50, vmax, g_ped);
-	  char bl[300]; int o = 0; o += snprintf(bl, sizeof bl, "pdraw: mean raw of pixels < pedestal+40, per quad phase [y&3][x&3] (only a true black level in a dark frame):");
-	  for (int i = 0; i < 16; i++) {
-		if (o >= (int)sizeof bl - 20) break;
-		o += snprintf(bl + o, sizeof bl - o, bc[i] >= 200 ? " %.1f" : " n/a", bc[i] ? bs[i] / bc[i] : 0.0);
-	  }
-	  LOGI("%s", bl); }
-	for (b = 0; b < DPB; b++) {
-		long n0 = 1 << 30;
-		for (int i = 0; i < 8; i++) {
-			long c = 0;
-			for (int cp = 0; cp < 4; cp++) c += cnt[IX(b, cp, kPdPos[i][0] * 16 + kPdPos[i][1])];
-			if (c < n0) n0 = c;
-		}
-		if (n0 < 100) continue;
-		LOGI("pdraw bin %d: neighbour level %d..%d DN above pedestal, >= %ld flat samples per position (all 4 copies)", b, blo[b], b == DPB - 1 ? 1023 : blo[b + 1], n0);
-		for (int i = 0; i < 8; i++) {
-			int py = kPdPos[i][0];
-			int px = kPdPos[i][1];
-			int pos = py * 16 + px;
-			double ring[4] = { 0 }; int rn[4] = { 0 };
-			double ps = 0;
-			double pc = 0;
-			double cl = 0;
-			double cpd[4]; char cps[80]; int o2 = 0;
-			for (int cp = 0; cp < 4; cp++) {
-				ps += sum[IX(b, cp, pos)]; pc += cnt[IX(b, cp, pos)]; cl += clp[IX(b, cp, pos)];
-				cpd[cp] = cnt[IX(b, cp, pos)] >= 20 ? 100 * sum[IX(b, cp, pos)] / cnt[IX(b, cp, pos)] : 0.0;
-				o2 += snprintf(cps + o2, sizeof cps - o2, cnt[IX(b, cp, pos)] >= 20 ? " %+.0f" : " n/a", cpd[cp]);
-			}
-			for (int d = 1; d <= 3; d++)
-				for (int dy = -d; dy <= d; dy++) for (int dx = -d; dx <= d; dx++) {
-					if ((dy < 0 ? -dy : dy) != d && (dx < 0 ? -dx : dx) != d) continue;
-					int ry = (py + dy) & 15;
-					int rx = (px + dx) & 15;
-					int rp = ry * 16 + rx; double rs = 0;
-					double rc = 0;
-					if (isp[ry][rx]) continue;
-					for (int cp = 0; cp < 4; cp++) { rs += sum[IX(b, cp, rp)]; rc += cnt[IX(b, cp, rp)]; }
-					if (rc < 50) continue;
-					ring[d] += rs / rc; rn[d]++;
-				}
-			LOGI("pdraw   (%2d,%2d) pd %+6.1f%% [c00 c01 c10 c11:%s]  clip %5.1f%%  ring d1 %+5.2f%%  d2 %+5.2f%%  d3 %+5.2f%%", py, px, pc > 0 ? 100 * ps / pc : 0.0, cps,
-			     pc > 0 ? 100 * cl / pc : 0.0, rn[1] ? 100 * ring[1] / rn[1] : 0.0, rn[2] ? 100 * ring[2] / rn[2] : 0.0, rn[3] ? 100 * ring[3] / rn[3] : 0.0);
-		}
 	}
-#undef IX
-	free(sum); free(cnt); free(clp); free(hist);
+	LOGI("pdraw: raw mean %.1f  p0.1 %d  p1 %d  median %d  max %d  (pedestal assumed %d)", mean / (double)(tot > 0 ? tot : 1), p01, p1, p50, st->vmax, g_ped);
+	char bl[300]; int o = 0; o += snprintf(bl, sizeof bl, "pdraw: mean raw of pixels < pedestal+40, per quad phase [y&3][x&3] (only a true black level in a dark frame):");
+	for (int i = 0; i < 16 && o < (int)sizeof bl - 20; i++)
+		o += snprintf(bl + o, sizeof bl - o, st->bc[i] >= 200 ? " %.1f" : " n/a", st->bc[i] ? st->bs[i] / st->bc[i] : 0.0);
+	LOGI("%s", bl);
 }
+/* ring at Chebyshev distance d around PD position (py,px): mean dev over the non-PD positions with >= 50 samples */
+static void pdraw_ring(const struct pdraw *st, int b, int py, int px, int d, double *ring, int *rn)
+{
+	for (int dy = -d; dy <= d; dy++)
+		for (int dx = -d; dx <= d; dx++) {
+			if ((dy < 0 ? -dy : dy) != d && (dx < 0 ? -dx : dx) != d) continue;
+			int ry = (py + dy) & 15;
+			int rx = (px + dx) & 15;
+			int rp = ry * 16 + rx; double rs = 0;
+			double rc = 0;
+			if (st->isp[ry][rx]) continue;
+			for (int cp = 0; cp < 4; cp++) { rs += st->sum[IX(b, cp, rp)]; rc += st->cnt[IX(b, cp, rp)]; }
+			if (rc < 50) continue;
+			ring[d] += rs / rc; rn[d]++;
+		}
+}
+static void pdraw_pos(const struct pdraw *st, int b, int i)
+{
+	int py = kPdPos[i][0];
+	int px = kPdPos[i][1];
+	int pos = py * 16 + px;
+	double ring[4] = { 0 }; int rn[4] = { 0 };
+	double ps = 0;
+	double pc = 0;
+	double cl = 0;
+	double cpd[4]; char cps[80]; int o2 = 0;
+	for (int cp = 0; cp < 4; cp++) {
+		ps += st->sum[IX(b, cp, pos)]; pc += st->cnt[IX(b, cp, pos)]; cl += st->clp[IX(b, cp, pos)];
+		cpd[cp] = st->cnt[IX(b, cp, pos)] >= 20 ? 100 * st->sum[IX(b, cp, pos)] / st->cnt[IX(b, cp, pos)] : 0.0;
+		o2 += snprintf(cps + o2, sizeof cps - o2, st->cnt[IX(b, cp, pos)] >= 20 ? " %+.0f" : " n/a", cpd[cp]);
+	}
+	for (int d = 1; d <= 3; d++) pdraw_ring(st, b, py, px, d, ring, rn);
+	LOGI("pdraw   (%2d,%2d) pd %+6.1f%% [c00 c01 c10 c11:%s]  clip %5.1f%%  ring d1 %+5.2f%%  d2 %+5.2f%%  d3 %+5.2f%%", py, px, pc > 0 ? 100 * ps / pc : 0.0, cps,
+	     pc > 0 ? 100 * cl / pc : 0.0, rn[1] ? 100 * ring[1] / rn[1] : 0.0, rn[2] ? 100 * ring[2] / rn[2] : 0.0, rn[3] ? 100 * ring[3] / rn[3] : 0.0);
+}
+static void pdraw_bin(const struct pdraw *st, int b)
+{
+	long n0 = 1 << 30;
+	for (int i = 0; i < 8; i++) {
+		long c = 0;
+		for (int cp = 0; cp < 4; cp++) c += st->cnt[IX(b, cp, kPdPos[i][0] * 16 + kPdPos[i][1])];
+		if (c < n0) n0 = c;
+	}
+	if (n0 < 100) return;
+	LOGI("pdraw bin %d: neighbour level %d..%d DN above pedestal, >= %ld flat samples per position (all 4 copies)", b, kPdrawBlo[b], b == DPB - 1 ? 1023 : kPdrawBlo[b + 1], n0);
+	for (int i = 0; i < 8; i++) pdraw_pos(st, b, i);
+}
+static void diag_pdraw(const uint16_t *in, int S)
+{
+	struct pdraw st;
+	const size_t NN = (size_t)DPB * 4 * 256;
+	memset(&st, 0, sizeof st);
+	st.in = in; st.S = S;
+	st.sum = calloc(NN, sizeof(double));
+	st.cnt = calloc(NN, sizeof(long));
+	st.clp = calloc(NN, sizeof(long));
+	st.hist = calloc(4096, sizeof(long));
+	if (!st.sum || !st.cnt || !st.clp || !st.hist) { free(st.sum); free(st.cnt); free(st.clp); free(st.hist); return; }
+	for (int i = 0; i < 8; i++) st.isp[kPdPos[i][0]][kPdPos[i][1]] = 1;
+	for (int ty = 1; ty * 16 + 20 < g_h; ty += 3)
+		for (int tx = 1; tx * 16 + 20 < g_w; tx += 5) pdraw_tile(&st, ty, tx);
+	pdraw_levels(&st);
+	for (int b = 0; b < DPB; b++) pdraw_bin(&st, b);
+	free(st.sum); free(st.cnt); free(st.clp); free(st.hist);
+}
+#undef IX
 
 /* --------------------------------------------------------------- diag: colour dependence of the PD response
  * Hypothesis under test: the PD pixels are green-filtered pixels sitting in non-green quad slots, so that
@@ -2546,150 +2592,153 @@ static void diag_pdraw(const uint16_t *in, int S)
  * bins and level bins and R2 is close to 1; if y is flat in r, it is wrong. */
 #define DCB 7
 #define DCL 4
+static const double kPdcRedge[DCB + 1] = { 0, 0.7, 0.9, 1.1, 1.4, 1.8, 2.5, 1e9 };
+static const int kPdcLedge[DCL + 1] = { 16, 48, 128, 300, 600 };
+static const char kColName[3] = { 'R', 'G', 'B' };
+struct pdcol {
+	const uint16_t *in;
+	int S;
+	unsigned char isp[16][16];
+	int slot[2];
+	double acc[2][DCL][DCB][3];
+	double fs[2][DCL][6];
+	double rg[2][DCB][2][2];
+	double rf[2][2][5];   /* ring by colour ratio: [type][ratio bin][mate, other d1][n, sum dev]; fit sums [type][kind][n, x, y, xx, xy] with x = r - 1 */
+};
+/* clean-pixel colour means of the tile into m; okt[t] = green and type t's slot colour are flat and above noise.
+ * Returns 0 when the tile is clipped or neither type qualifies. */
+static int pdcol_tile(const struct pdcol *st, int ty, int tx, double m[3], int okt[2])
+{
+	double s1[3] = { 0, 0, 0 };
+	double s2[3] = { 0, 0, 0 };
+	long n[3] = { 0, 0, 0 }; int clipped = 0;
+	int okc[3];
+	for (int y = 0; y < 16; y++)
+		for (int x = 0; x < 16; x++) {
+			if (st->isp[y][x]) continue;
+			int v = st->in[(size_t)(ty * 16 + y) * st->S + tx * 16 + x];
+			int c = g_qcol[y & 3][x & 3];
+			if (v >= 1015) clipped = 1;
+			s1[c] += v - g_ped; s2[c] += (double)(v - g_ped) * (v - g_ped); n[c]++;
+		}
+	if (clipped) return 0;
+	for (int k = 0; k < 3; k++) {
+		m[k] = s1[k] / n[k];
+		double sd = sqrt(s2[k] / n[k] - m[k] * m[k] > 0 ? s2[k] / n[k] - m[k] * m[k] : 0);
+		okc[k] = !(m[k] < 16 || sd > 0.05 * m[k] + 6);
+	}
+	/* only green and the type's own slot colour need to be flat and above noise: a warm-lit scene has almost no blue */
+	okt[0] = okc[CG] && okc[st->slot[0]]; okt[1] = okc[CG] && okc[st->slot[1]];
+	return okt[0] || okt[1];
+}
+/* cell-mate (kind 0) and other d1 neighbours (kind 1) of the PD pixel i at (yy,xx): deviation against their own 4-px neighbours */
+static void pdcol_ring(struct pdcol *st, int i, int yy, int xx, int t, int rb, double r)
+{
+	int mdx = (kPdPos[i][1] & 1) ? -1 : 1;     /* the cell-mate is the other pixel of the same 2x2 cell: same row, x ^ 1 */
+	for (int dy = -1; dy <= 1; dy++)
+		for (int dx = -1; dx <= 1; dx++) {
+			if (!dy && !dx) continue;
+			int qy = yy + dy;
+			int qx = xx + dx;
+			int ky = (kPdPos[i][0] + dy) & 15;
+			int kx = (kPdPos[i][1] + dx) & 15;
+			int kind = (dy == 0 && dx == mdx) ? 0 : 1;
+			if (st->isp[ky][kx]) continue;
+			double qm = nb4_flat(st->in, st->S, (const unsigned char (*)[16])st->isp, qy, qx);
+			if (qm < 0) continue;
+			double dv = (st->in[(size_t)qy * st->S + qx] - g_ped) / qm - 1;
+			st->rg[t][rb][kind][0] += 1; st->rg[t][rb][kind][1] += dv;
+			st->rf[t][kind][0] += 1; st->rf[t][kind][1] += r - 1; st->rf[t][kind][2] += dv; st->rf[t][kind][3] += (r - 1) * (r - 1); st->rf[t][kind][4] += (r - 1) * dv;
+		}
+}
+/* PD pixel i of the tile at green level bin l */
+static void pdcol_pd(struct pdcol *st, int ty, int tx, int i, int l, const double m[3], const int okt[2])
+{
+	int yy = ty * 16 + kPdPos[i][0];
+	int xx = tx * 16 + kPdPos[i][1];
+	int v = st->in[(size_t)yy * st->S + xx];
+	int rb;
+	double mm = nb4_flat(st->in, st->S, (const unsigned char (*)[16])st->isp, yy, xx);
+	if (mm < 0) return;
+	int t = (i == 2 || i == 3 || i == 6 || i == 7);
+	if (!okt[t]) return;
+	double yv = (v - g_ped) / mm;
+	double r = m[CG] / m[st->slot[t]];
+	for (rb = 0; rb < DCB - 1 && r >= kPdcRedge[rb + 1]; rb++) ;
+	double *a = st->acc[t][l][rb];
+	double *f = st->fs[t][l];
+	a[0] += 1; a[1] += yv; a[2] += r;
+	f[0] += 1; f[1] += yv; f[2] += yv * yv; f[3] += r; f[4] += r * r; f[5] += r * yv;
+	pdcol_ring(st, i, yy, xx, t, rb, r);
+}
+static void pdcol_report_fit(const struct pdcol *st, int t, int l)
+{
+	const double *f = st->fs[t][l]; double n = f[0];
+	const char sc = kColName[st->slot[t]];
+	if (n < 100) return;
+	double sst = f[2] - f[1] * f[1] / n;
+	double a = f[5] / f[4];
+	double sxy = f[5] - f[1] * f[3] / n;
+	double sxx = f[4] - f[3] * f[3] / n;
+	double b = sxx > 1e-9 ? sxy / sxx : 0;
+	double c = (f[1] - b * f[3]) / n;
+	double r2a = sst > 1e-12 ? 1 - (f[2] - a * f[5]) / sst : 0;
+	double r2b = sst > 1e-12 ? 1 - (sst - b * sxy) / sst : 0;
+	LOGI("pdcol %s (%c slot), green level %d..%d DN above ped: n=%.0f  mean y=%.3f  fit y=a*r: a=%.3f R2=%.2f | y=c+b*r: c=%.3f b=%.3f R2=%.2f",
+	     t ? "strong" : "weak  ", sc, kPdcLedge[l], kPdcLedge[l + 1], n, f[1] / n, a, r2a, c, b, r2b);
+	for (int rb = 0; rb < DCB; rb++) {
+		const double *q = st->acc[t][l][rb];
+		if (q[0] < 20) continue;
+		LOGI("pdcol    G/%c %.1f..%.1f: n=%5.0f  mean r %.2f  mean y %.3f  y/r %.3f", sc, kPdcRedge[rb], rb == DCB - 1 ? 9.9 : kPdcRedge[rb + 1], q[0], q[2] / q[0], q[1] / q[0], q[1] / q[2]);
+	}
+}
+static void pdcol_report_ring(const struct pdcol *st, int t)
+{
+	const char sc = kColName[st->slot[t]];
+	for (int rb = 0; rb < DCB; rb++) {
+		const double *a0 = st->rg[t][rb][0];
+		const double *a1 = st->rg[t][rb][1];
+		if (a0[0] < 100 || a1[0] < 100) continue;
+		LOGI("pdcol ring %s (%c slot) G/%c %.1f..%.1f: cell-mate %+.2f%% (n=%.0f)  other d1 %+.2f%% (n=%.0f)", t ? "strong" : "weak  ", sc, sc, kPdcRedge[rb], rb == DCB - 1 ? 9.9 : kPdcRedge[rb + 1],
+		     100 * a0[1] / a0[0], a0[0], 100 * a1[1] / a1[0], a1[0]);
+	}
+	for (int kind = 0; kind < 2; kind++) {
+		const double *f = st->rf[t][kind]; double n = f[0];
+		if (n < 200) continue;
+		double sxx = f[3] - f[1] * f[1] / n;
+		double sxy = f[4] - f[1] * f[2] / n;
+		double b = sxx > 1e-9 ? sxy / sxx : 0;
+		double c = (f[2] - b * f[1]) / n;
+		LOGI("pdcol ring fit %s (%c slot) %s: dev = %+.2f%% %+.2f%% * (G/%c - 1)   (n=%.0f)", t ? "strong" : "weak  ", sc, kind ? "other d1 " : "cell-mate", 100 * c, 100 * b, sc, n);
+	}
+}
 static void diag_pdcol(const uint16_t *in, int S)
 {
-	static const double redge[DCB + 1] = { 0, 0.7, 0.9, 1.1, 1.4, 1.8, 2.5, 1e9 };
-	static const int ledge[DCL + 1] = { 16, 48, 128, 300, 600 };
-	static const int off[4][2] = { { -4, 0 }, { 4, 0 }, { 0, -4 }, { 0, 4 } };
-	static const char cn[3] = { 'R', 'G', 'B' };
-	static double acc[2][DCL][DCB][3];
-	static double fs[2][DCL][6];
-	static double rg[2][DCB][2][2];
-	static double rf[2][2][5];   /* ring by colour ratio: [type][ratio bin][mate, other d1][n, sum dev]; fit sums [type][kind][n, x, y, xx, xy] with x = r - 1 */
-	unsigned char isp[16][16]; long ntile = 0;
+	struct pdcol st;
+	long ntile = 0;
 	long nvalid = 0;
-	int l;
-	int rb;
-	int slot[2] = { g_qcol[kPdPos[0][0] & 3][kPdPos[0][1] & 3], g_qcol[kPdPos[2][0] & 3][kPdPos[2][1] & 3] };
-	memset(acc, 0, sizeof acc); memset(fs, 0, sizeof fs); memset(isp, 0, sizeof isp); memset(rg, 0, sizeof rg); memset(rf, 0, sizeof rf);
-	for (int i = 0; i < 8; i++) isp[kPdPos[i][0]][kPdPos[i][1]] = 1;
-	if (slot[0] == CG || slot[1] == CG) { LOGI("pdcol: a PD slot is green, ratio undefined"); return; }
+	memset(&st, 0, sizeof st);
+	st.in = in; st.S = S;
+	st.slot[0] = g_qcol[kPdPos[0][0] & 3][kPdPos[0][1] & 3]; st.slot[1] = g_qcol[kPdPos[2][0] & 3][kPdPos[2][1] & 3];
+	for (int i = 0; i < 8; i++) st.isp[kPdPos[i][0]][kPdPos[i][1]] = 1;
+	if (st.slot[0] == CG || st.slot[1] == CG) { LOGI("pdcol: a PD slot is green, ratio undefined"); return; }
 	for (int ty = 1; ty * 16 + 20 < g_h; ty += 3)
 		for (int tx = 1; tx * 16 + 20 < g_w; tx += 5) {
-			double s1[3] = { 0, 0, 0 };
-			double s2[3] = { 0, 0, 0 };
-			double m[3]; long n[3] = { 0, 0, 0 }; int clipped = 0;
-			int okc[3];
+			double m[3];
 			int okt[2];
+			int l;
 			ntile++;
-			for (int y = 0; y < 16; y++)
-				for (int x = 0; x < 16; x++) {
-					if (isp[y][x]) continue;
-					int v = in[(size_t)(ty * 16 + y) * S + tx * 16 + x];
-					int c = g_qcol[y & 3][x & 3];
-					if (v >= 1015) clipped = 1;
-					s1[c] += v - g_ped; s2[c] += (double)(v - g_ped) * (v - g_ped); n[c]++;
-				}
-			if (clipped) continue;
-			for (int k = 0; k < 3; k++) {
-				m[k] = s1[k] / n[k];
-				double sd = sqrt(s2[k] / n[k] - m[k] * m[k] > 0 ? s2[k] / n[k] - m[k] * m[k] : 0);
-				okc[k] = !(m[k] < 16 || sd > 0.05 * m[k] + 6);
-			}
-			/* only green and the type's own slot colour need to be flat and above noise: a warm-lit scene has almost no blue */
-			okt[0] = okc[CG] && okc[slot[0]]; okt[1] = okc[CG] && okc[slot[1]];
-			if (!okt[0] && !okt[1]) continue;
+			if (!pdcol_tile(&st, ty, tx, m, okt)) continue;
 			nvalid++;
-			for (l = 0; l < DCL && !(m[CG] >= ledge[l] && m[CG] < ledge[l + 1]); l++) ;
+			for (l = 0; l < DCL && !(m[CG] >= kPdcLedge[l] && m[CG] < kPdcLedge[l + 1]); l++) ;
 			if (l == DCL) continue;
-			for (int i = 0; i < 8; i++) {
-				int yy = ty * 16 + kPdPos[i][0];
-				int xx = tx * 16 + kPdPos[i][1];
-				int v = in[(size_t)yy * S + xx];
-				int nb[4];
-				int mn = 1 << 30;
-				int mx = -1;
-				int good = 1;
-				for (int k = 0; k < 4; k++) {
-					int y2 = yy + off[k][0];
-					int x2 = xx + off[k][1];
-					if (isp[y2 & 15][x2 & 15]) { good = 0; break; }
-					nb[k] = in[(size_t)y2 * S + x2];
-					if (nb[k] < mn) mn = nb[k];
-					if (nb[k] > mx) mx = nb[k];
-				}
-				if (!good || mx >= 1015) continue;
-				double mm = (nb[0] + nb[1] + nb[2] + nb[3]) / 4.0 - g_ped;
-				if (mm < 16 || mx - mn > 0.10 * mm + 10) continue;
-				int t = (i == 2 || i == 3 || i == 6 || i == 7);
-				if (!okt[t]) continue;
-				double yv = (v - g_ped) / mm;
-				double r = m[CG] / m[slot[t]];
-				for (rb = 0; rb < DCB - 1 && r >= redge[rb + 1]; rb++) ;
-				acc[t][l][rb][0] += 1; acc[t][l][rb][1] += yv; acc[t][l][rb][2] += r;
-				fs[t][l][0] += 1; fs[t][l][1] += yv; fs[t][l][2] += yv * yv; fs[t][l][3] += r; fs[t][l][4] += r * r; fs[t][l][5] += r * yv;
-				{
-				  int mdx = (kPdPos[i][1] & 1) ? -1 : 1;     /* the cell-mate is the other pixel of the same 2x2 cell: same row, x ^ 1 */
-				  for (int dy = -1; dy <= 1; dy++)
-					for (int dx = -1; dx <= 1; dx++) {
-						if (!dy && !dx) continue;
-						int qy = yy + dy;
-						int qx = xx + dx;
-						int ky = (kPdPos[i][0] + dy) & 15;
-						int kx = (kPdPos[i][1] + dx) & 15;
-						int kind = (dy == 0 && dx == mdx) ? 0 : 1;
-						int good2 = 1;
-						int qmn = 1 << 30;
-						int qmx = -1;
-						int nb2[4];
-						if (isp[ky][kx]) continue;
-						for (int q2 = 0; q2 < 4; q2++) {
-							int y3 = qy + off[q2][0];
-							int x3 = qx + off[q2][1];
-							if (isp[y3 & 15][x3 & 15]) { good2 = 0; break; }
-							nb2[q2] = in[(size_t)y3 * S + x3];
-							if (nb2[q2] < qmn) qmn = nb2[q2];
-							if (nb2[q2] > qmx) qmx = nb2[q2];
-						}
-						if (!good2 || qmx >= 1015) continue;
-						double qm = (nb2[0] + nb2[1] + nb2[2] + nb2[3]) / 4.0 - g_ped;
-						if (qm < 16 || qmx - qmn > 0.10 * qm + 10) continue;
-						double dv = (in[(size_t)qy * S + qx] - g_ped) / qm - 1;
-						rg[t][rb][kind][0] += 1; rg[t][rb][kind][1] += dv;
-						rf[t][kind][0] += 1; rf[t][kind][1] += r - 1; rf[t][kind][2] += dv; rf[t][kind][3] += (r - 1) * (r - 1); rf[t][kind][4] += (r - 1) * dv;
-					} }
-			}
+			for (int i = 0; i < 8; i++) pdcol_pd(&st, ty, tx, i, l, m, okt);
 		}
 	LOGI("pdcol: %ld tiles sampled, %ld flat, unclipped and above noise in green and at least one slot colour; weak positions sit in a %c slot, strong in a %c slot",
-	     ntile, nvalid, cn[slot[0]], cn[slot[1]]);
+	     ntile, nvalid, kColName[st.slot[0]], kColName[st.slot[1]]);
 	for (int t = 0; t < 2; t++)
-		for (l = 0; l < DCL; l++) {
-			const double *f = fs[t][l]; double n = f[0];
-			if (n < 100) continue;
-			double sst = f[2] - f[1] * f[1] / n;
-			double a = f[5] / f[4];
-			double sxy = f[5] - f[1] * f[3] / n;
-			double sxx = f[4] - f[3] * f[3] / n;
-			double b = sxx > 1e-9 ? sxy / sxx : 0;
-			double c = (f[1] - b * f[3]) / n;
-			double r2a = sst > 1e-12 ? 1 - (f[2] - a * f[5]) / sst : 0;
-			double r2b = sst > 1e-12 ? 1 - (sst - b * sxy) / sst : 0;
-			LOGI("pdcol %s (%c slot), green level %d..%d DN above ped: n=%.0f  mean y=%.3f  fit y=a*r: a=%.3f R2=%.2f | y=c+b*r: c=%.3f b=%.3f R2=%.2f",
-			     t ? "strong" : "weak  ", cn[slot[t]], ledge[l], ledge[l + 1], n, f[1] / n, a, r2a, c, b, r2b);
-			for (rb = 0; rb < DCB; rb++) {
-				const double *q = acc[t][l][rb];
-				if (q[0] < 20) continue;
-				LOGI("pdcol    G/%c %.1f..%.1f: n=%5.0f  mean r %.2f  mean y %.3f  y/r %.3f", cn[slot[t]], redge[rb], rb == DCB - 1 ? 9.9 : redge[rb + 1], q[0], q[2] / q[0], q[1] / q[0], q[1] / q[2]);
-			}
-		}
-	for (int t = 0; t < 2; t++) {
-		for (rb = 0; rb < DCB; rb++) {
-			const double *a0 = rg[t][rb][0];
-			const double *a1 = rg[t][rb][1];
-			if (a0[0] < 100 || a1[0] < 100) continue;
-			LOGI("pdcol ring %s (%c slot) G/%c %.1f..%.1f: cell-mate %+.2f%% (n=%.0f)  other d1 %+.2f%% (n=%.0f)", t ? "strong" : "weak  ", cn[slot[t]], cn[slot[t]], redge[rb], rb == DCB - 1 ? 9.9 : redge[rb + 1],
-			     100 * a0[1] / a0[0], a0[0], 100 * a1[1] / a1[0], a1[0]);
-		}
-		for (int kind = 0; kind < 2; kind++) {
-			const double *f = rf[t][kind]; double n = f[0];
-			if (n < 200) continue;
-			double sxx = f[3] - f[1] * f[1] / n;
-			double sxy = f[4] - f[1] * f[2] / n;
-			double b = sxx > 1e-9 ? sxy / sxx : 0;
-			double c = (f[2] - b * f[1]) / n;
-			LOGI("pdcol ring fit %s (%c slot) %s: dev = %+.2f%% %+.2f%% * (G/%c - 1)   (n=%.0f)", t ? "strong" : "weak  ", cn[slot[t]], kind ? "other d1 " : "cell-mate", 100 * c, 100 * b, cn[slot[t]], n);
-		}
-	}
+		for (int l = 0; l < DCL; l++) pdcol_report_fit(&st, t, l);
+	for (int t = 0; t < 2; t++) pdcol_report_ring(&st, t);
 }
 
 /* --------------------------------------------------------------- diag: per-position linear mixing fit + black levels
