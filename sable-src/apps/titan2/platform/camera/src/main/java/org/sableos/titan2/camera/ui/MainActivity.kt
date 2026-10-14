@@ -400,7 +400,8 @@ class MainActivity : ComponentActivity() {
         cam: org.sableos.titan2.camera.core.CameraReport
     ) {
         when (cmd) {
-            is Cmd.Nop -> {}
+            // A key with no camera action: deliberately ignored.
+            is Cmd.Nop -> Unit
 
             is Cmd.SetUi -> if (recState == RecState.Idle) switchUi(cmd.mode, rep)
 

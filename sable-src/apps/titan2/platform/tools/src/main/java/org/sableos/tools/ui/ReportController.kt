@@ -126,14 +126,14 @@ class ReportController(private val host: ToolHost) : ToolController {
     }
 
     private fun preview() {
-        if (selected.isEmpty()) return host.toast("Select at least one section")
+        if (selected.isEmpty()) return host.toast(NOTHING_SELECTED)
         android.app.AlertDialog.Builder(
             ctx
         ).setTitle("Preview").setMessage(render()).setPositiveButton("Close", null).show()
     }
 
     private fun copy() {
-        if (selected.isEmpty()) return host.toast("Select at least one section")
+        if (selected.isEmpty()) return host.toast(NOTHING_SELECTED)
         ctx.getSystemService(
             ClipboardManager::class.java
         )?.setPrimaryClip(ClipData.newPlainText("Sable Tools report", render()))
@@ -141,7 +141,7 @@ class ReportController(private val host: ToolHost) : ToolController {
     }
 
     private fun share() {
-        if (selected.isEmpty()) return host.toast("Select at least one section")
+        if (selected.isEmpty()) return host.toast(NOTHING_SELECTED)
         val send = Intent(Intent.ACTION_SEND).setType("text/plain")
             .putExtra(Intent.EXTRA_SUBJECT, "Sable Tools · ${tool.title}")
             .putExtra(Intent.EXTRA_TEXT, render())
@@ -159,3 +159,5 @@ class ReportController(private val host: ToolHost) : ToolController {
             "sensitive sections need your selection."
     override fun copyText(): String? = if (selected.isEmpty()) null else render()
 }
+
+private const val NOTHING_SELECTED = "Select at least one section"

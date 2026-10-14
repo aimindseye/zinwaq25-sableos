@@ -367,8 +367,6 @@ class KanaComposer : Composer {
         return ""
     }
 
-    private fun isVowel(c: Char) = c in "aiueo"
-
     private fun isKanaInput(c: Char) = c in 'a'..'z' || c in "-,.'"
 
     private fun drain() {
