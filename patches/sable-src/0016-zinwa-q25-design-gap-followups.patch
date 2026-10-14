@@ -1,0 +1,1621 @@
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/QuickBarTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/QuickBarTest.kt
+index 65f437d..f84c848 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/QuickBarTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/QuickBarTest.kt
+@@ -71,6 +71,15 @@ class QuickBarTest {
+         assertEquals("Alt+1", QuickBar.shortcutLabel(0))
+     }
+ 
++    @Test
++    fun altArrowsMoveBetweenStartPages() {
++        assertEquals(-1, StartPages.keyDelta(21, QuickBar.META_ALT_ON))
++        assertEquals(1, StartPages.keyDelta(22, QuickBar.META_FUNCTION_ON))
++        // Plain arrows stay with focus traversal.
++        assertNull(StartPages.keyDelta(22, 0))
++        assertNull(StartPages.keyDelta(29, QuickBar.META_ALT_ON))
++    }
++
+     @Test
+     fun printableKeysOnStartSeedSearch() {
+         assertEquals('m', StartTypeToSearch.seed('m'.code, 0, repeat = false))
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml
+index 9dc85c8..e093029 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml
+@@ -33,6 +33,13 @@
+                 <action android:name="android.intent.action.MAIN" />
+                 <category android:name="android.intent.category.LAUNCHER" />
+             </intent-filter>
++            <!-- Settings > Apps > (app) > Display compatibility: package:<name> opens that app's
++                 profile (core/ProfileLink). The user still reviews and applies every change. -->
++            <intent-filter>
++                <action android:name="org.sableos.titan2.displaycompat.action.APP_PROFILE" />
++                <category android:name="android.intent.category.DEFAULT" />
++                <data android:scheme="package" />
++            </intent-filter>
+         </activity>
+     </application>
+ </manifest>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt
+index 8912d0a..cb80edf 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt
+@@ -29,7 +29,7 @@ class GatedPlatformBackend(private val context: Context) : DisplayBackend {
+     private fun open() = SysProps.get("persist.sable.displaycompat.backend") == "validated"
+ 
+     override fun apply(pkg: String, plan: CanvasPlan, p: DisplayProfile): ApplyResult {
+-        val value = platformValue(p.profile)
++        val value = UserMinAspectRatio.forProfile(p.profile)
+         return when {
+             !open() -> ApplyResult.NoOp
+ 
+@@ -41,16 +41,8 @@ class GatedPlatformBackend(private val context: Context) : DisplayBackend {
+         }
+     }
+ 
+-    private fun platformValue(profile: AspectProfile): Int? = when (profile) {
+-        AspectProfile.Ratio16x9Letterbox -> ASPECT_16_9
+-        AspectProfile.Ratio4x3Letterbox -> ASPECT_4_3
+-        AspectProfile.FullscreenMedia -> ASPECT_FULLSCREEN
+-        AspectProfile.SquareSafe -> ASPECT_DISPLAY_SIZE
+-        else -> null
+-    }
+-
+     override fun clear(pkg: String): ApplyResult =
+-        if (!open()) ApplyResult.NoOp else set(pkg, ASPECT_UNSET, "unset")
++        if (!open()) ApplyResult.NoOp else set(pkg, UserMinAspectRatio.UNSET, "unset")
+ 
+     private fun set(pkg: String, value: Int, detail: String): ApplyResult = try {
+         PackageManager::class.java.getMethod(
+@@ -71,15 +63,27 @@ class GatedPlatformBackend(private val context: Context) : DisplayBackend {
+     private fun unsupported(t: Throwable): ApplyResult = ApplyResult.Unsupported(
+         (t.cause ?: t).javaClass.simpleName + ": " + ((t.cause ?: t).message ?: "no detail")
+     )
++}
+ 
+-    private companion object {
+-        // Values of the hidden PackageManager.USER_MIN_ASPECT_RATIO_* constants as of Android 14.
+-        // The public SDK does not expose them, so they are literals here.
+-        // VERIFY against the Android 16 source before the backend gate is opened.
+-        const val ASPECT_UNSET = 0
+-        const val ASPECT_DISPLAY_SIZE = 2
+-        const val ASPECT_16_9 = 3
+-        const val ASPECT_4_3 = 4
+-        const val ASPECT_FULLSCREEN = 6
++/**
++ * Values of the hidden `PackageManager.USER_MIN_ASPECT_RATIO_*` constants (AOSP 14+: UNSET 0, SPLIT_SCREEN 1,
++ * DISPLAY_SIZE 2, 4_3 3, 16_9 4, 3_2 5, FULLSCREEN 6, APP_DEFAULT 7). The public SDK does not expose them, so they are
++ * literals here. Note 4:3 is 3 and 16:9 is 4 (an earlier version had them swapped, which would have put a 16:9 profile
++ * in a 4:3 window and vice versa). Re-check against the Android 16 source before the backend gate is opened.
++ */
++internal object UserMinAspectRatio {
++    const val UNSET = 0
++    const val DISPLAY_SIZE = 2
++    const val RATIO_4_3 = 3
++    const val RATIO_16_9 = 4
++    const val FULLSCREEN = 6
++
++    /** Platform value for a profile with a real platform equivalent, else null (stored only). */
++    fun forProfile(profile: AspectProfile): Int? = when (profile) {
++        AspectProfile.Ratio16x9Letterbox -> RATIO_16_9
++        AspectProfile.Ratio4x3Letterbox -> RATIO_4_3
++        AspectProfile.FullscreenMedia -> FULLSCREEN
++        AspectProfile.SquareSafe -> DISPLAY_SIZE
++        else -> null
+     }
+ }
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileLink.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileLink.kt
+new file mode 100644
+index 0000000..75a0b24
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileLink.kt
+@@ -0,0 +1,22 @@
++package org.sableos.titan2.displaycompat.core
++
++/**
++ * Per-app entry from Settings (APP_DISPLAY_COMPATIBILITY_PROFILES_UX APP_INFO_PATH:
++ * Settings > Apps > <App> > Display compatibility): [ACTION] with a `package:<name>` URI opens
++ * that app's profile. Pure Kotlin so the parsing is unit-tested on a JVM.
++ */
++object ProfileLink {
++    const val ACTION = "org.sableos.titan2.displaycompat.action.APP_PROFILE"
++    private const val MAX_PACKAGE_LENGTH = 255
++    private val packageName = Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+")
++
++    /**
++     * The package to open from an intent's action, URI scheme and scheme-specific part, or null
++     * when the intent is not a well-formed profile link (then the app list opens as usual).
++     */
++    fun packageFrom(action: String?, scheme: String?, schemeSpecificPart: String?): String? {
++        if (action != ACTION || scheme != "package") return null
++        val pkg = schemeSpecificPart?.trim().orEmpty()
++        return pkg.takeIf { it.length <= MAX_PACKAGE_LENGTH && packageName.matches(it) }
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/MainActivity.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/MainActivity.kt
+index b950b5a..f691b07 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/MainActivity.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/MainActivity.kt
+@@ -19,11 +19,19 @@ import androidx.compose.runtime.setValue
+ import androidx.compose.ui.Modifier
+ import org.sableos.titan2.displaycompat.android.TraitsResolver
+ import org.sableos.titan2.displaycompat.android.displayCompat
++import org.sableos.titan2.displaycompat.core.ProfileLink
+ 
+ class MainActivity : ComponentActivity() {
++    /** Set when Settings > App info opened one app's profile: Done and Back return there. */
++    private var linked: TraitsResolver.Entry? = null
++
+     override fun onCreate(savedInstanceState: Bundle?) {
+         super.onCreate(savedInstanceState)
+         enableEdgeToEdge()
++        val data = intent?.data
++        val pkg = ProfileLink.packageFrom(intent?.action, data?.scheme, data?.schemeSpecificPart)
++        // Only apps the list could show (launcher apps); anything else opens the list.
++        linked = pkg?.let { p -> TraitsResolver(this).launchable().firstOrNull { it.pkg == p } }
+         setContent { Root() }
+     }
+ 
+@@ -36,14 +44,21 @@ class MainActivity : ComponentActivity() {
+             metrics.widthPixels,
+             metrics.heightPixels
+         )
+-        var editing by remember { mutableStateOf<TraitsResolver.Entry?>(null) }
++        var editing by remember { mutableStateOf(linked) }
++        val closeEditor: () -> Unit = {
++            if (linked != null) {
++                finish()
++            } else {
++                editing = null
++            }
++        }
+         Box(Modifier.fillMaxSize().background(C.window).safeDrawingPadding()) {
+             val e = editing
+             if (e == null) {
+                 AppListScreen(app, resolver, onOpen = { editing = it }, onExit = { finish() })
+             } else {
+-                BackHandler { editing = null }
+-                EditorScreen(app, resolver, e, display, onDone = { editing = null })
++                BackHandler { closeEditor() }
++                EditorScreen(app, resolver, e, display, onDone = closeEditor)
+             }
+         }
+     }
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/android/UserMinAspectRatioTest.kt b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/android/UserMinAspectRatioTest.kt
+new file mode 100644
+index 0000000..cfecc75
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/android/UserMinAspectRatioTest.kt
+@@ -0,0 +1,34 @@
++package org.sableos.titan2.displaycompat.android
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Test
++import org.sableos.titan2.displaycompat.core.AspectProfile
++
++/** The gated backend must hand the platform the AOSP USER_MIN_ASPECT_RATIO_* value that matches each profile. */
++class UserMinAspectRatioTest {
++    @Test fun constantsMatchAosp() {
++        assertEquals(0, UserMinAspectRatio.UNSET)
++        assertEquals(2, UserMinAspectRatio.DISPLAY_SIZE)
++        assertEquals(3, UserMinAspectRatio.RATIO_4_3)
++        assertEquals(4, UserMinAspectRatio.RATIO_16_9)
++        assertEquals(6, UserMinAspectRatio.FULLSCREEN)
++    }
++
++    @Test fun profilesMapToMatchingRatio() {
++        assertEquals(4, UserMinAspectRatio.forProfile(AspectProfile.Ratio16x9Letterbox))
++        assertEquals(3, UserMinAspectRatio.forProfile(AspectProfile.Ratio4x3Letterbox))
++        assertEquals(6, UserMinAspectRatio.forProfile(AspectProfile.FullscreenMedia))
++        assertEquals(2, UserMinAspectRatio.forProfile(AspectProfile.SquareSafe))
++    }
++
++    @Test fun profilesWithoutPlatformEquivalentStayStoredOnly() {
++        listOf(
++            AspectProfile.Native,
++            AspectProfile.MiniMode,
++            AspectProfile.Ratio16x9Fill,
++            AspectProfile.KeyboardSafe,
++            AspectProfile.Custom
++        ).forEach { assertNull(it.name, UserMinAspectRatio.forProfile(it)) }
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/ProfileLinkTest.kt b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/ProfileLinkTest.kt
+new file mode 100644
+index 0000000..aac2099
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/ProfileLinkTest.kt
+@@ -0,0 +1,34 @@
++package org.sableos.titan2.displaycompat.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Test
++
++class ProfileLinkTest {
++    private fun open(action: String?, scheme: String?, part: String?) =
++        ProfileLink.packageFrom(action, scheme, part)
++
++    @Test fun packageUriOpensThatApp() {
++        assertEquals("org.example.app", open(ProfileLink.ACTION, "package", "org.example.app"))
++    }
++
++    @Test fun otherActionsAndSchemesOpenTheList() {
++        assertNull(open("android.intent.action.MAIN", "package", "org.example.app"))
++        assertNull(open(null, null, null))
++        assertNull(open(ProfileLink.ACTION, "https", "org.example.app"))
++        assertNull(open(ProfileLink.ACTION, "package", null))
++    }
++
++    @Test fun malformedPackageNamesAreRefused() {
++        val bad = listOf(
++            "",
++            "app",
++            "../etc",
++            "org.example/app",
++            "1org.example",
++            "org..example",
++            "a".repeat(300) + ".b"
++        )
++        bad.forEach { assertNull(it, open(ProfileLink.ACTION, "package", it)) }
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml
+index d32fbfa..b7508f3 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml
+@@ -100,12 +100,14 @@
+         </activity>
+ 
+         <!--
+-          *#*#3377#*#* bridge. Disabled by default; the app enables it only when no vendor factory-test app answers
+-          the code (core/DialerCodes.receiverEnabled), so it never doubles up with a vendor surface.
++          *#*#3377#*#* bridge. Enabled from install so the code works on a fresh phone before Sable Tools is opened.
++          It re-checks on every code (android/SecretCodeSync): when a vendor factory-test app answers the code
++          (core/DialerCodes.receiverEnabled), it launches nothing and disables itself, so it never doubles up with a
++          vendor surface.
+         -->
+         <receiver
+             android:name=".android.SecretCodeReceiver"
+-            android:enabled="false"
++            android:enabled="true"
+             android:exported="true">
+             <intent-filter>
+                 <action android:name="android.telephony.action.SECRET_CODE" />
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/InputCollector.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/InputCollector.kt
+index 93226ca..545ed5b 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/InputCollector.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/InputCollector.kt
+@@ -5,6 +5,8 @@ import android.hardware.input.InputManager
+ import android.os.VibratorManager
+ import android.provider.Settings
+ import android.view.InputDevice
++import org.sableos.tools.core.KeyboardLight
++import org.sableos.tools.core.KeyboardLightSource
+ import org.sableos.tools.core.ReportCategory
+ import org.sableos.tools.core.ReportRow
+ import org.sableos.tools.core.ReportSection
+@@ -114,20 +116,28 @@ class InputCollector(env: ToolsEnv) : CollectorBase(env) {
+         return listOf(profile(), devices) + text
+     }
+ 
++    private fun inputLights(): List<String> = devices().flatMap { d ->
++        val lights = try {
++            d.lightsManager.lights
++        } catch (_: RuntimeException) {
++            emptyList()
++        }
++        lights.map { l -> "${l.name} type=${l.type} on ${d.name}" }
++    }
++
+     fun attention(): ReportSection {
+         val v = ctx.getSystemService(VibratorManager::class.java)?.defaultVibrator
+         val rows = mutableListOf(
+             row("vibrator", (v?.hasVibrator() == true).toString()),
+             row("amplitude control", (v?.hasAmplitudeControl() == true).toString())
+         )
+-        devices().forEach { d ->
+-            val lights = try {
+-                d.lightsManager.lights
+-            } catch (_: RuntimeException) {
+-                emptyList()
+-            }
+-            lights.forEach { l -> rows += row("light on ${d.name}", "${l.name} type=${l.type}") }
+-        }
++        // Keyboard light: read the way this profile drives it (the Q25 has no lights HAL; its driver takes
++        // persist.sys.sable.kbd_backlight*), or say honestly that it is unknown / not supported.
++        val source = env.profile.keyboard.light
++        val inputLights =
++            if (source == KeyboardLightSource.INPUT_LIGHTS) inputLights() else emptyList()
++        val light = KeyboardLight.read(source, SysProps::get, inputLights)
++        rows += row("keyboard light", "${light.state.name}: ${light.detail}")
+         val modes = SubscreenModes.available(env.resolutions)
+         rows +=
+             row(
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/Platform.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/Platform.kt
+index ef3d2f5..6ea3b5b 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/Platform.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/Platform.kt
+@@ -164,9 +164,15 @@ object Links {
+     }
+ }
+ 
+-/** Keeps the dialer-code receiver enabled only when no vendor factory-test app answers *#*#3377#*#*. */
++/**
++ * Keeps the dialer-code receiver enabled only when no vendor factory-test app answers *#*#3377#*#*. The receiver is
++ * enabled from install (manifest default) and also runs this on every code, so a vendor surface always wins
++ * (RAW_DIALER_CODE_COMPATIBILITY=PRESERVE_WHERE_AVAILABLE) even before Sable Tools has been opened.
++ *
++ * @return whether the Sable bridge should answer the code
++ */
+ object SecretCodeSync {
+-    fun sync(ctx: Context) {
++    fun sync(ctx: Context): Boolean {
+         val intent =
+             Intent(
+                 "android.telephony.action.SECRET_CODE",
+@@ -186,5 +192,6 @@ object SecretCodeSync {
+         if (ctx.packageManager.getComponentEnabledSetting(cn) != want) {
+             ctx.packageManager.setComponentEnabledSetting(cn, want, PackageManager.DONT_KILL_APP)
+         }
++        return want == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+     }
+ }
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/SecretCodeReceiver.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/SecretCodeReceiver.kt
+index 98cb7ae..6a2d048 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/SecretCodeReceiver.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/SecretCodeReceiver.kt
+@@ -20,6 +20,8 @@ class SecretCodeReceiver : BroadcastReceiver() {
+         ) {
+             return
+         }
++        // Enabled from install; defer to (and disable for) a vendor factory-test app that answers the same code.
++        if (!SecretCodeSync.sync(context)) return
+         val env = ToolsEnv(context)
+         val decision = DialerCodes.bridge(
+             env.resolutions.getValue(Capability.FACTORY_TEST_BRIDGE),
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/KeyboardTraits.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/KeyboardTraits.kt
+new file mode 100644
+index 0000000..c94fc03
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/KeyboardTraits.kt
+@@ -0,0 +1,103 @@
++package org.sableos.tools.core
++
++/** Where a profile's keyboard backlight state can be read from. */
++enum class KeyboardLightSource {
++    /** Public `InputDevice.getLightsManager()` lights (generic Android keyboards). */
++    INPUT_LIGHTS,
++
++    /**
++     * Sable keyboard light properties (Settings 0901 writes them; `product/q25/init/sable-keyboard-backlight.rc` copies
++     * them to the bbqX0kbd driver). No lights HAL is involved.
++     */
++    SABLE_PROPERTIES,
++
++    /** The profile declares no keyboard light. */
++    NONE
++}
++
++/**
++ * Keyboard facts a profile declares for the diagnostics: which modifier keys exist (the critical text-entry test only
++ * asks for these), whether digits live on the Alt layer, and how the keyboard light is driven.
++ */
++data class KeyboardTraits(
++    val modifiers: Set<Modifier>,
++    val digitsOnAltLayer: Boolean = false,
++    val light: KeyboardLightSource = KeyboardLightSource.INPUT_LIGHTS
++) {
++    companion object {
++        /**
++         * Profiles with no keyboard evidence keep the spec's full list (HARDWARE_DIAGNOSTICS_AND_DIALER_CODES:
++         * Alt, Sym, Fn) and the public lights API.
++         */
++        val GENERIC = KeyboardTraits(setOf(Modifier.ALT, Modifier.SYM, Modifier.FN))
++
++        /** BlackBerry Classic layout: Alt, Shift, Sym, digits on the Alt layer, no Fn; light via Sable properties. */
++        val BLACKBERRY_CLASSIC = KeyboardTraits(
++            setOf(Modifier.ALT, Modifier.SHIFT, Modifier.SYM),
++            digitsOnAltLayer = true,
++            light = KeyboardLightSource.SABLE_PROPERTIES
++        )
++    }
++}
++
++enum class KeyboardLightState { ON, OFF, PRESENT, NOT_SUPPORTED, UNKNOWN }
++
++data class KeyboardLightReading(val state: KeyboardLightState, val detail: String)
++
++/** Keyboard light diagnostic, driven by [KeyboardTraits.light]. Pure: the Android layer passes the readings in. */
++object KeyboardLight {
++    /** Set to true by a product layer whose keyboard driver honours the properties. */
++    const val PROP_SUPPORTED = "ro.sable.keyboard_backlight"
++
++    /** "0" keeps the keys dark; anything else (including unset) is on, matching the driver default. */
++    const val PROP_ENABLED = "persist.sys.sable.kbd_backlight"
++
++    /** Driver brightness 1-255; unset or invalid reads as full brightness. */
++    const val PROP_LEVEL = "persist.sys.sable.kbd_backlight_level"
++    const val MAX_LEVEL = 255
++
++    /**
++     * @param prop system property reader ("" when unset or unreadable)
++     * @param inputLights names of lights reported by input devices
++     */
++    fun read(
++        source: KeyboardLightSource,
++        prop: (String) -> String,
++        inputLights: List<String>
++    ): KeyboardLightReading = when (source) {
++        KeyboardLightSource.NONE -> KeyboardLightReading(
++            KeyboardLightState.NOT_SUPPORTED,
++            "this profile declares no keyboard light"
++        )
++
++        KeyboardLightSource.INPUT_LIGHTS -> if (inputLights.isEmpty()) {
++            KeyboardLightReading(
++                KeyboardLightState.UNKNOWN,
++                "no light exposed by any input device"
++            )
++        } else {
++            KeyboardLightReading(KeyboardLightState.PRESENT, inputLights.joinToString(", "))
++        }
++
++        KeyboardLightSource.SABLE_PROPERTIES -> readProperties(prop)
++    }
++
++    private fun readProperties(prop: (String) -> String): KeyboardLightReading {
++        val stored = prop(PROP_LEVEL).trim().toIntOrNull()
++        val level = if (stored != null && stored in 1..MAX_LEVEL) stored else MAX_LEVEL
++        return when {
++            prop(PROP_SUPPORTED).trim() != "true" -> KeyboardLightReading(
++                KeyboardLightState.UNKNOWN,
++                "keyboard light control not declared by this build ($PROP_SUPPORTED unset)"
++            )
++
++            prop(PROP_ENABLED).trim() == "0" ->
++                KeyboardLightReading(KeyboardLightState.OFF, "off (Settings > System > Keyboard)")
++
++            else -> KeyboardLightReading(
++                KeyboardLightState.ON,
++                "on while the screen is on, level $level/$MAX_LEVEL (Settings > System > Keyboard)"
++            )
++        }
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
+index 5b49267..83d3004 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
+@@ -84,7 +84,7 @@ object Handoffs {
+         Tool.NETWORK -> listOf(SettingsLink.NETWORK, SettingsLink.VPN)
+         Tool.STORAGE -> listOf(SettingsLink.STORAGE)
+         Tool.APPS -> listOf(SettingsLink.APP_SECURITY)
+-        Tool.ATTENTION -> listOf(SettingsLink.NOTIFICATIONS)
++        Tool.ATTENTION -> listOf(SettingsLink.NOTIFICATIONS, SettingsLink.KEYBOARD)
+         Tool.DEVICE_IDENTITY -> listOf(SettingsLink.ABOUT, SettingsLink.SECURITY)
+         Tool.BUGREPORT -> listOf(SettingsLink.DEVELOPER)
+         else -> emptyList()
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/TextEntryTest.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/TextEntryTest.kt
+index e178ae7..b98933e 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/TextEntryTest.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/TextEntryTest.kt
+@@ -5,6 +5,7 @@ enum class FieldKind { TEXT, NUMBER, NUMBER_PASSWORD, VISIBLE_PASSWORD }
+ 
+ /** A modifier a case must exercise; [metaMask] is the Android KeyEvent META_* bit. */
+ enum class Modifier(val metaMask: Int) {
++    SHIFT(KeyCommands.META_SHIFT_ON),
+     ALT(KeyCommands.META_ALT_ON),
+     SYM(KeyCommands.META_SYM_ON),
+     FN(KeyCommands.META_FUNCTION_ON)
+@@ -15,8 +16,12 @@ data class TextEntryCase(
+     val title: String,
+     val prompt: String,
+     val field: FieldKind,
+-    /** Exact text required, or null when the case is judged from key events ([modifier]). */
++    /**
++     * Exact text required, or null when the case is judged from key events ([modifier]). With both set, the text must
++     * match and every typed character must have been produced with [modifier] held or locked.
++     */
+     val expected: String? = null,
++    /** The key this case exercises; the case is offered only when the profile's keyboard declares it. */
+     val modifier: Modifier? = null,
+     /** Shows the software keyboard instead of relying on the hardware keyboard. */
+     val softwareKeyboard: Boolean = false
+@@ -32,6 +37,23 @@ data class TypedKey(val meta: Int, val unicode: Int)
+  * never stored, logged or exported.
+  */
+ object TextEntryTest {
++    private val SHIFT_CASE = TextEntryCase(
++        "shift",
++        "Shift",
++        "Hold or lock Shift and type a capital letter",
++        FieldKind.TEXT,
++        modifier = Modifier.SHIFT
++    )
++    private val ALT_DIGITS_CASE = TextEntryCase(
++        "alt_digits",
++        "Alt-layer digits",
++        "Hold or lock Alt and type: 2468",
++        FieldKind.TEXT,
++        expected = "2468",
++        modifier = Modifier.ALT
++    )
++
++    /** The spec's list (letters, numbers, symbols, Alt, Sym, Fn, ...), used as-is for [KeyboardTraits.GENERIC]. */
+     val CASES: List<TextEntryCase> = listOf(
+         TextEntryCase("letters", "Letters", "Type: sable", FieldKind.TEXT, expected = "sable"),
+         TextEntryCase("numbers", "Numbers", "Type: 2468", FieldKind.NUMBER, expected = "2468"),
+@@ -94,10 +116,34 @@ object TextEntryTest {
+         )
+     )
+ 
++    /**
++     * Cases for one keyboard: a case tied to a key appears only when the keyboard declares that key, so a release gate
++     * never asks for a key the device lacks (no Fn case on the Q25). Shift and Alt-layer digits are added where
++     * declared.
++     */
++    fun casesFor(keyboard: KeyboardTraits): List<TextEntryCase> {
++        val extra = listOfNotNull(
++            SHIFT_CASE.takeIf { Modifier.SHIFT in keyboard.modifiers },
++            ALT_DIGITS_CASE.takeIf {
++                keyboard.digitsOnAltLayer && Modifier.ALT in keyboard.modifiers
++            }
++        )
++        val all = CASES.take(EXTRA_INSERT_AT) + extra + CASES.drop(EXTRA_INSERT_AT)
++        return all.filter { it.modifier == null || it.modifier in keyboard.modifiers }
++    }
++
++    /** Shift and Alt-layer digits go after letters, numbers and symbols. */
++    private const val EXTRA_INSERT_AT = 3
++
+     fun check(case: TextEntryCase, entered: String, keys: List<TypedKey>): CaseResult {
+         val expected = case.expected
+         val m = case.modifier
+         val pass = when {
++            expected != null && m != null ->
++                entered == expected &&
++                    keys.any { it.unicode > 0 } &&
++                    keys.filter { it.unicode > 0 }.all { it.meta and m.metaMask != 0 }
++
+             expected != null -> entered == expected
+ 
+             m == null -> false
+@@ -110,14 +156,17 @@ object TextEntryTest {
+     }
+ 
+     /** "7/10 PASS, 1 FAIL, 2 NOT_RUN" plus per-case lines; safe for reports (no typed text). */
+-    fun summary(results: Map<String, CaseResult>): List<ReportRow> {
+-        val rows = CASES.map { ReportRow(it.title, (results[it.id] ?: CaseResult.NOT_RUN).name) }
++    fun summary(
++        results: Map<String, CaseResult>,
++        cases: List<TextEntryCase> = CASES
++    ): List<ReportRow> {
++        val rows = cases.map { ReportRow(it.title, (results[it.id] ?: CaseResult.NOT_RUN).name) }
+         val pass = rows.count { it.value == CaseResult.PASS.name }
+         val fail = rows.count { it.value == CaseResult.FAIL.name }
+         return listOf(
+             ReportRow(
+                 "critical text entry",
+-                "$pass/${CASES.size} PASS, $fail FAIL, ${CASES.size - pass - fail} NOT_RUN"
++                "$pass/${cases.size} PASS, $fail FAIL, ${cases.size - pass - fail} NOT_RUN"
+             )
+         ) +
+             rows
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsDeviceProfile.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsDeviceProfile.kt
+index d9e9dd6..0c1df03 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsDeviceProfile.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsDeviceProfile.kt
+@@ -11,7 +11,9 @@ package org.sableos.tools.core
+ data class ToolsDeviceProfile(
+     val id: String,
+     val displayName: String,
+-    private val declarations: Map<Capability, Declaration>
++    private val declarations: Map<Capability, Declaration>,
++    /** Keys and keyboard light the diagnostics may ask for; undeclared profiles get the spec's generic list. */
++    val keyboard: KeyboardTraits = KeyboardTraits.GENERIC
+ ) {
+     fun declaration(c: Capability): Declaration =
+         declarations[c] ?: Declaration(Declared.UNKNOWN, "no evidence recorded for this profile")
+@@ -79,6 +81,8 @@ data class ToolsDeviceProfile(
+         /**
+          * Zinwa Q25: the hardware exists on paper but nothing is qualified yet, so sensor/camera/mic/GPS tools are
+          * developer-only until TOOLS-I5. No IR transmitter and no sub-screen. FM (MT6631) is status-only.
++         * BlackBerry Classic keyboard: Alt, Shift, Sym, digits on the Alt layer, no Fn key; the backlight is set
++         * through persist.sys.sable.kbd_backlight* (bbqX0kbd driver, no lights HAL).
+          */
+         val ZinwaQ25 = ToolsDeviceProfile(
+             "zinwa-q25",
+@@ -101,7 +105,8 @@ data class ToolsDeviceProfile(
+                     Declared.UNKNOWN,
+                     "no factory-test dialer code observed on Q25",
+                     Capability.FACTORY_TEST_BRIDGE
+-                )
++                ),
++            KeyboardTraits.BLACKBERRY_CLASSIC
+         )
+ 
+         val Unknown = ToolsDeviceProfile("unknown", "Unknown device", emptyMap())
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt
+index 882d3c1..a0b115a 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt
+@@ -192,11 +192,14 @@ class TextEntryController(private val host: ToolHost) : ToolController {
+     private val ctx = host.activity
+     private val root = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+ 
++    /** Only the keys this profile's keyboard declares (no Fn case where there is no Fn key). */
++    private val cases = TextEntryTest.casesFor(host.env.profile.keyboard)
++
+     override fun view(): View = ScrollView(ctx).apply { addView(root) }.also { build() }
+ 
+     private fun build() {
+         root.removeAllViews()
+-        TextEntryTest.CASES.forEach { c ->
++        cases.forEach { c ->
+             val result = Ui.subtitle(ctx, (Session.textEntry[c.id] ?: CaseResult.NOT_RUN).name)
+             val keys = mutableListOf<TypedKey>()
+             val field = EditText(ctx).apply {
+@@ -251,11 +254,10 @@ class TextEntryController(private val host: ToolHost) : ToolController {
+     }
+ 
+     override fun info() =
+-        "Covers letters, numbers, symbols, Alt, Sym, Fn, a Bluetooth pairing code, a Wi-" +
+-            "Fi password, a PIN and the software keyboard fallback. Press Enter in a field to" +
+-            " check it. Only pass/fail is kept."
++        "Covers " + cases.joinToString { it.title } + ". Only keys this keyboard has are " +
++            "tested. Press Enter in a field to check it. Only pass/fail is kept."
+ 
+-    override fun copyText() = TextEntryTest.summary(Session.textEntry).joinToString("\n") {
++    override fun copyText() = TextEntryTest.summary(Session.textEntry, cases).joinToString("\n") {
+         "${it.key}: ${it.value}"
+     }
+ }
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ReportController.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ReportController.kt
+index 279a00a..2eb2e01 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ReportController.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ReportController.kt
+@@ -109,7 +109,10 @@ class ReportController(private val host: ToolHost) : ToolController {
+             host.collectors.collect(
+                 c,
+                 sessionLog = Session.keyLog.toList(),
+-                textEntry = TextEntryTest.summary(Session.textEntry)
++                textEntry = TextEntryTest.summary(
++                    Session.textEntry,
++                    TextEntryTest.casesFor(host.env.profile.keyboard)
++                )
+             )
+         }
+         lastText =
+diff --git a/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/KeyboardTraitsTest.kt b/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/KeyboardTraitsTest.kt
+new file mode 100644
+index 0000000..85749eb
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/KeyboardTraitsTest.kt
+@@ -0,0 +1,153 @@
++package org.sableos.tools.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class KeyboardTraitsTest {
++    private val q25 = ToolsDeviceProfile.ZinwaQ25.keyboard
++
++    private fun ids(k: KeyboardTraits) = TextEntryTest.casesFor(k).map { it.id }
++
++    private fun props(vararg kv: Pair<String, String>): (String) -> String {
++        val m = kv.toMap()
++        return { m[it].orEmpty() }
++    }
++
++    @Test fun q25DeclaresBlackBerryClassicKeys() {
++        assertEquals(setOf(Modifier.ALT, Modifier.SHIFT, Modifier.SYM), q25.modifiers)
++        assertTrue(q25.digitsOnAltLayer)
++        assertEquals(KeyboardLightSource.SABLE_PROPERTIES, q25.light)
++    }
++
++    @Test fun q25TextEntryNeverAsksForFn() {
++        val cases = TextEntryTest.casesFor(q25)
++        assertFalse(cases.any { it.modifier == Modifier.FN })
++        assertTrue(cases.all { it.modifier == null || it.modifier in q25.modifiers })
++        assertEquals(
++            listOf(
++                "letters",
++                "numbers",
++                "symbols",
++                "shift",
++                "alt_digits",
++                "alt",
++                "sym",
++                "bt_pairing",
++                "wifi_password",
++                "pin",
++                "software_fallback"
++            ),
++            ids(q25)
++        )
++    }
++
++    @Test fun undeclaredProfilesKeepTheSpecList() {
++        val undeclared = listOf(
++            ToolsDeviceProfile.Titan2,
++            ToolsDeviceProfile.Unknown,
++            ToolsDeviceProfile.ZinwaQ27
++        )
++        undeclared.forEach {
++            assertEquals(KeyboardTraits.GENERIC, it.keyboard)
++            assertEquals(TextEntryTest.CASES, TextEntryTest.casesFor(it.keyboard))
++        }
++        assertTrue("fn" in ids(KeyboardTraits.GENERIC))
++    }
++
++    @Test fun keyboardWithoutModifiersOnlyGetsPlainCases() {
++        val bare = KeyboardTraits(emptySet(), digitsOnAltLayer = true)
++        assertTrue(TextEntryTest.casesFor(bare).all { it.modifier == null })
++    }
++
++    @Test fun q25ReleaseGateCanPass() {
++        val cases = TextEntryTest.casesFor(q25)
++        val summary = TextEntryTest.summary(cases.associate { it.id to CaseResult.PASS }, cases)
++        assertEquals("11/11 PASS, 0 FAIL, 0 NOT_RUN", summary.first().value)
++    }
++
++    @Test fun shiftAndAltDigitChecks() {
++        val cases = TextEntryTest.casesFor(q25).associateBy { it.id }
++        val shift = cases.getValue("shift")
++        val s = KeyCommands.META_SHIFT_ON
++        val a = KeyCommands.META_ALT_ON
++        val upper = listOf(TypedKey(s, 'S'.code))
++        assertEquals(CaseResult.PASS, TextEntryTest.check(shift, "S", upper))
++        val lower = listOf(TypedKey(0, 's'.code))
++        assertEquals(CaseResult.FAIL, TextEntryTest.check(shift, "s", lower))
++
++        val digits = cases.getValue("alt_digits")
++        val altKeys = "2468".map { TypedKey(a, it.code) }
++        assertEquals(CaseResult.PASS, TextEntryTest.check(digits, "2468", altKeys))
++        // Right text but typed without Alt (number row or soft keyboard): not the Alt layer.
++        val plain = "2468".map { TypedKey(0, it.code) }
++        assertEquals(CaseResult.FAIL, TextEntryTest.check(digits, "2468", plain))
++        assertEquals(CaseResult.FAIL, TextEntryTest.check(digits, "2468", emptyList()))
++        assertEquals(CaseResult.FAIL, TextEntryTest.check(digits, "246", altKeys.take(3)))
++    }
++
++    @Test fun q25LightReadsSableProperties() {
++        val src = KeyboardLightSource.SABLE_PROPERTIES
++        // The build does not declare the control: honest UNKNOWN, never a pass.
++        val undeclared = KeyboardLight.read(src, props(), listOf("kbd"))
++        assertEquals(KeyboardLightState.UNKNOWN, undeclared.state)
++
++        val on = KeyboardLight.read(
++            src,
++            props(KeyboardLight.PROP_SUPPORTED to "true"),
++            emptyList()
++        )
++        assertEquals(KeyboardLightState.ON, on.state)
++        assertTrue(on.detail.contains("255/255"))
++
++        val dim = KeyboardLight.read(
++            src,
++            props(
++                KeyboardLight.PROP_SUPPORTED to "true",
++                KeyboardLight.PROP_ENABLED to "1",
++                KeyboardLight.PROP_LEVEL to "51"
++            ),
++            emptyList()
++        )
++        assertTrue(dim.detail.contains("51/255"))
++
++        val bad = KeyboardLight.read(
++            src,
++            props(KeyboardLight.PROP_SUPPORTED to "true", KeyboardLight.PROP_LEVEL to "999"),
++            emptyList()
++        )
++        assertTrue(bad.detail.contains("255/255"))
++
++        val off = KeyboardLight.read(
++            src,
++            props(KeyboardLight.PROP_SUPPORTED to "true", KeyboardLight.PROP_ENABLED to "0"),
++            emptyList()
++        )
++        assertEquals(KeyboardLightState.OFF, off.state)
++    }
++
++    @Test fun genericLightUsesInputLights() {
++        val src = KeyboardLightSource.INPUT_LIGHTS
++        val none = KeyboardLight.read(src, props(), emptyList())
++        assertEquals(KeyboardLightState.UNKNOWN, none.state)
++        val some = KeyboardLight.read(src, props(), listOf("kbd"))
++        assertEquals(KeyboardLightState.PRESENT, some.state)
++        assertEquals(
++            KeyboardLightState.NOT_SUPPORTED,
++            KeyboardLight.read(KeyboardLightSource.NONE, props(), listOf("kbd")).state
++        )
++    }
++
++    @Test fun attentionOffersKeyboardSettings() {
++        assertTrue(SettingsLink.KEYBOARD in Handoffs.forTool(Tool.ATTENTION))
++    }
++
++    @Test fun dialerCodeReceiverEnabledFromInstall() {
++        val manifest = java.io.File("src/main/AndroidManifest.xml")
++        if (!manifest.exists()) return
++        val receiver = Regex("<receiver[^>]*SecretCodeReceiver[^>]*>")
++            .find(manifest.readText())?.value.orEmpty()
++        assertTrue(receiver.contains("android:enabled=\"true\""))
++    }
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml b/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml
+index 96b2db4..df7e4a2 100644
+--- a/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml
++++ b/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml
+@@ -15,6 +15,13 @@
+     <uses-permission android:name="android.permission.OBSERVE_GRANT_REVOKE_PERMISSIONS" />
+     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+ 
++    <!-- Private Space in All Apps: see the private profile and lock or unlock
++         it (quiet mode). The system asks for the private space credential
++         itself when unlocking. -->
++    <uses-permission android:name="android.permission.ACCESS_HIDDEN_PROFILES" />
++    <uses-permission android:name="android.permission.ACCESS_HIDDEN_PROFILES_FULL" />
++    <uses-permission android:name="android.permission.MODIFY_QUIET_MODE" />
++
+     <queries>
+         <intent>
+             <action android:name="android.intent.action.MAIN" />
+@@ -48,6 +55,12 @@
+                 <category android:name="android.intent.category.HOME" />
+                 <category android:name="android.intent.category.DEFAULT" />
+             </intent-filter>
++
++            <!-- Settings > Sable > Quick bar: opens the quick bar editor. -->
++            <intent-filter>
++                <action android:name="org.sableos.start.action.EDIT_QUICK_BAR" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
+         </activity>
+     </application>
+ </manifest>
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+index 3378c19..af4199d 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+@@ -18,6 +18,7 @@ import androidx.activity.ComponentActivity
+ import androidx.activity.OnBackPressedCallback
+ import androidx.activity.compose.setContent
+ import androidx.compose.runtime.SideEffect
++import androidx.compose.runtime.key
+ import androidx.compose.runtime.mutableStateOf
+ import org.sableos.design.applySableSystemBars
+ import org.sableos.design.rememberGlobalSableAppearance
+@@ -43,10 +44,16 @@ class SableStartActivity : ComponentActivity() {
+     private lateinit var startStateRepository: StartStateRepository
+ 
+     private val appsState = mutableStateOf<List<AppEntry>>(emptyList())
++
++    /** null: no private space; true: locked; false: unlocked. */
++    private val privateSpaceLockedState = mutableStateOf<Boolean?>(null)
+     private val liveRefreshGeneration = mutableStateOf(0)
+     private val homeGeneration = mutableStateOf(0)
+     private val backGeneration = mutableStateOf(0)
+ 
++    /** Screen asked for by Settings (EDIT_QUICK_BAR), and a serial so a repeat opens it again. */
++    private val startRequest = mutableStateOf(StartRequest(SCREEN_START, 0))
++
+     private var callbackRegistered = false
+     private var canNavigateBack = false
+     private val inventoryGeneration = AtomicLong(0L)
+@@ -173,6 +180,10 @@ class SableStartActivity : ComponentActivity() {
+ 
+         registerPrivacySignals()
+         scheduleInventoryRefresh()
++        // A recreated activity keeps its own place instead of reopening the requested screen.
++        if (savedInstanceState == null) {
++            startRequest.value = StartRequest(screenFor(intent), 0)
++        }
+ 
+         setContent {
+             val appearance = rememberGlobalSableAppearance()
+@@ -188,52 +199,58 @@ class SableStartActivity : ComponentActivity() {
+                 )
+             }
+ 
+-            SableStartScreen(
+-                apps = appsState.value,
+-                liveSurfaceRepository = liveSurfaceRepository,
+-                appearance = appearance,
+-                refreshGeneration = liveRefreshGeneration.value,
+-                homeGeneration = homeGeneration.value,
+-                backGeneration = backGeneration.value,
+-                onCanNavigateBackChanged = { value ->
+-                    canNavigateBack = value
+-                },
+-                initialFavoriteKeys = startStateRepository.loadFavoriteKeys(),
+-                onFavoriteKeysChanged = startStateRepository::saveFavoriteKeys,
+-                initialStartTileKeys = startStateRepository.loadStartTileKeys(),
+-                onStartTileKeysChanged = startStateRepository::saveStartTileKeys,
+-                initialQuickBar = startStateRepository.loadQuickBar(),
+-                onQuickBarChanged = startStateRepository::saveQuickBar,
+-                onAppearanceChanged = { next ->
+-                    writeGlobalSableAppearance(this@SableStartActivity, next)
+-                },
+-                onResetAppearance = {
+-                    writeGlobalSableAppearance(
+-                        this@SableStartActivity,
+-                        org.sableos.design.SableAppearance(),
+-                    )
+-                },
+-                onLaunchApp = { entry ->
+-                    launcherAppsRepository.launch(entry)
+-                },
+-                onOpenSystemSettings = ::openSystemSettings,
+-                onStartIntent = { intent ->
+-                    runCatching { startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+-                },
+-                onOpenAppInfo = { entry ->
+-                    launcherAppsRepository.openAppDetails(entry)
+-                },
+-                onOpenNotificationSettings = { entry ->
+-                    launcherAppsRepository.openNotificationSettings(entry)
+-                },
+-                onUninstallApp = { entry ->
+-                    launcherAppsRepository.requestUninstall(entry)
+-                },
+-                onRequestLivePermissions = ::requestLivePermissions,
+-                onRefreshLive = {
+-                    liveRefreshGeneration.value += 1
+-                },
+-            )
++            val request = startRequest.value
++            key(request.serial) {
++                SableStartScreen(
++                    apps = appsState.value,
++                    privateSpaceLocked = privateSpaceLockedState.value,
++                    onTogglePrivateSpace = ::togglePrivateSpace,
++                    liveSurfaceRepository = liveSurfaceRepository,
++                    appearance = appearance,
++                    refreshGeneration = liveRefreshGeneration.value,
++                    homeGeneration = homeGeneration.value,
++                    backGeneration = backGeneration.value,
++                    initialScreen = request.screen,
++                    onCanNavigateBackChanged = { value ->
++                        canNavigateBack = value
++                    },
++                    initialFavoriteKeys = startStateRepository.loadFavoriteKeys(),
++                    onFavoriteKeysChanged = startStateRepository::saveFavoriteKeys,
++                    initialStartTileKeys = startStateRepository.loadStartTileKeys(),
++                    onStartTileKeysChanged = startStateRepository::saveStartTileKeys,
++                    initialQuickBar = startStateRepository.loadQuickBar(),
++                    onQuickBarChanged = startStateRepository::saveQuickBar,
++                    onAppearanceChanged = { next ->
++                        writeGlobalSableAppearance(this@SableStartActivity, next)
++                    },
++                    onResetAppearance = {
++                        writeGlobalSableAppearance(
++                            this@SableStartActivity,
++                            org.sableos.design.SableAppearance(),
++                        )
++                    },
++                    onLaunchApp = { entry ->
++                        launcherAppsRepository.launch(entry)
++                    },
++                    onOpenSystemSettings = ::openSystemSettings,
++                    onStartIntent = { intent ->
++                        runCatching { startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
++                    },
++                    onOpenAppInfo = { entry ->
++                        launcherAppsRepository.openAppDetails(entry)
++                    },
++                    onOpenNotificationSettings = { entry ->
++                        launcherAppsRepository.openNotificationSettings(entry)
++                    },
++                    onUninstallApp = { entry ->
++                        launcherAppsRepository.requestUninstall(entry)
++                    },
++                    onRequestLivePermissions = ::requestLivePermissions,
++                    onRefreshLive = {
++                        liveRefreshGeneration.value += 1
++                    },
++                )
++            }
+         }
+     }
+ 
+@@ -255,7 +272,13 @@ class SableStartActivity : ComponentActivity() {
+     override fun onNewIntent(intent: Intent) {
+         super.onNewIntent(intent)
+         setIntent(intent)
+-        if (intent.action == Intent.ACTION_MAIN) {
++        if (intent.action == ACTION_EDIT_QUICK_BAR) {
++            // The Screen is recomposed fresh for the request: its Home/Back effects act only on
++            // counts above zero, so they restart from zero rather than undo the request at once.
++            homeGeneration.value = 0
++            backGeneration.value = 0
++            startRequest.value = StartRequest(screenFor(intent), startRequest.value.serial + 1)
++        } else if (intent.action == Intent.ACTION_MAIN) {
+             homeGeneration.value += 1
+         }
+     }
+@@ -301,12 +324,15 @@ class SableStartActivity : ComponentActivity() {
+         runCatching {
+             inventoryExecutor.execute {
+                 val apps = launcherAppsRepository.loadApps()
++                val privateSpaceLocked =
++                    launcherAppsRepository.privateSpace()?.let(launcherAppsRepository::isLocked)
+                 runOnUiThread {
+                     if (
+                         !isDestroyed &&
+                         inventoryGeneration.get() == generation
+                     ) {
+                         appsState.value = apps
++                        privateSpaceLockedState.value = privateSpaceLocked
+                     }
+                 }
+             }
+@@ -331,6 +357,10 @@ class SableStartActivity : ComponentActivity() {
+                     addAction(Intent.ACTION_MANAGED_PROFILE_UNLOCKED)
+                     addAction(Intent.ACTION_PROFILE_ACCESSIBLE)
+                     addAction(Intent.ACTION_PROFILE_INACCESSIBLE)
++                    addAction(Intent.ACTION_PROFILE_AVAILABLE)
++                    addAction(Intent.ACTION_PROFILE_UNAVAILABLE)
++                    addAction(Intent.ACTION_PROFILE_ADDED)
++                    addAction(Intent.ACTION_PROFILE_REMOVED)
+                 }
+             profileReceiverRegistered =
+                 runCatching {
+@@ -351,6 +381,16 @@ class SableStartActivity : ComponentActivity() {
+         }
+     }
+ 
++    /** Lock or unlock the private space; the profile broadcasts refresh All Apps. */
++    private fun togglePrivateSpace() {
++        val locked = privateSpaceLockedState.value ?: return
++        inventoryExecutor.execute {
++            val user = launcherAppsRepository.privateSpace() ?: return@execute
++            launcherAppsRepository.setLocked(user, !locked)
++            runOnUiThread { scheduleInventoryRefresh() }
++        }
++    }
++
+     private fun openSystemSettings() {
+         runCatching {
+             startActivity(Intent(Settings.ACTION_SETTINGS))
+@@ -371,7 +411,20 @@ class SableStartActivity : ComponentActivity() {
+         )
+     }
+ 
++    private data class StartRequest(
++        val screen: String,
++        val serial: Int,
++    )
++
+     private companion object {
+         const val LIVE_PERMISSION_REQUEST_CODE = 0x534D
++
++        /** Settings > Sable > Quick bar: open Sable Start's quick bar editor. */
++        const val ACTION_EDIT_QUICK_BAR = "org.sableos.start.action.EDIT_QUICK_BAR"
++        const val SCREEN_START = "start"
++        const val SCREEN_QUICK_BAR = "quickbar"
++
++        fun screenFor(intent: Intent?): String =
++            if (intent?.action == ACTION_EDIT_QUICK_BAR) SCREEN_QUICK_BAR else SCREEN_START
+     }
+ }
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/QuickBar.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/QuickBar.kt
+index 5989be7..268daad 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/QuickBar.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/QuickBar.kt
+@@ -146,3 +146,22 @@ object StartTypeToSearch {
+         return char.takeUnless { it.isISOControl() || it.isWhitespace() }
+     }
+ }
++
++/** Three-page Start keys: Alt+Left / Alt+Right (Fn+Left / Fn+Right on Fn keyboards). */
++object StartPages {
++    private const val KEYCODE_DPAD_LEFT = 21
++    private const val KEYCODE_DPAD_RIGHT = 22
++
++    /** -1 toward Glance, +1 toward Hub, or null when the key does not move pages. */
++    fun keyDelta(
++        keyCode: Int,
++        metaState: Int,
++    ): Int? {
++        if (metaState and (QuickBar.META_ALT_ON or QuickBar.META_FUNCTION_ON) == 0) return null
++        return when (keyCode) {
++            KEYCODE_DPAD_LEFT -> -1
++            KEYCODE_DPAD_RIGHT -> 1
++            else -> null
++        }
++    }
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LauncherAppsRepository.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LauncherAppsRepository.kt
+index 23fac4e..766a571 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LauncherAppsRepository.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LauncherAppsRepository.kt
+@@ -61,6 +61,8 @@ class LauncherAppsRepository(
+                 .flatMap { user ->
+                     val userSerial = userManager.getSerialNumberForUser(user)
+                     val profileLabel = profileLabelFor(user)
++                    // A locked private space lists nothing (its apps cannot start).
++                    if (profileLabel == PROFILE_PRIVATE && isLocked(user)) return@flatMap emptyList()
+                     launcherApps
+                         .getActivityList(null, user)
+                         .asSequence()
+@@ -127,6 +129,22 @@ class LauncherAppsRepository(
+         if (user == null) privacyCache.clear() else privacyCache.invalidateUser(user.identifier)
+     }
+ 
++    /** The private space profile, when the device has one; null otherwise. */
++    fun privateSpace(): UserHandle? =
++        runCatching { userManager.userProfiles.firstOrNull { profileLabelFor(it) == PROFILE_PRIVATE } }.getOrNull()
++
++    /** Locked means quiet mode: its apps cannot run and are not listed. */
++    fun isLocked(user: UserHandle): Boolean = runCatching { userManager.isQuietModeEnabled(user) }.getOrDefault(true)
++
++    /**
++     * Locks or unlocks the private space. Unlocking may first show the
++     * system's own credential screen; the profile broadcasts then refresh.
++     */
++    fun setLocked(
++        user: UserHandle,
++        locked: Boolean,
++    ): Boolean = runCatching { userManager.requestQuietModeEnabled(locked, user) }.getOrDefault(false)
++
+     private fun profileLabelFor(user: UserHandle): String? {
+         if (user == launcherUser) return null
+         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+index 5aa2c16..48f0526 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+@@ -39,6 +39,9 @@ import androidx.compose.foundation.lazy.LazyColumn
+ import androidx.compose.foundation.lazy.items
+ import androidx.compose.foundation.lazy.itemsIndexed
+ import androidx.compose.foundation.lazy.rememberLazyListState
++import androidx.compose.foundation.pager.HorizontalPager
++import androidx.compose.foundation.pager.PagerState
++import androidx.compose.foundation.pager.rememberPagerState
+ import androidx.compose.foundation.rememberScrollState
+ import androidx.compose.foundation.shape.RoundedCornerShape
+ import androidx.compose.foundation.verticalScroll
+@@ -111,6 +114,7 @@ import org.sableos.start.model.CommandRanking
+ import org.sableos.start.model.CommandScope
+ import org.sableos.start.model.CoreAppIdentity
+ import org.sableos.start.model.QuickBar
++import org.sableos.start.model.StartPages
+ import org.sableos.start.model.StartTypeToSearch
+ import org.sableos.start.model.inLauncherUser
+ import org.sableos.start.model.stableKey
+@@ -214,6 +218,9 @@ fun SableStartScreen(
+     onOpenNotificationSettings: (AppEntry) -> Unit = onOpenAppInfo,
+     onUninstallApp: (AppEntry) -> Unit = {},
+     onStartIntent: (Intent) -> Unit = {},
++    /** null: no private space on this device; true: locked; false: unlocked. */
++    privateSpaceLocked: Boolean? = null,
++    onTogglePrivateSpace: () -> Unit = {},
+ ) {
+     var destination by remember(initialScreen) {
+         mutableStateOf(
+@@ -269,6 +276,14 @@ fun SableStartScreen(
+             resolveQuickSlot(token, apps, appByKey)
+         }
+ 
++    val startPager = rememberPagerState(initialPage = START_PAGE_CENTER) { START_PAGE_COUNT }
++    val pagerScope = rememberCoroutineScope()
++
++    fun movePage(delta: Int) {
++        val target = (startPager.currentPage + delta).coerceIn(0, START_PAGE_COUNT - 1)
++        pagerScope.launch { startPager.animateScrollToPage(target) }
++    }
++
+     fun launchApp(entry: AppEntry) {
+         if (onLaunchApp(entry)) {
+             val key = entry.stableKey()
+@@ -316,17 +331,25 @@ fun SableStartScreen(
+             destination = SableStartDestination.Start
+             returnDestination = SableStartDestination.Start
+             selectedApp = null
++            startPager.animateScrollToPage(START_PAGE_CENTER)
+         }
+     }
+ 
+     LaunchedEffect(backGeneration) {
+-        if (backGeneration > 0 && destination != SableStartDestination.Start) {
+-            navigateBack()
++        if (backGeneration > 0) {
++            if (destination != SableStartDestination.Start) {
++                navigateBack()
++            } else if (startPager.currentPage != START_PAGE_CENTER) {
++                // Back on Glance or Hub returns to the center page.
++                startPager.animateScrollToPage(START_PAGE_CENTER)
++            }
+         }
+     }
+ 
+-    LaunchedEffect(destination) {
+-        onCanNavigateBackChanged(destination != SableStartDestination.Start)
++    LaunchedEffect(destination, startPager.currentPage) {
++        onCanNavigateBackChanged(
++            destination != SableStartDestination.Start || startPager.currentPage != START_PAGE_CENTER,
++        )
+         if (destination == SableStartDestination.Live) {
+             onRefreshLive()
+         }
+@@ -345,47 +368,69 @@ fun SableStartScreen(
+             ) {
+                 when (destination) {
+                     SableStartDestination.Start ->
+-                        SableRefreshableSurface(
+-                            isRefreshing = liveRefreshing,
+-                            onRefresh = onRefreshLive,
++                        // Three pages: Glance (left), Start (center), Hub (right).
++                        StartPager(
++                            state = startPager,
++                            onMovePage = { delta -> movePage(delta) },
++                            glance = {
++                                LiveSurfaceScreen(
++                                    snapshot = liveSnapshot,
++                                    apps = apps,
++                                    onBack = { movePage(1) },
++                                    onRequestPermissions = onRequestLivePermissions,
++                                    title = "glance",
++                                )
++                            },
++                            hub = {
++                                HubPage(
++                                    snapshot = liveSnapshot,
++                                    apps = apps,
++                                    onLaunchApp = ::launchApp,
++                                )
++                            },
+                         ) {
+-                            StartScreen(
+-                                snapshot = liveSnapshot,
+-                                startApps = startApps,
+-                                onLaunchApp = ::launchApp,
+-                                onOpenPeek = { app ->
+-                                    openPeek(app, SableStartDestination.Start)
+-                                },
+-                                onAllApps = {
+-                                    destination = SableStartDestination.Apps
+-                                },
+-                                onSearch = {
+-                                    openSearch(SableStartDestination.Start)
+-                                },
+-                                onLive = {
+-                                    destination = SableStartDestination.Live
+-                                },
+-                                onAppearance = {
+-                                    destination = SableStartDestination.Appearance
+-                                },
+-                                favoriteApps = favoriteApps.take(MAX_FAVORITES_ON_START),
+-                                onTypeToSearch = { char ->
+-                                    openSearch(SableStartDestination.Start, char.toString())
+-                                },
+-                                quickSlots = quickSlots,
+-                                onQuickSlot = { slot ->
+-                                    when (slot.token) {
+-                                        QuickBar.COMMAND ->
+-                                            openSearch(SableStartDestination.Start)
+-                                        QuickBar.ALL_APPS ->
+-                                            destination = SableStartDestination.Apps
+-                                        else -> slot.app?.let(::launchApp)
+-                                    }
+-                                },
+-                                onEditQuickBar = {
+-                                    destination = SableStartDestination.QuickBar
+-                                },
+-                            )
++                            SableRefreshableSurface(
++                                isRefreshing = liveRefreshing,
++                                onRefresh = onRefreshLive,
++                            ) {
++                                StartScreen(
++                                    snapshot = liveSnapshot,
++                                    startApps = startApps,
++                                    onLaunchApp = ::launchApp,
++                                    onOpenPeek = { app ->
++                                        openPeek(app, SableStartDestination.Start)
++                                    },
++                                    onAllApps = {
++                                        destination = SableStartDestination.Apps
++                                    },
++                                    onSearch = {
++                                        openSearch(SableStartDestination.Start)
++                                    },
++                                    onLive = {
++                                        destination = SableStartDestination.Live
++                                    },
++                                    onAppearance = {
++                                        destination = SableStartDestination.Appearance
++                                    },
++                                    favoriteApps = favoriteApps.take(MAX_FAVORITES_ON_START),
++                                    onTypeToSearch = { char ->
++                                        openSearch(SableStartDestination.Start, char.toString())
++                                    },
++                                    quickSlots = quickSlots,
++                                    onQuickSlot = { slot ->
++                                        when (slot.token) {
++                                            QuickBar.COMMAND ->
++                                                openSearch(SableStartDestination.Start)
++                                            QuickBar.ALL_APPS ->
++                                                destination = SableStartDestination.Apps
++                                            else -> slot.app?.let(::launchApp)
++                                        }
++                                    },
++                                    onEditQuickBar = {
++                                        destination = SableStartDestination.QuickBar
++                                    },
++                                )
++                            }
+                         }
+ 
+                     SableStartDestination.QuickBar ->
+@@ -416,6 +461,8 @@ fun SableStartScreen(
+                                 openPeek(app, SableStartDestination.Apps)
+                             },
+                             onOpenAppInfo = onOpenAppInfo,
++                            privateSpaceLocked = privateSpaceLocked,
++                            onTogglePrivateSpace = onTogglePrivateSpace,
+                         )
+ 
+                     SableStartDestination.Search ->
+@@ -691,6 +738,113 @@ private fun StartScreen(
+     }
+ }
+ 
++/**
++ * The three-page Start (SABLE_START_THREE_PAGE_MODEL.md): swipe, or
++ * Alt+Left / Alt+Right (Fn on Fn keyboards), moves between Glance, Start and
++ * Hub. Only the current page is composed into focus traversal.
++ */
++@Composable
++private fun StartPager(
++    state: PagerState,
++    onMovePage: (Int) -> Unit,
++    glance: @Composable () -> Unit,
++    hub: @Composable () -> Unit,
++    start: @Composable () -> Unit,
++) {
++    HorizontalPager(
++        state = state,
++        beyondViewportPageCount = 0,
++        modifier =
++            Modifier
++                .fillMaxSize()
++                .onPreviewKeyEvent { event ->
++                    val native = event.nativeKeyEvent
++                    val delta =
++                        StartPages.keyDelta(
++                            keyCode = native.keyCode,
++                            metaState = native.metaState,
++                        ) ?: return@onPreviewKeyEvent false
++                    if (event.type == KeyEventType.KeyDown && native.repeatCount == 0) onMovePage(delta)
++                    true
++                },
++    ) { page ->
++        when (page) {
++            START_PAGE_GLANCE -> glance()
++            START_PAGE_HUB -> hub()
++            else -> start()
++        }
++    }
++}
++
++/**
++ * Right page: close communications. Counts and next event from the same
++ * local snapshots the tiles read; Enter on a row opens the owning app.
++ */
++@Composable
++private fun HubPage(
++    snapshot: LiveSurfaceSnapshot,
++    apps: List<AppEntry>,
++    onLaunchApp: (AppEntry) -> Unit,
++) {
++    val hubApp = findLiveApp(apps, "org.sableos.hub")
++    val rows =
++        listOf(
++            Triple("Messages", snapshot.messages, hubApp),
++            Triple("Mail", snapshot.mail, findLiveApp(apps, "org.sableos.mail")),
++            Triple("Calendar", snapshot.calendar, findLiveApp(apps, "org.sableos.calendar")),
++        )
++    LazyColumn(
++        modifier =
++            Modifier
++                .fillMaxSize()
++                .padding(horizontal = 20.dp, vertical = 18.dp),
++        contentPadding = PaddingValues(bottom = 28.dp),
++    ) {
++        item {
++            Text(text = "hub", style = MaterialTheme.typography.displayLarge)
++            Text(
++                text = "Priority messages, mail and what's next. Alt+Left returns to Start.",
++                style = MaterialTheme.typography.bodyLarge,
++                color = MaterialTheme.colorScheme.onSurfaceVariant,
++            )
++            Spacer(Modifier.height(14.dp))
++        }
++        items(rows) { (title, datum, app) ->
++            Row(
++                modifier =
++                    Modifier
++                        .fillMaxWidth()
++                        .heightIn(min = 58.dp)
++                        .sableFocusRing()
++                        .clickable(enabled = app != null) { app?.let(onLaunchApp) }
++                        .padding(vertical = 8.dp),
++                verticalAlignment = Alignment.CenterVertically,
++            ) {
++                Column(modifier = Modifier.weight(1f)) {
++                    Text(title, style = MaterialTheme.typography.titleMedium)
++                    Text(
++                        text =
++                            when (datum.availability) {
++                                LiveAvailability.LIVE, LiveAvailability.EMPTY -> datum.detail
++                                else -> if (app == null) "not installed" else "open ${app.label}"
++                            },
++                        style = MaterialTheme.typography.bodyMedium,
++                        color = MaterialTheme.colorScheme.onSurfaceVariant,
++                        maxLines = 1,
++                        overflow = TextOverflow.Ellipsis,
++                    )
++                }
++            }
++        }
++        if (hubApp != null) {
++            item {
++                Spacer(Modifier.height(12.dp))
++                MetroLink(text = "open Sable Hub", onClick = { onLaunchApp(hubApp) })
++            }
++        }
++    }
++}
++
+ /** Pinned favorites on Start: up to four apps under the tiles, Peek on long press. */
+ @Composable
+ private fun FavoritesRow(
+@@ -1446,8 +1600,12 @@ private fun AppsScreen(
+     onLaunchApp: (AppEntry) -> Unit,
+     onOpenPeek: (AppEntry) -> Unit,
+     onOpenAppInfo: (AppEntry) -> Unit,
++    privateSpaceLocked: Boolean?,
++    onTogglePrivateSpace: () -> Unit,
+ ) {
+-    val rows = remember(apps) { buildRailRows(apps) }
++    // Private Space apps live in their own section at the end, never in the A-Z list.
++    val (privateApps, listedApps) = remember(apps) { apps.partition { it.profileLabel == PROFILE_PRIVATE_LABEL } }
++    val rows = remember(listedApps) { buildRailRows(listedApps) }
+     val keys = remember(rows) { rows.map { it.app.stableKey() } }
+     val labels = remember(rows) { rows.map { it.app.label } }
+     // One alphabet-index concept: section headers, the right-hand rail and
+@@ -1553,7 +1711,7 @@ private fun AppsScreen(
+             SearchLaunchButton(onClick = onSearch)
+             Spacer(Modifier.height(12.dp))
+ 
+-            if (rows.isEmpty()) {
++            if (rows.isEmpty() && privateSpaceLocked == null) {
+                 EmptyState("No launchable apps are available.")
+             } else {
+                 LazyColumn(
+@@ -1596,6 +1754,17 @@ private fun AppsScreen(
+                                     }.onPreviewKeyEvent { event -> onRowKey(index, event) },
+                         )
+                     }
++                    if (privateSpaceLocked != null) {
++                        item(key = "private-space") {
++                            PrivateSpaceSection(
++                                locked = privateSpaceLocked,
++                                apps = privateApps,
++                                onToggle = onTogglePrivateSpace,
++                                onLaunchApp = onLaunchApp,
++                                onOpenPeek = onOpenPeek,
++                            )
++                        }
++                    }
+                 }
+             }
+         }
+@@ -1614,6 +1783,70 @@ private fun AppsScreen(
+     }
+ }
+ 
++/**
++ * Private Space at the end of All Apps: one row that locks or unlocks it
++ * (the system asks for its credential), and its apps only while unlocked.
++ */
++@Composable
++private fun PrivateSpaceSection(
++    locked: Boolean,
++    apps: List<AppEntry>,
++    onToggle: () -> Unit,
++    onLaunchApp: (AppEntry) -> Unit,
++    onOpenPeek: (AppEntry) -> Unit,
++) {
++    Column(modifier = Modifier.fillMaxWidth().padding(top = 18.dp)) {
++        Text(
++            text = "private space",
++            style = MaterialTheme.typography.headlineLarge,
++            color = MaterialTheme.colorScheme.primary,
++            modifier = Modifier.semantics { heading() },
++        )
++        Row(
++            modifier =
++                Modifier
++                    .fillMaxWidth()
++                    .heightIn(min = 54.dp)
++                    .sableFocusRing()
++                    .clickable(onClick = onToggle)
++                    .padding(vertical = 8.dp),
++            verticalAlignment = Alignment.CenterVertically,
++        ) {
++            Text(
++                text = if (locked) "🔒" else "🔓",
++                modifier = Modifier.width(38.dp),
++                fontSize = 20.sp,
++            )
++            Column(modifier = Modifier.weight(1f)) {
++                Text(
++                    text = if (locked) "Unlock private space" else "Lock private space",
++                    style = MaterialTheme.typography.bodyLarge,
++                    fontWeight = FontWeight.Medium,
++                )
++                Text(
++                    text =
++                        if (locked) {
++                            "Its apps stay hidden and stopped until you unlock"
++                        } else {
++                            "${apps.size} apps · locking stops them and hides them again"
++                        },
++                    style = MaterialTheme.typography.bodyMedium,
++                    color = MaterialTheme.colorScheme.onSurfaceVariant,
++                )
++            }
++        }
++        if (!locked) {
++            apps.forEach { app ->
++                AppRow(
++                    app = app,
++                    onClick = { onLaunchApp(app) },
++                    onContext = { onOpenPeek(app) },
++                )
++            }
++        }
++    }
++}
++
+ @Composable
+ private fun SearchScreen(
+     apps: List<AppEntry>,
+@@ -2723,6 +2956,7 @@ private fun LiveSurfaceScreen(
+     apps: List<AppEntry>,
+     onBack: () -> Unit,
+     onRequestPermissions: () -> Unit,
++    title: String = "live",
+ ) {
+     LazyColumn(
+         modifier =
+@@ -2733,7 +2967,7 @@ private fun LiveSurfaceScreen(
+     ) {
+         item {
+             Text(
+-                text = "live",
++                text = title,
+                 style = MaterialTheme.typography.displayLarge,
+             )
+             Text(
+@@ -3339,6 +3573,13 @@ private val StatusRingsInlineMinWidth = 500.dp
+ private const val MAX_FAVORITES_ON_START = 4
+ private const val MAX_SESSION_RECENTS = 8
+ private const val KEYCODE_DEL = 67
++private const val START_PAGE_COUNT = 3
++private const val START_PAGE_GLANCE = 0
++private const val START_PAGE_CENTER = 1
++private const val START_PAGE_HUB = 2
++
++// Matches LauncherAppsRepository.PROFILE_PRIVATE.
++private const val PROFILE_PRIVATE_LABEL = "private"
+ private const val HUB_PACKAGE = "org.sableos.hub"
+ private const val HUB_EXTRA_QUERY = "org.sableos.hub.extra.QUERY"
+ private const val LAUNCHER_ICON_CACHE_ENTRIES = 160
