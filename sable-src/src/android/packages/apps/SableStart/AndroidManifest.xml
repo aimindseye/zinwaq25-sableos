@@ -48,6 +48,12 @@
                 <category android:name="android.intent.category.HOME" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+
+            <!-- Settings > Sable > Quick bar: opens the quick bar editor. -->
+            <intent-filter>
+                <action android:name="org.sableos.start.action.EDIT_QUICK_BAR" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
     </application>
 </manifest>

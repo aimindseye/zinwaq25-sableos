@@ -11,7 +11,10 @@
   for the detekt/ktlint gates and dependency-verification entries GitHub Actions needs, 0012 the
   Q25 camera profile's remosaic sizes (the optional 50 MP size is High-res only, never Auto), 0013
   hardware keys on the Sable Calculator keypad, and Sable Keyboard's Ctrl+1/2/3 (or Ctrl+W/E/R)
-  candidate picks and its optional Enter-to-send.
+  candidate picks and its optional Enter-to-send; 0016 the Settings entry points: App display
+  compatibility opens one app's profile from `org.sableos.titan2.displaycompat.action.APP_PROFILE`
+  with a `package:` URI (pure parsing in `core/ProfileLink.kt`, host-tested), and Sable Start opens
+  its quick bar editor from `org.sableos.start.action.EDIT_QUICK_BAR` (SableStartActivity only).
   Applied in order to a
   fresh import they reproduce `sable-src/` exactly. Regenerate a patch with `git diff` against a
   fresh import when you change these files.
@@ -40,6 +43,8 @@
 | `framework/packages/apps/Settings/0603-SableOS-Network-Manager-in-Settings-Apps-Network-acc.patch` | `8d8f6486b274bcf0aa6e5d0cbba52c0b05ae5c65` + 0101-0602 | settings-ui5: Settings > Apps > Network access, one switch per UID that adds or removes `POLICY_REJECT_ALL` (the store App info uses), confirmation for messaging apps, keyboard type-ahead; exported action `org.sableos.settings.NETWORK_MANAGER`. Needs 0201/0202. |
 | `framework/packages/apps/Settings/0604-SableOS-read-only-App-security-privacy-page.patch` | `8d8f6486b274bcf0aa6e5d0cbba52c0b05ae5c65` + 0101-0603 | settings-ui5: read-only App security & privacy page (identity, effective access, components, code, network, history; each fact tagged DECLARED/ENFORCED/OBSERVED/INFERRED/UNKNOWN), from Settings > Apps and App info; exported action `org.sableos.settings.APP_SECURITY` (plain or with a `package:` URI). |
 | `framework/packages/apps/Settings/0901-SableOS-Keyboard-light-switch-and-brightness-in-Sett.patch` | `8d8f6486b274bcf0aa6e5d0cbba52c0b05ae5c65` + 0101-0604 | Keyboard light: Settings > System > Keyboard gets a Keyboard backlight switch and a ten-step Brightness slider, shown only when `ro.sable.keyboard_backlight` is true (set by the Q4 layer). They write `persist.sys.sable.kbd_backlight` (0/1) and `persist.sys.sable.kbd_backlight_level` (1-255); `product/q25/init/sable-keyboard-backlight.rc` copies them to the driver. Pure mapping in `sable/SableKeyboardBacklight.java`, host-tested by `tests/java/SableKeyboardBacklightTest.java`. Not run on hardware. |
+| `framework/packages/apps/Settings/1001-SableOS-Sable-entries-in-Settings-Display-and-App-in.patch` | `8d8f6486b274bcf0aa6e5d0cbba52c0b05ae5c65` + 0101-0901 | Sable entries: a Settings > Sable homepage row and page (Sable Start home layout, Quick bar editor, Sable Hub, Diagnostics and Hardware tests in Sable Tools, App display compatibility), Settings > Display > App display compatibility, and App info > Display compatibility (that app's profile; launcher apps of the current user). Every link resolves to an explicit component in its owner's package, so rows of absent apps are hidden and not indexed. The Sable page is in Settings search ("display compat", "quick bar", "diagnostics", "factory test"). Needs sable-src 0016 for the Quick bar and per-app rows (they stay hidden without it). Uses `SableAppListKeyboard` from 0603. |
+| `framework/packages/apps/Settings/1002-SableOS-keyboard-type-ahead-on-the-Settings-homepage.patch` | `8d8f6486b274bcf0aa6e5d0cbba52c0b05ae5c65` + 0101-1001 | Homepage keys: with no text field focused, printable keys move focus to the matching top-level row (800 ms, accent-insensitive, repeat cycles; S Sound, SY System), per-row extra words that rank after titles ("vol" Sound, "lang" System); `/`, Search or Ctrl+K open search; Home/End/Page move. `SableAppListKeyboard.attachToWindow` listens on the homepage window, so it also works from the search bar. |
 | `framework/kernel/xelex/mt6789/0901-SableOS-let-the-system-set-the-Q25-keyboard-backligh.patch` | `2a873a3511ee0eeead1442e60145093192a4535d` | Keyboard light: the `bbqX0kbd` keyboard driver gets `kbd_backlight` (0/1) and `kbd_backlight_level` (1-255) module parameters. Writing one applies it at once; probe and screen-on resume restore that choice instead of always full brightness. Right-Alt + Z/X/0 still work until the screen next turns off. Uncompiled; not run on hardware. |
 | `framework/frameworks/base/0301-SableOS-keyboard-notification-commands-in-the-shade.patch` | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` | KF-A: contextual single-key commands on a focused notification row (Space, R, D, Z, M, C, H); text input always wins. New router, command glue and a router unit test; three small hooks in `ExpandableNotificationRow`. |
 | `framework/packages/apps/SetupWizard/0401-SableOS-keyboard-first-focus-in-setup-steps.patch` | `715b772f07c52ce0fdb83b9891765f3de992ffb5` | IR-014: on a hardware keyboard the first key with nothing focused lands on the step's first text field, else Start/Next; MoveHome/MoveEnd jump to the first/last control; a held Enter/Space/Tab does not repeat; Enter in the last text field runs the primary action. Every other key keeps its platform meaning, and failures fall back to it. Pure policy: `sable/SableKeyPolicy.java`. |
@@ -56,7 +61,8 @@ branding), 0200-0299 Battery, 0300-0399 KF-A (notification policy, attention,
 Hub), 0400-0499 setup wizard (IR-014), 0600-0699 settings-ui5 (Applications
 privacy, Network Manager, App security), 0700-0799 Phone + Contacts (0701-0749
 Dialer, 0751-0799 Contacts), 0800-0899 R9 daily-driver core apps (Clock,
-Files, Photos, Camera, Browser presentation). Each patch was checked against its base
+Files, Photos, Camera, Browser presentation), 0900-0999 keyboard light, 1000-1099 Settings
+entries, search and homepage keys for the Sable apps. Each patch was checked against its base
 commit; patches of one project are applied in name order and may build on each
 other (`apply-framework-patches.sh check` tries them in sequence). No LineageOS
 build ran here. `tests/framework/run-pure-tests.sh` unit-tests the pure classes
