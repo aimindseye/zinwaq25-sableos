@@ -72,6 +72,210 @@ def copy_icon_resources(dest_res: Path) -> None:
         write(dest_res / f.relative_to(source), f.read_text(encoding="utf-8"))
 
 
+SABLE_KEYMAP_SOURCES = (
+    "main/java/com/fsck/k9/activity/SableMailKeymap.kt",
+    "test/java/com/fsck/k9/activity/SableMailKeymapTest.kt",
+)
+
+
+def apply_keyboard_model(root: Path) -> None:
+    """Sable Mail keyboard model (MAIL_CALENDAR_PRODUCTIVITY_UX.md, shared keyboard contract).
+
+    The pure keymap and its unit test (src/ next to this script) go into the legacy UI module;
+    MessageHomeActivity routes every key-down through it instead of the upstream K-9 hotkeys,
+    MessageCompose gains Ctrl+Enter / Alt+Enter send and Esc cancel, and delete asks for
+    confirmation by default.
+    """
+    source = Path(__file__).resolve().parent / "src"
+    module = root / "legacy/ui/legacy/src"
+    for relative in SABLE_KEYMAP_SOURCES:
+        write(module / relative, (source / relative).read_text(encoding="utf-8"))
+
+    home = module / "main/java/com/fsck/k9/activity/MessageHomeActivity.kt"
+    replace_once(
+        home,
+        "import android.widget.ProgressBar\n",
+        "import android.graphics.Rect\n"
+        "import android.view.ViewGroup\n"
+        "import android.widget.EditText\n"
+        "import android.widget.ProgressBar\n"
+        "import android.widget.ScrollView\n"
+        "import androidx.recyclerview.widget.LinearLayoutManager\n"
+        "import androidx.recyclerview.widget.RecyclerView\n",
+    )
+    replace_once(
+        home,
+        """        if (event.action == KeyEvent.ACTION_DOWN && isSearchViewCollapsed()) {
+            eventHandled = onCustomKeyDown(event)
+        }
+""",
+        """        if (event.action == KeyEvent.ACTION_DOWN) {
+            eventHandled = onSableKeyDown(event)
+        }
+""",
+    )
+    replace_once(
+        home,
+        "    private fun onDeleteHotKey() {\n",
+        '''    /**
+     * Sable Mail keyboard model. [SableMailKeymap] owns every single-key command; only volume-key
+     * and Left/Right reader navigation still reach the upstream [onCustomKeyDown].
+     * TEXT_INPUT_ALWAYS_WINS: while the search field (or any text field) has focus only Esc is taken.
+     */
+    private fun onSableKeyDown(event: KeyEvent): Boolean {
+        val press = SableMailKeyPress.from(event)
+        val textInputActive = !isSearchViewCollapsed() || currentFocus is EditText
+        val command = SableMailKeymap.command(press, textInputActive)
+        return when {
+            command != null -> runSableMailCommand(command)
+            SableMailKeymap.upstreamFallbackAllowed(press, textInputActive) -> onCustomKeyDown(event)
+            else -> false
+        }
+    }
+
+    private val hasOpenSableMessage: Boolean
+        get() = messageViewContainerFragment != null && displayMode != DisplayMode.MESSAGE_LIST
+
+    @Suppress("CyclomaticComplexMethod", "LongMethod")
+    private fun runSableMailCommand(command: SableMailCommand): Boolean {
+        val list = messageListFragment ?: return false
+        val message = messageViewContainerFragment.takeIf { hasOpenSableMessage }
+        when (command) {
+            SableMailCommand.COMPOSE -> list.onCompose()
+            SableMailCommand.TOP -> {
+                if (displayMode == DisplayMode.MESSAGE_VIEW) showMessageList()
+                moveSableListFocus(SableListMove.TOP)
+            }
+            SableMailCommand.NEXT -> {
+                if (message != null) showNextMessage() else moveSableListFocus(SableListMove.NEXT)
+            }
+            SableMailCommand.PREVIOUS -> {
+                if (message != null) showPreviousMessage() else moveSableListFocus(SableListMove.PREVIOUS)
+            }
+            SableMailCommand.REPLY -> message?.onReply()
+            SableMailCommand.REPLY_ALL -> message?.onReplyAll()
+            SableMailCommand.FORWARD -> message?.onForward()
+            SableMailCommand.DELETE -> onDeleteHotKey()
+            SableMailCommand.SEARCH -> {
+                if (displayMode == DisplayMode.MESSAGE_VIEW) showMessageList()
+                list.expandSearchView()
+            }
+            SableMailCommand.VIEW_MODE -> list.onCycleSort()
+            SableMailCommand.PAGE_DOWN -> pageSable(down = true)
+            SableMailCommand.PAGE_UP -> pageSable(down = false)
+            SableMailCommand.BACK -> onBackPressedDispatcher.onBackPressed()
+            SableMailCommand.ARCHIVE -> if (message != null) message.onArchive() else list.onArchive()
+            SableMailCommand.SELECT -> list.toggleMessageSelect()
+            SableMailCommand.TOGGLE_FLAG -> if (message != null) message.onToggleFlagged() else list.onToggleFlagged()
+            SableMailCommand.MOVE -> if (message != null) message.onMove() else list.onMove()
+            SableMailCommand.COPY -> if (message != null) message.onCopy() else list.onCopy()
+            SableMailCommand.TOGGLE_READ -> if (message != null) message.onToggleRead() else list.onToggleRead()
+            SableMailCommand.REVERSE_SORT -> list.onReverseSort()
+        }
+        return true
+    }
+
+    /** Moves keyboard focus in the message list: next/previous row, a page, or the newest message. */
+    private fun moveSableListFocus(move: SableListMove) {
+        val recycler = findViewById<RecyclerView>(R.id.message_list) ?: return
+        val layoutManager = recycler.layoutManager as? LinearLayoutManager ?: return
+        val focused = recycler.focusedChild?.let { recycler.getChildAdapterPosition(it) } ?: RecyclerView.NO_POSITION
+        val target =
+            SableMailKeymap.listTarget(
+                move = move,
+                focused = focused,
+                firstVisible = layoutManager.findFirstVisibleItemPosition(),
+                lastVisible = layoutManager.findLastVisibleItemPosition(),
+                itemCount = layoutManager.itemCount,
+            ) ?: return
+        layoutManager.scrollToPosition(target)
+        recycler.post { recycler.findViewHolderForAdapterPosition(target)?.itemView?.requestFocus() }
+    }
+
+    /** Space / Shift+Space: page the open message body, else page the message list. */
+    private fun pageSable(down: Boolean) {
+        val body = if (hasOpenSableMessage) findVisibleMessageBody(messageViewContainerFragment?.view) else null
+        if (body != null) {
+            body.pageScroll(if (down) View.FOCUS_DOWN else View.FOCUS_UP)
+        } else {
+            moveSableListFocus(if (down) SableListMove.PAGE_DOWN else SableListMove.PAGE_UP)
+        }
+    }
+
+    /** The on-screen message body scroller; the view pager also keeps neighbouring messages laid out. */
+    private fun findVisibleMessageBody(root: View?): ScrollView? =
+        when {
+            root == null || !root.isShown -> null
+            root is ScrollView && root.id == R.id.message_scrollview && root.getGlobalVisibleRect(Rect()) -> root
+            root is ViewGroup ->
+                (0 until root.childCount).firstNotNullOfOrNull { findVisibleMessageBody(root.getChildAt(it)) }
+            else -> null
+        }
+
+    private fun onDeleteHotKey() {
+''',
+    )
+
+    compose = module / "main/java/com/fsck/k9/activity/MessageCompose.java"
+    replace_once(
+        compose,
+        "    @Override\n    public boolean onOptionsItemSelected(MenuItem item) {\n",
+        """    /** Sable Mail: Ctrl+Enter (Alt+Enter on the Q25, which has no Ctrl) sends; Esc cancels like Back. */
+    @Override
+    public boolean dispatchKeyEvent(android.view.KeyEvent event) {
+        if (event.getAction() == android.view.KeyEvent.ACTION_DOWN) {
+            SableComposeCommand command = SableMailKeymap.INSTANCE.composeCommand(SableMailKeyPress.Companion.from(event));
+            if (command == SableComposeCommand.SEND) {
+                checkToSendMessage();
+                return true;
+            }
+            if (command == SableComposeCommand.CANCEL) {
+                getOnBackPressedDispatcher().onBackPressed();
+                return true;
+            }
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+""",
+    )
+
+    # VISIBLE_KEYBOARD_FOCUS: a 2 dp accent ring on the focused message row, over the upstream ripple.
+    res = module / "main/res"
+    write(
+        res / "drawable/sable_mail_list_item_foreground.xml",
+        """<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="?attr/selectableItemBackground" />
+    <item>
+        <selector>
+            <item android:state_focused="true">
+                <shape android:shape="rectangle">
+                    <stroke
+                        android:width="2dp"
+                        android:color="?attr/colorPrimary" />
+                </shape>
+            </item>
+        </selector>
+    </item>
+</layer-list>
+""",
+    )
+    replace_once(
+        res / "layout/message_list_item.xml",
+        'android:foreground="?attr/selectableItemBackground"',
+        'android:foreground="@drawable/sable_mail_list_item_foreground"',
+    )
+
+    replace_once(
+        root / "core/preference/api/src/commonMain/kotlin/net/thunderbird/core/preference/interaction/InteractionSettings.kt",
+        "const val INTERACTION_SETTINGS_DEFAULT_CONFIRM_DELETE = false",
+        "const val INTERACTION_SETTINGS_DEFAULT_CONFIRM_DELETE = true",
+    )
+
+
 def git_head(root: Path) -> str:
     return subprocess.check_output(
         ["git", "-C", str(root), "rev-parse", "HEAD"],
@@ -1175,6 +1379,7 @@ class SableMailSnapshotProvider : ContentProvider() {
     in_checkout(manifest).write_text(manifest_text, encoding="utf-8")
 
     copy_icon_resources(app / "src/main/res")
+    apply_keyboard_model(root)
     write(
         app / "src/main/res/drawable/ic_sable_mail_notification.xml",
         '''<vector xmlns:android="http://schemas.android.com/apk/res/android"
@@ -1263,6 +1468,8 @@ class SableMailSnapshotProvider : ContentProvider() {
     print("SABLE_MAIL_OAUTH=DISABLED_UNTIL_SABLE_CLIENT_REGISTRATION")
     print("SABLE_MAIL_GENERIC_IMAP_SMTP=UPSTREAM")
     print("SABLE_MAIL_GLOBAL_APPEARANCE=FOLLOW_SYSTEM_LIGHT_DARK_PLUS_5_ACCENTS")
+    print("SABLE_MAIL_KEYMAP=SABLE_SHARED_CONTRACT_INPUT_GUARDED")
+    print("SABLE_MAIL_DELETE_CONFIRMATION=DEFAULT_ON")
     print("SABLE_MAIL_PATCH=PASS")
 
 

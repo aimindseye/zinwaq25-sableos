@@ -494,6 +494,47 @@ def verify_product_sources(root: pathlib.Path, app: pathlib.Path) -> None:
         "SABLE_MAIL_REMOTE_CONTENT_PRIVACY",
     )
     print("SABLE_MAIL_REMOTE_CONTENT_PRIVACY=PASS_UPSTREAM_PRESERVED")
+
+    # Keyboard model: the Sable keymap owns single-key commands, with the input guard,
+    # Ctrl/Alt+Enter send and delete confirmation on by default.
+    legacy_activity = root / "legacy/ui/legacy/src/main/java/com/fsck/k9/activity"
+    keymap_source = legacy_activity / "SableMailKeymap.kt"
+    if not keymap_source.is_file():
+        fail("SABLE_MAIL_KEYMAP", f"missing={keymap_source}")
+    if not (root / "legacy/ui/legacy/src/test/java/com/fsck/k9/activity/SableMailKeymapTest.kt").is_file():
+        fail("SABLE_MAIL_KEYMAP", "missing unit test")
+    home_activity = legacy_activity / "MessageHomeActivity.kt"
+    require_text(home_activity, "eventHandled = onSableKeyDown(event)", "SABLE_MAIL_KEYMAP")
+    reject_text(home_activity, "eventHandled = onCustomKeyDown(event)", "SABLE_MAIL_KEYMAP")
+    require_text(
+        home_activity,
+        "val textInputActive = !isSearchViewCollapsed() || currentFocus is EditText",
+        "SABLE_MAIL_KEYMAP_INPUT_GUARD",
+    )
+    require_text(
+        home_activity,
+        "SableMailKeymap.upstreamFallbackAllowed(press, textInputActive) -> onCustomKeyDown(event)",
+        "SABLE_MAIL_KEYMAP",
+    )
+    require_text(
+        legacy_activity / "MessageCompose.java",
+        "SableMailKeymap.INSTANCE.composeCommand(",
+        "SABLE_MAIL_COMPOSE_SEND_KEY",
+    )
+    require_text(
+        root / "core/preference/api/src/commonMain/kotlin/net/thunderbird/core/preference/interaction/InteractionSettings.kt",
+        "const val INTERACTION_SETTINGS_DEFAULT_CONFIRM_DELETE = true",
+        "SABLE_MAIL_DELETE_CONFIRMATION",
+    )
+    require_text(
+        root / "legacy/ui/legacy/src/main/res/layout/message_list_item.xml",
+        'android:foreground="@drawable/sable_mail_list_item_foreground"',
+        "SABLE_MAIL_FOCUS_RING",
+    )
+    print("SABLE_MAIL_KEYMAP=PASS_SABLE_SHARED_CONTRACT")
+    print("SABLE_MAIL_FOCUS_RING=PASS")
+    print("SABLE_MAIL_KEYMAP_INPUT_GUARD=PASS")
+    print("SABLE_MAIL_DELETE_CONFIRMATION=PASS_DEFAULT_ON")
     print("SABLE_MAIL_PRODUCT_BRANDING_SOURCE=PASS")
 
 

@@ -46,6 +46,8 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:1.9.2")
     implementation("androidx.media3:media3-session:1.9.2")
     debugImplementation("androidx.compose.ui:ui-tooling")
+
+    testImplementation("junit:junit:4.13.2")
 }
 
 extensions.configure<io.gitlab.arturbosch.detekt.extensions.DetektExtension> {
