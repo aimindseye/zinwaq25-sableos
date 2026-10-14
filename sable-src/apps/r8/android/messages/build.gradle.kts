@@ -16,6 +16,14 @@ android {
         versionName = "0.1.0"
     }
 
+    buildTypes {
+        release {
+            // The image ships the debug variant (product/q25/apps.tsv); a release build is shrunk and obfuscated.
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+        }
+    }
+
     buildFeatures {
         compose = true
     }
