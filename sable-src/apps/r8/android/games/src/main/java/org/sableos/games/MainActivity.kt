@@ -7,6 +7,8 @@ import org.sableos.design.SableGlobalTheme
 import org.sableos.design.SableHeroHeader
 import org.sableos.design.SableScrollableScreen
 
+private const val GAMES_EYEBROW = "Sable Games"
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -19,7 +21,7 @@ class MainActivity : ComponentActivity() {
                     when (BuildConfig.SABLE_GAME) {
                         "sudoku" -> {
                             SableHeroHeader(
-                                eyebrow = "Sable Games",
+                                eyebrow = GAMES_EYEBROW,
                                 title = "sudoku",
                                 subtitle = "A focused number puzzle.",
                             )
@@ -28,7 +30,7 @@ class MainActivity : ComponentActivity() {
 
                         "minesweeper" -> {
                             SableHeroHeader(
-                                eyebrow = "Sable Games",
+                                eyebrow = GAMES_EYEBROW,
                                 title = "minesweeper",
                                 subtitle = "Clear the field without touching a mine.",
                             )
@@ -37,7 +39,7 @@ class MainActivity : ComponentActivity() {
 
                         "2048" -> {
                             SableHeroHeader(
-                                eyebrow = "Sable Games",
+                                eyebrow = GAMES_EYEBROW,
                                 title = "2048",
                                 subtitle = "Slide, merge and build the highest tile.",
                             )

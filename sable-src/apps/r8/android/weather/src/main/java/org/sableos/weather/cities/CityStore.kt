@@ -11,7 +11,9 @@ interface KeyValueStore {
 
     fun put(key: String, value: String)
 
-    fun remove(key: String) {}
+    fun remove(key: String) {
+        // Optional: a store that never needs cache cleanup can keep entries; the default does nothing.
+    }
 
     fun keys(): Set<String> = emptySet()
 }
