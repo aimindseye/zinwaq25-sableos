@@ -1,0 +1,850 @@
+From e32fdcb3ce22ef25b2c4a479f00b68e3cdd0be32 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sun, 11 Oct 2026 08:25:29 +0000
+Subject: [PATCH 1001/1002] SableOS: Sable entries in Settings, Display and App
+ info
+
+KEYBOARD_FIRST_SETTINGS_UX and APP_DISPLAY_COMPATIBILITY_PROFILES_UX
+entry points into the Sable apps that own these settings. Settings only
+opens them; the settings stay in their apps.
+
+* Settings > Sable (homepage row after System): Sable Start (home
+  layout), Quick bar (Sable Start's editor, action
+  org.sableos.start.action.EDIT_QUICK_BAR), Sable Hub, Diagnostics
+  (Sable Tools), Hardware tests (Sable Tools OPEN_TOOL HARDWARE_TESTS)
+  and App display compatibility.
+* Settings > Display > App display compatibility.
+* App info > Display compatibility opens that app's profile
+  (org.sableos.titan2.displaycompat.action.APP_PROFILE with a package:
+  URI); launcher apps of the current user only.
+
+Every link resolves to an explicit component in its owner's package,
+so a row is hidden when its app is absent, and the homepage row when
+all are. The Sable page is search-indexed with keywords (display
+compat, quick bar, diagnostics, factory test, ...); rows of absent apps
+are non-indexable and the page is left out of search when no owner is
+installed. The page gets the Sable list keyboard (type-ahead, /
+search, Home/End).
+---
+ res/drawable/ic_homepage_sable.xml            |  32 ++++
+ res/drawable/ic_sable_settings_expressive.xml |  20 +++
+ res/drawable/ic_sable_settings_filled.xml     |  27 ++++
+ res/values/strings_sable_settings.xml         |  74 ++++++++++
+ res/xml/app_info_settings.xml                 |   7 +
+ res/xml/display_settings.xml                  |   8 +
+ res/xml/sable_settings.xml                    |  68 +++++++++
+ res/xml/top_level_settings.xml                |  11 ++
+ res/xml/top_level_settings_expressive.xml     |  11 ++
+ .../appinfo/AppInfoDashboardFragment.java     |   2 +
+ ...eDisplayCompatAppPreferenceController.java |  93 ++++++++++++
+ .../sable/SableLinkPreferenceController.java  |  65 ++++++++
+ .../android/settings/sable/SableLinks.java    | 139 ++++++++++++++++++
+ .../settings/sable/SableSettingsFragment.java |  79 ++++++++++
+ .../TopLevelSablePreferenceController.java    |  34 +++++
+ 15 files changed, 670 insertions(+)
+ create mode 100644 res/drawable/ic_homepage_sable.xml
+ create mode 100644 res/drawable/ic_sable_settings_expressive.xml
+ create mode 100644 res/drawable/ic_sable_settings_filled.xml
+ create mode 100644 res/values/strings_sable_settings.xml
+ create mode 100644 res/xml/sable_settings.xml
+ create mode 100644 src/com/android/settings/sable/SableDisplayCompatAppPreferenceController.java
+ create mode 100644 src/com/android/settings/sable/SableLinkPreferenceController.java
+ create mode 100644 src/com/android/settings/sable/SableLinks.java
+ create mode 100644 src/com/android/settings/sable/SableSettingsFragment.java
+ create mode 100644 src/com/android/settings/sable/TopLevelSablePreferenceController.java
+
+diff --git a/res/drawable/ic_homepage_sable.xml b/res/drawable/ic_homepage_sable.xml
+new file mode 100644
+index 00000000000..38462d85455
+--- /dev/null
++++ b/res/drawable/ic_homepage_sable.xml
+@@ -0,0 +1,32 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
++
++    <item>
++        <com.android.settingslib.widget.AdaptiveIconShapeDrawable
++            android:width="@dimen/dashboard_tile_image_size"
++            android:height="@dimen/dashboard_tile_image_size"
++            android:color="@color/homepage_system_background" />
++    </item>
++
++    <item
++        android:width="@dimen/dashboard_tile_foreground_image_size"
++        android:height="@dimen/dashboard_tile_foreground_image_size"
++        android:start="@dimen/dashboard_tile_foreground_image_inset"
++        android:top="@dimen/dashboard_tile_foreground_image_inset"
++        android:drawable="@drawable/ic_sable_settings_expressive" />
++</layer-list>
+diff --git a/res/drawable/ic_sable_settings_expressive.xml b/res/drawable/ic_sable_settings_expressive.xml
+new file mode 100644
+index 00000000000..b3a30e1b461
+--- /dev/null
++++ b/res/drawable/ic_sable_settings_expressive.xml
+@@ -0,0 +1,20 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<com.android.settings.widget.TintDrawable
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    android:drawable="@drawable/ic_sable_settings_filled"
++    android:tint="@color/homepage_system_foreground" />
+diff --git a/res/drawable/ic_sable_settings_filled.xml b/res/drawable/ic_sable_settings_filled.xml
+new file mode 100644
+index 00000000000..13a0acb6fce
+--- /dev/null
++++ b/res/drawable/ic_sable_settings_filled.xml
+@@ -0,0 +1,27 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<!-- SableOS: glyph for the Settings > Sable row (four tiles: Start, Hub, Tools, Display compat). -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp"
++    android:height="24dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24"
++    android:tint="?android:attr/colorControlNormal">
++    <path
++        android:fillColor="@android:color/white"
++        android:pathData="M3,13h8V3H3v10zM3,21h8v-6H3v6zM13,21h8V11h-8v10zM13,3v6h8V3h-8z"/>
++</vector>
+diff --git a/res/values/strings_sable_settings.xml b/res/values/strings_sable_settings.xml
+new file mode 100644
+index 00000000000..c56e4c6cdc4
+--- /dev/null
++++ b/res/values/strings_sable_settings.xml
+@@ -0,0 +1,74 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<resources>
++    <!-- Highlight key of the Settings > Sable homepage row. -->
++    <string name="menu_key_sable" translatable="false">top_level_sable</string>
++
++    <!-- Settings homepage row and page title for the Sable apps that own some system settings. -->
++    <string name="sable_settings_title">Sable</string>
++    <!-- Summary of the Settings > Sable homepage row. -->
++    <string name="sable_settings_summary">Start layout, quick bar, Hub, diagnostics, app display</string>
++    <!-- Search keywords for the Settings > Sable page. -->
++    <string name="sable_settings_keywords">sable, sableos, sable start, launcher, home, quick bar, hub, tools, diagnostics, display compat</string>
++
++    <!-- Settings > Sable: Sable Start (the home screen) row. -->
++    <string name="sable_start_title">Sable Start</string>
++    <!-- Summary of the Sable Start row. -->
++    <string name="sable_start_summary">Home layout: Start tiles, pages and All apps</string>
++    <!-- Search keywords for the Sable Start row. -->
++    <string name="sable_start_keywords">home, home screen, launcher, start, layout, tiles, pages</string>
++
++    <!-- Settings > Sable: the Sable Start quick bar editor. -->
++    <string name="sable_quick_bar_title">Quick bar</string>
++    <!-- Summary of the Quick bar row. -->
++    <string name="sable_quick_bar_summary">Choose, order and reset the Start quick bar slots</string>
++    <!-- Search keywords for the Quick bar row. -->
++    <string name="sable_quick_bar_keywords">quick bar, quickbar, base bar, dock, shortcuts, favorites, slots</string>
++
++    <!-- Settings > Sable: Sable Hub row. -->
++    <string name="sable_hub_title">Sable Hub</string>
++    <!-- Summary of the Sable Hub row. -->
++    <string name="sable_hub_summary">Messages and notifications in one place, connected apps</string>
++    <!-- Search keywords for the Sable Hub row. -->
++    <string name="sable_hub_keywords">hub, inbox, unified inbox, connected apps, notification hub</string>
++
++    <!-- Settings > Sable: Sable Tools diagnostics row. -->
++    <string name="sable_diagnostics_title">Diagnostics</string>
++    <!-- Summary of the Diagnostics row. -->
++    <string name="sable_diagnostics_summary">Sable Tools: keyboard, display, sensors, radio and reports</string>
++    <!-- Search keywords for the Diagnostics row. -->
++    <string name="sable_diagnostics_keywords">diagnostics, sable tools, tools, device profile, key test, keyboard test, sensors, radio information, report</string>
++
++    <!-- Settings > Sable: Sable Tools hardware test categories. -->
++    <string name="sable_hardware_tests_title">Hardware tests</string>
++    <!-- Summary of the Hardware tests row. -->
++    <string name="sable_hardware_tests_summary">Single tests by category, read-only</string>
++    <!-- Search keywords for the Hardware tests row. -->
++    <string name="sable_hardware_tests_keywords">hardware test, factory test, single test, 3377, engineering mode</string>
++
++    <!-- Settings > Sable and Settings > Display: App display compatibility (Display Compat app). -->
++    <string name="sable_display_compat_title">App display compatibility</string>
++    <!-- Summary of the App display compatibility rows. -->
++    <string name="sable_display_compat_summary">Per-app layout profiles for the square screen</string>
++    <!-- Search keywords for the App display compatibility rows. -->
++    <string name="sable_display_compat_keywords">display compat, display compatibility, app layout, square screen, aspect ratio, letterbox, app scaling, compatibility profile</string>
++
++    <!-- App info: this app's display compatibility profile. -->
++    <string name="sable_display_compat_app_title">Display compatibility</string>
++    <!-- Summary of the App info Display compatibility row. -->
++    <string name="sable_display_compat_app_summary">Layout profile for this app on the square screen</string>
++</resources>
+diff --git a/res/xml/app_info_settings.xml b/res/xml/app_info_settings.xml
+index 4acce3e1a35..49d2187697a 100644
+--- a/res/xml/app_info_settings.xml
++++ b/res/xml/app_info_settings.xml
+@@ -66,6 +66,13 @@
+         android:summary="@string/sable_app_security_entry_summary"
+         settings:controller="com.android.settings.applications.sable.SableAppSecurityPreferenceController" />
+ 
++    <!-- SableOS: this app's profile in App display compatibility. -->
++    <Preference
++        android:key="sable_display_compat_app"
++        android:title="@string/sable_display_compat_app_title"
++        android:summary="@string/sable_display_compat_app_summary"
++        settings:controller="com.android.settings.sable.SableDisplayCompatAppPreferenceController" />
++
+     <Preference
+         android:key="manage_target_app_function_access_settings"
+         android:title="@string/manage_target_app_function_access_settings_title"
+diff --git a/res/xml/display_settings.xml b/res/xml/display_settings.xml
+index e4fa9268fb3..a100bad9bf5 100644
+--- a/res/xml/display_settings.xml
++++ b/res/xml/display_settings.xml
+@@ -234,6 +234,14 @@
+             android:key="long_screen_settings"
+             settings:requiresConfig="@*lineageos.platform:bool/config_haveHigherAspectRatioScreen" />
+ 
++        <!-- SableOS: App display compatibility (hidden when the app is absent). -->
++        <Preference
++            android:key="sable_display_compat_display"
++            android:title="@string/sable_display_compat_title"
++            android:summary="@string/sable_display_compat_summary"
++            settings:keywords="@string/sable_display_compat_keywords"
++            settings:controller="com.android.settings.sable.SableLinkPreferenceController" />
++
+         <Preference
+             android:key="screensaver"
+             android:title="@string/screensaver_settings_title"
+diff --git a/res/xml/sable_settings.xml b/res/xml/sable_settings.xml
+new file mode 100644
+index 00000000000..9d2109acc67
+--- /dev/null
++++ b/res/xml/sable_settings.xml
+@@ -0,0 +1,68 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<!-- Settings > Sable: links into the Sable apps that own these settings. Each row is hidden,
++     and left out of search, when its app is not installed (SableLinkPreferenceController).
++     Row order is the keyboard focus order. -->
++<PreferenceScreen
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:settings="http://schemas.android.com/apk/res-auto"
++    android:key="sable_settings_screen"
++    android:title="@string/sable_settings_title"
++    settings:keywords="@string/sable_settings_keywords">
++
++    <Preference
++        android:key="sable_start"
++        android:title="@string/sable_start_title"
++        android:summary="@string/sable_start_summary"
++        settings:keywords="@string/sable_start_keywords"
++        settings:controller="com.android.settings.sable.SableLinkPreferenceController" />
++
++    <Preference
++        android:key="sable_start_quick_bar"
++        android:title="@string/sable_quick_bar_title"
++        android:summary="@string/sable_quick_bar_summary"
++        settings:keywords="@string/sable_quick_bar_keywords"
++        settings:controller="com.android.settings.sable.SableLinkPreferenceController" />
++
++    <Preference
++        android:key="sable_hub"
++        android:title="@string/sable_hub_title"
++        android:summary="@string/sable_hub_summary"
++        settings:keywords="@string/sable_hub_keywords"
++        settings:controller="com.android.settings.sable.SableLinkPreferenceController" />
++
++    <Preference
++        android:key="sable_tools_diagnostics"
++        android:title="@string/sable_diagnostics_title"
++        android:summary="@string/sable_diagnostics_summary"
++        settings:keywords="@string/sable_diagnostics_keywords"
++        settings:controller="com.android.settings.sable.SableLinkPreferenceController" />
++
++    <Preference
++        android:key="sable_tools_hardware_tests"
++        android:title="@string/sable_hardware_tests_title"
++        android:summary="@string/sable_hardware_tests_summary"
++        settings:keywords="@string/sable_hardware_tests_keywords"
++        settings:controller="com.android.settings.sable.SableLinkPreferenceController" />
++
++    <Preference
++        android:key="sable_display_compat"
++        android:title="@string/sable_display_compat_title"
++        android:summary="@string/sable_display_compat_summary"
++        settings:keywords="@string/sable_display_compat_keywords"
++        settings:controller="com.android.settings.sable.SableLinkPreferenceController" />
++</PreferenceScreen>
+diff --git a/res/xml/top_level_settings.xml b/res/xml/top_level_settings.xml
+index 7939c767091..d2327ff5b04 100644
+--- a/res/xml/top_level_settings.xml
++++ b/res/xml/top_level_settings.xml
+@@ -156,6 +156,17 @@
+             android:summary="@string/system_dashboard_summary"
+             settings:highlightableMenuKey="@string/menu_key_system"/>
+ 
++        <!-- SableOS: Sable Start, Hub, Tools diagnostics and App display compatibility. -->
++        <com.android.settings.widget.HomepagePreference
++            android:fragment="com.android.settings.sable.SableSettingsFragment"
++            android:icon="@drawable/ic_sable_settings_filled"
++            android:key="top_level_sable"
++            android:order="-15"
++            android:title="@string/sable_settings_title"
++            android:summary="@string/sable_settings_summary"
++            settings:highlightableMenuKey="@string/menu_key_sable"
++            settings:controller="com.android.settings.sable.TopLevelSablePreferenceController"/>
++
+         <com.android.settings.widget.HomepagePreference
+             android:fragment="com.android.settings.deviceinfo.aboutphone.MyDeviceInfoFragment"
+             android:icon="@drawable/ic_settings_about_device_filled"
+diff --git a/res/xml/top_level_settings_expressive.xml b/res/xml/top_level_settings_expressive.xml
+index cf407ec64cf..019d14be89a 100644
+--- a/res/xml/top_level_settings_expressive.xml
++++ b/res/xml/top_level_settings_expressive.xml
+@@ -148,6 +148,17 @@
+             android:summary="@string/system_dashboard_summary"
+             settings:highlightableMenuKey="@string/menu_key_system"/>
+ 
++        <!-- SableOS: Sable Start, Hub, Tools diagnostics and App display compatibility. -->
++        <com.android.settings.widget.HomepagePreference
++            android:fragment="com.android.settings.sable.SableSettingsFragment"
++            android:icon="@drawable/ic_homepage_sable"
++            android:key="top_level_sable"
++            android:order="-15"
++            android:title="@string/sable_settings_title"
++            android:summary="@string/sable_settings_summary"
++            settings:highlightableMenuKey="@string/menu_key_sable"
++            settings:controller="com.android.settings.sable.TopLevelSablePreferenceController"/>
++
+         <com.android.settings.widget.HomepagePreference
+             android:fragment="com.android.settings.deviceinfo.aboutphone.MyDeviceInfoFragment"
+             android:icon="@drawable/ic_homepage_about"
+diff --git a/src/com/android/settings/applications/appinfo/AppInfoDashboardFragment.java b/src/com/android/settings/applications/appinfo/AppInfoDashboardFragment.java
+index 17f7cb204a7..0f17bbcb1d5 100644
+--- a/src/com/android/settings/applications/appinfo/AppInfoDashboardFragment.java
++++ b/src/com/android/settings/applications/appinfo/AppInfoDashboardFragment.java
+@@ -62,6 +62,7 @@ import com.android.settings.applications.specialaccess.pictureinpicture.PictureI
+ import com.android.settings.applications.sable.SableAppSecurityPreferenceController;
+ import com.android.settings.core.SubSettingLauncher;
+ import com.android.settings.dashboard.DashboardFragment;
++import com.android.settings.sable.SableDisplayCompatAppPreferenceController;
+ import com.android.settingslib.RestrictedLockUtilsInternal;
+ import com.android.settingslib.applications.AppUtils;
+ import com.android.settingslib.applications.ApplicationsState;
+@@ -174,6 +175,7 @@ public class AppInfoDashboardFragment extends DashboardFragment
+         use(AppPermissionPreferenceController.class).setParentFragment(this);
+         use(AppPermissionPreferenceController.class).setPackageName(packageName);
+         use(SableAppSecurityPreferenceController.class).setParentFragment(this);
++        use(SableDisplayCompatAppPreferenceController.class).setParentFragment(this);
+         use(ManageAgentAppFunctionAccessPreferenceController.class).setParentFragment(this);
+         use(ManageTargetAppFunctionAccessPreferenceController.class).setParentFragment(this);
+         use(AppSettingPreferenceController.class)
+diff --git a/src/com/android/settings/sable/SableDisplayCompatAppPreferenceController.java b/src/com/android/settings/sable/SableDisplayCompatAppPreferenceController.java
+new file mode 100644
+index 00000000000..dfbe2539fd4
+--- /dev/null
++++ b/src/com/android/settings/sable/SableDisplayCompatAppPreferenceController.java
+@@ -0,0 +1,93 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++import android.content.ActivityNotFoundException;
++import android.content.Context;
++import android.content.Intent;
++import android.os.Process;
++import android.os.UserHandle;
++import android.text.TextUtils;
++import android.util.Log;
++
++import androidx.preference.Preference;
++
++import com.android.settings.applications.appinfo.AppInfoPreferenceControllerBase;
++
++/**
++ * App info &gt; Display compatibility (APP_DISPLAY_COMPATIBILITY_PROFILES_UX APP_INFO_PATH):
++ * opens this app's profile in App display compatibility. Shown only when that app is installed
++ * and answers its per-app action, and only for launcher apps of this user (the ones it can
++ * profile); never for App display compatibility itself.
++ */
++public class SableDisplayCompatAppPreferenceController extends AppInfoPreferenceControllerBase {
++    private static final String TAG = "SableDisplayCompatApp";
++
++    public SableDisplayCompatAppPreferenceController(Context context, String preferenceKey) {
++        super(context, preferenceKey);
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        return SableLinks.appDisplayProfile(mContext, mContext.getPackageName()) != null
++                ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
++    }
++
++    @Override
++    public void updateState(Preference preference) {
++        if (preference != null) {
++            preference.setVisible(packageName() != null);
++        }
++    }
++
++    @Override
++    public boolean handlePreferenceTreeClick(Preference preference) {
++        if (!TextUtils.equals(preference.getKey(), getPreferenceKey())) {
++            return false;
++        }
++        final String pkg = packageName();
++        final Intent intent = pkg == null ? null : SableLinks.appDisplayProfile(mContext, pkg);
++        if (intent == null) {
++            preference.setVisible(false);
++            return true;
++        }
++        try {
++            // The page's own activity: Back returns here.
++            preference.getContext().startActivity(intent);
++        } catch (ActivityNotFoundException | SecurityException e) {
++            Log.w(TAG, "Cannot open App display compatibility for " + pkg, e);
++        }
++        return true;
++    }
++
++    /** The app's package when it can have a profile here, else null. */
++    private String packageName() {
++        if (mParent == null || mParent.getAppEntry() == null
++                || mParent.getAppEntry().info == null) {
++            return null;
++        }
++        final String pkg = mParent.getAppEntry().info.packageName;
++        if (pkg == null || SableLinks.DISPLAY_COMPAT_PACKAGE.equals(pkg)) {
++            return null;
++        }
++        if (!UserHandle.getUserHandleForUid(mParent.getAppEntry().info.uid)
++                .equals(Process.myUserHandle())) {
++            return null; // App display compatibility profiles apps of its own user only
++        }
++        return mContext.getPackageManager().getLaunchIntentForPackage(pkg) != null ? pkg : null;
++    }
++}
+diff --git a/src/com/android/settings/sable/SableLinkPreferenceController.java b/src/com/android/settings/sable/SableLinkPreferenceController.java
+new file mode 100644
+index 00000000000..a1dce52f548
+--- /dev/null
++++ b/src/com/android/settings/sable/SableLinkPreferenceController.java
+@@ -0,0 +1,65 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++import android.content.ActivityNotFoundException;
++import android.content.Context;
++import android.content.Intent;
++import android.text.TextUtils;
++import android.util.Log;
++
++import androidx.preference.Preference;
++
++import com.android.settings.core.BasePreferenceController;
++
++/**
++ * A row that opens a Sable app (see {@link SableLinks}, keyed by the preference key). The row is
++ * hidden, and left out of Settings search, when the app is not installed.
++ */
++public class SableLinkPreferenceController extends BasePreferenceController {
++    private static final String TAG = "SableLinkPref";
++
++    public SableLinkPreferenceController(Context context, String preferenceKey) {
++        super(context, preferenceKey);
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        return SableLinks.resolve(mContext, getPreferenceKey()) != null
++                ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
++    }
++
++    @Override
++    public boolean handlePreferenceTreeClick(Preference preference) {
++        if (!TextUtils.equals(preference.getKey(), getPreferenceKey())) {
++            return false;
++        }
++        // Resolved again on click: the app may have been removed while the page was open.
++        final Intent intent = SableLinks.resolve(mContext, getPreferenceKey());
++        if (intent == null) {
++            preference.setVisible(false);
++            return true;
++        }
++        try {
++            // The page's own activity: Back returns here.
++            preference.getContext().startActivity(intent);
++        } catch (ActivityNotFoundException | SecurityException e) {
++            Log.w(TAG, "Cannot open " + getPreferenceKey(), e);
++        }
++        return true;
++    }
++}
+diff --git a/src/com/android/settings/sable/SableLinks.java b/src/com/android/settings/sable/SableLinks.java
+new file mode 100644
+index 00000000000..1c26ffc224b
+--- /dev/null
++++ b/src/com/android/settings/sable/SableLinks.java
+@@ -0,0 +1,139 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++import android.content.ComponentName;
++import android.content.Context;
++import android.content.Intent;
++import android.content.pm.ActivityInfo;
++import android.content.pm.ResolveInfo;
++import android.net.Uri;
++
++import java.util.List;
++
++/**
++ * Intents from Settings into the Sable apps that own some system settings (Sable Start, Sable
++ * Hub, Sable Tools, App display compatibility). Each link is resolved to an explicit component
++ * in that app's own package, so a missing app hides the row and no other app can answer.
++ */
++public final class SableLinks {
++    public static final String START_PACKAGE = "org.sableos.launcher";
++    /** Opens Sable Start's quick bar editor (SableStartActivity). */
++    public static final String ACTION_EDIT_QUICK_BAR = "org.sableos.start.action.EDIT_QUICK_BAR";
++    public static final String HUB_PACKAGE = "org.sableos.hub";
++    public static final String TOOLS_PACKAGE = "org.sableos.tools";
++    public static final String ACTION_OPEN_TOOL = "org.sableos.tools.action.OPEN_TOOL";
++    public static final String EXTRA_TOOL = "org.sableos.tools.extra.TOOL";
++    public static final String TOOL_HARDWARE_TESTS = "HARDWARE_TESTS";
++    public static final String DISPLAY_COMPAT_PACKAGE = "org.sableos.titan2.displaycompat";
++    /** Opens one app's profile in App display compatibility; data is {@code package:<name>}. */
++    public static final String ACTION_APP_DISPLAY_PROFILE =
++            "org.sableos.titan2.displaycompat.action.APP_PROFILE";
++
++    public static final String KEY_START = "sable_start";
++    public static final String KEY_QUICK_BAR = "sable_start_quick_bar";
++    public static final String KEY_HUB = "sable_hub";
++    public static final String KEY_DIAGNOSTICS = "sable_tools_diagnostics";
++    public static final String KEY_HARDWARE_TESTS = "sable_tools_hardware_tests";
++    public static final String KEY_DISPLAY_COMPAT = "sable_display_compat";
++    /** Settings > Display > App display compatibility. */
++    public static final String KEY_DISPLAY_COMPAT_DISPLAY = "sable_display_compat_display";
++
++    /** The rows of Settings > Sable, in page order. */
++    public static final String[] SABLE_PAGE_KEYS = {
++            KEY_START, KEY_QUICK_BAR, KEY_HUB, KEY_DIAGNOSTICS, KEY_HARDWARE_TESTS,
++            KEY_DISPLAY_COMPAT,
++    };
++
++    private SableLinks() {
++    }
++
++    /** The unresolved intent for a row key, or null for an unknown key. */
++    static Intent intentFor(String key) {
++        if (key == null) {
++            return null;
++        }
++        switch (key) {
++            case KEY_START:
++                return new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
++                        .setPackage(START_PACKAGE);
++            case KEY_QUICK_BAR:
++                return new Intent(ACTION_EDIT_QUICK_BAR).setPackage(START_PACKAGE);
++            case KEY_HUB:
++                return launcher(HUB_PACKAGE);
++            case KEY_DIAGNOSTICS:
++                return launcher(TOOLS_PACKAGE);
++            case KEY_HARDWARE_TESTS:
++                return new Intent(ACTION_OPEN_TOOL).setPackage(TOOLS_PACKAGE)
++                        .putExtra(EXTRA_TOOL, TOOL_HARDWARE_TESTS);
++            case KEY_DISPLAY_COMPAT:
++            case KEY_DISPLAY_COMPAT_DISPLAY:
++                return launcher(DISPLAY_COMPAT_PACKAGE);
++            default:
++                return null;
++        }
++    }
++
++    /**
++     * The intent for a row key with an explicit component, or null when the owning app is not
++     * installed (or has no activity for it).
++     */
++    public static Intent resolve(Context context, String key) {
++        return resolveIntent(context, intentFor(key));
++    }
++
++    /** The App display compatibility page for one package, or null when unavailable. */
++    public static Intent appDisplayProfile(Context context, String packageName) {
++        final Intent intent = new Intent(ACTION_APP_DISPLAY_PROFILE)
++                .setPackage(DISPLAY_COMPAT_PACKAGE)
++                .setData(Uri.fromParts("package", packageName, null));
++        return resolveIntent(context, intent);
++    }
++
++    /** True when at least one row of Settings > Sable has its app installed. */
++    public static boolean anyAvailable(Context context) {
++        for (String key : SABLE_PAGE_KEYS) {
++            if (resolve(context, key) != null) {
++                return true;
++            }
++        }
++        return false;
++    }
++
++    private static Intent launcher(String packageName) {
++        return new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
++                .setPackage(packageName);
++    }
++
++    private static Intent resolveIntent(Context context, Intent intent) {
++        if (context == null || intent == null) {
++            return null;
++        }
++        final List<ResolveInfo> matches =
++                context.getPackageManager().queryIntentActivities(intent, 0);
++        if (matches == null) {
++            return null;
++        }
++        for (ResolveInfo ri : matches) {
++            final ActivityInfo ai = ri.activityInfo;
++            if (ai != null && ai.exported && intent.getPackage().equals(ai.packageName)) {
++                return new Intent(intent).setComponent(new ComponentName(ai.packageName, ai.name));
++            }
++        }
++        return null;
++    }
++}
+diff --git a/src/com/android/settings/sable/SableSettingsFragment.java b/src/com/android/settings/sable/SableSettingsFragment.java
+new file mode 100644
+index 00000000000..ef4ea823003
+--- /dev/null
++++ b/src/com/android/settings/sable/SableSettingsFragment.java
+@@ -0,0 +1,79 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++import android.app.settings.SettingsEnums;
++import android.content.Context;
++import android.os.Bundle;
++import android.view.View;
++
++import com.android.settings.R;
++import com.android.settings.applications.sable.SableAppListKeyboard;
++import com.android.settings.dashboard.DashboardFragment;
++import com.android.settings.search.BaseSearchIndexProvider;
++import com.android.settingslib.search.SearchIndexable;
++
++/**
++ * Settings > Sable (KEYBOARD_FIRST_SETTINGS_UX): links to Sable Start (home layout, quick bar),
++ * Sable Hub, Sable Tools diagnostics and App display compatibility. The settings stay owned by
++ * those apps; this page only opens them. Rows of absent apps are hidden and not indexed, and the
++ * page is left out of search when none is installed.
++ */
++@SearchIndexable
++public class SableSettingsFragment extends DashboardFragment {
++    private static final String TAG = "SableSettings";
++
++    private SableAppListKeyboard mKeyboard;
++
++    @Override
++    public int getMetricsCategory() {
++        return SettingsEnums.SETTINGS_SYSTEM_CATEGORY;
++    }
++
++    @Override
++    protected String getLogTag() {
++        return TAG;
++    }
++
++    @Override
++    protected int getPreferenceScreenResId() {
++        return R.xml.sable_settings;
++    }
++
++    @Override
++    public void onViewCreated(View view, Bundle savedInstanceState) {
++        super.onViewCreated(view, savedInstanceState);
++        mKeyboard = SableAppListKeyboard.attach(this, getListView(), getMetricsCategory());
++    }
++
++    @Override
++    public void onDestroyView() {
++        if (mKeyboard != null) {
++            mKeyboard.detach();
++            mKeyboard = null;
++        }
++        super.onDestroyView();
++    }
++
++    public static final BaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
++            new BaseSearchIndexProvider(R.xml.sable_settings) {
++                @Override
++                protected boolean isPageSearchEnabled(Context context) {
++                    return SableLinks.anyAvailable(context);
++                }
++            };
++}
+diff --git a/src/com/android/settings/sable/TopLevelSablePreferenceController.java b/src/com/android/settings/sable/TopLevelSablePreferenceController.java
+new file mode 100644
+index 00000000000..73ea9eafb0d
+--- /dev/null
++++ b/src/com/android/settings/sable/TopLevelSablePreferenceController.java
+@@ -0,0 +1,34 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++import android.content.Context;
++
++import com.android.settings.core.BasePreferenceController;
++
++/** The Settings homepage "Sable" row: shown when at least one Sable settings owner is installed. */
++public class TopLevelSablePreferenceController extends BasePreferenceController {
++
++    public TopLevelSablePreferenceController(Context context, String preferenceKey) {
++        super(context, preferenceKey);
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        return SableLinks.anyAvailable(mContext) ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
++    }
++}
+-- 
+2.43.0
+
