@@ -229,7 +229,16 @@ static int pd_detect_fix(uint16_t *in, int S, char *msg, size_t msgsz)
 {
 	/* PDAF positions are fixed: scan on the first shot, then reuse; rescan every 10th shot */
 	if (g_pdfixed && (g_pdw != g_w || g_pdh != g_h)) pd_seed_fixed();
-	if (g_pdw == g_w && g_pdh == g_h && ((g_pdrescan > 0 && (++g_pdshot % g_pdrescan) != 0) || (g_pdfixed && g_pdrescan <= 0))) {
+	int reuse = 0;
+	if (g_pdw == g_w && g_pdh == g_h) {
+		if (g_pdrescan > 0) {
+			++g_pdshot;
+			reuse = (g_pdshot % g_pdrescan) != 0;
+		} else {
+			reuse = g_pdfixed;
+		}
+	}
+	if (reuse) {
 		snprintf(msg, msgsz, "%s [reused]", g_pdmsg);
 		return g_pdn;
 	}
@@ -640,6 +649,7 @@ static int go_fit(const uint16_t *in, int stride, char *msg, size_t msgsz)
 	}
 	/* stored calibration: accumulate pass-3 sums, use them once trusted */
 	struct calfile cf; int have = 0, wrote = 0, used = 0;
+	memset(&cf, 0, sizeof cf);                 /* cf.shots is logged below even when usecal=0 */
 	if (g_usecal) {
 		FILE *fp = fopen(g_calpath, "rb");
 		if (fp) {
@@ -733,19 +743,32 @@ static void cand_fit_job(int y0, int y1, void *p)
 			}
 		}
 }
+/* one axis of cand_coef: cells i0, i1 in [0, n-1] around the fractional position f, and the weight of i1. Outside the
+ * grid (f < 0, f past the last centre, or not a number) both cells are the nearest edge cell and the weight is 0.
+ * The range is checked before the conversion to int, so no index can be negative or past the grid. */
+static inline void cand_axis(double f, int n, int *i0, int *i1, double *w)
+{
+	double fl = floor(f);
+	if (!(fl >= 0.0)) {
+		*i0 = 0; *i1 = 0; *w = 0;
+		return;
+	}
+	if (fl > n - 1) {
+		*i0 = n - 1; *i1 = n - 1; *w = 0;
+		return;
+	}
+	*i0 = (int)fl;
+	*i1 = *i0 + 1 > n - 1 ? n - 1 : *i0 + 1;
+	*w = f - fl;
+}
 /* coefficient of candidate c at sensor position (y, x): bilinear between region centres */
 static inline void cand_coef(int c, double y, double x, int k, double *g, double *o)
 {
 	int gw = g_cgx[c], gh = g_cgy[c];
 	double fy = y * gh / g_h - 0.5, fx = x * gw / g_w - 0.5;
-	int y0 = (int)floor(fy), x0 = (int)floor(fx); double wy = fy - y0, wx = fx - x0;
-	int y1 = y0 + 1, x1 = x0 + 1;
-	if (y0 < 0) { y0 = 0; wy = 0; }
-	if (y1 > gh - 1) { y1 = gh - 1; }
-	if (y0 > gh - 1) { y0 = gh - 1; wy = 0; }
-	if (x0 < 0) { x0 = 0; wx = 0; }
-	if (x1 > gw - 1) { x1 = gw - 1; }
-	if (x0 > gw - 1) { x0 = gw - 1; wx = 0; }
+	int y0, y1, x0, x1; double wy, wx;
+	cand_axis(fy, gh, &y0, &y1, &wy);
+	cand_axis(fx, gw, &x0, &x1, &wx);
 	double (*G)[GX][16] = g_cand_g[c], (*O)[GX][16] = g_cand_o[c];
 	*g = (1 - wy) * ((1 - wx) * G[y0][x0][k] + wx * G[y0][x1][k]) + wy * ((1 - wx) * G[y1][x0][k] + wx * G[y1][x1][k]);
 	*o = (1 - wy) * ((1 - wx) * O[y0][x0][k] + wx * O[y0][x1][k]) + wy * ((1 - wx) * O[y1][x0][k] + wx * O[y1][x1][k]);
@@ -842,8 +865,11 @@ out:
 /* apply the chosen model: per row, coefficients for each 4-px block via bilinear blending */
 static void cand_apply(int y0, int y1, void *p)
 {
-	struct ctx *c = p; const int S = c->stride; int x, y, k, blk, nb = (g_w + 3) / 4;
-	float *gk = malloc(sizeof(float) * nb * 8);
+	struct ctx *c = p; const int S = c->stride; int x, y, k, blk;
+	/* one entry per 4-px block; computed in int64 so a huge width cannot wrap nb negative and leave gk unwritten */
+	if (g_w <= 0) return;
+	int nb = (int)(((int64_t)g_w + 3) / 4);
+	float *gk = calloc((size_t)nb * 8, sizeof(float));
 	if (!gk) return;
 	for (y = y0; y < y1; y++) {
 		const uint16_t *s = c->src + (size_t)y * S; uint16_t *d = c->dst + (size_t)y * S;
@@ -2028,6 +2054,7 @@ static void diag_pdcol(const uint16_t *in, int S)
 static int pm_solve(double *A, double *b, int n, double *x)
 {
 	double M[4][5]; int i, j, k;
+	if (n < 1 || n > 4) return 0;                /* M holds at most a 4x4 system */
 	for (i = 0; i < n; i++) { for (j = 0; j < n; j++) M[i][j] = A[i * 4 + j]; M[i][n] = b[i]; M[i][i] += 1e-9 * (A[0] + A[5] + A[10] + 1.0); }
 	for (i = 0; i < n; i++) {
 		int p = i; for (k = i + 1; k < n; k++) if (fabs(M[k][i]) > fabs(M[p][i])) p = k;
