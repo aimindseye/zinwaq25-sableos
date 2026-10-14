@@ -1,6 +1,6 @@
 # SableOS gaps for the Zinwa Q25
 
-Status: 2026-10-10. This page lists only what is still open. What each part
+Status: 2026-10-14. This page lists only what is still open. What each part
 does, and how it was tested, is in [`implementation/`](implementation/).
 
 ## Where the port stands
@@ -9,8 +9,8 @@ Every planned SableOS feature for the Q25 is written in this repository:
 
 * **Q2, Sable apps:** 17 apps in [`../product/q25/apps.tsv`](../product/q25/apps.tsv),
   including Reader v2, Mail, Text Reader and Sable Tools (which replaces Radio
-  Diag). 16 ship: Sable Messages is a demo (hard-coded threads, no SMS access),
-  so it is built but disabled, and Hub is the SMS surface until it is rebuilt.
+  Diag). 16 ship: Sable Messages is built but disabled, because Sable Hub is
+  the SMS app (inline replies, drafts, live refresh, Inbox filters).
 * **Q4, framework layer** (`bash build/sable.sh q25 Q4 stage`):
   * Sable Start is the home screen and Launcher3 is kept only for Recents.
   * Sable Keyboard is the only keyboard.
@@ -26,6 +26,11 @@ Every planned SableOS feature for the Q25 is written in this repository:
     editor uses Sable colours, and Sable Start's Photos, Camera, Files and Clock
     tiles use the Sable glyphs. The Camera tile opens Sable Camera, with
     Aperture kept as the fallback.
+
+  * Design-gap waves (PRs #15-#18): Alt keys in the shade, Quick Settings and
+    lockscreen; Mobile Manager, Focus mode and Private Space pages in Settings;
+    the keyboard model in Files, Photos, Browser, Mail and Media; Calendar
+    event edit and delete. App Lock is listed but not enforced.
 
   The framework patches are listed in [`../patches/README.md`](../patches/README.md).
 
