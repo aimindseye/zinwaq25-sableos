@@ -1661,63 +1661,73 @@ static void dn_border_px(struct ctx *c, int x, int y)
 		}
 	c->dst[(size_t)y * S + x] = (uint16_t)clampi((int)lrintf(num / den * FX), 0, WHITE * FX);
 }
+struct dnbuf { float *num; float *den; float *v0; float *inv; };
+/* interior pixels x = 4k+px of row y (rows y-4..y+4 loaded in the ring) */
+static void dn_phase(const struct ctx *c, const struct dnrow *ring, const struct dnbuf *b, int y, int px)
+{
+	float *num = b->num;
+	float *den = b->den;
+	float *v0 = b->v0;
+	float *inv = b->inv;
+	/* pixels of this phase: x = 4k+px; interior k range (x in [4, w-4)) */
+	int k0 = (4 - px + 3) / 4;
+	int k1 = (g_w - 4 - px + 3) / 4;
+	if (k1 <= k0) return;
+	const float *ctr = ring[y % 9].pl[px] + DPAD;
+	for (int k = k0; k < k1; k++) {
+		float v = ctr[k];
+		float s2 = c->na * (v - g_ped > 0 ? v - g_ped : 0) + c->nb;
+		v0[k] = v; inv[k] = 1.0f / (2.0f * s2 * g_dn * g_dn + 1e-9f);
+		num[k] = 0; den[k] = 0;
+	}
+	const struct off *o = g_offs[y & 3][px]; int n = g_noffs[y & 3][px];
+	for (int j = 0; j < n; j++) {
+		int t = px + o[j].dx;
+		int sh = (t + 8) / 4 - 2;      /* floor((px+dx)/4) */
+		const float *restrict nb = ring[(y + o[j].dy + 9) % 9].pl[(t + 8) & 3] + DPAD + sh;
+		float *restrict nu = num;
+		float *restrict de = den;
+		const float *restrict vz = v0;
+		const float *restrict iv = inv;
+		float sw = o[j].sw;
+		for (int k = k0; k < k1; k++) {
+			float vv = nb[k];
+			float dd = vv - vz[k];
+			float w = sw * fexpn(dd * dd * iv[k]);
+			nu[k] += w * vv; de[k] += w;
+		}
+	}
+	uint16_t *drow = c->dst + (size_t)y * c->stride;
+	for (int k = k0; k < k1; k++)
+		drow[4 * k + px] = (uint16_t)clampi((int)lrintf(num[k] / den[k] * FX), 0, WHITE * FX);
+}
+static void dn_row(struct ctx *c, struct dnrow *ring, const struct dnbuf *b, int y, int np)
+{
+	for (int j = -4; j <= 4; j++) {                       /* make sure rows y-4..y+4 are loaded */
+		struct dnrow *r = &ring[(y + j + 9) % 9];
+		if (r->y != y + j) dn_load(r, c->src, c->stride, y + j, np);
+	}
+	for (int px = 0; px < 4; px++) dn_phase(c, ring, b, y, px);
+	for (int x = 0; x < 4; x++) dn_border_px(c, x, y);
+	for (int x = g_w - 4; x < g_w; x++) dn_border_px(c, x, y);
+}
 static void dn_run(int y0, int y1, void *p)
 {
-	struct ctx *c = p; const int S = c->stride;
+	struct ctx *c = p;
 	int nk = (g_w + 3) / 4;
 	int np = nk + 2 * DPAD;
 	struct dnrow ring[9];
 	float *mem = malloc(sizeof(float) * (9 * 4 * np + 4 * nk));
-	float *num = mem + 9 * 4 * np;
-	float *den = num + nk;
-	float *v0 = den + nk;
-	float *inv = v0 + nk;
+	struct dnbuf b;
 	if (!mem) { LOGE("dn: alloc failed"); return; }
+	b.num = mem + 9 * 4 * np;
+	b.den = b.num + nk;
+	b.v0 = b.den + nk;
+	b.inv = b.v0 + nk;
 	for (int j = 0; j < 9; j++) { ring[j].y = -1; for (int px = 0; px < 4; px++) ring[j].pl[px] = mem + (size_t)(j * 4 + px) * np; }
 	for (int y = y0; y < y1; y++) {
-		if (y < 4 || y >= g_h - 4) {
-			for (int x = 0; x < g_w; x++) dn_border_px(c, x, y);
-			continue;
-		}
-		for (int j = -4; j <= 4; j++) {                       /* make sure rows y-4..y+4 are loaded */
-			struct dnrow *r = &ring[(y + j + 9) % 9];
-			if (r->y != y + j) dn_load(r, c->src, S, y + j, np);
-		}
-		for (int px = 0; px < 4; px++) {
-			/* pixels of this phase: x = 4k+px; interior k range (x in [4, w-4)) */
-			int k0 = (4 - px + 3) / 4;
-			int k1 = (g_w - 4 - px + 3) / 4;
-			if (k1 <= k0) continue;
-			const float *ctr = ring[y % 9].pl[px] + DPAD;
-			for (int k = k0; k < k1; k++) {
-				float v = ctr[k];
-				float s2 = c->na * (v - g_ped > 0 ? v - g_ped : 0) + c->nb;
-				v0[k] = v; inv[k] = 1.0f / (2.0f * s2 * g_dn * g_dn + 1e-9f);
-				num[k] = 0; den[k] = 0;
-			}
-			const struct off *o = g_offs[y & 3][px]; int n = g_noffs[y & 3][px];
-			for (int j = 0; j < n; j++) {
-				int t = px + o[j].dx;
-				int sh = (t + 8) / 4 - 2;      /* floor((px+dx)/4) */
-				const float *restrict nb = ring[(y + o[j].dy + 9) % 9].pl[(t + 8) & 3] + DPAD + sh;
-				float *restrict nu = num;
-				float *restrict de = den;
-				const float *restrict vz = v0;
-				const float *restrict iv = inv;
-				float sw = o[j].sw;
-				for (int k = k0; k < k1; k++) {
-					float vv = nb[k];
-					float dd = vv - vz[k];
-					float w = sw * fexpn(dd * dd * iv[k]);
-					nu[k] += w * vv; de[k] += w;
-				}
-			}
-			uint16_t *drow = c->dst + (size_t)y * S;
-			for (int k = k0; k < k1; k++)
-				drow[4 * k + px] = (uint16_t)clampi((int)lrintf(num[k] / den[k] * FX), 0, WHITE * FX);
-		}
-		for (int x = 0; x < 4; x++) dn_border_px(c, x, y);
-		for (int x = g_w - 4; x < g_w; x++) dn_border_px(c, x, y);
+		if (y >= 4 && y < g_h - 4) { dn_row(c, ring, &b, y, np); continue; }
+		for (int x = 0; x < g_w; x++) dn_border_px(c, x, y);
 	}
 	free(mem);
 }
@@ -1767,76 +1777,84 @@ static void green_px(const struct ctx *c, int16_t *G, int x, int y)
 }
 /* Interior: for each column phase px the colour and all neighbour offsets are fixed, so the
  * loop over x = 4k+px has no branches and no clamping. Same arithmetic as green_px. */
+/* neighbour offsets along one axis, by parity of the coordinate: n(ear) and f(ar) greens, m(ate),
+ * p1/p2 and n1/n2 the same-colour pairs on either side */
+struct goff { int n; int f; int m; int p1; int p2; int n1; int n2; };
+static inline struct goff green_offs(int odd)
+{
+	struct goff e = { -1, 2, 1, -4, -3, 4, 5 };
+	struct goff o = { 1, -2, -1, 3, 4, -5, -4 };
+	return odd ? o : e;
+}
+/* interior non-green pixels x = 4k+px, k in [k0,k1): horizontal offsets h, vertical offsets v (rows) */
+static void green_phase(const uint16_t *d, int16_t *g, int S, int px, int k0, int k1, struct goff h, struct goff v)
+{
+	const float ped = (float)g_ped;
+	const int nh = h.n;
+	const int fh = h.f;
+	const int mh = h.m;
+	const int p1h = h.p1;
+	const int p2h = h.p2;
+	const int n1h = h.n1;
+	const int n2h = h.n2;
+	const long Snv = (long)v.n * S;
+	const long Sfv = (long)v.f * S;
+	const long Smv = (long)v.m * S;
+	const long Sp1 = (long)v.p1 * S;
+	const long Sp2 = (long)v.p2 * S;
+	const long Sn1 = (long)v.n1 * S;
+	const long Sn2 = (long)v.n2 * S;
+	for (int k = k0; k < k1; k++) {
+		const uint16_t *q = d + 4 * k + px;
+#define V(o) (q[o] * IFX - ped)
+		float q0 = V(0);
+		float gl = V(nh);
+		float gr = V(fh);
+		float gh = (2.0f * gl + 1.0f * gr) / 3.0f;
+		float laph = (q0 + V(mh)) - (V(p1h) + V(p2h)) * 0.5f - (V(n1h) + V(n2h)) * 0.5f;
+		float gu = V(Snv);
+		float gd = V(Sfv);
+		float gv = (2.0f * gu + 1.0f * gd) / 3.0f;
+		float lapv = (q0 + V(Smv)) - (V(Sp1) + V(Sp2)) * 0.5f - (V(Sn1) + V(Sn2)) * 0.5f;
+#undef V
+		float hg = fabsf(gl - gr) + fabsf(laph);
+		float vg = fabsf(gu - gd) + fabsf(lapv);
+		float eh = gh + laph * 0.25f;
+		float ev = gv + lapv * 0.25f;
+		float tot = hg + vg;
+		float est = (tot > 1e-6f) ? (vg * eh + hg * ev) / tot : (eh + ev) * 0.5f;
+		int iv = (int)lrintf(est * FX);
+		g[4 * k + px] = (int16_t)clampi(iv, -32768, 32767);
+	}
+}
+static void green_row(const struct ctx *c, int16_t *G, int y)
+{
+	const int S = c->stride;
+	const int W = g_w;
+	const float ped = (float)g_ped;
+	const uint16_t *d = c->d + (size_t)y * S; int16_t *g = G + (size_t)y * S;
+	struct goff v = green_offs(y & 1);
+	for (int px = 0; px < 4; px++) {
+		int k0 = (5 - px + 3) / 4;
+		int k1 = (W - 5 - px + 3) / 4;
+		if (g_qcol[y & 3][px] == CG) {
+			for (int k = k0; k < k1; k++) { int xx = 4 * k + px; g[xx] = (int16_t)lrintf((d[xx] * IFX - ped) * FX); }
+			continue;
+		}
+		green_phase(d, g, S, px, k0, k1, green_offs(px & 1), v);
+	}
+	for (int x = 0; x < 5; x++) green_px(c, G, x, y);
+	for (int x = W - 5; x < W; x++) green_px(c, G, x, y);
+}
 static void green_run(int y0, int y1, void *p)
 {
-	struct ctx *c = p; const int S = c->stride;
+	struct ctx *c = p;
 	const int W = g_w;
 	const int H = g_h;
 	int16_t *G = (int16_t *)c->dst;
-	const float ped = (float)g_ped;
 	for (int y = y0; y < y1; y++) {
-		if (y < 5 || y >= H - 5 || W < 16) {
-			for (int x = 0; x < W; x++) green_px(c, G, x, y);
-			continue;
-		}
-		const uint16_t *d = c->d + (size_t)y * S; int16_t *g = G + (size_t)y * S;
-		int nv;
-		int fv;
-		int mv;
-		int p1v;
-		int p2v;
-		int n1v;
-		int n2v;
-		if ((y & 1) == 0) { nv = -1; fv = 2; mv = 1; p1v = -4; p2v = -3; n1v = 4; n2v = 5; }
-		else              { nv = 1; fv = -2; mv = -1; p1v = 3; p2v = 4; n1v = -5; n2v = -4; }
-		const long Snv = (long)nv * S;
-		const long Sfv = (long)fv * S;
-		const long Smv = (long)mv * S;
-		const long Sp1 = (long)p1v * S;
-		const long Sp2 = (long)p2v * S;
-		const long Sn1 = (long)n1v * S;
-		const long Sn2 = (long)n2v * S;
-		for (int px = 0; px < 4; px++) {
-			int k0 = (5 - px + 3) / 4;
-			int k1 = (W - 5 - px + 3) / 4;
-			if (g_qcol[y & 3][px] == CG) {
-				for (int k = k0; k < k1; k++) { int xx = 4 * k + px; g[xx] = (int16_t)lrintf((d[xx] * IFX - ped) * FX); }
-				continue;
-			}
-			int nh;
-			int fh;
-			int mh;
-			int p1h;
-			int p2h;
-			int n1h;
-			int n2h;
-			if ((px & 1) == 0) { nh = -1; fh = 2; mh = 1; p1h = -4; p2h = -3; n1h = 4; n2h = 5; }
-			else               { nh = 1; fh = -2; mh = -1; p1h = 3; p2h = 4; n1h = -5; n2h = -4; }
-			for (int k = k0; k < k1; k++) {
-				const uint16_t *q = d + 4 * k + px;
-#define V(o) (q[o] * IFX - ped)
-				float q0 = V(0);
-				float gl = V(nh);
-				float gr = V(fh);
-				float gh = (2.0f * gl + 1.0f * gr) / 3.0f;
-				float laph = (q0 + V(mh)) - (V(p1h) + V(p2h)) * 0.5f - (V(n1h) + V(n2h)) * 0.5f;
-				float gu = V(Snv);
-				float gd = V(Sfv);
-				float gv = (2.0f * gu + 1.0f * gd) / 3.0f;
-				float lapv = (q0 + V(Smv)) - (V(Sp1) + V(Sp2)) * 0.5f - (V(Sn1) + V(Sn2)) * 0.5f;
-#undef V
-				float hg = fabsf(gl - gr) + fabsf(laph);
-				float vg = fabsf(gu - gd) + fabsf(lapv);
-				float eh = gh + laph * 0.25f;
-				float ev = gv + lapv * 0.25f;
-				float tot = hg + vg;
-				float est = (tot > 1e-6f) ? (vg * eh + hg * ev) / tot : (eh + ev) * 0.5f;
-				int iv = (int)lrintf(est * FX);
-				g[4 * k + px] = (int16_t)clampi(iv, -32768, 32767);
-			}
-		}
-		for (int x = 0; x < 5; x++) green_px(c, G, x, y);
-		for (int x = W - 5; x < W; x++) green_px(c, G, x, y);
+		if (y >= 5 && y < H - 5 && W >= 16) { green_row(c, G, y); continue; }
+		for (int x = 0; x < W; x++) green_px(c, G, x, y);
 	}
 }
 
@@ -1896,6 +1914,53 @@ static void refine_px(const struct ctx *c, int16_t *G2, int x, int y)    /* bord
 }
 /* Interior: rows of P = q - g (float) in an 8-row ring; for each column phase the taps are
  * fixed, so x = 4k+px runs as contiguous loops. Same tap order and arithmetic as refine_px. */
+/* one column phase of an interior row: x = 4k+px, P = q - g rows in the 8-row ring */
+static void refine_phase(const struct ctx *c, float *const *ring, float *num, int16_t *G2, int y, int px)
+{
+	const int S = c->stride;
+	const int W = g_w;
+	const int16_t *G = c->g;
+	const float ped = (float)g_ped;
+	const float mix = c->mix;
+	const uint16_t *d0 = c->d + (size_t)y * S; const int16_t *g0 = G + (size_t)y * S; int16_t *o = G2 + (size_t)y * S;
+	int k0 = (3 - px + 3) / 4;
+	int k1 = (W - 3 - px + 3) / 4;
+	if (g_qcol[y & 3][px] == CG) {
+		for (int k = k0; k < k1; k++) o[4 * k + px] = g0[4 * k + px];
+		return;
+	}
+	const struct rtap *tp = g_ftap[y & 3][px]; int n = g_nftap[y & 3][px];
+	float den = g_fden[y & 3][px]; den = den > 1e-9f ? den : 1e-9f;
+	for (int k = k0; k < k1; k++) num[k] = 0;
+	for (int j = 0; j < n; j++) {
+		const float *restrict src = ring[(y + tp[j].dy) & 7] + px + tp[j].dx; float w = tp[j].w;
+		float *restrict nu = num;
+		for (int k = k0; k < k1; k++) nu[k] += w * src[4 * k];
+	}
+	for (int k = k0; k < k1; k++) {
+		int xx = 4 * k + px;
+		float q0 = d0[xx] * IFX - ped;
+		float dd = num[k] / den;
+		float g2 = (1 - mix) * g0[xx] * IFX + mix * (q0 - dd);
+		int iv = (int)lrintf(g2 * FX);
+		o[xx] = (int16_t)clampi(iv, -32768, 32767);
+	}
+}
+/* make sure rows y-3..y+3 of P = q - g are in the ring */
+static void refine_load(const struct ctx *c, float *const *ring, int *have, int y)
+{
+	const int S = c->stride;
+	const int W = g_w;
+	const float ped = (float)g_ped;
+	for (int j = -3; j <= 3; j++) {
+		int yy = y + j;
+		int r = yy & 7;
+		if (have[r] == yy) continue;
+		const uint16_t *d = c->d + (size_t)yy * S; const int16_t *g = c->g + (size_t)yy * S; float *P = ring[r];
+		for (int x = 0; x < W; x++) P[x] = d[x] * IFX - ped - g[x] * IFX;
+		have[r] = yy;
+	}
+}
 static void refine_run(int y0, int y1, void *p)
 {
 	struct ctx *c = p; const int S = c->stride;
@@ -1915,46 +1980,13 @@ static void refine_run(int y0, int y1, void *p)
 	float *ring[8];
 	float *num = mem + (size_t)W * 8; int have[8];
 	for (int j = 0; j < 8; j++) { ring[j] = mem + (size_t)W * j; have[j] = -1; }
-	const float ped = (float)g_ped;
-	const float mix = c->mix;
 	for (int y = y0; y < y1; y++) {
 		if (y < 3 || y >= H - 3 || W < 16) {
 			for (int x = 0; x < W; x++) refine_px(c, G2, x, y);
 			continue;
 		}
-		for (int j = -3; j <= 3; j++) {
-			int yy = y + j;
-			int r = yy & 7;
-			if (have[r] == yy) continue;
-			const uint16_t *d = c->d + (size_t)yy * S; const int16_t *g = G + (size_t)yy * S; float *P = ring[r];
-			for (int x = 0; x < W; x++) P[x] = d[x] * IFX - ped - g[x] * IFX;
-			have[r] = yy;
-		}
-		const uint16_t *d0 = c->d + (size_t)y * S; const int16_t *g0 = G + (size_t)y * S; int16_t *o = G2 + (size_t)y * S;
-		for (int px = 0; px < 4; px++) {
-			int k0 = (3 - px + 3) / 4;
-			int k1 = (W - 3 - px + 3) / 4;
-			if (g_qcol[y & 3][px] == CG) {
-				for (int k = k0; k < k1; k++) o[4 * k + px] = g0[4 * k + px];
-				continue;
-			}
-			const struct rtap *tp = g_ftap[y & 3][px]; int n = g_nftap[y & 3][px];
-			float den = g_fden[y & 3][px]; den = den > 1e-9f ? den : 1e-9f;
-			for (int k = k0; k < k1; k++) num[k] = 0;
-			for (int j = 0; j < n; j++) {
-				const float *restrict src = ring[(y + tp[j].dy) & 7] + px + tp[j].dx; float w = tp[j].w;
-				float *restrict nu = num;
-				for (int k = k0; k < k1; k++) nu[k] += w * src[4 * k];
-			}
-			for (int k = k0; k < k1; k++) {
-				int xx = 4 * k + px;
-				float q0 = d0[xx] * IFX - ped;
-				float dd = num[k] / den;
-				float g2 = (1 - mix) * g0[xx] * IFX + mix * (q0 - dd);
-				int iv = (int)lrintf(g2 * FX);
-				o[xx] = (int16_t)clampi(iv, -32768, 32767);
-			}
-		}
+		refine_load(c, ring, have, y);
+		for (int px = 0; px < 4; px++) refine_phase(c, ring, num, G2, y, px);
 		for (int x = 0; x < 3; x++) refine_px(c, G2, x, y);
 		for (int x = W - 3; x < W; x++) refine_px(c, G2, x, y);
 	}
@@ -2010,21 +2042,23 @@ static void ri_masks(void)
  * references near the image edges always fall inside these windows). Arrays are indexed by
  * (global x - L0) where [L0,L1) is the input-plane window. */
 static int g_tile = 384;                       /* persist.vendor.remoshim.tile */
-struct ri {
-	struct ctx *c;
-	int C;
-	/* input window, output columns */
+/* column windows of one tile (global x): input planes [L0,L1), output [X0,X1), hs/a [hA,hB), ah [aA,aB), tent/E [eA,eB) */
+struct riwin {
 	int L0;
 	int L1;
 	int X0;
 	int X1;
-	/* hs/a cols, ah cols, tent/E cols */
 	int hA;
 	int hB;
 	int aA;
 	int aB;
 	int eA;
 	int eB;
+};
+struct ri {
+	struct ctx *c;
+	int C;
+	struct riwin win;
 	float *hs[8][5];
 	float *ah[8];
 	float *bh[8];
@@ -2064,8 +2098,8 @@ static void hsum7(float *restrict o, const float *restrict v, int A, int B, int 
 static void ri_hs(const struct ri *r, int y)
 {
 	const struct ctx *c = r->c; const int S = c->stride;
-	const int L0 = r->L0;
-	const int n = r->L1 - r->L0;
+	const int L0 = r->win.L0;
+	const int n = r->win.L1 - r->win.L0;
 	float *const *h = r->hs[y & 7];
 	if (!row_has(r->C, y)) {
 		for (int k = 0; k < 5; k++) memset(h[k], 0, sizeof(float) * n);
@@ -2085,18 +2119,18 @@ static void ri_hs(const struct ri *r, int y)
 		float q = (drow[x] * IFX - ped - RIK) * m;
 		p0[x] = m; p1[x] = g; p2[x] = q; p3[x] = g * g; p4[x] = g * q;
 	}
-	for (int k = 0; k < 5; k++) hsum7(h[k], r->pl[k], r->hA, r->hB, L0, 0);
+	for (int k = 0; k < 5; k++) hsum7(h[k], r->pl[k], r->win.hA, r->win.hB, L0, 0);
 }
 static void ri_ab(struct ri *r, int y)
 {
 	const int H = g_h;
-	const int L0 = r->L0;
+	const int L0 = r->win.L0;
 	while (r->hs_next <= (y + 3 < H ? y + 3 : H - 1)) ri_hs(r, r->hs_next++);
 	const float *R[5][7];
 	for (int k = 0; k < 5; k++) for (int j = 0; j < 7; j++) R[k][j] = r->hs[mir(y + j - 3, H) & 7][k];
 	float *restrict A = r->arow;
 	float *restrict B = r->brow;
-	for (int x = r->hA - L0; x < r->hB - L0; x++) {
+	for (int x = r->win.hA - L0; x < r->win.hB - L0; x++) {
 		float t0 = R[0][0][x] + R[0][1][x] + R[0][2][x] + R[0][3][x] + R[0][4][x] + R[0][5][x] + R[0][6][x];
 		float t1 = R[1][0][x] + R[1][1][x] + R[1][2][x] + R[1][3][x] + R[1][4][x] + R[1][5][x] + R[1][6][x];
 		float t2 = R[2][0][x] + R[2][1][x] + R[2][2][x] + R[2][3][x] + R[2][4][x] + R[2][5][x] + R[2][6][x];
@@ -2110,14 +2144,14 @@ static void ri_ab(struct ri *r, int y)
 		float a = (mgc - mg * mc) / (mgg - mg * mg + 4.0f);
 		A[x] = a; B[x] = (mc + RIK) - a * (mg + RIK);
 	}
-	hsum7(r->ah[y & 7], A, r->aA, r->aB, L0, 1);
-	hsum7(r->bh[y & 7], B, r->aA, r->aB, L0, 1);
+	hsum7(r->ah[y & 7], A, r->win.aA, r->win.aB, L0, 1);
+	hsum7(r->bh[y & 7], B, r->win.aA, r->win.aB, L0, 1);
 }
 static void ri_tent(struct ri *r, int y)
 {
 	const int H = g_h;
 	const int S = r->c->stride;
-	const int L0 = r->L0;
+	const int L0 = r->win.L0;
 	while (r->ab_next <= (y + 3 < H ? y + 3 : H - 1)) ri_ab(r, r->ab_next++);
 	const float *A[7];
 	const float *B[7];
@@ -2127,7 +2161,7 @@ static void ri_tent(struct ri *r, int y)
 	float *restrict t = r->tn[y & 7];
 	float *restrict e = r->E[y & 7];
 	const float ped = (float)g_ped;
-	for (int x = r->eA - L0; x < r->eB - L0; x++) {
+	for (int x = r->win.eA - L0; x < r->win.eB - L0; x++) {
 		float sa = A[0][x] + A[1][x] + A[2][x] + A[3][x] + A[4][x] + A[5][x] + A[6][x];
 		float sb = B[0][x] + B[1][x] + B[2][x] + B[3][x] + B[4][x] + B[5][x] + B[6][x];
 		float tv = (sa * (1.0f / 49.0f)) * (grow[x] * IFX) + sb * (1.0f / 49.0f);
@@ -2135,61 +2169,119 @@ static void ri_tent(struct ri *r, int y)
 		e[x] = (drow[x] * IFX - ped - tv) * mk[x];
 	}
 }
+/* interior output pixels x = 4k+px, k in [k0,k1): sparse gaussian taps over the E rows, in blocks of 512 */
+static void ri_out_interior(const struct ri *r, const float *const *Er, uint16_t *orow, int y, int px, int k0, int k1)
+{
+	const int C = r->C;
+	const int L0 = r->win.L0;
+	const float *tc = r->tn[y & 7];
+	const float ped = (float)g_ped;
+	const struct rtap *tp = g_rtap[C][y & 3][px]; int n = g_nrtap[C][y & 3][px];
+	float iden = 1.0f / g_rden[C][y & 3][px];
+	float acc[512];
+	for (int kb = k0; kb < k1; kb += 512) {
+		int ke = kb + 512 < k1 ? kb + 512 : k1;
+		for (int kk = 0; kk < ke - kb; kk++) acc[kk] = 0;
+		for (int j = 0; j < n; j++) {
+			const float *restrict src = Er[tp[j].dy + 3] + px + tp[j].dx - L0; float w = tp[j].w;
+			for (int kk = 0; kk < ke - kb; kk++) acc[kk] += w * src[4 * (kb + kk)];
+		}
+		for (int kk = 0; kk < ke - kb; kk++) {
+			int xx = 4 * (kb + kk) + px;
+			orow[xx] = (uint16_t)clampi((int)lrintf(tc[xx - L0] + acc[kk] * iden + ped), 0, WHITE);
+		}
+	}
+}
+/* border output pixel: normalised gaussian over the C samples of the mirrored 7x7 window */
+static uint16_t ri_out_edge(const struct ri *r, const float *const *Er, int y, int x)
+{
+	const int W = g_w;
+	const int H = g_h;
+	const int C = r->C;
+	const int L0 = r->win.L0;
+	float num = 0;
+	float den = 0;
+	for (int j = 0; j < 7; j++) {
+		int yy = mir(y + j - 3, H);
+		for (int k = 0; k < 7; k++) {
+			int xx = mir(x + k - 3, W);
+			if (qcol(xx, yy) != C) continue;
+			num += g_k15[j][k] * Er[j][xx - L0]; den += g_k15[j][k];
+		}
+	}
+	return (uint16_t)clampi((int)lrintf(r->tn[y & 7][x - L0] + num / den + (float)g_ped), 0, WHITE);
+}
+/* the output pixels x == px (mod 4) of [X0,X1) not covered by ri_out_interior: all of them on border rows,
+ * else the columns x < 3 and x >= W-3 */
+static void ri_out_edges(const struct ri *r, const float *const *Er, uint16_t *orow, int y, int px, int border_y)
+{
+	const int X1 = r->win.X1;
+	int x = r->win.X0 + ((px - r->win.X0) & 3);
+	int xr;
+	if (border_y) {
+		for (; x < X1; x += 4) orow[x] = ri_out_edge(r, Er, y, x);
+		return;
+	}
+	for (; x < X1 && x < 3; x += 4) orow[x] = ri_out_edge(r, Er, y, x);
+	xr = x > g_w - 3 ? x : g_w - 3;
+	for (x = xr + ((px - xr) & 3); x < X1; x += 4) orow[x] = ri_out_edge(r, Er, y, x);
+}
 static void ri_out(struct ri *r, int y)
 {
 	struct ctx *c = r->c; const int W = g_w;
 	const int H = g_h;
 	const int S = c->stride;
 	const int C = r->C;
-	const int L0 = r->L0;
 	while (r->tn_next <= (y + 3 < H ? y + 3 : H - 1)) ri_tent(r, r->tn_next++);
 	const float *Er[7]; for (int j = 0; j < 7; j++) Er[j] = r->E[mir(y + j - 3, H) & 7];
-	const float *tc = r->tn[y & 7]; uint16_t *orow = c->dst + (size_t)y * S;
-	const float ped = (float)g_ped;
+	uint16_t *orow = c->dst + (size_t)y * S;
 	int border_y = (y < 3 || y >= H - 3);
+	/* interior columns x = 4k+px lie in [max(X0,3), min(X1,W-3)) */
+	int xa = r->win.X0 > 3 ? r->win.X0 : 3;
+	int xb = r->win.X1 < W - 3 ? r->win.X1 : W - 3;
 	for (int px = 0; px < 4; px++) {
 		if (g_tcol[y & 1][px & 1] != C || g_qcol[y & 3][px] == C) continue;
-		/* interior columns x = 4k+px in [max(X0,3), min(X1,W-3)) */
-		int xa = r->X0 > 3 ? r->X0 : 3;
-		int xb = r->X1 < W - 3 ? r->X1 : W - 3;
 		int k0 = (xa - px + 3) / 4;
 		int k1 = (xb - px + 3) / 4;
-		if (!border_y && k1 > k0) {
-			const struct rtap *tp = g_rtap[C][y & 3][px]; int n = g_nrtap[C][y & 3][px];
-			float iden = 1.0f / g_rden[C][y & 3][px];
-			float acc[512];
-			for (int kb = k0; kb < k1; kb += 512) {
-				int ke = kb + 512 < k1 ? kb + 512 : k1;
-				for (int kk = 0; kk < ke - kb; kk++) acc[kk] = 0;
-				for (int j = 0; j < n; j++) {
-					const float *restrict src = Er[tp[j].dy + 3] + px + tp[j].dx - L0; float w = tp[j].w;
-					for (int kk = 0; kk < ke - kb; kk++) acc[kk] += w * src[4 * (kb + kk)];
-				}
-				for (int kk = 0; kk < ke - kb; kk++) {
-					int xx = 4 * (kb + kk) + px;
-					orow[xx] = (uint16_t)clampi((int)lrintf(tc[xx - L0] + acc[kk] * iden + ped), 0, WHITE);
-				}
-			}
-		}
-		for (int x = r->X0 + ((px - r->X0) & 3); x < r->X1; x += 4) {   /* x == px (mod 4) */
-			if (!border_y && x >= 3 && x < W - 3) continue;
-			float num = 0;
-			float den = 0;
-			for (int j = 0; j < 7; j++) {
-				int yy = mir(y + j - 3, H);
-				for (int k = 0; k < 7; k++) {
-					int xx = mir(x + k - 3, W);
-					if (qcol(xx, yy) != C) continue;
-					num += g_k15[j][k] * Er[j][xx - L0]; den += g_k15[j][k];
-				}
-			}
-			orow[x] = (uint16_t)clampi((int)lrintf(tc[x - L0] + num / den + ped), 0, WHITE);
-		}
+		if (!border_y && k1 > k0) ri_out_interior(r, Er, orow, y, px, k0, k1);
+		ri_out_edges(r, Er, orow, y, px, border_y);
 	}
+}
+/* pixels whose output colour is the input colour, and the green output */
+static void final_passthru(struct ctx *c, int y0, int y1)
+{
+	const int S = c->stride;
+	for (int y = y0; y < y1; y++)
+		for (int x = 0; x < g_w; x++) {
+			size_t o = (size_t)y * S + x; int t = tcol(x, y);
+			if (qcol(x, y) == t) c->dst[o] = (uint16_t)clampi((int)lrintf(c->d[o] * IFX), 0, WHITE);
+			else if (t == CG) c->dst[o] = (uint16_t)clampi((int)lrintf(c->g[o] * IFX) + g_ped, 0, WHITE);
+		}
+}
+static inline int imax0(int a) { return a > 0 ? a : 0; }
+static inline int imin(int a, int b) { return a < b ? a : b; }
+/* set up channel C's pipeline for the column tile starting at X0 (scratch rows of lw floats from mem) */
+static void ri_init(struct ri *r, struct ctx *c, int C, int X0, int tw, int lw, float *mem, int y0)
+{
+	const int W = g_w;
+	float *m = mem;
+	struct riwin *w = &r->win;
+	r->c = c; r->C = C; w->X0 = X0; w->X1 = imin(X0 + tw, W);
+	w->L0 = imax0(X0 - 12); w->L1 = imin(w->X1 + 12, W);
+	w->hA = imax0(X0 - 9);  w->hB = imin(w->X1 + 9, W);
+	w->aA = imax0(X0 - 6);  w->aB = imin(w->X1 + 6, W);
+	w->eA = imax0(X0 - 3);  w->eB = imin(w->X1 + 3, W);
+	for (int i = 0; i < 8; i++) for (int k = 0; k < 5; k++) { r->hs[i][k] = m; m += lw; }
+	for (int i = 0; i < 8; i++) { r->ah[i] = m; m += lw; r->bh[i] = m; m += lw; r->tn[i] = m; m += lw; r->E[i] = m; m += lw; }
+	for (int k = 0; k < 5; k++) { r->pl[k] = m; m += lw; }
+	r->arow = m; m += lw; r->brow = m;
+	r->tn_next = imax0(y0 - 3);
+	r->ab_next = imax0(r->tn_next - 3);
+	r->hs_next = imax0(r->ab_next - 3);
 }
 static void final_run(int y0, int y1, void *p)
 {
-	struct ctx *c = p; const int S = c->stride;
+	struct ctx *c = p;
 	const int W = g_w;
 	struct ri r;
 	int tw = g_tile > 16 ? g_tile : 16;
@@ -2197,27 +2289,10 @@ static void final_run(int y0, int y1, void *p)
 	if (lw > W) lw = W;
 	float *mem = malloc(sizeof(float) * (size_t)lw * (8 * 5 + 8 * 4 + 5 + 2));
 	if (!mem) { LOGE("final: scratch alloc failed"); return; }
-	for (int y = y0; y < y1; y++)                       /* pass-through and green output */
-		for (int x = 0; x < W; x++) {
-			size_t o = (size_t)y * S + x; int t = tcol(x, y);
-			if (qcol(x, y) == t) c->dst[o] = (uint16_t)clampi((int)lrintf(c->d[o] * IFX), 0, WHITE);
-			else if (t == CG) c->dst[o] = (uint16_t)clampi((int)lrintf(c->g[o] * IFX) + g_ped, 0, WHITE);
-		}
+	final_passthru(c, y0, y1);
 	for (int X0 = 0; X0 < W; X0 += tw)
 		for (int C = 0; C < 3; C += 2) {
-			float *m = mem;
-			r.c = c; r.C = C; r.X0 = X0; r.X1 = X0 + tw < W ? X0 + tw : W;
-			r.L0 = X0 - 12 > 0 ? X0 - 12 : 0;  r.L1 = r.X1 + 12 < W ? r.X1 + 12 : W;
-			r.hA = X0 - 9 > 0 ? X0 - 9 : 0;    r.hB = r.X1 + 9 < W ? r.X1 + 9 : W;
-			r.aA = X0 - 6 > 0 ? X0 - 6 : 0;    r.aB = r.X1 + 6 < W ? r.X1 + 6 : W;
-			r.eA = X0 - 3 > 0 ? X0 - 3 : 0;    r.eB = r.X1 + 3 < W ? r.X1 + 3 : W;
-			for (int i = 0; i < 8; i++) for (int k = 0; k < 5; k++) { r.hs[i][k] = m; m += lw; }
-			for (int i = 0; i < 8; i++) { r.ah[i] = m; m += lw; r.bh[i] = m; m += lw; r.tn[i] = m; m += lw; r.E[i] = m; m += lw; }
-			for (int k = 0; k < 5; k++) { r.pl[k] = m; m += lw; }
-			r.arow = m; m += lw; r.brow = m;
-			r.tn_next = y0 - 3 > 0 ? y0 - 3 : 0;
-			r.ab_next = r.tn_next - 3 > 0 ? r.tn_next - 3 : 0;
-			r.hs_next = r.ab_next - 3 > 0 ? r.ab_next - 3 : 0;
+			ri_init(&r, c, C, X0, tw, lw, mem, y0);
 			for (int y = y0; y < y1; y++) ri_out(&r, y);
 		}
 	free(mem);
