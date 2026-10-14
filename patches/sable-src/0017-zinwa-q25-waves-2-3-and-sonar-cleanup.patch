@@ -472,7 +472,7 @@ index 8638f72..2517c7e 100644
  
      override fun onCreate() {
 diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/MainActivity.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/MainActivity.kt
-index 7a0337b..af48f06 100644
+index 7a0337b..cefc931 100644
 --- a/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/MainActivity.kt
 +++ b/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/MainActivity.kt
 @@ -67,6 +67,8 @@ import androidx.compose.ui.unit.dp
@@ -997,21 +997,22 @@ index 7a0337b..af48f06 100644
      private suspend fun waitForDatabaseToLoad() {
          withTimeoutOrNull(2000) {
              while (bookshelfViewModel.uiState.value.isLibraryEmpty()) {
-@@ -465,10 +489,16 @@ class MainActivity : AppCompatActivity() {
+@@ -465,10 +489,15 @@ class MainActivity : AppCompatActivity() {
      override fun dispatchKeyEvent(event: KeyEvent): Boolean =
          readerKeyDispatcher.dispatch(event) || super.dispatchKeyEvent(event)
  
+-    private object NoIndication : IndicationNodeFactory {
 +    private companion object {
 +        const val WELCOME_ROUTE = "welcome"
 +        const val PROFILE_PICKER_ROUTE = "profile_picker"
 +        const val BOOK_ID_ARG = "bookId"
 +    }
 +
-     private object NoIndication : IndicationNodeFactory {
++    // A data object supplies the equals/hashCode IndicationNodeFactory requires.
++    private data object NoIndication : IndicationNodeFactory {
          override fun create(interactionSource: InteractionSource): DelegatableNode { return object : Modifier.Node(), DelegatableNode {} }
-         override fun hashCode(): Int = -1
+-        override fun hashCode(): Int = -1
 -        override fun equals(other: Any?): Boolean = other === this
-+        override fun equals(other: Any?): Boolean = other is NoIndication
      }
  }
  
@@ -10190,6 +10191,64 @@ index bf84138..917248c 100644
          android:icon="@mipmap/ic_sable_media"
          android:roundIcon="@mipmap/ic_sable_media_round"
          android:label="Sable Media"
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/LocalAudioRepository.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/LocalAudioRepository.kt
+index dcd9464..05c318a 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/LocalAudioRepository.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/LocalAudioRepository.kt
+@@ -106,8 +106,8 @@ internal class LocalAudioRepository(
+                     uri = uriValue,
+                     sourceKey = sourceKey,
+                     title = title,
+-                    artist = json.optString("artist", "Unknown artist"),
+-                    album = json.optString("album", "Local audio"),
++                    artist = json.optString("artist", UNKNOWN_ARTIST),
++                    album = json.optString("album", LOCAL_AUDIO_ALBUM),
+                     durationMs = durationMs,
+                 )
+             }
+@@ -185,17 +185,17 @@ internal class LocalAudioRepository(
+                     metadataValue(
+                         retriever = retriever,
+                         key = MediaMetadataRetriever.METADATA_KEY_TITLE,
+-                    ) ?: fallbackName ?: "Local audio",
++                    ) ?: fallbackName ?: LOCAL_AUDIO_ALBUM,
+                 artist =
+                     metadataValue(
+                         retriever = retriever,
+                         key = MediaMetadataRetriever.METADATA_KEY_ARTIST,
+-                    ) ?: "Unknown artist",
++                    ) ?: UNKNOWN_ARTIST,
+                 album =
+                     metadataValue(
+                         retriever = retriever,
+                         key = MediaMetadataRetriever.METADATA_KEY_ALBUM,
+-                    ) ?: "Local audio",
++                    ) ?: LOCAL_AUDIO_ALBUM,
+                 durationMs =
+                     retriever
+                         .extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+@@ -204,9 +204,9 @@ internal class LocalAudioRepository(
+             )
+         } catch (_: RuntimeException) {
+             AudioMetadata(
+-                title = fallbackName ?: "Local audio",
+-                artist = "Unknown artist",
+-                album = "Local audio",
++                title = fallbackName ?: LOCAL_AUDIO_ALBUM,
++                artist = UNKNOWN_ARTIST,
++                album = LOCAL_AUDIO_ALBUM,
+                 durationMs = 0L,
+             )
+         } finally {
+@@ -285,6 +285,8 @@ internal class LocalAudioRepository(
+ 
+     private companion object {
+         const val KEY_LOCAL_AUDIO = "local_audio_items"
++        const val UNKNOWN_ARTIST = "Unknown artist"
++        const val LOCAL_AUDIO_ALBUM = "Local audio"
+         const val UNKNOWN_FILE_SIZE = -1L
+     }
+ }
 diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MainActivity.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MainActivity.kt
 index bd8cbcb..8ec4de3 100644
 --- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MainActivity.kt
@@ -10265,12 +10324,14 @@ index bd8cbcb..8ec4de3 100644
          playbackController.close()
          window.clearFlags(
 diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaApp.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaApp.kt
-index 60c2879..532e1f4 100644
+index 60c2879..2dcf853 100644
 --- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaApp.kt
 +++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaApp.kt
-@@ -3,18 +3,26 @@ package org.sableos.media
+@@ -1,23 +1,24 @@
+ package org.sableos.media
+ 
  import android.content.ContentResolver
- import android.content.Intent
+-import android.content.Intent
  import android.net.Uri
 +import android.view.KeyEvent
  import android.view.Window
@@ -10285,17 +10346,19 @@ index 60c2879..532e1f4 100644
  import androidx.compose.runtime.DisposableEffect
  import androidx.compose.runtime.LaunchedEffect
  import androidx.compose.runtime.getValue
-+import androidx.compose.runtime.mutableIntStateOf
- import androidx.compose.runtime.mutableStateOf
+-import androidx.compose.runtime.mutableStateOf
  import androidx.compose.runtime.remember
  import androidx.compose.runtime.rememberCoroutineScope
+-import androidx.compose.runtime.setValue
+-import kotlinx.coroutines.Dispatchers
+-import kotlinx.coroutines.launch
+-import kotlinx.coroutines.withContext
 +import androidx.compose.runtime.rememberUpdatedState
- import androidx.compose.runtime.setValue
 +import androidx.compose.ui.platform.LocalContext
- import kotlinx.coroutines.Dispatchers
- import kotlinx.coroutines.launch
- import kotlinx.coroutines.withContext
-@@ -36,6 +44,8 @@ internal data class MediaHostServices(
+ import org.sableos.design.SableGlobalTheme
+ 
+ internal data class MediaRepositories(
+@@ -36,6 +37,8 @@ internal data class MediaHostServices(
      val playbackController: PlaybackController,
      val playUri: (Uri, String, String) -> Unit,
      val playLocalQueue: (List<LocalAudioItem>, Int) -> Unit,
@@ -10304,230 +10367,366 @@ index 60c2879..532e1f4 100644
  )
  
  @Composable
-@@ -141,6 +151,26 @@ internal fun MediaApp(
-         mutableStateOf<String?>(null)
-     }
- 
-+    // Library search: null while closed, the typed query while open.
-+    var searchQuery by remember {
-+        mutableStateOf<String?>(null)
-+    }
-+    var searchFocusToken by remember {
-+        mutableIntStateOf(0)
-+    }
-+    var focusedTrack by remember {
-+        mutableStateOf<LocalAudioItem?>(null)
-+    }
-+    var pendingRemoval by remember {
-+        mutableStateOf<LocalAudioItem?>(null)
-+    }
-+    var showInfo by remember {
-+        mutableStateOf(false)
-+    }
-+    val textInputFocus = remember { MediaTextInputFocus() }
+@@ -44,735 +47,189 @@ internal fun MediaApp(
+     host: MediaHostServices,
+     playbackState: PlaybackUiState,
+ ) {
+-    val localAudioRepository = repositories.localAudio
+-    val audioFolderScanner = repositories.audioFolderScanner
+-    val stationRepository = repositories.stations
+-    val libraryStateRepository = repositories.libraryState
+-    val podcastRepository = repositories.podcasts
+-    val podcastStateRepository = repositories.podcastState
+-    val settingsRepository = repositories.settings
+-    val initialSettings = remember(settingsRepository) { settingsRepository.load() }
+-    val playbackController = host.playbackController
+-    val contentResolver = host.contentResolver
+-    val window = host.window
+-    val playUri = host.playUri
+-    val playLocalQueue = host.playLocalQueue
+-
 +    val context = LocalContext.current
+     val uiScope = rememberCoroutineScope()
++    val latestPlayback by rememberUpdatedState(playbackState)
 +    val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
++    val latestBackDispatcher by rememberUpdatedState(backDispatcher)
 +
-     LaunchedEffect(localAudioRepository, libraryStateRepository) {
-         val loadResult =
-             withContext(Dispatchers.IO) {
-@@ -208,6 +238,192 @@ internal fun MediaApp(
-         selectedPlaylistUris = emptySet()
++    val state =
++        remember {
++            MediaAppState(
++                repositories = repositories,
++                initialSettings = repositories.settings.load(),
++            )
++        }
++    val controllers =
++        remember {
++            MediaControllers(
++                state = state,
++                repositories = repositories,
++                host = host,
++                scope = uiScope,
++                environment =
++                    MediaUiEnvironment(
++                        toast = { text -> Toast.makeText(context, text, Toast.LENGTH_SHORT).show() },
++                        playback = { latestPlayback },
++                        backDispatcher = { latestBackDispatcher },
++                    ),
++            )
++        }
+ 
+-    var settings by remember {
+-        mutableStateOf(initialSettings)
+-    }
+-    var destination by remember {
+-        mutableStateOf(
+-            when (initialSettings.startPage) {
+-                MediaStartPage.Collection -> MediaDestination.Collection
+-                MediaStartPage.Radio -> MediaDestination.Radio
+-            },
+-        )
+-    }
+-    var libraryPivot by remember {
+-        mutableStateOf(LibraryPivot.Songs)
+-    }
+-    var localItems by remember {
+-        mutableStateOf(emptyList<LocalAudioItem>())
+-    }
+-    var localLibraryLoading by remember {
+-        mutableStateOf(true)
+-    }
+-    var podcastSubscriptions by remember {
+-        mutableStateOf(podcastRepository.loadSubscriptions())
+-    }
+-    var savedPodcastEpisodeIds by remember {
+-        mutableStateOf(podcastStateRepository.loadSavedEpisodeIds())
+-    }
+-    var playedPodcastEpisodeIds by remember {
+-        mutableStateOf(podcastStateRepository.loadPlayedEpisodeIds())
+-    }
+-    var podcastFeedUrl by remember {
+-        mutableStateOf("")
+-    }
+-    var podcastBusy by remember {
+-        mutableStateOf(false)
+-    }
+-    var podcastRefreshing by remember {
+-        mutableStateOf(false)
+-    }
+-    var podcastMessage by remember {
+-        mutableStateOf<String?>(null)
+-    }
+-    var stations by remember {
+-        mutableStateOf(stationRepository.loadStations())
+-    }
+-    var favoriteAudioUris by remember {
+-        mutableStateOf(libraryStateRepository.loadFavoriteAudioUris())
+-    }
+-    var favoriteStationIds by remember {
+-        mutableStateOf(libraryStateRepository.loadFavoriteStationIds())
+-    }
+-    var playlists by remember {
+-        mutableStateOf(emptyList<MediaPlaylist>())
+-    }
+-    var showFavoriteStationsOnly by remember {
+-        mutableStateOf(false)
+-    }
+-
+-    var editingStation by remember {
+-        mutableStateOf<RadioStation?>(null)
+-    }
+-    var stationName by remember {
+-        mutableStateOf("")
+-    }
+-    var stationUrl by remember {
+-        mutableStateOf("")
+-    }
+-
+-    var editingPlaylist by remember {
+-        mutableStateOf<MediaPlaylist?>(null)
+-    }
+-    var playlistName by remember {
+-        mutableStateOf("")
+-    }
+-    var selectedPlaylistUris by remember {
+-        mutableStateOf(emptySet<String>())
+-    }
+-
+-    var message by remember {
+-        mutableStateOf<String?>(null)
+-    }
+-
+-    LaunchedEffect(localAudioRepository, libraryStateRepository) {
+-        val loadResult =
+-            withContext(Dispatchers.IO) {
+-                runCatching {
+-                    val loadedItems = localAudioRepository.loadItems()
+-                    val loadedPlaylists =
+-                        libraryStateRepository.pruneMissingAudio(
+-                            current = libraryStateRepository.loadPlaylists(),
+-                            validUris = loadedItems.mapTo(mutableSetOf()) { it.uri },
+-                        )
+-                    loadedItems to loadedPlaylists
+-                }
+-            }
+-
+-        loadResult
+-            .onSuccess { (loadedItems, loadedPlaylists) ->
+-                localItems = loadedItems
+-                playlists = loadedPlaylists
+-            }.onFailure {
+-                message = "Local collection could not be loaded."
+-            }
+-        localLibraryLoading = false
++    LaunchedEffect(repositories.localAudio, repositories.libraryState) {
++        controllers.library.load()
      }
  
-+    fun navigate(next: MediaDestination) {
-+        destination = next
-+        message = null
-+
-+        if (
-+            next != MediaDestination.ManageStations &&
-+            next != MediaDestination.AddStation
-+        ) {
-+            clearStationForm()
-+        }
-+
-+        if (next != MediaDestination.PlaylistEditor) {
-+            clearPlaylistForm()
-+        }
-+
-+        if (next != MediaDestination.Collection) {
-+            searchQuery = null
-+            focusedTrack = null
-+        }
-+    }
-+
-+    fun removeLocal(item: LocalAudioItem) {
-+        localItems =
-+            localAudioRepository.remove(
-+                current = localItems,
-+                uri = item.uri,
-+            )
-+
-+        if (item.uri in favoriteAudioUris) {
-+            favoriteAudioUris =
-+                libraryStateRepository.toggleFavoriteAudio(
-+                    current = favoriteAudioUris,
-+                    uri = item.uri,
-+                )
-+        }
-+
-+        playlists =
-+            libraryStateRepository.pruneMissingAudio(
-+                current = playlists,
-+                validUris = localItems.map { it.uri }.toSet(),
-+            )
-+
-+        if (focusedTrack?.uri == item.uri) {
-+            focusedTrack = null
-+        }
-+
-+        message = "Removed from the Sable Media collection."
-+    }
-+
-+    fun toast(text: String) {
-+        Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
-+    }
-+
-+    val latestPlayback by rememberUpdatedState(playbackState)
-+
-+    fun seekBy(stepMs: Long) {
-+        val playback = latestPlayback
-+        if (playback.durationMs > 0L) {
-+            playbackController.seekTo((playback.positionMs + stepMs).coerceIn(0L, playback.durationMs))
-+        }
-+    }
-+
-+    fun toggleFocusedFavorite() {
-+        val item = focusedTrack
-+        if (item == null) {
-+            toast("Move focus to a track to change its favorite.")
-+            return
-+        }
-+        favoriteAudioUris =
-+            libraryStateRepository.toggleFavoriteAudio(
-+                current = favoriteAudioUris,
-+                uri = item.uri,
-+            )
-+        toast(if (item.uri in favoriteAudioUris) "Added to favorites." else "Removed from favorites.")
-+    }
-+
-+    fun openCollection(pivot: LibraryPivot? = null) {
-+        if (destination != MediaDestination.Collection) navigate(MediaDestination.Collection)
-+        if (pivot != null) libraryPivot = pivot
-+    }
-+
-+    /** Runs one keyboard command; false leaves the key to the focused view. */
-+    @Suppress("CyclomaticComplexMethod")
-+    fun runKeyCommand(command: MediaKeyCommand): Boolean {
-+        var handled = true
-+        when (command) {
-+            MediaKeyCommand.PlayPause -> {
-+                playbackController.setPlaying(!latestPlayback.isPlaying)
-+            }
-+
-+            MediaKeyCommand.Previous -> {
-+                playbackController.skip(PlaybackSkip.Previous)
-+            }
-+
-+            MediaKeyCommand.Next -> {
-+                playbackController.skip(PlaybackSkip.Next)
-+            }
-+
-+            MediaKeyCommand.SeekBack -> {
-+                seekBy(-MediaKeymap.SEEK_STEP_MS)
-+            }
-+
-+            MediaKeyCommand.SeekForward -> {
-+                seekBy(MediaKeymap.SEEK_STEP_MS)
-+            }
-+
-+            MediaKeyCommand.VolumeUp -> {
-+                host.adjustVolume(true)
-+            }
-+
-+            MediaKeyCommand.VolumeDown -> {
-+                host.adjustVolume(false)
-+            }
-+
-+            MediaKeyCommand.Search -> {
-+                openCollection()
-+                if (searchQuery == null) searchQuery = ""
-+                searchFocusToken += 1
-+            }
-+
-+            MediaKeyCommand.ViewMode -> {
-+                if (destination == MediaDestination.Collection) {
-+                    libraryPivot = MediaKeymap.nextPivot(libraryPivot)
-+                } else {
-+                    openCollection()
-+                }
-+            }
-+
-+            MediaKeyCommand.Favorite -> {
-+                toggleFocusedFavorite()
-+            }
-+
-+            MediaKeyCommand.Delete -> {
-+                // Without a focused track the key is left to the focused view.
-+                pendingRemoval = focusedTrack
-+                handled = pendingRemoval != null
-+            }
-+
-+            MediaKeyCommand.Queue -> {
-+                navigate(MediaDestination.Queue)
-+            }
-+
-+            MediaKeyCommand.Info -> {
-+                showInfo = true
-+            }
-+
-+            MediaKeyCommand.Latest -> {
-+                navigate(MediaDestination.NowPlaying)
-+            }
-+
-+            MediaKeyCommand.Albums -> {
-+                openCollection(LibraryPivot.Albums)
-+            }
-+
-+            MediaKeyCommand.Back -> {
-+                backDispatcher?.onBackPressed()
-+                handled = backDispatcher != null
-+            }
-+        }
-+        return handled
-+    }
-+
-+    val latestKeyCommand by rememberUpdatedState<(MediaKeyCommand) -> Boolean>(::runKeyCommand)
-+    val latestDestination by rememberUpdatedState(destination)
+-    LaunchedEffect(destination, playbackController) {
+-        playbackController.setProgressUpdatesEnabled(
+-            destination == MediaDestination.NowPlaying,
++    LaunchedEffect(state.destination, host.playbackController) {
++        host.playbackController.setProgressUpdatesEnabled(
++            state.destination == MediaDestination.NowPlaying,
+         )
+     }
+ 
+-    DisposableEffect(
+-        settings.keepScreenAwakeWhilePlaying,
+-        playbackState.isPlaying,
+-    ) {
+-        val shouldKeepAwake =
+-            settings.keepScreenAwakeWhilePlaying &&
+-                playbackState.isPlaying
+-
+-        if (shouldKeepAwake) {
+-            window.addFlags(
+-                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+-            )
+-        } else {
+-            window.clearFlags(
+-                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+-            )
+-        }
+-
+-        onDispose {
+-            window.clearFlags(
+-                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+-            )
+-        }
+-    }
++    KeepScreenAwakeEffect(
++        window = host.window,
++        keepAwake = state.settings.keepScreenAwakeWhilePlaying && playbackState.isPlaying,
++    )
+ 
+-    fun clearStationForm() {
+-        editingStation = null
+-        stationName = ""
+-        stationUrl = ""
 +    DisposableEffect(host) {
-+        host.setKeyHandler { event ->
-+            val command =
-+                MediaKeymap.command(
-+                    press = event.toMediaKeyPress(),
-+                    textInputActive = textInputFocus.active,
-+                    onNowPlaying = latestDestination == MediaDestination.NowPlaying,
-+                )
-+            command != null && latestKeyCommand(command)
-+        }
++        host.setKeyHandler(controllers.keys::handle)
 +        onDispose { host.setKeyHandler(null) }
-+    }
-+
+     }
+ 
+-    fun clearPlaylistForm() {
+-        editingPlaylist = null
+-        playlistName = ""
+-        selectedPlaylistUris = emptySet()
 +    // BACK_RETURNS_ONE_LOGICAL_LAYER: hardware Back and Esc leave a sub-screen or search, not the app.
-+    BackHandler(enabled = MediaKeymap.backStep(destination, searchQuery != null) != null) {
-+        when (val step = MediaKeymap.backStep(destination, searchQuery != null)) {
-+            MediaBackStep.CloseSearch -> searchQuery = null
-+            is MediaBackStep.Navigate -> navigate(step.destination)
-+            null -> Unit
-+        }
-+    }
-+
++    BackHandler(enabled = state.backStep() != null) {
++        state.goBack()
+     }
+ 
      val localAudioPicker =
          rememberLauncherForActivityResult(
              ActivityResultContracts.OpenMultipleDocuments(),
-@@ -328,451 +544,441 @@ internal fun MediaApp(
-         }
+-        ) { uris ->
+-            if (uris.isEmpty()) {
+-                return@rememberLauncherForActivityResult
+-            }
+-
+-            uris.forEach { uri ->
+-                runCatching {
+-                    contentResolver.takePersistableUriPermission(
+-                        uri,
+-                        Intent.FLAG_GRANT_READ_URI_PERMISSION,
+-                    )
+-                }
+-            }
+-
+-            val currentItems = localItems
+-            val currentPlaylists = playlists
+-            message = "Importing ${uris.size} audio file${if (uris.size == 1) "" else "s"}…"
+-
+-            uiScope.launch {
+-                val result =
+-                    runCatching {
+-                        withContext(Dispatchers.IO) {
+-                            val updatedItems =
+-                                localAudioRepository.addUris(
+-                                    current = currentItems,
+-                                    uris = uris,
+-                                )
+-                            val updatedPlaylists =
+-                                libraryStateRepository.pruneMissingAudio(
+-                                    current = currentPlaylists,
+-                                    validUris = updatedItems.map { it.uri }.toSet(),
+-                                )
+-                            updatedItems to updatedPlaylists
+-                        }
+-                    }
+-
+-                result
+-                    .onSuccess { (updatedItems, updatedPlaylists) ->
+-                        localItems = updatedItems
+-                        playlists = updatedPlaylists
+-                        libraryPivot = LibraryPivot.Songs
+-                        message =
+-                            "${uris.size} local audio file${if (uris.size == 1) "" else "s"} added."
+-                    }.onFailure {
+-                        message = "Audio import failed. Existing collection was not changed."
+-                    }
+-            }
+-        }
+-
++            controllers.library::importAudio,
++        )
+     val localAudioFolderPicker =
+         rememberLauncherForActivityResult(
+             ActivityResultContracts.OpenDocumentTree(),
+-        ) { treeUri ->
+-            if (treeUri == null) {
+-                return@rememberLauncherForActivityResult
+-            }
+-
+-            runCatching {
+-                contentResolver.takePersistableUriPermission(
+-                    treeUri,
+-                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
+-                )
+-            }
+-
+-            val currentItems = localItems
+-            val currentPlaylists = playlists
+-            message = "Scanning audio folder…"
+-
+-            uiScope.launch {
+-                val result =
+-                    runCatching {
+-                        withContext(Dispatchers.IO) {
+-                            val uris = audioFolderScanner.scan(treeUri)
+-                            if (uris.isEmpty()) {
+-                                return@withContext Triple(
+-                                    emptyList<LocalAudioItem>(),
+-                                    currentPlaylists,
+-                                    0,
+-                                )
+-                            }
+-
+-                            val updatedItems =
+-                                localAudioRepository.addUris(
+-                                    current = currentItems,
+-                                    uris = uris,
+-                                )
+-                            val updatedPlaylists =
+-                                libraryStateRepository.pruneMissingAudio(
+-                                    current = currentPlaylists,
+-                                    validUris = updatedItems.map { it.uri }.toSet(),
+-                                )
+-                            Triple(
+-                                updatedItems,
+-                                updatedPlaylists,
+-                                uris.size,
+-                            )
+-                        }
+-                    }
++            controllers.library::importFolder,
++        )
  
-     SableGlobalTheme(window = window) {
+-                result
+-                    .onSuccess { (updatedItems, updatedPlaylists, importedCount) ->
+-                        if (importedCount == 0) {
+-                            message = "No audio files found in that folder."
+-                        } else {
+-                            localItems = updatedItems
+-                            playlists = updatedPlaylists
+-                            libraryPivot = LibraryPivot.Songs
+-                            message =
+-                                "$importedCount audio file${if (importedCount == 1) "" else "s"} imported from folder."
+-                        }
+-                    }.onFailure {
+-                        message = "Folder import failed. Existing collection was not changed."
+-                    }
+-            }
++    SableGlobalTheme(window = host.window) {
++        MediaKeyDialogs(
++            playback = playbackState,
++            showInfo = state.showInfo,
++            pendingRemoval = state.pendingRemoval,
++            onDismissInfo = { state.showInfo = false },
++            onConfirmRemoval = controllers.library::confirmRemoval,
++            onDismissRemoval = { state.pendingRemoval = null },
++        )
++        CompositionLocalProvider(LocalMediaTextInputFocus provides state.textInputFocus) {
++            MediaScreen(
++                state = state.screenState(playbackState),
++                actions =
++                    mediaScreenActions(
++                        state = state,
++                        controllers = controllers,
++                        host = host,
++                        pickers =
++                            MediaPickers(
++                                audioFiles = { localAudioPicker.launch(arrayOf(AUDIO_MIME_FILTER)) },
++                                audioFolder = { localAudioFolderPicker.launch(null) },
++                            ),
++                    ),
++            )
+         }
++    }
++}
+ 
+-    SableGlobalTheme(window = window) {
 -        MediaScreen(
 -            state =
 -                MediaScreenState(
@@ -10603,108 +10802,22 @@ index 60c2879..532e1f4 100644
 -                            localAudioRepository.remove(
 -                                current = localItems,
 -                                uri = item.uri,
-+        MediaKeyDialogs(
-+            playback = playbackState,
-+            showInfo = showInfo,
-+            pendingRemoval = pendingRemoval,
-+            onDismissInfo = { showInfo = false },
-+            onConfirmRemoval = { item ->
-+                pendingRemoval = null
-+                removeLocal(item)
-+                toast("Removed from the Sable Media collection.")
-+            },
-+            onDismissRemoval = { pendingRemoval = null },
-+        )
-+        CompositionLocalProvider(LocalMediaTextInputFocus provides textInputFocus) {
-+            MediaScreen(
-+                state =
-+                    MediaScreenState(
-+                        destination = destination,
-+                        libraryPivot = libraryPivot,
-+                        localItems = localItems,
-+                        localLibraryLoading = localLibraryLoading,
-+                        podcastSubscriptions = podcastSubscriptions,
-+                        savedPodcastEpisodeIds = savedPodcastEpisodeIds,
-+                        playedPodcastEpisodeIds = playedPodcastEpisodeIds,
-+                        podcastFeedUrl = podcastFeedUrl,
-+                        podcastBusy = podcastBusy,
-+                        podcastRefreshing = podcastRefreshing,
-+                        podcastMessage = podcastMessage,
-+                        stations = stations,
-+                        playback = playbackState,
-+                        favoriteAudioUris = favoriteAudioUris,
-+                        favoriteStationIds = favoriteStationIds,
-+                        playlists = playlists,
-+                        settings = settings,
-+                        playlistName = playlistName,
-+                        selectedPlaylistUris = selectedPlaylistUris,
-+                        editingPlaylist = editingPlaylist,
-+                        showFavoriteStationsOnly = showFavoriteStationsOnly,
-+                        stationName = stationName,
-+                        stationUrl = stationUrl,
-+                        editingStation = editingStation,
-+                        message = message,
-+                        searchQuery = searchQuery,
-+                        searchFocusToken = searchFocusToken,
-+                    ),
-+                actions =
-+                    MediaScreenActions(
-+                        onDestinationChange = ::navigate,
-+                        onLibraryPivotChange = {
-+                            libraryPivot = it
-+                        },
-+                        onAddLocalAudio = {
-+                            if (localLibraryLoading) {
-+                                message = "Local collection is still loading."
-+                            } else {
-+                                localAudioPicker.launch(arrayOf("audio/*"))
-+                            }
-+                        },
-+                        onAddLocalFolder = {
-+                            if (localLibraryLoading) {
-+                                message = "Local collection is still loading."
-+                            } else {
-+                                localAudioFolderPicker.launch(null)
-+                            }
-+                        },
-+                        onPlayLocal = { selectedIndex ->
-+                            playLocalQueue(
-+                                localItems,
-+                                selectedIndex,
-                             )
+-                            )
 -
 -                        if (item.uri in favoriteAudioUris) {
-+                            destination = MediaDestination.NowPlaying
-+                        },
-+                        onRemoveLocal = ::removeLocal,
-+                        onToggleFavoriteAudio = { item ->
-                             favoriteAudioUris =
-                                 libraryStateRepository.toggleFavoriteAudio(
-                                     current = favoriteAudioUris,
-                                     uri = item.uri,
-                                 )
+-                            favoriteAudioUris =
+-                                libraryStateRepository.toggleFavoriteAudio(
+-                                    current = favoriteAudioUris,
+-                                    uri = item.uri,
+-                                )
 -                        }
-+                        },
-+                        onPodcastFeedUrlChange = { value ->
-+                            podcastFeedUrl = value
-+                            podcastMessage = null
-+                        },
-+                        onAddPodcastFeed = {
-+                            val candidate = podcastFeedUrl.trim()
-+                            when {
-+                                podcastBusy -> {
-+                                    Unit
-+                                }
- 
+-
 -                        playlists =
 -                            libraryStateRepository.pruneMissingAudio(
 -                                current = playlists,
 -                                validUris = localItems.map { it.uri }.toSet(),
 -                            )
-+                                !PodcastRepository.isSupportedFeedUrl(candidate) -> {
-+                                    podcastMessage = "Podcast feed must use HTTPS."
-+                                }
- 
+-
 -                        message = "Removed from the Sable Media collection."
 -                    },
 -                    onToggleFavoriteAudio = { item ->
@@ -10724,89 +10837,42 @@ index 60c2879..532e1f4 100644
 -                            podcastBusy -> {
 -                                Unit
 -                            }
-+                                else -> {
-+                                    val currentSubscriptions = podcastSubscriptions
-+                                    podcastBusy = true
-+                                    podcastMessage = "Contacting podcast feed…"
-+
-+                                    uiScope.launch {
-+                                        val result =
-+                                            runCatching {
-+                                                withContext(Dispatchers.IO) {
-+                                                    podcastRepository.subscribe(
-+                                                        current = currentSubscriptions,
-+                                                        feedUrl = candidate,
-+                                                    )
-+                                                }
-+                                            }
- 
+-
 -                            !PodcastRepository.isSupportedFeedUrl(candidate) -> {
 -                                podcastMessage = "Podcast feed must use HTTPS."
-+                                        result
-+                                            .onSuccess { updated ->
-+                                                podcastSubscriptions = updated
-+                                                podcastFeedUrl = ""
-+                                                podcastMessage =
-+                                                    "Podcast subscribed. Pull down to refresh feeds."
-+                                            }.onFailure { error ->
-+                                                podcastMessage =
-+                                                    error.message
-+                                                        ?.takeIf { it.isNotBlank() }
-+                                                        ?: "Podcast feed could not be added."
-+                                            }
-+                                        podcastBusy = false
-+                                    }
-+                                }
-                             }
+-                            }
 -
 -                            else -> {
-+                        },
-+                        onRefreshPodcasts = {
-+                            if (!podcastBusy && podcastSubscriptions.isNotEmpty()) {
-                                 val currentSubscriptions = podcastSubscriptions
-                                 podcastBusy = true
+-                                val currentSubscriptions = podcastSubscriptions
+-                                podcastBusy = true
 -                                podcastMessage = "Contacting podcast feed…"
-+                                podcastRefreshing = true
-+                                podcastMessage = "Refreshing subscribed feeds…"
- 
-                                 uiScope.launch {
-                                     val result =
-                                         runCatching {
-                                             withContext(Dispatchers.IO) {
+-
+-                                uiScope.launch {
+-                                    val result =
+-                                        runCatching {
+-                                            withContext(Dispatchers.IO) {
 -                                                podcastRepository.subscribe(
-+                                                podcastRepository.refreshAll(
-                                                     current = currentSubscriptions,
+-                                                    current = currentSubscriptions,
 -                                                    feedUrl = candidate,
-                                                 )
-                                             }
-                                         }
- 
-                                     result
+-                                                )
+-                                            }
+-                                        }
+-
+-                                    result
 -                                        .onSuccess { updated ->
 -                                            podcastSubscriptions = updated
 -                                            podcastFeedUrl = ""
-+                                        .onSuccess { refresh ->
-+                                            podcastSubscriptions = refresh.subscriptions
-                                             podcastMessage =
+-                                            podcastMessage =
 -                                                "Podcast subscribed. Pull down to refresh feeds."
-+                                                if (refresh.failedFeeds == 0) {
-+                                                    "Podcasts refreshed."
-+                                                } else {
-+                                                    "Podcasts refreshed with " +
-+                                                        "${refresh.failedFeeds} feed failure(s); " +
-+                                                        "cached episodes were kept."
-+                                                }
-                                         }.onFailure { error ->
-                                             podcastMessage =
-                                                 error.message
-                                                     ?.takeIf { it.isNotBlank() }
+-                                        }.onFailure { error ->
+-                                            podcastMessage =
+-                                                error.message
+-                                                    ?.takeIf { it.isNotBlank() }
 -                                                    ?: "Podcast feed could not be added."
-+                                                    ?: "Podcast refresh failed; cached episodes were kept."
-                                         }
-+                                    podcastRefreshing = false
-                                     podcastBusy = false
-                                 }
-                             }
+-                                        }
+-                                    podcastBusy = false
+-                                }
+-                            }
 -                        }
 -                    },
 -                    onRefreshPodcasts = {
@@ -10903,26 +10969,7 @@ index 60c2879..532e1f4 100644
 -                            libraryStateRepository.toggleFavoriteStation(
 -                                current = favoriteStationIds,
 -                                stationId = station.id,
-+                        },
-+                        onRemovePodcastSubscription = { subscription ->
-+                            podcastSubscriptions =
-+                                podcastRepository.remove(
-+                                    current = podcastSubscriptions,
-+                                    podcastId = subscription.id,
-+                                )
-+                            podcastMessage = "Podcast removed from this device."
-+                        },
-+                        onPlayPodcastEpisode = { episode ->
-+                            playedPodcastEpisodeIds =
-+                                podcastStateRepository.markPlayed(
-+                                    current = playedPodcastEpisodeIds,
-+                                    episodeId = episode.id,
-+                                )
-+                            playUri(
-+                                Uri.parse(episode.mediaUrl),
-+                                episode.title,
-+                                episode.podcastTitle,
-                             )
+-                            )
 -                    },
 -                    onRadioFavoritesOnlyChange = {
 -                        showFavoriteStationsOnly = it
@@ -10948,54 +10995,18 @@ index 60c2879..532e1f4 100644
 -                            stationRepository.deleteStation(
 -                                current = stations,
 -                                id = station.id,
-+                            destination = MediaDestination.NowPlaying
-+                        },
-+                        onQueuePodcastEpisode = { episode ->
-+                            val queued =
-+                                playbackController.addToQueue(
-+                                    uri = episode.mediaUrl,
-+                                    title = episode.title,
-+                                    source = episode.podcastTitle,
-+                                )
-+                            podcastMessage =
-+                                if (queued) {
-+                                    "Added to Up Next."
-+                                } else {
-+                                    "Player is still connecting. Try again."
-+                                }
-+                        },
-+                        onToggleSavedPodcastEpisode = { episode ->
-+                            savedPodcastEpisodeIds =
-+                                podcastStateRepository.toggleSaved(
-+                                    current = savedPodcastEpisodeIds,
-+                                    episodeId = episode.id,
-+                                )
-+                        },
-+                        onPlayStation = { station ->
-+                            playUri(
-+                                Uri.parse(station.url),
-+                                station.name,
-+                                "live radio",
-                             )
+-                            )
 -
 -                        if (station.id in favoriteStationIds) {
-+                            destination = MediaDestination.NowPlaying
-+                        },
-+                        onToggleFavoriteStation = { station ->
-                             favoriteStationIds =
-                                 libraryStateRepository.toggleFavoriteStation(
-                                     current = favoriteStationIds,
-                                     stationId = station.id,
-                                 )
+-                            favoriteStationIds =
+-                                libraryStateRepository.toggleFavoriteStation(
+-                                    current = favoriteStationIds,
+-                                    stationId = station.id,
+-                                )
 -                        }
 -
 -                        if (editingStation?.id == station.id) {
-+                        },
-+                        onRadioFavoritesOnlyChange = {
-+                            showFavoriteStationsOnly = it
-+                        },
-+                        onAddStation = {
-                             clearStationForm()
+-                            clearStationForm()
 -                        }
 -
 -                        message = "Station removed."
@@ -11014,29 +11025,12 @@ index 60c2879..532e1f4 100644
 -                        if (!RadioStationRepository.isSupportedUrl(candidate)) {
 -                            message = "Station URL must use HTTP or HTTPS."
 -                        } else {
-+                            message = null
-+                            destination = MediaDestination.AddStation
-+                        },
-+                        onManageStations = {
-+                            clearStationForm()
-+                            message = null
-+                            destination = MediaDestination.ManageStations
-+                        },
-+                        onEditStation = { station ->
-+                            editingStation = station
-+                            stationName = station.name
-+                            stationUrl = station.url
-+                            message = null
-+                        },
-+                        onDeleteStation = { station ->
-                             stations =
+-                            stations =
 -                                stationRepository.saveStation(
-+                                stationRepository.deleteStation(
-                                     current = stations,
+-                                    current = stations,
 -                                    name = stationName,
 -                                    url = candidate,
-+                                    id = station.id,
-                                 )
+-                                )
 -                            clearStationForm()
 -                            message = "Station saved locally."
 -                            destination = MediaDestination.Radio
@@ -11049,51 +11043,40 @@ index 60c2879..532e1f4 100644
 -                        when {
 -                            editing == null -> {
 -                                message = "Choose a station to edit."
-+
-+                            if (station.id in favoriteStationIds) {
-+                                favoriteStationIds =
-+                                    libraryStateRepository.toggleFavoriteStation(
-+                                        current = favoriteStationIds,
-+                                        stationId = station.id,
-+                                    )
-                             }
+-                            }
++/** FLAG_KEEP_SCREEN_ON while [keepAwake], cleared when it turns false or the app leaves composition. */
++@Composable
++private fun KeepScreenAwakeEffect(
++    window: Window,
++    keepAwake: Boolean,
++) {
++    DisposableEffect(window, keepAwake) {
++        if (keepAwake) {
++            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
++        } else {
++            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
++        }
  
 -                            !RadioStationRepository.isSupportedUrl(candidate) -> {
 -                                message = "Station URL must use HTTP or HTTPS."
-+                            if (editingStation?.id == station.id) {
-+                                clearStationForm()
-                             }
+-                            }
++        onDispose {
++            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
++        }
++    }
++}
  
 -                            else -> {
-+                            message = "Station removed."
-+                        },
-+                        onStationNameChange = {
-+                            stationName = it
-+                            message = null
-+                        },
-+                        onStationUrlChange = {
-+                            stationUrl = it
-+                            message = null
-+                        },
-+                        onSaveNewStation = {
-+                            val candidate = stationUrl.trim()
-+
-+                            if (!RadioStationRepository.isSupportedUrl(candidate)) {
-+                                message = "Station URL must use HTTP or HTTPS."
-+                            } else {
-                                 stations =
+-                                stations =
 -                                    stationRepository.updateStation(
-+                                    stationRepository.saveStation(
-                                         current = stations,
+-                                        current = stations,
 -                                        id = editing.id,
-                                         name = stationName,
-                                         url = candidate,
-                                     )
-                                 clearStationForm()
+-                                        name = stationName,
+-                                        url = candidate,
+-                                    )
+-                                clearStationForm()
 -                                message = "Station updated."
-+                                message = "Station saved locally."
-+                                destination = MediaDestination.Radio
-                             }
+-                            }
 -                        }
 -                    },
 -                    onCancelStationFlow = {
@@ -11111,58 +11094,8 @@ index 60c2879..532e1f4 100644
 -                            message = "Local collection is still loading."
 -                        } else {
 -                            clearPlaylistForm()
-+                        },
-+                        onSaveEditedStation = {
-+                            val editing = editingStation
-+                            val candidate = stationUrl.trim()
-+
-+                            when {
-+                                editing == null -> {
-+                                    message = "Choose a station to edit."
-+                                }
-+
-+                                !RadioStationRepository.isSupportedUrl(candidate) -> {
-+                                    message = "Station URL must use HTTP or HTTPS."
-+                                }
-+
-+                                else -> {
-+                                    stations =
-+                                        stationRepository.updateStation(
-+                                            current = stations,
-+                                            id = editing.id,
-+                                            name = stationName,
-+                                            url = candidate,
-+                                        )
-+                                    clearStationForm()
-+                                    message = "Station updated."
-+                                }
-+                            }
-+                        },
-+                        onCancelStationFlow = {
-+                            if (destination == MediaDestination.AddStation) {
-+                                clearStationForm()
-+                                message = null
-+                                destination = MediaDestination.Radio
-+                            } else {
-+                                clearStationForm()
-+                                message = null
-+                            }
-+                        },
-+                        onCreatePlaylist = {
-+                            if (localLibraryLoading) {
-+                                message = "Local collection is still loading."
-+                            } else {
-+                                clearPlaylistForm()
-+                                message = null
-+                                destination = MediaDestination.PlaylistEditor
-+                            }
-+                        },
-+                        onEditPlaylist = { playlist ->
-+                            editingPlaylist = playlist
-+                            playlistName = playlist.name
-+                            selectedPlaylistUris = playlist.itemUris.toSet()
-                             message = null
-                             destination = MediaDestination.PlaylistEditor
+-                            message = null
+-                            destination = MediaDestination.PlaylistEditor
 -                        }
 -                    },
 -                    onEditPlaylist = { playlist ->
@@ -11188,31 +11121,15 @@ index 60c2879..532e1f4 100644
 -                                    val byUri =
 -                                        itemsSnapshot.associateBy { item ->
 -                                            item.uri
-+                        },
-+                        onDeletePlaylist = { playlist ->
-+                            playlists =
-+                                libraryStateRepository.deletePlaylist(
-+                                    current = playlists,
-+                                    playlistId = playlist.id,
-+                                )
-+                            message = "Playlist removed."
-+                        },
-+                        onPlayPlaylist = { playlist ->
-+                            val itemsSnapshot = localItems
-+                            uiScope.launch {
-+                                val queue =
-+                                    withContext(Dispatchers.Default) {
-+                                        val byUri =
-+                                            itemsSnapshot.associateBy { item ->
-+                                                item.uri
-+                                            }
-+                                        playlist.itemUris.mapNotNull { uri ->
-+                                            byUri[uri]
-                                         }
+-                                        }
 -                                    playlist.itemUris.mapNotNull { uri ->
 -                                        byUri[uri]
-                                     }
+-                                    }
 -                                }
++private class MediaPickers(
++    val audioFiles: () -> Unit,
++    val audioFolder: () -> Unit,
++)
  
 -                            if (queue.isEmpty()) {
 -                                message = "This playlist has no available tracks."
@@ -11220,77 +11137,9 @@ index 60c2879..532e1f4 100644
 -                                playLocalQueue(
 -                                    queue,
 -                                    0,
-+                                if (queue.isEmpty()) {
-+                                    message = "This playlist has no available tracks."
-+                                } else {
-+                                    playLocalQueue(
-+                                        queue,
-+                                        0,
-+                                    )
-+                                    destination = MediaDestination.NowPlaying
-+                                }
-+                            }
-+                        },
-+                        onPlaylistNameChange = {
-+                            playlistName = it
-+                        },
-+                        onTogglePlaylistItem = { uri ->
-+                            selectedPlaylistUris =
-+                                selectedPlaylistUris
-+                                    .toMutableSet()
-+                                    .apply {
-+                                        if (!add(uri)) {
-+                                            remove(uri)
-+                                        }
-+                                    }.toSet()
-+                        },
-+                        onSavePlaylist = {
-+                            playlists =
-+                                libraryStateRepository.savePlaylist(
-+                                    current = playlists,
-+                                    editingId = editingPlaylist?.id,
-+                                    name = playlistName,
-+                                    itemUris = selectedPlaylistUris,
-                                 )
+-                                )
 -                                destination = MediaDestination.NowPlaying
-+                            clearPlaylistForm()
-+                            libraryPivot = LibraryPivot.Playlists
-+                            destination = MediaDestination.Collection
-+                            message = "Playlist saved locally."
-+                        },
-+                        onCancelPlaylistEditor = {
-+                            clearPlaylistForm()
-+                            libraryPivot = LibraryPivot.Playlists
-+                            destination = MediaDestination.Collection
-+                            message = null
-+                        },
-+                        onSettingsChange = { updated ->
-+                            settings = updated
-+                            settingsRepository.save(updated)
-+                        },
-+                        onPlayQueueIndex = playbackController::playQueueIndex,
-+                        onMoveQueueItem = playbackController::moveQueueItem,
-+                        onRemoveQueueItem = playbackController::removeQueueItem,
-+                        onPlayPause = {
-+                            playbackController.setPlaying(!playbackState.isPlaying)
-+                        },
-+                        onPrevious = {
-+                            playbackController.skip(PlaybackSkip.Previous)
-+                        },
-+                        onNext = {
-+                            playbackController.skip(PlaybackSkip.Next)
-+                        },
-+                        onStop = playbackController::stop,
-+                        onSeek = playbackController::seekTo,
-+                        onOpenSearch = { runKeyCommand(MediaKeyCommand.Search) },
-+                        onSearchQueryChange = { searchQuery = it },
-+                        onCloseSearch = { searchQuery = null },
-+                        onTrackFocusChange = { item, focused ->
-+                            if (focused) {
-+                                focusedTrack = item
-+                            } else if (focusedTrack?.uri == item.uri) {
-+                                focusedTrack = null
-                             }
+-                            }
 -                        }
 -                    },
 -                    onPlaylistNameChange = {
@@ -11345,12 +11194,876 @@ index 60c2879..532e1f4 100644
 -                    onSeek = playbackController::seekTo,
 -                ),
 -        )
-+                        },
-+                    ),
+-    }
++private fun mediaScreenActions(
++    state: MediaAppState,
++    controllers: MediaControllers,
++    host: MediaHostServices,
++    pickers: MediaPickers,
++): MediaScreenActions {
++    val library = controllers.library
++    val playlists = controllers.playlists
++    val podcasts = controllers.podcasts
++    val stations = controllers.stations
++    val playback = host.playbackController
++    return MediaScreenActions(
++        onDestinationChange = state::navigate,
++        onLibraryPivotChange = { state.libraryPivot = it },
++        onAddLocalAudio = { library.whenLoaded(pickers.audioFiles) },
++        onAddLocalFolder = { library.whenLoaded(pickers.audioFolder) },
++        onPlayLocal = library::playLocal,
++        onRemoveLocal = library::removeLocal,
++        onToggleFavoriteAudio = library::toggleFavorite,
++        onPodcastFeedUrlChange = podcasts::changeFeedUrl,
++        onAddPodcastFeed = podcasts::addFeed,
++        onRefreshPodcasts = podcasts::refresh,
++        onRemovePodcastSubscription = podcasts::remove,
++        onPlayPodcastEpisode = podcasts::play,
++        onQueuePodcastEpisode = podcasts::queue,
++        onToggleSavedPodcastEpisode = podcasts::toggleSaved,
++        onPlayStation = stations::play,
++        onToggleFavoriteStation = stations::toggleFavorite,
++        onRadioFavoritesOnlyChange = { state.showFavoriteStationsOnly = it },
++        onAddStation = { stations.openForm(MediaDestination.AddStation) },
++        onManageStations = { stations.openForm(MediaDestination.ManageStations) },
++        onEditStation = stations::edit,
++        onDeleteStation = stations::delete,
++        onStationNameChange = {
++            state.stationName = it
++            state.message = null
++        },
++        onStationUrlChange = {
++            state.stationUrl = it
++            state.message = null
++        },
++        onSaveNewStation = stations::saveNew,
++        onSaveEditedStation = stations::saveEdited,
++        onCancelStationFlow = stations::cancel,
++        onCreatePlaylist = { library.whenLoaded(playlists::create) },
++        onEditPlaylist = playlists::edit,
++        onDeletePlaylist = playlists::delete,
++        onPlayPlaylist = playlists::play,
++        onPlaylistNameChange = { state.playlistName = it },
++        onTogglePlaylistItem = playlists::toggleItem,
++        onSavePlaylist = playlists::save,
++        onCancelPlaylistEditor = playlists::cancel,
++        onSettingsChange = controllers::changeSettings,
++        onPlayQueueIndex = playback::playQueueIndex,
++        onMoveQueueItem = playback::moveQueueItem,
++        onRemoveQueueItem = playback::removeQueueItem,
++        onPlayPause = { controllers.keys.run(MediaKeyCommand.PlayPause) },
++        onPrevious = { playback.skip(PlaybackSkip.Previous) },
++        onNext = { playback.skip(PlaybackSkip.Next) },
++        onStop = playback::stop,
++        onSeek = playback::seekTo,
++        onOpenSearch = state::openSearch,
++        onSearchQueryChange = { state.searchQuery = it },
++        onCloseSearch = { state.searchQuery = null },
++        onTrackFocusChange = state::changeTrackFocus,
++    )
+ }
++
++private const val AUDIO_MIME_FILTER = "audio/*"
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppControllers.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppControllers.kt
+new file mode 100644
+index 0000000..90f3ee0
+--- /dev/null
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppControllers.kt
+@@ -0,0 +1,637 @@
++package org.sableos.media
++
++import android.content.Intent
++import android.net.Uri
++import android.view.KeyEvent
++import androidx.activity.OnBackPressedDispatcher
++import kotlinx.coroutines.CoroutineScope
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.launch
++import kotlinx.coroutines.withContext
++
++/** The event handlers behind [MediaApp], grouped by area so each stays small. */
++internal class MediaControllers(
++    private val state: MediaAppState,
++    private val repositories: MediaRepositories,
++    host: MediaHostServices,
++    scope: CoroutineScope,
++    environment: MediaUiEnvironment,
++) {
++    val library = MediaLibraryController(state, repositories, host, scope, environment.toast)
++    val playlists = MediaPlaylistController(state, repositories.libraryState, host, scope)
++    val podcasts = MediaPodcastController(state, repositories, host, scope)
++    val stations = MediaStationController(state, repositories, host)
++    val keys = MediaKeyController(state, host, library, environment)
++
++    fun changeSettings(updated: MediaSettings) {
++        state.settings = updated
++        repositories.settings.save(updated)
++    }
++}
++
++/** What the controllers read from the composition: a toast, the latest playback state and the Back dispatcher. */
++internal class MediaUiEnvironment(
++    val toast: (String) -> Unit,
++    val playback: () -> PlaybackUiState,
++    val backDispatcher: () -> OnBackPressedDispatcher?,
++)
++
++internal class MediaLibraryController(
++    private val state: MediaAppState,
++    private val repositories: MediaRepositories,
++    private val host: MediaHostServices,
++    private val scope: CoroutineScope,
++    private val toast: (String) -> Unit,
++) {
++    suspend fun load() {
++        val loadResult =
++            withContext(Dispatchers.IO) {
++                runCatching {
++                    val loadedItems = repositories.localAudio.loadItems()
++                    val loadedPlaylists =
++                        repositories.libraryState.pruneMissingAudio(
++                            current = repositories.libraryState.loadPlaylists(),
++                            validUris = loadedItems.mapTo(mutableSetOf()) { it.uri },
++                        )
++                    loadedItems to loadedPlaylists
++                }
++            }
++
++        loadResult
++            .onSuccess { (loadedItems, loadedPlaylists) ->
++                state.localItems = loadedItems
++                state.playlists = loadedPlaylists
++            }.onFailure {
++                state.message = "Local collection could not be loaded."
++            }
++        state.localLibraryLoading = false
++    }
++
++    /** Runs [action] once the local collection has loaded; until then it only explains why nothing happened. */
++    fun whenLoaded(action: () -> Unit) {
++        if (state.localLibraryLoading) {
++            state.message = LIBRARY_LOADING_MESSAGE
++        } else {
++            action()
++        }
++    }
++
++    fun playLocal(selectedIndex: Int) {
++        host.playLocalQueue(state.localItems, selectedIndex)
++        state.destination = MediaDestination.NowPlaying
++    }
++
++    fun removeLocal(item: LocalAudioItem) {
++        state.localItems =
++            repositories.localAudio.remove(
++                current = state.localItems,
++                uri = item.uri,
++            )
++
++        if (item.uri in state.favoriteAudioUris) {
++            toggleFavorite(item)
++        }
++
++        state.playlists =
++            repositories.libraryState.pruneMissingAudio(
++                current = state.playlists,
++                validUris = state.localItems.map { it.uri }.toSet(),
++            )
++
++        if (state.focusedTrack?.uri == item.uri) {
++            state.focusedTrack = null
++        }
++
++        state.message = REMOVED_MESSAGE
++    }
++
++    fun confirmRemoval(item: LocalAudioItem) {
++        state.pendingRemoval = null
++        removeLocal(item)
++        toast(REMOVED_MESSAGE)
++    }
++
++    fun toggleFavorite(item: LocalAudioItem) {
++        state.favoriteAudioUris =
++            repositories.libraryState.toggleFavoriteAudio(
++                current = state.favoriteAudioUris,
++                uri = item.uri,
++            )
++    }
++
++    fun toggleFocusedFavorite() {
++        val item = state.focusedTrack
++        if (item == null) {
++            toast("Move focus to a track to change its favorite.")
++            return
++        }
++        toggleFavorite(item)
++        toast(if (item.uri in state.favoriteAudioUris) "Added to favorites." else "Removed from favorites.")
++    }
++
++    fun importAudio(uris: List<Uri>) {
++        if (uris.isEmpty()) {
++            return
++        }
++
++        uris.forEach(::takeReadPermission)
++
++        val currentItems = state.localItems
++        val currentPlaylists = state.playlists
++        state.message = "Importing ${uris.size} audio file${pluralSuffix(uris.size)}…"
++
++        scope.launch {
++            runCatching {
++                withContext(Dispatchers.IO) {
++                    addToCollection(currentItems, currentPlaylists, uris)
++                }
++            }.onSuccess { (updatedItems, updatedPlaylists) ->
++                applyImport(updatedItems, updatedPlaylists)
++                state.message = "${uris.size} local audio file${pluralSuffix(uris.size)} added."
++            }.onFailure {
++                state.message = "Audio import failed. Existing collection was not changed."
++            }
++        }
++    }
++
++    fun importFolder(treeUri: Uri?) {
++        if (treeUri == null) {
++            return
++        }
++
++        takeReadPermission(treeUri)
++
++        val currentItems = state.localItems
++        val currentPlaylists = state.playlists
++        state.message = "Scanning audio folder…"
++
++        scope.launch {
++            runCatching {
++                withContext(Dispatchers.IO) {
++                    val uris = repositories.audioFolderScanner.scan(treeUri)
++                    if (uris.isEmpty()) null else addToCollection(currentItems, currentPlaylists, uris) to uris.size
++                }
++            }.onSuccess { imported ->
++                if (imported == null) {
++                    state.message = "No audio files found in that folder."
++                } else {
++                    val (collection, importedCount) = imported
++                    applyImport(collection.first, collection.second)
++                    state.message =
++                        "$importedCount audio file${pluralSuffix(importedCount)} imported from folder."
++                }
++            }.onFailure {
++                state.message = "Folder import failed. Existing collection was not changed."
++            }
++        }
++    }
++
++    private fun takeReadPermission(uri: Uri) {
++        runCatching {
++            host.contentResolver.takePersistableUriPermission(
++                uri,
++                Intent.FLAG_GRANT_READ_URI_PERMISSION,
 +            )
 +        }
-     }
- }
++    }
++
++    private fun addToCollection(
++        currentItems: List<LocalAudioItem>,
++        currentPlaylists: List<MediaPlaylist>,
++        uris: List<Uri>,
++    ): Pair<List<LocalAudioItem>, List<MediaPlaylist>> {
++        val updatedItems =
++            repositories.localAudio.addUris(
++                current = currentItems,
++                uris = uris,
++            )
++        val updatedPlaylists =
++            repositories.libraryState.pruneMissingAudio(
++                current = currentPlaylists,
++                validUris = updatedItems.map { it.uri }.toSet(),
++            )
++        return updatedItems to updatedPlaylists
++    }
++
++    private fun applyImport(
++        updatedItems: List<LocalAudioItem>,
++        updatedPlaylists: List<MediaPlaylist>,
++    ) {
++        state.localItems = updatedItems
++        state.playlists = updatedPlaylists
++        state.libraryPivot = LibraryPivot.Songs
++    }
++
++    private companion object {
++        const val REMOVED_MESSAGE = "Removed from the Sable Media collection."
++        const val LIBRARY_LOADING_MESSAGE = "Local collection is still loading."
++    }
++}
++
++internal class MediaPlaylistController(
++    private val state: MediaAppState,
++    private val libraryState: MediaLibraryStateRepository,
++    private val host: MediaHostServices,
++    private val scope: CoroutineScope,
++) {
++    fun create() {
++        state.clearPlaylistForm()
++        state.message = null
++        state.destination = MediaDestination.PlaylistEditor
++    }
++
++    fun edit(playlist: MediaPlaylist) {
++        state.editingPlaylist = playlist
++        state.playlistName = playlist.name
++        state.selectedPlaylistUris = playlist.itemUris.toSet()
++        state.message = null
++        state.destination = MediaDestination.PlaylistEditor
++    }
++
++    fun delete(playlist: MediaPlaylist) {
++        state.playlists =
++            libraryState.deletePlaylist(
++                current = state.playlists,
++                playlistId = playlist.id,
++            )
++        state.message = "Playlist removed."
++    }
++
++    fun play(playlist: MediaPlaylist) {
++        val itemsSnapshot = state.localItems
++        scope.launch {
++            val queue =
++                withContext(Dispatchers.Default) {
++                    val byUri = itemsSnapshot.associateBy { item -> item.uri }
++                    playlist.itemUris.mapNotNull { uri -> byUri[uri] }
++                }
++
++            if (queue.isEmpty()) {
++                state.message = "This playlist has no available tracks."
++            } else {
++                host.playLocalQueue(queue, 0)
++                state.destination = MediaDestination.NowPlaying
++            }
++        }
++    }
++
++    fun toggleItem(uri: String) {
++        state.selectedPlaylistUris =
++            state.selectedPlaylistUris
++                .toMutableSet()
++                .apply {
++                    if (!add(uri)) {
++                        remove(uri)
++                    }
++                }.toSet()
++    }
++
++    fun save() {
++        state.playlists =
++            libraryState.savePlaylist(
++                current = state.playlists,
++                editingId = state.editingPlaylist?.id,
++                name = state.playlistName,
++                itemUris = state.selectedPlaylistUris,
++            )
++        closeEditor(message = "Playlist saved locally.")
++    }
++
++    fun cancel() {
++        closeEditor(message = null)
++    }
++
++    private fun closeEditor(message: String?) {
++        state.clearPlaylistForm()
++        state.libraryPivot = LibraryPivot.Playlists
++        state.destination = MediaDestination.Collection
++        state.message = message
++    }
++}
++
++internal class MediaPodcastController(
++    private val state: MediaAppState,
++    private val repositories: MediaRepositories,
++    private val host: MediaHostServices,
++    private val scope: CoroutineScope,
++) {
++    fun changeFeedUrl(value: String) {
++        state.podcastFeedUrl = value
++        state.podcastMessage = null
++    }
++
++    fun addFeed() {
++        val candidate = state.podcastFeedUrl.trim()
++        when {
++            state.podcastBusy -> Unit
++            !PodcastRepository.isSupportedFeedUrl(candidate) -> state.podcastMessage = "Podcast feed must use HTTPS."
++            else -> subscribe(candidate)
++        }
++    }
++
++    fun refresh() {
++        if (state.podcastBusy || state.podcastSubscriptions.isEmpty()) {
++            return
++        }
++
++        val currentSubscriptions = state.podcastSubscriptions
++        state.podcastBusy = true
++        state.podcastRefreshing = true
++        state.podcastMessage = "Refreshing subscribed feeds…"
++
++        scope.launch {
++            runCatching {
++                withContext(Dispatchers.IO) {
++                    repositories.podcasts.refreshAll(current = currentSubscriptions)
++                }
++            }.onSuccess { refresh ->
++                state.podcastSubscriptions = refresh.subscriptions
++                state.podcastMessage = refreshMessage(refresh.failedFeeds)
++            }.onFailure { error ->
++                state.podcastMessage = error.messageOr("Podcast refresh failed; cached episodes were kept.")
++            }
++            state.podcastRefreshing = false
++            state.podcastBusy = false
++        }
++    }
++
++    fun remove(subscription: PodcastSubscription) {
++        state.podcastSubscriptions =
++            repositories.podcasts.remove(
++                current = state.podcastSubscriptions,
++                podcastId = subscription.id,
++            )
++        state.podcastMessage = "Podcast removed from this device."
++    }
++
++    fun play(episode: PodcastEpisode) {
++        state.playedPodcastEpisodeIds =
++            repositories.podcastState.markPlayed(
++                current = state.playedPodcastEpisodeIds,
++                episodeId = episode.id,
++            )
++        host.playUri(Uri.parse(episode.mediaUrl), episode.title, episode.podcastTitle)
++        state.destination = MediaDestination.NowPlaying
++    }
++
++    fun queue(episode: PodcastEpisode) {
++        val queued =
++            host.playbackController.addToQueue(
++                uri = episode.mediaUrl,
++                title = episode.title,
++                source = episode.podcastTitle,
++            )
++        state.podcastMessage = if (queued) "Added to Up Next." else "Player is still connecting. Try again."
++    }
++
++    fun toggleSaved(episode: PodcastEpisode) {
++        state.savedPodcastEpisodeIds =
++            repositories.podcastState.toggleSaved(
++                current = state.savedPodcastEpisodeIds,
++                episodeId = episode.id,
++            )
++    }
++
++    private fun subscribe(candidate: String) {
++        val currentSubscriptions = state.podcastSubscriptions
++        state.podcastBusy = true
++        state.podcastMessage = "Contacting podcast feed…"
++
++        scope.launch {
++            runCatching {
++                withContext(Dispatchers.IO) {
++                    repositories.podcasts.subscribe(
++                        current = currentSubscriptions,
++                        feedUrl = candidate,
++                    )
++                }
++            }.onSuccess { updated ->
++                state.podcastSubscriptions = updated
++                state.podcastFeedUrl = ""
++                state.podcastMessage = "Podcast subscribed. Pull down to refresh feeds."
++            }.onFailure { error ->
++                state.podcastMessage = error.messageOr("Podcast feed could not be added.")
++            }
++            state.podcastBusy = false
++        }
++    }
++
++    private fun refreshMessage(failedFeeds: Int): String =
++        if (failedFeeds == 0) {
++            "Podcasts refreshed."
++        } else {
++            "Podcasts refreshed with $failedFeeds feed failure(s); cached episodes were kept."
++        }
++}
++
++internal class MediaStationController(
++    private val state: MediaAppState,
++    private val repositories: MediaRepositories,
++    private val host: MediaHostServices,
++) {
++    fun play(station: RadioStation) {
++        host.playUri(Uri.parse(station.url), station.name, "live radio")
++        state.destination = MediaDestination.NowPlaying
++    }
++
++    fun toggleFavorite(station: RadioStation) {
++        state.favoriteStationIds =
++            repositories.libraryState.toggleFavoriteStation(
++                current = state.favoriteStationIds,
++                stationId = station.id,
++            )
++    }
++
++    /** Opens the add or manage screen with an empty form. */
++    fun openForm(destination: MediaDestination) {
++        state.clearStationForm()
++        state.message = null
++        state.destination = destination
++    }
++
++    fun edit(station: RadioStation) {
++        state.editingStation = station
++        state.stationName = station.name
++        state.stationUrl = station.url
++        state.message = null
++    }
++
++    fun delete(station: RadioStation) {
++        state.stations =
++            repositories.stations.deleteStation(
++                current = state.stations,
++                id = station.id,
++            )
++
++        if (station.id in state.favoriteStationIds) {
++            toggleFavorite(station)
++        }
++
++        if (state.editingStation?.id == station.id) {
++            state.clearStationForm()
++        }
++
++        state.message = "Station removed."
++    }
++
++    fun saveNew() {
++        val candidate = state.stationUrl.trim()
++
++        if (!RadioStationRepository.isSupportedUrl(candidate)) {
++            state.message = UNSUPPORTED_URL_MESSAGE
++            return
++        }
++
++        state.stations =
++            repositories.stations.saveStation(
++                current = state.stations,
++                name = state.stationName,
++                url = candidate,
++            )
++        state.clearStationForm()
++        state.message = "Station saved locally."
++        state.destination = MediaDestination.Radio
++    }
++
++    fun saveEdited() {
++        val editing = state.editingStation
++        val candidate = state.stationUrl.trim()
++
++        when {
++            editing == null -> {
++                state.message = "Choose a station to edit."
++            }
++
++            !RadioStationRepository.isSupportedUrl(candidate) -> {
++                state.message = UNSUPPORTED_URL_MESSAGE
++            }
++
++            else -> {
++                state.stations =
++                    repositories.stations.updateStation(
++                        current = state.stations,
++                        id = editing.id,
++                        name = state.stationName,
++                        url = candidate,
++                    )
++                state.clearStationForm()
++                state.message = "Station updated."
++            }
++        }
++    }
++
++    fun cancel() {
++        state.clearStationForm()
++        state.message = null
++        if (state.destination == MediaDestination.AddStation) {
++            state.destination = MediaDestination.Radio
++        }
++    }
++
++    private companion object {
++        const val UNSUPPORTED_URL_MESSAGE = "Station URL must use HTTP or HTTPS."
++    }
++}
++
++/** Turns Media keyboard commands into actions; false leaves the key to the focused view. */
++internal class MediaKeyController(
++    private val state: MediaAppState,
++    private val host: MediaHostServices,
++    private val library: MediaLibraryController,
++    private val environment: MediaUiEnvironment,
++) {
++    fun handle(event: KeyEvent): Boolean {
++        val command =
++            MediaKeymap.command(
++                press = event.toMediaKeyPress(),
++                textInputActive = state.textInputFocus.active,
++                onNowPlaying = state.destination == MediaDestination.NowPlaying,
++            )
++        return command != null && run(command)
++    }
++
++    fun run(command: MediaKeyCommand): Boolean = runPlaybackCommand(command) || runNavigationCommand(command)
++
++    private fun runPlaybackCommand(command: MediaKeyCommand): Boolean {
++        val controller = host.playbackController
++        when (command) {
++            MediaKeyCommand.PlayPause -> controller.setPlaying(!environment.playback().isPlaying)
++            MediaKeyCommand.Previous -> controller.skip(PlaybackSkip.Previous)
++            MediaKeyCommand.Next -> controller.skip(PlaybackSkip.Next)
++            MediaKeyCommand.SeekBack -> seekBy(-MediaKeymap.SEEK_STEP_MS)
++            MediaKeyCommand.SeekForward -> seekBy(MediaKeymap.SEEK_STEP_MS)
++            MediaKeyCommand.VolumeUp -> host.adjustVolume(true)
++            MediaKeyCommand.VolumeDown -> host.adjustVolume(false)
++            else -> return false
++        }
++        return true
++    }
++
++    private fun runNavigationCommand(command: MediaKeyCommand): Boolean =
++        when (command) {
++            MediaKeyCommand.Search -> {
++                state.openSearch()
++                true
++            }
++
++            MediaKeyCommand.ViewMode -> {
++                cycleView()
++                true
++            }
++
++            MediaKeyCommand.Favorite -> {
++                library.toggleFocusedFavorite()
++                true
++            }
++
++            MediaKeyCommand.Delete -> {
++                // Without a focused track the key is left to the focused view.
++                state.pendingRemoval = state.focusedTrack
++                state.pendingRemoval != null
++            }
++
++            MediaKeyCommand.Info -> {
++                state.showInfo = true
++                true
++            }
++
++            MediaKeyCommand.Back -> {
++                val dispatcher = environment.backDispatcher()
++                dispatcher?.onBackPressed()
++                dispatcher != null
++            }
++
++            else -> {
++                runDestinationCommand(command)
++            }
++        }
++
++    private fun runDestinationCommand(command: MediaKeyCommand): Boolean {
++        when (command) {
++            MediaKeyCommand.Queue -> state.navigate(MediaDestination.Queue)
++            MediaKeyCommand.Latest -> state.navigate(MediaDestination.NowPlaying)
++            MediaKeyCommand.Albums -> state.openCollection(LibraryPivot.Albums)
++            else -> return false
++        }
++        return true
++    }
++
++    private fun cycleView() {
++        if (state.destination == MediaDestination.Collection) {
++            state.libraryPivot = MediaKeymap.nextPivot(state.libraryPivot)
++        } else {
++            state.openCollection()
++        }
++    }
++
++    private fun seekBy(stepMs: Long) {
++        val playback = environment.playback()
++        if (playback.durationMs > 0L) {
++            host.playbackController.seekTo((playback.positionMs + stepMs).coerceIn(0L, playback.durationMs))
++        }
++    }
++}
++
++private fun pluralSuffix(count: Int): String = if (count == 1) "" else "s"
++
++private fun Throwable.messageOr(fallback: String): String = message?.takeIf { it.isNotBlank() } ?: fallback
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppState.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppState.kt
+new file mode 100644
+index 0000000..379efc0
+--- /dev/null
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppState.kt
+@@ -0,0 +1,151 @@
++package org.sableos.media
++
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableIntStateOf
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.setValue
++
++/** The Sable Media UI state, held in Compose snapshot state so the controllers can change it outside composition. */
++internal class MediaAppState(
++    repositories: MediaRepositories,
++    initialSettings: MediaSettings,
++) {
++    var settings by mutableStateOf(initialSettings)
++    var destination by mutableStateOf(initialSettings.startPage.toDestination())
++    var libraryPivot by mutableStateOf(LibraryPivot.Songs)
++    var localItems by mutableStateOf(emptyList<LocalAudioItem>())
++    var localLibraryLoading by mutableStateOf(true)
++
++    var podcastSubscriptions by mutableStateOf(repositories.podcasts.loadSubscriptions())
++    var savedPodcastEpisodeIds by mutableStateOf(repositories.podcastState.loadSavedEpisodeIds())
++    var playedPodcastEpisodeIds by mutableStateOf(repositories.podcastState.loadPlayedEpisodeIds())
++    var podcastFeedUrl by mutableStateOf("")
++    var podcastBusy by mutableStateOf(false)
++    var podcastRefreshing by mutableStateOf(false)
++    var podcastMessage by mutableStateOf<String?>(null)
++
++    var stations by mutableStateOf(repositories.stations.loadStations())
++    var favoriteAudioUris by mutableStateOf(repositories.libraryState.loadFavoriteAudioUris())
++    var favoriteStationIds by mutableStateOf(repositories.libraryState.loadFavoriteStationIds())
++    var playlists by mutableStateOf(emptyList<MediaPlaylist>())
++    var showFavoriteStationsOnly by mutableStateOf(false)
++
++    var editingStation by mutableStateOf<RadioStation?>(null)
++    var stationName by mutableStateOf("")
++    var stationUrl by mutableStateOf("")
++
++    var editingPlaylist by mutableStateOf<MediaPlaylist?>(null)
++    var playlistName by mutableStateOf("")
++    var selectedPlaylistUris by mutableStateOf(emptySet<String>())
++
++    var message by mutableStateOf<String?>(null)
++
++    /** Library search: null while closed, the typed query while open. */
++    var searchQuery by mutableStateOf<String?>(null)
++    var searchFocusToken by mutableIntStateOf(0)
++    var focusedTrack by mutableStateOf<LocalAudioItem?>(null)
++    var pendingRemoval by mutableStateOf<LocalAudioItem?>(null)
++    var showInfo by mutableStateOf(false)
++
++    val textInputFocus = MediaTextInputFocus()
++
++    fun clearStationForm() {
++        editingStation = null
++        stationName = ""
++        stationUrl = ""
++    }
++
++    fun clearPlaylistForm() {
++        editingPlaylist = null
++        playlistName = ""
++        selectedPlaylistUris = emptySet()
++    }
++
++    fun navigate(next: MediaDestination) {
++        destination = next
++        message = null
++
++        if (next != MediaDestination.ManageStations && next != MediaDestination.AddStation) {
++            clearStationForm()
++        }
++
++        if (next != MediaDestination.PlaylistEditor) {
++            clearPlaylistForm()
++        }
++
++        if (next != MediaDestination.Collection) {
++            searchQuery = null
++            focusedTrack = null
++        }
++    }
++
++    fun openCollection(pivot: LibraryPivot? = null) {
++        if (destination != MediaDestination.Collection) navigate(MediaDestination.Collection)
++        if (pivot != null) libraryPivot = pivot
++    }
++
++    fun openSearch() {
++        openCollection()
++        if (searchQuery == null) searchQuery = ""
++        searchFocusToken += 1
++    }
++
++    fun changeTrackFocus(
++        item: LocalAudioItem,
++        focused: Boolean,
++    ) {
++        if (focused) {
++            focusedTrack = item
++        } else if (focusedTrack?.uri == item.uri) {
++            focusedTrack = null
++        }
++    }
++
++    /** One logical layer back from here, or null when Back leaves the app. */
++    fun backStep(): MediaBackStep? = MediaKeymap.backStep(destination, searchQuery != null)
++
++    fun goBack() {
++        when (val step = backStep()) {
++            MediaBackStep.CloseSearch -> searchQuery = null
++            is MediaBackStep.Navigate -> navigate(step.destination)
++            null -> Unit
++        }
++    }
++
++    fun screenState(playback: PlaybackUiState): MediaScreenState =
++        MediaScreenState(
++            destination = destination,
++            libraryPivot = libraryPivot,
++            localItems = localItems,
++            localLibraryLoading = localLibraryLoading,
++            podcastSubscriptions = podcastSubscriptions,
++            savedPodcastEpisodeIds = savedPodcastEpisodeIds,
++            playedPodcastEpisodeIds = playedPodcastEpisodeIds,
++            podcastFeedUrl = podcastFeedUrl,
++            podcastBusy = podcastBusy,
++            podcastRefreshing = podcastRefreshing,
++            podcastMessage = podcastMessage,
++            stations = stations,
++            playback = playback,
++            favoriteAudioUris = favoriteAudioUris,
++            favoriteStationIds = favoriteStationIds,
++            playlists = playlists,
++            settings = settings,
++            playlistName = playlistName,
++            selectedPlaylistUris = selectedPlaylistUris,
++            editingPlaylist = editingPlaylist,
++            showFavoriteStationsOnly = showFavoriteStationsOnly,
++            stationName = stationName,
++            stationUrl = stationUrl,
++            editingStation = editingStation,
++            message = message,
++            searchQuery = searchQuery,
++            searchFocusToken = searchFocusToken,
++        )
++}
++
++private fun MediaStartPage.toDestination(): MediaDestination =
++    when (this) {
++        MediaStartPage.Collection -> MediaDestination.Collection
++        MediaStartPage.Radio -> MediaDestination.Radio
++    }
 diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaC2Screens.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaC2Screens.kt
 index be139e4..c82d171 100644
 --- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaC2Screens.kt
@@ -11879,7 +12592,7 @@ index 0000000..c399c68
 +    private val WHITESPACE = Regex("\\s+")
 +}
 diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt
-index 17c399e..6197e42 100644
+index 17c399e..51c1ba7 100644
 --- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt
 +++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt
 @@ -33,6 +33,7 @@ import androidx.compose.runtime.rememberCoroutineScope
@@ -12065,63 +12778,273 @@ index 17c399e..6197e42 100644
                      )
                  }
  
-@@ -802,6 +873,14 @@ private fun CollectionScreen(
-                         )
+@@ -778,139 +849,158 @@ private fun CollectionScreen(
                      }
-                 } else {
-+                    if (query.isNotBlank() && songs.isEmpty() && pivot != LibraryPivot.Playlists) {
+                 }
+ 
+-                if (localLibraryLoading) {
+-                    item {
+-                        C2InfoPanel(
+-                            title = "Loading local collection",
+-                            detail = "Indexing saved songs, artists, and albums off the UI thread.",
+-                        )
+-                    }
+-                } else if (localItems.isEmpty()) {
+-                    item {
+-                        EmptyPanel(
+-                            title = "No local audio yet",
+-                            detail =
+-                                "Choose audio with Android's document picker. " +
+-                                    "Sable keeps access only to files you explicitly select.",
+-                        )
+-                    }
+-                } else if (collectionIndex == null) {
+-                    item {
+-                        C2InfoPanel(
+-                            title = "Indexing collection",
+-                            detail = "Preparing songs, artists, albums, favorites, and A–Z navigation.",
+-                        )
++                when {
++                    localLibraryLoading -> {
 +                        item {
 +                            C2InfoPanel(
-+                                title = "No matches for \"${query.trim()}\"",
-+                                detail = "Search looks at title, artist and album. Esc closes search.",
++                                title = "Loading local collection",
++                                detail = "Indexing saved songs, artists, and albums off the UI thread.",
 +                            )
 +                        }
+                     }
+-                } else {
+-                    when (pivot) {
+-                        LibraryPivot.Songs -> {
+-                            items(
+-                                count = songs.size,
+-                                key = { index -> songs[index].item.uri },
+-                            ) { index ->
+-                                val indexedTrack = songs[index]
+-                                val item = indexedTrack.item
+-                                LocalTrackRow(
+-                                    item = item,
+-                                    accent = accentFor(indexedTrack.sourceIndex),
+-                                    favorite = item.uri in favoriteAudioUris,
+-                                    onToggleFavorite = { onToggleFavorite(item) },
+-                                    onPlay = { onPlay(indexedTrack.sourceIndex) },
+-                                )
+-                            }
++
++                    localItems.isEmpty() -> {
++                        item {
++                            EmptyPanel(
++                                title = "No local audio yet",
++                                detail =
++                                    "Choose audio with Android's document picker. " +
++                                        "Sable keeps access only to files you explicitly select.",
++                            )
+                         }
 +                    }
-                     when (pivot) {
-                         LibraryPivot.Songs -> {
-                             items(
-@@ -816,6 +895,7 @@ private fun CollectionScreen(
-                                     favorite = item.uri in favoriteAudioUris,
-                                     onToggleFavorite = { onToggleFavorite(item) },
-                                     onPlay = { onPlay(indexedTrack.sourceIndex) },
-+                                    onFocusChange = { focused -> onTrackFocusChange(item, focused) },
+ 
+-                        LibraryPivot.Artists -> {
+-                            items(
+-                                count = artistGroups.size,
+-                                key = { index -> artistGroups[index].name },
+-                            ) { index ->
+-                                val group = artistGroups[index]
+-                                LibraryGroupRow(
+-                                    title = group.name,
+-                                    detail = group.detail,
+-                                    accent = accentFor(group.name.hashCode()),
+-                                    onClick = {
+-                                        onPlay(group.sourceIndex)
+-                                    },
+-                                )
+-                            }
++                    collectionIndex == null -> {
++                        item {
++                            C2InfoPanel(
++                                title = "Indexing collection",
++                                detail = "Preparing songs, artists, albums, favorites, and A–Z navigation.",
++                            )
+                         }
++                    }
+ 
+-                        LibraryPivot.Albums -> {
+-                            items(
+-                                count = albumGroups.size,
+-                                key = { index -> albumGroups[index].name },
+-                            ) { index ->
+-                                val group = albumGroups[index]
+-                                LibraryGroupRow(
+-                                    title = group.name,
+-                                    detail = group.detail,
+-                                    accent = accentFor(group.name.hashCode()),
+-                                    onClick = {
+-                                        onPlay(group.sourceIndex)
+-                                    },
++                    else -> {
++                        if (query.isNotBlank() && songs.isEmpty() && pivot != LibraryPivot.Playlists) {
++                            item {
++                                C2InfoPanel(
++                                    title = "No matches for \"${query.trim()}\"",
++                                    detail = "Search looks at title, artist and album. Esc closes search.",
                                  )
                              }
                          }
-@@ -875,6 +955,7 @@ private fun CollectionScreen(
-                                         favorite = true,
+-
+-                        LibraryPivot.Favorites -> {
+-                            if (favorites.isEmpty()) {
+-                                item {
+-                                    C2InfoPanel(
+-                                        title = "No favorite tracks",
+-                                        detail = "Mark local tracks with ★ to keep a quick local favorites view.",
+-                                    )
+-                                }
+-                            } else {
++                        when (pivot) {
++                            LibraryPivot.Songs -> {
+                                 items(
+-                                    count = favorites.size,
+-                                    key = { index -> favorites[index].item.uri },
+-                                ) { favoriteIndex ->
+-                                    val indexedTrack = favorites[favoriteIndex]
++                                    count = songs.size,
++                                    key = { index -> songs[index].item.uri },
++                                ) { index ->
++                                    val indexedTrack = songs[index]
+                                     val item = indexedTrack.item
+                                     LocalTrackRow(
+                                         item = item,
+                                         accent = accentFor(indexedTrack.sourceIndex),
+-                                        favorite = true,
++                                        favorite = item.uri in favoriteAudioUris,
                                          onToggleFavorite = { onToggleFavorite(item) },
                                          onPlay = { onPlay(indexedTrack.sourceIndex) },
 +                                        onFocusChange = { focused -> onTrackFocusChange(item, focused) },
                                      )
                                  }
                              }
-@@ -889,19 +970,19 @@ private fun CollectionScreen(
-                                 )
-                             }
+-                        }
  
+-                        LibraryPivot.Playlists -> {
+-                            item {
+-                                SableActionButton(
+-                                    text = "Create playlist",
+-                                    modifier = Modifier.fillMaxWidth(),
+-                                    onClick = onCreatePlaylist,
+-                                )
+-                            }
+-
 -                            if (playlists.isEmpty()) {
-+                            if (visiblePlaylists.isEmpty()) {
-                                 item {
-                                     C2InfoPanel(
+-                                item {
+-                                    C2InfoPanel(
 -                                        title = "No playlists yet",
-+                                        title = if (query.isBlank()) "No playlists yet" else "No matching playlists",
-                                         detail = "Create a local playlist from audio already added to Sable Media.",
+-                                        detail = "Create a local playlist from audio already added to Sable Media.",
++                            LibraryPivot.Artists -> {
++                                items(
++                                    count = artistGroups.size,
++                                    key = { index -> artistGroups[index].name },
++                                ) { index ->
++                                    val group = artistGroups[index]
++                                    LibraryGroupRow(
++                                        title = group.name,
++                                        detail = group.detail,
++                                        accent = accentFor(group.name.hashCode()),
++                                        onClick = {
++                                            onPlay(group.sourceIndex)
++                                        },
                                      )
                                  }
-                             } else {
+-                            } else {
++                            }
++
++                            LibraryPivot.Albums -> {
                                  items(
 -                                    count = playlists.size,
 -                                    key = { index -> playlists[index].id },
-+                                    count = visiblePlaylists.size,
-+                                    key = { index -> visiblePlaylists[index].id },
++                                    count = albumGroups.size,
++                                    key = { index -> albumGroups[index].name },
                                  ) { index ->
 -                                    val playlist = playlists[index]
-+                                    val playlist = visiblePlaylists[index]
-                                     PlaylistCard(
-                                         playlist = playlist,
-                                         availableUris = availableUris,
-@@ -959,6 +1040,9 @@ private data class MediaCollectionIndex(
+-                                    PlaylistCard(
+-                                        playlist = playlist,
+-                                        availableUris = availableUris,
+-                                        onPlay = { onPlayPlaylist(playlist) },
+-                                        onEdit = { onEditPlaylist(playlist) },
+-                                        onDelete = { onDeletePlaylist(playlist) },
++                                    val group = albumGroups[index]
++                                    LibraryGroupRow(
++                                        title = group.name,
++                                        detail = group.detail,
++                                        accent = accentFor(group.name.hashCode()),
++                                        onClick = {
++                                            onPlay(group.sourceIndex)
++                                        },
+                                     )
+                                 }
+                             }
++
++                            LibraryPivot.Favorites -> {
++                                if (favorites.isEmpty()) {
++                                    item {
++                                        C2InfoPanel(
++                                            title = "No favorite tracks",
++                                            detail = "Mark local tracks with ★ to keep a quick local favorites view.",
++                                        )
++                                    }
++                                } else {
++                                    items(
++                                        count = favorites.size,
++                                        key = { index -> favorites[index].item.uri },
++                                    ) { favoriteIndex ->
++                                        val indexedTrack = favorites[favoriteIndex]
++                                        val item = indexedTrack.item
++                                        LocalTrackRow(
++                                            item = item,
++                                            accent = accentFor(indexedTrack.sourceIndex),
++                                            favorite = true,
++                                            onToggleFavorite = { onToggleFavorite(item) },
++                                            onPlay = { onPlay(indexedTrack.sourceIndex) },
++                                            onFocusChange = { focused -> onTrackFocusChange(item, focused) },
++                                        )
++                                    }
++                                }
++                            }
++
++                            LibraryPivot.Playlists -> {
++                                item {
++                                    SableActionButton(
++                                        text = "Create playlist",
++                                        modifier = Modifier.fillMaxWidth(),
++                                        onClick = onCreatePlaylist,
++                                    )
++                                }
++
++                                if (visiblePlaylists.isEmpty()) {
++                                    item {
++                                        C2InfoPanel(
++                                            title =
++                                                if (query.isBlank()) "No playlists yet" else "No matching playlists",
++                                            detail = "Create a local playlist from audio already added to Sable Media.",
++                                        )
++                                    }
++                                } else {
++                                    items(
++                                        count = visiblePlaylists.size,
++                                        key = { index -> visiblePlaylists[index].id },
++                                    ) { index ->
++                                        val playlist = visiblePlaylists[index]
++                                        PlaylistCard(
++                                            playlist = playlist,
++                                            availableUris = availableUris,
++                                            onPlay = { onPlayPlaylist(playlist) },
++                                            onEdit = { onEditPlaylist(playlist) },
++                                            onDelete = { onDeletePlaylist(playlist) },
++                                        )
++                                    }
++                                }
++                            }
+                         }
+                     }
+                 }
+@@ -959,6 +1049,9 @@ private data class MediaCollectionIndex(
      val favorites: List<MediaIndexedTrack>,
      val availableUris: Set<String>,
      val sections: Map<LibraryPivot, SableAlphabetIndex>,
@@ -12131,7 +13054,7 @@ index 17c399e..6197e42 100644
  ) {
      companion object {
          val Empty =
-@@ -976,7 +1060,9 @@ private data class MediaCollectionIndex(
+@@ -976,7 +1069,9 @@ private data class MediaCollectionIndex(
  private fun buildMediaCollectionIndex(
      localItems: List<LocalAudioItem>,
      favoriteAudioUris: Set<String>,
@@ -12141,7 +13064,7 @@ index 17c399e..6197e42 100644
      val locale = Locale.ROOT
      val sourceIndexByUri =
          HashMap<String, Int>(localItems.size * 2).apply {
-@@ -986,7 +1072,7 @@ private fun buildMediaCollectionIndex(
+@@ -986,7 +1081,7 @@ private fun buildMediaCollectionIndex(
          }
  
      val songs =
@@ -12150,7 +13073,7 @@ index 17c399e..6197e42 100644
              .asSequence()
              .sortedBy { item -> item.title.lowercase(locale) }
              .map { item ->
-@@ -1002,7 +1088,7 @@ private fun buildMediaCollectionIndex(
+@@ -1002,7 +1097,7 @@ private fun buildMediaCollectionIndex(
          }
  
      val artists =
@@ -12159,7 +13082,7 @@ index 17c399e..6197e42 100644
              .groupBy { item -> item.artist }
              .entries
              .sortedWith(
-@@ -1017,7 +1103,7 @@ private fun buildMediaCollectionIndex(
+@@ -1017,7 +1112,7 @@ private fun buildMediaCollectionIndex(
              }
  
      val albums =
@@ -12168,7 +13091,7 @@ index 17c399e..6197e42 100644
              .groupBy { item -> item.album }
              .entries
              .sortedWith(
-@@ -1059,6 +1145,8 @@ private fun buildMediaCollectionIndex(
+@@ -1059,6 +1154,8 @@ private fun buildMediaCollectionIndex(
          favorites = favorites,
          availableUris = sourceIndexByUri.keys.toSet(),
          sections = sections,
@@ -12177,7 +13100,7 @@ index 17c399e..6197e42 100644
      )
  }
  
-@@ -1069,10 +1157,13 @@ private fun LocalTrackRow(
+@@ -1069,10 +1166,13 @@ private fun LocalTrackRow(
      favorite: Boolean,
      onToggleFavorite: () -> Unit,
      onPlay: () -> Unit,
@@ -12191,7 +13114,7 @@ index 17c399e..6197e42 100644
              title = item.title,
              subtitle = listOf(item.artist, item.album).filter { it.isNotBlank() }.joinToString(" · "),
              onClick = onPlay,
-@@ -1175,7 +1266,10 @@ private fun LibraryGroupRow(
+@@ -1175,7 +1275,10 @@ private fun LibraryGroupRow(
      Column(modifier = Modifier.fillMaxWidth()) {
          Surface(
              onClick = onClick,
@@ -12203,7 +13126,7 @@ index 17c399e..6197e42 100644
              color = Color.Transparent,
          ) {
              Row(
-@@ -1372,6 +1466,7 @@ private fun RadioScreen(
+@@ -1372,6 +1475,7 @@ private fun RadioScreen(
          ) {
              Surface(
                  onClick = { onFavoritesOnlyChange(false) },
@@ -12211,7 +13134,7 @@ index 17c399e..6197e42 100644
                  color = Color.Transparent,
                  contentColor =
                      if (!showFavoritesOnly) {
-@@ -1388,6 +1483,7 @@ private fun RadioScreen(
+@@ -1388,6 +1492,7 @@ private fun RadioScreen(
              }
              Surface(
                  onClick = { onFavoritesOnlyChange(true) },
@@ -12219,7 +13142,7 @@ index 17c399e..6197e42 100644
                  color = Color.Transparent,
                  contentColor =
                      if (showFavoritesOnly) {
-@@ -1694,14 +1790,14 @@ private fun StationFields(
+@@ -1694,14 +1799,14 @@ private fun StationFields(
      OutlinedTextField(
          value = stationName,
          onValueChange = onStationNameChange,
@@ -12236,7 +13159,7 @@ index 17c399e..6197e42 100644
          singleLine = true,
          label = { Text("HTTP(S) stream URL") },
      )
-@@ -1718,7 +1814,10 @@ private fun BackTitle(
+@@ -1718,7 +1823,10 @@ private fun BackTitle(
      ) {
          Surface(
              onClick = onBack,
@@ -12248,7 +13171,7 @@ index 17c399e..6197e42 100644
              color = Color.Transparent,
          ) {
              Box(
-@@ -1799,7 +1898,10 @@ private fun PlayerButton(
+@@ -1799,7 +1907,10 @@ private fun PlayerButton(
      Surface(
          onClick = onClick,
          enabled = enabled,
@@ -12260,6 +13183,42 @@ index 17c399e..6197e42 100644
          shape = MaterialTheme.shapes.medium,
          color =
              if (active) {
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaSnapshotProvider.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaSnapshotProvider.kt
+index 69f55ac..d889f4a 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaSnapshotProvider.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaSnapshotProvider.kt
+@@ -44,20 +44,20 @@ class MediaSnapshotProvider : ContentProvider() {
+     override fun insert(
+         uri: Uri,
+         values: ContentValues?,
+-    ): Uri? = throw UnsupportedOperationException("Read-only provider")
++    ): Uri? = throw UnsupportedOperationException(READ_ONLY_MESSAGE)
+ 
+     override fun delete(
+         uri: Uri,
+         selection: String?,
+         selectionArgs: Array<out String>?,
+-    ): Int = throw UnsupportedOperationException("Read-only provider")
++    ): Int = throw UnsupportedOperationException(READ_ONLY_MESSAGE)
+ 
+     override fun update(
+         uri: Uri,
+         values: ContentValues?,
+         selection: String?,
+         selectionArgs: Array<out String>?,
+-    ): Int = throw UnsupportedOperationException("Read-only provider")
++    ): Int = throw UnsupportedOperationException(READ_ONLY_MESSAGE)
+ 
+     private fun snapshotDetail(snapshot: MediaSnapshot): String {
+         if (snapshot.title.isBlank()) {
+@@ -94,6 +94,7 @@ class MediaSnapshotProvider : ContentProvider() {
+     }
+ 
+     private companion object {
++        const val READ_ONLY_MESSAGE = "Read-only provider"
+         val COLUMNS =
+             arrayOf(
+                 "title",
 diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaTextInputFocus.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaTextInputFocus.kt
 new file mode 100644
 index 0000000..62b8a7a
@@ -12322,6 +13281,186 @@ index 0000000..62b8a7a
 +        repeatCount = repeatCount,
 +    )
 +}
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PlaybackController.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PlaybackController.kt
+index 38a0304..96c2d77 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PlaybackController.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PlaybackController.kt
+@@ -59,17 +59,7 @@ internal class PlaybackController(
+             }
+         }
+ 
+-    private val ticker =
+-        object : Runnable {
+-            override fun run() {
+-                if (closed || !progressUpdatesEnabled) {
+-                    return
+-                }
+-
+-                publishState(refreshQueue = false)
+-                handler.postDelayed(this, TICK_INTERVAL_MS)
+-            }
+-        }
++    private val ticker = Runnable { tick() }
+ 
+     init {
+         val token =
+@@ -192,6 +182,15 @@ internal class PlaybackController(
+         }
+     }
+ 
++    private fun tick() {
++        if (closed || !progressUpdatesEnabled) {
++            return
++        }
++
++        publishState(refreshQueue = false)
++        handler.postDelayed(ticker, TICK_INTERVAL_MS)
++    }
++
+     fun close() {
+         closed = true
+         handler.removeCallbacksAndMessages(null)
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastFeedParser.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastFeedParser.kt
+index dba2a41..5eaad2f 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastFeedParser.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastFeedParser.kt
+@@ -4,7 +4,7 @@ import android.text.Html
+ import android.util.Xml
+ import org.xmlpull.v1.XmlPullParser
+ import java.io.ByteArrayInputStream
+-import java.net.URL
++import java.net.URI
+ import java.nio.charset.StandardCharsets
+ import java.text.SimpleDateFormat
+ import java.util.Locale
+@@ -14,7 +14,7 @@ import java.util.UUID
+ internal object PodcastUrlPolicy {
+     fun isHttpsUrl(value: String): Boolean =
+         runCatching {
+-            URL(value.trim()).protocol.lowercase(Locale.US)
++            URI(value.trim()).toURL().protocol.lowercase(Locale.US)
+         }.getOrNull() == HTTPS_SCHEME
+ 
+     private const val HTTPS_SCHEME = "https"
+@@ -53,7 +53,7 @@ internal object PodcastFeedParser {
+                 StandardCharsets.ISO_8859_1,
+             )
+ 
+-        require(!prolog.contains(DOCTYPE_TOKEN, ignoreCase = true)) {
++        require(!prolog.contains(DOCTYPE_DECLARATION_MARKER, ignoreCase = true)) {
+             "Podcast feed document types are not accepted."
+         }
+     }
+@@ -388,7 +388,8 @@ internal object PodcastFeedParser {
+             val normalizedTitle =
+                 cleanText(feedTitle)
+                     .ifBlank {
+-                        URL(feedUrl)
++                        URI(feedUrl)
++                            .toURL()
+                             .host
+                             .removePrefix("www.")
+                             .ifBlank { "Podcast" }
+@@ -474,7 +475,7 @@ internal object PodcastFeedParser {
+             "yyyy-MM-dd",
+         )
+ 
+-    private const val DOCTYPE_TOKEN = "<!DOCTYPE"
++    private const val DOCTYPE_DECLARATION_MARKER = "<!DOCTYPE"
+     private const val AUDIO_MIME_PREFIX = "audio/"
+     private const val PROLOG_SCAN_BYTES = 4_096
+     private const val MAX_TEXT_LENGTH = 4_000
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastRepository.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastRepository.kt
+index f001d83..2df6436 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastRepository.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastRepository.kt
+@@ -6,7 +6,7 @@ import org.json.JSONObject
+ import java.io.ByteArrayOutputStream
+ import java.io.InputStream
+ import java.net.HttpURLConnection
+-import java.net.URL
++import java.net.URI
+ import java.util.Locale
+ 
+ internal data class PodcastEpisode(
+@@ -144,7 +144,7 @@ internal class PodcastRepository(
+     }
+ 
+     private fun openConnection(feedUrl: String): HttpURLConnection =
+-        (URL(feedUrl).openConnection() as HttpURLConnection).apply {
++        (URI(feedUrl).toURL().openConnection() as HttpURLConnection).apply {
+             connectTimeout = CONNECT_TIMEOUT_MS
+             readTimeout = READ_TIMEOUT_MS
+             instanceFollowRedirects = true
+@@ -193,9 +193,9 @@ internal class PodcastRepository(
+         JSONObject()
+             .put("id", subscription.id)
+             .put("feedUrl", subscription.feedUrl)
+-            .put("title", subscription.title)
++            .put(JSON_TITLE, subscription.title)
+             .put("author", subscription.author)
+-            .put("description", subscription.description)
++            .put(JSON_DESCRIPTION, subscription.description)
+             .put("refreshedAt", subscription.refreshedAt)
+             .put(
+                 "episodes",
+@@ -211,9 +211,9 @@ internal class PodcastRepository(
+             .put("id", episode.id)
+             .put("podcastId", episode.podcastId)
+             .put("podcastTitle", episode.podcastTitle)
+-            .put("title", episode.title)
++            .put(JSON_TITLE, episode.title)
+             .put("mediaUrl", episode.mediaUrl)
+-            .put("description", episode.description)
++            .put(JSON_DESCRIPTION, episode.description)
+             .put("publishedAt", episode.publishedAt)
+             .put("durationMs", episode.durationMs)
+ 
+@@ -221,7 +221,7 @@ internal class PodcastRepository(
+         item?.let { json ->
+             val id = json.optString("id")
+             val feedUrl = json.optString("feedUrl")
+-            val title = json.optString("title")
++            val title = json.optString(JSON_TITLE)
+             val validSubscription =
+                 id.isNotBlank() &&
+                     title.isNotBlank() &&
+@@ -245,7 +245,7 @@ internal class PodcastRepository(
+                     feedUrl = feedUrl,
+                     title = title,
+                     author = json.optString("author"),
+-                    description = json.optString("description"),
++                    description = json.optString(JSON_DESCRIPTION),
+                     episodes = episodes,
+                     refreshedAt = json.optLong("refreshedAt", 0L),
+                 )
+@@ -260,7 +260,7 @@ internal class PodcastRepository(
+         item?.let { json ->
+             val id = json.optString("id")
+             val mediaUrl = json.optString("mediaUrl")
+-            val title = json.optString("title")
++            val title = json.optString(JSON_TITLE)
+             val validEpisode =
+                 id.isNotBlank() &&
+                     title.isNotBlank() &&
+@@ -278,7 +278,7 @@ internal class PodcastRepository(
+                             .ifBlank { podcastTitle },
+                     title = title,
+                     mediaUrl = mediaUrl,
+-                    description = json.optString("description"),
++                    description = json.optString(JSON_DESCRIPTION),
+                     publishedAt = json.optLong("publishedAt", 0L),
+                     durationMs = json.optLong("durationMs", 0L),
+                 )
+@@ -290,6 +290,8 @@ internal class PodcastRepository(
+ 
+         private const val PODCAST_PREFS = "sable_media_podcasts"
+         private const val KEY_SUBSCRIPTIONS = "subscriptions"
++        private const val JSON_TITLE = "title"
++        private const val JSON_DESCRIPTION = "description"
+         private const val USER_AGENT =
+             "SableMedia/0.2 (Android; privacy-first podcast client)"
+         private const val CONNECT_TIMEOUT_MS = 12_000
 diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastScreen.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastScreen.kt
 index 0b05422..958cf7d 100644
 --- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastScreen.kt
@@ -16287,12 +17426,15 @@ index 57291aa..880f49a 100644
              c, v, m, s, vir, fv = table(script)
          print(f'    val {nm} = PhoneticTable(consonants = {km(c)},\n        vowels = {kv(v)},\n        marks = {km(m)}, specials = {km(s)}, virama = "{vir}", finalVirama = {str(fv).lower()})')
 diff --git a/sable-src/tools/gen_pinyin_dict.py b/sable-src/tools/gen_pinyin_dict.py
-index 24df6fe..915f23d 100644
+index 24df6fe..9f2ee90 100644
 --- a/sable-src/tools/gen_pinyin_dict.py
 +++ b/sable-src/tools/gen_pinyin_dict.py
-@@ -3,6 +3,8 @@
+@@ -1,8 +1,10 @@
+ #!/usr/bin/env python3
+ """Builds the Sable keyboard's Simplified Chinese pinyin dictionary asset, offline and reproducibly.
  
- Usage: gen_pinyin_dict.py <out.tsv>            (writes the asset)
+-Usage: gen_pinyin_dict.py <out.tsv>            (writes the asset)
++Usage: gen_pinyin_dict.py <out.tsv>            (writes the asset; must be the keyboard's pinyin_zh.tsv)
         gen_pinyin_dict.py --check <asset.tsv>  (regenerates in memory; exit 1 unless byte-identical)
 +The asset path must be inside this sable-src tree (normally
 +apps/titan2/platform/keyboard/src/main/assets/pinyin_zh.tsv).
@@ -16333,17 +17475,18 @@ index 24df6fe..915f23d 100644
      return rows
  
  
-@@ -147,11 +151,20 @@ def build(pins):
+@@ -147,11 +151,21 @@ def build(pins):
      return ''.join('%s\t%s\t%d\n' % (k, w, wt) for (k, w), wt in rows).encode('utf8'), len(rows)
  
  
++ASSET = os.path.join(ROOT, 'apps', 'titan2', 'platform', 'keyboard', 'src', 'main', 'assets', 'pinyin_zh.tsv')
++
++
 +def tree_path(arg):
-+    """arg resolved; the asset is read or written only inside this sable-src tree."""
-+    root = os.path.realpath(ROOT)
-+    path = os.path.realpath(arg)
-+    if not path.startswith(root + os.sep):
-+        die('%s is outside %s' % (arg, root))
-+    return path
++    """The keyboard's pinyin asset, the only file this tool reads back or writes; arg must name it."""
++    if os.path.realpath(arg) != os.path.realpath(ASSET):
++        die('%s is not %s' % (arg, ASSET))
++    return ASSET
 +
 +
  def main(argv):
@@ -16355,7 +17498,7 @@ index 24df6fe..915f23d 100644
              die('asset differs from a fresh regeneration')
          print('PINYIN_CORPUS_REGENERATION=PASS_BYTE_IDENTICAL entries=%d' % n)
          return
-@@ -159,7 +172,7 @@ def main(argv):
+@@ -159,7 +173,7 @@ def main(argv):
          die('usage: gen_pinyin_dict.py <out.tsv> | --check <asset.tsv>')
      if n != int(pins['PINYIN_OUTPUT_ENTRIES']) or sha256_bytes(body) != pins['PINYIN_OUTPUT_SHA256']:
          sys.stderr.write('PINYIN_GENERATOR_NOTE: output %d entries sha256 %s differs from the pins\n' % (n, sha256_bytes(body)))
