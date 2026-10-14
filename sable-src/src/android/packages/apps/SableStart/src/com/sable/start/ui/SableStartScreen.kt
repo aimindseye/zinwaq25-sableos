@@ -214,6 +214,9 @@ fun SableStartScreen(
     onOpenNotificationSettings: (AppEntry) -> Unit = onOpenAppInfo,
     onUninstallApp: (AppEntry) -> Unit = {},
     onStartIntent: (Intent) -> Unit = {},
+    /** null: no private space on this device; true: locked; false: unlocked. */
+    privateSpaceLocked: Boolean? = null,
+    onTogglePrivateSpace: () -> Unit = {},
 ) {
     var destination by remember(initialScreen) {
         mutableStateOf(
@@ -416,6 +419,8 @@ fun SableStartScreen(
                                 openPeek(app, SableStartDestination.Apps)
                             },
                             onOpenAppInfo = onOpenAppInfo,
+                            privateSpaceLocked = privateSpaceLocked,
+                            onTogglePrivateSpace = onTogglePrivateSpace,
                         )
 
                     SableStartDestination.Search ->
@@ -1446,8 +1451,12 @@ private fun AppsScreen(
     onLaunchApp: (AppEntry) -> Unit,
     onOpenPeek: (AppEntry) -> Unit,
     onOpenAppInfo: (AppEntry) -> Unit,
+    privateSpaceLocked: Boolean?,
+    onTogglePrivateSpace: () -> Unit,
 ) {
-    val rows = remember(apps) { buildRailRows(apps) }
+    // Private Space apps live in their own section at the end, never in the A-Z list.
+    val (privateApps, listedApps) = remember(apps) { apps.partition { it.profileLabel == PROFILE_PRIVATE_LABEL } }
+    val rows = remember(listedApps) { buildRailRows(listedApps) }
     val keys = remember(rows) { rows.map { it.app.stableKey() } }
     val labels = remember(rows) { rows.map { it.app.label } }
     // One alphabet-index concept: section headers, the right-hand rail and
@@ -1553,7 +1562,7 @@ private fun AppsScreen(
             SearchLaunchButton(onClick = onSearch)
             Spacer(Modifier.height(12.dp))
 
-            if (rows.isEmpty()) {
+            if (rows.isEmpty() && privateSpaceLocked == null) {
                 EmptyState("No launchable apps are available.")
             } else {
                 LazyColumn(
@@ -1596,6 +1605,17 @@ private fun AppsScreen(
                                     }.onPreviewKeyEvent { event -> onRowKey(index, event) },
                         )
                     }
+                    if (privateSpaceLocked != null) {
+                        item(key = "private-space") {
+                            PrivateSpaceSection(
+                                locked = privateSpaceLocked,
+                                apps = privateApps,
+                                onToggle = onTogglePrivateSpace,
+                                onLaunchApp = onLaunchApp,
+                                onOpenPeek = onOpenPeek,
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -1610,6 +1630,70 @@ private fun AppsScreen(
                 },
                 modifier = Modifier.align(Alignment.CenterEnd),
             )
+        }
+    }
+}
+
+/**
+ * Private Space at the end of All Apps: one row that locks or unlocks it
+ * (the system asks for its credential), and its apps only while unlocked.
+ */
+@Composable
+private fun PrivateSpaceSection(
+    locked: Boolean,
+    apps: List<AppEntry>,
+    onToggle: () -> Unit,
+    onLaunchApp: (AppEntry) -> Unit,
+    onOpenPeek: (AppEntry) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(top = 18.dp)) {
+        Text(
+            text = "private space",
+            style = MaterialTheme.typography.headlineLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.semantics { heading() },
+        )
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 54.dp)
+                    .sableFocusRing()
+                    .clickable(onClick = onToggle)
+                    .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = if (locked) "🔒" else "🔓",
+                modifier = Modifier.width(38.dp),
+                fontSize = 20.sp,
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (locked) "Unlock private space" else "Lock private space",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                )
+                Text(
+                    text =
+                        if (locked) {
+                            "Its apps stay hidden and stopped until you unlock"
+                        } else {
+                            "${apps.size} apps · locking stops them and hides them again"
+                        },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        if (!locked) {
+            apps.forEach { app ->
+                AppRow(
+                    app = app,
+                    onClick = { onLaunchApp(app) },
+                    onContext = { onOpenPeek(app) },
+                )
+            }
         }
     }
 }
@@ -3339,6 +3423,9 @@ private val StatusRingsInlineMinWidth = 500.dp
 private const val MAX_FAVORITES_ON_START = 4
 private const val MAX_SESSION_RECENTS = 8
 private const val KEYCODE_DEL = 67
+
+// Matches LauncherAppsRepository.PROFILE_PRIVATE.
+private const val PROFILE_PRIVATE_LABEL = "private"
 private const val HUB_PACKAGE = "org.sableos.hub"
 private const val HUB_EXTRA_QUERY = "org.sableos.hub.extra.QUERY"
 private const val LAUNCHER_ICON_CACHE_ENTRIES = 160

@@ -43,6 +43,9 @@ class SableStartActivity : ComponentActivity() {
     private lateinit var startStateRepository: StartStateRepository
 
     private val appsState = mutableStateOf<List<AppEntry>>(emptyList())
+
+    /** null: no private space; true: locked; false: unlocked. */
+    private val privateSpaceLockedState = mutableStateOf<Boolean?>(null)
     private val liveRefreshGeneration = mutableStateOf(0)
     private val homeGeneration = mutableStateOf(0)
     private val backGeneration = mutableStateOf(0)
@@ -190,6 +193,8 @@ class SableStartActivity : ComponentActivity() {
 
             SableStartScreen(
                 apps = appsState.value,
+                privateSpaceLocked = privateSpaceLockedState.value,
+                onTogglePrivateSpace = ::togglePrivateSpace,
                 liveSurfaceRepository = liveSurfaceRepository,
                 appearance = appearance,
                 refreshGeneration = liveRefreshGeneration.value,
@@ -301,12 +306,15 @@ class SableStartActivity : ComponentActivity() {
         runCatching {
             inventoryExecutor.execute {
                 val apps = launcherAppsRepository.loadApps()
+                val privateSpaceLocked =
+                    launcherAppsRepository.privateSpace()?.let(launcherAppsRepository::isLocked)
                 runOnUiThread {
                     if (
                         !isDestroyed &&
                         inventoryGeneration.get() == generation
                     ) {
                         appsState.value = apps
+                        privateSpaceLockedState.value = privateSpaceLocked
                     }
                 }
             }
@@ -331,6 +339,10 @@ class SableStartActivity : ComponentActivity() {
                     addAction(Intent.ACTION_MANAGED_PROFILE_UNLOCKED)
                     addAction(Intent.ACTION_PROFILE_ACCESSIBLE)
                     addAction(Intent.ACTION_PROFILE_INACCESSIBLE)
+                    addAction(Intent.ACTION_PROFILE_AVAILABLE)
+                    addAction(Intent.ACTION_PROFILE_UNAVAILABLE)
+                    addAction(Intent.ACTION_PROFILE_ADDED)
+                    addAction(Intent.ACTION_PROFILE_REMOVED)
                 }
             profileReceiverRegistered =
                 runCatching {
@@ -348,6 +360,16 @@ class SableStartActivity : ComponentActivity() {
         if (profileReceiverRegistered) {
             runCatching { unregisterReceiver(profileReceiver) }
             profileReceiverRegistered = false
+        }
+    }
+
+    /** Lock or unlock the private space; the profile broadcasts refresh All Apps. */
+    private fun togglePrivateSpace() {
+        val locked = privateSpaceLockedState.value ?: return
+        inventoryExecutor.execute {
+            val user = launcherAppsRepository.privateSpace() ?: return@execute
+            launcherAppsRepository.setLocked(user, !locked)
+            runOnUiThread { scheduleInventoryRefresh() }
         }
     }
 
