@@ -44,20 +44,20 @@ class MediaSnapshotProvider : ContentProvider() {
     override fun insert(
         uri: Uri,
         values: ContentValues?,
-    ): Uri? = throw UnsupportedOperationException("Read-only provider")
+    ): Uri? = throw UnsupportedOperationException(READ_ONLY_MESSAGE)
 
     override fun delete(
         uri: Uri,
         selection: String?,
         selectionArgs: Array<out String>?,
-    ): Int = throw UnsupportedOperationException("Read-only provider")
+    ): Int = throw UnsupportedOperationException(READ_ONLY_MESSAGE)
 
     override fun update(
         uri: Uri,
         values: ContentValues?,
         selection: String?,
         selectionArgs: Array<out String>?,
-    ): Int = throw UnsupportedOperationException("Read-only provider")
+    ): Int = throw UnsupportedOperationException(READ_ONLY_MESSAGE)
 
     private fun snapshotDetail(snapshot: MediaSnapshot): String {
         if (snapshot.title.isBlank()) {
@@ -94,6 +94,7 @@ class MediaSnapshotProvider : ContentProvider() {
     }
 
     private companion object {
+        const val READ_ONLY_MESSAGE = "Read-only provider"
         val COLUMNS =
             arrayOf(
                 "title",

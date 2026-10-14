@@ -6,7 +6,7 @@ import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.net.HttpURLConnection
-import java.net.URL
+import java.net.URI
 import java.util.Locale
 
 internal data class PodcastEpisode(
@@ -144,7 +144,7 @@ internal class PodcastRepository(
     }
 
     private fun openConnection(feedUrl: String): HttpURLConnection =
-        (URL(feedUrl).openConnection() as HttpURLConnection).apply {
+        (URI(feedUrl).toURL().openConnection() as HttpURLConnection).apply {
             connectTimeout = CONNECT_TIMEOUT_MS
             readTimeout = READ_TIMEOUT_MS
             instanceFollowRedirects = true
@@ -193,9 +193,9 @@ internal class PodcastRepository(
         JSONObject()
             .put("id", subscription.id)
             .put("feedUrl", subscription.feedUrl)
-            .put("title", subscription.title)
+            .put(JSON_TITLE, subscription.title)
             .put("author", subscription.author)
-            .put("description", subscription.description)
+            .put(JSON_DESCRIPTION, subscription.description)
             .put("refreshedAt", subscription.refreshedAt)
             .put(
                 "episodes",
@@ -211,9 +211,9 @@ internal class PodcastRepository(
             .put("id", episode.id)
             .put("podcastId", episode.podcastId)
             .put("podcastTitle", episode.podcastTitle)
-            .put("title", episode.title)
+            .put(JSON_TITLE, episode.title)
             .put("mediaUrl", episode.mediaUrl)
-            .put("description", episode.description)
+            .put(JSON_DESCRIPTION, episode.description)
             .put("publishedAt", episode.publishedAt)
             .put("durationMs", episode.durationMs)
 
@@ -221,7 +221,7 @@ internal class PodcastRepository(
         item?.let { json ->
             val id = json.optString("id")
             val feedUrl = json.optString("feedUrl")
-            val title = json.optString("title")
+            val title = json.optString(JSON_TITLE)
             val validSubscription =
                 id.isNotBlank() &&
                     title.isNotBlank() &&
@@ -245,7 +245,7 @@ internal class PodcastRepository(
                     feedUrl = feedUrl,
                     title = title,
                     author = json.optString("author"),
-                    description = json.optString("description"),
+                    description = json.optString(JSON_DESCRIPTION),
                     episodes = episodes,
                     refreshedAt = json.optLong("refreshedAt", 0L),
                 )
@@ -260,7 +260,7 @@ internal class PodcastRepository(
         item?.let { json ->
             val id = json.optString("id")
             val mediaUrl = json.optString("mediaUrl")
-            val title = json.optString("title")
+            val title = json.optString(JSON_TITLE)
             val validEpisode =
                 id.isNotBlank() &&
                     title.isNotBlank() &&
@@ -278,7 +278,7 @@ internal class PodcastRepository(
                             .ifBlank { podcastTitle },
                     title = title,
                     mediaUrl = mediaUrl,
-                    description = json.optString("description"),
+                    description = json.optString(JSON_DESCRIPTION),
                     publishedAt = json.optLong("publishedAt", 0L),
                     durationMs = json.optLong("durationMs", 0L),
                 )
@@ -290,6 +290,8 @@ internal class PodcastRepository(
 
         private const val PODCAST_PREFS = "sable_media_podcasts"
         private const val KEY_SUBSCRIPTIONS = "subscriptions"
+        private const val JSON_TITLE = "title"
+        private const val JSON_DESCRIPTION = "description"
         private const val USER_AGENT =
             "SableMedia/0.2 (Android; privacy-first podcast client)"
         private const val CONNECT_TIMEOUT_MS = 12_000

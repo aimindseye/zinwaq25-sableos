@@ -106,8 +106,8 @@ internal class LocalAudioRepository(
                     uri = uriValue,
                     sourceKey = sourceKey,
                     title = title,
-                    artist = json.optString("artist", "Unknown artist"),
-                    album = json.optString("album", "Local audio"),
+                    artist = json.optString("artist", UNKNOWN_ARTIST),
+                    album = json.optString("album", LOCAL_AUDIO_ALBUM),
                     durationMs = durationMs,
                 )
             }
@@ -185,17 +185,17 @@ internal class LocalAudioRepository(
                     metadataValue(
                         retriever = retriever,
                         key = MediaMetadataRetriever.METADATA_KEY_TITLE,
-                    ) ?: fallbackName ?: "Local audio",
+                    ) ?: fallbackName ?: LOCAL_AUDIO_ALBUM,
                 artist =
                     metadataValue(
                         retriever = retriever,
                         key = MediaMetadataRetriever.METADATA_KEY_ARTIST,
-                    ) ?: "Unknown artist",
+                    ) ?: UNKNOWN_ARTIST,
                 album =
                     metadataValue(
                         retriever = retriever,
                         key = MediaMetadataRetriever.METADATA_KEY_ALBUM,
-                    ) ?: "Local audio",
+                    ) ?: LOCAL_AUDIO_ALBUM,
                 durationMs =
                     retriever
                         .extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
@@ -204,9 +204,9 @@ internal class LocalAudioRepository(
             )
         } catch (_: RuntimeException) {
             AudioMetadata(
-                title = fallbackName ?: "Local audio",
-                artist = "Unknown artist",
-                album = "Local audio",
+                title = fallbackName ?: LOCAL_AUDIO_ALBUM,
+                artist = UNKNOWN_ARTIST,
+                album = LOCAL_AUDIO_ALBUM,
                 durationMs = 0L,
             )
         } finally {
@@ -285,6 +285,8 @@ internal class LocalAudioRepository(
 
     private companion object {
         const val KEY_LOCAL_AUDIO = "local_audio_items"
+        const val UNKNOWN_ARTIST = "Unknown artist"
+        const val LOCAL_AUDIO_ALBUM = "Local audio"
         const val UNKNOWN_FILE_SIZE = -1L
     }
 }

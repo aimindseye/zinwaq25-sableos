@@ -4,7 +4,7 @@ import android.text.Html
 import android.util.Xml
 import org.xmlpull.v1.XmlPullParser
 import java.io.ByteArrayInputStream
-import java.net.URL
+import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -14,7 +14,7 @@ import java.util.UUID
 internal object PodcastUrlPolicy {
     fun isHttpsUrl(value: String): Boolean =
         runCatching {
-            URL(value.trim()).protocol.lowercase(Locale.US)
+            URI(value.trim()).toURL().protocol.lowercase(Locale.US)
         }.getOrNull() == HTTPS_SCHEME
 
     private const val HTTPS_SCHEME = "https"
@@ -53,7 +53,7 @@ internal object PodcastFeedParser {
                 StandardCharsets.ISO_8859_1,
             )
 
-        require(!prolog.contains(DOCTYPE_TOKEN, ignoreCase = true)) {
+        require(!prolog.contains(DOCTYPE_DECLARATION_MARKER, ignoreCase = true)) {
             "Podcast feed document types are not accepted."
         }
     }
@@ -388,7 +388,8 @@ internal object PodcastFeedParser {
             val normalizedTitle =
                 cleanText(feedTitle)
                     .ifBlank {
-                        URL(feedUrl)
+                        URI(feedUrl)
+                            .toURL()
                             .host
                             .removePrefix("www.")
                             .ifBlank { "Podcast" }
@@ -474,7 +475,7 @@ internal object PodcastFeedParser {
             "yyyy-MM-dd",
         )
 
-    private const val DOCTYPE_TOKEN = "<!DOCTYPE"
+    private const val DOCTYPE_DECLARATION_MARKER = "<!DOCTYPE"
     private const val AUDIO_MIME_PREFIX = "audio/"
     private const val PROLOG_SCAN_BYTES = 4_096
     private const val MAX_TEXT_LENGTH = 4_000

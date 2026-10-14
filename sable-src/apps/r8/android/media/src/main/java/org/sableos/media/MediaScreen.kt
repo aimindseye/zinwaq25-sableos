@@ -849,147 +849,156 @@ private fun CollectionScreen(
                     }
                 }
 
-                if (localLibraryLoading) {
-                    item {
-                        C2InfoPanel(
-                            title = "Loading local collection",
-                            detail = "Indexing saved songs, artists, and albums off the UI thread.",
-                        )
-                    }
-                } else if (localItems.isEmpty()) {
-                    item {
-                        EmptyPanel(
-                            title = "No local audio yet",
-                            detail =
-                                "Choose audio with Android's document picker. " +
-                                    "Sable keeps access only to files you explicitly select.",
-                        )
-                    }
-                } else if (collectionIndex == null) {
-                    item {
-                        C2InfoPanel(
-                            title = "Indexing collection",
-                            detail = "Preparing songs, artists, albums, favorites, and A–Z navigation.",
-                        )
-                    }
-                } else {
-                    if (query.isNotBlank() && songs.isEmpty() && pivot != LibraryPivot.Playlists) {
+                when {
+                    localLibraryLoading -> {
                         item {
                             C2InfoPanel(
-                                title = "No matches for \"${query.trim()}\"",
-                                detail = "Search looks at title, artist and album. Esc closes search.",
+                                title = "Loading local collection",
+                                detail = "Indexing saved songs, artists, and albums off the UI thread.",
                             )
                         }
                     }
-                    when (pivot) {
-                        LibraryPivot.Songs -> {
-                            items(
-                                count = songs.size,
-                                key = { index -> songs[index].item.uri },
-                            ) { index ->
-                                val indexedTrack = songs[index]
-                                val item = indexedTrack.item
-                                LocalTrackRow(
-                                    item = item,
-                                    accent = accentFor(indexedTrack.sourceIndex),
-                                    favorite = item.uri in favoriteAudioUris,
-                                    onToggleFavorite = { onToggleFavorite(item) },
-                                    onPlay = { onPlay(indexedTrack.sourceIndex) },
-                                    onFocusChange = { focused -> onTrackFocusChange(item, focused) },
+
+                    localItems.isEmpty() -> {
+                        item {
+                            EmptyPanel(
+                                title = "No local audio yet",
+                                detail =
+                                    "Choose audio with Android's document picker. " +
+                                        "Sable keeps access only to files you explicitly select.",
+                            )
+                        }
+                    }
+
+                    collectionIndex == null -> {
+                        item {
+                            C2InfoPanel(
+                                title = "Indexing collection",
+                                detail = "Preparing songs, artists, albums, favorites, and A–Z navigation.",
+                            )
+                        }
+                    }
+
+                    else -> {
+                        if (query.isNotBlank() && songs.isEmpty() && pivot != LibraryPivot.Playlists) {
+                            item {
+                                C2InfoPanel(
+                                    title = "No matches for \"${query.trim()}\"",
+                                    detail = "Search looks at title, artist and album. Esc closes search.",
                                 )
                             }
                         }
-
-                        LibraryPivot.Artists -> {
-                            items(
-                                count = artistGroups.size,
-                                key = { index -> artistGroups[index].name },
-                            ) { index ->
-                                val group = artistGroups[index]
-                                LibraryGroupRow(
-                                    title = group.name,
-                                    detail = group.detail,
-                                    accent = accentFor(group.name.hashCode()),
-                                    onClick = {
-                                        onPlay(group.sourceIndex)
-                                    },
-                                )
-                            }
-                        }
-
-                        LibraryPivot.Albums -> {
-                            items(
-                                count = albumGroups.size,
-                                key = { index -> albumGroups[index].name },
-                            ) { index ->
-                                val group = albumGroups[index]
-                                LibraryGroupRow(
-                                    title = group.name,
-                                    detail = group.detail,
-                                    accent = accentFor(group.name.hashCode()),
-                                    onClick = {
-                                        onPlay(group.sourceIndex)
-                                    },
-                                )
-                            }
-                        }
-
-                        LibraryPivot.Favorites -> {
-                            if (favorites.isEmpty()) {
-                                item {
-                                    C2InfoPanel(
-                                        title = "No favorite tracks",
-                                        detail = "Mark local tracks with ★ to keep a quick local favorites view.",
-                                    )
-                                }
-                            } else {
+                        when (pivot) {
+                            LibraryPivot.Songs -> {
                                 items(
-                                    count = favorites.size,
-                                    key = { index -> favorites[index].item.uri },
-                                ) { favoriteIndex ->
-                                    val indexedTrack = favorites[favoriteIndex]
+                                    count = songs.size,
+                                    key = { index -> songs[index].item.uri },
+                                ) { index ->
+                                    val indexedTrack = songs[index]
                                     val item = indexedTrack.item
                                     LocalTrackRow(
                                         item = item,
                                         accent = accentFor(indexedTrack.sourceIndex),
-                                        favorite = true,
+                                        favorite = item.uri in favoriteAudioUris,
                                         onToggleFavorite = { onToggleFavorite(item) },
                                         onPlay = { onPlay(indexedTrack.sourceIndex) },
                                         onFocusChange = { focused -> onTrackFocusChange(item, focused) },
                                     )
                                 }
                             }
-                        }
 
-                        LibraryPivot.Playlists -> {
-                            item {
-                                SableActionButton(
-                                    text = "Create playlist",
-                                    modifier = Modifier.fillMaxWidth(),
-                                    onClick = onCreatePlaylist,
-                                )
-                            }
-
-                            if (visiblePlaylists.isEmpty()) {
-                                item {
-                                    C2InfoPanel(
-                                        title = if (query.isBlank()) "No playlists yet" else "No matching playlists",
-                                        detail = "Create a local playlist from audio already added to Sable Media.",
+                            LibraryPivot.Artists -> {
+                                items(
+                                    count = artistGroups.size,
+                                    key = { index -> artistGroups[index].name },
+                                ) { index ->
+                                    val group = artistGroups[index]
+                                    LibraryGroupRow(
+                                        title = group.name,
+                                        detail = group.detail,
+                                        accent = accentFor(group.name.hashCode()),
+                                        onClick = {
+                                            onPlay(group.sourceIndex)
+                                        },
                                     )
                                 }
-                            } else {
+                            }
+
+                            LibraryPivot.Albums -> {
                                 items(
-                                    count = visiblePlaylists.size,
-                                    key = { index -> visiblePlaylists[index].id },
+                                    count = albumGroups.size,
+                                    key = { index -> albumGroups[index].name },
                                 ) { index ->
-                                    val playlist = visiblePlaylists[index]
-                                    PlaylistCard(
-                                        playlist = playlist,
-                                        availableUris = availableUris,
-                                        onPlay = { onPlayPlaylist(playlist) },
-                                        onEdit = { onEditPlaylist(playlist) },
-                                        onDelete = { onDeletePlaylist(playlist) },
+                                    val group = albumGroups[index]
+                                    LibraryGroupRow(
+                                        title = group.name,
+                                        detail = group.detail,
+                                        accent = accentFor(group.name.hashCode()),
+                                        onClick = {
+                                            onPlay(group.sourceIndex)
+                                        },
                                     )
+                                }
+                            }
+
+                            LibraryPivot.Favorites -> {
+                                if (favorites.isEmpty()) {
+                                    item {
+                                        C2InfoPanel(
+                                            title = "No favorite tracks",
+                                            detail = "Mark local tracks with ★ to keep a quick local favorites view.",
+                                        )
+                                    }
+                                } else {
+                                    items(
+                                        count = favorites.size,
+                                        key = { index -> favorites[index].item.uri },
+                                    ) { favoriteIndex ->
+                                        val indexedTrack = favorites[favoriteIndex]
+                                        val item = indexedTrack.item
+                                        LocalTrackRow(
+                                            item = item,
+                                            accent = accentFor(indexedTrack.sourceIndex),
+                                            favorite = true,
+                                            onToggleFavorite = { onToggleFavorite(item) },
+                                            onPlay = { onPlay(indexedTrack.sourceIndex) },
+                                            onFocusChange = { focused -> onTrackFocusChange(item, focused) },
+                                        )
+                                    }
+                                }
+                            }
+
+                            LibraryPivot.Playlists -> {
+                                item {
+                                    SableActionButton(
+                                        text = "Create playlist",
+                                        modifier = Modifier.fillMaxWidth(),
+                                        onClick = onCreatePlaylist,
+                                    )
+                                }
+
+                                if (visiblePlaylists.isEmpty()) {
+                                    item {
+                                        C2InfoPanel(
+                                            title =
+                                                if (query.isBlank()) "No playlists yet" else "No matching playlists",
+                                            detail = "Create a local playlist from audio already added to Sable Media.",
+                                        )
+                                    }
+                                } else {
+                                    items(
+                                        count = visiblePlaylists.size,
+                                        key = { index -> visiblePlaylists[index].id },
+                                    ) { index ->
+                                        val playlist = visiblePlaylists[index]
+                                        PlaylistCard(
+                                            playlist = playlist,
+                                            availableUris = availableUris,
+                                            onPlay = { onPlayPlaylist(playlist) },
+                                            onEdit = { onEditPlaylist(playlist) },
+                                            onDelete = { onDeletePlaylist(playlist) },
+                                        )
+                                    }
                                 }
                             }
                         }
