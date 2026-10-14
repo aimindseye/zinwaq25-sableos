@@ -69,9 +69,10 @@ prepare_flavor() {
     flavor_dir[$name]="$work"
 }
 root_dir() {
-    case "$1" in
-        flavor:*) echo "${flavor_dir[${1#flavor:}]}" ;;
-        *) echo "$SRC/$1" ;;
+    local root="$1"
+    case "$root" in
+        flavor:*) echo "${flavor_dir[${root#flavor:}]}" ;;
+        *) echo "$SRC/$root" ;;
     esac
 }
 

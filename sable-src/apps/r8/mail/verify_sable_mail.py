@@ -34,6 +34,18 @@ def main() -> None:
     root = pathlib.Path(sys.argv[1]).resolve()
     app = root / "app-thunderbird"
 
+    verify_upstream(root)
+    verify_build_configuration(app)
+    verify_feature_removals(root)
+    verify_product_sources(root, app)
+
+    if len(sys.argv) == 3:
+        verify_apk(pathlib.Path(sys.argv[2]).resolve())
+
+    print("SABLE_MAIL_POLICY=PASS")
+
+
+def verify_upstream(root: pathlib.Path) -> None:
     actual = subprocess.check_output(
         ["git", "-C", str(root), "rev-parse", "HEAD"],
         text=True,
@@ -66,6 +78,8 @@ def main() -> None:
         )
     print("SABLE_MAIL_UPSTREAM_BUILD_LOGIC_MUTATION=PASS_ABSENT")
 
+
+def verify_build_configuration(app: pathlib.Path) -> None:
     build = app / "build.gradle.kts"
     require_text(
         build,
@@ -129,6 +143,8 @@ def main() -> None:
     print("SABLE_MAIL_FUNDING_SETTINGS_SOURCE=PASS_ABSENT")
     print("SABLE_MAIL_BUILD_CONFIGURATION=PASS")
 
+
+def verify_feature_removals(root: pathlib.Path) -> None:
     for path in (
         root / "app-common/build.gradle.kts",
         root / "feature/account/setup/build.gradle.kts",
@@ -281,6 +297,8 @@ def main() -> None:
     print("SABLE_MAIL_STANDARD_ACCOUNT_ENTRY=PASS")
     print("SABLE_MAIL_THUNDERMAIL_ROUTES=PASS_ABSENT")
 
+
+def verify_product_sources(root: pathlib.Path, app: pathlib.Path) -> None:
     strings = app / "src/main/res/values/strings.xml"
     require_text(strings, ">Sable Mail</string>", "SABLE_MAIL_BRANDING")
     reject_text(strings, ">Thunderbird</string>", "SABLE_MAIL_BRANDING")
@@ -478,51 +496,49 @@ def main() -> None:
     print("SABLE_MAIL_REMOTE_CONTENT_PRIVACY=PASS_UPSTREAM_PRESERVED")
     print("SABLE_MAIL_PRODUCT_BRANDING_SOURCE=PASS")
 
-    if len(sys.argv) == 3:
-        apk = pathlib.Path(sys.argv[2]).resolve()
-        if not apk.is_file():
-            fail("SABLE_MAIL_APK", f"path={apk}")
 
-        apkanalyzer = (
-            os.environ.get("APKANALYZER")
-            or os.environ.get("SABLE_APKANALYZER")
-            or "apkanalyzer"
+def verify_apk(apk: pathlib.Path) -> None:
+    if not apk.is_file():
+        fail("SABLE_MAIL_APK", f"path={apk}")
+
+    apkanalyzer = (
+        os.environ.get("APKANALYZER")
+        or os.environ.get("SABLE_APKANALYZER")
+        or "apkanalyzer"
+    )
+    apkanalyzer_path = pathlib.Path(apkanalyzer)
+    if "/" in apkanalyzer and not apkanalyzer_path.is_file():
+        fail(
+            "SABLE_MAIL_APKANALYZER",
+            f"path={apkanalyzer_path}",
         )
-        apkanalyzer_path = pathlib.Path(apkanalyzer)
-        if "/" in apkanalyzer and not apkanalyzer_path.is_file():
-            fail(
-                "SABLE_MAIL_APKANALYZER",
-                f"path={apkanalyzer_path}",
-            )
 
-        package = subprocess.check_output(
-            [apkanalyzer, "manifest", "application-id", str(apk)],
-            text=True,
-        ).strip()
-        debuggable = subprocess.check_output(
-            [apkanalyzer, "manifest", "debuggable", str(apk)],
-            text=True,
-        ).strip().lower()
-        if debuggable != "false":
-            fail(
-                "SABLE_MAIL_APK_DEBUGGABLE",
-                f"expected=false actual={debuggable}",
-            )
-        if package != EXPECTED_PACKAGE:
-            fail(
-                "SABLE_MAIL_APK_PACKAGE",
-                f"expected={EXPECTED_PACKAGE} actual={package}",
-            )
+    package = subprocess.check_output(
+        [apkanalyzer, "manifest", "application-id", str(apk)],
+        text=True,
+    ).strip()
+    debuggable = subprocess.check_output(
+        [apkanalyzer, "manifest", "debuggable", str(apk)],
+        text=True,
+    ).strip().lower()
+    if debuggable != "false":
+        fail(
+            "SABLE_MAIL_APK_DEBUGGABLE",
+            f"expected=false actual={debuggable}",
+        )
+    if package != EXPECTED_PACKAGE:
+        fail(
+            "SABLE_MAIL_APK_PACKAGE",
+            f"expected={EXPECTED_PACKAGE} actual={package}",
+        )
 
-        digest = subprocess.check_output(
-            ["sha256sum", str(apk)],
-            text=True,
-        ).split()[0]
-        print(f"SABLE_MAIL_APK_PACKAGE=PASS value={package}")
-        print("SABLE_MAIL_APK_DEBUGGABLE=PASS_FALSE")
-        print(f"SABLE_MAIL_APK_SHA256={digest}")
-
-    print("SABLE_MAIL_POLICY=PASS")
+    digest = subprocess.check_output(
+        ["sha256sum", str(apk)],
+        text=True,
+    ).split()[0]
+    print(f"SABLE_MAIL_APK_PACKAGE=PASS value={package}")
+    print("SABLE_MAIL_APK_DEBUGGABLE=PASS_FALSE")
+    print(f"SABLE_MAIL_APK_SHA256={digest}")
 
 
 if __name__ == "__main__":

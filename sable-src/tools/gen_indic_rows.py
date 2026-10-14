@@ -6,7 +6,7 @@ InScript puts the same sounds on the same keys in every Indic script, and Unicod
 example) are dropped. The Devanagari layer and the derived scripts were checked against Indic Keyboard's InScript layouts
 (Apache-2.0, github.com/smc/Indic-Keyboard). Prints a Kotlin source file to stdout.
 """
-from indic_common import *
+from indic_common import SHORT_EO_SCRIPTS, derive_token
 
 DEV_N = ["ौ ै ा ी ू ब ह ग द ज ड ़", "ो े ् ि ु प र क त च ट", "ृ ं म न व ल स य ः"]
 DEV_S = ["औ ऐ आ ई ऊ भ ङ घ ध झ ढ ञ", "ओ ए अ इ उ फ ऱ ख थ छ ठ", "ऋ ँ ण ऩ ळ ऴ श ष ऽ ॐ"]

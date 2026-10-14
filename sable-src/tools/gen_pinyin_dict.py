@@ -3,6 +3,8 @@
 
 Usage: gen_pinyin_dict.py <out.tsv>            (writes the asset)
        gen_pinyin_dict.py --check <asset.tsv>  (regenerates in memory; exit 1 unless byte-identical)
+The asset path must be inside this sable-src tree (normally
+apps/titan2/platform/keyboard/src/main/assets/pinyin_zh.tsv).
 
 Inputs are the two vendored, hash-pinned archives named in third_party/pinyin_zh/PROVENANCE.env, read directly
 with zipfile. No other data input exists. This script performs no network access and has no frequency or
@@ -112,6 +114,13 @@ def cedict_rows(text):
     return rows
 
 
+def unihan_readings(prop, value):
+    """The individual readings in one Unihan value (kTGHZ2013 tokens are page.position:reading)."""
+    for tok in value.split(' '):
+        reading = tok.split(':', 1)[1] if prop == 'kTGHZ2013' else tok
+        yield from reading.split(',')
+
+
 def unihan_rows(text, admitted):
     rows = []
     for line in text.split('\n'):
@@ -120,16 +129,11 @@ def unihan_rows(text, admitted):
         parts = line.split('\t')
         if len(parts) != 3 or parts[1] not in admitted:
             continue
-        cp = int(parts[0][2:], 16)
-        word = chr(cp)
+        word = chr(int(parts[0][2:], 16))
         if not HAN.match(word):
             continue
-        for tok in parts[2].split(' '):
-            reading = tok.split(':', 1)[1] if parts[1] == 'kTGHZ2013' else tok
-            for r in reading.split(','):
-                key = unihan_key(r)
-                if key:
-                    rows.append((key, word, UNIHAN_WEIGHTS[parts[1]]))
+        keys = (unihan_key(r) for r in unihan_readings(parts[1], parts[2]))
+        rows.extend((key, word, UNIHAN_WEIGHTS[parts[1]]) for key in keys if key)
     return rows
 
 
@@ -147,11 +151,20 @@ def build(pins):
     return ''.join('%s\t%s\t%d\n' % (k, w, wt) for (k, w), wt in rows).encode('utf8'), len(rows)
 
 
+def tree_path(arg):
+    """arg resolved; the asset is read or written only inside this sable-src tree."""
+    root = os.path.realpath(ROOT)
+    path = os.path.realpath(arg)
+    if not path.startswith(root + os.sep):
+        die('%s is outside %s' % (arg, root))
+    return path
+
+
 def main(argv):
     pins = load_pins()
     body, n = build(pins)
     if len(argv) == 3 and argv[1] == '--check':
-        if open(argv[2], 'rb').read() != body:
+        if open(tree_path(argv[2]), 'rb').read() != body:
             die('asset differs from a fresh regeneration')
         print('PINYIN_CORPUS_REGENERATION=PASS_BYTE_IDENTICAL entries=%d' % n)
         return
@@ -159,7 +172,7 @@ def main(argv):
         die('usage: gen_pinyin_dict.py <out.tsv> | --check <asset.tsv>')
     if n != int(pins['PINYIN_OUTPUT_ENTRIES']) or sha256_bytes(body) != pins['PINYIN_OUTPUT_SHA256']:
         sys.stderr.write('PINYIN_GENERATOR_NOTE: output %d entries sha256 %s differs from the pins\n' % (n, sha256_bytes(body)))
-    with open(argv[1], 'wb') as fh:
+    with open(tree_path(argv[1]), 'wb') as fh:
         fh.write(body)
     print('PINYIN_GENERATOR_WROTE entries=%d bytes=%d sha256=%s' % (n, len(body), sha256_bytes(body)))
 

@@ -193,6 +193,22 @@ def render(r):
     return {os.path.join(ROOT, r["res_dir"], rel): body for rel, body in files.items()}
 
 
+def drifted(path, out):
+    """True (and reported) when the file at path is missing or differs from out."""
+    if os.path.isfile(path):
+        with open(path, encoding="utf8") as f:
+            if f.read() == out:
+                return False
+    print("ICON_DRIFT %s" % os.path.relpath(path, ROOT))
+    return True
+
+
+def write(path, out):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf8", newline="\n") as f:
+        f.write(out)
+
+
 def main(check):
     check_safe_zone()
     bad = 0
@@ -201,13 +217,9 @@ def main(check):
         for p, out in sorted(render(r).items()):
             count += 1
             if check:
-                if not os.path.isfile(p) or open(p, encoding="utf8").read() != out:
-                    print("ICON_DRIFT %s" % os.path.relpath(p, ROOT))
-                    bad += 1
+                bad += drifted(p, out)
             else:
-                os.makedirs(os.path.dirname(p), exist_ok=True)
-                with open(p, "w", encoding="utf8", newline="\n") as f:
-                    f.write(out)
+                write(p, out)
     if check:
         print("ICON_GENERATOR_CHECK=%s files=%d drift=%d" % ("FAIL" if bad else "PASS", count, bad))
         sys.exit(1 if bad else 0)

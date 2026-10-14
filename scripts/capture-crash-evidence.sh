@@ -51,6 +51,7 @@ done
 [[ -z "$LABEL" || "$LABEL" =~ ^[A-Za-z0-9_-]{1,40}$ ]] || sable_fail "label must be 1-40 of A-Z a-z 0-9 - _"
 case "$(realpath -m "$OUT")/" in
     "$SABLE_REPO_ROOT"/*) sable_fail "evidence must not live inside this repository ($SABLE_REPO_ROOT)" ;;
+    *) ;; # outside the repository: fine
 esac
 command -v "$SABLE_ADB" >/dev/null 2>&1 || sable_fail "adb not found ('$SABLE_ADB'); set SABLE_ADB"
 

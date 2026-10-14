@@ -5,6 +5,8 @@
     </queries>
 
     <application
+        android:allowBackup="false"
+        android:usesCleartextTraffic="false"
         android:icon="@mipmap/ic_sable_calculator"
         android:roundIcon="@mipmap/ic_sable_calculator_round"
         android:label="Sable Calculator"
