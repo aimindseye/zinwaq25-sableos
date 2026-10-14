@@ -5,6 +5,7 @@ enum class FieldKind { TEXT, NUMBER, NUMBER_PASSWORD, VISIBLE_PASSWORD }
 
 /** A modifier a case must exercise; [metaMask] is the Android KeyEvent META_* bit. */
 enum class Modifier(val metaMask: Int) {
+    SHIFT(KeyCommands.META_SHIFT_ON),
     ALT(KeyCommands.META_ALT_ON),
     SYM(KeyCommands.META_SYM_ON),
     FN(KeyCommands.META_FUNCTION_ON)
@@ -15,8 +16,12 @@ data class TextEntryCase(
     val title: String,
     val prompt: String,
     val field: FieldKind,
-    /** Exact text required, or null when the case is judged from key events ([modifier]). */
+    /**
+     * Exact text required, or null when the case is judged from key events ([modifier]). With both set, the text must
+     * match and every typed character must have been produced with [modifier] held or locked.
+     */
     val expected: String? = null,
+    /** The key this case exercises; the case is offered only when the profile's keyboard declares it. */
     val modifier: Modifier? = null,
     /** Shows the software keyboard instead of relying on the hardware keyboard. */
     val softwareKeyboard: Boolean = false
@@ -32,6 +37,23 @@ data class TypedKey(val meta: Int, val unicode: Int)
  * never stored, logged or exported.
  */
 object TextEntryTest {
+    private val SHIFT_CASE = TextEntryCase(
+        "shift",
+        "Shift",
+        "Hold or lock Shift and type a capital letter",
+        FieldKind.TEXT,
+        modifier = Modifier.SHIFT
+    )
+    private val ALT_DIGITS_CASE = TextEntryCase(
+        "alt_digits",
+        "Alt-layer digits",
+        "Hold or lock Alt and type: 2468",
+        FieldKind.TEXT,
+        expected = "2468",
+        modifier = Modifier.ALT
+    )
+
+    /** The spec's list (letters, numbers, symbols, Alt, Sym, Fn, ...), used as-is for [KeyboardTraits.GENERIC]. */
     val CASES: List<TextEntryCase> = listOf(
         TextEntryCase("letters", "Letters", "Type: sable", FieldKind.TEXT, expected = "sable"),
         TextEntryCase("numbers", "Numbers", "Type: 2468", FieldKind.NUMBER, expected = "2468"),
@@ -94,10 +116,34 @@ object TextEntryTest {
         )
     )
 
+    /**
+     * Cases for one keyboard: a case tied to a key appears only when the keyboard declares that key, so a release gate
+     * never asks for a key the device lacks (no Fn case on the Q25). Shift and Alt-layer digits are added where
+     * declared.
+     */
+    fun casesFor(keyboard: KeyboardTraits): List<TextEntryCase> {
+        val extra = listOfNotNull(
+            SHIFT_CASE.takeIf { Modifier.SHIFT in keyboard.modifiers },
+            ALT_DIGITS_CASE.takeIf {
+                keyboard.digitsOnAltLayer && Modifier.ALT in keyboard.modifiers
+            }
+        )
+        val all = CASES.take(EXTRA_INSERT_AT) + extra + CASES.drop(EXTRA_INSERT_AT)
+        return all.filter { it.modifier == null || it.modifier in keyboard.modifiers }
+    }
+
+    /** Shift and Alt-layer digits go after letters, numbers and symbols. */
+    private const val EXTRA_INSERT_AT = 3
+
     fun check(case: TextEntryCase, entered: String, keys: List<TypedKey>): CaseResult {
         val expected = case.expected
         val m = case.modifier
         val pass = when {
+            expected != null && m != null ->
+                entered == expected &&
+                    keys.any { it.unicode > 0 } &&
+                    keys.filter { it.unicode > 0 }.all { it.meta and m.metaMask != 0 }
+
             expected != null -> entered == expected
 
             m == null -> false
@@ -110,14 +156,17 @@ object TextEntryTest {
     }
 
     /** "7/10 PASS, 1 FAIL, 2 NOT_RUN" plus per-case lines; safe for reports (no typed text). */
-    fun summary(results: Map<String, CaseResult>): List<ReportRow> {
-        val rows = CASES.map { ReportRow(it.title, (results[it.id] ?: CaseResult.NOT_RUN).name) }
+    fun summary(
+        results: Map<String, CaseResult>,
+        cases: List<TextEntryCase> = CASES
+    ): List<ReportRow> {
+        val rows = cases.map { ReportRow(it.title, (results[it.id] ?: CaseResult.NOT_RUN).name) }
         val pass = rows.count { it.value == CaseResult.PASS.name }
         val fail = rows.count { it.value == CaseResult.FAIL.name }
         return listOf(
             ReportRow(
                 "critical text entry",
-                "$pass/${CASES.size} PASS, $fail FAIL, ${CASES.size - pass - fail} NOT_RUN"
+                "$pass/${cases.size} PASS, $fail FAIL, ${cases.size - pass - fail} NOT_RUN"
             )
         ) +
             rows

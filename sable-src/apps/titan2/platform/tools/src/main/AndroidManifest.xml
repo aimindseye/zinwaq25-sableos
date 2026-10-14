@@ -100,12 +100,14 @@
         </activity>
 
         <!--
-          *#*#3377#*#* bridge. Disabled by default; the app enables it only when no vendor factory-test app answers
-          the code (core/DialerCodes.receiverEnabled), so it never doubles up with a vendor surface.
+          *#*#3377#*#* bridge. Enabled from install so the code works on a fresh phone before Sable Tools is opened.
+          It re-checks on every code (android/SecretCodeSync): when a vendor factory-test app answers the code
+          (core/DialerCodes.receiverEnabled), it launches nothing and disables itself, so it never doubles up with a
+          vendor surface.
         -->
         <receiver
             android:name=".android.SecretCodeReceiver"
-            android:enabled="false"
+            android:enabled="true"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.telephony.action.SECRET_CODE" />

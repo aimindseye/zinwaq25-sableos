@@ -11,7 +11,9 @@ package org.sableos.tools.core
 data class ToolsDeviceProfile(
     val id: String,
     val displayName: String,
-    private val declarations: Map<Capability, Declaration>
+    private val declarations: Map<Capability, Declaration>,
+    /** Keys and keyboard light the diagnostics may ask for; undeclared profiles get the spec's generic list. */
+    val keyboard: KeyboardTraits = KeyboardTraits.GENERIC
 ) {
     fun declaration(c: Capability): Declaration =
         declarations[c] ?: Declaration(Declared.UNKNOWN, "no evidence recorded for this profile")
@@ -79,6 +81,8 @@ data class ToolsDeviceProfile(
         /**
          * Zinwa Q25: the hardware exists on paper but nothing is qualified yet, so sensor/camera/mic/GPS tools are
          * developer-only until TOOLS-I5. No IR transmitter and no sub-screen. FM (MT6631) is status-only.
+         * BlackBerry Classic keyboard: Alt, Shift, Sym, digits on the Alt layer, no Fn key; the backlight is set
+         * through persist.sys.sable.kbd_backlight* (bbqX0kbd driver, no lights HAL).
          */
         val ZinwaQ25 = ToolsDeviceProfile(
             "zinwa-q25",
@@ -101,7 +105,8 @@ data class ToolsDeviceProfile(
                     Declared.UNKNOWN,
                     "no factory-test dialer code observed on Q25",
                     Capability.FACTORY_TEST_BRIDGE
-                )
+                ),
+            KeyboardTraits.BLACKBERRY_CLASSIC
         )
 
         val Unknown = ToolsDeviceProfile("unknown", "Unknown device", emptyMap())

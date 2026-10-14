@@ -164,9 +164,15 @@ object Links {
     }
 }
 
-/** Keeps the dialer-code receiver enabled only when no vendor factory-test app answers *#*#3377#*#*. */
+/**
+ * Keeps the dialer-code receiver enabled only when no vendor factory-test app answers *#*#3377#*#*. The receiver is
+ * enabled from install (manifest default) and also runs this on every code, so a vendor surface always wins
+ * (RAW_DIALER_CODE_COMPATIBILITY=PRESERVE_WHERE_AVAILABLE) even before Sable Tools has been opened.
+ *
+ * @return whether the Sable bridge should answer the code
+ */
 object SecretCodeSync {
-    fun sync(ctx: Context) {
+    fun sync(ctx: Context): Boolean {
         val intent =
             Intent(
                 "android.telephony.action.SECRET_CODE",
@@ -186,5 +192,6 @@ object SecretCodeSync {
         if (ctx.packageManager.getComponentEnabledSetting(cn) != want) {
             ctx.packageManager.setComponentEnabledSetting(cn, want, PackageManager.DONT_KILL_APP)
         }
+        return want == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
     }
 }
