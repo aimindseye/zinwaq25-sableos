@@ -73,6 +73,7 @@ jobs:
               :feature:onboarding:main:compileReleaseKotlin
               :feature:launcher:compileReleaseKotlin
               :app-thunderbird:lintFossRelease
+              :legacy:ui:legacy:testDebugUnitTest --tests com.fsck.k9.activity.SableMailKeymapTest
           - name: text reader
             root: flavor:textreader
             java: '17'

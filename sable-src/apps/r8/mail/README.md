@@ -51,6 +51,16 @@ product-policy change is explicitly listed below.
   admits `org.sableos.launcher` and `org.sableos.hub`; the retired Launcher3
   HOME package and arbitrary third-party callers are not authorized;
 - Sable Hub does not read Sable Mail private storage or account credentials.
+- keyboard model (MAIL_CALENDAR_PRODUCTIVITY_UX shared keymap, Q25 keys:
+  Alt, Shift, Sym, letters; no Fn or Ctrl): `src/.../SableMailKeymap.kt`
+  (unit-tested, copied into `legacy/ui/legacy`) replaces the upstream K-9
+  hotkeys in the message list and reader. C compose, T newest, J/N next,
+  K/P previous, R reply, A reply all, F forward, D or Backspace delete,
+  `/` or S search, V (or O) cycle sort, Space / Shift+Space page, Esc back;
+  upstream actions stay on E archive, X select, G flag, M move, Y copy,
+  Z read/unread, I reverse sort. Single keys never fire while a text field
+  has focus. In compose, Ctrl+Enter or Alt+Enter sends and Esc cancels;
+- delete asks for confirmation by default (upstream default is off).
 
 The global appearance provider carries presentation state only. It does not
 expose account, mail, contacts, device or security-sensitive data.
