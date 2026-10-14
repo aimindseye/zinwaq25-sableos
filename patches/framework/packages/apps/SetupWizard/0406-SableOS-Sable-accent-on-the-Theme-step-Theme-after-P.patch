@@ -1,0 +1,318 @@
+From 2c355c3793fd52259bbfebdeac088453717639b9 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 14 Oct 2026 13:03:33 +0000
+Subject: [PATCH 406/407] SableOS: Sable accent on the Theme step, Theme after
+ Privacy
+
+The Theme step keeps LineageOS's Dark/Light choice, which writes
+UiModeManager, the system theme Quick Settings uses and Sable apps
+follow. Under it the step now shows the Sable accent stored in the
+org.sableos.appearance authority (Settings patch 0101) and a Change
+accent button that opens Settings > Display scrolled to the Accent row.
+
+Setup does not write the accent: the authority only accepts writes from
+Settings, Sable Start and App display compatibility, so writing it here
+would need a new writer or a second store. Settings stores the accent
+and seeds the system palette, and the step re-reads it when the user
+returns. When the authority is absent or unreadable the accent rows stay
+hidden and the step is LineageOS's own.
+
+In the owner script the Theme step moves from after screen lock to right
+after Privacy, the order the Sable setup design gives (privacy, then
+theme, then date and time). The secondary-user script is unchanged.
+
+The accent values and Settings extras are in the pure SableAccent class.
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01FqvfFQhAvko2gkqcxM25Aa
+---
+ AndroidManifest.xml                           |  2 +
+ res/layout/setup_theme.xml                    | 54 +++++++++++++----
+ res/raw/lineage_wizard_script.xml             | 13 ++--
+ res/values/sable_strings.xml                  | 12 ++++
+ .../setupwizard/ThemeSettingsActivity.java    | 60 +++++++++++++++++++
+ .../setupwizard/sable/SableAccent.java        | 52 ++++++++++++++++
+ 6 files changed, 176 insertions(+), 17 deletions(-)
+ create mode 100644 src/org/lineageos/setupwizard/sable/SableAccent.java
+
+diff --git a/AndroidManifest.xml b/AndroidManifest.xml
+index 3b4158f9..e82d38f7 100644
+--- a/AndroidManifest.xml
++++ b/AndroidManifest.xml
+@@ -49,6 +49,8 @@
+     <!-- SableOS: the keyboard readiness step checks that Sable Keyboard is installed. -->
+     <queries>
+         <package android:name="org.sableos.titan2.keyboard" />
++        <!-- SableOS: the Theme step reads the Sable accent (hosted by Settings). -->
++        <provider android:authorities="org.sableos.appearance" />
+     </queries>
+ 
+     <application
+diff --git a/res/layout/setup_theme.xml b/res/layout/setup_theme.xml
+index 77fab2f3..14e9aa06 100644
+--- a/res/layout/setup_theme.xml
++++ b/res/layout/setup_theme.xml
+@@ -27,22 +27,54 @@
+                 android:layout_height="match_parent"
+                 android:fillViewport="true">
+ 
+-                <RadioGroup
+-                    android:id="@+id/theme_radio_group"
++                <LinearLayout
++                    android:orientation="vertical"
+                     android:layout_width="match_parent"
+                     android:layout_height="wrap_content">
+ 
+-                    <RadioButton
+-                        android:id="@+id/radio_dark"
+-                        android:text="@string/dark"
+-                        style="@style/SudRadioButton" />
++                    <RadioGroup
++                        android:id="@+id/theme_radio_group"
++                        android:layout_width="match_parent"
++                        android:layout_height="wrap_content">
+ 
+-                    <RadioButton
+-                        android:id="@+id/radio_light"
+-                        android:text="@string/light"
+-                        style="@style/SudRadioButton" />
++                        <RadioButton
++                            android:id="@+id/radio_dark"
++                            android:text="@string/dark"
++                            style="@style/SudRadioButton" />
+ 
+-                </RadioGroup>
++                        <RadioButton
++                            android:id="@+id/radio_light"
++                            android:text="@string/light"
++                            style="@style/SudRadioButton" />
++
++                    </RadioGroup>
++
++                    <!-- SableOS: the Sable accent, read from org.sableos.appearance and changed in
++                         Settings > Display > Accent. Hidden when the authority is absent. -->
++                    <TextView
++                        android:id="@+id/sable_accent_current"
++                        android:layout_width="match_parent"
++                        android:layout_height="wrap_content"
++                        android:paddingTop="12dp"
++                        android:textAppearance="?android:attr/textAppearanceMedium"
++                        android:textColor="?android:attr/textColorPrimary"
++                        android:visibility="gone" />
++
++                    <TextView
++                        android:id="@+id/sable_accent_note"
++                        android:layout_width="match_parent"
++                        android:layout_height="wrap_content"
++                        android:paddingVertical="4dp"
++                        android:text="@string/sable_theme_accent_note"
++                        android:textColor="?android:attr/textColorSecondary"
++                        android:visibility="gone" />
++
++                    <Button
++                        android:id="@+id/sable_accent_change"
++                        style="@style/SableSetupLink"
++                        android:text="@string/sable_theme_accent_change" />
++
++                </LinearLayout>
+             </ScrollView>
+         </FrameLayout>
+ 
+diff --git a/res/raw/lineage_wizard_script.xml b/res/raw/lineage_wizard_script.xml
+index 9530765f..3d6ed361 100644
+--- a/res/raw/lineage_wizard_script.xml
++++ b/res/raw/lineage_wizard_script.xml
+@@ -56,6 +56,13 @@
+     <WizardAction
+         wizard:uri="intent:#Intent;action=org.sableos.setupwizard.SABLE_PRIVACY;end"
+         id="sable_privacy">
++        <result wizard:action="theme_settings" />
++    </WizardAction>
++
++    <!-- SableOS: light/dark and the Sable accent right after privacy, as the setup design orders it. -->
++    <WizardAction
++        wizard:uri="intent:#Intent;action=org.lineageos.setupwizard.THEME_SETTINGS;end"
++        id="theme_settings">
+         <result wizard:action="datetime" />
+     </WizardAction>
+ 
+@@ -104,12 +111,6 @@
+     <WizardAction
+         wizard:uri="intent:#Intent;action=org.lineageos.setupwizard.LINEAGE_LOCKSCREEN_SETTINGS;end"
+         id="lockscreen_settings">
+-        <result wizard:action="theme_settings" />
+-    </WizardAction>
+-
+-    <WizardAction
+-        wizard:uri="intent:#Intent;action=org.lineageos.setupwizard.THEME_SETTINGS;end"
+-        id="theme_settings">
+         <result wizard:action="navigation_settings" />
+     </WizardAction>
+ 
+diff --git a/res/values/sable_strings.xml b/res/values/sable_strings.xml
+index ffb4539a..7fd07865 100644
+--- a/res/values/sable_strings.xml
++++ b/res/values/sable_strings.xml
+@@ -53,4 +53,16 @@
+     <string name="sable_privacy_lock_screen_link">Lock screen notifications</string>
+     <string name="sable_privacy_restore"><b>Restore.</b> Restoring a backup uses Android’s own backup app. SableOS keeps no copy of your backup.</string>
+     <string name="sable_privacy_settings_link">Privacy settings</string>
++
++    <!-- SableOS Sable accent on the Theme step (KF-B). Labels match Settings > Display > Accent. -->
++    <string name="sable_theme_accent_current">Sable accent: <xliff:g id="accent" example="Sable Blue">%1$s</xliff:g></string>
++    <string name="sable_theme_accent_note">Sable apps follow the light or dark choice above. The accent colours Sable apps, Settings and Quick Settings, and is chosen in Settings, Display, Accent.</string>
++    <string name="sable_theme_accent_change">Change accent</string>
++    <string-array name="sable_accent_entries">
++        <item>Sable Blue</item>
++        <item>Green</item>
++        <item>Purple</item>
++        <item>Orange</item>
++        <item>Slate</item>
++    </string-array>
+ </resources>
+diff --git a/src/org/lineageos/setupwizard/ThemeSettingsActivity.java b/src/org/lineageos/setupwizard/ThemeSettingsActivity.java
+index b261c9a0..72a61220 100644
+--- a/src/org/lineageos/setupwizard/ThemeSettingsActivity.java
++++ b/src/org/lineageos/setupwizard/ThemeSettingsActivity.java
+@@ -6,13 +6,24 @@
+ package org.lineageos.setupwizard;
+ 
+ import android.app.UiModeManager;
++import android.content.Intent;
+ import android.content.res.Configuration;
++import android.database.Cursor;
++import android.net.Uri;
+ import android.os.Bundle;
++import android.provider.Settings;
++import android.util.Log;
++import android.view.View;
++import android.widget.Button;
+ import android.widget.RadioGroup;
++import android.widget.TextView;
+ 
+ import androidx.annotation.Nullable;
+ 
++import org.lineageos.setupwizard.sable.SableAccent;
++
+ public class ThemeSettingsActivity extends BaseSetupWizardActivity {
++    private static final String TAG = "ThemeSettingsActivity";
+ 
+     @Override
+     protected void onCreate(@Nullable Bundle savedInstanceState) {
+@@ -33,6 +44,55 @@ public class ThemeSettingsActivity extends BaseSetupWizardActivity {
+         });
+     }
+ 
++    @Override
++    protected void onResume() {
++        super.onResume();
++        // SableOS: re-read after returning from Settings > Display > Accent.
++        bindSableAccent();
++    }
++
++    /**
++     * SableOS: shows the Sable accent stored in the org.sableos.appearance authority and links
++     * to Settings > Display > Accent. Setup is not one of the authority's writers, so the
++     * accent is changed there, never written from here. Hidden when the authority is absent.
++     */
++    private void bindSableAccent() {
++        final TextView current = findViewById(R.id.sable_accent_current);
++        final View note = findViewById(R.id.sable_accent_note);
++        final Button change = findViewById(R.id.sable_accent_change);
++        if (current == null || note == null || change == null) return;
++        final int index = SableAccent.indexOf(readSableAccent());
++        final String[] labels = getResources().getStringArray(R.array.sable_accent_entries);
++        if (index < 0 || index >= labels.length) {
++            current.setVisibility(View.GONE);
++            note.setVisibility(View.GONE);
++            change.setVisibility(View.GONE);
++            return;
++        }
++        current.setText(getString(R.string.sable_theme_accent_current, labels[index]));
++        current.setVisibility(View.VISIBLE);
++        note.setVisibility(View.VISIBLE);
++        final Bundle args = new Bundle();
++        args.putString(SableAccent.EXTRA_FRAGMENT_ARG_KEY, SableAccent.SETTINGS_PREFERENCE_KEY);
++        SableLinks.bind(this, change, new Intent(Settings.ACTION_DISPLAY_SETTINGS)
++                .putExtra(SableAccent.EXTRA_FRAGMENT_ARG_KEY, SableAccent.SETTINGS_PREFERENCE_KEY)
++                .putExtra(SableAccent.EXTRA_SHOW_FRAGMENT_ARGUMENTS, args));
++    }
++
++    /** The stored accent value, or null when the authority is absent or unreadable. */
++    @Nullable
++    private String readSableAccent() {
++        try (Cursor cursor = getContentResolver().query(Uri.parse(SableAccent.CONTENT_URI),
++                new String[] {SableAccent.COLUMN_ACCENT}, null, null, null)) {
++            if (cursor == null || !cursor.moveToFirst()) return null;
++            final int column = cursor.getColumnIndex(SableAccent.COLUMN_ACCENT);
++            return column < 0 ? null : cursor.getString(column);
++        } catch (RuntimeException e) {
++            Log.w(TAG, "could not read the Sable accent", e);
++            return null;
++        }
++    }
++
+     @Override
+     protected int getLayoutResId() {
+         return R.layout.setup_theme;
+diff --git a/src/org/lineageos/setupwizard/sable/SableAccent.java b/src/org/lineageos/setupwizard/sable/SableAccent.java
+new file mode 100644
+index 00000000..c5142864
+--- /dev/null
++++ b/src/org/lineageos/setupwizard/sable/SableAccent.java
+@@ -0,0 +1,52 @@
++/*
++ * SPDX-FileCopyrightText: The SableOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++package org.lineageos.setupwizard.sable;
++
++/**
++ * The Sable accent as the setup Theme step reads it (SableOS KF-B). Pure Java.
++ *
++ * <p>The accent lives in the {@code org.sableos.appearance} authority hosted by Settings
++ * (Settings patch 0101, SableAppearancePolicy). That provider is readable by anyone but only
++ * Settings, Sable Start and App display compatibility may write it, so setup never writes
++ * the accent: it shows the stored one and opens Settings > Display at the Accent row, the
++ * one place that changes it. Light/dark stays with UiModeManager, which the authority
++ * reports as "follow-system".
++ */
++public final class SableAccent {
++
++    private SableAccent() {}
++
++    public static final String AUTHORITY = "org.sableos.appearance";
++    public static final String CONTENT_URI = "content://" + AUTHORITY + "/appearance";
++    public static final String COLUMN_ACCENT = "accent";
++
++    /** Values in display order; equal to SableAppearancePolicy.ACCENTS in Settings. */
++    private static final String[] VALUES = {"blue", "green", "purple", "orange", "slate"};
++
++    /** Settings > Display > Accent preference key (Settings patch 0101). */
++    public static final String SETTINGS_PREFERENCE_KEY = "sable_accent";
++    /** SettingsActivity extras that scroll to and highlight one preference. */
++    public static final String EXTRA_FRAGMENT_ARG_KEY = ":settings:fragment_args_key";
++    public static final String EXTRA_SHOW_FRAGMENT_ARGUMENTS = ":settings:show_fragment_args";
++
++    /** Number of accents; the label array in resources has the same length and order. */
++    public static int count() {
++        return VALUES.length;
++    }
++
++    /**
++     * Index of a stored accent value for its label, or -1 when the value is missing or not a
++     * Sable preset (the step then shows no accent rather than guessing).
++     */
++    public static int indexOf(String value) {
++        if (value == null) return -1;
++        final String v = value.trim();
++        for (int i = 0; i < VALUES.length; i++) {
++            if (VALUES[i].equals(v)) return i;
++        }
++        return -1;
++    }
++}
+-- 
+2.43.0
+
