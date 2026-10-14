@@ -35,8 +35,9 @@ list_patches() {
 }
 
 project_dir() {
-    local dir="$SABLE_ANDROID_ROOT/$1"
-    git -C "$dir" rev-parse --git-dir >/dev/null 2>&1 || sable_fail "LineageOS project $1 missing or not a git checkout"
+    local project="$1"
+    local dir="$SABLE_ANDROID_ROOT/$project"
+    git -C "$dir" rev-parse --git-dir >/dev/null 2>&1 || sable_fail "LineageOS project $project missing or not a git checkout"
     printf '%s\n' "$dir"
 }
 
@@ -151,5 +152,9 @@ case "$ACTION" in
         done
         echo "FRAMEWORK_PATCHES=APPLIED"
         echo "FRAMEWORK_PATCH_COUNT=$count"
+        ;;
+    *)
+        # Unreachable: ACTION was validated above.
+        usage; exit 64
         ;;
 esac

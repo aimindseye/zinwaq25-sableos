@@ -13,6 +13,7 @@ source "$SABLE_REPO_ROOT/build/config/q25.env"
 
 sable_log() {
     printf '[sable-q25] %s\n' "$*" >&2
+    return
 }
 
 sable_fail() {
@@ -32,23 +33,31 @@ sable_release_has_sable_layer() {
 # Q4 and later add the framework integration (phase Q4): Sable Start as HOME,
 # Sable Keyboard as the only IME, and patches/framework applied to LineageOS.
 sable_release_level() {
-    local digits="${1#Q}"
+    local release="$1"
+    local digits="${release#Q}"
     digits="${digits%%[!0-9]*}"
     printf '%s\n' "${digits:-0}"
+    return
 }
 
 sable_release_has_framework_layer() {
-    (( $(sable_release_level "$1") >= 4 ))
+    local release="$1" level
+    level="$(sable_release_level "$release")"
+    (( level >= 4 ))
+    return
 }
 
 sable_require_release() {
-    [[ "${1:-}" =~ ^Q[0-9]+[A-Za-z0-9._-]*$ ]] ||
-        sable_fail "release must look like Q1, Q2, Q2b...: got '${1:-}'"
+    local release="${1:-}"
+    [[ "$release" =~ ^Q[0-9]+[A-Za-z0-9._-]*$ ]] ||
+        sable_fail "release must look like Q1, Q2, Q2b...: got '$release'"
+    return 0
 }
 
 sable_require_android_root() {
     [[ -f "$SABLE_ANDROID_ROOT/build/envsetup.sh" ]] ||
         sable_fail "no Android tree at SABLE_ANDROID_ROOT=$SABLE_ANDROID_ROOT (run bootstrap first)"
+    return 0
 }
 
 # Release config (bp4a for lineage-23.2) from the synced LineageOS tree.
@@ -67,8 +76,10 @@ sable_target_release() {
 
 sable_lunch_target() {
     printf '%s-%s-%s\n' "$SABLE_Q25_LUNCH_PRODUCT" "$(sable_target_release)" "$SABLE_Q25_BUILD_VARIANT"
+    return
 }
 
 sable_utc_stamp() {
     date -u +%Y%m%dT%H%M%SZ
+    return
 }

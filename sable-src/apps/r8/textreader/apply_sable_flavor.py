@@ -32,11 +32,13 @@ def repo_root() -> pathlib.Path:
     return pathlib.Path(__file__).resolve().parents[3]
 
 
-def main() -> None:
-    if len(sys.argv) != 2:
-        fail("usage: apply_sable_flavor.py <vaachak-textreader-checkout>")
+def replace_text_once(text: str, old: str, new: str, marker: str) -> str:
+    if text.count(old) != 1:
+        fail(f"{marker}=FAIL")
+    return text.replace(old, new, 1)
 
-    root = pathlib.Path(sys.argv[1]).resolve()
+
+def checked_upstream_commit(root: pathlib.Path) -> str:
     if not (root / ".git").exists():
         fail(f"SABLE_TEXT_READER_UPSTREAM=FAIL_NOT_GIT path={root}")
 
@@ -49,17 +51,45 @@ def main() -> None:
             "SABLE_TEXT_READER_UPSTREAM_COMMIT=FAIL "
             f"expected={EXPECTED_COMMIT} actual={actual}"
         )
+    return actual
+
+
+def main() -> None:
+    if len(sys.argv) != 2:
+        fail("usage: apply_sable_flavor.py <vaachak-textreader-checkout>")
+
+    root = pathlib.Path(sys.argv[1]).resolve()
+    actual = checked_upstream_commit(root)
 
     build = root / "app/build.gradle.kts"
     manifest = root / "app/src/main/AndroidManifest.xml"
     strings = root / "app/src/main/res/values/strings.xml"
-    main = root / "app/src/main/java/org/vaachak/textreader/MainActivity.kt"
+    main_activity = root / "app/src/main/java/org/vaachak/textreader/MainActivity.kt"
     shared = root / "app/src/main/java/org/vaachak/textreader/SharedComponents.kt"
 
-    for path in (build, manifest, strings, main, shared):
+    for path in (build, manifest, strings, main_activity, shared):
         if not path.is_file():
             fail(f"SABLE_TEXT_READER_INPUT=FAIL_MISSING path={path}")
 
+    patch_build(build)
+    patch_manifest(manifest)
+    replace_once(
+        strings,
+        '<string name="app_name">Vaachak Text Reader</string>',
+        '<string name="app_name">Sable Text Reader</string>',
+        "SABLE_TEXT_READER_BRANDING",
+    )
+    patch_main_activity(main_activity)
+    write_shared_components(shared)
+    write_text_reader_util(root)
+    patch_tts_settings(root)
+    patch_tests(root)
+    copy_design_sources(root)
+    copy_launcher_icons(root)
+    print_summary(actual)
+
+
+def patch_build(build: pathlib.Path) -> None:
     replace_once(
         build,
         'applicationId = "org.vaachak.textreader"',
@@ -85,21 +115,24 @@ def main() -> None:
         "SABLE_TEXT_READER_TRANSLATION_DEPENDENCY",
     )
 
+
+def patch_manifest(manifest: pathlib.Path) -> None:
     manifest_text = manifest.read_text(encoding="utf-8")
-    internet = '    <uses-permission android:name="android.permission.INTERNET" />\n'
-    if manifest_text.count(internet) != 1:
-        fail("SABLE_TEXT_READER_INTERNET_ANCHOR=FAIL")
-    manifest_text = manifest_text.replace(
-        internet,
+    manifest_text = replace_text_once(
+        manifest_text,
+        '    <uses-permission android:name="android.permission.INTERNET" />\n',
         '    <uses-permission\n'
         '        android:name="android.permission.INTERNET"\n'
         '        tools:node="remove" />\n',
-        1,
+        "SABLE_TEXT_READER_INTERNET_ANCHOR",
     )
-    manifest_text = manifest_text.replace(
-        'android:allowBackup="true"',
-        'android:allowBackup="false"',
-        1,
+    # No backup, and no cleartext traffic even if a merged library asks for INTERNET again.
+    manifest_text = replace_text_once(
+        manifest_text,
+        '        android:allowBackup="true"\n',
+        '        android:allowBackup="false"\n'
+        '        android:usesCleartextTraffic="false"\n',
+        "SABLE_TEXT_READER_BACKUP_ANCHOR",
     )
     manifest_text = manifest_text.replace(
         'android:icon="@mipmap/ic_launcher"',
@@ -154,13 +187,8 @@ def main() -> None:
     )
     manifest.write_text(manifest_text, encoding="utf-8")
 
-    replace_once(
-        strings,
-        '<string name="app_name">Vaachak Text Reader</string>',
-        '<string name="app_name">Sable Text Reader</string>',
-        "SABLE_TEXT_READER_BRANDING",
-    )
 
+def patch_main_activity(main: pathlib.Path) -> None:
     main_text = main.read_text(encoding="utf-8")
     if "import androidx.compose.foundation.isSystemInDarkTheme\n" not in main_text:
         fail("SABLE_TEXT_READER_THEME_IMPORT_ANCHOR=FAIL")
@@ -278,6 +306,8 @@ def main() -> None:
 
     main.write_text(main_text, encoding="utf-8")
 
+
+def write_shared_components(shared: pathlib.Path) -> None:
     shared.write_text(
         """package org.vaachak.textreader
 
@@ -325,6 +355,8 @@ fun ActionIcon(
         encoding="utf-8",
     )
 
+
+def write_text_reader_util(root: pathlib.Path) -> None:
     text_util = (
         root
         / "app/src/main/java/org/vaachak/textreader/TextReaderUtil.kt"
@@ -379,6 +411,8 @@ object TextReaderUtil {
         encoding="utf-8",
     )
 
+
+def patch_tts_settings(root: pathlib.Path) -> None:
     tts_settings = (
         root
         / "app/src/main/java/org/vaachak/textreader/TtsSettingsView.kt"
@@ -442,6 +476,8 @@ object TextReaderUtil {
     tts_text = tts_text.replace(selected_old, selected_new, 1)
     tts_settings.write_text(tts_text, encoding="utf-8")
 
+
+def patch_tests(root: pathlib.Path) -> None:
     unit_test = (
         root
         / "app/src/test/java/org/vaachak/textreader/TextReaderUtilTest.kt"
@@ -479,6 +515,8 @@ object TextReaderUtil {
         )
         android_ui_test.write_text(ui_test_text, encoding="utf-8")
 
+
+def copy_design_sources(root: pathlib.Path) -> None:
     design_source = (
         repo_root()
         / "src/android/shared/sabledesign/src/main/java/org/sableos/design"
@@ -498,6 +536,8 @@ object TextReaderUtil {
             fail(f"SABLE_TEXT_READER_DESIGN_SOURCE=FAIL_MISSING path={source}")
         shutil.copy2(source, design_destination / name)
 
+
+def copy_launcher_icons(root: pathlib.Path) -> None:
     # Launcher icon generated by sable-src/tools/gen_first_party_icons.py (row textreader): legacy vector,
     # adaptive layers and mipmap-anydpi-v26/ic_sable_text_reader{,_round}.xml with a monochrome layer.
     icon_source = pathlib.Path(__file__).resolve().parent / "res"
@@ -509,6 +549,8 @@ object TextReaderUtil {
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, destination)
 
+
+def print_summary(actual: str) -> None:
     print(f"SABLE_TEXT_READER_UPSTREAM_COMMIT=PASS value={actual}")
     print("SABLE_TEXT_READER_APPLICATION_ID=PASS")
     print("SABLE_TEXT_READER_MIN_SDK=PASS_30")
@@ -516,6 +558,7 @@ object TextReaderUtil {
     print("SABLE_TEXT_READER_GLOBAL_APPEARANCE=PASS")
     print("SABLE_TEXT_READER_INTERNET_MERGE_RULE=PASS_REMOVE")
     print("SABLE_TEXT_READER_INTERNET_PERMISSION=PASS_FINAL_APK_ABSENT_REQUIRED")
+    print("SABLE_TEXT_READER_CLEARTEXT_TRAFFIC=PASS_DISABLED")
     print("SABLE_TEXT_READER_TRANSLATION=PASS_RETIRED")
     print("SABLE_TEXT_READER_VIEW_SEND_PROCESS_TEXT=PASS")
     print("SABLE_TEXT_READER_VIEW_HANDLER=PASS_BOUNDED_LOCAL_TEXT")

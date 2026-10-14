@@ -21,11 +21,12 @@ else
 fi
 
 # 2. Local manifest is well-formed XML.
+manifest_check="manifest XML"
 if command -v xmllint >/dev/null 2>&1; then
-    xmllint --noout manifests/local_manifests/sable_q25.xml && pass "manifest XML" || fail "manifest XML"
+    xmllint --noout manifests/local_manifests/sable_q25.xml && pass "$manifest_check" || fail "$manifest_check"
 else
     python3 -c 'import sys,xml.dom.minidom as m; m.parse(sys.argv[1])' manifests/local_manifests/sable_q25.xml &&
-        pass "manifest XML" || fail "manifest XML"
+        pass "$manifest_check" || fail "$manifest_check"
 fi
 
 # 3. Pins in q25.env match the local manifest.
@@ -100,7 +101,8 @@ fi
 fw="$tmp/fw"; proj="$tmp/android/packages/apps/Demo"
 mkdir -p "$proj" "$fw/packages/apps/Demo"
 git -C "$proj" init -q
-printf 'home=launcher3\n' > "$proj/config.txt"
+stock_home='home=launcher3'
+printf '%s\n' "$stock_home" > "$proj/config.txt"
 git -C "$proj" -c user.name=t -c user.email=t@t add config.txt
 git -C "$proj" -c user.name=t -c user.email=t@t commit -qm base
 printf 'home=sable\n' > "$proj/config.txt"
@@ -114,7 +116,7 @@ if fwrun check | grep -q '^APPLIES  packages/apps/Demo 0001-demo.patch' &&
     fwrun apply >/dev/null && grep -q 'home=sable' "$proj/config.txt" &&
     fwrun check | grep -q '^APPLIED  packages/apps/Demo' &&
     fwrun revert | grep -q '^FRAMEWORK_PATCHES=REVERTED' &&
-    grep -q 'home=launcher3' "$proj/config.txt" && [[ ! -e "$stamp" ]]; then
+    grep -q "$stock_home" "$proj/config.txt" && [[ ! -e "$stamp" ]]; then
     pass "framework patches apply, re-apply, check and revert"
 else
     fail "framework patches: $(cat "$tmp/err")"
@@ -127,7 +129,7 @@ git -C "$proj" reset -q --hard
 if fwrun check | grep -q '^APPLIES  packages/apps/Demo 0001-demo.patch 0002-demo.patch' &&
     fwrun apply | grep -q '^FRAMEWORK_PATCH_COUNT=2' && grep -q 'recents=quickstep' "$proj/config.txt" &&
     fwrun check | grep -q '^APPLIED  packages/apps/Demo' &&
-    fwrun revert >/dev/null && grep -qx 'home=launcher3' "$proj/config.txt"; then
+    fwrun revert >/dev/null && grep -qx "$stock_home" "$proj/config.txt"; then
     pass "framework patches stack within a project"
 else
     fail "stacked framework patches: $(cat "$tmp/err")"
@@ -162,14 +164,14 @@ else
     fail "stage Q4: $(cat "$tmp/err")"
 fi
 if out="$(stagerun Q2 --apps-dir "$tmp/apps/run")" && grep -q '^FRAMEWORK_LAYER=NO' <<<"$out" &&
-    grep -q 'home=launcher3' "$proj/config.txt" && ! grep -q 'SableLauncher' "$tmp/android/vendor/sable/q25/sable-q25-framework.mk" &&
+    grep -q "$stock_home" "$proj/config.txt" && ! grep -q 'SableLauncher' "$tmp/android/vendor/sable/q25/sable-q25-framework.mk" &&
     [[ ! -e "$tmp/android/vendor/sable/q25/src" && ! -e "$tmp/android/vendor/sable/q25/overlay" ]] &&
     ! grep -q 'SableSystemUIOverlay' "$tmp/android/vendor/sable/q25/sable-q25-framework.mk"; then
     pass "stage Q2 reverts framework layer"
 else
     fail "stage Q2 after Q4: $(cat "$tmp/err")"
 fi
-if stagerun Q1 >/dev/null && grep -q 'home=launcher3' "$proj/config.txt"; then pass "stage Q1 after Q4"; else fail "stage Q1 after Q4: $(cat "$tmp/err")"; fi
+if stagerun Q1 >/dev/null && grep -q "$stock_home" "$proj/config.txt"; then pass "stage Q1 after Q4"; else fail "stage Q1 after Q4: $(cat "$tmp/err")"; fi
 
 # 6b2. Optional 50 MP camera: the patcher on a synthetic vendor tree, and off by default.
 if python3 -I tests/test_camera_50mp.py >"$tmp/cam50" 2>&1; then

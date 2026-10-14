@@ -17,7 +17,13 @@ android {
         versionCode = 1
         versionName = "0.1.0"
     }
-    buildTypes { release { isMinifyEnabled = false } }
+    buildTypes {
+        release {
+            // R8 shrinks and obfuscates the shipped (platform-signed) release APK.
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+        }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility =

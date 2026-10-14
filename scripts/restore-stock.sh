@@ -76,6 +76,7 @@ while IFS= read -r -d '' f; do
     case "$name" in
         preloader*) name=preloader ;;
         *_a|*_b) name="${name%_?}" ;;
+        *) ;; # already the partition name
     esac
     if [[ -n "${image_for[$name]:-}" && "${image_for[$name]}" != "$f" ]]; then
         sable_fail "two images for '$name': ${image_for[$name]} and $f"

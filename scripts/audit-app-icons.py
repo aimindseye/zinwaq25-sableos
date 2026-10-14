@@ -38,6 +38,17 @@ PLACEHOLDER = re.compile(r"(^@mipmap/ic_launcher(_round)?$)|sym_def_app_icon|(^@
 # Modules that intentionally have no launcher entry (none today). Any extra launcher entry beyond the first is
 # reported, since a diagnostic in the app drawer is a product defect.
 HEADLESS: set[str] = set()
+REPO = Path(__file__).resolve().parent.parent
+# A drawable/mipmap reference (resource names are ASCII).
+RES_REF = r"@(?:drawable|mipmap)/\w+"
+
+
+def within(base: Path, path: Path) -> Path:
+    """path, resolved; exits unless it stays inside base (no ../ or symlink escape)."""
+    resolved = path.resolve()
+    if not resolved.is_relative_to(base.resolve()):
+        sys.exit("audit-app-icons: %s is outside %s" % (path, base))
+    return resolved
 
 
 def read_rows(apps_tsv: Path) -> list[dict[str, str]]:
@@ -62,7 +73,7 @@ def module_dir(src: Path, row: dict[str, str]) -> Path | None:
         return None
     task = row["gradle_task"].split()[0]
     module = task.strip(":").split(":")[0]
-    return src / root / module
+    return within(src, src / root / module)
 
 
 def flavor_of(row: dict[str, str]) -> str | None:
@@ -86,7 +97,7 @@ def res_dirs(mod: Path, flavor: str | None) -> list[Path]:
 def resolve(ref: str | None, dirs: list[Path]) -> list[Path]:
     if not ref:
         return []
-    m = re.match(r"^@(drawable|mipmap)/([A-Za-z0-9_]+)$", ref)
+    m = re.match(r"^@(drawable|mipmap)/(\w+)$", ref, re.ASCII)
     if not m:
         return []
     kind, name = m.groups()
@@ -166,26 +177,40 @@ def adaptive_info(files: list[Path], dirs: list[Path]) -> tuple[bool, bool, byte
     return adaptive, mono, ident
 
 
+def failed_result(res: dict[str, object], note: str) -> dict[str, object]:
+    res["notes"].append(note)
+    for c in ALL_CHECKS:
+        res[c] = False
+    return res
+
+
 def audit_module(src: Path, row: dict[str, str]) -> dict[str, object]:
     mod = module_dir(src, row)
     res: dict[str, object] = {"module": row["module"], "package": row["package"], "notes": []}
     manifest = mod / "src" / "main" / "AndroidManifest.xml" if mod else None
     if manifest is None or not manifest.is_file():
-        res["notes"].append("no manifest at " + (str(manifest.relative_to(src)) if manifest else "?"))
-        for c in ALL_CHECKS:
-            res[c] = False
-        return res
+        return failed_result(res, "no manifest at " + (str(manifest.relative_to(src)) if manifest else "?"))
     flavor = flavor_of(row)
     dirs = res_dirs(mod, flavor)
     gradle_file = mod / "build.gradle.kts"
     gradle = gradle_file.read_text(encoding="utf-8") if gradle_file.is_file() else ""
     app = ET.parse(manifest).getroot().find("application")
     if app is None:
-        res["notes"].append("no <application>")
-        for c in ALL_CHECKS:
-            res[c] = False
-        return res
+        return failed_result(res, "no <application>")
 
+    launcher_checks(res, row, app)
+    label = string_value(app.get(ANDROID + "label"), dirs, flavor_block(gradle, flavor))
+    res["label"] = bool(label and label.strip())
+    res["label_detail"] = label or "-"
+
+    icon_ref = app.get(ANDROID + "icon")
+    icon_files = resolve(icon_ref, dirs)
+    main_icon_checks(res, icon_ref, icon_files, flavor)
+    icon_checks(res, icon_ref, icon_files, app.get(ANDROID + "roundIcon"), dirs)
+    return res
+
+
+def launcher_checks(res: dict[str, object], row: dict[str, str], app: ET.Element) -> None:
     launchers = launcher_activities(app)
     headless = row["module"] in HEADLESS
     res["launcher"] = bool(launchers) or headless
@@ -193,12 +218,9 @@ def audit_module(src: Path, row: dict[str, str]) -> dict[str, object]:
     if len(launchers) > 1:
         res["notes"].append("extra launcher entries: " + ", ".join(launchers[1:]))
 
-    label = string_value(app.get(ANDROID + "label"), dirs, flavor_block(gradle, flavor))
-    res["label"] = bool(label and label.strip())
-    res["label_detail"] = label or "-"
 
-    icon_ref = app.get(ANDROID + "icon")
-    icon_files = resolve(icon_ref, dirs)
+def main_icon_checks(res: dict[str, object], icon_ref: str | None, icon_files: list[Path],
+                     flavor: str | None) -> None:
     placeholder = bool(icon_ref and PLACEHOLDER.search(icon_ref))
     res["icon"] = bool(icon_files) and not placeholder
     res["icon_detail"] = icon_ref or "-"
@@ -209,9 +231,6 @@ def audit_module(src: Path, row: dict[str, str]) -> dict[str, object]:
         res["notes"].append("placeholder/upstream icon " + str(icon_ref))
     elif icon_ref and not icon_files:
         res["notes"].append("icon does not resolve: " + icon_ref)
-
-    icon_checks(res, icon_ref, icon_files, app.get(ANDROID + "roundIcon"), dirs)
-    return res
 
 
 def icon_checks(res: dict[str, object], icon_ref: str | None, icon_files: list[Path], round_ref: str | None,
@@ -240,12 +259,11 @@ def icon_checks(res: dict[str, object], icon_ref: str | None, icon_files: list[P
 
 def audit_flavor(src: Path, row: dict[str, str]) -> dict[str, object]:
     name = row["gradle_root"].split(":", 1)[1]
-    spec = src / "apps" / "r8" / name / "apply_sable_flavor.py"
+    spec = within(src, src / "apps" / "r8" / name / "apply_sable_flavor.py")
     res: dict[str, object] = {"module": row["module"], "package": row["package"], "notes": ["flavor: upstream manifest not in tree"]}
     text = spec.read_text(encoding="utf-8") if spec.is_file() else ""
-    ref_re = r'(@(?:drawable|mipmap)/[A-Za-z0-9_]+)'
-    icon = re.findall(r'android:icon="%s"' % ref_re, text)
-    rnd = re.findall(r'android:roundIcon="%s"' % ref_re, text)
+    icon = re.findall(r'android:icon="(%s)"' % RES_REF, text, re.ASCII)
+    rnd = re.findall(r'android:roundIcon="(%s)"' % RES_REF, text, re.ASCII)
     icon_ref = icon[-1] if icon else None
     round_ref = rnd[-1] if rnd else None
     # The applicator copies sable-src/apps/r8/NAME/res into the upstream app (Path(__file__).parent / "res").
@@ -273,11 +291,55 @@ def mark(v: object) -> str:
     return "yes" if v else "NO"
 
 
-def main() -> int:
-    repo = Path(__file__).resolve().parent.parent
+def mark_detail(r: dict[str, object], check: str) -> str:
+    return "%s(%s)" % (mark(r[check]), r.get(check + "_detail", "-"))
+
+
+def icon_identity(r: dict[str, object]) -> bytes | None:
+    ident = r.get("icon_ident")
+    if isinstance(ident, bytes):
+        return ident
+    f = r.get("icon_file")
+    return f.read_bytes() if isinstance(f, Path) else None
+
+
+def note_shared_icons(results: list[dict[str, object]]) -> None:
+    by_content: dict[bytes, list[str]] = {}
+    idents = [icon_identity(r) for r in results]
+    for r, ident in zip(results, idents):
+        if ident is not None:
+            by_content.setdefault(ident, []).append(str(r["module"]))
+    for r, ident in zip(results, idents):
+        others = [m for m in by_content.get(ident, []) if m != r["module"]] if ident is not None else []
+        if others:
+            r["notes"].append("same icon as " + ", ".join(others))
+
+
+def print_table(results: list[dict[str, object]], enforce: list[str]) -> list[str]:
+    """Prints one row per app; returns the enforced checks that failed, as module:check."""
+    header = ["module", "package", "launcher", "label", "icon", "round", "adaptive", "mono", "notes"]
+    print("\t".join(header))
+    failures = []
+    for r in results:
+        cells = [
+            str(r["module"]), str(r["package"]),
+            mark_detail(r, "launcher"),
+            mark_detail(r, "label"),
+            mark_detail(r, "icon"),
+            mark(r["round"]), mark(r["adaptive"]), mark(r["mono"]),
+            "; ".join(r["notes"]) or "-",
+        ]
+        print("\t".join(cells))
+        failures += ["%s:%s" % (r["module"], c) for c in enforce if not r[c]]
+    return failures
+
+
+def parse_args() -> tuple[argparse.Namespace, list[str]]:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--src", type=Path, default=repo / "sable-src")
-    p.add_argument("--apps", type=Path, default=repo / "product" / "q25" / "apps.tsv")
+    p.add_argument("--src", type=Path, default=REPO / "sable-src",
+                   help="the sable-src tree to audit (inside this repository)")
+    p.add_argument("--apps", type=Path, default=REPO / "product" / "q25" / "apps.tsv",
+                   help="the apps table (inside this repository)")
     p.add_argument("--enforce", default=",".join(ALL_CHECKS),
                    help="comma-separated checks that fail the run (from: %s); 'none' for report only" % ",".join(ALL_CHECKS))
     p.add_argument("--all", action="store_true", help="include rows with enabled=no")
@@ -286,43 +348,19 @@ def main() -> int:
     unknown = [c for c in enforce if c not in ALL_CHECKS]
     if unknown:
         p.error("unknown checks: " + ",".join(unknown))
+    # Only this repository's sources and tables are audited: resolve both inside it.
+    args.src = within(REPO, args.src)
+    args.apps = within(REPO, args.apps)
+    return args, enforce
 
+
+def main() -> int:
+    args, enforce = parse_args()
     rows = [r for r in read_rows(args.apps) if args.all or r.get("enabled") == "yes"]
     results = [audit_flavor(args.src, r) if r["gradle_root"].startswith("flavor:") else audit_module(args.src, r) for r in rows]
+    note_shared_icons(results)
+    failures = print_table(results, enforce)
 
-    def identity(r: dict[str, object]) -> bytes | None:
-        ident = r.get("icon_ident")
-        if isinstance(ident, bytes):
-            return ident
-        f = r.get("icon_file")
-        return f.read_bytes() if isinstance(f, Path) else None
-
-    by_content: dict[bytes, list[str]] = {}
-    for r in results:
-        ident = identity(r)
-        if ident is not None:
-            by_content.setdefault(ident, []).append(str(r["module"]))
-    for r in results:
-        ident = identity(r)
-        if ident is not None:
-            others = [m for m in by_content[ident] if m != r["module"]]
-            if others:
-                r["notes"].append("same icon as " + ", ".join(others))
-
-    header = ["module", "package", "launcher", "label", "icon", "round", "adaptive", "mono", "notes"]
-    print("\t".join(header))
-    failures = []
-    for r in results:
-        cells = [
-            str(r["module"]), str(r["package"]),
-            "%s(%s)" % (mark(r["launcher"]), r.get("launcher_detail", "-")),
-            "%s(%s)" % (mark(r["label"]), r.get("label_detail", "-")),
-            "%s(%s)" % (mark(r["icon"]), r.get("icon_detail", "-")),
-            mark(r["round"]), mark(r["adaptive"]), mark(r["mono"]),
-            "; ".join(r["notes"]) or "-",
-        ]
-        print("\t".join(cells))
-        failures += ["%s:%s" % (r["module"], c) for c in enforce if not r[c]]
     totals = {c: sum(1 for r in results if r[c]) for c in ALL_CHECKS}
     print()
     print("AUDIT_APPS=%d" % len(results))

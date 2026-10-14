@@ -18,6 +18,13 @@ android {
             abiFilters += "arm64-v8a"
         }
     }
+    buildTypes {
+        release {
+            // The image ships the debug variant (product/q25/apps.tsv); a release build is shrunk and obfuscated.
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+        }
+    }
     buildFeatures { compose = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

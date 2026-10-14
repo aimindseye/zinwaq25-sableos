@@ -8,13 +8,27 @@ from pathlib import Path
 EXPECTED_COMMIT = "c733317d933c22bcd790a4790306f30ccf2026b8"
 SABLE_APPLICATION_ID = "org.sableos.mail"
 SABLE_LABEL = "Sable Mail"
+THUNDERMAIL_API_DEPENDENCY = "    implementation(projects.feature.thundermail.api)\n"
+DEMO_SERVER_SETTINGS_IMPORT = "import app.k9mail.autodiscovery.demo.DemoServerSettings\n"
+
+# The upstream checkout being flavored; every file read or written must resolve inside it.
+_checkout: Path | None = None
 
 
 def fail(message: str) -> None:
     raise SystemExit(message)
 
 
+def in_checkout(path: Path) -> Path:
+    """path, resolved, refused unless it stays inside the checkout (no ../ or symlink escape)."""
+    resolved = path.resolve()
+    if _checkout is None or not resolved.is_relative_to(_checkout):
+        fail(f"SABLE_MAIL_PATH=FAIL_OUTSIDE_CHECKOUT path={path}")
+    return resolved
+
+
 def replace_once(path: Path, old: str, new: str) -> None:
+    path = in_checkout(path)
     text = path.read_text(encoding="utf-8")
     count = text.count(old)
     if count != 1:
@@ -27,6 +41,7 @@ def remove_once(path: Path, old: str) -> None:
 
 
 def remove_exact_count(path: Path, old: str, expected: int) -> None:
+    path = in_checkout(path)
     text = path.read_text(encoding="utf-8")
     count = text.count(old)
     if count != expected:
@@ -38,6 +53,7 @@ def remove_exact_count(path: Path, old: str, expected: int) -> None:
 
 
 def write(path: Path, content: str) -> None:
+    path = in_checkout(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
 
@@ -67,9 +83,11 @@ def main() -> None:
     if len(sys.argv) != 2:
         fail("usage: apply_sable_flavor.py <thunderbird-android-root>")
 
+    global _checkout
     root = Path(sys.argv[1]).resolve()
     if not (root / ".git").exists():
         fail(f"SABLE_MAIL_UPSTREAM=FAIL_NOT_GIT path={root}")
+    _checkout = root
 
     actual = git_head(root)
     if actual != EXPECTED_COMMIT:
@@ -133,7 +151,7 @@ def main() -> None:
     )
 
     for line in (
-        "    implementation(projects.feature.thundermail.api)\n",
+        THUNDERMAIL_API_DEPENDENCY,
         "    implementation(projects.feature.thundermail.thunderbird)\n",
         "    testImplementation(projects.feature.thundermail.internal.common)\n",
     ):
@@ -166,7 +184,7 @@ def main() -> None:
     )
     remove_exact_count(
         account_setup_build,
-        "    implementation(projects.feature.thundermail.api)\n",
+        THUNDERMAIL_API_DEPENDENCY,
         2,
     )
 
@@ -177,7 +195,7 @@ def main() -> None:
     )
     remove_once(
         auto_mapper,
-        "import app.k9mail.autodiscovery.demo.DemoServerSettings\n",
+        DEMO_SERVER_SETTINGS_IMPORT,
     )
     remove_exact_count(
         auto_mapper,
@@ -192,7 +210,7 @@ def main() -> None:
     )
     remove_once(
         get_auto_discovery,
-        "import app.k9mail.autodiscovery.demo.DemoServerSettings\n",
+        DEMO_SERVER_SETTINGS_IMPORT,
     )
     replace_once(
         get_auto_discovery,
@@ -221,7 +239,7 @@ def main() -> None:
     )
     remove_once(
         auto_view_model,
-        "import app.k9mail.autodiscovery.demo.DemoServerSettings\n",
+        DEMO_SERVER_SETTINGS_IMPORT,
     )
     remove_once(
         auto_view_model,
@@ -243,13 +261,13 @@ def main() -> None:
     launcher_build = root / "feature/launcher/build.gradle.kts"
     remove_once(
         launcher_build,
-        "    implementation(projects.feature.thundermail.api)\n",
+        THUNDERMAIL_API_DEPENDENCY,
     )
 
     onboarding_build = root / "feature/onboarding/main/build.gradle.kts"
     remove_once(
         onboarding_build,
-        "    implementation(projects.feature.thundermail.api)\n",
+        THUNDERMAIL_API_DEPENDENCY,
     )
 
     auto_content = (
@@ -503,12 +521,12 @@ def main() -> None:
                 }
 ''',
     )
-    launcher_text = launcher_nav.read_text(encoding="utf-8")
+    launcher_text = in_checkout(launcher_nav).read_text(encoding="utf-8")
     private_marker = "\nprivate fun NavGraphBuilder.registerThundermailNavigation("
     private_index = launcher_text.find(private_marker)
     if private_index < 0:
         fail("SABLE_MAIL_PATCH_ANCHOR=FAIL launcher thundermail navigation function")
-    launcher_nav.write_text(launcher_text[:private_index] + "\n", encoding="utf-8")
+    in_checkout(launcher_nav).write_text(launcher_text[:private_index] + "\n", encoding="utf-8")
 
     for variant in ("debug", "beta", "daily", "release"):
         feature_flags = (
@@ -1084,7 +1102,7 @@ class SableMailSnapshotProvider : ContentProvider() {
         root
         / "core/ui/theme/manager/src/main/java/net/thunderbird/core/ui/theme/manager/ThemeManager.kt"
     )
-    text = core_theme_manager.read_text(encoding="utf-8")
+    text = in_checkout(core_theme_manager).read_text(encoding="utf-8")
     text = text.replace(
         "override val appThemeResourceId: Int = themeProvider.appThemeResourceId",
         """override val appThemeResourceId: Int
@@ -1105,10 +1123,10 @@ class SableMailSnapshotProvider : ContentProvider() {
     )
     if "get() = themeProvider.appThemeResourceId" not in text:
         fail("SABLE_MAIL_THEME_MANAGER=FAIL_APP_THEME_GETTER")
-    core_theme_manager.write_text(text, encoding="utf-8")
+    in_checkout(core_theme_manager).write_text(text, encoding="utf-8")
 
     manifest = app / "src/main/AndroidManifest.xml"
-    manifest_text = manifest.read_text(encoding="utf-8")
+    manifest_text = in_checkout(manifest).read_text(encoding="utf-8")
     application_anchor = "\n    <application"
     if manifest_text.count(application_anchor) != 1:
         fail("SABLE_MAIL_MANIFEST=FAIL_APPLICATION_ANCHOR")
@@ -1122,7 +1140,7 @@ class SableMailSnapshotProvider : ContentProvider() {
     <application""",
         1,
     )
-    manifest.write_text(manifest_text, encoding="utf-8")
+    in_checkout(manifest).write_text(manifest_text, encoding="utf-8")
 
     replace_once(
         manifest,
@@ -1134,7 +1152,7 @@ class SableMailSnapshotProvider : ContentProvider() {
         'android:theme="@style/Theme.Thunderbird.Startup"',
         'android:theme="@style/Theme.SableMail.Startup"',
     )
-    manifest_text = manifest.read_text(encoding="utf-8")
+    manifest_text = in_checkout(manifest).read_text(encoding="utf-8")
     manifest_text = manifest_text.replace(
         "@style/Theme.Thunderbird.DayNight.Dialog.Translucent",
         "@style/Theme.SableMail.DayNight.Dialog.Translucent",
@@ -1154,7 +1172,7 @@ class SableMailSnapshotProvider : ContentProvider() {
     </application>""",
         1,
     )
-    manifest.write_text(manifest_text, encoding="utf-8")
+    in_checkout(manifest).write_text(manifest_text, encoding="utf-8")
 
     copy_icon_resources(app / "src/main/res")
     write(

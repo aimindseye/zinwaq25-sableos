@@ -31,7 +31,7 @@ kotlin {
 
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.androidx.datastore.preferences.core)
-            implementation("com.squareup.okio:okio:3.16.4")
+            implementation(libs.okio)
         }
 
         androidMain.dependencies {
@@ -40,7 +40,7 @@ kotlin {
             implementation(libs.androidx.datastore.preferences)
             implementation(libs.androidx.room.ktx)
 
-            implementation("com.google.dagger:hilt-android:2.57.2")
+            implementation(libs.hilt.android)
 
             implementation(libs.timber)
 
@@ -56,16 +56,16 @@ kotlin {
         val androidUnitTest by getting {
             dependencies {
                 implementation(libs.androidx.junit)
-                implementation("androidx.test:core-ktx:1.7.0")
-                implementation("androidx.test.ext:junit-ktx:1.3.0")
-                implementation("androidx.room:room-testing:2.8.4")
-                implementation("org.robolectric:robolectric:4.16.1")
+                implementation(libs.androidx.test.core.ktx)
+                implementation(libs.androidx.junit.ktx)
+                implementation(libs.androidx.room.testing)
+                implementation(libs.robolectric)
 
                 implementation(libs.junit)
                 // Legacy (v3) schema fixtures shared with the JVM migration test in :reader-model.
                 implementation(project.dependencies.testFixtures(project(":reader-model")))
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
-                implementation("app.cash.turbine:turbine:1.2.1")
+                implementation(libs.kotlinx.coroutines.test)
+                implementation(libs.turbine)
                 implementation(libs.mockk)
             }
         }
@@ -116,7 +116,7 @@ dependencies {
 
     add("kspAndroid", libs.androidx.room.compiler)
 
-    add("kspAndroid", "com.google.dagger:hilt-android-compiler:2.57.2")
+    add("kspAndroid", libs.hilt.compiler)
 
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
