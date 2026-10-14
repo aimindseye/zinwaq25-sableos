@@ -3152,10 +3152,29 @@ static inline int pdc_green_dir(const uint16_t *in, int S, int y, int x, const i
 	}
 	return 0;
 }
+/* the four same-colour neighbours 4 px away (inside the frame): 0 when one is clipped or, with >= 2 of them, they spread
+ * by more than 40 DN + 12 % of their mean */
+static int pdc_side_ok(const uint16_t *in, int S, int y, int x)
+{
+	static const int sd[4][2] = { { 0, -4 }, { 0, 4 }, { -4, 0 }, { 4, 0 } };
+	double ss = 0;
+	double slo = 1e9;
+	double shi = -1e9; int ns = 0;
+	for (int i = 0; i < 4; i++) {
+		int yy = y + sd[i][0];
+		int xx = x + sd[i][1];
+		if (yy < 0 || yy >= g_h || xx < 0 || xx >= g_w) continue;
+		int v = in[(size_t)yy * S + xx]; double a = v - g_ped;
+		if (v >= 1015) return 0;
+		ss += a; ns++;
+		if (a < slo) slo = a;
+		if (a > shi) shi = a;
+	}
+	return !(ns >= 2 && shi - slo > 40 + 0.12 * (ss / ns > 0 ? ss / ns : 0));
+}
 static int pdc_local(const uint16_t *in, int S, int y, int x, double *g, int gate)
 {
 	static const int dd[4][2] = { { 0, -1 }, { 0, 1 }, { -1, 0 }, { 1, 0 } };
-	static const int sd[4][2] = { { 0, -4 }, { 0, 4 }, { -4, 0 }, { 4, 0 } };
 	double s = 0;
 	double lo = 1e9;
 	double hi = -1e9; int n = 0;
@@ -3173,52 +3192,49 @@ static int pdc_local(const uint16_t *in, int S, int y, int x, double *g, int gat
 	*g = s / n;
 	if (!gate) return 1;
 	if (clip || hi - lo > 40 + 0.12 * (*g > 0 ? *g : 0)) return 0;
-	{ double ss = 0;
-	  double slo = 1e9;
-	  double shi = -1e9; int ns = 0;
-	  for (int i = 0; i < 4; i++) {
-		int yy = y + sd[i][0];
-		int xx = x + sd[i][1];
-		if (yy < 0 || yy >= g_h || xx < 0 || xx >= g_w) continue;
-		int v = in[(size_t)yy * S + xx]; double a = v - g_ped;
-		if (v >= 1015) return 0;
-		ss += a; ns++;
-		if (a < slo) slo = a;
-		if (a > shi) shi = a;
-	  }
-	  if (ns >= 2 && shi - slo > 40 + 0.12 * (ss / ns > 0 ? ss / ns : 0)) return 0; }
-	return 1;
+	return pdc_side_ok(in, S, y, x);
 }
 /* iterate flat tiles: calls back with the tile origin, the colour means (above the pedestal) and the slot colours */
 struct pdc_tile { int ty; int tx; double m[3]; int ok[2]; };
+/* next sampled tile: (1,1) first, then every 3rd tile column and every 2nd tile row */
+static void pdc_advance(int *ty, int *tx)
+{
+	if (*tx == 0 && *ty == 0) { *ty = 1; *tx = 1; return; }
+	*tx += 3;
+	if (*tx * 16 + 20 >= g_w) { *tx = 1; *ty += 2; }
+}
+/* colour means of the tile's clean pixels into t->m; 1 when it is unclipped, green is flat at 16..600 DN and at least
+ * one PD type's slot colour is too (t->ok) */
+static int pdc_tile_stats(const uint16_t *in, int S, int ty, int tx, unsigned char ex[16][16], const int slot[2], struct pdc_tile *t)
+{
+	double s1[3] = { 0, 0, 0 };
+	double s2[3] = { 0, 0, 0 }; long n[3] = { 0, 0, 0 }; int clipped = 0;
+	int c;
+	int flat[3];
+	for (int y = 0; y < 16; y++)
+		for (int x = 0; x < 16; x++) {
+			int v = in[(size_t)(ty * 16 + y) * S + tx * 16 + x];
+			if (v >= 1015) clipped = 1;
+			if (ex[y][x]) continue;
+			c = g_qcol[y & 3][x & 3]; s1[c] += v - g_ped; s2[c] += (double)(v - g_ped) * (v - g_ped); n[c]++;
+		}
+	if (clipped) return 0;
+	for (c = 0; c < 3; c++) {
+		double m = n[c] ? s1[c] / n[c] : 0;
+		double var = n[c] ? s2[c] / n[c] - m * m : 1e9;
+		t->m[c] = m; flat[c] = sqrt(var > 0 ? var : 0) <= 0.05 * (m > 0 ? m : 0) + 6;
+	}
+	if (!flat[CG] || t->m[CG] < 16 || t->m[CG] >= 600) return 0;
+	t->ok[0] = flat[slot[0]] && t->m[slot[0]] >= 16 && t->m[slot[0]] < 600;
+	t->ok[1] = flat[slot[1]] && t->m[slot[1]] >= 16 && t->m[slot[1]] < 600;
+	return t->ok[0] || t->ok[1];
+}
 static int pdc_next_tile(const uint16_t *in, int S, int *ty, int *tx, unsigned char ex[16][16], const int slot[2], struct pdc_tile *t)
 {
 	for (;;) {
-		if (*tx == 0 && *ty == 0) { *ty = 1; *tx = 1; }
-		else { *tx += 3; if (*tx * 16 + 20 >= g_w) { *tx = 1; *ty += 2; } }
+		pdc_advance(ty, tx);
 		if (*ty * 16 + 20 >= g_h) return 0;
-		double s1[3] = { 0, 0, 0 };
-		double s2[3] = { 0, 0, 0 }; long n[3] = { 0, 0, 0 }; int clipped = 0;
-		int c;
-		int flat[3];
-		for (int y = 0; y < 16; y++)
-			for (int x = 0; x < 16; x++) {
-				int v = in[(size_t)(*ty * 16 + y) * S + *tx * 16 + x];
-				if (v >= 1015) clipped = 1;
-				if (ex[y][x]) continue;
-				c = g_qcol[y & 3][x & 3]; s1[c] += v - g_ped; s2[c] += (double)(v - g_ped) * (v - g_ped); n[c]++;
-			}
-		if (clipped) continue;
-		for (c = 0; c < 3; c++) {
-			double m = n[c] ? s1[c] / n[c] : 0;
-			double var = n[c] ? s2[c] / n[c] - m * m : 1e9;
-			t->m[c] = m; flat[c] = sqrt(var > 0 ? var : 0) <= 0.05 * (m > 0 ? m : 0) + 6;
-		}
-		if (!flat[CG] || t->m[CG] < 16 || t->m[CG] >= 600) continue;
-		t->ok[0] = flat[slot[0]] && t->m[slot[0]] >= 16 && t->m[slot[0]] < 600;
-		t->ok[1] = flat[slot[1]] && t->m[slot[1]] >= 16 && t->m[slot[1]] < 600;
-		if (!t->ok[0] && !t->ok[1]) continue;
-		t->ty = *ty; t->tx = *tx; return 1;
+		if (pdc_tile_stats(in, S, *ty, *tx, ex, slot, t)) { t->ty = *ty; t->tx = *tx; return 1; }
 	}
 }
 static void pdc_setup(unsigned char ex[16][16], int slot[2])
@@ -3226,6 +3242,40 @@ static void pdc_setup(unsigned char ex[16][16], int slot[2])
 	memset(ex, 0, 256);
 	for (int i = 0; i < 8; i++) for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++) ex[(kPdPos[i][0] + dy) & 15][(kPdPos[i][1] + dx) & 15] = 1;
 	slot[0] = g_qcol[kPdPos[0][0] & 3][kPdPos[0][1] & 3]; slot[1] = g_qcol[kPdPos[2][0] & 3][kPdPos[2][1] & 3];
+}
+/* normal equations of the mates of type t in tile T: regressors slot colour and green */
+static void pdc_fit_acc(const uint16_t *in, int S, const struct pdc_tile *T, int slot, int t, double A[8][3], double B[8][2], double N[8])
+{
+	for (int j = 0; j < 4; j++) {
+		int k = kPdcPos[t][j];
+		int py = T->ty * 16 + kPdPos[k][0];
+		int px = T->tx * 16 + (kPdPos[k][1] ^ 1);
+		int v = in[(size_t)py * S + px];
+		if (v >= 1015) continue;
+		double y = v - g_ped;
+		double x1 = T->m[slot];
+		double x2 = T->m[CG];
+		A[k][0] += x1 * x1; A[k][1] += x1 * x2; A[k][2] += x2 * x2; B[k][0] += x1 * y; B[k][1] += x2 * y; N[k] += 1;
+	}
+}
+/* ridge solve for mate k pulled toward the running values; th[k] keeps them when the data are short or implausible */
+static int pdc_solve(const double A[3], const double B[2], double N, const double th0[2], double th[2])
+{
+	th[0] = th0[0]; th[1] = th0[1];
+	if (N < PDC_MINN) return 0;
+	double lam = g_pdcrho / 1000.0 * 0.5 * (A[0] + A[2]);
+	double a11 = A[0] + lam;
+	double a12 = A[1];
+	double a22 = A[2] + lam;
+	double r1 = B[0] + lam * th0[0];
+	double r2 = B[1] + lam * th0[1];
+	double det = a11 * a22 - a12 * a12;
+	if (det <= 1e-12 * a11 * a22) return 0;
+	double al = (r1 * a22 - a12 * r2) / det;
+	double be = (a11 * r2 - a12 * r1) / det;
+	if (al < 0.55 || al > 1.05 || be < -0.05 || be > 0.40) return 0;      /* implausible: keep the running values */
+	th[0] = al; th[1] = be;
+	return 1;
 }
 static void pdc_fit(const uint16_t *in, int S, double th[8][2], long nt[2], double nn[8], int fitted[8])
 {
@@ -3244,49 +3294,35 @@ static void pdc_fit(const uint16_t *in, int S, double th[8][2], long nt[2], doub
 		for (int t = 0; t < 2; t++) {
 			if (!T.ok[t]) continue;
 			nt[t]++;
-			for (int j = 0; j < 4; j++) {
-				k = kPdcPos[t][j];
-				int py = T.ty * 16 + kPdPos[k][0];
-				int px = T.tx * 16 + (kPdPos[k][1] ^ 1);
-				int v = in[(size_t)py * S + px];
-				if (v >= 1015) continue;
-				double y = v - g_ped;
-				double x1 = T.m[slot[t]];
-				double x2 = T.m[CG];
-				A[k][0] += x1 * x1; A[k][1] += x1 * x2; A[k][2] += x2 * x2; B[k][0] += x1 * y; B[k][1] += x2 * y; N[k] += 1;
-			}
+			pdc_fit_acc(in, S, &T, slot[t], t, A, B, N);
 		}
-	for (k = 0; k < 8; k++) {
-		const double *th0 = g_pdc_hist[k]; fitted[k] = 0; nn[k] = N[k];
-		th[k][0] = th0[0]; th[k][1] = th0[1];
-		if (N[k] < PDC_MINN) continue;
-		double lam = g_pdcrho / 1000.0 * 0.5 * (A[k][0] + A[k][2]);
-		double a11 = A[k][0] + lam;
-		double a12 = A[k][1];
-		double a22 = A[k][2] + lam;
-		double r1 = B[k][0] + lam * th0[0];
-		double r2 = B[k][1] + lam * th0[1];
-		double det = a11 * a22 - a12 * a12;
-		if (det <= 1e-12 * a11 * a22) continue;
-		double al = (r1 * a22 - a12 * r2) / det;
-		double be = (a11 * r2 - a12 * r1) / det;
-		if (al < 0.55 || al > 1.05 || be < -0.05 || be > 0.40) continue;      /* implausible: keep the running values */
-		th[k][0] = al; th[k][1] = be; fitted[k] = 1;
-	}
+	for (k = 0; k < 8; k++) { nn[k] = N[k]; fitted[k] = pdc_solve(A[k], B[k], N[k], g_pdc_hist[k], th[k]); }
 	for (k = 0; k < 8; k++) if (fitted[k]) { g_pdc_hist[k][0] = 0.7 * g_pdc_hist[k][0] + 0.3 * th[k][0]; g_pdc_hist[k][1] = 0.7 * g_pdc_hist[k][1] + 0.3 * th[k][1]; }
 }
 /* diag: mate bias against the tile mean of its own colour, by green/slot ratio, before and after the correction */
+struct pdcchk { double sb[2][3]; double sa[2][3]; double sx[2][3]; double nb[2][3]; };
+/* mates of type t in tile T (ratio bin b): raw and corrected level against the tile mean of the slot colour */
+static void pdc_check_acc(struct pdcchk *ck, const uint16_t *in, int S, const struct pdc_tile *T, double sm, int t, int b, double th[8][2])
+{
+	for (int j = 0; j < 4; j++) {
+		int k = kPdcPos[t][j];
+		int py = T->ty * 16 + kPdPos[k][0];
+		int px = T->tx * 16 + (kPdPos[k][1] ^ 1); double g;
+		int v = in[(size_t)py * S + px];
+		if (v >= 1015 || !pdc_local(in, S, py, px, &g, g_pdcflat)) continue;
+		double y = v - g_ped;
+		ck->sb[t][b] += y; ck->sa[t][b] += (y - th[k][1] * g) / th[k][0]; ck->sx[t][b] += sm; ck->nb[t][b] += 1;
+	}
+}
 static void pdc_check(const uint16_t *in, int S, double th[8][2])
 {
 	unsigned char ex[16][16]; int slot[2];
 	int ty = 0;
 	int tx = 0;
 	int b; struct pdc_tile T;
-	double sb[2][3] = { { 0 } };
-	double sa[2][3] = { { 0 } };
-	double sx[2][3] = { { 0 } };
-	double nb[2][3] = { { 0 } };
+	struct pdcchk ck;
 	static const char *bn[3] = { "G/S<0.9", "0.9..1.4", "G/S>=1.4" };
+	memset(&ck, 0, sizeof ck);
 	pdc_setup(ex, slot);
 	while (pdc_next_tile(in, S, &ty, &tx, ex, slot, &T))
 		for (int t = 0; t < 2; t++) {
@@ -3295,20 +3331,15 @@ static void pdc_check(const uint16_t *in, int S, double th[8][2])
 			b = 2;
 			if (r < 0.9) b = 0;
 			else if (r < 1.4) b = 1;
-			for (int j = 0; j < 4; j++) {
-				int k = kPdcPos[t][j];
-				int py = T.ty * 16 + kPdPos[k][0];
-				int px = T.tx * 16 + (kPdPos[k][1] ^ 1); double g;
-				int v = in[(size_t)py * S + px];
-				if (v >= 1015 || !pdc_local(in, S, py, px, &g, g_pdcflat)) continue;
-				double y = v - g_ped;
-				sb[t][b] += y; sa[t][b] += (y - th[k][1] * g) / th[k][0]; sx[t][b] += T.m[slot[t]]; nb[t][b] += 1;
-			}
+			pdc_check_acc(&ck, in, S, &T, T.m[slot[t]], t, b, th);
 		}
 	for (int t = 0; t < 2; t++)
-		for (b = 0; b < 3; b++)
-			if (nb[t][b] >= 50) LOGI("pdcolor check %s mates, %s: n=%.0f  bias vs tile mean of own colour: before %+.2f%%  after %+.2f%%", t ? "strong" : "weak  ", bn[b], nb[t][b], 100 * (sb[t][b] / sx[t][b] - 1), 100 * (sa[t][b] / sx[t][b] - 1));
-			else LOGI("pdcolor check %s mates, %s: n=%.0f (too few)", t ? "strong" : "weak  ", bn[b], nb[t][b]);
+		for (b = 0; b < 3; b++) {
+			const char *tn = t ? "strong" : "weak  ";
+			double n = ck.nb[t][b];
+			if (n < 50) { LOGI("pdcolor check %s mates, %s: n=%.0f (too few)", tn, bn[b], n); continue; }
+			LOGI("pdcolor check %s mates, %s: n=%.0f  bias vs tile mean of own colour: before %+.2f%%  after %+.2f%%", tn, bn[b], n, 100 * (ck.sb[t][b] / ck.sx[t][b] - 1), 100 * (ck.sa[t][b] / ck.sx[t][b] - 1));
+		}
 }
 struct pdcc { uint16_t *in; int S; double th[8][2]; };
 static void pdc_job(int y0, int y1, void *p)
@@ -3411,6 +3442,88 @@ EXPORT int remosaic_gainmap_gen(void *eep, unsigned long size)
 }
 EXPORT int remosaic_process_param_set(void *param) { (void)param; return 0; }
 
+/* pdcolor=2/3 A/B(/C) modes pick the arm per shot; runs the mate correction when wanted and sets g_pdc_on */
+static void pdcolor_stage(uint16_t *in, int stride)
+{
+	int want = g_pdcolor;
+	if (g_pdcolor == 2) { want = (g_pdab & 1) == 0; g_pdab++; LOGI("pdcolor: A/B mode, shot %d of this process: %s", g_pdab, want ? "CORRECTED" : "UNCORRECTED"); }
+	if (g_pdcolor == 3) {   /* three-way cycle: uncorrected, corrected with the edge/clip gate, corrected without it */
+		int ph = g_pdab % 3; g_pdab++; want = ph != 0; g_pdcflat = ph == 1;
+		const char *arm = "CORRECTED without gate";
+		if (ph == 0) arm = "UNCORRECTED";
+		else if (ph == 1) arm = "CORRECTED with edge/clip gate";
+		LOGI("pdcolor: A/B/C mode, shot %d of this process: %s", g_pdab, arm);
+	}
+	g_pdc_on = 0;
+	if (g_pd && want && pdcolor_run(in, stride)) g_pdc_on = (g_pdcolor == 3 && !g_pdcflat) ? 2 : 1;
+}
+/* equalisation measurement for g_eq (3 grid/offset fit, 2 crosstalk fit, 1 gains, 0 none); returns nflat (-1 unless eq=2) */
+static long eq_measure_stage(const uint16_t *in, int stride, struct ctx *c, char *gomsg, size_t gomsgsz)
+{
+	gomsg[0] = 0;
+	if (g_eq == 3) {
+		if (g_eqw != g_w || g_eqh != g_h) { g_eqshots = 0; g_eqw = g_w; g_eqh = g_h; }
+		g_eqshots++;
+		if (g_acc && g_eqshots > 8 && g_eqshots % 5 != 0)
+			snprintf(gomsg, gomsgsz, "4x4 equalisation reused (calibrated, shot %d)", g_eqshots);
+		else if (!go_fit(in, stride, gomsg, gomsgsz))
+			g_eqshots--;
+		return -1;
+	}
+	if (g_eq == 2) return lk_fit(in, stride);
+	if (g_eq == 1) eq_measure(in, stride, c->gain);
+	else for (int i = 0; i < 4; i++) for (int j = 0; j < 4; j++) c->gain[i][j] = 1.0f;
+	return -1;
+}
+static void (*eq_apply_job(void))(int, int, void *)
+{
+	if (g_eq == 3) return g_gridused > 0 && !g_calused ? cand_apply : go_apply;
+	return g_eq == 2 ? lk_apply : eq_apply;
+}
+/* range of the fitted crosstalk gains a and the largest leak |l1|, |l2| */
+static void lk_range(float *amin, float *amax, float *lmax)
+{
+	*amin = 9; *amax = -9; *lmax = 0;
+	for (int i = 0; i < 4; i++)
+		for (int j = 0; j < 4; j++) {
+			const float *k = g_lk[i][j];
+			*amin = k[0] < *amin ? k[0] : *amin;
+			*amax = k[0] > *amax ? k[0] : *amax;
+			*lmax = fabsf(k[1]) > *lmax ? fabsf(k[1]) : *lmax;
+			*lmax = fabsf(k[2]) > *lmax ? fabsf(k[2]) : *lmax;
+		}
+}
+/* denoise radius by light (persist.vendor.remoshim.dnr overrides); rebuilds the offset tables when it changes */
+static void dn_radius(float sigma)
+{
+	int r = g_dnr_set;
+	if (r < 0) {
+		r = 4;
+		if (sigma < 15) r = 2;
+		else if (sigma < 30) r = 3;
+	}
+	if (r != g_dnr_tab) { g_dnr = r; dn_tables(); g_dnr_tab = r; }
+}
+/* the per-stage messages collected during remosaic_process */
+static void log_stage_msgs(const char *gomsg, const char *pdmsg, long t_pd, const char *t16msg, const char *d16raw, const char *d16out)
+{
+	if (g_eq == 3) { LOGI("eq: %s", gomsg); LOGI("eq: %s", g_candmsg); }
+	if (g_pd) LOGI("%s (%ld ms)", pdmsg, t_pd);
+	if (g_t16) LOGI("%s", t16msg);
+	if (g_diag) LOGI("diag lattice16 (rms of 256 positions): %s | %s", d16raw, d16out);
+}
+/* refinement strength from the noise level: 1 at or below g_lo, 0 at or above g_hi */
+static float refine_mix(float sigma)
+{
+	float mix = (g_hi - sigma) / (g_hi - g_lo);
+	if (mix < 0) mix = 0;
+	else if (mix > 1) mix = 1;
+	return mix;
+}
+static void diag_raw_pd(const uint16_t *in, int stride)
+{
+	diag_pdraw(in, stride); diag_pdcol(in, stride); diag_pdmix(in, stride); diag_pddark2(in, stride);
+}
 EXPORT int remosaic_process(void *in, unsigned long in_size, void *out, unsigned long out_size)
 {
 	struct timespec t0;
@@ -3460,24 +3573,10 @@ EXPORT int remosaic_process(void *in, unsigned long in_size, void *out, unsigned
 	A = g_inplace ? (uint16_t *)in : Dbuf;
 
 	pdmsg[0] = 0;
-	if (g_diag) { diag_pdraw((const uint16_t *)in, stride); diag_pdcol((const uint16_t *)in, stride); diag_pdmix((const uint16_t *)in, stride); diag_pddark2((const uint16_t *)in, stride); }
+	if (g_diag) diag_raw_pd((const uint16_t *)in, stride);
 	int npdaf = g_pd ? pd_detect_fix(in, stride, pdmsg, sizeof pdmsg) : 0;
 	if (npdaf > 0) { struct pdfix pf = { in, stride }; run_rows(pd_fix_job, &pf, 32); }
-	{ int want = g_pdcolor;
-	  if (g_pdcolor == 2) { want = (g_pdab & 1) == 0; g_pdab++; LOGI("pdcolor: A/B mode, shot %d of this process: %s", g_pdab, want ? "CORRECTED" : "UNCORRECTED"); }
-	  if (g_pdcolor == 3) {   /* three-way cycle: uncorrected, corrected with the edge/clip gate, corrected without it */
-		int ph = g_pdab % 3; g_pdab++; want = ph != 0; g_pdcflat = ph == 1;
-		const char *arm = "CORRECTED without gate";
-		if (ph == 0) arm = "UNCORRECTED";
-		else if (ph == 1) arm = "CORRECTED with edge/clip gate";
-		LOGI("pdcolor: A/B/C mode, shot %d of this process: %s", g_pdab, arm);
-	  }
-	  g_pdc_on = 0;
-	  if (g_pd && want) {
-		int ran = pdcolor_run((uint16_t *)in, stride);
-		if (ran) g_pdc_on = (g_pdcolor == 3 && !g_pdcflat) ? 2 : 1;
-	  }
-	}
+	pdcolor_stage((uint16_t *)in, stride);
 	long t_pd = ms_since(&t0);
 	if (g_diag) { diag_clip(in, stride); diag_pattern(in, stride, 0, "raw input"); }
 	/* 1. equalise: in -> T */
@@ -3487,35 +3586,10 @@ EXPORT int remosaic_process(void *in, unsigned long in_size, void *out, unsigned
 	long t_eqa;
 	long t_nz;
 	{ struct timespec tq; clock_gettime(CLOCK_MONOTONIC, &tq);
-	nflat = -1;
-	gomsg[0] = 0;
-	if (g_eq == 3) {
-		if (g_eqw != g_w || g_eqh != g_h) { g_eqshots = 0; g_eqw = g_w; g_eqh = g_h; }
-		g_eqshots++;
-		if (g_acc && g_eqshots > 8 && g_eqshots % 5 != 0)
-			snprintf(gomsg, sizeof gomsg, "4x4 equalisation reused (calibrated, shot %d)", g_eqshots);
-		else
-			if (!go_fit(in, stride, gomsg, sizeof gomsg)) g_eqshots--;
-	}
-	else if (g_eq == 2) nflat = lk_fit(in, stride);
-	else if (g_eq == 1) eq_measure(in, stride, c.gain);
-	else {
-	for (int i = 0; i < 4; i++) for (int j = 0; j < 4; j++) c.gain[i][j] = 1.0f; }
+	nflat = eq_measure_stage(in, stride, &c, gomsg, sizeof gomsg);
 	t_eqm = ms_since(&tq); clock_gettime(CLOCK_MONOTONIC, &tq);
-	c.src = in; c.dst = T; run_strips(g_eq == 3 ? (g_gridused > 0 && !g_calused ? cand_apply : go_apply) : g_eq == 2 ? lk_apply : eq_apply, &c);
-	if (g_eq == 2) {
-		float amin = 9;
-		float amax = -9;
-		float lmax = 0;
-		for (int i = 0; i < 4; i++) for (int j = 0; j < 4; j++) {
-			const float *k = g_lk[i][j];
-			if (k[0] < amin) amin = k[0];
-			if (k[0] > amax) amax = k[0];
-			if (fabsf(k[1]) > lmax) lmax = fabsf(k[1]);
-			if (fabsf(k[2]) > lmax) lmax = fabsf(k[2]);
-		}
-		fit_amin = amin; fit_amax = amax; fit_lmax = lmax;
-	}
+	c.src = in; c.dst = T; run_strips(eq_apply_job(), &c);
+	if (g_eq == 2) lk_range(&fit_amin, &fit_amax, &fit_lmax);
 	t_eqa = ms_since(&tq);
 	t16msg[0] = 0;
 	if (g_t16) { t16_fit(T, stride, t16msg, sizeof t16msg); c.dst = T; run_strips(t16_apply, &c); }
@@ -3526,19 +3600,11 @@ EXPORT int remosaic_process(void *in, unsigned long in_size, void *out, unsigned
 	estimate_noise(T, stride, IFX, &c.na, &c.nb);
 	t_nz = ms_since(&tq); }
 	float sigma = sqrtf(c.na * 300.0f + c.nb);
-	c.mix = (g_hi - sigma) / (g_hi - g_lo);
-	if (c.mix < 0) c.mix = 0;
-	else if (c.mix > 1) c.mix = 1;
+	c.mix = refine_mix(sigma);
 	t_eq = ms_since(&ts); clock_gettime(CLOCK_MONOTONIC, &ts);
 	/* 3. denoise: T -> A */
 	/* denoise radius by light: the noise estimate is already known here */
-	{ int r = g_dnr_set;
-	  if (r < 0) {
-		r = 4;
-		if (sigma < 15) r = 2;
-		else if (sigma < 30) r = 3;
-	  }
-	  if (r != g_dnr_tab) { g_dnr = r; dn_tables(); g_dnr_tab = r; } }
+	dn_radius(sigma);
 	if (g_dn > 0) { c.src = T; c.dst = A; run_strips(dn_run, &c); }
 	else memcpy(A, T, in_size);
 	t_dn = ms_since(&ts); c_dn = g_cpu_ms; clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -3554,10 +3620,7 @@ EXPORT int remosaic_process(void *in, unsigned long in_size, void *out, unsigned
 	t_ri = ms_since(&ts); c_ri = g_cpu_ms;
 
 	if (g_diag) { diag_pattern(out, stride, 1, "our output"); diag16(out, stride, 1.0f, 1, "our output", d16out, sizeof d16out); }
-	if (g_eq == 3) { LOGI("eq: %s", gomsg); LOGI("eq: %s", g_candmsg); }
-	if (g_pd) LOGI("%s (%ld ms)", pdmsg, t_pd);
-	if (g_t16) LOGI("%s", t16msg);
-	if (g_diag) LOGI("diag lattice16 (rms of 256 positions): %s | %s", d16raw, d16out);
+	log_stage_msgs(gomsg, pdmsg, t_pd, t16msg, d16raw, d16out);
 	LOGI("noise: a=%.4f b=%.2f sigma@300=%.1f refine=%.2f", c.na, c.nb, sigma, c.mix);
 	LOGI("eq: mode %d, crosstalk fit on %ld flat tiles, gain %.3f..%.3f, max leak %.3f", g_eq, nflat, fit_amin, fit_amax, fit_lmax);
 	LOGI("process: %dx%d stride=%d v4 done in %ld ms (eq+noise %ld, denoise %ld, green %ld, refine %ld, ri %ld)",
