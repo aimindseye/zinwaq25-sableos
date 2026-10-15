@@ -852,7 +852,8 @@ static int go_stored_cal(const double S30[16][5], struct calfile *cf, double *gg
 		cal_add(cf, S30, 1);
 		cf->shots++;
 		fp = fopen(kCalPath, "wb");
-		if (fp) { *wrote = fwrite(cf, sizeof *cf, 1, fp) == 1; fclose(fp); }
+		/* The record holds statistics of camera frames, written to the fixed kCalPath; no input reaches the path. */
+		if (fp) { *wrote = fwrite(cf, sizeof *cf, 1, fp) == 1; fclose(fp); } /* NOSONAR(S2083) */
 		if (!*wrote) { cf->shots--; cal_add(cf, S30, -1); }
 	}
 	if (!(cf->shots >= 3 && cf->s[0][0] >= 1e6)) return 0;
@@ -1332,7 +1333,8 @@ static void t16_fit(const uint16_t *b, int S, char *msg, size_t msgsz)
 		if (gf[k] > gmax) gmax = gf[k];
 	}
 	int regok = t16_region_diff((const double (*)[256][5])S3, &dmax);
-	snprintf(msg, msgsz, "map16: %.0f flat tiles this shot, gains %.3f..%.3f, %s (%d shots), centre-vs-corner rms diff %s%.2f%%",
+	/* Numeric fields only, clamped by log_num/log_count: frame statistics cannot inject log text. */
+	snprintf(msg, msgsz, "map16: %.0f flat tiles this shot, gains %.3f..%.3f, %s (%d shots), centre-vs-corner rms diff %s%.2f%%", /* NOSONAR(S5145) */
 	         ntile, log_num(gmin, 0.0, 100.0), log_num(gmax, 0.0, 100.0), using_acc ? "accumulated" : "this shot only", (int)log_count((unsigned)g_accshots), regok ? "" : "n/a ", dmax);
 out:
 	free(f.p1); free(f.p2); free(f.p3);
