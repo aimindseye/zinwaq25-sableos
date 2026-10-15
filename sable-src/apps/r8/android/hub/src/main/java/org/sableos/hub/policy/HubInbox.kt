@@ -17,6 +17,9 @@ enum class HubInboxFilter(
     Messages("Messages", 'm'),
     Calls("Calls", 'c'),
     Notifications("Notifications", 'n'),
+
+    /** Connected mail apps (known mail packages or notifications in the email category). */
+    Mail("Mail", 'e'),
     ;
 
     companion object {
@@ -59,7 +62,7 @@ object HubInbox {
         val term = query.trim()
         val conversationItems =
             conversations
-                .filter { conversation -> filter.includes(conversation.source) }
+                .filter { conversation -> filter.includes(conversation) }
                 .filter { conversation -> term.isEmpty() || conversation.matches(term) }
                 .map(HubInboxItem::Conversation)
         val callItems =
@@ -81,7 +84,7 @@ object HubInbox {
     ): Int {
         val unread =
             conversations
-                .filter { conversation -> filter.includes(conversation.source) }
+                .filter { conversation -> filter.includes(conversation) }
                 .count { conversation -> conversation.unreadCount > 0 }
         val missed =
             if (filter == HubInboxFilter.All || filter == HubInboxFilter.Calls) {
@@ -92,11 +95,12 @@ object HubInbox {
         return unread + missed
     }
 
-    private fun HubInboxFilter.includes(source: HubConversationSource): Boolean =
+    private fun HubInboxFilter.includes(conversation: HubConversation): Boolean =
         when (this) {
             HubInboxFilter.All -> true
-            HubInboxFilter.Messages -> source == HubConversationSource.Sms
-            HubInboxFilter.Notifications -> source == HubConversationSource.ConnectedApp
+            HubInboxFilter.Messages -> conversation.source == HubConversationSource.Sms
+            HubInboxFilter.Notifications -> conversation.source == HubConversationSource.ConnectedApp
+            HubInboxFilter.Mail -> HubMailSources.isMail(conversation)
             HubInboxFilter.Calls -> false
         }
 

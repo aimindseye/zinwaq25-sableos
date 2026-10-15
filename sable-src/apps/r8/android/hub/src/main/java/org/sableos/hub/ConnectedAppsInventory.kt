@@ -2,6 +2,8 @@ package org.sableos.hub
 
 import android.content.Context
 import android.content.pm.LauncherApps
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.os.UserHandle
 import android.os.UserManager
 import org.sableos.hub.platform.ProfileDirectory
@@ -100,6 +102,26 @@ class ConnectedAppsInventory(
                     ?.trim()
             }?.takeIf { it.isNotBlank() }
             ?: key.packageName
+
+    /** The app's launcher icon (profile-badged) drawn at [sizePx]; null when the app is not available. */
+    fun iconFor(
+        key: ConnectedAppKey,
+        sizePx: Int,
+    ): Bitmap? =
+        userForSerial(key.userSerial)?.let { user ->
+            runCatching {
+                launcherApps
+                    .getActivityList(key.packageName, user)
+                    .firstOrNull()
+                    ?.getBadgedIcon(0)
+                    ?.let { drawable ->
+                        Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888).also { bitmap ->
+                            drawable.setBounds(0, 0, sizePx, sizePx)
+                            drawable.draw(Canvas(bitmap))
+                        }
+                    }
+            }.getOrNull()
+        }
 
     /** Uid of the package in its own profile, for Settings' per-app pages; null if unknown. */
     fun uidFor(key: ConnectedAppKey): Int? =

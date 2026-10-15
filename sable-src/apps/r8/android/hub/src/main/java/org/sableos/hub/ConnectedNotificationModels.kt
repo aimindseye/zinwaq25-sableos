@@ -11,6 +11,8 @@ data class ConnectedNotificationRecord(
     val body: String?,
     val timestampMillis: Long,
     val incoming: Boolean,
+    /** `Notification.category` as posted (e.g. "email"); null when absent or from an older record. */
+    val category: String? = null,
 ) {
     init {
         require(id.isNotBlank())

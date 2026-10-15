@@ -103,6 +103,23 @@ class HubInboxTest {
     }
 
     @Test
+    fun mailFilterKeepsConnectedMailByPackageOrCategory() {
+        val gmail =
+            connected.copy(threadId = -43L, address = "inbox", sourcePackage = "com.google.android.gm", unreadCount = 1)
+        val categorized =
+            connected.copy(threadId = -44L, address = "news", sourcePackage = "org.example.mail", category = "email")
+        val all = conversations + gmail + categorized
+        assertEquals(
+            listOf(gmail, categorized),
+            HubInbox.items(all, calls, HubInboxFilter.Mail).map { (it as HubInboxItem.Conversation).conversation },
+        )
+        assertEquals(1, HubInbox.attentionCount(all, calls, HubInboxFilter.Mail))
+        // Mail stays a connected-app notification too.
+        assertEquals(3, HubInbox.items(all, calls, HubInboxFilter.Notifications).size)
+        assertEquals(HubInboxFilter.Mail, HubInboxFilter.forShortcut('e'))
+    }
+
+    @Test
     fun callKindsMapFromCallLogTypes() {
         assertEquals(HubCallKind.Incoming, HubCallKind.fromCallLogType(1))
         assertEquals(HubCallKind.Outgoing, HubCallKind.fromCallLogType(2))

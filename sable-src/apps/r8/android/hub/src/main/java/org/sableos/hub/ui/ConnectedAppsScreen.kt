@@ -34,6 +34,7 @@ import org.sableos.hub.ConnectedAppKey
 import org.sableos.hub.ConnectedAppPolicy
 import org.sableos.hub.policy.AttentionOutput
 import org.sableos.hub.policy.ConnectedAppsParity
+import org.sableos.hub.policy.HubMailSources
 import java.util.Locale
 
 private enum class ConnectedAppsPivot {
@@ -55,6 +56,8 @@ internal fun ConnectedAppsScreen(
     focusedKey: ConnectedAppKey? = null,
     privateMode: Boolean = false,
     onPrivateModeChanged: (Boolean) -> Unit = {},
+    combineConversations: Boolean = true,
+    onCombineConversationsChanged: (Boolean) -> Unit = {},
     onAttentionChanged: (ConnectedAppKey, Set<AttentionOutput>) -> Unit = { _, _ -> },
     onOpenAndroidNotificationSettings: (ConnectedAppKey) -> Unit = {},
     onOpenAttentionSettings: () -> Unit = {},
@@ -92,6 +95,8 @@ internal fun ConnectedAppsScreen(
                 onOpenNotificationAccess = onOpenNotificationAccess,
                 privateMode = privateMode,
                 onPrivateModeChanged = onPrivateModeChanged,
+                combineConversations = combineConversations,
+                onCombineConversationsChanged = onCombineConversationsChanged,
                 onOpenAttentionSettings = onOpenAttentionSettings,
             )
 
@@ -162,6 +167,8 @@ private fun NotificationAccessPanel(
     onOpenNotificationAccess: () -> Unit,
     privateMode: Boolean,
     onPrivateModeChanged: (Boolean) -> Unit,
+    combineConversations: Boolean,
+    onCombineConversationsChanged: (Boolean) -> Unit,
     onOpenAttentionSettings: () -> Unit,
 ) {
     SablePanel {
@@ -190,6 +197,15 @@ private fun NotificationAccessPanel(
             checked = privateMode,
             enabled = true,
             onCheckedChange = onPrivateModeChanged,
+        )
+        PolicySwitchRow(
+            label = "Combine conversations",
+            detail =
+                "Group adjacent messages from the same conversation into a streamlined thread, " +
+                    "hiding duplicate titles and app icons.",
+            checked = combineConversations,
+            enabled = true,
+            onCheckedChange = onCombineConversationsChanged,
         )
         TextButton(onClick = onOpenAttentionSettings) {
             Text("Sable Attention")
@@ -230,6 +246,11 @@ private fun ColumnScope.ConnectedAppsBrowser(
             search = search,
         )
 
+    MailAppsNote(
+        candidates = candidates,
+        policies = policies,
+    )
+
     if (visibleCandidates.isEmpty()) {
         Text(
             text = emptyCandidatesText(pivot, search),
@@ -256,6 +277,34 @@ private fun ColumnScope.ConnectedAppsBrowser(
             )
             HorizontalDivider()
         }
+    }
+}
+
+/** Mail apps are opt-in sources like any other; one line of guidance, plus a duplicate warning. */
+@Composable
+private fun MailAppsNote(
+    candidates: List<ConnectedAppCandidate>,
+    policies: Map<ConnectedAppKey, ConnectedAppPolicy>,
+) {
+    if (candidates.none { candidate -> HubMailSources.isKnownMailPackage(candidate.key.packageName) }) return
+    val includedPackages =
+        policies.values
+            .filter { policy -> policy.normalized().includeInMessages }
+            .map { policy -> policy.key.packageName }
+    Text(
+        text =
+            "Use one app per email account. Sable Mail covers Gmail, Outlook, Yahoo, iCloud and IMAP. " +
+                "Turn on another mail app only for accounts Sable Mail can't open " +
+                "(Proton, Tuta, managed work accounts).",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    if (HubMailSources.duplicateAccountWarning(includedPackages)) {
+        Text(
+            text = "More than one mail app is on; an account signed in to both will appear twice.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -298,6 +347,9 @@ private fun visibleCandidates(
         }.sortedWith(
             compareByDescending<ConnectedAppCandidate> { candidate ->
                 policies[candidate.key]?.normalized()?.favorite == true
+            }.thenByDescending { candidate ->
+                // Installed mail apps group together near the top so they are easy to turn on.
+                HubMailSources.isKnownMailPackage(candidate.key.packageName)
             }.thenBy {
                 it.label.lowercase(locale)
             }.thenBy {
@@ -399,7 +451,7 @@ private fun ConnectedAppSummary(
             )
             Text(
                 text =
-                    candidate.profileLabel + " · " +
+                    mailPrefix(candidate) + candidate.profileLabel + " · " +
                         ConnectedAppsParity.statusLabel(
                             ConnectedAppsParity.status(
                                 policy = policy,
@@ -421,6 +473,9 @@ private fun ConnectedAppSummary(
         )
     }
 }
+
+private fun mailPrefix(candidate: ConnectedAppCandidate): String =
+    if (HubMailSources.isKnownMailPackage(candidate.key.packageName)) "Mail · " else ""
 
 @Composable
 private fun ConnectedAppMessageOptions(
@@ -505,23 +560,32 @@ private fun PolicySwitchRow(
     checked: Boolean,
     enabled: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    detail: String? = null,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(SableSpacing.Md),
     ) {
-        Text(
-            text = label,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyLarge,
-            color =
-                if (enabled) {
-                    MaterialTheme.colorScheme.onSurface
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
+                color =
+                    if (enabled) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+            )
+            detail?.let { text ->
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         Switch(
             checked = checked,
             enabled = enabled,
