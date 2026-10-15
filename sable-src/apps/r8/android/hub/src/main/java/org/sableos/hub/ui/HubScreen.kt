@@ -1098,12 +1098,8 @@ private fun Modifier.clusterKeys(
                     true
                 }
 
-                parent && row.expanded && space -> {
-                    actions.onCollapse(row.cluster)
-                    true
-                }
-
-                event.key == Key.DirectionLeft && row.expanded -> {
+                // Space toggles a parent; Left collapses from the parent or any of its children.
+                row.expanded && ((parent && space) || event.key == Key.DirectionLeft) -> {
                     actions.onCollapse(row.cluster)
                     true
                 }
