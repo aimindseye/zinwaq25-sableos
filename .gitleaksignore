@@ -1,3 +1,5 @@
 # False positive: a Gradle lockfile line (org.jetbrains.kotlin:abi-tools-api:2.3.10=...) inside the
 # recorded sable-src patch 0017; "api" plus the long configuration name matches generic-api-key.
 4306f81e3621adfcbb9a87d14dc39d64849dfadf:patches/sable-src/0017-zinwa-q25-waves-2-3-and-sonar-cleanup.patch:generic-api-key:8767
+# False positive: the public SonarQube Cloud project key in sonar-project.properties.
+dec74dc17110e6765638fc457fa02f8c1f250f61:sonar-project.properties:generic-api-key:4
