@@ -1,0 +1,2409 @@
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppsActivity.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppsActivity.kt
+index 3aa94c1..338746f 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppsActivity.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppsActivity.kt
+@@ -80,6 +80,9 @@ class ConnectedAppsActivity : ComponentActivity() {
+             var privateMode by remember {
+                 mutableStateOf(false)
+             }
++            var combineConversations by remember {
++                mutableStateOf(true)
++            }
+ 
+             LaunchedEffect(refreshGeneration) {
+                 loading = true
+@@ -103,6 +106,7 @@ class ConnectedAppsActivity : ComponentActivity() {
+                             },
+                     )
+                 privateMode = preferences.privateMode()
++                combineConversations = preferences.combineConversations()
+                 notificationAccessGranted = hasNotificationAccess()
+                 loading = false
+             }
+@@ -124,6 +128,11 @@ class ConnectedAppsActivity : ComponentActivity() {
+                         preferences.setPrivateMode(enabled)
+                         refreshGeneration += 1
+                     },
++                    combineConversations = combineConversations,
++                    onCombineConversationsChanged = { enabled ->
++                        preferences.setCombineConversations(enabled)
++                        refreshGeneration += 1
++                    },
+                     onAttentionChanged = ::updateAttention,
+                     onOpenAndroidNotificationSettings = ::openAndroidNotificationSettings,
+                     onOpenAttentionSettings = {
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppsInventory.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppsInventory.kt
+index f9973be..f7170dd 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppsInventory.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppsInventory.kt
+@@ -2,6 +2,8 @@ package org.sableos.hub
+ 
+ import android.content.Context
+ import android.content.pm.LauncherApps
++import android.graphics.Bitmap
++import android.graphics.Canvas
+ import android.os.UserHandle
+ import android.os.UserManager
+ import org.sableos.hub.platform.ProfileDirectory
+@@ -101,6 +103,26 @@ class ConnectedAppsInventory(
+             }?.takeIf { it.isNotBlank() }
+             ?: key.packageName
+ 
++    /** The app's launcher icon (profile-badged) drawn at [sizePx]; null when the app is not available. */
++    fun iconFor(
++        key: ConnectedAppKey,
++        sizePx: Int,
++    ): Bitmap? =
++        userForSerial(key.userSerial)?.let { user ->
++            runCatching {
++                launcherApps
++                    .getActivityList(key.packageName, user)
++                    .firstOrNull()
++                    ?.getBadgedIcon(0)
++                    ?.let { drawable ->
++                        Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888).also { bitmap ->
++                            drawable.setBounds(0, 0, sizePx, sizePx)
++                            drawable.draw(Canvas(bitmap))
++                        }
++                    }
++            }.getOrNull()
++        }
++
+     /** Uid of the package in its own profile, for Settings' per-app pages; null if unknown. */
+     fun uidFor(key: ConnectedAppKey): Int? =
+         userForSerial(key.userSerial)?.let { user ->
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedNotificationHistoryStore.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedNotificationHistoryStore.kt
+index 6b32bd2..65d16ad 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedNotificationHistoryStore.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedNotificationHistoryStore.kt
+@@ -9,6 +9,32 @@ import org.sableos.hub.policy.HubHistoryBounds
+ 
+ internal const val CONNECTED_LOCAL_REPLY_PREFIX = "local-reply:"
+ 
++internal enum class ConnectedHistoryMigration {
++    None,
++    AddCategory,
++    Recreate,
++}
++
++/** Versions of the derived history table; an upgrade keeps rows when it only adds a nullable column. */
++internal object ConnectedHistorySchema {
++    /** v3 adds the notification category (null for rows written before it). */
++    const val VERSION = 3
++    private const val VERSION_WITHOUT_CATEGORY = 2
++
++    fun migration(
++        oldVersion: Int,
++        newVersion: Int,
++    ): ConnectedHistoryMigration =
++        when {
++            oldVersion == newVersion -> ConnectedHistoryMigration.None
++
++            oldVersion == VERSION_WITHOUT_CATEGORY && newVersion == VERSION -> ConnectedHistoryMigration.AddCategory
++
++            // Unknown or older layouts: the cache is derived, so it is rebuilt rather than guessed at.
++            else -> ConnectedHistoryMigration.Recreate
++        }
++}
++
+ /**
+  * Hub's bounded, derived cache of conversation notifications from included sources
+  * (`HUB_NOTIFICATION_HISTORY=BOUNDED_DERIVED_CACHE_ONLY`). Android owns notification history;
+@@ -244,6 +270,7 @@ class ConnectedNotificationHistoryStore(
+                 getInt(
+                     getColumnIndexOrThrow(COLUMN_INCOMING),
+                 ) != 0,
++            category = getStringOrNull(COLUMN_CATEGORY),
+         )
+ 
+     private fun insertRecord(
+@@ -263,6 +290,7 @@ class ConnectedNotificationHistoryStore(
+                 put(COLUMN_BODY, record.body)
+                 put(COLUMN_TIMESTAMP_MILLIS, record.timestampMillis)
+                 put(COLUMN_INCOMING, if (record.incoming) 1 else 0)
++                put(COLUMN_CATEGORY, record.category)
+             }
+         database.insertWithOnConflict(
+             TABLE_HISTORY,
+@@ -310,7 +338,7 @@ class ConnectedNotificationHistoryStore(
+             context,
+             DATABASE_NAME,
+             null,
+-            DATABASE_VERSION,
++            ConnectedHistorySchema.VERSION,
+         ) {
+         override fun onCreate(database: SQLiteDatabase) {
+             database.execSQL(createHistoryTable)
+@@ -323,16 +351,25 @@ class ConnectedNotificationHistoryStore(
+             oldVersion: Int,
+             newVersion: Int,
+         ) {
+-            if (oldVersion != newVersion) {
+-                database.execSQL("DROP TABLE IF EXISTS $TABLE_HISTORY")
+-                onCreate(database)
++            when (ConnectedHistorySchema.migration(oldVersion, newVersion)) {
++                ConnectedHistoryMigration.None -> {
++                    Unit
++                }
++
++                ConnectedHistoryMigration.AddCategory -> {
++                    database.execSQL(addCategoryColumn)
++                }
++
++                ConnectedHistoryMigration.Recreate -> {
++                    database.execSQL("DROP TABLE IF EXISTS $TABLE_HISTORY")
++                    onCreate(database)
++                }
+             }
+         }
+     }
+ 
+     private companion object {
+         const val DATABASE_NAME = "sable_connected_message_history.db"
+-        const val DATABASE_VERSION = 2
+         const val TABLE_HISTORY = "connected_message_history"
+         const val COLUMN_ID = "id"
+         const val COLUMN_PACKAGE_NAME = "package_name"
+@@ -345,6 +382,7 @@ class ConnectedNotificationHistoryStore(
+         const val COLUMN_BODY = "body"
+         const val COLUMN_TIMESTAMP_MILLIS = "timestamp_millis"
+         const val COLUMN_INCOMING = "incoming"
++        const val COLUMN_CATEGORY = "category"
+         val lock = Any()
+ 
+         val historyColumns =
+@@ -360,6 +398,7 @@ class ConnectedNotificationHistoryStore(
+                 COLUMN_BODY,
+                 COLUMN_TIMESTAMP_MILLIS,
+                 COLUMN_INCOMING,
++                COLUMN_CATEGORY,
+             )
+ 
+         val createHistoryTable =
+@@ -375,10 +414,13 @@ class ConnectedNotificationHistoryStore(
+                 $COLUMN_SENDER_LABEL TEXT,
+                 $COLUMN_BODY TEXT,
+                 $COLUMN_TIMESTAMP_MILLIS INTEGER NOT NULL,
+-                $COLUMN_INCOMING INTEGER NOT NULL
++                $COLUMN_INCOMING INTEGER NOT NULL,
++                $COLUMN_CATEGORY TEXT
+             )
+             """.trimIndent()
+ 
++        val addCategoryColumn = "ALTER TABLE $TABLE_HISTORY ADD COLUMN $COLUMN_CATEGORY TEXT"
++
+         val createHistorySourceIndex =
+             """
+             CREATE INDEX connected_message_history_source
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedNotificationModels.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedNotificationModels.kt
+index 9975a89..9926f9e 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedNotificationModels.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedNotificationModels.kt
+@@ -11,6 +11,8 @@ data class ConnectedNotificationRecord(
+     val body: String?,
+     val timestampMillis: Long,
+     val incoming: Boolean,
++    /** `Notification.category` as posted (e.g. "email"); null when absent or from an older record. */
++    val category: String? = null,
+ ) {
+     init {
+         require(id.isNotBlank())
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubModels.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubModels.kt
+index a0089c3..de3902c 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubModels.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubModels.kt
+@@ -36,6 +36,8 @@ data class HubConversation(
+     val profileBadge: String? = null,
+     /** Hub priority: ordering only, never a Do Not Disturb exception. */
+     val hubPriority: Boolean = false,
++    /** Connected apps: the source notification's category (e.g. "email"), when known. */
++    val category: String? = null,
+ )
+ 
+ data class HubPerson(
+@@ -136,6 +138,7 @@ data class ConnectedConversationReduction(
+ object HubConnectedConversationReducer {
+     fun reduce(
+         records: List<ConnectedNotificationRecord>,
++        isActive: (ConnectedAppKey, String) -> Boolean = { _, _ -> false },
+         canReply: (String) -> Boolean = { false },
+     ): ConnectedConversationReduction {
+         val reductions =
+@@ -146,6 +149,7 @@ object HubConnectedConversationReducer {
+                         key = key,
+                         records = group,
+                         canReply = canReply,
++                        active = isActive(key.key, key.conversationId),
+                     )
+                 }
+ 
+@@ -165,6 +169,7 @@ object HubConnectedConversationReducer {
+         key: ConnectedConversationKey,
+         records: List<ConnectedNotificationRecord>,
+         canReply: (String) -> Boolean,
++        active: Boolean,
+     ): ConnectedConversationSlice {
+         val ordered = deduplicateRecords(records)
+         val latest = ordered.last()
+@@ -188,11 +193,23 @@ object HubConnectedConversationReducer {
+                     threadId = threadId,
+                     replyNotificationKey = replyNotificationKey,
+                     identity = identity,
++                    category = ordered.asReversed().firstNotNullOfOrNull(ConnectedNotificationRecord::category),
++                    unreadCount = if (active) unreadSinceLastReply(ordered) else 0,
+                 ),
+             messages = ordered.map { record -> record.toHubMessage(threadId) },
+         )
+     }
+ 
++    /**
++     * Hub keeps no read state for connected apps: a conversation whose notification is still
++     * posted is unread, counting the incoming messages since the user's last reply (at least one).
++     */
++    private fun unreadSinceLastReply(ordered: NotificationRecords): Int =
++        ordered
++            .takeLastWhile(ConnectedNotificationRecord::incoming)
++            .size
++            .coerceAtLeast(1)
++
+     private fun deduplicateRecords(records: NotificationRecords): NotificationRecords {
+         val deduplicated = mutableListOf<ConnectedNotificationRecord>()
+         records
+@@ -327,6 +344,8 @@ object HubConnectedConversationReducer {
+         threadId: Long,
+         replyNotificationKey: String?,
+         identity: ConnectedNotificationRecord,
++        category: String?,
++        unreadCount: Int,
+     ): HubConversation =
+         HubConversation(
+             threadId = threadId,
+@@ -334,13 +353,14 @@ object HubConnectedConversationReducer {
+             displayName = identity.conversationTitle,
+             lastBody = body.orEmpty(),
+             lastDateMillis = timestampMillis,
+-            unreadCount = 0,
++            unreadCount = unreadCount,
+             source = HubConversationSource.ConnectedApp,
+             sourcePackage = key.packageName,
+             sourceUserSerial = key.userSerial,
+             sourceNotificationKey = replyNotificationKey ?: notificationKey,
+             sourceLabel = identity.sourceLabel,
+             canQuickReply = replyNotificationKey != null,
++            category = category,
+         )
+ 
+     private fun stableNegativeId(value: String): Long {
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubPreferences.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubPreferences.kt
+index 2773c14..c63f9b2 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubPreferences.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubPreferences.kt
+@@ -5,9 +5,9 @@ import org.sableos.hub.policy.AttentionSelection
+ import org.sableos.hub.policy.AttentionSelectionCodec
+ 
+ /**
+- * Hub preferences that are not per-app Hub policy: Sable Attention selections and Hub private
+- * mode. Attention is stored apart from Hub inclusion so that changing one never changes the
+- * other, and neither touches Android delivery policy.
++ * Hub preferences that are not per-app Hub policy: Sable Attention selections, Hub private
++ * mode and combined conversations. Attention is stored apart from Hub inclusion so that changing
++ * one never changes the other, and neither touches Android delivery policy.
+  */
+ class HubPreferences(
+     context: Context,
+@@ -48,8 +48,17 @@ class HubPreferences(
+         appContext.contentResolver.notifyChange(HubSnapshotProvider.SNAPSHOT_URI, null)
+     }
+ 
++    /** Combine conversations: roll adjacent rows from the same person into one thread (default on). */
++    fun combineConversations(): Boolean = preferences.getBoolean(KEY_COMBINE_CONVERSATIONS, true)
++
++    fun setCombineConversations(enabled: Boolean) {
++        preferences.edit().putBoolean(KEY_COMBINE_CONVERSATIONS, enabled).apply()
++        appContext.contentResolver.notifyChange(ConnectedAppsRepository.HISTORY_URI, null)
++    }
++
+     private companion object {
+         const val KEY_ATTENTION_RECORDS = "attention_records"
+         const val KEY_PRIVATE_MODE = "private_mode"
++        const val KEY_COMBINE_CONVERSATIONS = "combine_conversations"
+     }
+ }
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt
+index 4dbb661..61515c6 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt
+@@ -15,6 +15,7 @@ import android.provider.Telephony
+ import android.telephony.PhoneNumberUtils
+ import android.telephony.SmsManager
+ import android.telephony.SubscriptionManager
++import org.sableos.hub.notifications.ConnectedNotificationActivityRegistry
+ import org.sableos.hub.notifications.ConnectedReplyRegistry
+ import org.sableos.hub.platform.AndroidSettingsLauncher
+ import org.sableos.hub.platform.PrivacyReader
+@@ -57,6 +58,7 @@ class HubRepository(
+             HubConnectedConversationReducer.reduce(
+                 records = connectedRecords,
+                 canReply = ConnectedReplyRegistry::canReply,
++                isActive = ConnectedNotificationActivityRegistry::isActive,
+             )
+         val prioritized =
+             reduced.conversations.map { conversation ->
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt
+index 11d8a5b..d85d991 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt
+@@ -19,6 +19,8 @@ import androidx.compose.runtime.mutableStateMapOf
+ import androidx.compose.runtime.mutableStateOf
+ import androidx.compose.runtime.remember
+ import androidx.compose.runtime.setValue
++import androidx.compose.ui.graphics.ImageBitmap
++import androidx.compose.ui.graphics.asImageBitmap
+ import androidx.lifecycle.Lifecycle
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.withContext
+@@ -27,6 +29,7 @@ import org.sableos.hub.policy.HubDrafts
+ import org.sableos.hub.policy.HubHandoffTarget
+ import org.sableos.hub.policy.HubIntents
+ import org.sableos.hub.ui.HubScreen
++import kotlin.math.roundToInt
+ 
+ class MainActivity : ComponentActivity() {
+     private lateinit var repository: HubRepository
+@@ -44,6 +47,10 @@ class MainActivity : ComponentActivity() {
+     private var providerObserversRegistered = false
+     private var launchQuerySequence = 0
+ 
++    /** Dock icons by source, loaded once per activity (main-thread access only). */
++    private val appIcons = mutableMapOf<ConnectedAppKey, ImageBitmap?>()
++    private val inventory by lazy { ConnectedAppsInventory(applicationContext) }
++
+     private val connectedHistoryObserver =
+         object : ContentObserver(mainHandler) {
+             override fun onChange(selfChange: Boolean) {
+@@ -98,6 +105,9 @@ class MainActivity : ComponentActivity() {
+             var refreshing by remember {
+                 mutableStateOf(false)
+             }
++            var combineConversations by remember {
++                mutableStateOf(true)
++            }
+ 
+             LaunchedEffect(refreshGeneration) {
+                 refreshing = refreshGeneration == userRefreshGeneration
+@@ -105,6 +115,10 @@ class MainActivity : ComponentActivity() {
+                     withContext(Dispatchers.IO) {
+                         repository.snapshot()
+                     }
++                combineConversations =
++                    withContext(Dispatchers.IO) {
++                        HubPreferences(applicationContext).combineConversations()
++                    }
+                 refreshing = false
+             }
+ 
+@@ -213,11 +227,28 @@ class MainActivity : ComponentActivity() {
+                     onPendingThreadConsumed = {
+                         pendingThreadId = null
+                     },
++                    combineConversations = combineConversations,
++                    loadAppIcon = ::loadAppIcon,
+                 )
+             }
+         }
+     }
+ 
++    private suspend fun loadAppIcon(
++        packageName: String,
++        userSerial: Long,
++    ): ImageBitmap? {
++        val key = ConnectedAppKey(packageName, userSerial)
++        if (key in appIcons) return appIcons[key]
++        val sizePx = (DOCK_ICON_SIZE_DP * resources.displayMetrics.density).roundToInt()
++        val icon =
++            withContext(Dispatchers.IO) {
++                inventory.iconFor(key, sizePx)?.asImageBitmap()
++            }
++        appIcons[key] = icon
++        return icon
++    }
++
+     override fun onNewIntent(intent: Intent) {
+         super.onNewIntent(intent)
+         setIntent(intent)
+@@ -317,6 +348,7 @@ class MainActivity : ComponentActivity() {
+ 
+     private companion object {
+         const val PROVIDER_REFRESH_DELAY_MILLIS = 250L
++        const val DOCK_ICON_SIZE_DP = 40f
+         val PROVIDER_URIS =
+             listOf(
+                 Telephony.Sms.CONTENT_URI,
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/ConnectedNotificationActivityRegistry.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/ConnectedNotificationActivityRegistry.kt
+index 89f7a22..2b87b32 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/ConnectedNotificationActivityRegistry.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/ConnectedNotificationActivityRegistry.kt
+@@ -27,6 +27,12 @@ internal object ConnectedNotificationActivityRegistry {
+         activeByNotification.clear()
+     }
+ 
++    /** Whether a notification of this conversation is still posted (Hub's "unread" for connected apps). */
++    fun isActive(
++        sourceKey: ConnectedAppKey,
++        conversationId: String,
++    ): Boolean = activeByNotification.containsValue(ConnectedConversationKey(sourceKey, conversationId))
++
+     fun activeConversationCount(): Int =
+         activeByNotification
+             .values
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/ConnectedNotificationNormalizer.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/ConnectedNotificationNormalizer.kt
+index b7d2d24..0b02cf6 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/ConnectedNotificationNormalizer.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/ConnectedNotificationNormalizer.kt
+@@ -114,6 +114,7 @@ internal class ConnectedNotificationNormalizer(
+                     body = envelope.notificationBody,
+                     timestampMillis = envelope.postTimeMillis,
+                     incoming = true,
++                    category = envelope.category,
+                 ),
+             )
+         } else {
+@@ -136,6 +137,7 @@ internal class ConnectedNotificationNormalizer(
+                     body = message.body,
+                     timestampMillis = message.timestampMillis,
+                     incoming = message.incoming,
++                    category = envelope.category,
+                 )
+             }
+         }
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/SableNotificationListenerService.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/SableNotificationListenerService.kt
+index 6aee03e..2b1824a 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/SableNotificationListenerService.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/SableNotificationListenerService.kt
+@@ -22,6 +22,7 @@ import org.sableos.hub.ConnectedAppsInventory
+ import org.sableos.hub.ConnectedAppsRepository
+ import org.sableos.hub.ConnectedNotificationHistoryStore
+ import org.sableos.hub.policy.AndroidVisibility
++import org.sableos.hub.policy.HubMailSources
+ import org.sableos.hub.policy.ReplyActionFacts
+ import org.sableos.hub.policy.ReplyEligibility
+ import java.util.concurrent.ConcurrentHashMap
+@@ -162,7 +163,9 @@ class SableNotificationListenerService : NotificationListenerService() {
+                     replyCandidate != null ||
+                     shortcutId != null ||
+                     conversationTitle != null ||
+-                    category == Notification.CATEGORY_MESSAGE
++                    category == Notification.CATEGORY_MESSAGE ||
++                    // Mail apps post one notification per message or digest, without MessagingStyle.
++                    HubMailSources.isMail(key.packageName, category)
+             )
+ 
+     /**
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubConversationRollup.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubConversationRollup.kt
+new file mode 100644
+index 0000000..f47b2eb
+--- /dev/null
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubConversationRollup.kt
+@@ -0,0 +1,140 @@
++package org.sableos.hub.policy
++
++import org.sableos.hub.HubConversation
++import org.sableos.hub.HubConversationSource
++import java.util.Locale
++
++/** A run of adjacent inbox rows from one person; [parent] is the newest, [children] follow it. */
++data class HubInboxCluster(
++    val parent: HubInboxItem,
++    val children: List<HubInboxItem> = emptyList(),
++) {
++    /** Stable while the newest row stays the newest: the parent row's key. */
++    val id: String
++        get() = parent.key
++
++    val rolledUp: Boolean
++        get() = children.isNotEmpty()
++
++    /** Distinct source labels of the children, newest first, for the parent row's "+N" line. */
++    val childSourceLabels: List<String>
++        get() =
++            children
++                .mapNotNull { child -> (child as? HubInboxItem.Conversation)?.conversation?.let(::sourceLabelOf) }
++                .distinct()
++}
++
++enum class HubInboxRowRole {
++    Single,
++    Parent,
++    Child,
++}
++
++/** The line drawn under a row: a double line closes a rolled-up conversation. */
++enum class HubInboxDivider {
++    Single,
++    Double,
++}
++
++/** One visible inbox row with its place in a cluster. */
++data class HubInboxRow(
++    val item: HubInboxItem,
++    val cluster: HubInboxCluster,
++    val role: HubInboxRowRole,
++    val expanded: Boolean,
++    val divider: HubInboxDivider,
++)
++
++/**
++ * "Combine conversations": adjacent conversation rows from the same person roll up under the
++ * newest one. Same person means the same whole display name (ignoring case and whitespace), or,
++ * for two SMS rows, the same address. Whole names only, so a group chat never merges with a 1:1
++ * chat; this reaches across sources (an SMS thread and a chat app with the same contact). Calls
++ * never combine, and a row from anyone else in between breaks the run. Rows whose identity is
++ * redacted (only an app, "SMS" or a profile label is shown) never combine, so rolling up cannot
++ * reveal more than the rows do.
++ */
++object HubConversationRollup {
++    /** [items] newest first, already filtered; with [enabled] false every row stands alone. */
++    fun clusters(
++        items: List<HubInboxItem>,
++        enabled: Boolean,
++    ): List<HubInboxCluster> {
++        if (!enabled) return items.map { item -> HubInboxCluster(item) }
++        val clusters = mutableListOf<HubInboxCluster>()
++        items.forEach { item ->
++            val last = clusters.lastOrNull()
++            if (last != null && samePerson(last.parent, item)) {
++                clusters[clusters.lastIndex] = last.copy(children = last.children + item)
++            } else {
++                clusters += HubInboxCluster(item)
++            }
++        }
++        return clusters
++    }
++
++    /** Visible rows: a collapsed cluster shows only its parent; [expanded] holds cluster ids. */
++    fun rows(
++        clusters: List<HubInboxCluster>,
++        expanded: Set<String>,
++    ): List<HubInboxRow> =
++        clusters.flatMap { cluster ->
++            if (!cluster.rolledUp) {
++                listOf(HubInboxRow(cluster.parent, cluster, HubInboxRowRole.Single, false, HubInboxDivider.Single))
++            } else if (cluster.id !in expanded) {
++                listOf(HubInboxRow(cluster.parent, cluster, HubInboxRowRole.Parent, false, HubInboxDivider.Double))
++            } else {
++                val parent = HubInboxRow(cluster.parent, cluster, HubInboxRowRole.Parent, true, HubInboxDivider.Single)
++                val children =
++                    cluster.children.mapIndexed { index, child ->
++                        val last = index == cluster.children.lastIndex
++                        HubInboxRow(
++                            item = child,
++                            cluster = cluster,
++                            role = HubInboxRowRole.Child,
++                            expanded = true,
++                            divider = if (last) HubInboxDivider.Double else HubInboxDivider.Single,
++                        )
++                    }
++                listOf(parent) + children
++            }
++        }
++
++    fun samePerson(
++        first: HubInboxItem,
++        second: HubInboxItem,
++    ): Boolean {
++        val a = (first as? HubInboxItem.Conversation)?.conversation
++        val b = (second as? HubInboxItem.Conversation)?.conversation
++        return a != null && b != null && !identityHidden(a) && !identityHidden(b) && samePerson(a, b)
++    }
++
++    private fun samePerson(
++        a: HubConversation,
++        b: HubConversation,
++    ): Boolean {
++        val bothSms = a.source == HubConversationSource.Sms && b.source == HubConversationSource.Sms
++        return (bothSms && HubAddress.sameAddress(a.address, b.address)) ||
++            normalizedName(a).let { name -> name.isNotEmpty() && name == normalizedName(b) }
++    }
++
++    private fun identityHidden(conversation: HubConversation): Boolean {
++        val name = conversation.displayName.trim()
++        return name.isEmpty() ||
++            (name == HubRedaction.SMS_LABEL && conversation.source == HubConversationSource.Sms) ||
++            name == HubRedaction.WORK_PROFILE_LABEL ||
++            (conversation.source == HubConversationSource.ConnectedApp && name == conversation.sourceLabel?.trim())
++    }
++
++    private fun normalizedName(conversation: HubConversation): String =
++        conversation.displayName.filterNot(Char::isWhitespace).lowercase(Locale.ROOT)
++}
++
++private fun sourceLabelOf(conversation: HubConversation): String =
++    if (conversation.source == HubConversationSource.Sms) {
++        HubRedaction.SMS_LABEL
++    } else {
++        conversation.sourceLabel?.takeIf(String::isNotBlank) ?: CONNECTED_APP_LABEL
++    }
++
++private const val CONNECTED_APP_LABEL = "connected app"
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubInbox.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubInbox.kt
+index 1f02998..a45ef9a 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubInbox.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubInbox.kt
+@@ -17,6 +17,9 @@ enum class HubInboxFilter(
+     Messages("Messages", 'm'),
+     Calls("Calls", 'c'),
+     Notifications("Notifications", 'n'),
++
++    /** Connected mail apps (known mail packages or notifications in the email category). */
++    Mail("Mail", 'e'),
+     ;
+ 
+     companion object {
+@@ -59,7 +62,7 @@ object HubInbox {
+         val term = query.trim()
+         val conversationItems =
+             conversations
+-                .filter { conversation -> filter.includes(conversation.source) }
++                .filter { conversation -> filter.includes(conversation) }
+                 .filter { conversation -> term.isEmpty() || conversation.matches(term) }
+                 .map(HubInboxItem::Conversation)
+         val callItems =
+@@ -81,7 +84,7 @@ object HubInbox {
+     ): Int {
+         val unread =
+             conversations
+-                .filter { conversation -> filter.includes(conversation.source) }
++                .filter { conversation -> filter.includes(conversation) }
+                 .count { conversation -> conversation.unreadCount > 0 }
+         val missed =
+             if (filter == HubInboxFilter.All || filter == HubInboxFilter.Calls) {
+@@ -92,11 +95,12 @@ object HubInbox {
+         return unread + missed
+     }
+ 
+-    private fun HubInboxFilter.includes(source: HubConversationSource): Boolean =
++    private fun HubInboxFilter.includes(conversation: HubConversation): Boolean =
+         when (this) {
+             HubInboxFilter.All -> true
+-            HubInboxFilter.Messages -> source == HubConversationSource.Sms
+-            HubInboxFilter.Notifications -> source == HubConversationSource.ConnectedApp
++            HubInboxFilter.Messages -> conversation.source == HubConversationSource.Sms
++            HubInboxFilter.Notifications -> conversation.source == HubConversationSource.ConnectedApp
++            HubInboxFilter.Mail -> HubMailSources.isMail(conversation)
+             HubInboxFilter.Calls -> false
+         }
+ 
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubMailSources.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubMailSources.kt
+new file mode 100644
+index 0000000..0114c00
+--- /dev/null
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubMailSources.kt
+@@ -0,0 +1,53 @@
++package org.sableos.hub.policy
++
++import org.sableos.hub.HubConversation
++import org.sableos.hub.HubConversationSource
++
++/**
++ * Mail apps as Hub sources. Hub has no network access and signs into nothing: a mail app is
++ * "connected" only through its own notifications, opt-in per app like any other connected app.
++ * Accounts (Gmail, Outlook, Yahoo, iCloud via OAuth/IMAP) live in Sable Mail or the mail app.
++ */
++object HubMailSources {
++    /** `android.app.Notification.CATEGORY_EMAIL`. */
++    const val CATEGORY_EMAIL = "email"
++
++    /** Popular mail apps, recognised even when a notification carries no category. */
++    val KNOWN_PACKAGES: Set<String> =
++        setOf(
++            "com.google.android.gm",
++            "com.microsoft.office.outlook",
++            "ch.protonmail.android",
++            "com.yahoo.mobile.client.android.mail",
++            "com.readdle.spark",
++            "eu.faircode.email",
++            "com.fsck.k9",
++            "net.thunderbird.android",
++            "com.samsung.android.email.provider",
++            "me.bluemail.mail",
++            "de.tutao.tutanota",
++            "com.fastmail.app",
++            "org.sableos.mail",
++            "com.android.email",
++        )
++
++    /** A known mail package, or any app whose notification says it is email. */
++    fun isMail(
++        packageName: String?,
++        category: String?,
++    ): Boolean = isKnownMailPackage(packageName) || category == CATEGORY_EMAIL
++
++    fun isKnownMailPackage(packageName: String?): Boolean = packageName != null && packageName in KNOWN_PACKAGES
++
++    /**
++     * Whether Connected apps should warn that an account signed in to two mail apps shows twice:
++     * two or more distinct known mail apps are included in Hub at once.
++     */
++    fun duplicateAccountWarning(includedPackages: Collection<String>): Boolean =
++        includedPackages.filter(::isKnownMailPackage).toSet().size >= 2
++
++    /** Connected-app conversations from a mail source; Hub's own SMS never is. */
++    fun isMail(conversation: HubConversation): Boolean =
++        conversation.source == HubConversationSource.ConnectedApp &&
++            isMail(conversation.sourcePackage, conversation.category)
++}
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubSourceDock.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubSourceDock.kt
+new file mode 100644
+index 0000000..74cea2f
+--- /dev/null
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubSourceDock.kt
+@@ -0,0 +1,154 @@
++package org.sableos.hub.policy
++
++import org.sableos.hub.HubCall
++import org.sableos.hub.HubConversation
++import org.sableos.hub.HubConversationSource
++import java.util.Locale
++
++/** Where an inbox row came from, as the source dock groups it. */
++sealed interface HubDockSource {
++    /** Hub's own SMS conversations. */
++    data object Sms : HubDockSource
++
++    /** The call log (missed calls are the count). */
++    data object Calls : HubDockSource
++
++    /** One connected app in one Android user/profile. */
++    data class App(
++        val packageName: String,
++        val userSerial: Long,
++    ) : HubDockSource
++
++    /**
++     * Connected apps of a profile whose rows are generic ("Work profile"): one entry per profile,
++     * so the dock never reveals which apps the rows hide.
++     */
++    data class Profile(
++        val userSerial: Long,
++    ) : HubDockSource
++}
++
++/** One dock entry: a source, its label as rows show it, and how many of its rows need attention. */
++data class HubDockEntry(
++    val source: HubDockSource,
++    val label: String,
++    val count: Int,
++    val mail: Boolean = false,
++)
++
++/**
++ * The source dock at the bottom of the Hub inbox: one entry per source with the same count the
++ * filter chips use ([HubInbox.attentionCount]): unread conversations, and missed calls. Entries are
++ * built from already-redacted rows, so the dock never shows more than the row list.
++ */
++object HubSourceDock {
++    fun entries(
++        conversations: List<HubConversation>,
++        calls: List<HubCall>,
++    ): List<HubDockEntry> {
++        val conversationEntries =
++            conversations
++                .groupBy(::sourceOf)
++                .map { (source, group) ->
++                    val newest = group.maxBy(HubConversation::lastDateMillis)
++                    HubDockEntry(
++                        source = source,
++                        label = labelFor(source, newest),
++                        count = group.count { conversation -> conversation.unreadCount > 0 },
++                        mail = group.any(HubMailSources::isMail),
++                    )
++                }
++        val callEntry =
++            if (calls.isEmpty()) {
++                emptyList()
++            } else {
++                listOf(
++                    HubDockEntry(
++                        source = HubDockSource.Calls,
++                        label = CALLS_LABEL,
++                        count = calls.count { call -> call.kind.needsAttention },
++                    ),
++                )
++            }
++        return (conversationEntries + callEntry).sortedWith(ORDER)
++    }
++
++    /** Collapsed, the dock shows sources with a count (and the [selected] one); expanded, every source. */
++    fun visible(
++        entries: List<HubDockEntry>,
++        expanded: Boolean,
++        selected: HubDockSource? = null,
++    ): List<HubDockEntry> =
++        if (expanded) entries else entries.filter { entry -> entry.count > 0 || entry.source == selected }
++
++    /** Inbox rows narrowed to [source]; null keeps every row. */
++    fun narrow(
++        items: List<HubInboxItem>,
++        source: HubDockSource?,
++    ): List<HubInboxItem> = if (source == null) items else items.filter { item -> sourceOf(item) == source }
++
++    /** Selecting the selected source again clears the selection. */
++    fun toggle(
++        current: HubDockSource?,
++        selected: HubDockSource,
++    ): HubDockSource? = if (current == selected) null else selected
++
++    fun sourceOf(item: HubInboxItem): HubDockSource =
++        when (item) {
++            is HubInboxItem.Call -> HubDockSource.Calls
++            is HubInboxItem.Conversation -> sourceOf(item.conversation)
++        }
++
++    fun sourceOf(conversation: HubConversation): HubDockSource {
++        val packageName = conversation.sourcePackage
++        val serial = conversation.sourceUserSerial
++        return when {
++            conversation.source == HubConversationSource.Sms || packageName == null || serial == null -> {
++                HubDockSource.Sms
++            }
++
++            conversation.sourceLabel == HubRedaction.WORK_PROFILE_LABEL -> {
++                HubDockSource.Profile(serial)
++            }
++
++            else -> {
++                HubDockSource.App(packageName, serial)
++            }
++        }
++    }
++
++    private fun labelFor(
++        source: HubDockSource,
++        newest: HubConversation,
++    ): String =
++        when (source) {
++            HubDockSource.Sms -> {
++                HubRedaction.SMS_LABEL
++            }
++
++            HubDockSource.Calls -> {
++                CALLS_LABEL
++            }
++
++            is HubDockSource.Profile -> {
++                HubRedaction.WORK_PROFILE_LABEL
++            }
++
++            is HubDockSource.App -> {
++                listOfNotNull(
++                    newest.sourceLabel?.takeIf(String::isNotBlank) ?: source.packageName,
++                    newest.profileBadge,
++                ).joinToString(" · ")
++            }
++        }
++
++    const val CALLS_LABEL = "Calls"
++
++    /** Moves focus to the dock from a filter chip or a row (never while typing). */
++    const val SHORTCUT = 'd'
++
++    private val ORDER =
++        compareByDescending<HubDockEntry> { entry -> entry.count }
++            .thenBy { entry -> entry.label.lowercase(Locale.ROOT) }
++            .thenBy { entry -> entry.source.toString() }
++}
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt
+index 87005fd..f0b2b02 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt
+@@ -34,6 +34,7 @@ import org.sableos.hub.ConnectedAppKey
+ import org.sableos.hub.ConnectedAppPolicy
+ import org.sableos.hub.policy.AttentionOutput
+ import org.sableos.hub.policy.ConnectedAppsParity
++import org.sableos.hub.policy.HubMailSources
+ import java.util.Locale
+ 
+ private enum class ConnectedAppsPivot {
+@@ -55,6 +56,8 @@ internal fun ConnectedAppsScreen(
+     focusedKey: ConnectedAppKey? = null,
+     privateMode: Boolean = false,
+     onPrivateModeChanged: (Boolean) -> Unit = {},
++    combineConversations: Boolean = true,
++    onCombineConversationsChanged: (Boolean) -> Unit = {},
+     onAttentionChanged: (ConnectedAppKey, Set<AttentionOutput>) -> Unit = { _, _ -> },
+     onOpenAndroidNotificationSettings: (ConnectedAppKey) -> Unit = {},
+     onOpenAttentionSettings: () -> Unit = {},
+@@ -92,6 +95,8 @@ internal fun ConnectedAppsScreen(
+                 onOpenNotificationAccess = onOpenNotificationAccess,
+                 privateMode = privateMode,
+                 onPrivateModeChanged = onPrivateModeChanged,
++                combineConversations = combineConversations,
++                onCombineConversationsChanged = onCombineConversationsChanged,
+                 onOpenAttentionSettings = onOpenAttentionSettings,
+             )
+ 
+@@ -162,6 +167,8 @@ private fun NotificationAccessPanel(
+     onOpenNotificationAccess: () -> Unit,
+     privateMode: Boolean,
+     onPrivateModeChanged: (Boolean) -> Unit,
++    combineConversations: Boolean,
++    onCombineConversationsChanged: (Boolean) -> Unit,
+     onOpenAttentionSettings: () -> Unit,
+ ) {
+     SablePanel {
+@@ -191,6 +198,15 @@ private fun NotificationAccessPanel(
+             enabled = true,
+             onCheckedChange = onPrivateModeChanged,
+         )
++        PolicySwitchRow(
++            label = "Combine conversations",
++            detail =
++                "Group adjacent messages from the same conversation into a streamlined thread, " +
++                    "hiding duplicate titles and app icons.",
++            checked = combineConversations,
++            enabled = true,
++            onCheckedChange = onCombineConversationsChanged,
++        )
+         TextButton(onClick = onOpenAttentionSettings) {
+             Text("Sable Attention")
+         }
+@@ -230,6 +246,11 @@ private fun ColumnScope.ConnectedAppsBrowser(
+             search = search,
+         )
+ 
++    MailAppsNote(
++        candidates = candidates,
++        policies = policies,
++    )
++
+     if (visibleCandidates.isEmpty()) {
+         Text(
+             text = emptyCandidatesText(pivot, search),
+@@ -259,6 +280,34 @@ private fun ColumnScope.ConnectedAppsBrowser(
+     }
+ }
+ 
++/** Mail apps are opt-in sources like any other; one line of guidance, plus a duplicate warning. */
++@Composable
++private fun MailAppsNote(
++    candidates: List<ConnectedAppCandidate>,
++    policies: Map<ConnectedAppKey, ConnectedAppPolicy>,
++) {
++    if (candidates.none { candidate -> HubMailSources.isKnownMailPackage(candidate.key.packageName) }) return
++    val includedPackages =
++        policies.values
++            .filter { policy -> policy.normalized().includeInMessages }
++            .map { policy -> policy.key.packageName }
++    Text(
++        text =
++            "Use one app per email account. Sable Mail covers Gmail, Outlook, Yahoo, iCloud and IMAP. " +
++                "Turn on another mail app only for accounts Sable Mail can't open " +
++                "(Proton, Tuta, managed work accounts).",
++        style = MaterialTheme.typography.bodySmall,
++        color = MaterialTheme.colorScheme.onSurfaceVariant,
++    )
++    if (HubMailSources.duplicateAccountWarning(includedPackages)) {
++        Text(
++            text = "More than one mail app is on; an account signed in to both will appear twice.",
++            style = MaterialTheme.typography.bodySmall,
++            color = MaterialTheme.colorScheme.onSurfaceVariant,
++        )
++    }
++}
++
+ private fun emptyCandidatesText(
+     pivot: ConnectedAppsPivot,
+     search: String,
+@@ -298,6 +347,9 @@ private fun visibleCandidates(
+         }.sortedWith(
+             compareByDescending<ConnectedAppCandidate> { candidate ->
+                 policies[candidate.key]?.normalized()?.favorite == true
++            }.thenByDescending { candidate ->
++                // Installed mail apps group together near the top so they are easy to turn on.
++                HubMailSources.isKnownMailPackage(candidate.key.packageName)
+             }.thenBy {
+                 it.label.lowercase(locale)
+             }.thenBy {
+@@ -399,7 +451,7 @@ private fun ConnectedAppSummary(
+             )
+             Text(
+                 text =
+-                    candidate.profileLabel + " · " +
++                    mailPrefix(candidate) + candidate.profileLabel + " · " +
+                         ConnectedAppsParity.statusLabel(
+                             ConnectedAppsParity.status(
+                                 policy = policy,
+@@ -422,6 +474,9 @@ private fun ConnectedAppSummary(
+     }
+ }
+ 
++private fun mailPrefix(candidate: ConnectedAppCandidate): String =
++    if (HubMailSources.isKnownMailPackage(candidate.key.packageName)) "Mail · " else ""
++
+ @Composable
+ private fun ConnectedAppMessageOptions(
+     policy: ConnectedAppPolicy,
+@@ -505,23 +560,32 @@ private fun PolicySwitchRow(
+     checked: Boolean,
+     enabled: Boolean,
+     onCheckedChange: (Boolean) -> Unit,
++    detail: String? = null,
+ ) {
+     Row(
+         modifier = Modifier.fillMaxWidth(),
+         verticalAlignment = Alignment.CenterVertically,
+         horizontalArrangement = Arrangement.spacedBy(SableSpacing.Md),
+     ) {
+-        Text(
+-            text = label,
+-            modifier = Modifier.weight(1f),
+-            style = MaterialTheme.typography.bodyLarge,
+-            color =
+-                if (enabled) {
+-                    MaterialTheme.colorScheme.onSurface
+-                } else {
+-                    MaterialTheme.colorScheme.onSurfaceVariant
+-                },
+-        )
++        Column(modifier = Modifier.weight(1f)) {
++            Text(
++                text = label,
++                style = MaterialTheme.typography.bodyLarge,
++                color =
++                    if (enabled) {
++                        MaterialTheme.colorScheme.onSurface
++                    } else {
++                        MaterialTheme.colorScheme.onSurfaceVariant
++                    },
++            )
++            detail?.let { text ->
++                Text(
++                    text = text,
++                    style = MaterialTheme.typography.bodySmall,
++                    color = MaterialTheme.colorScheme.onSurfaceVariant,
++                )
++            }
++        }
+         Switch(
+             checked = checked,
+             enabled = enabled,
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
+index 67c2be6..b5fc85d 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
+@@ -2,13 +2,17 @@ package org.sableos.hub.ui
+ 
+ import android.text.format.DateUtils
+ import androidx.activity.compose.BackHandler
++import androidx.compose.foundation.Image
+ import androidx.compose.foundation.background
++import androidx.compose.foundation.border
+ import androidx.compose.foundation.clickable
++import androidx.compose.foundation.combinedClickable
+ import androidx.compose.foundation.horizontalScroll
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.ColumnScope
++import androidx.compose.foundation.layout.FlowRow
+ import androidx.compose.foundation.layout.Row
+ import androidx.compose.foundation.layout.RowScope
+ import androidx.compose.foundation.layout.Spacer
+@@ -41,15 +45,18 @@ import androidx.compose.runtime.derivedStateOf
+ import androidx.compose.runtime.getValue
+ import androidx.compose.runtime.mutableStateMapOf
+ import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.produceState
+ import androidx.compose.runtime.remember
+ import androidx.compose.runtime.rememberCoroutineScope
+ import androidx.compose.runtime.setValue
+ import androidx.compose.runtime.withFrameNanos
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
++import androidx.compose.ui.draw.clip
+ import androidx.compose.ui.focus.FocusRequester
+ import androidx.compose.ui.focus.focusRequester
+ import androidx.compose.ui.graphics.Color
++import androidx.compose.ui.graphics.ImageBitmap
+ import androidx.compose.ui.input.key.Key
+ import androidx.compose.ui.input.key.KeyEventType
+ import androidx.compose.ui.input.key.isAltPressed
+@@ -61,6 +68,9 @@ import androidx.compose.ui.input.key.onKeyEvent
+ import androidx.compose.ui.input.key.onPreviewKeyEvent
+ import androidx.compose.ui.input.key.type
+ import androidx.compose.ui.input.key.utf16CodePoint
++import androidx.compose.ui.semantics.contentDescription
++import androidx.compose.ui.semantics.selected
++import androidx.compose.ui.semantics.semantics
+ import androidx.compose.ui.text.input.ImeAction
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.dp
+@@ -95,10 +105,19 @@ import org.sableos.hub.HubSnapshot
+ import org.sableos.hub.policy.ComposerEnterAction
+ import org.sableos.hub.policy.HubAddress
+ import org.sableos.hub.policy.HubComposerKeys
++import org.sableos.hub.policy.HubConversationRollup
++import org.sableos.hub.policy.HubDockEntry
++import org.sableos.hub.policy.HubDockSource
+ import org.sableos.hub.policy.HubDrafts
+ import org.sableos.hub.policy.HubInbox
++import org.sableos.hub.policy.HubInboxCluster
++import org.sableos.hub.policy.HubInboxDivider
+ import org.sableos.hub.policy.HubInboxFilter
+ import org.sableos.hub.policy.HubInboxItem
++import org.sableos.hub.policy.HubInboxRow
++import org.sableos.hub.policy.HubInboxRowRole
++import org.sableos.hub.policy.HubRedaction
++import org.sableos.hub.policy.HubSourceDock
+ import org.sableos.hub.policy.HubThreadResolver
+ import java.text.DateFormat
+ import java.util.Date
+@@ -146,6 +165,13 @@ private class HubUiState {
+     var inboxFilter by mutableStateOf(HubInboxFilter.All)
+     var statusMessage by mutableStateOf<String?>(null)
+ 
++    /** Source dock: the source the inbox is narrowed to (null: all) and whether the dock is a grid. */
++    var dockSource by mutableStateOf<HubDockSource?>(null)
++    var dockExpanded by mutableStateOf(false)
++
++    /** Combined conversations the user expanded, by cluster id, kept while Hub is open. */
++    val expandedClusters = mutableStateMapOf<String, Boolean>()
++
+     /** Shade "H" / Settings handoff: open the conversation Hub resolved for the notification. */
+     fun openPendingThread(
+         threadId: Long?,
+@@ -160,6 +186,7 @@ private class HubUiState {
+     fun applyLaunchQuery(query: HubLaunchQuery) {
+         route = HubRoute.Root(HubPivot.Inbox)
+         inboxFilter = HubInboxFilter.All
++        dockSource = null
+         search = query.query
+         statusMessage = null
+     }
+@@ -181,6 +208,7 @@ private class HubUiState {
+ 
+     fun selectInboxFilter(filter: HubInboxFilter) {
+         inboxFilter = filter
++        dockSource = null
+         statusMessage = null
+     }
+ 
+@@ -226,6 +254,13 @@ private class HubUiState {
+     }
+ }
+ 
++/** A dock source narrows the whole inbox (filter "All"); choosing it again clears it. */
++private fun HubUiState.selectDockSource(source: HubDockSource) {
++    inboxFilter = HubInboxFilter.All
++    dockSource = HubSourceDock.toggle(dockSource, source)
++    statusMessage = null
++}
++
+ private fun mmsHandoffStatus(opened: Boolean): String =
+     if (opened) "Opened the system MMS composer." else "MMS composer is unavailable."
+ 
+@@ -242,6 +277,8 @@ private class HubActions(
+     val onDial: (String) -> Boolean,
+     val drafts: Map<String, String>,
+     val onDraftChange: (String, String) -> Unit,
++    val combineConversations: Boolean,
++    val loadAppIcon: suspend (String, Long) -> ImageBitmap?,
+ )
+ 
+ @Composable
+@@ -264,6 +301,8 @@ fun HubScreen(
+     onLaunchQueryConsumed: () -> Unit = {},
+     pendingThreadId: Long? = null,
+     onPendingThreadConsumed: () -> Unit = {},
++    combineConversations: Boolean = true,
++    loadAppIcon: suspend (String, Long) -> ImageBitmap? = { _, _ -> null },
+ ) {
+     val state = remember { HubUiState() }
+ 
+@@ -307,6 +346,8 @@ fun HubScreen(
+             onDial = onDial,
+             drafts = drafts,
+             onDraftChange = onDraftChange,
++            combineConversations = combineConversations,
++            loadAppIcon = loadAppIcon,
+         )
+ 
+     SableRefreshableSurface(
+@@ -455,6 +496,8 @@ private fun ColumnScope.HubInboxView(
+     InboxPivot(
+         modifier = Modifier.weight(1f),
+         snapshot = snapshot,
++        state = state,
++        actions = actions,
+         focusMemory = focusMemory,
+         filter = state.inboxFilter,
+         onFilterChange = state::selectInboxFilter,
+@@ -839,6 +882,8 @@ private fun ColumnScope.EmailPivot(
+ private fun ColumnScope.InboxPivot(
+     modifier: Modifier,
+     snapshot: HubSnapshot,
++    state: HubUiState,
++    actions: HubActions,
+     focusMemory: SableFocusMemory,
+     filter: HubInboxFilter,
+     onFilterChange: (HubInboxFilter) -> Unit,
+@@ -885,18 +930,39 @@ private fun ColumnScope.InboxPivot(
+     )
+ 
+     val query = search.trim()
++    val dockSource = state.dockSource
+     val items =
+-        remember(snapshot, filter, query) {
+-            HubInbox.items(snapshot.conversations, snapshot.calls, filter, query)
++        remember(snapshot, filter, query, dockSource) {
++            HubSourceDock.narrow(HubInbox.items(snapshot.conversations, snapshot.calls, filter, query), dockSource)
++        }
++    val clusters =
++        remember(items, actions.combineConversations) {
++            HubConversationRollup.clusters(items.take(MAX_VISIBLE_CONVERSATIONS), actions.combineConversations)
++        }
++    val dockEntries =
++        remember(snapshot) {
++            HubSourceDock.entries(snapshot.conversations, snapshot.calls)
+         }
+     val listState = rememberLazyListState()
+     val newestItem = items.firstOrNull()
+-    val visibleItems = items.take(MAX_VISIBLE_CONVERSATIONS)
+-    val rowKeys = visibleItems.map(HubInboxItem::key)
++    val visibleRows = HubConversationRollup.rows(clusters, state.expandedClusters.keys)
++    val rowKeys = visibleRows.map { row -> row.item.key }
+     val requesters = remember { mutableMapOf<String, FocusRequester>() }
+     val chipRequesters = remember { HubInboxFilter.entries.associateWith { FocusRequester() } }
++    val dockFocus = remember { HubDockFocus() }
+     var restoreDone by remember { mutableStateOf(false) }
+     val scope = rememberCoroutineScope()
++    val rowActions =
++        HubInboxRowActions(
++            onExpand = { cluster -> state.expandedClusters[cluster.id] = true },
++            onCollapse = { cluster ->
++                state.expandedClusters.remove(cluster.id)
++                scope.launch {
++                    withFrameNanos { }
++                    runCatching { requesters[cluster.id]?.requestFocus() }
++                }
++            },
++        )
+ 
+     // A/M/C/N pick a filter while focus is on a chip or a row; in the search field letters stay text.
+     val selectFilter: (HubInboxFilter) -> Unit = { selected ->
+@@ -935,7 +1001,9 @@ private fun ColumnScope.InboxPivot(
+         modifier =
+             modifier
+                 .fillMaxWidth()
+-                .inboxFilterShortcuts(selectFilter),
++                .inboxFilterShortcuts(selectFilter) {
++                    scope.launch { dockFocus.focus() }
++                },
+         verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
+     ) {
+         InboxFilterChips(
+@@ -952,6 +1020,7 @@ private fun ColumnScope.InboxPivot(
+                 style = MaterialTheme.typography.bodyLarge,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
++            Spacer(Modifier.weight(1f))
+         } else {
+             LazyColumn(
+                 modifier = Modifier.weight(1f).fillMaxWidth(),
+@@ -959,13 +1028,16 @@ private fun ColumnScope.InboxPivot(
+                 verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
+             ) {
+                 itemsIndexed(
+-                    items = visibleItems,
+-                    key = { _, item -> item.key },
+-                ) { index, item ->
++                    items = visibleRows,
++                    key = { _, row -> row.item.key },
++                ) { index, row ->
+                     InboxItemRow(
+-                        item = item,
+-                        modifier = Modifier.focusRequester(requesters.getOrPut(item.key) { FocusRequester() }),
+-                        onOpen = { focusMemory.remember(FOCUS_SURFACE_INBOX, item.key, index) },
++                        row = row,
++                        modifier =
++                            Modifier
++                                .focusRequester(requesters.getOrPut(row.item.key) { FocusRequester() })
++                                .clusterKeys(row, rowActions),
++                        onOpen = { focusMemory.remember(FOCUS_SURFACE_INBOX, row.item.key, index) },
+                         onConversation = onConversation,
+                         onCall = onCall,
+                         onTextCaller = onTextCaller,
+@@ -973,9 +1045,287 @@ private fun ColumnScope.InboxPivot(
+                 }
+             }
+         }
++
++        if (dockEntries.isNotEmpty()) {
++            InboxSourceDock(
++                entries = dockEntries,
++                state = state,
++                focus = dockFocus,
++                loadAppIcon = actions.loadAppIcon,
++                onLongPress = { source ->
++                    if (source is HubDockSource.App) {
++                        val opened = actions.onOpenConnectedApp(source.packageName, source.userSerial)
++                        if (!opened) state.statusMessage = "The source app is unavailable."
++                    }
++                },
++            )
++        }
++    }
++}
++
++/** What a combined row does on Right/Space (expand) and Left (collapse, back to its parent). */
++private class HubInboxRowActions(
++    val onExpand: (HubInboxCluster) -> Unit,
++    val onCollapse: (HubInboxCluster) -> Unit,
++)
++
++/**
++ * Keyboard for combined conversations: on a parent row Right or Space expands and Left collapses
++ * (Space toggles); on a child row Left collapses and returns to the parent. Enter still opens.
++ */
++private fun Modifier.clusterKeys(
++    row: HubInboxRow,
++    actions: HubInboxRowActions,
++): Modifier =
++    if (row.role == HubInboxRowRole.Single) {
++        this
++    } else {
++        onPreviewKeyEvent { event ->
++            val space = event.key == Key.Spacebar
++            val parent = row.role == HubInboxRowRole.Parent
++            when {
++                // Swallow Space's key-up too, so it never also activates the row.
++                space && parent && event.type == KeyEventType.KeyUp -> {
++                    true
++                }
++
++                event.type != KeyEventType.KeyDown -> {
++                    false
++                }
++
++                parent && !row.expanded && (event.key == Key.DirectionRight || space) -> {
++                    actions.onExpand(row.cluster)
++                    true
++                }
++
++                parent && row.expanded && space -> {
++                    actions.onCollapse(row.cluster)
++                    true
++                }
++
++                event.key == Key.DirectionLeft && row.expanded -> {
++                    actions.onCollapse(row.cluster)
++                    true
++                }
++
++                else -> {
++                    false
++                }
++            }
++        }
++    }
++
++/** Focus targets of the dock: its first entry, else its expand button. */
++private class HubDockFocus {
++    val firstEntry = FocusRequester()
++    val chevron = FocusRequester()
++
++    suspend fun focus() {
++        withFrameNanos { }
++        if (runCatching { firstEntry.requestFocus() }.isFailure) {
++            runCatching { chevron.requestFocus() }
++        }
++    }
++}
++
++/**
++ * The source dock: one round entry per source with its count, most attention first. Enter or a
++ * tap narrows the inbox to that source (again clears it); a long press opens a connected app.
++ * The chevron switches between one scrolling row and a wrapped grid (the 720x720 square screen).
++ */
++@Composable
++private fun InboxSourceDock(
++    entries: List<HubDockEntry>,
++    state: HubUiState,
++    focus: HubDockFocus,
++    loadAppIcon: suspend (String, Long) -> ImageBitmap?,
++    onLongPress: (HubDockSource) -> Unit,
++) {
++    val expanded = state.dockExpanded
++    val visible = HubSourceDock.visible(entries, expanded, state.dockSource)
++    val entryButtons: @Composable () -> Unit = {
++        visible.forEachIndexed { index, entry ->
++            DockEntryButton(
++                entry = entry,
++                selected = entry.source == state.dockSource,
++                modifier = if (index == 0) Modifier.focusRequester(focus.firstEntry) else Modifier,
++                loadAppIcon = loadAppIcon,
++                onSelect = { state.selectDockSource(entry.source) },
++                onLongPress = { onLongPress(entry.source) },
++            )
++        }
++    }
++    Surface(
++        modifier = Modifier.fillMaxWidth(),
++        shape = RoundedCornerShape(HubDockCornerRadius),
++        color = MaterialTheme.colorScheme.surfaceVariant,
++    ) {
++        Row(
++            modifier = Modifier.padding(horizontal = SableSpacing.Sm, vertical = SableSpacing.Xs),
++            verticalAlignment = if (expanded) Alignment.Top else Alignment.CenterVertically,
++        ) {
++            when {
++                visible.isEmpty() -> {
++                    Text(
++                        text = "Nothing new",
++                        modifier = Modifier.weight(1f).padding(horizontal = SableSpacing.Sm),
++                        style = MaterialTheme.typography.bodyMedium,
++                        color = MaterialTheme.colorScheme.onSurfaceVariant,
++                    )
++                }
++
++                expanded -> {
++                    FlowRow(
++                        modifier = Modifier.weight(1f),
++                        horizontalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
++                        verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
++                    ) {
++                        entryButtons()
++                    }
++                }
++
++                else -> {
++                    Row(
++                        modifier = Modifier.weight(1f).horizontalScroll(rememberScrollState()),
++                        horizontalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
++                    ) {
++                        entryButtons()
++                    }
++                }
++            }
++            Spacer(Modifier.width(SableSpacing.Xs))
++            DockChevron(
++                expanded = expanded,
++                modifier = Modifier.focusRequester(focus.chevron),
++                onToggle = { state.dockExpanded = !expanded },
++            )
++        }
++    }
++}
++
++@Composable
++private fun DockChevron(
++    expanded: Boolean,
++    modifier: Modifier,
++    onToggle: () -> Unit,
++) {
++    val description = if (expanded) "Show fewer sources" else "Show all sources"
++    Box(
++        modifier =
++            modifier
++                .size(HubDockSlotSize)
++                .sableFocusRing()
++                .clickable(onClick = onToggle)
++                .semantics { contentDescription = description },
++        contentAlignment = Alignment.Center,
++    ) {
++        Box(
++            modifier =
++                Modifier
++                    .size(HubDockIconSize)
++                    .background(MaterialTheme.colorScheme.surface, CircleShape),
++            contentAlignment = Alignment.Center,
++        ) {
++            Text(
++                text = if (expanded) "⌄" else "⌃",
++                style = MaterialTheme.typography.titleLarge,
++                color = MaterialTheme.colorScheme.onSurface,
++            )
++        }
++    }
++}
++
++@Composable
++private fun DockEntryButton(
++    entry: HubDockEntry,
++    selected: Boolean,
++    modifier: Modifier,
++    loadAppIcon: suspend (String, Long) -> ImageBitmap?,
++    onSelect: () -> Unit,
++    onLongPress: () -> Unit,
++) {
++    val source = entry.source
++    val icon by produceState<ImageBitmap?>(null, source) {
++        value = (source as? HubDockSource.App)?.let { app -> loadAppIcon(app.packageName, app.userSerial) }
++    }
++    val description = if (entry.count > 0) "${entry.label}, ${entry.count}" else entry.label
++    Box(
++        modifier =
++            modifier
++                .size(HubDockSlotSize)
++                .sableFocusRing()
++                .combinedClickable(onClick = onSelect, onLongClick = onLongPress)
++                .semantics {
++                    contentDescription = description
++                    this.selected = selected
++                },
++    ) {
++        val ring = if (selected) HubUnreadAccent else Color.Transparent
++        Box(
++            modifier =
++                Modifier
++                    .align(Alignment.Center)
++                    .size(HubDockIconSize)
++                    .clip(CircleShape)
++                    .background(MaterialTheme.colorScheme.surface)
++                    .border(2.dp, ring, CircleShape),
++            contentAlignment = Alignment.Center,
++        ) {
++            val bitmap = icon
++            if (bitmap != null) {
++                Image(
++                    bitmap = bitmap,
++                    contentDescription = null,
++                    modifier = Modifier.size(HubDockIconSize).padding(SableSpacing.Xs),
++                )
++            } else {
++                Text(
++                    text = dockGlyph(entry),
++                    style = MaterialTheme.typography.labelLarge,
++                    color = MaterialTheme.colorScheme.onSurface,
++                    maxLines = 1,
++                )
++            }
++        }
++        if (entry.count > 0) {
++            Box(
++                modifier =
++                    Modifier
++                        .align(Alignment.TopEnd)
++                        .background(HubUnreadAccent, CircleShape)
++                        .padding(horizontal = SableSpacing.Xs),
++                contentAlignment = Alignment.Center,
++            ) {
++                Text(
++                    text = entry.count.toString(),
++                    style = MaterialTheme.typography.labelSmall,
++                    color = HubUnreadBackground,
++                )
++            }
++        }
+     }
+ }
+ 
++/** SMS and calls use Sable glyphs; apps without an icon (or hidden behind a profile) their initial. */
++private fun dockGlyph(entry: HubDockEntry): String =
++    when (entry.source) {
++        HubDockSource.Sms -> {
++            HubRedaction.SMS_LABEL
++        }
++
++        HubDockSource.Calls -> {
++            callGlyph(HubCallKind.Missed)
++        }
++
++        else -> {
++            entry.label
++                .trim()
++                .firstOrNull()
++                ?.uppercaseChar()
++                ?.toString() ?: "?"
++        }
++    }
++
+ private fun inboxNeedsAccess(
+     capabilities: HubCapabilities,
+     filter: HubInboxFilter,
+@@ -986,7 +1336,7 @@ private fun inboxNeedsAccess(
+         HubInboxFilter.All -> smsMissing || callLogMissing
+         HubInboxFilter.Messages -> smsMissing
+         HubInboxFilter.Calls -> callLogMissing
+-        HubInboxFilter.Notifications -> false
++        HubInboxFilter.Notifications, HubInboxFilter.Mail -> false
+     }
+ }
+ 
+@@ -1011,30 +1361,51 @@ private suspend fun restoreInboxRow(
+     return true
+ }
+ 
+-/** A/M/C/N pick an inbox filter; Alt, Ctrl and Meta chords are left to the system. */
+-private fun Modifier.inboxFilterShortcuts(onSelect: (HubInboxFilter) -> Unit): Modifier =
++/**
++ * A/M/C/N/E pick an inbox filter and D jumps to the source dock; Alt, Ctrl and Meta chords are
++ * left to the system.
++ */
++private fun Modifier.inboxFilterShortcuts(
++    onSelect: (HubInboxFilter) -> Unit,
++    onDock: () -> Unit,
++): Modifier =
+     onKeyEvent { event ->
+         val plain = !event.isAltPressed && !event.isCtrlPressed && !event.isMetaPressed
+-        val shortcut =
++        val typed =
+             if (event.type == KeyEventType.KeyDown && plain && event.utf16CodePoint > 0) {
+-                HubInboxFilter.forShortcut(event.utf16CodePoint.toChar())
++                event.utf16CodePoint.toChar().lowercaseChar()
+             } else {
+                 null
+             }
+-        shortcut?.let(onSelect) != null
++        val shortcut = typed?.let(HubInboxFilter::forShortcut)
++        when {
++            shortcut != null -> {
++                onSelect(shortcut)
++                true
++            }
++
++            typed == HubSourceDock.SHORTCUT -> {
++                onDock()
++                true
++            }
++
++            else -> {
++                false
++            }
++        }
+     }
+ 
+ /** [onOpen] records the row for focus restoration before it opens a thread or hands off a call. */
+ @Composable
+ private fun InboxItemRow(
+-    item: HubInboxItem,
++    row: HubInboxRow,
+     modifier: Modifier,
+     onOpen: () -> Unit,
+     onConversation: (HubConversation) -> Unit,
+     onCall: (HubCall) -> Unit,
+     onTextCaller: (HubCall) -> Unit,
+ ) {
+-    when (item) {
++    when (val item = row.item) {
+         is HubInboxItem.Conversation -> {
+             ConversationRow(
+                 conversation = item.conversation,
+@@ -1043,6 +1414,7 @@ private fun InboxItemRow(
+                     onConversation(item.conversation)
+                 },
+                 modifier = modifier,
++                rollup = row,
+             )
+         }
+ 
+@@ -1058,6 +1430,7 @@ private fun InboxItemRow(
+                     onTextCaller(item.call)
+                 },
+                 modifier = modifier,
++                divider = row.divider,
+             )
+         }
+     }
+@@ -1074,6 +1447,7 @@ private fun inboxEmptyText(
+         filter == HubInboxFilter.Calls && !capabilities.canReadCallLog -> "Grant call log access to show recent calls."
+         filter == HubInboxFilter.Calls -> "No recent calls."
+         filter == HubInboxFilter.Notifications -> "No connected-app conversations. Choose apps under connected apps."
++        filter == HubInboxFilter.Mail -> "No mail notifications. Turn on a mail app under connected apps."
+         else -> "No conversations yet."
+     }
+ 
+@@ -1143,6 +1517,7 @@ private fun CallRow(
+     onCall: () -> Unit,
+     onText: () -> Unit,
+     modifier: Modifier = Modifier,
++    divider: HubInboxDivider = HubInboxDivider.Single,
+ ) {
+     val attention = call.kind.needsAttention
+     val avatarBackground = if (attention) HubUnreadBackground else MaterialTheme.colorScheme.surfaceVariant
+@@ -1202,13 +1577,22 @@ private fun CallRow(
+             )
+         }
+     }
+-    Box(
+-        modifier =
+-            Modifier
+-                .fillMaxWidth()
+-                .height(1.dp)
+-                .background(MaterialTheme.colorScheme.surfaceVariant),
+-    )
++    HubRowDivider(divider)
++}
++
++/** One thin line under a row; two lines with a 2 dp gap close a combined conversation. */
++@Composable
++private fun HubRowDivider(divider: HubInboxDivider) {
++    val line =
++        Modifier
++            .fillMaxWidth()
++            .height(1.dp)
++            .background(MaterialTheme.colorScheme.surfaceVariant)
++    Box(modifier = line)
++    if (divider == HubInboxDivider.Double) {
++        Spacer(Modifier.height(HubDoubleDividerGap))
++        Box(modifier = line)
++    }
+ }
+ 
+ private fun callGlyph(kind: HubCallKind): String =
+@@ -1237,7 +1621,10 @@ private fun ConversationRow(
+     conversation: HubConversation,
+     onClick: () -> Unit,
+     modifier: Modifier = Modifier,
++    rollup: HubInboxRow? = null,
+ ) {
++    val child = rollup?.role == HubInboxRowRole.Child
++    val parent = rollup?.takeIf { it.role == HubInboxRowRole.Parent }
+     val unread = conversation.unreadCount > 0
+     val accent =
+         if (unread) {
+@@ -1263,28 +1650,35 @@ private fun ConversationRow(
+                 .padding(vertical = HubRowVerticalPadding),
+         verticalAlignment = Alignment.CenterVertically,
+     ) {
+-        Box(
+-            modifier =
+-                Modifier
+-                    .size(HubAvatarSize)
+-                    .background(avatarBackground, CircleShape),
+-            contentAlignment = Alignment.Center,
+-        ) {
+-            Text(
+-                text = initial,
+-                style = MaterialTheme.typography.titleLarge,
+-                color = MaterialTheme.colorScheme.onSurface,
+-            )
++        if (child) {
++            // A combined child repeats neither the person's name nor the avatar.
++            Spacer(Modifier.width(HubAvatarSize))
++        } else {
++            Box(
++                modifier =
++                    Modifier
++                        .size(HubAvatarSize)
++                        .background(avatarBackground, CircleShape),
++                contentAlignment = Alignment.Center,
++            ) {
++                Text(
++                    text = initial,
++                    style = MaterialTheme.typography.titleLarge,
++                    color = MaterialTheme.colorScheme.onSurface,
++                )
++            }
+         }
+         Spacer(Modifier.width(HubAvatarTextGap))
+         Column(modifier = Modifier.weight(1f)) {
+-            Text(
+-                text = conversation.displayName,
+-                style = MaterialTheme.typography.titleMedium,
+-                color = MaterialTheme.colorScheme.onSurface,
+-                maxLines = 1,
+-                overflow = TextOverflow.Ellipsis,
+-            )
++            if (!child) {
++                Text(
++                    text = conversation.displayName,
++                    style = MaterialTheme.typography.titleMedium,
++                    color = MaterialTheme.colorScheme.onSurface,
++                    maxLines = 1,
++                    overflow = TextOverflow.Ellipsis,
++                )
++            }
+             Text(
+                 text = conversationPreview(conversation),
+                 style = MaterialTheme.typography.bodyLarge,
+@@ -1292,6 +1686,7 @@ private fun ConversationRow(
+                 maxLines = 1,
+                 overflow = TextOverflow.Ellipsis,
+             )
++            parent?.let { row -> RollupLine(row) }
+         }
+         Spacer(Modifier.width(HubTrailingGap))
+         Column(
+@@ -1311,13 +1706,36 @@ private fun ConversationRow(
+             }
+         }
+     }
+-    Box(
+-        modifier =
+-            Modifier
+-                .fillMaxWidth()
+-                .height(1.dp)
+-                .background(MaterialTheme.colorScheme.surfaceVariant),
+-    )
++    HubRowDivider(rollup?.divider ?: HubInboxDivider.Single)
++}
++
++/** Under a combined parent: the "+N" pill (with its expand state) and the children's sources. */
++@Composable
++private fun RollupLine(row: HubInboxRow) {
++    Row(
++        verticalAlignment = Alignment.CenterVertically,
++        horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
++    ) {
++        Box(
++            modifier =
++                Modifier
++                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(HubPillCornerRadius))
++                    .padding(horizontal = SableSpacing.Sm),
++        ) {
++            Text(
++                text = "+" + row.cluster.children.size + if (row.expanded) " ▾" else " ▸",
++                style = MaterialTheme.typography.labelLarge,
++                color = MaterialTheme.colorScheme.onSurface,
++            )
++        }
++        Text(
++            text = row.cluster.childSourceLabels.joinToString(" · "),
++            style = MaterialTheme.typography.bodyMedium,
++            color = MaterialTheme.colorScheme.onSurfaceVariant,
++            maxLines = 1,
++            overflow = TextOverflow.Ellipsis,
++        )
++    }
+ }
+ 
+ /** Source label on every row: the inbox mixes SMS, calls and connected apps. */
+@@ -1894,6 +2312,11 @@ private val HubBubbleMaxWidth = 320.dp
+ private val HubBubbleCornerRadius = 18.dp
+ private val HubUnreadAccent = Color(0xFF35C66B)
+ private val HubUnreadBackground = Color(0xFF0B3524)
++private val HubDoubleDividerGap = 2.dp
++private val HubDockSlotSize = 48.dp
++private val HubDockIconSize = 40.dp
++private val HubDockCornerRadius = 28.dp
++private val HubPillCornerRadius = 10.dp
+ 
+ private const val REVIEW_ACCESS_LABEL = "Review access"
+ private const val SMS_PREVIEW_LENGTH = 120
+diff --git a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/HubModelsTest.kt b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/HubModelsTest.kt
+index d94916a..d3738c7 100644
+--- a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/HubModelsTest.kt
++++ b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/HubModelsTest.kt
+@@ -319,4 +319,88 @@ class HubModelsTest {
+             reduced.messages.map(HubMessage::threadId),
+         )
+     }
++
++    private fun connectedRecord(
++        id: String,
++        timestampMillis: Long,
++        incoming: Boolean,
++        category: String? = null,
++    ) = ConnectedNotificationRecord(
++        id = id,
++        key = ConnectedAppKey(packageName = "org.example.mail", userSerial = 0L),
++        notificationKey = "notification-1",
++        conversationId = "ana",
++        conversationTitle = "Ana",
++        sourceLabel = "Example Mail",
++        senderLabel = null,
++        body = "body $id",
++        timestampMillis = timestampMillis,
++        incoming = incoming,
++        category = category,
++    )
++
++    @Test
++    fun connectedReducerCarriesTheNotificationCategory() {
++        val records =
++            listOf(
++                connectedRecord("a", 100L, incoming = true, category = "email"),
++                connectedRecord("b", 200L, incoming = true, category = null),
++            )
++        assertEquals(
++            "email",
++            HubConnectedConversationReducer
++                .reduce(records)
++                .conversations
++                .single()
++                .category,
++        )
++        assertEquals(
++            null,
++            HubConnectedConversationReducer
++                .reduce(records.map { it.copy(category = null) })
++                .conversations
++                .single()
++                .category,
++        )
++    }
++
++    @Test
++    fun connectedConversationIsUnreadOnlyWhileItsNotificationIsPosted() {
++        val records =
++            listOf(
++                connectedRecord("a", 100L, incoming = true),
++                connectedRecord("b", 200L, incoming = false),
++                connectedRecord("c", 300L, incoming = true),
++                connectedRecord("d", 400L, incoming = true),
++            )
++        // Default (no active notifications known): no read state is invented.
++        assertEquals(
++            0,
++            HubConnectedConversationReducer
++                .reduce(records)
++                .conversations
++                .single()
++                .unreadCount,
++        )
++        val active =
++            HubConnectedConversationReducer.reduce(records, isActive = { key, conversationId ->
++                key.packageName == "org.example.mail" && conversationId == "ana"
++            })
++        // Incoming messages since the user's last reply.
++        assertEquals(2, active.conversations.single().unreadCount)
++        val repliedLast =
++            HubConnectedConversationReducer.reduce(
++                records + connectedRecord("e", 500L, incoming = false),
++                isActive = { _, _ -> true },
++            )
++        assertEquals(1, repliedLast.conversations.single().unreadCount)
++    }
++
++    @Test
++    fun historySchemaKeepsVersionTwoRowsWhenAddingTheCategory() {
++        assertEquals(3, ConnectedHistorySchema.VERSION)
++        assertEquals(ConnectedHistoryMigration.AddCategory, ConnectedHistorySchema.migration(2, 3))
++        assertEquals(ConnectedHistoryMigration.None, ConnectedHistorySchema.migration(3, 3))
++        assertEquals(ConnectedHistoryMigration.Recreate, ConnectedHistorySchema.migration(1, 3))
++    }
+ }
+diff --git a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubConversationRollupTest.kt b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubConversationRollupTest.kt
+new file mode 100644
+index 0000000..2a30b8b
+--- /dev/null
++++ b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubConversationRollupTest.kt
+@@ -0,0 +1,146 @@
++package org.sableos.hub.policy
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++import org.sableos.hub.HubCall
++import org.sableos.hub.HubCallKind
++import org.sableos.hub.HubConversation
++import org.sableos.hub.HubConversationSource
++
++class HubConversationRollupTest {
++    private fun sms(
++        id: Long,
++        name: String,
++        address: String,
++    ): HubInboxItem =
++        HubInboxItem.Conversation(
++            HubConversation(
++                threadId = id,
++                address = address,
++                displayName = name,
++                lastBody = "text",
++                lastDateMillis = 1_000L - id,
++                unreadCount = 0,
++            ),
++        )
++
++    private fun chat(
++        id: Long,
++        title: String,
++        label: String = "WhatsApp",
++    ): HubInboxItem =
++        HubInboxItem.Conversation(
++            HubConversation(
++                threadId = -id,
++                address = "chat-$id",
++                displayName = title,
++                lastBody = "text",
++                lastDateMillis = 1_000L - id,
++                unreadCount = 0,
++                source = HubConversationSource.ConnectedApp,
++                sourcePackage = "pkg.$label",
++                sourceUserSerial = 0L,
++                sourceLabel = label,
++            ),
++        )
++
++    private fun call(
++        id: Long,
++        name: String,
++    ): HubInboxItem = HubInboxItem.Call(HubCall(id, "+15550100100", name, 1_000L - id, HubCallKind.Missed))
++
++    private fun shape(clusters: List<HubInboxCluster>): List<Int> = clusters.map { it.children.size }
++
++    @Test
++    fun adjacentRowsFromOnePersonRollUpUnderTheNewest() {
++        val items = listOf(chat(1, "Maya"), chat(2, "Maya", "Signal"), chat(3, "Maya", "Gmail"), chat(4, "Leo"))
++        val clusters = HubConversationRollup.clusters(items, enabled = true)
++        assertEquals(listOf(2, 0), shape(clusters))
++        assertEquals(items[0], clusters[0].parent)
++        assertEquals(items[0].key, clusters[0].id)
++        assertEquals(listOf("Signal", "Gmail"), clusters[0].childSourceLabels)
++    }
++
++    @Test
++    fun anotherChatInBetweenBreaksTheRun() {
++        val items = listOf(chat(1, "Maya"), chat(2, "Leo"), chat(3, "Maya"))
++        assertEquals(listOf(0, 0, 0), shape(HubConversationRollup.clusters(items, enabled = true)))
++    }
++
++    @Test
++    fun crossSourceSamePersonByNameIgnoringCaseAndWhitespace() {
++        val items = listOf(sms(1, "Maya  Lee", "+15550100100"), chat(2, " maya lee"))
++        assertEquals(listOf(1), shape(HubConversationRollup.clusters(items, enabled = true)))
++    }
++
++    @Test
++    fun smsRowsMatchBySameAddressEvenWithDifferentNames() {
++        val items = listOf(sms(1, "Maya", "+1 (555) 010-0100"), sms(2, "+15550100100", "+15550100100"))
++        assertEquals(listOf(1), shape(HubConversationRollup.clusters(items, enabled = true)))
++    }
++
++    @Test
++    fun groupChatNeverMergesWithAOneToOneChat() {
++        val items = listOf(chat(1, "Maya"), chat(2, "Maya, Leo, Sam"), chat(3, "Maya & Leo"))
++        assertEquals(listOf(0, 0, 0), shape(HubConversationRollup.clusters(items, enabled = true)))
++    }
++
++    @Test
++    fun callsNeverCombine() {
++        val items = listOf(call(1, "Maya"), call(2, "Maya"), sms(3, "Maya", "+15550100100"), call(4, "Maya"))
++        assertEquals(listOf(0, 0, 0, 0), shape(HubConversationRollup.clusters(items, enabled = true)))
++        assertFalse(HubConversationRollup.samePerson(sms(3, "Maya", "+15550100100"), call(4, "Maya")))
++    }
++
++    @Test
++    fun redactedIdentitiesNeverCombine() {
++        // "App and count only": rows show the app label as the name.
++        val items = listOf(chat(1, "WhatsApp"), chat(2, "WhatsApp"))
++        assertEquals(listOf(0, 0), shape(HubConversationRollup.clusters(items, enabled = true)))
++        val number = "+15550100100"
++        val smsRedacted = listOf(sms(3, HubRedaction.SMS_LABEL, number), sms(4, HubRedaction.SMS_LABEL, number))
++        assertEquals(listOf(0, 0), shape(HubConversationRollup.clusters(smsRedacted, enabled = true)))
++        val work = HubRedaction.WORK_PROFILE_LABEL
++        val profile = listOf(chat(5, work), chat(6, work, "Slack"))
++        assertEquals(listOf(0, 0), shape(HubConversationRollup.clusters(profile, enabled = true)))
++    }
++
++    @Test
++    fun settingOffIsIdentity() {
++        val items = listOf(chat(1, "Maya"), chat(2, "Maya"), call(3, "Maya"), sms(4, "Leo", "+15550100101"))
++        val clusters = HubConversationRollup.clusters(items, enabled = false)
++        assertEquals(items, clusters.map { it.parent })
++        assertTrue(clusters.none { it.rolledUp })
++        val rows = HubConversationRollup.rows(clusters, expanded = emptySet())
++        assertEquals(items, rows.map { it.item })
++        assertTrue(rows.all { it.role == HubInboxRowRole.Single && it.divider == HubInboxDivider.Single })
++    }
++
++    @Test
++    fun collapsedParentHidesChildrenAndDrawsTheDoubleDivider() {
++        val items = listOf(chat(1, "Maya"), chat(2, "Maya"), chat(3, "Leo"))
++        val rows = HubConversationRollup.rows(HubConversationRollup.clusters(items, true), expanded = emptySet())
++        assertEquals(listOf(items[0], items[2]), rows.map { it.item })
++        assertEquals(listOf(HubInboxRowRole.Parent, HubInboxRowRole.Single), rows.map { it.role })
++        assertEquals(listOf(HubInboxDivider.Double, HubInboxDivider.Single), rows.map { it.divider })
++    }
++
++    @Test
++    fun expandedClusterShowsChildrenAndClosesWithTheDoubleDivider() {
++        val items = listOf(chat(1, "Maya"), chat(2, "Maya"), chat(3, "Maya"), chat(4, "Leo"))
++        val clusters = HubConversationRollup.clusters(items, true)
++        val rows = HubConversationRollup.rows(clusters, expanded = setOf(clusters[0].id))
++        assertEquals(items, rows.map { it.item })
++        assertEquals(
++            listOf(HubInboxRowRole.Parent, HubInboxRowRole.Child, HubInboxRowRole.Child, HubInboxRowRole.Single),
++            rows.map { it.role },
++        )
++        assertEquals(
++            listOf(HubInboxDivider.Single, HubInboxDivider.Single, HubInboxDivider.Double, HubInboxDivider.Single),
++            rows.map { it.divider },
++        )
++        assertTrue(rows.take(3).all { it.expanded })
++    }
++}
+diff --git a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubInboxTest.kt b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubInboxTest.kt
+index 3582159..7072d23 100644
+--- a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubInboxTest.kt
++++ b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubInboxTest.kt
+@@ -102,6 +102,23 @@ class HubInboxTest {
+         )
+     }
+ 
++    @Test
++    fun mailFilterKeepsConnectedMailByPackageOrCategory() {
++        val gmail =
++            connected.copy(threadId = -43L, address = "inbox", sourcePackage = "com.google.android.gm", unreadCount = 1)
++        val categorized =
++            connected.copy(threadId = -44L, address = "news", sourcePackage = "org.example.mail", category = "email")
++        val all = conversations + gmail + categorized
++        assertEquals(
++            listOf(gmail, categorized),
++            HubInbox.items(all, calls, HubInboxFilter.Mail).map { (it as HubInboxItem.Conversation).conversation },
++        )
++        assertEquals(1, HubInbox.attentionCount(all, calls, HubInboxFilter.Mail))
++        // Mail stays a connected-app notification too.
++        assertEquals(3, HubInbox.items(all, calls, HubInboxFilter.Notifications).size)
++        assertEquals(HubInboxFilter.Mail, HubInboxFilter.forShortcut('e'))
++    }
++
+     @Test
+     fun callKindsMapFromCallLogTypes() {
+         assertEquals(HubCallKind.Incoming, HubCallKind.fromCallLogType(1))
+diff --git a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubMailSourcesTest.kt b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubMailSourcesTest.kt
+new file mode 100644
+index 0000000..ef2a00e
+--- /dev/null
++++ b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubMailSourcesTest.kt
+@@ -0,0 +1,86 @@
++package org.sableos.hub.policy
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++import org.sableos.hub.HubConversation
++import org.sableos.hub.HubConversationSource
++
++class HubMailSourcesTest {
++    @Test
++    fun knownMailPackagesAreMailWithoutACategory() {
++        listOf(
++            "com.google.android.gm",
++            "com.microsoft.office.outlook",
++            "ch.protonmail.android",
++            "com.yahoo.mobile.client.android.mail",
++            "com.readdle.spark",
++            "eu.faircode.email",
++            "com.fsck.k9",
++            "net.thunderbird.android",
++            "com.samsung.android.email.provider",
++            "me.bluemail.mail",
++            "de.tutao.tutanota",
++            "com.fastmail.app",
++            "org.sableos.mail",
++            "com.android.email",
++        ).forEach { packageName ->
++            assertTrue(packageName, HubMailSources.isMail(packageName, null))
++        }
++        assertEquals(14, HubMailSources.KNOWN_PACKAGES.size)
++    }
++
++    @Test
++    fun unknownPackageWithEmailCategoryIsMail() {
++        assertTrue(HubMailSources.isMail("org.example.newmail", "email"))
++        assertTrue(HubMailSources.isMail("org.example.newmail", HubMailSources.CATEGORY_EMAIL))
++    }
++
++    @Test
++    fun unknownPackageWithOtherCategoryIsNotMail() {
++        assertFalse(HubMailSources.isMail("org.thoughtcrime.securesms", "msg"))
++        assertFalse(HubMailSources.isMail("org.thoughtcrime.securesms", null))
++        assertFalse(HubMailSources.isMail(null, null))
++        assertFalse(HubMailSources.isMail("org.example.app", "EMAIL"))
++    }
++
++    @Test
++    fun onlyConnectedConversationsAreMail() {
++        val connected =
++            HubConversation(
++                threadId = -1L,
++                address = "inbox",
++                displayName = "Ana",
++                lastBody = "Invoice",
++                lastDateMillis = 1L,
++                unreadCount = 0,
++                source = HubConversationSource.ConnectedApp,
++                sourcePackage = "org.example.newmail",
++                sourceUserSerial = 0L,
++                category = "email",
++            )
++        assertTrue(HubMailSources.isMail(connected))
++        assertTrue(HubMailSources.isMail(connected.copy(category = null, sourcePackage = "com.google.android.gm")))
++        assertFalse(HubMailSources.isMail(connected.copy(category = "msg")))
++        // An SMS row is never mail, whatever its fields say.
++        assertFalse(HubMailSources.isMail(connected.copy(source = HubConversationSource.Sms)))
++    }
++
++    @Test
++    fun duplicateWarningNeedsTwoDistinctKnownMailApps() {
++        assertFalse(HubMailSources.duplicateAccountWarning(emptyList()))
++        assertFalse(HubMailSources.duplicateAccountWarning(listOf("com.google.android.gm")))
++        // The same app in two profiles is one app.
++        assertFalse(HubMailSources.duplicateAccountWarning(listOf("com.google.android.gm", "com.google.android.gm")))
++        // Non-mail apps do not count.
++        val withChat = listOf("com.google.android.gm", "org.thoughtcrime.securesms")
++        assertFalse(HubMailSources.duplicateAccountWarning(withChat))
++        assertTrue(HubMailSources.duplicateAccountWarning(listOf("com.google.android.gm", "org.sableos.mail")))
++        assertTrue(
++            HubMailSources.duplicateAccountWarning(
++                listOf("ch.protonmail.android", "com.microsoft.office.outlook", "com.fsck.k9"),
++            ),
++        )
++    }
++}
+diff --git a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubSourceDockTest.kt b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubSourceDockTest.kt
+new file mode 100644
+index 0000000..2f88e18
+--- /dev/null
++++ b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubSourceDockTest.kt
+@@ -0,0 +1,155 @@
++package org.sableos.hub.policy
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++import org.sableos.hub.HubCall
++import org.sableos.hub.HubCallKind
++import org.sableos.hub.HubConversation
++import org.sableos.hub.HubConversationSource
++
++class HubSourceDockTest {
++    private fun sms(
++        id: Long,
++        unread: Int,
++    ) = HubConversation(
++        threadId = id,
++        address = "+1555010010$id",
++        displayName = "Person $id",
++        lastBody = "hi",
++        lastDateMillis = id,
++        unreadCount = unread,
++    )
++
++    private fun app(
++        id: Long,
++        packageName: String,
++        label: String,
++        unread: Int,
++        serial: Long = 0L,
++    ) = HubConversation(
++        threadId = -id,
++        address = "chat-$id",
++        displayName = "Chat $id",
++        lastBody = "hi",
++        lastDateMillis = id,
++        unreadCount = unread,
++        source = HubConversationSource.ConnectedApp,
++        sourcePackage = packageName,
++        sourceUserSerial = serial,
++        sourceLabel = label,
++    )
++
++    private val missed = HubCall(1L, "+15550100200", "Alex", 5L, HubCallKind.Missed)
++    private val outgoing = HubCall(2L, "+15550100201", "Sam", 4L, HubCallKind.Outgoing)
++
++    @Test
++    fun countsMatchAttentionCountsPerSource() {
++        val conversations =
++            listOf(
++                sms(1, unread = 2),
++                sms(2, unread = 0),
++                sms(3, unread = 1),
++                app(4, "com.whatsapp", "WhatsApp", unread = 3),
++                app(5, "com.whatsapp", "WhatsApp", unread = 0),
++                app(6, "com.google.android.gm", "Gmail", unread = 1),
++                app(7, "org.thoughtcrime.securesms", "Signal", unread = 0),
++            )
++        val entries = HubSourceDock.entries(conversations, listOf(missed, outgoing))
++        val counts = entries.associate { it.label to it.count }
++        // Unread conversations (not messages), as HubInbox.attentionCount counts them.
++        assertEquals(2, counts["SMS"])
++        assertEquals(1, counts["WhatsApp"])
++        assertEquals(1, counts["Gmail"])
++        assertEquals(0, counts["Signal"])
++        assertEquals(1, counts[HubSourceDock.CALLS_LABEL])
++        assertEquals(
++            HubInbox.attentionCount(conversations, listOf(missed, outgoing), HubInboxFilter.All),
++            entries.sumOf { it.count },
++        )
++        assertTrue(entries.single { it.label == "Gmail" }.mail)
++        assertFalse(entries.single { it.label == "WhatsApp" }.mail)
++    }
++
++    @Test
++    fun sourcesWithCountsComeFirstByCountThenName() {
++        val conversations =
++            listOf(
++                app(1, "org.thoughtcrime.securesms", "Signal", unread = 0),
++                app(2, "com.whatsapp", "WhatsApp", unread = 1),
++                app(3, "com.google.android.gm", "Gmail", unread = 1),
++                app(4, "com.google.android.gm", "Gmail", unread = 1),
++                app(5, "com.Slack", "slack", unread = 1),
++            )
++        val labels = HubSourceDock.entries(conversations, emptyList()).map { it.label }
++        assertEquals(listOf("Gmail", "slack", "WhatsApp", "Signal"), labels)
++    }
++
++    @Test
++    fun zeroCountSourcesShowOnlyWhenExpandedOrSelected() {
++        val entries =
++            HubSourceDock.entries(
++                listOf(app(1, "a.pkg", "Alpha", unread = 1), app(2, "b.pkg", "Beta", unread = 0)),
++                listOf(outgoing),
++            )
++        assertEquals(listOf("Alpha"), HubSourceDock.visible(entries, expanded = false).map { it.label })
++        assertEquals(3, HubSourceDock.visible(entries, expanded = true).size)
++        val beta = HubDockSource.App("b.pkg", 0L)
++        assertEquals(
++            listOf("Alpha", "Beta"),
++            HubSourceDock.visible(entries, expanded = false, selected = beta).map { it.label },
++        )
++    }
++
++    @Test
++    fun noRowsMeansNoEntries() {
++        assertTrue(HubSourceDock.entries(emptyList(), emptyList()).isEmpty())
++    }
++
++    @Test
++    fun sameAppInTwoProfilesIsTwoEntries() {
++        val entries =
++            HubSourceDock.entries(
++                listOf(
++                    app(1, "com.whatsapp", "WhatsApp", unread = 1),
++                    app(2, "com.whatsapp", "WhatsApp", unread = 1, serial = 10L).copy(profileBadge = "Work"),
++                ),
++                emptyList(),
++            )
++        assertEquals(setOf("WhatsApp", "WhatsApp · Work"), entries.map { it.label }.toSet())
++    }
++
++    @Test
++    fun genericProfileRowsShareOneEntryAndHideTheApp() {
++        val hidden =
++            listOf(
++                app(1, "com.whatsapp", HubRedaction.WORK_PROFILE_LABEL, unread = 1, serial = 10L),
++                app(2, "com.slack", HubRedaction.WORK_PROFILE_LABEL, unread = 1, serial = 10L),
++            )
++        val entry = HubSourceDock.entries(hidden, emptyList()).single()
++        assertEquals(HubDockSource.Profile(10L), entry.source)
++        assertEquals(HubRedaction.WORK_PROFILE_LABEL, entry.label)
++        assertEquals(2, entry.count)
++    }
++
++    @Test
++    fun narrowKeepsOnlyTheSourceAndToggleClears() {
++        val conversations = listOf(sms(1, 0), app(2, "com.whatsapp", "WhatsApp", 0))
++        val items = HubInbox.items(conversations, listOf(missed), HubInboxFilter.All)
++        assertEquals(items, HubSourceDock.narrow(items, null))
++        assertEquals(listOf("call:1"), HubSourceDock.narrow(items, HubDockSource.Calls).map { it.key })
++        assertEquals(1, HubSourceDock.narrow(items, HubDockSource.Sms).size)
++        assertEquals(1, HubSourceDock.narrow(items, HubDockSource.App("com.whatsapp", 0L)).size)
++
++        assertEquals(HubDockSource.Sms, HubSourceDock.toggle(null, HubDockSource.Sms))
++        assertNull(HubSourceDock.toggle(HubDockSource.Sms, HubDockSource.Sms))
++        assertEquals(HubDockSource.Calls, HubSourceDock.toggle(HubDockSource.Sms, HubDockSource.Calls))
++    }
++
++    @Test
++    fun dockShortcutIsNotAFilterLetter() {
++        assertNull(HubInboxFilter.forShortcut(HubSourceDock.SHORTCUT))
++    }
++}
