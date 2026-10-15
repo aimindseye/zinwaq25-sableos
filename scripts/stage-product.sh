@@ -106,6 +106,9 @@ if [[ -f "$manifest" ]]; then
             echo "    apk: \"prebuilt/$filename\","
             if [[ "$signing" == presigned ]]; then
                 echo "    presigned: true,"
+                # Gradle output is already zipaligned and v2-signed; Soong
+                # rejects presigned targetSdk>=30 APKs it would re-process.
+                echo "    preprocessed: true,"
             else
                 echo "    default_dev_cert: true,"
             fi
