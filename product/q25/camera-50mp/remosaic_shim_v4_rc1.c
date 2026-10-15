@@ -984,8 +984,8 @@ static inline void cand_axis(double f, int n, int *i0, int *i1, double *w)
 static inline void cand_coef(int c, double y, double x, int k, double *g, double *o)
 {
 	/* the candidate grids are never larger than GY x GX; the clamp keeps every index inside the arrays */
-	int gw = g_cgx[c] < 1 ? 1 : (g_cgx[c] > GX ? GX : g_cgx[c]);
-	int gh = g_cgy[c] < 1 ? 1 : (g_cgy[c] > GY ? GY : g_cgy[c]);
+	int gw = clampi(g_cgx[c], 1, GX);
+	int gh = clampi(g_cgy[c], 1, GY);
 	double fy = y * gh / g_h - 0.5;
 	double fx = x * gw / g_w - 0.5;
 	int y0;
