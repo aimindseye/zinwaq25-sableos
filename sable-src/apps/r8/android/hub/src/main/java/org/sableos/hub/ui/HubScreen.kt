@@ -487,11 +487,7 @@ private fun HubConversationHost(
     snapshot: HubSnapshot,
     actions: HubActions,
 ) {
-    val conversation =
-        HubThreadResolver.resolve(snapshot.conversations, route.threadId, route.address)
-            ?: route.address?.takeIf(String::isNotBlank)?.let { address ->
-                newSmsConversation(address, snapshot)
-            }
+    val conversation: HubConversation? = conversationFor(route, snapshot)
     val onBack = { state.closeConversation(route.origin) }
 
     if (conversation == null) {
@@ -544,6 +540,21 @@ private fun HubComposeHost(
             },
         )
     }
+}
+
+/**
+ * The conversation [route] points at: an existing thread when one matches, otherwise a fresh SMS
+ * thread for a non-blank address, otherwise null (the route is stale).
+ */
+private fun conversationFor(
+    route: HubRoute.Conversation,
+    snapshot: HubSnapshot,
+): HubConversation? {
+    val existing: HubConversation? =
+        HubThreadResolver.resolve(snapshot.conversations, route.threadId, route.address)
+    if (existing != null) return existing
+    val address: String? = route.address
+    return if (address.isNullOrBlank()) null else newSmsConversation(address, snapshot)
 }
 
 /** An SMS thread that does not exist yet: the first message creates it in the provider. */

@@ -8,22 +8,31 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MediaKeymapTest {
-    @Suppress("LongParameterList")
+    /** Where the key lands: a focused text field and/or the now-playing screen. */
+    private data class KeyContext(
+        val typing: Boolean = false,
+        val nowPlaying: Boolean = false,
+    )
+
+    private val anywhere = KeyContext()
+    private val typingField = KeyContext(typing = true)
+    private val nowPlayingScreen = KeyContext(nowPlaying = true)
+
+    private fun cmd(
+        press: MediaKeyPress,
+        context: KeyContext = anywhere,
+    ): MediaKeyCommand? =
+        MediaKeymap.command(
+            press,
+            textInputActive = context.typing,
+            onNowPlaying = context.nowPlaying,
+        )
+
     private fun cmd(
         keyCode: Int,
         char: Char? = null,
-        shift: Boolean = false,
-        alt: Boolean = false,
-        ctrl: Boolean = false,
-        repeat: Int = 0,
-        typing: Boolean = false,
-        nowPlaying: Boolean = false,
-    ): MediaKeyCommand? =
-        MediaKeymap.command(
-            MediaKeyPress(keyCode, char, shift, alt, ctrl, repeat),
-            textInputActive = typing,
-            onNowPlaying = nowPlaying,
-        )
+        context: KeyContext = anywhere,
+    ): MediaKeyCommand? = cmd(MediaKeyPress(keyCode, char), context)
 
     @Test
     fun designInputContractLetters() {
@@ -50,43 +59,49 @@ class MediaKeymapTest {
 
     @Test
     fun shiftJkSeeks() {
-        assertEquals(MediaKeyCommand.SeekBack, cmd(KeyEvent.KEYCODE_J, 'J', shift = true))
-        assertEquals(MediaKeyCommand.SeekForward, cmd(KeyEvent.KEYCODE_K, 'K', shift = true))
+        assertEquals(MediaKeyCommand.SeekBack, cmd(MediaKeyPress(KeyEvent.KEYCODE_J, 'J', shift = true)))
+        assertEquals(MediaKeyCommand.SeekForward, cmd(MediaKeyPress(KeyEvent.KEYCODE_K, 'K', shift = true)))
     }
 
     @Test
     fun arrowsAreTrackKeysOnlyOnNowPlaying() {
         assertNull(cmd(KeyEvent.KEYCODE_DPAD_LEFT))
         assertNull(cmd(KeyEvent.KEYCODE_DPAD_RIGHT))
-        assertEquals(MediaKeyCommand.Previous, cmd(KeyEvent.KEYCODE_DPAD_LEFT, nowPlaying = true))
-        assertEquals(MediaKeyCommand.Next, cmd(KeyEvent.KEYCODE_DPAD_RIGHT, nowPlaying = true))
-        assertEquals(MediaKeyCommand.SeekBack, cmd(KeyEvent.KEYCODE_DPAD_LEFT, shift = true, nowPlaying = true))
-        assertEquals(MediaKeyCommand.SeekForward, cmd(KeyEvent.KEYCODE_DPAD_RIGHT, shift = true, nowPlaying = true))
+        assertEquals(MediaKeyCommand.Previous, cmd(KeyEvent.KEYCODE_DPAD_LEFT, context = nowPlayingScreen))
+        assertEquals(MediaKeyCommand.Next, cmd(KeyEvent.KEYCODE_DPAD_RIGHT, context = nowPlayingScreen))
+        assertEquals(
+            MediaKeyCommand.SeekBack,
+            cmd(MediaKeyPress(KeyEvent.KEYCODE_DPAD_LEFT, shift = true), nowPlayingScreen),
+        )
+        assertEquals(
+            MediaKeyCommand.SeekForward,
+            cmd(MediaKeyPress(KeyEvent.KEYCODE_DPAD_RIGHT, shift = true), nowPlayingScreen),
+        )
         // Up/Down always move focus.
-        assertNull(cmd(KeyEvent.KEYCODE_DPAD_DOWN, nowPlaying = true))
+        assertNull(cmd(KeyEvent.KEYCODE_DPAD_DOWN, context = nowPlayingScreen))
     }
 
     @Test
     fun symbolsMatchOnTheTypedCharacterIncludingAlt() {
         // On the Q25, `/`, `+` and `-` come from Alt (or Sym) plus a letter key.
         assertEquals(MediaKeyCommand.Search, cmd(KeyEvent.KEYCODE_SLASH, '/'))
-        assertEquals(MediaKeyCommand.Search, cmd(KeyEvent.KEYCODE_O, '/', alt = true))
+        assertEquals(MediaKeyCommand.Search, cmd(MediaKeyPress(KeyEvent.KEYCODE_O, '/', alt = true)))
         assertEquals(MediaKeyCommand.VolumeUp, cmd(KeyEvent.KEYCODE_PLUS, '+'))
         assertEquals(MediaKeyCommand.VolumeUp, cmd(KeyEvent.KEYCODE_EQUALS, '='))
         assertEquals(MediaKeyCommand.VolumeDown, cmd(KeyEvent.KEYCODE_MINUS, '-'))
-        assertEquals(MediaKeyCommand.VolumeDown, cmd(KeyEvent.KEYCODE_G, '-', alt = true))
+        assertEquals(MediaKeyCommand.VolumeDown, cmd(MediaKeyPress(KeyEvent.KEYCODE_G, '-', alt = true)))
     }
 
     @Test
     fun altLettersThatAreNotCommandSymbolsAreIgnored() {
-        assertNull(cmd(KeyEvent.KEYCODE_J, ';', alt = true))
-        assertNull(cmd(KeyEvent.KEYCODE_SPACE, ' ', alt = true))
+        assertNull(cmd(MediaKeyPress(KeyEvent.KEYCODE_J, ';', alt = true)))
+        assertNull(cmd(MediaKeyPress(KeyEvent.KEYCODE_SPACE, ' ', alt = true)))
     }
 
     @Test
     fun ctrlChordsAreLeftAlone() {
-        assertNull(cmd(KeyEvent.KEYCODE_S, 's', ctrl = true))
-        assertNull(cmd(KeyEvent.KEYCODE_SLASH, '/', ctrl = true))
+        assertNull(cmd(MediaKeyPress(KeyEvent.KEYCODE_S, 's', ctrl = true)))
+        assertNull(cmd(MediaKeyPress(KeyEvent.KEYCODE_SLASH, '/', ctrl = true)))
     }
 
     @Test
@@ -98,21 +113,24 @@ class MediaKeymapTest {
             KeyEvent.KEYCODE_SLASH to '/',
             KeyEvent.KEYCODE_MINUS to '-',
         ).forEach { (code, char) ->
-            assertNull("key $char while typing", cmd(code, char, typing = true))
+            assertNull("key $char while typing", cmd(code, char, typingField))
         }
-        assertNull(cmd(KeyEvent.KEYCODE_DEL, typing = true))
-        assertNull(cmd(KeyEvent.KEYCODE_DPAD_LEFT, typing = true, nowPlaying = true))
+        assertNull(cmd(KeyEvent.KEYCODE_DEL, context = typingField))
+        assertNull(cmd(KeyEvent.KEYCODE_DPAD_LEFT, context = KeyContext(typing = true, nowPlaying = true)))
         // Esc still cancels.
-        assertEquals(MediaKeyCommand.Back, cmd(KeyEvent.KEYCODE_ESCAPE, typing = true))
+        assertEquals(MediaKeyCommand.Back, cmd(KeyEvent.KEYCODE_ESCAPE, context = typingField))
     }
 
     @Test
     fun repeatsOnlyRepeatSeekAndVolume() {
-        assertNull(cmd(KeyEvent.KEYCODE_SPACE, ' ', repeat = 1))
-        assertNull(cmd(KeyEvent.KEYCODE_D, 'd', repeat = 2))
-        assertNull(cmd(KeyEvent.KEYCODE_ESCAPE, repeat = 1))
-        assertEquals(MediaKeyCommand.SeekForward, cmd(KeyEvent.KEYCODE_K, 'K', shift = true, repeat = 3))
-        assertEquals(MediaKeyCommand.VolumeUp, cmd(KeyEvent.KEYCODE_PLUS, '+', repeat = 3))
+        assertNull(cmd(MediaKeyPress(KeyEvent.KEYCODE_SPACE, ' ', repeatCount = 1)))
+        assertNull(cmd(MediaKeyPress(KeyEvent.KEYCODE_D, 'd', repeatCount = 2)))
+        assertNull(cmd(MediaKeyPress(KeyEvent.KEYCODE_ESCAPE, repeatCount = 1)))
+        assertEquals(
+            MediaKeyCommand.SeekForward,
+            cmd(MediaKeyPress(KeyEvent.KEYCODE_K, 'K', shift = true, repeatCount = 3)),
+        )
+        assertEquals(MediaKeyCommand.VolumeUp, cmd(MediaKeyPress(KeyEvent.KEYCODE_PLUS, '+', repeatCount = 3)))
     }
 
     @Test

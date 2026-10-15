@@ -142,28 +142,23 @@ private fun defaultEventStart(date: LocalDate): Long =
         .toInstant()
         .toEpochMilli()
 
-@Composable
-private fun CalendarApp(
-    repository: CalendarRepository,
-    refreshGeneration: Int,
-    onRefresh: () -> Unit,
-    onRequestPermissions: () -> Unit,
-) {
-    var mode by remember { mutableStateOf(CalendarMode.Agenda) }
-    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
-    var events by remember { mutableStateOf<List<CalendarEvent>>(emptyList()) }
-    var refreshing by remember { mutableStateOf(false) }
-    // Unsaved new event kept while the user backs out to the agenda, restored on re-entry this session.
-    var eventDraft by remember { mutableStateOf<EventDraft?>(null) }
-    var openEvent by remember { mutableStateOf<CalendarEvent?>(null) }
-    var detail by remember { mutableStateOf<CalendarEventDetail?>(null) }
-    var editDraft by remember { mutableStateOf<EventDraft?>(null) }
-    var pendingDelete by remember { mutableStateOf<PendingDelete?>(null) }
-    var status by remember { mutableStateOf<String?>(null) }
-    val scope = rememberCoroutineScope()
+/** Screen state for [CalendarApp]: every field is Compose state, so readers recompose on change. */
+private class CalendarAppState {
+    var mode by mutableStateOf(CalendarMode.Agenda)
+    var selectedDate by mutableStateOf(LocalDate.now())
+    var events by mutableStateOf<List<CalendarEvent>>(emptyList())
+    var refreshing by mutableStateOf(false)
 
-    // Hardware Back/Esc goes up one level: edit → detail → agenda; only the agenda leaves Calendar.
-    BackHandler(enabled = mode != CalendarMode.Agenda) {
+    // Unsaved new event kept while the user backs out to the agenda, restored on re-entry this session.
+    var eventDraft by mutableStateOf<EventDraft?>(null)
+    var openEvent by mutableStateOf<CalendarEvent?>(null)
+    var detail by mutableStateOf<CalendarEventDetail?>(null)
+    var editDraft by mutableStateOf<EventDraft?>(null)
+    var pendingDelete by mutableStateOf<PendingDelete?>(null)
+    var status by mutableStateOf<String?>(null)
+
+    /** Hardware Back/Esc goes up one level: edit → detail → agenda; only the agenda leaves Calendar. */
+    fun goBack() {
         mode =
             if (mode == CalendarMode.Edit && detail != null) {
                 CalendarMode.Detail
@@ -173,21 +168,7 @@ private fun CalendarApp(
         editDraft = null
     }
 
-    LaunchedEffect(refreshGeneration, selectedDate) {
-        refreshing = true
-        try {
-            events =
-                withContext(Dispatchers.IO) {
-                    repository.agenda(selectedDate)
-                }
-        } finally {
-            refreshing = false
-        }
-    }
-
-    LaunchedEffect(openEvent, refreshGeneration) {
-        val occurrence = openEvent ?: return@LaunchedEffect
-        val loaded = withContext(Dispatchers.IO) { repository.event(occurrence) }
+    fun onDetailLoaded(loaded: CalendarEventDetail?) {
         detail = loaded
         if (loaded == null && (mode == CalendarMode.Detail || mode == CalendarMode.Edit)) {
             // Deleted or moved elsewhere (sync): there is nothing left to show.
@@ -196,13 +177,14 @@ private fun CalendarApp(
         }
     }
 
-    val openDetail: (CalendarEvent) -> Unit = { event ->
+    fun openDetail(event: CalendarEvent) {
         status = null
         if (openEvent != event) detail = null
         openEvent = event
         mode = CalendarMode.Detail
     }
-    val openEditor: (CalendarEvent) -> Unit = { event ->
+
+    fun openEditor(event: CalendarEvent) {
         status = null
         if (!event.canModify) {
             status = "“${event.title}” is in a read-only calendar."
@@ -213,7 +195,13 @@ private fun CalendarApp(
             mode = CalendarMode.Edit
         }
     }
-    val askDelete: (Long, String, Boolean, Boolean) -> Unit = { id, title, recurring, canModify ->
+
+    fun askDelete(
+        id: Long,
+        title: String,
+        recurring: Boolean,
+        canModify: Boolean,
+    ) {
         status = null
         if (canModify) {
             pendingDelete = PendingDelete(id, title, recurring)
@@ -222,20 +210,93 @@ private fun CalendarApp(
         }
     }
 
-    pendingDelete?.let { pending ->
+    fun startNewEvent() {
+        status = null
+        mode = CalendarMode.NewEvent
+    }
+
+    fun editFromDetail(loaded: CalendarEventDetail) {
+        status = null
+        editDraft = null
+        if (loaded.canModify) {
+            mode = CalendarMode.Edit
+        } else {
+            status = "“${loaded.title}” is in a read-only calendar."
+        }
+    }
+
+    fun onDeleteFinished(
+        title: String,
+        deleted: Boolean,
+    ) {
+        status = if (deleted) "Deleted “$title”." else "Unable to delete “$title”."
+        if (deleted) {
+            openEvent = null
+            detail = null
+            mode = CalendarMode.Agenda
+        }
+    }
+
+    fun leaveEditor(hasDetail: Boolean) {
+        editDraft = null
+        mode = if (hasDetail) CalendarMode.Detail else CalendarMode.Agenda
+    }
+
+    /** After a successful edit: the detail shows the opened occurrence, so follow a moved single event. */
+    fun onEditSaved(
+        loaded: CalendarEventDetail,
+        draft: EventDraft,
+    ) {
+        editDraft = null
+        status = "Saved."
+        val times = if (loaded.timesEditable) draft else loaded.toDraft()
+        openEvent =
+            openEvent?.copy(
+                title = draft.title.trim(),
+                startMillis = times.startMillis,
+                endMillis = times.endMillis,
+            )
+    }
+}
+
+@Composable
+private fun CalendarApp(
+    repository: CalendarRepository,
+    refreshGeneration: Int,
+    onRefresh: () -> Unit,
+    onRequestPermissions: () -> Unit,
+) {
+    val state = remember { CalendarAppState() }
+    val scope = rememberCoroutineScope()
+
+    BackHandler(enabled = state.mode != CalendarMode.Agenda) { state.goBack() }
+
+    LaunchedEffect(refreshGeneration, state.selectedDate) {
+        state.refreshing = true
+        try {
+            state.events =
+                withContext(Dispatchers.IO) {
+                    repository.agenda(state.selectedDate)
+                }
+        } finally {
+            state.refreshing = false
+        }
+    }
+
+    LaunchedEffect(state.openEvent, refreshGeneration) {
+        val occurrence = state.openEvent ?: return@LaunchedEffect
+        state.onDetailLoaded(withContext(Dispatchers.IO) { repository.event(occurrence) })
+    }
+
+    state.pendingDelete?.let { pending ->
         DeleteConfirmDialog(
             message = EventEditPolicy.deleteConfirmation(pending.title, pending.recurring),
-            onDismiss = { pendingDelete = null },
+            onDismiss = { state.pendingDelete = null },
             onConfirm = {
-                pendingDelete = null
+                state.pendingDelete = null
                 scope.launch {
                     val deleted = withContext(Dispatchers.IO) { repository.deleteEvent(pending.eventId) }
-                    status = if (deleted) "Deleted “${pending.title}”." else "Unable to delete “${pending.title}”."
-                    if (deleted) {
-                        openEvent = null
-                        detail = null
-                        mode = CalendarMode.Agenda
-                    }
+                    state.onDeleteFinished(pending.title, deleted)
                     onRefresh()
                 }
             },
@@ -248,7 +309,7 @@ private fun CalendarApp(
         contentColor = MaterialTheme.colorScheme.onBackground,
     ) {
         SableRefreshableSurface(
-            isRefreshing = refreshing,
+            isRefreshing = state.refreshing,
             onRefresh = onRefresh,
         ) {
             Column(
@@ -261,154 +322,166 @@ private fun CalendarApp(
                             vertical = SableSpacing.ScreenVertical,
                         ),
             ) {
-                Text(
-                    text = "calendar",
-                    style = MaterialTheme.typography.displayLarge,
-                )
-                Text(
-                    text = "Local CalendarProvider UI · account sync remains separate.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(SableSpacing.Lg))
-
-                if (!repository.canRead()) {
+                CalendarHeader()
+                if (repository.canRead()) {
+                    StatusLine(state.status)
+                    CalendarModeContent(state, repository, onRefresh, onRequestPermissions)
+                } else {
                     PermissionPanel(onRequestPermissions)
-                    return@Column
-                }
-
-                status?.let { message ->
-                    Text(
-                        text = message,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(SableSpacing.Sm))
-                }
-
-                when (mode) {
-                    CalendarMode.Agenda -> {
-                        ApprovedCalendarLanding(
-                            selectedDate = selectedDate,
-                            events = events,
-                            onSelectDate = { selectedDate = it },
-                            onOpenMonth = { mode = CalendarMode.Month },
-                            onNewEvent = {
-                                status = null
-                                mode = CalendarMode.NewEvent
-                            },
-                            onOpenEvent = openDetail,
-                            onEditEvent = openEditor,
-                            onDeleteEvent = { event ->
-                                askDelete(event.id, event.title, event.recurring, event.canModify)
-                            },
-                        )
-                    }
-
-                    CalendarMode.Month -> {
-                        BackToAgenda { mode = CalendarMode.Agenda }
-                        MonthView(
-                            month = YearMonth.from(selectedDate),
-                            selectedDate = selectedDate,
-                            onSelectDate = { date ->
-                                selectedDate = date
-                                mode = CalendarMode.Agenda
-                            },
-                        )
-                    }
-
-                    CalendarMode.NewEvent -> {
-                        BackToAgenda { mode = CalendarMode.Agenda }
-                        if (!repository.canWrite()) {
-                            PermissionPanel(onRequestPermissions)
-                        } else {
-                            EventEditor(
-                                draft = eventDraft ?: EventDraft.newAt(defaultEventStart(selectedDate)),
-                                onDraftChange = { eventDraft = it },
-                                timesEditable = true,
-                                saveLabel = "Save event",
-                                onSave = { draft ->
-                                    val created = withContext(Dispatchers.IO) { repository.createEvent(draft) }
-                                    if (created != null) {
-                                        eventDraft = null
-                                        onRefresh()
-                                        mode = CalendarMode.Agenda
-                                    }
-                                    created != null
-                                },
-                            )
-                        }
-                    }
-
-                    CalendarMode.Detail -> {
-                        val loaded = detail
-                        BackToAgenda { mode = CalendarMode.Agenda }
-                        if (loaded == null) {
-                            LoadingLine()
-                        } else {
-                            EventDetailView(
-                                detail = loaded,
-                                onEdit = {
-                                    status = null
-                                    editDraft = null
-                                    if (loaded.canModify) {
-                                        mode = CalendarMode.Edit
-                                    } else {
-                                        status = "“${loaded.title}” is in a read-only calendar."
-                                    }
-                                },
-                                onDelete = {
-                                    askDelete(loaded.id, loaded.title, loaded.recurring, loaded.canModify)
-                                },
-                                onBack = { mode = CalendarMode.Agenda },
-                            )
-                        }
-                    }
-
-                    CalendarMode.Edit -> {
-                        val loaded = detail
-                        SableActionButton(
-                            text = "‹  event",
-                            primary = false,
-                            onClick = {
-                                editDraft = null
-                                mode = if (loaded != null) CalendarMode.Detail else CalendarMode.Agenda
-                            },
-                        )
-                        Spacer(Modifier.height(SableSpacing.Md))
-                        if (loaded == null) {
-                            LoadingLine()
-                        } else {
-                            EventEditor(
-                                draft = editDraft ?: loaded.toDraft(),
-                                onDraftChange = { editDraft = it },
-                                timesEditable = loaded.timesEditable,
-                                saveLabel = "Save changes",
-                                onSave = { draft ->
-                                    val saved = withContext(Dispatchers.IO) { repository.updateEvent(loaded, draft) }
-                                    if (saved) {
-                                        editDraft = null
-                                        status = "Saved."
-                                        // The detail shows the opened occurrence: follow a moved single event.
-                                        val times = if (loaded.timesEditable) draft else loaded.toDraft()
-                                        openEvent =
-                                            openEvent?.copy(
-                                                title = draft.title.trim(),
-                                                startMillis = times.startMillis,
-                                                endMillis = times.endMillis,
-                                            )
-                                        onRefresh()
-                                        mode = CalendarMode.Detail
-                                    }
-                                    saved
-                                },
-                            )
-                        }
-                    }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun CalendarHeader() {
+    Text(
+        text = "calendar",
+        style = MaterialTheme.typography.displayLarge,
+    )
+    Text(
+        text = "Local CalendarProvider UI · account sync remains separate.",
+        style = MaterialTheme.typography.bodyLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Spacer(Modifier.height(SableSpacing.Lg))
+}
+
+@Composable
+private fun StatusLine(status: String?) {
+    status?.let { message ->
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(SableSpacing.Sm))
+    }
+}
+
+@Composable
+private fun CalendarModeContent(
+    state: CalendarAppState,
+    repository: CalendarRepository,
+    onRefresh: () -> Unit,
+    onRequestPermissions: () -> Unit,
+) {
+    when (state.mode) {
+        CalendarMode.Agenda -> AgendaPane(state)
+        CalendarMode.Month -> MonthPane(state)
+        CalendarMode.NewEvent -> NewEventPane(state, repository, onRefresh, onRequestPermissions)
+        CalendarMode.Detail -> DetailPane(state)
+        CalendarMode.Edit -> EditPane(state, repository, onRefresh)
+    }
+}
+
+@Composable
+private fun AgendaPane(state: CalendarAppState) {
+    ApprovedCalendarLanding(
+        selectedDate = state.selectedDate,
+        events = state.events,
+        onSelectDate = { state.selectedDate = it },
+        onOpenMonth = { state.mode = CalendarMode.Month },
+        onNewEvent = state::startNewEvent,
+        onOpenEvent = state::openDetail,
+        onEditEvent = state::openEditor,
+        onDeleteEvent = { event ->
+            state.askDelete(event.id, event.title, event.recurring, event.canModify)
+        },
+    )
+}
+
+@Composable
+private fun MonthPane(state: CalendarAppState) {
+    BackToAgenda { state.mode = CalendarMode.Agenda }
+    MonthView(
+        month = YearMonth.from(state.selectedDate),
+        selectedDate = state.selectedDate,
+        onSelectDate = { date ->
+            state.selectedDate = date
+            state.mode = CalendarMode.Agenda
+        },
+    )
+}
+
+@Composable
+private fun NewEventPane(
+    state: CalendarAppState,
+    repository: CalendarRepository,
+    onRefresh: () -> Unit,
+    onRequestPermissions: () -> Unit,
+) {
+    BackToAgenda { state.mode = CalendarMode.Agenda }
+    if (!repository.canWrite()) {
+        PermissionPanel(onRequestPermissions)
+        return
+    }
+    EventEditor(
+        draft = state.eventDraft ?: EventDraft.newAt(defaultEventStart(state.selectedDate)),
+        onDraftChange = { state.eventDraft = it },
+        timesEditable = true,
+        saveLabel = "Save event",
+        onSave = { draft ->
+            val created = withContext(Dispatchers.IO) { repository.createEvent(draft) }
+            if (created != null) {
+                state.eventDraft = null
+                onRefresh()
+                state.mode = CalendarMode.Agenda
+            }
+            created != null
+        },
+    )
+}
+
+@Composable
+private fun DetailPane(state: CalendarAppState) {
+    val loaded = state.detail
+    BackToAgenda { state.mode = CalendarMode.Agenda }
+    if (loaded == null) {
+        LoadingLine()
+        return
+    }
+    EventDetailView(
+        detail = loaded,
+        onEdit = { state.editFromDetail(loaded) },
+        onDelete = { state.askDelete(loaded.id, loaded.title, loaded.recurring, loaded.canModify) },
+        onBack = { state.mode = CalendarMode.Agenda },
+    )
+}
+
+@Composable
+private fun EditPane(
+    state: CalendarAppState,
+    repository: CalendarRepository,
+    onRefresh: () -> Unit,
+) {
+    val loaded = state.detail
+    SableActionButton(
+        text = "‹  event",
+        primary = false,
+        onClick = { state.leaveEditor(hasDetail = loaded != null) },
+    )
+    Spacer(Modifier.height(SableSpacing.Md))
+    if (loaded == null) {
+        LoadingLine()
+        return
+    }
+    EventEditor(
+        draft = state.editDraft ?: loaded.toDraft(),
+        onDraftChange = { state.editDraft = it },
+        timesEditable = loaded.timesEditable,
+        saveLabel = "Save changes",
+        onSave = { draft ->
+            val saved = withContext(Dispatchers.IO) { repository.updateEvent(loaded, draft) }
+            if (saved) {
+                state.onEditSaved(loaded, draft)
+                onRefresh()
+                state.mode = CalendarMode.Detail
+            }
+            saved
+        },
+    )
 }
 
 @Composable
