@@ -1088,7 +1088,7 @@ index 87005fd..f0b2b02 100644
              checked = checked,
              enabled = enabled,
 diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
-index 67c2be6..b5fc85d 100644
+index 67c2be6..c6d7ee0 100644
 --- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
 +++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
 @@ -2,13 +2,17 @@ package org.sableos.hub.ui
@@ -1333,7 +1333,7 @@ index 67c2be6..b5fc85d 100644
                          onConversation = onConversation,
                          onCall = onCall,
                          onTextCaller = onTextCaller,
-@@ -973,9 +1045,287 @@ private fun ColumnScope.InboxPivot(
+@@ -973,9 +1045,283 @@ private fun ColumnScope.InboxPivot(
                  }
              }
          }
@@ -1390,12 +1390,8 @@ index 67c2be6..b5fc85d 100644
 +                    true
 +                }
 +
-+                parent && row.expanded && space -> {
-+                    actions.onCollapse(row.cluster)
-+                    true
-+                }
-+
-+                event.key == Key.DirectionLeft && row.expanded -> {
++                // Space toggles a parent; Left collapses from the parent or any of its children.
++                row.expanded && ((parent && space) || event.key == Key.DirectionLeft) -> {
 +                    actions.onCollapse(row.cluster)
 +                    true
 +                }
@@ -1621,7 +1617,7 @@ index 67c2be6..b5fc85d 100644
  private fun inboxNeedsAccess(
      capabilities: HubCapabilities,
      filter: HubInboxFilter,
-@@ -986,7 +1336,7 @@ private fun inboxNeedsAccess(
+@@ -986,7 +1332,7 @@ private fun inboxNeedsAccess(
          HubInboxFilter.All -> smsMissing || callLogMissing
          HubInboxFilter.Messages -> smsMissing
          HubInboxFilter.Calls -> callLogMissing
@@ -1630,7 +1626,7 @@ index 67c2be6..b5fc85d 100644
      }
  }
  
-@@ -1011,30 +1361,51 @@ private suspend fun restoreInboxRow(
+@@ -1011,30 +1357,51 @@ private suspend fun restoreInboxRow(
      return true
  }
  
@@ -1689,7 +1685,7 @@ index 67c2be6..b5fc85d 100644
          is HubInboxItem.Conversation -> {
              ConversationRow(
                  conversation = item.conversation,
-@@ -1043,6 +1414,7 @@ private fun InboxItemRow(
+@@ -1043,6 +1410,7 @@ private fun InboxItemRow(
                      onConversation(item.conversation)
                  },
                  modifier = modifier,
@@ -1697,7 +1693,7 @@ index 67c2be6..b5fc85d 100644
              )
          }
  
-@@ -1058,6 +1430,7 @@ private fun InboxItemRow(
+@@ -1058,6 +1426,7 @@ private fun InboxItemRow(
                      onTextCaller(item.call)
                  },
                  modifier = modifier,
@@ -1705,7 +1701,7 @@ index 67c2be6..b5fc85d 100644
              )
          }
      }
-@@ -1074,6 +1447,7 @@ private fun inboxEmptyText(
+@@ -1074,6 +1443,7 @@ private fun inboxEmptyText(
          filter == HubInboxFilter.Calls && !capabilities.canReadCallLog -> "Grant call log access to show recent calls."
          filter == HubInboxFilter.Calls -> "No recent calls."
          filter == HubInboxFilter.Notifications -> "No connected-app conversations. Choose apps under connected apps."
@@ -1713,7 +1709,7 @@ index 67c2be6..b5fc85d 100644
          else -> "No conversations yet."
      }
  
-@@ -1143,6 +1517,7 @@ private fun CallRow(
+@@ -1143,6 +1513,7 @@ private fun CallRow(
      onCall: () -> Unit,
      onText: () -> Unit,
      modifier: Modifier = Modifier,
@@ -1721,7 +1717,7 @@ index 67c2be6..b5fc85d 100644
  ) {
      val attention = call.kind.needsAttention
      val avatarBackground = if (attention) HubUnreadBackground else MaterialTheme.colorScheme.surfaceVariant
-@@ -1202,13 +1577,22 @@ private fun CallRow(
+@@ -1202,13 +1573,22 @@ private fun CallRow(
              )
          }
      }
@@ -1751,7 +1747,7 @@ index 67c2be6..b5fc85d 100644
  }
  
  private fun callGlyph(kind: HubCallKind): String =
-@@ -1237,7 +1621,10 @@ private fun ConversationRow(
+@@ -1237,7 +1617,10 @@ private fun ConversationRow(
      conversation: HubConversation,
      onClick: () -> Unit,
      modifier: Modifier = Modifier,
@@ -1762,7 +1758,7 @@ index 67c2be6..b5fc85d 100644
      val unread = conversation.unreadCount > 0
      val accent =
          if (unread) {
-@@ -1263,28 +1650,35 @@ private fun ConversationRow(
+@@ -1263,28 +1646,35 @@ private fun ConversationRow(
                  .padding(vertical = HubRowVerticalPadding),
          verticalAlignment = Alignment.CenterVertically,
      ) {
@@ -1817,7 +1813,7 @@ index 67c2be6..b5fc85d 100644
              Text(
                  text = conversationPreview(conversation),
                  style = MaterialTheme.typography.bodyLarge,
-@@ -1292,6 +1686,7 @@ private fun ConversationRow(
+@@ -1292,6 +1682,7 @@ private fun ConversationRow(
                  maxLines = 1,
                  overflow = TextOverflow.Ellipsis,
              )
@@ -1825,7 +1821,7 @@ index 67c2be6..b5fc85d 100644
          }
          Spacer(Modifier.width(HubTrailingGap))
          Column(
-@@ -1311,13 +1706,36 @@ private fun ConversationRow(
+@@ -1311,13 +1702,36 @@ private fun ConversationRow(
              }
          }
      }
@@ -1869,7 +1865,7 @@ index 67c2be6..b5fc85d 100644
  }
  
  /** Source label on every row: the inbox mixes SMS, calls and connected apps. */
-@@ -1894,6 +2312,11 @@ private val HubBubbleMaxWidth = 320.dp
+@@ -1894,6 +2308,11 @@ private val HubBubbleMaxWidth = 320.dp
  private val HubBubbleCornerRadius = 18.dp
  private val HubUnreadAccent = Color(0xFF35C66B)
  private val HubUnreadBackground = Color(0xFF0B3524)
