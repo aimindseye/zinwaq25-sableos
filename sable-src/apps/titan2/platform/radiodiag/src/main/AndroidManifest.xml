@@ -18,6 +18,7 @@
 
     <application
         android:allowBackup="false"
+        android:usesCleartextTraffic="false"
         android:icon="@mipmap/ic_sable_radiodiag"
         android:roundIcon="@mipmap/ic_sable_radiodiag_round"
         android:label="@string/app_name"

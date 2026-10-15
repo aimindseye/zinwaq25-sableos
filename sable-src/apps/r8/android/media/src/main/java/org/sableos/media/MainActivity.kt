@@ -1,8 +1,11 @@
 package org.sableos.media
 
+import android.annotation.SuppressLint
 import android.content.Intent
+import android.media.AudioManager
 import android.net.Uri
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -13,6 +16,12 @@ import androidx.compose.runtime.setValue
 class MainActivity : ComponentActivity() {
     private var playbackState by mutableStateOf(PlaybackUiState())
     private lateinit var playbackController: PlaybackController
+
+    /** Set by [MediaApp]: maps a key-down to a Sable Media command before any view sees it. */
+    private var keyHandler: ((KeyEvent) -> Boolean)? = null
+
+    /** Key codes whose key-down was taken as a command, so their key-up is swallowed too. */
+    private val consumedKeyCodes = mutableSetOf<Int>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,10 +52,42 @@ class MainActivity : ComponentActivity() {
                         playbackController = playbackController,
                         playUri = ::playUri,
                         playLocalQueue = ::playLocalQueue,
+                        adjustVolume = ::adjustVolume,
+                        setKeyHandler = { keyHandler = it },
                     ),
                 playbackState = playbackState,
             )
         }
+    }
+
+    // ComponentActivity.dispatchKeyEvent is a public framework override; lint flags it as androidx-restricted.
+    @SuppressLint("RestrictedApi")
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val takenAsCommand =
+            when (event.action) {
+                KeyEvent.ACTION_DOWN -> {
+                    (keyHandler?.invoke(event) == true).also { taken ->
+                        if (taken) consumedKeyCodes += event.keyCode
+                    }
+                }
+
+                KeyEvent.ACTION_UP -> {
+                    consumedKeyCodes.remove(event.keyCode)
+                }
+
+                else -> {
+                    false
+                }
+            }
+        return takenAsCommand || super.dispatchKeyEvent(event)
+    }
+
+    private fun adjustVolume(raise: Boolean) {
+        getSystemService(AudioManager::class.java)?.adjustStreamVolume(
+            AudioManager.STREAM_MUSIC,
+            if (raise) AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER,
+            AudioManager.FLAG_SHOW_UI,
+        )
     }
 
     override fun onDestroy() {

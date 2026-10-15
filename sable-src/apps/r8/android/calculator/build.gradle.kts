@@ -18,6 +18,13 @@ android {
             abiFilters += "arm64-v8a"
         }
     }
+    buildTypes {
+        release {
+            // The image ships the debug variant (product/q25/apps.tsv); a release build is shrunk and obfuscated.
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+        }
+    }
     buildFeatures { compose = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -29,12 +36,12 @@ android {
 dependencies {
     implementation(project(":design"))
     implementation(project(":convert"))
-    implementation(platform("androidx.compose:compose-bom:2026.02.01"))
-    implementation("androidx.activity:activity-compose:1.12.4")
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.activity.compose)
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.foundation:foundation")
     debugImplementation("androidx.compose.ui:ui-tooling")
-    testImplementation("junit:junit:4.13.2")
+    testImplementation(libs.junit)
 }
 
 android {

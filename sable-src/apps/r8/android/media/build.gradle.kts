@@ -17,6 +17,13 @@ android {
             abiFilters += "arm64-v8a"
         }
     }
+    buildTypes {
+        release {
+            // The image ships the debug variant (product/q25/apps.tsv); a release build is shrunk and obfuscated.
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+        }
+    }
     buildFeatures { compose = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -32,13 +39,15 @@ android {
 
 dependencies {
     implementation(project(":design"))
-    implementation(platform("androidx.compose:compose-bom:2026.02.01"))
-    implementation("androidx.activity:activity-compose:1.12.4")
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.activity.compose)
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.foundation:foundation")
-    implementation("androidx.media3:media3-exoplayer:1.9.2")
-    implementation("androidx.media3:media3-session:1.9.2")
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.session)
     debugImplementation("androidx.compose.ui:ui-tooling")
+
+    testImplementation(libs.junit)
 }
 
 extensions.configure<io.gitlab.arturbosch.detekt.extensions.DetektExtension> {

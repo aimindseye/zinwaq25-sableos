@@ -409,7 +409,7 @@ class SableImeService : InputMethodService() {
         val key = KeyMapper.map(keyCode)
         if (key !is Key.Other) resolver.onKey(KeyEv(key, false, event.eventTime), fieldCtx())
         if (key !is Key.Other) refreshStrip()
-        return if (handledDown.remove(keyCode)) true else super.onKeyUp(keyCode, event)
+        return handledDown.remove(keyCode) || super.onKeyUp(keyCode, event)
     }
 
     /**

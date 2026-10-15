@@ -67,7 +67,6 @@ import org.vaachak.reader.leisure.ui.testability.tid
 fun ReaderTopBar(
     bookTitle: String,
     isEink: Boolean,
-    showDebugHighlightButton: Boolean,
     isBookmarked: Boolean,
     isTtsActive: Boolean,
     onBack: () -> Unit,
@@ -77,7 +76,6 @@ fun ReaderTopBar(
     onBookmarksListClick: () -> Unit,
     onBookmarkToggleClick: () -> Unit,
     onTtsClick: () -> Unit,
-    onAddHighlightClick: () -> Unit,
     onSettingsClick: () -> Unit
 ) {
     val containerColor = if (isEink) Color.White else MaterialTheme.colorScheme.surface

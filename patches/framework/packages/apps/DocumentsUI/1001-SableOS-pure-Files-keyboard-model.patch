@@ -1,0 +1,165 @@
+From 7ca1f44f62217e47e212bf96ff9701c0207e2372 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 14 Oct 2026 23:15:19 +0000
+Subject: [PATCH 1001/1002] SableOS: pure Files keyboard model
+
+The Sable Files key model (FILES_DOCUMENTS_UX "Keyboard model") for a
+keyboard with Alt, Shift and Sym but no Ctrl or Fn key, such as the
+Zinwa Q25.
+
+Letters keep their upstream meaning, type-to-focus (typing a name moves
+focus to it; Enter opens, Space previews). The design's single-letter
+commands therefore take Alt, the key this keyboard has instead of Ctrl
+or Fn:
+
+* Alt+C Copy to..., Alt+M Move to... (both pick a visible destination
+  first), Alt+R rename, Alt+N new folder, Alt+I info, Alt+O open with,
+  Alt+A select all.
+* "/" (Alt+G on the Q25) opens search.
+* Del deletes the selection or the focused file, after the upstream
+  confirmation; with nothing selected or focused it keeps going up one
+  folder.
+
+On the Q25 Alt+letter also types a symbol or digit, so the other Alt
+keys keep feeding type-to-focus, and while a type-to-focus search runs
+every key belongs to it. Nothing fires while a text field has focus;
+Ctrl and Meta chords keep their upstream meaning.
+
+Pure Java (sable/SableFilesKeys.java); host tests live in the SableOS
+Q25 repository under tests/java/stock-apps/DocumentsUI.
+---
+ .../documentsui/sable/SableFilesKeys.java     | 122 ++++++++++++++++++
+ 1 file changed, 122 insertions(+)
+ create mode 100644 src/com/android/documentsui/sable/SableFilesKeys.java
+
+diff --git a/src/com/android/documentsui/sable/SableFilesKeys.java b/src/com/android/documentsui/sable/SableFilesKeys.java
+new file mode 100644
+index 000000000..ffb18c479
+--- /dev/null
++++ b/src/com/android/documentsui/sable/SableFilesKeys.java
+@@ -0,0 +1,122 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.documentsui.sable;
++
++/**
++ * The Files keyboard model (FILES_DOCUMENTS_UX "Keyboard model") for a keyboard with Alt, Shift
++ * and Sym but no Ctrl or Fn key. Pure Java so it can be tested on the host.
++ *
++ * <p>Letters keep their upstream meaning, type-to-focus: typing a name moves focus to it, Enter
++ * opens and Space previews. So the design's single-letter commands take Alt here, the key this
++ * keyboard has instead of Ctrl or Fn:
++ *
++ * <ul>
++ *   <li>Alt+C Copy to..., Alt+M Move to... (both pick a visible destination first), Alt+R rename,
++ *       Alt+N new folder, Alt+I info, Alt+O open with, Alt+A select all.
++ *   <li>"/" (Alt+G on this keyboard) opens search.
++ *   <li>Del deletes the selection, or the focused file, after the upstream confirmation dialog.
++ *       With nothing selected or focused it keeps its upstream meaning (up one folder).
++ * </ul>
++ *
++ * <p>On this keyboard Alt+letter also types the letter's symbol or digit. Alt chords other than
++ * the ones above keep feeding type-to-focus, and while a type-to-focus search is running every
++ * key belongs to it, so "2024" still finds a name. Nothing here fires while a text field (search,
++ * rename, new folder) has focus, and Ctrl/Meta chords keep their upstream meaning.
++ */
++public final class SableFilesKeys {
++
++    /** What a key does. */
++    public enum Action {
++        SEARCH,
++        COPY_TO,
++        MOVE_TO,
++        RENAME,
++        NEW_FOLDER,
++        INFO,
++        OPEN_WITH,
++        SELECT_ALL,
++        DELETE,
++        /** Not ours: leave the key to the upstream handling. */
++        UPSTREAM
++    }
++
++    // android.view.KeyEvent key codes (mirrored so this class stays pure Java).
++    static final int KEYCODE_A = 29;
++    static final int KEYCODE_C = 31;
++    static final int KEYCODE_I = 37;
++    static final int KEYCODE_M = 41;
++    static final int KEYCODE_N = 42;
++    static final int KEYCODE_O = 43;
++    static final int KEYCODE_R = 46;
++    static final int KEYCODE_DEL = 67;
++    static final int KEYCODE_SLASH = 76;
++
++    private SableFilesKeys() {}
++
++    /**
++     * @param keyCode the KeyEvent key code
++     * @param unicodeChar the character the key produces with its modifiers, 0 if none
++     * @param alt Alt is held
++     * @param ctrl Ctrl is held
++     * @param shift Shift is held
++     * @param meta Meta is held
++     * @param typing a text field has focus
++     * @param typeToFocusActive a type-to-focus search is running
++     * @param hasTarget something is selected, or a file in the list has focus
++     */
++    public static Action decide(
++            int keyCode,
++            int unicodeChar,
++            boolean alt,
++            boolean ctrl,
++            boolean shift,
++            boolean meta,
++            boolean typing,
++            boolean typeToFocusActive,
++            boolean hasTarget) {
++        if (typing || typeToFocusActive || ctrl || meta) {
++            return Action.UPSTREAM;
++        }
++        if (unicodeChar == '/' || (keyCode == KEYCODE_SLASH && !alt && !shift)) {
++            return Action.SEARCH;
++        }
++        if (keyCode == KEYCODE_DEL) {
++            return (!alt && !shift && hasTarget) ? Action.DELETE : Action.UPSTREAM;
++        }
++        if (!alt || shift) {
++            return Action.UPSTREAM;
++        }
++        switch (keyCode) {
++            case KEYCODE_C:
++                return Action.COPY_TO;
++            case KEYCODE_M:
++                return Action.MOVE_TO;
++            case KEYCODE_R:
++                return Action.RENAME;
++            case KEYCODE_N:
++                return Action.NEW_FOLDER;
++            case KEYCODE_I:
++                return Action.INFO;
++            case KEYCODE_O:
++                return Action.OPEN_WITH;
++            case KEYCODE_A:
++                return Action.SELECT_ALL;
++            default:
++                return Action.UPSTREAM;
++        }
++    }
++}
+-- 
+2.43.0
+

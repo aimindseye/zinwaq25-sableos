@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -33,6 +34,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -53,6 +55,7 @@ import org.sableos.design.SableRefreshableSurface
 import org.sableos.design.SableResponsive
 import org.sableos.design.SableRowAction
 import org.sableos.design.SableSpacing
+import org.sableos.design.sableFocusRing
 import org.sableos.design.sableLetterJump
 import java.util.Locale
 
@@ -124,6 +127,9 @@ internal data class MediaScreenState(
     val stationUrl: String,
     val editingStation: RadioStation?,
     val message: String?,
+    /** Library search query while search is open, else null. */
+    val searchQuery: String? = null,
+    val searchFocusToken: Int = 0,
 )
 
 internal data class MediaScreenActions(
@@ -170,6 +176,10 @@ internal data class MediaScreenActions(
     val onNext: () -> Unit,
     val onStop: () -> Unit,
     val onSeek: (Long) -> Unit,
+    val onOpenSearch: () -> Unit = {},
+    val onSearchQueryChange: (String) -> Unit = {},
+    val onCloseSearch: () -> Unit = {},
+    val onTrackFocusChange: (LocalAudioItem, Boolean) -> Unit = { _, _ -> },
 )
 
 @Composable
@@ -275,6 +285,15 @@ internal fun MediaScreen(
                     onPlayPause = onPlayPause,
                     onPrevious = onPrevious,
                     onNext = onNext,
+                    search =
+                        CollectionSearch(
+                            query = state.searchQuery,
+                            onOpen = actions.onOpenSearch,
+                            onQueryChange = actions.onSearchQueryChange,
+                            onClose = actions.onCloseSearch,
+                            focusToken = state.searchFocusToken,
+                        ),
+                    onTrackFocusChange = actions.onTrackFocusChange,
                 )
             }
 
@@ -382,6 +401,7 @@ internal fun MediaScreen(
                                         onSettings = {
                                             onDestinationChange(MediaDestination.Settings)
                                         },
+                                        onSearch = actions.onOpenSearch,
                                     )
                                 }
                             }
@@ -584,20 +604,35 @@ private fun MediaUtilityBar(
     upNextCount: Int,
     onQueue: () -> Unit,
     onSettings: () -> Unit,
+    onSearch: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // Key labels are shown as direct affordances (MEDIA_GALLERY_UX "Media player visual direction").
+        Surface(
+            onClick = onSearch,
+            modifier = Modifier.sableFocusRing(),
+            color = Color.Transparent,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        ) {
+            Text(
+                text = "search  /",
+                modifier = Modifier.padding(MediaCompactPadding),
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
         if (queueCount > 1) {
             Surface(
                 onClick = onQueue,
+                modifier = Modifier.sableFocusRing(),
                 color = Color.Transparent,
                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             ) {
                 Text(
-                    text = "up next · $upNextCount",
+                    text = "up next · $upNextCount  Q",
                     modifier = Modifier.padding(MediaCompactPadding),
                     style = MaterialTheme.typography.labelLarge,
                 )
@@ -605,6 +640,7 @@ private fun MediaUtilityBar(
         }
         Surface(
             onClick = onSettings,
+            modifier = Modifier.sableFocusRing(),
             color = Color.Transparent,
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         ) {
@@ -640,37 +676,41 @@ private fun CollectionScreen(
     onPlayPause: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
+    search: CollectionSearch,
+    onTrackFocusChange: (LocalAudioItem, Boolean) -> Unit,
 ) {
-    val collectionIndex by
-        produceState<MediaCollectionIndex?>(
-            initialValue = null,
-            key1 = localItems,
-            key2 = favoriteAudioUris,
-        ) {
-            value = null
-            value =
-                if (localItems.isEmpty()) {
-                    MediaCollectionIndex.Empty
-                } else {
-                    withContext(Dispatchers.Default) {
-                        buildMediaCollectionIndex(
-                            localItems = localItems,
-                            favoriteAudioUris = favoriteAudioUris,
-                        )
-                    }
-                }
+    val query = search.query.orEmpty()
+    val collectionIndex = rememberCollectionIndex(localItems, favoriteAudioUris, query)
+    val visiblePlaylists =
+        remember(playlists, query) {
+            playlists.filter { MediaLibrarySearch.matchesName(it.name, query) }
         }
+    val content =
+        CollectionContent(
+            loading = localLibraryLoading,
+            hasItems = localItems.isNotEmpty(),
+            index = collectionIndex,
+            pivot = pivot,
+            query = query,
+            visiblePlaylists = visiblePlaylists,
+        )
+    val trackActions =
+        CollectionTrackActions(
+            favoriteAudioUris = favoriteAudioUris,
+            onPlay = onPlay,
+            onToggleFavorite = onToggleFavorite,
+            onFocusChange = onTrackFocusChange,
+        )
+    val playlistActions =
+        CollectionPlaylistActions(
+            onCreate = onCreatePlaylist,
+            onEdit = onEditPlaylist,
+            onDelete = onDeletePlaylist,
+            onPlay = onPlayPlaylist,
+        )
 
-    val songs = collectionIndex?.songs.orEmpty()
-    val artistGroups = collectionIndex?.artists.orEmpty()
-    val albumGroups = collectionIndex?.albums.orEmpty()
-    val favorites = collectionIndex?.favorites.orEmpty()
-    val alphabet =
-        collectionIndex
-            ?.sections
-            ?.get(pivot)
-            ?: EMPTY_ALPHABET
-    val availableUris = collectionIndex?.availableUris.orEmpty()
+    val alphabet = collectionIndex?.sections?.get(pivot) ?: EMPTY_ALPHABET
+    val railPadding = if (alphabet.isEmpty) 0.dp else SableAlphabetRailWidth
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val firstVisible by remember { derivedStateOf { listState.firstVisibleItemIndex } }
@@ -688,6 +728,20 @@ private fun CollectionScreen(
                 .safeDrawingPadding()
                 .imePadding(),
     ) {
+        if (search.query != null) {
+            // Pinned above the list so results update in view while typing.
+            MediaSearchBar(
+                query = search.query,
+                resultCount = collectionResultCount(pivot, collectionIndex, visiblePlaylists),
+                pivotLabel = pivot.label,
+                onQueryChange = search.onQueryChange,
+                onClose = search.onClose,
+                focusToken = search.focusToken,
+                onSubmit = {
+                    scope.launch { listState.scrollToItem(COLLECTION_FIXED_ITEM_COUNT) }
+                },
+            )
+        }
         Box(
             modifier =
                 Modifier
@@ -700,14 +754,7 @@ private fun CollectionScreen(
                         .fillMaxSize()
                         // Keyboard A-Z jump is the primary index on keyboard devices.
                         .sableLetterJump(alphabet, enabled = !alphabet.isEmpty, onJump = ::jumpTo)
-                        .padding(
-                            end =
-                                if (alphabet.isEmpty) {
-                                    0.dp
-                                } else {
-                                    SableAlphabetRailWidth
-                                },
-                        ),
+                        .padding(end = railPadding),
                 state = listState,
                 contentPadding =
                     PaddingValues(
@@ -716,204 +763,16 @@ private fun CollectionScreen(
                     ),
                 verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
             ) {
-                item {
-                    SableHeroHeader(
-                        eyebrow = "Sable Media",
-                        title = "music",
-                        subtitle = "Your local collection, playlists, and one continuous playback queue.",
-                    )
-                }
-
-                item {
-                    PrimaryPivot(
-                        destination = MediaDestination.Collection,
-                        onSelect = onDestinationChange,
-                    )
-                }
-
-                item {
-                    MediaUtilityBar(
-                        queueCount = playback.queue.size,
-                        upNextCount = playback.upNextCount(),
-                        onQueue = {
-                            onDestinationChange(MediaDestination.Queue)
-                        },
-                        onSettings = {
-                            onDestinationChange(MediaDestination.Settings)
-                        },
-                    )
-                }
-
-                item {
-                    Text(
-                        text = "collection",
-                        style = MaterialTheme.typography.headlineLarge,
-                    )
-                }
-
-                item {
-                    SableAdaptiveTopNav(
-                        destinations = LIBRARY_DESTINATIONS,
-                        selectedId = pivot.name,
-                        onSelect = { id -> onPivotChange(LibraryPivot.valueOf(id)) },
-                    )
-                }
-
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
-                    ) {
-                        SableActionButton(
-                            text = "Add audio files",
-                            modifier = Modifier.weight(1f),
-                            onClick = onAddLocalAudio,
-                        )
-                        SableActionButton(
-                            text = "Import folder",
-                            primary = false,
-                            modifier = Modifier.weight(1f),
-                            onClick = onAddLocalFolder,
-                        )
-                    }
-                }
-
-                if (localLibraryLoading) {
-                    item {
-                        C2InfoPanel(
-                            title = "Loading local collection",
-                            detail = "Indexing saved songs, artists, and albums off the UI thread.",
-                        )
-                    }
-                } else if (localItems.isEmpty()) {
-                    item {
-                        EmptyPanel(
-                            title = "No local audio yet",
-                            detail =
-                                "Choose audio with Android's document picker. " +
-                                    "Sable keeps access only to files you explicitly select.",
-                        )
-                    }
-                } else if (collectionIndex == null) {
-                    item {
-                        C2InfoPanel(
-                            title = "Indexing collection",
-                            detail = "Preparing songs, artists, albums, favorites, and A–Z navigation.",
-                        )
-                    }
-                } else {
-                    when (pivot) {
-                        LibraryPivot.Songs -> {
-                            items(
-                                count = songs.size,
-                                key = { index -> songs[index].item.uri },
-                            ) { index ->
-                                val indexedTrack = songs[index]
-                                val item = indexedTrack.item
-                                LocalTrackRow(
-                                    item = item,
-                                    accent = accentFor(indexedTrack.sourceIndex),
-                                    favorite = item.uri in favoriteAudioUris,
-                                    onToggleFavorite = { onToggleFavorite(item) },
-                                    onPlay = { onPlay(indexedTrack.sourceIndex) },
-                                )
-                            }
-                        }
-
-                        LibraryPivot.Artists -> {
-                            items(
-                                count = artistGroups.size,
-                                key = { index -> artistGroups[index].name },
-                            ) { index ->
-                                val group = artistGroups[index]
-                                LibraryGroupRow(
-                                    title = group.name,
-                                    detail = group.detail,
-                                    accent = accentFor(group.name.hashCode()),
-                                    onClick = {
-                                        onPlay(group.sourceIndex)
-                                    },
-                                )
-                            }
-                        }
-
-                        LibraryPivot.Albums -> {
-                            items(
-                                count = albumGroups.size,
-                                key = { index -> albumGroups[index].name },
-                            ) { index ->
-                                val group = albumGroups[index]
-                                LibraryGroupRow(
-                                    title = group.name,
-                                    detail = group.detail,
-                                    accent = accentFor(group.name.hashCode()),
-                                    onClick = {
-                                        onPlay(group.sourceIndex)
-                                    },
-                                )
-                            }
-                        }
-
-                        LibraryPivot.Favorites -> {
-                            if (favorites.isEmpty()) {
-                                item {
-                                    C2InfoPanel(
-                                        title = "No favorite tracks",
-                                        detail = "Mark local tracks with ★ to keep a quick local favorites view.",
-                                    )
-                                }
-                            } else {
-                                items(
-                                    count = favorites.size,
-                                    key = { index -> favorites[index].item.uri },
-                                ) { favoriteIndex ->
-                                    val indexedTrack = favorites[favoriteIndex]
-                                    val item = indexedTrack.item
-                                    LocalTrackRow(
-                                        item = item,
-                                        accent = accentFor(indexedTrack.sourceIndex),
-                                        favorite = true,
-                                        onToggleFavorite = { onToggleFavorite(item) },
-                                        onPlay = { onPlay(indexedTrack.sourceIndex) },
-                                    )
-                                }
-                            }
-                        }
-
-                        LibraryPivot.Playlists -> {
-                            item {
-                                SableActionButton(
-                                    text = "Create playlist",
-                                    modifier = Modifier.fillMaxWidth(),
-                                    onClick = onCreatePlaylist,
-                                )
-                            }
-
-                            if (playlists.isEmpty()) {
-                                item {
-                                    C2InfoPanel(
-                                        title = "No playlists yet",
-                                        detail = "Create a local playlist from audio already added to Sable Media.",
-                                    )
-                                }
-                            } else {
-                                items(
-                                    count = playlists.size,
-                                    key = { index -> playlists[index].id },
-                                ) { index ->
-                                    val playlist = playlists[index]
-                                    PlaylistCard(
-                                        playlist = playlist,
-                                        availableUris = availableUris,
-                                        onPlay = { onPlayPlaylist(playlist) },
-                                        onEdit = { onEditPlaylist(playlist) },
-                                        onDelete = { onDeletePlaylist(playlist) },
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+                collectionHeader(
+                    pivot = pivot,
+                    playback = playback,
+                    onOpenSearch = search.onOpen,
+                    onDestinationChange = onDestinationChange,
+                    onPivotChange = onPivotChange,
+                    onAddLocalAudio = onAddLocalAudio,
+                    onAddLocalFolder = onAddLocalFolder,
+                )
+                collectionBody(content, trackActions, playlistActions)
             }
 
             if (!alphabet.isEmpty) {
@@ -939,6 +798,336 @@ private fun CollectionScreen(
     }
 }
 
+/** What the collection list shows below its fixed header. */
+private class CollectionContent(
+    val loading: Boolean,
+    val hasItems: Boolean,
+    val index: MediaCollectionIndex?,
+    val pivot: LibraryPivot,
+    val query: String,
+    val visiblePlaylists: List<MediaPlaylist>,
+)
+
+/** Track-row callbacks shared by the Songs and Favorites pivots (and group rows' play). */
+private class CollectionTrackActions(
+    val favoriteAudioUris: Set<String>,
+    val onPlay: (Int) -> Unit,
+    val onToggleFavorite: (LocalAudioItem) -> Unit,
+    val onFocusChange: (LocalAudioItem, Boolean) -> Unit,
+)
+
+private class CollectionPlaylistActions(
+    val onCreate: () -> Unit,
+    val onEdit: (MediaPlaylist) -> Unit,
+    val onDelete: (MediaPlaylist) -> Unit,
+    val onPlay: (MediaPlaylist) -> Unit,
+)
+
+/**
+ * The collection index for the current inputs, built off the UI thread. Keeps the previous result while
+ * only the query changes, so typing never flashes "indexing"; drops it when the collection itself changed,
+ * because its source indexes are stale.
+ */
+@Composable
+private fun rememberCollectionIndex(
+    localItems: List<LocalAudioItem>,
+    favoriteAudioUris: Set<String>,
+    query: String,
+): MediaCollectionIndex? {
+    val collectionIndex by
+        produceState<MediaCollectionIndex?>(
+            initialValue = null,
+            key1 = localItems,
+            key2 = favoriteAudioUris,
+            key3 = query,
+        ) {
+            val previous = value
+            if (previous == null || previous.source !== localItems || previous.favoriteSource !== favoriteAudioUris) {
+                value = null
+            }
+            value =
+                if (localItems.isEmpty()) {
+                    MediaCollectionIndex.Empty
+                } else {
+                    withContext(Dispatchers.Default) {
+                        buildMediaCollectionIndex(
+                            localItems = localItems,
+                            favoriteAudioUris = favoriteAudioUris,
+                            query = query,
+                        )
+                    }
+                }
+        }
+    return collectionIndex
+}
+
+/** Search result count for the active pivot; zero while the index is still building. */
+private fun collectionResultCount(
+    pivot: LibraryPivot,
+    index: MediaCollectionIndex?,
+    visiblePlaylists: List<MediaPlaylist>,
+): Int {
+    val built = index ?: MediaCollectionIndex.Empty
+    return when (pivot) {
+        LibraryPivot.Songs -> built.songs.size
+        LibraryPivot.Artists -> built.artists.size
+        LibraryPivot.Albums -> built.albums.size
+        LibraryPivot.Favorites -> built.favorites.size
+        LibraryPivot.Playlists -> visiblePlaylists.size
+    }
+}
+
+/** The fixed header rows; their count is [COLLECTION_FIXED_ITEM_COUNT]. */
+private fun LazyListScope.collectionHeader(
+    pivot: LibraryPivot,
+    playback: PlaybackUiState,
+    onOpenSearch: () -> Unit,
+    onDestinationChange: (MediaDestination) -> Unit,
+    onPivotChange: (LibraryPivot) -> Unit,
+    onAddLocalAudio: () -> Unit,
+    onAddLocalFolder: () -> Unit,
+) {
+    item {
+        SableHeroHeader(
+            eyebrow = "Sable Media",
+            title = "music",
+            subtitle = "Your local collection, playlists, and one continuous playback queue.",
+        )
+    }
+
+    item {
+        PrimaryPivot(
+            destination = MediaDestination.Collection,
+            onSelect = onDestinationChange,
+        )
+    }
+
+    item {
+        MediaUtilityBar(
+            queueCount = playback.queue.size,
+            upNextCount = playback.upNextCount(),
+            onQueue = {
+                onDestinationChange(MediaDestination.Queue)
+            },
+            onSettings = {
+                onDestinationChange(MediaDestination.Settings)
+            },
+            onSearch = onOpenSearch,
+        )
+    }
+
+    item {
+        Text(
+            text = "collection",
+            style = MaterialTheme.typography.headlineLarge,
+        )
+    }
+
+    item {
+        SableAdaptiveTopNav(
+            destinations = LIBRARY_DESTINATIONS,
+            selectedId = pivot.name,
+            onSelect = { id -> onPivotChange(LibraryPivot.valueOf(id)) },
+        )
+    }
+
+    item {
+        CollectionImportButtons(
+            onAddLocalAudio = onAddLocalAudio,
+            onAddLocalFolder = onAddLocalFolder,
+        )
+    }
+}
+
+@Composable
+private fun CollectionImportButtons(
+    onAddLocalAudio: () -> Unit,
+    onAddLocalFolder: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+    ) {
+        SableActionButton(
+            text = "Add audio files",
+            modifier = Modifier.weight(1f),
+            onClick = onAddLocalAudio,
+        )
+        SableActionButton(
+            text = "Import folder",
+            primary = false,
+            modifier = Modifier.weight(1f),
+            onClick = onAddLocalFolder,
+        )
+    }
+}
+
+/** Below the header: a loading/empty/indexing panel, or the active pivot's rows. */
+private fun LazyListScope.collectionBody(
+    content: CollectionContent,
+    tracks: CollectionTrackActions,
+    playlists: CollectionPlaylistActions,
+) {
+    val index = content.index
+    when {
+        content.loading -> {
+            item {
+                C2InfoPanel(
+                    title = "Loading local collection",
+                    detail = "Indexing saved songs, artists, and albums off the UI thread.",
+                )
+            }
+        }
+
+        !content.hasItems -> {
+            item {
+                EmptyPanel(
+                    title = "No local audio yet",
+                    detail =
+                        "Choose audio with Android's document picker. " +
+                            "Sable keeps access only to files you explicitly select.",
+                )
+            }
+        }
+
+        index == null -> {
+            item {
+                C2InfoPanel(
+                    title = "Indexing collection",
+                    detail = "Preparing songs, artists, albums, favorites, and A–Z navigation.",
+                )
+            }
+        }
+
+        else -> {
+            collectionResults(content, index, tracks, playlists)
+        }
+    }
+}
+
+private fun LazyListScope.collectionResults(
+    content: CollectionContent,
+    index: MediaCollectionIndex,
+    tracks: CollectionTrackActions,
+    playlists: CollectionPlaylistActions,
+) {
+    val query = content.query
+    if (query.isNotBlank() && index.songs.isEmpty() && content.pivot != LibraryPivot.Playlists) {
+        item {
+            C2InfoPanel(
+                title = "No matches for \"${query.trim()}\"",
+                detail = "Search looks at title, artist and album. Esc closes search.",
+            )
+        }
+    }
+    when (content.pivot) {
+        LibraryPivot.Songs -> trackItems(index.songs, tracks, allFavorites = false)
+        LibraryPivot.Artists -> groupItems(index.artists, tracks.onPlay)
+        LibraryPivot.Albums -> groupItems(index.albums, tracks.onPlay)
+        LibraryPivot.Favorites -> favoriteItems(index.favorites, tracks)
+        LibraryPivot.Playlists -> playlistItems(query, content.visiblePlaylists, index.availableUris, playlists)
+    }
+}
+
+/** Track rows; [allFavorites] marks every row as a favorite (the Favorites pivot). */
+private fun LazyListScope.trackItems(
+    rows: List<MediaIndexedTrack>,
+    tracks: CollectionTrackActions,
+    allFavorites: Boolean,
+) {
+    items(
+        count = rows.size,
+        key = { index -> rows[index].item.uri },
+    ) { index ->
+        val indexedTrack = rows[index]
+        val item = indexedTrack.item
+        LocalTrackRow(
+            item = item,
+            accent = accentFor(indexedTrack.sourceIndex),
+            favorite = allFavorites || item.uri in tracks.favoriteAudioUris,
+            onToggleFavorite = { tracks.onToggleFavorite(item) },
+            onPlay = { tracks.onPlay(indexedTrack.sourceIndex) },
+            onFocusChange = { focused -> tracks.onFocusChange(item, focused) },
+        )
+    }
+}
+
+/** Artist or album rows: a click plays from the group's first track. */
+private fun LazyListScope.groupItems(
+    groups: List<MediaGroupSummary>,
+    onPlay: (Int) -> Unit,
+) {
+    items(
+        count = groups.size,
+        key = { index -> groups[index].name },
+    ) { index ->
+        val group = groups[index]
+        LibraryGroupRow(
+            title = group.name,
+            detail = group.detail,
+            accent = accentFor(group.name.hashCode()),
+            onClick = {
+                onPlay(group.sourceIndex)
+            },
+        )
+    }
+}
+
+private fun LazyListScope.favoriteItems(
+    favorites: List<MediaIndexedTrack>,
+    tracks: CollectionTrackActions,
+) {
+    if (favorites.isEmpty()) {
+        item {
+            C2InfoPanel(
+                title = "No favorite tracks",
+                detail = "Mark local tracks with ★ to keep a quick local favorites view.",
+            )
+        }
+    } else {
+        trackItems(favorites, tracks, allFavorites = true)
+    }
+}
+
+private fun LazyListScope.playlistItems(
+    query: String,
+    visiblePlaylists: List<MediaPlaylist>,
+    availableUris: Set<String>,
+    actions: CollectionPlaylistActions,
+) {
+    item {
+        SableActionButton(
+            text = "Create playlist",
+            modifier = Modifier.fillMaxWidth(),
+            onClick = actions.onCreate,
+        )
+    }
+
+    if (visiblePlaylists.isEmpty()) {
+        item {
+            C2InfoPanel(
+                title =
+                    if (query.isBlank()) "No playlists yet" else "No matching playlists",
+                detail = "Create a local playlist from audio already added to Sable Media.",
+            )
+        }
+    } else {
+        items(
+            count = visiblePlaylists.size,
+            key = { index -> visiblePlaylists[index].id },
+        ) { index ->
+            val playlist = visiblePlaylists[index]
+            PlaylistCard(
+                playlist = playlist,
+                availableUris = availableUris,
+                onPlay = { actions.onPlay(playlist) },
+                onEdit = { actions.onEdit(playlist) },
+                onDelete = { actions.onDelete(playlist) },
+            )
+        }
+    }
+}
+
 private val EMPTY_ALPHABET = SableAlphabetIndex.build(emptyList())
 
 private data class MediaIndexedTrack(
@@ -959,6 +1148,9 @@ private data class MediaCollectionIndex(
     val favorites: List<MediaIndexedTrack>,
     val availableUris: Set<String>,
     val sections: Map<LibraryPivot, SableAlphabetIndex>,
+    /** The inputs this index was built from, compared by identity to detect a stale index. */
+    val source: List<LocalAudioItem> = emptyList(),
+    val favoriteSource: Set<String> = emptySet(),
 ) {
     companion object {
         val Empty =
@@ -976,7 +1168,9 @@ private data class MediaCollectionIndex(
 private fun buildMediaCollectionIndex(
     localItems: List<LocalAudioItem>,
     favoriteAudioUris: Set<String>,
+    query: String,
 ): MediaCollectionIndex {
+    val visibleItems = MediaLibrarySearch.filter(localItems, query)
     val locale = Locale.ROOT
     val sourceIndexByUri =
         HashMap<String, Int>(localItems.size * 2).apply {
@@ -986,7 +1180,7 @@ private fun buildMediaCollectionIndex(
         }
 
     val songs =
-        localItems
+        visibleItems
             .asSequence()
             .sortedBy { item -> item.title.lowercase(locale) }
             .map { item ->
@@ -1002,7 +1196,7 @@ private fun buildMediaCollectionIndex(
         }
 
     val artists =
-        localItems
+        visibleItems
             .groupBy { item -> item.artist }
             .entries
             .sortedWith(
@@ -1017,7 +1211,7 @@ private fun buildMediaCollectionIndex(
             }
 
     val albums =
-        localItems
+        visibleItems
             .groupBy { item -> item.album }
             .entries
             .sortedWith(
@@ -1059,6 +1253,8 @@ private fun buildMediaCollectionIndex(
         favorites = favorites,
         availableUris = sourceIndexByUri.keys.toSet(),
         sections = sections,
+        source = localItems,
+        favoriteSource = favoriteAudioUris,
     )
 }
 
@@ -1069,10 +1265,13 @@ private fun LocalTrackRow(
     favorite: Boolean,
     onToggleFavorite: () -> Unit,
     onPlay: () -> Unit,
+    onFocusChange: (Boolean) -> Unit,
 ) {
     // Dense row: one primary trailing action (play); favorite moves to the menu.
+    // Focus is reported so F (favorite) and D (remove) act on the focused track.
     Column(modifier = Modifier.fillMaxWidth()) {
         SableDenseRow(
+            modifier = Modifier.onFocusChanged { onFocusChange(it.hasFocus) },
             title = item.title,
             subtitle = listOf(item.artist, item.album).filter { it.isNotBlank() }.joinToString(" · "),
             onClick = onPlay,
@@ -1175,7 +1374,10 @@ private fun LibraryGroupRow(
     Column(modifier = Modifier.fillMaxWidth()) {
         Surface(
             onClick = onClick,
-            modifier = Modifier.fillMaxWidth(),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .sableFocusRing(),
             color = Color.Transparent,
         ) {
             Row(
@@ -1372,6 +1574,7 @@ private fun RadioScreen(
         ) {
             Surface(
                 onClick = { onFavoritesOnlyChange(false) },
+                modifier = Modifier.sableFocusRing(),
                 color = Color.Transparent,
                 contentColor =
                     if (!showFavoritesOnly) {
@@ -1388,6 +1591,7 @@ private fun RadioScreen(
             }
             Surface(
                 onClick = { onFavoritesOnlyChange(true) },
+                modifier = Modifier.sableFocusRing(),
                 color = Color.Transparent,
                 contentColor =
                     if (showFavoritesOnly) {
@@ -1694,14 +1898,14 @@ private fun StationFields(
     OutlinedTextField(
         value = stationName,
         onValueChange = onStationNameChange,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().mediaTextInput(),
         singleLine = true,
         label = { Text("Station name") },
     )
     OutlinedTextField(
         value = stationUrl,
         onValueChange = onStationUrlChange,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().mediaTextInput(),
         singleLine = true,
         label = { Text("HTTP(S) stream URL") },
     )
@@ -1718,7 +1922,10 @@ private fun BackTitle(
     ) {
         Surface(
             onClick = onBack,
-            modifier = Modifier.width(MediaControlSize),
+            modifier =
+                Modifier
+                    .width(MediaControlSize)
+                    .sableFocusRing(),
             color = Color.Transparent,
         ) {
             Box(
@@ -1799,7 +2006,10 @@ private fun PlayerButton(
     Surface(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.heightIn(min = MediaPrimaryTouchHeight),
+        modifier =
+            modifier
+                .heightIn(min = MediaPrimaryTouchHeight)
+                .sableFocusRing(),
         shape = MaterialTheme.shapes.medium,
         color =
             if (active) {

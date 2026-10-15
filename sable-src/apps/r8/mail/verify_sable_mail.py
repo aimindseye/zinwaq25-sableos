@@ -34,6 +34,18 @@ def main() -> None:
     root = pathlib.Path(sys.argv[1]).resolve()
     app = root / "app-thunderbird"
 
+    verify_upstream(root)
+    verify_build_configuration(app)
+    verify_feature_removals(root)
+    verify_product_sources(root, app)
+
+    if len(sys.argv) == 3:
+        verify_apk(pathlib.Path(sys.argv[2]).resolve())
+
+    print("SABLE_MAIL_POLICY=PASS")
+
+
+def verify_upstream(root: pathlib.Path) -> None:
     actual = subprocess.check_output(
         ["git", "-C", str(root), "rev-parse", "HEAD"],
         text=True,
@@ -66,6 +78,8 @@ def main() -> None:
         )
     print("SABLE_MAIL_UPSTREAM_BUILD_LOGIC_MUTATION=PASS_ABSENT")
 
+
+def verify_build_configuration(app: pathlib.Path) -> None:
     build = app / "build.gradle.kts"
     require_text(
         build,
@@ -129,6 +143,8 @@ def main() -> None:
     print("SABLE_MAIL_FUNDING_SETTINGS_SOURCE=PASS_ABSENT")
     print("SABLE_MAIL_BUILD_CONFIGURATION=PASS")
 
+
+def verify_feature_removals(root: pathlib.Path) -> None:
     for path in (
         root / "app-common/build.gradle.kts",
         root / "feature/account/setup/build.gradle.kts",
@@ -213,6 +229,15 @@ def main() -> None:
         "SABLE_MAIL_ACCOUNT_SETUP_THUNDERMAIL_CALLBACK",
     )
 
+    previews = (
+        root
+        / "feature/account/setup/src/debug/kotlin/app/k9mail/feature/account/setup/"
+        "ui/autodiscovery"
+    )
+    for preview in ("AccountAutoDiscoveryContentPreview.kt", "AccountAutoDiscoveryScreenPreview.kt"):
+        for needle in ("onThundermailClick", "onScanQrCodeClick"):
+            reject_text(previews / preview, needle, "SABLE_MAIL_ACCOUNT_SETUP_THUNDERMAIL_PREVIEW")
+
     account_setup_nav = (
         root
         / "feature/account/setup/src/main/kotlin/app/k9mail/feature/account/setup/"
@@ -281,6 +306,8 @@ def main() -> None:
     print("SABLE_MAIL_STANDARD_ACCOUNT_ENTRY=PASS")
     print("SABLE_MAIL_THUNDERMAIL_ROUTES=PASS_ABSENT")
 
+
+def verify_product_sources(root: pathlib.Path, app: pathlib.Path) -> None:
     strings = app / "src/main/res/values/strings.xml"
     require_text(strings, ">Sable Mail</string>", "SABLE_MAIL_BRANDING")
     reject_text(strings, ">Thunderbird</string>", "SABLE_MAIL_BRANDING")
@@ -476,53 +503,92 @@ def main() -> None:
         "SABLE_MAIL_REMOTE_CONTENT_PRIVACY",
     )
     print("SABLE_MAIL_REMOTE_CONTENT_PRIVACY=PASS_UPSTREAM_PRESERVED")
+
+    # Keyboard model: the Sable keymap owns single-key commands, with the input guard,
+    # Ctrl/Alt+Enter send and delete confirmation on by default.
+    legacy_activity = root / "legacy/ui/legacy/src/main/java/com/fsck/k9/activity"
+    keymap_source = legacy_activity / "SableMailKeymap.kt"
+    if not keymap_source.is_file():
+        fail("SABLE_MAIL_KEYMAP", f"missing={keymap_source}")
+    if not (root / "legacy/ui/legacy/src/test/java/com/fsck/k9/activity/SableMailKeymapTest.kt").is_file():
+        fail("SABLE_MAIL_KEYMAP", "missing unit test")
+    home_activity = legacy_activity / "MessageHomeActivity.kt"
+    require_text(home_activity, "eventHandled = onSableKeyDown(event)", "SABLE_MAIL_KEYMAP")
+    reject_text(home_activity, "eventHandled = onCustomKeyDown(event)", "SABLE_MAIL_KEYMAP")
+    require_text(
+        home_activity,
+        "val textInputActive = !isSearchViewCollapsed() || currentFocus is EditText",
+        "SABLE_MAIL_KEYMAP_INPUT_GUARD",
+    )
+    require_text(
+        home_activity,
+        "SableMailKeymap.upstreamFallbackAllowed(press, textInputActive) -> onCustomKeyDown(event)",
+        "SABLE_MAIL_KEYMAP",
+    )
+    require_text(
+        legacy_activity / "MessageCompose.java",
+        "SableMailKeymap.INSTANCE.composeCommand(",
+        "SABLE_MAIL_COMPOSE_SEND_KEY",
+    )
+    require_text(
+        root / "core/preference/api/src/commonMain/kotlin/net/thunderbird/core/preference/interaction/InteractionSettings.kt",
+        "const val INTERACTION_SETTINGS_DEFAULT_CONFIRM_DELETE = true",
+        "SABLE_MAIL_DELETE_CONFIRMATION",
+    )
+    require_text(
+        root / "legacy/ui/legacy/src/main/res/layout/message_list_item.xml",
+        'android:foreground="@drawable/sable_mail_list_item_foreground"',
+        "SABLE_MAIL_FOCUS_RING",
+    )
+    print("SABLE_MAIL_KEYMAP=PASS_SABLE_SHARED_CONTRACT")
+    print("SABLE_MAIL_FOCUS_RING=PASS")
+    print("SABLE_MAIL_KEYMAP_INPUT_GUARD=PASS")
+    print("SABLE_MAIL_DELETE_CONFIRMATION=PASS_DEFAULT_ON")
     print("SABLE_MAIL_PRODUCT_BRANDING_SOURCE=PASS")
 
-    if len(sys.argv) == 3:
-        apk = pathlib.Path(sys.argv[2]).resolve()
-        if not apk.is_file():
-            fail("SABLE_MAIL_APK", f"path={apk}")
 
-        apkanalyzer = (
-            os.environ.get("APKANALYZER")
-            or os.environ.get("SABLE_APKANALYZER")
-            or "apkanalyzer"
+def verify_apk(apk: pathlib.Path) -> None:
+    if not apk.is_file():
+        fail("SABLE_MAIL_APK", f"path={apk}")
+
+    apkanalyzer = (
+        os.environ.get("APKANALYZER")
+        or os.environ.get("SABLE_APKANALYZER")
+        or "apkanalyzer"
+    )
+    apkanalyzer_path = pathlib.Path(apkanalyzer)
+    if "/" in apkanalyzer and not apkanalyzer_path.is_file():
+        fail(
+            "SABLE_MAIL_APKANALYZER",
+            f"path={apkanalyzer_path}",
         )
-        apkanalyzer_path = pathlib.Path(apkanalyzer)
-        if "/" in apkanalyzer and not apkanalyzer_path.is_file():
-            fail(
-                "SABLE_MAIL_APKANALYZER",
-                f"path={apkanalyzer_path}",
-            )
 
-        package = subprocess.check_output(
-            [apkanalyzer, "manifest", "application-id", str(apk)],
-            text=True,
-        ).strip()
-        debuggable = subprocess.check_output(
-            [apkanalyzer, "manifest", "debuggable", str(apk)],
-            text=True,
-        ).strip().lower()
-        if debuggable != "false":
-            fail(
-                "SABLE_MAIL_APK_DEBUGGABLE",
-                f"expected=false actual={debuggable}",
-            )
-        if package != EXPECTED_PACKAGE:
-            fail(
-                "SABLE_MAIL_APK_PACKAGE",
-                f"expected={EXPECTED_PACKAGE} actual={package}",
-            )
+    package = subprocess.check_output(
+        [apkanalyzer, "manifest", "application-id", str(apk)],
+        text=True,
+    ).strip()
+    debuggable = subprocess.check_output(
+        [apkanalyzer, "manifest", "debuggable", str(apk)],
+        text=True,
+    ).strip().lower()
+    if debuggable != "false":
+        fail(
+            "SABLE_MAIL_APK_DEBUGGABLE",
+            f"expected=false actual={debuggable}",
+        )
+    if package != EXPECTED_PACKAGE:
+        fail(
+            "SABLE_MAIL_APK_PACKAGE",
+            f"expected={EXPECTED_PACKAGE} actual={package}",
+        )
 
-        digest = subprocess.check_output(
-            ["sha256sum", str(apk)],
-            text=True,
-        ).split()[0]
-        print(f"SABLE_MAIL_APK_PACKAGE=PASS value={package}")
-        print("SABLE_MAIL_APK_DEBUGGABLE=PASS_FALSE")
-        print(f"SABLE_MAIL_APK_SHA256={digest}")
-
-    print("SABLE_MAIL_POLICY=PASS")
+    digest = subprocess.check_output(
+        ["sha256sum", str(apk)],
+        text=True,
+    ).split()[0]
+    print(f"SABLE_MAIL_APK_PACKAGE=PASS value={package}")
+    print("SABLE_MAIL_APK_DEBUGGABLE=PASS_FALSE")
+    print(f"SABLE_MAIL_APK_SHA256={digest}")
 
 
 if __name__ == "__main__":

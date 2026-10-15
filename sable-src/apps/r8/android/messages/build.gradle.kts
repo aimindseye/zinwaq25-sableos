@@ -16,6 +16,14 @@ android {
         versionName = "0.1.0"
     }
 
+    buildTypes {
+        release {
+            // The image ships the debug variant (product/q25/apps.tsv); a release build is shrunk and obfuscated.
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+        }
+    }
+
     buildFeatures {
         compose = true
     }
@@ -45,14 +53,14 @@ androidComponents {
 
 dependencies {
     implementation(project(":design"))
-    implementation(platform("androidx.compose:compose-bom:2026.02.01"))
-    implementation("androidx.activity:activity-compose:1.12.4")
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.activity.compose)
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.ui:ui")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
-    testImplementation("junit:junit:4.13.2")
+    testImplementation(libs.junit)
 }
 
 extensions.configure<io.gitlab.arturbosch.detekt.extensions.DetektExtension> {

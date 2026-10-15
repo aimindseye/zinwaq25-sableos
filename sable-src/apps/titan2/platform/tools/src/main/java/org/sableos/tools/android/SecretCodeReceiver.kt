@@ -15,11 +15,10 @@ import org.sableos.tools.ui.ToolActivity
  */
 class SecretCodeReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (DialerCodes.secretCodeFromUri(intent.dataString) !=
-            DialerCodes.FACTORY_TEST_CODE
-        ) {
-            return
-        }
+        // Only the system sends this protected broadcast; ignore intents another app addresses to us directly.
+        val isFactoryCode = intent.action == ACTION_SECRET_CODE &&
+            DialerCodes.secretCodeFromUri(intent.dataString) == DialerCodes.FACTORY_TEST_CODE
+        if (!isFactoryCode) return
         // Enabled from install; defer to (and disable for) a vendor factory-test app that answers the same code.
         if (!SecretCodeSync.sync(context)) return
         val env = ToolsEnv(context)
@@ -33,5 +32,9 @@ class SecretCodeReceiver : BroadcastReceiver() {
                 .putExtra(ToolActivity.EXTRA_NOTICE, decision.reason)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         )
+    }
+
+    private companion object {
+        const val ACTION_SECRET_CODE = "android.telephony.action.SECRET_CODE"
     }
 }

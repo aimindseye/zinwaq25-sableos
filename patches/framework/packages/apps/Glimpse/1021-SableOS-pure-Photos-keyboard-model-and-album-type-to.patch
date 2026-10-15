@@ -1,0 +1,353 @@
+From 33d3450acda8ad193764e48a55f0096032999592 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 14 Oct 2026 23:14:54 +0000
+Subject: [PATCH 1021/1022] SableOS: pure Photos keyboard model and album
+ type-to-jump
+
+The Sable Photos key model (MEDIA_GALLERY_UX "Input contract") for a
+keyboard with Alt, Shift and Sym but no Ctrl or Fn key, such as the
+Zinwa Q25:
+
+* SableGalleryKeys.viewer: Left/J previous, Right/K next, Space
+  play/pause for a video and next for a photo (Shift+Space previous),
+  + and - zoom (Alt+O and Alt+I on the Q25; = and the keypad keys
+  too), 0 fits again, I info, S share, F favorite, D or Del delete.
+  Arrows and Space stay with a focused toolbar or bottom-bar button.
+* SableGalleryKeys.grid: Space opens the focused thumbnail like Enter,
+  D or Del delete and S share; never while picking for another app.
+* SableGalleryKeys.zoomStep: one 1.5x step, kept within the viewer's
+  scale bounds.
+* SableTypeAhead: letters typed within a second build a prefix that
+  moves focus to the first matching name; repeating one letter cycles;
+  case and accents are ignored. It only moves focus.
+
+Ctrl and Meta chords are never ours; only moving and zooming repeat.
+Pure Java (sable/), so Android.bp also compiles Java sources. Host
+tests live in the SableOS Q25 repository under
+tests/java/stock-apps/Glimpse.
+---
+ app/Android.bp                                |   5 +-
+ .../glimpse/sable/SableGalleryKeys.java       | 187 ++++++++++++++++++
+ .../glimpse/sable/SableTypeAhead.java         | 100 ++++++++++
+ 3 files changed, 291 insertions(+), 1 deletion(-)
+ create mode 100644 app/src/main/java/org/lineageos/glimpse/sable/SableGalleryKeys.java
+ create mode 100644 app/src/main/java/org/lineageos/glimpse/sable/SableTypeAhead.java
+
+diff --git a/app/Android.bp b/app/Android.bp
+index eb61716..d8f2400 100644
+--- a/app/Android.bp
++++ b/app/Android.bp
+@@ -10,7 +10,10 @@ package {
+ android_app {
+     name: "Glimpse",
+ 
+-    srcs: ["src/main/java/**/*.kt"],
++    srcs: [
++        "src/main/java/**/*.kt",
++        "src/main/java/**/*.java",
++    ],
+     resource_dirs: ["src/main/res"],
+     manifest: "src/main/AndroidManifest.xml",
+ 
+diff --git a/app/src/main/java/org/lineageos/glimpse/sable/SableGalleryKeys.java b/app/src/main/java/org/lineageos/glimpse/sable/SableGalleryKeys.java
+new file mode 100644
+index 0000000..ba6c673
+--- /dev/null
++++ b/app/src/main/java/org/lineageos/glimpse/sable/SableGalleryKeys.java
+@@ -0,0 +1,187 @@
++/*
++ * SPDX-FileCopyrightText: The SableOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++package org.lineageos.glimpse.sable;
++
++/**
++ * The Photos keyboard model (MEDIA_GALLERY_UX "Input contract") for a keyboard with Alt, Shift
++ * and Sym but no Ctrl or Fn key. Pure Java so it can be tested on the host.
++ *
++ * <p>Viewer: Left/J previous, Right/K next, Space play/pause for a video and next for a photo
++ * (Shift+Space previous), + and - zoom (on this keyboard Alt+O and Alt+I; = and the keypad keys
++ * work too), 0 fits the photo again, I info, S share, F favorite, D or Del delete. Delete always
++ * asks first. Back leaves the viewer as before.
++ *
++ * <p>Grid: Enter opens the focused photo as before, Space opens it too, D or Del deletes the
++ * focused photo (or the selection) after asking, S shares it.
++ *
++ * <p>Ctrl and Meta chords are never ours. A held key only repeats moving and zooming.
++ */
++public final class SableGalleryKeys {
++
++    /** What a key does. */
++    public enum Action {
++        PREVIOUS,
++        NEXT,
++        PLAY_PAUSE,
++        ZOOM_IN,
++        ZOOM_OUT,
++        ZOOM_FIT,
++        INFO,
++        SHARE,
++        FAVORITE,
++        DELETE,
++        /** Open the focused grid item (as Enter does). */
++        OPEN,
++        /** Not a Photos shortcut: leave the key alone. */
++        NONE
++    }
++
++    // android.view.KeyEvent key codes (mirrored so this class stays pure Java).
++    static final int KEYCODE_0 = 7;
++    static final int KEYCODE_DPAD_LEFT = 21;
++    static final int KEYCODE_DPAD_RIGHT = 22;
++    static final int KEYCODE_D = 32;
++    static final int KEYCODE_F = 34;
++    static final int KEYCODE_I = 37;
++    static final int KEYCODE_J = 38;
++    static final int KEYCODE_K = 39;
++    static final int KEYCODE_S = 47;
++    static final int KEYCODE_SPACE = 62;
++    static final int KEYCODE_DEL = 67;
++    static final int KEYCODE_MINUS = 69;
++    static final int KEYCODE_EQUALS = 70;
++    static final int KEYCODE_PLUS = 81;
++    static final int KEYCODE_FORWARD_DEL = 112;
++    static final int KEYCODE_NUMPAD_SUBTRACT = 156;
++    static final int KEYCODE_NUMPAD_ADD = 157;
++
++    /** Zoom factor of one + or - press. */
++    public static final float ZOOM_STEP = 1.5f;
++
++    private SableGalleryKeys() {}
++
++    /**
++     * A key in the viewer.
++     *
++     * @param keyCode the KeyEvent key code
++     * @param unicodeChar the character the key produces with its modifiers, 0 if none
++     * @param alt Alt is held
++     * @param ctrl Ctrl is held
++     * @param shift Shift is held
++     * @param meta Meta is held
++     * @param controlFocused a toolbar or bottom-bar button has focus; arrows, Space and Enter
++     *     then stay with it
++     * @param video the current item plays as a video
++     */
++    public static Action viewer(
++            int keyCode,
++            int unicodeChar,
++            boolean alt,
++            boolean ctrl,
++            boolean shift,
++            boolean meta,
++            boolean controlFocused,
++            boolean video) {
++        if (ctrl || meta) {
++            return Action.NONE;
++        }
++        if (unicodeChar == '+' || unicodeChar == '='
++                || keyCode == KEYCODE_PLUS || keyCode == KEYCODE_NUMPAD_ADD) {
++            return Action.ZOOM_IN;
++        }
++        if (unicodeChar == '-' || keyCode == KEYCODE_MINUS || keyCode == KEYCODE_NUMPAD_SUBTRACT) {
++            return Action.ZOOM_OUT;
++        }
++        if (keyCode == KEYCODE_EQUALS && !alt) {
++            return Action.ZOOM_IN;
++        }
++        if (alt) {
++            return Action.NONE;
++        }
++        if (keyCode == KEYCODE_SPACE) {
++            if (controlFocused) {
++                return Action.NONE;
++            }
++            if (video) {
++                return shift ? Action.NONE : Action.PLAY_PAUSE;
++            }
++            return shift ? Action.PREVIOUS : Action.NEXT;
++        }
++        if (shift) {
++            return Action.NONE;
++        }
++        switch (keyCode) {
++            case KEYCODE_DPAD_LEFT:
++                return controlFocused ? Action.NONE : Action.PREVIOUS;
++            case KEYCODE_DPAD_RIGHT:
++                return controlFocused ? Action.NONE : Action.NEXT;
++            case KEYCODE_J:
++                return Action.PREVIOUS;
++            case KEYCODE_K:
++                return Action.NEXT;
++            case KEYCODE_0:
++                return Action.ZOOM_FIT;
++            case KEYCODE_I:
++                return Action.INFO;
++            case KEYCODE_S:
++                return Action.SHARE;
++            case KEYCODE_F:
++                return Action.FAVORITE;
++            case KEYCODE_D:
++            case KEYCODE_DEL:
++            case KEYCODE_FORWARD_DEL:
++                return Action.DELETE;
++            default:
++                return Action.NONE;
++        }
++    }
++
++    /**
++     * A key on a focused grid thumbnail.
++     *
++     * @param picking the grid is picking items for another app (no delete or share there)
++     */
++    public static Action grid(
++            int keyCode, boolean alt, boolean ctrl, boolean shift, boolean meta, boolean picking) {
++        if (alt || ctrl || shift || meta) {
++            return Action.NONE;
++        }
++        switch (keyCode) {
++            case KEYCODE_SPACE:
++                return Action.OPEN;
++            case KEYCODE_S:
++                return picking ? Action.NONE : Action.SHARE;
++            case KEYCODE_D:
++            case KEYCODE_DEL:
++            case KEYCODE_FORWARD_DEL:
++                return picking ? Action.NONE : Action.DELETE;
++            default:
++                return Action.NONE;
++        }
++    }
++
++    /** Whether a held key repeats the action (moving and zooming only). */
++    public static boolean repeats(Action action) {
++        return action == Action.PREVIOUS
++                || action == Action.NEXT
++                || action == Action.ZOOM_IN
++                || action == Action.ZOOM_OUT;
++    }
++
++    /**
++     * The scale after one zoom step, kept within [min, max]. Zooming out of the smallest scale
++     * or into the largest one returns that bound.
++     */
++    public static float zoomStep(float current, float min, float max, boolean in) {
++        if (!(min > 0f) || max < min) {
++            return current;
++        }
++        final float base = (current > 0f) ? current : min;
++        final float next = in ? base * ZOOM_STEP : base / ZOOM_STEP;
++        // Land exactly on a bound when the step would pass it, so the photo fits again.
++        return Math.max(min, Math.min(max, next));
++    }
++}
+diff --git a/app/src/main/java/org/lineageos/glimpse/sable/SableTypeAhead.java b/app/src/main/java/org/lineageos/glimpse/sable/SableTypeAhead.java
+new file mode 100644
+index 0000000..7976ac6
+--- /dev/null
++++ b/app/src/main/java/org/lineageos/glimpse/sable/SableTypeAhead.java
+@@ -0,0 +1,100 @@
++/*
++ * SPDX-FileCopyrightText: The SableOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++package org.lineageos.glimpse.sable;
++
++import java.text.Normalizer;
++import java.util.List;
++import java.util.Locale;
++
++/**
++ * Type-to-jump in a list of names: letters typed within {@link #TIMEOUT_MS} of each other build
++ * a prefix and focus moves to the first name that starts with it. Typing the same single letter
++ * again moves on to the next name with that letter. Case and accents are ignored. It only moves
++ * focus: it never opens, selects or changes anything. Pure Java so it can be tested on the host.
++ */
++public final class SableTypeAhead {
++
++    /** Pause after which the next letter starts a new prefix. */
++    public static final long TIMEOUT_MS = 1000;
++
++    private final StringBuilder mPrefix = new StringBuilder();
++    private long mLastMs;
++    private boolean mStarted;
++    private boolean mCycling;
++
++    /**
++     * Adds one typed character and returns the prefix to look for.
++     *
++     * @param codePoint the typed character; only letters and digits are typed, anything else
++     *     returns null and resets the prefix
++     * @param nowMs a monotonic clock in milliseconds
++     */
++    public String type(int codePoint, long nowMs) {
++        if (!Character.isValidCodePoint(codePoint) || !Character.isLetterOrDigit(codePoint)) {
++            reset();
++            return null;
++        }
++        if (!mStarted || nowMs < mLastMs || nowMs - mLastMs > TIMEOUT_MS) {
++            mPrefix.setLength(0);
++        }
++        mStarted = true;
++        mLastMs = nowMs;
++        final String typed = fold(new String(Character.toChars(codePoint)));
++        mCycling = mPrefix.length() > 0 && mPrefix.toString().equals(typed);
++        if (!mCycling) {
++            mPrefix.append(typed);
++        }
++        return mPrefix.toString();
++    }
++
++    /**
++     * Whether the last {@link #type} repeated a single letter, so the search starts after the
++     * focused item instead of at it.
++     */
++    public boolean isCycling() {
++        return mCycling;
++    }
++
++    /** Forgets the prefix. */
++    public void reset() {
++        mPrefix.setLength(0);
++        mStarted = false;
++        mCycling = false;
++    }
++
++    /**
++     * The index of the first name, from {@code start} on and wrapping around, that starts with
++     * {@code prefix} (already folded), or -1. Null names never match.
++     */
++    public static int find(List<? extends CharSequence> names, String prefix, int start) {
++        final int n = names.size();
++        if (prefix == null || prefix.isEmpty() || n == 0) {
++            return -1;
++        }
++        final int from = Math.floorMod(start, n);
++        for (int i = 0; i < n; i++) {
++            final int index = (from + i) % n;
++            final CharSequence name = names.get(index);
++            if (name != null && fold(name.toString().trim()).startsWith(prefix)) {
++                return index;
++            }
++        }
++        return -1;
++    }
++
++    /** Lower case without accents ("Été" and "ete" fold alike). */
++    public static String fold(String s) {
++        final String decomposed = Normalizer.normalize(s, Normalizer.Form.NFD);
++        final StringBuilder out = new StringBuilder(decomposed.length());
++        for (int i = 0; i < decomposed.length(); i++) {
++            final char c = decomposed.charAt(i);
++            if (Character.getType(c) != Character.NON_SPACING_MARK) {
++                out.append(c);
++            }
++        }
++        return out.toString().toLowerCase(Locale.ROOT);
++    }
++}
+-- 
+2.43.0
+

@@ -36,8 +36,10 @@ WRAPPER = "libremosaic_wrapper"
 H = bytes.fromhex
 # The code cave in libmtkcam_featurepolicy.so: requests up to 4096 px wide decline the remosaic
 # path, wider ones take it (disassembly in q25-50mp src/hal/PATCHES.md).
-CAVE = H("f50300aa" "7f1200f1" "e184e554" "f00e40f9" "b084e5b4"
-         "119641b9" "3f064071" "4c84e554" "f4031f2a" "4231ff17")
+CAVE = H("".join([
+    "f50300aa", "7f1200f1", "e184e554", "f00e40f9", "b084e5b4",
+    "119641b9", "3f064071", "4c84e554", "f4031f2a", "4231ff17",
+]))
 
 # library: (exact size, [(file offset, stock bytes, patched bytes), ...]); from q25-50mp
 # tools/apply_lineage.py (MIT), checked against TheMuppets proprietary_vendor_xelex_Q25 b8c2c8f.
@@ -61,25 +63,39 @@ EDITS = {
 }
 
 
+KERNEL_LINE = "CAMERA_50MP_KERNEL=%s"
+
+
 class Refuse(Exception):
     pass
 
 
+def inside(base, *parts):
+    """base/parts, resolved; refused unless it stays inside base (no ../ or symlink escape)."""
+    base = os.path.realpath(base)
+    path = os.path.realpath(os.path.join(base, *parts))
+    if path != base and not path.startswith(base + os.sep):
+        raise Refuse("%s leaves %s" % (os.path.join(*parts), base))
+    return path
+
+
 def kernel_patches():
-    found = sorted(glob.glob(os.path.join(REPO, "product/q25/camera-50mp/kernel/*.patch")))
+    patch_dir = inside(REPO, "product/q25/camera-50mp/kernel")
+    found = sorted(inside(patch_dir, os.path.basename(p))
+                   for p in glob.glob(os.path.join(patch_dir, "*.patch")))
     if not found:
         raise Refuse("no kernel patch in product/q25/camera-50mp/kernel")
     return found
 
 
 def git_apply_ok(tree, patch, reverse=False):
-    cmd = ["git", "-C", tree, "apply", "--check"] + (["--reverse"] if reverse else []) + [patch]
+    cmd = ["git", "-C", tree, "apply", "--check"] + (["--reverse"] if reverse else []) + ["--", patch]
     return subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
 
 
 def kernel_state(root):
     """'stock', 'applied' or None when the kernel tree is missing."""
-    tree = os.path.join(root, KERNEL)
+    tree = inside(root, KERNEL)
     if not os.path.isdir(tree):
         return None
     states = set()
@@ -104,10 +120,10 @@ def kernel_set(root, want):
         return "absent"
     if state == want:
         return want + " (already)"
-    tree = os.path.join(root, KERNEL)
+    tree = inside(root, KERNEL)
     patches = kernel_patches()
     for p in (patches if want == "applied" else reversed(patches)):
-        cmd = ["git", "-C", tree, "apply"] + (["--reverse"] if want == "stock" else []) + [p]
+        cmd = ["git", "-C", tree, "apply"] + (["--reverse"] if want == "stock" else []) + ["--", p]
         subprocess.run(cmd, check=True)
     return want
 
@@ -128,7 +144,7 @@ def blob_state(data, edits, size):
 def blobs_states(root):
     out = {}
     for name, (size, edits) in EDITS.items():
-        path = os.path.join(root, BLOBS, LIB_DIR, name)
+        path = inside(root, BLOBS, LIB_DIR, name)
         if not os.path.isfile(path):
             out[name] = None
             continue
@@ -152,7 +168,7 @@ def blobs_set(root, want):
         if state == want:
             continue
         size, edits = EDITS[name]
-        path = os.path.join(root, BLOBS, LIB_DIR, name)
+        path = inside(root, BLOBS, LIB_DIR, name)
         with open(path, "rb") as f:
             data = bytearray(f.read())
         for off, a, b in edits:
@@ -172,7 +188,7 @@ WRAPPER_BLOCK = re.compile(
 
 def prefer_set(root, want):
     """Prebuilt libremosaic_wrapper preferred (stock) or not (applied: the source module wins)."""
-    path = os.path.join(root, BLOBS, "Android.bp")
+    path = inside(root, BLOBS, "Android.bp")
     if not os.path.isfile(path):
         if want == "applied":
             raise Refuse("no %s/Android.bp" % BLOBS)
@@ -195,7 +211,7 @@ def prefer_set(root, want):
 def check(root):
     k = kernel_state(root)
     b = blobs_states(root)
-    print("CAMERA_50MP_KERNEL=%s" % (k or "ABSENT").upper())
+    print(KERNEL_LINE % (k or "ABSENT").upper())
     for name, s in b.items():
         print("CAMERA_50MP_BLOB %s=%s" % (name, (s or "ABSENT").upper()))
 
@@ -208,7 +224,8 @@ def main(argv=None):
     if not a.android_root or not os.path.isdir(a.android_root):
         print("camera-50mp: no Android tree (set SABLE_ANDROID_ROOT)", file=sys.stderr)
         return 2
-    root = a.android_root
+    # Every path below is resolved inside this tree; nothing outside it is read or written.
+    root = os.path.realpath(a.android_root)
     try:
         if a.action == "check":
             check(root)
@@ -216,14 +233,14 @@ def main(argv=None):
             # Check everything before writing anything.
             kernel_state(root)
             blobs_states(root)
-            print("CAMERA_50MP_KERNEL=%s" % kernel_set(root, "applied"))
+            print(KERNEL_LINE % kernel_set(root, "applied"))
             print("CAMERA_50MP_BLOBS=%s" % blobs_set(root, "applied"))
             print("CAMERA_50MP_WRAPPER_PREBUILT=%s" % prefer_set(root, "applied"))
             print("CAMERA_50MP=APPLIED")
         else:
             print("CAMERA_50MP_WRAPPER_PREBUILT=%s" % prefer_set(root, "stock"))
             print("CAMERA_50MP_BLOBS=%s" % blobs_set(root, "stock"))
-            print("CAMERA_50MP_KERNEL=%s" % kernel_set(root, "stock"))
+            print(KERNEL_LINE % kernel_set(root, "stock"))
             print("CAMERA_50MP=REVERTED")
     except Refuse as e:
         print("camera-50mp: STOP: %s" % e, file=sys.stderr)

@@ -19,6 +19,7 @@
 
     <application
         android:allowBackup="false"
+        android:usesCleartextTraffic="false"
         android:label="Sable Launcher Visual Review"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar">

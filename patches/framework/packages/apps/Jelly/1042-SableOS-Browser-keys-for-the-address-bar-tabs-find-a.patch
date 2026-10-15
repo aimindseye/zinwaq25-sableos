@@ -1,0 +1,213 @@
+From 9e35090dd87054bcd2fac24858119e516c64f99b Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 14 Oct 2026 23:14:33 +0000
+Subject: [PATCH 1042/1042] SableOS: Browser keys for the address bar, tabs,
+ find and paging
+
+Wire the Browser keyboard model into Jelly:
+
+* WebClient.shouldOverrideKeyEvent takes the Alt (or Ctrl) chords
+  before the page; WebClient.onUnhandledKeyEvent takes single keys
+  only after the page declined them, so a page's own shortcuts keep
+  working. MainActivity.onKeyDown covers keys while no page has focus.
+* The input guard is WebView.onCheckIsTextEditor() (a focused web
+  form) or the focused view (address bar, find).
+* L / Alt+L focus the address field with its text selected; T / Alt+T
+  open a new tab (private when the current tab is private); F, / and
+  Alt+F open find in page; B and Alt+Left go back, Alt+Right forward;
+  Alt+R reloads; Space and Shift+Space page with WebView.pageDown/
+  pageUp; Move Home/End go to the top and bottom.
+* A fullscreen video keeps its keys. Back and Esc keep their meaning
+  (close find, then history back).
+---
+ .../java/org/lineageos/jelly/MainActivity.kt  | 71 +++++++++++++++++++
+ .../org/lineageos/jelly/ui/UrlBarLayout.kt    | 14 ++++
+ .../org/lineageos/jelly/webview/WebClient.kt  | 15 ++++
+ .../jelly/webview/WebViewExtActivity.kt       |  9 +++
+ 4 files changed, 109 insertions(+)
+
+diff --git a/app/src/main/java/org/lineageos/jelly/MainActivity.kt b/app/src/main/java/org/lineageos/jelly/MainActivity.kt
+index ac52c8e..feff3cd 100644
+--- a/app/src/main/java/org/lineageos/jelly/MainActivity.kt
++++ b/app/src/main/java/org/lineageos/jelly/MainActivity.kt
+@@ -34,6 +34,7 @@ import android.print.PrintAttributes
+ import android.print.PrintManager
+ import android.text.TextUtils
+ import android.util.Log
++import android.view.KeyEvent
+ import android.view.View
+ import android.view.ViewGroup
+ import android.view.WindowInsets
+@@ -74,6 +75,7 @@ import org.lineageos.jelly.favorite.FavoriteActivity
+ import org.lineageos.jelly.history.HistoryActivity
+ import org.lineageos.jelly.models.PwaManifest
+ import org.lineageos.jelly.models.WebShare
++import org.lineageos.jelly.sable.SableBrowserKeys
+ import org.lineageos.jelly.shortcut.BackgroundShortcut
+ import org.lineageos.jelly.shortcut.BackgroundShortcutActivity
+ import org.lineageos.jelly.shortcut.BackgroundShortcutService
+@@ -817,6 +819,75 @@ class MainActivity : WebViewExtActivity(), SharedPreferences.OnSharedPreferenceC
+         startActivity(Intent.createChooser(intent, getString(R.string.share_title)))
+     }
+ 
++    // SableOS: Browser keyboard model (sable/SableBrowserKeys.java). Keys the page saw come
++    // through WebClient; this covers keys while no page has focus.
++    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
++        if (currentFocus !is WebView &&
++            (onBrowserKey(null, event, beforePage = true) ||
++                    onBrowserKey(null, event, beforePage = false))
++        ) {
++            return true
++        }
++        return super.onKeyDown(keyCode, event)
++    }
++
++    override fun onBrowserKey(view: WebView?, event: KeyEvent, beforePage: Boolean): Boolean {
++        if (customView != null || !::webView.isInitialized) {
++            // A fullscreen video owns its keys.
++            return false
++        }
++        val editing = view?.onCheckIsTextEditor() ?: (currentFocus?.onCheckIsTextEditor() == true)
++        val action = when (beforePage) {
++            true -> SableBrowserKeys.beforePage(
++                event.keyCode, event.isAltPressed, event.isCtrlPressed,
++                event.isShiftPressed, event.isMetaPressed, editing
++            )
++
++            false -> SableBrowserKeys.afterPage(
++                event.keyCode, event.getUnicodeChar(event.metaState), event.isAltPressed,
++                event.isCtrlPressed, event.isShiftPressed, event.isMetaPressed, editing
++            )
++        }
++        if (action == SableBrowserKeys.Action.NONE) {
++            return false
++        }
++        // The release and the repeats of a shortcut are consumed too; only paging repeats.
++        if (event.action == KeyEvent.ACTION_DOWN &&
++            (event.repeatCount == 0 || SableBrowserKeys.repeats(action))
++        ) {
++            runBrowserAction(action)
++        }
++        return true
++    }
++
++    private fun runBrowserAction(action: SableBrowserKeys.Action) {
++        when (action) {
++            SableBrowserKeys.Action.FOCUS_ADDRESS -> if (appBarLayout.isVisible) {
++                urlBarLayout.focusUrlBar()
++            }
++
++            SableBrowserKeys.Action.NEW_TAB -> openInNewTab(this, null, incognito)
++            SableBrowserKeys.Action.FIND -> if (appBarLayout.isVisible) {
++                showSearch()
++            }
++
++            SableBrowserKeys.Action.BACK -> if (webView.canGoBack()) {
++                webView.goBack()
++            }
++
++            SableBrowserKeys.Action.FORWARD -> if (webView.canGoForward()) {
++                webView.goForward()
++            }
++
++            SableBrowserKeys.Action.RELOAD -> webView.reload()
++            SableBrowserKeys.Action.PAGE_DOWN -> webView.pageDown(false)
++            SableBrowserKeys.Action.PAGE_UP -> webView.pageUp(false)
++            SableBrowserKeys.Action.TOP -> webView.pageUp(true)
++            SableBrowserKeys.Action.BOTTOM -> webView.pageDown(true)
++            SableBrowserKeys.Action.NONE -> Unit
++        }
++    }
++
+     private fun setImmersiveMode(enable: Boolean) {
+         val decorView = window.decorView
+ 
+diff --git a/app/src/main/java/org/lineageos/jelly/ui/UrlBarLayout.kt b/app/src/main/java/org/lineageos/jelly/ui/UrlBarLayout.kt
+index 9cc8982..93cb3d8 100644
+--- a/app/src/main/java/org/lineageos/jelly/ui/UrlBarLayout.kt
++++ b/app/src/main/java/org/lineageos/jelly/ui/UrlBarLayout.kt
+@@ -261,6 +261,20 @@ class UrlBarLayout @JvmOverloads constructor(
+         secureButton.setImageResource(R.drawable.ic_warning)
+     }
+ 
++    /**
++     * SableOS: focus the address field with its text selected, so typing replaces the address.
++     * Leaves find in page first if it is open.
++     */
++    fun focusUrlBar() {
++        if (currentMode != UrlBarMode.URL) {
++            currentMode = UrlBarMode.URL
++            clearSearch()
++        }
++        if (autoCompleteTextView.requestFocus()) {
++            autoCompleteTextView.selectAll()
++        }
++    }
++
+     fun setSuggestionsProvider(provider: SuggestionProvider) {
+         suggestionsAdapter.suggestionProvider = provider
+     }
+diff --git a/app/src/main/java/org/lineageos/jelly/webview/WebClient.kt b/app/src/main/java/org/lineageos/jelly/webview/WebClient.kt
+index 21dc229..73f4077 100644
+--- a/app/src/main/java/org/lineageos/jelly/webview/WebClient.kt
++++ b/app/src/main/java/org/lineageos/jelly/webview/WebClient.kt
+@@ -19,6 +19,7 @@ import android.net.Uri
+ import android.net.http.SslError
+ import android.os.Build
+ import android.text.TextUtils
++import android.view.KeyEvent
+ import android.view.LayoutInflater
+ import android.webkit.HttpAuthHandler
+ import android.webkit.SslErrorHandler
+@@ -79,6 +80,20 @@ internal class WebClient(
+         urlBarLayout.onSslError(error)
+     }
+ 
++    // SableOS: Browser keys. Alt chords are looked at before the page; single keys only once the
++    // page has declined them, so a page's own shortcuts and every text field keep their keys.
++    override fun shouldOverrideKeyEvent(view: WebView, event: KeyEvent) =
++        (context as? WebViewExtActivity)?.onBrowserKey(view, event, beforePage = true) == true ||
++                super.shouldOverrideKeyEvent(view, event)
++
++    override fun onUnhandledKeyEvent(view: WebView, event: KeyEvent) {
++        val activity = context as? WebViewExtActivity
++        if (activity?.onBrowserKey(view, event, beforePage = false) == true) {
++            return
++        }
++        super.onUnhandledKeyEvent(view, event)
++    }
++
+     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+         if (request.isForMainFrame) {
+             val webViewExt = view as WebViewExt
+diff --git a/app/src/main/java/org/lineageos/jelly/webview/WebViewExtActivity.kt b/app/src/main/java/org/lineageos/jelly/webview/WebViewExtActivity.kt
+index 5656571..841c8e5 100644
+--- a/app/src/main/java/org/lineageos/jelly/webview/WebViewExtActivity.kt
++++ b/app/src/main/java/org/lineageos/jelly/webview/WebViewExtActivity.kt
+@@ -7,9 +7,11 @@ package org.lineageos.jelly.webview
+ 
+ import android.graphics.Bitmap
+ import android.net.Uri
++import android.view.KeyEvent
+ import android.view.View
+ import android.webkit.GeolocationPermissions
+ import android.webkit.WebChromeClient.CustomViewCallback
++import android.webkit.WebView
+ import androidx.appcompat.app.AppCompatActivity
+ import org.lineageos.jelly.models.PwaManifest
+ import org.lineageos.jelly.models.WebShare
+@@ -40,4 +42,11 @@ abstract class WebViewExtActivity : AppCompatActivity() {
+     )
+     abstract fun webProtectedMedia(origin: String, cb: ((granted: Boolean) -> Unit))
+     abstract fun onWebShare(value: WebShare)
++
++    /**
++     * SableOS: a key for the Browser keyboard model. [view] is the page that has focus, or null
++     * when none has. [beforePage] is true before the page sees the key and false once it has
++     * declined it. Returns true when the key was a Browser shortcut and is consumed.
++     */
++    open fun onBrowserKey(view: WebView?, event: KeyEvent, beforePage: Boolean) = false
+ }
+-- 
+2.43.0
+

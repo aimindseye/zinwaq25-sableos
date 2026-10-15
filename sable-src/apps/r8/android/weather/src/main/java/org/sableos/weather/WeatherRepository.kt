@@ -3,7 +3,7 @@ package org.sableos.weather
 import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
-import java.net.URL
+import java.net.URI
 import javax.net.ssl.HttpsURLConnection
 import org.sableos.weather.cities.CityEdit
 import org.sableos.weather.cities.CityRepository
@@ -191,7 +191,7 @@ internal class WeatherRepository(
         }
 
         val connection =
-            URL(url).openConnection() as HttpsURLConnection
+            URI(url).toURL().openConnection() as HttpsURLConnection
 
         return try {
             connection.connectTimeout = 10_000

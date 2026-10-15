@@ -1,5 +1,14 @@
 # SableOS for the Zinwa Q25
 
+[![Sable apps](https://github.com/aimindseye/zinwaq25-sableos/actions/workflows/android.yml/badge.svg)](https://github.com/aimindseye/zinwaq25-sableos/actions/workflows/android.yml)
+[![Checks](https://github.com/aimindseye/zinwaq25-sableos/actions/workflows/checks.yml/badge.svg)](https://github.com/aimindseye/zinwaq25-sableos/actions/workflows/checks.yml)
+[![Rust](https://github.com/aimindseye/zinwaq25-sableos/actions/workflows/rust.yml/badge.svg)](https://github.com/aimindseye/zinwaq25-sableos/actions/workflows/rust.yml)
+[![Security](https://github.com/aimindseye/zinwaq25-sableos/actions/workflows/security.yml/badge.svg)](https://github.com/aimindseye/zinwaq25-sableos/actions/workflows/security.yml)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=aimindseye_zinwaq25-sableos&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=aimindseye_zinwaq25-sableos)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Platform: LineageOS 23.2](https://img.shields.io/badge/Platform-LineageOS_23.2_(Android_16)-167C80.svg)](https://wiki.lineageos.org/devices/Q25/)
+[![Device: Zinwa Q25](https://img.shields.io/badge/Device-Zinwa_Q25-black.svg)](https://wiki.lineageos.org/devices/Q25/)
+
 SableOS is a privacy-focused, keyboard-first Android-compatible OS. This
 repository holds everything needed to build SableOS for the **Zinwa Q25** (the
 BlackBerry Classic restomod, codename `Q25`), without needing the Pixel 7,
@@ -8,7 +17,7 @@ Titan 2 or Q27 SableOS lanes.
 > **Status: engineering, not yet booted.** Every planned SableOS feature for the
 > Q25 is written (Q2 apps and the Q4 framework layer), and GitHub Actions builds
 > and checks all 17 Sable apps (16 ship in the image; Sable Messages is built
-> but not shipped until it is rebuilt on the SMS provider). No LineageOS image has been built, and nothing
+> but not shipped, because Sable Hub is the SMS app). No LineageOS image has been built, and nothing
 > has run on a Q25 yet. The install steps are derived from the LineageOS Q25
 > guide and are **untested for SableOS**. Read [`ROADMAP.md`](ROADMAP.md) and
 > [`docs/SABLEOS_GAP_REVIEW.md`](docs/SABLEOS_GAP_REVIEW.md) before flashing anything.

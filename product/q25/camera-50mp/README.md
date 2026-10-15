@@ -29,9 +29,11 @@ writing anything, and refuses a different kernel or blob drop. Run
 * All three libraries in our pinned blobs (`TheMuppets/proprietary_vendor_xelex_Q25` `b8c2c8f`) have
   the expected sizes and stock bytes, and the patched `libmtkcam_featurepolicy.so` hashes to the
   sha256 the upstream project publishes for its working Lineage image (`d43db9ca...`).
-* The library source is byte-identical to upstream's release source (md5 `35f58872...`) and compiles
-  cleanly with `-Wall -Werror -Wno-unused-function` on a host compiler; not yet with the Android
-  toolchain.
+* The library source started as upstream's release source (md5 `35f58872...`). We have since fixed
+  three out-of-range or uninitialised reads that SonarCloud reported, plus one uninitialised log
+  value, and cleaned up code style. Image output is byte-identical to upstream across a 48-case
+  host harness, including a full 50 MP frame under ASan/UBSan. It compiles cleanly with
+  `-Wall -Werror -Wno-unused-function` on a host compiler; not yet with the Android toolchain.
 * `tests/test_camera_50mp.py` covers apply, revert, idempotence and refusals on a synthetic tree.
 
 ## To check on the device

@@ -1,0 +1,870 @@
+From a96a8b006be84e1a339aef2f9b7e6f17d598aca3 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 14 Oct 2026 18:14:58 +0000
+Subject: [PATCH 1101/1102] SableOS: Mobile Manager, App lock, Focus mode and
+ profile model
+
+Pure Java (no android.* imports) model for the Mobile Manager pages
+(MOBILE_MANAGER_APP_CONTROLS_UX, PRIVATE_SPACE_DUAL_APPS_WORK_PROFILE_UX),
+next to the Network Manager model it reuses:
+
+* PackageSet: the stored package lists (App lock choices, Focus pause
+  choices, what Focus actually paused); malformed names are dropped on
+  read so a damaged value never names a package.
+* AppLockPolicy: eligibility (launcher apps; never Settings, home,
+  dialer, keyboard, system UI) and an honest status. LineageOS 23.2 has
+  no launch gate, so PLATFORM_ENFORCEMENT is NOT_ENFORCED and a chosen
+  app is never reported as locked.
+* FocusModePolicy: the mode's notification policy (priority apps,
+  alarms, media and repeat callers only), the per-app "can interrupt"
+  state over Android's channel bypass store, pause eligibility, and the
+  suspend/release plan that only ever releases what Settings itself
+  suspended (refused releases stay held and are retried).
+* ProfileSpaces: Private Space, Dual Apps (clone profile) and Work
+  profile row states; unavailable rows explain instead of opening.
+
+AppControlsModelTest adds 21 host tests to SettingsSableAppsModelTests.
+---
+ .../sable/model/AppLockPolicy.java            |  75 +++++
+ .../sable/model/FocusModePolicy.java          | 238 +++++++++++++++
+ .../applications/sable/model/PackageSet.java  | 120 ++++++++
+ .../sable/model/ProfileSpaces.java            |  95 ++++++
+ .../sable/model/AppControlsModelTest.java     | 270 ++++++++++++++++++
+ 5 files changed, 798 insertions(+)
+ create mode 100644 src/com/android/settings/applications/sable/model/AppLockPolicy.java
+ create mode 100644 src/com/android/settings/applications/sable/model/FocusModePolicy.java
+ create mode 100644 src/com/android/settings/applications/sable/model/PackageSet.java
+ create mode 100644 src/com/android/settings/applications/sable/model/ProfileSpaces.java
+ create mode 100644 tests/sable-apps/src/com/android/settings/applications/sable/model/AppControlsModelTest.java
+
+diff --git a/src/com/android/settings/applications/sable/model/AppLockPolicy.java b/src/com/android/settings/applications/sable/model/AppLockPolicy.java
+new file mode 100644
+index 00000000000..0ca88f1be61
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/AppLockPolicy.java
+@@ -0,0 +1,75 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable.model;
++
++import java.util.Set;
++
++/**
++ * App lock (PRIVATE_SPACE_DUAL_APPS_WORK_PROFILE_UX: an extra unlock gate over chosen apps).
++ *
++ * <p>LineageOS 23.2 has no platform hook that stops an app's activity from starting until the
++ * device credential is confirmed. Settings cannot gate other apps' launches by itself: package
++ * suspension would also hide the app's notifications and stop its alarms, and re-locking after
++ * screen off would need a process that Settings does not keep running. So the choices are
++ * recorded and the page says plainly that they are not enforced
++ * ({@link #PLATFORM_ENFORCEMENT}), the same way App display compatibility never claims more
++ * than its backend applies. Private Space is the enforced alternative and the page links to it.
++ */
++public final class AppLockPolicy {
++
++    /** What the platform does with the chosen apps. */
++    public enum Enforcement {
++        /** Choices are stored; opening a chosen app does not ask for anything. */
++        NOT_ENFORCED,
++        /** A platform gate asks for the device credential before a chosen app opens. */
++        ENFORCED
++    }
++
++    /** What the App lock row and page header say. */
++    public enum Status {
++        /** No app chosen. */
++        NONE_CHOSEN,
++        /** Apps chosen, but nothing locks them. Never shown as "locked". */
++        CHOSEN_NOT_ENFORCED,
++        /** Apps chosen and the platform gate is active. */
++        LOCKED
++    }
++
++    /** LineageOS 23.2 with the current Sable patch set: no launch gate exists. */
++    public static final Enforcement PLATFORM_ENFORCEMENT = Enforcement.NOT_ENFORCED;
++
++    private AppLockPolicy() {}
++
++    public static Status status(int chosenCount, Enforcement enforcement) {
++        if (chosenCount <= 0) {
++            return Status.NONE_CHOSEN;
++        }
++        return enforcement == Enforcement.ENFORCED ? Status.LOCKED : Status.CHOSEN_NOT_ENFORCED;
++    }
++
++    /**
++     * Whether an app may be chosen: it has a launcher entry, and it is not one of the apps the
++     * phone needs to stay usable and recoverable (Settings, the home app, the dialer, the
++     * keyboard, the system UI), which the Android layer passes in {@code protectedPackages}.
++     */
++    public static boolean isEligible(String packageName, boolean hasLauncherActivity,
++            Set<String> protectedPackages) {
++        return PackageSet.isValidPackageName(packageName)
++                && hasLauncherActivity
++                && (protectedPackages == null || !protectedPackages.contains(packageName));
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/model/FocusModePolicy.java b/src/com/android/settings/applications/sable/model/FocusModePolicy.java
+new file mode 100644
+index 00000000000..be154985d0c
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/FocusModePolicy.java
+@@ -0,0 +1,238 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable.model;
++
++import java.util.ArrayList;
++import java.util.Collections;
++import java.util.List;
++import java.util.Set;
++import java.util.TreeSet;
++
++/**
++ * Focus mode (MOBILE_MANAGER_APP_CONTROLS_UX: the adult self-discipline variant).
++ *
++ * <p>Focus mode is an ordinary Android mode (an AutomaticZenRule that Settings owns), so it
++ * shows up in Modes, Quick Settings and the lock screen like any other mode, and Android's
++ * own notification policy does the silencing. Nothing here keeps a second notification
++ * filter:
++ * <ul>
++ *   <li>The mode lets through only apps whose notification channels may interrupt
++ *       (Android's "priority apps": channel bypass-DND, the store Settings &gt; Modes &gt;
++ *       Apps writes) plus alarms, media and repeat callers ({@link Spec}).</li>
++ *   <li>"Allow" on an app switches bypass on for its channels; that is Android's per-app
++ *       choice, so it also applies to other modes that let priority apps through. The page
++ *       says so.</li>
++ *   <li>Apps chosen to pause are suspended with the platform's package-suspension API while
++ *       the mode is on and released when it ends ({@link #plan}). Only packages Settings
++ *       suspended itself are released, so other suspenders (a device admin, another
++ *       wellbeing app) are never undone.</li>
++ * </ul>
++ */
++public final class FocusModePolicy {
++
++    /** The mode's notification policy (ZenPolicy), read by the Android layer. */
++    public static final class Spec {
++        public static final boolean ALLOW_PRIORITY_CHANNELS = true;
++        public static final boolean ALLOW_ALARMS = true;
++        public static final boolean ALLOW_MEDIA = true;
++        public static final boolean ALLOW_REPEAT_CALLERS = true;
++        public static final boolean ALLOW_CALLS = false;
++        public static final boolean ALLOW_MESSAGES = false;
++        public static final boolean ALLOW_CONVERSATIONS = false;
++        public static final boolean ALLOW_REMINDERS = false;
++        public static final boolean ALLOW_EVENTS = false;
++        public static final boolean ALLOW_SYSTEM = false;
++
++        private Spec() {}
++    }
++
++    /** One notification channel of an app, as the allow switch sees it. */
++    public static final class Channel {
++        /** Not blocked (importance is not NONE) and the app's notifications are on. */
++        public final boolean shown;
++        /** Currently allowed to interrupt modes (bypass DND). */
++        public final boolean bypass;
++        /** The user may change it (not locked by a critical device function). */
++        public final boolean configurable;
++        /** A conversation channel; conversations are chosen per person, not here. */
++        public final boolean conversation;
++
++        public Channel(boolean shown, boolean bypass, boolean configurable,
++                boolean conversation) {
++            this.shown = shown;
++            this.bypass = bypass;
++            this.configurable = configurable;
++            this.conversation = conversation;
++        }
++    }
++
++    /** Whether an app's notifications get through Focus mode. */
++    public enum Interrupts {
++        /** Every shown channel may interrupt: the switch is on. */
++        ALL,
++        /** Some channels may interrupt (chosen per channel in Android's page). */
++        SOME,
++        /** None may interrupt. */
++        NONE,
++        /** No channel the switch could change (no channels, all blocked or locked). */
++        NOT_CHANGEABLE
++    }
++
++    /** What to suspend and release, and what Settings holds suspended afterwards. */
++    public static final class Plan {
++        public final Set<String> suspend;
++        public final Set<String> release;
++
++        Plan(Set<String> suspend, Set<String> release) {
++            this.suspend = Collections.unmodifiableSet(suspend);
++            this.release = Collections.unmodifiableSet(release);
++        }
++
++        public boolean isEmpty() {
++            return suspend.isEmpty() && release.isEmpty();
++        }
++    }
++
++    private FocusModePolicy() {}
++
++    public static Interrupts interrupts(List<Channel> channels) {
++        int shown = 0;
++        int bypassing = 0;
++        int configurable = 0;
++        if (channels != null) {
++            for (Channel c : channels) {
++                if (c == null || c.conversation || !c.shown) {
++                    continue;
++                }
++                shown++;
++                if (c.bypass) {
++                    bypassing++;
++                }
++                if (c.configurable) {
++                    configurable++;
++                }
++            }
++        }
++        if (shown == 0) {
++            return Interrupts.NOT_CHANGEABLE;
++        }
++        if (bypassing == shown) {
++            return Interrupts.ALL;
++        }
++        if (bypassing > 0) {
++            return Interrupts.SOME;
++        }
++        return configurable > 0 ? Interrupts.NONE : Interrupts.NOT_CHANGEABLE;
++    }
++
++    /**
++     * The channels the allow switch changes (indexes into {@code channels}): every shown,
++     * configurable, non-conversation channel whose bypass differs from {@code allow}. The same
++     * rule as the "all notifications" switch on Android's per-app Modes page.
++     */
++    public static List<Integer> channelsToChange(List<Channel> channels, boolean allow) {
++        final List<Integer> out = new ArrayList<>();
++        if (channels == null) {
++            return out;
++        }
++        for (int i = 0; i < channels.size(); i++) {
++            final Channel c = channels.get(i);
++            if (c != null && c.shown && c.configurable && !c.conversation && c.bypass != allow) {
++                out.add(i);
++            }
++        }
++        return out;
++    }
++
++    /**
++     * Whether an app may be paused: valid name, has a launcher entry, and is not one of the
++     * apps the phone needs (Settings, home, dialer, SMS app, keyboard, system UI) that the
++     * Android layer passes in {@code neverPause}. The platform refuses some of these anyway;
++     * leaving them out keeps the list honest.
++     */
++    public static boolean canPause(String packageName, boolean hasLauncherActivity,
++            Set<String> neverPause) {
++        return PackageSet.isValidPackageName(packageName)
++                && hasLauncherActivity
++                && (neverPause == null || !neverPause.contains(packageName));
++    }
++
++    /**
++     * The suspension changes that make the platform match the mode.
++     *
++     * @param active whether Focus mode is on now
++     * @param chosen the apps the user chose to pause
++     * @param pausedBySettings the apps Settings suspended and has not released yet
++     * @param neverPause apps that must never be suspended (also releases them if held)
++     */
++    public static Plan plan(boolean active, Set<String> chosen, Set<String> pausedBySettings,
++            Set<String> neverPause) {
++        final Set<String> held = new TreeSet<>(
++                pausedBySettings == null ? Collections.emptySet() : pausedBySettings);
++        final Set<String> target = new TreeSet<>();
++        if (active && chosen != null) {
++            for (String pkg : chosen) {
++                if (PackageSet.isValidPackageName(pkg)
++                        && (neverPause == null || !neverPause.contains(pkg))) {
++                    target.add(pkg);
++                }
++            }
++        }
++        final Set<String> suspend = new TreeSet<>(target);
++        suspend.removeAll(held);
++        final Set<String> release = new TreeSet<>(held);
++        release.removeAll(target);
++        return new Plan(suspend, release);
++    }
++
++    /**
++     * What Settings holds suspended after applying {@code plan}, given the packages the
++     * platform refused to suspend or to release. A refused release stays held so the next
++     * reconcile tries again; a refused suspend is not held.
++     */
++    public static Set<String> heldAfter(Set<String> pausedBySettings, Plan plan,
++            Set<String> failedSuspend, Set<String> failedRelease) {
++        final Set<String> out = new TreeSet<>(
++                pausedBySettings == null ? Collections.emptySet() : pausedBySettings);
++        for (String pkg : plan.suspend) {
++            if (failedSuspend == null || !failedSuspend.contains(pkg)) {
++                out.add(pkg);
++            }
++        }
++        for (String pkg : plan.release) {
++            if (failedRelease == null || !failedRelease.contains(pkg)) {
++                out.remove(pkg);
++            }
++        }
++        return out;
++    }
++
++    /**
++     * The mode state carried by an AUTOMATIC_ZEN_RULE_STATUS_CHANGED broadcast, or null when
++     * the status does not say (the Android layer then reads the rule's state instead).
++     */
++    public static Boolean activeFromStatus(int status, int activated, int deactivated,
++            int disabled, int removed) {
++        if (status == activated) {
++            return Boolean.TRUE;
++        }
++        if (status == deactivated || status == disabled || status == removed) {
++            return Boolean.FALSE;
++        }
++        return null;
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/model/PackageSet.java b/src/com/android/settings/applications/sable/model/PackageSet.java
+new file mode 100644
+index 00000000000..97d2ed3164c
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/PackageSet.java
+@@ -0,0 +1,120 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable.model;
++
++import java.util.Collection;
++import java.util.Collections;
++import java.util.Set;
++import java.util.TreeSet;
++
++/**
++ * A stored set of package names (App lock choices, Focus mode pause choices and the packages
++ * Focus mode actually paused). Stored as one comma-separated string; anything that is not a
++ * well-formed package name is dropped on read, so a damaged value never names a package.
++ */
++public final class PackageSet {
++
++    private PackageSet() {}
++
++    /** True for a well-formed Android package name: two or more Java-identifier segments. */
++    public static boolean isValidPackageName(String name) {
++        if (name == null || name.isEmpty() || name.length() > 255) {
++            return false;
++        }
++        int segments = 0;
++        boolean segmentStart = true;
++        for (int i = 0; i < name.length(); i++) {
++            final char c = name.charAt(i);
++            if (c == '.') {
++                if (segmentStart) {
++                    return false;
++                }
++                segmentStart = true;
++                continue;
++            }
++            final boolean letter = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
++            final boolean digit = c >= '0' && c <= '9';
++            if (segmentStart) {
++                if (!letter) {
++                    return false;
++                }
++                segments++;
++                segmentStart = false;
++            } else if (!letter && !digit && c != '_') {
++                return false;
++            }
++        }
++        return !segmentStart && segments >= 2;
++    }
++
++    /** The packages in a stored value, sorted; null or empty is the empty set. */
++    public static Set<String> parse(String stored) {
++        final Set<String> out = new TreeSet<>();
++        if (stored == null || stored.isEmpty()) {
++            return out;
++        }
++        for (String part : stored.split(",")) {
++            final String name = part.trim();
++            if (isValidPackageName(name)) {
++                out.add(name);
++            }
++        }
++        return out;
++    }
++
++    /** The stored form: sorted, de-duplicated, valid names only; empty for none. */
++    public static String format(Collection<String> packages) {
++        if (packages == null || packages.isEmpty()) {
++            return "";
++        }
++        final StringBuilder sb = new StringBuilder();
++        for (String name : new TreeSet<>(packages)) {
++            if (!isValidPackageName(name)) {
++                continue;
++            }
++            if (sb.length() > 0) {
++                sb.append(',');
++            }
++            sb.append(name);
++        }
++        return sb.toString();
++    }
++
++    /** A copy of {@code set} with {@code pkg} added ({@code on}) or removed. */
++    public static Set<String> with(Set<String> set, String pkg, boolean on) {
++        final Set<String> out = new TreeSet<>(set == null ? Collections.emptySet() : set);
++        if (on) {
++            if (isValidPackageName(pkg)) {
++                out.add(pkg);
++            }
++        } else {
++            out.remove(pkg);
++        }
++        return out;
++    }
++
++    /** The members of {@code set} that are also in {@code keep}. */
++    public static Set<String> retain(Set<String> set, Collection<String> keep) {
++        final Set<String> out = new TreeSet<>(set == null ? Collections.emptySet() : set);
++        if (keep == null) {
++            out.clear();
++        } else {
++            out.retainAll(keep);
++        }
++        return out;
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/model/ProfileSpaces.java b/src/com/android/settings/applications/sable/model/ProfileSpaces.java
+new file mode 100644
+index 00000000000..a9686a68a50
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/ProfileSpaces.java
+@@ -0,0 +1,95 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable.model;
++
++/**
++ * Private Space, Dual Apps and Work profile rows (PRIVATE_SPACE_DUAL_APPS_WORK_PROFILE_UX).
++ *
++ * <p>All three are Android profiles (ANDROID_PROFILE_MODEL=KEEP, APK_COPY_HACK=NO): Private
++ * Space is the private profile, Dual Apps is the clone profile, Work is a managed profile.
++ * Settings only shows their state and opens Android's own setup and settings pages; it never
++ * creates a profile without the user going through those pages (NO_SILENT_PROFILE_CREATION).
++ */
++public final class ProfileSpaces {
++
++    public enum PrivateSpace {
++        /** The platform cannot add a private profile and none exists. */
++        UNAVAILABLE,
++        /** Can be set up; opening the row starts Android's setup after the screen lock. */
++        NOT_SET_UP,
++        LOCKED,
++        UNLOCKED
++    }
++
++    public enum DualApps {
++        /** The clone page is turned off in this build (config or device config). */
++        UNAVAILABLE,
++        /** The page is on but this build allows no installed app to be cloned. */
++        NO_ELIGIBLE_APPS,
++        /** At least one installed app can be cloned or already is. */
++        AVAILABLE
++    }
++
++    public enum WorkProfile {
++        /** No work profile; one is created by a work app or an IT admin, not here. */
++        NONE,
++        ON,
++        PAUSED
++    }
++
++    private ProfileSpaces() {}
++
++    public static PrivateSpace privateSpace(boolean canAdd, boolean exists, boolean locked) {
++        if (exists) {
++            return locked ? PrivateSpace.LOCKED : PrivateSpace.UNLOCKED;
++        }
++        return canAdd ? PrivateSpace.NOT_SET_UP : PrivateSpace.UNAVAILABLE;
++    }
++
++    /**
++     * @param pageEnabled the platform clone page is enabled
++     * @param eligibleInstalled installed apps on the build's cloneable list
++     * @param cloned apps already cloned
++     */
++    public static DualApps dualApps(boolean pageEnabled, int eligibleInstalled, int cloned) {
++        if (!pageEnabled) {
++            return DualApps.UNAVAILABLE;
++        }
++        return eligibleInstalled > 0 || cloned > 0 ? DualApps.AVAILABLE
++                : DualApps.NO_ELIGIBLE_APPS;
++    }
++
++    public static WorkProfile workProfile(boolean exists, boolean quietMode) {
++        if (!exists) {
++            return WorkProfile.NONE;
++        }
++        return quietMode ? WorkProfile.PAUSED : WorkProfile.ON;
++    }
++
++    /** Whether a row opens something; unavailable rows stay visible but explain why. */
++    public static boolean opens(PrivateSpace state) {
++        return state != PrivateSpace.UNAVAILABLE;
++    }
++
++    public static boolean opens(DualApps state) {
++        return state == DualApps.AVAILABLE;
++    }
++
++    public static boolean opens(WorkProfile state) {
++        return state != WorkProfile.NONE;
++    }
++}
+diff --git a/tests/sable-apps/src/com/android/settings/applications/sable/model/AppControlsModelTest.java b/tests/sable-apps/src/com/android/settings/applications/sable/model/AppControlsModelTest.java
+new file mode 100644
+index 00000000000..f0b1e5a37c5
+--- /dev/null
++++ b/tests/sable-apps/src/com/android/settings/applications/sable/model/AppControlsModelTest.java
+@@ -0,0 +1,270 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable.model;
++
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertFalse;
++import static org.junit.Assert.assertNull;
++import static org.junit.Assert.assertTrue;
++
++import org.junit.Test;
++
++import java.util.Arrays;
++import java.util.Collections;
++import java.util.HashSet;
++import java.util.List;
++import java.util.Set;
++import java.util.TreeSet;
++
++/** Mobile Manager: stored package sets, App lock, Focus mode and the profile rows. */
++public class AppControlsModelTest {
++
++    private static Set<String> set(String... names) {
++        return new TreeSet<>(Arrays.asList(names));
++    }
++
++    // --- PackageSet ---
++
++    @Test
++    public void packageNamesAreValidated() {
++        assertTrue(PackageSet.isValidPackageName("com.example.app"));
++        assertTrue(PackageSet.isValidPackageName("org.sableos.tools_2"));
++        assertFalse(PackageSet.isValidPackageName("example"));
++        assertFalse(PackageSet.isValidPackageName("com..example"));
++        assertFalse(PackageSet.isValidPackageName(".com.example"));
++        assertFalse(PackageSet.isValidPackageName("com.example."));
++        assertFalse(PackageSet.isValidPackageName("com.1example"));
++        assertFalse(PackageSet.isValidPackageName("com.exa mple"));
++        assertFalse(PackageSet.isValidPackageName(null));
++        assertFalse(PackageSet.isValidPackageName(""));
++    }
++
++    @Test
++    public void storedSetDropsDamageAndSorts() {
++        assertEquals(set("a.b", "com.example"),
++                PackageSet.parse(" com.example ,junk,,a.b,com.example,a..b"));
++        assertTrue(PackageSet.parse(null).isEmpty());
++        assertTrue(PackageSet.parse("").isEmpty());
++    }
++
++    @Test
++    public void formatRoundTrips() {
++        final String stored = PackageSet.format(Arrays.asList("z.z", "a.a", "bad", "a.a"));
++        assertEquals("a.a,z.z", stored);
++        assertEquals(set("a.a", "z.z"), PackageSet.parse(stored));
++        assertEquals("", PackageSet.format(Collections.emptyList()));
++        assertEquals("", PackageSet.format(null));
++    }
++
++    @Test
++    public void withAndRetainCopy() {
++        final Set<String> base = set("a.a");
++        final Set<String> added = PackageSet.with(base, "b.b", true);
++        assertEquals(set("a.a", "b.b"), added);
++        assertEquals(set("a.a"), base);
++        assertEquals(set("a.a"), PackageSet.with(base, "not valid", true));
++        assertEquals(set(), PackageSet.with(base, "a.a", false));
++        assertEquals(set("b.b"), PackageSet.retain(added, Arrays.asList("b.b", "c.c")));
++        assertEquals(set(), PackageSet.retain(added, null));
++    }
++
++    // --- App lock ---
++
++    @Test
++    public void appLockIsNeverClaimedAsEnforcedOnThisPlatform() {
++        assertEquals(AppLockPolicy.Enforcement.NOT_ENFORCED, AppLockPolicy.PLATFORM_ENFORCEMENT);
++        assertEquals(AppLockPolicy.Status.CHOSEN_NOT_ENFORCED,
++                AppLockPolicy.status(3, AppLockPolicy.PLATFORM_ENFORCEMENT));
++        assertEquals(AppLockPolicy.Status.NONE_CHOSEN,
++                AppLockPolicy.status(0, AppLockPolicy.PLATFORM_ENFORCEMENT));
++        assertEquals(AppLockPolicy.Status.LOCKED,
++                AppLockPolicy.status(1, AppLockPolicy.Enforcement.ENFORCED));
++        assertEquals(AppLockPolicy.Status.NONE_CHOSEN,
++                AppLockPolicy.status(0, AppLockPolicy.Enforcement.ENFORCED));
++    }
++
++    @Test
++    public void appLockLeavesOutProtectedAndHeadlessApps() {
++        final Set<String> protectedPkgs = set("com.android.settings", "org.sableos.launcher");
++        assertTrue(AppLockPolicy.isEligible("com.example.chat", true, protectedPkgs));
++        assertFalse(AppLockPolicy.isEligible("com.android.settings", true, protectedPkgs));
++        assertFalse(AppLockPolicy.isEligible("org.sableos.launcher", true, protectedPkgs));
++        assertFalse(AppLockPolicy.isEligible("com.example.service", false, protectedPkgs));
++        assertTrue(AppLockPolicy.isEligible("com.example.chat", true, null));
++    }
++
++    // --- Focus mode ---
++
++    @Test
++    public void focusPolicyLetsOnlyPriorityAppsAlarmsMediaAndRepeatCallersThrough() {
++        assertTrue(FocusModePolicy.Spec.ALLOW_PRIORITY_CHANNELS);
++        assertTrue(FocusModePolicy.Spec.ALLOW_ALARMS);
++        assertTrue(FocusModePolicy.Spec.ALLOW_MEDIA);
++        assertTrue(FocusModePolicy.Spec.ALLOW_REPEAT_CALLERS);
++        assertFalse(FocusModePolicy.Spec.ALLOW_CALLS);
++        assertFalse(FocusModePolicy.Spec.ALLOW_MESSAGES);
++        assertFalse(FocusModePolicy.Spec.ALLOW_CONVERSATIONS);
++        assertFalse(FocusModePolicy.Spec.ALLOW_REMINDERS);
++        assertFalse(FocusModePolicy.Spec.ALLOW_EVENTS);
++        assertFalse(FocusModePolicy.Spec.ALLOW_SYSTEM);
++    }
++
++    private static FocusModePolicy.Channel ch(boolean shown, boolean bypass,
++            boolean configurable, boolean conversation) {
++        return new FocusModePolicy.Channel(shown, bypass, configurable, conversation);
++    }
++
++    @Test
++    public void interruptStateFollowsShownChannels() {
++        assertEquals(FocusModePolicy.Interrupts.ALL, FocusModePolicy.interrupts(Arrays.asList(
++                ch(true, true, true, false), ch(false, false, true, false))));
++        assertEquals(FocusModePolicy.Interrupts.SOME, FocusModePolicy.interrupts(Arrays.asList(
++                ch(true, true, true, false), ch(true, false, true, false))));
++        assertEquals(FocusModePolicy.Interrupts.NONE, FocusModePolicy.interrupts(Arrays.asList(
++                ch(true, false, true, false), ch(true, false, false, false))));
++        // Conversations are chosen per person elsewhere and do not count.
++        assertEquals(FocusModePolicy.Interrupts.ALL, FocusModePolicy.interrupts(Arrays.asList(
++                ch(true, true, true, false), ch(true, false, true, true))));
++    }
++
++    @Test
++    public void interruptStateWithNothingToChange() {
++        assertEquals(FocusModePolicy.Interrupts.NOT_CHANGEABLE,
++                FocusModePolicy.interrupts(Collections.emptyList()));
++        assertEquals(FocusModePolicy.Interrupts.NOT_CHANGEABLE,
++                FocusModePolicy.interrupts(null));
++        assertEquals(FocusModePolicy.Interrupts.NOT_CHANGEABLE, FocusModePolicy.interrupts(
++                Arrays.asList(ch(false, false, true, false), ch(true, false, false, false))));
++    }
++
++    @Test
++    public void allowSwitchChangesOnlyShownConfigurableNonConversationChannels() {
++        final List<FocusModePolicy.Channel> chans = Arrays.asList(
++                ch(true, false, true, false),   // 0: changes
++                ch(true, true, true, false),    // 1: already bypassing
++                ch(false, false, true, false),  // 2: blocked
++                ch(true, false, false, false),  // 3: locked
++                ch(true, false, true, true));   // 4: conversation
++        assertEquals(Arrays.asList(0), FocusModePolicy.channelsToChange(chans, true));
++        assertEquals(Arrays.asList(1), FocusModePolicy.channelsToChange(chans, false));
++        assertTrue(FocusModePolicy.channelsToChange(null, true).isEmpty());
++    }
++
++    @Test
++    public void pauseEligibility() {
++        final Set<String> never = set("com.android.dialer");
++        assertTrue(FocusModePolicy.canPause("com.example.game", true, never));
++        assertFalse(FocusModePolicy.canPause("com.android.dialer", true, never));
++        assertFalse(FocusModePolicy.canPause("com.example.service", false, never));
++        assertFalse(FocusModePolicy.canPause("bad", true, never));
++    }
++
++    @Test
++    public void startingFocusSuspendsChosenApps() {
++        final FocusModePolicy.Plan p = FocusModePolicy.plan(true, set("a.a", "b.b"),
++                set(), set());
++        assertEquals(set("a.a", "b.b"), p.suspend);
++        assertTrue(p.release.isEmpty());
++    }
++
++    @Test
++    public void endingFocusReleasesOnlyWhatSettingsHeld() {
++        final FocusModePolicy.Plan p = FocusModePolicy.plan(false, set("a.a", "b.b"),
++                set("a.a"), set());
++        assertTrue(p.suspend.isEmpty());
++        assertEquals(set("a.a"), p.release);
++    }
++
++    @Test
++    public void changingChoicesWhileOnReconciles() {
++        final FocusModePolicy.Plan p = FocusModePolicy.plan(true, set("b.b", "c.c"),
++                set("a.a", "b.b"), set());
++        assertEquals(set("c.c"), p.suspend);
++        assertEquals(set("a.a"), p.release);
++        assertTrue(FocusModePolicy.plan(true, set("a.a"), set("a.a"), set()).isEmpty());
++    }
++
++    @Test
++    public void neverPauseAppsAreReleasedAndNotSuspended() {
++        final FocusModePolicy.Plan p = FocusModePolicy.plan(true, set("a.a", "home.app"),
++                set("home.app"), set("home.app"));
++        assertEquals(set("a.a"), p.suspend);
++        assertEquals(set("home.app"), p.release);
++    }
++
++    @Test
++    public void refusedReleasesStayHeldRefusedSuspendsDoNot() {
++        final FocusModePolicy.Plan p = FocusModePolicy.plan(true, set("b.b", "c.c"),
++                set("a.a", "x.x"), set());
++        final Set<String> held = FocusModePolicy.heldAfter(set("a.a", "x.x"), p,
++                set("c.c"), set("x.x"));
++        assertEquals(set("b.b", "x.x"), held);
++    }
++
++    @Test
++    public void ruleStatusBroadcast() {
++        // NotificationManager.AUTOMATIC_RULE_STATUS_*: ENABLED 1, DISABLED 2, REMOVED 3,
++        // ACTIVATED 4, DEACTIVATED 5, UNKNOWN -1.
++        assertEquals(Boolean.TRUE, FocusModePolicy.activeFromStatus(4, 4, 5, 2, 3));
++        assertEquals(Boolean.FALSE, FocusModePolicy.activeFromStatus(5, 4, 5, 2, 3));
++        assertEquals(Boolean.FALSE, FocusModePolicy.activeFromStatus(2, 4, 5, 2, 3));
++        assertEquals(Boolean.FALSE, FocusModePolicy.activeFromStatus(3, 4, 5, 2, 3));
++        assertNull(FocusModePolicy.activeFromStatus(1, 4, 5, 2, 3));
++        assertNull(FocusModePolicy.activeFromStatus(-1, 4, 5, 2, 3));
++    }
++
++    // --- Private Space, Dual Apps, Work profile ---
++
++    @Test
++    public void privateSpaceState() {
++        assertEquals(ProfileSpaces.PrivateSpace.UNAVAILABLE,
++                ProfileSpaces.privateSpace(false, false, false));
++        assertEquals(ProfileSpaces.PrivateSpace.NOT_SET_UP,
++                ProfileSpaces.privateSpace(true, false, false));
++        assertEquals(ProfileSpaces.PrivateSpace.LOCKED,
++                ProfileSpaces.privateSpace(false, true, true));
++        assertEquals(ProfileSpaces.PrivateSpace.UNLOCKED,
++                ProfileSpaces.privateSpace(true, true, false));
++        assertFalse(ProfileSpaces.opens(ProfileSpaces.PrivateSpace.UNAVAILABLE));
++        assertTrue(ProfileSpaces.opens(ProfileSpaces.PrivateSpace.NOT_SET_UP));
++    }
++
++    @Test
++    public void dualAppsNeedThePageAndAnEligibleApp() {
++        assertEquals(ProfileSpaces.DualApps.UNAVAILABLE, ProfileSpaces.dualApps(false, 5, 1));
++        assertEquals(ProfileSpaces.DualApps.NO_ELIGIBLE_APPS, ProfileSpaces.dualApps(true, 0, 0));
++        assertEquals(ProfileSpaces.DualApps.AVAILABLE, ProfileSpaces.dualApps(true, 2, 0));
++        assertEquals(ProfileSpaces.DualApps.AVAILABLE, ProfileSpaces.dualApps(true, 0, 1));
++        assertFalse(ProfileSpaces.opens(ProfileSpaces.DualApps.NO_ELIGIBLE_APPS));
++        assertTrue(ProfileSpaces.opens(ProfileSpaces.DualApps.AVAILABLE));
++    }
++
++    @Test
++    public void workProfileState() {
++        assertEquals(ProfileSpaces.WorkProfile.NONE, ProfileSpaces.workProfile(false, true));
++        assertEquals(ProfileSpaces.WorkProfile.ON, ProfileSpaces.workProfile(true, false));
++        assertEquals(ProfileSpaces.WorkProfile.PAUSED, ProfileSpaces.workProfile(true, true));
++        assertFalse(ProfileSpaces.opens(ProfileSpaces.WorkProfile.NONE));
++        assertTrue(ProfileSpaces.opens(ProfileSpaces.WorkProfile.PAUSED));
++    }
++
++    @Test
++    public void unusedImportsGuard() {
++        // Keeps HashSet in use for javac -Werror style checks on hosts that enable them.
++        assertTrue(new HashSet<String>().isEmpty());
++    }
++}
+-- 
+2.43.0
+

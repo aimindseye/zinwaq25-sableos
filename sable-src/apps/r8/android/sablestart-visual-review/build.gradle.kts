@@ -16,6 +16,14 @@ android {
         versionName = "0.1.0-r9l9"
     }
 
+    buildTypes {
+        release {
+            // The image ships the debug variant (product/q25/apps.tsv); a release build is shrunk and obfuscated.
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+        }
+    }
+
     buildFeatures {
         compose = true
     }
@@ -40,28 +48,28 @@ android {
 
 dependencies {
     constraints {
-        implementation("androidx.core:core-ktx:1.16.0")
-        implementation("androidx.collection:collection:1.5.0")
-        implementation("androidx.collection:collection-jvm:1.5.0")
-        implementation("androidx.collection:collection-ktx:1.5.0")
-        implementation("androidx.lifecycle:lifecycle-common:2.9.4")
-        implementation("androidx.lifecycle:lifecycle-common-java8:2.9.4")
-        implementation("androidx.lifecycle:lifecycle-common-jvm:2.9.4")
-        implementation("androidx.lifecycle:lifecycle-process:2.9.4")
-        implementation("androidx.lifecycle:lifecycle-runtime:2.9.4")
-        implementation("androidx.lifecycle:lifecycle-runtime-android:2.9.4")
-        implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.4")
-        implementation("androidx.lifecycle:lifecycle-runtime-ktx-android:2.9.4")
+        implementation(libs.androidx.core.ktx)
+        implementation(libs.androidx.collection)
+        implementation(libs.androidx.collection.jvm)
+        implementation(libs.androidx.collection.ktx)
+        implementation(libs.androidx.lifecycle.common)
+        implementation(libs.androidx.lifecycle.common.java8)
+        implementation(libs.androidx.lifecycle.common.jvm)
+        implementation(libs.androidx.lifecycle.process)
+        implementation(libs.androidx.lifecycle.runtime)
+        implementation(libs.androidx.lifecycle.runtime.android)
+        implementation(libs.androidx.lifecycle.runtime.ktx)
+        implementation(libs.androidx.lifecycle.runtime.ktx.android)
     }
 
     implementation(project(":design"))
     implementation(project(":sablestart-presentation-check"))
 
     implementation(
-        platform("androidx.compose:compose-bom:2026.02.01"),
+        platform(libs.androidx.compose.bom),
     )
 
-    implementation("androidx.activity:activity-compose:1.12.4")
+    implementation(libs.androidx.activity.compose)
     implementation("androidx.compose.runtime:runtime")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.foundation:foundation")

@@ -96,6 +96,30 @@ object QuickBar {
     }
 
     /**
+     * Whether Peek offers Remove from base bar (true), Add to base bar (false)
+     * or neither (null: another profile's app, or the bar is full).
+     */
+    fun appState(
+        launcherUser: Boolean,
+        inBar: Boolean,
+        tokens: List<String>,
+    ): Boolean? =
+        when {
+            !launcherUser -> null
+            inBar -> true
+            tokens.size < MAX_SLOTS -> false
+            else -> null
+        }
+
+    /** Removes the slot holding [slotToken], or adds [stableKey] as an app slot when it has none. */
+    fun toggleApp(
+        tokens: List<String>,
+        slotToken: String?,
+        stableKey: String,
+    ): List<String> =
+        if (slotToken != null) remove(tokens, tokens.indexOf(slotToken)) else add(tokens, appToken(stableKey))
+
+    /**
      * Slot shortcuts: Fn+1..Fn+5 on keyboards with an Fn key (Titan 2), and
      * Alt+1..Alt+5 on keyboards that type digits on the Alt layer (the Q25's
      * Alt+W/E/R/S/D). [unicode] is the character the platform key map produced

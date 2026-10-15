@@ -1,0 +1,318 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 14 Oct 2026 13:11:48 +0000
+Subject: [PATCH] SableOS: Alt shade shortcuts for keyboards without Fn
+
+The keyboard-first shade design uses Fn+Down (open, then expand Quick
+Settings), Fn+Up (one level back) and Menu / Fn+Enter (row actions).
+The Q25 keyboard has Alt, Shift, Sym and letters but no Fn, and
+LineageOS keeps the Menu key for its own key actions, so:
+
+* Alt+Down (trackpad or D-pad of the same keyboard) becomes the system
+  navigation Down key in PhoneWindowManager. SystemUI already turns it
+  into "open the shade; if open, expand Quick Settings". Only Alt may
+  be held, software keyboards never trigger it, and it is not taken on
+  the keyguard or before setup (SystemUI ignores it there). Pure
+  policy: policy/sable/SableShadeKeys.java.
+* Alt+Up, handled pre-IME by the shade window only (so apps keep it),
+  steps back one level exactly like Back: Quick Settings to
+  notifications, then closed.
+* Alt+Enter on a focused notification row opens the row's actions
+  menu (the long-press menu). Its release is swallowed so that letting
+  go of Alt first never opens the notification. Text input still wins
+  and Alt+letters stay plain keys.
+---
+ .../row/SableNotificationKeyRouterTest.kt     | 38 +++++++++++
+ .../domain/interactor/SysUIKeyEventHandler.kt | 10 +++
+ .../row/SableNotificationKeyCommands.kt       | 22 ++++++-
+ .../row/SableNotificationKeyRouter.kt         | 18 ++++-
+ .../server/policy/PhoneWindowManager.java     | 20 ++++++
+ .../server/policy/sable/SableShadeKeys.java   | 65 +++++++++++++++++++
+ 6 files changed, 170 insertions(+), 3 deletions(-)
+ create mode 100644 services/core/java/com/android/server/policy/sable/SableShadeKeys.java
+
+diff --git a/packages/SystemUI/multivalentTests/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouterTest.kt b/packages/SystemUI/multivalentTests/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouterTest.kt
+index fae3e1288e02..1479341974fb 100644
+--- a/packages/SystemUI/multivalentTests/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouterTest.kt
++++ b/packages/SystemUI/multivalentTests/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouterTest.kt
+@@ -145,5 +145,43 @@ class SableNotificationKeyRouterTest : SysuiTestCase() {
+         assertEquals(SableNotificationKey.Other, SableNotificationKeyRouter.keyFor(29))
+     }
+ 
++    @Test
++    fun altEnterOpensTheRowMenuOnKeyboardsWithoutFn() {
++        val altHeld = focused.copy(hasModifiers = true, altOnly = true)
++        assertEquals(
++            SableNotificationCommand.RowMenu,
++            SableNotificationKeyRouter.route(SableNotificationKey.Enter, altHeld),
++        )
++        assertEquals(
++            SableNotificationCommand.Consume,
++            SableNotificationKeyRouter.route(SableNotificationKey.Enter, altHeld.copy(canOpenMenu = false)),
++        )
++        assertEquals(
++            SableNotificationCommand.Consume,
++            SableNotificationKeyRouter.route(SableNotificationKey.Enter, altHeld.copy(isRepeat = true)),
++        )
++    }
++
++    @Test
++    fun altEnterYieldsToTextInputAndNeedsAFocusedRow() {
++        val altHeld = focused.copy(hasModifiers = true, altOnly = true)
++        assertEquals(
++            SableNotificationCommand.PassThrough,
++            SableNotificationKeyRouter.route(SableNotificationKey.Enter, altHeld.copy(textInputFocused = true)),
++        )
++        assertEquals(
++            SableNotificationCommand.PassThrough,
++            SableNotificationKeyRouter.route(SableNotificationKey.Enter, altHeld.copy(rowFocused = false)),
++        )
++    }
++
++    @Test
++    fun altWithLettersIsStillNotACommand() {
++        val altHeld = focused.copy(hasModifiers = true, altOnly = true)
++        letters.forEach { key ->
++            assertEquals(SableNotificationCommand.PassThrough, SableNotificationKeyRouter.route(key, altHeld))
++        }
++    }
++
+     private fun route(key: SableNotificationKey) = SableNotificationKeyRouter.route(key, focused)
+ }
+diff --git a/packages/SystemUI/src/com/android/systemui/keyevent/domain/interactor/SysUIKeyEventHandler.kt b/packages/SystemUI/src/com/android/systemui/keyevent/domain/interactor/SysUIKeyEventHandler.kt
+index bc65ad476c37..25ae6a502408 100644
+--- a/packages/SystemUI/src/com/android/systemui/keyevent/domain/interactor/SysUIKeyEventHandler.kt
++++ b/packages/SystemUI/src/com/android/systemui/keyevent/domain/interactor/SysUIKeyEventHandler.kt
+@@ -56,6 +56,16 @@ constructor(
+     }
+ 
+     fun dispatchKeyEventPreIme(event: KeyEvent): Boolean {
++        // Sable: Alt+Up steps the open shade back one level (Quick Settings to notifications, then
++        // closed), exactly like Back. It is the design's Fn+Up on keyboards without Fn (Q25).
++        // Pre-IME, so focus navigation inside the shade never takes it first. The shade window
++        // only has focus while the shade or the keyguard shows, so apps keep Alt+Up.
++        if (event.keyCode == KeyEvent.KEYCODE_DPAD_UP && event.hasModifiers(KeyEvent.META_ALT_ON)) {
++            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
++                backActionInteractor.onBackRequested()
++            }
++            return true
++        }
+         return keyguardKeyEventInteractor.dispatchKeyEventPreIme(event)
+     }
+ 
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyCommands.kt b/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyCommands.kt
+index ebd9b5de0b00..509ad8e8b04a 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyCommands.kt
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyCommands.kt
+@@ -44,6 +44,12 @@ object SableNotificationKeyCommands {
+         KeyEvent.META_ALT_MASK or KeyEvent.META_CTRL_MASK or KeyEvent.META_META_MASK or
+             KeyEvent.META_SHIFT_MASK or KeyEvent.META_SYM_ON or KeyEvent.META_FUNCTION_ON
+ 
++    /**
++     * The Enter of an Alt+Enter: its release must not reach the row's confirm-key path (which
++     * opens the notification) when Alt is let go first.
++     */
++    private var swallowRelease = KeyEvent.KEYCODE_UNKNOWN
++
+     @JvmStatic
+     fun onKeyDown(
+         row: ExpandableNotificationRow,
+@@ -51,6 +57,9 @@ object SableNotificationKeyCommands {
+         event: KeyEvent,
+     ): Boolean {
+         val command = commandFor(row, keyCode, event)
++        if (command == SableNotificationCommand.RowMenu) {
++            swallowRelease = keyCode
++        }
+         return when (command) {
+             SableNotificationCommand.PassThrough -> false
+             SableNotificationCommand.Consume -> true
+@@ -64,7 +73,13 @@ object SableNotificationKeyCommands {
+         row: ExpandableNotificationRow,
+         keyCode: Int,
+         event: KeyEvent,
+-    ): Boolean = commandFor(row, keyCode, event) != SableNotificationCommand.PassThrough
++    ): Boolean {
++        if (keyCode == swallowRelease) {
++            swallowRelease = KeyEvent.KEYCODE_UNKNOWN
++            return true
++        }
++        return commandFor(row, keyCode, event) != SableNotificationCommand.PassThrough
++    }
+ 
+     private fun commandFor(
+         row: ExpandableNotificationRow,
+@@ -85,6 +100,7 @@ object SableNotificationKeyCommands {
+                 canDismiss = row.canViewBeDismissed(),
+                 canOpenMenu = row.provider != null,
+                 hubAvailable = sbn != null && sbn.packageName != HUB_PACKAGE && hubResolves(row),
++                altOnly = event.hasModifiers(KeyEvent.META_ALT_ON),
+             )
+         val command = SableNotificationKeyRouter.route(key, context)
+         return if (command == SableNotificationCommand.Settings && sbn == null) {
+@@ -103,7 +119,9 @@ object SableNotificationKeyCommands {
+             SableNotificationCommand.Reply -> findReplyButton(row)?.performClick()
+             SableNotificationCommand.Dismiss -> row.performDismiss(false)
+             SableNotificationCommand.Snooze -> row.performAccessibilityAction(R.id.action_snooze, null)
+-            SableNotificationCommand.DeliveryOptions -> row.doLongClickCallback(row.width / 2, row.height / 2)
++            SableNotificationCommand.DeliveryOptions,
++            SableNotificationCommand.RowMenu,
++            -> row.doLongClickCallback(row.width / 2, row.height / 2)
+             SableNotificationCommand.Settings -> sbnOf(row)?.let { openSettings(row, it) }
+             SableNotificationCommand.OpenInHub -> sbnOf(row)?.let { openInHub(row, it) }
+             SableNotificationCommand.PassThrough,
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouter.kt b/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouter.kt
+index 292e691193c4..5e02fc694220 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouter.kt
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouter.kt
+@@ -50,6 +50,11 @@ data class SableNotificationKeyContext(
+     val canOpenMenu: Boolean,
+     /** Sable Hub is installed and may be asked about this notification. */
+     val hubAvailable: Boolean,
++    /**
++     * Alt is the only modifier held (lock states aside): Alt+Enter is the design's Fn+Enter on
++     * keyboards without Fn, such as the Q25.
++     */
++    val altOnly: Boolean = false,
+ )
+ 
+ enum class SableNotificationCommand {
+@@ -65,6 +70,9 @@ enum class SableNotificationCommand {
+     DeliveryOptions,
+     Settings,
+     OpenInHub,
++
++    /** Alt+Enter (Fn+Enter): the row's actions menu, as a long press opens it. */
++    RowMenu,
+ }
+ 
+ /**
+@@ -119,7 +127,15 @@ object SableNotificationKeyRouter {
+         context: SableNotificationKeyContext,
+     ): SableNotificationCommand {
+         // TEXT_INPUT_ALWAYS_WINS, then KEYBOARD_NOTIFICATION_COMMANDS_CONTEXTUAL.
+-        if (context.textInputFocused || !context.rowFocused || context.hasModifiers) {
++        if (context.textInputFocused || !context.rowFocused) {
++            return SableNotificationCommand.PassThrough
++        }
++        // Menu / Fn+Enter opens the row's actions. The Q25 has no Fn and LineageOS keeps the Menu
++        // key for its own key actions, so the chord is Alt+Enter.
++        if (key == SableNotificationKey.Enter && context.altOnly) {
++            return commandIf(context, context.canOpenMenu, SableNotificationCommand.RowMenu)
++        }
++        if (context.hasModifiers) {
+             return SableNotificationCommand.PassThrough
+         }
+         return when (key) {
+diff --git a/services/core/java/com/android/server/policy/PhoneWindowManager.java b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+index 69fefe33bfa9..e5b1da344551 100644
+--- a/services/core/java/com/android/server/policy/PhoneWindowManager.java
++++ b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+@@ -265,6 +265,7 @@ import com.android.server.pm.UserManagerInternal;
+ import com.android.server.policy.keyguard.KeyguardServiceDelegate;
+ import com.android.server.policy.keyguard.KeyguardServiceDelegate.DrawnListener;
+ import com.android.server.policy.keyguard.KeyguardStateMonitor.StateCallback;
++import com.android.server.policy.sable.SableShadeKeys;
+ import com.android.server.statusbar.StatusBarManagerInternal;
+ import com.android.server.vr.VrManagerInternal;
+ import com.android.server.wallpaper.WallpaperManagerInternal;
+@@ -3987,6 +3988,25 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+                     sendSystemKeyToStatusBarAsync(event);
+                     return true;
+                 }
++            case KeyEvent.KEYCODE_DPAD_DOWN: {
++                // Sable: Alt+Down opens the shade and, pressed again, expands Quick Settings
++                // (the design's Fn+Down, for keyboards without Fn). SystemUI does nothing with it
++                // on the keyguard or before setup, so the key is only taken where it can act.
++                final int shadeKey = SableShadeKeys.systemKeyFor(
++                        keyCode, event.getMetaState(), virtualKey);
++                if (shadeKey == SableShadeKeys.NONE || keyguardOn || !isUserSetupComplete()) {
++                    break;
++                }
++                if (down && repeatCount == 0) {
++                    final KeyEvent systemKey = new KeyEvent(event.getDownTime(),
++                            event.getEventTime(), KeyEvent.ACTION_UP, shadeKey, 0 /* repeat */,
++                            0 /* metaState */, event.getDeviceId(), 0 /* scancode */,
++                            0 /* flags */, event.getSource());
++                    systemKey.setDisplayId(event.getDisplayId());
++                    sendSystemKeyToStatusBarAsync(systemKey);
++                }
++                return true;
++            }
+         }
+         if (isValidGlobalKey(keyCode)
+                 && mGlobalKeyManager.handleGlobalKey(mContext, keyCode, event)) {
+diff --git a/services/core/java/com/android/server/policy/sable/SableShadeKeys.java b/services/core/java/com/android/server/policy/sable/SableShadeKeys.java
+new file mode 100644
+index 000000000000..d64424ee4df9
+--- /dev/null
++++ b/services/core/java/com/android/server/policy/sable/SableShadeKeys.java
+@@ -0,0 +1,65 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.server.policy.sable;
++
++/**
++ * Sable shade chord for keyboards without an Fn key (the Q25: Alt, Shift, Sym and letters).
++ *
++ * <p>The keyboard-first shade design asks for Fn+Down to open the shade and Fn+Down again to
++ * expand Quick Settings. On a keyboard without Fn the chord is Alt+Down (Down being the trackpad
++ * or a D-pad on the same keyboard). It becomes the platform's system navigation Down key, which
++ * SystemUI already turns into "open the shade, then expand Quick Settings". Only Alt may be held:
++ * Shift, Ctrl, Meta, Sym or Fn keep the key's own meaning, and software keyboards never trigger
++ * it. Up is not mapped here: Alt+Up acts only inside the open shade (SystemUI), so apps keep it.
++ *
++ * <p>Pure: android.view.KeyEvent values are copied so that it can be tested off-device.
++ */
++public final class SableShadeKeys {
++    /** {@code KeyEvent.KEYCODE_DPAD_DOWN}. */
++    public static final int KEYCODE_DPAD_DOWN = 20;
++    /** {@code KeyEvent.KEYCODE_SYSTEM_NAVIGATION_DOWN}. */
++    public static final int KEYCODE_SYSTEM_NAVIGATION_DOWN = 281;
++    /** Not the shade chord. */
++    public static final int NONE = 0;
++
++    // android.view.KeyEvent meta state bits.
++    private static final int META_SHIFT_MASK = 0x01 | 0x40 | 0x80;
++    private static final int META_ALT_MASK = 0x02 | 0x10 | 0x20;
++    private static final int META_SYM_ON = 0x04;
++    private static final int META_FUNCTION_ON = 0x08;
++    private static final int META_CTRL_MASK = 0x1000 | 0x2000 | 0x4000;
++    private static final int META_META_MASK = 0x10000 | 0x20000 | 0x40000;
++    private static final int OTHER_MODIFIERS =
++            META_SHIFT_MASK | META_SYM_ON | META_FUNCTION_ON | META_CTRL_MASK | META_META_MASK;
++
++    private SableShadeKeys() {}
++
++    /**
++     * Returns {@link #KEYCODE_SYSTEM_NAVIGATION_DOWN} when this key is the Alt+Down shade chord
++     * from a physical keyboard, else {@link #NONE}. Lock states (Caps, Num, Scroll and Alt lock)
++     * are ignored, as in {@code KeyEvent.hasModifiers}.
++     */
++    public static int systemKeyFor(int keyCode, int metaState, boolean virtualKey) {
++        if (virtualKey || keyCode != KEYCODE_DPAD_DOWN) {
++            return NONE;
++        }
++        if ((metaState & META_ALT_MASK) == 0 || (metaState & OTHER_MODIFIERS) != 0) {
++            return NONE;
++        }
++        return KEYCODE_SYSTEM_NAVIGATION_DOWN;
++    }
++}
+-- 
+2.43.0
+

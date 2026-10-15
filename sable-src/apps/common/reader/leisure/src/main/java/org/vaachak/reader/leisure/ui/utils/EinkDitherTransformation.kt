@@ -59,37 +59,42 @@ class EinkDitherTransformation : Transformation {
         // Step 2: Apply the Floyd-Steinberg Dithering Algorithm
         for (y in 0 until height) {
             for (x in 0 until width) {
-                val index = y * width + x
-
-                // Read the grayscale value (R, G, and B are all the same now)
-                val oldPixel = Color.red(pixels[index])
-
-                // Threshold: If it's darker than 50% gray, make it pure black. Otherwise, pure white.
-                val newPixel = if (oldPixel < 128) 0 else 255
-                pixels[index] = Color.rgb(newPixel, newPixel, newPixel)
-
-                // Calculate the quantization error (what we lost by rounding to 0 or 255)
-                val quantError = oldPixel - newPixel
-
-                // Diffuse the error to neighboring pixels using the Floyd-Steinberg weights
-                // Right (7/16)
-                if (x + 1 < width)
-                    addError(pixels, index + 1, quantError, 7.0 / 16.0)
-                // Bottom-Left (3/16)
-                if (x - 1 >= 0 && y + 1 < height)
-                    addError(pixels, index + width - 1, quantError, 3.0 / 16.0)
-                // Bottom (5/16)
-                if (y + 1 < height)
-                    addError(pixels, index + width, quantError, 5.0 / 16.0)
-                // Bottom-Right (1/16)
-                if (x + 1 < width && y + 1 < height)
-                    addError(pixels, index + width + 1, quantError, 1.0 / 16.0)
+                ditherPixel(pixels, width, height, x, y)
             }
         }
 
         // Apply the modified pixels back to the bitmap
         output.setPixels(pixels, 0, width, 0, 0, width, height)
         return output
+    }
+
+    /** Thresholds one grayscale pixel to black or white and spreads the rounding error to its unvisited neighbours. */
+    private fun ditherPixel(pixels: IntArray, width: Int, height: Int, x: Int, y: Int) {
+        val index = y * width + x
+
+        // Read the grayscale value (R, G, and B are all the same now)
+        val oldPixel = Color.red(pixels[index])
+
+        // Threshold: If it's darker than 50% gray, make it pure black. Otherwise, pure white.
+        val newPixel = if (oldPixel < 128) 0 else 255
+        pixels[index] = Color.rgb(newPixel, newPixel, newPixel)
+
+        // Calculate the quantization error (what we lost by rounding to 0 or 255)
+        val quantError = oldPixel - newPixel
+
+        // Diffuse the error to neighboring pixels using the Floyd-Steinberg weights
+        val hasRight = x + 1 < width
+        val hasLeft = x - 1 >= 0
+        val hasBelow = y + 1 < height
+        // Right (7/16)
+        if (hasRight) addError(pixels, index + 1, quantError, 7.0 / 16.0)
+        if (!hasBelow) return
+        // Bottom-Left (3/16)
+        if (hasLeft) addError(pixels, index + width - 1, quantError, 3.0 / 16.0)
+        // Bottom (5/16)
+        addError(pixels, index + width, quantError, 5.0 / 16.0)
+        // Bottom-Right (1/16)
+        if (hasRight) addError(pixels, index + width + 1, quantError, 1.0 / 16.0)
     }
 
     private fun addError(pixels: IntArray, index: Int, error: Int, weight: Double) {

@@ -21,23 +21,28 @@ internal object LibraryFixtures {
         )
 
     /** [count] items spread over every kind, with a realistic mix of state, series and missing sources. */
-    fun synthetic(count: Int): List<LibraryItem> = List(count) { i ->
+    fun synthetic(count: Int): List<LibraryItem> = List(count) { i -> syntheticItem(i, count) }
+
+    private fun syntheticItem(i: Int, count: Int): LibraryItem {
+        val flavour = if (i % 5 == 0) "Éclair" else "Volume"
+        return item("item-%06d".format(i), "Book ${(i * 7919) % count} $flavour") { withSyntheticState(it, i) }
+    }
+
+    private fun withSyntheticState(base: LibraryItem, i: Int): LibraryItem {
         val opened = i % 3 != 0
         val inSeries = i % 4 == 0
-        item("item-%06d".format(i), "Book ${(i * 7919) % count} ${if (i % 5 == 0) "Éclair" else "Volume"}") {
-            it.copy(
-                kind = PublicationKind.entries[i % PublicationKind.entries.size],
-                authors = listOf("Author ${i % 500}"),
-                series = if (inSeries) "Series ${i % 300}" else null,
-                seriesIndex = if (inSeries) (i / 300).toDouble() else null,
-                progress = if (opened) ReadingProgress.page(i % 100, 100, 1L) else null,
-                finished = i % 11 == 0,
-                favorite = i % 13 == 0,
-                addedAt = (i % 1000).toLong() + 1,
-                lastOpenedAt = if (opened) (i % 997).toLong() + 1 else 0L,
-                source = if (i % 17 == 0) null else "content://item/$i",
-                collectionIds = if (i % 9 == 0) setOf("shelf-${i % 7}") else emptySet(),
-            )
-        }
+        return base.copy(
+            kind = PublicationKind.entries[i % PublicationKind.entries.size],
+            authors = listOf("Author ${i % 500}"),
+            series = if (inSeries) "Series ${i % 300}" else null,
+            seriesIndex = if (inSeries) (i / 300).toDouble() else null,
+            progress = if (opened) ReadingProgress.page(i % 100, 100, 1L) else null,
+            finished = i % 11 == 0,
+            favorite = i % 13 == 0,
+            addedAt = (i % 1000).toLong() + 1,
+            lastOpenedAt = if (opened) (i % 997).toLong() + 1 else 0L,
+            source = if (i % 17 == 0) null else "content://item/$i",
+            collectionIds = if (i % 9 == 0) setOf("shelf-${i % 7}") else emptySet(),
+        )
     }
 }

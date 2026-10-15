@@ -205,8 +205,10 @@ earlier release removes them along with the rest of `vendor/sable/q25`.
 * **Accent drift.** If the user later picks colors in the wallpaper picker, the
   system palette changes but the Sable accent does not. Sable apps keep their
   accent until it is chosen again in Settings > Display > Accent.
-* **Keyboard shortcuts for the shade** (Fn+Down and others) belong to the Q25
-  key map and Sable Keyboard work, not this package.
+* **Keyboard shortcuts for the shade** (Fn+Down and others) were not part of
+  this package. The Q25 has no Fn key; frameworks/base patches 0302-0304 map
+  them to Alt (Alt+Down, Alt+Up, Alt+Enter), add Space and Alt+Enter on Quick
+  Settings tiles and lock screen keys ([kf-a](kf-a.md)).
 * **Boot animation.** LineageOS ships its own boot animation, which was not
   replaced. The GrapheneOS-era `android-logo-mask.png` change does not apply.
 

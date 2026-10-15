@@ -42,6 +42,7 @@ done
 command -v "$MTK" >/dev/null 2>&1 || sable_fail "mtkclient not found ('$MTK'); see https://github.com/bkerler/mtkclient"
 case "$(realpath -m "$OUT")/" in
     "$SABLE_REPO_ROOT"/*) sable_fail "backup must not live inside this repository" ;;
+    *) ;; # outside the repository: fine
 esac
 
 mkdir -p "$OUT/gpt" "$OUT/partitions"

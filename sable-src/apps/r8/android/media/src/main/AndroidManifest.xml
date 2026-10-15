@@ -9,6 +9,8 @@
     </queries>
 
     <application
+        android:allowBackup="false"
+        android:usesCleartextTraffic="false"
         android:icon="@mipmap/ic_sable_media"
         android:roundIcon="@mipmap/ic_sable_media_round"
         android:label="Sable Media"

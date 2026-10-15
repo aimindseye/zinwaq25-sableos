@@ -21,11 +21,12 @@ else
 fi
 
 # 2. Local manifest is well-formed XML.
+manifest_check="manifest XML"
 if command -v xmllint >/dev/null 2>&1; then
-    xmllint --noout manifests/local_manifests/sable_q25.xml && pass "manifest XML" || fail "manifest XML"
+    xmllint --noout manifests/local_manifests/sable_q25.xml && pass "$manifest_check" || fail "$manifest_check"
 else
     python3 -c 'import sys,xml.dom.minidom as m; m.parse(sys.argv[1])' manifests/local_manifests/sable_q25.xml &&
-        pass "manifest XML" || fail "manifest XML"
+        pass "$manifest_check" || fail "$manifest_check"
 fi
 
 # 3. Pins in q25.env match the local manifest.
@@ -100,7 +101,8 @@ fi
 fw="$tmp/fw"; proj="$tmp/android/packages/apps/Demo"
 mkdir -p "$proj" "$fw/packages/apps/Demo"
 git -C "$proj" init -q
-printf 'home=launcher3\n' > "$proj/config.txt"
+stock_home='home=launcher3'
+printf '%s\n' "$stock_home" > "$proj/config.txt"
 git -C "$proj" -c user.name=t -c user.email=t@t add config.txt
 git -C "$proj" -c user.name=t -c user.email=t@t commit -qm base
 printf 'home=sable\n' > "$proj/config.txt"
@@ -114,7 +116,7 @@ if fwrun check | grep -q '^APPLIES  packages/apps/Demo 0001-demo.patch' &&
     fwrun apply >/dev/null && grep -q 'home=sable' "$proj/config.txt" &&
     fwrun check | grep -q '^APPLIED  packages/apps/Demo' &&
     fwrun revert | grep -q '^FRAMEWORK_PATCHES=REVERTED' &&
-    grep -q 'home=launcher3' "$proj/config.txt" && [[ ! -e "$stamp" ]]; then
+    grep -q "$stock_home" "$proj/config.txt" && [[ ! -e "$stamp" ]]; then
     pass "framework patches apply, re-apply, check and revert"
 else
     fail "framework patches: $(cat "$tmp/err")"
@@ -127,7 +129,7 @@ git -C "$proj" reset -q --hard
 if fwrun check | grep -q '^APPLIES  packages/apps/Demo 0001-demo.patch 0002-demo.patch' &&
     fwrun apply | grep -q '^FRAMEWORK_PATCH_COUNT=2' && grep -q 'recents=quickstep' "$proj/config.txt" &&
     fwrun check | grep -q '^APPLIED  packages/apps/Demo' &&
-    fwrun revert >/dev/null && grep -qx 'home=launcher3' "$proj/config.txt"; then
+    fwrun revert >/dev/null && grep -qx "$stock_home" "$proj/config.txt"; then
     pass "framework patches stack within a project"
 else
     fail "stacked framework patches: $(cat "$tmp/err")"
@@ -162,14 +164,14 @@ else
     fail "stage Q4: $(cat "$tmp/err")"
 fi
 if out="$(stagerun Q2 --apps-dir "$tmp/apps/run")" && grep -q '^FRAMEWORK_LAYER=NO' <<<"$out" &&
-    grep -q 'home=launcher3' "$proj/config.txt" && ! grep -q 'SableLauncher' "$tmp/android/vendor/sable/q25/sable-q25-framework.mk" &&
+    grep -q "$stock_home" "$proj/config.txt" && ! grep -q 'SableLauncher' "$tmp/android/vendor/sable/q25/sable-q25-framework.mk" &&
     [[ ! -e "$tmp/android/vendor/sable/q25/src" && ! -e "$tmp/android/vendor/sable/q25/overlay" ]] &&
     ! grep -q 'SableSystemUIOverlay' "$tmp/android/vendor/sable/q25/sable-q25-framework.mk"; then
     pass "stage Q2 reverts framework layer"
 else
     fail "stage Q2 after Q4: $(cat "$tmp/err")"
 fi
-if stagerun Q1 >/dev/null && grep -q 'home=launcher3' "$proj/config.txt"; then pass "stage Q1 after Q4"; else fail "stage Q1 after Q4: $(cat "$tmp/err")"; fi
+if stagerun Q1 >/dev/null && grep -q "$stock_home" "$proj/config.txt"; then pass "stage Q1 after Q4"; else fail "stage Q1 after Q4: $(cat "$tmp/err")"; fi
 
 # 6b2. Optional 50 MP camera: the patcher on a synthetic vendor tree, and off by default.
 if python3 -I tests/test_camera_50mp.py >"$tmp/cam50" 2>&1; then
@@ -229,13 +231,16 @@ else
     printf 'SKIP  javac not installed (Settings policy test)\n'
 fi
 
-# 6f. Sable Applications model (Settings patch 0601) host tests, and the Sable Tools
-# Settings actions the Settings patches must export (settings-ui5).
+# 6f. Sable Applications model (Settings patches 0601 and 1101) host tests, and the Sable
+# Tools Settings actions the Settings patches must export (settings-ui5).
 if command -v javac >/dev/null 2>&1; then
     sa="$tmp/settings-apps"
     mkdir -p "$sa/out"
-    (cd "$sa" && git apply --include='src/com/android/settings/applications/sable/model/*' \
-        --include='tests/sable-apps/src/*' "$ROOT"/patches/framework/packages/apps/Settings/0601-*.patch)
+    for p in "$ROOT"/patches/framework/packages/apps/Settings/0601-*.patch \
+        "$ROOT"/patches/framework/packages/apps/Settings/1101-*.patch; do
+        (cd "$sa" && git apply --include='src/com/android/settings/applications/sable/model/*' \
+            --include='tests/sable-apps/src/*' "$p")
+    done
     mapfile -t sa_src < <(find "$sa/src" "$sa/tests" tests/java/junit-shim -name '*.java')
     mapfile -t sa_tests < <(cd "$sa/tests/sable-apps/src" && find . -name '*Test.java' | sed 's#^\./##; s#\.java$##; s#/#.#g' | sort)
     if javac -encoding UTF-8 -d "$sa/out" "${sa_src[@]}" 2>"$tmp/err" &&
@@ -286,6 +291,18 @@ for action in org.sableos.settings.NETWORK_MANAGER org.sableos.settings.APP_SECU
 done
 if [[ -z "$missing" ]]; then pass "Sable Tools Settings links land on exported Settings actions"; else fail "Settings actions missing:$missing"; fi
 
+# Mobile Manager (Settings patches 1101/1102): exported actions, the suspended-app details
+# handler, the Focus receiver, and App lock never claimed as enforced.
+mm=(patches/framework/packages/apps/Settings/1102-*.patch)
+missing=""
+for action in org.sableos.settings.MOBILE_MANAGER org.sableos.settings.FOCUS_MODE \
+    android.intent.action.SHOW_SUSPENDED_APP_DETAILS android.app.action.AUTOMATIC_ZEN_RULE_STATUS_CHANGED; do
+    grep -q "<action android:name=\"$action\" />" "${mm[@]}" || missing="$missing $action"
+done
+grep -q 'PLATFORM_ENFORCEMENT = Enforcement.NOT_ENFORCED' patches/framework/packages/apps/Settings/1101-*.patch ||
+    missing="$missing app-lock-not-enforced"
+if [[ -z "$missing" ]]; then pass "Mobile Manager actions, Focus receiver and App lock status"; else fail "Mobile Manager:$missing"; fi
+
 # Settings > Sable, Display and App info (Settings patch 1001) open actions the Sable apps declare.
 sable_links=(patches/framework/packages/apps/Settings/1001-*.patch)
 missing=""
@@ -300,6 +317,32 @@ done
 grep -q 'HARDWARE_TESTS(' sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt ||
     missing="$missing tools:HARDWARE_TESTS"
 if [[ -z "$missing" ]]; then pass "Settings Sable entries land on actions the Sable apps declare"; else fail "Sable entry actions missing:$missing"; fi
+
+# 6h. Stock app keyboard model (Files, Photos, Browser patches 1001-1099): the pure sable/
+# classes taken from the patches, compiled with their host tests (tests/java/stock-apps).
+if command -v javac >/dev/null 2>&1; then
+    sk="$tmp/stock-keys"
+    mkdir -p "$sk/out"
+    for app in DocumentsUI Glimpse Jelly; do
+        mkdir -p "$sk/$app"
+        for p in patches/framework/packages/apps/"$app"/10[0-9][0-9]-*.patch; do
+            (cd "$sk/$app" && git apply --include='*/sable/*.java' "$ROOT/$p")
+        done
+    done
+    mapfile -t sk_src < <(find "$sk/DocumentsUI" "$sk/Glimpse" "$sk/Jelly" tests/java/stock-apps tests/java/junit-shim -name '*.java')
+    mapfile -t sk_tests < <(cd tests/java/stock-apps && find . -name '*Test.java' | sed 's#^\./[^/]*/##; s#\.java$##; s#/#.#g' | sort)
+    sk_android="$(find "$sk/DocumentsUI" "$sk/Glimpse" "$sk/Jelly" -name '*.java' -exec grep -l '^import android\.' {} + || true)"
+    if [[ -n "$sk_android" ]]; then
+        fail "stock app key models must be pure Java: $sk_android"
+    elif javac -encoding UTF-8 -d "$sk/out" "${sk_src[@]}" 2>"$tmp/err" &&
+        java -cp "$sk/out" org.junit.Run "${sk_tests[@]}" >"$tmp/out" 2>&1; then
+        pass "stock app keyboard models (Files, Photos, Browser) host tests ($(grep -o 'RAN=[0-9]*' "$tmp/out"))"
+    else
+        fail "stock app keyboard model tests: $(cat "$tmp/err" "$tmp/out" | grep -v JAVA_TOOL | head -5)"
+    fi
+else
+    printf 'SKIP  javac not installed (stock app keyboard model tests)\n'
+fi
 
 # 7. Entry point refuses flashing and unknown devices.
 if bash build/sable.sh q25 Q2 flash >/dev/null 2>&1; then fail "flash should be blocked"; else pass "flash blocked"; fi

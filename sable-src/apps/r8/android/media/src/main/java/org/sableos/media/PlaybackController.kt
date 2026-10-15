@@ -59,17 +59,7 @@ internal class PlaybackController(
             }
         }
 
-    private val ticker =
-        object : Runnable {
-            override fun run() {
-                if (closed || !progressUpdatesEnabled) {
-                    return
-                }
-
-                publishState(refreshQueue = false)
-                handler.postDelayed(this, TICK_INTERVAL_MS)
-            }
-        }
+    private val ticker = Runnable { tick() }
 
     init {
         val token =
@@ -190,6 +180,15 @@ internal class PlaybackController(
             publishState(refreshQueue = false)
             handler.postDelayed(ticker, TICK_INTERVAL_MS)
         }
+    }
+
+    private fun tick() {
+        if (closed || !progressUpdatesEnabled) {
+            return
+        }
+
+        publishState(refreshQueue = false)
+        handler.postDelayed(ticker, TICK_INTERVAL_MS)
     }
 
     fun close() {

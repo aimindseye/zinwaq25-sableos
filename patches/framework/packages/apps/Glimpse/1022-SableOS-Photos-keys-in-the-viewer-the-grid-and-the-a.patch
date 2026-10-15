@@ -1,0 +1,475 @@
+From 8e0310f06604f5464b70bd1ab39b46d9d29e2a4f Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 14 Oct 2026 23:14:58 +0000
+Subject: [PATCH 1022/1022] SableOS: Photos keys in the viewer, the grid and
+ the albums list
+
+Wire the Photos keyboard model into Glimpse:
+
+* Viewer (ViewActivity.dispatchKeyEvent): Left/Right and J/K move
+  between items through the existing navigate path; Space plays or
+  pauses a video and pages photos; + / - zoom the shown photo one step
+  through the zoom engine (ZoomableEngine.scale, animated) and 0 fits
+  it again; I opens the info sheet, S share and F favorite run the
+  on-screen buttons (keyguard dismissal included), only when shown.
+* Delete asks first: D or Del opens the existing Move to trash dialog
+  (Delete forever on a trashed item) instead of trashing at once, and
+  does nothing on a read-only item.
+* Grid (AlbumFragment, via a key listener on each thumbnail): Space
+  opens the focused item like Enter, D or Del delete the selection or
+  the focused item after the same dialogs, S shares them. Not while
+  picking.
+* Albums (AlbumsFragment): typing letters or digits moves focus to
+  the album whose name starts with them; Space opens the album.
+
+Touch, selection and media access are unchanged; Back and Esc keep
+their meaning (leave the viewer, close the album). Focus stays visible
+through the Sable focus ring of patch 0801.
+---
+ .../org/lineageos/glimpse/ViewActivity.kt     | 119 +++++++++++++++---
+ .../glimpse/fragments/AlbumFragment.kt        |  62 +++++++++
+ .../glimpse/fragments/AlbumsFragment.kt       |  51 ++++++++
+ .../ui/recyclerview/MediaViewerAdapter.kt     |  25 ++++
+ .../ui/recyclerview/ThumbnailAdapter.kt       |  12 ++
+ 5 files changed, 254 insertions(+), 15 deletions(-)
+
+diff --git a/app/src/main/java/org/lineageos/glimpse/ViewActivity.kt b/app/src/main/java/org/lineageos/glimpse/ViewActivity.kt
+index 599b59b..dc49abd 100644
+--- a/app/src/main/java/org/lineageos/glimpse/ViewActivity.kt
++++ b/app/src/main/java/org/lineageos/glimpse/ViewActivity.kt
+@@ -13,6 +13,7 @@ import android.net.Uri
+ import android.os.Bundle
+ import android.provider.MediaStore
+ import android.util.Log
++import android.view.KeyEvent
+ import android.view.View
+ import android.widget.LinearLayout
+ import android.widget.Toast
+@@ -29,6 +30,8 @@ import androidx.core.view.updatePadding
+ import androidx.lifecycle.Lifecycle
+ import androidx.lifecycle.lifecycleScope
+ import androidx.lifecycle.repeatOnLifecycle
++import androidx.media3.common.Player
++import androidx.recyclerview.widget.RecyclerView
+ import androidx.viewpager2.widget.ViewPager2
+ import com.google.android.material.appbar.AppBarLayout
+ import com.google.android.material.appbar.MaterialToolbar
+@@ -51,6 +54,7 @@ import org.lineageos.glimpse.models.Media
+ import org.lineageos.glimpse.models.MediaType
+ import org.lineageos.glimpse.models.MotionPhoto
+ import org.lineageos.glimpse.models.RequestStatus
++import org.lineageos.glimpse.sable.SableGalleryKeys
+ import org.lineageos.glimpse.ui.dialogs.MediaInfoBottomSheetDialog
+ import org.lineageos.glimpse.ui.recyclerview.MediaViewerAdapter
+ import org.lineageos.glimpse.utils.MediaDialogsUtils
+@@ -91,21 +95,7 @@ class ViewActivity : AppCompatActivity(R.layout.activity_view) {
+     private val mediaViewerAdapter by lazy {
+         MediaViewerAdapter(
+             localPlayerViewModel = viewModel,
+-            onNavigate = { forward ->
+-                viewPager.adapter?.let { adapter ->
+-                    val currentPosition = viewPager.currentItem
+-
+-                    val newPosition = if (forward) {
+-                        currentPosition + 1
+-                    } else {
+-                        currentPosition - 1
+-                    }
+-
+-                    if (newPosition in 0 until adapter.itemCount) {
+-                        viewPager.setCurrentItem(newPosition, true)
+-                    }
+-                }
+-            },
++            onNavigate = { forward -> navigate(forward) },
+         )
+     }
+ 
+@@ -526,6 +516,105 @@ class ViewActivity : AppCompatActivity(R.layout.activity_view) {
+         }
+     }
+ 
++    private fun navigate(forward: Boolean) {
++        viewPager.adapter?.let { adapter ->
++            val currentPosition = viewPager.currentItem
++
++            val newPosition = if (forward) {
++                currentPosition + 1
++            } else {
++                currentPosition - 1
++            }
++
++            if (newPosition in 0 until adapter.itemCount) {
++                viewPager.setCurrentItem(newPosition, true)
++            }
++        }
++    }
++
++    // SableOS: viewer keys (sable/SableGalleryKeys.java). Arrows, Space and Enter stay with a
++    // focused toolbar or bottom-bar button; dialogs get their own keys.
++    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
++        val media = viewModel.displayedMedia.value
++        val action = SableGalleryKeys.viewer(
++            event.keyCode,
++            event.getUnicodeChar(event.metaState),
++            event.isAltPressed,
++            event.isCtrlPressed,
++            event.isShiftPressed,
++            event.isMetaPressed,
++            appBarLayout.hasFocus() || bottomSheetLinearLayout.hasFocus(),
++            media?.mediaType == MediaType.VIDEO,
++        )
++        if (media == null || action == SableGalleryKeys.Action.NONE) {
++            return super.dispatchKeyEvent(event)
++        }
++        if (event.action == KeyEvent.ACTION_DOWN &&
++            (event.repeatCount == 0 || SableGalleryKeys.repeats(action))
++        ) {
++            runViewerAction(action, media)
++        }
++        return true
++    }
++
++    private fun runViewerAction(action: SableGalleryKeys.Action, media: Media) {
++        when (action) {
++            SableGalleryKeys.Action.PREVIOUS -> navigate(false)
++            SableGalleryKeys.Action.NEXT -> navigate(true)
++            SableGalleryKeys.Action.PLAY_PAUSE -> viewModel.exoPlayer.let {
++                when {
++                    it.isPlaying -> viewModel.pause()
++                    it.playbackState == Player.STATE_ENDED -> {
++                        it.seekTo(0)
++                        viewModel.play()
++                    }
++
++                    else -> viewModel.play()
++                }
++            }
++
++            SableGalleryKeys.Action.ZOOM_IN -> currentMediaViewHolder()?.zoomStep(1)
++            SableGalleryKeys.Action.ZOOM_OUT -> currentMediaViewHolder()?.zoomStep(-1)
++            SableGalleryKeys.Action.ZOOM_FIT -> currentMediaViewHolder()?.zoomStep(0)
++            SableGalleryKeys.Action.INFO -> if (infoButton.isVisible) {
++                toolbar.menu.performIdentifierAction(R.id.info, 0)
++            }
++
++            SableGalleryKeys.Action.SHARE -> if (shareButton.isVisible) {
++                shareButton.performClick()
++            }
++
++            SableGalleryKeys.Action.FAVORITE -> if (favoriteButton.isVisible) {
++                favoriteButton.performClick()
++            }
++
++            // The on-screen trash button trashes at once (MediaStore may still ask); the
++            // key always asks first. On a trashed item it deletes forever, after asking.
++            SableGalleryKeys.Action.DELETE -> if (deleteButton.isVisible) {
++                when (media.isTrashed) {
++                    true -> MediaDialogsUtils.openDeleteForeverDialog(this, media.uri) { uris ->
++                        deleteUriContract.launch(contentResolver.createDeleteRequest(*uris))
++                    }
++
++                    false -> MediaDialogsUtils.openMoveToTrashDialog(this, media) {
++                        dismissKeyguardAndRun {
++                            trashMedia(media)
++                        }
++                    }
++                }
++            }
++
++            SableGalleryKeys.Action.OPEN,
++            SableGalleryKeys.Action.NONE -> Unit
++        }
++    }
++
++    private fun currentMediaViewHolder(): MediaViewerAdapter.MediaViewHolder? {
++        val recyclerView = viewPager.getChildAt(0) as? RecyclerView ?: return null
++        val holder = recyclerView.findViewHolderForAdapterPosition(viewPager.currentItem)
++        return holder as? MediaViewerAdapter.MediaViewHolder
++    }
++
+     /**
+      * Update exoPlayer's status.
+      * @param media The currently displayed [Media]
+diff --git a/app/src/main/java/org/lineageos/glimpse/fragments/AlbumFragment.kt b/app/src/main/java/org/lineageos/glimpse/fragments/AlbumFragment.kt
+index 9552773..536d487 100644
+--- a/app/src/main/java/org/lineageos/glimpse/fragments/AlbumFragment.kt
++++ b/app/src/main/java/org/lineageos/glimpse/fragments/AlbumFragment.kt
+@@ -15,6 +15,7 @@ import android.os.Bundle
+ import android.provider.MediaStore
+ import android.util.Log
+ import android.view.ActionMode
++import android.view.KeyEvent
+ import android.view.Menu
+ import android.view.MenuItem
+ import android.view.View
+@@ -62,6 +63,7 @@ import org.lineageos.glimpse.models.AlbumType
+ import org.lineageos.glimpse.models.Media
+ import org.lineageos.glimpse.models.MediaType
+ import org.lineageos.glimpse.models.RequestStatus
++import org.lineageos.glimpse.sable.SableGalleryKeys
+ import org.lineageos.glimpse.ui.recyclerview.ThumbnailAdapter
+ import org.lineageos.glimpse.ui.recyclerview.ThumbnailItemDetailsLookup
+ import org.lineageos.glimpse.ui.recyclerview.ThumbnailLayoutManager
+@@ -357,6 +359,10 @@ class AlbumFragment : Fragment(R.layout.fragment_album) {
+             }
+         }
+ 
++        thumbnailAdapter.setOnItemKey { itemView, media, event ->
++            onThumbnailKey(itemView, media, event)
++        }
++
+         selectionTracker = SelectionTracker.Builder(
+             "thumbnail-${albumUri}",
+             recyclerView,
+@@ -394,6 +400,7 @@ class AlbumFragment : Fragment(R.layout.fragment_album) {
+         recyclerView.adapter = null
+ 
+         thumbnailAdapter.setOnItemSelected(null)
++        thumbnailAdapter.setOnItemKey(null)
+ 
+         super.onDestroyView()
+     }
+@@ -533,6 +540,61 @@ class AlbumFragment : Fragment(R.layout.fragment_album) {
+         actionMode = null
+     }
+ 
++    /**
++     * SableOS: keys on a focused thumbnail (sable/SableGalleryKeys.java). Space opens it like
++     * Enter; D or Del deletes and S shares the selection, or the focused item when nothing is
++     * selected. Delete always asks first.
++     */
++    private fun onThumbnailKey(itemView: View, media: Media, event: KeyEvent): Boolean {
++        val action = SableGalleryKeys.grid(
++            event.keyCode,
++            event.isAltPressed,
++            event.isCtrlPressed,
++            event.isShiftPressed,
++            event.isMetaPressed,
++            intentsViewModel.isPicking.value,
++        )
++        if (action == SableGalleryKeys.Action.NONE) {
++            return false
++        }
++        if (event.action != KeyEvent.ACTION_DOWN || event.repeatCount > 0) {
++            return true
++        }
++
++        val targets = selectionTracker?.selection?.toList()?.takeUnless {
++            it.isEmpty()
++        }?.toTypedArray() ?: arrayOf(media)
++
++        when (action) {
++            SableGalleryKeys.Action.OPEN -> itemView.performClick()
++
++            SableGalleryKeys.Action.SHARE -> requireActivity().startActivity(
++                buildShareIntent(*targets)
++            )
++
++            SableGalleryKeys.Action.DELETE -> when (
++                viewModel.albumRequest.value?.albumType == AlbumType.TRASH
++            ) {
++                true -> MediaDialogsUtils.openDeleteForeverDialog(requireContext(), *targets) {
++                    lastProcessedSelection = it
++                    deleteForeverContract.launch(
++                        requireContext().contentResolver.createDeleteRequest(
++                            *it.map { media -> media.uri }.toTypedArray()
++                        )
++                    )
++                }
++
++                false -> MediaDialogsUtils.openMoveToTrashDialog(requireContext(), *targets) {
++                    trashMedias(true, *it)
++                }
++            }
++
++            else -> Unit
++        }
++
++        return true
++    }
++
+     private fun trashMedias(trash: Boolean, vararg medias: Media) {
+         lastProcessedSelection = medias
+ 
+diff --git a/app/src/main/java/org/lineageos/glimpse/fragments/AlbumsFragment.kt b/app/src/main/java/org/lineageos/glimpse/fragments/AlbumsFragment.kt
+index fdf4595..8baea8e 100644
+--- a/app/src/main/java/org/lineageos/glimpse/fragments/AlbumsFragment.kt
++++ b/app/src/main/java/org/lineageos/glimpse/fragments/AlbumsFragment.kt
+@@ -7,7 +7,9 @@ package org.lineageos.glimpse.fragments
+ 
+ import android.content.res.Configuration
+ import android.os.Bundle
++import android.os.SystemClock
+ import android.util.Log
++import android.view.KeyEvent
+ import android.view.LayoutInflater
+ import android.view.View
+ import android.widget.ImageView
+@@ -35,6 +37,7 @@ import org.lineageos.glimpse.ext.updatePadding
+ import org.lineageos.glimpse.models.Album
+ import org.lineageos.glimpse.models.RequestStatus
+ import org.lineageos.glimpse.models.Thumbnail
++import org.lineageos.glimpse.sable.SableTypeAhead
+ import org.lineageos.glimpse.ui.recyclerview.AlbumThumbnailLayoutManager
+ import org.lineageos.glimpse.ui.recyclerview.SimpleListAdapter
+ import org.lineageos.glimpse.ui.recyclerview.UniqueItemDiffCallback
+@@ -89,6 +92,10 @@ class AlbumsFragment : Fragment(R.layout.fragment_albums) {
+                         }
+                     }
+                 }
++                // SableOS: type-to-jump by album name; Space opens the album like Enter.
++                view.setOnKeyListener { itemView, _, event ->
++                    onAlbumKey(itemView, bindingAdapterPosition, event)
++                }
+             }
+ 
+             override fun ViewHolder.onBindView(item: Album) {
+@@ -115,6 +122,9 @@ class AlbumsFragment : Fragment(R.layout.fragment_albums) {
+     // Permissions
+     private val permissionsChecker = PermissionsChecker(this, PermissionsUtils.mainPermissions)
+ 
++    // SableOS: type-to-jump state (sable/SableTypeAhead.java)
++    private val typeAhead = SableTypeAhead()
++
+     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+         super.onViewCreated(view, savedInstanceState)
+ 
+@@ -160,6 +170,47 @@ class AlbumsFragment : Fragment(R.layout.fragment_albums) {
+         recyclerView.layoutManager = AlbumThumbnailLayoutManager(requireContext())
+     }
+ 
++    /**
++     * SableOS: a key on a focused album tile. Letters and digits move focus to the next album
++     * whose name starts with what was typed; they never open anything. Space opens the album.
++     */
++    private fun onAlbumKey(itemView: View, position: Int, event: KeyEvent): Boolean {
++        if (event.isAltPressed || event.isCtrlPressed || event.isMetaPressed) {
++            return false
++        }
++        if (event.keyCode == KeyEvent.KEYCODE_SPACE && !event.isShiftPressed) {
++            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
++                itemView.performClick()
++            }
++            return true
++        }
++        val codePoint = event.getUnicodeChar(event.metaState)
++        if (codePoint <= 0 || !Character.isLetterOrDigit(codePoint)) {
++            return false
++        }
++        if (event.action != KeyEvent.ACTION_DOWN || event.repeatCount > 0) {
++            return true
++        }
++        val prefix = typeAhead.type(codePoint, SystemClock.uptimeMillis()) ?: return true
++        val start = if (typeAhead.isCycling) position + 1 else position
++        val index = SableTypeAhead.find(adapter.currentList.map { it.name }, prefix, start)
++        if (index >= 0) {
++            focusAlbum(index)
++        }
++        return true
++    }
++
++    private fun focusAlbum(position: Int) {
++        recyclerView.findViewHolderForAdapterPosition(position)?.itemView?.requestFocus()
++            ?: run {
++                recyclerView.scrollToPosition(position)
++                recyclerView.post {
++                    recyclerView.findViewHolderForAdapterPosition(position)
++                        ?.itemView?.requestFocus()
++                }
++            }
++    }
++
+     private suspend fun loadData() {
+         coroutineScope {
+             launch {
+diff --git a/app/src/main/java/org/lineageos/glimpse/ui/recyclerview/MediaViewerAdapter.kt b/app/src/main/java/org/lineageos/glimpse/ui/recyclerview/MediaViewerAdapter.kt
+index b20533a..1559221 100644
+--- a/app/src/main/java/org/lineageos/glimpse/ui/recyclerview/MediaViewerAdapter.kt
++++ b/app/src/main/java/org/lineageos/glimpse/ui/recyclerview/MediaViewerAdapter.kt
+@@ -27,6 +27,7 @@ import org.lineageos.glimpse.ext.load
+ import org.lineageos.glimpse.models.Media
+ import org.lineageos.glimpse.models.MediaType
+ import org.lineageos.glimpse.models.MotionPhoto
++import org.lineageos.glimpse.sable.SableGalleryKeys
+ import org.lineageos.glimpse.ui.MediaGestureListener
+ import org.lineageos.glimpse.viewmodels.LocalPlayerViewModel
+ 
+@@ -177,6 +178,30 @@ class MediaViewerAdapter(
+             imageView.load(media.uri)
+         }
+ 
++        /**
++         * SableOS: one keyboard zoom step on the shown photo: [step] > 0 zooms in, < 0 out and
++         * 0 fits the photo again. Nothing happens while a video plays.
++         */
++        fun zoomStep(step: Int) {
++            if (!imageView.isVisible) {
++                return
++            }
++            val zoomable = imageView.zoomable
++            val minScale = zoomable.minScaleState.value
++            val targetScale = when (step) {
++                0 -> minScale
++                else -> SableGalleryKeys.zoomStep(
++                    zoomable.transformState.value.scaleX,
++                    minScale,
++                    zoomable.maxScaleState.value,
++                    step > 0,
++                )
++            }
++            itemView.findViewTreeLifecycleOwner()?.lifecycleScope?.launch {
++                zoomable.scale(targetScale, animated = true)
++            }
++        }
++
+         fun onViewAttachedToWindow() {
+             observersJob = itemView.findViewTreeLifecycleOwner()?.lifecycleScope?.launch {
+                 launch {
+diff --git a/app/src/main/java/org/lineageos/glimpse/ui/recyclerview/ThumbnailAdapter.kt b/app/src/main/java/org/lineageos/glimpse/ui/recyclerview/ThumbnailAdapter.kt
+index 1acb4ff..dfcfd98 100644
+--- a/app/src/main/java/org/lineageos/glimpse/ui/recyclerview/ThumbnailAdapter.kt
++++ b/app/src/main/java/org/lineageos/glimpse/ui/recyclerview/ThumbnailAdapter.kt
+@@ -9,6 +9,7 @@ import android.graphics.RenderEffect
+ import android.graphics.Shader
+ import android.os.Build
+ import android.text.format.DateUtils
++import android.view.KeyEvent
+ import android.view.LayoutInflater
+ import android.view.View
+ import android.view.ViewGroup
+@@ -53,6 +54,10 @@ class ThumbnailAdapter : ListAdapter<AlbumViewModel.AlbumContent, RecyclerView.V
+ 
+     private var onItemSelected: (media: Media) -> Unit = {}
+ 
++    // SableOS: keys on a focused thumbnail; true when consumed.
++    private var onItemKey: (view: View, media: Media, event: KeyEvent) -> Boolean =
++        { _, _, _ -> false }
++
+     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
+         LayoutInflater.from(parent.context).let { layoutInflater ->
+             when (viewType) {
+@@ -122,6 +127,10 @@ class ThumbnailAdapter : ListAdapter<AlbumViewModel.AlbumContent, RecyclerView.V
+         this.onItemSelected = onItemSelected ?: {}
+     }
+ 
++    fun setOnItemKey(onItemKey: ((view: View, media: Media, event: KeyEvent) -> Boolean)?) {
++        this.onItemKey = onItemKey ?: { _, _, _ -> false }
++    }
++
+     inner class ThumbnailViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+         // Views
+         private val selectionCheckedImageView =
+@@ -158,6 +167,9 @@ class ThumbnailAdapter : ListAdapter<AlbumViewModel.AlbumContent, RecyclerView.V
+             itemView.setOnClickListener {
+                 onItemSelected(media)
+             }
++            itemView.setOnKeyListener { view, _, event ->
++                onItemKey(view, media, event)
++            }
+ 
+             thumbnailImageView.load(
+                 media.uri,
+-- 
+2.43.0
+

@@ -6,6 +6,13 @@
 > 0011). The LineageOS framework patches are still uncompiled, and nothing has
 > run on a device. Statements below about uncompiled app code describe the
 > state when the package was written.
+>
+> **Update 2026-10-14:** the keyboard shortcuts this port left out are now
+> patches on the stock apps themselves, range 1000-1099 in
+> [patches/README.md](../../patches/README.md): Files (DocumentsUI 1001-1002),
+> Photos (Glimpse 1021-1022, on top of 0801) and Browser (Jelly 1041-1042).
+> They change key handling only; the presentation port below is unchanged and
+> Jelly is no longer an unpatched app.
 
 Package `daily-driver` ports SableOS R9 *daily driver core presentation*
 (`sableos/patches/android-17-grapheneos-2026081300/apply_r9_daily_driver_core_presentation.py`)

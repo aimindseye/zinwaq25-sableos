@@ -9,6 +9,8 @@ data class Snapshot(
 )
 
 object SetupRows {
+    private const val HOME_TITLE = "Home screen"
+
     const val SABLE_KEYBOARD_PACKAGE = "org.sableos.titan2.keyboard"
     const val RADIO_DETAIL =
         "Read-only SIM and network diagnostics; IMS registration visibility requires canonical IR-007"
@@ -44,12 +46,12 @@ object SetupRows {
     /** HOME is owned by the canonical lane (IR-003); this row never judges it. */
     private fun home(o: Observed): Item = when (o) {
         is Observed.Value ->
-            Item("home", "Home screen", o.text, Readiness.Informational, Action.HomeSettings)
+            Item("home", HOME_TITLE, o.text, Readiness.Informational, Action.HomeSettings)
 
         Observed.Absent ->
             Item(
                 "home",
-                "Home screen",
+                HOME_TITLE,
                 "No home app resolved",
                 Readiness.Informational,
                 Action.HomeSettings
@@ -58,7 +60,7 @@ object SetupRows {
         Observed.Failed ->
             Item(
                 "home",
-                "Home screen",
+                HOME_TITLE,
                 "Could not read the home app",
                 Readiness.Unknown,
                 Action.HomeSettings

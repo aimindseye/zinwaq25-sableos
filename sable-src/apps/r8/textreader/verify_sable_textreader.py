@@ -36,6 +36,31 @@ def main() -> None:
         )
 
     root = pathlib.Path(sys.argv[1]).resolve()
+    verify_upstream_commit(root)
+    verify_sources(root)
+    verify_manifest(root / "app/src/main/AndroidManifest.xml")
+
+    print("SABLE_TEXT_READER_MIN_SDK=PASS_30")
+    print("SABLE_TEXT_READER_INTERNET_MERGE_RULE=PASS_REMOVE")
+    print("SABLE_TEXT_READER_INTERNET_PERMISSION=PASS_FINAL_APK_ABSENT_REQUIRED")
+    print("SABLE_TEXT_READER_CLEARTEXT_TRAFFIC=PASS_DISABLED")
+    print("SABLE_TEXT_READER_TRANSLATION=PASS_RETIRED")
+    print("SABLE_TEXT_READER_CAMERA_PERMISSION=PASS_OPTIONAL_RUNTIME_ONLY")
+    print("SABLE_TEXT_READER_VIEW=PASS")
+    print("SABLE_TEXT_READER_SEND=PASS")
+    print("SABLE_TEXT_READER_PROCESS_TEXT=PASS")
+    print("SABLE_TEXT_READER_SINGLE_LAUNCHER=PASS")
+    print("SABLE_TEXT_READER_GLOBAL_APPEARANCE=PASS")
+    print("SABLE_TEXT_READER_TEXT_INPUT=PASS_BOUNDED_2_MIB")
+    print("SABLE_TEXT_READER_TTS_NETWORK_VOICES=PASS_FILTERED")
+
+    if len(sys.argv) == 3:
+        verify_apk(root, pathlib.Path(sys.argv[2]).resolve())
+
+    print("SABLE_TEXT_READER_POLICY=PASS")
+
+
+def verify_upstream_commit(root: pathlib.Path) -> None:
     actual = subprocess.check_output(
         ["git", "-C", str(root), "rev-parse", "HEAD"],
         text=True,
@@ -47,8 +72,9 @@ def main() -> None:
         )
     print(f"SABLE_TEXT_READER_UPSTREAM_COMMIT=PASS value={actual}")
 
+
+def verify_sources(root: pathlib.Path) -> None:
     build = root / "app/build.gradle.kts"
-    manifest_path = root / "app/src/main/AndroidManifest.xml"
     strings = root / "app/src/main/res/values/strings.xml"
     main_source = root / "app/src/main/java/org/vaachak/textreader/MainActivity.kt"
     shared = root / "app/src/main/java/org/vaachak/textreader/SharedComponents.kt"
@@ -95,6 +121,33 @@ def main() -> None:
     require(tts_settings, "fun selectLocalVoice(", "SABLE_TEXT_READER_LOCAL_TTS_SELECTOR")
     require(design, 'AUTHORITY = "org.sableos.appearance"', "SABLE_TEXT_READER_APPEARANCE_AUTHORITY")
 
+
+def is_launcher_filter(intent_filter: ET.Element, android: str) -> bool:
+    actions = {
+        action.attrib.get(android + "name")
+        for action in intent_filter.findall("action")
+    }
+    categories = {
+        category.attrib.get(android + "name")
+        for category in intent_filter.findall("category")
+    }
+    return (
+        "android.intent.action.MAIN" in actions
+        and "android.intent.category.LAUNCHER" in categories
+    )
+
+
+def launcher_count(app: ET.Element, android: str) -> int:
+    return sum(
+        1
+        for tag in ("activity", "activity-alias")
+        for component in app.findall(tag)
+        for intent_filter in component.findall("intent-filter")
+        if is_launcher_filter(intent_filter, android)
+    )
+
+
+def verify_manifest(manifest_path: pathlib.Path) -> None:
     manifest_text = manifest_path.read_text(encoding="utf-8")
     for token in (
         "android.permission.CAMERA",
@@ -132,96 +185,72 @@ def main() -> None:
         fail("SABLE_TEXT_READER_MANIFEST_APPLICATION")
     if app.attrib.get(android + "allowBackup") != "false":
         fail("SABLE_TEXT_READER_BACKUP_POLICY")
+    if app.attrib.get(android + "usesCleartextTraffic") != "false":
+        fail("SABLE_TEXT_READER_CLEARTEXT_POLICY")
 
-    launcher_count = 0
-    for tag in ("activity", "activity-alias"):
-        for component in app.findall(tag):
-            for intent_filter in component.findall("intent-filter"):
-                actions = {
-                    action.attrib.get(android + "name")
-                    for action in intent_filter.findall("action")
-                }
-                categories = {
-                    category.attrib.get(android + "name")
-                    for category in intent_filter.findall("category")
-                }
-                if (
-                    "android.intent.action.MAIN" in actions
-                    and "android.intent.category.LAUNCHER" in categories
-                ):
-                    launcher_count += 1
-    if launcher_count != 1:
-        fail("SABLE_TEXT_READER_LAUNCHER_COUNT", f"count={launcher_count}")
+    count = launcher_count(app, android)
+    if count != 1:
+        fail("SABLE_TEXT_READER_LAUNCHER_COUNT", f"count={count}")
 
-    print("SABLE_TEXT_READER_MIN_SDK=PASS_30")
-    print("SABLE_TEXT_READER_INTERNET_MERGE_RULE=PASS_REMOVE")
-    print("SABLE_TEXT_READER_INTERNET_PERMISSION=PASS_FINAL_APK_ABSENT_REQUIRED")
-    print("SABLE_TEXT_READER_TRANSLATION=PASS_RETIRED")
-    print("SABLE_TEXT_READER_CAMERA_PERMISSION=PASS_OPTIONAL_RUNTIME_ONLY")
-    print("SABLE_TEXT_READER_VIEW=PASS")
-    print("SABLE_TEXT_READER_SEND=PASS")
-    print("SABLE_TEXT_READER_PROCESS_TEXT=PASS")
-    print("SABLE_TEXT_READER_SINGLE_LAUNCHER=PASS")
-    print("SABLE_TEXT_READER_GLOBAL_APPEARANCE=PASS")
-    print("SABLE_TEXT_READER_TEXT_INPUT=PASS_BOUNDED_2_MIB")
-    print("SABLE_TEXT_READER_TTS_NETWORK_VOICES=PASS_FILTERED")
 
-    if len(sys.argv) == 3:
-        apk = pathlib.Path(sys.argv[2]).resolve()
-        if not apk.is_file():
-            fail("SABLE_TEXT_READER_APK", f"missing={apk}")
-        apkanalyzer = os.environ.get("APKANALYZER")
-        if not apkanalyzer:
-            fail("SABLE_TEXT_READER_APKANALYZER", "APKANALYZER not set")
-        package = subprocess.check_output(
-            [apkanalyzer, "manifest", "application-id", str(apk)],
-            text=True,
-        ).strip()
-        if package != EXPECTED_PACKAGE:
-            fail(
-                "SABLE_TEXT_READER_APK_PACKAGE",
-                f"expected={EXPECTED_PACKAGE} actual={package}",
-            )
-        print(f"SABLE_TEXT_READER_APK_PACKAGE=PASS value={package}")
+def print_internet_merge_evidence(root: pathlib.Path) -> None:
+    merge_report = (
+        root
+        / "app/build/outputs/logs/manifest-merger-debug-report.txt"
+    )
+    if not merge_report.is_file():
+        return
+    print("SABLE_TEXT_READER_MANIFEST_MERGER_INTERNET_EVIDENCE=BEGIN")
+    for line in merge_report.read_text(
+        encoding="utf-8",
+        errors="replace",
+    ).splitlines():
+        if "INTERNET" in line or "uses-permission" in line:
+            print(line)
+    print("SABLE_TEXT_READER_MANIFEST_MERGER_INTERNET_EVIDENCE=END")
 
-        apk_manifest = subprocess.check_output(
-            [apkanalyzer, "manifest", "print", str(apk)],
-            text=True,
+
+def verify_apk(root: pathlib.Path, apk: pathlib.Path) -> None:
+    if not apk.is_file():
+        fail("SABLE_TEXT_READER_APK", f"missing={apk}")
+    apkanalyzer = os.environ.get("APKANALYZER")
+    if not apkanalyzer:
+        fail("SABLE_TEXT_READER_APKANALYZER", "APKANALYZER not set")
+    package = subprocess.check_output(
+        [apkanalyzer, "manifest", "application-id", str(apk)],
+        text=True,
+    ).strip()
+    if package != EXPECTED_PACKAGE:
+        fail(
+            "SABLE_TEXT_READER_APK_PACKAGE",
+            f"expected={EXPECTED_PACKAGE} actual={package}",
         )
-        if "android.permission.INTERNET" in apk_manifest:
-            merge_report = (
-                root
-                / "app/build/outputs/logs/manifest-merger-debug-report.txt"
-            )
-            if merge_report.is_file():
-                print("SABLE_TEXT_READER_MANIFEST_MERGER_INTERNET_EVIDENCE=BEGIN")
-                for line in merge_report.read_text(
-                    encoding="utf-8",
-                    errors="replace",
-                ).splitlines():
-                    if "INTERNET" in line or "uses-permission" in line:
-                        print(line)
-                print("SABLE_TEXT_READER_MANIFEST_MERGER_INTERNET_EVIDENCE=END")
-            fail("SABLE_TEXT_READER_APK_INTERNET_PERMISSION")
-        if "android.permission.CAMERA" not in apk_manifest:
-            fail("SABLE_TEXT_READER_APK_CAMERA_PERMISSION")
-        if "android.intent.action.PROCESS_TEXT" not in apk_manifest:
-            fail("SABLE_TEXT_READER_APK_PROCESS_TEXT")
-        if "android.intent.action.SEND" not in apk_manifest:
-            fail("SABLE_TEXT_READER_APK_SEND")
-        print("SABLE_TEXT_READER_APK_INTERNET_PERMISSION=PASS_ABSENT")
-        print("SABLE_TEXT_READER_APK_CAMERA_PERMISSION=PASS_PRESENT")
-        print("SABLE_TEXT_READER_APK_SEND_PROCESS_TEXT=PASS")
-        print("SABLE_TEXT_READER_APK_OFFLINE_BOUNDARY=PASS")
-        print(
-            "SABLE_TEXT_READER_APK_SHA256="
-            + subprocess.check_output(
-                ["sha256sum", str(apk)],
-                text=True,
-            ).split()[0]
-        )
+    print(f"SABLE_TEXT_READER_APK_PACKAGE=PASS value={package}")
 
-    print("SABLE_TEXT_READER_POLICY=PASS")
+    apk_manifest = subprocess.check_output(
+        [apkanalyzer, "manifest", "print", str(apk)],
+        text=True,
+    )
+    if "android.permission.INTERNET" in apk_manifest:
+        print_internet_merge_evidence(root)
+        fail("SABLE_TEXT_READER_APK_INTERNET_PERMISSION")
+    if "android.permission.CAMERA" not in apk_manifest:
+        fail("SABLE_TEXT_READER_APK_CAMERA_PERMISSION")
+    if "android.intent.action.PROCESS_TEXT" not in apk_manifest:
+        fail("SABLE_TEXT_READER_APK_PROCESS_TEXT")
+    if "android.intent.action.SEND" not in apk_manifest:
+        fail("SABLE_TEXT_READER_APK_SEND")
+    print("SABLE_TEXT_READER_APK_INTERNET_PERMISSION=PASS_ABSENT")
+    print("SABLE_TEXT_READER_APK_CAMERA_PERMISSION=PASS_PRESENT")
+    print("SABLE_TEXT_READER_APK_SEND_PROCESS_TEXT=PASS")
+    print("SABLE_TEXT_READER_APK_OFFLINE_BOUNDARY=PASS")
+    print(
+        "SABLE_TEXT_READER_APK_SHA256="
+        + subprocess.check_output(
+            ["sha256sum", str(apk)],
+            text=True,
+        ).split()[0]
+    )
 
 
 if __name__ == "__main__":

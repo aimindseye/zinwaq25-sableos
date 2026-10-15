@@ -25,6 +25,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import org.json.JSONObject
+import org.readium.navigator.media.tts.AndroidTtsNavigator
 import org.readium.navigator.media.tts.AndroidTtsNavigatorFactory
 import org.readium.navigator.media.tts.TtsNavigator
 import org.readium.navigator.media.tts.android.AndroidTtsEngine
@@ -282,15 +283,8 @@ class ReaderViewModel @Inject constructor(
             val book = bookDao.getBookByUri(uri.toString(), profileId)
             _currentBookHash.value = book?.bookHash
 
-            val targetJson = pendingJumpLocator ?: book?.lastLocationJson
-            val locator = targetJson?.let {
-                try {
-                    Locator.fromJSON(JSONObject(it))
-                } catch (_: Exception) {
-                    null
-                }
-            }
-            _initialLocator.value = locator
+            val targetJson: String? = pendingJumpLocator ?: book?.lastLocationJson
+            _initialLocator.value = parseLocator(targetJson)
 
             val pub = readiumManager.openEpubFromUri(uri)
             _publication.value = pub
@@ -359,6 +353,7 @@ class ReaderViewModel @Inject constructor(
                     _jumpEvent.emit(l)
                 }
             } catch (_: Exception) {
+                // A saved location that no longer parses cannot be jumped to; the reader stays where it is.
             }
         }
     }
@@ -513,6 +508,7 @@ class ReaderViewModel @Inject constructor(
                     _jumpEvent.emit(l)
                 }
             } catch (_: Exception) {
+                // A saved location that no longer parses cannot be jumped to; the reader stays where it is.
             }
         }
     }
@@ -755,99 +751,108 @@ class ReaderViewModel @Inject constructor(
 
         factory?.createNavigator(ttsListener)?.onSuccess { navigator ->
             this.ttsNavigator = navigator
-
-            viewModelScope.launch {
-                combine(
-                    settingsRepo.ttsSettings,
-                    _currentTtsVoice,
-                    _currentTtsLanguage
-                ) { prefs: TtsSettings, voice: AndroidTtsEngine.Voice?, lang: String ->
-                    Triple(prefs, voice, lang)
-                }.collect { (prefs, voice, langCode) ->
-                    val activeLangObj = if (langCode == "default" || langCode.isEmpty()) {
-                        voice?.language
-                    } else {
-                        org.readium.r2.shared.util.Language(langCode)
-                    }
-
-                    val voiceMap = if (voice != null && activeLangObj != null) {
-                        mapOf(activeLangObj to voice.id)
-                    } else {
-                        emptyMap()
-                    }
-
-                    val newPrefs = AndroidTtsPreferences(
-                        speed = prefs.defaultSpeed.toDouble(),
-                        pitch = prefs.pitch.toDouble(),
-                        language = activeLangObj,
-                        voices = voiceMap
-                    )
-                    navigator.submitPreferences(newPrefs)
-
-                    val isPlaying = navigator.playback.value.playWhenReady &&
-                            navigator.playback.value.state is TtsNavigator.State.Ready
-                    manageSleepTimer(prefs.sleepTimerMinutes, isPlaying)
-                }
-            }
-
-            viewModelScope.launch {
-                navigator.playback.collect { playback ->
-                    val isPlaying = playback.playWhenReady &&
-                            playback.state is TtsNavigator.State.Ready
-
-                    _isTtsActive.value = isPlaying
-                    if (!isPlaying) {
-                        _ttsDecoration.value = emptyList()
-                    }
-
-                    val currentMins = settingsRepo.ttsSettings.first().sleepTimerMinutes
-                    manageSleepTimer(currentMins, isPlaying)
-                }
-            }
-
-            viewModelScope.launch {
-                navigator.location.collect { ttsLocation ->
-                    val currentPrefs = settingsRepo.ttsSettings.first()
-                    val utteranceText = ttsLocation.utterance
-                    val locator = ttsLocation.utteranceLocator
-
-                    if (_isTtsActive.value) {
-                        if (lockedOutUtteranceText != null) {
-                            if (utteranceText == lockedOutUtteranceText) {
-                                return@collect
-                            } else {
-                                lockedOutUtteranceText = null
-                            }
-                        }
-
-                        if (currentPrefs.isAutoPageTurnEnabled) {
-                            _jumpEvent.emit(locator)
-                        }
-
-                        val ttsStyle = if (currentPrefs.visualStyle == "underline") {
-                            Decoration.Style.Underline(tint = android.graphics.Color.BLACK)
-                        } else {
-                            Decoration.Style.Highlight(
-                                tint = android.graphics.Color.argb(80, 255, 255, 0)
-                            )
-                        }
-
-                        _ttsDecoration.value = listOf(
-                            Decoration(
-                                id = "tts-active-utterance",
-                                locator = locator,
-                                style = ttsStyle
-                            )
-                        )
-                    } else {
-                        _ttsDecoration.value = emptyList()
-                    }
-                }
-            }
+            viewModelScope.launch { applyTtsPreferences(navigator) }
+            viewModelScope.launch { trackTtsPlayback(navigator) }
+            viewModelScope.launch { followTtsUtterances(navigator) }
         }?.onFailure {
             _snackbarMessage.value = "TTS Initialization failed"
         }
     }
+
+    /** Pushes the saved speed, pitch, language and voice into the TTS navigator whenever any of them change. */
+    private suspend fun applyTtsPreferences(navigator: AndroidTtsNavigator) {
+        combine(
+            settingsRepo.ttsSettings,
+            _currentTtsVoice,
+            _currentTtsLanguage
+        ) { prefs: TtsSettings, voice: AndroidTtsEngine.Voice?, lang: String ->
+            Triple(prefs, voice, lang)
+        }.collect { (prefs, voice, langCode) ->
+            val activeLangObj = if (langCode == "default" || langCode.isEmpty()) {
+                voice?.language
+            } else {
+                org.readium.r2.shared.util.Language(langCode)
+            }
+
+            val voiceMap = if (voice != null && activeLangObj != null) {
+                mapOf(activeLangObj to voice.id)
+            } else {
+                emptyMap()
+            }
+
+            val newPrefs = AndroidTtsPreferences(
+                speed = prefs.defaultSpeed.toDouble(),
+                pitch = prefs.pitch.toDouble(),
+                language = activeLangObj,
+                voices = voiceMap
+            )
+            navigator.submitPreferences(newPrefs)
+
+            val isPlaying = navigator.playback.value.playWhenReady &&
+                    navigator.playback.value.state is TtsNavigator.State.Ready
+            manageSleepTimer(prefs.sleepTimerMinutes, isPlaying)
+        }
+    }
+
+    /** Mirrors the TTS play state into the UI and keeps the sleep timer in step with it. */
+    private suspend fun trackTtsPlayback(navigator: AndroidTtsNavigator) {
+        navigator.playback.collect { playback ->
+            val isPlaying = playback.playWhenReady &&
+                    playback.state is TtsNavigator.State.Ready
+
+            _isTtsActive.value = isPlaying
+            if (!isPlaying) {
+                _ttsDecoration.value = emptyList()
+            }
+
+            val currentMins = settingsRepo.ttsSettings.first().sleepTimerMinutes
+            manageSleepTimer(currentMins, isPlaying)
+        }
+    }
+
+    /** Marks the utterance being read and, when enabled, turns the page to follow it. */
+    private suspend fun followTtsUtterances(navigator: AndroidTtsNavigator) {
+        navigator.location.collect { ttsLocation ->
+            if (!_isTtsActive.value) {
+                _ttsDecoration.value = emptyList()
+                return@collect
+            }
+            if (isLockedOutUtterance(ttsLocation.utterance)) return@collect
+
+            val currentPrefs = settingsRepo.ttsSettings.first()
+            val locator = ttsLocation.utteranceLocator
+            if (currentPrefs.isAutoPageTurnEnabled) {
+                _jumpEvent.emit(locator)
+            }
+            _ttsDecoration.value = listOf(
+                Decoration(
+                    id = "tts-active-utterance",
+                    locator = locator,
+                    style = ttsDecorationStyle(currentPrefs.visualStyle)
+                )
+            )
+        }
+    }
+
+    /**
+     * After a manual skip the navigator can briefly report the utterance it is leaving; that one is ignored until a
+     * different utterance arrives, which clears the lock.
+     */
+    private fun isLockedOutUtterance(utteranceText: String): Boolean {
+        val locked = lockedOutUtteranceText ?: return false
+        if (utteranceText == locked) return true
+        lockedOutUtteranceText = null
+        return false
+    }
+
+    private fun ttsDecorationStyle(visualStyle: String): Decoration.Style =
+        if (visualStyle == "underline") {
+            Decoration.Style.Underline(tint = android.graphics.Color.BLACK)
+        } else {
+            Decoration.Style.Highlight(
+                tint = android.graphics.Color.argb(80, 255, 255, 0)
+            )
+        }
 
     fun getHumanVoiceName(voiceId: String, index: Int): String? {
         if (!voiceId.endsWith("local", ignoreCase = true)) return null
@@ -1025,5 +1030,14 @@ class ReaderViewModel @Inject constructor(
         }
 
         return nav.voices.filter { it.language.code.startsWith(targetLangCode) }
+    }
+}
+/** Parses a saved Readium locator; null when there is none or the JSON is unreadable. */
+private fun parseLocator(json: String?): Locator? {
+    if (json == null) return null
+    return try {
+        Locator.fromJSON(JSONObject(json))
+    } catch (_: Exception) {
+        null
     }
 }

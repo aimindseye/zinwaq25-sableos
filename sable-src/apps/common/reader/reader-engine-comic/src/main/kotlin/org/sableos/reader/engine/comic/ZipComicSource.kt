@@ -1,5 +1,6 @@
 package org.sableos.reader.engine.comic
 
+import java.io.Closeable
 import java.io.File
 import java.io.IOException
 import java.util.zip.ZipException
@@ -15,7 +16,7 @@ class ZipComicSource private constructor(
     override val limits: ComicLimits,
     override val catalog: ComicCatalog,
     override val info: ComicInfo?,
-) : ComicSource {
+) : ComicSource, Closeable by zip {
     override fun readPage(index: Int): ByteArray {
         val page = catalog.pages.getOrNull(index) ?: throw ComicPageException(PageFailure.UNREADABLE, "no page $index")
         ComicCatalogBuilder.checkReadable(page, limits)
@@ -27,8 +28,6 @@ class ZipComicSource private constructor(
             throw ComicPageException(failure, e.message, e)
         }
     }
-
-    override fun close() = zip.close()
 
     companion object {
         fun open(file: File, limits: ComicLimits = ComicLimits()): ComicSource {

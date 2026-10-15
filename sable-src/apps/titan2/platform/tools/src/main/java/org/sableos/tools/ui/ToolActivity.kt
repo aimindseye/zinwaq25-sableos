@@ -57,14 +57,20 @@ class ToolHost(val activity: ToolActivity, val env: ToolsEnv, val tool: Tool) {
 /** One tool screen. Views are built once; sensors/camera/mic run only between start() and stop(). */
 interface ToolController {
     fun view(): View
-    fun start() {}
-    fun stop() {}
+    fun start() {
+        // Default: a tool with no sensor, camera or mic has nothing to start.
+    }
+    fun stop() {
+        // Default: nothing was started, so there is nothing to stop.
+    }
 
     /** Local commands (C/R/H/Space/Menu actions). Return true when handled. */
     fun onCommand(c: Command): Boolean = false
 
     /** KEY_CAPTURE tools see every key event. */
-    fun onKeyCapture(e: KeyEvent) {}
+    fun onKeyCapture(e: KeyEvent) {
+        // Default: only KEY_CAPTURE tools override this; others ignore raw key events.
+    }
     fun onMotion(e: MotionEvent): Boolean = false
     fun info(): String
     fun copyText(): String? = null

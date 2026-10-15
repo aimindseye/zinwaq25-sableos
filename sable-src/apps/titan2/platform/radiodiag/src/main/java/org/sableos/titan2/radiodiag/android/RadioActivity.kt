@@ -24,6 +24,7 @@ import org.sableos.titan2.radiodiag.core.Section
 
 private const val TEXT_SIZE_SP = 12f
 private const val PADDING_PX = 24
+private const val SERVICE_NOT_READY = "service not ready"
 
 /**
  * Read-only radio and IMS status from public APIs. It cannot see IMS registration (that needs a privileged
@@ -95,7 +96,7 @@ class RadioActivity : Activity() {
     } catch (_: SecurityException) {
         Reading.NeedsPermission
     } catch (_: IllegalStateException) {
-        Reading.Unavailable("service not ready")
+        Reading.Unavailable(SERVICE_NOT_READY)
     } catch (_: IllegalArgumentException) {
         Reading.Unavailable("rejected by the platform")
     } catch (_: UnsupportedOperationException) {
@@ -117,7 +118,7 @@ class RadioActivity : Activity() {
         ) {
             Reading.NeedsPermission
         } catch (_: IllegalStateException) {
-            Reading.Unavailable("service not ready")
+            Reading.Unavailable(SERVICE_NOT_READY)
         }
     }
 
@@ -134,7 +135,7 @@ class RadioActivity : Activity() {
         ) {
             Reading.NeedsPermission
         } catch (_: IllegalStateException) {
-            Reading.Unavailable("service not ready")
+            Reading.Unavailable(SERVICE_NOT_READY)
         }
     }
 

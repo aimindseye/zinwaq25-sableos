@@ -28,4 +28,21 @@ object HubIntents {
 
     /** StatusBarNotification.getKey() of the focused notification. */
     const val EXTRA_NOTIFICATION_KEY = "org.sableos.hub.extra.NOTIFICATION_KEY"
+
+    /**
+     * Optional search text. Sable Start's Command sends it with ACTION_MAIN + CATEGORY_LAUNCHER to
+     * open Hub with its search pre-filled; empty or missing means a normal launch.
+     */
+    const val EXTRA_QUERY = "org.sableos.hub.extra.QUERY"
+
+    const val MAX_QUERY_LENGTH = 120
+
+    /** The search to open with, or null for a normal launch. */
+    fun launchQuery(raw: String?): String? =
+        raw
+            ?.replace('\n', ' ')
+            ?.trim()
+            ?.take(MAX_QUERY_LENGTH)
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
 }

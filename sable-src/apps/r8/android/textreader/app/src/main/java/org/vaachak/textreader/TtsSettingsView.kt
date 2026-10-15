@@ -78,7 +78,9 @@ fun TtsSettingsDialog(ttsEngine: TextToSpeech, currentLocale: Locale, onDismiss:
             }?.sortedBy { it.name } ?: emptyList()
             setVoices(filtered)
             setSelected(ttsEngine.voice)
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+            // The engine can fail to list voices while it is still binding; the dialog then offers none.
+        }
     }
 
     AlertDialog(

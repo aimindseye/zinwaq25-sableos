@@ -6,8 +6,8 @@ import org.junit.Test
 
 /** Pure tests for the line under a contact's name (phone-contacts patches 0701/0751). */
 class SableSubtitleTest {
-    private val lri = "⁦"
-    private val pdi = "⁩"
+    private val lri = "\u2066"
+    private val pdi = "\u2069"
 
     @Test fun labelAndNumberAreJoinedWithTheNumberIsolated() {
         assertEquals("Mobile · ${lri}+1 555 0101$pdi", SableSubtitle.format("Mobile", "+1 555 0101"))

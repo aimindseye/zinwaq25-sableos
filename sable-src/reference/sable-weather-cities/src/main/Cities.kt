@@ -21,11 +21,13 @@ enum class Reason {
 
 /** The four built-in cities of canonical Weather (same values as `DefaultWeatherLocations`). */
 object DefaultCities {
+    private const val NEW_YORK_ZONE = "America/New_York"
+
     val ALL: List<City> =
         listOf(
-            City("Jersey City", 40.7178, -74.0430, "America/New_York"),
-            City("New York", 40.7128, -74.0060, "America/New_York"),
-            City("Edison", 40.5187, -74.4121, "America/New_York"),
+            City("Jersey City", 40.7178, -74.0430, NEW_YORK_ZONE),
+            City("New York", 40.7128, -74.0060, NEW_YORK_ZONE),
+            City("Edison", 40.5187, -74.4121, NEW_YORK_ZONE),
             City("Mumbai", 19.0760, 72.8777, "Asia/Kolkata")
         )
 }

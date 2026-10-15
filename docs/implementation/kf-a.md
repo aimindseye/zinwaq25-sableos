@@ -127,6 +127,39 @@ with a modifier held. A focused text editor always passes through. Unavailable o
 are swallowed, not passed on. For H, Hub decides eligibility: an excluded source opens its
 Connected apps entry, so Hub never includes a source silently (`policy/HubHandoffRouter.kt`).
 
+**Shade, Quick Settings and lock screen keys on the Q25 (patches 0302-0304).** The design's Fn
+shortcuts become Alt shortcuts, because the Q25 keyboard has Alt, Shift, Sym and letters but no
+Fn, and LineageOS keeps the Menu key for its own key actions. Down and Up are the trackpad (or a
+D-pad on the same keyboard).
+
+| Key | Where | Action | Patch |
+| --- | --- | --- | --- |
+| Alt+Down | anywhere but the keyguard and setup | open the shade; again: expand Quick Settings | 0302 (`PhoneWindowManager` sends the system navigation Down key that SystemUI already handles) |
+| Alt+Up | open shade | one level back, exactly like Back (pre-IME, shade window only, so apps keep Alt+Up) | 0302 |
+| Alt+Enter | focused notification row | the row's actions menu (long-press menu) | 0302 |
+| Arrows / Enter | Quick Settings | move between tiles / the tile's click, upstream Compose focus with the `borderOnFocus` ring | upstream |
+| Space | focused tile | toggle (the switch of a dual-target tile such as Internet) | 0303 |
+| Alt+Enter | focused tile | details or settings (long-press action) | 0303 |
+| letters, Alt+digits | locked glance, secure keyguard | open the PIN or password field and type into it; Enter still submits | 0304 |
+
+0304 also shows a hint line in the lock screen indication area when a hardware keyboard is
+present: "Type PIN · Enter unlocks" ("Type password · Enter unlocks", or "Enter unlocks" for a
+swipe lock; no hint for a pattern). Keys typed before the field has focus are held in
+`SableKeyguardTypeAhead` for at most 3 s after the last key and are cleared when taken; nothing is
+checked or submitted, and Confirm, Back, Escape, Tab and delete keys keep their meaning. The PIN
+view also takes the digit a key types with Alt (Alt+W) and the key map's phone-pad number for plain
+presses, because the Q25 has no number row. Only the legacy (non scene-container) keyguard is
+changed. Pure policies (`SableShadeKeys`, `SableTileKeys`, `SableKeyguardKeys`,
+`SableKeyguardTypeAhead`) are tested by `tests/framework/frameworks/base/*Test.kt` through
+`tests/framework/run-pure-tests.sh` (21 tests).
+
+Not done: E for emergency on the locked glance (on BlackBerry-style keyboards E is the digit 2 in
+PIN entry, so it needs a design decision), the bouncer's software-keyboard fallback statement, and
+a Hub summary row. Device checks: the trackpad must report Down/Up as D-pad keys from the keyboard
+device (`device-profile/KEYMAP.md` is still unmeasured; a separate trackpad device would not carry
+the keyboard's Alt state), first-arrow focus landing in the opened shade, and PIN entry with the
+real Q25 key map.
+
 ## File map
 
 Hub (`sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/`):
@@ -147,6 +180,9 @@ Other files:
   as for the other Hub screens.
 - `patches/framework/packages/apps/Settings/0300-SableOS-Sable-Attention-and-per-app-Sable-Hub-entrie.patch`
 - `patches/framework/frameworks/base/0301-SableOS-keyboard-notification-commands-in-the-shade.patch`
+- `patches/framework/frameworks/base/0302-*.patch`, `0303-*.patch`, `0304-*.patch` (Alt shade keys,
+  Quick Settings tile keys, lock screen hint and type-ahead) and
+  `tests/framework/frameworks/base/*Test.kt`.
 - `tests/kf-a-notification-policy-check.sh` (called from `tests/run.sh`).
 - Rows added to the `patches/README.md` table.
 
@@ -156,6 +192,7 @@ Other files:
 | --- | --- | --- |
 | 0300 | packages/apps/Settings | `8d8f6486b274bcf0aa6e5d0cbba52c0b05ae5c65` |
 | 0301 | frameworks/base | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` |
+| 0302-0304 | frameworks/base | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` (on 0101-0301) |
 
 Both pass `git apply --check` on their base. Neither was built.
 

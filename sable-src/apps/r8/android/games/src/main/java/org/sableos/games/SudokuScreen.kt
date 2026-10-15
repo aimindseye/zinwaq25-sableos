@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -189,81 +190,13 @@ private fun SudokuBoard(
                                     (0 until 3).forEach { innerCol ->
                                         val row = blockRow * 3 + innerRow
                                         val col = blockCol * 3 + innerCol
-                                        val index = row * 9 + col
-                                        val cell = board[index]
-                                        val selected =
-                                            row == selectedRow &&
-                                                col == selectedCol
-                                        val peer =
-                                            row == selectedRow ||
-                                                col == selectedCol
-                                        val given = isGiven(row, col)
-
-                                        val container =
-                                            when {
-                                                selected -> {
-                                                    MaterialTheme.colorScheme.primary
-                                                }
-
-                                                peer -> {
-                                                    MaterialTheme.colorScheme.surfaceVariant
-                                                }
-
-                                                else -> {
-                                                    MaterialTheme.colorScheme.surface
-                                                }
-                                            }
-                                        val content =
-                                            when {
-                                                selected -> {
-                                                    MaterialTheme.colorScheme.onPrimary
-                                                }
-
-                                                given -> {
-                                                    MaterialTheme.colorScheme.onSurface
-                                                }
-
-                                                else -> {
-                                                    MaterialTheme.colorScheme.primary
-                                                }
-                                            }
-
-                                        Surface(
-                                            onClick = { onSelect(row, col) },
-                                            modifier =
-                                                Modifier
-                                                    .weight(1f)
-                                                    .aspectRatio(1f),
-                                            shape = RectangleShape,
-                                            color = container,
-                                            contentColor = content,
-                                            border =
-                                                BorderStroke(
-                                                    0.5.dp,
-                                                    MaterialTheme.colorScheme.outlineVariant,
-                                                ),
-                                            tonalElevation = 0.dp,
-                                        ) {
-                                            Box(
-                                                contentAlignment = Alignment.Center,
-                                            ) {
-                                                Text(
-                                                    text =
-                                                        if (cell == '0') {
-                                                            ""
-                                                        } else {
-                                                            cell.toString()
-                                                        },
-                                                    style = MaterialTheme.typography.titleMedium,
-                                                    fontWeight =
-                                                        if (given) {
-                                                            FontWeight.Bold
-                                                        } else {
-                                                            FontWeight.Medium
-                                                        },
-                                                )
-                                            }
-                                        }
+                                        SudokuCell(
+                                            row = row,
+                                            col = col,
+                                            cell = board[row * 9 + col],
+                                            highlight = cellHighlight(row, col, selectedRow, selectedCol),
+                                            onSelect = onSelect,
+                                        )
                                     }
                                 }
                             }
@@ -271,6 +204,98 @@ private fun SudokuBoard(
                     }
                 }
             }
+        }
+    }
+}
+
+private enum class CellHighlight { SELECTED, PEER, NONE }
+
+private fun cellHighlight(
+    row: Int,
+    col: Int,
+    selectedRow: Int,
+    selectedCol: Int,
+): CellHighlight =
+    when {
+        row == selectedRow && col == selectedCol -> CellHighlight.SELECTED
+        row == selectedRow || col == selectedCol -> CellHighlight.PEER
+        else -> CellHighlight.NONE
+    }
+
+@Composable
+private fun RowScope.SudokuCell(
+    row: Int,
+    col: Int,
+    cell: Char,
+    highlight: CellHighlight,
+    onSelect: (Int, Int) -> Unit,
+) {
+    val given = isGiven(row, col)
+    val selected = highlight == CellHighlight.SELECTED
+
+    val container =
+        when {
+            selected -> {
+                MaterialTheme.colorScheme.primary
+            }
+
+            highlight == CellHighlight.PEER -> {
+                MaterialTheme.colorScheme.surfaceVariant
+            }
+
+            else -> {
+                MaterialTheme.colorScheme.surface
+            }
+        }
+    val content =
+        when {
+            selected -> {
+                MaterialTheme.colorScheme.onPrimary
+            }
+
+            given -> {
+                MaterialTheme.colorScheme.onSurface
+            }
+
+            else -> {
+                MaterialTheme.colorScheme.primary
+            }
+        }
+
+    Surface(
+        onClick = { onSelect(row, col) },
+        modifier =
+            Modifier
+                .weight(1f)
+                .aspectRatio(1f),
+        shape = RectangleShape,
+        color = container,
+        contentColor = content,
+        border =
+            BorderStroke(
+                0.5.dp,
+                MaterialTheme.colorScheme.outlineVariant,
+            ),
+        tonalElevation = 0.dp,
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text =
+                    if (cell == '0') {
+                        ""
+                    } else {
+                        cell.toString()
+                    },
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight =
+                    if (given) {
+                        FontWeight.Bold
+                    } else {
+                        FontWeight.Medium
+                    },
+            )
         }
     }
 }

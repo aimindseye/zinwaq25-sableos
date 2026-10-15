@@ -96,4 +96,20 @@ class QuickBarTest {
         assertNull(QuickBar.appKey("phone"))
         assertNull(QuickBar.appKey("app:"))
     }
+
+    @Test
+    fun peekOffersAddOrRemoveOnlyForLauncherUserApps() {
+        assertEquals(null, QuickBar.appState(launcherUser = false, inBar = false, tokens = default))
+        assertEquals(true, QuickBar.appState(launcherUser = true, inBar = true, tokens = default))
+        assertEquals(false, QuickBar.appState(launcherUser = true, inBar = false, tokens = default))
+        val full = listOf("phone", "hub", "camera", "command", "apps")
+        assertNull(QuickBar.appState(launcherUser = true, inBar = false, tokens = full))
+    }
+
+    @Test
+    fun toggleAppAddsBeforeCommandOrRemovesItsSlot() {
+        val added = QuickBar.toggleApp(default, null, "0:com.example/.Main")
+        assertEquals(listOf("phone", "hub", "app:0:com.example/.Main", "command", "apps"), added)
+        assertEquals(default, QuickBar.toggleApp(added, "app:0:com.example/.Main", "0:com.example/.Main"))
+    }
 }

@@ -5,7 +5,7 @@ One Roman scheme is defined over Devanagari phonemes (ITRANS-like, case sensitiv
 and mapped into every script by Unicode name (indic_common.py). Letters a script lacks fall back to the closest one it has
 (Tamil kh gh -> க, Bengali v -> ব, and so on). Prints Kotlin to stdout.
 """
-from indic_common import *
+from indic_common import SHORT_EO_SCRIPTS, derive_token
 
 CONS = {"k": "क", "kh": "ख", "g": "ग", "gh": "घ", "c": "क", "ch": "च", "chh": "छ", "j": "ज", "jh": "झ",
         "T": "ट", "Th": "ठ", "D": "ड", "Dh": "ढ", "N": "ण", "t": "त", "th": "थ", "d": "द", "dh": "ध", "n": "न",
@@ -79,7 +79,7 @@ if __name__ == "__main__":
     print("object PhoneticTables {")
     for nm, script in NAMES:
         if script == "DEVANAGARI":
-            c, v, m, s, vir, fv = {k: t for k, t in CONS.items()}, {k: (a, b) for k, (a, b) in {**VOW, **VOW_NORTH}.items()}, MARKS, SPECIAL, VIRAMA, False
+            c, v, m, s, vir, fv = dict(CONS), {**VOW, **VOW_NORTH}, MARKS, SPECIAL, VIRAMA, False
         else:
             c, v, m, s, vir, fv = table(script)
         print(f'    val {nm} = PhoneticTable(consonants = {km(c)},\n        vowels = {kv(v)},\n        marks = {km(m)}, specials = {km(s)}, virama = "{vir}", finalVirama = {str(fv).lower()})')

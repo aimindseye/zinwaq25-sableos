@@ -213,15 +213,21 @@ private object PhosphorReviewGlyphs {
         )
 }
 
+private const val MESSAGES_LABEL = "Sable Messages"
+private const val MAIL_LABEL = "Sable Mail"
+private const val WEATHER_LABEL = "Sable Weather"
+private const val MEDIA_LABEL = "Sable Media"
+private const val REVIEW_DATE = "Sunday · September 21"
+
 private val ReviewApps =
     listOf(
         ReviewApp("Phone", PhosphorReviewGlyphs.Phone, SableBlue),
-        ReviewApp("Sable Messages", PhosphorReviewGlyphs.Messages, SableGreen),
-        ReviewApp("Sable Mail", PhosphorReviewGlyphs.Mail, SableSlate),
+        ReviewApp(MESSAGES_LABEL, PhosphorReviewGlyphs.Messages, SableGreen),
+        ReviewApp(MAIL_LABEL, PhosphorReviewGlyphs.Mail, SableSlate),
         ReviewApp("Calendar", PhosphorReviewGlyphs.Calendar, SableOrange),
-        ReviewApp("Sable Weather", PhosphorReviewGlyphs.Weather, SableBlue),
+        ReviewApp(WEATHER_LABEL, PhosphorReviewGlyphs.Weather, SableBlue),
         ReviewApp("Photos", PhosphorReviewGlyphs.Photos, SablePurple),
-        ReviewApp("Sable Media", PhosphorReviewGlyphs.Media, SablePurple),
+        ReviewApp(MEDIA_LABEL, PhosphorReviewGlyphs.Media, SablePurple),
         ReviewApp("Camera", PhosphorReviewGlyphs.Camera, SableSlate),
         ReviewApp("Sable Calculator", PhosphorReviewGlyphs.Calculator, SableBlue),
         ReviewApp("Files", PhosphorReviewGlyphs.Files, SableOrange),
@@ -351,7 +357,7 @@ private fun StartReview() {
                     style = MaterialTheme.typography.displayLarge,
                 )
                 Text(
-                    text = "Sunday · September 21",
+                    text = REVIEW_DATE,
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -382,14 +388,14 @@ private fun StartReview() {
         TilePair(
             left = {
                 DimensionalLiveTile(
-                    app = ReviewApps.first { it.label == "Sable Messages" },
+                    app = ReviewApps.first { it.label == MESSAGES_LABEL },
                     metric = "3",
                     detail = "unread",
                 )
             },
             right = {
                 DimensionalLiveTile(
-                    app = ReviewApps.first { it.label == "Sable Weather" },
+                    app = ReviewApps.first { it.label == WEATHER_LABEL },
                     metric = "68°",
                     detail = "partly cloudy",
                 )
@@ -398,7 +404,7 @@ private fun StartReview() {
 
         Spacer(Modifier.height(10.dp))
         DimensionalWideTile(
-            app = ReviewApps.first { it.label == "Sable Media" },
+            app = ReviewApps.first { it.label == MEDIA_LABEL },
             eyebrow = "NOW PLAYING",
             title = "Teardrop",
             detail = "Massive Attack · ▶",
@@ -408,7 +414,7 @@ private fun StartReview() {
         TilePair(
             left = {
                 DimensionalLiveTile(
-                    app = ReviewApps.first { it.label == "Sable Mail" },
+                    app = ReviewApps.first { it.label == MAIL_LABEL },
                     metric = "4",
                     detail = "unread",
                 )
@@ -466,14 +472,14 @@ private fun LiveReview() {
     Spacer(Modifier.height(14.dp))
     Text("13:58", style = MaterialTheme.typography.displayLarge)
     Text(
-        "Sunday · September 21",
+        REVIEW_DATE,
         style = MaterialTheme.typography.bodyLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     Spacer(Modifier.height(18.dp))
 
     LiveReviewRow(
-        app = ReviewApps.first { it.label == "Sable Weather" },
+        app = ReviewApps.first { it.label == WEATHER_LABEL },
         primary = "68° · partly cloudy",
         secondary = "Jersey City · updated 8 min ago",
         state = "LIVE",
@@ -485,19 +491,19 @@ private fun LiveReview() {
         state = "NEXT",
     )
     LiveReviewRow(
-        app = ReviewApps.first { it.label == "Sable Messages" },
+        app = ReviewApps.first { it.label == MESSAGES_LABEL },
         primary = "3 unread",
         secondary = "message content stays private on Home",
         state = "PRIVATE",
     )
     LiveReviewRow(
-        app = ReviewApps.first { it.label == "Sable Mail" },
+        app = ReviewApps.first { it.label == MAIL_LABEL },
         primary = "4 unread",
         secondary = "subject previews off",
         state = "PRIVATE",
     )
     LiveReviewRow(
-        app = ReviewApps.first { it.label == "Sable Media" },
+        app = ReviewApps.first { it.label == MEDIA_LABEL },
         primary = "Teardrop",
         secondary = "Massive Attack · playing",
         state = "PLAYING",
@@ -543,7 +549,7 @@ private fun ClockReview() {
     Spacer(Modifier.height(18.dp))
     Text("13:58", style = MaterialTheme.typography.displayLarge)
     Text(
-        "Sunday · September 21",
+        REVIEW_DATE,
         style = MaterialTheme.typography.bodyLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )

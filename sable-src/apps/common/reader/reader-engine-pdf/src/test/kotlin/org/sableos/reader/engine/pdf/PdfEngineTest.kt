@@ -151,7 +151,8 @@ class PdfNavigatorTest {
     fun navigationClampsAtBothEnds() {
         val nav = PdfNavigator(pageCount = 3)
         assertFalse(nav.previous())
-        assertTrue(nav.next() && nav.next())
+        assertTrue(nav.next())
+        assertTrue(nav.next())
         assertFalse(nav.next())
         assertEquals(2, nav.currentPage)
         assertTrue(nav.isLastPage)

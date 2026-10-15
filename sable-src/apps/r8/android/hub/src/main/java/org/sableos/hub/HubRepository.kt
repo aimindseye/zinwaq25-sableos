@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.database.Cursor
 import android.net.Uri
 import android.os.Build
+import android.provider.CallLog
 import android.provider.ContactsContract
 import android.provider.Telephony
 import android.telephony.PhoneNumberUtils
@@ -19,6 +20,7 @@ import org.sableos.hub.platform.AndroidSettingsLauncher
 import org.sableos.hub.platform.PrivacyReader
 import org.sableos.hub.platform.ProfileDirectory
 import org.sableos.hub.policy.AndroidSettingsRoutes
+import org.sableos.hub.policy.HubCallRedaction
 import org.sableos.hub.policy.HubHandoffRouter
 import org.sableos.hub.policy.HubHandoffTarget
 import org.sableos.hub.policy.HubRedaction
@@ -101,13 +103,23 @@ class HubRepository(
             }
 
         val connected = loadConnected()
+        val smsPrivacy = smsPrivacy()
         val (conversations, visibleMessages) =
             HubRedaction.apply(
                 conversations = smsConversations + connected.conversations,
                 messages = messages + connected.messages,
-                smsPrivacy = smsPrivacy(),
+                smsPrivacy = smsPrivacy,
                 privacyFor = connected.privacyFor,
             )
+        val calls =
+            if (capabilities.canReadCallLog) {
+                HubCallRedaction.apply(
+                    calls = loadCalls(namesByNumber),
+                    level = maxOf(smsPrivacy.listLevel, smsPrivacy.contentLevel),
+                )
+            } else {
+                emptyList()
+            }
 
         return HubSnapshot(
             capabilities = capabilities,
@@ -123,6 +135,7 @@ class HubRepository(
                     },
             people = people,
             mail = loadMailSnapshot(),
+            calls = calls,
         )
     }
 
@@ -300,7 +313,66 @@ class HubRepository(
             canReadContacts = hasPermission(Manifest.permission.READ_CONTACTS),
             isDefaultSmsRoleHolder =
                 roleManager?.isRoleHeld(RoleManager.ROLE_SMS) == true,
+            canReadCallLog = hasPermission(Manifest.permission.READ_CALL_LOG),
         )
+    }
+
+    /** Callback goes to the Phone app's dialer with the number filled in; Hub never places calls. */
+    fun dial(number: String): Boolean {
+        if (number.isBlank()) return false
+        return runCatching {
+            context.startActivity(
+                Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", number, null))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+            true
+        }.getOrDefault(false)
+    }
+
+    /** Recent calls from the Phone app's call log (read-only), newest first. */
+    private fun loadCalls(namesByNumber: Map<String, String>): List<HubCall> {
+        val projection =
+            arrayOf(
+                CallLog.Calls._ID,
+                CallLog.Calls.NUMBER,
+                CallLog.Calls.CACHED_NAME,
+                CallLog.Calls.DATE,
+                CallLog.Calls.TYPE,
+                CallLog.Calls.DURATION,
+                CallLog.Calls.NUMBER_PRESENTATION,
+            )
+        val result = mutableListOf<HubCall>()
+        runCatching {
+            context.contentResolver
+                .query(CallLog.Calls.CONTENT_URI, projection, null, null, CallLog.Calls.DATE + " DESC")
+                ?.use { cursor ->
+                    val id = cursor.getColumnIndexOrThrow(CallLog.Calls._ID)
+                    val number = cursor.getColumnIndexOrThrow(CallLog.Calls.NUMBER)
+                    val name = cursor.getColumnIndexOrThrow(CallLog.Calls.CACHED_NAME)
+                    val date = cursor.getColumnIndexOrThrow(CallLog.Calls.DATE)
+                    val type = cursor.getColumnIndexOrThrow(CallLog.Calls.TYPE)
+                    val duration = cursor.getColumnIndexOrThrow(CallLog.Calls.DURATION)
+                    val presentation = cursor.getColumnIndexOrThrow(CallLog.Calls.NUMBER_PRESENTATION)
+                    while (cursor.moveToNext() && result.size < MAX_CALLS) {
+                        val allowed = cursor.getInt(presentation) == CallLog.Calls.PRESENTATION_ALLOWED
+                        val dialable = if (allowed) cursor.getString(number).orEmpty() else ""
+                        val label =
+                            cursor.getString(name)?.trim()?.takeIf(String::isNotEmpty)
+                                ?: namesByNumber[normalizeAddress(dialable)].takeIf { dialable.isNotEmpty() }
+                                ?: dialable.ifEmpty { "Private number" }
+                        result +=
+                            HubCall(
+                                id = cursor.getLong(id),
+                                number = dialable,
+                                displayName = label,
+                                dateMillis = cursor.getLong(date),
+                                kind = HubCallKind.fromCallLogType(cursor.getInt(type)),
+                                durationSeconds = cursor.getLong(duration),
+                            )
+                    }
+                }
+        }
+        return result
     }
 
     @SuppressLint("MissingPermission")
@@ -605,6 +677,7 @@ class HubRepository(
 
     private companion object {
         const val MAX_SMS_MESSAGES = 1200
+        const val MAX_CALLS = 150
         const val MAX_CONTACT_PEOPLE = 300
         const val SABLE_MAIL_PACKAGE = "org.sableos.mail"
         private const val CONTACT_STARRED_COLUMN = "starred"

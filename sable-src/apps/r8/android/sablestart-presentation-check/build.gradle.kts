@@ -66,6 +66,8 @@ val canonicalPresentationSources =
 
 val syncSableStartPresentationSources =
     tasks.register<Sync>("syncSableStartPresentationSources") {
+        group = "build"
+        description = "Copy the canonical SableStart presentation sources into this check module"
         into(generatedPresentationDir)
         canonicalPresentationSources.forEach { relativePath ->
             val parent = relativePath.substringBeforeLast("/")
@@ -92,24 +94,24 @@ tasks.configureEach {
 
 dependencies {
     constraints {
-        implementation("androidx.core:core-ktx:1.16.0")
-        implementation("androidx.collection:collection:1.5.0")
-        implementation("androidx.collection:collection-jvm:1.5.0")
-        implementation("androidx.collection:collection-ktx:1.5.0")
-        implementation("androidx.lifecycle:lifecycle-common:2.9.4")
-        implementation("androidx.lifecycle:lifecycle-common-java8:2.9.4")
-        implementation("androidx.lifecycle:lifecycle-common-jvm:2.9.4")
-        implementation("androidx.lifecycle:lifecycle-process:2.9.4")
-        implementation("androidx.lifecycle:lifecycle-runtime:2.9.4")
-        implementation("androidx.lifecycle:lifecycle-runtime-android:2.9.4")
-        implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.4")
-        implementation("androidx.lifecycle:lifecycle-runtime-ktx-android:2.9.4")
+        implementation(libs.androidx.core.ktx)
+        implementation(libs.androidx.collection)
+        implementation(libs.androidx.collection.jvm)
+        implementation(libs.androidx.collection.ktx)
+        implementation(libs.androidx.lifecycle.common)
+        implementation(libs.androidx.lifecycle.common.java8)
+        implementation(libs.androidx.lifecycle.common.jvm)
+        implementation(libs.androidx.lifecycle.process)
+        implementation(libs.androidx.lifecycle.runtime)
+        implementation(libs.androidx.lifecycle.runtime.android)
+        implementation(libs.androidx.lifecycle.runtime.ktx)
+        implementation(libs.androidx.lifecycle.runtime.ktx.android)
     }
 
     implementation(project(":design"))
 
     implementation(
-        platform("androidx.compose:compose-bom:2026.02.01"),
+        platform(libs.androidx.compose.bom),
     )
 
     implementation("androidx.compose.runtime:runtime")
@@ -117,8 +119,8 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.animation:animation")
     implementation("androidx.compose.material3:material3")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation(libs.kotlinx.coroutines.android)
 
     // Pure JVM tests for the All Apps privacy policy (DESIGN-KF-D).
-    testImplementation("junit:junit:4.13.2")
+    testImplementation(libs.junit)
 }
