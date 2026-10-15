@@ -356,7 +356,6 @@ fun SableStartScreen(
                                 LiveSurfaceScreen(
                                     snapshot = liveSnapshot,
                                     apps = apps,
-                                    onBack = { movePage(1) },
                                     onRequestPermissions = onRequestLivePermissions,
                                     title = "glance",
                                 )
@@ -479,7 +478,6 @@ fun SableStartScreen(
                             LiveSurfaceScreen(
                                 snapshot = liveSnapshot,
                                 apps = apps,
-                                onBack = ::navigateBack,
                                 onRequestPermissions = onRequestLivePermissions,
                             )
                         }
@@ -1169,7 +1167,7 @@ private fun SableControlShortcut(
         contentAlignment = Alignment.Center,
     ) {
         SableGlyphIcon(
-            packageName = "com.android.settings",
+            packageName = SETTINGS_PACKAGE,
             accent = SableSlate,
             modifier = Modifier.size(46.dp),
             compact = true,
@@ -1274,7 +1272,7 @@ private fun MetroTile(
         tile.app.component.packageName in
             setOf(HUB_PACKAGE, WEATHER_PACKAGE, MAIL_PACKAGE) ||
             tile.app.label.equals(HUB_LABEL, ignoreCase = true) ||
-            tile.app.label.equals("Sable Messages", ignoreCase = true) ||
+            tile.app.label.equals(MESSAGES_LABEL, ignoreCase = true) ||
             tile.app.label.equals(WEATHER_LABEL, ignoreCase = true) ||
             tile.app.label.equals(MAIL_LABEL, ignoreCase = true)
 
@@ -1463,7 +1461,7 @@ private fun approvedWideContent(
                 third =
                     parts.drop(1).joinToString(" · ")
                         .replace("playing", "▶")
-                        .ifBlank { "Sable Media" },
+                        .ifBlank { MEDIA_LABEL },
             )
         }
 
@@ -1498,7 +1496,7 @@ private fun approvedMetric(
 
         app.component.packageName == HUB_PACKAGE ||
             app.label.equals(HUB_LABEL, ignoreCase = true) ||
-            app.label.equals("Sable Messages", ignoreCase = true) -> {
+            app.label.equals(MESSAGES_LABEL, ignoreCase = true) -> {
             val count =
                 detail.substringBefore(" ")
                     .takeIf { it.all(Char::isDigit) }
@@ -2493,7 +2491,7 @@ private fun approvedGlyphPackage(app: AppEntry): String? {
         app.label.equals("Phone", ignoreCase = true) -> DIALER_PACKAGE
         app.label.equals(HUB_LABEL, ignoreCase = true) ||
             app.label.equals("Hub", ignoreCase = true) ||
-            app.label.equals("Sable Messages", ignoreCase = true) ||
+            app.label.equals(MESSAGES_LABEL, ignoreCase = true) ||
             app.label.equals("Messages", ignoreCase = true) -> HUB_PACKAGE
         app.label.equals(MAIL_LABEL, ignoreCase = true) ||
             app.label.equals("Mail", ignoreCase = true) -> MAIL_PACKAGE
@@ -2503,15 +2501,15 @@ private fun approvedGlyphPackage(app: AppEntry): String? {
             app.label.equals("Weather", ignoreCase = true) -> WEATHER_PACKAGE
         app.label.equals("Photos", ignoreCase = true) ||
             app.label.equals("Gallery", ignoreCase = true) -> GALLERY_PACKAGE
-        app.label.equals("Sable Media", ignoreCase = true) ||
+        app.label.equals(MEDIA_LABEL, ignoreCase = true) ||
             app.label.equals("Media", ignoreCase = true) -> MEDIA_PACKAGE
         app.label.equals("Camera", ignoreCase = true) -> "app.grapheneos.camera"
-        app.label.equals("Sable Calculator", ignoreCase = true) ||
+        app.label.equals(CALCULATOR_LABEL, ignoreCase = true) ||
             app.label.equals("Calculator", ignoreCase = true) -> CALCULATOR_PACKAGE
         app.label.equals("Files", ignoreCase = true) -> FILES_PACKAGE
         app.label.equals("Clock", ignoreCase = true) -> "com.android.deskclock"
         app.label.equals("Vanadium", ignoreCase = true) -> "app.vanadium.browser"
-        app.label.equals("Settings", ignoreCase = true) -> "com.android.settings"
+        app.label.equals("Settings", ignoreCase = true) -> SETTINGS_PACKAGE
         else -> null
     }
 }
@@ -2943,7 +2941,6 @@ private fun AccentChoiceRow(
 private fun LiveSurfaceScreen(
     snapshot: LiveSurfaceSnapshot,
     apps: List<AppEntry>,
-    onBack: () -> Unit,
     onRequestPermissions: () -> Unit,
     title: String = "live",
 ) {
@@ -3002,7 +2999,7 @@ private fun LiveSurfaceScreen(
             )
             ApprovedLiveRow(
                 app = findLiveApp(apps, MEDIA_PACKAGE),
-                title = "Sable Media",
+                title = MEDIA_LABEL,
                 datum = snapshot.music,
                 kind = "media",
             )
@@ -3439,7 +3436,7 @@ private fun preferredStartRank(app: AppEntry): Int {
 
 private fun isSettingsApp(app: AppEntry): Boolean =
     app.label.equals("Settings", ignoreCase = true) ||
-        app.component.packageName == "com.android.settings"
+        app.component.packageName == SETTINGS_PACKAGE
 
 private fun appMark(app: AppEntry): String =
     app.label
@@ -3452,7 +3449,7 @@ private fun appColor(app: AppEntry): Color =
     when {
         app.component.packageName == HUB_PACKAGE ||
             app.label.equals(HUB_LABEL, ignoreCase = true) ||
-            app.label.equals("Sable Messages", ignoreCase = true) -> SableGreen
+            app.label.equals(MESSAGES_LABEL, ignoreCase = true) -> SableGreen
         app.component.packageName == MAIL_PACKAGE ||
             app.label.equals(MAIL_LABEL, ignoreCase = true) -> SableSlate
         app.component.packageName == CALENDAR_PACKAGE ||
@@ -3460,14 +3457,14 @@ private fun appColor(app: AppEntry): Color =
         app.component.packageName == WEATHER_PACKAGE ||
             app.label.equals(WEATHER_LABEL, ignoreCase = true) -> SableBlue
         app.component.packageName == MEDIA_PACKAGE ||
-            app.label.equals("Sable Media", ignoreCase = true) -> SablePurple
+            app.label.equals(MEDIA_LABEL, ignoreCase = true) -> SablePurple
         CoreAppIdentity.isRole(app.component.packageName, CoreAppIdentity.PHOTOS) ||
             app.label.equals("Photos", ignoreCase = true) -> SablePurple
         CoreAppIdentity.isRole(app.component.packageName, CoreAppIdentity.CAMERA) ||
             app.component.packageName == CoreAppIdentity.SABLE_CAMERA ||
             app.label.equals("Camera", ignoreCase = true) -> SableSlate
         app.component.packageName == CALCULATOR_PACKAGE ||
-            app.label.equals("Sable Calculator", ignoreCase = true) -> SableBlue
+            app.label.equals(CALCULATOR_LABEL, ignoreCase = true) -> SableBlue
         app.component.packageName == FILES_PACKAGE ||
             app.label.equals("Files", ignoreCase = true) -> SableOrange
         app.component.packageName == DIALER_PACKAGE ||
@@ -3491,13 +3488,13 @@ private fun liveDatumForApp(
             app.label.equals("Calendar", ignoreCase = true) -> snapshot.calendar
         app.component.packageName == HUB_PACKAGE ||
             app.label.equals(HUB_LABEL, ignoreCase = true) ||
-            app.label.equals("Sable Messages", ignoreCase = true) -> snapshot.messages
+            app.label.equals(MESSAGES_LABEL, ignoreCase = true) -> snapshot.messages
         app.component.packageName == MAIL_PACKAGE ||
             app.label.equals(MAIL_LABEL, ignoreCase = true) -> snapshot.mail
         app.component.packageName == WEATHER_PACKAGE ||
             app.label.equals(WEATHER_LABEL, ignoreCase = true) -> snapshot.weather
         app.component.packageName == MEDIA_PACKAGE ||
-            app.label.equals("Sable Media", ignoreCase = true) -> snapshot.music
+            app.label.equals(MEDIA_LABEL, ignoreCase = true) -> snapshot.music
         CoreAppIdentity.isRole(app.component.packageName, CoreAppIdentity.PHOTOS) ||
             app.label.equals("Photos", ignoreCase = true) -> snapshot.photos
         else -> null
@@ -3521,7 +3518,7 @@ private val PREFERRED_START_APP_GROUPS =
         ),
         PreferredStartAppGroup(
             packageNames = listOf(HUB_PACKAGE),
-            labels = listOf(HUB_LABEL, "Hub", "Sable Messages", "Messages"),
+            labels = listOf(HUB_LABEL, "Hub", MESSAGES_LABEL, "Messages"),
         ),
         PreferredStartAppGroup(
             packageNames = listOf(WEATHER_PACKAGE),
@@ -3529,7 +3526,7 @@ private val PREFERRED_START_APP_GROUPS =
         ),
         PreferredStartAppGroup(
             packageNames = listOf(MEDIA_PACKAGE),
-            labels = listOf("Sable Media", "Media"),
+            labels = listOf(MEDIA_LABEL, "Media"),
         ),
         PreferredStartAppGroup(
             packageNames = listOf(MAIL_PACKAGE),
@@ -3549,7 +3546,7 @@ private val PREFERRED_START_APP_GROUPS =
         ),
         PreferredStartAppGroup(
             packageNames = listOf(CALCULATOR_PACKAGE),
-            labels = listOf("Sable Calculator", "Calculator"),
+            labels = listOf(CALCULATOR_LABEL, "Calculator"),
         ),
         PreferredStartAppGroup(
             packageNames = listOf(FILES_PACKAGE),
@@ -3571,9 +3568,13 @@ private const val DIALER_PACKAGE = "com.android.dialer"
 private const val GALLERY_PACKAGE = "com.android.gallery3d"
 private const val CALCULATOR_PACKAGE = "org.sableos.calculator"
 private const val FILES_PACKAGE = "com.android.documentsui"
+private const val SETTINGS_PACKAGE = "com.android.settings"
 private const val HUB_LABEL = "Sable Hub"
 private const val WEATHER_LABEL = "Sable Weather"
 private const val MAIL_LABEL = "Sable Mail"
+private const val MESSAGES_LABEL = "Sable Messages"
+private const val MEDIA_LABEL = "Sable Media"
+private const val CALCULATOR_LABEL = "Sable Calculator"
 private const val START_PAGE_COUNT = 3
 private const val START_PAGE_GLANCE = 0
 private const val START_PAGE_CENTER = 1
