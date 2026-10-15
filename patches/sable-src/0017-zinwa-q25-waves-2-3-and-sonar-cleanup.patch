@@ -244,10 +244,10 @@ index bfac18d..4e52bff 100644
  }
 \ No newline at end of file
 diff --git a/sable-src/apps/common/reader/core/src/androidMain/kotlin/org/vaachak/reader/core/data/dictionary/StarDictParser.kt b/sable-src/apps/common/reader/core/src/androidMain/kotlin/org/vaachak/reader/core/data/dictionary/StarDictParser.kt
-index 0a79e3c..69abf4f 100644
+index 0a79e3c..bfb85a6 100644
 --- a/sable-src/apps/common/reader/core/src/androidMain/kotlin/org/vaachak/reader/core/data/dictionary/StarDictParser.kt
 +++ b/sable-src/apps/common/reader/core/src/androidMain/kotlin/org/vaachak/reader/core/data/dictionary/StarDictParser.kt
-@@ -112,28 +112,21 @@ class StarDictParser @Inject constructor(
+@@ -112,36 +112,38 @@ class StarDictParser @Inject constructor(
  
          if (failedLookups.containsKey(cleanTarget)) return@withContext null
  
@@ -279,18 +279,28 @@ index 0a79e3c..69abf4f 100644
 -        failedLookups[cleanTarget] = true
 +    /** Looks [target] up in one dictionary: main index first, then the optional category index. */
 +    private fun lookupIn(dict: StarDictMetadata, target: String): String? = try {
-+        val entry = findWordInIdx(dict.idxUri, target, dict.offsetBits)
-+            ?: dict.cdiUri?.let { findWordInIdx(it, target, dict.offsetBits) }
-+        entry
-+            ?.let { readFromDict(dict.dictUri, it.offset, it.size, dict.isCompressed) }
-+            ?.takeUnless { it.isBlank() }
-+            ?.let { polishDefinition(it, dict.baseName) }
++        findEntry(dict, target)?.let { entry -> definitionFor(dict, entry) }
 +    } catch (e: Exception) {
 +        Timber.e(e, "Error searching ${dict.baseName}: ${e.message}")
          null
      }
  
-@@ -141,7 +134,6 @@ class StarDictParser @Inject constructor(
++    /** Index entry for [target]: the main .idx first, then the optional .cdi; null when neither has it. */
++    private fun findEntry(dict: StarDictMetadata, target: String): IdxEntry? {
++        val mainEntry: IdxEntry? = findWordInIdx(dict.idxUri, target, dict.offsetBits)
++        if (mainEntry != null) return mainEntry
++        val cdiUri: Uri = dict.cdiUri ?: return null
++        return findWordInIdx(cdiUri, target, dict.offsetBits)
++    }
++
++    /** The polished definition stored at [entry], or null when the .dict slice is missing or blank. */
++    private fun definitionFor(dict: StarDictMetadata, entry: IdxEntry): String? {
++        val raw: String? = readFromDict(dict.dictUri, entry.offset, entry.size, dict.isCompressed)
++        if (raw.isNullOrBlank()) return null
++        return polishDefinition(raw, dict.baseName)
++    }
++
+     /**
       * Performs binary-like stream search in .idx or .cdi files.
       */
      private fun findWordInIdx(uri: Uri, target: String, offsetBits: Int): IdxEntry? {
@@ -298,7 +308,7 @@ index 0a79e3c..69abf4f 100644
          return context.contentResolver.openInputStream(uri)?.use { rawInput ->
              val bis = BufferedInputStream(rawInput)
              val wordBuffer = ByteArray(256)
-@@ -149,37 +141,39 @@ class StarDictParser @Inject constructor(
+@@ -149,37 +151,39 @@ class StarDictParser @Inject constructor(
              val dataBuffer = ByteArray(offsetBytes + 4)
  
              var result: IdxEntry? = null
@@ -3008,7 +3018,7 @@ index eed9cbc..3f58ddf 100644
  }
  
 diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/ui/reader/ReaderViewModel.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/ui/reader/ReaderViewModel.kt
-index 3a17869..838dfb7 100644
+index 3a17869..b203416 100644
 --- a/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/ui/reader/ReaderViewModel.kt
 +++ b/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/ui/reader/ReaderViewModel.kt
 @@ -25,6 +25,7 @@ import kotlinx.coroutines.launch
@@ -3019,7 +3029,25 @@ index 3a17869..838dfb7 100644
  import org.readium.navigator.media.tts.AndroidTtsNavigatorFactory
  import org.readium.navigator.media.tts.TtsNavigator
  import org.readium.navigator.media.tts.android.AndroidTtsEngine
-@@ -359,6 +360,7 @@ class ReaderViewModel @Inject constructor(
+@@ -282,15 +283,8 @@ class ReaderViewModel @Inject constructor(
+             val book = bookDao.getBookByUri(uri.toString(), profileId)
+             _currentBookHash.value = book?.bookHash
+ 
+-            val targetJson = pendingJumpLocator ?: book?.lastLocationJson
+-            val locator = targetJson?.let {
+-                try {
+-                    Locator.fromJSON(JSONObject(it))
+-                } catch (_: Exception) {
+-                    null
+-                }
+-            }
+-            _initialLocator.value = locator
++            val targetJson: String? = pendingJumpLocator ?: book?.lastLocationJson
++            _initialLocator.value = parseLocator(targetJson)
+ 
+             val pub = readiumManager.openEpubFromUri(uri)
+             _publication.value = pub
+@@ -359,6 +353,7 @@ class ReaderViewModel @Inject constructor(
                      _jumpEvent.emit(l)
                  }
              } catch (_: Exception) {
@@ -3027,7 +3055,7 @@ index 3a17869..838dfb7 100644
              }
          }
      }
-@@ -513,6 +515,7 @@ class ReaderViewModel @Inject constructor(
+@@ -513,6 +508,7 @@ class ReaderViewModel @Inject constructor(
                      _jumpEvent.emit(l)
                  }
              } catch (_: Exception) {
@@ -3035,7 +3063,7 @@ index 3a17869..838dfb7 100644
              }
          }
      }
-@@ -755,100 +758,109 @@ class ReaderViewModel @Inject constructor(
+@@ -755,100 +751,109 @@ class ReaderViewModel @Inject constructor(
  
          factory?.createNavigator(ttsListener)?.onSuccess { navigator ->
              this.ttsNavigator = navigator
@@ -3226,6 +3254,22 @@ index 3a17869..838dfb7 100644
      fun getHumanVoiceName(voiceId: String, index: Int): String? {
          if (!voiceId.endsWith("local", ignoreCase = true)) return null
  
+@@ -1026,4 +1031,13 @@ class ReaderViewModel @Inject constructor(
+ 
+         return nav.voices.filter { it.language.code.startsWith(targetLangCode) }
+     }
+-}
+\ No newline at end of file
++}
++/** Parses a saved Readium locator; null when there is none or the JSON is unreadable. */
++private fun parseLocator(json: String?): Locator? {
++    if (json == null) return null
++    return try {
++        Locator.fromJSON(JSONObject(json))
++    } catch (_: Exception) {
++        null
++    }
++}
 diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/ui/reader/components/ReaderSettingsSheet.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/ui/reader/components/ReaderSettingsSheet.kt
 index fa89f3b..83aa3f8 100644
 --- a/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/ui/reader/components/ReaderSettingsSheet.kt
@@ -5212,7 +5256,7 @@ index 24e40e0..46e9d8d 100644
 +    }
  }
 diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
-index fa2c939..e2e991b 100644
+index fa2c939..399bb76 100644
 --- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
 +++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
 @@ -4,6 +4,7 @@ import android.Manifest
@@ -5306,24 +5350,27 @@ index fa2c939..e2e991b 100644
  )
  
  private fun defaultEventStart(date: LocalDate): Long =
-@@ -139,11 +153,24 @@ private fun CalendarApp(
-     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
-     var events by remember { mutableStateOf<List<CalendarEvent>>(emptyList()) }
-     var refreshing by remember { mutableStateOf(false) }
--    var eventDraft by remember { mutableStateOf<NewEventDraft?>(null) }
-+    // Unsaved new event kept while the user backs out to the agenda, restored on re-entry this session.
-+    var eventDraft by remember { mutableStateOf<EventDraft?>(null) }
-+    var openEvent by remember { mutableStateOf<CalendarEvent?>(null) }
-+    var detail by remember { mutableStateOf<CalendarEventDetail?>(null) }
-+    var editDraft by remember { mutableStateOf<EventDraft?>(null) }
-+    var pendingDelete by remember { mutableStateOf<PendingDelete?>(null) }
-+    var status by remember { mutableStateOf<String?>(null) }
-+    val scope = rememberCoroutineScope()
+@@ -128,6 +142,123 @@ private fun defaultEventStart(date: LocalDate): Long =
+         .toInstant()
+         .toEpochMilli()
  
--    // Hardware Back/Esc returns from month or new event to the agenda; only the agenda leaves Calendar.
-+    // Hardware Back/Esc goes up one level: edit → detail → agenda; only the agenda leaves Calendar.
-     BackHandler(enabled = mode != CalendarMode.Agenda) {
--        mode = CalendarMode.Agenda
++/** Screen state for [CalendarApp]: every field is Compose state, so readers recompose on change. */
++private class CalendarAppState {
++    var mode by mutableStateOf(CalendarMode.Agenda)
++    var selectedDate by mutableStateOf(LocalDate.now())
++    var events by mutableStateOf<List<CalendarEvent>>(emptyList())
++    var refreshing by mutableStateOf(false)
++
++    // Unsaved new event kept while the user backs out to the agenda, restored on re-entry this session.
++    var eventDraft by mutableStateOf<EventDraft?>(null)
++    var openEvent by mutableStateOf<CalendarEvent?>(null)
++    var detail by mutableStateOf<CalendarEventDetail?>(null)
++    var editDraft by mutableStateOf<EventDraft?>(null)
++    var pendingDelete by mutableStateOf<PendingDelete?>(null)
++    var status by mutableStateOf<String?>(null)
++
++    /** Hardware Back/Esc goes up one level: edit → detail → agenda; only the agenda leaves Calendar. */
++    fun goBack() {
 +        mode =
 +            if (mode == CalendarMode.Edit && detail != null) {
 +                CalendarMode.Detail
@@ -5331,16 +5378,9 @@ index fa2c939..e2e991b 100644
 +                CalendarMode.Agenda
 +            }
 +        editDraft = null
-     }
- 
-     LaunchedEffect(refreshGeneration, selectedDate) {
-@@ -158,6 +185,63 @@ private fun CalendarApp(
-         }
-     }
- 
-+    LaunchedEffect(openEvent, refreshGeneration) {
-+        val occurrence = openEvent ?: return@LaunchedEffect
-+        val loaded = withContext(Dispatchers.IO) { repository.event(occurrence) }
++    }
++
++    fun onDetailLoaded(loaded: CalendarEventDetail?) {
 +        detail = loaded
 +        if (loaded == null && (mode == CalendarMode.Detail || mode == CalendarMode.Edit)) {
 +            // Deleted or moved elsewhere (sync): there is nothing left to show.
@@ -5349,13 +5389,14 @@ index fa2c939..e2e991b 100644
 +        }
 +    }
 +
-+    val openDetail: (CalendarEvent) -> Unit = { event ->
++    fun openDetail(event: CalendarEvent) {
 +        status = null
 +        if (openEvent != event) detail = null
 +        openEvent = event
 +        mode = CalendarMode.Detail
 +    }
-+    val openEditor: (CalendarEvent) -> Unit = { event ->
++
++    fun openEditor(event: CalendarEvent) {
 +        status = null
 +        if (!event.canModify) {
 +            status = "“${event.title}” is in a read-only calendar."
@@ -5366,7 +5407,13 @@ index fa2c939..e2e991b 100644
 +            mode = CalendarMode.Edit
 +        }
 +    }
-+    val askDelete: (Long, String, Boolean, Boolean) -> Unit = { id, title, recurring, canModify ->
++
++    fun askDelete(
++        id: Long,
++        title: String,
++        recurring: Boolean,
++        canModify: Boolean,
++    ) {
 +        status = null
 +        if (canModify) {
 +            pendingDelete = PendingDelete(id, title, recurring)
@@ -5375,20 +5422,107 @@ index fa2c939..e2e991b 100644
 +        }
 +    }
 +
-+    pendingDelete?.let { pending ->
++    fun startNewEvent() {
++        status = null
++        mode = CalendarMode.NewEvent
++    }
++
++    fun editFromDetail(loaded: CalendarEventDetail) {
++        status = null
++        editDraft = null
++        if (loaded.canModify) {
++            mode = CalendarMode.Edit
++        } else {
++            status = "“${loaded.title}” is in a read-only calendar."
++        }
++    }
++
++    fun onDeleteFinished(
++        title: String,
++        deleted: Boolean,
++    ) {
++        status = if (deleted) "Deleted “$title”." else "Unable to delete “$title”."
++        if (deleted) {
++            openEvent = null
++            detail = null
++            mode = CalendarMode.Agenda
++        }
++    }
++
++    fun leaveEditor(hasDetail: Boolean) {
++        editDraft = null
++        mode = if (hasDetail) CalendarMode.Detail else CalendarMode.Agenda
++    }
++
++    /** After a successful edit: the detail shows the opened occurrence, so follow a moved single event. */
++    fun onEditSaved(
++        loaded: CalendarEventDetail,
++        draft: EventDraft,
++    ) {
++        editDraft = null
++        status = "Saved."
++        val times = if (loaded.timesEditable) draft else loaded.toDraft()
++        openEvent =
++            openEvent?.copy(
++                title = draft.title.trim(),
++                startMillis = times.startMillis,
++                endMillis = times.endMillis,
++            )
++    }
++}
++
+ @Composable
+ private fun CalendarApp(
+     repository: CalendarRepository,
+@@ -135,36 +266,50 @@ private fun CalendarApp(
+     onRefresh: () -> Unit,
+     onRequestPermissions: () -> Unit,
+ ) {
+-    var mode by remember { mutableStateOf(CalendarMode.Agenda) }
+-    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
+-    var events by remember { mutableStateOf<List<CalendarEvent>>(emptyList()) }
+-    var refreshing by remember { mutableStateOf(false) }
+-    var eventDraft by remember { mutableStateOf<NewEventDraft?>(null) }
++    val state = remember { CalendarAppState() }
++    val scope = rememberCoroutineScope()
+ 
+-    // Hardware Back/Esc returns from month or new event to the agenda; only the agenda leaves Calendar.
+-    BackHandler(enabled = mode != CalendarMode.Agenda) {
+-        mode = CalendarMode.Agenda
+-    }
++    BackHandler(enabled = state.mode != CalendarMode.Agenda) { state.goBack() }
+ 
+-    LaunchedEffect(refreshGeneration, selectedDate) {
+-        refreshing = true
++    LaunchedEffect(refreshGeneration, state.selectedDate) {
++        state.refreshing = true
+         try {
+-            events =
++            state.events =
+                 withContext(Dispatchers.IO) {
+-                    repository.agenda(selectedDate)
++                    repository.agenda(state.selectedDate)
+                 }
+         } finally {
+-            refreshing = false
++            state.refreshing = false
+         }
+     }
+ 
++    LaunchedEffect(state.openEvent, refreshGeneration) {
++        val occurrence = state.openEvent ?: return@LaunchedEffect
++        state.onDetailLoaded(withContext(Dispatchers.IO) { repository.event(occurrence) })
++    }
++
++    state.pendingDelete?.let { pending ->
 +        DeleteConfirmDialog(
 +            message = EventEditPolicy.deleteConfirmation(pending.title, pending.recurring),
-+            onDismiss = { pendingDelete = null },
++            onDismiss = { state.pendingDelete = null },
 +            onConfirm = {
-+                pendingDelete = null
++                state.pendingDelete = null
 +                scope.launch {
 +                    val deleted = withContext(Dispatchers.IO) { repository.deleteEvent(pending.eventId) }
-+                    status = if (deleted) "Deleted “${pending.title}”." else "Unable to delete “${pending.title}”."
-+                    if (deleted) {
-+                        openEvent = null
-+                        detail = null
-+                        mode = CalendarMode.Agenda
-+                    }
++                    state.onDeleteFinished(pending.title, deleted)
 +                    onRefresh()
 +                }
 +            },
@@ -5398,107 +5532,99 @@ index fa2c939..e2e991b 100644
      Surface(
          modifier = Modifier.fillMaxSize(),
          color = MaterialTheme.colorScheme.background,
-@@ -193,6 +277,15 @@ private fun CalendarApp(
-                     return@Column
+         contentColor = MaterialTheme.colorScheme.onBackground,
+     ) {
+         SableRefreshableSurface(
+-            isRefreshing = refreshing,
++            isRefreshing = state.refreshing,
+             onRefresh = onRefresh,
+         ) {
+             Column(
+@@ -177,75 +322,185 @@ private fun CalendarApp(
+                             vertical = SableSpacing.ScreenVertical,
+                         ),
+             ) {
+-                Text(
+-                    text = "calendar",
+-                    style = MaterialTheme.typography.displayLarge,
+-                )
+-                Text(
+-                    text = "Local CalendarProvider UI · account sync remains separate.",
+-                    style = MaterialTheme.typography.bodyLarge,
+-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+-                )
+-                Spacer(Modifier.height(SableSpacing.Lg))
+-
+-                if (!repository.canRead()) {
++                CalendarHeader()
++                if (repository.canRead()) {
++                    StatusLine(state.status)
++                    CalendarModeContent(state, repository, onRefresh, onRequestPermissions)
++                } else {
+                     PermissionPanel(onRequestPermissions)
+-                    return@Column
                  }
++            }
++        }
++    }
++}
  
-+                status?.let { message ->
-+                    Text(
-+                        text = message,
-+                        style = MaterialTheme.typography.bodyMedium,
-+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-+                    )
-+                    Spacer(Modifier.height(SableSpacing.Sm))
-+                }
-+
-                 when (mode) {
-                     CalendarMode.Agenda -> {
-                         ApprovedCalendarLanding(
-@@ -200,17 +293,20 @@ private fun CalendarApp(
-                             events = events,
-                             onSelectDate = { selectedDate = it },
-                             onOpenMonth = { mode = CalendarMode.Month },
+-                when (mode) {
+-                    CalendarMode.Agenda -> {
+-                        ApprovedCalendarLanding(
+-                            selectedDate = selectedDate,
+-                            events = events,
+-                            onSelectDate = { selectedDate = it },
+-                            onOpenMonth = { mode = CalendarMode.Month },
 -                            onNewEvent = { mode = CalendarMode.NewEvent },
-+                            onNewEvent = {
-+                                status = null
-+                                mode = CalendarMode.NewEvent
-+                            },
-+                            onOpenEvent = openDetail,
-+                            onEditEvent = openEditor,
-+                            onDeleteEvent = { event ->
-+                                askDelete(event.id, event.title, event.recurring, event.canModify)
-+                            },
-                         )
-                     }
+-                        )
+-                    }
++@Composable
++private fun CalendarHeader() {
++    Text(
++        text = "calendar",
++        style = MaterialTheme.typography.displayLarge,
++    )
++    Text(
++        text = "Local CalendarProvider UI · account sync remains separate.",
++        style = MaterialTheme.typography.bodyLarge,
++        color = MaterialTheme.colorScheme.onSurfaceVariant,
++    )
++    Spacer(Modifier.height(SableSpacing.Lg))
++}
  
-                     CalendarMode.Month -> {
+-                    CalendarMode.Month -> {
 -                        SableActionButton(
 -                            text = "‹  agenda",
 -                            primary = false,
 -                            onClick = { mode = CalendarMode.Agenda },
 -                        )
 -                        Spacer(Modifier.height(SableSpacing.Md))
-+                        BackToAgenda { mode = CalendarMode.Agenda }
-                         MonthView(
-                             month = YearMonth.from(selectedDate),
-                             selectedDate = selectedDate,
-@@ -222,25 +318,92 @@ private fun CalendarApp(
-                     }
+-                        MonthView(
+-                            month = YearMonth.from(selectedDate),
+-                            selectedDate = selectedDate,
+-                            onSelectDate = { date ->
+-                                selectedDate = date
+-                                mode = CalendarMode.Agenda
+-                            },
+-                        )
+-                    }
++@Composable
++private fun StatusLine(status: String?) {
++    status?.let { message ->
++        Text(
++            text = message,
++            style = MaterialTheme.typography.bodyMedium,
++            color = MaterialTheme.colorScheme.onSurfaceVariant,
++        )
++        Spacer(Modifier.height(SableSpacing.Sm))
++    }
++}
  
-                     CalendarMode.NewEvent -> {
-+                        BackToAgenda { mode = CalendarMode.Agenda }
-+                        if (!repository.canWrite()) {
-+                            PermissionPanel(onRequestPermissions)
-+                        } else {
-+                            EventEditor(
-+                                draft = eventDraft ?: EventDraft.newAt(defaultEventStart(selectedDate)),
-+                                onDraftChange = { eventDraft = it },
-+                                timesEditable = true,
-+                                saveLabel = "Save event",
-+                                onSave = { draft ->
-+                                    val created = withContext(Dispatchers.IO) { repository.createEvent(draft) }
-+                                    if (created != null) {
-+                                        eventDraft = null
-+                                        onRefresh()
-+                                        mode = CalendarMode.Agenda
-+                                    }
-+                                    created != null
-+                                },
-+                            )
-+                        }
-+                    }
-+
-+                    CalendarMode.Detail -> {
-+                        val loaded = detail
-+                        BackToAgenda { mode = CalendarMode.Agenda }
-+                        if (loaded == null) {
-+                            LoadingLine()
-+                        } else {
-+                            EventDetailView(
-+                                detail = loaded,
-+                                onEdit = {
-+                                    status = null
-+                                    editDraft = null
-+                                    if (loaded.canModify) {
-+                                        mode = CalendarMode.Edit
-+                                    } else {
-+                                        status = "“${loaded.title}” is in a read-only calendar."
-+                                    }
-+                                },
-+                                onDelete = {
-+                                    askDelete(loaded.id, loaded.title, loaded.recurring, loaded.canModify)
-+                                },
-+                                onBack = { mode = CalendarMode.Agenda },
-+                            )
-+                        }
-+                    }
-+
-+                    CalendarMode.Edit -> {
-+                        val loaded = detail
-                         SableActionButton(
+-                    CalendarMode.NewEvent -> {
+-                        SableActionButton(
 -                            text = "‹  agenda",
-+                            text = "‹  event",
-                             primary = false,
+-                            primary = false,
 -                            onClick = { mode = CalendarMode.Agenda },
 -                        )
 -                        Spacer(Modifier.height(SableSpacing.Md))
@@ -5512,48 +5638,136 @@ index fa2c939..e2e991b 100644
 -                                eventDraft = null
 -                                onRefresh()
 -                                mode = CalendarMode.Agenda
-+                            onClick = {
-+                                editDraft = null
-+                                mode = if (loaded != null) CalendarMode.Detail else CalendarMode.Agenda
-                             },
+-                            },
 -                            onRequestPermissions = onRequestPermissions,
-                         )
-+                        Spacer(Modifier.height(SableSpacing.Md))
-+                        if (loaded == null) {
-+                            LoadingLine()
-+                        } else {
-+                            EventEditor(
-+                                draft = editDraft ?: loaded.toDraft(),
-+                                onDraftChange = { editDraft = it },
-+                                timesEditable = loaded.timesEditable,
-+                                saveLabel = "Save changes",
-+                                onSave = { draft ->
-+                                    val saved = withContext(Dispatchers.IO) { repository.updateEvent(loaded, draft) }
-+                                    if (saved) {
-+                                        editDraft = null
-+                                        status = "Saved."
-+                                        // The detail shows the opened occurrence: follow a moved single event.
-+                                        val times = if (loaded.timesEditable) draft else loaded.toDraft()
-+                                        openEvent =
-+                                            openEvent?.copy(
-+                                                title = draft.title.trim(),
-+                                                startMillis = times.startMillis,
-+                                                endMillis = times.endMillis,
-+                                            )
-+                                        onRefresh()
-+                                        mode = CalendarMode.Detail
-+                                    }
-+                                    saved
-+                                },
-+                            )
-+                        }
-                     }
-                 }
+-                        )
+-                    }
+-                }
++@Composable
++private fun CalendarModeContent(
++    state: CalendarAppState,
++    repository: CalendarRepository,
++    onRefresh: () -> Unit,
++    onRequestPermissions: () -> Unit,
++) {
++    when (state.mode) {
++        CalendarMode.Agenda -> AgendaPane(state)
++        CalendarMode.Month -> MonthPane(state)
++        CalendarMode.NewEvent -> NewEventPane(state, repository, onRefresh, onRequestPermissions)
++        CalendarMode.Detail -> DetailPane(state)
++        CalendarMode.Edit -> EditPane(state, repository, onRefresh)
++    }
++}
++
++@Composable
++private fun AgendaPane(state: CalendarAppState) {
++    ApprovedCalendarLanding(
++        selectedDate = state.selectedDate,
++        events = state.events,
++        onSelectDate = { state.selectedDate = it },
++        onOpenMonth = { state.mode = CalendarMode.Month },
++        onNewEvent = state::startNewEvent,
++        onOpenEvent = state::openDetail,
++        onEditEvent = state::openEditor,
++        onDeleteEvent = { event ->
++            state.askDelete(event.id, event.title, event.recurring, event.canModify)
++        },
++    )
++}
++
++@Composable
++private fun MonthPane(state: CalendarAppState) {
++    BackToAgenda { state.mode = CalendarMode.Agenda }
++    MonthView(
++        month = YearMonth.from(state.selectedDate),
++        selectedDate = state.selectedDate,
++        onSelectDate = { date ->
++            state.selectedDate = date
++            state.mode = CalendarMode.Agenda
++        },
++    )
++}
++
++@Composable
++private fun NewEventPane(
++    state: CalendarAppState,
++    repository: CalendarRepository,
++    onRefresh: () -> Unit,
++    onRequestPermissions: () -> Unit,
++) {
++    BackToAgenda { state.mode = CalendarMode.Agenda }
++    if (!repository.canWrite()) {
++        PermissionPanel(onRequestPermissions)
++        return
++    }
++    EventEditor(
++        draft = state.eventDraft ?: EventDraft.newAt(defaultEventStart(state.selectedDate)),
++        onDraftChange = { state.eventDraft = it },
++        timesEditable = true,
++        saveLabel = "Save event",
++        onSave = { draft ->
++            val created = withContext(Dispatchers.IO) { repository.createEvent(draft) }
++            if (created != null) {
++                state.eventDraft = null
++                onRefresh()
++                state.mode = CalendarMode.Agenda
              }
-@@ -248,6 +411,25 @@ private fun CalendarApp(
+-        }
++            created != null
++        },
++    )
++}
++
++@Composable
++private fun DetailPane(state: CalendarAppState) {
++    val loaded = state.detail
++    BackToAgenda { state.mode = CalendarMode.Agenda }
++    if (loaded == null) {
++        LoadingLine()
++        return
++    }
++    EventDetailView(
++        detail = loaded,
++        onEdit = { state.editFromDetail(loaded) },
++        onDelete = { state.askDelete(loaded.id, loaded.title, loaded.recurring, loaded.canModify) },
++        onBack = { state.mode = CalendarMode.Agenda },
++    )
++}
++
++@Composable
++private fun EditPane(
++    state: CalendarAppState,
++    repository: CalendarRepository,
++    onRefresh: () -> Unit,
++) {
++    val loaded = state.detail
++    SableActionButton(
++        text = "‹  event",
++        primary = false,
++        onClick = { state.leaveEditor(hasDetail = loaded != null) },
++    )
++    Spacer(Modifier.height(SableSpacing.Md))
++    if (loaded == null) {
++        LoadingLine()
++        return
      }
- }
- 
++    EventEditor(
++        draft = state.editDraft ?: loaded.toDraft(),
++        onDraftChange = { state.editDraft = it },
++        timesEditable = loaded.timesEditable,
++        saveLabel = "Save changes",
++        onSave = { draft ->
++            val saved = withContext(Dispatchers.IO) { repository.updateEvent(loaded, draft) }
++            if (saved) {
++                state.onEditSaved(loaded, draft)
++                onRefresh()
++                state.mode = CalendarMode.Detail
++            }
++            saved
++        },
++    )
++}
++
 +@Composable
 +private fun BackToAgenda(onClick: () -> Unit) {
 +    SableActionButton(
@@ -5571,12 +5785,10 @@ index fa2c939..e2e991b 100644
 +        style = MaterialTheme.typography.bodyLarge,
 +        color = MaterialTheme.colorScheme.onSurfaceVariant,
 +    )
-+}
-+
+ }
+ 
  @Composable
- private fun ApprovedCalendarLanding(
-     selectedDate: LocalDate,
-@@ -255,6 +437,9 @@ private fun ApprovedCalendarLanding(
+@@ -255,6 +510,9 @@ private fun ApprovedCalendarLanding(
      onSelectDate: (LocalDate) -> Unit,
      onOpenMonth: () -> Unit,
      onNewEvent: () -> Unit,
@@ -5586,7 +5798,7 @@ index fa2c939..e2e991b 100644
  ) {
      Row(
          modifier =
-@@ -289,7 +474,7 @@ private fun ApprovedCalendarLanding(
+@@ -289,7 +547,7 @@ private fun ApprovedCalendarLanding(
      )
      Spacer(Modifier.height(18.dp))
      Text(
@@ -5595,7 +5807,7 @@ index fa2c939..e2e991b 100644
          style = MaterialTheme.typography.labelLarge,
          color = MaterialTheme.colorScheme.primary,
      )
-@@ -304,7 +489,12 @@ private fun ApprovedCalendarLanding(
+@@ -304,7 +562,12 @@ private fun ApprovedCalendarLanding(
          Spacer(Modifier.height(18.dp))
      } else {
          events.forEach { event ->
@@ -5609,7 +5821,7 @@ index fa2c939..e2e991b 100644
          }
          Spacer(Modifier.height(14.dp))
      }
-@@ -405,70 +595,14 @@ private fun CalendarWeekStrip(
+@@ -405,70 +668,14 @@ private fun CalendarWeekStrip(
      }
  }
  
@@ -5618,12 +5830,7 @@ index fa2c939..e2e991b 100644
 -private fun CalendarPivot(
 -    selected: CalendarMode,
 -    onSelect: (CalendarMode) -> Unit,
-+private fun AgendaEventRow(
-+    event: CalendarEvent,
-+    onOpen: () -> Unit,
-+    onEdit: () -> Unit,
-+    onDelete: () -> Unit,
- ) {
+-) {
 -    // Whole labels on one line at any font scale (no mid-word clipping).
 -    SableAdaptiveTopNav(
 -        destinations = CALENDAR_DESTINATIONS,
@@ -5641,7 +5848,12 @@ index fa2c939..e2e991b 100644
 -    events: List<CalendarEvent>,
 -    onPreviousDay: () -> Unit,
 -    onNextDay: () -> Unit,
--) {
++private fun AgendaEventRow(
++    event: CalendarEvent,
++    onOpen: () -> Unit,
++    onEdit: () -> Unit,
++    onDelete: () -> Unit,
+ ) {
 -    Row(
 -        modifier = Modifier.fillMaxWidth(),
 -        verticalAlignment = Alignment.CenterVertically,
@@ -5686,7 +5898,7 @@ index fa2c939..e2e991b 100644
      val context = LocalContext.current
      val time =
          if (event.allDay) {
-@@ -484,6 +618,9 @@ private fun AgendaEventRow(event: CalendarEvent) {
+@@ -484,6 +691,9 @@ private fun AgendaEventRow(event: CalendarEvent) {
              Modifier
                  .fillMaxWidth()
                  .heightIn(min = 64.dp)
@@ -5696,7 +5908,7 @@ index fa2c939..e2e991b 100644
                  .padding(vertical = 8.dp),
          verticalAlignment = Alignment.CenterVertically,
      ) {
-@@ -500,20 +637,204 @@ private fun AgendaEventRow(event: CalendarEvent) {
+@@ -500,20 +710,204 @@ private fun AgendaEventRow(event: CalendarEvent) {
                  .background(MaterialTheme.colorScheme.primary),
          )
          Spacer(Modifier.width(12.dp))
@@ -5709,18 +5921,18 @@ index fa2c939..e2e991b 100644
              Text(
 -                text = event.calendarName,
 +                text = if (event.recurring) event.calendarName + " · repeats" else event.calendarName,
-                 style = MaterialTheme.typography.bodyMedium,
-                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-             )
-         }
++                style = MaterialTheme.typography.bodyMedium,
++                color = MaterialTheme.colorScheme.onSurfaceVariant,
++            )
++        }
 +        Text(
 +            text = "›",
 +            style = MaterialTheme.typography.titleLarge,
 +            color = MaterialTheme.colorScheme.onSurfaceVariant,
 +        )
-     }
- }
- 
++    }
++}
++
 +/** E / Del / Esc on a focused calendar element ([CalendarKeys]); Enter stays the element's click. */
 +private fun Modifier.calendarKeys(
 +    onEdit: (() -> Unit)? = null,
@@ -5805,19 +6017,19 @@ index fa2c939..e2e991b 100644
 +        } else {
 +            Text(
 +                text = "This calendar is read-only here.",
-+                style = MaterialTheme.typography.bodyMedium,
-+                color = MaterialTheme.colorScheme.onSurfaceVariant,
-+            )
+                 style = MaterialTheme.typography.bodyMedium,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
 +            SableActionButton(
 +                text = "Back",
 +                modifier = Modifier.focusRequester(firstAction),
 +                primary = false,
 +                onClick = onBack,
 +            )
-+        }
-+    }
-+}
-+
+         }
+     }
+ }
+ 
 +@Composable
 +private fun DetailLine(
 +    label: String,
@@ -5903,7 +6115,7 @@ index fa2c939..e2e991b 100644
  @Composable
  private fun MonthView(
      month: YearMonth,
-@@ -591,27 +912,21 @@ private fun MonthView(
+@@ -591,27 +985,21 @@ private fun MonthView(
      }
  }
  
@@ -5939,7 +6151,7 @@ index fa2c939..e2e991b 100644
          onValueChange = { onDraftChange(draft.copy(title = it)) },
          modifier = Modifier.fillMaxWidth(),
          singleLine = true,
-@@ -619,84 +934,57 @@ private fun NewEventView(
+@@ -619,84 +1007,57 @@ private fun NewEventView(
      )
      Spacer(Modifier.height(SableSpacing.Md))
  
@@ -6067,7 +6279,7 @@ index fa2c939..e2e991b 100644
                  }
              }
          },
-@@ -710,6 +998,51 @@ private fun NewEventView(
+@@ -710,6 +1071,51 @@ private fun NewEventView(
      }
  }
  
@@ -7955,7 +8167,7 @@ index 6473c26..87005fd 100644
      when (output) {
          AttentionOutput.Audio -> "Sound"
 diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
-index 61a74ff..9ece4b3 100644
+index 61a74ff..67c2be6 100644
 --- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
 +++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
 @@ -4,11 +4,13 @@ import android.text.format.DateUtils
@@ -8186,7 +8398,7 @@ index 61a74ff..9ece4b3 100644
  @Composable
  fun HubScreen(
      snapshot: HubSnapshot?,
-@@ -115,320 +257,442 @@ fun HubScreen(
+@@ -115,320 +257,453 @@ fun HubScreen(
      onReplyConnected: (String, String) -> HubSendResult,
      onOpenConnectedApp: (String, Long) -> Boolean,
      onOpenSourceNotificationSettings: (String, Long) -> Boolean = { _, _ -> false },
@@ -8647,7 +8859,6 @@ index 61a74ff..9ece4b3 100644
 -                                }
 -                        },
 -                    )
--                }
 +@Composable
 +private fun ColumnScope.HubInboxView(
 +    state: HubUiState,
@@ -8690,11 +8901,7 @@ index 61a74ff..9ece4b3 100644
 +    snapshot: HubSnapshot,
 +    actions: HubActions,
 +) {
-+    val conversation =
-+        HubThreadResolver.resolve(snapshot.conversations, route.threadId, route.address)
-+            ?: route.address?.takeIf(String::isNotBlank)?.let { address ->
-+                newSmsConversation(address, snapshot)
-             }
++    val conversation: HubConversation? = conversationFor(route, snapshot)
 +    val onBack = { state.closeConversation(route.origin) }
 +
 +    if (conversation == null) {
@@ -8733,7 +8940,8 @@ index 61a74ff..9ece4b3 100644
 +                val result = actions.onSendSms(recipient, body)
 +                if (result.success) {
 +                    composeDrafts.remove(route.recipient)
-+                }
+                 }
+-            }
 +                state.composeSent(result, recipient)
 +                result
 +            },
@@ -8747,6 +8955,21 @@ index 61a74ff..9ece4b3 100644
 +            },
 +        )
 +    }
++}
++
++/**
++ * The conversation [route] points at: an existing thread when one matches, otherwise a fresh SMS
++ * thread for a non-blank address, otherwise null (the route is stale).
++ */
++private fun conversationFor(
++    route: HubRoute.Conversation,
++    snapshot: HubSnapshot,
++): HubConversation? {
++    val existing: HubConversation? =
++        HubThreadResolver.resolve(snapshot.conversations, route.threadId, route.address)
++    if (existing != null) return existing
++    val address: String? = route.address
++    return if (address.isNullOrBlank()) null else newSmsConversation(address, snapshot)
 +}
 +
 +/** An SMS thread that does not exist yet: the first message creates it in the provider. */
@@ -8899,7 +9122,7 @@ index 61a74ff..9ece4b3 100644
  @Composable
  private fun MissingConversationView(onBack: () -> Unit) {
      SableScreen {
-@@ -437,7 +701,7 @@ private fun MissingConversationView(onBack: () -> Unit) {
+@@ -437,7 +712,7 @@ private fun MissingConversationView(onBack: () -> Unit) {
              subtitle = "The source conversation is no longer available in local Sable history.",
          )
          SableActionButton(
@@ -8908,7 +9131,7 @@ index 61a74ff..9ece4b3 100644
              primary = false,
              onClick = onBack,
          )
-@@ -561,141 +825,292 @@ private fun ColumnScope.EmailPivot(
+@@ -561,141 +836,292 @@ private fun ColumnScope.EmailPivot(
  }
  
  @Composable
@@ -9209,10 +9432,10 @@ index 61a74ff..9ece4b3 100644
 +                },
 +                modifier = modifier,
 +            )
-+        }
-+    }
-+}
-+
+         }
+     }
+ }
+ 
 +private fun inboxEmptyText(
 +    capabilities: HubCapabilities,
 +    filter: HubInboxFilter,
@@ -9227,7 +9450,8 @@ index 61a74ff..9ece4b3 100644
 +        else -> "No conversations yet."
 +    }
 +
-+@Composable
+ @Composable
+-private fun MessagesAccessPrompt(
 +private fun InboxFilterChips(
 +    snapshot: HubSnapshot,
 +    selected: HubInboxFilter,
@@ -9252,12 +9476,11 @@ index 61a74ff..9ece4b3 100644
 +                },
 +                modifier = Modifier.focusRequester(requesters.getValue(filter)),
 +            )
-         }
-     }
- }
- 
- @Composable
--private fun MessagesAccessPrompt(
++        }
++    }
++}
++
++@Composable
 +private fun InboxAccessPrompt(
      snapshot: HubSnapshot,
      onRequestAccess: () -> Unit,
@@ -9284,7 +9507,7 @@ index 61a74ff..9ece4b3 100644
              style = MaterialTheme.typography.titleMedium,
          )
          Text(
-@@ -704,13 +1119,108 @@ private fun MessagesAccessPrompt(
+@@ -704,13 +1130,108 @@ private fun MessagesAccessPrompt(
              color = MaterialTheme.colorScheme.onSurfaceVariant,
          )
          SableActionButton(
@@ -9394,7 +9617,7 @@ index 61a74ff..9ece4b3 100644
  @Composable
  private fun ConversationRow(
      conversation: HubConversation,
-@@ -724,11 +1234,7 @@ private fun ConversationRow(
+@@ -724,11 +1245,7 @@ private fun ConversationRow(
          } else {
              MaterialTheme.colorScheme.onSurfaceVariant
          }
@@ -9407,7 +9630,7 @@ index 61a74ff..9ece4b3 100644
      val initial =
          conversation.displayName
              .trim()
-@@ -750,14 +1256,7 @@ private fun ConversationRow(
+@@ -750,14 +1267,7 @@ private fun ConversationRow(
              modifier =
                  Modifier
                      .size(HubAvatarSize)
@@ -9423,7 +9646,7 @@ index 61a74ff..9ece4b3 100644
              contentAlignment = Alignment.Center,
          ) {
              Text(
-@@ -776,21 +1275,7 @@ private fun ConversationRow(
+@@ -776,21 +1286,7 @@ private fun ConversationRow(
                  overflow = TextOverflow.Ellipsis,
              )
              Text(
@@ -9446,7 +9669,7 @@ index 61a74ff..9ece4b3 100644
                  style = MaterialTheme.typography.bodyLarge,
                  color = MaterialTheme.colorScheme.onSurfaceVariant,
                  maxLines = 1,
-@@ -824,10 +1309,27 @@ private fun ConversationRow(
+@@ -824,10 +1320,27 @@ private fun ConversationRow(
      )
  }
  
@@ -9475,7 +9698,7 @@ index 61a74ff..9ece4b3 100644
  
  private fun clockTime(epochMillis: Long): String =
      DateFormat
-@@ -850,7 +1352,7 @@ private fun ColumnScope.PeoplePivot(
+@@ -850,7 +1363,7 @@ private fun ColumnScope.PeoplePivot(
                  style = MaterialTheme.typography.bodyMedium,
              )
              SableActionButton(
@@ -9484,7 +9707,7 @@ index 61a74ff..9ece4b3 100644
                  primary = false,
                  onClick = onRequestAccess,
              )
-@@ -942,19 +1444,17 @@ private fun ColumnScope.ConversationView(
+@@ -942,19 +1455,17 @@ private fun ColumnScope.ConversationView(
      modifier: Modifier,
      conversation: HubConversation,
      messages: List<HubMessage>,
@@ -9511,7 +9734,7 @@ index 61a74ff..9ece4b3 100644
      SablePageHeader(
          title = conversation.displayName,
          subtitle =
-@@ -974,21 +1474,9 @@ private fun ColumnScope.ConversationView(
+@@ -974,21 +1485,9 @@ private fun ColumnScope.ConversationView(
              primary = false,
              onClick = onBack,
          )
@@ -9536,7 +9759,7 @@ index 61a74ff..9ece4b3 100644
      }
      // Its own full-width row: a third equal-width "Notifications" button wraps mid-word
      // on the square screen (KF-D: labels never clip).
-@@ -1001,13 +1489,63 @@ private fun ColumnScope.ConversationView(
+@@ -1001,13 +1500,63 @@ private fun ColumnScope.ConversationView(
          )
      }
  
@@ -9603,7 +9826,7 @@ index 61a74ff..9ece4b3 100644
              SableLatestContentPolicy.showReturnToCurrent(
                  firstVisibleIndex = visible.firstOrNull()?.index ?: 0,
                  lastVisibleIndex = visible.lastOrNull()?.index ?: 0,
-@@ -1016,10 +1554,26 @@ private fun ColumnScope.ConversationView(
+@@ -1016,10 +1565,26 @@ private fun ColumnScope.ConversationView(
              )
          }
      }
@@ -9631,7 +9854,7 @@ index 61a74ff..9ece4b3 100644
              reverseLayout = true,
              verticalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
          ) {
-@@ -1032,35 +1586,129 @@ private fun ColumnScope.ConversationView(
+@@ -1032,35 +1597,129 @@ private fun ColumnScope.ConversationView(
          }
          SableReturnToCurrent(
              visible = showLatest,
@@ -9782,7 +10005,7 @@ index 61a74ff..9ece4b3 100644
          )
      }
  }
-@@ -1090,42 +1738,20 @@ private fun MessageBubble(message: HubMessage) {
+@@ -1090,42 +1749,20 @@ private fun MessageBubble(message: HubMessage) {
                  modifier = Modifier.padding(SableSpacing.Md),
                  verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
              ) {
@@ -9829,7 +10052,7 @@ index 61a74ff..9ece4b3 100644
                      style = MaterialTheme.typography.bodySmall,
                      color = MaterialTheme.colorScheme.onSurfaceVariant,
                  )
-@@ -1166,7 +1792,12 @@ private fun ComposeView(
+@@ -1166,7 +1803,12 @@ private fun ComposeView(
      OutlinedTextField(
          value = body,
          onValueChange = { onDraftChange(draft.copy(body = it)) },
@@ -9843,7 +10066,7 @@ index 61a74ff..9ece4b3 100644
          minLines = SMS_COMPOSE_MIN_LINES,
          label = { Text("Message") },
      )
-@@ -1194,7 +1825,7 @@ private fun ComposeView(
+@@ -1194,7 +1836,7 @@ private fun ComposeView(
                  style = MaterialTheme.typography.bodyMedium,
              )
              SableActionButton(
@@ -9852,7 +10075,7 @@ index 61a74ff..9ece4b3 100644
                  primary = false,
                  onClick = onRequestAccess,
              )
-@@ -1216,6 +1847,26 @@ private fun ComposeView(
+@@ -1216,6 +1858,26 @@ private fun ComposeView(
      )
  }
  
@@ -9879,7 +10102,7 @@ index 61a74ff..9ece4b3 100644
  private fun relativeTime(timestamp: Long): String =
      DateUtils
          .getRelativeTimeSpanString(
-@@ -1233,9 +1884,10 @@ private val HubBubbleCornerRadius = 18.dp
+@@ -1233,9 +1895,10 @@ private val HubBubbleCornerRadius = 18.dp
  private val HubUnreadAccent = Color(0xFF35C66B)
  private val HubUnreadBackground = Color(0xFF0B3524)
  
@@ -12592,10 +12815,18 @@ index 0000000..c399c68
 +    private val WHITESPACE = Regex("\\s+")
 +}
 diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt
-index 17c399e..51c1ba7 100644
+index 17c399e..5e22099 100644
 --- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt
 +++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt
-@@ -33,6 +33,7 @@ import androidx.compose.runtime.rememberCoroutineScope
+@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.safeDrawingPadding
+ import androidx.compose.foundation.layout.width
+ import androidx.compose.foundation.lazy.LazyColumn
++import androidx.compose.foundation.lazy.LazyListScope
+ import androidx.compose.foundation.lazy.rememberLazyListState
+ import androidx.compose.material3.HorizontalDivider
+ import androidx.compose.material3.MaterialTheme
+@@ -33,6 +34,7 @@ import androidx.compose.runtime.rememberCoroutineScope
  import androidx.compose.runtime.setValue
  import androidx.compose.ui.Alignment
  import androidx.compose.ui.Modifier
@@ -12603,7 +12834,7 @@ index 17c399e..51c1ba7 100644
  import androidx.compose.ui.graphics.Brush
  import androidx.compose.ui.graphics.Color
  import androidx.compose.ui.text.font.FontWeight
-@@ -53,6 +54,7 @@ import org.sableos.design.SableRefreshableSurface
+@@ -53,6 +55,7 @@ import org.sableos.design.SableRefreshableSurface
  import org.sableos.design.SableResponsive
  import org.sableos.design.SableRowAction
  import org.sableos.design.SableSpacing
@@ -12611,7 +12842,7 @@ index 17c399e..51c1ba7 100644
  import org.sableos.design.sableLetterJump
  import java.util.Locale
  
-@@ -124,6 +126,9 @@ internal data class MediaScreenState(
+@@ -124,6 +127,9 @@ internal data class MediaScreenState(
      val stationUrl: String,
      val editingStation: RadioStation?,
      val message: String?,
@@ -12621,7 +12852,7 @@ index 17c399e..51c1ba7 100644
  )
  
  internal data class MediaScreenActions(
-@@ -170,6 +175,10 @@ internal data class MediaScreenActions(
+@@ -170,6 +176,10 @@ internal data class MediaScreenActions(
      val onNext: () -> Unit,
      val onStop: () -> Unit,
      val onSeek: (Long) -> Unit,
@@ -12632,7 +12863,7 @@ index 17c399e..51c1ba7 100644
  )
  
  @Composable
-@@ -275,6 +284,15 @@ internal fun MediaScreen(
+@@ -275,6 +285,15 @@ internal fun MediaScreen(
                      onPlayPause = onPlayPause,
                      onPrevious = onPrevious,
                      onNext = onNext,
@@ -12648,7 +12879,7 @@ index 17c399e..51c1ba7 100644
                  )
              }
  
-@@ -382,6 +400,7 @@ internal fun MediaScreen(
+@@ -382,6 +401,7 @@ internal fun MediaScreen(
                                          onSettings = {
                                              onDestinationChange(MediaDestination.Settings)
                                          },
@@ -12656,7 +12887,7 @@ index 17c399e..51c1ba7 100644
                                      )
                                  }
                              }
-@@ -584,20 +603,35 @@ private fun MediaUtilityBar(
+@@ -584,20 +604,35 @@ private fun MediaUtilityBar(
      upNextCount: Int,
      onQueue: () -> Unit,
      onSettings: () -> Unit,
@@ -12693,7 +12924,7 @@ index 17c399e..51c1ba7 100644
                      modifier = Modifier.padding(MediaCompactPadding),
                      style = MaterialTheme.typography.labelLarge,
                  )
-@@ -605,6 +639,7 @@ private fun MediaUtilityBar(
+@@ -605,6 +640,7 @@ private fun MediaUtilityBar(
          }
          Surface(
              onClick = onSettings,
@@ -12701,48 +12932,77 @@ index 17c399e..51c1ba7 100644
              color = Color.Transparent,
              contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
          ) {
-@@ -640,14 +675,23 @@ private fun CollectionScreen(
+@@ -640,37 +676,41 @@ private fun CollectionScreen(
      onPlayPause: () -> Unit,
      onPrevious: () -> Unit,
      onNext: () -> Unit,
 +    search: CollectionSearch,
 +    onTrackFocusChange: (LocalAudioItem, Boolean) -> Unit,
  ) {
-+    val query = search.query.orEmpty()
-     val collectionIndex by
-         produceState<MediaCollectionIndex?>(
-             initialValue = null,
-             key1 = localItems,
-             key2 = favoriteAudioUris,
-+            key3 = query,
-         ) {
+-    val collectionIndex by
+-        produceState<MediaCollectionIndex?>(
+-            initialValue = null,
+-            key1 = localItems,
+-            key2 = favoriteAudioUris,
+-        ) {
 -            value = null
-+            // Keep the previous result while only the query changes, so typing never flashes "indexing";
-+            // drop it when the collection itself changed, because its source indexes are stale.
-+            val previous = value
-+            if (previous == null || previous.source !== localItems || previous.favoriteSource !== favoriteAudioUris) {
-+                value = null
-+            }
-             value =
-                 if (localItems.isEmpty()) {
-                     MediaCollectionIndex.Empty
-@@ -656,10 +700,15 @@ private fun CollectionScreen(
-                         buildMediaCollectionIndex(
-                             localItems = localItems,
-                             favoriteAudioUris = favoriteAudioUris,
-+                            query = query,
-                         )
-                     }
-                 }
-         }
+-            value =
+-                if (localItems.isEmpty()) {
+-                    MediaCollectionIndex.Empty
+-                } else {
+-                    withContext(Dispatchers.Default) {
+-                        buildMediaCollectionIndex(
+-                            localItems = localItems,
+-                            favoriteAudioUris = favoriteAudioUris,
+-                        )
+-                    }
+-                }
++    val query = search.query.orEmpty()
++    val collectionIndex = rememberCollectionIndex(localItems, favoriteAudioUris, query)
 +    val visiblePlaylists =
 +        remember(playlists, query) {
 +            playlists.filter { MediaLibrarySearch.matchesName(it.name, query) }
-+        }
+         }
++    val content =
++        CollectionContent(
++            loading = localLibraryLoading,
++            hasItems = localItems.isNotEmpty(),
++            index = collectionIndex,
++            pivot = pivot,
++            query = query,
++            visiblePlaylists = visiblePlaylists,
++        )
++    val trackActions =
++        CollectionTrackActions(
++            favoriteAudioUris = favoriteAudioUris,
++            onPlay = onPlay,
++            onToggleFavorite = onToggleFavorite,
++            onFocusChange = onTrackFocusChange,
++        )
++    val playlistActions =
++        CollectionPlaylistActions(
++            onCreate = onCreatePlaylist,
++            onEdit = onEditPlaylist,
++            onDelete = onDeletePlaylist,
++            onPlay = onPlayPlaylist,
++        )
  
-     val songs = collectionIndex?.songs.orEmpty()
-     val artistGroups = collectionIndex?.artists.orEmpty()
-@@ -688,6 +737,27 @@ private fun CollectionScreen(
+-    val songs = collectionIndex?.songs.orEmpty()
+-    val artistGroups = collectionIndex?.artists.orEmpty()
+-    val albumGroups = collectionIndex?.albums.orEmpty()
+-    val favorites = collectionIndex?.favorites.orEmpty()
+-    val alphabet =
+-        collectionIndex
+-            ?.sections
+-            ?.get(pivot)
+-            ?: EMPTY_ALPHABET
+-    val availableUris = collectionIndex?.availableUris.orEmpty()
++    val alphabet = collectionIndex?.sections?.get(pivot) ?: EMPTY_ALPHABET
++    val railPadding = if (alphabet.isEmpty) 0.dp else SableAlphabetRailWidth
+     val listState = rememberLazyListState()
+     val scope = rememberCoroutineScope()
+     val firstVisible by remember { derivedStateOf { listState.firstVisibleItemIndex } }
+@@ -688,6 +728,20 @@ private fun CollectionScreen(
                  .safeDrawingPadding()
                  .imePadding(),
      ) {
@@ -12750,14 +13010,7 @@ index 17c399e..51c1ba7 100644
 +            // Pinned above the list so results update in view while typing.
 +            MediaSearchBar(
 +                query = search.query,
-+                resultCount =
-+                    when (pivot) {
-+                        LibraryPivot.Songs -> songs.size
-+                        LibraryPivot.Artists -> artistGroups.size
-+                        LibraryPivot.Albums -> albumGroups.size
-+                        LibraryPivot.Favorites -> favorites.size
-+                        LibraryPivot.Playlists -> visiblePlaylists.size
-+                    },
++                resultCount = collectionResultCount(pivot, collectionIndex, visiblePlaylists),
 +                pivotLabel = pivot.label,
 +                onQueryChange = search.onQueryChange,
 +                onClose = search.onClose,
@@ -12770,18 +13023,88 @@ index 17c399e..51c1ba7 100644
          Box(
              modifier =
                  Modifier
-@@ -741,6 +811,7 @@ private fun CollectionScreen(
-                         onSettings = {
-                             onDestinationChange(MediaDestination.Settings)
-                         },
-+                        onSearch = search.onOpen,
-                     )
-                 }
- 
-@@ -778,139 +849,158 @@ private fun CollectionScreen(
-                     }
-                 }
- 
+@@ -700,14 +754,7 @@ private fun CollectionScreen(
+                         .fillMaxSize()
+                         // Keyboard A-Z jump is the primary index on keyboard devices.
+                         .sableLetterJump(alphabet, enabled = !alphabet.isEmpty, onJump = ::jumpTo)
+-                        .padding(
+-                            end =
+-                                if (alphabet.isEmpty) {
+-                                    0.dp
+-                                } else {
+-                                    SableAlphabetRailWidth
+-                                },
+-                        ),
++                        .padding(end = railPadding),
+                 state = listState,
+                 contentPadding =
+                     PaddingValues(
+@@ -716,204 +763,16 @@ private fun CollectionScreen(
+                     ),
+                 verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
+             ) {
+-                item {
+-                    SableHeroHeader(
+-                        eyebrow = "Sable Media",
+-                        title = "music",
+-                        subtitle = "Your local collection, playlists, and one continuous playback queue.",
+-                    )
+-                }
+-
+-                item {
+-                    PrimaryPivot(
+-                        destination = MediaDestination.Collection,
+-                        onSelect = onDestinationChange,
+-                    )
+-                }
+-
+-                item {
+-                    MediaUtilityBar(
+-                        queueCount = playback.queue.size,
+-                        upNextCount = playback.upNextCount(),
+-                        onQueue = {
+-                            onDestinationChange(MediaDestination.Queue)
+-                        },
+-                        onSettings = {
+-                            onDestinationChange(MediaDestination.Settings)
+-                        },
+-                    )
+-                }
+-
+-                item {
+-                    Text(
+-                        text = "collection",
+-                        style = MaterialTheme.typography.headlineLarge,
+-                    )
+-                }
+-
+-                item {
+-                    SableAdaptiveTopNav(
+-                        destinations = LIBRARY_DESTINATIONS,
+-                        selectedId = pivot.name,
+-                        onSelect = { id -> onPivotChange(LibraryPivot.valueOf(id)) },
+-                    )
+-                }
+-
+-                item {
+-                    Row(
+-                        modifier = Modifier.fillMaxWidth(),
+-                        horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+-                    ) {
+-                        SableActionButton(
+-                            text = "Add audio files",
+-                            modifier = Modifier.weight(1f),
+-                            onClick = onAddLocalAudio,
+-                        )
+-                        SableActionButton(
+-                            text = "Import folder",
+-                            primary = false,
+-                            modifier = Modifier.weight(1f),
+-                            onClick = onAddLocalFolder,
+-                        )
+-                    }
+-                }
+-
 -                if (localLibraryLoading) {
 -                    item {
 -                        C2InfoPanel(
@@ -12804,15 +13127,7 @@ index 17c399e..51c1ba7 100644
 -                            title = "Indexing collection",
 -                            detail = "Preparing songs, artists, albums, favorites, and A–Z navigation.",
 -                        )
-+                when {
-+                    localLibraryLoading -> {
-+                        item {
-+                            C2InfoPanel(
-+                                title = "Loading local collection",
-+                                detail = "Indexing saved songs, artists, and albums off the UI thread.",
-+                            )
-+                        }
-                     }
+-                    }
 -                } else {
 -                    when (pivot) {
 -                        LibraryPivot.Songs -> {
@@ -12830,18 +13145,8 @@ index 17c399e..51c1ba7 100644
 -                                    onPlay = { onPlay(indexedTrack.sourceIndex) },
 -                                )
 -                            }
-+
-+                    localItems.isEmpty() -> {
-+                        item {
-+                            EmptyPanel(
-+                                title = "No local audio yet",
-+                                detail =
-+                                    "Choose audio with Android's document picker. " +
-+                                        "Sable keeps access only to files you explicitly select.",
-+                            )
-                         }
-+                    }
- 
+-                        }
+-
 -                        LibraryPivot.Artists -> {
 -                            items(
 -                                count = artistGroups.size,
@@ -12857,15 +13162,8 @@ index 17c399e..51c1ba7 100644
 -                                    },
 -                                )
 -                            }
-+                    collectionIndex == null -> {
-+                        item {
-+                            C2InfoPanel(
-+                                title = "Indexing collection",
-+                                detail = "Preparing songs, artists, albums, favorites, and A–Z navigation.",
-+                            )
-                         }
-+                    }
- 
+-                        }
+-
 -                        LibraryPivot.Albums -> {
 -                            items(
 -                                count = albumGroups.size,
@@ -12879,15 +13177,9 @@ index 17c399e..51c1ba7 100644
 -                                    onClick = {
 -                                        onPlay(group.sourceIndex)
 -                                    },
-+                    else -> {
-+                        if (query.isNotBlank() && songs.isEmpty() && pivot != LibraryPivot.Playlists) {
-+                            item {
-+                                C2InfoPanel(
-+                                    title = "No matches for \"${query.trim()}\"",
-+                                    detail = "Search looks at title, artist and album. Esc closes search.",
-                                 )
-                             }
-                         }
+-                                )
+-                            }
+-                        }
 -
 -                        LibraryPivot.Favorites -> {
 -                            if (favorites.isEmpty()) {
@@ -12898,31 +13190,23 @@ index 17c399e..51c1ba7 100644
 -                                    )
 -                                }
 -                            } else {
-+                        when (pivot) {
-+                            LibraryPivot.Songs -> {
-                                 items(
+-                                items(
 -                                    count = favorites.size,
 -                                    key = { index -> favorites[index].item.uri },
 -                                ) { favoriteIndex ->
 -                                    val indexedTrack = favorites[favoriteIndex]
-+                                    count = songs.size,
-+                                    key = { index -> songs[index].item.uri },
-+                                ) { index ->
-+                                    val indexedTrack = songs[index]
-                                     val item = indexedTrack.item
-                                     LocalTrackRow(
-                                         item = item,
-                                         accent = accentFor(indexedTrack.sourceIndex),
+-                                    val item = indexedTrack.item
+-                                    LocalTrackRow(
+-                                        item = item,
+-                                        accent = accentFor(indexedTrack.sourceIndex),
 -                                        favorite = true,
-+                                        favorite = item.uri in favoriteAudioUris,
-                                         onToggleFavorite = { onToggleFavorite(item) },
-                                         onPlay = { onPlay(indexedTrack.sourceIndex) },
-+                                        onFocusChange = { focused -> onTrackFocusChange(item, focused) },
-                                     )
-                                 }
-                             }
+-                                        onToggleFavorite = { onToggleFavorite(item) },
+-                                        onPlay = { onPlay(indexedTrack.sourceIndex) },
+-                                    )
+-                                }
+-                            }
 -                        }
- 
+-
 -                        LibraryPivot.Playlists -> {
 -                            item {
 -                                SableActionButton(
@@ -12937,31 +13221,13 @@ index 17c399e..51c1ba7 100644
 -                                    C2InfoPanel(
 -                                        title = "No playlists yet",
 -                                        detail = "Create a local playlist from audio already added to Sable Media.",
-+                            LibraryPivot.Artists -> {
-+                                items(
-+                                    count = artistGroups.size,
-+                                    key = { index -> artistGroups[index].name },
-+                                ) { index ->
-+                                    val group = artistGroups[index]
-+                                    LibraryGroupRow(
-+                                        title = group.name,
-+                                        detail = group.detail,
-+                                        accent = accentFor(group.name.hashCode()),
-+                                        onClick = {
-+                                            onPlay(group.sourceIndex)
-+                                        },
-                                     )
-                                 }
+-                                    )
+-                                }
 -                            } else {
-+                            }
-+
-+                            LibraryPivot.Albums -> {
-                                 items(
+-                                items(
 -                                    count = playlists.size,
 -                                    key = { index -> playlists[index].id },
-+                                    count = albumGroups.size,
-+                                    key = { index -> albumGroups[index].name },
-                                 ) { index ->
+-                                ) { index ->
 -                                    val playlist = playlists[index]
 -                                    PlaylistCard(
 -                                        playlist = playlist,
@@ -12969,82 +13235,363 @@ index 17c399e..51c1ba7 100644
 -                                        onPlay = { onPlayPlaylist(playlist) },
 -                                        onEdit = { onEditPlaylist(playlist) },
 -                                        onDelete = { onDeletePlaylist(playlist) },
-+                                    val group = albumGroups[index]
-+                                    LibraryGroupRow(
-+                                        title = group.name,
-+                                        detail = group.detail,
-+                                        accent = accentFor(group.name.hashCode()),
-+                                        onClick = {
-+                                            onPlay(group.sourceIndex)
-+                                        },
-                                     )
-                                 }
-                             }
+-                                    )
+-                                }
+-                            }
+-                        }
+-                    }
+-                }
++                collectionHeader(
++                    pivot = pivot,
++                    playback = playback,
++                    onOpenSearch = search.onOpen,
++                    onDestinationChange = onDestinationChange,
++                    onPivotChange = onPivotChange,
++                    onAddLocalAudio = onAddLocalAudio,
++                    onAddLocalFolder = onAddLocalFolder,
++                )
++                collectionBody(content, trackActions, playlistActions)
+             }
+ 
+             if (!alphabet.isEmpty) {
+@@ -939,6 +798,336 @@ private fun CollectionScreen(
+     }
+ }
+ 
++/** What the collection list shows below its fixed header. */
++private class CollectionContent(
++    val loading: Boolean,
++    val hasItems: Boolean,
++    val index: MediaCollectionIndex?,
++    val pivot: LibraryPivot,
++    val query: String,
++    val visiblePlaylists: List<MediaPlaylist>,
++)
 +
-+                            LibraryPivot.Favorites -> {
-+                                if (favorites.isEmpty()) {
-+                                    item {
-+                                        C2InfoPanel(
-+                                            title = "No favorite tracks",
-+                                            detail = "Mark local tracks with ★ to keep a quick local favorites view.",
-+                                        )
-+                                    }
-+                                } else {
-+                                    items(
-+                                        count = favorites.size,
-+                                        key = { index -> favorites[index].item.uri },
-+                                    ) { favoriteIndex ->
-+                                        val indexedTrack = favorites[favoriteIndex]
-+                                        val item = indexedTrack.item
-+                                        LocalTrackRow(
-+                                            item = item,
-+                                            accent = accentFor(indexedTrack.sourceIndex),
-+                                            favorite = true,
-+                                            onToggleFavorite = { onToggleFavorite(item) },
-+                                            onPlay = { onPlay(indexedTrack.sourceIndex) },
-+                                            onFocusChange = { focused -> onTrackFocusChange(item, focused) },
-+                                        )
-+                                    }
-+                                }
-+                            }
++/** Track-row callbacks shared by the Songs and Favorites pivots (and group rows' play). */
++private class CollectionTrackActions(
++    val favoriteAudioUris: Set<String>,
++    val onPlay: (Int) -> Unit,
++    val onToggleFavorite: (LocalAudioItem) -> Unit,
++    val onFocusChange: (LocalAudioItem, Boolean) -> Unit,
++)
 +
-+                            LibraryPivot.Playlists -> {
-+                                item {
-+                                    SableActionButton(
-+                                        text = "Create playlist",
-+                                        modifier = Modifier.fillMaxWidth(),
-+                                        onClick = onCreatePlaylist,
-+                                    )
-+                                }
++private class CollectionPlaylistActions(
++    val onCreate: () -> Unit,
++    val onEdit: (MediaPlaylist) -> Unit,
++    val onDelete: (MediaPlaylist) -> Unit,
++    val onPlay: (MediaPlaylist) -> Unit,
++)
 +
-+                                if (visiblePlaylists.isEmpty()) {
-+                                    item {
-+                                        C2InfoPanel(
-+                                            title =
-+                                                if (query.isBlank()) "No playlists yet" else "No matching playlists",
-+                                            detail = "Create a local playlist from audio already added to Sable Media.",
-+                                        )
-+                                    }
-+                                } else {
-+                                    items(
-+                                        count = visiblePlaylists.size,
-+                                        key = { index -> visiblePlaylists[index].id },
-+                                    ) { index ->
-+                                        val playlist = visiblePlaylists[index]
-+                                        PlaylistCard(
-+                                            playlist = playlist,
-+                                            availableUris = availableUris,
-+                                            onPlay = { onPlayPlaylist(playlist) },
-+                                            onEdit = { onEditPlaylist(playlist) },
-+                                            onDelete = { onDeletePlaylist(playlist) },
-+                                        )
-+                                    }
-+                                }
-+                            }
-                         }
-                     }
-                 }
-@@ -959,6 +1049,9 @@ private data class MediaCollectionIndex(
++/**
++ * The collection index for the current inputs, built off the UI thread. Keeps the previous result while
++ * only the query changes, so typing never flashes "indexing"; drops it when the collection itself changed,
++ * because its source indexes are stale.
++ */
++@Composable
++private fun rememberCollectionIndex(
++    localItems: List<LocalAudioItem>,
++    favoriteAudioUris: Set<String>,
++    query: String,
++): MediaCollectionIndex? {
++    val collectionIndex by
++        produceState<MediaCollectionIndex?>(
++            initialValue = null,
++            key1 = localItems,
++            key2 = favoriteAudioUris,
++            key3 = query,
++        ) {
++            val previous = value
++            if (previous == null || previous.source !== localItems || previous.favoriteSource !== favoriteAudioUris) {
++                value = null
++            }
++            value =
++                if (localItems.isEmpty()) {
++                    MediaCollectionIndex.Empty
++                } else {
++                    withContext(Dispatchers.Default) {
++                        buildMediaCollectionIndex(
++                            localItems = localItems,
++                            favoriteAudioUris = favoriteAudioUris,
++                            query = query,
++                        )
++                    }
++                }
++        }
++    return collectionIndex
++}
++
++/** Search result count for the active pivot; zero while the index is still building. */
++private fun collectionResultCount(
++    pivot: LibraryPivot,
++    index: MediaCollectionIndex?,
++    visiblePlaylists: List<MediaPlaylist>,
++): Int {
++    val built = index ?: MediaCollectionIndex.Empty
++    return when (pivot) {
++        LibraryPivot.Songs -> built.songs.size
++        LibraryPivot.Artists -> built.artists.size
++        LibraryPivot.Albums -> built.albums.size
++        LibraryPivot.Favorites -> built.favorites.size
++        LibraryPivot.Playlists -> visiblePlaylists.size
++    }
++}
++
++/** The fixed header rows; their count is [COLLECTION_FIXED_ITEM_COUNT]. */
++private fun LazyListScope.collectionHeader(
++    pivot: LibraryPivot,
++    playback: PlaybackUiState,
++    onOpenSearch: () -> Unit,
++    onDestinationChange: (MediaDestination) -> Unit,
++    onPivotChange: (LibraryPivot) -> Unit,
++    onAddLocalAudio: () -> Unit,
++    onAddLocalFolder: () -> Unit,
++) {
++    item {
++        SableHeroHeader(
++            eyebrow = "Sable Media",
++            title = "music",
++            subtitle = "Your local collection, playlists, and one continuous playback queue.",
++        )
++    }
++
++    item {
++        PrimaryPivot(
++            destination = MediaDestination.Collection,
++            onSelect = onDestinationChange,
++        )
++    }
++
++    item {
++        MediaUtilityBar(
++            queueCount = playback.queue.size,
++            upNextCount = playback.upNextCount(),
++            onQueue = {
++                onDestinationChange(MediaDestination.Queue)
++            },
++            onSettings = {
++                onDestinationChange(MediaDestination.Settings)
++            },
++            onSearch = onOpenSearch,
++        )
++    }
++
++    item {
++        Text(
++            text = "collection",
++            style = MaterialTheme.typography.headlineLarge,
++        )
++    }
++
++    item {
++        SableAdaptiveTopNav(
++            destinations = LIBRARY_DESTINATIONS,
++            selectedId = pivot.name,
++            onSelect = { id -> onPivotChange(LibraryPivot.valueOf(id)) },
++        )
++    }
++
++    item {
++        CollectionImportButtons(
++            onAddLocalAudio = onAddLocalAudio,
++            onAddLocalFolder = onAddLocalFolder,
++        )
++    }
++}
++
++@Composable
++private fun CollectionImportButtons(
++    onAddLocalAudio: () -> Unit,
++    onAddLocalFolder: () -> Unit,
++) {
++    Row(
++        modifier = Modifier.fillMaxWidth(),
++        horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
++    ) {
++        SableActionButton(
++            text = "Add audio files",
++            modifier = Modifier.weight(1f),
++            onClick = onAddLocalAudio,
++        )
++        SableActionButton(
++            text = "Import folder",
++            primary = false,
++            modifier = Modifier.weight(1f),
++            onClick = onAddLocalFolder,
++        )
++    }
++}
++
++/** Below the header: a loading/empty/indexing panel, or the active pivot's rows. */
++private fun LazyListScope.collectionBody(
++    content: CollectionContent,
++    tracks: CollectionTrackActions,
++    playlists: CollectionPlaylistActions,
++) {
++    val index = content.index
++    when {
++        content.loading -> {
++            item {
++                C2InfoPanel(
++                    title = "Loading local collection",
++                    detail = "Indexing saved songs, artists, and albums off the UI thread.",
++                )
++            }
++        }
++
++        !content.hasItems -> {
++            item {
++                EmptyPanel(
++                    title = "No local audio yet",
++                    detail =
++                        "Choose audio with Android's document picker. " +
++                            "Sable keeps access only to files you explicitly select.",
++                )
++            }
++        }
++
++        index == null -> {
++            item {
++                C2InfoPanel(
++                    title = "Indexing collection",
++                    detail = "Preparing songs, artists, albums, favorites, and A–Z navigation.",
++                )
++            }
++        }
++
++        else -> {
++            collectionResults(content, index, tracks, playlists)
++        }
++    }
++}
++
++private fun LazyListScope.collectionResults(
++    content: CollectionContent,
++    index: MediaCollectionIndex,
++    tracks: CollectionTrackActions,
++    playlists: CollectionPlaylistActions,
++) {
++    val query = content.query
++    if (query.isNotBlank() && index.songs.isEmpty() && content.pivot != LibraryPivot.Playlists) {
++        item {
++            C2InfoPanel(
++                title = "No matches for \"${query.trim()}\"",
++                detail = "Search looks at title, artist and album. Esc closes search.",
++            )
++        }
++    }
++    when (content.pivot) {
++        LibraryPivot.Songs -> trackItems(index.songs, tracks, allFavorites = false)
++        LibraryPivot.Artists -> groupItems(index.artists, tracks.onPlay)
++        LibraryPivot.Albums -> groupItems(index.albums, tracks.onPlay)
++        LibraryPivot.Favorites -> favoriteItems(index.favorites, tracks)
++        LibraryPivot.Playlists -> playlistItems(query, content.visiblePlaylists, index.availableUris, playlists)
++    }
++}
++
++/** Track rows; [allFavorites] marks every row as a favorite (the Favorites pivot). */
++private fun LazyListScope.trackItems(
++    rows: List<MediaIndexedTrack>,
++    tracks: CollectionTrackActions,
++    allFavorites: Boolean,
++) {
++    items(
++        count = rows.size,
++        key = { index -> rows[index].item.uri },
++    ) { index ->
++        val indexedTrack = rows[index]
++        val item = indexedTrack.item
++        LocalTrackRow(
++            item = item,
++            accent = accentFor(indexedTrack.sourceIndex),
++            favorite = allFavorites || item.uri in tracks.favoriteAudioUris,
++            onToggleFavorite = { tracks.onToggleFavorite(item) },
++            onPlay = { tracks.onPlay(indexedTrack.sourceIndex) },
++            onFocusChange = { focused -> tracks.onFocusChange(item, focused) },
++        )
++    }
++}
++
++/** Artist or album rows: a click plays from the group's first track. */
++private fun LazyListScope.groupItems(
++    groups: List<MediaGroupSummary>,
++    onPlay: (Int) -> Unit,
++) {
++    items(
++        count = groups.size,
++        key = { index -> groups[index].name },
++    ) { index ->
++        val group = groups[index]
++        LibraryGroupRow(
++            title = group.name,
++            detail = group.detail,
++            accent = accentFor(group.name.hashCode()),
++            onClick = {
++                onPlay(group.sourceIndex)
++            },
++        )
++    }
++}
++
++private fun LazyListScope.favoriteItems(
++    favorites: List<MediaIndexedTrack>,
++    tracks: CollectionTrackActions,
++) {
++    if (favorites.isEmpty()) {
++        item {
++            C2InfoPanel(
++                title = "No favorite tracks",
++                detail = "Mark local tracks with ★ to keep a quick local favorites view.",
++            )
++        }
++    } else {
++        trackItems(favorites, tracks, allFavorites = true)
++    }
++}
++
++private fun LazyListScope.playlistItems(
++    query: String,
++    visiblePlaylists: List<MediaPlaylist>,
++    availableUris: Set<String>,
++    actions: CollectionPlaylistActions,
++) {
++    item {
++        SableActionButton(
++            text = "Create playlist",
++            modifier = Modifier.fillMaxWidth(),
++            onClick = actions.onCreate,
++        )
++    }
++
++    if (visiblePlaylists.isEmpty()) {
++        item {
++            C2InfoPanel(
++                title =
++                    if (query.isBlank()) "No playlists yet" else "No matching playlists",
++                detail = "Create a local playlist from audio already added to Sable Media.",
++            )
++        }
++    } else {
++        items(
++            count = visiblePlaylists.size,
++            key = { index -> visiblePlaylists[index].id },
++        ) { index ->
++            val playlist = visiblePlaylists[index]
++            PlaylistCard(
++                playlist = playlist,
++                availableUris = availableUris,
++                onPlay = { actions.onPlay(playlist) },
++                onEdit = { actions.onEdit(playlist) },
++                onDelete = { actions.onDelete(playlist) },
++            )
++        }
++    }
++}
++
+ private val EMPTY_ALPHABET = SableAlphabetIndex.build(emptyList())
+ 
+ private data class MediaIndexedTrack(
+@@ -959,6 +1148,9 @@ private data class MediaCollectionIndex(
      val favorites: List<MediaIndexedTrack>,
      val availableUris: Set<String>,
      val sections: Map<LibraryPivot, SableAlphabetIndex>,
@@ -13054,7 +13601,7 @@ index 17c399e..51c1ba7 100644
  ) {
      companion object {
          val Empty =
-@@ -976,7 +1069,9 @@ private data class MediaCollectionIndex(
+@@ -976,7 +1168,9 @@ private data class MediaCollectionIndex(
  private fun buildMediaCollectionIndex(
      localItems: List<LocalAudioItem>,
      favoriteAudioUris: Set<String>,
@@ -13064,7 +13611,7 @@ index 17c399e..51c1ba7 100644
      val locale = Locale.ROOT
      val sourceIndexByUri =
          HashMap<String, Int>(localItems.size * 2).apply {
-@@ -986,7 +1081,7 @@ private fun buildMediaCollectionIndex(
+@@ -986,7 +1180,7 @@ private fun buildMediaCollectionIndex(
          }
  
      val songs =
@@ -13073,7 +13620,7 @@ index 17c399e..51c1ba7 100644
              .asSequence()
              .sortedBy { item -> item.title.lowercase(locale) }
              .map { item ->
-@@ -1002,7 +1097,7 @@ private fun buildMediaCollectionIndex(
+@@ -1002,7 +1196,7 @@ private fun buildMediaCollectionIndex(
          }
  
      val artists =
@@ -13082,7 +13629,7 @@ index 17c399e..51c1ba7 100644
              .groupBy { item -> item.artist }
              .entries
              .sortedWith(
-@@ -1017,7 +1112,7 @@ private fun buildMediaCollectionIndex(
+@@ -1017,7 +1211,7 @@ private fun buildMediaCollectionIndex(
              }
  
      val albums =
@@ -13091,7 +13638,7 @@ index 17c399e..51c1ba7 100644
              .groupBy { item -> item.album }
              .entries
              .sortedWith(
-@@ -1059,6 +1154,8 @@ private fun buildMediaCollectionIndex(
+@@ -1059,6 +1253,8 @@ private fun buildMediaCollectionIndex(
          favorites = favorites,
          availableUris = sourceIndexByUri.keys.toSet(),
          sections = sections,
@@ -13100,7 +13647,7 @@ index 17c399e..51c1ba7 100644
      )
  }
  
-@@ -1069,10 +1166,13 @@ private fun LocalTrackRow(
+@@ -1069,10 +1265,13 @@ private fun LocalTrackRow(
      favorite: Boolean,
      onToggleFavorite: () -> Unit,
      onPlay: () -> Unit,
@@ -13114,7 +13661,7 @@ index 17c399e..51c1ba7 100644
              title = item.title,
              subtitle = listOf(item.artist, item.album).filter { it.isNotBlank() }.joinToString(" · "),
              onClick = onPlay,
-@@ -1175,7 +1275,10 @@ private fun LibraryGroupRow(
+@@ -1175,7 +1374,10 @@ private fun LibraryGroupRow(
      Column(modifier = Modifier.fillMaxWidth()) {
          Surface(
              onClick = onClick,
@@ -13126,7 +13673,7 @@ index 17c399e..51c1ba7 100644
              color = Color.Transparent,
          ) {
              Row(
-@@ -1372,6 +1475,7 @@ private fun RadioScreen(
+@@ -1372,6 +1574,7 @@ private fun RadioScreen(
          ) {
              Surface(
                  onClick = { onFavoritesOnlyChange(false) },
@@ -13134,7 +13681,7 @@ index 17c399e..51c1ba7 100644
                  color = Color.Transparent,
                  contentColor =
                      if (!showFavoritesOnly) {
-@@ -1388,6 +1492,7 @@ private fun RadioScreen(
+@@ -1388,6 +1591,7 @@ private fun RadioScreen(
              }
              Surface(
                  onClick = { onFavoritesOnlyChange(true) },
@@ -13142,7 +13689,7 @@ index 17c399e..51c1ba7 100644
                  color = Color.Transparent,
                  contentColor =
                      if (showFavoritesOnly) {
-@@ -1694,14 +1799,14 @@ private fun StationFields(
+@@ -1694,14 +1898,14 @@ private fun StationFields(
      OutlinedTextField(
          value = stationName,
          onValueChange = onStationNameChange,
@@ -13159,7 +13706,7 @@ index 17c399e..51c1ba7 100644
          singleLine = true,
          label = { Text("HTTP(S) stream URL") },
      )
-@@ -1718,7 +1823,10 @@ private fun BackTitle(
+@@ -1718,7 +1922,10 @@ private fun BackTitle(
      ) {
          Surface(
              onClick = onBack,
@@ -13171,7 +13718,7 @@ index 17c399e..51c1ba7 100644
              color = Color.Transparent,
          ) {
              Box(
-@@ -1799,7 +1907,10 @@ private fun PlayerButton(
+@@ -1799,7 +2006,10 @@ private fun PlayerButton(
      Surface(
          onClick = onClick,
          enabled = enabled,
@@ -13476,10 +14023,10 @@ index 0b05422..958cf7d 100644
                  label = {
 diff --git a/sable-src/apps/r8/android/media/src/test/java/org/sableos/media/MediaKeymapTest.kt b/sable-src/apps/r8/android/media/src/test/java/org/sableos/media/MediaKeymapTest.kt
 new file mode 100644
-index 0000000..7fbc4be
+index 0000000..5cdb84a
 --- /dev/null
 +++ b/sable-src/apps/r8/android/media/src/test/java/org/sableos/media/MediaKeymapTest.kt
-@@ -0,0 +1,200 @@
+@@ -0,0 +1,218 @@
 +package org.sableos.media
 +
 +import android.view.KeyEvent
@@ -13490,22 +14037,31 @@ index 0000000..7fbc4be
 +import org.junit.Test
 +
 +class MediaKeymapTest {
-+    @Suppress("LongParameterList")
++    /** Where the key lands: a focused text field and/or the now-playing screen. */
++    private data class KeyContext(
++        val typing: Boolean = false,
++        val nowPlaying: Boolean = false,
++    )
++
++    private val anywhere = KeyContext()
++    private val typingField = KeyContext(typing = true)
++    private val nowPlayingScreen = KeyContext(nowPlaying = true)
++
++    private fun cmd(
++        press: MediaKeyPress,
++        context: KeyContext = anywhere,
++    ): MediaKeyCommand? =
++        MediaKeymap.command(
++            press,
++            textInputActive = context.typing,
++            onNowPlaying = context.nowPlaying,
++        )
++
 +    private fun cmd(
 +        keyCode: Int,
 +        char: Char? = null,
-+        shift: Boolean = false,
-+        alt: Boolean = false,
-+        ctrl: Boolean = false,
-+        repeat: Int = 0,
-+        typing: Boolean = false,
-+        nowPlaying: Boolean = false,
-+    ): MediaKeyCommand? =
-+        MediaKeymap.command(
-+            MediaKeyPress(keyCode, char, shift, alt, ctrl, repeat),
-+            textInputActive = typing,
-+            onNowPlaying = nowPlaying,
-+        )
++        context: KeyContext = anywhere,
++    ): MediaKeyCommand? = cmd(MediaKeyPress(keyCode, char), context)
 +
 +    @Test
 +    fun designInputContractLetters() {
@@ -13532,43 +14088,49 @@ index 0000000..7fbc4be
 +
 +    @Test
 +    fun shiftJkSeeks() {
-+        assertEquals(MediaKeyCommand.SeekBack, cmd(KeyEvent.KEYCODE_J, 'J', shift = true))
-+        assertEquals(MediaKeyCommand.SeekForward, cmd(KeyEvent.KEYCODE_K, 'K', shift = true))
++        assertEquals(MediaKeyCommand.SeekBack, cmd(MediaKeyPress(KeyEvent.KEYCODE_J, 'J', shift = true)))
++        assertEquals(MediaKeyCommand.SeekForward, cmd(MediaKeyPress(KeyEvent.KEYCODE_K, 'K', shift = true)))
 +    }
 +
 +    @Test
 +    fun arrowsAreTrackKeysOnlyOnNowPlaying() {
 +        assertNull(cmd(KeyEvent.KEYCODE_DPAD_LEFT))
 +        assertNull(cmd(KeyEvent.KEYCODE_DPAD_RIGHT))
-+        assertEquals(MediaKeyCommand.Previous, cmd(KeyEvent.KEYCODE_DPAD_LEFT, nowPlaying = true))
-+        assertEquals(MediaKeyCommand.Next, cmd(KeyEvent.KEYCODE_DPAD_RIGHT, nowPlaying = true))
-+        assertEquals(MediaKeyCommand.SeekBack, cmd(KeyEvent.KEYCODE_DPAD_LEFT, shift = true, nowPlaying = true))
-+        assertEquals(MediaKeyCommand.SeekForward, cmd(KeyEvent.KEYCODE_DPAD_RIGHT, shift = true, nowPlaying = true))
++        assertEquals(MediaKeyCommand.Previous, cmd(KeyEvent.KEYCODE_DPAD_LEFT, context = nowPlayingScreen))
++        assertEquals(MediaKeyCommand.Next, cmd(KeyEvent.KEYCODE_DPAD_RIGHT, context = nowPlayingScreen))
++        assertEquals(
++            MediaKeyCommand.SeekBack,
++            cmd(MediaKeyPress(KeyEvent.KEYCODE_DPAD_LEFT, shift = true), nowPlayingScreen),
++        )
++        assertEquals(
++            MediaKeyCommand.SeekForward,
++            cmd(MediaKeyPress(KeyEvent.KEYCODE_DPAD_RIGHT, shift = true), nowPlayingScreen),
++        )
 +        // Up/Down always move focus.
-+        assertNull(cmd(KeyEvent.KEYCODE_DPAD_DOWN, nowPlaying = true))
++        assertNull(cmd(KeyEvent.KEYCODE_DPAD_DOWN, context = nowPlayingScreen))
 +    }
 +
 +    @Test
 +    fun symbolsMatchOnTheTypedCharacterIncludingAlt() {
 +        // On the Q25, `/`, `+` and `-` come from Alt (or Sym) plus a letter key.
 +        assertEquals(MediaKeyCommand.Search, cmd(KeyEvent.KEYCODE_SLASH, '/'))
-+        assertEquals(MediaKeyCommand.Search, cmd(KeyEvent.KEYCODE_O, '/', alt = true))
++        assertEquals(MediaKeyCommand.Search, cmd(MediaKeyPress(KeyEvent.KEYCODE_O, '/', alt = true)))
 +        assertEquals(MediaKeyCommand.VolumeUp, cmd(KeyEvent.KEYCODE_PLUS, '+'))
 +        assertEquals(MediaKeyCommand.VolumeUp, cmd(KeyEvent.KEYCODE_EQUALS, '='))
 +        assertEquals(MediaKeyCommand.VolumeDown, cmd(KeyEvent.KEYCODE_MINUS, '-'))
-+        assertEquals(MediaKeyCommand.VolumeDown, cmd(KeyEvent.KEYCODE_G, '-', alt = true))
++        assertEquals(MediaKeyCommand.VolumeDown, cmd(MediaKeyPress(KeyEvent.KEYCODE_G, '-', alt = true)))
 +    }
 +
 +    @Test
 +    fun altLettersThatAreNotCommandSymbolsAreIgnored() {
-+        assertNull(cmd(KeyEvent.KEYCODE_J, ';', alt = true))
-+        assertNull(cmd(KeyEvent.KEYCODE_SPACE, ' ', alt = true))
++        assertNull(cmd(MediaKeyPress(KeyEvent.KEYCODE_J, ';', alt = true)))
++        assertNull(cmd(MediaKeyPress(KeyEvent.KEYCODE_SPACE, ' ', alt = true)))
 +    }
 +
 +    @Test
 +    fun ctrlChordsAreLeftAlone() {
-+        assertNull(cmd(KeyEvent.KEYCODE_S, 's', ctrl = true))
-+        assertNull(cmd(KeyEvent.KEYCODE_SLASH, '/', ctrl = true))
++        assertNull(cmd(MediaKeyPress(KeyEvent.KEYCODE_S, 's', ctrl = true)))
++        assertNull(cmd(MediaKeyPress(KeyEvent.KEYCODE_SLASH, '/', ctrl = true)))
 +    }
 +
 +    @Test
@@ -13580,21 +14142,24 @@ index 0000000..7fbc4be
 +            KeyEvent.KEYCODE_SLASH to '/',
 +            KeyEvent.KEYCODE_MINUS to '-',
 +        ).forEach { (code, char) ->
-+            assertNull("key $char while typing", cmd(code, char, typing = true))
++            assertNull("key $char while typing", cmd(code, char, typingField))
 +        }
-+        assertNull(cmd(KeyEvent.KEYCODE_DEL, typing = true))
-+        assertNull(cmd(KeyEvent.KEYCODE_DPAD_LEFT, typing = true, nowPlaying = true))
++        assertNull(cmd(KeyEvent.KEYCODE_DEL, context = typingField))
++        assertNull(cmd(KeyEvent.KEYCODE_DPAD_LEFT, context = KeyContext(typing = true, nowPlaying = true)))
 +        // Esc still cancels.
-+        assertEquals(MediaKeyCommand.Back, cmd(KeyEvent.KEYCODE_ESCAPE, typing = true))
++        assertEquals(MediaKeyCommand.Back, cmd(KeyEvent.KEYCODE_ESCAPE, context = typingField))
 +    }
 +
 +    @Test
 +    fun repeatsOnlyRepeatSeekAndVolume() {
-+        assertNull(cmd(KeyEvent.KEYCODE_SPACE, ' ', repeat = 1))
-+        assertNull(cmd(KeyEvent.KEYCODE_D, 'd', repeat = 2))
-+        assertNull(cmd(KeyEvent.KEYCODE_ESCAPE, repeat = 1))
-+        assertEquals(MediaKeyCommand.SeekForward, cmd(KeyEvent.KEYCODE_K, 'K', shift = true, repeat = 3))
-+        assertEquals(MediaKeyCommand.VolumeUp, cmd(KeyEvent.KEYCODE_PLUS, '+', repeat = 3))
++        assertNull(cmd(MediaKeyPress(KeyEvent.KEYCODE_SPACE, ' ', repeatCount = 1)))
++        assertNull(cmd(MediaKeyPress(KeyEvent.KEYCODE_D, 'd', repeatCount = 2)))
++        assertNull(cmd(MediaKeyPress(KeyEvent.KEYCODE_ESCAPE, repeatCount = 1)))
++        assertEquals(
++            MediaKeyCommand.SeekForward,
++            cmd(MediaKeyPress(KeyEvent.KEYCODE_K, 'K', shift = true, repeatCount = 3)),
++        )
++        assertEquals(MediaKeyCommand.VolumeUp, cmd(MediaKeyPress(KeyEvent.KEYCODE_PLUS, '+', repeatCount = 3)))
 +    }
 +
 +    @Test
