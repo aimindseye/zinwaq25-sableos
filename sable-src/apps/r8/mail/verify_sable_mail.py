@@ -229,6 +229,15 @@ def verify_feature_removals(root: pathlib.Path) -> None:
         "SABLE_MAIL_ACCOUNT_SETUP_THUNDERMAIL_CALLBACK",
     )
 
+    previews = (
+        root
+        / "feature/account/setup/src/debug/kotlin/app/k9mail/feature/account/setup/"
+        "ui/autodiscovery"
+    )
+    for preview in ("AccountAutoDiscoveryContentPreview.kt", "AccountAutoDiscoveryScreenPreview.kt"):
+        for needle in ("onThundermailClick", "onScanQrCodeClick"):
+            reject_text(previews / preview, needle, "SABLE_MAIL_ACCOUNT_SETUP_THUNDERMAIL_PREVIEW")
+
     account_setup_nav = (
         root
         / "feature/account/setup/src/main/kotlin/app/k9mail/feature/account/setup/"

@@ -533,6 +533,19 @@ def main() -> None:
         "            onScanQrCodeClick = onScanQrCodeClick,\n",
     )
 
+    # The debug-only previews call the same composables; they compile in the debug unit-test build.
+    previews = (
+        root
+        / "feature/account/setup/src/debug/kotlin/app/k9mail/feature/account/setup/"
+        "ui/autodiscovery"
+    )
+    for preview, count in (
+        ("AccountAutoDiscoveryContentPreview.kt", 6),
+        ("AccountAutoDiscoveryScreenPreview.kt", 1),
+    ):
+        remove_exact_count(previews / preview, "            onThundermailClick = {},\n", count)
+        remove_exact_count(previews / preview, "            onScanQrCodeClick = {},\n", count)
+
     account_setup_nav = (
         root
         / "feature/account/setup/src/main/kotlin/app/k9mail/feature/account/setup/"
