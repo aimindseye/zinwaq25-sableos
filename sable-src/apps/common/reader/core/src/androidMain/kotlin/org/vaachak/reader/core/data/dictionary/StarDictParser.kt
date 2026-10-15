@@ -119,15 +119,25 @@ class StarDictParser @Inject constructor(
 
     /** Looks [target] up in one dictionary: main index first, then the optional category index. */
     private fun lookupIn(dict: StarDictMetadata, target: String): String? = try {
-        val entry = findWordInIdx(dict.idxUri, target, dict.offsetBits)
-            ?: dict.cdiUri?.let { findWordInIdx(it, target, dict.offsetBits) }
-        entry
-            ?.let { readFromDict(dict.dictUri, it.offset, it.size, dict.isCompressed) }
-            ?.takeUnless { it.isBlank() }
-            ?.let { polishDefinition(it, dict.baseName) }
+        findEntry(dict, target)?.let { entry -> definitionFor(dict, entry) }
     } catch (e: Exception) {
         Timber.e(e, "Error searching ${dict.baseName}: ${e.message}")
         null
+    }
+
+    /** Index entry for [target]: the main .idx first, then the optional .cdi; null when neither has it. */
+    private fun findEntry(dict: StarDictMetadata, target: String): IdxEntry? {
+        val mainEntry: IdxEntry? = findWordInIdx(dict.idxUri, target, dict.offsetBits)
+        if (mainEntry != null) return mainEntry
+        val cdiUri: Uri = dict.cdiUri ?: return null
+        return findWordInIdx(cdiUri, target, dict.offsetBits)
+    }
+
+    /** The polished definition stored at [entry], or null when the .dict slice is missing or blank. */
+    private fun definitionFor(dict: StarDictMetadata, entry: IdxEntry): String? {
+        val raw: String? = readFromDict(dict.dictUri, entry.offset, entry.size, dict.isCompressed)
+        if (raw.isNullOrBlank()) return null
+        return polishDefinition(raw, dict.baseName)
     }
 
     /**

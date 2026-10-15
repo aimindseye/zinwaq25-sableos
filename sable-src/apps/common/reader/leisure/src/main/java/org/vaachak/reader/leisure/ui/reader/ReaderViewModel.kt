@@ -283,15 +283,8 @@ class ReaderViewModel @Inject constructor(
             val book = bookDao.getBookByUri(uri.toString(), profileId)
             _currentBookHash.value = book?.bookHash
 
-            val targetJson = pendingJumpLocator ?: book?.lastLocationJson
-            val locator = targetJson?.let {
-                try {
-                    Locator.fromJSON(JSONObject(it))
-                } catch (_: Exception) {
-                    null
-                }
-            }
-            _initialLocator.value = locator
+            val targetJson: String? = pendingJumpLocator ?: book?.lastLocationJson
+            _initialLocator.value = parseLocator(targetJson)
 
             val pub = readiumManager.openEpubFromUri(uri)
             _publication.value = pub
@@ -1037,5 +1030,14 @@ class ReaderViewModel @Inject constructor(
         }
 
         return nav.voices.filter { it.language.code.startsWith(targetLangCode) }
+    }
+}
+/** Parses a saved Readium locator; null when there is none or the JSON is unreadable. */
+private fun parseLocator(json: String?): Locator? {
+    if (json == null) return null
+    return try {
+        Locator.fromJSON(JSONObject(json))
+    } catch (_: Exception) {
+        null
     }
 }
