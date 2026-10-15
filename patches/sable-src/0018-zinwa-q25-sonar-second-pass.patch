@@ -197,14 +197,15 @@ index a096f43..f0ea89a 100644
                  <action android:name="android.telephony.action.SECRET_CODE" />
                  <data android:scheme="android_secret_code" android:host="3377" />
 diff --git a/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/KeyboardTraitsTest.kt b/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/KeyboardTraitsTest.kt
-index 85749eb..becfc8d 100644
+index 85749eb..baadb31 100644
 --- a/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/KeyboardTraitsTest.kt
 +++ b/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/KeyboardTraitsTest.kt
-@@ -149,5 +149,6 @@ class KeyboardTraitsTest {
+@@ -149,5 +149,7 @@ class KeyboardTraitsTest {
          val receiver = Regex("<receiver[^>]*SecretCodeReceiver[^>]*>")
              .find(manifest.readText())?.value.orEmpty()
          assertTrue(receiver.contains("android:enabled=\"true\""))
-+        assertTrue(receiver.contains("android:permission=\"android.permission.MODIFY_PHONE_STATE\""))
++        val senderOnly = "android:permission=\"android.permission.MODIFY_PHONE_STATE\""
++        assertTrue(receiver.contains(senderOnly))
      }
  }
 diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
