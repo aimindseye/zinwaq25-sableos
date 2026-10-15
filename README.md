@@ -70,7 +70,7 @@ More: [`docs/DEVICE_INFO.md`](docs/DEVICE_INFO.md).
 | [Keyboard and input](docs/KEYBOARD_AND_INPUT.md) | Q25 keyboard, trackpad and key profile |
 | [Qualification](docs/QUALIFICATION.md) | Gates each phase must pass |
 | [Crash evidence](docs/CRASH_EVIDENCE.md) | Capture crash logs over adb before anything is cleared |
-| [Implementation notes](docs/implementation/) | What each Sable design package (KF-A..D, Battery, T3, corners, icons, settings-ui5, Phone + Contacts, daily driver) changed and what still needs the phone |
+| [Implementation notes](docs/implementation/) | What each Sable design package (KF-A..D, Battery, T3, corners, icons, settings-ui5, Phone + Contacts, daily driver, Hub dock) changed and what still needs the phone |
 | [Patches](patches/README.md) | Q25 changes to the Sable app sources (`sable-src` 0001-0011) and the LineageOS framework patches |
 | [Stock basis](docs/STOCK_BASIS.md) | Firmware facts to record before flashing |
 | [Sources](docs/SOURCES.md) | Every upstream with its pin and licence |
@@ -113,7 +113,7 @@ product/q25/              Sable product layer copied to vendor/sable/q25
 device-profile/           Q25 hardware capability profile and key map
 apps/                     how the Sable application sources are managed
 sable-src/                Sable app sources imported from SableOS (pinned commit)
-patches/sable-src/        Q25 changes re-applied to sable-src/ after every import (0001-0018)
+patches/sable-src/        Q25 changes re-applied to sable-src/ after every import (0001-0019)
 patches/framework/        Q4 patches to LineageOS 23.2 projects (Settings, SystemUI, Dialer, ...)
 product/common/overlay/   Q4 static overlays (framework, SystemUI, SetupWizard, Glimpse, Gallery2)
 docs/                     guides

@@ -27,6 +27,12 @@ internal object ConnectedNotificationActivityRegistry {
         activeByNotification.clear()
     }
 
+    /** Whether a notification of this conversation is still posted (Hub's "unread" for connected apps). */
+    fun isActive(
+        sourceKey: ConnectedAppKey,
+        conversationId: String,
+    ): Boolean = activeByNotification.containsValue(ConnectedConversationKey(sourceKey, conversationId))
+
     fun activeConversationCount(): Int =
         activeByNotification
             .values

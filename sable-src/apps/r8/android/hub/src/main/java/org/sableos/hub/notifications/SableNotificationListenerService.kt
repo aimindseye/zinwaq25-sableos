@@ -22,6 +22,7 @@ import org.sableos.hub.ConnectedAppsInventory
 import org.sableos.hub.ConnectedAppsRepository
 import org.sableos.hub.ConnectedNotificationHistoryStore
 import org.sableos.hub.policy.AndroidVisibility
+import org.sableos.hub.policy.HubMailSources
 import org.sableos.hub.policy.ReplyActionFacts
 import org.sableos.hub.policy.ReplyEligibility
 import java.util.concurrent.ConcurrentHashMap
@@ -162,7 +163,9 @@ class SableNotificationListenerService : NotificationListenerService() {
                     replyCandidate != null ||
                     shortcutId != null ||
                     conversationTitle != null ||
-                    category == Notification.CATEGORY_MESSAGE
+                    category == Notification.CATEGORY_MESSAGE ||
+                    // Mail apps post one notification per message or digest, without MessagingStyle.
+                    HubMailSources.isMail(key.packageName, category)
             )
 
     /**

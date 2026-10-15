@@ -32,6 +32,11 @@ Every planned SableOS feature for the Q25 is written in this repository:
     the keyboard model in Files, Photos, Browser, Mail and Media; Calendar
     event edit and delete. App Lock is listed but not enforced.
 
+  * Hub source dock (PR #20): a bottom bar of unread counts per source,
+    combined conversations from the same person, and mail apps (Gmail,
+    Outlook, Sable Mail and others) as Hub sources through their
+    notifications ([hub-dock](implementation/hub-dock.md)).
+
   The framework patches are listed in [`../patches/README.md`](../patches/README.md).
 
 Nothing below is a missing feature in the plan. What remains is compiling,
@@ -74,7 +79,7 @@ Each item has a gate in [`QUALIFICATION.md`](QUALIFICATION.md); none has run.
 * **Framework layer (Q4):**
   * Home, Recents and keyboard: Q4-HOME, Q4-RECENTS, Q4-IME (only after Q3-TEXT), Q4-MESSAGES.
   * Look and branding: Q4-BRANDING, Q4-VISUAL, Q4-SYSTEMUI.
-  * Notifications and Hub: Q4-SHADE-KEYS, Q4-HUB-PARITY, Q4-HUB-PROFILES, Q4-HUB-SETTINGS.
+  * Notifications and Hub: Q4-SHADE-KEYS, Q4-HUB-PARITY, Q4-HUB-PROFILES, Q4-HUB-SETTINGS, Q4-HUB-DOCK.
   * Sable Start and apps: Q4-ALLAPPS-PRIVACY, Q4-RESPONSIVE.
   * Setup: Q4-SETUP-KEYS, Q4-SETUP-FALLBACK.
   * Q4-WEATHER-CITIES.

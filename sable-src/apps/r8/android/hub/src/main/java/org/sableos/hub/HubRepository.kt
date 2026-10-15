@@ -15,6 +15,7 @@ import android.provider.Telephony
 import android.telephony.PhoneNumberUtils
 import android.telephony.SmsManager
 import android.telephony.SubscriptionManager
+import org.sableos.hub.notifications.ConnectedNotificationActivityRegistry
 import org.sableos.hub.notifications.ConnectedReplyRegistry
 import org.sableos.hub.platform.AndroidSettingsLauncher
 import org.sableos.hub.platform.PrivacyReader
@@ -57,6 +58,7 @@ class HubRepository(
             HubConnectedConversationReducer.reduce(
                 records = connectedRecords,
                 canReply = ConnectedReplyRegistry::canReply,
+                isActive = ConnectedNotificationActivityRegistry::isActive,
             )
         val prioritized =
             reduced.conversations.map { conversation ->

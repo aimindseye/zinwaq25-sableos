@@ -36,6 +36,8 @@ data class HubConversation(
     val profileBadge: String? = null,
     /** Hub priority: ordering only, never a Do Not Disturb exception. */
     val hubPriority: Boolean = false,
+    /** Connected apps: the source notification's category (e.g. "email"), when known. */
+    val category: String? = null,
 )
 
 data class HubPerson(
@@ -136,6 +138,7 @@ data class ConnectedConversationReduction(
 object HubConnectedConversationReducer {
     fun reduce(
         records: List<ConnectedNotificationRecord>,
+        isActive: (ConnectedAppKey, String) -> Boolean = { _, _ -> false },
         canReply: (String) -> Boolean = { false },
     ): ConnectedConversationReduction {
         val reductions =
@@ -146,6 +149,7 @@ object HubConnectedConversationReducer {
                         key = key,
                         records = group,
                         canReply = canReply,
+                        active = isActive(key.key, key.conversationId),
                     )
                 }
 
@@ -165,6 +169,7 @@ object HubConnectedConversationReducer {
         key: ConnectedConversationKey,
         records: List<ConnectedNotificationRecord>,
         canReply: (String) -> Boolean,
+        active: Boolean,
     ): ConnectedConversationSlice {
         val ordered = deduplicateRecords(records)
         val latest = ordered.last()
@@ -188,10 +193,22 @@ object HubConnectedConversationReducer {
                     threadId = threadId,
                     replyNotificationKey = replyNotificationKey,
                     identity = identity,
+                    category = ordered.asReversed().firstNotNullOfOrNull(ConnectedNotificationRecord::category),
+                    unreadCount = if (active) unreadSinceLastReply(ordered) else 0,
                 ),
             messages = ordered.map { record -> record.toHubMessage(threadId) },
         )
     }
+
+    /**
+     * Hub keeps no read state for connected apps: a conversation whose notification is still
+     * posted is unread, counting the incoming messages since the user's last reply (at least one).
+     */
+    private fun unreadSinceLastReply(ordered: NotificationRecords): Int =
+        ordered
+            .takeLastWhile(ConnectedNotificationRecord::incoming)
+            .size
+            .coerceAtLeast(1)
 
     private fun deduplicateRecords(records: NotificationRecords): NotificationRecords {
         val deduplicated = mutableListOf<ConnectedNotificationRecord>()
@@ -327,6 +344,8 @@ object HubConnectedConversationReducer {
         threadId: Long,
         replyNotificationKey: String?,
         identity: ConnectedNotificationRecord,
+        category: String?,
+        unreadCount: Int,
     ): HubConversation =
         HubConversation(
             threadId = threadId,
@@ -334,13 +353,14 @@ object HubConnectedConversationReducer {
             displayName = identity.conversationTitle,
             lastBody = body.orEmpty(),
             lastDateMillis = timestampMillis,
-            unreadCount = 0,
+            unreadCount = unreadCount,
             source = HubConversationSource.ConnectedApp,
             sourcePackage = key.packageName,
             sourceUserSerial = key.userSerial,
             sourceNotificationKey = replyNotificationKey ?: notificationKey,
             sourceLabel = identity.sourceLabel,
             canQuickReply = replyNotificationKey != null,
+            category = category,
         )
 
     private fun stableNegativeId(value: String): Long {

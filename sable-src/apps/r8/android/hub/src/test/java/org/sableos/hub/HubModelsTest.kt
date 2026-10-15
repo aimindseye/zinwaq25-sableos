@@ -319,4 +319,88 @@ class HubModelsTest {
             reduced.messages.map(HubMessage::threadId),
         )
     }
+
+    private fun connectedRecord(
+        id: String,
+        timestampMillis: Long,
+        incoming: Boolean,
+        category: String? = null,
+    ) = ConnectedNotificationRecord(
+        id = id,
+        key = ConnectedAppKey(packageName = "org.example.mail", userSerial = 0L),
+        notificationKey = "notification-1",
+        conversationId = "ana",
+        conversationTitle = "Ana",
+        sourceLabel = "Example Mail",
+        senderLabel = null,
+        body = "body $id",
+        timestampMillis = timestampMillis,
+        incoming = incoming,
+        category = category,
+    )
+
+    @Test
+    fun connectedReducerCarriesTheNotificationCategory() {
+        val records =
+            listOf(
+                connectedRecord("a", 100L, incoming = true, category = "email"),
+                connectedRecord("b", 200L, incoming = true, category = null),
+            )
+        assertEquals(
+            "email",
+            HubConnectedConversationReducer
+                .reduce(records)
+                .conversations
+                .single()
+                .category,
+        )
+        assertEquals(
+            null,
+            HubConnectedConversationReducer
+                .reduce(records.map { it.copy(category = null) })
+                .conversations
+                .single()
+                .category,
+        )
+    }
+
+    @Test
+    fun connectedConversationIsUnreadOnlyWhileItsNotificationIsPosted() {
+        val records =
+            listOf(
+                connectedRecord("a", 100L, incoming = true),
+                connectedRecord("b", 200L, incoming = false),
+                connectedRecord("c", 300L, incoming = true),
+                connectedRecord("d", 400L, incoming = true),
+            )
+        // Default (no active notifications known): no read state is invented.
+        assertEquals(
+            0,
+            HubConnectedConversationReducer
+                .reduce(records)
+                .conversations
+                .single()
+                .unreadCount,
+        )
+        val active =
+            HubConnectedConversationReducer.reduce(records, isActive = { key, conversationId ->
+                key.packageName == "org.example.mail" && conversationId == "ana"
+            })
+        // Incoming messages since the user's last reply.
+        assertEquals(2, active.conversations.single().unreadCount)
+        val repliedLast =
+            HubConnectedConversationReducer.reduce(
+                records + connectedRecord("e", 500L, incoming = false),
+                isActive = { _, _ -> true },
+            )
+        assertEquals(1, repliedLast.conversations.single().unreadCount)
+    }
+
+    @Test
+    fun historySchemaKeepsVersionTwoRowsWhenAddingTheCategory() {
+        assertEquals(3, ConnectedHistorySchema.VERSION)
+        assertEquals(ConnectedHistoryMigration.AddCategory, ConnectedHistorySchema.migration(2, 3))
+        assertEquals(ConnectedHistoryMigration.None, ConnectedHistorySchema.migration(3, 3))
+        assertEquals(ConnectedHistoryMigration.Recreate, ConnectedHistorySchema.migration(1, 3))
+    }
 }

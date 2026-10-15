@@ -5,9 +5,9 @@ import org.sableos.hub.policy.AttentionSelection
 import org.sableos.hub.policy.AttentionSelectionCodec
 
 /**
- * Hub preferences that are not per-app Hub policy: Sable Attention selections and Hub private
- * mode. Attention is stored apart from Hub inclusion so that changing one never changes the
- * other, and neither touches Android delivery policy.
+ * Hub preferences that are not per-app Hub policy: Sable Attention selections, Hub private
+ * mode and combined conversations. Attention is stored apart from Hub inclusion so that changing
+ * one never changes the other, and neither touches Android delivery policy.
  */
 class HubPreferences(
     context: Context,
@@ -48,8 +48,17 @@ class HubPreferences(
         appContext.contentResolver.notifyChange(HubSnapshotProvider.SNAPSHOT_URI, null)
     }
 
+    /** Combine conversations: roll adjacent rows from the same person into one thread (default on). */
+    fun combineConversations(): Boolean = preferences.getBoolean(KEY_COMBINE_CONVERSATIONS, true)
+
+    fun setCombineConversations(enabled: Boolean) {
+        preferences.edit().putBoolean(KEY_COMBINE_CONVERSATIONS, enabled).apply()
+        appContext.contentResolver.notifyChange(ConnectedAppsRepository.HISTORY_URI, null)
+    }
+
     private companion object {
         const val KEY_ATTENTION_RECORDS = "attention_records"
         const val KEY_PRIVATE_MODE = "private_mode"
+        const val KEY_COMBINE_CONVERSATIONS = "combine_conversations"
     }
 }

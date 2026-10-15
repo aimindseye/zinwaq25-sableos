@@ -2,13 +2,17 @@ package org.sableos.hub.ui
 
 import android.text.format.DateUtils
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -41,15 +45,18 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isAltPressed
@@ -61,6 +68,9 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.utf16CodePoint
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -95,10 +105,19 @@ import org.sableos.hub.HubSnapshot
 import org.sableos.hub.policy.ComposerEnterAction
 import org.sableos.hub.policy.HubAddress
 import org.sableos.hub.policy.HubComposerKeys
+import org.sableos.hub.policy.HubConversationRollup
+import org.sableos.hub.policy.HubDockEntry
+import org.sableos.hub.policy.HubDockSource
 import org.sableos.hub.policy.HubDrafts
 import org.sableos.hub.policy.HubInbox
+import org.sableos.hub.policy.HubInboxCluster
+import org.sableos.hub.policy.HubInboxDivider
 import org.sableos.hub.policy.HubInboxFilter
 import org.sableos.hub.policy.HubInboxItem
+import org.sableos.hub.policy.HubInboxRow
+import org.sableos.hub.policy.HubInboxRowRole
+import org.sableos.hub.policy.HubRedaction
+import org.sableos.hub.policy.HubSourceDock
 import org.sableos.hub.policy.HubThreadResolver
 import java.text.DateFormat
 import java.util.Date
@@ -146,6 +165,13 @@ private class HubUiState {
     var inboxFilter by mutableStateOf(HubInboxFilter.All)
     var statusMessage by mutableStateOf<String?>(null)
 
+    /** Source dock: the source the inbox is narrowed to (null: all) and whether the dock is a grid. */
+    var dockSource by mutableStateOf<HubDockSource?>(null)
+    var dockExpanded by mutableStateOf(false)
+
+    /** Combined conversations the user expanded, by cluster id, kept while Hub is open. */
+    val expandedClusters = mutableStateMapOf<String, Boolean>()
+
     /** Shade "H" / Settings handoff: open the conversation Hub resolved for the notification. */
     fun openPendingThread(
         threadId: Long?,
@@ -160,6 +186,7 @@ private class HubUiState {
     fun applyLaunchQuery(query: HubLaunchQuery) {
         route = HubRoute.Root(HubPivot.Inbox)
         inboxFilter = HubInboxFilter.All
+        dockSource = null
         search = query.query
         statusMessage = null
     }
@@ -181,6 +208,7 @@ private class HubUiState {
 
     fun selectInboxFilter(filter: HubInboxFilter) {
         inboxFilter = filter
+        dockSource = null
         statusMessage = null
     }
 
@@ -226,6 +254,13 @@ private class HubUiState {
     }
 }
 
+/** A dock source narrows the whole inbox (filter "All"); choosing it again clears it. */
+private fun HubUiState.selectDockSource(source: HubDockSource) {
+    inboxFilter = HubInboxFilter.All
+    dockSource = HubSourceDock.toggle(dockSource, source)
+    statusMessage = null
+}
+
 private fun mmsHandoffStatus(opened: Boolean): String =
     if (opened) "Opened the system MMS composer." else "MMS composer is unavailable."
 
@@ -242,6 +277,8 @@ private class HubActions(
     val onDial: (String) -> Boolean,
     val drafts: Map<String, String>,
     val onDraftChange: (String, String) -> Unit,
+    val combineConversations: Boolean,
+    val loadAppIcon: suspend (String, Long) -> ImageBitmap?,
 )
 
 @Composable
@@ -264,6 +301,8 @@ fun HubScreen(
     onLaunchQueryConsumed: () -> Unit = {},
     pendingThreadId: Long? = null,
     onPendingThreadConsumed: () -> Unit = {},
+    combineConversations: Boolean = true,
+    loadAppIcon: suspend (String, Long) -> ImageBitmap? = { _, _ -> null },
 ) {
     val state = remember { HubUiState() }
 
@@ -307,6 +346,8 @@ fun HubScreen(
             onDial = onDial,
             drafts = drafts,
             onDraftChange = onDraftChange,
+            combineConversations = combineConversations,
+            loadAppIcon = loadAppIcon,
         )
 
     SableRefreshableSurface(
@@ -455,6 +496,8 @@ private fun ColumnScope.HubInboxView(
     InboxPivot(
         modifier = Modifier.weight(1f),
         snapshot = snapshot,
+        state = state,
+        actions = actions,
         focusMemory = focusMemory,
         filter = state.inboxFilter,
         onFilterChange = state::selectInboxFilter,
@@ -839,6 +882,8 @@ private fun ColumnScope.EmailPivot(
 private fun ColumnScope.InboxPivot(
     modifier: Modifier,
     snapshot: HubSnapshot,
+    state: HubUiState,
+    actions: HubActions,
     focusMemory: SableFocusMemory,
     filter: HubInboxFilter,
     onFilterChange: (HubInboxFilter) -> Unit,
@@ -885,18 +930,39 @@ private fun ColumnScope.InboxPivot(
     )
 
     val query = search.trim()
+    val dockSource = state.dockSource
     val items =
-        remember(snapshot, filter, query) {
-            HubInbox.items(snapshot.conversations, snapshot.calls, filter, query)
+        remember(snapshot, filter, query, dockSource) {
+            HubSourceDock.narrow(HubInbox.items(snapshot.conversations, snapshot.calls, filter, query), dockSource)
+        }
+    val clusters =
+        remember(items, actions.combineConversations) {
+            HubConversationRollup.clusters(items.take(MAX_VISIBLE_CONVERSATIONS), actions.combineConversations)
+        }
+    val dockEntries =
+        remember(snapshot) {
+            HubSourceDock.entries(snapshot.conversations, snapshot.calls)
         }
     val listState = rememberLazyListState()
     val newestItem = items.firstOrNull()
-    val visibleItems = items.take(MAX_VISIBLE_CONVERSATIONS)
-    val rowKeys = visibleItems.map(HubInboxItem::key)
+    val visibleRows = HubConversationRollup.rows(clusters, state.expandedClusters.keys)
+    val rowKeys = visibleRows.map { row -> row.item.key }
     val requesters = remember { mutableMapOf<String, FocusRequester>() }
     val chipRequesters = remember { HubInboxFilter.entries.associateWith { FocusRequester() } }
+    val dockFocus = remember { HubDockFocus() }
     var restoreDone by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val rowActions =
+        HubInboxRowActions(
+            onExpand = { cluster -> state.expandedClusters[cluster.id] = true },
+            onCollapse = { cluster ->
+                state.expandedClusters.remove(cluster.id)
+                scope.launch {
+                    withFrameNanos { }
+                    runCatching { requesters[cluster.id]?.requestFocus() }
+                }
+            },
+        )
 
     // A/M/C/N pick a filter while focus is on a chip or a row; in the search field letters stay text.
     val selectFilter: (HubInboxFilter) -> Unit = { selected ->
@@ -935,7 +1001,9 @@ private fun ColumnScope.InboxPivot(
         modifier =
             modifier
                 .fillMaxWidth()
-                .inboxFilterShortcuts(selectFilter),
+                .inboxFilterShortcuts(selectFilter) {
+                    scope.launch { dockFocus.focus() }
+                },
         verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
     ) {
         InboxFilterChips(
@@ -952,6 +1020,7 @@ private fun ColumnScope.InboxPivot(
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Spacer(Modifier.weight(1f))
         } else {
             LazyColumn(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -959,13 +1028,16 @@ private fun ColumnScope.InboxPivot(
                 verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
             ) {
                 itemsIndexed(
-                    items = visibleItems,
-                    key = { _, item -> item.key },
-                ) { index, item ->
+                    items = visibleRows,
+                    key = { _, row -> row.item.key },
+                ) { index, row ->
                     InboxItemRow(
-                        item = item,
-                        modifier = Modifier.focusRequester(requesters.getOrPut(item.key) { FocusRequester() }),
-                        onOpen = { focusMemory.remember(FOCUS_SURFACE_INBOX, item.key, index) },
+                        row = row,
+                        modifier =
+                            Modifier
+                                .focusRequester(requesters.getOrPut(row.item.key) { FocusRequester() })
+                                .clusterKeys(row, rowActions),
+                        onOpen = { focusMemory.remember(FOCUS_SURFACE_INBOX, row.item.key, index) },
                         onConversation = onConversation,
                         onCall = onCall,
                         onTextCaller = onTextCaller,
@@ -973,8 +1045,282 @@ private fun ColumnScope.InboxPivot(
                 }
             }
         }
+
+        if (dockEntries.isNotEmpty()) {
+            InboxSourceDock(
+                entries = dockEntries,
+                state = state,
+                focus = dockFocus,
+                loadAppIcon = actions.loadAppIcon,
+                onLongPress = { source ->
+                    if (source is HubDockSource.App) {
+                        val opened = actions.onOpenConnectedApp(source.packageName, source.userSerial)
+                        if (!opened) state.statusMessage = "The source app is unavailable."
+                    }
+                },
+            )
+        }
     }
 }
+
+/** What a combined row does on Right/Space (expand) and Left (collapse, back to its parent). */
+private class HubInboxRowActions(
+    val onExpand: (HubInboxCluster) -> Unit,
+    val onCollapse: (HubInboxCluster) -> Unit,
+)
+
+/**
+ * Keyboard for combined conversations: on a parent row Right or Space expands and Left collapses
+ * (Space toggles); on a child row Left collapses and returns to the parent. Enter still opens.
+ */
+private fun Modifier.clusterKeys(
+    row: HubInboxRow,
+    actions: HubInboxRowActions,
+): Modifier =
+    if (row.role == HubInboxRowRole.Single) {
+        this
+    } else {
+        onPreviewKeyEvent { event ->
+            val space = event.key == Key.Spacebar
+            val parent = row.role == HubInboxRowRole.Parent
+            when {
+                // Swallow Space's key-up too, so it never also activates the row.
+                space && parent && event.type == KeyEventType.KeyUp -> {
+                    true
+                }
+
+                event.type != KeyEventType.KeyDown -> {
+                    false
+                }
+
+                parent && !row.expanded && (event.key == Key.DirectionRight || space) -> {
+                    actions.onExpand(row.cluster)
+                    true
+                }
+
+                // Space toggles a parent; Left collapses from the parent or any of its children.
+                row.expanded && ((parent && space) || event.key == Key.DirectionLeft) -> {
+                    actions.onCollapse(row.cluster)
+                    true
+                }
+
+                else -> {
+                    false
+                }
+            }
+        }
+    }
+
+/** Focus targets of the dock: its first entry, else its expand button. */
+private class HubDockFocus {
+    val firstEntry = FocusRequester()
+    val chevron = FocusRequester()
+
+    suspend fun focus() {
+        withFrameNanos { }
+        if (runCatching { firstEntry.requestFocus() }.isFailure) {
+            runCatching { chevron.requestFocus() }
+        }
+    }
+}
+
+/**
+ * The source dock: one round entry per source with its count, most attention first. Enter or a
+ * tap narrows the inbox to that source (again clears it); a long press opens a connected app.
+ * The chevron switches between one scrolling row and a wrapped grid (the 720x720 square screen).
+ */
+@Composable
+private fun InboxSourceDock(
+    entries: List<HubDockEntry>,
+    state: HubUiState,
+    focus: HubDockFocus,
+    loadAppIcon: suspend (String, Long) -> ImageBitmap?,
+    onLongPress: (HubDockSource) -> Unit,
+) {
+    val expanded = state.dockExpanded
+    val visible = HubSourceDock.visible(entries, expanded, state.dockSource)
+    val entryButtons: @Composable () -> Unit = {
+        visible.forEachIndexed { index, entry ->
+            DockEntryButton(
+                entry = entry,
+                selected = entry.source == state.dockSource,
+                modifier = if (index == 0) Modifier.focusRequester(focus.firstEntry) else Modifier,
+                loadAppIcon = loadAppIcon,
+                onSelect = { state.selectDockSource(entry.source) },
+                onLongPress = { onLongPress(entry.source) },
+            )
+        }
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(HubDockCornerRadius),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = SableSpacing.Sm, vertical = SableSpacing.Xs),
+            verticalAlignment = if (expanded) Alignment.Top else Alignment.CenterVertically,
+        ) {
+            when {
+                visible.isEmpty() -> {
+                    Text(
+                        text = "Nothing new",
+                        modifier = Modifier.weight(1f).padding(horizontal = SableSpacing.Sm),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                expanded -> {
+                    FlowRow(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
+                        verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
+                    ) {
+                        entryButtons()
+                    }
+                }
+
+                else -> {
+                    Row(
+                        modifier = Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
+                    ) {
+                        entryButtons()
+                    }
+                }
+            }
+            Spacer(Modifier.width(SableSpacing.Xs))
+            DockChevron(
+                expanded = expanded,
+                modifier = Modifier.focusRequester(focus.chevron),
+                onToggle = { state.dockExpanded = !expanded },
+            )
+        }
+    }
+}
+
+@Composable
+private fun DockChevron(
+    expanded: Boolean,
+    modifier: Modifier,
+    onToggle: () -> Unit,
+) {
+    val description = if (expanded) "Show fewer sources" else "Show all sources"
+    Box(
+        modifier =
+            modifier
+                .size(HubDockSlotSize)
+                .sableFocusRing()
+                .clickable(onClick = onToggle)
+                .semantics { contentDescription = description },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .size(HubDockIconSize)
+                    .background(MaterialTheme.colorScheme.surface, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = if (expanded) "⌄" else "⌃",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+    }
+}
+
+@Composable
+private fun DockEntryButton(
+    entry: HubDockEntry,
+    selected: Boolean,
+    modifier: Modifier,
+    loadAppIcon: suspend (String, Long) -> ImageBitmap?,
+    onSelect: () -> Unit,
+    onLongPress: () -> Unit,
+) {
+    val source = entry.source
+    val icon by produceState<ImageBitmap?>(null, source) {
+        value = (source as? HubDockSource.App)?.let { app -> loadAppIcon(app.packageName, app.userSerial) }
+    }
+    val description = if (entry.count > 0) "${entry.label}, ${entry.count}" else entry.label
+    Box(
+        modifier =
+            modifier
+                .size(HubDockSlotSize)
+                .sableFocusRing()
+                .combinedClickable(onClick = onSelect, onLongClick = onLongPress)
+                .semantics {
+                    contentDescription = description
+                    this.selected = selected
+                },
+    ) {
+        val ring = if (selected) HubUnreadAccent else Color.Transparent
+        Box(
+            modifier =
+                Modifier
+                    .align(Alignment.Center)
+                    .size(HubDockIconSize)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surface)
+                    .border(2.dp, ring, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            val bitmap = icon
+            if (bitmap != null) {
+                Image(
+                    bitmap = bitmap,
+                    contentDescription = null,
+                    modifier = Modifier.size(HubDockIconSize).padding(SableSpacing.Xs),
+                )
+            } else {
+                Text(
+                    text = dockGlyph(entry),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                )
+            }
+        }
+        if (entry.count > 0) {
+            Box(
+                modifier =
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .background(HubUnreadAccent, CircleShape)
+                        .padding(horizontal = SableSpacing.Xs),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = entry.count.toString(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = HubUnreadBackground,
+                )
+            }
+        }
+    }
+}
+
+/** SMS and calls use Sable glyphs; apps without an icon (or hidden behind a profile) their initial. */
+private fun dockGlyph(entry: HubDockEntry): String =
+    when (entry.source) {
+        HubDockSource.Sms -> {
+            HubRedaction.SMS_LABEL
+        }
+
+        HubDockSource.Calls -> {
+            callGlyph(HubCallKind.Missed)
+        }
+
+        else -> {
+            entry.label
+                .trim()
+                .firstOrNull()
+                ?.uppercaseChar()
+                ?.toString() ?: "?"
+        }
+    }
 
 private fun inboxNeedsAccess(
     capabilities: HubCapabilities,
@@ -986,7 +1332,7 @@ private fun inboxNeedsAccess(
         HubInboxFilter.All -> smsMissing || callLogMissing
         HubInboxFilter.Messages -> smsMissing
         HubInboxFilter.Calls -> callLogMissing
-        HubInboxFilter.Notifications -> false
+        HubInboxFilter.Notifications, HubInboxFilter.Mail -> false
     }
 }
 
@@ -1011,30 +1357,51 @@ private suspend fun restoreInboxRow(
     return true
 }
 
-/** A/M/C/N pick an inbox filter; Alt, Ctrl and Meta chords are left to the system. */
-private fun Modifier.inboxFilterShortcuts(onSelect: (HubInboxFilter) -> Unit): Modifier =
+/**
+ * A/M/C/N/E pick an inbox filter and D jumps to the source dock; Alt, Ctrl and Meta chords are
+ * left to the system.
+ */
+private fun Modifier.inboxFilterShortcuts(
+    onSelect: (HubInboxFilter) -> Unit,
+    onDock: () -> Unit,
+): Modifier =
     onKeyEvent { event ->
         val plain = !event.isAltPressed && !event.isCtrlPressed && !event.isMetaPressed
-        val shortcut =
+        val typed =
             if (event.type == KeyEventType.KeyDown && plain && event.utf16CodePoint > 0) {
-                HubInboxFilter.forShortcut(event.utf16CodePoint.toChar())
+                event.utf16CodePoint.toChar().lowercaseChar()
             } else {
                 null
             }
-        shortcut?.let(onSelect) != null
+        val shortcut = typed?.let(HubInboxFilter::forShortcut)
+        when {
+            shortcut != null -> {
+                onSelect(shortcut)
+                true
+            }
+
+            typed == HubSourceDock.SHORTCUT -> {
+                onDock()
+                true
+            }
+
+            else -> {
+                false
+            }
+        }
     }
 
 /** [onOpen] records the row for focus restoration before it opens a thread or hands off a call. */
 @Composable
 private fun InboxItemRow(
-    item: HubInboxItem,
+    row: HubInboxRow,
     modifier: Modifier,
     onOpen: () -> Unit,
     onConversation: (HubConversation) -> Unit,
     onCall: (HubCall) -> Unit,
     onTextCaller: (HubCall) -> Unit,
 ) {
-    when (item) {
+    when (val item = row.item) {
         is HubInboxItem.Conversation -> {
             ConversationRow(
                 conversation = item.conversation,
@@ -1043,6 +1410,7 @@ private fun InboxItemRow(
                     onConversation(item.conversation)
                 },
                 modifier = modifier,
+                rollup = row,
             )
         }
 
@@ -1058,6 +1426,7 @@ private fun InboxItemRow(
                     onTextCaller(item.call)
                 },
                 modifier = modifier,
+                divider = row.divider,
             )
         }
     }
@@ -1074,6 +1443,7 @@ private fun inboxEmptyText(
         filter == HubInboxFilter.Calls && !capabilities.canReadCallLog -> "Grant call log access to show recent calls."
         filter == HubInboxFilter.Calls -> "No recent calls."
         filter == HubInboxFilter.Notifications -> "No connected-app conversations. Choose apps under connected apps."
+        filter == HubInboxFilter.Mail -> "No mail notifications. Turn on a mail app under connected apps."
         else -> "No conversations yet."
     }
 
@@ -1143,6 +1513,7 @@ private fun CallRow(
     onCall: () -> Unit,
     onText: () -> Unit,
     modifier: Modifier = Modifier,
+    divider: HubInboxDivider = HubInboxDivider.Single,
 ) {
     val attention = call.kind.needsAttention
     val avatarBackground = if (attention) HubUnreadBackground else MaterialTheme.colorScheme.surfaceVariant
@@ -1202,13 +1573,22 @@ private fun CallRow(
             )
         }
     }
-    Box(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-    )
+    HubRowDivider(divider)
+}
+
+/** One thin line under a row; two lines with a 2 dp gap close a combined conversation. */
+@Composable
+private fun HubRowDivider(divider: HubInboxDivider) {
+    val line =
+        Modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+    Box(modifier = line)
+    if (divider == HubInboxDivider.Double) {
+        Spacer(Modifier.height(HubDoubleDividerGap))
+        Box(modifier = line)
+    }
 }
 
 private fun callGlyph(kind: HubCallKind): String =
@@ -1237,7 +1617,10 @@ private fun ConversationRow(
     conversation: HubConversation,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    rollup: HubInboxRow? = null,
 ) {
+    val child = rollup?.role == HubInboxRowRole.Child
+    val parent = rollup?.takeIf { it.role == HubInboxRowRole.Parent }
     val unread = conversation.unreadCount > 0
     val accent =
         if (unread) {
@@ -1263,28 +1646,35 @@ private fun ConversationRow(
                 .padding(vertical = HubRowVerticalPadding),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .size(HubAvatarSize)
-                    .background(avatarBackground, CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = initial,
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
+        if (child) {
+            // A combined child repeats neither the person's name nor the avatar.
+            Spacer(Modifier.width(HubAvatarSize))
+        } else {
+            Box(
+                modifier =
+                    Modifier
+                        .size(HubAvatarSize)
+                        .background(avatarBackground, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = initial,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
         }
         Spacer(Modifier.width(HubAvatarTextGap))
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = conversation.displayName,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            if (!child) {
+                Text(
+                    text = conversation.displayName,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             Text(
                 text = conversationPreview(conversation),
                 style = MaterialTheme.typography.bodyLarge,
@@ -1292,6 +1682,7 @@ private fun ConversationRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            parent?.let { row -> RollupLine(row) }
         }
         Spacer(Modifier.width(HubTrailingGap))
         Column(
@@ -1311,13 +1702,36 @@ private fun ConversationRow(
             }
         }
     }
-    Box(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-    )
+    HubRowDivider(rollup?.divider ?: HubInboxDivider.Single)
+}
+
+/** Under a combined parent: the "+N" pill (with its expand state) and the children's sources. */
+@Composable
+private fun RollupLine(row: HubInboxRow) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(HubPillCornerRadius))
+                    .padding(horizontal = SableSpacing.Sm),
+        ) {
+            Text(
+                text = "+" + row.cluster.children.size + if (row.expanded) " ▾" else " ▸",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+        Text(
+            text = row.cluster.childSourceLabels.joinToString(" · "),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
 }
 
 /** Source label on every row: the inbox mixes SMS, calls and connected apps. */
@@ -1894,6 +2308,11 @@ private val HubBubbleMaxWidth = 320.dp
 private val HubBubbleCornerRadius = 18.dp
 private val HubUnreadAccent = Color(0xFF35C66B)
 private val HubUnreadBackground = Color(0xFF0B3524)
+private val HubDoubleDividerGap = 2.dp
+private val HubDockSlotSize = 48.dp
+private val HubDockIconSize = 40.dp
+private val HubDockCornerRadius = 28.dp
+private val HubPillCornerRadius = 10.dp
 
 private const val REVIEW_ACCESS_LABEL = "Review access"
 private const val SMS_PREVIEW_LENGTH = 120

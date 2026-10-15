@@ -19,6 +19,8 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.Lifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -27,6 +29,7 @@ import org.sableos.hub.policy.HubDrafts
 import org.sableos.hub.policy.HubHandoffTarget
 import org.sableos.hub.policy.HubIntents
 import org.sableos.hub.ui.HubScreen
+import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
     private lateinit var repository: HubRepository
@@ -43,6 +46,10 @@ class MainActivity : ComponentActivity() {
     private val providerRefresh = Runnable { refreshGeneration += 1 }
     private var providerObserversRegistered = false
     private var launchQuerySequence = 0
+
+    /** Dock icons by source, loaded once per activity (main-thread access only). */
+    private val appIcons = mutableMapOf<ConnectedAppKey, ImageBitmap?>()
+    private val inventory by lazy { ConnectedAppsInventory(applicationContext) }
 
     private val connectedHistoryObserver =
         object : ContentObserver(mainHandler) {
@@ -98,12 +105,19 @@ class MainActivity : ComponentActivity() {
             var refreshing by remember {
                 mutableStateOf(false)
             }
+            var combineConversations by remember {
+                mutableStateOf(true)
+            }
 
             LaunchedEffect(refreshGeneration) {
                 refreshing = refreshGeneration == userRefreshGeneration
                 snapshot =
                     withContext(Dispatchers.IO) {
                         repository.snapshot()
+                    }
+                combineConversations =
+                    withContext(Dispatchers.IO) {
+                        HubPreferences(applicationContext).combineConversations()
                     }
                 refreshing = false
             }
@@ -213,9 +227,26 @@ class MainActivity : ComponentActivity() {
                     onPendingThreadConsumed = {
                         pendingThreadId = null
                     },
+                    combineConversations = combineConversations,
+                    loadAppIcon = ::loadAppIcon,
                 )
             }
         }
+    }
+
+    private suspend fun loadAppIcon(
+        packageName: String,
+        userSerial: Long,
+    ): ImageBitmap? {
+        val key = ConnectedAppKey(packageName, userSerial)
+        if (key in appIcons) return appIcons[key]
+        val sizePx = (DOCK_ICON_SIZE_DP * resources.displayMetrics.density).roundToInt()
+        val icon =
+            withContext(Dispatchers.IO) {
+                inventory.iconFor(key, sizePx)?.asImageBitmap()
+            }
+        appIcons[key] = icon
+        return icon
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -317,6 +348,7 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         const val PROVIDER_REFRESH_DELAY_MILLIS = 250L
+        const val DOCK_ICON_SIZE_DP = 40f
         val PROVIDER_URIS =
             listOf(
                 Telephony.Sms.CONTENT_URI,

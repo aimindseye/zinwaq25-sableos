@@ -80,6 +80,9 @@ class ConnectedAppsActivity : ComponentActivity() {
             var privateMode by remember {
                 mutableStateOf(false)
             }
+            var combineConversations by remember {
+                mutableStateOf(true)
+            }
 
             LaunchedEffect(refreshGeneration) {
                 loading = true
@@ -103,6 +106,7 @@ class ConnectedAppsActivity : ComponentActivity() {
                             },
                     )
                 privateMode = preferences.privateMode()
+                combineConversations = preferences.combineConversations()
                 notificationAccessGranted = hasNotificationAccess()
                 loading = false
             }
@@ -122,6 +126,11 @@ class ConnectedAppsActivity : ComponentActivity() {
                     privateMode = privateMode,
                     onPrivateModeChanged = { enabled ->
                         preferences.setPrivateMode(enabled)
+                        refreshGeneration += 1
+                    },
+                    combineConversations = combineConversations,
+                    onCombineConversationsChanged = { enabled ->
+                        preferences.setCombineConversations(enabled)
                         refreshGeneration += 1
                     },
                     onAttentionChanged = ::updateAttention,

@@ -114,6 +114,7 @@ internal class ConnectedNotificationNormalizer(
                     body = envelope.notificationBody,
                     timestampMillis = envelope.postTimeMillis,
                     incoming = true,
+                    category = envelope.category,
                 ),
             )
         } else {
@@ -136,6 +137,7 @@ internal class ConnectedNotificationNormalizer(
                     body = message.body,
                     timestampMillis = message.timestampMillis,
                     incoming = message.incoming,
+                    category = envelope.category,
                 )
             }
         }

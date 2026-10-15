@@ -9,6 +9,32 @@ import org.sableos.hub.policy.HubHistoryBounds
 
 internal const val CONNECTED_LOCAL_REPLY_PREFIX = "local-reply:"
 
+internal enum class ConnectedHistoryMigration {
+    None,
+    AddCategory,
+    Recreate,
+}
+
+/** Versions of the derived history table; an upgrade keeps rows when it only adds a nullable column. */
+internal object ConnectedHistorySchema {
+    /** v3 adds the notification category (null for rows written before it). */
+    const val VERSION = 3
+    private const val VERSION_WITHOUT_CATEGORY = 2
+
+    fun migration(
+        oldVersion: Int,
+        newVersion: Int,
+    ): ConnectedHistoryMigration =
+        when {
+            oldVersion == newVersion -> ConnectedHistoryMigration.None
+
+            oldVersion == VERSION_WITHOUT_CATEGORY && newVersion == VERSION -> ConnectedHistoryMigration.AddCategory
+
+            // Unknown or older layouts: the cache is derived, so it is rebuilt rather than guessed at.
+            else -> ConnectedHistoryMigration.Recreate
+        }
+}
+
 /**
  * Hub's bounded, derived cache of conversation notifications from included sources
  * (`HUB_NOTIFICATION_HISTORY=BOUNDED_DERIVED_CACHE_ONLY`). Android owns notification history;
@@ -244,6 +270,7 @@ class ConnectedNotificationHistoryStore(
                 getInt(
                     getColumnIndexOrThrow(COLUMN_INCOMING),
                 ) != 0,
+            category = getStringOrNull(COLUMN_CATEGORY),
         )
 
     private fun insertRecord(
@@ -263,6 +290,7 @@ class ConnectedNotificationHistoryStore(
                 put(COLUMN_BODY, record.body)
                 put(COLUMN_TIMESTAMP_MILLIS, record.timestampMillis)
                 put(COLUMN_INCOMING, if (record.incoming) 1 else 0)
+                put(COLUMN_CATEGORY, record.category)
             }
         database.insertWithOnConflict(
             TABLE_HISTORY,
@@ -310,7 +338,7 @@ class ConnectedNotificationHistoryStore(
             context,
             DATABASE_NAME,
             null,
-            DATABASE_VERSION,
+            ConnectedHistorySchema.VERSION,
         ) {
         override fun onCreate(database: SQLiteDatabase) {
             database.execSQL(createHistoryTable)
@@ -323,16 +351,25 @@ class ConnectedNotificationHistoryStore(
             oldVersion: Int,
             newVersion: Int,
         ) {
-            if (oldVersion != newVersion) {
-                database.execSQL("DROP TABLE IF EXISTS $TABLE_HISTORY")
-                onCreate(database)
+            when (ConnectedHistorySchema.migration(oldVersion, newVersion)) {
+                ConnectedHistoryMigration.None -> {
+                    Unit
+                }
+
+                ConnectedHistoryMigration.AddCategory -> {
+                    database.execSQL(addCategoryColumn)
+                }
+
+                ConnectedHistoryMigration.Recreate -> {
+                    database.execSQL("DROP TABLE IF EXISTS $TABLE_HISTORY")
+                    onCreate(database)
+                }
             }
         }
     }
 
     private companion object {
         const val DATABASE_NAME = "sable_connected_message_history.db"
-        const val DATABASE_VERSION = 2
         const val TABLE_HISTORY = "connected_message_history"
         const val COLUMN_ID = "id"
         const val COLUMN_PACKAGE_NAME = "package_name"
@@ -345,6 +382,7 @@ class ConnectedNotificationHistoryStore(
         const val COLUMN_BODY = "body"
         const val COLUMN_TIMESTAMP_MILLIS = "timestamp_millis"
         const val COLUMN_INCOMING = "incoming"
+        const val COLUMN_CATEGORY = "category"
         val lock = Any()
 
         val historyColumns =
@@ -360,6 +398,7 @@ class ConnectedNotificationHistoryStore(
                 COLUMN_BODY,
                 COLUMN_TIMESTAMP_MILLIS,
                 COLUMN_INCOMING,
+                COLUMN_CATEGORY,
             )
 
         val createHistoryTable =
@@ -375,9 +414,12 @@ class ConnectedNotificationHistoryStore(
                 $COLUMN_SENDER_LABEL TEXT,
                 $COLUMN_BODY TEXT,
                 $COLUMN_TIMESTAMP_MILLIS INTEGER NOT NULL,
-                $COLUMN_INCOMING INTEGER NOT NULL
+                $COLUMN_INCOMING INTEGER NOT NULL,
+                $COLUMN_CATEGORY TEXT
             )
             """.trimIndent()
+
+        val addCategoryColumn = "ALTER TABLE $TABLE_HISTORY ADD COLUMN $COLUMN_CATEGORY TEXT"
 
         val createHistorySourceIndex =
             """
