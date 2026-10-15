@@ -81,6 +81,7 @@ if SABLE_ANDROID_ROOT="$tmp/android" bash scripts/stage-product.sh Q2 --apps-dir
     ok=yes
     grep -q 'name: "SableKeyboard"' "$v/Android.bp" || ok=no
     grep -q 'default_dev_cert: true' "$v/Android.bp" || ok=no
+    grep -A4 'name: "SableCalculator"' "$v/Android.bp" | grep -q 'preprocessed: true' || ok=no
     grep -q 'overrides: \["ExactCalculator"\]' "$v/Android.bp" || ok=no
     grep -q 'SableCalculator' "$v/sable-q25-apps.mk" || ok=no
     grep -q 'ro.sable.release=Q2' "$v/release.mk" || ok=no

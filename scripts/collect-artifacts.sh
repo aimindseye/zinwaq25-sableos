@@ -14,9 +14,24 @@ sable_require_android_root
 OUT="$SABLE_ANDROID_ROOT/out/target/product/$SABLE_Q25_DEVICE"
 [[ -d "$OUT" ]] || sable_fail "no build output at $OUT"
 
+# out/ is shared by every release, so only collect what the last build of
+# this release produced, and only if that build passed.
+marker="$SABLE_EVIDENCE_ROOT/last-build.env"
+[[ -f "$marker" ]] || sable_fail "no build record at $marker; run: bash build/sable.sh q25 $RELEASE build"
+built_release="$(sed -n 's/^RELEASE=//p' "$marker")"
+built_status="$(sed -n 's/^STATUS=//p' "$marker")"
+built_start="$(sed -n 's/^START_EPOCH=//p' "$marker")"
+[[ "$built_release" == "$RELEASE" ]] ||
+    sable_fail "out/ holds a $built_release build, not $RELEASE; run: bash build/sable.sh q25 $RELEASE build"
+[[ "$built_status" == PASS ]] ||
+    sable_fail "last $RELEASE build is $built_status, not PASS; see $(sed -n 's/^LOG=//p' "$marker")"
+[[ "$built_start" =~ ^[0-9]+$ ]] || sable_fail "bad START_EPOCH in $marker"
+
 mapfile -t zips < <(find "$OUT" -maxdepth 1 -name 'lineage-*-Q25.zip' -printf '%T@ %p\n' | sort -n | awk '{print $2}')
 ((${#zips[@]})) || sable_fail "no lineage-*-Q25.zip in $OUT (did 'build' finish?)"
 zip="${zips[-1]}"
+(( $(stat -c %Y "$zip") >= built_start )) ||
+    sable_fail "$(basename "$zip") is older than the last $RELEASE build; it is from an earlier build"
 
 date_tag="$(date -u +%Y%m%d)"
 variant="$SABLE_Q25_BUILD_VARIANT"

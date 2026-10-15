@@ -33,6 +33,17 @@ export USE_CCACHE="${USE_CCACHE:-1}"
 export CCACHE_DIR="$SABLE_CCACHE_DIR"
 export CCACHE_EXEC="${CCACHE_EXEC:-$(command -v ccache || true)}"
 
+# Record which release out/ holds and whether its build passed;
+# collect-artifacts.sh refuses anything but a PASS for the same release.
+marker="$SABLE_EVIDENCE_ROOT/last-build.env"
+start_epoch="$(date +%s)"
+write_marker() {
+    printf 'RELEASE=%s\nSTATUS=%s\nSTART_EPOCH=%s\nLUNCH=%s\nLOG=%s\n' \
+        "$RELEASE" "$1" "$start_epoch" "$target" "$log" > "$marker"
+    return
+}
+write_marker RUNNING
+
 cd "$SABLE_ANDROID_ROOT"
 # envsetup.sh and lunch are not written for `set -eu`.
 set +eu
@@ -42,7 +53,11 @@ lunch "$target" || sable_fail "lunch $target failed"
 m -j"$SABLE_JOBS" bacon 2>&1 | tee "$log"
 status="${PIPESTATUS[0]}"
 set -eu
-[[ "$status" == 0 ]] || sable_fail "build failed (exit $status); see $log"
+if [[ "$status" != 0 ]]; then
+    write_marker FAIL
+    sable_fail "build failed (exit $status); see $log"
+fi
+write_marker PASS
 
 echo "BUILD=PASS"
 echo "LUNCH=$target"
