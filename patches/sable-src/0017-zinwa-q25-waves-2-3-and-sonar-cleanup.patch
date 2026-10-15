@@ -14732,7 +14732,7 @@ index 7ace288..e3607fd 100644
  The global appearance provider carries presentation state only. It does not
  expose account, mail, contacts, device or security-sensitive data.
 diff --git a/sable-src/apps/r8/mail/apply_sable_flavor.py b/sable-src/apps/r8/mail/apply_sable_flavor.py
-index 465dbab..63a19c8 100644
+index 465dbab..72b295c 100644
 --- a/sable-src/apps/r8/mail/apply_sable_flavor.py
 +++ b/sable-src/apps/r8/mail/apply_sable_flavor.py
 @@ -8,13 +8,27 @@ from pathlib import Path
@@ -15063,7 +15063,27 @@ index 465dbab..63a19c8 100644
      )
  
      auto_content = (
-@@ -503,12 +725,12 @@ def main() -> None:
+@@ -311,6 +533,19 @@ def main() -> None:
+         "            onScanQrCodeClick = onScanQrCodeClick,\n",
+     )
+ 
++    # The debug-only previews call the same composables; they compile in the debug unit-test build.
++    previews = (
++        root
++        / "feature/account/setup/src/debug/kotlin/app/k9mail/feature/account/setup/"
++        "ui/autodiscovery"
++    )
++    for preview, count in (
++        ("AccountAutoDiscoveryContentPreview.kt", 6),
++        ("AccountAutoDiscoveryScreenPreview.kt", 1),
++    ):
++        remove_exact_count(previews / preview, "            onThundermailClick = {},\n", count)
++        remove_exact_count(previews / preview, "            onScanQrCodeClick = {},\n", count)
++
+     account_setup_nav = (
+         root
+         / "feature/account/setup/src/main/kotlin/app/k9mail/feature/account/setup/"
+@@ -503,12 +738,12 @@ def main() -> None:
                  }
  ''',
      )
@@ -15078,7 +15098,7 @@ index 465dbab..63a19c8 100644
  
      for variant in ("debug", "beta", "daily", "release"):
          feature_flags = (
-@@ -1084,7 +1306,7 @@ class SableMailSnapshotProvider : ContentProvider() {
+@@ -1084,7 +1319,7 @@ class SableMailSnapshotProvider : ContentProvider() {
          root
          / "core/ui/theme/manager/src/main/java/net/thunderbird/core/ui/theme/manager/ThemeManager.kt"
      )
@@ -15087,7 +15107,7 @@ index 465dbab..63a19c8 100644
      text = text.replace(
          "override val appThemeResourceId: Int = themeProvider.appThemeResourceId",
          """override val appThemeResourceId: Int
-@@ -1105,10 +1327,10 @@ class SableMailSnapshotProvider : ContentProvider() {
+@@ -1105,10 +1340,10 @@ class SableMailSnapshotProvider : ContentProvider() {
      )
      if "get() = themeProvider.appThemeResourceId" not in text:
          fail("SABLE_MAIL_THEME_MANAGER=FAIL_APP_THEME_GETTER")
@@ -15100,7 +15120,7 @@ index 465dbab..63a19c8 100644
      application_anchor = "\n    <application"
      if manifest_text.count(application_anchor) != 1:
          fail("SABLE_MAIL_MANIFEST=FAIL_APPLICATION_ANCHOR")
-@@ -1122,7 +1344,7 @@ class SableMailSnapshotProvider : ContentProvider() {
+@@ -1122,7 +1357,7 @@ class SableMailSnapshotProvider : ContentProvider() {
      <application""",
          1,
      )
@@ -15109,7 +15129,7 @@ index 465dbab..63a19c8 100644
  
      replace_once(
          manifest,
-@@ -1134,7 +1356,7 @@ class SableMailSnapshotProvider : ContentProvider() {
+@@ -1134,7 +1369,7 @@ class SableMailSnapshotProvider : ContentProvider() {
          'android:theme="@style/Theme.Thunderbird.Startup"',
          'android:theme="@style/Theme.SableMail.Startup"',
      )
@@ -15118,7 +15138,7 @@ index 465dbab..63a19c8 100644
      manifest_text = manifest_text.replace(
          "@style/Theme.Thunderbird.DayNight.Dialog.Translucent",
          "@style/Theme.SableMail.DayNight.Dialog.Translucent",
-@@ -1154,9 +1376,10 @@ class SableMailSnapshotProvider : ContentProvider() {
+@@ -1154,9 +1389,10 @@ class SableMailSnapshotProvider : ContentProvider() {
      </application>""",
          1,
      )
@@ -15130,7 +15150,7 @@ index 465dbab..63a19c8 100644
      write(
          app / "src/main/res/drawable/ic_sable_mail_notification.xml",
          '''<vector xmlns:android="http://schemas.android.com/apk/res/android"
-@@ -1245,6 +1468,8 @@ class SableMailSnapshotProvider : ContentProvider() {
+@@ -1245,6 +1481,8 @@ class SableMailSnapshotProvider : ContentProvider() {
      print("SABLE_MAIL_OAUTH=DISABLED_UNTIL_SABLE_CLIENT_REGISTRATION")
      print("SABLE_MAIL_GENERIC_IMAP_SMTP=UPSTREAM")
      print("SABLE_MAIL_GLOBAL_APPEARANCE=FOLLOW_SYSTEM_LIGHT_DARK_PLUS_5_ACCENTS")
@@ -15501,7 +15521,7 @@ index 0000000..8b33368
 +    }
 +}
 diff --git a/sable-src/apps/r8/mail/verify_sable_mail.py b/sable-src/apps/r8/mail/verify_sable_mail.py
-index b6ba768..760113f 100644
+index b6ba768..d2a995c 100644
 --- a/sable-src/apps/r8/mail/verify_sable_mail.py
 +++ b/sable-src/apps/r8/mail/verify_sable_mail.py
 @@ -34,6 +34,18 @@ def main() -> None:
@@ -15541,7 +15561,23 @@ index b6ba768..760113f 100644
      for path in (
          root / "app-common/build.gradle.kts",
          root / "feature/account/setup/build.gradle.kts",
-@@ -281,6 +297,8 @@ def main() -> None:
+@@ -213,6 +229,15 @@ def main() -> None:
+         "SABLE_MAIL_ACCOUNT_SETUP_THUNDERMAIL_CALLBACK",
+     )
+ 
++    previews = (
++        root
++        / "feature/account/setup/src/debug/kotlin/app/k9mail/feature/account/setup/"
++        "ui/autodiscovery"
++    )
++    for preview in ("AccountAutoDiscoveryContentPreview.kt", "AccountAutoDiscoveryScreenPreview.kt"):
++        for needle in ("onThundermailClick", "onScanQrCodeClick"):
++            reject_text(previews / preview, needle, "SABLE_MAIL_ACCOUNT_SETUP_THUNDERMAIL_PREVIEW")
++
+     account_setup_nav = (
+         root
+         / "feature/account/setup/src/main/kotlin/app/k9mail/feature/account/setup/"
+@@ -281,6 +306,8 @@ def main() -> None:
      print("SABLE_MAIL_STANDARD_ACCOUNT_ENTRY=PASS")
      print("SABLE_MAIL_THUNDERMAIL_ROUTES=PASS_ABSENT")
  
@@ -15550,7 +15586,7 @@ index b6ba768..760113f 100644
      strings = app / "src/main/res/values/strings.xml"
      require_text(strings, ">Sable Mail</string>", "SABLE_MAIL_BRANDING")
      reject_text(strings, ">Thunderbird</string>", "SABLE_MAIL_BRANDING")
-@@ -476,53 +494,92 @@ def main() -> None:
+@@ -476,53 +503,92 @@ def main() -> None:
          "SABLE_MAIL_REMOTE_CONTENT_PRIVACY",
      )
      print("SABLE_MAIL_REMOTE_CONTENT_PRIVACY=PASS_UPSTREAM_PRESERVED")
