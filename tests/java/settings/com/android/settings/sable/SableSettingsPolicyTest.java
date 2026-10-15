@@ -1,20 +1,23 @@
 // Host test for the pure classes added to LineageOS Settings by
 // patches/framework/packages/apps/Settings/0101, 0102 and 0103. tests/run.sh
 // extracts SableAppearancePolicy.java and SableBuildInfo.java from the
-// patches, compiles them with this file and runs main().
+// patches, compiles them with this file and runs the test with org.junit.Run.
 
-import com.android.settings.sable.SableAppearancePolicy;
-import com.android.settings.sable.SableBuildInfo;
+package com.android.settings.sable;
+
+import static org.junit.Assert.assertEquals;
 
 import java.util.Arrays;
 import java.util.Map;
 import java.util.function.Predicate;
 
-public final class SableSettingsPolicyTest {
-    private static int failures = 0;
-    private static int checks = 0;
+import org.junit.Test;
 
-    private static void check(String name, boolean ok) {
+public final class SableSettingsPolicyTest {
+    private int failures = 0;
+    private int checks = 0;
+
+    private void check(String name, boolean ok) {
         checks++;
         if (!ok) {
             failures++;
@@ -22,12 +25,13 @@ public final class SableSettingsPolicyTest {
         }
     }
 
-    private static void eq(String name, Object expected, Object actual) {
+    private void eq(String name, Object expected, Object actual) {
         check(name + " expected <" + expected + "> got <" + actual + ">",
                 expected == null ? actual == null : expected.equals(actual));
     }
 
-    public static void main(String[] args) {
+    @Test
+    public void allChecks() {
         // Accent table matches SableAccentTokens order and seeds.
         eq("accents", Arrays.asList("blue", "green", "purple", "orange", "slate"),
                 Arrays.asList(SableAppearancePolicy.ACCENTS));
@@ -137,8 +141,6 @@ public final class SableSettingsPolicyTest {
         eq("nothing set", "Unknown", SableBuildInfo.summary("", null, " ", "Unknown"));
 
         System.out.println("SETTINGS_POLICY_CHECKS=" + checks + " FAILED=" + failures);
-        if (failures > 0) {
-            System.exit(1);
-        }
+        assertEquals("failed checks", 0, failures);
     }
 }

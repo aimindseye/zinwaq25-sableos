@@ -149,5 +149,7 @@ class KeyboardTraitsTest {
         val receiver = Regex("<receiver[^>]*SecretCodeReceiver[^>]*>")
             .find(manifest.readText())?.value.orEmpty()
         assertTrue(receiver.contains("android:enabled=\"true\""))
+        val senderOnly = "android:permission=\"android.permission.MODIFY_PHONE_STATE\""
+        assertTrue(receiver.contains(senderOnly))
     }
 }

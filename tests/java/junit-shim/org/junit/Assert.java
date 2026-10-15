@@ -36,10 +36,14 @@ public final class Assert {
     }
 
     public static void assertNull(Object actual) {
-        assertTrue("expected null, got " + actual, actual == null);
+        if (actual != null) {
+            throw new AssertionError("expected null, got " + actual);
+        }
     }
 
     public static void assertNotNull(Object actual) {
-        assertTrue("expected non-null", actual != null);
+        if (actual == null) {
+            throw new AssertionError("expected non-null");
+        }
     }
 }

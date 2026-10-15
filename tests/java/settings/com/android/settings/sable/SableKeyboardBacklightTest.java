@@ -1,14 +1,18 @@
 // Host test for SableKeyboardBacklight, added to LineageOS Settings by
 // patches/framework/packages/apps/Settings/0901. tests/run.sh extracts the
-// class from the patch, compiles it with this file and runs main().
+// class from the patch, compiles it with this file and runs the test with org.junit.Run.
 
-import com.android.settings.sable.SableKeyboardBacklight;
+package com.android.settings.sable;
+
+import static org.junit.Assert.assertEquals;
+
+import org.junit.Test;
 
 public final class SableKeyboardBacklightTest {
-    private static int failures = 0;
-    private static int checks = 0;
+    private int failures = 0;
+    private int checks = 0;
 
-    private static void eq(String name, Object expected, Object actual) {
+    private void eq(String name, Object expected, Object actual) {
         checks++;
         if (expected == null ? actual != null : !expected.equals(actual)) {
             failures++;
@@ -16,7 +20,8 @@ public final class SableKeyboardBacklightTest {
         }
     }
 
-    public static void main(String[] args) {
+    @Test
+    public void allChecks() {
         // Missing or odd values mean on, the driver's default.
         eq("enabled missing", true, SableKeyboardBacklight.isEnabled(null));
         eq("enabled empty", true, SableKeyboardBacklight.isEnabled(""));
@@ -48,8 +53,6 @@ public final class SableKeyboardBacklightTest {
         eq("level 128", 5, SableKeyboardBacklight.stepForLevel("128"));
 
         System.out.println("CHECKS=" + checks + " FAILED=" + failures);
-        if (failures != 0) {
-            System.exit(1);
-        }
+        assertEquals("failed checks", 0, failures);
     }
 }

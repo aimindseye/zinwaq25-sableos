@@ -105,11 +105,15 @@
           It re-checks on every code (android/SecretCodeSync): when a vendor factory-test app answers the code
           (core/DialerCodes.receiverEnabled), it launches nothing and disables itself, so it never doubles up with a
           vendor surface.
+          Only the telephony stack sends SECRET_CODE (TelephonyManager.sendDialerSpecialCode broadcasts it from the
+          phone process), so the receiver requires MODIFY_PHONE_STATE, which only that signature|privileged sender
+          holds. Other apps cannot reach it.
         -->
         <receiver
             android:name=".android.SecretCodeReceiver"
             android:enabled="true"
-            android:exported="true">
+            android:exported="true"
+            android:permission="android.permission.MODIFY_PHONE_STATE">
             <intent-filter>
                 <action android:name="android.telephony.action.SECRET_CODE" />
                 <data android:scheme="android_secret_code" android:host="3377" />

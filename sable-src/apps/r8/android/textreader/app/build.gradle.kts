@@ -119,49 +119,41 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
 
-    // Compose UI & Material 3
+    // Compose UI & Material 3, and the extended Material icons (Clear, Translate, Settings)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
 
-    // Google ML Kit Translation
-    implementation("com.google.mlkit:translate:17.0.3")
+    // CameraX
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
 
-    // Extended Material Icons (for the Clear, Translate, and Settings icons)
-    implementation("androidx.compose.material:material-icons-extended")
-
-// Unit Testing (Pure JVM)
-    testImplementation("junit:junit:4.13.2")
-
-    // Android UI Testing (Explicit strings to guarantee they resolve)
-    androidTestImplementation("androidx.test.ext:junit:1.1.5")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
-    androidTestImplementation(platform("androidx.compose:compose-bom:2024.02.00"))
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
-    androidTestImplementation("org.mockito:mockito-android:5.12.0")
-    testImplementation("org.mockito:mockito-core:5.11.0")
-    testImplementation("org.mockito.kotlin:mockito-kotlin:5.2.1")
-
-    // Debugging tools for Compose tests
-    debugImplementation("androidx.compose.ui:ui-tooling")
-    debugImplementation("androidx.compose.ui:ui-test-manifest")
-    // Required for createComposeRule() to launch its empty testing Activity
-    debugImplementation("androidx.compose.ui:ui-test-manifest:1.6.0") // (Use whatever your Compose version is)
-
-    // CameraX core library
-    val camerax_version = "1.3.1"
-    implementation("androidx.camera:camera-camera2:$camerax_version")
-    implementation("androidx.camera:camera-lifecycle:$camerax_version")
-    implementation("androidx.camera:camera-view:$camerax_version")
-
-    // ML Kit Text Recognition (OCR)
-    implementation("com.google.mlkit:text-recognition:16.0.0")
+    // Google ML Kit: translation, and text recognition (Latin for English, Devanagari for Hindi, Marathi, Sanskrit)
+    implementation(libs.mlkit.translate)
+    implementation(libs.mlkit.text.recognition)
+    implementation(libs.mlkit.text.recognition.devanagari)
 
     // Accompanist Permissions (to handle Camera permission easily in Compose)
-    implementation("com.google.accompanist:accompanist-permissions:0.34.0")
+    implementation(libs.accompanist.permissions)
 
-    implementation("com.google.mlkit:text-recognition:16.0.1") // Latin (English)
-    implementation("com.google.mlkit:text-recognition-devanagari:16.0.1") // Hindi, Marathi, Sanskrit
+    // Unit Testing (Pure JVM)
+    testImplementation(libs.junit)
+    testImplementation(libs.mockito.core)
+    testImplementation(libs.mockito.kotlin)
+
+    // Android UI Testing
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(platform(libs.androidx.compose.bom.androidtest))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.mockito.android)
+
+    // Debugging tools for Compose tests; ui-test-manifest is required for createComposeRule() to launch its empty
+    // testing Activity
+    debugImplementation(libs.androidx.compose.ui.tooling)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }

@@ -49,7 +49,9 @@ def remove_exact_count(path: Path, old: str, expected: int) -> None:
             "SABLE_MAIL_PATCH_ANCHOR=FAIL "
             f"path={path} count={count} expected={expected} anchor={old!r}"
         )
-    path.write_text(text.replace(old, ""), encoding="utf-8")
+    # The checkout path is the operator's own command-line argument, and in_checkout() has already refused any
+    # path that resolves outside it, so this write cannot leave the checkout.
+    path.write_text(text.replace(old, ""), encoding="utf-8")  # NOSONAR(S2083)
 
 
 def write(path: Path, content: str) -> None:

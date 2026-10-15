@@ -221,8 +221,9 @@ if command -v javac >/dev/null 2>&1; then
         (cd "$st" && git apply --include='src/com/android/settings/sable/SableAppearancePolicy.java' \
             --include='src/com/android/settings/sable/SableBuildInfo.java' "$ROOT/$p")
     done
-    if javac -d "$st/out" "$st"/src/com/android/settings/sable/*.java tests/java/SableSettingsPolicyTest.java 2>"$tmp/err" &&
-        java -cp "$st/out" SableSettingsPolicyTest >"$tmp/out" 2>&1; then
+    if javac -d "$st/out" "$st"/src/com/android/settings/sable/*.java \
+        tests/java/settings/com/android/settings/sable/SableSettingsPolicyTest.java tests/java/junit-shim/org/junit/*.java 2>"$tmp/err" &&
+        java -cp "$st/out" org.junit.Run com.android.settings.sable.SableSettingsPolicyTest >"$tmp/out" 2>&1; then
         pass "Settings appearance policy and About summary ($(grep -o 'CHECKS=[0-9]*' "$tmp/out"))"
     else
         fail "Settings policy test: $(cat "$tmp/err" "$tmp/out" | grep -v JAVA_TOOL | head -5)"
@@ -261,8 +262,8 @@ if command -v javac >/dev/null 2>&1; then
     (cd "$kb" && git apply --include='src/com/android/settings/sable/SableKeyboardBacklight.java' \
         "$ROOT"/patches/framework/packages/apps/Settings/0901-*.patch)
     if javac -d "$kb/out" "$kb"/src/com/android/settings/sable/SableKeyboardBacklight.java \
-        tests/java/SableKeyboardBacklightTest.java 2>"$tmp/err" &&
-        java -cp "$kb/out" SableKeyboardBacklightTest >"$tmp/out" 2>&1; then
+        tests/java/settings/com/android/settings/sable/SableKeyboardBacklightTest.java tests/java/junit-shim/org/junit/*.java 2>"$tmp/err" &&
+        java -cp "$kb/out" org.junit.Run com.android.settings.sable.SableKeyboardBacklightTest >"$tmp/out" 2>&1; then
         pass "Settings keyboard backlight model ($(grep -o 'CHECKS=[0-9]*' "$tmp/out"))"
     else
         fail "Settings keyboard backlight test: $(cat "$tmp/err" "$tmp/out" | grep -v JAVA_TOOL | head -5)"

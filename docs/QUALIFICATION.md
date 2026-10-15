@@ -92,6 +92,7 @@ on that phone. Procedure: [`RETURN_TO_STOCK.md`](RETURN_TO_STOCK.md).
 | Q4-MEDIA-MAIL-KEYS | Sable Media: Space, J/K, Shift+J/K seek, +/- volume, `/` search, Esc back, and shortcuts off in text fields; Sable Mail: C compose, J/K next and previous, R/A/F reply, D delete after a confirmation, `/` search, Alt+Enter sends in compose | NOT_RUN |
 | Q4-STOCK-KEYS | Files: Alt+C/M/R/N/I/O/A, Del after confirmation, Esc up a folder, read-only files refuse rename and delete; Photos: J/K, Space, D after confirmation, S share; Browser: Alt+L/T/F/R and single keys only when no form or the address bar has focus (DocumentsUI 1001-1002, Glimpse 1021-1022, Jelly 1041-1042) | NOT_RUN |
 | Q4-MOBILE-MANAGER | Settings > Apps > Mobile Manager opens; Network access matches Network Manager; App Lock says "not enforced"; Focus mode pauses chosen apps and releases only those when it ends; Private Space row opens Android's own setup; Dual Apps says why it is unavailable when the overlay is unset (Settings 1101-1102) | NOT_RUN |
+| Q4-TOOLS-SECRET-CODE | Dialling `*#*#3377#*#*` opens Sable Tools now that its receiver requires `MODIFY_PHONE_STATE` (sent only by the telephony stack); an app broadcasting the code itself is refused | NOT_RUN |
 
 Crash rule (sableos #84): after any first-boot or launcher crash, run
 `scripts/capture-crash-evidence.sh` before clearing anything and keep its

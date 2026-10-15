@@ -174,6 +174,8 @@ tasks.dokkaHtml {
 }
 
 tasks.register<JacocoReport>("jacocoDebugUnitTestReport") {
+    group = "verification"
+    description = "Writes the JaCoCo coverage report for the debug unit tests."
     dependsOn("testDebugUnitTest")
 
     reports {

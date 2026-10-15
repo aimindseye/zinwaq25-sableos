@@ -153,8 +153,9 @@ m bacon
 
 GitHub runs the same app build and the SableOS quality gates on pull requests
 and on pushes to `main`. This is the set SableOS ran in GitHub Actions before
-its own CI moved to a local machine (`build/local-ci/run.sh` in sableos). All
-four workflows are green for PR #9, the change that added them.
+its own CI moved to a local machine (`build/local-ci/run.sh` in sableos). The
+first four workflows were green for PR #9, the change that added them;
+`SonarCloud` was added in PR #18.
 
 * `Sable apps` (`.github/workflows/android.yml`): `scripts/build-apps.sh --all
   --root ...` for each Gradle project (platform apps, r8 apps, Reader, Mail, Text
@@ -170,6 +171,18 @@ four workflows are green for PR #9, the change that added them.
   coverage for `sable-src/apps/r8/rust`. Runs when that directory changes.
 * `Security` (`security.yml`): Gitleaks over the history and a MobSF source
   scan (findings recorded). Also runs weekly.
+* `SonarCloud` (`sonar.yml`): runs `scripts/sonar-compile-commands.sh` (a
+  `compile_commands.json` for the camera shim, with stub Android headers) and
+  then the SonarSource scan action with `sonar-project.properties`, waiting on
+  the quality gate. It runs on pull requests, on pushes to `main` and by hand;
+  fork pull requests are skipped because they cannot read `SONAR_TOKEN`.
+  Coverage is excluded until Kover/JaCoCo reports are imported, so the free
+  plan's fixed "Sonar way" gate does not fail on 0% coverage. Project settings
+  on sonarcloud.io: Automatic Analysis **off** (CI-based analysis refuses to run
+  with it on), New Code = reference branch `main`, main branch named `main`.
+  Taint findings that are false positives carry a `NOSONAR(rule)` comment that
+  says why. The 25 `restrict` qualifiers in the shim (c:S1836) are kept on
+  purpose and stay open.
 * `checks` (`checks.yml`): `tests/run.sh` with shellcheck and xmllint. The
   framework pure tests (`tests/framework/run-pure-tests.sh`) are skipped there
   because no Kotlin compiler is installed.
@@ -184,7 +197,8 @@ build host.
 A change that only touches documentation (`docs/`, any Markdown file, `LICENSE`,
 `NOTICE`) does not start `checks`, `Sable apps` or `Rust`; none of them reads
 those files. `Security` still runs, so Gitleaks scans documentation changes too.
-None of these checks is required on `main`. If one is made a required status
+None of these checks is required on `main` yet; `SonarCloud` and the Gitleaks
+job are the recommended first required checks, since they run on every pull request. If one is made a required status
 check, a docs-only pull request will wait on it, because a workflow skipped by
 its path filter never reports.
 
