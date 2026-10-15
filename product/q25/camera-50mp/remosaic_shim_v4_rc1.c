@@ -136,6 +136,14 @@ static void frame_free(void *p, size_t n)
 	(void)n; free(p);
 #endif
 }
+/* a number for a log line, limited to [lo, hi] (NaN gives lo): values derived from the calibration file or the
+ * accumulated statistics reach the log only as bounded numbers */
+static double log_num(double v, double lo, double hi)
+{
+	if (!(v >= lo)) return lo;
+	return v > hi ? hi : v;
+}
+static unsigned log_count(unsigned v) { return v < 1000000000u ? v : 1000000000u; }
 static long ms_since(const struct timespec *t0)
 {
 	struct timespec t1; clock_gettime(CLOCK_MONOTONIC, &t1);
@@ -496,7 +504,7 @@ static void eq_measure(const uint16_t *in, int stride, float gain[4][4])
 	for (int py = 0; py < 4; py++)
 		for (int px = 0; px < 4; px++) {
 			if (e.cnt[py][px] == 0) return;          /* no data for a phase: leave gains at 1 */
-			m[py][px] = (double)e.sum[py][px] / e.cnt[py][px];
+			m[py][px] = (double)e.sum[py][px] / (double)e.cnt[py][px];
 			cm[g_qcol[py][px]] += m[py][px]; cc[g_qcol[py][px]] += 1;
 		}
 	for (int py = 0; py < 4; py++)
@@ -515,7 +523,7 @@ static void eq_apply(int y0, int y1, void *p)
 		const uint16_t *s = c->src + (size_t)y * c->stride; uint16_t *d = c->dst + (size_t)y * c->stride;
 		const float *gr = c->gain[y & 3];
 		for (int x = 0; x < g_w; x++) {
-			float v = g_ped + (s[x] - g_ped) * gr[x & 3];
+			float v = (float)g_ped + ((float)(s[x] - g_ped)) * gr[x & 3];
 			d[x] = (uint16_t)clampi((int)lrintf(v * FX), 0, WHITE * FX);
 		}
 	}
@@ -759,7 +767,8 @@ static int go_solve(const double a[5], double *g, double *o)   /* ridge 1e-3 on 
 	*g = (r0 * D - B * r1) / det; *o = (A * r1 - C * r0) / det;
 	return 1;
 }
-static const char *g_calpath = "/data/vendor/camera/remoshim_cal.bin";
+/* the calibration file: one fixed path, never taken from a property or the environment */
+static const char kCalPath[] = "/data/vendor/camera/remoshim_cal.bin";
 static char g_candmsg[700];
 static void cand_fit(const uint16_t *in, int stride, const double gg[16], const double go[16], const double gsig[16], char *msg, size_t msgsz);
 static int g_usecal = 1;
@@ -832,7 +841,7 @@ static void cal_add(struct calfile *cf, const double s[16][5], double sign)
 static int go_stored_cal(const double S30[16][5], struct calfile *cf, double *gg, double *oo, int *wrote)
 {
 	int have = 0;
-	FILE *fp = fopen(g_calpath, "rb");
+	FILE *fp = fopen(kCalPath, "rb");
 	if (fp) {
 		if (fread(cf, sizeof *cf, 1, fp) == 1 && cf->magic == 0x51324343u && cf->ver == 1 &&
 		    cf->w == (uint32_t)g_w && cf->h == (uint32_t)g_h && cf->bayer == (uint32_t)g_bayer) have = 1;
@@ -842,7 +851,7 @@ static int go_stored_cal(const double S30[16][5], struct calfile *cf, double *gg
 	if (S30[0][0] >= 500) {
 		cal_add(cf, S30, 1);
 		cf->shots++;
-		fp = fopen(g_calpath, "wb");
+		fp = fopen(kCalPath, "wb");
 		if (fp) { *wrote = fwrite(cf, sizeof *cf, 1, fp) == 1; fclose(fp); }
 		if (!*wrote) { cf->shots--; cal_add(cf, S30, -1); }
 	}
@@ -902,8 +911,8 @@ static int go_fit(const uint16_t *in, int stride, char *msg, size_t msgsz)
 	else if (wrote) calst = "file updated";
 	snprintf(msg, msgsz, "gain+offset fit on %.0f tiles, gain %.4f..%.4f, |offset| <= %.2f DN; centre-vs-corner diff %s%.2f%% (offset %.2f DN); "
 	         "calibration: %s, %u shots stored, %s",
-	         S3[0][0][0], gmin, gmax, omax, regok ? "" : "n/a ", dg, dofs,
-	         used ? "USING stored" : "per-frame", cf.shots, calst);
+	         S3[0][0][0], log_num(gmin, 0.0, 100.0), log_num(gmax, 0.0, 100.0), log_num(omax, 0.0, 1e6), regok ? "" : "n/a ", dg, dofs,
+	         used ? "USING stored" : "per-frame", log_count(cf.shots), calst);
 out:
 	free(f.p1); free(f.p2); free(f.p3);
 	return ret;
@@ -1127,7 +1136,7 @@ static void cand_apply(int y0, int y1, void *p)
 			}
 		for (int x = 0; x < g_w; x++) {
 			const float *t = gk + (x >> 2) * 8;
-			float v = (s[x] - g_ped - t[4 + (x & 3)]) / t[x & 3] + g_ped;
+			float v = ((float)(s[x] - g_ped) - t[4 + (x & 3)]) / t[x & 3] + (float)g_ped;
 			d[x] = (uint16_t)clampi((int)lrintf(v * FX), 0, WHITE * FX);
 		}
 	}
@@ -1142,7 +1151,7 @@ static void go_apply(int y0, int y1, void *p)
 		const float *gg = g_gog + (y & 3) * 4;
 		const float *oo = g_goo + (y & 3) * 4;
 		for (int x = 0; x < g_w; x++) {
-			float v = (s[x] - g_ped - oo[x & 3]) / gg[x & 3] + g_ped;
+			float v = ((float)(s[x] - g_ped) - oo[x & 3]) / gg[x & 3] + (float)g_ped;
 			d[x] = (uint16_t)clampi((int)lrintf(v * FX), 0, WHITE * FX);
 		}
 	}
@@ -1179,7 +1188,7 @@ static int t16_tile(const uint16_t *b, int S, int ty, int tx, double v[256], dou
 	double ph[16] = { 0 };
 	for (int py = 0; py < 16; py++)
 		for (int px = 0; px < 16; px++) {
-			double a = b[(size_t)(ty + py) * S + tx + px] * IFX - g_ped;
+			double a = b[(size_t)(ty + py) * S + tx + px] * IFX - (float)g_ped;
 			c = g_qcol[py & 3][px & 3]; v[py * 16 + px] = a;
 			int qd = (py >> 3) * 2 + (px >> 3);
 			qsum[c][qd] += a; qn[c][qd]++; csum[c] += a; cn[c]++; ph[(py & 3) * 4 + (px & 3)] += a;
@@ -1324,7 +1333,7 @@ static void t16_fit(const uint16_t *b, int S, char *msg, size_t msgsz)
 	}
 	int regok = t16_region_diff((const double (*)[256][5])S3, &dmax);
 	snprintf(msg, msgsz, "map16: %.0f flat tiles this shot, gains %.3f..%.3f, %s (%d shots), centre-vs-corner rms diff %s%.2f%%",
-	         ntile, gmin, gmax, using_acc ? "accumulated" : "this shot only", g_accshots, regok ? "" : "n/a ", dmax);
+	         ntile, log_num(gmin, 0.0, 100.0), log_num(gmax, 0.0, 100.0), using_acc ? "accumulated" : "this shot only", (int)log_count((unsigned)g_accshots), regok ? "" : "n/a ", dmax);
 out:
 	free(f.p1); free(f.p2); free(f.p3);
 }
@@ -1336,7 +1345,7 @@ static void t16_apply(int y0, int y1, void *p)
 		const float *gg = g_t16g[y & 15];
 		const float *oo = g_t16o[y & 15];
 		for (int x = 0; x < g_w; x++) {
-			float v = (d[x] * IFX - g_ped - oo[x & 15]) / gg[x & 15] + g_ped;
+			float v = (d[x] * IFX - (float)g_ped - oo[x & 15]) / gg[x & 15] + (float)g_ped;
 			d[x] = (uint16_t)clampi((int)lrintf(v * FX), 0, WHITE * FX);
 		}
 	}
@@ -1374,7 +1383,7 @@ static int diag16_tile(const struct dimg *im, int ty, int tx, double *v, double 
 	int qn[3][4] = { { 0 } };
 	for (int py = 0; py < 16; py++)
 		for (int px = 0; px < 16; px++) {
-			double a = im->b[(size_t)(ty + py) * im->S + tx + px] * im->scl - g_ped; v[py * 16 + px] = a;
+			double a = im->b[(size_t)(ty + py) * im->S + tx + px] * im->scl - (float)g_ped; v[py * 16 + px] = a;
 			int grp = d16_grp(im->bayer_out, py, px);
 			gs[grp] += a; gn[grp]++;
 			int c = d16_col(im->bayer_out, py, px);
@@ -1406,7 +1415,7 @@ static void diag16(const uint16_t *b, int S, float scl, int bayer_out, const cha
 	double ss = 0;
 	double sc[3] = { 0, 0, 0 }; int nc[3] = { 0, 0, 0 }; unsigned char cls[256]; memset(cls, 0, sizeof cls);
 	for (int k = 0; k < 8; k++) { cls[kPdPos[k][0] * 16 + kPdPos[k][1]] = 1; cls[kPdPos[k][0] * 16 + (kPdPos[k][1] ^ 1)] = 2; }
-	for (int k = 0; k < 256; k++) { double d = sum[k] / n - 1; ss += d * d; sc[cls[k]] += d * d; nc[cls[k]]++; }
+	for (int k = 0; k < 256; k++) { double d = sum[k] / (double)n - 1; ss += d * d; sc[cls[k]] += d * d; nc[cls[k]]++; }
 	snprintf(out, outsz, "%s n=%ld %.3f%%", tag, n, 100 * sqrt(ss / 256));
 	/* v11: the same deviations split by position class (rms within each class, so the 8 PD and 8 mate positions are not diluted
 	 * among 256): the all-position figure above is sqrt((8*PD^2 + 8*mate^2 + 240*other^2) / 256). */
@@ -1557,7 +1566,7 @@ static inline float lk_level(const uint16_t *in, int S, int x, int y, int c, int
 		const signed char (*o)[2] = g_lo_off[y & 3][x & 3][c]; int m = g_lo_n[y & 3][x & 3][c];
 		const uint16_t *b = in + (size_t)y * S + x;
 		for (int k = 0; k < m; k++) s += b[o[k][0] * S + o[k][1]];
-		return s / m - g_ped;
+		return s / (float)m - (float)g_ped;
 	}
 	for (int dy = -2; dy <= 2; dy++)
 		for (int dx = -2; dx <= 2; dx++) {
@@ -1567,7 +1576,7 @@ static inline float lk_level(const uint16_t *in, int S, int x, int y, int c, int
 			if (qcol(xx, yy) != c) continue;   /* scipy convolve: mask is mirrored the same way */
 			s += in[(size_t)yy * S + xx]; n++;
 		}
-	return n ? s / n - g_ped : 0.0f;
+	return n ? s / (float)n - (float)g_ped : 0.0f;
 }
 static void lk_apply(int y0, int y1, void *p)
 {
@@ -1581,7 +1590,7 @@ static void lk_apply(int y0, int y1, void *p)
 			const float *k = g_lk[y & 3][x & 3];
 			float L1 = lk_level(c->src, S, x, y, g_oc[cc][0], in);
 			float L2 = lk_level(c->src, S, x, y, g_oc[cc][1], in);
-			float v = (s[x] - g_ped - k[1] * L1 - k[2] * L2) / k[0] + g_ped;
+			float v = ((float)(s[x] - g_ped) - k[1] * L1 - k[2] * L2) / k[0] + (float)g_ped;
 			d[x] = (uint16_t)clampi((int)lrintf(v * FX), 0, WHITE * FX);
 		}
 	}
@@ -1601,9 +1610,6 @@ static inline float fexpn(float t)
 	memcpy(&sc, &e, sizeof sc);
 	return p * sc * keep;
 }
-#define LUTN 4096
-#define LUTMAX 16.0f
-static float g_lut[LUTN + 1];
 struct off { int dx; int dy; float sw; };
 static struct off g_offs[4][4][81];           /* same-colour offsets per 4x4 phase */
 static int g_noffs[4][4];
@@ -1615,21 +1621,14 @@ static void dn_phase_offs(int py, int px)
 		for (int dx = -g_dnr; dx <= g_dnr; dx++) {
 			if (g_qcol[(py + dy + 8) & 3][(px + dx + 8) & 3] != g_qcol[py][px]) continue;
 			g_offs[py][px][n].dx = dx; g_offs[py][px][n].dy = dy;
-			g_offs[py][px][n].sw = expf(-(dx * dx + dy * dy) / 8.0f); n++;
+			g_offs[py][px][n].sw = expf((float)(-(dx * dx + dy * dy)) / 8.0f); n++;
 		}
 	g_noffs[py][px] = n;
 }
 static void dn_tables(void)
 {
-	for (int i = 0; i <= LUTN; i++) g_lut[i] = expf(-LUTMAX * i / LUTN);
 	for (int py = 0; py < 4; py++)
 		for (int px = 0; px < 4; px++) dn_phase_offs(py, px);
-}
-static inline float rw(float t)       /* exp(-t), interpolated LUT; 0 beyond LUTMAX */
-{
-	if (t >= LUTMAX) return 0.0f;
-	float f = t * (LUTN / LUTMAX); int i = (int)f; f -= i;
-	return g_lut[i] + (g_lut[i + 1] - g_lut[i]) * f;
 }
 /* Rows are converted to float and split into 4 planes by x&3 (plane[p][k] = pixel 4k+p, with
  * 2 entries of padding each side). For one output phase px all same-colour neighbours at offset
@@ -1653,7 +1652,7 @@ static void dn_border_px(struct ctx *c, int x, int y)
 	const int S = c->stride;
 	int cc = qcol(x, y);
 	float v0 = c->src[(size_t)y * S + x] * IFX;
-	float s2 = c->na * (v0 - g_ped > 0 ? v0 - g_ped : 0) + c->nb;
+	float s2 = c->na * (v0 - (float)g_ped > 0 ? v0 - (float)g_ped : 0) + c->nb;
 	float inv = 1.0f / (2.0f * s2 * g_dn * g_dn + 1e-9f);
 	float num = 0;
 	float den = 0;
@@ -1664,7 +1663,7 @@ static void dn_border_px(struct ctx *c, int x, int y)
 			if (qcol(xx, yy) != cc) continue;
 			float v = c->src[(size_t)yy * S + xx] * IFX;
 			float dd = v - v0;
-			float wgt = expf(-(dx * dx + dy * dy) / 8.0f) * fexpn(dd * dd * inv);
+			float wgt = expf((float)(-(dx * dx + dy * dy)) / 8.0f) * fexpn(dd * dd * inv);
 			num += wgt * v; den += wgt;
 		}
 	c->dst[(size_t)y * S + x] = (uint16_t)clampi((int)lrintf(num / den * FX), 0, WHITE * FX);
@@ -1684,7 +1683,7 @@ static void dn_phase(const struct ctx *c, const struct dnrow *ring, const struct
 	const float *ctr = ring[y % 9].pl[px] + DPAD;
 	for (int k = k0; k < k1; k++) {
 		float v = ctr[k];
-		float s2 = c->na * (v - g_ped > 0 ? v - g_ped : 0) + c->nb;
+		float s2 = c->na * (v - (float)g_ped > 0 ? v - (float)g_ped : 0) + c->nb;
 		v0[k] = v; inv[k] = 1.0f / (2.0f * s2 * g_dn * g_dn + 1e-9f);
 		num[k] = 0; den[k] = 0;
 	}
@@ -1745,8 +1744,8 @@ static void dn_run(int y0, int y1, void *p)
 static void green_px(const struct ctx *c, int16_t *G, int x, int y)
 {
 	const int S = c->stride;
-#define Q(dy, dx) (c->d[(size_t)clampi(y + (dy), 0, g_h - 1) * S + clampi(x + (dx), 0, g_w - 1)] * IFX - g_ped)
-	float q0 = c->d[(size_t)y * S + x] * IFX - g_ped;
+#define Q(dy, dx) (c->d[(size_t)clampi(y + (dy), 0, g_h - 1) * S + clampi(x + (dx), 0, g_w - 1)] * IFX - (float)g_ped)
+	float q0 = c->d[(size_t)y * S + x] * IFX - (float)g_ped;
 	float est;
 	if (qcol(x, y) == CG) { G[(size_t)y * S + x] = (int16_t)lrintf(q0 * FX); return; }
 	int nh;
@@ -1920,10 +1919,10 @@ static void refine_px(const struct ctx *c, int16_t *G2, int x, int y)    /* bord
 			int xx = mir(x + j - 3, g_w);
 			if (qcol(xx, yy) != cc) continue;
 			size_t oo = (size_t)yy * S + xx;
-			num += g_k1[i][j] * (c->d[oo] * IFX - g_ped - G[oo] * IFX); den += g_k1[i][j];
+			num += g_k1[i][j] * (c->d[oo] * IFX - (float)g_ped - G[oo] * IFX); den += g_k1[i][j];
 		}
 	}
-	float q0 = c->d[o] * IFX - g_ped;
+	float q0 = c->d[o] * IFX - (float)g_ped;
 	float dd = num / (den > 1e-9f ? den : 1e-9f);
 	float g2 = (1 - c->mix) * G[o] * IFX + c->mix * (q0 - dd);
 	G2[o] = (int16_t)clampi((int)lrintf(g2 * FX), -32768, 32767);
@@ -2333,7 +2332,7 @@ static void sharpen_run(int y0, int y1, void *p)
 	struct ctx *c = p; const int S = c->stride;
 	const int W = g_w;
 	const int H = g_h;
-	const float amt = g_sharpen / 100.0f;
+	const float amt = (float)g_sharpen / 100.0f;
 	const float ped = (float)g_ped;
 	for (int y = y0; y < y1; y++) {
 		if (y < 1 || y >= H - 1) continue;
@@ -2408,7 +2407,7 @@ static void dp_add(double *sum, const struct dimg *im, int ty, int tx, const dou
 	for (int py = 0; py < 4; py++)
 		for (int px = 0; px < 4; px++) {
 			int c = dp_col(im->bayer_out, py, px);
-			sum[py * 4 + px] += (im->b[(size_t)(ty + py) * im->S + tx + px] * im->scl - g_ped) / (cs[c] / cn[c]);
+			sum[py * 4 + px] += (im->b[(size_t)(ty + py) * im->S + tx + px] * im->scl - (float)g_ped) / (cs[c] / cn[c]);
 		}
 }
 static void dp_report(const char *tag, double (*sum)[16], const long *n)
@@ -2418,7 +2417,7 @@ static void dp_report(const char *tag, double (*sum)[16], const long *n)
 	for (int bi = 0; bi < 5; bi++) {
 		if (n[bi] < 50) { o += snprintf(line + o, sizeof line - o, " [%d-%d) n=%ld -", kDpEdges[bi], kDpEdges[bi + 1], n[bi]); continue; }
 		double ss = 0;
-		for (int k = 0; k < 16; k++) { double d = sum[bi][k] / n[bi] - 1.0; ss += d * d; }
+		for (int k = 0; k < 16; k++) { double d = sum[bi][k] / (double)n[bi] - 1.0; ss += d * d; }
 		o += snprintf(line + o, sizeof line - o, " [%d-%d) n=%ld %.2f", kDpEdges[bi], kDpEdges[bi + 1], n[bi], 100.0 * sqrt(ss / 16));
 	}
 	LOGI("%s", line);
@@ -2453,7 +2452,7 @@ static void diag_clip(const uint16_t *b, int S)
 			if (v >= 1000) hi++;
 			if (v >= 1020) cl++;
 		}
-	LOGI("diag raw clipping: %.2f%% >= 1000, %.2f%% >= 1020 (sampled)", 100.0 * hi / tot, 100.0 * cl / tot);
+	LOGI("diag raw clipping: %.2f%% >= 1000, %.2f%% >= 1020 (sampled)", 100.0 * (double)hi / (double)tot, 100.0 * (double)cl / (double)tot);
 }
 
 /* --------------------------------------------------------------- diag: PDAF behaviour in the raw domain
@@ -2530,16 +2529,16 @@ static void pdraw_levels(const struct pdraw *st)
 	int p1 = -1;
 	int p50 = -1; double mean = 0;
 	for (int i = 0; i < 4096; i++) {
-		mean += (double)i * st->hist[i]; acc += st->hist[i];
-		if (p01 < 0 && acc >= tot * 0.001) p01 = i;
-		if (p1 < 0 && acc >= tot * 0.01) p1 = i;
-		if (p50 < 0 && acc >= tot * 0.5) p50 = i;
+		mean += (double)i * (double)st->hist[i]; acc += st->hist[i];
+		if (p01 < 0 && (double)acc >= (double)tot * 0.001) p01 = i;
+		if (p1 < 0 && (double)acc >= (double)tot * 0.01) p1 = i;
+		if (p50 < 0 && (double)acc >= (double)tot * 0.5) p50 = i;
 	}
 	LOGI("pdraw: raw mean %.1f  p0.1 %d  p1 %d  median %d  max %d  (pedestal assumed %d)", mean / (double)(tot > 0 ? tot : 1), p01, p1, p50, st->vmax, g_ped);
 	char bl[300]; int o = 0; o += snprintf(bl, sizeof bl, "pdraw: mean raw of pixels < pedestal+40, per quad phase [y&3][x&3] (only a true black level in a dark frame):");
 	for (int i = 0; i < 16; i++) {
 		if (o >= (int)sizeof bl - 20) break;
-		o += snprintf(bl + o, sizeof bl - o, st->bc[i] >= 200 ? " %.1f" : " n/a", st->bc[i] ? st->bs[i] / st->bc[i] : 0.0);
+		o += snprintf(bl + o, sizeof bl - o, st->bc[i] >= 200 ? " %.1f" : " n/a", st->bc[i] ? st->bs[i] / (double)st->bc[i] : 0.0);
 	}
 	LOGI("%s", bl);
 }
@@ -2554,7 +2553,7 @@ static void pdraw_ring(const struct pdraw *st, int b, int py, int px, int d, dou
 			int rp = ry * 16 + rx; double rs = 0;
 			double rc = 0;
 			if (st->isp[ry][rx]) continue;
-			for (int cp = 0; cp < 4; cp++) { rs += st->sum[IX(b, cp, rp)]; rc += st->cnt[IX(b, cp, rp)]; }
+			for (int cp = 0; cp < 4; cp++) { rs += st->sum[IX(b, cp, rp)]; rc += (double)st->cnt[IX(b, cp, rp)]; }
 			if (rc < 50) continue;
 			ring[d] += rs / rc; rn[d]++;
 		}
@@ -2570,8 +2569,8 @@ static void pdraw_pos(const struct pdraw *st, int b, int i)
 	double cl = 0;
 	double cpd[4]; char cps[80]; int o2 = 0;
 	for (int cp = 0; cp < 4; cp++) {
-		ps += st->sum[IX(b, cp, pos)]; pc += st->cnt[IX(b, cp, pos)]; cl += st->clp[IX(b, cp, pos)];
-		cpd[cp] = st->cnt[IX(b, cp, pos)] >= 20 ? 100 * st->sum[IX(b, cp, pos)] / st->cnt[IX(b, cp, pos)] : 0.0;
+		ps += st->sum[IX(b, cp, pos)]; pc += (double)st->cnt[IX(b, cp, pos)]; cl += (double)st->clp[IX(b, cp, pos)];
+		cpd[cp] = st->cnt[IX(b, cp, pos)] >= 20 ? 100 * st->sum[IX(b, cp, pos)] / (double)st->cnt[IX(b, cp, pos)] : 0.0;
 		o2 += snprintf(cps + o2, sizeof cps - o2, st->cnt[IX(b, cp, pos)] >= 20 ? " %+.0f" : " n/a", cpd[cp]);
 	}
 	for (int d = 1; d <= 3; d++) pdraw_ring(st, b, py, px, d, ring, rn);
@@ -2651,8 +2650,8 @@ static int pdcol_tile(const struct pdcol *st, int ty, int tx, double m[3], int o
 		}
 	if (clipped) return 0;
 	for (int k = 0; k < 3; k++) {
-		m[k] = s1[k] / n[k];
-		double sd = sqrt(s2[k] / n[k] - m[k] * m[k] > 0 ? s2[k] / n[k] - m[k] * m[k] : 0);
+		m[k] = s1[k] / (double)n[k];
+		double sd = sqrt(s2[k] / (double)n[k] - m[k] * m[k] > 0 ? s2[k] / (double)n[k] - m[k] * m[k] : 0);
 		okc[k] = !(m[k] < 16 || sd > 0.05 * m[k] + 6);
 	}
 	/* only green and the type's own slot colour need to be flat and above noise: a warm-lit scene has almost no blue */
@@ -2856,10 +2855,10 @@ static int pdmix_tile(struct pdmix *st, int ty, int tx, double m[3])
 		}
 	if (clipped) return 0;
 	for (int k = 0; k < 3; k++) {
-		m[k] = n[k] ? s1[k] / n[k] : 0;
+		m[k] = n[k] ? s1[k] / (double)n[k] : 0;
 		double sd = 1e9;
 		if (n[k]) {
-			double var = s2[k] / n[k] - m[k] * m[k];
+			double var = s2[k] / (double)n[k] - m[k] * m[k];
 			sd = sqrt(var > 0 ? var : 0);
 		}
 		if (sd > 0.05 * (m[k] > 0 ? m[k] : 0) + 6) ok = 0;      /* the third colour may be small, but it must be flat */
@@ -2931,7 +2930,7 @@ static void pdmix_report_pos(const struct pdmix *st, int k)
 	if (st->N[k][0] + st->N[k][1] < 300 || !pm_solve(AA, BB, 4, x4)) return;
 	LOGI("pdmix pos (%2d,%2d) %s: R %+.3f G %+.3f B %+.3f off %+5.2f DN  n=%.0f", pdmix_py(st, k), pdmix_px(st, k), k < 8 ? "PD  " : "mate", x4[0], x4[1], x4[2], x4[3], st->N[k][0] + st->N[k][1]);
 }
-static inline double ratio0(double s, double n) { return n ? s / n : 0.0; }
+static inline double ratio0(double s, double n) { return n != 0.0 ? s / n : 0.0; }
 static void diag_pdmix(const uint16_t *in, int S)
 {
 	static struct pdmix st;
@@ -3252,8 +3251,8 @@ static int pdc_tile_stats(const uint16_t *in, int S, int ty, int tx, unsigned ch
 		}
 	if (clipped) return 0;
 	for (int c = 0; c < 3; c++) {
-		double m = n[c] ? s1[c] / n[c] : 0;
-		double var = n[c] ? s2[c] / n[c] - m * m : 1e9;
+		double m = n[c] ? s1[c] / (double)n[c] : 0;
+		double var = n[c] ? s2[c] / (double)n[c] - m * m : 1e9;
 		t->m[c] = m; flat[c] = sqrt(var > 0 ? var : 0) <= 0.05 * (m > 0 ? m : 0) + 6;
 	}
 	if (!flat[CG] || t->m[CG] < 16 || t->m[CG] >= 600) return 0;
@@ -3439,7 +3438,7 @@ EXPORT int remosaic_init(int img_w, int img_h, int bayer_order, int pedestal)
 	g_pdthr = prop_int("persist.vendor.remoshim.pdthr", 150) / 1000.0;
 	g_t16 = prop_int("persist.vendor.remoshim.tile16", 1);
 	g_acc = prop_int("persist.vendor.remoshim.acc", 1);
-	g_dn = prop_int("persist.vendor.remoshim.dn", 20) / 10.0f;
+	g_dn = (float)prop_int("persist.vendor.remoshim.dn", 20) / 10.0f;
 	g_lo = (float)prop_int("persist.vendor.remoshim.gatelo", 15);
 	g_hi = (float)prop_int("persist.vendor.remoshim.gatehi", 35);
 	g_inplace = prop_int("persist.vendor.remoshim.inplace", 1);
