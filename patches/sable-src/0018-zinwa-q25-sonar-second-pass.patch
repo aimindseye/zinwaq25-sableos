@@ -1,0 +1,402 @@
+diff --git a/sable-src/apps/common/reader/core/build.gradle.kts b/sable-src/apps/common/reader/core/build.gradle.kts
+index 8ccf161..d15d436 100644
+--- a/sable-src/apps/common/reader/core/build.gradle.kts
++++ b/sable-src/apps/common/reader/core/build.gradle.kts
+@@ -126,6 +126,8 @@ room {
+     schemaDirectory("$projectDir/schemas")
+ }
+ tasks.register<JacocoReport>("jacocoDebugUnitTestReport") {
++    group = "verification"
++    description = "Writes the JaCoCo coverage report for the debug unit tests."
+     dependsOn("testDebugUnitTest")
+ 
+     reports {
+diff --git a/sable-src/apps/common/reader/leisure/build.gradle.kts b/sable-src/apps/common/reader/leisure/build.gradle.kts
+index 30bc173..5fe040f 100644
+--- a/sable-src/apps/common/reader/leisure/build.gradle.kts
++++ b/sable-src/apps/common/reader/leisure/build.gradle.kts
+@@ -174,6 +174,8 @@ tasks.dokkaHtml {
+ }
+ 
+ tasks.register<JacocoReport>("jacocoDebugUnitTestReport") {
++    group = "verification"
++    description = "Writes the JaCoCo coverage report for the debug unit tests."
+     dependsOn("testDebugUnitTest")
+ 
+     reports {
+diff --git a/sable-src/apps/r8/android/textreader/app/build.gradle.kts b/sable-src/apps/r8/android/textreader/app/build.gradle.kts
+index 4b0c2d2..aaa2188 100644
+--- a/sable-src/apps/r8/android/textreader/app/build.gradle.kts
++++ b/sable-src/apps/r8/android/textreader/app/build.gradle.kts
+@@ -119,49 +119,41 @@ dependencies {
+     implementation(libs.androidx.lifecycle.runtime.ktx)
+     implementation(libs.androidx.activity.compose)
+ 
+-    // Compose UI & Material 3
++    // Compose UI & Material 3, and the extended Material icons (Clear, Translate, Settings)
+     implementation(platform(libs.androidx.compose.bom))
+     implementation(libs.androidx.compose.ui)
+     implementation(libs.androidx.compose.ui.graphics)
+     implementation(libs.androidx.compose.ui.tooling.preview)
+     implementation(libs.androidx.compose.material3)
++    implementation(libs.androidx.compose.material.icons.extended)
+ 
+-    // Google ML Kit Translation
+-    implementation("com.google.mlkit:translate:17.0.3")
++    // CameraX
++    implementation(libs.androidx.camera.camera2)
++    implementation(libs.androidx.camera.lifecycle)
++    implementation(libs.androidx.camera.view)
+ 
+-    // Extended Material Icons (for the Clear, Translate, and Settings icons)
+-    implementation("androidx.compose.material:material-icons-extended")
+-
+-// Unit Testing (Pure JVM)
+-    testImplementation("junit:junit:4.13.2")
+-
+-    // Android UI Testing (Explicit strings to guarantee they resolve)
+-    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+-    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+-    androidTestImplementation(platform("androidx.compose:compose-bom:2024.02.00"))
+-    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+-    androidTestImplementation("org.mockito:mockito-android:5.12.0")
+-    testImplementation("org.mockito:mockito-core:5.11.0")
+-    testImplementation("org.mockito.kotlin:mockito-kotlin:5.2.1")
+-
+-    // Debugging tools for Compose tests
+-    debugImplementation("androidx.compose.ui:ui-tooling")
+-    debugImplementation("androidx.compose.ui:ui-test-manifest")
+-    // Required for createComposeRule() to launch its empty testing Activity
+-    debugImplementation("androidx.compose.ui:ui-test-manifest:1.6.0") // (Use whatever your Compose version is)
+-
+-    // CameraX core library
+-    val camerax_version = "1.3.1"
+-    implementation("androidx.camera:camera-camera2:$camerax_version")
+-    implementation("androidx.camera:camera-lifecycle:$camerax_version")
+-    implementation("androidx.camera:camera-view:$camerax_version")
+-
+-    // ML Kit Text Recognition (OCR)
+-    implementation("com.google.mlkit:text-recognition:16.0.0")
++    // Google ML Kit: translation, and text recognition (Latin for English, Devanagari for Hindi, Marathi, Sanskrit)
++    implementation(libs.mlkit.translate)
++    implementation(libs.mlkit.text.recognition)
++    implementation(libs.mlkit.text.recognition.devanagari)
+ 
+     // Accompanist Permissions (to handle Camera permission easily in Compose)
+-    implementation("com.google.accompanist:accompanist-permissions:0.34.0")
+-
+-    implementation("com.google.mlkit:text-recognition:16.0.1") // Latin (English)
+-    implementation("com.google.mlkit:text-recognition-devanagari:16.0.1") // Hindi, Marathi, Sanskrit
++    implementation(libs.accompanist.permissions)
++
++    // Unit Testing (Pure JVM)
++    testImplementation(libs.junit)
++    testImplementation(libs.mockito.core)
++    testImplementation(libs.mockito.kotlin)
++
++    // Android UI Testing
++    androidTestImplementation(libs.androidx.junit)
++    androidTestImplementation(libs.androidx.espresso.core)
++    androidTestImplementation(platform(libs.androidx.compose.bom.androidtest))
++    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
++    androidTestImplementation(libs.mockito.android)
++
++    // Debugging tools for Compose tests; ui-test-manifest is required for createComposeRule() to launch its empty
++    // testing Activity
++    debugImplementation(libs.androidx.compose.ui.tooling)
++    debugImplementation(libs.androidx.compose.ui.test.manifest)
+ }
+diff --git a/sable-src/apps/r8/android/textreader/gradle/libs.versions.toml b/sable-src/apps/r8/android/textreader/gradle/libs.versions.toml
+index 6775d82..14c7cf9 100644
+--- a/sable-src/apps/r8/android/textreader/gradle/libs.versions.toml
++++ b/sable-src/apps/r8/android/textreader/gradle/libs.versions.toml
+@@ -2,18 +2,26 @@
+ agp = "9.0.1"
+ coreKtx = "1.18.0"
+ junit = "4.13.2"
+-junitVersion = "1.3.0"
+-espressoCore = "3.7.0"
+ lifecycleRuntimeKtx = "2.6.1"
+ activityCompose = "1.13.0"
+ kotlin = "2.0.21"
+ composeBom = "2024.09.00"
++composeBomAndroidTest = "2024.02.00"
++androidxJunit = "1.1.5"
++espressoCoreAndroidTest = "3.5.1"
++camerax = "1.3.1"
++mlkitTranslate = "17.0.3"
++mlkitTextRecognition = "16.0.1"
++accompanist = "0.34.0"
++mockitoAndroid = "5.12.0"
++mockitoCore = "5.11.0"
++mockitoKotlin = "5.2.1"
+ 
+ [libraries]
+ androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+ junit = { group = "junit", name = "junit", version.ref = "junit" }
+-androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
+-androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
++androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxJunit" }
++androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCoreAndroidTest" }
+ androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
+ androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
+ androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+@@ -24,6 +32,18 @@ androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "u
+ androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
+ androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
+ androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
++androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
++androidx-compose-bom-androidtest = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBomAndroidTest" }
++androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "camerax" }
++androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camerax" }
++androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
++mlkit-translate = { group = "com.google.mlkit", name = "translate", version.ref = "mlkitTranslate" }
++mlkit-text-recognition = { group = "com.google.mlkit", name = "text-recognition", version.ref = "mlkitTextRecognition" }
++mlkit-text-recognition-devanagari = { group = "com.google.mlkit", name = "text-recognition-devanagari", version.ref = "mlkitTextRecognition" }
++accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanist" }
++mockito-android = { group = "org.mockito", name = "mockito-android", version.ref = "mockitoAndroid" }
++mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockitoCore" }
++mockito-kotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", version.ref = "mockitoKotlin" }
+ 
+ [plugins]
+ android-application = { id = "com.android.application", version.ref = "agp" }
+diff --git a/sable-src/apps/r8/mail/apply_sable_flavor.py b/sable-src/apps/r8/mail/apply_sable_flavor.py
+index 72b295c..254fc44 100644
+--- a/sable-src/apps/r8/mail/apply_sable_flavor.py
++++ b/sable-src/apps/r8/mail/apply_sable_flavor.py
+@@ -49,7 +49,9 @@ def remove_exact_count(path: Path, old: str, expected: int) -> None:
+             "SABLE_MAIL_PATCH_ANCHOR=FAIL "
+             f"path={path} count={count} expected={expected} anchor={old!r}"
+         )
+-    path.write_text(text.replace(old, ""), encoding="utf-8")
++    # The checkout path is the operator's own command-line argument, and in_checkout() has already refused any
++    # path that resolves outside it, so this write cannot leave the checkout.
++    path.write_text(text.replace(old, ""), encoding="utf-8")  # NOSONAR(S2083)
+ 
+ 
+ def write(path: Path, content: str) -> None:
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml
+index a096f43..f0ea89a 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml
+@@ -105,11 +105,15 @@
+           It re-checks on every code (android/SecretCodeSync): when a vendor factory-test app answers the code
+           (core/DialerCodes.receiverEnabled), it launches nothing and disables itself, so it never doubles up with a
+           vendor surface.
++          Only the telephony stack sends SECRET_CODE (TelephonyManager.sendDialerSpecialCode broadcasts it from the
++          phone process), so the receiver requires MODIFY_PHONE_STATE, which only that signature|privileged sender
++          holds. Other apps cannot reach it.
+         -->
+         <receiver
+             android:name=".android.SecretCodeReceiver"
+             android:enabled="true"
+-            android:exported="true">
++            android:exported="true"
++            android:permission="android.permission.MODIFY_PHONE_STATE">
+             <intent-filter>
+                 <action android:name="android.telephony.action.SECRET_CODE" />
+                 <data android:scheme="android_secret_code" android:host="3377" />
+diff --git a/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/KeyboardTraitsTest.kt b/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/KeyboardTraitsTest.kt
+index 85749eb..becfc8d 100644
+--- a/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/KeyboardTraitsTest.kt
++++ b/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/KeyboardTraitsTest.kt
+@@ -149,5 +149,6 @@ class KeyboardTraitsTest {
+         val receiver = Regex("<receiver[^>]*SecretCodeReceiver[^>]*>")
+             .find(manifest.readText())?.value.orEmpty()
+         assertTrue(receiver.contains("android:enabled=\"true\""))
++        assertTrue(receiver.contains("android:permission=\"android.permission.MODIFY_PHONE_STATE\""))
+     }
+ }
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+index e335a1e..912fd58 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+@@ -356,7 +356,6 @@ fun SableStartScreen(
+                                 LiveSurfaceScreen(
+                                     snapshot = liveSnapshot,
+                                     apps = apps,
+-                                    onBack = { movePage(1) },
+                                     onRequestPermissions = onRequestLivePermissions,
+                                     title = "glance",
+                                 )
+@@ -479,7 +478,6 @@ fun SableStartScreen(
+                             LiveSurfaceScreen(
+                                 snapshot = liveSnapshot,
+                                 apps = apps,
+-                                onBack = ::navigateBack,
+                                 onRequestPermissions = onRequestLivePermissions,
+                             )
+                         }
+@@ -1169,7 +1167,7 @@ private fun SableControlShortcut(
+         contentAlignment = Alignment.Center,
+     ) {
+         SableGlyphIcon(
+-            packageName = "com.android.settings",
++            packageName = SETTINGS_PACKAGE,
+             accent = SableSlate,
+             modifier = Modifier.size(46.dp),
+             compact = true,
+@@ -1274,7 +1272,7 @@ private fun MetroTile(
+         tile.app.component.packageName in
+             setOf(HUB_PACKAGE, WEATHER_PACKAGE, MAIL_PACKAGE) ||
+             tile.app.label.equals(HUB_LABEL, ignoreCase = true) ||
+-            tile.app.label.equals("Sable Messages", ignoreCase = true) ||
++            tile.app.label.equals(MESSAGES_LABEL, ignoreCase = true) ||
+             tile.app.label.equals(WEATHER_LABEL, ignoreCase = true) ||
+             tile.app.label.equals(MAIL_LABEL, ignoreCase = true)
+ 
+@@ -1463,7 +1461,7 @@ private fun approvedWideContent(
+                 third =
+                     parts.drop(1).joinToString(" · ")
+                         .replace("playing", "▶")
+-                        .ifBlank { "Sable Media" },
++                        .ifBlank { MEDIA_LABEL },
+             )
+         }
+ 
+@@ -1498,7 +1496,7 @@ private fun approvedMetric(
+ 
+         app.component.packageName == HUB_PACKAGE ||
+             app.label.equals(HUB_LABEL, ignoreCase = true) ||
+-            app.label.equals("Sable Messages", ignoreCase = true) -> {
++            app.label.equals(MESSAGES_LABEL, ignoreCase = true) -> {
+             val count =
+                 detail.substringBefore(" ")
+                     .takeIf { it.all(Char::isDigit) }
+@@ -2493,7 +2491,7 @@ private fun approvedGlyphPackage(app: AppEntry): String? {
+         app.label.equals("Phone", ignoreCase = true) -> DIALER_PACKAGE
+         app.label.equals(HUB_LABEL, ignoreCase = true) ||
+             app.label.equals("Hub", ignoreCase = true) ||
+-            app.label.equals("Sable Messages", ignoreCase = true) ||
++            app.label.equals(MESSAGES_LABEL, ignoreCase = true) ||
+             app.label.equals("Messages", ignoreCase = true) -> HUB_PACKAGE
+         app.label.equals(MAIL_LABEL, ignoreCase = true) ||
+             app.label.equals("Mail", ignoreCase = true) -> MAIL_PACKAGE
+@@ -2503,15 +2501,15 @@ private fun approvedGlyphPackage(app: AppEntry): String? {
+             app.label.equals("Weather", ignoreCase = true) -> WEATHER_PACKAGE
+         app.label.equals("Photos", ignoreCase = true) ||
+             app.label.equals("Gallery", ignoreCase = true) -> GALLERY_PACKAGE
+-        app.label.equals("Sable Media", ignoreCase = true) ||
++        app.label.equals(MEDIA_LABEL, ignoreCase = true) ||
+             app.label.equals("Media", ignoreCase = true) -> MEDIA_PACKAGE
+         app.label.equals("Camera", ignoreCase = true) -> "app.grapheneos.camera"
+-        app.label.equals("Sable Calculator", ignoreCase = true) ||
++        app.label.equals(CALCULATOR_LABEL, ignoreCase = true) ||
+             app.label.equals("Calculator", ignoreCase = true) -> CALCULATOR_PACKAGE
+         app.label.equals("Files", ignoreCase = true) -> FILES_PACKAGE
+         app.label.equals("Clock", ignoreCase = true) -> "com.android.deskclock"
+         app.label.equals("Vanadium", ignoreCase = true) -> "app.vanadium.browser"
+-        app.label.equals("Settings", ignoreCase = true) -> "com.android.settings"
++        app.label.equals("Settings", ignoreCase = true) -> SETTINGS_PACKAGE
+         else -> null
+     }
+ }
+@@ -2943,7 +2941,6 @@ private fun AccentChoiceRow(
+ private fun LiveSurfaceScreen(
+     snapshot: LiveSurfaceSnapshot,
+     apps: List<AppEntry>,
+-    onBack: () -> Unit,
+     onRequestPermissions: () -> Unit,
+     title: String = "live",
+ ) {
+@@ -3002,7 +2999,7 @@ private fun LiveSurfaceScreen(
+             )
+             ApprovedLiveRow(
+                 app = findLiveApp(apps, MEDIA_PACKAGE),
+-                title = "Sable Media",
++                title = MEDIA_LABEL,
+                 datum = snapshot.music,
+                 kind = "media",
+             )
+@@ -3439,7 +3436,7 @@ private fun preferredStartRank(app: AppEntry): Int {
+ 
+ private fun isSettingsApp(app: AppEntry): Boolean =
+     app.label.equals("Settings", ignoreCase = true) ||
+-        app.component.packageName == "com.android.settings"
++        app.component.packageName == SETTINGS_PACKAGE
+ 
+ private fun appMark(app: AppEntry): String =
+     app.label
+@@ -3452,7 +3449,7 @@ private fun appColor(app: AppEntry): Color =
+     when {
+         app.component.packageName == HUB_PACKAGE ||
+             app.label.equals(HUB_LABEL, ignoreCase = true) ||
+-            app.label.equals("Sable Messages", ignoreCase = true) -> SableGreen
++            app.label.equals(MESSAGES_LABEL, ignoreCase = true) -> SableGreen
+         app.component.packageName == MAIL_PACKAGE ||
+             app.label.equals(MAIL_LABEL, ignoreCase = true) -> SableSlate
+         app.component.packageName == CALENDAR_PACKAGE ||
+@@ -3460,14 +3457,14 @@ private fun appColor(app: AppEntry): Color =
+         app.component.packageName == WEATHER_PACKAGE ||
+             app.label.equals(WEATHER_LABEL, ignoreCase = true) -> SableBlue
+         app.component.packageName == MEDIA_PACKAGE ||
+-            app.label.equals("Sable Media", ignoreCase = true) -> SablePurple
++            app.label.equals(MEDIA_LABEL, ignoreCase = true) -> SablePurple
+         CoreAppIdentity.isRole(app.component.packageName, CoreAppIdentity.PHOTOS) ||
+             app.label.equals("Photos", ignoreCase = true) -> SablePurple
+         CoreAppIdentity.isRole(app.component.packageName, CoreAppIdentity.CAMERA) ||
+             app.component.packageName == CoreAppIdentity.SABLE_CAMERA ||
+             app.label.equals("Camera", ignoreCase = true) -> SableSlate
+         app.component.packageName == CALCULATOR_PACKAGE ||
+-            app.label.equals("Sable Calculator", ignoreCase = true) -> SableBlue
++            app.label.equals(CALCULATOR_LABEL, ignoreCase = true) -> SableBlue
+         app.component.packageName == FILES_PACKAGE ||
+             app.label.equals("Files", ignoreCase = true) -> SableOrange
+         app.component.packageName == DIALER_PACKAGE ||
+@@ -3491,13 +3488,13 @@ private fun liveDatumForApp(
+             app.label.equals("Calendar", ignoreCase = true) -> snapshot.calendar
+         app.component.packageName == HUB_PACKAGE ||
+             app.label.equals(HUB_LABEL, ignoreCase = true) ||
+-            app.label.equals("Sable Messages", ignoreCase = true) -> snapshot.messages
++            app.label.equals(MESSAGES_LABEL, ignoreCase = true) -> snapshot.messages
+         app.component.packageName == MAIL_PACKAGE ||
+             app.label.equals(MAIL_LABEL, ignoreCase = true) -> snapshot.mail
+         app.component.packageName == WEATHER_PACKAGE ||
+             app.label.equals(WEATHER_LABEL, ignoreCase = true) -> snapshot.weather
+         app.component.packageName == MEDIA_PACKAGE ||
+-            app.label.equals("Sable Media", ignoreCase = true) -> snapshot.music
++            app.label.equals(MEDIA_LABEL, ignoreCase = true) -> snapshot.music
+         CoreAppIdentity.isRole(app.component.packageName, CoreAppIdentity.PHOTOS) ||
+             app.label.equals("Photos", ignoreCase = true) -> snapshot.photos
+         else -> null
+@@ -3521,7 +3518,7 @@ private val PREFERRED_START_APP_GROUPS =
+         ),
+         PreferredStartAppGroup(
+             packageNames = listOf(HUB_PACKAGE),
+-            labels = listOf(HUB_LABEL, "Hub", "Sable Messages", "Messages"),
++            labels = listOf(HUB_LABEL, "Hub", MESSAGES_LABEL, "Messages"),
+         ),
+         PreferredStartAppGroup(
+             packageNames = listOf(WEATHER_PACKAGE),
+@@ -3529,7 +3526,7 @@ private val PREFERRED_START_APP_GROUPS =
+         ),
+         PreferredStartAppGroup(
+             packageNames = listOf(MEDIA_PACKAGE),
+-            labels = listOf("Sable Media", "Media"),
++            labels = listOf(MEDIA_LABEL, "Media"),
+         ),
+         PreferredStartAppGroup(
+             packageNames = listOf(MAIL_PACKAGE),
+@@ -3549,7 +3546,7 @@ private val PREFERRED_START_APP_GROUPS =
+         ),
+         PreferredStartAppGroup(
+             packageNames = listOf(CALCULATOR_PACKAGE),
+-            labels = listOf("Sable Calculator", "Calculator"),
++            labels = listOf(CALCULATOR_LABEL, "Calculator"),
+         ),
+         PreferredStartAppGroup(
+             packageNames = listOf(FILES_PACKAGE),
+@@ -3571,9 +3568,13 @@ private const val DIALER_PACKAGE = "com.android.dialer"
+ private const val GALLERY_PACKAGE = "com.android.gallery3d"
+ private const val CALCULATOR_PACKAGE = "org.sableos.calculator"
+ private const val FILES_PACKAGE = "com.android.documentsui"
++private const val SETTINGS_PACKAGE = "com.android.settings"
+ private const val HUB_LABEL = "Sable Hub"
+ private const val WEATHER_LABEL = "Sable Weather"
+ private const val MAIL_LABEL = "Sable Mail"
++private const val MESSAGES_LABEL = "Sable Messages"
++private const val MEDIA_LABEL = "Sable Media"
++private const val CALCULATOR_LABEL = "Sable Calculator"
+ private const val START_PAGE_COUNT = 3
+ private const val START_PAGE_GLANCE = 0
+ private const val START_PAGE_CENTER = 1
