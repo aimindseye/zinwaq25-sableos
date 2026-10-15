@@ -113,12 +113,13 @@ product/q25/              Sable product layer copied to vendor/sable/q25
 device-profile/           Q25 hardware capability profile and key map
 apps/                     how the Sable application sources are managed
 sable-src/                Sable app sources imported from SableOS (pinned commit)
-patches/sable-src/        Q25 changes re-applied to sable-src/ after every import (0001-0011)
+patches/sable-src/        Q25 changes re-applied to sable-src/ after every import (0001-0018)
 patches/framework/        Q4 patches to LineageOS 23.2 projects (Settings, SystemUI, Dialer, ...)
 product/common/overlay/   Q4 static overlays (framework, SystemUI, SetupWizard, Glimpse, Gallery2)
 docs/                     guides
 tests/run.sh              static checks and host unit tests
-.github/workflows/        GitHub Actions: checks, Sable apps, Rust, Security
+sonar-project.properties  SonarCloud analysis scope (scripts/sonar-compile-commands.sh feeds the C shim)
+.github/workflows/        GitHub Actions: checks, Sable apps, Rust, Security, SonarCloud
 ```
 
 ## Continuous integration
@@ -131,8 +132,12 @@ GitHub Actions runs on every pull request and on `main`:
 | `Sable apps` | `scripts/build-apps.sh` for each Gradle project (platform apps, r8 apps, Reader, Mail, Text Reader) with unit tests, Android Lint, detekt, ktlint and Kover |
 | `Rust` | fmt, clippy, tests, `cargo audit`, `cargo deny`, coverage for `sable-src/apps/r8/rust` |
 | `Security` | Gitleaks history scan and MobSF source scan (also weekly) |
+| `SonarCloud` | SonarCloud scan of the whole repository (Kotlin, Java, C, Python, shell, XML), waiting on the "Sonar way" quality gate |
 
-`Sable apps` and `Rust` only run when their sources change. The LineageOS image
+`Sable apps` and `Rust` only run when their sources change. SonarCloud runs as
+CI-based analysis, so Automatic Analysis must stay off in the SonarCloud
+project. The only open SonarCloud findings on `main` are the 25 `restrict`
+qualifiers in the camera shim, kept on purpose. The LineageOS image
 is too large for hosted runners and is built on a build host. Details:
 [`docs/BUILD.md`](docs/BUILD.md#7-github-actions).
 
