@@ -97,7 +97,11 @@ fbd_plan=()  # fastbootd commands for logical partitions
 add() { plan+=("$*"); }
 # Name both slots: the Q25 bootloader reports vbmeta_system/vbmeta_vendor as
 # unslotted, so "fastboot flash --slot=all" writes the bare name and fails.
-add_ab() { add "flash ${1}_a $2"; add "flash ${1}_b $2"; }
+add_ab() {
+    local part="$1" image="$2"
+    add "flash ${part}_a $image"
+    add "flash ${part}_b $image"
+}
 
 for p in "${BOOT_SET[@]}"; do
     [[ -n "${image_for[$p]:-}" ]] || sable_fail "stock archive has no $p image; it is required to undo a SableOS install"
