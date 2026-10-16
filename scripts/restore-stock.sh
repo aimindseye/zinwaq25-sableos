@@ -4,7 +4,7 @@
 #
 # Scopes:
 #   sable  (default) everything a SableOS/LineageOS install writes: boot, dtbo,
-#          vendor_boot, vbmeta, vbmeta_system, vbmeta_vendor (both slots) and
+#          vendor_boot, vbmeta, vbmeta_system, vbmeta_vendor (_a and _b) and
 #          super or its logical partitions.
 #   full   every image in the archive that maps to a known partition, both
 #          slots, except partitions that hold device identity or user data.
@@ -95,14 +95,13 @@ fi
 plan=()      # bootloader-mode commands, one per line
 fbd_plan=()  # fastbootd commands for logical partitions
 add() { plan+=("$*"); }
+# Name both slots: the Q25 bootloader reports vbmeta_system/vbmeta_vendor as
+# unslotted, so "fastboot flash --slot=all" writes the bare name and fails.
+add_ab() { add "flash ${1}_a $2"; add "flash ${1}_b $2"; }
 
 for p in "${BOOT_SET[@]}"; do
     [[ -n "${image_for[$p]:-}" ]] || sable_fail "stock archive has no $p image; it is required to undo a SableOS install"
-    if [[ "$p" == vbmeta ]]; then
-        add "flash --slot=all vbmeta ${image_for[$p]}"
-    else
-        add "flash --slot=all $p ${image_for[$p]}"
-    fi
+    add_ab "$p" "${image_for[$p]}"
 done
 
 if [[ -n "${image_for[super]:-}" ]]; then
@@ -120,13 +119,13 @@ if [[ "$SCOPE" == full ]]; then
             if [[ "$p" == logo ]]; then
                 add "flash logo ${image_for[$p]}"
             else
-                add "flash --slot=all $p ${image_for[$p]}"
+                add_ab "$p" "${image_for[$p]}"
             fi
         fi
     done
     if [[ -n "${image_for[preloader]:-}" ]]; then
         if [[ "$PRELOADER" == YES ]]; then
-            add "flash --slot=all preloader ${image_for[preloader]}"
+            add "flash preloader ${image_for[preloader]}"
         else
             sable_log "skipping preloader (pass --include-preloader to flash it)"
         fi

@@ -360,9 +360,10 @@ printf x > "$img/preloader_q20_v12_factory.bin"
 if out="$(bash scripts/restore-stock.sh --images "$img" --scope full 2>/dev/null)"; then
     ok=yes
     grep -q '^RESTORE=PLAN_ONLY' <<<"$out" || ok=no
-    grep -q 'flash --slot=all vendor_boot ' <<<"$out" || ok=no
+    grep -q 'flash vendor_boot_a ' <<<"$out" && grep -q 'flash vendor_boot_b ' <<<"$out" || ok=no
+    grep -q 'slot=all' <<<"$out" && ok=no
     grep -q 'flash super ' <<<"$out" || ok=no
-    grep -q 'flash --slot=all lk ' <<<"$out" || ok=no
+    grep -q 'flash lk_a ' <<<"$out" || ok=no
     grep -Eq 'flash [^ ]* ?(nvram|nvdata|proinfo|userdata|preloader) ' <<<"$out" && ok=no
     grep -q -- "fastboot -w" <<<"$out" && ok=no
     [[ "$ok" == yes ]] && pass "restore-stock plan" || fail "restore-stock plan wrong: $out"
@@ -380,7 +381,7 @@ while IFS= read -r f; do mkdir -p "$gms/$(dirname "$f")"; printf x > "$gms/$f"; 
 if out="$(bash scripts/restore-stock.sh --images "$gms" --scope full 2>/dev/null)"; then
     ok=yes
     for p in boot dtbo vendor_boot vbmeta vbmeta_system vbmeta_vendor lk tee md1img; do
-        grep -q "flash --slot=all $p $gms/$p.img" <<<"$out" || ok=no
+        grep -q "flash ${p}_a $gms/$p.img" <<<"$out" && grep -q "flash ${p}_b $gms/$p.img" <<<"$out" || ok=no
     done
     grep -q "flash super $gms/super.img" <<<"$out" || ok=no
     grep -q "flash logo $gms/logo.bin" <<<"$out" || ok=no
