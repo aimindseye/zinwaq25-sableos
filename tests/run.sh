@@ -170,7 +170,7 @@ if out="$(stagerun Q4 --apps-dir "$tmp/apps/run")"; then
     grep -q 'SableNoUpdater' "$v/sable-q25-framework.mk" || ok=no
     grep -q '^SABLE_Q25_NO_UPDATER := true' "$v/sable-q25-framework.mk" || ok=no
     grep -q 'overrides: \["Updater"\]' "$v/updater/Android.bp" || ok=no
-    grep -q 'ifneq ($(SABLE_Q25_NO_UPDATER),true)' "$v/sable-q25.mk" || ok=no
+    grep -qF "ifneq (\$(SABLE_Q25_NO_UPDATER),true)" "$v/sable-q25.mk" || ok=no
     [[ "$ok" == yes ]] && pass "stage Q4 adds framework layer" || fail "stage Q4: generated files wrong: $out"
 else
     fail "stage Q4: $(cat "$tmp/err")"
