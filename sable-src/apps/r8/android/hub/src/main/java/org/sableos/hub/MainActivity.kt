@@ -42,6 +42,7 @@ class MainActivity : ComponentActivity() {
     private var pendingHandoff by mutableStateOf<Intent?>(null)
     private var pendingThreadId by mutableStateOf<Long?>(null)
     private var pendingQuery by mutableStateOf<HubLaunchQuery?>(null)
+    private var pendingAddress by mutableStateOf<String?>(null)
     private val mainHandler = Handler(Looper.getMainLooper())
     private val providerRefresh = Runnable { refreshGeneration += 1 }
     private var providerObserversRegistered = false
@@ -80,6 +81,7 @@ class MainActivity : ComponentActivity() {
         // A recreated activity keeps its own route; only a fresh launch applies the query.
         if (savedInstanceState == null) {
             pendingQuery = launchQueryFrom(intent)
+            pendingAddress = conversationAddressFrom(intent)
         }
         contentResolver.registerContentObserver(
             ConnectedAppsRepository.HISTORY_URI,
@@ -227,6 +229,10 @@ class MainActivity : ComponentActivity() {
                     onPendingThreadConsumed = {
                         pendingThreadId = null
                     },
+                    pendingAddress = pendingAddress,
+                    onPendingAddressConsumed = {
+                        pendingAddress = null
+                    },
                     combineConversations = combineConversations,
                     loadAppIcon = ::loadAppIcon,
                 )
@@ -257,17 +263,24 @@ class MainActivity : ComponentActivity() {
             refreshGeneration += 1
         }
         launchQueryFrom(intent)?.let { query -> pendingQuery = query }
+        conversationAddressFrom(intent)?.let { address -> pendingAddress = address }
     }
 
+    /** Command's search text and/or Start's filter (ACTION_MAIN extras); null for a plain launch. */
     private fun launchQueryFrom(intent: Intent?): HubLaunchQuery? {
-        val query =
-            intent
-                ?.takeIf { it.action == Intent.ACTION_MAIN }
-                ?.let { HubIntents.launchQuery(it.getStringExtra(HubIntents.EXTRA_QUERY)) }
-                ?: return null
+        val launch = intent?.takeIf { it.action == Intent.ACTION_MAIN } ?: return null
+        val query = HubIntents.launchQuery(launch.getStringExtra(HubIntents.EXTRA_QUERY))
+        val filter = HubIntents.launchFilter(launch.getStringExtra(HubIntents.EXTRA_FILTER))
+        if (query == null && filter == null) return null
         launchQuerySequence += 1
-        return HubLaunchQuery(query, launchQuerySequence)
+        return HubLaunchQuery(query.orEmpty(), launchQuerySequence, filter)
     }
+
+    /** Contacts' Hub route chip: the address whose conversation to open. */
+    private fun conversationAddressFrom(intent: Intent?): String? =
+        intent
+            ?.takeIf { it.action == HubIntents.ACTION_OPEN_CONVERSATION }
+            ?.let { HubIntents.launchAddress(it.getStringExtra(HubIntents.EXTRA_ADDRESS)) }
 
     override fun onStart() {
         super.onStart()

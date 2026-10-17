@@ -69,6 +69,13 @@
             android:exported="true"
             android:grantUriPermissions="false" />
 
+        <!-- Sable private mode for Phone Recents and Contacts (Dialer 0706, Contacts 0754). -->
+        <provider
+            android:name=".HubPrivacyProvider"
+            android:authorities="org.sableos.hub.privacy"
+            android:exported="true"
+            android:grantUriPermissions="false" />
+
         <provider
             android:name=".ConnectedAppsPolicyProvider"
             android:authorities="org.sableos.hub.connected_apps"
@@ -86,6 +93,11 @@
             <!-- Shade "H" (patches/framework/frameworks/base 0301): open a notification in Hub. -->
             <intent-filter>
                 <action android:name="org.sableos.hub.action.OPEN_NOTIFICATION" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <!-- Contacts' Hub route chip (patches/framework/packages/apps/Contacts 0754). -->
+            <intent-filter>
+                <action android:name="org.sableos.hub.action.OPEN_CONVERSATION" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>

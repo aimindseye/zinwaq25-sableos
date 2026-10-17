@@ -46,6 +46,7 @@ class HubPreferences(
         preferences.edit().putBoolean(KEY_PRIVATE_MODE, enabled).apply()
         appContext.contentResolver.notifyChange(ConnectedAppsRepository.HISTORY_URI, null)
         appContext.contentResolver.notifyChange(HubSnapshotProvider.SNAPSHOT_URI, null)
+        appContext.contentResolver.notifyChange(HubPrivacyProvider.STATE_URI, null)
     }
 
     /** Combine conversations: roll adjacent rows from the same person into one thread (default on). */
