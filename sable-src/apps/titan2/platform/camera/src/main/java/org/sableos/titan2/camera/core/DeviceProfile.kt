@@ -20,7 +20,12 @@ data class CameraDeviceProfile(
      * JPEG sizes the HAL produces through a slow full-resolution remosaic path. They are never the
      * Auto default, only High-res. Restricts what a reported size is used for; grants nothing.
      */
-    val remosaicJpegSizes: Set<Size> = emptySet()
+    val remosaicJpegSizes: Set<Size> = emptySet(),
+    /**
+     * The device has a trackpad that sends arrow keys, so plain arrows are guarded ([ArrowGuard]):
+     * a brushed pad must not change mode or zoom.
+     */
+    val trackpadArrows: Boolean = false
 ) {
     companion object {
         private const val HIRES_BACK_W = 8192
@@ -66,7 +71,9 @@ data class CameraDeviceProfile(
                 Binding("volume_up") to CameraAction.Shutter,
                 Binding("volume_down") to CameraAction.Shutter
             ),
-            remosaicJpegSizes = setOf(Size(Q25_REMOSAIC_W, Q25_REMOSAIC_H))
+            remosaicJpegSizes = setOf(Size(Q25_REMOSAIC_W, Q25_REMOSAIC_H)),
+            // The Q25 optical trackpad sends arrow keys (to confirm in device-profile/KEYMAP.md).
+            trackpadArrows = true
         )
         val Unknown = CameraDeviceProfile("unknown", EvidenceLevel.None)
         fun byId(id: String?) =

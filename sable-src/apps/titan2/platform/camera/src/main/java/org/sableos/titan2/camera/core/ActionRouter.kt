@@ -40,6 +40,7 @@ object ActionRouter {
         CameraAction.PauseToggle,
         CameraAction.NextCaptureMode,
         CameraAction.CompareToggle,
+        CameraAction.RawToggle,
         CameraAction.QualityNext -> routeCaptureKey(ui, a)
 
         CameraAction.NextMode -> Cmd.UiStep(1)
@@ -83,7 +84,7 @@ object ActionRouter {
 
         CameraAction.PauseToggle -> if (ui == UiMode.Video) Cmd.Act(a) else Cmd.Nop
 
-        CameraAction.NextCaptureMode, CameraAction.CompareToggle ->
+        CameraAction.NextCaptureMode, CameraAction.CompareToggle, CameraAction.RawToggle ->
             if (ui == UiMode.Photo) Cmd.Act(a) else Cmd.Nop
 
         CameraAction.QualityNext -> if (ui == UiMode.Video) Cmd.Act(a) else Cmd.Nop
@@ -109,5 +110,24 @@ object ActionRouter {
         val i = available.indexOf(cur)
         if (i < 0) return available.firstOrNull() ?: cur
         return available[(i + if (dir >= 0) 1 else -1).coerceIn(0, available.lastIndex)]
+    }
+}
+
+/** Photo paths reached by a single key. */
+object PhotoPath {
+    /**
+     * R: from Auto to RAW, or to high-res when the camera has no RAW path; from RAW or high-res back
+     * to Auto. Null when the camera has neither, so R does nothing.
+     */
+    fun rawToggle(cur: CaptureMode, cam: CameraReport): CaptureMode? {
+        val target = listOf(CaptureMode.Raw, CaptureMode.HighRes)
+            .firstOrNull { cam.modes[it]?.ok == true } ?: return null
+        return if (cur == CaptureMode.Raw || cur == CaptureMode.HighRes) CaptureMode.Auto else target
+    }
+
+    /** Short name for the mode chip and the title: AUTO, HIGH-RES, RAW. */
+    fun label(m: CaptureMode): String = when (m) {
+        CaptureMode.HighRes -> "HIGH-RES"
+        else -> m.name.uppercase(java.util.Locale.ROOT)
     }
 }

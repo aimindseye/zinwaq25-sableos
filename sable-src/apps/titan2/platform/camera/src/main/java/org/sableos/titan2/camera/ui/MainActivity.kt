@@ -18,6 +18,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
@@ -25,11 +26,16 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -41,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -48,12 +55,15 @@ import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.delay
 import org.sableos.titan2.camera.android.CameraController
 import org.sableos.titan2.camera.android.CameraInfoReader
+import org.sableos.titan2.camera.android.CaptureResult
 import org.sableos.titan2.camera.android.MediaStoreSaver
 import org.sableos.titan2.camera.android.RecordingSpec
+import org.sableos.titan2.camera.android.Saved
 import org.sableos.titan2.camera.android.ReviewActions
 import org.sableos.titan2.camera.android.StillCallbacks
 import org.sableos.titan2.camera.android.SysProps
 import org.sableos.titan2.camera.core.ActionRouter
+import org.sableos.titan2.camera.core.ArrowGuard
 import org.sableos.titan2.camera.core.BackResult
 import org.sableos.titan2.camera.core.CameraAction
 import org.sableos.titan2.camera.core.CameraDeviceProfile
@@ -70,9 +80,14 @@ import org.sableos.titan2.camera.core.DeckOrientation
 import org.sableos.titan2.camera.core.DeckPresentation
 import org.sableos.titan2.camera.core.DeckState
 import org.sableos.titan2.camera.core.Gate
+import org.sableos.titan2.camera.core.Hint
+import org.sableos.titan2.camera.core.HintDock
+import org.sableos.titan2.camera.core.LaunchIntent
+import org.sableos.titan2.camera.core.LaunchKind
 import org.sableos.titan2.camera.core.LegendEntry
 import org.sableos.titan2.camera.core.ParameterStrip
 import org.sableos.titan2.camera.core.ParameterStrips
+import org.sableos.titan2.camera.core.PhotoPath
 import org.sableos.titan2.camera.core.ProControls
 import org.sableos.titan2.camera.core.ProField
 import org.sableos.titan2.camera.core.ProLimits
@@ -94,16 +109,20 @@ private const val QUARTER_TURN_DEGREES = 90f
 private const val HALF_TURN_DEGREES = 180f
 private const val RECORDING_POLL_MS = 250L
 
-private val accentBlue = Color(0xFF55B9FF)
+/** Sable camera accent: the cyan of `sable-camera-capture-titan2.svg` (#6EE7F9). */
+private val sableCyan = Color(0xFF6EE7F9)
 
 /**
  * Keyboard-first camera with three modes: Video, Photo, Pro (stock order, minus Timelapse/More
  * which are not built).
  * Left/Right change mode. Space/Enter/volume = shutter (record in Video). Photo: Up/Down zoom, M
  * capture mode, E/Alt+E exposure, B compare, hold F/E lock focus/exposure. G reviews this
- * session's captures (Left/Right, Del with confirm, S share, F Files, Esc back).
+ * session's captures (Left/Right, Del with confirm, S share, F Files, Esc back). R toggles RAW
+ * (or high-res).
  * Pro: W/I/E/S/F pick WB/ISO/EV/shutter/focus, Up/Down change it, A returns it to Auto. Video: P
- * pause, Q quality. +/- zoom everywhere.
+ * pause, Q quality. Z/X (or +/-) zoom everywhere; H (or /) shows the keys. On a device whose
+ * trackpad sends arrows (Q25) the plain arrows only step a strip that has the focus; Alt+arrows
+ * change mode and zoom. Started for IMAGE_CAPTURE it takes one Auto JPEG for the calling app.
  */
 class MainActivity : ComponentActivity() {
     private lateinit var controller: CameraController
@@ -129,6 +148,8 @@ class MainActivity : ComponentActivity() {
     private var busy = false
     private lateinit var review: QuickReviewHost
     private lateinit var keys: CameraKeys
+    private var launch = LaunchKind.Normal
+    private var captureResult: CaptureResult? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -138,7 +159,19 @@ class MainActivity : ComponentActivity() {
         controller = CameraController(this, reader, MediaStoreSaver(this))
         review = QuickReviewHost(ReviewActions(this)) { status = it }
         onBackPressedDispatcher.addCallback(this, review.back)
-        keys = CameraKeys(profile, review, ::deckContext, ::act)
+        launch = LaunchIntent.kind(intent?.action)
+        if (launch == LaunchKind.ImageCapture) {
+            captureResult = CaptureResult(this)
+            setResult(RESULT_CANCELED)
+        }
+        keys = CameraKeys(
+            profile,
+            review,
+            ::deckContext,
+            ::act,
+            stripFocused = { deck.strip != null },
+            onGuarded = { status = ArrowGuard.HINT }
+        )
         rotation = display?.rotation ?: Surface.ROTATION_0
         setContent { Screen() }
         micGranted =
@@ -215,9 +248,11 @@ class MainActivity : ComponentActivity() {
     private fun resetForCamera() {
         val rep = report?.camera(camId) ?: return
         mode = CaptureMode.Auto
+        compare = false
         proState = ProState()
         videoOption = VideoPlanner.default(VideoPlanner.options(rep.camera.videoSizes))
         val avail = ActionRouter.available(rep)
+        if (launch == LaunchKind.ImageCapture && UiMode.Photo in avail) uiMode = UiMode.Photo
         if (uiMode !in
             avail
         ) {
@@ -279,7 +314,7 @@ class MainActivity : ComponentActivity() {
             runOnUiThread {
                 busy = false
                 status = "Saved ${saved.name}  ${saved.detail}"
-                review.remember(saved)
+                if (captureResult != null) returnCapture(saved) else review.remember(saved)
             }
         },
         onError = { msg ->
@@ -357,6 +392,17 @@ class MainActivity : ComponentActivity() {
         refreshHud()
     }
 
+    /** IMAGE_CAPTURE: hand the JPEG to the calling app and close. */
+    private fun returnCapture(saved: Saved) {
+        val result = captureResult ?: return
+        busy = true
+        status = "Returning the photo…"
+        result.deliver(saved) { code, data ->
+            setResult(code, data)
+            finish()
+        }
+    }
+
     private fun deckContext(): DeckContext? = report?.let { rep ->
         rep.camera(camId)?.let {
             DeckContext(uiMode, it, rep.cameras.size, recState != RecState.Idle, proField)
@@ -381,6 +427,10 @@ class MainActivity : ComponentActivity() {
         val cam = rep?.camera(camId)
         val dc = deckContext()
         if (rep == null || cam == null || dc == null) return
+        if (!LaunchIntent.allows(launch, raw)) {
+            status = LaunchIntent.CAPTURE_REFUSED
+            return
+        }
         val d = ControlDeck.dispatch(deck, raw, dc)
         deck = d.deck
         d.status?.let { status = it }
@@ -458,6 +508,7 @@ class MainActivity : ComponentActivity() {
             CameraAction.PauseToggle,
             CameraAction.QualityNext,
             CameraAction.NextCaptureMode,
+            CameraAction.RawToggle,
             CameraAction.CompareToggle -> doCaptureAction(a, cam)
 
             CameraAction.Autofocus,
@@ -515,6 +566,11 @@ class MainActivity : ComponentActivity() {
                         it.key in listOf(CaptureMode.Auto, CaptureMode.HighRes, CaptureMode.Raw)
                 }.keys.toList()
                 mode = avail[(avail.indexOf(mode).coerceAtLeast(0) + 1) % avail.size]
+                restart()
+            }
+
+            CameraAction.RawToggle -> PhotoPath.rawToggle(mode, cam)?.let {
+                mode = it
                 restart()
             }
 
@@ -703,13 +759,17 @@ class MainActivity : ComponentActivity() {
                         deck = ControlDeck.toggleTouchChrome(deck)
                     }
             )
+            if (dc != null) {
+                FocusReticle(uiMode, controller.locks.afLocked, Modifier.align(Alignment.Center))
+            }
+            ModeTitle(modeTitle(), Modifier.align(Alignment.TopCenter).padding(top = 6.dp))
             StatusOverlay(
                 hud,
                 status,
                 report?.mismatches?.firstOrNull {
                     it.kind != org.sableos.titan2.camera.core.MismatchKind.Note
                 }?.message,
-                Modifier.align(Alignment.TopStart).padding(8.dp)
+                Modifier.align(Alignment.TopStart).padding(start = 8.dp, top = 26.dp, end = 8.dp)
             )
             if (recState != RecState.Idle) {
                 RecordingBadge(recState, recMs, Modifier.align(Alignment.TopEnd).padding(8.dp))
@@ -719,6 +779,7 @@ class MainActivity : ComponentActivity() {
                 Modifier.align(Alignment.BottomCenter).padding(bottom = 6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                StatusChips(chips(), Modifier.padding(vertical = 2.dp))
                 if (DeckOrientation.touchChromeVisible(presentation, deck.touchChromeRevealed)) {
                     ModeSelector(
                         avail,
@@ -728,7 +789,18 @@ class MainActivity : ComponentActivity() {
                         TouchControlBar(TouchFallback.controls(dc), ::act, Modifier)
                     }
                 }
-                LastCaptureRow(review.state.latest, review::load) { act(CameraAction.OpenLast) }
+                if (dc != null) {
+                    HintDockBar(
+                        HintDock.hints(dc, profile),
+                        uiMode,
+                        recState != RecState.Idle,
+                        ::act,
+                        Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                }
+                if (launch != LaunchKind.ImageCapture) {
+                    LastCaptureRow(review.state.latest, review::load) { act(CameraAction.OpenLast) }
+                }
             }
             DeckOverlays(
                 deck,
@@ -775,28 +847,169 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Header over the viewfinder, as in the design: "PHOTO · AUTO", "PRO · ISO", "VIDEO · 1080p". */
+    private fun modeTitle(): String {
+        val sub = when (uiMode) {
+            UiMode.Photo -> PhotoPath.label(mode)
+            UiMode.Pro -> proField.label.uppercase(java.util.Locale.ROOT)
+            UiMode.Video -> videoOption?.label ?: "-"
+        }
+        val head = uiMode.label.uppercase(java.util.Locale.ROOT) + " · " + sub
+        return if (launch == LaunchKind.ImageCapture) "$head · FOR APP" else head
+    }
+
+    /** Chips along the bottom of the viewfinder: what the next shot will be. */
+    private fun chips(): List<String> = buildList {
+        add("%.1f×".format(java.util.Locale.US, controller.zoom))
+        when (uiMode) {
+            UiMode.Photo -> {
+                add(PhotoPath.label(mode))
+                if (compare) add("Compare")
+            }
+
+            UiMode.Pro -> add("Manual")
+
+            UiMode.Video -> {
+                videoOption?.let { add(it.label) }
+                if (!micGranted) add("No mic")
+            }
+        }
+        if (uiMode != UiMode.Pro && controller.aeSteps != 0) add("EV ${controller.aeSteps}")
+        if (controller.locks.afLocked) add("AF-L")
+        if (controller.locks.aeLocked) add("AE-L")
+    }
+
+    /** Mode chips: Video, Photo, Pro; the current one in the accent. Alt+Left/Right step them. */
     @androidx.compose.runtime.Composable
     private fun ModeSelector(avail: List<UiMode>, modifier: Modifier) {
+        val locked = launch == LaunchKind.ImageCapture
         Row(modifier) {
             avail.forEach { m ->
+                val current = m == uiMode
                 Text(
                     m.label,
-                    fontSize = 14.sp,
-                    color = if (m == uiMode) accentBlue else Color.White,
-                    modifier = Modifier.clickable(enabled = recState == RecState.Idle) {
-                        report?.let { switchUi(m, it) }
-                    }.padding(horizontal = 10.dp, vertical = 4.dp)
+                    fontSize = 13.sp,
+                    color = if (current) sableCyan else Color.White,
+                    modifier = Modifier
+                        .padding(horizontal = 3.dp)
+                        .border(
+                            1.dp,
+                            if (current) sableCyan else chipBorder,
+                            RoundedCornerShape(12.dp)
+                        )
+                        .clickable(enabled = recState == RecState.Idle && !locked) {
+                            report?.let { switchUi(m, it) }
+                        }
+                        .padding(horizontal = 12.dp, vertical = 4.dp)
                 )
             }
         }
     }
 }
 
-private val deckAccent = Color(0xFF55B9FF)
+private val chipBorder = Color(0xFF475569)
+private val dockSurface = Color(0xCC111827)
+private const val RETICLE_DIM = 0.7f
+private const val GRID_ALPHA = 0.4f
+
+@Composable
+fun ModeTitle(text: String, modifier: Modifier) {
+    Text(
+        text,
+        color = sableCyan,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = modifier
+    )
+}
+
+/**
+ * Focus reticle: a cyan square in Photo and Pro (solid while AF is locked), a framing rectangle
+ * with a centre cross in Video. It is drawn only; taps still reach the preview.
+ */
+@Composable
+fun FocusReticle(ui: UiMode, afLocked: Boolean, modifier: Modifier) {
+    val color = if (afLocked) sableCyan else sableCyan.copy(alpha = RETICLE_DIM)
+    val shape = RoundedCornerShape(10.dp)
+    if (ui == UiMode.Video) {
+        Box(modifier.size(width = 220.dp, height = 124.dp).border(2.dp, color, shape)) {
+            val grid = color.copy(alpha = GRID_ALPHA)
+            Box(Modifier.align(Alignment.Center).fillMaxHeight().width(1.dp).background(grid))
+            Box(Modifier.align(Alignment.Center).fillMaxWidth().height(1.dp).background(grid))
+        }
+    } else {
+        Box(modifier.size(112.dp).border(2.dp, color, shape))
+    }
+}
+
+@Composable
+fun StatusChips(chips: List<String>, modifier: Modifier) {
+    Row(modifier) {
+        chips.forEach {
+            Text(
+                it,
+                color = Color.White,
+                fontSize = 12.sp,
+                modifier = Modifier
+                    .padding(horizontal = 3.dp)
+                    .background(deckCell, RoundedCornerShape(12.dp))
+                    .border(1.dp, chipBorder, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 10.dp, vertical = 3.dp)
+            )
+        }
+    }
+}
+
+/**
+ * Hint dock: "[Space] Shutter (O) [Z] Zoom [R] RAW/HiRes [H] Keys". The hints come from
+ * [HintDock], so each names a key that works; each is also a touch target for its action.
+ */
+@Composable
+fun HintDockBar(
+    hints: List<Hint>,
+    ui: UiMode,
+    recording: Boolean,
+    onAction: (CameraAction) -> Unit,
+    modifier: Modifier
+) {
+    Row(
+        modifier
+            .background(dockSurface, RoundedCornerShape(12.dp))
+            .border(1.dp, chipBorder, RoundedCornerShape(12.dp))
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        hints.forEachIndexed { i, h ->
+            if (i == 1) ShutterGlyph(ui, recording) { onAction(CameraAction.Shutter) }
+            val open = h.gate.isOpen
+            Text(
+                "[${h.keyText}] ${h.label}",
+                color = if (open) Color.White else deckMuted,
+                fontSize = 12.sp,
+                modifier = Modifier
+                    .clickable(enabled = open) { onAction(h.action) }
+                    .padding(horizontal = 6.dp, vertical = 4.dp)
+            )
+        }
+    }
+}
+
+/** White ring for a still shutter; red dot (square while recording) for video. */
+@Composable
+fun ShutterGlyph(ui: UiMode, recording: Boolean, onClick: () -> Unit) {
+    val m = Modifier.padding(horizontal = 6.dp).clickable { onClick() }
+    when {
+        ui != UiMode.Video -> Box(m.size(28.dp).border(3.dp, Color.White, CircleShape))
+        recording -> Box(m.size(18.dp).background(statusRed, RoundedCornerShape(3.dp)))
+        else -> Box(m.size(22.dp).background(statusRed, CircleShape))
+    }
+}
+
+private val deckAccent = sableCyan
 private val deckMuted = Color(0xFF8BA6B8)
 private val deckScrim = Color(0xCC000000)
 private val deckCell = Color(0x66000000)
-private val deckCellSelected = Color(0xFF16384F)
+private val deckCellSelected = Color(0xFF123B44)
 
 /** Transient parameter strip. It only exists while the model says so; nothing here owns state. */
 @Composable
@@ -828,12 +1041,18 @@ fun ParameterStripOverlay(strip: ParameterStrip, onDismiss: () -> Unit, modifier
 
 /** Translucent legend over the preview. Tap anywhere to dismiss; keys are handled by the model. */
 @Composable
-fun ControlLegendOverlay(entries: List<LegendEntry>, onDismiss: () -> Unit, modifier: Modifier) {
+fun ControlLegendOverlay(
+    entries: List<LegendEntry>,
+    note: String?,
+    onDismiss: () -> Unit,
+    modifier: Modifier
+) {
     Box(modifier.fillMaxSize().background(deckScrim).clickable { onDismiss() }) {
         Column(
             Modifier.align(Alignment.Center).verticalScroll(rememberScrollState()).padding(16.dp)
         ) {
             Text("Controls", color = deckAccent, fontSize = 16.sp)
+            note?.let { Text(it, color = deckMuted, fontSize = 12.sp) }
             entries.forEach { e ->
                 val closed = e.gate as? Gate.Closed
                 Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
@@ -874,7 +1093,7 @@ fun ControlLegendOverlay(entries: List<LegendEntry>, onDismiss: () -> Unit, modi
                 }
             }
             Text(
-                "Esc, H, ? or a tap closes this. Touch controls do everything the keys do.",
+                "Esc, H or a tap closes this. Touch controls do everything the keys do.",
                 color = deckMuted,
                 fontSize = 11.sp
             )
@@ -942,7 +1161,12 @@ fun BoxScope.DeckOverlays(
         )
     }
     if (deck.legendVisible && context != null) {
-        ControlLegendOverlay(ControlLegend.entries(context, profile), onDismissLegend, Modifier)
+        ControlLegendOverlay(
+            ControlLegend.entries(context, profile),
+            ArrowGuard.HINT.takeIf { profile.trackpadArrows },
+            onDismissLegend,
+            Modifier
+        )
     }
 }
 

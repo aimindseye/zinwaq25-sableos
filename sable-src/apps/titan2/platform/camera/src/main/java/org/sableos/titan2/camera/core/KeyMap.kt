@@ -33,7 +33,10 @@ enum class CameraAction {
     QualityNext,
 
     /** Show/hide the control legend (a dedicated help action, not a mode). */
-    ToggleLegend
+    ToggleLegend,
+
+    /** R: Photo between Auto and RAW (or high-res when the camera has no RAW path). */
+    RawToggle
 }
 
 /**
@@ -58,12 +61,21 @@ object CameraKeyMap {
         Binding("e", hold = true) to CameraAction.AeLockToggle,
         Binding("v") to CameraAction.VideoToggle,
         Binding("up") to CameraAction.StepUp, Binding("down") to CameraAction.StepDown,
+        Binding("up", alt = true) to CameraAction.StepUp,
+        Binding("down", alt = true) to CameraAction.StepDown,
         Binding("plus") to CameraAction.ZoomIn, Binding("minus") to CameraAction.ZoomOut,
+        // + - and / need Alt or Sym on a BlackBerry-style keyboard (unreachable on the Q25, where
+        // Alt+letter is a digit), so every action they reach also has a plain-letter key.
+        Binding("z") to CameraAction.ZoomIn, Binding("x") to CameraAction.ZoomOut,
+        Binding("z", alt = true) to CameraAction.ZoomOut,
+        Binding("r") to CameraAction.RawToggle,
         Binding("c") to CameraAction.SwitchCamera, Binding("tab") to CameraAction.SwitchCamera,
         Binding("e") to CameraAction.ExposureUp,
         Binding("e", alt = true) to CameraAction.ExposureDown,
         Binding("g") to CameraAction.OpenLast, Binding("b") to CameraAction.CompareToggle,
         Binding("right") to CameraAction.NextMode, Binding("left") to CameraAction.PrevMode,
+        Binding("right", alt = true) to CameraAction.NextMode,
+        Binding("left", alt = true) to CameraAction.PrevMode,
         Binding("w") to CameraAction.SelectWb, Binding("i") to CameraAction.SelectIso,
         Binding("s") to CameraAction.SelectShutter,
         Binding("a") to CameraAction.ProAuto, Binding("p") to CameraAction.PauseToggle,
@@ -100,6 +112,29 @@ object CameraKeyMap {
     fun boundActions(
         profile: CameraDeviceProfile = CameraDeviceProfile.Unknown
     ): Set<CameraAction> = (standard + profile.keyOverrides).values.toSet()
+}
+
+/**
+ * Trackpad guard. On a device whose trackpad sends arrow keys ([CameraDeviceProfile.trackpadArrows])
+ * a brushed pad must not change mode or zoom. Plain arrows then do nothing until a control has the
+ * focus (a parameter strip is showing, picked with W/I/S/F/E or Z/X), and only Up/Down step it;
+ * Alt+arrows always work. Alt+arrow bindings exist on every device, so the keys stay the same.
+ */
+object ArrowGuard {
+    private val arrows = setOf("up", "down", "left", "right")
+    private val steps = setOf("up", "down")
+
+    fun isArrow(b: Binding): Boolean = b.key in arrows
+
+    /** True when [b] must be swallowed: a plain arrow on a guarded device with nothing focused. */
+    fun blocks(b: Binding, profile: CameraDeviceProfile, stripFocused: Boolean): Boolean =
+        profile.trackpadArrows && !b.alt && b.key in arrows && !(stripFocused && b.key in steps)
+
+    /** Whether the legend and hint dock may show [b] as a key for its action. */
+    fun shown(b: Binding, profile: CameraDeviceProfile): Boolean =
+        !(profile.trackpadArrows && !b.alt && b.key in arrows)
+
+    const val HINT = "Trackpad: Alt+arrows change mode and zoom"
 }
 
 /**
