@@ -93,8 +93,11 @@ fi
 if [[ -n "$lock" ]] && grep -q 'public boolean dispatchKeyEvent(KeyEvent event)' "$lock" &&
     grep -q 'mOkButton.performClick();' "$lock" &&
     grep -q 'mView.setSableNumPadFocusable(' "$lock" &&
+    grep -q 'handleSableKeyEvent(event)) {' "$lock" &&
+    grep -q 'SableKeyguardKeys.pinDigitFor(' "$lock" &&
+    grep -q 'R.string.sable_keyguard_hint_pin' "$lock" &&
     ! grep -q '^+        final int sableDigit = SableKeyguardKeys.digitFor(' "$lock"; then
-    pass "Lock screen: PIN keys work whichever child has focus; Enter presses OK; keypad unfocusable with a keyboard"
+    pass "Lock screen: PIN keys work wherever focus is (container and view); Enter presses OK; keypad unfocusable; bouncer hint"
 else
     fail "Lock screen: PIN view does not take physical keys in dispatchKeyEvent"
 fi

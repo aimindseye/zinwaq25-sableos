@@ -2,43 +2,33 @@ From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: SableOS <noreply@sableos.invalid>
 Date: Sat, 17 Oct 2026 03:33:13 +0000
 Subject: [PATCH] SableOS: Sable lock screen clock and unlock text
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
 
 Visual only (port of the Panther UI6A lock screen delta, bounded by the
 Sable lock screen design); credential checking, biometrics, trust,
 emergency call, notification redaction and the unlock gesture path are
 unchanged.
 
-* The large keyguard clock can sit at the start edge with a 28dp
-  start margin (horizontal bias 0) instead of centered, behind the new
-  config_sableKeyguardClockStartAligned (false: upstream centered) and
-  sable_keyguard_clock_margin_start resources, so a product overlay
-  chooses.
-* With a hardware keyboard (Configuration QWERTY) the PIN and password
-  bouncers prompt "Type your PIN · Enter submits" / "Type your password
-  · Enter submits" instead of "Enter your PIN" / "Enter your password".
-  Failure, lockout and countdown messages are unchanged.
+The large keyguard clock can sit at the start edge with a 28dp start
+margin (horizontal bias 0) instead of centered, behind the new
+config_sableKeyguardClockStartAligned (false: upstream centered) and
+sable_keyguard_clock_margin_start resources, so a product overlay
+chooses.
 
 The existing values of the look (clock top margin 28dp, indication
 bottom margin 36dp, "Swipe up to unlock") are set by the Sable SystemUI
 overlay, not here.
 ---
- .../res/values/sable_keyguard_lockscreen.xml  | 29 +++++++++++++++++++
- .../KeyguardPasswordViewController.java       |  5 ++++
- .../keyguard/KeyguardPinViewController.java   | 10 +++++++
- .../keyguard/sable/SableKeyguardKeys.java     |  8 +++++
- .../ui/view/layout/sections/ClockSection.kt   | 19 ++++++++++--
- 5 files changed, 69 insertions(+), 2 deletions(-)
+ .../res/values/sable_keyguard_lockscreen.xml  | 24 +++++++++++++++++++
+ .../ui/view/layout/sections/ClockSection.kt   | 19 +++++++++++++--
+ 2 files changed, 41 insertions(+), 2 deletions(-)
  create mode 100644 packages/SystemUI/res/values/sable_keyguard_lockscreen.xml
 
 diff --git a/packages/SystemUI/res/values/sable_keyguard_lockscreen.xml b/packages/SystemUI/res/values/sable_keyguard_lockscreen.xml
 new file mode 100644
-index 000000000000..fb501217ca45
+index 000000000000..12976bb46d6a
 --- /dev/null
 +++ b/packages/SystemUI/res/values/sable_keyguard_lockscreen.xml
-@@ -0,0 +1,29 @@
+@@ -0,0 +1,24 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<!--
 +     Copyright (C) 2026 The SableOS Project
@@ -62,82 +52,7 @@ index 000000000000..fb501217ca45
 +    <bool name="config_sableKeyguardClockStartAligned">false</bool>
 +    <!-- Start margin of the large keyguard clock when it is start aligned. -->
 +    <dimen name="sable_keyguard_clock_margin_start">28dp</dimen>
-+
-+    <!-- Bouncer prompt for a PIN when a hardware keyboard is present: typing enters digits, Enter submits. [CHAR LIMIT=40] -->
-+    <string name="sable_keyguard_bouncer_pin">Type your PIN · Enter submits</string>
-+    <!-- Bouncer prompt for a password when a hardware keyboard is present. [CHAR LIMIT=40] -->
-+    <string name="sable_keyguard_bouncer_password">Type your password · Enter submits</string>
 +</resources>
-diff --git a/packages/SystemUI/src/com/android/keyguard/KeyguardPasswordViewController.java b/packages/SystemUI/src/com/android/keyguard/KeyguardPasswordViewController.java
-index d381b3784bd5..a815f6094699 100644
---- a/packages/SystemUI/src/com/android/keyguard/KeyguardPasswordViewController.java
-+++ b/packages/SystemUI/src/com/android/keyguard/KeyguardPasswordViewController.java
-@@ -47,6 +47,7 @@ import com.android.internal.util.LatencyTracker;
- import com.android.internal.widget.LockPatternUtils;
- import com.android.keyguard.KeyguardSecurityModel.SecurityMode;
- import com.android.keyguard.domain.interactor.KeyguardKeyboardInteractor;
-+import com.android.keyguard.sable.SableKeyguardKeys;
- import com.android.keyguard.sable.SableKeyguardTypeAhead;
- import com.android.systemui.Flags;
- import com.android.systemui.bouncer.ui.helper.BouncerHapticPlayer;
-@@ -404,6 +405,10 @@ public class KeyguardPasswordViewController
- 
-     @Override
-     protected int getInitialMessageResId() {
-+        // Sable: with a hardware keyboard, say that typing and Enter work.
-+        if (SableKeyguardKeys.hasHardwareKeyboard(getResources().getConfiguration().keyboard)) {
-+            return R.string.sable_keyguard_bouncer_password;
-+        }
-         return R.string.keyguard_enter_your_password;
-     }
- }
-diff --git a/packages/SystemUI/src/com/android/keyguard/KeyguardPinViewController.java b/packages/SystemUI/src/com/android/keyguard/KeyguardPinViewController.java
-index bf8c09da66a8..90e788c19558 100644
---- a/packages/SystemUI/src/com/android/keyguard/KeyguardPinViewController.java
-+++ b/packages/SystemUI/src/com/android/keyguard/KeyguardPinViewController.java
-@@ -28,6 +28,7 @@ import com.android.internal.util.LatencyTracker;
- import com.android.internal.widget.LockPatternUtils;
- import com.android.keyguard.KeyguardSecurityModel.SecurityMode;
- import com.android.keyguard.domain.interactor.KeyguardKeyboardInteractor;
-+import com.android.keyguard.sable.SableKeyguardKeys;
- import com.android.keyguard.sable.SableKeyguardTypeAhead;
- import com.android.systemui.bouncer.ui.helper.BouncerHapticPlayer;
- import com.android.systemui.classifier.FalsingCollector;
-@@ -98,6 +99,15 @@ public class KeyguardPinViewController
-         }
-     }
- 
-+    @Override
-+    protected int getInitialMessageResId() {
-+        // Sable: with a hardware keyboard, say that typing and Enter work.
-+        return SableKeyguardKeys.hasHardwareKeyboard(
-+                getResources().getConfiguration().keyboard)
-+                ? R.string.sable_keyguard_bouncer_pin
-+                : super.getInitialMessageResId();
-+    }
-+
-     @Override
-     protected void onViewAttached() {
-         super.onViewAttached();
-diff --git a/packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardKeys.java b/packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardKeys.java
-index e1bd149a7a7f..d7c07efafbc4 100644
---- a/packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardKeys.java
-+++ b/packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardKeys.java
-@@ -124,6 +124,14 @@ public final class SableKeyguardKeys {
-                 || textCharFor(unicodeChar, metaState) != 0;
-     }
- 
-+    /** android.content.res.Configuration.KEYBOARD_QWERTY. */
-+    static final int CONFIGURATION_KEYBOARD_QWERTY = 2;
-+
-+    /** Whether {@code Configuration.keyboard} reports a hardware QWERTY keyboard. */
-+    public static boolean hasHardwareKeyboard(int configurationKeyboard) {
-+        return configurationKeyboard == CONFIGURATION_KEYBOARD_QWERTY;
-+    }
-+
-     /** The lock screen hint for the user's credential type ({@code LockPatternUtils}). */
-     public static int hintFor(int credentialType) {
-         switch (credentialType) {
 diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/ClockSection.kt b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/ClockSection.kt
 index 7baddb8700a6..619e59875f64 100644
 --- a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/ClockSection.kt

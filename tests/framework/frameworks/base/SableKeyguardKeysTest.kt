@@ -44,6 +44,28 @@ class SableKeyguardKeysTest {
     }
 
     @Test
+    fun pinDigitsByKeyCodeWithoutTheKeyMap() {
+        // Key codes of W E R S D F Z X C; a layout overlay leaves no number or alt digit.
+        val shift = 0x01 or 0x40
+        listOf(51, 33, 46, 47, 32, 34, 54, 52, 31).forEachIndexed { i, key ->
+            assertEquals(i + 1, SableKeyguardKeys.pinDigitFor(key, 'w'.code, 0, 0))
+            assertEquals(i + 1, SableKeyguardKeys.pinDigitFor(key, 0, 0, alt))
+            assertEquals(-1, SableKeyguardKeys.pinDigitFor(key, 'W'.code, 0, shift))
+            assertEquals(-1, SableKeyguardKeys.pinDigitFor(key, 'w'.code, 0, 0x1000))
+        }
+        // The key map wins when it gives a digit (Alt+W -> '1').
+        assertEquals(1, SableKeyguardKeys.pinDigitFor(keyW, '1'.code, '1'.code, alt))
+        // Number row and numpad by key code; other letters are not digits.
+        assertEquals(0, SableKeyguardKeys.pinDigitFor(7, '0'.code, '0'.code, 0))
+        assertEquals(9, SableKeyguardKeys.pinDigitFor(16, '9'.code, 0, 0))
+        assertEquals(5, SableKeyguardKeys.pinDigitFor(149, 0, 0, 0))
+        assertEquals(-1, SableKeyguardKeys.pinDigitFor(keyA, 'a'.code, 0, 0))
+        assertEquals(-1, SableKeyguardKeys.pinDigitFor(66, '\n'.code, '\n'.code, 0))
+        // Alt+W with no alt character still opens the field from the locked glance.
+        assertTrue(SableKeyguardKeys.isTypeAheadKey(keyW, alt, 0, 0, 0))
+    }
+
+    @Test
     fun hardwareKeyboardIsConfigurationQwerty() {
         assertTrue(SableKeyguardKeys.hasHardwareKeyboard(2))
         assertFalse(SableKeyguardKeys.hasHardwareKeyboard(1))
