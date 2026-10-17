@@ -360,6 +360,7 @@ def verify_product_sources(root: pathlib.Path, app: pathlib.Path) -> None:
         '"orange"',
         '"slate"',
         "resumedActivity.get()?.recreate()",
+        "runCatching {\n            application.contentResolver.registerContentObserver(",
     ):
         require_text(
             appearance,

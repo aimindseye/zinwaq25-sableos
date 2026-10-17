@@ -48,6 +48,7 @@ esac
 mkdir -p "$OUT/gpt" "$OUT/partitions"
 chmod 700 "$OUT"
 
+sable_log "mtkclient can't choose between phones: unplug any other MediaTek phone (Titan 2) first"
 sable_log "reading partition table (connect the powered-off phone now)"
 "$MTK" printgpt | tee "$OUT/printgpt.txt"
 "$MTK" gpt "$OUT/gpt"

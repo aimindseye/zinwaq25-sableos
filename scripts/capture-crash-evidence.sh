@@ -27,7 +27,8 @@ usage: scripts/capture-crash-evidence.sh [--out DIR] [--serial SERIAL] [--label 
   --out DIR        parent directory (default: $HOME/sable-q25-evidence); a new
                    q25-crash-evidence-<UTC stamp>[-label] folder is made in it.
                    Must be outside this repository.
-  --serial SERIAL  adb serial, when more than one device is attached
+  --serial SERIAL  the Q25's adb serial (required; default: $SABLE_Q25_SERIAL,
+                   then $ANDROID_SERIAL)
   --label TEXT     short tag added to the folder name (letters, digits, - _)
 
 Environment: SABLE_ADB selects the adb binary (default: adb on PATH).
@@ -35,7 +36,7 @@ EOF
 }
 
 OUT="${SABLE_EVIDENCE_DIR:-$HOME/sable-q25-evidence}"
-SERIAL=""
+SERIAL="${SABLE_Q25_SERIAL:-${ANDROID_SERIAL:-}}"
 LABEL=""
 while (($#)); do
     case "$1" in
@@ -55,13 +56,8 @@ case "$(realpath -m "$OUT")/" in
 esac
 command -v "$SABLE_ADB" >/dev/null 2>&1 || sable_fail "adb not found ('$SABLE_ADB'); set SABLE_ADB"
 
-adb=("$SABLE_ADB")
-[[ -n "$SERIAL" ]] && adb+=(-s "$SERIAL")
-
-if [[ -z "$SERIAL" ]]; then
-    count="$("$SABLE_ADB" devices | awk 'NR > 1 && $2 == "device"' | grep -c . || true)"
-    [[ "$count" == 1 ]] || sable_fail "expected exactly one adb device in 'device' state, found $count (use --serial)"
-fi
+[[ -n "$SERIAL" ]] || sable_fail "name the Q25 with --serial (see: adb devices); evidence is never taken from a guessed device"
+adb=("$SABLE_ADB" -s "$SERIAL")
 state="$("${adb[@]}" get-state 2>/dev/null || true)"
 [[ "$state" == device ]] || sable_fail "adb device state is '${state:-none}', need 'device' (USB debugging authorized?)"
 

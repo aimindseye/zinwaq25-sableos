@@ -24,6 +24,10 @@ usage() {
 usage: scripts/restore-stock.sh --images DIR [--scope sable|full] [--serial SERIAL]
                                 [--wipe-data] [--include-preloader] [--execute [--yes]]
 
+  --serial SERIAL       the Q25's fastboot serial; required with --execute so a
+                        second phone on the same computer is never flashed
+                        (default: $SABLE_Q25_SERIAL, then $ANDROID_SERIAL)
+
   --images DIR          extracted stock OS archive (not an OTA)
   --scope               sable (default) or full
   --wipe-data           also erase userdata and metadata (needed when coming
@@ -37,7 +41,7 @@ EOF
 
 IMAGES=""
 SCOPE=sable
-SERIAL=""
+SERIAL="${SABLE_Q25_SERIAL:-${ANDROID_SERIAL:-}}"
 WIPE=NO
 PRELOADER=NO
 EXECUTE=NO
@@ -161,14 +165,11 @@ if [[ "$EXECUTE" != YES ]]; then
     exit 0
 fi
 
-fb=("$SABLE_FASTBOOT")
-[[ -n "$SERIAL" ]] && fb+=(-s "$SERIAL")
 command -v "$SABLE_FASTBOOT" >/dev/null 2>&1 || sable_fail "fastboot not found"
-
-count="$("$SABLE_FASTBOOT" devices | grep -c . || true)"
-if [[ -z "$SERIAL" && "$count" != 1 ]]; then
-    sable_fail "expected exactly one fastboot device, found $count (use --serial)"
-fi
+[[ -n "$SERIAL" ]] || sable_fail "name the Q25 with --serial (see: fastboot devices); flashing never picks a device on its own"
+"$SABLE_FASTBOOT" devices | awk '{print $1}' | grep -qxF -- "$SERIAL" ||
+    sable_fail "no fastboot device with serial $SERIAL (see: fastboot devices)"
+fb=("$SABLE_FASTBOOT" -s "$SERIAL")
 product="$("${fb[@]}" getvar product 2>&1 | sed -n 's/^product: *//p' | head -n1)"
 case "$product" in
     q20_v12_factory|q20_v1_factory|Q25) ;;

@@ -395,6 +395,7 @@ fi
 fakefb="$tmp/fastboot"
 cat > "$fakefb" <<'FB'
 #!/usr/bin/env bash
+[[ "${1:-}" == -s ]] && shift 2
 case "$*" in
     devices) echo "FAKE0001 fastboot" ;;
     "getvar product") echo "product: q20_v1_factory" >&2 ;;
@@ -403,7 +404,18 @@ case "$*" in
 esac
 FB
 chmod +x "$fakefb"
-if SABLE_FASTBOOT="$fakefb" bash scripts/restore-stock.sh --images "$gms" --scope full --execute --yes >/dev/null 2>"$tmp/err"; then
+unset ANDROID_SERIAL SABLE_Q25_SERIAL
+if SABLE_FASTBOOT="$fakefb" bash scripts/restore-stock.sh --images "$gms" --execute --yes >/dev/null 2>&1; then
+    fail "restore-stock flashed without naming the Q25's serial"
+else
+    pass "restore-stock --execute needs --serial"
+fi
+if SABLE_FASTBOOT="$fakefb" bash scripts/restore-stock.sh --images "$gms" --serial OTHER --execute --yes >/dev/null 2>&1; then
+    fail "restore-stock accepted a serial that is not attached"
+else
+    pass "restore-stock refuses an unattached serial"
+fi
+if SABLE_FASTBOOT="$fakefb" bash scripts/restore-stock.sh --images "$gms" --scope full --serial FAKE0001 --execute --yes >/dev/null 2>"$tmp/err"; then
     fail "full restore accepted a q20_v12 package on a q20_v1 phone"
 elif grep -q "needs a package for q20_v1_factory" "$tmp/err"; then
     pass "restore-stock refuses other-board package in full scope"
@@ -437,7 +449,7 @@ esac
 ADB
 chmod +x "$fakeadb"
 evout="$tmp/evidence"
-if out="$(FAKE_ADB_LOG="$adblog" SABLE_ADB="$fakeadb" bash scripts/capture-crash-evidence.sh --out "$evout" --label t 2>"$tmp/err")"; then
+if out="$(FAKE_ADB_LOG="$adblog" SABLE_ADB="$fakeadb" bash scripts/capture-crash-evidence.sh --out "$evout" --serial FAKE0001 --label t 2>"$tmp/err")"; then
     d="$(sed -n 's/^OUT=//p' <<<"$out")"
     ok=yes
     grep -q '^EVIDENCE=CAPTURED' <<<"$out" || ok=no
@@ -460,10 +472,10 @@ else
     pass "crash evidence refuses repo path"
 fi
 rm -rf "$PWD/evidence-test"
-if FAKE_ADB_TWO=1 FAKE_ADB_LOG="$adblog" SABLE_ADB="$fakeadb" bash scripts/capture-crash-evidence.sh --out "$evout" >/dev/null 2>&1; then
-    fail "crash evidence accepted two devices without --serial"
+if FAKE_ADB_LOG="$adblog" SABLE_ADB="$fakeadb" bash scripts/capture-crash-evidence.sh --out "$evout" >/dev/null 2>&1; then
+    fail "crash evidence ran without naming the Q25's serial"
 else
-    pass "crash evidence needs one device or --serial"
+    pass "crash evidence needs --serial"
 fi
 
 # 12. Static icon/launch audit (#83): launcher entry, label, Sable icon, round icon, adaptive icon and its
