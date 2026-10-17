@@ -144,6 +144,9 @@ if [[ "$FRAMEWORK" == YES ]]; then
     # daily-driver overlays (Glimpse label, Gallery2 colors) live there too,
     # and the SettingsProvider defaults (lockscreen notification content hidden).
     cp -a "$SABLE_REPO_ROOT/product/common/overlay" "$VENDOR_SABLE/overlay"
+    # No LineageOS Updater from Q4 (SableNoUpdater overrides it; Panther ships
+    # none). Q2/Q3 keep it pointed at an .invalid server (sable-q25.mk).
+    cp -a "$SABLE_REPO_ROOT/product/q25/updater" "$VENDOR_SABLE/updater"
     # Battery health/charging capability profile read by the Settings battery
     # patches (BH1-BH5); every Q25 fact is UNKNOWN until device evidence.
     mkdir -p "$VENDOR_SABLE/etc/battery"
@@ -160,7 +163,10 @@ PRODUCT_PACKAGES += \
     SableSetupWizardOverlay \
     SableGlimpseOverlay \
     SableGallery2Overlay \
-    SableSettingsProviderOverlay
+    SableSettingsProviderOverlay \
+    SableLedOverlay \
+    SableNoUpdater
+SABLE_Q25_NO_UPDATER := true
 PRODUCT_SYSTEM_EXT_PROPERTIES += \
     ro.sable.home=org.sableos.launcher \
     ro.sable.keyboard_backlight=true

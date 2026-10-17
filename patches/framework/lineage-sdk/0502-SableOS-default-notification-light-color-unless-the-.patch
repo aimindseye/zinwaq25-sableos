@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 17 Oct 2026 03:48:26 +0000
+Subject: [PATCH] SableOS: default notification light color unless the user
+ picks auto
+
+BlackBerry-style notification LED: a notification whose channel names
+no light color uses the default notification color (SableLedOverlay
+sets red, config_defaultNotificationColor) instead of a color picked
+from the app icon. NOTIFICATION_LIGHT_COLOR_AUTO now defaults to 0;
+turning "Automagic" on in Settings > Notifications > Notification light
+still picks icon colors, and apps and per-app custom colors still win.
+---
+ .../internal/notification/LineageNotificationLights.java    | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/sdk/src/java/org/lineageos/internal/notification/LineageNotificationLights.java b/sdk/src/java/org/lineageos/internal/notification/LineageNotificationLights.java
+index 4d08b47..a6e8a6d 100644
+--- a/sdk/src/java/org/lineageos/internal/notification/LineageNotificationLights.java
++++ b/sdk/src/java/org/lineageos/internal/notification/LineageNotificationLights.java
+@@ -416,10 +416,12 @@ public final class LineageNotificationLights {
+                     Settings.System.NOTIFICATION_LIGHT_PULSE,
+                     0, UserHandle.USER_CURRENT) != 0;
+ 
+-            // Automatically pick a color for LED if not set
++            // Automatically pick a color for LED if not set. SableOS: off by
++            // default, so a notification without a color uses the default
++            // color (red on the Q25, BlackBerry style).
+             mAutoGenerateNotificationColor = LineageSettings.System.getIntForUser(resolver,
+                     LineageSettings.System.NOTIFICATION_LIGHT_COLOR_AUTO,
+-                    1, UserHandle.USER_CURRENT) != 0;
++                    0, UserHandle.USER_CURRENT) != 0;
+ 
+             // LED default color
+             mDefaultNotificationColor = LineageSettings.System.getIntForUser(resolver,
+-- 
+2.43.0
+

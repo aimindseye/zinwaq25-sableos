@@ -3,4 +3,5 @@
      (lineage-23.2) translations. Do not edit by hand. -->
 <resources>
     <string name="setup_welcome_message">Velkomin í SableOS</string>
+    <string name="intro_restore_subtitle">Ef þú ert með Seedvault-öryggisafrit af SableOS eða öðrum stýrikerfum, þá geturðu endurheimt það hér.</string>
 </resources>

@@ -162,11 +162,15 @@ if out="$(stagerun Q4 --apps-dir "$tmp/apps/run")"; then
     grep -q 'name: "sable_design_shared_srcs"' "$v/src/sabledesign/Android.bp" || ok=no
     grep -q 'overrides: \["LatinIME"\]' "$v/Android.bp" || ok=no
     grep -q 'home=sable' "$proj/config.txt" || ok=no
-    for o in SableFrameworkOverlay SableSystemUIOverlay SableSetupWizardOverlay SableGlimpseOverlay SableGallery2Overlay SableSettingsProviderOverlay; do
+    for o in SableFrameworkOverlay SableSystemUIOverlay SableSetupWizardOverlay SableGlimpseOverlay SableGallery2Overlay SableSettingsProviderOverlay SableLedOverlay; do
         grep -q "$o" "$v/sable-q25-framework.mk" || ok=no
         grep -q "name: \"$o\"" "$v/overlay/Android.bp" || ok=no
     done
     [[ -f "$v/overlay/SableSystemUIOverlay/res/values-notlong/config.xml" ]] || ok=no
+    grep -q 'SableNoUpdater' "$v/sable-q25-framework.mk" || ok=no
+    grep -q '^SABLE_Q25_NO_UPDATER := true' "$v/sable-q25-framework.mk" || ok=no
+    grep -q 'overrides: \["Updater"\]' "$v/updater/Android.bp" || ok=no
+    grep -qF "ifneq (\$(SABLE_Q25_NO_UPDATER),true)" "$v/sable-q25.mk" || ok=no
     [[ "$ok" == yes ]] && pass "stage Q4 adds framework layer" || fail "stage Q4: generated files wrong: $out"
 else
     fail "stage Q4: $(cat "$tmp/err")"
@@ -174,7 +178,9 @@ fi
 if out="$(stagerun Q2 --apps-dir "$tmp/apps/run")" && grep -q '^FRAMEWORK_LAYER=NO' <<<"$out" &&
     grep -q "$stock_home" "$proj/config.txt" && ! grep -q 'SableLauncher' "$tmp/android/vendor/sable/q25/sable-q25-framework.mk" &&
     [[ ! -e "$tmp/android/vendor/sable/q25/src" && ! -e "$tmp/android/vendor/sable/q25/overlay" ]] &&
-    ! grep -q 'SableSystemUIOverlay' "$tmp/android/vendor/sable/q25/sable-q25-framework.mk"; then
+    ! grep -q 'SableSystemUIOverlay' "$tmp/android/vendor/sable/q25/sable-q25-framework.mk" &&
+    ! grep -q 'SABLE_Q25_NO_UPDATER' "$tmp/android/vendor/sable/q25/sable-q25-framework.mk" &&
+    [[ ! -e "$tmp/android/vendor/sable/q25/updater" ]]; then
     pass "stage Q2 reverts framework layer"
 else
     fail "stage Q2 after Q4: $(cat "$tmp/err")"
@@ -261,24 +267,20 @@ if command -v javac >/dev/null 2>&1; then
 else
     printf 'SKIP  javac not installed (Settings Applications model tests)\n'
 fi
-# 6g. Keyboard backlight (kernel + Settings patches 0901 and the init rule):
-# the pure Settings class, and the property and module parameter names that
-# tie Settings, init and the driver together.
-if command -v javac >/dev/null 2>&1; then
-    kb="$tmp/settings-kbd"
-    mkdir -p "$kb"
-    (cd "$kb" && git apply --include='src/com/android/settings/sable/SableKeyboardBacklight.java' \
-        "$ROOT"/patches/framework/packages/apps/Settings/0901-*.patch)
-    if javac -d "$kb/out" "$kb"/src/com/android/settings/sable/SableKeyboardBacklight.java \
-        tests/java/settings/com/android/settings/sable/SableKeyboardBacklightTest.java tests/java/junit-shim/org/junit/*.java 2>"$tmp/err" &&
-        java -cp "$kb/out" org.junit.Run com.android.settings.sable.SableKeyboardBacklightTest >"$tmp/out" 2>&1; then
-        pass "Settings keyboard backlight model ($(grep -o 'CHECKS=[0-9]*' "$tmp/out"))"
-    else
-        fail "Settings keyboard backlight test: $(cat "$tmp/err" "$tmp/out" | grep -v JAVA_TOOL | head -5)"
-    fi
-else
-    printf 'SKIP  javac not installed (Settings keyboard backlight test)\n'
-fi
+# 6g. Keyboard light. The Q25 keyboard firmware ignores host writes to its
+# backlight register, so Settings patch 0901 adds only a read-only info row
+# (no switch, slider or property writes), gated on ro.sable.keyboard_backlight.
+# The kernel 0901 parameters and the init rule stay harmless; their names must
+# still agree.
+kbd_set=$(ls patches/framework/packages/apps/Settings/0901-*.patch)
+kbd_bad=""
+grep -q '"ro.sable.keyboard_backlight"' "$kbd_set" || kbd_bad="$kbd_bad no-gate"
+grep -q 'Your keyboard controls its own light. Press Sym+0 to turn it on or off. With the PaBaLF keyboard firmware, Sym+Shift+1 to 9 sets the level.' "$kbd_set" || kbd_bad="$kbd_bad no-summary"
+grep -q 'keyboard light, backlight, kb light' "$kbd_set" || kbd_bad="$kbd_bad no-keywords"
+grep -q '^+        android:selectable="false"' "$kbd_set" || kbd_bad="$kbd_bad selectable"
+grep -q 'persist\.sys\.sable\.kbd_backlight' "$kbd_set" && kbd_bad="$kbd_bad writes-property"
+grep -Eq '^\+.*(SwitchPreference|SliderPreference|TogglePreferenceController|SliderPreferenceController|SystemProperties\.set)' "$kbd_set" && kbd_bad="$kbd_bad interactive"
+if [[ -z "$kbd_bad" ]]; then pass "Settings keyboard light is a read-only info row"; else fail "Settings keyboard light:$kbd_bad"; fi
 kbd_rc=product/q25/init/sable-keyboard-backlight.rc
 kbd_missing=""
 for pair in kbd_backlight:persist.sys.sable.kbd_backlight kbd_backlight_level:persist.sys.sable.kbd_backlight_level; do
@@ -286,10 +288,35 @@ for pair in kbd_backlight:persist.sys.sable.kbd_backlight kbd_backlight_level:pe
     grep -q "^+module_param_cb($param, " patches/framework/kernel/xelex/mt6789/0901-*.patch || kbd_missing="$kbd_missing kernel:$param"
     grep -q "write /sys/module/bbqX0kbd/parameters/$param \${$prop}\$" "$kbd_rc" || kbd_missing="$kbd_missing rc:$param"
     grep -q "on property:$prop=\*" "$kbd_rc" || kbd_missing="$kbd_missing rc:$prop"
-    grep -q "\"$prop\";" patches/framework/packages/apps/Settings/0901-*.patch || kbd_missing="$kbd_missing settings:$prop"
 done
-grep -q '"ro.sable.keyboard_backlight"' patches/framework/packages/apps/Settings/0901-*.patch || kbd_missing="$kbd_missing settings:ro.sable.keyboard_backlight"
-if [[ -z "$kbd_missing" ]]; then pass "keyboard backlight names agree (Settings, init, driver)"; else fail "keyboard backlight names:$kbd_missing"; fi
+if [[ -z "$kbd_missing" ]]; then pass "keyboard backlight names agree (init, driver)"; else fail "keyboard backlight names:$kbd_missing"; fi
+
+# 6g2. BlackBerry-style notification LED (Q4-LED-BB): the overlay's red
+# default, and the three patches that make every alerting channel light it
+# in that default color unless the user turned the channel's light off.
+led_missing=""
+led_ov=product/common/overlay/SableLedOverlay/res/values/config.xml
+grep -q 'name="config_defaultNotificationColor">#ffff0000<' "$led_ov" || led_missing="$led_missing overlay:color"
+grep -q 'name="config_defaultNotificationLedOn">250<' "$led_ov" || led_missing="$led_missing overlay:on"
+grep -q 'name="config_defaultNotificationLedOff">2750<' "$led_ov" || led_missing="$led_missing overlay:off"
+led_fwb=(patches/framework/frameworks/base/0501-*.patch)
+led_sdk=(patches/framework/lineage-sdk/0502-*.patch)
+led_parts=(patches/framework/packages/apps/LineageParts/0503-*.patch)
+for p in "${led_fwb[0]}" "${led_sdk[0]}" "${led_parts[0]}"; do [[ -f "$p" ]] || led_missing="$led_missing file:$p"; done
+if [[ -f "${led_fwb[0]}" ]]; then
+    grep -qF '+        Light light = (getChannel().shouldShowLights() || shouldShowDefaultLights())' "${led_fwb[0]}" || led_missing="$led_missing fwb:calculateLights"
+    grep -qF '+                com.android.internal.R.bool.config_intrusiveNotificationLed)) {' "${led_fwb[0]}" || led_missing="$led_missing fwb:intrusive-led-gate"
+    grep -qF '+        return (getChannel().getUserLockedFields() & NotificationChannel.USER_LOCKED_LIGHTS) == 0' "${led_fwb[0]}" || led_missing="$led_missing fwb:user-locked"
+    grep -qF '+                && getImportance() >= IMPORTANCE_DEFAULT;' "${led_fwb[0]}" || led_missing="$led_missing fwb:importance"
+fi
+if [[ -f "${led_sdk[0]}" ]]; then
+    grep -qF '+                    0, UserHandle.USER_CURRENT) != 0;' "${led_sdk[0]}" || led_missing="$led_missing sdk:color-auto-default"
+fi
+if [[ -f "${led_parts[0]}" ]]; then
+    grep -qF '+            android:defaultValue="false" />' "${led_parts[0]}" || led_missing="$led_missing parts:xml-default"
+    [[ "$(grep -cF 'NOTIFICATION_LIGHT_COLOR_AUTO, 0) == 1' "${led_parts[0]}")" == 2 ]] || led_missing="$led_missing parts:java-default"
+fi
+if [[ -z "$led_missing" ]]; then pass "notification LED: red default, lit alerting channels (frameworks/base 0501, lineage-sdk 0502, LineageParts 0503)"; else fail "notification LED:$led_missing"; fi
 
 tools_link=sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
 missing=""
@@ -312,19 +339,22 @@ grep -q 'PLATFORM_ENFORCEMENT = Enforcement.NOT_ENFORCED' patches/framework/pack
     missing="$missing app-lock-not-enforced"
 if [[ -z "$missing" ]]; then pass "Mobile Manager actions, Focus receiver and App lock status"; else fail "Mobile Manager:$missing"; fi
 
-# Settings > Sable, Display and App info (Settings patch 1001) open actions the Sable apps declare.
+# Display and App info (Settings patch 1001) open the action App display compatibility declares;
+# Settings > Sable (1103) opens Sable Setup's launcher activity and nothing else.
 sable_links=(patches/framework/packages/apps/Settings/1001-*.patch)
 missing=""
-for pair in \
-    org.sableos.start.action.EDIT_QUICK_BAR:sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml \
-    org.sableos.titan2.displaycompat.action.APP_PROFILE:sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml \
-    org.sableos.tools.action.OPEN_TOOL:sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml; do
-    action="${pair%%:*}"; manifest="${pair#*:}"
-    grep -q "\"$action\"" "${sable_links[@]}" || missing="$missing settings:$action"
-    grep -q "<action android:name=\"$action\" />" "$manifest" || missing="$missing app:$action"
-done
-grep -q 'HARDWARE_TESTS(' sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt ||
-    missing="$missing tools:HARDWARE_TESTS"
+action=org.sableos.titan2.displaycompat.action.APP_PROFILE
+grep -q "\"$action\"" "${sable_links[@]}" || missing="$missing settings:$action"
+grep -q "<action android:name=\"$action\" />" sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml ||
+    missing="$missing app:$action"
+setup_page=(patches/framework/packages/apps/Settings/1103-*.patch)
+grep -q '+    public static final String SETUP_PACKAGE = "org.sableos.titan2.setup";' "${setup_page[@]}" ||
+    missing="$missing settings:setup-package"
+grep -q 'org.sableos.titan2.setup' product/q25/apps.tsv || missing="$missing apps:SableSetup"
+grep -q '<category android:name="android.intent.category.LAUNCHER" />' \
+    sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml || missing="$missing app:setup-launcher"
+grep -q '^+        android:key="sable_setup"' "${setup_page[@]}" &&
+    grep -q '^-        android:key="sable_hub"' "${setup_page[@]}" || missing="$missing settings:setup-row-only"
 if [[ -z "$missing" ]]; then pass "Settings Sable entries land on actions the Sable apps declare"; else fail "Sable entry actions missing:$missing"; fi
 
 # 6h. Stock app keyboard model (Files, Photos, Browser patches 1001-1099): the pure sable/

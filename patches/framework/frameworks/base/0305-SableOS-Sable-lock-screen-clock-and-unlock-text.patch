@@ -1,0 +1,88 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 17 Oct 2026 03:33:13 +0000
+Subject: [PATCH] SableOS: Sable lock screen clock and unlock text
+
+Visual only (port of the Panther UI6A lock screen delta, bounded by the
+Sable lock screen design); credential checking, biometrics, trust,
+emergency call, notification redaction and the unlock gesture path are
+unchanged.
+
+The large keyguard clock can sit at the start edge with a 28dp start
+margin (horizontal bias 0) instead of centered, behind the new
+config_sableKeyguardClockStartAligned (false: upstream centered) and
+sable_keyguard_clock_margin_start resources, so a product overlay
+chooses.
+
+The existing values of the look (clock top margin 28dp, indication
+bottom margin 36dp, "Swipe up to unlock") are set by the Sable SystemUI
+overlay, not here.
+---
+ .../res/values/sable_keyguard_lockscreen.xml  | 24 +++++++++++++++++++
+ .../ui/view/layout/sections/ClockSection.kt   | 19 +++++++++++++--
+ 2 files changed, 41 insertions(+), 2 deletions(-)
+ create mode 100644 packages/SystemUI/res/values/sable_keyguard_lockscreen.xml
+
+diff --git a/packages/SystemUI/res/values/sable_keyguard_lockscreen.xml b/packages/SystemUI/res/values/sable_keyguard_lockscreen.xml
+new file mode 100644
+index 000000000000..12976bb46d6a
+--- /dev/null
++++ b/packages/SystemUI/res/values/sable_keyguard_lockscreen.xml
+@@ -0,0 +1,24 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<resources>
++    <!-- Sable lock screen look (visual only). The large keyguard clock sits at the
++         start edge with sable_keyguard_clock_margin_start instead of centered. Off
++         by default (upstream centered clock); a product overlay turns it on. -->
++    <bool name="config_sableKeyguardClockStartAligned">false</bool>
++    <!-- Start margin of the large keyguard clock when it is start aligned. -->
++    <dimen name="sable_keyguard_clock_margin_start">28dp</dimen>
++</resources>
+diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/ClockSection.kt b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/ClockSection.kt
+index 7baddb8700a6..619e59875f64 100644
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/ClockSection.kt
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/ClockSection.kt
+@@ -197,8 +197,23 @@ constructor(
+             if (keyguardClockViewModel.clockShouldBeCentered.value) PARENT_ID
+             else R.id.split_shade_guideline
+         constraints.apply {
+-            connect(ClockViewIds.LOCKSCREEN_CLOCK_VIEW_LARGE, START, PARENT_ID, START)
+-            connect(ClockViewIds.LOCKSCREEN_CLOCK_VIEW_LARGE, END, guideline, END)
++            if (context.resources.getBoolean(R.bool.config_sableKeyguardClockStartAligned)) {
++                // Sable: the large clock sits at the start edge with the Sable margin.
++                connect(
++                    ClockViewIds.LOCKSCREEN_CLOCK_VIEW_LARGE,
++                    START,
++                    PARENT_ID,
++                    START,
++                    context.resources.getDimensionPixelSize(
++                        R.dimen.sable_keyguard_clock_margin_start
++                    ),
++                )
++                connect(ClockViewIds.LOCKSCREEN_CLOCK_VIEW_LARGE, END, guideline, END)
++                setHorizontalBias(ClockViewIds.LOCKSCREEN_CLOCK_VIEW_LARGE, 0f)
++            } else {
++                connect(ClockViewIds.LOCKSCREEN_CLOCK_VIEW_LARGE, START, PARENT_ID, START)
++                connect(ClockViewIds.LOCKSCREEN_CLOCK_VIEW_LARGE, END, guideline, END)
++            }
+             if (
+                 com.android.systemui.shared.Flags.clockReactiveSmartspaceLayout() &&
+                     !com.android.systemui.shared.Flags.clockReactiveVariants()
+-- 
+2.43.0
+

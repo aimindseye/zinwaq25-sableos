@@ -10,4 +10,9 @@
     </string>
     <!-- Compact shade: two rows of tiles. -->
     <integer name="quick_qs_paginated_grid_num_rows">2</integer>
+    <!-- Lock screen clock alignment (frameworks/base patch 0305). The owner's
+         approved lock screen design (sable-lockscreen-titan2.svg) centers the
+         large clock, so Sable keeps it centered; true moves it to the start
+         edge with sable_keyguard_clock_margin_start (Panther UI6A). -->
+    <bool name="config_sableKeyguardClockStartAligned">false</bool>
 </resources>

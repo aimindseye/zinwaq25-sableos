@@ -3,4 +3,5 @@
      (lineage-23.2) translations. Do not edit by hand. -->
 <resources>
     <string name="setup_welcome_message">Legyen üdvözölve a SableOS rendszerben</string>
+    <string name="intro_restore_subtitle">Amennyiben van SableOS-mentése a Seedvaulttal, itt helyreállíthatja azt.</string>
 </resources>

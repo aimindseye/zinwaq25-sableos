@@ -1,0 +1,3 @@
+SableOS for the Zinwa Q25 has no over-the-air updater yet.
+The LineageOS Updater is not installed: it would offer LineageOS builds,
+which replace SableOS. Install a new SableOS image to update.

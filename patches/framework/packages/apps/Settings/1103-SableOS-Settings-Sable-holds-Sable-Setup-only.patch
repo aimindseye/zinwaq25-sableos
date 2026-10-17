@@ -1,0 +1,323 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 17 Oct 2026 02:16:20 +0000
+Subject: [PATCH] SableOS: Settings > Sable holds Sable Setup only
+
+Settings > Sable opened Sable Start, the quick bar editor, Hub, Tools
+diagnostics and hardware tests, App display compatibility and Mobile
+Manager. Each of those is reachable from its own app, Display, App info
+or Apps > Mobile Manager, so the page now holds one row, Sable Setup
+(org.sableos.titan2.setup), the readiness checklist for the home screen,
+keyboard and default apps. The homepage row and search follow whether
+Sable Setup is installed.
+---
+ res/values/strings_sable_homepage_keys.xml    |  2 +-
+ res/values/strings_sable_mobile_manager.xml   |  2 +-
+ res/values/strings_sable_settings.xml         | 48 ++++-----------
+ res/xml/sable_settings.xml                    | 59 +++----------------
+ .../android/settings/sable/SableLinks.java    | 40 +++----------
+ .../settings/sable/SableSettingsFragment.java | 17 ++----
+ .../TopLevelSablePreferenceController.java    |  5 +-
+ 7 files changed, 35 insertions(+), 138 deletions(-)
+
+diff --git a/res/values/strings_sable_homepage_keys.xml b/res/values/strings_sable_homepage_keys.xml
+index df72de6..d6488d0 100644
+--- a/res/values/strings_sable_homepage_keys.xml
++++ b/res/values/strings_sable_homepage_keys.xml
+@@ -38,7 +38,7 @@
+     <!-- Extra type-ahead words for the Settings homepage row "system". -->
+     <string name="sable_homepage_words_system">keyboard, language, date, time, backup, reset, update, gestures</string>
+     <!-- Extra type-ahead words for the Settings homepage row "sable". -->
+-    <string name="sable_homepage_words_sable">start, quick bar, hub, tools, diagnostics, compatibility</string>
++    <string name="sable_homepage_words_sable">setup, readiness, checklist</string>
+     <!-- Extra type-ahead words for the Settings homepage row "security". -->
+     <string name="sable_homepage_words_security">lock, pin, password, fingerprint</string>
+     <!-- Extra type-ahead words for the Settings homepage row "privacy". -->
+diff --git a/res/values/strings_sable_mobile_manager.xml b/res/values/strings_sable_mobile_manager.xml
+index de404d5..b39e648 100644
+--- a/res/values/strings_sable_mobile_manager.xml
++++ b/res/values/strings_sable_mobile_manager.xml
+@@ -17,7 +17,7 @@
+ <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+     <!-- ===== Mobile Manager ===== -->
+ 
+-    <!-- Title of the Mobile Manager page and its rows in Settings > Apps and Settings > Sable. -->
++    <!-- Title of the Mobile Manager page and its row in Settings > Apps. -->
+     <string name="sable_mobile_manager_title">Mobile Manager</string>
+     <!-- Summary of the Mobile Manager row. -->
+     <string name="sable_mobile_manager_summary">Network access, background use, app lock, Focus mode, Private Space</string>
+diff --git a/res/values/strings_sable_settings.xml b/res/values/strings_sable_settings.xml
+index a03923f..74f04b9 100644
+--- a/res/values/strings_sable_settings.xml
++++ b/res/values/strings_sable_settings.xml
+@@ -18,49 +18,21 @@
+     <!-- Highlight key of the Settings > Sable homepage row. -->
+     <string name="menu_key_sable" translatable="false">top_level_sable</string>
+ 
+-    <!-- Settings homepage row and page title for the Sable apps that own some system settings. -->
++    <!-- Settings homepage row and page title for Sable Setup. -->
+     <string name="sable_settings_title">Sable</string>
+     <!-- Summary of the Settings > Sable homepage row. -->
+-    <string name="sable_settings_summary">Mobile Manager, Start layout, quick bar, Hub, diagnostics</string>
++    <string name="sable_settings_summary">Sable Setup: home screen, keyboard and default apps</string>
+     <!-- Search keywords for the Settings > Sable page. -->
+-    <string name="sable_settings_keywords">sable, sableos, sable start, launcher, home, quick bar, hub, tools, diagnostics, display compat, mobile manager</string>
++    <string name="sable_settings_keywords">sable, sableos, sable setup, setup, readiness, checklist</string>
+ 
+-    <!-- Settings > Sable: Sable Start (the home screen) row. -->
+-    <string name="sable_start_title">Sable Start</string>
+-    <!-- Summary of the Sable Start row. -->
+-    <string name="sable_start_summary">Home layout: Start tiles, pages and All apps</string>
+-    <!-- Search keywords for the Sable Start row. -->
+-    <string name="sable_start_keywords">home, home screen, launcher, start, layout, tiles, pages</string>
++    <!-- Settings > Sable: the Sable Setup readiness checklist. -->
++    <string name="sable_setup_title">Sable Setup</string>
++    <!-- Summary of the Sable Setup row. -->
++    <string name="sable_setup_summary">Check the home screen, keyboard, default apps, display and network</string>
++    <!-- Search keywords for the Sable Setup row. -->
++    <string name="sable_setup_keywords">sable setup, setup, readiness, checklist, first run</string>
+ 
+-    <!-- Settings > Sable: the Sable Start quick bar editor. -->
+-    <string name="sable_quick_bar_title">Quick bar</string>
+-    <!-- Summary of the Quick bar row. -->
+-    <string name="sable_quick_bar_summary">Choose, order and reset the Start quick bar slots</string>
+-    <!-- Search keywords for the Quick bar row. -->
+-    <string name="sable_quick_bar_keywords">quick bar, quickbar, base bar, dock, shortcuts, favorites, slots</string>
+-
+-    <!-- Settings > Sable: Sable Hub row. -->
+-    <string name="sable_hub_title">Sable Hub</string>
+-    <!-- Summary of the Sable Hub row. -->
+-    <string name="sable_hub_summary">Messages and notifications in one place, connected apps</string>
+-    <!-- Search keywords for the Sable Hub row. -->
+-    <string name="sable_hub_keywords">hub, inbox, unified inbox, connected apps, notification hub</string>
+-
+-    <!-- Settings > Sable: Sable Tools diagnostics row. -->
+-    <string name="sable_diagnostics_title">Diagnostics</string>
+-    <!-- Summary of the Diagnostics row. -->
+-    <string name="sable_diagnostics_summary">Sable Tools: keyboard, display, sensors, radio and reports</string>
+-    <!-- Search keywords for the Diagnostics row. -->
+-    <string name="sable_diagnostics_keywords">diagnostics, sable tools, tools, device profile, key test, keyboard test, sensors, radio information, report</string>
+-
+-    <!-- Settings > Sable: Sable Tools hardware test categories. -->
+-    <string name="sable_hardware_tests_title">Hardware tests</string>
+-    <!-- Summary of the Hardware tests row. -->
+-    <string name="sable_hardware_tests_summary">Single tests by category, read-only</string>
+-    <!-- Search keywords for the Hardware tests row. -->
+-    <string name="sable_hardware_tests_keywords">hardware test, factory test, single test, 3377, engineering mode</string>
+-
+-    <!-- Settings > Sable and Settings > Display: App display compatibility (Display Compat app). -->
++    <!-- Settings > Display: App display compatibility (Display Compat app). -->
+     <string name="sable_display_compat_title">App display compatibility</string>
+     <!-- Summary of the App display compatibility rows. -->
+     <string name="sable_display_compat_summary">Per-app layout profiles for the square screen</string>
+diff --git a/res/xml/sable_settings.xml b/res/xml/sable_settings.xml
+index fb721dc..03521f1 100644
+--- a/res/xml/sable_settings.xml
++++ b/res/xml/sable_settings.xml
+@@ -14,10 +14,10 @@
+      See the License for the specific language governing permissions and
+      limitations under the License.
+ -->
+-<!-- Settings > Sable: links into the Sable apps that own these settings, and Mobile Manager.
+-     Each app row is hidden, and left out of search, when its app is not installed
+-     (SableLinkPreferenceController).
+-     Row order is the keyboard focus order. -->
++<!-- Settings > Sable: Sable Setup only, the readiness checklist for the home screen, keyboard
++     and default apps. Sable features are reached from their own apps, Display, App info and
++     Apps > Mobile Manager, not from here. The row is hidden, and left out of search, when
++     Sable Setup is not installed (SableLinkPreferenceController). -->
+ <PreferenceScreen
+     xmlns:android="http://schemas.android.com/apk/res/android"
+     xmlns:settings="http://schemas.android.com/apk/res-auto"
+@@ -26,52 +26,9 @@
+     settings:keywords="@string/sable_settings_keywords">
+ 
+     <Preference
+-        android:key="sable_start"
+-        android:title="@string/sable_start_title"
+-        android:summary="@string/sable_start_summary"
+-        settings:keywords="@string/sable_start_keywords"
++        android:key="sable_setup"
++        android:title="@string/sable_setup_title"
++        android:summary="@string/sable_setup_summary"
++        settings:keywords="@string/sable_setup_keywords"
+         settings:controller="com.android.settings.sable.SableLinkPreferenceController" />
+-
+-    <Preference
+-        android:key="sable_start_quick_bar"
+-        android:title="@string/sable_quick_bar_title"
+-        android:summary="@string/sable_quick_bar_summary"
+-        settings:keywords="@string/sable_quick_bar_keywords"
+-        settings:controller="com.android.settings.sable.SableLinkPreferenceController" />
+-
+-    <Preference
+-        android:key="sable_hub"
+-        android:title="@string/sable_hub_title"
+-        android:summary="@string/sable_hub_summary"
+-        settings:keywords="@string/sable_hub_keywords"
+-        settings:controller="com.android.settings.sable.SableLinkPreferenceController" />
+-
+-    <Preference
+-        android:key="sable_tools_diagnostics"
+-        android:title="@string/sable_diagnostics_title"
+-        android:summary="@string/sable_diagnostics_summary"
+-        settings:keywords="@string/sable_diagnostics_keywords"
+-        settings:controller="com.android.settings.sable.SableLinkPreferenceController" />
+-
+-    <Preference
+-        android:key="sable_tools_hardware_tests"
+-        android:title="@string/sable_hardware_tests_title"
+-        android:summary="@string/sable_hardware_tests_summary"
+-        settings:keywords="@string/sable_hardware_tests_keywords"
+-        settings:controller="com.android.settings.sable.SableLinkPreferenceController" />
+-
+-    <Preference
+-        android:key="sable_display_compat"
+-        android:title="@string/sable_display_compat_title"
+-        android:summary="@string/sable_display_compat_summary"
+-        settings:keywords="@string/sable_display_compat_keywords"
+-        settings:controller="com.android.settings.sable.SableLinkPreferenceController" />
+-
+-    <!-- Owned by Settings itself (Settings > Apps > Mobile Manager), so always shown. Indexed
+-         from Settings > Apps only. -->
+-    <Preference
+-        android:key="sable_mobile_manager_link"
+-        android:title="@string/sable_mobile_manager_title"
+-        android:summary="@string/sable_mobile_manager_summary"
+-        android:fragment="com.android.settings.applications.sable.SableMobileManagerFragment" />
+ </PreferenceScreen>
+diff --git a/src/com/android/settings/sable/SableLinks.java b/src/com/android/settings/sable/SableLinks.java
+index 1c26ffc..d54be2b 100644
+--- a/src/com/android/settings/sable/SableLinks.java
++++ b/src/com/android/settings/sable/SableLinks.java
+@@ -26,37 +26,24 @@ import android.net.Uri;
+ import java.util.List;
+ 
+ /**
+- * Intents from Settings into the Sable apps that own some system settings (Sable Start, Sable
+- * Hub, Sable Tools, App display compatibility). Each link is resolved to an explicit component
+- * in that app's own package, so a missing app hides the row and no other app can answer.
++ * Intents from Settings into Sable apps: Sable Setup (Settings > Sable) and App display
++ * compatibility (Display, App info). Each link is resolved to an explicit component in that
++ * app's own package, so a missing app hides the row and no other app can answer.
+  */
+ public final class SableLinks {
+-    public static final String START_PACKAGE = "org.sableos.launcher";
+-    /** Opens Sable Start's quick bar editor (SableStartActivity). */
+-    public static final String ACTION_EDIT_QUICK_BAR = "org.sableos.start.action.EDIT_QUICK_BAR";
+-    public static final String HUB_PACKAGE = "org.sableos.hub";
+-    public static final String TOOLS_PACKAGE = "org.sableos.tools";
+-    public static final String ACTION_OPEN_TOOL = "org.sableos.tools.action.OPEN_TOOL";
+-    public static final String EXTRA_TOOL = "org.sableos.tools.extra.TOOL";
+-    public static final String TOOL_HARDWARE_TESTS = "HARDWARE_TESTS";
++    public static final String SETUP_PACKAGE = "org.sableos.titan2.setup";
+     public static final String DISPLAY_COMPAT_PACKAGE = "org.sableos.titan2.displaycompat";
+     /** Opens one app's profile in App display compatibility; data is {@code package:<name>}. */
+     public static final String ACTION_APP_DISPLAY_PROFILE =
+             "org.sableos.titan2.displaycompat.action.APP_PROFILE";
+ 
+-    public static final String KEY_START = "sable_start";
+-    public static final String KEY_QUICK_BAR = "sable_start_quick_bar";
+-    public static final String KEY_HUB = "sable_hub";
+-    public static final String KEY_DIAGNOSTICS = "sable_tools_diagnostics";
+-    public static final String KEY_HARDWARE_TESTS = "sable_tools_hardware_tests";
+-    public static final String KEY_DISPLAY_COMPAT = "sable_display_compat";
++    public static final String KEY_SETUP = "sable_setup";
+     /** Settings > Display > App display compatibility. */
+     public static final String KEY_DISPLAY_COMPAT_DISPLAY = "sable_display_compat_display";
+ 
+     /** The rows of Settings > Sable, in page order. */
+     public static final String[] SABLE_PAGE_KEYS = {
+-            KEY_START, KEY_QUICK_BAR, KEY_HUB, KEY_DIAGNOSTICS, KEY_HARDWARE_TESTS,
+-            KEY_DISPLAY_COMPAT,
++            KEY_SETUP,
+     };
+ 
+     private SableLinks() {
+@@ -68,19 +55,8 @@ public final class SableLinks {
+             return null;
+         }
+         switch (key) {
+-            case KEY_START:
+-                return new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+-                        .setPackage(START_PACKAGE);
+-            case KEY_QUICK_BAR:
+-                return new Intent(ACTION_EDIT_QUICK_BAR).setPackage(START_PACKAGE);
+-            case KEY_HUB:
+-                return launcher(HUB_PACKAGE);
+-            case KEY_DIAGNOSTICS:
+-                return launcher(TOOLS_PACKAGE);
+-            case KEY_HARDWARE_TESTS:
+-                return new Intent(ACTION_OPEN_TOOL).setPackage(TOOLS_PACKAGE)
+-                        .putExtra(EXTRA_TOOL, TOOL_HARDWARE_TESTS);
+-            case KEY_DISPLAY_COMPAT:
++            case KEY_SETUP:
++                return launcher(SETUP_PACKAGE);
+             case KEY_DISPLAY_COMPAT_DISPLAY:
+                 return launcher(DISPLAY_COMPAT_PACKAGE);
+             default:
+diff --git a/src/com/android/settings/sable/SableSettingsFragment.java b/src/com/android/settings/sable/SableSettingsFragment.java
+index 2b84519..c62d9de 100644
+--- a/src/com/android/settings/sable/SableSettingsFragment.java
++++ b/src/com/android/settings/sable/SableSettingsFragment.java
+@@ -27,18 +27,14 @@ import com.android.settings.dashboard.DashboardFragment;
+ import com.android.settings.search.BaseSearchIndexProvider;
+ import com.android.settingslib.search.SearchIndexable;
+ 
+-import java.util.List;
+-
+ /**
+- * Settings > Sable (KEYBOARD_FIRST_SETTINGS_UX): links to Sable Start (home layout, quick bar),
+- * Sable Hub, Sable Tools diagnostics and App display compatibility, plus Mobile Manager, which
+- * Settings owns. The app settings stay owned by those apps; this page only opens them. Rows of
+- * absent apps are hidden and not indexed; Mobile Manager keeps the page present.
++ * Settings > Sable: Sable Setup only. Sable features are reached from their own apps and from
++ * Display, App info and Apps > Mobile Manager; this page links none of them. It is not indexed
++ * when Sable Setup is absent.
+  */
+ @SearchIndexable
+ public class SableSettingsFragment extends DashboardFragment {
+     private static final String TAG = "SableSettings";
+-    private static final String KEY_MOBILE_MANAGER = "sable_mobile_manager_link";
+ 
+     private SableAppListKeyboard mKeyboard;
+ 
+@@ -75,11 +71,8 @@ public class SableSettingsFragment extends DashboardFragment {
+     public static final BaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+             new BaseSearchIndexProvider(R.xml.sable_settings) {
+                 @Override
+-                public List<String> getNonIndexableKeys(Context context) {
+-                    final List<String> keys = super.getNonIndexableKeys(context);
+-                    // Mobile Manager is indexed once, from Settings > Apps.
+-                    keys.add(KEY_MOBILE_MANAGER);
+-                    return keys;
++                protected boolean isPageSearchEnabled(Context context) {
++                    return SableLinks.anyAvailable(context);
+                 }
+             };
+ }
+diff --git a/src/com/android/settings/sable/TopLevelSablePreferenceController.java b/src/com/android/settings/sable/TopLevelSablePreferenceController.java
+index 36f5940..cf739a6 100644
+--- a/src/com/android/settings/sable/TopLevelSablePreferenceController.java
++++ b/src/com/android/settings/sable/TopLevelSablePreferenceController.java
+@@ -21,8 +21,7 @@ import android.content.Context;
+ import com.android.settings.core.BasePreferenceController;
+ 
+ /**
+- * The Settings homepage "Sable" row. Always shown: besides the Sable app links, the page holds
+- * Mobile Manager, which Settings owns.
++ * The Settings homepage "Sable" row, shown only when Sable Setup is installed.
+  */
+ public class TopLevelSablePreferenceController extends BasePreferenceController {
+ 
+@@ -32,6 +31,6 @@ public class TopLevelSablePreferenceController extends BasePreferenceController
+ 
+     @Override
+     public int getAvailabilityStatus() {
+-        return AVAILABLE;
++        return SableLinks.anyAvailable(mContext) ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
+     }
+ }
+-- 
+2.43.0
+

@@ -1,15 +1,15 @@
-From 5bea640b086c4840c4906419df54116e3378e244 Mon Sep 17 00:00:00 2001
+From 4640858e53270aad0ed1c3d1df1e623a07cf182a Mon Sep 17 00:00:00 2001
 From: SableOS <noreply@sableos.invalid>
 Date: Wed, 14 Oct 2026 13:01:45 +0000
-Subject: [PATCH 405/407] SableOS: privacy summary step after Wi-Fi
+Subject: [PATCH] SableOS: privacy summary step after Wi-Fi
 
 Adds a Privacy step after Wi-Fi that states Sable's privacy defaults in
-six short paragraphs: Sable apps send no analytics (LineageOS statistics
-stay a separate choice on the LineageOS features step), accounts and
-their data stay with their providers, Sable Hub reads notifications and
-not accounts, any app can be blocked from the network, Android shows
-notification content on the lock screen until the user hides it, and
-restore uses Android's backup app.
+six short paragraphs: Sable apps send no analytics, accounts and their
+data stay with their providers, Sable Hub reads notifications and not
+accounts, any app can be blocked from the network, the lock screen shows
+only each notification's app and count until unlock (the
+SableSettingsProviderOverlay default; the user can choose to show
+content), and restore uses Android's backup app.
 
 Under the paragraphs it belongs to, each link opens the Settings screen
 that controls it: Network access (org.sableos.settings.NETWORK_MANAGER),
@@ -20,6 +20,7 @@ Back/Esc return to Wi-Fi.
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01FqvfFQhAvko2gkqcxM25Aa
+Claude-Session: https://claude.ai/code/session_01UvjoefgeNVBxmkGXzTTNYS
 ---
  AndroidManifest.xml                           | 14 ++++
  res/drawable/ic_sable_privacy.xml             | 14 ++++
@@ -35,7 +36,7 @@ Claude-Session: https://claude.ai/code/session_01FqvfFQhAvko2gkqcxM25Aa
  create mode 100644 src/org/lineageos/setupwizard/SablePrivacyActivity.java
 
 diff --git a/AndroidManifest.xml b/AndroidManifest.xml
-index feacac0b..3b4158f9 100644
+index feacac0..3b4158f 100644
 --- a/AndroidManifest.xml
 +++ b/AndroidManifest.xml
 @@ -173,6 +173,20 @@
@@ -61,7 +62,7 @@ index feacac0b..3b4158f9 100644
              android:label="@string/activity_label_empty"
 diff --git a/res/drawable/ic_sable_privacy.xml b/res/drawable/ic_sable_privacy.xml
 new file mode 100644
-index 00000000..2ec5bb60
+index 0000000..2ec5bb6
 --- /dev/null
 +++ b/res/drawable/ic_sable_privacy.xml
 @@ -0,0 +1,14 @@
@@ -81,7 +82,7 @@ index 00000000..2ec5bb60
 +</vector>
 diff --git a/res/layout/sable_privacy_page.xml b/res/layout/sable_privacy_page.xml
 new file mode 100644
-index 00000000..ea8af8d2
+index 0000000..ea8af8d
 --- /dev/null
 +++ b/res/layout/sable_privacy_page.xml
 @@ -0,0 +1,78 @@
@@ -164,7 +165,7 @@ index 00000000..ea8af8d2
 +    </LinearLayout>
 +</com.google.android.setupdesign.GlifLayout>
 diff --git a/res/raw/lineage_wizard_script.xml b/res/raw/lineage_wizard_script.xml
-index 0be0d260..9530765f 100644
+index 0be0d26..9530765 100644
 --- a/res/raw/lineage_wizard_script.xml
 +++ b/res/raw/lineage_wizard_script.xml
 @@ -49,6 +49,13 @@
@@ -182,7 +183,7 @@ index 0be0d260..9530765f 100644
      </WizardAction>
  
 diff --git a/res/values/sable_strings.xml b/res/values/sable_strings.xml
-index d3be6716..ffb4539a 100644
+index d3be671..fc11302 100644
 --- a/res/values/sable_strings.xml
 +++ b/res/values/sable_strings.xml
 @@ -40,4 +40,17 @@
@@ -193,19 +194,19 @@ index d3be6716..ffb4539a 100644
 +    <!-- SableOS privacy step (SETUP_WIZARD_FIRST_BOOT_UX "Privacy posture"). Read-only. -->
 +    <string name="setup_sable_privacy">Privacy</string>
 +    <string name="sable_privacy_summary">How SableOS treats your data. Nothing on this page changes a setting.</string>
-+    <string name="sable_privacy_analytics"><b>No analytics.</b> Sable apps send no usage data, ads or crash reports. Anonymous LineageOS statistics are a separate choice on the LineageOS features step.</string>
++    <string name="sable_privacy_analytics"><b>No analytics.</b> Sable apps send no usage data, ads or crash reports.</string>
 +    <string name="sable_privacy_accounts"><b>Accounts stay with their providers.</b> Mail, messages, contacts and calendars belong to the apps and services you sign in to. SableOS does not hold their passwords or keep a copy of their data.</string>
 +    <string name="sable_privacy_hub"><b>Sable Hub reads notifications, not accounts.</b> Hub shows the notifications Android already gives it and follows your notification settings.</string>
 +    <string name="sable_privacy_network"><b>Internet access per app.</b> You can block any app from the network in Settings, Apps, Network access.</string>
 +    <string name="sable_privacy_network_link">Network access</string>
-+    <string name="sable_privacy_lock_screen"><b>Lock screen.</b> Android shows notification content on the lock screen until you choose to hide it.</string>
++    <string name="sable_privacy_lock_screen"><b>Lock screen.</b> While the phone is locked, notifications show only their app and count. Their content stays hidden until you unlock, unless you choose to show it.</string>
 +    <string name="sable_privacy_lock_screen_link">Lock screen notifications</string>
 +    <string name="sable_privacy_restore"><b>Restore.</b> Restoring a backup uses Android’s own backup app. SableOS keeps no copy of your backup.</string>
 +    <string name="sable_privacy_settings_link">Privacy settings</string>
  </resources>
 diff --git a/res/values/sable_styles.xml b/res/values/sable_styles.xml
 new file mode 100644
-index 00000000..bdc7e871
+index 0000000..bdc7e87
 --- /dev/null
 +++ b/res/values/sable_styles.xml
 @@ -0,0 +1,22 @@
@@ -233,7 +234,7 @@ index 00000000..bdc7e871
 +</resources>
 diff --git a/src/org/lineageos/setupwizard/SablePrivacyActivity.java b/src/org/lineageos/setupwizard/SablePrivacyActivity.java
 new file mode 100644
-index 00000000..97ff4ebe
+index 0000000..97ff4eb
 --- /dev/null
 +++ b/src/org/lineageos/setupwizard/SablePrivacyActivity.java
 @@ -0,0 +1,56 @@

@@ -56,3 +56,12 @@ runtime_resource_overlay {
     product_specific: true,
     sdk_version: "current",
 }
+
+// BlackBerry-style status LED: red short-flash notification light, amber low battery.
+runtime_resource_overlay {
+    name: "SableLedOverlay",
+    manifest: "SableLedOverlay/AndroidManifest.xml",
+    resource_dirs: ["SableLedOverlay/res"],
+    product_specific: true,
+    sdk_version: "current",
+}

@@ -142,6 +142,20 @@ object QuickBar {
         return index.takeIf { it in 0 until minOf(slotCount, MAX_SLOTS) }
     }
 
+    /**
+     * Phone slot type-to-dial (SABLE_START_SCREEN_DESIGN.md "Type digits while
+     * Phone quick icon focused"): the dial character a key typed, or null. On
+     * the Q25 the digits are the Alt layer (W E R S D F Z X C = 1..9), so the
+     * character the key map produced decides, not the key code.
+     */
+    fun dialChar(unicode: Int): Char? {
+        if (unicode <= 0) return null
+        val char = unicode.toChar()
+        return char.takeIf { it in '0'..'9' || it in DIAL_SYMBOLS }
+    }
+
+    private const val DIAL_SYMBOLS = "*#+"
+
     /** "Alt+1".."Alt+5": the shortcut as printed on the keys (Fn devices accept it too). */
     fun shortcutLabel(index: Int): String = "Alt+${index + 1}"
 
@@ -171,8 +185,20 @@ object StartTypeToSearch {
     }
 }
 
-/** Three-page Start keys: Alt+Left / Alt+Right (Fn+Left / Fn+Right on Fn keyboards). */
+/**
+ * The three Start pages (SABLE_START_THREE_PAGE_MODEL.md, the Titan 2
+ * three-page visual): Glance widgets on the left, Home in the center, Hub on
+ * the right. Swipe right or Alt+Left (Fn+Left on Fn keyboards) from Home opens
+ * Glance; swipe left or Alt+Right opens Hub.
+ */
 object StartPages {
+    const val GLANCE = 0
+    const val HOME = 1
+    const val HUB = 2
+    const val COUNT = 3
+
+    private const val KEYCODE_DPAD_UP = 19
+    private const val KEYCODE_DPAD_DOWN = 20
     private const val KEYCODE_DPAD_LEFT = 21
     private const val KEYCODE_DPAD_RIGHT = 22
 
@@ -188,4 +214,34 @@ object StartPages {
             else -> null
         }
     }
+
+    /**
+     * Edit Home reorder keys ("Fn+arrows to reorder"; Alt on the Q25): -1 moves
+     * the focused item up, +1 down, or null when the key is not Alt/Fn+Up/Down.
+     */
+    fun reorderDelta(
+        keyCode: Int,
+        metaState: Int,
+    ): Int? {
+        if (metaState and (QuickBar.META_ALT_ON or QuickBar.META_FUNCTION_ON) == 0) return null
+        return when (keyCode) {
+            KEYCODE_DPAD_UP -> -1
+            KEYCODE_DPAD_DOWN -> 1
+            else -> null
+        }
+    }
+
+    /** The page [delta] pages from [current], kept within Glance..Hub. */
+    fun target(
+        current: Int,
+        delta: Int,
+    ): Int = (current + delta).coerceIn(GLANCE, COUNT - 1)
+
+    /** The page a screen name opens ("glance", "hub"; anything else is Home). */
+    fun forScreen(screen: String): Int =
+        when (screen.lowercase(java.util.Locale.ROOT)) {
+            "glance", "live" -> GLANCE
+            "hub" -> HUB
+            else -> HOME
+        }
 }

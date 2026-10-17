@@ -1,0 +1,66 @@
+From e531b8e2a234b26734ef3823dba2a8bcdff3d0e9 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 17 Oct 2026 03:33:01 +0000
+Subject: [PATCH] SableOS: drop the LineageOS features step
+
+The owner script no longer runs the "LineageOS features" step
+(lineage_settings, LineageSettingsActivity); recovery_update now leads
+straight to biometric_settings. That step's "Help improve LineageOS"
+checkbox was checked unless the user unticked it and, when Setup
+finished, wrote LineageSettings.Secure.STATS_COLLECTION=1, which sends
+usage statistics to LineageOS. It is removed rather than renamed: with
+the step gone the settings bundle never holds send_metrics, so
+handleEnableMetrics writes nothing and STATS_COLLECTION keeps the
+lineage-sdk LineageSettingsProvider default def_stats_collection=false.
+The step's other row (disable hardware nav keys) needs
+FEATURE_KEY_DISABLE, which the Q25 does not report; the Navigation step
+still follows.
+
+The Privacy step's analytics paragraph now says that system usage
+statistics stay off as well.
+
+The activity and its strings stay in the app (the GMS and television
+scripts are unchanged); only the owner flow skips it.
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01UvjoefgeNVBxmkGXzTTNYS
+---
+ res/raw/lineage_wizard_script.xml | 8 ++------
+ res/values/sable_strings.xml      | 2 +-
+ 2 files changed, 3 insertions(+), 7 deletions(-)
+
+diff --git a/res/raw/lineage_wizard_script.xml b/res/raw/lineage_wizard_script.xml
+index 3d6ed36..7c6367b 100644
+--- a/res/raw/lineage_wizard_script.xml
++++ b/res/raw/lineage_wizard_script.xml
+@@ -93,12 +93,8 @@
+     <WizardAction
+         wizard:uri="intent:#Intent;action=org.lineageos.setupwizard.LINEAGE_RECOVERY_UPDATE;end"
+         id="recovery_update">
+-        <result wizard:action="lineage_settings" />
+-    </WizardAction>
+-
+-    <WizardAction
+-        wizard:uri="intent:#Intent;action=org.lineageos.setupwizard.LINEAGE_SETTINGS;end"
+-        id="lineage_settings">
++        <!-- SableOS: no LineageOS features step (its metrics opt-in sends
++             data to LineageOS); recovery update goes straight to biometrics. -->
+         <result wizard:action="biometric_settings" />
+     </WizardAction>
+ 
+diff --git a/res/values/sable_strings.xml b/res/values/sable_strings.xml
+index 44a150b..95442eb 100644
+--- a/res/values/sable_strings.xml
++++ b/res/values/sable_strings.xml
+@@ -44,7 +44,7 @@
+     <!-- SableOS privacy step (SETUP_WIZARD_FIRST_BOOT_UX "Privacy posture"). Read-only. -->
+     <string name="setup_sable_privacy">Privacy</string>
+     <string name="sable_privacy_summary">How SableOS treats your data. Nothing on this page changes a setting.</string>
+-    <string name="sable_privacy_analytics"><b>No analytics.</b> Sable apps send no usage data, ads or crash reports.</string>
++    <string name="sable_privacy_analytics"><b>No analytics.</b> SableOS and its apps send no usage data, ads or crash reports. System usage statistics stay off.</string>
+     <string name="sable_privacy_accounts"><b>Accounts stay with their providers.</b> Mail, messages, contacts and calendars belong to the apps and services you sign in to. SableOS does not hold their passwords or keep a copy of their data.</string>
+     <string name="sable_privacy_hub"><b>Sable Hub reads notifications, not accounts.</b> Hub shows the notifications Android already gives it and follows your notification settings.</string>
+     <string name="sable_privacy_network"><b>Internet access per app.</b> You can block any app from the network in Settings, Apps, Network access.</string>
+-- 
+2.43.0
+

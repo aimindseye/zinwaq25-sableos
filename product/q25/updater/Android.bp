@@ -1,0 +1,15 @@
+// Phase Q4 and later: no LineageOS Updater on SableOS (as on SableOS Panther,
+// which ships none). Staged to vendor/sable/q25/updater by
+// scripts/stage-product.sh only for Q4+, where sable-q25-framework.mk adds
+// SableNoUpdater to PRODUCT_PACKAGES. Installing it keeps vendor/lineage's
+// Updater (org.lineageos.updater) out of the image. Sable OTA updates come in
+// phase Q5 (docs/QUALIFICATION.md Q5-OTA).
+
+prebuilt_etc {
+    name: "SableNoUpdater",
+    src: "sable-updates.txt",
+    sub_dir: "sable",
+    filename: "updates.txt",
+    system_ext_specific: true,
+    overrides: ["Updater"],
+}

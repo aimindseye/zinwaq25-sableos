@@ -1,0 +1,93 @@
+From cda23b85b7f39ed44f41c446680feb7c9ddc4946 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 17 Oct 2026 03:32:01 +0000
+Subject: [PATCH] SableOS: hide the Launcher3QuickStep home settings, label it
+ Recents
+
+Since 0001 Launcher3QuickStep is not a HOME app on SableOS; it stays
+installed only for Quickstep/Recents. Its home settings had nothing left
+to configure but were still reachable from outside:
+
+* SettingsActivity is no longer exported, so App info shows no settings
+  gear for the app and other apps can't start it. The
+  APPLICATION_PREFERENCES filter stays so in-package lookups still
+  resolve.
+* LauncherSearchIndexablesProvider is removed from the manifest, so
+  Settings search no longer lists home settings that would open the
+  non-exported activity.
+* The app label (derived_app_name, the LineageOS "Trebuchet" name) is
+  "Recents", what the app still does. Package id and code are unchanged.
+
+SecondaryDisplayLauncher (SECONDARY_HOME), the gesture tutorial and the
+pin-shortcut confirmation stay: they serve the framework, not a launcher
+entry in the app list.
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01UvjoefgeNVBxmkGXzTTNYS
+---
+ AndroidManifest-common.xml       |  4 +++-
+ quickstep/AndroidManifest.xml    | 13 ++-----------
+ quickstep/res/values/strings.xml |  4 ++--
+ 3 files changed, 7 insertions(+), 14 deletions(-)
+
+diff --git a/AndroidManifest-common.xml b/AndroidManifest-common.xml
+index a83dbe9..7499dee 100644
+--- a/AndroidManifest-common.xml
++++ b/AndroidManifest-common.xml
+@@ -135,11 +135,13 @@
+         <!--
+         The settings activity. To extend point settings_fragment_name to appropriate fragment class
+         -->
++        <!-- SableOS: not exported. Sable Start is HOME, so these home settings
++             have nothing to configure; App info and other apps can't open them. -->
+         <activity
+             android:name="com.android.launcher3.settings.SettingsActivity"
+             android:label="@string/settings_button_text"
+             android:theme="@style/HomeSettings.Theme"
+-            android:exported="true"
++            android:exported="false"
+             android:autoRemoveFromRecents="true">
+             <intent-filter>
+                 <action android:name="android.intent.action.APPLICATION_PREFERENCES" />
+diff --git a/quickstep/AndroidManifest.xml b/quickstep/AndroidManifest.xml
+index 0dd735e..4f3c46a 100644
+--- a/quickstep/AndroidManifest.xml
++++ b/quickstep/AndroidManifest.xml
+@@ -93,17 +93,8 @@
+              android:enableOnBackInvokedCallback="false"
+              android:taskAffinity=""/>
+ 
+-        <!-- Content provider to settings search. The autority should be same as the packageName -->
+-        <provider android:name="com.android.quickstep.LauncherSearchIndexablesProvider"
+-             android:authorities="${applicationId}"
+-             android:grantUriPermissions="true"
+-             android:multiprocess="true"
+-             android:permission="android.permission.READ_SEARCH_INDEXABLES"
+-             android:exported="true">
+-            <intent-filter>
+-                <action android:name="android.content.action.SEARCH_INDEXABLES_PROVIDER"/>
+-            </intent-filter>
+-        </provider>
++        <!-- SableOS: no settings-search provider. It indexed the home settings,
++             which are no longer exported, into Settings search. -->
+ 
+         <!-- FileProvider used for sharing images. -->
+         <provider android:name="androidx.core.content.FileProvider"
+diff --git a/quickstep/res/values/strings.xml b/quickstep/res/values/strings.xml
+index ce599f6..16ede0e 100644
+--- a/quickstep/res/values/strings.xml
++++ b/quickstep/res/values/strings.xml
+@@ -18,8 +18,8 @@
+ -->
+ <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+ 
+-    <!-- Application name -->
+-    <string name="derived_app_name" translatable="false">@string/lineageos_app_name</string>
++    <!-- Application name. SableOS: this app only serves Recents (Sable Start is HOME). -->
++    <string name="derived_app_name" translatable="false">Recents</string>
+ 
+     <!-- Options for recent tasks -->
+     <!-- Title for an option to keep an app pinned to the screen until it is unpinned -->
+-- 
+2.43.0
+

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- BlackBerry-style notification LED (Q25 status LED: red, green and
+         blue GPIO LEDs, on/off only; device tree config_deviceLightCapabilities
+         587 = RGB notification + RGB battery + pulsating + battery LED + no
+         brightness control). The device FrameworksResOverlayQ25 already sets
+         config_intrusiveNotificationLed true, so the notification light and the
+         per-channel "Blink light" switch are available.
+
+         An unread notification blinks red: a short flash, a long pause, only
+         while the screen is off (LineageSettings NOTIFICATION_LIGHT_SCREEN_ON
+         defaults off), until the user unlocks or clears it. NotificationRecord
+         uses these on/off times for every channel light; LineageNotificationLights
+         uses the color when the channel names none, and LineageParts
+         (Settings > Notifications > Notification light) shows both as the
+         default it can change. LineageOS 23.2 ships #ffffffff, 500 and 2000. -->
+    <color name="config_defaultNotificationColor">#ffff0000</color>
+    <integer name="config_defaultNotificationLedOn">250</integer>
+    <integer name="config_defaultNotificationLedOff">2750</integer>
+
+    <!-- Battery light (LineageBatteryLights): red is kept for notifications,
+         so low battery is amber (red + green LED) instead of red, flashing
+         when not charging and solid when charging. Charging stays amber
+         (config_notificationsBatteryMediumARGB, LineageOS 0xFFFFFF00) and
+         nearly full (90 %) stays green (config_notificationsBatteryFullARGB,
+         0xFF00FF00); LineageOS turns the light off when full
+         (BATTERY_LIGHT_FULL_CHARGE_DISABLED). The lights HAL shows a lit
+         notification over the battery light, so a red blink replaces the
+         charging color until the notification is seen. LineageOS 23.2 ships
+         0xFFFF0000. -->
+    <integer name="config_notificationsBatteryLowARGB">0xFFFFFF00</integer>
+</resources>

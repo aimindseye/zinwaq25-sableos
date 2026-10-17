@@ -3,4 +3,8 @@
      (lineage-23.2) translations. Do not edit by hand. -->
 <resources>
     <string name="setup_welcome_message">Welcome to SableOS</string>
+    <string name="intro_restore_subtitle">If you have a compatible Seedvault backup from a previous device, you can restore it here.</string>
+    <string name="update_recovery_title">Update recovery</string>
+    <string name="update_recovery_description">Updates the recovery on the first boot after every system update.</string>
+    <string name="update_recovery_setting">Update recovery alongside the system</string>
 </resources>

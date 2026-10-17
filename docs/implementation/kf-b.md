@@ -37,7 +37,7 @@ can't reach the value.
 | QS tile shapes (pill and morph replaced by 12dp/8dp) | frameworks/base patch 0102 (constants are hard-coded in Compose) |
 | System accent equals Sable accent | RRO `SableFrameworkOverlay` (`theming_defaults`, first boot) + Settings patch 0101 (accent choice seeds the system palette) |
 | One light/dark source | Settings patch 0101: the Sable authority always reports `follow-system`; light and dark belong to Android's Dark theme |
-| Sable branding in Setup | RRO `SableSetupWizardOverlay` (welcome title in 49 locales, Sable logo) |
+| Sable branding in Setup | RRO `SableSetupWizardOverlay` (welcome title in 49 locales, restore and recovery text, Sable logo) and SetupWizard patch 0408 (no LineageOS features step) |
 | Sable branding in About | Settings patch 0102 (SableOS version row) |
 | Density | One value, `SABLE_LCD_DENSITY` in `product/q25/sable-q25.mk` |
 
@@ -119,8 +119,23 @@ preinstalled overlay may set these values.
   (`sableos_shield.png`, SHA-256 `eed1b127…5aea7`, the SableOS D2 SetupWizard
   icon, copied unchanged). It is padded 25% on each side, so the
   2:1 LineageOS layout never shows a square logo that fills the screen.
-  `os_name` stays "LineageOS", so the LineageOS features page, its privacy
-  policy text and the Seedvault restore text still name LineageOS truthfully.
+  Rule (as on SableOS Panther): **no visible LineageOS in the owner Setup
+  flow**; package ids, legal and licence text and upstream URLs stay.
+  `intro_restore_subtitle` is the Panther text ("If you have a compatible
+  Seedvault backup from a previous device, you can restore it here.") in
+  English (default and `en-r*`); the 36 other locales LineageOS translates
+  get their translation with SableOS in place of the OS name, and locales
+  without a translation fall back to the default. The Update recovery step's
+  title, description and switch say "recovery" instead of "Lineage
+  Recovery" in English only (no Sable translations yet; other translated
+  locales keep the LineageOS text). That step only appears when
+  `/vendor/bin/install-recovery.sh` exists, which the A/B Q25 does not
+  ship. The "LineageOS features" step is not renamed but removed from the
+  owner script by SetupWizard patch 0408, because its metrics opt-in sends
+  data to LineageOS (checked by default); LineageOS statistics keep the
+  lineage-sdk default `def_stats_collection=false`. `os_name`, the features
+  page's own strings and its privacy-policy text are never overlaid, and no
+  overlay touches legal, licence or notice resources (check).
 
 ### 3. Framework patches (range 0101-0199)
 
@@ -182,8 +197,8 @@ earlier release removes them along with the rest of `vendor/sable/q25`.
 | `PROFILE_GATED_HARDWARE_CONTROLS` | Code + static check | No AOD, SubScreen or keyboard-backlight tile in the defaults (check). Adding one waits for a validated Q25 capability. |
 | `LOCKSCREEN_SECURITY_BEHAVIOR_UNCHANGED` | Code + static check | No Keyguard, bouncer or biometric file is touched (check). The lockscreen changes only through the shared notification card radius and accent. |
 | `SETTINGS_ANDROID_IA_PRESERVED` | Code | Only an Accent row in Display and a version row in About. No new top-level entries and no moved settings. |
-| `SETUP_CRITICAL_TEXT_ENTRY` | Device | No SetupWizard layout or input change. Only the title string and the logo drawable. Check Wi-Fi password entry on the Q25 keyboard. |
-| `SABLE_PRODUCT_BRANDING` | Code + static check | Setup says SableOS and About shows the SableOS version. LineageOS version, legal and features/privacy text stay (check). |
+| `SETUP_CRITICAL_TEXT_ENTRY` | Device | No SetupWizard layout or input change from this package: strings and the logo drawable only. Check Wi-Fi password entry on the Q25 keyboard. |
+| `SABLE_PRODUCT_BRANDING` | Code + static check | The owner Setup flow shows no LineageOS name (welcome, restore and recovery strings; features step removed by 0408) and About shows the SableOS version. LineageOS version, legal and licence text stay (check). |
 | `FONT_SCALE_1_3_CORE_CONTROLS` | Device | Large labeled tiles help here, and upstream switches to extra-large tiles at 1.8x. Screenshots are needed. |
 | `VISUAL_REGRESSION_SET` | Device | The eleven screenshots (compact shade light/dark, expanded QS, notification actions, focused brightness slider, compact media, locked redaction, PIN entry, Settings top level, Setup text entry, confirmation dialog) at 1.0x and 1.3x need a booted build. |
 
@@ -246,7 +261,7 @@ $K/kotlinc/bin/kotlinc $D/main/java/org/sableos/design/SableSystemTokens.kt \
     $D/test/java/org/sableos/design/SableSystemTokensTest.kt $K/shim/Shim.kt -d /tmp/kf-b-out
 java -cp /tmp/kf-b-out:$K/kotlinc/lib/kotlin-stdlib.jar org.junit.Run org.sableos.design.SableSystemTokensTest
 
-# Regenerate the SetupWizard welcome strings after a LineageOS update
+# Regenerate the SetupWizard strings after a LineageOS update
 python3 scripts/gen-sable-setupwizard-strings.py <LineageOS packages/apps/SetupWizard checkout>
 ```
 
@@ -301,6 +316,7 @@ Results here: `SableSystemTokensTest` RAN=13 FAILED=0;
   `check-sable-design.py` fails if `AccentPreset` seeds drift from
   `SableAccentTokens`.
 * **SetupWizard.** T3 IR-014 (keyboard-first Setup steps) patches the same
-  LineageOS SetupWizard. This package only overlays one string and the logo.
+  LineageOS SetupWizard. This package overlays the welcome, restore and
+  recovery strings and the logo; 0408 drops the LineageOS features step.
 * **`stage-product.sh`** `FRAMEWORK=YES` block: other packages adding modules to
   the same `PRODUCT_PACKAGES` heredoc will need a trivial merge.

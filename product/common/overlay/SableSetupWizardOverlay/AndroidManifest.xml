@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- SableOS branding for the LineageOS SetupWizard (DESIGN-KF-B "Branding"):
-     the welcome title and logo say SableOS. LineageOS-owned pages (LineageOS
-     features, its privacy policy, Lineage Recovery) keep naming LineageOS. -->
+<!-- SableOS branding for the LineageOS SetupWizard (DESIGN-KF-B "Branding"),
+     the SableOS Panther rule: no visible LineageOS in the owner Setup flow.
+     The welcome title and logo say SableOS; the restore subtitle and the
+     recovery update step use neutral wording. The LineageOS features step is
+     removed by SetupWizard patch 0408, not renamed. Package ids, os_name,
+     legal, licence and privacy-policy text and upstream URLs are never
+     overlaid. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.sableos.overlay.setupwizard">
     <overlay

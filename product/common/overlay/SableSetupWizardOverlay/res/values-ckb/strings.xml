@@ -3,4 +3,5 @@
      (lineage-23.2) translations. Do not edit by hand. -->
 <resources>
     <string name="setup_welcome_message">بەخێربێیت بۆ SableOS</string>
+    <string name="intro_restore_subtitle">ئەگەر باکبەرنامەی Seedvaultـت هەیە لە SableOS یان هەر سیستمێکی تر، دەتوانیت لێرەدا بیگەڕێنیتەوە.</string>
 </resources>

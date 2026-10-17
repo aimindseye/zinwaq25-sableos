@@ -103,6 +103,64 @@ class StartStateRepository(
             }.apply()
     }
 
+    /** Ordered Home apps (see HomeApps); null means never customised. */
+    fun loadHomeApps(): List<String>? = loadOrdered(KEY_HOME_APPS)
+
+    fun saveHomeApps(keys: List<String>?) = saveOrdered(KEY_HOME_APPS, keys)
+
+    /** Ordered Glance widgets shown on the left page (see GlanceWidgets); null means never customised. */
+    fun loadGlanceWidgets(): List<String>? = loadOrdered(KEY_GLANCE_WIDGETS)
+
+    fun saveGlanceWidgets(widgets: List<String>?) = saveOrdered(KEY_GLANCE_WIDGETS, widgets)
+
+    /** Home modules the user hid in Edit Home (see HomeLayout); null means never customised. */
+    fun loadHiddenHomeSections(): Set<String>? =
+        if (preferences.contains(KEY_HOME_HIDDEN_SECTIONS)) {
+            preferences.getStringSet(KEY_HOME_HIDDEN_SECTIONS, emptySet()).orEmpty().toSet()
+        } else {
+            null
+        }
+
+    fun saveHiddenHomeSections(sections: Set<String>?) {
+        preferences
+            .edit()
+            .apply {
+                if (sections == null) {
+                    remove(KEY_HOME_HIDDEN_SECTIONS)
+                } else {
+                    putStringSet(KEY_HOME_HIDDEN_SECTIONS, sections.toSet())
+                }
+            }.apply()
+    }
+
+    /** "list" or "tiles" (see HomeLayout); null means never customised. */
+    fun loadHomeMode(): String? = preferences.getString(KEY_HOME_MODE, null)
+
+    fun saveHomeMode(mode: String) {
+        preferences.edit().putString(KEY_HOME_MODE, mode).apply()
+    }
+
+    private fun loadOrdered(key: String): List<String>? =
+        preferences
+            .getString(key, null)
+            ?.split(QUICK_BAR_SEPARATOR)
+            ?.filter { it.isNotEmpty() }
+
+    private fun saveOrdered(
+        key: String,
+        values: List<String>?,
+    ) {
+        preferences
+            .edit()
+            .apply {
+                if (values == null) {
+                    remove(key)
+                } else {
+                    putString(key, values.joinToString(QUICK_BAR_SEPARATOR))
+                }
+            }.apply()
+    }
+
     private companion object {
         const val PREFERENCES_NAME = "sable_start_state"
         const val KEY_FAVORITE_APPS = "favorite_apps"
@@ -110,5 +168,9 @@ class StartStateRepository(
         const val KEY_PINNED_APPS_LEGACY = "pinned_apps"
         const val KEY_QUICK_BAR = "quick_bar"
         const val QUICK_BAR_SEPARATOR = "\n"
+        const val KEY_HOME_APPS = "home_apps"
+        const val KEY_GLANCE_WIDGETS = "glance_widgets"
+        const val KEY_HOME_HIDDEN_SECTIONS = "home_hidden_sections"
+        const val KEY_HOME_MODE = "home_mode"
     }
 }

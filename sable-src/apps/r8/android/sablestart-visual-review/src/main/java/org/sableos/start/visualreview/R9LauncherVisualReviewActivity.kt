@@ -52,8 +52,8 @@ class R9LauncherVisualReviewActivity : ComponentActivity() {
     private lateinit var launcherApps: LauncherApps
     private lateinit var liveSurfaceRepository: LiveSurfaceRepository
 
-    private var favoriteKeys: Set<String> = emptySet()
     private var startTileKeys: Set<String>? = null
+    private var homeAppKeys: List<String>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -70,7 +70,6 @@ class R9LauncherVisualReviewActivity : ComponentActivity() {
             }
 
         refreshInventory()
-        favoriteKeys = defaultFavoriteKeys(appsState.value)
         startTileKeys =
             if (intent.getBooleanExtra(EXTRA_EXTENDED_START_TILES, false)) {
                 extendedStartTileKeys(appsState.value)
@@ -87,13 +86,10 @@ class R9LauncherVisualReviewActivity : ComponentActivity() {
                 appearance = appearanceState.value,
                 refreshGeneration = refreshGeneration.value,
                 initialScreen = intent.getStringExtra(EXTRA_INITIAL_SCREEN) ?: "start",
-                initialFavoriteKeys = favoriteKeys,
-                onFavoriteKeysChanged = { keys ->
-                    favoriteKeys = keys
-                },
                 initialStartTileKeys = startTileKeys,
-                onStartTileKeysChanged = { keys ->
-                    startTileKeys = keys
+                initialHomeApps = homeAppKeys,
+                onHomeAppsChanged = { keys ->
+                    homeAppKeys = keys
                 },
                 onAppearanceChanged = { appearance ->
                     appearanceState.value = appearance
@@ -315,29 +311,6 @@ class R9LauncherVisualReviewActivity : ComponentActivity() {
             .mapTo(linkedSetOf()) { entry -> entry.stableKey() }
     }
 
-    private fun defaultFavoriteKeys(apps: List<AppEntry>): Set<String> {
-        val selected = linkedMapOf<String, AppEntry>()
-
-        REVIEW_PIN_LABELS.forEach { preferred ->
-            apps
-                .firstOrNull { entry ->
-                    entry.label.equals(preferred, ignoreCase = true)
-                }?.let { entry ->
-                    selected.putIfAbsent(entry.stableKey(), entry)
-                }
-        }
-
-        apps.forEach { entry ->
-            if (selected.size < REVIEW_PIN_COUNT) {
-                selected.putIfAbsent(entry.stableKey(), entry)
-            }
-        }
-
-        return selected.values
-            .take(REVIEW_PIN_COUNT)
-            .mapTo(linkedSetOf()) { entry -> entry.stableKey() }
-    }
-
     private companion object {
         const val GRAPHENE_MESSAGING_PACKAGE = "com.android.messaging"
         val REVIEW_INTERNAL_COMPONENTS =
@@ -359,17 +332,7 @@ class R9LauncherVisualReviewActivity : ComponentActivity() {
         const val FIXTURE_WORK_USER = 10
         const val FIXTURE_APP_ID = 10_999
         const val PER_USER_RANGE = 100_000
-        const val REVIEW_PIN_COUNT = 3
         const val REVIEW_START_TILE_COUNT = 14
-
-        val REVIEW_PIN_LABELS =
-            listOf(
-                "Phone",
-                "Calendar",
-                "Calculator",
-                "Files",
-                "Camera",
-            )
 
         val REVIEW_START_LABELS =
             listOf(

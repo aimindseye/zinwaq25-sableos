@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- BlackBerry-style status LED (Q25 red/green/blue GPIO LED driven by
+     android.hardware.light-service.lineage): framework defaults only. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="org.sableos.overlay.led">
+    <overlay
+        android:targetPackage="android"
+        android:isStatic="true"
+        android:priority="21" />
+    <application
+        android:hasCode="false"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="false" />
+</manifest>
