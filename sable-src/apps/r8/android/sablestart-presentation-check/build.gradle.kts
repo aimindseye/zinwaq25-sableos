@@ -50,6 +50,7 @@ val canonicalPresentationSources =
         "com/sable/start/model/AppEntry.kt",
         "com/sable/start/model/CommandQuery.kt",
         "com/sable/start/model/CoreAppIdentity.kt",
+        "com/sable/start/model/HomeLayout.kt",
         "com/sable/start/model/QuickBar.kt",
         "com/sable/start/platform/DeviceStatsSampler.kt",
         "com/sable/start/platform/LiveSurfaceRepository.kt",

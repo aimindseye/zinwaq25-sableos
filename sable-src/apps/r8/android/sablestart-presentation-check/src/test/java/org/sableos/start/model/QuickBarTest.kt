@@ -81,6 +81,38 @@ class QuickBarTest {
     }
 
     @Test
+    fun threePagesGlanceHomeHub() {
+        assertEquals(listOf(0, 1, 2), listOf(StartPages.GLANCE, StartPages.HOME, StartPages.HUB))
+        assertEquals(3, StartPages.COUNT)
+        // Alt+Left from Home opens Glance, Alt+Right opens Hub, and both stop at the edge.
+        assertEquals(StartPages.GLANCE, StartPages.target(StartPages.HOME, -1))
+        assertEquals(StartPages.HUB, StartPages.target(StartPages.HOME, 1))
+        assertEquals(StartPages.GLANCE, StartPages.target(StartPages.GLANCE, -1))
+        assertEquals(StartPages.HUB, StartPages.target(StartPages.HUB, 1))
+        assertEquals(StartPages.GLANCE, StartPages.forScreen("glance"))
+        assertEquals(StartPages.HUB, StartPages.forScreen("Hub"))
+        assertEquals(StartPages.HOME, StartPages.forScreen("start"))
+        assertEquals(StartPages.HOME, StartPages.forScreen("apps"))
+    }
+
+    @Test
+    fun altUpDownReorderInEditHome() {
+        assertEquals(-1, StartPages.reorderDelta(19, QuickBar.META_ALT_ON))
+        assertEquals(1, StartPages.reorderDelta(20, QuickBar.META_FUNCTION_ON))
+        assertNull(StartPages.reorderDelta(20, 0))
+        assertNull(StartPages.reorderDelta(21, QuickBar.META_ALT_ON))
+    }
+
+    @Test
+    fun digitsOnThePhoneSlotDial() {
+        assertEquals('1', QuickBar.dialChar('1'.code))
+        assertEquals('#', QuickBar.dialChar('#'.code))
+        assertEquals('+', QuickBar.dialChar('+'.code))
+        assertNull(QuickBar.dialChar('w'.code))
+        assertNull(QuickBar.dialChar(0))
+    }
+
+    @Test
     fun printableKeysOnStartSeedSearch() {
         assertEquals('m', StartTypeToSearch.seed('m'.code, 0, repeat = false))
         assertEquals('M', StartTypeToSearch.seed('M'.code, 0x1, repeat = false))

@@ -51,7 +51,7 @@ class SableStartActivity : ComponentActivity() {
     private val homeGeneration = mutableStateOf(0)
     private val backGeneration = mutableStateOf(0)
 
-    /** Screen asked for by Settings (EDIT_QUICK_BAR), and a serial so a repeat opens it again. */
+    /** Screen asked for by Settings (EDIT_HOME, EDIT_QUICK_BAR), and a serial so a repeat opens it again. */
     private val startRequest = mutableStateOf(StartRequest(SCREEN_START, 0))
 
     private var callbackRegistered = false
@@ -213,12 +213,17 @@ class SableStartActivity : ComponentActivity() {
                     onCanNavigateBackChanged = { value ->
                         canNavigateBack = value
                     },
-                    initialFavoriteKeys = startStateRepository.loadFavoriteKeys(),
-                    onFavoriteKeysChanged = startStateRepository::saveFavoriteKeys,
                     initialStartTileKeys = startStateRepository.loadStartTileKeys(),
-                    onStartTileKeysChanged = startStateRepository::saveStartTileKeys,
+                    initialHomeApps = startStateRepository.loadHomeApps(),
+                    onHomeAppsChanged = startStateRepository::saveHomeApps,
                     initialQuickBar = startStateRepository.loadQuickBar(),
                     onQuickBarChanged = startStateRepository::saveQuickBar,
+                    initialGlanceWidgets = startStateRepository.loadGlanceWidgets(),
+                    onGlanceWidgetsChanged = startStateRepository::saveGlanceWidgets,
+                    initialHiddenHomeSections = startStateRepository.loadHiddenHomeSections(),
+                    onHiddenHomeSectionsChanged = startStateRepository::saveHiddenHomeSections,
+                    initialHomeMode = startStateRepository.loadHomeMode(),
+                    onHomeModeChanged = startStateRepository::saveHomeMode,
                     onAppearanceChanged = { next ->
                         writeGlobalSableAppearance(this@SableStartActivity, next)
                     },
@@ -271,7 +276,7 @@ class SableStartActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        if (intent.action == ACTION_EDIT_QUICK_BAR) {
+        if (intent.action == ACTION_EDIT_QUICK_BAR || intent.action == ACTION_EDIT_HOME) {
             // The Screen is recomposed fresh for the request: its Home/Back effects act only on
             // counts above zero, so they restart from zero rather than undo the request at once.
             homeGeneration.value = 0
@@ -418,12 +423,18 @@ class SableStartActivity : ComponentActivity() {
     private companion object {
         const val LIVE_PERMISSION_REQUEST_CODE = 0x534D
 
-        /** Settings > Sable > Quick bar: open Sable Start's quick bar editor. */
+        /** Settings > Sable > Quick bar: Edit Home (the quick bar is edited there with the Home apps). */
         const val ACTION_EDIT_QUICK_BAR = "org.sableos.start.action.EDIT_QUICK_BAR"
+
+        /** Settings > Sable Start > Home layout: Edit Home. */
+        const val ACTION_EDIT_HOME = "org.sableos.start.action.EDIT_HOME"
         const val SCREEN_START = "start"
-        const val SCREEN_QUICK_BAR = "quickbar"
+        const val SCREEN_EDIT_HOME = "home"
 
         fun screenFor(intent: Intent?): String =
-            if (intent?.action == ACTION_EDIT_QUICK_BAR) SCREEN_QUICK_BAR else SCREEN_START
+            when (intent?.action) {
+                ACTION_EDIT_QUICK_BAR, ACTION_EDIT_HOME -> SCREEN_EDIT_HOME
+                else -> SCREEN_START
+            }
     }
 }
