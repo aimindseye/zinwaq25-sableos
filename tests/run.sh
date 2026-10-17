@@ -291,6 +291,33 @@ for pair in kbd_backlight:persist.sys.sable.kbd_backlight kbd_backlight_level:pe
 done
 if [[ -z "$kbd_missing" ]]; then pass "keyboard backlight names agree (init, driver)"; else fail "keyboard backlight names:$kbd_missing"; fi
 
+# 6g2. BlackBerry-style notification LED (Q4-LED-BB): the overlay's red
+# default, and the three patches that make every alerting channel light it
+# in that default color unless the user turned the channel's light off.
+led_missing=""
+led_ov=product/common/overlay/SableLedOverlay/res/values/config.xml
+grep -q 'name="config_defaultNotificationColor">#ffff0000<' "$led_ov" || led_missing="$led_missing overlay:color"
+grep -q 'name="config_defaultNotificationLedOn">250<' "$led_ov" || led_missing="$led_missing overlay:on"
+grep -q 'name="config_defaultNotificationLedOff">2750<' "$led_ov" || led_missing="$led_missing overlay:off"
+led_fwb=(patches/framework/frameworks/base/0501-*.patch)
+led_sdk=(patches/framework/lineage-sdk/0502-*.patch)
+led_parts=(patches/framework/packages/apps/LineageParts/0503-*.patch)
+for p in "${led_fwb[0]}" "${led_sdk[0]}" "${led_parts[0]}"; do [[ -f "$p" ]] || led_missing="$led_missing file:$p"; done
+if [[ -f "${led_fwb[0]}" ]]; then
+    grep -qF '+        Light light = (getChannel().shouldShowLights() || shouldShowDefaultLights())' "${led_fwb[0]}" || led_missing="$led_missing fwb:calculateLights"
+    grep -qF '+                com.android.internal.R.bool.config_intrusiveNotificationLed)) {' "${led_fwb[0]}" || led_missing="$led_missing fwb:intrusive-led-gate"
+    grep -qF '+        return (getChannel().getUserLockedFields() & NotificationChannel.USER_LOCKED_LIGHTS) == 0' "${led_fwb[0]}" || led_missing="$led_missing fwb:user-locked"
+    grep -qF '+                && getImportance() >= IMPORTANCE_DEFAULT;' "${led_fwb[0]}" || led_missing="$led_missing fwb:importance"
+fi
+if [[ -f "${led_sdk[0]}" ]]; then
+    grep -qF '+                    0, UserHandle.USER_CURRENT) != 0;' "${led_sdk[0]}" || led_missing="$led_missing sdk:color-auto-default"
+fi
+if [[ -f "${led_parts[0]}" ]]; then
+    grep -qF '+            android:defaultValue="false" />' "${led_parts[0]}" || led_missing="$led_missing parts:xml-default"
+    [[ "$(grep -cF 'NOTIFICATION_LIGHT_COLOR_AUTO, 0) == 1' "${led_parts[0]}")" == 2 ]] || led_missing="$led_missing parts:java-default"
+fi
+if [[ -z "$led_missing" ]]; then pass "notification LED: red default, lit alerting channels (frameworks/base 0501, lineage-sdk 0502, LineageParts 0503)"; else fail "notification LED:$led_missing"; fi
+
 tools_link=sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
 missing=""
 for action in org.sableos.settings.NETWORK_MANAGER org.sableos.settings.APP_SECURITY; do

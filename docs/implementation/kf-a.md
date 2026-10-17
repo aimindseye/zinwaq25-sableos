@@ -61,7 +61,8 @@ Android platform or Sable. Evidence per output is Absent, Candidate or Validated
 - Only Validated outputs are visible. Candidates are hidden, not shown disabled.
 
 Defaults: the keyboard backlight is off; the secondary display is profile- and privacy-gated; the
-status LED and AOD use the platform default. `policy/AttentionPolicy.kt` emits a Sable output only
+status LED and AOD use the platform default (on the Q25 the status LED default is the
+BlackBerry-style red blink, see [Notification LED](#notification-led-q25-blackberry-style)). `policy/AttentionPolicy.kt` emits a Sable output only
 when all of these hold:
 - the user selected it;
 - Android importance is DEFAULT or higher;
@@ -185,6 +186,40 @@ Other files:
   `tests/framework/frameworks/base/*Test.kt`.
 - `tests/kf-a-notification-policy-check.sh` (called from `tests/run.sh`).
 - Rows added to the `patches/README.md` table.
+
+## Notification LED (Q25, BlackBerry style)
+
+The Q25 status LED (red, green and blue GPIO LEDs, on/off only; the device overlay sets
+`config_intrusiveNotificationLed`) behaves like a BlackBerry's:
+
+- **New notification, screen off:** a short red flash (250 ms) every 3 s (2750 ms off) for
+  every channel at Default importance or higher. The light stops while the screen is on
+  (Settings > Notifications > Notification light > "Screen on" stays off) and is turned off
+  when the user unlocks. Until the shade is opened or the notification is dismissed, it is
+  still pending and flashes again at the next screen-off, like a BlackBerry's unread light.
+- **Opting out:** the per-channel "Blink light" switch in Android's channel settings. Turning
+  it off locks the field (`USER_LOCKED_LIGHTS`) and that channel never lights. Settings >
+  Notifications > Notification light turns the LED off for everything and still offers
+  per-app colors and "Automagic" (icon colors), now off by default.
+- **Colors:** a channel that names no color gets the default red; an app that sets its own
+  channel color, or a per-app color in Notification light, still wins.
+- **Battery (no notification lit):** amber while charging, green at 90 % and above, off when
+  full; low battery not charging flashes amber (red is kept for notifications). A lit
+  notification shows over the battery color.
+
+Where it comes from:
+
+| Piece | Change |
+| --- | --- |
+| `product/common/overlay/SableLedOverlay` | Default color `#ffff0000`, 250/2750 ms, low battery amber. |
+| frameworks/base 0501 | `NotificationRecord.calculateLights()` also lights a channel whose app did not enable lights, when the device has the LED, the user has not set the channel's light and importance is Default or higher; color 0 so lineage-sdk picks the default. Pre-channel apps keep `FLAG_SHOW_LIGHTS`. |
+| lineage-sdk 0502 | `NOTIFICATION_LIGHT_COLOR_AUTO` defaults to 0, so the default color is used instead of an icon color. |
+| LineageParts 0503 | The Automagic switch, the page summary and new per-app entries read the same default (off). |
+
+Known gaps: Android's channel page shows "Blink light" off for a channel that blinks only
+because of 0501 (the switch reflects the app's own choice); turning it on and off again opts the
+channel out. The GPIO LEDs blink from a kernel timer, so check that flashing continues after more
+than a minute of screen-off suspend (Q4-LED-BB). Not built or run on hardware.
 
 ## Framework patch bases (lineage-23.2)
 

@@ -1,0 +1,160 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 17 Oct 2026 03:47:47 +0000
+Subject: [PATCH] SableOS: notification light for every alerting channel
+
+BlackBerry-style notification LED. Android lights the LED only for
+channels whose app called enableLights(true), so most apps never light
+it. On a device with a notification LED (config_intrusiveNotificationLed)
+a channel now also gets a light when its importance is Default or
+higher and the user has not set the channel's light (USER_LOCKED_LIGHTS
+not set). Turning a channel's "Blink light" off in Settings locks the
+field and still opts that channel out; a channel the user turned on, or
+an app that enabled lights, behaves as before.
+
+The light color stays 0, so LineageNotificationLights supplies the
+default color (SableLedOverlay: red, 250 ms on / 2750 ms off).
+Pre-channel apps keep their FLAG_SHOW_LIGHTS behaviour. Devices without
+the LED are unchanged (and NotificationAttentionHelper never shows a
+light there anyway).
+
+Tests: NotificationRecordTest covers the default light with and
+without the LED, a user-locked channel and a Low channel;
+NotificationAttentionHelperTest's no-lights records lock the channel's
+light, as a user who turned it off would, since that test enables the
+LED.
+---
+ .../notification/NotificationRecord.java      | 20 ++++++-
+ .../NotificationAttentionHelperTest.java      |  2 +
+ .../notification/NotificationRecordTest.java  | 55 +++++++++++++++++++
+ 3 files changed, 75 insertions(+), 2 deletions(-)
+
+diff --git a/services/core/java/com/android/server/notification/NotificationRecord.java b/services/core/java/com/android/server/notification/NotificationRecord.java
+index c71444472..a46a52d7a 100644
+--- a/services/core/java/com/android/server/notification/NotificationRecord.java
++++ b/services/core/java/com/android/server/notification/NotificationRecord.java
+@@ -315,8 +315,8 @@ public final class NotificationRecord {
+ 
+         int channelLightColor = getChannel().getLightColor() != 0 ? getChannel().getLightColor()
+                 : defaultLightColor;
+-        Light light = getChannel().shouldShowLights() ? new Light(channelLightColor,
+-                defaultLightOn, defaultLightOff) : null;
++        Light light = (getChannel().shouldShowLights() || shouldShowDefaultLights())
++                ? new Light(channelLightColor, defaultLightOn, defaultLightOff) : null;
+         if (mPreChannelsNotification
+                 && (getChannel().getUserLockedFields()
+                 & NotificationChannel.USER_LOCKED_LIGHTS) == 0) {
+@@ -335,6 +335,22 @@ public final class NotificationRecord {
+         return light;
+     }
+ 
++    /**
++     * SableOS: on a device with a notification LED, light it for every alerting
++     * channel the user has not set a light for, like a BlackBerry: the app's
++     * channel may not enable lights, but the light stays on unless the user
++     * turned the channel's light off (that locks USER_LOCKED_LIGHTS). The color
++     * stays 0 so LineageNotificationLights supplies the default color.
++     */
++    private boolean shouldShowDefaultLights() {
++        if (!mContext.getResources().getBoolean(
++                com.android.internal.R.bool.config_intrusiveNotificationLed)) {
++            return false;
++        }
++        return (getChannel().getUserLockedFields() & NotificationChannel.USER_LOCKED_LIGHTS) == 0
++                && getImportance() >= IMPORTANCE_DEFAULT;
++    }
++
+     private VibrationEffect getVibrationForChannel(
+             NotificationChannel channel, VibratorHelper helper, boolean insistent) {
+         if (!channel.shouldVibrate()) {
+diff --git a/services/tests/uiservicestests/src/com/android/server/notification/NotificationAttentionHelperTest.java b/services/tests/uiservicestests/src/com/android/server/notification/NotificationAttentionHelperTest.java
+index ae4957b85..6ea9bdead 100644
+--- a/services/tests/uiservicestests/src/com/android/server/notification/NotificationAttentionHelperTest.java
++++ b/services/tests/uiservicestests/src/com/android/server/notification/NotificationAttentionHelperTest.java
+@@ -515,6 +515,8 @@ public class NotificationAttentionHelperTest extends UiServiceTestCase {
+             mChannel.enableLights(true);
+         } else {
+             mChannel.enableLights(false);
++            // SableOS: with the device LED, an unlocked channel lights by default.
++            mChannel.lockFields(NotificationChannel.USER_LOCKED_LIGHTS);
+         }
+         builder.setDefaults(defaults);
+ 
+diff --git a/services/tests/uiservicestests/src/com/android/server/notification/NotificationRecordTest.java b/services/tests/uiservicestests/src/com/android/server/notification/NotificationRecordTest.java
+index 30647ada6..04c83d0dc 100644
+--- a/services/tests/uiservicestests/src/com/android/server/notification/NotificationRecordTest.java
++++ b/services/tests/uiservicestests/src/com/android/server/notification/NotificationRecordTest.java
+@@ -45,6 +45,7 @@ import static org.mockito.ArgumentMatchers.any;
+ import static org.mockito.ArgumentMatchers.anyInt;
+ import static org.mockito.ArgumentMatchers.eq;
+ import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.spy;
+ import static org.mockito.Mockito.when;
+ 
+ import android.app.ActivityManager;
+@@ -651,8 +652,62 @@ public class NotificationRecordTest extends UiServiceTestCase {
+         assertEquals(expected, record.getLight());
+     }
+ 
++    private void setIntrusiveNotificationLed(boolean hasLed) {
++        final Resources res = spy(mContext.getResources());
++        when(res.getBoolean(com.android.internal.R.bool.config_intrusiveNotificationLed))
++                .thenReturn(hasLed);
++        when(mMockContext.getResources()).thenReturn(res);
++    }
++
++    private StatusBarNotification getNoLightsNotification() {
++        return getNotification(PKG_O, true /* noisy */,
++                true /* defaultSound */, false /* buzzy */, false /* defaultBuzz */,
++                false /* lights */, false /* defaultLights */, null /* group */);
++    }
++
++    @Test
++    public void testLights_sableDefaultLight_deviceWithLed() {
++        setIntrusiveNotificationLed(true);
++        int defaultLightOn = mMockContext.getResources().getInteger(
++                com.android.internal.R.integer.config_defaultNotificationLedOn);
++        int defaultLightOff = mMockContext.getResources().getInteger(
++                com.android.internal.R.integer.config_defaultNotificationLedOff);
++        StatusBarNotification sbn = getNoLightsNotification();
++        NotificationRecord record = new NotificationRecord(mMockContext, sbn, channel);
++        // Color 0: LineageNotificationLights supplies the default color.
++        assertEquals(new NotificationRecord.Light(0, defaultLightOn, defaultLightOff),
++                record.getLight());
++    }
++
++    @Test
++    public void testLights_sableDefaultLight_deviceWithoutLed() {
++        setIntrusiveNotificationLed(false);
++        StatusBarNotification sbn = getNoLightsNotification();
++        NotificationRecord record = new NotificationRecord(mMockContext, sbn, channel);
++        assertNull(record.getLight());
++    }
++
++    @Test
++    public void testLights_sableDefaultLight_userTurnedChannelLightOff() {
++        setIntrusiveNotificationLed(true);
++        StatusBarNotification sbn = getNoLightsNotification();
++        channel.lockFields(NotificationChannel.USER_LOCKED_LIGHTS);
++        NotificationRecord record = new NotificationRecord(mMockContext, sbn, channel);
++        assertNull(record.getLight());
++    }
++
++    @Test
++    public void testLights_sableDefaultLight_lowImportance() {
++        setIntrusiveNotificationLed(true);
++        channel.setImportance(IMPORTANCE_LOW);
++        StatusBarNotification sbn = getNoLightsNotification();
++        NotificationRecord record = new NotificationRecord(mMockContext, sbn, channel);
++        assertNull(record.getLight());
++    }
++
+     @Test
+     public void testLights_upgrade_noLight() {
++        setIntrusiveNotificationLed(false);
+         StatusBarNotification sbn = getNotification(PKG_O, true /* noisy */,
+                 true /* defaultSound */, false /* buzzy */, false /* defaultBuzz */,
+                 false /* lights */, false /* defaultLights */, null /* group */);
+-- 
+2.43.0
+
