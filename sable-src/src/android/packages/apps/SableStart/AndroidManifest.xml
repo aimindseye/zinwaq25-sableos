@@ -62,6 +62,12 @@
                 <action android:name="org.sableos.start.action.EDIT_QUICK_BAR" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+
+            <!-- Home settings: what Sable Start's Home page shows. -->
+            <intent-filter>
+                <action android:name="org.sableos.start.action.EDIT_HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
     </application>
 </manifest>

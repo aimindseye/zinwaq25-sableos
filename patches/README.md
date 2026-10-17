@@ -21,7 +21,11 @@
   Media and Mail keys and search) and the SonarCloud cleanup across the Sable apps, 0018 the second
   SonarCloud pass (Sable Tools dialer-code receiver permission, Text Reader version catalog, Start
   constants, Reader report task metadata), 0019 the Hub source dock, combined conversations and mail
-  apps as Hub sources, 0020 Sable Mail starting without the Settings appearance provider (Q2 images).
+  apps as Hub sources, 0020 Sable Mail starting without the Settings appearance provider (Q2 images),
+  0021 the configurable Sable Start Home (owner request: Home loses its All Apps, Search and Live links
+  and the quick bar's Search and Apps slots; the pages to the right of Home are All Apps, Search and Live,
+  in that order, by swipe or Alt+Right; Home settings choose the clock, status rings, greeting, cards,
+  favorites and quick bar, and which apps are cards; the Glance and Hub pages go).
   Applied in order to a
   fresh import they reproduce `sable-src/` exactly. Regenerate a patch with `git diff` against a
   fresh import when you change these files.

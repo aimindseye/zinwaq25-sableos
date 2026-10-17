@@ -312,19 +312,22 @@ grep -q 'PLATFORM_ENFORCEMENT = Enforcement.NOT_ENFORCED' patches/framework/pack
     missing="$missing app-lock-not-enforced"
 if [[ -z "$missing" ]]; then pass "Mobile Manager actions, Focus receiver and App lock status"; else fail "Mobile Manager:$missing"; fi
 
-# Settings > Sable, Display and App info (Settings patch 1001) open actions the Sable apps declare.
+# Display and App info (Settings patch 1001) open the action App display compatibility declares;
+# Settings > Sable (1103) opens Sable Setup's launcher activity and nothing else.
 sable_links=(patches/framework/packages/apps/Settings/1001-*.patch)
 missing=""
-for pair in \
-    org.sableos.start.action.EDIT_QUICK_BAR:sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml \
-    org.sableos.titan2.displaycompat.action.APP_PROFILE:sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml \
-    org.sableos.tools.action.OPEN_TOOL:sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml; do
-    action="${pair%%:*}"; manifest="${pair#*:}"
-    grep -q "\"$action\"" "${sable_links[@]}" || missing="$missing settings:$action"
-    grep -q "<action android:name=\"$action\" />" "$manifest" || missing="$missing app:$action"
-done
-grep -q 'HARDWARE_TESTS(' sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt ||
-    missing="$missing tools:HARDWARE_TESTS"
+action=org.sableos.titan2.displaycompat.action.APP_PROFILE
+grep -q "\"$action\"" "${sable_links[@]}" || missing="$missing settings:$action"
+grep -q "<action android:name=\"$action\" />" sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml ||
+    missing="$missing app:$action"
+setup_page=(patches/framework/packages/apps/Settings/1103-*.patch)
+grep -q '+    public static final String SETUP_PACKAGE = "org.sableos.titan2.setup";' "${setup_page[@]}" ||
+    missing="$missing settings:setup-package"
+grep -q 'org.sableos.titan2.setup' product/q25/apps.tsv || missing="$missing apps:SableSetup"
+grep -q '<category android:name="android.intent.category.LAUNCHER" />' \
+    sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml || missing="$missing app:setup-launcher"
+grep -q '^+        android:key="sable_setup"' "${setup_page[@]}" &&
+    grep -q '^-        android:key="sable_hub"' "${setup_page[@]}" || missing="$missing settings:setup-row-only"
 if [[ -z "$missing" ]]; then pass "Settings Sable entries land on actions the Sable apps declare"; else fail "Sable entry actions missing:$missing"; fi
 
 # 6h. Stock app keyboard model (Files, Photos, Browser patches 1001-1099): the pure sable/

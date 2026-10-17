@@ -103,6 +103,34 @@ class StartStateRepository(
             }.apply()
     }
 
+    /**
+     * Home sections the user hid in Home settings (see HomeLayout). Null
+     * means never customised: Home shows every section.
+     */
+    fun loadHiddenHomeSections(): Set<String>? =
+        if (preferences.contains(KEY_HOME_HIDDEN_SECTIONS)) {
+            preferences.getStringSet(KEY_HOME_HIDDEN_SECTIONS, emptySet()).orEmpty().toSet()
+        } else {
+            null
+        }
+
+    fun saveHiddenHomeSections(sections: Set<String>?) {
+        preferences
+            .edit()
+            .apply {
+                if (sections == null) {
+                    remove(KEY_HOME_HIDDEN_SECTIONS)
+                } else {
+                    putStringSet(KEY_HOME_HIDDEN_SECTIONS, sections.toSet())
+                }
+            }.apply()
+    }
+
+    /** Forgets the chosen cards so Home shows the default set again. */
+    fun resetStartTileKeys() {
+        preferences.edit().remove(KEY_START_TILES).apply()
+    }
+
     private companion object {
         const val PREFERENCES_NAME = "sable_start_state"
         const val KEY_FAVORITE_APPS = "favorite_apps"
@@ -110,5 +138,6 @@ class StartStateRepository(
         const val KEY_PINNED_APPS_LEGACY = "pinned_apps"
         const val KEY_QUICK_BAR = "quick_bar"
         const val QUICK_BAR_SEPARATOR = "\n"
+        const val KEY_HOME_HIDDEN_SECTIONS = "home_hidden_sections"
     }
 }
