@@ -1,8 +1,9 @@
 # Build SableOS for the Zinwa Q25
 
 Status: **the Sable apps build and pass their quality gates in GitHub Actions
-(section 7). A LineageOS image build (Q1, Q2 or Q4) has not been run yet.**
-Report what you see; the first successful image build closes gate Q1-BUILD.
+(section 7). Q1 and Q2 images were built on ai-g732 on 2026-10-15 and boot on a
+Q25. Q4 (the framework layer) has not been built yet;** its first build is
+expected to need fixes in `SableLauncher` and the framework patches.
 
 ## 1. Host
 

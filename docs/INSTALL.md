@@ -1,9 +1,9 @@
 # Install SableOS on the Zinwa Q25
 
-> **Untested for SableOS.** These steps follow the official LineageOS Q25 install
-> flow, which is the same image layout this build produces. No SableOS build has
-> been installed on a Q25 yet. Do not follow them unless you can recover the
-> device yourself (see [`RETURN_TO_STOCK.md`](RETURN_TO_STOCK.md)).
+> **Tested for Q1 and Q2 (2026-10-16/17); Q4 not yet.** These steps follow the
+> official LineageOS Q25 install flow, which is the same image layout this build
+> produces. Do not follow them unless you can recover the device yourself (see
+> [`RETURN_TO_STOCK.md`](RETURN_TO_STOCK.md)).
 > Unlocking the bootloader erases all data.
 
 ## Before you start

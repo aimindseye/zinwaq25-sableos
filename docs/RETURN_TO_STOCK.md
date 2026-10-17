@@ -1,8 +1,10 @@
 # Return to stock
 
-Status: **plan written from LineageOS's install flow and Q25 community reports;
-not yet run by this project.** Gate R0 in [`QUALIFICATION.md`](QUALIFICATION.md)
-turns it into evidence, and **nobody flashes SableOS until R0 passes.**
+Status: **run on a Q25 on 2026-10-16: the backup, the stock package check and a
+stock restore all passed (gate R0 in [`QUALIFICATION.md`](QUALIFICATION.md)).**
+That restore showed the bootloader treats `vbmeta_system` and `vbmeta_vendor`
+as unslotted, so `restore-stock.sh` now names `_a` and `_b` explicitly. Nobody
+flashes SableOS on a phone until R0 passes on it.
 
 ## The short version
 

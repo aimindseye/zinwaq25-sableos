@@ -14,24 +14,26 @@ repository holds everything needed to build SableOS for the **Zinwa Q25** (the
 BlackBerry Classic restomod, codename `Q25`), without needing the Pixel 7,
 Titan 2 or Q27 SableOS lanes.
 
-> **Status: engineering, not yet booted.** Every planned SableOS feature for the
-> Q25 is written (Q2 apps and the Q4 framework layer), and GitHub Actions builds
-> and checks all 17 Sable apps (16 ship in the image; Sable Messages is built
-> but not shipped, because Sable Hub is the SMS app). No LineageOS image has been built, and nothing
-> has run on a Q25 yet. The install steps are derived from the LineageOS Q25
-> guide and are **untested for SableOS**. Read [`ROADMAP.md`](ROADMAP.md) and
-> [`docs/SABLEOS_GAP_REVIEW.md`](docs/SABLEOS_GAP_REVIEW.md) before flashing anything.
+> **Status: Q2 boots on a Q25; Q4 build and flash are next.** On 2026-10-15/17 a
+> real Q25 (board `q20_v12_factory`, stock `Q25_20.01.2026`) was backed up,
+> restored to stock, unlocked, and flashed with the Q1 control image and then the
+> Q2 image. Q2 boots, reports `ro.sable.profile.id=zinwa-q25`, and all 13 enabled
+> Sable apps launch. Q2 adds apps only, so the phone still shows the LineageOS
+> home screen: Sable Start, the quick bar, Sable Keyboard as the only IME and the
+> framework patches arrive with **Q4, which is written but has never been
+> compiled**. Gates and evidence: [`docs/QUALIFICATION.md`](docs/QUALIFICATION.md).
+> What is still open: [`docs/SABLEOS_GAP_REVIEW.md`](docs/SABLEOS_GAP_REVIEW.md).
 
 ```text
 DEVICE=Q25
-PHASE=Q2 + Q4 written; Q1 (control build) is next
+PHASE=R0, Q1, Q2 PASS on a Q25; Q4 build and flash next
 BASE=LineageOS 23.2 (Android 16 QPR2), official lineage_Q25 device (not a GSI)
 SABLE_LAYER=vendor/extra/product.mk -> vendor/sable/q25 (+ patches/framework at Q4)
 APPS_BUILD=PASS in GitHub Actions (Gradle build, unit tests, Lint, detekt, ktlint)
-IMAGE_BUILD_TESTED=NO   (LineageOS tree; needs a build host)
+IMAGE_BUILD_TESTED=Q1, Q2 (ai-g732, 2026-10-15); Q4 not built yet
 FRAMEWORK_PATCHES=checked with git apply against their base commits; uncompiled
-BOOT_TESTED=NO
-FLASH_SCRIPT=NONE (manual, documented steps only)
+BOOT_TESTED=Q1, Q2 on a Q25 (2026-10-16/17); Q4 not flashed yet
+FLASH_SCRIPT=NONE (manual, documented steps; tested for Q1 and Q2)
 ```
 
 ## Device info
@@ -63,7 +65,7 @@ More: [`docs/DEVICE_INFO.md`](docs/DEVICE_INFO.md).
 |---|---|
 | [Roadmap](ROADMAP.md) | What's reused from SableOS, what's Q25-specific, and the phases |
 | [Build](docs/BUILD.md) | Host setup, source sync, blobs, building the image, GitHub Actions |
-| [Install](docs/INSTALL.md) | Unlock, flash, sideload (untested for SableOS) |
+| [Install](docs/INSTALL.md) | Unlock, flash, sideload (tested for Q1 and Q2) |
 | [SableOS gaps](docs/SABLEOS_GAP_REVIEW.md) | What is still open: build, device checks, owner decisions, known limits |
 | [Return to stock](docs/RETURN_TO_STOCK.md) | Backup first, rehearse the restore, recovery ladder back to Zinwa firmware |
 | [Architecture](docs/ARCHITECTURE.md) | How the LineageOS base and Sable layer fit together |
