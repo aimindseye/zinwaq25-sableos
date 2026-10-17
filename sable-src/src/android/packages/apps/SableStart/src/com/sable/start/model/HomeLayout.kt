@@ -7,18 +7,20 @@ package org.sableos.start.model
  * apps/r8/android/sablestart-presentation-check/src/test.
  *
  * Home, top to bottom: the Weather widget (HOME_TOP_MODULE, on by default),
- * optional status rings, the user's Home apps (a list by default, tiles as the
+ * an optional "Search or command" row (in the screen design, not in the
+ * visual, so off by default), optional status rings, the user's Home apps (a list by default, tiles as the
  * optional touch mode) and the base quick bar ([QuickBar], always shown).
  */
 object HomeLayout {
     const val WEATHER = "weather"
+    const val SEARCH_ROW = "search"
     const val STATUS_RINGS = "rings"
 
     /** Home modules the user can show or hide, in screen order. */
-    val SECTIONS: List<String> = listOf(WEATHER, STATUS_RINGS)
+    val SECTIONS: List<String> = listOf(WEATHER, SEARCH_ROW, STATUS_RINGS)
 
-    /** Never customised: Weather shown, status rings hidden. */
-    val DEFAULT_HIDDEN: Set<String> = setOf(STATUS_RINGS)
+    /** Never customised: Weather shown; the search row and status rings hidden. */
+    val DEFAULT_HIDDEN: Set<String> = setOf(SEARCH_ROW, STATUS_RINGS)
 
     /** Keyboard-first list mode (default) or the optional touch tile mode. */
     const val MODE_LIST = "list"
@@ -48,6 +50,7 @@ object HomeLayout {
     fun label(section: String): String =
         when (section) {
             WEATHER -> "Weather widget"
+            SEARCH_ROW -> "Search or command row"
             STATUS_RINGS -> "Status rings"
             else -> section
         }
@@ -55,6 +58,7 @@ object HomeLayout {
     fun description(section: String): String =
         when (section) {
             WEATHER -> "Weather at the top of Home"
+            SEARCH_ROW -> "A Command row under the weather; typing works without it"
             STATUS_RINGS -> "Network, CPU, memory, battery and signal rings"
             else -> ""
         }
