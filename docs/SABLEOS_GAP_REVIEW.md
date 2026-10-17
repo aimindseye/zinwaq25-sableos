@@ -1,6 +1,7 @@
 # SableOS gaps for the Zinwa Q25
 
-Status: 2026-10-14. This page lists only what is still open. What each part
+Status: 2026-10-17. R0, Q1 and Q2 pass on a real Q25; Q4 has not been built
+or flashed. This page lists only what is still open. What each part
 does, and how it was tested, is in [`implementation/`](implementation/).
 
 ## Where the port stands
@@ -53,7 +54,7 @@ which hosted runners can't hold.
 
 | What to build | Things to watch |
 |---|---|
-| LineageOS control image (`bash build/sable.sh q25 Q1 build`) | First run of `bootstrap` and `build` on a real host; record the pinned manifest and artifacts (gate Q1-BUILD). |
+| Q4 image (`bash build/sable.sh q25 Q4 build`) | Never built. Q1 and Q2 built on ai-g732 on 2026-10-15. After the Q2 build the dynamic partitions had about 57 MB free, so watch partition headroom when SableLauncher, the overlays and the patched apps are added. |
 | `SableLauncher` (Sable Start as a Soong module) | Built only at Q4 staging, in the tree. CI compiles its presentation sources, not the Soong module. |
 | Framework patches | After `repo sync`, `bash scripts/apply-framework-patches.sh check` must say `APPLIES` for Launcher3, frameworks/base, Settings, SetupWizard, Dialer, Contacts and Glimpse. Then build SystemUI, Settings, SetupWizard, Dialer, Contacts, Glimpse, `SableLauncher` and the five overlays. Each patch's added and changed files were type-checked by hand against the Android 16 jar when it was written; a second pass over the whole Launcher3 and SystemUI trees was started and not finished. |
 | Settings Apps screens (0601-0604) | Type-checked against the Android 16 jar with stubbed androidx and SettingsLib; check resource linking, the `tests/sable-apps` host test module and the LineageOS `NetworkPolicyManager` calls. |
@@ -64,11 +65,8 @@ which hosted runners can't hold.
 
 ## 2. Needs the phone
 
-Each item has a gate in [`QUALIFICATION.md`](QUALIFICATION.md); none has run.
+Each item has a gate in [`QUALIFICATION.md`](QUALIFICATION.md). R0, Q1 and Q2 have passed; the rest has not run.
 
-* **Before any flash:**
-  * Backup and the stock-restore rehearsal (R0).
-  * Keyboard firmware update.
 * **Device profile (Q3):**
   * Key scan codes and the Sym layer.
   * Trackpad behaviour (keys or pointer).

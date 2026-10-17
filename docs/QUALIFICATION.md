@@ -34,7 +34,7 @@ on that phone. Procedure: [`RETURN_TO_STOCK.md`](RETURN_TO_STOCK.md).
 | Q2-BOOT | Boots; no boot loop; `sys.boot_completed=1` within 10 min | PASS (2026-10-17) |
 | Q2-PROPS | `ro.sable.profile.id=zinwa-q25`, `ro.sable.release=Q2` | PASS (2026-10-17) |
 | Q2-APPS | Each Sable app in `apps-manifest.tsv` installs and launches | PASS (2026-10-17: all 13 enabled apps installed and launched via `monkey`) |
-| Q2-UPDATER | LineageOS Updater offers no LineageOS build | NOT_RUN |
+| Q2-UPDATER | LineageOS Updater offers no LineageOS build | PASS (2026-10-17: Updater shows "update check failed" and offers no build) |
 
 ## Q3: Q25 device profile
 
