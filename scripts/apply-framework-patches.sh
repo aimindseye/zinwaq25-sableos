@@ -23,6 +23,9 @@ case "$ACTION" in apply|revert|check) ;; *) usage; exit 64 ;; esac
 
 PATCH_ROOT="${SABLE_FRAMEWORK_PATCHES:-$SABLE_REPO_ROOT/patches/framework}"
 STAMP="$SABLE_ANDROID_ROOT/.sable-q25-framework-patches"
+# Copies of the applied patches, so a revert still works after `git pull`
+# changed the patch files.
+STAMP_DIR="$STAMP.d"
 [[ -d "$SABLE_ANDROID_ROOT" ]] || sable_fail "no Android tree at SABLE_ANDROID_ROOT=$SABLE_ANDROID_ROOT"
 
 # Lines of "<project>\t<patch path>", in apply order.
@@ -99,6 +102,7 @@ revert_stamped() {
         fi
     done < <(projects_in < "$STAMP" | reverse_lines)
     rm -f "$STAMP"
+    rm -rf "$STAMP_DIR"
 }
 
 ALL="$(list_patches)"
@@ -139,13 +143,17 @@ case "$ACTION" in
                 || sable_fail "the Sable patches don't apply to $project (LineageOS moved? see patches/README.md)"
         done
         : > "$STAMP"
+        rm -rf "$STAMP_DIR"
         count=0
         for project in "${PROJECTS[@]}"; do
             dir="$(project_dir "$project")"
             mapfile -t files < <(patches_of "$project" <<<"$ALL")
             for f in "${files[@]}"; do
                 git -C "$dir" apply "$f"
-                printf '%s\t%s\n' "$project" "$f" >> "$STAMP"
+                copy="$STAMP_DIR/$project/$(basename "$f")"
+                mkdir -p "${copy%/*}"
+                cp "$f" "$copy"
+                printf '%s\t%s\n' "$project" "$copy" >> "$STAMP"
                 sable_log "applied $(basename "$f") in $project"
                 count=$((count + 1))
             done

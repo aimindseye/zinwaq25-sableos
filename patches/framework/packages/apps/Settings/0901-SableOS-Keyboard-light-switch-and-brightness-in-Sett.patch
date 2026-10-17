@@ -1,8 +1,8 @@
-From f3e6bac9412aa30ea3baad51d852e424053a4c17 Mon Sep 17 00:00:00 2001
+From 712810acfd44ff638e19379a0573b568a0753eff Mon Sep 17 00:00:00 2001
 From: SableOS <noreply@sableos.invalid>
 Date: Sat, 10 Oct 2026 13:04:46 +0000
-Subject: [PATCH] SableOS: Keyboard light switch and brightness in Settings >
- Keyboard
+Subject: [PATCH] SableOS: Keyboard light switch and brightness in
+ Settings > Keyboard
 
 Adds a Keyboard light section under Settings > System > Keyboard with a
 Keyboard backlight switch and a ten-step Brightness slider. They write
@@ -30,7 +30,7 @@ sable/SableKeyboardBacklight.java.
 
 diff --git a/res/values/sable_keyboard_backlight_strings.xml b/res/values/sable_keyboard_backlight_strings.xml
 new file mode 100644
-index 00000000000..b805d57215e
+index 0000000..b805d57
 --- /dev/null
 +++ b/res/values/sable_keyboard_backlight_strings.xml
 @@ -0,0 +1,25 @@
@@ -60,7 +60,7 @@ index 00000000000..b805d57215e
 +    <string name="sable_keyboard_backlight_level_title">Brightness</string>
 +</resources>
 diff --git a/res/xml/keyboard_settings.xml b/res/xml/keyboard_settings.xml
-index 4afd9c95f02..d5b0873b8fe 100644
+index 4afd9c9..d5b0873 100644
 --- a/res/xml/keyboard_settings.xml
 +++ b/res/xml/keyboard_settings.xml
 @@ -54,6 +54,29 @@
@@ -95,7 +95,7 @@ index 4afd9c95f02..d5b0873b8fe 100644
          android:title="@string/touchscreen_hovering_title"
 diff --git a/src/com/android/settings/sable/SableKeyboardBacklight.java b/src/com/android/settings/sable/SableKeyboardBacklight.java
 new file mode 100644
-index 00000000000..d74f742783b
+index 0000000..d74f742
 --- /dev/null
 +++ b/src/com/android/settings/sable/SableKeyboardBacklight.java
 @@ -0,0 +1,70 @@
@@ -171,7 +171,7 @@ index 00000000000..d74f742783b
 +}
 diff --git a/src/com/android/settings/sable/SableKeyboardBacklightCategoryController.java b/src/com/android/settings/sable/SableKeyboardBacklightCategoryController.java
 new file mode 100644
-index 00000000000..ae115d6abeb
+index 0000000..3e07e30
 --- /dev/null
 +++ b/src/com/android/settings/sable/SableKeyboardBacklightCategoryController.java
 @@ -0,0 +1,39 @@
@@ -205,18 +205,18 @@ index 00000000000..ae115d6abeb
 +        super(context, preferenceKey);
 +    }
 +
-+    static boolean isSupported() {
++    static boolean isDeviceSupported() {
 +        return SystemProperties.getBoolean(SableKeyboardBacklight.PROP_SUPPORTED, false);
 +    }
 +
 +    @Override
 +    public int getAvailabilityStatus() {
-+        return isSupported() ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
++        return isDeviceSupported() ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
 +    }
 +}
 diff --git a/src/com/android/settings/sable/SableKeyboardBacklightLevelPreferenceController.java b/src/com/android/settings/sable/SableKeyboardBacklightLevelPreferenceController.java
 new file mode 100644
-index 00000000000..b7cfe1770c1
+index 0000000..3be1532
 --- /dev/null
 +++ b/src/com/android/settings/sable/SableKeyboardBacklightLevelPreferenceController.java
 @@ -0,0 +1,59 @@
@@ -252,7 +252,7 @@ index 00000000000..b7cfe1770c1
 +
 +    @Override
 +    public int getAvailabilityStatus() {
-+        return SableKeyboardBacklightCategoryController.isSupported()
++        return SableKeyboardBacklightCategoryController.isDeviceSupported()
 +                ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
 +    }
 +
@@ -281,7 +281,7 @@ index 00000000000..b7cfe1770c1
 +}
 diff --git a/src/com/android/settings/sable/SableKeyboardBacklightPreferenceController.java b/src/com/android/settings/sable/SableKeyboardBacklightPreferenceController.java
 new file mode 100644
-index 00000000000..4b958aa7e43
+index 0000000..8d3a290
 --- /dev/null
 +++ b/src/com/android/settings/sable/SableKeyboardBacklightPreferenceController.java
 @@ -0,0 +1,55 @@
@@ -318,7 +318,7 @@ index 00000000000..4b958aa7e43
 +
 +    @Override
 +    public int getAvailabilityStatus() {
-+        return SableKeyboardBacklightCategoryController.isSupported()
++        return SableKeyboardBacklightCategoryController.isDeviceSupported()
 +                ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
 +    }
 +

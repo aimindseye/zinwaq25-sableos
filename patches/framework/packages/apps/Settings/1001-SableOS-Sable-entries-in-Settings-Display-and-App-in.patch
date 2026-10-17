@@ -1,7 +1,7 @@
-From e32fdcb3ce22ef25b2c4a479f00b68e3cdd0be32 Mon Sep 17 00:00:00 2001
+From 69d09bdf99f3837c7d8eccbd7440e262ba22d276 Mon Sep 17 00:00:00 2001
 From: SableOS <noreply@sableos.invalid>
 Date: Sun, 11 Oct 2026 08:25:29 +0000
-Subject: [PATCH 1001/1002] SableOS: Sable entries in Settings, Display and App
+Subject: [PATCH] SableOS: Sable entries in Settings, Display and App
  info
 
 KEYBOARD_FIRST_SETTINGS_UX and APP_DISPLAY_COMPATIBILITY_PROFILES_UX
@@ -36,12 +36,12 @@ search, Home/End).
  res/xml/top_level_settings.xml                |  11 ++
  res/xml/top_level_settings_expressive.xml     |  11 ++
  .../appinfo/AppInfoDashboardFragment.java     |   2 +
- ...eDisplayCompatAppPreferenceController.java |  93 ++++++++++++
+ ...eDisplayCompatAppPreferenceController.java |  95 ++++++++++++
  .../sable/SableLinkPreferenceController.java  |  65 ++++++++
  .../android/settings/sable/SableLinks.java    | 139 ++++++++++++++++++
  .../settings/sable/SableSettingsFragment.java |  79 ++++++++++
  .../TopLevelSablePreferenceController.java    |  34 +++++
- 15 files changed, 670 insertions(+)
+ 15 files changed, 672 insertions(+)
  create mode 100644 res/drawable/ic_homepage_sable.xml
  create mode 100644 res/drawable/ic_sable_settings_expressive.xml
  create mode 100644 res/drawable/ic_sable_settings_filled.xml
@@ -55,7 +55,7 @@ search, Home/End).
 
 diff --git a/res/drawable/ic_homepage_sable.xml b/res/drawable/ic_homepage_sable.xml
 new file mode 100644
-index 00000000000..38462d85455
+index 0000000..38462d8
 --- /dev/null
 +++ b/res/drawable/ic_homepage_sable.xml
 @@ -0,0 +1,32 @@
@@ -93,7 +93,7 @@ index 00000000000..38462d85455
 +</layer-list>
 diff --git a/res/drawable/ic_sable_settings_expressive.xml b/res/drawable/ic_sable_settings_expressive.xml
 new file mode 100644
-index 00000000000..b3a30e1b461
+index 0000000..b3a30e1
 --- /dev/null
 +++ b/res/drawable/ic_sable_settings_expressive.xml
 @@ -0,0 +1,20 @@
@@ -119,7 +119,7 @@ index 00000000000..b3a30e1b461
 +    android:tint="@color/homepage_system_foreground" />
 diff --git a/res/drawable/ic_sable_settings_filled.xml b/res/drawable/ic_sable_settings_filled.xml
 new file mode 100644
-index 00000000000..13a0acb6fce
+index 0000000..13a0acb
 --- /dev/null
 +++ b/res/drawable/ic_sable_settings_filled.xml
 @@ -0,0 +1,27 @@
@@ -152,7 +152,7 @@ index 00000000000..13a0acb6fce
 +</vector>
 diff --git a/res/values/strings_sable_settings.xml b/res/values/strings_sable_settings.xml
 new file mode 100644
-index 00000000000..c56e4c6cdc4
+index 0000000..c56e4c6
 --- /dev/null
 +++ b/res/values/strings_sable_settings.xml
 @@ -0,0 +1,74 @@
@@ -231,7 +231,7 @@ index 00000000000..c56e4c6cdc4
 +    <string name="sable_display_compat_app_summary">Layout profile for this app on the square screen</string>
 +</resources>
 diff --git a/res/xml/app_info_settings.xml b/res/xml/app_info_settings.xml
-index 4acce3e1a35..49d2187697a 100644
+index 4acce3e..49d2187 100644
 --- a/res/xml/app_info_settings.xml
 +++ b/res/xml/app_info_settings.xml
 @@ -66,6 +66,13 @@
@@ -249,7 +249,7 @@ index 4acce3e1a35..49d2187697a 100644
          android:key="manage_target_app_function_access_settings"
          android:title="@string/manage_target_app_function_access_settings_title"
 diff --git a/res/xml/display_settings.xml b/res/xml/display_settings.xml
-index e4fa9268fb3..a100bad9bf5 100644
+index e4fa926..a100bad 100644
 --- a/res/xml/display_settings.xml
 +++ b/res/xml/display_settings.xml
 @@ -234,6 +234,14 @@
@@ -269,7 +269,7 @@ index e4fa9268fb3..a100bad9bf5 100644
              android:title="@string/screensaver_settings_title"
 diff --git a/res/xml/sable_settings.xml b/res/xml/sable_settings.xml
 new file mode 100644
-index 00000000000..9d2109acc67
+index 0000000..9d2109a
 --- /dev/null
 +++ b/res/xml/sable_settings.xml
 @@ -0,0 +1,68 @@
@@ -342,7 +342,7 @@ index 00000000000..9d2109acc67
 +        settings:controller="com.android.settings.sable.SableLinkPreferenceController" />
 +</PreferenceScreen>
 diff --git a/res/xml/top_level_settings.xml b/res/xml/top_level_settings.xml
-index 7939c767091..d2327ff5b04 100644
+index 7939c76..d2327ff 100644
 --- a/res/xml/top_level_settings.xml
 +++ b/res/xml/top_level_settings.xml
 @@ -156,6 +156,17 @@
@@ -364,7 +364,7 @@ index 7939c767091..d2327ff5b04 100644
              android:fragment="com.android.settings.deviceinfo.aboutphone.MyDeviceInfoFragment"
              android:icon="@drawable/ic_settings_about_device_filled"
 diff --git a/res/xml/top_level_settings_expressive.xml b/res/xml/top_level_settings_expressive.xml
-index cf407ec64cf..019d14be89a 100644
+index cf407ec..019d14b 100644
 --- a/res/xml/top_level_settings_expressive.xml
 +++ b/res/xml/top_level_settings_expressive.xml
 @@ -148,6 +148,17 @@
@@ -386,7 +386,7 @@ index cf407ec64cf..019d14be89a 100644
              android:fragment="com.android.settings.deviceinfo.aboutphone.MyDeviceInfoFragment"
              android:icon="@drawable/ic_homepage_about"
 diff --git a/src/com/android/settings/applications/appinfo/AppInfoDashboardFragment.java b/src/com/android/settings/applications/appinfo/AppInfoDashboardFragment.java
-index 17f7cb204a7..0f17bbcb1d5 100644
+index 17f7cb2..0f17bbc 100644
 --- a/src/com/android/settings/applications/appinfo/AppInfoDashboardFragment.java
 +++ b/src/com/android/settings/applications/appinfo/AppInfoDashboardFragment.java
 @@ -62,6 +62,7 @@ import com.android.settings.applications.specialaccess.pictureinpicture.PictureI
@@ -407,10 +407,10 @@ index 17f7cb204a7..0f17bbcb1d5 100644
          use(AppSettingPreferenceController.class)
 diff --git a/src/com/android/settings/sable/SableDisplayCompatAppPreferenceController.java b/src/com/android/settings/sable/SableDisplayCompatAppPreferenceController.java
 new file mode 100644
-index 00000000000..dfbe2539fd4
+index 0000000..61d4291
 --- /dev/null
 +++ b/src/com/android/settings/sable/SableDisplayCompatAppPreferenceController.java
-@@ -0,0 +1,93 @@
+@@ -0,0 +1,95 @@
 +/*
 + * Copyright (C) 2026 The SableOS Project
 + *
@@ -432,6 +432,7 @@ index 00000000000..dfbe2539fd4
 +import android.content.ActivityNotFoundException;
 +import android.content.Context;
 +import android.content.Intent;
++import android.content.pm.PackageInfo;
 +import android.os.Process;
 +import android.os.UserHandle;
 +import android.text.TextUtils;
@@ -489,15 +490,16 @@ index 00000000000..dfbe2539fd4
 +
 +    /** The app's package when it can have a profile here, else null. */
 +    private String packageName() {
-+        if (mParent == null || mParent.getAppEntry() == null
-+                || mParent.getAppEntry().info == null) {
++        // getAppEntry() is package-private in AppInfoDashboardFragment; getPackageInfo() is public.
++        final PackageInfo info = mParent == null ? null : mParent.getPackageInfo();
++        if (info == null || info.applicationInfo == null) {
 +            return null;
 +        }
-+        final String pkg = mParent.getAppEntry().info.packageName;
++        final String pkg = info.packageName;
 +        if (pkg == null || SableLinks.DISPLAY_COMPAT_PACKAGE.equals(pkg)) {
 +            return null;
 +        }
-+        if (!UserHandle.getUserHandleForUid(mParent.getAppEntry().info.uid)
++        if (!UserHandle.getUserHandleForUid(info.applicationInfo.uid)
 +                .equals(Process.myUserHandle())) {
 +            return null; // App display compatibility profiles apps of its own user only
 +        }
@@ -506,7 +508,7 @@ index 00000000000..dfbe2539fd4
 +}
 diff --git a/src/com/android/settings/sable/SableLinkPreferenceController.java b/src/com/android/settings/sable/SableLinkPreferenceController.java
 new file mode 100644
-index 00000000000..a1dce52f548
+index 0000000..a1dce52
 --- /dev/null
 +++ b/src/com/android/settings/sable/SableLinkPreferenceController.java
 @@ -0,0 +1,65 @@
@@ -577,7 +579,7 @@ index 00000000000..a1dce52f548
 +}
 diff --git a/src/com/android/settings/sable/SableLinks.java b/src/com/android/settings/sable/SableLinks.java
 new file mode 100644
-index 00000000000..1c26ffc224b
+index 0000000..1c26ffc
 --- /dev/null
 +++ b/src/com/android/settings/sable/SableLinks.java
 @@ -0,0 +1,139 @@
@@ -722,7 +724,7 @@ index 00000000000..1c26ffc224b
 +}
 diff --git a/src/com/android/settings/sable/SableSettingsFragment.java b/src/com/android/settings/sable/SableSettingsFragment.java
 new file mode 100644
-index 00000000000..ef4ea823003
+index 0000000..ef4ea82
 --- /dev/null
 +++ b/src/com/android/settings/sable/SableSettingsFragment.java
 @@ -0,0 +1,79 @@
@@ -807,7 +809,7 @@ index 00000000000..ef4ea823003
 +}
 diff --git a/src/com/android/settings/sable/TopLevelSablePreferenceController.java b/src/com/android/settings/sable/TopLevelSablePreferenceController.java
 new file mode 100644
-index 00000000000..73ea9eafb0d
+index 0000000..73ea9ea
 --- /dev/null
 +++ b/src/com/android/settings/sable/TopLevelSablePreferenceController.java
 @@ -0,0 +1,34 @@

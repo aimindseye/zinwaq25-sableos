@@ -135,6 +135,13 @@ if fwrun check | grep -q '^APPLIES  packages/apps/Demo 0001-demo.patch 0002-demo
 else
     fail "stacked framework patches: $(cat "$tmp/err")"
 fi
+# A revert after `git pull` changed a patch file undoes what was applied.
+if fwrun apply >/dev/null && printf 'stale\n' > "$fw/packages/apps/Demo/0002-demo.patch" &&
+    fwrun revert >/dev/null && grep -qx "$stock_home" "$proj/config.txt" && [[ ! -e "$stamp.d" ]]; then
+    pass "framework patches revert after the patch files change"
+else
+    fail "revert after patch change: $(cat "$tmp/err")"
+fi
 rm "$fw/packages/apps/Demo/0002-demo.patch"
 printf 'home=vendor\n' > "$proj/config.txt"
 if fwrun apply >/dev/null || [[ -e "$stamp" ]]; then fail "framework patch conflict not refused"; else pass "framework patch conflict refused"; fi
