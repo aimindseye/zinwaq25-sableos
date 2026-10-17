@@ -275,6 +275,7 @@ report(
         "SableFrameworkOverlay": ("android", "true"),
         "SableGallery2Overlay": ("com.android.gallery3d", "true"),
         "SableGlimpseOverlay": ("org.lineageos.glimpse", "true"),
+        "SableLedOverlay": ("android", "true"),
         "SableSettingsProviderOverlay": ("com.android.providers.settings", "true"),
         "SableSetupWizardOverlay": ("org.lineageos.setupwizard", "true"),
         "SableSystemUIOverlay": ("com.android.systemui", "true"),

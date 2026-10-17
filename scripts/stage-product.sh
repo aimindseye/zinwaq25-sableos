@@ -164,6 +164,7 @@ PRODUCT_PACKAGES += \
     SableGlimpseOverlay \
     SableGallery2Overlay \
     SableSettingsProviderOverlay \
+    SableLedOverlay \
     SableNoUpdater
 SABLE_Q25_NO_UPDATER := true
 PRODUCT_SYSTEM_EXT_PROPERTIES += \
