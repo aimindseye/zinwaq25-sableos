@@ -1,0 +1,335 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 17 Oct 2026 08:45:13 +0000
+Subject: [PATCH] SableOS: Step n of N on every owner setup step
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Setup design (sable-setup-wizard-titan2): "First boot · step 3 of 8"
+on each screen.
+
+sable/SableSteps (pure) numbers the owner flow in eight steps:
+Welcome, Language, Wi-Fi, Privacy, Theme, Date and location, Screen
+lock, Ready. Screens that only appear on some phones or in some states
+(keyboard help, SIM missing, recovery update, navigation, restore once
+validated) carry the number of the step they belong to, so the count
+never changes during setup. Without a Wi-Fi step (no Wi-Fi and no
+telephony, or online through Ethernet) the flow has seven steps and the
+later numbers move up. Bluetooth and device extras have no number.
+
+BaseSetupWizardActivity shows "Step n of N" in the layout's sable_step
+line, else in a line it adds above the Glif header title. Only the
+owner flow is numbered; secondary-user and work-profile flows show no
+line. Any failure leaves the step as it was.
+
+Wi-Fi and screen lock are Settings screens the wizard opens, and they
+cannot show the line, so SubBaseActivity says it in a toast as they
+open. For Wi-Fi the toast adds the password hint "Alt/Sym for symbols ·
+software keyboard fallback" (the Q25 has no Fn key). Welcome's
+Accessibility and Emergency screens are not steps and show no toast.
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01UvjoefgeNVBxmkGXzTTNYS
+---
+ res/values/ids.xml                            |  2 +
+ res/values/sable_strings.xml                  |  7 ++
+ res/values/sable_styles.xml                   |  7 ++
+ .../setupwizard/BaseSetupWizardActivity.java  | 54 +++++++++++++
+ .../setupwizard/NetworkSetupActivity.java     |  8 ++
+ .../setupwizard/SubBaseActivity.java          | 11 +++
+ .../setupwizard/WelcomeActivity.java          |  6 ++
+ .../setupwizard/sable/SableSteps.java         | 79 +++++++++++++++++++
+ 8 files changed, 174 insertions(+)
+ create mode 100644 src/org/lineageos/setupwizard/sable/SableSteps.java
+
+diff --git a/res/values/ids.xml b/res/values/ids.xml
+index 3e41f50..cb1e2d1 100644
+--- a/res/values/ids.xml
++++ b/res/values/ids.xml
+@@ -7,4 +7,6 @@
+     <item name="localepicker_input" type="id" />
+     <item name="lp__increment" type="id" />
+     <item name="lp__decrement" type="id" />
++    <!-- SableOS: the "Step n of N" line (BaseSetupWizardActivity). -->
++    <item name="sable_step" type="id" />
+ </resources>
+diff --git a/res/values/sable_strings.xml b/res/values/sable_strings.xml
+index 95442eb..f9f75fb 100644
+--- a/res/values/sable_strings.xml
++++ b/res/values/sable_strings.xml
+@@ -4,6 +4,13 @@
+      SPDX-License-Identifier: Apache-2.0
+ -->
+ <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
++    <!-- SableOS step line on every owner setup step (setup design "First boot · step 3 of 8"). -->
++    <string name="sable_step">Step <xliff:g id="step" example="3">%1$d</xliff:g> of <xliff:g id="total" example="8">%2$d</xliff:g></string>
++    <!-- Said as another app's setup screen opens: the step, then a hint for that screen. -->
++    <string name="sable_step_note"><xliff:g id="step" example="Step 3 of 8">%1$s</xliff:g> · <xliff:g id="hint" example="Alt/Sym for symbols">%2$s</xliff:g></string>
++    <!-- Wi-Fi passwords on the Q25 keys. The Q25 has no Fn key; Sym is the right Alt key. -->
++    <string name="sable_wifi_hint">Alt/Sym for symbols · software keyboard fallback</string>
++
+     <!-- SableOS keyboard readiness step (IR-014). -->
+     <string name="setup_sable_keyboard">Keyboard</string>
+     <string name="sable_keyboard_summary">Sable Keyboard types with the physical keys, including Wi‑Fi passwords and PINs in the next steps.</string>
+diff --git a/res/values/sable_styles.xml b/res/values/sable_styles.xml
+index b5da788..0177e98 100644
+--- a/res/values/sable_styles.xml
++++ b/res/values/sable_styles.xml
+@@ -26,4 +26,11 @@
+         <item name="android:minHeight">48dp</item>
+         <item name="android:visibility">gone</item>
+     </style>
++
++    <!-- The "Step n of N" line above a step's title. -->
++    <style name="SableSetupStep">
++        <item name="android:textSize">13sp</item>
++        <item name="android:textColor">?android:attr/textColorSecondary</item>
++        <item name="android:paddingBottom">4dp</item>
++    </style>
+ </resources>
+diff --git a/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java b/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java
+index 879db68..55efbd0 100644
+--- a/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java
++++ b/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java
+@@ -25,7 +25,9 @@ import android.text.TextUtils;
+ import android.util.Log;
+ import android.view.KeyEvent;
+ import android.view.View;
++import android.view.ViewGroup;
+ import android.widget.Button;
++import android.widget.TextView;
+ 
+ import androidx.activity.OnBackPressedCallback;
+ import androidx.activity.result.ActivityResult;
+@@ -44,6 +46,7 @@ import org.lineageos.setupwizard.NavigationLayout.NavigationBarListener;
+ import org.lineageos.setupwizard.sable.SableFocusRing;
+ import org.lineageos.setupwizard.sable.SableKeyFocus;
+ import org.lineageos.setupwizard.sable.SableKeyPolicy;
++import org.lineageos.setupwizard.sable.SableSteps;
+ import org.lineageos.setupwizard.util.SetupWizardUtils;
+ 
+ public abstract class BaseSetupWizardActivity extends AppCompatActivity implements
+@@ -68,6 +71,7 @@ public abstract class BaseSetupWizardActivity extends AppCompatActivity implemen
+         initLayout();
+         // SableOS: the cyan keyboard focus ring on every control of every step.
+         SableFocusRing.install(this);
++        showSableStep();
+         mNavigationBar = getNavigationBar();
+         if (mNavigationBar != null) {
+             mNavigationBar.setNavigationBarListener(this);
+@@ -372,6 +376,56 @@ public abstract class BaseSetupWizardActivity extends AppCompatActivity implemen
+         }
+     }
+ 
++    /**
++     * SableOS: the "Step n of N" line of the owner flow ({@link SableSteps}), or null on
++     * screens without a number and in the secondary-user and work-profile flows.
++     */
++    protected CharSequence getSableStepText() {
++        try {
++            if (!SetupWizardUtils.isOwner() || SetupWizardUtils.isManagedProfile(this)) {
++                return null;
++            }
++            final boolean networkStep = (SetupWizardUtils.hasWifi(this)
++                    || SetupWizardUtils.hasTelephony(this))
++                    && !SetupWizardUtils.isNetworkConnectedToInternetViaEthernet(this);
++            final int[] position = SableSteps.position(
++                    SableSteps.sectionOf(getClass().getSimpleName()), networkStep);
++            return position == null ? null
++                    : getString(R.string.sable_step, position[0], position[1]);
++        } catch (RuntimeException e) {
++            Log.w(TAG, "could not work out the setup step", e);
++            return null;
++        }
++    }
++
++    /**
++     * Shows {@link #getSableStepText} in the layout's {@code sable_step} line, else in a line
++     * added above the Glif header title. Never fails the step.
++     */
++    private void showSableStep() {
++        try {
++            final CharSequence text = getSableStepText();
++            if (text == null) return;
++            TextView line = findViewById(R.id.sable_step);
++            if (line == null) {
++                final View root = findViewById(R.id.setup_wizard_layout);
++                if (!(root instanceof GlifLayout)) return;
++                final TextView header = ((GlifLayout) root).getHeaderTextView();
++                if (header == null || !(header.getParent() instanceof ViewGroup)) return;
++                final ViewGroup parent = (ViewGroup) header.getParent();
++                line = new TextView(this);
++                line.setId(R.id.sable_step);
++                line.setTextAppearance(R.style.SableSetupStep);
++                parent.addView(line, parent.indexOfChild(header), new ViewGroup.LayoutParams(
++                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
++            }
++            line.setText(text);
++            line.setVisibility(View.VISIBLE);
++        } catch (RuntimeException e) {
++            Log.w(TAG, "could not show the setup step", e);
++        }
++    }
++
+     protected GlifLayout getGlifLayout() {
+         return requireViewById(R.id.setup_wizard_layout);
+     }
+diff --git a/src/org/lineageos/setupwizard/NetworkSetupActivity.java b/src/org/lineageos/setupwizard/NetworkSetupActivity.java
+index 6acc178..99993c1 100644
+--- a/src/org/lineageos/setupwizard/NetworkSetupActivity.java
++++ b/src/org/lineageos/setupwizard/NetworkSetupActivity.java
+@@ -40,4 +40,12 @@ public class NetworkSetupActivity extends SubBaseActivity {
+         intent.putExtra(EXTRA_ENABLE_NEXT_ON_CONNECT, true);
+         startSubactivity(intent);
+     }
++
++    /** SableOS: the step and the password hint, shown as the Wi-Fi list opens. */
++    @Override
++    protected CharSequence getSableSubactivityNote() {
++        final CharSequence step = getSableStepText();
++        final String hint = getString(R.string.sable_wifi_hint);
++        return step == null ? hint : getString(R.string.sable_step_note, step, hint);
++    }
+ }
+diff --git a/src/org/lineageos/setupwizard/SubBaseActivity.java b/src/org/lineageos/setupwizard/SubBaseActivity.java
+index 8d5bfe5..6af37eb 100644
+--- a/src/org/lineageos/setupwizard/SubBaseActivity.java
++++ b/src/org/lineageos/setupwizard/SubBaseActivity.java
+@@ -16,6 +16,7 @@ import android.content.ActivityNotFoundException;
+ import android.content.Intent;
+ import android.os.Bundle;
+ import android.util.Log;
++import android.widget.Toast;
+ 
+ import androidx.activity.result.ActivityResult;
+ import androidx.activity.result.ActivityResultLauncher;
+@@ -72,6 +73,11 @@ public abstract class SubBaseActivity extends BaseSetupWizardActivity {
+         if (wizardBundle.containsKey(EXTRA_SCRIPT_URI)) {
+             subactivityIntent.putExtra(EXTRA_WIZARD_BUNDLE, wizardBundle);
+         }
++        // SableOS: the other app's screen cannot show the step line, so say it as it opens.
++        final CharSequence note = getSableSubactivityNote();
++        if (note != null) {
++            Toast.makeText(this, note, Toast.LENGTH_LONG).show();
++        }
+         try {
+             mSubactivityResultLauncher.launch(subactivityIntent);
+         } catch (ActivityNotFoundException e) {
+@@ -81,6 +87,11 @@ public abstract class SubBaseActivity extends BaseSetupWizardActivity {
+         }
+     }
+ 
++    /** SableOS: what to say as another app's setup screen opens; the step line by default. */
++    protected CharSequence getSableSubactivityNote() {
++        return getSableStepText();
++    }
++
+     @Override
+     protected void onNextIntentResult(@NonNull ActivityResult activityResult) {
+         super.onNextIntentResult(activityResult);
+diff --git a/src/org/lineageos/setupwizard/WelcomeActivity.java b/src/org/lineageos/setupwizard/WelcomeActivity.java
+index 0e2fa92..e7693c0 100644
+--- a/src/org/lineageos/setupwizard/WelcomeActivity.java
++++ b/src/org/lineageos/setupwizard/WelcomeActivity.java
+@@ -71,6 +71,12 @@ public class WelcomeActivity extends SubBaseActivity {
+         }
+     }
+ 
++    /** SableOS: Accessibility and Emergency open from Welcome; they are not a setup step. */
++    @Override
++    protected CharSequence getSableSubactivityNote() {
++        return null;
++    }
++
+     @Override
+     public void onBackPressed() {
+     }
+diff --git a/src/org/lineageos/setupwizard/sable/SableSteps.java b/src/org/lineageos/setupwizard/sable/SableSteps.java
+new file mode 100644
+index 0000000..42a78f3
+--- /dev/null
++++ b/src/org/lineageos/setupwizard/sable/SableSteps.java
+@@ -0,0 +1,79 @@
++/*
++ * SPDX-FileCopyrightText: The SableOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++package org.lineageos.setupwizard.sable;
++
++import java.util.Collections;
++import java.util.HashMap;
++import java.util.Map;
++
++/**
++ * The "Step n of N" line of the owner setup flow (setup design: "First boot · step 3 of 8").
++ * Pure Java.
++ *
++ * <p>The flow has eight steps: Welcome, Language, Wi-Fi, Privacy, Theme, Date and location,
++ * Screen lock, Ready. Screens that only appear on some phones or in some states (keyboard
++ * help, SIM missing, recovery update, navigation, restore once validated) belong to the step
++ * they sit in and show its number, so the count never changes while the user moves through
++ * setup. When the phone has no Wi-Fi or mobile network step (no Wi-Fi and no telephony, or
++ * online through Ethernet) the flow has seven steps.
++ */
++public final class SableSteps {
++    public static final int WELCOME = 1;
++    public static final int LANGUAGE = 2;
++    public static final int WIFI = 3;
++    public static final int PRIVACY = 4;
++    public static final int THEME = 5;
++    public static final int DEVICE = 6;
++    public static final int LOCK = 7;
++    public static final int READY = 8;
++    public static final int TOTAL = READY;
++
++    private static final Map<String, Integer> SECTIONS;
++
++    static {
++        final Map<String, Integer> m = new HashMap<>();
++        m.put("WelcomeActivity", WELCOME);
++        m.put("LocaleActivity", LANGUAGE);
++        m.put("SableKeyboardActivity", LANGUAGE);
++        m.put("SableKeyboardTestActivity", LANGUAGE);
++        m.put("SimMissingActivity", WIFI);
++        m.put("NetworkSetupActivity", WIFI);
++        m.put("SablePrivacyActivity", PRIVACY);
++        m.put("ThemeSettingsActivity", THEME);
++        m.put("DateTimeActivity", DEVICE);
++        m.put("RestoreIntroActivity", DEVICE);
++        m.put("LocationSettingsActivity", DEVICE);
++        m.put("UpdateRecoveryActivity", DEVICE);
++        m.put("BiometricActivity", LOCK);
++        m.put("ScreenLockActivity", LOCK);
++        m.put("NavigationSettingsActivity", LOCK);
++        m.put("FinishActivity", READY);
++        SECTIONS = Collections.unmodifiableMap(m);
++    }
++
++    private SableSteps() {}
++
++    /**
++     * @param activity the step activity's simple class name
++     * @return its step, or 0 for screens without a number (Bluetooth, device extras)
++     */
++    public static int sectionOf(String activity) {
++        final Integer s = activity == null ? null : SECTIONS.get(activity);
++        return s == null ? 0 : s;
++    }
++
++    /**
++     * @param section a step from {@link #sectionOf}
++     * @param networkStep whether the flow has its Wi-Fi step
++     * @return {n, N} to show, or null for no line
++     */
++    public static int[] position(int section, boolean networkStep) {
++        if (section < WELCOME || section > TOTAL) return null;
++        if (networkStep) return new int[] {section, TOTAL};
++        // Without the Wi-Fi step, a SIM screen is part of Language and later steps move up.
++        return new int[] {section >= WIFI ? section - 1 : section, TOTAL - 1};
++    }
++}
+-- 
+2.43.0
+

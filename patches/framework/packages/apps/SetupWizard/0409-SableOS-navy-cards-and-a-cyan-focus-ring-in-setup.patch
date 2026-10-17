@@ -1,0 +1,316 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 17 Oct 2026 08:44:17 +0000
+Subject: [PATCH] SableOS: navy cards and a cyan focus ring in setup
+
+Setup design (sable-setup-wizard-titan2): content sits on navy cards
+and the focused control has a cyan ring.
+
+Resources: @drawable/sable_setup_card (fill, 1dp stroke, 14dp corners)
+and @drawable/sable_setup_focus_ring (a 3dp outline drawn only in the
+focused state), with their colours in @color/sable_setup_card,
+sable_setup_card_stroke and sable_setup_focus. The defaults here follow
+the platform palette (system_neutral2 / system_accent1, light and
+night); SableSetupWizardOverlay sets the Sable navy and cyan values.
+
+The SableSetupCard style puts the Privacy paragraphs on cards; the
+Keyboard status and the Theme step's Sable accent line use the same
+card.
+
+sable/SableFocusRing gives every view that takes focus in a step, and
+has no foreground of its own, the ring as its foreground, so it shows
+on Glif buttons, radio buttons, text fields and Sable links alike and
+replaces the platform's grey focus highlight. Lists keep their row
+highlight. Any failure leaves the platform highlight.
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01UvjoefgeNVBxmkGXzTTNYS
+---
+ res/drawable/sable_setup_card.xml             | 14 ++++++
+ res/drawable/sable_setup_focus_ring.xml       | 19 ++++++++
+ res/layout/sable_keyboard_page.xml            |  4 +-
+ res/layout/sable_privacy_page.xml             | 12 ++---
+ res/layout/setup_theme.xml                    |  4 +-
+ res/values-night/sable_colors.xml             | 10 ++++
+ res/values/sable_colors.xml                   | 12 +++++
+ res/values/sable_dimens.xml                   | 12 +++++
+ res/values/sable_styles.xml                   |  7 +++
+ .../setupwizard/BaseSetupWizardActivity.java  |  3 ++
+ .../setupwizard/sable/SableFocusRing.java     | 48 +++++++++++++++++++
+ 11 files changed, 137 insertions(+), 8 deletions(-)
+ create mode 100644 res/drawable/sable_setup_card.xml
+ create mode 100644 res/drawable/sable_setup_focus_ring.xml
+ create mode 100644 res/values-night/sable_colors.xml
+ create mode 100644 res/values/sable_colors.xml
+ create mode 100644 res/values/sable_dimens.xml
+ create mode 100644 src/org/lineageos/setupwizard/sable/SableFocusRing.java
+
+diff --git a/res/drawable/sable_setup_card.xml b/res/drawable/sable_setup_card.xml
+new file mode 100644
+index 0000000..257424b
+--- /dev/null
++++ b/res/drawable/sable_setup_card.xml
+@@ -0,0 +1,14 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     SPDX-FileCopyrightText: The SableOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<!-- A SableOS setup card (setup design: navy card, thin stroke). -->
++<shape xmlns:android="http://schemas.android.com/apk/res/android"
++    android:shape="rectangle">
++    <solid android:color="@color/sable_setup_card" />
++    <stroke
++        android:width="@dimen/sable_setup_card_stroke_width"
++        android:color="@color/sable_setup_card_stroke" />
++    <corners android:radius="@dimen/sable_setup_card_radius" />
++</shape>
+diff --git a/res/drawable/sable_setup_focus_ring.xml b/res/drawable/sable_setup_focus_ring.xml
+new file mode 100644
+index 0000000..1227f6e
+--- /dev/null
++++ b/res/drawable/sable_setup_focus_ring.xml
+@@ -0,0 +1,19 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     SPDX-FileCopyrightText: The SableOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<!-- The SableOS keyboard focus ring: a 3dp outline while focused, nothing otherwise. Used as a
++     view foreground, so it replaces the platform's grey focus highlight. -->
++<selector xmlns:android="http://schemas.android.com/apk/res/android">
++    <item android:state_focused="true">
++        <shape android:shape="rectangle">
++            <solid android:color="@android:color/transparent" />
++            <stroke
++                android:width="@dimen/sable_setup_focus_width"
++                android:color="@color/sable_setup_focus" />
++            <corners android:radius="@dimen/sable_setup_focus_radius" />
++        </shape>
++    </item>
++    <item android:drawable="@android:color/transparent" />
++</selector>
+diff --git a/res/layout/sable_keyboard_page.xml b/res/layout/sable_keyboard_page.xml
+index d42b850..9f71131 100644
+--- a/res/layout/sable_keyboard_page.xml
++++ b/res/layout/sable_keyboard_page.xml
+@@ -30,7 +30,9 @@
+                     android:id="@+id/sable_keyboard_status"
+                     android:layout_width="match_parent"
+                     android:layout_height="wrap_content"
+-                    android:paddingVertical="8dp"
++                    android:layout_marginVertical="4dp"
++                    android:padding="@dimen/sable_setup_card_padding"
++                    android:background="@drawable/sable_setup_card"
+                     android:textAppearance="?android:attr/textAppearanceMedium"
+                     android:textColor="?android:attr/textColorPrimary" />
+ 
+diff --git a/res/layout/sable_privacy_page.xml b/res/layout/sable_privacy_page.xml
+index ea8af8d..d1ceb60 100644
+--- a/res/layout/sable_privacy_page.xml
++++ b/res/layout/sable_privacy_page.xml
+@@ -28,19 +28,19 @@
+                 android:layout_height="wrap_content">
+ 
+                 <TextView
+-                    style="@style/SableSetupItem"
++                    style="@style/SableSetupCard"
+                     android:text="@string/sable_privacy_analytics" />
+ 
+                 <TextView
+-                    style="@style/SableSetupItem"
++                    style="@style/SableSetupCard"
+                     android:text="@string/sable_privacy_accounts" />
+ 
+                 <TextView
+-                    style="@style/SableSetupItem"
++                    style="@style/SableSetupCard"
+                     android:text="@string/sable_privacy_hub" />
+ 
+                 <TextView
+-                    style="@style/SableSetupItem"
++                    style="@style/SableSetupCard"
+                     android:text="@string/sable_privacy_network" />
+ 
+                 <Button
+@@ -49,7 +49,7 @@
+                     android:text="@string/sable_privacy_network_link" />
+ 
+                 <TextView
+-                    style="@style/SableSetupItem"
++                    style="@style/SableSetupCard"
+                     android:text="@string/sable_privacy_lock_screen" />
+ 
+                 <Button
+@@ -58,7 +58,7 @@
+                     android:text="@string/sable_privacy_lock_screen_link" />
+ 
+                 <TextView
+-                    style="@style/SableSetupItem"
++                    style="@style/SableSetupCard"
+                     android:text="@string/sable_privacy_restore" />
+ 
+                 <Button
+diff --git a/res/layout/setup_theme.xml b/res/layout/setup_theme.xml
+index 14e9aa0..349f338 100644
+--- a/res/layout/setup_theme.xml
++++ b/res/layout/setup_theme.xml
+@@ -55,7 +55,9 @@
+                         android:id="@+id/sable_accent_current"
+                         android:layout_width="match_parent"
+                         android:layout_height="wrap_content"
+-                        android:paddingTop="12dp"
++                        android:layout_marginTop="12dp"
++                        android:padding="@dimen/sable_setup_card_padding"
++                        android:background="@drawable/sable_setup_card"
+                         android:textAppearance="?android:attr/textAppearanceMedium"
+                         android:textColor="?android:attr/textColorPrimary"
+                         android:visibility="gone" />
+diff --git a/res/values-night/sable_colors.xml b/res/values-night/sable_colors.xml
+new file mode 100644
+index 0000000..1d655d5
+--- /dev/null
++++ b/res/values-night/sable_colors.xml
+@@ -0,0 +1,10 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     SPDX-FileCopyrightText: The SableOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<resources>
++    <color name="sable_setup_card">@android:color/system_neutral2_900</color>
++    <color name="sable_setup_card_stroke">@android:color/system_neutral2_700</color>
++    <color name="sable_setup_focus">@android:color/system_accent1_200</color>
++</resources>
+diff --git a/res/values/sable_colors.xml b/res/values/sable_colors.xml
+new file mode 100644
+index 0000000..bd5619a
+--- /dev/null
++++ b/res/values/sable_colors.xml
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     SPDX-FileCopyrightText: The SableOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<!-- SableOS setup cards and keyboard focus ring. These defaults follow the platform palette;
++     SableSetupWizardOverlay sets the Sable navy cards and cyan ring. -->
++<resources>
++    <color name="sable_setup_card">@android:color/system_neutral2_50</color>
++    <color name="sable_setup_card_stroke">@android:color/system_neutral2_200</color>
++    <color name="sable_setup_focus">@android:color/system_accent1_600</color>
++</resources>
+diff --git a/res/values/sable_dimens.xml b/res/values/sable_dimens.xml
+new file mode 100644
+index 0000000..2c7a0c0
+--- /dev/null
++++ b/res/values/sable_dimens.xml
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     SPDX-FileCopyrightText: The SableOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<resources>
++    <dimen name="sable_setup_card_radius">14dp</dimen>
++    <dimen name="sable_setup_card_stroke_width">1dp</dimen>
++    <dimen name="sable_setup_card_padding">12dp</dimen>
++    <dimen name="sable_setup_focus_radius">12dp</dimen>
++    <dimen name="sable_setup_focus_width">3dp</dimen>
++</resources>
+diff --git a/res/values/sable_styles.xml b/res/values/sable_styles.xml
+index bdc7e87..b5da788 100644
+--- a/res/values/sable_styles.xml
++++ b/res/values/sable_styles.xml
+@@ -12,6 +12,13 @@
+         <item name="android:textColor">?android:attr/textColorPrimary</item>
+     </style>
+ 
++    <!-- A paragraph on a SableOS card (setup design: navy card, thin stroke). -->
++    <style name="SableSetupCard" parent="@style/SableSetupItem">
++        <item name="android:background">@drawable/sable_setup_card</item>
++        <item name="android:padding">@dimen/sable_setup_card_padding</item>
++        <item name="android:layout_marginVertical">4dp</item>
++    </style>
++
+     <!-- A link to a system screen; starts hidden and is shown by SableLinks when it resolves. -->
+     <style name="SableSetupLink" parent="@style/SudGlifButton.Secondary">
+         <item name="android:layout_width">wrap_content</item>
+diff --git a/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java b/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java
+index db42378..879db68 100644
+--- a/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java
++++ b/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java
+@@ -41,6 +41,7 @@ import com.google.android.setupdesign.transition.TransitionHelper;
+ import com.google.android.setupdesign.util.ThemeHelper;
+ 
+ import org.lineageos.setupwizard.NavigationLayout.NavigationBarListener;
++import org.lineageos.setupwizard.sable.SableFocusRing;
+ import org.lineageos.setupwizard.sable.SableKeyFocus;
+ import org.lineageos.setupwizard.sable.SableKeyPolicy;
+ import org.lineageos.setupwizard.util.SetupWizardUtils;
+@@ -65,6 +66,8 @@ public abstract class BaseSetupWizardActivity extends AppCompatActivity implemen
+                 new StartDecoratedActivityForResult(),
+                 BaseSetupWizardActivity.this::onNextIntentResult);
+         initLayout();
++        // SableOS: the cyan keyboard focus ring on every control of every step.
++        SableFocusRing.install(this);
+         mNavigationBar = getNavigationBar();
+         if (mNavigationBar != null) {
+             mNavigationBar.setNavigationBarListener(this);
+diff --git a/src/org/lineageos/setupwizard/sable/SableFocusRing.java b/src/org/lineageos/setupwizard/sable/SableFocusRing.java
+new file mode 100644
+index 0000000..e43a9b4
+--- /dev/null
++++ b/src/org/lineageos/setupwizard/sable/SableFocusRing.java
+@@ -0,0 +1,48 @@
++/*
++ * SPDX-FileCopyrightText: The SableOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++package org.lineageos.setupwizard.sable;
++
++import android.app.Activity;
++import android.util.Log;
++import android.view.View;
++import android.widget.AbsListView;
++
++import org.lineageos.setupwizard.R;
++
++/**
++ * The SableOS keyboard focus ring on every setup step (setup design: cyan ring on the focused
++ * control). When a view takes focus and has no foreground of its own, it gets
++ * {@code @drawable/sable_setup_focus_ring}, which draws only while the view is focused. The
++ * colour comes from {@code @color/sable_setup_focus}, which SableSetupWizardOverlay sets.
++ *
++ * <p>It never blocks a step: any failure leaves the platform focus highlight.
++ */
++public final class SableFocusRing {
++    private static final String TAG = "SableFocusRing";
++
++    private SableFocusRing() {}
++
++    public static void install(Activity activity) {
++        try {
++            final View decor = activity.getWindow().getDecorView();
++            decor.getViewTreeObserver().addOnGlobalFocusChangeListener(
++                    (oldFocus, newFocus) -> mark(activity, newFocus));
++            mark(activity, activity.getCurrentFocus());
++        } catch (RuntimeException e) {
++            Log.w(TAG, "focus ring not installed; using the platform highlight", e);
++        }
++    }
++
++    private static void mark(Activity activity, View view) {
++        // Lists draw focus on their rows; a ring around the whole list would hide which row.
++        if (view == null || view.getForeground() != null || view instanceof AbsListView) return;
++        try {
++            view.setForeground(activity.getDrawable(R.drawable.sable_setup_focus_ring));
++        } catch (RuntimeException e) {
++            Log.w(TAG, "could not mark " + view, e);
++        }
++    }
++}
+-- 
+2.43.0
+
