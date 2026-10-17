@@ -267,24 +267,20 @@ if command -v javac >/dev/null 2>&1; then
 else
     printf 'SKIP  javac not installed (Settings Applications model tests)\n'
 fi
-# 6g. Keyboard backlight (kernel + Settings patches 0901 and the init rule):
-# the pure Settings class, and the property and module parameter names that
-# tie Settings, init and the driver together.
-if command -v javac >/dev/null 2>&1; then
-    kb="$tmp/settings-kbd"
-    mkdir -p "$kb"
-    (cd "$kb" && git apply --include='src/com/android/settings/sable/SableKeyboardBacklight.java' \
-        "$ROOT"/patches/framework/packages/apps/Settings/0901-*.patch)
-    if javac -d "$kb/out" "$kb"/src/com/android/settings/sable/SableKeyboardBacklight.java \
-        tests/java/settings/com/android/settings/sable/SableKeyboardBacklightTest.java tests/java/junit-shim/org/junit/*.java 2>"$tmp/err" &&
-        java -cp "$kb/out" org.junit.Run com.android.settings.sable.SableKeyboardBacklightTest >"$tmp/out" 2>&1; then
-        pass "Settings keyboard backlight model ($(grep -o 'CHECKS=[0-9]*' "$tmp/out"))"
-    else
-        fail "Settings keyboard backlight test: $(cat "$tmp/err" "$tmp/out" | grep -v JAVA_TOOL | head -5)"
-    fi
-else
-    printf 'SKIP  javac not installed (Settings keyboard backlight test)\n'
-fi
+# 6g. Keyboard light. The Q25 keyboard firmware ignores host writes to its
+# backlight register, so Settings patch 0901 adds only a read-only info row
+# (no switch, slider or property writes), gated on ro.sable.keyboard_backlight.
+# The kernel 0901 parameters and the init rule stay harmless; their names must
+# still agree.
+kbd_set=$(ls patches/framework/packages/apps/Settings/0901-*.patch)
+kbd_bad=""
+grep -q '"ro.sable.keyboard_backlight"' "$kbd_set" || kbd_bad="$kbd_bad no-gate"
+grep -q 'Your keyboard controls its own light. Press Sym+0 to turn it on or off. With the PaBaLF keyboard firmware, Sym+Shift+1 to 9 sets the level.' "$kbd_set" || kbd_bad="$kbd_bad no-summary"
+grep -q 'keyboard light, backlight, kb light' "$kbd_set" || kbd_bad="$kbd_bad no-keywords"
+grep -q '^+        android:selectable="false"' "$kbd_set" || kbd_bad="$kbd_bad selectable"
+grep -q 'persist\.sys\.sable\.kbd_backlight' "$kbd_set" && kbd_bad="$kbd_bad writes-property"
+grep -Eq '^\+.*(SwitchPreference|SliderPreference|TogglePreferenceController|SliderPreferenceController|SystemProperties\.set)' "$kbd_set" && kbd_bad="$kbd_bad interactive"
+if [[ -z "$kbd_bad" ]]; then pass "Settings keyboard light is a read-only info row"; else fail "Settings keyboard light:$kbd_bad"; fi
 kbd_rc=product/q25/init/sable-keyboard-backlight.rc
 kbd_missing=""
 for pair in kbd_backlight:persist.sys.sable.kbd_backlight kbd_backlight_level:persist.sys.sable.kbd_backlight_level; do
@@ -292,10 +288,8 @@ for pair in kbd_backlight:persist.sys.sable.kbd_backlight kbd_backlight_level:pe
     grep -q "^+module_param_cb($param, " patches/framework/kernel/xelex/mt6789/0901-*.patch || kbd_missing="$kbd_missing kernel:$param"
     grep -q "write /sys/module/bbqX0kbd/parameters/$param \${$prop}\$" "$kbd_rc" || kbd_missing="$kbd_missing rc:$param"
     grep -q "on property:$prop=\*" "$kbd_rc" || kbd_missing="$kbd_missing rc:$prop"
-    grep -q "\"$prop\";" patches/framework/packages/apps/Settings/0901-*.patch || kbd_missing="$kbd_missing settings:$prop"
 done
-grep -q '"ro.sable.keyboard_backlight"' patches/framework/packages/apps/Settings/0901-*.patch || kbd_missing="$kbd_missing settings:ro.sable.keyboard_backlight"
-if [[ -z "$kbd_missing" ]]; then pass "keyboard backlight names agree (Settings, init, driver)"; else fail "keyboard backlight names:$kbd_missing"; fi
+if [[ -z "$kbd_missing" ]]; then pass "keyboard backlight names agree (init, driver)"; else fail "keyboard backlight names:$kbd_missing"; fi
 
 tools_link=sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
 missing=""

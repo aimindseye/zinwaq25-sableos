@@ -1,0 +1,129 @@
+From 827a55930385241988c051bad2dd77917dec0785 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 10 Oct 2026 13:04:46 +0000
+Subject: [PATCH] SableOS: Keyboard light info in Settings > Keyboard
+
+Adds a read-only Keyboard light row under Settings > System > Keyboard.
+The Zinwa Q25 keyboard firmware owns its backlight and ignores host
+writes to the backlight register, so Settings offers no switch or
+slider: the row says how to use the keyboard's own keys (Sym+0 toggles
+the light; with the PaBaLF firmware, Sym+Shift+1 to 9 sets the level).
+
+The row is shown only when ro.sable.keyboard_backlight is true, which
+the Q25 layer sets, and is found by searching for keyboard light,
+backlight or kb light.
+---
+ .../sable_keyboard_backlight_strings.xml      | 23 +++++++++
+ res/xml/keyboard_settings.xml                 | 11 +++++
+ ...KeyboardBacklightPreferenceController.java | 47 +++++++++++++++++++
+ 3 files changed, 81 insertions(+)
+ create mode 100644 res/values/sable_keyboard_backlight_strings.xml
+ create mode 100644 src/com/android/settings/sable/SableKeyboardBacklightPreferenceController.java
+
+diff --git a/res/values/sable_keyboard_backlight_strings.xml b/res/values/sable_keyboard_backlight_strings.xml
+new file mode 100644
+index 0000000..2f9fa92
+--- /dev/null
++++ b/res/values/sable_keyboard_backlight_strings.xml
+@@ -0,0 +1,23 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<resources>
++    <!-- Settings > System > Keyboard: title of the info row about the hardware keyboard's light. -->
++    <string name="sable_keyboard_backlight_title">Keyboard light</string>
++    <!-- Settings > System > Keyboard: the keyboard firmware owns its light; this row only says how to use it. -->
++    <string name="sable_keyboard_backlight_summary">Your keyboard controls its own light. Press Sym+0 to turn it on or off. With the PaBaLF keyboard firmware, Sym+Shift+1 to 9 sets the level.</string>
++    <!-- Search keywords for the keyboard light info row. [CHAR LIMIT=NONE] -->
++    <string name="keywords_sable_keyboard_backlight">keyboard light, backlight, kb light</string>
++</resources>
+diff --git a/res/xml/keyboard_settings.xml b/res/xml/keyboard_settings.xml
+index 4afd9c9..2214e7c 100644
+--- a/res/xml/keyboard_settings.xml
++++ b/res/xml/keyboard_settings.xml
+@@ -54,6 +54,17 @@
+             settings:controller="com.android.settings.language.UserDictionaryPreferenceController" />
+     </PreferenceCategory>
+ 
++    <!-- SableOS: hardware keyboard light, on devices that set ro.sable.keyboard_backlight.
++         The keyboard firmware owns the light, so this row only explains its keys. -->
++    <Preference
++        android:key="sable_keyboard_backlight"
++        android:title="@string/sable_keyboard_backlight_title"
++        android:summary="@string/sable_keyboard_backlight_summary"
++        android:persistent="false"
++        android:selectable="false"
++        settings:keywords="@string/keywords_sable_keyboard_backlight"
++        settings:controller="com.android.settings.sable.SableKeyboardBacklightPreferenceController" />
++
+     <lineageos.preference.LineageSecureSettingSwitchPreference
+         android:key="feature_touch_hovering"
+         android:title="@string/touchscreen_hovering_title"
+diff --git a/src/com/android/settings/sable/SableKeyboardBacklightPreferenceController.java b/src/com/android/settings/sable/SableKeyboardBacklightPreferenceController.java
+new file mode 100644
+index 0000000..b744efe
+--- /dev/null
++++ b/src/com/android/settings/sable/SableKeyboardBacklightPreferenceController.java
+@@ -0,0 +1,47 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++import android.content.Context;
++import android.os.SystemProperties;
++
++import com.android.settings.core.BasePreferenceController;
++
++/**
++ * Settings > System > Keyboard > Keyboard light: a read-only row that explains the keyboard's
++ * own light keys. On the Zinwa Q25 the keyboard firmware owns the backlight and ignores host
++ * writes, so Settings offers no switch or slider. Shown only where the device's product layer
++ * sets ro.sable.keyboard_backlight.
++ */
++public class SableKeyboardBacklightPreferenceController extends BasePreferenceController {
++
++    /** Set to true by the device's product layer on devices with a lit hardware keyboard. */
++    static final String PROP_SUPPORTED = "ro.sable.keyboard_backlight";
++
++    public SableKeyboardBacklightPreferenceController(Context context, String preferenceKey) {
++        super(context, preferenceKey);
++    }
++
++    static boolean isDeviceSupported() {
++        return SystemProperties.getBoolean(PROP_SUPPORTED, false);
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        return isDeviceSupported() ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
++    }
++}
+-- 
+2.43.0
+
