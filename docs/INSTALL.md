@@ -25,10 +25,25 @@
 6. Have the build outputs from `bash build/sable.sh q25 Q2 artifacts` and check
    them: `sha256sum -c SHA256SUMS.txt`.
 
+## Pick the Q25 first
+
+If another phone is plugged into the same computer, every `adb` and `fastboot`
+command must name the Q25. Set its serial once per shell; both tools read it:
+
+```bash
+adb devices                       # note the Q25's serial
+export ANDROID_SERIAL=<q25-serial>
+```
+
+`restore-stock.sh --execute` and `capture-crash-evidence.sh` refuse to run
+without it (`--serial`, `SABLE_Q25_SERIAL` or `ANDROID_SERIAL`).
+`backup-device.sh` talks to the boot ROM over mtkclient, which can't pick a
+device: unplug any other MediaTek phone before running it.
+
 ## 1. Unlock the bootloader
 
 ```bash
-adb -d reboot bootloader          # or power off, then Volume Up + Power, choose fastboot
+adb reboot bootloader          # or power off, then Volume Up + Power, choose fastboot
 fastboot devices
 fastboot flashing unlock          # confirm on the device; this wipes data
 ```
@@ -38,7 +53,7 @@ Set the device up again (skip accounts) and re-enable USB debugging.
 ## 2. Flash boot images
 
 ```bash
-adb -d reboot bootloader
+adb reboot bootloader
 fastboot flash boot boot.img
 fastboot flash dtbo dtbo.img
 fastboot flash vbmeta vbmeta.img
@@ -56,7 +71,7 @@ else, stop.
 3. On the computer:
 
 ```bash
-adb -d sideload sableos-q25-Q2-YYYYMMDD-userdebug.zip
+adb sideload sableos-q25-Q2-*-userdebug.zip
 ```
 
 4. *Reboot system now*. The first boot can take several minutes.

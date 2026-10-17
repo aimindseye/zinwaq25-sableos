@@ -1184,25 +1184,30 @@ internal object SableMailAppearanceSync {
             },
         )
 
-        application.contentResolver.registerContentObserver(
-            SableMailAppearanceReader.uri(),
-            false,
-            object : ContentObserver(Handler(Looper.getMainLooper())) {
-                override fun onChange(selfChange: Boolean) {
-                    val next = SableMailAppearanceReader.read(application)
-                    val modeChanged = next.mode != current.mode
-                    val accentChanged = next.accent != current.accent
-                    current = next
+        // The appearance provider lives in Settings (Q4 framework layer). On an
+        // image without it, Android throws SecurityException here; Mail keeps
+        // the defaults instead of failing to start.
+        runCatching {
+            application.contentResolver.registerContentObserver(
+                SableMailAppearanceReader.uri(),
+                false,
+                object : ContentObserver(Handler(Looper.getMainLooper())) {
+                    override fun onChange(selfChange: Boolean) {
+                        val next = SableMailAppearanceReader.read(application)
+                        val modeChanged = next.mode != current.mode
+                        val accentChanged = next.accent != current.accent
+                        current = next
 
-                    if (modeChanged) {
-                        applyMode(next)
+                        if (modeChanged) {
+                            applyMode(next)
+                        }
+                        if (accentChanged) {
+                            resumedActivity.get()?.recreate()
+                        }
                     }
-                    if (accentChanged) {
-                        resumedActivity.get()?.recreate()
-                    }
-                }
-            },
-        )
+                },
+            )
+        }
     }
 }
 ''',

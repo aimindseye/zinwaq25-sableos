@@ -14,26 +14,26 @@ on that phone. Procedure: [`RETURN_TO_STOCK.md`](RETURN_TO_STOCK.md).
 
 | Gate | Check | Status |
 |---|---|---|
-| R0-BACKUP | `scripts/backup-device.sh` prints `BACKUP=PASS`; backup copied to two places off the machine; `nvram`, `nvdata`, `proinfo`, `persist`, `protect1/2` present | NOT_RUN |
-| R0-STOCK | Stock OS archive hashed and recorded in `STOCK_BASIS.md`; `restore-stock.sh` plan lists every required image | NOT_RUN |
-| R0-RESTORE | On the unlocked stock phone, `restore-stock.sh --execute` flashes the stock archive and stock Android boots with calls and data | NOT_RUN |
+| R0-BACKUP | `scripts/backup-device.sh` prints `BACKUP=PASS`; backup copied to two places off the machine; `nvram`, `nvdata`, `proinfo`, `persist`, `protect1/2` present | PASS (2026-10-16, board q20_v12_factory: all 60 non-userdata partitions read, `sha256sum -c` clean; second off-machine copy not yet confirmed) |
+| R0-STOCK | Stock OS archive hashed and recorded in `STOCK_BASIS.md`; `restore-stock.sh` plan lists every required image | PASS (2026-10-16, With-GMS `SP1A.210812.016RELEASE-KEYS`, display `Q25_20.01.2026`, matches the phone) |
+| R0-RESTORE | On the unlocked stock phone, `restore-stock.sh --execute` flashes the stock archive and stock Android boots with calls and data | PASS (2026-10-16: stock booted after the restore. The script stopped at `vbmeta_system` (bootloader reports it unslotted) and the rest was flashed by hand with `_a`/`_b` names, the fix in PR #22. Calls and SMS were checked on stock before unlocking, not after the restore) |
 
 ## Q1: LineageOS control build
 
 | Gate | Check | Status |
 |---|---|---|
-| Q1-BUILD | `build/sable.sh q25 Q1 build` succeeds, artifacts hashed | NOT_RUN |
-| Q1-BOOT | Control image boots to setup on a Q25 | NOT_RUN |
-| Q1-BASIC | Wi-Fi, calls, SMS, keyboard typing work | NOT_RUN |
+| Q1-BUILD | `build/sable.sh q25 Q1 build` succeeds, artifacts hashed | PASS (2026-10-15, ai-g732) |
+| Q1-BOOT | Control image boots to setup on a Q25 | PASS (2026-10-16, `23.2-20261015-UNOFFICIAL-Q25`) |
+| Q1-BASIC | Wi-Fi, calls, SMS, keyboard typing work | PASS (2026-10-16) |
 
 ## Q2: Sable product layer
 
 | Gate | Check | Status |
 |---|---|---|
-| Q2-BUILD | `apps`, `stage`, `build` succeed with the enabled app set | NOT_RUN (the `apps` part passes in GitHub Actions, `Sable apps` workflow, PR #9; `stage` passes as a dry run in `tests/run.sh`; `build` not run) |
-| Q2-BOOT | Boots; no boot loop; `sys.boot_completed=1` within 10 min | NOT_RUN |
-| Q2-PROPS | `ro.sable.profile.id=zinwa-q25`, `ro.sable.release=Q2` | NOT_RUN |
-| Q2-APPS | Each Sable app in `apps-manifest.tsv` installs and launches | NOT_RUN |
+| Q2-BUILD | `apps`, `stage`, `build` succeed with the enabled app set | PASS (2026-10-15, ai-g732, with the three games disabled to fit the dynamic partitions) |
+| Q2-BOOT | Boots; no boot loop; `sys.boot_completed=1` within 10 min | PASS (2026-10-17) |
+| Q2-PROPS | `ro.sable.profile.id=zinwa-q25`, `ro.sable.release=Q2` | PASS (2026-10-17) |
+| Q2-APPS | Each Sable app in `apps-manifest.tsv` installs and launches | PASS (2026-10-17: all 13 enabled apps installed and launched via `monkey`) |
 | Q2-UPDATER | LineageOS Updater offers no LineageOS build | NOT_RUN |
 
 ## Q3: Q25 device profile

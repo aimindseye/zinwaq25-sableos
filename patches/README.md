@@ -21,7 +21,7 @@
   Media and Mail keys and search) and the SonarCloud cleanup across the Sable apps, 0018 the second
   SonarCloud pass (Sable Tools dialer-code receiver permission, Text Reader version catalog, Start
   constants, Reader report task metadata), 0019 the Hub source dock, combined conversations and mail
-  apps as Hub sources.
+  apps as Hub sources, 0020 Sable Mail starting without the Settings appearance provider (Q2 images).
   Applied in order to a
   fresh import they reproduce `sable-src/` exactly. Regenerate a patch with `git diff` against a
   fresh import when you change these files.

@@ -9,9 +9,9 @@ IMEI, or images.
 
 ```text
 retail_variant=            (Q25 / Q25 Pro / conversion kit)
-board=                     (fastboot getvar product: q20_v12_factory | q20_v1_factory)
+board=q20_v12_factory      (fastboot getvar product: q20_v12_factory | q20_v1_factory)
 region=
-stock_build_display=       (Settings > About)
+stock_build_display=Q25_20.01.2026 (Settings > About)
 stock_fingerprint=         (ro.build.fingerprint)
 stock_fota_version=        (ro.fota.version, e.g. Q25_26.03.2026)
 android_release=
@@ -21,7 +21,7 @@ baseband_version=
 kernel_version=
 vendor_api=                (ro.vendor.api_level)
 active_slot_at_capture=
-unlocked=
+unlocked=yes (2026-10-16)
 ```
 
 ## Stock image source

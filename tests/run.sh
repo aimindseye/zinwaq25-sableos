@@ -360,9 +360,10 @@ printf x > "$img/preloader_q20_v12_factory.bin"
 if out="$(bash scripts/restore-stock.sh --images "$img" --scope full 2>/dev/null)"; then
     ok=yes
     grep -q '^RESTORE=PLAN_ONLY' <<<"$out" || ok=no
-    grep -q 'flash --slot=all vendor_boot ' <<<"$out" || ok=no
+    grep -q 'flash vendor_boot_a ' <<<"$out" && grep -q 'flash vendor_boot_b ' <<<"$out" || ok=no
+    grep -q 'slot=all' <<<"$out" && ok=no
     grep -q 'flash super ' <<<"$out" || ok=no
-    grep -q 'flash --slot=all lk ' <<<"$out" || ok=no
+    grep -q 'flash lk_a ' <<<"$out" || ok=no
     grep -Eq 'flash [^ ]* ?(nvram|nvdata|proinfo|userdata|preloader) ' <<<"$out" && ok=no
     grep -q -- "fastboot -w" <<<"$out" && ok=no
     [[ "$ok" == yes ]] && pass "restore-stock plan" || fail "restore-stock plan wrong: $out"
@@ -380,7 +381,7 @@ while IFS= read -r f; do mkdir -p "$gms/$(dirname "$f")"; printf x > "$gms/$f"; 
 if out="$(bash scripts/restore-stock.sh --images "$gms" --scope full 2>/dev/null)"; then
     ok=yes
     for p in boot dtbo vendor_boot vbmeta vbmeta_system vbmeta_vendor lk tee md1img; do
-        grep -q "flash --slot=all $p $gms/$p.img" <<<"$out" || ok=no
+        grep -q "flash ${p}_a $gms/$p.img" <<<"$out" && grep -q "flash ${p}_b $gms/$p.img" <<<"$out" || ok=no
     done
     grep -q "flash super $gms/super.img" <<<"$out" || ok=no
     grep -q "flash logo $gms/logo.bin" <<<"$out" || ok=no
@@ -394,6 +395,7 @@ fi
 fakefb="$tmp/fastboot"
 cat > "$fakefb" <<'FB'
 #!/usr/bin/env bash
+[[ "${1:-}" == -s ]] && shift 2
 case "$*" in
     devices) echo "FAKE0001 fastboot" ;;
     "getvar product") echo "product: q20_v1_factory" >&2 ;;
@@ -402,7 +404,18 @@ case "$*" in
 esac
 FB
 chmod +x "$fakefb"
-if SABLE_FASTBOOT="$fakefb" bash scripts/restore-stock.sh --images "$gms" --scope full --execute --yes >/dev/null 2>"$tmp/err"; then
+unset ANDROID_SERIAL SABLE_Q25_SERIAL
+if SABLE_FASTBOOT="$fakefb" bash scripts/restore-stock.sh --images "$gms" --execute --yes >/dev/null 2>&1; then
+    fail "restore-stock flashed without naming the Q25's serial"
+else
+    pass "restore-stock --execute needs --serial"
+fi
+if SABLE_FASTBOOT="$fakefb" bash scripts/restore-stock.sh --images "$gms" --serial OTHER --execute --yes >/dev/null 2>&1; then
+    fail "restore-stock accepted a serial that is not attached"
+else
+    pass "restore-stock refuses an unattached serial"
+fi
+if SABLE_FASTBOOT="$fakefb" bash scripts/restore-stock.sh --images "$gms" --scope full --serial FAKE0001 --execute --yes >/dev/null 2>"$tmp/err"; then
     fail "full restore accepted a q20_v12 package on a q20_v1 phone"
 elif grep -q "needs a package for q20_v1_factory" "$tmp/err"; then
     pass "restore-stock refuses other-board package in full scope"
@@ -436,7 +449,7 @@ esac
 ADB
 chmod +x "$fakeadb"
 evout="$tmp/evidence"
-if out="$(FAKE_ADB_LOG="$adblog" SABLE_ADB="$fakeadb" bash scripts/capture-crash-evidence.sh --out "$evout" --label t 2>"$tmp/err")"; then
+if out="$(FAKE_ADB_LOG="$adblog" SABLE_ADB="$fakeadb" bash scripts/capture-crash-evidence.sh --out "$evout" --serial FAKE0001 --label t 2>"$tmp/err")"; then
     d="$(sed -n 's/^OUT=//p' <<<"$out")"
     ok=yes
     grep -q '^EVIDENCE=CAPTURED' <<<"$out" || ok=no
@@ -459,10 +472,10 @@ else
     pass "crash evidence refuses repo path"
 fi
 rm -rf "$PWD/evidence-test"
-if FAKE_ADB_TWO=1 FAKE_ADB_LOG="$adblog" SABLE_ADB="$fakeadb" bash scripts/capture-crash-evidence.sh --out "$evout" >/dev/null 2>&1; then
-    fail "crash evidence accepted two devices without --serial"
+if FAKE_ADB_LOG="$adblog" SABLE_ADB="$fakeadb" bash scripts/capture-crash-evidence.sh --out "$evout" >/dev/null 2>&1; then
+    fail "crash evidence ran without naming the Q25's serial"
 else
-    pass "crash evidence needs one device or --serial"
+    pass "crash evidence needs --serial"
 fi
 
 # 12. Static icon/launch audit (#83): launcher entry, label, Sable icon, round icon, adaptive icon and its
