@@ -1,32 +1,31 @@
 package org.sableos.start.model
 
 /**
- * Base quick bar on Start (platform_sable SABLE_START_SCREEN_DESIGN.md
+ * Base quick bar on Center Start (platform_sable SABLE_START_SCREEN_DESIGN.md
  * "Base quick bar", SABLE_START_VISUAL_CONFIRMATION.md "Base quick bar
  * contract"). Pure policy, unit tested in
  * apps/r8/android/sablestart-presentation-check/src/test.
  *
  * A slot is stored as a token:
  *   "phone", "hub", "camera"  role slots, resolved to the installed app
+ *   "command", "apps"         Search/Command and All Apps (always present)
  *   "app:<stableKey>"         one app the user picked
- *
- * Q25: All Apps and Search are pages to the right of Home (see [StartPages]),
- * so they are no longer bar slots. Bars saved with the old "command" and
- * "apps" tokens drop them on load ([LEGACY_PAGE_TOKENS]).
  */
 object QuickBar {
     const val PHONE = "phone"
     const val HUB = "hub"
     const val CAMERA = "camera"
+    const val COMMAND = "command"
+    const val ALL_APPS = "apps"
     private const val APP_PREFIX = "app:"
 
     const val MAX_SLOTS = 5
 
-    /** Phone | Hub. */
-    val DEFAULT: List<String> = listOf(PHONE, HUB)
+    /** Phone | Hub | Command | All Apps. */
+    val DEFAULT: List<String> = listOf(PHONE, HUB, COMMAND, ALL_APPS)
 
-    /** Search/Command and All Apps slots of earlier bars; now pages, dropped by [normalize]. */
-    val LEGACY_PAGE_TOKENS: Set<String> = setOf("command", "apps")
+    /** COMMAND_ACCESS_REQUIRED and ALL_APPS_ACCESS_REQUIRED: never removed or replaced. */
+    val REQUIRED: Set<String> = setOf(COMMAND, ALL_APPS)
 
     private val ROLES = setOf(PHONE, HUB, CAMERA)
 
@@ -35,16 +34,24 @@ object QuickBar {
     /** The app's stable key for an "app:" token, else null. */
     fun appKey(token: String): String? = token.removePrefix(APP_PREFIX).takeIf { token.startsWith(APP_PREFIX) && it.isNotEmpty() }
 
-    fun isValid(token: String): Boolean = token in ROLES || appKey(token) != null
+    fun isRequired(token: String): Boolean = token in REQUIRED
+
+    fun isValid(token: String): Boolean = token in ROLES || token in REQUIRED || appKey(token) != null
 
     /**
-     * Drops unknown, legacy and duplicate tokens and caps the bar at
-     * [MAX_SLOTS]. Null (never customised) gives [DEFAULT]; an empty list is
-     * the user's choice of no bar.
+     * Drops unknown and duplicate tokens, puts back a missing Command or All
+     * Apps slot and caps the bar at [MAX_SLOTS]; required slots win the cap.
+     * Null (never customised) gives [DEFAULT].
      */
     fun normalize(tokens: List<String>?): List<String> {
         if (tokens == null) return DEFAULT
-        return tokens.filter(::isValid).distinct().take(MAX_SLOTS)
+        val kept = tokens.filter(::isValid).distinct().toMutableList()
+        REQUIRED.filterNot { it in kept }.forEach { kept += it }
+        while (kept.size > MAX_SLOTS) {
+            val drop = kept.indexOfLast { !isRequired(it) }
+            kept.removeAt(drop)
+        }
+        return kept
     }
 
     fun move(
@@ -59,32 +66,33 @@ object QuickBar {
         }
     }
 
-    /** BASE_BAR_REPLACE_SLOTS; unknown tokens and duplicates are refused. */
+    /** BASE_BAR_REPLACE_SLOTS; required slots and duplicates are refused. */
     fun replace(
         tokens: List<String>,
         index: Int,
         token: String,
     ): List<String> {
-        if (index !in tokens.indices || !isValid(token) || token in tokens) return tokens
+        if (index !in tokens.indices || isRequired(tokens[index])) return tokens
+        if (!isValid(token) || isRequired(token) || token in tokens) return tokens
         return tokens.toMutableList().also { it[index] = token }
     }
 
-    /** Any slot can go, down to an empty bar (Home then shows none). */
     fun remove(
         tokens: List<String>,
         index: Int,
     ): List<String> {
-        if (index !in tokens.indices) return tokens
+        if (index !in tokens.indices || isRequired(tokens[index])) return tokens
         return tokens.filterIndexed { i, _ -> i != index }
     }
 
-    /** Adds at the end, up to [MAX_SLOTS]. */
+    /** Adds before Command so the default order reads naturally. */
     fun add(
         tokens: List<String>,
         token: String,
     ): List<String> {
         if (tokens.size >= MAX_SLOTS || !isValid(token) || token in tokens) return tokens
-        return tokens + token
+        val at = tokens.indexOf(COMMAND).takeIf { it >= 0 } ?: tokens.size
+        return tokens.toMutableList().also { it.add(at, token) }
     }
 
     /**
@@ -103,7 +111,7 @@ object QuickBar {
             else -> null
         }
 
-    /** Removes the slot holding [slotToken], or adds [stableKey] as an app slot at the end when it has none. */
+    /** Removes the slot holding [slotToken], or adds [stableKey] as an app slot when it has none. */
     fun toggleApp(
         tokens: List<String>,
         slotToken: String?,
@@ -133,6 +141,20 @@ object QuickBar {
             }
         return index.takeIf { it in 0 until minOf(slotCount, MAX_SLOTS) }
     }
+
+    /**
+     * Phone slot type-to-dial (SABLE_START_SCREEN_DESIGN.md "Type digits while
+     * Phone quick icon focused"): the dial character a key typed, or null. On
+     * the Q25 the digits are the Alt layer (W E R S D F Z X C = 1..9), so the
+     * character the key map produced decides, not the key code.
+     */
+    fun dialChar(unicode: Int): Char? {
+        if (unicode <= 0) return null
+        val char = unicode.toChar()
+        return char.takeIf { it in '0'..'9' || it in DIAL_SYMBOLS }
+    }
+
+    private const val DIAL_SYMBOLS = "*#+"
 
     /** "Alt+1".."Alt+5": the shortcut as printed on the keys (Fn devices accept it too). */
     fun shortcutLabel(index: Int): String = "Alt+${index + 1}"
@@ -164,22 +186,23 @@ object StartTypeToSearch {
 }
 
 /**
- * Start pages (Q25 owner request): Home first, then All Apps, Search and Live
- * to its right, in that order. Swiping right to left, or Alt+Right (Fn+Right
- * on Fn keyboards), moves one page right; Alt+Left moves back toward Home.
- * Home has nothing to its left.
+ * The three Start pages (SABLE_START_THREE_PAGE_MODEL.md, the Titan 2
+ * three-page visual): Glance widgets on the left, Home in the center, Hub on
+ * the right. Swipe right or Alt+Left (Fn+Left on Fn keyboards) from Home opens
+ * Glance; swipe left or Alt+Right opens Hub.
  */
 object StartPages {
-    const val HOME = 0
-    const val APPS = 1
-    const val SEARCH = 2
-    const val LIVE = 3
-    const val COUNT = 4
+    const val GLANCE = 0
+    const val HOME = 1
+    const val HUB = 2
+    const val COUNT = 3
 
+    private const val KEYCODE_DPAD_UP = 19
+    private const val KEYCODE_DPAD_DOWN = 20
     private const val KEYCODE_DPAD_LEFT = 21
     private const val KEYCODE_DPAD_RIGHT = 22
 
-    /** -1 toward Home, +1 toward Live, or null when the key does not move pages. */
+    /** -1 toward Glance, +1 toward Hub, or null when the key does not move pages. */
     fun keyDelta(
         keyCode: Int,
         metaState: Int,
@@ -192,19 +215,33 @@ object StartPages {
         }
     }
 
-    /** The page [delta] pages from [current], kept within Home..Live. */
+    /**
+     * Edit Home reorder keys ("Fn+arrows to reorder"; Alt on the Q25): -1 moves
+     * the focused item up, +1 down, or null when the key is not Alt/Fn+Up/Down.
+     */
+    fun reorderDelta(
+        keyCode: Int,
+        metaState: Int,
+    ): Int? {
+        if (metaState and (QuickBar.META_ALT_ON or QuickBar.META_FUNCTION_ON) == 0) return null
+        return when (keyCode) {
+            KEYCODE_DPAD_UP -> -1
+            KEYCODE_DPAD_DOWN -> 1
+            else -> null
+        }
+    }
+
+    /** The page [delta] pages from [current], kept within Glance..Hub. */
     fun target(
         current: Int,
         delta: Int,
-    ): Int = (current + delta).coerceIn(HOME, COUNT - 1)
+    ): Int = (current + delta).coerceIn(GLANCE, COUNT - 1)
 
-    /** The page a screen name opens on ("apps", "search", "live"), or null for a non-page screen. */
-    fun forScreen(screen: String): Int? =
+    /** The page a screen name opens ("glance", "hub"; anything else is Home). */
+    fun forScreen(screen: String): Int =
         when (screen.lowercase(java.util.Locale.ROOT)) {
-            "start", "home" -> HOME
-            "apps" -> APPS
-            "search" -> SEARCH
-            "live", "glance" -> LIVE
-            else -> null
+            "glance", "live" -> GLANCE
+            "hub" -> HUB
+            else -> HOME
         }
 }

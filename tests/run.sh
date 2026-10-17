@@ -167,6 +167,10 @@ if out="$(stagerun Q4 --apps-dir "$tmp/apps/run")"; then
         grep -q "name: \"$o\"" "$v/overlay/Android.bp" || ok=no
     done
     [[ -f "$v/overlay/SableSystemUIOverlay/res/values-notlong/config.xml" ]] || ok=no
+    grep -q 'SableNoUpdater' "$v/sable-q25-framework.mk" || ok=no
+    grep -q '^SABLE_Q25_NO_UPDATER := true' "$v/sable-q25-framework.mk" || ok=no
+    grep -q 'overrides: \["Updater"\]' "$v/updater/Android.bp" || ok=no
+    grep -q 'ifneq ($(SABLE_Q25_NO_UPDATER),true)' "$v/sable-q25.mk" || ok=no
     [[ "$ok" == yes ]] && pass "stage Q4 adds framework layer" || fail "stage Q4: generated files wrong: $out"
 else
     fail "stage Q4: $(cat "$tmp/err")"
@@ -174,7 +178,9 @@ fi
 if out="$(stagerun Q2 --apps-dir "$tmp/apps/run")" && grep -q '^FRAMEWORK_LAYER=NO' <<<"$out" &&
     grep -q "$stock_home" "$proj/config.txt" && ! grep -q 'SableLauncher' "$tmp/android/vendor/sable/q25/sable-q25-framework.mk" &&
     [[ ! -e "$tmp/android/vendor/sable/q25/src" && ! -e "$tmp/android/vendor/sable/q25/overlay" ]] &&
-    ! grep -q 'SableSystemUIOverlay' "$tmp/android/vendor/sable/q25/sable-q25-framework.mk"; then
+    ! grep -q 'SableSystemUIOverlay' "$tmp/android/vendor/sable/q25/sable-q25-framework.mk" &&
+    ! grep -q 'SABLE_Q25_NO_UPDATER' "$tmp/android/vendor/sable/q25/sable-q25-framework.mk" &&
+    [[ ! -e "$tmp/android/vendor/sable/q25/updater" ]]; then
     pass "stage Q2 reverts framework layer"
 else
     fail "stage Q2 after Q4: $(cat "$tmp/err")"

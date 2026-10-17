@@ -3,4 +3,5 @@
      (lineage-23.2) translations. Do not edit by hand. -->
 <resources>
     <string name="setup_welcome_message">SableOS غا خۇش كەلدىڭىز</string>
+    <string name="intro_restore_subtitle">ئەگەر سىزدە SableOS ياكى باشقا مەشغۇلات سىستېمىسىنىڭ Seedvault زاپىسى بولسا، بۇ جايدا ئۇنى ئەسلىگە قايتۇرالايسىز.</string>
 </resources>

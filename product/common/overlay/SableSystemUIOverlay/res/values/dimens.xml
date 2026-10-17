@@ -12,4 +12,9 @@
     <!-- Tile grid gaps on the 4dp grid (SPACE_2). Upstream 8dp, stated
          explicitly so the token table owns it. -->
     <dimen name="qs_tile_margin_horizontal">8dp</dimen>
+    <!-- Lock screen (visual only, Panther UI6A delta): clock 10dp lower and the
+         indication area (unlock hint, keyboard hint line) 4dp higher.
+         Upstream 18dp and 32dp. -->
+    <dimen name="keyguard_clock_top_margin">28dp</dimen>
+    <dimen name="keyguard_indication_margin_bottom">36dp</dimen>
 </resources>

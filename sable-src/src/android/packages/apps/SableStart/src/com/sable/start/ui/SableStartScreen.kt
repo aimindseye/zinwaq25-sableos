@@ -10,12 +10,12 @@ import android.net.Uri
 import android.os.SystemClock
 import android.util.LruCache
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas as ComposeCanvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -63,17 +63,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -109,7 +113,6 @@ import org.sableos.start.model.CommandQuery
 import org.sableos.start.model.CommandRanking
 import org.sableos.start.model.CommandScope
 import org.sableos.start.model.CoreAppIdentity
-import org.sableos.start.model.HomeLayout
 import org.sableos.start.model.QuickBar
 import org.sableos.start.model.StartPages
 import org.sableos.start.model.StartTypeToSearch
@@ -126,12 +129,13 @@ import java.time.LocalTime
 import java.util.Locale
 
 private enum class SableStartDestination {
-    /** Home and the pages to its right (All Apps, Search, Live): see [StartPages]. */
     Start,
+    Apps,
+    Search,
+    Live,
     Appearance,
     Peek,
     QuickBar,
-    HomeSettings,
 }
 
 private data class HomeTile(
@@ -148,8 +152,8 @@ private data class HomeTile(
 private data class QuickSlot(
     val token: String,
     val label: String,
-    /** The app the slot opens. */
-    val app: AppEntry,
+    /** The app a role or app slot opens; null for Command and All Apps. */
+    val app: AppEntry?,
 )
 
 private data class AppRailRow(
@@ -187,10 +191,6 @@ private val SableTilePalette =
  * R9 combines the Start, one-hand Favorites, alphabet rail, local Search /
  * Command, Sable Peek and contextual local-data work in one production path.
  * Recents/Overview remain owned by Android Quickstep.
- *
- * Q25: Home is the first page; All Apps, Search and Live are the pages to its
- * right, in that order ([StartPages]). What Home shows is chosen in Home
- * settings ([HomeLayout], cards, favorites and [QuickBar]).
  */
 @Composable
 fun SableStartScreen(
@@ -206,11 +206,8 @@ fun SableStartScreen(
     onFavoriteKeysChanged: (Set<String>) -> Unit = {},
     initialStartTileKeys: Set<String>? = null,
     onStartTileKeysChanged: (Set<String>) -> Unit = {},
-    onResetStartTiles: () -> Unit = {},
     initialQuickBar: List<String>? = null,
     onQuickBarChanged: (List<String>?) -> Unit = {},
-    initialHiddenHomeSections: Set<String>? = null,
-    onHiddenHomeSectionsChanged: (Set<String>?) -> Unit = {},
     onAppearanceChanged: (SableAppearance) -> Unit = {},
     onResetAppearance: () -> Unit = {},
     onLaunchApp: (AppEntry) -> Boolean,
@@ -228,7 +225,6 @@ fun SableStartScreen(
     var destination by remember(initialScreen) {
         mutableStateOf(destinationFor(initialScreen))
     }
-    // Where Quick bar and Appearance go back to: Home settings when opened from it, else Start.
     var returnDestination by remember { mutableStateOf(SableStartDestination.Start) }
     var selectedApp by remember { mutableStateOf<AppEntry?>(null) }
     var favoriteKeys by remember(initialFavoriteKeys) {
@@ -238,13 +234,10 @@ fun SableStartScreen(
         mutableStateOf(initialStartTileKeys?.toList())
     }
     var recentKeys by remember { mutableStateOf<List<String>>(emptyList()) }
-    // Text typed on Home before the Search page opened (type-to-launch).
+    // Text typed on Start before Search opened (type-to-launch).
     var searchSeed by remember { mutableStateOf("") }
     var quickBarTokens by remember(initialQuickBar) {
         mutableStateOf(QuickBar.normalize(initialQuickBar))
-    }
-    var hiddenSections by remember(initialHiddenHomeSections) {
-        mutableStateOf(HomeLayout.normalizeHidden(initialHiddenHomeSections))
     }
     // Survives Peek / App info / Search round trips (FOCUS_RESTORATION=REQUIRED).
     val focusMemory = remember { SableFocusMemory() }
@@ -274,27 +267,12 @@ fun SableStartScreen(
             resolveQuickSlot(token, apps, appByKey)
         }
 
-    val startPager =
-        rememberPagerState(initialPage = StartPages.forScreen(initialScreen) ?: StartPages.HOME) {
-            StartPages.COUNT
-        }
+    val startPager = rememberPagerState(initialPage = START_PAGE_CENTER) { START_PAGE_COUNT }
     val pagerScope = rememberCoroutineScope()
 
     fun movePage(delta: Int) {
-        val target = StartPages.target(startPager.currentPage, delta)
+        val target = (startPager.currentPage + delta).coerceIn(0, START_PAGE_COUNT - 1)
         pagerScope.launch { startPager.animateScrollToPage(target) }
-    }
-
-    /** Shows one Start page; [animate] false jumps there at once (type-to-launch keeps every key). */
-    fun showPage(
-        page: Int,
-        animate: Boolean = true,
-    ) {
-        destination = SableStartDestination.Start
-        selectedApp = null
-        pagerScope.launch {
-            if (animate) startPager.animateScrollToPage(page) else startPager.scrollToPage(page)
-        }
     }
 
     fun launchApp(entry: AppEntry) {
@@ -306,32 +284,34 @@ fun SableStartScreen(
         }
     }
 
-    // Peek always returns to the Start pager, which keeps its page (Home, All Apps or Search).
-    fun openPeek(entry: AppEntry) {
+    fun openPeek(
+        entry: AppEntry,
+        from: SableStartDestination,
+    ) {
         selectedApp = entry
+        returnDestination = from
         destination = SableStartDestination.Peek
     }
 
-    fun openSearch(seed: String = "") {
+    fun openSearch(
+        from: SableStartDestination,
+        seed: String = "",
+    ) {
         searchSeed = seed
-        showPage(StartPages.SEARCH, animate = seed.isEmpty())
+        returnDestination = from
+        destination = SableStartDestination.Search
     }
 
     fun navigateBack() {
         destination = backDestination(destination, returnDestination)
     }
 
-    fun openScreen(next: SableStartDestination) {
-        returnDestination =
-            if (destination == SableStartDestination.HomeSettings) destination else SableStartDestination.Start
-        destination = next
-    }
-
     LaunchedEffect(homeGeneration) {
         if (homeGeneration > 0) {
             destination = SableStartDestination.Start
+            returnDestination = SableStartDestination.Start
             selectedApp = null
-            startPager.animateScrollToPage(StartPages.HOME)
+            startPager.animateScrollToPage(START_PAGE_CENTER)
         }
     }
 
@@ -339,25 +319,19 @@ fun SableStartScreen(
         if (backGeneration > 0) {
             if (destination != SableStartDestination.Start) {
                 navigateBack()
-            } else if (startPager.currentPage != StartPages.HOME) {
-                // Back on All Apps, Search or Live returns to Home.
-                startPager.animateScrollToPage(StartPages.HOME)
+            } else if (startPager.currentPage != START_PAGE_CENTER) {
+                // Back on Glance or Hub returns to the center page.
+                startPager.animateScrollToPage(START_PAGE_CENTER)
             }
         }
     }
 
     LaunchedEffect(destination, startPager.currentPage) {
         onCanNavigateBackChanged(
-            destination != SableStartDestination.Start || startPager.currentPage != StartPages.HOME,
+            destination != SableStartDestination.Start || startPager.currentPage != START_PAGE_CENTER,
         )
-    }
-
-    LaunchedEffect(startPager.settledPage) {
-        when (startPager.settledPage) {
-            StartPages.LIVE -> onRefreshLive()
-            // A seed is for the visit it was typed for; a later swipe opens an empty Search.
-            StartPages.SEARCH -> Unit
-            else -> searchSeed = ""
+        if (destination == SableStartDestination.Live) {
+            onRefreshLive()
         }
     }
 
@@ -374,60 +348,24 @@ fun SableStartScreen(
             ) {
                 when (destination) {
                     SableStartDestination.Start ->
-                        // Home, then All Apps, Search and Live to the right.
+                        // Three pages: Glance (left), Start (center), Hub (right).
                         StartPager(
                             state = startPager,
                             onMovePage = { delta -> movePage(delta) },
-                            apps = {
-                                AppsScreen(
+                            glance = {
+                                LiveSurfaceScreen(
+                                    snapshot = liveSnapshot,
                                     apps = apps,
-                                    focusMemory = focusMemory,
-                                    active = startPager.settledPage == StartPages.APPS,
-                                    onBack = { showPage(StartPages.HOME) },
-                                    onSearch = { openSearch() },
-                                    onLaunchApp = ::launchApp,
-                                    onOpenPeek = ::openPeek,
-                                    onOpenAppInfo = onOpenAppInfo,
-                                    privateSpaceLocked = privateSpaceLocked,
-                                    onTogglePrivateSpace = onTogglePrivateSpace,
+                                    onRequestPermissions = onRequestLivePermissions,
+                                    title = "glance",
                                 )
                             },
-                            search = {
-                                SearchScreen(
+                            hub = {
+                                HubPage(
+                                    snapshot = liveSnapshot,
                                     apps = apps,
-                                    recentKeys = recentKeys,
-                                    initialQuery = searchSeed,
-                                    active = startPager.settledPage == StartPages.SEARCH,
-                                    onBack = { showPage(StartPages.HOME) },
                                     onLaunchApp = ::launchApp,
-                                    onOpenPeek = ::openPeek,
-                                    onAllApps = { showPage(StartPages.APPS) },
-                                    onAppearance = {
-                                        openScreen(SableStartDestination.Appearance)
-                                    },
-                                    onLive = { showPage(StartPages.LIVE) },
-                                    onEditQuickBar = {
-                                        openScreen(SableStartDestination.QuickBar)
-                                    },
-                                    onHomeSettings = {
-                                        openScreen(SableStartDestination.HomeSettings)
-                                    },
-                                    onOpenSettings = onOpenSystemSettings,
-                                    onStartIntent = onStartIntent,
                                 )
-                            },
-                            live = {
-                                SableRefreshableSurface(
-                                    isRefreshing = liveRefreshing,
-                                    onRefresh = onRefreshLive,
-                                ) {
-                                    LiveSurfaceScreen(
-                                        snapshot = liveSnapshot,
-                                        apps = apps,
-                                        onRequestPermissions = onRequestLivePermissions,
-                                        onLaunchApp = ::launchApp,
-                                    )
-                                }
                             },
                         ) {
                             SableRefreshableSurface(
@@ -437,61 +375,42 @@ fun SableStartScreen(
                                 StartScreen(
                                     snapshot = liveSnapshot,
                                     startApps = startApps,
-                                    hiddenSections = hiddenSections,
                                     onLaunchApp = ::launchApp,
-                                    onOpenPeek = ::openPeek,
-                                    onHomeSettings = {
-                                        openScreen(SableStartDestination.HomeSettings)
+                                    onOpenPeek = { app ->
+                                        openPeek(app, SableStartDestination.Start)
+                                    },
+                                    onAllApps = {
+                                        destination = SableStartDestination.Apps
+                                    },
+                                    onSearch = {
+                                        openSearch(SableStartDestination.Start)
+                                    },
+                                    onLive = {
+                                        destination = SableStartDestination.Live
+                                    },
+                                    onAppearance = {
+                                        destination = SableStartDestination.Appearance
                                     },
                                     favoriteApps = favoriteApps.take(MAX_FAVORITES_ON_START),
                                     onTypeToSearch = { char ->
-                                        openSearch(char.toString())
+                                        openSearch(SableStartDestination.Start, char.toString())
                                     },
                                     quickSlots = quickSlots,
-                                    onQuickSlot = { slot -> launchApp(slot.app) },
+                                    onQuickSlot = { slot ->
+                                        when (slot.token) {
+                                            QuickBar.COMMAND ->
+                                                openSearch(SableStartDestination.Start)
+                                            QuickBar.ALL_APPS ->
+                                                destination = SableStartDestination.Apps
+                                            else -> slot.app?.let(::launchApp)
+                                        }
+                                    },
                                     onEditQuickBar = {
-                                        openScreen(SableStartDestination.QuickBar)
+                                        destination = SableStartDestination.QuickBar
                                     },
                                 )
                             }
                         }
-
-                    SableStartDestination.HomeSettings ->
-                        HomeSettingsScreen(
-                            apps = apps,
-                            hiddenSections = hiddenSections,
-                            startApps = startApps,
-                            cardsCustomised = startTileKeys != null,
-                            onBack = ::navigateBack,
-                            onToggleSection = { section ->
-                                hiddenSections = HomeLayout.toggle(hiddenSections, section)
-                                onHiddenHomeSectionsChanged(hiddenSections)
-                            },
-                            onShowAllSections = {
-                                hiddenSections = emptySet()
-                                onHiddenHomeSectionsChanged(null)
-                            },
-                            onToggleCard = { app ->
-                                val next =
-                                    HomeLayout.toggleCard(
-                                        explicit = startTileKeys,
-                                        defaults = startApps.map { it.stableKey() },
-                                        key = app.stableKey(),
-                                    )
-                                startTileKeys = next
-                                onStartTileKeysChanged(next.toSet())
-                            },
-                            onResetCards = {
-                                startTileKeys = null
-                                onResetStartTiles()
-                            },
-                            onEditQuickBar = {
-                                openScreen(SableStartDestination.QuickBar)
-                            },
-                            onAppearance = {
-                                openScreen(SableStartDestination.Appearance)
-                            },
-                        )
 
                     SableStartDestination.QuickBar ->
                         QuickBarScreen(
@@ -508,6 +427,61 @@ fun SableStartScreen(
                             },
                         )
 
+                    SableStartDestination.Apps ->
+                        AppsScreen(
+                            apps = apps,
+                            focusMemory = focusMemory,
+                            onBack = ::navigateBack,
+                            onSearch = {
+                                openSearch(SableStartDestination.Apps)
+                            },
+                            onLaunchApp = ::launchApp,
+                            onOpenPeek = { app ->
+                                openPeek(app, SableStartDestination.Apps)
+                            },
+                            onOpenAppInfo = onOpenAppInfo,
+                            privateSpaceLocked = privateSpaceLocked,
+                            onTogglePrivateSpace = onTogglePrivateSpace,
+                        )
+
+                    SableStartDestination.Search ->
+                        SearchScreen(
+                            apps = apps,
+                            recentKeys = recentKeys,
+                            initialQuery = searchSeed,
+                            onBack = ::navigateBack,
+                            onLaunchApp = ::launchApp,
+                            onOpenPeek = { app ->
+                                openPeek(app, SableStartDestination.Search)
+                            },
+                            onAllApps = {
+                                destination = SableStartDestination.Apps
+                            },
+                            onAppearance = {
+                                destination = SableStartDestination.Appearance
+                            },
+                            onLive = {
+                                destination = SableStartDestination.Live
+                            },
+                            onEditQuickBar = {
+                                destination = SableStartDestination.QuickBar
+                            },
+                            onOpenSettings = onOpenSystemSettings,
+                            onStartIntent = onStartIntent,
+                        )
+
+                    SableStartDestination.Live ->
+                        SableRefreshableSurface(
+                            isRefreshing = liveRefreshing,
+                            onRefresh = onRefreshLive,
+                        ) {
+                            LiveSurfaceScreen(
+                                snapshot = liveSnapshot,
+                                apps = apps,
+                                onRequestPermissions = onRequestLivePermissions,
+                            )
+                        }
+
                     SableStartDestination.Appearance ->
                         AppearanceScreen(
                             appearance = appearance,
@@ -519,10 +493,10 @@ fun SableStartScreen(
                     SableStartDestination.Peek -> {
                         val app = selectedApp
                         if (app == null) {
-                            destination = SableStartDestination.Start
+                            destination = returnDestination
                         } else {
                             val key = app.stableKey()
-                            val barIndex = quickSlots.indexOfFirst { it.app.stableKey() == key }
+                            val barIndex = quickSlots.indexOfFirst { it.app?.stableKey() == key }
                             SablePeekScreen(
                                 app = app,
                                 isFavorite = key in favoriteKeys,
@@ -564,22 +538,22 @@ fun SableStartScreen(
 private fun StartScreen(
     snapshot: LiveSurfaceSnapshot,
     startApps: List<AppEntry>,
-    hiddenSections: Set<String>,
     onLaunchApp: (AppEntry) -> Unit,
     onOpenPeek: (AppEntry) -> Unit,
-    onHomeSettings: () -> Unit,
+    onAllApps: () -> Unit,
+    onSearch: () -> Unit,
+    onLive: () -> Unit,
+    onAppearance: () -> Unit,
     favoriteApps: List<AppEntry>,
     onTypeToSearch: (Char) -> Unit,
     quickSlots: List<QuickSlot>,
     onQuickSlot: (QuickSlot) -> Unit,
     onEditQuickBar: () -> Unit,
 ) {
-    fun shown(section: String) = HomeLayout.isShown(hiddenSections, section)
-
     // Alt+1..Alt+5 (Fn+1..Fn+5 on Fn keyboards) open the quick bar slots from
-    // anywhere on Home (also while the bar is hidden), Menu opens Home
-    // settings, and any other printable key opens Search seeded with it. The
-    // column takes focus on arrival so keys work before anything is focused.
+    // anywhere on Start, and any other printable key opens Search seeded with
+    // it. The column takes focus on arrival so keys work before anything is
+    // focused.
     val startFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) {
         runCatching { startFocus.requestFocus() }
@@ -606,9 +580,9 @@ private fun StartScreen(
                         onQuickSlot(quickSlots[index])
                         return@onPreviewKeyEvent true
                     }
-                    // Menu on Home opens Home settings (sections, cards, quick bar).
+                    // Menu on Home opens the quick bar editor (home layout).
                     if (native.keyCode == AllAppsKeyPolicy.KEYCODE_MENU) {
-                        onHomeSettings()
+                        onEditQuickBar()
                         return@onPreviewKeyEvent true
                     }
                     val seed =
@@ -622,14 +596,7 @@ private fun StartScreen(
                 },
     ) {
         LazyColumn(
-            modifier =
-                Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    // Long press on an empty part of Home opens Home settings.
-                    .pointerInput(Unit) {
-                        detectTapGestures(onLongPress = { onHomeSettings() })
-                    },
+            modifier = Modifier.weight(1f).fillMaxWidth(),
             contentPadding =
                 PaddingValues(
                     start = 20.dp,
@@ -649,64 +616,58 @@ private fun StartScreen(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.Bottom,
                         ) {
-                            if (shown(HomeLayout.CLOCK)) {
-                                Column {
-                                    Text(
-                                        text = snapshot.timeText,
-                                        fontSize = 56.sp,
-                                        fontWeight = FontWeight.Light,
-                                        lineHeight = 58.sp,
-                                    )
-                                    Text(
-                                        text = snapshot.dateText,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
+                            Column {
+                                Text(
+                                    text = snapshot.timeText,
+                                    fontSize = 56.sp,
+                                    fontWeight = FontWeight.Light,
+                                    lineHeight = 58.sp,
+                                )
+                                Text(
+                                    text = snapshot.dateText,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
                             Spacer(Modifier.weight(1f))
-                            if (ringsInline && shown(HomeLayout.STATUS_RINGS)) {
+                            if (ringsInline) {
                                 SableStatusRings(
                                     modifier = Modifier.padding(end = 10.dp),
                                 )
                             }
-                            // Always shown: the way into Home settings by touch.
                             SableControlShortcut(
-                                onClick = onHomeSettings,
+                                onClick = onAppearance,
                             )
                         }
-                        if (!ringsInline && shown(HomeLayout.STATUS_RINGS)) {
+                        if (!ringsInline) {
                             Spacer(Modifier.height(10.dp))
                             SableStatusRings()
                         }
                     }
                 }
 
-                if (shown(HomeLayout.GREETING)) {
-                    Spacer(Modifier.height(18.dp))
-                    Text(
-                        text = startGreeting(),
-                        style = MaterialTheme.typography.headlineLarge,
-                    )
-                }
+                Spacer(Modifier.height(18.dp))
+                Text(
+                    text = startGreeting(),
+                    style = MaterialTheme.typography.headlineLarge,
+                )
                 Spacer(Modifier.height(14.dp))
 
-                if (shown(HomeLayout.CARDS)) {
-                    val tiles =
-                        startApps.map { app ->
-                            HomeTile(
-                                title = app.label,
-                                app = app,
-                                accent = appColor(app),
-                                liveDatum = liveDatumForApp(app, snapshot),
-                                wide = isWideStartTile(app),
-                                onClick = { onLaunchApp(app) },
-                                onLongClick = { onOpenPeek(app) },
-                            )
-                        }
-                    TileGrid(tiles)
-                }
-                if (shown(HomeLayout.FAVORITES) && favoriteApps.isNotEmpty()) {
+                val tiles =
+                    startApps.map { app ->
+                        HomeTile(
+                            title = app.label,
+                            app = app,
+                            accent = appColor(app),
+                            liveDatum = liveDatumForApp(app, snapshot),
+                            wide = isWideStartTile(app),
+                            onClick = { onLaunchApp(app) },
+                            onLongClick = { onOpenPeek(app) },
+                        )
+                    }
+
+                TileGrid(tiles)
+                if (favoriteApps.isNotEmpty()) {
                     Spacer(Modifier.height(18.dp))
                     FavoritesRow(
                         apps = favoriteApps,
@@ -714,34 +675,38 @@ private fun StartScreen(
                         onOpenPeek = onOpenPeek,
                     )
                 }
+                Spacer(Modifier.height(18.dp))
+                ApprovedStartNavigationRow(
+                    onAllApps = onAllApps,
+                    onSearch = onSearch,
+                    onLive = onLive,
+                )
             }
         }
-        if (shown(HomeLayout.QUICK_BAR) && quickSlots.isNotEmpty()) {
-            SableQuickBar(
-                slots = quickSlots,
-                onSlot = onQuickSlot,
-                onEdit = onEditQuickBar,
-            )
-        }
+        SableQuickBar(
+            slots = quickSlots,
+            onSlot = onQuickSlot,
+            onEdit = onEditQuickBar,
+        )
     }
 }
 
-/** Pages are not destinations: "apps", "search" and "live" open the Start pager on that page. */
 private fun destinationFor(screen: String): SableStartDestination =
     when (screen.lowercase(Locale.ROOT)) {
+        "live" -> SableStartDestination.Live
+        "apps" -> SableStartDestination.Apps
+        "search" -> SableStartDestination.Search
         "appearance" -> SableStartDestination.Appearance
         "quickbar" -> SableStartDestination.QuickBar
-        "home" -> SableStartDestination.HomeSettings
         else -> SableStartDestination.Start
     }
 
-/** Quick bar and Appearance return to where they were opened from (Home settings or Start); the rest to Start. */
 private fun backDestination(
     current: SableStartDestination,
     returnTo: SableStartDestination,
 ): SableStartDestination =
     when (current) {
-        SableStartDestination.QuickBar, SableStartDestination.Appearance -> returnTo
+        SableStartDestination.Search, SableStartDestination.Peek -> returnTo
         else -> SableStartDestination.Start
     }
 
@@ -749,20 +714,17 @@ private fun backDestination(
 private fun List<String>.toggled(key: String): List<String> = if (key in this) filterNot { it == key } else this + key
 
 /**
- * The Start pages (Q25): Home, then All Apps, Search and Live to its right.
- * Swipe right to left, or Alt+Right (Fn on Fn keyboards), moves one page
- * right; Alt+Left moves back toward Home. Only the current page is composed
- * into focus traversal; a page that arrives with nothing focused moves focus
- * to its first control so the page keys and arrows work at once.
+ * The three-page Start (SABLE_START_THREE_PAGE_MODEL.md): swipe, or
+ * Alt+Left / Alt+Right (Fn on Fn keyboards), moves between Glance, Start and
+ * Hub. Only the current page is composed into focus traversal.
  */
 @Composable
 private fun StartPager(
     state: PagerState,
     onMovePage: (Int) -> Unit,
-    apps: @Composable () -> Unit,
-    search: @Composable () -> Unit,
-    live: @Composable () -> Unit,
-    home: @Composable () -> Unit,
+    glance: @Composable () -> Unit,
+    hub: @Composable () -> Unit,
+    start: @Composable () -> Unit,
 ) {
     HorizontalPager(
         state = state,
@@ -781,37 +743,78 @@ private fun StartPager(
                     true
                 },
     ) { page ->
-        val pageFocus = remember { FocusRequester() }
-        var pageHasFocus by remember { mutableStateOf(false) }
-        LaunchedEffect(state.settledPage == page) {
-            if (state.settledPage == page && page != StartPages.HOME) {
-                // Let the page focus its own field or row first (Search field, All Apps row).
-                withFrameNanos { }
-                withFrameNanos { }
-                if (!pageHasFocus) runCatching { pageFocus.requestFocus() }
+        when (page) {
+            START_PAGE_GLANCE -> glance()
+            START_PAGE_HUB -> hub()
+            else -> start()
+        }
+    }
+}
+
+/**
+ * Right page: close communications. Counts and next event from the same
+ * local snapshots the tiles read; Enter on a row opens the owning app.
+ */
+@Composable
+private fun HubPage(
+    snapshot: LiveSurfaceSnapshot,
+    apps: List<AppEntry>,
+    onLaunchApp: (AppEntry) -> Unit,
+) {
+    val hubApp = findLiveApp(apps, HUB_PACKAGE)
+    val rows =
+        listOf(
+            Triple("Messages", snapshot.messages, hubApp),
+            Triple("Mail", snapshot.mail, findLiveApp(apps, MAIL_PACKAGE)),
+            Triple("Calendar", snapshot.calendar, findLiveApp(apps, CALENDAR_PACKAGE)),
+        )
+    LazyColumn(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(horizontal = 20.dp, vertical = 18.dp),
+        contentPadding = PaddingValues(bottom = 28.dp),
+    ) {
+        item {
+            Text(text = "hub", style = MaterialTheme.typography.displayLarge)
+            Text(
+                text = "Priority messages, mail and what's next. Alt+Left returns to Start.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(14.dp))
+        }
+        items(rows) { (title, datum, app) ->
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 58.dp)
+                        .sableFocusRing()
+                        .clickable(enabled = app != null) { app?.let(onLaunchApp) }
+                        .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        text =
+                            when (datum.availability) {
+                                LiveAvailability.LIVE, LiveAvailability.EMPTY -> datum.detail
+                                else -> if (app == null) "not installed" else "open ${app.label}"
+                            },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .then(
-                        if (page == StartPages.HOME) {
-                            // Home's own column takes focus (type-to-search, Alt+1..5).
-                            Modifier
-                        } else {
-                            // Not focusable itself: requestFocus lands on the page's first control.
-                            Modifier
-                                .onFocusChanged { pageHasFocus = it.hasFocus }
-                                .focusRequester(pageFocus)
-                        },
-                    ),
-        ) {
-            when (page) {
-                StartPages.APPS -> apps()
-                StartPages.SEARCH -> search()
-                StartPages.LIVE -> live()
-                else -> home()
+        if (hubApp != null) {
+            item {
+                Spacer(Modifier.height(12.dp))
+                MetroLink(text = "open Sable Hub", onClick = { onLaunchApp(hubApp) })
             }
         }
     }
@@ -922,13 +925,51 @@ private fun QuickSlotMark(
     slot: QuickSlot,
     size: Int,
 ) {
-    AppMark(app = slot.app, size = size)
+    val app = slot.app
+    if (app != null) {
+        AppMark(app = app, size = size)
+        return
+    }
+    val color = MaterialTheme.colorScheme.primary
+    ComposeCanvas(Modifier.size(size.dp)) {
+        val unit = this.size.minDimension
+        val stroke = unit * 0.1f
+        if (slot.token == QuickBar.COMMAND) {
+            // Magnifier: Search or command.
+            drawCircle(
+                color = color,
+                radius = unit * 0.28f,
+                center = Offset(unit * 0.42f, unit * 0.42f),
+                style = Stroke(stroke),
+            )
+            drawLine(
+                color = color,
+                start = Offset(unit * 0.62f, unit * 0.62f),
+                end = Offset(unit * 0.88f, unit * 0.88f),
+                strokeWidth = stroke,
+                cap = StrokeCap.Round,
+            )
+        } else {
+            // Four squares: All Apps.
+            val cell = unit * 0.36f
+            val gap = unit * 0.14f
+            for (row in 0..1) {
+                for (col in 0..1) {
+                    drawRoundRect(
+                        color = color,
+                        topLeft = Offset(unit * 0.07f + col * (cell + gap), unit * 0.07f + row * (cell + gap)),
+                        size = Size(cell, cell),
+                        cornerRadius = CornerRadius(unit * 0.06f),
+                    )
+                }
+            }
+        }
+    }
 }
 
 /**
  * Quick bar editor (BASE_BAR_REORDER, BASE_BAR_REPLACE_SLOTS,
- * BASE_BAR_RESET_TO_DEFAULT). Every slot can change or go; All Apps and
- * Search are pages to the right of Home, not slots.
+ * BASE_BAR_RESET_TO_DEFAULT). Command and All Apps can move but never leave.
  */
 @Composable
 private fun QuickBarScreen(
@@ -956,12 +997,8 @@ private fun QuickBarScreen(
                 Spacer(Modifier.height(8.dp))
                 Text(
                     text =
-                        if (tokens.isEmpty()) {
-                            "No slots: Home shows no quick bar. Add one below."
-                        } else {
-                            "${QuickBar.shortcutLabel(0)} to ${QuickBar.shortcutLabel(tokens.lastIndex)} open these from Home. " +
-                                "All Apps, Search and Live are the pages to the right of Home."
-                        },
+                        "${QuickBar.shortcutLabel(0)} to ${QuickBar.shortcutLabel(tokens.lastIndex)} open these from Home. " +
+                            "Search and All Apps always stay on the bar.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -997,8 +1034,10 @@ private fun QuickBarScreen(
                         onClick = { onChange(QuickBar.move(tokens, index, 1)) },
                         enabled = index < tokens.lastIndex,
                     ) { Text("▸") }
-                    TextButton(onClick = { picking = index }) { Text("change") }
-                    TextButton(onClick = { onChange(QuickBar.remove(tokens, index)) }) { Text("remove") }
+                    if (!QuickBar.isRequired(token)) {
+                        TextButton(onClick = { picking = index }) { Text("change") }
+                        TextButton(onClick = { onChange(QuickBar.remove(tokens, index)) }) { Text("remove") }
+                    }
                 }
             }
             item {
@@ -1006,7 +1045,7 @@ private fun QuickBarScreen(
                 if (tokens.size < QuickBar.MAX_SLOTS) {
                     MetroLink(text = "add a slot", onClick = { picking = -1 })
                 }
-                MetroLink(text = "reset to Phone · Hub", onClick = onReset)
+                MetroLink(text = "reset to Phone · Hub · Search · All Apps", onClick = onReset)
             }
         } else {
             val choices = quickBarChoices(apps, appByKey, tokens)
@@ -1048,164 +1087,6 @@ private fun QuickBarScreen(
     }
 }
 
-/**
- * Home settings: what Home shows. Each section can be hidden; the cards are
- * any personal apps the user ticks (the same set Peek's Start tile action
- * changes); the quick bar has its own editor. Menu on Home, a long press on
- * an empty part of Home, the settings mark at the top of Home and the
- * "Home settings" Search action open it.
- */
-@Composable
-private fun HomeSettingsScreen(
-    apps: List<AppEntry>,
-    hiddenSections: Set<String>,
-    startApps: List<AppEntry>,
-    cardsCustomised: Boolean,
-    onBack: () -> Unit,
-    onToggleSection: (String) -> Unit,
-    onShowAllSections: () -> Unit,
-    onToggleCard: (AppEntry) -> Unit,
-    onResetCards: () -> Unit,
-    onEditQuickBar: () -> Unit,
-    onAppearance: () -> Unit,
-) {
-    val cardKeys = startApps.map { it.stableKey() }.toSet()
-    val choices =
-        remember(apps) {
-            apps
-                .filter { it.inLauncherUser }
-                .sortedBy { it.label.lowercase(Locale.getDefault()) }
-        }
-    val accent = MaterialTheme.colorScheme.primary
-
-    LazyColumn(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .padding(horizontal = 20.dp, vertical = 18.dp),
-        contentPadding = PaddingValues(bottom = 28.dp),
-    ) {
-        item {
-            MetroHeader(title = "home", onBack = onBack)
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = "Choose what Home shows. All Apps, Search and Live are the pages to the right of Home: " +
-                    "swipe across, or press Alt+Right.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(12.dp))
-            SectionLabel("show on home")
-            Spacer(Modifier.height(4.dp))
-        }
-        items(HomeLayout.SECTIONS) { section ->
-            HomeToggleRow(
-                title = HomeLayout.label(section),
-                subtitle = HomeLayout.description(section),
-                selected = HomeLayout.isShown(hiddenSections, section),
-                accent = accent,
-                onClick = { onToggleSection(section) },
-            )
-        }
-        item {
-            Spacer(Modifier.height(8.dp))
-            MetroLink(text = "edit quick bar", onClick = onEditQuickBar)
-            MetroLink(text = "appearance", onClick = onAppearance)
-            if (hiddenSections.isNotEmpty()) {
-                MetroLink(text = "show every section", onClick = onShowAllSections)
-            }
-            Spacer(Modifier.height(14.dp))
-            SectionLabel("cards")
-            Text(
-                text =
-                    if (HomeLayout.isShown(hiddenSections, HomeLayout.CARDS)) {
-                        "Ticked apps show as cards on Home."
-                    } else {
-                        "Cards are hidden; ticked apps show once Cards is on again."
-                    },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (cardsCustomised) {
-                MetroLink(text = "reset cards to the default set", onClick = onResetCards)
-            }
-            Spacer(Modifier.height(4.dp))
-        }
-        if (choices.isEmpty()) {
-            item { EmptyState("No launchable apps are available.") }
-        }
-        items(choices, key = { it.stableKey() }) { app ->
-            HomeToggleRow(
-                title = app.label,
-                subtitle = null,
-                selected = app.stableKey() in cardKeys,
-                accent = accent,
-                onClick = { onToggleCard(app) },
-                app = app,
-            )
-        }
-    }
-}
-
-@Composable
-private fun HomeToggleRow(
-    title: String,
-    subtitle: String?,
-    selected: Boolean,
-    accent: Color,
-    onClick: () -> Unit,
-    app: AppEntry? = null,
-) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .heightIn(min = 54.dp)
-                .sableFocusRing()
-                .clickable(onClick = onClick)
-                .semantics {
-                    contentDescription = "$title, " + if (selected) "shown" else "hidden"
-                }.padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .width(4.dp)
-                    .height(34.dp)
-                    .background(if (selected) accent else MaterialTheme.colorScheme.surfaceVariant),
-        )
-        Spacer(Modifier.width(12.dp))
-        if (app != null) {
-            AppMark(app = app, size = 32)
-            Spacer(Modifier.width(12.dp))
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (!subtitle.isNullOrEmpty()) {
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-        Text(
-            text = if (selected) "✓" else "",
-            fontSize = 20.sp,
-            color = accent,
-            modifier = Modifier.width(28.dp),
-        )
-    }
-}
-
 /** Role slots first (Phone, Hub, Camera), then every other personal app A to Z. */
 private fun quickBarChoices(
     apps: List<AppEntry>,
@@ -1218,7 +1099,7 @@ private fun quickBarChoices(
             .mapNotNull { resolveQuickSlot(it, apps, appByKey) }
     val taken =
         current.mapNotNull { resolveQuickSlot(it, apps, appByKey)?.app?.stableKey() }.toSet() +
-            roles.map { it.app.stableKey() }
+            roles.mapNotNull { it.app?.stableKey() }
     val others =
         apps
             .filter { it.inLauncherUser && it.stableKey() !in taken }
@@ -1243,6 +1124,8 @@ private fun resolveQuickSlot(
         } ?: personal.firstOrNull { app -> labels.any { app.label.equals(it, ignoreCase = true) } }
     }
     return when (token) {
+        QuickBar.COMMAND -> QuickSlot(token, "Search", null)
+        QuickBar.ALL_APPS -> QuickSlot(token, "Apps", null)
         QuickBar.PHONE ->
             role(listOf(DIALER_PACKAGE), listOf("Phone"))?.let { QuickSlot(token, "Phone", it) }
         QuickBar.HUB ->
@@ -1288,6 +1171,47 @@ private fun SableControlShortcut(
             accent = SableSlate,
             modifier = Modifier.size(46.dp),
             compact = true,
+        )
+    }
+}
+
+@Composable
+private fun ApprovedStartNavigationRow(
+    onAllApps: () -> Unit,
+    onSearch: () -> Unit,
+    onLive: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "all apps",
+            modifier = Modifier.sableFocusRing().clickable(onClick = onAllApps).padding(vertical = 8.dp),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text = "   ·   ",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = "search",
+            modifier = Modifier.sableFocusRing().clickable(onClick = onSearch).padding(vertical = 8.dp),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text = "   ·   ",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = "live",
+            modifier = Modifier.sableFocusRing().clickable(onClick = onLive).padding(vertical = 8.dp),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary,
         )
     }
 }
@@ -1646,8 +1570,6 @@ private fun SearchLaunchButton(
 private fun AppsScreen(
     apps: List<AppEntry>,
     focusMemory: SableFocusMemory,
-    /** True while All Apps is the settled Start page: a row then takes focus. */
-    active: Boolean,
     onBack: () -> Unit,
     onSearch: () -> Unit,
     onLaunchApp: (AppEntry) -> Unit,
@@ -1684,13 +1606,12 @@ private fun AppsScreen(
     }
 
     // FOCUS_RESTORATION: back from Peek / App info / Search lands on the same app
-    // (or the app now at its old position if it was removed), else on the first
-    // app so letters jump at once. Runs once per visit, when the page has
-    // settled, so inventory refreshes and passing swipes never move focus.
-    LaunchedEffect(keys.isNotEmpty(), active) {
-        if (active && !restoreDone && keys.isNotEmpty()) {
+    // (or the app now at its old position if it was removed). Runs once per visit
+    // so inventory refreshes never move focus under the user.
+    LaunchedEffect(keys.isNotEmpty()) {
+        if (!restoreDone && keys.isNotEmpty()) {
             restoreDone = true
-            focusIndex(focusMemory.restore(FOCUS_SURFACE_ALL_APPS, keys) ?: 0)
+            focusMemory.restore(FOCUS_SURFACE_ALL_APPS, keys)?.let(::focusIndex)
         }
     }
 
@@ -1906,8 +1827,6 @@ private fun SearchScreen(
     apps: List<AppEntry>,
     recentKeys: List<String>,
     initialQuery: String,
-    /** True while Search is the settled Start page: its field then takes focus. */
-    active: Boolean,
     onBack: () -> Unit,
     onLaunchApp: (AppEntry) -> Unit,
     onOpenPeek: (AppEntry) -> Unit,
@@ -1915,7 +1834,6 @@ private fun SearchScreen(
     onAppearance: () -> Unit,
     onLive: () -> Unit,
     onEditQuickBar: () -> Unit,
-    onHomeSettings: () -> Unit,
     onOpenSettings: () -> Unit,
     onStartIntent: (Intent) -> Unit,
 ) {
@@ -1960,13 +1878,6 @@ private fun SearchScreen(
                 mark = "A",
                 source = "Start",
                 onClick = onAllApps,
-            ),
-            SearchCommand(
-                title = "Home settings",
-                subtitle = "Choose what Home shows: cards, greeting, quick bar",
-                mark = "⌂",
-                source = "Start",
-                onClick = onHomeSettings,
             ),
             SearchCommand(
                 title = "Edit quick bar",
@@ -2028,7 +1939,6 @@ private fun SearchScreen(
 
         SableSearchField(
             value = query,
-            active = active,
             onValueChange = { query = it },
             // Enter opens the top result: first app, else the first other result.
             onSubmit = {
@@ -2165,18 +2075,14 @@ private fun hubResults(
 @Composable
 private fun SableSearchField(
     value: TextFieldValue,
-    active: Boolean,
     onValueChange: (TextFieldValue) -> Unit,
     onSubmit: () -> Unit,
 ) {
-    // The field takes focus when its page arrives so the keyboard types straight
-    // into it, but not while a swipe only passes over the Search page.
+    // The field takes focus on arrival so the keyboard types straight into it.
     val fieldFocus = remember { FocusRequester() }
-    LaunchedEffect(active) {
-        if (active) {
-            withFrameNanos { }
-            runCatching { fieldFocus.requestFocus() }
-        }
+    LaunchedEffect(Unit) {
+        withFrameNanos { }
+        runCatching { fieldFocus.requestFocus() }
     }
     Row(
         modifier =
@@ -3037,8 +2943,6 @@ private fun LiveSurfaceScreen(
     apps: List<AppEntry>,
     onRequestPermissions: () -> Unit,
     title: String = "live",
-    /** Enter or a tap on a row opens the app that owns it. */
-    onLaunchApp: (AppEntry) -> Unit = {},
 ) {
     LazyColumn(
         modifier =
@@ -3074,42 +2978,36 @@ private fun LiveSurfaceScreen(
                 title = WEATHER_LABEL,
                 datum = snapshot.weather,
                 kind = "weather",
-                onOpen = onLaunchApp,
             )
             ApprovedLiveRow(
                 app = findLiveApp(apps, CALENDAR_PACKAGE),
                 title = "Calendar",
                 datum = snapshot.calendar,
                 kind = "calendar",
-                onOpen = onLaunchApp,
             )
             ApprovedLiveRow(
                 app = findLiveApp(apps, HUB_PACKAGE),
                 title = HUB_LABEL,
                 datum = snapshot.messages,
                 kind = "messages",
-                onOpen = onLaunchApp,
             )
             ApprovedLiveRow(
                 app = findLiveApp(apps, MAIL_PACKAGE),
                 title = MAIL_LABEL,
                 datum = snapshot.mail,
                 kind = "mail",
-                onOpen = onLaunchApp,
             )
             ApprovedLiveRow(
                 app = findLiveApp(apps, MEDIA_PACKAGE),
                 title = MEDIA_LABEL,
                 datum = snapshot.music,
                 kind = "media",
-                onOpen = onLaunchApp,
             )
             ApprovedLiveRow(
                 app = findLiveApp(apps, GALLERY_PACKAGE),
                 title = "Photos",
                 datum = snapshot.photos,
                 kind = "photos",
-                onOpen = onLaunchApp,
             )
         }
 
@@ -3288,7 +3186,6 @@ private fun ApprovedLiveRow(
     title: String,
     datum: LiveDatum,
     kind: String,
-    onOpen: (AppEntry) -> Unit,
 ) {
     val content = approvedLiveContent(kind, datum)
     Row(
@@ -3296,13 +3193,7 @@ private fun ApprovedLiveRow(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = 78.dp)
-                .then(
-                    if (app != null) {
-                        Modifier.sableFocusRing().clickable { onOpen(app) }
-                    } else {
-                        Modifier
-                    },
-                ).padding(vertical = 8.dp),
+                .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (app != null) {
@@ -3684,6 +3575,10 @@ private const val MAIL_LABEL = "Sable Mail"
 private const val MESSAGES_LABEL = "Sable Messages"
 private const val MEDIA_LABEL = "Sable Media"
 private const val CALCULATOR_LABEL = "Sable Calculator"
+private const val START_PAGE_COUNT = 3
+private const val START_PAGE_GLANCE = 0
+private const val START_PAGE_CENTER = 1
+private const val START_PAGE_HUB = 2
 
 // Matches LauncherAppsRepository.PROFILE_PRIVATE.
 private const val PROFILE_PRIVATE_LABEL = "private"

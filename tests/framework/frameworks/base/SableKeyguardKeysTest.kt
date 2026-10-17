@@ -27,6 +27,31 @@ class SableKeyguardKeysTest {
     }
 
     @Test
+    fun q25LettersTypePinDigits() {
+        // Q25 key map: W E R S D F Z X C are 1-9 (number: and alt:), 0 is KEYCODE_0.
+        val shift = 0x01 or 0x40
+        "wersdfzxc".forEachIndexed { i, c ->
+            val digit = '1' + i
+            // W -> 1: plain press, the key map's phone-pad number.
+            assertEquals(i + 1, SableKeyguardKeys.digitFor(c.code, digit.code, 0))
+            // Alt+W -> 1: the Alt character is the digit.
+            assertEquals(i + 1, SableKeyguardKeys.digitFor(digit.code, digit.code, alt))
+            // Shift+W -> 'W', not a digit.
+            assertEquals(-1, SableKeyguardKeys.digitFor(c.uppercaseChar().code, digit.code, shift))
+        }
+        // KEYCODE_0 types '0'.
+        assertEquals(0, SableKeyguardKeys.digitFor('0'.code, '0'.code, 0))
+    }
+
+    @Test
+    fun hardwareKeyboardIsConfigurationQwerty() {
+        assertTrue(SableKeyguardKeys.hasHardwareKeyboard(2))
+        assertFalse(SableKeyguardKeys.hasHardwareKeyboard(1))
+        assertFalse(SableKeyguardKeys.hasHardwareKeyboard(0))
+        assertFalse(SableKeyguardKeys.hasHardwareKeyboard(3))
+    }
+
+    @Test
     fun shortcutsNeverTypeDigitsOrText() {
         listOf(0x1000, 0x10000, 0x08).forEach { mod ->
             assertEquals(-1, SableKeyguardKeys.digitFor('1'.code, '1'.code, mod))

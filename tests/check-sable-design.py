@@ -13,9 +13,11 @@ No Android tree, no network. Checks that:
     cards = the token radii). The style values agree between sabledesign,
     the reader's copy, App display compatibility and Settings patch 0103,
     and only Settings and App display compatibility may write it;
-  * branding only changes Sable-owned strings: the SetupWizard overlay
-    replaces the welcome title and logo, never os_name or LineageOS legal
-    and attribution text;
+  * branding follows the SableOS Panther rule: no visible LineageOS in the
+    owner Setup flow (welcome, restore and recovery strings overlaid, the
+    LineageOS features step removed by SetupWizard patch 0408, Sable setup
+    strings free of LineageOS), while no overlay replaces os_name or
+    LineageOS legal, licence and attribution text;
   * the display density is one valid value in product/q25/sable-q25.mk.
 
 Prints PASS/FAIL lines and exits non-zero on any failure.
@@ -33,6 +35,8 @@ TOKENS = ROOT / "sable-src/src/android/shared/sabledesign/src/main/java/org/sabl
 THEME = ROOT / "sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTheme.kt"
 OVERLAY = ROOT / "product/common/overlay"
 SETTINGS_PATCHES = ROOT / "patches/framework/packages/apps/Settings"
+SETUPWIZARD_PATCHES = ROOT / "patches/framework/packages/apps/SetupWizard"
+LAUNCHER3_PATCHES = ROOT / "patches/framework/packages/apps/Launcher3"
 SYSTEMUI_PATCHES = ROOT / "patches/framework/frameworks/base"
 PRODUCT_MK = ROOT / "product/q25/sable-q25.mk"
 DESIGN_DIR = ROOT / "sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design"
@@ -383,18 +387,71 @@ report(
 
 # --- branding ----------------------------------------------------------------
 
+# Rule (SableOS Panther): no visible LineageOS in the owner Setup flow; package
+# ids, os_name, legal/licence text and upstream URLs stay.
+SETUP_STRINGS = {
+    "setup_welcome_message",
+    "intro_restore_subtitle",
+    "update_recovery_title",
+    "update_recovery_description",
+    "update_recovery_setting",
+}
 sw = OVERLAY / "SableSetupWizardOverlay/res"
-names, leaks = set(), []
+names, leaks, by_locale = set(), [], {}
 for strings in sorted(sw.glob("values*/strings.xml")):
+    loc = by_locale.setdefault(strings.parent.name, {})
     for el in ET.parse(strings).getroot():
-        names.add(el.get("name"))
+        name = el.get("name")
+        names.add(name)
         value = "".join(el.itertext())
-        if "SableOS" not in value or re.search(r"lineage|%\d|\$s", value, re.I):
-            leaks.append(f"{strings.parent.name}: {value}")
-report(names == {"setup_welcome_message"}, "SetupWizard overlay changes only the welcome title", str(names))
-report(not leaks, "every welcome title names SableOS with no placeholder left", "; ".join(leaks[:5]))
+        loc[name] = value
+        if re.search(r"lineage|%\d|%s|\$s", value, re.I) or (
+            name == "setup_welcome_message" and "SableOS" not in value
+        ):
+            leaks.append(f"{strings.parent.name}/{name}: {value}")
+report(names <= SETUP_STRINGS, "SetupWizard overlay changes only the welcome, restore and recovery strings", str(names - SETUP_STRINGS))
+report(not leaks, "overlaid Setup strings name no LineageOS and leave no placeholder; welcome names SableOS", "; ".join(leaks[:5]))
+default = by_locale.get("values", {})
+english_drift = [
+    f"{q}/{n}"
+    for q, loc in by_locale.items()
+    if q.startswith("values-en-")
+    for n in SETUP_STRINGS - {"setup_welcome_message"}
+    if loc.get(n) != default.get(n)
+]
 report(
-    (sw / "values/strings.xml").is_file() and len(list(sw.glob("values*/strings.xml"))) > 40,
+    set(default) == SETUP_STRINGS
+    and default["intro_restore_subtitle"].startswith("If you have a compatible Seedvault backup from a previous device")
+    and not english_drift,
+    "default and en-r* Setup strings carry the Panther restore text and neutral recovery wording",
+    ", ".join(english_drift[:5]) or str(sorted(default)),
+)
+suw = {f.name[:4]: f.read_text(encoding="utf-8") for f in SETUPWIZARD_PATCHES.glob("04*.patch")}
+p0408 = suw.get("0408", "")
+report(
+    '-        id="lineage_settings">' in p0408
+    and '-        <result wizard:action="lineage_settings" />' in p0408
+    and '<result wizard:action="biometric_settings" />' in p0408
+    and "lineage_settings" not in "".join(l for l in p0408.splitlines(True) if l.startswith("+")),
+    "SetupWizard 0408 removes the LineageOS features step from the owner script (recovery_update -> biometric_settings)",
+)
+added = [
+    (n, l)
+    for n, text in sorted(suw.items())
+    for l in text.splitlines()
+    if l.startswith("+") and "<string " in l
+]
+lineage_text = [f"{n}: {l[:80]}" for n, l in added if re.search(r">[^<]*lineage", l, re.I)]
+report(added and not lineage_text, "Sable SetupWizard strings name no LineageOS", "; ".join(lineage_text[:3]))
+lock = [l for n, l in added if 'name="sable_privacy_lock_screen"' in l]
+report(
+    len(lock) == 1 and "hidden until you unlock" in lock[0] and "shows notification content" not in lock[0],
+    "Privacy step says lock-screen notification content is hidden until unlock (SableSettingsProviderOverlay)",
+    lock[0] if lock else "missing",
+)
+report(
+    (sw / "values/strings.xml").is_file()
+    and sum("setup_welcome_message" in loc for loc in by_locale.values()) > 40,
     "welcome title overlaid in the default and translated locales",
 )
 logo = ET.parse(sw / "drawable/logo.xml").getroot()
@@ -412,6 +469,13 @@ for f in OVERLAY.rglob("*.xml"):
         if re.search(r"legal|license|lineage|os_name|notice", n, re.I):
             owned.append(f"{f.relative_to(OVERLAY)}:{n}")
 report(not owned, "no overlay replaces LineageOS legal, licence or attribution resources", "; ".join(owned))
+l3 = "".join(f.read_text(encoding="utf-8") for f in sorted(LAUNCHER3_PATCHES.glob("0002-*.patch")))
+report(
+    '+            android:exported="false"' in l3
+    and "-        <provider android:name=\"com.android.quickstep.LauncherSearchIndexablesProvider\"" in l3
+    and '+    <string name="derived_app_name" translatable="false">Recents</string>' in l3,
+    "Launcher3 0002 hides the home settings (not exported, not in Settings search) and labels the Recents app",
+)
 about = next(SETTINGS_PATCHES.glob("0102-*.patch")).read_text(encoding="utf-8")
 report(
     "sable_os_version" in about

@@ -3,4 +3,5 @@
      (lineage-23.2) translations. Do not edit by hand. -->
 <resources>
     <string name="setup_welcome_message">Bienvenida/o a SableOS</string>
+    <string name="intro_restore_subtitle">Si tienes una copia de seguridad Seedvault de SableOS o de cualquier otro sistema operativo, puedes restaurarla aquí.</string>
 </resources>

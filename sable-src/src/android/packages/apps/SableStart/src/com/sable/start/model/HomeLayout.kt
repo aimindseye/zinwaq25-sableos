@@ -1,36 +1,40 @@
 package org.sableos.start.model
 
 /**
- * What the Home page shows (Q25 owner request: "Sable Home page need to be
- * configurable"). Pure policy, unit tested in
+ * What the center Home page and the Glance page show
+ * (SABLE_START_THREE_PAGE_MODEL.md, SABLE_START_VISUAL_CONFIRMATION.md and
+ * the Titan 2 three-page visual). Pure policy, unit tested in
  * apps/r8/android/sablestart-presentation-check/src/test.
  *
- * Home is built from the sections below, top to bottom. The user hides or
- * shows each one in Home settings; the hidden set is stored, so a section
- * added later is shown until the user hides it. Which cards appear is the
- * Start tile set (StartStateRepository start tiles), which apps sit in the
- * favorites row is the favorites set, and the quick bar slots are [QuickBar].
+ * Home, top to bottom: the Weather widget (HOME_TOP_MODULE, on by default),
+ * optional status rings, the user's Home apps (a list by default, tiles as the
+ * optional touch mode) and the base quick bar ([QuickBar], always shown).
  */
 object HomeLayout {
-    const val CLOCK = "clock"
+    const val WEATHER = "weather"
     const val STATUS_RINGS = "rings"
-    const val GREETING = "greeting"
-    const val CARDS = "cards"
-    const val FAVORITES = "favorites"
-    const val QUICK_BAR = "quickbar"
 
-    /** Home's sections in screen order. */
-    val SECTIONS: List<String> = listOf(CLOCK, STATUS_RINGS, GREETING, CARDS, FAVORITES, QUICK_BAR)
+    /** Home modules the user can show or hide, in screen order. */
+    val SECTIONS: List<String> = listOf(WEATHER, STATUS_RINGS)
 
-    /** Drops unknown names; null (never customised) shows every section. */
-    fun normalizeHidden(stored: Set<String>?): Set<String> = stored.orEmpty().filter { it in SECTIONS }.toSet()
+    /** Never customised: Weather shown, status rings hidden. */
+    val DEFAULT_HIDDEN: Set<String> = setOf(STATUS_RINGS)
+
+    /** Keyboard-first list mode (default) or the optional touch tile mode. */
+    const val MODE_LIST = "list"
+    const val MODE_TILES = "tiles"
+
+    fun normalizeMode(stored: String?): String = if (stored == MODE_TILES) MODE_TILES else MODE_LIST
+
+    /** Drops unknown names; null (never customised) gives [DEFAULT_HIDDEN]. */
+    fun normalizeHidden(stored: Set<String>?): Set<String> = stored?.filter { it in SECTIONS }?.toSet() ?: DEFAULT_HIDDEN
 
     fun isShown(
         hidden: Set<String>,
         section: String,
     ): Boolean = section !in hidden
 
-    /** Shows a hidden section or hides a shown one; unknown names change nothing. */
+    /** Shows a hidden module or hides a shown one; unknown names change nothing. */
     fun toggle(
         hidden: Set<String>,
         section: String,
@@ -43,37 +47,101 @@ object HomeLayout {
 
     fun label(section: String): String =
         when (section) {
-            CLOCK -> "Clock and date"
+            WEATHER -> "Weather widget"
             STATUS_RINGS -> "Status rings"
-            GREETING -> "Greeting"
-            CARDS -> "Cards"
-            FAVORITES -> "Favorites"
-            QUICK_BAR -> "Quick bar"
             else -> section
         }
 
     fun description(section: String): String =
         when (section) {
-            CLOCK -> "Time and date at the top"
+            WEATHER -> "Weather at the top of Home"
             STATUS_RINGS -> "Network, CPU, memory, battery and signal rings"
-            GREETING -> "Good morning, good evening"
-            CARDS -> "Calendar, Hub, Weather, Now Playing and other app cards"
-            FAVORITES -> "Up to four favorite apps under the cards"
-            QUICK_BAR -> "Phone, Hub and other slots along the bottom"
             else -> ""
         }
+}
 
+/**
+ * The user's ordered Home apps ("user-selected Home apps", HOME_APPS_REORDER).
+ * Keys are AppEntry stable keys.
+ */
+object HomeApps {
     /**
-     * Adds or removes one card. [explicit] is the saved card set, or null when
-     * the user never chose and Home shows [defaults]; the first change starts
-     * from what Home showed.
+     * The saved order; else the start tiles chosen before Home became a list
+     * (put in [defaults] order, the rest after); else [defaults].
      */
-    fun toggleCard(
-        explicit: List<String>?,
+    fun resolve(
+        saved: List<String>?,
+        legacyTiles: Set<String>?,
         defaults: List<String>,
-        key: String,
     ): List<String> {
-        val current = explicit ?: defaults
-        return if (key in current) current.filterNot { it == key } else current + key
+        if (saved != null) return saved.filter { it.isNotEmpty() }.distinct()
+        if (legacyTiles != null) {
+            return defaults.filter { it in legacyTiles } + legacyTiles.filterNot { it in defaults }.sorted()
+        }
+        return defaults.distinct()
     }
+
+    /** Adds [key] at the end, or removes it when present (Peek's pin / remove). */
+    fun toggle(
+        keys: List<String>,
+        key: String,
+    ): List<String> = if (key in keys) keys.filterNot { it == key } else keys + key
+
+    /** Swaps the item at [index] with its neighbour [delta] away; out of range changes nothing. */
+    fun move(
+        keys: List<String>,
+        index: Int,
+        delta: Int,
+    ): List<String> {
+        val target = index + delta
+        if (index !in keys.indices || target !in keys.indices) return keys
+        return keys.toMutableList().also { list ->
+            list[index] = list[target].also { list[target] = list[index] }
+        }
+    }
+}
+
+/**
+ * Curated Glance widgets on the left page (CURATED_SABLE_WIDGETS,
+ * REORDER_WIDGETS, HIDE_WIDGETS, FREEFORM_PLACEMENT=NO). The list is the
+ * shown widgets in order; the rest can be added back in Edit Home.
+ */
+object GlanceWidgets {
+    const val WEATHER = "weather"
+    const val CALENDAR = "calendar"
+    const val BATTERY = "battery"
+    const val MEDIA = "media"
+    const val HUB = "hub"
+    const val MAIL = "mail"
+    const val PHOTOS = "photos"
+
+    val ALL: List<String> = listOf(WEATHER, CALENDAR, BATTERY, MEDIA, HUB, MAIL, PHOTOS)
+
+    /** "Curated widgets: Weather, Calendar, Battery, Media." */
+    val DEFAULT: List<String> = listOf(WEATHER, CALENDAR, BATTERY, MEDIA)
+
+    /** Drops unknown and duplicate names; null (never customised) gives [DEFAULT]. */
+    fun normalize(saved: List<String>?): List<String> = saved?.filter { it in ALL }?.distinct() ?: DEFAULT
+
+    fun toggle(
+        shown: List<String>,
+        widget: String,
+    ): List<String> =
+        when {
+            widget !in ALL -> shown
+            widget in shown -> shown - widget
+            else -> shown + widget
+        }
+
+    fun label(widget: String): String =
+        when (widget) {
+            WEATHER -> "Weather"
+            CALENDAR -> "Calendar"
+            BATTERY -> "Battery"
+            MEDIA -> "Media"
+            HUB -> "Hub"
+            MAIL -> "Mail"
+            PHOTOS -> "Photos"
+            else -> widget
+        }
 }

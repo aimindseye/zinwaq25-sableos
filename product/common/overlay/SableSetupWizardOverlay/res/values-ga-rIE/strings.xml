@@ -3,4 +3,5 @@
      (lineage-23.2) translations. Do not edit by hand. -->
 <resources>
     <string name="setup_welcome_message">Fáilte go SableOS</string>
+    <string name="intro_restore_subtitle">Má tá cúltaca Seedvault agat ó SableOS nó ó aon OS eile, is féidir leat é a aischur anseo.</string>
 </resources>

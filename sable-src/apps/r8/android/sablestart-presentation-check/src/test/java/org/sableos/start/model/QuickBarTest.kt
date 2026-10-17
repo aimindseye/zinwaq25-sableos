@@ -9,57 +9,41 @@ class QuickBarTest {
     private val default = QuickBar.DEFAULT
 
     @Test
-    fun neverCustomisedShowsPhoneAndHub() {
-        assertEquals(listOf("phone", "hub"), QuickBar.normalize(null))
+    fun neverCustomisedShowsPhoneHubCommandAllApps() {
+        assertEquals(listOf("phone", "hub", "command", "apps"), QuickBar.normalize(null))
     }
 
     @Test
-    fun normalizeDropsUnknownDuplicateAndOldSearchAndAppsSlotsAndCapsAtFive() {
-        assertEquals(listOf("phone"), QuickBar.normalize(listOf("phone", "bogus", "phone")))
-        // Bars saved before All Apps and Search became pages lose those slots.
-        assertEquals(listOf("phone", "hub"), QuickBar.normalize(listOf("phone", "hub", "command", "apps")))
-        assertEquals(emptyList<String>(), QuickBar.normalize(listOf("command", "apps")))
-        assertEquals(false, QuickBar.isValid("command"))
-        assertEquals(false, QuickBar.isValid("apps"))
+    fun normalizeKeepsCommandAndAllAppsAndCapsAtFive() {
+        assertEquals(listOf("phone", "command", "apps"), QuickBar.normalize(listOf("phone", "bogus", "phone")))
         val tooMany = listOf("phone", "hub", "camera", "app:1", "app:2", "app:3")
         val normalized = QuickBar.normalize(tooMany)
         assertEquals(QuickBar.MAX_SLOTS, normalized.size)
-        assertEquals(listOf("phone", "hub", "camera", "app:1", "app:2"), normalized)
-    }
-
-    @Test
-    fun anEmptyBarIsKept() {
-        assertEquals(emptyList<String>(), QuickBar.normalize(emptyList()))
-        assertEquals(emptyList<String>(), QuickBar.remove(listOf("phone"), 0))
+        assertEquals(listOf("phone", "hub", "camera", "command", "apps"), normalized)
     }
 
     @Test
     fun reorderMovesSlotsAndStopsAtTheEdges() {
-        assertEquals(listOf("hub", "phone"), QuickBar.move(default, 0, 1))
+        assertEquals(listOf("hub", "phone", "command", "apps"), QuickBar.move(default, 0, 1))
         assertEquals(default, QuickBar.move(default, 0, -1))
-        assertEquals(default, QuickBar.move(default, 1, 1))
+        assertEquals(default, QuickBar.move(default, 3, 1))
     }
 
     @Test
-    fun everySlotCanBeReplacedOrRemoved() {
-        assertEquals(listOf("phone", "app:7"), QuickBar.replace(default, 1, "app:7"))
-        assertEquals(listOf("camera", "hub"), QuickBar.replace(default, 0, "camera"))
-        assertEquals(default, QuickBar.replace(default, 1, "phone"))
-        assertEquals(default, QuickBar.replace(default, 1, "command"))
+    fun hubSlotIsReplaceableButCommandAndAllAppsAreNot() {
+        assertEquals(listOf("phone", "app:7", "command", "apps"), QuickBar.replace(default, 1, "app:7"))
         assertEquals(default, QuickBar.replace(default, 2, "app:7"))
-        assertEquals(listOf("phone"), QuickBar.remove(default, 1))
-        assertEquals(listOf("hub"), QuickBar.remove(default, 0))
+        assertEquals(default, QuickBar.replace(default, 3, "app:7"))
+        assertEquals(default, QuickBar.replace(default, 1, "phone"))
         assertEquals(default, QuickBar.remove(default, 2))
+        assertEquals(listOf("phone", "command", "apps"), QuickBar.remove(default, 1))
     }
 
     @Test
-    fun addAppendsUpToFiveSlots() {
-        val three = QuickBar.add(default, "camera")
-        assertEquals(listOf("phone", "hub", "camera"), three)
-        assertEquals(three, QuickBar.add(three, "apps"))
-        val five = QuickBar.add(QuickBar.add(three, "app:8"), "app:9")
-        assertEquals(QuickBar.MAX_SLOTS, five.size)
-        assertEquals(five, QuickBar.add(five, "app:10"))
+    fun addGoesBeforeCommandUpToFiveSlots() {
+        val five = QuickBar.add(default, "camera")
+        assertEquals(listOf("phone", "hub", "camera", "command", "apps"), five)
+        assertEquals(five, QuickBar.add(five, "app:9"))
     }
 
     @Test
@@ -97,34 +81,6 @@ class QuickBarTest {
     }
 
     @Test
-    fun pagesRightOfHomeAreAllAppsSearchLiveInThatOrder() {
-        assertEquals(0, StartPages.HOME)
-        assertEquals(listOf(StartPages.APPS, StartPages.SEARCH, StartPages.LIVE), listOf(1, 2, 3))
-        assertEquals(4, StartPages.COUNT)
-        // Moving right from Home walks All Apps, Search, Live and stops there.
-        var page = StartPages.HOME
-        val visited = mutableListOf<Int>()
-        repeat(4) {
-            page = StartPages.target(page, 1)
-            visited += page
-        }
-        assertEquals(listOf(StartPages.APPS, StartPages.SEARCH, StartPages.LIVE, StartPages.LIVE), visited)
-        // Home has nothing to its left.
-        assertEquals(StartPages.HOME, StartPages.target(StartPages.HOME, -1))
-        assertEquals(StartPages.SEARCH, StartPages.target(StartPages.LIVE, -1))
-    }
-
-    @Test
-    fun screenNamesOpenTheirPage() {
-        assertEquals(StartPages.HOME, StartPages.forScreen("start"))
-        assertEquals(StartPages.APPS, StartPages.forScreen("apps"))
-        assertEquals(StartPages.SEARCH, StartPages.forScreen("Search"))
-        assertEquals(StartPages.LIVE, StartPages.forScreen("live"))
-        assertEquals(StartPages.LIVE, StartPages.forScreen("glance"))
-        assertNull(StartPages.forScreen("quickbar"))
-    }
-
-    @Test
     fun printableKeysOnStartSeedSearch() {
         assertEquals('m', StartTypeToSearch.seed('m'.code, 0, repeat = false))
         assertEquals('M', StartTypeToSearch.seed('M'.code, 0x1, repeat = false))
@@ -146,14 +102,14 @@ class QuickBarTest {
         assertEquals(null, QuickBar.appState(launcherUser = false, inBar = false, tokens = default))
         assertEquals(true, QuickBar.appState(launcherUser = true, inBar = true, tokens = default))
         assertEquals(false, QuickBar.appState(launcherUser = true, inBar = false, tokens = default))
-        val full = listOf("phone", "hub", "camera", "app:1", "app:2")
+        val full = listOf("phone", "hub", "camera", "command", "apps")
         assertNull(QuickBar.appState(launcherUser = true, inBar = false, tokens = full))
     }
 
     @Test
-    fun toggleAppAddsAtTheEndOrRemovesItsSlot() {
+    fun toggleAppAddsBeforeCommandOrRemovesItsSlot() {
         val added = QuickBar.toggleApp(default, null, "0:com.example/.Main")
-        assertEquals(listOf("phone", "hub", "app:0:com.example/.Main"), added)
+        assertEquals(listOf("phone", "hub", "app:0:com.example/.Main", "command", "apps"), added)
         assertEquals(default, QuickBar.toggleApp(added, "app:0:com.example/.Main", "0:com.example/.Main"))
     }
 }

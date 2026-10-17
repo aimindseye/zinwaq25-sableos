@@ -9,13 +9,14 @@ vendor/lineage/config/common.mk
     inherit-product-if-exists vendor/extra/product.mk     (LineageOS hook)
         ifeq TARGET_PRODUCT lineage_Q25
             inherit vendor/sable/q25/sable-q25.mk
-                props: ro.sable.profile.id=zinwa-q25, updater pointed away
+                props: ro.sable.profile.id=zinwa-q25, updater pointed away (Q2/Q3)
                 -include release.mk          (generated: ro.sable.release, build source)
                 -include sable-q25-apps.mk   (generated from apps.tsv)
                 Android.bp                   (generated android_app_import modules)
                 -include sable-q25-framework.mk  (generated; Q4+: SableLauncher, overlays)
                 src/                         (Q4+: Sable Start + design sources)
                 overlay/                     (Q4+: from product/common/overlay)
+                updater/                     (Q4+: SableNoUpdater, overrides the LineageOS Updater)
 ```
 
 `apps.tsv` is the single list of Sable apps. Change it there; the Android.bp and

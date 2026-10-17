@@ -90,6 +90,29 @@ else
     fail "Lock screen keyboard patch missing, or it reaches credential checks"
 fi
 
+if [[ -n "$lock" ]] && grep -q 'public boolean dispatchKeyEvent(KeyEvent event)' "$lock" &&
+    grep -q 'mOkButton.performClick();' "$lock" &&
+    grep -q 'mView.setSableNumPadFocusable(' "$lock" &&
+    ! grep -q '^+        final int sableDigit = SableKeyguardKeys.digitFor(' "$lock"; then
+    pass "Lock screen: PIN keys work whichever child has focus; Enter presses OK; keypad unfocusable with a keyboard"
+else
+    fail "Lock screen: PIN view does not take physical keys in dispatchKeyEvent"
+fi
+
+look="$(compgen -G "$shade/0305-*.patch" || true)"
+overlay="$ROOT/product/common/overlay/SableSystemUIOverlay/res/values"
+if [[ -n "$look" ]] && grep -q 'name="sable_keyguard_clock_margin_start">28dp' "$look" &&
+    grep -q 'setHorizontalBias(ClockViewIds.LOCKSCREEN_CLOCK_VIEW_LARGE, 0f)' "$look" &&
+    ! grep -E '^\+' "$look" | grep -q -E 'verifyCredential|checkCredential|LockPatternChecker|verifyPasswordAndUnlock|dismissWithAction|keyguardDone|LockscreenCredential' &&
+    grep -q 'name="keyguard_clock_top_margin">28dp' "$overlay/dimens.xml" &&
+    grep -q 'name="keyguard_indication_margin_bottom">36dp' "$overlay/dimens.xml" &&
+    grep -q 'name="keyguard_unlock">Swipe up to unlock' "$overlay/strings.xml" &&
+    grep -q 'name="config_sableKeyguardClockStartAligned"' "$overlay/config.xml"; then
+    pass "Lock screen look: clock and unlock text are resources and the overlay; no credential code"
+else
+    fail "Lock screen look patch 0305 or its overlay values missing, or it reaches credential code"
+fi
+
 settings="$ROOT/patches/framework/packages/apps/Settings"
 if compgen -G "$settings/03*-*.patch" >/dev/null &&
     grep -q 'org.sableos.hub.action.ATTENTION_SETTINGS' "$settings"/03*-*.patch &&

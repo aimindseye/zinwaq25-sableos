@@ -23,9 +23,18 @@ number row (Q25: Alt, Shift, Sym, letters):
   checked or submitted: Enter still submits. Confirm, Back, Escape,
   Tab and delete keys, repeats and Ctrl/Meta/Fn chords keep their
   meaning; focused notification rows keep their commands.
-* PIN digits from a keyboard without a number row: the PIN view also
-  accepts the digit a key types with its modifiers (Alt+W on the Q25)
-  and, for plain presses, the key map's phone-pad number.
+* PIN keys whichever child has focus: the PIN view handles physical
+  keys in dispatchKeyEvent, not only through the password field's key
+  listener, so a trackpad move or Tab that focused an on-screen digit
+  no longer swallows typed digits or turns Enter into that digit.
+  Digits are the number row, the numpad, the digit a key types with its
+  modifiers (Alt+W on the Q25) and, for plain presses, the key map's
+  phone-pad number (W E R S D F Z X C = 1-9 on the Q25); they act on a
+  first DOWN through the on-screen keys. Backspace deletes. Enter and
+  numpad Enter act on the UP of a DOWN the view saw and always press
+  OK. While a hardware keyboard is present (Configuration QWERTY) the
+  on-screen keys are not focusable, so DPAD and Tab stay on the field;
+  touch is unchanged.
 
 Legacy (non scene-container) keyguard only; the scene container path
 is unchanged. Pure policy: keyguard/sable/SableKeyguardKeys.java and
@@ -33,14 +42,15 @@ SableKeyguardTypeAhead.java.
 ---
  .../res/values/sable_keyguard_strings.xml     |  24 +++
  .../KeyguardPasswordViewController.java       |   8 +
- .../keyguard/KeyguardPinBasedInputView.java   |  16 ++
+ .../keyguard/KeyguardPinBasedInputView.java   |  80 ++++++++++
+ .../KeyguardPinBasedInputViewController.java  |   4 +
  .../keyguard/KeyguardPinViewController.java   |  11 ++
  .../keyguard/sable/SableKeyguardKeys.java     | 141 ++++++++++++++++++
  .../sable/SableKeyguardTypeAhead.java         | 107 +++++++++++++
  ...ardIndicationRotateTextViewController.java |   7 +-
  .../interactor/KeyguardKeyEventInteractor.kt  |  60 ++++++++
  .../KeyguardIndicationController.java         |  50 +++++++
- 9 files changed, 423 insertions(+), 1 deletion(-)
+ 10 files changed, 491 insertions(+), 1 deletion(-)
  create mode 100644 packages/SystemUI/res/values/sable_keyguard_strings.xml
  create mode 100644 packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardKeys.java
  create mode 100644 packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardTypeAhead.java
@@ -109,7 +119,7 @@ index 4b46370ac1ff..d381b3784bd5 100644
              showInput();
          }
 diff --git a/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputView.java b/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputView.java
-index fb5494b1cf1a..7905c2d50b4c 100644
+index fb5494b1cf1a..a1a35069b8ba 100644
 --- a/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputView.java
 +++ b/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputView.java
 @@ -41,6 +41,7 @@ import androidx.annotation.CallSuper;
@@ -120,21 +130,89 @@ index fb5494b1cf1a..7905c2d50b4c 100644
  import com.android.systemui.Flags;
  import com.android.systemui.res.R;
  
-@@ -109,9 +110,24 @@ public abstract class KeyguardPinBasedInputView extends KeyguardAbsKeyInputView
-             performNumberClick(number);
-             return true;
-         }
-+        // Sable: keyboards without a number row (Q25) type digits with Alt+letter, or plain
-+        // letters where the key map gives them a phone-pad number.
-+        final int sableDigit = SableKeyguardKeys.digitFor(
-+                event.getUnicodeChar(), event.getNumber(), event.getMetaState());
-+        if (sableDigit >= 0) {
-+            performNumberClick(sableDigit);
-+            return true;
-+        }
+@@ -56,6 +57,8 @@ public abstract class KeyguardPinBasedInputView extends KeyguardAbsKeyInputView
+     private NumPadButton mOkButton;
+     private NumPadButton mDeleteButton;
+     private NumPadKey[] mButtons = new NumPadKey[10];
++    /** Sable: an Enter DOWN reached this view, so its UP presses OK. */
++    private boolean mSableEnterDown;
+ 
+     public KeyguardPinBasedInputView(Context context) {
+         this(context, null);
+@@ -112,6 +115,83 @@ public abstract class KeyguardPinBasedInputView extends KeyguardAbsKeyInputView
          return super.onKeyDown(keyCode, event);
      }
  
++    /**
++     * Sable: physical keys type the PIN whichever child has focus. Upstream they only reach this
++     * view through the password field's key listener, so once the trackpad or Tab moved focus to
++     * an on-screen digit, keyboard digits went nowhere and Enter pressed that digit. Digits
++     * (number row, numpad, or the key map's phone-pad / Alt digits on keyboards without a number
++     * row, such as W E R S D F Z X C and 0 on the Q25) and Backspace act on DOWN; Enter acts on
++     * the UP of a DOWN seen here and always presses OK. Everything else keeps its meaning.
++     * Entry goes through the on-screen keys, so the credential path is unchanged.
++     */
++    @Override
++    public boolean dispatchKeyEvent(KeyEvent event) {
++        final int keyCode = event.getKeyCode();
++        final int action = event.getAction();
++        if (keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER) {
++            if (action == KeyEvent.ACTION_DOWN) {
++                if (event.getRepeatCount() == 0) {
++                    mSableEnterDown = true;
++                }
++            } else if (action == KeyEvent.ACTION_UP) {
++                final boolean press = mSableEnterDown && !event.isCanceled();
++                mSableEnterDown = false;
++                if (press && mPasswordEntry.isEnabled()) {
++                    mOkButton.performClick();
++                }
++            }
++            return true;
++        }
++        if (keyCode == KeyEvent.KEYCODE_DEL) {
++            if (action == KeyEvent.ACTION_DOWN && mPasswordEntry.isEnabled()) {
++                mDeleteButton.performClick();
++            }
++            return true;
++        }
++        final int digit = sableDigitFor(event);
++        if (digit >= 0) {
++            if (action == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0
++                    && mPasswordEntry.isEnabled()) {
++                // NumPadKey appends and reports user activity (PowerManager and the
++                // controller's input hook through the field's user activity listener).
++                performNumberClick(digit);
++            }
++            return true;
++        }
++        return super.dispatchKeyEvent(event);
++    }
++
++    private static int sableDigitFor(KeyEvent event) {
++        final int keyCode = event.getKeyCode();
++        if (keyCode >= KeyEvent.KEYCODE_0 && keyCode <= KeyEvent.KEYCODE_9) {
++            return keyCode - KeyEvent.KEYCODE_0;
++        }
++        if (keyCode >= KeyEvent.KEYCODE_NUMPAD_0 && keyCode <= KeyEvent.KEYCODE_NUMPAD_9) {
++            return keyCode - KeyEvent.KEYCODE_NUMPAD_0;
++        }
++        return SableKeyguardKeys.digitFor(
++                event.getUnicodeChar(), event.getNumber(), event.getMetaState());
++    }
++
++    /**
++     * Sable: with a hardware keyboard the on-screen keys are not focusable, so the trackpad
++     * (DPAD) and Tab cannot move focus off the PIN field. Touch is unaffected.
++     */
++    void setSableNumPadFocusable(boolean focusable) {
++        for (NumPadKey key : mButtons) {
++            key.setFocusable(focusable);
++        }
++        mDeleteButton.setFocusable(focusable);
++        mOkButton.setFocusable(focusable);
++    }
++
 +    /** Sable: a digit typed on the locked glance before this field had focus. */
 +    void typeSableDigit(int digit) {
 +        if (mPasswordEntry.isEnabled()) {
@@ -145,6 +223,28 @@ index fb5494b1cf1a..7905c2d50b4c 100644
      @Override
      public boolean onKeyUp(int keyCode, KeyEvent event) {
          if (KeyEvent.isConfirmKey(keyCode)) {
+diff --git a/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputViewController.java b/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputViewController.java
+index 9608cd2b228e..c72ada947635 100644
+--- a/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputViewController.java
++++ b/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputViewController.java
+@@ -22,6 +22,7 @@ import static com.android.internal.widget.flags.Flags.hideLastCharWithPhysicalIn
+ import static com.android.systemui.Flags.pinInputFieldStyledFocusState;
+ import static com.android.systemui.util.kotlin.JavaAdapterKt.collectFlow;
+ 
++import android.content.res.Configuration;
+ import android.graphics.drawable.Drawable;
+ import android.graphics.drawable.GradientDrawable;
+ import android.graphics.drawable.StateListDrawable;
+@@ -274,6 +275,9 @@ public abstract class KeyguardPinBasedInputViewController<T extends KeyguardPinB
+         // as requestFocus will no-op since the focus flag is already set. By clearing focus first,
+         // it's guaranteed that the view has focus.
+         mPasswordEntry.clearFocus();
++        // Sable: with a hardware keyboard the trackpad must not move focus to an on-screen key.
++        mView.setSableNumPadFocusable(getResources().getConfiguration().keyboard
++                != Configuration.KEYBOARD_QWERTY);
+         mPasswordEntry.requestFocus();
+     }
+ 
 diff --git a/packages/SystemUI/src/com/android/keyguard/KeyguardPinViewController.java b/packages/SystemUI/src/com/android/keyguard/KeyguardPinViewController.java
 index e6c1e535ad3e..bf8c09da66a8 100644
 --- a/packages/SystemUI/src/com/android/keyguard/KeyguardPinViewController.java
