@@ -473,6 +473,7 @@ fun SableStartScreen(
                                     snapshot = liveSnapshot,
                                     apps = apps,
                                     homeApps = homeApps,
+                                    recentApps = recentKeys.mapNotNull(appByKey::get).filter { it.profileLabel != PROFILE_PRIVATE_LABEL },
                                     hiddenSections = hiddenSections,
                                     homeMode = homeMode,
                                     quickSlots = quickSlots,
@@ -484,6 +485,7 @@ fun SableStartScreen(
                                     onSearch = {
                                         openSearch(SableStartDestination.Start)
                                     },
+                                    onAllApps = { destination = SableStartDestination.Apps },
                                     onTypeToSearch = { char ->
                                         openSearch(SableStartDestination.Start, char.toString())
                                     },
@@ -676,6 +678,7 @@ private fun HomePage(
     snapshot: LiveSurfaceSnapshot,
     apps: List<AppEntry>,
     homeApps: List<AppEntry>,
+    recentApps: List<AppEntry>,
     hiddenSections: Set<String>,
     homeMode: String,
     quickSlots: List<QuickSlot>,
@@ -683,6 +686,7 @@ private fun HomePage(
     onOpenPeek: (AppEntry) -> Unit,
     onOpenAppInfo: (AppEntry) -> Unit,
     onSearch: () -> Unit,
+    onAllApps: () -> Unit,
     onTypeToSearch: (Char) -> Unit,
     onEditHome: () -> Unit,
     onQuickSlot: (QuickSlot) -> Unit,
@@ -1824,6 +1828,20 @@ private fun EditHomeScreen(
                 )
             }
             HomeToggleRow(
+                title = "BlackBerry 10-style home",
+                subtitle = "Recent activity cards and a four-column app grid",
+                selected = draft.mode == HomeLayout.MODE_BB10,
+                accent = accent,
+                onClick = { draft = draft.copy(mode = HomeLayout.MODE_BB10) },
+            )
+            HomeToggleRow(
+                title = "Keyboard app list",
+                subtitle = "Simple rows and visible keyboard focus",
+                selected = draft.mode == HomeLayout.MODE_LIST,
+                accent = accent,
+                onClick = { draft = draft.copy(mode = HomeLayout.MODE_LIST) },
+            )
+            HomeToggleRow(
                 title = "Tiles instead of a list",
                 subtitle = "Touch tile mode with live details",
                 selected = draft.mode == HomeLayout.MODE_TILES,
@@ -1831,7 +1849,7 @@ private fun EditHomeScreen(
                 onClick = {
                     draft =
                         draft.copy(
-                            mode = if (draft.mode == HomeLayout.MODE_TILES) HomeLayout.MODE_LIST else HomeLayout.MODE_TILES,
+                            mode = HomeLayout.MODE_TILES,
                         )
                 },
             )
