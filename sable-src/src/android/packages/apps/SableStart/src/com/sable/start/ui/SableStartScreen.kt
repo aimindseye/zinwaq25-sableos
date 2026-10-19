@@ -119,6 +119,7 @@ import org.sableos.start.live.LiveAvailability
 import org.sableos.start.live.LiveDatum
 import org.sableos.start.live.LiveSurfaceSnapshot
 import org.sableos.start.model.AppEntry
+import org.sableos.start.model.Bb10HomePolicy
 import org.sableos.start.model.CommandQuery
 import org.sableos.start.model.CommandRanking
 import org.sableos.start.model.CommandScope
@@ -856,7 +857,14 @@ private fun Bb10HomeDashboard(
     onActions: (AppEntry) -> Unit,
     onAllApps: () -> Unit,
 ) {
-    val safeRecent = recentApps.filter { it.profileLabel != PROFILE_PRIVATE_LABEL }.take(4)
+    val privateKeys =
+        recentApps.filter { it.profileLabel == PROFILE_PRIVATE_LABEL }
+            .map { it.stableKey() }
+            .toSet()
+    val recentKeys =
+        Bb10HomePolicy.visibleRecentKeys(recentApps.map { it.stableKey() }, privateKeys)
+    val recentByKey = recentApps.associateBy { it.stableKey() }
+    val safeRecent = recentKeys.mapNotNull(recentByKey::get)
     val safeApps = homeApps.filter { it.profileLabel != PROFILE_PRIVATE_LABEL }
     val focusRecent = safeRecent.isNotEmpty()
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -899,7 +907,7 @@ private fun Bb10HomeDashboard(
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
-        safeApps.chunked(4).forEachIndexed { rowIndex, row ->
+        safeApps.chunked(Bb10HomePolicy.GRID_COLUMNS).forEachIndexed { rowIndex, row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -918,7 +926,7 @@ private fun Bb10HomeDashboard(
                         onActions = { onActions(app) },
                     )
                 }
-                repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+                repeat(Bb10HomePolicy.GRID_COLUMNS - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
         TextButton(
