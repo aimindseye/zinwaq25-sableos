@@ -70,6 +70,26 @@ object HomeLayout {
 }
 
 /**
+ * BB10 Home keeps at most four session-only activity cards; the four-column
+ * app grid is independent of the Android Recents/task model.
+ */
+object Bb10HomePolicy {
+    const val MAX_RECENT = 4
+    const val GRID_COLUMNS = 4
+
+    fun visibleRecentKeys(
+        sessionKeys: List<String>,
+        privateKeys: Set<String>,
+    ): List<String> =
+        sessionKeys.asSequence()
+            .filterNot { it in privateKeys }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .take(MAX_RECENT)
+            .toList()
+}
+
+/**
  * The user's ordered Home apps ("user-selected Home apps", HOME_APPS_REORDER).
  * Keys are AppEntry stable keys.
  */
