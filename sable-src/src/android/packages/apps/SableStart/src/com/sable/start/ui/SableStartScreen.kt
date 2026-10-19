@@ -473,7 +473,10 @@ fun SableStartScreen(
                                     snapshot = liveSnapshot,
                                     apps = apps,
                                     homeApps = homeApps,
-                                    recentApps = recentKeys.mapNotNull(appByKey::get).filter { it.profileLabel != PROFILE_PRIVATE_LABEL },
+                                    recentApps =
+                                        recentKeys
+                                            .mapNotNull(appByKey::get)
+                                            .filter { it.profileLabel != PROFILE_PRIVATE_LABEL },
                                     hiddenSections = hiddenSections,
                                     homeMode = homeMode,
                                     quickSlots = quickSlots,
