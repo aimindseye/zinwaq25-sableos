@@ -785,7 +785,18 @@ private fun HomePage(
                     SableStatusRings(modifier = Modifier.fillMaxWidth())
                 }
             }
-            if (homeApps.isEmpty()) {
+            if (homeMode == HomeLayout.MODE_BB10) {
+                item(key = "bb10-dashboard") {
+                    Bb10HomeDashboard(
+                        recentApps = recentApps,
+                        homeApps = homeApps,
+                        firstFocus = firstAppFocus,
+                        onOpen = onLaunchApp,
+                        onActions = onOpenPeek,
+                        onAllApps = onAllApps,
+                    )
+                }
+            } else if (homeApps.isEmpty()) {
                 item(key = "empty") {
                     EmptyState("No Home apps. Press Menu or long press here to edit Home.")
                 }
@@ -823,6 +834,159 @@ private fun HomePage(
             onOptions = onSlotOptions,
             onHubPeek = onHubPeek,
             onPhoneFocusChanged = { phoneSlotFocused = it },
+        )
+    }
+}
+
+/**
+ * BlackBerry 10-inspired center HOME, with Sable palette and existing quick bar.
+ * These frames are shortcuts to apps launched in this Sable Start session, NOT
+ * live Android tasks, snapshots or claims that apps remain in memory. Quickstep
+ * retains exclusive Recents and task lifecycle ownership.
+ */
+@Composable
+private fun Bb10HomeDashboard(
+    recentApps: List<AppEntry>,
+    homeApps: List<AppEntry>,
+    firstFocus: FocusRequester,
+    onOpen: (AppEntry) -> Unit,
+    onActions: (AppEntry) -> Unit,
+    onAllApps: () -> Unit,
+) {
+    val safeRecent = recentApps.filter { it.profileLabel != PROFILE_PRIVATE_LABEL }.take(4)
+    val safeApps = homeApps.filter { it.profileLabel != PROFILE_PRIVATE_LABEL }
+    val focusRecent = safeRecent.isNotEmpty()
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(
+            text = "Recent activity",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+        if (safeRecent.isEmpty()) {
+            Text(
+                text = "Recently opened apps appear here; Android overview manages running tasks.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        safeRecent.chunked(2).forEachIndexed { rowIndex, row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                row.forEachIndexed { colIndex, app ->
+                    val initialFocus =
+                        if (rowIndex == 0 && colIndex == 0) {
+                            Modifier.focusRequester(firstFocus)
+                        } else {
+                            Modifier
+                        }
+                    Bb10ActivityFrame(
+                        app = app,
+                        modifier = Modifier.weight(1f).then(initialFocus),
+                        onOpen = { onOpen(app) },
+                        onActions = { onActions(app) },
+                    )
+                }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+        Text(
+            text = "Apps",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+        safeApps.chunked(4).forEachIndexed { rowIndex, row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                row.forEachIndexed { colIndex, app ->
+                    val initialFocus =
+                        if (!focusRecent && rowIndex == 0 && colIndex == 0) {
+                            Modifier.focusRequester(firstFocus)
+                        } else {
+                            Modifier
+                        }
+                    Bb10GridApp(
+                        app = app,
+                        modifier = Modifier.weight(1f).then(initialFocus),
+                        onOpen = { onOpen(app) },
+                        onActions = { onActions(app) },
+                    )
+                }
+                repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+        TextButton(
+            onClick = onAllApps,
+            modifier = Modifier.fillMaxWidth().sableFocusRing(),
+        ) {
+            Text("All apps  →")
+        }
+    }
+}
+
+@Composable
+private fun Bb10ActivityFrame(
+    app: AppEntry,
+    modifier: Modifier,
+    onOpen: () -> Unit,
+    onActions: () -> Unit,
+) {
+    val shape = RoundedCornerShape(6.dp)
+    Column(
+        modifier =
+            modifier
+                .heightIn(min = 112.dp)
+                .clip(shape)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
+                .sableFocusRing()
+                .combinedClickable(onClick = onOpen, onLongClick = onActions)
+                .padding(10.dp),
+        verticalArrangement = Arrangement.SpaceBetween,
+    ) {
+        AppMark(app = app, size = 34)
+        Text(
+            text = app.label,
+            style = MaterialTheme.typography.labelLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = "Open again",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun Bb10GridApp(
+    app: AppEntry,
+    modifier: Modifier,
+    onOpen: () -> Unit,
+    onActions: () -> Unit,
+) {
+    Column(
+        modifier =
+            modifier
+                .heightIn(min = 72.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .sableFocusRing()
+                .combinedClickable(onClick = onOpen, onLongClick = onActions)
+                .padding(vertical = 5.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        AppMark(app = app, size = 32)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = app.label,
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
