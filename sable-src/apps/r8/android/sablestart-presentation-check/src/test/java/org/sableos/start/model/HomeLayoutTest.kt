@@ -35,6 +35,18 @@ class HomeLayoutTest {
     }
 
     @Test
+    fun bb10RecentCardsAreBoundedAndNeverExposePrivateKeys() {
+        val selected =
+            Bb10HomePolicy.visibleRecentKeys(
+                listOf("mail", "private", "mail", "weather", "camera", "hub", "calendar", ""),
+                setOf("private"),
+            )
+        assertEquals(listOf("mail", "weather", "camera", "hub"), selected)
+        assertEquals(4, Bb10HomePolicy.MAX_RECENT)
+        assertEquals(4, Bb10HomePolicy.GRID_COLUMNS)
+    }
+
+    @Test
     fun homeAppsKeepTheSavedOrder() {
         val defaults = listOf("hub", "mail", "calendar")
         assertEquals(defaults, HomeApps.resolve(null, null, defaults))
