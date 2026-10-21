@@ -1,5 +1,6 @@
 package org.sableos.start.platform
 
+import android.annotation.SuppressLint
 import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
@@ -41,7 +42,7 @@ class RecentTasksRepository(
             }.getOrNull().orEmpty()
         val frames =
             tasks.mapNotNull { info ->
-                val component = info.topActivity ?: info.baseActivity ?: info.baseIntent?.component
+                val component = info.topActivity ?: info.baseActivity ?: info.baseIntent.component
                 val packageName = component?.packageName ?: return@mapNotNull null
                 ActiveFrame(
                     taskId = info.taskId,
@@ -57,7 +58,11 @@ class RecentTasksRepository(
     /** The task's last picture (low resolution first), or null when Android has none for it. */
     fun snapshot(taskId: Int): Bitmap? = snapshot(taskId, lowResolution = true) ?: snapshot(taskId, lowResolution = false)
 
-    /** Brings the task back as it was; false when Android refused (the caller then launches the app). */
+    /**
+     * Brings the task back as it was; false when Android refused (the caller then launches the app).
+     * SableLauncher's manifest declares REORDER_TASKS; the presentation check module has no manifest for it.
+     */
+    @SuppressLint("MissingPermission")
     fun resume(taskId: Int): Boolean {
         val fromRecents =
             runCatching {
@@ -101,8 +106,8 @@ class RecentTasksRepository(
                         it.parameterTypes.drop(1).all { type -> type == Boolean::class.javaPrimitiveType }
                 } ?: return@runCatching null
             // (taskId, isLowResolution) on Android 14+; older releases add takeSnapshotIfNeeded (false).
-            val args: Array<Any> =
-                arrayOf<Any>(taskId) + method.parameterTypes.drop(1).mapIndexed { index, _ -> index == 0 && lowResolution }
+            val flags: List<Any> = method.parameterTypes.drop(1).mapIndexed { index, _ -> index == 0 && lowResolution }
+            val args: Array<Any> = (listOf<Any>(taskId) + flags).toTypedArray()
             val snapshot = method.invoke(service, *args) ?: return@runCatching null
             val buffer =
                 snapshot.javaClass.getMethod("getHardwareBuffer").invoke(snapshot) as? HardwareBuffer
