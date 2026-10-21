@@ -21,12 +21,7 @@ class DisplayCompatApp : Application() {
         store = PrefsProfileStore(this)
         appStyleStore = AppearanceStyleStore(this)
         appStyle = AppStyleController(appStyleStore)
-        controller =
-            ProfileController(
-                store,
-                GatedPlatformBackend(this),
-                miniSize = MiniSizeEvidence.read(this)
-            )
+        controller = ProfileController(store, GatedPlatformBackend())
         // SAFE_MODE_RESET_ALL_DISPLAY_PROFILES: booting to safe mode clears every per-app profile
         // so a bad profile cannot trap the user.
         if (packageManager.isSafeMode) controller.resetAll()

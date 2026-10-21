@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Secure Vault is the file layer of Private Space: it is installed only in the private profile,
+     so its files live in that profile's credential-encrypted storage and lock with it. It is never
+     installed for the main user, a work profile or a clone profile. -->
+<config>
+    <install-in-user-type package="org.sableos.titan2.vault">
+        <install-in user-type="android.os.usertype.profile.PRIVATE" />
+    </install-in-user-type>
+</config>

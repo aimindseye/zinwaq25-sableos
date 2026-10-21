@@ -48,17 +48,17 @@ class DisplayCompatCoreTest {
         assertTrue(p.bars.isEmpty())
     }
 
-    @Test fun miniModeIsNoOpUntilSizeCaptured() {
-        val noSize = CanvasPlanner.plan(titan2, DisplayProfile(AspectProfile.MiniMode))
-        assertEquals(RectPx(0, 0, 1440, 1440), noSize.canvas)
-        assertTrue(noSize.note.contains("not captured"))
-        val sized = CanvasPlanner.plan(
-            titan2,
-            DisplayProfile(AspectProfile.MiniMode),
-            miniSize = SizePx(1080, 1080)
+    @Test fun miniModeIsAPortraitPhoneWindow() {
+        val q25 = CanvasPlanner.plan(SizePx(720, 720), DisplayProfile(AspectProfile.MiniMode))
+        assertEquals(RectPx(120, 0, 600, 720), q25.canvas)
+        assertEquals(2, q25.bars.size)
+        assertTrue(q25.note.startsWith("Mini mode"))
+        val wide = CanvasPlanner.plan(
+            SizePx(720, 720),
+            DisplayProfile(AspectProfile.MiniMode, orientation = OrientationPref.Landscape)
         )
-        assertEquals(1080, sized.canvas.w)
-        assertEquals(180, sized.canvas.l)
+        assertEquals(RectPx(0, 120, 720, 600), wide.canvas)
+        assertEquals(OrientationPref.Landscape, wide.lockedOrientation)
     }
 
     @Test fun keyboardSafeReservesBottom() {

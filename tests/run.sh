@@ -52,7 +52,7 @@ if awk -F'\t' '
     $1 == "module" { next }
     NF != 9 { print "bad column count line " NR; bad = 1 }
     $2 != "platform" && $2 != "common" { print "bad group line " NR; bad = 1 }
-    $7 != "unsigned" && $7 != "presigned" { print "bad signing line " NR; bad = 1 }
+    $7 != "unsigned" && $7 != "presigned" && $7 != "platform" && $7 != "privileged" { print "bad signing line " NR; bad = 1 }
     $9 != "yes" && $9 != "no" { print "bad enabled line " NR; bad = 1 }
     seen[$1]++ { print "duplicate module " $1; bad = 1 }
     END { exit bad }
@@ -186,6 +186,77 @@ else
     fail "stage Q2 after Q4: $(cat "$tmp/err")"
 fi
 if stagerun Q1 >/dev/null && grep -q "$stock_home" "$proj/config.txt"; then pass "stage Q1 after Q4"; else fail "stage Q1 after Q4: $(cat "$tmp/err")"; fi
+
+# 6b1. Privileged apps (App display compatibility, Secure Vault): "platform" rows ship from Q4 only, with the
+#      platform certificate; "privileged" rows are privileged from Q4; the allowlist matches the manifests.
+pa="$tmp/apps/priv"
+mkdir -p "$pa/prebuilt"
+printf 'fake' > "$pa/prebuilt/SableDisplayCompat.apk"
+printf 'fake' > "$pa/prebuilt/SableVault.apk"
+(cd "$pa/prebuilt" && sha256sum ./*.apk > ../SHA256SUMS.txt)
+{
+    printf 'module\tgroup\tpackage\tsigning\toverrides\tfilename\tsha256\n'
+    printf 'SableDisplayCompat\tplatform\torg.sableos.titan2.displaycompat\tplatform\t-\tSableDisplayCompat.apk\tx\n'
+    printf 'SableVault\tplatform\torg.sableos.titan2.vault\tprivileged\t-\tSableVault.apk\tx\n'
+} > "$pa/manifest.tsv"
+v="$tmp/android/vendor/sable/q25"
+if stagerun Q4 --apps-dir "$pa" >/dev/null; then
+    ok=yes
+    grep -A6 'name: "SableDisplayCompat"' "$v/Android.bp" | grep -q 'certificate: "platform"' || ok=no
+    grep -A6 'name: "SableDisplayCompat"' "$v/Android.bp" | grep -q 'privileged: true' || ok=no
+    grep -A6 'name: "SableVault"' "$v/Android.bp" | grep -q 'default_dev_cert: true' || ok=no
+    grep -A6 'name: "SableVault"' "$v/Android.bp" | grep -q 'privileged: true' || ok=no
+    grep -q 'persist.sable.displaycompat.backend=validated' "$v/sable-q25-framework.mk" || ok=no
+    grep -q 'etc/permissions/privapp-permissions-sable-q25.xml' "$v/sable-q25-framework.mk" || ok=no
+    [[ -f "$v/etc/permissions/privapp-permissions-sable-q25.xml" ]] || ok=no
+    grep -q 'etc/sysconfig/preinstalled-packages-sable-vault.xml' "$v/sable-q25-apps.mk" || ok=no
+    [[ -f "$v/overlay/SableFrameworkOverlay/res/values/sable_displaycompat.xml" ]] || ok=no
+    [[ "$ok" == yes ]] && pass "stage Q4 privileged apps (platform cert, allowlist, display compat gate)" ||
+        fail "stage Q4 privileged apps: generated files wrong"
+else
+    fail "stage Q4 privileged apps: $(cat "$tmp/err")"
+fi
+if stagerun Q2 --apps-dir "$pa" >/dev/null && ! grep -q 'SableDisplayCompat' "$v/Android.bp" &&
+    grep -A6 'name: "SableVault"' "$v/Android.bp" | grep -q 'privileged: false' &&
+    ! grep -q 'certificate: "platform"' "$v/Android.bp" && ! grep -q 'privapp' "$v/sable-q25-framework.mk" &&
+    ! grep -q 'displaycompat.backend' "$v/sable-q25-framework.mk" && grep -q 'SKIPPED_BEFORE_Q4=SableDisplayCompat' "$tmp/err"; then
+    pass "stage Q2 keeps every app unprivileged (system-UID display compat waits for Q4)"
+else
+    fail "stage Q2 privileged apps: $(cat "$tmp/err")"
+fi
+stagerun Q1 >/dev/null || fail "stage Q1 after privileged apps: $(cat "$tmp/err")"
+# Each privileged app requests exactly the permissions the allowlist grants it.
+privxml=product/q25/permissions/privapp-permissions-sable-q25.xml
+for pair in displaycompat:org.sableos.titan2.displaycompat vault:org.sableos.titan2.vault; do
+    mod="${pair%%:*}" pkg="${pair#*:}"
+    want="$(grep -o 'android.permission.[A-Z_]*' "sable-src/apps/titan2/platform/$mod/src/main/AndroidManifest.xml" | grep -v '^$' | LC_ALL=C sort -u)"
+    have="$(awk -v p="$pkg" '$0 ~ "package=\""p"\"" {on=1; next} /<\/privapp-permissions>/ {on=0} on' "$privxml" |
+        grep -o 'android.permission.[A-Z_]*' | LC_ALL=C sort -u)"
+    if [[ -n "$want" && "$want" == "$have" ]]; then pass "privapp allowlist matches $mod"; else fail "privapp allowlist $mod: manifest [$want] allowlist [$have]"; fi
+done
+dcm=sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml
+if grep -q 'android:sharedUserId="android.uid.system"' "$dcm" &&
+    grep -q 'org.sableos.titan2.displaycompat	platform	' product/q25/apps.tsv &&
+    grep -q 'config_appCompatUserAppAspectRatioSettingsIsEnabled">true' product/common/overlay/SableFrameworkOverlay/res/values/sable_displaycompat.xml &&
+    grep -q '"setUserMinAspectRatio",' sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt &&
+    grep -q 'Class.forName("android.content.pm.IPackageManager")' sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt; then
+    pass "display compat: system UID, platform cert, IPackageManager(pkg, userId, value), WM overlay"
+else
+    fail "display compat platform wiring incomplete"
+fi
+# Secure Vault: Private Space only, no network or storage access, no backup, secure window.
+vm=sable-src/apps/titan2/platform/vault/src/main/AndroidManifest.xml
+va=sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultActivity.kt
+if grep -q 'user-type="android.os.usertype.profile.PRIVATE"' product/q25/sysconfig/preinstalled-packages-sable-vault.xml &&
+    ! grep -q 'install-in user-type="FULL"\|SYSTEM' product/q25/sysconfig/preinstalled-packages-sable-vault.xml &&
+    ! grep -qE 'INTERNET|READ_EXTERNAL|READ_MEDIA|MANAGE_EXTERNAL|WRITE_EXTERNAL' "$vm" &&
+    grep -q 'android:allowBackup="false"' "$vm" && grep -q 'android:exported="false"' "$vm" &&
+    grep -q 'FLAG_SECURE' "$va" && grep -q 'setRecentsScreenshotEnabled(false)' "$va" &&
+    ! grep -q 'ACTION_SEND' "$va"; then
+    pass "Secure Vault: Private Space only, no network/storage/backup, secure window, no share sheet"
+else
+    fail "Secure Vault manifest or window policy"
+fi
 
 # 6b2. Optional 50 MP camera: the patcher on a synthetic vendor tree, and off by default.
 if python3 -I tests/test_camera_50mp.py >"$tmp/cam50" 2>&1; then

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Privileged permissions of the Sable apps that apps.tsv marks "platform" or "privileged" (Q4+).
+     Staged to /product/etc/permissions by scripts/stage-product.sh. Keep each list to what the
+     app's manifest requests; tests/run.sh checks the two match. -->
+<permissions>
+    <!-- App display compatibility: per-app aspect ratio (IPackageManager.setUserMinAspectRatio)
+         and per-app orientation (IPlatformCompat release-build overrides). Runs as android.uid.system. -->
+    <privapp-permissions package="org.sableos.titan2.displaycompat">
+        <permission name="android.permission.INSTALL_PACKAGES" />
+        <permission name="android.permission.OVERRIDE_COMPAT_CHANGE_CONFIG_ON_RELEASE_BUILD" />
+    </privapp-permissions>
+
+    <!-- Secure Vault: "Lock now" turns quiet mode on for its own Private Space profile. -->
+    <privapp-permissions package="org.sableos.titan2.vault">
+        <permission name="android.permission.MODIFY_QUIET_MODE" />
+    </privapp-permissions>
+</permissions>

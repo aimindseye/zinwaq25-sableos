@@ -21,16 +21,16 @@ data class CanvasPlan(
 object CanvasPlanner {
     private const val PERCENT = 100
 
+    /** Mini mode window: a 3:2 phone shape, the platform's USER_MIN_ASPECT_RATIO_3_2 (480x720 on the Q25). */
+    private const val MINI_RATIO = 1.5f
+
     /**
-     * @param miniSize Titan "Mini mode" resolution. The manuals only say "another normal size", so this is
-     *   device evidence that must be captured; null keeps Mini mode a no-op rather than guessing a number.
      * @param softKeyboardFraction share of the height reserved by [AspectProfile.KeyboardSafe] when the soft
      *   keyboard may show.
      */
     fun plan(
         display: SizePx,
         p: DisplayProfile,
-        miniSize: SizePx? = null,
         softKeyboardFraction: Float = 0.40f
     ): CanvasPlan = when (p.profile) {
         AspectProfile.Native -> plain(display, p, "Native: app and platform defaults.")
@@ -49,7 +49,7 @@ object CanvasPlanner {
 
         AspectProfile.KeyboardSafe -> keyboardSafe(display, p, softKeyboardFraction)
 
-        AspectProfile.MiniMode -> miniMode(display, p, miniSize)
+        AspectProfile.MiniMode -> miniMode(display, p)
 
         AspectProfile.Ratio16x9Letterbox -> letterbox(
             display,
@@ -97,18 +97,13 @@ object CanvasPlanner {
         return plain(display, p, "Keyboard-safe: reserves ${reserve}px for text entry.", reserve)
     }
 
-    private fun miniMode(display: SizePx, p: DisplayProfile, miniSize: SizePx?): CanvasPlan =
-        if (miniSize == null) {
-            plain(display, p, "Mini mode size not captured on this device: no-op.")
-        } else {
-            letterbox(
-                display,
-                miniSize.aspect,
-                p,
-                "Mini mode ${miniSize.w}x${miniSize.h}",
-                exactSize = miniSize
-            )
-        }
+    /** A phone-shaped window: portrait unless the profile asks for landscape (the platform's own behaviour). */
+    private fun miniMode(display: SizePx, p: DisplayProfile): CanvasPlan {
+        val phone = if (p.orientation == OrientationPref.Landscape) MINI_RATIO else 1f / MINI_RATIO
+        val unturned = p.copy(orientation = OrientationPref.Default)
+        return letterbox(display, phone, unturned, "Mini mode (3:2 phone window)")
+            .copy(lockedOrientation = orientationLock(p))
+    }
 
     private fun custom(display: SizePx, p: DisplayProfile): CanvasPlan {
         val r = p.customRatio
@@ -146,16 +141,12 @@ object CanvasPlanner {
         display: SizePx,
         ratio: Float,
         p: DisplayProfile,
-        label: String,
-        exactSize: SizePx? = null
+        label: String
     ): CanvasPlan {
         val r = effectiveRatio(display, ratio, p)
         val w: Int
         val h: Int
-        if (exactSize != null && p.orientation == OrientationPref.Default) {
-            w = min(exactSize.w, display.w)
-            h = min(exactSize.h, display.h)
-        } else if (display.aspect > r) {
+        if (display.aspect > r) {
             h = display.h
             w = (h * r).roundToInt().coerceAtMost(display.w)
         } else {

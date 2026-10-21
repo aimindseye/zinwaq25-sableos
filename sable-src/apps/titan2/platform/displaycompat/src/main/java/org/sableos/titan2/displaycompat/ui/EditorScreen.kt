@@ -41,7 +41,6 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.sableos.titan2.displaycompat.android.DisplayCompatApp
-import org.sableos.titan2.displaycompat.android.MiniSizeEvidence
 import org.sableos.titan2.displaycompat.android.TraitsResolver
 import org.sableos.titan2.displaycompat.core.AppTraits
 import org.sableos.titan2.displaycompat.core.AspectProfile
@@ -52,6 +51,7 @@ import org.sableos.titan2.displaycompat.core.DisplayProfile
 import org.sableos.titan2.displaycompat.core.Issue
 import org.sableos.titan2.displaycompat.core.LetterboxBackground
 import org.sableos.titan2.displaycompat.core.OrientationPref
+import org.sableos.titan2.displaycompat.core.PlatformMapping
 import org.sableos.titan2.displaycompat.core.ProfileController
 import org.sableos.titan2.displaycompat.core.ProfileValidator
 import org.sableos.titan2.displaycompat.core.Ratio
@@ -260,8 +260,7 @@ fun EditorScreen(
     val fr = remember { FocusRequester() }
     LaunchedEffect(Unit) { fr.requestFocus() }
     val validation = ProfileValidator.validate(traits, st.p, st.advanced)
-    val mini = remember { MiniSizeEvidence.read(app) }
-    val plan = CanvasPlanner.plan(display, st.p, mini)
+    val plan = CanvasPlanner.plan(display, st.p)
     val actions = EditorActions(app, st, traits, entry.pkg, display, onDone)
 
     Column(
@@ -277,6 +276,13 @@ fun EditorScreen(
             Preview(plan, st.p.letterboxBackground)
             Text(plan.note, color = C.muted, fontSize = 11.sp, modifier = Modifier.weight(1f))
         }
+        // Compatibility card (connectivity artifact state 4): what the platform is asked for, and that
+        // keyboards stay out of reach of every profile.
+        Text(
+            "Platform: " + PlatformMapping.request(st.p).describe() + " · Keyboard input: protected",
+            color = C.muted,
+            fontSize = 11.sp
+        )
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
             rows.forEachIndexed { i, r ->
                 EditorRowItem(

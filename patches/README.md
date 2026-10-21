@@ -28,7 +28,12 @@
   the user's ordered Home apps with a filled focus bar, tiles as an optional touch mode, base bar Phone ·
   Hub · Command · Apps), Hub right (All / Messages / Calls tabs); one Edit Home mode (Menu, long press,
   `EDIT_HOME` / `EDIT_QUICK_BAR`) reorders apps, bar and widgets by drag, Enter pick-up or Alt+arrows;
-  Hub slot options and Space peek, digits on the Phone slot dial.
+  Hub slot options and Space peek, digits on the Phone slot dial. 0050 App display compatibility applies profiles
+  (aspect ratio through `IPackageManager.setUserMinAspectRatio(pkg, userId, value)` as the system UID, per-app
+  Portrait/Landscape through the overridable orientation app-compat changes, Mini mode as the 3:2 phone window,
+  a full platform state on every save so a stored-only profile clears an earlier ratio), 0051 Secure Vault
+  (`apps/titan2/platform/vault`, Private Space only: Photos, Documents and Recordings in the private profile's
+  own storage; Import copies, Export and Open confirm first, Lock now; keyboard first).
   Applied in order to a
   fresh import they reproduce `sable-src/` exactly. Regenerate a patch with `git diff` against a
   fresh import when you change these files.

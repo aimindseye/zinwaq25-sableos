@@ -295,17 +295,17 @@ class DisplayCompatHardeningTest {
         assertTrue(BackendAvailability.OPEN_UNVERIFIED.banner.contains("not verified"))
     }
 
-    @Test fun miniModeIsStoredButNeverReportedAsApplied() {
+    @Test fun miniModeFailureIsNeverReportedAsApplied() {
         val b =
             RecordingBackend({
-                ApplyResult.Unsupported("mini: no platform equivalent; stored only")
+                ApplyResult.Unsupported("SecurityException: denied")
             })
         val o = ProfileController(
             InMemoryProfileStore(),
             b
         ).save(app, DisplayProfile(AspectProfile.MiniMode), display, false, true)
         assertEquals(EnforcementState.NOT_ENFORCED_UNSUPPORTED, o.enforcement)
-        assertTrue(o.validation.issues.any { it.code == "MINI_SIZE" })
+        assertTrue(o.validation.issues.any { it.code == "MINI_WINDOW" })
     }
 
     @Test fun savingNativeRemovesAStoredProfile() {

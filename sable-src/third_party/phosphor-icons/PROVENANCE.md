@@ -28,5 +28,6 @@ adaptive launcher icon (background, foreground, monochrome layers and `mipmap-an
 Glyphs added for the Q25 adaptive-icon work (verbatim `assets/regular/<name>.svg` at the pinned commit, fetched
 from raw.githubusercontent.com): bomb, book-open-text, calculator, calendar-dots, chat-circle-dots, chat-text,
 cloud-sun, envelope-simple, grid-four, grid-nine, music-notes, text-align-left, wrench.
+Added for Secure Vault (Private Space file layer, `origin=NEW_TITAN_GLYPH_PHOSPHOR_REGULAR`): vault.
 
 SableScreens is a prototype and has no product icon.
