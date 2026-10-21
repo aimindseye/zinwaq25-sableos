@@ -1,0 +1,265 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 17 Oct 2026 08:43:51 +0000
+Subject: [PATCH] SableOS: Settings-wide Sable focus ring
+
+The approved Settings design draws keyboard focus as an accent fill
+with an accent border. Only the Battery pages had a ring (a text-colour
+stroke). SableFocusDecoration now draws the accent fill (translucent, so
+the row text stays legible) and a 2dp accent border, and is installed
+on every Settings list from SettingsPreferenceFragment and by
+SableAppListKeyboard. One ring per list: installOn() is idempotent and
+only the owner of a ring removes it. Hidden in touch mode.
+---
+ res/values/sable_focus_ids.xml                | 20 ++++++
+ .../settings/SettingsPreferenceFragment.java  | 18 +++++
+ .../sable/SableAppListKeyboard.java           | 11 +++
+ .../fuelgauge/sable/SableFocusDecoration.java | 68 ++++++++++++++++---
+ 4 files changed, 106 insertions(+), 11 deletions(-)
+ create mode 100644 res/values/sable_focus_ids.xml
+
+diff --git a/res/values/sable_focus_ids.xml b/res/values/sable_focus_ids.xml
+new file mode 100644
+index 0000000..34c2252
+--- /dev/null
++++ b/res/values/sable_focus_ids.xml
+@@ -0,0 +1,20 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<resources>
++    <!-- View tag holding the Sable focus ring of a Settings list (one ring per list). -->
++    <item type="id" name="sable_focus_ring" />
++</resources>
+diff --git a/src/com/android/settings/SettingsPreferenceFragment.java b/src/com/android/settings/SettingsPreferenceFragment.java
+index ab9eeb2..fffbd6c 100644
+--- a/src/com/android/settings/SettingsPreferenceFragment.java
++++ b/src/com/android/settings/SettingsPreferenceFragment.java
+@@ -50,6 +50,7 @@ import androidx.recyclerview.widget.RecyclerView;
+ import com.android.settings.core.InstrumentedPreferenceFragment;
+ import com.android.settings.core.instrumentation.InstrumentedDialogFragment;
+ import com.android.settings.flags.Flags;
++import com.android.settings.fuelgauge.sable.SableFocusDecoration;
+ import com.android.settings.restriction.UserRestrictionBindingHelper;
+ import com.android.settings.support.actionbar.HelpResourceProvider;
+ import com.android.settings.widget.HighlightablePreferenceGroupAdapter;
+@@ -76,6 +77,8 @@ public abstract class SettingsPreferenceFragment extends InstrumentedPreferenceF
+ 
+     private static final String TAG = "SettingsPreferenceFragment";
+ 
++    private SableFocusDecoration mSableFocusRing;
++
+     private static final String SAVE_HIGHLIGHTED_KEY = "android:preference_highlighted";
+ 
+     private static final int ORDER_FIRST = -1;
+@@ -171,6 +174,21 @@ public abstract class SettingsPreferenceFragment extends InstrumentedPreferenceF
+         return root;
+     }
+ 
++    @Override
++    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
++        super.onViewCreated(view, savedInstanceState);
++        // SableOS: the Sable focus ring (accent fill and border) on every Settings list, so
++        // keyboard focus is visible on all pages, not only the Sable ones.
++        mSableFocusRing = SableFocusDecoration.installOn(getListView());
++    }
++
++    @Override
++    public void onDestroyView() {
++        SableFocusDecoration.uninstall(mSableFocusRing);
++        mSableFocusRing = null;
++        super.onDestroyView();
++    }
++
+     @Override
+     public void addPreferencesFromResource(@XmlRes int preferencesResId) {
+         super.addPreferencesFromResource(preferencesResId);
+diff --git a/src/com/android/settings/applications/sable/SableAppListKeyboard.java b/src/com/android/settings/applications/sable/SableAppListKeyboard.java
+index bd5228f..e0c069e 100644
+--- a/src/com/android/settings/applications/sable/SableAppListKeyboard.java
++++ b/src/com/android/settings/applications/sable/SableAppListKeyboard.java
+@@ -31,6 +31,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
+ import androidx.recyclerview.widget.RecyclerView;
+ 
+ import com.android.settings.fuelgauge.sable.SableBatteryKeys;
++import com.android.settings.fuelgauge.sable.SableFocusDecoration;
+ import com.android.settings.fuelgauge.sable.model.ListFocusNavigator;
+ import com.android.settings.fuelgauge.sable.model.NavKey;
+ import com.android.settings.fuelgauge.sable.model.TypeAheadMatcher;
+@@ -53,6 +54,10 @@ import java.util.Map;
+  * <p>{@link #attachToWindow} is the Settings homepage variant: it listens on the window, so the
+  * keys also work while the search bar or nothing at all is focused, and it can add extra words
+  * per row that match after the titles do.
++ *
++ * <p>Every list it attaches to also gets the Sable focus ring (accent fill and border, {@link
++ * SableFocusDecoration}); SettingsPreferenceFragment puts the same ring on every other Settings
++ * list, so focus looks the same Settings-wide.
+  */
+ public final class SableAppListKeyboard implements View.OnUnhandledKeyEventListener {
+     private final Fragment mFragment;
+@@ -61,6 +66,7 @@ public final class SableAppListKeyboard implements View.OnUnhandledKeyEventListe
+     private final int mPageId;
+     private final Map<String, String> mExtraWords;
+     private final TypeAheadMatcher mTypeAhead = new TypeAheadMatcher();
++    private SableFocusDecoration mFocusRing;
+ 
+     private SableAppListKeyboard(Fragment fragment, RecyclerView list, View host, int pageId,
+             Map<String, String> extraWords) {
+@@ -79,6 +85,7 @@ public final class SableAppListKeyboard implements View.OnUnhandledKeyEventListe
+         final SableAppListKeyboard k = new SableAppListKeyboard(fragment, list, list, pageId,
+                 Collections.<String, String>emptyMap());
+         list.addOnUnhandledKeyEventListener(k);
++        k.mFocusRing = SableFocusDecoration.installOn(list);
+         return k;
+     }
+ 
+@@ -105,11 +112,15 @@ public final class SableAppListKeyboard implements View.OnUnhandledKeyEventListe
+         final SableAppListKeyboard k = new SableAppListKeyboard(fragment, list, host, pageId,
+                 words);
+         host.addOnUnhandledKeyEventListener(k);
++        k.mFocusRing = SableFocusDecoration.installOn(list);
+         return k;
+     }
+ 
+     public void detach() {
+         mHost.removeOnUnhandledKeyEventListener(this);
++        // Only removes the ring if this helper put it there (not the Settings-wide one).
++        SableFocusDecoration.uninstall(mFocusRing);
++        mFocusRing = null;
+         mTypeAhead.reset();
+     }
+ 
+diff --git a/src/com/android/settings/fuelgauge/sable/SableFocusDecoration.java b/src/com/android/settings/fuelgauge/sable/SableFocusDecoration.java
+index 0582bb2..9ae44e1 100644
+--- a/src/com/android/settings/fuelgauge/sable/SableFocusDecoration.java
++++ b/src/com/android/settings/fuelgauge/sable/SableFocusDecoration.java
+@@ -18,6 +18,7 @@ package com.android.settings.fuelgauge.sable;
+ 
+ import android.content.Context;
+ import android.graphics.Canvas;
++import android.graphics.Color;
+ import android.graphics.Paint;
+ import android.graphics.RectF;
+ import android.view.View;
+@@ -28,12 +29,22 @@ import androidx.recyclerview.widget.RecyclerView;
+ import com.android.settings.R;
+ 
+ /**
+- * High-contrast focus ring for the focused Settings row: a stroke in the primary text color
+- * (not the accent color alone), so keyboard focus is visible on any theme. Redraws on every
+- * global focus change.
++ * The Sable focus ring for the focused Settings row (KEYBOARD_FIRST_SETTINGS_UX, approved
++ * design): an accent fill behind the row content plus a solid accent border, so keyboard focus
++ * reads at a glance on the 720x720 screen in light and dark themes. Drawn over the row (rows
++ * have opaque backgrounds), the fill is translucent so the title and summary stay legible.
++ * Hidden in touch mode. Redraws on every global focus change.
++ *
++ * <p>One ring per list: {@link #installOn} is idempotent, so the Settings-wide install in
++ * SettingsPreferenceFragment and page-level keyboard helpers (Battery, the Sable lists) can
++ * both ask for it.
+  */
+-final class SableFocusDecoration extends RecyclerView.ItemDecoration {
+-    private final Paint mPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
++public final class SableFocusDecoration extends RecyclerView.ItemDecoration {
++    /** Fill alpha (0-255) of the accent behind the focused row. */
++    static final int FILL_ALPHA = 0x47;
++
++    private final Paint mStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
++    private final Paint mFill = new Paint(Paint.ANTI_ALIAS_FLAG);
+     private final RectF mRect = new RectF();
+     private final float mInset;
+     private final float mRadius;
+@@ -42,21 +53,55 @@ final class SableFocusDecoration extends RecyclerView.ItemDecoration {
+ 
+     SableFocusDecoration(Context context, RecyclerView list) {
+         mList = list;
+-        mPaint.setStyle(Paint.Style.STROKE);
+-        mPaint.setStrokeWidth(
++        final int accent = SableRangeSelectorView.color(context, android.R.attr.colorAccent);
++        mStroke.setStyle(Paint.Style.STROKE);
++        mStroke.setStrokeWidth(
+                 context.getResources().getDimension(R.dimen.sable_battery_focus_stroke));
+-        mPaint.setColor(SableRangeSelectorView.color(context, android.R.attr.textColorPrimary));
++        mStroke.setColor(accent);
++        mFill.setStyle(Paint.Style.FILL);
++        mFill.setColor(Color.argb(FILL_ALPHA, Color.red(accent), Color.green(accent),
++                Color.blue(accent)));
+         mInset = context.getResources().getDimension(R.dimen.sable_battery_focus_inset);
+         mRadius = context.getResources().getDimension(R.dimen.sable_battery_focus_radius);
+         mFocusListener = (oldFocus, newFocus) -> mList.invalidate();
+     }
+ 
++    /**
++     * Puts the ring on {@code list} unless it already has one. Returns the new ring, which the
++     * caller owns and removes with {@link #uninstall(SableFocusDecoration)}, or null when there
++     * is no list or another owner's ring is already there (so nobody removes a ring they did
++     * not install).
++     */
++    public static SableFocusDecoration installOn(RecyclerView list) {
++        if (list == null || list.getTag(R.id.sable_focus_ring) != null) {
++            return null;
++        }
++        final SableFocusDecoration ring = new SableFocusDecoration(list.getContext(), list);
++        ring.install();
++        return ring;
++    }
++
++    /** Removes {@code ring} from its list if it is still the list's ring. */
++    public static void uninstall(SableFocusDecoration ring) {
++        if (ring != null) {
++            ring.uninstall();
++        }
++    }
++
+     void install() {
++        if (mList.getTag(R.id.sable_focus_ring) != null) {
++            return;
++        }
++        mList.setTag(R.id.sable_focus_ring, this);
+         mList.addItemDecoration(this);
+         mList.getViewTreeObserver().addOnGlobalFocusChangeListener(mFocusListener);
+     }
+ 
+     void uninstall() {
++        if (mList.getTag(R.id.sable_focus_ring) != this) {
++            return;
++        }
++        mList.setTag(R.id.sable_focus_ring, null);
+         mList.removeItemDecoration(this);
+         if (mList.getViewTreeObserver().isAlive()) {
+             mList.getViewTreeObserver().removeOnGlobalFocusChangeListener(mFocusListener);
+@@ -66,14 +111,15 @@ final class SableFocusDecoration extends RecyclerView.ItemDecoration {
+     @Override
+     public void onDrawOver(Canvas c, RecyclerView parent, RecyclerView.State state) {
+         final View focused = parent.getFocusedChild();
+-        // Rows only: inner widgets (range group, chart) draw their own focus state.
++        // Rows only: inner widgets (range group, chart, hub cards) draw their own focus state.
+         if (focused == null || !focused.isFocused() || parent.isInTouchMode()) {
+             return;
+         }
+-        final float half = mPaint.getStrokeWidth() / 2f;
++        final float half = mStroke.getStrokeWidth() / 2f;
+         mRect.set(focused.getLeft() + mInset + half, focused.getTop() + mInset + half,
+                 focused.getRight() - mInset - half, focused.getBottom() - mInset - half);
+         mRect.offset(focused.getTranslationX(), focused.getTranslationY());
+-        c.drawRoundRect(mRect, mRadius, mRadius, mPaint);
++        c.drawRoundRect(mRect, mRadius, mRadius, mFill);
++        c.drawRoundRect(mRect, mRadius, mRadius, mStroke);
+     }
+ }
+-- 
+2.43.0
+
