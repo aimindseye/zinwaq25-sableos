@@ -77,17 +77,18 @@ class CalendarRepository(
         context.checkSelfPermission(Manifest.permission.WRITE_CALENDAR) ==
             PackageManager.PERMISSION_GRANTED
 
-    fun agenda(date: LocalDate): List<CalendarEvent> {
+    fun agenda(date: LocalDate): List<CalendarEvent> = range(date, date.plusDays(1))
+
+    /** Event instances from the start of [first] up to the start of [endExclusive], by start time. */
+    fun range(
+        first: LocalDate,
+        endExclusive: LocalDate,
+    ): List<CalendarEvent> {
         if (!canRead()) return emptyList()
 
         val zone = ZoneId.systemDefault()
-        val begin = date.atStartOfDay(zone).toInstant().toEpochMilli()
-        val end =
-            date
-                .plusDays(1)
-                .atStartOfDay(zone)
-                .toInstant()
-                .toEpochMilli()
+        val begin = first.atStartOfDay(zone).toInstant().toEpochMilli()
+        val end = endExclusive.atStartOfDay(zone).toInstant().toEpochMilli()
         val builder = CalendarContract.Instances.CONTENT_URI.buildUpon()
         ContentUris.appendId(builder, begin)
         ContentUris.appendId(builder, end)

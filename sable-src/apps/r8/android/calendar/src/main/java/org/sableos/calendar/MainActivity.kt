@@ -5,6 +5,7 @@ import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.os.Bundle
 import android.text.format.DateUtils
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -20,10 +21,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -41,9 +44,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,17 +56,22 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isAltPressed
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.sableos.design.SableActionButton
@@ -70,6 +80,7 @@ import org.sableos.design.SableRefreshableSurface
 import org.sableos.design.SableSpacing
 import org.sableos.design.sableFocusRing
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.YearMonth
 import java.time.ZoneId
 import java.util.Calendar
@@ -80,6 +91,9 @@ import java.util.Locale
 class MainActivity : ComponentActivity() {
     private lateinit var repository: CalendarRepository
     private var refreshGeneration by mutableIntStateOf(0)
+
+    /** C/T/V/J/K/R for the current screen; set by [CalendarApp]. */
+    private var screenKeys: (CalendarScreenKey) -> Boolean = { false }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -99,6 +113,7 @@ class MainActivity : ComponentActivity() {
                     repository = repository,
                     refreshGeneration = refreshGeneration,
                     onRefresh = { refreshGeneration += 1 },
+                    registerKeys = { screenKeys = it },
                     onRequestPermissions = {
                         permissionLauncher.launch(
                             arrayOf(
@@ -112,6 +127,19 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Screen keys arrive here only when no focused view used them, so a text field always gets its
+     * letters first; [CalendarAppState.onScreenKey] also ignores them in the editors.
+     */
+    override fun onKeyDown(
+        keyCode: Int,
+        event: KeyEvent,
+    ): Boolean {
+        val modified = event.isAltPressed || event.isCtrlPressed || event.isMetaPressed
+        val key = CalendarScreenKeys.action(keyCode, modified)
+        return (key != null && event.repeatCount == 0 && screenKeys(key)) || super.onKeyDown(keyCode, event)
+    }
+
     override fun onResume() {
         super.onResume()
         if (::repository.isInitialized) {
@@ -120,9 +148,9 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/** [Agenda] is the browsing screen, which shows [CalendarAppState.view]: agenda, week or month. */
 private enum class CalendarMode {
     Agenda,
-    Month,
     NewEvent,
     Detail,
     Edit,
@@ -145,6 +173,7 @@ private fun defaultEventStart(date: LocalDate): Long =
 /** Screen state for [CalendarApp]: every field is Compose state, so readers recompose on change. */
 private class CalendarAppState {
     var mode by mutableStateOf(CalendarMode.Agenda)
+    var view by mutableStateOf(CalendarView.Agenda)
     var selectedDate by mutableStateOf(LocalDate.now())
     var events by mutableStateOf<List<CalendarEvent>>(emptyList())
     var refreshing by mutableStateOf(false)
@@ -159,6 +188,10 @@ private class CalendarAppState {
 
     /** Hardware Back/Esc goes up one level: edit → detail → agenda; only the agenda leaves Calendar. */
     fun goBack() {
+        if (mode == CalendarMode.Agenda) {
+            view = CalendarView.Agenda
+            return
+        }
         mode =
             if (mode == CalendarMode.Edit && detail != null) {
                 CalendarMode.Detail
@@ -207,6 +240,74 @@ private class CalendarAppState {
             pendingDelete = PendingDelete(id, title, recurring)
         } else {
             status = "“$title” is in a read-only calendar."
+        }
+    }
+
+    /** True while Back has somewhere to go inside Calendar. */
+    val canGoBack: Boolean
+        get() = mode != CalendarMode.Agenda || view != CalendarView.Agenda
+
+    /** The browsing selection; its detail loads into [detail] for the agenda's side pane. */
+    fun select(event: CalendarEvent) {
+        status = null
+        if (openEvent != event) detail = null
+        openEvent = event
+    }
+
+    /** After a reload: keep the selection if it is still listed, else pick the current or next event. */
+    fun syncSelection(nowMillis: Long) {
+        if (mode != CalendarMode.Agenda) return
+        val current = openEvent
+        if (current == null || events.none { it.id == current.id && it.startMillis == current.startMillis }) {
+            val initial = EventCursor.initial(events, nowMillis)
+            if (initial == null) {
+                openEvent = null
+                detail = null
+            } else {
+                select(initial)
+            }
+        }
+    }
+
+    /** C create, T today, V view, J/K next/previous event, R refresh. Never while editing. */
+    fun onScreenKey(
+        key: CalendarScreenKey,
+        onRefresh: () -> Unit,
+    ): Boolean {
+        if (pendingDelete != null || mode == CalendarMode.NewEvent || mode == CalendarMode.Edit) return false
+        when (key) {
+            CalendarScreenKey.Create -> startNewEvent()
+            CalendarScreenKey.Today -> {
+                status = null
+                selectedDate = LocalDate.now()
+                mode = CalendarMode.Agenda
+            }
+            CalendarScreenKey.View -> {
+                status = null
+                mode = CalendarMode.Agenda
+                view = view.next()
+            }
+            CalendarScreenKey.Next -> step(forward = true)
+            CalendarScreenKey.Previous -> step(forward = false)
+            CalendarScreenKey.Refresh -> {
+                onRefresh()
+                status = "Refreshed."
+            }
+        }
+        return true
+    }
+
+    /** J/K: the next event in the agenda, week or open detail; a day at a time in the month. */
+    private fun step(forward: Boolean) {
+        if (mode == CalendarMode.Agenda && view == CalendarView.Month) {
+            selectedDate = selectedDate.plusDays(if (forward) 1L else -1L)
+            return
+        }
+        val next = EventCursor.step(events, openEvent, forward)
+        when {
+            next == null -> status = "Nothing scheduled."
+            mode == CalendarMode.Detail -> openDetail(next)
+            else -> select(next)
         }
     }
 
@@ -264,20 +365,30 @@ private fun CalendarApp(
     repository: CalendarRepository,
     refreshGeneration: Int,
     onRefresh: () -> Unit,
+    registerKeys: ((CalendarScreenKey) -> Boolean) -> Unit,
     onRequestPermissions: () -> Unit,
 ) {
     val state = remember { CalendarAppState() }
     val scope = rememberCoroutineScope()
 
-    BackHandler(enabled = state.mode != CalendarMode.Agenda) { state.goBack() }
+    BackHandler(enabled = state.canGoBack) { state.goBack() }
+    SideEffect { registerKeys { key -> state.onScreenKey(key, onRefresh) } }
 
-    LaunchedEffect(refreshGeneration, state.selectedDate) {
+    // The week view lists its five days; the agenda and month list the selected day.
+    val weekView = state.view == CalendarView.Week
+    LaunchedEffect(refreshGeneration, state.selectedDate, weekView) {
         state.refreshing = true
         try {
             state.events =
                 withContext(Dispatchers.IO) {
-                    repository.agenda(state.selectedDate)
+                    if (weekView) {
+                        val days = WeekLayout.days(state.selectedDate)
+                        repository.range(days.first(), days.last().plusDays(1))
+                    } else {
+                        repository.agenda(state.selectedDate)
+                    }
                 }
+            state.syncSelection(System.currentTimeMillis())
         } finally {
             state.refreshing = false
         }
@@ -368,41 +479,59 @@ private fun CalendarModeContent(
     onRequestPermissions: () -> Unit,
 ) {
     when (state.mode) {
-        CalendarMode.Agenda -> AgendaPane(state)
-        CalendarMode.Month -> MonthPane(state)
+        CalendarMode.Agenda ->
+            when (state.view) {
+                CalendarView.Agenda -> AgendaPane(state)
+                CalendarView.Week -> WeekPane(state)
+                CalendarView.Month -> MonthPane(state)
+            }
         CalendarMode.NewEvent -> NewEventPane(state, repository, onRefresh, onRequestPermissions)
         CalendarMode.Detail -> DetailPane(state)
         CalendarMode.Edit -> EditPane(state, repository, onRefresh)
     }
 }
 
+/** Wide enough (the Q25's ~597 dp) for the agenda and the event detail side by side. */
+private const val SPLIT_MIN_WIDTH_DP = 520
+
 @Composable
 private fun AgendaPane(state: CalendarAppState) {
+    val split = LocalConfiguration.current.screenWidthDp >= SPLIT_MIN_WIDTH_DP
     ApprovedCalendarLanding(
         selectedDate = state.selectedDate,
         events = state.events,
+        selected = state.openEvent,
         onSelectDate = { state.selectedDate = it },
-        onOpenMonth = { state.mode = CalendarMode.Month },
+        onOpenMonth = { state.view = CalendarView.Month },
         onNewEvent = state::startNewEvent,
         onOpenEvent = state::openDetail,
+        onFocusEvent = state::select,
         onEditEvent = state::openEditor,
         onDeleteEvent = { event ->
             state.askDelete(event.id, event.title, event.recurring, event.canModify)
         },
+        sidePane =
+            if (split) {
+                { AgendaDetailPreview(state.openEvent, state.detail) }
+            } else {
+                null
+            },
     )
+    KeyDock()
 }
 
 @Composable
 private fun MonthPane(state: CalendarAppState) {
-    BackToAgenda { state.mode = CalendarMode.Agenda }
+    BackToAgenda { state.view = CalendarView.Agenda }
     MonthView(
         month = YearMonth.from(state.selectedDate),
         selectedDate = state.selectedDate,
         onSelectDate = { date ->
             state.selectedDate = date
-            state.mode = CalendarMode.Agenda
+            state.view = CalendarView.Agenda
         },
     )
+    KeyDock()
 }
 
 @Composable
@@ -507,12 +636,15 @@ private fun LoadingLine() {
 private fun ApprovedCalendarLanding(
     selectedDate: LocalDate,
     events: List<CalendarEvent>,
+    selected: CalendarEvent?,
     onSelectDate: (LocalDate) -> Unit,
     onOpenMonth: () -> Unit,
     onNewEvent: () -> Unit,
     onOpenEvent: (CalendarEvent) -> Unit,
+    onFocusEvent: (CalendarEvent) -> Unit,
     onEditEvent: (CalendarEvent) -> Unit,
     onDeleteEvent: (CalendarEvent) -> Unit,
+    sidePane: (@Composable () -> Unit)?,
 ) {
     Row(
         modifier =
@@ -553,30 +685,46 @@ private fun ApprovedCalendarLanding(
     )
     Spacer(Modifier.height(4.dp))
 
-    if (events.isEmpty()) {
-        Text(
-            text = "nothing scheduled",
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(18.dp))
-    } else {
-        events.forEach { event ->
-            AgendaEventRow(
-                event = event,
-                onOpen = { onOpenEvent(event) },
-                onEdit = { onEditEvent(event) },
-                onDelete = { onDeleteEvent(event) },
+    val list: @Composable () -> Unit = {
+        if (events.isEmpty()) {
+            Text(
+                text = "nothing scheduled",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Spacer(Modifier.height(18.dp))
+        } else {
+            events.forEach { event ->
+                AgendaEventRow(
+                    event = event,
+                    selected = selected?.id == event.id && selected.startMillis == event.startMillis,
+                    onOpen = { onOpenEvent(event) },
+                    onFocus = { onFocusEvent(event) },
+                    onEdit = { onEditEvent(event) },
+                    onDelete = { onDeleteEvent(event) },
+                )
+            }
+            Spacer(Modifier.height(14.dp))
         }
-        Spacer(Modifier.height(14.dp))
-    }
 
-    SableActionButton(
-        text = "+  new event",
-        primary = false,
-        onClick = onNewEvent,
-    )
+        SableActionButton(
+            text = "+  new event  (C)",
+            primary = false,
+            onClick = onNewEvent,
+        )
+    }
+    if (sidePane == null) {
+        list()
+    } else {
+        // Design panel 4: the agenda on the left, the selected event's detail on the right.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(SableSpacing.Md),
+        ) {
+            Column(Modifier.weight(1f)) { list() }
+            Column(Modifier.weight(1f)) { sidePane() }
+        }
+    }
 }
 
 @Composable
@@ -668,11 +816,13 @@ private fun CalendarWeekStrip(
     }
 }
 
-/** Agenda row: Enter opens the event, E edits, Del asks to delete. */
+/** Agenda row: Enter opens the event, E edits, Del asks to delete; focus (or J/K) selects it. */
 @Composable
 private fun AgendaEventRow(
     event: CalendarEvent,
+    selected: Boolean,
     onOpen: () -> Unit,
+    onFocus: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -691,10 +841,15 @@ private fun AgendaEventRow(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = 64.dp)
+                .border(
+                    if (selected) 2.dp else 0.dp,
+                    if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                    RoundedCornerShape(8.dp),
+                ).onFocusChanged { if (it.isFocused) onFocus() }
                 .calendarKeys(onEdit = onEdit, onDelete = onDelete)
                 .sableFocusRing()
                 .clickable(onClick = onOpen)
-                .padding(vertical = 8.dp),
+                .padding(vertical = 8.dp, horizontal = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -1142,6 +1297,278 @@ private fun PermissionPanel(onRequestPermissions: () -> Unit) {
                 text = "Review access",
                 onClick = onRequestPermissions,
             )
+        }
+    }
+}
+
+/** Key hints under the browsing views (design: "[C Create] [T Today] [V View] [J/K Event]"). */
+@Composable
+private fun KeyDock() {
+    Spacer(Modifier.height(SableSpacing.Md))
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(8.dp),
+    ) {
+        Text(
+            text = CalendarScreenKeys.DOCK,
+            modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Sm),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** The agenda's right pane: the selected event, read-only; Enter on its row opens the full detail. */
+@Composable
+private fun AgendaDetailPreview(
+    event: CalendarEvent?,
+    detail: CalendarEventDetail?,
+) {
+    val context = LocalContext.current
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(8.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(SableSpacing.Md),
+            verticalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+        ) {
+            Text(
+                text = "DETAIL",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            when {
+                event == null ->
+                    Text(
+                        text = "No event selected. J/K move through the day.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
+                detail == null || detail.id != event.id -> LoadingLine()
+
+                else -> {
+                    Text(text = detail.title, style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        text = eventWhen(context, detail),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        text = if (detail.recurring) detail.calendarName + " · repeats" else detail.calendarName,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    if (detail.location.isNotEmpty()) {
+                        Text(text = detail.location, style = MaterialTheme.typography.bodyMedium)
+                    }
+                    if (detail.attendees.isNotEmpty()) {
+                        val accepted = detail.attendees.count { it.status == "accepted" }
+                        Text(
+                            text = "${detail.attendees.size} guests · $accepted accepted",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        text = if (detail.canModify) "Enter open · E edit · Del delete" else "Read-only calendar",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+private const val NOW_TICK_MS = 60_000L
+private val nowLineColor = Color(0xFFFF6978)
+private val hourHeight = 44.dp
+private val timeColumnWidth = 44.dp
+private val minBlockHeight = 22.dp
+
+/**
+ * Week view (design panel 3, "Calendar 5-column now view"): five day columns over the hours that
+ * matter, events as blocks, a NOW line across today, and the selected event under the grid.
+ * Tap or Enter on a block selects it, again opens it; J/K step through the week's events.
+ */
+@Composable
+private fun WeekPane(state: CalendarAppState) {
+    val zone = ZoneId.systemDefault()
+    val now by produceState(LocalDateTime.now()) {
+        while (true) {
+            delay(NOW_TICK_MS)
+            value = LocalDateTime.now()
+        }
+    }
+    val days = WeekLayout.days(state.selectedDate)
+    val hours = WeekLayout.hours(days, state.events, now, zone)
+    val blocks = WeekLayout.blocks(days, state.events, hours, zone)
+    val nowLine = WeekLayout.nowLine(days, hours, now)
+    val gridHeight = hourHeight * (hours.last - hours.first)
+    val selected = state.openEvent
+
+    Text(text = WeekLayout.title(days), style = MaterialTheme.typography.titleLarge)
+    Spacer(Modifier.height(SableSpacing.Sm))
+    state.events.filter { it.allDay }.forEach { event ->
+        Text(
+            text = "All day · " + event.title,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+    Row(Modifier.fillMaxWidth()) {
+        Spacer(Modifier.width(timeColumnWidth))
+        days.forEach { day ->
+            Text(
+                text = WeekLayout.columnLabel(day),
+                modifier = Modifier.weight(1f).clickable { state.selectedDate = day }.padding(vertical = 4.dp),
+                style = MaterialTheme.typography.labelLarge,
+                color =
+                    if (day == state.selectedDate) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+            )
+        }
+    }
+    Box(Modifier.fillMaxWidth().height(gridHeight)) {
+        Row(Modifier.fillMaxSize()) {
+            Box(Modifier.width(timeColumnWidth).fillMaxHeight()) {
+                for (hour in hours.first until hours.last) {
+                    Text(
+                        text = "%02d:00".format(Locale.ROOT, hour),
+                        modifier = Modifier.offset(y = hourHeight * (hour - hours.first)),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            days.forEachIndexed { column, _ ->
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
+                ) {
+                    blocks.filter { it.column == column }.forEach { block ->
+                        WeekEventBlock(
+                            block = block,
+                            gridHeight = gridHeight,
+                            selected = selected?.id == block.event.id && selected.startMillis == block.event.startMillis,
+                            onClick = {
+                                if (selected == block.event) state.openDetail(block.event) else state.select(block.event)
+                            },
+                        )
+                    }
+                }
+            }
+        }
+        nowLine?.let { y ->
+            Box(
+                Modifier
+                    .offset(y = gridHeight * y)
+                    .fillMaxWidth()
+                    .height(2.dp)
+                    .background(nowLineColor),
+            )
+            Text(
+                text = "NOW",
+                modifier = Modifier.offset(x = timeColumnWidth, y = gridHeight * y - 16.dp),
+                style = MaterialTheme.typography.labelSmall,
+                color = nowLineColor,
+            )
+        }
+    }
+    Spacer(Modifier.height(SableSpacing.Sm))
+    WeekSelection(state)
+    KeyDock()
+}
+
+@Composable
+private fun WeekEventBlock(
+    block: WeekBlock,
+    gridHeight: androidx.compose.ui.unit.Dp,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val shape = RoundedCornerShape(6.dp)
+    val height = maxOf(gridHeight * (block.bottom - block.top), minBlockHeight)
+    Box(
+        Modifier
+            .offset(y = gridHeight * block.top)
+            .padding(horizontal = 2.dp)
+            .fillMaxWidth()
+            .height(height)
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
+            .border(if (selected) 2.dp else 1.dp, MaterialTheme.colorScheme.primary, shape)
+            .sableFocusRing()
+            .clickable(onClick = onClick)
+            .padding(4.dp),
+    ) {
+        Text(
+            text = block.event.title,
+            style = MaterialTheme.typography.labelMedium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+/** "Selected: Mon 10:00-11:30", title and calendar, with the keys that act on it. */
+@Composable
+private fun WeekSelection(state: CalendarAppState) {
+    val event = state.openEvent
+    val context = LocalContext.current
+    Surface(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .calendarKeys(
+                    onEdit = { event?.let(state::openEditor) },
+                    onDelete = { event?.let { state.askDelete(it.id, it.title, it.recurring, it.canModify) } },
+                ).sableFocusRing()
+                .clickable(enabled = event != null) { event?.let(state::openDetail) },
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(8.dp),
+    ) {
+        Column(Modifier.padding(SableSpacing.Md)) {
+            if (event == null) {
+                Text(
+                    text = "No event this week. C creates one.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                val time =
+                    if (event.allDay) {
+                        "all day"
+                    } else {
+                        DateUtils.formatDateRange(
+                            context,
+                            event.startMillis,
+                            event.endMillis,
+                            DateUtils.FORMAT_SHOW_WEEKDAY or DateUtils.FORMAT_ABBREV_WEEKDAY or DateUtils.FORMAT_SHOW_TIME,
+                        )
+                    }
+                Text(text = "Selected: $time", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    text = event.title + " · " + event.calendarName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = "[Enter] open  [E] edit  [Del] delete  [T] today",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
         }
     }
 }
