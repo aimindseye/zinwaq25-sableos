@@ -206,6 +206,23 @@ else
 fi
 stagerun Q1 >/dev/null || fail "stage Q1 after the 50 MP checks: $(cat "$tmp/err")"
 
+# 6b3. Sable lock screen needs the legacy keyguard: the build fails when SystemUI's
+# scene_container flag is enabled (or missing) in the built aconfig store.
+(
+    # shellcheck source=build/lib/common.sh
+    source build/lib/common.sh
+    printf 'com.android.systemui.foo=ENABLED\ncom.android.systemui.scene_container=DISABLED\n' |
+        sable_check_scene_container_off 2>/dev/null || exit 1
+    printf 'com.android.systemui.scene_container=ENABLED\n' |
+        sable_check_scene_container_off 2>/dev/null && exit 1
+    printf 'com.android.systemui.scene_container=true\n' |
+        sable_check_scene_container_off 2>/dev/null && exit 1
+    printf 'com.android.systemui.other=DISABLED\n' |
+        sable_check_scene_container_off 2>/dev/null && exit 1
+    grep -q 'sable_check_scene_container_off' scripts/build.sh || exit 1
+    exit 0
+) && pass "scene_container build check" || fail "scene_container build check"
+
 # 6c. The real framework patches are well-formed git patches.
 bad=""
 while IFS= read -r -d '' p; do

@@ -57,6 +57,25 @@ if [[ "$status" != 0 ]]; then
     write_marker FAIL
     sable_fail "build failed (exit $status); see $log"
 fi
+# Sable lock screen: fail the build when SystemUI's scene container is on
+# (sable_check_scene_container_off). The flag lives in the system aconfig store.
+if sable_release_has_framework_layer "$RELEASE"; then
+    out_dir="$SABLE_ANDROID_ROOT/out/target/product/$SABLE_Q25_DEVICE"
+    aconfig_bin="$SABLE_ANDROID_ROOT/out/host/linux-x86/bin/aconfig"
+    flags_pb="$out_dir/system/etc/aconfig_flags.pb"
+    [[ -x "$aconfig_bin" && -f "$flags_pb" ]] || {
+        write_marker FAIL
+        sable_fail "cannot check scene_container: missing $aconfig_bin or $flags_pb"
+    }
+    if ! { "$aconfig_bin" dump-cache --dedup --format='{fully_qualified_name}={state}' \
+            --cache "$flags_pb" 2>/dev/null ||
+        "$aconfig_bin" dump --dedup --format='{fully_qualified_name}={state}' \
+            --cache "$flags_pb"; } | sable_check_scene_container_off; then
+        write_marker FAIL
+        sable_fail "SystemUI scene_container is enabled or unreadable; the Sable lock screen (frameworks/base 0304-0307) needs the legacy keyguard"
+    fi
+    sable_log "scene_container is off: legacy keyguard, Sable lock screen active"
+fi
 write_marker PASS
 
 echo "BUILD=PASS"
