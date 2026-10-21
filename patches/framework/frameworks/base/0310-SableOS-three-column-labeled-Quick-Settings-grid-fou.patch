@@ -1,0 +1,201 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 17 Oct 2026 08:41:55 +0000
+Subject: [PATCH] SableOS: three-column labeled Quick Settings grid, four-tile
+ compact row
+
+The Titan 2 Quick Settings artifact shows the expanded controls as three
+columns of small square tiles, each named under its icon, and the compact
+shade as one row of four small tiles. Upstream compose QS uses one
+column count for both and draws small tiles icon-only, which is why the
+Q25 used two large columns before.
+
+* config_sableQuickQsNumColumns (default 0 = the grid's count) gives the
+  compact row its own column count, read by
+  QuickQuickSettingsRowRepository and used by QuickQuickSettingsViewModel
+  unless media shares the row.
+* config_sableQsSmallTileLabels (default false) makes a small tile show
+  its label under a 24dp icon (SableLabeledSmallTileContent). The label
+  is decoration; the tile's semantics already carry name and state.
+
+Defaults keep upstream behaviour; SableSystemUIOverlay sets 4 and true
+and the grid column count to 3. Keys from 0303 (Space, Alt+Enter) are
+unchanged.
+---
+ .../SystemUI/res/values/sable_qs_config.xml   | 13 +++++++
+ .../QuickQuickSettingsRowRepository.kt        |  9 +++++
+ .../QuickQuickSettingsRowInteractor.kt        |  3 ++
+ .../ui/compose/infinitegrid/CommonTile.kt     | 38 +++++++++++++++++++
+ .../qs/panels/ui/compose/infinitegrid/Tile.kt | 13 ++++++-
+ .../viewmodel/QuickQuickSettingsViewModel.kt  | 16 +++++++-
+ 6 files changed, 90 insertions(+), 2 deletions(-)
+ create mode 100644 packages/SystemUI/res/values/sable_qs_config.xml
+
+diff --git a/packages/SystemUI/res/values/sable_qs_config.xml b/packages/SystemUI/res/values/sable_qs_config.xml
+new file mode 100644
+index 00000000..6ff75bb1
+--- /dev/null
++++ b/packages/SystemUI/res/values/sable_qs_config.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++  ~ SableOS Quick Settings layout switches (sable-quick-settings-titan2). The defaults keep
++  ~ upstream behaviour; the SableSystemUIOverlay sets the Sable values.
++  -->
++<resources>
++    <!-- Tiles in the compact (QQS) row. 0 uses quick_settings_infinite_grid_num_columns.
++         Sable: 4 small tiles over a 3-column expanded grid. -->
++    <integer name="config_sableQuickQsNumColumns">0</integer>
++    <!-- Small (one-column) tiles show their label under the icon. Sable: true, so the
++         three-column grid of small tiles is labeled like the artifact. -->
++    <bool name="config_sableQsSmallTileLabels">false</bool>
++</resources>
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/data/repository/QuickQuickSettingsRowRepository.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/data/repository/QuickQuickSettingsRowRepository.kt
+index 636f703a..fe773601 100644
+--- a/packages/SystemUI/src/com/android/systemui/qs/panels/data/repository/QuickQuickSettingsRowRepository.kt
++++ b/packages/SystemUI/src/com/android/systemui/qs/panels/data/repository/QuickQuickSettingsRowRepository.kt
+@@ -36,4 +36,13 @@ constructor(
+         configurationRepository.onConfigurationChange.emitOnStart().map {
+             resources.getInteger(R.integer.quick_qs_paginated_grid_num_rows)
+         }
++
++    /**
++     * Sable: tiles in the compact (QQS) row. 0 keeps the Quick Settings grid's column count; Sable
++     * sets 4 so the compact shade shows four small tiles over a three-column expanded grid.
++     */
++    val sableColumns =
++        configurationRepository.onConfigurationChange.emitOnStart().map {
++            resources.getInteger(R.integer.config_sableQuickQsNumColumns)
++        }
+ }
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/domain/interactor/QuickQuickSettingsRowInteractor.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/domain/interactor/QuickQuickSettingsRowInteractor.kt
+index 5f001df7..2682ef18 100644
+--- a/packages/SystemUI/src/com/android/systemui/qs/panels/domain/interactor/QuickQuickSettingsRowInteractor.kt
++++ b/packages/SystemUI/src/com/android/systemui/qs/panels/domain/interactor/QuickQuickSettingsRowInteractor.kt
+@@ -28,5 +28,8 @@ constructor(
+ ) {
+     val rows = quickQuickSettingsRowRepository.rows
+ 
++    /** Sable: compact-row column count, 0 = the grid's count. */
++    val sableColumns = quickQuickSettingsRowRepository.sableColumns
++
+     val defaultRows = 2
+ }
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/CommonTile.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/CommonTile.kt
+index f01c47a2..7f924385 100644
+--- a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/CommonTile.kt
++++ b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/CommonTile.kt
+@@ -83,6 +83,7 @@ import androidx.compose.ui.semantics.semantics
+ import androidx.compose.ui.semantics.stateDescription
+ import androidx.compose.ui.semantics.toggleableState
+ import androidx.compose.ui.text.TextStyle
++import androidx.compose.ui.text.style.TextAlign
+ import androidx.compose.ui.unit.Dp
+ import androidx.compose.ui.unit.LayoutDirection
+ import androidx.compose.ui.unit.dp
+@@ -197,6 +198,41 @@ fun LargeTileContent(
+     }
+ }
+ 
++/**
++ * Sable (sable-quick-settings-titan2): a small tile of the three-column grid names itself under its
++ * icon, so every tile is labeled without the two-column large tiles. The icon is
++ * [CommonTileDefaults.SableLabeledIconSize] to leave one line of text inside [TileHeight]. The
++ * label is decoration: the tile's own semantics already carry its name and state.
++ */
++@Composable
++fun SableLabeledSmallTileContent(
++    label: String,
++    iconProvider: Context.() -> Icon,
++    colors: TileColors,
++    modifier: Modifier = Modifier,
++    isVisible: () -> Boolean = { true },
++) {
++    val animatedLabelColor by animateColorAsState(colors.label, label = "QSTileLabelColor")
++    Column(
++        verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
++        horizontalAlignment = Alignment.CenterHorizontally,
++        modifier = modifier.fillMaxWidth().fillMaxHeight().padding(horizontal = 6.dp),
++    ) {
++        SmallTileContent(
++            iconProvider = iconProvider,
++            color = colors.icon,
++            size = { CommonTileDefaults.SableLabeledIconSize },
++        )
++        TileLabel(
++            text = label,
++            color = { animatedLabelColor },
++            style = MaterialTheme.typography.labelMedium.copy(textAlign = TextAlign.Center),
++            isVisible = isVisible,
++            modifier = Modifier.clearAndSetSemantics {},
++        )
++    }
++}
++
+ @OptIn(ExperimentalMaterial3ExpressiveApi::class)
+ @Composable
+ fun LargeTileLabels(
+@@ -413,6 +449,8 @@ object TileBounceMotionTestKeys {
+ object CommonTileDefaults {
+     val IconSize = 32.dp
+     val LargeTileIconSize = 28.dp
++    /** Sable: icon of a labeled small tile (icon over label). */
++    val SableLabeledIconSize = 24.dp
+     val SideIconWidth = 32.dp
+     val SideIconHeight = 20.dp
+     val ChevronSize = 14.dp
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt
+index a586e056..3627457a 100644
+--- a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt
++++ b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt
+@@ -326,7 +326,18 @@ fun ContentScope.Tile(
+                     ),
+             ) {
+                 val iconProvider: Context.() -> Icon = { getTileIcon(icon = icon) }
+-                if (iconOnly) {
++                if (iconOnly && resources.getBoolean(R.bool.config_sableQsSmallTileLabels)) {
++                    SableLabeledSmallTileContent(
++                        label = uiState.label,
++                        iconProvider = iconProvider,
++                        colors = colors,
++                        isVisible = isVisible,
++                        modifier =
++                            Modifier.align(Alignment.Center).bounceScale {
++                                contentBounceable.iconBounceScale
++                            },
++                    )
++                } else if (iconOnly) {
+                     SmallTileContent(
+                         iconProvider = iconProvider,
+                         color = colors.icon,
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/viewmodel/QuickQuickSettingsViewModel.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/viewmodel/QuickQuickSettingsViewModel.kt
+index 55155108..ad7efb47 100644
+--- a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/viewmodel/QuickQuickSettingsViewModel.kt
++++ b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/viewmodel/QuickQuickSettingsViewModel.kt
+@@ -54,8 +54,22 @@ constructor(
+     private val mediaInRowViewModel =
+         mediaInRowInLandscapeViewModelFactory.create(LOCATION_QQS, mediaUiBehavior)
+ 
++    private val sableColumns by
++        hydrator.hydratedStateOf(
++            traceName = "sableColumns",
++            initialValue = 0,
++            source = quickQuickSettingsRowInteractor.sableColumns,
++        )
++
++    // Sable: the compact row may have its own column count (config_sableQuickQsNumColumns). Media
++    // in a row keeps upstream's halved grid.
+     val columns: Int
+-        get() = qsColumnsViewModel.columns
++        get() =
++            if (sableColumns > 0 && !mediaInRowViewModel.shouldMediaShowInRow) {
++                sableColumns
++            } else {
++                qsColumnsViewModel.columns
++            }
+ 
+     private val largeTiles by
+         hydrator.hydratedStateOf(traceName = "largeTiles", source = iconTilesViewModel.largeTiles)
+-- 
+2.43.0
+

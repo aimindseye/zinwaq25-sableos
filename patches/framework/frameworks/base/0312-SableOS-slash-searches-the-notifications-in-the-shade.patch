@@ -1,0 +1,710 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 21 Oct 2026 13:05:50 +0000
+Subject: [PATCH] SableOS: "/" searches the notifications in the shade
+
+QUICK_SETTINGS_NOTIFICATION_SHADE_UX: "/ search notifications". In the
+unlocked shade, open on its notifications, "/" from a physical keyboard
+(on the Q25 an Alt or Sym key) starts a search:
+
+* Printable keys extend the query, Backspace shortens it (a held
+  Backspace never reaches a notification row), Enter keeps the filter
+  and hands the keys back to the rows, Down/Tab keep it and move focus,
+  Esc or Back clear it. With a kept filter "/" edits it, Esc/Back clear.
+  Ctrl and Meta chords, software keyboards and a focused text field
+  (inline reply) are left alone. Pure policy shade/sable/SableShadeSearch.
+* SableShadeSearchKeys runs pre-IME in SysUIKeyEventHandler (the shade
+  window root tells it whether a text editor has focus), before the
+  focused row, so query letters never trigger the 0301 row commands.
+* SableShadeCoordinator adds a final filter: a notification stays when
+  every word of the query (case and accents ignored) is in its app name,
+  title, text, big text, sub, summary or conversation title; a group
+  summary stays while a child matches; a sensitive (content hidden)
+  notification matches on its app name only. The Hub priority count is
+  frozen while a search filters.
+* The query exists only while the unlocked shade is open: closing or
+  locking the shade clears it (QSFragmentCompose feeds
+  SableShadeState.onShadeChanged), expanding Quick Settings stops
+  typing. The compact shade shows the query in a live-region line.
+---
+ .../interactor/SysUIKeyEventHandlerTest.kt    |   5 +
+ .../res/values/sable_shade_strings.xml        |   8 +-
+ .../domain/interactor/SysUIKeyEventHandler.kt |  13 +-
+ .../qs/composefragment/QSFragmentCompose.kt   |  18 ++
+ .../qs/composefragment/ui/SableShadeExtras.kt |  32 ++++
+ .../systemui/scene/ui/view/WindowRootView.kt  |   4 +-
+ .../ui/view/WindowRootViewKeyEventHandler.kt  |   4 +-
+ .../shade/sable/SableShadeSearch.java         | 165 ++++++++++++++++++
+ .../shade/sable/SableShadeSearchKeys.kt       | 101 +++++++++++
+ .../systemui/shade/sable/SableShadeState.kt   |  52 ++++++
+ .../coordinator/SableShadeCoordinator.kt      |  79 ++++++++-
+ 11 files changed, 473 insertions(+), 8 deletions(-)
+ create mode 100644 packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeSearch.java
+ create mode 100644 packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeSearchKeys.kt
+
+diff --git a/packages/SystemUI/multivalentTests/src/com/android/systemui/keyevent/domain/interactor/SysUIKeyEventHandlerTest.kt b/packages/SystemUI/multivalentTests/src/com/android/systemui/keyevent/domain/interactor/SysUIKeyEventHandlerTest.kt
+index af00a48d..cd31d51e 100644
+--- a/packages/SystemUI/multivalentTests/src/com/android/systemui/keyevent/domain/interactor/SysUIKeyEventHandlerTest.kt
++++ b/packages/SystemUI/multivalentTests/src/com/android/systemui/keyevent/domain/interactor/SysUIKeyEventHandlerTest.kt
+@@ -23,6 +23,9 @@ import com.android.systemui.SysuiTestCase
+ import com.android.systemui.back.domain.interactor.BackActionInteractor
+ import com.android.systemui.keyguard.domain.interactor.KeyguardInteractorFactory
+ import com.android.systemui.keyguard.domain.interactor.KeyguardKeyEventInteractor
++import com.android.systemui.plugins.statusbar.StatusBarStateController
++import com.android.systemui.shade.sable.SableShadeSearchKeys
++import com.android.systemui.shade.sable.SableShadeState
+ import com.android.systemui.util.mockito.eq
+ import com.android.systemui.util.mockito.whenever
+ import com.google.common.truth.Truth.assertThat
+@@ -44,6 +47,7 @@ class SysUIKeyEventHandlerTest : SysuiTestCase() {
+         KeyguardInteractorFactory.WithDependencies
+     @Mock private lateinit var keyguardKeyEventInteractor: KeyguardKeyEventInteractor
+     @Mock private lateinit var backActionInteractor: BackActionInteractor
++    @Mock private lateinit var statusBarStateController: StatusBarStateController
+ 
+     private lateinit var underTest: SysUIKeyEventHandler
+ 
+@@ -54,6 +58,7 @@ class SysUIKeyEventHandlerTest : SysuiTestCase() {
+             SysUIKeyEventHandler(
+                 backActionInteractor,
+                 keyguardKeyEventInteractor,
++                SableShadeSearchKeys(SableShadeState(), statusBarStateController),
+             )
+     }
+ 
+diff --git a/packages/SystemUI/res/values/sable_shade_strings.xml b/packages/SystemUI/res/values/sable_shade_strings.xml
+index 2048e13f..5b936611 100644
+--- a/packages/SystemUI/res/values/sable_shade_strings.xml
++++ b/packages/SystemUI/res/values/sable_shade_strings.xml
+@@ -35,7 +35,13 @@
+     <!-- Accessibility action of the Hub summary row. -->
+     <string name="sable_hub_summary_action">open Sable Hub</string>
+     <!-- Keyboard hint line under the compact shade (Q25: Alt replaces Fn). -->
+-    <string name="sable_qs_key_hint">Alt+Down expand · ↑↓ focus · Space toggle · Alt+Enter details</string>
++    <string name="sable_qs_key_hint">Alt+Down expand · ↑↓ focus · Space toggle · Alt+Enter details · / search</string>
+     <!-- Keyboard hint line in the expanded Quick Settings. -->
+     <string name="sable_qs_key_hint_expanded">Alt+Up back · ↑↓←→ focus · Space toggle · Alt+Enter details</string>
++    <!-- "/" notification search, typing with an empty query. -->
++    <string name="sable_shade_search_empty">Search notifications · type to filter · Esc cancels</string>
++    <!-- "/" notification search, typing: "Search: mom▏ · Enter keeps · Esc clears". -->
++    <string name="sable_shade_search_typing">Search: <xliff:g id="query" example="mom">%s</xliff:g>▏ · Enter keeps · Esc clears</string>
++    <!-- "/" notification search, filter kept. -->
++    <string name="sable_shade_search_kept">Filter: <xliff:g id="query" example="mom">%s</xliff:g> · / edits · Esc clears</string>
+ </resources>
+diff --git a/packages/SystemUI/src/com/android/systemui/keyevent/domain/interactor/SysUIKeyEventHandler.kt b/packages/SystemUI/src/com/android/systemui/keyevent/domain/interactor/SysUIKeyEventHandler.kt
+index 25ae6a50..998c1d71 100644
+--- a/packages/SystemUI/src/com/android/systemui/keyevent/domain/interactor/SysUIKeyEventHandler.kt
++++ b/packages/SystemUI/src/com/android/systemui/keyevent/domain/interactor/SysUIKeyEventHandler.kt
+@@ -20,6 +20,7 @@ import android.view.KeyEvent
+ import com.android.systemui.back.domain.interactor.BackActionInteractor
+ import com.android.systemui.dagger.SysUISingleton
+ import com.android.systemui.keyguard.domain.interactor.KeyguardKeyEventInteractor
++import com.android.systemui.shade.sable.SableShadeSearchKeys
+ import javax.inject.Inject
+ 
+ /**
+@@ -34,6 +35,7 @@ class SysUIKeyEventHandler
+ constructor(
+     private val backActionInteractor: BackActionInteractor,
+     private val keyguardKeyEventInteractor: KeyguardKeyEventInteractor,
++    private val sableShadeSearchKeys: SableShadeSearchKeys,
+ ) {
+     fun dispatchKeyEvent(event: KeyEvent): Boolean {
+         if (keyguardKeyEventInteractor.dispatchKeyEvent(event)) {
+@@ -55,7 +57,16 @@ constructor(
+         return keyguardKeyEventInteractor.interceptMediaKey(event)
+     }
+ 
+-    fun dispatchKeyEventPreIme(event: KeyEvent): Boolean {
++    /**
++     * @param textInputFocused whether a text editor (an inline reply) has focus in the window, so
++     *   Sable's "/" notification search leaves its keys alone.
++     */
++    fun dispatchKeyEventPreIme(event: KeyEvent, textInputFocused: Boolean = false): Boolean {
++        // Sable: "/" searches the shade's notifications; while typing, keys go into the query
++        // before the focused notification row sees them (SableShadeSearch).
++        if (sableShadeSearchKeys.dispatchKeyEventPreIme(event, textInputFocused)) {
++            return true
++        }
+         // Sable: Alt+Up steps the open shade back one level (Quick Settings to notifications, then
+         // closed), exactly like Back. It is the design's Fn+Up on keyboards without Fn (Q25).
+         // Pre-IME, so focus navigation inside the shade never takes it first. The shade window
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt b/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt
+index 3d77b76f..1e0da996 100644
+--- a/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt
++++ b/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt
+@@ -148,6 +148,7 @@ import com.android.systemui.qs.composefragment.ui.NotificationScrimClipParams
+ import com.android.systemui.qs.composefragment.ui.SableHubSummaryRow
+ import com.android.systemui.qs.composefragment.ui.SableShadeHeader
+ import com.android.systemui.qs.composefragment.ui.SableShadeKeyHint
++import com.android.systemui.qs.composefragment.ui.SableShadeSearchLine
+ import com.android.systemui.qs.composefragment.ui.quickQuickSettingsToQuickSettings
+ import com.android.systemui.qs.composefragment.ui.toEditMode
+ import com.android.systemui.qs.composefragment.viewmodel.QSFragmentComposeViewModel
+@@ -237,6 +238,20 @@ constructor(
+ 
+         setListenerCollections()
+         lifecycleScope.launch { viewModel.activate() }
++        // Sable: "/" notification search exists only while the unlocked shade is open on its
++        // notifications; closing or locking clears it, expanding Quick Settings stops typing.
++        lifecycleScope.launch {
++            snapshotFlow {
++                    Triple(
++                        viewModel.isQsVisibleAndAnyShadeExpanded,
++                        viewModel.statusBarState != StatusBarState.SHADE,
++                        !viewModel.isQsFullyCollapsed,
++                    )
++                }
++                .collect { (open, locked, qsExpanded) ->
++                    sableShadeState.onShadeChanged(open, locked, qsExpanded)
++                }
++        }
+     }
+ 
+     override fun onCreateView(
+@@ -860,6 +875,9 @@ constructor(
+             hubInstalled = hubInstalled,
+             onOpenHub = { openSableHub(context) },
+         )
++        val query by sableShadeState.query.collectAsStateWithLifecycle()
++        val typing by sableShadeState.typing.collectAsStateWithLifecycle()
++        SableShadeSearchLine(query = query, typing = typing)
+         SableShadeKeyHint(expanded = false)
+     }
+ 
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/composefragment/ui/SableShadeExtras.kt b/packages/SystemUI/src/com/android/systemui/qs/composefragment/ui/SableShadeExtras.kt
+index c9b48ea4..42a3e681 100644
+--- a/packages/SystemUI/src/com/android/systemui/qs/composefragment/ui/SableShadeExtras.kt
++++ b/packages/SystemUI/src/com/android/systemui/qs/composefragment/ui/SableShadeExtras.kt
+@@ -38,8 +38,10 @@ import androidx.compose.ui.draw.clip
+ import androidx.compose.ui.platform.LocalConfiguration
+ import androidx.compose.ui.platform.LocalContext
+ import androidx.compose.ui.res.stringResource
++import androidx.compose.ui.semantics.LiveRegionMode
+ import androidx.compose.ui.semantics.Role
+ import androidx.compose.ui.semantics.heading
++import androidx.compose.ui.semantics.liveRegion
+ import androidx.compose.ui.semantics.semantics
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.dp
+@@ -156,6 +158,36 @@ fun SableHubSummaryRow(
+     }
+ }
+ 
++/**
++ * The "/" notification search line: what is typed, or the kept filter. Live region, so TalkBack
++ * reads the query as it changes.
++ */
++@Composable
++fun SableShadeSearchLine(query: String, typing: Boolean, modifier: Modifier = Modifier) {
++    if (!typing && query.isEmpty()) return
++    val text =
++        when {
++            typing && query.isEmpty() -> stringResource(R.string.sable_shade_search_empty)
++            typing -> stringResource(R.string.sable_shade_search_typing, query)
++            else -> stringResource(R.string.sable_shade_search_kept, query)
++        }
++    Text(
++        text = text,
++        style = MaterialTheme.typography.labelMedium,
++        color = MaterialTheme.colorScheme.onSurface,
++        maxLines = 1,
++        overflow = TextOverflow.Ellipsis,
++        modifier =
++            modifier
++                .fillMaxWidth()
++                .padding(top = 8.dp)
++                .clip(RoundedCornerShape(SableCardRadius))
++                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
++                .padding(horizontal = 12.dp, vertical = 6.dp)
++                .semantics { liveRegion = LiveRegionMode.Polite },
++    )
++}
++
+ /** One line of the shade's keys, only with a physical keyboard. */
+ @Composable
+ fun SableShadeKeyHint(expanded: Boolean, modifier: Modifier = Modifier) {
+diff --git a/packages/SystemUI/src/com/android/systemui/scene/ui/view/WindowRootView.kt b/packages/SystemUI/src/com/android/systemui/scene/ui/view/WindowRootView.kt
+index fe850ff6..df2d7125 100644
+--- a/packages/SystemUI/src/com/android/systemui/scene/ui/view/WindowRootView.kt
++++ b/packages/SystemUI/src/com/android/systemui/scene/ui/view/WindowRootView.kt
+@@ -153,7 +153,9 @@ open class WindowRootView(context: Context, attrs: AttributeSet?) : FrameLayout(
+     }
+ 
+     override fun dispatchKeyEventPreIme(event: KeyEvent): Boolean {
+-        return windowRootViewKeyEventHandler.dispatchKeyEventPreIme(event) ?: false
++        // Sable: tell the "/" notification search whether a text field (inline reply) has focus.
++        val textInputFocused = findFocus()?.onCheckIsTextEditor() == true
++        return windowRootViewKeyEventHandler.dispatchKeyEventPreIme(event, textInputFocused)
+     }
+ 
+     /** Controller responsible for calculating insets for the shade window. */
+diff --git a/packages/SystemUI/src/com/android/systemui/scene/ui/view/WindowRootViewKeyEventHandler.kt b/packages/SystemUI/src/com/android/systemui/scene/ui/view/WindowRootViewKeyEventHandler.kt
+index 863af92a..61518ef9 100644
+--- a/packages/SystemUI/src/com/android/systemui/scene/ui/view/WindowRootViewKeyEventHandler.kt
++++ b/packages/SystemUI/src/com/android/systemui/scene/ui/view/WindowRootViewKeyEventHandler.kt
+@@ -34,8 +34,8 @@ constructor(
+         return sysUIKeyEventHandlerLazy.get().dispatchKeyEvent(event)
+     }
+ 
+-    fun dispatchKeyEventPreIme(event: KeyEvent): Boolean {
+-        return sysUIKeyEventHandlerLazy.get().dispatchKeyEventPreIme(event)
++    fun dispatchKeyEventPreIme(event: KeyEvent, textInputFocused: Boolean = false): Boolean {
++        return sysUIKeyEventHandlerLazy.get().dispatchKeyEventPreIme(event, textInputFocused)
+     }
+ 
+     fun interceptMediaKey(event: KeyEvent): Boolean {
+diff --git a/packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeSearch.java b/packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeSearch.java
+new file mode 100644
+index 00000000..f8dfe5e0
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeSearch.java
+@@ -0,0 +1,165 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.systemui.shade.sable;
++
++import java.text.Normalizer;
++import java.util.Locale;
++
++/**
++ * Pure policy for "/" notification search in the shade (sable-quick-settings-titan2,
++ * QUICK_SETTINGS_NOTIFICATION_SHADE_UX "/ search notifications").
++ *
++ * <p>"/" (however the keyboard makes it; on the Q25 it is an Alt or Sym key) starts typing a
++ * query; printable keys extend it, Backspace shortens it, Enter keeps the filter and gives the
++ * keys back to the notification rows, Down or Tab do the same and move focus, Esc or Back clear
++ * it. With a kept filter "/" edits it again and Esc or Back clear it. Ctrl and Meta chords are
++ * never taken. The caller decides eligibility: unlocked shade open on notifications, no text
++ * field focused, a physical key.
++ *
++ * <p>Key codes and meta flags are the android.view.KeyEvent values, copied so this class has
++ * no Android dependency.
++ */
++public final class SableShadeSearch {
++    /** Not a search key: let the shade handle it. */
++    public static final int NONE = 0;
++    /** Start (or resume) typing the query. */
++    public static final int START = 1;
++    /** Append the key's character. */
++    public static final int APPEND = 2;
++    /** Delete the last character (clears when the query becomes empty). */
++    public static final int DELETE = 3;
++    /** Clear the query and stop typing. */
++    public static final int CLEAR = 4;
++    /** Stop typing, keep the filter; the key is used. */
++    public static final int COMMIT = 5;
++    /** Stop typing, keep the filter; the key also goes on (focus moves). */
++    public static final int COMMIT_PASS = 6;
++    /** Swallow the key (repeats while typing). */
++    public static final int CONSUME = 7;
++
++    /** Longest query kept. */
++    public static final int MAX_QUERY_LENGTH = 40;
++
++    static final int KEYCODE_BACK = 4;
++    static final int KEYCODE_DPAD_DOWN = 20;
++    static final int KEYCODE_DPAD_CENTER = 23;
++    static final int KEYCODE_TAB = 61;
++    static final int KEYCODE_ENTER = 66;
++    static final int KEYCODE_DEL = 67;
++    static final int KEYCODE_SLASH = 76;
++    static final int KEYCODE_SEARCH = 84;
++    static final int KEYCODE_ESCAPE = 111;
++    static final int KEYCODE_NUMPAD_ENTER = 160;
++    static final int KEYCODE_NUMPAD_DIVIDE = 154;
++    static final int META_CTRL_ON = 0x1000;
++    static final int META_META_ON = 0x10000;
++
++    private SableShadeSearch() {}
++
++    /**
++     * What a key-down does.
++     *
++     * @param unicodeChar the character the key makes with its meta state, 0 when none
++     * @param typing whether the query is being typed
++     * @param filterActive whether a non-empty query filters the shade
++     */
++    public static int decide(int keyCode, int repeatCount, int unicodeChar, int metaState,
++            boolean typing, boolean filterActive) {
++        if ((metaState & (META_CTRL_ON | META_META_ON)) != 0) return NONE;
++        if (!typing) {
++            if (repeatCount == 0 && isSlash(keyCode, unicodeChar)) return START;
++            if (filterActive && (keyCode == KEYCODE_ESCAPE || keyCode == KEYCODE_BACK)) {
++                return repeatCount == 0 ? CLEAR : CONSUME;
++            }
++            return NONE;
++        }
++        switch (keyCode) {
++            case KEYCODE_ESCAPE:
++            case KEYCODE_BACK:
++                return repeatCount == 0 ? CLEAR : CONSUME;
++            case KEYCODE_DEL:
++                return DELETE;
++            case KEYCODE_ENTER:
++            case KEYCODE_NUMPAD_ENTER:
++            case KEYCODE_DPAD_CENTER:
++                return repeatCount == 0 ? COMMIT : CONSUME;
++            case KEYCODE_DPAD_DOWN:
++            case KEYCODE_TAB:
++                return COMMIT_PASS;
++            default:
++                break;
++        }
++        if (isPrintable(unicodeChar)) return repeatCount == 0 ? APPEND : CONSUME;
++        return NONE;
++    }
++
++    /** "/" by character or by key. */
++    static boolean isSlash(int keyCode, int unicodeChar) {
++        if (unicodeChar == '/') return true;
++        if (unicodeChar != 0) return false;
++        return keyCode == KEYCODE_SLASH || keyCode == KEYCODE_SEARCH
++                || keyCode == KEYCODE_NUMPAD_DIVIDE;
++    }
++
++    static boolean isPrintable(int unicodeChar) {
++        return unicodeChar >= 0x20 && unicodeChar != 0x7f && !Character.isISOControl(unicodeChar)
++                && (unicodeChar & 0x80000000) == 0; // not a dead-key accent
++    }
++
++    /** The query with one more character; no leading space, at most {@link #MAX_QUERY_LENGTH}. */
++    public static String append(String query, int unicodeChar) {
++        String q = query == null ? "" : query;
++        if (!isPrintable(unicodeChar)) return q;
++        if (q.isEmpty() && Character.isWhitespace(unicodeChar)) return q;
++        String next = q + new String(Character.toChars(unicodeChar));
++        return next.length() > MAX_QUERY_LENGTH ? q : next;
++    }
++
++    /** The query without its last character (a whole surrogate pair). */
++    public static String deleteLast(String query) {
++        if (query == null || query.isEmpty()) return "";
++        int end = query.offsetByCodePoints(query.length(), -1);
++        return query.substring(0, end);
++    }
++
++    /** Case- and accent-insensitive form used for matching. */
++    public static String fold(CharSequence text) {
++        if (text == null) return "";
++        String decomposed = Normalizer.normalize(text, Normalizer.Form.NFD);
++        return decomposed.replaceAll("\\p{M}+", "").toLowerCase(Locale.ROOT);
++    }
++
++    /**
++     * Whether every word of the query is found in at least one field (case and accents
++     * ignored). An empty or blank query matches everything.
++     */
++    public static boolean matches(String query, CharSequence... fields) {
++        String[] words = fold(query).trim().split("\\s+");
++        if (words.length == 0 || (words.length == 1 && words[0].isEmpty())) return true;
++        StringBuilder all = new StringBuilder();
++        if (fields != null) {
++            for (CharSequence field : fields) {
++                if (field != null) all.append(fold(field)).append('\n');
++            }
++        }
++        String haystack = all.toString();
++        for (String word : words) {
++            if (!word.isEmpty() && !haystack.contains(word)) return false;
++        }
++        return true;
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeSearchKeys.kt b/packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeSearchKeys.kt
+new file mode 100644
+index 00000000..3faa3771
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeSearchKeys.kt
+@@ -0,0 +1,101 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.systemui.shade.sable
++
++import android.view.InputDevice
++import android.view.KeyCharacterMap
++import android.view.KeyEvent
++import com.android.systemui.dagger.SysUISingleton
++import com.android.systemui.plugins.statusbar.StatusBarStateController
++import com.android.systemui.statusbar.StatusBarState
++import javax.inject.Inject
++
++/**
++ * "/" notification search keys for the shade window ([SableShadeSearch]). Runs pre-IME on the
++ * shade window, before the focused notification row, so letters typed into the query never
++ * reach the row's single-key commands (frameworks/base 0301). Never on the keyguard or a locked
++ * shade, never while a text field (inline reply) has focus, never from a software keyboard.
++ */
++@SysUISingleton
++class SableShadeSearchKeys
++@Inject
++constructor(
++    private val state: SableShadeState,
++    private val statusBarStateController: StatusBarStateController,
++) {
++    /** Key codes whose down was used, so their up is swallowed too. */
++    private val usedDowns = mutableSetOf<Int>()
++
++    /** Returns true when the key was used. */
++    fun dispatchKeyEventPreIme(event: KeyEvent, textInputFocused: Boolean): Boolean {
++        if (event.action == KeyEvent.ACTION_UP) {
++            return usedDowns.remove(event.keyCode)
++        }
++        if (event.action != KeyEvent.ACTION_DOWN) return false
++        val eligible =
++            state.searchEligible &&
++                !textInputFocused &&
++                statusBarStateController.state == StatusBarState.SHADE &&
++                event.deviceId != KeyCharacterMap.VIRTUAL_KEYBOARD &&
++                event.isFromSource(InputDevice.SOURCE_KEYBOARD)
++        // Closing or locking the shade clears the search (SableShadeState.onShadeChanged).
++        if (!eligible) return false
++        val unicodeChar = event.getUnicodeChar(event.metaState)
++        val query = state.query.value
++        val used =
++            when (
++                SableShadeSearch.decide(
++                    event.keyCode,
++                    event.repeatCount,
++                    unicodeChar,
++                    event.metaState,
++                    state.typing.value,
++                    query.isNotEmpty(),
++                )
++            ) {
++                SableShadeSearch.START -> {
++                    state.startTyping()
++                    true
++                }
++                SableShadeSearch.APPEND -> {
++                    state.setQuery(SableShadeSearch.append(query, unicodeChar))
++                    true
++                }
++                SableShadeSearch.DELETE -> {
++                    // An empty query keeps typing, so a held Backspace never reaches a row.
++                    state.setQuery(SableShadeSearch.deleteLast(query))
++                    true
++                }
++                SableShadeSearch.CLEAR -> {
++                    state.clear()
++                    true
++                }
++                SableShadeSearch.COMMIT -> {
++                    if (query.isEmpty()) state.clear() else state.commit()
++                    true
++                }
++                SableShadeSearch.COMMIT_PASS -> {
++                    if (query.isEmpty()) state.clear() else state.commit()
++                    false
++                }
++                SableShadeSearch.CONSUME -> true
++                else -> false
++            }
++        if (used) usedDowns += event.keyCode
++        return used
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeState.kt b/packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeState.kt
+index b0ae7e1f..e4ddf175 100644
+--- a/packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeState.kt
++++ b/packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeState.kt
+@@ -37,4 +37,56 @@ class SableShadeState @Inject constructor() {
+     fun setPriorityCount(count: Int) {
+         _priorityCount.value = count
+     }
++
++    private val _query = MutableStateFlow("")
++    private val _typing = MutableStateFlow(false)
++    private val queryListeners = mutableListOf<() -> Unit>()
++
++    /** "/" notification search: the query filtering the shade, empty when none. */
++    val query: StateFlow<String> = _query.asStateFlow()
++
++    /** Whether keys are going into [query] ([SableShadeSearch]). */
++    val typing: StateFlow<Boolean> = _typing.asStateFlow()
++
++    /** Unlocked shade open on its notifications (set by the Quick Settings fragment). */
++    var searchEligible: Boolean = false
++        private set
++
++    /** Called when the filter must be re-applied (the notification pipeline invalidates). */
++    fun addQueryListener(listener: () -> Unit) {
++        queryListeners += listener
++    }
++
++    fun startTyping() {
++        _typing.value = true
++    }
++
++    fun commit() {
++        _typing.value = false
++    }
++
++    fun setQuery(query: String) {
++        if (_query.value == query) return
++        _query.value = query
++        queryListeners.forEach { it() }
++    }
++
++    /** Ends the search and shows every notification again. */
++    fun clear() {
++        _typing.value = false
++        setQuery("")
++    }
++
++    /**
++     * The shade changed. Search is only for an unlocked shade open on its notifications: closing
++     * or locking the shade clears it, expanding Quick Settings stops typing but keeps the filter.
++     */
++    fun onShadeChanged(open: Boolean, locked: Boolean, qsExpanded: Boolean) {
++        searchEligible = open && !locked && !qsExpanded
++        if (!open || locked) {
++            clear()
++        } else if (qsExpanded) {
++            commit()
++        }
++    }
+ }
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/notification/collection/coordinator/SableShadeCoordinator.kt b/packages/SystemUI/src/com/android/systemui/statusbar/notification/collection/coordinator/SableShadeCoordinator.kt
+index 8a211bfd..5522d770 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/notification/collection/coordinator/SableShadeCoordinator.kt
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/notification/collection/coordinator/SableShadeCoordinator.kt
+@@ -16,13 +16,19 @@
+ 
+ package com.android.systemui.statusbar.notification.collection.coordinator
+ 
++import android.app.Notification
++import android.content.Context
++import android.content.pm.PackageManager
++import com.android.systemui.shade.ShadeDisplayAware
+ import com.android.systemui.shade.sable.SableHubSummary
++import com.android.systemui.shade.sable.SableShadeSearch
+ import com.android.systemui.shade.sable.SableShadeState
+ import com.android.systemui.statusbar.notification.collection.GroupEntry
+ import com.android.systemui.statusbar.notification.collection.NotifPipeline
+ import com.android.systemui.statusbar.notification.collection.NotificationEntry
+ import com.android.systemui.statusbar.notification.collection.PipelineEntry
+ import com.android.systemui.statusbar.notification.collection.coordinator.dagger.CoordinatorScope
++import com.android.systemui.statusbar.notification.collection.listbuilder.pluggable.NotifFilter
+ import com.android.systemui.statusbar.notification.stack.BUCKET_ALERTING
+ import com.android.systemui.statusbar.notification.stack.BUCKET_HEADS_UP
+ import com.android.systemui.statusbar.notification.stack.BUCKET_PEOPLE
+@@ -33,17 +39,84 @@ import javax.inject.Inject
+  * Sable shade (sable-quick-settings-titan2): counts the Hub priority items for the shade's Hub
+  * summary row. Counted on the list about to be shown, after the final filters, so a notification
+  * hidden from the lock screen is not counted there either. Only counts; reads no content.
++ *
++ * Also the "/" notification search (SableShadeSearch): while the unlocked shade has a query, a
++ * final filter hides the notifications that do not match it. The query only exists while the
++ * unlocked shade is open (SableShadeState.onShadeChanged), so the lock screen, status bar icons
++ * and heads-up are never filtered for long. A notification whose content is hidden (sensitive,
++ * e.g. a locked work profile) is matched on its app name only.
+  */
+ @CoordinatorScope
+-class SableShadeCoordinator @Inject constructor(private val sableShadeState: SableShadeState) :
+-    Coordinator {
++class SableShadeCoordinator
++@Inject
++constructor(
++    @ShadeDisplayAware private val context: Context,
++    private val sableShadeState: SableShadeState,
++) : Coordinator {
++
++    private val appLabels = HashMap<String, CharSequence>()
++
++    private val searchFilter =
++        object : NotifFilter("SableShadeSearch") {
++            override fun shouldFilterOut(entry: NotificationEntry, now: Long): Boolean {
++                val query = sableShadeState.query.value
++                if (query.isBlank() || matches(entry, query)) return false
++                // A group summary stays while one of its children matches.
++                val parent = entry.parent
++                if (parent is GroupEntry && parent.summary === entry) {
++                    return parent.children.none { matches(it, query) }
++                }
++                return true
++            }
++        }
+ 
+     override fun attach(pipeline: NotifPipeline) {
++        pipeline.addFinalizeFilter(searchFilter)
++        sableShadeState.addQueryListener {
++            if (sableShadeState.query.value.isEmpty()) appLabels.clear()
++            searchFilter.invalidateList("query changed")
++        }
+         pipeline.addOnBeforeRenderListListener { entries ->
+-            sableShadeState.setPriorityCount(countPriority(entries))
++            // While a search filters the list, keep the unfiltered count.
++            if (sableShadeState.query.value.isBlank()) {
++                sableShadeState.setPriorityCount(countPriority(entries))
++            }
+         }
+     }
+ 
++    private fun matches(entry: NotificationEntry, query: String): Boolean {
++        val notification = entry.sbn.notification
++        val appName =
++            notification.extras.getCharSequence(Notification.EXTRA_SUBSTITUTE_APP_NAME)
++                ?: appLabel(entry.sbn.packageName)
++        if (entry.isSensitive().value) return SableShadeSearch.matches(query, appName)
++        val extras = notification.extras
++        return SableShadeSearch.matches(
++            query,
++            appName,
++            extras.getCharSequence(Notification.EXTRA_TITLE),
++            extras.getCharSequence(Notification.EXTRA_TITLE_BIG),
++            extras.getCharSequence(Notification.EXTRA_TEXT),
++            extras.getCharSequence(Notification.EXTRA_BIG_TEXT),
++            extras.getCharSequence(Notification.EXTRA_SUB_TEXT),
++            extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT),
++            extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE),
++        )
++    }
++
++    /** The app's label, cached for one search (cleared when the query empties). */
++    private fun appLabel(packageName: String): CharSequence =
++        appLabels.getOrPut(packageName) {
++            try {
++                val pm = context.packageManager
++                pm.getApplicationLabel(
++                    pm.getApplicationInfo(packageName, PackageManager.MATCH_UNINSTALLED_PACKAGES)
++                )
++            } catch (e: PackageManager.NameNotFoundException) {
++                packageName
++            }
++        }
++
+     private fun countPriority(entries: List<PipelineEntry>): Int {
+         var count = 0
+         for (entry in entries) {
+-- 
+2.43.0
+

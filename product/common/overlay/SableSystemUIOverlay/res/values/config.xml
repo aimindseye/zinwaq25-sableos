@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- SableQuickSettingsTiles.DEFAULT: high-value keyboard-phone controls
-         first (Wi-Fi/mobile data, Bluetooth, dark theme, battery saver, Do Not
-         Disturb, flashlight, location, hotspot, airplane). Keyboard
-         backlight, SubScreen and AOD tiles are profile-gated and never
-         default. Users can still edit the set. -->
+         first. The first four (Wi-Fi/mobile data, Bluetooth, dark theme, Do Not
+         Disturb) are the compact shade row of sable-quick-settings-titan2.
+         SubScreen and AOD tiles are profile-gated and never default; there is
+         no keyboard light tile (the Q25 keyboard firmware ignores host writes;
+         Settings > System > Keyboard explains its own keys). Users can still
+         edit the set. -->
     <string name="quick_settings_tiles_default" translatable="false">
-        internet,bt,dark,battery,dnd,flashlight,location,hotspot,airplane
+        internet,bt,dark,dnd,battery,flashlight,hotspot,location,airplane
     </string>
-    <!-- Compact shade: two rows of tiles. -->
-    <integer name="quick_qs_paginated_grid_num_rows">2</integer>
     <!-- Lock screen clock alignment (frameworks/base patch 0305). The owner's
          approved lock screen design (sable-lockscreen-titan2.svg) centers the
          large clock, so Sable keeps it centered; true moves it to the start
