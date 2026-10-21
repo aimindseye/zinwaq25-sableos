@@ -1,0 +1,927 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 21 Oct 2026 23:11:30 +0000
+Subject: [PATCH] SableOS: Connected devices card hub
+
+CONNECTIVITY_OTG_NFC_CAST_COMPATIBILITY_UX section 1: a card hub at the
+top of Settings > Connected devices with USB / OTG, Bluetooth, NFC and
+Cast cards in two rows. Each card is a focus target (arrows move, Enter
+opens) with the Sable focus look (accent fill and border).
+
+* State comes from Android each time the page resumes: USB (connected
+  to a computer, drives mounted, OTG devices attached), Bluetooth on
+  and connected devices, NFC on, Cast (Wi-Fi Display) available.
+* Cards open Android's own pages: USB preferences when connected to a
+  computer, Storage for USB drives (Files, eject), Bluetooth, NFC and
+  Cast. Hardware the phone lacks says "Not on this phone" and is not
+  focusable. The hub switches nothing itself.
+* Pure model ConnectedHubCards with host tests.
+---
+ res/color/sable_hub_card_focus_fill.xml       |  20 ++
+ res/color/sable_hub_card_outline.xml          |  20 ++
+ res/drawable/sable_hub_card_background.xml    |  40 ++++
+ res/layout/sable_connected_hub.xml            | 157 +++++++++++++
+ res/values/strings_sable_connected_hub.xml    |  41 ++++
+ res/xml/connected_devices.xml                 |   6 +
+ .../sable/model/ConnectedHubCards.java        | 126 ++++++++++
+ .../sable/SableConnectedHubPreference.java    | 109 +++++++++
+ ...SableConnectedHubPreferenceController.java | 218 ++++++++++++++++++
+ .../sable/model/ConnectedHubCardsTest.java    |  82 +++++++
+ 10 files changed, 819 insertions(+)
+ create mode 100644 res/color/sable_hub_card_focus_fill.xml
+ create mode 100644 res/color/sable_hub_card_outline.xml
+ create mode 100644 res/drawable/sable_hub_card_background.xml
+ create mode 100644 res/layout/sable_connected_hub.xml
+ create mode 100644 res/values/strings_sable_connected_hub.xml
+ create mode 100644 src/com/android/settings/applications/sable/model/ConnectedHubCards.java
+ create mode 100644 src/com/android/settings/connecteddevice/sable/SableConnectedHubPreference.java
+ create mode 100644 src/com/android/settings/connecteddevice/sable/SableConnectedHubPreferenceController.java
+ create mode 100644 tests/sable-apps/src/com/android/settings/applications/sable/model/ConnectedHubCardsTest.java
+
+diff --git a/res/color/sable_hub_card_focus_fill.xml b/res/color/sable_hub_card_focus_fill.xml
+new file mode 100644
+index 0000000..b14e476
+--- /dev/null
++++ b/res/color/sable_hub_card_focus_fill.xml
+@@ -0,0 +1,20 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<!-- Connected devices hub card: the Sable focus fill (accent, translucent). -->
++<selector xmlns:android="http://schemas.android.com/apk/res/android">
++    <item android:color="?android:attr/colorAccent" android:alpha="0.28" />
++</selector>
+diff --git a/res/color/sable_hub_card_outline.xml b/res/color/sable_hub_card_outline.xml
+new file mode 100644
+index 0000000..d3d9174
+--- /dev/null
++++ b/res/color/sable_hub_card_outline.xml
+@@ -0,0 +1,20 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<!-- Connected devices hub card outline when not focused. -->
++<selector xmlns:android="http://schemas.android.com/apk/res/android">
++    <item android:color="?android:attr/textColorSecondary" android:alpha="0.4" />
++</selector>
+diff --git a/res/drawable/sable_hub_card_background.xml b/res/drawable/sable_hub_card_background.xml
+new file mode 100644
+index 0000000..040df6e
+--- /dev/null
++++ b/res/drawable/sable_hub_card_background.xml
+@@ -0,0 +1,40 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<!-- Connected devices hub card: outlined card; focused (keyboard) gets the Sable focus ring,
++     an accent fill plus a 2dp accent border, as everywhere else in Settings. -->
++<selector xmlns:android="http://schemas.android.com/apk/res/android">
++    <item android:state_focused="true">
++        <shape android:shape="rectangle">
++            <corners android:radius="12dp" />
++            <solid android:color="@color/sable_hub_card_focus_fill" />
++            <stroke android:width="2dp" android:color="?android:attr/colorAccent" />
++        </shape>
++    </item>
++    <item android:state_pressed="true">
++        <shape android:shape="rectangle">
++            <corners android:radius="12dp" />
++            <solid android:color="@color/sable_hub_card_focus_fill" />
++            <stroke android:width="1dp" android:color="@color/sable_hub_card_outline" />
++        </shape>
++    </item>
++    <item>
++        <shape android:shape="rectangle">
++            <corners android:radius="12dp" />
++            <stroke android:width="1dp" android:color="@color/sable_hub_card_outline" />
++        </shape>
++    </item>
++</selector>
+diff --git a/res/layout/sable_connected_hub.xml b/res/layout/sable_connected_hub.xml
+new file mode 100644
+index 0000000..a2bce1c
+--- /dev/null
++++ b/res/layout/sable_connected_hub.xml
+@@ -0,0 +1,157 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<!-- Connected devices card hub: USB / OTG, Bluetooth, NFC, Cast in two rows. Each card is a
++     focus target; arrows move between cards, Enter opens one. -->
++<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    android:layout_width="match_parent"
++    android:layout_height="wrap_content"
++    android:orientation="vertical"
++    android:paddingHorizontal="12dp"
++    android:paddingVertical="4dp">
++
++    <LinearLayout
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:orientation="horizontal">
++        <LinearLayout
++            android:id="@+id/sable_hub_usb"
++            android:layout_width="0dp"
++            android:layout_height="wrap_content"
++            android:layout_weight="1"
++            android:layout_margin="4dp"
++            android:minHeight="64dp"
++            android:orientation="vertical"
++            android:gravity="center_vertical"
++            android:paddingHorizontal="12dp"
++            android:paddingVertical="8dp"
++            android:focusable="true"
++            android:clickable="true"
++            android:background="@drawable/sable_hub_card_background">
++            <TextView
++                android:id="@+id/sable_hub_card_title"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:textAppearance="?android:attr/textAppearanceListItem"
++                android:maxLines="1"
++                android:ellipsize="end" />
++            <TextView
++                android:id="@+id/sable_hub_card_status"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:textAppearance="?android:attr/textAppearanceSmall"
++                android:textColor="?android:attr/textColorSecondary"
++                android:maxLines="2"
++                android:ellipsize="end" />
++        </LinearLayout>
++        <LinearLayout
++            android:id="@+id/sable_hub_bluetooth"
++            android:layout_width="0dp"
++            android:layout_height="wrap_content"
++            android:layout_weight="1"
++            android:layout_margin="4dp"
++            android:minHeight="64dp"
++            android:orientation="vertical"
++            android:gravity="center_vertical"
++            android:paddingHorizontal="12dp"
++            android:paddingVertical="8dp"
++            android:focusable="true"
++            android:clickable="true"
++            android:background="@drawable/sable_hub_card_background">
++            <TextView
++                android:id="@+id/sable_hub_card_title"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:textAppearance="?android:attr/textAppearanceListItem"
++                android:maxLines="1"
++                android:ellipsize="end" />
++            <TextView
++                android:id="@+id/sable_hub_card_status"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:textAppearance="?android:attr/textAppearanceSmall"
++                android:textColor="?android:attr/textColorSecondary"
++                android:maxLines="2"
++                android:ellipsize="end" />
++        </LinearLayout>
++    </LinearLayout>
++
++    <LinearLayout
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:orientation="horizontal">
++        <LinearLayout
++            android:id="@+id/sable_hub_nfc"
++            android:layout_width="0dp"
++            android:layout_height="wrap_content"
++            android:layout_weight="1"
++            android:layout_margin="4dp"
++            android:minHeight="64dp"
++            android:orientation="vertical"
++            android:gravity="center_vertical"
++            android:paddingHorizontal="12dp"
++            android:paddingVertical="8dp"
++            android:focusable="true"
++            android:clickable="true"
++            android:background="@drawable/sable_hub_card_background">
++            <TextView
++                android:id="@+id/sable_hub_card_title"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:textAppearance="?android:attr/textAppearanceListItem"
++                android:maxLines="1"
++                android:ellipsize="end" />
++            <TextView
++                android:id="@+id/sable_hub_card_status"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:textAppearance="?android:attr/textAppearanceSmall"
++                android:textColor="?android:attr/textColorSecondary"
++                android:maxLines="2"
++                android:ellipsize="end" />
++        </LinearLayout>
++        <LinearLayout
++            android:id="@+id/sable_hub_cast"
++            android:layout_width="0dp"
++            android:layout_height="wrap_content"
++            android:layout_weight="1"
++            android:layout_margin="4dp"
++            android:minHeight="64dp"
++            android:orientation="vertical"
++            android:gravity="center_vertical"
++            android:paddingHorizontal="12dp"
++            android:paddingVertical="8dp"
++            android:focusable="true"
++            android:clickable="true"
++            android:background="@drawable/sable_hub_card_background">
++            <TextView
++                android:id="@+id/sable_hub_card_title"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:textAppearance="?android:attr/textAppearanceListItem"
++                android:maxLines="1"
++                android:ellipsize="end" />
++            <TextView
++                android:id="@+id/sable_hub_card_status"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:textAppearance="?android:attr/textAppearanceSmall"
++                android:textColor="?android:attr/textColorSecondary"
++                android:maxLines="2"
++                android:ellipsize="end" />
++        </LinearLayout>
++    </LinearLayout>
++</LinearLayout>
+diff --git a/res/values/strings_sable_connected_hub.xml b/res/values/strings_sable_connected_hub.xml
+new file mode 100644
+index 0000000..01c9562
+--- /dev/null
++++ b/res/values/strings_sable_connected_hub.xml
+@@ -0,0 +1,41 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
++    <!-- Connected devices card hub (CONNECTIVITY_OTG_NFC_CAST design). Card titles. -->
++    <string name="sable_hub_usb">USB / OTG</string>
++    <string name="sable_hub_bluetooth">Bluetooth</string>
++    <string name="sable_hub_nfc">NFC</string>
++    <string name="sable_hub_cast">Cast</string>
++    <!-- Card status lines. -->
++    <string name="sable_hub_not_on_phone">Not on this phone</string>
++    <string name="sable_hub_off">Off</string>
++    <string name="sable_hub_on">On</string>
++    <plurals name="sable_hub_connected">
++        <item quantity="one">On · <xliff:g id="count" example="1">%d</xliff:g> connected</item>
++        <item quantity="other">On · <xliff:g id="count" example="2">%d</xliff:g> connected</item>
++    </plurals>
++    <string name="sable_hub_usb_computer">Connected to a computer</string>
++    <plurals name="sable_hub_usb_drive">
++        <item quantity="one">USB drive mounted</item>
++        <item quantity="other"><xliff:g id="count" example="2">%d</xliff:g> USB drives mounted</item>
++    </plurals>
++    <string name="sable_hub_usb_device">USB device attached</string>
++    <string name="sable_hub_usb_none">Nothing attached</string>
++    <string name="sable_hub_cast_ready">Mirror to a display</string>
++    <!-- Spoken form of a card: title, then status. -->
++    <string name="sable_hub_card_description"><xliff:g id="title" example="Bluetooth">%1$s</xliff:g>, <xliff:g id="status" example="On">%2$s</xliff:g></string>
++</resources>
+diff --git a/res/xml/connected_devices.xml b/res/xml/connected_devices.xml
+index ab09342..deffbe3 100644
+--- a/res/xml/connected_devices.xml
++++ b/res/xml/connected_devices.xml
+@@ -19,6 +19,12 @@
+     xmlns:settings="http://schemas.android.com/apk/res-auto"
+     android:key="connected_devices_screen"
+     android:title="@string/connected_devices_dashboard_title">
++    <!-- SableOS: card hub (USB / OTG, Bluetooth, NFC, Cast) at the top, CONNECTIVITY design. -->
++    <com.android.settings.connecteddevice.sable.SableConnectedHubPreference
++        android:key="sable_connected_hub"
++        android:order="-1000"
++        settings:searchable="false"
++        settings:controller="com.android.settings.connecteddevice.sable.SableConnectedHubPreferenceController" />
+ 
+     <com.android.settingslib.widget.UntitledPreferenceCategory>
+       <com.android.settings.slices.SlicePreference
+diff --git a/src/com/android/settings/applications/sable/model/ConnectedHubCards.java b/src/com/android/settings/applications/sable/model/ConnectedHubCards.java
+new file mode 100644
+index 0000000..91064e9
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/ConnectedHubCards.java
+@@ -0,0 +1,126 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable.model;
++
++/**
++ * The Connected devices card hub (CONNECTIVITY_OTG_NFC_CAST_COMPATIBILITY_UX section 1: USB /
++ * OTG, Bluetooth, NFC, Cast): what each card says and where it goes, from facts the Android
++ * layer reads. Hardware the phone lacks shows as such and opens nothing ("hardware gates");
++ * every action is explicit, nothing is exported or switched from the hub itself.
++ */
++public final class ConnectedHubCards {
++
++    /** The four cards, in focus order (two rows of two). */
++    public enum Card { USB, BLUETOOTH, NFC, CAST }
++
++    /** What a card shows. */
++    public enum Status {
++        /** The phone has no such hardware or service. */
++        NOT_ON_PHONE,
++        OFF,
++        /** On, nothing connected. */
++        ON,
++        /** On with {@link Result#count} devices connected. */
++        CONNECTED,
++        /** USB: connected to a computer (USB preferences apply). */
++        USB_COMPUTER,
++        /** USB: a drive is mounted (OTG). */
++        USB_DRIVE,
++        /** USB: a device such as a keyboard or mouse is attached (OTG). */
++        USB_DEVICE,
++        /** USB: nothing attached. */
++        USB_NONE
++    }
++
++    /** The page a card opens. */
++    public enum Target { NONE, USB_PREFERENCES, STORAGE, BLUETOOTH, NFC, CAST }
++
++    /** What the Android layer read. */
++    public static final class Facts {
++        public boolean usbToComputer;
++        public int usbDrivesMounted;
++        public int usbHostDevices;
++        public boolean bluetoothSupported;
++        public boolean bluetoothOn;
++        public int bluetoothConnected;
++        public boolean nfcSupported;
++        public boolean nfcOn;
++        public boolean castSupported;
++    }
++
++    /** One card's state. */
++    public static final class Result {
++        public final Card card;
++        public final Status status;
++        public final int count;
++        public final Target target;
++
++        Result(Card card, Status status, int count, Target target) {
++            this.card = card;
++            this.status = status;
++            this.count = count;
++            this.target = target;
++        }
++
++        /** Whether Enter does anything. */
++        public boolean opens() {
++            return target != Target.NONE;
++        }
++    }
++
++    private ConnectedHubCards() {}
++
++    public static Result evaluate(Card card, Facts f) {
++        final Facts facts = f == null ? new Facts() : f;
++        switch (card) {
++            case USB:
++                // A drive is what the user most likely came for (Files: copy, move, eject).
++                if (facts.usbDrivesMounted > 0) {
++                    return new Result(card, Status.USB_DRIVE, facts.usbDrivesMounted,
++                            Target.STORAGE);
++                }
++                if (facts.usbToComputer) {
++                    return new Result(card, Status.USB_COMPUTER, 0, Target.USB_PREFERENCES);
++                }
++                if (facts.usbHostDevices > 0) {
++                    return new Result(card, Status.USB_DEVICE, facts.usbHostDevices,
++                            Target.STORAGE);
++                }
++                return new Result(card, Status.USB_NONE, 0, Target.STORAGE);
++            case BLUETOOTH:
++                if (!facts.bluetoothSupported) {
++                    return new Result(card, Status.NOT_ON_PHONE, 0, Target.NONE);
++                }
++                if (!facts.bluetoothOn) {
++                    return new Result(card, Status.OFF, 0, Target.BLUETOOTH);
++                }
++                return facts.bluetoothConnected > 0
++                        ? new Result(card, Status.CONNECTED, facts.bluetoothConnected,
++                                Target.BLUETOOTH)
++                        : new Result(card, Status.ON, 0, Target.BLUETOOTH);
++            case NFC:
++                if (!facts.nfcSupported) {
++                    return new Result(card, Status.NOT_ON_PHONE, 0, Target.NONE);
++                }
++                return new Result(card, facts.nfcOn ? Status.ON : Status.OFF, 0, Target.NFC);
++            default:
++                return facts.castSupported
++                        ? new Result(card, Status.ON, 0, Target.CAST)
++                        : new Result(card, Status.NOT_ON_PHONE, 0, Target.NONE);
++        }
++    }
++}
+diff --git a/src/com/android/settings/connecteddevice/sable/SableConnectedHubPreference.java b/src/com/android/settings/connecteddevice/sable/SableConnectedHubPreference.java
+new file mode 100644
+index 0000000..f22f2e7
+--- /dev/null
++++ b/src/com/android/settings/connecteddevice/sable/SableConnectedHubPreference.java
+@@ -0,0 +1,109 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.connecteddevice.sable;
++
++import android.content.Context;
++import android.util.AttributeSet;
++import android.view.View;
++import android.widget.TextView;
++
++import androidx.preference.Preference;
++import androidx.preference.PreferenceViewHolder;
++
++import com.android.settings.R;
++import com.android.settings.applications.sable.model.ConnectedHubCards;
++
++import java.util.EnumMap;
++import java.util.Map;
++
++/**
++ * The Connected devices card hub row: four cards (USB / OTG, Bluetooth, NFC, Cast). The row
++ * itself is not a focus target; each card is, so arrows move between cards and Enter opens
++ * one. A card for hardware the phone lacks says so and is not focusable.
++ */
++public class SableConnectedHubPreference extends Preference {
++
++    /** Called when a card that opens something is activated. */
++    public interface OnCardClickListener {
++        void onCardClick(ConnectedHubCards.Result result);
++    }
++
++    private final Map<ConnectedHubCards.Card, ConnectedHubCards.Result> mResults =
++            new EnumMap<>(ConnectedHubCards.Card.class);
++    private final Map<ConnectedHubCards.Card, CharSequence> mStatus =
++            new EnumMap<>(ConnectedHubCards.Card.class);
++    private OnCardClickListener mListener;
++
++    public SableConnectedHubPreference(Context context, AttributeSet attrs) {
++        super(context, attrs);
++        setLayoutResource(R.layout.sable_connected_hub);
++        setSelectable(false);
++        setPersistent(false);
++    }
++
++    public SableConnectedHubPreference(Context context) {
++        this(context, null);
++    }
++
++    void setOnCardClickListener(OnCardClickListener listener) {
++        mListener = listener;
++    }
++
++    void setCard(ConnectedHubCards.Result result, CharSequence status) {
++        mResults.put(result.card, result);
++        mStatus.put(result.card, status);
++        notifyChanged();
++    }
++
++    @Override
++    public void onBindViewHolder(PreferenceViewHolder holder) {
++        super.onBindViewHolder(holder);
++        holder.itemView.setFocusable(false);
++        holder.itemView.setClickable(false);
++        bind(holder.findViewById(R.id.sable_hub_usb), ConnectedHubCards.Card.USB,
++                R.string.sable_hub_usb);
++        bind(holder.findViewById(R.id.sable_hub_bluetooth), ConnectedHubCards.Card.BLUETOOTH,
++                R.string.sable_hub_bluetooth);
++        bind(holder.findViewById(R.id.sable_hub_nfc), ConnectedHubCards.Card.NFC,
++                R.string.sable_hub_nfc);
++        bind(holder.findViewById(R.id.sable_hub_cast), ConnectedHubCards.Card.CAST,
++                R.string.sable_hub_cast);
++    }
++
++    private void bind(View card, ConnectedHubCards.Card which, int titleRes) {
++        if (card == null) {
++            return;
++        }
++        final CharSequence title = getContext().getText(titleRes);
++        final CharSequence status = mStatus.get(which);
++        final ConnectedHubCards.Result result = mResults.get(which);
++        ((TextView) card.findViewById(R.id.sable_hub_card_title)).setText(title);
++        ((TextView) card.findViewById(R.id.sable_hub_card_status)).setText(
++                status == null ? "" : status);
++        card.setContentDescription(getContext().getString(R.string.sable_hub_card_description,
++                title, status == null ? "" : status));
++        final boolean opens = result != null && result.opens();
++        card.setFocusable(opens);
++        card.setClickable(opens);
++        card.setAlpha(opens ? 1f : 0.6f);
++        card.setOnClickListener(opens ? v -> {
++            if (mListener != null) {
++                mListener.onCardClick(result);
++            }
++        } : null);
++    }
++}
+diff --git a/src/com/android/settings/connecteddevice/sable/SableConnectedHubPreferenceController.java b/src/com/android/settings/connecteddevice/sable/SableConnectedHubPreferenceController.java
+new file mode 100644
+index 0000000..4696982
+--- /dev/null
++++ b/src/com/android/settings/connecteddevice/sable/SableConnectedHubPreferenceController.java
+@@ -0,0 +1,218 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.connecteddevice.sable;
++
++import android.app.settings.SettingsEnums;
++import android.bluetooth.BluetoothAdapter;
++import android.bluetooth.BluetoothDevice;
++import android.bluetooth.BluetoothManager;
++import android.content.ActivityNotFoundException;
++import android.content.Context;
++import android.content.Intent;
++import android.content.IntentFilter;
++import android.content.pm.PackageManager;
++import android.hardware.usb.UsbManager;
++import android.nfc.NfcAdapter;
++import android.os.Environment;
++import android.os.storage.StorageManager;
++import android.os.storage.StorageVolume;
++import android.provider.Settings;
++import android.util.Log;
++
++import androidx.preference.Preference;
++import androidx.preference.PreferenceScreen;
++
++import com.android.settings.R;
++import com.android.settings.applications.sable.model.ConnectedHubCards;
++import com.android.settings.connecteddevice.usb.UsbDetailsFragment;
++import com.android.settings.core.BasePreferenceController;
++import com.android.settings.core.SubSettingLauncher;
++import com.android.settings.wfd.WifiDisplaySettings;
++
++import java.util.Set;
++
++/**
++ * Fills the Connected devices card hub (CONNECTIVITY_OTG_NFC_CAST_COMPATIBILITY_UX section
++ * 1) from Android's own state each time the page resumes, and opens Android's pages: USB
++ * preferences (connected to a computer), Storage (USB drives, eject), Bluetooth, NFC and
++ * Cast. It changes nothing itself: every switch stays on its own page.
++ */
++public class SableConnectedHubPreferenceController extends BasePreferenceController
++        implements SableConnectedHubPreference.OnCardClickListener {
++    private static final String TAG = "SableConnectedHub";
++
++    private SableConnectedHubPreference mPreference;
++
++    public SableConnectedHubPreferenceController(Context context, String preferenceKey) {
++        super(context, preferenceKey);
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        return AVAILABLE_UNSEARCHABLE;
++    }
++
++    @Override
++    public void displayPreference(PreferenceScreen screen) {
++        super.displayPreference(screen);
++        mPreference = screen.findPreference(getPreferenceKey());
++        if (mPreference != null) {
++            mPreference.setOnCardClickListener(this);
++        }
++    }
++
++    @Override
++    public void updateState(Preference preference) {
++        super.updateState(preference);
++        if (!(preference instanceof SableConnectedHubPreference)) {
++            return;
++        }
++        final ConnectedHubCards.Facts facts = readFacts();
++        final SableConnectedHubPreference hub = (SableConnectedHubPreference) preference;
++        for (ConnectedHubCards.Card card : ConnectedHubCards.Card.values()) {
++            final ConnectedHubCards.Result r = ConnectedHubCards.evaluate(card, facts);
++            hub.setCard(r, statusText(r));
++        }
++    }
++
++    private CharSequence statusText(ConnectedHubCards.Result r) {
++        switch (r.status) {
++            case NOT_ON_PHONE:
++                return mContext.getString(R.string.sable_hub_not_on_phone);
++            case OFF:
++                return mContext.getString(R.string.sable_hub_off);
++            case CONNECTED:
++                return mContext.getResources().getQuantityString(R.plurals.sable_hub_connected,
++                        r.count, r.count);
++            case USB_COMPUTER:
++                return mContext.getString(R.string.sable_hub_usb_computer);
++            case USB_DRIVE:
++                return mContext.getResources().getQuantityString(R.plurals.sable_hub_usb_drive,
++                        r.count, r.count);
++            case USB_DEVICE:
++                return mContext.getString(R.string.sable_hub_usb_device);
++            case USB_NONE:
++                return mContext.getString(R.string.sable_hub_usb_none);
++            default:
++                return r.card == ConnectedHubCards.Card.CAST
++                        ? mContext.getString(R.string.sable_hub_cast_ready)
++                        : mContext.getString(R.string.sable_hub_on);
++        }
++    }
++
++    private ConnectedHubCards.Facts readFacts() {
++        final ConnectedHubCards.Facts f = new ConnectedHubCards.Facts();
++        final PackageManager pm = mContext.getPackageManager();
++        try {
++            final Intent usb = mContext.registerReceiver(null,
++                    new IntentFilter(UsbManager.ACTION_USB_STATE));
++            f.usbToComputer = usb != null && usb.getBooleanExtra(UsbManager.USB_CONNECTED, false);
++            final UsbManager um = mContext.getSystemService(UsbManager.class);
++            f.usbHostDevices = um == null || um.getDeviceList() == null ? 0
++                    : um.getDeviceList().size();
++        } catch (RuntimeException e) {
++            Log.w(TAG, "Cannot read USB state", e);
++        }
++        try {
++            final StorageManager sm = mContext.getSystemService(StorageManager.class);
++            if (sm != null) {
++                for (StorageVolume v : sm.getStorageVolumes()) {
++                    if (v.isRemovable() && !v.isPrimary()
++                            && Environment.MEDIA_MOUNTED.equals(v.getState())) {
++                        f.usbDrivesMounted++;
++                    }
++                }
++            }
++        } catch (RuntimeException e) {
++            Log.w(TAG, "Cannot read storage volumes", e);
++        }
++        f.bluetoothSupported = pm.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH);
++        if (f.bluetoothSupported) {
++            try {
++                final BluetoothManager bm = mContext.getSystemService(BluetoothManager.class);
++                final BluetoothAdapter adapter = bm == null ? null : bm.getAdapter();
++                f.bluetoothOn = adapter != null && adapter.isEnabled();
++                if (f.bluetoothOn) {
++                    final Set<BluetoothDevice> bonded = adapter.getBondedDevices();
++                    if (bonded != null) {
++                        for (BluetoothDevice d : bonded) {
++                            if (d.isConnected()) {
++                                f.bluetoothConnected++;
++                            }
++                        }
++                    }
++                }
++            } catch (RuntimeException e) {
++                Log.w(TAG, "Cannot read Bluetooth state", e);
++            }
++        }
++        try {
++            final NfcAdapter nfc = NfcAdapter.getDefaultAdapter(mContext);
++            f.nfcSupported = nfc != null;
++            f.nfcOn = nfc != null && nfc.isEnabled();
++        } catch (RuntimeException e) {
++            Log.w(TAG, "Cannot read NFC state", e);
++        }
++        try {
++            f.castSupported = WifiDisplaySettings.isAvailable(mContext);
++        } catch (RuntimeException e) {
++            f.castSupported = false;
++        }
++        return f;
++    }
++
++    @Override
++    public void onCardClick(ConnectedHubCards.Result result) {
++        switch (result.target) {
++            case USB_PREFERENCES:
++                new SubSettingLauncher(uiContext())
++                        .setDestination(UsbDetailsFragment.class.getName())
++                        .setTitleRes(R.string.usb_preference)
++                        .setSourceMetricsCategory(
++                                SettingsEnums.SETTINGS_CONNECTED_DEVICE_CATEGORY)
++                        .launch();
++                return;
++            case STORAGE:
++                open(new Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS));
++                return;
++            case BLUETOOTH:
++                open(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS));
++                return;
++            case NFC:
++                open(new Intent(Settings.ACTION_NFC_SETTINGS));
++                return;
++            case CAST:
++                open(new Intent(Settings.ACTION_CAST_SETTINGS));
++                return;
++            default:
++                return;
++        }
++    }
++
++    /** The page's own context, so opened pages stack on Settings and Back returns here. */
++    private Context uiContext() {
++        return mPreference != null ? mPreference.getContext() : mContext;
++    }
++
++    private void open(Intent intent) {
++        try {
++            uiContext().startActivity(intent.setPackage(mContext.getPackageName()));
++        } catch (ActivityNotFoundException | SecurityException e) {
++            Log.w(TAG, "Cannot open " + intent, e);
++        }
++    }
++}
+diff --git a/tests/sable-apps/src/com/android/settings/applications/sable/model/ConnectedHubCardsTest.java b/tests/sable-apps/src/com/android/settings/applications/sable/model/ConnectedHubCardsTest.java
+new file mode 100644
+index 0000000..2f95c07
+--- /dev/null
++++ b/tests/sable-apps/src/com/android/settings/applications/sable/model/ConnectedHubCardsTest.java
+@@ -0,0 +1,82 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable.model;
++
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertFalse;
++import static org.junit.Assert.assertTrue;
++
++import org.junit.Test;
++
++/** Connected devices card hub: status and target of each card. */
++public class ConnectedHubCardsTest {
++
++    private static ConnectedHubCards.Result eval(ConnectedHubCards.Card c,
++            ConnectedHubCards.Facts f) {
++        return ConnectedHubCards.evaluate(c, f);
++    }
++
++    @Test
++    public void usbPrefersAMountedDrive() {
++        final ConnectedHubCards.Facts f = new ConnectedHubCards.Facts();
++        assertEquals(ConnectedHubCards.Status.USB_NONE, eval(ConnectedHubCards.Card.USB, f).status);
++        f.usbHostDevices = 1;
++        assertEquals(ConnectedHubCards.Status.USB_DEVICE,
++                eval(ConnectedHubCards.Card.USB, f).status);
++        f.usbToComputer = true;
++        assertEquals(ConnectedHubCards.Target.USB_PREFERENCES,
++                eval(ConnectedHubCards.Card.USB, f).target);
++        f.usbDrivesMounted = 2;
++        final ConnectedHubCards.Result r = eval(ConnectedHubCards.Card.USB, f);
++        assertEquals(ConnectedHubCards.Status.USB_DRIVE, r.status);
++        assertEquals(2, r.count);
++        assertEquals(ConnectedHubCards.Target.STORAGE, r.target);
++    }
++
++    @Test
++    public void missingHardwareOpensNothing() {
++        final ConnectedHubCards.Facts f = new ConnectedHubCards.Facts();
++        for (ConnectedHubCards.Card c : new ConnectedHubCards.Card[] {
++                ConnectedHubCards.Card.BLUETOOTH, ConnectedHubCards.Card.NFC,
++                ConnectedHubCards.Card.CAST}) {
++            final ConnectedHubCards.Result r = eval(c, f);
++            assertEquals(ConnectedHubCards.Status.NOT_ON_PHONE, r.status);
++            assertFalse(r.opens());
++        }
++        assertTrue(eval(ConnectedHubCards.Card.USB, null).opens());
++    }
++
++    @Test
++    public void bluetoothAndNfcStates() {
++        final ConnectedHubCards.Facts f = new ConnectedHubCards.Facts();
++        f.bluetoothSupported = true;
++        f.nfcSupported = true;
++        f.castSupported = true;
++        assertEquals(ConnectedHubCards.Status.OFF,
++                eval(ConnectedHubCards.Card.BLUETOOTH, f).status);
++        f.bluetoothOn = true;
++        assertEquals(ConnectedHubCards.Status.ON,
++                eval(ConnectedHubCards.Card.BLUETOOTH, f).status);
++        f.bluetoothConnected = 1;
++        assertEquals(ConnectedHubCards.Status.CONNECTED,
++                eval(ConnectedHubCards.Card.BLUETOOTH, f).status);
++        assertEquals(ConnectedHubCards.Status.OFF, eval(ConnectedHubCards.Card.NFC, f).status);
++        f.nfcOn = true;
++        assertEquals(ConnectedHubCards.Target.NFC, eval(ConnectedHubCards.Card.NFC, f).target);
++        assertEquals(ConnectedHubCards.Target.CAST, eval(ConnectedHubCards.Card.CAST, f).target);
++    }
++}
+-- 
+2.43.0
+
