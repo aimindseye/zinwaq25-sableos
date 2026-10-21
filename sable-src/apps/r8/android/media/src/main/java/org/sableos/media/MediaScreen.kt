@@ -1510,20 +1510,25 @@ private fun NowPlayingScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
         ) {
+            // Key labels on the controls (MEDIA_GALLERY_UX: "keyboard shortcut labels shown as direct
+            // affordances"; artifact state 1: [J Prev] [Space Play] [K Next]). Stop has no key.
             PlayerButton(
                 text = "◀",
+                keyLabel = "J",
                 enabled = playback.hasPrevious,
                 modifier = Modifier.weight(1f),
                 onClick = onPrevious,
             )
             PlayerButton(
                 text = if (playback.isPlaying) "❚❚" else "▶",
+                keyLabel = "Space",
                 active = true,
                 modifier = Modifier.weight(1f),
                 onClick = onPlayPause,
             )
             PlayerButton(
                 text = "▶",
+                keyLabel = "K",
                 enabled = playback.hasNext,
                 modifier = Modifier.weight(1f),
                 onClick = onNext,
@@ -1534,8 +1539,19 @@ private fun NowPlayingScreen(
                 onClick = onStop,
             )
         }
+
+        Text(
+            text = NOW_PLAYING_KEY_HINT,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
+
+/** The Now playing hint line: the keys MediaKeymap gives this screen. */
+internal const val NOW_PLAYING_KEY_HINT = "J prev · Space play · K next · Shift+J/K seek · Q queue"
 
 @Composable
 private fun RadioScreen(
@@ -1999,6 +2015,7 @@ private fun ArtworkTile(
 private fun PlayerButton(
     text: String,
     modifier: Modifier = Modifier,
+    keyLabel: String? = null,
     active: Boolean = false,
     enabled: Boolean = true,
     onClick: () -> Unit,
@@ -2033,13 +2050,21 @@ private fun PlayerButton(
                 },
             ),
     ) {
-        Box(
-            contentAlignment = Alignment.Center,
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
             Text(
                 text = text,
                 style = MaterialTheme.typography.titleLarge,
             )
+            if (keyLabel != null) {
+                Text(
+                    text = keyLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                )
+            }
         }
     }
 }

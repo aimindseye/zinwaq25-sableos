@@ -52,6 +52,22 @@ class MediaKeymapTest {
     }
 
     @Test
+    fun nowPlayingKeyLabelsMatchTheKeymap() {
+        // The labels drawn on the Now playing controls and its hint line name real keys.
+        assertEquals(MediaKeyCommand.Previous, cmd(KeyEvent.KEYCODE_J, 'j', nowPlayingScreen))
+        assertEquals(MediaKeyCommand.PlayPause, cmd(KeyEvent.KEYCODE_SPACE, ' ', nowPlayingScreen))
+        assertEquals(MediaKeyCommand.Next, cmd(KeyEvent.KEYCODE_K, 'k', nowPlayingScreen))
+        assertEquals(MediaKeyCommand.Queue, cmd(KeyEvent.KEYCODE_Q, 'q', nowPlayingScreen))
+        assertEquals(
+            MediaKeyCommand.SeekBack,
+            cmd(MediaKeyPress(KeyEvent.KEYCODE_J, 'J', shift = true), nowPlayingScreen),
+        )
+        listOf("J prev", "Space play", "K next", "Shift+J/K seek", "Q queue").forEach {
+            assertTrue(it, NOW_PLAYING_KEY_HINT.contains(it))
+        }
+    }
+
+    @Test
     fun nAndPAreNextAndPrevious() {
         assertEquals(MediaKeyCommand.Next, cmd(KeyEvent.KEYCODE_N, 'n'))
         assertEquals(MediaKeyCommand.Previous, cmd(KeyEvent.KEYCODE_P, 'p'))

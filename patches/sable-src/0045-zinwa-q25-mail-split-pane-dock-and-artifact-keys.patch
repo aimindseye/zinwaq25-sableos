@@ -1,0 +1,403 @@
+diff --git a/sable-src/apps/r8/mail/apply_sable_flavor.py b/sable-src/apps/r8/mail/apply_sable_flavor.py
+index c03b72a..10e8913 100644
+--- a/sable-src/apps/r8/mail/apply_sable_flavor.py
++++ b/sable-src/apps/r8/mail/apply_sable_flavor.py
+@@ -86,7 +86,8 @@ def apply_keyboard_model(root: Path) -> None:
+     The pure keymap and its unit test (src/ next to this script) go into the legacy UI module;
+     MessageHomeActivity routes every key-down through it instead of the upstream K-9 hotkeys,
+     MessageCompose gains Ctrl+Enter / Alt+Enter send and Esc cancel, and delete asks for
+-    confirmation by default.
++    confirmation by default. On a square keyboard screen the split pane is forced and carries a
++    Bottom Command Dock; the reader collapses quoted text until E expands it (SableMailQuotes).
+     """
+     source = Path(__file__).resolve().parent / "src"
+     module = root / "legacy/ui/legacy/src"
+@@ -157,6 +158,8 @@ def apply_keyboard_model(root: Path) -> None:
+             SableMailCommand.REPLY -> message?.onReply()
+             SableMailCommand.REPLY_ALL -> message?.onReplyAll()
+             SableMailCommand.FORWARD -> message?.onForward()
++            SableMailCommand.EXPAND_QUOTE -> if (message != null) toggleSableQuotes()
++            SableMailCommand.ATTACHMENTS -> if (message != null) focusSableAttachments()
+             SableMailCommand.DELETE -> onDeleteHotKey()
+             SableMailCommand.SEARCH -> {
+                 if (displayMode == DisplayMode.MESSAGE_VIEW) showMessageList()
+@@ -204,6 +207,37 @@ def apply_keyboard_model(root: Path) -> None:
+         }
+     }
+ 
++    /** E: show or collapse the quoted text of the open message (MAIL_QUOTED_TEXT_COLLAPSED_BY_DEFAULT). */
++    private fun toggleSableQuotes() {
++        val body = findVisibleMessageBody(messageViewContainerFragment?.view) ?: return
++        findSableView(body) { it is com.fsck.k9.view.MessageWebView }
++            ?.let { (it as com.fsck.k9.view.MessageWebView).toggleSableQuotes() }
++    }
++
++    /** A: move focus to the first attachment of the open message; the reader scrolls to it. */
++    private fun focusSableAttachments() {
++        val body = findVisibleMessageBody(messageViewContainerFragment?.view) ?: return
++        val attachments = findSableView(body) { it.id == R.id.attachments_container } as? ViewGroup ?: return
++        val first = (0 until attachments.childCount).map { attachments.getChildAt(it) }.firstOrNull { it.isShown }
++        if (first == null) {
++            android.widget.Toast.makeText(this, "No attachments", android.widget.Toast.LENGTH_SHORT).show()
++            return
++        }
++        if (!first.requestFocus()) {
++            body.smoothScrollTo(0, attachments.top)
++        }
++    }
++
++    private fun findSableView(
++        root: View,
++        match: (View) -> Boolean,
++    ): View? =
++        when {
++            match(root) -> root
++            root is ViewGroup -> (0 until root.childCount).firstNotNullOfOrNull { findSableView(root.getChildAt(it), match) }
++            else -> null
++        }
++
+     /** The on-screen message body scroller; the view pager also keeps neighbouring messages laid out. */
+     private fun findVisibleMessageBody(root: View?): ScrollView? =
+         when {
+@@ -218,6 +252,144 @@ def apply_keyboard_model(root: Path) -> None:
+ ''',
+     )
+ 
++    # MAIL_SPLIT_PANE: forced on a square keyboard screen (SableMailLayout), with the Bottom Command Dock.
++    split_layout = module / "main/res/layout/split_message_list.xml"
++    replace_once(
++        home,
++        """    private fun useSplitView(): Boolean {
++        val splitViewMode = generalSettingsManager.getConfig().display.coreSettings.splitViewMode
++""",
++        """    private fun useSplitView(): Boolean {
++        val sableConfig = resources.configuration
++        if (SableMailLayout.forceSplitView(sableConfig.screenWidthDp, sableConfig.screenHeightDp)) return true
++        val splitViewMode = generalSettingsManager.getConfig().display.coreSettings.splitViewMode
++""",
++    )
++    replace_once(
++        home,
++        """        if (useSplitView()) {
++            setLayout(R.layout.split_message_list)
++        } else {""",
++        """        if (useSplitView()) {
++            setLayout(R.layout.split_message_list)
++            setUpSableMailDock()
++        } else {""",
++    )
++    replace_once(
++        home,
++        "    private fun useSplitView(): Boolean {\n",
++        """    /** Bottom Command Dock (MAIL_BOTTOM_COMMAND_DOCK): the prompt opens search; the hints name real keys. */
++    private fun setUpSableMailDock() {
++        findViewById<android.widget.TextView>(R.id.sable_mail_dock_prompt)?.apply {
++            text = SableMailLayout.DOCK_PROMPT
++            setOnClickListener {
++                if (displayMode == DisplayMode.MESSAGE_VIEW) showMessageList()
++                messageListFragment?.expandSearchView()
++            }
++        }
++        findViewById<android.widget.TextView>(R.id.sable_mail_dock_hint)?.text =
++            SableMailLayout.DOCK_LIST_HINT + "\\n" + SableMailLayout.DOCK_READER_HINT
++    }
++
++    private fun useSplitView(): Boolean {
++""",
++    )
++    replace_once(
++        split_layout,
++        """            android:layout_below="@id/app_bar_layout"
++            >
++""",
++        """            android:layout_below="@id/app_bar_layout"
++            android:layout_above="@+id/sable_mail_dock"
++            >
++""",
++    )
++    replace_once(
++        split_layout,
++        """        </FrameLayout>
++
++    </RelativeLayout>
++""",
++        """        </FrameLayout>
++
++        <LinearLayout
++            android:id="@+id/sable_mail_dock"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:layout_alignParentBottom="true"
++            android:background="?attr/colorSurfaceContainer"
++            android:orientation="vertical"
++            android:paddingHorizontal="12dp"
++            android:paddingVertical="6dp"
++            >
++
++            <TextView
++                android:id="@+id/sable_mail_dock_prompt"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:clickable="true"
++                android:focusable="true"
++                android:foreground="@drawable/sable_mail_list_item_foreground"
++                android:paddingVertical="6dp"
++                android:textAppearance="?attr/textAppearanceBodyLarge"
++                android:textColor="?attr/colorPrimary"
++                />
++
++            <TextView
++                android:id="@+id/sable_mail_dock_hint"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:maxLines="2"
++                android:textAppearance="?attr/textAppearanceLabelMedium"
++                android:textColor="?attr/colorOnSurfaceVariant"
++                />
++
++        </LinearLayout>
++
++    </RelativeLayout>
++""",
++    )
++
++    # MAIL_QUOTED_TEXT_COLLAPSED_BY_DEFAULT: the reader WebView adds the collapse style until E.
++    web = module / "main/java/com/fsck/k9/view/MessageWebView.kt"
++    replace_once(
++        web,
++        """    private fun setHtmlContent(htmlText: String) {
++        loadDataWithBaseURL("about:blank", htmlText, "text/html", "utf-8", null)
++        resumeTimers()
++    }
++""",
++        """    private var sableHtml: String? = null
++    private var sableQuotesExpanded = false
++
++    private fun setHtmlContent(htmlText: String) {
++        sableHtml = htmlText
++        sableQuotesExpanded = false
++        loadDataWithBaseURL(
++            "about:blank",
++            com.fsck.k9.activity.SableMailQuotes.html(htmlText, expanded = false),
++            "text/html",
++            "utf-8",
++            null,
++        )
++        resumeTimers()
++    }
++
++    /** Sable Mail E key: show or collapse the quoted text; the same content is loaded again. */
++    fun toggleSableQuotes() {
++        val html = sableHtml ?: return
++        sableQuotesExpanded = !sableQuotesExpanded
++        loadDataWithBaseURL(
++            "about:blank",
++            com.fsck.k9.activity.SableMailQuotes.html(html, sableQuotesExpanded),
++            "text/html",
++            "utf-8",
++            null,
++        )
++    }
++""",
++    )
++
+     compose = module / "main/java/com/fsck/k9/activity/MessageCompose.java"
+     replace_once(
+         compose,
+diff --git a/sable-src/apps/r8/mail/src/main/java/com/fsck/k9/activity/SableMailKeymap.kt b/sable-src/apps/r8/mail/src/main/java/com/fsck/k9/activity/SableMailKeymap.kt
+index 8d76f5a..6d6ee9f 100644
+--- a/sable-src/apps/r8/mail/src/main/java/com/fsck/k9/activity/SableMailKeymap.kt
++++ b/sable-src/apps/r8/mail/src/main/java/com/fsck/k9/activity/SableMailKeymap.kt
+@@ -6,9 +6,13 @@ import android.view.KeyEvent
+  * Sable Mail single-key commands (MAIL_CALENDAR_PRODUCTIVITY_UX.md, "Shared keyboard contract").
+  *
+  * Copied into the Thunderbird checkout by apps/r8/mail/apply_sable_flavor.py. It replaces the
+- * upstream K-9 hotkeys, whose J/K/N/P directions, S (select) and V (archive) disagree with the
+- * Sable contract. The Q25 keyboard has Alt, Shift, Sym and letters but no Fn or Ctrl, so
+- * symbols are matched on the typed character and Ctrl+Enter send is also Alt+Enter.
++ * upstream K-9 hotkeys, whose J/K/N/P directions and S (select) disagree with the Sable contract.
++ * The Q25 keyboard has Alt, Shift, Sym and letters but no Fn or Ctrl, so symbols are matched on the
++ * typed character and Ctrl+Enter send is also Alt+Enter.
++ *
++ * V, L, E and A follow the approved artifact (sable-mail-calendar-titan2.svg): V archive, L reply all,
++ * E expand the collapsed quoted text, A the message's attachments. The design text's table gives V to
++ * "view/filter mode"; the artifact wins, so the sort/view cycle stays on O only.
+  */
+ enum class SableMailCommand {
+     COMPOSE,
+@@ -18,6 +22,9 @@ enum class SableMailCommand {
+     REPLY,
+     REPLY_ALL,
+     FORWARD,
++    ARCHIVE,
++    EXPAND_QUOTE,
++    ATTACHMENTS,
+     DELETE,
+     SEARCH,
+     VIEW_MODE,
+@@ -26,7 +33,6 @@ enum class SableMailCommand {
+     BACK,
+ 
+     // Upstream K-9 actions kept on keys the Sable contract leaves free.
+-    ARCHIVE,
+     SELECT,
+     TOGGLE_FLAG,
+     MOVE,
+@@ -164,13 +170,14 @@ object SableMailKeymap {
+             KeyEvent.KEYCODE_K to SableMailCommand.PREVIOUS,
+             KeyEvent.KEYCODE_P to SableMailCommand.PREVIOUS,
+             KeyEvent.KEYCODE_R to SableMailCommand.REPLY,
+-            KeyEvent.KEYCODE_A to SableMailCommand.REPLY_ALL,
++            KeyEvent.KEYCODE_L to SableMailCommand.REPLY_ALL,
+             KeyEvent.KEYCODE_F to SableMailCommand.FORWARD,
+             KeyEvent.KEYCODE_D to SableMailCommand.DELETE,
+             KeyEvent.KEYCODE_S to SableMailCommand.SEARCH,
+-            KeyEvent.KEYCODE_V to SableMailCommand.VIEW_MODE,
++            KeyEvent.KEYCODE_V to SableMailCommand.ARCHIVE,
++            KeyEvent.KEYCODE_E to SableMailCommand.EXPAND_QUOTE,
++            KeyEvent.KEYCODE_A to SableMailCommand.ATTACHMENTS,
+             KeyEvent.KEYCODE_O to SableMailCommand.VIEW_MODE,
+-            KeyEvent.KEYCODE_E to SableMailCommand.ARCHIVE,
+             KeyEvent.KEYCODE_X to SableMailCommand.SELECT,
+             KeyEvent.KEYCODE_G to SableMailCommand.TOGGLE_FLAG,
+             KeyEvent.KEYCODE_M to SableMailCommand.MOVE,
+@@ -195,3 +202,49 @@ object SableMailKeymap {
+             KeyEvent.KEYCODE_DPAD_RIGHT,
+         )
+ }
++
++/**
++ * MAIL_SPLIT_PANE on a square keyboard screen: thread list left, reader right. On a near-square
++ * display at least [MIN_SPLIT_WIDTH_DP] wide (the Q25 is 720x720 at 193 dpi, about 597 dp) the split
++ * view is used whatever the split-view setting says; elsewhere the setting decides as upstream.
++ */
++object SableMailLayout {
++    const val MIN_SPLIT_WIDTH_DP = 560
++    private const val MAX_SQUARE_RATIO = 1.25f
++
++    fun forceSplitView(
++        widthDp: Int,
++        heightDp: Int,
++    ): Boolean {
++        if (widthDp < MIN_SPLIT_WIDTH_DP || heightDp <= 0) return false
++        val ratio = maxOf(widthDp, heightDp).toFloat() / minOf(widthDp, heightDp).toFloat()
++        return ratio <= MAX_SQUARE_RATIO
++    }
++
++    /** The Bottom Command Dock prompt and hint lines (artifact states 1 and 2). */
++    const val DOCK_PROMPT = "> mail search / command…"
++    const val DOCK_LIST_HINT = "[C Compose] [R Reply] [/ Search] [J/K Move] [T Latest]"
++    const val DOCK_READER_HINT = "Reader: L All · F Fwd · V Archive · D Del · E Quote · A Attach"
++}
++
++/**
++ * MAIL_QUOTED_TEXT_COLLAPSED_BY_DEFAULT: the reader shows quoted history collapsed (a one-line marker
++ * per quote) until E expands it. Only CSS is added; JavaScript stays off and remote content stays
++ * blocked as before.
++ */
++object SableMailQuotes {
++    const val MARKER = "Quoted text hidden · E shows it"
++
++    fun html(
++        body: String,
++        expanded: Boolean,
++    ): String = if (expanded) body else COLLAPSED_STYLE + body
++
++    private const val COLLAPSED_STYLE =
++        "<style>" +
++            "blockquote{font-size:0 !important;border-left:0 !important;padding:0 !important;margin:0 !important}" +
++            "blockquote>*{display:none !important}" +
++            "blockquote::before{content:\"$MARKER\";font-size:13px;opacity:.7;font-style:italic}" +
++            "blockquote blockquote::before{content:none}" +
++            "</style>"
++}
+diff --git a/sable-src/apps/r8/mail/src/test/java/com/fsck/k9/activity/SableMailKeymapTest.kt b/sable-src/apps/r8/mail/src/test/java/com/fsck/k9/activity/SableMailKeymapTest.kt
+index 8b33368..091a667 100644
+--- a/sable-src/apps/r8/mail/src/test/java/com/fsck/k9/activity/SableMailKeymapTest.kt
++++ b/sable-src/apps/r8/mail/src/test/java/com/fsck/k9/activity/SableMailKeymapTest.kt
+@@ -36,20 +36,52 @@ class SableMailKeymapTest {
+         assertEquals(SableMailCommand.DELETE, cmd(press(KeyEvent.KEYCODE_FORWARD_DEL)))
+         assertEquals(SableMailCommand.SEARCH, cmd(press(KeyEvent.KEYCODE_S, 's')))
+         assertEquals(SableMailCommand.SEARCH, cmd(press(KeyEvent.KEYCODE_SLASH, '/')))
+-        assertEquals(SableMailCommand.VIEW_MODE, cmd(press(KeyEvent.KEYCODE_V, 'v')))
+         assertEquals(SableMailCommand.BACK, cmd(press(KeyEvent.KEYCODE_ESCAPE)))
+         assertNull("Enter opens the focused row natively", cmd(press(KeyEvent.KEYCODE_ENTER)))
+     }
+ 
+     @Test
+-    fun replyAllAndForward() {
+-        assertEquals(SableMailCommand.REPLY_ALL, cmd(press(KeyEvent.KEYCODE_A, 'a')))
++    fun artifactReaderKeys() {
++        // sable-mail-calendar-titan2.svg: R Reply, L All, F Fwd, V Archive, D Del, E quote, A attachments.
++        assertEquals(SableMailCommand.REPLY_ALL, cmd(press(KeyEvent.KEYCODE_L, 'l')))
+         assertEquals(SableMailCommand.FORWARD, cmd(press(KeyEvent.KEYCODE_F, 'f')))
++        assertEquals(SableMailCommand.ARCHIVE, cmd(press(KeyEvent.KEYCODE_V, 'v')))
++        assertEquals(SableMailCommand.EXPAND_QUOTE, cmd(press(KeyEvent.KEYCODE_E, 'e')))
++        assertEquals(SableMailCommand.ATTACHMENTS, cmd(press(KeyEvent.KEYCODE_A, 'a')))
++    }
++
++    @Test
++    fun splitViewForcedOnlyOnSquareKeyboardScreens() {
++        assertTrue("Q25 720x720 @193dpi", SableMailLayout.forceSplitView(597, 597))
++        assertTrue("square minus status bar", SableMailLayout.forceSplitView(597, 560))
++        assertFalse("Pixel portrait", SableMailLayout.forceSplitView(412, 915))
++        assertFalse("Pixel landscape", SableMailLayout.forceSplitView(915, 412))
++        assertFalse("small square", SableMailLayout.forceSplitView(400, 400))
++        assertFalse(SableMailLayout.forceSplitView(600, 0))
++    }
++
++    @Test
++    fun quotesCollapsedUntilExpanded() {
++        val body = "<p>Hi</p><blockquote>old</blockquote>"
++        assertTrue(SableMailQuotes.html(body, expanded = false).startsWith("<style>"))
++        assertTrue(SableMailQuotes.html(body, expanded = false).endsWith(body))
++        assertTrue(SableMailQuotes.html(body, expanded = false).contains(SableMailQuotes.MARKER))
++        assertEquals(body, SableMailQuotes.html(body, expanded = true))
++    }
++
++    @Test
++    fun dockHintNamesRealKeys() {
++        assertEquals(SableMailCommand.COMPOSE, cmd(press(KeyEvent.KEYCODE_C, 'c')))
++        listOf("C Compose", "R Reply", "/ Search", "J/K Move", "T Latest").forEach {
++            assertTrue(it, SableMailLayout.DOCK_LIST_HINT.contains(it))
++        }
++        listOf("L All", "F Fwd", "V Archive", "D Del", "E Quote", "A Attach").forEach {
++            assertTrue(it, SableMailLayout.DOCK_READER_HINT.contains(it))
++        }
+     }
+ 
+     @Test
+     fun upstreamActionsKeptOnFreeKeys() {
+-        assertEquals(SableMailCommand.ARCHIVE, cmd(press(KeyEvent.KEYCODE_E, 'e')))
+         assertEquals(SableMailCommand.SELECT, cmd(press(KeyEvent.KEYCODE_X, 'x')))
+         assertEquals(SableMailCommand.TOGGLE_FLAG, cmd(press(KeyEvent.KEYCODE_G, 'g')))
+         assertEquals(SableMailCommand.MOVE, cmd(press(KeyEvent.KEYCODE_M, 'm')))
+diff --git a/sable-src/apps/r8/mail/verify_sable_mail.py b/sable-src/apps/r8/mail/verify_sable_mail.py
+index 2fddddc..6c5f870 100644
+--- a/sable-src/apps/r8/mail/verify_sable_mail.py
++++ b/sable-src/apps/r8/mail/verify_sable_mail.py
+@@ -541,6 +541,24 @@ def verify_product_sources(root: pathlib.Path, app: pathlib.Path) -> None:
+         'android:foreground="@drawable/sable_mail_list_item_foreground"',
+         "SABLE_MAIL_FOCUS_RING",
+     )
++    require_text(
++        home_activity,
++        "if (SableMailLayout.forceSplitView(sableConfig.screenWidthDp, sableConfig.screenHeightDp)) return true",
++        "SABLE_MAIL_SPLIT_PANE",
++    )
++    require_text(
++        root / "legacy/ui/legacy/src/main/res/layout/split_message_list.xml",
++        'android:id="@+id/sable_mail_dock_prompt"',
++        "SABLE_MAIL_COMMAND_DOCK",
++    )
++    require_text(
++        message_webview,
++        "com.fsck.k9.activity.SableMailQuotes.html(htmlText, expanded = false)",
++        "SABLE_MAIL_QUOTES_COLLAPSED",
++    )
++    print("SABLE_MAIL_SPLIT_PANE=PASS_FORCED_ON_SQUARE_SCREEN")
++    print("SABLE_MAIL_COMMAND_DOCK=PASS")
++    print("SABLE_MAIL_QUOTES_COLLAPSED=PASS_E_EXPANDS")
+     print("SABLE_MAIL_KEYMAP=PASS_SABLE_SHARED_CONTRACT")
+     print("SABLE_MAIL_FOCUS_RING=PASS")
+     print("SABLE_MAIL_KEYMAP_INPUT_GUARD=PASS")
