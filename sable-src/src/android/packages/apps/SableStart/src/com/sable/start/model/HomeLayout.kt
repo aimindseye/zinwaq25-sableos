@@ -22,11 +22,16 @@ object HomeLayout {
     /** Never customised: Weather shown; the search row and status rings hidden. */
     val DEFAULT_HIDDEN: Set<String> = setOf(SEARCH_ROW, STATUS_RINGS)
 
-    /** Keyboard-first list mode (default) or the optional touch tile mode. */
+    /** BB10-inspired cards and app grid are the new default; list and tiles remain choices. */
     const val MODE_LIST = "list"
     const val MODE_TILES = "tiles"
+    const val MODE_BB10 = "bb10"
 
-    fun normalizeMode(stored: String?): String = if (stored == MODE_TILES) MODE_TILES else MODE_LIST
+    fun normalizeMode(stored: String?): String =
+        when (stored) {
+            MODE_LIST, MODE_TILES, MODE_BB10 -> stored
+            else -> MODE_BB10
+        }
 
     /** Drops unknown names; null (never customised) gives [DEFAULT_HIDDEN]. */
     fun normalizeHidden(stored: Set<String>?): Set<String> = stored?.filter { it in SECTIONS }?.toSet() ?: DEFAULT_HIDDEN
@@ -62,6 +67,26 @@ object HomeLayout {
             STATUS_RINGS -> "Network, CPU, memory, battery and signal rings"
             else -> ""
         }
+}
+
+/**
+ * BB10 Home keeps at most four session-only activity cards; the four-column
+ * app grid is independent of the Android Recents/task model.
+ */
+object Bb10HomePolicy {
+    const val MAX_RECENT = 4
+    const val GRID_COLUMNS = 4
+
+    fun visibleRecentKeys(
+        sessionKeys: List<String>,
+        privateKeys: Set<String>,
+    ): List<String> =
+        sessionKeys.asSequence()
+            .filterNot { it in privateKeys }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .take(MAX_RECENT)
+            .toList()
 }
 
 /**

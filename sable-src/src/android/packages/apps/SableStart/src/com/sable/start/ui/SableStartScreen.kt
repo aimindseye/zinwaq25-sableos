@@ -119,6 +119,7 @@ import org.sableos.start.live.LiveAvailability
 import org.sableos.start.live.LiveDatum
 import org.sableos.start.live.LiveSurfaceSnapshot
 import org.sableos.start.model.AppEntry
+import org.sableos.start.model.Bb10HomePolicy
 import org.sableos.start.model.CommandQuery
 import org.sableos.start.model.CommandRanking
 import org.sableos.start.model.CommandScope
@@ -473,6 +474,10 @@ fun SableStartScreen(
                                     snapshot = liveSnapshot,
                                     apps = apps,
                                     homeApps = homeApps,
+                                    recentApps =
+                                        recentKeys
+                                            .mapNotNull(appByKey::get)
+                                            .filter { it.profileLabel != PROFILE_PRIVATE_LABEL },
                                     hiddenSections = hiddenSections,
                                     homeMode = homeMode,
                                     quickSlots = quickSlots,
@@ -484,6 +489,7 @@ fun SableStartScreen(
                                     onSearch = {
                                         openSearch(SableStartDestination.Start)
                                     },
+                                    onAllApps = { destination = SableStartDestination.Apps },
                                     onTypeToSearch = { char ->
                                         openSearch(SableStartDestination.Start, char.toString())
                                     },
@@ -676,6 +682,7 @@ private fun HomePage(
     snapshot: LiveSurfaceSnapshot,
     apps: List<AppEntry>,
     homeApps: List<AppEntry>,
+    recentApps: List<AppEntry>,
     hiddenSections: Set<String>,
     homeMode: String,
     quickSlots: List<QuickSlot>,
@@ -683,6 +690,7 @@ private fun HomePage(
     onOpenPeek: (AppEntry) -> Unit,
     onOpenAppInfo: (AppEntry) -> Unit,
     onSearch: () -> Unit,
+    onAllApps: () -> Unit,
     onTypeToSearch: (Char) -> Unit,
     onEditHome: () -> Unit,
     onQuickSlot: (QuickSlot) -> Unit,
@@ -781,7 +789,18 @@ private fun HomePage(
                     SableStatusRings(modifier = Modifier.fillMaxWidth())
                 }
             }
-            if (homeApps.isEmpty()) {
+            if (homeMode == HomeLayout.MODE_BB10) {
+                item(key = "bb10-dashboard") {
+                    Bb10HomeDashboard(
+                        recentApps = recentApps,
+                        homeApps = homeApps,
+                        firstFocus = firstAppFocus,
+                        onOpen = onLaunchApp,
+                        onActions = onOpenPeek,
+                        onAllApps = onAllApps,
+                    )
+                }
+            } else if (homeApps.isEmpty()) {
                 item(key = "empty") {
                     EmptyState("No Home apps. Press Menu or long press here to edit Home.")
                 }
@@ -819,6 +838,166 @@ private fun HomePage(
             onOptions = onSlotOptions,
             onHubPeek = onHubPeek,
             onPhoneFocusChanged = { phoneSlotFocused = it },
+        )
+    }
+}
+
+/**
+ * BlackBerry 10-inspired center HOME, with Sable palette and existing quick bar.
+ * These frames are shortcuts to apps launched in this Sable Start session, NOT
+ * live Android tasks, snapshots or claims that apps remain in memory. Quickstep
+ * retains exclusive Recents and task lifecycle ownership.
+ */
+@Composable
+private fun Bb10HomeDashboard(
+    recentApps: List<AppEntry>,
+    homeApps: List<AppEntry>,
+    firstFocus: FocusRequester,
+    onOpen: (AppEntry) -> Unit,
+    onActions: (AppEntry) -> Unit,
+    onAllApps: () -> Unit,
+) {
+    val privateKeys =
+        recentApps.filter { it.profileLabel == PROFILE_PRIVATE_LABEL }
+            .map { it.stableKey() }
+            .toSet()
+    val recentKeys =
+        Bb10HomePolicy.visibleRecentKeys(recentApps.map { it.stableKey() }, privateKeys)
+    val recentByKey = recentApps.associateBy { it.stableKey() }
+    val safeRecent = recentKeys.mapNotNull(recentByKey::get)
+    val safeApps = homeApps.filter { it.profileLabel != PROFILE_PRIVATE_LABEL }
+    val focusRecent = safeRecent.isNotEmpty()
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(
+            text = "Recent activity",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+        if (safeRecent.isEmpty()) {
+            Text(
+                text = "Recently opened apps appear here; Android overview manages running tasks.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        safeRecent.chunked(2).forEachIndexed { rowIndex, row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                row.forEachIndexed { colIndex, app ->
+                    val initialFocus =
+                        if (rowIndex == 0 && colIndex == 0) {
+                            Modifier.focusRequester(firstFocus)
+                        } else {
+                            Modifier
+                        }
+                    Bb10ActivityFrame(
+                        app = app,
+                        modifier = Modifier.weight(1f).then(initialFocus),
+                        onOpen = { onOpen(app) },
+                        onActions = { onActions(app) },
+                    )
+                }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+        Text(
+            text = "Apps",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+        safeApps.chunked(Bb10HomePolicy.GRID_COLUMNS).forEachIndexed { rowIndex, row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                row.forEachIndexed { colIndex, app ->
+                    val initialFocus =
+                        if (!focusRecent && rowIndex == 0 && colIndex == 0) {
+                            Modifier.focusRequester(firstFocus)
+                        } else {
+                            Modifier
+                        }
+                    Bb10GridApp(
+                        app = app,
+                        modifier = Modifier.weight(1f).then(initialFocus),
+                        onOpen = { onOpen(app) },
+                        onActions = { onActions(app) },
+                    )
+                }
+                repeat(Bb10HomePolicy.GRID_COLUMNS - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+        TextButton(
+            onClick = onAllApps,
+            modifier = Modifier.fillMaxWidth().sableFocusRing(),
+        ) {
+            Text("All apps  →")
+        }
+    }
+}
+
+@Composable
+private fun Bb10ActivityFrame(
+    app: AppEntry,
+    modifier: Modifier,
+    onOpen: () -> Unit,
+    onActions: () -> Unit,
+) {
+    val shape = RoundedCornerShape(6.dp)
+    Column(
+        modifier =
+            modifier
+                .heightIn(min = 112.dp)
+                .clip(shape)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
+                .sableFocusRing()
+                .combinedClickable(onClick = onOpen, onLongClick = onActions)
+                .padding(10.dp),
+        verticalArrangement = Arrangement.SpaceBetween,
+    ) {
+        AppMark(app = app, size = 34)
+        Text(
+            text = app.label,
+            style = MaterialTheme.typography.labelLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = "Open again",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun Bb10GridApp(
+    app: AppEntry,
+    modifier: Modifier,
+    onOpen: () -> Unit,
+    onActions: () -> Unit,
+) {
+    Column(
+        modifier =
+            modifier
+                .heightIn(min = 72.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .sableFocusRing()
+                .combinedClickable(onClick = onOpen, onLongClick = onActions)
+                .padding(vertical = 5.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        AppMark(app = app, size = 32)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = app.label,
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -1824,6 +2003,20 @@ private fun EditHomeScreen(
                 )
             }
             HomeToggleRow(
+                title = "BlackBerry 10-style home",
+                subtitle = "Recent activity cards and a four-column app grid",
+                selected = draft.mode == HomeLayout.MODE_BB10,
+                accent = accent,
+                onClick = { draft = draft.copy(mode = HomeLayout.MODE_BB10) },
+            )
+            HomeToggleRow(
+                title = "Keyboard app list",
+                subtitle = "Simple rows and visible keyboard focus",
+                selected = draft.mode == HomeLayout.MODE_LIST,
+                accent = accent,
+                onClick = { draft = draft.copy(mode = HomeLayout.MODE_LIST) },
+            )
+            HomeToggleRow(
                 title = "Tiles instead of a list",
                 subtitle = "Touch tile mode with live details",
                 selected = draft.mode == HomeLayout.MODE_TILES,
@@ -1831,7 +2024,7 @@ private fun EditHomeScreen(
                 onClick = {
                     draft =
                         draft.copy(
-                            mode = if (draft.mode == HomeLayout.MODE_TILES) HomeLayout.MODE_LIST else HomeLayout.MODE_TILES,
+                            mode = HomeLayout.MODE_TILES,
                         )
                 },
             )

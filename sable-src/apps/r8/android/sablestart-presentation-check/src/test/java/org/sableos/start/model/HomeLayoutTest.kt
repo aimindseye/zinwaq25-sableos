@@ -26,10 +26,24 @@ class HomeLayoutTest {
     }
 
     @Test
-    fun listModeIsTheDefault() {
-        assertEquals(HomeLayout.MODE_LIST, HomeLayout.normalizeMode(null))
-        assertEquals(HomeLayout.MODE_LIST, HomeLayout.normalizeMode("grid"))
+    fun bb10ModeIsDefaultAndLegacyModesStillWork() {
+        assertEquals(HomeLayout.MODE_BB10, HomeLayout.normalizeMode(null))
+        assertEquals(HomeLayout.MODE_BB10, HomeLayout.normalizeMode("grid"))
+        assertEquals(HomeLayout.MODE_BB10, HomeLayout.normalizeMode("bb10"))
+        assertEquals(HomeLayout.MODE_LIST, HomeLayout.normalizeMode("list"))
         assertEquals(HomeLayout.MODE_TILES, HomeLayout.normalizeMode("tiles"))
+    }
+
+    @Test
+    fun bb10RecentCardsAreBoundedAndNeverExposePrivateKeys() {
+        val selected =
+            Bb10HomePolicy.visibleRecentKeys(
+                listOf("mail", "private", "mail", "weather", "camera", "hub", "calendar", ""),
+                setOf("private"),
+            )
+        assertEquals(listOf("mail", "weather", "camera", "hub"), selected)
+        assertEquals(4, Bb10HomePolicy.MAX_RECENT)
+        assertEquals(4, Bb10HomePolicy.GRID_COLUMNS)
     }
 
     @Test
