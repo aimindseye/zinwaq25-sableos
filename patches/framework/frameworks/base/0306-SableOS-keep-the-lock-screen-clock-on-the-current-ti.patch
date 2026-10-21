@@ -1,0 +1,133 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 21 Oct 2026 13:07:22 +0000
+Subject: [PATCH] SableOS: keep the lock screen clock on the current time and
+ zone
+
+The owner saw the lock screen show the wrong time. Three paths could
+leave the keyguard clock stale while the status bar is right:
+
+* Dozing: the doze minute alarm (DozeUi) wakes the CPU and calls
+  DozeServiceHost.dozeTimeTick() under a wake lock, but since the
+  clocks moved to the keyguard blueprint nothing forwards that tick to
+  the clock. The clock ticks only on ACTION_TIME_TICK, a non-wakeup
+  alarm, which can wait until the next full wake, so the always-on
+  clock falls minutes behind. dozeTimeTick() now also delivers a time
+  update synchronously (KeyguardUpdateMonitor.dispatchTimeUpdateNow),
+  while the wake lock is held.
+* Zone and 12/24h: ClockEventController passes a time zone or format
+  change to the clock only while its listeners are registered. It now
+  pushes the current zone and format, and ticks, when it registers and
+  each time the keyguard becomes visible, so a zone set during setup or
+  by NITZ after boot cannot leave the lock screen in the old zone.
+
+No layout, credential or doze-policy change. DozeServiceHostTest
+checks that the doze tick reaches the clock.
+---
+ .../statusbar/phone/DozeServiceHostTest.java    |  9 +++++++++
+ .../android/keyguard/ClockEventController.kt    | 17 +++++++++++++++++
+ .../android/keyguard/KeyguardUpdateMonitor.java |  9 +++++++++
+ .../statusbar/phone/DozeServiceHost.java        |  5 +++++
+ 4 files changed, 40 insertions(+)
+
+diff --git a/packages/SystemUI/multivalentTests/src/com/android/systemui/statusbar/phone/DozeServiceHostTest.java b/packages/SystemUI/multivalentTests/src/com/android/systemui/statusbar/phone/DozeServiceHostTest.java
+index 1f1507c8..b2d46f89 100644
+--- a/packages/SystemUI/multivalentTests/src/com/android/systemui/statusbar/phone/DozeServiceHostTest.java
++++ b/packages/SystemUI/multivalentTests/src/com/android/systemui/statusbar/phone/DozeServiceHostTest.java
+@@ -257,6 +257,15 @@ public class DozeServiceHostTest extends SysuiTestCase {
+         verify(mDozeInteractor).dozeTimeTick();
+     }
+ 
++    @Test
++    public void dozeTimeTickTicksTheLockScreenClockNow() {
++        // WHEN the doze minute alarm ticks
++        mDozeServiceHost.dozeTimeTick();
++
++        // THEN the lock screen clock gets a time update while the wake lock is held (Sable)
++        verify(mKeyguardUpdateMonitor).dispatchTimeUpdateNow();
++    }
++
+     @Test
+     @EnableSceneContainer
+     public void setAodDimmingScrim() {
+diff --git a/packages/SystemUI/src/com/android/keyguard/ClockEventController.kt b/packages/SystemUI/src/com/android/keyguard/ClockEventController.kt
+index f579bc4f..61f53bf6 100644
+--- a/packages/SystemUI/src/com/android/keyguard/ClockEventController.kt
++++ b/packages/SystemUI/src/com/android/keyguard/ClockEventController.kt
+@@ -368,6 +368,11 @@ constructor(
+                 isKeyguardVisible = visible
+ 
+                 if (visible) {
++                    // Sable: also re-read the zone and 12/24h setting, which can change while the
++                    // keyguard is hidden or the listeners are unregistered (time zone set during
++                    // setup, NITZ arriving after boot), so the lock screen never shows a stale
++                    // zone.
++                    refreshTimeZoneAndFormat()
+                     refreshTime()
+                 }
+ 
+@@ -403,6 +408,14 @@ constructor(
+             }
+         }
+ 
++    /** Sable: push the current time zone and 12/24h format to the clock. */
++    private fun refreshTimeZoneAndFormat() {
++        clock?.run {
++            events.onTimeZoneChanged(IcuTimeZone.getTimeZone(TimeZone.getDefault().getID()))
++            events.onTimeFormatChanged(getTimeFormatKind())
++        }
++    }
++
+     @DeprecatedSysuiVisibleForTesting
+     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+     fun listenForDnd(scope: CoroutineScope): Job {
+@@ -497,6 +510,10 @@ constructor(
+         }
+         smallTimeListener?.update(shouldTimeListenerRun)
+         largeTimeListener?.update(shouldTimeListenerRun)
++        // Sable: zone, format and time may have changed while unregistered.
++        refreshTimeZoneAndFormat()
++        clock?.smallClock?.events?.onTimeTick()
++        clock?.largeClock?.events?.onTimeTick()
+ 
+         bgExecutor.execute {
+             // Query ZenMode data
+diff --git a/packages/SystemUI/src/com/android/keyguard/KeyguardUpdateMonitor.java b/packages/SystemUI/src/com/android/keyguard/KeyguardUpdateMonitor.java
+index 6aba55bd..75683647 100644
+--- a/packages/SystemUI/src/com/android/keyguard/KeyguardUpdateMonitor.java
++++ b/packages/SystemUI/src/com/android/keyguard/KeyguardUpdateMonitor.java
+@@ -3489,6 +3489,15 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener, CoreSt
+         mHandler.sendEmptyMessage(MSG_TIME_UPDATE);
+     }
+ 
++    /**
++     * Sable: delivers a time update now, on the main thread, instead of posting it. For the doze
++     * minute tick, which holds a wake lock only while it runs: a posted update (or the non-wakeup
++     * ACTION_TIME_TICK) can wait until the next wake, leaving the always-on clock minutes behind.
++     */
++    public void dispatchTimeUpdateNow() {
++        handleTimeUpdate();
++    }
++
+     /**
+      * Handle {@link #MSG_TIME_UPDATE}
+      */
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/DozeServiceHost.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/DozeServiceHost.java
+index fd706f05..5f7f21a1 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/DozeServiceHost.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/DozeServiceHost.java
+@@ -383,6 +383,11 @@ public final class DozeServiceHost implements DozeHost {
+     public void dozeTimeTick() {
+         TraceUtils.trace("DozeServiceHost#dozeTimeTick", () -> {
+             mDozeInteractor.dozeTimeTick();
++            // Sable: tick the lock screen clock with the doze minute alarm. Nothing else ticks
++            // it while dozing; ACTION_TIME_TICK is a non-wakeup alarm.
++            if (mKeyguardUpdateMonitor != null) {
++                mKeyguardUpdateMonitor.dispatchTimeUpdateNow();
++            }
+             mAuthController.dozeTimeTick();
+             if (mAmbientIndicationContainer instanceof DozeReceiver) {
+                 ((DozeReceiver) mAmbientIndicationContainer).dozeTimeTick();
+-- 
+2.43.0
+
