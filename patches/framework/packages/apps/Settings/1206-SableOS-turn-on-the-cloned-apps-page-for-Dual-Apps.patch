@@ -1,0 +1,35 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 21 Oct 2026 23:06:31 +0000
+Subject: [PATCH] SableOS: turn on the cloned apps page for Dual Apps
+
+config_cloned_apps_page_enabled (Settings) is now true, so Settings >
+Apps > Cloned apps and the Dual Apps row of Private Space & Dual Apps
+open Android's cloned-apps list. The apps that may be cloned come from
+the framework's cloneable_apps array, which the SableOS framework
+overlay fills; config_enableAppCloningBuildingBlocks is already true in
+lineage-23.2 frameworks/base. The DeviceConfig app_cloning
+cloned_apps_enabled flag still defaults to true.
+---
+ res/values/config.xml | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/res/values/config.xml b/res/values/config.xml
+index 3a8f8ab..7b1d904 100644
+--- a/res/values/config.xml
++++ b/res/values/config.xml
+@@ -813,7 +813,10 @@
+     <bool name="config_battery_manager_consider_ac">false</bool>
+ 
+     <!-- Whether to display Cloned Apps page in Settings (Settings > Apps > Cloned Apps).-->
+-    <bool name="config_cloned_apps_page_enabled">false</bool>
++    <!-- SableOS: on, for Dual Apps. The apps that may be cloned are the framework's
++         cloneable_apps list (SableFrameworkOverlay); the clone profile itself needs the
++         framework's config_enableAppCloningBuildingBlocks, true by default. -->
++    <bool name="config_cloned_apps_page_enabled">true</bool>
+ 
+     <!-- Whether to initiate Account login during Private Space setup.-->
+     <bool name="config_privatespace_account_login_enabled">false</bool>
+-- 
+2.43.0
+
