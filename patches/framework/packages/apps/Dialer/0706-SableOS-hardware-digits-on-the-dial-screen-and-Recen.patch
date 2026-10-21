@@ -1,0 +1,358 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 21 Oct 2026 23:07:37 +0000
+Subject: [PATCH] SableOS: hardware digits on the dial screen and Recents
+ privacy
+
+Phone design (phone-dialer-titan2) on keyboards without a number row:
+
+* Dial pad: while the number field or an on-screen key has focus, a
+  hardware key that types a dial character goes through keyPressed()
+  like a touch, with its DTMF tone (stopped on release): Alt+W E R S D F
+  Z X C and the key map's Alt 0, plain W E R S D F Z X C, the number
+  row, numpad, *, # and +. A held key types once. Shift+letter and
+  Ctrl/Meta/Fn chords keep their upstream meaning. Pure policy:
+  sable/SableDialpadKeys.java.
+* Main screen: with the dial pad closed and no text field focused, a
+  digit from the Alt layer, number row or numpad opens the dial pad with
+  that digit through the same ACTION_DIAL path other apps use. Plain
+  letters are untouched.
+* Recents privacy: while the device is locked or Sable private mode is
+  on (Sable Hub > Connected apps; read from Hub's read-only
+  org.sableos.hub.privacy provider off the main thread on resume), rows
+  show the call type, date and "Contact hidden": no name, number,
+  location, account line or photo, and the accessibility text says the
+  same. Calling back is unchanged and the call log is never written.
+  Without Hub there is no private mode.
+
+Telephony, emergency calling and the in-call screen are untouched.
+---
+ AndroidManifest.xml                           |  5 ++
+ .../dialer/app/calllog/CallLogAdapter.java    | 12 +++++
+ .../dialer/app/calllog/CallLogFragment.java   | 47 +++++++++++++++++++
+ .../app/calllog/CallLogListItemHelper.java    | 18 +++++++
+ .../app/calllog/PhoneCallDetailsHelper.java   | 22 +++++++++
+ .../dialer/app/res/values/sable_strings.xml   |  2 +
+ .../dialer/dialpadview/DialpadFragment.java   | 29 ++++++++++++
+ .../dialer/main/impl/MainActivity.java        | 30 ++++++++++++
+ 8 files changed, 165 insertions(+)
+
+diff --git a/AndroidManifest.xml b/AndroidManifest.xml
+index 6c40f9e..de89e21 100644
+--- a/AndroidManifest.xml
++++ b/AndroidManifest.xml
+@@ -762,4 +762,9 @@
+             android:exported="false" />
+     </application>
+ 
++    <!-- Sable: Recents privacy reads Sable private mode from Sable Hub (read-only). -->
++    <queries>
++        <provider android:authorities="org.sableos.hub.privacy" />
++    </queries>
++
+ </manifest>
+diff --git a/java/com/android/dialer/app/calllog/CallLogAdapter.java b/java/com/android/dialer/app/calllog/CallLogAdapter.java
+index c7dd5e0..01450a8 100644
+--- a/java/com/android/dialer/app/calllog/CallLogAdapter.java
++++ b/java/com/android/dialer/app/calllog/CallLogAdapter.java
+@@ -1003,6 +1003,18 @@ public class CallLogAdapter extends GroupingListAdapter
+     views.dayGroupHeader.setText(views.dayGroupHeaderText);
+   }
+ 
++  /** Sable: Recents privacy; rebinds the visible rows when it changes. */
++  public void setSableHideDetails(boolean hide) {
++    if (sableHideDetails == hide) {
++      return;
++    }
++    sableHideDetails = hide;
++    callLogListItemHelper.setSableHideDetails(hide);
++    notifyDataSetChanged();
++  }
++
++  private boolean sableHideDetails;
++
+   @Override
+   public int getItemCount() {
+     return super.getItemCount() + (callLogAlertManager.isEmpty() ? 0 : 1);
+diff --git a/java/com/android/dialer/app/calllog/CallLogFragment.java b/java/com/android/dialer/app/calllog/CallLogFragment.java
+index cd2371f..2026fb6 100644
+--- a/java/com/android/dialer/app/calllog/CallLogFragment.java
++++ b/java/com/android/dialer/app/calllog/CallLogFragment.java
+@@ -25,6 +25,7 @@ import android.content.ContentResolver;
+ import android.content.Context;
+ import android.database.ContentObserver;
+ import android.database.Cursor;
++import android.net.Uri;
+ import android.os.Bundle;
+ import android.os.Handler;
+ import android.os.Looper;
+@@ -66,6 +67,7 @@ import com.android.dialer.database.CallLogQueryHandler.Listener;
+ import com.android.dialer.location.GeoUtil;
+ import com.android.dialer.oem.CequintCallerIdManager;
+ import com.android.dialer.phonenumbercache.ContactInfoHelper;
++import com.android.dialer.sable.SableRecentsPrivacy;
+ import com.android.dialer.util.PermissionsUtil;
+ import com.android.dialer.widget.EmptyContentView;
+ import com.android.dialer.widget.EmptyContentView.OnEmptyViewActionButtonClickedListener;
+@@ -408,6 +410,7 @@ public class CallLogFragment extends Fragment
+ 
+     refreshData();
+     adapter.onResume();
++    sableRefreshRecentsPrivacy();
+ 
+     rescheduleDisplayUpdate();
+     // onResume() may also be called as a "side" page on the ViewPager, which is not visible.
+@@ -539,6 +542,50 @@ public class CallLogFragment extends Fragment
+   }
+ 
+   /** Requests updates to the data to be shown. */
++  /**
++   * Sable: reads the lock state and Sable private mode (Hub's read-only provider) off the main
++   * thread and applies Recents privacy. Without Hub there is no private mode.
++   */
++  private void sableRefreshRecentsPrivacy() {
++    final Context appContext = requireContext().getApplicationContext();
++    final Handler main = new Handler(Looper.getMainLooper());
++    new Thread(
++            () -> {
++              KeyguardManager keyguard = appContext.getSystemService(KeyguardManager.class);
++              boolean locked = keyguard == null || keyguard.isDeviceLocked();
++              boolean hide =
++                  SableRecentsPrivacy.hideDetails(locked, sablePrivateMode(appContext));
++              main.post(
++                  () -> {
++                    if (isAdded() && adapter != null) {
++                      adapter.setSableHideDetails(hide);
++                    }
++                  });
++            },
++            "SableRecentsPrivacy")
++        .start();
++  }
++
++  private static boolean sablePrivateMode(Context context) {
++    Uri uri =
++        new Uri.Builder()
++            .scheme("content")
++            .authority(SableRecentsPrivacy.PROVIDER_AUTHORITY)
++            .appendPath(SableRecentsPrivacy.STATE_PATH)
++            .build();
++    try (Cursor cursor = context.getContentResolver().query(uri, null, null, null, null)) {
++      if (cursor == null || !cursor.moveToFirst()) {
++        return SableRecentsPrivacy.privateMode(null);
++      }
++      int column = cursor.getColumnIndex(SableRecentsPrivacy.COLUMN_PRIVATE_MODE);
++      return SableRecentsPrivacy.privateMode(column < 0 ? 1 : cursor.getInt(column));
++    } catch (RuntimeException e) {
++      // Hub absent or refusing us: no private mode is known.
++      LogUtil.w("CallLogFragment.sablePrivateMode", "Sable private mode unavailable");
++      return SableRecentsPrivacy.privateMode(null);
++    }
++  }
++
+   private void refreshData() {
+     // Prevent unnecessary refresh.
+     if (refreshDataRequired) {
+diff --git a/java/com/android/dialer/app/calllog/CallLogListItemHelper.java b/java/com/android/dialer/app/calllog/CallLogListItemHelper.java
+index 2be5d73..4f76b39 100644
+--- a/java/com/android/dialer/app/calllog/CallLogListItemHelper.java
++++ b/java/com/android/dialer/app/calllog/CallLogListItemHelper.java
+@@ -75,9 +75,27 @@ import com.android.dialer.common.LogUtil;
+    * @param views the views to populate
+    * @param details the details of a phone call needed to fill in the data
+    */
++  /** Sable: Recents privacy for every row this helper binds from now on. */
++  public void setSableHideDetails(boolean hide) {
++    phoneCallDetailsHelper.setSableHideDetails(hide);
++  }
++
+   public void setPhoneCallDetails(CallLogListItemViewHolder views, PhoneCallDetails details) {
+     phoneCallDetailsHelper.setPhoneCallDetails(views.phoneCallDetailsViews, details);
+ 
++    if (phoneCallDetailsHelper.sableHidesDetails()) {
++      // Sable: no name, number, location or photo; the row still calls back on Enter.
++      final CharSequence hidden = resources.getString(R.string.sable_contact_hidden);
++      views.quickContactView.setContentDescription(hidden);
++      views.primaryActionView.setContentDescription(hidden);
++      views.nameOrNumber = hidden;
++      views.callTypeOrLocation = "";
++      views.countryIso = details.countryIso;
++      views.quickContactView.assignContactUri(null);
++      views.quickContactView.setImageResource(R.drawable.quantum_ic_person_vd_theme_24);
++      return;
++    }
++
+     // Set the accessibility text for the contact badge
+     views.quickContactView.setContentDescription(getContactBadgeDescription(details));
+ 
+diff --git a/java/com/android/dialer/app/calllog/PhoneCallDetailsHelper.java b/java/com/android/dialer/app/calllog/PhoneCallDetailsHelper.java
+index de22ef7..dc1dc12 100644
+--- a/java/com/android/dialer/app/calllog/PhoneCallDetailsHelper.java
++++ b/java/com/android/dialer/app/calllog/PhoneCallDetailsHelper.java
+@@ -97,6 +97,21 @@ public class PhoneCallDetailsHelper {
+   }
+ 
+   /** Fills the call details views with content. */
++  /**
++   * Sable: Recents privacy ({@link com.android.dialer.sable.SableRecentsPrivacy}). While on, rows
++   * show the call type and date and "Contact hidden" instead of a name, number, location or
++   * account line.
++   */
++  private boolean sableHideDetails;
++
++  public void setSableHideDetails(boolean hide) {
++    sableHideDetails = hide;
++  }
++
++  public boolean sableHidesDetails() {
++    return sableHideDetails;
++  }
++
+   public void setPhoneCallDetails(PhoneCallDetailsViews views, PhoneCallDetails details) {
+     // Display up to a given number of icons.
+     views.callTypeIcons.clear();
+@@ -170,6 +185,13 @@ public class PhoneCallDetailsHelper {
+         details.isRead
+             ? ThemeComponent.get(context).theme().getTextColorSecondary()
+             : ThemeComponent.get(context).theme().getTextColorPrimary());
++
++    if (sableHideDetails) {
++      views.nameView.setText(R.string.sable_contact_hidden);
++      views.nameView.setTextDirection(View.TEXT_DIRECTION_INHERIT);
++      views.callLocationAndDate.setText(getCallDate(details));
++      views.callAccountLabel.setVisibility(View.GONE);
++    }
+   }
+ 
+   private void setNameView(PhoneCallDetailsViews views, PhoneCallDetails details) {
+diff --git a/java/com/android/dialer/app/res/values/sable_strings.xml b/java/com/android/dialer/app/res/values/sable_strings.xml
+index 178fa42..4ae34f1 100644
+--- a/java/com/android/dialer/app/res/values/sable_strings.xml
++++ b/java/com/android/dialer/app/res/values/sable_strings.xml
+@@ -19,4 +19,6 @@
+     <string name="sable_space_answers_title">Space answers calls</string>
+     <!-- Summary of the switch above. -->
+     <string name="sable_space_answers_summary">Press Space on the keyboard to answer a ringing call. Space never ends a call.</string>
++    <!-- Recents row name while the phone is locked or Sable private mode is on. [CHAR LIMIT=40] -->
++    <string name="sable_contact_hidden">Contact hidden</string>
+ </resources>
+diff --git a/java/com/android/dialer/dialpadview/DialpadFragment.java b/java/com/android/dialer/dialpadview/DialpadFragment.java
+index e8f45f0..5f1bc63 100644
+--- a/java/com/android/dialer/dialpadview/DialpadFragment.java
++++ b/java/com/android/dialer/dialpadview/DialpadFragment.java
+@@ -94,6 +94,7 @@ import com.android.dialer.oem.MotorolaUtils;
+ import com.android.dialer.phonenumberutil.PhoneNumberHelper;
+ import com.android.dialer.precall.PreCall;
+ import com.android.dialer.proguard.UsedByReflection;
++import com.android.dialer.sable.SableDialpadKeys;
+ import com.android.dialer.telecom.TelecomUtil;
+ import com.android.dialer.util.CallUtil;
+ import com.android.dialer.util.PermissionsUtil;
+@@ -694,6 +695,8 @@ public class DialpadFragment extends Fragment
+     for (int buttonId : buttonIds) {
+       dialpadKey = fragmentView.findViewById(buttonId);
+       dialpadKey.setOnPressedListener(this);
++      // Sable: hardware digits also while an on-screen key has focus.
++      dialpadKey.setOnKeyListener(this);
+     }
+ 
+     // Long-pressing one button will initiate Voicemail.
+@@ -902,6 +905,9 @@ public class DialpadFragment extends Fragment
+ 
+   @Override
+   public boolean onKey(View view, int keyCode, KeyEvent event) {
++    if (sableDialKey(keyCode, event)) {
++      return true;
++    }
+     if (view.getId() == R.id.digits) {
+       if (keyCode == KeyEvent.KEYCODE_ENTER) {
+         handleDialButtonPressed();
+@@ -911,6 +917,29 @@ public class DialpadFragment extends Fragment
+     return false;
+   }
+ 
++  /**
++   * Sable: a hardware key that types a dial character while the dial pad has focus (the number
++   * field or an on-screen key) goes through {@link #keyPressed} like a touch, with its tone,
++   * which stops on release. Alt+W E R S D F Z X C and, here, plain W E R S D F Z X C are 1-9
++   * ({@link SableDialpadKeys}). A held key types once.
++   */
++  private boolean sableDialKey(int keyCode, KeyEvent event) {
++    final char dialChar =
++        SableDialpadKeys.dialChar(
++            keyCode, event.getUnicodeChar(), event.getMetaState(), /* dialpadFocused= */ true);
++    if (dialChar == 0) {
++      return false;
++    }
++    if (event.getAction() == KeyEvent.ACTION_DOWN) {
++      if (event.getRepeatCount() == 0) {
++        keyPressed(SableDialpadKeys.keyCodeFor(dialChar));
++      }
++    } else if (event.getAction() == KeyEvent.ACTION_UP) {
++      stopTone();
++    }
++    return true;
++  }
++
+   /**
+    * When a key is pressed, we start playing DTMF tone, do vibration, and enter the digit
+    * immediately. When a key is released, we stop the tone. Note that the "key press" event will be
+diff --git a/java/com/android/dialer/main/impl/MainActivity.java b/java/com/android/dialer/main/impl/MainActivity.java
+index 380995b..6b38132 100644
+--- a/java/com/android/dialer/main/impl/MainActivity.java
++++ b/java/com/android/dialer/main/impl/MainActivity.java
+@@ -18,7 +18,11 @@
+ package com.android.dialer.main.impl;
+ 
+ import android.content.Intent;
++import android.net.Uri;
+ import android.os.Bundle;
++import android.view.KeyEvent;
++import android.view.View;
++import android.widget.EditText;
+ 
+ import androidx.annotation.NonNull;
+ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+@@ -27,6 +31,7 @@ import com.android.dialer.R;
+ import com.android.dialer.blockreportspam.ShowBlockReportSpamDialogReceiver;
+ import com.android.dialer.common.LogUtil;
+ import com.android.dialer.main.MainActivityPeer;
++import com.android.dialer.sable.SableDialpadKeys;
+ import com.android.dialer.telecom.TelecomUtil;
+ import com.android.dialer.util.TransactionSafeActivity;
+ 
+@@ -113,6 +118,31 @@ public class MainActivity extends TransactionSafeActivity
+     super.onBackPressed();
+   }
+ 
++  /**
++   * Sable: on the main screen (dial pad closed, no text field focused), a digit from the Alt
++   * layer, number row or numpad opens the dial pad with that digit, through the same dial intent
++   * other apps use. Plain letters keep their list meaning.
++   */
++  @Override
++  public boolean dispatchKeyEvent(KeyEvent event) {
++    if (event.getAction() == KeyEvent.ACTION_DOWN
++        && SableDialpadKeys.opensDialpad(
++            event.getKeyCode(), event.getUnicodeChar(), event.getMetaState(), event.getRepeatCount())
++        && !(getCurrentFocus() instanceof EditText)) {
++      View dialpad = findViewById(R.id.dialpad_view);
++      if (dialpad == null || !dialpad.isShown()) {
++        char dialChar =
++            SableDialpadKeys.dialChar(
++                event.getKeyCode(), event.getUnicodeChar(), event.getMetaState(), false);
++        startActivity(
++            new Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", String.valueOf(dialChar), null))
++                .setClass(this, MainActivity.class));
++        return true;
++      }
++    }
++    return super.dispatchKeyEvent(event);
++  }
++
+   @Override
+   public MainActivityPeer getPeer() {
+     return activePeer;
+-- 
+2.43.0
+
