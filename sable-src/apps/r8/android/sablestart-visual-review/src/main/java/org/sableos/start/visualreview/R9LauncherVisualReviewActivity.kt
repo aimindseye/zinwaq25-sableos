@@ -23,6 +23,7 @@ import org.sableos.start.model.AppEntry
 import org.sableos.start.model.stableKey
 import org.sableos.start.platform.LiveSurfaceRepository
 import org.sableos.start.platform.PrivacyFactsReader
+import org.sableos.start.model.ActiveFrame
 import org.sableos.start.privacy.AppPrivacy
 import org.sableos.start.privacy.GroupState
 import org.sableos.start.privacy.PrivacyGroup
@@ -54,6 +55,7 @@ class R9LauncherVisualReviewActivity : ComponentActivity() {
 
     private var startTileKeys: Set<String>? = null
     private var homeAppKeys: List<String>? = null
+    private var gridOrder: List<String>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -88,9 +90,25 @@ class R9LauncherVisualReviewActivity : ComponentActivity() {
                 initialScreen = intent.getStringExtra(EXTRA_INITIAL_SCREEN) ?: "start",
                 initialStartTileKeys = startTileKeys,
                 initialHomeApps = homeAppKeys,
-                onHomeAppsChanged = { keys ->
-                    homeAppKeys = keys
+                initialGridOrder = gridOrder,
+                onGridOrderChanged = { keys ->
+                    gridOrder = keys
                 },
+                // Active Frames have no recent tasks here: optional fixture frames from the first apps.
+                frames =
+                    if (intent.getBooleanExtra(EXTRA_FRAME_FIXTURES, false)) {
+                        appsState.value.take(FIXTURE_FRAMES).mapIndexed { index, app ->
+                            ActiveFrame(
+                                taskId = index + 1,
+                                packageName = app.component.packageName,
+                                className = app.component.className,
+                                userId = app.user.hashCode(),
+                                running = true,
+                            )
+                        }
+                    } else {
+                        emptyList()
+                    },
                 onAppearanceChanged = { appearance ->
                     appearanceState.value = appearance
                     applyCurrentSystemBars()
@@ -328,6 +346,8 @@ class R9LauncherVisualReviewActivity : ComponentActivity() {
         const val EXTRA_APPEARANCE_MODE = "appearanceMode"
         const val EXTRA_INITIAL_SCREEN = "initialScreen"
         const val EXTRA_PRIVACY_FIXTURES = "privacyFixtures"
+        const val EXTRA_FRAME_FIXTURES = "frameFixtures"
+        const val FIXTURE_FRAMES = 5
         const val FIXTURE_PACKAGE = "org.sableos.start.visualreview.fixture"
         const val FIXTURE_WORK_USER = 10
         const val FIXTURE_APP_ID = 10_999

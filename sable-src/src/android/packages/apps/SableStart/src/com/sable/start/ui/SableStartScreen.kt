@@ -13,6 +13,21 @@ import android.os.SystemClock
 import android.provider.CallLog
 import android.util.LruCache
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.style.TextAlign
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.delay
+import org.sableos.start.model.ActiveFrame
+import org.sableos.start.model.ActiveFrames
+import org.sableos.start.model.AppGrid
+import org.sableos.start.model.AppProfiles
+import org.sableos.start.model.HomeHeader
+import org.sableos.start.model.CommandGroups
+import org.sableos.start.model.CommandBestMatch
+import org.sableos.start.privacy.PrivacyFilter
 import androidx.compose.foundation.Canvas as ComposeCanvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -2071,9 +2086,9 @@ private fun SlotPickerScreen(
     }
 }
 
-/** The three lists Edit Home reorders. */
+/** The lists Edit Home reorders. */
 private enum class EditSection {
-    HomeApps,
+    Grid,
     QuickBar,
     Glance,
 }
@@ -2087,7 +2102,7 @@ private data class EditMove(
 
 private fun HomeEdit.list(section: EditSection): List<String> =
     when (section) {
-        EditSection.HomeApps -> homeApps
+        EditSection.Grid -> gridOrder
         EditSection.QuickBar -> quickBar
         EditSection.Glance -> glanceWidgets
     }
@@ -2097,12 +2112,12 @@ private fun HomeEdit.with(
     list: List<String>,
 ): HomeEdit =
     when (section) {
-        EditSection.HomeApps -> copy(homeApps = list)
+        EditSection.Grid -> copy(gridOrder = list)
         EditSection.QuickBar -> copy(quickBar = list)
         EditSection.Glance -> copy(glanceWidgets = list)
     }
 
-/** Moves [key] one place in [section] (Command and All Apps move like any slot). */
+/** Moves [key] by [delta] places in [section]: grid icons shift like a dragged icon, list items swap. */
 private fun HomeEdit.moved(
     section: EditSection,
     key: String,
@@ -2110,18 +2125,24 @@ private fun HomeEdit.moved(
 ): HomeEdit {
     val list = list(section)
     val index = list.indexOf(key)
-    val next = if (section == EditSection.QuickBar) QuickBar.move(list, index, delta) else HomeApps.move(list, index, delta)
+    val next =
+        when (section) {
+            EditSection.Grid -> AppGrid.move(list, index, delta)
+            EditSection.QuickBar -> QuickBar.move(list, index, delta)
+            EditSection.Glance -> HomeApps.move(list, index, delta)
+        }
     return with(section, next)
 }
 
 /**
- * Edit Home (visual "3. Edit / Reorder Home"): one mode that reorders the
- * Home apps, the base quick bar and the Glance widgets and chooses the Home
- * modules. Drag the handle, or with the keyboard: Enter picks an item up and
- * drops it, arrows move it while picked up (Up/Down in lists, Left/Right on the
- * bar), Alt+arrows (Fn+arrows) move the focused item at once, Menu or Space
- * opens its options (move, replace, remove, reset), Back cancels the move or
- * leaves without saving, Done saves.
+ * Edit Home: one mode that orders the app grid, the bottom bar and the Glance
+ * widgets shown as frames while no app runs, and shows or hides the Active
+ * Frames header (status dials, weather and date, search row). Drag, or with
+ * the keyboard: Enter picks an item up and drops it, arrows move it while
+ * picked up (all four on the grid, Left/Right on the bar, Up/Down in the
+ * list), Alt+arrows (Fn+arrows) move the focused item at once, Menu or Space
+ * opens its options, Back cancels the move or leaves without saving, Done
+ * saves.
  */
 @Composable
 private fun EditHomeScreen(
@@ -2138,7 +2159,7 @@ private fun EditHomeScreen(
     var moving by remember { mutableStateOf<EditMove?>(null) }
     // "<section>:<key>" whose options are open.
     var optionsFor by remember { mutableStateOf<String?>(null) }
-    // null: editing; "home": adding a Home app; "bar": adding a slot; "bar:<index>": replacing that slot.
+    // null: editing; "bar": adding a slot; "bar:<index>": replacing that slot.
     var picking by remember { mutableStateOf<String?>(null) }
     val startBack = remember { backGeneration }
     val doneFocus = remember { FocusRequester() }
@@ -2178,23 +2199,16 @@ private fun EditHomeScreen(
         val native = event.nativeKeyEvent
         val down = event.type == KeyEventType.KeyDown
         val alt = native.metaState and (QuickBar.META_ALT_ON or QuickBar.META_FUNCTION_ON) != 0
-        val horizontal = section == EditSection.QuickBar
-        val altDelta =
-            if (horizontal) {
-                StartPages.keyDelta(native.keyCode, native.metaState)
-            } else {
-                StartPages.reorderDelta(native.keyCode, native.metaState)
-            }
         val picked = moving?.let { it.section == section && it.key == key } == true
-        val plainDelta =
-            when (native.keyCode) {
-                KEYCODE_DPAD_UP -> if (horizontal) null else -1
-                KEYCODE_DPAD_DOWN -> if (horizontal) null else 1
-                KEYCODE_DPAD_LEFT -> if (horizontal) -1 else null
-                KEYCODE_DPAD_RIGHT -> if (horizontal) 1 else null
-                else -> null
-            }.takeIf { picked && !alt }
-        val delta = altDelta ?: plainDelta
+        val arrow = AppGrid.arrowDelta(native.keyCode)
+        // Grid: all four arrows; bar: Left/Right; list: Up/Down (one place).
+        val sectionDelta =
+            when (section) {
+                EditSection.Grid -> arrow
+                EditSection.QuickBar -> arrow?.takeIf { it == -1 || it == 1 }
+                EditSection.Glance -> arrow?.takeIf { it == -AppGrid.COLUMNS || it == AppGrid.COLUMNS }?.let { it / AppGrid.COLUMNS }
+            }
+        val delta = sectionDelta?.takeIf { alt || picked }
         val optionsKey = "${section.name}:$key"
         return when {
             delta != null -> {
@@ -2226,18 +2240,10 @@ private fun EditHomeScreen(
         contentPadding = PaddingValues(bottom = 28.dp),
     ) {
         if (pickKind != null) {
-            val choices =
-                if (pickKind == "home") {
-                    apps
-                        .filter { it.inLauncherUser && it.stableKey() !in draft.homeApps }
-                        .sortedBy { it.label.lowercase(Locale.getDefault()) }
-                        .map { QuickSlot(it.stableKey(), it.label, it) }
-                } else {
-                    quickBarChoices(apps, appByKey, draft.quickBar)
-                }
+            val choices = quickBarChoices(apps, appByKey, draft.quickBar)
             item {
                 MetroHeader(
-                    title = if (pickKind == "home") "add a Home app" else if (pickKind == "bar") "add a slot" else "replace slot",
+                    title = if (pickKind == "bar") "add a slot" else "replace slot",
                     onBack = { picking = null },
                 )
                 Spacer(Modifier.height(12.dp))
@@ -2254,13 +2260,11 @@ private fun EditHomeScreen(
                             .sableFocusRing()
                             .clickable {
                                 draft =
-                                    when {
-                                        pickKind == "home" -> draft.copy(homeApps = draft.homeApps + choice.token)
-                                        pickKind == "bar" -> draft.copy(quickBar = QuickBar.add(draft.quickBar, choice.token))
-                                        else -> {
-                                            val index = pickKind.substringAfter(':').toIntOrNull() ?: -1
-                                            draft.copy(quickBar = QuickBar.replace(draft.quickBar, index, choice.token))
-                                        }
+                                    if (pickKind == "bar") {
+                                        draft.copy(quickBar = QuickBar.add(draft.quickBar, choice.token))
+                                    } else {
+                                        val index = pickKind.substringAfter(':').toIntOrNull() ?: -1
+                                        draft.copy(quickBar = QuickBar.replace(draft.quickBar, index, choice.token))
                                     }
                                 picking = null
                             }.padding(vertical = 8.dp),
@@ -2304,36 +2308,43 @@ private fun EditHomeScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(10.dp))
-            SectionLabel("Home apps")
+            SectionLabel("App grid")
             Spacer(Modifier.height(4.dp))
         }
-        itemsIndexed(draft.homeApps, key = { _, key -> "home:$key" }) { index, key ->
-            val app = appByKey[key]
-            EditListRow(
-                label = app?.label ?: "App not installed",
-                leading = { if (app != null) AppMark(app = app, size = 24) },
-                picked = moving?.let { it.section == EditSection.HomeApps && it.key == key } == true,
-                onKey = { event -> itemKeys(EditSection.HomeApps, key, event) },
-                onClick = { optionsFor = if (optionsFor == "HomeApps:$key") null else "HomeApps:$key" },
-                onDragStep = { delta -> move(EditSection.HomeApps, key, delta) },
-            )
-            if (optionsFor == "HomeApps:$key") {
+        items(draft.gridOrder.chunked(AppGrid.COLUMNS), key = { row -> "grid:" + row.first() }) { row ->
+            Row(modifier = Modifier.fillMaxWidth()) {
+                row.forEach { key ->
+                    val app = appByKey[key]
+                    EditGridCell(
+                        app = app,
+                        picked = moving?.let { it.section == EditSection.Grid && it.key == key } == true,
+                        onKey = { event -> itemKeys(EditSection.Grid, key, event) },
+                        onClick = { optionsFor = if (optionsFor == "Grid:$key") null else "Grid:$key" },
+                        onDragStep = { delta -> move(EditSection.Grid, key, delta) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                repeat(AppGrid.COLUMNS - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+            val open = optionsFor?.takeIf { it.startsWith("Grid:") }?.substringAfter(':')
+            if (open != null && open in row) {
+                val index = draft.gridOrder.indexOf(open)
                 EditOptions(
-                    listOf(
-                        "move up" to { move(EditSection.HomeApps, key, -1) },
-                        "move down" to { move(EditSection.HomeApps, key, 1) },
-                        "remove from Home" to {
-                            draft = draft.copy(homeApps = draft.homeApps.filterNot { it == key })
-                            optionsFor = null
-                        },
-                    ).filterIndexed { i, _ -> !(i == 0 && index == 0) && !(i == 1 && index == draft.homeApps.lastIndex) },
+                    buildList {
+                        if (index > 0) add("move left" to { move(EditSection.Grid, open, -1) })
+                        if (index < draft.gridOrder.lastIndex) add("move right" to { move(EditSection.Grid, open, 1) })
+                        if (index >= AppGrid.COLUMNS) add("move up a row" to { move(EditSection.Grid, open, -AppGrid.COLUMNS) })
+                        if (index + AppGrid.COLUMNS <= draft.gridOrder.lastIndex) {
+                            add("move down a row" to { move(EditSection.Grid, open, AppGrid.COLUMNS) })
+                        }
+                        add("move to the start" to { move(EditSection.Grid, open, -index) })
+                    },
                 )
             }
         }
-        item(key = "home-add") {
-            MetroLink(text = "+ add a Home app", onClick = { picking = "home" })
+        item(key = "bar") {
             Spacer(Modifier.height(10.dp))
-            SectionLabel("Base Quick Bar")
+            SectionLabel("Bottom bar")
             Spacer(Modifier.height(6.dp))
             EditQuickBarRow(
                 tokens = draft.quickBar,
@@ -2372,7 +2383,7 @@ private fun EditHomeScreen(
                 )
                 if (required) {
                     Text(
-                        text = "Command and All Apps always stay on the bar; they can move.",
+                        text = "Search always stays on the bar; it can move.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -2382,11 +2393,11 @@ private fun EditHomeScreen(
                 MetroLink(text = "+ add a slot", onClick = { picking = "bar" })
             }
             MetroLink(
-                text = "reset bar to Phone · Hub · Command · Apps",
+                text = "reset bar to Phone · Search · Camera",
                 onClick = { draft = draft.copy(quickBar = QuickBar.DEFAULT) },
             )
             Spacer(Modifier.height(10.dp))
-            SectionLabel("Glance widgets")
+            SectionLabel("Frames while no app is open")
             Spacer(Modifier.height(4.dp))
         }
         itemsIndexed(draft.glanceWidgets, key = { _, widget -> "glance:$widget" }) { index, widget ->
@@ -2419,7 +2430,7 @@ private fun EditHomeScreen(
                 )
             }
             Spacer(Modifier.height(10.dp))
-            SectionLabel("Home")
+            SectionLabel("Active Frames header")
             Spacer(Modifier.height(4.dp))
             val accent = MaterialTheme.colorScheme.primary
             HomeLayout.SECTIONS.forEach { section ->
@@ -2431,22 +2442,79 @@ private fun EditHomeScreen(
                     onClick = { draft = draft.copy(hiddenSections = HomeLayout.toggle(draft.hiddenSections, section)) },
                 )
             }
-            HomeToggleRow(
-                title = "Tiles instead of a list",
-                subtitle = "Touch tile mode with live details",
-                selected = draft.mode == HomeLayout.MODE_TILES,
-                accent = accent,
-                onClick = {
-                    draft =
-                        draft.copy(
-                            mode = if (draft.mode == HomeLayout.MODE_TILES) HomeLayout.MODE_LIST else HomeLayout.MODE_TILES,
-                        )
-                },
-            )
             Spacer(Modifier.height(10.dp))
             MetroLink(text = "appearance", onClick = onAppearance)
             MetroLink(text = "reset Home to default", onClick = { draft = defaults })
         }
+    }
+}
+
+/** One app in the Edit Home grid: Enter picks it up, arrows move it, or drag it in any direction. */
+@Composable
+private fun EditGridCell(
+    app: AppEntry?,
+    picked: Boolean,
+    onKey: (KeyEvent) -> Boolean,
+    onClick: () -> Unit,
+    onDragStep: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val step = with(LocalDensity.current) { EditRowStep.toPx() }
+    val currentStep by rememberUpdatedState(onDragStep)
+    val label = app?.label ?: "App not installed"
+    Column(
+        modifier =
+            modifier
+                .padding(3.dp)
+                .heightIn(min = 84.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(if (picked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
+                .sableFocusRing()
+                .onPreviewKeyEvent(onKey)
+                .clickable(onClick = onClick)
+                .pointerInput(Unit) {
+                    var travelX = 0f
+                    var travelY = 0f
+                    detectDragGestures(onDragStart = {
+                        travelX = 0f
+                        travelY = 0f
+                    }) { change, amount ->
+                        change.consume()
+                        travelX += amount.x
+                        travelY += amount.y
+                        while (travelX > step) {
+                            currentStep(1)
+                            travelX -= step
+                        }
+                        while (travelX < -step) {
+                            currentStep(-1)
+                            travelX += step
+                        }
+                        while (travelY > step) {
+                            currentStep(AppGrid.COLUMNS)
+                            travelY -= step
+                        }
+                        while (travelY < -step) {
+                            currentStep(-AppGrid.COLUMNS)
+                            travelY += step
+                        }
+                    }
+                }.semantics { contentDescription = "$label. Enter picks up, arrows move" }
+                .padding(vertical = 6.dp, horizontal = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        if (app != null) AppMark(app = app, size = 32)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = if (picked) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -2657,14 +2725,14 @@ private fun HomeToggleRow(
     }
 }
 
-/** Role slots first (Phone, Hub, Camera), then every other personal app A to Z. */
+/** Role slots first (Phone, Camera, Hub, All apps), then every other personal app A to Z. */
 private fun quickBarChoices(
     apps: List<AppEntry>,
     appByKey: Map<String, AppEntry>,
     current: List<String>,
 ): List<QuickSlot> {
     val roles =
-        listOf(QuickBar.PHONE, QuickBar.HUB, QuickBar.CAMERA)
+        listOf(QuickBar.PHONE, QuickBar.CAMERA, QuickBar.HUB, QuickBar.ALL_APPS)
             .filterNot { it in current }
             .mapNotNull { resolveQuickSlot(it, apps, appByKey) }
     val taken =
@@ -2694,8 +2762,8 @@ private fun resolveQuickSlot(
         } ?: personal.firstOrNull { app -> labels.any { app.label.equals(it, ignoreCase = true) } }
     }
     return when (token) {
-        QuickBar.COMMAND -> QuickSlot(token, "Command", null)
-        QuickBar.ALL_APPS -> QuickSlot(token, "Apps", null)
+        QuickBar.COMMAND -> QuickSlot(token, "Search", null)
+        QuickBar.ALL_APPS -> QuickSlot(token, "All apps", null)
         QuickBar.PHONE ->
             role(listOf(DIALER_PACKAGE), listOf("Phone"))?.let { QuickSlot(token, "Phone", it) }
         QuickBar.HUB ->
@@ -2714,317 +2782,6 @@ private fun quickSlotFallbackLabel(token: String): String =
         QuickBar.HUB -> "Hub (not installed)"
         QuickBar.CAMERA -> "Camera (not installed)"
         else -> "App not installed"
-    }
-
-@Composable
-private fun TileGrid(tiles: List<HomeTile>) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        var index = 0
-        while (index < tiles.size) {
-            val tile = tiles[index]
-            if (tile.wide) {
-                MetroTile(
-                    tile = tile,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                index += 1
-            } else {
-                val next =
-                    tiles.getOrNull(index + 1)
-                        ?.takeIf { candidate -> !candidate.wide }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    MetroTile(
-                        tile = tile,
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (next != null) {
-                        MetroTile(
-                            tile = next,
-                            modifier = Modifier.weight(1f),
-                        )
-                    } else {
-                        Spacer(Modifier.weight(1f))
-                    }
-                }
-                index += if (next == null) 1 else 2
-            }
-        }
-    }
-}
-
-@Composable
-private fun MetroTile(
-    tile: HomeTile,
-    modifier: Modifier = Modifier,
-) {
-    val shape = RoundedCornerShape(8.dp)
-    val live =
-        tile.liveDatum?.takeIf { datum ->
-            datum.availability == LiveAvailability.LIVE ||
-                datum.availability == LiveAvailability.EMPTY
-        }
-    val liveTile =
-        tile.app.component.packageName in
-            setOf(HUB_PACKAGE, WEATHER_PACKAGE, MAIL_PACKAGE) ||
-            tile.app.label.equals(HUB_LABEL, ignoreCase = true) ||
-            tile.app.label.equals(MESSAGES_LABEL, ignoreCase = true) ||
-            tile.app.label.equals(WEATHER_LABEL, ignoreCase = true) ||
-            tile.app.label.equals(MAIL_LABEL, ignoreCase = true)
-
-    Box(
-        modifier =
-            modifier
-                .height(if (tile.wide) 106.dp else 118.dp)
-                .shadow(3.dp, shape)
-                .clip(shape)
-                .background(
-                    Brush.linearGradient(
-                        listOf(
-                            MaterialTheme.colorScheme.surface,
-                            MaterialTheme.colorScheme.surfaceVariant,
-                            tile.accent.copy(alpha = 0.11f),
-                        ),
-                    ),
-                )
-                .border(
-                    width = 1.dp,
-                    color = tile.accent.copy(alpha = 0.30f),
-                    shape = shape,
-                ).sableFocusRing()
-                .combinedClickable(
-                    onClick = tile.onClick,
-                    onLongClick = tile.onLongClick,
-                ),
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxHeight()
-                    .width(3.dp)
-                    .background(tile.accent),
-        )
-
-        when {
-            tile.wide -> {
-                val wide = approvedWideContent(tile, live)
-                Row(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    AppMark(
-                        app = tile.app,
-                        size = 54,
-                        fallbackContentColor = MaterialTheme.colorScheme.onSurface,
-                        showFallbackSurface = true,
-                    )
-                    Spacer(Modifier.width(14.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = wide.first,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = tile.accent,
-                        )
-                        Text(
-                            text = wide.second,
-                            style = MaterialTheme.typography.titleLarge,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            text = wide.third,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-            }
-
-            liveTile -> {
-                val metric = approvedMetric(tile.app, live)
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .padding(14.dp),
-                    verticalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = tile.title.uppercase(Locale.getDefault()),
-                            modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = tile.accent,
-                            maxLines = 1,
-                        )
-                        AppMark(
-                            app = tile.app,
-                            size = 28,
-                            fallbackContentColor = MaterialTheme.colorScheme.onSurface,
-                            showFallbackSurface = false,
-                        )
-                    }
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(
-                            text = metric.first,
-                            fontSize = 34.sp,
-                            lineHeight = 36.sp,
-                            fontWeight = FontWeight.Light,
-                        )
-                        if (metric.second.isNotBlank()) {
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = metric.second,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(bottom = 3.dp),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-                }
-            }
-
-            else -> {
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .padding(14.dp),
-                    verticalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    AppMark(
-                        app = tile.app,
-                        size = 42,
-                        fallbackContentColor = MaterialTheme.colorScheme.onSurface,
-                        showFallbackSurface = true,
-                    )
-                    Column {
-                        Text(
-                            text = tile.title,
-                            style = MaterialTheme.typography.titleMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        live?.detail?.let { detail ->
-                            Text(
-                                text = approvedCompactDetail(tile.app, detail),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-private data class ApprovedWideContent(
-    val first: String,
-    val second: String,
-    val third: String,
-)
-
-private fun approvedWideContent(
-    tile: HomeTile,
-    live: LiveDatum?,
-): ApprovedWideContent =
-    when (tile.app.component.packageName) {
-        CALENDAR_PACKAGE ->
-            ApprovedWideContent(
-                first = "NEXT",
-                second = live?.detail ?: "nothing scheduled",
-                third = "Calendar",
-            )
-
-        MEDIA_PACKAGE -> {
-            val parts = live?.detail.orEmpty().split(" · ")
-            ApprovedWideContent(
-                first = "NOW PLAYING",
-                second = parts.firstOrNull()?.takeIf { it.isNotBlank() } ?: "Nothing playing",
-                third =
-                    parts.drop(1).joinToString(" · ")
-                        .replace("playing", "▶")
-                        .ifBlank { MEDIA_LABEL },
-            )
-        }
-
-        else ->
-            ApprovedWideContent(
-                first = tile.title.uppercase(Locale.getDefault()),
-                second = live?.detail ?: tile.title,
-                third = tile.title,
-            )
-    }
-
-private fun approvedMetric(
-    app: AppEntry,
-    live: LiveDatum?,
-): Pair<String, String> {
-    val detail = live?.detail.orEmpty()
-    return when {
-        app.component.packageName == WEATHER_PACKAGE ||
-            app.label.equals(WEATHER_LABEL, ignoreCase = true) -> {
-            val parts = detail.split(" · ")
-            val temperature =
-                parts.firstOrNull { it.trim().endsWith("°") }
-                    ?.trim()
-                    ?: "--°"
-            val condition =
-                parts.dropWhile { !it.trim().endsWith("°") }
-                    .drop(1)
-                    .joinToString(" · ")
-                    .ifBlank { "weather" }
-            temperature to condition
-        }
-
-        app.component.packageName == HUB_PACKAGE ||
-            app.label.equals(HUB_LABEL, ignoreCase = true) ||
-            app.label.equals(MESSAGES_LABEL, ignoreCase = true) -> {
-            val count =
-                detail.substringBefore(" ")
-                    .takeIf { it.all(Char::isDigit) }
-                    ?: "0"
-            val label =
-                detail.substringAfter(" ", "active")
-                    .ifBlank { "active" }
-            count to label
-        }
-
-        app.component.packageName == MAIL_PACKAGE ||
-            app.label.equals(MAIL_LABEL, ignoreCase = true) -> {
-            val count = detail.substringBefore(" ").takeIf { it.all(Char::isDigit) } ?: "0"
-            count to "unread"
-        }
-
-        else -> detail to ""
-    }
-}
-
-private fun approvedCompactDetail(
-    app: AppEntry,
-    detail: String,
-): String =
-    when (CoreAppIdentity.canonicalPackage(app.component.packageName)) {
-        CoreAppIdentity.PHOTOS ->
-            detail.replace(" photos", " local")
-        else -> detail
     }
 
 @Composable
@@ -3073,6 +2830,7 @@ private fun AppsScreen(
     onBack: () -> Unit,
     onSearch: () -> Unit,
     onLaunchApp: (AppEntry) -> Unit,
+    onLaunchSecond: (AppEntry) -> Unit,
     onOpenPeek: (AppEntry) -> Unit,
     onOpenAppInfo: (AppEntry) -> Unit,
     privateSpaceLocked: Boolean?,
@@ -3080,7 +2838,8 @@ private fun AppsScreen(
 ) {
     // Private Space apps live in their own section at the end, never in the A-Z list.
     val (privateApps, listedApps) = remember(apps) { apps.partition { it.profileLabel == PROFILE_PRIVATE_LABEL } }
-    val rows = remember(listedApps) { buildRailRows(listedApps) }
+    var filter by remember { mutableStateOf(PrivacyFilter.All) }
+    val rows = remember(listedApps, filter) { buildRailRows(listedApps.filter { filter.matches(it.privacy) }) }
     val keys = remember(rows) { rows.map { it.app.stableKey() } }
     val labels = remember(rows) { rows.map { it.app.label } }
     // One alphabet-index concept: section headers, the right-hand rail and
@@ -3142,6 +2901,10 @@ private fun AppsScreen(
                 focusMemory.remember(FOCUS_SURFACE_ALL_APPS, keys[index], index)
                 onLaunchApp(row.app)
             }
+            AllAppsKeyAction.OpenSecond -> {
+                focusMemory.remember(FOCUS_SURFACE_ALL_APPS, keys[index], index)
+                onLaunchSecond(row.app)
+            }
             AllAppsKeyAction.ToggleDetail -> {
                 val key = keys[index]
                 expandedKeys = if (key in expandedKeys) expandedKeys - key else expandedKeys + key
@@ -3184,9 +2947,13 @@ private fun AppsScreen(
             )
             Spacer(Modifier.height(8.dp))
             SearchLaunchButton(onClick = onSearch)
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(6.dp))
+            PrivacyFilterChips(selected = filter, onSelect = { filter = it })
+            Spacer(Modifier.height(8.dp))
 
-            if (rows.isEmpty() && privateSpaceLocked == null) {
+            if (rows.isEmpty() && filter != PrivacyFilter.All) {
+                EmptyState("No apps match “${filter.label}”.")
+            } else if (rows.isEmpty() && privateSpaceLocked == null) {
                 EmptyState("No launchable apps are available.")
             } else {
                 LazyColumn(
@@ -3259,6 +3026,41 @@ private fun AppsScreen(
 }
 
 /**
+ * All Apps privacy filters (Sensitive · All · No sensitive): Left/Right move
+ * between the chips, Enter applies; the applied chip is filled.
+ */
+@Composable
+private fun PrivacyFilterChips(
+    selected: PrivacyFilter,
+    onSelect: (PrivacyFilter) -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        PrivacyFilter.entries.forEach { chip ->
+            val on = chip == selected
+            Text(
+                text = chip.label,
+                modifier =
+                    Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
+                        .sableFocusRing()
+                        .clickable { onSelect(chip) }
+                        .semantics { contentDescription = "Filter ${chip.label}" + if (on) ", applied" else "" }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                style = MaterialTheme.typography.labelLarge,
+                color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+            )
+        }
+    }
+    Text(
+        text = "←→ filters · Enter applies",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+/**
  * Private Space at the end of All Apps: one row that locks or unlocks it
  * (the system asks for its credential), and its apps only while unlocked.
  */
@@ -3322,17 +3124,31 @@ private fun PrivateSpaceSection(
     }
 }
 
+/**
+ * Command / Search (sable-command-titan2). One field; a Best match row on top;
+ * then grouped results (apps, permission matches, people, settings, Hub,
+ * actions). Up/Down move through one result list, Left/Right on a result (or
+ * at either end of the query) move between the group chips, Enter opens,
+ * Shift+Enter opens an app's Dual copy, Menu or Alt+Enter shows the result's
+ * actions, Back closes. `/private`, `/dual` and `/work` list one profile's
+ * apps; a locked Private Space shows the locked state with Unlock.
+ */
 @Composable
 private fun SearchScreen(
     apps: List<AppEntry>,
     recentKeys: List<String>,
     initialQuery: String,
+    privateSpaceLocked: Boolean?,
+    onTogglePrivateSpace: () -> Unit,
     onBack: () -> Unit,
     onLaunchApp: (AppEntry) -> Unit,
+    secondInstanceOf: (AppEntry) -> AppEntry?,
+    onOpenAppInfo: (AppEntry) -> Unit,
     onOpenPeek: (AppEntry) -> Unit,
     onAllApps: () -> Unit,
     onAppearance: () -> Unit,
-    onGlance: () -> Unit,
+    onFrames: () -> Unit,
+    onGrid: () -> Unit,
     onHub: () -> Unit,
     onEditHome: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -3342,82 +3158,66 @@ private fun SearchScreen(
     var query by remember(initialQuery) {
         mutableStateOf(TextFieldValue(initialQuery, TextRange(initialQuery.length)))
     }
-    val parsed = CommandQuery.parse(query.text)
+    var chip by remember { mutableStateOf<CommandScope?>(null) }
+    // The result whose actions are open ("app:<key>" or "cmd:<title>").
+    var actionsFor by remember { mutableStateOf<String?>(null) }
+    val typed = CommandQuery.parse(query.text)
+    val parsed = CommandGroups.apply(typed, chip)
     val term = parsed.term
     val locale = Locale.getDefault()
-    val filteredApps =
+
+    fun moveChip(delta: Int) {
+        chip = CommandGroups.next(chip ?: parsed.scope, delta)
+        actionsFor = null
+    }
+
+    val profileApps =
+        when (parsed.scope) {
+            CommandScope.Private -> apps.filter { it.profileLabel == AppProfiles.PRIVATE }
+            CommandScope.Dual -> apps.filter { it.profileLabel == AppProfiles.DUAL }
+            CommandScope.Work -> apps.filter { it.profileLabel == AppProfiles.WORK }
+            else -> null
+        }
+    val (filteredApps, privacyMatches) =
         remember(apps, recentKeys, parsed) {
-            if (!parsed.includes(CommandScope.Apps)) {
-                emptyList()
+            if (profileApps != null) {
+                CommandRanking.apps(profileApps, { it.label }, { null }, term) to emptyList()
+            } else if (!parsed.includes(CommandScope.Apps)) {
+                emptyList<AppEntry>() to emptyList()
             } else {
-                // Recents first, label prefix before contains; then apps whose
-                // effective access matches privacy words ("camera", "mic", ...).
+                // Recents first, label prefix before contains; apps whose effective
+                // access matches privacy words ("camera", "mic") are their own group.
                 val byName =
                     CommandRanking.apps(
                         items = apps,
                         label = { it.label },
                         recentRank = { app -> recentKeys.indexOf(app.stableKey()).takeIf { it >= 0 } },
                         term = term,
-                    )
+                    ).take(if (term.isEmpty()) 6 else 12)
                 val byPrivacy =
                     if (term.isEmpty()) {
                         emptyList()
                     } else {
                         apps.filter { app ->
                             app !in byName && PrivacySummaryPolicy.matchesPrivacyQuery(app.privacy, term)
-                        }
+                        }.take(8)
                     }
-                (byName + byPrivacy).take(if (term.isEmpty()) 6 else 12)
+                byName to byPrivacy
             }
         }
 
     val commands =
         listOf(
-            SearchCommand(
-                title = "All apps",
-                subtitle = "Alphabetical launcher list",
-                mark = "A",
-                source = "Start",
-                onClick = onAllApps,
-            ),
-            SearchCommand(
-                title = "Edit Home",
-                subtitle = "Reorder Home apps, the quick bar and Glance widgets",
-                mark = "▭",
-                source = "Start",
-                onClick = onEditHome,
-            ),
-            SearchCommand(
-                title = "Appearance",
-                subtitle = "Theme and Sable accent",
-                mark = "◐",
-                source = "Start",
-                onClick = onAppearance,
-            ),
-            SearchCommand(
-                title = "Glance",
-                subtitle = "Weather, calendar, battery and media",
-                mark = "◫",
-                source = "Start",
-                onClick = onGlance,
-            ),
-            SearchCommand(
-                title = "Hub page",
-                subtitle = "Messages, mail, missed calls and notifications",
-                mark = "◇",
-                source = "Start",
-                onClick = onHub,
-            ),
-            SearchCommand(
-                title = "System Settings",
-                subtitle = "Open Android settings",
-                mark = "⚙",
-                source = "Settings",
-                onClick = onOpenSettings,
-            ),
+            SearchCommand("All apps", "A to Z with privacy summaries", "A", "Start", onAllApps),
+            SearchCommand("Active Frames", "Open apps, Home", "▦", "Start", onFrames),
+            SearchCommand("App grid", "Every app, in your order", "▤", "Start", onGrid),
+            SearchCommand("Hub page", "Messages, mail, missed calls and notifications", "◇", "Start", onHub),
+            SearchCommand("Edit Home", "Order the app grid, the bar and the empty frames", "▭", "Start", onEditHome),
+            SearchCommand("Appearance", "Theme and Sable accent", "◐", "Start", onAppearance),
+            SearchCommand("System Settings", "Open Android settings", "⚙", "Settings", onOpenSettings),
         )
     val filteredCommands =
-        if (!parsed.includes(CommandScope.Actions)) {
+        if (!parsed.includes(CommandScope.Actions) || parsed.profileScope) {
             emptyList()
         } else {
             commands.filter { command ->
@@ -3426,12 +3226,64 @@ private fun SearchScreen(
                     command.subtitle.lowercase(locale).contains(term.lowercase(locale))
             }
         }
-    val settingsResults = settingsResults(parsed, onStartIntent)
-    val peopleResults = peopleResults(parsed, onStartIntent)
-    val hubResults = hubResults(parsed, onStartIntent)
-    val topCommand =
+    val settingsResults = if (parsed.profileScope) emptyList() else settingsResults(parsed, onStartIntent, onOpenSettings)
+    val peopleResults = if (parsed.profileScope) emptyList() else peopleResults(parsed, onStartIntent)
+    val hubResults = if (parsed.profileScope) emptyList() else hubResults(parsed, onStartIntent)
+    val firstOther =
         (filteredCommands.takeIf { term.isNotEmpty() }.orEmpty() + settingsResults + peopleResults + hubResults)
             .firstOrNull()
+    val bestIsApp = CommandBestMatch.appWins(filteredApps.firstOrNull()?.label, firstOther?.title, term)
+    val bestApp = filteredApps.firstOrNull()?.takeIf { bestIsApp == true }
+    val bestOther = firstOther?.takeIf { bestIsApp == false }
+    val lockedPrivate = privateSpaceLocked == true && (parsed.scope == CommandScope.Private || term.isNotEmpty())
+
+    fun appActions(app: AppEntry): List<Pair<String, () -> Unit>> =
+        buildList {
+            add("open" to { onLaunchApp(app) })
+            secondInstanceOf(app)?.let { other ->
+                add((if (other.profileLabel == AppProfiles.DUAL) "open Dual copy" else "open personal app") to { onLaunchApp(other) })
+            }
+            add("app info" to { onOpenAppInfo(app) })
+            add("more actions" to { onOpenPeek(app) })
+        }
+
+    @Composable
+    fun AppResult(app: AppEntry) {
+        val key = "app:" + app.stableKey()
+        AppRow(
+            app = app,
+            onClick = { onLaunchApp(app) },
+            onContext = { actionsFor = if (actionsFor == key) null else key },
+            modifier =
+                Modifier.onPreviewKeyEvent { event ->
+                    val native = event.nativeKeyEvent
+                    val decision = AllAppsKeyPolicy.decide(native.keyCode, 0, native.metaState, native.repeatCount > 0)
+                    val action: (() -> Unit)? =
+                        when (decision.action) {
+                            AllAppsKeyAction.OpenSecond -> {
+                                { onLaunchApp(secondInstanceOf(app) ?: app) }
+                            }
+                            AllAppsKeyAction.Actions -> {
+                                { actionsFor = if (actionsFor == key) null else key }
+                            }
+                            else -> null
+                        }
+                    if (action != null && event.type == KeyEventType.KeyDown) action()
+                    action != null
+                },
+        )
+        if (actionsFor == key) EditOptions(appActions(app))
+    }
+
+    @Composable
+    fun CommandResult(command: SearchCommand) {
+        val key = "cmd:" + command.source + ":" + command.title
+        SearchCommandRow(
+            command = command,
+            onActions = { actionsFor = if (actionsFor == key) null else key },
+        )
+        if (actionsFor == key) EditOptions(command.actions.ifEmpty { listOf("open" to command.onClick) })
+    }
 
     Column(
         modifier =
@@ -3447,37 +3299,69 @@ private fun SearchScreen(
 
         SableSearchField(
             value = query,
-            onValueChange = { query = it },
-            // Enter opens the top result: first app, else the first other result.
-            onSubmit = {
-                filteredApps.firstOrNull()?.let(onLaunchApp)
-                    ?: topCommand?.onClick?.invoke()
+            onValueChange = {
+                query = it
+                actionsFor = null
             },
+            // Enter opens the best match: else the first app, else the first other result.
+            onSubmit = {
+                bestApp?.let(onLaunchApp)
+                    ?: bestOther?.onClick?.invoke()
+                    ?: filteredApps.firstOrNull()?.let(onLaunchApp)
+                    ?: firstOther?.onClick?.invoke()
+            },
+            onGroupDelta = ::moveChip,
         )
-
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(8.dp))
+        CommandChips(selected = if (parsed.profileScope) null else parsed.scope, onSelect = { chip = it })
+        Spacer(Modifier.height(8.dp))
 
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .onPreviewKeyEvent { event ->
+                        // ←→ on a result moves between the groups; ↑↓ stay one list.
+                        val native = event.nativeKeyEvent
+                        val delta = AppGrid.arrowDelta(native.keyCode)?.takeIf { it == -1 || it == 1 }
+                        if (delta == null || native.metaState != 0) return@onPreviewKeyEvent false
+                        if (event.type == KeyEventType.KeyDown) moveChip(delta)
+                        true
+                    },
             contentPadding = PaddingValues(bottom = 24.dp),
         ) {
-            if (filteredApps.isNotEmpty()) {
-                item {
-                    SectionLabel(if (term.isEmpty()) "recent + apps" else "apps")
-                }
-                items(
-                    items = filteredApps,
-                    key = { it.stableKey() },
-                ) { app ->
-                    AppRow(
-                        app = app,
-                        onClick = { onLaunchApp(app) },
-                        onContext = { onOpenPeek(app) },
-                    )
-                }
-                item {
+            if (lockedPrivate) {
+                item(key = "locked") {
+                    PrivateLockedCard(onUnlock = onTogglePrivateSpace, full = parsed.scope == CommandScope.Private)
                     Spacer(Modifier.height(12.dp))
                 }
+            }
+            if (bestApp != null || bestOther != null) {
+                item(key = "best") {
+                    SectionLabel("best match")
+                    Box(
+                        Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
+                            .padding(horizontal = 6.dp),
+                    ) {
+                        Column {
+                            if (bestApp != null) AppResult(bestApp) else bestOther?.let { CommandResult(it) }
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
+            }
+            val apps1 = filteredApps.filterNot { it == bestApp }
+            if (apps1.isNotEmpty()) {
+                item { SectionLabel(if (profileApps != null) CommandGroups.label(parsed.scope).lowercase(locale) + " apps" else if (term.isEmpty()) "recent + apps" else "apps") }
+                items(apps1, key = { "a:" + it.stableKey() }) { app -> AppResult(app) }
+                item { Spacer(Modifier.height(12.dp)) }
+            }
+            if (privacyMatches.isNotEmpty()) {
+                item { SectionLabel("permission matches") }
+                items(privacyMatches, key = { "p:" + it.stableKey() }) { app -> AppResult(app) }
+                item { Spacer(Modifier.height(12.dp)) }
             }
             listOf(
                 "people" to peopleResults,
@@ -3485,36 +3369,124 @@ private fun SearchScreen(
                 "hub" to hubResults,
                 (if (term.isEmpty()) "quick actions" else "actions") to filteredCommands,
             ).forEach { (label, rows) ->
-                if (rows.isNotEmpty()) {
+                val shown = rows.filterNot { it == bestOther }
+                if (shown.isNotEmpty()) {
                     item { SectionLabel(label) }
-                    items(rows) { command -> SearchCommandRow(command) }
+                    items(shown, key = { "$label:" + it.source + it.title }) { command -> CommandResult(command) }
                     item { Spacer(Modifier.height(12.dp)) }
                 }
             }
-            if (filteredApps.isEmpty() && filteredCommands.isEmpty() && settingsResults.isEmpty() &&
-                peopleResults.isEmpty() && hubResults.isEmpty()
+            if (filteredApps.isEmpty() && privacyMatches.isEmpty() && filteredCommands.isEmpty() && settingsResults.isEmpty() &&
+                peopleResults.isEmpty() && hubResults.isEmpty() && !lockedPrivate
             ) {
                 item {
-                    EmptyState("No local results match “$term”. Prefixes: ?app @person /settings /hub !action")
+                    EmptyState(
+                        "No local results match “$term”. Prefixes: ?app @person /settings /hub !action /private /dual /work",
+                    )
                 }
             }
+            item {
+                Text(
+                    text = "↑↓ results · ←→ groups · Enter opens · Shift+Enter Dual · Menu actions · Back closes",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
+    }
+}
+
+/** The group chips over the results; the current scope is filled. */
+@Composable
+private fun CommandChips(
+    selected: CommandScope?,
+    onSelect: (CommandScope) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        CommandGroups.CHIPS.forEach { scope ->
+            val on = scope == selected
+            Text(
+                text = CommandGroups.label(scope),
+                modifier =
+                    Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
+                        .clickable { onSelect(scope) }
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                style = MaterialTheme.typography.labelMedium,
+                color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+/**
+ * Command's locked state (sable-command-titan2 "4. Locked / Private"): the
+ * Private Space is locked, so its apps are neither listed nor searched.
+ */
+@Composable
+private fun PrivateLockedCard(
+    onUnlock: () -> Unit,
+    full: Boolean,
+) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surface)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
+                .padding(12.dp),
+        horizontalAlignment = if (full) Alignment.CenterHorizontally else Alignment.Start,
+    ) {
+        if (full) Text("🔒", fontSize = 28.sp)
+        Text(
+            text = if (full) "Content hidden" else "Private space locked",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Medium,
+        )
+        Text(
+            text = "Unlock to show and search private space apps. Locked mode shows nothing from it.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = "Unlock",
+            modifier =
+                Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(6.dp))
+                    .sableFocusRing()
+                    .clickable(onClick = onUnlock)
+                    .padding(horizontal = 18.dp, vertical = 8.dp),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
     }
 }
 
 private fun settingsResults(
     parsed: CommandQuery,
     onStartIntent: (Intent) -> Unit,
+    onOpenSettings: () -> Unit,
 ): List<SearchCommand> {
     if (!parsed.includes(CommandScope.Settings)) return emptyList()
     val limit = if (parsed.scope == CommandScope.Settings) 12 else 4
     return CommandRanking.settings(parsed.term, limit = limit).map { dest ->
+        val open = { onStartIntent(Intent(dest.action)) }
         SearchCommand(
             title = dest.title,
             subtitle = "Open ${dest.title} settings",
             mark = "⚙",
             source = "Settings",
-            onClick = { onStartIntent(Intent(dest.action)) },
+            onClick = open,
+            actions = listOf("open ${dest.title}" to open, "open Settings home" to onOpenSettings),
         )
     }
 }
@@ -3531,51 +3503,68 @@ private fun peopleResults(
     if (term.isEmpty() || !parsed.includes(CommandScope.People)) return emptyList()
     val dial =
         CommandQuery.dialable(term)?.let { number ->
+            val call = { onStartIntent(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number"))) }
             SearchCommand(
                 title = "Call $number",
                 subtitle = "Opens the dialer with the number",
                 mark = "☎",
                 source = "Phone",
-                onClick = { onStartIntent(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number"))) },
+                onClick = call,
+                actions =
+                    listOf(
+                        "call" to call,
+                        "send a message" to { onStartIntent(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$number"))) },
+                        "add to contacts" to {
+                            onStartIntent(
+                                Intent(Intent.ACTION_INSERT)
+                                    .setType("vnd.android.cursor.dir/contact")
+                                    .putExtra("phone", number),
+                            )
+                        },
+                    ),
             )
         }
+    val find = {
+        onStartIntent(
+            Intent(Intent.ACTION_SEARCH)
+                .setPackage(CONTACTS_PACKAGE)
+                .putExtra(SearchManager.QUERY, term),
+        )
+    }
     val contacts =
         SearchCommand(
             title = "Find “$term” in Contacts",
             subtitle = "Search people by name, number or email",
             mark = "@",
             source = "Contacts",
-            onClick = {
-                onStartIntent(
-                    Intent(Intent.ACTION_SEARCH)
-                        .setPackage("com.android.contacts")
-                        .putExtra(SearchManager.QUERY, term),
-                )
-            },
+            onClick = find,
+            actions = listOf("find in Contacts" to find, "search Hub for “$term”" to { onStartIntent(hubIntent(term)) }),
         ).takeIf { parsed.scope == CommandScope.People || term.length >= 2 }
     return listOfNotNull(dial, contacts)
 }
 
+private fun hubIntent(query: String): Intent =
+    Intent(Intent.ACTION_MAIN)
+        .setPackage(HUB_PACKAGE)
+        .addCategory(Intent.CATEGORY_LAUNCHER)
+        .putExtra(HUB_EXTRA_QUERY, query)
+
+/** Hub search hands the term to Sable Hub; Start never shows message, mail or call content. */
 private fun hubResults(
     parsed: CommandQuery,
     onStartIntent: (Intent) -> Unit,
 ): List<SearchCommand> {
     val term = parsed.term
     if (!parsed.includes(CommandScope.Hub) || (term.isEmpty() && parsed.scope != CommandScope.Hub)) return emptyList()
+    val open = { onStartIntent(hubIntent(term)) }
     return listOf(
         SearchCommand(
             title = if (term.isEmpty()) "Open Hub" else "Search Hub for “$term”",
             subtitle = "Messages, calls and notifications",
             mark = "◉",
             source = "Hub",
-            onClick = {
-                onStartIntent(
-                    Intent(Intent.ACTION_MAIN)
-                        .setPackage(HUB_PACKAGE)
-                        .addCategory(Intent.CATEGORY_LAUNCHER)
-                        .putExtra(HUB_EXTRA_QUERY, term),
-                )
-            },
+            onClick = open,
+            actions = listOf("open in Hub" to open, "open Hub" to { onStartIntent(hubIntent("")) }),
         ),
     )
 }
@@ -3585,6 +3574,7 @@ private fun SableSearchField(
     value: TextFieldValue,
     onValueChange: (TextFieldValue) -> Unit,
     onSubmit: () -> Unit,
+    onGroupDelta: (Int) -> Unit,
 ) {
     // The field takes focus on arrival so the keyboard types straight into it.
     val fieldFocus = remember { FocusRequester() }
@@ -3619,6 +3609,7 @@ private fun SableSearchField(
                         .focusRequester(fieldFocus)
                         .onPreviewKeyEvent { event ->
                             val native = event.nativeKeyEvent
+                            val selection = value.selection
                             when {
                                 event.type != KeyEventType.KeyDown -> false
                                 // Holding Backspace clears the whole query.
@@ -3628,6 +3619,17 @@ private fun SableSearchField(
                                 }
                                 native.keyCode == AllAppsKeyPolicy.KEYCODE_ENTER && native.repeatCount == 0 -> {
                                     onSubmit()
+                                    true
+                                }
+                                // Left at the start or Right at the end of the query: previous / next group.
+                                native.metaState == 0 && selection.collapsed &&
+                                    native.keyCode == KEYCODE_DPAD_LEFT && selection.start == 0 -> {
+                                    onGroupDelta(-1)
+                                    true
+                                }
+                                native.metaState == 0 && selection.collapsed &&
+                                    native.keyCode == KEYCODE_DPAD_RIGHT && selection.end == value.text.length -> {
+                                    onGroupDelta(1)
                                     true
                                 }
                                 else -> false
@@ -3663,6 +3665,7 @@ private fun SableSearchField(
 @Composable
 private fun SearchCommandRow(
     command: SearchCommand,
+    onActions: () -> Unit,
 ) {
     Row(
         modifier =
@@ -3670,7 +3673,13 @@ private fun SearchCommandRow(
                 .fillMaxWidth()
                 .heightIn(min = 58.dp)
                 .sableFocusRing()
-                .clickable(onClick = command.onClick)
+                .onPreviewKeyEvent { event ->
+                    val native = event.nativeKeyEvent
+                    val alt = native.metaState and (QuickBar.META_ALT_ON or QuickBar.META_FUNCTION_ON) != 0
+                    val menu = native.keyCode == AllAppsKeyPolicy.KEYCODE_MENU || (native.keyCode == AllAppsKeyPolicy.KEYCODE_ENTER && alt)
+                    if (menu && event.type == KeyEventType.KeyDown && native.repeatCount == 0) onActions()
+                    menu
+                }.combinedClickable(onClick = command.onClick, onLongClick = onActions)
                 .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -3785,12 +3794,12 @@ private fun AppRow(
 @Composable
 private fun ProfileBadge(profile: String) {
     Text(
-        text = profile,
+        text = AppProfiles.badge(profile),
         modifier =
             Modifier
                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(4.dp))
                 .padding(horizontal = 6.dp, vertical = 1.dp)
-                .semantics { contentDescription = "$profile profile" },
+                .semantics { contentDescription = "${AppProfiles.badge(profile)} profile" },
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         maxLines = 1,
@@ -4067,25 +4076,28 @@ private fun loadLauncherIcon(
 @Composable
 private fun SablePeekScreen(
     app: AppEntry,
-    isStartTile: Boolean,
     inBaseBar: Boolean?,
+    hasSecondInstance: Boolean,
     onToggleBaseBar: () -> Unit,
     onClose: () -> Unit,
     onOpen: () -> Unit,
+    onOpenSecond: () -> Unit,
     onOpenAppInfo: () -> Unit,
     onOpenNotificationSettings: () -> Unit,
     onUninstall: () -> Unit,
-    onToggleStartTile: () -> Unit,
 ) {
     val actions =
-        remember(app, isStartTile, inBaseBar) {
+        remember(app, inBaseBar, hasSecondInstance) {
             AppActionPolicy.actions(
                 AppActionContext(
-                    pinnedToStart = isStartTile,
-                    // null when the bar is full or the app is in another profile.
+                    pinnedToStart = false,
+                    // null when the app is in another profile; a full bar opens the slot picker.
                     inBaseBar = inBaseBar,
                     launcherUser = app.inLauncherUser,
                     canUninstall = app.canUninstall && app.inLauncherUser,
+                    // The BB10 app grid holds every app: nothing to pin.
+                    pinnable = false,
+                    hasSecondInstance = hasSecondInstance,
                 ),
             )
         }
@@ -4204,7 +4216,7 @@ private fun SablePeekScreen(
                             AppAction.AppInfo -> "ⓘ"
                             AppAction.NotificationSettings -> "◔"
                             AppAction.Uninstall, AppAction.Disable -> "⌫"
-                            AppAction.Open -> "→"
+                            AppAction.Open, AppAction.OpenSecond -> "→"
                         },
                     label = if (confirming) AppActionPolicy.confirmationLabel(action) else action.label,
                     onClick = {
@@ -4214,9 +4226,10 @@ private fun SablePeekScreen(
                             pendingConfirm = null
                             when (action) {
                                 AppAction.Open -> onOpen()
+                                AppAction.OpenSecond -> onOpenSecond()
                                 AppAction.AppInfo -> onOpenAppInfo()
                                 AppAction.NotificationSettings -> onOpenNotificationSettings()
-                                AppAction.PinToStart, AppAction.RemoveFromStart -> onToggleStartTile()
+                                AppAction.PinToStart, AppAction.RemoveFromStart -> Unit
                                 AppAction.Uninstall -> onUninstall()
                                 AppAction.AddToBaseBar, AppAction.RemoveFromBaseBar -> onToggleBaseBar()
                                 AppAction.Disable -> Unit
@@ -4634,10 +4647,6 @@ private fun liveDatumForApp(
         else -> null
     }
 
-private fun isWideStartTile(app: AppEntry): Boolean =
-    app.component.packageName == CALENDAR_PACKAGE ||
-        app.component.packageName == MEDIA_PACKAGE
-
 private data class PreferredStartAppGroup(
     /** Canonical packages for this tile, best first. */
     val packageNames: List<String> = emptyList(),
@@ -4704,3 +4713,18 @@ private const val HUB_EXTRA_QUERY = "org.sableos.hub.extra.QUERY"
 private const val LAUNCHER_ICON_CACHE_ENTRIES = 160
 private const val FOCUS_SURFACE_ALL_APPS = "all-apps"
 private val PrivacyBadgeWidth = 18.dp
+
+// BB10 strip metrics (720x720 at density 193 is about 597dp square).
+private val FRAME_PADDING = 8.dp
+private val FRAME_GAP = 8.dp
+private val FRAME_LABEL_HEIGHT = 30.dp
+private val FRAME_MIN_HEIGHT = 120.dp
+private const val GRID_CELL_MIN_DP = 112
+private const val GRID_ICON_BOX_DP = 58
+private const val GRID_ICON_DP = 42
+private const val INDICATOR_HEIGHT_DP = 18
+private const val BAR_HEIGHT_DP = 58
+
+/** Status bar, page indicator, bar and padding: what the grid pages do not get. */
+private const val START_CHROME_DP = 24 + INDICATOR_HEIGHT_DP + BAR_HEIGHT_DP + 12
+private const val NANOS_PER_MILLI = 1_000_000L
