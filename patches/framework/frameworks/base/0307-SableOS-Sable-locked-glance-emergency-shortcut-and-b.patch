@@ -1,0 +1,1317 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 21 Oct 2026 18:07:08 +0000
+Subject: [PATCH] SableOS: Sable locked glance, emergency shortcut and bouncer
+ keyboard cues
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Completes the Sable lock screen design (sable-lockscreen-titan2,
+LOCKSCREEN_SECURE_ENTRY_UX) on the legacy (blueprint) keyguard.
+Credential checking, biometrics and trust are unchanged.
+
+* Locked glance (SableLockGlanceSection, after the clock, date and
+  notification sections of the default blueprint): "Locked" while the
+  keyguard is secure and not unlocked; the Hub count row "2 Messages ·
+  1 Mail · 1 Missed call" from the notifications the keyguard may show
+  (KeyguardNotificationVisibilityProvider), by category (msg, email,
+  missed_call) or, without a category, by known messaging and mail
+  package; group summaries and ongoing notifications are not counted
+  and the row is hidden when all counts are zero; the "Private mode ·
+  Counts only until unlock" card when the user is in public mode and
+  hides notification content; and "Open/reply requires unlock" under it
+  while such notifications show. Counts only, no content read. Hidden
+  while dozing. The notification stack starts below the glance. Pure
+  policy: keyguard/sable/SableLockGlance.java.
+* Emergency shortcut Alt+Space (either Alt; Sym is Right Alt on the
+  Q25): opens the emergency dialer, or returns to a call, like the
+  bouncer's Emergency button (SableEmergencyShortcut), from the lock
+  screen and the bouncer. Handled pre-IME in KeyguardKeyEventInteractor
+  so the password and PIN fields never see it, and its Space UP is
+  consumed so it cannot also act as a confirm key. On the Q25 Space has
+  no Alt digit and Sym pages only with E and R, so the chord never types
+  a digit or pages. Only where the device can place calls.
+* Hint line: "Enter unlock · Alt+Space emergency · ↑↓ notifications"
+  for a PIN or password ("Enter unlock · ↑↓ notifications" without
+  calling, "Enter unlocks · ↑↓ notifications" for swipe).
+* Bouncer: second line "Physical keyboard active · Enter submits"; with
+  a hardware keyboard the PIN field shows its focus ring (the upstream
+  outline, also without pin_input_field_styled_focus_state) and the
+  password field its focused background; a "Software keyboard fallback"
+  line under the PIN keys and the password field.
+* A notification whose content is hidden on the lock screen reads
+  "N new · content hidden" next to its app name (the framework's
+  redacted view only; an app's own public version is kept). N is the
+  notification number or message count.
+
+Tests: KeyguardKeyEventInteractorTest (Alt+Space), blueprint tests take
+the new section.
+---
+ .../KeyguardKeyEventInteractorTest.kt         |  35 +++
+ .../DefaultKeyguardBlueprintTest.kt           |   3 +
+ .../layout/keyguard_password_view.xml         |  12 +
+ .../res-keyguard/layout/keyguard_pin_view.xml |  12 +
+ .../res/drawable/sable_keyguard_card.xml      |  23 ++
+ .../drawable/sable_keyguard_focus_ring.xml    |  24 ++
+ .../res/layout/sable_keyguard_glance.xml      |  88 +++++++
+ .../res/values/sable_keyguard_glance.xml      |  33 +++
+ .../res/values/sable_keyguard_strings.xml     |  49 +++-
+ .../KeyguardPasswordViewController.java       |  13 +
+ .../KeyguardPinBasedInputViewController.java  |  14 ++
+ .../sable/SableEmergencyShortcut.java         | 127 ++++++++++
+ .../keyguard/sable/SableKeyguardKeys.java     |  15 ++
+ .../keyguard/sable/SableLockGlance.java       | 173 ++++++++++++++
+ .../interactor/BouncerMessageInteractor.kt    |   8 +-
+ .../interactor/KeyguardKeyEventInteractor.kt  |  33 +++
+ .../blueprints/DefaultKeyguardBlueprint.kt    |   4 +
+ .../layout/sections/SableLockGlanceSection.kt | 223 ++++++++++++++++++
+ .../KeyguardIndicationController.java         |  10 +-
+ .../row/NotificationRowContentBinderImpl.kt   |  31 ++-
+ .../KeyguardBlueprintRepositoryKosmos.kt      |   1 +
+ 21 files changed, 917 insertions(+), 14 deletions(-)
+ create mode 100644 packages/SystemUI/res/drawable/sable_keyguard_card.xml
+ create mode 100644 packages/SystemUI/res/drawable/sable_keyguard_focus_ring.xml
+ create mode 100644 packages/SystemUI/res/layout/sable_keyguard_glance.xml
+ create mode 100644 packages/SystemUI/res/values/sable_keyguard_glance.xml
+ create mode 100644 packages/SystemUI/src/com/android/keyguard/sable/SableEmergencyShortcut.java
+ create mode 100644 packages/SystemUI/src/com/android/keyguard/sable/SableLockGlance.java
+ create mode 100644 packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt
+
+diff --git a/packages/SystemUI/multivalentTests/src/com/android/systemui/keyguard/domain/interactor/KeyguardKeyEventInteractorTest.kt b/packages/SystemUI/multivalentTests/src/com/android/systemui/keyguard/domain/interactor/KeyguardKeyEventInteractorTest.kt
+index ca7af557..2caa7f4e 100644
+--- a/packages/SystemUI/multivalentTests/src/com/android/systemui/keyguard/domain/interactor/KeyguardKeyEventInteractorTest.kt
++++ b/packages/SystemUI/multivalentTests/src/com/android/systemui/keyguard/domain/interactor/KeyguardKeyEventInteractorTest.kt
+@@ -21,6 +21,7 @@ import android.media.session.MediaSessionLegacyHelper
+ import android.view.KeyEvent
+ import androidx.test.ext.junit.runners.AndroidJUnit4
+ import androidx.test.filters.SmallTest
++import com.android.keyguard.sable.SableEmergencyShortcut
+ import com.android.systemui.SysuiTestCase
+ import com.android.systemui.back.domain.interactor.BackActionInteractor
+ import com.android.systemui.deviceentry.domain.interactor.DeviceEntryInteractor
+@@ -72,6 +73,7 @@ class KeyguardKeyEventInteractorTest : SysuiTestCase() {
+     @Mock private lateinit var mediaSessionLegacyHelper: MediaSessionLegacyHelper
+     @Mock private lateinit var backActionInteractor: BackActionInteractor
+     @Mock private lateinit var deviceEntryInteractor: DeviceEntryInteractor
++    @Mock private lateinit var sableEmergencyShortcut: SableEmergencyShortcut
+ 
+     private lateinit var underTest: KeyguardKeyEventInteractor
+ 
+@@ -322,4 +324,37 @@ class KeyguardKeyEventInteractorTest : SysuiTestCase() {
+                 eq("KeyguardKeyEventInteractor#collapseShadeLockedOrShowPrimaryBouncer"),
+             )
+     }
++
++    @Test
++    fun dispatchKeyEventPreIme_altSpaceOnKeyguard_opensEmergencyDialer() {
++        // Sable: Alt+Space is the keyboard emergency shortcut; its DOWN and UP are consumed.
++        val withShortcut =
++            KeyguardKeyEventInteractor(
++                context,
++                statusBarStateController,
++                statusBarKeyguardViewManager,
++                shadeController,
++                mediaSessionLegacyHelperWrapper,
++                backActionInteractor,
++                deviceEntryInteractor,
++                powerInteractor,
++                kosmos.keyguardMediaKeyInteractor,
++                { sableEmergencyShortcut },
++            )
++        whenever(statusBarStateController.state).thenReturn(StatusBarState.KEYGUARD)
++        whenever(sableEmergencyShortcut.isAvailable()).thenReturn(true)
++        val down =
++            KeyEvent(0, 0, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_SPACE, 0, KeyEvent.META_ALT_ON)
++        val up = KeyEvent(0, 0, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_SPACE, 0, 0)
++
++        assertThat(withShortcut.dispatchKeyEventPreIme(down)).isTrue()
++        assertThat(withShortcut.dispatchKeyEventPreIme(up)).isTrue()
++        verify(sableEmergencyShortcut).launch()
++
++        // Plain Space keeps its confirm meaning.
++        clearInvocations(sableEmergencyShortcut)
++        val plain = KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_SPACE)
++        assertThat(withShortcut.dispatchKeyEventPreIme(plain)).isFalse()
++        verify(sableEmergencyShortcut, never()).launch()
++    }
+ }
+diff --git a/packages/SystemUI/multivalentTests/src/com/android/systemui/keyguard/ui/view/layout/blueprints/DefaultKeyguardBlueprintTest.kt b/packages/SystemUI/multivalentTests/src/com/android/systemui/keyguard/ui/view/layout/blueprints/DefaultKeyguardBlueprintTest.kt
+index 63770803..6aa26498 100644
+--- a/packages/SystemUI/multivalentTests/src/com/android/systemui/keyguard/ui/view/layout/blueprints/DefaultKeyguardBlueprintTest.kt
++++ b/packages/SystemUI/multivalentTests/src/com/android/systemui/keyguard/ui/view/layout/blueprints/DefaultKeyguardBlueprintTest.kt
+@@ -39,6 +39,7 @@ import com.android.systemui.keyguard.ui.view.layout.sections.DefaultShortcutsSec
+ import com.android.systemui.keyguard.ui.view.layout.sections.DefaultStatusBarSection
+ import com.android.systemui.keyguard.ui.view.layout.sections.DefaultUdfpsAccessibilityOverlaySection
+ import com.android.systemui.keyguard.ui.view.layout.sections.KeyguardSliceViewSection
++import com.android.systemui.keyguard.ui.view.layout.sections.SableLockGlanceSection
+ import com.android.systemui.keyguard.ui.view.layout.sections.SmartspaceSection
+ import com.android.systemui.util.mockito.whenever
+ import java.util.Optional
+@@ -73,6 +74,7 @@ class DefaultKeyguardBlueprintTest : SysuiTestCase() {
+     @Mock private lateinit var keyguardSliceViewSection: KeyguardSliceViewSection
+     @Mock
+     private lateinit var udfpsAccessibilityOverlaySection: DefaultUdfpsAccessibilityOverlaySection
++    @Mock private lateinit var sableLockGlanceSection: SableLockGlanceSection
+ 
+     @Before
+     fun setup() {
+@@ -95,6 +97,7 @@ class DefaultKeyguardBlueprintTest : SysuiTestCase() {
+                 smartspaceSection,
+                 keyguardSliceViewSection,
+                 udfpsAccessibilityOverlaySection,
++                sableLockGlanceSection,
+             )
+     }
+ 
+diff --git a/packages/SystemUI/res-keyguard/layout/keyguard_password_view.xml b/packages/SystemUI/res-keyguard/layout/keyguard_password_view.xml
+index 93598382..8637bde2 100644
+--- a/packages/SystemUI/res-keyguard/layout/keyguard_password_view.xml
++++ b/packages/SystemUI/res-keyguard/layout/keyguard_password_view.xml
+@@ -89,6 +89,18 @@
+         android:layout_weight="2"
+         />
+ 
++    <!-- Sable: shown with a hardware keyboard (KeyguardPinBasedInputViewController,
++         KeyguardPasswordViewController): the software keyboard fallback. -->
++    <TextView
++        android:id="@+id/sable_keyboard_fallback"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:gravity="center_horizontal"
++        android:text="@string/sable_keyguard_fallback_password"
++        android:textColor="?android:attr/textColorSecondary"
++        android:textSize="12sp"
++        android:visibility="gone" />
++
+     <include layout="@layout/keyguard_eca"
+              android:id="@+id/keyguard_selector_fade_container"
+              android:layout_width="match_parent"
+diff --git a/packages/SystemUI/res-keyguard/layout/keyguard_pin_view.xml b/packages/SystemUI/res-keyguard/layout/keyguard_pin_view.xml
+index 26ff3647..9fe1573a 100644
+--- a/packages/SystemUI/res-keyguard/layout/keyguard_pin_view.xml
++++ b/packages/SystemUI/res-keyguard/layout/keyguard_pin_view.xml
+@@ -218,6 +218,18 @@
+             android:contentDescription="@string/keyboardview_keycode_enter" />
+     </androidx.constraintlayout.widget.ConstraintLayout>
+ 
++    <!-- Sable: shown with a hardware keyboard (KeyguardPinBasedInputViewController,
++         KeyguardPasswordViewController): the software keyboard fallback. -->
++    <TextView
++        android:id="@+id/sable_keyboard_fallback"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:gravity="center_horizontal"
++        android:text="@string/sable_keyguard_fallback_pin"
++        android:textColor="?android:attr/textColorSecondary"
++        android:textSize="12sp"
++        android:visibility="gone" />
++
+     <include layout="@layout/keyguard_eca"
+         android:id="@+id/keyguard_selector_fade_container"
+         android:layout_width="match_parent"
+diff --git a/packages/SystemUI/res/drawable/sable_keyguard_card.xml b/packages/SystemUI/res/drawable/sable_keyguard_card.xml
+new file mode 100644
+index 00000000..7f9f2894
+--- /dev/null
++++ b/packages/SystemUI/res/drawable/sable_keyguard_card.xml
+@@ -0,0 +1,23 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<!-- Sable lock screen card: count row and private mode card. -->
++<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
++    <solid android:color="@color/sable_keyguard_card_background" />
++    <stroke android:width="@dimen/sable_keyguard_card_stroke_width"
++        android:color="@color/sable_keyguard_card_stroke" />
++    <corners android:radius="@dimen/sable_keyguard_card_radius" />
++</shape>
+diff --git a/packages/SystemUI/res/drawable/sable_keyguard_focus_ring.xml b/packages/SystemUI/res/drawable/sable_keyguard_focus_ring.xml
+new file mode 100644
+index 00000000..e401b9d6
+--- /dev/null
++++ b/packages/SystemUI/res/drawable/sable_keyguard_focus_ring.xml
+@@ -0,0 +1,24 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<!-- Sable focus ring: the count row (the glance's first item) and, with a hardware keyboard,
++     the PIN field, which takes the typed digits wherever focus is. -->
++<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
++    <solid android:color="@color/sable_keyguard_card_background" />
++    <stroke android:width="@dimen/sable_keyguard_focus_ring_width"
++        android:color="@color/sable_keyguard_focus_ring" />
++    <corners android:radius="@dimen/sable_keyguard_card_radius" />
++</shape>
+diff --git a/packages/SystemUI/res/layout/sable_keyguard_glance.xml b/packages/SystemUI/res/layout/sable_keyguard_glance.xml
+new file mode 100644
+index 00000000..f8e92c0a
+--- /dev/null
++++ b/packages/SystemUI/res/layout/sable_keyguard_glance.xml
+@@ -0,0 +1,88 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<!-- Sable locked glance under the lock screen clock (sable-lockscreen-titan2): "Locked", the
++     Hub count row, the private mode card and "Open/reply requires unlock". Counts only. -->
++<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    android:id="@+id/sable_keyguard_glance"
++    android:layout_width="0dp"
++    android:layout_height="wrap_content"
++    android:orientation="vertical"
++    android:importantForAccessibility="yes"
++    android:visibility="gone">
++
++    <TextView
++        android:id="@+id/sable_keyguard_locked"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:gravity="center_horizontal"
++        android:text="@string/sable_keyguard_locked"
++        android:textColor="@color/sable_keyguard_text_secondary"
++        android:textSize="18sp"
++        android:visibility="gone" />
++
++    <TextView
++        android:id="@+id/sable_keyguard_counts"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:layout_marginTop="@dimen/sable_keyguard_card_gap"
++        android:background="@drawable/sable_keyguard_focus_ring"
++        android:ellipsize="end"
++        android:maxLines="1"
++        android:paddingHorizontal="@dimen/sable_keyguard_card_padding_horizontal"
++        android:paddingVertical="@dimen/sable_keyguard_card_padding_vertical"
++        android:textColor="@color/sable_keyguard_text_primary"
++        android:textSize="15sp"
++        android:accessibilityLiveRegion="polite"
++        android:visibility="gone" />
++
++    <LinearLayout
++        android:id="@+id/sable_keyguard_private"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:layout_marginTop="@dimen/sable_keyguard_card_gap"
++        android:background="@drawable/sable_keyguard_card"
++        android:orientation="vertical"
++        android:paddingHorizontal="@dimen/sable_keyguard_card_padding_horizontal"
++        android:paddingVertical="@dimen/sable_keyguard_card_padding_vertical"
++        android:visibility="gone">
++
++        <TextView
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:text="@string/sable_keyguard_private_title"
++            android:textColor="@color/sable_keyguard_text_secondary"
++            android:textSize="11sp" />
++
++        <TextView
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:text="@string/sable_keyguard_private_text"
++            android:textColor="@color/sable_keyguard_text_primary"
++            android:textSize="15sp" />
++    </LinearLayout>
++
++    <TextView
++        android:id="@+id/sable_keyguard_requires_unlock"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:layout_marginTop="@dimen/sable_keyguard_card_gap"
++        android:gravity="center_horizontal"
++        android:text="@string/sable_keyguard_requires_unlock"
++        android:textColor="@color/sable_keyguard_text_warning"
++        android:textSize="12sp"
++        android:visibility="gone" />
++</LinearLayout>
+diff --git a/packages/SystemUI/res/values/sable_keyguard_glance.xml b/packages/SystemUI/res/values/sable_keyguard_glance.xml
+new file mode 100644
+index 00000000..5066807b
+--- /dev/null
++++ b/packages/SystemUI/res/values/sable_keyguard_glance.xml
+@@ -0,0 +1,33 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<resources>
++    <!-- Sable locked glance (sable-lockscreen-titan2): tokens a product overlay may change. -->
++    <color name="sable_keyguard_card_background">#E6151F2B</color>
++    <color name="sable_keyguard_card_stroke">#FF2A3A4C</color>
++    <color name="sable_keyguard_focus_ring">#FF5ED8EA</color>
++    <color name="sable_keyguard_text_primary">#FFF3F6FA</color>
++    <color name="sable_keyguard_text_secondary">#FFA9B4C2</color>
++    <color name="sable_keyguard_text_warning">#FFF0625F</color>
++    <dimen name="sable_keyguard_glance_margin_horizontal">20dp</dimen>
++    <dimen name="sable_keyguard_glance_margin_top">8dp</dimen>
++    <dimen name="sable_keyguard_card_radius">12dp</dimen>
++    <dimen name="sable_keyguard_card_stroke_width">1dp</dimen>
++    <dimen name="sable_keyguard_focus_ring_width">2dp</dimen>
++    <dimen name="sable_keyguard_card_padding_horizontal">14dp</dimen>
++    <dimen name="sable_keyguard_card_padding_vertical">8dp</dimen>
++    <dimen name="sable_keyguard_card_gap">6dp</dimen>
++</resources>
+diff --git a/packages/SystemUI/res/values/sable_keyguard_strings.xml b/packages/SystemUI/res/values/sable_keyguard_strings.xml
+index 69ca7e8a..77deea0b 100644
+--- a/packages/SystemUI/res/values/sable_keyguard_strings.xml
++++ b/packages/SystemUI/res/values/sable_keyguard_strings.xml
+@@ -14,11 +14,48 @@
+      See the License for the specific language governing permissions and
+      limitations under the License.
+ -->
+-<resources>
+-    <!-- Lock screen hint on a phone with a hardware keyboard and a PIN: typing opens the PIN field with those digits, Enter submits. [CHAR LIMIT=40] -->
+-    <string name="sable_keyguard_hint_pin">Type PIN · Enter unlocks</string>
+-    <!-- Lock screen hint on a phone with a hardware keyboard and a password. [CHAR LIMIT=40] -->
+-    <string name="sable_keyguard_hint_password">Type password · Enter unlocks</string>
++<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
++    <!-- Lock screen hint on a phone with a hardware keyboard and a PIN or password (Sable lock screen design): typing opens the field, Enter submits, Alt+Space opens the emergency dialer, the trackpad moves through notifications. [CHAR LIMIT=60] -->
++    <string name="sable_keyguard_hint_secure">Enter unlock · Alt+Space emergency · ↑↓ notifications</string>
++    <!-- Lock screen hint with a PIN or password on a device that cannot place calls. [CHAR LIMIT=40] -->
++    <string name="sable_keyguard_hint_secure_no_calls">Enter unlock · ↑↓ notifications</string>
+     <!-- Lock screen hint on a phone with a hardware keyboard and a swipe lock. [CHAR LIMIT=40] -->
+-    <string name="sable_keyguard_hint_enter">Enter unlocks</string>
++    <string name="sable_keyguard_hint_enter">Enter unlocks · ↑↓ notifications</string>
++    <!-- Second line of the PIN or password bouncer when a hardware keyboard is present. [CHAR LIMIT=40] -->
++    <string name="sable_keyguard_bouncer_keyboard_active">Physical keyboard active · Enter submits</string>
++    <!-- Under the on-screen PIN keys with a hardware keyboard: the on-screen keys still work. [CHAR LIMIT=50] -->
++    <string name="sable_keyguard_fallback_pin">Software keyboard fallback · tap the keys above</string>
++    <!-- Under the password field with a hardware keyboard: the on-screen keyboard shows when the keyboard setting allows it. [CHAR LIMIT=60] -->
++    <string name="sable_keyguard_fallback_password">Software keyboard fallback · on-screen keyboard setting</string>
++
++    <!-- Locked glance under the lock screen clock: the phone is locked. [CHAR LIMIT=20] -->
++    <string name="sable_keyguard_locked">Locked</string>
++    <!-- Hub count row on the lock screen, joined with " · ": number of message notifications. -->
++    <plurals name="sable_keyguard_count_messages">
++        <item quantity="one"><xliff:g id="count" example="1">%d</xliff:g> Message</item>
++        <item quantity="other"><xliff:g id="count" example="2">%d</xliff:g> Messages</item>
++    </plurals>
++    <!-- Hub count row: number of mail notifications. -->
++    <plurals name="sable_keyguard_count_mail">
++        <item quantity="one"><xliff:g id="count" example="1">%d</xliff:g> Mail</item>
++        <item quantity="other"><xliff:g id="count" example="2">%d</xliff:g> Mail</item>
++    </plurals>
++    <!-- Hub count row: number of missed calls. -->
++    <plurals name="sable_keyguard_count_missed_calls">
++        <item quantity="one"><xliff:g id="count" example="1">%d</xliff:g> Missed call</item>
++        <item quantity="other"><xliff:g id="count" example="2">%d</xliff:g> Missed calls</item>
++    </plurals>
++    <!-- Separator of the Hub count row parts. -->
++    <string name="sable_keyguard_count_separator" translatable="false">" · "</string>
++    <!-- Private mode card title: lock screen notification content is hidden. [CHAR LIMIT=30] -->
++    <string name="sable_keyguard_private_title">Private mode</string>
++    <!-- Private mode card text. [CHAR LIMIT=40] -->
++    <string name="sable_keyguard_private_text">Counts only until unlock</string>
++    <!-- Under the private card when notifications are hidden: opening or replying needs the PIN. [CHAR LIMIT=40] -->
++    <string name="sable_keyguard_requires_unlock">Open/reply requires unlock</string>
++    <!-- Header text of a notification whose content is hidden on the lock screen: N new items. -->
++    <plurals name="sable_keyguard_notification_hidden">
++        <item quantity="one"><xliff:g id="count" example="1">%d</xliff:g> new · content hidden</item>
++        <item quantity="other"><xliff:g id="count" example="2">%d</xliff:g> new · content hidden</item>
++    </plurals>
+ </resources>
+diff --git a/packages/SystemUI/src/com/android/keyguard/KeyguardPasswordViewController.java b/packages/SystemUI/src/com/android/keyguard/KeyguardPasswordViewController.java
+index d381b378..ff3dd08b 100644
+--- a/packages/SystemUI/src/com/android/keyguard/KeyguardPasswordViewController.java
++++ b/packages/SystemUI/src/com/android/keyguard/KeyguardPasswordViewController.java
+@@ -21,6 +21,7 @@ import static com.android.systemui.util.kotlin.JavaAdapterKt.collectFlow;
+ 
+ import android.content.Context;
+ import android.content.pm.PackageManager;
++import android.content.res.Configuration;
+ import android.content.res.Resources;
+ import android.graphics.drawable.Drawable;
+ import android.os.SystemClock;
+@@ -227,6 +228,18 @@ public class KeyguardPasswordViewController
+         // If there's more than one IME, enable the IME switcher button
+         updateSwitchImeButton();
+ 
++        // Sable (sable-lockscreen-titan2): with a hardware keyboard the password field shows its
++        // focused background without the upstream flag, and the fallback line shows.
++        final boolean sableKeyboard = getResources().getConfiguration().keyboard
++                == Configuration.KEYBOARD_QWERTY;
++        if (!Flags.pinInputFieldStyledFocusState() && sableKeyboard) {
++            mPasswordEntry.setBackground(mFocusedPasswordFieldBackground);
++        }
++        final View sableFallback = mView.findViewById(R.id.sable_keyboard_fallback);
++        if (sableFallback != null) {
++            sableFallback.setVisibility(sableKeyboard ? View.VISIBLE : View.GONE);
++        }
++
+         if (Flags.pinInputFieldStyledFocusState()) {
+             collectFlow(mPasswordEntry,
+                     mKeyguardKeyboardInteractor.isAnyKeyboardConnected(),
+diff --git a/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputViewController.java b/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputViewController.java
+index c72ada94..cfa08975 100644
+--- a/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputViewController.java
++++ b/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputViewController.java
+@@ -232,6 +232,20 @@ public abstract class KeyguardPinBasedInputViewController<T extends KeyguardPinB
+             layoutParams.height = (int) getResources().getDimension(
+                     R.dimen.keyguard_pin_field_height);
+         }
++        // Sable (sable-lockscreen-titan2): with a hardware keyboard the PIN field, which takes
++        // the typed digits wherever focus is, shows the focus ring without the upstream flag,
++        // and a line under the keys says the on-screen keys still work.
++        final boolean sableKeyboard = getResources().getConfiguration().keyboard
++                == Configuration.KEYBOARD_QWERTY;
++        if (!pinInputFieldStyledFocusState() && sableKeyboard
++                && mPasswordEntry.getBackground() != null) {
++            mPasswordEntry.getBackground().mutate();
++            setKeyboardBasedFocusOutline(true);
++        }
++        final View sableFallback = mView.findViewById(R.id.sable_keyboard_fallback);
++        if (sableFallback != null) {
++            sableFallback.setVisibility(sableKeyboard ? View.VISIBLE : View.GONE);
++        }
+ 
+         mPasswordEntry.sendAccessibilityEvent(TYPE_VIEW_FOCUSED);
+     }
+diff --git a/packages/SystemUI/src/com/android/keyguard/sable/SableEmergencyShortcut.java b/packages/SystemUI/src/com/android/keyguard/sable/SableEmergencyShortcut.java
+new file mode 100644
+index 00000000..311c4e38
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/keyguard/sable/SableEmergencyShortcut.java
+@@ -0,0 +1,127 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.keyguard.sable;
++
++import android.annotation.SuppressLint;
++import android.app.ActivityOptions;
++import android.app.ActivityTaskManager;
++import android.content.Context;
++import android.content.Intent;
++import android.content.pm.PackageManager;
++import android.os.PowerManager;
++import android.os.SystemClock;
++import android.os.UserHandle;
++import android.telecom.TelecomManager;
++import android.util.Log;
++
++import androidx.annotation.Nullable;
++
++import com.android.keyguard.KeyguardUpdateMonitor;
++import com.android.systemui.dagger.SysUISingleton;
++import com.android.systemui.dagger.qualifiers.Background;
++import com.android.systemui.dagger.qualifiers.Main;
++import com.android.systemui.shade.ShadeController;
++import com.android.systemui.user.domain.interactor.SelectedUserInteractor;
++import com.android.systemui.util.EmergencyDialerConstants;
++
++import java.util.concurrent.Executor;
++
++import javax.inject.Inject;
++
++/**
++ * Sable: the keyboard emergency shortcut (Alt+Space, {@link SableKeyguardKeys#isEmergencyChord})
++ * does what the bouncer's Emergency button does (EmergencyButtonController
++ * #takeEmergencyCallAction): return to a call in progress, or open the emergency dialer over the
++ * lock screen. It never dials, unlocks or touches the credential.
++ */
++@SysUISingleton
++public class SableEmergencyShortcut {
++    private static final String TAG = "SableEmergencyShortcut";
++
++    private final Context mContext;
++    private final KeyguardUpdateMonitor mKeyguardUpdateMonitor;
++    private final PowerManager mPowerManager;
++    private final ActivityTaskManager mActivityTaskManager;
++    private final ShadeController mShadeController;
++    @Nullable
++    private final TelecomManager mTelecomManager;
++    private final Executor mMainExecutor;
++    private final Executor mBackgroundExecutor;
++    private final SelectedUserInteractor mSelectedUserInteractor;
++
++    @Inject
++    public SableEmergencyShortcut(Context context,
++            KeyguardUpdateMonitor keyguardUpdateMonitor,
++            PowerManager powerManager,
++            ActivityTaskManager activityTaskManager,
++            ShadeController shadeController,
++            @Nullable TelecomManager telecomManager,
++            @Main Executor mainExecutor,
++            @Background Executor backgroundExecutor,
++            SelectedUserInteractor selectedUserInteractor) {
++        mContext = context;
++        mKeyguardUpdateMonitor = keyguardUpdateMonitor;
++        mPowerManager = powerManager;
++        mActivityTaskManager = activityTaskManager;
++        mShadeController = shadeController;
++        mTelecomManager = telecomManager;
++        mMainExecutor = mainExecutor;
++        mBackgroundExecutor = backgroundExecutor;
++        mSelectedUserInteractor = selectedUserInteractor;
++    }
++
++    /** Whether this device can place calls, so the shortcut and its hint apply. */
++    public boolean isAvailable() {
++        return mTelecomManager != null && mContext.getPackageManager()
++                .hasSystemFeature(PackageManager.FEATURE_TELEPHONY_CALLING);
++    }
++
++    /** Returns to the call in progress or opens the emergency dialer. */
++    @SuppressLint("MissingPermission")
++    public void launch() {
++        if (!isAvailable()) {
++            return;
++        }
++        mPowerManager.userActivity(SystemClock.uptimeMillis(), true);
++        mActivityTaskManager.stopSystemLockTaskMode();
++        mShadeController.collapseShade(false);
++        // TelecomManager calls are binder calls: off the main thread, as the Emergency button.
++        mBackgroundExecutor.execute(() -> {
++            final boolean isInCall = mTelecomManager.isInCall();
++            mMainExecutor.execute(() -> {
++                if (isInCall) {
++                    mTelecomManager.showInCallScreen(false);
++                    return;
++                }
++                mKeyguardUpdateMonitor.reportEmergencyCallAction(true /* bypassHandler */);
++                final Intent intent = mTelecomManager.createLaunchEmergencyDialerIntent(null)
++                        .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK
++                                | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
++                                | Intent.FLAG_ACTIVITY_CLEAR_TOP)
++                        .putExtra(EmergencyDialerConstants.EXTRA_ENTRY_TYPE,
++                                EmergencyDialerConstants.ENTRY_TYPE_LOCKSCREEN_BUTTON);
++                try {
++                    mContext.startActivityAsUser(intent,
++                            ActivityOptions.makeCustomAnimation(mContext, 0, 0).toBundle(),
++                            new UserHandle(mSelectedUserInteractor.getSelectedUserId()));
++                } catch (RuntimeException e) {
++                    Log.w(TAG, "Cannot open the emergency dialer", e);
++                }
++            });
++        });
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardKeys.java b/packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardKeys.java
+index 3d64f8f0..c1a271ed 100644
+--- a/packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardKeys.java
++++ b/packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardKeys.java
+@@ -176,6 +176,21 @@ public final class SableKeyguardKeys {
+                 || textCharFor(unicodeChar, metaState) != 0;
+     }
+ 
++    /**
++     * The emergency shortcut, Alt+Space: open the emergency dialer from the lock screen or the
++     * bouncer (LOCKSCREEN_SECURE_ENTRY_UX EMERGENCY_CALL_ALWAYS_REACHABLE). On the Q25 Space has
++     * no Alt digit (the key map gives a private-use character), Sym is Right Alt and pages only
++     * with E and R, and plain Space keeps its confirm meaning, so the chord never types a PIN
++     * digit, never pages and is never pressed by accident while typing. Either Alt key (Alt or
++     * Sym) counts; Shift, Ctrl, Meta and Fn chords do not. It only opens the dialer; it never
++     * dials or unlocks.
++     */
++    public static boolean isEmergencyChord(int keyCode, int metaState) {
++        return keyCode == KEYCODE_SPACE
++                && (metaState & META_ALT_MASK) != 0
++                && (metaState & (META_SHIFT_MASK | SHORTCUT_MODIFIERS)) == 0;
++    }
++
+     /** The lock screen hint for the user's credential type ({@code LockPatternUtils}). */
+     public static int hintFor(int credentialType) {
+         switch (credentialType) {
+diff --git a/packages/SystemUI/src/com/android/keyguard/sable/SableLockGlance.java b/packages/SystemUI/src/com/android/keyguard/sable/SableLockGlance.java
+new file mode 100644
+index 00000000..dbf17f99
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/keyguard/sable/SableLockGlance.java
+@@ -0,0 +1,173 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.keyguard.sable;
++
++import java.util.Arrays;
++import java.util.HashSet;
++import java.util.Set;
++
++/**
++ * The Sable locked glance (LOCKSCREEN_SECURE_ENTRY_UX, sable-lockscreen-titan2): which Hub count
++ * bucket a lock screen notification falls in ("2 Messages · 1 Mail · 1 Missed call"), what each
++ * part of the glance shows, and the "N new · content hidden" count of a redacted notification.
++ *
++ * <p>Counts only: nothing here reads a title, a text or a sender. Pure (no android.* imports) so
++ * it can be tested off-device; android.app.Notification category values are copied.
++ */
++public final class SableLockGlance {
++    /** Not counted. */
++    public static final int BUCKET_NONE = 0;
++    /** Messages (SMS, chat). */
++    public static final int BUCKET_MESSAGES = 1;
++    /** Mail. */
++    public static final int BUCKET_MAIL = 2;
++    /** Missed calls. */
++    public static final int BUCKET_MISSED_CALL = 3;
++
++    // android.app.Notification categories.
++    static final String CATEGORY_MESSAGE = "msg";
++    static final String CATEGORY_EMAIL = "email";
++    static final String CATEGORY_MISSED_CALL = "missed_call";
++
++    /** Messaging apps recognised when a notification carries no category. */
++    static final Set<String> MESSAGE_PACKAGES = new HashSet<>(Arrays.asList(
++            "org.sableos.messages",
++            "com.android.messaging",
++            "com.google.android.apps.messaging",
++            "org.thoughtcrime.securesms",
++            "org.telegram.messenger",
++            "com.whatsapp",
++            "im.molly.app"));
++
++    /** Mail apps recognised without a category (the Hub list, HubMailSources.KNOWN_PACKAGES). */
++    static final Set<String> MAIL_PACKAGES = new HashSet<>(Arrays.asList(
++            "com.google.android.gm",
++            "com.microsoft.office.outlook",
++            "ch.protonmail.android",
++            "com.yahoo.mobile.client.android.mail",
++            "com.readdle.spark",
++            "eu.faircode.email",
++            "com.fsck.k9",
++            "net.thunderbird.android",
++            "com.samsung.android.email.provider",
++            "me.bluemail.mail",
++            "de.tutao.tutanota",
++            "com.fastmail.app",
++            "org.sableos.mail",
++            "com.android.email"));
++
++    private SableLockGlance() {}
++
++    /**
++     * The count bucket of a notification the lock screen may show. Group summaries are never
++     * counted (their children are), nor are ongoing notifications (a call in progress, a
++     * download). The category wins; known apps without a category are counted by package.
++     */
++    public static int bucketFor(String category, String packageName, boolean groupSummary,
++            boolean ongoing) {
++        if (groupSummary || ongoing) {
++            return BUCKET_NONE;
++        }
++        if (CATEGORY_MISSED_CALL.equals(category)) {
++            return BUCKET_MISSED_CALL;
++        }
++        if (CATEGORY_EMAIL.equals(category)) {
++            return BUCKET_MAIL;
++        }
++        if (CATEGORY_MESSAGE.equals(category)) {
++            return BUCKET_MESSAGES;
++        }
++        if (category != null && !category.isEmpty()) {
++            // An app that says what it is (event, alarm, call, ...) is not mail or a message.
++            return BUCKET_NONE;
++        }
++        if (packageName != null && MAIL_PACKAGES.contains(packageName)) {
++            return BUCKET_MAIL;
++        }
++        if (packageName != null && MESSAGE_PACKAGES.contains(packageName)) {
++            return BUCKET_MESSAGES;
++        }
++        return BUCKET_NONE;
++    }
++
++    /** Hub counts of the notifications the lock screen may show. */
++    public static final class Counts {
++        public int messages;
++        public int mail;
++        public int missedCalls;
++        /** Every lock screen notification, counted or not. */
++        public int total;
++
++        /** Counts one lock screen notification. */
++        public void add(int bucket) {
++            total++;
++            switch (bucket) {
++                case BUCKET_MESSAGES:
++                    messages++;
++                    break;
++                case BUCKET_MAIL:
++                    mail++;
++                    break;
++                case BUCKET_MISSED_CALL:
++                    missedCalls++;
++                    break;
++                default:
++                    break;
++            }
++        }
++
++        /** Whether the count row has nothing to show (it is hidden then). */
++        public boolean isEmpty() {
++            return messages == 0 && mail == 0 && missedCalls == 0;
++        }
++    }
++
++    /**
++     * What the glance under the clock shows. {@code locked}: the keyguard is secure and not
++     * unlocked (trust agent, biometrics). {@code privateMode}: the user is in public mode and
++     * hides notification content on the lock screen. Nothing shows while dozing.
++     */
++    public static final class Glance {
++        public final boolean lockedLabel;
++        public final boolean countRow;
++        public final boolean privateCard;
++        public final boolean requiresUnlockLine;
++
++        public Glance(boolean dozing, boolean locked, boolean privateMode, Counts counts) {
++            lockedLabel = !dozing && locked;
++            countRow = !dozing && !counts.isEmpty();
++            privateCard = !dozing && privateMode;
++            requiresUnlockLine = !dozing && privateMode && counts.total > 0;
++        }
++
++        /** Whether any part shows. */
++        public boolean any() {
++            return lockedLabel || countRow || privateCard || requiresUnlockLine;
++        }
++    }
++
++    /**
++     * How many new items a redacted notification stands for ("N new · content hidden"): the
++     * notification's number, else the messages of a messaging-style notification, else 1.
++     */
++    public static int newCount(int number, int messageCount) {
++        if (number > 0) {
++            return number;
++        }
++        return Math.max(1, messageCount);
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/bouncer/domain/interactor/BouncerMessageInteractor.kt b/packages/SystemUI/src/com/android/systemui/bouncer/domain/interactor/BouncerMessageInteractor.kt
+index 96623b28..bece652b 100644
+--- a/packages/SystemUI/src/com/android/systemui/bouncer/domain/interactor/BouncerMessageInteractor.kt
++++ b/packages/SystemUI/src/com/android/systemui/bouncer/domain/interactor/BouncerMessageInteractor.kt
+@@ -428,8 +428,8 @@ constructor(
+ 
+     /**
+      * Sable (LOCKSCREEN_SECURE_ENTRY_UX): with a hardware keyboard the bouncer's default message
+-     * gets the lock screen's keyboard hint as its second line ("Type PIN · Enter unlocks"), so
+-     * the bouncer says that typing works. Only when the default has no second line of its own;
++     * gets "Physical keyboard active · Enter submits" as its second line (the Sable lock screen
++     * design's bouncer subtitle), so the bouncer says that typing works. Only when the default has no second line of its own;
+      * failure, lockout and biometric messages are unchanged.
+      */
+     private fun sableKeyboardHint(message: BouncerMessagePair): BouncerMessagePair {
+@@ -441,8 +441,8 @@ constructor(
+         }
+         val hint =
+             when (currentSecurityMode) {
+-                SecurityMode.PIN -> R.string.sable_keyguard_hint_pin
+-                SecurityMode.Password -> R.string.sable_keyguard_hint_password
++                SecurityMode.PIN,
++                SecurityMode.Password -> R.string.sable_keyguard_bouncer_keyboard_active
+                 else -> 0
+             }
+         return if (hint == 0) message else Pair(message.first, hint)
+diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/domain/interactor/KeyguardKeyEventInteractor.kt b/packages/SystemUI/src/com/android/systemui/keyguard/domain/interactor/KeyguardKeyEventInteractor.kt
+index 838b437a..1ea4989c 100644
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/domain/interactor/KeyguardKeyEventInteractor.kt
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/domain/interactor/KeyguardKeyEventInteractor.kt
+@@ -22,6 +22,7 @@ import android.os.SystemClock
+ import android.view.InputDevice
+ import android.view.KeyCharacterMap
+ import android.view.KeyEvent
++import com.android.keyguard.sable.SableEmergencyShortcut
+ import com.android.keyguard.sable.SableKeyguardKeys
+ import com.android.keyguard.sable.SableKeyguardTypeAhead
+ import com.android.systemui.back.domain.interactor.BackActionInteractor
+@@ -37,6 +38,7 @@ import com.android.systemui.shade.ShadeController
+ import com.android.systemui.shade.ShadeDisplayAware
+ import com.android.systemui.statusbar.StatusBarState
+ import com.android.systemui.statusbar.phone.StatusBarKeyguardViewManager
++import dagger.Lazy
+ import javax.inject.Inject
+ 
+ /** Handles key events arriving when the keyguard is showing or device is dozing. */
+@@ -53,7 +55,10 @@ constructor(
+     private val deviceEntryInteractor: DeviceEntryInteractor,
+     private val powerInteractor: PowerInteractor,
+     private val keyguardMediaKeyInteractor: KeyguardMediaKeyInteractor,
++    private val sableEmergencyShortcut: Lazy<SableEmergencyShortcut>? = null,
+ ) {
++    /** Sable: the emergency chord's Space went down here, so its UP is ours too. */
++    private var sableEmergencyChordDown = false
+ 
+     fun dispatchKeyEvent(event: KeyEvent): Boolean {
+         if (statusBarStateController.isDozing) {
+@@ -87,6 +92,9 @@ constructor(
+      * exit bouncer.
+      */
+     fun dispatchKeyEventPreIme(event: KeyEvent): Boolean {
++        if (dispatchSableEmergencyChord(event)) {
++            return true
++        }
+         when (event.action) {
+             KeyEvent.ACTION_DOWN -> {
+                 val device = event.getDevice()
+@@ -119,6 +127,31 @@ constructor(
+         }
+     }
+ 
++    /**
++     * Sable (LOCKSCREEN_SECURE_ENTRY_UX EMERGENCY_CALL_PATH): Alt+Space on the lock screen or the
++     * bouncer opens the emergency dialer, like the bouncer's Emergency button. Pre-IME, so the
++     * password field and the PIN view never see it; the chord types no digit on the Q25 (see
++     * [SableKeyguardKeys.isEmergencyChord]). The Space UP is consumed too, even when Alt was
++     * released first, so it cannot also open the bouncer as a confirm key. Shared by the legacy
++     * and scene container keyguards (the window root calls this for both).
++     */
++    private fun dispatchSableEmergencyChord(event: KeyEvent): Boolean {
++        if (event.keyCode != KeyEvent.KEYCODE_SPACE) return false
++        if (event.action == KeyEvent.ACTION_UP && sableEmergencyChordDown) {
++            sableEmergencyChordDown = false
++            return true
++        }
++        if (!SableKeyguardKeys.isEmergencyChord(event.keyCode, event.metaState)) return false
++        if (statusBarStateController.state != StatusBarState.KEYGUARD) return false
++        val shortcut = sableEmergencyShortcut?.get() ?: return false
++        if (!shortcut.isAvailable()) return false
++        if (event.action == KeyEvent.ACTION_DOWN) {
++            sableEmergencyChordDown = true
++            if (event.repeatCount == 0) shortcut.launch()
++        }
++        return true
++    }
++
+     /**
+      * Sable (LOCKSCREEN_SECURE_ENTRY_UX): typing on the locked glance goes straight into the PIN
+      * or password field. A printable key from a physical keyboard opens the primary bouncer, as
+diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/blueprints/DefaultKeyguardBlueprint.kt b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/blueprints/DefaultKeyguardBlueprint.kt
+index af323390..872ac1c1 100644
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/blueprints/DefaultKeyguardBlueprint.kt
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/blueprints/DefaultKeyguardBlueprint.kt
+@@ -34,6 +34,7 @@ import com.android.systemui.keyguard.ui.view.layout.sections.DefaultStatusBarSec
+ import com.android.systemui.keyguard.ui.view.layout.sections.DefaultUdfpsAccessibilityOverlaySection
+ import com.android.systemui.keyguard.ui.view.layout.sections.KeyguardSectionsModule.Companion.KEYGUARD_AMBIENT_INDICATION_AREA_SECTION
+ import com.android.systemui.keyguard.ui.view.layout.sections.KeyguardSliceViewSection
++import com.android.systemui.keyguard.ui.view.layout.sections.SableLockGlanceSection
+ import com.android.systemui.keyguard.ui.view.layout.sections.SmartspaceSection
+ import java.util.Optional
+ import javax.inject.Inject
+@@ -66,6 +67,7 @@ constructor(
+     smartspaceSection: SmartspaceSection,
+     keyguardSliceViewSection: KeyguardSliceViewSection,
+     udfpsAccessibilityOverlaySection: DefaultUdfpsAccessibilityOverlaySection,
++    sableLockGlanceSection: SableLockGlanceSection,
+ ) : KeyguardBlueprint {
+     override val id: String = DEFAULT
+ 
+@@ -84,6 +86,8 @@ constructor(
+             aodBurnInSection,
+             clockSection,
+             keyguardSliceViewSection,
++            // Sable: after the clock, date and notification sections; it moves the stack's top.
++            sableLockGlanceSection,
+             defaultDeviceEntrySection,
+             udfpsAccessibilityOverlaySection, // Add LAST: Intentionally has z-order above others
+         )
+diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt
+new file mode 100644
+index 00000000..1ff01233
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt
+@@ -0,0 +1,223 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.systemui.keyguard.ui.view.layout.sections
++
++import android.content.Context
++import android.view.LayoutInflater
++import android.view.View
++import android.widget.TextView
++import androidx.constraintlayout.widget.ConstraintLayout
++import androidx.constraintlayout.widget.ConstraintSet
++import androidx.constraintlayout.widget.ConstraintSet.BOTTOM
++import androidx.constraintlayout.widget.ConstraintSet.END
++import androidx.constraintlayout.widget.ConstraintSet.PARENT_ID
++import androidx.constraintlayout.widget.ConstraintSet.START
++import androidx.constraintlayout.widget.ConstraintSet.TOP
++import com.android.keyguard.sable.SableLockGlance
++import com.android.systemui.dagger.SysUISingleton
++import com.android.systemui.keyguard.shared.model.KeyguardSection
++import com.android.systemui.keyguard.ui.viewmodel.KeyguardClockViewModel
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockViewIds
++import com.android.systemui.plugins.statusbar.StatusBarStateController
++import com.android.systemui.res.R
++import com.android.systemui.shade.ShadeDisplayAware
++import com.android.systemui.statusbar.NotificationLockscreenUserManager
++import com.android.systemui.statusbar.notification.collection.NotifPipeline
++import com.android.systemui.statusbar.notification.collection.NotificationEntry
++import com.android.systemui.statusbar.notification.collection.notifcollection.NotifCollectionListener
++import com.android.systemui.statusbar.notification.interruption.KeyguardNotificationVisibilityProvider
++import com.android.systemui.statusbar.policy.KeyguardStateController
++import javax.inject.Inject
++
++/**
++ * Sable locked glance (LOCKSCREEN_SECURE_ENTRY_UX, sable-lockscreen-titan2) under the lock screen
++ * clock: "Locked" while the keyguard is secure and not unlocked; the Hub count row ("2 Messages ·
++ * 1 Mail · 1 Missed call", hidden when all are zero) of the notifications the lock screen may
++ * show; the "Private mode · Counts only until unlock" card when lock screen notification content
++ * is hidden; and "Open/reply requires unlock" under it while such notifications are shown.
++ *
++ * Counts only: no title, text or sender is read. Notifications the keyguard hides (secret, a user
++ * or profile setting, silent ones when hidden, lock screen notifications off) are not counted, so
++ * with lock screen notifications off the count row stays hidden. Hidden while dozing. The
++ * notification stack starts below the glance. Legacy (blueprint) keyguard only.
++ */
++@SysUISingleton
++class SableLockGlanceSection
++@Inject
++constructor(
++    @ShadeDisplayAware private val context: Context,
++    private val keyguardClockViewModel: KeyguardClockViewModel,
++    private val notifPipeline: NotifPipeline,
++    private val visibilityProvider: KeyguardNotificationVisibilityProvider,
++    private val lockscreenUserManager: NotificationLockscreenUserManager,
++    private val keyguardStateController: KeyguardStateController,
++    private val statusBarStateController: StatusBarStateController,
++) : KeyguardSection() {
++    private var glanceView: View? = null
++    private var listening = false
++
++    private val collectionListener =
++        object : NotifCollectionListener {
++            override fun onEntryAdded(entry: NotificationEntry) = refresh()
++
++            override fun onEntryUpdated(entry: NotificationEntry) = refresh()
++
++            override fun onEntryRemoved(entry: NotificationEntry, reason: Int) = refresh()
++
++            override fun onRankingApplied() = refresh()
++        }
++
++    private val keyguardStateCallback =
++        object : KeyguardStateController.Callback {
++            override fun onUnlockedChanged() = refresh()
++
++            override fun onKeyguardShowingChanged() = refresh()
++        }
++
++    private val statusBarStateListener =
++        object : StatusBarStateController.StateListener {
++            override fun onDozingChanged(isDozing: Boolean) = refresh()
++
++            override fun onStateChanged(newState: Int) = refresh()
++        }
++
++    override fun addViews(constraintLayout: ConstraintLayout) {
++        val view =
++            LayoutInflater.from(context)
++                .inflate(R.layout.sable_keyguard_glance, constraintLayout, false)
++        glanceView = view
++        constraintLayout.addView(view)
++        startListening()
++        refresh()
++    }
++
++    override fun bindData(constraintLayout: ConstraintLayout) {
++        refresh()
++    }
++
++    override fun applyConstraints(constraintSet: ConstraintSet) {
++        val res = context.resources
++        val horizontal = res.getDimensionPixelSize(R.dimen.sable_keyguard_glance_margin_horizontal)
++        val top = res.getDimensionPixelSize(R.dimen.sable_keyguard_glance_margin_top)
++        constraintSet.apply {
++            constrainWidth(ID, ConstraintSet.MATCH_CONSTRAINT)
++            constrainHeight(ID, ConstraintSet.WRAP_CONTENT)
++            connect(ID, START, PARENT_ID, START, horizontal)
++            connect(ID, END, PARENT_ID, END, horizontal)
++            if (keyguardClockViewModel.isLargeClockVisible.value) {
++                connect(ID, TOP, ClockViewIds.LOCKSCREEN_CLOCK_VIEW_LARGE, BOTTOM, top)
++            } else {
++                // Below the small clock and the date (smartspace or slice barrier).
++                connect(ID, TOP, R.id.smart_space_barrier_bottom, BOTTOM, top)
++            }
++            if (!res.getBoolean(R.bool.config_use_large_screen_shade_header)) {
++                // Notifications start below the glance; while it is gone, where they did.
++                connect(
++                    R.id.nssl_placeholder,
++                    TOP,
++                    ID,
++                    BOTTOM,
++                    res.getDimensionPixelSize(R.dimen.keyguard_status_view_bottom_margin),
++                )
++            }
++        }
++    }
++
++    override fun removeViews(constraintLayout: ConstraintLayout) {
++        glanceView?.let { if (it.parent == constraintLayout) constraintLayout.removeView(it) }
++        glanceView = null
++    }
++
++    private fun startListening() {
++        if (listening) return
++        listening = true
++        notifPipeline.addCollectionListener(collectionListener)
++        visibilityProvider.addOnStateChangedListener { refresh() }
++        lockscreenUserManager.addNotificationStateChangedListener { refresh() }
++        keyguardStateController.addCallback(keyguardStateCallback)
++        statusBarStateController.addCallback(statusBarStateListener)
++    }
++
++    private fun refresh() {
++        val view = glanceView ?: return
++        val counts = SableLockGlance.Counts()
++        if (keyguardStateController.isShowing) {
++            for (entry in notifPipeline.allNotifs) {
++                if (visibilityProvider.shouldHideNotification(entry)) continue
++                val sbn = entry.sbn
++                counts.add(
++                    SableLockGlance.bucketFor(
++                        sbn.notification.category,
++                        sbn.packageName,
++                        sbn.notification.isGroupSummary,
++                        sbn.isOngoing,
++                    )
++                )
++            }
++        }
++        val userId = lockscreenUserManager.currentUserId
++        val privateMode =
++            lockscreenUserManager.isLockscreenPublicMode(userId) &&
++                lockscreenUserManager.shouldShowLockscreenNotifications() &&
++                !lockscreenUserManager.userAllowsPrivateNotificationsInPublic(userId)
++        val locked =
++            keyguardStateController.isMethodSecure && !keyguardStateController.canDismissLockScreen()
++        val glance =
++            SableLockGlance.Glance(statusBarStateController.isDozing, locked, privateMode, counts)
++
++        view.findViewById<View>(R.id.sable_keyguard_locked).visibleIf(glance.lockedLabel)
++        view.findViewById<TextView>(R.id.sable_keyguard_counts).apply {
++            visibleIf(glance.countRow)
++            if (glance.countRow) text = countText(counts)
++        }
++        view.findViewById<View>(R.id.sable_keyguard_private).visibleIf(glance.privateCard)
++        view.findViewById<View>(R.id.sable_keyguard_requires_unlock)
++            .visibleIf(glance.requiresUnlockLine)
++        view.visibleIf(glance.any())
++    }
++
++    private fun countText(counts: SableLockGlance.Counts): String {
++        val res = context.resources
++        val parts = buildList {
++            if (counts.messages > 0) {
++                add(res.getQuantityString(R.plurals.sable_keyguard_count_messages, counts.messages, counts.messages))
++            }
++            if (counts.mail > 0) {
++                add(res.getQuantityString(R.plurals.sable_keyguard_count_mail, counts.mail, counts.mail))
++            }
++            if (counts.missedCalls > 0) {
++                add(
++                    res.getQuantityString(
++                        R.plurals.sable_keyguard_count_missed_calls,
++                        counts.missedCalls,
++                        counts.missedCalls,
++                    )
++                )
++            }
++        }
++        return parts.joinToString(res.getString(R.string.sable_keyguard_count_separator))
++    }
++
++    private fun View.visibleIf(show: Boolean) {
++        val wanted = if (show) View.VISIBLE else View.GONE
++        if (visibility != wanted) visibility = wanted
++    }
++
++    private companion object {
++        val ID = R.id.sable_keyguard_glance
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/KeyguardIndicationController.java b/packages/SystemUI/src/com/android/systemui/statusbar/KeyguardIndicationController.java
+index 37005f28..d786424c 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/KeyguardIndicationController.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/KeyguardIndicationController.java
+@@ -59,6 +59,7 @@ import android.content.BroadcastReceiver;
+ import android.content.Context;
+ import android.content.Intent;
+ import android.content.IntentFilter;
++import android.content.pm.PackageManager;
+ import android.content.pm.UserInfo;
+ import android.content.res.ColorStateList;
+ import android.content.res.Configuration;
+@@ -665,13 +666,16 @@ public class KeyguardIndicationController {
+             final int hint = SableKeyguardKeys.hintFor(
+                     mLockPatternUtils.getCredentialTypeForUser(userId));
+             mExecutor.execute(() -> {
++                // Sable lock screen design: "Enter unlock · Alt+Space emergency · ↑↓
++                // notifications"; the emergency part only where the phone can call.
++                final boolean canCall = mContext.getPackageManager()
++                        .hasSystemFeature(PackageManager.FEATURE_TELEPHONY_CALLING);
+                 final int hintRes;
+                 switch (hint) {
+                     case SableKeyguardKeys.HINT_PIN:
+-                        hintRes = R.string.sable_keyguard_hint_pin;
+-                        break;
+                     case SableKeyguardKeys.HINT_PASSWORD:
+-                        hintRes = R.string.sable_keyguard_hint_password;
++                        hintRes = canCall ? R.string.sable_keyguard_hint_secure
++                                : R.string.sable_keyguard_hint_secure_no_calls;
+                         break;
+                     case SableKeyguardKeys.HINT_ENTER:
+                         hintRes = R.string.sable_keyguard_hint_enter;
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/NotificationRowContentBinderImpl.kt b/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/NotificationRowContentBinderImpl.kt
+index a988467e..e8e3377f 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/NotificationRowContentBinderImpl.kt
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/NotificationRowContentBinderImpl.kt
+@@ -41,6 +41,7 @@ import com.android.app.tracing.TraceUtils
+ import com.android.internal.annotations.VisibleForTesting
+ import com.android.internal.widget.ImageMessageConsumer
+ import com.android.server.notification.Flags
++import com.android.keyguard.sable.SableLockGlance
+ import com.android.systemui.dagger.SysUISingleton
+ import com.android.systemui.dagger.qualifiers.NotifInflation
+ import com.android.systemui.res.R
+@@ -814,6 +815,32 @@ constructor(
+             return redacted
+         }
+ 
++        /**
++         * Sable (sable-lockscreen-titan2): a notification whose content is hidden on the lock
++         * screen says "N new · content hidden" next to its app name instead of only the app name.
++         * Only for the framework's redacted view; an app's own public version is kept. N is the
++         * notification's number or message count (counts only, no content).
++         */
++        private fun sableHiddenContentText(
++            view: RemoteViews,
++            notification: Notification,
++            systemUiContext: Context,
++        ) {
++            if (notification.publicVersion != null) return
++            val messages =
++                notification.extras.getParcelableArray(Notification.EXTRA_MESSAGES)?.size ?: 0
++            val count = SableLockGlance.newCount(notification.number, messages)
++            val text =
++                systemUiContext.resources.getQuantityString(
++                    R.plurals.sable_keyguard_notification_hidden,
++                    count,
++                    count,
++                )
++            view.setTextViewText(com.android.internal.R.id.header_text, text)
++            view.setViewVisibility(com.android.internal.R.id.header_text, View.VISIBLE)
++            view.setViewVisibility(com.android.internal.R.id.header_text_divider, View.VISIBLE)
++        }
++
+         private fun createRemoteViews(
+             @InflationFlag reInflateFlags: Int,
+             builder: Notification.Builder,
+@@ -862,7 +889,9 @@ constructor(
+                                 )
+                                 .createContentView()
+                         } else {
+-                            builder.makePublicContentView(bindParams.isMinimized)
++                            builder.makePublicContentView(bindParams.isMinimized).also {
++                                sableHiddenContentText(it, entry.sbn.notification, systemUiContext)
++                            }
+                         }
+                     } else null
+                 val normalGroupHeader =
+diff --git a/packages/SystemUI/tests/utils/src/com/android/systemui/keyguard/data/repository/KeyguardBlueprintRepositoryKosmos.kt b/packages/SystemUI/tests/utils/src/com/android/systemui/keyguard/data/repository/KeyguardBlueprintRepositoryKosmos.kt
+index 799f1b8f..419b495b 100644
+--- a/packages/SystemUI/tests/utils/src/com/android/systemui/keyguard/data/repository/KeyguardBlueprintRepositoryKosmos.kt
++++ b/packages/SystemUI/tests/utils/src/com/android/systemui/keyguard/data/repository/KeyguardBlueprintRepositoryKosmos.kt
+@@ -84,6 +84,7 @@ val Kosmos.defaultKeyguardBlueprint by
+             keyguardSliceViewSection = mock(),
+             udfpsAccessibilityOverlaySection = mock(),
+             accessibilityActionsSection = mock(),
++            sableLockGlanceSection = mock(),
+         )
+     }
+ 
+-- 
+2.43.0
+
