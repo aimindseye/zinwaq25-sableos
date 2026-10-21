@@ -1,0 +1,270 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 21 Oct 2026 18:02:03 +0000
+Subject: [PATCH 1043/1044] SableOS: Browser keys follow the design's T/B/L and
+ add tab keys
+
+Resolve the conflict between the first Browser key model and
+BROWSER_WEBVIEW_UX: single keys now mean what the design gives them
+in page and reader mode, and the address bar and new tab move to
+their chords only.
+
+* Single keys (only after the page declined the key, never while a
+  form, the address bar or find has focus): T top, B bottom, L next
+  link and Shift+L previous link (link mode), R reader mode, F or /
+  find, Space and Shift+Space one block down and up, Move Home/End
+  top and bottom. L no longer focuses the address bar, T no longer
+  opens a tab and B no longer goes back.
+* Chords (Alt on the Q25, Ctrl on an external keyboard): Alt+L
+  address, Alt+T new tab, Alt+W close tab, Alt+K / Alt+J next /
+  previous tab (also Ctrl+Tab / Ctrl+Shift+Tab), Alt+A tab grid,
+  Alt+F find, Alt+R reload, Alt+Left/Right back/forward.
+* tabGrid(): D, Del or Alt+W close the focused tab in the grid.
+* adjacentTab(): next/previous tab in opening order, wrapping.
+* hint(): the command dock hint line for start page, page and reader.
+
+Pure Java; host tests in the SableOS Q25 repository
+(tests/java/stock-apps/Jelly). Wired up by the next patch.
+---
+ .../jelly/sable/SableBrowserKeys.java         | 154 ++++++++++++++++--
+ 1 file changed, 138 insertions(+), 16 deletions(-)
+
+diff --git a/app/src/main/java/org/lineageos/jelly/sable/SableBrowserKeys.java b/app/src/main/java/org/lineageos/jelly/sable/SableBrowserKeys.java
+index e9a1ccc..8fe9e7e 100644
+--- a/app/src/main/java/org/lineageos/jelly/sable/SableBrowserKeys.java
++++ b/app/src/main/java/org/lineageos/jelly/sable/SableBrowserKeys.java
+@@ -7,18 +7,21 @@ package org.lineageos.jelly.sable;
+ 
+ /**
+  * The Browser keyboard model for a keyboard with Alt, Shift and Sym but no Ctrl or Fn key
+- * (BROWSER_WEBVIEW_UX "Recommended Browser key model"; the design's Ctrl/Fn chords map to Alt,
++ * (BROWSER_WEBVIEW_UX "Recommended Browser key model"; the design's Ctrl chords map to Alt,
+  * and Ctrl still works on an external keyboard). Pure Java so it can be tested on the host.
+  *
+  * <p>Two stages, matching where WebView lets the app see a key:
+  *
+  * <ul>
+  *   <li>{@link #beforePage}: before the page sees the key (WebViewClient.shouldOverrideKeyEvent).
+- *       Only Alt (or Ctrl) chords: Alt+L address, Alt+T new tab, Alt+F find, Alt+R reload,
+- *       Alt+Left back, Alt+Right forward.
++ *       Only Alt (or Ctrl) chords: Alt+L address, Alt+T new tab, Alt+W close tab, Alt+K / Alt+J
++ *       next / previous tab (Ctrl+Tab / Ctrl+Shift+Tab on an external keyboard), Alt+A the tab
++ *       grid, Alt+F find, Alt+R reload, Alt+Left back, Alt+Right forward.
+  *   <li>{@link #afterPage}: after the page declined the key (WebViewClient.onUnhandledKeyEvent),
+- *       or when no page has focus. Single keys: L address, T new tab, F or / find, B back,
+- *       Space and Shift+Space page down and up, Move Home and Move End top and bottom.
++ *       or when no page has focus. Single keys, as the design gives them to page and reader
++ *       mode: / or F find, Space and Shift+Space one block down and up, T top, B bottom, L the
++ *       next link (Shift+L the previous one), R reader mode, Move Home and Move End top and
++ *       bottom.
+  * </ul>
+  *
+  * <p>Input guard (TEXT_INPUT_ALWAYS_WINS, WEB_FORM_INPUT_NOT_HIJACKED): nothing here fires while
+@@ -34,6 +37,14 @@ public final class SableBrowserKeys {
+         FOCUS_ADDRESS,
+         /** Open a new tab (private when the current one is private). */
+         NEW_TAB,
++        /** Close the current tab. */
++        CLOSE_TAB,
++        /** Switch to the next tab. */
++        NEXT_TAB,
++        /** Switch to the previous tab. */
++        PREVIOUS_TAB,
++        /** Show the tab grid. */
++        TAB_GRID,
+         /** Open find in page. */
+         FIND,
+         /** Go back one page, if there is one. */
+@@ -50,20 +61,44 @@ public final class SableBrowserKeys {
+         TOP,
+         /** Go to the bottom of the page. */
+         BOTTOM,
++        /** Link mode: focus the next link. */
++        LINK_NEXT,
++        /** Link mode: focus the previous link. */
++        LINK_PREVIOUS,
++        /** Turn reader mode on or off. */
++        READER,
+         /** Not a Browser shortcut: leave the key alone. */
+         NONE
+     }
+ 
++    /** What the dock hint line describes. */
++    public enum Mode {
++        /** The start page: no page loaded in this tab. */
++        START,
++        /** A web page. */
++        PAGE,
++        /** Reader mode. */
++        READER
++    }
++
+     // android.view.KeyEvent key codes (mirrored so this class stays pure Java).
+     static final int KEYCODE_DPAD_LEFT = 21;
+     static final int KEYCODE_DPAD_RIGHT = 22;
++    static final int KEYCODE_A = 29;
+     static final int KEYCODE_B = 30;
++    static final int KEYCODE_D = 32;
+     static final int KEYCODE_F = 34;
++    static final int KEYCODE_J = 38;
++    static final int KEYCODE_K = 39;
+     static final int KEYCODE_L = 40;
+     static final int KEYCODE_R = 46;
+     static final int KEYCODE_T = 48;
++    static final int KEYCODE_W = 51;
++    static final int KEYCODE_TAB = 61;
+     static final int KEYCODE_SPACE = 62;
++    static final int KEYCODE_DEL = 67;
+     static final int KEYCODE_SLASH = 76;
++    static final int KEYCODE_FORWARD_DEL = 112;
+     static final int KEYCODE_MOVE_HOME = 122;
+     static final int KEYCODE_MOVE_END = 123;
+ 
+@@ -81,7 +116,14 @@ public final class SableBrowserKeys {
+      */
+     public static Action beforePage(
+             int keyCode, boolean alt, boolean ctrl, boolean shift, boolean meta, boolean editing) {
+-        if (editing || meta || shift || alt == ctrl) {
++        if (editing || meta) {
++            return Action.NONE;
++        }
++        if (keyCode == KEYCODE_TAB && ctrl && !alt) {
++            // Ctrl+Tab / Ctrl+Shift+Tab. Alt+Tab belongs to the system.
++            return shift ? Action.PREVIOUS_TAB : Action.NEXT_TAB;
++        }
++        if (shift || alt == ctrl) {
+             // Exactly one of Alt and Ctrl: Alt+Ctrl chords are not ours.
+             return Action.NONE;
+         }
+@@ -90,6 +132,14 @@ public final class SableBrowserKeys {
+                 return Action.FOCUS_ADDRESS;
+             case KEYCODE_T:
+                 return Action.NEW_TAB;
++            case KEYCODE_W:
++                return Action.CLOSE_TAB;
++            case KEYCODE_K:
++                return Action.NEXT_TAB;
++            case KEYCODE_J:
++                return Action.PREVIOUS_TAB;
++            case KEYCODE_A:
++                return Action.TAB_GRID;
+             case KEYCODE_F:
+                 return Action.FIND;
+             case KEYCODE_R:
+@@ -136,31 +186,103 @@ public final class SableBrowserKeys {
+             return shift ? Action.PAGE_UP : Action.PAGE_DOWN;
+         }
+         if (shift) {
+-            return Action.NONE;
++            return keyCode == KEYCODE_L ? Action.LINK_PREVIOUS : Action.NONE;
+         }
+         switch (keyCode) {
+-            case KEYCODE_L:
+-                return Action.FOCUS_ADDRESS;
+-            case KEYCODE_T:
+-                return Action.NEW_TAB;
+             case KEYCODE_F:
+                 return Action.FIND;
+-            case KEYCODE_B:
+-                return Action.BACK;
++            case KEYCODE_T:
+             case KEYCODE_MOVE_HOME:
+                 return Action.TOP;
++            case KEYCODE_B:
+             case KEYCODE_MOVE_END:
+                 return Action.BOTTOM;
++            case KEYCODE_L:
++                return Action.LINK_NEXT;
++            case KEYCODE_R:
++                return Action.READER;
+             default:
+                 return Action.NONE;
+         }
+     }
+ 
+     /**
+-     * Whether a held key repeats the action. Only paging repeats; every other action runs once
+-     * per press, so a held key never opens a row of tabs.
++     * A key on a focused tab in the tab grid. Enter and the arrows keep their meaning (switch,
++     * move); D, Del or Alt+W (Ctrl+W) close the focused tab.
++     */
++    public static Action tabGrid(int keyCode, boolean alt, boolean ctrl, boolean shift, boolean meta) {
++        if (meta || shift) {
++            return Action.NONE;
++        }
++        if (keyCode == KEYCODE_W) {
++            return (alt != ctrl) ? Action.CLOSE_TAB : Action.NONE;
++        }
++        if (alt || ctrl) {
++            return Action.NONE;
++        }
++        switch (keyCode) {
++            case KEYCODE_D:
++            case KEYCODE_DEL:
++            case KEYCODE_FORWARD_DEL:
++                return Action.CLOSE_TAB;
++            default:
++                return Action.NONE;
++        }
++    }
++
++    /**
++     * Whether a held key repeats the action. Only paging and link moves repeat; every other
++     * action runs once per press, so a held key never opens or closes a row of tabs.
+      */
+     public static boolean repeats(Action action) {
+-        return action == Action.PAGE_DOWN || action == Action.PAGE_UP;
++        return action == Action.PAGE_DOWN
++                || action == Action.PAGE_UP
++                || action == Action.LINK_NEXT
++                || action == Action.LINK_PREVIOUS;
++    }
++
++    /**
++     * The tab to switch to from {@code current}: tabs are kept in the order they were opened
++     * ({@code tabIds} ascending task ids) and the step wraps around. Returns -1 when there is no
++     * other tab.
++     */
++    public static int adjacentTab(int[] tabIds, int current, boolean next) {
++        if (tabIds == null || tabIds.length < 2) {
++            return -1;
++        }
++        final int[] sorted = tabIds.clone();
++        java.util.Arrays.sort(sorted);
++        int index = java.util.Arrays.binarySearch(sorted, current);
++        if (index < 0) {
++            // The current tab is not listed: start from where it would be.
++            final int insertion = -index - 1;
++            index = next ? insertion - 1 : insertion;
++        }
++        final int n = sorted.length;
++        final int target = ((next ? index + 1 : index - 1) % n + n) % n;
++        return sorted[target] == current ? -1 : sorted[target];
++    }
++
++    /**
++     * The command dock hint line for a mode (artifact states 1 and 2). In reader mode
++     * {@code block} and {@code blocks} give the "2/8" position; 0 leaves it out.
++     */
++    public static String hint(Mode mode, int block, int blocks) {
++        switch (mode) {
++            case START:
++                return "[Alt+T New] [Alt+W Close] [Alt+← Back] [Alt+→ Fwd] [Alt+A Tabs]";
++            case READER: {
++                final String position = (block > 0 && blocks > 0)
++                        ? "Reader " + Math.min(block, blocks) + "/" + blocks + " · "
++                        : "Reader · ";
++                return position
++                        + "[Space] next block · [Shift+Space] previous · [/] find"
++                        + " · [T] top · [L] link mode · [R] exit";
++            }
++            case PAGE:
++            default:
++                return "[/] find · [R] reader · [L] links · [T/B] top/bottom"
++                        + " · [Alt+A] tabs · [Alt+W] close";
++        }
+     }
+ }
+-- 
+2.43.0
+
