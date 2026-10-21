@@ -175,7 +175,9 @@ class StartStateRepository(
         const val QUICK_BAR_SEPARATOR = "\n"
         const val KEY_HOME_APPS = "home_apps"
         const val KEY_GLANCE_WIDGETS = "glance_widgets"
-        const val KEY_HOME_HIDDEN_SECTIONS = "home_hidden_sections"
+        // v2: the BB10 Home shows the status dials by default; sets saved by the
+        // three-page Home hid them without the user choosing, so they are not read.
+        const val KEY_HOME_HIDDEN_SECTIONS = "home_hidden_sections_v2"
         const val KEY_HOME_MODE = "home_mode"
         const val KEY_GRID_ORDER = "grid_order"
     }
