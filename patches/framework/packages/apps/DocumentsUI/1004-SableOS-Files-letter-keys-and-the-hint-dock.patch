@@ -1,0 +1,205 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 21 Oct 2026 18:06:25 +0000
+Subject: [PATCH 1004/1004] SableOS: Files letter keys and the hint dock
+
+* FilesActivity runs the new single-letter commands: J / K are sent
+  on as Down / Up, T opens Recent, V switches grid and list
+  (BaseActivity.toggleViewMode, the view menu's path), E runs the
+  selection menu's Share through runKeyboardAction like the others.
+* Hint dock (FILES_DOCUMENTS_UX artifact, Files home): a bar at the
+  bottom of the Files window with the focused file (name, type, size,
+  date), a "/ Search files..." prompt that opens search, and the key
+  line "Enter Open, J/K Move, T Latest, E Export, O Open with, ...".
+  It is added to the coordinator layout of both the classic and the
+  Material 3 layouts, and the Files layout keeps its full height
+  above it. The picker is unchanged.
+---
+ src/com/android/documentsui/BaseActivity.java |   7 ++
+ .../documentsui/files/FilesActivity.java      | 117 ++++++++++++++++++
+ 2 files changed, 124 insertions(+)
+
+diff --git a/src/com/android/documentsui/BaseActivity.java b/src/com/android/documentsui/BaseActivity.java
+index baffe6d..1b4400b 100644
+--- a/src/com/android/documentsui/BaseActivity.java
++++ b/src/com/android/documentsui/BaseActivity.java
+@@ -868,6 +868,13 @@ public abstract class BaseActivity
+         mInjector.actions.loadDocumentsForCurrentStack();
+     }
+ 
++    /**
++     * SableOS: the V key switches between grid and list, as the view mode menu does.
++     */
++    protected void toggleViewMode() {
++        setViewMode(mState.derivedMode == MODE_GRID ? State.MODE_LIST : MODE_GRID);
++    }
++
+     /**
+      * Set mode based on explicit user action.
+      */
+diff --git a/src/com/android/documentsui/files/FilesActivity.java b/src/com/android/documentsui/files/FilesActivity.java
+index 5e06467..043054f 100644
+--- a/src/com/android/documentsui/files/FilesActivity.java
++++ b/src/com/android/documentsui/files/FilesActivity.java
+@@ -32,15 +32,23 @@ import android.graphics.Color;
+ import android.net.Uri;
+ import android.os.Build;
+ import android.os.Bundle;
++import android.text.format.DateUtils;
++import android.text.format.Formatter;
+ import android.util.Log;
++import android.util.TypedValue;
++import android.view.Gravity;
+ import android.view.KeyEvent;
+ import android.view.KeyboardShortcutGroup;
+ import android.view.Menu;
+ import android.view.MenuItem;
+ import android.view.View;
++import android.view.ViewGroup;
++import android.widget.LinearLayout;
++import android.widget.TextView;
+ 
+ import androidx.annotation.CallSuper;
+ import androidx.annotation.RequiresApi;
++import androidx.coordinatorlayout.widget.CoordinatorLayout;
+ import androidx.fragment.app.FragmentManager;
+ import androidx.lifecycle.ViewModelProvider;
+ 
+@@ -285,6 +293,7 @@ public class FilesActivity extends BaseActivity implements AbstractActionHandler
+         }
+ 
+         presentFileErrors(icicle, intent);
++        addSableDock();
+     }
+ 
+     private AppsRowManager getAppsRowManager() {
+@@ -525,11 +534,28 @@ public class FilesActivity extends BaseActivity implements AbstractActionHandler
+         if (action == SableFilesKeys.Action.UPSTREAM) {
+             return false;
+         }
++        if (action == SableFilesKeys.Action.NEXT || action == SableFilesKeys.Action.PREVIOUS) {
++            // J / K move like Down / Up (FILES_DOCUMENTS_UX "J or Down", "K or Up"), held or not.
++            final int arrow = action == SableFilesKeys.Action.NEXT
++                    ? KeyEvent.KEYCODE_DPAD_DOWN : KeyEvent.KEYCODE_DPAD_UP;
++            return super.dispatchKeyEvent(new KeyEvent(event.getDownTime(), event.getEventTime(),
++                    event.getAction(), arrow, event.getRepeatCount(), 0, event.getDeviceId(),
++                    0, event.getFlags(), event.getSource()));
++        }
+         // The release and repeats of a command are consumed; a held key runs it once.
+         if (event.getAction() != KeyEvent.ACTION_DOWN || event.getRepeatCount() > 0) {
+             return true;
+         }
+         switch (action) {
++            case LATEST:
++                mInjector.actions.openRoot(mProviders.getRecentsRoot(UserId.DEFAULT_USER));
++                break;
++            case VIEW_MODE:
++                toggleViewMode();
++                break;
++            case EXPORT:
++                runKeyboardAction(dir, R.id.action_menu_share);
++                break;
+             case SEARCH:
+                 mInjector.searchManager.onSearchBarClicked();
+                 break;
+@@ -571,6 +597,97 @@ public class FilesActivity extends BaseActivity implements AbstractActionHandler
+         }
+     }
+ 
++    private @Nullable TextView mSableDockFocus;
++
++    /**
++     * SableOS: the Files hint dock (FILES_DOCUMENTS_UX artifact): the focused file's name, type,
++     * size and date, a search prompt, and the key line. It sits under the whole Files layout, in
++     * both the classic and the Material 3 layouts, and moves nothing else.
++     */
++    private void addSableDock() {
++        final View root = findViewById(getRes(R.id.coordinator_layout));
++        if (!(root instanceof CoordinatorLayout) || ((ViewGroup) root).getChildCount() == 0) {
++            return;
++        }
++        final CoordinatorLayout coordinator = (CoordinatorLayout) root;
++        final View content = coordinator.getChildAt(0);
++        final float density = getResources().getDisplayMetrics().density;
++        final int pad = (int) (12 * density);
++
++        final LinearLayout dock = new LinearLayout(this);
++        dock.setOrientation(LinearLayout.VERTICAL);
++        dock.setPadding(pad, pad / 3, pad, pad / 3);
++        final TypedValue surface = new TypedValue();
++        if (getTheme().resolveAttribute(android.R.attr.colorBackgroundFloating, surface, true)) {
++            dock.setBackgroundColor(surface.data);
++        }
++        dock.setElevation(8 * density);
++
++        mSableDockFocus = sableDockLine(dock, null, 13, false);
++        final TextView prompt = sableDockLine(dock, SableFilesKeys.DOCK_PROMPT, 14, true);
++        prompt.setFocusable(true);
++        prompt.setClickable(true);
++        prompt.setOnClickListener(v -> mInjector.searchManager.onSearchBarClicked());
++        sableDockLine(dock, SableFilesKeys.DOCK_HINT, 12, true);
++
++        final CoordinatorLayout.LayoutParams params = new CoordinatorLayout.LayoutParams(
++                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
++        params.gravity = Gravity.BOTTOM;
++        coordinator.addView(dock, params);
++        // Keep the Files layout above the dock.
++        dock.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
++            final ViewGroup.LayoutParams lp = content.getLayoutParams();
++            if (lp instanceof ViewGroup.MarginLayoutParams
++                    && ((ViewGroup.MarginLayoutParams) lp).bottomMargin != b - t) {
++                ((ViewGroup.MarginLayoutParams) lp).bottomMargin = b - t;
++                content.setLayoutParams(lp);
++            }
++        });
++        coordinator.getViewTreeObserver().addOnGlobalFocusChangeListener(
++                (oldFocus, newFocus) -> updateSableDockFocus());
++        updateSableDockFocus();
++    }
++
++    private TextView sableDockLine(LinearLayout dock, @Nullable String text, int sp,
++            boolean accent) {
++        final TextView line = new TextView(this);
++        line.setText(text);
++        line.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
++        line.setMaxLines(2);
++        line.setEllipsize(android.text.TextUtils.TruncateAt.END);
++        final TypedValue color = new TypedValue();
++        if (getTheme().resolveAttribute(
++                accent ? android.R.attr.colorAccent : android.R.attr.textColorSecondary,
++                color, true)) {
++            line.setTextColor(color.resourceId != 0 ? getColor(color.resourceId) : color.data);
++        }
++        dock.addView(line);
++        return line;
++    }
++
++    /** The dock's first line follows the file that has keyboard focus. */
++    private void updateSableDockFocus() {
++        if (mSableDockFocus == null) {
++            return;
++        }
++        final DirectoryFragment dir = getDirectoryFragment();
++        final String modelId = dir != null ? dir.getKeyboardFocusedModelId() : null;
++        final DocumentInfo doc = modelId != null ? mInjector.getModel().getDocument(modelId) : null;
++        if (doc == null) {
++            mSableDockFocus.setVisibility(View.GONE);
++            return;
++        }
++        final String type = doc.isDirectory() ? null : mInjector.fileTypeLookup.lookup(doc.mimeType);
++        final String size = (doc.isDirectory() || doc.size < 0)
++                ? null : Formatter.formatShortFileSize(this, doc.size);
++        final String date = doc.lastModified > 0
++                ? DateUtils.formatDateTime(this, doc.lastModified,
++                        DateUtils.FORMAT_SHOW_DATE | DateUtils.FORMAT_ABBREV_MONTH)
++                : null;
++        mSableDockFocus.setText(SableFilesKeys.focusLine(doc.displayName, type, size, date));
++        mSableDockFocus.setVisibility(View.VISIBLE);
++    }
++
+     @CallSuper
+     @Override
+     public boolean onKeyDown(int keyCode, KeyEvent event) {
+-- 
+2.43.0
+

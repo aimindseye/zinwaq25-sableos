@@ -1,7 +1,9 @@
-// Host tests for the Files keyboard model (DocumentsUI patch 1001). Run by tests/run.sh.
+// Host tests for the Files keyboard model (DocumentsUI patches 1001 and 1003). Run by tests/run.sh.
 package com.android.documentsui.sable;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import com.android.documentsui.sable.SableFilesKeys.Action;
 import org.junit.Test;
@@ -45,9 +47,56 @@ public class SableFilesKeysTest {
     }
 
     @Test
-    public void lettersKeepTypeToFocus() {
-        assertEquals(Action.UPSTREAM, plain(SableFilesKeys.KEYCODE_C, 'c', true));
-        assertEquals(Action.UPSTREAM, plain(SableFilesKeys.KEYCODE_R, 'r', true));
+    public void designSingleLettersOnAFocusedFile() {
+        assertEquals(Action.COPY_TO, plain(SableFilesKeys.KEYCODE_C, 'c', true));
+        assertEquals(Action.MOVE_TO, plain(SableFilesKeys.KEYCODE_M, 'm', true));
+        assertEquals(Action.RENAME, plain(SableFilesKeys.KEYCODE_R, 'r', true));
+        assertEquals(Action.INFO, plain(SableFilesKeys.KEYCODE_I, 'i', true));
+        assertEquals(Action.OPEN_WITH, plain(SableFilesKeys.KEYCODE_O, 'o', true));
+        assertEquals(Action.EXPORT, plain(SableFilesKeys.KEYCODE_E, 'e', true));
+        assertEquals(Action.DELETE, plain(SableFilesKeys.KEYCODE_D, 'd', true));
+    }
+
+    @Test
+    public void designSingleLettersAnywhere() {
+        assertEquals(Action.NEXT, plain(SableFilesKeys.KEYCODE_J, 'j', false));
+        assertEquals(Action.PREVIOUS, plain(SableFilesKeys.KEYCODE_K, 'k', false));
+        assertEquals(Action.LATEST, plain(SableFilesKeys.KEYCODE_T, 't', false));
+        assertEquals(Action.VIEW_MODE, plain(SableFilesKeys.KEYCODE_V, 'v', false));
+        assertEquals(Action.SELECT_ALL, plain(SableFilesKeys.KEYCODE_A, 'a', false));
+        assertEquals(Action.SEARCH, plain(SableFilesKeys.KEYCODE_S, 's', false));
+    }
+
+    @Test
+    public void fileLettersWithoutATargetKeepTypeToFocus() {
+        assertEquals(Action.UPSTREAM, plain(SableFilesKeys.KEYCODE_C, 'c', false));
+        assertEquals(Action.UPSTREAM, plain(SableFilesKeys.KEYCODE_D, 'd', false));
+        // F (favorite) is not bound: the Files app has no favorites. Other letters type-to-focus.
+        assertEquals(Action.UPSTREAM, plain(34, 'f', true));
+        assertEquals(Action.UPSTREAM, plain(W, 'w', true));
+        // N alone is a name letter; Alt+N is new folder.
+        assertEquals(Action.UPSTREAM, plain(SableFilesKeys.KEYCODE_N, 'n', true));
+        assertEquals(Action.UPSTREAM, SableFilesKeys.decide(
+                SableFilesKeys.KEYCODE_J, 'J', false, false, true, false, false, false, true));
+    }
+
+    @Test
+    public void onlyMovingRepeats() {
+        assertTrue(SableFilesKeys.repeats(Action.NEXT));
+        assertTrue(SableFilesKeys.repeats(Action.PREVIOUS));
+        assertFalse(SableFilesKeys.repeats(Action.DELETE));
+        assertFalse(SableFilesKeys.repeats(Action.COPY_TO));
+    }
+
+    @Test
+    public void dockText() {
+        for (String key : new String[] {"Enter Open", "J/K Move", "T Latest", "E Export",
+                "O Open with"}) {
+            assertTrue(key, SableFilesKeys.DOCK_HINT.contains(key));
+        }
+        assertEquals("\u25b8 plan.pdf \u00b7 PDF document \u00b7 1.2 MB",
+                SableFilesKeys.focusLine("plan.pdf", "PDF document", "1.2 MB", " "));
+        assertEquals("\u25b8 \u2014", SableFilesKeys.focusLine(null, null, null, null));
     }
 
     @Test
@@ -69,6 +118,10 @@ public class SableFilesKeysTest {
                 SableFilesKeys.KEYCODE_DEL, 0, false, false, false, false, true, false, true));
         assertEquals(Action.UPSTREAM, SableFilesKeys.decide(
                 G, '/', true, false, false, false, true, false, true));
+        assertEquals(Action.UPSTREAM, SableFilesKeys.decide(
+                SableFilesKeys.KEYCODE_D, 'd', false, false, false, false, true, false, true));
+        assertEquals(Action.UPSTREAM, SableFilesKeys.decide(
+                SableFilesKeys.KEYCODE_J, 'j', false, false, false, false, false, true, true));
     }
 
     @Test
