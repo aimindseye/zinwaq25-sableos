@@ -246,13 +246,14 @@ else
     printf 'SKIP  javac not installed (Settings policy test)\n'
 fi
 
-# 6f. Sable Applications model (Settings patches 0601 and 1101) host tests, and the Sable
+# 6f. Sable Applications model (Settings patches 0601, 1101 and 12xx) host tests, and the Sable
 # Tools Settings actions the Settings patches must export (settings-ui5).
 if command -v javac >/dev/null 2>&1; then
     sa="$tmp/settings-apps"
     mkdir -p "$sa/out"
     for p in "$ROOT"/patches/framework/packages/apps/Settings/0601-*.patch \
-        "$ROOT"/patches/framework/packages/apps/Settings/1101-*.patch; do
+        "$ROOT"/patches/framework/packages/apps/Settings/1101-*.patch \
+        "$ROOT"/patches/framework/packages/apps/Settings/12[0-9][0-9]-*.patch; do
         (cd "$sa" && git apply --include='src/com/android/settings/applications/sable/model/*' \
             --include='tests/sable-apps/src/*' "$p")
     done

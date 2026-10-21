@@ -1,0 +1,717 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 21 Oct 2026 13:07:35 +0000
+Subject: [PATCH] SableOS: App Control Center, Freezer and Student mode model
+
+Pure Java next to the 1101 model, with host tests (tests/sable-apps,
+AppControlCenterModelTest):
+
+* AppSuspensions: Freezer, Student mode and Focus mode share Android's
+  one suspension per suspending package, so they share one target set
+  (strongest reason FROZEN > STUDENT > FOCUS). An app is released only
+  when no control wants it; Focus mode ending never unfreezes an app,
+  and only Settings' own suspensions are released.
+* StudentSchedule: days, start and end (overnight windows run into the
+  next day), isActive and nextChange for the alarm, a damage-tolerant
+  stored form (default weekdays 08:00-17:00), and the blocked set
+  (launcher apps not on the allow list and not ones the phone needs).
+* AppControlRows: per-app network, background and paused state from
+  Android's own stores, the list filters, and the hide rule (only
+  frozen, user-installed apps the phone does not need).
+---
+ .../sable/model/AppControlRows.java           | 154 ++++++++++++
+ .../sable/model/AppSuspensions.java           |  89 +++++++
+ .../sable/model/StudentSchedule.java          | 227 ++++++++++++++++++
+ .../model/AppControlCenterModelTest.java      | 189 +++++++++++++++
+ 4 files changed, 659 insertions(+)
+ create mode 100644 src/com/android/settings/applications/sable/model/AppControlRows.java
+ create mode 100644 src/com/android/settings/applications/sable/model/AppSuspensions.java
+ create mode 100644 src/com/android/settings/applications/sable/model/StudentSchedule.java
+ create mode 100644 tests/sable-apps/src/com/android/settings/applications/sable/model/AppControlCenterModelTest.java
+
+diff --git a/src/com/android/settings/applications/sable/model/AppControlRows.java b/src/com/android/settings/applications/sable/model/AppControlRows.java
+new file mode 100644
+index 0000000..8b21015
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/AppControlRows.java
+@@ -0,0 +1,154 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable.model;
++
++import java.text.Collator;
++import java.util.ArrayList;
++import java.util.Collections;
++import java.util.List;
++import java.util.Locale;
++
++/**
++ * App Control Center rows (MOBILE_MANAGER_APP_CONTROLS_UX "Mail · network allowed ·
++ * background unrestricted"): one row per app with what each control holds, read from
++ * Android's own stores (network policy, battery optimization mode, package suspension, the
++ * hidden setting), and the list filters. Nothing here is a second store.
++ */
++public final class AppControlRows {
++
++    /** Network access as the Network Manager switch sees it. */
++    public enum Network { ALLOWED, PARTIAL, BLOCKED, NOT_MANAGEABLE }
++
++    /** Android's per-app battery mode (Settings &gt; Apps &gt; App battery usage). */
++    public enum Background { UNRESTRICTED, OPTIMIZED, RESTRICTED, UNKNOWN }
++
++    /** Whether, and by whom, the app is paused (suspended). */
++    public enum Paused {
++        NO,
++        FROZEN,
++        STUDENT,
++        FOCUS,
++        /** Suspended by another app (a device admin or wellbeing app); Settings leaves it. */
++        OTHER
++    }
++
++    /** The list filters, in the order the page offers them. */
++    public enum Filter { ALL, NETWORK_BLOCKED, BACKGROUND_RESTRICTED, PAUSED, FROZEN, HIDDEN }
++
++    /** One app. */
++    public static final class Row {
++        public final String packageName;
++        public final String label;
++        public final Network network;
++        public final Background background;
++        public final Paused paused;
++        public final boolean hidden;
++        /** User-installed (not part of the system image): only these can be hidden. */
++        public final boolean userInstalled;
++
++        public Row(String packageName, String label, Network network, Background background,
++                Paused paused, boolean hidden, boolean userInstalled) {
++            this.packageName = packageName;
++            this.label = label == null || label.trim().isEmpty() ? packageName : label;
++            this.network = network == null ? Network.ALLOWED : network;
++            this.background = background == null ? Background.UNKNOWN : background;
++            this.paused = paused == null ? Paused.NO : paused;
++            this.hidden = hidden;
++            this.userInstalled = userInstalled;
++        }
++
++        public boolean frozen() {
++            return paused == Paused.FROZEN;
++        }
++    }
++
++    private AppControlRows() {}
++
++    /** Settings' own reason for a suspended app, or OTHER/NO from the platform state. */
++    public static Paused paused(boolean suspended, AppSuspensions.Reason heldBySettings) {
++        if (heldBySettings != null) {
++            switch (heldBySettings) {
++                case FROZEN:
++                    return Paused.FROZEN;
++                case STUDENT:
++                    return Paused.STUDENT;
++                default:
++                    return Paused.FOCUS;
++            }
++        }
++        return suspended ? Paused.OTHER : Paused.NO;
++    }
++
++    public static boolean matches(Row row, Filter filter) {
++        if (row == null) {
++            return false;
++        }
++        switch (filter == null ? Filter.ALL : filter) {
++            case NETWORK_BLOCKED:
++                return row.network == Network.BLOCKED || row.network == Network.PARTIAL;
++            case BACKGROUND_RESTRICTED:
++                return row.background == Background.RESTRICTED;
++            case PAUSED:
++                return row.paused != Paused.NO;
++            case FROZEN:
++                return row.paused == Paused.FROZEN;
++            case HIDDEN:
++                return row.hidden;
++            default:
++                return true;
++        }
++    }
++
++    /** Rows matching {@code filter}, sorted by label then package. */
++    public static List<Row> filter(List<Row> rows, Filter filter, Locale locale) {
++        final List<Row> out = new ArrayList<>();
++        if (rows != null) {
++            for (Row r : rows) {
++                if (matches(r, filter)) {
++                    out.add(r);
++                }
++            }
++        }
++        final Collator collator = Collator.getInstance(locale == null ? Locale.ROOT : locale);
++        Collections.sort(out, (a, b) -> {
++            final int c = collator.compare(a.label, b.label);
++            return c != 0 ? c : a.packageName.compareTo(b.packageName);
++        });
++        return out;
++    }
++
++    public static int count(List<Row> rows, Filter filter) {
++        int n = 0;
++        if (rows != null) {
++            for (Row r : rows) {
++                if (matches(r, filter)) {
++                    n++;
++                }
++            }
++        }
++        return n;
++    }
++
++    /**
++     * Whether "Hide from launcher" is offered: only for a frozen, user-installed app that is not
++     * one the phone needs, so a system app is never made to vanish.
++     */
++    public static boolean canHide(Row row, boolean neverPause) {
++        return row != null && row.userInstalled && !neverPause
++                && (row.hidden || row.paused == Paused.FROZEN);
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/model/AppSuspensions.java b/src/com/android/settings/applications/sable/model/AppSuspensions.java
+new file mode 100644
+index 0000000..2859e85
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/AppSuspensions.java
+@@ -0,0 +1,89 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable.model;
++
++import java.util.Collections;
++import java.util.Map;
++import java.util.Set;
++import java.util.TreeMap;
++
++/**
++ * Every app Settings pauses goes through one platform mechanism, package suspension
++ * ({@code PackageManager.setPackagesSuspended}), and Android keeps one suspension per
++ * suspending package. Freezer, Student mode and Focus mode therefore share one target set:
++ * an app stays suspended while any of them wants it, and is released only when none does.
++ * Without this, Focus mode ending would unfreeze a frozen app.
++ *
++ * <p>{@link FocusModePolicy#plan} turns the target set into suspend and release lists; only
++ * packages Settings itself suspended are ever released.
++ */
++public final class AppSuspensions {
++
++    /** Why Settings pauses an app, strongest first (the one the App Control Center shows). */
++    public enum Reason {
++        /** Frozen in the Freezer: until the user unfreezes it. */
++        FROZEN,
++        /** Not on the Student mode allow list while Student mode is on. */
++        STUDENT,
++        /** Chosen to pause while Focus mode is on. */
++        FOCUS
++    }
++
++    private AppSuspensions() {}
++
++    /**
++     * The apps Settings should hold suspended now, each with its strongest reason.
++     *
++     * @param frozen apps frozen in the Freezer
++     * @param focusActive whether Focus mode is on
++     * @param focusChosen apps chosen to pause during Focus mode
++     * @param studentActive whether Student mode is on
++     * @param studentBlocked apps Student mode pauses (launcher apps not on its allow list)
++     * @param neverPause apps that must never be suspended (Settings, home, dialer, SMS, keyboard)
++     */
++    public static Map<String, Reason> targets(Set<String> frozen, boolean focusActive,
++            Set<String> focusChosen, boolean studentActive, Set<String> studentBlocked,
++            Set<String> neverPause) {
++        final Map<String, Reason> out = new TreeMap<>();
++        add(out, focusActive ? focusChosen : null, Reason.FOCUS, neverPause);
++        add(out, studentActive ? studentBlocked : null, Reason.STUDENT, neverPause);
++        add(out, frozen, Reason.FROZEN, neverPause);
++        return out;
++    }
++
++    /** Suspend and release lists that make the platform match {@code targets}. */
++    public static FocusModePolicy.Plan plan(Map<String, Reason> targets,
++            Set<String> heldBySettings, Set<String> neverPause) {
++        return FocusModePolicy.plan(true,
++                targets == null ? Collections.<String>emptySet() : targets.keySet(),
++                heldBySettings, neverPause);
++    }
++
++    // Later calls overwrite earlier ones, so callers add the weakest reason first.
++    private static void add(Map<String, Reason> out, Set<String> packages, Reason reason,
++            Set<String> neverPause) {
++        if (packages == null) {
++            return;
++        }
++        for (String pkg : packages) {
++            if (PackageSet.isValidPackageName(pkg)
++                    && (neverPause == null || !neverPause.contains(pkg))) {
++                out.put(pkg, reason);
++            }
++        }
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/model/StudentSchedule.java b/src/com/android/settings/applications/sable/model/StudentSchedule.java
+new file mode 100644
+index 0000000..cd26f33
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/StudentSchedule.java
+@@ -0,0 +1,227 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable.model;
++
++import java.time.DayOfWeek;
++import java.time.LocalDate;
++import java.time.LocalDateTime;
++import java.time.LocalTime;
++import java.util.Collection;
++import java.util.Set;
++import java.util.TreeSet;
++
++/**
++ * Student mode's time window (MOBILE_MANAGER_APP_CONTROLS_UX "Time: Weekdays 08:00-17:00"):
++ * the days it runs and a start and end time. An end at or before the start runs past
++ * midnight into the next day (22:00-06:00 on Monday is Monday 22:00 to Tuesday 06:00).
++ * Stored as {@code days=1,2,3,4,5;start=480;end=1020} (ISO days, Monday 1; minutes of the
++ * day). Damaged values fall back to the default, weekdays 08:00-17:00.
++ */
++public final class StudentSchedule {
++    public static final int MINUTES_PER_DAY = 24 * 60;
++    public static final StudentSchedule DEFAULT = new StudentSchedule(
++            daysOf(1, 2, 3, 4, 5), 8 * 60, 17 * 60);
++
++    /** ISO days of week (1 Monday ... 7 Sunday) the window starts on. */
++    public final Set<Integer> days;
++    public final int startMinute;
++    public final int endMinute;
++
++    public StudentSchedule(Set<Integer> days, int startMinute, int endMinute) {
++        final Set<Integer> clean = new TreeSet<>();
++        if (days != null) {
++            for (Integer d : days) {
++                if (d != null && d >= 1 && d <= 7) {
++                    clean.add(d);
++                }
++            }
++        }
++        this.days = java.util.Collections.unmodifiableSet(clean);
++        this.startMinute = clampMinute(startMinute);
++        this.endMinute = clampMinute(endMinute);
++    }
++
++    private static Set<Integer> daysOf(Integer... d) {
++        return new TreeSet<>(java.util.Arrays.asList(d));
++    }
++
++    private static int clampMinute(int m) {
++        return m < 0 ? 0 : (m >= MINUTES_PER_DAY ? MINUTES_PER_DAY - 1 : m);
++    }
++
++    /** True when the window runs past midnight. */
++    public boolean overnight() {
++        return endMinute <= startMinute;
++    }
++
++    /** Length of one window in minutes (an equal start and end is a full day). */
++    public int lengthMinutes() {
++        return overnight() ? MINUTES_PER_DAY - startMinute + endMinute : endMinute - startMinute;
++    }
++
++    public StudentSchedule withDays(Collection<Integer> newDays) {
++        return new StudentSchedule(newDays == null ? null : new TreeSet<>(newDays),
++                startMinute, endMinute);
++    }
++
++    public StudentSchedule withStart(int minute) {
++        return new StudentSchedule(days, minute, endMinute);
++    }
++
++    public StudentSchedule withEnd(int minute) {
++        return new StudentSchedule(days, startMinute, minute);
++    }
++
++    /** Whether {@code now} falls inside a window. */
++    public boolean isActive(LocalDateTime now) {
++        if (days.isEmpty() || now == null) {
++            return false;
++        }
++        final int minute = now.getHour() * 60 + now.getMinute();
++        final int today = now.getDayOfWeek().getValue();
++        final int yesterday = today == 1 ? 7 : today - 1;
++        if (!overnight()) {
++            return days.contains(today) && minute >= startMinute && minute < endMinute;
++        }
++        return (days.contains(today) && minute >= startMinute)
++                || (days.contains(yesterday) && minute < endMinute);
++    }
++
++    /**
++     * The next time after {@code now} at which {@link #isActive} changes, or null when it
++     * never does (no days chosen).
++     */
++    public LocalDateTime nextChange(LocalDateTime now) {
++        if (days.isEmpty() || now == null) {
++            return null;
++        }
++        final LocalDate base = now.toLocalDate();
++        LocalDateTime best = null;
++        // Windows that start from yesterday up to 8 days ahead cover every boundary.
++        for (int offset = -1; offset <= 8; offset++) {
++            final LocalDate day = base.plusDays(offset);
++            if (!days.contains(day.getDayOfWeek().getValue())) {
++                continue;
++            }
++            final LocalDateTime start = LocalDateTime.of(day, toTime(startMinute));
++            final LocalDateTime end = start.plusMinutes(lengthMinutes());
++            for (LocalDateTime t : new LocalDateTime[] {start, end}) {
++                if (t.isAfter(now) && isActive(t) != isActive(now)
++                        && (best == null || t.isBefore(best))) {
++                    best = t;
++                }
++            }
++        }
++        return best;
++    }
++
++    private static LocalTime toTime(int minute) {
++        return LocalTime.of(minute / 60, minute % 60);
++    }
++
++    /** "HH:MM" for a minute of the day. */
++    public static String clock(int minute) {
++        final int m = clampMinute(minute);
++        return String.format(java.util.Locale.ROOT, "%02d:%02d", m / 60, m % 60);
++    }
++
++    /** True for Monday to Friday exactly. */
++    public boolean isWeekdays() {
++        return days.equals(daysOf(1, 2, 3, 4, 5));
++    }
++
++    public String format() {
++        final StringBuilder sb = new StringBuilder("days=");
++        boolean first = true;
++        for (int d : days) {
++            if (!first) {
++                sb.append(',');
++            }
++            sb.append(d);
++            first = false;
++        }
++        return sb.append(";start=").append(startMinute).append(";end=").append(endMinute)
++                .toString();
++    }
++
++    public static StudentSchedule parse(String stored) {
++        if (stored == null || stored.trim().isEmpty()) {
++            return DEFAULT;
++        }
++        Set<Integer> d = null;
++        Integer start = null;
++        Integer end = null;
++        try {
++            for (String part : stored.split(";")) {
++                final int eq = part.indexOf('=');
++                if (eq < 0) {
++                    return DEFAULT;
++                }
++                final String key = part.substring(0, eq).trim();
++                final String value = part.substring(eq + 1).trim();
++                if ("days".equals(key)) {
++                    d = new TreeSet<>();
++                    for (String n : value.split(",")) {
++                        if (!n.trim().isEmpty()) {
++                            final int day = Integer.parseInt(n.trim());
++                            if (day < 1 || day > 7) {
++                                return DEFAULT;
++                            }
++                            d.add(day);
++                        }
++                    }
++                } else if ("start".equals(key)) {
++                    start = Integer.parseInt(value);
++                } else if ("end".equals(key)) {
++                    end = Integer.parseInt(value);
++                }
++            }
++        } catch (NumberFormatException e) {
++            return DEFAULT;
++        }
++        if (d == null || start == null || end == null || start < 0 || end < 0
++                || start >= MINUTES_PER_DAY || end >= MINUTES_PER_DAY) {
++            return DEFAULT;
++        }
++        return new StudentSchedule(d, start, end);
++    }
++
++    /**
++     * The apps Student mode pauses: launcher apps not on the allow list and not ones the phone
++     * needs.
++     */
++    public static Set<String> blocked(Collection<String> launcherApps, Set<String> allowed,
++            Set<String> neverPause) {
++        final Set<String> out = new TreeSet<>();
++        if (launcherApps == null) {
++            return out;
++        }
++        for (String pkg : launcherApps) {
++            if (PackageSet.isValidPackageName(pkg)
++                    && (allowed == null || !allowed.contains(pkg))
++                    && (neverPause == null || !neverPause.contains(pkg))) {
++                out.add(pkg);
++            }
++        }
++        return out;
++    }
++
++    /** Used by the Android layer for day labels. */
++    public static DayOfWeek day(int iso) {
++        return DayOfWeek.of(iso);
++    }
++}
+diff --git a/tests/sable-apps/src/com/android/settings/applications/sable/model/AppControlCenterModelTest.java b/tests/sable-apps/src/com/android/settings/applications/sable/model/AppControlCenterModelTest.java
+new file mode 100644
+index 0000000..b2052c0
+--- /dev/null
++++ b/tests/sable-apps/src/com/android/settings/applications/sable/model/AppControlCenterModelTest.java
+@@ -0,0 +1,189 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable.model;
++
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertFalse;
++import static org.junit.Assert.assertNull;
++import static org.junit.Assert.assertTrue;
++
++import org.junit.Test;
++
++import java.time.LocalDateTime;
++import java.util.Arrays;
++import java.util.Collections;
++import java.util.List;
++import java.util.Locale;
++import java.util.Map;
++import java.util.Set;
++import java.util.TreeSet;
++
++/** Mobile Manager: App Control Center rows, Freezer/Student/Focus suspensions, Student window. */
++public class AppControlCenterModelTest {
++
++    private static Set<String> set(String... names) {
++        return new TreeSet<>(Arrays.asList(names));
++    }
++
++    // 2026-10-19 is a Monday.
++    private static LocalDateTime at(int day, int hour, int minute) {
++        return LocalDateTime.of(2026, 10, 18 + day, hour, minute);
++    }
++
++    // --- AppSuspensions ---
++
++    @Test
++    public void focusEndingKeepsFrozenAppsSuspended() {
++        final Set<String> frozen = set("com.game");
++        final Set<String> focus = set("com.game", "com.social");
++        final Map<String, AppSuspensions.Reason> on = AppSuspensions.targets(frozen, true, focus,
++                false, null, set());
++        assertEquals(AppSuspensions.Reason.FROZEN, on.get("com.game"));
++        assertEquals(AppSuspensions.Reason.FOCUS, on.get("com.social"));
++        final Map<String, AppSuspensions.Reason> off = AppSuspensions.targets(frozen, false,
++                focus, false, null, set());
++        final FocusModePolicy.Plan plan = AppSuspensions.plan(off, on.keySet(), set());
++        assertEquals(set(), plan.suspend);
++        assertEquals(set("com.social"), plan.release);
++    }
++
++    @Test
++    public void studentOutranksFocusAndNeverPauseWins() {
++        final Map<String, AppSuspensions.Reason> t = AppSuspensions.targets(set(), true,
++                set("com.a", "com.dialer"), true, set("com.a", "com.b"), set("com.dialer"));
++        assertEquals(AppSuspensions.Reason.STUDENT, t.get("com.a"));
++        assertEquals(AppSuspensions.Reason.STUDENT, t.get("com.b"));
++        assertNull(t.get("com.dialer"));
++        assertEquals(2, t.size());
++    }
++
++    @Test
++    public void planNeverReleasesOtherSuspenders() {
++        final FocusModePolicy.Plan plan = AppSuspensions.plan(
++                AppSuspensions.targets(set("com.x"), false, null, false, null, null),
++                set("com.held"), null);
++        assertEquals(set("com.x"), plan.suspend);
++        assertEquals(set("com.held"), plan.release);
++        assertTrue(AppSuspensions.plan(null, set(), null).isEmpty());
++    }
++
++    // --- StudentSchedule ---
++
++    @Test
++    public void defaultIsWeekdaysEightToFive() {
++        final StudentSchedule s = StudentSchedule.DEFAULT;
++        assertTrue(s.isWeekdays());
++        assertEquals("08:00", StudentSchedule.clock(s.startMinute));
++        assertEquals("17:00", StudentSchedule.clock(s.endMinute));
++        assertTrue(s.isActive(at(1, 8, 0)));
++        assertTrue(s.isActive(at(5, 16, 59)));
++        assertFalse(s.isActive(at(5, 17, 0)));
++        assertFalse(s.isActive(at(1, 7, 59)));
++        assertFalse(s.isActive(at(6, 12, 0)));
++    }
++
++    @Test
++    public void nextChangeCrossesTheWeekend() {
++        final StudentSchedule s = StudentSchedule.DEFAULT;
++        assertEquals(at(1, 17, 0), s.nextChange(at(1, 9, 30)));
++        assertEquals(at(2, 8, 0), s.nextChange(at(1, 17, 0)));
++        assertEquals(at(8, 8, 0), s.nextChange(at(5, 18, 0)));
++        assertNull(s.withDays(Collections.<Integer>emptyList()).nextChange(at(1, 9, 0)));
++    }
++
++    @Test
++    public void overnightWindowRunsIntoTheNextDay() {
++        final StudentSchedule s = new StudentSchedule(set1(1), 22 * 60, 6 * 60);
++        assertTrue(s.overnight());
++        assertEquals(8 * 60, s.lengthMinutes());
++        assertTrue(s.isActive(at(1, 23, 0)));
++        assertTrue(s.isActive(at(2, 5, 59)));
++        assertFalse(s.isActive(at(2, 6, 0)));
++        assertFalse(s.isActive(at(1, 5, 0)));
++        assertEquals(at(2, 6, 0), s.nextChange(at(1, 22, 30)));
++    }
++
++    private static Set<Integer> set1(Integer... d) {
++        return new TreeSet<>(Arrays.asList(d));
++    }
++
++    @Test
++    public void storedScheduleRoundTripsAndDamageFallsBack() {
++        final StudentSchedule s = new StudentSchedule(set1(6, 7), 9 * 60 + 30, 12 * 60);
++        assertEquals("days=6,7;start=570;end=720", s.format());
++        final StudentSchedule back = StudentSchedule.parse(s.format());
++        assertEquals(s.days, back.days);
++        assertEquals(570, back.startMinute);
++        assertEquals(720, back.endMinute);
++        assertTrue(StudentSchedule.parse(null).isWeekdays());
++        assertTrue(StudentSchedule.parse("days=1,9;start=1;end=2").isWeekdays());
++        assertTrue(StudentSchedule.parse("days=1;start=x;end=2").isWeekdays());
++        assertTrue(StudentSchedule.parse("days=1;start=1;end=1440").isWeekdays());
++        assertTrue(StudentSchedule.parse("start=1;end=2").isWeekdays());
++    }
++
++    @Test
++    public void studentBlocksEverythingButTheAllowList() {
++        assertEquals(set("com.game"), StudentSchedule.blocked(
++                Arrays.asList("com.mail", "com.game", "com.home", "bad"),
++                set("com.mail"), set("com.home")));
++    }
++
++    // --- AppControlRows ---
++
++    private static List<AppControlRows.Row> rows() {
++        return Arrays.asList(
++                new AppControlRows.Row("com.mail", "Mail", AppControlRows.Network.ALLOWED,
++                        AppControlRows.Background.UNRESTRICTED, AppControlRows.Paused.NO,
++                        false, false),
++                new AppControlRows.Row("com.chat", "Chat", AppControlRows.Network.PARTIAL,
++                        AppControlRows.Background.RESTRICTED, AppControlRows.Paused.FOCUS,
++                        false, true),
++                new AppControlRows.Row("com.game", "Game", AppControlRows.Network.BLOCKED,
++                        AppControlRows.Background.OPTIMIZED, AppControlRows.Paused.FROZEN,
++                        true, true));
++    }
++
++    @Test
++    public void filtersAndSorting() {
++        final List<AppControlRows.Row> all =
++                AppControlRows.filter(rows(), AppControlRows.Filter.ALL, Locale.ROOT);
++        assertEquals("Chat", all.get(0).label);
++        assertEquals("Mail", all.get(2).label);
++        assertEquals(2, AppControlRows.count(rows(), AppControlRows.Filter.NETWORK_BLOCKED));
++        assertEquals(1, AppControlRows.count(rows(), AppControlRows.Filter.BACKGROUND_RESTRICTED));
++        assertEquals(2, AppControlRows.count(rows(), AppControlRows.Filter.PAUSED));
++        assertEquals(1, AppControlRows.count(rows(), AppControlRows.Filter.FROZEN));
++        assertEquals(1, AppControlRows.count(rows(), AppControlRows.Filter.HIDDEN));
++        assertEquals(3, AppControlRows.count(rows(), null));
++    }
++
++    @Test
++    public void pausedReasonAndHideRules() {
++        assertEquals(AppControlRows.Paused.OTHER, AppControlRows.paused(true, null));
++        assertEquals(AppControlRows.Paused.NO, AppControlRows.paused(false, null));
++        assertEquals(AppControlRows.Paused.STUDENT,
++                AppControlRows.paused(true, AppSuspensions.Reason.STUDENT));
++        final List<AppControlRows.Row> r = rows();
++        assertFalse(AppControlRows.canHide(r.get(0), false)); // system app, not frozen
++        assertFalse(AppControlRows.canHide(r.get(1), false)); // paused by Focus, not frozen
++        assertTrue(AppControlRows.canHide(r.get(2), false));
++        assertFalse(AppControlRows.canHide(r.get(2), true));
++        assertEquals("com.x", new AppControlRows.Row("com.x", " ", null, null, null, false,
++                false).label);
++    }
++}
+-- 
+2.43.0
+
