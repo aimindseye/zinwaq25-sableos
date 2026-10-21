@@ -12,6 +12,15 @@ enum class CommandScope {
     Settings,
     Hub,
     Actions,
+
+    /** "/private": Private Space apps (a locked space shows only the locked state). */
+    Private,
+
+    /** "/dual": Dual (cloned) apps. */
+    Dual,
+
+    /** "/work": work profile apps. */
+    Work,
 }
 
 data class CommandQuery(
@@ -20,11 +29,15 @@ data class CommandQuery(
 ) {
     fun includes(scope: CommandScope): Boolean = this.scope == CommandScope.All || this.scope == scope
 
+    /** "/private", "/dual" and "/work" list the apps of one profile. */
+    val profileScope: Boolean
+        get() = scope == CommandScope.Private || scope == CommandScope.Dual || scope == CommandScope.Work
+
     companion object {
         /**
          * `?app`, `/apps` apps only; `@name`, `#name` people; `/settings`
-         * Settings; `/hub` Hub; `!action` Sable actions. Anything else
-         * searches every group.
+         * Settings; `/hub` Hub; `!action` Sable actions; `/private`, `/dual`,
+         * `/work` one profile's apps. Anything else searches every group.
          */
         fun parse(raw: String): CommandQuery {
             val text = raw.trimStart()
@@ -33,6 +46,9 @@ data class CommandQuery(
                     "/settings" to CommandScope.Settings,
                     "/apps" to CommandScope.Apps,
                     "/hub" to CommandScope.Hub,
+                    "/private" to CommandScope.Private,
+                    "/dual" to CommandScope.Dual,
+                    "/work" to CommandScope.Work,
                 )
             words.firstOrNull { (word, _) ->
                 text.equals(word, ignoreCase = true) || text.startsWith("$word ", ignoreCase = true)
@@ -144,4 +160,88 @@ object CommandRanking {
         }.sortedWith(compareBy({ it.second }, { it.third }, { label(it.first).lowercase() }))
             .map { it.first }
     }
+}
+
+/**
+ * The group chips over Command results ("All · Apps · People · Settings ·
+ * Hub · Actions"): Left/Right on a result, or at either end of the query,
+ * moves between them (sable-command-titan2 "←→ groups"). Up/Down still move
+ * through one result list.
+ */
+object CommandGroups {
+    val CHIPS: List<CommandScope> =
+        listOf(
+            CommandScope.All,
+            CommandScope.Apps,
+            CommandScope.People,
+            CommandScope.Settings,
+            CommandScope.Hub,
+            CommandScope.Actions,
+        )
+
+    fun label(scope: CommandScope): String =
+        when (scope) {
+            CommandScope.All -> "All"
+            CommandScope.Apps -> "Apps"
+            CommandScope.People -> "People"
+            CommandScope.Settings -> "Settings"
+            CommandScope.Hub -> "Hub"
+            CommandScope.Actions -> "Actions"
+            CommandScope.Private -> "Private"
+            CommandScope.Dual -> "Dual"
+            CommandScope.Work -> "Work"
+        }
+
+    /** The chip [delta] away from [current], stopping at the ends; a profile scope starts from All. */
+    fun next(
+        current: CommandScope,
+        delta: Int,
+    ): CommandScope {
+        val index = CHIPS.indexOf(current).coerceAtLeast(0)
+        return CHIPS[(index + delta).coerceIn(0, CHIPS.lastIndex)]
+    }
+
+    /**
+     * The query a chip runs: the typed prefix is replaced by the chip's own
+     * scope, so `?cam` on the People chip searches people for "cam".
+     */
+    fun apply(
+        parsed: CommandQuery,
+        chip: CommandScope?,
+    ): CommandQuery = if (chip == null || parsed.profileScope) parsed else CommandQuery(chip, parsed.term)
+}
+
+/**
+ * The "Best match" row on top of Command results: the strongest of the first
+ * app and the first other result for the term; apps win a tie.
+ */
+object CommandBestMatch {
+    /** 0 title prefix, 1 word prefix, 2 contains, 3 anything else (a keyword or alias hit). */
+    fun tier(
+        title: String,
+        term: String,
+    ): Int {
+        val t = term.trim()
+        return when {
+            t.isEmpty() -> NO_MATCH
+            title.startsWith(t, ignoreCase = true) -> 0
+            title.split(' ', '-', '.').any { it.startsWith(t, ignoreCase = true) } -> 1
+            title.contains(t, ignoreCase = true) -> 2
+            else -> NO_MATCH
+        }
+    }
+
+    /** True when the app result is the best match, false for the other result, null for none. */
+    fun appWins(
+        appTitle: String?,
+        otherTitle: String?,
+        term: String,
+    ): Boolean? {
+        if (term.isBlank() || (appTitle == null && otherTitle == null)) return null
+        if (otherTitle == null) return true
+        if (appTitle == null) return false
+        return tier(appTitle, term) <= tier(otherTitle, term)
+    }
+
+    const val NO_MATCH = 3
 }

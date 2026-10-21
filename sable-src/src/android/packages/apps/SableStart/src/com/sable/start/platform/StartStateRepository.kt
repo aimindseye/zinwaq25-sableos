@@ -108,7 +108,12 @@ class StartStateRepository(
 
     fun saveHomeApps(keys: List<String>?) = saveOrdered(KEY_HOME_APPS, keys)
 
-    /** Ordered Glance widgets shown on the left page (see GlanceWidgets); null means never customised. */
+    /** The app grid order (AppGrid, the BB10 layout); null means never customised. */
+    fun loadGridOrder(): List<String>? = loadOrdered(KEY_GRID_ORDER)
+
+    fun saveGridOrder(keys: List<String>?) = saveOrdered(KEY_GRID_ORDER, keys)
+
+    /** Ordered Glance widgets, shown as Active Frames while no app is running (see GlanceWidgets); null means never customised. */
     fun loadGlanceWidgets(): List<String>? = loadOrdered(KEY_GLANCE_WIDGETS)
 
     fun saveGlanceWidgets(widgets: List<String>?) = saveOrdered(KEY_GLANCE_WIDGETS, widgets)
@@ -172,5 +177,6 @@ class StartStateRepository(
         const val KEY_GLANCE_WIDGETS = "glance_widgets"
         const val KEY_HOME_HIDDEN_SECTIONS = "home_hidden_sections"
         const val KEY_HOME_MODE = "home_mode"
+        const val KEY_GRID_ORDER = "grid_order"
     }
 }

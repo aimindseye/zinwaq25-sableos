@@ -1,14 +1,16 @@
 package org.sableos.start.model
 
 /**
- * Base quick bar on Center Start (platform_sable SABLE_START_SCREEN_DESIGN.md
- * "Base quick bar", SABLE_START_VISUAL_CONFIRMATION.md "Base quick bar
- * contract"). Pure policy, unit tested in
+ * The bottom bar of Sable Start (BlackBerry 10 layout: Phone · Search ·
+ * Camera under Active Frames and the app grid; platform_sable
+ * SABLE_START_SCREEN_DESIGN.md "Base quick bar"). Pure policy, unit tested in
  * apps/r8/android/sablestart-presentation-check/src/test.
  *
  * A slot is stored as a token:
  *   "phone", "hub", "camera"  role slots, resolved to the installed app
- *   "command", "apps"         Search/Command and All Apps (always present)
+ *   "command"                 Search/Command (always present)
+ *   "apps"                    the A-Z All Apps list (optional: the app grid
+ *                             pages hold every app, Alt+Right reaches them)
  *   "app:<stableKey>"         one app the user picked
  */
 object QuickBar {
@@ -19,15 +21,19 @@ object QuickBar {
     const val ALL_APPS = "apps"
     private const val APP_PREFIX = "app:"
 
-    const val MAX_SLOTS = 5
+    /** Three slots, as on BlackBerry 10 (Alt+1..Alt+3). */
+    const val MAX_SLOTS = 3
 
-    /** Phone | Hub | Command | All Apps. */
-    val DEFAULT: List<String> = listOf(PHONE, HUB, COMMAND, ALL_APPS)
+    /** Phone | Search | Camera. */
+    val DEFAULT: List<String> = listOf(PHONE, COMMAND, CAMERA)
 
-    /** COMMAND_ACCESS_REQUIRED and ALL_APPS_ACCESS_REQUIRED: never removed or replaced. */
-    val REQUIRED: Set<String> = setOf(COMMAND, ALL_APPS)
+    /** The bar of the Titan 2 three-page Start; a saved copy of it means "never customised". */
+    val LEGACY_DEFAULT: List<String> = listOf(PHONE, HUB, COMMAND, ALL_APPS)
 
-    private val ROLES = setOf(PHONE, HUB, CAMERA)
+    /** COMMAND_ACCESS_REQUIRED: Search is never removed or replaced. */
+    val REQUIRED: Set<String> = setOf(COMMAND)
+
+    private val ROLES = setOf(PHONE, HUB, CAMERA, ALL_APPS)
 
     fun appToken(stableKey: String): String = APP_PREFIX + stableKey
 
@@ -39,12 +45,12 @@ object QuickBar {
     fun isValid(token: String): Boolean = token in ROLES || token in REQUIRED || appKey(token) != null
 
     /**
-     * Drops unknown and duplicate tokens, puts back a missing Command or All
-     * Apps slot and caps the bar at [MAX_SLOTS]; required slots win the cap.
-     * Null (never customised) gives [DEFAULT].
+     * Drops unknown and duplicate tokens, puts back a missing Search slot and
+     * caps the bar at [MAX_SLOTS]; required slots win the cap. Null (never
+     * customised) and the old three-page default give [DEFAULT].
      */
     fun normalize(tokens: List<String>?): List<String> {
-        if (tokens == null) return DEFAULT
+        if (tokens == null || tokens == LEGACY_DEFAULT) return DEFAULT
         val kept = tokens.filter(::isValid).distinct().toMutableList()
         REQUIRED.filterNot { it in kept }.forEach { kept += it }
         while (kept.size > MAX_SLOTS) {
@@ -97,18 +103,32 @@ object QuickBar {
 
     /**
      * Whether Peek offers Remove from base bar (true), Add to base bar (false)
-     * or neither (null: another profile's app, or the bar is full).
+     * or neither (null: another profile's app). With a full bar, Add opens the
+     * slot picker ([needsSlotPicker]).
      */
     fun appState(
         launcherUser: Boolean,
         inBar: Boolean,
-        tokens: List<String>,
     ): Boolean? =
         when {
             !launcherUser -> null
             inBar -> true
-            tokens.size < MAX_SLOTS -> false
-            else -> null
+            else -> false
+        }
+
+    /** All Apps "Choose base bar slot": the bar is full, so adding replaces a slot the user picks. */
+    fun needsSlotPicker(tokens: List<String>): Boolean = tokens.size >= MAX_SLOTS
+
+    /** What the slot picker says under each slot: "Keep", "Replace with X" or "Required path". */
+    fun pickerLine(
+        token: String,
+        focused: Boolean,
+        appLabel: String,
+    ): String =
+        when {
+            isRequired(token) -> "Required path"
+            focused -> "Replace with $appLabel"
+            else -> "Keep"
         }
 
     /** Removes the slot holding [slotToken], or adds [stableKey] as an app slot when it has none. */
@@ -120,9 +140,9 @@ object QuickBar {
         if (slotToken != null) remove(tokens, tokens.indexOf(slotToken)) else add(tokens, appToken(stableKey))
 
     /**
-     * Slot shortcuts: Fn+1..Fn+5 on keyboards with an Fn key (Titan 2), and
-     * Alt+1..Alt+5 on keyboards that type digits on the Alt layer (the Q25's
-     * Alt+W/E/R/S/D). [unicode] is the character the platform key map produced
+     * Slot shortcuts: Fn+1..Fn+3 on keyboards with an Fn key (Titan 2), and
+     * Alt+1..Alt+3 on keyboards that type digits on the Alt layer (the Q25's
+     * Alt+W/E/R). [unicode] is the character the platform key map produced
      * with the event's own meta state. Returns the slot index, or null when the
      * key is not a quick-bar shortcut.
      */
@@ -156,7 +176,7 @@ object QuickBar {
 
     private const val DIAL_SYMBOLS = "*#+"
 
-    /** "Alt+1".."Alt+5": the shortcut as printed on the keys (Fn devices accept it too). */
+    /** "Alt+1".."Alt+3": the shortcut as printed on the keys (Fn devices accept it too). */
     fun shortcutLabel(index: Int): String = "Alt+${index + 1}"
 
     const val KEYCODE_1 = 8
@@ -186,23 +206,25 @@ object StartTypeToSearch {
 }
 
 /**
- * The three Start pages (SABLE_START_THREE_PAGE_MODEL.md, the Titan 2
- * three-page visual): Glance widgets on the left, Home in the center, Hub on
- * the right. Swipe right or Alt+Left (Fn+Left on Fn keyboards) from Home opens
- * Glance; swipe left or Alt+Right opens Hub.
+ * The Start pages in the BlackBerry 10 order: Hub on the left, Active Frames
+ * (Home) next, then one or more app grid pages to the right. Swipe or
+ * Alt+Left/Right (Fn+Left/Right on Fn keyboards) moves one page; Home and
+ * Back return to Active Frames.
  */
 object StartPages {
-    const val GLANCE = 0
+    const val HUB = 0
     const val HOME = 1
-    const val HUB = 2
-    const val COUNT = 3
+    const val FIRST_GRID = 2
 
     private const val KEYCODE_DPAD_UP = 19
     private const val KEYCODE_DPAD_DOWN = 20
     private const val KEYCODE_DPAD_LEFT = 21
     private const val KEYCODE_DPAD_RIGHT = 22
 
-    /** -1 toward Glance, +1 toward Hub, or null when the key does not move pages. */
+    /** Hub, Active Frames and [gridPages] app grid pages (at least one). */
+    fun count(gridPages: Int): Int = FIRST_GRID + gridPages.coerceAtLeast(1)
+
+    /** -1 toward Hub, +1 toward the app grid, or null when the key does not move pages. */
     fun keyDelta(
         keyCode: Int,
         metaState: Int,
@@ -231,17 +253,18 @@ object StartPages {
         }
     }
 
-    /** The page [delta] pages from [current], kept within Glance..Hub. */
+    /** The page [delta] pages from [current], kept within Hub..the last grid page. */
     fun target(
         current: Int,
         delta: Int,
-    ): Int = (current + delta).coerceIn(GLANCE, COUNT - 1)
+        count: Int,
+    ): Int = (current + delta).coerceIn(HUB, (count - 1).coerceAtLeast(HUB))
 
-    /** The page a screen name opens ("glance", "hub"; anything else is Home). */
+    /** The page a screen name opens ("hub", "grid"; anything else is Active Frames). */
     fun forScreen(screen: String): Int =
         when (screen.lowercase(java.util.Locale.ROOT)) {
-            "glance", "live" -> GLANCE
             "hub" -> HUB
+            "grid" -> FIRST_GRID
             else -> HOME
         }
 }
