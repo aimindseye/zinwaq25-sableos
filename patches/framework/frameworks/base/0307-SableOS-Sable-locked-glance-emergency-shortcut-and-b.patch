@@ -61,15 +61,15 @@ the new section.
  .../KeyguardPinBasedInputViewController.java  |  14 ++
  .../sable/SableEmergencyShortcut.java         | 127 ++++++++++
  .../keyguard/sable/SableKeyguardKeys.java     |  15 ++
- .../keyguard/sable/SableLockGlance.java       | 173 ++++++++++++++
+ .../keyguard/sable/SableLockGlance.java       | 173 +++++++++++++
  .../interactor/BouncerMessageInteractor.kt    |   8 +-
  .../interactor/KeyguardKeyEventInteractor.kt  |  33 +++
  .../blueprints/DefaultKeyguardBlueprint.kt    |   4 +
- .../layout/sections/SableLockGlanceSection.kt | 223 ++++++++++++++++++
+ .../layout/sections/SableLockGlanceSection.kt | 234 ++++++++++++++++++
  .../KeyguardIndicationController.java         |  10 +-
  .../row/NotificationRowContentBinderImpl.kt   |  31 ++-
  .../KeyguardBlueprintRepositoryKosmos.kt      |   1 +
- 21 files changed, 917 insertions(+), 14 deletions(-)
+ 21 files changed, 928 insertions(+), 14 deletions(-)
  create mode 100644 packages/SystemUI/res/drawable/sable_keyguard_card.xml
  create mode 100644 packages/SystemUI/res/drawable/sable_keyguard_focus_ring.xml
  create mode 100644 packages/SystemUI/res/layout/sable_keyguard_glance.xml
@@ -985,10 +985,10 @@ index af323390..872ac1c1 100644
          )
 diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt
 new file mode 100644
-index 00000000..1ff01233
+index 00000000..60bf1a5f
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt
-@@ -0,0 +1,223 @@
+@@ -0,0 +1,234 @@
 +/*
 + * Copyright (C) 2026 The SableOS Project
 + *
@@ -1032,6 +1032,7 @@ index 00000000..1ff01233
 +import com.android.systemui.statusbar.notification.collection.notifcollection.NotifCollectionListener
 +import com.android.systemui.statusbar.notification.interruption.KeyguardNotificationVisibilityProvider
 +import com.android.systemui.statusbar.policy.KeyguardStateController
++import dagger.Lazy
 +import javax.inject.Inject
 +
 +/**
@@ -1052,13 +1053,23 @@ index 00000000..1ff01233
 +constructor(
 +    @ShadeDisplayAware private val context: Context,
 +    private val keyguardClockViewModel: KeyguardClockViewModel,
-+    private val notifPipeline: NotifPipeline,
-+    private val visibilityProvider: KeyguardNotificationVisibilityProvider,
-+    private val lockscreenUserManager: NotificationLockscreenUserManager,
++    // Lazy: the notification pipeline is built after the keyguard blueprint.
++    private val notifPipelineLazy: Lazy<NotifPipeline>,
++    private val visibilityProviderLazy: Lazy<KeyguardNotificationVisibilityProvider>,
++    private val lockscreenUserManagerLazy: Lazy<NotificationLockscreenUserManager>,
 +    private val keyguardStateController: KeyguardStateController,
 +    private val statusBarStateController: StatusBarStateController,
 +) : KeyguardSection() {
 +    private var glanceView: View? = null
++    private val notifPipeline
++        get() = notifPipelineLazy.get()
++
++    private val visibilityProvider
++        get() = visibilityProviderLazy.get()
++
++    private val lockscreenUserManager
++        get() = lockscreenUserManagerLazy.get()
++
 +    private var listening = false
 +
 +    private val collectionListener =
