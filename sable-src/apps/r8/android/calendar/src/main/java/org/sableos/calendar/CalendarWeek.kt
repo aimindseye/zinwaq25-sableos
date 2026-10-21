@@ -181,12 +181,17 @@ object WeekLayout {
     /** "Sep 2026 · Wk 39" over the week grid (ISO week of the first column). */
     fun title(days: List<LocalDate>): String {
         val first = days.first()
-        val month = first.month.name.take(3).lowercase().replaceFirstChar { it.uppercase() }
+        val month = abbreviation(first.month.name)
         val week = first.get(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR)
         return "$month ${first.year} · Wk $week"
     }
 
     /** "Mon 28" for a column header. */
     fun columnLabel(day: LocalDate): String =
-        day.dayOfWeek.name.take(3).lowercase().replaceFirstChar { it.uppercase() } + " " + day.dayOfMonth
+        abbreviation(day.dayOfWeek.name) + " " + day.dayOfMonth
+
+    private const val ABBREVIATION_LENGTH = 3
+
+    private fun abbreviation(name: String): String =
+        name.take(ABBREVIATION_LENGTH).lowercase().replaceFirstChar { it.uppercase() }
 }

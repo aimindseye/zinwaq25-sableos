@@ -697,7 +697,7 @@ private fun ApprovedCalendarLanding(
             events.forEach { event ->
                 AgendaEventRow(
                     event = event,
-                    selected = selected?.id == event.id && selected.startMillis == event.startMillis,
+                    selected = sameOccurrence(selected, event),
                     onOpen = { onOpenEvent(event) },
                     onFocus = { onFocusEvent(event) },
                     onEdit = { onEditEvent(event) },
@@ -1388,6 +1388,8 @@ private val nowLineColor = Color(0xFFFF6978)
 private val hourHeight = 44.dp
 private val timeColumnWidth = 44.dp
 private val minBlockHeight = 22.dp
+private val nowLabelLift = 16.dp
+private const val BLOCK_FILL_ALPHA = 0.18f
 
 /**
  * Week view (design panel 3, "Calendar 5-column now view"): five day columns over the hours that
@@ -1396,7 +1398,6 @@ private val minBlockHeight = 22.dp
  */
 @Composable
 private fun WeekPane(state: CalendarAppState) {
-    val zone = ZoneId.systemDefault()
     val now by produceState(LocalDateTime.now()) {
         while (true) {
             delay(NOW_TICK_MS)
@@ -1404,11 +1405,6 @@ private fun WeekPane(state: CalendarAppState) {
         }
     }
     val days = WeekLayout.days(state.selectedDate)
-    val hours = WeekLayout.hours(days, state.events, now, zone)
-    val blocks = WeekLayout.blocks(days, state.events, hours, zone)
-    val nowLine = WeekLayout.nowLine(days, hours, now)
-    val gridHeight = hourHeight * (hours.last - hours.first)
-    val selected = state.openEvent
 
     Text(text = WeekLayout.title(days), style = MaterialTheme.typography.titleLarge)
     Spacer(Modifier.height(SableSpacing.Sm))
@@ -1421,15 +1417,28 @@ private fun WeekPane(state: CalendarAppState) {
             overflow = TextOverflow.Ellipsis,
         )
     }
+    WeekColumnHeaders(days, state.selectedDate) { state.selectedDate = it }
+    WeekGrid(state, days, now)
+    Spacer(Modifier.height(SableSpacing.Sm))
+    WeekSelection(state)
+    KeyDock()
+}
+
+@Composable
+private fun WeekColumnHeaders(
+    days: List<LocalDate>,
+    selectedDate: LocalDate,
+    onSelectDate: (LocalDate) -> Unit,
+) {
     Row(Modifier.fillMaxWidth()) {
         Spacer(Modifier.width(timeColumnWidth))
         days.forEach { day ->
             Text(
                 text = WeekLayout.columnLabel(day),
-                modifier = Modifier.weight(1f).clickable { state.selectedDate = day }.padding(vertical = 4.dp),
+                modifier = Modifier.weight(1f).clickable { onSelectDate(day) }.padding(vertical = 4.dp),
                 style = MaterialTheme.typography.labelLarge,
                 color =
-                    if (day == state.selectedDate) {
+                    if (day == selectedDate) {
                         MaterialTheme.colorScheme.primary
                     } else {
                         MaterialTheme.colorScheme.onSurface
@@ -1437,6 +1446,24 @@ private fun WeekPane(state: CalendarAppState) {
             )
         }
     }
+}
+
+private fun sameOccurrence(
+    a: CalendarEvent?,
+    b: CalendarEvent,
+): Boolean = a?.id == b.id && a.startMillis == b.startMillis
+
+@Composable
+private fun WeekGrid(
+    state: CalendarAppState,
+    days: List<LocalDate>,
+    now: LocalDateTime,
+) {
+    val zone = ZoneId.systemDefault()
+    val hours = WeekLayout.hours(days, state.events, now, zone)
+    val blocks = WeekLayout.blocks(days, state.events, hours, zone)
+    val gridHeight = hourHeight * (hours.last - hours.first)
+    val selected = state.openEvent
     Box(Modifier.fillMaxWidth().height(gridHeight)) {
         Row(Modifier.fillMaxSize()) {
             Box(Modifier.width(timeColumnWidth).fillMaxHeight()) {
@@ -1449,7 +1476,7 @@ private fun WeekPane(state: CalendarAppState) {
                     )
                 }
             }
-            days.forEachIndexed { column, _ ->
+            days.indices.forEach { column ->
                 Box(
                     Modifier
                         .weight(1f)
@@ -1457,37 +1484,34 @@ private fun WeekPane(state: CalendarAppState) {
                         .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
                 ) {
                     blocks.filter { it.column == column }.forEach { block ->
-                        WeekEventBlock(
-                            block = block,
-                            gridHeight = gridHeight,
-                            selected = selected?.id == block.event.id && selected.startMillis == block.event.startMillis,
-                            onClick = {
-                                if (selected == block.event) state.openDetail(block.event) else state.select(block.event)
-                            },
-                        )
+                        val isSelected = sameOccurrence(selected, block.event)
+                        WeekEventBlock(block, gridHeight, isSelected) {
+                            if (isSelected) state.openDetail(block.event) else state.select(block.event)
+                        }
                     }
                 }
             }
         }
-        nowLine?.let { y ->
-            Box(
-                Modifier
-                    .offset(y = gridHeight * y)
-                    .fillMaxWidth()
-                    .height(2.dp)
-                    .background(nowLineColor),
-            )
-            Text(
-                text = "NOW",
-                modifier = Modifier.offset(x = timeColumnWidth, y = gridHeight * y - 16.dp),
-                style = MaterialTheme.typography.labelSmall,
-                color = nowLineColor,
-            )
-        }
+        WeekLayout.nowLine(days, hours, now)?.let { y -> NowLine(gridHeight * y) }
     }
-    Spacer(Modifier.height(SableSpacing.Sm))
-    WeekSelection(state)
-    KeyDock()
+}
+
+/** The red NOW line across the week, labelled like the design. */
+@Composable
+private fun NowLine(y: androidx.compose.ui.unit.Dp) {
+    Box(
+        Modifier
+            .offset(y = y)
+            .fillMaxWidth()
+            .height(2.dp)
+            .background(nowLineColor),
+    )
+    Text(
+        text = "NOW",
+        modifier = Modifier.offset(x = timeColumnWidth, y = y - nowLabelLift),
+        style = MaterialTheme.typography.labelSmall,
+        color = nowLineColor,
+    )
 }
 
 @Composable
@@ -1506,7 +1530,7 @@ private fun WeekEventBlock(
             .fillMaxWidth()
             .height(height)
             .clip(shape)
-            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = BLOCK_FILL_ALPHA))
             .border(if (selected) 2.dp else 1.dp, MaterialTheme.colorScheme.primary, shape)
             .sableFocusRing()
             .clickable(onClick = onClick)
@@ -1554,7 +1578,9 @@ private fun WeekSelection(state: CalendarAppState) {
                             context,
                             event.startMillis,
                             event.endMillis,
-                            DateUtils.FORMAT_SHOW_WEEKDAY or DateUtils.FORMAT_ABBREV_WEEKDAY or DateUtils.FORMAT_SHOW_TIME,
+                            DateUtils.FORMAT_SHOW_WEEKDAY or
+                                DateUtils.FORMAT_ABBREV_WEEKDAY or
+                                DateUtils.FORMAT_SHOW_TIME,
                         )
                     }
                 Text(text = "Selected: $time", style = MaterialTheme.typography.titleMedium)
