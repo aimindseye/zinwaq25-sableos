@@ -49,4 +49,13 @@ class SableKeyboardStateTest {
         assertFalse(SableKeyboardState.showSoftOnFocus(true))
         assertTrue(SableKeyboardState.showSoftOnFocus(false))
     }
+
+    @Test fun readinessStepOnlyWhenSomethingToFix() {
+        // 0411: Sable Keyboard selected, or not in the build, needs no screen of its own.
+        assertFalse(SableKeyboardState.showStep(Availability.SABLE_SELECTED))
+        assertFalse(SableKeyboardState.showStep(Availability.UNAVAILABLE))
+        assertTrue(SableKeyboardState.showStep(Availability.SABLE_ENABLED_NOT_SELECTED))
+        assertTrue(SableKeyboardState.showStep(Availability.SABLE_NOT_ENABLED))
+        assertTrue(SableKeyboardState.showStep(Availability.UNKNOWN))
+    }
 }
