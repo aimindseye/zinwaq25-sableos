@@ -92,7 +92,8 @@ class HubInboxTest {
         assertEquals(HubInboxFilter.Messages, HubInboxFilter.forShortcut('M'))
         assertEquals(HubInboxFilter.Calls, HubInboxFilter.forShortcut('c'))
         assertEquals(HubInboxFilter.Notifications, HubInboxFilter.forShortcut('n'))
-        assertNull(HubInboxFilter.forShortcut('x'))
+        assertEquals(HubInboxFilter.Missed, HubInboxFilter.forShortcut('x'))
+        assertNull(HubInboxFilter.forShortcut('z'))
         assertEquals(
             HubInboxFilter.entries.size,
             HubInboxFilter.entries
