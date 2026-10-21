@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SableOS: the LineageOS Welcome title (56sp, 64dp lines) fills half of the 720x720
+     (597dp) screen; these sizes leave room for the keyboard check card (SetupWizard 0411). -->
+<resources>
+    <dimen name="welcome_title_text_size">30sp</dimen>
+    <dimen name="welcome_title_line_height">36dp</dimen>
+    <dimen name="welcome_title_padding_bottom">2dp</dimen>
+    <dimen name="welcome_content_container_padding_start">24dp</dimen>
+    <dimen name="welcome_content_container_padding_bottom">8dp</dimen>
+    <dimen name="welcome_accessibility_text_size">16sp</dimen>
+</resources>

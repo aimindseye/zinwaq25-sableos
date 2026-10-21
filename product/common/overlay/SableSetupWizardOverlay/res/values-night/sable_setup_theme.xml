@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SableOS setup theme, dark (sable-setup-wizard-titan2): navy cards #121B28 with a
+     #26384E stroke and the cyan #2FD0FF focus ring. -->
+<resources>
+    <color name="sable_setup_card">#FF121B28</color>
+    <color name="sable_setup_card_stroke">#FF26384E</color>
+    <color name="sable_setup_focus">#FF2FD0FF</color>
+</resources>
