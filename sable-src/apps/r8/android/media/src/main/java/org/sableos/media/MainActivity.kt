@@ -10,12 +10,16 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
 class MainActivity : ComponentActivity() {
     private var playbackState by mutableStateOf(PlaybackUiState())
     private lateinit var playbackController: PlaybackController
+    private var fmState by mutableStateOf(FmUiState())
+    private lateinit var fmController: FmController
+    private var openFmToken by mutableIntStateOf(0)
 
     /** Set by [MediaApp]: maps a key-down to a Sable Media command before any view sees it. */
     private var keyHandler: ((KeyEvent) -> Boolean)? = null
@@ -31,6 +35,13 @@ class MainActivity : ComponentActivity() {
                 playbackState = state
             }
 
+        fmController =
+            FmController(applicationContext) { state ->
+                fmState = state
+            }
+        fmState = fmController.state
+        if (intent?.action == FmBridgeProtocol.ACTION_OPEN_FM) openFmToken += 1
+
         val repositories =
             MediaRepositories(
                 localAudio = LocalAudioRepository(applicationContext),
@@ -40,6 +51,7 @@ class MainActivity : ComponentActivity() {
                 podcasts = PodcastRepository(applicationContext),
                 podcastState = PodcastStateRepository(applicationContext),
                 settings = MediaSettingsRepository(applicationContext),
+                fmPresets = FmPresetStore(applicationContext),
             )
 
         setContent {
@@ -54,8 +66,11 @@ class MainActivity : ComponentActivity() {
                         playLocalQueue = ::playLocalQueue,
                         adjustVolume = ::adjustVolume,
                         setKeyHandler = { keyHandler = it },
+                        fm = fmController,
                     ),
                 playbackState = playbackState,
+                fmState = fmState,
+                openFmToken = openFmToken,
             )
         }
     }
@@ -90,7 +105,14 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.action == FmBridgeProtocol.ACTION_OPEN_FM) openFmToken += 1
+    }
+
     override fun onDestroy() {
+        fmController.disconnect()
         playbackController.close()
         window.clearFlags(
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,

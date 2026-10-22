@@ -1,0 +1,656 @@
+diff --git a/sable-src/apps/r8/android/games/build.gradle.kts b/sable-src/apps/r8/android/games/build.gradle.kts
+index 77a98c4..be30b5d 100644
+--- a/sable-src/apps/r8/android/games/build.gradle.kts
++++ b/sable-src/apps/r8/android/games/build.gradle.kts
+@@ -41,6 +41,17 @@ android {
+         }
+     }
+ 
++    buildTypes {
++        // The Q25 image ships the release variants (product/q25/apps.tsv): shrunk and signed by
++        // the platform build, so the three games fit the dynamic partitions (the ~29 MB debug
++        // APKs each overflowed them on the first Q2 build).
++        release {
++            isMinifyEnabled = true
++            isShrinkResources = true
++            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
++        }
++    }
++
+     buildFeatures {
+         compose = true
+         buildConfig = true
+@@ -78,6 +89,8 @@ dependencies {
+     implementation("androidx.compose.material3:material3")
+     implementation("androidx.compose.foundation:foundation")
+     debugImplementation("androidx.compose.ui:ui-tooling")
++
++    testImplementation(libs.junit)
+ }
+ 
+ tasks
+diff --git a/sable-src/apps/r8/android/games/proguard-rules.pro b/sable-src/apps/r8/android/games/proguard-rules.pro
+new file mode 100644
+index 0000000..c04221f
+--- /dev/null
++++ b/sable-src/apps/r8/android/games/proguard-rules.pro
+@@ -0,0 +1,2 @@
++# Rust JNI (sable-games-jni) binds Java_org_sableos_games_NativeBridge_* by name.
++-keep class org.sableos.games.NativeBridge { *; }
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/Game2048Screen.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/Game2048Screen.kt
+index ac6975d..d8934f8 100644
+--- a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/Game2048Screen.kt
++++ b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/Game2048Screen.kt
+@@ -68,13 +68,22 @@ internal fun Game2048Screen() {
+         score = 0L
+     }
+ 
++    GameKeyHandler(GameKind.Game2048) { command ->
++        when (command) {
++            is GameCommand.Move -> slide(GameKeymap.slideDirection(command))
++            GameCommand.NewGame -> reset()
++            else -> return@GameKeyHandler false
++        }
++        true
++    }
++
+     Column(
+         verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
+     ) {
+         SableValuePanel(
+             label = "score",
+             value = score.toString(),
+-            supportingText = "Swipe the board to move every tile.",
++            supportingText = "Swipe the board or use the arrows (trackpad) to move every tile; N starts over.",
+         )
+ 
+         Game2048Board(
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GameKeyHandler.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GameKeyHandler.kt
+new file mode 100644
+index 0000000..f3a50ae
+--- /dev/null
++++ b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GameKeyHandler.kt
+@@ -0,0 +1,20 @@
++package org.sableos.games
++
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.DisposableEffect
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.rememberUpdatedState
++
++/** Routes key-downs to [onCommand] while this game screen is shown; false leaves the key to the focused view. */
++@Composable
++internal fun GameKeyHandler(
++    game: GameKind,
++    onCommand: (GameCommand) -> Boolean,
++) {
++    val host = LocalGameKeyHost.current
++    val latest by rememberUpdatedState(onCommand)
++    DisposableEffect(host, game) {
++        host.handler = { press -> GameKeymap.command(game, press)?.let { latest(it) } ?: false }
++        onDispose { host.handler = null }
++    }
++}
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GameKeymap.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GameKeymap.kt
+new file mode 100644
+index 0000000..7237e2a
+--- /dev/null
++++ b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GameKeymap.kt
+@@ -0,0 +1,158 @@
++package org.sableos.games
++
++import android.view.KeyEvent
++
++/**
++ * Keyboard play for the Sable games (keyboard-first, like the other Sable apps).
++ *
++ * The trackpad sends arrow keys, so arrows move the board cursor (Sudoku, Minesweeper) or slide the
++ * tiles (2048). Numbers come from the character the key produces, so Alt+W E R S D F Z X C (the Q25
++ * and Titan digit layer) and a number row both work; plain W E R S D F Z X C also enter 1-9 in Sudoku,
++ * where no letter has another meaning. There is no Ctrl on the Q25: Ctrl chords are left alone.
++ */
++internal sealed interface GameCommand {
++    data class Move(
++        val dx: Int,
++        val dy: Int,
++    ) : GameCommand
++
++    data class Digit(
++        val value: Int,
++    ) : GameCommand
++
++    /** Space or Enter: reveal (Minesweeper) or nothing special. */
++    data object Primary : GameCommand
++
++    data object Flag : GameCommand
++
++    data object Erase : GameCommand
++
++    data object Undo : GameCommand
++
++    data object NewGame : GameCommand
++}
++
++/** A key-down reduced to what the keymap needs, so the mapping is testable on the JVM. */
++internal data class GameKeyPress(
++    val keyCode: Int,
++    /** The character the key produces with the current meta state, or null. */
++    val char: Char? = null,
++    val alt: Boolean = false,
++    val ctrl: Boolean = false,
++    val repeatCount: Int = 0,
++)
++
++internal enum class GameKind { Sudoku, Minesweeper, Game2048 }
++
++internal object GameKeymap {
++    /** BlackBerry-style digit keys: W E R S D F Z X C are 1-9. */
++    private val LETTER_DIGITS =
++        mapOf(
++            KeyEvent.KEYCODE_W to 1,
++            KeyEvent.KEYCODE_E to 2,
++            KeyEvent.KEYCODE_R to 3,
++            KeyEvent.KEYCODE_S to 4,
++            KeyEvent.KEYCODE_D to 5,
++            KeyEvent.KEYCODE_F to 6,
++            KeyEvent.KEYCODE_Z to 7,
++            KeyEvent.KEYCODE_X to 8,
++            KeyEvent.KEYCODE_C to 9,
++        )
++
++    fun command(
++        game: GameKind,
++        press: GameKeyPress,
++    ): GameCommand? {
++        if (press.ctrl) return null
++        move(press.keyCode)?.let { return it }
++        // A held key repeats only cursor moves.
++        if (press.repeatCount > 0) return null
++        return when (game) {
++            GameKind.Sudoku -> sudoku(press)
++            GameKind.Minesweeper -> minesweeper(press)
++            GameKind.Game2048 -> common(press)
++        }
++    }
++
++    private fun move(keyCode: Int): GameCommand.Move? =
++        when (keyCode) {
++            KeyEvent.KEYCODE_DPAD_UP -> GameCommand.Move(0, -1)
++            KeyEvent.KEYCODE_DPAD_DOWN -> GameCommand.Move(0, 1)
++            KeyEvent.KEYCODE_DPAD_LEFT -> GameCommand.Move(-1, 0)
++            KeyEvent.KEYCODE_DPAD_RIGHT -> GameCommand.Move(1, 0)
++            else -> null
++        }
++
++    private fun sudoku(press: GameKeyPress): GameCommand? {
++        val digit = press.char?.takeIf { it in '1'..'9' }?.digitToInt()
++        return when {
++            digit != null -> GameCommand.Digit(digit)
++
++            press.char == '0' -> GameCommand.Erase
++
++            press.keyCode == KeyEvent.KEYCODE_DEL || press.keyCode == KeyEvent.KEYCODE_FORWARD_DEL -> GameCommand.Erase
++
++            // Alt plus a letter types a symbol; only the digits above are taken from it.
++            press.alt -> null
++
++            press.keyCode in LETTER_DIGITS -> GameCommand.Digit(LETTER_DIGITS.getValue(press.keyCode))
++
++            press.keyCode == KeyEvent.KEYCODE_U -> GameCommand.Undo
++
++            else -> common(press)
++        }
++    }
++
++    private fun minesweeper(press: GameKeyPress): GameCommand? =
++        when {
++            press.alt -> null
++
++            press.keyCode == KeyEvent.KEYCODE_SPACE ||
++                press.keyCode == KeyEvent.KEYCODE_ENTER ||
++                press.keyCode == KeyEvent.KEYCODE_DPAD_CENTER -> GameCommand.Primary
++
++            press.keyCode == KeyEvent.KEYCODE_F || press.keyCode == KeyEvent.KEYCODE_G -> GameCommand.Flag
++
++            else -> common(press)
++        }
++
++    private fun common(press: GameKeyPress): GameCommand? =
++        when {
++            press.alt -> null
++            press.keyCode == KeyEvent.KEYCODE_N -> GameCommand.NewGame
++            else -> null
++        }
++
++    /** The cursor after [move] on a [size] x [size] board, clamped at the edges. */
++    fun moveCursor(
++        row: Int,
++        col: Int,
++        move: GameCommand.Move,
++        size: Int,
++    ): Pair<Int, Int> = (row + move.dy).coerceIn(0, size - 1) to (col + move.dx).coerceIn(0, size - 1)
++
++    /** 2048 slide direction for the native bridge: 0 left, 1 right, 2 up, 3 down. */
++    fun slideDirection(move: GameCommand.Move): Int =
++        when {
++            move.dx < 0 -> 0
++            move.dx > 0 -> 1
++            move.dy < 0 -> 2
++            else -> 3
++        }
++}
++
++/** Set by the current game screen; [MainActivity] offers it every key-down first. */
++internal class GameKeyHost {
++    var handler: ((GameKeyPress) -> Boolean)? = null
++}
++
++internal fun KeyEvent.toGameKeyPress(): GameKeyPress {
++    val produced = unicodeChar
++    return GameKeyPress(
++        keyCode = keyCode,
++        char = if (produced > 0) produced.toChar() else null,
++        alt = isAltPressed,
++        ctrl = isCtrlPressed,
++        repeatCount = repeatCount,
++    )
++}
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MainActivity.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MainActivity.kt
+index e767380..3d2e7bd 100644
+--- a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MainActivity.kt
++++ b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MainActivity.kt
+@@ -1,15 +1,27 @@
+ package org.sableos.games
+ 
++import android.annotation.SuppressLint
+ import android.os.Bundle
++import android.view.KeyEvent
+ import androidx.activity.ComponentActivity
+ import androidx.activity.compose.setContent
++import androidx.compose.runtime.CompositionLocalProvider
++import androidx.compose.runtime.staticCompositionLocalOf
+ import org.sableos.design.SableGlobalTheme
+ import org.sableos.design.SableHeroHeader
+ import org.sableos.design.SableScrollableScreen
+ 
+ private const val GAMES_EYEBROW = "Sable Games"
+ 
++/** The key host of the running game; screens install their handler in it. */
++internal val LocalGameKeyHost = staticCompositionLocalOf { GameKeyHost() }
++
+ class MainActivity : ComponentActivity() {
++    private val keyHost = GameKeyHost()
++
++    /** Key codes whose key-down was taken by the game, so their key-up is swallowed too. */
++    private val consumedKeyCodes = mutableSetOf<Int>()
++
+     override fun onCreate(savedInstanceState: Bundle?) {
+         super.onCreate(savedInstanceState)
+         val qualification = NativeBridge.selfTest()
+@@ -17,43 +29,67 @@ class MainActivity : ComponentActivity() {
+ 
+         setContent {
+             SableGlobalTheme(window = window) {
+-                SableScrollableScreen {
+-                    when (BuildConfig.SABLE_GAME) {
+-                        "sudoku" -> {
+-                            SableHeroHeader(
+-                                eyebrow = GAMES_EYEBROW,
+-                                title = "sudoku",
+-                                subtitle = "A focused number puzzle.",
+-                            )
+-                            SudokuScreen()
+-                        }
++                CompositionLocalProvider(LocalGameKeyHost provides keyHost) {
++                    SableScrollableScreen {
++                        when (BuildConfig.SABLE_GAME) {
++                            "sudoku" -> {
++                                SableHeroHeader(
++                                    eyebrow = GAMES_EYEBROW,
++                                    title = "sudoku",
++                                    subtitle = "A focused number puzzle.",
++                                )
++                                SudokuScreen()
++                            }
+ 
+-                        "minesweeper" -> {
+-                            SableHeroHeader(
+-                                eyebrow = GAMES_EYEBROW,
+-                                title = "minesweeper",
+-                                subtitle = "Clear the field without touching a mine.",
+-                            )
+-                            MinesweeperScreen()
+-                        }
++                            "minesweeper" -> {
++                                SableHeroHeader(
++                                    eyebrow = GAMES_EYEBROW,
++                                    title = "minesweeper",
++                                    subtitle = "Clear the field without touching a mine.",
++                                )
++                                MinesweeperScreen()
++                            }
+ 
+-                        "2048" -> {
+-                            SableHeroHeader(
+-                                eyebrow = GAMES_EYEBROW,
+-                                title = "2048",
+-                                subtitle = "Slide, merge and build the highest tile.",
+-                            )
+-                            Game2048Screen()
+-                        }
++                            "2048" -> {
++                                SableHeroHeader(
++                                    eyebrow = GAMES_EYEBROW,
++                                    title = "2048",
++                                    subtitle = "Slide, merge and build the highest tile.",
++                                )
++                                Game2048Screen()
++                            }
+ 
+-                        else -> {
+-                            error(
+-                                "Unsupported Sable game flavor: ${BuildConfig.SABLE_GAME}",
+-                            )
++                            else -> {
++                                error(
++                                    "Unsupported Sable game flavor: ${BuildConfig.SABLE_GAME}",
++                                )
++                            }
+                         }
+                     }
+                 }
+             }
+         }
+     }
++
++    // ComponentActivity.dispatchKeyEvent is a public framework override; lint flags it as androidx-restricted.
++    @SuppressLint("RestrictedApi")
++    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
++        val taken =
++            when (event.action) {
++                KeyEvent.ACTION_DOWN -> {
++                    (keyHost.handler?.invoke(event.toGameKeyPress()) == true).also { taken ->
++                        if (taken) consumedKeyCodes += event.keyCode
++                    }
++                }
++
++                KeyEvent.ACTION_UP -> {
++                    consumedKeyCodes.remove(event.keyCode)
++                }
++
++                else -> {
++                    false
++                }
++            }
++        return taken || super.dispatchKeyEvent(event)
++    }
+ }
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MinesweeperScreen.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MinesweeperScreen.kt
+index 1f66565..3c1cd18 100644
+--- a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MinesweeperScreen.kt
++++ b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MinesweeperScreen.kt
+@@ -12,6 +12,7 @@ import androidx.compose.material3.Surface
+ import androidx.compose.material3.Text
+ import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableIntStateOf
+ import androidx.compose.runtime.mutableStateOf
+ import androidx.compose.runtime.remember
+ import androidx.compose.runtime.setValue
+@@ -24,6 +25,8 @@ import org.sableos.design.SableSpacing
+ import org.sableos.design.SableTile
+ import org.sableos.design.SableValuePanel
+ 
++private const val MINE_FIELD_SIZE = 9
++
+ private val MineOne = Color(0xFF5EA8FF)
+ private val MineTwo = Color(0xFF52D680)
+ private val MineThree = Color(0xFFFF7A6B)
+@@ -48,6 +51,8 @@ internal fun MinesweeperScreen() {
+         mutableStateOf(requireOk(NativeBridge.minesweeperView(state)))
+     }
+     var flagMode by remember { mutableStateOf(false) }
++    var cursorX by remember { mutableIntStateOf(MINE_FIELD_SIZE / 2) }
++    var cursorY by remember { mutableIntStateOf(MINE_FIELD_SIZE / 2) }
+     var status by remember { mutableStateOf("Clear the field") }
+ 
+     fun reset() {
+@@ -98,13 +103,40 @@ internal fun MinesweeperScreen() {
+         )
+     }
+ 
++    GameKeyHandler(GameKind.Minesweeper) { command ->
++        when (command) {
++            is GameCommand.Move -> {
++                val (y, x) = GameKeymap.moveCursor(cursorY, cursorX, command, MINE_FIELD_SIZE)
++                cursorX = x
++                cursorY = y
++            }
++
++            GameCommand.Primary -> {
++                applyResponse(NativeBridge.minesweeperReveal(state, cursorX, cursorY))
++            }
++
++            GameCommand.Flag -> {
++                applyResponse(NativeBridge.minesweeperToggleFlag(state, cursorX, cursorY))
++            }
++
++            GameCommand.NewGame -> {
++                reset()
++            }
++
++            is GameCommand.Digit, GameCommand.Erase, GameCommand.Undo -> {
++                return@GameKeyHandler false
++            }
++        }
++        true
++    }
++
+     Column(
+         verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
+     ) {
+         SableValuePanel(
+             label = if (flagMode) "flag mode" else "reveal mode",
+             value = status,
+-            supportingText = "9 × 9 field · 10 mines",
++            supportingText = "9 × 9 field · 10 mines · arrows move, Space reveals, F flags, N new field",
+         )
+ 
+         Row(
+@@ -146,8 +178,13 @@ internal fun MinesweeperScreen() {
+                         row.forEachIndexed { x, cell ->
+                             MinesweeperCell(
+                                 cell = cell,
++                                cursor = x == cursorX && y == cursorY,
+                                 modifier = Modifier.weight(1f),
+-                                onClick = { selectCell(x, y) },
++                                onClick = {
++                                    cursorX = x
++                                    cursorY = y
++                                    selectCell(x, y)
++                                },
+                             )
+                         }
+                     }
+@@ -167,6 +204,7 @@ internal fun MinesweeperScreen() {
+ @Composable
+ private fun MinesweeperCell(
+     cell: Char,
++    cursor: Boolean,
+     modifier: Modifier = Modifier,
+     onClick: () -> Unit,
+ ) {
+@@ -199,8 +237,14 @@ private fun MinesweeperCell(
+         contentColor = content,
+         border =
+             BorderStroke(
+-                if (hidden || flagged) 1.dp else 0.5.dp,
+-                if (hidden || flagged) {
++                when {
++                    cursor -> 2.dp
++                    hidden || flagged -> 1.dp
++                    else -> 0.5.dp
++                },
++                if (cursor) {
++                    MaterialTheme.colorScheme.primary
++                } else if (hidden || flagged) {
+                     MaterialTheme.colorScheme.outline
+                 } else {
+                     MaterialTheme.colorScheme.outlineVariant
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/SudokuScreen.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/SudokuScreen.kt
+index 8cb7738..8307ced 100644
+--- a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/SudokuScreen.kt
++++ b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/SudokuScreen.kt
+@@ -28,6 +28,8 @@ import androidx.compose.ui.unit.dp
+ import org.sableos.design.SableSpacing
+ import org.sableos.design.SableValuePanel
+ 
++private const val SUDOKU_SIZE = 9
++
+ private const val DEFAULT_SUDOKU =
+     "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
+ 
+@@ -94,29 +96,64 @@ internal fun SudokuScreen() {
+         setValue(0)
+     }
+ 
++    fun select(
++        row: Int,
++        col: Int,
++    ) {
++        selectedRow = row
++        selectedCol = col
++        status =
++            if (isGiven(row, col)) {
++                "Fixed clue"
++            } else {
++                "Row ${row + 1}, column ${col + 1}"
++            }
++    }
++
++    GameKeyHandler(GameKind.Sudoku) { command ->
++        when (command) {
++            is GameCommand.Move -> {
++                val (row, col) = GameKeymap.moveCursor(selectedRow, selectedCol, command, SUDOKU_SIZE)
++                select(row, col)
++            }
++
++            is GameCommand.Digit -> {
++                setValue(command.value)
++            }
++
++            GameCommand.Erase -> {
++                erase()
++            }
++
++            GameCommand.Undo -> {
++                undo()
++            }
++
++            GameCommand.NewGame -> {
++                reset()
++            }
++
++            GameCommand.Primary, GameCommand.Flag -> {
++                return@GameKeyHandler false
++            }
++        }
++        true
++    }
++
+     Column(
+         verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
+     ) {
+         SableValuePanel(
+             label = "puzzle",
+             value = status,
+-            supportingText = "Tap an open cell, then choose a number.",
++            supportingText = "Arrows move, 1-9 (or W E R S D F Z X C) fill, Del erases, U undoes, N starts over.",
+         )
+ 
+         SudokuBoard(
+             board = board,
+             selectedRow = selectedRow,
+             selectedCol = selectedCol,
+-            onSelect = { row, col ->
+-                selectedRow = row
+-                selectedCol = col
+-                status =
+-                    if (isGiven(row, col)) {
+-                        "Fixed clue"
+-                    } else {
+-                        "Row ${row + 1}, column ${col + 1}"
+-                    }
+-            },
++            onSelect = ::select,
+         )
+ 
+         Row(
+diff --git a/sable-src/apps/r8/android/games/src/test/java/org/sableos/games/GameKeymapTest.kt b/sable-src/apps/r8/android/games/src/test/java/org/sableos/games/GameKeymapTest.kt
+new file mode 100644
+index 0000000..aa4242e
+--- /dev/null
++++ b/sable-src/apps/r8/android/games/src/test/java/org/sableos/games/GameKeymapTest.kt
+@@ -0,0 +1,62 @@
++package org.sableos.games
++
++import android.view.KeyEvent
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Test
++
++class GameKeymapTest {
++    private fun cmd(
++        game: GameKind,
++        keyCode: Int,
++        char: Char? = null,
++        alt: Boolean = false,
++        ctrl: Boolean = false,
++        repeat: Int = 0,
++    ) = GameKeymap.command(game, GameKeyPress(keyCode, char, alt, ctrl, repeat))
++
++    @Test
++    fun trackpadArrowsMoveInEveryGame() {
++        GameKind.entries.forEach { game ->
++            assertEquals(GameCommand.Move(0, -1), cmd(game, KeyEvent.KEYCODE_DPAD_UP))
++            assertEquals(GameCommand.Move(1, 0), cmd(game, KeyEvent.KEYCODE_DPAD_RIGHT, repeat = 3))
++        }
++    }
++
++    @Test
++    fun sudokuDigitsFromAltLayerAndLetterKeys() {
++        // Alt+W produces '1' on the Q25.
++        assertEquals(GameCommand.Digit(1), cmd(GameKind.Sudoku, KeyEvent.KEYCODE_W, '1', alt = true))
++        assertEquals(GameCommand.Digit(9), cmd(GameKind.Sudoku, KeyEvent.KEYCODE_C, 'c'))
++        assertEquals(GameCommand.Digit(5), cmd(GameKind.Sudoku, KeyEvent.KEYCODE_5, '5'))
++        assertEquals(GameCommand.Erase, cmd(GameKind.Sudoku, KeyEvent.KEYCODE_DEL))
++        assertEquals(GameCommand.Undo, cmd(GameKind.Sudoku, KeyEvent.KEYCODE_U, 'u'))
++        assertEquals(GameCommand.NewGame, cmd(GameKind.Sudoku, KeyEvent.KEYCODE_N, 'n'))
++        // Alt+letter that is not a digit types a symbol, not a command.
++        assertNull(cmd(GameKind.Sudoku, KeyEvent.KEYCODE_U, '_', alt = true))
++    }
++
++    @Test
++    fun minesweeperRevealAndFlag() {
++        assertEquals(GameCommand.Primary, cmd(GameKind.Minesweeper, KeyEvent.KEYCODE_SPACE, ' '))
++        assertEquals(GameCommand.Primary, cmd(GameKind.Minesweeper, KeyEvent.KEYCODE_ENTER))
++        assertEquals(GameCommand.Flag, cmd(GameKind.Minesweeper, KeyEvent.KEYCODE_F, 'f'))
++        assertNull(cmd(GameKind.Minesweeper, KeyEvent.KEYCODE_W, 'w'))
++    }
++
++    @Test
++    fun heldKeysRepeatOnlyMovesAndCtrlIsLeftAlone() {
++        assertNull(cmd(GameKind.Sudoku, KeyEvent.KEYCODE_W, 'w', repeat = 1))
++        assertNull(cmd(GameKind.Game2048, KeyEvent.KEYCODE_DPAD_UP, ctrl = true))
++    }
++
++    @Test
++    fun cursorClampsAndSlideDirections() {
++        assertEquals(0 to 0, GameKeymap.moveCursor(0, 0, GameCommand.Move(-1, -1), 9))
++        assertEquals(8 to 3, GameKeymap.moveCursor(8, 2, GameCommand.Move(1, 1), 9))
++        assertEquals(0, GameKeymap.slideDirection(GameCommand.Move(-1, 0)))
++        assertEquals(1, GameKeymap.slideDirection(GameCommand.Move(1, 0)))
++        assertEquals(2, GameKeymap.slideDirection(GameCommand.Move(0, -1)))
++        assertEquals(3, GameKeymap.slideDirection(GameCommand.Move(0, 1)))
++    }
++}

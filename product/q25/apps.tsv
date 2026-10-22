@@ -37,11 +37,13 @@ SableVault	platform	apps/titan2/platform	:vault:assembleRelease	vault/build/outp
 SableRadioDiag	platform	apps/titan2/platform	:radiodiag:assembleRelease	radiodiag/build/outputs/apk/release/*.apk	org.sableos.titan2.radiodiag	unsigned	-	no
 SableTools	platform	apps/titan2/platform	:tools:assembleRelease	tools/build/outputs/apk/release/*.apk	org.sableos.tools	unsigned	SableRadioDiag	yes
 SableCalculator	common	apps/r8/android	:calculator:assembleDebug	calculator/build/outputs/apk/debug/calculator-debug.apk	org.sableos.calculator	presigned	ExactCalculator	yes
-# Games are off for the first Q2 flash: Q25 dynamic partitions overflowed by ~29.4 MiB.
-# Re-enable once the debug APKs are replaced by shrunk release builds.
-SableSudoku	common	apps/r8/android	:games:assembleSudokuDebug	games/build/outputs/apk/sudoku/debug/games-sudoku-debug.apk	org.sableos.sudoku	presigned	-	no
-SableMinesweeper	common	apps/r8/android	:games:assembleMinesweeperDebug	games/build/outputs/apk/minesweeper/debug/games-minesweeper-debug.apk	org.sableos.minesweeper	presigned	-	no
-Sable2048	common	apps/r8/android	:games:assembleGame2048Debug	games/build/outputs/apk/game2048/debug/games-game2048-debug.apk	org.sableos.game2048	presigned	-	no
+# Sable Games (Sudoku, Minesweeper, 2048; SableOS ships them as three flavors of one module, never an
+# aggregate SableGames package). They were off for the first Q2 flash because the ~29 MB debug APKs
+# overflowed the Q25 dynamic partitions by ~29.4 MiB; they now ship as shrunk (R8 + resource
+# shrinking) release builds signed by the platform build, a few MB each.
+SableSudoku	common	apps/r8/android	:games:assembleSudokuRelease	games/build/outputs/apk/sudoku/release/*.apk	org.sableos.sudoku	unsigned	-	yes
+SableMinesweeper	common	apps/r8/android	:games:assembleMinesweeperRelease	games/build/outputs/apk/minesweeper/release/*.apk	org.sableos.minesweeper	unsigned	-	yes
+Sable2048	common	apps/r8/android	:games:assembleGame2048Release	games/build/outputs/apk/game2048/release/*.apk	org.sableos.game2048	unsigned	-	yes
 SableMedia	common	apps/r8/android	:media:assembleDebug	media/build/outputs/apk/debug/media-debug.apk	org.sableos.media	presigned	-	yes
 SableHub	common	apps/r8/android	:hub:assembleDebug	hub/build/outputs/apk/debug/hub-debug.apk	org.sableos.hub	presigned	-	yes
 SableWeather	common	apps/r8/android	:weather:assembleDebug	weather/build/outputs/apk/debug/weather-debug.apk	org.sableos.weather	presigned	-	yes

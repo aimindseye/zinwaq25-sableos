@@ -29,6 +29,7 @@ internal data class MediaRepositories(
     val podcasts: PodcastRepository,
     val podcastState: PodcastStateRepository,
     val settings: MediaSettingsRepository,
+    val fmPresets: FmPresetStore,
 )
 
 internal data class MediaHostServices(
@@ -39,6 +40,7 @@ internal data class MediaHostServices(
     val playLocalQueue: (List<LocalAudioItem>, Int) -> Unit,
     val adjustVolume: (raise: Boolean) -> Unit,
     val setKeyHandler: (((KeyEvent) -> Boolean)?) -> Unit,
+    val fm: FmController,
 )
 
 @Composable
@@ -46,6 +48,9 @@ internal fun MediaApp(
     repositories: MediaRepositories,
     host: MediaHostServices,
     playbackState: PlaybackUiState,
+    fmState: FmUiState = FmUiState(),
+    /** Bumped by MainActivity for each org.sableos.media.action.FM_RADIO intent. */
+    openFmToken: Int = 0,
 ) {
     val context = LocalContext.current
     val uiScope = rememberCoroutineScope()
@@ -78,6 +83,15 @@ internal fun MediaApp(
 
     LaunchedEffect(repositories.localAudio, repositories.libraryState) {
         controllers.library.load()
+    }
+
+    LaunchedEffect(openFmToken) {
+        if (openFmToken > 0) state.navigate(MediaDestination.Fm)
+    }
+
+    // The FM bridge is bound the first time the FM screen opens, not on every launch.
+    LaunchedEffect(state.destination, host.fm) {
+        if (state.destination == MediaDestination.Fm) host.fm.connect()
     }
 
     LaunchedEffect(state.destination, host.playbackController) {
@@ -121,9 +135,12 @@ internal fun MediaApp(
             onConfirmRemoval = controllers.library::confirmRemoval,
             onDismissRemoval = { state.pendingRemoval = null },
         )
-        CompositionLocalProvider(LocalMediaTextInputFocus provides state.textInputFocus) {
+        CompositionLocalProvider(
+            LocalMediaTextInputFocus provides state.textInputFocus,
+            LocalFmAvailable provides fmState.available,
+        ) {
             MediaScreen(
-                state = state.screenState(playbackState),
+                state = state.screenState(playbackState, fmState),
                 actions =
                     mediaScreenActions(
                         state = state,
@@ -229,6 +246,17 @@ private fun mediaScreenActions(
         onSearchQueryChange = { state.searchQuery = it },
         onCloseSearch = { state.searchQuery = null },
         onTrackFocusChange = state::changeTrackFocus,
+        fm =
+            FmScreenActions(
+                onPower = controllers.fm::togglePower,
+                onSeek = host.fm::seek,
+                onStep = host.fm::step,
+                onTune = host.fm::tune,
+                onToggleFavorite = controllers.fm::toggleFavorite,
+                onToggleSpeaker = host.fm::toggleSpeaker,
+                onToggleMute = host.fm::toggleMute,
+                onScan = host.fm::toggleScan,
+            ),
     )
 }
 

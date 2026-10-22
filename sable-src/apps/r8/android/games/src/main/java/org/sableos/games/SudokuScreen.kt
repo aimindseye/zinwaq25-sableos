@@ -28,6 +28,8 @@ import androidx.compose.ui.unit.dp
 import org.sableos.design.SableSpacing
 import org.sableos.design.SableValuePanel
 
+private const val SUDOKU_SIZE = 9
+
 private const val DEFAULT_SUDOKU =
     "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
 
@@ -94,29 +96,64 @@ internal fun SudokuScreen() {
         setValue(0)
     }
 
+    fun select(
+        row: Int,
+        col: Int,
+    ) {
+        selectedRow = row
+        selectedCol = col
+        status =
+            if (isGiven(row, col)) {
+                "Fixed clue"
+            } else {
+                "Row ${row + 1}, column ${col + 1}"
+            }
+    }
+
+    GameKeyHandler(GameKind.Sudoku) { command ->
+        when (command) {
+            is GameCommand.Move -> {
+                val (row, col) = GameKeymap.moveCursor(selectedRow, selectedCol, command, SUDOKU_SIZE)
+                select(row, col)
+            }
+
+            is GameCommand.Digit -> {
+                setValue(command.value)
+            }
+
+            GameCommand.Erase -> {
+                erase()
+            }
+
+            GameCommand.Undo -> {
+                undo()
+            }
+
+            GameCommand.NewGame -> {
+                reset()
+            }
+
+            GameCommand.Primary, GameCommand.Flag -> {
+                return@GameKeyHandler false
+            }
+        }
+        true
+    }
+
     Column(
         verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
     ) {
         SableValuePanel(
             label = "puzzle",
             value = status,
-            supportingText = "Tap an open cell, then choose a number.",
+            supportingText = "Arrows move, 1-9 (or W E R S D F Z X C) fill, Del erases, U undoes, N starts over.",
         )
 
         SudokuBoard(
             board = board,
             selectedRow = selectedRow,
             selectedCol = selectedCol,
-            onSelect = { row, col ->
-                selectedRow = row
-                selectedCol = col
-                status =
-                    if (isGiven(row, col)) {
-                        "Fixed clue"
-                    } else {
-                        "Row ${row + 1}, column ${col + 1}"
-                    }
-            },
+            onSelect = ::select,
         )
 
         Row(

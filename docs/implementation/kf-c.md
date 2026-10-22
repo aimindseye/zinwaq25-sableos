@@ -189,7 +189,7 @@ docs/implementation/kf-c.md                               this file
 | TOOLS_KEYBOARD_FIRST | `KeyCommands`, `KeyCommandsTest`; focus ring in `Ui` | keyboard walk-through on hardware |
 | TOOLS_PERMISSION_JUST_IN_TIME | `PermissionPlan`, `HomeModelTest.permissionsAreJustInTime`; `ToolActivity` explainer | runtime prompt check |
 | TOOLS_REPORT_PRIVACY | `ReportPolicy`, `Redactor`, `ReportTest` | review of a real report |
-| FM_RADIO_OWNER_MEDIA | no FM tool in the catalog; `FmStatus`; `MEDIA_FM` hand-off | Sable Media has no FM mode yet |
+| FM_RADIO_OWNER_MEDIA | no FM tool in the catalog; `FmStatus`; `MEDIA_FM` hand-off, answered by Sable Media's FM mode (sable-src 0061, FMRadio patches 1061-1062) | Q3-FM-HW and Q4-FM-MEDIA on hardware |
 | IR_REMOTE_LOCAL_FIRST | `IrRemote`, `MeasureAndRemoteTest`; no INTERNET | a Titan 2 with IR (not a Q25) |
 | DEVICE_MODEL_BRANCHING_COMMON_UI=PASS_ABSENT | profile table only; `HomeModelTest.catalogHasNoDeviceModelNames` | - |
 | Dialer-code bridge (HARDWARE_DIAGNOSTICS) | `DialerCodes`, tests | whether the dialer's secret-code broadcast may start the activity (background-activity-start rules) |

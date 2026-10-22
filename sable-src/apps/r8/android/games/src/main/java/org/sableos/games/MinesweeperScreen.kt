@@ -12,6 +12,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -23,6 +24,8 @@ import org.sableos.design.SableActionButton
 import org.sableos.design.SableSpacing
 import org.sableos.design.SableTile
 import org.sableos.design.SableValuePanel
+
+private const val MINE_FIELD_SIZE = 9
 
 private val MineOne = Color(0xFF5EA8FF)
 private val MineTwo = Color(0xFF52D680)
@@ -48,6 +51,8 @@ internal fun MinesweeperScreen() {
         mutableStateOf(requireOk(NativeBridge.minesweeperView(state)))
     }
     var flagMode by remember { mutableStateOf(false) }
+    var cursorX by remember { mutableIntStateOf(MINE_FIELD_SIZE / 2) }
+    var cursorY by remember { mutableIntStateOf(MINE_FIELD_SIZE / 2) }
     var status by remember { mutableStateOf("Clear the field") }
 
     fun reset() {
@@ -98,13 +103,40 @@ internal fun MinesweeperScreen() {
         )
     }
 
+    GameKeyHandler(GameKind.Minesweeper) { command ->
+        when (command) {
+            is GameCommand.Move -> {
+                val (y, x) = GameKeymap.moveCursor(cursorY, cursorX, command, MINE_FIELD_SIZE)
+                cursorX = x
+                cursorY = y
+            }
+
+            GameCommand.Primary -> {
+                applyResponse(NativeBridge.minesweeperReveal(state, cursorX, cursorY))
+            }
+
+            GameCommand.Flag -> {
+                applyResponse(NativeBridge.minesweeperToggleFlag(state, cursorX, cursorY))
+            }
+
+            GameCommand.NewGame -> {
+                reset()
+            }
+
+            is GameCommand.Digit, GameCommand.Erase, GameCommand.Undo -> {
+                return@GameKeyHandler false
+            }
+        }
+        true
+    }
+
     Column(
         verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
     ) {
         SableValuePanel(
             label = if (flagMode) "flag mode" else "reveal mode",
             value = status,
-            supportingText = "9 × 9 field · 10 mines",
+            supportingText = "9 × 9 field · 10 mines · arrows move, Space reveals, F flags, N new field",
         )
 
         Row(
@@ -146,8 +178,13 @@ internal fun MinesweeperScreen() {
                         row.forEachIndexed { x, cell ->
                             MinesweeperCell(
                                 cell = cell,
+                                cursor = x == cursorX && y == cursorY,
                                 modifier = Modifier.weight(1f),
-                                onClick = { selectCell(x, y) },
+                                onClick = {
+                                    cursorX = x
+                                    cursorY = y
+                                    selectCell(x, y)
+                                },
                             )
                         }
                     }
@@ -167,6 +204,7 @@ internal fun MinesweeperScreen() {
 @Composable
 private fun MinesweeperCell(
     cell: Char,
+    cursor: Boolean,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
@@ -199,8 +237,14 @@ private fun MinesweeperCell(
         contentColor = content,
         border =
             BorderStroke(
-                if (hidden || flagged) 1.dp else 0.5.dp,
-                if (hidden || flagged) {
+                when {
+                    cursor -> 2.dp
+                    hidden || flagged -> 1.dp
+                    else -> 0.5.dp
+                },
+                if (cursor) {
+                    MaterialTheme.colorScheme.primary
+                } else if (hidden || flagged) {
                     MaterialTheme.colorScheme.outline
                 } else {
                     MaterialTheme.colorScheme.outlineVariant
