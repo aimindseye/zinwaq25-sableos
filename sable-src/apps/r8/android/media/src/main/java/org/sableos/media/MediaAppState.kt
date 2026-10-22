@@ -25,6 +25,7 @@ internal class MediaAppState(
     var podcastMessage by mutableStateOf<String?>(null)
 
     var stations by mutableStateOf(repositories.stations.loadStations())
+    var fmFavorites by mutableStateOf(repositories.fmPresets.load())
     var favoriteAudioUris by mutableStateOf(repositories.libraryState.loadFavoriteAudioUris())
     var favoriteStationIds by mutableStateOf(repositories.libraryState.loadFavoriteStationIds())
     var playlists by mutableStateOf(emptyList<MediaPlaylist>())
@@ -112,7 +113,10 @@ internal class MediaAppState(
         }
     }
 
-    fun screenState(playback: PlaybackUiState): MediaScreenState =
+    fun screenState(
+        playback: PlaybackUiState,
+        fm: FmUiState,
+    ): MediaScreenState =
         MediaScreenState(
             destination = destination,
             libraryPivot = libraryPivot,
@@ -141,6 +145,8 @@ internal class MediaAppState(
             message = message,
             searchQuery = searchQuery,
             searchFocusToken = searchFocusToken,
+            fm = fm,
+            fmFavorites = fmFavorites,
         )
 }
 

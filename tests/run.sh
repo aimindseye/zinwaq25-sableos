@@ -362,26 +362,41 @@ if [[ -z "$missing" ]]; then pass "Settings Sable entries land on actions the Sa
 if command -v javac >/dev/null 2>&1; then
     sk="$tmp/stock-keys"
     mkdir -p "$sk/out"
-    for app in DocumentsUI Glimpse Jelly; do
+    for app in DocumentsUI Glimpse Jelly FMRadio; do
         mkdir -p "$sk/$app"
         for p in patches/framework/packages/apps/"$app"/10[0-9][0-9]-*.patch; do
             (cd "$sk/$app" && git apply --include='*/sable/*.java' "$ROOT/$p")
         done
     done
-    mapfile -t sk_src < <(find "$sk/DocumentsUI" "$sk/Glimpse" "$sk/Jelly" tests/java/stock-apps tests/java/junit-shim -name '*.java')
+    mapfile -t sk_src < <(find "$sk/DocumentsUI" "$sk/Glimpse" "$sk/Jelly" "$sk/FMRadio" tests/java/stock-apps tests/java/junit-shim -name '*.java')
     mapfile -t sk_tests < <(cd tests/java/stock-apps && find . -name '*Test.java' | sed 's#^\./[^/]*/##; s#\.java$##; s#/#.#g' | sort)
-    sk_android="$(find "$sk/DocumentsUI" "$sk/Glimpse" "$sk/Jelly" -name '*.java' -exec grep -l '^import android\.' {} + || true)"
+    sk_android="$(find "$sk/DocumentsUI" "$sk/Glimpse" "$sk/Jelly" "$sk/FMRadio" -name '*.java' -exec grep -l '^import android\.' {} + || true)"
     if [[ -n "$sk_android" ]]; then
         fail "stock app key models must be pure Java: $sk_android"
     elif javac -encoding UTF-8 -d "$sk/out" "${sk_src[@]}" 2>"$tmp/err" &&
         java -cp "$sk/out" org.junit.Run "${sk_tests[@]}" >"$tmp/out" 2>&1; then
-        pass "stock app keyboard models (Files, Photos, Browser) host tests ($(grep -o 'RAN=[0-9]*' "$tmp/out"))"
+        pass "stock app keyboard models (Files, Photos, Browser) and FM bridge protocol host tests ($(grep -o 'RAN=[0-9]*' "$tmp/out"))"
     else
         fail "stock app keyboard model tests: $(cat "$tmp/err" "$tmp/out" | grep -v JAVA_TOOL | head -5)"
     fi
 else
     printf 'SKIP  javac not installed (stock app keyboard model tests)\n'
 fi
+
+# 6i. FM in Sable Media: the bridge protocol numbers agree on both sides (FMRadio patch 1061,
+# Sable Media FmModel.kt), the bridge checks every caller, and FM Radio has no launcher entry.
+fm_java=$(ls patches/framework/packages/apps/FMRadio/1061-*.patch)
+fm_bridge=$(ls patches/framework/packages/apps/FMRadio/1062-*.patch)
+fm_kt=sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmModel.kt
+fm_bad=""
+while read -r name value; do
+    grep -Eq "^\+    public static final (int|String) $name = $value;" "$fm_java" || fm_bad="$fm_bad $name"
+done < <(sed -n 's/^    const val \(MSG_[A-Z_]*\|KEY_[A-Z_]*\|ACTION_CONTROL\|LOWEST_STATION\|HIGHEST_STATION\) = \(.*\)$/\1 \2/p' "$fm_kt")
+[[ "$(grep -c '^    const val \(MSG_\|KEY_\)' "$fm_kt")" -ge 25 ]] || fm_bad="$fm_bad few-constants"
+grep -q 'callerAllowed(msg.sendingUid)' "$fm_bridge" || fm_bad="$fm_bad no-caller-check"
+grep -q '^-                <category android:name="android.intent.category.LAUNCHER" />' "$fm_bridge" || fm_bad="$fm_bad launcher-entry"
+grep -q '<action android:name="org.sableos.media.action.FM_RADIO" />' sable-src/apps/r8/android/media/src/main/AndroidManifest.xml || fm_bad="$fm_bad no-media-fm-action"
+if [[ -z "$fm_bad" ]]; then pass "Sable Media FM and the FM Radio bridge agree"; else fail "FM bridge protocol:$fm_bad"; fi
 
 # 7. Entry point refuses flashing and unknown devices.
 if bash build/sable.sh q25 Q2 flash >/dev/null 2>&1; then fail "flash should be blocked"; else pass "flash blocked"; fi

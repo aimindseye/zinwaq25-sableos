@@ -1,0 +1,1200 @@
+diff --git a/sable-src/apps/r8/android/config/detekt.yml b/sable-src/apps/r8/android/config/detekt.yml
+index c3de95d..8736dc6 100644
+--- a/sable-src/apps/r8/android/config/detekt.yml
++++ b/sable-src/apps/r8/android/config/detekt.yml
+@@ -42,6 +42,7 @@ naming:
+   FunctionNaming:
+     excludes:
+       - "**/media/MediaApp.kt"
++      - "**/media/FmScreen.kt"
+       - "**/media/MediaScreen.kt"
+       - "**/media/MediaResponsive.kt"
+       - "**/media/MediaC2Screens.kt"
+diff --git a/sable-src/apps/r8/android/media/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/media/src/main/AndroidManifest.xml
+index 917248c..9c69b98 100644
+--- a/sable-src/apps/r8/android/media/src/main/AndroidManifest.xml
++++ b/sable-src/apps/r8/android/media/src/main/AndroidManifest.xml
+@@ -6,6 +6,10 @@
+ 
+     <queries>
+         <provider android:authorities="org.sableos.appearance" />
++        <!-- FM mode: the SableOS FM bridge in the LineageOS FM Radio app. -->
++        <intent>
++            <action android:name="org.sableos.fm.action.CONTROL" />
++        </intent>
+     </queries>
+ 
+     <application
+@@ -20,6 +24,11 @@
+                 <action android:name="android.intent.action.MAIN" />
+                 <category android:name="android.intent.category.LAUNCHER" />
+             </intent-filter>
++            <!-- FM mode, opened by Sable Tools and the FM playing notification. -->
++            <intent-filter>
++                <action android:name="org.sableos.media.action.FM_RADIO" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
+         </activity>
+         <provider
+             android:name=".MediaSnapshotProvider"
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmController.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmController.kt
+new file mode 100644
+index 0000000..9f4ee00
+--- /dev/null
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmController.kt
+@@ -0,0 +1,179 @@
++package org.sableos.media
++
++import android.content.ComponentName
++import android.content.Context
++import android.content.Intent
++import android.content.ServiceConnection
++import android.content.pm.PackageManager
++import android.os.Build
++import android.os.Bundle
++import android.os.Handler
++import android.os.IBinder
++import android.os.Looper
++import android.os.Message
++import android.os.Messenger
++
++/**
++ * Drives the FM tuner through the FM bridge in the LineageOS FM Radio app (SableOS framework patch
++ * packages/apps/FMRadio 1062). The MediaTek tuner (/dev/fm, libfmjni) is only reachable from that
++ * platform-signed app, so Sable Media sends it commands over a Messenger and shows the state it reports.
++ *
++ * FM_HAL_OR_VENDOR_SERVICE_GATE: without the bridge, [FmUiState.available] is false and the FM mode
++ * is not offered.
++ */
++internal class FmController(
++    private val context: Context,
++    private val onState: (FmUiState) -> Unit,
++) {
++    private val handler =
++        Handler(Looper.getMainLooper()) { message ->
++            if (message.what == FmBridgeProtocol.MSG_STATE) {
++                publish(parse(message.data))
++                true
++            } else {
++                false
++            }
++        }
++    private val replyTo = Messenger(handler)
++    private var bridge: Messenger? = null
++    private var bound = false
++
++    var state = FmUiState(available = isAvailable(context))
++        private set
++
++    private val connection =
++        object : ServiceConnection {
++            override fun onServiceConnected(
++                name: ComponentName?,
++                service: IBinder?,
++            ) {
++                bridge = service?.let(::Messenger)
++                publish(state.copy(connected = bridge != null))
++                send(FmBridgeProtocol.MSG_REGISTER)
++            }
++
++            override fun onServiceDisconnected(name: ComponentName?) {
++                bridge = null
++                publish(state.copy(connected = false, powered = false, scanning = false, seeking = false))
++            }
++        }
++
++    /** Binds the bridge; called when the FM screen is first opened. */
++    fun connect() {
++        if (bound || !state.available) return
++        bound = context.bindService(bridgeIntent(), connection, Context.BIND_AUTO_CREATE)
++        if (!bound) publish(state.copy(available = false))
++    }
++
++    /** Unbinds; the radio keeps playing with its notification until it is switched off. */
++    fun disconnect() {
++        if (!bound) return
++        send(FmBridgeProtocol.MSG_UNREGISTER)
++        context.unbindService(connection)
++        bound = false
++        bridge = null
++    }
++
++    fun togglePower(favorites: Set<Int>) {
++        if (state.powered) {
++            send(FmBridgeProtocol.MSG_POWER_DOWN)
++        } else {
++            val start = state.station.takeIf(FmBand::isValid) ?: FmPresets.ordered(favorites).firstOrNull() ?: 0
++            send(FmBridgeProtocol.MSG_POWER_UP, start)
++        }
++    }
++
++    fun tune(station: Int) {
++        if (FmBand.isValid(station)) send(FmBridgeProtocol.MSG_TUNE, station)
++    }
++
++    fun step(up: Boolean) = tune(FmBand.step(state.station, up))
++
++    fun seek(up: Boolean) = send(FmBridgeProtocol.MSG_SEEK, if (up) 1 else 0)
++
++    fun toggleScan() = send(if (state.scanning) FmBridgeProtocol.MSG_STOP_SCAN else FmBridgeProtocol.MSG_SCAN)
++
++    fun toggleSpeaker() = send(FmBridgeProtocol.MSG_SET_SPEAKER, if (state.speaker) 0 else 1)
++
++    fun toggleMute() = send(FmBridgeProtocol.MSG_SET_MUTE, if (state.muted) 0 else 1)
++
++    private fun send(
++        what: Int,
++        arg1: Int = 0,
++    ) {
++        val target = bridge ?: return
++        val message = Message.obtain(null, what, arg1, 0)
++        message.replyTo = replyTo
++        // RemoteException: the FM Radio process died; onServiceDisconnected follows.
++        runCatching { target.send(message) }.onFailure {
++            bridge = null
++            publish(state.copy(connected = false, powered = false))
++        }
++    }
++
++    private fun publish(next: FmUiState) {
++        state = next
++        onState(next)
++    }
++
++    private fun parse(data: Bundle): FmUiState {
++        val stations = data.getIntArray(FmBridgeProtocol.KEY_STATIONS) ?: IntArray(0)
++        val names = data.getStringArray(FmBridgeProtocol.KEY_STATION_NAMES) ?: emptyArray()
++        return state.copy(
++            connected = true,
++            powered = data.getBoolean(FmBridgeProtocol.KEY_POWERED, state.powered),
++            station = data.getInt(FmBridgeProtocol.KEY_STATION, state.station),
++            antenna = data.getBoolean(FmBridgeProtocol.KEY_ANTENNA, state.antenna),
++            speaker = data.getBoolean(FmBridgeProtocol.KEY_SPEAKER, state.speaker),
++            muted = data.getBoolean(FmBridgeProtocol.KEY_MUTED, state.muted),
++            scanning = data.getBoolean(FmBridgeProtocol.KEY_SCANNING, false),
++            seeking = data.getBoolean(FmBridgeProtocol.KEY_SEEKING, false),
++            deviceOpen = data.getBoolean(FmBridgeProtocol.KEY_DEVICE_OPEN, state.deviceOpen),
++            programService = data.getString(FmBridgeProtocol.KEY_PS).orEmpty(),
++            radioText = data.getString(FmBridgeProtocol.KEY_RT).orEmpty(),
++            stations = stations.mapIndexed { index, station -> FmStation(station, names.getOrNull(index).orEmpty()) },
++            lastOk = data.getBoolean(FmBridgeProtocol.KEY_OK, true),
++            lastEvent = data.getInt(FmBridgeProtocol.KEY_EVENT, 0),
++        )
++    }
++
++    companion object {
++        fun bridgeIntent(): Intent = Intent(FmBridgeProtocol.ACTION_CONTROL).setPackage(FmBridgeProtocol.BRIDGE_PACKAGE)
++
++        /** The FM bridge is installed (the SableOS FM Radio app, on devices whose tree builds it). */
++        fun isAvailable(context: Context): Boolean {
++            val pm = context.packageManager
++            val matches =
++                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
++                    pm.queryIntentServices(bridgeIntent(), PackageManager.ResolveInfoFlags.of(0L))
++                } else {
++                    @Suppress("DEPRECATION")
++                    pm.queryIntentServices(bridgeIntent(), 0)
++                }
++            return matches.isNotEmpty()
++        }
++    }
++}
++
++/** Starred FM stations, kept with the other Sable Media preferences. */
++internal class FmPresetStore(
++    context: Context,
++) {
++    private val preferences = context.getSharedPreferences("sable_media", Context.MODE_PRIVATE)
++
++    fun load(): Set<Int> =
++        preferences
++            .getStringSet(KEY_FAVORITES, emptySet())
++            .orEmpty()
++            .mapNotNull(String::toIntOrNull)
++            .filter(FmBand::isValid)
++            .toSet()
++
++    fun save(favorites: Set<Int>) {
++        preferences.edit().putStringSet(KEY_FAVORITES, favorites.map(Int::toString).toSet()).apply()
++    }
++
++    private companion object {
++        const val KEY_FAVORITES = "fm_favorites"
++    }
++}
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmModel.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmModel.kt
+new file mode 100644
+index 0000000..7700767
+--- /dev/null
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmModel.kt
+@@ -0,0 +1,260 @@
++package org.sableos.media
++
++import android.view.KeyEvent
++import java.util.Locale
++
++/**
++ * The Sable FM bridge protocol, as the LineageOS FM Radio app exposes it on SableOS
++ * (framework patch packages/apps/FMRadio 1061, com.android.fmradio.sable.SableFmProtocol).
++ * The numbers must match that class; tests/run.sh checks they agree.
++ *
++ * Stations are in units of 100 kHz: 875 is 87.5 MHz.
++ */
++internal object FmBridgeProtocol {
++    const val BRIDGE_PACKAGE = "com.android.fmradio"
++    const val ACTION_CONTROL = "org.sableos.fm.action.CONTROL"
++
++    /** Sable Tools and the playing notification open the FM screen with this action. */
++    const val ACTION_OPEN_FM = "org.sableos.media.action.FM_RADIO"
++
++    const val MSG_REGISTER = 1
++    const val MSG_UNREGISTER = 2
++    const val MSG_POWER_UP = 3
++    const val MSG_POWER_DOWN = 4
++    const val MSG_TUNE = 5
++    const val MSG_SEEK = 6
++    const val MSG_SCAN = 7
++    const val MSG_STOP_SCAN = 8
++    const val MSG_SET_SPEAKER = 9
++    const val MSG_SET_MUTE = 10
++    const val MSG_GET_STATE = 11
++    const val MSG_STATE = 100
++
++    const val KEY_POWERED = "powered"
++    const val KEY_STATION = "station"
++    const val KEY_ANTENNA = "antenna"
++    const val KEY_SPEAKER = "speaker"
++    const val KEY_MUTED = "muted"
++    const val KEY_SCANNING = "scanning"
++    const val KEY_SEEKING = "seeking"
++    const val KEY_DEVICE_OPEN = "device_open"
++    const val KEY_PS = "ps"
++    const val KEY_RT = "rt"
++    const val KEY_STATIONS = "stations"
++    const val KEY_STATION_NAMES = "station_names"
++    const val KEY_EVENT = "event"
++    const val KEY_OK = "ok"
++
++    /** FmListener.MSGID_SWITCH_ANTENNA: the headset (antenna) was plugged in or out. */
++    const val EVENT_SWITCH_ANTENNA = 4
++
++    const val LOWEST_STATION = 875
++    const val HIGHEST_STATION = 1080
++}
++
++internal data class FmStation(
++    val station: Int,
++    val name: String = "",
++)
++
++/** What the FM screen shows; filled from the bridge's MSG_STATE bundles. */
++internal data class FmUiState(
++    /** The FM bridge (the LineageOS FM Radio app with the SableOS patch) is installed. */
++    val available: Boolean = false,
++    val connected: Boolean = false,
++    val powered: Boolean = false,
++    val station: Int = 0,
++    val antenna: Boolean = false,
++    val speaker: Boolean = false,
++    val muted: Boolean = false,
++    val scanning: Boolean = false,
++    val seeking: Boolean = false,
++    val deviceOpen: Boolean = false,
++    val programService: String = "",
++    val radioText: String = "",
++    val stations: List<FmStation> = emptyList(),
++    val lastOk: Boolean = true,
++    val lastEvent: Int = 0,
++)
++
++internal object FmBand {
++    const val STEP = 1
++
++    /** Stations are 100 kHz units. */
++    private const val STATIONS_PER_MHZ = 10
++
++    fun isValid(station: Int): Boolean = station in FmBridgeProtocol.LOWEST_STATION..FmBridgeProtocol.HIGHEST_STATION
++
++    /** "98.5" for 985. */
++    fun format(station: Int): String =
++        String.format(Locale.ROOT, "%d.%d", station / STATIONS_PER_MHZ, station % STATIONS_PER_MHZ)
++
++    /** One 100 kHz step, wrapping at the band edges like the FM Radio app. */
++    fun step(
++        station: Int,
++        up: Boolean,
++    ): Int {
++        val from = if (isValid(station)) station else FmBridgeProtocol.LOWEST_STATION
++        val next = if (up) from + STEP else from - STEP
++        return when {
++            next > FmBridgeProtocol.HIGHEST_STATION -> FmBridgeProtocol.LOWEST_STATION
++            next < FmBridgeProtocol.LOWEST_STATION -> FmBridgeProtocol.HIGHEST_STATION
++            else -> next
++        }
++    }
++
++    /** One line for the status panel. */
++    fun status(state: FmUiState): String =
++        when {
++            !state.connected -> "Connecting to the FM tuner…"
++            state.scanning -> "Scanning the band…"
++            state.seeking -> "Seeking…"
++            !state.antenna -> "Plug in wired headphones: they are the antenna"
++            !state.powered -> "Off"
++            state.muted -> "Muted"
++            state.speaker -> "Playing on the speaker"
++            else -> "Playing on headphones"
++        }
++}
++
++/** Presets are the stations the user starred, in frequency order; the first nine are on Alt+1-9. */
++internal object FmPresets {
++    const val MAX_KEYED = 9
++
++    fun ordered(favorites: Set<Int>): List<Int> = favorites.filter(FmBand::isValid).sorted()
++
++    fun toggle(
++        favorites: Set<Int>,
++        station: Int,
++    ): Set<Int> =
++        when {
++            !FmBand.isValid(station) -> favorites
++            station in favorites -> favorites - station
++            else -> favorites + station
++        }
++
++    /** The station for preset [number] (1-based), or null. */
++    fun keyed(
++        favorites: Set<Int>,
++        number: Int,
++    ): Int? = ordered(favorites).getOrNull(number - 1)?.takeIf { number in 1..MAX_KEYED }
++
++    /** Starred stations first, then the stations the last scan found, each once. */
++    fun list(
++        favorites: Set<Int>,
++        found: List<FmStation>,
++    ): List<FmStation> {
++        val names = found.associate { it.station to it.name }
++        val starred = ordered(favorites).map { FmStation(it, names[it].orEmpty()) }
++        return starred +
++            found.filter { FmBand.isValid(it.station) && it.station !in favorites }.distinctBy { it.station }
++    }
++}
++
++internal enum class FmKeyCommand {
++    PowerToggle,
++    SeekDown,
++    SeekUp,
++    TuneDown,
++    TuneUp,
++    Favorite,
++    Output,
++    Mute,
++    Scan,
++}
++
++internal sealed interface FmKeyAction {
++    data class Command(
++        val command: FmKeyCommand,
++    ) : FmKeyAction
++
++    /** Alt+1-9 (Alt+W E R S D F Z X C on the Q25): tune preset [number]. */
++    data class Preset(
++        val number: Int,
++    ) : FmKeyAction
++}
++
++/**
++ * FM keys (MEDIA_GALLERY_UX.md input contract, applied to the FM mode):
++ * Space on/off, J/K or Left/Right seek, Shift+J/K or Shift+Left/Right tune by 0.1 MHz,
++ * F star, O speaker/headphones, M mute, R scan (again to stop), Alt+1-9 presets.
++ * Anything else (Esc, volume, view keys) goes to [MediaKeymap].
++ */
++internal object FmKeymap {
++    fun action(
++        press: MediaKeyPress,
++        textInputActive: Boolean,
++    ): FmKeyAction? {
++        if (textInputActive || press.ctrl) return null
++        val preset = press.char?.takeIf { it in '1'..'9' }?.digitToInt()
++        val action =
++            when {
++                preset != null -> FmKeyAction.Preset(preset)
++                press.alt -> null
++                else -> letterOrArrow(press.keyCode, press.shift)?.let(FmKeyAction::Command)
++            }
++        val repeatable = action is FmKeyAction.Command && action.command in REPEATABLE
++        return action?.takeIf { press.repeatCount == 0 || repeatable }
++    }
++
++    private val REPEATABLE = setOf(FmKeyCommand.TuneDown, FmKeyCommand.TuneUp)
++
++    private fun letterOrArrow(
++        keyCode: Int,
++        shift: Boolean,
++    ): FmKeyCommand? =
++        when (keyCode) {
++            KeyEvent.KEYCODE_SPACE -> {
++                FmKeyCommand.PowerToggle.takeIf { !shift }
++            }
++
++            KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_J -> {
++                if (shift) FmKeyCommand.TuneDown else FmKeyCommand.SeekDown
++            }
++
++            KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_K -> {
++                if (shift) FmKeyCommand.TuneUp else FmKeyCommand.SeekUp
++            }
++
++            KeyEvent.KEYCODE_P -> {
++                FmKeyCommand.SeekDown.takeIf { !shift }
++            }
++
++            KeyEvent.KEYCODE_N -> {
++                FmKeyCommand.SeekUp.takeIf { !shift }
++            }
++
++            KeyEvent.KEYCODE_F -> {
++                FmKeyCommand.Favorite.takeIf { !shift }
++            }
++
++            KeyEvent.KEYCODE_O -> {
++                FmKeyCommand.Output.takeIf { !shift }
++            }
++
++            KeyEvent.KEYCODE_M -> {
++                FmKeyCommand.Mute.takeIf { !shift }
++            }
++
++            KeyEvent.KEYCODE_R -> {
++                FmKeyCommand.Scan.takeIf { !shift }
++            }
++
++            else -> {
++                null
++            }
++        }
++
++    /** Media commands that keep working on the FM screen; play/seek/favorite keys belong to FM there. */
++    val MEDIA_COMMANDS_ON_FM =
++        setOf(
++            MediaKeyCommand.Back,
++            MediaKeyCommand.VolumeUp,
++            MediaKeyCommand.VolumeDown,
++            MediaKeyCommand.Search,
++            MediaKeyCommand.ViewMode,
++            MediaKeyCommand.Queue,
++            MediaKeyCommand.Latest,
++            MediaKeyCommand.Albums,
++        )
++}
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmScreen.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmScreen.kt
+new file mode 100644
+index 0000000..7db1060
+--- /dev/null
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmScreen.kt
+@@ -0,0 +1,247 @@
++package org.sableos.media
++
++import androidx.compose.foundation.BorderStroke
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.aspectRatio
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.width
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.Surface
++import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.staticCompositionLocalOf
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.text.style.TextOverflow
++import androidx.compose.ui.unit.dp
++import org.sableos.design.SableActionButton
++import org.sableos.design.SableDenseRow
++import org.sableos.design.SableRowAction
++import org.sableos.design.SableSpacing
++import org.sableos.design.SableValuePanel
++
++/** Whether the FM destination is offered in the top navigation (the FM bridge is installed). */
++internal val LocalFmAvailable = staticCompositionLocalOf { false }
++
++private const val FM_KEY_HINT =
++    "Space on/off · J/K seek · Shift+J/K ±0.1 · Alt+1-9 presets · F star · O output · M mute · R scan"
++private const val FM_ACTION_TUNE = "tune"
++private const val FM_ACTION_STAR = "star"
++private val FmBadgeSize = 48.dp
++
++internal data class FmScreenActions(
++    val onPower: () -> Unit,
++    val onSeek: (up: Boolean) -> Unit,
++    val onStep: (up: Boolean) -> Unit,
++    val onTune: (Int) -> Unit,
++    val onToggleFavorite: (Int) -> Unit,
++    val onToggleSpeaker: () -> Unit,
++    val onToggleMute: () -> Unit,
++    val onScan: () -> Unit,
++)
++
++/** Sable Media FM mode (SABLE_MEDIA_FM_RADIO_MODE): tuner, presets and the stations the last scan found. */
++@Composable
++internal fun FmScreen(
++    fm: FmUiState,
++    favorites: Set<Int>,
++    actions: FmScreenActions,
++) {
++    Column(verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg)) {
++        if (!fm.available) {
++            SableValuePanel(
++                label = "fm radio",
++                value = "Not available",
++                supportingText = "This device has no FM tuner service Sable Media can use.",
++            )
++        } else {
++            FmTunerPanel(fm)
++            FmControls(fm, favorites, actions)
++            Text(
++                text = FM_KEY_HINT,
++                style = MaterialTheme.typography.bodySmall,
++                color = MaterialTheme.colorScheme.onSurfaceVariant,
++            )
++            FmStationList(fm, favorites, actions)
++        }
++    }
++}
++
++@Composable
++private fun FmTunerPanel(fm: FmUiState) {
++    val tuned = FmBand.isValid(fm.station)
++    val name =
++        fm.programService.ifBlank {
++            fm.stations
++                .firstOrNull { it.station == fm.station }
++                ?.name
++                .orEmpty()
++        }
++    SableValuePanel(
++        label = if (tuned) "${FmBand.format(fm.station)} MHz" else "fm radio",
++        value = FmBand.status(fm),
++        supportingText = listOf(name, fm.radioText).filter { it.isNotBlank() }.joinToString(" · ").ifBlank { null },
++    )
++    if (fm.connected && !fm.antenna) {
++        Text(
++            text =
++                "FM uses wired headphones as its antenna. Plug them in to listen; " +
++                    "Speaker then plays through the speaker with the headphones still in.",
++            style = MaterialTheme.typography.bodyMedium,
++            color = MaterialTheme.colorScheme.error,
++        )
++    }
++}
++
++/** One button of a three-button row. */
++private data class FmButton(
++    val text: String,
++    val primary: Boolean = false,
++    val onClick: () -> Unit,
++)
++
++@Composable
++private fun FmControls(
++    fm: FmUiState,
++    favorites: Set<Int>,
++    actions: FmScreenActions,
++) {
++    val rows =
++        listOf(
++            listOf(
++                FmButton("◀ Seek") { actions.onSeek(false) },
++                FmButton(if (fm.powered) "Turn off" else "Turn on", primary = true, onClick = actions.onPower),
++                FmButton("Seek ▶") { actions.onSeek(true) },
++            ),
++            listOf(
++                FmButton("−0.1") { actions.onStep(false) },
++                FmButton(if (fm.speaker) "Headphones" else "Speaker", onClick = actions.onToggleSpeaker),
++                FmButton("+0.1") { actions.onStep(true) },
++            ),
++            listOf(
++                FmButton(if (fm.muted) "Unmute" else "Mute", onClick = actions.onToggleMute),
++                FmButton(if (fm.scanning) "Stop scan" else "Scan", onClick = actions.onScan),
++                FmButton(if (fm.station in favorites) "Unstar" else "Star") { actions.onToggleFavorite(fm.station) },
++            ),
++        )
++    rows.forEach { buttons ->
++        Row(
++            modifier = Modifier.fillMaxWidth(),
++            horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
++        ) {
++            buttons.forEach { button ->
++                SableActionButton(
++                    text = button.text,
++                    modifier = Modifier.weight(1f),
++                    primary = button.primary,
++                    onClick = button.onClick,
++                )
++            }
++        }
++    }
++}
++
++/** A row of the station list. */
++private data class FmStationItem(
++    val station: FmStation,
++    val presetNumber: Int?,
++    val starred: Boolean,
++    val current: Boolean,
++)
++
++@Composable
++private fun FmStationList(
++    fm: FmUiState,
++    favorites: Set<Int>,
++    actions: FmScreenActions,
++) {
++    val list = FmPresets.list(favorites, fm.stations)
++    if (list.isEmpty()) {
++        Text(
++            text = "No stations yet. Press R to scan, or star a station with F.",
++            style = MaterialTheme.typography.bodyMedium,
++            color = MaterialTheme.colorScheme.onSurfaceVariant,
++        )
++        return
++    }
++    val presets = FmPresets.ordered(favorites)
++    list.forEach { station ->
++        val index = presets.indexOf(station.station)
++        FmStationRow(
++            item =
++                FmStationItem(
++                    station = station,
++                    presetNumber = if (index in 0 until FmPresets.MAX_KEYED) index + 1 else null,
++                    starred = station.station in favorites,
++                    current = station.station == fm.station && fm.powered,
++                ),
++            onTune = { actions.onTune(station.station) },
++            onToggleFavorite = { actions.onToggleFavorite(station.station) },
++        )
++    }
++}
++
++@Composable
++private fun FmStationRow(
++    item: FmStationItem,
++    onTune: () -> Unit,
++    onToggleFavorite: () -> Unit,
++) {
++    val station = item.station
++    val starred = item.starred
++    val current = item.current
++    val presetNumber = item.presetNumber
++    Surface(
++        modifier = Modifier.fillMaxWidth(),
++        shape = MaterialTheme.shapes.medium,
++        color = MaterialTheme.colorScheme.surface,
++        border = BorderStroke(1.dp, if (current) MediaPink else MaterialTheme.colorScheme.outlineVariant),
++    ) {
++        SableDenseRow(
++            title = "${FmBand.format(station.station)} MHz" + if (starred) " ★" else "",
++            subtitle =
++                listOfNotNull(
++                    station.name.takeIf { it.isNotBlank() },
++                    presetNumber?.let { "Alt+$it" },
++                    "playing".takeIf { current },
++                ).joinToString(" · ").ifBlank { null },
++            onClick = onTune,
++            modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Xs),
++            actions =
++                listOf(
++                    SableRowAction(FM_ACTION_TUNE, "Tune", primary = true),
++                    SableRowAction(FM_ACTION_STAR, if (starred) "Remove star ★" else "Star ☆"),
++                ),
++            onAction = { action ->
++                when (action.id) {
++                    FM_ACTION_TUNE -> onTune()
++                    FM_ACTION_STAR -> onToggleFavorite()
++                }
++            },
++            leading = {
++                Surface(
++                    modifier = Modifier.width(FmBadgeSize),
++                    shape = MaterialTheme.shapes.small,
++                    color = MediaPink.copy(alpha = 0.18f),
++                    border = BorderStroke(1.dp, MediaPink.copy(alpha = 0.7f)),
++                ) {
++                    Box(modifier = Modifier.aspectRatio(1f), contentAlignment = Alignment.Center) {
++                        Text(
++                            text = "FM",
++                            style = MaterialTheme.typography.labelLarge,
++                            color = MediaPink,
++                            fontWeight = FontWeight.Bold,
++                            maxLines = 1,
++                            overflow = TextOverflow.Clip,
++                        )
++                    }
++                }
++            },
++        )
++    }
++}
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MainActivity.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MainActivity.kt
+index 8ec4de3..55bbad8 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MainActivity.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MainActivity.kt
+@@ -10,12 +10,16 @@ import android.view.WindowManager
+ import androidx.activity.ComponentActivity
+ import androidx.activity.compose.setContent
+ import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableIntStateOf
+ import androidx.compose.runtime.mutableStateOf
+ import androidx.compose.runtime.setValue
+ 
+ class MainActivity : ComponentActivity() {
+     private var playbackState by mutableStateOf(PlaybackUiState())
+     private lateinit var playbackController: PlaybackController
++    private var fmState by mutableStateOf(FmUiState())
++    private lateinit var fmController: FmController
++    private var openFmToken by mutableIntStateOf(0)
+ 
+     /** Set by [MediaApp]: maps a key-down to a Sable Media command before any view sees it. */
+     private var keyHandler: ((KeyEvent) -> Boolean)? = null
+@@ -31,6 +35,13 @@ class MainActivity : ComponentActivity() {
+                 playbackState = state
+             }
+ 
++        fmController =
++            FmController(applicationContext) { state ->
++                fmState = state
++            }
++        fmState = fmController.state
++        if (intent?.action == FmBridgeProtocol.ACTION_OPEN_FM) openFmToken += 1
++
+         val repositories =
+             MediaRepositories(
+                 localAudio = LocalAudioRepository(applicationContext),
+@@ -40,6 +51,7 @@ class MainActivity : ComponentActivity() {
+                 podcasts = PodcastRepository(applicationContext),
+                 podcastState = PodcastStateRepository(applicationContext),
+                 settings = MediaSettingsRepository(applicationContext),
++                fmPresets = FmPresetStore(applicationContext),
+             )
+ 
+         setContent {
+@@ -54,8 +66,11 @@ class MainActivity : ComponentActivity() {
+                         playLocalQueue = ::playLocalQueue,
+                         adjustVolume = ::adjustVolume,
+                         setKeyHandler = { keyHandler = it },
++                        fm = fmController,
+                     ),
+                 playbackState = playbackState,
++                fmState = fmState,
++                openFmToken = openFmToken,
+             )
+         }
+     }
+@@ -90,7 +105,14 @@ class MainActivity : ComponentActivity() {
+         )
+     }
+ 
++    override fun onNewIntent(intent: Intent) {
++        super.onNewIntent(intent)
++        setIntent(intent)
++        if (intent.action == FmBridgeProtocol.ACTION_OPEN_FM) openFmToken += 1
++    }
++
+     override fun onDestroy() {
++        fmController.disconnect()
+         playbackController.close()
+         window.clearFlags(
+             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaApp.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaApp.kt
+index 2dcf853..aa47c45 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaApp.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaApp.kt
+@@ -29,6 +29,7 @@ internal data class MediaRepositories(
+     val podcasts: PodcastRepository,
+     val podcastState: PodcastStateRepository,
+     val settings: MediaSettingsRepository,
++    val fmPresets: FmPresetStore,
+ )
+ 
+ internal data class MediaHostServices(
+@@ -39,6 +40,7 @@ internal data class MediaHostServices(
+     val playLocalQueue: (List<LocalAudioItem>, Int) -> Unit,
+     val adjustVolume: (raise: Boolean) -> Unit,
+     val setKeyHandler: (((KeyEvent) -> Boolean)?) -> Unit,
++    val fm: FmController,
+ )
+ 
+ @Composable
+@@ -46,6 +48,9 @@ internal fun MediaApp(
+     repositories: MediaRepositories,
+     host: MediaHostServices,
+     playbackState: PlaybackUiState,
++    fmState: FmUiState = FmUiState(),
++    /** Bumped by MainActivity for each org.sableos.media.action.FM_RADIO intent. */
++    openFmToken: Int = 0,
+ ) {
+     val context = LocalContext.current
+     val uiScope = rememberCoroutineScope()
+@@ -80,6 +85,15 @@ internal fun MediaApp(
+         controllers.library.load()
+     }
+ 
++    LaunchedEffect(openFmToken) {
++        if (openFmToken > 0) state.navigate(MediaDestination.Fm)
++    }
++
++    // The FM bridge is bound the first time the FM screen opens, not on every launch.
++    LaunchedEffect(state.destination, host.fm) {
++        if (state.destination == MediaDestination.Fm) host.fm.connect()
++    }
++
+     LaunchedEffect(state.destination, host.playbackController) {
+         host.playbackController.setProgressUpdatesEnabled(
+             state.destination == MediaDestination.NowPlaying,
+@@ -121,9 +135,12 @@ internal fun MediaApp(
+             onConfirmRemoval = controllers.library::confirmRemoval,
+             onDismissRemoval = { state.pendingRemoval = null },
+         )
+-        CompositionLocalProvider(LocalMediaTextInputFocus provides state.textInputFocus) {
++        CompositionLocalProvider(
++            LocalMediaTextInputFocus provides state.textInputFocus,
++            LocalFmAvailable provides fmState.available,
++        ) {
+             MediaScreen(
+-                state = state.screenState(playbackState),
++                state = state.screenState(playbackState, fmState),
+                 actions =
+                     mediaScreenActions(
+                         state = state,
+@@ -229,6 +246,17 @@ private fun mediaScreenActions(
+         onSearchQueryChange = { state.searchQuery = it },
+         onCloseSearch = { state.searchQuery = null },
+         onTrackFocusChange = state::changeTrackFocus,
++        fm =
++            FmScreenActions(
++                onPower = controllers.fm::togglePower,
++                onSeek = host.fm::seek,
++                onStep = host.fm::step,
++                onTune = host.fm::tune,
++                onToggleFavorite = controllers.fm::toggleFavorite,
++                onToggleSpeaker = host.fm::toggleSpeaker,
++                onToggleMute = host.fm::toggleMute,
++                onScan = host.fm::toggleScan,
++            ),
+     )
+ }
+ 
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppControllers.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppControllers.kt
+index 90f3ee0..cdb4be6 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppControllers.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppControllers.kt
+@@ -21,7 +21,8 @@ internal class MediaControllers(
+     val playlists = MediaPlaylistController(state, repositories.libraryState, host, scope)
+     val podcasts = MediaPodcastController(state, repositories, host, scope)
+     val stations = MediaStationController(state, repositories, host)
+-    val keys = MediaKeyController(state, host, library, environment)
++    val fm = MediaFmController(state, repositories, host)
++    val keys = MediaKeyController(state, host, library, environment, fm)
+ 
+     fun changeSettings(updated: MediaSettings) {
+         state.settings = updated
+@@ -533,20 +534,72 @@ internal class MediaStationController(
+     }
+ }
+ 
++/** FM mode actions that need Sable Media state (presets); the rest go straight to [FmController]. */
++internal class MediaFmController(
++    private val state: MediaAppState,
++    private val repositories: MediaRepositories,
++    private val host: MediaHostServices,
++) {
++    fun togglePower() = host.fm.togglePower(state.fmFavorites)
++
++    fun toggleFavorite(station: Int) {
++        val updated = FmPresets.toggle(state.fmFavorites, station)
++        if (updated != state.fmFavorites) {
++            state.fmFavorites = updated
++            repositories.fmPresets.save(updated)
++        }
++    }
++
++    fun run(action: FmKeyAction): Boolean {
++        val fm = host.fm
++        when (action) {
++            is FmKeyAction.Preset -> {
++                val station = FmPresets.keyed(state.fmFavorites, action.number) ?: return false
++                fm.tune(station)
++            }
++
++            is FmKeyAction.Command -> {
++                when (action.command) {
++                    FmKeyCommand.PowerToggle -> togglePower()
++                    FmKeyCommand.SeekDown -> fm.seek(false)
++                    FmKeyCommand.SeekUp -> fm.seek(true)
++                    FmKeyCommand.TuneDown -> fm.step(false)
++                    FmKeyCommand.TuneUp -> fm.step(true)
++                    FmKeyCommand.Favorite -> toggleFavorite(fm.state.station)
++                    FmKeyCommand.Output -> fm.toggleSpeaker()
++                    FmKeyCommand.Mute -> fm.toggleMute()
++                    FmKeyCommand.Scan -> fm.toggleScan()
++                }
++            }
++        }
++        return true
++    }
++}
++
+ /** Turns Media keyboard commands into actions; false leaves the key to the focused view. */
+ internal class MediaKeyController(
+     private val state: MediaAppState,
+     private val host: MediaHostServices,
+     private val library: MediaLibraryController,
+     private val environment: MediaUiEnvironment,
++    private val fm: MediaFmController,
+ ) {
+     fun handle(event: KeyEvent): Boolean {
++        val press = event.toMediaKeyPress()
++        val textInputActive = state.textInputFocus.active
++        val onFm = state.destination == MediaDestination.Fm
++        if (onFm) {
++            FmKeymap.action(press, textInputActive)?.let { action ->
++                if (fm.run(action)) return true
++            }
++        }
+         val command =
+-            MediaKeymap.command(
+-                press = event.toMediaKeyPress(),
+-                textInputActive = state.textInputFocus.active,
+-                onNowPlaying = state.destination == MediaDestination.NowPlaying,
+-            )
++            MediaKeymap
++                .command(
++                    press = press,
++                    textInputActive = textInputActive,
++                    onNowPlaying = state.destination == MediaDestination.NowPlaying,
++                )?.takeIf { !onFm || it in FmKeymap.MEDIA_COMMANDS_ON_FM }
+         return command != null && run(command)
+     }
+ 
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppState.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppState.kt
+index 379efc0..c25129b 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppState.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppState.kt
+@@ -25,6 +25,7 @@ internal class MediaAppState(
+     var podcastMessage by mutableStateOf<String?>(null)
+ 
+     var stations by mutableStateOf(repositories.stations.loadStations())
++    var fmFavorites by mutableStateOf(repositories.fmPresets.load())
+     var favoriteAudioUris by mutableStateOf(repositories.libraryState.loadFavoriteAudioUris())
+     var favoriteStationIds by mutableStateOf(repositories.libraryState.loadFavoriteStationIds())
+     var playlists by mutableStateOf(emptyList<MediaPlaylist>())
+@@ -112,7 +113,10 @@ internal class MediaAppState(
+         }
+     }
+ 
+-    fun screenState(playback: PlaybackUiState): MediaScreenState =
++    fun screenState(
++        playback: PlaybackUiState,
++        fm: FmUiState,
++    ): MediaScreenState =
+         MediaScreenState(
+             destination = destination,
+             libraryPivot = libraryPivot,
+@@ -141,6 +145,8 @@ internal class MediaAppState(
+             message = message,
+             searchQuery = searchQuery,
+             searchFocusToken = searchFocusToken,
++            fm = fm,
++            fmFavorites = fmFavorites,
+         )
+ }
+ 
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt
+index 5e22099..df89424 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt
+@@ -84,6 +84,7 @@ internal enum class MediaDestination(
+     Podcasts("podcasts"),
+     NowPlaying("now playing"),
+     Radio("radio"),
++    Fm("fm"),
+     ManageStations("manage"),
+     AddStation("add"),
+     Queue("queue"),
+@@ -130,6 +131,9 @@ internal data class MediaScreenState(
+     /** Library search query while search is open, else null. */
+     val searchQuery: String? = null,
+     val searchFocusToken: Int = 0,
++    /** FM mode (FmScreen); the FM destination is offered only when [FmUiState.available]. */
++    val fm: FmUiState = FmUiState(),
++    val fmFavorites: Set<Int> = emptySet(),
+ )
+ 
+ internal data class MediaScreenActions(
+@@ -180,6 +184,7 @@ internal data class MediaScreenActions(
+     val onSearchQueryChange: (String) -> Unit = {},
+     val onCloseSearch: () -> Unit = {},
+     val onTrackFocusChange: (LocalAudioItem, Boolean) -> Unit = { _, _ -> },
++    val fm: FmScreenActions? = null,
+ )
+ 
+ @Composable
+@@ -329,6 +334,7 @@ internal fun MediaScreen(
+             MediaDestination.Podcasts,
+             MediaDestination.NowPlaying,
+             MediaDestination.Radio,
++            MediaDestination.Fm,
+             MediaDestination.ManageStations,
+             MediaDestination.AddStation,
+             MediaDestination.Settings,
+@@ -360,6 +366,8 @@ internal fun MediaScreen(
+                                         when (destination) {
+                                             MediaDestination.Podcasts -> "podcasts"
+ 
++                                            MediaDestination.Fm -> "fm radio"
++
+                                             MediaDestination.Radio,
+                                             MediaDestination.ManageStations,
+                                             MediaDestination.AddStation,
+@@ -469,6 +477,16 @@ internal fun MediaScreen(
+                                         )
+                                     }
+ 
++                                    MediaDestination.Fm -> {
++                                        actions.fm?.let { fmActions ->
++                                            FmScreen(
++                                                fm = state.fm,
++                                                favorites = state.fmFavorites,
++                                                actions = fmActions,
++                                            )
++                                        }
++                                    }
++
+                                     MediaDestination.ManageStations -> {
+                                         ManageStationsScreen(
+                                             stations = stations,
+@@ -562,6 +580,7 @@ private fun PrimaryPivot(
+     destination: MediaDestination,
+     onSelect: (MediaDestination) -> Unit,
+ ) {
++    val fmAvailable = LocalFmAvailable.current
+     val current =
+         when (destination) {
+             MediaDestination.ManageStations,
+@@ -580,7 +599,8 @@ private fun PrimaryPivot(
+     // Four top destinations never fit a compact/square row without clipping:
+     // the adaptive nav shows what fits plus a keyboard-reachable "more" menu.
+     SableAdaptiveTopNav(
+-        destinations = MEDIA_TOP_DESTINATIONS,
++        // FM_RADIO_TILE_VISIBLE=NO without a tuner service: FM is listed only when the bridge is installed.
++        destinations = if (fmAvailable) MEDIA_TOP_DESTINATIONS_WITH_FM else MEDIA_TOP_DESTINATIONS,
+         selectedId = current?.name,
+         onSelect = { id -> onSelect(MediaDestination.valueOf(id)) },
+         accent = MediaPink,
+@@ -595,6 +615,15 @@ private val MEDIA_TOP_DESTINATIONS =
+         MediaDestination.NowPlaying,
+     ).map { SableDestination(it.name, it.label) }
+ 
++private val MEDIA_TOP_DESTINATIONS_WITH_FM =
++    listOf(
++        MediaDestination.Collection,
++        MediaDestination.Podcasts,
++        MediaDestination.Radio,
++        MediaDestination.Fm,
++        MediaDestination.NowPlaying,
++    ).map { SableDestination(it.name, it.label) }
++
+ private val LIBRARY_DESTINATIONS =
+     LibraryPivot.entries.map { SableDestination(it.name, it.label) }
+ 
+diff --git a/sable-src/apps/r8/android/media/src/test/java/org/sableos/media/FmModelTest.kt b/sable-src/apps/r8/android/media/src/test/java/org/sableos/media/FmModelTest.kt
+new file mode 100644
+index 0000000..ec7621f
+--- /dev/null
++++ b/sable-src/apps/r8/android/media/src/test/java/org/sableos/media/FmModelTest.kt
+@@ -0,0 +1,79 @@
++package org.sableos.media
++
++import android.view.KeyEvent
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Test
++
++class FmModelTest {
++    private fun fm(
++        keyCode: Int,
++        char: Char? = null,
++        shift: Boolean = false,
++        alt: Boolean = false,
++        repeat: Int = 0,
++    ) = FmKeymap.action(MediaKeyPress(keyCode, char, shift, alt, repeatCount = repeat), textInputActive = false)
++
++    private fun command(c: FmKeyCommand) = FmKeyAction.Command(c)
++
++    @Test
++    fun seekTuneAndPowerKeys() {
++        assertEquals(command(FmKeyCommand.PowerToggle), fm(KeyEvent.KEYCODE_SPACE, ' '))
++        assertEquals(command(FmKeyCommand.SeekDown), fm(KeyEvent.KEYCODE_DPAD_LEFT))
++        assertEquals(command(FmKeyCommand.SeekUp), fm(KeyEvent.KEYCODE_K, 'k'))
++        assertEquals(command(FmKeyCommand.TuneDown), fm(KeyEvent.KEYCODE_J, 'J', shift = true))
++        assertEquals(command(FmKeyCommand.TuneUp), fm(KeyEvent.KEYCODE_DPAD_RIGHT, shift = true, repeat = 4))
++        assertEquals(command(FmKeyCommand.Output), fm(KeyEvent.KEYCODE_O, 'o'))
++        assertEquals(command(FmKeyCommand.Scan), fm(KeyEvent.KEYCODE_R, 'r'))
++        assertEquals(command(FmKeyCommand.Favorite), fm(KeyEvent.KEYCODE_F, 'f'))
++        assertEquals(command(FmKeyCommand.Mute), fm(KeyEvent.KEYCODE_M, 'm'))
++    }
++
++    @Test
++    fun presetsFromTheAltDigitLayer() {
++        // Alt+W is 1 and Alt+C is 9 on the Q25.
++        assertEquals(FmKeyAction.Preset(1), fm(KeyEvent.KEYCODE_W, '1', alt = true))
++        assertEquals(FmKeyAction.Preset(9), fm(KeyEvent.KEYCODE_C, '9', alt = true))
++        assertNull(fm(KeyEvent.KEYCODE_U, '_', alt = true))
++    }
++
++    @Test
++    fun heldKeysRepeatOnlyFineTuneAndTextInputWins() {
++        assertNull(fm(KeyEvent.KEYCODE_SPACE, ' ', repeat = 1))
++        assertNull(fm(KeyEvent.KEYCODE_DPAD_LEFT, repeat = 1))
++        assertNull(FmKeymap.action(MediaKeyPress(KeyEvent.KEYCODE_SPACE, ' '), textInputActive = true))
++    }
++
++    @Test
++    fun bandStepsWrapAndFormat() {
++        assertEquals(876, FmBand.step(875, up = true))
++        assertEquals(1080, FmBand.step(875, up = false))
++        assertEquals(875, FmBand.step(1080, up = true))
++        assertEquals(1080, FmBand.step(0, up = false))
++        assertEquals("98.5", FmBand.format(985))
++        assertEquals("108.0", FmBand.format(1080))
++    }
++
++    @Test
++    fun presetsAreStarredStationsInFrequencyOrder() {
++        val favorites = setOf(1015, 889, 2000)
++        assertEquals(listOf(889, 1015), FmPresets.ordered(favorites))
++        assertEquals(889, FmPresets.keyed(favorites, 1))
++        assertNull(FmPresets.keyed(favorites, 3))
++        assertEquals(setOf(1015, 889, 2000, 950), FmPresets.toggle(favorites, 950))
++        assertEquals(setOf(1015, 2000), FmPresets.toggle(favorites, 889))
++        val list = FmPresets.list(setOf(1015), listOf(FmStation(889, "Jazz"), FmStation(1015, "News"), FmStation(889)))
++        assertEquals(listOf(FmStation(1015, "News"), FmStation(889, "Jazz")), list)
++    }
++
++    @Test
++    fun statusNamesTheAntenna() {
++        val connected = FmUiState(available = true, connected = true)
++        assertEquals("Plug in wired headphones: they are the antenna", FmBand.status(connected))
++        assertEquals("Off", FmBand.status(connected.copy(antenna = true)))
++        assertEquals(
++            "Playing on the speaker",
++            FmBand.status(connected.copy(antenna = true, powered = true, speaker = true)),
++        )
++    }
++}
