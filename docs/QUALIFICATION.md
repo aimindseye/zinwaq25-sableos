@@ -147,6 +147,7 @@ on that phone. Procedure: [`RETURN_TO_STOCK.md`](RETURN_TO_STOCK.md).
 | Q4-REVIEW-WEATHER | Fresh install with Wi-Fi, Sable Weather never opened: within a few minutes Start's header shows the city and temperature instead of "Weather"; `adb shell dumpsys jobscheduler \| grep org.sableos.weather` lists the periodic job | NOT_RUN |
 | Q4-REVIEW-WEATHER-CITY | First Sable Setup run: the Weather city picker opens; typing "tor" lists Toronto, Enter selects it, Start's header shows Toronto weather shortly after (Wi-Fi on); Skip keeps the current city; the Setup checklist row shows the chosen city (sable-src 0068) | NOT_RUN |
 | Q4-REVIEW-DISPLAYCOMPAT | App display compatibility: tapping an app opens its editor, a profile other than Native can be chosen and saved, and the list shows it as stored | NOT_RUN |
+| Q4-REVIEW-START-ICONS | Start's app grid at 411 dp: 5 columns, 4 rows a page, one tile-free glyph style for every shipped app (no coloured tiles, no LineageOS icon next to a glyph), Sable Camera and Camera (Aperture) visibly different, labels on one line; a third-party app with a themed icon shows it in the same silver style (sable-src 0069) | NOT_RUN |
 | Q4-REVIEW-RECENTS | The Recents key (and the Recents button with 3-button navigation) opens Sable Start on Active Frames; Alt+Tab and the swipe-up gesture still open the Android overview (Launcher3 0003) | NOT_RUN |
 
 Crash rule (sableos #84): after any first-boot or launcher crash, run

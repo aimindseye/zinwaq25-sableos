@@ -8,6 +8,7 @@ filegroup {
     srcs: [
         "src/com/sable/start/live/LiveSurfaceModels.kt",
         "src/com/sable/start/model/AppEntry.kt",
+        "src/com/sable/start/model/AppGlyphs.kt",
         "src/com/sable/start/model/Bb10Home.kt",
         "src/com/sable/start/model/CommandQuery.kt",
         "src/com/sable/start/model/CoreAppIdentity.kt",

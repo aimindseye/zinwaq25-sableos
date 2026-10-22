@@ -7,8 +7,10 @@ import android.content.IntentFilter
 import android.content.pm.LauncherApps
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.drawable.AdaptiveIconDrawable
 import android.net.Uri
 import android.os.BatteryManager
+import android.os.Build
 import android.os.SystemClock
 import android.provider.CallLog
 import android.util.LruCache
@@ -106,6 +108,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -134,6 +137,7 @@ import org.sableos.start.live.LiveAvailability
 import org.sableos.start.live.LiveDatum
 import org.sableos.start.live.LiveSurfaceSnapshot
 import org.sableos.start.model.AppEntry
+import org.sableos.start.model.AppGlyphs
 import org.sableos.start.model.CommandQuery
 import org.sableos.start.model.CommandRanking
 import org.sableos.start.model.CommandScope
@@ -340,11 +344,12 @@ fun SableStartScreen(
             installed = gridCandidates.map { it.stableKey() },
         )
     val gridApps = gridKeys.mapNotNull(appByKey::get)
+    val gridLabels = gridApps.mapTo(HashSet()) { it.label }
     val quickSlots =
         quickBarTokens.mapNotNull { token ->
             resolveQuickSlot(token, apps, appByKey)
         }
-    val gridRows = AppGrid.rowsFor(LocalConfiguration.current.screenHeightDp - START_CHROME_DP, GRID_CELL_MIN_DP)
+    val gridRows = AppGrid.rowsFor(startGridHeightDp(), GRID_CELL_MIN_DP)
     val gridPerPage = AppGrid.perPage(gridRows)
     val gridPages = AppGrid.pageCount(gridApps.size, gridPerPage)
     val pageCount = StartPages.count(gridPages)
@@ -538,6 +543,7 @@ fun SableStartScreen(
                                         AppGridPage(
                                             apps = AppGrid.page(gridApps, index, gridPerPage),
                                             rows = gridRows,
+                                            gridLabels = gridLabels,
                                             active = startPager.settledPage == page,
                                             onLaunchApp = ::launchApp,
                                             onLaunchSecond = ::launchSecond,
@@ -770,6 +776,26 @@ private fun Bb10Theme(content: @Composable () -> Unit) {
 }
 
 /**
+ * The app grid's height in dp: the window (LocalWindowInfo, so the Q25's
+ * square and any other size alike) less the system bars, the page dots, the
+ * bar and the grid's padding. Before the window is measured, the
+ * configuration's screen height stands in.
+ */
+@Composable
+private fun startGridHeightDp(): Int {
+    val density = LocalDensity.current
+    val windowHeightPx = LocalWindowInfo.current.containerSize.height
+    val insets = WindowInsets.safeDrawing
+    val contentDp =
+        if (windowHeightPx > 0) {
+            with(density) { (windowHeightPx - insets.getTop(density) - insets.getBottom(density)).toDp().value.toInt() }
+        } else {
+            LocalConfiguration.current.screenHeightDp - STATUS_BAR_FALLBACK_DP
+        }
+    return contentDp - START_CHROME_DP
+}
+
+/**
  * The horizontal strip (BB10 layout): pages, the BB10 page indicator and the
  * Phone · Search · Camera bar.
  *
@@ -892,11 +918,11 @@ private fun Bb10PageIndicator(
             Box(
                 modifier =
                     Modifier
-                        .size(18.dp)
+                        .size(width = INDICATOR_SLOT_DP.dp, height = INDICATOR_HEIGHT_DP.dp)
                         .clickable { onShowPage(page) },
                 contentAlignment = Alignment.Center,
             ) {
-                ComposeCanvas(Modifier.size(if (page < StartPages.FIRST_GRID) 12.dp else 7.dp)) {
+                ComposeCanvas(Modifier.size(if (page < StartPages.FIRST_GRID) 10.dp else 6.dp)) {
                     val unit = size.minDimension
                     when (page) {
                         StartPages.HUB ->
@@ -1028,18 +1054,18 @@ private fun ActiveFramesPage(
 @Composable
 private fun StatusDialsRow(onOpenSettings: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(start = FRAME_PADDING, end = 4.dp, top = 6.dp),
+        modifier = Modifier.fillMaxWidth().padding(start = FRAME_PADDING, end = 2.dp, top = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SableStatusRings(modifier = Modifier.weight(1f), ringSize = 38.dp)
+        SableStatusRings(modifier = Modifier.weight(1f), ringSize = STATUS_RING_SIZE)
         Text(
             text = "⚙",
-            fontSize = 24.sp,
+            fontSize = 22.sp,
             color = Color.White,
             modifier =
                 Modifier
-                    .heightIn(min = 48.dp)
-                    .width(48.dp)
+                    .heightIn(min = 44.dp)
+                    .width(44.dp)
                     .sableFocusRing()
                     .clickable(onClick = onOpenSettings)
                     .semantics { contentDescription = "Settings" }
@@ -1089,18 +1115,18 @@ private fun WeatherDateHeader(
                 .sableFocusRing()
                 .clickable(onClick = onOpen)
                 .semantics { contentDescription = "$line. $dateText" }
-                .padding(vertical = 4.dp),
+                .padding(vertical = 2.dp),
     ) {
         Text(
             text = line,
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.titleMedium,
             color = Color.White,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         Text(
             text = dateText,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodySmall,
             color = Bb10Muted,
             maxLines = 1,
         )
@@ -1231,8 +1257,8 @@ private fun FrameCard(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                if (app != null) AppMark(app = app, size = 48)
-                Spacer(Modifier.height(8.dp))
+                if (app != null) AppMark(app = app, size = FRAME_ICON_DP)
+                Spacer(Modifier.height(6.dp))
                 Text(
                     text =
                         live?.takeIf { it.availability == LiveAvailability.LIVE }?.detail
@@ -1400,21 +1426,21 @@ private fun GlanceFrameCard(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(start = 12.dp, end = 12.dp, top = 14.dp, bottom = FRAME_LABEL_HEIGHT),
+                    .padding(start = 10.dp, end = 10.dp, top = 8.dp, bottom = FRAME_LABEL_HEIGHT),
             verticalArrangement = Arrangement.Center,
         ) {
             Text(
                 text = headline,
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleMedium,
                 color = Color.White,
-                maxLines = 3,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
             if (detail.isNotBlank()) {
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(2.dp))
                 Text(
                     text = detail,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = Bb10Muted,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -1429,7 +1455,7 @@ private fun GlanceFrameCard(
                     .fillMaxWidth()
                     .height(FRAME_LABEL_HEIGHT)
                     .background(if (focused) Bb10Blue else Color(0xE6000000))
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
             style = MaterialTheme.typography.labelLarge,
             color = Color.White,
             maxLines = 1,
@@ -1447,15 +1473,19 @@ private fun weatherLines(datum: LiveDatum): Pair<String, String> {
 }
 
 /**
- * One app grid page: four columns of labelled, boxed icons in the user's
- * order (Edit Home reorders them). Arrows move focus, Enter opens, Shift+Enter
- * opens the Dual copy, Space, Menu or Alt+Enter opens the app's actions, long
- * press on an icon its actions and on an empty place Edit Home; typing searches.
+ * One app grid page (Ripe 10 / BB10 page model): five columns of labelled,
+ * tile-free icons in the user's order (Edit Home reorders them), as many rows
+ * as the window fits ([AppGrid.rowsFor]); the icon size follows the cell.
+ * Arrows move focus, Enter opens, Shift+Enter opens the Dual copy, Space, Menu
+ * or Alt+Enter opens the app's actions, long press on an icon its actions and
+ * on an empty place Edit Home; typing searches.
  */
 @Composable
 private fun AppGridPage(
     apps: List<AppEntry>,
     rows: Int,
+    /** Every grid app's name, so a shortened name never repeats another ([AppGrid.gridLabel]). */
+    gridLabels: Set<String>,
     active: Boolean,
     onLaunchApp: (AppEntry) -> Unit,
     onLaunchSecond: (AppEntry) -> Unit,
@@ -1469,31 +1499,41 @@ private fun AppGridPage(
             runCatching { firstFocus.requestFocus() }
         }
     }
-    Column(
+    BoxWithConstraints(
         modifier =
             Modifier
                 .fillMaxSize()
                 .pointerInput(Unit) { detectTapGestures(onLongPress = { onEditHome() }) }
-                .padding(horizontal = 8.dp, vertical = 6.dp),
+                .padding(horizontal = GRID_PADDING, vertical = GRID_PADDING),
     ) {
-        for (row in 0 until rows) {
-            Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                for (column in 0 until AppGrid.COLUMNS) {
-                    val app = apps.getOrNull(row * AppGrid.COLUMNS + column)
-                    if (app == null) {
-                        Spacer(Modifier.weight(1f))
-                    } else {
-                        GridCell(
-                            app = app,
-                            onOpen = { onLaunchApp(app) },
-                            onOpenSecond = { onLaunchSecond(app) },
-                            onActions = { onOpenPeek(app) },
-                            modifier =
-                                Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .then(if (row == 0 && column == 0) Modifier.focusRequester(firstFocus) else Modifier),
-                        )
+        val iconDp =
+            AppGrid.iconSizeFor(
+                cellWidthDp = (maxWidth / AppGrid.COLUMNS).value.toInt(),
+                cellHeightDp = (maxHeight / rows).value.toInt(),
+                labelDp = GRID_LABEL_LINE_DP + GRID_CELL_CHROME_DP,
+            )
+        Column(modifier = Modifier.fillMaxSize()) {
+            for (row in 0 until rows) {
+                Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    for (column in 0 until AppGrid.COLUMNS) {
+                        val app = apps.getOrNull(row * AppGrid.COLUMNS + column)
+                        if (app == null) {
+                            Spacer(Modifier.weight(1f))
+                        } else {
+                            GridCell(
+                                app = app,
+                                label = AppGrid.gridLabel(app.label, gridLabels),
+                                iconDp = iconDp,
+                                onOpen = { onLaunchApp(app) },
+                                onOpenSecond = { onLaunchSecond(app) },
+                                onActions = { onOpenPeek(app) },
+                                modifier =
+                                    Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .then(if (row == 0 && column == 0) Modifier.focusRequester(firstFocus) else Modifier),
+                            )
+                        }
                     }
                 }
             }
@@ -1501,10 +1541,15 @@ private fun AppGridPage(
     }
 }
 
-/** A BB10 grid icon: the app icon in a dark box with its name under it; focus fills the cell BB10 blue. */
+/**
+ * A grid icon: the app's glyph (no tile) with its short name on one line
+ * under it ([AppGrid.gridLabel]); focus fills the cell BB10 blue.
+ */
 @Composable
 private fun GridCell(
     app: AppEntry,
+    label: String,
+    iconDp: Int,
     onOpen: () -> Unit,
     onOpenSecond: () -> Unit,
     onActions: () -> Unit,
@@ -1515,7 +1560,7 @@ private fun GridCell(
     Column(
         modifier =
             modifier
-                .padding(3.dp)
+                .padding(GRID_CELL_GAP)
                 .onFocusChanged { focused = it.isFocused }
                 .clip(shape)
                 .background(if (focused) Bb10Blue.copy(alpha = 0.32f) else Color.Transparent)
@@ -1540,22 +1585,12 @@ private fun GridCell(
                 }.combinedClickable(onClick = onOpen, onLongClick = onActions)
                 .semantics {
                     contentDescription = app.label + (app.profileLabel?.let { ", ${AppProfiles.badge(it)}" } ?: "")
-                }.padding(vertical = 6.dp, horizontal = 2.dp),
+                }.padding(vertical = GRID_CELL_INNER_PADDING, horizontal = 1.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
         Box {
-            Box(
-                modifier =
-                    Modifier
-                        .size(GRID_ICON_BOX_DP.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Bb10Tile)
-                        .border(1.dp, Bb10Line, RoundedCornerShape(10.dp)),
-                contentAlignment = Alignment.Center,
-            ) {
-                AppMark(app = app, size = GRID_ICON_DP)
-            }
+            AppMark(app = app, size = iconDp)
             val badge = app.profileLabel
             if (badge != null) {
                 Text(
@@ -1566,20 +1601,21 @@ private fun GridCell(
                             .clip(RoundedCornerShape(6.dp))
                             .background(Color.Black)
                             .border(1.dp, Bb10Muted, RoundedCornerShape(6.dp))
-                            .padding(horizontal = 4.dp),
-                    fontSize = 9.sp,
+                            .padding(horizontal = 3.dp),
+                    fontSize = 8.sp,
                     color = Color.White,
                     maxLines = 1,
                 )
             }
         }
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(GRID_ICON_LABEL_GAP))
         Text(
-            text = app.label,
-            style = MaterialTheme.typography.labelMedium,
+            text = label,
+            // No tracking: "Minesweeper" fits a fifth of 411dp on one line.
+            style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.sp),
             color = Color.White,
             textAlign = TextAlign.Center,
-            maxLines = 2,
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
     }
@@ -1720,6 +1756,8 @@ private fun HubPage(
                 text = HUB_LABEL,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Medium,
+                // The strip is always BB10 dark, whatever the appearance's content colour.
+                color = Color.White,
                 modifier = Modifier.semantics { heading() },
             )
             Spacer(Modifier.height(8.dp))
@@ -1880,7 +1918,7 @@ private fun Bb10ActionBar(
                 .height(BAR_HEIGHT_DP.dp)
                 .background(Brush.verticalGradient(listOf(Bb10BarTop, Bb10BarBottom)))
                 .border(1.dp, Bb10Line)
-                .padding(horizontal = 24.dp, vertical = 6.dp),
+                .padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         slots.forEachIndexed { index, slot ->
@@ -1917,7 +1955,7 @@ private fun Bb10ActionBar(
                         },
                 contentAlignment = Alignment.Center,
             ) {
-                QuickSlotMark(slot = slot, size = 30, monochrome = true)
+                QuickSlotMark(slot = slot, size = BAR_GLYPH_DP, monochrome = true)
             }
         }
     }
@@ -3932,21 +3970,20 @@ private fun CompactAppRow(
     }
 }
 
+/**
+ * An app's icon in Start's one style (Q4 device review, Q7): the app's Sable
+ * glyph when it has one ([AppGlyphs], by package only), else its own themed
+ * monochrome layer shaded like the glyphs, else its own icon at the same size.
+ * Never a tile behind it.
+ */
 @Composable
 private fun AppMark(
     app: AppEntry,
     size: Int,
-    fallbackContentColor: Color = MaterialTheme.colorScheme.onSurface,
-    showFallbackSurface: Boolean = true,
 ) {
-    val glyphPackage = approvedGlyphPackage(app)
-    if (glyphPackage != null) {
-        SableGlyphIcon(
-            packageName = glyphPackage,
-            accent = appColor(app),
-            modifier = Modifier.size(size.dp),
-            compact = size <= 46,
-        )
+    val glyph = AppGlyphs.forPackage(app.component.packageName)
+    if (glyph != null) {
+        SableGlyphIcon(glyph = glyph, modifier = Modifier.size(size.dp))
         return
     }
 
@@ -3956,7 +3993,7 @@ private fun AppMark(
     // Loaded off the main thread and cached for the process: binding a row never
     // waits on LauncherApps (ROW_BIND_BLOCKING_QUERY=NO).
     val icon by
-        produceState<Bitmap?>(initialValue = LauncherIconCache.get(iconKey), iconKey) {
+        produceState<LauncherIcon?>(initialValue = LauncherIconCache.get(iconKey), iconKey) {
             if (value == null) {
                 value =
                     withContext(Dispatchers.IO) {
@@ -3966,78 +4003,53 @@ private fun AppMark(
         }
 
     val loadedIcon = icon
-    if (loadedIcon != null) {
-        Image(
-            bitmap = loadedIcon.asImageBitmap(),
-            contentDescription = null,
-            modifier =
-                Modifier
-                    .size(size.dp)
-                    .clip(RoundedCornerShape(8.dp)),
-            contentScale = ContentScale.Fit,
-        )
-    } else {
-        Box(
-            modifier =
-                Modifier
-                    .size(size.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .then(
-                        if (showFallbackSurface) {
-                            Modifier.background(appColor(app))
-                        } else {
-                            Modifier
-                        },
-                    ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = appMark(app),
-                fontWeight = FontWeight.Bold,
-                color = fallbackContentColor,
+    when {
+        loadedIcon == null ->
+            // Until the icon loads: the first letter in the glyph colours, no tile.
+            Box(modifier = Modifier.size(size.dp), contentAlignment = Alignment.Center) {
+                Text(
+                    text = appMark(app),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = (size * 0.5f).sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        loadedIcon.monochrome ->
+            SableMonochromeIcon(
+                mask = loadedIcon.bitmap.asImageBitmap(),
+                accent = appColor(app),
+                modifier = Modifier.size(size.dp),
             )
-        }
+        else ->
+            Image(
+                bitmap = loadedIcon.bitmap.asImageBitmap(),
+                contentDescription = null,
+                modifier = Modifier.size(size.dp),
+                contentScale = ContentScale.Fit,
+            )
     }
 }
 
-private fun approvedGlyphPackage(app: AppEntry): String? {
-    val packageName = app.component.packageName
-    if (sableGlyphForPackage(packageName) != null) return packageName
+/** A loaded launcher icon: the app's themed monochrome layer (a mask) or its full icon. */
+private class LauncherIcon(
+    val bitmap: Bitmap,
+    val monochrome: Boolean,
+)
 
-    return when {
-        app.label.equals("Phone", ignoreCase = true) -> DIALER_PACKAGE
-        app.label.equals(HUB_LABEL, ignoreCase = true) ||
-            app.label.equals("Hub", ignoreCase = true) ||
-            app.label.equals(MESSAGES_LABEL, ignoreCase = true) ||
-            app.label.equals("Messages", ignoreCase = true) -> HUB_PACKAGE
-        app.label.equals(MAIL_LABEL, ignoreCase = true) ||
-            app.label.equals("Mail", ignoreCase = true) -> MAIL_PACKAGE
-        app.label.equals("Sable Calendar", ignoreCase = true) ||
-            app.label.equals("Calendar", ignoreCase = true) -> CALENDAR_PACKAGE
-        app.label.equals(WEATHER_LABEL, ignoreCase = true) ||
-            app.label.equals("Weather", ignoreCase = true) -> WEATHER_PACKAGE
-        app.label.equals("Photos", ignoreCase = true) ||
-            app.label.equals("Gallery", ignoreCase = true) -> GALLERY_PACKAGE
-        app.label.equals(MEDIA_LABEL, ignoreCase = true) ||
-            app.label.equals("Media", ignoreCase = true) -> MEDIA_PACKAGE
-        app.label.equals("Camera", ignoreCase = true) -> "app.grapheneos.camera"
-        app.label.equals(CALCULATOR_LABEL, ignoreCase = true) ||
-            app.label.equals("Calculator", ignoreCase = true) -> CALCULATOR_PACKAGE
-        app.label.equals("Files", ignoreCase = true) -> FILES_PACKAGE
-        app.label.equals("Clock", ignoreCase = true) -> "com.android.deskclock"
-        app.label.equals("Vanadium", ignoreCase = true) -> "app.vanadium.browser"
-        app.label.equals("Settings", ignoreCase = true) -> SETTINGS_PACKAGE
-        else -> null
-    }
-}
+private object LauncherIconCache : LruCache<String, LauncherIcon>(LAUNCHER_ICON_CACHE_ENTRIES)
 
-private object LauncherIconCache : LruCache<String, Bitmap>(LAUNCHER_ICON_CACHE_ENTRIES)
-
+/**
+ * The app's icon at [sizeDp]. An adaptive icon with a monochrome layer
+ * (Android 13 themed icons) gives that layer, its 66dp safe zone scaled to
+ * the glyph box so it sits at the glyphs' size; any other icon is drawn whole,
+ * inset like the glyphs' own margin. Work and clone badges come from the
+ * row's profile label, not from the icon.
+ */
 private fun loadLauncherIcon(
     context: Context,
     app: AppEntry,
     sizeDp: Int,
-): Bitmap? =
+): LauncherIcon? =
     runCatching {
         val launcherApps = context.getSystemService(LauncherApps::class.java)
         val activityInfo =
@@ -4053,8 +4065,6 @@ private fun loadLauncherIcon(
             (sizeDp * density)
                 .toInt()
                 .coerceAtLeast(1)
-        val insetPx = (iconSizePx * 0.06f).toInt()
-        val drawable = activityInfo.getBadgedIcon(densityDpi)
         val bitmap =
             Bitmap.createBitmap(
                 iconSizePx,
@@ -4062,7 +4072,22 @@ private fun loadLauncherIcon(
                 Bitmap.Config.ARGB_8888,
             )
         val canvas = Canvas(bitmap)
-
+        val drawable = activityInfo.getIcon(densityDpi)
+        val monochrome =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && drawable is AdaptiveIconDrawable) {
+                drawable.monochrome
+            } else {
+                null
+            }
+        if (monochrome != null) {
+            // The layer spans the 108dp adaptive canvas; its 66dp safe zone fills the icon box.
+            val canvasPx = (iconSizePx * ADAPTIVE_CANVAS_DP / ADAPTIVE_SAFE_ZONE_DP).toInt()
+            val offset = (iconSizePx - canvasPx) / 2
+            monochrome.setBounds(offset, offset, offset + canvasPx, offset + canvasPx)
+            monochrome.draw(canvas)
+            return@runCatching LauncherIcon(bitmap, monochrome = true)
+        }
+        val insetPx = (iconSizePx * OWN_ICON_INSET).toInt()
         drawable.setBounds(
             insetPx,
             insetPx,
@@ -4070,7 +4095,7 @@ private fun loadLauncherIcon(
             iconSizePx - insetPx,
         )
         drawable.draw(canvas)
-        bitmap
+        LauncherIcon(bitmap, monochrome = false)
     }.getOrNull()
 
 @Composable
@@ -4592,58 +4617,29 @@ private fun appMark(app: AppEntry): String =
         .uppercase()
         .ifEmpty { "•" }
 
-private fun appColor(app: AppEntry): Color =
-    when {
-        app.component.packageName == HUB_PACKAGE ||
-            app.label.equals(HUB_LABEL, ignoreCase = true) ||
-            app.label.equals(MESSAGES_LABEL, ignoreCase = true) -> SableGreen
-        app.component.packageName == MAIL_PACKAGE ||
-            app.label.equals(MAIL_LABEL, ignoreCase = true) -> SableSlate
-        app.component.packageName == CALENDAR_PACKAGE ||
-            app.label.equals("Calendar", ignoreCase = true) -> SableOrange
-        app.component.packageName == WEATHER_PACKAGE ||
-            app.label.equals(WEATHER_LABEL, ignoreCase = true) -> SableBlue
-        app.component.packageName == MEDIA_PACKAGE ||
-            app.label.equals(MEDIA_LABEL, ignoreCase = true) -> SablePurple
-        CoreAppIdentity.isRole(app.component.packageName, CoreAppIdentity.PHOTOS) ||
-            app.label.equals("Photos", ignoreCase = true) -> SablePurple
-        CoreAppIdentity.isRole(app.component.packageName, CoreAppIdentity.CAMERA) ||
-            app.component.packageName == CoreAppIdentity.SABLE_CAMERA ||
-            app.label.equals("Camera", ignoreCase = true) -> SableSlate
-        app.component.packageName == CALCULATOR_PACKAGE ||
-            app.label.equals(CALCULATOR_LABEL, ignoreCase = true) -> SableBlue
-        app.component.packageName == FILES_PACKAGE ||
-            app.label.equals("Files", ignoreCase = true) -> SableOrange
-        app.component.packageName == DIALER_PACKAGE ||
-            app.label.equals("Phone", ignoreCase = true) -> SableBlue
-        else -> {
-            val index =
-                Math.floorMod(
-                    app.stableKey().hashCode(),
-                    SableTilePalette.size,
-                )
-            SableTilePalette[index]
-        }
-    }
+/** The app's accent: its glyph's ([AppGlyphs], by package), else a stable pick from the Sable palette. */
+private fun appColor(app: AppEntry): Color {
+    AppGlyphs.forPackage(app.component.packageName)?.let { return Color(it.accent) }
+    val index =
+        Math.floorMod(
+            app.stableKey().hashCode(),
+            SableTilePalette.size,
+        )
+    return SableTilePalette[index]
+}
 
+/** The live line for an app's Active Frame, by package only (a "Calendar" label is not Sable Calendar). */
 private fun liveDatumForApp(
     app: AppEntry,
     snapshot: LiveSurfaceSnapshot,
 ): LiveDatum? =
-    when {
-        app.component.packageName == CALENDAR_PACKAGE ||
-            app.label.equals("Calendar", ignoreCase = true) -> snapshot.calendar
-        app.component.packageName == HUB_PACKAGE ||
-            app.label.equals(HUB_LABEL, ignoreCase = true) ||
-            app.label.equals(MESSAGES_LABEL, ignoreCase = true) -> snapshot.messages
-        app.component.packageName == MAIL_PACKAGE ||
-            app.label.equals(MAIL_LABEL, ignoreCase = true) -> snapshot.mail
-        app.component.packageName == WEATHER_PACKAGE ||
-            app.label.equals(WEATHER_LABEL, ignoreCase = true) -> snapshot.weather
-        app.component.packageName == MEDIA_PACKAGE ||
-            app.label.equals(MEDIA_LABEL, ignoreCase = true) -> snapshot.music
-        CoreAppIdentity.isRole(app.component.packageName, CoreAppIdentity.PHOTOS) ||
-            app.label.equals("Photos", ignoreCase = true) -> snapshot.photos
+    when (CoreAppIdentity.canonicalPackage(app.component.packageName)) {
+        CALENDAR_PACKAGE -> snapshot.calendar
+        HUB_PACKAGE -> snapshot.messages
+        MAIL_PACKAGE -> snapshot.mail
+        WEATHER_PACKAGE -> snapshot.weather
+        MEDIA_PACKAGE -> snapshot.music
+        CoreAppIdentity.PHOTOS -> snapshot.photos
         else -> null
     }
 
@@ -4690,15 +4686,10 @@ private const val WEATHER_PACKAGE = "org.sableos.weather"
 private const val MEDIA_PACKAGE = "org.sableos.media"
 private const val DIALER_PACKAGE = "com.android.dialer"
 private const val GALLERY_PACKAGE = "com.android.gallery3d"
-private const val CALCULATOR_PACKAGE = "org.sableos.calculator"
-private const val FILES_PACKAGE = "com.android.documentsui"
-private const val SETTINGS_PACKAGE = "com.android.settings"
 private const val HUB_LABEL = "Sable Hub"
 private const val WEATHER_LABEL = "Sable Weather"
 private const val MAIL_LABEL = "Sable Mail"
 private const val MESSAGES_LABEL = "Sable Messages"
-private const val MEDIA_LABEL = "Sable Media"
-private const val CALCULATOR_LABEL = "Sable Calculator"
 private const val CONTACTS_PACKAGE = "com.android.contacts"
 private const val KEYCODE_DPAD_LEFT = 21
 private const val KEYCODE_DPAD_RIGHT = 22
@@ -4709,20 +4700,46 @@ private val EditRowStep = 48.dp
 private const val PROFILE_PRIVATE_LABEL = "private"
 private const val HUB_EXTRA_QUERY = "org.sableos.hub.extra.QUERY"
 private const val LAUNCHER_ICON_CACHE_ENTRIES = 160
+private const val ADAPTIVE_CANVAS_DP = 108f
+private const val ADAPTIVE_SAFE_ZONE_DP = 66f
+
+/** An app's own (non-glyph) icon keeps the margin a Phosphor glyph has in its 256-unit box. */
+private const val OWN_ICON_INSET = 0.06f
 private const val FOCUS_SURFACE_ALL_APPS = "all-apps"
 private val PrivacyBadgeWidth = 18.dp
 
-// BB10 strip metrics (720x720 at density 193 is about 597dp square).
-private val FRAME_PADDING = 8.dp
-private val FRAME_GAP = 8.dp
-private val FRAME_LABEL_HEIGHT = 30.dp
-private val FRAME_MIN_HEIGHT = 120.dp
-private const val GRID_CELL_MIN_DP = 112
-private const val GRID_ICON_BOX_DP = 58
-private const val GRID_ICON_DP = 42
-private const val INDICATOR_HEIGHT_DP = 18
-private const val BAR_HEIGHT_DP = 58
+// BB10 strip metrics, designed for the Q25's 720x720 panel at density 280
+// (411dp square, about 387dp tall under the status bar). The grid's rows and
+// icon size, and the Active Frames card height, come from the window.
+private val FRAME_PADDING = 6.dp
+private val FRAME_GAP = 6.dp
+private val FRAME_LABEL_HEIGHT = 26.dp
 
-/** Status bar, page indicator, bar and padding: what the grid pages do not get. */
-private const val START_CHROME_DP = 24 + INDICATOR_HEIGHT_DP + BAR_HEIGHT_DP + 12
+/** Two rows of frames always fit under the dials and the weather on a 411dp square. */
+private val FRAME_MIN_HEIGHT = 72.dp
+private const val FRAME_ICON_DP = 40
+private val STATUS_RING_SIZE = 34.dp
+
+/** A grid cell is at least this tall: a 40dp icon, its one-line label and the focus padding. */
+private const val GRID_CELL_MIN_DP = 74
+private val GRID_PADDING = 4.dp
+private val GRID_CELL_GAP = 2.dp
+private val GRID_CELL_INNER_PADDING = 4.dp
+private val GRID_ICON_LABEL_GAP = 3.dp
+
+/** labelMedium's line height. */
+private const val GRID_LABEL_LINE_DP = 16
+
+/** Cell gap, inner padding and icon-to-label gap, top and bottom. */
+private const val GRID_CELL_CHROME_DP = 2 * 2 + 4 * 2 + 3
+private const val INDICATOR_HEIGHT_DP = 16
+private const val INDICATOR_SLOT_DP = 18
+private const val BAR_HEIGHT_DP = 48
+private const val BAR_GLYPH_DP = 26
+
+/** Before the window is measured: the status bar the configuration's height still includes. */
+private const val STATUS_BAR_FALLBACK_DP = 24
+
+/** Page indicator, bar and the grid's own padding: what the grid rows do not get. */
+private const val START_CHROME_DP = INDICATOR_HEIGHT_DP + BAR_HEIGHT_DP + 2 * 4
 private const val NANOS_PER_MILLI = 1_000_000L

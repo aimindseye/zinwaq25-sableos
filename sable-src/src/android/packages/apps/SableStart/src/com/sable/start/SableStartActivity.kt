@@ -296,6 +296,10 @@ class SableStartActivity : ComponentActivity() {
             homeGeneration.value = 0
             backGeneration.value = 0
             startRequest.value = StartRequest(screenFor(intent), startRequest.value.serial + 1)
+        } else if (intent.action == ACTION_SHOW_ACTIVE_FRAMES) {
+            // Closes anything open over the pages and shows Active Frames, the BB10 Recents.
+            homeGeneration.value += 1
+            refreshFrames()
         } else if (intent.action == Intent.ACTION_MAIN) {
             homeGeneration.value += 1
             refreshFrames()
@@ -488,6 +492,9 @@ class SableStartActivity : ComponentActivity() {
 
         /** Settings > Sable Start > Home layout: Edit Home. */
         const val ACTION_EDIT_HOME = "org.sableos.start.action.EDIT_HOME"
+
+        /** The Recents key or button (sent by Launcher3QuickStep): Active Frames, the BB10 Recents. */
+        const val ACTION_SHOW_ACTIVE_FRAMES = "org.sableos.start.action.SHOW_ACTIVE_FRAMES"
         const val SCREEN_START = "start"
         const val SCREEN_EDIT_HOME = "home"
 

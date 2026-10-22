@@ -78,6 +78,13 @@
                 <action android:name="org.sableos.start.action.EDIT_HOME" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+
+            <!-- The Recents key and button (Launcher3QuickStep, setPackage org.sableos.launcher):
+                 Active Frames instead of Android's overview. -->
+            <intent-filter>
+                <action android:name="org.sableos.start.action.SHOW_ACTIVE_FRAMES" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
     </application>
 </manifest>
