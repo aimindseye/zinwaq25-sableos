@@ -1,0 +1,598 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 22 Oct 2026 04:04:31 +0000
+Subject: [PATCH] SableOS: route subtitle, Hub route chip and privacy line in
+ Contacts
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+People design (contacts-people-titan2):
+
+* Route subtitle: under each local contact, the default number as
+  before followed by the person's other routes, "Mail" when they have an
+  email address and "Hub" when Sable Hub is installed and they have a
+  number ("Mobile · +1 555 0101 · Mail · Hub"). Email presence comes
+  from one bounded read-only Email query in a new loader next to the
+  numbers loader; nothing is written.
+* Locked and private states: while the device is locked or Sable private
+  mode is on (Sable Hub > Connected apps, read from Hub's read-only
+  org.sableos.hub.privacy provider; observed, and re-read on resume),
+  the number is left out ("Phone · Mail · Hub") and a line above the
+  list says why: "12 people · Details hidden until unlock" ("3 people
+  matched · …" in search) or "Private mode · Numbers hidden". Without
+  Hub there is no private mode.
+* Hub route chip: QuickContact gets a "Hub" toolbar action, shown when
+  Hub can open a conversation and the person has a number; it opens the
+  conversation for the default number (else the first) in Hub with
+  org.sableos.hub.action.OPEN_CONVERSATION. It only navigates.
+
+ContactsProvider stays the owner of contact data; editing, linking and
+accounts are unchanged.
+---
+ AndroidManifest.xml                           |   4 +
+ res/menu/quickcontact.xml                     |   7 +
+ res/values/sable_dimens.xml                   |  20 +++
+ res/values/sable_strings.xml                  |  20 +++
+ .../DefaultContactBrowseListFragment.java     |  77 ++++++++
+ .../list/DefaultContactListAdapter.java       |  45 ++++-
+ .../contacts/list/SableRouteLoader.java       | 169 ++++++++++++++++++
+ .../quickcontact/QuickContactActivity.java    |  50 ++++++
+ 8 files changed, 388 insertions(+), 4 deletions(-)
+ create mode 100644 res/values/sable_dimens.xml
+ create mode 100644 src/com/android/contacts/list/SableRouteLoader.java
+
+diff --git a/AndroidManifest.xml b/AndroidManifest.xml
+index db16cf1..4b254f7 100644
+--- a/AndroidManifest.xml
++++ b/AndroidManifest.xml
+@@ -635,6 +635,10 @@
+         <!-- ContactsProvider2 -->
+         <package android:name="com.android.providers.contacts"/>
+ 
++        <!-- Sable: Hub route chip and Sable private mode (read-only). -->
++        <package android:name="org.sableos.hub"/>
++        <provider android:authorities="org.sableos.hub.privacy"/>
++
+         <!-- quickcontact actions and verbs -->
+         <intent>
+             <action android:name="android.intent.action.SENDTO" />
+diff --git a/res/menu/quickcontact.xml b/res/menu/quickcontact.xml
+index 7d87708..cd60c78 100644
+--- a/res/menu/quickcontact.xml
++++ b/res/menu/quickcontact.xml
+@@ -25,6 +25,13 @@
+         android:id="@+id/menu_edit"
+         android:showAsAction="always" />
+ 
++    <!-- Sable: the Hub route chip (shown when Sable Hub is installed and there is a number). -->
++    <item
++        android:id="@+id/menu_sable_hub"
++        android:title="@string/sable_menu_open_in_hub"
++        android:showAsAction="ifRoom|withText"
++        android:visible="false" />
++
+     <item
+         android:id="@+id/menu_join"
+         android:title="@string/menu_joinAggregate" />
+diff --git a/res/values/sable_dimens.xml b/res/values/sable_dimens.xml
+new file mode 100644
+index 0000000..5dc433a
+--- /dev/null
++++ b/res/values/sable_dimens.xml
+@@ -0,0 +1,20 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++  ~ Copyright (C) 2026 The SableOS Project
++  ~
++  ~ Licensed under the Apache License, Version 2.0 (the "License");
++  ~ you may not use this file except in compliance with the License.
++  ~ You may obtain a copy of the License at
++  ~
++  ~      http://www.apache.org/licenses/LICENSE-2.0
++  ~
++  ~ Unless required by applicable law or agreed to in writing, software
++  ~ distributed under the License is distributed on an "AS IS" BASIS,
++  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++  ~ See the License for the specific language governing permissions and
++  ~ limitations under the License
++  -->
++<resources>
++    <!-- Padding of the privacy line above the contact list. -->
++    <dimen name="sable_privacy_banner_padding">12dp</dimen>
++</resources>
+diff --git a/res/values/sable_strings.xml b/res/values/sable_strings.xml
+index c18cd30..f8dbc31 100644
+--- a/res/values/sable_strings.xml
++++ b/res/values/sable_strings.xml
+@@ -19,4 +19,24 @@
+     <string name="sable_alphabet_jump_to">Jump to <xliff:g id="letter" example="A">%1$s</xliff:g></string>
+     <!-- Shown when a letter key is pressed and no contact files under it. [CHAR LIMIT=40] -->
+     <string name="sable_alphabet_no_contacts">No contacts under <xliff:g id="letter" example="Q">%1$s</xliff:g></string>
++    <!-- Route words under a contact's name ("Mobile · 555 0101 · Mail · Hub"). [CHAR LIMIT=12] -->
++    <string name="sable_route_phone">Phone</string>
++    <!-- Route word: the contact has an email address. [CHAR LIMIT=12] -->
++    <string name="sable_route_mail">Mail</string>
++    <!-- Route word: Sable Hub can open a conversation with the contact. [CHAR LIMIT=12] -->
++    <string name="sable_route_hub">Hub</string>
++    <!-- List line while the device is locked. [CHAR LIMIT=60] -->
++    <plurals name="sable_people_locked">
++        <item quantity="one"><xliff:g id="count" example="1">%1$d</xliff:g> person · Details hidden until unlock</item>
++        <item quantity="other"><xliff:g id="count" example="12">%1$d</xliff:g> people · Details hidden until unlock</item>
++    </plurals>
++    <!-- Search result line while the device is locked. [CHAR LIMIT=60] -->
++    <plurals name="sable_people_matched_locked">
++        <item quantity="one"><xliff:g id="count" example="1">%1$d</xliff:g> person matched · Details hidden until unlock</item>
++        <item quantity="other"><xliff:g id="count" example="3">%1$d</xliff:g> people matched · Details hidden until unlock</item>
++    </plurals>
++    <!-- List line while Sable private mode (set in Sable Hub) is on. [CHAR LIMIT=60] -->
++    <string name="sable_private_mode_numbers_hidden">Private mode · Numbers hidden</string>
++    <!-- QuickContact toolbar action: open this person's conversation in Sable Hub. [CHAR LIMIT=12] -->
++    <string name="sable_menu_open_in_hub">Hub</string>
+ </resources>
+diff --git a/src/com/android/contacts/list/DefaultContactBrowseListFragment.java b/src/com/android/contacts/list/DefaultContactBrowseListFragment.java
+index 6b69904..c39fdc8 100644
+--- a/src/com/android/contacts/list/DefaultContactBrowseListFragment.java
++++ b/src/com/android/contacts/list/DefaultContactBrowseListFragment.java
+@@ -120,6 +120,30 @@ public class DefaultContactBrowseListFragment extends ContactBrowseListFragment
+     private SablePreferredNumbers mSableNumbers = SablePreferredNumbers.empty();
+     private int mSableLastJump = ListView.INVALID_POSITION;
+     private Toast mSableToast;
++    private static final int SABLE_ROUTES_LOADER_ID = -3;
++    private SableRouteLoader.Data mSableRoutes = SableRouteLoader.Data.EMPTY;
++    private TextView mSablePrivacyBanner;
++    private int mSableListCount;
++
++    /** Sable: Mail and Hub routes and privacy come from their own read-only loader. */
++    private final LoaderManager.LoaderCallbacks<SableRouteLoader.Data> mSableRouteCallbacks =
++            new LoaderManager.LoaderCallbacks<SableRouteLoader.Data>() {
++                @Override
++                public Loader<SableRouteLoader.Data> onCreateLoader(int id, Bundle args) {
++                    return new SableRouteLoader(getContext());
++                }
++
++                @Override
++                public void onLoadFinished(
++                        Loader<SableRouteLoader.Data> loader, SableRouteLoader.Data routes) {
++                    setSableRoutes(routes);
++                }
++
++                @Override
++                public void onLoaderReset(Loader<SableRouteLoader.Data> loader) {
++                    setSableRoutes(null);
++                }
++            };
+ 
+     /** Sable: the subtitle numbers come from their own read-only loader. */
+     private final LoaderManager.LoaderCallbacks<SablePreferredNumbers> mSableNumbersCallbacks =
+@@ -331,9 +355,11 @@ public class DefaultContactBrowseListFragment extends ContactBrowseListFragment
+     public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
+         if (loader.getId() == Directory.DEFAULT) {
+             bindListHeader(data == null ? 0 : data.getCount());
++            mSableListCount = data == null ? 0 : data.getCount();
+         }
+         super.onLoadFinished(loader, data);
+         updateSableAlphabetRail();
++        updateSablePrivacyBanner();
+         if (!isSearchMode()) {
+             maybeShowHamburgerFeatureHighlight();
+         }
+@@ -466,6 +492,7 @@ public class DefaultContactBrowseListFragment extends ContactBrowseListFragment
+         adapter.setPhotoPosition(
+                 ContactListItemView.getDefaultPhotoPosition(/* opposite= */ false));
+         adapter.setSableNumbers(mSableNumbers);
++        adapter.setSableRoutes(mSableRoutes);
+         return adapter;
+     }
+ 
+@@ -552,6 +579,52 @@ public class DefaultContactBrowseListFragment extends ContactBrowseListFragment
+         return SableAlphabetIndex.fromPositions(sections, positions, cursor.getCount(), start);
+     }
+ 
++    /**
++     * Sable: the privacy line above the list (CONTACTS_PEOPLE_UX "Privacy states"), a list header
++     * that is empty unless numbers are hidden: "12 people · Details hidden until unlock" while
++     * locked ("3 people matched · …" in search), "Private mode · Numbers hidden" in Sable
++     * private mode.
++     */
++    private void installSablePrivacyBanner(Context context) {
++        final FrameLayout container = new FrameLayout(context);
++        mSablePrivacyBanner = new TextView(context);
++        mSablePrivacyBanner.setTextAppearance(context, android.R.style.TextAppearance_Material_Body1);
++        final int padding = getResources().getDimensionPixelSize(R.dimen.sable_privacy_banner_padding);
++        mSablePrivacyBanner.setPaddingRelative(padding, padding, padding, padding);
++        mSablePrivacyBanner.setVisibility(View.GONE);
++        container.addView(mSablePrivacyBanner);
++        getListView().addHeaderView(container, null, false);
++    }
++
++    private void updateSablePrivacyBanner() {
++        if (mSablePrivacyBanner == null) {
++            return;
++        }
++        final CharSequence text;
++        if (mSableRoutes.deviceLocked) {
++            text = getResources().getQuantityString(
++                    isSearchMode()
++                            ? R.plurals.sable_people_matched_locked
++                            : R.plurals.sable_people_locked,
++                    mSableListCount, mSableListCount);
++        } else if (mSableRoutes.privateMode) {
++            text = getString(R.string.sable_private_mode_numbers_hidden);
++        } else {
++            text = null;
++        }
++        mSablePrivacyBanner.setText(text);
++        mSablePrivacyBanner.setVisibility(text == null ? View.GONE : View.VISIBLE);
++    }
++
++    private void setSableRoutes(SableRouteLoader.Data routes) {
++        mSableRoutes = routes == null ? SableRouteLoader.Data.EMPTY : routes;
++        final ContactListAdapter adapter = getAdapter();
++        if (adapter instanceof DefaultContactListAdapter) {
++            ((DefaultContactListAdapter) adapter).setSableRoutes(mSableRoutes);
++        }
++        updateSablePrivacyBanner();
++    }
++
+     private void setSableNumbers(SablePreferredNumbers numbers) {
+         mSableNumbers = numbers == null ? SablePreferredNumbers.empty() : numbers;
+         final ContactListAdapter adapter = getAdapter();
+@@ -698,6 +771,7 @@ public class DefaultContactBrowseListFragment extends ContactBrowseListFragment
+         headerContainer.addView(mSearchHeaderView);
+         getListView().addHeaderView(headerContainer, null, false);
+         checkHeaderViewVisibility();
++        installSablePrivacyBanner(inflater.getContext());
+ 
+         mSearchProgress = getView().findViewById(R.id.search_progress);
+         mSearchProgressText = (TextView) mSearchHeaderView.findViewById(R.id.totalContactsText);
+@@ -975,6 +1049,9 @@ public class DefaultContactBrowseListFragment extends ContactBrowseListFragment
+                 == PackageManager.PERMISSION_GRANTED) {
+             getLoaderManager().initLoader(
+                     SABLE_NUMBERS_LOADER_ID, null, mSableNumbersCallbacks);
++            // Restarted on every resume: the lock state and private mode may have changed.
++            getLoaderManager().restartLoader(
++                    SABLE_ROUTES_LOADER_ID, null, mSableRouteCallbacks);
+         }
+         maybeShowHamburgerFeatureHighlight();
+         // Re-register the listener, which may have been cleared when onSaveInstanceState was
+diff --git a/src/com/android/contacts/list/DefaultContactListAdapter.java b/src/com/android/contacts/list/DefaultContactListAdapter.java
+index b3f57d3..4e9cead 100644
+--- a/src/com/android/contacts/list/DefaultContactListAdapter.java
++++ b/src/com/android/contacts/list/DefaultContactListAdapter.java
+@@ -30,10 +30,12 @@ import android.provider.ContactsContract.Directory;
+ import android.provider.ContactsContract.SearchSnippets;
+ import android.text.TextUtils;
+ import android.view.View;
++import com.android.contacts.R;
+ import com.android.contacts.compat.ContactsCompat;
+ import com.android.contacts.model.account.AccountWithDataSet;
+ import com.android.contacts.preference.ContactsPreferences;
+ import com.android.contacts.sable.SablePreferredNumbers;
++import com.android.contacts.sable.SableRoutes;
+ import java.util.ArrayList;
+ import java.util.List;
+ 
+@@ -52,6 +54,21 @@ public class DefaultContactListAdapter extends ContactListAdapter {
+         super(context);
+     }
+ 
++    // Sable: email presence, Hub route and privacy for the route subtitle.
++    private SableRouteLoader.Data mSableRoutes = SableRouteLoader.Data.EMPTY;
++    private SableRoutes.Words mSableWords;
++
++    /** Sable: routes and privacy for the line under each name. */
++    public void setSableRoutes(SableRouteLoader.Data routes) {
++        mSableRoutes = routes == null ? SableRouteLoader.Data.EMPTY : routes;
++        notifyDataSetChanged();
++    }
++
++    /** Sable: whether rows hide numbers right now (locked device or private mode). */
++    public boolean sableHidesDetails() {
++        return mSableRoutes.hideDetails();
++    }
++
+     /** Sable: numbers shown under the names of local contacts; empty hides the line. */
+     public void setSableNumbers(SablePreferredNumbers numbers) {
+         mSableNumbers = numbers == null ? SablePreferredNumbers.empty() : numbers;
+@@ -280,16 +297,36 @@ public class DefaultContactListAdapter extends ContactListAdapter {
+      * directory only (remote directory rows have no local contact id).
+      */
+     private void bindSableNumber(ContactListItemView view, int partition, Cursor cursor) {
+-        SablePreferredNumbers.Entry number = null;
++        String subtitle = null;
+         if (getPartition(partition) instanceof DirectoryPartition) {
+             final long directoryId =
+                     ((DirectoryPartition) getPartition(partition)).getDirectoryId();
+             if (directoryId == Directory.DEFAULT || directoryId == Directory.LOCAL_INVISIBLE) {
+-                number = mSableNumbers.get(cursor.getLong(ContactQuery.CONTACT_ID));
++                final long contactId = cursor.getLong(ContactQuery.CONTACT_ID);
++                final SablePreferredNumbers.Entry number = mSableNumbers.get(contactId);
++                // Route subtitle: "Mobile · number · Mail · Hub"; numbers hidden while locked
++                // or in Sable private mode ("Phone · Mail · Hub").
++                subtitle = SableRoutes.subtitle(
++                        number == null ? null : number.label,
++                        number == null ? null : number.number,
++                        mSableRoutes.emailContacts.contains(contactId),
++                        mSableRoutes.hubAvailable,
++                        mSableRoutes.hideDetails(),
++                        sableWords());
+             }
+         }
+-        view.setLabel(number == null ? null : number.label);
+-        view.setPhoneNumber(number == null ? null : number.number, null);
++        view.setLabel(null);
++        view.setPhoneNumber(subtitle, null);
++    }
++
++    private SableRoutes.Words sableWords() {
++        if (mSableWords == null) {
++            mSableWords = new SableRoutes.Words(
++                    getContext().getString(R.string.sable_route_phone),
++                    getContext().getString(R.string.sable_route_mail),
++                    getContext().getString(R.string.sable_route_hub));
++        }
++        return mSableWords;
+     }
+ 
+     private boolean isCustomFilterForPhoneNumbersOnly() {
+diff --git a/src/com/android/contacts/list/SableRouteLoader.java b/src/com/android/contacts/list/SableRouteLoader.java
+new file mode 100644
+index 0000000..6fed74a
+--- /dev/null
++++ b/src/com/android/contacts/list/SableRouteLoader.java
+@@ -0,0 +1,169 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.contacts.list;
++
++import android.app.KeyguardManager;
++import android.content.AsyncTaskLoader;
++import android.content.Context;
++import android.content.Intent;
++import android.database.Cursor;
++import android.net.Uri;
++import android.provider.ContactsContract;
++import android.provider.ContactsContract.CommonDataKinds.Email;
++import android.util.Log;
++
++import com.android.contacts.sable.SablePreferredNumbers;
++import com.android.contacts.sable.SableRoutes;
++
++import java.util.HashSet;
++import java.util.Set;
++
++/**
++ * Sable: what the route subtitle needs beyond the default number, loaded off the main thread
++ * with read-only queries: which contacts have an email address (bounded), whether Sable Hub can
++ * open a conversation, and whether rows hide numbers (locked device or Sable private mode, read
++ * from Hub's read-only provider). Reloads on Email data and private mode changes. Writes nothing.
++ */
++final class SableRouteLoader extends AsyncTaskLoader<SableRouteLoader.Data> {
++
++    /** Immutable result. */
++    static final class Data {
++        static final Data EMPTY = new Data(new HashSet<>(), false, false, false);
++
++        final Set<Long> emailContacts;
++        final boolean hubAvailable;
++        final boolean deviceLocked;
++        final boolean privateMode;
++
++        Data(Set<Long> emailContacts, boolean hubAvailable, boolean deviceLocked,
++                boolean privateMode) {
++            this.emailContacts = emailContacts;
++            this.hubAvailable = hubAvailable;
++            this.deviceLocked = deviceLocked;
++            this.privateMode = privateMode;
++        }
++
++        boolean hideDetails() {
++            return SableRoutes.hideDetails(deviceLocked, privateMode);
++        }
++    }
++
++    static final Uri PRIVACY_URI = new Uri.Builder()
++            .scheme("content")
++            .authority(SableRoutes.PRIVACY_AUTHORITY)
++            .appendPath(SableRoutes.PRIVACY_PATH)
++            .build();
++
++    private final ForceLoadContentObserver observer = new ForceLoadContentObserver();
++    private boolean observing;
++    private Data result;
++
++    SableRouteLoader(Context context) {
++        super(context);
++    }
++
++    @Override
++    public Data loadInBackground() {
++        final Context context = getContext();
++        final KeyguardManager keyguard = context.getSystemService(KeyguardManager.class);
++        final boolean locked = keyguard == null || keyguard.isDeviceLocked();
++        return new Data(loadEmailContacts(context), hubAvailable(context), locked,
++                privateMode(context));
++    }
++
++    private Set<Long> loadEmailContacts(Context context) {
++        final Set<Long> ids = new HashSet<>();
++        final Uri uri = Email.CONTENT_URI.buildUpon()
++                .appendQueryParameter(ContactsContract.LIMIT_PARAM_KEY,
++                        String.valueOf(SablePreferredNumbers.MAX_ROWS))
++                .build();
++        try (Cursor cursor = context.getContentResolver().query(
++                uri, new String[] {Email.CONTACT_ID}, Email.ADDRESS + " IS NOT NULL", null, null)) {
++            while (cursor != null && !isLoadInBackgroundCanceled() && cursor.moveToNext()
++                    && ids.size() < SablePreferredNumbers.MAX_CONTACTS) {
++                ids.add(cursor.getLong(0));
++            }
++        } catch (RuntimeException e) {
++            // Missing permission or provider trouble: no Mail route shown, never fail the list.
++            Log.w("SableRouteLoader", "email query failed", e);
++        }
++        return ids;
++    }
++
++    static boolean hubAvailable(Context context) {
++        final Intent open = new Intent(SableRoutes.ACTION_OPEN_CONVERSATION)
++                .setPackage(SableRoutes.HUB_PACKAGE);
++        return context.getPackageManager().resolveActivity(open, 0) != null;
++    }
++
++    static boolean privateMode(Context context) {
++        try (Cursor cursor = context.getContentResolver().query(
++                PRIVACY_URI, null, null, null, null)) {
++            if (cursor == null || !cursor.moveToFirst()) {
++                return SableRoutes.privateMode(null);
++            }
++            final int column = cursor.getColumnIndex(SableRoutes.COLUMN_PRIVATE_MODE);
++            return SableRoutes.privateMode(column < 0 ? 1 : cursor.getInt(column));
++        } catch (RuntimeException e) {
++            // Hub absent or refusing us: no private mode is known.
++            return SableRoutes.privateMode(null);
++        }
++    }
++
++    @Override
++    public void deliverResult(Data data) {
++        result = data;
++        if (isStarted()) {
++            super.deliverResult(data);
++        }
++    }
++
++    @Override
++    protected void onStartLoading() {
++        if (!observing) {
++            getContext().getContentResolver().registerContentObserver(
++                    Email.CONTENT_URI, true, observer);
++            try {
++                getContext().getContentResolver().registerContentObserver(
++                        PRIVACY_URI, false, observer);
++            } catch (RuntimeException e) {
++                // No Hub: nothing to observe.
++            }
++            observing = true;
++        }
++        if (result != null) {
++            deliverResult(result);
++        }
++        // The lock state has no observer: re-read on every start.
++        forceLoad();
++    }
++
++    @Override
++    protected void onStopLoading() {
++        cancelLoad();
++    }
++
++    @Override
++    protected void onReset() {
++        onStopLoading();
++        if (observing) {
++            getContext().getContentResolver().unregisterContentObserver(observer);
++            observing = false;
++        }
++        result = null;
++    }
++}
+diff --git a/src/com/android/contacts/quickcontact/QuickContactActivity.java b/src/com/android/contacts/quickcontact/QuickContactActivity.java
+index eeaf115..7281d72 100644
+--- a/src/com/android/contacts/quickcontact/QuickContactActivity.java
++++ b/src/com/android/contacts/quickcontact/QuickContactActivity.java
+@@ -157,6 +157,7 @@ import com.android.contacts.quickcontact.ExpandingEntryCardView.EntryContextMenu
+ import com.android.contacts.quickcontact.ExpandingEntryCardView.EntryTag;
+ import com.android.contacts.quickcontact.ExpandingEntryCardView.ExpandingEntryCardViewListener;
+ import com.android.contacts.quickcontact.WebAddress.ParseException;
++import com.android.contacts.sable.SableRoutes;
+ import com.android.contacts.util.DateUtils;
+ import com.android.contacts.util.ImageViewDrawableSetter;
+ import com.android.contacts.util.ImplicitIntentsUtil;
+@@ -2639,6 +2640,41 @@ public class QuickContactActivity extends ContactsActivity {
+         return true;
+     }
+ 
++    /** Sable: Hub's conversation hand-off (sable-src 0030 HubIntents.ACTION_OPEN_CONVERSATION). */
++    private static Intent sableHubIntent() {
++        return new Intent(SableRoutes.ACTION_OPEN_CONVERSATION).setPackage(SableRoutes.HUB_PACKAGE);
++    }
++
++    private boolean sableHubAvailable() {
++        return getPackageManager().resolveActivity(sableHubIntent(), 0) != null;
++    }
++
++    /** Sable: the number the Hub route opens: the default (super-primary) number, else the first. */
++    private String sableHubAddress() {
++        if (mContactData == null || mContactData.isDirectoryEntry()) {
++            return null;
++        }
++        String first = null;
++        for (RawContact rawContact : mContactData.getRawContacts()) {
++            for (DataItem dataItem : rawContact.getDataItems()) {
++                if (!(dataItem instanceof PhoneDataItem)) {
++                    continue;
++                }
++                final String number = ((PhoneDataItem) dataItem).getNumber();
++                if (!SableRoutes.hubAddressUsable(number)) {
++                    continue;
++                }
++                if (dataItem.isSuperPrimary()) {
++                    return number.trim();
++                }
++                if (first == null) {
++                    first = number.trim();
++                }
++            }
++        }
++        return first;
++    }
++
+     @Override
+     public boolean onPrepareOptionsMenu(Menu menu) {
+         if (mContactData != null) {
+@@ -2704,6 +2740,10 @@ public class QuickContactActivity extends ContactsActivity {
+             final MenuItem helpMenu = menu.findItem(R.id.menu_help);
+             helpMenu.setVisible(HelpUtils.isHelpAndFeedbackAvailable());
+ 
++            // Sable: the Hub route chip, when Sable Hub is installed and the person has a number.
++            final MenuItem hubMenuItem = menu.findItem(R.id.menu_sable_hub);
++            hubMenuItem.setVisible(sableHubAddress() != null && sableHubAvailable());
++
+             return true;
+         }
+         return false;
+@@ -2846,6 +2886,16 @@ public class QuickContactActivity extends ContactsActivity {
+                     ContactSaveService.createSetSendToVoicemail(
+                             this, mLookupUri, mSendToVoicemailState);
+             this.startService(intent);
++        } else if (id == R.id.menu_sable_hub) {
++            // Sable: open this person's conversation in Sable Hub (it only navigates there).
++            final String address = sableHubAddress();
++            if (address != null) {
++                try {
++                    startActivity(sableHubIntent().putExtra(SableRoutes.EXTRA_ADDRESS, address));
++                } catch (ActivityNotFoundException e) {
++                    Toast.makeText(this, R.string.missing_app, Toast.LENGTH_SHORT).show();
++                }
++            }
+         } else if (id == R.id.menu_help) {
+             Logger.logQuickContactEvent(
+                     mReferrer,
+-- 
+2.43.0
+

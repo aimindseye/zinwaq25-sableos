@@ -1,0 +1,148 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 21 Oct 2026 23:10:55 +0000
+Subject: [PATCH] SableOS: pure route subtitle and privacy model for Contacts
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Pure Java under sable/ for the next patch: SableRoutes builds the line
+under a contact's name from the default number and the person's other
+routes ("Mobile · +1 555 0101 · Mail · Hub"), leaves the number out
+while the device is locked or Sable private mode is on ("Phone · Mail ·
+Hub"), says when a number can be handed to Sable Hub, and reads Sable
+private mode from Hub's provider answer (no Hub: off; unexpected value:
+on). The Hub intent names match sable-src 0030.
+---
+ .../android/contacts/sable/SableRoutes.java   | 119 ++++++++++++++++++
+ 1 file changed, 119 insertions(+)
+ create mode 100644 src/com/android/contacts/sable/SableRoutes.java
+
+diff --git a/src/com/android/contacts/sable/SableRoutes.java b/src/com/android/contacts/sable/SableRoutes.java
+new file mode 100644
+index 0000000..35b97d9
+--- /dev/null
++++ b/src/com/android/contacts/sable/SableRoutes.java
+@@ -0,0 +1,119 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.contacts.sable;
++
++/**
++ * Route subtitle, Hub route and privacy for People rows (CONTACTS_PEOPLE_UX "Person row model",
++ * "Privacy states"). Pure Java.
++ *
++ * <p>Under each name: the default number as before ("Mobile · +1 555 0101") followed by the other
++ * routes the person has: "Mail" when they have an email address and "Hub" when Sable Hub is
++ * installed and they have a number ("Mobile · +1 555 0101 · Mail · Hub"). While the device is
++ * locked or Sable private mode is on, the number is left out and only the routes show ("Phone ·
++ * Mail · Hub").
++ *
++ * <p>Sable private mode lives in Sable Hub and is read from its read-only provider; without Hub
++ * there is none. A provider value other than 0 counts as on (fail closed).
++ */
++public final class SableRoutes {
++
++    /** Separator between subtitle parts. */
++    public static final String SEPARATOR = SableSubtitle.SEPARATOR;
++
++    /** Sable Hub's conversation hand-off (sable-src 0030 HubIntents). */
++    public static final String HUB_PACKAGE = "org.sableos.hub";
++    public static final String ACTION_OPEN_CONVERSATION = "org.sableos.hub.action.OPEN_CONVERSATION";
++    public static final String EXTRA_ADDRESS = "org.sableos.hub.extra.ADDRESS";
++
++    /** content://org.sableos.hub.privacy/state, column private_mode (0 or 1). */
++    public static final String PRIVACY_AUTHORITY = "org.sableos.hub.privacy";
++    public static final String PRIVACY_PATH = "state";
++    public static final String COLUMN_PRIVATE_MODE = "private_mode";
++
++    /** Longest address handed to Hub (Hub refuses longer ones). */
++    public static final int MAX_HUB_ADDRESS_LENGTH = 64;
++
++    private SableRoutes() {}
++
++    /** Localized route words: phone, mail, hub. */
++    public static final class Words {
++        final String phone;
++        final String mail;
++        final String hub;
++
++        public Words(String phone, String mail, String hub) {
++            this.phone = phone;
++            this.mail = mail;
++            this.hub = hub;
++        }
++    }
++
++    /**
++     * The line under a contact's name, or null for the name alone.
++     *
++     * @param label the default number's type label, may be null
++     * @param number the default number, null when the contact has none
++     */
++    public static String subtitle(
++            String label, String number, boolean hasEmail, boolean hubAvailable,
++            boolean hideDetails, Words words) {
++        final String cleanNumber = SableSubtitle.cleanNumber(number);
++        final boolean hasNumber = cleanNumber != null;
++        final StringBuilder out = new StringBuilder();
++        if (hasNumber) {
++            out.append(hideDetails ? words.phone : SableSubtitle.format(label, cleanNumber));
++        }
++        if (hasEmail) {
++            append(out, words.mail);
++        }
++        if (hasNumber && hubAvailable) {
++            append(out, words.hub);
++        }
++        return out.length() == 0 ? null : out.toString();
++    }
++
++    /** Whether the Hub route applies to a number: something dialable, short enough for Hub. */
++    public static boolean hubAddressUsable(String number) {
++        final String clean = SableSubtitle.cleanNumber(number);
++        if (clean == null || clean.length() > MAX_HUB_ADDRESS_LENGTH) {
++            return false;
++        }
++        for (int i = 0; i < clean.length(); i++) {
++            if (Character.isDigit(clean.charAt(i))) {
++                return true;
++            }
++        }
++        return false;
++    }
++
++    /** Private mode from Hub's answer: null when Hub or its row is absent (off). */
++    public static boolean privateMode(Integer providerValue) {
++        return providerValue != null && providerValue != 0;
++    }
++
++    /** Whether rows hide numbers (locked device or private mode). */
++    public static boolean hideDetails(boolean deviceLocked, boolean privateMode) {
++        return deviceLocked || privateMode;
++    }
++
++    private static void append(StringBuilder out, String word) {
++        if (out.length() > 0) {
++            out.append(SEPARATOR);
++        }
++        out.append(word);
++    }
++}
+-- 
+2.43.0
+
