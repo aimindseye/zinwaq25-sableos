@@ -1,0 +1,1072 @@
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/camera/src/main/AndroidManifest.xml
+index 82d3c25..372d510 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/AndroidManifest.xml
++++ b/sable-src/apps/titan2/platform/camera/src/main/AndroidManifest.xml
+@@ -30,6 +30,17 @@
+                 <action android:name="android.intent.action.MAIN" />
+                 <category android:name="android.intent.category.LAUNCHER" />
+             </intent-filter>
++            <!-- Default still camera (camera gesture, "take a photo" from other apps). Aperture
++                 keeps video capture, the secure lock-screen camera and the QR scanner; its
++                 still filters are removed by the Aperture framework patch 0801. -->
++            <intent-filter>
++                <action android:name="android.media.action.STILL_IMAGE_CAMERA" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
++            <intent-filter>
++                <action android:name="android.media.action.IMAGE_CAPTURE" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
+         </activity>
+     </application>
+ </manifest>
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/android/CaptureResult.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/android/CaptureResult.kt
+new file mode 100644
+index 0000000..a24cc61
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/android/CaptureResult.kt
+@@ -0,0 +1,55 @@
++package org.sableos.titan2.camera.android
++
++import android.app.Activity
++import android.content.Intent
++import android.graphics.BitmapFactory
++import android.net.Uri
++import android.provider.MediaStore
++import org.sableos.titan2.camera.core.LaunchIntent
++
++/**
++ * The answer to an `IMAGE_CAPTURE` request. The photo is written to the caller's `EXTRA_OUTPUT`
++ * (Android grants write access to it with the intent), or returned as a small bitmap in `data`
++ * when the caller gave none. Sable Camera's own MediaStore copy is then removed, so a photo taken
++ * for another app does not also appear in Photos. Only files this app saved are deleted.
++ */
++class CaptureResult(private val activity: Activity) {
++    private val output: Uri? =
++        activity.intent?.getParcelableExtra(MediaStore.EXTRA_OUTPUT, Uri::class.java)
++
++    /** Copies off the UI thread, then calls [done] on it with the result code and data. */
++    fun deliver(saved: Saved, done: (Int, Intent?) -> Unit) {
++        Thread {
++            val cr = activity.contentResolver
++            val data = runCatching {
++                if (output != null) {
++                    cr.openInputStream(saved.uri).use { input ->
++                        checkNotNull(input) { "capture unreadable" }
++                        cr.openOutputStream(output, "wt").use { out ->
++                            checkNotNull(out) { "EXTRA_OUTPUT not writable" }
++                            input.copyTo(out)
++                        }
++                    }
++                    Intent().setData(output)
++                } else {
++                    Intent().putExtra("data", thumbnail(saved.uri))
++                }
++            }.getOrNull()
++            runCatching { cr.delete(saved.uri, null, null) }
++            activity.runOnUiThread {
++                done(if (data != null) Activity.RESULT_OK else Activity.RESULT_CANCELED, data)
++            }
++        }.start()
++    }
++
++    private fun thumbnail(uri: Uri): android.graphics.Bitmap {
++        val cr = activity.contentResolver
++        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
++        cr.openInputStream(uri).use { BitmapFactory.decodeStream(it, null, bounds) }
++        val opts = BitmapFactory.Options().apply {
++            inSampleSize = LaunchIntent.thumbnailSample(bounds.outWidth, bounds.outHeight)
++        }
++        val bitmap = cr.openInputStream(uri).use { BitmapFactory.decodeStream(it, null, opts) }
++        return checkNotNull(bitmap) { "capture not decodable" }
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ActionRouter.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ActionRouter.kt
+index 0c4ad66..a2819e2 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ActionRouter.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ActionRouter.kt
+@@ -40,6 +40,7 @@ object ActionRouter {
+         CameraAction.PauseToggle,
+         CameraAction.NextCaptureMode,
+         CameraAction.CompareToggle,
++        CameraAction.RawToggle,
+         CameraAction.QualityNext -> routeCaptureKey(ui, a)
+ 
+         CameraAction.NextMode -> Cmd.UiStep(1)
+@@ -83,7 +84,7 @@ object ActionRouter {
+ 
+         CameraAction.PauseToggle -> if (ui == UiMode.Video) Cmd.Act(a) else Cmd.Nop
+ 
+-        CameraAction.NextCaptureMode, CameraAction.CompareToggle ->
++        CameraAction.NextCaptureMode, CameraAction.CompareToggle, CameraAction.RawToggle ->
+             if (ui == UiMode.Photo) Cmd.Act(a) else Cmd.Nop
+ 
+         CameraAction.QualityNext -> if (ui == UiMode.Video) Cmd.Act(a) else Cmd.Nop
+@@ -111,3 +112,22 @@ object ActionRouter {
+         return available[(i + if (dir >= 0) 1 else -1).coerceIn(0, available.lastIndex)]
+     }
+ }
++
++/** Photo paths reached by a single key. */
++object PhotoPath {
++    /**
++     * R: from Auto to RAW, or to high-res when the camera has no RAW path; from RAW or high-res back
++     * to Auto. Null when the camera has neither, so R does nothing.
++     */
++    fun rawToggle(cur: CaptureMode, cam: CameraReport): CaptureMode? {
++        val target = listOf(CaptureMode.Raw, CaptureMode.HighRes)
++            .firstOrNull { cam.modes[it]?.ok == true } ?: return null
++        return if (cur == CaptureMode.Raw || cur == CaptureMode.HighRes) CaptureMode.Auto else target
++    }
++
++    /** Short name for the mode chip and the title: AUTO, HIGH-RES, RAW. */
++    fun label(m: CaptureMode): String = when (m) {
++        CaptureMode.HighRes -> "HIGH-RES"
++        else -> m.name.uppercase(java.util.Locale.ROOT)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlDeck.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlDeck.kt
+index 3f601c2..61166a5 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlDeck.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlDeck.kt
+@@ -83,6 +83,12 @@ object ControlGate {
+ 
+         CameraAction.CompareToggle -> need(c.ui == UiMode.Photo, "Photo only")
+ 
++        CameraAction.RawToggle -> if (c.ui == UiMode.Photo) {
++            need(PhotoPath.rawToggle(CaptureMode.Auto, c.cam) != null, "No RAW or high-res path")
++        } else {
++            Gate.Closed("Photo only")
++        }
++
+         else -> null
+     }
+ 
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlLegend.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlLegend.kt
+index c22d7cb..11333de 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlLegend.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlLegend.kt
+@@ -30,7 +30,8 @@ object ControlLegend {
+         CameraAction.SelectIso, CameraAction.SelectWb, CameraAction.SelectShutter,
+         CameraAction.StepUp, CameraAction.StepDown, CameraAction.ProAuto,
+         CameraAction.ZoomIn, CameraAction.ZoomOut, CameraAction.PrevMode,
+-        CameraAction.NextMode, CameraAction.SwitchCamera, CameraAction.NextCaptureMode,
++        CameraAction.NextMode, CameraAction.SwitchCamera, CameraAction.RawToggle,
++        CameraAction.NextCaptureMode,
+         CameraAction.QualityNext, CameraAction.CompareToggle, CameraAction.OpenLast,
+         CameraAction.ToggleLegend, CameraAction.Back
+     )
+@@ -56,6 +57,7 @@ object ControlLegend {
+         CameraAction.NextMode to "Next mode",
+         CameraAction.SwitchCamera to "Switch camera",
+         CameraAction.NextCaptureMode to "Photo size",
++        CameraAction.RawToggle to "RAW / high-res",
+         CameraAction.QualityNext to "Video quality",
+         CameraAction.CompareToggle to "Compare bracket",
+         CameraAction.OpenLast to "Review last capture",
+@@ -85,6 +87,7 @@ object ControlLegend {
+         a: CameraAction,
+         profile: CameraDeviceProfile = CameraDeviceProfile.Unknown
+     ): List<Binding> = (CameraKeyMap.standard + profile.keyOverrides).filterValues { it == a }.keys
++        .filter { ArrowGuard.shown(it, profile) }
+         .sortedWith(compareBy({ it.hold }, { it.alt }, { it.key }))
+ 
+     fun keyText(b: Binding): String = (if (b.hold) "Hold " else "") +
+@@ -195,6 +198,7 @@ object TouchFallback {
+         CameraAction.NextMode to "▶",
+         CameraAction.SwitchCamera to "Flip",
+         CameraAction.NextCaptureMode to "Size",
++        CameraAction.RawToggle to "RAW",
+         CameraAction.QualityNext to "Quality",
+         CameraAction.CompareToggle to "Compare",
+         CameraAction.OpenLast to "Last",
+@@ -207,3 +211,65 @@ object TouchFallback {
+     fun controls(c: DeckContext): List<TouchControl> =
+         labels.map { (a, text) -> TouchControl(a, text, ControlGate.check(a, c)) }
+ }
++
++/** One hint in the dock under the viewfinder: the key as printed, what it does, and its gate. */
++data class Hint(
++    val key: Binding,
++    val keyText: String,
++    val label: String,
++    val action: CameraAction,
++    val gate: Gate
++)
++
++/**
++ * The hint dock (design `sable-camera-capture-titan2`: "[Space] Shutter  [Z] Zoom" under Photo,
++ * "[R] RAW/HiRes [E] Exposure [F] Focus" under Pro, "[Space] Record" under Video). Every hint names
++ * a binding that really resolves to its action on this profile, so the dock cannot advertise a key
++ * that does not work; tests check that.
++ */
++object HintDock {
++    private val photo = listOf(
++        Binding("space") to CameraAction.Shutter,
++        Binding("z") to CameraAction.ZoomIn,
++        Binding("r") to CameraAction.RawToggle,
++        Binding("h") to CameraAction.ToggleLegend
++    )
++    private val pro = listOf(
++        Binding("space") to CameraAction.Shutter,
++        Binding("e") to CameraAction.ExposureUp,
++        Binding("f") to CameraAction.Autofocus,
++        Binding("h") to CameraAction.ToggleLegend
++    )
++    private val video = listOf(
++        Binding("space") to CameraAction.Shutter,
++        Binding("z") to CameraAction.ZoomIn,
++        Binding("q") to CameraAction.QualityNext,
++        Binding("h") to CameraAction.ToggleLegend
++    )
++
++    private val shortLabels = mapOf(
++        CameraAction.ZoomIn to "Zoom",
++        CameraAction.RawToggle to "RAW/HiRes",
++        CameraAction.ToggleLegend to "Keys",
++        CameraAction.ExposureUp to "Exposure",
++        CameraAction.Autofocus to "Focus",
++        CameraAction.QualityNext to "Quality"
++    )
++
++    /** Bindings of the dock for [ui], before gating (tests check each resolves to its action). */
++    fun bindings(ui: UiMode): List<Pair<Binding, CameraAction>> = when (ui) {
++        UiMode.Photo -> photo
++        UiMode.Pro -> pro
++        UiMode.Video -> video
++    }
++
++    fun hints(c: DeckContext, profile: CameraDeviceProfile): List<Hint> =
++        bindings(c.ui).filter { (b, a) -> CameraKeyMap.resolve(b, profile) == a }.map { (b, a) ->
++            val label = if (a == CameraAction.Shutter) {
++                ControlLegend.label(a, c.ui).substringBefore(" /")
++            } else {
++                shortLabels[a] ?: ControlLegend.label(a, c.ui)
++            }
++            Hint(b, ControlLegend.keyText(b), label, a, ControlGate.check(a, c))
++        }
++}
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/DeviceProfile.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/DeviceProfile.kt
+index 1748e03..e072a04 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/DeviceProfile.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/DeviceProfile.kt
+@@ -20,7 +20,12 @@ data class CameraDeviceProfile(
+      * JPEG sizes the HAL produces through a slow full-resolution remosaic path. They are never the
+      * Auto default, only High-res. Restricts what a reported size is used for; grants nothing.
+      */
+-    val remosaicJpegSizes: Set<Size> = emptySet()
++    val remosaicJpegSizes: Set<Size> = emptySet(),
++    /**
++     * The device has a trackpad that sends arrow keys, so plain arrows are guarded ([ArrowGuard]):
++     * a brushed pad must not change mode or zoom.
++     */
++    val trackpadArrows: Boolean = false
+ ) {
+     companion object {
+         private const val HIRES_BACK_W = 8192
+@@ -66,7 +71,9 @@ data class CameraDeviceProfile(
+                 Binding("volume_up") to CameraAction.Shutter,
+                 Binding("volume_down") to CameraAction.Shutter
+             ),
+-            remosaicJpegSizes = setOf(Size(Q25_REMOSAIC_W, Q25_REMOSAIC_H))
++            remosaicJpegSizes = setOf(Size(Q25_REMOSAIC_W, Q25_REMOSAIC_H)),
++            // The Q25 optical trackpad sends arrow keys (to confirm in device-profile/KEYMAP.md).
++            trackpadArrows = true
+         )
+         val Unknown = CameraDeviceProfile("unknown", EvidenceLevel.None)
+         fun byId(id: String?) =
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/KeyMap.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/KeyMap.kt
+index e6d1224..64637de 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/KeyMap.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/KeyMap.kt
+@@ -33,7 +33,10 @@ enum class CameraAction {
+     QualityNext,
+ 
+     /** Show/hide the control legend (a dedicated help action, not a mode). */
+-    ToggleLegend
++    ToggleLegend,
++
++    /** R: Photo between Auto and RAW (or high-res when the camera has no RAW path). */
++    RawToggle
+ }
+ 
+ /**
+@@ -58,12 +61,21 @@ object CameraKeyMap {
+         Binding("e", hold = true) to CameraAction.AeLockToggle,
+         Binding("v") to CameraAction.VideoToggle,
+         Binding("up") to CameraAction.StepUp, Binding("down") to CameraAction.StepDown,
++        Binding("up", alt = true) to CameraAction.StepUp,
++        Binding("down", alt = true) to CameraAction.StepDown,
+         Binding("plus") to CameraAction.ZoomIn, Binding("minus") to CameraAction.ZoomOut,
++        // + - and / need Alt or Sym on a BlackBerry-style keyboard (unreachable on the Q25, where
++        // Alt+letter is a digit), so every action they reach also has a plain-letter key.
++        Binding("z") to CameraAction.ZoomIn, Binding("x") to CameraAction.ZoomOut,
++        Binding("z", alt = true) to CameraAction.ZoomOut,
++        Binding("r") to CameraAction.RawToggle,
+         Binding("c") to CameraAction.SwitchCamera, Binding("tab") to CameraAction.SwitchCamera,
+         Binding("e") to CameraAction.ExposureUp,
+         Binding("e", alt = true) to CameraAction.ExposureDown,
+         Binding("g") to CameraAction.OpenLast, Binding("b") to CameraAction.CompareToggle,
+         Binding("right") to CameraAction.NextMode, Binding("left") to CameraAction.PrevMode,
++        Binding("right", alt = true) to CameraAction.NextMode,
++        Binding("left", alt = true) to CameraAction.PrevMode,
+         Binding("w") to CameraAction.SelectWb, Binding("i") to CameraAction.SelectIso,
+         Binding("s") to CameraAction.SelectShutter,
+         Binding("a") to CameraAction.ProAuto, Binding("p") to CameraAction.PauseToggle,
+@@ -102,6 +114,29 @@ object CameraKeyMap {
+     ): Set<CameraAction> = (standard + profile.keyOverrides).values.toSet()
+ }
+ 
++/**
++ * Trackpad guard. On a device whose trackpad sends arrow keys ([CameraDeviceProfile.trackpadArrows])
++ * a brushed pad must not change mode or zoom. Plain arrows then do nothing until a control has the
++ * focus (a parameter strip is showing, picked with W/I/S/F/E or Z/X), and only Up/Down step it;
++ * Alt+arrows always work. Alt+arrow bindings exist on every device, so the keys stay the same.
++ */
++object ArrowGuard {
++    private val arrows = setOf("up", "down", "left", "right")
++    private val steps = setOf("up", "down")
++
++    fun isArrow(b: Binding): Boolean = b.key in arrows
++
++    /** True when [b] must be swallowed: a plain arrow on a guarded device with nothing focused. */
++    fun blocks(b: Binding, profile: CameraDeviceProfile, stripFocused: Boolean): Boolean =
++        profile.trackpadArrows && !b.alt && b.key in arrows && !(stripFocused && b.key in steps)
++
++    /** Whether the legend and hint dock may show [b] as a key for its action. */
++    fun shown(b: Binding, profile: CameraDeviceProfile): Boolean =
++        !(profile.trackpadArrows && !b.alt && b.key in arrows)
++
++    const val HINT = "Trackpad: Alt+arrows change mode and zoom"
++}
++
+ /**
+  * Keys of the quick review. It is a separate layer over the viewfinder, so Left/Right, S and F mean
+  * something else here; the viewfinder map is untouched. While a delete is being confirmed only
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/LaunchIntent.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/LaunchIntent.kt
+new file mode 100644
+index 0000000..c830c10
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/LaunchIntent.kt
+@@ -0,0 +1,60 @@
++package org.sableos.titan2.camera.core
++
++/** How the camera was started. */
++enum class LaunchKind {
++    /** Launcher, Sable Start or an explicit start: the full camera. */
++    Normal,
++
++    /** `STILL_IMAGE_CAMERA` (camera gesture, "open the camera"): the full camera in Photo. */
++    StillCamera,
++
++    /**
++     * `IMAGE_CAPTURE`: another app waits for one photo. Photo/Auto JPEG only; the result goes to the
++     * caller's `EXTRA_OUTPUT` (or back as a small bitmap) and the camera closes.
++     */
++    ImageCapture
++}
++
++/**
++ * Sable Camera is the default still camera: it answers `STILL_IMAGE_CAMERA` and `IMAGE_CAPTURE`
++ * (Aperture keeps video capture, the secure lock-screen camera and the QR scanner). Pure, so the
++ * rules are JVM-tested; the action strings are the stable `MediaStore` constants.
++ */
++object LaunchIntent {
++    const val STILL_IMAGE_CAMERA = "android.media.action.STILL_IMAGE_CAMERA"
++    const val IMAGE_CAPTURE = "android.media.action.IMAGE_CAPTURE"
++
++    fun kind(action: String?): LaunchKind = when (action) {
++        IMAGE_CAPTURE -> LaunchKind.ImageCapture
++        STILL_IMAGE_CAMERA -> LaunchKind.StillCamera
++        else -> LaunchKind.Normal
++    }
++
++    /** Actions that would leave the single Auto JPEG another app asked for. */
++    private val notForCapture = setOf(
++        CameraAction.VideoToggle,
++        CameraAction.PauseToggle,
++        CameraAction.QualityNext,
++        CameraAction.NextMode,
++        CameraAction.PrevMode,
++        CameraAction.NextCaptureMode,
++        CameraAction.RawToggle,
++        CameraAction.CompareToggle,
++        CameraAction.OpenLast
++    )
++
++    fun allows(kind: LaunchKind, a: CameraAction): Boolean =
++        kind != LaunchKind.ImageCapture || a !in notForCapture
++
++    const val CAPTURE_REFUSED = "Another app is waiting for one photo"
++
++    /** The longest edge of the bitmap returned when the caller gave no EXTRA_OUTPUT. */
++    const val THUMBNAIL_EDGE_PX = 512
++
++    /** Sample size that brings [w] x [h] down to at most [THUMBNAIL_EDGE_PX] on its long edge. */
++    fun thumbnailSample(w: Int, h: Int): Int {
++        var sample = 1
++        while (maxOf(w, h) / sample > THUMBNAIL_EDGE_PX) sample *= 2
++        return sample
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/CameraKeys.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/CameraKeys.kt
+index 683a74c..74b691d 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/CameraKeys.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/CameraKeys.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.titan2.camera.ui
+ 
++import org.sableos.titan2.camera.core.ArrowGuard
++import org.sableos.titan2.camera.core.Binding
+ import org.sableos.titan2.camera.core.CameraAction
+ import org.sableos.titan2.camera.core.CameraDeviceProfile
+ import org.sableos.titan2.camera.core.CameraKeyMap
+@@ -12,13 +14,17 @@ import org.sableos.titan2.camera.core.RawKeys
+ /**
+  * Physical keys to actions. The quick review, when open, gets every key first. Keys with a hold
+  * meaning (F, E) wait for release so a hold can become AF/AE lock; held keys otherwise repeat
+- * only for stepping actions, while toggles and the shutter fire once per press.
++ * only for stepping actions, while toggles and the shutter fire once per press. On a device whose
++ * trackpad sends arrows, plain arrows are swallowed unless a parameter strip has the focus
++ * ([ArrowGuard]); [onGuarded] then says to use Alt.
+  */
+ class CameraKeys(
+     private val profile: CameraDeviceProfile,
+     private val review: QuickReviewHost,
+     private val context: () -> DeckContext?,
+-    private val act: (CameraAction) -> Unit
++    private val act: (CameraAction) -> Unit,
++    private val stripFocused: () -> Boolean = { false },
++    private val onGuarded: () -> Unit = {}
+ ) {
+     private val holds = HoldTracker()
+ 
+@@ -59,6 +65,10 @@ class CameraKeys(
+     fun clear() = holds.clear()
+ 
+     private fun press(name: String, alt: Boolean, repeat: Int): Boolean {
++        if (ArrowGuard.blocks(Binding(name, alt), profile, stripFocused())) {
++            if (repeat == 0) onGuarded()
++            return true
++        }
+         val action = CameraKeyMap.resolve(name, alt, profile) ?: return false
+         if (repeat == 0 || action in repeatable) act(action)
+         return true
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/MainActivity.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/MainActivity.kt
+index 0a46913..fdd4c10 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/MainActivity.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/MainActivity.kt
+@@ -18,6 +18,7 @@ import androidx.activity.ComponentActivity
+ import androidx.activity.compose.setContent
+ import androidx.activity.enableEdgeToEdge
+ import androidx.compose.foundation.background
++import androidx.compose.foundation.border
+ import androidx.compose.foundation.clickable
+ import androidx.compose.foundation.horizontalScroll
+ import androidx.compose.foundation.layout.Box
+@@ -25,11 +26,16 @@ import androidx.compose.foundation.layout.BoxScope
+ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.Row
+ import androidx.compose.foundation.layout.aspectRatio
++import androidx.compose.foundation.layout.fillMaxHeight
+ import androidx.compose.foundation.layout.fillMaxSize
+ import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.height
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.safeDrawingPadding
++import androidx.compose.foundation.layout.size
++import androidx.compose.foundation.layout.width
+ import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.shape.CircleShape
+ import androidx.compose.foundation.shape.RoundedCornerShape
+ import androidx.compose.foundation.verticalScroll
+ import androidx.compose.material3.Text
+@@ -41,6 +47,7 @@ import androidx.compose.runtime.setValue
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.graphics.Color
++import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.platform.LocalConfiguration
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+@@ -48,12 +55,15 @@ import androidx.compose.ui.viewinterop.AndroidView
+ import kotlinx.coroutines.delay
+ import org.sableos.titan2.camera.android.CameraController
+ import org.sableos.titan2.camera.android.CameraInfoReader
++import org.sableos.titan2.camera.android.CaptureResult
+ import org.sableos.titan2.camera.android.MediaStoreSaver
+ import org.sableos.titan2.camera.android.RecordingSpec
++import org.sableos.titan2.camera.android.Saved
+ import org.sableos.titan2.camera.android.ReviewActions
+ import org.sableos.titan2.camera.android.StillCallbacks
+ import org.sableos.titan2.camera.android.SysProps
+ import org.sableos.titan2.camera.core.ActionRouter
++import org.sableos.titan2.camera.core.ArrowGuard
+ import org.sableos.titan2.camera.core.BackResult
+ import org.sableos.titan2.camera.core.CameraAction
+ import org.sableos.titan2.camera.core.CameraDeviceProfile
+@@ -70,9 +80,14 @@ import org.sableos.titan2.camera.core.DeckOrientation
+ import org.sableos.titan2.camera.core.DeckPresentation
+ import org.sableos.titan2.camera.core.DeckState
+ import org.sableos.titan2.camera.core.Gate
++import org.sableos.titan2.camera.core.Hint
++import org.sableos.titan2.camera.core.HintDock
++import org.sableos.titan2.camera.core.LaunchIntent
++import org.sableos.titan2.camera.core.LaunchKind
+ import org.sableos.titan2.camera.core.LegendEntry
+ import org.sableos.titan2.camera.core.ParameterStrip
+ import org.sableos.titan2.camera.core.ParameterStrips
++import org.sableos.titan2.camera.core.PhotoPath
+ import org.sableos.titan2.camera.core.ProControls
+ import org.sableos.titan2.camera.core.ProField
+ import org.sableos.titan2.camera.core.ProLimits
+@@ -94,16 +109,20 @@ private const val QUARTER_TURN_DEGREES = 90f
+ private const val HALF_TURN_DEGREES = 180f
+ private const val RECORDING_POLL_MS = 250L
+ 
+-private val accentBlue = Color(0xFF55B9FF)
++/** Sable camera accent: the cyan of `sable-camera-capture-titan2.svg` (#6EE7F9). */
++private val sableCyan = Color(0xFF6EE7F9)
+ 
+ /**
+  * Keyboard-first camera with three modes: Video, Photo, Pro (stock order, minus Timelapse/More
+  * which are not built).
+  * Left/Right change mode. Space/Enter/volume = shutter (record in Video). Photo: Up/Down zoom, M
+  * capture mode, E/Alt+E exposure, B compare, hold F/E lock focus/exposure. G reviews this
+- * session's captures (Left/Right, Del with confirm, S share, F Files, Esc back).
++ * session's captures (Left/Right, Del with confirm, S share, F Files, Esc back). R toggles RAW
++ * (or high-res).
+  * Pro: W/I/E/S/F pick WB/ISO/EV/shutter/focus, Up/Down change it, A returns it to Auto. Video: P
+- * pause, Q quality. +/- zoom everywhere.
++ * pause, Q quality. Z/X (or +/-) zoom everywhere; H (or /) shows the keys. On a device whose
++ * trackpad sends arrows (Q25) the plain arrows only step a strip that has the focus; Alt+arrows
++ * change mode and zoom. Started for IMAGE_CAPTURE it takes one Auto JPEG for the calling app.
+  */
+ class MainActivity : ComponentActivity() {
+     private lateinit var controller: CameraController
+@@ -129,6 +148,8 @@ class MainActivity : ComponentActivity() {
+     private var busy = false
+     private lateinit var review: QuickReviewHost
+     private lateinit var keys: CameraKeys
++    private var launch = LaunchKind.Normal
++    private var captureResult: CaptureResult? = null
+ 
+     override fun onCreate(savedInstanceState: Bundle?) {
+         super.onCreate(savedInstanceState)
+@@ -138,7 +159,19 @@ class MainActivity : ComponentActivity() {
+         controller = CameraController(this, reader, MediaStoreSaver(this))
+         review = QuickReviewHost(ReviewActions(this)) { status = it }
+         onBackPressedDispatcher.addCallback(this, review.back)
+-        keys = CameraKeys(profile, review, ::deckContext, ::act)
++        launch = LaunchIntent.kind(intent?.action)
++        if (launch == LaunchKind.ImageCapture) {
++            captureResult = CaptureResult(this)
++            setResult(RESULT_CANCELED)
++        }
++        keys = CameraKeys(
++            profile,
++            review,
++            ::deckContext,
++            ::act,
++            stripFocused = { deck.strip != null },
++            onGuarded = { status = ArrowGuard.HINT }
++        )
+         rotation = display?.rotation ?: Surface.ROTATION_0
+         setContent { Screen() }
+         micGranted =
+@@ -215,9 +248,11 @@ class MainActivity : ComponentActivity() {
+     private fun resetForCamera() {
+         val rep = report?.camera(camId) ?: return
+         mode = CaptureMode.Auto
++        compare = false
+         proState = ProState()
+         videoOption = VideoPlanner.default(VideoPlanner.options(rep.camera.videoSizes))
+         val avail = ActionRouter.available(rep)
++        if (launch == LaunchKind.ImageCapture && UiMode.Photo in avail) uiMode = UiMode.Photo
+         if (uiMode !in
+             avail
+         ) {
+@@ -279,7 +314,7 @@ class MainActivity : ComponentActivity() {
+             runOnUiThread {
+                 busy = false
+                 status = "Saved ${saved.name}  ${saved.detail}"
+-                review.remember(saved)
++                if (captureResult != null) returnCapture(saved) else review.remember(saved)
+             }
+         },
+         onError = { msg ->
+@@ -357,6 +392,17 @@ class MainActivity : ComponentActivity() {
+         refreshHud()
+     }
+ 
++    /** IMAGE_CAPTURE: hand the JPEG to the calling app and close. */
++    private fun returnCapture(saved: Saved) {
++        val result = captureResult ?: return
++        busy = true
++        status = "Returning the photo…"
++        result.deliver(saved) { code, data ->
++            setResult(code, data)
++            finish()
++        }
++    }
++
+     private fun deckContext(): DeckContext? = report?.let { rep ->
+         rep.camera(camId)?.let {
+             DeckContext(uiMode, it, rep.cameras.size, recState != RecState.Idle, proField)
+@@ -381,6 +427,10 @@ class MainActivity : ComponentActivity() {
+         val cam = rep?.camera(camId)
+         val dc = deckContext()
+         if (rep == null || cam == null || dc == null) return
++        if (!LaunchIntent.allows(launch, raw)) {
++            status = LaunchIntent.CAPTURE_REFUSED
++            return
++        }
+         val d = ControlDeck.dispatch(deck, raw, dc)
+         deck = d.deck
+         d.status?.let { status = it }
+@@ -458,6 +508,7 @@ class MainActivity : ComponentActivity() {
+             CameraAction.PauseToggle,
+             CameraAction.QualityNext,
+             CameraAction.NextCaptureMode,
++            CameraAction.RawToggle,
+             CameraAction.CompareToggle -> doCaptureAction(a, cam)
+ 
+             CameraAction.Autofocus,
+@@ -518,6 +569,11 @@ class MainActivity : ComponentActivity() {
+                 restart()
+             }
+ 
++            CameraAction.RawToggle -> PhotoPath.rawToggle(mode, cam)?.let {
++                mode = it
++                restart()
++            }
++
+             CameraAction.CompareToggle -> {
+                 compare = !compare
+                 refreshHud()
+@@ -703,13 +759,17 @@ class MainActivity : ComponentActivity() {
+                         deck = ControlDeck.toggleTouchChrome(deck)
+                     }
+             )
++            if (dc != null) {
++                FocusReticle(uiMode, controller.locks.afLocked, Modifier.align(Alignment.Center))
++            }
++            ModeTitle(modeTitle(), Modifier.align(Alignment.TopCenter).padding(top = 6.dp))
+             StatusOverlay(
+                 hud,
+                 status,
+                 report?.mismatches?.firstOrNull {
+                     it.kind != org.sableos.titan2.camera.core.MismatchKind.Note
+                 }?.message,
+-                Modifier.align(Alignment.TopStart).padding(8.dp)
++                Modifier.align(Alignment.TopStart).padding(start = 8.dp, top = 26.dp, end = 8.dp)
+             )
+             if (recState != RecState.Idle) {
+                 RecordingBadge(recState, recMs, Modifier.align(Alignment.TopEnd).padding(8.dp))
+@@ -719,6 +779,7 @@ class MainActivity : ComponentActivity() {
+                 Modifier.align(Alignment.BottomCenter).padding(bottom = 6.dp),
+                 horizontalAlignment = Alignment.CenterHorizontally
+             ) {
++                StatusChips(chips(), Modifier.padding(vertical = 2.dp))
+                 if (DeckOrientation.touchChromeVisible(presentation, deck.touchChromeRevealed)) {
+                     ModeSelector(
+                         avail,
+@@ -728,7 +789,18 @@ class MainActivity : ComponentActivity() {
+                         TouchControlBar(TouchFallback.controls(dc), ::act, Modifier)
+                     }
+                 }
+-                LastCaptureRow(review.state.latest, review::load) { act(CameraAction.OpenLast) }
++                if (dc != null) {
++                    HintDockBar(
++                        HintDock.hints(dc, profile),
++                        uiMode,
++                        recState != RecState.Idle,
++                        ::act,
++                        Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
++                    )
++                }
++                if (launch != LaunchKind.ImageCapture) {
++                    LastCaptureRow(review.state.latest, review::load) { act(CameraAction.OpenLast) }
++                }
+             }
+             DeckOverlays(
+                 deck,
+@@ -775,28 +847,169 @@ class MainActivity : ComponentActivity() {
+         }
+     }
+ 
++    /** Header over the viewfinder, as in the design: "PHOTO · AUTO", "PRO · ISO", "VIDEO · 1080p". */
++    private fun modeTitle(): String {
++        val sub = when (uiMode) {
++            UiMode.Photo -> PhotoPath.label(mode)
++            UiMode.Pro -> proField.label.uppercase(java.util.Locale.ROOT)
++            UiMode.Video -> videoOption?.label ?: "-"
++        }
++        val head = uiMode.label.uppercase(java.util.Locale.ROOT) + " · " + sub
++        return if (launch == LaunchKind.ImageCapture) "$head · FOR APP" else head
++    }
++
++    /** Chips along the bottom of the viewfinder: what the next shot will be. */
++    private fun chips(): List<String> = buildList {
++        add("%.1f×".format(java.util.Locale.US, controller.zoom))
++        when (uiMode) {
++            UiMode.Photo -> {
++                add(PhotoPath.label(mode))
++                if (compare) add("Compare")
++            }
++
++            UiMode.Pro -> add("Manual")
++
++            UiMode.Video -> {
++                videoOption?.let { add(it.label) }
++                if (!micGranted) add("No mic")
++            }
++        }
++        if (uiMode != UiMode.Pro && controller.aeSteps != 0) add("EV ${controller.aeSteps}")
++        if (controller.locks.afLocked) add("AF-L")
++        if (controller.locks.aeLocked) add("AE-L")
++    }
++
++    /** Mode chips: Video, Photo, Pro; the current one in the accent. Alt+Left/Right step them. */
+     @androidx.compose.runtime.Composable
+     private fun ModeSelector(avail: List<UiMode>, modifier: Modifier) {
++        val locked = launch == LaunchKind.ImageCapture
+         Row(modifier) {
+             avail.forEach { m ->
++                val current = m == uiMode
+                 Text(
+                     m.label,
+-                    fontSize = 14.sp,
+-                    color = if (m == uiMode) accentBlue else Color.White,
+-                    modifier = Modifier.clickable(enabled = recState == RecState.Idle) {
+-                        report?.let { switchUi(m, it) }
+-                    }.padding(horizontal = 10.dp, vertical = 4.dp)
++                    fontSize = 13.sp,
++                    color = if (current) sableCyan else Color.White,
++                    modifier = Modifier
++                        .padding(horizontal = 3.dp)
++                        .border(
++                            1.dp,
++                            if (current) sableCyan else chipBorder,
++                            RoundedCornerShape(12.dp)
++                        )
++                        .clickable(enabled = recState == RecState.Idle && !locked) {
++                            report?.let { switchUi(m, it) }
++                        }
++                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                 )
+             }
+         }
+     }
+ }
+ 
+-private val deckAccent = Color(0xFF55B9FF)
++private val chipBorder = Color(0xFF475569)
++private val dockSurface = Color(0xCC111827)
++private const val RETICLE_DIM = 0.7f
++private const val GRID_ALPHA = 0.4f
++
++@Composable
++fun ModeTitle(text: String, modifier: Modifier) {
++    Text(
++        text,
++        color = sableCyan,
++        fontSize = 13.sp,
++        fontWeight = FontWeight.SemiBold,
++        modifier = modifier
++    )
++}
++
++/**
++ * Focus reticle: a cyan square in Photo and Pro (solid while AF is locked), a framing rectangle
++ * with a centre cross in Video. It is drawn only; taps still reach the preview.
++ */
++@Composable
++fun FocusReticle(ui: UiMode, afLocked: Boolean, modifier: Modifier) {
++    val color = if (afLocked) sableCyan else sableCyan.copy(alpha = RETICLE_DIM)
++    val shape = RoundedCornerShape(10.dp)
++    if (ui == UiMode.Video) {
++        Box(modifier.size(width = 220.dp, height = 124.dp).border(2.dp, color, shape)) {
++            val grid = color.copy(alpha = GRID_ALPHA)
++            Box(Modifier.align(Alignment.Center).fillMaxHeight().width(1.dp).background(grid))
++            Box(Modifier.align(Alignment.Center).fillMaxWidth().height(1.dp).background(grid))
++        }
++    } else {
++        Box(modifier.size(112.dp).border(2.dp, color, shape))
++    }
++}
++
++@Composable
++fun StatusChips(chips: List<String>, modifier: Modifier) {
++    Row(modifier) {
++        chips.forEach {
++            Text(
++                it,
++                color = Color.White,
++                fontSize = 12.sp,
++                modifier = Modifier
++                    .padding(horizontal = 3.dp)
++                    .background(deckCell, RoundedCornerShape(12.dp))
++                    .border(1.dp, chipBorder, RoundedCornerShape(12.dp))
++                    .padding(horizontal = 10.dp, vertical = 3.dp)
++            )
++        }
++    }
++}
++
++/**
++ * Hint dock: "[Space] Shutter (O) [Z] Zoom [R] RAW/HiRes [H] Keys". The hints come from
++ * [HintDock], so each names a key that works; each is also a touch target for its action.
++ */
++@Composable
++fun HintDockBar(
++    hints: List<Hint>,
++    ui: UiMode,
++    recording: Boolean,
++    onAction: (CameraAction) -> Unit,
++    modifier: Modifier
++) {
++    Row(
++        modifier
++            .background(dockSurface, RoundedCornerShape(12.dp))
++            .border(1.dp, chipBorder, RoundedCornerShape(12.dp))
++            .padding(horizontal = 8.dp, vertical = 4.dp),
++        verticalAlignment = Alignment.CenterVertically
++    ) {
++        hints.forEachIndexed { i, h ->
++            if (i == 1) ShutterGlyph(ui, recording) { onAction(CameraAction.Shutter) }
++            val open = h.gate.isOpen
++            Text(
++                "[${h.keyText}] ${h.label}",
++                color = if (open) Color.White else deckMuted,
++                fontSize = 12.sp,
++                modifier = Modifier
++                    .clickable(enabled = open) { onAction(h.action) }
++                    .padding(horizontal = 6.dp, vertical = 4.dp)
++            )
++        }
++    }
++}
++
++/** White ring for a still shutter; red dot (square while recording) for video. */
++@Composable
++fun ShutterGlyph(ui: UiMode, recording: Boolean, onClick: () -> Unit) {
++    val m = Modifier.padding(horizontal = 6.dp).clickable { onClick() }
++    when {
++        ui != UiMode.Video -> Box(m.size(28.dp).border(3.dp, Color.White, CircleShape))
++        recording -> Box(m.size(18.dp).background(statusRed, RoundedCornerShape(3.dp)))
++        else -> Box(m.size(22.dp).background(statusRed, CircleShape))
++    }
++}
++
++private val deckAccent = sableCyan
+ private val deckMuted = Color(0xFF8BA6B8)
+ private val deckScrim = Color(0xCC000000)
+ private val deckCell = Color(0x66000000)
+-private val deckCellSelected = Color(0xFF16384F)
++private val deckCellSelected = Color(0xFF123B44)
+ 
+ /** Transient parameter strip. It only exists while the model says so; nothing here owns state. */
+ @Composable
+@@ -828,12 +1041,18 @@ fun ParameterStripOverlay(strip: ParameterStrip, onDismiss: () -> Unit, modifier
+ 
+ /** Translucent legend over the preview. Tap anywhere to dismiss; keys are handled by the model. */
+ @Composable
+-fun ControlLegendOverlay(entries: List<LegendEntry>, onDismiss: () -> Unit, modifier: Modifier) {
++fun ControlLegendOverlay(
++    entries: List<LegendEntry>,
++    note: String?,
++    onDismiss: () -> Unit,
++    modifier: Modifier
++) {
+     Box(modifier.fillMaxSize().background(deckScrim).clickable { onDismiss() }) {
+         Column(
+             Modifier.align(Alignment.Center).verticalScroll(rememberScrollState()).padding(16.dp)
+         ) {
+             Text("Controls", color = deckAccent, fontSize = 16.sp)
++            note?.let { Text(it, color = deckMuted, fontSize = 12.sp) }
+             entries.forEach { e ->
+                 val closed = e.gate as? Gate.Closed
+                 Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+@@ -874,7 +1093,7 @@ fun ControlLegendOverlay(entries: List<LegendEntry>, onDismiss: () -> Unit, modi
+                 }
+             }
+             Text(
+-                "Esc, H, ? or a tap closes this. Touch controls do everything the keys do.",
++                "Esc, H or a tap closes this. Touch controls do everything the keys do.",
+                 color = deckMuted,
+                 fontSize = 11.sp
+             )
+@@ -942,7 +1161,12 @@ fun BoxScope.DeckOverlays(
+         )
+     }
+     if (deck.legendVisible && context != null) {
+-        ControlLegendOverlay(ControlLegend.entries(context, profile), onDismissLegend, Modifier)
++        ControlLegendOverlay(
++            ControlLegend.entries(context, profile),
++            ArrowGuard.HINT.takeIf { profile.trackpadArrows },
++            onDismissLegend,
++            Modifier
++        )
+     }
+ }
+ 
+diff --git a/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/Q25KeysTest.kt b/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/Q25KeysTest.kt
+new file mode 100644
+index 0000000..66d0e45
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/Q25KeysTest.kt
+@@ -0,0 +1,153 @@
++package org.sableos.titan2.camera.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++/** Q25 keyboard: letter keys for zoom/RAW/legend, the trackpad guard, the hint dock, capture intents. */
++class Q25KeysTest {
++    private val rearInfo = CameraInfo(
++        "0", Facing.Back,
++        activeArray = Size(4096, 3072),
++        jpegSizes = listOf(Size(4096, 3072), Size(1920, 1080), Size(8192, 6144)),
++        rawSizes = listOf(Size(4096, 3072)), hasRaw = true, manualSensor = true,
++        isoRange = IntBounds(100, 3200),
++        exposureNsRange = LongBounds(100_000, 1_000_000_000),
++        zoomRatio = FloatRange(1f, 10f), minFocusDistance = 10f,
++        aeCompensationSteps = IntBounds(-6, 6), aeCompensationStep = 0.5f,
++        awbModes = setOf(1, 2, 5),
++        videoSizes = listOf(Size(1920, 1080), Size(1280, 720))
++    )
++    private val frontInfo = CameraInfo(
++        "1",
++        Facing.Front,
++        activeArray = Size(3280, 2464),
++        jpegSizes = listOf(Size(3264, 2448), Size(1280, 960)),
++        zoomRatio = FloatRange(1f, 1f)
++    )
++    private val rear = CapabilityInterpreter.report(rearInfo)
++    private val front = CapabilityInterpreter.report(frontInfo)
++    private val q25 = CameraDeviceProfile.ZinwaQ25
++
++    private fun ctx(ui: UiMode, cam: CameraReport = rear) = DeckContext(ui, cam, 2)
++
++    // ---- letters replace + - / (Alt or Sym characters on the Q25) -----------------------------
++
++    @Test fun zAndXZoomAndAltZZoomsOut() {
++        assertEquals(CameraAction.ZoomIn, CameraKeyMap.resolve("z", false, q25))
++        assertEquals(CameraAction.ZoomOut, CameraKeyMap.resolve("x", false, q25))
++        assertEquals(CameraAction.ZoomOut, CameraKeyMap.resolve("z", true, q25))
++    }
++
++    @Test fun everyActionOfPlusMinusAndSlashHasAPlainLetter() {
++        for (key in listOf("plus", "minus", "slash")) {
++            val action = CameraKeyMap.resolve(key, false)!!
++            val letters = CameraKeyMap.keys(action).filter { it.key.length == 1 && !it.alt }
++            assertTrue("$key -> $action has no letter", letters.isNotEmpty())
++        }
++    }
++
++    @Test fun rTogglesRawInPhotoOnly() {
++        assertEquals(CameraAction.RawToggle, CameraKeyMap.resolve("r", false, q25))
++        assertEquals(Cmd.Act(CameraAction.RawToggle), ActionRouter.route(UiMode.Photo, CameraAction.RawToggle))
++        assertEquals(Cmd.Nop, ActionRouter.route(UiMode.Video, CameraAction.RawToggle))
++        assertEquals(Cmd.Nop, ActionRouter.route(UiMode.Pro, CameraAction.RawToggle))
++        assertTrue(ControlGate.check(CameraAction.RawToggle, ctx(UiMode.Photo)).isOpen)
++        assertFalse(ControlGate.check(CameraAction.RawToggle, ctx(UiMode.Video)).isOpen)
++        assertFalse(ControlGate.check(CameraAction.RawToggle, ctx(UiMode.Photo, front)).isOpen)
++    }
++
++    @Test fun rawToggleGoesAutoRawAutoOrHighResWithoutRaw() {
++        assertEquals(CaptureMode.Raw, PhotoPath.rawToggle(CaptureMode.Auto, rear))
++        assertEquals(CaptureMode.Auto, PhotoPath.rawToggle(CaptureMode.Raw, rear))
++        assertEquals(CaptureMode.Auto, PhotoPath.rawToggle(CaptureMode.HighRes, rear))
++        assertNull(PhotoPath.rawToggle(CaptureMode.Auto, front))
++        assertEquals("HIGH-RES", PhotoPath.label(CaptureMode.HighRes))
++        assertEquals("RAW", PhotoPath.label(CaptureMode.Raw))
++    }
++
++    // ---- trackpad guard ---------------------------------------------------------------------
++
++    @Test fun plainTrackpadArrowsAreGuardedOnTheQ25Only() {
++        for (k in listOf("left", "right", "up", "down")) {
++            assertTrue(k, ArrowGuard.blocks(Binding(k), q25, stripFocused = false))
++            assertFalse(k, ArrowGuard.blocks(Binding(k, alt = true), q25, stripFocused = false))
++            assertFalse(k, ArrowGuard.blocks(Binding(k), CameraDeviceProfile.Titan2, false))
++        }
++        assertFalse(ArrowGuard.blocks(Binding("z"), q25, stripFocused = false))
++    }
++
++    @Test fun aFocusedStripTakesUpAndDownButNeverModeChanges() {
++        assertFalse(ArrowGuard.blocks(Binding("up"), q25, stripFocused = true))
++        assertFalse(ArrowGuard.blocks(Binding("down"), q25, stripFocused = true))
++        assertTrue(ArrowGuard.blocks(Binding("left"), q25, stripFocused = true))
++        assertTrue(ArrowGuard.blocks(Binding("right"), q25, stripFocused = true))
++    }
++
++    @Test fun altArrowsCarryTheArrowActionsEverywhere() {
++        assertEquals(CameraAction.PrevMode, CameraKeyMap.resolve("left", true))
++        assertEquals(CameraAction.NextMode, CameraKeyMap.resolve("right", true))
++        assertEquals(CameraAction.StepUp, CameraKeyMap.resolve("up", true))
++        assertEquals(CameraAction.StepDown, CameraKeyMap.resolve("down", true))
++    }
++
++    @Test fun q25LegendShowsAltArrowsAndNotThePlainOnes() {
++        val e = ControlLegend.entries(ctx(UiMode.Photo), q25)
++        val next = e.first { it.action == CameraAction.NextMode }.keys
++        assertEquals("Alt+→", next)
++        assertEquals("Z", e.first { it.action == CameraAction.ZoomIn }.keys.split(" / ").last())
++        val titan = ControlLegend.entries(ctx(UiMode.Photo), CameraDeviceProfile.Titan2)
++        assertTrue(titan.first { it.action == CameraAction.NextMode }.keys.startsWith("→"))
++    }
++
++    // ---- hint dock ------------------------------------------------------------------------------
++
++    @Test fun hintDockKeysResolveToTheirActionsInEveryMode() {
++        for (ui in UiMode.entries) {
++            for ((b, a) in HintDock.bindings(ui)) {
++                assertEquals("$ui ${b.key}", a, CameraKeyMap.resolve(b, q25))
++            }
++            assertEquals(HintDock.bindings(ui).size, HintDock.hints(ctx(ui), q25).size)
++        }
++    }
++
++    @Test fun hintDockReadsLikeTheDesign() {
++        val photo = HintDock.hints(ctx(UiMode.Photo), q25).map { "[${it.keyText}] ${it.label}" }
++        assertEquals(listOf("[Space] Shutter", "[Z] Zoom", "[R] RAW/HiRes", "[H] Keys"), photo)
++        val video = HintDock.hints(ctx(UiMode.Video), q25).first()
++        assertEquals("Record", video.label)
++        val pro = HintDock.hints(ctx(UiMode.Pro), q25).map { it.label }
++        assertTrue(pro.containsAll(listOf("Exposure", "Focus")))
++    }
++
++    // ---- default still camera ------------------------------------------------------------------
++
++    @Test fun launchKindFollowsTheIntentAction() {
++        assertEquals(LaunchKind.ImageCapture, LaunchIntent.kind("android.media.action.IMAGE_CAPTURE"))
++        assertEquals(LaunchKind.StillCamera, LaunchIntent.kind("android.media.action.STILL_IMAGE_CAMERA"))
++        assertEquals(LaunchKind.Normal, LaunchIntent.kind("android.intent.action.MAIN"))
++        assertEquals(LaunchKind.Normal, LaunchIntent.kind(null))
++    }
++
++    @Test fun imageCaptureKeepsToOneAutoJpeg() {
++        val k = LaunchKind.ImageCapture
++        assertTrue(LaunchIntent.allows(k, CameraAction.Shutter))
++        assertTrue(LaunchIntent.allows(k, CameraAction.ZoomIn))
++        assertTrue(LaunchIntent.allows(k, CameraAction.SwitchCamera))
++        for (a in listOf(
++            CameraAction.VideoToggle, CameraAction.NextMode, CameraAction.RawToggle,
++            CameraAction.CompareToggle, CameraAction.OpenLast, CameraAction.NextCaptureMode
++        )) {
++            assertFalse("$a", LaunchIntent.allows(k, a))
++            assertTrue("$a", LaunchIntent.allows(LaunchKind.StillCamera, a))
++        }
++    }
++
++    @Test fun thumbnailIsAtMost512OnItsLongEdge() {
++        assertEquals(1, LaunchIntent.thumbnailSample(400, 300))
++        assertEquals(8, LaunchIntent.thumbnailSample(4000, 3000))
++        assertTrue(8160 / LaunchIntent.thumbnailSample(8160, 6144) <= LaunchIntent.THUMBNAIL_EDGE_PX)
++    }
++}

@@ -1,0 +1,54 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 22 Oct 2026 04:03:24 +0000
+Subject: [PATCH] SableOS: let Sable Camera be the default still camera
+
+Sable Camera (org.sableos.titan2.camera) answers STILL_IMAGE_CAMERA and
+IMAGE_CAPTURE. Drop those two filters from Aperture so they resolve to
+Sable Camera without a chooser. Aperture keeps its launcher entry (the
+fallback until Sable Camera passes the Q3 camera check), VIDEO_CAMERA,
+VIDEO_CAPTURE, the secure lock-screen camera and the QR scanner.
+---
+ app/src/main/AndroidManifest.xml | 19 +++++--------------
+ 1 file changed, 5 insertions(+), 14 deletions(-)
+
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index 639a85e..daeb08c 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -56,12 +56,10 @@
+             android:taskAffinity=".CameraActivity"
+             android:theme="@style/Theme.Aperture.Camera"
+             android:windowSoftInputMode="stateAlwaysHidden|adjustPan">
+-            <intent-filter>
+-                <action android:name="android.media.action.STILL_IMAGE_CAMERA" />
+-
+-                <category android:name="android.intent.category.DEFAULT" />
+-                <category android:name="android.intent.category.VOICE" />
+-            </intent-filter>
++            <!-- SableOS: Sable Camera answers STILL_IMAGE_CAMERA and IMAGE_CAPTURE, so it is the
++                 default still camera without a chooser. Aperture stays installed and in the
++                 launcher as the fallback, and keeps video capture, the secure lock-screen camera
++                 and the QR scanner. -->
+             <intent-filter>
+                 <action android:name="android.intent.action.MAIN" />
+                 <category android:name="android.intent.category.DEFAULT" />
+@@ -88,14 +86,7 @@
+             android:screenOrientation="nosensor"
+             android:theme="@style/Theme.Aperture.Camera"
+             android:visibleToInstantApps="true"
+-            android:windowSoftInputMode="stateAlwaysHidden|adjustPan">
+-            <intent-filter>
+-                <action android:name="android.media.action.IMAGE_CAPTURE" />
+-
+-                <category android:name="android.intent.category.DEFAULT" />
+-                <category android:name="android.intent.category.VOICE" />
+-            </intent-filter>
+-        </activity>
++            android:windowSoftInputMode="stateAlwaysHidden|adjustPan" />
+ 
+         <activity
+             android:name=".QrScannerActivity"
+-- 
+2.43.0
+
