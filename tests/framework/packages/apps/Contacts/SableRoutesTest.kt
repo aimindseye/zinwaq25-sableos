@@ -9,8 +9,8 @@ import org.junit.Test
 /** Pure tests for the route subtitle, Hub route and privacy (Contacts patches 0753, 0754). */
 class SableRoutesTest {
     private val words = SableRoutes.Words("Phone", "Mail", "Hub")
-    private val lri = '⁦'
-    private val pdi = '⁩'
+    private val lri = '\u2066'
+    private val pdi = '\u2069'
 
     private fun sub(
         number: String? = "+1 555 0101",

@@ -46,18 +46,19 @@ class VaultStore(private val context: Context) {
                 copyIn(uri, target)
                 imported += name
             } catch (e: IOException) {
-                target.delete()
-                failed += (display ?: name) + " (" + (e.message ?: "read error") + ")"
+                failed += (display ?: name) + " (" + (e.message ?: "read error") + discard(target) + ")"
             } catch (e: IllegalStateException) {
-                target.delete()
-                failed += (display ?: name) + " (" + (e.message ?: "unreadable") + ")"
+                failed += (display ?: name) + " (" + (e.message ?: "unreadable") + discard(target) + ")"
             } catch (_: SecurityException) {
-                target.delete()
-                failed += (display ?: name) + " (no access)"
+                failed += (display ?: name) + " (no access" + discard(target) + ")"
             }
         }
         return ImportOutcome(imported, failed)
     }
+
+    /** Removes a half-copied file; says so when it could not, so the user can delete it. */
+    private fun discard(target: File): String =
+        if (target.delete() || !target.exists()) "" else "; partial copy left"
 
     private fun copyIn(uri: Uri, target: File) {
         val input = checkNotNull(context.contentResolver.openInputStream(uri)) { "no stream" }
