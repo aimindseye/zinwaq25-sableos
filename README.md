@@ -171,6 +171,41 @@ components keep their own licences: see
 
 * LineageOS Q25 maintainers (electimon, basamaryan, npjohnson, Androbots) for the
   device tree, kernel and blobs this port builds on.
-* MarathonOS / Droidian Q25 port for partition and multiboot research.
 * SableOS (`aimindseye/sableos`, `sableos-project/*`) for the product, apps and
   design.
+
+Other projects this port uses or learned from:
+
+* [nozerorma/q25toolbox](https://github.com/nozerorma/q25toolbox): the GMS Sensor
+  Guard recipe and the Q25 battery facts (static cycle count, FULL never reported,
+  health near 100%). Facts only; no code copied, as the repo has no licence.
+  IvanTheTolerable (Discord) first found the GMS Sensor Guard fix.
+* [patproport/Q25EdgeTrackpad](https://github.com/patproport/Q25EdgeTrackpad)
+  (GPL-3.0): the `/proc/q20_switch_key_mouse` switch, edge scrolling and the touch
+  guard. Ideas only; no code copied.
+* [bellhopsw/q25-50mp](https://github.com/bellhopsw/q25-50mp) (MIT and GPL): the
+  optional 50 MP rear camera in `product/q25/camera-50mp`.
+* [MarathonOS/marathon-zinwa-q25](https://github.com/MarathonOS/marathon-zinwa-q25)
+  and [JamiKettunen/droidian-zinwa-q25](https://github.com/JamiKettunen/droidian-zinwa-q25):
+  partition, GPT and multiboot research.
+* [asmtronic/Zinwa-Q25-Guide](https://github.com/asmtronic/Zinwa-Q25-Guide): the SP
+  Flash Tool return-to-stock steps.
+* [bkerler/mtkclient](https://github.com/bkerler/mtkclient): full-device backups.
+* [ovehbe/i2c_puppet](https://github.com/ovehbe/i2c_puppet) (PaBaLF firmware): the
+  keyboard backlight.
+* [eqbirvin/Conduit](https://github.com/eqbirvin/Conduit) (GPL-3.0): the Hub dock
+  idea.
+* [TheMuppets/proprietary_vendor_xelex_Q25](https://github.com/TheMuppets/proprietary_vendor_xelex_Q25):
+  the vendor blobs.
+* [microG](https://github.com/microg) (GmsCore, FakeStore),
+  [Aurora Store](https://gitlab.com/AuroraOSS/AuroraStore) and
+  [lineageos4microg](https://github.com/lineageos4microg): microG and the Play
+  Store client.
+* [thunderbird/thunderbird-android](https://github.com/thunderbird/thunderbird-android):
+  the base of Sable Mail.
+* [vaachak-platform](https://github.com/vaachak-platform) (vaachak-textreader,
+  vaachak-mobile): the base of Text Reader.
+* [Phosphor Icons](https://github.com/phosphor-icons/core),
+  [iA Fonts](https://github.com/iaolo/iA-Fonts) and
+  [Accessible DfA](https://github.com/Orange-OpenSource/font-accessible-dfa): icons
+  and fonts.
