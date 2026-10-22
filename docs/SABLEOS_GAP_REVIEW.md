@@ -109,7 +109,7 @@ Each item has a gate in [`QUALIFICATION.md`](QUALIFICATION.md). R0, Q1 and Q2 ha
 | Decision | Today |
 |---|---|
 | Attention outputs for the Q25 | `ro.sable.attention.outputs` is not set, so every attention output is off. Set it once outputs are proven on the phone. |
-| Display density | `SABLE_LCD_DENSITY` is empty, so the vendor's 193 stays. One value in `product/q25/sable-q25.mk`. |
+| Display density | `SABLE_LCD_DENSITY := 280` (411 dp, matched to the ~290 ppi panel) replaces the vendor 193 from the next image. |
 | Charging-limit controls (BH6) | Not allowed by the design without a device-verified backend. They stay hidden. |
 
 ## 4. Known limits

@@ -10,8 +10,8 @@ main_display:
   physical_size: 3.5 inch
   resolution: 720x720
   physical_ppi: about 290
-  logical_density: 193 (TARGET_SCREEN_DENSITY in LineageOS BoardConfig.mk)
-  smallest_width_dp: about 597 (720 * 160 / 193)
+  logical_density: 280 (SABLE_LCD_DENSITY; LineageOS BoardConfig.mk has 193)
+  smallest_width_dp: 411 (720 * 160 / 280)
   refresh_modes: 60 Hz expected, NOT_MEASURED
   panel_type: IPS LCD (original BlackBerry Classic panel)
   natural_orientation: portrait (square)
@@ -37,16 +37,24 @@ keyboard-first Start and Settings) apply to both. DisplayCompat reads the real
 display size at runtime and needs no per-device table. Titan 2 sub-screen work
 does not apply to the Q25.
 
-## Open decision: density
+## Density: 280 (decided 2026-10-22)
 
-LineageOS uses density 193, which gives a 597 dp wide screen: lots of room, but
-on a 290 ppi panel each dp is about two thirds of its usual physical size, so
-text and touch targets are small. Sable's keyboard-first layouts were designed
-around roughly 400 to 480 dp. A density near 240 (480 dp) or 280 (411 dp) may
-suit Sable better. Decide on hardware, then set the one value
-`SABLE_LCD_DENSITY := <value>` in `product/q25/sable-q25.mk` (empty keeps 193;
-it is written as `ro.sf.lcd_density` to the product partition, which init loads
-after vendor) and record the result here. `tests/check-sable-design.py` checks
-the value. Sable layouts follow from the resulting size through resource
-qualifiers (`notlong` for square screens, `sw<N>dp`), not from the device
-model, so no other file changes with it.
+The Q25 uses density 280, chosen for its own panel rather than to match
+Titan 2 layouts. The panel is about 290 ppi, so at 280 a dp is close to its
+nominal 1/160 inch: text and touch targets come out at the physical size
+Android intends. The 720x720 screen is then 411 dp square.
+
+LineageOS uses 193 (597 dp), which makes every dp about two thirds of its
+usual size: tiny text, and full-width square content (game boards, grids)
+taller than the screen.
+
+The value is the one line `SABLE_LCD_DENSITY := 280` in
+`product/q25/sable-q25.mk`. It is written as `ro.sf.lcd_density` to the
+product partition, which init loads after vendor. `tests/check-sable-design.py`
+checks it. Sable layouts follow from the resulting size through resource
+qualifiers (`notlong` for square screens, `sw<N>dp`) and the runtime screen
+size, not from the device model. Square game boards are capped at 60 % of the
+screen height so the board and its controls show together.
+
+Preview on a phone running an older image: `adb shell wm density 280`
+(undo with `adb shell wm density reset`).

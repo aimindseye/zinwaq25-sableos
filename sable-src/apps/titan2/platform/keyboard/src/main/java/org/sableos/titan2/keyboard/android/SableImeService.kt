@@ -9,6 +9,7 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.view.inputmethod.InputMethodSubtype
 import android.widget.Toast
+import org.sableos.titan2.keyboard.R
 import org.sableos.titan2.keyboard.core.CompactStrip
 import org.sableos.titan2.keyboard.core.Composer
 import org.sableos.titan2.keyboard.core.Composers
@@ -21,6 +22,7 @@ import org.sableos.titan2.keyboard.core.Key
 import org.sableos.titan2.keyboard.core.KeyEv
 import org.sableos.titan2.keyboard.core.KeyShortcuts
 import org.sableos.titan2.keyboard.core.Mod
+import org.sableos.titan2.keyboard.core.ModState
 import org.sableos.titan2.keyboard.core.Out
 import org.sableos.titan2.keyboard.core.PinyinDict
 import org.sableos.titan2.keyboard.core.Resolver
@@ -167,7 +169,9 @@ class SableImeService : InputMethodService() {
      * throws into the key path: a failed refresh must not cost the user a keystroke.
      */
     private fun refreshStrip() {
-        val model = runCatching { CompactStrip.build(stripInputs()) }.getOrNull() ?: return
+        val inputs = stripInputs()
+        refreshModifierIcon(inputs)
+        val model = runCatching { CompactStrip.build(inputs) }.getOrNull() ?: return
         strip?.render(model)
         if (model.mode != stripMode) {
             stripMode = model.mode
@@ -183,6 +187,23 @@ class SableImeService : InputMethodService() {
     }
 
     private val stripRefresh = Runnable { refreshStrip() }
+
+    /** Status bar icon showing the active modifier while neither the strip nor the soft keyboard shows it. */
+    private var modifierIcon = 0
+
+    private fun refreshModifierIcon(i: StripInputs) {
+        val icon = when {
+            i.enabled || i.softKeyboardShown -> 0
+            i.sym != ModState.Off -> R.drawable.ic_stat_mod_sym
+            i.alt != ModState.Off -> R.drawable.ic_stat_mod_alt
+            i.shift != ModState.Off -> R.drawable.ic_stat_mod_shift
+            i.navOn -> R.drawable.ic_stat_mod_nav
+            else -> 0
+        }
+        if (icon == modifierIcon) return
+        modifierIcon = icon
+        if (icon == 0) hideStatusIcon() else showStatusIcon(icon)
+    }
 
     private fun stripInputs(): StripInputs = StripInputs(
         field = fieldClass,

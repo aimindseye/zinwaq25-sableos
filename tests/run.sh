@@ -353,7 +353,13 @@ wx=sable-src/apps/r8/android/weather/src/main
 grep -A3 'name=".WeatherRefreshJob"' "$wx/AndroidManifest.xml" | grep -q 'BIND_JOB_SERVICE' || q4_bad="$q4_bad weather-job"
 grep -q 'WeatherRefreshJob.ensureScheduled' "$wx/java/org/sableos/weather/WeatherSnapshotProvider.kt" || q4_bad="$q4_bad weather-provider"
 grep -q '\.clickable { onClick() }' sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt || q4_bad="$q4_bad displaycompat-tap"
-if [[ -z "$q4_bad" ]]; then pass "Q4 review fixes (overrides, AudioFX, weather refresh, display compat tap)"; else fail "Q4 review fixes:$q4_bad"; fi
+grep -q 'widthIn(max = boardMaxSide())' sable-src/apps/r8/android/games/src/main/java/org/sableos/games/SudokuScreen.kt || q4_bad="$q4_bad sudoku-board"
+grep -q 'ro.sable.keyboard.compact_strip=false' product/q25/sable-q25.mk || q4_bad="$q4_bad strip-prop"
+grep -q 'COMPACT_STRIP_PROP = "ro.sable.keyboard.compact_strip"' sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardPrefs.kt || q4_bad="$q4_bad strip-default"
+grep -q 'ro.config.wallpaper=/product/media/wallpaper/sable_default_wallpaper.png' scripts/stage-product.sh || q4_bad="$q4_bad wallpaper-prop"
+python3 -I -c 'import struct,sys; d=open(sys.argv[1],"rb").read(24); sys.exit(0 if d[:8]==b"\x89PNG\r\n\x1a\n" and struct.unpack(">II",d[16:24])==(720,720) else 1)' product/q25/wallpaper/sable_default_wallpaper.png || q4_bad="$q4_bad wallpaper-png"
+grep -qF '+		up,upm6922,stat-pin-ctrl = <3>;' patches/framework/kernel/xelex/mt6789/0203-*.patch || q4_bad="$q4_bad led-stat-pin"
+if [[ -z "$q4_bad" ]]; then pass "Q4 review fixes (overrides, AudioFX, weather, display compat, games, keyboard strip, wallpaper, charger LED)"; else fail "Q4 review fixes:$q4_bad"; fi
 
 # 6b2. Optional 50 MP camera: the patcher on a synthetic vendor tree, and off by default.
 if python3 -I tests/test_camera_50mp.py >"$tmp/cam50" 2>&1; then

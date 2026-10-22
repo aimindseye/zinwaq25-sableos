@@ -190,6 +190,10 @@ if [[ "$FRAMEWORK" == YES ]]; then
     # Battery guard: turns MediaTek's userdebug pr_debug logging back off; on
     # /product so init runs it after the vendor mtklog.rc (power.md).
     cp "$SABLE_REPO_ROOT/product/q25/init/sable-power.rc" "$VENDOR_SABLE/etc/init/"
+    # Default wallpaper (lock screen, Recents, apps that show the wallpaper): a
+    # dark Sable image for the 720x720 panel instead of the LineageOS one.
+    mkdir -p "$VENDOR_SABLE/media"
+    cp "$SABLE_REPO_ROOT/product/q25/wallpaper/sable_default_wallpaper.png" "$VENDOR_SABLE/media/"
     cat >> "$fw_mk" <<'MK'
 PRODUCT_PACKAGES += \
     SableLauncher \
@@ -208,12 +212,14 @@ PRODUCT_SYSTEM_EXT_PROPERTIES += \
 # App display compatibility applies profiles: the framework overlay turns on per-app user
 # aspect ratios (SableFrameworkOverlay sable_displaycompat.xml) and this opens the app's gate.
 PRODUCT_PRODUCT_PROPERTIES += \
-    persist.sable.displaycompat.backend=validated
+    persist.sable.displaycompat.backend=validated \
+    ro.config.wallpaper=/product/media/wallpaper/sable_default_wallpaper.png
 PRODUCT_COPY_FILES += \
     vendor/sable/q25/etc/permissions/privapp-permissions-sable-q25.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/permissions/privapp-permissions-sable-q25.xml \
     vendor/sable/q25/etc/battery/zinwa-q25.conf:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/sable/battery/zinwa-q25.conf \
     vendor/sable/q25/etc/init/sable-keyboard-backlight.rc:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/init/sable-keyboard-backlight.rc \
-    vendor/sable/q25/etc/init/sable-power.rc:$(TARGET_COPY_OUT_PRODUCT)/etc/init/sable-power.rc
+    vendor/sable/q25/etc/init/sable-power.rc:$(TARGET_COPY_OUT_PRODUCT)/etc/init/sable-power.rc \
+    vendor/sable/q25/media/sable_default_wallpaper.png:$(TARGET_COPY_OUT_PRODUCT)/media/wallpaper/sable_default_wallpaper.png
 MK
     # microG and Aurora Store (Play Store apps), only with hash-checked APKs.
     if [[ "$MICROG" == YES ]]; then
