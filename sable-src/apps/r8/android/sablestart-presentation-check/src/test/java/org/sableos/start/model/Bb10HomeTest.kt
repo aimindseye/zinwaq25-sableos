@@ -1,0 +1,89 @@
+package org.sableos.start.model
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/** BB10 layout: Active Frames, the app grid and Dual apps. */
+class Bb10HomeTest {
+    private fun frame(
+        id: Int,
+        pkg: String,
+    ) = ActiveFrame(taskId = id, packageName = pkg, className = null, userId = 0, running = true)
+
+    @Test
+    fun framesAreTheEightMostRecentTasksWithoutStartOrRecents() {
+        val tasks =
+            listOf(frame(1, "org.sableos.launcher"), frame(2, "a"), frame(2, "a"), frame(3, "com.android.launcher3")) +
+                (4..12).map { frame(it, "app$it") }
+        val frames = ActiveFrames.select(tasks, setOf("org.sableos.launcher", "com.android.launcher3"))
+        assertEquals(ActiveFrames.MAX, frames.size)
+        assertEquals(listOf(2, 4, 5, 6, 7, 8, 9, 10), frames.map { it.taskId })
+    }
+
+    @Test
+    fun xOrBackspaceCloseAFrame() {
+        assertTrue(ActiveFrames.isCloseKey(52, 0))
+        assertTrue(ActiveFrames.isCloseKey(67, 0))
+        assertTrue(ActiveFrames.isCloseKey(52, 0x1))
+        assertFalse(ActiveFrames.isCloseKey(52, 0x2))
+        assertFalse(ActiveFrames.isCloseKey(66, 0))
+    }
+
+    @Test
+    fun focusMovesToTheNextFrameAfterClose() {
+        assertEquals(0, ActiveFrames.focusAfterClose(0, 3))
+        assertEquals(1, ActiveFrames.focusAfterClose(2, 3))
+        assertNull(ActiveFrames.focusAfterClose(0, 1))
+    }
+
+    @Test
+    fun gridKeepsTheSavedOrderAndAppendsNewApps() {
+        val installed = listOf("a", "b", "c", "d")
+        assertEquals(listOf("c", "a", "b", "d"), AppGrid.resolve(null, listOf("c", "x"), installed))
+        assertEquals(listOf("d", "b", "a", "c"), AppGrid.resolve(listOf("d", "gone", "b"), listOf("c"), installed))
+    }
+
+    @Test
+    fun gridPagesHoldFourColumns() {
+        assertEquals(4, AppGrid.rowsFor(479, 112))
+        assertEquals(AppGrid.MIN_ROWS, AppGrid.rowsFor(100, 112))
+        assertEquals(AppGrid.MAX_ROWS, AppGrid.rowsFor(2000, 112))
+        assertEquals(16, AppGrid.perPage(4))
+        assertEquals(1, AppGrid.pageCount(0, 16))
+        assertEquals(2, AppGrid.pageCount(17, 16))
+        assertEquals(listOf(16, 17), AppGrid.page((0..17).toList(), 1, 16))
+    }
+
+    @Test
+    fun gridMovesShiftLikeADraggedIcon() {
+        val keys = listOf("a", "b", "c", "d", "e", "f")
+        assertEquals(listOf("b", "a", "c", "d", "e", "f"), AppGrid.move(keys, 0, 1))
+        assertEquals(listOf("b", "c", "d", "e", "a", "f"), AppGrid.move(keys, 0, AppGrid.COLUMNS))
+        assertEquals(listOf("f", "a", "b", "c", "d", "e"), AppGrid.move(keys, 5, -10))
+        assertEquals(keys, AppGrid.move(keys, 0, -1))
+        assertEquals(-4, AppGrid.arrowDelta(19))
+        assertEquals(1, AppGrid.arrowDelta(22))
+        assertNull(AppGrid.arrowDelta(66))
+    }
+
+    @Test
+    fun shiftEnterFindsTheDualCopy() {
+        data class App(
+            val component: String,
+            val profile: String?,
+        )
+        val chat = App("chat/.Main", null)
+        val chatDual = App("chat/.Main", AppProfiles.DUAL)
+        val work = App("chat/.Main", AppProfiles.WORK)
+        val apps = listOf(chat, work, chatDual, App("mail/.Main", null))
+        assertEquals(chatDual, AppProfiles.secondInstance(chat, apps, { it.component }, { it.profile }))
+        assertEquals(chat, AppProfiles.secondInstance(chatDual, apps, { it.component }, { it.profile }))
+        assertNull(AppProfiles.secondInstance(work, apps, { it.component }, { it.profile }))
+        assertNull(AppProfiles.secondInstance(apps[3], apps, { it.component }, { it.profile }))
+        assertEquals("Dual", AppProfiles.badge(AppProfiles.DUAL))
+        assertEquals("Work", AppProfiles.badge(AppProfiles.WORK))
+    }
+}

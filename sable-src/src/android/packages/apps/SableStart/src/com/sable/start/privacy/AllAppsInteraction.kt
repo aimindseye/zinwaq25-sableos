@@ -6,9 +6,11 @@ package org.sableos.start.privacy
  * ```text
  * Up/Down           move app focus        (platform focus traversal; not consumed here)
  * Enter             open app
+ * Shift+Enter       open the app's other instance (Dual copy), when it has one
  * Space             expand compact privacy detail
  * Menu / Fn+Enter   actions
- * Alt+Enter         app info (Q25 and other keyboards without Fn)
+ * Alt+Enter         actions too: Alt is the Q25's Fn (sable-all-apps-titan2
+ *                   "Menu / Fn+Enter App actions"); App info is the first action
  * / or Search       search
  * Printable letters type-to-jump when search is not active
  * ```
@@ -18,6 +20,9 @@ package org.sableos.start.privacy
  */
 enum class AllAppsKeyAction {
     Open,
+
+    /** Shift+Enter: the other instance of the app (Dual apps). */
+    OpenSecond,
     ToggleDetail,
     Actions,
     AppInfo,
@@ -90,11 +95,11 @@ object AllAppsKeyPolicy {
         return if (repeat) ignoreRepeat() else AllAppsKeyDecision(AllAppsKeyAction.TypeToJump, c)
     }
 
-    /** Enter opens; Alt+Enter is App info; Fn+Enter (Fn keyboards) is the actions sheet. */
+    /** Enter opens; Shift+Enter opens the Dual copy; Fn+Enter or Alt+Enter (Alt is the Q25's Fn) is the actions sheet. */
     private fun enterAction(metaState: Int): AllAppsKeyAction =
         when {
-            metaState and META_FUNCTION_ON != 0 -> AllAppsKeyAction.Actions
-            metaState and META_ALT_ON != 0 -> AllAppsKeyAction.AppInfo
+            metaState and (META_FUNCTION_ON or META_ALT_ON) != 0 -> AllAppsKeyAction.Actions
+            metaState and META_SHIFT_ON != 0 -> AllAppsKeyAction.OpenSecond
             else -> AllAppsKeyAction.Open
         }
 
@@ -113,6 +118,7 @@ enum class AppAction(
     val destructive: Boolean = false,
 ) {
     Open("open"),
+    OpenSecond("open Dual copy"),
     AppInfo("app info · permissions"),
     NotificationSettings("notification settings"),
     PinToStart("add to Home"),
@@ -133,15 +139,20 @@ data class AppActionContext(
     val canUninstall: Boolean,
     /** Android exposes disable for this app (eligible system app); host decides. */
     val canDisable: Boolean = false,
+    /** Home keeps a list of picked apps; false on the BB10 app grid, which holds every app. */
+    val pinnable: Boolean = true,
+    /** The app has another instance (a Dual copy, or the personal app of one). */
+    val hasSecondInstance: Boolean = false,
 )
 
 object AppActionPolicy {
     fun actions(context: AppActionContext): List<AppAction> =
         buildList {
             add(AppAction.Open)
+            if (context.hasSecondInstance) add(AppAction.OpenSecond)
             add(AppAction.AppInfo)
             if (context.launcherUser) add(AppAction.NotificationSettings)
-            add(if (context.pinnedToStart) AppAction.RemoveFromStart else AppAction.PinToStart)
+            if (context.pinnable) add(if (context.pinnedToStart) AppAction.RemoveFromStart else AppAction.PinToStart)
             when (context.inBaseBar) {
                 true -> add(AppAction.RemoveFromBaseBar)
                 false -> add(AppAction.AddToBaseBar)

@@ -22,6 +22,16 @@
     <uses-permission android:name="android.permission.ACCESS_HIDDEN_PROFILES_FULL" />
     <uses-permission android:name="android.permission.MODIFY_QUIET_MODE" />
 
+    <!-- Active Frames (BB10 Home): every app's recent tasks, their last
+         picture, resuming and closing them, as Launcher3 Quickstep does for
+         Recents. Signature permissions, granted because SableLauncher is
+         platform-signed. -->
+    <uses-permission android:name="android.permission.REAL_GET_TASKS" />
+    <uses-permission android:name="android.permission.REORDER_TASKS" />
+    <uses-permission android:name="android.permission.REMOVE_TASKS" />
+    <uses-permission android:name="android.permission.START_TASKS_FROM_RECENTS" />
+    <uses-permission android:name="android.permission.READ_FRAME_BUFFER" />
+
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />

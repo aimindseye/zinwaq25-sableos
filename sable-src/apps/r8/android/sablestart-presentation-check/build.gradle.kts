@@ -48,6 +48,7 @@ val canonicalPresentationSources =
     listOf(
         "com/sable/start/live/LiveSurfaceModels.kt",
         "com/sable/start/model/AppEntry.kt",
+        "com/sable/start/model/Bb10Home.kt",
         "com/sable/start/model/CommandQuery.kt",
         "com/sable/start/model/CoreAppIdentity.kt",
         "com/sable/start/model/HomeLayout.kt",
@@ -55,6 +56,8 @@ val canonicalPresentationSources =
         "com/sable/start/platform/DeviceStatsSampler.kt",
         "com/sable/start/platform/LiveSurfaceRepository.kt",
         "com/sable/start/platform/PrivacyFactsReader.kt",
+        // Public SDK plus reflection only, so the check module compiles it too.
+        "com/sable/start/platform/RecentTasksRepository.kt",
         "com/sable/start/platform/StartStateRepository.kt",
         "com/sable/start/privacy/AllAppsInteraction.kt",
         "com/sable/start/privacy/PrivacyModel.kt",

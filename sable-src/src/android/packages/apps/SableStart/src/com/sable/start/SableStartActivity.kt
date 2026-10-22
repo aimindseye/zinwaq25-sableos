@@ -24,9 +24,11 @@ import org.sableos.design.applySableSystemBars
 import org.sableos.design.rememberGlobalSableAppearance
 import org.sableos.design.resolveSableDarkAppearance
 import org.sableos.design.writeGlobalSableAppearance
+import org.sableos.start.model.ActiveFrame
 import org.sableos.start.model.AppEntry
 import org.sableos.start.platform.LauncherAppsRepository
 import org.sableos.start.platform.LiveSurfaceRepository
+import org.sableos.start.platform.RecentTasksRepository
 import org.sableos.start.platform.StartStateRepository
 import org.sableos.start.ui.SableStartScreen
 import java.util.concurrent.Executors
@@ -42,8 +44,14 @@ class SableStartActivity : ComponentActivity() {
     private lateinit var launcherAppsRepository: LauncherAppsRepository
     private lateinit var liveSurfaceRepository: LiveSurfaceRepository
     private lateinit var startStateRepository: StartStateRepository
+    private lateinit var recentTasksRepository: RecentTasksRepository
 
     private val appsState = mutableStateOf<List<AppEntry>>(emptyList())
+
+    /** Active Frames: recent tasks, refreshed whenever Start comes back. */
+    private val framesState = mutableStateOf<List<ActiveFrame>>(emptyList())
+    private val framesGeneration = mutableStateOf(0)
+    private val framesExecutor = Executors.newSingleThreadExecutor()
 
     /** null: no private space; true: locked; false: unlocked. */
     private val privateSpaceLockedState = mutableStateOf<Boolean?>(null)
@@ -147,6 +155,7 @@ class SableStartActivity : ComponentActivity() {
         launcherAppsRepository = LauncherAppsRepository(this)
         liveSurfaceRepository = LiveSurfaceRepository(this)
         startStateRepository = StartStateRepository(this)
+        recentTasksRepository = RecentTasksRepository(this)
 
         onBackPressedDispatcher.addCallback(
             this,
@@ -215,15 +224,19 @@ class SableStartActivity : ComponentActivity() {
                     },
                     initialStartTileKeys = startStateRepository.loadStartTileKeys(),
                     initialHomeApps = startStateRepository.loadHomeApps(),
-                    onHomeAppsChanged = startStateRepository::saveHomeApps,
+                    initialGridOrder = startStateRepository.loadGridOrder(),
+                    onGridOrderChanged = startStateRepository::saveGridOrder,
                     initialQuickBar = startStateRepository.loadQuickBar(),
                     onQuickBarChanged = startStateRepository::saveQuickBar,
                     initialGlanceWidgets = startStateRepository.loadGlanceWidgets(),
                     onGlanceWidgetsChanged = startStateRepository::saveGlanceWidgets,
                     initialHiddenHomeSections = startStateRepository.loadHiddenHomeSections(),
                     onHiddenHomeSectionsChanged = startStateRepository::saveHiddenHomeSections,
-                    initialHomeMode = startStateRepository.loadHomeMode(),
-                    onHomeModeChanged = startStateRepository::saveHomeMode,
+                    frames = framesState.value,
+                    framesGeneration = framesGeneration.value,
+                    frameSnapshot = { frame -> recentTasksRepository.snapshot(frame.taskId) },
+                    onResumeFrame = ::resumeFrame,
+                    onCloseFrame = ::closeFrame,
                     onAppearanceChanged = { next ->
                         writeGlobalSableAppearance(this@SableStartActivity, next)
                     },
@@ -270,6 +283,7 @@ class SableStartActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         scheduleInventoryRefresh()
+        refreshFrames()
         liveRefreshGeneration.value += 1
     }
 
@@ -284,6 +298,7 @@ class SableStartActivity : ComponentActivity() {
             startRequest.value = StartRequest(screenFor(intent), startRequest.value.serial + 1)
         } else if (intent.action == Intent.ACTION_MAIN) {
             homeGeneration.value += 1
+            refreshFrames()
         }
     }
 
@@ -309,6 +324,7 @@ class SableStartActivity : ComponentActivity() {
         unregisterPrivacySignals()
         inventoryGeneration.incrementAndGet()
         inventoryExecutor.shutdownNow()
+        framesExecutor.shutdownNow()
         super.onDestroy()
     }
 
@@ -339,6 +355,46 @@ class SableStartActivity : ComponentActivity() {
                         privateSpaceLockedState.value = privateSpaceLocked
                     }
                 }
+            }
+        }
+    }
+
+    /** Reads the recent tasks off the main thread; the snapshots repaint with them. */
+    private fun refreshFrames() {
+        runCatching {
+            framesExecutor.execute {
+                val frames = recentTasksRepository.loadFrames()
+                runOnUiThread {
+                    if (!isDestroyed) {
+                        framesState.value = frames
+                        framesGeneration.value += 1
+                    }
+                }
+            }
+        }
+    }
+
+    /** Enter on a frame: the task as it was; if Android refuses, the app starts fresh. */
+    private fun resumeFrame(frame: ActiveFrame) {
+        runCatching {
+            framesExecutor.execute {
+                if (!recentTasksRepository.resume(frame.taskId)) {
+                    recentTasksRepository.launchIntent(frame)?.let { intent ->
+                        runOnUiThread { runCatching { startActivity(intent) } }
+                    }
+                }
+            }
+        }
+    }
+
+    /** X or Backspace on a frame: gone from Start at once, then removed from Recents. */
+    private fun closeFrame(frame: ActiveFrame) {
+        framesState.value = framesState.value.filterNot { it.taskId == frame.taskId }
+        runCatching {
+            framesExecutor.execute {
+                recentTasksRepository.close(frame.taskId)
+                val frames = recentTasksRepository.loadFrames()
+                runOnUiThread { if (!isDestroyed) framesState.value = frames }
             }
         }
     }

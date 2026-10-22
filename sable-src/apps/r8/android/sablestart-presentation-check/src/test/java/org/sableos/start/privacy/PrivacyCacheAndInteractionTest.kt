@@ -95,7 +95,10 @@ class PrivacyCacheAndInteractionTest {
         val k = AllAppsKeyPolicy
         assertEquals(AllAppsKeyAction.Open, k.decide(k.KEYCODE_ENTER, 0, 0).action)
         assertEquals(AllAppsKeyAction.Actions, k.decide(k.KEYCODE_ENTER, 0, k.META_FUNCTION_ON).action)
-        assertEquals(AllAppsKeyAction.AppInfo, k.decide(k.KEYCODE_ENTER, 0, k.META_ALT_ON).action)
+        // Alt is the Q25's Fn: Alt+Enter is the actions sheet too (sable-all-apps-titan2 "Menu / Fn+Enter").
+        assertEquals(AllAppsKeyAction.Actions, k.decide(k.KEYCODE_ENTER, 0, k.META_ALT_ON).action)
+        // Shift+Enter opens the Dual copy.
+        assertEquals(AllAppsKeyAction.OpenSecond, k.decide(k.KEYCODE_ENTER, 0, k.META_SHIFT_ON).action)
         assertEquals(AllAppsKeyAction.Actions, k.decide(k.KEYCODE_MENU, 0, 0).action)
         assertEquals(AllAppsKeyAction.ToggleDetail, k.decide(k.KEYCODE_SPACE, ' '.code, 0).action)
         assertEquals(AllAppsKeyAction.Search, k.decide(k.KEYCODE_SEARCH, 0, 0).action)
@@ -149,5 +152,44 @@ class PrivacyCacheAndInteractionTest {
                 AppActionContext(pinnedToStart = true, inBaseBar = null, launcherUser = false, canUninstall = false),
             )
         assertEquals(listOf(AppAction.Open, AppAction.AppInfo, AppAction.RemoveFromStart), actions)
+    }
+
+    @Test
+    fun bb10GridOffersNoPinningAndDualAppsOfferTheOtherCopy() {
+        val actions =
+            AppActionPolicy.actions(
+                AppActionContext(
+                    pinnedToStart = false,
+                    inBaseBar = false,
+                    launcherUser = true,
+                    canUninstall = false,
+                    pinnable = false,
+                    hasSecondInstance = true,
+                ),
+            )
+        assertEquals(
+            listOf(AppAction.Open, AppAction.OpenSecond, AppAction.AppInfo, AppAction.NotificationSettings, AppAction.AddToBaseBar),
+            actions,
+        )
+    }
+
+    @Test
+    fun privacyFiltersSensitiveAllAndNone() {
+        val camera = AppPrivacy(mapOf(PrivacyGroup.Camera to GroupState.Allowed))
+        val contacts = AppPrivacy(mapOf(PrivacyGroup.Contacts to GroupState.Allowed))
+        val overlay = AppPrivacy(mapOf(PrivacyGroup.Overlay to GroupState.Allowed))
+        val none = AppPrivacy(mapOf(PrivacyGroup.Camera to GroupState.NotAllowed))
+        val unknown = AppPrivacy(mapOf(PrivacyGroup.Camera to GroupState.Unknown))
+        assertTrue(PrivacyFilter.Sensitive.matches(camera))
+        assertTrue(PrivacyFilter.Sensitive.matches(overlay))
+        assertFalse(PrivacyFilter.Sensitive.matches(contacts))
+        assertFalse(PrivacyFilter.Sensitive.matches(null))
+        assertTrue(PrivacyFilter.NoneSensitive.matches(none))
+        assertFalse(PrivacyFilter.NoneSensitive.matches(unknown))
+        assertFalse(PrivacyFilter.NoneSensitive.matches(camera))
+        listOf(camera, none, unknown, null).forEach { assertTrue(PrivacyFilter.All.matches(it)) }
+        assertEquals(listOf("Sensitive", "All", "No sensitive"), PrivacyFilter.entries.map { it.label })
+        assertEquals(PrivacyFilter.NoneSensitive, PrivacyFilter.next(PrivacyFilter.All, 1))
+        assertEquals(PrivacyFilter.Sensitive, PrivacyFilter.next(PrivacyFilter.Sensitive, -1))
     }
 }

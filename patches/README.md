@@ -28,43 +28,51 @@
   the user's ordered Home apps with a filled focus bar, tiles as an optional touch mode, base bar Phone ·
   Hub · Command · Apps), Hub right (All / Messages / Calls tabs); one Edit Home mode (Menu, long press,
   `EDIT_HOME` / `EDIT_QUICK_BAR`) reorders apps, bar and widgets by drag, Enter pick-up or Alt+arrows;
-  Hub slot options and Space peek, digits on the Phone slot dial. 0050 App display compatibility applies profiles
-  (aspect ratio through `IPackageManager.setUserMinAspectRatio(pkg, userId, value)` as the system UID, per-app
-  Portrait/Landscape through the overridable orientation app-compat changes, Mini mode as the 3:2 phone window,
-  a full platform state on every save so a stored-only profile clears an earlier ratio), 0051 Secure Vault
-  (`apps/titan2/platform/vault`, Private Space only: Photos, Documents and Recordings in the private profile's
-  own storage; Import copies, Export and Open confirm first, Lock now; keyboard first).
-  Hub slot options and Space peek, digits on the Phone slot dial.
-  0029 the Quick Settings layout tokens for the three-column artifact grid (`SableQuickSettingsLayout`
-  square: 3 columns of labeled small tiles, compact row of 4; default tiles put Do Not Disturb fourth).
-  Hub slot options and Space peek, digits on the Phone slot dial, 0030 Sable Hub on the approved
+  Hub slot options and Space peek, digits on the Phone slot dial; 0022 Sable Start in the BlackBerry
+  10 layout (owner request): Hub | Active Frames | app grid pages with BB10 page dots and a Phone ·
+  Search · Camera bar (Alt+1..3, Search required); Active Frames show up to eight recent tasks as
+  live cards (snapshot or summary; Enter resumes, X/Backspace closes; REAL_GET_TASKS, REORDER_TASKS,
+  REMOVE_TASKS, START_TASKS_FROM_RECENTS, READ_FRAME_BUFFER, hidden calls by reflection, fail-soft)
+  under the status dials and Settings gear (on by default) and the weather with the date (no clock,
+  no greeting), or the Glance widgets while none run; a four-column boxed icon grid in the user's
+  order (Edit Home reorders it with all four arrows); All Apps privacy filter chips, base-bar slot
+  picker, Alt+Enter = actions; Command Best match, permission matches group, per-result actions,
+  group chips on Left/Right, locked Private Space state, `/private` `/dual` `/work`; clone-profile
+  apps badged "Dual", Shift+Enter opens the other instance. 0029 the Quick Settings layout tokens for
+  the three-column artifact grid (`SableQuickSettingsLayout` square: 3 columns of labeled small
+  tiles, compact row of 4; default tiles put Do Not Disturb fourth). 0030 Sable Hub on the approved
   `sable-hub-titan2` and `sable-messages-conversation-titan2` designs: Priority, Missed and People
   filter chips (P, X, O), `/` search with `unread`/`missed`/`today`/`from:`/`app:`, a row actions
-  sheet (Menu, Alt+Enter, long press), a counts-only view while locked or in private mode, the
-  launch extra `org.sableos.hub.extra.FILTER` (Start opens Hub on a filter) and
+  sheet (Menu, Alt+Enter, long press), a counts-only view while locked or in private mode, the launch
+  extra `org.sableos.hub.extra.FILTER` (Start opens Hub on a filter) and
   `org.sableos.hub.action.OPEN_CONVERSATION` (Contacts' Hub chip), the read-only
   `org.sableos.hub.privacy` provider (Sable private mode for Phone and Contacts); in a thread End/Esc
   to latest, PageUp/PageDown paging, `/` thread search, the new-message pill and a privacy badge.
-  0040 Sable Camera on the Q25 keyboard and design (`sable-camera-capture-titan2`): Z/X (and
-  Alt+Z) zoom and H keys in place of + - / (Alt or Sym characters on the Q25), R toggles RAW or
-  high-res, a trackpad guard (plain arrows only step a focused strip; Alt+arrows change mode and
-  zoom), the cyan accent, a focus reticle, status and mode chips and the hint dock, and the
-  `STILL_IMAGE_CAMERA` / `IMAGE_CAPTURE` filters (with Aperture 0801 it is the default still camera;
-  a capture for another app is one Auto JPEG returned through `EXTRA_OUTPUT`). 0041 Sable Calendar
+  0040 Sable Camera on the Q25 keyboard and design (`sable-camera-capture-titan2`): Z/X (and Alt+Z)
+  zoom and H keys in place of + - / (Alt or Sym characters on the Q25), R toggles RAW or high-res, a
+  trackpad guard (plain arrows only step a focused strip; Alt+arrows change mode and zoom), the cyan
+  accent, a focus reticle, status and mode chips and the hint dock, and the `STILL_IMAGE_CAMERA` /
+  `IMAGE_CAPTURE` filters (with Aperture 0801 it is the default still camera; a capture for another
+  app is one Auto JPEG returned through `EXTRA_OUTPUT`). 0041 Sable Calendar
   (`sable-mail-calendar-titan2`): a five-column week view with a NOW line, the agenda and the
-  selected event's detail side by side on wide screens, and the C/T/V/J/K/R screen keys.
-  0045 Sable Mail on the approved mail artifact: a forced split pane on the square screen (width
-  560dp or more, aspect 1.25 or less), a bottom command dock (prompt and list/reader hint line),
-  V archive, L reply all, E expand quoted text (collapsed by default), A focus attachments, O cycle sort,
-  0046 Sable Media key labels under the now-playing buttons (J prev, Space play, K next) and the hint line.
-  Hub slot options and Space peek, digits on the Phone slot dial, 0060 the Sable games (Sudoku,
-  Minesweeper, 2048) as shrunk release builds (R8 and resource shrinking; a keep rule for the Rust JNI
-  bridge) with keyboard play (arrows/trackpad move or slide, Alt+1-9 or W E R S D F Z X C fill Sudoku,
-  Space reveals and F flags in Minesweeper, N new game), 0061 Sable Media's FM mode (an `fm` destination
-  shown only when the FM bridge of framework patch FMRadio 1062 is installed; tuner panel, antenna
-  check, seek, ±0.1 MHz, speaker/headphones, mute, scan, starred presets on Alt+1-9, the
-  `org.sableos.media.action.FM_RADIO` action Sable Tools and the FM notification open).
-  Applied in order to a
+  selected event's detail side by side on wide screens, and the C/T/V/J/K/R screen keys. 0045 Sable
+  Mail on the approved mail artifact: a forced split pane on the square screen (width 560dp or more,
+  aspect 1.25 or less), a bottom command dock (prompt and list/reader hint line), V archive, L reply
+  all, E expand quoted text (collapsed by default), A focus attachments, O cycle sort, 0046 Sable
+  Media key labels under the now-playing buttons (J prev, Space play, K next) and the hint line. 0050
+  App display compatibility applies profiles (aspect ratio through
+  `IPackageManager.setUserMinAspectRatio(pkg, userId, value)` as the system UID, per-app
+  Portrait/Landscape through the overridable orientation app-compat changes, Mini mode as the 3:2
+  phone window, a full platform state on every save so a stored-only profile clears an earlier
+  ratio), 0051 Secure Vault (`apps/titan2/platform/vault`, Private Space only: Photos, Documents and
+  Recordings in the private profile's own storage; Import copies, Export and Open confirm first, Lock
+  now; keyboard first). 0060 the Sable games (Sudoku, Minesweeper, 2048) as shrunk release builds (R8
+  and resource shrinking; a keep rule for the Rust JNI bridge) with keyboard play (arrows/trackpad
+  move or slide, Alt+1-9 or W E R S D F Z X C fill Sudoku, Space reveals and F flags in Minesweeper,
+  N new game), 0061 Sable Media's FM mode (an `fm` destination shown only when the FM bridge of
+  framework patch FMRadio 1062 is installed; tuner panel, antenna check, seek, ±0.1 MHz,
+  speaker/headphones, mute, scan, starred presets on Alt+1-9, the `org.sableos.media.action.FM_RADIO`
+  action Sable Tools and the FM notification open). Applied in order to a
   fresh import they reproduce `sable-src/` exactly. Regenerate a patch with `git diff` against a
   fresh import when you change these files.
 

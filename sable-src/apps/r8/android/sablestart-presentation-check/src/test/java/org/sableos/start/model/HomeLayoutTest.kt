@@ -5,14 +5,32 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Home and Glance layout (SABLE_START_THREE_PAGE_MODEL.md, the Titan 2 three-page visual). */
+/** The Active Frames header (BB10 Home) and the Glance widgets shown as frames. */
 class HomeLayoutTest {
     @Test
-    fun neverCustomisedShowsWeatherOnly() {
+    fun neverCustomisedShowsStatusDialsAndWeather() {
         val hidden = HomeLayout.normalizeHidden(null)
+        assertTrue(HomeLayout.isShown(hidden, HomeLayout.STATUS_RINGS))
         assertTrue(HomeLayout.isShown(hidden, HomeLayout.WEATHER))
         assertFalse(HomeLayout.isShown(hidden, HomeLayout.SEARCH_ROW))
-        assertFalse(HomeLayout.isShown(hidden, HomeLayout.STATUS_RINGS))
+        // Dials first, then weather and date: no clock, no greeting.
+        assertEquals(listOf("rings", "weather", "search"), HomeLayout.SECTIONS)
+    }
+
+    @Test
+    fun weatherHeaderReadsTheSnapshotLine() {
+        assertEquals("72° Partly cloudy" to "Seattle", HomeHeader.weather("Seattle · 72° · Partly cloudy"))
+        assertEquals("5° Snow" to "", HomeHeader.weather("5° · Snow"))
+        assertEquals(null, HomeHeader.weather("Choose a city in Sable Weather"))
+        assertEquals("EEEEMMMMd", HomeHeader.DATE_SKELETON)
+    }
+
+    @Test
+    fun dateLineTurnsOverAtMidnight() {
+        val day = 24L * 60 * 60 * 1000
+        assertEquals(day, HomeHeader.millisToMidnight(0))
+        assertEquals(1000L, HomeHeader.millisToMidnight(day - 1000))
+        assertTrue(HomeHeader.millisToMidnight(day - 1) >= 1)
     }
 
     @Test
@@ -26,24 +44,10 @@ class HomeLayoutTest {
     }
 
     @Test
-    fun bb10ModeIsDefaultAndLegacyModesStillWork() {
-        assertEquals(HomeLayout.MODE_BB10, HomeLayout.normalizeMode(null))
-        assertEquals(HomeLayout.MODE_BB10, HomeLayout.normalizeMode("grid"))
-        assertEquals(HomeLayout.MODE_BB10, HomeLayout.normalizeMode("bb10"))
-        assertEquals(HomeLayout.MODE_LIST, HomeLayout.normalizeMode("list"))
+    fun listModeIsTheDefault() {
+        assertEquals(HomeLayout.MODE_LIST, HomeLayout.normalizeMode(null))
+        assertEquals(HomeLayout.MODE_LIST, HomeLayout.normalizeMode("grid"))
         assertEquals(HomeLayout.MODE_TILES, HomeLayout.normalizeMode("tiles"))
-    }
-
-    @Test
-    fun bb10RecentCardsAreBoundedAndNeverExposePrivateKeys() {
-        val selected =
-            Bb10HomePolicy.visibleRecentKeys(
-                listOf("mail", "private", "mail", "weather", "camera", "hub", "calendar", ""),
-                setOf("private"),
-            )
-        assertEquals(listOf("mail", "weather", "camera", "hub"), selected)
-        assertEquals(4, Bb10HomePolicy.MAX_RECENT)
-        assertEquals(4, Bb10HomePolicy.GRID_COLUMNS)
     }
 
     @Test

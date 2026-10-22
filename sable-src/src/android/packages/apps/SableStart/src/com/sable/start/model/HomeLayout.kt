@@ -1,15 +1,16 @@
 package org.sableos.start.model
 
 /**
- * What the center Home page and the Glance page show
- * (SABLE_START_THREE_PAGE_MODEL.md, SABLE_START_VISUAL_CONFIRMATION.md and
- * the Titan 2 three-page visual). Pure policy, unit tested in
+ * The header over Active Frames (the BB10 Home) and what Edit Home can hide.
+ * Pure policy, unit tested in
  * apps/r8/android/sablestart-presentation-check/src/test.
  *
- * Home, top to bottom: the Weather widget (HOME_TOP_MODULE, on by default),
- * an optional "Search or command" row (in the screen design, not in the
- * visual, so off by default), optional status rings, the user's Home apps (a list by default, tiles as the
- * optional touch mode) and the base quick bar ([QuickBar], always shown).
+ * Top to bottom: the status dials (Wi-Fi, Mobile, CPU, RAM, battery time
+ * left, Cell, and the Settings gear; on by default, owner request), the
+ * location's weather (temperature, condition, place) with the date under it
+ * in place of a clock (the status bar keeps the only clock, so the two never
+ * disagree), an optional Search or command row (off by default), then the
+ * frames. No greeting.
  */
 object HomeLayout {
     const val WEATHER = "weather"
@@ -17,21 +18,16 @@ object HomeLayout {
     const val STATUS_RINGS = "rings"
 
     /** Home modules the user can show or hide, in screen order. */
-    val SECTIONS: List<String> = listOf(WEATHER, SEARCH_ROW, STATUS_RINGS)
+    val SECTIONS: List<String> = listOf(STATUS_RINGS, WEATHER, SEARCH_ROW)
 
-    /** Never customised: Weather shown; the search row and status rings hidden. */
-    val DEFAULT_HIDDEN: Set<String> = setOf(SEARCH_ROW, STATUS_RINGS)
+    /** Never customised: status dials and weather shown; the search row hidden. */
+    val DEFAULT_HIDDEN: Set<String> = setOf(SEARCH_ROW)
 
-    /** BB10-inspired cards and app grid are the new default; list and tiles remain choices. */
+    /** Keyboard-first list mode (default) or the optional touch tile mode. */
     const val MODE_LIST = "list"
     const val MODE_TILES = "tiles"
-    const val MODE_BB10 = "bb10"
 
-    fun normalizeMode(stored: String?): String =
-        when (stored) {
-            MODE_LIST, MODE_TILES, MODE_BB10 -> stored
-            else -> MODE_BB10
-        }
+    fun normalizeMode(stored: String?): String = if (stored == MODE_TILES) MODE_TILES else MODE_LIST
 
     /** Drops unknown names; null (never customised) gives [DEFAULT_HIDDEN]. */
     fun normalizeHidden(stored: Set<String>?): Set<String> = stored?.filter { it in SECTIONS }?.toSet() ?: DEFAULT_HIDDEN
@@ -54,39 +50,19 @@ object HomeLayout {
 
     fun label(section: String): String =
         when (section) {
-            WEATHER -> "Weather widget"
+            WEATHER -> "Weather and date"
             SEARCH_ROW -> "Search or command row"
-            STATUS_RINGS -> "Status rings"
+            STATUS_RINGS -> "Status dials"
             else -> section
         }
 
     fun description(section: String): String =
         when (section) {
-            WEATHER -> "Weather at the top of Home"
+            WEATHER -> "Temperature, condition and place, with the date under it"
             SEARCH_ROW -> "A Command row under the weather; typing works without it"
-            STATUS_RINGS -> "Network, CPU, memory, battery and signal rings"
+            STATUS_RINGS -> "Wi-Fi, Mobile, CPU, RAM, battery time left, Cell and Settings"
             else -> ""
         }
-}
-
-/**
- * BB10 Home keeps at most four session-only activity cards; the four-column
- * app grid is independent of the Android Recents/task model.
- */
-object Bb10HomePolicy {
-    const val MAX_RECENT = 4
-    const val GRID_COLUMNS = 4
-
-    fun visibleRecentKeys(
-        sessionKeys: List<String>,
-        privateKeys: Set<String>,
-    ): List<String> =
-        sessionKeys.asSequence()
-            .filterNot { it in privateKeys }
-            .filter { it.isNotBlank() }
-            .distinct()
-            .take(MAX_RECENT)
-            .toList()
 }
 
 /**
@@ -173,4 +149,32 @@ object GlanceWidgets {
             PHOTOS -> "Photos"
             else -> widget
         }
+}
+
+/**
+ * The weather and date block at the top of Active Frames, in place of a
+ * clock. Sable Weather's snapshot line is "Place · 72° · Condition".
+ */
+object HomeHeader {
+    /** Skeleton for the date line under the weather ("Wednesday, October 21" in English). */
+    const val DATE_SKELETON = "EEEEMMMMd"
+
+    /**
+     * ("72° Partly cloudy", "Seattle") from the snapshot line, or null when
+     * the line has no temperature (still loading, no city, no permission).
+     */
+    fun weather(detail: String): Pair<String, String>? {
+        val parts = detail.split(" · ").map { it.trim() }.filter { it.isNotEmpty() }
+        val tempIndex = parts.indexOfFirst { it.endsWith("°") }
+        if (tempIndex < 0) return null
+        val condition = parts.getOrNull(tempIndex + 1)
+        val headline = listOfNotNull(parts[tempIndex], condition).joinToString(" ")
+        val place = parts.filterIndexed { i, _ -> i != tempIndex && i != tempIndex + 1 }.joinToString(" · ")
+        return headline to place
+    }
+
+    /** Milliseconds from [nowMillisOfDay] to the next midnight, when the date line changes. */
+    fun millisToMidnight(nowMillisOfDay: Long): Long = (DAY_MS - nowMillisOfDay.mod(DAY_MS)).coerceAtLeast(1L)
+
+    private const val DAY_MS = 24L * 60 * 60 * 1000
 }
