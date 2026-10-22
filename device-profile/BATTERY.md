@@ -11,8 +11,9 @@ Q27 or Panther.
 DEVICE=zinwa-q25
 BATTERY_PROFILE=device-profile/battery/zinwa-q25.conf
 INSTALLED_AS=/system_ext/etc/sable/battery/zinwa-q25.conf (phase Q4, see docs/implementation/battery.md)
-DEVICE_EVIDENCE=NONE (no Q25 examined yet)
-HEALTH_FACTS_QUALIFIED=NONE
+DEVICE_EVIDENCE=NONE (no Q25 battery examined yet)
+SOURCE_EVIDENCE=kernel 2a873a35 mtk_battery.c + SableOS kernel patch 0201 (2026-10-22)
+HEALTH_FACTS_QUALIFIED=capacity, cycle count, temperature, voltage (on source evidence; device check Q4-BATTERY-HEALTH-Q25)
 CHARGING_MUTATION=NOT_AUTHORIZED (BH6)
 ```
 
@@ -33,11 +34,31 @@ measurement, and none makes a health fact displayable.
 | Power profile capacity | `battery.capacity=1000` | `FrameworksResOverlay/res/xml/power_profile.xml` | A placeholder that disagrees with the 3000 mAh rating. BatteryStats mAh estimates are scaled wrongly; the percentage shares Settings shows are ratios and are not affected. Fix upstream or in a Sable overlay once measured |
 | LineageOS charging control | Absent: no `vendor.lineage.health` HAL, so no `lineagehealth` service | `device.mk` | Charge limit renders "Not available on this device yet"; if a later tree adds the service it renders "Found on this device, not yet qualified" and the LineageOS controls stay hidden |
 
-Whether the MediaTek kernel exports `charge_full`, `charge_full_design`,
-`cycle_count`, `charge_counter`, `manufacturing_date`, `first_usage_date` or
-`state_of_health` under `/sys/class/power_supply/battery`, and whether the
-values mean what Android expects, is unknown. That is why every strict fact
-is `UNKNOWN`.
+## Source evidence: what the Q25 kernel exports
+
+The pinned kernel (`kernel/xelex/mt6789` 2a873a35, `q20_v12_factory` device tree) registers the
+`battery` power supply in `drivers/power/supply/mtk_battery.c` (`battery_props[]`, line 265). The
+stock health HAL reads these files, and BatteryService passes them to Settings as
+`EXTRA_CYCLE_COUNT`, `EXTRA_MAXIMUM_CAPACITY`, `EXTRA_DESIGN_CAPACITY`, `EXTRA_TEMPERATURE`
+and `EXTRA_VOLTAGE`. Settings itself reads no sysfs file, so it needs no SELinux or permission
+change; the health HAL already reads `/sys/class/power_supply/battery`.
+
+| Node | Pinned kernel (before 0201) | With kernel patch 0201 |
+|---|---|---|
+| `cycle_count` | Always `1` (`mtk_battery.c:326`, `val->intval = 1`). q25toolbox saw the same on a phone | The cycle count `fuelgauged` keeps and restores (`FG_DAEMON_CMD_SET_BAT_CYCLES`, `mtk_battery_daemon.c:3944`) when the daemon runs the gauge; `-ENODATA` ("Not reported") in kernel-algorithm mode, which counts no cycles |
+| `charge_full` | Static profile `Q_MAX` x 1000 (`mtk_battery.c:366`): 2 951 000 uAh forever | `charge_full_design` x learned aging factor (`FG_DAEMON_CMD_SET_AGING_FACTOR`, `mtk_battery_daemon.c:3928`, or the kernel algorithm's `algo.aging_factor`, 10000 = 100 %), clamped to 100 %; `-ENODATA` without one |
+| `charge_full_design` | `Q_MAX / 10` mAh in uAh (`mtk_battery.c:440`): 295 100 uAh, ten times too small, because the Q25 device tree gives `g_Q_MAX` in mAh (`q20_v12_factory.dts:1507`, 2951 for the 3000 mAh cell) | `Q_MAX` x 1000: 2 951 000 uAh |
+| `temp` | NTC reading x 10 (`force_get_tbat`), tenths of a degree | unchanged |
+| `voltage_now` | Gauge battery voltage, uV | unchanged (Android passes mV as `EXTRA_VOLTAGE`) |
+| `charge_counter` | `ui_soc` x static `Q_MAX` / 100: the level times a constant, not a coulomb count | unchanged; `health_charge_counter_supported` stays UNKNOWN |
+| `manufacturing_date`, `first_usage_date`, `state_of_health` | Not exported (not in `battery_props[]`, no extra attribute) | unchanged: `NO` for the dates; capacity health is the full/design ratio |
+
+The learned values (`gm->bat_cycle`, `gm->aging_factor`, `gm->algo_qmax`) existed in the driver
+but nothing exported them. Daemon mode is the normal path: the vendor
+`fuelgauged_init.rc` starts `fuelgauged` as `class core` (the device tree's `init.mt6789.rc:98`
+also starts it in charger mode) and the kernel logs
+`daemon mode DONE`; it falls back to the kernel algorithm (`enable Kernel mode Gauge`) when the
+daemon's command set does not match the kernel's.
 
 ## Profile keys and how to qualify each
 
@@ -49,13 +70,14 @@ that the device does not provide it.
 
 | Key | Now | Evidence needed for YES |
 |---|---|---|
-| `health_capacity_supported` | UNKNOWN | `adb shell dumpsys battery` shows non-zero `Maximum capacity` and `Design capacity` (uAh). Design within 25% of 3000 mAh. Maximum capacity tracks a full discharge measurement (coulomb count from a USB power meter, full to cutoff) within 10% on two cycles. Optionally `dumpsys android.hardware.health.IHealth/default` state of health agrees within 10 points |
-| `health_cycle_count_supported` | UNKNOWN | `dumpsys battery` / the `android.os.extra.CYCLE_COUNT` extra is non-negative and increments by about one per full-equivalent cycle over at least three cycles; survives reboot |
-| `health_temperature_supported` | UNKNOWN | `temperature` in `dumpsys battery` within 3 C of a probe on the battery at rest and while charging. (Temperature is shown without evidence because every Android device reports it; set `NO` if it proves bogus, for example a constant 25.0 C) |
+| `health_capacity_supported` | YES (source, kernel 0201) | `adb shell dumpsys battery` shows non-zero `Maximum capacity` and `Design capacity` (uAh). Design within 25% of 3000 mAh. Maximum capacity tracks a full discharge measurement (coulomb count from a USB power meter, full to cutoff) within 10% on two cycles. Optionally `dumpsys android.hardware.health.IHealth/default` state of health agrees within 10 points |
+| `health_cycle_count_supported` | YES (source, kernel 0201) | `dumpsys battery` / the `android.os.extra.CYCLE_COUNT` extra is non-negative and increments by about one per full-equivalent cycle over at least three cycles; survives reboot |
+| `health_temperature_supported` | YES (source: NTC reading) | `temperature` in `dumpsys battery` within 3 C of a probe on the battery at rest and while charging. (Temperature is shown without evidence because every Android device reports it; set `NO` if it proves bogus, for example a constant 25.0 C) |
 | `health_status_supported` | UNKNOWN | `health` reads 2 (good) normally and changes in an overheat or cold test; set `NO` if it never leaves 1 (unknown) |
 | `health_charge_counter_supported` | UNKNOWN | `Charge counter` follows the level (counter / design is about level %) across a discharge |
-| `health_manufacturing_date_supported` | UNKNOWN | `BATTERY_PROPERTY_MANUFACTURING_DATE` returns a plausible date that matches the cell label |
-| `health_first_use_date_supported` | UNKNOWN | `BATTERY_PROPERTY_FIRST_USAGE_DATE` returns a date after manufacture that does not reset on factory reset |
+| `health_manufacturing_date_supported` | NO (not exported) | `BATTERY_PROPERTY_MANUFACTURING_DATE` returns a plausible date that matches the cell label |
+| `health_first_use_date_supported` | NO (not exported) | `BATTERY_PROPERTY_FIRST_USAGE_DATE` returns a date after manufacture that does not reset on factory reset |
+| `health_voltage_supported` | YES (source: gauge `voltage_now`) | `voltage` in `dumpsys battery` (mV) within 50 mV of a meter on the battery terminals; set `NO` if it is constant |
 | `usage_platform_accounting_supported` | UNKNOWN | Settings > Battery usage populates after a day of use and screen time matches Digital Wellbeing within 10%. (The usage summary shows unless this is `NO`) |
 | `charge_limit_supported` | UNKNOWN | A Sable-owned bounded backend with SELinux policy and negative tests (BH6). Not authorized |
 | `charge_limit_values` | empty | Only with `charge_limit_supported=YES` |
@@ -65,23 +87,61 @@ that the device does not provide it.
 | `backend_provenance` | NONE | Name and version of the qualified charging backend |
 | `mutable_backend_qualified` | NO | BH6 review complete. Even then the Settings gate stays closed until its code is changed in review |
 
+Source evidence lets a key say YES before a phone has been measured only for the four rows
+above, because kernel patch 0201 removes the fixed values and reports the gauge's own learned
+data or nothing. Q4-BATTERY-HEALTH-Q25 checks them on a phone; a failure moves the key back to
+UNKNOWN (or NO) in the same change that records it.
+
+## Checking it with adb
+
+```sh
+# 1. What the kernel exports (world-readable). Expect cycle_count to be the daemon's count
+#    (0 on a new battery, not a fixed 1), charge_full <= charge_full_design, design ~2951000 uAh.
+adb shell 'cd /sys/class/power_supply/battery && for f in status capacity cycle_count \
+    charge_full charge_full_design charge_counter temp voltage_now health; do \
+    printf "%s=" "$f"; cat "$f" 2>&1; done'
+# "No data available" for cycle_count/charge_full means the gauge has not learned it yet
+# (or kernel-algorithm mode); Settings then shows "Not reported".
+
+# 2. Which gauge mode runs (root shell or a kernel log capture).
+adb shell su -c 'dmesg | grep -E "daemon mode DONE|enable Kernel mode Gauge"'
+adb shell getprop init.svc.fuelgauged            # running
+
+# 3. Android's view (health HAL -> BatteryService -> Settings).
+adb shell dumpsys android.hardware.health.IHealth/default | grep -iE 'cycle|full|design|temp|volt'
+adb shell dumpsys battery
+adb shell dumpsys activity broadcasts | grep -m1 -A2 'android.intent.action.BATTERY_CHANGED'
+#    look for android.os.extra.CYCLE_COUNT, android.os.extra.MAXIMUM_CAPACITY,
+#    android.os.extra.DESIGN_CAPACITY, voltage, temperature
+
+# 4. Settings > Battery > Battery health: Maximum capacity = charge_full / charge_full_design
+#    (whole %), Cycle count = cycle_count, Temperature = temp / 10 C, Voltage = voltage_now / 1e6 V.
+
+# 5. Over time: note cycle_count, run the battery from 100 % to about 10 % and recharge three
+#    times; it should rise by about 3 and keep its value across a reboot. charge_full should
+#    stay within 10 % of a USB-meter discharge measurement.
+```
+
 ## What Settings shows on a Q25 today
 
-From the profile above, before any evidence:
+From the profile above with kernel 0201 (values are examples; nothing here has run on a Q25):
 
 ```text
 Battery
   Battery usage            Since <window start> · <top two consumers>   (Android accounting)
-  Battery health           Partial data · temperature available
+  Battery health           Maximum capacity 95%
   Charging & protection    Device controls not yet qualified
   Battery saver            Android's control
 
 Battery health
-  Maximum capacity         Reported, but not yet verified on this device   (or Not reported)
-  Cycle count              same
+  Maximum capacity         95% of design capacity   (Not reported until the gauge learns it)
+  Cycle count              37 cycles                 (Not reported in kernel-algorithm mode)
   Temperature              31.2 °C · Normal   Source: Android · reported by the platform
+  Voltage                  3.87 V
   Condition                Good               Source: Android · reported by the platform
-  Full-charge / design capacity, remaining charge: not verified / not reported
+  Full-charge capacity     2,803 mAh
+  Design capacity          2,951 mAh
+  Remaining charge         Not yet verified on this device
   Manufactured, First used: omitted
   Recent history           temperature and level, sampled locally
 
@@ -99,12 +159,14 @@ on a Q25.
 ## Leads from q25toolbox (LineageOS 23, not verified here)
 
 [nozerorma/q25toolbox](https://github.com/nozerorma/q25toolbox) reports two facts from its own
-Q25 testing. Both point to `NO`, but the profile stays `UNKNOWN` until the evidence steps above run:
+Q25 testing (CHANGELOG 1.0-beta11/12). The first still points to `NO` and stays `UNKNOWN` until
+the evidence steps above run; the second is what kernel patch 0201 fixes:
 
 * **Battery usage never populates** because the charger never reports `BATTERY_STATUS_FULL`, which
   Android's usage accounting waits for. Expect `usage_platform_accounting_supported=NO`; the
   toolbox works around it by reading `dumpsys batterystats --checkin`.
-* **Cycle count is static**: the fuel gauge reports a fixed value. Expect
-  `health_cycle_count_supported=NO`. The Settings patches already fail closed on `UNKNOWN`, so a
-  static value is not shown as a measurement.
+* **Cycle count is static**: the fuel gauge reports a fixed value (1). Confirmed in the kernel
+  source (`mtk_battery.c:326`); kernel 0201 reports the daemon's learned count instead. Its
+  capacity percentage (`charge_full` / `charge_full_design` x 10) is always about 100 %, because
+  both come from the same static `Q_MAX`; SableOS does not use that.
 

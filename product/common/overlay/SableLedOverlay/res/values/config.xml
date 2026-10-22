@@ -18,15 +18,18 @@
     <integer name="config_defaultNotificationLedOn">250</integer>
     <integer name="config_defaultNotificationLedOff">2750</integer>
 
-    <!-- Battery light (LineageBatteryLights): red is kept for notifications,
-         so low battery is amber (red + green LED) instead of red, flashing
-         when not charging and solid when charging. Charging stays amber
-         (config_notificationsBatteryMediumARGB, LineageOS 0xFFFFFF00) and
-         nearly full (90 %) stays green (config_notificationsBatteryFullARGB,
-         0xFF00FF00); LineageOS turns the light off when full
-         (BATTERY_LIGHT_FULL_CHARGE_DISABLED). The lights HAL shows a lit
-         notification over the battery light, so a red blink replaces the
-         charging color until the notification is seen. LineageOS 23.2 ships
-         0xFFFF0000. -->
+    <!-- Battery light (LineageBatteryLights, lineage-sdk 0504): red is kept
+         for notifications, so low battery is amber (red + green LED) instead
+         of red, flashing when not charging. While charging below 100 % the
+         light blinks amber (config_notificationsBatteryMediumARGB, LineageOS
+         0xFFFFFF00; lineage-sdk config_batteryChargingLedOn/Off 1000/1000 ms).
+         Only a completely charged battery on the charger is solid green
+         (config_notificationsBatteryFullARGB, 0xFF00FF00), and it stays on
+         while plugged in (BATTERY_LIGHT_FULL_CHARGE_DISABLED defaults to 0).
+         The lights HAL shows a lit notification over the battery light, so a
+         red blink replaces the charging color until the notification is
+         seen. LineageOS 23.2 ships 0xFFFF0000 for low. -->
     <integer name="config_notificationsBatteryLowARGB">0xFFFFFF00</integer>
+    <integer name="config_notificationsBatteryMediumARGB">0xFFFFFF00</integer>
+    <integer name="config_notificationsBatteryFullARGB">0xFF00FF00</integer>
 </resources>

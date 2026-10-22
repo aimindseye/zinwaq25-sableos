@@ -1,0 +1,378 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 22 Oct 2026 04:09:32 +0000
+Subject: [PATCH] SableOS: battery voltage row and the Q25's learned health
+ facts
+
+Settings > Battery > Battery health gets a Voltage row after
+Temperature (ACTION_BATTERY_CHANGED EXTRA_VOLTAGE, shown as volts with
+two decimals). It is a non-strict fact like temperature, gated by the
+new profile key health_voltage_supported (NO hides it): missing or zero
+reads "Not reported", values outside 2.5-5.0 V (for example a microvolt
+unit mistake) read as not plausible.
+
+Host tests cover the voltage rules and the facts a Zinwa Q25 shows with
+its profile and kernel patch 0201 (learned cycle count, aging-factor
+full-charge capacity, design capacity in uAh): cycles, capacity health,
+temperature and voltage are shown; unlearned values read "Not
+reported"; the old MediaTek pair (design Q_MAX/10) is rejected.
+---
+ res/values/sable_battery_power_strings.xml    |  22 ++++
+ res/xml/sable_battery_health.xml              |   7 ++
+ .../fuelgauge/sable/SableBatteryState.java    |   1 +
+ .../fuelgauge/sable/SableBatteryText.java     |  11 ++
+ .../sable/model/BatteryCapabilityProfile.java |   3 +-
+ .../sable/model/BatteryHealthEvaluator.java   |  17 +++
+ .../sable/model/BatteryReadings.java          |   4 +
+ .../fuelgauge/sable/model/FactKind.java       |   2 +
+ .../fuelgauge/sable/model/FactText.java       |   2 +
+ .../sable/model/HealthFactPresenter.java      |   2 +
+ .../sable/model/VoltageAndQ25FactsTest.java   | 117 ++++++++++++++++++
+ 11 files changed, 187 insertions(+), 1 deletion(-)
+ create mode 100644 res/values/sable_battery_power_strings.xml
+ create mode 100644 tests/sable-battery/src/com/android/settings/fuelgauge/sable/model/VoltageAndQ25FactsTest.java
+
+diff --git a/res/values/sable_battery_power_strings.xml b/res/values/sable_battery_power_strings.xml
+new file mode 100644
+index 0000000..65cb846
+--- /dev/null
++++ b/res/values/sable_battery_power_strings.xml
+@@ -0,0 +1,22 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
++    <!-- Settings > Battery > Battery health: the battery voltage row. -->
++    <string name="sable_battery_voltage_title">Voltage</string>
++    <!-- %1$s volts with two decimals, such as 3.87. -->
++    <string name="sable_battery_value_voltage"><xliff:g id="volts">%1$s</xliff:g> V</string>
++</resources>
+diff --git a/res/xml/sable_battery_health.xml b/res/xml/sable_battery_health.xml
+index 2047acb..6d3f475 100644
+--- a/res/xml/sable_battery_health.xml
++++ b/res/xml/sable_battery_health.xml
+@@ -44,6 +44,13 @@
+         settings:controller="com.android.settings.fuelgauge.sable.SableHealthFactPreferenceController"
+         settings:enableCopying="true" />
+ 
++    <Preference
++        android:key="sable_battery_fact_voltage"
++        android:title="@string/sable_battery_voltage_title"
++        android:summary="@string/summary_placeholder"
++        settings:controller="com.android.settings.fuelgauge.sable.SableHealthFactPreferenceController"
++        settings:enableCopying="true" />
++
+     <Preference
+         android:key="sable_battery_fact_health_status"
+         android:title="@string/sable_battery_condition_title"
+diff --git a/src/com/android/settings/fuelgauge/sable/SableBatteryState.java b/src/com/android/settings/fuelgauge/sable/SableBatteryState.java
+index fad1711..e53fb09 100644
+--- a/src/com/android/settings/fuelgauge/sable/SableBatteryState.java
++++ b/src/com/android/settings/fuelgauge/sable/SableBatteryState.java
+@@ -86,6 +86,7 @@ public final class SableBatteryState {
+                     .designCapacityUah(extra(i, BatteryManager.EXTRA_DESIGN_CAPACITY))
+                     .cycleCount(extra(i, BatteryManager.EXTRA_CYCLE_COUNT))
+                     .temperatureDeciC(extra(i, BatteryManager.EXTRA_TEMPERATURE))
++                    .voltageMillivolts(extra(i, BatteryManager.EXTRA_VOLTAGE))
+                     .healthStatus(extra(i, BatteryManager.EXTRA_HEALTH))
+                     .chargeCounterUah(extra(i, BatteryManager.EXTRA_CHARGE_COUNTER));
+             final int level = i.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+diff --git a/src/com/android/settings/fuelgauge/sable/SableBatteryText.java b/src/com/android/settings/fuelgauge/sable/SableBatteryText.java
+index ded17ef..d1d5eea 100644
+--- a/src/com/android/settings/fuelgauge/sable/SableBatteryText.java
++++ b/src/com/android/settings/fuelgauge/sable/SableBatteryText.java
+@@ -61,6 +61,9 @@ public final class SableBatteryText {
+                 return c.getString(R.string.sable_battery_value_temperature,
+                         temperature(c, t.args[0]),
+                         temperatureClass(c, TemperatureClass.values()[(int) t.args[1]]));
++            case VOLTAGE:
++                return c.getString(R.string.sable_battery_value_voltage,
++                        voltage(c, t.args[0]));
+             case HEALTH_STATUS:
+                 return condition(c, (int) t.args[0]);
+             case MONTH_YEAR:
+@@ -130,6 +133,14 @@ public final class SableBatteryText {
+                 .format(new Measure(deciC / 10f, MeasureUnit.CELSIUS));
+     }
+ 
++    /** Millivolts as a localized number of volts with two decimals, such as 3.87. */
++    public static String voltage(Context c, long millivolts) {
++        final NumberFormat f = NumberFormat.getNumberInstance(locale(c));
++        f.setMinimumFractionDigits(2);
++        f.setMaximumFractionDigits(2);
++        return f.format(millivolts / 1000.0);
++    }
++
+     static String temperatureClass(Context c, TemperatureClass t) {
+         switch (t) {
+             case HOT:
+diff --git a/src/com/android/settings/fuelgauge/sable/model/BatteryCapabilityProfile.java b/src/com/android/settings/fuelgauge/sable/model/BatteryCapabilityProfile.java
+index 142c703..accacfe 100644
+--- a/src/com/android/settings/fuelgauge/sable/model/BatteryCapabilityProfile.java
++++ b/src/com/android/settings/fuelgauge/sable/model/BatteryCapabilityProfile.java
+@@ -36,6 +36,7 @@ public final class BatteryCapabilityProfile {
+     public static final String KEY_HEALTH_MANUFACTURING_DATE =
+             "health_manufacturing_date_supported";
+     public static final String KEY_HEALTH_FIRST_USE_DATE = "health_first_use_date_supported";
++    public static final String KEY_HEALTH_VOLTAGE = "health_voltage_supported";
+     public static final String KEY_USAGE_PLATFORM_ACCOUNTING =
+             "usage_platform_accounting_supported";
+     public static final String KEY_CHARGE_LIMIT = "charge_limit_supported";
+@@ -56,7 +57,7 @@ public final class BatteryCapabilityProfile {
+             java.util.Arrays.asList(KEY_HEALTH_CAPACITY, KEY_HEALTH_CYCLE_COUNT,
+                     KEY_HEALTH_TEMPERATURE, KEY_HEALTH_STATUS, KEY_HEALTH_CHARGE_COUNTER,
+                     KEY_HEALTH_MANUFACTURING_DATE, KEY_HEALTH_FIRST_USE_DATE,
+-                    KEY_USAGE_PLATFORM_ACCOUNTING, KEY_CHARGE_LIMIT, KEY_ADAPTIVE_CHARGING,
++                    KEY_HEALTH_VOLTAGE, KEY_USAGE_PLATFORM_ACCOUNTING, KEY_CHARGE_LIMIT, KEY_ADAPTIVE_CHARGING,
+                     KEY_SCHEDULED_CHARGING, KEY_THERMAL_PROTECTION_STATUS));
+ 
+     /** The only schema version this code understands. */
+diff --git a/src/com/android/settings/fuelgauge/sable/model/BatteryHealthEvaluator.java b/src/com/android/settings/fuelgauge/sable/model/BatteryHealthEvaluator.java
+index c2b2f2f..d35e347 100644
+--- a/src/com/android/settings/fuelgauge/sable/model/BatteryHealthEvaluator.java
++++ b/src/com/android/settings/fuelgauge/sable/model/BatteryHealthEvaluator.java
+@@ -42,6 +42,9 @@ public final class BatteryHealthEvaluator {
+     static final long MIN_PLAUSIBLE_TEMP_DECI_C = -400;
+     static final long MAX_PLAUSIBLE_TEMP_DECI_C = 1000;
+     static final long MAX_PLAUSIBLE_CYCLES = 10_000;
++    /** Single-cell lithium battery voltage plausibility, millivolts. */
++    static final long MIN_PLAUSIBLE_VOLTAGE_MV = 2_500;
++    static final long MAX_PLAUSIBLE_VOLTAGE_MV = 5_000;
+ 
+     private BatteryHealthEvaluator() {}
+ 
+@@ -105,6 +108,20 @@ public final class BatteryHealthEvaluator {
+                 r.temperatureDeciC, FactSource.ANDROID_FRAMEWORK,
+                 FactConfidence.PLATFORM_REPORTED, t));
+ 
++        // Voltage (ACTION_BATTERY_CHANGED EXTRA_VOLTAGE, millivolts).
++        UnavailableReason voltageProblem;
++        if (r.voltageMillivolts == BatteryReadings.MISSING || r.voltageMillivolts <= 0) {
++            voltageProblem = UnavailableReason.NOT_REPORTED;
++        } else if (r.voltageMillivolts < MIN_PLAUSIBLE_VOLTAGE_MV
++                || r.voltageMillivolts > MAX_PLAUSIBLE_VOLTAGE_MV) {
++            voltageProblem = UnavailableReason.IMPLAUSIBLE;
++        } else {
++            voltageProblem = UnavailableReason.NONE;
++        }
++        facts.put(FactKind.VOLTAGE, gate(FactKind.VOLTAGE, p, voltageProblem,
++                r.voltageMillivolts, FactSource.ANDROID_FRAMEWORK,
++                FactConfidence.PLATFORM_REPORTED, t));
++
+         // Health condition.
+         UnavailableReason statusProblem;
+         if (r.healthStatus == BatteryReadings.MISSING
+diff --git a/src/com/android/settings/fuelgauge/sable/model/BatteryReadings.java b/src/com/android/settings/fuelgauge/sable/model/BatteryReadings.java
+index 4ba4808..6a3d4d8 100644
+--- a/src/com/android/settings/fuelgauge/sable/model/BatteryReadings.java
++++ b/src/com/android/settings/fuelgauge/sable/model/BatteryReadings.java
+@@ -42,6 +42,7 @@ public final class BatteryReadings {
+     public final long stateOfHealthPercent;
+     public final long cycleCount;
+     public final long temperatureDeciC;
++    public final long voltageMillivolts;
+     public final long healthStatus;
+     public final long chargeCounterUah;
+     public final long manufacturingDateSec;
+@@ -56,6 +57,7 @@ public final class BatteryReadings {
+         stateOfHealthPercent = b.mStateOfHealthPercent;
+         cycleCount = b.mCycleCount;
+         temperatureDeciC = b.mTemperatureDeciC;
++        voltageMillivolts = b.mVoltageMillivolts;
+         healthStatus = b.mHealthStatus;
+         chargeCounterUah = b.mChargeCounterUah;
+         manufacturingDateSec = b.mManufacturingDateSec;
+@@ -81,6 +83,7 @@ public final class BatteryReadings {
+         private long mStateOfHealthPercent = MISSING;
+         private long mCycleCount = MISSING;
+         private long mTemperatureDeciC = MISSING;
++        private long mVoltageMillivolts = MISSING;
+         private long mHealthStatus = MISSING;
+         private long mChargeCounterUah = MISSING;
+         private long mManufacturingDateSec = MISSING;
+@@ -94,6 +97,7 @@ public final class BatteryReadings {
+         public Builder stateOfHealthPercent(long v) { mStateOfHealthPercent = v; return this; }
+         public Builder cycleCount(long v) { mCycleCount = v; return this; }
+         public Builder temperatureDeciC(long v) { mTemperatureDeciC = v; return this; }
++        public Builder voltageMillivolts(long v) { mVoltageMillivolts = v; return this; }
+         public Builder healthStatus(long v) { mHealthStatus = v; return this; }
+         public Builder chargeCounterUah(long v) { mChargeCounterUah = v; return this; }
+         public Builder manufacturingDateSec(long v) { mManufacturingDateSec = v; return this; }
+diff --git a/src/com/android/settings/fuelgauge/sable/model/FactKind.java b/src/com/android/settings/fuelgauge/sable/model/FactKind.java
+index f09c137..217073b 100644
+--- a/src/com/android/settings/fuelgauge/sable/model/FactKind.java
++++ b/src/com/android/settings/fuelgauge/sable/model/FactKind.java
+@@ -38,6 +38,8 @@ public enum FactKind {
+     CYCLE_COUNT(true, BatteryCapabilityProfile.KEY_HEALTH_CYCLE_COUNT),
+     /** Battery temperature, value in tenths of a degree Celsius. */
+     TEMPERATURE(false, BatteryCapabilityProfile.KEY_HEALTH_TEMPERATURE),
++    /** Battery voltage, value in millivolts. */
++    VOLTAGE(false, BatteryCapabilityProfile.KEY_HEALTH_VOLTAGE),
+     /** Android battery health condition, value is a BatteryManager.BATTERY_HEALTH_* constant. */
+     HEALTH_STATUS(false, BatteryCapabilityProfile.KEY_HEALTH_STATUS),
+     /** Remaining charge counter, value in microampere-hours. */
+diff --git a/src/com/android/settings/fuelgauge/sable/model/FactText.java b/src/com/android/settings/fuelgauge/sable/model/FactText.java
+index e2bd223..66cc919 100644
+--- a/src/com/android/settings/fuelgauge/sable/model/FactText.java
++++ b/src/com/android/settings/fuelgauge/sable/model/FactText.java
+@@ -34,6 +34,8 @@ public final class FactText {
+         CYCLES,
+         /** args: tenths of a degree Celsius, TemperatureClass ordinal. */
+         TEMPERATURE,
++        /** args: millivolts. */
++        VOLTAGE,
+         /** args: BatteryReadings.HEALTH_* value. */
+         HEALTH_STATUS,
+         /** args: year, month (1-12). */
+diff --git a/src/com/android/settings/fuelgauge/sable/model/HealthFactPresenter.java b/src/com/android/settings/fuelgauge/sable/model/HealthFactPresenter.java
+index 86a1a83..c2ea8e9 100644
+--- a/src/com/android/settings/fuelgauge/sable/model/HealthFactPresenter.java
++++ b/src/com/android/settings/fuelgauge/sable/model/HealthFactPresenter.java
+@@ -58,6 +58,8 @@ public final class HealthFactPresenter {
+             case TEMPERATURE:
+                 return new FactText(FactText.Template.TEMPERATURE, s, c, f.value(),
+                         TemperatureClass.classify(f.value(), shutdownDeciC).ordinal());
++            case VOLTAGE:
++                return new FactText(FactText.Template.VOLTAGE, s, c, f.value());
+             case HEALTH_STATUS:
+                 return new FactText(FactText.Template.HEALTH_STATUS, s, c, f.value());
+             case MANUFACTURING_DATE: {
+diff --git a/tests/sable-battery/src/com/android/settings/fuelgauge/sable/model/VoltageAndQ25FactsTest.java b/tests/sable-battery/src/com/android/settings/fuelgauge/sable/model/VoltageAndQ25FactsTest.java
+new file mode 100644
+index 0000000..b166a36
+--- /dev/null
++++ b/tests/sable-battery/src/com/android/settings/fuelgauge/sable/model/VoltageAndQ25FactsTest.java
+@@ -0,0 +1,117 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.fuelgauge.sable.model;
++
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertFalse;
++import static org.junit.Assert.assertTrue;
++
++import org.junit.Test;
++
++/**
++ * The voltage row, and the Battery health facts a Zinwa Q25 shows with kernel patch 0201
++ * (learned cycle count and aging factor, design capacity in uAh) and its profile.
++ */
++public class VoltageAndQ25FactsTest {
++    private static final long NOW = 1_790_000_000_000L;
++
++    /** The capability lines of device-profile/battery/zinwa-q25.conf. */
++    private static BatteryCapabilityProfile q25() {
++        return TestProfiles.of("health_capacity_supported=YES",
++                "health_cycle_count_supported=YES", "health_temperature_supported=YES",
++                "health_status_supported=UNKNOWN", "health_charge_counter_supported=UNKNOWN",
++                "health_manufacturing_date_supported=NO", "health_first_use_date_supported=NO",
++                "health_voltage_supported=YES", "spec_design_capacity_mah=3000");
++    }
++
++    private static BatteryReadings.Builder q25Kernel0201() {
++        // charge_full_design 2951 mAh (Q_MAX), aging factor 95 %, 37 cycles, 31.2 C, 3.874 V.
++        return BatteryReadings.builder().designCapacityUah(2_951_000)
++                .fullChargeUah(2_803_450).cycleCount(37).temperatureDeciC(312)
++                .voltageMillivolts(3_874).healthStatus(BatteryReadings.HEALTH_GOOD)
++                .chargeCounterUah(1_475_500).sampleTimeMillis(NOW);
++    }
++
++    @Test
++    public void q25ShowsCyclesCapacityTemperatureAndVoltage() {
++        final HealthReport r = BatteryHealthEvaluator.evaluate(q25Kernel0201().build(), q25(),
++                NOW);
++        assertEquals(37L, r.fact(FactKind.CYCLE_COUNT).value());
++        assertEquals(2_951_000L, r.fact(FactKind.DESIGN_CAPACITY).value());
++        assertEquals(2_803_450L, r.fact(FactKind.MAXIMUM_CAPACITY).value());
++        assertEquals(95L, r.fact(FactKind.CAPACITY_HEALTH).value());
++        assertEquals(312L, r.fact(FactKind.TEMPERATURE).value());
++        assertEquals(3_874L, r.fact(FactKind.VOLTAGE).value());
++        assertEquals(HealthReport.Coverage.COMPLETE, r.coverage());
++        // Charge counter is the level times the static Q_MAX on this gauge: not verified.
++        assertFalse(r.fact(FactKind.CHARGE_COUNTER).isAvailable());
++        assertEquals(UnavailableReason.NOT_QUALIFIED, r.fact(FactKind.CHARGE_COUNTER).reason());
++        assertFalse(r.fact(FactKind.MANUFACTURING_DATE).isAvailable());
++    }
++
++    @Test
++    public void q25WithoutLearnedValuesSaysNotReported() {
++        // Kernel 0201 returns -ENODATA, which the health HAL reads as 0.
++        final HealthReport r = BatteryHealthEvaluator.evaluate(q25Kernel0201().fullChargeUah(0)
++                .cycleCount(0).build(), q25(), NOW);
++        assertEquals(UnavailableReason.NOT_REPORTED, r.fact(FactKind.MAXIMUM_CAPACITY).reason());
++        assertEquals(UnavailableReason.NOT_REPORTED, r.fact(FactKind.CAPACITY_HEALTH).reason());
++        // With evidence a zero count is a real zero (a new battery).
++        assertEquals(0L, r.fact(FactKind.CYCLE_COUNT).value());
++        assertTrue(r.fact(FactKind.TEMPERATURE).isAvailable());
++    }
++
++    @Test
++    public void theOldMediatekValuesAreNeverShownAsMeasurements() {
++        // Before 0201: design Q_MAX/10 (295 mAh) and full Q_MAX: the pair is rejected.
++        final HealthReport r = BatteryHealthEvaluator.evaluate(q25Kernel0201()
++                .designCapacityUah(295_000).fullChargeUah(2_951_000).build(), q25(), NOW);
++        assertEquals(UnavailableReason.IMPLAUSIBLE, r.fact(FactKind.DESIGN_CAPACITY).reason());
++        assertFalse(r.fact(FactKind.CAPACITY_HEALTH).isAvailable()
++                && r.fact(FactKind.CAPACITY_HEALTH).value() > 100);
++    }
++
++    @Test
++    public void voltageIsShownUnlessMissingOrImplausible() {
++        final BatteryCapabilityProfile unknown = TestProfiles.of();
++        assertTrue(BatteryHealthEvaluator.evaluate(q25Kernel0201().build(), unknown, NOW)
++                .fact(FactKind.VOLTAGE).isAvailable());
++        assertEquals(UnavailableReason.NOT_REPORTED, BatteryHealthEvaluator.evaluate(
++                q25Kernel0201().voltageMillivolts(BatteryReadings.MISSING).build(), unknown, NOW)
++                .fact(FactKind.VOLTAGE).reason());
++        assertEquals(UnavailableReason.NOT_REPORTED, BatteryHealthEvaluator.evaluate(
++                q25Kernel0201().voltageMillivolts(0).build(), unknown, NOW)
++                .fact(FactKind.VOLTAGE).reason());
++        // A microvolt value (an HAL unit mistake) is rejected, not shown as 3874 V.
++        assertEquals(UnavailableReason.IMPLAUSIBLE, BatteryHealthEvaluator.evaluate(
++                q25Kernel0201().voltageMillivolts(3_874_000).build(), unknown, NOW)
++                .fact(FactKind.VOLTAGE).reason());
++        assertEquals(UnavailableReason.UNSUPPORTED, BatteryHealthEvaluator.evaluate(
++                q25Kernel0201().build(), TestProfiles.of("health_voltage_supported=NO"), NOW)
++                .fact(FactKind.VOLTAGE).reason());
++    }
++
++    @Test
++    public void voltagePresentsAsMillivolts() {
++        final FactText t = HealthFactPresenter.present(HealthFact.available(FactKind.VOLTAGE,
++                3_874, FactSource.ANDROID_FRAMEWORK, FactConfidence.PLATFORM_REPORTED, NOW),
++                580, java.time.ZoneOffset.UTC, NOW);
++        assertEquals(FactText.Template.VOLTAGE, t.template);
++        assertEquals(3_874L, t.args[0]);
++        assertTrue(t.showsValue());
++    }
++}
+-- 
+2.43.0
+

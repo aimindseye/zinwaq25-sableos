@@ -203,9 +203,12 @@ The Q25 status LED (red, green and blue GPIO LEDs, on/off only; the device overl
   per-app colors and "Automagic" (icon colors), now off by default.
 - **Colors:** a channel that names no color gets the default red; an app that sets its own
   channel color, or a per-app color in Notification light, still wins.
-- **Battery (no notification lit):** amber while charging, green at 90 % and above, off when
-  full; low battery not charging flashes amber (red is kept for notifications). A lit
-  notification shows over the battery color.
+- **Battery (no notification lit):** amber (yellow) blinking while charging (1 s on, 1 s off),
+  solid green only when the battery is completely charged (100 % or the charger reports full)
+  and stays green while the phone is plugged in; off when unplugged; low battery not charging
+  flashes amber (red is kept for notifications). A lit notification shows over the battery
+  color. Settings > Notifications > Battery light > "Turn off when fully charged" (now off by
+  default) turns the green light off.
 
 Where it comes from:
 
@@ -215,11 +218,14 @@ Where it comes from:
 | frameworks/base 0501 | `NotificationRecord.calculateLights()` also lights a channel whose app did not enable lights, when the device has the LED, the user has not set the channel's light and importance is Default or higher; color 0 so lineage-sdk picks the default. Pre-channel apps keep `FLAG_SHOW_LIGHTS`. |
 | lineage-sdk 0502 | `NOTIFICATION_LIGHT_COLOR_AUTO` defaults to 0, so the default color is used instead of an icon color. |
 | LineageParts 0503 | The Automagic switch, the page summary and new per-app entries read the same default (off). |
+| lineage-sdk 0504 | `LineageBatteryLights` takes its decision from the pure `sable/SableBatteryLightPolicy` (host test `tests/framework/lineage-sdk`): charging below full blinks the charging color with `config_batteryChargingLedOn/Off` (1000/1000 ms, lineage-sdk resource; 0 keeps it solid), full color only when plugged in and completely charged (status FULL, or level 100 while charging or not charging) instead of from 90 %, and `BATTERY_LIGHT_FULL_CHARGE_DISABLED` defaults to 0. |
+| LineageParts 0504 | "Turn off when fully charged" shows off by default (XML, switch default, Reset). |
 
 Known gaps: Android's channel page shows "Blink light" off for a channel that blinks only
 because of 0501 (the switch reflects the app's own choice); turning it on and off again opts the
 channel out. The GPIO LEDs blink from a kernel timer, so check that flashing continues after more
-than a minute of screen-off suspend (Q4-LED-BB). Not built or run on hardware.
+than a minute of screen-off suspend (Q4-LED-BB); the charging blink uses the same timer, so
+check it too with the screen off. Not built or run on hardware.
 
 ## Shade: Titan 2 Quick Settings, Hub summary and "/" search
 

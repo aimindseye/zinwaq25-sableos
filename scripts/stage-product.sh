@@ -187,6 +187,9 @@ if [[ "$FRAMEWORK" == YES ]]; then
     # (App display compatibility, Secure Vault).
     mkdir -p "$VENDOR_SABLE/etc/permissions"
     cp "$SABLE_REPO_ROOT/product/q25/permissions/privapp-permissions-sable-q25.xml" "$VENDOR_SABLE/etc/permissions/"
+    # Battery guard: turns MediaTek's userdebug pr_debug logging back off; on
+    # /product so init runs it after the vendor mtklog.rc (power.md).
+    cp "$SABLE_REPO_ROOT/product/q25/init/sable-power.rc" "$VENDOR_SABLE/etc/init/"
     cat >> "$fw_mk" <<'MK'
 PRODUCT_PACKAGES += \
     SableLauncher \
@@ -209,7 +212,8 @@ PRODUCT_PRODUCT_PROPERTIES += \
 PRODUCT_COPY_FILES += \
     vendor/sable/q25/etc/permissions/privapp-permissions-sable-q25.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/permissions/privapp-permissions-sable-q25.xml \
     vendor/sable/q25/etc/battery/zinwa-q25.conf:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/sable/battery/zinwa-q25.conf \
-    vendor/sable/q25/etc/init/sable-keyboard-backlight.rc:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/init/sable-keyboard-backlight.rc
+    vendor/sable/q25/etc/init/sable-keyboard-backlight.rc:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/init/sable-keyboard-backlight.rc \
+    vendor/sable/q25/etc/init/sable-power.rc:$(TARGET_COPY_OUT_PRODUCT)/etc/init/sable-power.rc
 MK
     # microG and Aurora Store (Play Store apps), only with hash-checked APKs.
     if [[ "$MICROG" == YES ]]; then

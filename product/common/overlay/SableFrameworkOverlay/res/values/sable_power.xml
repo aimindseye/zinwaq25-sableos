@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Battery (docs/implementation/power.md, Q4-POWER-IDLE): when the
+         phone goes into deep Doze, DeviceIdleController's STATE_LOCATING
+         asks the fused and GPS providers for a fix (GPS at 1 s / 5 m) for up
+         to locating_to (30 s) on every idle entry. The fix is only a
+         prefetch for apps; Doze itself does not need it. frameworks/base
+         core/res/res/values/config.xml ships true and the remove_idle_location
+         flag that drops it upstream may be off in this release, so turn the
+         prefetch off. Motion detection (config_autoPowerModeUseMotionSensor)
+         stays on. -->
+    <bool name="config_autoPowerModePrefetchLocation">false</bool>
+</resources>

@@ -165,6 +165,8 @@ if out="$(stagerun Q4 --apps-dir "$tmp/apps/run")"; then
     [[ -f "$v/etc/battery/zinwa-q25.conf" ]] || ok=no
     [[ -f "$v/etc/init/sable-keyboard-backlight.rc" ]] || ok=no
     grep -q 'etc/init/sable-keyboard-backlight.rc' "$v/sable-q25-framework.mk" || ok=no
+    [[ -f "$v/etc/init/sable-power.rc" ]] || ok=no
+    grep -q "etc/init/sable-power.rc:[$](TARGET_COPY_OUT_PRODUCT)/etc/init/sable-power.rc" "$v/sable-q25-framework.mk" || ok=no
     grep -q 'ro.sable.keyboard_backlight=true' "$v/sable-q25-framework.mk" || ok=no
     grep -q 'name: "SableLauncher"' "$v/src/SableStart/Android.bp" || ok=no
     grep -q 'name: "sable_design_shared_srcs"' "$v/src/sabledesign/Android.bp" || ok=no
@@ -438,6 +440,42 @@ if command -v javac >/dev/null 2>&1; then
 else
     printf 'SKIP  javac not installed (Settings Applications model tests)\n'
 fi
+# 6f2. Battery health model (Settings patches 0201 and 1301) host tests, with the shipped Q25
+# profile checked under the same parser (ProfileFileCheckTest), and kernel 0201 reporting the
+# gauge's learned values instead of the fixed MediaTek ones.
+if command -v javac >/dev/null 2>&1; then
+    sb="$tmp/settings-battery"
+    mkdir -p "$sb/out"
+    for p in "$ROOT"/patches/framework/packages/apps/Settings/0201-*.patch \
+        "$ROOT"/patches/framework/packages/apps/Settings/1301-*.patch; do
+        (cd "$sb" && git apply --include='src/com/android/settings/fuelgauge/sable/model/*' \
+            --include='tests/sable-battery/src/*' "$p")
+    done
+    mapfile -t sb_src < <(find "$sb/src" "$sb/tests" tests/java/junit-shim -name '*.java')
+    mapfile -t sb_tests < <(cd "$sb/tests/sable-battery/src" && find . -name '*Test.java' | sed 's#^\./##; s#\.java$##; s#/#.#g' | sort)
+    if javac -encoding UTF-8 -d "$sb/out" "${sb_src[@]}" 2>"$tmp/err" &&
+        java -Dsable.battery.profile="$ROOT/device-profile/battery/zinwa-q25.conf" -cp "$sb/out" \
+            org.junit.Run "${sb_tests[@]}" >"$tmp/out" 2>&1; then
+        pass "Settings battery health model host tests and Q25 profile ($(grep -o 'RAN=[0-9]*' "$tmp/out"))"
+    else
+        fail "Settings battery health model tests: $(cat "$tmp/err" "$tmp/out" | grep -v JAVA_TOOL | head -5)"
+    fi
+else
+    printf 'SKIP  javac not installed (Settings battery health model tests)\n'
+fi
+bh_k=(patches/framework/kernel/xelex/mt6789/0201-*.patch)
+bh_bad=""
+[[ -f "${bh_k[0]}" ]] || bh_bad="$bh_bad file:kernel/0201"
+if [[ -f "${bh_k[0]}" ]]; then
+    grep -qF -- '-		val->intval = 1;' "${bh_k[0]}" || bh_bad="$bh_bad cycle-fixed-1"
+    grep -qF '+			val->intval = gm->bat_cycle;' "${bh_k[0]}" || bh_bad="$bh_bad cycle-learned"
+    grep -qF '+			ret = -ENODATA;' "${bh_k[0]}" || bh_bad="$bh_bad enodata"
+    grep -qF '+	int af = gm->algo.active ? gm->algo.aging_factor : gm->aging_factor;' "${bh_k[0]}" || bh_bad="$bh_bad aging"
+fi
+grep -q '^health_cycle_count_supported=YES$' device-profile/battery/zinwa-q25.conf || bh_bad="$bh_bad profile:cycles"
+grep -q 'Q4-BATTERY-HEALTH-Q25' docs/QUALIFICATION.md || bh_bad="$bh_bad qualification-row"
+if [[ -z "$bh_bad" ]]; then pass "Q25 battery health: kernel 0201 learned values, profile, qualification row"; else fail "Q25 battery health:$bh_bad"; fi
+
 # 6g. Keyboard light. The Q25 keyboard firmware ignores host writes to its
 # backlight register, so Settings patch 0901 adds only a read-only info row
 # (no switch, slider or property writes), gated on ro.sable.keyboard_backlight.
@@ -487,7 +525,34 @@ if [[ -f "${led_parts[0]}" ]]; then
     grep -qF '+            android:defaultValue="false" />' "${led_parts[0]}" || led_missing="$led_missing parts:xml-default"
     [[ "$(grep -cF 'NOTIFICATION_LIGHT_COLOR_AUTO, 0) == 1' "${led_parts[0]}")" == 2 ]] || led_missing="$led_missing parts:java-default"
 fi
-if [[ -z "$led_missing" ]]; then pass "notification LED: red default, lit alerting channels (frameworks/base 0501, lineage-sdk 0502, LineageParts 0503)"; else fail "notification LED:$led_missing"; fi
+# Battery light: blinking amber while charging, solid green only at 100 % and kept on.
+led_sdk2=(patches/framework/lineage-sdk/0504-*.patch)
+led_parts2=(patches/framework/packages/apps/LineageParts/0504-*.patch)
+if [[ -f "${led_sdk2[0]}" ]]; then
+    grep -qF '+        return level >= FULL_LEVEL' "${led_sdk2[0]}" || led_missing="$led_missing sdk:full-at-100"
+    grep -qF -- '-            if (isCharged || level >= 90) {' "${led_sdk2[0]}" || led_missing="$led_missing sdk:no-90"
+    grep -qF '+                    0, UserHandle.USER_CURRENT) != 0;' "${led_sdk2[0]}" || led_missing="$led_missing sdk:full-stays-on"
+    grep -qF '+    <integer name="config_batteryChargingLedOn">1000</integer>' "${led_sdk2[0]}" || led_missing="$led_missing sdk:charging-blink"
+else led_missing="$led_missing file:lineage-sdk/0504"; fi
+if [[ -f "${led_parts2[0]}" ]]; then
+    grep -qF '+    private static final boolean DEFAULT_LIGHT_FULL_CHARGE_DISABLED_PREF = false;' "${led_parts2[0]}" || led_missing="$led_missing parts:full-default"
+else led_missing="$led_missing file:LineageParts/0504"; fi
+grep -q 'name="config_notificationsBatteryFullARGB">0xFF00FF00<' "$led_ov" || led_missing="$led_missing overlay:full-green"
+if [[ -z "$led_missing" ]]; then pass "notification LED: red default, lit alerting channels, blinking charge light and green only at 100 % (frameworks/base 0501, lineage-sdk 0502/0504, LineageParts 0503/0504)"; else fail "notification LED:$led_missing"; fi
+
+# 6g3. Battery drain guards (Q4-POWER-IDLE): no Doze location prefetch, and
+# MediaTek's userdebug pr_debug switched back off from /product (after vendor).
+pw_missing=""
+grep -q 'name="config_autoPowerModePrefetchLocation">false<' product/common/overlay/SableFrameworkOverlay/res/values/sable_power.xml || pw_missing="$pw_missing overlay:prefetch"
+grep -q '^on property:sys.boot_completed=1$' product/q25/init/sable-power.rc || pw_missing="$pw_missing rc:trigger"
+grep -qF 'write /proc/dynamic_debug/control "file *mediatek* -p"' product/q25/init/sable-power.rc || pw_missing="$pw_missing rc:dyndbg"
+grep -q 'Q4-POWER-IDLE' docs/QUALIFICATION.md || pw_missing="$pw_missing qualification"
+kq=(patches/framework/kernel/xelex/mt6789/0202-*.patch)
+if [[ -f "${kq[0]}" ]]; then
+    grep -qF '+#define BBQX0KBD_KEYBOARD_LOG(fmt, args...)    pr_debug(' "${kq[0]}" || pw_missing="$pw_missing kernel:pr_debug"
+    grep -q '^diff --git a/drivers/input/keyboard/bbqX0kbd/debug_levels.h' "${kq[0]}" || pw_missing="$pw_missing kernel:file"
+else pw_missing="$pw_missing file:kernel/0202"; fi
+if [[ -z "$pw_missing" ]]; then pass "battery drain guards: no Doze location prefetch, MediaTek and keyboard debug logging off"; else fail "battery drain guards:$pw_missing"; fi
 
 tools_link=sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
 missing=""
