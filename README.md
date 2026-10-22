@@ -94,18 +94,24 @@ More: [`docs/DEVICE_INFO.md`](docs/DEVICE_INFO.md).
 ```bash
 git clone https://github.com/aimindseye/zinwaq25-sableos
 cd zinwaq25-sableos
-bash build/sable.sh q25 Q2 doctor                                  # check host
-NETWORK_FETCH_AUTHORIZED=YES bash build/sable.sh q25 Q2 bootstrap   # ~200 GB sync
-bash build/sable.sh q25 Q2 apps                                    # build Sable APKs
-bash build/sable.sh q25 Q2 stage                                   # inject Sable layer
-bash build/sable.sh q25 Q2 build                                   # build image
-bash build/sable.sh q25 Q2 artifacts                               # hash outputs
+# optional, tree on another disk: export SABLE_BUILD_ROOT=/big/disk/sable-q25
+export ANDROID_HOME=/path/to/android-sdk                          # platform 36, build-tools 36.0.0
+bash build/sable.sh q25 Q4 doctor                                  # check host
+NETWORK_FETCH_AUTHORIZED=YES bash build/sable.sh q25 Q4 bootstrap   # ~200 GB sync
+bash scripts/apply-framework-patches.sh check                      # patches still apply?
+bash build/sable.sh q25 Q4 apps                                    # build Sable APKs (always before stage)
+NETWORK_FETCH_AUTHORIZED=YES bash build/sable.sh q25 Q4 microg      # microG + Aurora APKs
+bash build/sable.sh q25 Q4 stage                                   # Sable layer + framework patches
+bash build/sable.sh q25 Q4 build                                   # build image
+bash build/sable.sh q25 Q4 artifacts                               # hash outputs
 ```
 
-`Q1` builds plain `lineage_Q25` (the control image, no Sable layer). `Q2` adds
-the Sable layer. `Q4` adds the framework layer (Sable Start as HOME, Sable
-Keyboard as the only IME, `patches/framework`); stage it only after gate
-Q3-TEXT passes. The Sable app sources are in `sable-src/`
+`Q4` is the full SableOS build: the Sable layer plus the framework layer (Sable
+Start as HOME, Sable Keyboard as the only IME, `patches/framework`, microG unless
+`SABLE_Q25_MICROG=NO`). `Q2` adds only the Sable apps and props on stock LineageOS,
+and `Q1` builds plain `lineage_Q25` (the control image). For those, replace `Q4`
+above and skip `microg`. `stage` packages the APKs already in `apps-out`, so run
+`apps` again after pulling new sources. The Sable app sources are in `sable-src/`
 (see [`apps/README.md`](apps/README.md)). Full guide: [`docs/BUILD.md`](docs/BUILD.md).
 
 ## Repository layout
