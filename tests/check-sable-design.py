@@ -521,9 +521,15 @@ report(
     and not any("sable_restore_validated" in f.read_text(encoding="utf-8") for f in sw.rglob("*.xml")),
     "Setup restore is hidden until validated (fail-closed) and the overlay does not open it",
 )
-ready = ("Home opens Start · type to search", "Swipe left for Hub · right for apps",
-         "Command, All Apps, Settings available")
-report(all(suw_added("0413", r) for r in ready), "Ready screen rows follow the setup design and BB10 Start")
+ready = (
+    "Home is Sable Start: Active Frames shows your open apps, with Hub to the left and your app grid"
+    " to the right (Alt+Left / Alt+Right).",
+    "The bar is Phone · Search · Camera (Alt+1..3); start typing anywhere to search.",
+)
+report(
+    all(suw_added("0413", r) for r in ready) and not suw_added("0413", "Command, All Apps"),
+    "Ready screen describes the BB10 Sable Start (Active Frames, Hub left, grid right, Phone · Search · Camera)",
+)
 lock = [l for n, l in added if 'name="sable_privacy_lock_screen"' in l]
 report(
     len(lock) == 1 and "hidden until you unlock" in lock[0] and "shows notification content" not in lock[0],
