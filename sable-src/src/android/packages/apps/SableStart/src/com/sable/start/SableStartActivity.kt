@@ -290,19 +290,20 @@ class SableStartActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        if (intent.action == ACTION_EDIT_QUICK_BAR || intent.action == ACTION_EDIT_HOME) {
-            // The Screen is recomposed fresh for the request: its Home/Back effects act only on
-            // counts above zero, so they restart from zero rather than undo the request at once.
-            homeGeneration.value = 0
-            backGeneration.value = 0
-            startRequest.value = StartRequest(screenFor(intent), startRequest.value.serial + 1)
-        } else if (intent.action == ACTION_SHOW_ACTIVE_FRAMES) {
-            // Closes anything open over the pages and shows Active Frames, the BB10 Recents.
-            homeGeneration.value += 1
-            refreshFrames()
-        } else if (intent.action == Intent.ACTION_MAIN) {
-            homeGeneration.value += 1
-            refreshFrames()
+        when (intent.action) {
+            ACTION_EDIT_QUICK_BAR, ACTION_EDIT_HOME -> {
+                // The Screen is recomposed fresh for the request: its Home/Back effects act only on
+                // counts above zero, so they restart from zero rather than undo the request at once.
+                homeGeneration.value = 0
+                backGeneration.value = 0
+                startRequest.value = StartRequest(screenFor(intent), startRequest.value.serial + 1)
+            }
+            // Home, and the Recents key (Active Frames are the BB10 Recents): close anything open
+            // over the pages and show Active Frames.
+            Intent.ACTION_MAIN, ACTION_SHOW_ACTIVE_FRAMES -> {
+                homeGeneration.value += 1
+                refreshFrames()
+            }
         }
     }
 
