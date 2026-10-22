@@ -1,8 +1,9 @@
 # Install SableOS on the Zinwa Q25
 
-> **Tested for Q1 and Q2 (2026-10-16/17); Q4 not yet.** These steps follow the
-> official LineageOS Q25 install flow, which is the same image layout this build
-> produces. Do not follow them unless you can recover the device yourself (see
+> **Tested for Q1, Q2 (2026-10-16/17) and the first Q4 image (2026-10-17).** The
+> 2026-10-22 Q4 image (PR #28 to #31) has been built but not flashed yet. These
+> steps follow the official LineageOS Q25 install flow, which is the same image
+> layout this build produces. Do not follow them unless you can recover the device yourself (see
 > [`RETURN_TO_STOCK.md`](RETURN_TO_STOCK.md)).
 > Unlocking the bootloader erases all data.
 
@@ -22,8 +23,11 @@
 4. Remove Google accounts to avoid factory reset protection.
 5. Install `adb` and `fastboot`; enable Developer options > USB debugging and OEM
    unlocking.
-6. Have the build outputs from `bash build/sable.sh q25 Q2 artifacts` and check
-   them: `sha256sum -c SHA256SUMS.txt`.
+6. Have the build outputs from `bash build/sable.sh q25 Q4 artifacts` (or Q1/Q2)
+   and check them: `sha256sum -c SHA256SUMS.txt`. They are in
+   `$SABLE_BUILD_ROOT/artifacts/q25/<release>/<stamp>/` (`~/sable-q25` unless you
+   set `SABLE_BUILD_ROOT`). `artifacts` refuses to copy a build whose last
+   `build` step failed.
 
 ## Pick the Q25 first
 
@@ -32,7 +36,7 @@ command must name the Q25. Set its serial once per shell; both tools read it:
 
 ```bash
 adb devices                       # note the Q25's serial
-export ANDROID_SERIAL=<q25-serial>
+export ANDROID_SERIAL=<q25-serial>  # e.g. 36022310232425 on the test phone
 ```
 
 `restore-stock.sh --execute` and `capture-crash-evidence.sh` refuse to run
@@ -71,18 +75,29 @@ else, stop.
 3. On the computer:
 
 ```bash
-adb sideload sableos-q25-Q2-*-userdebug.zip
+adb sideload sableos-q25-Q4-*-userdebug.zip     # or the Q1/Q2 package you built
 ```
 
-4. *Reboot system now*. The first boot can take several minutes.
+4. *Reboot system now*. The first boot can take several minutes. A Q4 image
+   opens the Sable setup wizard, then Sable Start as HOME; Sable Keyboard is the
+   only keyboard, and microG and Aurora Store are installed (see
+   [`MICROG.md`](MICROG.md) to sign in or skip).
 
 ## 4. After first boot
 
-Record the result in [`QUALIFICATION.md`](QUALIFICATION.md) gate Q1/Q2-BOOT,
-including `adb shell getprop ro.sable.profile.id` (expect `zinwa-q25`) and
-`adb shell getprop ro.build.fingerprint`.
+Record the result in [`QUALIFICATION.md`](QUALIFICATION.md) (Q1/Q2-BOOT, or the
+Q4-* gates for a Q4 image), including `adb shell getprop ro.sable.profile.id`
+(expect `zinwa-q25`), `adb shell getprop ro.sable.release` and
+`adb shell getprop ro.build.fingerprint`. For Q4 also run
+`adb shell aflags list | grep scene_container` (expect disabled, or no line
+because read-only flags may not be listed; gate Q4-LOCK-SCENE-CONTAINER) and the microG checks in gate Q4-MICROG.
 
 ## Updating
 
 Sideload a newer package from recovery the same way, without the factory reset.
 Preserved-data updates are not qualified yet.
+
+Moving to the 2026-10-22 Q4 image from Q1, Q2 or an earlier Q4 image, do the
+*Format data* step as well: Q4 changes the keyboard, HOME and adds microG, and
+Sable Calculator is now signed by the platform build instead of the debug key,
+so its old data would not match.

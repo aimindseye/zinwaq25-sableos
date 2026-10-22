@@ -37,11 +37,16 @@ To build without microG and Aurora Store: `SABLE_Q25_MICROG=NO bash build/sable.
 They are never staged before Q4 (Q2 and Q3 have no privileged apps).
 
 **Partition space.** The three APKs add about 117 MB to the product partition (GmsCore
-alone is 103 MB). After the Q2 build the dynamic partitions had about 57 MB free
-(`SABLEOS_GAP_REVIEW.md`), so the first Q4 build with microG may stop with a partition
-overflow. If it does, either free space in the device's dynamic partition group or build
-with `SABLE_Q25_MICROG=NO` and install microG and Aurora Store afterwards as normal apps
+alone is 103 MB). The first Q4 build with microG (2026-10-22) overflowed the dynamic
+partition group by 905,216 bytes; Sable Calculator now ships as a shrunk release build,
+which freed about 25 MB, and the image fits. If a later change overflows again, move another
+debug-built Sable app to release ([`BUILD.md`](BUILD.md#troubleshooting)) or build with
+`SABLE_Q25_MICROG=NO` and install microG and Aurora Store afterwards as normal apps
 (see "Without the build flag" below).
+
+GmsCore is privileged and its release APK keeps its dex compressed, which Soong's
+presigned-APK check rejects. Repacking it would break the microG signature, so
+`Android.bp` skips that one check for GmsCore (`skip_preprocessed_apk_checks`).
 
 ### Updating the pins
 

@@ -14,7 +14,7 @@ repository holds everything needed to build SableOS for the **Zinwa Q25** (the
 BlackBerry Classic restomod, codename `Q25`), without needing the Pixel 7,
 Titan 2 or Q27 SableOS lanes.
 
-> **Status: Q4 boots on a Q25; the design-completion build is next.** On
+> **Status: Q4 boots on a Q25; the design-completion image is built, not flashed yet.** On
 > 2026-10-15/17 a real Q25 (board `q20_v12_factory`, stock `Q25_20.01.2026`) was
 > backed up, restored to stock, unlocked, and flashed with the Q1 control image,
 > the Q2 image and then the first Q4 image. Q4 boots into the Sable setup wizard
@@ -23,21 +23,24 @@ Titan 2 or Q27 SableOS lanes.
 > design artifacts in source: the BlackBerry 10 style Sable Start, lock screen,
 > Quick Settings, Settings, setup, Hub and the stock-app keys, plus the charging
 > LED, battery health, FM in Sable Media, Sable Games and microG with Aurora
-> Store. That build has not been flashed yet, so its Q4-* gates are `NOT_RUN`.
+> Store. Its Q4 image was built on ai-g732 on 2026-10-22 after three fixes from
+> that run (PR #31: the microG APK check, a 0.86 MiB partition overflow and the
+> lock-screen flag check). It has not been flashed yet, so its Q4-* gates are
+> `NOT_RUN`. Install steps: [`docs/INSTALL.md`](docs/INSTALL.md).
 > Gates and evidence: [`docs/QUALIFICATION.md`](docs/QUALIFICATION.md). Design
 > status per artifact: [`docs/DESIGN_CONFORMANCE_Q25.md`](docs/DESIGN_CONFORMANCE_Q25.md).
 > What is still open: [`docs/SABLEOS_GAP_REVIEW.md`](docs/SABLEOS_GAP_REVIEW.md).
 
 ```text
 DEVICE=Q25
-PHASE=R0, Q1, Q2 PASS on a Q25; Q4 boots (2026-10-17); PR #28 build next
+PHASE=R0, Q1, Q2 PASS on a Q25; Q4 boots (2026-10-17); PR #28 Q4 image built, flash next
 BASE=LineageOS 23.2 (Android 16 QPR2), official lineage_Q25 device (not a GSI)
 SABLE_LAYER=vendor/extra/product.mk -> vendor/sable/q25 (+ patches/framework at Q4)
 APPS_BUILD=PASS in GitHub Actions (Gradle build, unit tests, Lint, detekt, ktlint)
-IMAGE_BUILD_TESTED=Q1, Q2 (ai-g732, 2026-10-15); Q4 (2026-10-17); PR #28 Q4 build running 2026-10-22
-FRAMEWORK_PATCHES=88 patches; all apply in order (stage, 2026-10-22); the 2026-10-17 set compiled, later additions not yet
+IMAGE_BUILD_TESTED=Q1, Q2 (ai-g732, 2026-10-15); Q4 (2026-10-17); PR #28 Q4 (2026-10-22, with PR #31)
+FRAMEWORK_PATCHES=88 patches; all apply in order and compile (Q4 build, 2026-10-22)
 BOOT_TESTED=Q1, Q2 on a Q25 (2026-10-16/17); Q4 (2026-10-17); PR #28 build not flashed yet
-FLASH_SCRIPT=NONE (manual, documented steps; tested for Q1 and Q2)
+FLASH_SCRIPT=NONE (manual, documented steps in docs/INSTALL.md; tested for Q1, Q2 and Q4)
 ```
 
 ## Device info
