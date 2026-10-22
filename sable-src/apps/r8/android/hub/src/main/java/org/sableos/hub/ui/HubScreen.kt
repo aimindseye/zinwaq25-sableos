@@ -193,6 +193,9 @@ private class HubUiState {
     /** "/" bumps this; the inbox search field takes focus on each change. */
     var searchFocusRequest by mutableIntStateOf(0)
 
+    /** The last request the search field acted on, so re-entering the inbox does not refocus it. */
+    var searchFocusHandled = 0
+
     /** The row whose actions sheet is open (Menu, Alt+Enter or long press), or null. */
     var actionsItem by mutableStateOf<HubInboxItem?>(null)
 
@@ -1078,7 +1081,8 @@ private fun ColumnScope.InboxPivot(
     val chipRequesters = remember { HubInboxFilter.entries.associateWith { FocusRequester() } }
     val searchRequester = remember { FocusRequester() }
     LaunchedEffect(state.searchFocusRequest) {
-        if (state.searchFocusRequest > 0) {
+        if (state.searchFocusRequest > state.searchFocusHandled) {
+            state.searchFocusHandled = state.searchFocusRequest
             withFrameNanos { }
             runCatching { searchRequester.requestFocus() }
         }
@@ -2371,7 +2375,7 @@ private fun ColumnScope.ConversationView(
                 onDraftChange = onDraftChange,
                 onRequestAccess = onRequestAccess,
                 onSent = toLatest,
-                fieldModifier = Modifier.onFocusChanged { focus -> history.composerFocused = focus.hasFocus },
+                modifier = Modifier.onFocusChanged { focus -> history.composerFocused = focus.hasFocus },
             )
         }
 
@@ -2585,7 +2589,7 @@ private fun ConversationComposer(
     onDraftChange: (String) -> Unit,
     onRequestAccess: () -> Unit,
     onSent: () -> Unit,
-    fieldModifier: Modifier = Modifier,
+    modifier: Modifier = Modifier,
 ) {
     var composerStatus by remember(conversation.threadId, conversation.address) {
         mutableStateOf<String?>(null)
@@ -2610,7 +2614,7 @@ private fun ConversationComposer(
         label = composer.label,
         draft = draft,
         onDraftChange = onDraftChange,
-        fieldModifier = fieldModifier,
+        modifier = modifier,
         status = composerStatus,
         onSend = { body ->
             val result = composer.send(body)
@@ -2662,7 +2666,7 @@ private fun HubInlineComposer(
     onDraftChange: (String) -> Unit,
     status: String?,
     onSend: (String) -> Unit,
-    fieldModifier: Modifier = Modifier,
+    modifier: Modifier = Modifier,
 ) {
     val send = {
         if (draft.isNotBlank()) {
@@ -2678,7 +2682,7 @@ private fun HubInlineComposer(
             value = draft,
             onValueChange = onDraftChange,
             modifier =
-                fieldModifier
+                modifier
                     .weight(1f)
                     .hubEnterToSend(body = draft, canSend = true, onSend = send),
             maxLines = HUB_INLINE_COMPOSER_MAX_LINES,
