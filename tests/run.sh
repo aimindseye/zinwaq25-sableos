@@ -147,6 +147,14 @@ printf 'home=vendor\n' > "$proj/config.txt"
 if fwrun apply >/dev/null || [[ -e "$stamp" ]]; then fail "framework patch conflict not refused"; else pass "framework patch conflict refused"; fi
 git -C "$proj" checkout -q -- config.txt
 
+# microG (SABLE_Q25_MICROG, default YES at Q4): fake APKs pinned in a test prebuilts.tsv.
+mg="$tmp/microg"; mkdir -p "$mg/cache"
+printf 'module\tpackage\tversion\tsha256\turl\n' > "$mg/prebuilts.tsv"
+for m in GmsCore FakeStore AuroraStore; do
+    printf 'fake %s' "$m" > "$mg/cache/$m.apk"
+    printf '%s\tpkg.%s\t1\t%s\thttps://example.invalid/%s.apk\n' "$m" "$m" "$(sha256sum "$mg/cache/$m.apk" | awk '{print $1}')" "$m" >> "$mg/prebuilts.tsv"
+done
+export SABLE_MICROG_CACHE="$mg/cache" SABLE_MICROG_PREBUILTS="$mg/prebuilts.tsv"
 stagerun() { SABLE_ANDROID_ROOT="$tmp/android" SABLE_FRAMEWORK_PATCHES="$fw" bash scripts/stage-product.sh "$@" 2>"$tmp/err"; }
 if out="$(stagerun Q4 --apps-dir "$tmp/apps/run")"; then
     v="$tmp/android/vendor/sable/q25"
@@ -257,6 +265,80 @@ if grep -q 'user-type="android.os.usertype.profile.PRIVATE"' product/q25/sysconf
 else
     fail "Secure Vault manifest or window policy"
 fi
+# 6b1b. microG and Aurora Store (SABLE_Q25_MICROG, docs/MICROG.md): on by default at Q4, off with NO,
+# never before Q4, refused when an APK does not match its pin; the fetcher never keeps a bad file.
+v="$tmp/android/vendor/sable/q25"
+if out="$(stagerun Q4 --apps-dir "$tmp/apps/run")" && grep -q '^MICROG=YES' <<<"$out" &&
+    grep -qx -- '-include vendor/sable/q25/microg/microg.mk' "$v/sable-q25-framework.mk" &&
+    (for m in GmsCore FakeStore AuroraStore; do cmp -s "$mg/cache/$m.apk" "$v/microg/prebuilt/$m.apk" || exit 1; done) &&
+    grep -q 'ro.sable.microg.spoofing=true' "$v/microg/microg.mk" &&
+    [[ -f "$v/microg/etc/com.google.android.gms/settings.xml" && -f "$v/microg/Android.bp" ]]; then
+    pass "stage Q4 adds microG and Aurora Store by default"
+else
+    fail "stage Q4 microG: $(cat "$tmp/err")"
+fi
+if out="$(SABLE_Q25_MICROG=NO stagerun Q4 --apps-dir "$tmp/apps/run")" && grep -q '^MICROG=NO' <<<"$out" &&
+    [[ ! -e "$v/microg" ]] && ! grep -q microg "$v/sable-q25-framework.mk"; then
+    pass "SABLE_Q25_MICROG=NO leaves microG out"
+else
+    fail "stage Q4 without microG: $(cat "$tmp/err")"
+fi
+if out="$(stagerun Q2 --apps-dir "$tmp/apps/run")" && grep -q '^MICROG=NO' <<<"$out" && [[ ! -e "$v/microg" ]]; then
+    pass "microG is not staged before Q4"
+else
+    fail "stage Q2 microG: $(cat "$tmp/err")"
+fi
+cp "$mg/cache/AuroraStore.apk" "$mg/aurora.bak"; printf 'tampered' > "$mg/cache/AuroraStore.apk"
+if stagerun Q4 --apps-dir "$tmp/apps/run" >/dev/null; then
+    fail "stage Q4 accepted a microG APK that does not match its pin"
+elif grep -q 'AuroraStore' "$tmp/err"; then
+    pass "stage refuses a microG APK that does not match its pin"
+else
+    fail "microG pin check: $(cat "$tmp/err")"
+fi
+mkdir -p "$mg/from"; printf 'wrong' > "$mg/from/AuroraStore.apk"
+if bash scripts/fetch-microg.sh --from "$mg/from" >/dev/null 2>&1 || [[ -e "$mg/cache/AuroraStore.apk" ]]; then
+    fail "fetch-microg kept a file that does not match its pin"
+else
+    cp "$mg/aurora.bak" "$mg/from/AuroraStore.apk"
+    if bash scripts/fetch-microg.sh --from "$mg/from" 2>"$tmp/err" | grep -q '^MICROG_PREBUILTS=PASS' &&
+        bash scripts/fetch-microg.sh --check | grep -q '^MICROG_APK_COUNT=3'; then
+        pass "fetch-microg takes only files that match their pins"
+    else
+        fail "fetch-microg --from: $(cat "$tmp/err")"
+    fi
+fi
+stagerun Q1 >/dev/null || fail "stage Q1 after the microG checks: $(cat "$tmp/err")"
+unset SABLE_MICROG_CACHE SABLE_MICROG_PREBUILTS
+
+# 6b1c. microG product files (static): pins, battery and location defaults, permissions, spoofing gate.
+mgp=product/q25/microg; mg_bad=""
+awk -F'\t' '!/^#/ && NF && $1 != "module" { n++; if (NF != 5 || $4 !~ /^[0-9a-f]{64}$/ || $5 !~ /^https:\/\//) bad = 1 }
+    END { exit (bad || n != 3) }' "$mgp/prebuilts.tsv" || mg_bad="$mg_bad pins"
+for f in "$mgp"/etc/*/*.xml; do
+    python3 -I -c 'import sys,xml.dom.minidom as m; m.parse(sys.argv[1])' "$f" 2>/dev/null || mg_bad="$mg_bad xml:$f"
+done
+for k in location_wifi_mls location_wifi_moving location_wifi_learning location_cell_mls location_cell_learning \
+    location_ichnaea_contribute safetynet_enabled droidguard_enabled exposure_scanner_enabled; do
+    grep -q "<boolean name=\"$k\" value=\"false\" />" "$mgp/etc/com.google.android.gms/settings.xml" || mg_bad="$mg_bad default:$k"
+done
+grep -q 'value="true"' "$mgp/etc/com.google.android.gms/settings.xml" && mg_bad="$mg_bad default-true"
+grep -q 'ACCESS_BACKGROUND_LOCATION"' "$mgp/etc/default-permissions/default-permissions-sable-microg.xml" && mg_bad="$mg_bad background-location"
+grep -q 'fixed="true"' "$mgp/etc/default-permissions/default-permissions-sable-microg.xml" && mg_bad="$mg_bad fixed-grant"
+[[ "$(grep -o '<allow-[a-z-]*' "$mgp/etc/sysconfig/sable-microg.xml" | sort -u)" == '<allow-in-power-save' ]] || mg_bad="$mg_bad sysconfig-scope"
+[[ "$(grep -o 'package="[^"]*"' "$mgp/etc/sysconfig/sable-microg.xml" | sort -u)" == 'package="com.google.android.gms"' ]] || mg_bad="$mg_bad sysconfig-package"
+[[ "$(grep -o '<privapp-permissions package="[^"]*"' "$mgp/etc/permissions/privapp-permissions-sable-microg.xml")" == '<privapp-permissions package="com.google.android.gms"' ]] || mg_bad="$mg_bad privapp-scope"
+grep -A12 'name: "GmsCore"' "$mgp/Android.bp" | grep -q 'privileged: true' || mg_bad="$mg_bad gms-priv"
+[[ "$(grep -c 'presigned: true' "$mgp/Android.bp")" == 3 ]] || mg_bad="$mg_bad presigned"
+for m in FakeStore AuroraStore; do grep -A8 "name: \"$m\"" "$mgp/Android.bp" | grep -q 'privileged: false' || mg_bad="$mg_bad $m-priv"; done
+for f in privapp-permissions-sable-microg.xml default-permissions-sable-microg.xml sysconfig-sable-microg.xml sable-microg-settings.xml; do
+    grep -q "name: \"$f\"" "$mgp/Android.bp" || mg_bad="$mg_bad bp:$f"
+done
+sp=(patches/framework/frameworks/base/0550-*.patch)
+grep -qF '+    private static final String SABLE_MICROG_SPOOFING_PROP = "ro.sable.microg.spoofing";' "${sp[0]}" || mg_bad="$mg_bad 0550:prop"
+grep -qF '+        return isDebuggable() || SystemProperties.getBoolean(SABLE_MICROG_SPOOFING_PROP, false);' "${sp[0]}" || mg_bad="$mg_bad 0550:gate"
+grep -E '^[-+]' "${sp[0]}" | grep -v '^+++\|^---' | grep -q 'MICROG_REAL_SIGNATURE\|MICROG_FAKE_SIGNATURE\|getPackageName' && mg_bad="$mg_bad 0550:touches-checks"
+if [[ -z "$mg_bad" ]]; then pass "microG pins, battery and location defaults, permissions and spoofing gate"; else fail "microG product files:$mg_bad"; fi
 
 # 6b2. Optional 50 MP camera: the patcher on a synthetic vendor tree, and off by default.
 if python3 -I tests/test_camera_50mp.py >"$tmp/cam50" 2>&1; then

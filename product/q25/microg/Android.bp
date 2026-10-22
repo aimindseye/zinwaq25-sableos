@@ -1,0 +1,107 @@
+// microG (GmsCore, Companion) and Aurora Store for the Q25. Staged to
+// vendor/sable/q25/microg by scripts/stage-product.sh for Q4 and later when
+// SABLE_Q25_MICROG=YES (the default); the APKs come from
+// scripts/fetch-microg.sh (pinned in prebuilts.tsv, sha256-checked). All on the
+// product partition, so GmsCore reads its defaults from
+// /product/etc/com.google.android.gms/settings.xml.
+
+android_app_import {
+    name: "GmsCore",
+    apk: "prebuilt/GmsCore.apk",
+    // Keep the microG release signature: LineageOS lets only that key spoof
+    // Google's signature (ComputerEngine.isMicrogSigned).
+    presigned: true,
+    preprocessed: true,
+    product_specific: true,
+    // Privileged for the location provider and push wake-ups; the allowlist
+    // is privapp-permissions-sable-microg.xml.
+    privileged: true,
+    // The library lists follow lineageos4microg's vendor/partner_gms. The
+    // check against the APK's manifest is off: dexpreopt is off, so no class
+    // loader context is built from them, and a new microG release may add an
+    // optional library without failing the build.
+    enforce_uses_libs: false,
+    uses_libs: ["com.android.location.provider"],
+    optional_uses_libs: [
+        "org.apache.http.legacy",
+        "androidx.window.extensions",
+        "androidx.window.sidecar",
+    ],
+    dex_preopt: {
+        enabled: false,
+    },
+    required: [
+        "privapp-permissions-sable-microg.xml",
+        "default-permissions-sable-microg.xml",
+        "sysconfig-sable-microg.xml",
+        "sable-microg-settings.xml",
+    ],
+}
+
+// microG Companion: stands in for the Play Store package so apps that check
+// for com.android.vending (licensing, billing stubs) run. Not privileged: it
+// does not install apps (Aurora Store does).
+android_app_import {
+    name: "FakeStore",
+    apk: "prebuilt/FakeStore.apk",
+    presigned: true,
+    preprocessed: true,
+    product_specific: true,
+    privileged: false,
+    enforce_uses_libs: false,
+    optional_uses_libs: [
+        "androidx.window.extensions",
+        "androidx.window.sidecar",
+    ],
+    dex_preopt: {
+        enabled: false,
+    },
+}
+
+// Aurora Store: installs Play Store apps (anonymous or own Google account).
+// A normal app: every install goes through the system confirmation after the
+// user allows "Install unknown apps" for it.
+android_app_import {
+    name: "AuroraStore",
+    apk: "prebuilt/AuroraStore.apk",
+    presigned: true,
+    preprocessed: true,
+    product_specific: true,
+    privileged: false,
+    dex_preopt: {
+        enabled: false,
+    },
+}
+
+prebuilt_etc {
+    name: "privapp-permissions-sable-microg.xml",
+    src: "etc/permissions/privapp-permissions-sable-microg.xml",
+    sub_dir: "permissions",
+    product_specific: true,
+}
+
+prebuilt_etc {
+    name: "default-permissions-sable-microg.xml",
+    src: "etc/default-permissions/default-permissions-sable-microg.xml",
+    sub_dir: "default-permissions",
+    product_specific: true,
+}
+
+prebuilt_etc {
+    name: "sysconfig-sable-microg.xml",
+    src: "etc/sysconfig/sable-microg.xml",
+    sub_dir: "sysconfig",
+    filename: "sable-microg.xml",
+    product_specific: true,
+}
+
+// GmsCore's packaged defaults (SettingsProvider.gatherDefaultPreferences reads
+// /product/etc/<package>/settings.xml for a product app). The user's own
+// choices in microG Settings always win over these.
+prebuilt_etc {
+    name: "sable-microg-settings.xml",
+    src: "etc/com.google.android.gms/settings.xml",
+    sub_dir: "com.google.android.gms",
+    filename: "settings.xml",
+    product_specific: true,
+}

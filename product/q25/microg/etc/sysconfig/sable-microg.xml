@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    SableOS Q25: power allowlist for microG.
+
+    Only GmsCore, and only allow-in-power-save: push (Cloud Messaging) keeps one
+    connection to Google open and must receive messages in Doze, or chat and mail
+    notifications arrive late. Nothing else is exempt.
+
+    Deliberately not here:
+      allow-unthrottled-location  would let microG read location at full rate in
+                                  the background (the battery drain seen with
+                                  Play services)
+      allow-in-data-usage-save    Data Saver applies to microG like other apps
+      Companion, Aurora Store     no exemption; Aurora's update checks follow
+                                  normal job scheduling
+-->
+<config>
+    <allow-in-power-save package="com.google.android.gms" />
+</config>

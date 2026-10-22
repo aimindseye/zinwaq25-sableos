@@ -26,6 +26,9 @@ functions:
   import --sableos PATH       copy Sable sources from a sableos checkout
                               (needs --authorize-public-copy; see apps/README.md)
   apps [--all]                build Sable APKs listed in product/q25/apps.tsv
+  microg [--check|--from DIR] fetch and sha256-check the pinned microG and
+                              Aurora Store APKs (Q4+, SABLE_Q25_MICROG=YES;
+                              downloads need NETWORK_FETCH_AUTHORIZED=YES)
   stage                       inject (Q2+) or remove (Q1) the Sable layer;
                               Q4+ also applies patches/framework, earlier
                               releases revert them
@@ -69,6 +72,7 @@ case "$FUNCTION" in
     bootstrap) exec bash "$ROOT/scripts/bootstrap.sh" "$@" ;;
     import)    exec bash "$ROOT/scripts/import-sable-sources.sh" "$@" ;;
     apps)      exec bash "$ROOT/scripts/build-apps.sh" "$@" ;;
+    microg)    exec bash "$ROOT/scripts/fetch-microg.sh" "$@" ;;
     stage)     exec bash "$ROOT/scripts/stage-product.sh" "$RELEASE" "$@" ;;
     build)
         [[ "$SABLE_DEVICE_BUILD_SUPPORTED" == YES ]] || { echo "SABLE_BUILD=BLOCKED" >&2; exit 78; }

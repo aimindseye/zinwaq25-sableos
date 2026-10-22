@@ -158,13 +158,14 @@
 | `framework/packages/apps/Settings/1206-SableOS-turn-on-the-cloned-apps-page-for-Dual-Apps.patch` | `8d8f6486b274` + 0101-1103, 1201-1205 | Dual Apps: `config_cloned_apps_page_enabled` true; the framework `cloneable_apps` list comes from `SableFrameworkOverlay/res/values/sable_dual_apps.xml`. Not built. |
 | `framework/packages/apps/Settings/1207-SableOS-Connected-devices-card-hub.patch` | `8d8f6486b274` + 0101-1103, 1201-1206 | Connected devices: card hub (USB/OTG, Bluetooth, NFC, Cast) at the top of the page; pure model `ConnectedHubCards`. Not built. |
 | `framework/packages/apps/LineageParts/0601-SableOS-no-LineageOS-contributors-statistics-or-Trus.patch` | `b2302d1542846a65403a8ccdb3fe98c5af985bf5` + 0503 | LineageParts: contributors and statistics hidden from Settings and search; Trust shown as "Security status" without LineageOS onboarding text (three strings, translations dropped). Not built. |
+| `framework/frameworks/base/0550-SableOS-microG-signature-spoofing-on-user-builds-whe.patch` | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` + 0101-0501 | microG ([MICROG](../docs/MICROG.md)): LineageOS 23.2 already has restricted signature spoofing (`ComputerEngine.isMicrogSigned`: only `com.google.android.gms` / `com.android.vending`, only signed with the microG release key, only to Google's one signature), on debuggable builds. The patch keeps those checks and also allows it when the read-only `ro.sable.microg.spoofing` is true, which only `product/q25/microg/microg.mk` sets (`SABLE_Q25_MICROG=YES`), so it works on user builds too. One file, one method; nothing changes without the property on user builds. Not built. |
 
 Patch ranges: 0001-0099 HOME/Recents, 0100-0199 KF-B (SystemUI styling and
 branding), 0200-0299 Battery, 0300-0399 KF-A (notification policy, attention,
 Hub, and in frameworks/base the keyboard shade, Quick Settings and lock screen keys), 0400-0499 setup wizard (IR-014), 0600-0699 settings-ui5 (Applications
 privacy, Network Manager, App security), 0700-0799 Phone + Contacts (0701-0749
 Dialer, 0751-0799 Contacts), 0800-0899 R9 daily-driver core apps (Clock,
-Files, Photos, Camera, Browser presentation), 0500-0599 notification LED (frameworks/base, lineage-sdk, LineageParts), 0900-0999 keyboard light, 1000-1099 Settings
+Files, Photos, Camera, Browser presentation), 0500-0549 notification LED (frameworks/base, lineage-sdk, LineageParts), 0550-0569 microG (frameworks/base), 0900-0999 keyboard light, 1000-1099 Settings
 entries, search and homepage keys for the Sable apps, and in the stock apps the keyboard model
 (1001-1019 Files/DocumentsUI, 1021-1039 Photos/Glimpse, 1041-1059 Browser/Jelly), 1100-1199
 Mobile Manager (app controls, App lock, Focus mode, Private Space & Dual Apps), 1200-1299

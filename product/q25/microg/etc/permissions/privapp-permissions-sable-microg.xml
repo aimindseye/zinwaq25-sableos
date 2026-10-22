@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    SableOS Q25: privileged permissions for microG Services (GmsCore), installed
+    as a product priv-app. The list is every signature|privileged permission
+    GmsCore v0.3.17 requests (its AndroidManifest files checked against the
+    lineage-23.2 frameworks/base manifest), the same set lineageos4microg's
+    vendor/partner_gms grants. Only GmsCore is privileged; the microG Companion
+    (com.android.vending) and Aurora Store are normal apps.
+
+    Signature spoofing needs no permission here: LineageOS 23.2 allows it only
+    for com.google.android.gms and com.android.vending signed with the microG
+    release key, and only to Google's signature (see docs/MICROG.md).
+-->
+<permissions>
+    <privapp-permissions package="com.google.android.gms">
+        <!-- Push: let a high-priority message wake the app it is for. -->
+        <permission name="android.permission.CHANGE_DEVICE_IDLE_TEMP_WHITELIST" />
+        <!-- Fused location provider for apps that use the Google location API. -->
+        <permission name="android.permission.INSTALL_LOCATION_PROVIDER" />
+        <permission name="android.permission.LOCATION_HARDWARE" />
+        <permission name="android.permission.MODIFY_PHONE_STATE" />
+        <permission name="android.permission.NETWORK_SCAN" />
+        <permission name="android.permission.UPDATE_APP_OPS_STATS" />
+        <permission name="android.permission.UPDATE_DEVICE_STATS" />
+        <permission name="android.permission.WATCH_APPOPS" />
+        <!-- Passkeys and credential manager. -->
+        <permission name="android.permission.PROVIDE_DEFAULT_ENABLED_CREDENTIAL_SERVICE" />
+        <permission name="android.permission.PROVIDE_REMOTE_CREDENTIALS" />
+        <!-- Security keys (FIDO) over USB. -->
+        <permission name="android.permission.MANAGE_USB" />
+        <permission name="android.permission.START_ACTIVITIES_FROM_BACKGROUND" />
+        <!-- Work profile and secondary users. -->
+        <permission name="android.permission.INTERACT_ACROSS_USERS" />
+        <!-- DroidGuard (off by default in settings.xml). -->
+        <permission name="android.permission.DUMP" />
+    </privapp-permissions>
+</permissions>
