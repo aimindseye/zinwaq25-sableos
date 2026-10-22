@@ -423,6 +423,13 @@ else
     fail "daily-driver check: $(grep '^FAIL' "$tmp/daily" | head -5)"
 fi
 
+# 6d3. Phone/Contacts Sable look patches (Dialer 0707-0708, Contacts 0755), static.
+if python3 -I tests/check-phone-contacts-style.py >"$tmp/phonestyle" 2>&1; then
+    pass "Phone/Contacts Sable look ($(grep -c '^PASS' "$tmp/phonestyle") checks)"
+else
+    fail "Phone/Contacts look check: $(grep '^FAIL' "$tmp/phonestyle" | head -5)"
+fi
+
 # 6e. Pure Settings classes from the framework patches, compiled on the host.
 if command -v javac >/dev/null 2>&1; then
     st="$tmp/settings-policy"

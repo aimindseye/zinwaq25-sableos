@@ -1,0 +1,865 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 22 Oct 2026 19:11:32 +0000
+Subject: [PATCH] SableOS: Sable dark palette and focus outline for Phone
+
+The Sable Phone design (sable-phone-dialer-titan2) is dark only. Phone
+now uses one dark palette whatever the system light/dark setting,
+instead of a light theme that the platform force-darkens at night:
+
+* sable_colors.xml carries the Sable dark tokens (SableSystemTokens.Dark
+  surfaces and text, SableTheme's outline tones, success and danger).
+  The accent is not hard-coded: sable_accent and its container are
+  system_accent1_200 / system_accent1_900, which the Sable accent seeds.
+* The Dialer base theme now inherits Theme.AppCompat (dark), never
+  force-darkens, and its colour resources point at the tokens:
+  near-black window, slightly lighter surfaces for the bottom bar,
+  dial pad and search pill, raised panels for cards, sheets and
+  dialogs, light primary and muted secondary text, dark status and
+  navigation bars. The -night copies of those resources are removed,
+  as they would now repeat the defaults.
+* The theme's selectableItemBackground is a Sable row background: a
+  ripple for touch and, while the row has keyboard or trackpad focus,
+  a 2dp accent outline around a dark accent fill (12dp corners). Rows
+  that use it upstream (contacts tab, search results, Recents actions,
+  favourites, suggestions, settings) get the outline; the bottom bar
+  tabs use it too.
+* In-call: the background is the near-black base, checked controls use
+  the accent, End and the RTT end tint use the danger tone.
+* Favourite action sheet and promotion sheet: their hard-coded white
+  backgrounds follow the floating surface; bottom sheets use the dark
+  Material sheet theme.
+
+No Java change. Focus order, touch targets and every upstream function
+are unchanged.
+---
+ .../dialer/app/res/values-night/colors.xml    | 21 -----------
+ .../android/dialer/app/res/values/colors.xml  | 10 +++---
+ .../res/layout/contact_layout.xml             |  2 +-
+ .../res/layout/divider_layout.xml             |  2 +-
+ .../bottomnav/res/layout/bottom_nav_item.xml  |  1 +
+ .../res/layout/promotion_bottom_sheet.xml     |  2 +-
+ .../main/impl/res/values-night/styles.xml     | 27 --------------
+ .../dialer/main/impl/res/values/styles.xml    | 11 +++---
+ .../res/values-night/theme_dialer_light.xml   | 22 ------------
+ .../base/res/values/theme_dialer_dark.xml     | 10 +++---
+ .../base/res/values/theme_dialer_light.xml    | 35 +++++++++++++------
+ .../theme/common/res/values-night/colors.xml  | 24 -------------
+ .../dialer/theme/common/res/values/colors.xml | 14 ++++----
+ .../dialer/theme/common/res/values/styles.xml |  2 +-
+ .../color/dialer_dark_primary_text_color.xml  |  4 +--
+ .../dialer_dark_secondary_text_color.xml      |  4 +--
+ .../res/color/dialer_primary_text_color.xml   |  4 +--
+ .../res/color/dialer_secondary_text_color.xml |  4 +--
+ .../res/color/settings_text_color_primary.xml |  4 +--
+ .../color/settings_text_color_secondary.xml   |  4 +--
+ .../res/drawable/sable_focus_outline.xml      | 32 +++++++++++++++++
+ .../res/drawable/sable_selectable_item.xml    | 18 ++++++++++
+ .../res/values-night/colors_dialer_light.xml  | 24 -------------
+ .../hidden/res/values/colors_dialer_dark.xml  |  4 +--
+ .../hidden/res/values/colors_dialer_light.xml | 23 ++++++------
+ .../theme/hidden/res/values/sable_colors.xml  | 35 +++++++++++++++++++
+ .../theme/hidden/res/values/sable_dimens.xml  | 19 ++++++++++
+ .../dialer/theme/hidden/res/values/styles.xml |  8 +++--
+ .../commontheme/res/values-night/colors.xml   |  5 ---
+ .../commontheme/res/values/colors.xml         |  4 +--
+ .../theme/res/values-night/colors.xml         | 15 --------
+ .../incallui/theme/res/values/colors.xml      | 14 ++++----
+ 32 files changed, 198 insertions(+), 210 deletions(-)
+ delete mode 100644 java/com/android/dialer/app/res/values-night/colors.xml
+ delete mode 100644 java/com/android/dialer/main/impl/res/values-night/styles.xml
+ delete mode 100644 java/com/android/dialer/theme/base/res/values-night/theme_dialer_light.xml
+ delete mode 100644 java/com/android/dialer/theme/common/res/values-night/colors.xml
+ create mode 100644 java/com/android/dialer/theme/hidden/res/drawable/sable_focus_outline.xml
+ create mode 100644 java/com/android/dialer/theme/hidden/res/drawable/sable_selectable_item.xml
+ delete mode 100644 java/com/android/dialer/theme/hidden/res/values-night/colors_dialer_light.xml
+ create mode 100644 java/com/android/dialer/theme/hidden/res/values/sable_colors.xml
+ create mode 100644 java/com/android/dialer/theme/hidden/res/values/sable_dimens.xml
+ delete mode 100644 java/com/android/incallui/commontheme/res/values-night/colors.xml
+ delete mode 100644 java/com/android/incallui/theme/res/values-night/colors.xml
+
+diff --git a/java/com/android/dialer/app/res/values-night/colors.xml b/java/com/android/dialer/app/res/values-night/colors.xml
+deleted file mode 100644
+index 01b176c..0000000
+--- a/java/com/android/dialer/app/res/values-night/colors.xml
++++ /dev/null
+@@ -1,21 +0,0 @@
+-<!--
+-  ~ Copyright (C) 2012 The Android Open Source Project
+-  ~
+-  ~ Licensed under the Apache License, Version 2.0 (the "License");
+-  ~ you may not use this file except in compliance with the License.
+-  ~ You may obtain a copy of the License at
+-  ~
+-  ~      http://www.apache.org/licenses/LICENSE-2.0
+-  ~
+-  ~ Unless required by applicable law or agreed to in writing, software
+-  ~ distributed under the License is distributed on an "AS IS" BASIS,
+-  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-  ~ See the License for the specific language governing permissions and
+-  ~ limitations under the License
+--->
+-
+-<resources>
+-  <color name="nav_item">@android:color/system_neutral1_300</color>
+-  <color name="dialer_pill_color">@android:color/system_accent2_700</color>
+-  <color name="dialer_fab_icon_color">#ff000000</color>
+-</resources>
+diff --git a/java/com/android/dialer/app/res/values/colors.xml b/java/com/android/dialer/app/res/values/colors.xml
+index 45aba55..9593fef 100644
+--- a/java/com/android/dialer/app/res/values/colors.xml
++++ b/java/com/android/dialer/app/res/values/colors.xml
+@@ -15,16 +15,16 @@
+ -->
+ 
+ <resources>
+-  <color name="voicemail_icon_disabled_tint">#80000000</color>
++  <color name="voicemail_icon_disabled_tint">#80FFFFFF</color>
+ 
+-  <color name="call_record_playback_icon_color">#8a000000</color>
++  <color name="call_record_playback_icon_color">@color/sable_text_muted</color>
+ 
+   <!-- Text color for the "Remove" text when a contact is dragged on top of the remove view -->
+   <color name="remove_highlighted_text_color">#FF3F3B</color>
+ 
+-  <color name="nav_item">@android:color/system_neutral1_600</color>
+-  <color name="dialer_pill_color">@android:color/system_accent2_200</color>
+-  <color name="dialer_fab_icon_color">#ffffffff</color>
++  <color name="nav_item">@color/sable_text_muted</color>
++  <color name="dialer_pill_color">@color/sable_accent_container</color>
++  <color name="dialer_fab_icon_color">@color/sable_on_accent</color>
+ 
+   <!-- Material next state on color-->
+   <color name="state_on_color">@android:color/system_accent3_100</color>
+diff --git a/java/com/android/dialer/historyitemactions/res/layout/contact_layout.xml b/java/com/android/dialer/historyitemactions/res/layout/contact_layout.xml
+index 247ca0b..7d1d31a 100644
+--- a/java/com/android/dialer/historyitemactions/res/layout/contact_layout.xml
++++ b/java/com/android/dialer/historyitemactions/res/layout/contact_layout.xml
+@@ -24,7 +24,7 @@
+     android:paddingEnd="8dp"
+     android:gravity="center_vertical"
+     android:orientation="horizontal"
+-    android:background="#FFFFFF"
++    android:background="?android:attr/colorBackgroundFloating"
+     android:focusable="true">
+ 
+   <com.android.dialer.widget.ContactPhotoView
+diff --git a/java/com/android/dialer/historyitemactions/res/layout/divider_layout.xml b/java/com/android/dialer/historyitemactions/res/layout/divider_layout.xml
+index fdee50e..5b275c7 100644
+--- a/java/com/android/dialer/historyitemactions/res/layout/divider_layout.xml
++++ b/java/com/android/dialer/historyitemactions/res/layout/divider_layout.xml
+@@ -20,4 +20,4 @@
+     android:layout_height="1dp"
+     android:layout_marginTop="8dp"
+     android:layout_marginBottom="8dp"
+-    android:background="#12000000"/>
++    android:background="@color/dialer_divider_line_color"/>
+diff --git a/java/com/android/dialer/main/impl/bottomnav/res/layout/bottom_nav_item.xml b/java/com/android/dialer/main/impl/bottomnav/res/layout/bottom_nav_item.xml
+index 7f4cacf..815dfc1 100644
+--- a/java/com/android/dialer/main/impl/bottomnav/res/layout/bottom_nav_item.xml
++++ b/java/com/android/dialer/main/impl/bottomnav/res/layout/bottom_nav_item.xml
+@@ -22,6 +22,7 @@
+     android:layout_height="wrap_content"
+     android:minWidth="80dp"
+     android:minHeight="56dp"
++    android:background="?android:attr/selectableItemBackground"
+     android:gravity="center">
+ 
+   <FrameLayout
+diff --git a/java/com/android/dialer/main/impl/res/layout/promotion_bottom_sheet.xml b/java/com/android/dialer/main/impl/res/layout/promotion_bottom_sheet.xml
+index 7b40f0d..f61dfc7 100644
+--- a/java/com/android/dialer/main/impl/res/layout/promotion_bottom_sheet.xml
++++ b/java/com/android/dialer/main/impl/res/layout/promotion_bottom_sheet.xml
+@@ -24,7 +24,7 @@
+     android:paddingBottom="8dp"
+     android:paddingStart="16dp"
+     android:paddingEnd="24dp"
+-    android:background="#FAFAFA"
++    android:background="?android:attr/colorBackgroundFloating"
+     android:clickable="true"
+     android:elevation="8dp"
+     android:orientation="horizontal"
+diff --git a/java/com/android/dialer/main/impl/res/values-night/styles.xml b/java/com/android/dialer/main/impl/res/values-night/styles.xml
+deleted file mode 100644
+index 19afffc..0000000
+--- a/java/com/android/dialer/main/impl/res/values-night/styles.xml
++++ /dev/null
+@@ -1,27 +0,0 @@
+-<?xml version="1.0" encoding="utf-8"?>
+-<!--
+-  ~ Copyright (C) 2017 The Android Open Source Project
+-  ~
+-  ~ Licensed under the Apache License, Version 2.0 (the "License");
+-  ~ you may not use this file except in compliance with the License.
+-  ~ You may obtain a copy of the License at
+-  ~
+-  ~      http://www.apache.org/licenses/LICENSE-2.0
+-  ~
+-  ~ Unless required by applicable law or agreed to in writing, software
+-  ~ distributed under the License is distributed on an "AS IS" BASIS,
+-  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-  ~ See the License for the specific language governing permissions and
+-  ~ limitations under the License
+-  -->
+-<resources>
+-
+-  <style name="LaunchTheme" parent="Theme.AppCompat.DayNight.DarkActionBar">
+-    <item name="android:colorPrimary">@color/dialer_primary_color</item>
+-    <item name="colorPrimary">@color/dialer_primary_color</item>
+-    <item name="android:colorPrimaryDark">@color/dialer_theme_color_dark</item>
+-    <item name="colorPrimaryDark">@color/dialer_theme_color_dark</item>
+-    <item name="android:windowLightStatusBar">false</item>
+-  </style>
+-
+-</resources>
+diff --git a/java/com/android/dialer/main/impl/res/values/styles.xml b/java/com/android/dialer/main/impl/res/values/styles.xml
+index 322d62a..e15c971 100644
+--- a/java/com/android/dialer/main/impl/res/values/styles.xml
++++ b/java/com/android/dialer/main/impl/res/values/styles.xml
+@@ -16,25 +16,28 @@
+   -->
+ <resources>
+ 
+-  <style name="LaunchTheme" parent="Theme.AppCompat.DayNight.DarkActionBar">
++  <!-- Sable: dark launch and main themes whatever the system setting (no -night variant). -->
++  <style name="LaunchTheme" parent="Theme.AppCompat">
+     <item name="android:colorPrimary">@color/dialer_primary_color</item>
+     <item name="colorPrimary">@color/dialer_primary_color</item>
+     <item name="android:colorPrimaryDark">@color/dialer_theme_color_dark</item>
+     <item name="colorPrimaryDark">@color/dialer_theme_color_dark</item>
+-    <item name="android:windowLightStatusBar">true</item>
++    <item name="android:windowLightStatusBar">false</item>
++    <item name="android:windowBackground">@color/sable_background</item>
++    <item name="android:statusBarColor">@color/sable_background</item>
+   </style>
+ 
+   <!-- Activities should use this theme as their style -->
+   <style name="MainActivityTheme" parent="MainActivityThemeBase">
+     <!-- Used to change the navigation bar color -->
+-    <item name="android:windowLightNavigationBar">true</item>
++    <item name="android:windowLightNavigationBar">false</item>
+     <item name="android:navigationBarColor">@color/rounded_dialpad_bg_color</item>
+     <item name="android:navigationBarDividerColor">@null</item>
+   </style>
+ 
+   <style name="MainActivityTheme.Dark" parent="MainActivityThemeBase.Dark">
+     <!-- Used to change the navigation bar color -->
+-    <item name="android:windowLightNavigationBar">true</item>
++    <item name="android:windowLightNavigationBar">false</item>
+     <item name="android:navigationBarColor">@color/rounded_dialpad_bg_color</item>
+     <item name="android:navigationBarDividerColor">@null</item>
+   </style>
+diff --git a/java/com/android/dialer/theme/base/res/values-night/theme_dialer_light.xml b/java/com/android/dialer/theme/base/res/values-night/theme_dialer_light.xml
+deleted file mode 100644
+index 97133e3..0000000
+--- a/java/com/android/dialer/theme/base/res/values-night/theme_dialer_light.xml
++++ /dev/null
+@@ -1,22 +0,0 @@
+-<?xml version="1.0" encoding="utf-8"?>
+-<!--
+-  SPDX-FileCopyrightText: The Android Open Source Project
+-  SPDX-License-Identifier: Apache-2.0
+--->
+-<resources>
+-  <style name="Dialer.ThemeBase.ActionBar">
+-    <item name="android:windowLightStatusBar">false</item>
+-  </style>
+-
+-  <style name="Dialer.ThemeBase.NoActionBar">
+-    <!-- Copied from Theme.AppCompat.Light.NoActionBar. We can remove this and update the Dialer
+-    base style once none of our activities depend on ActionBar anymore. -->
+-    <item name="windowActionBar">false</item>
+-    <item name="windowNoTitle">true</item>
+-
+-    <item name="colorControlHighlight">@color/dialer_ripple_color</item>
+-    <item name="android:windowLightStatusBar">false</item>
+-  </style>
+-
+-  <style name="DialerActionBarBaseTheme" parent="@style/ThemeOverlay.AppCompat.Dark.ActionBar" />
+-</resources>
+diff --git a/java/com/android/dialer/theme/base/res/values/theme_dialer_dark.xml b/java/com/android/dialer/theme/base/res/values/theme_dialer_dark.xml
+index 1e92e3c..746d7a6 100644
+--- a/java/com/android/dialer/theme/base/res/values/theme_dialer_dark.xml
++++ b/java/com/android/dialer/theme/base/res/values/theme_dialer_dark.xml
+@@ -25,8 +25,8 @@
+   <!-- Activities and Applications should inherit from one of the themes above. -->
+   <style name="Dialer.Dark.ThemeBase">
+     <!-- These values should be used to color all backgrounds. -->
+-    <item name="android:colorBackground">@android:color/system_neutral1_900</item>
+-    <item name="android:colorBackgroundFloating">@android:color/system_neutral1_800</item>
++    <item name="android:colorBackground">@color/sable_background</item>
++    <item name="android:colorBackgroundFloating">@color/sable_surface_raised</item>
+ 
+     <!-- These values should be used to set text color. -->
+     <!-- swap text colors. -->
+@@ -34,7 +34,7 @@
+     <item name="android:textColorSecondary">@color/dialer_dark_secondary_text_color</item>
+     <item name="android:textColorPrimaryInverse">@color/dialer_primary_text_color</item>
+     <item name="android:textColorSecondaryInverse">@color/dialer_secondary_text_color</item>
+-    <item name="android:textColorHint">@color/google_grey_600</item>
++    <item name="android:textColorHint">@color/sable_text_disabled</item>
+ 
+     <!-- These will be automatically used to color most Appcompat/Material widgets. -->
+     <item name="android:colorPrimary">@color/dialer_dark_theme_color</item>
+@@ -52,6 +52,8 @@
+     <item name="colorIconSecondary">?android:attr/textColorSecondary</item>
+     <item name="colorTextOnUnthemedDarkBackground">@android:color/system_neutral1_0</item>
+     <item name="colorIconOnUnthemedDarkBackground">@android:color/system_neutral1_0</item>
+-    <item name="colorCallNotificationBackground">@android:color/system_accent2_700</item>
++    <item name="colorCallNotificationBackground">@color/sable_surface_raised</item>
++    <item name="android:selectableItemBackground">@drawable/sable_selectable_item</item>
++    <item name="selectableItemBackground">@drawable/sable_selectable_item</item>
+   </style>
+ </resources>
+diff --git a/java/com/android/dialer/theme/base/res/values/theme_dialer_light.xml b/java/com/android/dialer/theme/base/res/values/theme_dialer_light.xml
+index b9ea10c..c282e47 100644
+--- a/java/com/android/dialer/theme/base/res/values/theme_dialer_light.xml
++++ b/java/com/android/dialer/theme/base/res/values/theme_dialer_light.xml
+@@ -23,13 +23,13 @@
+     <item name="actionBarSize">@dimen/action_bar_height</item>
+ 
+     <!-- Pulled from Theme.AppCompat.Light.DarkActionbar-->
+-    <item name="actionBarPopupTheme">@style/ThemeOverlay.AppCompat.Light</item>
++    <item name="actionBarPopupTheme">@style/ThemeOverlay.AppCompat.Dark</item>
+     <item name="actionBarWidgetTheme">@null</item>
+     <item name="actionBarTheme">@style/DialerActionBarBaseTheme</item>
+     <item name="listChoiceBackgroundIndicator">@drawable/abc_list_selector_holo_dark</item>
+ 
+     <item name="colorControlHighlight">@color/dialer_ripple_color</item>
+-    <item name="android:windowLightStatusBar">true</item>
++    <item name="android:windowLightStatusBar">false</item>
+   </style>
+ 
+   <style name="Dialer.ThemeBase.NoActionBar">
+@@ -39,12 +39,25 @@
+     <item name="windowNoTitle">true</item>
+ 
+     <item name="colorControlHighlight">@color/dialer_ripple_color</item>
+-    <item name="android:windowLightStatusBar">true</item>
++    <item name="android:windowLightStatusBar">false</item>
+   </style>
+ 
+   <!-- Activities and Applications should inherit from one of the themes above. -->
+   <style name="Dialer.ThemeBase">
+-    <item name="android:forceDarkAllowed">true</item>
++    <!-- Sable: one dark palette (sable_colors.xml); never force-darkened. -->
++    <item name="android:forceDarkAllowed">false</item>
++    <item name="android:windowBackground">@color/sable_background</item>
++    <item name="android:statusBarColor">@color/sable_background</item>
++    <item name="android:navigationBarColor">@color/sable_surface</item>
++    <item name="android:windowLightNavigationBar">false</item>
++    <!-- Every row and action that uses the selectable background gets a ripple for touch and a
++         2dp accent outline while it has keyboard or trackpad focus. -->
++    <item name="android:selectableItemBackground">@drawable/sable_selectable_item</item>
++    <item name="selectableItemBackground">@drawable/sable_selectable_item</item>
++    <item name="android:colorControlNormal">@color/sable_text_muted</item>
++    <item name="colorControlNormal">@color/sable_text_muted</item>
++    <!-- Bottom sheets (favourite actions) follow the dark theme too. -->
++    <item name="bottomSheetDialogTheme">@style/Theme.Design.BottomSheetDialog</item>
+     <!-- These values should be used to color all backgrounds. -->
+     <item name="android:colorBackground">@color/dialer_background_color</item>
+     <item name="android:colorBackgroundFloating">@color/dialer_background_floating</item>
+@@ -53,9 +66,9 @@
+     <!-- These values should be used to set text color. -->
+     <item name="android:textColorPrimary">@color/dialer_primary_text_color</item>
+     <item name="android:textColorSecondary">@color/dialer_secondary_text_color</item>
+-    <item name="android:textColorPrimaryInverse">@color/google_grey_300</item>
+-    <item name="android:textColorSecondaryInverse">@color/google_grey_400</item>
+-    <item name="android:textColorHint">@color/google_grey_600</item>
++    <item name="android:textColorPrimaryInverse">@color/sable_background</item>
++    <item name="android:textColorSecondaryInverse">@color/sable_surface_raised</item>
++    <item name="android:textColorHint">@color/sable_text_disabled</item>
+ 
+     <!-- These will be automatically used to color most Appcompat/Material widgets. -->
+     <item name="android:colorPrimary">@color/dialer_primary_color</item>
+@@ -69,11 +82,11 @@
+     <item name="colorControlActivated">?android:attr/colorAccent</item>
+ 
+     <!-- Dialer specific attributes. -->
+-    <item name="colorIcon">@color/google_grey_700</item>
+-    <item name="colorIconSecondary">@color/google_grey_400</item>
++    <item name="colorIcon">@color/sable_text_muted</item>
++    <item name="colorIconSecondary">@color/sable_text_disabled</item>
+     <item name="colorTextOnUnthemedDarkBackground">@android:color/system_neutral1_0</item>
+     <item name="colorIconOnUnthemedDarkBackground">@android:color/system_neutral1_0</item>
+-    <item name="colorCallNotificationBackground">@android:color/system_accent2_200</item>
++    <item name="colorCallNotificationBackground">@color/sable_surface_raised</item>
+   </style>
+ 
+   <!-- TODO(a bug): investigate making this style's parent Dialer.ThemeBase.NoActionBar -->
+@@ -92,7 +105,7 @@
+     <item name="android:background">?android:attr/colorPrimary</item>
+     <item name="background">?android:attr/colorPrimary</item>
+   </style>
+-  <style name="DialerActionBarBaseTheme" parent="@style/ThemeOverlay.AppCompat.ActionBar" />
++  <style name="DialerActionBarBaseTheme" parent="@style/ThemeOverlay.AppCompat.Dark.ActionBar" />
+ 
+   <style name="Dialer.Settings.PreferenceTheme" parent="@style/PreferenceThemeOverlay">
+     <item name="switchPreferenceCompatStyle">@style/Dialer.SwitchPreferenceCompat</item>
+diff --git a/java/com/android/dialer/theme/common/res/values-night/colors.xml b/java/com/android/dialer/theme/common/res/values-night/colors.xml
+deleted file mode 100644
+index 41b308d..0000000
+--- a/java/com/android/dialer/theme/common/res/values-night/colors.xml
++++ /dev/null
+@@ -1,24 +0,0 @@
+-<?xml version="1.0" encoding="utf-8"?>
+-<!--
+-  ~ Copyright (C) 2012 The Android Open Source Project
+-  ~
+-  ~ Licensed under the Apache License, Version 2.0 (the "License");
+-  ~ you may not use this file except in compliance with the License.
+-  ~ You may obtain a copy of the License at
+-  ~
+-  ~      http://www.apache.org/licenses/LICENSE-2.0
+-  ~
+-  ~ Unless required by applicable law or agreed to in writing, software
+-  ~ distributed under the License is distributed on an "AS IS" BASIS,
+-  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-  ~ See the License for the specific language governing permissions and
+-  ~ limitations under the License
+-  -->
+-<!-- The colors in this file aren't configured at the theme level. -->
+-<resources>
+-  <color name="dialer_call_green">#3ee0a0</color>
+-  <color name="dialer_end_call_button_color">#e46962</color>
+-  <color name="dialer_link_color">#b5c4ff</color>
+-  <color name="dialer_snackbar_action_text_color">@android:color/system_accent1_600</color>
+-  <color name="dialer_call_icon_color">@android:color/black</color>
+-</resources>
+diff --git a/java/com/android/dialer/theme/common/res/values/colors.xml b/java/com/android/dialer/theme/common/res/values/colors.xml
+index 2e9e3b6..36e1137 100644
+--- a/java/com/android/dialer/theme/common/res/values/colors.xml
++++ b/java/com/android/dialer/theme/common/res/values/colors.xml
+@@ -16,12 +16,12 @@
+   -->
+ <!-- The colors in this file aren't configured at the theme level. -->
+ <resources>
+-  <color name="dialer_call_green">#006c49</color>
+-  <color name="dialer_end_call_button_color">#dc362e</color>
+-  <color name="dialer_divider_line_color">#D8D8D8</color>
+-  <color name="dialer_link_color">#2A56C6</color>
+-  <color name="dialer_snackbar_action_text_color">@android:color/system_accent1_600</color>
+-  <color name="dialer_call_icon_color">@android:color/white</color>
++  <color name="dialer_call_green">@color/sable_call</color>
++  <color name="dialer_end_call_button_color">@color/sable_danger</color>
++  <color name="dialer_divider_line_color">@color/sable_outline_variant</color>
++  <color name="dialer_link_color">@color/sable_accent</color>
++  <color name="dialer_snackbar_action_text_color">@color/sable_accent</color>
++  <color name="dialer_call_icon_color">@color/sable_on_call</color>
+ 
+   <!-- Colors for the notification actions -->
+   <color name="notification_action_accept">#097138</color>
+@@ -33,5 +33,5 @@
+   <!-- Legacy -->
+   <color name="blue_grey_100">#CFD8DC</color>
+ 
+-  <color name="cardBackgroundColor">@android:color/system_neutral1_50</color>
++  <color name="cardBackgroundColor">@color/sable_surface_raised</color>
+ </resources>
+diff --git a/java/com/android/dialer/theme/common/res/values/styles.xml b/java/com/android/dialer/theme/common/res/values/styles.xml
+index 70c91d7..bf38f7a 100644
+--- a/java/com/android/dialer/theme/common/res/values/styles.xml
++++ b/java/com/android/dialer/theme/common/res/values/styles.xml
+@@ -22,7 +22,7 @@
+     <item name="android:layout_height">wrap_content</item>
+     <item name="android:layout_margin">4dp</item>
+     <item name="android:baselineAligned">false</item>
+-    <item name="cardCornerRadius">28dp</item>
++    <item name="cardCornerRadius">@dimen/sable_row_radius</item>
+     <item name="cardBackgroundColor">?android:attr/colorBackground</item>
+     <item name="cardElevation">0dp</item>
+   </style>
+diff --git a/java/com/android/dialer/theme/hidden/res/color/dialer_dark_primary_text_color.xml b/java/com/android/dialer/theme/hidden/res/color/dialer_dark_primary_text_color.xml
+index 703e40b..bc654fc 100644
+--- a/java/com/android/dialer/theme/hidden/res/color/dialer_dark_primary_text_color.xml
++++ b/java/com/android/dialer/theme/hidden/res/color/dialer_dark_primary_text_color.xml
+@@ -16,6 +16,6 @@
+   -->
+ <!-- Primary text color in the Phone app -->
+ <selector xmlns:android="http://schemas.android.com/apk/res/android">
+-  <item android:state_enabled="false" android:color="@color/google_grey_700"/>
+-  <item android:color="@color/google_grey_400"/>
++  <item android:state_enabled="false" android:color="@color/sable_text_disabled"/>
++  <item android:color="@color/sable_text"/>
+ </selector>
+diff --git a/java/com/android/dialer/theme/hidden/res/color/dialer_dark_secondary_text_color.xml b/java/com/android/dialer/theme/hidden/res/color/dialer_dark_secondary_text_color.xml
+index 486669f..69d9675 100644
+--- a/java/com/android/dialer/theme/hidden/res/color/dialer_dark_secondary_text_color.xml
++++ b/java/com/android/dialer/theme/hidden/res/color/dialer_dark_secondary_text_color.xml
+@@ -16,6 +16,6 @@
+   -->
+ <!-- Secondary text color in the Phone app -->
+ <selector xmlns:android="http://schemas.android.com/apk/res/android">
+-  <item android:state_enabled="false" android:color="@color/google_grey_700"/>
+-  <item android:color="@color/google_grey_300"/>
++  <item android:state_enabled="false" android:color="@color/sable_text_disabled"/>
++  <item android:color="@color/sable_text_muted"/>
+ </selector>
+diff --git a/java/com/android/dialer/theme/hidden/res/color/dialer_primary_text_color.xml b/java/com/android/dialer/theme/hidden/res/color/dialer_primary_text_color.xml
+index ef8c996..bc654fc 100644
+--- a/java/com/android/dialer/theme/hidden/res/color/dialer_primary_text_color.xml
++++ b/java/com/android/dialer/theme/hidden/res/color/dialer_primary_text_color.xml
+@@ -16,6 +16,6 @@
+   -->
+ <!-- Primary text color in the Phone app -->
+ <selector xmlns:android="http://schemas.android.com/apk/res/android">
+-  <item android:state_enabled="false" android:color="@color/google_grey_900"/>
+-  <item android:color="@color/google_grey_900"/>
++  <item android:state_enabled="false" android:color="@color/sable_text_disabled"/>
++  <item android:color="@color/sable_text"/>
+ </selector>
+diff --git a/java/com/android/dialer/theme/hidden/res/color/dialer_secondary_text_color.xml b/java/com/android/dialer/theme/hidden/res/color/dialer_secondary_text_color.xml
+index 20dfd35..fded6c6 100644
+--- a/java/com/android/dialer/theme/hidden/res/color/dialer_secondary_text_color.xml
++++ b/java/com/android/dialer/theme/hidden/res/color/dialer_secondary_text_color.xml
+@@ -16,6 +16,6 @@
+   -->
+ <!-- Secondary text color in the Phone app -->
+ <selector xmlns:android="http://schemas.android.com/apk/res/android">
+-  <item android:state_enabled="false" android:color="@color/google_grey_400"/>
+-  <item android:color="@color/google_grey_700"/>
++  <item android:state_enabled="false" android:color="@color/sable_text_disabled"/>
++  <item android:color="@color/sable_text_muted"/>
+ </selector>
+\ No newline at end of file
+diff --git a/java/com/android/dialer/theme/hidden/res/color/settings_text_color_primary.xml b/java/com/android/dialer/theme/hidden/res/color/settings_text_color_primary.xml
+index b26c2c2..04d2853 100644
+--- a/java/com/android/dialer/theme/hidden/res/color/settings_text_color_primary.xml
++++ b/java/com/android/dialer/theme/hidden/res/color/settings_text_color_primary.xml
+@@ -18,6 +18,6 @@
+ -->
+ 
+ <selector xmlns:android="http://schemas.android.com/apk/res/android">
+-  <item android:color="@color/google_grey_400" android:state_enabled="false"/>
+-  <item android:color="@color/google_grey_900"/>
++  <item android:color="@color/sable_text_disabled" android:state_enabled="false"/>
++  <item android:color="@color/sable_text"/>
+ </selector>
+diff --git a/java/com/android/dialer/theme/hidden/res/color/settings_text_color_secondary.xml b/java/com/android/dialer/theme/hidden/res/color/settings_text_color_secondary.xml
+index 21e125a..ef782a1 100644
+--- a/java/com/android/dialer/theme/hidden/res/color/settings_text_color_secondary.xml
++++ b/java/com/android/dialer/theme/hidden/res/color/settings_text_color_secondary.xml
+@@ -18,6 +18,6 @@
+ -->
+ 
+ <selector xmlns:android="http://schemas.android.com/apk/res/android">
+-  <item android:color="@color/google_grey_400" android:state_enabled="false"/>
+-  <item android:color="@color/google_grey_700"/>
++  <item android:color="@color/sable_text_disabled" android:state_enabled="false"/>
++  <item android:color="@color/sable_text_muted"/>
+ </selector>
+diff --git a/java/com/android/dialer/theme/hidden/res/drawable/sable_focus_outline.xml b/java/com/android/dialer/theme/hidden/res/drawable/sable_focus_outline.xml
+new file mode 100644
+index 0000000..f9176ee
+--- /dev/null
++++ b/java/com/android/dialer/theme/hidden/res/drawable/sable_focus_outline.xml
+@@ -0,0 +1,32 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++  Copyright (C) 2026 The SableOS Project
++  SPDX-License-Identifier: Apache-2.0
++-->
++<!-- Focus state only: transparent unless the view is focused (or activated, as for the
++     selected item of a list in selection mode). -->
++<selector xmlns:android="http://schemas.android.com/apk/res/android">
++  <item android:state_window_focused="false" android:state_activated="false">
++    <color android:color="@android:color/transparent"/>
++  </item>
++  <item android:state_focused="true">
++    <inset android:inset="@dimen/sable_focus_inset">
++      <shape android:shape="rectangle">
++        <solid android:color="@color/sable_accent_container"/>
++        <stroke android:width="@dimen/sable_focus_stroke" android:color="@color/sable_accent"/>
++        <corners android:radius="@dimen/sable_row_radius"/>
++      </shape>
++    </inset>
++  </item>
++  <item android:state_activated="true">
++    <inset android:inset="@dimen/sable_focus_inset">
++      <shape android:shape="rectangle">
++        <solid android:color="@color/sable_accent_container"/>
++        <corners android:radius="@dimen/sable_row_radius"/>
++      </shape>
++    </inset>
++  </item>
++  <item>
++    <color android:color="@android:color/transparent"/>
++  </item>
++</selector>
+diff --git a/java/com/android/dialer/theme/hidden/res/drawable/sable_selectable_item.xml b/java/com/android/dialer/theme/hidden/res/drawable/sable_selectable_item.xml
+new file mode 100644
+index 0000000..5e90534
+--- /dev/null
++++ b/java/com/android/dialer/theme/hidden/res/drawable/sable_selectable_item.xml
+@@ -0,0 +1,18 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++  Copyright (C) 2026 The SableOS Project
++  SPDX-License-Identifier: Apache-2.0
++-->
++<!-- Sable list row / action background: a ripple for touch, and while the row has keyboard or
++     trackpad focus a 2dp accent outline around a dark accent fill, so the focused row is
++     obvious. Used as the theme's selectableItemBackground. -->
++<ripple xmlns:android="http://schemas.android.com/apk/res/android"
++    android:color="@color/sable_ripple">
++  <item android:id="@android:id/mask">
++    <shape android:shape="rectangle">
++      <solid android:color="@android:color/white"/>
++      <corners android:radius="@dimen/sable_row_radius"/>
++    </shape>
++  </item>
++  <item android:drawable="@drawable/sable_focus_outline"/>
++</ripple>
+diff --git a/java/com/android/dialer/theme/hidden/res/values-night/colors_dialer_light.xml b/java/com/android/dialer/theme/hidden/res/values-night/colors_dialer_light.xml
+deleted file mode 100644
+index 99fda07..0000000
+--- a/java/com/android/dialer/theme/hidden/res/values-night/colors_dialer_light.xml
++++ /dev/null
+@@ -1,24 +0,0 @@
+-<!--
+-  ~ Copyright (C) 2018 The Android Open Source Project
+-  ~
+-  ~ Licensed under the Apache License, Version 2.0 (the "License");
+-  ~ you may not use this file except in compliance with the License.
+-  ~ You may obtain a copy of the License at
+-  ~
+-  ~      http://www.apache.org/licenses/LICENSE-2.0
+-  ~
+-  ~ Unless required by applicable law or agreed to in writing, software
+-  ~ distributed under the License is distributed on an "AS IS" BASIS,
+-  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-  ~ See the License for the specific language governing permissions and
+-  ~ limitations under the License
+-  -->
+-<resources>
+-    <!-- Essential theme colors -->
+-    <color name="dialer_theme_color_dark">@color/dialer_background_color</color>
+-    <color name="dialer_background_color">@android:color/system_neutral1_900</color>
+-    <color name="dialer_background_floating">@android:color/system_neutral1_800</color>
+-    <color name="dialer_search_bar_color">@android:color/system_neutral1_800</color>
+-    <color name="rounded_dialpad_bg_color">@android:color/system_neutral1_800</color>
+-    <color name="dialer_theme_color_light">@android:color/system_accent1_100</color>
+-</resources>
+diff --git a/java/com/android/dialer/theme/hidden/res/values/colors_dialer_dark.xml b/java/com/android/dialer/theme/hidden/res/values/colors_dialer_dark.xml
+index 41c5fd1..ba4637d 100644
+--- a/java/com/android/dialer/theme/hidden/res/values/colors_dialer_dark.xml
++++ b/java/com/android/dialer/theme/hidden/res/values/colors_dialer_dark.xml
+@@ -15,7 +15,7 @@
+   -->
+ <resources>
+   <!-- Essential theme colors -->
+-  <color name="dialer_dark_theme_color">#5195EA</color>
++  <color name="dialer_dark_theme_color">@color/sable_accent</color>
+   <color name="dialer_dark_theme_color_20pct">#335195EA</color>
+-  <color name="dialer_dark_theme_color_dark">#2374CE</color>
++  <color name="dialer_dark_theme_color_dark">@color/sable_background</color>
+ </resources>
+diff --git a/java/com/android/dialer/theme/hidden/res/values/colors_dialer_light.xml b/java/com/android/dialer/theme/hidden/res/values/colors_dialer_light.xml
+index c894da3..f38b8d1 100644
+--- a/java/com/android/dialer/theme/hidden/res/values/colors_dialer_light.xml
++++ b/java/com/android/dialer/theme/hidden/res/values/colors_dialer_light.xml
+@@ -14,16 +14,17 @@
+   ~ limitations under the License
+   -->
+ <resources>
+-  <!-- Essential theme colors -->
+-  <color name="dialer_theme_color">@android:color/system_accent1_600</color>
++  <!-- Essential theme colors. Sable: one dark palette (sable_colors.xml) whatever the
++       system light/dark setting; no -night variant. -->
++  <color name="dialer_theme_color">@color/sable_accent</color>
+   <color name="dialer_theme_color_20pct">#332A56C6</color>
+-  <color name="dialer_theme_color_dark">@color/dialer_background_color</color>
+-  <color name="dialer_primary_color">@android:color/system_neutral2_50</color>
+-  <color name="dialer_ripple_color">#1f000000</color>
+-  <color name="dialer_background_color">@android:color/system_neutral1_10</color>
+-  <color name="dialer_background_floating">@android:color/system_neutral1_50</color>
+-  <color name="dialer_search_bar_color">@android:color/system_neutral1_50</color>
+-  <color name="rounded_dialpad_bg_color">@android:color/system_neutral1_100</color>
+-  <color name="searchbar_icon_color">@android:color/system_neutral1_900</color>
+-  <color name="dialer_theme_color_light">@android:color/system_accent1_600</color>
++  <color name="dialer_theme_color_dark">@color/sable_background</color>
++  <color name="dialer_primary_color">@color/sable_surface</color>
++  <color name="dialer_ripple_color">@color/sable_ripple</color>
++  <color name="dialer_background_color">@color/sable_background</color>
++  <color name="dialer_background_floating">@color/sable_surface_raised</color>
++  <color name="dialer_search_bar_color">@color/sable_surface_raised</color>
++  <color name="rounded_dialpad_bg_color">@color/sable_surface</color>
++  <color name="searchbar_icon_color">@color/sable_text_muted</color>
++  <color name="dialer_theme_color_light">@color/sable_accent</color>
+ </resources>
+diff --git a/java/com/android/dialer/theme/hidden/res/values/sable_colors.xml b/java/com/android/dialer/theme/hidden/res/values/sable_colors.xml
+new file mode 100644
+index 0000000..33f3012
+--- /dev/null
++++ b/java/com/android/dialer/theme/hidden/res/values/sable_colors.xml
+@@ -0,0 +1,35 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++  Copyright (C) 2026 The SableOS Project
++  SPDX-License-Identifier: Apache-2.0
++-->
++<!-- Sable dark palette (sable-phone-dialer-titan2): values of SableSystemTokens.Dark and
++     SableTheme's dark outline tones. The design is dark only, so these are used whatever the
++     system light/dark setting is. The accent is never hard-coded: it comes from the system
++     palette (system_accent1_*), which the Sable accent seeds. -->
++<resources>
++  <!-- surfaceBase, surfaceRaised, surfaceOverlay -->
++  <color name="sable_background">#FF05070A</color>
++  <color name="sable_surface">#FF0D1117</color>
++  <color name="sable_surface_raised">#FF161C24</color>
++  <!-- textPrimary, textSecondary, textDisabled -->
++  <color name="sable_text">#FFF7F9FC</color>
++  <color name="sable_text_muted">#FFAAB4C0</color>
++  <color name="sable_text_disabled">#FF7D8896</color>
++  <!-- outline, outlineVariant -->
++  <color name="sable_outline">#FF526170</color>
++  <color name="sable_outline_variant">#FF26313D</color>
++  <!-- Accent tones from the system palette: the outline/text tone for dark surfaces, a dark
++       container for selected and focused fills, and the tone drawn on the accent. -->
++  <color name="sable_accent">@android:color/system_accent1_200</color>
++  <color name="sable_accent_container">@android:color/system_accent1_900</color>
++  <color name="sable_on_accent">@android:color/system_accent1_900</color>
++  <!-- success / danger roles and their dark containers (call and end pills). -->
++  <color name="sable_call">#FF4ADE80</color>
++  <color name="sable_on_call">#FF04140A</color>
++  <color name="sable_call_container">#FF1D4D39</color>
++  <color name="sable_danger">#FFFF8A80</color>
++  <color name="sable_danger_container">#FF4D2328</color>
++  <!-- Touch ripple on dark surfaces (16% white). -->
++  <color name="sable_ripple">#29FFFFFF</color>
++</resources>
+diff --git a/java/com/android/dialer/theme/hidden/res/values/sable_dimens.xml b/java/com/android/dialer/theme/hidden/res/values/sable_dimens.xml
+new file mode 100644
+index 0000000..6ef9c3d
+--- /dev/null
++++ b/java/com/android/dialer/theme/hidden/res/values/sable_dimens.xml
+@@ -0,0 +1,19 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++  Copyright (C) 2026 The SableOS Project
++  SPDX-License-Identifier: Apache-2.0
++-->
++<!-- Sable geometry (SableGeometryTokens): 12dp rows and cards, 8dp small controls, a 2dp focus
++     outline drawn 2dp inside the row, 48dp touch targets, fully rounded pills. -->
++<resources>
++  <dimen name="sable_row_radius">12dp</dimen>
++  <dimen name="sable_control_radius">8dp</dimen>
++  <dimen name="sable_pill_radius">999dp</dimen>
++  <dimen name="sable_focus_stroke">2dp</dimen>
++  <dimen name="sable_focus_inset">2dp</dimen>
++  <dimen name="sable_hairline">1dp</dimen>
++  <dimen name="sable_pill_height">48dp</dimen>
++  <dimen name="sable_end_call_width">112dp</dimen>
++  <dimen name="sable_screen_title_size">22sp</dimen>
++  <dimen name="sable_section_label_size">12sp</dimen>
++</resources>
+diff --git a/java/com/android/dialer/theme/hidden/res/values/styles.xml b/java/com/android/dialer/theme/hidden/res/values/styles.xml
+index b2fab95..49466eb 100644
+--- a/java/com/android/dialer/theme/hidden/res/values/styles.xml
++++ b/java/com/android/dialer/theme/hidden/res/values/styles.xml
+@@ -16,7 +16,9 @@
+   -->
+ <resources>
+   <!-- Update to Theme.AppCompat.Light.NoActionBar once we no longer depend on ActionBars. -->
+-  <style name="Dialer" parent="Theme.AppCompat.Light">
++  <!-- Sable: the Phone app is dark only (sable-phone-dialer-titan2), so the base is the dark
++       AppCompat theme whatever the system light/dark setting. -->
++  <style name="Dialer" parent="Theme.AppCompat">
+     <!-- Used to automatically style all buttons in Dialer -->
+     <item name="android:textAppearanceButton">@style/DialerButtonTextStyle</item>
+     <item name="android:colorButtonNormal">?android:attr/colorPrimary</item>
+@@ -45,12 +47,12 @@
+   <!-- Used to style all Dialer's button's text. Every button is awarded this for free if the parent
+      activity's theme extends from Dialer.ThemeBase(.NoActionBar) or doesn't specify a theme. -->
+   <style name="DialerButtonTextStyle" parent="@android:style/TextAppearance.Material.Widget.Button">
+-    <item name="android:textColor">?android:attr/textColorPrimaryInverse</item>
++    <item name="android:textColor">?android:attr/textColorPrimary</item>
+   </style>
+ 
+   <!-- Used to style all Dialer's AlertDialogs. Every button is awarded this for free if the parent
+      activity's theme extends from Dialer.ThemeBase(.NoActionBar) or doesn't specify a theme. -->
+-  <style name="AlertDialogTheme" parent="Theme.AppCompat.Light.Dialog.Alert">
++  <style name="AlertDialogTheme" parent="Theme.AppCompat.Dialog.Alert">
+     <item name="android:textColorPrimary">@color/dialer_primary_text_color</item>
+     <item name="android:colorAccent">@color/dialer_theme_color</item>
+     <item name="colorAccent">@color/dialer_theme_color</item>
+diff --git a/java/com/android/incallui/commontheme/res/values-night/colors.xml b/java/com/android/incallui/commontheme/res/values-night/colors.xml
+deleted file mode 100644
+index c3f7228..0000000
+--- a/java/com/android/incallui/commontheme/res/values-night/colors.xml
++++ /dev/null
+@@ -1,5 +0,0 @@
+-<?xml version="1.0" encoding="utf-8"?>
+-<resources>
+-    <color name="incall_button_background_color">@android:color/system_neutral1_50</color>
+-    <color name="incall_end_call_icon_color">@android:color/black</color>
+-</resources>
+diff --git a/java/com/android/incallui/commontheme/res/values/colors.xml b/java/com/android/incallui/commontheme/res/values/colors.xml
+index 3c328b6..d0845af 100644
+--- a/java/com/android/incallui/commontheme/res/values/colors.xml
++++ b/java/com/android/incallui/commontheme/res/values/colors.xml
+@@ -22,6 +22,6 @@
+   <!-- Background color for spam. This color must match one of background_colors_dark in call UI. -->
+   <color name="incall_call_spam_background_color">@color/blocked_contact_background</color>
+ 
+-  <color name="incall_button_background_color">@android:color/system_neutral1_50</color>
+-  <color name="incall_end_call_icon_color">@android:color/white</color>
++  <color name="incall_button_background_color">@color/sable_accent</color>
++  <color name="incall_end_call_icon_color">@color/sable_danger</color>
+ </resources>
+diff --git a/java/com/android/incallui/theme/res/values-night/colors.xml b/java/com/android/incallui/theme/res/values-night/colors.xml
+deleted file mode 100644
+index d6522b1..0000000
+--- a/java/com/android/incallui/theme/res/values-night/colors.xml
++++ /dev/null
+@@ -1,15 +0,0 @@
+-<?xml version="1.0" encoding="utf-8"?>
+-<resources>
+-    <color name="incall_background_gradient_top">@color/dialer_theme_color_dark</color>
+-    <color name="incall_background_gradient_middle">@color/dialer_theme_color_dark</color>
+-    <color name="incall_background_gradient_bottom">@color/dialer_theme_color_dark</color>
+-    <color name="incall_background_multiwindow">@color/dialer_theme_color_dark</color>
+-    <color name="incall_button_icon_color">@android:color/black</color>
+-    <!-- There is a nearby, more-convenient universe in which the following neutral colors are
+-         automatically adapted and do not need to be specified separately in this -night variant.
+-         If the RTT banner items become invisible again in the future, try changing these to
+-         _900 and _800 respectively, or just removing them.
+-         (That more-convenient behavior is already seen with searchbar_icon_color elsewhere.) -->
+-    <color name="incall_banner_icon_color">@android:color/system_neutral1_100</color>
+-    <color name="incall_banner_timer_color">@android:color/system_neutral1_200</color>
+-</resources>
+diff --git a/java/com/android/incallui/theme/res/values/colors.xml b/java/com/android/incallui/theme/res/values/colors.xml
+index a1e5863..93d4b93 100644
+--- a/java/com/android/incallui/theme/res/values/colors.xml
++++ b/java/com/android/incallui/theme/res/values/colors.xml
+@@ -51,11 +51,11 @@
+     <item>#841F10</item>
+   </array>
+ 
+-  <color name="incall_background_gradient_top">@android:color/system_accent1_600</color>
+-  <color name="incall_background_gradient_middle">@android:color/system_accent1_500</color>
+-  <color name="incall_background_gradient_bottom">@android:color/system_accent1_400</color>
++  <color name="incall_background_gradient_top">@color/sable_background</color>
++  <color name="incall_background_gradient_middle">@color/sable_background</color>
++  <color name="incall_background_gradient_bottom">@color/sable_background</color>
+ 
+-  <color name="incall_background_multiwindow">@android:color/system_accent1_500</color>
++  <color name="incall_background_multiwindow">@color/sable_background</color>
+ 
+   <color name="incall_background_gradient_spam_top">#E5A30B0B</color>
+   <color name="incall_background_gradient_spam_middle">#D6C01111</color>
+@@ -63,8 +63,8 @@
+ 
+   <color name="incall_background_multiwindow_spam">#E9C22E2E</color>
+ 
+-  <color name="incall_button_icon_color">@android:color/black</color>
++  <color name="incall_button_icon_color">@color/sable_on_accent</color>
+ 
+-  <color name="incall_banner_icon_color">@android:color/system_neutral1_900</color>
+-  <color name="incall_banner_timer_color">@android:color/system_neutral1_800</color>
++  <color name="incall_banner_icon_color">@color/sable_text_muted</color>
++  <color name="incall_banner_timer_color">@color/sable_text_muted</color>
+ </resources>
+-- 
+2.43.0
+
