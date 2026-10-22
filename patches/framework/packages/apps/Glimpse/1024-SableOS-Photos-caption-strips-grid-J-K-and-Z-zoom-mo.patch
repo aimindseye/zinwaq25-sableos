@@ -1,0 +1,277 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 22 Oct 2026 04:03:22 +0000
+Subject: [PATCH 1024/1024] SableOS: Photos caption strips, grid J/K and Z zoom
+ mode
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+* Contact sheet (MEDIA_GALLERY_UX state 3): while a thumbnail has
+  keyboard focus, a caption strip under the grid shows its name and
+  time and "[Enter Open] [J/K Prev/Next] [E Share] [D Del]"; the grid
+  keeps its last row above the strip. Only with a hardware keyboard;
+  touch use shows nothing new.
+* Viewer (state 4): a caption line above the bottom buttons with
+  "[J Prev] [K Next] [Z Zoom] [D Del] · [I Info] [E Share] [F Fav]",
+  only with a hardware keyboard; it fades with the bottom bar.
+* Grid J / K move focus to the previous / next photo (date headers
+  skipped; held keys repeat); E shares, S no longer does.
+* Viewer Z: zoom one step in when the photo fits, else back to fit.
+---
+ .../org/lineageos/glimpse/ViewActivity.kt     |  8 ++
+ .../glimpse/fragments/AlbumFragment.kt        | 76 ++++++++++++++++++-
+ .../ui/recyclerview/MediaViewerAdapter.kt     | 14 ++++
+ app/src/main/res/layout/activity_view.xml     | 22 +++++-
+ app/src/main/res/layout/fragment_album.xml    | 13 ++++
+ 5 files changed, 130 insertions(+), 3 deletions(-)
+
+diff --git a/app/src/main/java/org/lineageos/glimpse/ViewActivity.kt b/app/src/main/java/org/lineageos/glimpse/ViewActivity.kt
+index dc49abd..5dad5f3 100644
+--- a/app/src/main/java/org/lineageos/glimpse/ViewActivity.kt
++++ b/app/src/main/java/org/lineageos/glimpse/ViewActivity.kt
+@@ -179,6 +179,13 @@ class ViewActivity : AppCompatActivity(R.layout.activity_view) {
+             setShowWhenLocked(true)
+         }
+ 
++        // SableOS: caption strip with the viewer keys (MEDIA_GALLERY_UX state 4), only with a
++        // hardware keyboard.
++        findViewById<android.widget.TextView>(R.id.sableCaptionStrip)?.apply {
++            text = SableGalleryKeys.VIEWER_CAPTION
++            isVisible = resources.configuration.keyboard != Configuration.KEYBOARD_NOKEYS
++        }
++
+         ViewCompat.setOnApplyWindowInsetsListener(bottomSheetLinearLayout) { _, windowInsets ->
+             val insets = windowInsets.getInsets(
+                 WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+@@ -576,6 +583,7 @@ class ViewActivity : AppCompatActivity(R.layout.activity_view) {
+             SableGalleryKeys.Action.ZOOM_IN -> currentMediaViewHolder()?.zoomStep(1)
+             SableGalleryKeys.Action.ZOOM_OUT -> currentMediaViewHolder()?.zoomStep(-1)
+             SableGalleryKeys.Action.ZOOM_FIT -> currentMediaViewHolder()?.zoomStep(0)
++            SableGalleryKeys.Action.ZOOM_TOGGLE -> currentMediaViewHolder()?.zoomToggle()
+             SableGalleryKeys.Action.INFO -> if (infoButton.isVisible) {
+                 toolbar.menu.performIdentifierAction(R.id.info, 0)
+             }
+diff --git a/app/src/main/java/org/lineageos/glimpse/fragments/AlbumFragment.kt b/app/src/main/java/org/lineageos/glimpse/fragments/AlbumFragment.kt
+index 536d487..e653dbc 100644
+--- a/app/src/main/java/org/lineageos/glimpse/fragments/AlbumFragment.kt
++++ b/app/src/main/java/org/lineageos/glimpse/fragments/AlbumFragment.kt
+@@ -13,6 +13,7 @@ import android.content.res.Configuration
+ import android.net.Uri
+ import android.os.Bundle
+ import android.provider.MediaStore
++import android.text.format.DateUtils
+ import android.util.Log
+ import android.view.ActionMode
+ import android.view.KeyEvent
+@@ -85,6 +86,13 @@ class AlbumFragment : Fragment(R.layout.fragment_album) {
+     // Views
+     private val appBarLayout by getViewProperty<AppBarLayout>(R.id.appBarLayout)
+     private val noMediaLinearLayout by getViewProperty<LinearLayout>(R.id.noMediaLinearLayout)
++    private val sableCaptionStrip by getViewProperty<TextView>(R.id.sableCaptionStrip)
++
++    // SableOS: caption strip state.
++    private var sableInsetBottom = 0
++    private val sableFocusListener = android.view.ViewTreeObserver.OnGlobalFocusChangeListener { _, _ ->
++        updateSableCaption()
++    }
+     private val recyclerView by getViewProperty<RecyclerView>(R.id.recyclerView)
+     private val toolbar by getViewProperty<MaterialToolbar>(R.id.toolbar)
+     private val warningTrashTimePeriod by getViewProperty<TextView>(R.id.warningTrashTimePeriod)
+@@ -287,7 +295,11 @@ class AlbumFragment : Fragment(R.layout.fragment_album) {
+                 leftMargin = insets.left
+                 rightMargin = insets.right
+             }
+-            recyclerView.updatePadding(bottom = insets.bottom)
++            sableInsetBottom = insets.bottom
++            sableCaptionStrip.updateLayoutParams<ViewGroup.MarginLayoutParams> {
++                bottomMargin = insets.bottom
++            }
++            applySableCaptionPadding()
+ 
+             windowInsets
+         }
+@@ -362,6 +374,10 @@ class AlbumFragment : Fragment(R.layout.fragment_album) {
+         thumbnailAdapter.setOnItemKey { itemView, media, event ->
+             onThumbnailKey(itemView, media, event)
+         }
++        view.viewTreeObserver.addOnGlobalFocusChangeListener(sableFocusListener)
++        sableCaptionStrip.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
++            if (bottom - top != oldBottom - oldTop) applySableCaptionPadding()
++        }
+ 
+         selectionTracker = SelectionTracker.Builder(
+             "thumbnail-${albumUri}",
+@@ -401,6 +417,7 @@ class AlbumFragment : Fragment(R.layout.fragment_album) {
+ 
+         thumbnailAdapter.setOnItemSelected(null)
+         thumbnailAdapter.setOnItemKey(null)
++        view?.viewTreeObserver?.removeOnGlobalFocusChangeListener(sableFocusListener)
+ 
+         super.onDestroyView()
+     }
+@@ -557,7 +574,13 @@ class AlbumFragment : Fragment(R.layout.fragment_album) {
+         if (action == SableGalleryKeys.Action.NONE) {
+             return false
+         }
+-        if (event.action != KeyEvent.ACTION_DOWN || event.repeatCount > 0) {
++        if (event.action != KeyEvent.ACTION_DOWN ||
++            (event.repeatCount > 0 && !SableGalleryKeys.repeats(action))
++        ) {
++            return true
++        }
++        if (action == SableGalleryKeys.Action.PREVIOUS || action == SableGalleryKeys.Action.NEXT) {
++            moveSableFocus(itemView, action == SableGalleryKeys.Action.NEXT)
+             return true
+         }
+ 
+@@ -595,6 +618,55 @@ class AlbumFragment : Fragment(R.layout.fragment_album) {
+         return true
+     }
+ 
++    /** J / K: focus the previous / next photo in the grid, skipping date headers. */
++    private fun moveSableFocus(itemView: View, next: Boolean) {
++        val from = recyclerView.getChildAdapterPosition(itemView)
++        if (from == RecyclerView.NO_POSITION) return
++        val step = if (next) 1 else -1
++        var target = from + step
++        while (target in 0 until thumbnailAdapter.itemCount &&
++            thumbnailAdapter.itemKeyProvider.getKey(target) == null
++        ) {
++            target += step
++        }
++        if (target !in 0 until thumbnailAdapter.itemCount) return
++        recyclerView.scrollToPosition(target)
++        recyclerView.post {
++            recyclerView.findViewHolderForAdapterPosition(target)?.itemView?.requestFocus()
++        }
++    }
++
++    /**
++     * The caption strip (artifact state 3: "IMG_2042 · 12:42 [Enter Open] [J/K Prev/Next]"):
++     * shown while a thumbnail has keyboard focus on a device with a hardware keyboard.
++     */
++    private fun updateSableCaption() {
++        val focused = recyclerView.focusedChild
++        val position = focused?.let { recyclerView.getChildAdapterPosition(it) }
++            ?: RecyclerView.NO_POSITION
++        val media = position.takeIf { it != RecyclerView.NO_POSITION }
++            ?.let { thumbnailAdapter.itemKeyProvider.getKey(it) }
++        val hasKeyboard = resources.configuration.keyboard != Configuration.KEYBOARD_NOKEYS
++        val show = media != null && hasKeyboard
++        if (show) {
++            val time = DateUtils.formatDateTime(
++                requireContext(), media!!.dateAdded.time,
++                DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or
++                        DateUtils.FORMAT_ABBREV_MONTH
++            )
++            sableCaptionStrip.text = SableGalleryKeys.gridCaption(media.displayName, time)
++        }
++        if (sableCaptionStrip.isVisible != show) {
++            sableCaptionStrip.isVisible = show
++            applySableCaptionPadding()
++        }
++    }
++
++    private fun applySableCaptionPadding() {
++        val caption = if (sableCaptionStrip.isVisible) sableCaptionStrip.height else 0
++        recyclerView.updatePadding(bottom = sableInsetBottom + caption)
++    }
++
+     private fun trashMedias(trash: Boolean, vararg medias: Media) {
+         lastProcessedSelection = medias
+ 
+diff --git a/app/src/main/java/org/lineageos/glimpse/ui/recyclerview/MediaViewerAdapter.kt b/app/src/main/java/org/lineageos/glimpse/ui/recyclerview/MediaViewerAdapter.kt
+index 1559221..4f439cd 100644
+--- a/app/src/main/java/org/lineageos/glimpse/ui/recyclerview/MediaViewerAdapter.kt
++++ b/app/src/main/java/org/lineageos/glimpse/ui/recyclerview/MediaViewerAdapter.kt
+@@ -202,6 +202,17 @@ class MediaViewerAdapter(
+             }
+         }
+ 
++        /** SableOS: Z, zoom mode: one step in when the photo fits, else back to fit. */
++        fun zoomToggle() {
++            if (!imageView.isVisible) {
++                return
++            }
++            val zoomable = imageView.zoomable
++            val fits = zoomable.transformState.value.scaleX <=
++                    zoomable.minScaleState.value * SABLE_FIT_TOLERANCE
++            zoomStep(if (fits) 1 else 0)
++        }
++
+         fun onViewAttachedToWindow() {
+             observersJob = itemView.findViewTreeLifecycleOwner()?.lifecycleScope?.launch {
+                 launch {
+@@ -232,3 +243,6 @@ class MediaViewerAdapter(
+         }
+     }
+ }
++
++// SableOS: a photo within 1% of its fit scale counts as fitting (Z zoom mode).
++private const val SABLE_FIT_TOLERANCE = 1.01f
+diff --git a/app/src/main/res/layout/activity_view.xml b/app/src/main/res/layout/activity_view.xml
+index 829b08c..9943cb3 100644
+--- a/app/src/main/res/layout/activity_view.xml
++++ b/app/src/main/res/layout/activity_view.xml
+@@ -43,7 +43,25 @@
+         android:layout_height="wrap_content"
+         android:layout_gravity="bottom"
+         android:background="@drawable/bg_media_viewer_bottom_sheet"
+-        android:gravity="top|center">
++        android:orientation="vertical">
++
++        <!-- SableOS: viewer caption strip with the keys (MEDIA_GALLERY_UX state 4). -->
++        <TextView
++            android:id="@+id/sableCaptionStrip"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:gravity="center"
++            android:maxLines="2"
++            android:paddingHorizontal="16dp"
++            android:paddingTop="6dp"
++            android:textAppearance="?attr/textAppearanceLabelMedium"
++            android:textColor="@android:color/white"
++            android:visibility="gone" />
++
++        <LinearLayout
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:gravity="top|center">
+ 
+         <!-- Cannot mess with fixed padding from here because of insets -->
+         <Space
+@@ -92,6 +110,8 @@
+             android:layout_width="16dp"
+             android:layout_height="match_parent" />
+ 
++        </LinearLayout>
++
+     </LinearLayout>
+ 
+ </FrameLayout>
+diff --git a/app/src/main/res/layout/fragment_album.xml b/app/src/main/res/layout/fragment_album.xml
+index 14f0411..8826cff 100644
+--- a/app/src/main/res/layout/fragment_album.xml
++++ b/app/src/main/res/layout/fragment_album.xml
+@@ -54,4 +54,17 @@
+         android:scrollbars="vertical"
+         app:layout_behavior="@string/appbar_scrolling_view_behavior" />
+ 
++    <!-- SableOS: caption strip for the focused thumbnail (MEDIA_GALLERY_UX state 3). -->
++    <TextView
++        android:id="@+id/sableCaptionStrip"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:layout_gravity="bottom"
++        android:background="?attr/colorSurfaceContainer"
++        android:maxLines="2"
++        android:paddingHorizontal="16dp"
++        android:paddingVertical="8dp"
++        android:textAppearance="?attr/textAppearanceBodyMedium"
++        android:visibility="gone" />
++
+ </androidx.coordinatorlayout.widget.CoordinatorLayout>
+-- 
+2.43.0
+

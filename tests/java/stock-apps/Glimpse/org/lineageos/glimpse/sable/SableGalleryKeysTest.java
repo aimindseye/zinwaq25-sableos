@@ -1,4 +1,4 @@
-// Host tests for the Photos keyboard model (Glimpse patch 1021). Run by tests/run.sh.
+// Host tests for the Photos keyboard model (Glimpse patches 1021 and 1023). Run by tests/run.sh.
 package org.lineageos.glimpse.sable;
 
 import static org.junit.Assert.assertEquals;
@@ -66,7 +66,10 @@ public class SableGalleryKeysTest {
 
     @Test
     public void actionKeys() {
-        assertEquals(Action.SHARE, viewer(SableGalleryKeys.KEYCODE_S, 's'));
+        // S is search in MEDIA_GALLERY_UX, not share; share is E (export).
+        assertEquals(Action.NONE, viewer(SableGalleryKeys.KEYCODE_S, 's'));
+        assertEquals(Action.SHARE, viewer(SableGalleryKeys.KEYCODE_E, 'e'));
+        assertEquals(Action.ZOOM_TOGGLE, viewer(SableGalleryKeys.KEYCODE_Z, 'z'));
         assertEquals(Action.FAVORITE, viewer(SableGalleryKeys.KEYCODE_F, 'f'));
         assertEquals(Action.DELETE, viewer(SableGalleryKeys.KEYCODE_D, 'd'));
         assertEquals(Action.DELETE, viewer(SableGalleryKeys.KEYCODE_DEL, 0));
@@ -92,10 +95,25 @@ public class SableGalleryKeysTest {
                 SableGalleryKeys.grid(SableGalleryKeys.KEYCODE_DEL, false, false, false, false, false));
         assertEquals(Action.DELETE,
                 SableGalleryKeys.grid(SableGalleryKeys.KEYCODE_D, false, false, false, false, false));
-        assertEquals(Action.SHARE,
-                SableGalleryKeys.grid(SableGalleryKeys.KEYCODE_S, false, false, false, false, false));
         assertEquals(Action.NONE,
-                SableGalleryKeys.grid(SableGalleryKeys.KEYCODE_S, true, false, false, false, false));
+                SableGalleryKeys.grid(SableGalleryKeys.KEYCODE_S, false, false, false, false, false));
+        assertEquals(Action.SHARE,
+                SableGalleryKeys.grid(SableGalleryKeys.KEYCODE_E, false, false, false, false, false));
+        assertEquals(Action.NONE,
+                SableGalleryKeys.grid(SableGalleryKeys.KEYCODE_E, true, false, false, false, false));
+        assertEquals(Action.PREVIOUS,
+                SableGalleryKeys.grid(SableGalleryKeys.KEYCODE_J, false, false, false, false, false));
+        assertEquals(Action.NEXT,
+                SableGalleryKeys.grid(SableGalleryKeys.KEYCODE_K, false, false, false, false, true));
+    }
+
+    @Test
+    public void captionStrips() {
+        assertTrue(SableGalleryKeys.VIEWER_CAPTION.startsWith("[J Prev] [K Next] [Z Zoom] [D Del]"));
+        assertEquals("IMG_2042 \u00b7 12:42\n" + SableGalleryKeys.GRID_CAPTION_KEYS,
+                SableGalleryKeys.gridCaption("IMG_2042", "12:42"));
+        assertTrue(SableGalleryKeys.gridCaption(null, null).startsWith("\u2014\n"));
+        assertTrue(SableGalleryKeys.GRID_CAPTION_KEYS.contains("[J/K Prev/Next]"));
     }
 
     @Test
@@ -103,7 +121,7 @@ public class SableGalleryKeysTest {
         assertEquals(Action.NONE,
                 SableGalleryKeys.grid(SableGalleryKeys.KEYCODE_DEL, false, false, false, false, true));
         assertEquals(Action.NONE,
-                SableGalleryKeys.grid(SableGalleryKeys.KEYCODE_S, false, false, false, false, true));
+                SableGalleryKeys.grid(SableGalleryKeys.KEYCODE_E, false, false, false, false, true));
         assertEquals(Action.OPEN,
                 SableGalleryKeys.grid(SableGalleryKeys.KEYCODE_SPACE, false, false, false, false, true));
     }
