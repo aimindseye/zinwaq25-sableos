@@ -1,0 +1,186 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 21 Oct 2026 18:06:25 +0000
+Subject: [PATCH 1003/1004] SableOS: Files single-letter keys per the design
+
+FILES_DOCUMENTS_UX "Keyboard model" as single letters, whenever no
+text field has focus and no type-to-focus search is running:
+
+* On the selection or the focused file: C Copy to..., M Move to...,
+  R rename, I info, O open with, E export (share), D or Del delete
+  (upstream confirmation; Copy and Move still pick a destination).
+* J / K next / previous (as Down / Up; they repeat), T latest
+  (Recent), V grid or list, A select all, / or S search.
+* Other letters and digits keep upstream type-to-focus, and once it
+  runs every key is its own. The Alt chords of patch 1001 still work;
+  Alt+N stays the new-folder key. F (favorite / pin) is not bound:
+  the Files app has no favorites.
+* DOCK_HINT / DOCK_PROMPT / focusLine(): the hint dock's text.
+
+Pure Java; host tests in the SableOS Q25 repository
+(tests/java/stock-apps/DocumentsUI). Wired up by the next patch.
+---
+ .../documentsui/sable/SableFilesKeys.java     | 110 +++++++++++++++---
+ 1 file changed, 97 insertions(+), 13 deletions(-)
+
+diff --git a/src/com/android/documentsui/sable/SableFilesKeys.java b/src/com/android/documentsui/sable/SableFilesKeys.java
+index ffb18c4..823a1d0 100644
+--- a/src/com/android/documentsui/sable/SableFilesKeys.java
++++ b/src/com/android/documentsui/sable/SableFilesKeys.java
+@@ -20,22 +20,22 @@ package com.android.documentsui.sable;
+  * The Files keyboard model (FILES_DOCUMENTS_UX "Keyboard model") for a keyboard with Alt, Shift
+  * and Sym but no Ctrl or Fn key. Pure Java so it can be tested on the host.
+  *
+- * <p>Letters keep their upstream meaning, type-to-focus: typing a name moves focus to it, Enter
+- * opens and Space previews. So the design's single-letter commands take Alt here, the key this
+- * keyboard has instead of Ctrl or Fn:
++ * <p>Single letters are the design's commands whenever no text field has focus and no
++ * type-to-focus search is running:
+  *
+  * <ul>
+- *   <li>Alt+C Copy to..., Alt+M Move to... (both pick a visible destination first), Alt+R rename,
+- *       Alt+N new folder, Alt+I info, Alt+O open with, Alt+A select all.
+- *   <li>"/" (Alt+G on this keyboard) opens search.
+- *   <li>Del deletes the selection, or the focused file, after the upstream confirmation dialog.
+- *       With nothing selected or focused it keeps its upstream meaning (up one folder).
++ *   <li>On the selection, or the focused file: C Copy to..., M Move to... (both pick a visible
++ *       destination first), R rename, I info, O open with, E export (share), D or Del delete
++ *       after the upstream confirmation.
++ *   <li>J / K next / previous item (as Down / Up), T latest (Recent), V grid or list, A select
++ *       all, / or S search ("/" is Alt+G on this keyboard).
+  * </ul>
+  *
+- * <p>On this keyboard Alt+letter also types the letter's symbol or digit. Alt chords other than
+- * the ones above keep feeding type-to-focus, and while a type-to-focus search is running every
+- * key belongs to it, so "2024" still finds a name. Nothing here fires while a text field (search,
+- * rename, new folder) has focus, and Ctrl/Meta chords keep their upstream meaning.
++ * <p>Other letters and digits keep upstream type-to-focus (typing a name moves focus to it), and
++ * once type-to-focus runs every key belongs to it. The earlier Alt chords (Alt+C/M/R/N/I/O/A)
++ * still work; Alt+N is the only way to a new folder. F (favorite / pin) is left to type-to-focus:
++ * the Files app has no favorites. Nothing here fires while a text field (search, rename, new
++ * folder) has focus, and Ctrl/Meta chords keep their upstream meaning.
+  */
+ public final class SableFilesKeys {
+ 
+@@ -50,6 +50,11 @@ public final class SableFilesKeys {
+         OPEN_WITH,
+         SELECT_ALL,
+         DELETE,
++        EXPORT,
++        NEXT,
++        PREVIOUS,
++        LATEST,
++        VIEW_MODE,
+         /** Not ours: leave the key to the upstream handling. */
+         UPSTREAM
+     }
+@@ -57,11 +62,18 @@ public final class SableFilesKeys {
+     // android.view.KeyEvent key codes (mirrored so this class stays pure Java).
+     static final int KEYCODE_A = 29;
+     static final int KEYCODE_C = 31;
++    static final int KEYCODE_D = 32;
++    static final int KEYCODE_E = 33;
+     static final int KEYCODE_I = 37;
++    static final int KEYCODE_J = 38;
++    static final int KEYCODE_K = 39;
+     static final int KEYCODE_M = 41;
+     static final int KEYCODE_N = 42;
+     static final int KEYCODE_O = 43;
+     static final int KEYCODE_R = 46;
++    static final int KEYCODE_S = 47;
++    static final int KEYCODE_T = 48;
++    static final int KEYCODE_V = 50;
+     static final int KEYCODE_DEL = 67;
+     static final int KEYCODE_SLASH = 76;
+ 
+@@ -97,9 +109,53 @@ public final class SableFilesKeys {
+         if (keyCode == KEYCODE_DEL) {
+             return (!alt && !shift && hasTarget) ? Action.DELETE : Action.UPSTREAM;
+         }
+-        if (!alt || shift) {
++        if (shift) {
++            return Action.UPSTREAM;
++        }
++        if (alt) {
++            return altCommand(keyCode);
++        }
++        switch (keyCode) {
++            case KEYCODE_J:
++                return Action.NEXT;
++            case KEYCODE_K:
++                return Action.PREVIOUS;
++            case KEYCODE_T:
++                return Action.LATEST;
++            case KEYCODE_V:
++                return Action.VIEW_MODE;
++            case KEYCODE_A:
++                return Action.SELECT_ALL;
++            case KEYCODE_S:
++                return Action.SEARCH;
++            default:
++                break;
++        }
++        if (!hasTarget) {
++            // Nothing to act on: the letter starts type-to-focus as upstream.
+             return Action.UPSTREAM;
+         }
++        switch (keyCode) {
++            case KEYCODE_C:
++                return Action.COPY_TO;
++            case KEYCODE_M:
++                return Action.MOVE_TO;
++            case KEYCODE_R:
++                return Action.RENAME;
++            case KEYCODE_I:
++                return Action.INFO;
++            case KEYCODE_O:
++                return Action.OPEN_WITH;
++            case KEYCODE_E:
++                return Action.EXPORT;
++            case KEYCODE_D:
++                return Action.DELETE;
++            default:
++                return Action.UPSTREAM;
++        }
++    }
++
++    private static Action altCommand(int keyCode) {
+         switch (keyCode) {
+             case KEYCODE_C:
+                 return Action.COPY_TO;
+@@ -119,4 +175,32 @@ public final class SableFilesKeys {
+                 return Action.UPSTREAM;
+         }
+     }
++
++    /** Whether a held key repeats the action: only moving does. */
++    public static boolean repeats(Action action) {
++        return action == Action.NEXT || action == Action.PREVIOUS;
++    }
++
++    /** The hint dock's key line (FILES_DOCUMENTS_UX artifact, Files home). */
++    public static final String DOCK_HINT =
++            "Enter Open · J/K Move · T Latest · E Export · O Open with"
++                    + " · C/M/R Copy/Move/Rename · I Info · D Delete · V View";
++
++    /** The hint dock's prompt line. */
++    public static final String DOCK_PROMPT = "/ Search files, sources, attachments…";
++
++    /**
++     * The focused file line of the dock: name, then the type and size and date summaries that
++     * are known, joined with " · ". Null or blank parts are left out.
++     */
++    public static String focusLine(String name, String type, String size, String date) {
++        final StringBuilder out = new StringBuilder("▸ ");
++        out.append(name == null || name.isEmpty() ? "—" : name);
++        for (String part : new String[] {type, size, date}) {
++            if (part != null && !part.trim().isEmpty()) {
++                out.append(" · ").append(part.trim());
++            }
++        }
++        return out.toString();
++    }
+ }
+-- 
+2.43.0
+
