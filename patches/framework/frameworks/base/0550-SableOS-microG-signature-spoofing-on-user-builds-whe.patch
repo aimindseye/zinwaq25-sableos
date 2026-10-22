@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 21 Oct 2026 23:11:55 +0000
+Subject: [PATCH] SableOS: microG signature spoofing on user builds when the
+ product ships microG
+
+LineageOS 23.2 already allows restricted signature spoofing for microG
+(ComputerEngine.isMicrogSigned): only com.google.android.gms and
+com.android.vending, only when signed with the microG release key, and only
+to Google's one signature. It does so on debuggable builds only. A read-only
+property, ro.sable.microg.spoofing, set by the SableOS product layer when it
+ships microG (SABLE_Q25_MICROG=YES), lets the same checks pass on user
+builds. Nothing else changes.
+---
+ .../java/com/android/server/pm/ComputerEngine.java  | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/services/core/java/com/android/server/pm/ComputerEngine.java b/services/core/java/com/android/server/pm/ComputerEngine.java
+index 3300f3481792..384c75f662c3 100644
+--- a/services/core/java/com/android/server/pm/ComputerEngine.java
++++ b/services/core/java/com/android/server/pm/ComputerEngine.java
+@@ -108,6 +108,7 @@ import android.os.IBinder;
+ import android.os.ParcelableException;
+ import android.os.PatternMatcher;
+ import android.os.Process;
++import android.os.SystemProperties;
+ import android.os.Trace;
+ import android.os.UserHandle;
+ import android.os.UserManager;
+@@ -1485,8 +1486,18 @@ public class ComputerEngine implements Computer {
+ 
+     public static native boolean isDebuggable();
+ 
++    // SableOS: a read-only build property, set only by the SableOS product layer when it
++    // ships microG (SABLE_Q25_MICROG=YES), lets the spoofing below work on user builds as
++    // well as debuggable ones. Every other check (package name, microG release key, the
++    // one Google signature) is unchanged.
++    private static final String SABLE_MICROG_SPOOFING_PROP = "ro.sable.microg.spoofing";
++
++    private static boolean isMicrogSpoofingAllowedOnBuild() {
++        return isDebuggable() || SystemProperties.getBoolean(SABLE_MICROG_SPOOFING_PROP, false);
++    }
++
+     public static boolean isMicrogSigned(AndroidPackage p) {
+-        if (!isDebuggable()) {
++        if (!isMicrogSpoofingAllowedOnBuild()) {
+             return false;
+         }
+ 
+-- 
+2.43.0
+

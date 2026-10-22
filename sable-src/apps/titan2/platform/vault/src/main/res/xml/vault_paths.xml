@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only the vault folder can be granted (one file at a time, read-only, after a confirmation). -->
+<paths>
+    <files-path name="vault" path="vault/" />
+</paths>

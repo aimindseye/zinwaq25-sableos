@@ -13,6 +13,9 @@
 | [thunderbird/thunderbird-android](https://github.com/thunderbird/thunderbird-android) | Upstream for the Sable Mail flavor | `THUNDERBIRD_23_0` (`c733317d933c22bcd790a4790306f30ccf2026b8`) | Apache-2.0 |
 | [vaachak-platform/vaachak-textreader](https://github.com/vaachak-platform/vaachak-textreader) | Upstream for the Sable Text Reader flavor | `50fca365baae9869264716569830690fb62029a7` | see repo |
 | [bellhopsw/q25-50mp](https://github.com/bellhopsw/q25-50mp) | Optional 50 MP camera (`product/q25/camera-50mp`, off by default) | `caf855d5adc9578f3231f73947b6872b8786db8a` | MIT (library, tools); GPL-2.0 (kernel change) |
+| [microg/GmsCore](https://github.com/microg/GmsCore) releases | microG Services and Companion APKs (`product/q25/microg`, `SABLE_Q25_MICROG`, Q4+) | `v0.3.17.252432` (`32bc8954ff872d0e1a05ddfae81561b6dbecef69`); APK sha256 in `prebuilts.tsv` | Apache-2.0 |
+| [AuroraOSS/AuroraStore](https://gitlab.com/AuroraOSS/AuroraStore) releases | Aurora Store APK (same) | `4.8.4`; APK sha256 in `prebuilts.tsv` | GPL-3.0 |
+| [lineageos4microg/android_vendor_partner_gms](https://github.com/lineageos4microg/android_vendor_partner_gms), [docker-lineage-cicd](https://github.com/lineageos4microg/docker-lineage-cicd) | Reference for the microG permission, sysconfig and default files and the user-build spoofing change | reference (`f264d80a`, `60356101`) | Apache-2.0 / GPL-3.0 |
 | [sableos-project/platform_sable](https://github.com/sableos-project/platform_sable) | Design and portability rules | reference | see repo |
 | [sableos-project/device_sable_titan2](https://github.com/sableos-project/device_sable_titan2) | Repo structure, boundaries | reference | see repo |
 | [MarathonOS/marathon-zinwa-q25](https://github.com/MarathonOS/marathon-zinwa-q25) | GPT layouts, multiboot notes | reference | see repo |

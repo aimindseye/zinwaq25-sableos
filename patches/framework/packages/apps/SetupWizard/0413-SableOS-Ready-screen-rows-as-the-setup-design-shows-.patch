@@ -1,0 +1,123 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 21 Oct 2026 13:05:40 +0000
+Subject: [PATCH] SableOS: Ready screen rows as the setup design shows them
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Setup design (sable-setup-wizard-titan2, "Ready to Start"): "Setup
+complete", "Ready for Sable Start", then the Home and bar cards and
+Start.
+
+The final page keeps its logo, Start button and finish animation. The
+0407 text block becomes "Step 8 of 8" (owner flow only), "Setup
+complete", the heading "Ready for Sable Start" and two cards that
+describe the BlackBerry 10 Sable Start the owner chose:
+
+  Home is Sable Start: Active Frames shows your open apps, with Hub to
+  the left and your app grid to the right (Alt+Left / Alt+Right).
+  The bar is Phone · Search · Camera (Alt+1..3); start typing anywhere
+  to search.
+
+The rows stay in a focusable scroll view; Start is still the first
+focus.
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01UvjoefgeNVBxmkGXzTTNYS
+---
+ res/layout/finish_activity.xml | 35 ++++++++++++++++++----------------
+ res/values/sable_strings.xml   | 14 +++++++-------
+ 2 files changed, 26 insertions(+), 23 deletions(-)
+
+diff --git a/res/layout/finish_activity.xml b/res/layout/finish_activity.xml
+index 2446f16..4552f6c 100644
+--- a/res/layout/finish_activity.xml
++++ b/res/layout/finish_activity.xml
+@@ -39,8 +39,9 @@
+             android:gravity="center"
+             android:padding="@dimen/content_margin_left"/>
+ 
+-        <!-- SableOS Ready screen: how the phone works after setup. The text scrolls with the
+-             arrow keys when focused; Start stays the first focus. -->
++        <!-- SableOS Ready screen (setup design "Ready to Start"): Home and the bar of the
++             BB10 Sable Start, one card each, then Start. The rows scroll with the arrow keys
++             when focused; Start stays the first focus. -->
+         <ScrollView
+             android:id="@+id/sable_ready"
+             android:layout_width="match_parent"
+@@ -54,6 +55,20 @@
+                 android:layout_width="match_parent"
+                 android:layout_height="wrap_content">
+ 
++                <!-- "Step 8 of 8" (BaseSetupWizardActivity). -->
++                <TextView
++                    android:id="@+id/sable_step"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:textAppearance="@style/SableSetupStep"
++                    android:visibility="gone" />
++
++                <TextView
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:text="@string/sable_ready_done"
++                    android:textAppearance="@style/SableSetupStep" />
++
+                 <TextView
+                     style="@style/SableSetupItem"
+                     android:text="@string/sable_ready_title"
+@@ -61,25 +76,13 @@
+                     android:accessibilityHeading="true" />
+ 
+                 <TextView
+-                    style="@style/SableSetupItem"
++                    style="@style/SableSetupCard"
+                     android:text="@string/sable_ready_home" />
+ 
+                 <TextView
+-                    style="@style/SableSetupItem"
++                    style="@style/SableSetupCard"
+                     android:text="@string/sable_ready_bar" />
+ 
+-                <TextView
+-                    style="@style/SableSetupItem"
+-                    android:text="@string/sable_ready_hub" />
+-
+-                <TextView
+-                    style="@style/SableSetupItem"
+-                    android:text="@string/sable_ready_shade" />
+-
+-                <TextView
+-                    style="@style/SableSetupItem"
+-                    android:text="@string/sable_ready_keys" />
+-
+             </LinearLayout>
+         </ScrollView>
+ 
+diff --git a/res/values/sable_strings.xml b/res/values/sable_strings.xml
+index b4ab399..8ced9da 100644
+--- a/res/values/sable_strings.xml
++++ b/res/values/sable_strings.xml
+@@ -84,11 +84,11 @@
+         <item>Slate</item>
+     </string-array>
+ 
+-    <!-- SableOS Ready screen on the final setup page (SETUP_WIZARD_FIRST_BOOT_UX "Ready screen"). -->
+-    <string name="sable_ready_title">Ready to start</string>
+-    <string name="sable_ready_home"><b>Home</b> opens Sable Start, your home screen.</string>
+-    <string name="sable_ready_bar"><b>The bar at the bottom of Start</b> opens Phone, Hub, Command and All apps. Command searches apps and settings and runs actions.</string>
+-    <string name="sable_ready_hub"><b>Sable Hub</b> gathers your messages and notifications in one list.</string>
+-    <string name="sable_ready_shade"><b>Notifications and Quick Settings:</b> swipe down from the top of the screen.</string>
+-    <string name="sable_ready_keys"><b>Keys:</b> the arrows or trackpad move, Enter opens, Back returns. Sable Tools has the full keyboard test.</string>
++    <!-- SableOS Ready screen on the final setup page (setup design "Ready to Start"). Sable
++         Start is laid out BlackBerry 10 style: Hub on the left, Active Frames home, app pages
++         on the right. -->
++    <string name="sable_ready_done">Setup complete</string>
++    <string name="sable_ready_title">Ready for Sable Start</string>
++    <string name="sable_ready_home">Home is Sable Start: Active Frames shows your open apps, with Hub to the left and your app grid to the right (Alt+Left / Alt+Right).</string>
++    <string name="sable_ready_bar">The bar is Phone · Search · Camera (Alt+1..3); start typing anywhere to search.</string>
+ </resources>
+-- 
+2.43.0
+

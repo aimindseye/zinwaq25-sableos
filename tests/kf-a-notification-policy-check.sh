@@ -116,6 +116,30 @@ else
     fail "Lock screen look patch 0305 or its overlay values missing, or it reaches credential code"
 fi
 
+clock="$(compgen -G "$shade/0306-*.patch" || true)"
+if [[ -n "$clock" ]] && grep -q 'mKeyguardUpdateMonitor.dispatchTimeUpdateNow();' "$clock" &&
+    grep -q 'refreshTimeZoneAndFormat()' "$clock"; then
+    pass "Lock screen clock: the doze tick, time zone and 12/24h format reach the keyguard clock"
+else
+    fail "Lock screen clock patch 0306 missing"
+fi
+
+glance="$(compgen -G "$shade/0307-*.patch" || true)"
+if [[ -n "$glance" ]] && grep -q 'sableLockGlanceSection,' "$glance" &&
+    grep -q 'name="sable_keyguard_hint_secure">Enter unlock · Alt+Space emergency · ↑↓ notifications' "$glance" &&
+    grep -q 'name="sable_keyguard_private_text">Counts only until unlock' "$glance" &&
+    grep -q 'name="sable_keyguard_requires_unlock">Open/reply requires unlock' "$glance" &&
+    grep -q 'new · content hidden' "$glance" &&
+    grep -q 'Physical keyboard active' "$glance" &&
+    grep -q 'Software keyboard fallback' "$glance" &&
+    grep -q 'SableKeyguardKeys.isEmergencyChord' "$glance" &&
+    grep -q 'createLaunchEmergencyDialerIntent' "$glance" &&
+    ! grep -E '^\+' "$glance" | grep -q -E 'verifyCredential|checkCredential|LockPatternChecker|verifyPasswordAndUnlock|dismissWithAction|keyguardDone|LockscreenCredential|getText\(\)|EXTRA_TEXT|EXTRA_TITLE'; then
+    pass "Lock screen glance: counts, private card, emergency chord and bouncer cues; no credential code, no notification content read"
+else
+    fail "Lock screen glance patch 0307 missing, or it reaches credential code or notification content"
+fi
+
 settings="$ROOT/patches/framework/packages/apps/Settings"
 if compgen -G "$settings/03*-*.patch" >/dev/null &&
     grep -q 'org.sableos.hub.action.ATTENTION_SETTINGS' "$settings"/03*-*.patch &&

@@ -1,0 +1,1040 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 21 Oct 2026 18:02:04 +0000
+Subject: [PATCH 1044/1044] SableOS: Browser start page, command dock, reader
+ mode, tab grid and site prompts
+
+BROWSER_WEBVIEW_UX states 1-4 on Jelly:
+
+* Start page (BROWSER_START_SEARCH): a tab with no page shows Start /
+  Search with Bookmarks, Private tab, History and Downloads cards and
+  the keys card ("Alt+L address/search, / find, Tab focus"; single
+  keys are off while typing). New tabs open it: the home page
+  autoload default is now off (the setting still works).
+* Command dock: under the page (above the bar in reach mode), a
+  "> browser command..." line that focuses the address bar and a hint
+  line for the start page, a page, or reader mode with its block
+  position ("Reader 2/8"). Hidden for fullscreen video and PWAs.
+* Reader mode (R): rebuilds the page from its own headings,
+  paragraphs, lists, quotes, code and images in one column with every
+  attribute but href/src/alt dropped; R again reloads the page. Needs
+  the JavaScript setting; nothing is fetched or sent.
+* Link mode (L / Shift+L): focuses the next / previous visible link
+  with a visible outline; Enter opens it.
+* Tabs: Alt+W closes this tab, Alt+K / Alt+J (Ctrl+Tab) switch tabs,
+  Alt+A opens a two-column tab grid (current tab focused; Enter
+  switches; D, Del or Alt+W closes). Tabs are this app's document
+  tasks (ActivityManager.getAppTasks), nothing new is stored.
+* Private tabs: Recents, the lock screen and the grid show "Private
+  tab" without page title or icon, and Recents takes no screenshot.
+* Site prompts (WEBVIEW_PERMISSION): camera and microphone now ask
+  per site (origin shown) before the Android permission, even when the
+  app already holds it; a request nothing was granted for is denied
+  instead of left open. Deny, Block or Dismiss has keyboard focus in
+  the camera/microphone, location, protected media and download
+  dialogs, so Enter never allows by default.
+---
+ .../java/org/lineageos/jelly/MainActivity.kt  | 327 +++++++++++++++++-
+ .../org/lineageos/jelly/sable/SableReader.kt  |  70 ++++
+ .../org/lineageos/jelly/sable/SableTabs.kt    |  58 ++++
+ .../lineageos/jelly/webview/ChromeClient.kt   |  21 +-
+ .../org/lineageos/jelly/webview/WebClient.kt  |   1 +
+ .../jelly/webview/WebViewExtActivity.kt       |  11 +
+ app/src/main/res/drawable/sable_card.xml      |  26 ++
+ app/src/main/res/layout/activity_main.xml     |  40 +++
+ app/src/main/res/layout/sable_start_card.xml  |  41 +++
+ app/src/main/res/layout/sable_start_page.xml  | 105 ++++++
+ app/src/main/res/values/bools.xml             |   3 +-
+ app/src/main/res/values/sable_strings.xml     |  44 +++
+ 12 files changed, 728 insertions(+), 19 deletions(-)
+ create mode 100644 app/src/main/java/org/lineageos/jelly/sable/SableReader.kt
+ create mode 100644 app/src/main/java/org/lineageos/jelly/sable/SableTabs.kt
+ create mode 100644 app/src/main/res/drawable/sable_card.xml
+ create mode 100644 app/src/main/res/layout/sable_start_card.xml
+ create mode 100644 app/src/main/res/layout/sable_start_page.xml
+ create mode 100644 app/src/main/res/values/sable_strings.xml
+
+diff --git a/app/src/main/java/org/lineageos/jelly/MainActivity.kt b/app/src/main/java/org/lineageos/jelly/MainActivity.kt
+index feff3cd..a61b93c 100644
+--- a/app/src/main/java/org/lineageos/jelly/MainActivity.kt
++++ b/app/src/main/java/org/lineageos/jelly/MainActivity.kt
+@@ -46,6 +46,9 @@ import android.webkit.MimeTypeMap
+ import android.webkit.WebChromeClient.CustomViewCallback
+ import android.webkit.WebView
+ import android.widget.LinearLayout
++import android.widget.ScrollView
++import android.widget.TextView
++import android.widget.Toast
+ import androidx.activity.OnBackPressedCallback
+ import androidx.activity.result.contract.ActivityResultContracts
+ import androidx.activity.viewModels
+@@ -76,6 +79,8 @@ import org.lineageos.jelly.history.HistoryActivity
+ import org.lineageos.jelly.models.PwaManifest
+ import org.lineageos.jelly.models.WebShare
+ import org.lineageos.jelly.sable.SableBrowserKeys
++import org.lineageos.jelly.sable.SableReader
++import org.lineageos.jelly.sable.SableTabs
+ import org.lineageos.jelly.shortcut.BackgroundShortcut
+ import org.lineageos.jelly.shortcut.BackgroundShortcutActivity
+ import org.lineageos.jelly.shortcut.BackgroundShortcutService
+@@ -109,6 +114,14 @@ class MainActivity : WebViewExtActivity(), SharedPreferences.OnSharedPreferenceC
+     private val toolbar by lazy { findViewById<MaterialToolbar>(R.id.toolbar) }
+     private val urlBarLayout by lazy { findViewById<UrlBarLayout>(R.id.urlBarLayout) }
+ 
++    // SableOS: start page, command dock and reader state (BROWSER_WEBVIEW_UX states 1-3).
++    private val sableStartPage by lazy { findViewById<View>(R.id.sableStartPage) }
++    private val sableDock by lazy { findViewById<View>(R.id.sableDock) }
++    private val sableDockHint by lazy { findViewById<TextView>(R.id.sableDockHint) }
++    private var sableReaderUrl: String? = null
++    private var sableReaderPosition: Pair<Int, Int>? = null
++    private var sableTabGrid: AlertDialog? = null
++
+     private lateinit var webView: WebViewExt
+     private var shortcutId: String? = null
+     private var shortcutName: String? = null
+@@ -262,6 +275,10 @@ class MainActivity : WebViewExtActivity(), SharedPreferences.OnSharedPreferenceC
+         registerShortcuts()
+ 
+         urlBarLayout.isIncognito = incognito
++        if (incognito && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
++            // SableOS: no page preview of a private tab in Recents.
++            setRecentsScreenshotEnabled(false)
++        }
+ 
+         menuDialog = MenuDialog(this, desktopMode) { option: MenuDialog.Option ->
+             when (option) {
+@@ -397,6 +414,7 @@ class MainActivity : WebViewExtActivity(), SharedPreferences.OnSharedPreferenceC
+         }
+ 
+         appBarLayout.isVisible = !isFullscreenPwa
++        setUpSableChrome()
+         intent.extras?.let {
+             it.getString(MANIFEST_THEME_COLOR)?.let { themeColor ->
+                 setStatusBarColor(themeColor)
+@@ -434,6 +452,7 @@ class MainActivity : WebViewExtActivity(), SharedPreferences.OnSharedPreferenceC
+     override fun onResume() {
+         super.onResume()
+         if (backgroundShortcutId == null) webView.onResume()
++        if (::webView.isInitialized) updateSableChrome()
+         CookieManager.getInstance()
+             .setAcceptCookie(!incognito && sharedPreferencesExt.cookiesEnabled)
+         if (sharedPreferencesExt.lookLockEnabled) {
+@@ -480,11 +499,15 @@ class MainActivity : WebViewExtActivity(), SharedPreferences.OnSharedPreferenceC
+         webView.parent?.let { ViewGroup::class.cast(it).removeView(webView) }
+         constraintLayout.addView(webView)
+         setUiMode()
+-        if (webView.initialized) return
++        if (webView.initialized) {
++            updateSableChrome()
++            return
++        }
+         webView.init(this, urlBarLayout, desktopMode, incognito)
+         if (url != null || sharedPreferencesExt.homePageAutoload) {
+             webView.loadUrl(url ?: sharedPreferencesExt.homePage)
+         }
++        updateSableChrome()
+     }
+ 
+     private fun registerShortcuts() {
+@@ -568,6 +591,8 @@ class MainActivity : WebViewExtActivity(), SharedPreferences.OnSharedPreferenceC
+             .setNegativeButton(
+                 getString(R.string.dismiss)
+             ) { dialog: DialogInterface, _: Int -> dialog.dismiss() }
++            .create()
++            .sableFocusNegative()
+             .show()
+     }
+ 
+@@ -654,6 +679,7 @@ class MainActivity : WebViewExtActivity(), SharedPreferences.OnSharedPreferenceC
+                     callback(origin, false, false)
+                 }
+                 .create()
++                .sableFocusNegative()
+                 .show()
+         }
+ 
+@@ -680,11 +706,13 @@ class MainActivity : WebViewExtActivity(), SharedPreferences.OnSharedPreferenceC
+     }
+ 
+     private fun updateTaskDescription() {
++        // SableOS: a private tab shows no page title or icon in Recents, on the lock screen or in
++        // Command/Search (PRIVATE_MODE_REDACTION); the Browser's tab grid reads the same label.
+         setTaskDescription(
+             @Suppress("Deprecation")
+             TaskDescription(
+-                webView.title,
+-                urlIcon, Color.WHITE
++                if (incognito) getString(R.string.sable_private_task_label) else webView.title,
++                if (incognito) null else urlIcon, Color.WHITE
+             )
+         )
+     }
+@@ -706,6 +734,8 @@ class MainActivity : WebViewExtActivity(), SharedPreferences.OnSharedPreferenceC
+         )
+         appBarLayout.visibility = View.GONE
+         webView.visibility = View.GONE
++        sableDock.visibility = View.GONE
++        sableStartPage.visibility = View.GONE
+     }
+ 
+     override fun onHideCustomView() {
+@@ -719,6 +749,7 @@ class MainActivity : WebViewExtActivity(), SharedPreferences.OnSharedPreferenceC
+         fullScreenCallback?.onCustomViewHidden()
+         fullScreenCallback = null
+         this.customView = null
++        updateSableChrome()
+     }
+ 
+     private fun addShortcut() {
+@@ -802,7 +833,9 @@ class MainActivity : WebViewExtActivity(), SharedPreferences.OnSharedPreferenceC
+                 cb(true)
+             }.setNegativeButton(R.string.protected_media_dialog_deny) { _, _ ->
+                 cb(false)
+-            }.show()
++            }.setOnCancelListener {
++                cb(false)
++            }.create().sableFocusNegative().show()
+     }
+ 
+     override fun onWebShare(value: WebShare) {
+@@ -867,6 +900,10 @@ class MainActivity : WebViewExtActivity(), SharedPreferences.OnSharedPreferenceC
+             }
+ 
+             SableBrowserKeys.Action.NEW_TAB -> openInNewTab(this, null, incognito)
++            SableBrowserKeys.Action.CLOSE_TAB -> finishAndRemoveTask()
++            SableBrowserKeys.Action.NEXT_TAB -> SableTabs.switchAdjacent(this, next = true)
++            SableBrowserKeys.Action.PREVIOUS_TAB -> SableTabs.switchAdjacent(this, next = false)
++            SableBrowserKeys.Action.TAB_GRID -> showSableTabGrid()
+             SableBrowserKeys.Action.FIND -> if (appBarLayout.isVisible) {
+                 showSearch()
+             }
+@@ -880,14 +917,258 @@ class MainActivity : WebViewExtActivity(), SharedPreferences.OnSharedPreferenceC
+             }
+ 
+             SableBrowserKeys.Action.RELOAD -> webView.reload()
+-            SableBrowserKeys.Action.PAGE_DOWN -> webView.pageDown(false)
+-            SableBrowserKeys.Action.PAGE_UP -> webView.pageUp(false)
+-            SableBrowserKeys.Action.TOP -> webView.pageUp(true)
+-            SableBrowserKeys.Action.BOTTOM -> webView.pageDown(true)
++            SableBrowserKeys.Action.PAGE_DOWN -> {
++                webView.pageDown(false)
++                refreshSableReaderPosition()
++            }
++
++            SableBrowserKeys.Action.PAGE_UP -> {
++                webView.pageUp(false)
++                refreshSableReaderPosition()
++            }
++
++            SableBrowserKeys.Action.TOP -> {
++                webView.pageUp(true)
++                refreshSableReaderPosition()
++            }
++
++            SableBrowserKeys.Action.BOTTOM -> {
++                webView.pageDown(true)
++                refreshSableReaderPosition()
++            }
++
++            SableBrowserKeys.Action.LINK_NEXT -> sableLinkMode(next = true)
++            SableBrowserKeys.Action.LINK_PREVIOUS -> sableLinkMode(next = false)
++            SableBrowserKeys.Action.READER -> toggleSableReader()
+             SableBrowserKeys.Action.NONE -> Unit
+         }
+     }
+ 
++    // SableOS: start page, command dock, reader mode, link mode, tab grid and site prompts.
++
++    private fun setUpSableChrome() {
++        findViewById<View>(R.id.sableDockPrompt).setOnClickListener {
++            if (appBarLayout.isVisible) urlBarLayout.focusUrlBar()
++        }
++        sableStartCard(R.id.sableStartBookmarks, R.string.sable_start_bookmarks,
++            R.string.sable_start_bookmarks_detail) {
++            startActivity(Intent(this, FavoriteActivity::class.java))
++        }
++        sableStartCard(R.id.sableStartPrivate, R.string.sable_start_private,
++            R.string.sable_start_private_detail) {
++            openInNewTab(this, null, true)
++        }
++        sableStartCard(R.id.sableStartHistory, R.string.sable_start_history,
++            R.string.sable_start_history_detail) {
++            startActivity(Intent(this, HistoryActivity::class.java))
++        }
++        sableStartCard(R.id.sableStartDownloads, R.string.sable_start_downloads,
++            R.string.sable_start_downloads_detail) {
++            startActivity(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS))
++        }
++    }
++
++    private fun sableStartCard(id: Int, title: Int, detail: Int, onClick: () -> Unit) {
++        val card = findViewById<View>(id)
++        card.findViewById<TextView>(R.id.sableCardTitle).setText(title)
++        card.findViewById<TextView>(R.id.sableCardDetail).setText(detail)
++        card.setOnClickListener { onClick() }
++    }
++
++    override fun onSablePageStarted(url: String) {
++        if (url != sableReaderUrl) {
++            sableReaderUrl = null
++            sableReaderPosition = null
++        }
++        updateSableChrome()
++    }
++
++    /** Start page while this tab has no page; the dock hint follows start, page or reader. */
++    private fun updateSableChrome() {
++        val chromeShown = !isFullscreenPwa && customView == null
++        val noPage = webView.url.isNullOrEmpty() || webView.url == "about:blank"
++        val showStart = chromeShown && noPage
++        if (showStart && !sableStartPage.isVisible && currentFocus !is TextView) {
++            sableStartPage.post { sableStartPage.requestFocus(View.FOCUS_DOWN) }
++        }
++        sableStartPage.isVisible = showStart
++        sableDock.isVisible = chromeShown
++        val readerOn = sableReaderUrl != null && sableReaderUrl == webView.url
++        val mode = when {
++            showStart -> SableBrowserKeys.Mode.START
++            readerOn -> SableBrowserKeys.Mode.READER
++            else -> SableBrowserKeys.Mode.PAGE
++        }
++        val position = sableReaderPosition
++        sableDockHint.text = SableBrowserKeys.hint(mode, position?.first ?: 0, position?.second ?: 0)
++    }
++
++    private fun toggleSableReader() {
++        if (sableReaderUrl != null && sableReaderUrl == webView.url) {
++            sableReaderUrl = null
++            sableReaderPosition = null
++            webView.reload()
++            updateSableChrome()
++            return
++        }
++        if (!webView.settings.javaScriptEnabled) {
++            Toast.makeText(this, R.string.sable_reader_unavailable, Toast.LENGTH_SHORT).show()
++            return
++        }
++        val pageUrl = webView.url ?: return
++        webView.evaluateJavascript(SableReader.READER_ON) { result ->
++            if (result?.trim('"') == "on" && webView.url == pageUrl) {
++                sableReaderUrl = pageUrl
++                refreshSableReaderPosition()
++                updateSableChrome()
++            }
++        }
++    }
++
++    private fun refreshSableReaderPosition() {
++        if (sableReaderUrl == null || sableReaderUrl != webView.url) return
++        // After the page has moved: pageDown/pageUp animate, so ask once they settle.
++        webView.postDelayed({
++            webView.evaluateJavascript(SableReader.POSITION) { result ->
++                sableReaderPosition = SableReader.parsePosition(result)
++                updateSableChrome()
++            }
++        }, SABLE_POSITION_DELAY_MS)
++    }
++
++    private fun sableLinkMode(next: Boolean) {
++        if (!webView.settings.javaScriptEnabled) return
++        webView.requestFocus()
++        webView.evaluateJavascript(SableReader.linkScript(next)) { result ->
++            if (result == "0") {
++                Toast.makeText(this, R.string.sable_no_links, Toast.LENGTH_SHORT).show()
++            }
++        }
++    }
++
++    /** The tab grid (state 3): two columns, current tab focused, private tabs without titles. */
++    private fun showSableTabGrid() {
++        sableTabGrid?.dismiss()
++        val tabs = SableTabs.list(this)
++        if (tabs.isEmpty()) return
++        val grid = LinearLayout(this).apply {
++            orientation = LinearLayout.VERTICAL
++            val pad = (16 * resources.displayMetrics.density).toInt()
++            setPadding(pad, pad / 2, pad, 0)
++        }
++        var currentCard: View? = null
++        tabs.chunked(2).forEach { pair ->
++            val row = LinearLayout(this).apply {
++                orientation = LinearLayout.HORIZONTAL
++                isBaselineAligned = false
++            }
++            pair.forEach { tab ->
++                val card = layoutInflater.inflate(R.layout.sable_start_card, row, false)
++                val margin = (6 * resources.displayMetrics.density).toInt()
++                card.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
++                    .apply { setMargins(margin, margin, margin, margin) }
++                bindSableTabCard(card, tab)
++                card.setOnClickListener {
++                    sableTabGrid?.dismiss()
++                    if (!tab.current) SableTabs.switchTo(tab)
++                }
++                card.setOnKeyListener { _, _, event ->
++                    val action = SableBrowserKeys.tabGrid(
++                        event.keyCode, event.isAltPressed, event.isCtrlPressed,
++                        event.isShiftPressed, event.isMetaPressed
++                    )
++                    if (action != SableBrowserKeys.Action.CLOSE_TAB) return@setOnKeyListener false
++                    if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
++                        sableTabGrid?.dismiss()
++                        if (tab.current) finishAndRemoveTask() else {
++                            SableTabs.close(tab)
++                            showSableTabGrid()
++                        }
++                    }
++                    true
++                }
++                if (tab.current) currentCard = card
++                row.addView(card)
++            }
++            if (pair.size == 1) {
++                row.addView(View(this), LinearLayout.LayoutParams(0, 0, 1f))
++            }
++            grid.addView(row)
++        }
++        grid.addView(TextView(this).apply {
++            text = getString(R.string.sable_tabs_hint)
++            val pad = (6 * resources.displayMetrics.density).toInt()
++            setPadding(pad, pad, pad, pad)
++        })
++        val scroll = ScrollView(this).apply { addView(grid) }
++        sableTabGrid = AlertDialog.Builder(this)
++            .setTitle(getString(R.string.sable_tabs_title, tabs.size))
++            .setView(scroll)
++            .setOnDismissListener { sableTabGrid = null }
++            .create()
++            .apply {
++                setOnShowListener { currentCard?.requestFocus() }
++                show()
++            }
++    }
++
++    private fun bindSableTabCard(card: View, tab: SableTabs.Tab) {
++        val title = card.findViewById<TextView>(R.id.sableCardTitle)
++        val detail = card.findViewById<TextView>(R.id.sableCardDetail)
++        val tag = card.findViewById<TextView>(R.id.sableCardTag)
++        tag.isVisible = true
++        if (tab.incognito) {
++            title.setText(R.string.sable_tab_private)
++            detail.setText(R.string.sable_tab_private_detail)
++        } else {
++            title.text = tab.title?.takeIf { it.isNotBlank() } ?: getString(R.string.sable_tab_untitled)
++            detail.text = null
++            detail.isVisible = false
++        }
++        tag.setText(if (tab.current) R.string.sable_tab_current else R.string.sable_tab_normal)
++    }
++
++    override fun confirmSitePermission(origin: String, what: List<String>, cb: (granted: Boolean) -> Unit) {
++        val camera = what.contains(android.Manifest.permission.CAMERA)
++        val mic = what.contains(android.Manifest.permission.RECORD_AUDIO)
++        val question = when {
++            camera && mic -> R.string.sable_permission_camera_mic
++            camera -> R.string.sable_permission_camera
++            else -> R.string.sable_permission_mic
++        }
++        var answered = false
++        AlertDialog.Builder(this)
++            .setTitle(question)
++            .setMessage(
++                getString(R.string.sable_permission_origin, origin) + "\n\n" +
++                        getString(R.string.sable_permission_keys)
++            )
++            .setPositiveButton(R.string.sable_permission_allow) { _, _ ->
++                answered = true
++                cb(true)
++            }
++            .setNegativeButton(R.string.sable_permission_deny) { _, _ ->
++                answered = true
++                cb(false)
++            }
++            .setOnDismissListener {
++                if (!answered) cb(false)
++            }
++            .create()
++            .sableFocusNegative()
++            .show()
++    }
++
++    /** Deny / Block / Dismiss takes keyboard focus, so Enter never allows by default. */
++    private fun AlertDialog.sableFocusNegative(): AlertDialog = apply {
++        setOnShowListener {
++            getButton(DialogInterface.BUTTON_NEGATIVE)?.let {
++                it.isFocusableInTouchMode = true
++                it.requestFocus()
++            }
++        }
++    }
++
+     private fun setImmersiveMode(enable: Boolean) {
+         val decorView = window.decorView
+ 
+@@ -954,7 +1235,9 @@ class MainActivity : WebViewExtActivity(), SharedPreferences.OnSharedPreferenceC
+             }
+         }
+ 
+-        webView.updateLayoutParams<ConstraintLayout.LayoutParams> {
++        // SableOS: the command dock sits under the page (above the bar in reach mode); the
++        // start page covers exactly the page area.
++        sableDock.updateLayoutParams<ConstraintLayout.LayoutParams> {
+             bottomToBottom = when (isReachMode) {
+                 true -> ConstraintLayout.LayoutParams.UNSET
+                 false -> ConstraintLayout.LayoutParams.PARENT_ID
+@@ -963,15 +1246,26 @@ class MainActivity : WebViewExtActivity(), SharedPreferences.OnSharedPreferenceC
+                 true -> R.id.appBarLayout
+                 false -> ConstraintLayout.LayoutParams.UNSET
+             }
+-            topToBottom = when (isReachMode) {
+-                true -> ConstraintLayout.LayoutParams.UNSET
+-                false -> R.id.appBarLayout
+-            }
+-            topToTop = when (isReachMode) {
+-                true -> ConstraintLayout.LayoutParams.PARENT_ID
+-                false -> ConstraintLayout.LayoutParams.UNSET
++        }
++
++        listOf(webView, sableStartPage).forEach { page ->
++            page.updateLayoutParams<ConstraintLayout.LayoutParams> {
++                startToStart = ConstraintLayout.LayoutParams.PARENT_ID
++                endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
++                bottomToBottom = ConstraintLayout.LayoutParams.UNSET
++                bottomToTop = R.id.sableDock
++                topToBottom = when (isReachMode) {
++                    true -> ConstraintLayout.LayoutParams.UNSET
++                    false -> R.id.appBarLayout
++                }
++                topToTop = when (isReachMode) {
++                    true -> ConstraintLayout.LayoutParams.PARENT_ID
++                    false -> ConstraintLayout.LayoutParams.UNSET
++                }
+             }
+         }
++        // The start page is drawn over the page, which is added to the layout after it.
++        sableStartPage.bringToFront()
+     }
+ 
+     companion object {
+@@ -979,5 +1273,6 @@ class MainActivity : WebViewExtActivity(), SharedPreferences.OnSharedPreferenceC
+         private const val MANIFEST_DISPLAY = "manifest_display"
+         private const val MANIFEST_THEME_COLOR = "manifest_theme_color"
+         private val ALLOWED_FULLSCREEN_PWA_VALUES = arrayOf("fullscreen", "standalone")
++        private const val SABLE_POSITION_DELAY_MS = 350L
+     }
+ }
+diff --git a/app/src/main/java/org/lineageos/jelly/sable/SableReader.kt b/app/src/main/java/org/lineageos/jelly/sable/SableReader.kt
+new file mode 100644
+index 0000000..e5114c3
+--- /dev/null
++++ b/app/src/main/java/org/lineageos/jelly/sable/SableReader.kt
+@@ -0,0 +1,70 @@
++/*
++ * SPDX-FileCopyrightText: The SableOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++package org.lineageos.jelly.sable
++
++/**
++ * SableOS: reader mode, link mode and the block position, as small scripts run in the page with
++ * WebView.evaluateJavascript (they need the page's JavaScript setting on).
++ *
++ * Reader mode rebuilds the page from its own headings, paragraphs, lists, quotes, code and images
++ * (the article or main element when there is one), in one readable column, with every attribute
++ * except href, src and alt dropped. It adds nothing from outside the page and sends nothing
++ * anywhere; R again reloads the original page.
++ */
++object SableReader {
++    const val READER_ON = """(function(){
++var root=document.querySelector('article')||document.querySelector('main')||document.body;
++if(!root)return 'none';
++var keep={'H1':1,'H2':1,'H3':1,'H4':1,'P':1,'LI':1,'PRE':1,'BLOCKQUOTE':1,'IMG':1};
++var nodes=root.querySelectorAll('h1,h2,h3,h4,p,li,pre,blockquote,img');
++var out=document.createElement('div');out.id='sable-reader';
++var h=document.createElement('h1');h.textContent=document.title||location.hostname;out.appendChild(h);
++var s=document.createElement('div');s.className='src';s.textContent=location.hostname+' · simplified reader';out.appendChild(s);
++var n=0;
++for(var i=0;i<nodes.length;i++){var e=nodes[i];
++ if(!keep[e.tagName])continue;
++ if(e.parentElement&&e.parentElement.closest('p,li,pre,blockquote'))continue;
++ if(e.tagName!=='IMG'&&!(e.textContent||'').trim())continue;
++ var c=e.cloneNode(true);
++ var all=[c].concat([].slice.call(c.querySelectorAll('*')));
++ all.forEach(function(x){[].slice.call(x.attributes).forEach(function(a){
++  if(a.name!=='href'&&a.name!=='src'&&a.name!=='alt')x.removeAttribute(a.name);});
++  if(x.tagName==='SCRIPT'||x.tagName==='STYLE'||x.tagName==='IFRAME')x.remove();});
++ out.appendChild(c);n++;}
++if(n<2)return 'none';
++document.head.innerHTML='<meta name="viewport" content="width=device-width,initial-scale=1">'+
++'<style>body{margin:0;padding:16px;font:18px/1.55 sans-serif;max-width:40em;color:#e8eaed;background:#0b0f14}'+
++'#sable-reader .src{color:#9aa4ad;font-size:14px;margin-bottom:12px}img{max-width:100%;height:auto}'+
++'a{color:#7cc8ff}a:focus{outline:2px solid #7cc8ff;outline-offset:2px}pre{white-space:pre-wrap}'+
++'blockquote{border-left:2px solid #445;margin:0;padding-left:12px}'+
++'@media (prefers-color-scheme: light){body{color:#111;background:#fff}#sable-reader .src{color:#555}a{color:#0b57d0}}</style>';
++document.body.innerHTML='';document.body.appendChild(out);window.scrollTo(0,0);
++return 'on';})()"""
++
++    /** Moves focus to the next (or previous) visible link and scrolls it to the middle. */
++    fun linkScript(next: Boolean) = """(function(next){
++if(!document.getElementById('sable-link-style')){var st=document.createElement('style');st.id='sable-link-style';
++st.textContent='a:focus{outline:2px solid #7cc8ff !important;outline-offset:2px}';(document.head||document.body).appendChild(st);}
++var a=[].slice.call(document.querySelectorAll('a[href]')).filter(function(e){var r=e.getBoundingClientRect();return r.width>0&&r.height>0;});
++if(!a.length)return 0;
++var i=a.indexOf(document.activeElement);
++if(i<0){i=0;for(var k=0;k<a.length;k++){if(a[k].getBoundingClientRect().top>=0){i=k;break;}}if(!next)i=i-1;}
++else{i=next?i+1:i-1;}
++i=(i%a.length+a.length)%a.length;a[i].focus();a[i].scrollIntoView({block:'center'});return i+1;})($next)"""
++
++    /** "block/blocks" of the page, one block being one screen. */
++    const val POSITION = """(function(){var h=window.innerHeight||1;
++var t=Math.max(1,Math.ceil(document.documentElement.scrollHeight/h));
++var b=Math.min(t,Math.floor((window.scrollY+1)/h)+1);return b+'/'+t;})()"""
++
++    /** Parses the "b/t" string POSITION returns (WebView hands it back JSON quoted). */
++    fun parsePosition(result: String?): Pair<Int, Int>? {
++        val parts = result?.trim('"')?.split('/') ?: return null
++        val block = parts.getOrNull(0)?.toIntOrNull() ?: return null
++        val blocks = parts.getOrNull(1)?.toIntOrNull() ?: return null
++        return block to blocks
++    }
++}
+diff --git a/app/src/main/java/org/lineageos/jelly/sable/SableTabs.kt b/app/src/main/java/org/lineageos/jelly/sable/SableTabs.kt
+new file mode 100644
+index 0000000..fec52c8
+--- /dev/null
++++ b/app/src/main/java/org/lineageos/jelly/sable/SableTabs.kt
+@@ -0,0 +1,58 @@
++/*
++ * SPDX-FileCopyrightText: The SableOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++package org.lineageos.jelly.sable
++
++import android.app.Activity
++import android.app.ActivityManager
++import android.os.Build
++import org.lineageos.jelly.utils.IntentUtils
++
++/**
++ * SableOS: Browser tabs. Each Jelly tab is its own document task (documentLaunchMode="always"),
++ * so the tab list is this app's task list: switching moves a task to the front and closing
++ * finishes and removes it. Nothing is stored outside Android's own task list.
++ */
++object SableTabs {
++    data class Tab(
++        val taskId: Int,
++        val title: String?,
++        val incognito: Boolean,
++        val current: Boolean,
++        val appTask: ActivityManager.AppTask,
++    )
++
++    /** This app's browser tabs, in the order they were opened. */
++    fun list(activity: Activity): List<Tab> {
++        val activityManager = activity.getSystemService(ActivityManager::class.java) ?: return emptyList()
++        return activityManager.appTasks.mapNotNull { appTask ->
++            val info = runCatching { appTask.taskInfo }.getOrNull() ?: return@mapNotNull null
++            val taskId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) info.taskId else info.persistentId
++            val title = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
++                info.taskDescription?.label?.toString()
++            } else {
++                null
++            }
++            val incognito = info.baseIntent?.getBooleanExtra(IntentUtils.EXTRA_INCOGNITO, false) == true
++            Tab(taskId, title, incognito, taskId == activity.taskId, appTask)
++        }.sortedBy { it.taskId }
++    }
++
++    /** Switch to the next (or previous) tab; returns false when there is no other tab. */
++    fun switchAdjacent(activity: Activity, next: Boolean): Boolean {
++        val tabs = list(activity)
++        val target = SableBrowserKeys.adjacentTab(tabs.map { it.taskId }.toIntArray(), activity.taskId, next)
++        val tab = tabs.firstOrNull { it.taskId == target } ?: return false
++        return runCatching { tab.appTask.moveToFront() }.isSuccess
++    }
++
++    fun switchTo(tab: Tab) {
++        runCatching { tab.appTask.moveToFront() }
++    }
++
++    fun close(tab: Tab) {
++        runCatching { tab.appTask.finishAndRemoveTask() }
++    }
++}
+diff --git a/app/src/main/java/org/lineageos/jelly/webview/ChromeClient.kt b/app/src/main/java/org/lineageos/jelly/webview/ChromeClient.kt
+index 4898ed5..91714c6 100644
+--- a/app/src/main/java/org/lineageos/jelly/webview/ChromeClient.kt
++++ b/app/src/main/java/org/lineageos/jelly/webview/ChromeClient.kt
+@@ -84,7 +84,21 @@ internal class ChromeClient(
+                 add(android.Manifest.permission.RECORD_AUDIO)
+             }
+         }
+-        if (permissions.isEmpty()) return
++        if (permissions.isEmpty()) {
++            request.deny()
++            return
++        }
++        // SableOS: the site asks first, every time; the Android permission comes after.
++        activity.confirmSitePermission(origin, permissions) { allowed ->
++            if (!allowed) {
++                request.deny()
++                return@confirmSitePermission
++            }
++            requestAndroidPermissions(request, permissions)
++        }
++    }
++
++    private fun requestAndroidPermissions(request: PermissionRequest, permissions: List<String>) {
+         activity.webRequestPermissions(permissions.toTypedArray()) { granted ->
+             val grantedResources = buildList {
+                 if (granted.contains(android.Manifest.permission.CAMERA)) {
+@@ -94,7 +108,10 @@ internal class ChromeClient(
+                     add(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
+                 }
+             }
+-            if (grantedResources.isEmpty()) return@webRequestPermissions
++            if (grantedResources.isEmpty()) {
++                request.deny()
++                return@webRequestPermissions
++            }
+             request.grant(grantedResources.toTypedArray())
+         }
+     }
+diff --git a/app/src/main/java/org/lineageos/jelly/webview/WebClient.kt b/app/src/main/java/org/lineageos/jelly/webview/WebClient.kt
+index 73f4077..3e18715 100644
+--- a/app/src/main/java/org/lineageos/jelly/webview/WebClient.kt
++++ b/app/src/main/java/org/lineageos/jelly/webview/WebClient.kt
+@@ -61,6 +61,7 @@ internal class WebClient(
+     override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
+         super.onPageStarted(view, url, favicon)
+         urlBarLayout.onPageLoadStarted(url)
++        (context as? WebViewExtActivity)?.onSablePageStarted(url)
+         if (view.settings.javaScriptEnabled) {
+             view.evaluateJavascript(scripts, null)
+         }
+diff --git a/app/src/main/java/org/lineageos/jelly/webview/WebViewExtActivity.kt b/app/src/main/java/org/lineageos/jelly/webview/WebViewExtActivity.kt
+index 841c8e5..a9d9ac9 100644
+--- a/app/src/main/java/org/lineageos/jelly/webview/WebViewExtActivity.kt
++++ b/app/src/main/java/org/lineageos/jelly/webview/WebViewExtActivity.kt
+@@ -49,4 +49,15 @@ abstract class WebViewExtActivity : AppCompatActivity() {
+      * declined it. Returns true when the key was a Browser shortcut and is consumed.
+      */
+     open fun onBrowserKey(view: WebView?, event: KeyEvent, beforePage: Boolean) = false
++
++    /** SableOS: a page started loading in this tab (start page, dock and reader state follow). */
++    open fun onSablePageStarted(url: String) = Unit
++
++    /**
++     * SableOS: ask before a site gets the camera or microphone (BROWSER_WEBVIEW_UX
++     * CAMERA_MIC_LOCATION_PROMPTS_EXPLICIT), even when the app already holds the Android
++     * permission. [what] are the Android permissions the site asked for. Deny is the default.
++     */
++    open fun confirmSitePermission(origin: String, what: List<String>, cb: (granted: Boolean) -> Unit) =
++        cb(false)
+ }
+diff --git a/app/src/main/res/drawable/sable_card.xml b/app/src/main/res/drawable/sable_card.xml
+new file mode 100644
+index 0000000..0456c18
+--- /dev/null
++++ b/app/src/main/res/drawable/sable_card.xml
+@@ -0,0 +1,26 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     SPDX-FileCopyrightText: The SableOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<!-- SableOS: a card with the Sable focus ring (2dp accent outline when focused). -->
++<selector xmlns:android="http://schemas.android.com/apk/res/android">
++    <item android:state_focused="true">
++        <shape android:shape="rectangle">
++            <corners android:radius="12dp" />
++            <solid android:color="?attr/colorSurfaceContainer" />
++            <stroke
++                android:width="2dp"
++                android:color="?attr/colorPrimary" />
++        </shape>
++    </item>
++    <item>
++        <shape android:shape="rectangle">
++            <corners android:radius="12dp" />
++            <solid android:color="?attr/colorSurfaceContainer" />
++            <stroke
++                android:width="1dp"
++                android:color="?attr/colorOutlineVariant" />
++        </shape>
++    </item>
++</selector>
+diff --git a/app/src/main/res/layout/activity_main.xml b/app/src/main/res/layout/activity_main.xml
+index c570449..5887a93 100644
+--- a/app/src/main/res/layout/activity_main.xml
++++ b/app/src/main/res/layout/activity_main.xml
+@@ -32,4 +32,44 @@
+         </com.google.android.material.appbar.MaterialToolbar>
+     </com.google.android.material.appbar.AppBarLayout>
+ 
++    <!-- SableOS: start page over the page area while this tab has no page. -->
++    <include layout="@layout/sable_start_page" />
++
++    <!-- SableOS: command dock with the hint line (BROWSER_WEBVIEW_UX states 1 and 2). -->
++    <LinearLayout
++        android:id="@+id/sableDock"
++        android:layout_width="0dp"
++        android:layout_height="wrap_content"
++        android:background="?attr/colorSurfaceContainer"
++        android:orientation="vertical"
++        android:paddingHorizontal="12dp"
++        android:paddingVertical="4dp"
++        app:layout_constraintBottom_toBottomOf="parent"
++        app:layout_constraintEnd_toEndOf="parent"
++        app:layout_constraintStart_toStartOf="parent">
++
++        <TextView
++            android:id="@+id/sableDockPrompt"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:background="@drawable/sable_card"
++            android:clickable="true"
++            android:focusable="true"
++            android:paddingHorizontal="8dp"
++            android:paddingVertical="6dp"
++            android:text="@string/sable_dock_prompt"
++            android:textAppearance="?attr/textAppearanceBodyMedium"
++            android:textColor="?attr/colorPrimary" />
++
++        <TextView
++            android:id="@+id/sableDockHint"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:layout_marginTop="2dp"
++            android:ellipsize="end"
++            android:maxLines="2"
++            android:textAppearance="?attr/textAppearanceLabelSmall"
++            android:textColor="?attr/colorOnSurfaceVariant" />
++    </LinearLayout>
++
+ </androidx.constraintlayout.widget.ConstraintLayout>
+diff --git a/app/src/main/res/layout/sable_start_card.xml b/app/src/main/res/layout/sable_start_card.xml
+new file mode 100644
+index 0000000..8157410
+--- /dev/null
++++ b/app/src/main/res/layout/sable_start_card.xml
+@@ -0,0 +1,41 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     SPDX-FileCopyrightText: The SableOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<!-- SableOS: one start page card (title and detail), keyboard focusable. -->
++<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    android:layout_width="match_parent"
++    android:layout_height="wrap_content"
++    android:background="@drawable/sable_card"
++    android:clickable="true"
++    android:focusable="true"
++    android:minHeight="72dp"
++    android:orientation="vertical"
++    android:padding="12dp">
++
++    <TextView
++        android:id="@+id/sableCardTitle"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:maxLines="1"
++        android:ellipsize="end"
++        android:textAppearance="?attr/textAppearanceTitleMedium" />
++
++    <TextView
++        android:id="@+id/sableCardDetail"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:maxLines="2"
++        android:ellipsize="end"
++        android:textAppearance="?attr/textAppearanceBodySmall"
++        android:textColor="?attr/colorOnSurfaceVariant" />
++
++    <TextView
++        android:id="@+id/sableCardTag"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:maxLines="1"
++        android:textAppearance="?attr/textAppearanceLabelMedium"
++        android:visibility="gone" />
++</LinearLayout>
+diff --git a/app/src/main/res/layout/sable_start_page.xml b/app/src/main/res/layout/sable_start_page.xml
+new file mode 100644
+index 0000000..72ec0a1
+--- /dev/null
++++ b/app/src/main/res/layout/sable_start_page.xml
+@@ -0,0 +1,105 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     SPDX-FileCopyrightText: The SableOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<!-- SableOS: the Browser start page (BROWSER_WEBVIEW_UX state 1, BROWSER_START_SEARCH). -->
++<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
++    android:id="@+id/sableStartPage"
++    android:layout_width="0dp"
++    android:layout_height="0dp"
++    android:background="?attr/colorSurface"
++    android:fillViewport="true"
++    android:visibility="gone">
++
++    <LinearLayout
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:orientation="vertical"
++        android:padding="16dp">
++
++        <TextView
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:text="@string/sable_start_title"
++            android:textAppearance="?attr/textAppearanceTitleLarge" />
++
++        <TextView
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:layout_marginBottom="12dp"
++            android:text="@string/sable_start_subtitle"
++            android:textAppearance="?attr/textAppearanceBodyMedium"
++            android:textColor="?attr/colorOnSurfaceVariant" />
++
++        <LinearLayout
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:baselineAligned="false"
++            android:orientation="horizontal">
++
++            <include
++                android:id="@+id/sableStartBookmarks"
++                layout="@layout/sable_start_card"
++                android:layout_width="0dp"
++                android:layout_height="wrap_content"
++                android:layout_marginEnd="6dp"
++                android:layout_weight="1" />
++
++            <include
++                android:id="@+id/sableStartPrivate"
++                layout="@layout/sable_start_card"
++                android:layout_width="0dp"
++                android:layout_height="wrap_content"
++                android:layout_marginStart="6dp"
++                android:layout_weight="1" />
++        </LinearLayout>
++
++        <LinearLayout
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:layout_marginTop="12dp"
++            android:baselineAligned="false"
++            android:orientation="horizontal">
++
++            <include
++                android:id="@+id/sableStartHistory"
++                layout="@layout/sable_start_card"
++                android:layout_width="0dp"
++                android:layout_height="wrap_content"
++                android:layout_marginEnd="6dp"
++                android:layout_weight="1" />
++
++            <include
++                android:id="@+id/sableStartDownloads"
++                layout="@layout/sable_start_card"
++                android:layout_width="0dp"
++                android:layout_height="wrap_content"
++                android:layout_marginStart="6dp"
++                android:layout_weight="1" />
++        </LinearLayout>
++
++        <LinearLayout
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:layout_marginTop="12dp"
++            android:background="@drawable/sable_card"
++            android:orientation="vertical"
++            android:padding="12dp">
++
++            <TextView
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:text="@string/sable_start_keys"
++                android:textAppearance="?attr/textAppearanceBodyLarge"
++                android:textColor="?attr/colorPrimary" />
++
++            <TextView
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:text="@string/sable_start_keys_guard"
++                android:textAppearance="?attr/textAppearanceBodySmall"
++                android:textColor="?attr/colorOnSurfaceVariant" />
++        </LinearLayout>
++    </LinearLayout>
++</ScrollView>
+diff --git a/app/src/main/res/values/bools.xml b/app/src/main/res/values/bools.xml
+index a70e2e3..4d7e28c 100644
+--- a/app/src/main/res/values/bools.xml
++++ b/app/src/main/res/values/bools.xml
+@@ -5,5 +5,6 @@
+ -->
+ <resources>
+     <bool name="is_tablet">false</bool>
+-    <bool name="default_home_page_autoload">true</bool>
++    <!-- SableOS: new tabs open the Sable start page (BROWSER_START_SEARCH); the home page setting still works. -->
++    <bool name="default_home_page_autoload">false</bool>
+ </resources>
+diff --git a/app/src/main/res/values/sable_strings.xml b/app/src/main/res/values/sable_strings.xml
+new file mode 100644
+index 0000000..488bedc
+--- /dev/null
++++ b/app/src/main/res/values/sable_strings.xml
+@@ -0,0 +1,44 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     SPDX-FileCopyrightText: The SableOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<resources>
++    <!-- SableOS start page (BROWSER_WEBVIEW_UX state 1). -->
++    <string name="sable_start_title">Start / Search</string>
++    <string name="sable_start_subtitle">Type an address or a search in the bar above (Alt+L).</string>
++    <string name="sable_start_bookmarks">Bookmarks</string>
++    <string name="sable_start_bookmarks_detail">Saved pages</string>
++    <string name="sable_start_private">Private tab</string>
++    <string name="sable_start_private_detail">Redacted outside the browser</string>
++    <string name="sable_start_history">History</string>
++    <string name="sable_start_history_detail">Pages you opened</string>
++    <string name="sable_start_downloads">Downloads</string>
++    <string name="sable_start_downloads_detail">Files saved from the web</string>
++    <string name="sable_start_keys">Alt+L address/search · / find · Tab focus</string>
++    <string name="sable_start_keys_guard">Single-key shortcuts are off while typing in forms.</string>
++    <!-- Command dock (states 1 and 2). -->
++    <string name="sable_dock_prompt">&gt; browser command…</string>
++    <!-- Tab grid (state 3). -->
++    <string name="sable_tabs_title">Tabs · %1$d open</string>
++    <string name="sable_tabs_hint">[Enter Switch] [Alt+K Next] [Alt+J Prev] [D or Alt+W Close] [Esc]</string>
++    <string name="sable_tab_current">Current tab</string>
++    <string name="sable_tab_normal">Normal tab</string>
++    <string name="sable_tab_private">Private tab</string>
++    <string name="sable_tab_private_detail">Preview hidden outside the browser</string>
++    <string name="sable_tab_untitled">New tab</string>
++    <!-- Reader mode. -->
++    <string name="sable_reader_unavailable">Reader mode needs JavaScript (Settings)</string>
++    <string name="sable_reader_label">Reader mode</string>
++    <string name="sable_no_links">No links on this page</string>
++    <!-- Private tab label in Recents and on the lock screen. -->
++    <string name="sable_private_task_label">Private tab</string>
++    <!-- Permission prompts (state 4). -->
++    <string name="sable_permission_origin">Site: %1$s</string>
++    <string name="sable_permission_camera">Allow camera for this site?</string>
++    <string name="sable_permission_mic">Allow microphone for this site?</string>
++    <string name="sable_permission_camera_mic">Allow camera and microphone for this site?</string>
++    <string name="sable_permission_allow">Allow</string>
++    <string name="sable_permission_deny">Deny</string>
++    <string name="sable_permission_keys">Keyboard cannot bypass this prompt. Deny has focus; Tab moves, Enter chooses, Esc cancels.</string>
++</resources>
+-- 
+2.43.0
+

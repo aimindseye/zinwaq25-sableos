@@ -1,0 +1,31 @@
+diff --git a/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultStore.kt b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultStore.kt
+index 27a820c..ee5bf35 100644
+--- a/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultStore.kt
++++ b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultStore.kt
+@@ -46,19 +46,20 @@ class VaultStore(private val context: Context) {
+                 copyIn(uri, target)
+                 imported += name
+             } catch (e: IOException) {
+-                target.delete()
+-                failed += (display ?: name) + " (" + (e.message ?: "read error") + ")"
++                failed += (display ?: name) + " (" + (e.message ?: "read error") + discard(target) + ")"
+             } catch (e: IllegalStateException) {
+-                target.delete()
+-                failed += (display ?: name) + " (" + (e.message ?: "unreadable") + ")"
++                failed += (display ?: name) + " (" + (e.message ?: "unreadable") + discard(target) + ")"
+             } catch (_: SecurityException) {
+-                target.delete()
+-                failed += (display ?: name) + " (no access)"
++                failed += (display ?: name) + " (no access" + discard(target) + ")"
+             }
+         }
+         return ImportOutcome(imported, failed)
+     }
+ 
++    /** Removes a half-copied file; says so when it could not, so the user can delete it. */
++    private fun discard(target: File): String =
++        if (target.delete() || !target.exists()) "" else "; partial copy left"
++
+     private fun copyIn(uri: Uri, target: File) {
+         val input = checkNotNull(context.contentResolver.openInputStream(uri)) { "no stream" }
+         input.use { inp -> target.outputStream().use { out -> inp.copyTo(out) } }

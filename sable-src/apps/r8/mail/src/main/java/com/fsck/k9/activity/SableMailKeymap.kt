@@ -6,9 +6,13 @@ import android.view.KeyEvent
  * Sable Mail single-key commands (MAIL_CALENDAR_PRODUCTIVITY_UX.md, "Shared keyboard contract").
  *
  * Copied into the Thunderbird checkout by apps/r8/mail/apply_sable_flavor.py. It replaces the
- * upstream K-9 hotkeys, whose J/K/N/P directions, S (select) and V (archive) disagree with the
- * Sable contract. The Q25 keyboard has Alt, Shift, Sym and letters but no Fn or Ctrl, so
- * symbols are matched on the typed character and Ctrl+Enter send is also Alt+Enter.
+ * upstream K-9 hotkeys, whose J/K/N/P directions and S (select) disagree with the Sable contract.
+ * The Q25 keyboard has Alt, Shift, Sym and letters but no Fn or Ctrl, so symbols are matched on the
+ * typed character and Ctrl+Enter send is also Alt+Enter.
+ *
+ * V, L, E and A follow the approved artifact (sable-mail-calendar-titan2.svg): V archive, L reply all,
+ * E expand the collapsed quoted text, A the message's attachments. The design text's table gives V to
+ * "view/filter mode"; the artifact wins, so the sort/view cycle stays on O only.
  */
 enum class SableMailCommand {
     COMPOSE,
@@ -18,6 +22,9 @@ enum class SableMailCommand {
     REPLY,
     REPLY_ALL,
     FORWARD,
+    ARCHIVE,
+    EXPAND_QUOTE,
+    ATTACHMENTS,
     DELETE,
     SEARCH,
     VIEW_MODE,
@@ -26,7 +33,6 @@ enum class SableMailCommand {
     BACK,
 
     // Upstream K-9 actions kept on keys the Sable contract leaves free.
-    ARCHIVE,
     SELECT,
     TOGGLE_FLAG,
     MOVE,
@@ -164,13 +170,14 @@ object SableMailKeymap {
             KeyEvent.KEYCODE_K to SableMailCommand.PREVIOUS,
             KeyEvent.KEYCODE_P to SableMailCommand.PREVIOUS,
             KeyEvent.KEYCODE_R to SableMailCommand.REPLY,
-            KeyEvent.KEYCODE_A to SableMailCommand.REPLY_ALL,
+            KeyEvent.KEYCODE_L to SableMailCommand.REPLY_ALL,
             KeyEvent.KEYCODE_F to SableMailCommand.FORWARD,
             KeyEvent.KEYCODE_D to SableMailCommand.DELETE,
             KeyEvent.KEYCODE_S to SableMailCommand.SEARCH,
-            KeyEvent.KEYCODE_V to SableMailCommand.VIEW_MODE,
+            KeyEvent.KEYCODE_V to SableMailCommand.ARCHIVE,
+            KeyEvent.KEYCODE_E to SableMailCommand.EXPAND_QUOTE,
+            KeyEvent.KEYCODE_A to SableMailCommand.ATTACHMENTS,
             KeyEvent.KEYCODE_O to SableMailCommand.VIEW_MODE,
-            KeyEvent.KEYCODE_E to SableMailCommand.ARCHIVE,
             KeyEvent.KEYCODE_X to SableMailCommand.SELECT,
             KeyEvent.KEYCODE_G to SableMailCommand.TOGGLE_FLAG,
             KeyEvent.KEYCODE_M to SableMailCommand.MOVE,
@@ -194,4 +201,50 @@ object SableMailKeymap {
             KeyEvent.KEYCODE_DPAD_LEFT,
             KeyEvent.KEYCODE_DPAD_RIGHT,
         )
+}
+
+/**
+ * MAIL_SPLIT_PANE on a square keyboard screen: thread list left, reader right. On a near-square
+ * display at least [MIN_SPLIT_WIDTH_DP] wide (the Q25 is 720x720 at 193 dpi, about 597 dp) the split
+ * view is used whatever the split-view setting says; elsewhere the setting decides as upstream.
+ */
+object SableMailLayout {
+    const val MIN_SPLIT_WIDTH_DP = 560
+    private const val MAX_SQUARE_RATIO = 1.25f
+
+    fun forceSplitView(
+        widthDp: Int,
+        heightDp: Int,
+    ): Boolean {
+        if (widthDp < MIN_SPLIT_WIDTH_DP || heightDp <= 0) return false
+        val ratio = maxOf(widthDp, heightDp).toFloat() / minOf(widthDp, heightDp).toFloat()
+        return ratio <= MAX_SQUARE_RATIO
+    }
+
+    /** The Bottom Command Dock prompt and hint lines (artifact states 1 and 2). */
+    const val DOCK_PROMPT = "> mail search / command…"
+    const val DOCK_LIST_HINT = "[C Compose] [R Reply] [/ Search] [J/K Move] [T Latest]"
+    const val DOCK_READER_HINT = "Reader: L All · F Fwd · V Archive · D Del · E Quote · A Attach"
+}
+
+/**
+ * MAIL_QUOTED_TEXT_COLLAPSED_BY_DEFAULT: the reader shows quoted history collapsed (a one-line marker
+ * per quote) until E expands it. Only CSS is added; JavaScript stays off and remote content stays
+ * blocked as before.
+ */
+object SableMailQuotes {
+    const val MARKER = "Quoted text hidden · E shows it"
+
+    fun html(
+        body: String,
+        expanded: Boolean,
+    ): String = if (expanded) body else COLLAPSED_STYLE + body
+
+    private const val COLLAPSED_STYLE =
+        "<style>" +
+            "blockquote{font-size:0 !important;border-left:0 !important;padding:0 !important;margin:0 !important}" +
+            "blockquote>*{display:none !important}" +
+            "blockquote::before{content:\"$MARKER\";font-size:13px;opacity:.7;font-style:italic}" +
+            "blockquote blockquote::before{content:none}" +
+            "</style>"
 }

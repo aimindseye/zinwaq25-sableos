@@ -1,0 +1,2933 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 21 Oct 2026 23:05:37 +0000
+Subject: [PATCH] SableOS: App Control Center, Freezer and Student mode; no App
+ lock
+
+Mobile Manager pages on the 1204 model (MOBILE_MANAGER_APP_CONTROLS_UX):
+
+* App Control Center (Mobile Manager, org.sableos.settings.APP_CONTROLS):
+  every launcher app, plus apps the Freezer hid, with network access
+  (the Network Manager's POLICY_REJECT_ALL view), background mode
+  (Android's battery optimization mode) and paused state (Frozen,
+  Student mode, Focus mode, or another app). Filters: all, network
+  blocked or limited, background restricted, paused, frozen, hidden.
+  Enter on an app: Freeze/Unfreeze, Hide/Show in launcher, Network
+  access, App security & privacy, App info. Android's dialog for an app
+  Settings paused now opens this page at that app.
+* Freezer: one switch per app; frozen apps are suspended with
+  setPackagesSuspended until unfrozen (data kept). Frozen apps the user
+  installed can be hidden from the launcher with Android's per-user
+  hidden setting; Settings only unhides what it hid, and unfreezing
+  shows the app again. Apps the phone needs are never frozen.
+* Student mode (org.sableos.settings.STUDENT_MODE), built on Focus
+  mode: a second Settings-owned AutomaticZenRule with the same
+  notification policy (so it is in Modes and Quick Settings), an allow
+  list and a time window (days, start, end, default weekdays
+  08:00-17:00, off until chosen). While on, every launcher app not
+  allowed is paused. Settings keeps the window: an exact alarm at the
+  next boundary, re-armed on boot and clock or time zone changes
+  (SableStudentModeReceiver). Turning it off by hand lasts until the
+  next boundary. Local control, not parental control; no site filter.
+* SableAppSuspender is now the one place that suspends: Freezer,
+  Student and Focus share Android's single suspension per suspender,
+  so a mode ending never unfreezes an app. One dialog for all three,
+  whose button opens the App Control Center.
+* App lock is removed (page, rows, search entries): LineageOS 23.2 has
+  no launch gate, so nothing claims protection it does not give.
+  "app lock" searches land on Private Space & Dual Apps.
+* Mobile Manager is also in Privacy & security (Safety Center's "More
+  security & privacy" and the Privacy page), not indexed twice.
+---
+ AndroidManifest.xml                           |  55 ++-
+ res/values/sable_app_controls_arrays.xml      |  36 ++
+ res/values/strings_sable_app_controls.xml     | 138 ++++++
+ res/values/strings_sable_mobile_manager.xml   |  50 +-
+ res/xml/more_security_privacy_settings.xml    |   8 +
+ res/xml/privacy_dashboard_settings.xml        |   9 +
+ res/xml/sable_app_control_center.xml          |  45 ++
+ res/xml/sable_app_lock.xml                    |  45 --
+ res/xml/sable_freezer.xml                     |  42 ++
+ res/xml/sable_mobile_manager.xml              |  28 +-
+ res/xml/sable_private_space.xml               |  10 +-
+ res/xml/sable_student_mode.xml                |  66 +++
+ src/com/android/settings/Settings.java        |   4 +
+ .../sable/SableAppControlCenterFragment.java  | 457 ++++++++++++++++++
+ .../applications/sable/SableAppControls.java  |  24 +-
+ .../sable/SableAppLockFragment.java           | 196 --------
+ .../applications/sable/SableAppSuspender.java | 143 ++++++
+ .../applications/sable/SableFocusMode.java    |  64 +--
+ .../sable/SableFocusModeReceiver.java         |  22 +-
+ .../applications/sable/SableFreezer.java      | 129 +++++
+ .../sable/SableFreezerFragment.java           | 199 ++++++++
+ .../sable/SableMobileManagerFragment.java     |  69 ++-
+ .../applications/sable/SableStudentMode.java  | 224 +++++++++
+ .../sable/SableStudentModeFragment.java       | 319 ++++++++++++
+ .../sable/SableStudentModeReceiver.java       |  52 ++
+ .../core/gateway/SettingsGateway.java         |   8 +-
+ 26 files changed, 2053 insertions(+), 389 deletions(-)
+ create mode 100644 res/values/sable_app_controls_arrays.xml
+ create mode 100644 res/values/strings_sable_app_controls.xml
+ create mode 100644 res/xml/sable_app_control_center.xml
+ delete mode 100644 res/xml/sable_app_lock.xml
+ create mode 100644 res/xml/sable_freezer.xml
+ create mode 100644 res/xml/sable_student_mode.xml
+ create mode 100644 src/com/android/settings/applications/sable/SableAppControlCenterFragment.java
+ delete mode 100644 src/com/android/settings/applications/sable/SableAppLockFragment.java
+ create mode 100644 src/com/android/settings/applications/sable/SableAppSuspender.java
+ create mode 100644 src/com/android/settings/applications/sable/SableFreezer.java
+ create mode 100644 src/com/android/settings/applications/sable/SableFreezerFragment.java
+ create mode 100644 src/com/android/settings/applications/sable/SableStudentMode.java
+ create mode 100644 src/com/android/settings/applications/sable/SableStudentModeFragment.java
+ create mode 100644 src/com/android/settings/applications/sable/SableStudentModeReceiver.java
+
+diff --git a/AndroidManifest.xml b/AndroidManifest.xml
+index 57955e6..fb3e5af 100644
+--- a/AndroidManifest.xml
++++ b/AndroidManifest.xml
+@@ -2065,25 +2065,68 @@
+                 android:value="@string/menu_key_apps"/>
+         </activity>
+ 
+-        <!-- SableOS: the "Focus mode" button of Android's dialog for an app Focus mode paused.
+-             Android only offers it when the suspending package (Settings) has an activity for
+-             this action guarded by exactly this permission. -->
++        <!-- SableOS: App Control Center (Mobile Manager). -->
++        <activity
++            android:name="Settings$SableAppControlCenterActivity"
++            android:exported="true"
++            android:label="@string/sable_acc_title">
++            <intent-filter>
++                <action android:name="org.sableos.settings.APP_CONTROLS" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
++            <meta-data android:name="com.android.settings.FRAGMENT_CLASS"
++                android:value="com.android.settings.applications.sable.SableAppControlCenterFragment" />
++            <meta-data android:name="com.android.settings.HIGHLIGHT_MENU_KEY"
++                android:value="@string/menu_key_apps"/>
++        </activity>
++
++        <!-- SableOS: the "App controls" button of Android's dialog for an app Settings paused
++             (Freezer, Student mode or Focus mode). Android only offers it when the suspending
++             package (Settings) has an activity for this action guarded by exactly this
++             permission. Opens the App Control Center at that app. -->
+         <activity-alias
+             android:name="SableFocusModeSuspendedAppDetails"
+-            android:targetActivity="Settings$SableFocusModeActivity"
++            android:targetActivity="Settings$SableAppControlCenterActivity"
+             android:exported="true"
+             android:permission="android.permission.SEND_SHOW_SUSPENDED_APP_DETAILS"
+-            android:label="@string/sable_focus_title">
++            android:label="@string/sable_acc_title">
+             <intent-filter>
+                 <action android:name="android.intent.action.SHOW_SUSPENDED_APP_DETAILS" />
+                 <category android:name="android.intent.category.DEFAULT" />
+             </intent-filter>
+             <meta-data android:name="com.android.settings.FRAGMENT_CLASS"
+-                android:value="com.android.settings.applications.sable.SableFocusModeFragment" />
++                android:value="com.android.settings.applications.sable.SableAppControlCenterFragment" />
+             <meta-data android:name="com.android.settings.HIGHLIGHT_MENU_KEY"
+                 android:value="@string/menu_key_apps"/>
+         </activity-alias>
+ 
++        <!-- SableOS: Student mode. Also the configuration activity of its entry in
++             Settings > Modes. -->
++        <activity
++            android:name="Settings$SableStudentModeActivity"
++            android:exported="true"
++            android:label="@string/sable_student_title">
++            <intent-filter>
++                <action android:name="org.sableos.settings.STUDENT_MODE" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
++            <meta-data android:name="com.android.settings.FRAGMENT_CLASS"
++                android:value="com.android.settings.applications.sable.SableStudentModeFragment" />
++            <meta-data android:name="com.android.settings.HIGHLIGHT_MENU_KEY"
++                android:value="@string/menu_key_apps"/>
++        </activity>
++
++        <!-- SableOS: Student mode window boundaries (explicit alarm), boot and clock changes. -->
++        <receiver
++            android:name=".applications.sable.SableStudentModeReceiver"
++            android:exported="false">
++            <intent-filter>
++                <action android:name="android.intent.action.BOOT_COMPLETED" />
++                <action android:name="android.intent.action.TIME_SET" />
++                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
++            </intent-filter>
++        </receiver>
++
+         <!-- SableOS: Focus mode started or ended (from anywhere): pause or release the chosen
+              apps. Android sends this only to the rule owner's package; Settings shares the
+              system UID, so the receiver need not be exported. -->
+diff --git a/res/values/sable_app_controls_arrays.xml b/res/values/sable_app_controls_arrays.xml
+new file mode 100644
+index 0000000..70ecdf5
+--- /dev/null
++++ b/res/values/sable_app_controls_arrays.xml
+@@ -0,0 +1,36 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<resources>
++    <!-- App Control Center filter labels, in AppControlRows.Filter order. -->
++    <string-array name="sable_acc_filter_entries">
++        <item>@string/sable_acc_filter_all</item>
++        <item>@string/sable_acc_filter_network</item>
++        <item>@string/sable_acc_filter_background</item>
++        <item>@string/sable_acc_filter_paused</item>
++        <item>@string/sable_acc_filter_frozen</item>
++        <item>@string/sable_acc_filter_hidden</item>
++    </string-array>
++    <!-- AppControlRows.Filter names; not translated. -->
++    <string-array name="sable_acc_filter_values" translatable="false">
++        <item>ALL</item>
++        <item>NETWORK_BLOCKED</item>
++        <item>BACKGROUND_RESTRICTED</item>
++        <item>PAUSED</item>
++        <item>FROZEN</item>
++        <item>HIDDEN</item>
++    </string-array>
++</resources>
+diff --git a/res/values/strings_sable_app_controls.xml b/res/values/strings_sable_app_controls.xml
+new file mode 100644
+index 0000000..c965908
+--- /dev/null
++++ b/res/values/strings_sable_app_controls.xml
+@@ -0,0 +1,138 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
++    <!-- ===== App Control Center ===== -->
++
++    <!-- App Control Center page and Mobile Manager row title. -->
++    <string name="sable_acc_title">App Control Center</string>
++    <!-- App Control Center row summary in Mobile Manager. -->
++    <string name="sable_acc_summary">Every app with its network, background and paused state</string>
++    <!-- Search keywords for the App Control Center. [CHAR LIMIT=NONE] -->
++    <string name="sable_acc_keywords">app controls, app control center, app status, paused apps, blocked apps, restricted apps</string>
++    <!-- App Control Center: the filter row title. -->
++    <string name="sable_acc_filter_title">Show</string>
++    <!-- App Control Center filters. -->
++    <string name="sable_acc_filter_all">All apps</string>
++    <string name="sable_acc_filter_network">Network blocked or limited</string>
++    <string name="sable_acc_filter_background">Background restricted</string>
++    <string name="sable_acc_filter_paused">Paused</string>
++    <string name="sable_acc_filter_frozen">Frozen</string>
++    <string name="sable_acc_filter_hidden">Hidden from the home screen</string>
++    <!-- App Control Center: number of apps matching the filter. -->
++    <plurals name="sable_acc_count">
++        <item quantity="one"><xliff:g id="count" example="1">%d</xliff:g> app</item>
++        <item quantity="other"><xliff:g id="count" example="12">%d</xliff:g> apps</item>
++    </plurals>
++    <!-- App Control Center row parts, joined with " · ". -->
++    <string name="sable_acc_network_allowed">network allowed</string>
++    <string name="sable_acc_network_partial">network limited</string>
++    <string name="sable_acc_network_blocked">network blocked</string>
++    <string name="sable_acc_network_fixed">network not changeable</string>
++    <string name="sable_acc_background_unrestricted">background unrestricted</string>
++    <string name="sable_acc_background_optimized">background optimized</string>
++    <string name="sable_acc_background_restricted">background restricted</string>
++    <string name="sable_acc_paused_frozen">frozen</string>
++    <string name="sable_acc_paused_student">paused by Student mode</string>
++    <string name="sable_acc_paused_focus">paused by Focus mode</string>
++    <string name="sable_acc_paused_other">paused by another app</string>
++    <string name="sable_acc_hidden">hidden from launcher</string>
++    <!-- Separator between row parts. -->
++    <string name="sable_acc_separator" translatable="false">" · "</string>
++    <!-- App Control Center: per-app actions. -->
++    <string name="sable_acc_action_freeze">Freeze</string>
++    <string name="sable_acc_action_unfreeze">Unfreeze</string>
++    <string name="sable_acc_action_hide">Hide from launcher</string>
++    <string name="sable_acc_action_unhide">Show in launcher</string>
++    <string name="sable_acc_action_network">Network access</string>
++    <string name="sable_acc_action_background">Background use</string>
++    <string name="sable_acc_action_security">App security &amp; privacy</string>
++    <string name="sable_acc_action_info">App info</string>
++    <!-- App Control Center: an action Android refused. -->
++    <string name="sable_acc_action_failed">Android did not allow this change</string>
++    <!-- App Control Center: note under the list. -->
++    <string name="sable_acc_note">Type letters to jump to an app. Enter opens its actions. Each state is Android\'s own setting, so App info shows the same.</string>
++
++    <!-- ===== Freezer ===== -->
++
++    <!-- Freezer page and row title. -->
++    <string name="sable_freezer_title">Freezer</string>
++    <!-- Freezer row summary when nothing is frozen. -->
++    <string name="sable_freezer_none">No apps frozen · freeze apps you rarely use</string>
++    <!-- Freezer row summary with a count. -->
++    <plurals name="sable_freezer_count">
++        <item quantity="one"><xliff:g id="count" example="1">%d</xliff:g> app frozen</item>
++        <item quantity="other"><xliff:g id="count" example="3">%d</xliff:g> apps frozen</item>
++    </plurals>
++    <!-- Search keywords for the Freezer. [CHAR LIMIT=NONE] -->
++    <string name="sable_freezer_keywords">freezer, freeze apps, frozen apps, disable app, hide app, hide unused apps, start blocker, boot blocker</string>
++    <!-- Freezer page explanation. -->
++    <string name="sable_freezer_explanation">A frozen app cannot open, run or show notifications until you unfreeze it. Its data stays. Frozen apps you installed can also be hidden from the home screen.</string>
++    <!-- Freezer list category. -->
++    <string name="sable_freezer_apps_title">Apps</string>
++    <!-- Freezer app row: frozen. -->
++    <string name="sable_freezer_app_frozen">Frozen</string>
++    <!-- Freezer app row: frozen and hidden. -->
++    <string name="sable_freezer_app_frozen_hidden">Frozen · hidden from launcher</string>
++    <!-- Freezer page note. -->
++    <string name="sable_freezer_note">Freezer is not Private Space: a frozen app\'s data is not locked away. Unfreezing or showing an app again may put its icon in a new place. The home screen, phone, messages, keyboard and Settings cannot be frozen. To stop only background work, use Background use.</string>
++
++    <!-- ===== Student mode ===== -->
++
++    <!-- Student mode page, row and Android mode name. -->
++    <string name="sable_student_title">Student mode</string>
++    <!-- Search keywords for Student mode. [CHAR LIMIT=NONE] -->
++    <string name="sable_student_keywords">student mode, study, school, class, homework, whitelist, allow list, study hours</string>
++    <!-- Student mode row: off. -->
++    <string name="sable_student_off">Off · only allowed apps open while it is on</string>
++    <!-- Student mode row: off with a window. -->
++    <string name="sable_student_off_window">Off · <xliff:g id="window" example="Weekdays 08:00-17:00">%1$s</xliff:g></string>
++    <!-- Student mode row: on. -->
++    <plurals name="sable_student_on">
++        <item quantity="one">On · <xliff:g id="count" example="1">%d</xliff:g> app allowed</item>
++        <item quantity="other">On · <xliff:g id="count" example="3">%d</xliff:g> apps allowed</item>
++    </plurals>
++    <!-- Student mode page: main switch. -->
++    <string name="sable_student_switch">Use Student mode now</string>
++    <!-- Student mode page: main switch summary. -->
++    <string name="sable_student_switch_summary">Pauses every app except the ones you allow, and silences notifications like Focus mode. Also in Quick Settings > Modes.</string>
++    <!-- Student mode page: schedule switch. -->
++    <string name="sable_student_schedule_switch">Turn on by schedule</string>
++    <!-- Student mode window: days row. -->
++    <string name="sable_student_days">Days</string>
++    <!-- Student mode window: start row. -->
++    <string name="sable_student_start">Starts</string>
++    <!-- Student mode window: end row. -->
++    <string name="sable_student_end">Ends</string>
++    <!-- Student mode window summary: weekdays. -->
++    <string name="sable_student_weekdays">Weekdays</string>
++    <!-- Student mode window summary: no day chosen. -->
++    <string name="sable_student_no_days">No days chosen</string>
++    <!-- Student mode window summary: days and times. -->
++    <string name="sable_student_window"><xliff:g id="days" example="Weekdays">%1$s</xliff:g> <xliff:g id="start" example="08:00">%2$s</xliff:g>-<xliff:g id="end" example="17:00">%3$s</xliff:g></string>
++    <!-- Student mode window: ends the next day. -->
++    <string name="sable_student_next_day">%1$s (next day)</string>
++    <!-- Student mode page: allow list category. -->
++    <string name="sable_student_allowed_title">Apps allowed while it is on</string>
++    <!-- Student mode allow row: allowed. -->
++    <string name="sable_student_app_allowed">Allowed</string>
++    <!-- Student mode allow row: paused while on. -->
++    <string name="sable_student_app_paused">Paused while Student mode is on</string>
++    <!-- Student mode page: error. -->
++    <string name="sable_student_error">Student mode could not be changed. Try again from Settings > Modes.</string>
++    <!-- Student mode page: disclosure. -->
++    <string name="sable_student_disclosure">Student mode is a local control you can turn off at any time. It is not parental control and does not filter websites. Turning it off inside the window lasts until the next start. The home screen, phone, messages, keyboard and Settings always stay open.</string>
++</resources>
+diff --git a/res/values/strings_sable_mobile_manager.xml b/res/values/strings_sable_mobile_manager.xml
+index b39e648..37b7186 100644
+--- a/res/values/strings_sable_mobile_manager.xml
++++ b/res/values/strings_sable_mobile_manager.xml
+@@ -20,7 +20,7 @@
+     <!-- Title of the Mobile Manager page and its row in Settings > Apps. -->
+     <string name="sable_mobile_manager_title">Mobile Manager</string>
+     <!-- Summary of the Mobile Manager row. -->
+-    <string name="sable_mobile_manager_summary">Network access, background use, app lock, Focus mode, Private Space</string>
++    <string name="sable_mobile_manager_summary">App Control Center, network access, Freezer, Focus and Student mode, Private Space</string>
+     <!-- Search keywords for Mobile Manager. -->
+     <string name="sable_mobile_manager_keywords">mobile manager, app controls, app control center, app manager, phone manager, firewall</string>
+     <!-- Mobile Manager page: what it is. -->
+@@ -44,39 +44,9 @@
+     <!-- Mobile Manager: notification and sync warning shown under the rows. -->
+     <string name="sable_mm_breakage_note">Blocking the network, restricting background use or pausing an app can stop its notifications, sync and sign-in. Messaging, mail and calendar apps are the most affected.</string>
+     <!-- Mobile Manager: not included here. -->
+-    <string name="sable_mm_scope_note">Not here yet: app freezer, Student mode, autostart lists and website filters. Network access is one switch for all networks; Wi-Fi and mobile data limits stay in App info.</string>
++    <string name="sable_mm_scope_note">Not here: app lock (this build cannot ask for your screen lock when an app opens; use Private Space), autostart lists and website filters. Network access is one switch for all networks; Wi-Fi and mobile data limits stay in App info.</string>
+ 
+-    <!-- ===== App lock ===== -->
+-
+-    <!-- App lock page and row title. -->
+-    <string name="sable_app_lock_title">App lock</string>
+-    <!-- Search keywords for App lock. -->
+-    <string name="sable_app_lock_keywords">app lock, applock, lock apps, protect apps, password apps, fingerprint apps</string>
+-    <!-- App lock row and header: no app chosen. -->
+-    <string name="sable_app_lock_none">No apps chosen</string>
+-    <!-- App lock row and header: apps chosen, not enforced. -->
+-    <plurals name="sable_app_lock_not_enforced">
+-        <item quantity="one"><xliff:g id="count" example="1">%d</xliff:g> app chosen · not enforced</item>
+-        <item quantity="other"><xliff:g id="count" example="3">%d</xliff:g> apps chosen · not enforced</item>
+-    </plurals>
+-    <!-- App lock row and header: apps locked (only when a platform lock exists). -->
+-    <plurals name="sable_app_lock_locked">
+-        <item quantity="one"><xliff:g id="count" example="1">%d</xliff:g> app locked</item>
+-        <item quantity="other"><xliff:g id="count" example="3">%d</xliff:g> apps locked</item>
+-    </plurals>
+-    <!-- App lock page: status title. -->
+-    <string name="sable_app_lock_status_title">Not enforced</string>
+-    <!-- App lock page: why it is not enforced. -->
+-    <string name="sable_app_lock_status_explanation">This build cannot yet ask for your screen lock when a chosen app opens. Your choices are saved, but chosen apps open as usual. To keep apps behind your screen lock today, use Private Space.</string>
+-    <!-- App lock page: link to Private Space. -->
+-    <string name="sable_app_lock_use_private_space">Use Private Space instead</string>
+-    <!-- App lock page: summary of the Private Space link. -->
+-    <string name="sable_app_lock_use_private_space_summary">Apps in Private Space stay locked and hidden until you unlock it</string>
+-    <!-- App lock page: apps category title. -->
+-    <string name="sable_app_lock_apps_title">Apps to lock</string>
+-    <!-- App lock page: boundary note. -->
+-    <string name="sable_app_lock_boundary_note">App lock is an extra gate against casual access, not a separate space: a locked app\'s data, notifications and files are not separated from your other apps. Settings, the home screen, the phone app and the keyboard cannot be chosen.</string>
+-    <!-- App lock / Focus lists: nothing to list. -->
++    <!-- Mobile Manager app lists: nothing to list. -->
+     <string name="sable_app_controls_empty">No apps to show</string>
+ 
+     <!-- ===== Focus mode ===== -->
+@@ -128,12 +98,12 @@
+     <string name="sable_focus_schedule_summary">Times, calendar, calls and display options in Settings > Modes</string>
+     <!-- Focus mode page: local control disclosure. -->
+     <string name="sable_focus_disclosure">Focus mode is a local control you can turn off at any time. It is not parental control and does not filter websites.</string>
+-    <!-- Dialog shown by Android when a paused app is opened. -->
+-    <string name="sable_focus_suspended_title">Paused by Focus mode</string>
++    <!-- Dialog shown by Android when an app Settings paused (Freezer, Student or Focus mode) is opened. -->
++    <string name="sable_focus_suspended_title">Paused by Mobile Manager</string>
+     <!-- Dialog message when a paused app is opened; %1$s is filled in by Android with the app name. -->
+-    <string name="sable_focus_suspended_message"><xliff:g id="app_name" example="Game">%1$s</xliff:g> is paused until Focus mode ends.</string>
+-    <!-- Dialog button that opens the Focus mode page. -->
+-    <string name="sable_focus_suspended_button">Focus mode</string>
++    <string name="sable_focus_suspended_message"><xliff:g id="app_name" example="Game">%1$s</xliff:g> is paused by the Freezer, Student mode or Focus mode.</string>
++    <!-- Dialog button that opens the App Control Center. -->
++    <string name="sable_focus_suspended_button">App controls</string>
+ 
+     <!-- ===== Private Space and Dual Apps ===== -->
+ 
+@@ -142,7 +112,7 @@
+     <!-- Row summary. -->
+     <string name="sable_spaces_summary">Private Space, second copies of apps, work profile</string>
+     <!-- Search keywords. -->
+-    <string name="sable_spaces_keywords">private space, hidden apps, secure folder, vault, dual apps, clone apps, cloned apps, parallel apps, second account, work profile</string>
++    <string name="sable_spaces_keywords">private space, hidden apps, secure folder, vault, app lock, applock, lock apps, dual apps, clone apps, cloned apps, parallel apps, second account, work profile</string>
+     <!-- Page explanation. -->
+     <string name="sable_spaces_explanation">Each of these is a separate Android profile with its own app data, accounts and notifications. Nothing is set up until you go through Android\'s setup for it.</string>
+     <!-- Private Space row title. -->
+@@ -174,5 +144,5 @@
+     <!-- Work profile: paused. -->
+     <string name="sable_spaces_work_paused">Paused</string>
+     <!-- Boundary note. -->
+-    <string name="sable_spaces_boundary_note">App lock is not a profile: it does not separate data. Use Private Space or Dual Apps when data must stay apart.</string>
++    <string name="sable_spaces_boundary_note">Use Private Space to keep apps behind your screen lock, and Private Space or Dual Apps when data must stay apart. This build has no app lock.</string>
+ </resources>
+diff --git a/res/xml/more_security_privacy_settings.xml b/res/xml/more_security_privacy_settings.xml
+index 0068872..3f264ce 100644
+--- a/res/xml/more_security_privacy_settings.xml
++++ b/res/xml/more_security_privacy_settings.xml
+@@ -70,6 +70,14 @@
+         android:order="-1"
+         android:key="privacy_category"
+         android:title="@string/privacy_header">
++        <!-- SableOS: Mobile Manager (app controls) is also reached from Privacy & security.
++             Indexed once, from Settings > Apps. -->
++        <Preference
++            android:key="sable_more_privacy_mobile_manager"
++            android:title="@string/sable_mobile_manager_title"
++            android:summary="@string/sable_mobile_manager_summary"
++            android:fragment="com.android.settings.applications.sable.SableMobileManagerFragment"
++            settings:searchable="false" />
+         <!-- Accessibility usage -->
+         <Preference
+             android:key="privacy_accessibility_usage"
+diff --git a/res/xml/privacy_dashboard_settings.xml b/res/xml/privacy_dashboard_settings.xml
+index 22fe002..8075f7b 100644
+--- a/res/xml/privacy_dashboard_settings.xml
++++ b/res/xml/privacy_dashboard_settings.xml
+@@ -36,6 +36,15 @@
+         settings:searchable="false"
+         settings:controller="com.android.settings.applications.specialaccess.interactacrossprofiles.InteractAcrossProfilesController" />
+ 
++    <!-- SableOS: Mobile Manager (app controls) is also reached from Privacy & security.
++         Indexed once, from Settings > Apps. -->
++    <Preference
++        android:key="sable_privacy_mobile_manager"
++        android:title="@string/sable_mobile_manager_title"
++        android:summary="@string/sable_mobile_manager_summary"
++        android:fragment="com.android.settings.applications.sable.SableMobileManagerFragment"
++        settings:searchable="false" />
++
+     <!-- Accessibility usage -->
+     <Preference
+         android:key="privacy_accessibility_usage"
+diff --git a/res/xml/sable_app_control_center.xml b/res/xml/sable_app_control_center.xml
+new file mode 100644
+index 0000000..e6f3d4c
+--- /dev/null
++++ b/res/xml/sable_app_control_center.xml
+@@ -0,0 +1,45 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<!-- App Control Center: a filter, then one row per app (filled in by
++     SableAppControlCenterFragment). Row order is the keyboard focus order. -->
++<PreferenceScreen
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:settings="http://schemas.android.com/apk/res-auto"
++    android:key="sable_acc_screen"
++    android:title="@string/sable_acc_title"
++    settings:keywords="@string/sable_acc_keywords">
++
++    <ListPreference
++        android:key="sable_acc_filter"
++        android:title="@string/sable_acc_filter_title"
++        android:entries="@array/sable_acc_filter_entries"
++        android:entryValues="@array/sable_acc_filter_values"
++        android:defaultValue="ALL"
++        android:persistent="false"
++        settings:searchable="false" />
++
++    <PreferenceCategory
++        android:key="sable_acc_apps"
++        settings:searchable="false" />
++
++    <Preference
++        android:key="sable_acc_note"
++        android:summary="@string/sable_acc_note"
++        android:selectable="false"
++        settings:searchable="false" />
++
++</PreferenceScreen>
+diff --git a/res/xml/sable_app_lock.xml b/res/xml/sable_app_lock.xml
+deleted file mode 100644
+index 726b623..0000000
+--- a/res/xml/sable_app_lock.xml
++++ /dev/null
+@@ -1,45 +0,0 @@
+-<?xml version="1.0" encoding="utf-8"?>
+-<!--
+-     Copyright (C) 2026 The SableOS Project
+-
+-     Licensed under the Apache License, Version 2.0 (the "License");
+-     you may not use this file except in compliance with the License.
+-     You may obtain a copy of the License at
+-
+-          http://www.apache.org/licenses/LICENSE-2.0
+-
+-     Unless required by applicable law or agreed to in writing, software
+-     distributed under the License is distributed on an "AS IS" BASIS,
+-     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-     See the License for the specific language governing permissions and
+-     limitations under the License.
+--->
+-<!-- App lock: status (never "locked" while nothing enforces it), the Private Space
+-     alternative, the app list, and the boundary note. -->
+-<PreferenceScreen
+-    xmlns:android="http://schemas.android.com/apk/res/android"
+-    android:key="sable_app_lock_screen"
+-    android:title="@string/sable_app_lock_title">
+-
+-    <Preference
+-        android:key="sable_app_lock_status"
+-        android:title="@string/sable_app_lock_status_title"
+-        android:summary="@string/sable_app_lock_status_explanation"
+-        android:selectable="false" />
+-
+-    <Preference
+-        android:key="sable_app_lock_private_space"
+-        android:title="@string/sable_app_lock_use_private_space"
+-        android:summary="@string/sable_app_lock_use_private_space_summary"
+-        android:fragment="com.android.settings.applications.sable.SablePrivateSpaceFragment" />
+-
+-    <PreferenceCategory
+-        android:key="sable_app_lock_apps"
+-        android:title="@string/sable_app_lock_apps_title" />
+-
+-    <Preference
+-        android:key="sable_app_lock_boundary"
+-        android:summary="@string/sable_app_lock_boundary_note"
+-        android:selectable="false" />
+-
+-</PreferenceScreen>
+diff --git a/res/xml/sable_freezer.xml b/res/xml/sable_freezer.xml
+new file mode 100644
+index 0000000..8bc8096
+--- /dev/null
++++ b/res/xml/sable_freezer.xml
+@@ -0,0 +1,42 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<!-- Freezer: one switch per app that can be frozen (filled in by SableFreezerFragment). -->
++<PreferenceScreen
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:settings="http://schemas.android.com/apk/res-auto"
++    android:key="sable_freezer_screen"
++    android:title="@string/sable_freezer_title"
++    settings:keywords="@string/sable_freezer_keywords">
++
++    <Preference
++        android:key="sable_freezer_explanation"
++        android:summary="@string/sable_freezer_explanation"
++        android:selectable="false"
++        settings:searchable="false" />
++
++    <PreferenceCategory
++        android:key="sable_freezer_apps"
++        android:title="@string/sable_freezer_apps_title"
++        settings:searchable="false" />
++
++    <Preference
++        android:key="sable_freezer_note"
++        android:summary="@string/sable_freezer_note"
++        android:selectable="false"
++        settings:searchable="false" />
++
++</PreferenceScreen>
+diff --git a/res/xml/sable_mobile_manager.xml b/res/xml/sable_mobile_manager.xml
+index b286f95..629d535 100644
+--- a/res/xml/sable_mobile_manager.xml
++++ b/res/xml/sable_mobile_manager.xml
+@@ -28,6 +28,13 @@
+         android:summary="@string/sable_mobile_manager_explanation"
+         android:selectable="false" />
+ 
++    <Preference
++        android:key="sable_mm_control_center"
++        android:title="@string/sable_acc_title"
++        android:summary="@string/sable_acc_summary"
++        settings:keywords="@string/sable_acc_keywords"
++        android:fragment="com.android.settings.applications.sable.SableAppControlCenterFragment" />
++
+     <Preference
+         android:key="sable_mm_network"
+         android:title="@string/sable_network_manager_title"
+@@ -35,6 +42,13 @@
+         settings:keywords="@string/sable_network_manager_keywords"
+         android:fragment="com.android.settings.applications.sable.SableNetworkManagerFragment" />
+ 
++    <Preference
++        android:key="sable_mm_freezer"
++        android:title="@string/sable_freezer_title"
++        android:summary="@string/sable_freezer_none"
++        settings:keywords="@string/sable_freezer_keywords"
++        android:fragment="com.android.settings.applications.sable.SableFreezerFragment" />
++
+     <Preference
+         android:key="sable_mm_background"
+         android:title="@string/sable_mm_background_title"
+@@ -46,13 +60,6 @@
+             android:value="com.android.settings.Settings$AppBatteryUsageActivity" />
+     </Preference>
+ 
+-    <Preference
+-        android:key="sable_mm_app_lock"
+-        android:title="@string/sable_app_lock_title"
+-        android:summary="@string/sable_app_lock_none"
+-        settings:keywords="@string/sable_app_lock_keywords"
+-        android:fragment="com.android.settings.applications.sable.SableAppLockFragment" />
+-
+     <Preference
+         android:key="sable_mm_focus"
+         android:title="@string/sable_focus_title"
+@@ -60,6 +67,13 @@
+         settings:keywords="@string/sable_focus_keywords"
+         android:fragment="com.android.settings.applications.sable.SableFocusModeFragment" />
+ 
++    <Preference
++        android:key="sable_mm_student"
++        android:title="@string/sable_student_title"
++        android:summary="@string/sable_student_off"
++        settings:keywords="@string/sable_student_keywords"
++        android:fragment="com.android.settings.applications.sable.SableStudentModeFragment" />
++
+     <Preference
+         android:key="sable_mm_spaces"
+         android:title="@string/sable_spaces_title"
+diff --git a/res/xml/sable_private_space.xml b/res/xml/sable_private_space.xml
+index 5de540e..ebe8748 100644
+--- a/res/xml/sable_private_space.xml
++++ b/res/xml/sable_private_space.xml
+@@ -15,8 +15,8 @@
+      limitations under the License.
+ -->
+ <!-- Private Space & Dual Apps: Android's private, clone and work profiles. Each row opens
+-     Android's own page; rows the build cannot support stay and explain. App lock links here
+-     and back. -->
++     Android's own page; rows the build cannot support stay and explain. There is no App lock
++     (no launch gate in this build); "app lock" searches land here. -->
+ <PreferenceScreen
+     xmlns:android="http://schemas.android.com/apk/res/android"
+     xmlns:settings="http://schemas.android.com/apk/res-auto"
+@@ -47,12 +47,6 @@
+         android:key="sable_spaces_work"
+         android:title="@string/sable_spaces_work_title" />
+ 
+-    <Preference
+-        android:key="sable_spaces_app_lock"
+-        android:title="@string/sable_app_lock_title"
+-        settings:keywords="@string/sable_app_lock_keywords"
+-        android:fragment="com.android.settings.applications.sable.SableAppLockFragment" />
+-
+     <Preference
+         android:key="sable_spaces_boundary"
+         android:summary="@string/sable_spaces_boundary_note"
+diff --git a/res/xml/sable_student_mode.xml b/res/xml/sable_student_mode.xml
+new file mode 100644
+index 0000000..c02b4a1
+--- /dev/null
++++ b/res/xml/sable_student_mode.xml
+@@ -0,0 +1,66 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<!-- Student mode: switch, time window, allow list and disclosure (SableStudentModeFragment). -->
++<PreferenceScreen
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:settings="http://schemas.android.com/apk/res-auto"
++    android:key="sable_student_screen"
++    android:title="@string/sable_student_title"
++    settings:keywords="@string/sable_student_keywords">
++
++    <SwitchPreferenceCompat
++        android:key="sable_student_switch"
++        android:title="@string/sable_student_switch"
++        android:summary="@string/sable_student_switch_summary"
++        android:persistent="false" />
++
++    <SwitchPreferenceCompat
++        android:key="sable_student_schedule"
++        android:title="@string/sable_student_schedule_switch"
++        android:persistent="false"
++        settings:searchable="false" />
++
++    <MultiSelectListPreference
++        android:key="sable_student_days"
++        android:title="@string/sable_student_days"
++        android:persistent="false"
++        settings:searchable="false" />
++
++    <ListPreference
++        android:key="sable_student_start"
++        android:title="@string/sable_student_start"
++        android:persistent="false"
++        settings:searchable="false" />
++
++    <ListPreference
++        android:key="sable_student_end"
++        android:title="@string/sable_student_end"
++        android:persistent="false"
++        settings:searchable="false" />
++
++    <PreferenceCategory
++        android:key="sable_student_allowed"
++        android:title="@string/sable_student_allowed_title"
++        settings:searchable="false" />
++
++    <Preference
++        android:key="sable_student_disclosure"
++        android:summary="@string/sable_student_disclosure"
++        android:selectable="false"
++        settings:searchable="false" />
++
++</PreferenceScreen>
+diff --git a/src/com/android/settings/Settings.java b/src/com/android/settings/Settings.java
+index 0924844..17ebf69 100644
+--- a/src/com/android/settings/Settings.java
++++ b/src/com/android/settings/Settings.java
+@@ -166,6 +166,10 @@ public class Settings extends SettingsActivity {
+     public static class SableMobileManagerActivity extends SettingsActivity { /* empty */ }
+     /** SableOS: org.sableos.settings.FOCUS_MODE and the Focus mode configuration page. */
+     public static class SableFocusModeActivity extends SettingsActivity { /* empty */ }
++    /** SableOS: org.sableos.settings.APP_CONTROLS and Android's paused-app details button. */
++    public static class SableAppControlCenterActivity extends SettingsActivity { /* empty */ }
++    /** SableOS: org.sableos.settings.STUDENT_MODE and the Student mode configuration page. */
++    public static class SableStudentModeActivity extends SettingsActivity { /* empty */ }
+     public static class AppStorageSettingsActivity extends CatalystSettingsActivity {
+         public AppStorageSettingsActivity() {
+             super(AppInfoStorageScreen.KEY, AppStorageSettings.class);
+diff --git a/src/com/android/settings/applications/sable/SableAppControlCenterFragment.java b/src/com/android/settings/applications/sable/SableAppControlCenterFragment.java
+new file mode 100644
+index 0000000..0c49f43
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/SableAppControlCenterFragment.java
+@@ -0,0 +1,457 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable;
++
++import android.app.settings.SettingsEnums;
++import android.content.ActivityNotFoundException;
++import android.content.Context;
++import android.content.Intent;
++import android.content.pm.ApplicationInfo;
++import android.content.pm.PackageManager;
++import android.graphics.drawable.Drawable;
++import android.net.NetworkPolicyManager;
++import android.net.Uri;
++import android.os.Bundle;
++import android.os.UserHandle;
++import android.provider.Settings;
++import android.text.TextUtils;
++import android.util.IconDrawableFactory;
++import android.util.Log;
++import android.view.View;
++import android.widget.Toast;
++
++import androidx.appcompat.app.AlertDialog;
++import androidx.preference.ListPreference;
++import androidx.preference.Preference;
++import androidx.preference.PreferenceCategory;
++
++import com.android.settings.R;
++import com.android.settings.SettingsPreferenceFragment;
++import com.android.settings.applications.sable.model.AppControlRows;
++import com.android.settings.applications.sable.model.AppSuspensions;
++import com.android.settings.applications.sable.model.NetworkAccessPolicy;
++import com.android.settings.fuelgauge.BatteryOptimizeUtils;
++import com.android.settings.search.BaseSearchIndexProvider;
++import com.android.settingslib.search.SearchIndexable;
++import com.android.settingslib.utils.ThreadUtils;
++
++import java.util.ArrayList;
++import java.util.HashMap;
++import java.util.List;
++import java.util.Locale;
++import java.util.Map;
++import java.util.Set;
++import java.util.TreeSet;
++
++/**
++ * App Control Center (MOBILE_MANAGER_APP_CONTROLS_UX section 1): every launcher app (and the
++ * apps the Freezer hid) with its network access, background mode and paused state, read from
++ * Android's own stores, and filters. Enter on an app opens its actions: Freeze or Unfreeze,
++ * Hide or Show (frozen apps the user installed), Network access, App security &amp; privacy
++ * and App info. Also org.sableos.settings.APP_CONTROLS and the button of Android's dialog for
++ * an app Settings paused (that app is scrolled into view).
++ */
++@SearchIndexable
++public class SableAppControlCenterFragment extends SettingsPreferenceFragment
++        implements Preference.OnPreferenceChangeListener {
++    private static final String TAG = "SableAppControlCenter";
++    private static final String KEY_FILTER = "sable_acc_filter";
++    private static final String KEY_APPS = "sable_acc_apps";
++    private static final String PREFIX = "sable_acc:";
++
++    private ListPreference mFilter;
++    private PreferenceCategory mApps;
++    private SableAppListKeyboard mKeyboard;
++    private final List<AppControlRows.Row> mRows = new ArrayList<>();
++    private final Map<String, Drawable> mIcons = new HashMap<>();
++    private Set<String> mNeverPause = new TreeSet<>();
++    private int mLoadGeneration;
++    private String mScrollTo;
++
++    /** One load, read off the main thread. */
++    private static final class Loaded {
++        final List<AppControlRows.Row> rows;
++        final Map<String, Drawable> icons;
++        final Set<String> neverPause;
++
++        Loaded(List<AppControlRows.Row> rows, Map<String, Drawable> icons,
++                Set<String> neverPause) {
++            this.rows = rows;
++            this.icons = icons;
++            this.neverPause = neverPause;
++        }
++    }
++
++    @Override
++    public int getMetricsCategory() {
++        return SettingsEnums.MANAGE_APPLICATIONS;
++    }
++
++    @Override
++    public void onCreate(Bundle icicle) {
++        super.onCreate(icicle);
++        addPreferencesFromResource(R.xml.sable_app_control_center);
++        mFilter = findPreference(KEY_FILTER);
++        mFilter.setPersistent(false);
++        mFilter.setOnPreferenceChangeListener(this);
++        if (mFilter.getValue() == null) {
++            mFilter.setValue(AppControlRows.Filter.ALL.name());
++        }
++        mApps = findPreference(KEY_APPS);
++        final Intent intent = getActivity() == null ? null : getActivity().getIntent();
++        if (intent != null && Intent.ACTION_SHOW_SUSPENDED_APP_DETAILS.equals(
++                intent.getAction())) {
++            mScrollTo = intent.getStringExtra(Intent.EXTRA_PACKAGE_NAME);
++        }
++    }
++
++    @Override
++    public void onViewCreated(View view, Bundle savedInstanceState) {
++        super.onViewCreated(view, savedInstanceState);
++        mKeyboard = SableAppListKeyboard.attach(this, getListView(), getMetricsCategory());
++    }
++
++    @Override
++    public void onDestroyView() {
++        if (mKeyboard != null) {
++            mKeyboard.detach();
++            mKeyboard = null;
++        }
++        super.onDestroyView();
++    }
++
++    @Override
++    public void onResume() {
++        super.onResume();
++        load();
++    }
++
++    private void load() {
++        final Context context = getPrefContext().getApplicationContext();
++        final int generation = ++mLoadGeneration;
++        ThreadUtils.postOnBackgroundThread(() -> {
++            // Also catches up if a mode ended while Settings was not told.
++            SableAppSuspender.reconcile(context);
++            final Loaded loaded = loadRows(context);
++            ThreadUtils.postOnMainThread(() -> {
++                if (generation == mLoadGeneration && isAdded()) {
++                    show(loaded);
++                }
++            });
++        });
++    }
++
++    private static Loaded loadRows(Context context) {
++        final PackageManager pm = context.getPackageManager();
++        final NetworkPolicyManager npm = NetworkPolicyManager.from(context);
++        final NetworkAccessPolicy.Masks masks = new NetworkAccessPolicy.Masks(
++                NetworkPolicyManager.POLICY_REJECT_ALL,
++                NetworkPolicyManager.POLICY_REJECT_CELLULAR,
++                NetworkPolicyManager.POLICY_REJECT_WIFI,
++                NetworkPolicyManager.POLICY_REJECT_VPN,
++                NetworkPolicyManager.POLICY_REJECT_METERED_BACKGROUND);
++        final Map<String, AppSuspensions.Reason> reasons =
++                SableAppSuspender.heldReasons(context);
++        final Set<String> packages = new TreeSet<>();
++        for (SableAppControls.LauncherApp app : SableAppControls.launcherApps(context, false)) {
++            packages.add(app.packageName);
++        }
++        packages.addAll(SableFreezer.hiddenBySettings(context));
++        final IconDrawableFactory iconFactory = IconDrawableFactory.newInstance(context);
++        final List<AppControlRows.Row> rows = new ArrayList<>();
++        final Map<String, Drawable> icons = new HashMap<>();
++        for (String pkg : packages) {
++            final ApplicationInfo ai;
++            try {
++                ai = pm.getApplicationInfo(pkg, PackageManager.ApplicationInfoFlags.of(
++                        PackageManager.MATCH_UNINSTALLED_PACKAGES));
++            } catch (PackageManager.NameNotFoundException e) {
++                continue;
++            }
++            final CharSequence label = ai.loadLabel(pm);
++            boolean suspended = false;
++            try {
++                suspended = pm.isPackageSuspended(pkg);
++            } catch (PackageManager.NameNotFoundException | RuntimeException e) {
++                // Treated as not paused.
++            }
++            rows.add(new AppControlRows.Row(pkg, label == null ? null : label.toString(),
++                    network(npm, masks, ai.uid), background(context, ai.uid, pkg),
++                    AppControlRows.paused(suspended, reasons.get(pkg)),
++                    SableFreezer.isHidden(context, pkg), SableFreezer.userInstalled(ai)));
++            icons.put(pkg, iconFactory.getBadgedIcon(ai));
++        }
++        return new Loaded(rows, icons, SableAppControls.protectedPackages(context));
++    }
++
++    private static AppControlRows.Network network(NetworkPolicyManager npm,
++            NetworkAccessPolicy.Masks masks, int uid) {
++        int policy = 0;
++        try {
++            policy = npm.getUidPolicy(uid);
++        } catch (RuntimeException e) {
++            Log.w(TAG, "Cannot read network policy for " + uid, e);
++        }
++        final NetworkAccessPolicy.State s =
++                NetworkAccessPolicy.evaluate(policy, UserHandle.isApp(uid), masks);
++        switch (s.summary) {
++            case BLOCKED:
++                return AppControlRows.Network.BLOCKED;
++            case NOT_MANAGEABLE:
++                return AppControlRows.Network.NOT_MANAGEABLE;
++            case PARTIAL:
++                return s.blockedCellular || s.blockedWifi || s.blockedVpn
++                        || s.backgroundDataRestricted
++                        ? AppControlRows.Network.PARTIAL : AppControlRows.Network.ALLOWED;
++            default:
++                return AppControlRows.Network.ALLOWED;
++        }
++    }
++
++    private static AppControlRows.Background background(Context context, int uid, String pkg) {
++        try {
++            switch (new BatteryOptimizeUtils(context, uid, pkg).getAppOptimizationMode()) {
++                case BatteryOptimizeUtils.MODE_RESTRICTED:
++                    return AppControlRows.Background.RESTRICTED;
++                case BatteryOptimizeUtils.MODE_UNRESTRICTED:
++                    return AppControlRows.Background.UNRESTRICTED;
++                case BatteryOptimizeUtils.MODE_OPTIMIZED:
++                    return AppControlRows.Background.OPTIMIZED;
++                default:
++                    return AppControlRows.Background.UNKNOWN;
++            }
++        } catch (RuntimeException e) {
++            return AppControlRows.Background.UNKNOWN;
++        }
++    }
++
++    private void show(Loaded loaded) {
++        mRows.clear();
++        mRows.addAll(loaded.rows);
++        mIcons.clear();
++        mIcons.putAll(loaded.icons);
++        mNeverPause = loaded.neverPause;
++        render();
++        if (mScrollTo != null) {
++            scrollToPreference(PREFIX + mScrollTo);
++            mScrollTo = null;
++        }
++    }
++
++    private AppControlRows.Filter filter() {
++        try {
++            return AppControlRows.Filter.valueOf(mFilter.getValue());
++        } catch (IllegalArgumentException | NullPointerException e) {
++            return AppControlRows.Filter.ALL;
++        }
++    }
++
++    private void render() {
++        final AppControlRows.Filter filter = filter();
++        final List<AppControlRows.Row> shown =
++                AppControlRows.filter(mRows, filter, Locale.getDefault());
++        mFilter.setSummary(mFilter.getEntry() + getString(R.string.sable_acc_separator)
++                + getResources().getQuantityString(R.plurals.sable_acc_count, shown.size(),
++                        shown.size()));
++        mApps.removeAll();
++        if (shown.isEmpty()) {
++            final Preference empty = new Preference(getPrefContext());
++            empty.setTitle(R.string.sable_app_controls_empty);
++            empty.setSelectable(false);
++            mApps.addPreference(empty);
++            return;
++        }
++        for (AppControlRows.Row row : shown) {
++            final Preference pref = new Preference(getPrefContext());
++            pref.setKey(PREFIX + row.packageName);
++            pref.setTitle(row.label);
++            pref.setSummary(summary(row));
++            final Drawable icon = mIcons.get(row.packageName);
++            if (icon != null) {
++                pref.setIcon(icon);
++            }
++            pref.setPersistent(false);
++            mApps.addPreference(pref);
++        }
++    }
++
++    /** "network allowed · background unrestricted · frozen · hidden from launcher". */
++    private String summary(AppControlRows.Row row) {
++        final List<String> parts = new ArrayList<>();
++        switch (row.network) {
++            case BLOCKED:
++                parts.add(getString(R.string.sable_acc_network_blocked));
++                break;
++            case PARTIAL:
++                parts.add(getString(R.string.sable_acc_network_partial));
++                break;
++            case NOT_MANAGEABLE:
++                parts.add(getString(R.string.sable_acc_network_fixed));
++                break;
++            default:
++                parts.add(getString(R.string.sable_acc_network_allowed));
++                break;
++        }
++        switch (row.background) {
++            case RESTRICTED:
++                parts.add(getString(R.string.sable_acc_background_restricted));
++                break;
++            case UNRESTRICTED:
++                parts.add(getString(R.string.sable_acc_background_unrestricted));
++                break;
++            case OPTIMIZED:
++                parts.add(getString(R.string.sable_acc_background_optimized));
++                break;
++            default:
++                break;
++        }
++        switch (row.paused) {
++            case FROZEN:
++                parts.add(getString(R.string.sable_acc_paused_frozen));
++                break;
++            case STUDENT:
++                parts.add(getString(R.string.sable_acc_paused_student));
++                break;
++            case FOCUS:
++                parts.add(getString(R.string.sable_acc_paused_focus));
++                break;
++            case OTHER:
++                parts.add(getString(R.string.sable_acc_paused_other));
++                break;
++            default:
++                break;
++        }
++        if (row.hidden) {
++            parts.add(getString(R.string.sable_acc_hidden));
++        }
++        return TextUtils.join(getString(R.string.sable_acc_separator), parts);
++    }
++
++    @Override
++    public boolean onPreferenceChange(Preference preference, Object newValue) {
++        if (preference == mFilter && newValue instanceof String) {
++            mFilter.setValue((String) newValue);
++            render();
++        }
++        return false;
++    }
++
++    @Override
++    public boolean onPreferenceTreeClick(Preference preference) {
++        final String key = preference.getKey();
++        if (key != null && key.startsWith(PREFIX)) {
++            final String pkg = key.substring(PREFIX.length());
++            for (AppControlRows.Row row : mRows) {
++                if (row.packageName.equals(pkg)) {
++                    showActions(row);
++                    return true;
++                }
++            }
++        }
++        return super.onPreferenceTreeClick(preference);
++    }
++
++    private enum Action { FREEZE, UNFREEZE, HIDE, UNHIDE, NETWORK, SECURITY, INFO }
++
++    private void showActions(AppControlRows.Row row) {
++        final boolean protectedApp = mNeverPause.contains(row.packageName);
++        final List<Action> actions = new ArrayList<>();
++        final List<CharSequence> labels = new ArrayList<>();
++        if (row.frozen()) {
++            add(actions, labels, Action.UNFREEZE, R.string.sable_acc_action_unfreeze);
++        } else if (!protectedApp && row.paused != AppControlRows.Paused.OTHER) {
++            add(actions, labels, Action.FREEZE, R.string.sable_acc_action_freeze);
++        }
++        if (AppControlRows.canHide(row, protectedApp)) {
++            if (row.hidden) {
++                add(actions, labels, Action.UNHIDE, R.string.sable_acc_action_unhide);
++            } else {
++                add(actions, labels, Action.HIDE, R.string.sable_acc_action_hide);
++            }
++        }
++        add(actions, labels, Action.NETWORK, R.string.sable_acc_action_network);
++        add(actions, labels, Action.SECURITY, R.string.sable_acc_action_security);
++        add(actions, labels, Action.INFO, R.string.sable_acc_action_info);
++        new AlertDialog.Builder(getPrefContext())
++                .setTitle(row.label)
++                .setItems(labels.toArray(new CharSequence[0]),
++                        (dialog, which) -> run(row, actions.get(which)))
++                .setNegativeButton(android.R.string.cancel, null)
++                .show();
++    }
++
++    private void add(List<Action> actions, List<CharSequence> labels, Action a, int label) {
++        actions.add(a);
++        labels.add(getString(label));
++    }
++
++    private void run(AppControlRows.Row row, Action action) {
++        final Context context = getPrefContext().getApplicationContext();
++        switch (action) {
++            case FREEZE:
++            case UNFREEZE:
++            case HIDE:
++            case UNHIDE:
++                ThreadUtils.postOnBackgroundThread(() -> {
++                    final boolean ok;
++                    if (action == Action.FREEZE || action == Action.UNFREEZE) {
++                        ok = SableFreezer.setFrozen(context, row.packageName,
++                                action == Action.FREEZE);
++                    } else {
++                        ok = SableFreezer.setHidden(context, row.packageName,
++                                action == Action.HIDE);
++                    }
++                    ThreadUtils.postOnMainThread(() -> {
++                        if (!isAdded()) {
++                            return;
++                        }
++                        if (!ok) {
++                            Toast.makeText(getPrefContext(), R.string.sable_acc_action_failed,
++                                    Toast.LENGTH_SHORT).show();
++                        }
++                        load();
++                    });
++                });
++                break;
++            case NETWORK:
++                open(new Intent(getPrefContext(),
++                        com.android.settings.Settings.SableNetworkManagerActivity.class));
++                break;
++            case SECURITY:
++                open(new Intent(getPrefContext(),
++                        com.android.settings.Settings.SableAppSecurityActivity.class)
++                        .setAction("org.sableos.settings.APP_SECURITY")
++                        .setData(Uri.fromParts("package", row.packageName, null)));
++                break;
++            default:
++                open(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
++                        .setData(Uri.fromParts("package", row.packageName, null)));
++                break;
++        }
++    }
++
++    private void open(Intent intent) {
++        try {
++            startActivity(intent);
++        } catch (ActivityNotFoundException | SecurityException e) {
++            Log.w(TAG, "Cannot open " + intent, e);
++        }
++    }
++
++    public static final BaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
++            new BaseSearchIndexProvider(R.xml.sable_app_control_center);
++}
+diff --git a/src/com/android/settings/applications/sable/SableAppControls.java b/src/com/android/settings/applications/sable/SableAppControls.java
+index 54a199d..3d35c98 100644
+--- a/src/com/android/settings/applications/sable/SableAppControls.java
++++ b/src/com/android/settings/applications/sable/SableAppControls.java
+@@ -44,15 +44,23 @@ import java.util.TreeSet;
+ 
+ /**
+  * Shared Android-side helpers for the Mobile Manager pages: the launcher apps of the current
+- * user, the apps that must never be locked or paused, and the small device-protected store
+- * that holds App lock and Focus mode choices (per user; nothing leaves the device).
++ * user, the apps that must never be paused, and the small device-protected store that holds
++ * the Focus mode, Student mode and Freezer choices (per user; nothing leaves the device).
+  */
+ public final class SableAppControls {
+     private static final String TAG = "SableAppControls";
+     private static final String PREFS = "sable_app_controls";
+-    static final String KEY_APP_LOCK = "app_lock_packages";
+     static final String KEY_FOCUS_PAUSE = "focus_pause_packages";
++    /** Every package Settings holds suspended (Focus, Student mode and Freezer together). */
+     static final String KEY_FOCUS_HELD = "focus_paused_by_settings";
++    /** Freezer: apps frozen until the user unfreezes them. */
++    static final String KEY_FROZEN = "frozen_packages";
++    /** Freezer: apps Settings hid from the launcher (setApplicationHiddenSettingAsUser). */
++    static final String KEY_HIDDEN = "hidden_by_settings";
++    /** Student mode: launcher apps that stay usable while it is on. */
++    static final String KEY_STUDENT_ALLOW = "student_allow_packages";
++    /** Student mode: its time window (StudentSchedule's stored form). */
++    static final String KEY_STUDENT_SCHEDULE = "student_schedule";
+     private static final String SYSTEMUI_PACKAGE = "com.android.systemui";
+ 
+     /** One launcher app of the current user. */
+@@ -87,10 +95,18 @@ public final class SableAppControls {
+         prefs(context).edit().putString(key, PackageSet.format(packages)).commit();
+     }
+ 
++    static String readString(Context context, String key) {
++        return prefs(context).getString(key, null);
++    }
++
++    static void writeString(Context context, String key, String value) {
++        prefs(context).edit().putString(key, value).commit();
++    }
++
+     /**
+      * Apps the phone needs to stay usable and recoverable: Settings itself, the system UI,
+      * every home app, the default dialer and SMS app, and the current keyboard. They are never
+-     * offered for App lock or Focus pausing.
++     * offered for freezing or pausing.
+      */
+     static Set<String> protectedPackages(Context context) {
+         final Set<String> out = new TreeSet<>();
+diff --git a/src/com/android/settings/applications/sable/SableAppLockFragment.java b/src/com/android/settings/applications/sable/SableAppLockFragment.java
+deleted file mode 100644
+index 3cd7442..0000000
+--- a/src/com/android/settings/applications/sable/SableAppLockFragment.java
++++ /dev/null
+@@ -1,196 +0,0 @@
+-/*
+- * Copyright (C) 2026 The SableOS Project
+- *
+- * Licensed under the Apache License, Version 2.0 (the "License");
+- * you may not use this file except in compliance with the License.
+- * You may obtain a copy of the License at
+- *
+- *      http://www.apache.org/licenses/LICENSE-2.0
+- *
+- * Unless required by applicable law or agreed to in writing, software
+- * distributed under the License is distributed on an "AS IS" BASIS,
+- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+- * See the License for the specific language governing permissions and
+- * limitations under the License.
+- */
+-
+-package com.android.settings.applications.sable;
+-
+-import android.app.settings.SettingsEnums;
+-import android.content.Context;
+-import android.content.res.Resources;
+-import android.os.Bundle;
+-import android.view.View;
+-
+-import androidx.preference.Preference;
+-import androidx.preference.PreferenceCategory;
+-import androidx.preference.SwitchPreferenceCompat;
+-
+-import com.android.settings.R;
+-import com.android.settings.SettingsPreferenceFragment;
+-import com.android.settings.applications.sable.model.AppLockPolicy;
+-import com.android.settings.applications.sable.model.PackageSet;
+-import com.android.settingslib.utils.ThreadUtils;
+-
+-import java.util.ArrayList;
+-import java.util.List;
+-import java.util.Set;
+-import java.util.TreeSet;
+-
+-/**
+- * App lock (Mobile Manager &gt; App lock, Private Space &amp; Dual Apps &gt; App lock). The
+- * chosen apps are recorded, and the page and its rows say "not enforced" for as long as
+- * {@link AppLockPolicy#PLATFORM_ENFORCEMENT} says so: LineageOS 23.2 has no launch gate, and
+- * Settings does not pretend to be one. The page points to Private Space, which does keep apps
+- * behind the screen lock.
+- */
+-public class SableAppLockFragment extends SettingsPreferenceFragment
+-        implements Preference.OnPreferenceChangeListener {
+-    private static final String KEY_STATUS = "sable_app_lock_status";
+-    private static final String KEY_APPS = "sable_app_lock_apps";
+-    private static final String PREFIX = "sable_app_lock:";
+-
+-    private PreferenceCategory mAppsCategory;
+-    private Preference mStatus;
+-    private SableAppListKeyboard mKeyboard;
+-    private Set<String> mChosen = new TreeSet<>();
+-    private int mLoadGeneration;
+-
+-    @Override
+-    public int getMetricsCategory() {
+-        return SettingsEnums.MANAGE_APPLICATIONS;
+-    }
+-
+-    @Override
+-    public void onCreate(Bundle icicle) {
+-        super.onCreate(icicle);
+-        addPreferencesFromResource(R.xml.sable_app_lock);
+-        mAppsCategory = findPreference(KEY_APPS);
+-        mStatus = findPreference(KEY_STATUS);
+-    }
+-
+-    @Override
+-    public void onViewCreated(View view, Bundle savedInstanceState) {
+-        super.onViewCreated(view, savedInstanceState);
+-        mKeyboard = SableAppListKeyboard.attach(this, getListView(), getMetricsCategory());
+-    }
+-
+-    @Override
+-    public void onDestroyView() {
+-        if (mKeyboard != null) {
+-            mKeyboard.detach();
+-            mKeyboard = null;
+-        }
+-        super.onDestroyView();
+-    }
+-
+-    @Override
+-    public void onResume() {
+-        super.onResume();
+-        load();
+-    }
+-
+-    /** The App lock row summary, shared with Mobile Manager and Private Space. */
+-    static String summary(Resources res, int chosenCount) {
+-        switch (AppLockPolicy.status(chosenCount, AppLockPolicy.PLATFORM_ENFORCEMENT)) {
+-            case LOCKED:
+-                return res.getQuantityString(R.plurals.sable_app_lock_locked, chosenCount,
+-                        chosenCount);
+-            case CHOSEN_NOT_ENFORCED:
+-                return res.getQuantityString(R.plurals.sable_app_lock_not_enforced,
+-                        chosenCount, chosenCount);
+-            default:
+-                return res.getString(R.string.sable_app_lock_none);
+-        }
+-    }
+-
+-    /** Chosen apps that are still eligible launcher apps (uninstalled ones drop out). */
+-    static int chosenCount(Context context) {
+-        final Set<String> protectedPkgs = SableAppControls.protectedPackages(context);
+-        final List<String> eligible = new ArrayList<>();
+-        for (SableAppControls.LauncherApp app : SableAppControls.launcherApps(context, false)) {
+-            if (AppLockPolicy.isEligible(app.packageName, true, protectedPkgs)) {
+-                eligible.add(app.packageName);
+-            }
+-        }
+-        return PackageSet.retain(SableAppControls.readSet(context,
+-                SableAppControls.KEY_APP_LOCK), eligible).size();
+-    }
+-
+-    private void load() {
+-        final Context context = getPrefContext().getApplicationContext();
+-        final int generation = ++mLoadGeneration;
+-        ThreadUtils.postOnBackgroundThread(() -> {
+-            final Set<String> protectedPkgs = SableAppControls.protectedPackages(context);
+-            final List<SableAppControls.LauncherApp> apps = new ArrayList<>();
+-            for (SableAppControls.LauncherApp app
+-                    : SableAppControls.launcherApps(context, true)) {
+-                if (AppLockPolicy.isEligible(app.packageName, true, protectedPkgs)) {
+-                    apps.add(app);
+-                }
+-            }
+-            final Set<String> chosen = SableAppControls.readSet(context,
+-                    SableAppControls.KEY_APP_LOCK);
+-            ThreadUtils.postOnMainThread(() -> {
+-                if (generation == mLoadGeneration && isAdded()) {
+-                    show(apps, chosen);
+-                }
+-            });
+-        });
+-    }
+-
+-    private void show(List<SableAppControls.LauncherApp> apps, Set<String> chosen) {
+-        mChosen = chosen;
+-        mAppsCategory.removeAll();
+-        final List<String> listed = new ArrayList<>();
+-        for (SableAppControls.LauncherApp app : apps) {
+-            final SwitchPreferenceCompat pref = new SwitchPreferenceCompat(getPrefContext());
+-            pref.setKey(PREFIX + app.packageName);
+-            pref.setTitle(app.label);
+-            if (app.icon != null) {
+-                pref.setIcon(app.icon);
+-            }
+-            pref.setPersistent(false);
+-            pref.setChecked(chosen.contains(app.packageName));
+-            pref.setOnPreferenceChangeListener(this);
+-            mAppsCategory.addPreference(pref);
+-            listed.add(app.packageName);
+-        }
+-        if (apps.isEmpty()) {
+-            final Preference empty = new Preference(getPrefContext());
+-            empty.setTitle(R.string.sable_app_controls_empty);
+-            empty.setSelectable(false);
+-            mAppsCategory.addPreference(empty);
+-        }
+-        updateStatus(PackageSet.retain(chosen, listed).size());
+-    }
+-
+-    private void updateStatus(int count) {
+-        mStatus.setSummary(summary(getResources(), count) + "\n\n"
+-                + getString(R.string.sable_app_lock_status_explanation));
+-    }
+-
+-    @Override
+-    public boolean onPreferenceChange(Preference preference, Object newValue) {
+-        final String key = preference.getKey();
+-        if (key == null || !key.startsWith(PREFIX) || !(newValue instanceof Boolean)) {
+-            return false;
+-        }
+-        final String pkg = key.substring(PREFIX.length());
+-        mChosen = PackageSet.with(mChosen, pkg, (Boolean) newValue);
+-        final Set<String> toStore = mChosen;
+-        final Context context = getPrefContext().getApplicationContext();
+-        ThreadUtils.postOnBackgroundThread(() ->
+-                SableAppControls.writeSet(context, SableAppControls.KEY_APP_LOCK, toStore));
+-        int listed = 0;
+-        for (int i = 0; i < mAppsCategory.getPreferenceCount(); i++) {
+-            final Preference p = mAppsCategory.getPreference(i);
+-            if (p.getKey() != null && p.getKey().startsWith(PREFIX)
+-                    && mChosen.contains(p.getKey().substring(PREFIX.length()))) {
+-                listed++;
+-            }
+-        }
+-        updateStatus(listed);
+-        return true;
+-    }
+-}
+diff --git a/src/com/android/settings/applications/sable/SableAppSuspender.java b/src/com/android/settings/applications/sable/SableAppSuspender.java
+new file mode 100644
+index 0000000..3bd814e
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/SableAppSuspender.java
+@@ -0,0 +1,143 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable;
++
++import android.content.Context;
++import android.content.pm.PackageManager;
++import android.content.pm.SuspendDialogInfo;
++import android.util.Log;
++
++import com.android.settings.R;
++import com.android.settings.applications.sable.model.AppSuspensions;
++import com.android.settings.applications.sable.model.FocusModePolicy;
++import com.android.settings.applications.sable.model.StudentSchedule;
++
++import java.util.ArrayList;
++import java.util.Arrays;
++import java.util.Collections;
++import java.util.HashSet;
++import java.util.List;
++import java.util.Map;
++import java.util.Set;
++import java.util.TreeMap;
++
++/**
++ * The one place Settings suspends and releases apps (see {@link AppSuspensions}): Freezer,
++ * Student mode and Focus mode together. Android keeps one suspension per suspending package,
++ * so the three must agree; an app is released only when none of them wants it, and only
++ * packages Settings suspended itself are ever released. Called whenever a mode starts or
++ * ends, a Freezer or allow-list choice changes, and when the Mobile Manager pages are shown.
++ */
++final class SableAppSuspender {
++    private static final String TAG = "SableAppSuspender";
++    private static final Object LOCK = new Object();
++
++    private SableAppSuspender() {
++    }
++
++    /** Reconciles with the modes' current states; returns the packages Android refused. */
++    static Set<String> reconcile(Context context) {
++        return reconcile(context, SableFocusMode.isActive(context),
++                SableStudentMode.isActive(context));
++    }
++
++    /**
++     * Suspends what Freezer, Student mode (while {@code studentActive}) and Focus mode (while
++     * {@code focusActive}) want and releases the rest of what Settings holds. Returns the
++     * packages Android refused to suspend.
++     */
++    static Set<String> reconcile(Context context, boolean focusActive, boolean studentActive) {
++        synchronized (LOCK) {
++            final Set<String> held = SableAppControls.readSet(context,
++                    SableAppControls.KEY_FOCUS_HELD);
++            final Map<String, AppSuspensions.Reason> targets =
++                    targets(context, focusActive, studentActive);
++            final Set<String> neverPause = SableAppControls.protectedPackages(context);
++            final FocusModePolicy.Plan plan = AppSuspensions.plan(targets, held, neverPause);
++            if (plan.isEmpty()) {
++                return Collections.emptySet();
++            }
++            final PackageManager pm = context.getPackageManager();
++            final Set<String> failedSuspend = new HashSet<>();
++            final Set<String> failedRelease = new HashSet<>();
++            if (!plan.suspend.isEmpty()) {
++                // One dialog for every reason: Android keeps one suspension per suspender, and
++                // its button opens the App Control Center, which says why each app is paused.
++                final SuspendDialogInfo dialog = new SuspendDialogInfo.Builder()
++                        .setTitle(R.string.sable_focus_suspended_title)
++                        .setMessage(R.string.sable_focus_suspended_message)
++                        .setNeutralButtonText(R.string.sable_focus_suspended_button)
++                        .setNeutralButtonAction(SuspendDialogInfo.BUTTON_ACTION_MORE_DETAILS)
++                        .build();
++                failedSuspend.addAll(apply(pm, plan.suspend, true, dialog));
++            }
++            if (!plan.release.isEmpty()) {
++                failedRelease.addAll(apply(pm, plan.release, false, null));
++            }
++            SableAppControls.writeSet(context, SableAppControls.KEY_FOCUS_HELD,
++                    FocusModePolicy.heldAfter(held, plan, failedSuspend, failedRelease));
++            return failedSuspend;
++        }
++    }
++
++    /** What Settings wants suspended now, each with its strongest reason. */
++    static Map<String, AppSuspensions.Reason> targets(Context context, boolean focusActive,
++            boolean studentActive) {
++        final Set<String> neverPause = SableAppControls.protectedPackages(context);
++        Set<String> studentBlocked = Collections.emptySet();
++        if (studentActive) {
++            final List<String> launcher = new ArrayList<>();
++            for (SableAppControls.LauncherApp app
++                    : SableAppControls.launcherApps(context, false)) {
++                launcher.add(app.packageName);
++            }
++            studentBlocked = StudentSchedule.blocked(launcher,
++                    SableAppControls.readSet(context, SableAppControls.KEY_STUDENT_ALLOW),
++                    neverPause);
++        }
++        return AppSuspensions.targets(
++                SableAppControls.readSet(context, SableAppControls.KEY_FROZEN), focusActive,
++                SableAppControls.readSet(context, SableAppControls.KEY_FOCUS_PAUSE),
++                studentActive, studentBlocked, neverPause);
++    }
++
++    /** The reason for each package Settings holds suspended now (for the App Control Center). */
++    static Map<String, AppSuspensions.Reason> heldReasons(Context context) {
++        final Map<String, AppSuspensions.Reason> targets = targets(context,
++                SableFocusMode.isActive(context), SableStudentMode.isActive(context));
++        final Map<String, AppSuspensions.Reason> out = new TreeMap<>();
++        for (String pkg : SableAppControls.readSet(context, SableAppControls.KEY_FOCUS_HELD)) {
++            final AppSuspensions.Reason r = targets.get(pkg);
++            if (r != null) {
++                out.put(pkg, r);
++            }
++        }
++        return out;
++    }
++
++    private static Set<String> apply(PackageManager pm, Set<String> packages, boolean suspend,
++            SuspendDialogInfo dialog) {
++        final String[] names = packages.toArray(new String[0]);
++        try {
++            final String[] failed = pm.setPackagesSuspended(names, suspend, null, null, dialog);
++            return failed == null ? Collections.emptySet() : new HashSet<>(Arrays.asList(failed));
++        } catch (RuntimeException e) {
++            Log.e(TAG, "Cannot " + (suspend ? "pause" : "release") + " apps", e);
++            return new HashSet<>(packages);
++        }
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/SableFocusMode.java b/src/com/android/settings/applications/sable/SableFocusMode.java
+index 129ca4e..df3e280 100644
+--- a/src/com/android/settings/applications/sable/SableFocusMode.java
++++ b/src/com/android/settings/applications/sable/SableFocusMode.java
+@@ -20,8 +20,6 @@ import android.app.AutomaticZenRule;
+ import android.app.NotificationManager;
+ import android.content.ComponentName;
+ import android.content.Context;
+-import android.content.pm.PackageManager;
+-import android.content.pm.SuspendDialogInfo;
+ import android.net.Uri;
+ import android.service.notification.Condition;
+ import android.service.notification.ZenPolicy;
+@@ -30,9 +28,6 @@ import android.util.Log;
+ import com.android.settings.R;
+ import com.android.settings.applications.sable.model.FocusModePolicy;
+ 
+-import java.util.Arrays;
+-import java.util.Collections;
+-import java.util.HashSet;
+ import java.util.Map;
+ import java.util.Set;
+ 
+@@ -40,14 +35,13 @@ import java.util.Set;
+  * Focus mode on Android's own machinery (see {@link FocusModePolicy}): an AutomaticZenRule
+  * owned by Settings, with Settings' Focus mode page as its configuration activity, so it is
+  * listed in Settings &gt; Modes and in Quick Settings and can be started from either. Pausing
+- * uses the platform package-suspension API; Settings releases only what it suspended, when
+- * the rule's status broadcast says the mode ended ({@link SableFocusModeReceiver}) and again
+- * whenever the Focus or Mobile Manager page is shown.
++ * goes through {@link SableAppSuspender} (shared with the Freezer and Student mode); Settings
++ * releases only what it suspended, when the rule's status broadcast says the mode ended
++ * ({@link SableFocusModeReceiver}) and again whenever the Mobile Manager pages are shown.
+  */
+ public final class SableFocusMode {
+     private static final String TAG = "SableFocusMode";
+     private static final String CONDITION_PATH = "sable_focus";
+-    private static final Object LOCK = new Object();
+ 
+     private SableFocusMode() {
+     }
+@@ -163,57 +157,17 @@ public final class SableFocusMode {
+         return true;
+     }
+ 
+-    /** Reconciles the paused apps with the mode's current state. */
++    /** Reconciles the paused apps with the modes' current states. */
+     static void reconcile(Context context) {
+-        reconcile(context, isActive(context));
++        SableAppSuspender.reconcile(context);
+     }
+ 
+     /**
+-     * Suspends the chosen apps while {@code active}, releases what Settings holds otherwise.
+-     * Returns the packages Android refused to suspend.
++     * Pauses the apps chosen for Focus mode while {@code active} (together with the Freezer
++     * and Student mode, see {@link SableAppSuspender}). Returns the packages Android refused
++     * to suspend.
+      */
+     static Set<String> reconcile(Context context, boolean active) {
+-        synchronized (LOCK) {
+-            final Set<String> held = SableAppControls.readSet(context,
+-                    SableAppControls.KEY_FOCUS_HELD);
+-            final Set<String> chosen = SableAppControls.readSet(context,
+-                    SableAppControls.KEY_FOCUS_PAUSE);
+-            final FocusModePolicy.Plan plan = FocusModePolicy.plan(active, chosen, held,
+-                    active ? SableAppControls.protectedPackages(context)
+-                            : Collections.emptySet());
+-            if (plan.isEmpty()) {
+-                return Collections.emptySet();
+-            }
+-            final PackageManager pm = context.getPackageManager();
+-            final Set<String> failedSuspend = new HashSet<>();
+-            final Set<String> failedRelease = new HashSet<>();
+-            if (!plan.suspend.isEmpty()) {
+-                final SuspendDialogInfo dialog = new SuspendDialogInfo.Builder()
+-                        .setTitle(R.string.sable_focus_suspended_title)
+-                        .setMessage(R.string.sable_focus_suspended_message)
+-                        .setNeutralButtonText(R.string.sable_focus_suspended_button)
+-                        .setNeutralButtonAction(SuspendDialogInfo.BUTTON_ACTION_MORE_DETAILS)
+-                        .build();
+-                failedSuspend.addAll(apply(pm, plan.suspend, true, dialog));
+-            }
+-            if (!plan.release.isEmpty()) {
+-                failedRelease.addAll(apply(pm, plan.release, false, null));
+-            }
+-            SableAppControls.writeSet(context, SableAppControls.KEY_FOCUS_HELD,
+-                    FocusModePolicy.heldAfter(held, plan, failedSuspend, failedRelease));
+-            return failedSuspend;
+-        }
+-    }
+-
+-    private static Set<String> apply(PackageManager pm, Set<String> packages, boolean suspend,
+-            SuspendDialogInfo dialog) {
+-        final String[] names = packages.toArray(new String[0]);
+-        try {
+-            final String[] failed = pm.setPackagesSuspended(names, suspend, null, null, dialog);
+-            return failed == null ? Collections.emptySet() : new HashSet<>(Arrays.asList(failed));
+-        } catch (RuntimeException e) {
+-            Log.e(TAG, "Cannot " + (suspend ? "pause" : "release") + " apps", e);
+-            return new HashSet<>(packages);
+-        }
++        return SableAppSuspender.reconcile(context, active, SableStudentMode.isActive(context));
+     }
+ }
+diff --git a/src/com/android/settings/applications/sable/SableFocusModeReceiver.java b/src/com/android/settings/applications/sable/SableFocusModeReceiver.java
+index 24d3899..e988ecb 100644
+--- a/src/com/android/settings/applications/sable/SableFocusModeReceiver.java
++++ b/src/com/android/settings/applications/sable/SableFocusModeReceiver.java
+@@ -28,9 +28,9 @@ import com.android.settingslib.utils.ThreadUtils;
+ /**
+  * Android tells the owner of a mode when it starts or ends
+  * ({@link NotificationManager#ACTION_AUTOMATIC_ZEN_RULE_STATUS_CHANGED}, sent to Settings'
+- * package only). For Settings' Focus rule this pauses or releases the chosen apps, so Focus
+- * mode started or ended from Quick Settings, a schedule or Settings &gt; Modes behaves the
+- * same as from the Focus mode page.
++ * package only). For Settings' Focus and Student rules this pauses or releases apps (with the
++ * Freezer, through SableAppSuspender), so a mode started or ended from Quick Settings, a
++ * schedule or Settings &gt; Modes behaves the same as from its own page.
+  */
+ public class SableFocusModeReceiver extends BroadcastReceiver {
+ 
+@@ -50,18 +50,20 @@ public class SableFocusModeReceiver extends BroadcastReceiver {
+         ThreadUtils.postOnBackgroundThread(() -> {
+             try {
+                 final String focusId = SableFocusMode.findRuleId(app);
++                final String studentId = SableStudentMode.findRuleId(app);
+                 final Boolean active = FocusModePolicy.activeFromStatus(status,
+                         NotificationManager.AUTOMATIC_RULE_STATUS_ACTIVATED,
+                         NotificationManager.AUTOMATIC_RULE_STATUS_DEACTIVATED,
+                         NotificationManager.AUTOMATIC_RULE_STATUS_DISABLED,
+                         NotificationManager.AUTOMATIC_RULE_STATUS_REMOVED);
+-                if (focusId != null && TextUtils.equals(focusId, ruleId)) {
+-                    SableFocusMode.reconcile(app,
+-                            active != null ? active : SableFocusMode.isActive(app));
+-                } else if (focusId == null) {
+-                    // The Focus rule is gone (deleted in Settings > Modes): release everything.
+-                    SableFocusMode.reconcile(app, false);
+-                }
++                final boolean focus = focusId != null && TextUtils.equals(focusId, ruleId)
++                        ? (active != null ? active : SableFocusMode.isActive(app))
++                        : SableFocusMode.isActive(app);
++                final boolean student = studentId != null && TextUtils.equals(studentId, ruleId)
++                        ? (active != null ? active : SableStudentMode.isActive(app))
++                        : SableStudentMode.isActive(app);
++                // A deleted rule reads as off, so its apps are released.
++                SableAppSuspender.reconcile(app, focus, student);
+             } finally {
+                 result.finish();
+             }
+diff --git a/src/com/android/settings/applications/sable/SableFreezer.java b/src/com/android/settings/applications/sable/SableFreezer.java
+new file mode 100644
+index 0000000..d81bd36
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/SableFreezer.java
+@@ -0,0 +1,129 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable;
++
++import android.content.Context;
++import android.content.pm.ApplicationInfo;
++import android.content.pm.PackageManager;
++import android.os.UserHandle;
++import android.util.Log;
++
++import com.android.settings.applications.sable.model.PackageSet;
++
++import java.util.Set;
++
++/**
++ * Freezer (MOBILE_MANAGER_APP_CONTROLS_UX "Freezer"): a frozen app is suspended with
++ * {@code setPackagesSuspended} through {@link SableAppSuspender} until the user unfreezes it,
++ * so it cannot open, run its activities or show notifications; its data stays. A frozen app
++ * the user installed can also be hidden from the launcher with Android's per-user hidden
++ * setting ({@code setApplicationHiddenSettingAsUser}); Settings only ever unhides what it hid.
++ * Apps the phone needs are never frozen, and system apps are never hidden.
++ */
++final class SableFreezer {
++    private static final String TAG = "SableFreezer";
++
++    private SableFreezer() {
++    }
++
++    static Set<String> frozen(Context context) {
++        return SableAppControls.readSet(context, SableAppControls.KEY_FROZEN);
++    }
++
++    static Set<String> hiddenBySettings(Context context) {
++        return SableAppControls.readSet(context, SableAppControls.KEY_HIDDEN);
++    }
++
++    /** Whether the app may be frozen (not one the phone needs). */
++    static boolean canFreeze(Context context, String pkg) {
++        return PackageSet.isValidPackageName(pkg)
++                && !SableAppControls.protectedPackages(context).contains(pkg);
++    }
++
++    /**
++     * Freezes or unfreezes {@code pkg}; unfreezing also shows it again if Settings hid it.
++     * Returns false when Android refused to suspend it.
++     */
++    static boolean setFrozen(Context context, String pkg, boolean frozen) {
++        if (frozen && !canFreeze(context, pkg)) {
++            return false;
++        }
++        if (!frozen && hiddenBySettings(context).contains(pkg)) {
++            setHidden(context, pkg, false);
++        }
++        SableAppControls.writeSet(context, SableAppControls.KEY_FROZEN,
++                PackageSet.with(frozen(context), pkg, frozen));
++        final Set<String> refused = SableAppSuspender.reconcile(context);
++        if (frozen && refused.contains(pkg)) {
++            SableAppControls.writeSet(context, SableAppControls.KEY_FROZEN,
++                    PackageSet.with(frozen(context), pkg, false));
++            return false;
++        }
++        return true;
++    }
++
++    /** True for an app that is not part of the system image. */
++    static boolean userInstalled(ApplicationInfo ai) {
++        return ai != null && (ai.flags & ApplicationInfo.FLAG_SYSTEM) == 0
++                && (ai.flags & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) == 0;
++    }
++
++    /** Whether Android hides the app for this user now. */
++    static boolean isHidden(Context context, String pkg) {
++        try {
++            return context.getPackageManager().getApplicationHiddenSettingAsUser(pkg,
++                    UserHandle.of(UserHandle.myUserId()));
++        } catch (RuntimeException e) {
++            return false;
++        }
++    }
++
++    /**
++     * Hides a frozen, user-installed app from the launcher, or shows it again. Returns false
++     * when it is not allowed or Android refused.
++     */
++    static boolean setHidden(Context context, String pkg, boolean hidden) {
++        final PackageManager pm = context.getPackageManager();
++        if (hidden) {
++            final ApplicationInfo ai;
++            try {
++                ai = pm.getApplicationInfo(pkg, PackageManager.ApplicationInfoFlags.of(0));
++            } catch (PackageManager.NameNotFoundException e) {
++                return false;
++            }
++            if (!userInstalled(ai) || !frozen(context).contains(pkg) || !canFreeze(context, pkg)) {
++                return false;
++            }
++        } else if (!hiddenBySettings(context).contains(pkg)) {
++            return false;
++        }
++        boolean ok;
++        try {
++            ok = pm.setApplicationHiddenSettingAsUser(pkg, hidden,
++                    UserHandle.of(UserHandle.myUserId()));
++        } catch (RuntimeException e) {
++            Log.e(TAG, "Cannot " + (hidden ? "hide " : "show ") + pkg, e);
++            ok = false;
++        }
++        // An app removed meanwhile cannot be shown again: forget it either way.
++        if (ok || !hidden) {
++            SableAppControls.writeSet(context, SableAppControls.KEY_HIDDEN,
++                    PackageSet.with(hiddenBySettings(context), pkg, hidden));
++        }
++        return ok;
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/SableFreezerFragment.java b/src/com/android/settings/applications/sable/SableFreezerFragment.java
+new file mode 100644
+index 0000000..83ffed1
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/SableFreezerFragment.java
+@@ -0,0 +1,199 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable;
++
++import android.app.settings.SettingsEnums;
++import android.content.Context;
++import android.content.pm.ApplicationInfo;
++import android.content.pm.PackageManager;
++import android.os.Bundle;
++import android.view.View;
++import android.widget.Toast;
++
++import androidx.preference.Preference;
++import androidx.preference.PreferenceCategory;
++import androidx.preference.SwitchPreferenceCompat;
++
++import com.android.settings.R;
++import com.android.settings.SettingsPreferenceFragment;
++import com.android.settings.search.BaseSearchIndexProvider;
++import com.android.settingslib.search.SearchIndexable;
++import com.android.settingslib.utils.ThreadUtils;
++
++import java.util.ArrayList;
++import java.util.List;
++import java.util.Set;
++
++/**
++ * Freezer (Mobile Manager &gt; Freezer): one switch per launcher app (and per app the
++ * Freezer hid). On freezes the app through {@link SableFreezer}; hiding a frozen app is in the
++ * App Control Center. Apps the phone needs are not listed.
++ */
++@SearchIndexable
++public class SableFreezerFragment extends SettingsPreferenceFragment
++        implements Preference.OnPreferenceChangeListener {
++    private static final String KEY_APPS = "sable_freezer_apps";
++    private static final String PREFIX = "sable_freeze:";
++
++    private PreferenceCategory mApps;
++    private SableAppListKeyboard mKeyboard;
++    private int mLoadGeneration;
++
++    /** One app row. */
++    private static final class AppData {
++        final SableAppControls.LauncherApp app;
++        final boolean frozen;
++        final boolean hidden;
++
++        AppData(SableAppControls.LauncherApp app, boolean frozen, boolean hidden) {
++            this.app = app;
++            this.frozen = frozen;
++            this.hidden = hidden;
++        }
++    }
++
++    @Override
++    public int getMetricsCategory() {
++        return SettingsEnums.MANAGE_APPLICATIONS;
++    }
++
++    @Override
++    public void onCreate(Bundle icicle) {
++        super.onCreate(icicle);
++        addPreferencesFromResource(R.xml.sable_freezer);
++        mApps = findPreference(KEY_APPS);
++    }
++
++    @Override
++    public void onViewCreated(View view, Bundle savedInstanceState) {
++        super.onViewCreated(view, savedInstanceState);
++        mKeyboard = SableAppListKeyboard.attach(this, getListView(), getMetricsCategory());
++    }
++
++    @Override
++    public void onDestroyView() {
++        if (mKeyboard != null) {
++            mKeyboard.detach();
++            mKeyboard = null;
++        }
++        super.onDestroyView();
++    }
++
++    @Override
++    public void onResume() {
++        super.onResume();
++        load();
++    }
++
++    private void load() {
++        final Context context = getPrefContext().getApplicationContext();
++        final int generation = ++mLoadGeneration;
++        ThreadUtils.postOnBackgroundThread(() -> {
++            SableAppSuspender.reconcile(context);
++            final Set<String> frozen = SableFreezer.frozen(context);
++            final Set<String> hidden = SableFreezer.hiddenBySettings(context);
++            final Set<String> neverPause = SableAppControls.protectedPackages(context);
++            final List<AppData> apps = new ArrayList<>();
++            for (SableAppControls.LauncherApp app : SableAppControls.launcherApps(context, true)) {
++                if (!neverPause.contains(app.packageName)) {
++                    apps.add(new AppData(app, frozen.contains(app.packageName), false));
++                }
++            }
++            // Hidden apps have no launcher entry; list them so they can be unfrozen here.
++            final PackageManager pm = context.getPackageManager();
++            for (String pkg : hidden) {
++                try {
++                    final ApplicationInfo ai = pm.getApplicationInfo(pkg,
++                            PackageManager.ApplicationInfoFlags.of(
++                                    PackageManager.MATCH_UNINSTALLED_PACKAGES));
++                    final CharSequence label = ai.loadLabel(pm);
++                    apps.add(new AppData(new SableAppControls.LauncherApp(pkg,
++                            label == null ? pkg : label.toString(), ai.uid, null),
++                            frozen.contains(pkg), true));
++                } catch (PackageManager.NameNotFoundException e) {
++                    // Removed meanwhile.
++                }
++            }
++            ThreadUtils.postOnMainThread(() -> {
++                if (generation == mLoadGeneration && isAdded()) {
++                    show(apps);
++                }
++            });
++        });
++    }
++
++    private void show(List<AppData> apps) {
++        mApps.removeAll();
++        for (AppData data : apps) {
++            final SwitchPreferenceCompat pref = new SwitchPreferenceCompat(getPrefContext());
++            pref.setKey(PREFIX + data.app.packageName);
++            pref.setTitle(data.app.label);
++            if (data.app.icon != null) {
++                pref.setIcon(data.app.icon);
++            }
++            pref.setPersistent(false);
++            pref.setChecked(data.frozen);
++            if (data.frozen) {
++                pref.setSummary(data.hidden ? R.string.sable_freezer_app_frozen_hidden
++                        : R.string.sable_freezer_app_frozen);
++            }
++            pref.setOnPreferenceChangeListener(this);
++            mApps.addPreference(pref);
++        }
++        if (mApps.getPreferenceCount() == 0) {
++            final Preference empty = new Preference(getPrefContext());
++            empty.setTitle(R.string.sable_app_controls_empty);
++            empty.setSelectable(false);
++            mApps.addPreference(empty);
++        }
++    }
++
++    @Override
++    public boolean onPreferenceChange(Preference preference, Object newValue) {
++        final String key = preference.getKey();
++        if (key == null || !key.startsWith(PREFIX) || !(newValue instanceof Boolean)) {
++            return false;
++        }
++        final String pkg = key.substring(PREFIX.length());
++        final boolean freeze = (Boolean) newValue;
++        final Context context = getPrefContext().getApplicationContext();
++        ThreadUtils.postOnBackgroundThread(() -> {
++            final boolean ok = SableFreezer.setFrozen(context, pkg, freeze);
++            ThreadUtils.postOnMainThread(() -> {
++                if (!isAdded()) {
++                    return;
++                }
++                if (!ok) {
++                    Toast.makeText(getPrefContext(), R.string.sable_acc_action_failed,
++                            Toast.LENGTH_SHORT).show();
++                }
++                load();
++            });
++        });
++        return false; // load() shows what Android now holds
++    }
++
++    /** The Freezer row summary in Mobile Manager. */
++    static String summary(Context context, int frozen) {
++        return frozen == 0 ? context.getString(R.string.sable_freezer_none)
++                : context.getResources().getQuantityString(R.plurals.sable_freezer_count,
++                        frozen, frozen);
++    }
++
++    public static final BaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
++            new BaseSearchIndexProvider(R.xml.sable_freezer);
++}
+diff --git a/src/com/android/settings/applications/sable/SableMobileManagerFragment.java b/src/com/android/settings/applications/sable/SableMobileManagerFragment.java
+index 5940d25..ac82ac5 100644
+--- a/src/com/android/settings/applications/sable/SableMobileManagerFragment.java
++++ b/src/com/android/settings/applications/sable/SableMobileManagerFragment.java
+@@ -28,6 +28,7 @@ import androidx.preference.Preference;
+ 
+ import com.android.settings.R;
+ import com.android.settings.SettingsPreferenceFragment;
++import com.android.settings.applications.sable.model.AppSuspensions;
+ import com.android.settings.applications.sable.model.ProfileSpaces;
+ import com.android.settings.search.BaseSearchIndexProvider;
+ import com.android.settingslib.search.SearchIndexable;
+@@ -36,18 +37,21 @@ import com.android.settingslib.utils.ThreadUtils;
+ import java.util.List;
+ 
+ /**
+- * Mobile Manager (MOBILE_MANAGER_APP_CONTROLS_UX app control center): one page that groups the
+- * app controls and shows each one's state. Every row opens the page that owns the setting;
+- * Network access is the existing Network Manager (no second blocker or store), Background use
+- * is Android's per-app battery setting. Settings &gt; Apps &gt; Mobile Manager, Settings &gt;
+- * Sable &gt; Mobile Manager and org.sableos.settings.MOBILE_MANAGER.
++ * Mobile Manager (MOBILE_MANAGER_APP_CONTROLS_UX): one page that groups the app controls and
++ * shows each one's state: App Control Center (every app), Network access (the existing Network
++ * Manager; no second blocker or store), Freezer, Background use (Android's per-app battery
++ * setting), Focus mode, Student mode and Private Space &amp; Dual Apps. Settings &gt; Apps
++ * &gt; Mobile Manager, Privacy &amp; security and org.sableos.settings.MOBILE_MANAGER. There is
++ * no App lock row: this build has no launch gate, so nothing claims that protection.
+  */
+ @SearchIndexable
+ public class SableMobileManagerFragment extends SettingsPreferenceFragment {
+     private static final String TAG = "SableMobileManager";
+     static final String KEY_NETWORK = "sable_mm_network";
+     static final String KEY_BACKGROUND = "sable_mm_background";
+-    static final String KEY_APP_LOCK = "sable_mm_app_lock";
++    static final String KEY_CONTROL_CENTER = "sable_mm_control_center";
++    static final String KEY_FREEZER = "sable_mm_freezer";
++    static final String KEY_STUDENT = "sable_mm_student";
+     static final String KEY_FOCUS = "sable_mm_focus";
+     static final String KEY_SPACES = "sable_mm_spaces";
+ 
+@@ -57,17 +61,24 @@ public class SableMobileManagerFragment extends SettingsPreferenceFragment {
+     /** Row states read off the main thread. */
+     private static final class Summaries {
+         final int networkBlocked;
+-        final int appLockChosen;
++        final int frozen;
+         final boolean focusActive;
+         final int focusPaused;
++        final boolean studentActive;
++        final int studentAllowed;
++        final String studentWindow;
+         final ProfileSpaces.PrivateSpace privateSpace;
+ 
+-        Summaries(int networkBlocked, int appLockChosen, boolean focusActive, int focusPaused,
++        Summaries(int networkBlocked, int frozen, boolean focusActive, int focusPaused,
++                boolean studentActive, int studentAllowed, String studentWindow,
+                 ProfileSpaces.PrivateSpace privateSpace) {
+             this.networkBlocked = networkBlocked;
+-            this.appLockChosen = appLockChosen;
++            this.frozen = frozen;
+             this.focusActive = focusActive;
+             this.focusPaused = focusPaused;
++            this.studentActive = studentActive;
++            this.studentAllowed = studentAllowed;
++            this.studentWindow = studentWindow;
+             this.privateSpace = privateSpace;
+         }
+     }
+@@ -116,11 +127,21 @@ public class SableMobileManagerFragment extends SettingsPreferenceFragment {
+         final int generation = ++mLoadGeneration;
+         ThreadUtils.postOnBackgroundThread(() -> {
+             final boolean focus = SableFocusMode.isActive(context);
+-            // Also releases apps left paused if Focus mode ended while Settings was not told.
+-            SableFocusMode.reconcile(context, focus);
++            final boolean student = SableStudentMode.isActive(context);
++            // Also releases apps left paused if a mode ended while Settings was not told.
++            SableAppSuspender.reconcile(context, focus, student);
++            int focusPaused = 0;
++            for (AppSuspensions.Reason r : SableAppSuspender.heldReasons(context).values()) {
++                if (r == AppSuspensions.Reason.FOCUS) {
++                    focusPaused++;
++                }
++            }
+             final Summaries s = new Summaries(networkBlockedCount(context),
+-                    SableAppLockFragment.chosenCount(context), focus,
+-                    SableAppControls.readSet(context, SableAppControls.KEY_FOCUS_HELD).size(),
++                    SableFreezer.frozen(context).size(), focus, focusPaused, student,
++                    SableAppControls.readSet(context, SableAppControls.KEY_STUDENT_ALLOW).size(),
++                    SableStudentMode.scheduleEnabled(context)
++                            ? SableStudentModeFragment.window(context,
++                                    SableStudentMode.schedule(context)) : null,
+                     SablePrivateSpaceFragment.load(context).privateSpace);
+             ThreadUtils.postOnMainThread(() -> {
+                 if (generation == mLoadGeneration && isAdded()) {
+@@ -157,9 +178,21 @@ public class SableMobileManagerFragment extends SettingsPreferenceFragment {
+                     : getResources().getQuantityString(R.plurals.sable_mm_network_blocked,
+                             s.networkBlocked, s.networkBlocked));
+         }
+-        final Preference lock = findPreference(KEY_APP_LOCK);
+-        if (lock != null) {
+-            lock.setSummary(SableAppLockFragment.summary(getResources(), s.appLockChosen));
++        final Preference freezer = findPreference(KEY_FREEZER);
++        if (freezer != null) {
++            freezer.setSummary(SableFreezerFragment.summary(getPrefContext(), s.frozen));
++        }
++        final Preference student = findPreference(KEY_STUDENT);
++        if (student != null) {
++            if (s.studentActive) {
++                student.setSummary(getResources().getQuantityString(R.plurals.sable_student_on,
++                        s.studentAllowed, s.studentAllowed));
++            } else if (s.studentWindow != null) {
++                student.setSummary(getString(R.string.sable_student_off_window,
++                        s.studentWindow));
++            } else {
++                student.setSummary(R.string.sable_student_off);
++            }
+         }
+         final Preference focus = findPreference(KEY_FOCUS);
+         if (focus != null) {
+@@ -186,6 +219,10 @@ public class SableMobileManagerFragment extends SettingsPreferenceFragment {
+                     final List<String> keys = super.getNonIndexableKeys(context);
+                     // Indexed once, from Settings > Apps > Network access.
+                     keys.add(KEY_NETWORK);
++                    // Indexed from their own pages.
++                    keys.add(KEY_CONTROL_CENTER);
++                    keys.add(KEY_FREEZER);
++                    keys.add(KEY_STUDENT);
+                     if (!backgroundListEnabled(context)) {
+                         keys.add(KEY_BACKGROUND);
+                     }
+diff --git a/src/com/android/settings/applications/sable/SableStudentMode.java b/src/com/android/settings/applications/sable/SableStudentMode.java
+new file mode 100644
+index 0000000..1a6427b
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/SableStudentMode.java
+@@ -0,0 +1,224 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable;
++
++import android.app.AlarmManager;
++import android.app.AutomaticZenRule;
++import android.app.NotificationManager;
++import android.app.PendingIntent;
++import android.content.ComponentName;
++import android.content.Context;
++import android.content.Intent;
++import android.net.Uri;
++import android.service.notification.Condition;
++import android.service.notification.ZenPolicy;
++import android.util.Log;
++
++import com.android.settings.R;
++import com.android.settings.applications.sable.model.FocusModePolicy;
++import com.android.settings.applications.sable.model.StudentSchedule;
++
++import java.time.LocalDateTime;
++import java.time.ZoneId;
++import java.util.Map;
++
++/**
++ * Student mode (MOBILE_MANAGER_APP_CONTROLS_UX "Student / Focus"), built on Focus mode's
++ * machinery: a second AutomaticZenRule owned by Settings with the same notification policy
++ * (so it is in Settings &gt; Modes and Quick Settings), plus an allow list and a time window.
++ * While it is on, every launcher app that is not on the allow list (and not one the phone
++ * needs) is paused through {@link SableAppSuspender}.
++ *
++ * <p>The window ({@link StudentSchedule}) is kept by Settings: an exact alarm at the next
++ * boundary turns the mode on or off as Settings, and the alarm is set again on boot and when
++ * the time or time zone changes ({@link SableStudentModeReceiver}). Turning the mode off by
++ * hand inside the window lasts until the next boundary. It is a local self-control, not
++ * parental control: it can be turned off at any time and filters no websites.
++ */
++public final class SableStudentMode {
++    private static final String TAG = "SableStudentMode";
++    private static final String CONDITION_PATH = "sable_student";
++    /** Alarm action, delivered only to SableStudentModeReceiver (explicit component). */
++    static final String ACTION_SCHEDULE = "org.sableos.settings.action.STUDENT_SCHEDULE";
++
++    private SableStudentMode() {
++    }
++
++    static Uri conditionId(Context context) {
++        return new Uri.Builder().scheme(Condition.SCHEME)
++                .authority(context.getPackageName())
++                .appendPath(CONDITION_PATH)
++                .build();
++    }
++
++    /** The id of Settings' Student rule, or null when it does not exist. */
++    static String findRuleId(Context context) {
++        final NotificationManager nm = context.getSystemService(NotificationManager.class);
++        if (nm == null) {
++            return null;
++        }
++        final Uri condition = conditionId(context);
++        try {
++            final Map<String, AutomaticZenRule> rules = nm.getAutomaticZenRules();
++            if (rules == null) {
++                return null;
++            }
++            for (Map.Entry<String, AutomaticZenRule> e : rules.entrySet()) {
++                if (e.getValue() != null && condition.equals(e.getValue().getConditionId())) {
++                    return e.getKey();
++                }
++            }
++        } catch (RuntimeException e) {
++            Log.w(TAG, "Cannot read modes", e);
++        }
++        return null;
++    }
++
++    /** Creates the Student rule if it is missing; returns its id or null on failure. */
++    static String ensureRule(Context context) {
++        final String existing = findRuleId(context);
++        if (existing != null) {
++            return existing;
++        }
++        final NotificationManager nm = context.getSystemService(NotificationManager.class);
++        if (nm == null) {
++            return null;
++        }
++        final ZenPolicy policy = new ZenPolicy.Builder()
++                .allowPriorityChannels(FocusModePolicy.Spec.ALLOW_PRIORITY_CHANNELS)
++                .allowAlarms(FocusModePolicy.Spec.ALLOW_ALARMS)
++                .allowMedia(FocusModePolicy.Spec.ALLOW_MEDIA)
++                .allowSystem(FocusModePolicy.Spec.ALLOW_SYSTEM)
++                .allowReminders(FocusModePolicy.Spec.ALLOW_REMINDERS)
++                .allowEvents(FocusModePolicy.Spec.ALLOW_EVENTS)
++                .allowRepeatCallers(FocusModePolicy.Spec.ALLOW_REPEAT_CALLERS)
++                .allowCalls(FocusModePolicy.Spec.ALLOW_CALLS
++                        ? ZenPolicy.PEOPLE_TYPE_ANYONE : ZenPolicy.PEOPLE_TYPE_NONE)
++                .allowMessages(FocusModePolicy.Spec.ALLOW_MESSAGES
++                        ? ZenPolicy.PEOPLE_TYPE_ANYONE : ZenPolicy.PEOPLE_TYPE_NONE)
++                .allowConversations(FocusModePolicy.Spec.ALLOW_CONVERSATIONS
++                        ? ZenPolicy.CONVERSATION_SENDERS_ANYONE
++                        : ZenPolicy.CONVERSATION_SENDERS_NONE)
++                .build();
++        final AutomaticZenRule rule = new AutomaticZenRule.Builder(
++                context.getString(R.string.sable_student_title), conditionId(context))
++                .setConfigurationActivity(new ComponentName(context,
++                        com.android.settings.Settings.SableStudentModeActivity.class))
++                .setType(AutomaticZenRule.TYPE_OTHER)
++                .setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY)
++                .setZenPolicy(policy)
++                .setManualInvocationAllowed(true)
++                .build();
++        try {
++            return nm.addAutomaticZenRule(rule);
++        } catch (RuntimeException e) {
++            Log.e(TAG, "Cannot create Student mode", e);
++            return null;
++        }
++    }
++
++    /** Whether Student mode is on now. */
++    static boolean isActive(Context context) {
++        final String id = findRuleId(context);
++        if (id == null) {
++            return false;
++        }
++        try {
++            return context.getSystemService(NotificationManager.class)
++                    .getAutomaticZenRuleState(id) == Condition.STATE_TRUE;
++        } catch (RuntimeException e) {
++            Log.w(TAG, "Cannot read the Student mode state", e);
++            return false;
++        }
++    }
++
++    /**
++     * Turns Student mode on or off and pauses or releases apps; {@code fromSchedule} marks a
++     * window boundary rather than a user action. Returns false when Android refused.
++     */
++    static boolean setActive(Context context, boolean active, boolean fromSchedule) {
++        final String id = active ? ensureRule(context) : findRuleId(context);
++        if (id != null) {
++            try {
++                context.getSystemService(NotificationManager.class).setAutomaticZenRuleState(id,
++                        new Condition(conditionId(context), "",
++                                active ? Condition.STATE_TRUE : Condition.STATE_FALSE,
++                                fromSchedule ? Condition.SOURCE_SCHEDULE
++                                        : Condition.SOURCE_USER_ACTION));
++            } catch (RuntimeException e) {
++                Log.e(TAG, "Cannot change Student mode", e);
++                return false;
++            }
++        } else if (active) {
++            return false;
++        }
++        SableAppSuspender.reconcile(context, SableFocusMode.isActive(context), active);
++        return true;
++    }
++
++    static StudentSchedule schedule(Context context) {
++        return StudentSchedule.parse(
++                SableAppControls.readString(context, SableAppControls.KEY_STUDENT_SCHEDULE));
++    }
++
++    /** Whether the user turned the window on (it starts off: nothing runs until chosen). */
++    static boolean scheduleEnabled(Context context) {
++        return SableAppControls.readString(context, SableAppControls.KEY_STUDENT_SCHEDULE)
++                != null;
++    }
++
++    /** Stores the window (null turns it off) and re-arms the alarm. */
++    static void setSchedule(Context context, StudentSchedule schedule) {
++        SableAppControls.writeString(context, SableAppControls.KEY_STUDENT_SCHEDULE,
++                schedule == null ? null : schedule.format());
++        applySchedule(context, true);
++    }
++
++    /**
++     * Brings the mode to what the window says when {@code enforceNow} (a boundary, boot, a time
++     * change or a new window), then arms the alarm for the next boundary.
++     */
++    static void applySchedule(Context context, boolean enforceNow) {
++        final AlarmManager alarms = context.getSystemService(AlarmManager.class);
++        final PendingIntent pi = PendingIntent.getBroadcast(context, 0,
++                new Intent(ACTION_SCHEDULE).setClass(context, SableStudentModeReceiver.class),
++                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
++        if (alarms != null) {
++            alarms.cancel(pi);
++        }
++        if (!scheduleEnabled(context)) {
++            return;
++        }
++        final StudentSchedule s = schedule(context);
++        final ZoneId zone = ZoneId.systemDefault();
++        final LocalDateTime now = LocalDateTime.now(zone);
++        if (enforceNow && s.isActive(now) != isActive(context)) {
++            setActive(context, s.isActive(now), true);
++        }
++        final LocalDateTime next = s.nextChange(now);
++        if (next == null || alarms == null) {
++            return;
++        }
++        final long at = next.atZone(zone).toInstant().toEpochMilli();
++        try {
++            alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
++        } catch (SecurityException e) {
++            Log.w(TAG, "Exact alarm refused; using an inexact one", e);
++            alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
++        }
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/SableStudentModeFragment.java b/src/com/android/settings/applications/sable/SableStudentModeFragment.java
+new file mode 100644
+index 0000000..ff0050b
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/SableStudentModeFragment.java
+@@ -0,0 +1,319 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable;
++
++import android.app.settings.SettingsEnums;
++import android.content.Context;
++import android.os.Bundle;
++import android.view.View;
++import android.widget.Toast;
++
++import androidx.preference.ListPreference;
++import androidx.preference.MultiSelectListPreference;
++import androidx.preference.Preference;
++import androidx.preference.PreferenceCategory;
++import androidx.preference.SwitchPreferenceCompat;
++
++import com.android.settings.R;
++import com.android.settings.SettingsPreferenceFragment;
++import com.android.settings.applications.sable.model.PackageSet;
++import com.android.settings.applications.sable.model.StudentSchedule;
++import com.android.settings.search.BaseSearchIndexProvider;
++import com.android.settingslib.search.SearchIndexable;
++import com.android.settingslib.utils.ThreadUtils;
++
++import java.time.DayOfWeek;
++import java.time.format.TextStyle;
++import java.util.ArrayList;
++import java.util.HashSet;
++import java.util.List;
++import java.util.Locale;
++import java.util.Set;
++import java.util.TreeSet;
++
++/**
++ * Student mode (Mobile Manager &gt; Student mode; also org.sableos.settings.STUDENT_MODE and
++ * the configuration page of its entry in Settings &gt; Modes): a switch for now, the time
++ * window (days, start, end; half-hour steps, keyboard-friendly lists) and the allow list. See
++ * {@link SableStudentMode}.
++ */
++@SearchIndexable
++public class SableStudentModeFragment extends SettingsPreferenceFragment
++        implements Preference.OnPreferenceChangeListener {
++    private static final String KEY_SWITCH = "sable_student_switch";
++    private static final String KEY_SCHEDULE = "sable_student_schedule";
++    private static final String KEY_DAYS = "sable_student_days";
++    private static final String KEY_START = "sable_student_start";
++    private static final String KEY_END = "sable_student_end";
++    private static final String KEY_ALLOWED = "sable_student_allowed";
++    private static final String PREFIX_ALLOW = "sable_student_allow:";
++    private static final int STEP_MINUTES = 30;
++
++    private SwitchPreferenceCompat mSwitch;
++    private SwitchPreferenceCompat mScheduleSwitch;
++    private MultiSelectListPreference mDays;
++    private ListPreference mStart;
++    private ListPreference mEnd;
++    private PreferenceCategory mAllowed;
++    private SableAppListKeyboard mKeyboard;
++    private int mLoadGeneration;
++
++    /** One load, off the main thread. */
++    private static final class Loaded {
++        final boolean active;
++        final boolean scheduleOn;
++        final StudentSchedule schedule;
++        final Set<String> allowed;
++        final List<SableAppControls.LauncherApp> apps;
++
++        Loaded(boolean active, boolean scheduleOn, StudentSchedule schedule,
++                Set<String> allowed, List<SableAppControls.LauncherApp> apps) {
++            this.active = active;
++            this.scheduleOn = scheduleOn;
++            this.schedule = schedule;
++            this.allowed = allowed;
++            this.apps = apps;
++        }
++    }
++
++    @Override
++    public int getMetricsCategory() {
++        return SettingsEnums.NOTIFICATION_ZEN_MODE_AUTOMATION;
++    }
++
++    @Override
++    public void onCreate(Bundle icicle) {
++        super.onCreate(icicle);
++        addPreferencesFromResource(R.xml.sable_student_mode);
++        mSwitch = findPreference(KEY_SWITCH);
++        mScheduleSwitch = findPreference(KEY_SCHEDULE);
++        mDays = findPreference(KEY_DAYS);
++        mStart = findPreference(KEY_START);
++        mEnd = findPreference(KEY_END);
++        mAllowed = findPreference(KEY_ALLOWED);
++        final Locale locale = Locale.getDefault();
++        final CharSequence[] dayNames = new CharSequence[7];
++        final CharSequence[] dayValues = new CharSequence[7];
++        for (int d = 1; d <= 7; d++) {
++            dayNames[d - 1] = DayOfWeek.of(d).getDisplayName(TextStyle.FULL, locale);
++            dayValues[d - 1] = Integer.toString(d);
++        }
++        mDays.setEntries(dayNames);
++        mDays.setEntryValues(dayValues);
++        final int steps = StudentSchedule.MINUTES_PER_DAY / STEP_MINUTES;
++        final CharSequence[] times = new CharSequence[steps];
++        final CharSequence[] timeValues = new CharSequence[steps];
++        for (int i = 0; i < steps; i++) {
++            times[i] = StudentSchedule.clock(i * STEP_MINUTES);
++            timeValues[i] = Integer.toString(i * STEP_MINUTES);
++        }
++        for (ListPreference p : new ListPreference[] {mStart, mEnd}) {
++            p.setEntries(times);
++            p.setEntryValues(timeValues);
++        }
++        for (Preference p : new Preference[] {mSwitch, mScheduleSwitch, mDays, mStart, mEnd}) {
++            p.setOnPreferenceChangeListener(this);
++        }
++    }
++
++    @Override
++    public void onViewCreated(View view, Bundle savedInstanceState) {
++        super.onViewCreated(view, savedInstanceState);
++        mKeyboard = SableAppListKeyboard.attach(this, getListView(), getMetricsCategory());
++    }
++
++    @Override
++    public void onDestroyView() {
++        if (mKeyboard != null) {
++            mKeyboard.detach();
++            mKeyboard = null;
++        }
++        super.onDestroyView();
++    }
++
++    @Override
++    public void onResume() {
++        super.onResume();
++        load();
++    }
++
++    private void load() {
++        final Context context = getPrefContext().getApplicationContext();
++        final int generation = ++mLoadGeneration;
++        ThreadUtils.postOnBackgroundThread(() -> {
++            SableAppSuspender.reconcile(context);
++            final Set<String> neverPause = SableAppControls.protectedPackages(context);
++            final List<SableAppControls.LauncherApp> apps = new ArrayList<>();
++            for (SableAppControls.LauncherApp app : SableAppControls.launcherApps(context, true)) {
++                if (!neverPause.contains(app.packageName)) {
++                    apps.add(app);
++                }
++            }
++            final Loaded loaded = new Loaded(SableStudentMode.isActive(context),
++                    SableStudentMode.scheduleEnabled(context), SableStudentMode.schedule(context),
++                    SableAppControls.readSet(context, SableAppControls.KEY_STUDENT_ALLOW), apps);
++            ThreadUtils.postOnMainThread(() -> {
++                if (generation == mLoadGeneration && isAdded()) {
++                    show(loaded);
++                }
++            });
++        });
++    }
++
++    private void show(Loaded loaded) {
++        mSwitch.setChecked(loaded.active);
++        mScheduleSwitch.setChecked(loaded.scheduleOn);
++        mScheduleSwitch.setSummary(window(getPrefContext(), loaded.schedule));
++        final Set<String> days = new HashSet<>();
++        for (int d : loaded.schedule.days) {
++            days.add(Integer.toString(d));
++        }
++        mDays.setValues(days);
++        mDays.setSummary(daysText(getPrefContext(), loaded.schedule));
++        mStart.setValue(Integer.toString(roundToStep(loaded.schedule.startMinute)));
++        mStart.setSummary(StudentSchedule.clock(loaded.schedule.startMinute));
++        mEnd.setValue(Integer.toString(roundToStep(loaded.schedule.endMinute)));
++        mEnd.setSummary(endText(getPrefContext(), loaded.schedule));
++        for (Preference p : new Preference[] {mDays, mStart, mEnd}) {
++            p.setEnabled(loaded.scheduleOn);
++        }
++        mAllowed.removeAll();
++        for (SableAppControls.LauncherApp app : loaded.apps) {
++            final SwitchPreferenceCompat pref = new SwitchPreferenceCompat(getPrefContext());
++            pref.setKey(PREFIX_ALLOW + app.packageName);
++            pref.setTitle(app.label);
++            if (app.icon != null) {
++                pref.setIcon(app.icon);
++            }
++            pref.setPersistent(false);
++            final boolean allowed = loaded.allowed.contains(app.packageName);
++            pref.setChecked(allowed);
++            pref.setSummary(allowed ? R.string.sable_student_app_allowed
++                    : R.string.sable_student_app_paused);
++            pref.setOnPreferenceChangeListener(this);
++            mAllowed.addPreference(pref);
++        }
++        if (mAllowed.getPreferenceCount() == 0) {
++            final Preference empty = new Preference(getPrefContext());
++            empty.setTitle(R.string.sable_app_controls_empty);
++            empty.setSelectable(false);
++            mAllowed.addPreference(empty);
++        }
++    }
++
++    private static int roundToStep(int minute) {
++        return (minute / STEP_MINUTES) * STEP_MINUTES;
++    }
++
++    static String daysText(Context context, StudentSchedule s) {
++        if (s.days.isEmpty()) {
++            return context.getString(R.string.sable_student_no_days);
++        }
++        if (s.isWeekdays()) {
++            return context.getString(R.string.sable_student_weekdays);
++        }
++        final List<String> names = new ArrayList<>();
++        for (int d : s.days) {
++            names.add(DayOfWeek.of(d).getDisplayName(TextStyle.SHORT, Locale.getDefault()));
++        }
++        return String.join(", ", names);
++    }
++
++    private static String endText(Context context, StudentSchedule s) {
++        final String clock = StudentSchedule.clock(s.endMinute);
++        return s.overnight() ? context.getString(R.string.sable_student_next_day, clock) : clock;
++    }
++
++    /** "Weekdays 08:00-17:00". */
++    static String window(Context context, StudentSchedule s) {
++        return context.getString(R.string.sable_student_window, daysText(context, s),
++                StudentSchedule.clock(s.startMinute), StudentSchedule.clock(s.endMinute));
++    }
++
++    @Override
++    public boolean onPreferenceChange(Preference preference, Object newValue) {
++        final Context context = getPrefContext().getApplicationContext();
++        final String key = preference.getKey();
++        Runnable work = null;
++        if (KEY_SWITCH.equals(key) && newValue instanceof Boolean) {
++            final boolean on = (Boolean) newValue;
++            work = () -> {
++                if (!SableStudentMode.setActive(context, on, false)) {
++                    ThreadUtils.postOnMainThread(() -> {
++                        if (isAdded()) {
++                            Toast.makeText(getPrefContext(), R.string.sable_student_error,
++                                    Toast.LENGTH_SHORT).show();
++                        }
++                    });
++                }
++            };
++        } else if (KEY_SCHEDULE.equals(key) && newValue instanceof Boolean) {
++            final boolean on = (Boolean) newValue;
++            work = () -> SableStudentMode.setSchedule(context,
++                    on ? SableStudentMode.schedule(context) : null);
++        } else if (KEY_DAYS.equals(key) && newValue instanceof Set) {
++            final Set<Integer> days = new TreeSet<>();
++            for (Object o : (Set<?>) newValue) {
++                try {
++                    days.add(Integer.parseInt(String.valueOf(o)));
++                } catch (NumberFormatException e) {
++                    // Not one of our values.
++                }
++            }
++            work = () -> SableStudentMode.setSchedule(context,
++                    SableStudentMode.schedule(context).withDays(days));
++        } else if ((KEY_START.equals(key) || KEY_END.equals(key)) && newValue instanceof String) {
++            final int minute;
++            try {
++                minute = Integer.parseInt((String) newValue);
++            } catch (NumberFormatException e) {
++                return false;
++            }
++            final boolean start = KEY_START.equals(key);
++            work = () -> {
++                final StudentSchedule s = SableStudentMode.schedule(context);
++                SableStudentMode.setSchedule(context,
++                        start ? s.withStart(minute) : s.withEnd(minute));
++            };
++        } else if (key != null && key.startsWith(PREFIX_ALLOW) && newValue instanceof Boolean) {
++            final String pkg = key.substring(PREFIX_ALLOW.length());
++            final boolean allow = (Boolean) newValue;
++            work = () -> {
++                SableAppControls.writeSet(context, SableAppControls.KEY_STUDENT_ALLOW,
++                        PackageSet.with(SableAppControls.readSet(context,
++                                SableAppControls.KEY_STUDENT_ALLOW), pkg, allow));
++                SableAppSuspender.reconcile(context);
++            };
++        }
++        if (work == null) {
++            return false;
++        }
++        final Runnable job = work;
++        ThreadUtils.postOnBackgroundThread(() -> {
++            job.run();
++            ThreadUtils.postOnMainThread(() -> {
++                if (isAdded()) {
++                    load();
++                }
++            });
++        });
++        return false; // load() shows what is now stored and what Android now holds
++    }
++
++    public static final BaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
++            new BaseSearchIndexProvider(R.xml.sable_student_mode);
++}
+diff --git a/src/com/android/settings/applications/sable/SableStudentModeReceiver.java b/src/com/android/settings/applications/sable/SableStudentModeReceiver.java
+new file mode 100644
+index 0000000..5a16856
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/SableStudentModeReceiver.java
+@@ -0,0 +1,52 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable;
++
++import android.content.BroadcastReceiver;
++import android.content.Context;
++import android.content.Intent;
++
++import com.android.settingslib.utils.ThreadUtils;
++
++/**
++ * Student mode's window: the boundary alarm ({@link SableStudentMode#ACTION_SCHEDULE}), boot,
++ * and time or time zone changes re-apply the window and arm the next boundary. Boot also
++ * re-applies the Freezer, whose suspensions Android keeps across reboots anyway.
++ */
++public class SableStudentModeReceiver extends BroadcastReceiver {
++
++    @Override
++    public void onReceive(Context context, Intent intent) {
++        final String action = intent == null ? null : intent.getAction();
++        if (!SableStudentMode.ACTION_SCHEDULE.equals(action)
++                && !Intent.ACTION_BOOT_COMPLETED.equals(action)
++                && !Intent.ACTION_TIME_CHANGED.equals(action)
++                && !Intent.ACTION_TIMEZONE_CHANGED.equals(action)) {
++            return;
++        }
++        final Context app = context.getApplicationContext();
++        final PendingResult result = goAsync();
++        ThreadUtils.postOnBackgroundThread(() -> {
++            try {
++                SableStudentMode.applySchedule(app, true);
++                SableAppSuspender.reconcile(app);
++            } finally {
++                result.finish();
++            }
++        });
++    }
++}
+diff --git a/src/com/android/settings/core/gateway/SettingsGateway.java b/src/com/android/settings/core/gateway/SettingsGateway.java
+index 364bb8d..26b326f 100644
+--- a/src/com/android/settings/core/gateway/SettingsGateway.java
++++ b/src/com/android/settings/core/gateway/SettingsGateway.java
+@@ -74,12 +74,14 @@ import com.android.settings.applications.specialaccess.pictureinpicture.PictureI
+ import com.android.settings.applications.specialaccess.premiumsms.PremiumSmsAccess;
+ import com.android.settings.applications.specialaccess.vrlistener.VrListenerSettings;
+ import com.android.settings.applications.specialaccess.zenaccess.ZenAccessDetails;
+-import com.android.settings.applications.sable.SableAppLockFragment;
++import com.android.settings.applications.sable.SableAppControlCenterFragment;
+ import com.android.settings.applications.sable.SableAppSecurityAppsFragment;
+ import com.android.settings.applications.sable.SableFocusModeFragment;
++import com.android.settings.applications.sable.SableFreezerFragment;
+ import com.android.settings.applications.sable.SableMobileManagerFragment;
+ import com.android.settings.applications.sable.SableNetworkManagerFragment;
+ import com.android.settings.applications.sable.SablePrivateSpaceFragment;
++import com.android.settings.applications.sable.SableStudentModeFragment;
+ import com.android.settings.backup.PrivacySettings;
+ import com.android.settings.backup.ToggleBackupSettingFragment;
+ import com.android.settings.backup.UserBackupSettingsActivity;
+@@ -239,7 +241,9 @@ public class SettingsGateway {
+             SableNetworkManagerFragment.class.getName(),
+             SableAppSecurityAppsFragment.class.getName(),
+             SableMobileManagerFragment.class.getName(),
+-            SableAppLockFragment.class.getName(),
++            SableAppControlCenterFragment.class.getName(),
++            SableFreezerFragment.class.getName(),
++            SableStudentModeFragment.class.getName(),
+             SableFocusModeFragment.class.getName(),
+             SablePrivateSpaceFragment.class.getName(),
+             CreateShortcut.class.getName(),
+-- 
+2.43.0
+

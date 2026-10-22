@@ -4,6 +4,9 @@
 *.apk
 out/
 .gradle/
+# Gradle and Kotlin outputs of the Sable app builds (the top-level build/ is source).
+/sable-src/**/build/
+/sable-src/**/.kotlin/
 local.properties
 # Upstream dictionary inputs shipped with the Sable sources (see their PROVENANCE.env).
 !/sable-src/third_party/pinyin_zh/inputs/*.zip

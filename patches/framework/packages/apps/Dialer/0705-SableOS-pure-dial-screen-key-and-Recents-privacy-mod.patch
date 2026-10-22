@@ -1,0 +1,236 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 21 Oct 2026 18:06:58 +0000
+Subject: [PATCH] SableOS: pure dial-screen key and Recents privacy model for
+ Phone
+
+Pure Java under sable/ for the next patch:
+
+* SableDialpadKeys: the dial character a hardware key types. The Alt
+  layer (Alt+W E R S D F Z X C = 1-9, the key map's Alt 0) types digits
+  anywhere on the dial screen, from the event's character or, for the
+  phone-pad letters, by key code; plain W E R S D F Z X C are 1-9 only
+  while the dial pad has focus. Number row, numpad, *, # and + keep
+  their characters; Shift+letter and Ctrl/Meta/Fn chords never type a
+  digit. opensDialpad() says when a key on the main screen opens the
+  dial pad with its digit.
+* SableRecentsPrivacy: Recents hides who called while the device is
+  locked or Sable private mode (read-only from Sable Hub) is on; no Hub
+  means no private mode, an unexpected provider value means on.
+---
+ .../dialer/sable/SableDialpadKeys.java        | 140 ++++++++++++++++++
+ .../dialer/sable/SableRecentsPrivacy.java     |  55 +++++++
+ 2 files changed, 195 insertions(+)
+ create mode 100644 java/com/android/dialer/sable/SableDialpadKeys.java
+ create mode 100644 java/com/android/dialer/sable/SableRecentsPrivacy.java
+
+diff --git a/java/com/android/dialer/sable/SableDialpadKeys.java b/java/com/android/dialer/sable/SableDialpadKeys.java
+new file mode 100644
+index 0000000..3aca466
+--- /dev/null
++++ b/java/com/android/dialer/sable/SableDialpadKeys.java
+@@ -0,0 +1,140 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.dialer.sable;
++
++/**
++ * Hardware keys on the dial screen (SABLE_PHONE_DIALER_UX "Physical keyboard dialing") for
++ * keyboards without a number row, such as the Zinwa Q25. Pure Java.
++ *
++ * <ul>
++ *   <li>The Alt layer types digits anywhere on the dial screen: Alt+W E R S D F Z X C = 1-9 and
++ *       the key map's Alt 0, read from the event's own character ({@code getUnicodeChar()} with
++ *       its meta state), else, for Alt+W E R S D F Z X C, by key code.
++ *   <li>While the dial pad has focus (the number field or an on-screen key), the plain phone-pad
++ *       letters W E R S D F Z X C are 1-9 by key code, as on the lock screen PIN pad. This does
++ *       not depend on the key character map, which a keyboard layout overlay may replace.
++ *   <li>Number row, numpad, {@code *}, {@code #} and {@code +} keys keep their characters.
++ *   <li>Shift with a letter is never a digit; Ctrl, Meta and Fn chords are shortcuts, never
++ *       digits. A held key types once.
++ * </ul>
++ *
++ * Key codes and meta masks mirror android.view.KeyEvent (stable public ABI); the host test pins
++ * them.
++ */
++public final class SableDialpadKeys {
++  public static final int KEYCODE_0 = 7;
++  public static final int KEYCODE_9 = 16;
++  public static final int KEYCODE_STAR = 17;
++  public static final int KEYCODE_POUND = 18;
++  public static final int KEYCODE_PLUS = 81;
++  public static final int KEYCODE_NUMPAD_0 = 144;
++  public static final int KEYCODE_NUMPAD_9 = 153;
++
++  /** W E R S D F Z X C: 1-9 on a BlackBerry-style phone pad. */
++  static final int[] PHONE_PAD_KEYCODES = {51, 33, 46, 47, 32, 34, 54, 52, 31};
++
++  public static final int META_SHIFT_MASK = 0xc1;
++  public static final int META_ALT_MASK = 0x32;
++  public static final int META_SYM_ON = 0x4;
++  public static final int META_FUNCTION_ON = 0x8;
++  public static final int META_CTRL_MASK = 0x7000;
++  public static final int META_META_MASK = 0x70000;
++
++  private static final int SHORTCUT_MODIFIERS = META_FUNCTION_ON | META_CTRL_MASK | META_META_MASK;
++
++  private SableDialpadKeys() {}
++
++  /**
++   * The dial character a key types, or 0 for none.
++   *
++   * @param unicodeChar {@code KeyEvent.getUnicodeChar()} (meta state applied)
++   * @param dialpadFocused whether focus is in the dial pad (number field or an on-screen key)
++   */
++  public static char dialChar(int keyCode, int unicodeChar, int metaState, boolean dialpadFocused) {
++    if ((metaState & SHORTCUT_MODIFIERS) != 0) {
++      return 0;
++    }
++    boolean shift = (metaState & META_SHIFT_MASK) != 0;
++    if (keyCode >= KEYCODE_NUMPAD_0 && keyCode <= KEYCODE_NUMPAD_9) {
++      return (char) ('0' + keyCode - KEYCODE_NUMPAD_0);
++    }
++    if (!shift && keyCode >= KEYCODE_0 && keyCode <= KEYCODE_9 && unicodeChar == 0) {
++      return (char) ('0' + keyCode - KEYCODE_0);
++    }
++    if (keyCode == KEYCODE_STAR) {
++      return '*';
++    }
++    if (keyCode == KEYCODE_POUND) {
++      return '#';
++    }
++    if (keyCode == KEYCODE_PLUS) {
++      return '+';
++    }
++    if (isDialChar(unicodeChar)) {
++      return (char) unicodeChar;
++    }
++    if ((metaState & (META_SHIFT_MASK | META_SYM_ON)) != 0) {
++      return 0;
++    }
++    // Alt+letter is the Q25 digit layer even when a layout overlay dropped the key map's Alt
++    // digits; a plain letter is a digit only inside the dial pad.
++    boolean alt = (metaState & META_ALT_MASK) != 0;
++    if (alt || dialpadFocused) {
++      for (int i = 0; i < PHONE_PAD_KEYCODES.length; i++) {
++        if (PHONE_PAD_KEYCODES[i] == keyCode) {
++          return (char) ('1' + i);
++        }
++      }
++    }
++    return 0;
++  }
++
++  /**
++   * Whether a key on the Phone main screen (dial pad closed, no text field focused) opens the
++   * dial pad with its character: digits, {@code *} and {@code #} from the Alt layer, number row
++   * or numpad. Plain letters never do (they stay list navigation and search), nor does a held
++   * key.
++   */
++  public static boolean opensDialpad(int keyCode, int unicodeChar, int metaState, int repeatCount) {
++    if (repeatCount > 0) {
++      return false;
++    }
++    char c = dialChar(keyCode, unicodeChar, metaState, false);
++    return c != 0 && c != '+';
++  }
++
++  /** The android.view.KeyEvent key code that types {@code c} into the dial pad, or 0. */
++  public static int keyCodeFor(char c) {
++    if (c >= '0' && c <= '9') {
++      return KEYCODE_0 + (c - '0');
++    }
++    switch (c) {
++      case '*':
++        return KEYCODE_STAR;
++      case '#':
++        return KEYCODE_POUND;
++      case '+':
++        return KEYCODE_PLUS;
++      default:
++        return 0;
++    }
++  }
++
++  private static boolean isDialChar(int c) {
++    return (c >= '0' && c <= '9') || c == '*' || c == '#' || c == '+';
++  }
++}
+diff --git a/java/com/android/dialer/sable/SableRecentsPrivacy.java b/java/com/android/dialer/sable/SableRecentsPrivacy.java
+new file mode 100644
+index 0000000..5142c76
+--- /dev/null
++++ b/java/com/android/dialer/sable/SableRecentsPrivacy.java
+@@ -0,0 +1,55 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.dialer.sable;
++
++/**
++ * Recents privacy (SABLE_PHONE_DIALER_UX "Recents and missed calls", RECENTS_PRIVACY). Pure Java.
++ *
++ * <p>While the device is locked or Sable private mode is on (the switch lives in Sable Hub >
++ * Connected apps and is read from Hub's read-only {@code org.sableos.hub.privacy} provider), the
++ * Recents list shows the call type, date and a generic "Contact hidden" line instead of names,
++ * numbers, locations, photos, account lines and voicemail transcripts. Calling back still works:
++ * only what is shown changes, never the call log.
++ *
++ * <p>When Hub is not installed there is no private mode (off). A provider that answers with a
++ * value other than 0 or 1 counts as on (fail closed).
++ */
++public final class SableRecentsPrivacy {
++  /** content://org.sableos.hub.privacy/state, column private_mode (0 or 1). */
++  public static final String PROVIDER_AUTHORITY = "org.sableos.hub.privacy";
++
++  public static final String STATE_PATH = "state";
++  public static final String COLUMN_PRIVATE_MODE = "private_mode";
++
++  private SableRecentsPrivacy() {}
++
++  /**
++   * Private mode from the provider's answer: {@code null} when Hub or its row is absent (off),
++   * otherwise the {@code private_mode} value.
++   */
++  public static boolean privateMode(Integer providerValue) {
++    if (providerValue == null) {
++      return false;
++    }
++    return providerValue != 0;
++  }
++
++  /** Whether Recents rows hide who called. */
++  public static boolean hideDetails(boolean deviceLocked, boolean privateMode) {
++    return deviceLocked || privateMode;
++  }
++}
+-- 
+2.43.0
+

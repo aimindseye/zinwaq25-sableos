@@ -1,0 +1,427 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 21 Oct 2026 23:08:23 +0000
+Subject: [PATCH 1062/1062] SableOS: Sable Media drives FM through a bridge
+ service; no FM Radio launcher entry
+
+SableFmBridgeService is an exported Messenger service that forwards power,
+tune, seek, scan, speaker and mute commands from Sable Media (system image
+only, checked per message) to FmService in this process and sends back the
+tuner state, RDS text and the station list. While it is connected the
+playing notification opens Sable Media's FM screen. FmMainActivity loses
+its LAUNCHER category (it stays exported as a fallback), so the separate
+FM Radio app is gone from the app list.
+---
+ AndroidManifest.xml                           |  14 +-
+ src/com/android/fmradio/FmService.java        |  23 +-
+ .../android/fmradio/SableFmBridgeService.java | 315 ++++++++++++++++++
+ 3 files changed, 348 insertions(+), 4 deletions(-)
+ create mode 100644 src/com/android/fmradio/SableFmBridgeService.java
+
+diff --git a/AndroidManifest.xml b/AndroidManifest.xml
+index b5176fd..13eb04a 100644
+--- a/AndroidManifest.xml
++++ b/AndroidManifest.xml
+@@ -57,9 +57,10 @@
+             android:theme="@style/AppTheme"
+             android:exported="true"
+             android:usesCleartextTraffic="false" >
++            <!-- SableOS: no launcher entry; FM Radio lives in Sable Media (SableFmBridgeService).
++                 The activity stays exported so Sable Media can still open it as a fallback. -->
+             <intent-filter>
+                 <action android:name="android.intent.action.MAIN" />
+-                <category android:name="android.intent.category.LAUNCHER" />
+             </intent-filter>
+         </activity>
+         <activity
+@@ -80,6 +81,17 @@
+             </intent-filter>
+         </service>
+ 
++        <!-- SableOS: Sable Media's remote control for the tuner. Exported without a
++             permission on purpose: every message's sending uid is checked against
++             Sable Media on the system image (SableFmProtocol.callerAllowed). -->
++        <service
++            android:name=".SableFmBridgeService"
++            android:exported="true" >
++            <intent-filter>
++                <action android:name="org.sableos.fm.action.CONTROL" />
++            </intent-filter>
++        </service>
++
+         <provider
+             android:name=".FmProvider"
+             android:authorities="com.android.fmradio"
+diff --git a/src/com/android/fmradio/FmService.java b/src/com/android/fmradio/FmService.java
+index 4025310..461302d 100644
+--- a/src/com/android/fmradio/FmService.java
++++ b/src/com/android/fmradio/FmService.java
+@@ -224,6 +224,9 @@ public class FmService extends Service implements FmRecorder.OnRecorderStateChan
+     private String mRtTextString = "";
+     // Notification target class name
+     private String mTargetClassName = "com.android.fmradio.FmMainActivity";
++    // SableOS: set by SableFmBridgeService while Sable Media drives the radio, so the
++    // playing notification opens Sable Media's FM screen instead of FmMainActivity.
++    private Intent mExternalContentIntent = null;
+     // RDS thread use to receive the information send by station
+     private Thread mRdsThread = null;
+     // record whether RDS thread exit
+@@ -1950,10 +1953,15 @@ public class FmService extends Service implements FmRecorder.OnRecorderStateChan
+             }
+         }
+ 
+-        Intent aIntent = new Intent(Intent.ACTION_MAIN);
+-        aIntent.addCategory(Intent.CATEGORY_LAUNCHER);
++        Intent aIntent;
++        if (mExternalContentIntent != null) {
++            aIntent = new Intent(mExternalContentIntent);
++        } else {
++            aIntent = new Intent(Intent.ACTION_MAIN);
++            aIntent.addCategory(Intent.CATEGORY_LAUNCHER);
++            aIntent.setClassName(getPackageName(), mTargetClassName);
++        }
+         aIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+-        aIntent.setClassName(getPackageName(), mTargetClassName);
+         PendingIntent pAIntent = PendingIntent.getActivity(
+                 mContext, 0, aIntent, PendingIntent.FLAG_IMMUTABLE);
+ 
+@@ -2924,6 +2932,15 @@ public class FmService extends Service implements FmRecorder.OnRecorderStateChan
+      * Set notification class name
+      * @param clsName The target class name of activity
+      */
++    /**
++     * SableOS: the activity the playing notification opens, or null for FmMainActivity.
++     *
++     * @param intent explicit activity intent, copied when the notification is built
++     */
++    public void setExternalContentIntent(Intent intent) {
++        mExternalContentIntent = intent == null ? null : new Intent(intent);
++    }
++
+     public void setNotificationClsName(String clsName) {
+         mTargetClassName = clsName;
+     }
+diff --git a/src/com/android/fmradio/SableFmBridgeService.java b/src/com/android/fmradio/SableFmBridgeService.java
+new file mode 100644
+index 0000000..b16dcdd
+--- /dev/null
++++ b/src/com/android/fmradio/SableFmBridgeService.java
+@@ -0,0 +1,315 @@
++/*
++ * Copyright (C) 2026 SableOS
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.fmradio;
++
++import android.app.Service;
++import android.content.ComponentName;
++import android.content.Intent;
++import android.content.ServiceConnection;
++import android.content.pm.ApplicationInfo;
++import android.content.pm.PackageManager;
++import android.database.Cursor;
++import android.os.Bundle;
++import android.os.Handler;
++import android.os.IBinder;
++import android.os.Looper;
++import android.os.Message;
++import android.os.Messenger;
++import android.os.Process;
++import android.os.RemoteException;
++import android.text.TextUtils;
++import android.util.Log;
++
++import com.android.fmradio.FmStation.Station;
++import com.android.fmradio.sable.SableFmProtocol;
++
++import java.util.ArrayList;
++
++/**
++ * Lets Sable Media drive the FM tuner. The MediaTek FM chip is reached through
++ * /dev/fm and libfmjni, which only this platform-signed system-uid app may open
++ * (SELinux and the device node's owner), so Sable Media sends commands here and
++ * this service forwards them to FmService in the same process. Only Sable Media
++ * installed on the system image (and the system uid) is obeyed; see
++ * SableFmProtocol.callerAllowed.
++ */
++public class SableFmBridgeService extends Service implements FmListener {
++    private static final String TAG = "SableFmBridge";
++
++    private final Handler mHandler = new Handler(Looper.getMainLooper(), this::handleClientMessage);
++    private final Messenger mMessenger = new Messenger(mHandler);
++    private final ArrayList<Messenger> mClients = new ArrayList<>();
++    private final ArrayList<Message> mPending = new ArrayList<>();
++
++    private FmService mService;
++    private boolean mBound;
++    private int mLastEvent;
++    private boolean mLastOk = true;
++
++    private final ServiceConnection mConnection = new ServiceConnection() {
++        @Override
++        public void onServiceConnected(ComponentName name, IBinder binder) {
++            mService = ((FmService.ServiceBinder) binder).getService();
++            if (mService == null) {
++                return;
++            }
++            mService.registerFmRadioListener(SableFmBridgeService.this);
++            mService.setExternalContentIntent(new Intent(SableFmProtocol.ACTION_OPEN_MEDIA_FM)
++                    .setPackage(SableFmProtocol.MEDIA_PACKAGE));
++            if (!mService.isServiceInited()) {
++                mService.initService(FmStation.getCurrentStation(SableFmBridgeService.this));
++            }
++            for (Message pending : mPending) {
++                apply(pending);
++                pending.recycle();
++            }
++            mPending.clear();
++            broadcastState();
++        }
++
++        @Override
++        public void onServiceDisconnected(ComponentName name) {
++            mService = null;
++        }
++    };
++
++    @Override
++    public void onCreate() {
++        super.onCreate();
++        Intent fm = new Intent(this, FmService.class);
++        // Started as well as bound, so the radio keeps playing (with its notification)
++        // after Sable Media closes, as with the FM Radio app.
++        startService(fm);
++        mBound = bindService(fm, mConnection, BIND_AUTO_CREATE);
++    }
++
++    @Override
++    public IBinder onBind(Intent intent) {
++        return mMessenger.getBinder();
++    }
++
++    @Override
++    public boolean onUnbind(Intent intent) {
++        mClients.clear();
++        return false;
++    }
++
++    @Override
++    public void onDestroy() {
++        if (mService != null) {
++            mService.unregisterFmRadioListener(this);
++            mService.setExternalContentIntent(null);
++            mService = null;
++        }
++        if (mBound) {
++            unbindService(mConnection);
++            mBound = false;
++        }
++        for (Message pending : mPending) {
++            pending.recycle();
++        }
++        mPending.clear();
++        super.onDestroy();
++    }
++
++    private boolean callerAllowed(int uid) {
++        String[] packages = uid >= 0 ? getPackageManager().getPackagesForUid(uid) : null;
++        boolean[] system = new boolean[packages == null ? 0 : packages.length];
++        for (int i = 0; i < system.length; i++) {
++            try {
++                ApplicationInfo info = getPackageManager().getApplicationInfo(packages[i], 0);
++                system[i] = (info.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
++            } catch (PackageManager.NameNotFoundException e) {
++                system[i] = false;
++            }
++        }
++        return SableFmProtocol.callerAllowed(uid, Process.myUid(), Process.SYSTEM_UID,
++                packages, system);
++    }
++
++    private boolean handleClientMessage(Message msg) {
++        if (!SableFmProtocol.isKnownCommand(msg.what)) {
++            return false;
++        }
++        if (!callerAllowed(msg.sendingUid)) {
++            Log.w(TAG, "ignoring FM command " + msg.what + " from uid " + msg.sendingUid);
++            return true;
++        }
++        switch (msg.what) {
++            case SableFmProtocol.MSG_REGISTER:
++                if (msg.replyTo != null && !mClients.contains(msg.replyTo)) {
++                    mClients.add(msg.replyTo);
++                }
++                sendState(msg.replyTo);
++                return true;
++            case SableFmProtocol.MSG_UNREGISTER:
++                mClients.remove(msg.replyTo);
++                return true;
++            default:
++                break;
++        }
++        if (mService == null) {
++            mPending.add(Message.obtain(msg));
++            return true;
++        }
++        apply(msg);
++        broadcastState();
++        return true;
++    }
++
++    private void apply(Message msg) {
++        FmService service = mService;
++        if (service == null) {
++            return;
++        }
++        switch (msg.what) {
++            case SableFmProtocol.MSG_POWER_UP: {
++                int station = SableFmProtocol.isValidStation(msg.arg1)
++                        ? msg.arg1 : service.getFrequency();
++                service.powerUpAsync(FmUtils.computeFrequency(station));
++                break;
++            }
++            case SableFmProtocol.MSG_POWER_DOWN:
++                service.powerDownAsync();
++                break;
++            case SableFmProtocol.MSG_TUNE:
++                if (SableFmProtocol.isValidStation(msg.arg1)) {
++                    service.tuneStationAsync(FmUtils.computeFrequency(msg.arg1));
++                }
++                break;
++            case SableFmProtocol.MSG_SEEK:
++                service.seekStationAsync(FmUtils.computeFrequency(service.getFrequency()),
++                        msg.arg1 != 0);
++                break;
++            case SableFmProtocol.MSG_SCAN:
++                service.startScanAsync();
++                break;
++            case SableFmProtocol.MSG_STOP_SCAN:
++                service.stopScan();
++                break;
++            case SableFmProtocol.MSG_SET_SPEAKER:
++                service.setSpeakerPhoneOn(msg.arg1 != 0);
++                break;
++            case SableFmProtocol.MSG_SET_MUTE:
++                service.setMuteAsync(msg.arg1 != 0);
++                break;
++            default:
++                break;
++        }
++    }
++
++    /** FmService callbacks arrive on its handler thread. */
++    @Override
++    public void onCallBack(Bundle bundle) {
++        final int flag = bundle.getInt(FmListener.CALLBACK_FLAG);
++        final boolean ok;
++        switch (flag) {
++            case FmListener.MSGID_TUNE_FINISHED:
++                ok = bundle.getBoolean(FmListener.KEY_IS_TUNE, true);
++                break;
++            case FmListener.MSGID_SWITCH_ANTENNA:
++                ok = bundle.getBoolean(FmListener.KEY_IS_SWITCH_ANTENNA, true);
++                break;
++            case FmListener.MSGID_SCAN_FINISHED:
++                ok = bundle.getBoolean(FmListener.KEY_IS_SCAN, true);
++                break;
++            default:
++                ok = true;
++                break;
++        }
++        mHandler.post(() -> {
++            mLastEvent = flag;
++            mLastOk = ok;
++            broadcastState();
++        });
++    }
++
++    private Bundle state() {
++        Bundle b = new Bundle();
++        FmService service = mService;
++        b.putInt(SableFmProtocol.KEY_EVENT, mLastEvent);
++        b.putBoolean(SableFmProtocol.KEY_OK, mLastOk);
++        if (service == null) {
++            return b;
++        }
++        b.putBoolean(SableFmProtocol.KEY_POWERED, service.getPowerStatus() == FmService.POWER_UP);
++        b.putInt(SableFmProtocol.KEY_STATION, service.getFrequency());
++        b.putBoolean(SableFmProtocol.KEY_ANTENNA, service.isAntennaAvailable());
++        b.putBoolean(SableFmProtocol.KEY_SPEAKER, service.isSpeakerUsed());
++        b.putBoolean(SableFmProtocol.KEY_MUTED, service.isMuted());
++        b.putBoolean(SableFmProtocol.KEY_SCANNING, service.isScanning());
++        b.putBoolean(SableFmProtocol.KEY_SEEKING, service.isSeeking());
++        b.putBoolean(SableFmProtocol.KEY_DEVICE_OPEN, service.isDeviceOpen());
++        b.putString(SableFmProtocol.KEY_PS, nonNull(service.getPs()));
++        b.putString(SableFmProtocol.KEY_RT, nonNull(service.getRtText()));
++        putStations(b);
++        return b;
++    }
++
++    /** The searched and favorite stations FmService keeps in its provider. */
++    private void putStations(Bundle b) {
++        ArrayList<Integer> stations = new ArrayList<>();
++        ArrayList<String> names = new ArrayList<>();
++        try (Cursor cursor = getContentResolver().query(Station.CONTENT_URI,
++                new String[] { Station.FREQUENCY, Station.STATION_NAME, Station.PROGRAM_SERVICE },
++                null, null, Station.FREQUENCY)) {
++            while (cursor != null && cursor.moveToNext()) {
++                int station = cursor.getInt(0);
++                if (!SableFmProtocol.isValidStation(station) || stations.contains(station)) {
++                    continue;
++                }
++                String name = cursor.getString(1);
++                if (TextUtils.isEmpty(name)) {
++                    name = cursor.getString(2);
++                }
++                stations.add(station);
++                names.add(nonNull(name));
++            }
++        } catch (RuntimeException e) {
++            Log.w(TAG, "station list unavailable", e);
++        }
++        int[] array = new int[stations.size()];
++        for (int i = 0; i < array.length; i++) {
++            array[i] = stations.get(i);
++        }
++        b.putIntArray(SableFmProtocol.KEY_STATIONS, array);
++        b.putStringArray(SableFmProtocol.KEY_STATION_NAMES, names.toArray(new String[0]));
++    }
++
++    private void broadcastState() {
++        for (Messenger client : new ArrayList<>(mClients)) {
++            sendState(client);
++        }
++    }
++
++    private void sendState(Messenger client) {
++        if (client == null) {
++            return;
++        }
++        Message msg = Message.obtain(null, SableFmProtocol.MSG_STATE);
++        msg.setData(state());
++        try {
++            client.send(msg);
++        } catch (RemoteException e) {
++            mClients.remove(client);
++        }
++    }
++
++    private static String nonNull(String value) {
++        return value == null ? "" : value;
++    }
++}
+-- 
+2.43.0
+

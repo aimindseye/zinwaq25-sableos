@@ -84,6 +84,7 @@ internal enum class MediaDestination(
     Podcasts("podcasts"),
     NowPlaying("now playing"),
     Radio("radio"),
+    Fm("fm"),
     ManageStations("manage"),
     AddStation("add"),
     Queue("queue"),
@@ -130,6 +131,9 @@ internal data class MediaScreenState(
     /** Library search query while search is open, else null. */
     val searchQuery: String? = null,
     val searchFocusToken: Int = 0,
+    /** FM mode (FmScreen); the FM destination is offered only when [FmUiState.available]. */
+    val fm: FmUiState = FmUiState(),
+    val fmFavorites: Set<Int> = emptySet(),
 )
 
 internal data class MediaScreenActions(
@@ -180,6 +184,7 @@ internal data class MediaScreenActions(
     val onSearchQueryChange: (String) -> Unit = {},
     val onCloseSearch: () -> Unit = {},
     val onTrackFocusChange: (LocalAudioItem, Boolean) -> Unit = { _, _ -> },
+    val fm: FmScreenActions? = null,
 )
 
 @Composable
@@ -329,6 +334,7 @@ internal fun MediaScreen(
             MediaDestination.Podcasts,
             MediaDestination.NowPlaying,
             MediaDestination.Radio,
+            MediaDestination.Fm,
             MediaDestination.ManageStations,
             MediaDestination.AddStation,
             MediaDestination.Settings,
@@ -359,6 +365,8 @@ internal fun MediaScreen(
                                     title =
                                         when (destination) {
                                             MediaDestination.Podcasts -> "podcasts"
+
+                                            MediaDestination.Fm -> "fm radio"
 
                                             MediaDestination.Radio,
                                             MediaDestination.ManageStations,
@@ -469,6 +477,16 @@ internal fun MediaScreen(
                                         )
                                     }
 
+                                    MediaDestination.Fm -> {
+                                        actions.fm?.let { fmActions ->
+                                            FmScreen(
+                                                fm = state.fm,
+                                                favorites = state.fmFavorites,
+                                                actions = fmActions,
+                                            )
+                                        }
+                                    }
+
                                     MediaDestination.ManageStations -> {
                                         ManageStationsScreen(
                                             stations = stations,
@@ -562,6 +580,7 @@ private fun PrimaryPivot(
     destination: MediaDestination,
     onSelect: (MediaDestination) -> Unit,
 ) {
+    val fmAvailable = LocalFmAvailable.current
     val current =
         when (destination) {
             MediaDestination.ManageStations,
@@ -580,7 +599,8 @@ private fun PrimaryPivot(
     // Four top destinations never fit a compact/square row without clipping:
     // the adaptive nav shows what fits plus a keyboard-reachable "more" menu.
     SableAdaptiveTopNav(
-        destinations = MEDIA_TOP_DESTINATIONS,
+        // FM_RADIO_TILE_VISIBLE=NO without a tuner service: FM is listed only when the bridge is installed.
+        destinations = if (fmAvailable) MEDIA_TOP_DESTINATIONS_WITH_FM else MEDIA_TOP_DESTINATIONS,
         selectedId = current?.name,
         onSelect = { id -> onSelect(MediaDestination.valueOf(id)) },
         accent = MediaPink,
@@ -592,6 +612,15 @@ private val MEDIA_TOP_DESTINATIONS =
         MediaDestination.Collection,
         MediaDestination.Podcasts,
         MediaDestination.Radio,
+        MediaDestination.NowPlaying,
+    ).map { SableDestination(it.name, it.label) }
+
+private val MEDIA_TOP_DESTINATIONS_WITH_FM =
+    listOf(
+        MediaDestination.Collection,
+        MediaDestination.Podcasts,
+        MediaDestination.Radio,
+        MediaDestination.Fm,
         MediaDestination.NowPlaying,
     ).map { SableDestination(it.name, it.label) }
 
@@ -1510,20 +1539,25 @@ private fun NowPlayingScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
         ) {
+            // Key labels on the controls (MEDIA_GALLERY_UX: "keyboard shortcut labels shown as direct
+            // affordances"; artifact state 1: [J Prev] [Space Play] [K Next]). Stop has no key.
             PlayerButton(
                 text = "◀",
+                keyLabel = "J",
                 enabled = playback.hasPrevious,
                 modifier = Modifier.weight(1f),
                 onClick = onPrevious,
             )
             PlayerButton(
                 text = if (playback.isPlaying) "❚❚" else "▶",
+                keyLabel = "Space",
                 active = true,
                 modifier = Modifier.weight(1f),
                 onClick = onPlayPause,
             )
             PlayerButton(
                 text = "▶",
+                keyLabel = "K",
                 enabled = playback.hasNext,
                 modifier = Modifier.weight(1f),
                 onClick = onNext,
@@ -1534,8 +1568,19 @@ private fun NowPlayingScreen(
                 onClick = onStop,
             )
         }
+
+        Text(
+            text = NOW_PLAYING_KEY_HINT,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
+
+/** The Now playing hint line: the keys MediaKeymap gives this screen. */
+internal const val NOW_PLAYING_KEY_HINT = "J prev · Space play · K next · Shift+J/K seek · Q queue"
 
 @Composable
 private fun RadioScreen(
@@ -1999,6 +2044,7 @@ private fun ArtworkTile(
 private fun PlayerButton(
     text: String,
     modifier: Modifier = Modifier,
+    keyLabel: String? = null,
     active: Boolean = false,
     enabled: Boolean = true,
     onClick: () -> Unit,
@@ -2033,13 +2079,21 @@ private fun PlayerButton(
                 },
             ),
     ) {
-        Box(
-            contentAlignment = Alignment.Center,
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
             Text(
                 text = text,
                 style = MaterialTheme.typography.titleLarge,
             )
+            if (keyLabel != null) {
+                Text(
+                    text = keyLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                )
+            }
         }
     }
 }

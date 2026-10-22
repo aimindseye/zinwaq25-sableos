@@ -541,6 +541,24 @@ def verify_product_sources(root: pathlib.Path, app: pathlib.Path) -> None:
         'android:foreground="@drawable/sable_mail_list_item_foreground"',
         "SABLE_MAIL_FOCUS_RING",
     )
+    require_text(
+        home_activity,
+        "if (SableMailLayout.forceSplitView(sableConfig.screenWidthDp, sableConfig.screenHeightDp)) return true",
+        "SABLE_MAIL_SPLIT_PANE",
+    )
+    require_text(
+        root / "legacy/ui/legacy/src/main/res/layout/split_message_list.xml",
+        'android:id="@+id/sable_mail_dock_prompt"',
+        "SABLE_MAIL_COMMAND_DOCK",
+    )
+    require_text(
+        message_webview,
+        "com.fsck.k9.activity.SableMailQuotes.html(htmlText, expanded = false)",
+        "SABLE_MAIL_QUOTES_COLLAPSED",
+    )
+    print("SABLE_MAIL_SPLIT_PANE=PASS_FORCED_ON_SQUARE_SCREEN")
+    print("SABLE_MAIL_COMMAND_DOCK=PASS")
+    print("SABLE_MAIL_QUOTES_COLLAPSED=PASS_E_EXPANDS")
     print("SABLE_MAIL_KEYMAP=PASS_SABLE_SHARED_CONTRACT")
     print("SABLE_MAIL_FOCUS_RING=PASS")
     print("SABLE_MAIL_KEYMAP_INPUT_GUARD=PASS")

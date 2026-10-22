@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 21 Oct 2026 13:03:36 +0000
+Subject: [PATCH] SableOS: hide the LineageOS version row in About phone
+
+LineageOS rows in Settings are rebranded or hidden. About phone already
+shows "SableOS version" (0102), whose summary names the lineage-23.2
+base, so the LineageOS version row (and its easter-egg tap) is hidden
+in About phone and in the catalyst Android version screen. LineageOS
+legal information in Legal information is unchanged.
+---
+ res/values/strings_sable_about.xml                           | 4 ++--
+ .../deviceinfo/firmwareversion/FirmwareVersionScreen.kt      | 2 +-
+ .../LineageVersionDetailPreferenceController.java            | 5 ++++-
+ 3 files changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/res/values/strings_sable_about.xml b/res/values/strings_sable_about.xml
+index d01f8af..0cef687 100644
+--- a/res/values/strings_sable_about.xml
++++ b/res/values/strings_sable_about.xml
+@@ -4,7 +4,7 @@
+   SPDX-License-Identifier: Apache-2.0
+ -->
+ <resources>
+-    <!-- Settings > About phone: the SableOS product version. The LineageOS version row and
+-         LineageOS legal information stay as the base attribution. -->
++    <!-- Settings > About phone: the SableOS product version (its summary names the LineageOS
++         base). The LineageOS version row is hidden; LineageOS legal information stays. -->
+     <string name="sable_version_title">SableOS version</string>
+ </resources>
+diff --git a/src/com/android/settings/deviceinfo/firmwareversion/FirmwareVersionScreen.kt b/src/com/android/settings/deviceinfo/firmwareversion/FirmwareVersionScreen.kt
+index 1af3fb6..eb40a37 100644
+--- a/src/com/android/settings/deviceinfo/firmwareversion/FirmwareVersionScreen.kt
++++ b/src/com/android/settings/deviceinfo/firmwareversion/FirmwareVersionScreen.kt
+@@ -70,7 +70,7 @@ open class FirmwareVersionScreen : PreferenceScreenMixin, PreferenceSummaryProvi
+     override fun getPreferenceHierarchy(context: Context, coroutineScope: CoroutineScope) =
+         preferenceHierarchy(context) {
+             +FirmwareVersionDetailPreference()
+-            +LineageVersionDetailPreference()
++            // SableOS: no LineageOS version row; About phone shows the SableOS version.
+             +SecurityPatchLevelPreference()
+             +LineageVendorSecurityPatchLevelPreference()
+             +MainlineModuleVersionPreference()
+diff --git a/src/com/android/settings/deviceinfo/firmwareversion/LineageVersionDetailPreferenceController.java b/src/com/android/settings/deviceinfo/firmwareversion/LineageVersionDetailPreferenceController.java
+index b98ab96..f50d960 100644
+--- a/src/com/android/settings/deviceinfo/firmwareversion/LineageVersionDetailPreferenceController.java
++++ b/src/com/android/settings/deviceinfo/firmwareversion/LineageVersionDetailPreferenceController.java
+@@ -62,7 +62,10 @@ public class LineageVersionDetailPreferenceController extends BasePreferenceCont
+ 
+     @Override
+     public int getAvailabilityStatus() {
+-        return AVAILABLE;
++        // SableOS: About phone shows the SableOS version row (its summary names the
++        // lineage-23.2 base); the LineageOS version row is hidden. LineageOS legal stays in
++        // Legal information.
++        return UNSUPPORTED_ON_DEVICE;
+     }
+ 
+     @Override
+-- 
+2.43.0
+

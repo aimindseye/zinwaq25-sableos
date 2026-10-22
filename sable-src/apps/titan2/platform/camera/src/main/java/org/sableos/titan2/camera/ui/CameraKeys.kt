@@ -1,5 +1,7 @@
 package org.sableos.titan2.camera.ui
 
+import org.sableos.titan2.camera.core.ArrowGuard
+import org.sableos.titan2.camera.core.Binding
 import org.sableos.titan2.camera.core.CameraAction
 import org.sableos.titan2.camera.core.CameraDeviceProfile
 import org.sableos.titan2.camera.core.CameraKeyMap
@@ -12,13 +14,17 @@ import org.sableos.titan2.camera.core.RawKeys
 /**
  * Physical keys to actions. The quick review, when open, gets every key first. Keys with a hold
  * meaning (F, E) wait for release so a hold can become AF/AE lock; held keys otherwise repeat
- * only for stepping actions, while toggles and the shutter fire once per press.
+ * only for stepping actions, while toggles and the shutter fire once per press. On a device whose
+ * trackpad sends arrows, plain arrows are swallowed unless a parameter strip has the focus
+ * ([ArrowGuard]); [onGuarded] then says to use Alt.
  */
 class CameraKeys(
     private val profile: CameraDeviceProfile,
     private val review: QuickReviewHost,
     private val context: () -> DeckContext?,
-    private val act: (CameraAction) -> Unit
+    private val act: (CameraAction) -> Unit,
+    private val stripFocused: () -> Boolean = { false },
+    private val onGuarded: () -> Unit = {}
 ) {
     private val holds = HoldTracker()
 
@@ -59,9 +65,20 @@ class CameraKeys(
     fun clear() = holds.clear()
 
     private fun press(name: String, alt: Boolean, repeat: Int): Boolean {
-        val action = CameraKeyMap.resolve(name, alt, profile) ?: return false
-        if (repeat == 0 || action in repeatable) act(action)
-        return true
+        val action = CameraKeyMap.resolve(name, alt, profile)
+        return when {
+            ArrowGuard.blocks(Binding(name, alt), profile, stripFocused()) -> {
+                if (repeat == 0) onGuarded()
+                true
+            }
+
+            action == null -> false
+
+            else -> {
+                if (repeat == 0 || action in repeatable) act(action)
+                true
+            }
+        }
     }
 
     private fun holdDown(name: String, alt: Boolean, repeat: Int) {

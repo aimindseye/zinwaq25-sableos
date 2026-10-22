@@ -34,3 +34,5 @@ licence text next to each before a public release.
 | `LineageOS/android_hardware_mediatek`, `android_device_mediatek_sepolicy_vndr` | Apache-2.0 |
 | `TheMuppets/proprietary_vendor_xelex_Q25` | Proprietary (Zinwa/MediaTek), redistributed by TheMuppets |
 | Gradle and Android/Maven dependencies of the Sable apps | per dependency |
+| microG GmsCore and Companion APKs (`SABLE_Q25_MICROG`, pinned in `product/q25/microg/prebuilts.tsv`, shipped unmodified as microG signed them) | Apache-2.0 (https://github.com/microg/GmsCore) |
+| Aurora Store APK (same flag and pin file, unmodified) | GPL-3.0 (https://gitlab.com/AuroraOSS/AuroraStore); its source is at the pinned release tag |

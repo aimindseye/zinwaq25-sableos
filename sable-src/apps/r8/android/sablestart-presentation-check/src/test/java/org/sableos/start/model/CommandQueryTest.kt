@@ -53,3 +53,33 @@ class CommandQueryTest {
         assertEquals(listOf("Mail", "Cinema"), CommandRanking.apps(listOf("Cinema", "Mail"), { it }, { recentCinema[it] }, "ma"))
     }
 }
+
+class CommandGroupsTest {
+    @Test
+    fun profilePrefixesListOneProfile() {
+        assertEquals(CommandQuery(CommandScope.Private, ""), CommandQuery.parse("/private"))
+        assertEquals(CommandQuery(CommandScope.Dual, "chat"), CommandQuery.parse("/dual chat"))
+        assertEquals(CommandQuery(CommandScope.Work, ""), CommandQuery.parse("/work"))
+        assertEquals(true, CommandQuery.parse("/work").profileScope)
+    }
+
+    @Test
+    fun leftRightMoveBetweenGroupChips() {
+        assertEquals(CommandScope.Apps, CommandGroups.next(CommandScope.All, 1))
+        assertEquals(CommandScope.All, CommandGroups.next(CommandScope.All, -1))
+        assertEquals(CommandScope.Actions, CommandGroups.next(CommandScope.Actions, 1))
+        assertEquals(CommandScope.Apps, CommandGroups.next(CommandScope.Dual, 1))
+        assertEquals(CommandQuery(CommandScope.People, "cam"), CommandGroups.apply(CommandQuery.parse("?cam"), CommandScope.People))
+        assertEquals(CommandQuery.parse("/dual x"), CommandGroups.apply(CommandQuery.parse("/dual x"), CommandScope.Hub))
+    }
+
+    @Test
+    fun bestMatchPrefersTheStrongerTitleAndAppsOnATie() {
+        assertEquals(true, CommandBestMatch.appWins("Settings", "Settings", "set"))
+        assertEquals(false, CommandBestMatch.appWins("Reset Tool", "Settings", "set"))
+        assertEquals(true, CommandBestMatch.appWins("Sable Start", null, "start"))
+        assertEquals(null, CommandBestMatch.appWins("Sable Start", "Wi-Fi", " "))
+        assertEquals(0, CommandBestMatch.tier("Settings", "set"))
+        assertEquals(1, CommandBestMatch.tier("Sable Settings", "set"))
+    }
+}

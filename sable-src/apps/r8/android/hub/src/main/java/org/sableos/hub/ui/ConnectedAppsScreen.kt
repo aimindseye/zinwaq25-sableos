@@ -193,7 +193,7 @@ private fun NotificationAccessPanel(
             onClick = onOpenNotificationAccess,
         )
         PolicySwitchRow(
-            label = "Private mode: hide senders and message text in Hub",
+            label = "Private mode: Hub shows counts only, Phone hides names in Recents, Contacts hides numbers",
             checked = privateMode,
             enabled = true,
             onCheckedChange = onPrivateModeChanged,

@@ -159,3 +159,41 @@ object PrivacySummaryPolicy {
             else -> emptyList()
         }
 }
+
+/**
+ * All Apps privacy filter chips (sable-all-apps-titan2 "3. Privacy Filters":
+ * Sensitive · All · No). Left/Right moves between the chips, Enter applies.
+ */
+enum class PrivacyFilter(
+    val label: String,
+) {
+    Sensitive("Sensitive"),
+    All("All"),
+    NoneSensitive("No sensitive"),
+    ;
+
+    /**
+     * Sensitive: effective Camera, Microphone or Location, or any special
+     * access (the groups the summary highlights). No sensitive: every
+     * requested group is known and none is effective. Unknown or unreadable
+     * apps only show under All (UNKNOWN_STATE=OMIT_NOT_GUESS).
+     */
+    fun matches(privacy: AppPrivacy?): Boolean =
+        when (this) {
+            All -> true
+            Sensitive ->
+                privacy != null &&
+                    privacy.effective.any { it.special || it in HIGHLIGHTED }
+            NoneSensitive -> PrivacySummaryPolicy.compact(privacy).state == PrivacyRowState.NoneSensitive
+        }
+
+    companion object {
+        val HIGHLIGHTED: Set<PrivacyGroup> = setOf(PrivacyGroup.Camera, PrivacyGroup.Microphone, PrivacyGroup.Location)
+
+        /** The chip [delta] away, stopping at the ends. */
+        fun next(
+            current: PrivacyFilter,
+            delta: Int,
+        ): PrivacyFilter = entries[(current.ordinal + delta).coerceIn(0, entries.lastIndex)]
+    }
+}

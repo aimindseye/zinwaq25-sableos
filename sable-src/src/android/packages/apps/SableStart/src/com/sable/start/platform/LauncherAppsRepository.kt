@@ -13,6 +13,7 @@ import android.os.UserHandle
 import android.os.UserManager
 import android.provider.Settings
 import org.sableos.start.model.AppEntry
+import org.sableos.start.model.AppProfiles
 import org.sableos.start.model.stableKey
 import org.sableos.start.privacy.AppInstanceKey
 import org.sableos.start.privacy.PrivacySnapshotCache
@@ -152,6 +153,8 @@ class LauncherAppsRepository(
             return when (type) {
                 UserManager.USER_TYPE_PROFILE_MANAGED -> PROFILE_WORK
                 UserManager.USER_TYPE_PROFILE_PRIVATE -> PROFILE_PRIVATE
+                // Android's app cloning profile: Sable calls it Dual apps.
+                USER_TYPE_PROFILE_CLONE -> PROFILE_DUAL
                 else -> PROFILE_OTHER
             }
         }
@@ -272,9 +275,13 @@ class LauncherAppsRepository(
         val HIDDEN_APPS_URI: Uri =
             Uri.parse("content://org.sableos.hub.connected_apps/hidden")
 
-        const val PROFILE_WORK = "work"
-        const val PROFILE_PRIVATE = "private"
-        const val PROFILE_OTHER = "profile"
+        const val PROFILE_WORK = AppProfiles.WORK
+        const val PROFILE_PRIVATE = AppProfiles.PRIVATE
+        const val PROFILE_DUAL = AppProfiles.DUAL
+        const val PROFILE_OTHER = AppProfiles.OTHER
+
+        /** UserManager.USER_TYPE_PROFILE_CLONE (a system API string). */
+        private const val USER_TYPE_PROFILE_CLONE = "android.os.usertype.profile.CLONE"
 
         private const val GRAPHENE_MESSAGING_PACKAGE = "com.android.messaging"
         private const val HIDDEN_PACKAGE_COLUMN = "package_name"

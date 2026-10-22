@@ -66,13 +66,14 @@ More: [`docs/DEVICE_INFO.md`](docs/DEVICE_INFO.md).
 | [Roadmap](ROADMAP.md) | What's reused from SableOS, what's Q25-specific, and the phases |
 | [Build](docs/BUILD.md) | Host setup, source sync, blobs, building the image, GitHub Actions |
 | [Install](docs/INSTALL.md) | Unlock, flash, sideload (tested for Q1 and Q2) |
+| [Play Store apps](docs/MICROG.md) | microG and Aurora Store (Q4, on by default): installing LinkedIn and other apps, battery and location defaults, removing it |
 | [SableOS gaps](docs/SABLEOS_GAP_REVIEW.md) | What is still open: build, device checks, owner decisions, known limits |
 | [Return to stock](docs/RETURN_TO_STOCK.md) | Backup first, rehearse the restore, recovery ladder back to Zinwa firmware |
 | [Architecture](docs/ARCHITECTURE.md) | How the LineageOS base and Sable layer fit together |
 | [Keyboard and input](docs/KEYBOARD_AND_INPUT.md) | Q25 keyboard, trackpad and key profile |
 | [Qualification](docs/QUALIFICATION.md) | Gates each phase must pass |
 | [Crash evidence](docs/CRASH_EVIDENCE.md) | Capture crash logs over adb before anything is cleared |
-| [Implementation notes](docs/implementation/) | What each Sable design package (KF-A..D, Battery, T3, corners, icons, settings-ui5, Phone + Contacts, daily driver, Hub dock) changed and what still needs the phone |
+| [Implementation notes](docs/implementation/) | What each Sable design package (KF-A..D, Battery, T3, corners, icons, settings-ui5, Phone + Contacts, daily driver, Hub dock, power) changed and what still needs the phone |
 | [Patches](patches/README.md) | Q25 changes to the Sable app sources (`sable-src` 0001-0011) and the LineageOS framework patches |
 | [Stock basis](docs/STOCK_BASIS.md) | Firmware facts to record before flashing |
 | [Sources](docs/SOURCES.md) | Every upstream with its pin and licence |

@@ -1,0 +1,135 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 21 Oct 2026 23:07:32 +0000
+Subject: [PATCH 1061/1062] SableOS: pure FM bridge protocol for Sable Media
+
+The message numbers, state keys, band limits and caller policy of the
+Sable FM bridge, in plain Java so they are tested on the host.
+---
+ .../fmradio/sable/SableFmProtocol.java        | 114 ++++++++++++++++++
+ 1 file changed, 114 insertions(+)
+ create mode 100644 src/com/android/fmradio/sable/SableFmProtocol.java
+
+diff --git a/src/com/android/fmradio/sable/SableFmProtocol.java b/src/com/android/fmradio/sable/SableFmProtocol.java
+new file mode 100644
+index 0000000..e59f155
+--- /dev/null
++++ b/src/com/android/fmradio/sable/SableFmProtocol.java
+@@ -0,0 +1,114 @@
++/*
++ * Copyright (C) 2026 SableOS
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.fmradio.sable;
++
++/**
++ * The Sable FM bridge protocol: Sable Media drives this app's FmService through
++ * SableFmBridgeService with android.os.Messenger messages. Pure Java (no android.*)
++ * so it is compiled and tested on the host; Sable Media keeps the same numbers in
++ * org.sableos.media.FmBridgeProtocol (tests/run.sh checks they agree).
++ *
++ * Stations are in units of 100 kHz, as in FmUtils: 875 is 87.5 MHz.
++ */
++public final class SableFmProtocol {
++    private SableFmProtocol() {}
++
++    /** Bind action of the exported bridge service. */
++    public static final String ACTION_CONTROL = "org.sableos.fm.action.CONTROL";
++    /** The only app (besides this one and the system uid) the bridge obeys. */
++    public static final String MEDIA_PACKAGE = "org.sableos.media";
++    /** Sable Media's FM screen, opened from the playing notification. */
++    public static final String ACTION_OPEN_MEDIA_FM = "org.sableos.media.action.FM_RADIO";
++
++    // Client -> bridge (Message.what). arg1 carries the value.
++    public static final int MSG_REGISTER = 1;
++    public static final int MSG_UNREGISTER = 2;
++    /** arg1: station to start on, or 0 for the last station. */
++    public static final int MSG_POWER_UP = 3;
++    public static final int MSG_POWER_DOWN = 4;
++    /** arg1: station. */
++    public static final int MSG_TUNE = 5;
++    /** arg1: 1 seeks up, 0 seeks down. */
++    public static final int MSG_SEEK = 6;
++    public static final int MSG_SCAN = 7;
++    public static final int MSG_STOP_SCAN = 8;
++    /** arg1: 1 speaker, 0 wired headset. */
++    public static final int MSG_SET_SPEAKER = 9;
++    /** arg1: 1 mute, 0 unmute. */
++    public static final int MSG_SET_MUTE = 10;
++    public static final int MSG_GET_STATE = 11;
++
++    // Bridge -> client.
++    public static final int MSG_STATE = 100;
++
++    // MSG_STATE bundle keys.
++    public static final String KEY_POWERED = "powered";
++    public static final String KEY_STATION = "station";
++    public static final String KEY_ANTENNA = "antenna";
++    public static final String KEY_SPEAKER = "speaker";
++    public static final String KEY_MUTED = "muted";
++    public static final String KEY_SCANNING = "scanning";
++    public static final String KEY_SEEKING = "seeking";
++    public static final String KEY_DEVICE_OPEN = "device_open";
++    public static final String KEY_PS = "ps";
++    public static final String KEY_RT = "rt";
++    public static final String KEY_STATIONS = "stations";
++    public static final String KEY_STATION_NAMES = "station_names";
++    /** The last FmListener callback flag, or 0. */
++    public static final String KEY_EVENT = "event";
++    /** false when the last tune, seek or power-up failed. */
++    public static final String KEY_OK = "ok";
++
++    public static final int LOWEST_STATION = 875;
++    public static final int HIGHEST_STATION = 1080;
++
++    public static boolean isKnownCommand(int what) {
++        return what >= MSG_REGISTER && what <= MSG_GET_STATE;
++    }
++
++    public static boolean isValidStation(int station) {
++        return station >= LOWEST_STATION && station <= HIGHEST_STATION;
++    }
++
++    /**
++     * Whether a message from a caller may drive the radio: this app's own uid, the
++     * system uid, or a uid that owns Sable Media installed on the system image (an
++     * updated system app keeps its signature, so the package name cannot be taken
++     * over by a user-installed app).
++     *
++     * @param packages the caller uid's package names (PackageManager.getPackagesForUid)
++     * @param systemImage for each package, whether ApplicationInfo.FLAG_SYSTEM is set
++     */
++    public static boolean callerAllowed(int callingUid, int myUid, int systemUid,
++            String[] packages, boolean[] systemImage) {
++        if (callingUid < 0) {
++            return false;
++        }
++        if (callingUid == myUid || callingUid == systemUid) {
++            return true;
++        }
++        if (packages == null || systemImage == null || packages.length != systemImage.length) {
++            return false;
++        }
++        for (int i = 0; i < packages.length; i++) {
++            if (MEDIA_PACKAGE.equals(packages[i]) && systemImage[i]) {
++                return true;
++            }
++        }
++        return false;
++    }
++}
+-- 
+2.43.0
+

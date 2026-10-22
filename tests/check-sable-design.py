@@ -333,9 +333,54 @@ STOCK_TILES = {
 report(set(tiles) <= STOCK_TILES, "default tiles are stock SystemUI tiles", str(set(tiles) - STOCK_TILES))
 report(not ({"aod", "ambient_display"} & set(tiles)), "profile-gated tiles are not default")
 
-notlong = resources(OVERLAY / "SableSystemUIOverlay/res/values-notlong/config.xml")
-large_tiles = [i.text.strip() for i in notlong[("string-array", "quick_settings_default_large_tiles")]]
-report(large_tiles == default_tiles, "square screens make every default tile large (two-column grid)", f"{large_tiles}")
+# sable-quick-settings-titan2: three columns of small labeled tiles, one compact row of four,
+# no default large tile (the values-notlong two-column large tiles are gone).
+report(
+    not (OVERLAY / "SableSystemUIOverlay/res/values-notlong").exists(),
+    "no notlong two-column large-tile override (artifact grid is three columns)",
+)
+qs = resources(OVERLAY / "SableSystemUIOverlay/res/values/sable_quick_settings.xml")
+def qs_value(tag: str, name: str) -> str:
+    el = qs.get((tag, name))
+    return "" if el is None else (el.text or "").strip()
+layout_m = re.search(r"SquareKeyboard ->\s*SableQuickSettingsLayout\((.*?)\)", TOKENS.read_text(encoding="utf-8"), re.S)
+layout = dict(re.findall(r"(\w+) = (\w+)", layout_m.group(1))) if layout_m else {}
+report(
+    qs_value("integer", "quick_settings_infinite_grid_num_columns") == layout.get("gridColumns") == "3"
+    and qs_value("integer", "config_sableQuickQsNumColumns") == layout.get("compactColumns") == "4"
+    and qs_value("integer", "quick_qs_paginated_grid_num_rows") == layout.get("compactRows") == "1"
+    and qs_value("bool", "config_sableQsSmallTileLabels") == layout.get("smallTileLabels") == "true",
+    "QS overlay grid equals SableQuickSettingsLayout (3 columns, compact row of 4, labeled small tiles)",
+    f"{layout}",
+)
+report(
+    ("string-array", "quick_settings_default_large_tiles") in qs
+    and len(list(qs[("string-array", "quick_settings_default_large_tiles")])) == 0
+    and layout.get("allDefaultTilesLarge") == "false",
+    "no default tile is large (nothing spans two of the three columns)",
+)
+report(qs_value("bool", "config_sableShadeExtras") == "true", "shade header, Hub summary row and key hint are on")
+report(default_tiles[:4] == ["internet", "bt", "dark", "dnd"], "compact row is Wi-Fi, BT, Dark, DND (artifact)", str(default_tiles[:4]))
+patch0310 = next(SYSTEMUI_PATCHES.glob("0310-*.patch")).read_text(encoding="utf-8")
+patch0311 = next(SYSTEMUI_PATCHES.glob("0311-*.patch")).read_text(encoding="utf-8")
+patch0312 = next(SYSTEMUI_PATCHES.glob("0312-*.patch")).read_text(encoding="utf-8")
+report(
+    "R.integer.config_sableQuickQsNumColumns" in patch0310
+    and "R.bool.config_sableQsSmallTileLabels" in patch0310
+    and "R.bool.config_sableShadeExtras" in patch0311,
+    "SystemUI patches 0310/0311 read the switches the overlay sets",
+)
+report(
+    "SableHubSummary.LOCKED" in patch0311 and "counts only" in patch0311
+    and "postStartActivityDismissingKeyguard" in patch0311,
+    "locked shade Hub row shows counts only and Hub opens only after unlock",
+)
+report(
+    "addFinalizeFilter(searchFilter)" in patch0312
+    and "statusBarStateController.state == StatusBarState.SHADE" in patch0312
+    and "isSensitive().value" in patch0312,
+    "/ search filters only the unlocked shade and matches sensitive rows on app name only",
+)
 patch0101 = next(SYSTEMUI_PATCHES.glob("0101-*.patch")).read_text(encoding="utf-8")
 report(
     "R.array.quick_settings_default_large_tiles" in patch0101
@@ -396,6 +441,7 @@ SETUP_STRINGS = {
     "update_recovery_title",
     "update_recovery_description",
     "update_recovery_setting",
+    "sable_welcome_device",
 }
 sw = OVERLAY / "SableSetupWizardOverlay/res"
 names, leaks, by_locale = set(), [], {}
@@ -410,7 +456,7 @@ for strings in sorted(sw.glob("values*/strings.xml")):
             name == "setup_welcome_message" and "SableOS" not in value
         ):
             leaks.append(f"{strings.parent.name}/{name}: {value}")
-report(names <= SETUP_STRINGS, "SetupWizard overlay changes only the welcome, restore and recovery strings", str(names - SETUP_STRINGS))
+report(names <= SETUP_STRINGS, "SetupWizard overlay changes only the welcome, device line, restore and recovery strings", str(names - SETUP_STRINGS))
 report(not leaks, "overlaid Setup strings name no LineageOS and leave no placeholder; welcome names SableOS", "; ".join(leaks[:5]))
 default = by_locale.get("values", {})
 english_drift = [
@@ -444,6 +490,46 @@ added = [
 ]
 lineage_text = [f"{n}: {l[:80]}" for n, l in added if re.search(r">[^<]*lineage", l, re.I)]
 report(added and not lineage_text, "Sable SetupWizard strings name no LineageOS", "; ".join(lineage_text[:3]))
+# setup-wizard-titan2 (SetupWizard 0409-0413 + SableSetupWizardOverlay theme values).
+def suw_added(num, needle):
+    return any(l.startswith("+") and needle in l for l in suw.get(num, "").splitlines())
+night = sw / "values-night/sable_setup_theme.xml"
+night_colors = {el.get("name"): (el.text or "").upper() for el in ET.parse(night).getroot()} if night.is_file() else {}
+report(
+    suw_added("0409", "class SableFocusRing")
+    and suw_added("0409", 'name="sable_setup_card"')
+    and night_colors.get("sable_setup_card") == "#FF121B28"
+    and night_colors.get("sable_setup_focus") == "#FF2FD0FF",
+    "Setup cards and focus ring are SetupWizard resources the overlay colours navy and cyan",
+    str(night_colors),
+)
+report(
+    suw_added("0410", "class SableSteps")
+    and suw_added("0410", 'name="sable_step">Step')
+    and suw_added("0410", "Alt/Sym for symbols · software keyboard fallback"),
+    "every owner setup step shows Step n of N; the Wi-Fi step carries the Alt/Sym hint",
+)
+report(
+    suw_added("0411", "Type A 7 @ then press Enter")
+    and suw_added("0411", 'name="sable_check_soft">Software keyboard')
+    and default.get("sable_welcome_device") == "Zinwa Q25 first boot",
+    "Welcome names the Q25 and checks the keyboard (A 7 @, Software keyboard fallback)",
+)
+report(
+    suw_added("0412", '<bool name="sable_restore_validated">false</bool>')
+    and suw_added("0412", "fail-closed until validated")
+    and not any("sable_restore_validated" in f.read_text(encoding="utf-8") for f in sw.rglob("*.xml")),
+    "Setup restore is hidden until validated (fail-closed) and the overlay does not open it",
+)
+ready = (
+    "Home is Sable Start: Active Frames shows your open apps, with Hub to the left and your app grid"
+    " to the right (Alt+Left / Alt+Right).",
+    "The bar is Phone · Search · Camera (Alt+1..3); start typing anywhere to search.",
+)
+report(
+    all(suw_added("0413", r) for r in ready) and not suw_added("0413", "Command, All Apps"),
+    "Ready screen describes the BB10 Sable Start (Active Frames, Hub left, grid right, Phone · Search · Camera)",
+)
 lock = [l for n, l in added if 'name="sable_privacy_lock_screen"' in l]
 report(
     len(lock) == 1 and "hidden until you unlock" in lock[0] and "shows notification content" not in lock[0],

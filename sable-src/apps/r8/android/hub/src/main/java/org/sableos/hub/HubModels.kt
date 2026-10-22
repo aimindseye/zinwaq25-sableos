@@ -1,5 +1,8 @@
 package org.sableos.hub
 
+import org.sableos.hub.policy.HubInboxFilter
+import org.sableos.hub.policy.HubPrivacyState
+
 private typealias NotificationRecords = List<ConnectedNotificationRecord>
 
 enum class HubConversationSource {
@@ -117,12 +120,16 @@ data class HubSnapshot(
     val people: List<HubPerson>,
     val mail: HubMailSnapshot,
     val calls: List<HubCall> = emptyList(),
+    /** Locked device / Hub private mode when the snapshot was taken (counts-only view). */
+    val privacy: HubPrivacyState = HubPrivacyState(),
 )
 
 /** A search handed to Hub at launch; [sequence] makes a repeated identical search re-apply. */
 data class HubLaunchQuery(
     val query: String,
     val sequence: Int,
+    /** Inbox filter to open on (`HubIntents.EXTRA_FILTER`); null keeps All. */
+    val filter: HubInboxFilter? = null,
 )
 
 data class HubSendResult(

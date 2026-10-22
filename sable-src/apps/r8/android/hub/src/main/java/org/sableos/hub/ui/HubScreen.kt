@@ -2,6 +2,7 @@ package org.sableos.hub.ui
 
 import android.text.format.DateUtils
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -43,6 +44,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -52,9 +54,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.key.Key
@@ -74,6 +78,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.launch
 import org.sableos.design.SableActionButton
 import org.sableos.design.SableAdaptiveTopNav
@@ -111,15 +116,29 @@ import org.sableos.hub.policy.HubDockSource
 import org.sableos.hub.policy.HubDrafts
 import org.sableos.hub.policy.HubInbox
 import org.sableos.hub.policy.HubInboxCluster
+import org.sableos.hub.policy.HubInboxContext
 import org.sableos.hub.policy.HubInboxDivider
 import org.sableos.hub.policy.HubInboxFilter
 import org.sableos.hub.policy.HubInboxItem
 import org.sableos.hub.policy.HubInboxRow
 import org.sableos.hub.policy.HubInboxRowRole
+import org.sableos.hub.policy.HubNewMessagePill
+import org.sableos.hub.policy.HubPrivacyBadge
+import org.sableos.hub.policy.HubPrivacyState
+import org.sableos.hub.policy.HubPrivateSummary
 import org.sableos.hub.policy.HubRedaction
+import org.sableos.hub.policy.HubRowAction
+import org.sableos.hub.policy.HubRowActions
+import org.sableos.hub.policy.HubSearch
 import org.sableos.hub.policy.HubSourceDock
+import org.sableos.hub.policy.HubThreadCommand
+import org.sableos.hub.policy.HubThreadKey
+import org.sableos.hub.policy.HubThreadKeyContext
+import org.sableos.hub.policy.HubThreadKeys
 import org.sableos.hub.policy.HubThreadResolver
+import org.sableos.hub.policy.HubThreadSearch
 import java.text.DateFormat
+import java.util.Calendar
 import java.util.Date
 
 private enum class HubPivot {
@@ -172,6 +191,18 @@ private class HubUiState {
     /** Combined conversations the user expanded, by cluster id, kept while Hub is open. */
     val expandedClusters = mutableStateMapOf<String, Boolean>()
 
+    /** "/" bumps this; the inbox search field takes focus on each change. */
+    var searchFocusRequest by mutableIntStateOf(0)
+
+    /** The last request the search field acted on, so re-entering the inbox does not refocus it. */
+    var searchFocusHandled = 0
+
+    /** The row whose actions sheet is open (Menu, Alt+Enter or long press), or null. */
+    var actionsItem by mutableStateOf<HubInboxItem?>(null)
+
+    /** Counts-only view: the user asked for the (redacted) list this session. */
+    var privateListShown by mutableStateOf(false)
+
     /** Shade "H" / Settings handoff: open the conversation Hub resolved for the notification. */
     fun openPendingThread(
         threadId: Long?,
@@ -182,10 +213,13 @@ private class HubUiState {
         return true
     }
 
-    /** Start's Command "Search Hub for …": open the inbox, all sources, with the search filled in. */
+    /**
+     * Start's Command "Search Hub for …" and Start's Hub tabs: open the inbox on the requested
+     * filter (else All), all sources, with the search filled in.
+     */
     fun applyLaunchQuery(query: HubLaunchQuery) {
         route = HubRoute.Root(HubPivot.Inbox)
-        inboxFilter = HubInboxFilter.All
+        inboxFilter = query.filter ?: HubInboxFilter.All
         dockSource = null
         search = query.query
         statusMessage = null
@@ -261,6 +295,24 @@ private fun HubUiState.selectDockSource(source: HubDockSource) {
     statusMessage = null
 }
 
+/** "/" from anywhere in the root view: the inbox search, focused. */
+private fun HubUiState.focusSearch() {
+    if ((route as? HubRoute.Root)?.pivot != HubPivot.Inbox) {
+        route = HubRoute.Root(HubPivot.Inbox)
+    }
+    searchFocusRequest += 1
+}
+
+/** Contacts' Hub route chip: the person's SMS thread, or a new one for the number. */
+private fun HubUiState.openAddress(address: String) {
+    statusMessage = null
+    route =
+        HubRoute.Conversation(
+            threadId = HubThreadResolver.NEW_THREAD_ID,
+            address = address,
+        )
+}
+
 private fun mmsHandoffStatus(opened: Boolean): String =
     if (opened) "Opened the system MMS composer." else "MMS composer is unavailable."
 
@@ -301,6 +353,8 @@ fun HubScreen(
     onLaunchQueryConsumed: () -> Unit = {},
     pendingThreadId: Long? = null,
     onPendingThreadConsumed: () -> Unit = {},
+    pendingAddress: String? = null,
+    onPendingAddressConsumed: () -> Unit = {},
     combineConversations: Boolean = true,
     loadAppIcon: suspend (String, Long) -> ImageBitmap? = { _, _ -> null },
 ) {
@@ -310,6 +364,12 @@ fun HubScreen(
         if (state.openPendingThread(pendingThreadId, snapshot != null)) {
             onPendingThreadConsumed()
         }
+    }
+
+    LaunchedEffect(pendingAddress) {
+        val address = pendingAddress ?: return@LaunchedEffect
+        state.openAddress(address)
+        onPendingAddressConsumed()
     }
 
     LaunchedEffect(launchQuery) {
@@ -412,7 +472,20 @@ private fun HubRootView(
     actions: HubActions,
     focusMemory: SableFocusMemory,
 ) {
-    SableScreen {
+    val privacy = snapshot.privacy
+    if (privacy.countsOnly && !(state.privateListShown && privacy.canShowList)) {
+        HubPrivateCountsView(
+            snapshot = snapshot,
+            onShowList = { filter ->
+                state.privateListShown = true
+                state.selectPivot(HubPivot.Inbox)
+                state.selectInboxFilter(filter)
+            },
+            onPrivacyOptions = actions.onOpenConnectedApps,
+        )
+        return
+    }
+    SableScreen(modifier = Modifier.slashOpensSearch(state::focusSearch)) {
         SablePageHeader(
             title = "hub",
             subtitle = "Local communication across your enabled sources.",
@@ -485,6 +558,97 @@ private fun HubRootView(
         }
     }
 }
+
+/**
+ * Counts-only view (SABLE_HUB_KEYBOARD_FIRST_UX "Privacy model", design panel 4): while the
+ * device is locked or Hub private mode is on, Hub opens on categories and counts alone. Unlocked,
+ * a category opens its (redacted) list; locked, nothing opens.
+ */
+@Composable
+private fun HubPrivateCountsView(
+    snapshot: HubSnapshot,
+    onShowList: (HubInboxFilter) -> Unit,
+    onPrivacyOptions: () -> Unit,
+) {
+    val privacy = snapshot.privacy
+    val counts = remember(snapshot) { HubPrivateSummary.counts(snapshot.conversations, snapshot.calls) }
+    val first = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        withFrameNanos { }
+        runCatching { first.requestFocus() }
+    }
+    SableScreen {
+        SablePageHeader(
+            title = "hub",
+            subtitle = HubPrivateSummary.oneLine(counts),
+        )
+        SablePanel {
+            Text(
+                text = privacy.title,
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text = privacy.detail,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        LazyColumn(
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
+        ) {
+            itemsIndexed(items = counts, key = { _, count -> count.filter.name }) { index, count ->
+                SableListRow(
+                    title = count.label,
+                    subtitle = count.detail,
+                    modifier = if (index == 0) Modifier.focusRequester(first) else Modifier,
+                    onClick = { if (privacy.canShowList) onShowList(count.filter) },
+                )
+            }
+        }
+        if (privacy.canShowList) {
+            SableActionButton(
+                text = if (counts.isEmpty()) "Show list" else "Show list without previews",
+                modifier =
+                    if (counts.isEmpty()) {
+                        Modifier.fillMaxWidth().focusRequester(
+                            first,
+                        )
+                    } else {
+                        Modifier.fillMaxWidth()
+                    },
+                primary = false,
+                onClick = { onShowList(HubInboxFilter.All) },
+            )
+        } else {
+            Text(
+                text = "Unlock to view details",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (privacy.privateMode) {
+            SableActionButton(
+                text = "Private mode settings",
+                modifier = Modifier.fillMaxWidth(),
+                primary = false,
+                onClick = onPrivacyOptions,
+            )
+        }
+    }
+}
+
+/** "/" (any layer: Alt or Sym on the Q25) opens Hub search unless a text field typed it. */
+private fun Modifier.slashOpensSearch(onSearch: () -> Unit): Modifier =
+    onKeyEvent { event ->
+        val slash =
+            event.type == KeyEventType.KeyDown &&
+                !event.isCtrlPressed &&
+                !event.isMetaPressed &&
+                event.utf16CodePoint == '/'.code
+        if (slash) onSearch()
+        slash
+    }
 
 @Composable
 private fun ColumnScope.HubInboxView(
@@ -674,6 +838,7 @@ private fun ConversationRoute(
                         if (!opened) onStatus("Android notification settings are unavailable.")
                     }
                 },
+            privacy = snapshot.privacy,
         )
     }
 }
@@ -921,19 +1086,47 @@ private fun ColumnScope.InboxPivot(
         )
     }
 
+    val chipRequesters = remember { HubInboxFilter.entries.associateWith { FocusRequester() } }
+    val searchRequester = remember { FocusRequester() }
+    LaunchedEffect(state.searchFocusRequest) {
+        if (state.searchFocusRequest > state.searchFocusHandled) {
+            state.searchFocusHandled = state.searchFocusRequest
+            withFrameNanos { }
+            runCatching { searchRequester.requestFocus() }
+        }
+    }
     OutlinedTextField(
         value = search,
         onValueChange = onSearchChange,
-        modifier = Modifier.fillMaxWidth(),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .focusRequester(searchRequester)
+                .escapeLeavesSearch(
+                    hasText = search.isNotEmpty(),
+                    onClear = { onSearchChange("") },
+                    onLeave = { runCatching { chipRequesters.getValue(filter).requestFocus() } },
+                ),
         singleLine = true,
-        label = { Text("Search messages, calls, notifications") },
+        label = { Text("/ Search messages, calls, mail") },
+        placeholder = { Text(HubSearch.HINT, maxLines = 1, overflow = TextOverflow.Ellipsis) },
     )
 
     val query = search.trim()
     val dockSource = state.dockSource
+    val todayStart = remember(snapshot) { startOfToday() }
     val items =
         remember(snapshot, filter, query, dockSource) {
-            HubSourceDock.narrow(HubInbox.items(snapshot.conversations, snapshot.calls, filter, query), dockSource)
+            HubSourceDock.narrow(
+                HubInbox.items(
+                    snapshot.conversations,
+                    snapshot.calls,
+                    filter,
+                    query,
+                    HubInboxContext(snapshot.people, todayStart),
+                ),
+                dockSource,
+            )
         }
     val clusters =
         remember(items, actions.combineConversations) {
@@ -948,7 +1141,6 @@ private fun ColumnScope.InboxPivot(
     val visibleRows = HubConversationRollup.rows(clusters, state.expandedClusters.keys)
     val rowKeys = visibleRows.map { row -> row.item.key }
     val requesters = remember { mutableMapOf<String, FocusRequester>() }
-    val chipRequesters = remember { HubInboxFilter.entries.associateWith { FocusRequester() } }
     val dockFocus = remember { HubDockFocus() }
     var restoreDone by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -1036,8 +1228,10 @@ private fun ColumnScope.InboxPivot(
                         modifier =
                             Modifier
                                 .focusRequester(requesters.getOrPut(row.item.key) { FocusRequester() })
-                                .clusterKeys(row, rowActions),
+                                .clusterKeys(row, rowActions)
+                                .rowActionsKey { state.actionsItem = row.item },
                         onOpen = { focusMemory.remember(FOCUS_SURFACE_INBOX, row.item.key, index) },
+                        onLongPress = { state.actionsItem = row.item },
                         onConversation = onConversation,
                         onCall = onCall,
                         onTextCaller = onTextCaller,
@@ -1045,6 +1239,14 @@ private fun ColumnScope.InboxPivot(
                 }
             }
         }
+
+        Text(
+            text = INBOX_KEY_HINT,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
 
         if (dockEntries.isNotEmpty()) {
             InboxSourceDock(
@@ -1061,7 +1263,188 @@ private fun ColumnScope.InboxPivot(
             )
         }
     }
+
+    state.actionsItem?.let { item ->
+        HubRowActionsSheet(
+            item = item,
+            privacy = snapshot.privacy,
+            onAction = { action -> runRowAction(action, item, state, actions, onConversation, onTextCaller) },
+            onDismiss = { state.actionsItem = null },
+        )
+    }
 }
+
+/** Runs one row action through the activity's provider-safe handoffs. */
+private fun runRowAction(
+    action: HubRowAction,
+    item: HubInboxItem,
+    state: HubUiState,
+    actions: HubActions,
+    onConversation: (HubConversation) -> Unit,
+    onTextCaller: (HubCall) -> Unit,
+) {
+    state.actionsItem = null
+    when (item) {
+        is HubInboxItem.Call -> runCallAction(action, item.call, state, actions, onTextCaller)
+        is HubInboxItem.Conversation -> runConversationAction(action, item.conversation, state, actions, onConversation)
+    }
+}
+
+private fun runCallAction(
+    action: HubRowAction,
+    call: HubCall,
+    state: HubUiState,
+    actions: HubActions,
+    onTextCaller: (HubCall) -> Unit,
+) {
+    when (action) {
+        HubRowAction.CallBack -> state.dial(call.number, actions.onDial)
+        HubRowAction.Text -> onTextCaller(call)
+        HubRowAction.PrivacyOptions -> actions.onOpenConnectedApps()
+        else -> Unit
+    }
+}
+
+private fun runConversationAction(
+    action: HubRowAction,
+    conversation: HubConversation,
+    state: HubUiState,
+    actions: HubActions,
+    onConversation: (HubConversation) -> Unit,
+) {
+    val source = connectedSourceOf(conversation)
+    when (action) {
+        HubRowAction.Open, HubRowAction.Reply -> {
+            onConversation(conversation)
+        }
+
+        HubRowAction.CallBack -> {
+            state.dial(conversation.address, actions.onDial)
+        }
+
+        HubRowAction.OpenInMessages -> {
+            state.mmsHandoff(actions.onOpenAndroidMessaging(conversation.address, null))
+        }
+
+        HubRowAction.OpenSourceApp -> {
+            source?.let { (packageName, serial) ->
+                val opened = actions.onOpenConnectedApp(packageName, serial)
+                state.statusMessage = openSourceStatus(opened, conversation.sourceLabel ?: packageName)
+            }
+        }
+
+        HubRowAction.SourceNotifications -> {
+            source?.let { (packageName, serial) ->
+                if (!actions.onOpenSourceNotificationSettings(packageName, serial)) {
+                    state.statusMessage = "Android notification settings are unavailable."
+                }
+            }
+        }
+
+        HubRowAction.PrivacyOptions -> {
+            actions.onOpenConnectedApps()
+        }
+
+        HubRowAction.Text -> {
+            Unit
+        }
+    }
+}
+
+/**
+ * The row actions sheet: the row's provider-safe actions as a short focusable list, first one
+ * focused. Back or Esc closes it and focus returns to the row.
+ */
+@Composable
+private fun HubRowActionsSheet(
+    item: HubInboxItem,
+    privacy: HubPrivacyState,
+    onAction: (HubRowAction) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val rowActions = remember(item, privacy) { HubRowActions.forItem(item, privacy) }
+    val first = remember { FocusRequester() }
+    LaunchedEffect(item) {
+        withFrameNanos { }
+        runCatching { first.requestFocus() }
+    }
+    Dialog(onDismissRequest = onDismiss) {
+        SablePanel {
+            Text(
+                text = HubRowActions.title(item),
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            rowActions.forEachIndexed { index, action ->
+                SableActionButton(
+                    text = action.label,
+                    modifier =
+                        if (index ==
+                            0
+                        ) {
+                            Modifier.fillMaxWidth().focusRequester(first)
+                        } else {
+                            Modifier.fillMaxWidth()
+                        },
+                    primary = index == 0,
+                    onClick = { onAction(action) },
+                )
+            }
+        }
+    }
+}
+
+/** Menu, or Alt+Enter (the Q25's Fn+Enter), opens the focused row's actions. */
+private fun Modifier.rowActionsKey(onActions: () -> Unit): Modifier =
+    onPreviewKeyEvent { event ->
+        val enter = event.key == Key.Enter || event.key == Key.NumPadEnter
+        val menu = event.key == Key.Menu || (enter && event.isAltPressed)
+        when {
+            !menu -> {
+                false
+            }
+
+            event.type == KeyEventType.KeyDown -> {
+                onActions()
+                true
+            }
+
+            else -> {
+                true
+            }
+        }
+    }
+
+/**
+ * Esc in the search field clears the query, then leaves the field for the filter chips; it never
+ * leaves Hub from here (SABLE_HUB_KEYBOARD_FIRST_UX "Back / Esc close … search").
+ */
+private fun Modifier.escapeLeavesSearch(
+    hasText: Boolean,
+    onClear: () -> Unit,
+    onLeave: () -> Unit,
+): Modifier =
+    onPreviewKeyEvent { event ->
+        if (event.key != Key.Escape) {
+            return@onPreviewKeyEvent false
+        }
+        if (event.type == KeyEventType.KeyDown) {
+            if (hasText) onClear() else onLeave()
+        }
+        true
+    }
+
+/** Local midnight today, for the `today` search word. */
+private fun startOfToday(): Long =
+    Calendar
+        .getInstance()
+        .apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
 
 /** What a combined row does on Right/Space (expand) and Left (collapse, back to its parent). */
 private class HubInboxRowActions(
@@ -1329,9 +1712,9 @@ private fun inboxNeedsAccess(
     val smsMissing = !capabilities.canReadSms || !capabilities.canSendSms
     val callLogMissing = !capabilities.canReadCallLog
     return when (filter) {
-        HubInboxFilter.All -> smsMissing || callLogMissing
+        HubInboxFilter.All, HubInboxFilter.Priority, HubInboxFilter.People -> smsMissing || callLogMissing
         HubInboxFilter.Messages -> smsMissing
-        HubInboxFilter.Calls -> callLogMissing
+        HubInboxFilter.Calls, HubInboxFilter.Missed -> callLogMissing
         HubInboxFilter.Notifications, HubInboxFilter.Mail -> false
     }
 }
@@ -1400,6 +1783,7 @@ private fun InboxItemRow(
     onConversation: (HubConversation) -> Unit,
     onCall: (HubCall) -> Unit,
     onTextCaller: (HubCall) -> Unit,
+    onLongPress: () -> Unit = {},
 ) {
     when (val item = row.item) {
         is HubInboxItem.Conversation -> {
@@ -1411,6 +1795,7 @@ private fun InboxItemRow(
                 },
                 modifier = modifier,
                 rollup = row,
+                onLongClick = onLongPress,
             )
         }
 
@@ -1427,6 +1812,7 @@ private fun InboxItemRow(
                 },
                 modifier = modifier,
                 divider = row.divider,
+                onLongClick = onLongPress,
             )
         }
     }
@@ -1442,6 +1828,11 @@ private fun inboxEmptyText(
         filter == HubInboxFilter.Messages && !capabilities.canReadSms -> "Grant SMS access to show conversations."
         filter == HubInboxFilter.Calls && !capabilities.canReadCallLog -> "Grant call log access to show recent calls."
         filter == HubInboxFilter.Calls -> "No recent calls."
+        filter == HubInboxFilter.Missed && !capabilities.canReadCallLog -> "Grant call log access to show missed calls."
+        filter == HubInboxFilter.Missed -> "No missed calls."
+        filter == HubInboxFilter.Priority -> "Nothing needs your attention."
+        filter == HubInboxFilter.People && !capabilities.canReadContacts -> "Grant contacts access to match people."
+        filter == HubInboxFilter.People -> "No conversations or calls with your contacts."
         filter == HubInboxFilter.Notifications -> "No connected-app conversations. Choose apps under connected apps."
         filter == HubInboxFilter.Mail -> "No mail notifications. Turn on a mail app under connected apps."
         else -> "No conversations yet."
@@ -1460,7 +1851,7 @@ private fun InboxFilterChips(
         horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
     ) {
         HubInboxFilter.entries.forEach { filter ->
-            val count = HubInbox.attentionCount(snapshot.conversations, snapshot.calls, filter)
+            val count = HubInbox.attentionCount(snapshot.conversations, snapshot.calls, filter, snapshot.people)
             FilterChip(
                 selected = filter == selected,
                 onClick = { onSelect(filter) },
@@ -1514,6 +1905,7 @@ private fun CallRow(
     onText: () -> Unit,
     modifier: Modifier = Modifier,
     divider: HubInboxDivider = HubInboxDivider.Single,
+    onLongClick: (() -> Unit)? = null,
 ) {
     val attention = call.kind.needsAttention
     val avatarBackground = if (attention) HubUnreadBackground else MaterialTheme.colorScheme.surfaceVariant
@@ -1529,7 +1921,7 @@ private fun CallRow(
                 modifier
                     .weight(1f)
                     .sableFocusRing()
-                    .clickable(onClick = onCall)
+                    .combinedClickable(onClick = onCall, onLongClick = onLongClick)
                     .padding(vertical = HubRowVerticalPadding),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -1618,6 +2010,7 @@ private fun ConversationRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     rollup: HubInboxRow? = null,
+    onLongClick: (() -> Unit)? = null,
 ) {
     val child = rollup?.role == HubInboxRowRole.Child
     val parent = rollup?.takeIf { it.role == HubInboxRowRole.Parent }
@@ -1642,7 +2035,7 @@ private fun ConversationRow(
             modifier
                 .fillMaxWidth()
                 .sableFocusRing()
-                .clickable(onClick = onClick)
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick)
                 .padding(vertical = HubRowVerticalPadding),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1879,95 +2272,281 @@ private fun ColumnScope.ConversationView(
     onAttach: (() -> Unit)?,
     onOpenSource: (() -> Unit)?,
     onOpenNotificationSettings: (() -> Unit)? = null,
+    privacy: HubPrivacyState = HubPrivacyState(),
 ) {
-    SablePageHeader(
-        title = conversation.displayName,
-        subtitle =
-            conversation.sourceLabel
-                ?.takeIf { conversation.source == HubConversationSource.ConnectedApp }
-                ?.let { label -> listOfNotNull(label, conversation.profileBadge).joinToString(" · ") }
-                ?: conversation.address,
-    )
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
-    ) {
-        SableActionButton(
-            text = "Back",
-            modifier = Modifier.weight(1f),
-            primary = false,
-            onClick = onBack,
-        )
-        ConversationActionButton("Call", onCall)
-        ConversationActionButton("Attach", onAttach)
-        ConversationActionButton("Open app", onOpenSource)
-    }
-    // Its own full-width row: a third equal-width "Notifications" button wraps mid-word
-    // on the square screen (KF-D: labels never clip).
-    onOpenNotificationSettings?.let { action ->
-        SableActionButton(
-            text = "Notifications",
-            modifier = Modifier.fillMaxWidth(),
-            primary = false,
-            onClick = action,
-        )
-    }
-
-    statusMessage?.let { message ->
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-
     // Newest message at the bottom and visible on open (reverse layout, index 0 = newest).
     val conversationState = rememberLazyListState()
     val conversationScope = rememberCoroutineScope()
-    ConversationMessages(
-        modifier = modifier,
-        messages = messages,
-        listState = conversationState,
-        emptyText = if (composer != null) "No messages yet. Write the first one below." else "No messages yet.",
-    )
+    val history = remember(conversation.threadId, conversation.address) { HubThreadHistory() }
+    val newestFirst = remember(messages) { messages.asReversed() }
+    val matches = remember(newestFirst, history.query) { HubThreadSearch.matches(newestFirst, history.query) }
+    val searchRequester = remember { FocusRequester() }
 
-    composer?.let { spec ->
-        ConversationComposer(
-            conversation = conversation,
-            composer = spec,
-            draft = draft,
-            onDraftChange = onDraftChange,
-            onRequestAccess = onRequestAccess,
-            onSent = { conversationScope.launch { conversationState.animateScrollToItem(0) } },
-        )
+    val toLatest: () -> Unit = {
+        history.closeSearch()
+        conversationScope.launch { conversationState.animateScrollToItem(0) }
     }
-}
+    val showMatch: (Int) -> Unit = { position ->
+        history.match = position
+        matches.getOrNull(position)?.let { index ->
+            conversationScope.launch { conversationState.animateScrollToItem(index) }
+        }
+    }
 
-@Composable
-private fun RowScope.ConversationActionButton(
-    text: String,
-    action: (() -> Unit)?,
-) {
-    action?.let { onClick ->
-        SableActionButton(
-            text = text,
+    Column(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .threadKeys(
+                    history = history,
+                    draftEmpty = draft.isEmpty(),
+                    atLatest = { conversationState.firstVisibleItemIndex == 0 },
+                    onCommand = { command ->
+                        when (command) {
+                            HubThreadCommand.Latest -> {
+                                toLatest()
+                            }
+
+                            HubThreadCommand.OlderPage, HubThreadCommand.NewerPage -> {
+                                val target =
+                                    HubThreadKeys.pageTarget(
+                                        firstVisible = conversationState.firstVisibleItemIndex,
+                                        visibleCount = conversationState.layoutInfo.visibleItemsInfo.size,
+                                        count = newestFirst.size,
+                                        older = command == HubThreadCommand.OlderPage,
+                                    )
+                                conversationScope.launch { conversationState.scrollToItem(target) }
+                            }
+
+                            HubThreadCommand.Search -> {
+                                history.searchOpen = true
+                                conversationScope.launch {
+                                    withFrameNanos { }
+                                    runCatching { searchRequester.requestFocus() }
+                                }
+                            }
+
+                            HubThreadCommand.None -> {
+                                Unit
+                            }
+                        }
+                    },
+                ),
+        verticalArrangement = Arrangement.spacedBy(SableSpacing.Md),
+    ) {
+        SablePageHeader(
+            title = conversation.displayName,
+            subtitle =
+                conversation.sourceLabel
+                    ?.takeIf { conversation.source == HubConversationSource.ConnectedApp }
+                    ?.let { label -> listOfNotNull(label, conversation.profileBadge).joinToString(" · ") }
+                    ?: conversation.address,
+        )
+        // Privacy badge (MESSAGES_CONVERSATION_UX "contact/source/privacy header").
+        Text(
+            text = HubPrivacyBadge.text(conversation, privacy),
+            modifier =
+                Modifier.semantics {
+                    contentDescription =
+                        "Privacy: " + HubPrivacyBadge.text(conversation, privacy)
+                },
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+        ) {
+            SableActionButton(
+                text = "Back",
+                modifier = Modifier.weight(1f),
+                primary = false,
+                onClick = onBack,
+            )
+            ConversationActionButton("Call", onCall)
+            ConversationActionButton("Attach", onAttach)
+            ConversationActionButton("Open app", onOpenSource)
+        }
+        // Its own full-width row: a third equal-width "Notifications" button wraps mid-word
+        // on the square screen (KF-D: labels never clip).
+        onOpenNotificationSettings?.let { action ->
+            SableActionButton(
+                text = "Notifications",
+                modifier = Modifier.fillMaxWidth(),
+                primary = false,
+                onClick = action,
+            )
+        }
+
+        statusMessage?.let { message ->
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        if (history.searchOpen) {
+            ThreadSearchField(
+                history = history,
+                matchCount = matches.size,
+                requester = searchRequester,
+                onStep = { older -> showMatch(HubThreadSearch.step(history.match, matches.size, older)) },
+            )
+        }
+
+        ConversationMessages(
             modifier = Modifier.weight(1f),
-            primary = false,
-            onClick = onClick,
+            messages = messages,
+            listState = conversationState,
+            emptyText = if (composer != null) "No messages yet. Write the first one below." else "No messages yet.",
+            historyMode = history.searchOpen,
+            highlighted = matches.getOrNull(history.match)?.let { index -> newestFirst.getOrNull(index)?.id },
+            onLatest = toLatest,
+        )
+
+        composer?.let { spec ->
+            ConversationComposer(
+                conversation = conversation,
+                composer = spec,
+                draft = draft,
+                onDraftChange = onDraftChange,
+                onRequestAccess = onRequestAccess,
+                onSent = toLatest,
+                modifier = Modifier.onFocusChanged { focus -> history.composerFocused = focus.hasFocus },
+            )
+        }
+
+        Text(
+            text = THREAD_KEY_HINT,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
 
-/** A "latest" action returns to the newest message whenever history is scrolled into. */
+/** History and search state of one open conversation (MESSAGES_CONVERSATION_UX "History mode"). */
+@Stable
+private class HubThreadHistory {
+    var searchOpen by mutableStateOf(false)
+    var query by mutableStateOf("")
+    var match by mutableIntStateOf(-1)
+    var composerFocused by mutableStateOf(false)
+    var searchFocused by mutableStateOf(false)
+
+    fun closeSearch() {
+        searchOpen = false
+        query = ""
+        match = -1
+        searchFocused = false
+    }
+}
+
+/**
+ * Conversation keys ([HubThreadKeys]): End / Ctrl+L latest, Esc out of history or search,
+ * PageUp / PageDown (Sym+R / Sym+E) by page, "/" search. Seen before the composer, so a key
+ * the policy leaves alone still types; a handled key's release is swallowed too.
+ */
+private fun Modifier.threadKeys(
+    history: HubThreadHistory,
+    draftEmpty: Boolean,
+    atLatest: () -> Boolean,
+    onCommand: (HubThreadCommand) -> Unit,
+): Modifier =
+    composed {
+        val handled = remember { mutableSetOf<Key>() }
+        onPreviewKeyEvent { event ->
+            if (event.type == KeyEventType.KeyUp) {
+                return@onPreviewKeyEvent handled.remove(event.key)
+            }
+            if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+            val key =
+                when {
+                    event.key == Key.MoveEnd -> HubThreadKey.End
+                    event.key == Key.Escape -> HubThreadKey.Escape
+                    event.key == Key.PageUp -> HubThreadKey.PageUp
+                    event.key == Key.PageDown -> HubThreadKey.PageDown
+                    event.key == Key.L -> HubThreadKey.LetterL
+                    event.utf16CodePoint == '/'.code -> HubThreadKey.Slash
+                    else -> HubThreadKey.Other
+                }
+            val typing = history.composerFocused || history.searchFocused
+            val text = if (history.searchFocused) history.query else ""
+            val command =
+                HubThreadKeys.decide(
+                    key,
+                    HubThreadKeyContext(
+                        composerFocused = typing,
+                        draftEmpty = if (history.searchFocused) text.isEmpty() else draftEmpty,
+                        atLatest = atLatest(),
+                        searchOpen = history.searchOpen,
+                        ctrl = event.isCtrlPressed,
+                        // "/" is on the Alt or Sym layer of the Q25, so Alt never blocks it.
+                        alt = event.isAltPressed && key != HubThreadKey.Slash,
+                        shift = event.isShiftPressed && key != HubThreadKey.Slash,
+                        meta = event.isMetaPressed,
+                    ),
+                )
+            if (command == HubThreadCommand.None) {
+                false
+            } else {
+                handled += event.key
+                onCommand(command)
+                true
+            }
+        }
+    }
+
+/** Search in this conversation: Enter older match, Shift+Enter newer, Esc back to latest. */
+@Composable
+private fun ThreadSearchField(
+    history: HubThreadHistory,
+    matchCount: Int,
+    requester: FocusRequester,
+    onStep: (Boolean) -> Unit,
+) {
+    OutlinedTextField(
+        value = history.query,
+        onValueChange = { text ->
+            history.query = text
+            history.match = -1
+        },
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .focusRequester(requester)
+                .onFocusChanged { focus -> history.searchFocused = focus.hasFocus }
+                .onPreviewKeyEvent { event ->
+                    val enter = event.key == Key.Enter || event.key == Key.NumPadEnter
+                    if (enter && event.type == KeyEventType.KeyDown) onStep(!event.isShiftPressed)
+                    enter
+                },
+        singleLine = true,
+        label = { Text("Search this conversation") },
+        supportingText = {
+            Text(HubThreadSearch.status(history.match, matchCount, history.query))
+        },
+    )
+}
+
+/**
+ * The latest message window. A message that arrives (or is sent) while the latest is in view is
+ * shown; while the user reads history or searches it is not scrolled to, and the new-message
+ * pill says so instead ([HubNewMessagePill]). The pill, End and Esc return to latest.
+ */
 @Composable
 private fun ConversationMessages(
     modifier: Modifier,
     messages: List<HubMessage>,
     listState: LazyListState,
     emptyText: String,
+    historyMode: Boolean = false,
+    highlighted: Long? = null,
+    onLatest: () -> Unit = {},
 ) {
-    val scope = rememberCoroutineScope()
     val showLatest by remember(messages.size) {
         derivedStateOf {
             val visible = listState.layoutInfo.visibleItemsInfo
@@ -1979,14 +2558,22 @@ private fun ConversationMessages(
             )
         }
     }
-    // AUTO_ADVANCE: a message that arrives (or is sent) while the latest is in view is shown;
-    // reading history is never yanked away except by the user's own sent message.
+    val atLatest by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 } }
     val newest = messages.lastOrNull()
+    // The newest message the user has had in view; the pill compares arrivals with it.
+    var seenNewestId by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(atLatest, newest?.id) {
+        if (atLatest || seenNewestId == null) seenNewestId = newest?.id
+    }
+    // AUTO_ADVANCE: reading history (or searching) is never yanked away, except by the user's
+    // own sent message.
     LaunchedEffect(newest?.id) {
-        if (newest != null && (listState.firstVisibleItemIndex <= 1 || !newest.incoming)) {
+        val followingLatest = !historyMode && listState.firstVisibleItemIndex <= 1
+        if (newest != null && (followingLatest || !newest.incoming)) {
             listState.animateScrollToItem(0)
         }
     }
+    val pill = HubNewMessagePill.show(atLatest, seenNewestId, newest)
     Box(modifier = modifier.fillMaxWidth()) {
         if (messages.isEmpty()) {
             Text(
@@ -2006,13 +2593,29 @@ private fun ConversationMessages(
                 items = messages.asReversed(),
                 key = HubMessage::id,
             ) { message ->
-                MessageBubble(message)
+                MessageBubble(message, highlighted = message.id == highlighted)
             }
         }
         SableReturnToCurrent(
-            visible = showLatest,
-            onClick = { scope.launch { listState.animateScrollToItem(0) } },
+            visible = pill || showLatest,
+            onClick = onLatest,
             modifier = Modifier.align(Alignment.BottomEnd).padding(SableSpacing.Sm),
+            label = if (pill) HubNewMessagePill.LABEL else "latest",
+        )
+    }
+}
+
+@Composable
+private fun RowScope.ConversationActionButton(
+    text: String,
+    action: (() -> Unit)?,
+) {
+    action?.let { onClick ->
+        SableActionButton(
+            text = text,
+            modifier = Modifier.weight(1f),
+            primary = false,
+            onClick = onClick,
         )
     }
 }
@@ -2026,6 +2629,7 @@ private fun ConversationComposer(
     onDraftChange: (String) -> Unit,
     onRequestAccess: () -> Unit,
     onSent: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var composerStatus by remember(conversation.threadId, conversation.address) {
         mutableStateOf<String?>(null)
@@ -2050,6 +2654,7 @@ private fun ConversationComposer(
         label = composer.label,
         draft = draft,
         onDraftChange = onDraftChange,
+        modifier = modifier,
         status = composerStatus,
         onSend = { body ->
             val result = composer.send(body)
@@ -2101,6 +2706,7 @@ private fun HubInlineComposer(
     onDraftChange: (String) -> Unit,
     status: String?,
     onSend: (String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val send = {
         if (draft.isNotBlank()) {
@@ -2116,7 +2722,7 @@ private fun HubInlineComposer(
             value = draft,
             onValueChange = onDraftChange,
             modifier =
-                Modifier
+                modifier
                     .weight(1f)
                     .hubEnterToSend(body = draft, canSend = true, onSend = send),
             maxLines = HUB_INLINE_COMPOSER_MAX_LINES,
@@ -2139,7 +2745,10 @@ private fun HubInlineComposer(
 }
 
 @Composable
-private fun MessageBubble(message: HubMessage) {
+private fun MessageBubble(
+    message: HubMessage,
+    highlighted: Boolean = false,
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement =
@@ -2152,6 +2761,8 @@ private fun MessageBubble(message: HubMessage) {
         Surface(
             modifier = Modifier.widthIn(max = HubBubbleMaxWidth),
             shape = RoundedCornerShape(HubBubbleCornerRadius),
+            // The current search match is outlined in the accent.
+            border = if (highlighted) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
             color =
                 if (message.incoming) {
                     MaterialTheme.colorScheme.surfaceVariant
@@ -2315,6 +2926,8 @@ private val HubDockCornerRadius = 28.dp
 private val HubPillCornerRadius = 10.dp
 
 private const val REVIEW_ACCESS_LABEL = "Review access"
+private const val THREAD_KEY_HINT = "/ search · PageUp history · End latest · Esc back to latest"
+private const val INBOX_KEY_HINT = "/ search · Alt+Enter actions · A P M X C E N O filters · D dock"
 private const val SMS_PREVIEW_LENGTH = 120
 private const val CONNECTED_PREVIEW_LENGTH = 100
 private const val HUB_INLINE_COMPOSER_MAX_LINES = 4

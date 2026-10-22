@@ -21,7 +21,8 @@ internal class MediaControllers(
     val playlists = MediaPlaylistController(state, repositories.libraryState, host, scope)
     val podcasts = MediaPodcastController(state, repositories, host, scope)
     val stations = MediaStationController(state, repositories, host)
-    val keys = MediaKeyController(state, host, library, environment)
+    val fm = MediaFmController(state, repositories, host)
+    val keys = MediaKeyController(state, host, library, environment, fm)
 
     fun changeSettings(updated: MediaSettings) {
         state.settings = updated
@@ -533,20 +534,72 @@ internal class MediaStationController(
     }
 }
 
+/** FM mode actions that need Sable Media state (presets); the rest go straight to [FmController]. */
+internal class MediaFmController(
+    private val state: MediaAppState,
+    private val repositories: MediaRepositories,
+    private val host: MediaHostServices,
+) {
+    fun togglePower() = host.fm.togglePower(state.fmFavorites)
+
+    fun toggleFavorite(station: Int) {
+        val updated = FmPresets.toggle(state.fmFavorites, station)
+        if (updated != state.fmFavorites) {
+            state.fmFavorites = updated
+            repositories.fmPresets.save(updated)
+        }
+    }
+
+    fun run(action: FmKeyAction): Boolean {
+        val fm = host.fm
+        when (action) {
+            is FmKeyAction.Preset -> {
+                val station = FmPresets.keyed(state.fmFavorites, action.number) ?: return false
+                fm.tune(station)
+            }
+
+            is FmKeyAction.Command -> {
+                when (action.command) {
+                    FmKeyCommand.PowerToggle -> togglePower()
+                    FmKeyCommand.SeekDown -> fm.seek(false)
+                    FmKeyCommand.SeekUp -> fm.seek(true)
+                    FmKeyCommand.TuneDown -> fm.step(false)
+                    FmKeyCommand.TuneUp -> fm.step(true)
+                    FmKeyCommand.Favorite -> toggleFavorite(fm.state.station)
+                    FmKeyCommand.Output -> fm.toggleSpeaker()
+                    FmKeyCommand.Mute -> fm.toggleMute()
+                    FmKeyCommand.Scan -> fm.toggleScan()
+                }
+            }
+        }
+        return true
+    }
+}
+
 /** Turns Media keyboard commands into actions; false leaves the key to the focused view. */
 internal class MediaKeyController(
     private val state: MediaAppState,
     private val host: MediaHostServices,
     private val library: MediaLibraryController,
     private val environment: MediaUiEnvironment,
+    private val fm: MediaFmController,
 ) {
     fun handle(event: KeyEvent): Boolean {
+        val press = event.toMediaKeyPress()
+        val textInputActive = state.textInputFocus.active
+        val onFm = state.destination == MediaDestination.Fm
+        if (onFm) {
+            FmKeymap.action(press, textInputActive)?.let { action ->
+                if (fm.run(action)) return true
+            }
+        }
         val command =
-            MediaKeymap.command(
-                press = event.toMediaKeyPress(),
-                textInputActive = state.textInputFocus.active,
-                onNowPlaying = state.destination == MediaDestination.NowPlaying,
-            )
+            MediaKeymap
+                .command(
+                    press = press,
+                    textInputActive = textInputActive,
+                    onNowPlaying = state.destination == MediaDestination.NowPlaying,
+                )?.takeIf { !onFm || it in FmKeymap.MEDIA_COMMANDS_ON_FM }
         return command != null && run(command)
     }
 

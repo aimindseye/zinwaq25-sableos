@@ -30,7 +30,8 @@ object ControlLegend {
         CameraAction.SelectIso, CameraAction.SelectWb, CameraAction.SelectShutter,
         CameraAction.StepUp, CameraAction.StepDown, CameraAction.ProAuto,
         CameraAction.ZoomIn, CameraAction.ZoomOut, CameraAction.PrevMode,
-        CameraAction.NextMode, CameraAction.SwitchCamera, CameraAction.NextCaptureMode,
+        CameraAction.NextMode, CameraAction.SwitchCamera, CameraAction.RawToggle,
+        CameraAction.NextCaptureMode,
         CameraAction.QualityNext, CameraAction.CompareToggle, CameraAction.OpenLast,
         CameraAction.ToggleLegend, CameraAction.Back
     )
@@ -56,6 +57,7 @@ object ControlLegend {
         CameraAction.NextMode to "Next mode",
         CameraAction.SwitchCamera to "Switch camera",
         CameraAction.NextCaptureMode to "Photo size",
+        CameraAction.RawToggle to "RAW / high-res",
         CameraAction.QualityNext to "Video quality",
         CameraAction.CompareToggle to "Compare bracket",
         CameraAction.OpenLast to "Review last capture",
@@ -85,6 +87,7 @@ object ControlLegend {
         a: CameraAction,
         profile: CameraDeviceProfile = CameraDeviceProfile.Unknown
     ): List<Binding> = (CameraKeyMap.standard + profile.keyOverrides).filterValues { it == a }.keys
+        .filter { ArrowGuard.shown(it, profile) }
         .sortedWith(compareBy({ it.hold }, { it.alt }, { it.key }))
 
     fun keyText(b: Binding): String = (if (b.hold) "Hold " else "") +
@@ -195,6 +198,7 @@ object TouchFallback {
         CameraAction.NextMode to "▶",
         CameraAction.SwitchCamera to "Flip",
         CameraAction.NextCaptureMode to "Size",
+        CameraAction.RawToggle to "RAW",
         CameraAction.QualityNext to "Quality",
         CameraAction.CompareToggle to "Compare",
         CameraAction.OpenLast to "Last",
@@ -206,4 +210,66 @@ object TouchFallback {
 
     fun controls(c: DeckContext): List<TouchControl> =
         labels.map { (a, text) -> TouchControl(a, text, ControlGate.check(a, c)) }
+}
+
+/** One hint in the dock under the viewfinder: the key as printed, what it does, and its gate. */
+data class Hint(
+    val key: Binding,
+    val keyText: String,
+    val label: String,
+    val action: CameraAction,
+    val gate: Gate
+)
+
+/**
+ * The hint dock (design `sable-camera-capture-titan2`: "[Space] Shutter  [Z] Zoom" under Photo,
+ * "[R] RAW/HiRes [E] Exposure [F] Focus" under Pro, "[Space] Record" under Video). Every hint names
+ * a binding that really resolves to its action on this profile, so the dock cannot advertise a key
+ * that does not work; tests check that.
+ */
+object HintDock {
+    private val photo = listOf(
+        Binding("space") to CameraAction.Shutter,
+        Binding("z") to CameraAction.ZoomIn,
+        Binding("r") to CameraAction.RawToggle,
+        Binding("h") to CameraAction.ToggleLegend
+    )
+    private val pro = listOf(
+        Binding("space") to CameraAction.Shutter,
+        Binding("e") to CameraAction.ExposureUp,
+        Binding("f") to CameraAction.Autofocus,
+        Binding("h") to CameraAction.ToggleLegend
+    )
+    private val video = listOf(
+        Binding("space") to CameraAction.Shutter,
+        Binding("z") to CameraAction.ZoomIn,
+        Binding("q") to CameraAction.QualityNext,
+        Binding("h") to CameraAction.ToggleLegend
+    )
+
+    private val shortLabels = mapOf(
+        CameraAction.ZoomIn to "Zoom",
+        CameraAction.RawToggle to "RAW/HiRes",
+        CameraAction.ToggleLegend to "Keys",
+        CameraAction.ExposureUp to "Exposure",
+        CameraAction.Autofocus to "Focus",
+        CameraAction.QualityNext to "Quality"
+    )
+
+    /** Bindings of the dock for [ui], before gating (tests check each resolves to its action). */
+    fun bindings(ui: UiMode): List<Pair<Binding, CameraAction>> = when (ui) {
+        UiMode.Photo -> photo
+        UiMode.Pro -> pro
+        UiMode.Video -> video
+    }
+
+    fun hints(c: DeckContext, profile: CameraDeviceProfile): List<Hint> =
+        bindings(c.ui).filter { (b, a) -> CameraKeyMap.resolve(b, profile) == a }.map { (b, a) ->
+            val label = if (a == CameraAction.Shutter) {
+                ControlLegend.label(a, c.ui).substringBefore(" /")
+            } else {
+                shortLabels[a] ?: ControlLegend.label(a, c.ui)
+            }
+            Hint(b, ControlLegend.keyText(b), label, a, ControlGate.check(a, c))
+        }
 }

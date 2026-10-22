@@ -1,0 +1,834 @@
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml
+index 058248c..0437e64 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml
+@@ -1,7 +1,21 @@
+ <?xml version="1.0" encoding="utf-8"?>
+-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
++<!-- Runs as the system UID: IPackageManager.setUserMinAspectRatio only lets the system UID set another
++     package's aspect ratio (PackageManagerService.enforceOwnerRights). Platform-signed and privileged on the
++     image (apps.tsv signing "platform"); the privileged permissions below are allowlisted in
++     product/q25/permissions/privapp-permissions-sable-q25.xml. -->
++<manifest xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:tools="http://schemas.android.com/tools"
++    android:sharedUserId="android.uid.system"
++    tools:ignore="SharedUserId">
+ 
+-    <!-- No permissions. App discovery uses a <queries> launcher intent, not QUERY_ALL_PACKAGES.
++    <!-- Per-app aspect ratio (IPackageManager.setUserMinAspectRatio). -->
++    <uses-permission android:name="android.permission.INSTALL_PACKAGES" tools:ignore="ProtectedPermissions" />
++    <!-- Per-app orientation (IPlatformCompat.putOverridesOnReleaseBuilds). -->
++    <uses-permission
++        android:name="android.permission.OVERRIDE_COMPAT_CHANGE_CONFIG_ON_RELEASE_BUILD"
++        tools:ignore="ProtectedPermissions" />
++
++    <!-- App discovery uses a <queries> launcher intent, not QUERY_ALL_PACKAGES.
+          The Sable appearance authority (Settings) holds the global Sable app corner style. -->
+     <queries>
+         <provider android:authorities="org.sableos.appearance" />
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt
+index 65b7da8..3815eea 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt
+@@ -21,12 +21,7 @@ class DisplayCompatApp : Application() {
+         store = PrefsProfileStore(this)
+         appStyleStore = AppearanceStyleStore(this)
+         appStyle = AppStyleController(appStyleStore)
+-        controller =
+-            ProfileController(
+-                store,
+-                GatedPlatformBackend(this),
+-                miniSize = MiniSizeEvidence.read(this)
+-            )
++        controller = ProfileController(store, GatedPlatformBackend())
+         // SAFE_MODE_RESET_ALL_DISPLAY_PROFILES: booting to safe mode clears every per-app profile
+         // so a bad profile cannot trap the user.
+         if (packageManager.isSafeMode) controller.resetAll()
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt
+index cb80edf..47aa22a 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt
+@@ -1,89 +1,146 @@
+ package org.sableos.titan2.displaycompat.android
+ 
+-import android.content.Context
+-import android.content.pm.PackageManager
++import android.os.IBinder
++import android.os.Process
+ import org.sableos.titan2.displaycompat.core.ApplyResult
+-import org.sableos.titan2.displaycompat.core.AspectProfile
+ import org.sableos.titan2.displaycompat.core.BackendAvailability
+ import org.sableos.titan2.displaycompat.core.CanvasPlan
+ import org.sableos.titan2.displaycompat.core.DisplayBackend
+ import org.sableos.titan2.displaycompat.core.DisplayProfile
++import org.sableos.titan2.displaycompat.core.PlatformMapping
++import org.sableos.titan2.displaycompat.core.PlatformRequest
+ 
+ /**
+- * Backend using the platform per-app minimum-aspect-ratio override
+- * (Android 14+ `PackageManager.setUserMinAspectRatio`).
++ * Backend that hands a profile to the platform (LineageOS 23.2 / Android 16):
+  *
+- * It is closed unless `persist.sable.displaycompat.backend=validated`, so a fresh image never changes app windows.
+- * The call is reached by reflection and any SecurityException/NoSuchMethod is reported as
+- * [ApplyResult.Unsupported]: whether a platform-signed app may call it on Android 16 is a gate to validate on
+- * device, not an assumption. No privapp grant is added here.
+- * Only profiles with a real platform equivalent are mapped; everything else stays validated-and-stored but unapplied.
++ *  - aspect ratio: `IPackageManager.setUserMinAspectRatio(packageName, userId, aspectRatio)`, the call Settings'
++ *    own App aspect ratio page makes. It needs INSTALL_PACKAGES and, for another app's package, the system UID
++ *    (`PackageManagerService.enforceOwnerRights`), so this app is platform-signed, privileged and runs as
++ *    `android.uid.system`. The framework only honours the value when
++ *    `config_appCompatUserAppAspectRatioSettingsIsEnabled` is true (SableFrameworkOverlay, sable_displaycompat.xml).
++ *  - orientation: `IPlatformCompat.putOverridesOnReleaseBuilds` / `removeOverridesOnReleaseBuilds` with the
++ *    overridable orientation changes (OVERRIDE_COMPAT_CHANGE_CONFIG_ON_RELEASE_BUILD).
++ *
++ * It is closed unless `persist.sable.displaycompat.backend=validated` (set by the Q4 product layer), so an image
++ * without the overlay never sends requests. Failures are reported as [ApplyResult.Unsupported], never hidden.
++ * Every call sends the full state, so moving to a stored-only profile clears what an earlier profile set.
+  */
+-class GatedPlatformBackend(private val context: Context) : DisplayBackend {
+-    override val name = "platform min-aspect-ratio (gated)"
++class GatedPlatformBackend : DisplayBackend {
++    override val name = "platform aspect ratio + orientation (gated)"
+ 
+     /** Closed unless the gate property is exactly `validated`; read on every call so a closed gate stays closed. */
+     override val availability: BackendAvailability
+         get() = if (open()) BackendAvailability.OPEN_UNVERIFIED else BackendAvailability.CLOSED
+ 
+-    private fun open() = SysProps.get("persist.sable.displaycompat.backend") == "validated"
++    private fun open() = SysProps.get(GATE_PROPERTY) == GATE_OPEN
+ 
+     override fun apply(pkg: String, plan: CanvasPlan, p: DisplayProfile): ApplyResult {
+-        val value = UserMinAspectRatio.forProfile(p.profile)
++        if (!open()) return ApplyResult.NoOp
++        val request = PlatformMapping.request(p)
++        val sent = send(pkg, request)
+         return when {
+-            !open() -> ApplyResult.NoOp
+-
+-            value == null -> ApplyResult.Unsupported(
+-                "${p.profile.id}: no platform equivalent; stored only"
++            sent != null -> sent
++            !request.hasEffect -> ApplyResult.Unsupported(
++                "no platform equivalent for " + request.notApplied.joinToString(", ") +
++                    "; stored only, platform settings cleared"
+             )
+-
+-            else -> set(pkg, value, "min aspect ratio=$value")
++            else -> ApplyResult.Applied(request.describe() + readBack(pkg) + NEXT_LAUNCH)
+         }
+     }
+ 
+-    override fun clear(pkg: String): ApplyResult =
+-        if (!open()) ApplyResult.NoOp else set(pkg, UserMinAspectRatio.UNSET, "unset")
++    override fun clear(pkg: String): ApplyResult {
++        if (!open()) return ApplyResult.NoOp
++        return send(pkg, PlatformRequest.CLEAR) ?: ApplyResult.Applied("platform settings cleared$NEXT_LAUNCH")
++    }
+ 
+-    private fun set(pkg: String, value: Int, detail: String): ApplyResult = try {
+-        PackageManager::class.java.getMethod(
++    /** Sends [request]; null on success, else the failure. */
++    private fun send(pkg: String, request: PlatformRequest): ApplyResult? = guarded {
++        val pm = packageManagerService()
++        PM_INTERFACE.getMethod(
+             "setUserMinAspectRatio",
+             String::class.java,
++            Int::class.javaPrimitiveType,
+             Int::class.javaPrimitiveType
+-        )
+-            .invoke(context.packageManager, pkg, value)
+-        ApplyResult.Applied(detail)
++        ).invoke(pm, pkg, myUserId(), request.minAspectRatio)
++        val compat = platformCompat()
++        if (request.disableOrientation.isNotEmpty()) {
++            val cls = Class.forName("com.android.internal.compat.CompatibilityOverridesToRemoveConfig")
++            val config = cls.getConstructor(Set::class.java).newInstance(request.disableOrientation)
++            COMPAT_INTERFACE.getMethod("removeOverridesOnReleaseBuilds", cls, String::class.java)
++                .invoke(compat, config, pkg)
++        }
++        if (request.enableOrientation.isNotEmpty()) {
++            val cls = Class.forName("com.android.internal.compat.CompatibilityOverrideConfig")
++            val enabled = enabledOverride()
++            val config = cls.getConstructor(Map::class.java)
++                .newInstance(request.enableOrientation.associateWith { enabled })
++            COMPAT_INTERFACE.getMethod("putOverridesOnReleaseBuilds", cls, String::class.java)
++                .invoke(compat, config, pkg)
++        }
++    }
++
++    /** What the platform now reports for the package, so the message never claims more than it says. */
++    private fun readBack(pkg: String): String = runCatching {
++        val v = PM_INTERFACE.getMethod(
++            "getUserMinAspectRatio",
++            String::class.java,
++            Int::class.javaPrimitiveType
++        ).invoke(packageManagerService(), pkg, myUserId()) as Int
++        "; platform reports aspect $v"
++    }.getOrDefault("")
++
++    private fun guarded(call: () -> Unit): ApplyResult? = try {
++        call()
++        null
+     } catch (t: ReflectiveOperationException) {
+         unsupported(t)
+     } catch (t: SecurityException) {
+         unsupported(t)
+     } catch (t: IllegalArgumentException) {
+         unsupported(t)
++    } catch (t: IllegalStateException) {
++        unsupported(t)
+     }
+ 
+     private fun unsupported(t: Throwable): ApplyResult = ApplyResult.Unsupported(
+         (t.cause ?: t).javaClass.simpleName + ": " + ((t.cause ?: t).message ?: "no detail")
+     )
+-}
+ 
+-/**
+- * Values of the hidden `PackageManager.USER_MIN_ASPECT_RATIO_*` constants (AOSP 14+: UNSET 0, SPLIT_SCREEN 1,
+- * DISPLAY_SIZE 2, 4_3 3, 16_9 4, 3_2 5, FULLSCREEN 6, APP_DEFAULT 7). The public SDK does not expose them, so they are
+- * literals here. Note 4:3 is 3 and 16:9 is 4 (an earlier version had them swapped, which would have put a 16:9 profile
+- * in a 4:3 window and vice versa). Re-check against the Android 16 source before the backend gate is opened.
+- */
+-internal object UserMinAspectRatio {
+-    const val UNSET = 0
+-    const val DISPLAY_SIZE = 2
+-    const val RATIO_4_3 = 3
+-    const val RATIO_16_9 = 4
+-    const val FULLSCREEN = 6
++    private fun packageManagerService(): Any =
++        requireNotNull(Class.forName("android.app.ActivityThread").getMethod("getPackageManager").invoke(null)) {
++            "package manager unavailable"
++        }
+ 
+-    /** Platform value for a profile with a real platform equivalent, else null (stored only). */
+-    fun forProfile(profile: AspectProfile): Int? = when (profile) {
+-        AspectProfile.Ratio16x9Letterbox -> RATIO_16_9
+-        AspectProfile.Ratio4x3Letterbox -> RATIO_4_3
+-        AspectProfile.FullscreenMedia -> FULLSCREEN
+-        AspectProfile.SquareSafe -> DISPLAY_SIZE
+-        else -> null
++    private fun platformCompat(): Any {
++        val binder = Class.forName("android.os.ServiceManager")
++            .getMethod("getService", String::class.java)
++            .invoke(null, PLATFORM_COMPAT_SERVICE) as? IBinder
++        checkNotNull(binder) { "platform_compat service unavailable" }
++        return requireNotNull(
++            Class.forName("com.android.internal.compat.IPlatformCompat\$Stub")
++                .getMethod("asInterface", IBinder::class.java)
++                .invoke(null, binder)
++        ) { "platform_compat interface unavailable" }
++    }
++
++    private fun enabledOverride(): Any {
++        val builderClass = Class.forName("android.app.compat.PackageOverride\$Builder")
++        val builder = builderClass.getConstructor().newInstance()
++        builderClass.getMethod("setEnabled", Boolean::class.javaPrimitiveType).invoke(builder, true)
++        return requireNotNull(builderClass.getMethod("build").invoke(builder)) { "no PackageOverride" }
++    }
++
++    private fun myUserId(): Int = Process.myUid() / PER_USER_RANGE
++
++    companion object {
++        const val GATE_PROPERTY = "persist.sable.displaycompat.backend"
++        const val GATE_OPEN = "validated"
++        private const val PLATFORM_COMPAT_SERVICE = "platform_compat"
++        private const val PER_USER_RANGE = 100_000
++        private const val NEXT_LAUNCH = "; takes effect the next time the app starts"
++        private val PM_INTERFACE: Class<*> by lazy { Class.forName("android.content.pm.IPackageManager") }
++        private val COMPAT_INTERFACE: Class<*> by lazy {
++            Class.forName("com.android.internal.compat.IPlatformCompat")
++        }
+     }
+ }
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/MiniSizeEvidence.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/MiniSizeEvidence.kt
+deleted file mode 100644
+index 819e4b8..0000000
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/MiniSizeEvidence.kt
++++ /dev/null
+@@ -1,34 +0,0 @@
+-package org.sableos.titan2.displaycompat.android
+-
+-import android.content.Context
+-import org.sableos.titan2.displaycompat.core.SizePx
+-
+-/**
+- * Mini mode resolution is device evidence, not a constant. The Titan manuals only say the resolution becomes
+- * "another normal size".
+- * Capture it from the stock device (`wm size` before/after toggling Mini mode) and enter it as `WxH` on this
+- * app's validation screen (stored in this app's prefs). The product lane no longer assigns a system property
+- * for it. Absent => Mini mode is a no-op.
+- * Measured Titan 2 evidence is recorded in docs/C3B_PRODUCT_INTERFACE_EVIDENCE.md.
+- * Mini Mode is non-blocking and deferred.
+- */
+-object MiniSizeEvidence {
+-    fun read(context: Context): SizePx? {
+-        val raw =
+-            context.getSharedPreferences(
+-                "evidence",
+-                Context.MODE_PRIVATE
+-            ).getString("mini_size", "")
+-                ?: ""
+-        val parts = raw.split('x')
+-        val w = parts.getOrNull(0)?.toIntOrNull()
+-        val h = parts.getOrNull(1)?.toIntOrNull()
+-        return if (parts.size == 2 && isPositive(w) && isPositive(h)) {
+-            SizePx(requireNotNull(w), requireNotNull(h))
+-        } else {
+-            null
+-        }
+-    }
+-
+-    private fun isPositive(v: Int?): Boolean = v != null && v > 0
+-}
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/CanvasPlanner.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/CanvasPlanner.kt
+index cd57d9c..f40f513 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/CanvasPlanner.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/CanvasPlanner.kt
+@@ -21,16 +21,16 @@ data class CanvasPlan(
+ object CanvasPlanner {
+     private const val PERCENT = 100
+ 
++    /** Mini mode window: a 3:2 phone shape, the platform's USER_MIN_ASPECT_RATIO_3_2 (480x720 on the Q25). */
++    private const val MINI_RATIO = 1.5f
++
+     /**
+-     * @param miniSize Titan "Mini mode" resolution. The manuals only say "another normal size", so this is
+-     *   device evidence that must be captured; null keeps Mini mode a no-op rather than guessing a number.
+      * @param softKeyboardFraction share of the height reserved by [AspectProfile.KeyboardSafe] when the soft
+      *   keyboard may show.
+      */
+     fun plan(
+         display: SizePx,
+         p: DisplayProfile,
+-        miniSize: SizePx? = null,
+         softKeyboardFraction: Float = 0.40f
+     ): CanvasPlan = when (p.profile) {
+         AspectProfile.Native -> plain(display, p, "Native: app and platform defaults.")
+@@ -49,7 +49,7 @@ object CanvasPlanner {
+ 
+         AspectProfile.KeyboardSafe -> keyboardSafe(display, p, softKeyboardFraction)
+ 
+-        AspectProfile.MiniMode -> miniMode(display, p, miniSize)
++        AspectProfile.MiniMode -> miniMode(display, p)
+ 
+         AspectProfile.Ratio16x9Letterbox -> letterbox(
+             display,
+@@ -97,18 +97,13 @@ object CanvasPlanner {
+         return plain(display, p, "Keyboard-safe: reserves ${reserve}px for text entry.", reserve)
+     }
+ 
+-    private fun miniMode(display: SizePx, p: DisplayProfile, miniSize: SizePx?): CanvasPlan =
+-        if (miniSize == null) {
+-            plain(display, p, "Mini mode size not captured on this device: no-op.")
+-        } else {
+-            letterbox(
+-                display,
+-                miniSize.aspect,
+-                p,
+-                "Mini mode ${miniSize.w}x${miniSize.h}",
+-                exactSize = miniSize
+-            )
+-        }
++    /** A phone-shaped window: portrait unless the profile asks for landscape (the platform's own behaviour). */
++    private fun miniMode(display: SizePx, p: DisplayProfile): CanvasPlan {
++        val phone = if (p.orientation == OrientationPref.Landscape) MINI_RATIO else 1f / MINI_RATIO
++        val unturned = p.copy(orientation = OrientationPref.Default)
++        return letterbox(display, phone, unturned, "Mini mode (3:2 phone window)")
++            .copy(lockedOrientation = orientationLock(p))
++    }
+ 
+     private fun custom(display: SizePx, p: DisplayProfile): CanvasPlan {
+         val r = p.customRatio
+@@ -146,16 +141,12 @@ object CanvasPlanner {
+         display: SizePx,
+         ratio: Float,
+         p: DisplayProfile,
+-        label: String,
+-        exactSize: SizePx? = null
++        label: String
+     ): CanvasPlan {
+         val r = effectiveRatio(display, ratio, p)
+         val w: Int
+         val h: Int
+-        if (exactSize != null && p.orientation == OrientationPref.Default) {
+-            w = min(exactSize.w, display.w)
+-            h = min(exactSize.h, display.h)
+-        } else if (display.aspect > r) {
++        if (display.aspect > r) {
+             h = display.h
+             w = (h * r).roundToInt().coerceAtMost(display.w)
+         } else {
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/PlatformMapping.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/PlatformMapping.kt
+new file mode 100644
+index 0000000..9a62df5
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/PlatformMapping.kt
+@@ -0,0 +1,137 @@
++package org.sableos.titan2.displaycompat.core
++
++/**
++ * Values of the hidden `PackageManager.USER_MIN_ASPECT_RATIO_*` constants, checked against LineageOS 23.2
++ * (Android 16) `frameworks/base` at f4ed08a0: UNSET 0, SPLIT_SCREEN 1, DISPLAY_SIZE 2, 4_3 3, 16_9 4, 3_2 5,
++ * FULLSCREEN 6, APP_DEFAULT 7. The public SDK does not expose them, so they are literals here.
++ * The platform call is `IPackageManager.setUserMinAspectRatio(String packageName, int userId, int aspectRatio)`.
++ */
++object UserMinAspectRatio {
++    const val UNSET = 0
++    const val DISPLAY_SIZE = 2
++    const val RATIO_4_3 = 3
++    const val RATIO_16_9 = 4
++    const val RATIO_3_2 = 5
++    const val FULLSCREEN = 6
++
++    /** Platform value for a profile with a real platform equivalent, else null (stored only). */
++    fun forProfile(profile: AspectProfile, custom: Ratio? = null): Int? = when (profile) {
++        AspectProfile.Native -> UNSET
++        AspectProfile.Ratio16x9Letterbox -> RATIO_16_9
++        AspectProfile.Ratio4x3Letterbox -> RATIO_4_3
++        AspectProfile.FullscreenMedia -> FULLSCREEN
++        AspectProfile.SquareSafe -> DISPLAY_SIZE
++        // Mini mode on a square display: the app gets a 3:2 phone-shaped window (480x720 on the Q25).
++        AspectProfile.MiniMode -> RATIO_3_2
++        AspectProfile.Custom -> forRatio(custom)
++        AspectProfile.Ratio16x9Fill, AspectProfile.KeyboardSafe -> null
++    }
++
++    /** A custom ratio maps only when it is one the platform offers, in either orientation. */
++    private fun forRatio(r: Ratio?): Int? {
++        if (r == null) return null
++        val wide = if (r.w >= r.h) r else r.inverse()
++        return when {
++            wide.sameAs(Ratio.R16_9) -> RATIO_16_9
++            wide.sameAs(Ratio.R4_3) -> RATIO_4_3
++            wide.sameAs(R3_2) -> RATIO_3_2
++            else -> null
++        }
++    }
++
++    private val R3_2 = Ratio(3, 2)
++
++    private fun Ratio.sameAs(o: Ratio): Boolean = w.toLong() * o.h == h.toLong() * o.w
++
++    fun label(value: Int): String = when (value) {
++        UNSET -> "app default"
++        DISPLAY_SIZE -> "display size"
++        RATIO_4_3 -> "4:3"
++        RATIO_16_9 -> "16:9"
++        RATIO_3_2 -> "3:2"
++        FULLSCREEN -> "fullscreen"
++        else -> "value $value"
++    }
++}
++
++/**
++ * Per-app orientation through the platform's overridable app-compat changes (`android.content.pm.ActivityInfo`,
++ * all `@Overridable`, set with `IPlatformCompat.putOverridesOnReleaseBuilds`). They are per package, for every
++ * user, and take effect the next time the app starts.
++ */
++object OrientationOverrides {
++    const val OVERRIDE_ANY_ORIENTATION = 265464455L
++    const val OVERRIDE_UNDEFINED_ORIENTATION_TO_PORTRAIT = 265452344L
++    const val OVERRIDE_LANDSCAPE_ORIENTATION_TO_REVERSE_LANDSCAPE = 266124927L
++
++    /** Every change this app may set; the ones a profile does not enable are removed. */
++    val ALL: Set<Long> = setOf(
++        OVERRIDE_ANY_ORIENTATION,
++        OVERRIDE_UNDEFINED_ORIENTATION_TO_PORTRAIT,
++        OVERRIDE_LANDSCAPE_ORIENTATION_TO_REVERSE_LANDSCAPE
++    )
++
++    /** Changes to enable for an orientation, or null when the platform has no per-app override for it. */
++    fun forOrientation(o: OrientationPref): Set<Long>? = when (o) {
++        OrientationPref.Default -> emptySet()
++
++        OrientationPref.Portrait -> setOf(OVERRIDE_ANY_ORIENTATION, OVERRIDE_UNDEFINED_ORIENTATION_TO_PORTRAIT)
++
++        // The platform's only landscape override is reverse landscape (270 degrees).
++        OrientationPref.Landscape ->
++            setOf(OVERRIDE_ANY_ORIENTATION, OVERRIDE_LANDSCAPE_ORIENTATION_TO_REVERSE_LANDSCAPE)
++
++        // OVERRIDE_ANY_ORIENTATION_TO_USER only acts on displays that ignore orientation requests; a phone does not.
++        OrientationPref.Auto -> null
++    }
++}
++
++/**
++ * Everything one save asks of the platform. It always carries a full state (an aspect value, the orientation
++ * changes to enable and the ones to remove), so switching from a ratio to a stored-only profile clears the ratio.
++ */
++data class PlatformRequest(
++    val minAspectRatio: Int,
++    val enableOrientation: Set<Long>,
++    val notApplied: List<String>
++) {
++    val disableOrientation: Set<Long> get() = OrientationOverrides.ALL - enableOrientation
++
++    /** True when the platform is asked to change something this profile wants. */
++    val hasEffect: Boolean
++        get() = minAspectRatio != UserMinAspectRatio.UNSET || enableOrientation.isNotEmpty()
++
++    fun describe(): String = buildString {
++        append("aspect ").append(UserMinAspectRatio.label(minAspectRatio))
++        append(", orientation ").append(orientationLabel())
++        if (notApplied.isNotEmpty()) append("; stored only: ").append(notApplied.joinToString(", "))
++    }
++
++    private fun orientationLabel(): String = when {
++        OrientationOverrides.OVERRIDE_UNDEFINED_ORIENTATION_TO_PORTRAIT in enableOrientation -> "portrait"
++        OrientationOverrides.OVERRIDE_LANDSCAPE_ORIENTATION_TO_REVERSE_LANDSCAPE in enableOrientation ->
++            "landscape"
++        else -> "app default"
++    }
++
++    companion object {
++        /** Clears both platform settings for a package. */
++        val CLEAR = PlatformRequest(UserMinAspectRatio.UNSET, emptySet(), emptyList())
++    }
++}
++
++object PlatformMapping {
++    fun request(p: DisplayProfile): PlatformRequest {
++        val notApplied = mutableListOf<String>()
++        val aspect = UserMinAspectRatio.forProfile(p.profile, p.customRatio)
++        if (aspect == null) notApplied += p.profile.id.replace('_', ' ')
++        val orientation = OrientationOverrides.forOrientation(p.orientation)
++        if (orientation == null) notApplied += "orientation " + p.orientation.name.lowercase()
++        if (p.scaling != ScalingPref.Default) notApplied += "scaling"
++        if (p.letterboxBackground != LetterboxBackground.System) notApplied += "letterbox background"
++        if (p.keyboardSafeArea != Tri.Default) notApplied += "keyboard-safe area"
++        if (p.statusNav != BarsPref.Default) notApplied += "status/nav bars"
++        if (p.stretch) notApplied += "stretch"
++        return PlatformRequest(aspect ?: UserMinAspectRatio.UNSET, orientation.orEmpty(), notApplied)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileStore.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileStore.kt
+index eaf6366..073a04d 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileStore.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileStore.kt
+@@ -52,8 +52,7 @@ object NoOpBackend : DisplayBackend {
+ /** Orchestrates store, validation and backend. A profile that fails validation is never saved or applied. */
+ class ProfileController(
+     private val store: ProfileStore,
+-    private val backend: DisplayBackend,
+-    private val miniSize: SizePx? = null
++    private val backend: DisplayBackend
+ ) {
+     data class Outcome(
+         val validation: Validation,
+@@ -129,7 +128,7 @@ class ProfileController(
+                     pkg
+                 )
+             } else {
+-                backend.apply(pkg, CanvasPlanner.plan(display, p, miniSize), p)
++                backend.apply(pkg, CanvasPlanner.plan(display, p), p)
+             }
+         }
+ 
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileValidator.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileValidator.kt
+index 6d36926..426172b 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileValidator.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileValidator.kt
+@@ -35,18 +35,38 @@ object ProfileValidator {
+             out.add(
+                 Issue(
+                     Severity.Info,
+-                    "MINI_SIZE",
+-                    "Mini mode applies only once this device's mini size has been captured."
++                    "MINI_WINDOW",
++                    "Mini mode opens the app in a 3:2 phone-shaped window (480x720 on a 720x720 screen)."
+                 )
+             )
+         }
++        checkOrientation(traits, p, out)
++        return Validation(out)
++    }
++
++    private fun checkOrientation(traits: AppTraits, p: DisplayProfile, out: MutableList<Issue>) {
+         if (p.orientation.locksOrientation() && traits.isCamera) {
+             out.warn(
+                 "CAMERA_ORIENTATION",
+                 "Locking orientation can rotate the camera preview unexpectedly."
+             )
+         }
+-        return Validation(out)
++        if (p.orientation == OrientationPref.Landscape) {
++            out.warn(
++                "LANDSCAPE_SIDEWAYS",
++                "Landscape turns the app sideways (reverse landscape) above the keyboard. Typing still works.",
++                ack = true
++            )
++        }
++        if (p.orientation == OrientationPref.Auto) {
++            out.add(
++                Issue(
++                    Severity.Info,
++                    "AUTO_NOT_PER_APP",
++                    "Auto has no per-app platform override here; the app follows its own rotation request."
++                )
++            )
++        }
+     }
+ 
+     private fun MutableList<Issue>.block(code: String, msg: String) =
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/EditorScreen.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/EditorScreen.kt
+index 4727062..bdfb154 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/EditorScreen.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/EditorScreen.kt
+@@ -41,7 +41,6 @@ import androidx.compose.ui.input.key.type
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+ import org.sableos.titan2.displaycompat.android.DisplayCompatApp
+-import org.sableos.titan2.displaycompat.android.MiniSizeEvidence
+ import org.sableos.titan2.displaycompat.android.TraitsResolver
+ import org.sableos.titan2.displaycompat.core.AppTraits
+ import org.sableos.titan2.displaycompat.core.AspectProfile
+@@ -52,6 +51,7 @@ import org.sableos.titan2.displaycompat.core.DisplayProfile
+ import org.sableos.titan2.displaycompat.core.Issue
+ import org.sableos.titan2.displaycompat.core.LetterboxBackground
+ import org.sableos.titan2.displaycompat.core.OrientationPref
++import org.sableos.titan2.displaycompat.core.PlatformMapping
+ import org.sableos.titan2.displaycompat.core.ProfileController
+ import org.sableos.titan2.displaycompat.core.ProfileValidator
+ import org.sableos.titan2.displaycompat.core.Ratio
+@@ -260,8 +260,7 @@ fun EditorScreen(
+     val fr = remember { FocusRequester() }
+     LaunchedEffect(Unit) { fr.requestFocus() }
+     val validation = ProfileValidator.validate(traits, st.p, st.advanced)
+-    val mini = remember { MiniSizeEvidence.read(app) }
+-    val plan = CanvasPlanner.plan(display, st.p, mini)
++    val plan = CanvasPlanner.plan(display, st.p)
+     val actions = EditorActions(app, st, traits, entry.pkg, display, onDone)
+ 
+     Column(
+@@ -277,6 +276,13 @@ fun EditorScreen(
+             Preview(plan, st.p.letterboxBackground)
+             Text(plan.note, color = C.muted, fontSize = 11.sp, modifier = Modifier.weight(1f))
+         }
++        // Compatibility card (connectivity artifact state 4): what the platform is asked for, and that
++        // keyboards stay out of reach of every profile.
++        Text(
++            "Platform: " + PlatformMapping.request(st.p).describe() + " · Keyboard input: protected",
++            color = C.muted,
++            fontSize = 11.sp
++        )
+         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+             rows.forEachIndexed { i, r ->
+                 EditorRowItem(
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/android/UserMinAspectRatioTest.kt b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/android/UserMinAspectRatioTest.kt
+deleted file mode 100644
+index cfecc75..0000000
+--- a/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/android/UserMinAspectRatioTest.kt
++++ /dev/null
+@@ -1,34 +0,0 @@
+-package org.sableos.titan2.displaycompat.android
+-
+-import org.junit.Assert.assertEquals
+-import org.junit.Assert.assertNull
+-import org.junit.Test
+-import org.sableos.titan2.displaycompat.core.AspectProfile
+-
+-/** The gated backend must hand the platform the AOSP USER_MIN_ASPECT_RATIO_* value that matches each profile. */
+-class UserMinAspectRatioTest {
+-    @Test fun constantsMatchAosp() {
+-        assertEquals(0, UserMinAspectRatio.UNSET)
+-        assertEquals(2, UserMinAspectRatio.DISPLAY_SIZE)
+-        assertEquals(3, UserMinAspectRatio.RATIO_4_3)
+-        assertEquals(4, UserMinAspectRatio.RATIO_16_9)
+-        assertEquals(6, UserMinAspectRatio.FULLSCREEN)
+-    }
+-
+-    @Test fun profilesMapToMatchingRatio() {
+-        assertEquals(4, UserMinAspectRatio.forProfile(AspectProfile.Ratio16x9Letterbox))
+-        assertEquals(3, UserMinAspectRatio.forProfile(AspectProfile.Ratio4x3Letterbox))
+-        assertEquals(6, UserMinAspectRatio.forProfile(AspectProfile.FullscreenMedia))
+-        assertEquals(2, UserMinAspectRatio.forProfile(AspectProfile.SquareSafe))
+-    }
+-
+-    @Test fun profilesWithoutPlatformEquivalentStayStoredOnly() {
+-        listOf(
+-            AspectProfile.Native,
+-            AspectProfile.MiniMode,
+-            AspectProfile.Ratio16x9Fill,
+-            AspectProfile.KeyboardSafe,
+-            AspectProfile.Custom
+-        ).forEach { assertNull(it.name, UserMinAspectRatio.forProfile(it)) }
+-    }
+-}
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/DisplayCompatCoreTest.kt b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/DisplayCompatCoreTest.kt
+index afaf17c..d68fa84 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/DisplayCompatCoreTest.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/DisplayCompatCoreTest.kt
+@@ -48,17 +48,17 @@ class DisplayCompatCoreTest {
+         assertTrue(p.bars.isEmpty())
+     }
+ 
+-    @Test fun miniModeIsNoOpUntilSizeCaptured() {
+-        val noSize = CanvasPlanner.plan(titan2, DisplayProfile(AspectProfile.MiniMode))
+-        assertEquals(RectPx(0, 0, 1440, 1440), noSize.canvas)
+-        assertTrue(noSize.note.contains("not captured"))
+-        val sized = CanvasPlanner.plan(
+-            titan2,
+-            DisplayProfile(AspectProfile.MiniMode),
+-            miniSize = SizePx(1080, 1080)
+-        )
+-        assertEquals(1080, sized.canvas.w)
+-        assertEquals(180, sized.canvas.l)
++    @Test fun miniModeIsAPortraitPhoneWindow() {
++        val q25 = CanvasPlanner.plan(SizePx(720, 720), DisplayProfile(AspectProfile.MiniMode))
++        assertEquals(RectPx(120, 0, 600, 720), q25.canvas)
++        assertEquals(2, q25.bars.size)
++        assertTrue(q25.note.startsWith("Mini mode"))
++        val wide = CanvasPlanner.plan(
++            SizePx(720, 720),
++            DisplayProfile(AspectProfile.MiniMode, orientation = OrientationPref.Landscape)
++        )
++        assertEquals(RectPx(0, 120, 720, 600), wide.canvas)
++        assertEquals(OrientationPref.Landscape, wide.lockedOrientation)
+     }
+ 
+     @Test fun keyboardSafeReservesBottom() {
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/DisplayCompatHardeningTest.kt b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/DisplayCompatHardeningTest.kt
+index 5ca62c2..cc76820 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/DisplayCompatHardeningTest.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/DisplayCompatHardeningTest.kt
+@@ -295,17 +295,17 @@ class DisplayCompatHardeningTest {
+         assertTrue(BackendAvailability.OPEN_UNVERIFIED.banner.contains("not verified"))
+     }
+ 
+-    @Test fun miniModeIsStoredButNeverReportedAsApplied() {
++    @Test fun miniModeFailureIsNeverReportedAsApplied() {
+         val b =
+             RecordingBackend({
+-                ApplyResult.Unsupported("mini: no platform equivalent; stored only")
++                ApplyResult.Unsupported("SecurityException: denied")
+             })
+         val o = ProfileController(
+             InMemoryProfileStore(),
+             b
+         ).save(app, DisplayProfile(AspectProfile.MiniMode), display, false, true)
+         assertEquals(EnforcementState.NOT_ENFORCED_UNSUPPORTED, o.enforcement)
+-        assertTrue(o.validation.issues.any { it.code == "MINI_SIZE" })
++        assertTrue(o.validation.issues.any { it.code == "MINI_WINDOW" })
+     }
+ 
+     @Test fun savingNativeRemovesAStoredProfile() {
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/PlatformMappingTest.kt b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/PlatformMappingTest.kt
+new file mode 100644
+index 0000000..e14e915
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/PlatformMappingTest.kt
+@@ -0,0 +1,112 @@
++package org.sableos.titan2.displaycompat.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++/**
++ * The platform values the gated backend sends. Constants checked against LineageOS 23.2 frameworks/base
++ * (PackageManager.USER_MIN_ASPECT_RATIO_*, ActivityInfo orientation change ids).
++ */
++class PlatformMappingTest {
++    @Test fun aspectConstantsMatchAosp() {
++        assertEquals(0, UserMinAspectRatio.UNSET)
++        assertEquals(2, UserMinAspectRatio.DISPLAY_SIZE)
++        assertEquals(3, UserMinAspectRatio.RATIO_4_3)
++        assertEquals(4, UserMinAspectRatio.RATIO_16_9)
++        assertEquals(5, UserMinAspectRatio.RATIO_3_2)
++        assertEquals(6, UserMinAspectRatio.FULLSCREEN)
++    }
++
++    @Test fun orientationChangeIdsMatchAosp() {
++        assertEquals(265464455L, OrientationOverrides.OVERRIDE_ANY_ORIENTATION)
++        assertEquals(265452344L, OrientationOverrides.OVERRIDE_UNDEFINED_ORIENTATION_TO_PORTRAIT)
++        assertEquals(266124927L, OrientationOverrides.OVERRIDE_LANDSCAPE_ORIENTATION_TO_REVERSE_LANDSCAPE)
++    }
++
++    @Test fun profilesMapToMatchingRatio() {
++        assertEquals(0, UserMinAspectRatio.forProfile(AspectProfile.Native))
++        assertEquals(4, UserMinAspectRatio.forProfile(AspectProfile.Ratio16x9Letterbox))
++        assertEquals(3, UserMinAspectRatio.forProfile(AspectProfile.Ratio4x3Letterbox))
++        assertEquals(6, UserMinAspectRatio.forProfile(AspectProfile.FullscreenMedia))
++        assertEquals(2, UserMinAspectRatio.forProfile(AspectProfile.SquareSafe))
++        assertEquals(5, UserMinAspectRatio.forProfile(AspectProfile.MiniMode))
++    }
++
++    @Test fun customRatioMapsOnlyToPlatformRatios() {
++        assertEquals(4, UserMinAspectRatio.forProfile(AspectProfile.Custom, Ratio(9, 16)))
++        assertEquals(5, UserMinAspectRatio.forProfile(AspectProfile.Custom, Ratio(3, 2)))
++        assertEquals(3, UserMinAspectRatio.forProfile(AspectProfile.Custom, Ratio(4, 3)))
++        assertNull(UserMinAspectRatio.forProfile(AspectProfile.Custom, Ratio(21, 9)))
++        assertNull(UserMinAspectRatio.forProfile(AspectProfile.Custom, null))
++    }
++
++    @Test fun profilesWithoutPlatformEquivalentStayStoredOnly() {
++        listOf(AspectProfile.Ratio16x9Fill, AspectProfile.KeyboardSafe).forEach {
++            assertNull(it.name, UserMinAspectRatio.forProfile(it))
++        }
++    }
++
++    @Test fun portraitAndLandscapeUseTheOverrideAnyPairs() {
++        val portrait = PlatformMapping.request(DisplayProfile(orientation = OrientationPref.Portrait))
++        assertEquals(
++            setOf(
++                OrientationOverrides.OVERRIDE_ANY_ORIENTATION,
++                OrientationOverrides.OVERRIDE_UNDEFINED_ORIENTATION_TO_PORTRAIT
++            ),
++            portrait.enableOrientation
++        )
++        assertEquals(
++            setOf(OrientationOverrides.OVERRIDE_LANDSCAPE_ORIENTATION_TO_REVERSE_LANDSCAPE),
++            portrait.disableOrientation
++        )
++        assertTrue(portrait.hasEffect)
++        val landscape = PlatformMapping.request(DisplayProfile(orientation = OrientationPref.Landscape))
++        assertTrue(
++            OrientationOverrides.OVERRIDE_LANDSCAPE_ORIENTATION_TO_REVERSE_LANDSCAPE in landscape.enableOrientation
++        )
++        assertTrue(landscape.describe().contains("orientation landscape"))
++    }
++
++    @Test fun autoOrientationIsReportedNotApplied() {
++        val r = PlatformMapping.request(DisplayProfile(orientation = OrientationPref.Auto))
++        assertTrue(r.enableOrientation.isEmpty())
++        assertEquals(OrientationOverrides.ALL, r.disableOrientation)
++        assertTrue(r.notApplied.contains("orientation auto"))
++        assertFalse(r.hasEffect)
++    }
++
++    @Test fun miniModeSendsThreeByTwo() {
++        val r = PlatformMapping.request(DisplayProfile(AspectProfile.MiniMode))
++        assertEquals(UserMinAspectRatio.RATIO_3_2, r.minAspectRatio)
++        assertTrue(r.notApplied.isEmpty())
++        assertTrue(r.describe().startsWith("aspect 3:2"))
++    }
++
++    @Test fun storedOnlyProfileStillClearsThePlatform() {
++        val r = PlatformMapping.request(DisplayProfile(AspectProfile.KeyboardSafe))
++        assertEquals(UserMinAspectRatio.UNSET, r.minAspectRatio)
++        assertEquals(OrientationOverrides.ALL, r.disableOrientation)
++        assertFalse(r.hasEffect)
++        assertEquals(listOf("keyboard safe"), r.notApplied)
++    }
++
++    @Test fun cosmeticFieldsAreListedAsStoredOnly() {
++        val r = PlatformMapping.request(
++            DisplayProfile(
++                AspectProfile.Ratio16x9Letterbox,
++                scaling = ScalingPref.Fit,
++                letterboxBackground = LetterboxBackground.Dark
++            )
++        )
++        assertEquals(UserMinAspectRatio.RATIO_16_9, r.minAspectRatio)
++        assertEquals(listOf("scaling", "letterbox background"), r.notApplied)
++    }
++
++    @Test fun clearRequestUnsetsEverything() {
++        assertEquals(UserMinAspectRatio.UNSET, PlatformRequest.CLEAR.minAspectRatio)
++        assertEquals(OrientationOverrides.ALL, PlatformRequest.CLEAR.disableOrientation)
++    }
++}

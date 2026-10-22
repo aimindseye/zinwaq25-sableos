@@ -1,0 +1,658 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 17 Oct 2026 08:45:30 +0000
+Subject: [PATCH] SableOS: Sable Quick Settings header, Hub summary row and key
+ hint
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The Titan 2 shade artifact puts a "Sable Quick Settings" title card over
+the compact row, a Hub summary row under it ("3 priority items · Enter
+opens Hub") and a keyboard hint line; the locked shade shows the Hub
+count only.
+
+* SableShadeCoordinator counts Hub priority items on the list about to
+  be rendered: heads-up, conversation and alerting notifications that
+  are not ongoing (pure policy shade/sable/SableHubSummary). It reads no
+  content; notifications hidden from the lock screen are not counted
+  there. The count lives in SableShadeState (SysUISingleton).
+* QSFragmentCompose, when config_sableShadeExtras is true, wraps the
+  compact row with SableShadeHeader, SableHubSummaryRow and
+  SableShadeKeyHint (measured into the QQS height, so notifications
+  start below them) and adds the expanded hint under the tile grid.
+* The Hub row is focusable with the QS focus ring; Enter or a tap opens
+  Sable Hub through ActivityStarter, which asks for unlock first on the
+  lock screen. On a locked shade the row reads "N priority items ·
+  counts only". No row when Hub is not installed.
+* The hint line shows only with a physical keyboard: "Alt+Down expand ·
+  ↑↓ focus · Space toggle · Alt+Enter details" (Q25: Alt replaces Fn).
+
+Defaults keep upstream; SableSystemUIOverlay turns it on.
+---
+ .../SystemUI/res/values/sable_qs_config.xml   |   3 +
+ .../res/values/sable_shade_strings.xml        |  41 +++++
+ .../qs/composefragment/QSFragmentCompose.kt   |  77 +++++++-
+ .../qs/composefragment/ui/SableShadeExtras.kt | 174 ++++++++++++++++++
+ .../systemui/shade/sable/SableHubSummary.java |  63 +++++++
+ .../systemui/shade/sable/SableShadeState.kt   |  40 ++++
+ .../coordinator/NotifCoordinators.kt          |   2 +
+ .../coordinator/SableShadeCoordinator.kt      |  77 ++++++++
+ 8 files changed, 471 insertions(+), 6 deletions(-)
+ create mode 100644 packages/SystemUI/res/values/sable_shade_strings.xml
+ create mode 100644 packages/SystemUI/src/com/android/systemui/qs/composefragment/ui/SableShadeExtras.kt
+ create mode 100644 packages/SystemUI/src/com/android/systemui/shade/sable/SableHubSummary.java
+ create mode 100644 packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeState.kt
+ create mode 100644 packages/SystemUI/src/com/android/systemui/statusbar/notification/collection/coordinator/SableShadeCoordinator.kt
+
+diff --git a/packages/SystemUI/res/values/sable_qs_config.xml b/packages/SystemUI/res/values/sable_qs_config.xml
+index 6ff75bb1..b8aeca6d 100644
+--- a/packages/SystemUI/res/values/sable_qs_config.xml
++++ b/packages/SystemUI/res/values/sable_qs_config.xml
+@@ -10,4 +10,7 @@
+     <!-- Small (one-column) tiles show their label under the icon. Sable: true, so the
+          three-column grid of small tiles is labeled like the artifact. -->
+     <bool name="config_sableQsSmallTileLabels">false</bool>
++    <!-- Sable shade extras: "Sable Quick Settings" header, Hub summary row and keyboard hint
++         line around the compact row. Sable: true. -->
++    <bool name="config_sableShadeExtras">false</bool>
+ </resources>
+diff --git a/packages/SystemUI/res/values/sable_shade_strings.xml b/packages/SystemUI/res/values/sable_shade_strings.xml
+new file mode 100644
+index 00000000..2048e13f
+--- /dev/null
++++ b/packages/SystemUI/res/values/sable_shade_strings.xml
+@@ -0,0 +1,41 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++  Copyright (C) 2026 The SableOS Project
++
++  Licensed under the Apache License, Version 2.0 (the "License");
++  you may not use this file except in compliance with the License.
++  You may obtain a copy of the License at
++
++       http://www.apache.org/licenses/LICENSE-2.0
++
++  Unless required by applicable law or agreed to in writing, software
++  distributed under the License is distributed on an "AS IS" BASIS,
++  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++  See the License for the specific language governing permissions and
++  limitations under the License.
++-->
++<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
++    <!-- Sable shade (sable-quick-settings-titan2): title card over the compact Quick Settings row. -->
++    <string name="sable_qs_header">Sable Quick Settings</string>
++    <!-- Hub summary row: title. -->
++    <string name="sable_hub_summary_title">Hub summary</string>
++    <!-- Hub summary row: the count part, e.g. "3 priority items". -->
++    <plurals name="sable_hub_summary_items">
++        <item quantity="one"><xliff:g id="count" example="1">%d</xliff:g> priority item</item>
++        <item quantity="other"><xliff:g id="count" example="3">%d</xliff:g> priority items</item>
++    </plurals>
++    <!-- Hub summary row: more than 99 items. -->
++    <string name="sable_hub_summary_capped"><xliff:g id="count" example="99">%d</xliff:g>+ priority items</string>
++    <!-- Hub summary row, unlocked: "3 priority items · Enter opens Hub". -->
++    <string name="sable_hub_summary_open"><xliff:g id="count" example="3 priority items">%s</xliff:g> · Enter opens Hub</string>
++    <!-- Hub summary row, unlocked and nothing to count. -->
++    <string name="sable_hub_summary_empty">No priority items · Enter opens Hub</string>
++    <!-- Hub summary row on a locked shade: only the count, no content. -->
++    <string name="sable_hub_summary_locked"><xliff:g id="count" example="3 priority items">%s</xliff:g> · counts only</string>
++    <!-- Accessibility action of the Hub summary row. -->
++    <string name="sable_hub_summary_action">open Sable Hub</string>
++    <!-- Keyboard hint line under the compact shade (Q25: Alt replaces Fn). -->
++    <string name="sable_qs_key_hint">Alt+Down expand · ↑↓ focus · Space toggle · Alt+Enter details</string>
++    <!-- Keyboard hint line in the expanded Quick Settings. -->
++    <string name="sable_qs_key_hint_expanded">Alt+Up back · ↑↓←→ focus · Space toggle · Alt+Enter details</string>
++</resources>
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt b/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt
+index 84ee87b4..3d77b76f 100644
+--- a/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt
++++ b/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt
+@@ -18,6 +18,7 @@ package com.android.systemui.qs.composefragment
+ 
+ import android.annotation.SuppressLint
+ import android.content.Context
++import android.content.Intent
+ import android.content.res.Configuration
+ import android.database.ContentObserver
+ import android.graphics.Canvas
+@@ -78,6 +79,7 @@ import androidx.compose.ui.layout.positionOnScreen
+ import androidx.compose.ui.platform.ComposeView
+ import androidx.compose.ui.platform.LocalConfiguration
+ import androidx.compose.ui.platform.LocalContext
++import androidx.compose.ui.res.booleanResource
+ import androidx.compose.ui.res.dimensionResource
+ import androidx.compose.ui.res.stringResource
+ import androidx.compose.ui.semantics.CustomAccessibilityAction
+@@ -134,6 +136,7 @@ import com.android.systemui.media.remedia.ui.compose.Media
+ import com.android.systemui.media.remedia.ui.compose.MediaPresentationStyle
+ import com.android.systemui.media.remedia.ui.compose.MediaUiBehavior
+ import com.android.systemui.media.remedia.ui.viewmodel.MediaViewModel
++import com.android.systemui.plugins.ActivityStarter
+ import com.android.systemui.plugins.qs.QS
+ import com.android.systemui.plugins.qs.QSContainerController
+ import com.android.systemui.qs.composefragment.SceneKeys.QuickQuickSettings
+@@ -142,6 +145,9 @@ import com.android.systemui.qs.composefragment.SceneKeys.debugName
+ import com.android.systemui.qs.composefragment.SceneKeys.toIdleSceneKey
+ import com.android.systemui.qs.composefragment.ui.GridAnchor
+ import com.android.systemui.qs.composefragment.ui.NotificationScrimClipParams
++import com.android.systemui.qs.composefragment.ui.SableHubSummaryRow
++import com.android.systemui.qs.composefragment.ui.SableShadeHeader
++import com.android.systemui.qs.composefragment.ui.SableShadeKeyHint
+ import com.android.systemui.qs.composefragment.ui.quickQuickSettingsToQuickSettings
+ import com.android.systemui.qs.composefragment.ui.toEditMode
+ import com.android.systemui.qs.composefragment.viewmodel.QSFragmentComposeViewModel
+@@ -158,6 +164,8 @@ import com.android.systemui.qs.ui.composable.QuickSettingsTheme
+ import com.android.systemui.res.R
+ import com.android.systemui.shade.ShadeDisplayAware
+ import com.android.systemui.shade.shared.flag.ShadeWindowGoesAround
++import com.android.systemui.shade.sable.SableShadeState
++import com.android.systemui.statusbar.StatusBarState
+ import com.android.systemui.statusbar.policy.ConfigurationController
+ import com.android.systemui.statusbar.policy.ConfigurationController.ConfigurationListener
+ import com.android.systemui.util.LifecycleFragment
+@@ -193,6 +201,8 @@ constructor(
+     @Background private val backgroundDispatcher: CoroutineDispatcher,
+     private val mediaLogger: MediaViewLogger,
+     @ShadeDisplayAware private val configurationController: ConfigurationController,
++    private val sableShadeState: SableShadeState,
++    private val activityStarter: ActivityStarter,
+ ) : LifecycleFragment(), QS, Dumpable {
+ 
+     private val scrollListener = MutableStateFlow<QS.ScrollListener?>(null)
+@@ -804,12 +814,27 @@ constructor(
+                                 )
+                                 .padding(horizontal = qsHorizontalMargin())
+                     ) {
+-                        QuickQuickSettingsLayout(
+-                            brightness = BrightnessSlider,
+-                            tiles = Tiles,
+-                            media = Media,
+-                            mediaInRow = viewModel.qqsMediaInRow,
+-                        )
++                        val qqsLayout =
++                            @Composable {
++                                QuickQuickSettingsLayout(
++                                    brightness = BrightnessSlider,
++                                    tiles = Tiles,
++                                    media = Media,
++                                    mediaInRow = viewModel.qqsMediaInRow,
++                                )
++                            }
++                        // Sable (sable-quick-settings-titan2): header, compact row, Hub summary
++                        // and keyboard hint line. They are measured into the QQS height, so the
++                        // notifications start below them.
++                        if (booleanResource(R.bool.config_sableShadeExtras)) {
++                            Column {
++                                SableShadeHeader()
++                                qqsLayout()
++                                SableQqsFooter()
++                            }
++                        } else {
++                            qqsLayout()
++                        }
+                     }
+                 }
+             }
+@@ -817,6 +842,37 @@ constructor(
+         }
+     }
+ 
++    /**
++     * Sable: the Hub summary row (counts only; "counts only" on a locked shade, where Enter asks
++     * for unlock before Hub opens) and the keyboard hint line under the compact row.
++     */
++    @Composable
++    private fun SableQqsFooter() {
++        val priorityCount by sableShadeState.priorityCount.collectAsStateWithLifecycle()
++        val shadeOpen = viewModel.isQsVisibleAndAnyShadeExpanded
++        val context = LocalContext.current
++        // Looked up again each time the shade opens, so installing or removing Hub is seen.
++        val hubInstalled =
++            remember(shadeOpen) { sableHubIntent(context) != null }
++        SableHubSummaryRow(
++            priorityCount = priorityCount,
++            locked = viewModel.statusBarState != StatusBarState.SHADE,
++            hubInstalled = hubInstalled,
++            onOpenHub = { openSableHub(context) },
++        )
++        SableShadeKeyHint(expanded = false)
++    }
++
++    private fun sableHubIntent(context: Context): Intent? =
++        context.packageManager.getLaunchIntentForPackage(SABLE_HUB_PACKAGE)
++
++    /** Opens Sable Hub; on the lock screen the activity starter asks for unlock first. */
++    private fun openSableHub(context: Context) {
++        val intent = sableHubIntent(context) ?: return
++        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
++        activityStarter.postStartActivityDismissingKeyguard(intent, 0 /* delay */)
++    }
++
+     @Composable
+     private fun ContentScope.QuickSettingsElement(modifier: Modifier = Modifier) {
+         val qqsPadding = viewModel.qqsHeaderHeight
+@@ -940,6 +996,12 @@ constructor(
+                                 mediaInRow = viewModel.qsMediaInRow,
+                             )
+                         }
++                        if (booleanResource(R.bool.config_sableShadeExtras)) {
++                            SableShadeKeyHint(
++                                expanded = true,
++                                modifier = Modifier.padding(horizontal = qsHorizontalMargin()),
++                            )
++                        }
+                     }
+                 }
+                 QuickSettingsTheme {
+@@ -1407,6 +1469,9 @@ private class FrameLayoutTouchPassthrough(
+     }
+ }
+ 
++/** Sable Hub (sable-src apps/r8/android/hub); the shade's Hub summary row opens it. */
++private const val SABLE_HUB_PACKAGE = "org.sableos.hub"
++
+ private interface CanScrollQs {
+     fun forward(): Boolean
+ 
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/composefragment/ui/SableShadeExtras.kt b/packages/SystemUI/src/com/android/systemui/qs/composefragment/ui/SableShadeExtras.kt
+new file mode 100644
+index 00000000..c9b48ea4
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/qs/composefragment/ui/SableShadeExtras.kt
+@@ -0,0 +1,174 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.systemui.qs.composefragment.ui
++
++import android.content.res.Configuration
++import androidx.compose.foundation.background
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.size
++import androidx.compose.foundation.shape.CircleShape
++import androidx.compose.foundation.shape.CornerSize
++import androidx.compose.foundation.shape.RoundedCornerShape
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.draw.clip
++import androidx.compose.ui.platform.LocalConfiguration
++import androidx.compose.ui.platform.LocalContext
++import androidx.compose.ui.res.stringResource
++import androidx.compose.ui.semantics.Role
++import androidx.compose.ui.semantics.heading
++import androidx.compose.ui.semantics.semantics
++import androidx.compose.ui.text.style.TextOverflow
++import androidx.compose.ui.unit.dp
++import com.android.systemui.qs.ui.compose.borderOnFocus
++import com.android.systemui.res.R
++import com.android.systemui.shade.sable.SableHubSummary
++
++/*
++ * Sable shade extras (sable-quick-settings-titan2): the "Sable Quick Settings" header over the
++ * compact row, the Hub summary row under it and the keyboard hint line. Shown only when
++ * config_sableShadeExtras is true (SableSystemUIOverlay).
++ */
++
++private val SableCardRadius = 12.dp
++
++/** True while a physical keyboard is attached and open (the Q25's is always). */
++@Composable
++fun sableHasHardwareKeyboard(): Boolean {
++    val configuration = LocalConfiguration.current
++    return configuration.keyboard == Configuration.KEYBOARD_QWERTY &&
++        configuration.hardKeyboardHidden != Configuration.HARDKEYBOARDHIDDEN_YES
++}
++
++/** The compact shade's title card. */
++@Composable
++fun SableShadeHeader(modifier: Modifier = Modifier) {
++    Box(
++        modifier =
++            modifier
++                .fillMaxWidth()
++                .padding(bottom = 8.dp)
++                .clip(RoundedCornerShape(SableCardRadius))
++                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
++                .padding(horizontal = 12.dp, vertical = 8.dp)
++    ) {
++        Text(
++            text = stringResource(R.string.sable_qs_header),
++            style = MaterialTheme.typography.titleSmall,
++            color = MaterialTheme.colorScheme.onSurface,
++            maxLines = 1,
++            modifier = Modifier.semantics { heading() },
++        )
++    }
++}
++
++/**
++ * Hub summary row: a count only, never a sender or text. Enter (or a tap) opens Sable Hub through
++ * [onOpenHub], which asks for unlock first on a locked shade.
++ */
++@Composable
++fun SableHubSummaryRow(
++    priorityCount: Int,
++    locked: Boolean,
++    hubInstalled: Boolean,
++    onOpenHub: () -> Unit,
++    modifier: Modifier = Modifier,
++) {
++    val state = SableHubSummary.rowState(hubInstalled, locked, priorityCount)
++    if (state == SableHubSummary.HIDDEN) return
++    val resources = LocalContext.current.resources
++    val shown = SableHubSummary.shownCount(priorityCount)
++    val count =
++        if (SableHubSummary.isCapped(priorityCount)) {
++            resources.getString(R.string.sable_hub_summary_capped, shown)
++        } else {
++            resources.getQuantityString(R.plurals.sable_hub_summary_items, shown, shown)
++        }
++    val detail =
++        when (state) {
++            SableHubSummary.LOCKED -> resources.getString(R.string.sable_hub_summary_locked, count)
++            SableHubSummary.EMPTY -> resources.getString(R.string.sable_hub_summary_empty)
++            else -> resources.getString(R.string.sable_hub_summary_open, count)
++        }
++    val shape = RoundedCornerShape(SableCardRadius)
++    Row(
++        verticalAlignment = Alignment.CenterVertically,
++        horizontalArrangement = Arrangement.spacedBy(10.dp),
++        modifier =
++            modifier
++                .fillMaxWidth()
++                .padding(top = 8.dp)
++                .borderOnFocus(
++                    color = MaterialTheme.colorScheme.secondary,
++                    cornerSize = CornerSize(SableCardRadius),
++                )
++                .clip(shape)
++                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
++                .clickable(
++                    onClickLabel = stringResource(R.string.sable_hub_summary_action),
++                    role = Role.Button,
++                    onClick = onOpenHub,
++                )
++                .padding(horizontal = 12.dp, vertical = 8.dp),
++    ) {
++        Box(
++            modifier =
++                Modifier.size(10.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary)
++        )
++        Column(modifier = Modifier.weight(1f)) {
++            Text(
++                text = stringResource(R.string.sable_hub_summary_title),
++                style = MaterialTheme.typography.labelLarge,
++                color = MaterialTheme.colorScheme.onSurface,
++                maxLines = 1,
++            )
++            Text(
++                text = detail,
++                style = MaterialTheme.typography.labelMedium,
++                color = MaterialTheme.colorScheme.onSurfaceVariant,
++                maxLines = 1,
++                overflow = TextOverflow.Ellipsis,
++            )
++        }
++    }
++}
++
++/** One line of the shade's keys, only with a physical keyboard. */
++@Composable
++fun SableShadeKeyHint(expanded: Boolean, modifier: Modifier = Modifier) {
++    if (!sableHasHardwareKeyboard()) return
++    Text(
++        text =
++            stringResource(
++                if (expanded) R.string.sable_qs_key_hint_expanded else R.string.sable_qs_key_hint
++            ),
++        style = MaterialTheme.typography.labelSmall,
++        color = MaterialTheme.colorScheme.onSurfaceVariant,
++        maxLines = 1,
++        overflow = TextOverflow.Ellipsis,
++        modifier = modifier.fillMaxWidth().padding(top = 6.dp),
++    )
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/shade/sable/SableHubSummary.java b/packages/SystemUI/src/com/android/systemui/shade/sable/SableHubSummary.java
+new file mode 100644
+index 00000000..360c04e5
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/shade/sable/SableHubSummary.java
+@@ -0,0 +1,63 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.systemui.shade.sable;
++
++/**
++ * Pure policy for the shade's Hub summary row (sable-quick-settings-titan2, Hub handoff).
++ *
++ * <p>A priority item is a notification the shade ranks as alerting (heads-up, conversation or
++ * alerting section) that is not ongoing: silent, minimized, ongoing and foreground-service
++ * notifications are not counted. The row shows only a count, never a sender or text, and on a
++ * locked shade it says so ("counts only"); Enter then asks for unlock before Hub opens.
++ */
++public final class SableHubSummary {
++    /** Hub is not installed: no row. */
++    public static final int HIDDEN = 0;
++    /** Unlocked, nothing to count: "No priority items · Enter opens Hub". */
++    public static final int EMPTY = 1;
++    /** Unlocked: "N priority items · Enter opens Hub". */
++    public static final int COUNT = 2;
++    /** Locked shade: "N priority items · counts only". */
++    public static final int LOCKED = 3;
++
++    /** Counts above this read as "99+". */
++    public static final int MAX_SHOWN = 99;
++
++    private SableHubSummary() {}
++
++    /** Whether one notification counts as a Hub priority item. */
++    public static boolean isPriority(boolean alertingSection, boolean ongoing) {
++        return alertingSection && !ongoing;
++    }
++
++    /** Which row variant to show. */
++    public static int rowState(boolean hubInstalled, boolean locked, int priorityCount) {
++        if (!hubInstalled) return HIDDEN;
++        if (locked) return LOCKED;
++        return priorityCount > 0 ? COUNT : EMPTY;
++    }
++
++    /** The number as shown: never negative, capped at {@link #MAX_SHOWN} (caller adds "+"). */
++    public static int shownCount(int priorityCount) {
++        return Math.max(0, Math.min(priorityCount, MAX_SHOWN));
++    }
++
++    /** Whether the shown count is capped. */
++    public static boolean isCapped(int priorityCount) {
++        return priorityCount > MAX_SHOWN;
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeState.kt b/packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeState.kt
+new file mode 100644
+index 00000000..b0ae7e1f
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeState.kt
+@@ -0,0 +1,40 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.systemui.shade.sable
++
++import com.android.systemui.dagger.SysUISingleton
++import javax.inject.Inject
++import kotlinx.coroutines.flow.MutableStateFlow
++import kotlinx.coroutines.flow.StateFlow
++import kotlinx.coroutines.flow.asStateFlow
++
++/**
++ * Sable shade state shared between the notification pipeline and the compose Quick Settings
++ * header (sable-quick-settings-titan2). Main thread only: the pipeline and the QS fragment both
++ * run there.
++ */
++@SysUISingleton
++class SableShadeState @Inject constructor() {
++    private val _priorityCount = MutableStateFlow(0)
++
++    /** Notifications that count as Hub priority items ([SableHubSummary.isPriority]). */
++    val priorityCount: StateFlow<Int> = _priorityCount.asStateFlow()
++
++    fun setPriorityCount(count: Int) {
++        _priorityCount.value = count
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/notification/collection/coordinator/NotifCoordinators.kt b/packages/SystemUI/src/com/android/systemui/statusbar/notification/collection/coordinator/NotifCoordinators.kt
+index d5aee69b..726eaf32 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/notification/collection/coordinator/NotifCoordinators.kt
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/notification/collection/coordinator/NotifCoordinators.kt
+@@ -70,6 +70,7 @@ constructor(
+     bundleCoordinator: BundleCoordinator,
+     summarizationCoordinator: SummarizationCoordinator,
+     automaticPromotionCoordinator: AutomaticPromotionCoordinator,
++    sableShadeCoordinator: SableShadeCoordinator,
+ ) : NotifCoordinators {
+ 
+     private val mCoreCoordinators: MutableList<CoreCoordinator> = ArrayList()
+@@ -116,6 +117,7 @@ constructor(
+             mCoordinators.add(summarizationCoordinator)
+         }
+         mCoordinators.add(statsLoggerCoordinator)
++        mCoordinators.add(sableShadeCoordinator) // Sable: Hub summary count, notification search
+         // Manually add Ordered Sections
+         if (NotificationMinimalism.isEnabled) {
+             mOrderedSections.add(lockScreenMinimalismCoordinator.topOngoingSectioner) // Top Ongoing
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/notification/collection/coordinator/SableShadeCoordinator.kt b/packages/SystemUI/src/com/android/systemui/statusbar/notification/collection/coordinator/SableShadeCoordinator.kt
+new file mode 100644
+index 00000000..8a211bfd
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/notification/collection/coordinator/SableShadeCoordinator.kt
+@@ -0,0 +1,77 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.systemui.statusbar.notification.collection.coordinator
++
++import com.android.systemui.shade.sable.SableHubSummary
++import com.android.systemui.shade.sable.SableShadeState
++import com.android.systemui.statusbar.notification.collection.GroupEntry
++import com.android.systemui.statusbar.notification.collection.NotifPipeline
++import com.android.systemui.statusbar.notification.collection.NotificationEntry
++import com.android.systemui.statusbar.notification.collection.PipelineEntry
++import com.android.systemui.statusbar.notification.collection.coordinator.dagger.CoordinatorScope
++import com.android.systemui.statusbar.notification.stack.BUCKET_ALERTING
++import com.android.systemui.statusbar.notification.stack.BUCKET_HEADS_UP
++import com.android.systemui.statusbar.notification.stack.BUCKET_PEOPLE
++import com.android.systemui.statusbar.notification.stack.BUCKET_PRIORITY_PEOPLE
++import javax.inject.Inject
++
++/**
++ * Sable shade (sable-quick-settings-titan2): counts the Hub priority items for the shade's Hub
++ * summary row. Counted on the list about to be shown, after the final filters, so a notification
++ * hidden from the lock screen is not counted there either. Only counts; reads no content.
++ */
++@CoordinatorScope
++class SableShadeCoordinator @Inject constructor(private val sableShadeState: SableShadeState) :
++    Coordinator {
++
++    override fun attach(pipeline: NotifPipeline) {
++        pipeline.addOnBeforeRenderListListener { entries ->
++            sableShadeState.setPriorityCount(countPriority(entries))
++        }
++    }
++
++    private fun countPriority(entries: List<PipelineEntry>): Int {
++        var count = 0
++        for (entry in entries) {
++            when (entry) {
++                is NotificationEntry -> if (isPriority(entry)) count++
++                is GroupEntry -> {
++                    val children = entry.children
++                    if (children.isEmpty()) {
++                        entry.summary?.let { if (isPriority(it)) count++ }
++                    } else {
++                        for (child in children) if (isPriority(child)) count++
++                    }
++                }
++                else -> {}
++            }
++        }
++        return count
++    }
++
++    private fun isPriority(entry: NotificationEntry): Boolean =
++        SableHubSummary.isPriority(
++            when (entry.bucket) {
++                BUCKET_HEADS_UP,
++                BUCKET_PRIORITY_PEOPLE,
++                BUCKET_PEOPLE,
++                BUCKET_ALERTING -> true
++                else -> false
++            },
++            entry.sbn.isOngoing,
++        )
++}
+-- 
+2.43.0
+

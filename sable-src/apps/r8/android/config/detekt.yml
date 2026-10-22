@@ -42,6 +42,7 @@ naming:
   FunctionNaming:
     excludes:
       - "**/media/MediaApp.kt"
+      - "**/media/FmScreen.kt"
       - "**/media/MediaScreen.kt"
       - "**/media/MediaResponsive.kt"
       - "**/media/MediaC2Screens.kt"

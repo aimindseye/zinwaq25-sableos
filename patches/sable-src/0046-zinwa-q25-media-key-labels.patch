@@ -1,0 +1,110 @@
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt
+index 5e22099..8276afb 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt
+@@ -1510,20 +1510,25 @@ private fun NowPlayingScreen(
+             modifier = Modifier.fillMaxWidth(),
+             horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+         ) {
++            // Key labels on the controls (MEDIA_GALLERY_UX: "keyboard shortcut labels shown as direct
++            // affordances"; artifact state 1: [J Prev] [Space Play] [K Next]). Stop has no key.
+             PlayerButton(
+                 text = "◀",
++                keyLabel = "J",
+                 enabled = playback.hasPrevious,
+                 modifier = Modifier.weight(1f),
+                 onClick = onPrevious,
+             )
+             PlayerButton(
+                 text = if (playback.isPlaying) "❚❚" else "▶",
++                keyLabel = "Space",
+                 active = true,
+                 modifier = Modifier.weight(1f),
+                 onClick = onPlayPause,
+             )
+             PlayerButton(
+                 text = "▶",
++                keyLabel = "K",
+                 enabled = playback.hasNext,
+                 modifier = Modifier.weight(1f),
+                 onClick = onNext,
+@@ -1534,9 +1539,20 @@ private fun NowPlayingScreen(
+                 onClick = onStop,
+             )
+         }
++
++        Text(
++            text = NOW_PLAYING_KEY_HINT,
++            style = MaterialTheme.typography.labelMedium,
++            color = MaterialTheme.colorScheme.onSurfaceVariant,
++            maxLines = 2,
++            overflow = TextOverflow.Ellipsis,
++        )
+     }
+ }
+ 
++/** The Now playing hint line: the keys MediaKeymap gives this screen. */
++internal const val NOW_PLAYING_KEY_HINT = "J prev · Space play · K next · Shift+J/K seek · Q queue"
++
+ @Composable
+ private fun RadioScreen(
+     stations: List<RadioStation>,
+@@ -1999,6 +2015,7 @@ private fun ArtworkTile(
+ private fun PlayerButton(
+     text: String,
+     modifier: Modifier = Modifier,
++    keyLabel: String? = null,
+     active: Boolean = false,
+     enabled: Boolean = true,
+     onClick: () -> Unit,
+@@ -2033,13 +2050,21 @@ private fun PlayerButton(
+                 },
+             ),
+     ) {
+-        Box(
+-            contentAlignment = Alignment.Center,
++        Column(
++            horizontalAlignment = Alignment.CenterHorizontally,
++            verticalArrangement = Arrangement.Center,
+         ) {
+             Text(
+                 text = text,
+                 style = MaterialTheme.typography.titleLarge,
+             )
++            if (keyLabel != null) {
++                Text(
++                    text = keyLabel,
++                    style = MaterialTheme.typography.labelSmall,
++                    maxLines = 1,
++                )
++            }
+         }
+     }
+ }
+diff --git a/sable-src/apps/r8/android/media/src/test/java/org/sableos/media/MediaKeymapTest.kt b/sable-src/apps/r8/android/media/src/test/java/org/sableos/media/MediaKeymapTest.kt
+index 5cdb84a..b51cbb2 100644
+--- a/sable-src/apps/r8/android/media/src/test/java/org/sableos/media/MediaKeymapTest.kt
++++ b/sable-src/apps/r8/android/media/src/test/java/org/sableos/media/MediaKeymapTest.kt
+@@ -51,6 +51,22 @@ class MediaKeymapTest {
+         assertEquals(MediaKeyCommand.Back, cmd(KeyEvent.KEYCODE_ESCAPE))
+     }
+ 
++    @Test
++    fun nowPlayingKeyLabelsMatchTheKeymap() {
++        // The labels drawn on the Now playing controls and its hint line name real keys.
++        assertEquals(MediaKeyCommand.Previous, cmd(KeyEvent.KEYCODE_J, 'j', nowPlayingScreen))
++        assertEquals(MediaKeyCommand.PlayPause, cmd(KeyEvent.KEYCODE_SPACE, ' ', nowPlayingScreen))
++        assertEquals(MediaKeyCommand.Next, cmd(KeyEvent.KEYCODE_K, 'k', nowPlayingScreen))
++        assertEquals(MediaKeyCommand.Queue, cmd(KeyEvent.KEYCODE_Q, 'q', nowPlayingScreen))
++        assertEquals(
++            MediaKeyCommand.SeekBack,
++            cmd(MediaKeyPress(KeyEvent.KEYCODE_J, 'J', shift = true), nowPlayingScreen),
++        )
++        listOf("J prev", "Space play", "K next", "Shift+J/K seek", "Q queue").forEach {
++            assertTrue(it, NOW_PLAYING_KEY_HINT.contains(it))
++        }
++    }
++
+     @Test
+     fun nAndPAreNextAndPrevious() {
+         assertEquals(MediaKeyCommand.Next, cmd(KeyEvent.KEYCODE_N, 'n'))

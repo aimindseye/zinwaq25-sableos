@@ -86,7 +86,8 @@ def apply_keyboard_model(root: Path) -> None:
     The pure keymap and its unit test (src/ next to this script) go into the legacy UI module;
     MessageHomeActivity routes every key-down through it instead of the upstream K-9 hotkeys,
     MessageCompose gains Ctrl+Enter / Alt+Enter send and Esc cancel, and delete asks for
-    confirmation by default.
+    confirmation by default. On a square keyboard screen the split pane is forced and carries a
+    Bottom Command Dock; the reader collapses quoted text until E expands it (SableMailQuotes).
     """
     source = Path(__file__).resolve().parent / "src"
     module = root / "legacy/ui/legacy/src"
@@ -157,6 +158,8 @@ def apply_keyboard_model(root: Path) -> None:
             SableMailCommand.REPLY -> message?.onReply()
             SableMailCommand.REPLY_ALL -> message?.onReplyAll()
             SableMailCommand.FORWARD -> message?.onForward()
+            SableMailCommand.EXPAND_QUOTE -> if (message != null) toggleSableQuotes()
+            SableMailCommand.ATTACHMENTS -> if (message != null) focusSableAttachments()
             SableMailCommand.DELETE -> onDeleteHotKey()
             SableMailCommand.SEARCH -> {
                 if (displayMode == DisplayMode.MESSAGE_VIEW) showMessageList()
@@ -204,6 +207,37 @@ def apply_keyboard_model(root: Path) -> None:
         }
     }
 
+    /** E: show or collapse the quoted text of the open message (MAIL_QUOTED_TEXT_COLLAPSED_BY_DEFAULT). */
+    private fun toggleSableQuotes() {
+        val body = findVisibleMessageBody(messageViewContainerFragment?.view) ?: return
+        findSableView(body) { it is com.fsck.k9.view.MessageWebView }
+            ?.let { (it as com.fsck.k9.view.MessageWebView).toggleSableQuotes() }
+    }
+
+    /** A: move focus to the first attachment of the open message; the reader scrolls to it. */
+    private fun focusSableAttachments() {
+        val body = findVisibleMessageBody(messageViewContainerFragment?.view) ?: return
+        val attachments = findSableView(body) { it.id == R.id.attachments_container } as? ViewGroup ?: return
+        val first = (0 until attachments.childCount).map { attachments.getChildAt(it) }.firstOrNull { it.isShown }
+        if (first == null) {
+            android.widget.Toast.makeText(this, "No attachments", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (!first.requestFocus()) {
+            body.smoothScrollTo(0, attachments.top)
+        }
+    }
+
+    private fun findSableView(
+        root: View,
+        match: (View) -> Boolean,
+    ): View? =
+        when {
+            match(root) -> root
+            root is ViewGroup -> (0 until root.childCount).firstNotNullOfOrNull { findSableView(root.getChildAt(it), match) }
+            else -> null
+        }
+
     /** The on-screen message body scroller; the view pager also keeps neighbouring messages laid out. */
     private fun findVisibleMessageBody(root: View?): ScrollView? =
         when {
@@ -216,6 +250,144 @@ def apply_keyboard_model(root: Path) -> None:
 
     private fun onDeleteHotKey() {
 ''',
+    )
+
+    # MAIL_SPLIT_PANE: forced on a square keyboard screen (SableMailLayout), with the Bottom Command Dock.
+    split_layout = module / "main/res/layout/split_message_list.xml"
+    replace_once(
+        home,
+        """    private fun useSplitView(): Boolean {
+        val splitViewMode = generalSettingsManager.getConfig().display.coreSettings.splitViewMode
+""",
+        """    private fun useSplitView(): Boolean {
+        val sableConfig = resources.configuration
+        if (SableMailLayout.forceSplitView(sableConfig.screenWidthDp, sableConfig.screenHeightDp)) return true
+        val splitViewMode = generalSettingsManager.getConfig().display.coreSettings.splitViewMode
+""",
+    )
+    replace_once(
+        home,
+        """        if (useSplitView()) {
+            setLayout(R.layout.split_message_list)
+        } else {""",
+        """        if (useSplitView()) {
+            setLayout(R.layout.split_message_list)
+            setUpSableMailDock()
+        } else {""",
+    )
+    replace_once(
+        home,
+        "    private fun useSplitView(): Boolean {\n",
+        """    /** Bottom Command Dock (MAIL_BOTTOM_COMMAND_DOCK): the prompt opens search; the hints name real keys. */
+    private fun setUpSableMailDock() {
+        findViewById<android.widget.TextView>(R.id.sable_mail_dock_prompt)?.apply {
+            text = SableMailLayout.DOCK_PROMPT
+            setOnClickListener {
+                if (displayMode == DisplayMode.MESSAGE_VIEW) showMessageList()
+                messageListFragment?.expandSearchView()
+            }
+        }
+        findViewById<android.widget.TextView>(R.id.sable_mail_dock_hint)?.text =
+            SableMailLayout.DOCK_LIST_HINT + "\\n" + SableMailLayout.DOCK_READER_HINT
+    }
+
+    private fun useSplitView(): Boolean {
+""",
+    )
+    replace_once(
+        split_layout,
+        """            android:layout_below="@id/app_bar_layout"
+            >
+""",
+        """            android:layout_below="@id/app_bar_layout"
+            android:layout_above="@+id/sable_mail_dock"
+            >
+""",
+    )
+    replace_once(
+        split_layout,
+        """        </FrameLayout>
+
+    </RelativeLayout>
+""",
+        """        </FrameLayout>
+
+        <LinearLayout
+            android:id="@+id/sable_mail_dock"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_alignParentBottom="true"
+            android:background="?attr/colorSurfaceContainer"
+            android:orientation="vertical"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="6dp"
+            >
+
+            <TextView
+                android:id="@+id/sable_mail_dock_prompt"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="@drawable/sable_mail_list_item_foreground"
+                android:paddingVertical="6dp"
+                android:textAppearance="?attr/textAppearanceBodyLarge"
+                android:textColor="?attr/colorPrimary"
+                />
+
+            <TextView
+                android:id="@+id/sable_mail_dock_hint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxLines="2"
+                android:textAppearance="?attr/textAppearanceLabelMedium"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                />
+
+        </LinearLayout>
+
+    </RelativeLayout>
+""",
+    )
+
+    # MAIL_QUOTED_TEXT_COLLAPSED_BY_DEFAULT: the reader WebView adds the collapse style until E.
+    web = module / "main/java/com/fsck/k9/view/MessageWebView.kt"
+    replace_once(
+        web,
+        """    private fun setHtmlContent(htmlText: String) {
+        loadDataWithBaseURL("about:blank", htmlText, "text/html", "utf-8", null)
+        resumeTimers()
+    }
+""",
+        """    private var sableHtml: String? = null
+    private var sableQuotesExpanded = false
+
+    private fun setHtmlContent(htmlText: String) {
+        sableHtml = htmlText
+        sableQuotesExpanded = false
+        loadDataWithBaseURL(
+            "about:blank",
+            com.fsck.k9.activity.SableMailQuotes.html(htmlText, expanded = false),
+            "text/html",
+            "utf-8",
+            null,
+        )
+        resumeTimers()
+    }
+
+    /** Sable Mail E key: show or collapse the quoted text; the same content is loaded again. */
+    fun toggleSableQuotes() {
+        val html = sableHtml ?: return
+        sableQuotesExpanded = !sableQuotesExpanded
+        loadDataWithBaseURL(
+            "about:blank",
+            com.fsck.k9.activity.SableMailQuotes.html(html, sableQuotesExpanded),
+            "text/html",
+            "utf-8",
+            null,
+        )
+    }
+""",
     )
 
     compose = module / "main/java/com/fsck/k9/activity/MessageCompose.java"

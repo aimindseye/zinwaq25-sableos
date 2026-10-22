@@ -41,6 +41,17 @@ android {
         }
     }
 
+    buildTypes {
+        // The Q25 image ships the release variants (product/q25/apps.tsv): shrunk and signed by
+        // the platform build, so the three games fit the dynamic partitions (the ~29 MB debug
+        // APKs each overflowed them on the first Q2 build).
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
@@ -78,6 +89,8 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.foundation:foundation")
     debugImplementation("androidx.compose.ui:ui-tooling")
+
+    testImplementation(libs.junit)
 }
 
 tasks

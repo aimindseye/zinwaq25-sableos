@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 21 Oct 2026 23:08:05 +0000
+Subject: [PATCH] SableOS: keep the battery light on when fully charged by
+ default
+
+Settings > Notifications > Battery light shows "Turn off when fully
+charged" off by default (XML defaultValue, the switch default and Reset
+to defaults), matching lineage-sdk 0504: the battery light shows solid
+green while plugged in at 100 %.
+---
+ res/xml/battery_light_settings.xml                              | 1 +
+ .../lineageparts/notificationlight/BatteryLightSettings.java    | 2 +-
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/res/xml/battery_light_settings.xml b/res/xml/battery_light_settings.xml
+index 0df7941..782f516 100644
+--- a/res/xml/battery_light_settings.xml
++++ b/res/xml/battery_light_settings.xml
+@@ -25,6 +25,7 @@
+         <lineageos.preference.LineageSystemSettingSwitchPreference
+             android:key="battery_light_full_charge_disabled"
+             android:title="@string/battery_light_full_charge_disabled_title"
++            android:defaultValue="false"
+             android:dependency="battery_light_enabled" />
+ 
+     </PreferenceCategory>
+diff --git a/src/org/lineageos/lineageparts/notificationlight/BatteryLightSettings.java b/src/org/lineageos/lineageparts/notificationlight/BatteryLightSettings.java
+index 2aefdba..872ea49 100644
+--- a/src/org/lineageos/lineageparts/notificationlight/BatteryLightSettings.java
++++ b/src/org/lineageos/lineageparts/notificationlight/BatteryLightSettings.java
+@@ -52,7 +52,7 @@ public class BatteryLightSettings extends SettingsPreferenceFragment implements
+     private static final String BRIGHTNESS_ZEN_PREFERENCE = "battery_light_brightness_level_zen";
+ 
+     private static final boolean DEFAULT_LIGHT_ENABLED_PREF = true;
+-    private static final boolean DEFAULT_LIGHT_FULL_CHARGE_DISABLED_PREF = true;
++    private static final boolean DEFAULT_LIGHT_FULL_CHARGE_DISABLED_PREF = false;
+     private static final boolean DEFAULT_PULSE_ENABLED_PREF = true;
+ 
+     private ApplicationLightPreference mLowColorPref;
+-- 
+2.43.0
+

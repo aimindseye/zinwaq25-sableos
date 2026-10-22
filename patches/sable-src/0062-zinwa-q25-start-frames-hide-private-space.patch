@@ -1,0 +1,98 @@
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb10HomeTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb10HomeTest.kt
+index 9a8292b..86ca9f9 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb10HomeTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb10HomeTest.kt
+@@ -23,6 +23,13 @@ class Bb10HomeTest {
+         assertEquals(listOf(2, 4, 5, 6, 7, 8, 9, 10), frames.map { it.taskId })
+     }
+ 
++    @Test
++    fun privateSpaceTasksNeverBecomeFrames() {
++        val tasks = listOf(frame(1, "a"), frame(2, "b").copy(userId = 11), frame(3, "c"))
++        assertEquals(listOf(1, 3), ActiveFrames.select(tasks, emptySet(), setOf(11)).map { it.taskId })
++        assertEquals(listOf(1, 2, 3), ActiveFrames.select(tasks, emptySet()).map { it.taskId })
++    }
++
+     @Test
+     fun xOrBackspaceCloseAFrame() {
+         assertTrue(ActiveFrames.isCloseKey(52, 0))
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+index c3aa600..dbe81c1 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+@@ -359,11 +359,15 @@ class SableStartActivity : ComponentActivity() {
+         }
+     }
+ 
++    /** Private Space never shows as an Active Frame, locked or not. */
++    private fun privateUsers(): Set<Int> =
++        runCatching { setOfNotNull(launcherAppsRepository.privateSpace()?.identifier) }.getOrDefault(emptySet())
++
+     /** Reads the recent tasks off the main thread; the snapshots repaint with them. */
+     private fun refreshFrames() {
+         runCatching {
+             framesExecutor.execute {
+-                val frames = recentTasksRepository.loadFrames()
++                val frames = recentTasksRepository.loadFrames(privateUsers())
+                 runOnUiThread {
+                     if (!isDestroyed) {
+                         framesState.value = frames
+@@ -393,7 +397,7 @@ class SableStartActivity : ComponentActivity() {
+         runCatching {
+             framesExecutor.execute {
+                 recentTasksRepository.close(frame.taskId)
+-                val frames = recentTasksRepository.loadFrames()
++                val frames = recentTasksRepository.loadFrames(privateUsers())
+                 runOnUiThread { if (!isDestroyed) framesState.value = frames }
+             }
+         }
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt
+index c061538..8dba5f1 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt
+@@ -33,14 +33,16 @@ object ActiveFrames {
+ 
+     /**
+      * Recent tasks, most recent first, without Start itself, Recents and
+-     * System UI, one frame per task, at most [MAX].
++     * System UI, one frame per task, at most [MAX]. Tasks of [hiddenUsers]
++     * (the Private Space profile) never become frames, as in All Apps.
+      */
+     fun select(
+         tasks: List<ActiveFrame>,
+         excludedPackages: Set<String>,
++        hiddenUsers: Set<Int> = emptySet(),
+     ): List<ActiveFrame> =
+         tasks
+-            .filterNot { it.packageName in excludedPackages || it.packageName.isEmpty() }
++            .filterNot { it.packageName in excludedPackages || it.packageName.isEmpty() || it.userId in hiddenUsers }
+             .distinctBy { it.taskId }
+             .take(MAX)
+ 
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/RecentTasksRepository.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/RecentTasksRepository.kt
+index a326273..24e64f4 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/RecentTasksRepository.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/RecentTasksRepository.kt
+@@ -33,8 +33,11 @@ class RecentTasksRepository(
+     private val appContext = context.applicationContext
+     private val activityManager = appContext.getSystemService(ActivityManager::class.java)
+ 
+-    /** Most recent first, without Start, Recents and System UI, at most [ActiveFrames.MAX]. */
+-    fun loadFrames(): List<ActiveFrame> {
++    /**
++     * Most recent first, without Start, Recents and System UI, at most [ActiveFrames.MAX].
++     * Tasks of [hiddenUsers] (the Private Space profile) are left out.
++     */
++    fun loadFrames(hiddenUsers: Set<Int> = emptySet()): List<ActiveFrame> {
+         val tasks =
+             runCatching {
+                 @Suppress("DEPRECATION")
+@@ -52,7 +55,7 @@ class RecentTasksRepository(
+                     running = info.isRunning,
+                 )
+             }
+-        return ActiveFrames.select(frames, excludedPackages + appContext.packageName)
++        return ActiveFrames.select(frames, excludedPackages + appContext.packageName, hiddenUsers)
+     }
+ 
+     /** The task's last picture (low resolution first), or null when Android has none for it. */

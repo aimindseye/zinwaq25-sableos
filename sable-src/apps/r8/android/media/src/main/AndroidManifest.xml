@@ -6,6 +6,10 @@
 
     <queries>
         <provider android:authorities="org.sableos.appearance" />
+        <!-- FM mode: the SableOS FM bridge in the LineageOS FM Radio app. -->
+        <intent>
+            <action android:name="org.sableos.fm.action.CONTROL" />
+        </intent>
     </queries>
 
     <application
@@ -19,6 +23,11 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- FM mode, opened by Sable Tools and the FM playing notification. -->
+            <intent-filter>
+                <action android:name="org.sableos.media.action.FM_RADIO" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
         <provider

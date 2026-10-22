@@ -52,7 +52,7 @@ if awk -F'\t' '
     $1 == "module" { next }
     NF != 9 { print "bad column count line " NR; bad = 1 }
     $2 != "platform" && $2 != "common" { print "bad group line " NR; bad = 1 }
-    $7 != "unsigned" && $7 != "presigned" { print "bad signing line " NR; bad = 1 }
+    $7 != "unsigned" && $7 != "presigned" && $7 != "platform" && $7 != "privileged" { print "bad signing line " NR; bad = 1 }
     $9 != "yes" && $9 != "no" { print "bad enabled line " NR; bad = 1 }
     seen[$1]++ { print "duplicate module " $1; bad = 1 }
     END { exit bad }
@@ -147,6 +147,14 @@ printf 'home=vendor\n' > "$proj/config.txt"
 if fwrun apply >/dev/null || [[ -e "$stamp" ]]; then fail "framework patch conflict not refused"; else pass "framework patch conflict refused"; fi
 git -C "$proj" checkout -q -- config.txt
 
+# microG (SABLE_Q25_MICROG, default YES at Q4): fake APKs pinned in a test prebuilts.tsv.
+mg="$tmp/microg"; mkdir -p "$mg/cache"
+printf 'module\tpackage\tversion\tsha256\turl\n' > "$mg/prebuilts.tsv"
+for m in GmsCore FakeStore AuroraStore; do
+    printf 'fake %s' "$m" > "$mg/cache/$m.apk"
+    printf '%s\tpkg.%s\t1\t%s\thttps://example.invalid/%s.apk\n' "$m" "$m" "$(sha256sum "$mg/cache/$m.apk" | awk '{print $1}')" "$m" >> "$mg/prebuilts.tsv"
+done
+export SABLE_MICROG_CACHE="$mg/cache" SABLE_MICROG_PREBUILTS="$mg/prebuilts.tsv"
 stagerun() { SABLE_ANDROID_ROOT="$tmp/android" SABLE_FRAMEWORK_PATCHES="$fw" bash scripts/stage-product.sh "$@" 2>"$tmp/err"; }
 if out="$(stagerun Q4 --apps-dir "$tmp/apps/run")"; then
     v="$tmp/android/vendor/sable/q25"
@@ -157,6 +165,8 @@ if out="$(stagerun Q4 --apps-dir "$tmp/apps/run")"; then
     [[ -f "$v/etc/battery/zinwa-q25.conf" ]] || ok=no
     [[ -f "$v/etc/init/sable-keyboard-backlight.rc" ]] || ok=no
     grep -q 'etc/init/sable-keyboard-backlight.rc' "$v/sable-q25-framework.mk" || ok=no
+    [[ -f "$v/etc/init/sable-power.rc" ]] || ok=no
+    grep -q "etc/init/sable-power.rc:[$](TARGET_COPY_OUT_PRODUCT)/etc/init/sable-power.rc" "$v/sable-q25-framework.mk" || ok=no
     grep -q 'ro.sable.keyboard_backlight=true' "$v/sable-q25-framework.mk" || ok=no
     grep -q 'name: "SableLauncher"' "$v/src/SableStart/Android.bp" || ok=no
     grep -q 'name: "sable_design_shared_srcs"' "$v/src/sabledesign/Android.bp" || ok=no
@@ -166,7 +176,7 @@ if out="$(stagerun Q4 --apps-dir "$tmp/apps/run")"; then
         grep -q "$o" "$v/sable-q25-framework.mk" || ok=no
         grep -q "name: \"$o\"" "$v/overlay/Android.bp" || ok=no
     done
-    [[ -f "$v/overlay/SableSystemUIOverlay/res/values-notlong/config.xml" ]] || ok=no
+    [[ -f "$v/overlay/SableSystemUIOverlay/res/values/sable_quick_settings.xml" ]] || ok=no
     grep -q 'SableNoUpdater' "$v/sable-q25-framework.mk" || ok=no
     grep -q '^SABLE_Q25_NO_UPDATER := true' "$v/sable-q25-framework.mk" || ok=no
     grep -q 'overrides: \["Updater"\]' "$v/updater/Android.bp" || ok=no
@@ -187,6 +197,151 @@ else
 fi
 if stagerun Q1 >/dev/null && grep -q "$stock_home" "$proj/config.txt"; then pass "stage Q1 after Q4"; else fail "stage Q1 after Q4: $(cat "$tmp/err")"; fi
 
+# 6b1. Privileged apps (App display compatibility, Secure Vault): "platform" rows ship from Q4 only, with the
+#      platform certificate; "privileged" rows are privileged from Q4; the allowlist matches the manifests.
+pa="$tmp/apps/priv"
+mkdir -p "$pa/prebuilt"
+printf 'fake' > "$pa/prebuilt/SableDisplayCompat.apk"
+printf 'fake' > "$pa/prebuilt/SableVault.apk"
+(cd "$pa/prebuilt" && sha256sum ./*.apk > ../SHA256SUMS.txt)
+{
+    printf 'module\tgroup\tpackage\tsigning\toverrides\tfilename\tsha256\n'
+    printf 'SableDisplayCompat\tplatform\torg.sableos.titan2.displaycompat\tplatform\t-\tSableDisplayCompat.apk\tx\n'
+    printf 'SableVault\tplatform\torg.sableos.titan2.vault\tprivileged\t-\tSableVault.apk\tx\n'
+} > "$pa/manifest.tsv"
+v="$tmp/android/vendor/sable/q25"
+if stagerun Q4 --apps-dir "$pa" >/dev/null; then
+    ok=yes
+    grep -A6 'name: "SableDisplayCompat"' "$v/Android.bp" | grep -q 'certificate: "platform"' || ok=no
+    grep -A6 'name: "SableDisplayCompat"' "$v/Android.bp" | grep -q 'privileged: true' || ok=no
+    grep -A6 'name: "SableVault"' "$v/Android.bp" | grep -q 'default_dev_cert: true' || ok=no
+    grep -A6 'name: "SableVault"' "$v/Android.bp" | grep -q 'privileged: true' || ok=no
+    grep -q 'persist.sable.displaycompat.backend=validated' "$v/sable-q25-framework.mk" || ok=no
+    grep -q 'etc/permissions/privapp-permissions-sable-q25.xml' "$v/sable-q25-framework.mk" || ok=no
+    [[ -f "$v/etc/permissions/privapp-permissions-sable-q25.xml" ]] || ok=no
+    grep -q 'etc/sysconfig/preinstalled-packages-sable-vault.xml' "$v/sable-q25-apps.mk" || ok=no
+    [[ -f "$v/overlay/SableFrameworkOverlay/res/values/sable_displaycompat.xml" ]] || ok=no
+    [[ "$ok" == yes ]] && pass "stage Q4 privileged apps (platform cert, allowlist, display compat gate)" ||
+        fail "stage Q4 privileged apps: generated files wrong"
+else
+    fail "stage Q4 privileged apps: $(cat "$tmp/err")"
+fi
+if stagerun Q2 --apps-dir "$pa" >/dev/null && ! grep -q 'SableDisplayCompat' "$v/Android.bp" &&
+    grep -A6 'name: "SableVault"' "$v/Android.bp" | grep -q 'privileged: false' &&
+    ! grep -q 'certificate: "platform"' "$v/Android.bp" && ! grep -q 'privapp' "$v/sable-q25-framework.mk" &&
+    ! grep -q 'displaycompat.backend' "$v/sable-q25-framework.mk" && grep -q 'SKIPPED_BEFORE_Q4=SableDisplayCompat' "$tmp/err"; then
+    pass "stage Q2 keeps every app unprivileged (system-UID display compat waits for Q4)"
+else
+    fail "stage Q2 privileged apps: $(cat "$tmp/err")"
+fi
+stagerun Q1 >/dev/null || fail "stage Q1 after privileged apps: $(cat "$tmp/err")"
+# Each privileged app requests exactly the permissions the allowlist grants it.
+privxml=product/q25/permissions/privapp-permissions-sable-q25.xml
+for pair in displaycompat:org.sableos.titan2.displaycompat vault:org.sableos.titan2.vault; do
+    mod="${pair%%:*}" pkg="${pair#*:}"
+    want="$(grep -o 'android.permission.[A-Z_]*' "sable-src/apps/titan2/platform/$mod/src/main/AndroidManifest.xml" | grep -v '^$' | LC_ALL=C sort -u)"
+    have="$(awk -v p="$pkg" '$0 ~ "package=\""p"\"" {on=1; next} /<\/privapp-permissions>/ {on=0} on' "$privxml" |
+        grep -o 'android.permission.[A-Z_]*' | LC_ALL=C sort -u)"
+    if [[ -n "$want" && "$want" == "$have" ]]; then pass "privapp allowlist matches $mod"; else fail "privapp allowlist $mod: manifest [$want] allowlist [$have]"; fi
+done
+dcm=sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml
+if grep -q 'android:sharedUserId="android.uid.system"' "$dcm" &&
+    grep -q 'org.sableos.titan2.displaycompat	platform	' product/q25/apps.tsv &&
+    grep -q 'config_appCompatUserAppAspectRatioSettingsIsEnabled">true' product/common/overlay/SableFrameworkOverlay/res/values/sable_displaycompat.xml &&
+    grep -q '"setUserMinAspectRatio",' sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt &&
+    grep -q 'Class.forName("android.content.pm.IPackageManager")' sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt; then
+    pass "display compat: system UID, platform cert, IPackageManager(pkg, userId, value), WM overlay"
+else
+    fail "display compat platform wiring incomplete"
+fi
+# Secure Vault: Private Space only, no network or storage access, no backup, secure window.
+vm=sable-src/apps/titan2/platform/vault/src/main/AndroidManifest.xml
+va=sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultActivity.kt
+if grep -q 'user-type="android.os.usertype.profile.PRIVATE"' product/q25/sysconfig/preinstalled-packages-sable-vault.xml &&
+    ! grep -q 'install-in user-type="FULL"\|SYSTEM' product/q25/sysconfig/preinstalled-packages-sable-vault.xml &&
+    ! grep -qE 'INTERNET|READ_EXTERNAL|READ_MEDIA|MANAGE_EXTERNAL|WRITE_EXTERNAL' "$vm" &&
+    grep -q 'android:allowBackup="false"' "$vm" && grep -q 'android:exported="false"' "$vm" &&
+    grep -q 'FLAG_SECURE' "$va" && grep -q 'setRecentsScreenshotEnabled(false)' "$va" &&
+    ! grep -q 'ACTION_SEND' "$va"; then
+    pass "Secure Vault: Private Space only, no network/storage/backup, secure window, no share sheet"
+else
+    fail "Secure Vault manifest or window policy"
+fi
+# 6b1b. microG and Aurora Store (SABLE_Q25_MICROG, docs/MICROG.md): on by default at Q4, off with NO,
+# never before Q4, refused when an APK does not match its pin; the fetcher never keeps a bad file.
+v="$tmp/android/vendor/sable/q25"
+if out="$(stagerun Q4 --apps-dir "$tmp/apps/run")" && grep -q '^MICROG=YES' <<<"$out" &&
+    grep -qx -- '-include vendor/sable/q25/microg/microg.mk' "$v/sable-q25-framework.mk" &&
+    (for m in GmsCore FakeStore AuroraStore; do cmp -s "$mg/cache/$m.apk" "$v/microg/prebuilt/$m.apk" || exit 1; done) &&
+    grep -q 'ro.sable.microg.spoofing=true' "$v/microg/microg.mk" &&
+    [[ -f "$v/microg/etc/com.google.android.gms/settings.xml" && -f "$v/microg/Android.bp" ]]; then
+    pass "stage Q4 adds microG and Aurora Store by default"
+else
+    fail "stage Q4 microG: $(cat "$tmp/err")"
+fi
+if out="$(SABLE_Q25_MICROG=NO stagerun Q4 --apps-dir "$tmp/apps/run")" && grep -q '^MICROG=NO' <<<"$out" &&
+    [[ ! -e "$v/microg" ]] && ! grep -q microg "$v/sable-q25-framework.mk"; then
+    pass "SABLE_Q25_MICROG=NO leaves microG out"
+else
+    fail "stage Q4 without microG: $(cat "$tmp/err")"
+fi
+if out="$(stagerun Q2 --apps-dir "$tmp/apps/run")" && grep -q '^MICROG=NO' <<<"$out" && [[ ! -e "$v/microg" ]]; then
+    pass "microG is not staged before Q4"
+else
+    fail "stage Q2 microG: $(cat "$tmp/err")"
+fi
+cp "$mg/cache/AuroraStore.apk" "$mg/aurora.bak"; printf 'tampered' > "$mg/cache/AuroraStore.apk"
+if stagerun Q4 --apps-dir "$tmp/apps/run" >/dev/null; then
+    fail "stage Q4 accepted a microG APK that does not match its pin"
+elif grep -q 'AuroraStore' "$tmp/err"; then
+    pass "stage refuses a microG APK that does not match its pin"
+else
+    fail "microG pin check: $(cat "$tmp/err")"
+fi
+mkdir -p "$mg/from"; printf 'wrong' > "$mg/from/AuroraStore.apk"
+if bash scripts/fetch-microg.sh --from "$mg/from" >/dev/null 2>&1 || [[ -e "$mg/cache/AuroraStore.apk" ]]; then
+    fail "fetch-microg kept a file that does not match its pin"
+else
+    cp "$mg/aurora.bak" "$mg/from/AuroraStore.apk"
+    if bash scripts/fetch-microg.sh --from "$mg/from" 2>"$tmp/err" | grep -q '^MICROG_PREBUILTS=PASS' &&
+        bash scripts/fetch-microg.sh --check | grep -q '^MICROG_APK_COUNT=3'; then
+        pass "fetch-microg takes only files that match their pins"
+    else
+        fail "fetch-microg --from: $(cat "$tmp/err")"
+    fi
+fi
+stagerun Q1 >/dev/null || fail "stage Q1 after the microG checks: $(cat "$tmp/err")"
+unset SABLE_MICROG_CACHE SABLE_MICROG_PREBUILTS
+
+# 6b1c. microG product files (static): pins, battery and location defaults, permissions, spoofing gate.
+mgp=product/q25/microg; mg_bad=""
+awk -F'\t' '!/^#/ && NF && $1 != "module" { n++; if (NF != 5 || $4 !~ /^[0-9a-f]{64}$/ || $5 !~ /^https:\/\//) bad = 1 }
+    END { exit (bad || n != 3) }' "$mgp/prebuilts.tsv" || mg_bad="$mg_bad pins"
+for f in "$mgp"/etc/*/*.xml; do
+    python3 -I -c 'import sys,xml.dom.minidom as m; m.parse(sys.argv[1])' "$f" 2>/dev/null || mg_bad="$mg_bad xml:$f"
+done
+for k in location_wifi_mls location_wifi_moving location_wifi_learning location_cell_mls location_cell_learning \
+    location_ichnaea_contribute safetynet_enabled droidguard_enabled exposure_scanner_enabled; do
+    grep -q "<boolean name=\"$k\" value=\"false\" />" "$mgp/etc/com.google.android.gms/settings.xml" || mg_bad="$mg_bad default:$k"
+done
+grep -q 'value="true"' "$mgp/etc/com.google.android.gms/settings.xml" && mg_bad="$mg_bad default-true"
+grep -q 'ACCESS_BACKGROUND_LOCATION"' "$mgp/etc/default-permissions/default-permissions-sable-microg.xml" && mg_bad="$mg_bad background-location"
+grep -q 'fixed="true"' "$mgp/etc/default-permissions/default-permissions-sable-microg.xml" && mg_bad="$mg_bad fixed-grant"
+[[ "$(grep -o '<allow-[a-z-]*' "$mgp/etc/sysconfig/sable-microg.xml" | sort -u)" == '<allow-in-power-save' ]] || mg_bad="$mg_bad sysconfig-scope"
+[[ "$(grep -o 'package="[^"]*"' "$mgp/etc/sysconfig/sable-microg.xml" | sort -u)" == 'package="com.google.android.gms"' ]] || mg_bad="$mg_bad sysconfig-package"
+[[ "$(grep -o '<privapp-permissions package="[^"]*"' "$mgp/etc/permissions/privapp-permissions-sable-microg.xml")" == '<privapp-permissions package="com.google.android.gms"' ]] || mg_bad="$mg_bad privapp-scope"
+grep -A12 'name: "GmsCore"' "$mgp/Android.bp" | grep -q 'privileged: true' || mg_bad="$mg_bad gms-priv"
+[[ "$(grep -c 'presigned: true' "$mgp/Android.bp")" == 3 ]] || mg_bad="$mg_bad presigned"
+for m in FakeStore AuroraStore; do grep -A8 "name: \"$m\"" "$mgp/Android.bp" | grep -q 'privileged: false' || mg_bad="$mg_bad $m-priv"; done
+for f in privapp-permissions-sable-microg.xml default-permissions-sable-microg.xml sysconfig-sable-microg.xml sable-microg-settings.xml; do
+    grep -q "name: \"$f\"" "$mgp/Android.bp" || mg_bad="$mg_bad bp:$f"
+done
+sp=(patches/framework/frameworks/base/0550-*.patch)
+grep -qF '+    private static final String SABLE_MICROG_SPOOFING_PROP = "ro.sable.microg.spoofing";' "${sp[0]}" || mg_bad="$mg_bad 0550:prop"
+grep -qF '+        return isDebuggable() || SystemProperties.getBoolean(SABLE_MICROG_SPOOFING_PROP, false);' "${sp[0]}" || mg_bad="$mg_bad 0550:gate"
+grep -E '^[-+]' "${sp[0]}" | grep -v '^+++\|^---' | grep -q 'MICROG_REAL_SIGNATURE\|MICROG_FAKE_SIGNATURE\|getPackageName' && mg_bad="$mg_bad 0550:touches-checks"
+if [[ -z "$mg_bad" ]]; then pass "microG pins, battery and location defaults, permissions and spoofing gate"; else fail "microG product files:$mg_bad"; fi
+
 # 6b2. Optional 50 MP camera: the patcher on a synthetic vendor tree, and off by default.
 if python3 -I tests/test_camera_50mp.py >"$tmp/cam50" 2>&1; then
     pass "camera 50 MP patcher ($(grep -o 'Ran [0-9]* tests' "$tmp/cam50"))"
@@ -205,6 +360,23 @@ else
     pass "stage refuses the 50 MP camera without its kernel and blobs"
 fi
 stagerun Q1 >/dev/null || fail "stage Q1 after the 50 MP checks: $(cat "$tmp/err")"
+
+# 6b3. Sable lock screen needs the legacy keyguard: the build fails when SystemUI's
+# scene_container flag is enabled (or missing) in the built aconfig store.
+(
+    # shellcheck source=build/lib/common.sh
+    source build/lib/common.sh
+    printf 'com.android.systemui.foo=ENABLED\ncom.android.systemui.scene_container=DISABLED\n' |
+        sable_check_scene_container_off 2>/dev/null || exit 1
+    printf 'com.android.systemui.scene_container=ENABLED\n' |
+        sable_check_scene_container_off 2>/dev/null && exit 1
+    printf 'com.android.systemui.scene_container=true\n' |
+        sable_check_scene_container_off 2>/dev/null && exit 1
+    printf 'com.android.systemui.other=DISABLED\n' |
+        sable_check_scene_container_off 2>/dev/null && exit 1
+    grep -q 'sable_check_scene_container_off' scripts/build.sh || exit 1
+    exit 0
+) && pass "scene_container build check" || fail "scene_container build check"
 
 # 6c. The real framework patches are well-formed git patches.
 bad=""
@@ -246,13 +418,14 @@ else
     printf 'SKIP  javac not installed (Settings policy test)\n'
 fi
 
-# 6f. Sable Applications model (Settings patches 0601 and 1101) host tests, and the Sable
+# 6f. Sable Applications model (Settings patches 0601, 1101 and 12xx) host tests, and the Sable
 # Tools Settings actions the Settings patches must export (settings-ui5).
 if command -v javac >/dev/null 2>&1; then
     sa="$tmp/settings-apps"
     mkdir -p "$sa/out"
     for p in "$ROOT"/patches/framework/packages/apps/Settings/0601-*.patch \
-        "$ROOT"/patches/framework/packages/apps/Settings/1101-*.patch; do
+        "$ROOT"/patches/framework/packages/apps/Settings/1101-*.patch \
+        "$ROOT"/patches/framework/packages/apps/Settings/12[0-9][0-9]-*.patch; do
         (cd "$sa" && git apply --include='src/com/android/settings/applications/sable/model/*' \
             --include='tests/sable-apps/src/*' "$p")
     done
@@ -267,6 +440,42 @@ if command -v javac >/dev/null 2>&1; then
 else
     printf 'SKIP  javac not installed (Settings Applications model tests)\n'
 fi
+# 6f2. Battery health model (Settings patches 0201 and 1301) host tests, with the shipped Q25
+# profile checked under the same parser (ProfileFileCheckTest), and kernel 0201 reporting the
+# gauge's learned values instead of the fixed MediaTek ones.
+if command -v javac >/dev/null 2>&1; then
+    sb="$tmp/settings-battery"
+    mkdir -p "$sb/out"
+    for p in "$ROOT"/patches/framework/packages/apps/Settings/0201-*.patch \
+        "$ROOT"/patches/framework/packages/apps/Settings/1301-*.patch; do
+        (cd "$sb" && git apply --include='src/com/android/settings/fuelgauge/sable/model/*' \
+            --include='tests/sable-battery/src/*' "$p")
+    done
+    mapfile -t sb_src < <(find "$sb/src" "$sb/tests" tests/java/junit-shim -name '*.java')
+    mapfile -t sb_tests < <(cd "$sb/tests/sable-battery/src" && find . -name '*Test.java' | sed 's#^\./##; s#\.java$##; s#/#.#g' | sort)
+    if javac -encoding UTF-8 -d "$sb/out" "${sb_src[@]}" 2>"$tmp/err" &&
+        java -Dsable.battery.profile="$ROOT/device-profile/battery/zinwa-q25.conf" -cp "$sb/out" \
+            org.junit.Run "${sb_tests[@]}" >"$tmp/out" 2>&1; then
+        pass "Settings battery health model host tests and Q25 profile ($(grep -o 'RAN=[0-9]*' "$tmp/out"))"
+    else
+        fail "Settings battery health model tests: $(cat "$tmp/err" "$tmp/out" | grep -v JAVA_TOOL | head -5)"
+    fi
+else
+    printf 'SKIP  javac not installed (Settings battery health model tests)\n'
+fi
+bh_k=(patches/framework/kernel/xelex/mt6789/0201-*.patch)
+bh_bad=""
+[[ -f "${bh_k[0]}" ]] || bh_bad="$bh_bad file:kernel/0201"
+if [[ -f "${bh_k[0]}" ]]; then
+    grep -qF -- '-		val->intval = 1;' "${bh_k[0]}" || bh_bad="$bh_bad cycle-fixed-1"
+    grep -qF '+			val->intval = gm->bat_cycle;' "${bh_k[0]}" || bh_bad="$bh_bad cycle-learned"
+    grep -qF '+			ret = -ENODATA;' "${bh_k[0]}" || bh_bad="$bh_bad enodata"
+    grep -qF '+	int af = gm->algo.active ? gm->algo.aging_factor : gm->aging_factor;' "${bh_k[0]}" || bh_bad="$bh_bad aging"
+fi
+grep -q '^health_cycle_count_supported=YES$' device-profile/battery/zinwa-q25.conf || bh_bad="$bh_bad profile:cycles"
+grep -q 'Q4-BATTERY-HEALTH-Q25' docs/QUALIFICATION.md || bh_bad="$bh_bad qualification-row"
+if [[ -z "$bh_bad" ]]; then pass "Q25 battery health: kernel 0201 learned values, profile, qualification row"; else fail "Q25 battery health:$bh_bad"; fi
+
 # 6g. Keyboard light. The Q25 keyboard firmware ignores host writes to its
 # backlight register, so Settings patch 0901 adds only a read-only info row
 # (no switch, slider or property writes), gated on ro.sable.keyboard_backlight.
@@ -316,7 +525,34 @@ if [[ -f "${led_parts[0]}" ]]; then
     grep -qF '+            android:defaultValue="false" />' "${led_parts[0]}" || led_missing="$led_missing parts:xml-default"
     [[ "$(grep -cF 'NOTIFICATION_LIGHT_COLOR_AUTO, 0) == 1' "${led_parts[0]}")" == 2 ]] || led_missing="$led_missing parts:java-default"
 fi
-if [[ -z "$led_missing" ]]; then pass "notification LED: red default, lit alerting channels (frameworks/base 0501, lineage-sdk 0502, LineageParts 0503)"; else fail "notification LED:$led_missing"; fi
+# Battery light: blinking amber while charging, solid green only at 100 % and kept on.
+led_sdk2=(patches/framework/lineage-sdk/0504-*.patch)
+led_parts2=(patches/framework/packages/apps/LineageParts/0504-*.patch)
+if [[ -f "${led_sdk2[0]}" ]]; then
+    grep -qF '+        return level >= FULL_LEVEL' "${led_sdk2[0]}" || led_missing="$led_missing sdk:full-at-100"
+    grep -qF -- '-            if (isCharged || level >= 90) {' "${led_sdk2[0]}" || led_missing="$led_missing sdk:no-90"
+    grep -qF '+                    0, UserHandle.USER_CURRENT) != 0;' "${led_sdk2[0]}" || led_missing="$led_missing sdk:full-stays-on"
+    grep -qF '+    <integer name="config_batteryChargingLedOn">1000</integer>' "${led_sdk2[0]}" || led_missing="$led_missing sdk:charging-blink"
+else led_missing="$led_missing file:lineage-sdk/0504"; fi
+if [[ -f "${led_parts2[0]}" ]]; then
+    grep -qF '+    private static final boolean DEFAULT_LIGHT_FULL_CHARGE_DISABLED_PREF = false;' "${led_parts2[0]}" || led_missing="$led_missing parts:full-default"
+else led_missing="$led_missing file:LineageParts/0504"; fi
+grep -q 'name="config_notificationsBatteryFullARGB">0xFF00FF00<' "$led_ov" || led_missing="$led_missing overlay:full-green"
+if [[ -z "$led_missing" ]]; then pass "notification LED: red default, lit alerting channels, blinking charge light and green only at 100 % (frameworks/base 0501, lineage-sdk 0502/0504, LineageParts 0503/0504)"; else fail "notification LED:$led_missing"; fi
+
+# 6g3. Battery drain guards (Q4-POWER-IDLE): no Doze location prefetch, and
+# MediaTek's userdebug pr_debug switched back off from /product (after vendor).
+pw_missing=""
+grep -q 'name="config_autoPowerModePrefetchLocation">false<' product/common/overlay/SableFrameworkOverlay/res/values/sable_power.xml || pw_missing="$pw_missing overlay:prefetch"
+grep -q '^on property:sys.boot_completed=1$' product/q25/init/sable-power.rc || pw_missing="$pw_missing rc:trigger"
+grep -qF 'write /proc/dynamic_debug/control "file *mediatek* -p"' product/q25/init/sable-power.rc || pw_missing="$pw_missing rc:dyndbg"
+grep -q 'Q4-POWER-IDLE' docs/QUALIFICATION.md || pw_missing="$pw_missing qualification"
+kq=(patches/framework/kernel/xelex/mt6789/0202-*.patch)
+if [[ -f "${kq[0]}" ]]; then
+    grep -qF '+#define BBQX0KBD_KEYBOARD_LOG(fmt, args...)    pr_debug(' "${kq[0]}" || pw_missing="$pw_missing kernel:pr_debug"
+    grep -q '^diff --git a/drivers/input/keyboard/bbqX0kbd/debug_levels.h' "${kq[0]}" || pw_missing="$pw_missing kernel:file"
+else pw_missing="$pw_missing file:kernel/0202"; fi
+if [[ -z "$pw_missing" ]]; then pass "battery drain guards: no Doze location prefetch, MediaTek and keyboard debug logging off"; else fail "battery drain guards:$pw_missing"; fi
 
 tools_link=sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
 missing=""
@@ -362,26 +598,41 @@ if [[ -z "$missing" ]]; then pass "Settings Sable entries land on actions the Sa
 if command -v javac >/dev/null 2>&1; then
     sk="$tmp/stock-keys"
     mkdir -p "$sk/out"
-    for app in DocumentsUI Glimpse Jelly; do
+    for app in DocumentsUI Glimpse Jelly FMRadio; do
         mkdir -p "$sk/$app"
         for p in patches/framework/packages/apps/"$app"/10[0-9][0-9]-*.patch; do
             (cd "$sk/$app" && git apply --include='*/sable/*.java' "$ROOT/$p")
         done
     done
-    mapfile -t sk_src < <(find "$sk/DocumentsUI" "$sk/Glimpse" "$sk/Jelly" tests/java/stock-apps tests/java/junit-shim -name '*.java')
+    mapfile -t sk_src < <(find "$sk/DocumentsUI" "$sk/Glimpse" "$sk/Jelly" "$sk/FMRadio" tests/java/stock-apps tests/java/junit-shim -name '*.java')
     mapfile -t sk_tests < <(cd tests/java/stock-apps && find . -name '*Test.java' | sed 's#^\./[^/]*/##; s#\.java$##; s#/#.#g' | sort)
-    sk_android="$(find "$sk/DocumentsUI" "$sk/Glimpse" "$sk/Jelly" -name '*.java' -exec grep -l '^import android\.' {} + || true)"
+    sk_android="$(find "$sk/DocumentsUI" "$sk/Glimpse" "$sk/Jelly" "$sk/FMRadio" -name '*.java' -exec grep -l '^import android\.' {} + || true)"
     if [[ -n "$sk_android" ]]; then
         fail "stock app key models must be pure Java: $sk_android"
     elif javac -encoding UTF-8 -d "$sk/out" "${sk_src[@]}" 2>"$tmp/err" &&
         java -cp "$sk/out" org.junit.Run "${sk_tests[@]}" >"$tmp/out" 2>&1; then
-        pass "stock app keyboard models (Files, Photos, Browser) host tests ($(grep -o 'RAN=[0-9]*' "$tmp/out"))"
+        pass "stock app keyboard models (Files, Photos, Browser) and FM bridge protocol host tests ($(grep -o 'RAN=[0-9]*' "$tmp/out"))"
     else
         fail "stock app keyboard model tests: $(cat "$tmp/err" "$tmp/out" | grep -v JAVA_TOOL | head -5)"
     fi
 else
     printf 'SKIP  javac not installed (stock app keyboard model tests)\n'
 fi
+
+# 6i. FM in Sable Media: the bridge protocol numbers agree on both sides (FMRadio patch 1061,
+# Sable Media FmModel.kt), the bridge checks every caller, and FM Radio has no launcher entry.
+fm_java=$(ls patches/framework/packages/apps/FMRadio/1061-*.patch)
+fm_bridge=$(ls patches/framework/packages/apps/FMRadio/1062-*.patch)
+fm_kt=sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmModel.kt
+fm_bad=""
+while read -r name value; do
+    grep -Eq "^\+    public static final (int|String) $name = $value;" "$fm_java" || fm_bad="$fm_bad $name"
+done < <(sed -n 's/^    const val \(MSG_[A-Z_]*\|KEY_[A-Z_]*\|ACTION_CONTROL\|LOWEST_STATION\|HIGHEST_STATION\) = \(.*\)$/\1 \2/p' "$fm_kt")
+[[ "$(grep -c '^    const val \(MSG_\|KEY_\)' "$fm_kt")" -ge 25 ]] || fm_bad="$fm_bad few-constants"
+grep -q 'callerAllowed(msg.sendingUid)' "$fm_bridge" || fm_bad="$fm_bad no-caller-check"
+grep -q '^-                <category android:name="android.intent.category.LAUNCHER" />' "$fm_bridge" || fm_bad="$fm_bad launcher-entry"
+grep -q '<action android:name="org.sableos.media.action.FM_RADIO" />' sable-src/apps/r8/android/media/src/main/AndroidManifest.xml || fm_bad="$fm_bad no-media-fm-action"
+if [[ -z "$fm_bad" ]]; then pass "Sable Media FM and the FM Radio bridge agree"; else fail "FM bridge protocol:$fm_bad"; fi
 
 # 7. Entry point refuses flashing and unknown devices.
 if bash build/sable.sh q25 Q2 flash >/dev/null 2>&1; then fail "flash should be blocked"; else pass "flash blocked"; fi
@@ -538,6 +789,31 @@ if ! bash tests/framework/run-pure-tests.sh; then fail "framework pure tests"; f
 
 # 14. DESIGN-KF-A static gates for Sable Hub and the notification framework patches.
 if bash tests/kf-a-notification-policy-check.sh; then pass "KF-A notification policy gates"; else fail "KF-A notification policy gates"; fi
+
+# 15. Default still camera and the camera/calendar design patches (sable-src 0040-0041, Aperture 0801).
+cam_bad=""
+cam_manifest=sable-src/apps/titan2/platform/camera/src/main/AndroidManifest.xml
+for action in STILL_IMAGE_CAMERA IMAGE_CAPTURE; do
+    grep -q "<action android:name=\"android.media.action.$action\" />" "$cam_manifest" || cam_bad="$cam_bad camera:$action"
+    grep -q "^-                <action android:name=\"android.media.action.$action\" />" \
+        patches/framework/packages/apps/Aperture/0801-*.patch || cam_bad="$cam_bad aperture-keeps:$action"
+done
+grep -q '^+.*android.media.action.\(VIDEO\|STILL_IMAGE_CAMERA_SECURE\|IMAGE_CAPTURE_SECURE\)' \
+    patches/framework/packages/apps/Aperture/0801-*.patch && cam_bad="$cam_bad aperture-adds"
+grep -q '^-.*android.media.action.\(VIDEO\|STILL_IMAGE_CAMERA_SECURE\|IMAGE_CAPTURE_SECURE\)' \
+    patches/framework/packages/apps/Aperture/0801-*.patch && cam_bad="$cam_bad aperture-drops-video-or-secure"
+grep -q 'trackpadArrows = true' sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/DeviceProfile.kt ||
+    cam_bad="$cam_bad no-trackpad-guard"
+for p in patches/sable-src/0040-*.patch patches/sable-src/0041-*.patch; do
+    [[ -s "$p" ]] || cam_bad="$cam_bad missing:$p"
+done
+if [[ -z "$cam_bad" ]]; then pass "Sable Camera is the default still camera; Aperture keeps video and secure"; else fail "default camera:$cam_bad"; fi
+cal_keys=sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarWeek.kt
+cal_bad=""
+for k in C T V J K R; do grep -q "KeyEvent.KEYCODE_$k -> CalendarScreenKey" "$cal_keys" || cal_bad="$cal_bad key:$k"; done
+grep -q 'override fun onKeyDown' sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt || cal_bad="$cal_bad no-activity-keys"
+grep -q 'fun nowLine' "$cal_keys" || cal_bad="$cal_bad no-now-line"
+if [[ -z "$cal_bad" ]]; then pass "Sable Calendar week view, NOW line and C/T/V/J/K/R keys"; else fail "calendar:$cal_bad"; fi
 
 echo
 if ((fails)); then echo "CI=FAIL ($fails)"; exit 1; fi

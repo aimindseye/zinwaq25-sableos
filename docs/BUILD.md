@@ -117,6 +117,14 @@ patches the kernel sensor driver and three vendor camera libraries and builds th
 from source. Untested on hardware; see
 [`../product/q25/camera-50mp/README.md`](../product/q25/camera-50mp/README.md).
 
+### microG and Aurora Store (Q4)
+
+On by default (`SABLE_Q25_MICROG=YES`). Fetch the pinned, sha256-checked APKs before
+`stage`: `NETWORK_FETCH_AUTHORIZED=YES bash build/sable.sh q25 Q4 microg` (or
+`bash scripts/fetch-microg.sh --from DIR` with files downloaded elsewhere). `stage` fails if
+they are missing; `SABLE_Q25_MICROG=NO` builds without them. They add about 117 MB to the
+product partition. See [`MICROG.md`](MICROG.md).
+
 ## 5. Outputs
 
 `~/sable-q25/artifacts/q25/<release>/<stamp>/`:

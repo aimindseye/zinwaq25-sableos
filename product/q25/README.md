@@ -22,5 +22,16 @@ vendor/lineage/config/common.mk
 `apps.tsv` is the single list of Sable apps. Change it there; the Android.bp and
 `sable-q25-apps.mk` are generated so they only name APKs that exist.
 
+Two apps need privileges from Q4, and only from Q4:
+
+* App display compatibility (`signing=platform`): platform certificate, privileged, runs as
+  `android.uid.system` so it may set another app's aspect ratio. Not staged before Q4.
+* Secure Vault (`signing=privileged`): privileged for "Lock now" (`MODIFY_QUIET_MODE`); an
+  ordinary app before Q4.
+
+`permissions/privapp-permissions-sable-q25.xml` allowlists exactly what their manifests request
+(`tests/run.sh` checks this). `sysconfig/preinstalled-packages-sable-vault.xml` installs Secure
+Vault only in the Private Space profile.
+
 A `Q1` build stages nothing and removes `vendor/extra/product.mk`, so you get the
 plain LineageOS control image.

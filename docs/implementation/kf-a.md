@@ -203,9 +203,12 @@ The Q25 status LED (red, green and blue GPIO LEDs, on/off only; the device overl
   per-app colors and "Automagic" (icon colors), now off by default.
 - **Colors:** a channel that names no color gets the default red; an app that sets its own
   channel color, or a per-app color in Notification light, still wins.
-- **Battery (no notification lit):** amber while charging, green at 90 % and above, off when
-  full; low battery not charging flashes amber (red is kept for notifications). A lit
-  notification shows over the battery color.
+- **Battery (no notification lit):** amber (yellow) blinking while charging (1 s on, 1 s off),
+  solid green only when the battery is completely charged (100 % or the charger reports full)
+  and stays green while the phone is plugged in; off when unplugged; low battery not charging
+  flashes amber (red is kept for notifications). A lit notification shows over the battery
+  color. Settings > Notifications > Battery light > "Turn off when fully charged" (now off by
+  default) turns the green light off.
 
 Where it comes from:
 
@@ -215,11 +218,48 @@ Where it comes from:
 | frameworks/base 0501 | `NotificationRecord.calculateLights()` also lights a channel whose app did not enable lights, when the device has the LED, the user has not set the channel's light and importance is Default or higher; color 0 so lineage-sdk picks the default. Pre-channel apps keep `FLAG_SHOW_LIGHTS`. |
 | lineage-sdk 0502 | `NOTIFICATION_LIGHT_COLOR_AUTO` defaults to 0, so the default color is used instead of an icon color. |
 | LineageParts 0503 | The Automagic switch, the page summary and new per-app entries read the same default (off). |
+| lineage-sdk 0504 | `LineageBatteryLights` takes its decision from the pure `sable/SableBatteryLightPolicy` (host test `tests/framework/lineage-sdk`): charging below full blinks the charging color with `config_batteryChargingLedOn/Off` (1000/1000 ms, lineage-sdk resource; 0 keeps it solid), full color only when plugged in and completely charged (status FULL, or level 100 while charging or not charging) instead of from 90 %, and `BATTERY_LIGHT_FULL_CHARGE_DISABLED` defaults to 0. |
+| LineageParts 0504 | "Turn off when fully charged" shows off by default (XML, switch default, Reset). |
 
 Known gaps: Android's channel page shows "Blink light" off for a channel that blinks only
 because of 0501 (the switch reflects the app's own choice); turning it on and off again opts the
 channel out. The GPIO LEDs blink from a kernel timer, so check that flashing continues after more
-than a minute of screen-off suspend (Q4-LED-BB). Not built or run on hardware.
+than a minute of screen-off suspend (Q4-LED-BB); the charging blink uses the same timer, so
+check it too with the screen off. Not built or run on hardware.
+
+## Shade: Titan 2 Quick Settings, Hub summary and "/" search
+
+Target: `docs/design/artifacts/sable-quick-settings-titan2.svg` (owner decision: three columns).
+
+| Piece | Change |
+| --- | --- |
+| frameworks/base 0310 | Compact row gets its own column count (`config_sableQuickQsNumColumns`); small tiles can show their label under the icon (`config_sableQsSmallTileLabels`). |
+| frameworks/base 0311 | "Sable Quick Settings" card, Hub summary row and keyboard hint line around the compact row (`config_sableShadeExtras`); `SableShadeCoordinator` counts Hub priority items. |
+| frameworks/base 0312 | "/" notification search: pre-IME keys (`SableShadeSearchKeys`) and a finalize filter in `SableShadeCoordinator`. |
+| `SableSystemUIOverlay` `values/sable_quick_settings.xml` | 3 columns, compact row of 4, one compact row, labeled small tiles, no default large tiles, extras on. The `values-notlong` large tiles are gone. |
+| sable-src 0029 | `SableQuickSettingsLayout` square = 3 columns, compact 4, labeled; default tiles put Do Not Disturb fourth so the compact row is Wi-Fi, BT, Dark, DND. |
+
+Behaviour:
+
+- **Hub priority item:** a notification in the heads-up, conversation or alerting section that
+  is not ongoing. Only the count is shown. On the lock screen the row says "counts only" and
+  counts only what the lock screen itself would show; Enter asks for the PIN first
+  (`ActivityStarter.postStartActivityDismissingKeyguard`). Hub opens at its default view: it has
+  no "priority view" intent yet. No row when `org.sableos.hub` is not installed.
+- **Keys:** the 0301-0303 keys are unchanged. The Hub row is one more focus stop under the tiles
+  (arrows reach it, Enter opens Hub). Space peek and Menu filters on the Hub row are not built.
+- **"/" search:** only in the unlocked shade with notifications showing and no text field focused.
+  While typing, keys go to the query before the focused row, so D/R/Z cannot fire; Enter keeps
+  the filter and hands the letters back to the rows; Esc or Back clear. Closing or locking the
+  shade always clears it, so the lock screen, status bar icons and heads-up are never left
+  filtered. Rows whose content is hidden (sensitive) match on the app name only.
+- **No keyboard light tile:** the Q25 keyboard firmware ignores host writes (see Settings 0901).
+- **Tile size:** small tiles keep the upstream 72dp height (about 185 x 72dp at density 193), so
+  "square" means the 12dp card corners of 0102, not a 1:1 tile; 1:1 tiles would push the
+  notifications off the 597dp screen.
+
+Not built (no Soong here); the pure policies have host tests (`SableShadeSearchTest`,
+`SableHubSummaryTest`). Device checks: Q4-QS-TITAN2, Q4-SHADE-SEARCH.
 
 ## Framework patch bases (lineage-23.2)
 
@@ -228,6 +268,7 @@ than a minute of screen-off suspend (Q4-LED-BB). Not built or run on hardware.
 | 0300 | packages/apps/Settings | `8d8f6486b274bcf0aa6e5d0cbba52c0b05ae5c65` |
 | 0301 | frameworks/base | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` |
 | 0302-0304 | frameworks/base | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` (on 0101-0301) |
+| 0310-0312 | frameworks/base | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` (on 0101-0305) |
 
 Both pass `git apply --check` on their base. Neither was built.
 

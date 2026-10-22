@@ -36,20 +36,52 @@ class SableMailKeymapTest {
         assertEquals(SableMailCommand.DELETE, cmd(press(KeyEvent.KEYCODE_FORWARD_DEL)))
         assertEquals(SableMailCommand.SEARCH, cmd(press(KeyEvent.KEYCODE_S, 's')))
         assertEquals(SableMailCommand.SEARCH, cmd(press(KeyEvent.KEYCODE_SLASH, '/')))
-        assertEquals(SableMailCommand.VIEW_MODE, cmd(press(KeyEvent.KEYCODE_V, 'v')))
         assertEquals(SableMailCommand.BACK, cmd(press(KeyEvent.KEYCODE_ESCAPE)))
         assertNull("Enter opens the focused row natively", cmd(press(KeyEvent.KEYCODE_ENTER)))
     }
 
     @Test
-    fun replyAllAndForward() {
-        assertEquals(SableMailCommand.REPLY_ALL, cmd(press(KeyEvent.KEYCODE_A, 'a')))
+    fun artifactReaderKeys() {
+        // sable-mail-calendar-titan2.svg: R Reply, L All, F Fwd, V Archive, D Del, E quote, A attachments.
+        assertEquals(SableMailCommand.REPLY_ALL, cmd(press(KeyEvent.KEYCODE_L, 'l')))
         assertEquals(SableMailCommand.FORWARD, cmd(press(KeyEvent.KEYCODE_F, 'f')))
+        assertEquals(SableMailCommand.ARCHIVE, cmd(press(KeyEvent.KEYCODE_V, 'v')))
+        assertEquals(SableMailCommand.EXPAND_QUOTE, cmd(press(KeyEvent.KEYCODE_E, 'e')))
+        assertEquals(SableMailCommand.ATTACHMENTS, cmd(press(KeyEvent.KEYCODE_A, 'a')))
+    }
+
+    @Test
+    fun splitViewForcedOnlyOnSquareKeyboardScreens() {
+        assertTrue("Q25 720x720 @193dpi", SableMailLayout.forceSplitView(597, 597))
+        assertTrue("square minus status bar", SableMailLayout.forceSplitView(597, 560))
+        assertFalse("Pixel portrait", SableMailLayout.forceSplitView(412, 915))
+        assertFalse("Pixel landscape", SableMailLayout.forceSplitView(915, 412))
+        assertFalse("small square", SableMailLayout.forceSplitView(400, 400))
+        assertFalse(SableMailLayout.forceSplitView(600, 0))
+    }
+
+    @Test
+    fun quotesCollapsedUntilExpanded() {
+        val body = "<p>Hi</p><blockquote>old</blockquote>"
+        assertTrue(SableMailQuotes.html(body, expanded = false).startsWith("<style>"))
+        assertTrue(SableMailQuotes.html(body, expanded = false).endsWith(body))
+        assertTrue(SableMailQuotes.html(body, expanded = false).contains(SableMailQuotes.MARKER))
+        assertEquals(body, SableMailQuotes.html(body, expanded = true))
+    }
+
+    @Test
+    fun dockHintNamesRealKeys() {
+        assertEquals(SableMailCommand.COMPOSE, cmd(press(KeyEvent.KEYCODE_C, 'c')))
+        listOf("C Compose", "R Reply", "/ Search", "J/K Move", "T Latest").forEach {
+            assertTrue(it, SableMailLayout.DOCK_LIST_HINT.contains(it))
+        }
+        listOf("L All", "F Fwd", "V Archive", "D Del", "E Quote", "A Attach").forEach {
+            assertTrue(it, SableMailLayout.DOCK_READER_HINT.contains(it))
+        }
     }
 
     @Test
     fun upstreamActionsKeptOnFreeKeys() {
-        assertEquals(SableMailCommand.ARCHIVE, cmd(press(KeyEvent.KEYCODE_E, 'e')))
         assertEquals(SableMailCommand.SELECT, cmd(press(KeyEvent.KEYCODE_X, 'x')))
         assertEquals(SableMailCommand.TOGGLE_FLAG, cmd(press(KeyEvent.KEYCODE_G, 'g')))
         assertEquals(SableMailCommand.MOVE, cmd(press(KeyEvent.KEYCODE_M, 'm')))

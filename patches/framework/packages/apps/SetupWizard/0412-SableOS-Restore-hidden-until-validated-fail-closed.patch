@@ -1,0 +1,124 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 21 Oct 2026 13:05:08 +0000
+Subject: [PATCH] SableOS: Restore hidden until validated (fail-closed)
+
+SETUP_WIZARD_FIRST_BOOT_UX: RESTORE_IMPORT_FAIL_CLOSED=YES, "If restore
+is not ready, the screen should say so and continue with a clean setup
+path rather than pretending restore exists" (owner decision: hidden
+until validated).
+
+RestoreIntroActivity, the step every script reaches for Seedvault
+restore (owner, secondary user and work profile), now skips itself
+unless @bool/sable_restore_validated is true. It is false here, and is
+meant to be set only with an on-device QUALIFICATION pass. While hidden
+the step never enables Next, never opens Seedvault and is not reopened
+on the way back. The script entries stay, so validating restore is a
+one-value change.
+
+The Privacy step's restore paragraph is the small note: "Restore and
+import: fail-closed until validated. Restoring a backup stays off on
+this phone until it has been tested, so setup always starts clean.
+SableOS keeps no copy of your data."
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01UvjoefgeNVBxmkGXzTTNYS
+---
+ res/values/sable_config.xml                   | 11 ++++++++
+ res/values/sable_strings.xml                  |  2 +-
+ .../backup/RestoreIntroActivity.java          | 26 +++++++++++++++++++
+ 3 files changed, 38 insertions(+), 1 deletion(-)
+ create mode 100644 res/values/sable_config.xml
+
+diff --git a/res/values/sable_config.xml b/res/values/sable_config.xml
+new file mode 100644
+index 0000000..3017d14
+--- /dev/null
++++ b/res/values/sable_config.xml
+@@ -0,0 +1,11 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     SPDX-FileCopyrightText: The SableOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<resources>
++    <!-- SableOS (SETUP_WIZARD_FIRST_BOOT_UX RESTORE_IMPORT_FAIL_CLOSED): the Restore step stays
++         hidden until backup restore is validated on this device. Set true only with a
++         QUALIFICATION pass. -->
++    <bool name="sable_restore_validated">false</bool>
++</resources>
+diff --git a/res/values/sable_strings.xml b/res/values/sable_strings.xml
+index f9425d7..b4ab399 100644
+--- a/res/values/sable_strings.xml
++++ b/res/values/sable_strings.xml
+@@ -69,7 +69,7 @@
+     <string name="sable_privacy_network_link">Network access</string>
+     <string name="sable_privacy_lock_screen"><b>Lock screen.</b> While the phone is locked, notifications show only their app and count. Their content stays hidden until you unlock, unless you choose to show it.</string>
+     <string name="sable_privacy_lock_screen_link">Lock screen notifications</string>
+-    <string name="sable_privacy_restore"><b>Restore.</b> Restoring a backup uses Android’s own backup app. SableOS keeps no copy of your backup.</string>
++    <string name="sable_privacy_restore"><b>Restore and import: fail-closed until validated.</b> Restoring a backup stays off on this phone until it has been tested, so setup always starts clean. SableOS keeps no copy of your data.</string>
+     <string name="sable_privacy_settings_link">Privacy settings</string>
+ 
+     <!-- SableOS Sable accent on the Theme step (KF-B). Labels match Settings > Display > Accent. -->
+diff --git a/src/org/lineageos/setupwizard/backup/RestoreIntroActivity.java b/src/org/lineageos/setupwizard/backup/RestoreIntroActivity.java
+index 442baa5..2bff4cf 100644
+--- a/src/org/lineageos/setupwizard/backup/RestoreIntroActivity.java
++++ b/src/org/lineageos/setupwizard/backup/RestoreIntroActivity.java
+@@ -7,6 +7,7 @@
+ package org.lineageos.setupwizard.backup;
+ 
+ import static com.google.android.setupcompat.util.ResultCodes.RESULT_ACTIVITY_NOT_FOUND;
++import static com.google.android.setupcompat.util.ResultCodes.RESULT_SKIP;
+ 
+ import static org.lineageos.setupwizard.SetupWizardApp.ACTION_RESTORE_FROM_BACKUP;
+ 
+@@ -20,9 +21,18 @@ import org.lineageos.setupwizard.SubBaseActivity;
+ 
+ public class RestoreIntroActivity extends SubBaseActivity {
+ 
++    /** SableOS: fail-closed; set by sable_restore_validated, never by the user. */
++    private boolean mSableRestoreHidden;
++
+     @Override
+     protected void onCreate(Bundle savedInstanceState) {
++        mSableRestoreHidden = !isSableRestoreValidated();
+         super.onCreate(savedInstanceState);
++        if (mSableRestoreHidden) {
++            // Restore and import stay hidden until validated; setup continues clean.
++            finishAction(RESULT_SKIP);
++            return;
++        }
+         getGlifLayout().setDescriptionText(getString(R.string.intro_restore_subtitle,
+                 getString(R.string.os_name)));
+     }
+@@ -42,11 +52,27 @@ public class RestoreIntroActivity extends SubBaseActivity {
+ 
+     @Override
+     protected void onStartSubactivity() {
++        if (mSableRestoreHidden) return;
+         setNextAllowed(true);
+     }
+ 
++    @Override
++    protected void onNextIntentResult(ActivityResult activityResult) {
++        // Never reopen the restore screen on the way back while it is hidden.
++        if (!mSableRestoreHidden) super.onNextIntentResult(activityResult);
++    }
++
++    private boolean isSableRestoreValidated() {
++        try {
++            return getResources().getBoolean(R.bool.sable_restore_validated);
++        } catch (RuntimeException e) {
++            return false;
++        }
++    }
++
+     @Override
+     protected void onNextPressed() {
++        if (mSableRestoreHidden) return;
+         launchRestore();
+     }
+ 
+-- 
+2.43.0
+

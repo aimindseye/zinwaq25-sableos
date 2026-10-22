@@ -1,89 +1,156 @@
 package org.sableos.titan2.displaycompat.android
 
-import android.content.Context
-import android.content.pm.PackageManager
+import android.os.IBinder
+import android.os.Process
 import org.sableos.titan2.displaycompat.core.ApplyResult
-import org.sableos.titan2.displaycompat.core.AspectProfile
 import org.sableos.titan2.displaycompat.core.BackendAvailability
 import org.sableos.titan2.displaycompat.core.CanvasPlan
 import org.sableos.titan2.displaycompat.core.DisplayBackend
 import org.sableos.titan2.displaycompat.core.DisplayProfile
+import org.sableos.titan2.displaycompat.core.PlatformMapping
+import org.sableos.titan2.displaycompat.core.PlatformRequest
 
 /**
- * Backend using the platform per-app minimum-aspect-ratio override
- * (Android 14+ `PackageManager.setUserMinAspectRatio`).
+ * Backend that hands a profile to the platform (LineageOS 23.2 / Android 16):
  *
- * It is closed unless `persist.sable.displaycompat.backend=validated`, so a fresh image never changes app windows.
- * The call is reached by reflection and any SecurityException/NoSuchMethod is reported as
- * [ApplyResult.Unsupported]: whether a platform-signed app may call it on Android 16 is a gate to validate on
- * device, not an assumption. No privapp grant is added here.
- * Only profiles with a real platform equivalent are mapped; everything else stays validated-and-stored but unapplied.
+ *  - aspect ratio: `IPackageManager.setUserMinAspectRatio(packageName, userId, aspectRatio)`, the call Settings'
+ *    own App aspect ratio page makes. It needs INSTALL_PACKAGES and, for another app's package, the system UID
+ *    (`PackageManagerService.enforceOwnerRights`), so this app is platform-signed, privileged and runs as
+ *    `android.uid.system`. The framework only honours the value when
+ *    `config_appCompatUserAppAspectRatioSettingsIsEnabled` is true (SableFrameworkOverlay, sable_displaycompat.xml).
+ *  - orientation: `IPlatformCompat.putOverridesOnReleaseBuilds` / `removeOverridesOnReleaseBuilds` with the
+ *    overridable orientation changes (OVERRIDE_COMPAT_CHANGE_CONFIG_ON_RELEASE_BUILD).
+ *
+ * It is closed unless `persist.sable.displaycompat.backend=validated` (set by the Q4 product layer), so an image
+ * without the overlay never sends requests. Failures are reported as [ApplyResult.Unsupported], never hidden.
+ * Every call sends the full state, so moving to a stored-only profile clears what an earlier profile set.
  */
-class GatedPlatformBackend(private val context: Context) : DisplayBackend {
-    override val name = "platform min-aspect-ratio (gated)"
+class GatedPlatformBackend : DisplayBackend {
+    override val name = "platform aspect ratio + orientation (gated)"
 
     /** Closed unless the gate property is exactly `validated`; read on every call so a closed gate stays closed. */
     override val availability: BackendAvailability
         get() = if (open()) BackendAvailability.OPEN_UNVERIFIED else BackendAvailability.CLOSED
 
-    private fun open() = SysProps.get("persist.sable.displaycompat.backend") == "validated"
+    private fun open() = SysProps.get(GATE_PROPERTY) == GATE_OPEN
 
     override fun apply(pkg: String, plan: CanvasPlan, p: DisplayProfile): ApplyResult {
-        val value = UserMinAspectRatio.forProfile(p.profile)
+        if (!open()) return ApplyResult.NoOp
+        val request = PlatformMapping.request(p)
+        val sent = send(pkg, request)
         return when {
-            !open() -> ApplyResult.NoOp
+            sent != null -> sent
 
-            value == null -> ApplyResult.Unsupported(
-                "${p.profile.id}: no platform equivalent; stored only"
+            !request.hasEffect -> ApplyResult.Unsupported(
+                "no platform equivalent for " + request.notApplied.joinToString(", ") +
+                    "; stored only, platform settings cleared"
             )
 
-            else -> set(pkg, value, "min aspect ratio=$value")
+            else -> ApplyResult.Applied(request.describe() + readBack(pkg) + NEXT_LAUNCH)
         }
     }
 
-    override fun clear(pkg: String): ApplyResult =
-        if (!open()) ApplyResult.NoOp else set(pkg, UserMinAspectRatio.UNSET, "unset")
+    override fun clear(pkg: String): ApplyResult {
+        if (!open()) return ApplyResult.NoOp
+        return send(pkg, PlatformRequest.CLEAR)
+            ?: ApplyResult.Applied("platform settings cleared$NEXT_LAUNCH")
+    }
 
-    private fun set(pkg: String, value: Int, detail: String): ApplyResult = try {
-        PackageManager::class.java.getMethod(
+    /** Sends [request]; null on success, else the failure. */
+    private fun send(pkg: String, request: PlatformRequest): ApplyResult? = guarded {
+        val pm = packageManagerService()
+        PM_INTERFACE.getMethod(
             "setUserMinAspectRatio",
             String::class.java,
+            Int::class.javaPrimitiveType,
             Int::class.javaPrimitiveType
-        )
-            .invoke(context.packageManager, pkg, value)
-        ApplyResult.Applied(detail)
+        ).invoke(pm, pkg, myUserId(), request.minAspectRatio)
+        val compat = platformCompat()
+        if (request.disableOrientation.isNotEmpty()) {
+            val cls = Class.forName(
+                "com.android.internal.compat.CompatibilityOverridesToRemoveConfig"
+            )
+            val config = cls.getConstructor(Set::class.java).newInstance(request.disableOrientation)
+            COMPAT_INTERFACE.getMethod("removeOverridesOnReleaseBuilds", cls, String::class.java)
+                .invoke(compat, config, pkg)
+        }
+        if (request.enableOrientation.isNotEmpty()) {
+            val cls = Class.forName("com.android.internal.compat.CompatibilityOverrideConfig")
+            val enabled = enabledOverride()
+            val config = cls.getConstructor(Map::class.java)
+                .newInstance(request.enableOrientation.associateWith { enabled })
+            COMPAT_INTERFACE.getMethod("putOverridesOnReleaseBuilds", cls, String::class.java)
+                .invoke(compat, config, pkg)
+        }
+    }
+
+    /** What the platform now reports for the package, so the message never claims more than it says. */
+    private fun readBack(pkg: String): String = runCatching {
+        val v = PM_INTERFACE.getMethod(
+            "getUserMinAspectRatio",
+            String::class.java,
+            Int::class.javaPrimitiveType
+        ).invoke(packageManagerService(), pkg, myUserId()) as Int
+        "; platform reports aspect $v"
+    }.getOrDefault("")
+
+    private fun guarded(call: () -> Unit): ApplyResult? = try {
+        call()
+        null
     } catch (t: ReflectiveOperationException) {
         unsupported(t)
     } catch (t: SecurityException) {
         unsupported(t)
     } catch (t: IllegalArgumentException) {
         unsupported(t)
+    } catch (t: IllegalStateException) {
+        unsupported(t)
     }
 
     private fun unsupported(t: Throwable): ApplyResult = ApplyResult.Unsupported(
         (t.cause ?: t).javaClass.simpleName + ": " + ((t.cause ?: t).message ?: "no detail")
     )
-}
 
-/**
- * Values of the hidden `PackageManager.USER_MIN_ASPECT_RATIO_*` constants (AOSP 14+: UNSET 0, SPLIT_SCREEN 1,
- * DISPLAY_SIZE 2, 4_3 3, 16_9 4, 3_2 5, FULLSCREEN 6, APP_DEFAULT 7). The public SDK does not expose them, so they are
- * literals here. Note 4:3 is 3 and 16:9 is 4 (an earlier version had them swapped, which would have put a 16:9 profile
- * in a 4:3 window and vice versa). Re-check against the Android 16 source before the backend gate is opened.
- */
-internal object UserMinAspectRatio {
-    const val UNSET = 0
-    const val DISPLAY_SIZE = 2
-    const val RATIO_4_3 = 3
-    const val RATIO_16_9 = 4
-    const val FULLSCREEN = 6
+    private fun packageManagerService(): Any = requireNotNull(
+        Class.forName("android.app.ActivityThread").getMethod("getPackageManager").invoke(null)
+    ) {
+        "package manager unavailable"
+    }
 
-    /** Platform value for a profile with a real platform equivalent, else null (stored only). */
-    fun forProfile(profile: AspectProfile): Int? = when (profile) {
-        AspectProfile.Ratio16x9Letterbox -> RATIO_16_9
-        AspectProfile.Ratio4x3Letterbox -> RATIO_4_3
-        AspectProfile.FullscreenMedia -> FULLSCREEN
-        AspectProfile.SquareSafe -> DISPLAY_SIZE
-        else -> null
+    private fun platformCompat(): Any {
+        val binder = Class.forName("android.os.ServiceManager")
+            .getMethod("getService", String::class.java)
+            .invoke(null, PLATFORM_COMPAT_SERVICE) as? IBinder
+        checkNotNull(binder) { "platform_compat service unavailable" }
+        return requireNotNull(
+            Class.forName("com.android.internal.compat.IPlatformCompat\$Stub")
+                .getMethod("asInterface", IBinder::class.java)
+                .invoke(null, binder)
+        ) { "platform_compat interface unavailable" }
+    }
+
+    private fun enabledOverride(): Any {
+        val builderClass = Class.forName("android.app.compat.PackageOverride\$Builder")
+        val builder = builderClass.getConstructor().newInstance()
+        builderClass.getMethod("setEnabled", Boolean::class.javaPrimitiveType).invoke(builder, true)
+        return requireNotNull(builderClass.getMethod("build").invoke(builder)) {
+            "no PackageOverride"
+        }
+    }
+
+    private fun myUserId(): Int = Process.myUid() / PER_USER_RANGE
+
+    companion object {
+        const val GATE_PROPERTY = "persist.sable.displaycompat.backend"
+        const val GATE_OPEN = "validated"
+        private const val PLATFORM_COMPAT_SERVICE = "platform_compat"
+        private const val PER_USER_RANGE = 100_000
+        private const val NEXT_LAUNCH = "; takes effect the next time the app starts"
+        private val PM_INTERFACE: Class<*> by lazy {
+            Class.forName("android.content.pm.IPackageManager")
+        }
+        private val COMPAT_INTERFACE: Class<*> by lazy {
+            Class.forName("com.android.internal.compat.IPlatformCompat")
+        }
     }
 }
