@@ -1,12 +1,12 @@
 # SableOS for Zinwa Q25: port roadmap
 
 Status: **R0 (backup and stock restore), Q1 (LineageOS control) and Q2 (Sable
-apps) pass on a real Q25. Q4 (framework layer: Sable Start, quick bar, Sable
-Keyboard, framework patches) is written but has never been compiled; building
-and flashing it is next.**
+apps) pass on a real Q25. Q4 (framework layer) was built and booted on
+2026-10-17; PR #28 (2026-10-22) completed the design artifacts in source and its
+first build is running. Q4 gates are not recorded yet.**
 What is still open is in [`docs/SABLEOS_GAP_REVIEW.md`](docs/SABLEOS_GAP_REVIEW.md).
 
-Date: 2026-10-09, status updated 2026-10-17
+Date: 2026-10-09, status updated 2026-10-22
 
 This roadmap says what this port reuses from existing SableOS work, what has to
 be written for the Zinwa Q25, and the order the work happens in. It is meant to
@@ -195,13 +195,13 @@ phone or an owner decision) is in [`docs/SABLEOS_GAP_REVIEW.md`](docs/SABLEOS_GA
 Each phase has an exit condition. A phase is not done because its scripts exist;
 it's done when its exit condition has evidence.
 
-| Phase | Goal | Exit condition | Status (2026-10-17) |
+| Phase | Goal | Exit condition | Status (2026-10-22) |
 |---|---|---|---|
 | **Q0 Foundation** | Repo layout, roadmap, build scripts, product layer, docs | Static checks pass (`tests/run.sh`). | Done (PR #1). |
 | **Q1 Control build** | Build unmodified `lineage_Q25` with our scripts | `bash build/sable.sh q25 Q1 build` produces a LineageOS zip whose boot on a Q25 is recorded. This is the boot-qualified baseline, so later failures can be bisected (the lesson Titan 2 learned the hard way). | Done. Built on ai-g732 2026-10-15 and booted on a Q25 2026-10-16 after gate R0 passed; Wi-Fi, calls, SMS and typing work. |
 | **Q2 Sable product layer** | Add the Sable app set and props via `vendor/extra` | Image boots; every Sable app launches; `ro.sable.profile.id=zinwa-q25`; no LineageOS OTA offered. | Done. Built 2026-10-15 (games off to fit `super`, PR #21) and booted 2026-10-17: profile prop set, all 13 enabled apps launch, Updater offers no LineageOS build. Sable Mail crashed without the Q4 appearance provider; fixed in PR #22. |
 | **Q3 Q25 device profile** | Keyboard, trackpad, display, camera, radio profiles | Keyboard-first gates in `docs/QUALIFICATION.md` pass on device: critical text entry, Alt layer, Call/End, trackpad navigation, camera shutter, calls/SMS/VoLTE. | Profiles written from the device tree (`verified=false`). The phone is in hand; Q3 checks not run yet. |
-| **Q4 Framework integration** | Retarget GrapheneOS patches to Lineage 23.2: `stage Q4` builds Sable Start as HOME, makes Sable Keyboard the only IME and applies `patches/framework` | Gates Q4-* in `docs/QUALIFICATION.md`: Sable Start as HOME with working Recents, Sable Keyboard default, one Messages entry, Sable branding in Settings/Setup, SystemUI convergence on the 720x720 display. | Written (PRs #6-#8, #15-#20): HOME/Recents, IME, KF-A..D, Battery, setup, Settings Apps, Phone/Contacts, daily driver, then the design-gap waves: Alt keys in the shade, Quick Settings and lockscreen, Mobile Manager, and the keyboard model in Files, Photos and Browser. Patches checked with `git apply`; uncompiled in a LineageOS tree. Next: the first Q4 build on ai-g732, then flash. |
+| **Q4 Framework integration** | Retarget GrapheneOS patches to Lineage 23.2: `stage Q4` builds Sable Start as HOME, makes Sable Keyboard the only IME and applies `patches/framework` | Gates Q4-* in `docs/QUALIFICATION.md`: Sable Start as HOME with working Recents, Sable Keyboard default, one Messages entry, Sable branding in Settings/Setup, SystemUI convergence on the 720x720 display. | Written (PRs #6-#8, #15-#20): HOME/Recents, IME, KF-A..D, Battery, setup, Settings Apps, Phone/Contacts, daily driver, then the design-gap waves: Alt keys in the shade, Quick Settings and lockscreen, Mobile Manager, and the keyboard model in Files, Photos and Browser. First built on ai-g732 and booted on a Q25 2026-10-17 (setup wizard, then Sable Start as HOME); fixes from that boot in PR #25. PR #28 (2026-10-22) completed the design artifacts in source: BB10 Sable Start, lock screen glance and Alt+Space emergency, three-column Quick Settings, Keyboard & input and app controls in Settings, setup step counter, Hub filters and privacy, camera and calendar keys, Secure Vault, charging LED and battery health, FM in Sable Media, Sable Games, microG and Aurora Store. All 88 patches apply in order on the tree. Next: build, flash and record the Q4-* gates. |
 | **Q5 Security and release** | Release keys, own AVB key, OTA channel, relock study | Signed build; GSI developer keys removed; documented relock result (pass or fail); OTA from our own server. | Not started. |
 | **Q6 Base evolution** | Android 17 (`lineage-24.0`, already branched for Q25) and/or AOSP/GrapheneOS-derived base | Same gates pass on the new base. | Not started. Reviewed 2026-10-14: the Q25 `lineage-24.0` device and kernel branches exist and LineageOS 24.0 shipped on 2026-10-11. Of our framework patches, Dialer, Contacts and Glimpse apply; Settings (4), frameworks/base QS (2) and Launcher3 (1) need rebasing; all 7 SetupWizard patches need a rewrite. Decision: stay on 23.2 until Q1-Q3 pass on the phone, then port as its own wave. |
 

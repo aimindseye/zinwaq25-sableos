@@ -14,25 +14,29 @@ repository holds everything needed to build SableOS for the **Zinwa Q25** (the
 BlackBerry Classic restomod, codename `Q25`), without needing the Pixel 7,
 Titan 2 or Q27 SableOS lanes.
 
-> **Status: Q2 boots on a Q25; Q4 build and flash are next.** On 2026-10-15/17 a
-> real Q25 (board `q20_v12_factory`, stock `Q25_20.01.2026`) was backed up,
-> restored to stock, unlocked, and flashed with the Q1 control image and then the
-> Q2 image. Q2 boots, reports `ro.sable.profile.id=zinwa-q25`, and all 13 enabled
-> Sable apps launch. Q2 adds apps only, so the phone still shows the LineageOS
-> home screen: Sable Start, the quick bar, Sable Keyboard as the only IME and the
-> framework patches arrive with **Q4, which is written but has never been
-> compiled**. Gates and evidence: [`docs/QUALIFICATION.md`](docs/QUALIFICATION.md).
+> **Status: Q4 boots on a Q25; the design-completion build is next.** On
+> 2026-10-15/17 a real Q25 (board `q20_v12_factory`, stock `Q25_20.01.2026`) was
+> backed up, restored to stock, unlocked, and flashed with the Q1 control image,
+> the Q2 image and then the first Q4 image. Q4 boots into the Sable setup wizard
+> and then Sable Start as HOME. PR #25 fixed what that build showed (PIN typing,
+> keyboard light, LED, LineageOS leftovers). PR #28 (2026-10-22) then completed the
+> design artifacts in source: the BlackBerry 10 style Sable Start, lock screen,
+> Quick Settings, Settings, setup, Hub and the stock-app keys, plus the charging
+> LED, battery health, FM in Sable Media, Sable Games and microG with Aurora
+> Store. That build has not been flashed yet, so its Q4-* gates are `NOT_RUN`.
+> Gates and evidence: [`docs/QUALIFICATION.md`](docs/QUALIFICATION.md). Design
+> status per artifact: [`docs/DESIGN_CONFORMANCE_Q25.md`](docs/DESIGN_CONFORMANCE_Q25.md).
 > What is still open: [`docs/SABLEOS_GAP_REVIEW.md`](docs/SABLEOS_GAP_REVIEW.md).
 
 ```text
 DEVICE=Q25
-PHASE=R0, Q1, Q2 PASS on a Q25; Q4 build and flash next
+PHASE=R0, Q1, Q2 PASS on a Q25; Q4 boots (2026-10-17); PR #28 build next
 BASE=LineageOS 23.2 (Android 16 QPR2), official lineage_Q25 device (not a GSI)
 SABLE_LAYER=vendor/extra/product.mk -> vendor/sable/q25 (+ patches/framework at Q4)
 APPS_BUILD=PASS in GitHub Actions (Gradle build, unit tests, Lint, detekt, ktlint)
-IMAGE_BUILD_TESTED=Q1, Q2 (ai-g732, 2026-10-15); Q4 not built yet
-FRAMEWORK_PATCHES=checked with git apply against their base commits; uncompiled
-BOOT_TESTED=Q1, Q2 on a Q25 (2026-10-16/17); Q4 not flashed yet
+IMAGE_BUILD_TESTED=Q1, Q2 (ai-g732, 2026-10-15); Q4 (2026-10-17); PR #28 Q4 build running 2026-10-22
+FRAMEWORK_PATCHES=88 patches; all apply in order (stage, 2026-10-22); the 2026-10-17 set compiled, later additions not yet
+BOOT_TESTED=Q1, Q2 on a Q25 (2026-10-16/17); Q4 (2026-10-17); PR #28 build not flashed yet
 FLASH_SCRIPT=NONE (manual, documented steps; tested for Q1 and Q2)
 ```
 
