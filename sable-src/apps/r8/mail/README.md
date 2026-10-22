@@ -55,10 +55,12 @@ product-policy change is explicitly listed below.
   Alt, Shift, Sym, letters; no Fn or Ctrl): `src/.../SableMailKeymap.kt`
   (unit-tested, copied into `legacy/ui/legacy`) replaces the upstream K-9
   hotkeys in the message list and reader. C compose, T newest, J/N next,
-  K/P previous, R reply, A reply all, F forward, D or Backspace delete,
-  `/` or S search, V (or O) cycle sort, Space / Shift+Space page, Esc back;
-  upstream actions stay on E archive, X select, G flag, M move, Y copy,
-  Z read/unread, I reverse sort. Single keys never fire while a text field
+  K/P previous, R reply, L reply all, F forward, D or Backspace delete,
+  V archive, E show/hide quoted text, A attachments, `/` or S search,
+  O cycle sort, Space / Shift+Space page, Esc back (V/L/E/A follow the
+  approved mail artifact); upstream actions stay on X select, G flag,
+  M move, Y copy, Z read/unread, I reverse sort. On the square screen the
+  list and reader always split, with a bottom command dock and hint line. Single keys never fire while a text field
   has focus. In compose, Ctrl+Enter or Alt+Enter sends and Esc cancels;
 - delete asks for confirmation by default (upstream default is off).
 
