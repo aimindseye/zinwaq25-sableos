@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 22 Oct 2026 04:21:57 +0000
+Subject: [PATCH] SableOS: stop the Q25 keyboard driver logging every key and
+ trackpad move
+
+bbqX0kbd builds with DEBUG_LEVEL FE|RW|LD, so BBQX0KBD_KEYBOARD_LOG prints
+several pr_err lines per interrupt, key press and trackpad movement. Send
+them to pr_debug instead: they compile out on GKI builds without dynamic
+debug for this module, and BBQX0KBD_KEYBOARD_ERR still reports errors.
+---
+ drivers/input/keyboard/bbqX0kbd/debug_levels.h | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/input/keyboard/bbqX0kbd/debug_levels.h b/drivers/input/keyboard/bbqX0kbd/debug_levels.h
+index cd8b7b43..a6c20680 100644
+--- a/drivers/input/keyboard/bbqX0kbd/debug_levels.h
++++ b/drivers/input/keyboard/bbqX0kbd/debug_levels.h
+@@ -33,7 +33,13 @@
+ #define DRIVER_NAME			"BBQX0KBD"
+  
+ #if DEBUG_LEVEL
+-#define BBQX0KBD_KEYBOARD_LOG(fmt, args...)    pr_err("[%s] %s %d: " fmt, DRIVER_NAME, __func__, __LINE__, ##args)
++/*
++ * SableOS: the trace lines below run on every interrupt, key and trackpad
++ * movement. At pr_err they reach the console and logd's kernel reader each
++ * time; at pr_debug they compile out unless DEBUG or dynamic debug is on.
++ * Real errors still use BBQX0KBD_KEYBOARD_ERR.
++ */
++#define BBQX0KBD_KEYBOARD_LOG(fmt, args...)    pr_debug("[%s] %s %d: " fmt, DRIVER_NAME, __func__, __LINE__, ##args)
+ #else
+ #define BBQX0KBD_KEYBOARD_LOG(fmt, args...)
+ #endif
+-- 
+2.43.0
+

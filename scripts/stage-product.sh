@@ -155,6 +155,9 @@ if [[ "$FRAMEWORK" == YES ]]; then
     # bbqX0kbd driver (kernel and Settings patches 0901).
     mkdir -p "$VENDOR_SABLE/etc/init"
     cp "$SABLE_REPO_ROOT/product/q25/init/sable-keyboard-backlight.rc" "$VENDOR_SABLE/etc/init/"
+    # Battery guard: turns MediaTek's userdebug pr_debug logging back off; on
+    # /product so init runs it after the vendor mtklog.rc (power.md).
+    cp "$SABLE_REPO_ROOT/product/q25/init/sable-power.rc" "$VENDOR_SABLE/etc/init/"
     cat >> "$fw_mk" <<'MK'
 PRODUCT_PACKAGES += \
     SableLauncher \
@@ -172,7 +175,8 @@ PRODUCT_SYSTEM_EXT_PROPERTIES += \
     ro.sable.keyboard_backlight=true
 PRODUCT_COPY_FILES += \
     vendor/sable/q25/etc/battery/zinwa-q25.conf:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/sable/battery/zinwa-q25.conf \
-    vendor/sable/q25/etc/init/sable-keyboard-backlight.rc:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/init/sable-keyboard-backlight.rc
+    vendor/sable/q25/etc/init/sable-keyboard-backlight.rc:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/init/sable-keyboard-backlight.rc \
+    vendor/sable/q25/etc/init/sable-power.rc:$(TARGET_COPY_OUT_PRODUCT)/etc/init/sable-power.rc
 MK
     bash "$SABLE_REPO_ROOT/scripts/apply-framework-patches.sh" apply
 else

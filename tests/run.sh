@@ -157,6 +157,8 @@ if out="$(stagerun Q4 --apps-dir "$tmp/apps/run")"; then
     [[ -f "$v/etc/battery/zinwa-q25.conf" ]] || ok=no
     [[ -f "$v/etc/init/sable-keyboard-backlight.rc" ]] || ok=no
     grep -q 'etc/init/sable-keyboard-backlight.rc' "$v/sable-q25-framework.mk" || ok=no
+    [[ -f "$v/etc/init/sable-power.rc" ]] || ok=no
+    grep -q "etc/init/sable-power.rc:[$](TARGET_COPY_OUT_PRODUCT)/etc/init/sable-power.rc" "$v/sable-q25-framework.mk" || ok=no
     grep -q 'ro.sable.keyboard_backlight=true' "$v/sable-q25-framework.mk" || ok=no
     grep -q 'name: "SableLauncher"' "$v/src/SableStart/Android.bp" || ok=no
     grep -q 'name: "sable_design_shared_srcs"' "$v/src/sabledesign/Android.bp" || ok=no
@@ -366,6 +368,20 @@ if [[ -f "${led_parts2[0]}" ]]; then
 else led_missing="$led_missing file:LineageParts/0504"; fi
 grep -q 'name="config_notificationsBatteryFullARGB">0xFF00FF00<' "$led_ov" || led_missing="$led_missing overlay:full-green"
 if [[ -z "$led_missing" ]]; then pass "notification LED: red default, lit alerting channels, blinking charge light and green only at 100 % (frameworks/base 0501, lineage-sdk 0502/0504, LineageParts 0503/0504)"; else fail "notification LED:$led_missing"; fi
+
+# 6g3. Battery drain guards (Q4-POWER-IDLE): no Doze location prefetch, and
+# MediaTek's userdebug pr_debug switched back off from /product (after vendor).
+pw_missing=""
+grep -q 'name="config_autoPowerModePrefetchLocation">false<' product/common/overlay/SableFrameworkOverlay/res/values/sable_power.xml || pw_missing="$pw_missing overlay:prefetch"
+grep -q '^on property:sys.boot_completed=1$' product/q25/init/sable-power.rc || pw_missing="$pw_missing rc:trigger"
+grep -qF 'write /proc/dynamic_debug/control "file *mediatek* -p"' product/q25/init/sable-power.rc || pw_missing="$pw_missing rc:dyndbg"
+grep -q 'Q4-POWER-IDLE' docs/QUALIFICATION.md || pw_missing="$pw_missing qualification"
+kq=(patches/framework/kernel/xelex/mt6789/0202-*.patch)
+if [[ -f "${kq[0]}" ]]; then
+    grep -qF '+#define BBQX0KBD_KEYBOARD_LOG(fmt, args...)    pr_debug(' "${kq[0]}" || pw_missing="$pw_missing kernel:pr_debug"
+    grep -q '^diff --git a/drivers/input/keyboard/bbqX0kbd/debug_levels.h' "${kq[0]}" || pw_missing="$pw_missing kernel:file"
+else pw_missing="$pw_missing file:kernel/0202"; fi
+if [[ -z "$pw_missing" ]]; then pass "battery drain guards: no Doze location prefetch, MediaTek and keyboard debug logging off"; else fail "battery drain guards:$pw_missing"; fi
 
 tools_link=sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
 missing=""

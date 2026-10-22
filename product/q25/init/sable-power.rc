@@ -1,0 +1,14 @@
+# SableOS Zinwa Q25: battery guards (docs/implementation/power.md, Q4-POWER-IDLE).
+#
+# The vendor mtklog.rc turns on every pr_debug in "*mediatek*" files on
+# userdebug and eng builds (`file *mediatek* +p` at sys.boot_completed=1),
+# which is MediaTek's engineering logging. SableOS builds are userdebug for
+# adb root, not for vendor debug logs, so turn it back off. Installed to
+# /product/etc/init: init parses /product after /vendor, and actions for the
+# same property change run in parse order, so this runs after mtklog.rc.
+# With GKI's CONFIG_DYNAMIC_DEBUG_CORE only modules built with
+# DYNAMIC_DEBUG_MODULE have entries, so this may match nothing; check with
+# `adb shell grep -c '=p' /proc/dynamic_debug/control`.
+
+on property:sys.boot_completed=1
+    write /proc/dynamic_debug/control "file *mediatek* -p"
