@@ -24,6 +24,7 @@ import org.sableos.hub.policy.AndroidSettingsRoutes
 import org.sableos.hub.policy.HubCallRedaction
 import org.sableos.hub.policy.HubHandoffRouter
 import org.sableos.hub.policy.HubHandoffTarget
+import org.sableos.hub.policy.HubPrivacyState
 import org.sableos.hub.policy.HubRedaction
 import org.sableos.hub.policy.HubSourcePrivacy
 import org.sableos.hub.policy.NotificationConcept
@@ -138,6 +139,11 @@ class HubRepository(
             people = people,
             mail = loadMailSnapshot(),
             calls = calls,
+            privacy =
+                HubPrivacyState(
+                    deviceLocked = privacyReader.deviceLocked(),
+                    privateMode = HubPreferences(context).privateMode(),
+                ),
         )
     }
 
