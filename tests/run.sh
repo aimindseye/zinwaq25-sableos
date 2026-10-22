@@ -267,6 +267,42 @@ if command -v javac >/dev/null 2>&1; then
 else
     printf 'SKIP  javac not installed (Settings Applications model tests)\n'
 fi
+# 6f2. Battery health model (Settings patches 0201 and 1301) host tests, with the shipped Q25
+# profile checked under the same parser (ProfileFileCheckTest), and kernel 0201 reporting the
+# gauge's learned values instead of the fixed MediaTek ones.
+if command -v javac >/dev/null 2>&1; then
+    sb="$tmp/settings-battery"
+    mkdir -p "$sb/out"
+    for p in "$ROOT"/patches/framework/packages/apps/Settings/0201-*.patch \
+        "$ROOT"/patches/framework/packages/apps/Settings/1301-*.patch; do
+        (cd "$sb" && git apply --include='src/com/android/settings/fuelgauge/sable/model/*' \
+            --include='tests/sable-battery/src/*' "$p")
+    done
+    mapfile -t sb_src < <(find "$sb/src" "$sb/tests" tests/java/junit-shim -name '*.java')
+    mapfile -t sb_tests < <(cd "$sb/tests/sable-battery/src" && find . -name '*Test.java' | sed 's#^\./##; s#\.java$##; s#/#.#g' | sort)
+    if javac -encoding UTF-8 -d "$sb/out" "${sb_src[@]}" 2>"$tmp/err" &&
+        java -Dsable.battery.profile="$ROOT/device-profile/battery/zinwa-q25.conf" -cp "$sb/out" \
+            org.junit.Run "${sb_tests[@]}" >"$tmp/out" 2>&1; then
+        pass "Settings battery health model host tests and Q25 profile ($(grep -o 'RAN=[0-9]*' "$tmp/out"))"
+    else
+        fail "Settings battery health model tests: $(cat "$tmp/err" "$tmp/out" | grep -v JAVA_TOOL | head -5)"
+    fi
+else
+    printf 'SKIP  javac not installed (Settings battery health model tests)\n'
+fi
+bh_k=(patches/framework/kernel/xelex/mt6789/0201-*.patch)
+bh_bad=""
+[[ -f "${bh_k[0]}" ]] || bh_bad="$bh_bad file:kernel/0201"
+if [[ -f "${bh_k[0]}" ]]; then
+    grep -qF -- '-		val->intval = 1;' "${bh_k[0]}" || bh_bad="$bh_bad cycle-fixed-1"
+    grep -qF '+			val->intval = gm->bat_cycle;' "${bh_k[0]}" || bh_bad="$bh_bad cycle-learned"
+    grep -qF '+			ret = -ENODATA;' "${bh_k[0]}" || bh_bad="$bh_bad enodata"
+    grep -qF '+	int af = gm->algo.active ? gm->algo.aging_factor : gm->aging_factor;' "${bh_k[0]}" || bh_bad="$bh_bad aging"
+fi
+grep -q '^health_cycle_count_supported=YES$' device-profile/battery/zinwa-q25.conf || bh_bad="$bh_bad profile:cycles"
+grep -q 'Q4-BATTERY-HEALTH-Q25' docs/QUALIFICATION.md || bh_bad="$bh_bad qualification-row"
+if [[ -z "$bh_bad" ]]; then pass "Q25 battery health: kernel 0201 learned values, profile, qualification row"; else fail "Q25 battery health:$bh_bad"; fi
+
 # 6g. Keyboard light. The Q25 keyboard firmware ignores host writes to its
 # backlight register, so Settings patch 0901 adds only a read-only info row
 # (no switch, slider or property writes), gated on ro.sable.keyboard_backlight.

@@ -133,7 +133,7 @@ Repository (`q25/battery`):
 | `patches/framework/packages/apps/Settings/0201-SableOS-battery-health-and-usage-model-with-host-tes.patch` | Pure Java model + host tests + `SettingsSableBatteryModel-srcs` filegroup |
 | `patches/framework/packages/apps/Settings/0202-SableOS-Battery-health-and-Charging-protection-in-Se.patch` | Settings glue, resources, overview rows, gates, history hook, keyboard support |
 | `patches/framework/packages/apps/Settings/0203-SableOS-keyboard-inspection-for-the-battery-usage-ch.patch` | `BatteryChartView` keyboard inspection |
-| `device-profile/battery/zinwa-q25.conf` | Q25 battery capability profile: every fact UNKNOWN, `mutable_backend_qualified=NO`, rated 3000 mAh as a sanity bound |
+| `device-profile/battery/zinwa-q25.conf` | Q25 battery capability profile: capacity, cycle count, temperature and voltage YES on source evidence (kernel 0201), status/charge counter/usage UNKNOWN, dates NO, `mutable_backend_qualified=NO`, rated 3000 mAh as a sanity bound |
 | `device-profile/BATTERY.md` | Known Q25 battery facts with sources, and the evidence needed per key |
 | `device-profile/CAPABILITIES.md` | Battery rows added |
 | `docs/implementation/battery.md` | This file |
@@ -254,7 +254,10 @@ test). Not run here.
 * **BH7**: keyboard, touch, TalkBack, font scale and focus restoration on a Q25;
   screenshots at 720x720; whether a letter key in touch mode focuses a row
   (type-ahead only sees keys once something in the list has focus).
-* **Q25 evidence**: every health key in `zinwa-q25.conf` is UNKNOWN; the
+* **Q25 evidence**: kernel 0201 makes `mtk_battery` export the fuel gauge's learned
+  cycle count and aged full capacity (and fixes the 10x design capacity), so the
+  capacity, cycle, temperature and voltage keys are YES on source evidence; Settings
+  1301 adds the Voltage row. The device check is Q4-BATTERY-HEALTH-Q25 and the adb
   procedure is in `device-profile/BATTERY.md`.
 * Type-ahead is implemented for the Battery screens only, as reusable classes;
   a Settings-wide type-ahead is outside this package.
