@@ -628,6 +628,31 @@ if ! bash tests/framework/run-pure-tests.sh; then fail "framework pure tests"; f
 # 14. DESIGN-KF-A static gates for Sable Hub and the notification framework patches.
 if bash tests/kf-a-notification-policy-check.sh; then pass "KF-A notification policy gates"; else fail "KF-A notification policy gates"; fi
 
+# 15. Default still camera and the camera/calendar design patches (sable-src 0040-0041, Aperture 0801).
+cam_bad=""
+cam_manifest=sable-src/apps/titan2/platform/camera/src/main/AndroidManifest.xml
+for action in STILL_IMAGE_CAMERA IMAGE_CAPTURE; do
+    grep -q "<action android:name=\"android.media.action.$action\" />" "$cam_manifest" || cam_bad="$cam_bad camera:$action"
+    grep -q "^-                <action android:name=\"android.media.action.$action\" />" \
+        patches/framework/packages/apps/Aperture/0801-*.patch || cam_bad="$cam_bad aperture-keeps:$action"
+done
+grep -q '^+.*android.media.action.\(VIDEO\|STILL_IMAGE_CAMERA_SECURE\|IMAGE_CAPTURE_SECURE\)' \
+    patches/framework/packages/apps/Aperture/0801-*.patch && cam_bad="$cam_bad aperture-adds"
+grep -q '^-.*android.media.action.\(VIDEO\|STILL_IMAGE_CAMERA_SECURE\|IMAGE_CAPTURE_SECURE\)' \
+    patches/framework/packages/apps/Aperture/0801-*.patch && cam_bad="$cam_bad aperture-drops-video-or-secure"
+grep -q 'trackpadArrows = true' sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/DeviceProfile.kt ||
+    cam_bad="$cam_bad no-trackpad-guard"
+for p in patches/sable-src/0040-*.patch patches/sable-src/0041-*.patch; do
+    [[ -s "$p" ]] || cam_bad="$cam_bad missing:$p"
+done
+if [[ -z "$cam_bad" ]]; then pass "Sable Camera is the default still camera; Aperture keeps video and secure"; else fail "default camera:$cam_bad"; fi
+cal_keys=sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarWeek.kt
+cal_bad=""
+for k in C T V J K R; do grep -q "KeyEvent.KEYCODE_$k -> CalendarScreenKey" "$cal_keys" || cal_bad="$cal_bad key:$k"; done
+grep -q 'override fun onKeyDown' sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt || cal_bad="$cal_bad no-activity-keys"
+grep -q 'fun nowLine' "$cal_keys" || cal_bad="$cal_bad no-now-line"
+if [[ -z "$cal_bad" ]]; then pass "Sable Calendar week view, NOW line and C/T/V/J/K/R keys"; else fail "calendar:$cal_bad"; fi
+
 echo
 if ((fails)); then echo "CI=FAIL ($fails)"; exit 1; fi
 echo "CI=PASS"

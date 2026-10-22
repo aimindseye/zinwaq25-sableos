@@ -83,6 +83,12 @@ object ControlGate {
 
         CameraAction.CompareToggle -> need(c.ui == UiMode.Photo, "Photo only")
 
+        CameraAction.RawToggle -> if (c.ui == UiMode.Photo) {
+            need(PhotoPath.rawToggle(CaptureMode.Auto, c.cam) != null, "No RAW or high-res path")
+        } else {
+            Gate.Closed("Photo only")
+        }
+
         else -> null
     }
 
