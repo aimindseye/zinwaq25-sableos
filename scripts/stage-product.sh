@@ -16,6 +16,11 @@
 # SABLE_Q25_CAMERA_50MP=YES (default NO, build/config/q25.env) also stages the
 # optional 50 MP camera change (product/q25/camera-50mp, scripts/camera-50mp.py)
 # for any release with the Sable layer. Every run reverts it first.
+#
+# SABLE_Q25_MICROG=YES (default YES, build/config/q25.env) also stages microG
+# and Aurora Store (product/q25/microg) for Q4 and later. The APKs come from
+# scripts/fetch-microg.sh and are sha256-checked again here; staging fails if
+# they are missing. NO leaves them out.
 set -euo pipefail
 
 # shellcheck source=build/lib/common.sh
@@ -42,6 +47,8 @@ sable_release_has_framework_layer "$RELEASE" && FRAMEWORK=YES
 EXTRA="$SABLE_ANDROID_ROOT/vendor/extra/product.mk"
 CAMERA_50MP="${SABLE_Q25_CAMERA_50MP:-NO}"
 [[ "$CAMERA_50MP" == YES || "$CAMERA_50MP" == NO ]] || sable_fail "SABLE_Q25_CAMERA_50MP must be YES or NO"
+MICROG="${SABLE_Q25_MICROG:-YES}"
+[[ "$MICROG" == YES || "$MICROG" == NO ]] || sable_fail "SABLE_Q25_MICROG must be YES or NO"
 
 # Undo the optional 50 MP change from an earlier stage; re-applied below when on.
 python3 -I "$SABLE_REPO_ROOT/scripts/camera-50mp.py" revert --android-root "$SABLE_ANDROID_ROOT" >/dev/null
@@ -174,6 +181,18 @@ PRODUCT_COPY_FILES += \
     vendor/sable/q25/etc/battery/zinwa-q25.conf:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/sable/battery/zinwa-q25.conf \
     vendor/sable/q25/etc/init/sable-keyboard-backlight.rc:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/init/sable-keyboard-backlight.rc
 MK
+    # microG and Aurora Store (Play Store apps), only with hash-checked APKs.
+    if [[ "$MICROG" == YES ]]; then
+        bash "$SABLE_REPO_ROOT/scripts/fetch-microg.sh" --check >/dev/null
+        mkdir -p "$VENDOR_SABLE/microg/prebuilt"
+        cp -a "$SABLE_REPO_ROOT/product/q25/microg/Android.bp" "$SABLE_REPO_ROOT/product/q25/microg/microg.mk" \
+            "$SABLE_REPO_ROOT/product/q25/microg/etc" "$VENDOR_SABLE/microg/"
+        while IFS=$'\t' read -r module _; do
+            [[ -z "$module" || "$module" == \#* || "$module" == module ]] && continue
+            install -m 0644 "$SABLE_MICROG_CACHE/$module.apk" "$VENDOR_SABLE/microg/prebuilt/$module.apk"
+        done < "${SABLE_MICROG_PREBUILTS:-$SABLE_REPO_ROOT/product/q25/microg/prebuilts.tsv}"
+        echo '-include vendor/sable/q25/microg/microg.mk' >> "$fw_mk"
+    fi
     bash "$SABLE_REPO_ROOT/scripts/apply-framework-patches.sh" apply
 else
     bash "$SABLE_REPO_ROOT/scripts/apply-framework-patches.sh" revert >/dev/null
@@ -197,3 +216,4 @@ echo "VENDOR_SABLE=$VENDOR_SABLE"
 echo "APP_COUNT=$count"
 echo "FRAMEWORK_LAYER=$FRAMEWORK"
 echo "CAMERA_50MP=$CAMERA_50MP"
+if [[ "$FRAMEWORK" == YES ]]; then echo "MICROG=$MICROG"; else echo "MICROG=NO (Q4 and later only)"; fi

@@ -54,7 +54,7 @@ which hosted runners can't hold.
 
 | What to build | Things to watch |
 |---|---|
-| Q4 image (`bash build/sable.sh q25 Q4 build`) | Never built. Q1 and Q2 built on ai-g732 on 2026-10-15. After the Q2 build the dynamic partitions had about 57 MB free, so watch partition headroom when SableLauncher, the overlays and the patched apps are added. |
+| Q4 image (`bash build/sable.sh q25 Q4 build`) | Never built. Q1 and Q2 built on ai-g732 on 2026-10-15. After the Q2 build the dynamic partitions had about 57 MB free, so watch partition headroom when SableLauncher, the overlays and the patched apps are added. microG and Aurora Store (`SABLE_Q25_MICROG=YES`, the default) add about 117 MB more, so the first Q4 build may overflow; [MICROG](MICROG.md) lists the ways out. |
 | `SableLauncher` (Sable Start as a Soong module) | Built only at Q4 staging, in the tree. CI compiles its presentation sources, not the Soong module. |
 | Framework patches | After `repo sync`, `bash scripts/apply-framework-patches.sh check` must say `APPLIES` for Launcher3, frameworks/base, Settings, SetupWizard, Dialer, Contacts and Glimpse. Then build SystemUI, Settings, SetupWizard, Dialer, Contacts, Glimpse, `SableLauncher` and the five overlays. Each patch's added and changed files were type-checked by hand against the Android 16 jar when it was written; a second pass over the whole Launcher3 and SystemUI trees was started and not finished. |
 | Settings Apps screens (0601-0604) | Type-checked against the Android 16 jar with stubbed androidx and SettingsLib; check resource linking, the `tests/sable-apps` host test module and the LineageOS `NetworkPolicyManager` calls. |

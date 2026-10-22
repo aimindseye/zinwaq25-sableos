@@ -1,0 +1,31 @@
+<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<!--
+    SableOS Q25: microG defaults (read by GmsCore's SettingsProvider from
+    /product/etc/com.google.android.gms/settings.xml). A choice the user makes in
+    microG Settings always replaces the value here. Where each one is changed:
+    docs/MICROG.md.
+-->
+<map>
+    <!-- Location: no Wi-Fi or cell network lookups and no learning by default.
+         GPS still works. microG Settings > Location turns each one on. -->
+    <boolean name="location_wifi_mls" value="false" />
+    <boolean name="location_wifi_moving" value="false" />
+    <boolean name="location_wifi_learning" value="false" />
+    <boolean name="location_wifi_caching" value="false" />
+    <boolean name="location_cell_mls" value="false" />
+    <boolean name="location_cell_learning" value="false" />
+    <boolean name="location_cell_caching" value="false" />
+    <boolean name="location_ichnaea_contribute" value="false" />
+    <boolean name="location_geocoder_nominatim" value="false" />
+    <boolean name="location_timeline" value="false" />
+    <boolean name="location_timeline_upload" value="false" />
+    <!-- SafetyNet / Play Integrity attestation (DroidGuard): off. -->
+    <boolean name="safetynet_enabled" value="false" />
+    <boolean name="droidguard_enabled" value="false" />
+    <!-- Exposure Notifications: off. -->
+    <boolean name="exposure_scanner_enabled" value="false" />
+    <!-- Device registration and Cloud Messaging (push): off until the user turns
+         them on in microG Settings (they contact Google and keep a connection open). -->
+    <boolean name="checkin_enable_service" value="false" />
+    <boolean name="gcm_enable_mcs_service" value="false" />
+</map>

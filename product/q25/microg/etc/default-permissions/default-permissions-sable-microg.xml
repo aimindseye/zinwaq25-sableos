@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    SableOS Q25: runtime permissions granted once, at first boot, to microG and
+    Aurora Store. None is fixed: the user can revoke each one in Settings > Apps.
+
+    Deliberately not granted (battery and privacy):
+      ACCESS_BACKGROUND_LOCATION  location only while an app that asked for it
+                                  is in use; turn on "Allow all the time" for
+                                  microG Services yourself if you want it
+      RECEIVE_SMS, READ/WRITE_CONTACTS, CAMERA, BODY_SENSORS, storage,
+      SYSTEM_ALERT_WINDOW         microG asks when a feature needs one
+-->
+<exceptions>
+    <exception package="com.google.android.gms">
+        <!-- Foreground location only, for apps that use the Google location API (maps). -->
+        <permission name="android.permission.ACCESS_COARSE_LOCATION" fixed="false" />
+        <permission name="android.permission.ACCESS_FINE_LOCATION" fixed="false" />
+        <!-- Google account sign-in in apps. -->
+        <permission name="android.permission.GET_ACCOUNTS" fixed="false" />
+        <!-- microG self-check item; used for device registration once it is turned on. -->
+        <permission name="android.permission.READ_PHONE_STATE" fixed="false" />
+        <permission name="android.permission.POST_NOTIFICATIONS" fixed="false" />
+    </exception>
+    <exception package="com.android.vending">
+        <permission name="android.permission.GET_ACCOUNTS" fixed="false" />
+        <permission name="android.permission.POST_NOTIFICATIONS" fixed="false" />
+    </exception>
+    <exception package="com.aurora.store">
+        <!-- Download and update notifications. -->
+        <permission name="android.permission.POST_NOTIFICATIONS" fixed="false" />
+    </exception>
+</exceptions>

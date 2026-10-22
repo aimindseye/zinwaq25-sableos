@@ -1,0 +1,33 @@
+# microG and Aurora Store prebuilts for the Q25 (SABLE_Q25_MICROG=YES, Q4 and later).
+#
+# No APK is tracked in git. scripts/fetch-microg.sh downloads each row's url into
+# SABLE_MICROG_CACHE (default $SABLE_BUILD_ROOT/microg-cache) and refuses any file whose
+# sha256 differs; scripts/stage-product.sh checks the hashes again before it stages them.
+# The APKs are installed exactly as their developers signed them (presigned): LineageOS
+# lets only the microG release key spoof Google's signature, so they must not be re-signed.
+#
+# Columns (tab-separated):
+#   module        Soong module name (product/q25/microg/Android.bp)
+#   package       application id
+#   version       versionName (versionCode)
+#   sha256        sha256 of the APK
+#   url           official download
+#
+# Sources and how the hashes were taken (2026-10-22):
+#   GmsCore, FakeStore: microG release v0.3.17.252432 (tag commit 32bc8954ff872d0e1a05ddfae81561b6dbecef69),
+#     https://github.com/microg/GmsCore/releases/tag/v0.3.17.252432. sha256 as published in the
+#     release's asset digests (each APK also has a .asc PGP signature by the microG team).
+#     "FakeStore" is the microG Companion (com.android.vending), built from the same repo.
+#     The standalone GsfProxy is not shipped: it is only for pre-2016 C2DM apps and GmsCore
+#     handles Google Services Framework itself.
+#   AuroraStore: Aurora Store 4.8.4 (76), https://gitlab.com/AuroraOSS/AuroraStore/-/releases/4.8.4.
+#     The standard build, not "preload": preload asks for INSTALL_PACKAGES and DELETE_PACKAGES
+#     as a privileged app; the standard build installs through the normal confirmation.
+#     sha256 computed from the file downloaded on 2026-10-22.
+#
+# To update: change version, url and sha256 in one reviewed commit, then
+#   NETWORK_FETCH_AUTHORIZED=YES bash scripts/fetch-microg.sh
+module	package	version	sha256	url
+GmsCore	com.google.android.gms	0.3.17.252432 (252432034)	e5e6cba078bdec812b5450599350e5c1a12c8b7438da5bf77123af170f8c1a35	https://github.com/microg/GmsCore/releases/download/v0.3.17.252432/com.google.android.gms-252432034.apk
+FakeStore	com.android.vending	0.3.17.252432 (84022634)	9b8616011cc8f026bcbbe094df850794abb9d6d9f23214d7a8f8c4d1033ea012	https://github.com/microg/GmsCore/releases/download/v0.3.17.252432/com.android.vending-84022634.apk
+AuroraStore	com.aurora.store	4.8.4 (76)	8a1ed9aa09631290da91cb793e0517b0f20dc70239ac94ae6682cd94f91a4bad	https://gitlab.com/-/project/6922885/uploads/245eec8867a47057cbc54535f73b32ee/AuroraStore-4.8.4.apk
