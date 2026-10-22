@@ -366,6 +366,17 @@ grep -q 'const val COLUMNS = 5' sable-src/src/android/packages/apps/SableStart/s
 for g in DENSITY GAMES KEYBOARD-STRIP WALLPAPER APPS WEATHER WEATHER-CITY DISPLAYCOMPAT RECENTS START-ICONS; do grep -q "^| Q4-REVIEW-$g |" docs/QUALIFICATION.md || q4_bad="$q4_bad gate:$g"; done
 if [[ -z "$q4_bad" ]]; then pass "Q4 review fixes (overrides, AudioFX, weather, display compat, games, keyboard strip, wallpaper)"; else fail "Q4 review fixes:$q4_bad"; fi
 
+# 6b1a. One Hub: Start's Hub page has the Contacts tab and the unread bar; Sable Hub has no launcher entry.
+hub_bad=""
+python3 -I -c 'import re,sys; s=open(sys.argv[1]).read(); sys.exit(1 if any("category.LAUNCHER" in f for f in re.findall(r"<intent-filter.*?</intent-filter>", s, re.S)) else 0)' sable-src/apps/r8/android/hub/src/main/AndroidManifest.xml || hub_bad="$hub_bad hub-launcher"
+grep -q 'HubAppCounts.rows' sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubSnapshotProvider.kt || hub_bad="$hub_bad no-app-counts"
+grep -q 'org.sableos.start.action.SHOW_HUB' sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml || hub_bad="$hub_bad no-show-hub"
+grep -q 'Contacts("Contacts")' sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HubBar.kt || hub_bad="$hub_bad no-contacts-tab"
+grep -q 'package="org.sableos.launcher"' product/q25/permissions/default-permissions-sable-q25.xml || hub_bad="$hub_bad no-start-contacts-grant"
+grep -q 'fixed="true"' product/q25/permissions/default-permissions-sable-q25.xml && hub_bad="$hub_bad fixed-grant"
+grep -q "^| Q4-HUB-ONE |" docs/QUALIFICATION.md || hub_bad="$hub_bad gate"
+if [[ -z "$hub_bad" ]]; then pass "one Hub: Start's Hub page (bar, Contacts tab), Hub headless"; else fail "one Hub:$hub_bad"; fi
+
 # 6b2. Optional 50 MP camera: the patcher on a synthetic vendor tree, and off by default.
 if python3 -I tests/test_camera_50mp.py >"$tmp/cam50" 2>&1; then
     pass "camera 50 MP patcher ($(grep -o 'Ran [0-9]* tests' "$tmp/cam50"))"

@@ -1,11 +1,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.sableos.launcher"
-    android:versionCode="90">
+    android:versionCode="91">
 
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
+
+    <!-- Hub page Contacts tab: names, favourites and one number per person, read on the
+         device and never stored. Granted once at first boot on the Q25
+         (product/q25/permissions/default-permissions-sable-q25.xml); revocable in Settings,
+         and the tab then asks again. -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
 
     <!-- All Apps privacy row (DESIGN-KF-D): read each profile's own permission
          state, hear runtime-permission changes, and hand uninstall to the
@@ -44,6 +50,8 @@
         <provider android:authorities="org.sableos.hub.connected_apps" />
         <provider android:authorities="org.sableos.mail.snapshot" />
         <provider android:authorities="org.sableos.media.snapshot" />
+        <!-- The Hub page's Messages card and Contacts tab Message action. -->
+        <package android:name="org.sableos.messages" />
     </queries>
 
     <application
@@ -83,6 +91,13 @@
                  Active Frames instead of Android's overview. -->
             <intent-filter>
                 <action android:name="org.sableos.start.action.SHOW_ACTIVE_FRAMES" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
+            <!-- The one Hub: Start's Hub page (All · Messages · Calls · Contacts), optionally on
+                 a tab (extra org.sableos.start.extra.HUB_FILTER). Sable Hub has no launcher entry. -->
+            <intent-filter>
+                <action android:name="org.sableos.start.action.SHOW_HUB" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>

@@ -75,7 +75,15 @@
   action Sable Tools and the FM notification open), 0062 Sable Start keeps Private Space tasks out of
   Active Frames, as All Apps does, 0063 Secure Vault says when a failed import leaves a partial
   copy behind, 0064 the ktlint and detekt fixes for Camera, Secure Vault, Display compatibility,
-  Hub and Calendar (no behaviour change). Applied in order to a
+  Hub and Calendar (no behaviour change), 0065 Sable Calculator as a shrunk release build (the Q4
+  image overflowed `super` by 0.86 MiB), 0066 the Q4 device review fixes (tappable display
+  compatibility rows, Sable Weather refreshes in the background, Start hides AudioFX and Messaging),
+  0067 game boards sized to the square screen and the keyboard's compact strip off on the Q25 with
+  the modifier state in the status bar, 0068 the weather city step in Sable Setup, 0069 one
+  tile-free glyph style and a 5-column grid in Sable Start, with the Recents key opening Active
+  Frames, 0070 Sable Start's Hub page is the one Hub (All · Messages · Calls · Contacts, a
+  Ripe-style unread bar from Hub's `snapshot/apps` route, Start READ_CONTACTS,
+  `org.sableos.start.action.SHOW_HUB`) and Sable Hub has no launcher entry. Applied in order to a
   fresh import they reproduce `sable-src/` exactly. Regenerate a patch with `git diff` against a
   fresh import when you change these files.
 

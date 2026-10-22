@@ -16,6 +16,21 @@ data class LiveDatum(
     val observedAtEpochMs: Long = 0L,
 )
 
+/**
+ * One app's unread notifications for the Hub page's unread bar, from Sable Hub's listener
+ * (`content://org.sableos.hub.snapshot/apps`): the package and a count, never message text.
+ * Package "*" is Hub's counts-only total (device locked or Sable private mode on).
+ */
+data class AppUnreadCount(
+    val packageName: String,
+    val count: Int,
+) {
+    init {
+        require(packageName.isNotBlank())
+        require(count >= 0)
+    }
+}
+
 data class LiveSurfaceSnapshot(
     val dateText: String,
     val timeText: String,
@@ -26,6 +41,8 @@ data class LiveSurfaceSnapshot(
     val music: LiveDatum,
     val photos: LiveDatum,
     val observedAtEpochMs: Long,
+    /** The Hub page's unread bar, most unread first; empty when Hub has nothing or is missing. */
+    val hubApps: List<AppUnreadCount> = emptyList(),
 ) {
     init {
         require(dateText.isNotBlank())
