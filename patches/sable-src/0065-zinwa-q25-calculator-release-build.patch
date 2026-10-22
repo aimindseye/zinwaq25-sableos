@@ -1,0 +1,29 @@
+diff --git a/sable-src/apps/r8/android/calculator/build.gradle.kts b/sable-src/apps/r8/android/calculator/build.gradle.kts
+index 56e2783..ae22d12 100644
+--- a/sable-src/apps/r8/android/calculator/build.gradle.kts
++++ b/sable-src/apps/r8/android/calculator/build.gradle.kts
+@@ -19,10 +19,13 @@ android {
+         }
+     }
+     buildTypes {
++        // The Q25 image ships the release variant (product/q25/apps.tsv): shrunk and signed by the
++        // platform build, so Q4 with microG fits the dynamic partitions (the ~30 MB debug APK
++        // overflowed them).
+         release {
+-            // The image ships the debug variant (product/q25/apps.tsv); a release build is shrunk and obfuscated.
+             isMinifyEnabled = true
+-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
++            isShrinkResources = true
++            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+         }
+     }
+     buildFeatures { compose = true }
+diff --git a/sable-src/apps/r8/android/calculator/proguard-rules.pro b/sable-src/apps/r8/android/calculator/proguard-rules.pro
+new file mode 100644
+index 0000000..8800be4
+--- /dev/null
++++ b/sable-src/apps/r8/android/calculator/proguard-rules.pro
+@@ -0,0 +1,3 @@
++# Rust JNI (sable-calculator-jni, sable-convert-jni) binds Java_org_sableos_*_NativeBridge_* by name.
++-keep class org.sableos.calculator.NativeBridge { *; }
++-keep class org.sableos.convert.NativeBridge { *; }

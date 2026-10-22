@@ -58,19 +58,29 @@ if [[ "$status" != 0 ]]; then
     sable_fail "build failed (exit $status); see $log"
 fi
 # Sable lock screen: fail the build when SystemUI's scene container is on
-# (sable_check_scene_container_off). The flag lives in the system aconfig store.
+# (sable_check_scene_container_off). The partition stores do not carry every
+# SystemUI flag (scene_container was in none of them on the 2026-10-22 Q4
+# build), so SystemUI's own aconfig declarations, with the release's values
+# applied, are read as well.
 if sable_release_has_framework_layer "$RELEASE"; then
     out_dir="$SABLE_ANDROID_ROOT/out/target/product/$SABLE_Q25_DEVICE"
     aconfig_bin="$SABLE_ANDROID_ROOT/out/host/linux-x86/bin/aconfig"
-    flags_pb="$out_dir/system/etc/aconfig_flags.pb"
-    [[ -x "$aconfig_bin" && -f "$flags_pb" ]] || {
+    caches=()
+    for part in system system_ext product vendor; do
+        [[ -f "$out_dir/$part/etc/aconfig_flags.pb" ]] && caches+=(--cache "$out_dir/$part/etc/aconfig_flags.pb")
+    done
+    while IFS= read -r pb; do
+        caches+=(--cache "$pb")
+    done < <(find "$SABLE_ANDROID_ROOT/out/soong/.intermediates/frameworks/base/packages/SystemUI/aconfig/com_android_systemui_flags" \
+        -name '*.pb' 2>/dev/null | sort)
+    [[ -x "$aconfig_bin" && ${#caches[@]} -gt 0 ]] || {
         write_marker FAIL
-        sable_fail "cannot check scene_container: missing $aconfig_bin or $flags_pb"
+        sable_fail "cannot check scene_container: missing $aconfig_bin or every aconfig flag store"
     }
     if ! { "$aconfig_bin" dump-cache --dedup --format='{fully_qualified_name}={state}' \
-            --cache "$flags_pb" 2>/dev/null ||
+            "${caches[@]}" 2>/dev/null ||
         "$aconfig_bin" dump --dedup --format='{fully_qualified_name}={state}' \
-            --cache "$flags_pb"; } | sable_check_scene_container_off; then
+            "${caches[@]}"; } | sable_check_scene_container_off; then
         write_marker FAIL
         sable_fail "SystemUI scene_container is enabled or unreadable; the Sable lock screen (frameworks/base 0304-0307) needs the legacy keyguard"
     fi

@@ -331,6 +331,7 @@ grep -q 'fixed="true"' "$mgp/etc/default-permissions/default-permissions-sable-m
 [[ "$(grep -o 'package="[^"]*"' "$mgp/etc/sysconfig/sable-microg.xml" | sort -u)" == 'package="com.google.android.gms"' ]] || mg_bad="$mg_bad sysconfig-package"
 [[ "$(grep -o '<privapp-permissions package="[^"]*"' "$mgp/etc/permissions/privapp-permissions-sable-microg.xml")" == '<privapp-permissions package="com.google.android.gms"' ]] || mg_bad="$mg_bad privapp-scope"
 grep -A12 'name: "GmsCore"' "$mgp/Android.bp" | grep -q 'privileged: true' || mg_bad="$mg_bad gms-priv"
+grep -A16 'name: "GmsCore"' "$mgp/Android.bp" | grep -q 'skip_preprocessed_apk_checks: true' || mg_bad="$mg_bad gms-dex-check"
 [[ "$(grep -c 'presigned: true' "$mgp/Android.bp")" == 3 ]] || mg_bad="$mg_bad presigned"
 for m in FakeStore AuroraStore; do grep -A8 "name: \"$m\"" "$mgp/Android.bp" | grep -q 'privileged: false' || mg_bad="$mg_bad $m-priv"; done
 for f in privapp-permissions-sable-microg.xml default-permissions-sable-microg.xml sysconfig-sable-microg.xml sable-microg-settings.xml; do

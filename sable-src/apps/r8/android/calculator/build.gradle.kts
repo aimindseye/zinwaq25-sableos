@@ -19,10 +19,13 @@ android {
         }
     }
     buildTypes {
+        // The Q25 image ships the release variant (product/q25/apps.tsv): shrunk and signed by the
+        // platform build, so Q4 with microG fits the dynamic partitions (the ~30 MB debug APK
+        // overflowed them).
         release {
-            // The image ships the debug variant (product/q25/apps.tsv); a release build is shrunk and obfuscated.
             isMinifyEnabled = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
     buildFeatures { compose = true }

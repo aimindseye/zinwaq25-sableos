@@ -2,8 +2,9 @@
 
 Status: **the Sable apps build and pass their quality gates in GitHub Actions
 (section 7). Q1 and Q2 images were built on ai-g732 on 2026-10-15 and boot on a
-Q25. Q4 (the framework layer) was first built on 2026-10-17 and boots; the
-PR #28 additions are being built for the first time.**
+Q25. Q4 (the framework layer) was first built on 2026-10-17 and boots. The
+PR #28 Q4 image was built on 2026-10-22 after three fixes from that run (PR #31,
+see Troubleshooting) and has not been flashed yet.**
 
 ## 1. Host
 
@@ -135,10 +136,10 @@ product partition. See [`MICROG.md`](MICROG.md).
 
 ## 5. Outputs
 
-`~/sable-q25/artifacts/q25/<release>/<stamp>/`:
+`$SABLE_BUILD_ROOT/artifacts/q25/<release>/<stamp>/` (default `~/sable-q25`):
 
 ```text
-sableos-q25-Q2-YYYYMMDD-userdebug.zip   recovery-sideloadable package
+sableos-q25-<release>-YYYYMMDD-userdebug.zip   recovery-sideloadable package
 boot.img  dtbo.img  vbmeta.img  vendor_boot.img
 super_empty.img (if produced)
 props/   build.prop files
@@ -228,3 +229,32 @@ its path filter never reports.
   `prebuilts/clang/kernel/linux-x86/clang-r416183b`, which the LineageOS manifest
   provides.
 * **Duplicate project errors on sync:** remove `.repo/local_manifests/roomservice.xml`.
+* **`GmsCore.apk: Contains compressed dex files and is privileged`:** the microG
+  release APK keeps its dex compressed, and repacking it would break the signature
+  LineageOS checks before allowing signature spoofing. `product/q25/microg/Android.bp`
+  sets `skip_preprocessed_apk_checks: true` on GmsCore only (PR #31).
+* **`sum of sizes of [...] is greater than BOARD_mediatek_dynamic_partitions_SIZE`:**
+  the six dynamic partitions must fit in 4,827,643,904 bytes (half of `super` minus
+  4 MiB, set by the device tree). The 2026-10-22 Q4 build with microG was 905,216
+  bytes over; shipping Sable Calculator as an R8-shrunk release build instead of its
+  ~30 MB debug APK fixed it (PR #31). The other r8 apps (Media, Hub, Weather,
+  Calendar, Text Reader) still ship debug builds of about 30 MB each, so moving
+  one of them to release is the next way to free space. Re-run `apps` after any
+  change to `product/q25/apps.tsv`.
+* **`SystemUI scene_container is enabled or unreadable`:** the Q4 build reads
+  `com.android.systemui.scene_container` from the partition aconfig stores and
+  from SystemUI's own `com_android_systemui_flags` declarations. It is a
+  read-only flag, so it appears only in the declarations; on 2026-10-22 it read
+  `DISABLED READ_ONLY`. Check it by hand with:
+
+  ```bash
+  find out/soong/.intermediates/frameworks/base/packages/SystemUI/aconfig/com_android_systemui_flags \
+      -name '*.pb' -exec out/host/linux-x86/bin/aconfig dump-cache --dedup \
+      --format='{fully_qualified_name}={state} {permission}' --cache {} \; | grep scene_container
+  ```
+
+  If it says `ENABLED`, the Sable lock screen (frameworks/base 0304-0307) would not
+  show; don't flash that image.
+* **`artifacts` says the last build is FAIL:** the post-build checks failed even if
+  ninja finished. Fix the reported cause and run `build` again; an unchanged tree
+  rebuilds quickly.
