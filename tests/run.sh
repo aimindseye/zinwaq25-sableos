@@ -166,7 +166,7 @@ if out="$(stagerun Q4 --apps-dir "$tmp/apps/run")"; then
         grep -q "$o" "$v/sable-q25-framework.mk" || ok=no
         grep -q "name: \"$o\"" "$v/overlay/Android.bp" || ok=no
     done
-    [[ -f "$v/overlay/SableSystemUIOverlay/res/values-notlong/config.xml" ]] || ok=no
+    [[ -f "$v/overlay/SableSystemUIOverlay/res/values/sable_quick_settings.xml" ]] || ok=no
     grep -q 'SableNoUpdater' "$v/sable-q25-framework.mk" || ok=no
     grep -q '^SABLE_Q25_NO_UPDATER := true' "$v/sable-q25-framework.mk" || ok=no
     grep -q 'overrides: \["Updater"\]' "$v/updater/Android.bp" || ok=no

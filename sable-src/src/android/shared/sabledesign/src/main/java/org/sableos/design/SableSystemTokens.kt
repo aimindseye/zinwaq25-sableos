@@ -210,15 +210,32 @@ data class SableQuickSettingsLayout(
     val largeTileSpan: Int,
     val compactRows: Int,
     val allDefaultTilesLarge: Boolean,
+    /** Tiles in one compact-shade row (SystemUI config_sableQuickQsNumColumns). */
+    val compactColumns: Int = gridColumns,
+    /** Small tiles show their label under the icon (SystemUI config_sableQsSmallTileLabels). */
+    val smallTileLabels: Boolean = false,
 ) {
-    /** Visible labeled tiles per row; 2 is the "two-column" grid the design prefers on square screens. */
+    /**
+     * Visible labeled tiles per row: every column when small tiles are labeled (the
+     * sable-quick-settings-titan2 three-column grid), else the large tiles that fit.
+     */
     val labeledTilesPerRow: Int
-        get() = gridColumns / largeTileSpan
+        get() = if (smallTileLabels) gridColumns else gridColumns / largeTileSpan
 
     companion object {
         fun forDisplayClass(displayClass: SableDisplayClass): SableQuickSettingsLayout =
             when (displayClass) {
-                SableDisplayClass.SquareKeyboard -> SableQuickSettingsLayout(4, 2, 2, allDefaultTilesLarge = true)
+                // sable-quick-settings-titan2: three columns of small labeled square tiles,
+                // one compact row of four.
+                SableDisplayClass.SquareKeyboard ->
+                    SableQuickSettingsLayout(
+                        gridColumns = 3,
+                        largeTileSpan = 2,
+                        compactRows = 1,
+                        allDefaultTilesLarge = false,
+                        compactColumns = 4,
+                        smallTileLabels = true,
+                    )
                 SableDisplayClass.CompactPortrait -> SableQuickSettingsLayout(4, 2, 2, allDefaultTilesLarge = false)
                 SableDisplayClass.Tall -> SableQuickSettingsLayout(4, 2, 2, allDefaultTilesLarge = false)
             }
@@ -226,13 +243,15 @@ data class SableQuickSettingsLayout(
 }
 
 /**
- * Default Quick Settings tiles, high-value controls first. Only stock
- * SystemUI tile specs; profile-gated tiles (keyboard backlight, SubScreen,
- * AOD) are added by a validated device profile, never by default.
+ * Default Quick Settings tiles, high-value controls first; the first four
+ * are the compact shade row of sable-quick-settings-titan2. Only stock
+ * SystemUI tile specs; profile-gated tiles (SubScreen, AOD) are added by a
+ * validated device profile, never by default. There is no keyboard light
+ * tile: the Q25 keyboard firmware ignores host writes.
  */
 object SableQuickSettingsTiles {
     val DEFAULT: List<String> =
-        listOf("internet", "bt", "dark", "battery", "dnd", "flashlight", "location", "hotspot", "airplane")
+        listOf("internet", "bt", "dark", "dnd", "battery", "flashlight", "hotspot", "location", "airplane")
 
     val PROFILE_GATED: Set<String> = setOf("aod", "ambient_display")
 }

@@ -333,9 +333,54 @@ STOCK_TILES = {
 report(set(tiles) <= STOCK_TILES, "default tiles are stock SystemUI tiles", str(set(tiles) - STOCK_TILES))
 report(not ({"aod", "ambient_display"} & set(tiles)), "profile-gated tiles are not default")
 
-notlong = resources(OVERLAY / "SableSystemUIOverlay/res/values-notlong/config.xml")
-large_tiles = [i.text.strip() for i in notlong[("string-array", "quick_settings_default_large_tiles")]]
-report(large_tiles == default_tiles, "square screens make every default tile large (two-column grid)", f"{large_tiles}")
+# sable-quick-settings-titan2: three columns of small labeled tiles, one compact row of four,
+# no default large tile (the values-notlong two-column large tiles are gone).
+report(
+    not (OVERLAY / "SableSystemUIOverlay/res/values-notlong").exists(),
+    "no notlong two-column large-tile override (artifact grid is three columns)",
+)
+qs = resources(OVERLAY / "SableSystemUIOverlay/res/values/sable_quick_settings.xml")
+def qs_value(tag: str, name: str) -> str:
+    el = qs.get((tag, name))
+    return "" if el is None else (el.text or "").strip()
+layout_m = re.search(r"SquareKeyboard ->\s*SableQuickSettingsLayout\((.*?)\)", TOKENS.read_text(encoding="utf-8"), re.S)
+layout = dict(re.findall(r"(\w+) = (\w+)", layout_m.group(1))) if layout_m else {}
+report(
+    qs_value("integer", "quick_settings_infinite_grid_num_columns") == layout.get("gridColumns") == "3"
+    and qs_value("integer", "config_sableQuickQsNumColumns") == layout.get("compactColumns") == "4"
+    and qs_value("integer", "quick_qs_paginated_grid_num_rows") == layout.get("compactRows") == "1"
+    and qs_value("bool", "config_sableQsSmallTileLabels") == layout.get("smallTileLabels") == "true",
+    "QS overlay grid equals SableQuickSettingsLayout (3 columns, compact row of 4, labeled small tiles)",
+    f"{layout}",
+)
+report(
+    ("string-array", "quick_settings_default_large_tiles") in qs
+    and len(list(qs[("string-array", "quick_settings_default_large_tiles")])) == 0
+    and layout.get("allDefaultTilesLarge") == "false",
+    "no default tile is large (nothing spans two of the three columns)",
+)
+report(qs_value("bool", "config_sableShadeExtras") == "true", "shade header, Hub summary row and key hint are on")
+report(default_tiles[:4] == ["internet", "bt", "dark", "dnd"], "compact row is Wi-Fi, BT, Dark, DND (artifact)", str(default_tiles[:4]))
+patch0310 = next(SYSTEMUI_PATCHES.glob("0310-*.patch")).read_text(encoding="utf-8")
+patch0311 = next(SYSTEMUI_PATCHES.glob("0311-*.patch")).read_text(encoding="utf-8")
+patch0312 = next(SYSTEMUI_PATCHES.glob("0312-*.patch")).read_text(encoding="utf-8")
+report(
+    "R.integer.config_sableQuickQsNumColumns" in patch0310
+    and "R.bool.config_sableQsSmallTileLabels" in patch0310
+    and "R.bool.config_sableShadeExtras" in patch0311,
+    "SystemUI patches 0310/0311 read the switches the overlay sets",
+)
+report(
+    "SableHubSummary.LOCKED" in patch0311 and "counts only" in patch0311
+    and "postStartActivityDismissingKeyguard" in patch0311,
+    "locked shade Hub row shows counts only and Hub opens only after unlock",
+)
+report(
+    "addFinalizeFilter(searchFilter)" in patch0312
+    and "statusBarStateController.state == StatusBarState.SHADE" in patch0312
+    and "isSensitive().value" in patch0312,
+    "/ search filters only the unlocked shade and matches sensitive rows on app name only",
+)
 patch0101 = next(SYSTEMUI_PATCHES.glob("0101-*.patch")).read_text(encoding="utf-8")
 report(
     "R.array.quick_settings_default_large_tiles" in patch0101

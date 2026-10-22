@@ -122,11 +122,14 @@ class SableSystemTokensTest {
     }
 
     @Test
-    fun squareDisplaysGetTheTwoColumnLabeledGrid() {
+    fun squareDisplaysGetTheThreeColumnLabeledGridAndFourTileCompactRow() {
         val square = SableQuickSettingsLayout.forDisplayClass(SableDisplayClass.SquareKeyboard)
-        assertEquals(2, square.labeledTilesPerRow)
-        assertTrue(square.allDefaultTilesLarge)
-        assertEquals(2, square.compactRows)
+        assertEquals(3, square.gridColumns)
+        assertEquals(3, square.labeledTilesPerRow)
+        assertTrue(square.smallTileLabels)
+        assertFalse(square.allDefaultTilesLarge)
+        assertEquals(1, square.compactRows)
+        assertEquals(4, square.compactColumns)
         val tall = SableQuickSettingsLayout.forDisplayClass(SableDisplayClass.Tall)
         assertFalse(tall.allDefaultTilesLarge)
     }
@@ -134,8 +137,8 @@ class SableSystemTokensTest {
     @Test
     fun defaultTilesPutHighValueControlsFirstAndExcludeGatedHardware() {
         val tiles = SableQuickSettingsTiles.DEFAULT
-        assertEquals(listOf("internet", "bt", "dark", "battery"), tiles.take(4))
-        assertTrue(tiles.contains("dnd"))
+        assertEquals(listOf("internet", "bt", "dark", "dnd"), tiles.take(4))
+        assertTrue(tiles.contains("battery"))
         assertTrue(tiles.contains("flashlight"))
         assertTrue(tiles.none { it in SableQuickSettingsTiles.PROFILE_GATED })
         assertEquals(tiles.size, tiles.toSet().size)

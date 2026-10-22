@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- sable-quick-settings-titan2: the expanded grid is three columns of
+         small square tiles, each labeled under its icon, and the compact shade
+         is one row of four small tiles. No default tile is large, so nothing
+         spans two columns. Read by SystemUI with frameworks/base 0101 (large
+         tiles) and 0310 (compact columns, small-tile labels). -->
+    <integer name="quick_settings_infinite_grid_num_columns">3</integer>
+    <integer name="quick_qs_paginated_grid_num_rows">1</integer>
+    <integer name="config_sableQuickQsNumColumns">4</integer>
+    <bool name="config_sableQsSmallTileLabels">true</bool>
+    <string-array name="quick_settings_default_large_tiles" translatable="false" />
+    <!-- "Sable Quick Settings" header, Hub summary row and keyboard hint line
+         around the compact row (frameworks/base 0311). -->
+    <bool name="config_sableShadeExtras">true</bool>
+</resources>
