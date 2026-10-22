@@ -2,6 +2,8 @@
 
 Status: **PARTIAL — source patch under review, not full design or device qualification**.
 
+> **Superseded for the Q25 (2026-10-22).** PR #28 replaced this file's `MODE_BB10` Start code with the BB10 strip (Hub | Active Frames over real recent tasks | app grid) and closed most rows in the table below in source. Its rule that Private Space apps never appear in the recent cards was kept (sable-src 0062). Current status per artifact: [`DESIGN_CONFORMANCE_Q25.md`](DESIGN_CONFORMANCE_Q25.md). This ledger is kept as the record of PR #26 and for the Titan 2 Track B notes.
+
 ## Authority and version comparison
 - User-supplied `DESIGN_CONFORMANCE_Q25.md`: 24 visual design artifacts; checked against `claude/project-thread-p8uj72`.
 - `aimindseye/zinwaq25-sableos` `main` is commit `f312db6f9c4b84046cbbd646d7e4b7d04e42d6cd`. PR #25 merged the earlier thread, including the document's seven "Fixed for next build" rows. Do not repeat those patches.

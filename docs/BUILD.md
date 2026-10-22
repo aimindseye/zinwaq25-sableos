@@ -2,8 +2,8 @@
 
 Status: **the Sable apps build and pass their quality gates in GitHub Actions
 (section 7). Q1 and Q2 images were built on ai-g732 on 2026-10-15 and boot on a
-Q25. Q4 (the framework layer) has not been built yet;** its first build is
-expected to need fixes in `SableLauncher` and the framework patches.
+Q25. Q4 (the framework layer) was first built on 2026-10-17 and boots; the
+PR #28 additions are being built for the first time.**
 
 ## 1. Host
 
@@ -82,7 +82,15 @@ bash build/sable.sh q25 Q2 apps --all    # also rows set to enabled=no
 ```
 
 APKs, a manifest and SHA256SUMS land in `~/sable-q25/apps-out/<stamp>/`
-(`latest` points at the newest).
+(`latest` points at the newest). `stage` packages whatever `latest` holds and does not
+rebuild it, so run `apps` again after pulling new app sources, or the image ships the
+old APKs. With the tree on another disk, set `SABLE_BUILD_ROOT` (and `ANDROID_HOME`)
+in the same shell before every step, for example:
+
+```bash
+export SABLE_BUILD_ROOT=/srv/sable-build/workspaces/q25   # tree at $SABLE_BUILD_ROOT/android
+export ANDROID_HOME=/srv/sable-build/toolchains/r8-a2/android-sdk
+```
 
 ### 4b. Stage and build
 
