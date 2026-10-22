@@ -1,0 +1,435 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 17 Oct 2026 08:45:27 +0000
+Subject: [PATCH] SableOS: Keyboard & input homepage row, Sable Tools links and
+ key hint
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The approved Settings design has a top-level "Keyboard & input" row,
+Diagnostics under it (not under Settings > Sable, which holds Sable
+Setup only), "Privacy & security" and a keyboard hint footer.
+
+* Homepage row "Keyboard & input" (Physical keyboard, typing) opens
+  Android's keyboard page (KeyboardSettings), which already holds
+  Physical keyboard, On-screen keyboard and the Keyboard light info row;
+  Physical keyboard now comes first. Same page as System > Keyboard.
+* The page gets "Tests and diagnostics": Typing test opens Sable Tools'
+  critical text-entry test (OPEN_TOOL, TEXT_ENTRY) and Diagnostics opens
+  Sable Tools, which lists only supported tools and keeps the 3377
+  factory-test bridge behind its own gate. Both resolve to an explicit
+  component in org.sableos.tools and are hidden and unindexed without
+  it. Search aliases: diagnostics, factory test, 3377, key test, kb
+  light, trackpad, mtklog (kb light also finds Keyboard light).
+* Homepage type-ahead words for the new row; "keyboard" leaves System.
+* The Safety Center homepage row is titled "Privacy & security".
+* Homepage footer "↑↓ focus · Enter open · / search", not focusable,
+  not indexed, shown only with a hardware QWERTY keyboard.
+---
+ res/drawable/ic_homepage_sable_keyboard.xml   | 33 ++++++++++++
+ res/drawable/ic_sable_keyboard_expressive.xml | 20 ++++++++
+ res/values/strings_sable_homepage_keys.xml    |  4 +-
+ res/values/strings_sable_keyboard_input.xml   | 50 +++++++++++++++++++
+ res/xml/keyboard_settings.xml                 | 32 ++++++++++--
+ res/xml/top_level_settings.xml                | 22 +++++++-
+ res/xml/top_level_settings_expressive.xml     | 22 +++++++-
+ .../SableKeyHintPreferenceController.java     | 40 +++++++++++++++
+ .../android/settings/sable/SableLinks.java    | 23 ++++++++-
+ 9 files changed, 236 insertions(+), 10 deletions(-)
+ create mode 100644 res/drawable/ic_homepage_sable_keyboard.xml
+ create mode 100644 res/drawable/ic_sable_keyboard_expressive.xml
+ create mode 100644 res/values/strings_sable_keyboard_input.xml
+ create mode 100644 src/com/android/settings/sable/SableKeyHintPreferenceController.java
+
+diff --git a/res/drawable/ic_homepage_sable_keyboard.xml b/res/drawable/ic_homepage_sable_keyboard.xml
+new file mode 100644
+index 0000000..23eeb5c
+--- /dev/null
++++ b/res/drawable/ic_homepage_sable_keyboard.xml
+@@ -0,0 +1,33 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<!-- SableOS: expressive homepage icon of the Keyboard & input row. -->
++<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
++
++    <item>
++        <com.android.settingslib.widget.AdaptiveIconShapeDrawable
++            android:width="@dimen/dashboard_tile_image_size"
++            android:height="@dimen/dashboard_tile_image_size"
++            android:color="@color/homepage_system_background" />
++    </item>
++
++    <item
++        android:width="@dimen/dashboard_tile_foreground_image_size"
++        android:height="@dimen/dashboard_tile_foreground_image_size"
++        android:start="@dimen/dashboard_tile_foreground_image_inset"
++        android:top="@dimen/dashboard_tile_foreground_image_inset"
++        android:drawable="@drawable/ic_sable_keyboard_expressive" />
++</layer-list>
+diff --git a/res/drawable/ic_sable_keyboard_expressive.xml b/res/drawable/ic_sable_keyboard_expressive.xml
+new file mode 100644
+index 0000000..4cec604
+--- /dev/null
++++ b/res/drawable/ic_sable_keyboard_expressive.xml
+@@ -0,0 +1,20 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<com.android.settings.widget.TintDrawable
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    android:drawable="@drawable/ic_settings_keyboards"
++    android:tint="@color/homepage_system_foreground" />
+diff --git a/res/values/strings_sable_homepage_keys.xml b/res/values/strings_sable_homepage_keys.xml
+index d6488d0..f3628d0 100644
+--- a/res/values/strings_sable_homepage_keys.xml
++++ b/res/values/strings_sable_homepage_keys.xml
+@@ -36,7 +36,7 @@
+     <!-- Extra type-ahead words for the Settings homepage row "battery". -->
+     <string name="sable_homepage_words_battery">power, charging, health, usage</string>
+     <!-- Extra type-ahead words for the Settings homepage row "system". -->
+-    <string name="sable_homepage_words_system">keyboard, language, date, time, backup, reset, update, gestures</string>
++    <string name="sable_homepage_words_system">language, date, time, backup, reset, update, gestures</string>
+     <!-- Extra type-ahead words for the Settings homepage row "sable". -->
+     <string name="sable_homepage_words_sable">setup, readiness, checklist</string>
+     <!-- Extra type-ahead words for the Settings homepage row "security". -->
+@@ -69,6 +69,8 @@
+         <item>@string/sable_homepage_words_wallpaper</item>
+         <item>top_level_battery</item>
+         <item>@string/sable_homepage_words_battery</item>
++        <item>top_level_keyboard_input</item>
++        <item>@string/sable_homepage_words_keyboard_input</item>
+         <item>top_level_system</item>
+         <item>@string/sable_homepage_words_system</item>
+         <item>top_level_sable</item>
+diff --git a/res/values/strings_sable_keyboard_input.xml b/res/values/strings_sable_keyboard_input.xml
+new file mode 100644
+index 0000000..2baba33
+--- /dev/null
++++ b/res/values/strings_sable_keyboard_input.xml
+@@ -0,0 +1,50 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<resources>
++    <!-- Highlight key of the Settings homepage "Keyboard & input" row. -->
++    <string name="menu_key_sable_keyboard_input" translatable="false">top_level_keyboard_input</string>
++
++    <!-- Settings homepage row for the keyboard page (approved Settings design). -->
++    <string name="sable_keyboard_input_title">Keyboard &amp; input</string>
++    <!-- Summary of the homepage "Keyboard & input" row. -->
++    <string name="sable_keyboard_input_summary">Physical keyboard, typing</string>
++    <!-- Extra type-ahead words for the Settings homepage row "Keyboard & input". -->
++    <string name="sable_homepage_words_keyboard_input">typing, physical keyboard, on-screen keyboard, trackpad, diagnostics, kb light</string>
++
++    <!-- Settings > Keyboard & input: category of the Sable Tools links. -->
++    <string name="sable_keyboard_tools_category">Tests and diagnostics</string>
++
++    <!-- Settings > Keyboard & input: Sable Tools typing test row. -->
++    <string name="sable_typing_test_title">Typing test</string>
++    <!-- Summary of the Typing test row. -->
++    <string name="sable_typing_test_summary">Sable Tools: check PIN, password and pairing-code typing with Alt and Sym</string>
++    <!-- Search keywords for the Typing test row. [CHAR LIMIT=NONE] -->
++    <string name="sable_typing_test_keywords">typing test, text entry test, alt, sym, pin entry, password entry, pairing code</string>
++
++    <!-- Settings > Keyboard & input: Sable Tools diagnostics row. -->
++    <string name="sable_diagnostics_title">Diagnostics</string>
++    <!-- Summary of the Diagnostics row. -->
++    <string name="sable_diagnostics_summary">Sable Tools: keyboard, trackpad, display, sensors, radio and reports</string>
++    <!-- Search keywords for the Diagnostics row. [CHAR LIMIT=NONE] -->
++    <string name="sable_diagnostics_keywords">diagnostics, factory test, 3377, key test, kb light, trackpad, mtklog, hardware test, sable tools</string>
++
++    <!-- Settings homepage: keyboard hint footer (approved Settings design). -->
++    <string name="sable_homepage_key_hint">↑↓ focus · Enter open · / search</string>
++
++    <!-- Settings homepage: the security and privacy row, named as in the approved design. -->
++    <string name="sable_privacy_security_title">Privacy &amp; security</string>
++</resources>
+diff --git a/res/xml/keyboard_settings.xml b/res/xml/keyboard_settings.xml
+index 2214e7c..d2463f7 100644
+--- a/res/xml/keyboard_settings.xml
++++ b/res/xml/keyboard_settings.xml
+@@ -21,16 +21,17 @@
+     android:title="@string/keyboard_settings">
+     <PreferenceCategory
+         android:key="keyboards_category">
++        <!-- SableOS: physical keyboard first, the Q25's main input (approved design). -->
++        <Preference
++            android:key="physical_keyboard_pref"
++            android:title="@string/physical_keyboard_title"
++            android:summary="@string/summary_placeholder"/>
++
+         <Preference
+             android:key="virtual_keyboard_pref"
+             android:title="@string/virtual_keyboard_category"
+             android:fragment="com.android.settings.inputmethod.AvailableVirtualKeyboardFragment"
+             settings:keywords="@string/keywords_virtual_keyboard"/>
+-
+-        <Preference
+-            android:key="physical_keyboard_pref"
+-            android:title="@string/physical_keyboard_title"
+-            android:summary="@string/summary_placeholder"/>
+     </PreferenceCategory>
+ 
+     <PreferenceCategory
+@@ -65,6 +66,27 @@
+         settings:keywords="@string/keywords_sable_keyboard_backlight"
+         settings:controller="com.android.settings.sable.SableKeyboardBacklightPreferenceController" />
+ 
++    <!-- SableOS: Sable Tools links (Keyboard & input, approved design). Each row is hidden, and
++         left out of search, when Sable Tools is not installed (SableLinkPreferenceController). -->
++    <PreferenceCategory
++        android:key="sable_keyboard_tools_category"
++        android:title="@string/sable_keyboard_tools_category">
++
++        <Preference
++            android:key="sable_typing_test"
++            android:title="@string/sable_typing_test_title"
++            android:summary="@string/sable_typing_test_summary"
++            settings:keywords="@string/sable_typing_test_keywords"
++            settings:controller="com.android.settings.sable.SableLinkPreferenceController" />
++
++        <Preference
++            android:key="sable_tools_diagnostics"
++            android:title="@string/sable_diagnostics_title"
++            android:summary="@string/sable_diagnostics_summary"
++            settings:keywords="@string/sable_diagnostics_keywords"
++            settings:controller="com.android.settings.sable.SableLinkPreferenceController" />
++    </PreferenceCategory>
++
+     <lineageos.preference.LineageSecureSettingSwitchPreference
+         android:key="feature_touch_hovering"
+         android:title="@string/touchscreen_hovering_title"
+diff --git a/res/xml/top_level_settings.xml b/res/xml/top_level_settings.xml
+index d2327ff..4a105db 100644
+--- a/res/xml/top_level_settings.xml
++++ b/res/xml/top_level_settings.xml
+@@ -121,6 +121,17 @@
+             android:summary="@string/wallpaper_dashboard_summary"
+             settings:highlightableMenuKey="@string/menu_key_wallpaper"
+             settings:controller="com.android.settings.display.TopLevelWallpaperPreferenceController"/>
++
++        <!-- SableOS: top-level Keyboard & input (approved Settings design): Android's keyboard
++             page with the Sable typing test and diagnostics links. -->
++        <com.android.settings.widget.HomepagePreference
++            android:fragment="com.android.settings.inputmethod.KeyboardSettings"
++            android:icon="@drawable/ic_settings_keyboards"
++            android:key="top_level_keyboard_input"
++            android:order="-5"
++            android:title="@string/sable_keyboard_input_title"
++            android:summary="@string/sable_keyboard_input_summary"
++            settings:highlightableMenuKey="@string/menu_key_sable_keyboard_input"/>
+     </PreferenceCategory>
+ 
+     <PreferenceCategory
+@@ -186,7 +197,7 @@
+             android:icon="@drawable/ic_settings_safety_center_filled"
+             android:key="top_level_safety_center"
+             android:order="-50"
+-            android:title="@string/safety_center_title"
++            android:title="@string/sable_privacy_security_title"
+             android:summary="@string/safety_center_summary"
+             settings:highlightableMenuKey="@string/menu_key_safety_center"
+             settings:controller="com.android.settings.safetycenter.TopLevelSafetyCenterEntryPreferenceController"/>
+@@ -274,6 +285,15 @@
+             android:summary="@string/support_summary"
+             settings:highlightableMenuKey="@string/menu_key_support"
+             settings:controller="com.android.settings.support.SupportPreferenceController"/>
++
++        <!-- SableOS: keyboard hint footer, only with a hardware keyboard. Not a focus target. -->
++        <Preference
++            android:key="sable_homepage_key_hint"
++            android:order="10"
++            android:summary="@string/sable_homepage_key_hint"
++            android:selectable="false"
++            settings:searchable="false"
++            settings:controller="com.android.settings.sable.SableKeyHintPreferenceController"/>
+     </PreferenceCategory>
+ 
+ </PreferenceScreen>
+\ No newline at end of file
+diff --git a/res/xml/top_level_settings_expressive.xml b/res/xml/top_level_settings_expressive.xml
+index 019d14b..d54981e 100644
+--- a/res/xml/top_level_settings_expressive.xml
++++ b/res/xml/top_level_settings_expressive.xml
+@@ -113,6 +113,17 @@
+             android:summary="@string/wallpaper_dashboard_summary"
+             settings:highlightableMenuKey="@string/menu_key_wallpaper"
+             settings:controller="com.android.settings.display.TopLevelWallpaperPreferenceController"/>
++
++        <!-- SableOS: top-level Keyboard & input (approved Settings design): Android's keyboard
++             page with the Sable typing test and diagnostics links. -->
++        <com.android.settings.widget.HomepagePreference
++            android:fragment="com.android.settings.inputmethod.KeyboardSettings"
++            android:icon="@drawable/ic_homepage_sable_keyboard"
++            android:key="top_level_keyboard_input"
++            android:order="-5"
++            android:title="@string/sable_keyboard_input_title"
++            android:summary="@string/sable_keyboard_input_summary"
++            settings:highlightableMenuKey="@string/menu_key_sable_keyboard_input"/>
+     </com.android.settingslib.widget.UntitledPreferenceCategory>
+ 
+     <com.android.settingslib.widget.UntitledPreferenceCategory
+@@ -178,7 +189,7 @@
+             android:icon="@drawable/ic_homepage_safety_center"
+             android:key="top_level_safety_center"
+             android:order="-50"
+-            android:title="@string/safety_center_title"
++            android:title="@string/sable_privacy_security_title"
+             android:summary="@string/safety_center_summary"
+             settings:highlightableMenuKey="@string/menu_key_safety_center"
+             settings:controller="com.android.settings.safetycenter.TopLevelSafetyCenterEntryPreferenceController"/>
+@@ -270,6 +281,15 @@
+             android:summary="@string/support_summary"
+             settings:highlightableMenuKey="@string/menu_key_support"
+             settings:controller="com.android.settings.support.SupportPreferenceController"/>
++
++        <!-- SableOS: keyboard hint footer, only with a hardware keyboard. Not a focus target. -->
++        <Preference
++            android:key="sable_homepage_key_hint"
++            android:order="10"
++            android:summary="@string/sable_homepage_key_hint"
++            android:selectable="false"
++            settings:searchable="false"
++            settings:controller="com.android.settings.sable.SableKeyHintPreferenceController"/>
+     </com.android.settingslib.widget.UntitledPreferenceCategory>
+ </PreferenceScreen>
+ 
+diff --git a/src/com/android/settings/sable/SableKeyHintPreferenceController.java b/src/com/android/settings/sable/SableKeyHintPreferenceController.java
+new file mode 100644
+index 0000000..9231183
+--- /dev/null
++++ b/src/com/android/settings/sable/SableKeyHintPreferenceController.java
+@@ -0,0 +1,40 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++import android.content.Context;
++import android.content.res.Configuration;
++
++import com.android.settings.core.BasePreferenceController;
++
++/**
++ * The homepage keyboard hint footer ("↑↓ focus · Enter open · / search", approved Settings
++ * design). Shown only while a hardware QWERTY keyboard is present (the Q25's always is), so
++ * touch-only devices get no keyboard hint. Never indexed.
++ */
++public class SableKeyHintPreferenceController extends BasePreferenceController {
++
++    public SableKeyHintPreferenceController(Context context, String preferenceKey) {
++        super(context, preferenceKey);
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        return mContext.getResources().getConfiguration().keyboard == Configuration.KEYBOARD_QWERTY
++                ? AVAILABLE_UNSEARCHABLE : CONDITIONALLY_UNAVAILABLE;
++    }
++}
+diff --git a/src/com/android/settings/sable/SableLinks.java b/src/com/android/settings/sable/SableLinks.java
+index d54be2b..f2eac62 100644
+--- a/src/com/android/settings/sable/SableLinks.java
++++ b/src/com/android/settings/sable/SableLinks.java
+@@ -26,8 +26,9 @@ import android.net.Uri;
+ import java.util.List;
+ 
+ /**
+- * Intents from Settings into Sable apps: Sable Setup (Settings > Sable) and App display
+- * compatibility (Display, App info). Each link is resolved to an explicit component in that
++ * Intents from Settings into Sable apps: Sable Setup (Settings > Sable), App display
++ * compatibility (Display, App info) and Sable Tools' typing test and diagnostics (Keyboard &amp;
++ * input). Each link is resolved to an explicit component in that
+  * app's own package, so a missing app hides the row and no other app can answer.
+  */
+ public final class SableLinks {
+@@ -37,7 +38,18 @@ public final class SableLinks {
+     public static final String ACTION_APP_DISPLAY_PROFILE =
+             "org.sableos.titan2.displaycompat.action.APP_PROFILE";
+ 
++    public static final String TOOLS_PACKAGE = "org.sableos.tools";
++    /** Sable Tools' ToolActivity: opens one tool by its core Tool name. */
++    public static final String ACTION_OPEN_TOOL = "org.sableos.tools.action.OPEN_TOOL";
++    public static final String EXTRA_TOOL = "org.sableos.tools.extra.TOOL";
++    /** Sable Tools' "Critical text-entry test" (PIN, password and pairing-code typing). */
++    public static final String TOOL_TEXT_ENTRY = "TEXT_ENTRY";
++
+     public static final String KEY_SETUP = "sable_setup";
++    /** Keyboard &amp; input: Sable Tools' typing test. */
++    public static final String KEY_TYPING_TEST = "sable_typing_test";
++    /** Keyboard &amp; input: Sable Tools (diagnostics, hardware tests, factory-test bridge). */
++    public static final String KEY_DIAGNOSTICS = "sable_tools_diagnostics";
+     /** Settings > Display > App display compatibility. */
+     public static final String KEY_DISPLAY_COMPAT_DISPLAY = "sable_display_compat_display";
+ 
+@@ -59,6 +71,13 @@ public final class SableLinks {
+                 return launcher(SETUP_PACKAGE);
+             case KEY_DISPLAY_COMPAT_DISPLAY:
+                 return launcher(DISPLAY_COMPAT_PACKAGE);
++            case KEY_TYPING_TEST:
++                return new Intent(ACTION_OPEN_TOOL).setPackage(TOOLS_PACKAGE)
++                        .putExtra(EXTRA_TOOL, TOOL_TEXT_ENTRY);
++            case KEY_DIAGNOSTICS:
++                // Sable Tools' own home: it lists only the tools this phone supports and keeps
++                // the *#*#3377#*#* factory-test bridge behind its own gate.
++                return launcher(TOOLS_PACKAGE);
+             default:
+                 return null;
+         }
+-- 
+2.43.0
+

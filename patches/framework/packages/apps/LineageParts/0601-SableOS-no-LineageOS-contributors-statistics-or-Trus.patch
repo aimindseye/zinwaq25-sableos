@@ -1,0 +1,1397 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 21 Oct 2026 13:05:11 +0000
+Subject: [PATCH] SableOS: no LineageOS contributors, statistics or Trust
+ branding
+
+LineageOS rows in Settings are rebranded or hidden; the legal notices
+stay.
+
+* Contributors: the About phone tile is gone (no IA_SETTINGS action on
+  the ContributorsCloudFragment alias) and the part is not indexed.
+* Statistics: the LineageOS statistics opt-in row leaves the Trust page
+  and the part is not indexed. Collection stays off (lineage-sdk
+  default def_stats_collection=false; Setup never writes it).
+* Trust: the page and its tile are "Security status" (SELinux, patches,
+  encryption, Restrict USB, SMS limit, alerts are unchanged). The Trust
+  onboarding paragraph and shield leave the page; the onboarding and
+  security-patch texts no longer say Trust or LineageOS, and their
+  translations are dropped so every locale shows the new English text.
+---
+ AndroidManifest.xml                                 |  4 ++--
+ res/values-ar/strings.xml                           |  3 ---
+ res/values-ast-rES/strings.xml                      |  3 ---
+ res/values-az/strings.xml                           |  3 ---
+ res/values-be/strings.xml                           |  1 -
+ res/values-bg/strings.xml                           |  3 ---
+ res/values-ca/strings.xml                           |  3 ---
+ res/values-ckb/strings.xml                          |  3 ---
+ res/values-cs/strings.xml                           |  3 ---
+ res/values-cy/strings.xml                           |  3 ---
+ res/values-da/strings.xml                           |  2 --
+ res/values-de/strings.xml                           |  3 ---
+ res/values-el/strings.xml                           |  3 ---
+ res/values-en-rAU/strings.xml                       |  3 ---
+ res/values-en-rCA/strings.xml                       |  3 ---
+ res/values-en-rGB/strings.xml                       |  3 ---
+ res/values-en-rIN/strings.xml                       |  3 ---
+ res/values-es-rUS/strings.xml                       |  3 ---
+ res/values-es/strings.xml                           |  3 ---
+ res/values-et/strings.xml                           |  3 ---
+ res/values-eu/strings.xml                           |  3 ---
+ res/values-fa/strings.xml                           |  3 ---
+ res/values-fi/strings.xml                           |  3 ---
+ res/values-fr/strings.xml                           |  3 ---
+ res/values-fur-rIT/strings.xml                      |  3 ---
+ res/values-fy-rNL/strings.xml                       |  3 ---
+ res/values-ga-rIE/strings.xml                       |  3 ---
+ res/values-gd/strings.xml                           |  3 ---
+ res/values-gl/strings.xml                           |  3 ---
+ res/values-hu/strings.xml                           |  3 ---
+ res/values-in/strings.xml                           |  2 --
+ res/values-is/strings.xml                           |  3 ---
+ res/values-it/strings.xml                           |  3 ---
+ res/values-iw/strings.xml                           |  3 ---
+ res/values-ja/strings.xml                           |  3 ---
+ res/values-ka/strings.xml                           |  3 ---
+ res/values-kn/strings.xml                           |  3 ---
+ res/values-ko/strings.xml                           |  3 ---
+ res/values-nl/strings.xml                           |  3 ---
+ res/values-nn-rNO/strings.xml                       |  3 ---
+ res/values-pl/strings.xml                           |  3 ---
+ res/values-pt-rBR/strings.xml                       |  3 ---
+ res/values-pt-rPT/strings.xml                       |  3 ---
+ res/values-ro/strings.xml                           |  3 ---
+ res/values-ru/strings.xml                           |  3 ---
+ res/values-sc-rIT/strings.xml                       |  3 ---
+ res/values-sk/strings.xml                           |  3 ---
+ res/values-sl/strings.xml                           |  3 ---
+ res/values-sq/strings.xml                           |  3 ---
+ res/values-sr/strings.xml                           |  3 ---
+ res/values-sv/strings.xml                           |  3 ---
+ res/values-ta/strings.xml                           |  1 -
+ res/values-th/strings.xml                           |  3 ---
+ res/values-tr/strings.xml                           |  3 ---
+ res/values-ug/strings.xml                           |  3 ---
+ res/values-uk/strings.xml                           |  2 --
+ res/values-vi/strings.xml                           |  3 ---
+ res/values-zh-rCN/strings.xml                       |  3 ---
+ res/values-zh-rTW/strings.xml                       |  3 ---
+ res/values/strings.xml                              |  9 +++++----
+ res/xml/trust_preferences.xml                       |  9 ++-------
+ .../LineagePartsSearchIndexablesProvider.java       | 13 ++++++++++---
+ 62 files changed, 19 insertions(+), 183 deletions(-)
+
+diff --git a/AndroidManifest.xml b/AndroidManifest.xml
+index 67dd1f9..28267f7 100644
+--- a/AndroidManifest.xml
++++ b/AndroidManifest.xml
+@@ -296,14 +296,14 @@
+                 android:resource="@string/trust_summary" />
+         </activity-alias>
+ 
+-        <!-- Contributors Cloud (MyDeviceInfo category) -->
++        <!-- Contributors Cloud. SableOS: no About phone tile (no IA_SETTINGS action); the
++             LineageOS legal notices stay in Settings > About phone > Legal information. -->
+         <activity-alias
+             android:name=".contributors.ContributorsCloudFragment"
+             android:exported="true"
+             android:label="@string/contributors_cloud_fragment_title"
+             android:targetActivity="PartsActivity">
+             <intent-filter>
+-                <action android:name="com.android.settings.action.IA_SETTINGS" />
+                 <action android:name="org.lineageos.lineageparts.CONTRIBUTORS_CLOUD" />
+                 <category android:name="android.intent.category.DEFAULT" />
+             </intent-filter>
+diff --git a/res/values-ar/strings.xml b/res/values-ar/strings.xml
+index 114bad7..db77533 100644
+--- a/res/values-ar/strings.xml
++++ b/res/values-ar/strings.xml
+@@ -470,7 +470,6 @@
+     <string name="trust_feature_security_patches_value_new">آخِر إصدار</string>
+     <string name="trust_feature_security_patches_value_medium">بضعة أشهر قبل آخر تحديث</string>
+     <string name="trust_feature_security_patches_value_old">غير محدّث</string>
+-    <string name="trust_feature_security_patches_explain">تصدر تصحيحات الأمان شهريًا من Google بالتعاون مع موردي SoC لمعالجة العيوب التي يمكن استغلالها من قبل تطبيقات خبيثة لتجاوز القيود الأمنية ويتسبب في ذلك في ضرر دائم لجهازك. التحديثات التي أتاحتها Google تطبق كل شهر على جميع الأجهزة المدعومة، ولكن يمكن تطبيق تصحيحات رمز الملكية فقط من الشركة المصنعة لجهازك. للحفاظ على جعل جهازك آمن برجاء التأكد بأن اصدار LineageOS الخاص بك محدث باستمرار، وضمان تحديث (إذا كان ممكنًا) صورة موردك إلى آخر اصدار موصى به من LineageOS.</string>
+     <string name="trust_feature_encryption">التشفير</string>
+     <string name="trust_feature_encryption_value_enabled">مفعل</string>
+     <string name="trust_feature_encryption_value_nolock">يحتاج شاشة قفل آمنة</string>
+@@ -481,8 +480,6 @@
+     <string name="trust_warnings_alerts_intro">يمكنك تحديد المشاكل الأمنية التي سيتم تنبيهك عنها. لسلامتك، من المستحسن تمكين كافة التنبيهات</string>
+     <string name="trust_warnings_selinux">حالة SELinux</string>
+     <string name="trust_warnings_keys">توقيع البناء</string>
+-    <string name="trust_onboarding_title">قل مرحباً للائتمان</string>
+-    <string name="trust_onboarding_description">يساعدك الائتمان في الحفاظ على أمان جهازك ويحمي خصوصيتك.\nيظهر رمز الائتمان لمساعدتك في التحقق من أمان المحتويات.</string>
+     <string name="trust_onboarding_learn_more">معرفة المزيد</string>
+     <string name="trust_onboarding_done">فهمت ذلك</string>
+     <string name="trust_restrict_usb_title">تقييد USB</string>
+diff --git a/res/values-ast-rES/strings.xml b/res/values-ast-rES/strings.xml
+index 2ff5115..533cbf7 100644
+--- a/res/values-ast-rES/strings.xml
++++ b/res/values-ast-rES/strings.xml
+@@ -241,7 +241,6 @@
+     <string name="trust_feature_security_patches_value_new">Anovaos</string>
+     <string name="trust_feature_security_patches_value_medium">Ensin anovar hai unos meses</string>
+     <string name="trust_feature_security_patches_value_old">Ensin anovar</string>
+-    <string name="trust_feature_security_patches_explain">Google, n\'andecha colos fabricantes de SoC, espubliza mensualmente parches de seguranza pa iguar fallos que podríen esplotar aplicaciones malicioses pa saltar les llendes de seguranza y causar un dañu permanente nel preséu. Los parches forníos por Google aplíquense cada mes en tolos preseos compatibles, mas los parches pa códigu privativu namás pue aplicalos el fabricante del preséu. Pa caltener el preséu seguru, asegúrate de que la versión de LineageOS ta anovada siempre, y (si ye posible) asegúrate tamién de que la imaxe del fabricante ta anovada a la última versión qu\'aconseya LineageOS.</string>
+     <string name="trust_feature_encryption">Cifráu</string>
+     <string name="trust_feature_encryption_value_enabled">Activóse</string>
+     <string name="trust_feature_encryption_value_nolock">Precisa una pantalla de bloquéu segura</string>
+@@ -252,8 +251,6 @@
+     <string name="trust_warnings_alerts_intro">Pues seleicionar los problemes de seguranza de los que quies recibir avisos. Pola to seguranza, aconséyase activar toles alertes</string>
+     <string name="trust_warnings_selinux">Estáu de SELinux</string>
+     <string name="trust_warnings_keys">Firma de la compilación</string>
+-    <string name="trust_onboarding_title">Saluda a Trust</string>
+-    <string name="trust_onboarding_description">Trust ayúdate a caltener el preséu seguru y protexe la to privacidá.\nL\'iconu de Trust namás apaez cuando\'l conteníu de la páxina se verificó.</string>
+     <string name="trust_onboarding_learn_more">Saber más</string>
+     <string name="trust_onboarding_done">Entendílo</string>
+     <string name="trust_restrict_usb_title">Torgar l\'USB</string>
+diff --git a/res/values-az/strings.xml b/res/values-az/strings.xml
+index 54f62a9..e55ac63 100644
+--- a/res/values-az/strings.xml
++++ b/res/values-az/strings.xml
+@@ -517,7 +517,6 @@
+     <string name="trust_feature_security_patches_value_new">Güncəldir</string>
+     <string name="trust_feature_security_patches_value_medium">Bir neçə ay köhnəlib</string>
+     <string name="trust_feature_security_patches_value_old">Köhnəlib</string>
+-    <string name="trust_feature_security_patches_explain">Güvənlik yamaqları Google tərəfindən, SoC satıcıları ilə əməkdaşlıq edilərək, güvənlik məhdudiyyətlərini ötürmək və cihazınıza zərər vurmaq üçün zərərli tətbiqlər tərəfindən istismar edilə biləcək çatışmazlıqları aradan qaldırmaq üçün aylıq olaraq yayımlanır. Google tərəfindən hazırlanan yamaqlar hər ay bütün dəstəklənən cihazlara tətbiq olunur, ancaq xüsusi kodlu yamaqlar yalnız cihazınızın istehsalçısı tərəfindən tətbiq oluna bilər. Cihazınızı güvənli şəkildə saxlamaq üçün LineageOS quruluşunuzun həmişə güncəl olduğuna və (mümkündürsə) satıcı faylınızın LineageOS tərəfindən məsləhət görülən ən son versiyaya güncəlləndiyinə əmin olun.</string>
+     <string name="trust_feature_encryption">Şifrələmə</string>
+     <string name="trust_feature_encryption_value_enabled">Fəaldır</string>
+     <string name="trust_feature_encryption_value_nolock">Təhlükəsiz bir kilid ekranı lazımdır</string>
+@@ -528,8 +527,6 @@
+     <string name="trust_warnings_alerts_intro">Xəbərdarlıq almaq istədiyiniz güvənlik məsələlərini seçə bilərsiniz. Güvənlik üçün bütün xəbərdarlıqları fəallaşdırmağınız məsləhətdir</string>
+     <string name="trust_warnings_selinux">SELinux statusu</string>
+     <string name="trust_warnings_keys">Quruluş imzası</string>
+-    <string name="trust_onboarding_title">Trust-a salam de</string>
+-    <string name="trust_onboarding_description">Trust, cihazınızı güvəndə saxlamağa və məxfiliyinizi qorumağa kömək edir.\n Trust ikonu, yalnız səhifənin məzmunu doğrulandığı zaman göstərilir.</string>
+     <string name="trust_onboarding_learn_more">Ətraflı öyrən</string>
+     <string name="trust_onboarding_done">Anladım</string>
+     <string name="trust_restrict_usb_title">USB-ni məhdudlaşdır</string>
+diff --git a/res/values-be/strings.xml b/res/values-be/strings.xml
+index 4d0a23a..8bcbbf1 100644
+--- a/res/values-be/strings.xml
++++ b/res/values-be/strings.xml
+@@ -317,7 +317,6 @@
+     <string name="trust_notification_alerts_title">Апавяшчэнні сістэмы бяспекі</string>
+     <string name="trust_warnings_selinux">Статус SELinux</string>
+     <string name="trust_warnings_keys">Подпіс зборкі</string>
+-    <string name="trust_onboarding_title">Скажыце прывітанне Trust</string>
+     <string name="trust_onboarding_done">Зразумела</string>
+     <string name="trust_restrict_usb_title">Абмежаваць USB</string>
+     <string name="sms_security_check_limit_title">Абмежаванне паведамленняў SMS</string>
+diff --git a/res/values-bg/strings.xml b/res/values-bg/strings.xml
+index d1c4ae3..ff93a2b 100644
+--- a/res/values-bg/strings.xml
++++ b/res/values-bg/strings.xml
+@@ -507,7 +507,6 @@
+     <string name="trust_feature_security_patches_value_new">Актуално</string>
+     <string name="trust_feature_security_patches_value_medium">необновявано от няколко месеца</string>
+     <string name="trust_feature_security_patches_value_old">Неактуална версия</string>
+-    <string name="trust_feature_security_patches_explain">Защитните пакети се разпространяват ежемесечно от Google заедно с доставчиците на SoC, за да се поправят уязвимостите в системата, които могат да бъдат използвани от злонамерени приложения, който да заобиколят ограниченията за сигурност и да причинят необратими щети на вашето устройство. Корекциите, предоставени от Google, се прилагат всеки месец на всички поддържани устройства, но поправките за патентования код могат да се прилагат само от производителя на устройството ви. За да поддържате устройството си в безопасно състояние, уверете се, че използвате последната версия на LineageOS.</string>
+     <string name="trust_feature_encryption">Криптиране</string>
+     <string name="trust_feature_encryption_value_enabled">Активирано</string>
+     <string name="trust_feature_encryption_value_nolock">Нуждае е се от заключване на екрана</string>
+@@ -518,8 +517,6 @@
+     <string name="trust_warnings_alerts_intro">Можете да изберете да бъдете предупреждавани за проблеми със сигурността. За ваша безопасност се препоръчва се да разрешите всички предупреждения</string>
+     <string name="trust_warnings_selinux">SELinux статус</string>
+     <string name="trust_warnings_keys">Създавани на подпис</string>
+-    <string name="trust_onboarding_title">Кажи здравей на Trust</string>
+-    <string name="trust_onboarding_description">Trust Ви помага да защитите устройството и вашата поверителност. \n Иконата ще се показва само когато съдържанието на страницата е проверено.</string>
+     <string name="trust_onboarding_learn_more">Научете повече</string>
+     <string name="trust_onboarding_done">Разбрано</string>
+     <string name="trust_restrict_usb_title">Забраняване на USB</string>
+diff --git a/res/values-ca/strings.xml b/res/values-ca/strings.xml
+index 50035d0..07a7293 100644
+--- a/res/values-ca/strings.xml
++++ b/res/values-ca/strings.xml
+@@ -516,7 +516,6 @@
+     <string name="trust_feature_security_patches_value_new">Actualitzat</string>
+     <string name="trust_feature_security_patches_value_medium">Obsolet uns mesos</string>
+     <string name="trust_feature_security_patches_value_old">Obsolet</string>
+-    <string name="trust_feature_security_patches_explain">Els pegats de seguretat són publicats mensualment per Google en cooperació amb proveïdors de SoC per abordar falles que podrien ser explotades per aplicacions malicioses per eludir les restriccions de seguretat i causar danys permanents al dispositiu. Els pegats posats a disposició per Google s\'apliquen tots els mesos en tots els dispositius compatibles, però els pegats per al codi propietari només poden ser aplicats pel fabricant del dispositiu. Per mantenir el dispositiu segur, assegureu-vos que la compilació de LineageOS estigui sempre actualitzada i, si és possible, assegureu-vos que la imatge del proveïdor estigui actualitzada a la més recent recomanada per LineageOS.</string>
+     <string name="trust_feature_encryption">Xifrat</string>
+     <string name="trust_feature_encryption_value_enabled">Activat</string>
+     <string name="trust_feature_encryption_value_nolock">Necessita una pantalla de bloqueig segura</string>
+@@ -527,8 +526,6 @@
+     <string name="trust_warnings_alerts_intro">Podeu seleccionar els problemes de seguretat dels que desitgeu que li advertim. Per a la vostra seguretat, es recomana activar totes les alertes</string>
+     <string name="trust_warnings_selinux">Estat de SELinux</string>
+     <string name="trust_warnings_keys">Signatura de compilació</string>
+-    <string name="trust_onboarding_title">Digues hola a Trust</string>
+-    <string name="trust_onboarding_description">Trust us ajuda a mantenir el dispositiu segur i protegir la privadesa.\nLa icona Trust només es mostrarà quan els continguts de la pàgina s\'hagin verificat.</string>
+     <string name="trust_onboarding_learn_more">Aprèn més</string>
+     <string name="trust_onboarding_done">D\'acord</string>
+     <string name="trust_restrict_usb_title">Restringeix USB</string>
+diff --git a/res/values-ckb/strings.xml b/res/values-ckb/strings.xml
+index d321d2b..c71150f 100644
+--- a/res/values-ckb/strings.xml
++++ b/res/values-ckb/strings.xml
+@@ -517,7 +517,6 @@
+     <string name="trust_feature_security_patches_value_new">نوێیە</string>
+     <string name="trust_feature_security_patches_value_medium">چەند مانگێک کۆنە</string>
+     <string name="trust_feature_security_patches_value_old">کۆن بووە</string>
+-    <string name="trust_feature_security_patches_explain">پارچەکانی پاراستن مانگانە لەلایەن Googleـەوە بە هاوکاری کۆمپانیاکانی دروستکەری پارچە (SoC) بڵاودەکرێنەوە بۆ پڕکردنەوەی ئەو کەلێنانەی کە لەوانەیە لەلایەن بەرنامە زیانبەخشەکانەوە بەکاربهێنرێن بۆ تێپەڕاندنی قەدەغەکردنەکانی پاراستن. ئەو پارچانەی Google بڵاویان دەکاتەوە مانگانە لەسەر هەموو ئامێرە پاڵپشتیکراوەکان جێبەجێ دەکرێن، بەڵام پارچەکانی تایبەت بە کۆدی دروستکەر تەنها لەلایەن کۆمپانیای دروستکەری ئامێرەکەوە دەتوانرێت جێبەجێ بکرێن. بۆ هێشتنەوەی ئامێرەکەت بە پارێزراوی، دڵنیابە کە وەشانی LineageOSـەکەت هەمیشە نوێیە.</string>
+     <string name="trust_feature_encryption">کۆدکردن (Encryption)</string>
+     <string name="trust_feature_encryption_value_enabled">چالاکە</string>
+     <string name="trust_feature_encryption_value_nolock">پێویستی بە قوفڵێکی پارێزراوی ڕوونما هەیە</string>
+@@ -528,8 +527,6 @@
+     <string name="trust_warnings_alerts_intro">دەتوانیت ئەو کێشە ئەمنییانە هەڵبژێریت کە دەتەوێت ئاگادارییان بیت. بۆ سەلامەتیت، پێشنیار دەکرێت هەموو ئاگادارکردنەوەکان چالاک بکەیت</string>
+     <string name="trust_warnings_selinux">دۆخی SELinux</string>
+     <string name="trust_warnings_keys">ئیمزای وەشان (Build signature)</string>
+-    <string name="trust_onboarding_title">بەخێربێیت بۆ Trust</string>
+-    <string name="trust_onboarding_description">سیستمی Trust یارمەتیدەرت دەبێت لە هێشتنەوەی ئامێرەکەت بە پارێزراوی و پاراستنی تایبەتمەندییەکانت.\nوێنۆچکەی Trust تەنها کاتێک دەردەکەوێت کە ناوەڕۆکی پەڕەکە پشتڕاست کرابێتەوە.</string>
+     <string name="trust_onboarding_learn_more">زیاتر بزانە</string>
+     <string name="trust_onboarding_done">تێگەیشتم</string>
+     <string name="trust_restrict_usb_title">سنووردارکردنی USB</string>
+diff --git a/res/values-cs/strings.xml b/res/values-cs/strings.xml
+index 62681f4..9a8eed1 100644
+--- a/res/values-cs/strings.xml
++++ b/res/values-cs/strings.xml
+@@ -505,7 +505,6 @@
+     <string name="trust_feature_security_patches_value_new">Aktuální</string>
+     <string name="trust_feature_security_patches_value_medium">Několik měsíců zastaralé</string>
+     <string name="trust_feature_security_patches_value_old">Zastaralé</string>
+-    <string name="trust_feature_security_patches_explain">Bezpečnostní záplaty jsou vydávány měsíčně společností Google ve spolupráci s dodavateli čipů, aby odstranili nedostatky, kterých by mohly zneužít škodlivé aplikace tím, že obejdou bezpečnostní omezení a způsobí trvalé poškození vašemu zařízení. Záplaty, které společnost Google poskytuje, jsou aplikovány každý měsíc na všech podporovaných zařízeních, ale záplaty mohou být do kódu aplikovány pouze výrobcem zařízení. Chcete-li zařízení udržet v bezpečí, ujistěte se, že je vaše sestavení LineageOS vždy aktuální, a (pokud možno) ujistěte se, že je obraz systému dodavatele aktualizován na poslední verzi doporučenou LineageOS.</string>
+     <string name="trust_feature_encryption">Šifrování</string>
+     <string name="trust_feature_encryption_value_enabled">Povoleno</string>
+     <string name="trust_feature_encryption_value_nolock">Je potřeba zabezpečená zamykací obrazovka</string>
+@@ -516,8 +515,6 @@
+     <string name="trust_warnings_alerts_intro">Můžete vybrat bezpečnostní problémy, na které chcete upozornit. Pro vaši bezpečnost doporučujeme povolit všechna upozornění</string>
+     <string name="trust_warnings_selinux">Stav SELinux</string>
+     <string name="trust_warnings_keys">Podpis sestavení</string>
+-    <string name="trust_onboarding_title">Seznámení s Trust</string>
+-    <string name="trust_onboarding_description">Trust pomáhá udržovat vaše zařízení bezpečné a chrání vaše soukromí.\nIkona Trust se zobrazí pouze tehdy, když byl obsah stránky ověřen.</string>
+     <string name="trust_onboarding_learn_more">Dozvědět se více</string>
+     <string name="trust_onboarding_done">Chápu</string>
+     <string name="trust_restrict_usb_title">Omezit USB</string>
+diff --git a/res/values-cy/strings.xml b/res/values-cy/strings.xml
+index 81bf0e5..a0848c4 100644
+--- a/res/values-cy/strings.xml
++++ b/res/values-cy/strings.xml
+@@ -508,7 +508,6 @@
+     <string name="trust_feature_security_patches_value_new">Yn gyfredol</string>
+     <string name="trust_feature_security_patches_value_medium">Rhai misoedd yn hen</string>
+     <string name="trust_feature_security_patches_value_old">Yn hen</string>
+-    <string name="trust_feature_security_patches_explain">Mae Google yn rhyddhau cyweiriadau diogelwch (security patches) yn fisol ar y cyd â darparwyr i fynd i\'r afael â namau y gellir cael eu hecsbloetio gan apiau maleisus er mwyn osgoi cyfyngiadau diogelwch ac achosi niwed parhaol i dy ddyfais. Mae cyweiriadau gan Google yn cael eu rhyddhau pob mis ond gall cyweiriadau i god dy ddyfais fel arfer ond cael eu gosod gan y gwneuthurwr. Wrth dy fod wedi gosod LineageOS i gymryd lle\'r fersiwn Android gwreiddiol ar dy ddyfais, mae\'r materion hyn yn dy ddwylo dy hun. I gadw dy ddyfais yn ddiogel, sicrha dy fod yn diweddaru dy adeiledd LineageOS i\'w gadw yn gyfredol ac, os yn berthnasol, sicrha bod y ddelwedd darparwr (vendor image) yn cael ei ddiweddaru i\'r un mwyaf diweddar a argymhellir gan LineageOS.</string>
+     <string name="trust_feature_encryption">Amgryptiad</string>
+     <string name="trust_feature_encryption_value_enabled">Galluogwyd</string>
+     <string name="trust_feature_encryption_value_nolock">Mae angen scrin cloi diogel</string>
+@@ -519,8 +518,6 @@
+     <string name="trust_warnings_alerts_intro">Gellir dewis y materion diogelwch rwyt am gael dy rybuddio amdanynt. Argymhellir dy fod yn galluogi pob rhybudd.</string>
+     <string name="trust_warnings_selinux">Statws SELinux</string>
+     <string name="trust_warnings_keys">Llofnod adeiledd</string>
+-    <string name="trust_onboarding_title">Croeso i Trust</string>
+-    <string name="trust_onboarding_description">Mae Trust yn dy helpu i gadw dy ddyfais yn ddiogel a gwarchod dy breifatrwydd.\nBydd eicon Trust ond yn ymddangos pan mae cynnwys y dudalen wedi\'i wirio.</string>
+     <string name="trust_onboarding_learn_more">Dysgu mwy</string>
+     <string name="trust_onboarding_done">Deall yn iawn</string>
+     <string name="trust_restrict_usb_title">Cyfyngu USB</string>
+diff --git a/res/values-da/strings.xml b/res/values-da/strings.xml
+index d93ab42..f2661ce 100644
+--- a/res/values-da/strings.xml
++++ b/res/values-da/strings.xml
+@@ -484,7 +484,6 @@
+     <string name="trust_feature_security_patches_value_new">Opdateret</string>
+     <string name="trust_feature_security_patches_value_medium">Et par måneder forældet</string>
+     <string name="trust_feature_security_patches_value_old">Forældet</string>
+-    <string name="trust_feature_security_patches_explain">Sikkerhedsrettelser frigives månedligt af Google i samarbejde med SoC-leverandører, for at adressere fejl, som kunne blive udnyttet af ondsindede apps, til at omgå sikkerhedsrestriktioner, og forårsage permanent skade på din enhed. Rettelser gjort tilgængelige af Google anvendes hver måned, på alle understøttede enheder, men rettelser til proprietær kode kun kan anvendes af din enheds producent. Sørg for at dit LineageOS-build altid er ajour, for at holde din enhed sikker, og (hvis gældende) sikre at dit producent-billede er opdateret til den seneste, som anbefales af LineageOS.</string>
+     <string name="trust_feature_encryption">Kryptering</string>
+     <string name="trust_feature_encryption_value_enabled">Aktiveret</string>
+     <string name="trust_feature_encryption_value_nolock">Har brug for en sikker låseskærm</string>
+@@ -493,7 +492,6 @@
+     <string name="trust_category_tools">Privatliv</string>
+     <string name="trust_notification_alerts_title">Sikkerhedsadvarsler</string>
+     <string name="trust_warnings_selinux">SELinux status</string>
+-    <string name="trust_onboarding_title">Sig hej til Tillid</string>
+     <string name="trust_onboarding_learn_more">Lær mere</string>
+     <string name="trust_onboarding_done">Forstået</string>
+     <string name="trust_restrict_usb_summary">Styr understøttelse af USB-forbindelser som høretelefoner, lagerenheder, input (mus, tastaturer, joysticks) og ADB</string>
+diff --git a/res/values-de/strings.xml b/res/values-de/strings.xml
+index cce047b..5ed9dfb 100644
+--- a/res/values-de/strings.xml
++++ b/res/values-de/strings.xml
+@@ -514,7 +514,6 @@
+     <string name="trust_feature_security_patches_value_new">aktuell</string>
+     <string name="trust_feature_security_patches_value_medium">einige Monate veraltet</string>
+     <string name="trust_feature_security_patches_value_old">veraltet</string>
+-    <string name="trust_feature_security_patches_explain">Sicherheitspatches werden monatlich von Google in Zusammenarbeit mit SoC-Anbietern veröffentlicht. Diese beheben Fehler, mittels derer bösartige Anwendungen Sicherheitseinschränkungen umgehen und dein Gerät dauerhaft beschädigen können. Von Google bereitgestellte Patches werden jeden Monat auf alle unterstützten Geräte angewendet, aber Patches für proprietären Code können nur vom Hersteller deines Gerätes bereitgestellt werden. Um dein Gerät sicher zu halten, aktualisiere LineageOS und (wenn möglich) dein Vendor-Image stets auf das von LineageOS empfohlene.</string>
+     <string name="trust_feature_encryption">Verschlüsselung</string>
+     <string name="trust_feature_encryption_value_enabled">Aktiviert</string>
+     <string name="trust_feature_encryption_value_nolock">Benötigt einen sicheren Sperrbildschirm</string>
+@@ -525,8 +524,6 @@
+     <string name="trust_warnings_alerts_intro">Du kannst auswählen, auf welche Sicherheitsprobleme du hingewiesen werden möchtest. Aus Sicherheitsgründen empfiehlt es sich, alle Warnungen zu aktivieren</string>
+     <string name="trust_warnings_selinux">SELinux-Status</string>
+     <string name="trust_warnings_keys">Build-Signatur</string>
+-    <string name="trust_onboarding_title">Sag Hallo zu Trust</string>
+-    <string name="trust_onboarding_description">Trust hilft dir, dein Gerät sicher zu halten und schützt deine Privatsphäre.\nDas Trust Icon wird nur angezeigt, wenn der Inhalt der Seite überprüft wurde.</string>
+     <string name="trust_onboarding_learn_more">Mehr erfahren</string>
+     <string name="trust_onboarding_done">Verstanden</string>
+     <string name="trust_restrict_usb_title">USB beschränken</string>
+diff --git a/res/values-el/strings.xml b/res/values-el/strings.xml
+index 1b77ac2..bd25eff 100644
+--- a/res/values-el/strings.xml
++++ b/res/values-el/strings.xml
+@@ -519,7 +519,6 @@
+     <string name="trust_feature_security_patches_value_new">Ενημερωμένη</string>
+     <string name="trust_feature_security_patches_value_medium">Μερικούς μήνες παλιά</string>
+     <string name="trust_feature_security_patches_value_old">Ξεπερασμένη</string>
+-    <string name="trust_feature_security_patches_explain">Οι ενημερωμένες εκδόσεις ασφαλείας αποστέλλονται κάθε μήνα από την Google σε συνεργασία με τους κατασκευαστές SoC για την αντιμετώπιση σφαλμάτων τα οποία θα μπορούσαν να εκμεταλλευτούν από κακόβουλες εφαρμογές για να παρακάμψουν τους περιορισμούς ασφαλείας και να προκαλέσουν μόνιμη βλάβη στη συσκευή σας.\nΟι ενημερώσεις ασφαλείας που διατίθενται από την Google εφαρμόζονται για όλες τις υποστηριζόμενες συσκευές κάθε μήνα, αλλά οι ενημερώσεις ασφαλείας για κλειστό κώδικα μπορούν να εφαρμοστούν μόνο από τον κατασκευαστή της συσκευής σας.\nΓια να διατηρήσετε τη συσκευή σας ασφαλή, βεβαιωθείτε ότι χρησιμοποιείτε πάντα μια ενημερωμένη έκδοση του LineageOS και (ενδεχομένως) σιγουρευτείτε ότι η εικόνα \"vendor\" είναι ενημερωμένη στην πιο πρόσφατη έκδοση προτεινόμενη από το LineageOS.</string>
+     <string name="trust_feature_encryption">Κρυπτογράφηση</string>
+     <string name="trust_feature_encryption_value_enabled">Ενεργή</string>
+     <string name="trust_feature_encryption_value_nolock">Απαιτεί ασφαλή οθόνη κλειδώματος</string>
+@@ -530,8 +529,6 @@
+     <string name="trust_warnings_alerts_intro">Μπορείτε να επιλέξετε τα ζητήματα ασφαλείας που θέλετε να προειδοποιείστε. Για δική σας ασφάλεια, συνιστάται να ενεργοποιήσετε όλες τις ειδοποιήσεις</string>
+     <string name="trust_warnings_selinux">Κατάσταση SELinux</string>
+     <string name="trust_warnings_keys">Υπογραφή build</string>
+-    <string name="trust_onboarding_title">Υποδεχθείτε την Εμπιστοσύνη</string>
+-    <string name="trust_onboarding_description">Η Εμπιστοσύνη σάς βοηθά να διατηρείτε τη συσκευή σας ασφαλή και προστατεύει το απόρρητό σας.\nΤο εικονίδιο Εμπιστοσύνης θα εμφανίζεται μόνο όταν τα περιεχόμενα της σελίδας έχουν επαληθευτεί.</string>
+     <string name="trust_onboarding_learn_more">Μάθετε περισσότερα</string>
+     <string name="trust_onboarding_done">Το έπιασα</string>
+     <string name="trust_restrict_usb_title">Περιορισμός USB</string>
+diff --git a/res/values-en-rAU/strings.xml b/res/values-en-rAU/strings.xml
+index c37e7b6..84e6064 100644
+--- a/res/values-en-rAU/strings.xml
++++ b/res/values-en-rAU/strings.xml
+@@ -517,7 +517,6 @@
+     <string name="trust_feature_security_patches_value_new">Up to date</string>
+     <string name="trust_feature_security_patches_value_medium">A few months out of date</string>
+     <string name="trust_feature_security_patches_value_old">Out of date</string>
+-    <string name="trust_feature_security_patches_explain">Security patches are released monthly by Google in cooperation with SoC vendors to address flaws which could be exploited by malicious apps to bypass security restrictions and cause permanent damage to your device. Patches made available by Google are applied every month on all supported devices, but patches to proprietary code can only be applied by your device\'s manufacturer. To keep your device safe make sure your LineageOS build is always up-to-date, and (if applicable) ensure your vendor image is updated to the latest one recommended by LineageOS.</string>
+     <string name="trust_feature_encryption">Encryption</string>
+     <string name="trust_feature_encryption_value_enabled">Enabled</string>
+     <string name="trust_feature_encryption_value_nolock">Needs a secure lock screen</string>
+@@ -528,8 +527,6 @@
+     <string name="trust_warnings_alerts_intro">You can select the security issues you want to be warned about. For your safety, it is recommended to enable all alerts.</string>
+     <string name="trust_warnings_selinux">SELinux status</string>
+     <string name="trust_warnings_keys">Build signature</string>
+-    <string name="trust_onboarding_title">Say hello to Trust</string>
+-    <string name="trust_onboarding_description">Trust helps you keep your device secure and protect your privacy.\nThe Trust icon will only show when the contents of the page have been verified.</string>
+     <string name="trust_onboarding_learn_more">Learn more</string>
+     <string name="trust_onboarding_done">Got it</string>
+     <string name="trust_restrict_usb_title">Restrict USB</string>
+diff --git a/res/values-en-rCA/strings.xml b/res/values-en-rCA/strings.xml
+index a2ebd96..27a605e 100644
+--- a/res/values-en-rCA/strings.xml
++++ b/res/values-en-rCA/strings.xml
+@@ -517,7 +517,6 @@
+     <string name="trust_feature_security_patches_value_new">Up to date</string>
+     <string name="trust_feature_security_patches_value_medium">A few months out of date</string>
+     <string name="trust_feature_security_patches_value_old">Out of date</string>
+-    <string name="trust_feature_security_patches_explain">Security patches are released monthly by Google in cooperation with SoC vendors to address flaws which could be exploited by malicious apps to bypass security restrictions and cause permanent damage to your device. Patches made available by Google are applied every month on all supported devices, but patches to proprietary code can only be applied by your device\'s manufacturer. To keep your device safe make sure your LineageOS build is always up-to-date, and (if applicable) ensure your vendor image is updated to the latest one recommended by LineageOS.</string>
+     <string name="trust_feature_encryption">Encryption</string>
+     <string name="trust_feature_encryption_value_enabled">Enabled</string>
+     <string name="trust_feature_encryption_value_nolock">Needs a secure lock screen</string>
+@@ -528,8 +527,6 @@
+     <string name="trust_warnings_alerts_intro">You can select the security issues you want to be warned about. For your safety, it is recommended to enable all alerts</string>
+     <string name="trust_warnings_selinux">SELinux status</string>
+     <string name="trust_warnings_keys">Build signature</string>
+-    <string name="trust_onboarding_title">Say hello to Trust</string>
+-    <string name="trust_onboarding_description">Trust helps you keep your device secure and protect your privacy.\nThe Trust icon will only show when the contents of the page have been verified.</string>
+     <string name="trust_onboarding_learn_more">Learn more</string>
+     <string name="trust_onboarding_done">Got it</string>
+     <string name="trust_restrict_usb_title">Restrict USB</string>
+diff --git a/res/values-en-rGB/strings.xml b/res/values-en-rGB/strings.xml
+index 8ee0590..f435e78 100644
+--- a/res/values-en-rGB/strings.xml
++++ b/res/values-en-rGB/strings.xml
+@@ -517,7 +517,6 @@
+     <string name="trust_feature_security_patches_value_new">Up to date</string>
+     <string name="trust_feature_security_patches_value_medium">A few months out of date</string>
+     <string name="trust_feature_security_patches_value_old">Out of date</string>
+-    <string name="trust_feature_security_patches_explain">Security patches are released monthly by Google in cooperation with SoC vendors to address flaws which could be exploited by malicious apps to bypass security restrictions and cause permanent damage to your device. Patches made available by Google are applied every month on all supported devices, but patches to proprietary code can only be applied by your device\'s manufacturer. To keep your device safe make sure your LineageOS build is always up-to-date, and (if applicable) ensure your vendor image is updated to the latest one recommended by LineageOS.</string>
+     <string name="trust_feature_encryption">Encryption</string>
+     <string name="trust_feature_encryption_value_enabled">Enabled</string>
+     <string name="trust_feature_encryption_value_nolock">Needs a secure lock screen</string>
+@@ -528,8 +527,6 @@
+     <string name="trust_warnings_alerts_intro">You can select the security issues you want to be warned about. For your safety, it is recommended to enable all alerts.</string>
+     <string name="trust_warnings_selinux">SELinux status</string>
+     <string name="trust_warnings_keys">Build signature</string>
+-    <string name="trust_onboarding_title">Say hello to Trust</string>
+-    <string name="trust_onboarding_description">Trust helps you keep your device secure and protect your privacy.\nThe Trust icon will only show when the contents of the page have been verified.</string>
+     <string name="trust_onboarding_learn_more">Learn more</string>
+     <string name="trust_onboarding_done">Got it</string>
+     <string name="trust_restrict_usb_title">Restrict USB</string>
+diff --git a/res/values-en-rIN/strings.xml b/res/values-en-rIN/strings.xml
+index 2d637ba..7b243bb 100644
+--- a/res/values-en-rIN/strings.xml
++++ b/res/values-en-rIN/strings.xml
+@@ -517,7 +517,6 @@
+     <string name="trust_feature_security_patches_value_new">Up to date</string>
+     <string name="trust_feature_security_patches_value_medium">A few months out of date</string>
+     <string name="trust_feature_security_patches_value_old">Out of date</string>
+-    <string name="trust_feature_security_patches_explain">Security patches are released monthly by Google in cooperation with SoC vendors to address flaws which could be exploited by malicious apps to bypass security restrictions and cause permanent damage to your device. Patches made available by Google are applied every month on all supported devices, but patches to proprietary code can only be applied by your device\'s manufacturer. To keep your device safe make sure your LineageOS build is always up-to-date, and (if applicable) ensure your vendor image is updated to the latest one recommended by LineageOS.</string>
+     <string name="trust_feature_encryption">Encryption</string>
+     <string name="trust_feature_encryption_value_enabled">Enabled</string>
+     <string name="trust_feature_encryption_value_nolock">Needs a secure lock screen</string>
+@@ -528,8 +527,6 @@
+     <string name="trust_warnings_alerts_intro">You can select the security issues you want to be warned about. For your safety, it is recommended to enable all alerts.</string>
+     <string name="trust_warnings_selinux">SELinux status</string>
+     <string name="trust_warnings_keys">Build signature</string>
+-    <string name="trust_onboarding_title">Say hello to Trust</string>
+-    <string name="trust_onboarding_description">Trust helps you keep your device secure and protect your privacy.\nThe Trust icon will only show when the contents of the page have been verified.</string>
+     <string name="trust_onboarding_learn_more">Learn more</string>
+     <string name="trust_onboarding_done">Got it</string>
+     <string name="trust_restrict_usb_title">Restrict USB</string>
+diff --git a/res/values-es-rUS/strings.xml b/res/values-es-rUS/strings.xml
+index bc4d10c..24e8d00 100644
+--- a/res/values-es-rUS/strings.xml
++++ b/res/values-es-rUS/strings.xml
+@@ -451,7 +451,6 @@
+     <string name="trust_feature_selinux_explain">SELinux dicta qué procesos tienen acceso a qué archivos en el dispositivo.\n Esto evita que las aplicaciones y servicios tengan acceso a archivos con los que no deben tratar: de esta manera, un proceso malicioso tiene acceso limitado, por lo que su seguridad se mantiene.</string>
+     <string name="trust_feature_security_patches">Parches de seguridad de Android</string>
+     <string name="trust_feature_security_patches_value_base">Plataforma: %1$s\nProveedor: %2$s</string>
+-    <string name="trust_feature_security_patches_explain">Google publica mensualmente parches de seguridad en colaboración con los proveedores de SoC para solucionar los fallos que podrían ser explotados por aplicaciones maliciosas para eludir las restricciones de seguridad y causar daños permanentes al dispositivo. Los parches puestos a disposición por Google se aplican todos los meses en todos los dispositivos compatibles, pero los parches para el código propietario sólo pueden ser aplicados por el fabricante del dispositivo. Para mantener el dispositivo seguro, asegúrese de que su compilación LineageOS esté siempre actualizada, y (si corresponde) asegúrese de que su imagen de vendedor esté actualizada a la última recomendada por LineageOS.</string>
+     <string name="trust_feature_encryption">Cifrado</string>
+     <string name="trust_feature_encryption_value_enabled">Activado</string>
+     <string name="trust_feature_encryption_value_nolock">Necesita una pantalla de bloqueo segura</string>
+@@ -462,8 +461,6 @@
+     <string name="trust_warnings_alerts_intro">Puede seleccionar los problemas de seguridad de los que desea ser avisado. Para su seguridad, se recomienda habilitar todas las alertas</string>
+     <string name="trust_warnings_selinux">Estado de SELinux</string>
+     <string name="trust_warnings_keys">Firma de compilación</string>
+-    <string name="trust_onboarding_title">Saluda a Trust</string>
+-    <string name="trust_onboarding_description">Trust ayuda a mantener el dispositivo seguro y proteger su privacidad.\nEl icono de Trust sólo se mostrará cuando se haya verificado el contenido de la página.</string>
+     <string name="trust_onboarding_learn_more">Saber más</string>
+     <string name="trust_onboarding_done">Entiendo</string>
+     <string name="trust_restrict_usb_title">Restringir USB</string>
+diff --git a/res/values-es/strings.xml b/res/values-es/strings.xml
+index ce863b6..bdc0e5c 100644
+--- a/res/values-es/strings.xml
++++ b/res/values-es/strings.xml
+@@ -515,7 +515,6 @@
+     <string name="trust_feature_security_patches_value_new">Actualizado</string>
+     <string name="trust_feature_security_patches_value_medium">Desactualizado varios meses</string>
+     <string name="trust_feature_security_patches_value_old">Desactualizado</string>
+-    <string name="trust_feature_security_patches_explain">Google publica mensualmente parches de seguridad en cooperación con los proveedores de SoC para corregir fallos que podrían ser aprovechados por aplicaciones maliciosas para eludir las restricciones de seguridad y causar daños permanentes a tu dispositivo. Los parches disponibles de Google se aplican cada mes en todos los dispositivos soportados, pero los parches al código propio solo pueden ser aplicados por el fabricante del dispositivo. Para mantener tu dispositivo seguro, asegúrate de que la compilación de LineageOS esté siempre actualizada y, si aplica, asegúrate de que la imagen de tu proveedor está actualizada a la última recomendada por LineageOS.</string>
+     <string name="trust_feature_encryption">Cifrado</string>
+     <string name="trust_feature_encryption_value_enabled">Activado</string>
+     <string name="trust_feature_encryption_value_nolock">Necesita una pantalla de bloqueo segura</string>
+@@ -526,8 +525,6 @@
+     <string name="trust_warnings_alerts_intro">Puedes seleccionar los problemas de seguridad de los que deseas ser avisado. Para tu seguridad, se recomienda habilitar todas las alertas</string>
+     <string name="trust_warnings_selinux">Estado de SELinux</string>
+     <string name="trust_warnings_keys">Firma de compilación</string>
+-    <string name="trust_onboarding_title">Di hola a Trust</string>
+-    <string name="trust_onboarding_description">Trust te ayuda a mantener tu dispositivo seguro y a proteger tu privacidad.\nEl icono de Trust solo se mostrará cuando el contenido de la página haya sido verificado.</string>
+     <string name="trust_onboarding_learn_more">Saber más</string>
+     <string name="trust_onboarding_done">Entiendo</string>
+     <string name="trust_restrict_usb_title">Restringir USB</string>
+diff --git a/res/values-et/strings.xml b/res/values-et/strings.xml
+index a062200..6f3a16d 100644
+--- a/res/values-et/strings.xml
++++ b/res/values-et/strings.xml
+@@ -472,7 +472,6 @@ andmete eelvaade.</string>
+     <string name="trust_feature_security_patches_value_new">Ajakohane</string>
+     <string name="trust_feature_security_patches_value_medium">Paar kuud vana</string>
+     <string name="trust_feature_security_patches_value_old">Vananenud</string>
+-    <string name="trust_feature_security_patches_explain">Google väljastab iga kuu turvapaikasid koostöös SoC tarnijatega, parandamaks vigu, mida võivad pahatahtlikud rakendused ära kasutada, et pääseda mööda turvapiirangutest ning põhjustada püsivat kahju sinu seadmele. Paigad, mille Google väljastab rakendatakse iga kuu kõikidele toetatud seadmetele, aga omandiõigustega koodile saab paiku määrata ainult sinu seadme tootja. Et hoida oma seade turvalisena, veendu, et sinu LineageOS järk on alati kaasaegne ning (võimalusel) veendu, et sinu tarnija tõmmis on uuendatud LineageOS\'i poolt viimasena soovitatud versioonile.</string>
+     <string name="trust_feature_encryption">Krüpteerimine</string>
+     <string name="trust_feature_encryption_value_enabled">Lubatud</string>
+     <string name="trust_feature_encryption_value_nolock">Vajab turvalist lukustuskuva</string>
+@@ -483,8 +482,6 @@ andmete eelvaade.</string>
+     <string name="trust_warnings_alerts_intro">Sa saad valida, millistest turvaohtudest soovid olla teavitatud. Sinu turvalisuse jaoks on soovitatud kõik teavitused lubada</string>
+     <string name="trust_warnings_selinux">SELinuxi olek</string>
+     <string name="trust_warnings_keys">Järgu allkiri</string>
+-    <string name="trust_onboarding_title">Ütle tere Trustile</string>
+-    <string name="trust_onboarding_description">Trust aitab sul hoida oma seadet turvalisena ning kaitsta oma privaatsust.\nTrust-ikooni kuvatakse vaid siis, kui lehe sisu on kinnitatud.</string>
+     <string name="trust_onboarding_learn_more">Lisateave</string>
+     <string name="trust_onboarding_done">Sain aru</string>
+     <string name="trust_restrict_usb_title">Piira USB-d</string>
+diff --git a/res/values-eu/strings.xml b/res/values-eu/strings.xml
+index 5e8f21e..01d6732 100644
+--- a/res/values-eu/strings.xml
++++ b/res/values-eu/strings.xml
+@@ -442,7 +442,6 @@ Informazio hau gailuaren abio bakoitzean bidaltzen da.\n\nBidalitako informazioa
+     <string name="trust_feature_selinux_explain">SELinux-ek prozesuek zeintsu fitxategi edo bide atzitzeko baimena duten agintzen du.\nHonek aplikazio eta zerbitzuek ez dagozkien fitxategiak atzitu ahal izatea ekiditen du: honela potentzialki gaiztoa den prozesu batek sarbide mugatua du eta zure segurtasuna babesten da.</string>
+     <string name="trust_feature_security_patches">Android segurtasun partxeak</string>
+     <string name="trust_feature_security_patches_value_base">Plataforma: %1$s\nEkoizlea: %2$s</string>
+-    <string name="trust_feature_security_patches_explain">Segurtasun partxeak hilabetero kaleratzen ditu Googlek ekoizleekin elkarlanean, aplikazio gaizkileek segurtasun mugak inguratzeko eta gailuan kalte iraunkorra sortzeko erabili ditzaketen ahuleziak konpontzeko. Googlek argitaratutako partxeak onartutako gailu guztietan aplikatzen dira hilabetero, baina jabeduna den kodean ekoizleak besterik ezin du aplikatu partxea. Gailua seguru mantentzeko egiaztatu LineageOS beti egunean dagoela eta (baldin eta badagokio) egiaztatu zure ekoizlearen irudia LineageOS-ek aholkatutako azkenera eguneratu dela.</string>
+     <string name="trust_feature_encryption">Zifratzea</string>
+     <string name="trust_feature_encryption_value_enabled">Gaituta</string>
+     <string name="trust_feature_encryption_value_nolock">Blokeo-pantaila seguru bat behar du</string>
+@@ -453,8 +452,6 @@ Informazio hau gailuaren abio bakoitzean bidaltzen da.\n\nBidalitako informazioa
+     <string name="trust_warnings_alerts_intro">Segurtasun arazoak aukeratu ditzakezu hauen abisua jasotzeko. Zure segurtasunagatik alerta guztiak gaitzea aholkatzen da</string>
+     <string name="trust_warnings_selinux">SELinux egoera</string>
+     <string name="trust_warnings_keys">Konpilazioaren sinadura</string>
+-    <string name="trust_onboarding_title">Hona hemen Trust</string>
+-    <string name="trust_onboarding_description">Trust-ek zure gailua seguru mantentzen eta zure pribatutasuna babesten laguntzen dizu.\nTrust ikonoa orriaren edukian egiaztatu direnean agertuko da besterik ez.</string>
+     <string name="trust_onboarding_learn_more">Ikasi gehiago</string>
+     <string name="trust_onboarding_done">Ulertu dut</string>
+     <string name="trust_restrict_usb_title">Murriztu USB</string>
+diff --git a/res/values-fa/strings.xml b/res/values-fa/strings.xml
+index 5d88229..29a287c 100644
+--- a/res/values-fa/strings.xml
++++ b/res/values-fa/strings.xml
+@@ -520,7 +520,6 @@
+     <string name="trust_feature_security_patches_value_new">به روز</string>
+     <string name="trust_feature_security_patches_value_medium">چند ماه گذشته</string>
+     <string name="trust_feature_security_patches_value_old">قدیمی</string>
+-    <string name="trust_feature_security_patches_explain">وصله‌های امنیتی ماهانه توسط گوگل با همکاری فروشندگان SoC منتشر می‌شوند تا نقص‌هایی را برطرف کنند که می‌تواند توسط برنامه‌های مخرب برای دور زدن محدودیت‌های امنیتی و ایجاد آسیب دائمی به دستگاه شما استفاده شود. وصله‌هایی که توسط گوگل ارائه می‌شوند هر ماه روی تمامی دستگاه‌های پشتیبانی‌شده اعمال می‌شوند، اما وصله‌های کد اختصاصی تنها توسط سازنده دستگاه شما قابل اعمال هستند. برای ایمن نگه داشتن دستگاه خود، مطمئن شوید که نسخه LineageOS شما همیشه به‌روز است و (در صورت لزوم) اطمینان حاصل کنید که ایمیج فروشنده شما به آخرین نسخه توصیه‌شده توسط LineageOS به‌روز است.</string>
+     <string name="trust_feature_encryption">رمزنگاری</string>
+     <string name="trust_feature_encryption_value_enabled">فعال</string>
+     <string name="trust_feature_encryption_value_nolock">به یک صفحه قفل امن نیاز دارد</string>
+@@ -531,8 +530,6 @@
+     <string name="trust_warnings_alerts_intro">شما می‌توانید مسائل امنیتی که می‌خواهید در مورد آنها هشدار داده شوید را انتخاب کنید. برای ایمنی خود، توصیه می‌شود همه هشدارها را فعال کنید.</string>
+     <string name="trust_warnings_selinux">وضعیت SELinux</string>
+     <string name="trust_warnings_keys">امضا ساخت</string>
+-    <string name="trust_onboarding_title">به اعتماد سلام کنید</string>
+-    <string name="trust_onboarding_description">اعتماد به شما کمک می‌کند دستگاه خود را ایمن نگه داشته و از حریم خصوصی خود محافظت کنید. نماد اعتماد تنها زمانی نمایش داده می‌شود که محتوای صفحه تأیید شده باشد.</string>
+     <string name="trust_onboarding_learn_more">بیشتر بدانید</string>
+     <string name="trust_onboarding_done">فهمیدم</string>
+     <string name="trust_restrict_usb_title">محدود کردن USB</string>
+diff --git a/res/values-fi/strings.xml b/res/values-fi/strings.xml
+index 4c03c7c..bc89090 100644
+--- a/res/values-fi/strings.xml
++++ b/res/values-fi/strings.xml
+@@ -467,7 +467,6 @@
+     <string name="trust_feature_selinux_explain">SELinux määrittelee millä prosesseilla on pääsy laitteesi tiedostoihin/polkuihin.\nTämä ehkäisee sovelluksia ja palveluita pääsemästä tiedostoihin joihin niiden ei kuuluisi päästä: tällä tavalla potentiaaliset haitalliset prosessit estetään, ja turvallisuutesi turvataan.</string>
+     <string name="trust_feature_security_patches">Android-tietoturvakorjaukset</string>
+     <string name="trust_feature_security_patches_value_base">Alusta: %1$s\nValmistaja: %2$s</string>
+-    <string name="trust_feature_security_patches_explain">Google julkaisee tietoturvapäivityksiä kuukausittain yhteistyössä alustan valmistajien kanssa korjatakseen ongelmia joita haitalliset sovellukset voisivat käyttää ohittaakseen turvallisuusmäärityksiä ja aiheuttaakseen vahinkoa laitteellesi. Googlen julkaisemat päivitykset lisätään joka kuukausi kaikkiin tuettuihin laitteisiin, mutta suljettuun koodiin tehdyt muutokset voi julkaista vain laitteen valmistaja. Pitääksesi laitteesi turvassa, varmista että käytössä on aina tuore LineageOS-koontiversio, ja (jos mahdollista) laitevalmistajan versio on viimeisin LineageOS:n suosittelema.</string>
+     <string name="trust_feature_encryption">Salaus</string>
+     <string name="trust_feature_encryption_value_enabled">Käytössä</string>
+     <string name="trust_feature_encryption_value_nolock">Vaatii turvallisen lukitusnäytön</string>
+@@ -478,8 +477,6 @@
+     <string name="trust_warnings_alerts_intro">Voit valita turvallisuusongelmat joista sinua varoitetaan. Turvallisuussyistä on suositeltavaa ottaa kaikki käyttöön</string>
+     <string name="trust_warnings_selinux">SELinux-tila</string>
+     <string name="trust_warnings_keys">Koontiversion allekirjoitus</string>
+-    <string name="trust_onboarding_title">Toivota Trust tervetulleeksi</string>
+-    <string name="trust_onboarding_description">Trust auttaa sinua pitämään laitteesi turvassa ja suojaa yksityisyyttäsi.\nTrust-kuvake näkyy vain kun sivun sisältö on varmistettu.</string>
+     <string name="trust_onboarding_learn_more">Lue lisää</string>
+     <string name="trust_onboarding_done">Selvä</string>
+     <string name="trust_restrict_usb_title">Rajoita USB</string>
+diff --git a/res/values-fr/strings.xml b/res/values-fr/strings.xml
+index e00a559..746c5ba 100644
+--- a/res/values-fr/strings.xml
++++ b/res/values-fr/strings.xml
+@@ -515,7 +515,6 @@
+     <string name="trust_feature_security_patches_value_new">À jour</string>
+     <string name="trust_feature_security_patches_value_medium">Obsolète de quelques mois</string>
+     <string name="trust_feature_security_patches_value_old">Obsolète</string>
+-    <string name="trust_feature_security_patches_explain">Les correctifs de sécurité sont publiés chaque mois par Google, en coopération avec les fournisseurs de SoC. Ils permettent de corriger des failles que des applications malveillantes sont susceptibles d\'exploiter pour contourner les restrictions de sécurité et endommager votre appareil de façon définitive. Les correctifs fournis par Google sont appliqués chaque mois à tous les appareils compatibles, mais ceux concernant le code propriétaire ne peuvent l\'être que par le fabricant de votre appareil. Pour garantir la sécurité de votre appareil, veillez à toujours utiliser la dernière version de LineageOS et, le cas échéant, mettez à jour votre fichier vendor.img afin qu\'il corresponde à la dernière version recommandée par LineageOS.</string>
+     <string name="trust_feature_encryption">Chiffrement</string>
+     <string name="trust_feature_encryption_value_enabled">Activé</string>
+     <string name="trust_feature_encryption_value_nolock">Écran de verrouillage sécurisé requis</string>
+@@ -526,8 +525,6 @@
+     <string name="trust_warnings_alerts_intro">Vous pouvez sélectionner les problèmes de sécurité pour lesquels vous souhaitez être averti. Pour votre sécurité, il est recommandé d’activer toutes les alertes.</string>
+     <string name="trust_warnings_selinux">État SELinux</string>
+     <string name="trust_warnings_keys">Signature de la version</string>
+-    <string name="trust_onboarding_title">Découvrez Trust</string>
+-    <string name="trust_onboarding_description">Trust permet d\'assurer la sécurité de votre appareil et de protéger votre vie privée.\nL\'icône Trust ne s\'affiche que lorsque le contenu de la page a été vérifié.</string>
+     <string name="trust_onboarding_learn_more">En savoir plus</string>
+     <string name="trust_onboarding_done">OK</string>
+     <string name="trust_restrict_usb_title">Restreindre l’USB</string>
+diff --git a/res/values-fur-rIT/strings.xml b/res/values-fur-rIT/strings.xml
+index c5ff3c6..8f6f4d1 100644
+--- a/res/values-fur-rIT/strings.xml
++++ b/res/values-fur-rIT/strings.xml
+@@ -507,7 +507,6 @@
+     <string name="trust_feature_security_patches_value_new">Inzornade</string>
+     <string name="trust_feature_security_patches_value_medium">No inzornadis di cualchi mês</string>
+     <string name="trust_feature_security_patches_value_old">No inzornadis</string>
+-    <string name="trust_feature_security_patches_explain">Lis corezions di sigurece a vegnin publicadis ogni mês di Google in cooperazion cui produtôrs di SoC par risolvi problemis che a podaressin vignî sfrutâts da lis aplicazions malevulis par scjavalgjâ lis restrizions di sigurece e provocâ dams permanents al dispositîf. Lis corezions dadis fûr di Google a son aplicadis a ducj i dispositîfs supuartâts, ma chês relativis ai components proprietaris a puedin jessi aplicadis dome dal produtôr dal dispositîf. Par mantignî il dispositîf sigûr, controle che la tô version di LineageOS e sedi simpri inzornade e in câs controle che i components proprietaris, come i firmwares e la imagjin dal vendidôr, a sedin chei racomandâts di LineageOS.</string>
+     <string name="trust_feature_encryption">Criptazion</string>
+     <string name="trust_feature_encryption_value_enabled">Ative</string>
+     <string name="trust_feature_encryption_value_nolock">E necessite di une schermade di bloc sigure</string>
+@@ -518,8 +517,6 @@
+     <string name="trust_warnings_alerts_intro">Tu puedis sielzi di vê avîs in merit a determinâts problemis di sigurece. Pe tô sigurece al è conseât ativâ ducj i avîs</string>
+     <string name="trust_warnings_selinux">Stât di SELinux</string>
+     <string name="trust_warnings_keys">Firme de compilazion</string>
+-    <string name="trust_onboarding_title">Salude Trust</string>
+-    <string name="trust_onboarding_description">Trust al jude a mantignî il to dispositîf sigûr e al protêç la tô riservatece.\nLa icone di Trust e vignarà fûr dome tal moment che e ven verificade la sigurece dai contignûts de pagjine.</string>
+     <string name="trust_onboarding_learn_more">Plui informazions</string>
+     <string name="trust_onboarding_done">Capît</string>
+     <string name="trust_restrict_usb_title">Restrizions USB</string>
+diff --git a/res/values-fy-rNL/strings.xml b/res/values-fy-rNL/strings.xml
+index 19993da..c0206ad 100644
+--- a/res/values-fy-rNL/strings.xml
++++ b/res/values-fy-rNL/strings.xml
+@@ -446,7 +446,6 @@
+     <string name="trust_feature_selinux_explain">SELinux bepaalt hokker prosessen tagong hawwe ta hokker bestannen/mappen op jo apparaat.\nDit foarkomt dat applikaasjes en tsjinsten tagong krije ta bestannen dy\'t se net nedich hawwe: op dizze manier wurdt in potinsjeel kwea-aardich proses beheind en jo feilichheid behâlden.</string>
+     <string name="trust_feature_security_patches">Android-befeiligingspatches</string>
+     <string name="trust_feature_security_patches_value_base">Platfoarm: %1$s\nLeveransier: %2$s</string>
+-    <string name="trust_feature_security_patches_explain">Befeiligingspatches wurde elke moanne troch Google frijjûn yn gearwurking mei SoC-leveransiers om flaters oan te pakken dy\'t misbrûkt wurde kinne troch kweawollende apps om befeiligingsbeheiningen te omsilen en permaninte skea oan jo apparaat te feroarsaakjen. Patches dy\'t troch Google beskikber steld wurde, wurde elke moanne op alle stipe apparaten tapast, mar patches foar bedriuwseigen koade kinne allinnich troch de fabrikant fan jo apparaat tapast wurde. Om jo apparaat feilich te hâlden, moatte jo derfoar soargje dat jo LineageOS-build altyd by-de-tiid is en (wannear fan tapassing) soargje dat jo leveransiers-image fernijd wurdt nei de lêste dy\'t troch LineageOS oanrekommandearre wurdt.</string>
+     <string name="trust_feature_encryption">Fersifering</string>
+     <string name="trust_feature_encryption_value_enabled">Ynskeakele</string>
+     <string name="trust_feature_encryption_value_nolock">Fereasket in feilich beskoattelingsskerm</string>
+@@ -457,8 +456,6 @@
+     <string name="trust_warnings_alerts_intro">Jo kinne kieze foar hokker befeiligingsproblemen jo warskôge wurde wolle. Ut feilichheidsoerweagingen is it riedsum om alle warskôgingen yn te skeakeljen</string>
+     <string name="trust_warnings_selinux">SELinux-steat</string>
+     <string name="trust_warnings_keys">Build-hantekening</string>
+-    <string name="trust_onboarding_title">Sis hallo tsjin Trust</string>
+-    <string name="trust_onboarding_description">Trust helpt jo jo apparaat feilich te hâlden en jo privacy te beskermjen.\nIt Trust-piktogram wurdt allinnich toand as de ynhâld fan de side ferifiearre is.</string>
+     <string name="trust_onboarding_learn_more">Mear ynfo</string>
+     <string name="trust_onboarding_done">Ik begryp it</string>
+     <string name="trust_restrict_usb_title">USB beheine</string>
+diff --git a/res/values-ga-rIE/strings.xml b/res/values-ga-rIE/strings.xml
+index cf0cdcb..c36d0d6 100644
+--- a/res/values-ga-rIE/strings.xml
++++ b/res/values-ga-rIE/strings.xml
+@@ -517,7 +517,6 @@
+     <string name="trust_feature_security_patches_value_new">Go dáta</string>
+     <string name="trust_feature_security_patches_value_medium">Cúpla mí as dáta</string>
+     <string name="trust_feature_security_patches_value_old">As dáta</string>
+-    <string name="trust_feature_security_patches_explain">Eisíonn Google paistí slándála go míosúil i gcomhar le díoltóirí SoC chun aghaidh a thabhairt ar lochtanna a d’fhéadfadh aipeanna mailíseacha leas a bhaint astu chun srianta slándála a sheachbhóthar agus chun damáiste buan a dhéanamh do do ghléas. Cuirtear paistí a chuireann Google ar fáil gach mí ar gach gléas a dtacaítear leo, ach ní féidir ach le monaróir do ghléis paistí go dtí an cód dílseánaigh a chur i bhfeidhm. Chun do ghléas a choinneáil sábháilte déan cinnte go bhfuil do leagan LineageOS cothrom le dáta i gcónaí, agus (más infheidhme) cinntigh go ndéantar d’íomhá díoltóir a nuashonrú chuig an gceann is déanaí a mhol LineageOS.</string>
+     <string name="trust_feature_encryption">Criptiú</string>
+     <string name="trust_feature_encryption_value_enabled">Cumasaithe</string>
+     <string name="trust_feature_encryption_value_nolock">Teastaíonn scáileán glas slán</string>
+@@ -528,8 +527,6 @@
+     <string name="trust_warnings_alerts_intro">Is féidir leat na saincheisteanna slándála a bhfuil tú ag iarraidh go dtabharfar rabhadh duit a roghnú. Ar mhaithe le do shábháilteacht, moltar gach foláireamh a chumasú</string>
+     <string name="trust_warnings_selinux">Stádas SELinux</string>
+     <string name="trust_warnings_keys">Tóg síniú</string>
+-    <string name="trust_onboarding_title">Abair heileo le Iontaobhas</string>
+-    <string name="trust_onboarding_description">Cabhraíonn Trust leat do ghléas a choinneáil slán agus do phríobháideachas a chosaint.\nNí thaispeánfar an deilbhín Trust ach amháin nuair a bheidh inneachar an leathanaigh fíoraithe.</string>
+     <string name="trust_onboarding_learn_more">Foghlaim níos mó</string>
+     <string name="trust_onboarding_done">Tuigim</string>
+     <string name="trust_restrict_usb_title">Srian USB</string>
+diff --git a/res/values-gd/strings.xml b/res/values-gd/strings.xml
+index 7931116..c3cac35 100644
+--- a/res/values-gd/strings.xml
++++ b/res/values-gd/strings.xml
+@@ -481,7 +481,6 @@
+     <string name="trust_feature_security_patches_value_new">Cho ùr ’s a ghabhas</string>
+     <string name="trust_feature_security_patches_value_medium">Corra mìos ro shean</string>
+     <string name="trust_feature_security_patches_value_old">Dh’fhalbh an ùine air</string>
+-    <string name="trust_feature_security_patches_explain">Sgaoilidh Google ’s reiceadairean SoC brèidean tèarainteachd gach mìos a dhèiligeas ri easbhaidhean a b’ urrainn do dh’aplacaidean droch-rùnach a chleachdadh airson cuingeachaidhean tèarainteachd a sheachnadh is cron maireannach a dhèanamh air an uidheam agad. Thèid na brèidean a chuireas Google gu làimh a chur an sàs gach mìos air gach uidheam ris a bheil taic ach cha ghabh brèidean air còd fo shealbh a chur an sàs ach le dèanadair an uidheim agad. Airson an t-uidheam agad a chumail sàbhailte, dèan cinnteach gu bheil an togail agad dhe LineageOS cho ùr ’s a ghabhas an-còmhnaidh agus (ma tha seo iomchaidh) dèan cinnteach gun deach ìomhaigh an reiceadair agad ùrachadh dhan fhear as ùire a mholas LineageOS dhut.</string>
+     <string name="trust_feature_encryption">Crioptachadh</string>
+     <string name="trust_feature_encryption_value_enabled">An comas</string>
+     <string name="trust_feature_encryption_value_nolock">Feumach air sgrìn-ghlasaidh thèarainte</string>
+@@ -492,8 +491,6 @@
+     <string name="trust_warnings_alerts_intro">Tagh na cùisean tèarainteachd a bu toigh leat rabhaidhean fhaighinn mu an dèidhinn. Mholamaid gun cuir thu na rabhaidhean uile an comas a chùm do shàbhailteachd</string>
+     <string name="trust_warnings_selinux">Staid SELinux</string>
+     <string name="trust_warnings_keys">Soidhneadh na togail</string>
+-    <string name="trust_onboarding_title">Faigh earbsa</string>
+-    <string name="trust_onboarding_description">Cuidichidh an earbsa dhut ach an cùm thu an t-uidheam agad tèarainte is ach an dìon thu do phrìobhaideachd.\nCha nochd ìomhaigheag na h-earbsa mura deach susbaint na duilleige a dhearbhadh.</string>
+     <string name="trust_onboarding_learn_more">Barrachd fiosrachaidh</string>
+     <string name="trust_onboarding_done">Tha mi agaibh</string>
+     <string name="trust_restrict_usb_title">Cuingich USB</string>
+diff --git a/res/values-gl/strings.xml b/res/values-gl/strings.xml
+index 05959fe..ce0ab23 100644
+--- a/res/values-gl/strings.xml
++++ b/res/values-gl/strings.xml
+@@ -480,7 +480,6 @@
+     <string name="trust_feature_security_patches_value_new">Actualizada</string>
+     <string name="trust_feature_security_patches_value_medium">Desactualizada desde hai uns meses</string>
+     <string name="trust_feature_security_patches_value_old">Desactualizada</string>
+-    <string name="trust_feature_security_patches_explain">Os parches de seguranza son liberados mensualmente por Google coa cooperación dos fabricantes de SoC para corrixir fallos que poden ser aproveitados por aplicacións maliciosas para saltar as restricións de seguranza e causar danos permanentes o teu dispositivo. Os parches dispoñíbeis dende Google aplícanse mensualmente en tódolos dispositivos compatíbeis, agás os de código propietario que serán aplicados polo fabricante do teu dispositivo. Para manter o teu dispositivo seguro verifica que a versión do LineageOS está actualizada, e (se aplica) asegúrate que a imaxe do teu fabricante está actualizada á máis recente recomendada polo equipo do LineageOS.</string>
+     <string name="trust_feature_encryption">Cifrado</string>
+     <string name="trust_feature_encryption_value_enabled">Activado</string>
+     <string name="trust_feature_encryption_value_nolock">Precisas dunha pantalla de bloqueo segura</string>
+@@ -491,8 +490,6 @@
+     <string name="trust_warnings_alerts_intro">Pode seleccionalos problemas de seguridade dos que desexa ser avisado. Para su seguridade, recomendase habilitar tódalas alertas</string>
+     <string name="trust_warnings_selinux">Estado do SELinux</string>
+     <string name="trust_warnings_keys">Firma da compilación</string>
+-    <string name="trust_onboarding_title">Dille ola a Trust</string>
+-    <string name="trust_onboarding_description">O Trust axúdate a manter o teu dispositivo seguro e protexe a túa privacidade.\nA icona do Trust amosarase só cando o contido da páxina estea verificado.</string>
+     <string name="trust_onboarding_learn_more">Saber máis</string>
+     <string name="trust_onboarding_done">Entendo</string>
+     <string name="trust_restrict_usb_title">Restrinxir o USB</string>
+diff --git a/res/values-hu/strings.xml b/res/values-hu/strings.xml
+index 95a3cc9..082c70a 100644
+--- a/res/values-hu/strings.xml
++++ b/res/values-hu/strings.xml
+@@ -516,7 +516,6 @@
+     <string name="trust_feature_security_patches_value_new">Naprakész</string>
+     <string name="trust_feature_security_patches_value_medium">Pár hónapja elavult</string>
+     <string name="trust_feature_security_patches_value_old">Elavult</string>
+-    <string name="trust_feature_security_patches_explain">Az Androidos biztonsági hibajavító csomagok havonta jelennek meg a Google és a SoC gyártók jóvoltából, a rendszerben fellépő olyan hibák kezelésére, amelyeket a rosszindulatú alkalmazások kihasználhatnak a biztonsági korlátozások megkerülésére, és ideiglenesen vagy tartósan károsíthatják a készüléket.\nMíg a platformjavítások havonta frissülnek globálisan, a gyártói javításokat csak időnként frissítik az OEM-eken keresztül.\nA készülékbiztonság megőrzéséhez győződjön meg róla, hogy az Ön LineageOS kiadása mindig naprakész-e, és (ha elérhető) biztosítja, hogy a gyártói képet a LineageOS által ajánlott legfrissebbre frissítse.</string>
+     <string name="trust_feature_encryption">Titkosítás</string>
+     <string name="trust_feature_encryption_value_enabled">Engedélyezve</string>
+     <string name="trust_feature_encryption_value_nolock">Biztonságos zárolási képernyő szükséges</string>
+@@ -527,8 +526,6 @@
+     <string name="trust_warnings_alerts_intro">Kiválaszthatja azokat a biztonsági eseményeket, amikről értesítést kíván kapni. Saját biztonsága érdekében ajánlott, hogy engedélyezze az összes figyelmeztetést</string>
+     <string name="trust_warnings_selinux">SELinux állapota</string>
+     <string name="trust_warnings_keys">A kiadás aláírása</string>
+-    <string name="trust_onboarding_title">Üdvözölje a Trust-ot</string>
+-    <string name="trust_onboarding_description">A Trust segít, hogy készüléke biztonságos legyen, és védi személyes adatait.\nAmikor Trust ikon jelenik meg, akkor segítséget kap ellenőrizni a tartalmak biztonságosságát.</string>
+     <string name="trust_onboarding_learn_more">Tudjon meg többet</string>
+     <string name="trust_onboarding_done">Rendben</string>
+     <string name="trust_restrict_usb_title">Az USB korlátozása</string>
+diff --git a/res/values-in/strings.xml b/res/values-in/strings.xml
+index 470d1de..66cffb5 100644
+--- a/res/values-in/strings.xml
++++ b/res/values-in/strings.xml
+@@ -507,8 +507,6 @@
+     <string name="trust_warnings_alerts_intro">Anda dapat memilih masalah keamanan yang ingin diperingatkan. Demi keamanan Anda, disarankan untuk mengaktifkan semua peringatan</string>
+     <string name="trust_warnings_selinux">Status SELinux</string>
+     <string name="trust_warnings_keys">Tanda tangan bentukan</string>
+-    <string name="trust_onboarding_title">Katakan halo ke Trust</string>
+-    <string name="trust_onboarding_description">Trust membantu Anda menjaga perangkat Anda tetap aman dan melindungi privasi Anda.\nIkon Trust hanya akan muncul ketika isi halaman telah diverifikasi.</string>
+     <string name="trust_onboarding_learn_more">Pelajari selengkapnya</string>
+     <string name="trust_onboarding_done">Mengerti</string>
+     <string name="trust_restrict_usb_title">Batasi USB</string>
+diff --git a/res/values-is/strings.xml b/res/values-is/strings.xml
+index f5f82e0..ca23f4d 100644
+--- a/res/values-is/strings.xml
++++ b/res/values-is/strings.xml
+@@ -488,7 +488,6 @@
+     <string name="trust_feature_security_patches_value_new">Nýjasta útgáfa</string>
+     <string name="trust_feature_security_patches_value_medium">Nokkra mánuði úr takti</string>
+     <string name="trust_feature_security_patches_value_old">Úrelt</string>
+-    <string name="trust_feature_security_patches_explain">Google gefur út öryggisplástra mánaðarlega í sambandi við SoC öryggissérfræðinga til að bæta úr göllum, sem óvinveitt forrit gætu nýtt sér til að komast framhjá öryggistakmörkunum og þannig valdið alvarlegum skemmdum á kerfinu þínu. Öryggisplástrar Google eru settir inn í hverjum mánuði á öll studd tæki, en öryggisplástra á séreignakóða getur einungis framleiðandi tækisins sett inn. Til að halda tækinu þinu öruggu ættirðu að sjá til þess að útgáfa þín af LineageOS sé ávallt af nýjustu gerð og (ef við á) tryggja að kerfisdiskmynd framleiðanda sé uppfærð í þá nýjustu sem LineageOS mælir með.</string>
+     <string name="trust_feature_encryption">Dulritun</string>
+     <string name="trust_feature_encryption_value_enabled">Virkt</string>
+     <string name="trust_feature_encryption_value_nolock">Þarf öruggan læsiskjá</string>
+@@ -499,8 +498,6 @@
+     <string name="trust_warnings_alerts_intro">Þú getur valið hvaða öryggisvandamál þú vilt fá aðvaranir um. Öryggis þíns vegna er mælt með að þú virkir allar aðvaranirnar</string>
+     <string name="trust_warnings_selinux">Staða SELinux</string>
+     <string name="trust_warnings_keys">Undirritun samsetningar</string>
+-    <string name="trust_onboarding_title">Heilsaðu upp á Traust</string>
+-    <string name="trust_onboarding_description">Traust hjálpar þér við að halda tækinu þínu öruggu og við að vernda persónulegar upplýsingar þínar.\nTáknmynd Trausts birtist einungis þegar efni síðunnar hefur verið sannreynt.</string>
+     <string name="trust_onboarding_learn_more">Kanna nánar</string>
+     <string name="trust_onboarding_done">Náði því</string>
+     <string name="trust_restrict_usb_title">Takmarka USB</string>
+diff --git a/res/values-it/strings.xml b/res/values-it/strings.xml
+index 72dff2f..2803f8b 100644
+--- a/res/values-it/strings.xml
++++ b/res/values-it/strings.xml
+@@ -515,7 +515,6 @@
+     <string name="trust_feature_security_patches_value_new">Aggiornate</string>
+     <string name="trust_feature_security_patches_value_medium">Non aggiornate da qualche mese</string>
+     <string name="trust_feature_security_patches_value_old">Non aggiornate</string>
+-    <string name="trust_feature_security_patches_explain">Le patch di sicurezza vengono rilasciate mensilmente da Google in cooperazione con i produttori di SoC per risolvere problemi che potrebbero essere sfruttati dalle app dannose per aggirare le restrizioni di sicurezza e causare danni permanenti al dispositivo. Le patch rese disponibili da Google sono applicate a tutti i dispositivi supportati, ma quelle relative ai componenti proprietari possono essere applicati solo dal produttore del dispositivo. Per mantenere il dispositivo sicuro, controlla che la tua versione di LineageOS sia sempre aggiornata ed eventualmente assicurati che i componenti proprietari come firmware e immagine vendor siano quelli raccomandati da LineageOS.</string>
+     <string name="trust_feature_encryption">Cifratura</string>
+     <string name="trust_feature_encryption_value_enabled">Attiva</string>
+     <string name="trust_feature_encryption_value_nolock">Necessita di un blocco schermo sicuro</string>
+@@ -526,8 +525,6 @@
+     <string name="trust_warnings_alerts_intro">Puoi scegliere quali problemi di sicurezza devono essere segnalati. Per la tua sicurezza è consigliabile attivarli tutti</string>
+     <string name="trust_warnings_selinux">Stato SELinux</string>
+     <string name="trust_warnings_keys">Firma della build</string>
+-    <string name="trust_onboarding_title">Scopri Trust</string>
+-    <string name="trust_onboarding_description">Trust aiuta a mantenere il tuo dispositivo sicuro e protegge la tua privacy.\nL\'icona di Trust apparirà quando la sicurezza dei contenuti è verificata.</string>
+     <string name="trust_onboarding_learn_more">Scopri di più</string>
+     <string name="trust_onboarding_done">Capito</string>
+     <string name="trust_restrict_usb_title">Restrizioni USB</string>
+diff --git a/res/values-iw/strings.xml b/res/values-iw/strings.xml
+index 696b25a..99e225e 100644
+--- a/res/values-iw/strings.xml
++++ b/res/values-iw/strings.xml
+@@ -515,7 +515,6 @@
+     <string name="trust_feature_security_patches_value_new">עדכני</string>
+     <string name="trust_feature_security_patches_value_medium">לא מעודכן כבר כמה חודשים</string>
+     <string name="trust_feature_security_patches_value_old">לא עדכני</string>
+-    <string name="trust_feature_security_patches_explain">עדכוני אבטחה מתפרסמים מדי חודש על ידי Google בשיתוף פעולה עם יצרני מערכות על שבב על מנת לפתור פגמים שיכולים להיות מנוצלים על ידי יישומים זדוניים במטרה לעקוף מגבלות אבטחה ולגרום נזק קבוע למכשירך. העדכונים המוצעים על ידי Google מוחלים על כל ההתקנים התומכים, אך עדכונים לקוד קנייני ניתנים להשמה אך ורק על ידי יצרן המכשיר שלך. על מנת לשמור על אבטחת מכשירך, יש לוודא כי גרסת LineageOS שברשותך תמיד עדכנית, וכמו כן (במידה ונדרש)  יש לוודא כי תמונת המערכת של היצרן מעודכנת לגרסה האחרונה המומלצת על די LineageOS.</string>
+     <string name="trust_feature_encryption">הצפנה</string>
+     <string name="trust_feature_encryption_value_enabled">מופעלת</string>
+     <string name="trust_feature_encryption_value_nolock">נדרשת נעילת מסך מאובטחת</string>
+@@ -526,8 +525,6 @@
+     <string name="trust_warnings_alerts_intro">באפשרותך לבחור בעיות האבטחה שיקפיצו התראות. למען בטיחותך, מומלץ להפעיל את כל ההתראות.</string>
+     <string name="trust_warnings_selinux">מצב SELinux</string>
+     <string name="trust_warnings_keys">חתימת בניה</string>
+-    <string name="trust_onboarding_title">תגיד שלום ל־Trust (מערך האבטחה)</string>
+-    <string name="trust_onboarding_description">Trust מסייע לשמור על אבטחת ההתקן ולהגן על פרטיותך.\nסמליל Trust יוצג רק כאשר תוכן הדף אומת.</string>
+     <string name="trust_onboarding_learn_more">מידע נוסף</string>
+     <string name="trust_onboarding_done">הבנתי</string>
+     <string name="trust_restrict_usb_title">הגבלת USB</string>
+diff --git a/res/values-ja/strings.xml b/res/values-ja/strings.xml
+index 81e89a5..b0472d8 100644
+--- a/res/values-ja/strings.xml
++++ b/res/values-ja/strings.xml
+@@ -515,7 +515,6 @@
+     <string name="trust_feature_security_patches_value_new">最新です</string>
+     <string name="trust_feature_security_patches_value_medium">数ヶ月間未更新です</string>
+     <string name="trust_feature_security_patches_value_old">最新ではありません</string>
+-    <string name="trust_feature_security_patches_explain">セキュリティパッチは、悪意のあるアプリが悪用してセキュリティ制限を回避し、端末に永続的な損害を与える可能性のある欠陥に対処するために Google が毎月 SoC ベンダーと協力してリリースしています。 Google が提供するパッチは、サポートされているすべての端末で毎月適用されますが、独自のコードへのパッチは端末の製造元のみが適用できます。機器を安全に保つためには、ビルドが常に最新であること、および（該当する場合）ベンダーイメージが推奨されている最新のものに更新されていることを確認してください。</string>
+     <string name="trust_feature_encryption">暗号化</string>
+     <string name="trust_feature_encryption_value_enabled">有効</string>
+     <string name="trust_feature_encryption_value_nolock">保護されたロック画面が必要です</string>
+@@ -526,8 +525,6 @@
+     <string name="trust_warnings_alerts_intro">警告を表示させたいセキュリティ上の問題を選択できます。安全のため、すべての警告を有効にすることをおすすめします。</string>
+     <string name="trust_warnings_selinux">SELinux のステータス</string>
+     <string name="trust_warnings_keys">ビルド署名</string>
+-    <string name="trust_onboarding_title">Trust にようこそ</string>
+-    <string name="trust_onboarding_description">Trust は端末を安全に保ち、プライバシーを保護するのに役立ちます。\nTrust アイコンはページの内容が確認された場合にのみ表示されます。</string>
+     <string name="trust_onboarding_learn_more">詳細</string>
+     <string name="trust_onboarding_done">わかりました</string>
+     <string name="trust_restrict_usb_title">USB の制限</string>
+diff --git a/res/values-ka/strings.xml b/res/values-ka/strings.xml
+index d680dbd..6bc92b9 100644
+--- a/res/values-ka/strings.xml
++++ b/res/values-ka/strings.xml
+@@ -511,7 +511,6 @@
+     <string name="trust_feature_security_patches_value_new">განახლებულია</string>
+     <string name="trust_feature_security_patches_value_medium">რამდენიმე თვეა გასაახლებელია</string>
+     <string name="trust_feature_security_patches_value_old">გასაახლებელია</string>
+-    <string name="trust_feature_security_patches_explain">უსაფრთხოების შესწორებებს Google ყოველთვიურად უშვებს მწარმოებლებთან თანამშრომლობით, რომ აღმოიფხვრას სისუსტეები, რომელთაც მავნე პროგრამები იყენებენ დაცვის გვერდის ასავლელად და მოწყობილობისთვის გამოუსწორებელი ზიანის მისაყენებლად. შესწორებებს, რომელთაც უზრუნველყოფს Google, ყოველთვიურად მიიღებს ყველა მხარდაჭერილი მოწყობილობა, მაგრამ იმ შესწორებების მიღება, რომლებიც დახურულ კოდს შეიცავს, მხოლოდ მოწყობილობის უშუალო მწარმოებლისგან შეიძლება. თქვენი მოწყობილობის უსაფრთხოებისთვის მუდმივად განაახლეთ LineageOS-ანაწყობი და ამასთანავე დარწმუნდით (თუ ესადაგება თქვენს შემთხვევას), რომ მწარმოებლის ის გამოშვებაც უახლესი გაქვთ, რომელსაც მხარს უჭერს LineageOS.</string>
+     <string name="trust_feature_encryption">დაშიფვრა</string>
+     <string name="trust_feature_encryption_value_enabled">ჩართული</string>
+     <string name="trust_feature_encryption_value_nolock">საჭიროებს ეკრანის დაცულ ჩამკეტს</string>
+@@ -522,8 +521,6 @@
+     <string name="trust_warnings_alerts_intro">შეგიძლიათ შეარჩიოთ უსაფრთხოების საკითხები, რომელთა შესახებაც გსურთ მიიღოთ ცნობები. დაცულობისთვის სასურველია, ყველა ცნობა იყოს ჩართული.</string>
+     <string name="trust_warnings_selinux">SELinux-მდგომარეობა</string>
+     <string name="trust_warnings_keys">ანაწყობის ხელმოწერა</string>
+-    <string name="trust_onboarding_title">მოგესალმებათ Trust</string>
+-    <string name="trust_onboarding_description">Trust გეხმარებათ დაიცვათ თქვენი მოწყობილობა და პირადულობა.\n Trust-ხატულა მხოლოდ მაშინ გამოჩნდება, როცა გვერდის შიგთავსი სრულად დამოწმებული იქნება.</string>
+     <string name="trust_onboarding_learn_more">იხილეთ ვრცლად</string>
+     <string name="trust_onboarding_done">გასაგებია</string>
+     <string name="trust_restrict_usb_title">შეიზღუდოს USB</string>
+diff --git a/res/values-kn/strings.xml b/res/values-kn/strings.xml
+index 548bd4a..b70d98a 100644
+--- a/res/values-kn/strings.xml
++++ b/res/values-kn/strings.xml
+@@ -437,7 +437,6 @@
+     <string name="trust_feature_selinux_explain">SELinux ನಿಮ್ಮ ಯಂತ್ರದಲ್ಲಿನ ಯಾವ ಕಡತಗಳು/ಮಾರ್ಗಗಳಿಗೆ ಯಾವ ಆಪ್ಗಳು ಎಟುಕುಹಕ್ಕನ್ನು ಹೊಂದಿವೆಯಂದು ಆದೇಶಿಸುತ್ತದೆ.\nಇದರಿಂದ ಆಪ್ಗಳು ಮತ್ತು ಸೇವೆಗಳು ಎಟುಕುಹಕ್ಕಿಲ್ಲದ ಕಡತಗಳನ್ನು ಎಟುಕುವುದನ್ನು ತಡೆಯುತ್ತದೆ. ಈ ರೀತಿ ಸಂಭಾವ್ಯ ದುರುದ್ದೇಶಪೂರಿತ ಆಪ್ ಮೊಟಕಾಗುತ್ತದೆ ಮತ್ತು ನಿಮ್ಮ ಭದ್ರತೆ ಸುರಕ್ಷ.</string>
+     <string name="trust_feature_security_patches">Android ಭದ್ರತಾ ತೇಪೆಗಳು</string>
+     <string name="trust_feature_security_patches_value_base">ವೇದಿಕೆ: %1$s\nತಯಾರಕ: %2$s</string>
+-    <string name="trust_feature_security_patches_explain">ಭದ್ರತಾ ನಿರ್ಬಂಧಗಳನ್ನು ತಪ್ಪಿಸಿ ಮತ್ತು ನಿಮ್ಮ ಸಾಧನಕ್ಕೆ ಶಾಶ್ವತ ಹಾನಿಯನ್ನು ಉಂಟುಮಾಡಲು ದುರುದ್ದೇಶಪೂರಿತ ಆಪ್ಗಳು ಬಳಸಿಕೊಳ್ಳಬಹುದಾದ ದೋಷಗಳನ್ನು ಪರಿಹರಿಸಲು ಭದ್ರತಾ ತೇಪೆಗಳನ್ನು Google SoC ಮಾರಾಟಗಾರರ ಸಹಯೋಗದೊಂದಿಗೆ ಮಾಸಿಕವಾಗಿ ಬಿಡುಗಡೆ ಮಾಡುತ್ತದೆ. Google ನಿಂದ ಲಭ್ಯವಿರುವ ತೇಪೆಗಳನ್ನು ಎಲ್ಲಾ ಬೆಂಬಲಿತ ಯಂತ್ರಗಳಲ್ಲಿ ಅನ್ವಯಿಸಲಾಗುತ್ತದೆ, ಆದರೆ ಸ್ವಾಮ್ಯದ ತಂತ್ರಾಂಶ ತೇಪೆಗಳನ್ನು ನಿಮ್ಮ ಯಂತ್ರದ ತಯಾರಕರಿಂದ ಮಾತ್ರ ಅನ್ವಯಿಸಬಹುದು. ನಿಮ್ಮ ಯಂತ್ರವನ್ನು ಸುರಕ್ಷಿತವಾಗಿಡಲು LineageOS ಸದಾ ನವೀಕೃತವಾಗಿರುತ್ತದೆ ಮತ್ತು ಸಾಧ್ಯವಾದರೆ ನಿಮ್ಮ ಮಾರಾಟಗಾರರ ತಂತ್ರಾಂಶದ ಆವೃತ್ತಿ LineageOS ಸಲಹೆಯಂತೆ ನವೀಕರಿಸಲಾಗಿದೆ ಎಂದು ಖಚಿತಪಡಿಸಿಕೊಳ್ಳಿ.</string>
+     <string name="trust_feature_encryption">ಗುಪ್ತಲಿಪೀಕರಣ</string>
+     <string name="trust_feature_encryption_value_enabled">ಸಶಕ್ತ</string>
+     <string name="trust_feature_encryption_value_nolock">ಬಂಧಿತ ಪರದೆಯೊಂದು ಬೇಕು</string>
+@@ -448,8 +447,6 @@
+     <string name="trust_warnings_alerts_intro">ನಿಮ್ಮನ್ನು ಎಚ್ಚರಿಸಬೇಕಾದ ಭದ್ರತಾ ಸಮಸ್ಯೆಗಳನ್ನು ನೀವು ಆಯ್ಕೆ ಮಾಡಬಹುದು. ನಿಮ್ಮ ಸುರಕ್ಷತೆಗಾಗಿ, ಎಲ್ಲಾ ಎಚ್ಚರಿಕೆಗಳನ್ನು ಸಶಕ್ತಗೊಳಿಸಲು ಶಿಫಾರಸು ಮಾಡಲಾಗಿದೆ</string>
+     <string name="trust_warnings_selinux">SELinux ಸ್ಥಿತಿ</string>
+     <string name="trust_warnings_keys">ನಿರ್ಮಾಣ ರುಜು</string>
+-    <string name="trust_onboarding_title">Trustಗೆ ಹಲೋ ಹೇಳಿ</string>
+-    <string name="trust_onboarding_description">ನಿಮ್ಮ ಸಾಧನವನ್ನು ಸುರಕ್ಷಿತವಾಗಿಡಲು ಮತ್ತು ನಿಮ್ಮ ಗೌಪ್ಯತೆಯನ್ನು ರಕ್ಷಿಸಲು Trust ಸಹಾಯ ಮಾಡುತ್ತದೆ.\nಪುಟವನ್ನು ಪರಿಶೀಲಿಸಿದ ನಂತರವೇ Trust ಚಿಹ್ನೆ ಗೋಚರಿಸುವುದು.</string>
+     <string name="trust_onboarding_learn_more">ಇನ್ನಷ್ಟು ಕಲಿ</string>
+     <string name="trust_onboarding_done">ಸಿಕ್ಕಿತು</string>
+     <string name="trust_restrict_usb_title">USB ನಿರ್ಬಂಧಿಸು</string>
+diff --git a/res/values-ko/strings.xml b/res/values-ko/strings.xml
+index c0ad06b..7602210 100644
+--- a/res/values-ko/strings.xml
++++ b/res/values-ko/strings.xml
+@@ -514,7 +514,6 @@
+     <string name="trust_feature_security_patches_value_new">최신</string>
+     <string name="trust_feature_security_patches_value_medium">수 개월 지남</string>
+     <string name="trust_feature_security_patches_value_old">오래됨</string>
+-    <string name="trust_feature_security_patches_explain">보안 패치는 Google이 SoC 공급업체와의 협력으로 매월 발표됩니다. 이 보안 패치는 유해한 앱을 통해 보안을 우회하여 기기를 영구적으로 손상시킬 수 있는 취약점을 막아냅니다. Google에서 제공하는 패치는 지원하는 모든 기기에 적용할 수 있으나, 비공개 코드에 대한 패치는 기기의 공급업체에서 패치를 제공해야만 적용할 수 있습니다. 기기를 보호하려면 LineageOS를 항상 최신 버전으로 업데이트하고, 가능하면 기기의 공급업체 이미지가 LineageOS에서 권장하는 최신 이미지인지 확인하세요.</string>
+     <string name="trust_feature_encryption">암호화</string>
+     <string name="trust_feature_encryption_value_enabled">활성화됨</string>
+     <string name="trust_feature_encryption_value_nolock">보안성 높은 잠금 화면 필요</string>
+@@ -525,8 +524,6 @@
+     <string name="trust_warnings_alerts_intro">경고를 표시할 보안 문제를 선택할 수 있습니다. 안전을 위해 모든 경고를 켜두는 것을 권장합니다.</string>
+     <string name="trust_warnings_selinux">SELinux 상태</string>
+     <string name="trust_warnings_keys">빌드 서명</string>
+-    <string name="trust_onboarding_title">Trust를 만나보세요</string>
+-    <string name="trust_onboarding_description">Trust는 기기를 안전하게 유지하고 사용자의 개인 정보를 보호합니다.\nTrust 아이콘은 페이지의 내용이 검증되었을 때만 나타납니다.</string>
+     <string name="trust_onboarding_learn_more">더 알아보기</string>
+     <string name="trust_onboarding_done">확인</string>
+     <string name="trust_restrict_usb_title">USB 제한</string>
+diff --git a/res/values-nl/strings.xml b/res/values-nl/strings.xml
+index 70bc777..e4a83dd 100644
+--- a/res/values-nl/strings.xml
++++ b/res/values-nl/strings.xml
+@@ -505,7 +505,6 @@
+     <string name="trust_feature_security_patches_value_new">Bijgewerkt</string>
+     <string name="trust_feature_security_patches_value_medium">Een paar maanden oud</string>
+     <string name="trust_feature_security_patches_value_old">Verouderd</string>
+-    <string name="trust_feature_security_patches_explain">Beveiligingspatches worden maandelijks door Google vrijgegeven in samenwerking met SoC-leveranciers om fouten aan te pakken die kunnen worden uitgebuit door kwaadwillende apps om beveiligingsbeperkingen te omzeilen en permanente schade aan uw apparaat te veroorzaken. Patches die door Google beschikbaar worden gesteld, worden elke maand op alle ondersteunde apparaten toegepast, maar patches voor bedrijfseigen code kunnen alleen door de fabrikant van uw apparaat worden toegepast. Om uw apparaat veilig te houden, moet u ervoor zorgen dat uw LineageOS-build altijd up-to-date is en (indien van toepassing) zorgen dat uw leveranciers-image wordt geüpdatet naar de laatste die door LineageOS wordt aanbevolen.</string>
+     <string name="trust_feature_encryption">Encryptie</string>
+     <string name="trust_feature_encryption_value_enabled">Ingeschakeld</string>
+     <string name="trust_feature_encryption_value_nolock">Vereist een veilig vergrendelingsscherm</string>
+@@ -516,8 +515,6 @@
+     <string name="trust_warnings_alerts_intro">U kunt kiezen voor welke beveiligingsproblemen u gewaarschuwd wilt worden. Uit veiligheidsoverwegingen is het raadzaam om alle waarschuwingen in te schakelen</string>
+     <string name="trust_warnings_selinux">SELinux-status</string>
+     <string name="trust_warnings_keys">Build handtekening</string>
+-    <string name="trust_onboarding_title">Zeg hallo tegen Trust</string>
+-    <string name="trust_onboarding_description">Trust helpt u uw apparaat veilig te houden en uw privacy te beschermen.\nHet pictogram Trust wordt alleen weergegeven als de inhoud van de pagina is geverifieerd.</string>
+     <string name="trust_onboarding_learn_more">Meer informatie</string>
+     <string name="trust_onboarding_done">Begrepen</string>
+     <string name="trust_restrict_usb_title">USB beperken</string>
+diff --git a/res/values-nn-rNO/strings.xml b/res/values-nn-rNO/strings.xml
+index 806fde4..d40e8bf 100644
+--- a/res/values-nn-rNO/strings.xml
++++ b/res/values-nn-rNO/strings.xml
+@@ -515,7 +515,6 @@
+     <string name="trust_feature_security_patches_value_new">Oppdatert</string>
+     <string name="trust_feature_security_patches_value_medium">Nokre månader gamal</string>
+     <string name="trust_feature_security_patches_value_old">Utdatert</string>
+-    <string name="trust_feature_security_patches_explain">Sikkerheitsoppdateringar vert gjevne ut kvar månad av Google i samarbeid med brikkeleverandørar for å tetta hol som kan utnyttast av skadelege appar for å gå utanom sikkerheitsavgrensingar og gjera varig skade på eininga di. Oppdateringar frå Google vert lagde inn kvar månad på alle støtta einingar, men oppdateringar for produsenten sin eigen kode kan berre leggjast inn av produsenten sjølv. For å halda eininga di trygg må du fylgja med på at LineageOS-versjonen din alltid er oppdatert, og (dersom aktuelt) sjå til at leverandørbiletet ditt er oppdatert til det nyaste som LineageOS tilrår.</string>
+     <string name="trust_feature_encryption">Kryptering</string>
+     <string name="trust_feature_encryption_value_enabled">Påslått</string>
+     <string name="trust_feature_encryption_value_nolock">Treng ein trygg skjermlås</string>
+@@ -526,8 +525,6 @@
+     <string name="trust_warnings_alerts_intro">Du kan velja kva for tryggleiksproblem du vil verta åtvara om. Me tilrår å slå på alle varsel.</string>
+     <string name="trust_warnings_selinux">SELinux-status</string>
+     <string name="trust_warnings_keys">Bygg-signatur</string>
+-    <string name="trust_onboarding_title">Hels på Trust</string>
+-    <string name="trust_onboarding_description">Trust hjelper deg med å halda eininga trygg og verna personvernet ditt.\nTrust-ikonet vert berre vist når innhaldet på sida har vorte stadfesta.</string>
+     <string name="trust_onboarding_learn_more">Lær meir</string>
+     <string name="trust_onboarding_done">Forstått</string>
+     <string name="trust_restrict_usb_title">Avgrens USB</string>
+diff --git a/res/values-pl/strings.xml b/res/values-pl/strings.xml
+index a93c720..4cd04e4 100644
+--- a/res/values-pl/strings.xml
++++ b/res/values-pl/strings.xml
+@@ -517,7 +517,6 @@
+     <string name="trust_feature_security_patches_value_new">Aktualne</string>
+     <string name="trust_feature_security_patches_value_medium">Przestarzałe od kilku miesięcy</string>
+     <string name="trust_feature_security_patches_value_old">Nieaktualne</string>
+-    <string name="trust_feature_security_patches_explain">Aktualizacje zabezpieczeń są wydawane co miesiąc przez Google w kooperacji z dostawcami SoC w celu łatania luk w systemie, które mogą zostać wykorzystane przez złośliwe oprogramowanie w celu obejścia zabezpieczeń oraz wyrządzenia trwałych szkód w twoim urządzeniu. Łatki udostępniane przez Google są aplikowane w każdym miesiącu na wszystkich wspieranych urządzeniach, ale poprawki dla kodu własnościowego mogą być aplikowane tylko przez producenta twojego telefonu. By utrzymać twój telefon bezpiecznym, zawsze używaj najnowsze wersji LineageOS i (jeżeli dotyczy) twój obraz vendor jest zaktualizowany do najnowszej wersji zalecanej przez LineageOS.</string>
+     <string name="trust_feature_encryption">Szyfrowanie</string>
+     <string name="trust_feature_encryption_value_enabled">Włączono</string>
+     <string name="trust_feature_encryption_value_nolock">Wymaga zabezpieczonego ekranu blokady</string>
+@@ -528,8 +527,6 @@
+     <string name="trust_warnings_alerts_intro">Możesz wybrać, o których problemach związanych z bezpieczeństwem ma zostać wyświetlone ostrzeżenie. Dla twojego bezpieczeństwa zalecane jest włączenie wszystkich ostrzeżeń</string>
+     <string name="trust_warnings_selinux">Stan SELinux</string>
+     <string name="trust_warnings_keys">Sygnatura kompilacji</string>
+-    <string name="trust_onboarding_title">Przywitaj się z Trust</string>
+-    <string name="trust_onboarding_description">Trust pomaga utrzymać twoje urządzenie bezpiecznym oraz chronić twoją prywatność.\nIkona Trust pojawi się dopiero po zweryfikowaniu zawartości strony.</string>
+     <string name="trust_onboarding_learn_more">Dowiedz się więcej</string>
+     <string name="trust_onboarding_done">Rozumiem</string>
+     <string name="trust_restrict_usb_title">Ogranicz połączenie USB</string>
+diff --git a/res/values-pt-rBR/strings.xml b/res/values-pt-rBR/strings.xml
+index 3e08bdb..2e53139 100644
+--- a/res/values-pt-rBR/strings.xml
++++ b/res/values-pt-rBR/strings.xml
+@@ -515,7 +515,6 @@
+     <string name="trust_feature_security_patches_value_new">Atualizado</string>
+     <string name="trust_feature_security_patches_value_medium">Desatualizado há alguns meses</string>
+     <string name="trust_feature_security_patches_value_old">Desatualizado</string>
+-    <string name="trust_feature_security_patches_explain">As atualizações de segurança são lançadas mensalmente pela Google em cooperação com as fabricantes de SoC para corrigir falhas que possam ser exploradas por apps maliciosos que visam burlar as restrições de segurança e causar danos permanentes em seu dispositivo. As atualizações disponibilizadas pela Google são aplicadas mensalmente em todos os dispositivos suportados, mas as atualizações para o código proprietário só podem ser aplicadas pela fabricante do seu dispositivo. Para manter o seu dispositivo seguro, certifique-se de que a sua versão do LineageOS esteja sempre atualizada e, se aplicável, assegure-se de que a imagem da sua fabricante esteja atualizada para a versão recomendada pelo LineageOS.</string>
+     <string name="trust_feature_encryption">Criptografia</string>
+     <string name="trust_feature_encryption_value_enabled">Ativada</string>
+     <string name="trust_feature_encryption_value_nolock">Requer uma tela de bloqueio segura</string>
+@@ -526,8 +525,6 @@
+     <string name="trust_warnings_alerts_intro">Você pode selecionar quais os alertas de segurança que deseja receber. Para a sua segurança, recomendamos que ative todos os alertas.</string>
+     <string name="trust_warnings_selinux">Estado do SELinux</string>
+     <string name="trust_warnings_keys">Assinatura da compilação</string>
+-    <string name="trust_onboarding_title">Diga olá ao Trust</string>
+-    <string name="trust_onboarding_description">O Trust te ajuda a manter o seu dispositivo seguro e a proteger sua privacidade.\nO ícone do Trust será exibido somente quando o conteúdo da página tiver sido verificado.</string>
+     <string name="trust_onboarding_learn_more">Saiba mais</string>
+     <string name="trust_onboarding_done">Entendi</string>
+     <string name="trust_restrict_usb_title">Restringir USB</string>
+diff --git a/res/values-pt-rPT/strings.xml b/res/values-pt-rPT/strings.xml
+index 060b5a0..f1ad6bc 100644
+--- a/res/values-pt-rPT/strings.xml
++++ b/res/values-pt-rPT/strings.xml
+@@ -515,7 +515,6 @@
+     <string name="trust_feature_security_patches_value_new">Atualizado</string>
+     <string name="trust_feature_security_patches_value_medium">Alguns meses desatualizado</string>
+     <string name="trust_feature_security_patches_value_old">Desatualizado</string>
+-    <string name="trust_feature_security_patches_explain">Os patches de segurança são lançados mensalmente pela Google em cooperação com os fabricantes de SoC para corrigirem falhas que possam ser exploradas por aplicações maliciosas a fim de contornarem restrições de segurança e causarem danos permanentes no seu dispositivo. Os patches disponibilizados pela Google são aplicados todos os meses em todos os dispositivos suportados, mas os patches a código proprietário só podem ser aplicados pelo fabricante do seu dispositivo. Para manter o seu dispositivo seguro certifique-se de que a sua compilação LineageOS está sempre atualizada e, se aplicável, certifique-se de que a sua imagem do fabricante é atualizada para a mais recente recomendada pela equipa LineageOS.</string>
+     <string name="trust_feature_encryption">Encriptação</string>
+     <string name="trust_feature_encryption_value_enabled">Ativada</string>
+     <string name="trust_feature_encryption_value_nolock">Necessita de um ecrã de bloqueio seguro</string>
+@@ -526,8 +525,6 @@
+     <string name="trust_warnings_alerts_intro">Pode selecionar quais os alertas de segurança que deseja receber. Para sua segurança, recomendamos que ative todos os alertas</string>
+     <string name="trust_warnings_selinux">Estado SELinux</string>
+     <string name="trust_warnings_keys">Assinatura da compilação</string>
+-    <string name="trust_onboarding_title">Diga olá ao Trust</string>
+-    <string name="trust_onboarding_description">O Trust ajuda-o a manter o seu dispositivo seguro e protege a sua privacidade.\nO ícone do Trust aparecerá apenas quando os conteúdos da página tiverem sido verificados.</string>
+     <string name="trust_onboarding_learn_more">Saber mais</string>
+     <string name="trust_onboarding_done">Entendi</string>
+     <string name="trust_restrict_usb_title">Restringir USB</string>
+diff --git a/res/values-ro/strings.xml b/res/values-ro/strings.xml
+index a22f289..6897af4 100644
+--- a/res/values-ro/strings.xml
++++ b/res/values-ro/strings.xml
+@@ -517,7 +517,6 @@
+     <string name="trust_feature_security_patches_value_new">La zi</string>
+     <string name="trust_feature_security_patches_value_medium">Expirate de câteva luni</string>
+     <string name="trust_feature_security_patches_value_old">Expirat</string>
+-    <string name="trust_feature_security_patches_explain">Corecțiile de securitate sunt lansate lunar de către Google în cooperare cu vânzătorii SoC pentru a remedia problemele care pot fi exploatate de aplicațiile malițioase pentru a trece peste restricțiile de securitate și să cauzeze daune permanente în dispozitivul dvs. Patch-urile făcute disponibile de Google sunt aplicate lunar pe toate dispozitivele compatibile, dar patch-urile la codul proprietar pot fi aplicate numai de către producătorul dispozitivului. Pentru a vă menține dispozitivul în siguranță, asigurați-vă că build-ul LineageOS al dvs. este la zi și (dacă se aplică) asigurați-vă că imaginea vendor-ului este actualizată la cea recomandată de LineageOS.</string>
+     <string name="trust_feature_encryption">Criptare</string>
+     <string name="trust_feature_encryption_value_enabled">Activat</string>
+     <string name="trust_feature_encryption_value_nolock">Necesită un ecran de blocare securizat</string>
+@@ -528,8 +527,6 @@
+     <string name="trust_warnings_alerts_intro">Puteți selecta problemele de securitate despre care să fiți atenționat(ă). Pentru siguranța dvs., este recomandat să activați toate alertele</string>
+     <string name="trust_warnings_selinux">Stare SELinux</string>
+     <string name="trust_warnings_keys">Semnătură build</string>
+-    <string name="trust_onboarding_title">Spuneți-o salut lui Trust</string>
+-    <string name="trust_onboarding_description">Trust vă ajută să vă păstrați telefonul în siguranță și să vă protejați confidențialitatea.\nIconița Trust va apărea numai când conținutul paginii a fost verificat.</string>
+     <string name="trust_onboarding_learn_more">Aflați mai multe</string>
+     <string name="trust_onboarding_done">Am înțeles</string>
+     <string name="trust_restrict_usb_title">Restricționare USB</string>
+diff --git a/res/values-ru/strings.xml b/res/values-ru/strings.xml
+index b1d6638..c5c6610 100644
+--- a/res/values-ru/strings.xml
++++ b/res/values-ru/strings.xml
+@@ -515,7 +515,6 @@
+     <string name="trust_feature_security_patches_value_new">актуален</string>
+     <string name="trust_feature_security_patches_value_medium">устарел на несколько месяцев</string>
+     <string name="trust_feature_security_patches_value_old">устарел</string>
+-    <string name="trust_feature_security_patches_explain">Исправления безопасности ежемесячно выпускаются Google совместно с поставщиками SoC для устранения уязвимостей в системе, которые могут быть использованы вредоносными приложениями для обхода ограничений безопасности и нанесения необратимого повреждения вашему устройству. Исправления, предоставляемые Google, применяются каждый месяц на всех поддерживаемых устройствах, но исправления для проприетарного кода могут применяться только производителем вашего устройства. Для поддержания вашего устройства в безопасном состоянии, убедитесь, что ваша сборка LineageOS актуальна ​​и (если применимо) образ производителя обновлен до последней версии, рекомендованной LineageOS.</string>
+     <string name="trust_feature_encryption">Шифрование</string>
+     <string name="trust_feature_encryption_value_enabled">Включено</string>
+     <string name="trust_feature_encryption_value_nolock">Необходима защита экрана блокировки</string>
+@@ -526,8 +525,6 @@
+     <string name="trust_warnings_alerts_intro">Вы можете выбрать проблемы безопасности, о которых вы хотите получать оповещения. Рекомендуется включить все оповещения</string>
+     <string name="trust_warnings_selinux">Статус SELinux</string>
+     <string name="trust_warnings_keys">Подпись сборки</string>
+-    <string name="trust_onboarding_title">Познакомьтесь с Trust</string>
+-    <string name="trust_onboarding_description">Trust помогает поддерживать безопасность устройства и защищать вашу конфиденциальность.\nЗначок Trust будет отображаться при проверке отображаемого контента.</string>
+     <string name="trust_onboarding_learn_more">Подробнее</string>
+     <string name="trust_onboarding_done">Понятно</string>
+     <string name="trust_restrict_usb_title">Ограничение USB</string>
+diff --git a/res/values-sc-rIT/strings.xml b/res/values-sc-rIT/strings.xml
+index 1ace97f..23f102d 100644
+--- a/res/values-sc-rIT/strings.xml
++++ b/res/values-sc-rIT/strings.xml
+@@ -512,7 +512,6 @@
+     <string name="trust_feature_security_patches_value_new">Atualizadu</string>
+     <string name="trust_feature_security_patches_value_medium">No atualizadas dae calicunu mese</string>
+     <string name="trust_feature_security_patches_value_old">No atualizadas</string>
+-    <string name="trust_feature_security_patches_explain">Is patch de seguresa essint onni mese dae sa Google in cooperatzione cun is produtores de SoC pro nch\'isòrvere problemas chi diant pòdere isfrutare is aplicatziones dannàrgias pro inghiriare is restritziones de seguresa e causare dannos permanentes a su dispositivu. Is patch dispostos dae sa Google sunt aplicados a totu is dispositivos cumpatìbiles, ma cussos chi pertocant a su còdighe propietàriu ddas podet aplicare isceti su produtore de su dispositivu tuo. Pro mantènnere su dispositivu in seguresa controlla chi sa versione tua de LineageOS siat semper atualizada e s\'in casu assegura·ti chi s\'immàgine de su produtore tuo siat atualizada a s\'ùrtima versione cussigiada dae LineageOS.</string>
+     <string name="trust_feature_encryption">Tzifradura</string>
+     <string name="trust_feature_encryption_value_enabled">Ativada</string>
+     <string name="trust_feature_encryption_value_nolock">Rechedet un\'ischermu de blocu seguru</string>
+@@ -523,8 +522,6 @@
+     <string name="trust_warnings_alerts_intro">Podes seberare cales problemas de seguresa si depent sinnalare. Pro sa seguresa tua si cussìgiat de ativare totu is avvisos</string>
+     <string name="trust_warnings_selinux">Istadu SELinux</string>
+     <string name="trust_warnings_keys">Firma de sa cumpilatzione</string>
+-    <string name="trust_onboarding_title">Connosche Trust</string>
+-    <string name="trust_onboarding_description">Trust agiudat a mantènnere su dispositivu tuo seguru e amparat sa riservadesa tua.\nS\'icona de Trust at a essire cando sa seguresa de is cuntenutos est verificada.</string>
+     <string name="trust_onboarding_learn_more">Impara de prus</string>
+     <string name="trust_onboarding_done">AB</string>
+     <string name="trust_restrict_usb_title">Restritzione USB</string>
+diff --git a/res/values-sk/strings.xml b/res/values-sk/strings.xml
+index 96d90a4..5c34424 100644
+--- a/res/values-sk/strings.xml
++++ b/res/values-sk/strings.xml
+@@ -470,7 +470,6 @@
+     <string name="trust_feature_security_patches_value_new">Aktuálne</string>
+     <string name="trust_feature_security_patches_value_medium">Staré niekoľko mesiacov</string>
+     <string name="trust_feature_security_patches_value_old">Neaktuálne</string>
+-    <string name="trust_feature_security_patches_explain">Bezpečnostné záplaty sú vydávané mesačne spoločnosťou Google a dodávateľmi SoC na riešenie nedostatkov v systéme, ktoré by mohli byť zneužiť škodlivými aplikáciami na obídenie bezpečnostných obmedzení a mohli by spôsobiť dočasné alebo trvalé poškodenie vášho zariadenia.\nZatiaľ čo záplaty platformy sú aktualizované globálne každý mesiac, záplaty OEM dodávateľov sú aktualizované z času na čas.\nAk chcete, aby vaše zariadenie bolo v bezpečí, uistite sa, že vaša zostava LineageOS je vždy aktuálna.</string>
+     <string name="trust_feature_encryption">Šifrovanie</string>
+     <string name="trust_feature_encryption_value_enabled">Zapnuté</string>
+     <string name="trust_feature_encryption_value_nolock">Je potrebná zabezpečená obrazovka uzamknutia</string>
+@@ -481,8 +480,6 @@
+     <string name="trust_warnings_alerts_intro">Môžete si vybrať problémy s bezpečnosťou, na ktoré chcete byť upozornený. Pre vašu bezpečnosť sa odporúča zapnúť všetky upozornenia</string>
+     <string name="trust_warnings_selinux">Stav SELinux</string>
+     <string name="trust_warnings_keys">Podpis zostavenia</string>
+-    <string name="trust_onboarding_title">Zoznámte sa s Trust</string>
+-    <string name="trust_onboarding_description">Trust pomáha udržiavať vaše zariadenie v bezpečí a chráni vaše súkromie.\nZobrazí sa ikona Trust, ktorá vám pomôže kontrolovať bezpečnosť obsahu.</string>
+     <string name="trust_onboarding_learn_more">Zistiť viac</string>
+     <string name="trust_onboarding_done">Chápem</string>
+     <string name="trust_restrict_usb_title">Obmedziť USB</string>
+diff --git a/res/values-sl/strings.xml b/res/values-sl/strings.xml
+index 67e5ad3..99ffb66 100644
+--- a/res/values-sl/strings.xml
++++ b/res/values-sl/strings.xml
+@@ -517,7 +517,6 @@
+     <string name="trust_feature_security_patches_value_new">Posodobljeno</string>
+     <string name="trust_feature_security_patches_value_medium">Nekaj mesecev zastarelo</string>
+     <string name="trust_feature_security_patches_value_old">Zastarelo</string>
+-    <string name="trust_feature_security_patches_explain">Varnostni popravki so izdani mesečno s strani Googla v sodelovanju s proizvajalci SoC-ov, da naslovijo pomanjkljivosti, ki jih lahko zlonamerne aplikacije izrabijo za obvoz varnostnih omejitev in lahko povzročijo trajne poškodbe vaše naprave. Popravki s strani Googla so na vseh podprtih napravah uveljavljeni vsak mesec, vendar so lahko popravki lastniške kode uveljavljeni samo s strani proizvajalca naprave. Da ohranite vašo napravo varno, poskrbite, da je vaša izgradnja LineageOS-a vedno posodobljena in (v kolikor je na voljo) odtis dobavitelja posodobobljen na zadnjo različico priporočeno s strani LineageOS-a.</string>
+     <string name="trust_feature_encryption">Šifriranje</string>
+     <string name="trust_feature_encryption_value_enabled">Omogočeno</string>
+     <string name="trust_feature_encryption_value_nolock">Potreben je varni zaklenjen zaslon</string>
+@@ -528,8 +527,6 @@
+     <string name="trust_warnings_alerts_intro">Izberete lahko varnostne težave, na katere bi želeli biti opozorjeni. Za vašo varnost je priporočljivo, da omogočite vsa opozorila</string>
+     <string name="trust_warnings_selinux">SELinux stanje</string>
+     <string name="trust_warnings_keys">Podpis izgradnje</string>
+-    <string name="trust_onboarding_title">Pozdravite Trust</string>
+-    <string name="trust_onboarding_description">Trust vam pomaga ohraniti vašo napravo varno in varuje vašo zasebnost.\nTrust ikona se bo prikazala samo, ko bo vsebina strani potrjena.</string>
+     <string name="trust_onboarding_learn_more">Več o tem</string>
+     <string name="trust_onboarding_done">Razumem</string>
+     <string name="trust_restrict_usb_title">Omeji USB</string>
+diff --git a/res/values-sq/strings.xml b/res/values-sq/strings.xml
+index aa5d686..591e28e 100644
+--- a/res/values-sq/strings.xml
++++ b/res/values-sq/strings.xml
+@@ -514,7 +514,6 @@
+     <string name="trust_feature_security_patches_value_new">E përditësuar</string>
+     <string name="trust_feature_security_patches_value_medium">Disa muaj e pa përditësuar</string>
+     <string name="trust_feature_security_patches_value_old">E vjetërsuar</string>
+-    <string name="trust_feature_security_patches_explain">korrigjimet e sigurisë nxiren çdo muaj nga Google në bashkëpunim me prodhuesit e SoC për të trajtuar gabimet nga të cilat mund të shfrytëzohen nga programet keqadashëse për të shmangur kufizimet e sigurisë dhe shkaktojnë probleme të përhershme në paisjen tuaj. korrigjimet e nxjera nga Google zbatohen çdo muaj në të gjitha paisjet. Por korrigjimet tek kodet e patentuara mund të kryehen vetëm nga prodhuesi i telefonit tuaj. Për të qëndruar i sigurtë, sigurohuni që sistemi juaj LineageOS është gjithmonë i përditësuar, dhe (nesë është e vlefshme) sigurohu që dhe imazhet e prodhuesit janë gjithmonë më të fundit dhe të sygjeruara nga LineageOS.</string>
+     <string name="trust_feature_encryption">Enkriptimi</string>
+     <string name="trust_feature_encryption_value_enabled">E aktivizuar</string>
+     <string name="trust_feature_encryption_value_nolock">Nevojitet një mbyllje e sigurtë e ekranit</string>
+@@ -525,8 +524,6 @@
+     <string name="trust_warnings_alerts_intro">Ju mund të zgjidhni se për cilat probleme sigurie të njoftoheni. Për sigurinë tuaj, sygjerohet të aktivizohen të gjitha</string>
+     <string name="trust_warnings_selinux">Gjendja e SELinux</string>
+     <string name="trust_warnings_keys">Shënjimi i ndërtimit</string>
+-    <string name="trust_onboarding_title">Mirëprit Trust</string>
+-    <string name="trust_onboarding_description">Trust të ndihmon të kesh paisjen tuaj të sigurtë dhe mbron privatësinë tënde.\n Ikona e Trust do të shfaqet vetëm kur përmbajtja e faqes të verifikohet.</string>
+     <string name="trust_onboarding_learn_more">Mëso më shumë</string>
+     <string name="trust_onboarding_done">E kuptova</string>
+     <string name="trust_restrict_usb_title">Kufizo USB</string>
+diff --git a/res/values-sr/strings.xml b/res/values-sr/strings.xml
+index b7acf6d..59d24fe 100644
+--- a/res/values-sr/strings.xml
++++ b/res/values-sr/strings.xml
+@@ -440,7 +440,6 @@
+     <string name="trust_feature_selinux_explain">SELinux одређује који процеси имају приступ којим фајловима/путањама на Вашем уређају.\nОво спречава апликације и сервисе да добију приступ фајловима којима не би требало: овако се малициозни процеси ограничавају и осигурава се ваша сигурност.</string>
+     <string name="trust_feature_security_patches">Андроид безбедоносне закрпе</string>
+     <string name="trust_feature_security_patches_value_base">Платформа: %1$s\nДобављач: %2$s</string>
+-    <string name="trust_feature_security_patches_explain">Сигуроносне закрпе се раде на месечном нивоу од стране Google-а у сарадњи са SoC добављачем да реше преблеме које могу искористити злонамерне апликације да заобиђу сигурносне рестрикције и да трајно оштете уређај. Закрпе које су доступне Google прави сваког месеца на свим подржаним уређајима, али закрпе може поставити само произвођач уређаја. Да осигурате сигурност уређаја нека LineageOS увек буде ажуриран, и (ако је примењиво) осигурајте да је слика добављача ажурирана по препоруци LineageOS-а.</string>
+     <string name="trust_feature_encryption">Enkripcija</string>
+     <string name="trust_feature_encryption_value_enabled">Омогућено</string>
+     <string name="trust_feature_encryption_value_nolock">Захтева безбедни екран закљувања</string>
+@@ -451,8 +450,6 @@
+     <string name="trust_warnings_alerts_intro">Можете да изаберете на које безбедносне проблеме желите да будете упозорени. Због Ваше сигурности, препоручује се да омогућите сва обавештења</string>
+     <string name="trust_warnings_selinux">SELinux статус</string>
+     <string name="trust_warnings_keys">Потпис издања</string>
+-    <string name="trust_onboarding_title">Кажите здраво Trust-у</string>
+-    <string name="trust_onboarding_description">Trust помаже да ваш уређај и подаци буду заштићени.\n Trust икона ће бити приказана само у случају када је приказани садржај странице сигуран.</string>
+     <string name="trust_onboarding_learn_more">Сазнајте више</string>
+     <string name="trust_onboarding_done">Схватио</string>
+     <string name="sms_security_check_limit_title">Ограничење SMS порука</string>
+diff --git a/res/values-sv/strings.xml b/res/values-sv/strings.xml
+index 78b148c..42f607d 100644
+--- a/res/values-sv/strings.xml
++++ b/res/values-sv/strings.xml
+@@ -452,7 +452,6 @@
+     <string name="trust_feature_selinux_explain">SELinux bestämmer vilka filer och sökvägar olika processer har åtkomst till.\nFunktionen förhindrar appar och tjänster från att komma åt filer de inte ska kunna komma åt, och begränsar därigenom möjligheten för skadlig programvara att äventyra säkerheten.</string>
+     <string name="trust_feature_security_patches">Säkerhetsuppdateringar för Android</string>
+     <string name="trust_feature_security_patches_value_base">Plattform: %1$s\nTillverkare: %2$s</string>
+-    <string name="trust_feature_security_patches_explain">Varje månad släpper Google säkerhetsuppdateringar tillsammans med chiptillverkare för att rätta till säkerhetsfel som skadlig programvara skulle kunna använda för att ta sig runt säkerhetsreglerna och skada enheten. LineageOS tillämpar Googles korrigeringar en gång i månaden på alla enheter som stöds men tillverkarspecifik programkod kan bara korrigeras av tillverkarna. För att hålla din enhet säker bör du se till att du använder den senaste versionen av LineageOS samt att systemets fasta programvara har uppdaterats till den senaste versionen som LineageOS rekommenderar.</string>
+     <string name="trust_feature_encryption">Kryptering</string>
+     <string name="trust_feature_encryption_value_enabled">Aktiverat</string>
+     <string name="trust_feature_encryption_value_nolock">En säker låsskärm behövs</string>
+@@ -463,8 +462,6 @@
+     <string name="trust_warnings_alerts_intro">Du kan välja vilka säkerhetshål du vill bli varnad om. För säkerhets skull är det rekommenderat att aktivera alla varningar.</string>
+     <string name="trust_warnings_selinux">SELinux-status</string>
+     <string name="trust_warnings_keys">Versionssignatur</string>
+-    <string name="trust_onboarding_title">Säg hej till Trust</string>
+-    <string name="trust_onboarding_description">Trust hjälper dig att hålla din enhet säker och skydda din sekretess.\nTrust-ikonen visas endast när innehållet på sidan har verifierats.</string>
+     <string name="trust_onboarding_learn_more">Mer information</string>
+     <string name="trust_onboarding_done">Jag förstår</string>
+     <string name="trust_restrict_usb_title">Begränsa USB</string>
+diff --git a/res/values-ta/strings.xml b/res/values-ta/strings.xml
+index 05f8d10..555cb3f 100644
+--- a/res/values-ta/strings.xml
++++ b/res/values-ta/strings.xml
+@@ -357,7 +357,6 @@
+     <string name="touchscreen_gesture_swipe_up_stylus_title">எழுத்தாணி பயன்படுத்தி மேல்நோக்கித் தேய்க்கவும்</string>
+     <string name="touchscreen_gesture_action_dialer">சுழற்றியைத் திறக்க</string>
+     <string name="trust_feature_selinux">SEலினக்சு</string>
+-    <string name="trust_onboarding_title">நம்பிக்கைக்கு வணக்கம் சொல்க</string>
+     <string name="trust_onboarding_learn_more">இன்னும் அறிக</string>
+     <string name="trust_onboarding_done">புரிந்தது</string>
+     <string name="sms_security_check_limit_summary">செயலிகள் 1 நிமிடத்தில் %s குறுஞ்செய்திகளை உறுதிசெய்தல் தேவைப்படுவதற்கு முன் அனுப்ப இயலும்</string>
+diff --git a/res/values-th/strings.xml b/res/values-th/strings.xml
+index c979f68..594e860 100644
+--- a/res/values-th/strings.xml
++++ b/res/values-th/strings.xml
+@@ -458,7 +458,6 @@
+     <string name="trust_feature_security_patches_value_new">รุ่นล่าสุด</string>
+     <string name="trust_feature_security_patches_value_medium">ล้าหลังไม่กี่เดือน</string>
+     <string name="trust_feature_security_patches_value_old">ล้าสมัย</string>
+-    <string name="trust_feature_security_patches_explain">Google ออกแพตช์รักษาความปลอดภัยเป็นประจำทุกเดือนโดยร่วมมือกับผู้ขาย SoC เพื่อแก้ไขข้อบกพร่องซึ่งอาจถูกใช้โดยแอปที่เป็นอันตรายเพื่อข้ามข้อจำกัดในด้านความปลอดภัยและทำให้อุปกรณ์ของคุณเสียหายอย่างถาวร Google มีการติดตั้งแพตช์แก้ไขทุกเดือนในอุปกรณ์ที่รองรับทั้งหมด แต่ผู้ผลิตอุปกรณ์ของคุณสามารถแก้ไขข้อบกพร่องสำหรับโค้ดที่เป็นกรรมสิทธิ์ได้เท่านั้น เพื่อให้อุปกรณ์ของคุณปลอดภัยตรวจสอบให้แน่ใจว่ารุ่น LineageOS ที่คุณใช้งานอยู่เป็นรุ่นล่าสุดอยู่เสมอและ (ถ้ามี) ให้แน่ใจว่าไฟล์ภาพผู้ขายของคุณได้รับการอัปเดตเป็นรุ่นล่าสุดที่ถูกแนะนำโดย LineageOS</string>
+     <string name="trust_feature_encryption">การเข้ารหัส</string>
+     <string name="trust_feature_encryption_value_enabled">เปิดใช้งาน</string>
+     <string name="trust_feature_encryption_value_nolock">ต้องการหน้าจอล็อกที่ปลอดภัย</string>
+@@ -469,8 +468,6 @@
+     <string name="trust_warnings_alerts_intro">คุณสามารถเลือกปัญหาด้านความปลอดภัยที่คุณต้องการได้รับการเตือน เพื่อความปลอดภัยของคุณขอแนะนำให้เปิดใช้งานการแจ้งเตือนทั้งหมด</string>
+     <string name="trust_warnings_selinux">สถานะ SELinux</string>
+     <string name="trust_warnings_keys">ลายเซ็นบิลด์</string>
+-    <string name="trust_onboarding_title">ทักทายกับเชื่อถือ</string>
+-    <string name="trust_onboarding_description">Trust ช่วยให้คุณรักษาอุปกรณ์ของคุณให้ปลอดภัยและปกป้องความเป็นส่วนตัวของคุณ\nไอคอน Trust จะปรากฏเฉพาะเมื่อเนื้อหาของหน้านั้นผ่านการตรวจสอบแล้ว</string>
+     <string name="trust_onboarding_learn_more">เรียนรู้เพิ่มเติม</string>
+     <string name="trust_onboarding_done">เข้าใจแล้ว</string>
+     <string name="trust_restrict_usb_title">จำกัด USB</string>
+diff --git a/res/values-tr/strings.xml b/res/values-tr/strings.xml
+index 46d9020..c9e9b49 100644
+--- a/res/values-tr/strings.xml
++++ b/res/values-tr/strings.xml
+@@ -512,7 +512,6 @@
+     <string name="trust_feature_security_patches_value_new">Güncel</string>
+     <string name="trust_feature_security_patches_value_medium">Birkaç ay eski</string>
+     <string name="trust_feature_security_patches_value_old">Güncellenmemiş</string>
+-    <string name="trust_feature_security_patches_explain">Güvenlik kısıtlamalarını atlamak ve cihazınızda kalıcı hasara neden olmak için kötü amaçlı uygulamalar tarafından kötüye kullanılabilecek hataları gidermek için SoC satıcılarıyla işbirliği içinde Google tarafından aylık olarak güvenlik yamaları yayınlanır. Google tarafından kullanıma sunulan yamalar, desteklenen tüm cihazlarda her ay uygulanır, ancak tescilli koddaki yamalar sadece cihazınızın üreticisi tarafından uygulanabilir. Cihazınızı güvende tutmak için LineageOS yapınızın her zaman güncel olduğundan ve (varsa) satıcı dosyanızın LineageOS tarafından önerilen en yeni sürüme güncellendiğinden emin olun.</string>
+     <string name="trust_feature_encryption">Şifreleme</string>
+     <string name="trust_feature_encryption_value_enabled">Etkin</string>
+     <string name="trust_feature_encryption_value_nolock">Güvenli bir kilit ekranına ihtiyaç duyar</string>
+@@ -523,8 +522,6 @@
+     <string name="trust_warnings_alerts_intro">Uyarılmak istediğiniz güvenlik sorunlarını seçebilirsiniz. Güvenliğiniz için tüm uyarıları etkinleştirmeniz önerilir</string>
+     <string name="trust_warnings_selinux">SELinux durumu</string>
+     <string name="trust_warnings_keys">Yapı imzası</string>
+-    <string name="trust_onboarding_title">Trust\'a merhaba de</string>
+-    <string name="trust_onboarding_description">Trust, cihazınızı güvende tutmanıza ve gizliliğinizi korumanıza yardımcı olur.\nTrust simgesi, sadece sayfanın içeriği doğrulandığında gösterilir.</string>
+     <string name="trust_onboarding_learn_more">Daha fazla bilgi</string>
+     <string name="trust_onboarding_done">Anladım</string>
+     <string name="trust_restrict_usb_title">USB\'yi kısıtla</string>
+diff --git a/res/values-ug/strings.xml b/res/values-ug/strings.xml
+index 1833544..be2ca90 100644
+--- a/res/values-ug/strings.xml
++++ b/res/values-ug/strings.xml
+@@ -517,7 +517,6 @@
+     <string name="trust_feature_security_patches_value_new">ئەڭ يېڭى</string>
+     <string name="trust_feature_security_patches_value_medium">بىر قانچە ئاي ۋاقتى ئۆتكەن</string>
+     <string name="trust_feature_security_patches_value_old">ۋاقتى ئۆتكەن</string>
+-    <string name="trust_feature_security_patches_explain">بىخەتەرلىك ياماقلىرى Google بىلەن SoC ساتقۇچىلار ھەمكارلىشىپ ھەر ئايدا تارقىتىلىدۇ، يامان غەرەزلىك ئەپ ئارقىلىق بىخەتەرلىك چەكلىمىسىدىن ئۆتۈپ، ئۈسكۈنىڭىزگە مەڭگۈلۈك زىيان سالىدىغان كەمتۈكلۈكلەرنى ھەل قىلىدۇ. Google شىركىتى تەمىنلىگەن ياماقلار ھەر ئايدا بارلىق قوللايدىغان ئۈسكۈنىلەردە قوللىنىلىدۇ، ئەمما پەقەت ئۈسكۈنىڭىزنى ئىشلەپچىقارغۇچى شەخسىي كودقا ياماق تەمىنلىيەلەيدۇ. ئۈسكۈنىڭىزنىڭ بىخەتەرلىكىنى قوغداش ئۈچۈن LineageOS نەشرىنىڭ ھەر ۋاقىت يېڭىلىنىپ تۇرۇشىغا كاپالەتلىك قىلىڭ، (ئەگەر مۇمكىن بولسا) ساتقۇچى نەشرىڭىزنىڭ LineageOS تەۋسىيە قىلغان ئەڭ يېڭى نەشرىگە يېڭىلىنىشىغا كاپالەتلىك قىلىڭ.</string>
+     <string name="trust_feature_encryption">شىفىرلاش</string>
+     <string name="trust_feature_encryption_value_enabled">قوزغىتىلغان</string>
+     <string name="trust_feature_encryption_value_nolock">بىخەتەر ئېكران قۇلۇپىنى تەڭشەك كېرەك</string>
+@@ -528,8 +527,6 @@
+     <string name="trust_warnings_alerts_intro">سىز ئاگاھلاندۇرۇلىدىغان بىخەتەرلىك مەسىلىلىرىنى تاللىيالايسىز. بىخەتەرلىكىڭىز ئۈچۈن، بارلىق ئاگاھلاندۇرۇشلارنى قوزغىتىشىڭىز تەۋسىيە قىلىنىدۇ</string>
+     <string name="trust_warnings_selinux">SELinux ھالىتى</string>
+     <string name="trust_warnings_keys">ھاسىللىغان ئىمزا</string>
+-    <string name="trust_onboarding_title">ئىشەنچكە سالام</string>
+-    <string name="trust_onboarding_description">ئىشەنچ ئۈسكۈنىڭىزنىڭ بىخەتەرلىكىنى ساقلاپ ھەمدە شەخسىيىتىڭىزنى قوغدايدۇ.\nئىشەنچ سىنبەلگىسى بەت مەزمۇننىڭ بىخەتەرلىكى دەلىللەنگەندىن كېيىن ئاندىن كۆرۈنىدۇ.</string>
+     <string name="trust_onboarding_learn_more">تەپسىلات بىلدۈرگۈسى</string>
+     <string name="trust_onboarding_done">بىلدىم</string>
+     <string name="trust_restrict_usb_title">USB چەكلە</string>
+diff --git a/res/values-uk/strings.xml b/res/values-uk/strings.xml
+index 09876cb..4ad257e 100644
+--- a/res/values-uk/strings.xml
++++ b/res/values-uk/strings.xml
+@@ -441,8 +441,6 @@
+     <string name="trust_warnings_alerts_intro">Оберіть, про які вади захисту системи бажаєте дізнаватись. Найбезпечніше ввімкнути всі застереження</string>
+     <string name="trust_warnings_selinux">Стан SELinux</string>
+     <string name="trust_warnings_keys">Підпис збірки</string>
+-    <string name="trust_onboarding_title">Вас вітає Trust</string>
+-    <string name="trust_onboarding_description">Trust допомагає захистити ваш пристрій і вашу приватність.\nЗначок Trust ви бачите лише при успішному підтвердженні вмісту сторінки.</string>
+     <string name="trust_onboarding_learn_more">Докладніше</string>
+     <string name="trust_onboarding_done">Зрозуміло</string>
+     <string name="trust_restrict_usb_title">Обмежити USB</string>
+diff --git a/res/values-vi/strings.xml b/res/values-vi/strings.xml
+index ec067ea..7da6f05 100644
+--- a/res/values-vi/strings.xml
++++ b/res/values-vi/strings.xml
+@@ -515,7 +515,6 @@
+     <string name="trust_feature_security_patches_value_new">Đã cập nhật</string>
+     <string name="trust_feature_security_patches_value_medium">Đã hết hạn một vài tháng</string>
+     <string name="trust_feature_security_patches_value_old">Đã cũ</string>
+-    <string name="trust_feature_security_patches_explain">Các bản vá bảo mật được Google phát hành hàng tháng với sự hợp tác của các nhà cung cấp SoC để giải quyết các lỗi có thể bị các ứng dụng độc hại khai thác để vượt qua các hạn chế bảo mật và gây thiệt hại vĩnh viễn cho thiết bị của bạn. Các bản vá được Google cung cấp được áp dụng hàng tháng trên tất cả các thiết bị được hỗ trợ, nhưng bản vá cho mã độc quyền chỉ có thể được nhà sản xuất thiết bị của bạn áp dụng. Để giữ cho thiết bị của bạn an toàn, hãy đảm bảo rằng việc xây dựng LineageOS của bạn luôn được cập nhật và (nếu có) đảm bảo hình ảnh của nhà cung cấp của bạn được cập nhật thành hình ảnh mới nhất do LineageOS đề xuất.</string>
+     <string name="trust_feature_encryption">Mã hóa</string>
+     <string name="trust_feature_encryption_value_enabled">Đã bật</string>
+     <string name="trust_feature_encryption_value_nolock">Cần một màn hình khóa an toàn</string>
+@@ -526,8 +525,6 @@
+     <string name="trust_warnings_alerts_intro">Bạn có thể chọn các vấn đề bảo mật mà bạn muốn được cảnh báo. Vì sự an toàn của bạn, bạn nên bật tất cả cảnh báo</string>
+     <string name="trust_warnings_selinux">Trạng thái SELinux</string>
+     <string name="trust_warnings_keys">Tạo chữ ký</string>
+-    <string name="trust_onboarding_title">Nói xin chào với Trust</string>
+-    <string name="trust_onboarding_description">Trust giúp bạn giữ an toàn cho thiết bị của mình và bảo vệ quyền riêng tư của bạn.\nBiểu tượng Trust sẽ chỉ hiển thị khi nội dung của trang đã được xác minh.</string>
+     <string name="trust_onboarding_learn_more">Tìm hiểu thêm</string>
+     <string name="trust_onboarding_done">Đã hiểu</string>
+     <string name="trust_restrict_usb_title">Hạn chế USB</string>
+diff --git a/res/values-zh-rCN/strings.xml b/res/values-zh-rCN/strings.xml
+index 27a2f0c..dc4e812 100644
+--- a/res/values-zh-rCN/strings.xml
++++ b/res/values-zh-rCN/strings.xml
+@@ -515,7 +515,6 @@
+     <string name="trust_feature_security_patches_value_new">已是最新</string>
+     <string name="trust_feature_security_patches_value_medium">数月未更新</string>
+     <string name="trust_feature_security_patches_value_old">已过时</string>
+-    <string name="trust_feature_security_patches_explain">安全补丁由 Google 和 SoC 厂商每月发布，用以修复可能会被恶意应用利用、绕过安全限制对你的设备造成暂时或永久损坏的缺陷。\n平台补丁每个月都会统一更新，但厂商补丁只能每次从 OEM 取得。\n要保证您的设备安全，请使用最新版本的 LineageOS。</string>
+     <string name="trust_feature_encryption">加密</string>
+     <string name="trust_feature_encryption_value_enabled">已启用</string>
+     <string name="trust_feature_encryption_value_nolock">需要设置安全的屏幕锁定</string>
+@@ -526,8 +525,6 @@
+     <string name="trust_warnings_alerts_intro">您可以选择要警告的安全问题。但为了您的安全起见，建议启用所有警报。</string>
+     <string name="trust_warnings_selinux">SELinux 状态</string>
+     <string name="trust_warnings_keys">编译签名</string>
+-    <string name="trust_onboarding_title">欢迎使用安全中心</string>
+-    <string name="trust_onboarding_description">安全中心能保障您的设备安全并保护您的隐私。\n您可以通过显示的安全图标检查内容的安全性。</string>
+     <string name="trust_onboarding_learn_more">了解更多</string>
+     <string name="trust_onboarding_done">我知道了</string>
+     <string name="trust_restrict_usb_title">限制 USB</string>
+diff --git a/res/values-zh-rTW/strings.xml b/res/values-zh-rTW/strings.xml
+index c70692c..a6c6cca 100644
+--- a/res/values-zh-rTW/strings.xml
++++ b/res/values-zh-rTW/strings.xml
+@@ -502,7 +502,6 @@
+     <string name="trust_feature_security_patches_value_new">已是最新</string>
+     <string name="trust_feature_security_patches_value_medium">幾個月未更新</string>
+     <string name="trust_feature_security_patches_value_old">已過期</string>
+-    <string name="trust_feature_security_patches_explain">安全性修補由 Google 和 SoC 廠商每月發佈，用以修復可能會被惡意應用程式利用、繞過安全限制對您的裝置造成暫時或永久損壞的缺陷。\n平台修補每個月都會統一更新，但廠商修補只能每次從 OEM 取得。\n要保證您的裝置安全，請使用最新的 LineageOS 版本。</string>
+     <string name="trust_feature_encryption">加密</string>
+     <string name="trust_feature_encryption_value_enabled">已啟用</string>
+     <string name="trust_feature_encryption_value_nolock">需要設定鎖定畫面密碼</string>
+@@ -513,8 +512,6 @@
+     <string name="trust_warnings_alerts_intro">您可以選擇需要警告的安全問題。為了您的安全起見, 建議啟用所有警報</string>
+     <string name="trust_warnings_selinux">SELinux 狀態</string>
+     <string name="trust_warnings_keys">編譯簽名</string>
+-    <string name="trust_onboarding_title">歡迎使用安全中心</string>
+-    <string name="trust_onboarding_description">安全中心能保障您的裝置安全性和您的隱私。\n安全圖示只有當頁面的內容已獲驗證才會顯示。</string>
+     <string name="trust_onboarding_learn_more">瞭解更多</string>
+     <string name="trust_onboarding_done">明白了</string>
+     <string name="trust_restrict_usb_title">限制 USB</string>
+diff --git a/res/values/strings.xml b/res/values/strings.xml
+index 9a0010f..4aac411 100644
+--- a/res/values/strings.xml
++++ b/res/values/strings.xml
+@@ -653,7 +653,8 @@
+     <string name="egg_title" translatable="false">LineageOS Easter Egg</string>
+ 
+     <!-- Trust interface -->
+-    <string name="trust_title" translatable="false">@*lineageos.platform:string/trust_feature_name</string>
++    <!-- SableOS: the Trust page is "Security status" (no LineageOS Trust branding). -->
++    <string name="trust_title" translatable="false">Security status</string>
+     <string name="trust_category_features">Status</string>
+     <string name="trust_feature_selinux">SELinux</string>
+     <string name="trust_feature_selinux_value_enforcing">Enforcing</string>
+@@ -664,7 +665,7 @@
+     <string name="trust_feature_security_patches_value_new">Up to date</string>
+     <string name="trust_feature_security_patches_value_medium">A few months out of date</string>
+     <string name="trust_feature_security_patches_value_old">Out of date</string>
+-    <string name="trust_feature_security_patches_explain">Security patches are released monthly by Google in cooperation with SoC vendors to address flaws which could be exploited by malicious apps to bypass security restrictions and cause permanent damage to your device. Patches made available by Google are applied every month on all supported devices, but patches to proprietary code can only be applied by your device\'s manufacturer. To keep your device safe make sure your LineageOS build is always up-to-date, and (if applicable) ensure your vendor image is updated to the latest one recommended by LineageOS.</string>
++    <string name="trust_feature_security_patches_explain">Security patches are released monthly by Google in cooperation with SoC vendors to address flaws which could be exploited by malicious apps to bypass security restrictions and cause permanent damage to your device. Patches to proprietary code can only be applied by your device\'s manufacturer. To keep your device safe, keep SableOS up to date and, if applicable, keep the vendor image on the version SableOS recommends.</string>
+     <string name="trust_feature_encryption">Encryption</string>
+     <string name="trust_feature_encryption_value_enabled">Enabled</string>
+     <string name="trust_feature_encryption_value_nolock">Needs a secure lock screen</string>
+@@ -675,8 +676,8 @@
+     <string name="trust_warnings_alerts_intro">You can select the security issues you want to be warned about. For your safety, it is recommended to enable all alerts</string>
+     <string name="trust_warnings_selinux">SELinux status</string>
+     <string name="trust_warnings_keys">Build signature</string>
+-    <string name="trust_onboarding_title">Say hello to Trust</string>
+-    <string name="trust_onboarding_description">Trust helps you keep your device secure and protect your privacy.\nThe Trust icon will only show when the contents of the page have been verified.</string>
++    <string name="trust_onboarding_title">Security status</string>
++    <string name="trust_onboarding_description">Security status shows SELinux, security patch and encryption state, and the USB and SMS protections.</string>
+     <string name="trust_onboarding_learn_more">Learn more</string>
+     <string name="trust_onboarding_done">Got it</string>
+     <string name="trust_restrict_usb_title">Restrict USB</string>
+diff --git a/res/xml/trust_preferences.xml b/res/xml/trust_preferences.xml
+index 045a4bd..7024477 100644
+--- a/res/xml/trust_preferences.xml
++++ b/res/xml/trust_preferences.xml
+@@ -5,10 +5,7 @@
+ -->
+ <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+ 
+-    <org.lineageos.lineageparts.widget.WallOfTextPreference
+-        android:icon="@drawable/ic_trust"
+-        android:summary="@string/trust_onboarding_description" />
+-
++    <!-- SableOS: no Trust onboarding text or LineageOS shield; the page is "Security status". -->
+     <PreferenceCategory android:title="@string/trust_category_features">
+ 
+         <Preference
+@@ -36,9 +33,7 @@
+             android:entryValues="@array/trust_restrict_usb_values"
+             android:defaultValue="0" />
+ 
+-        <lineageos.preference.LineagePartsPreference
+-            android:key="lineagestats" />
+-
++        <!-- SableOS: no LineageOS statistics opt-in (collection stays off, lineage-sdk default). -->
+         <ListPreference
+             android:key="sms_security_check_limit"
+             android:defaultValue="30"
+diff --git a/src/org/lineageos/lineageparts/search/LineagePartsSearchIndexablesProvider.java b/src/org/lineageos/lineageparts/search/LineagePartsSearchIndexablesProvider.java
+index 25015cd..e513380 100644
+--- a/src/org/lineageos/lineageparts/search/LineagePartsSearchIndexablesProvider.java
++++ b/src/org/lineageos/lineageparts/search/LineagePartsSearchIndexablesProvider.java
+@@ -59,6 +59,12 @@ public class LineagePartsSearchIndexablesProvider extends SearchIndexablesProvid
+ 
+     private static final String TAG = LineagePartsSearchIndexablesProvider.class.getSimpleName();
+ 
++    /**
++     * SableOS: parts with no Settings entry on SableOS (LineageOS contributors and the
++     * LineageOS statistics opt-in), kept out of Settings search.
++     */
++    private static final Set<String> SABLE_HIDDEN_PARTS = Set.of("contributors", "lineagestats");
++
+     private static final String FIELD_NAME_SEARCH_INDEX_DATA_PROVIDER =
+             "SEARCH_INDEX_DATA_PROVIDER";
+ 
+@@ -71,7 +77,8 @@ public class LineagePartsSearchIndexablesProvider extends SearchIndexablesProvid
+         // from parts_catalog.xml for indexing
+         for (String key : keys) {
+             PartInfo i = PartsList.get(getContext()).getPartInfo(key);
+-            if (i == null || i.getXmlRes() <= 0 || !i.isAvailable()) {
++            if (i == null || i.getXmlRes() <= 0 || !i.isAvailable()
++                    || SABLE_HIDDEN_PARTS.contains(key)) {
+                 continue;
+             }
+ 
+@@ -99,7 +106,7 @@ public class LineagePartsSearchIndexablesProvider extends SearchIndexablesProvid
+         // which don't have an associated XML resource
+         for (String key : keys) {
+             PartInfo i = PartsList.get(getContext()).getPartInfo(key);
+-            if (i == null || !i.isAvailable()) {
++            if (i == null || !i.isAvailable() || SABLE_HIDDEN_PARTS.contains(key)) {
+                 continue;
+             }
+ 
+@@ -160,7 +167,7 @@ public class LineagePartsSearchIndexablesProvider extends SearchIndexablesProvid
+ 
+         for (String key : keys) {
+             PartInfo i = PartsList.get(getContext()).getPartInfo(key);
+-            if (i == null || !i.isAvailable()) {
++            if (i == null || !i.isAvailable() || SABLE_HIDDEN_PARTS.contains(key)) {
+                 continue;
+             }
+ 
+-- 
+2.43.0
+

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 The SableOS Project
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <!-- Dual Apps (PRIVATE_SPACE_DUAL_APPS_WORK_PROFILE_UX): the apps Android's cloned-apps
+         page (Settings > Apps > Cloned apps, Settings patch 1206) may copy into the clone
+         profile. frameworks/base core/res cloneable_apps is empty by default;
+         config_enableAppCloningBuildingBlocks is already true. Messaging and social apps people
+         commonly run with a second account. An app not installed is simply not listed. -->
+    <string-array name="cloneable_apps" translatable="false">
+        <item>com.whatsapp</item>
+        <item>com.whatsapp.w4b</item>
+        <item>org.telegram.messenger</item>
+        <item>org.thoughtcrime.securesms</item>
+        <item>com.facebook.katana</item>
+        <item>com.facebook.orca</item>
+        <item>com.instagram.android</item>
+        <item>jp.naver.line.android</item>
+        <item>com.viber.voip</item>
+        <item>com.snapchat.android</item>
+        <item>com.twitter.android</item>
+        <item>com.discord</item>
+    </string-array>
+</resources>
