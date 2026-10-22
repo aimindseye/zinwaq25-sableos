@@ -51,7 +51,10 @@ class Q25KeysTest {
 
     @Test fun rTogglesRawInPhotoOnly() {
         assertEquals(CameraAction.RawToggle, CameraKeyMap.resolve("r", false, q25))
-        assertEquals(Cmd.Act(CameraAction.RawToggle), ActionRouter.route(UiMode.Photo, CameraAction.RawToggle))
+        assertEquals(
+            Cmd.Act(CameraAction.RawToggle),
+            ActionRouter.route(UiMode.Photo, CameraAction.RawToggle)
+        )
         assertEquals(Cmd.Nop, ActionRouter.route(UiMode.Video, CameraAction.RawToggle))
         assertEquals(Cmd.Nop, ActionRouter.route(UiMode.Pro, CameraAction.RawToggle))
         assertTrue(ControlGate.check(CameraAction.RawToggle, ctx(UiMode.Photo)).isOpen)
@@ -125,8 +128,14 @@ class Q25KeysTest {
     // ---- default still camera ------------------------------------------------------------------
 
     @Test fun launchKindFollowsTheIntentAction() {
-        assertEquals(LaunchKind.ImageCapture, LaunchIntent.kind("android.media.action.IMAGE_CAPTURE"))
-        assertEquals(LaunchKind.StillCamera, LaunchIntent.kind("android.media.action.STILL_IMAGE_CAMERA"))
+        assertEquals(
+            LaunchKind.ImageCapture,
+            LaunchIntent.kind("android.media.action.IMAGE_CAPTURE")
+        )
+        assertEquals(
+            LaunchKind.StillCamera,
+            LaunchIntent.kind("android.media.action.STILL_IMAGE_CAMERA")
+        )
         assertEquals(LaunchKind.Normal, LaunchIntent.kind("android.intent.action.MAIN"))
         assertEquals(LaunchKind.Normal, LaunchIntent.kind(null))
     }
@@ -137,8 +146,12 @@ class Q25KeysTest {
         assertTrue(LaunchIntent.allows(k, CameraAction.ZoomIn))
         assertTrue(LaunchIntent.allows(k, CameraAction.SwitchCamera))
         for (a in listOf(
-            CameraAction.VideoToggle, CameraAction.NextMode, CameraAction.RawToggle,
-            CameraAction.CompareToggle, CameraAction.OpenLast, CameraAction.NextCaptureMode
+            CameraAction.VideoToggle,
+            CameraAction.NextMode,
+            CameraAction.RawToggle,
+            CameraAction.CompareToggle,
+            CameraAction.OpenLast,
+            CameraAction.NextCaptureMode
         )) {
             assertFalse("$a", LaunchIntent.allows(k, a))
             assertTrue("$a", LaunchIntent.allows(LaunchKind.StillCamera, a))
@@ -148,6 +161,8 @@ class Q25KeysTest {
     @Test fun thumbnailIsAtMost512OnItsLongEdge() {
         assertEquals(1, LaunchIntent.thumbnailSample(400, 300))
         assertEquals(8, LaunchIntent.thumbnailSample(4000, 3000))
-        assertTrue(8160 / LaunchIntent.thumbnailSample(8160, 6144) <= LaunchIntent.THUMBNAIL_EDGE_PX)
+        assertTrue(
+            8160 / LaunchIntent.thumbnailSample(8160, 6144) <= LaunchIntent.THUMBNAIL_EDGE_PX
+        )
     }
 }

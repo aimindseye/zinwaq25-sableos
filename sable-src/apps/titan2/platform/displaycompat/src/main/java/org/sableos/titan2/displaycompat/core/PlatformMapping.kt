@@ -17,13 +17,20 @@ object UserMinAspectRatio {
     /** Platform value for a profile with a real platform equivalent, else null (stored only). */
     fun forProfile(profile: AspectProfile, custom: Ratio? = null): Int? = when (profile) {
         AspectProfile.Native -> UNSET
+
         AspectProfile.Ratio16x9Letterbox -> RATIO_16_9
+
         AspectProfile.Ratio4x3Letterbox -> RATIO_4_3
+
         AspectProfile.FullscreenMedia -> FULLSCREEN
+
         AspectProfile.SquareSafe -> DISPLAY_SIZE
+
         // Mini mode on a square display: the app gets a 3:2 phone-shaped window (480x720 on the Q25).
         AspectProfile.MiniMode -> RATIO_3_2
+
         AspectProfile.Custom -> forRatio(custom)
+
         AspectProfile.Ratio16x9Fill, AspectProfile.KeyboardSafe -> null
     }
 
@@ -75,7 +82,10 @@ object OrientationOverrides {
     fun forOrientation(o: OrientationPref): Set<Long>? = when (o) {
         OrientationPref.Default -> emptySet()
 
-        OrientationPref.Portrait -> setOf(OVERRIDE_ANY_ORIENTATION, OVERRIDE_UNDEFINED_ORIENTATION_TO_PORTRAIT)
+        OrientationPref.Portrait -> setOf(
+            OVERRIDE_ANY_ORIENTATION,
+            OVERRIDE_UNDEFINED_ORIENTATION_TO_PORTRAIT
+        )
 
         // The platform's only landscape override is reverse landscape (270 degrees).
         OrientationPref.Landscape ->
@@ -108,9 +118,14 @@ data class PlatformRequest(
     }
 
     private fun orientationLabel(): String = when {
-        OrientationOverrides.OVERRIDE_UNDEFINED_ORIENTATION_TO_PORTRAIT in enableOrientation -> "portrait"
-        OrientationOverrides.OVERRIDE_LANDSCAPE_ORIENTATION_TO_REVERSE_LANDSCAPE in enableOrientation ->
+        OrientationOverrides.OVERRIDE_UNDEFINED_ORIENTATION_TO_PORTRAIT in
+            enableOrientation ->
+            "portrait"
+
+        OrientationOverrides.OVERRIDE_LANDSCAPE_ORIENTATION_TO_REVERSE_LANDSCAPE in
+            enableOrientation ->
             "landscape"
+
         else -> "app default"
     }
 
@@ -128,10 +143,18 @@ object PlatformMapping {
         val orientation = OrientationOverrides.forOrientation(p.orientation)
         if (orientation == null) notApplied += "orientation " + p.orientation.name.lowercase()
         if (p.scaling != ScalingPref.Default) notApplied += "scaling"
-        if (p.letterboxBackground != LetterboxBackground.System) notApplied += "letterbox background"
+        if (p.letterboxBackground !=
+            LetterboxBackground.System
+        ) {
+            notApplied += "letterbox background"
+        }
         if (p.keyboardSafeArea != Tri.Default) notApplied += "keyboard-safe area"
         if (p.statusNav != BarsPref.Default) notApplied += "status/nav bars"
         if (p.stretch) notApplied += "stretch"
-        return PlatformRequest(aspect ?: UserMinAspectRatio.UNSET, orientation.orEmpty(), notApplied)
+        return PlatformRequest(
+            aspect ?: UserMinAspectRatio.UNSET,
+            orientation.orEmpty(),
+            notApplied
+        )
     }
 }

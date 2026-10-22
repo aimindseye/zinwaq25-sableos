@@ -5,8 +5,6 @@ package org.sableos.titan2.camera.ui
 import android.Manifest
 import android.content.pm.PackageManager
 import android.content.res.Configuration
-import android.graphics.Matrix
-import android.graphics.RectF
 import android.graphics.SurfaceTexture
 import android.net.Uri
 import android.os.Bundle
@@ -47,8 +45,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -58,8 +56,8 @@ import org.sableos.titan2.camera.android.CameraInfoReader
 import org.sableos.titan2.camera.android.CaptureResult
 import org.sableos.titan2.camera.android.MediaStoreSaver
 import org.sableos.titan2.camera.android.RecordingSpec
-import org.sableos.titan2.camera.android.Saved
 import org.sableos.titan2.camera.android.ReviewActions
+import org.sableos.titan2.camera.android.Saved
 import org.sableos.titan2.camera.android.StillCallbacks
 import org.sableos.titan2.camera.android.SysProps
 import org.sableos.titan2.camera.core.ActionRouter
@@ -102,11 +100,6 @@ import org.sableos.titan2.camera.core.UiMode
 import org.sableos.titan2.camera.core.VideoOption
 import org.sableos.titan2.camera.core.VideoPlanner
 
-private const val QUARTER_TURN = 90
-private const val HALF_TURN = 180
-private const val THREE_QUARTER_TURN = 270
-private const val QUARTER_TURN_DEGREES = 90f
-private const val HALF_TURN_DEGREES = 180f
 private const val RECORDING_POLL_MS = 250L
 
 /** Sable camera accent: the cyan of `sable-camera-capture-titan2.svg` (#6EE7F9). */
@@ -148,8 +141,8 @@ class MainActivity : ComponentActivity() {
     private var busy = false
     private lateinit var review: QuickReviewHost
     private lateinit var keys: CameraKeys
-    private var launch = LaunchKind.Normal
-    private var captureResult: CaptureResult? = null
+    private lateinit var captureIntent: CaptureIntentHost
+    private val launch get() = captureIntent.launch
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -159,11 +152,7 @@ class MainActivity : ComponentActivity() {
         controller = CameraController(this, reader, MediaStoreSaver(this))
         review = QuickReviewHost(ReviewActions(this)) { status = it }
         onBackPressedDispatcher.addCallback(this, review.back)
-        launch = LaunchIntent.kind(intent?.action)
-        if (launch == LaunchKind.ImageCapture) {
-            captureResult = CaptureResult(this)
-            setResult(RESULT_CANCELED)
-        }
+        captureIntent = CaptureIntentHost(this)
         keys = CameraKeys(
             profile,
             review,
@@ -234,12 +223,7 @@ class MainActivity : ComponentActivity() {
         restart()
     }
 
-    private fun degrees() = when (rotation) {
-        Surface.ROTATION_90 -> QUARTER_TURN
-        Surface.ROTATION_180 -> HALF_TURN
-        Surface.ROTATION_270 -> THREE_QUARTER_TURN
-        else -> 0
-    }
+    private fun degrees() = rotationDegrees(rotation)
 
     /**
      * Per-camera defaults: Photo mode, auto Pro state, the default video size; falls back when a
@@ -253,11 +237,8 @@ class MainActivity : ComponentActivity() {
         videoOption = VideoPlanner.default(VideoPlanner.options(rep.camera.videoSizes))
         val avail = ActionRouter.available(rep)
         if (launch == LaunchKind.ImageCapture && UiMode.Photo in avail) uiMode = UiMode.Photo
-        if (uiMode !in
-            avail
-        ) {
-            uiMode =
-                avail.firstOrNull { it == UiMode.Photo } ?: avail.firstOrNull() ?: UiMode.Photo
+        if (uiMode !in avail) {
+            uiMode = avail.firstOrNull { it == UiMode.Photo } ?: avail.firstOrNull() ?: UiMode.Photo
         }
     }
 
@@ -267,19 +248,10 @@ class MainActivity : ComponentActivity() {
         val rep = report?.camera(camId) ?: return
         val tex = texture ?: return
         recState = RecState.Idle
-        val plan = CapturePlanner.single(
-            rep,
-            if (uiMode ==
-                UiMode.Photo
-            ) {
-                mode
-            } else {
-                CaptureMode.Auto
-            }
-        )
-        val label = if (uiMode ==
-            UiMode.Video
-        ) {
+        val photoMode = if (uiMode == UiMode.Photo) mode else CaptureMode.Auto
+        val plan = CapturePlanner.single(rep, photoMode)
+        val video = uiMode == UiMode.Video
+        val label = if (video) {
             "video ${videoOption?.label ?: "?"}"
         } else {
             "${plan.kind.suffix} ${plan.size}"
@@ -291,13 +263,7 @@ class MainActivity : ComponentActivity() {
             plan,
             tex,
             stillCallbacks(rep),
-            previewFor = if (uiMode ==
-                UiMode.Video
-            ) {
-                (videoOption?.size ?: plan.size)
-            } else {
-                plan.size
-            }
+            previewFor = if (video) videoOption?.size ?: plan.size else plan.size
         )
     }
 
@@ -314,7 +280,11 @@ class MainActivity : ComponentActivity() {
             runOnUiThread {
                 busy = false
                 status = "Saved ${saved.name}  ${saved.detail}"
-                if (captureResult != null) returnCapture(saved) else review.remember(saved)
+                val returned = captureIntent.returnCapture(saved) {
+                    busy = true
+                    status = "Returning the photo…"
+                }
+                if (!returned) review.remember(saved)
             }
         },
         onError = { msg ->
@@ -325,82 +295,38 @@ class MainActivity : ComponentActivity() {
         }
     )
 
-    /**
-     * Upright preview aspect: the sensor buffer is landscape for sensor orientation 90/270, so
-     * swap it when the display is upright.
-     */
+    /** Upright preview aspect for the current display rotation ([uprightAspect]). */
     private fun updateAspect(size: org.sableos.titan2.camera.core.Size, sensor: Int) {
-        val swap = (sensor % HALF_TURN == QUARTER_TURN) == (degrees() % HALF_TURN == 0)
-        previewAspect = if (swap) size.h.toFloat() / size.w else size.w.toFloat() / size.h
+        previewAspect = uprightAspect(size, sensor, degrees())
         applyTransform()
     }
 
     private fun applyTransform() {
         val tv = textureView
         val ps = controller.previewSize
-        if (tv != null && ps != null) transformPreview(tv, ps)
-    }
-
-    private fun transformPreview(tv: TextureView, ps: org.sableos.titan2.camera.core.Size) {
-        val vw = tv.width.toFloat()
-        val vh = tv.height.toFloat()
-        if (vw == 0f || vh == 0f) return
-        val m = Matrix()
-        val view = RectF(0f, 0f, vw, vh)
-        val buf = RectF(0f, 0f, ps.h.toFloat(), ps.w.toFloat())
-        val cx = view.centerX()
-        val cy = view.centerY()
-        when (rotation) {
-            Surface.ROTATION_90, Surface.ROTATION_270 -> {
-                buf.offset(cx - buf.centerX(), cy - buf.centerY())
-                m.setRectToRect(view, buf, Matrix.ScaleToFit.FILL)
-                val s = maxOf(vh / ps.h, vw / ps.w)
-                m.postScale(s, s, cx, cy)
-                m.postRotate(QUARTER_TURN_DEGREES * (rotation - 2), cx, cy)
-            }
-
-            Surface.ROTATION_180 -> m.postRotate(HALF_TURN_DEGREES, cx, cy)
-        }
-        tv.setTransform(m)
+        if (tv != null && ps != null) tv.fitPreview(ps, rotation)
     }
 
     private fun refreshHud() {
-        val zoomText = "%.1f".format(controller.zoom)
-        hud = when (uiMode) {
-            UiMode.Photo ->
-                "cam $camId · ${mode.name}${if (compare) " +compare" else ""}" +
-                    " · ${zoomText}x · EV ${controller.aeSteps}"
-
-            UiMode.Pro ->
-                "cam $camId · Pro · ${zoomText}x" +
-                    (
-                        proLimits()?.let {
-                            " · ${proField.label} ${ProControls.valueLabel(proState, proField, it)}"
-                        }
-                            ?: ""
-                        )
-
-            UiMode.Video ->
-                "cam $camId · ${videoOption?.label ?: "no recordable size"} · ${zoomText}x" +
-                    if (!micGranted) " · no mic" else ""
-        } + lockBadges(controller.locks)
+        hud = viewfinder().hud(controller)
     }
+
+    private fun viewfinder() = ViewfinderInfo(
+        camId,
+        uiMode,
+        mode,
+        compare,
+        proField,
+        proLimits()?.let { ProControls.valueLabel(proState, proField, it) },
+        videoOption,
+        micGranted,
+        forApp = launch == LaunchKind.ImageCapture
+    )
 
     private fun setPro(s: ProState) {
         proState = s
         controller.setPro(s, proLimits())
         refreshHud()
-    }
-
-    /** IMAGE_CAPTURE: hand the JPEG to the calling app and close. */
-    private fun returnCapture(saved: Saved) {
-        val result = captureResult ?: return
-        busy = true
-        status = "Returning the photo…"
-        result.deliver(saved) { code, data ->
-            setResult(code, data)
-            finish()
-        }
     }
 
     private fun deckContext(): DeckContext? = report?.let { rep ->
@@ -426,11 +352,20 @@ class MainActivity : ComponentActivity() {
         val rep = report
         val cam = rep?.camera(camId)
         val dc = deckContext()
-        if (rep == null || cam == null || dc == null) return
-        if (!LaunchIntent.allows(launch, raw)) {
-            status = LaunchIntent.CAPTURE_REFUSED
-            return
+        when {
+            rep == null || cam == null || dc == null -> Unit
+            !LaunchIntent.allows(launch, raw) -> status = LaunchIntent.CAPTURE_REFUSED
+            else -> dispatch(raw, rep, cam, dc)
         }
+    }
+
+    /** Legend/Back handling first; what the deck lets through is routed and may show a strip. */
+    private fun dispatch(
+        raw: CameraAction,
+        rep: org.sableos.titan2.camera.core.CapabilityReport,
+        cam: org.sableos.titan2.camera.core.CameraReport,
+        dc: DeckContext
+    ) {
         val d = ControlDeck.dispatch(deck, raw, dc)
         deck = d.deck
         d.status?.let { status = it }
@@ -540,15 +475,7 @@ class MainActivity : ComponentActivity() {
 
     private fun doCaptureAction(a: CameraAction, cam: org.sableos.titan2.camera.core.CameraReport) {
         when (a) {
-            CameraAction.Shutter -> if (!busy) {
-                busy = true
-                if (compare) {
-                    runBracket()
-                } else {
-                    status = "Capturing…"
-                    controller.takePicture(degrees())
-                }
-            }
+            CameraAction.Shutter -> if (!busy) shoot()
 
             CameraAction.VideoToggle -> toggleRecording()
 
@@ -561,11 +488,7 @@ class MainActivity : ComponentActivity() {
             }
 
             CameraAction.NextCaptureMode -> {
-                val avail = cam.modes.filter {
-                    it.value.ok &&
-                        it.key in listOf(CaptureMode.Auto, CaptureMode.HighRes, CaptureMode.Raw)
-                }.keys.toList()
-                mode = avail[(avail.indexOf(mode).coerceAtLeast(0) + 1) % avail.size]
+                mode = nextPhotoMode(mode, cam)
                 restart()
             }
 
@@ -585,6 +508,17 @@ class MainActivity : ComponentActivity() {
             }
 
             else -> Unit
+        }
+    }
+
+    /** One still, or the compare set when compare is on. */
+    private fun shoot() {
+        busy = true
+        if (compare) {
+            runBracket()
+        } else {
+            status = "Capturing…"
+            controller.takePicture(degrees())
         }
     }
 
@@ -691,9 +625,7 @@ class MainActivity : ComponentActivity() {
         val plans = CapturePlanner.bracket(cam)
         var i = 0
         fun next() {
-            if (i >=
-                plans.size
-            ) {
+            if (i >= plans.size) {
                 runOnUiThread {
                     busy = false
                     status =
@@ -762,7 +694,7 @@ class MainActivity : ComponentActivity() {
             if (dc != null) {
                 FocusReticle(uiMode, controller.locks.afLocked, Modifier.align(Alignment.Center))
             }
-            ModeTitle(modeTitle(), Modifier.align(Alignment.TopCenter).padding(top = 6.dp))
+            ModeTitle(viewfinder().title(), Modifier.align(Alignment.TopCenter).padding(top = 6.dp))
             StatusOverlay(
                 hud,
                 status,
@@ -774,34 +706,7 @@ class MainActivity : ComponentActivity() {
             if (recState != RecState.Idle) {
                 RecordingBadge(recState, recMs, Modifier.align(Alignment.TopEnd).padding(8.dp))
             }
-            val avail = report?.camera(camId)?.let { ActionRouter.available(it) }.orEmpty()
-            Column(
-                Modifier.align(Alignment.BottomCenter).padding(bottom = 6.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                StatusChips(chips(), Modifier.padding(vertical = 2.dp))
-                if (DeckOrientation.touchChromeVisible(presentation, deck.touchChromeRevealed)) {
-                    ModeSelector(
-                        avail,
-                        Modifier.align(Alignment.CenterHorizontally).padding(vertical = 2.dp)
-                    )
-                    if (dc != null) {
-                        TouchControlBar(TouchFallback.controls(dc), ::act, Modifier)
-                    }
-                }
-                if (dc != null) {
-                    HintDockBar(
-                        HintDock.hints(dc, profile),
-                        uiMode,
-                        recState != RecState.Idle,
-                        ::act,
-                        Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                    )
-                }
-                if (launch != LaunchKind.ImageCapture) {
-                    LastCaptureRow(review.state.latest, review::load) { act(CameraAction.OpenLast) }
-                }
-            }
+            BottomChrome(presentation, dc, Modifier.align(Alignment.BottomCenter))
             DeckOverlays(
                 deck,
                 dc,
@@ -813,6 +718,42 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Chips, touch chrome when it shows, the hint dock and (normal launch) the last capture. */
+    @androidx.compose.runtime.Composable
+    private fun BottomChrome(presentation: DeckPresentation, dc: DeckContext?, modifier: Modifier) {
+        val avail = report?.camera(camId)?.let { ActionRouter.available(it) }.orEmpty()
+        Column(
+            modifier.padding(bottom = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            StatusChips(viewfinder().chips(controller), Modifier.padding(vertical = 2.dp))
+            if (DeckOrientation.touchChromeVisible(presentation, deck.touchChromeRevealed)) {
+                ModeSelector(
+                    avail,
+                    uiMode,
+                    enabled = recState == RecState.Idle && launch != LaunchKind.ImageCapture,
+                    onSelect = { m -> report?.let { switchUi(m, it) } },
+                    Modifier.align(Alignment.CenterHorizontally).padding(vertical = 2.dp)
+                )
+                if (dc != null) {
+                    TouchControlBar(TouchFallback.controls(dc), ::act, Modifier)
+                }
+            }
+            if (dc != null) {
+                HintDockBar(
+                    HintDock.hints(dc, profile),
+                    uiMode,
+                    recState != RecState.Idle,
+                    ::act,
+                    Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                )
+            }
+            if (launch != LaunchKind.ImageCapture) {
+                LastCaptureRow(review.state.latest, review::load) { act(CameraAction.OpenLast) }
+            }
+        }
+    }
+
     @androidx.compose.runtime.Composable
     private fun PreviewSurface(modifier: Modifier) {
         AndroidView(
@@ -820,89 +761,49 @@ class MainActivity : ComponentActivity() {
             factory = { ctx ->
                 TextureView(ctx).apply {
                     textureView = this
-                    surfaceTextureListener = previewSurfaceListener()
+                    surfaceTextureListener = PreviewSurfaceListener(
+                        onAvailable = { st ->
+                            texture = st
+                            if (report != null) restart()
+                        },
+                        onResized = ::applyTransform,
+                        onDestroyed = {
+                            texture = null
+                            controller.closeSession()
+                        }
+                    )
                 }
             }
         )
     }
+}
 
-    private fun previewSurfaceListener() = object : TextureView.SurfaceTextureListener {
-        override fun onSurfaceTextureAvailable(st: SurfaceTexture, w: Int, h: Int) {
-            texture = st
-            if (report != null) restart()
-        }
-
-        override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) {
-            applyTransform()
-        }
-
-        override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
-            texture = null
-            controller.closeSession()
-            return true
-        }
-
-        override fun onSurfaceTextureUpdated(st: SurfaceTexture) {
-            // Nothing to do per frame: the preview is drawn by the TextureView itself.
-        }
-    }
-
-    /** Header over the viewfinder, as in the design: "PHOTO · AUTO", "PRO · ISO", "VIDEO · 1080p". */
-    private fun modeTitle(): String {
-        val sub = when (uiMode) {
-            UiMode.Photo -> PhotoPath.label(mode)
-            UiMode.Pro -> proField.label.uppercase(java.util.Locale.ROOT)
-            UiMode.Video -> videoOption?.label ?: "-"
-        }
-        val head = uiMode.label.uppercase(java.util.Locale.ROOT) + " · " + sub
-        return if (launch == LaunchKind.ImageCapture) "$head · FOR APP" else head
-    }
-
-    /** Chips along the bottom of the viewfinder: what the next shot will be. */
-    private fun chips(): List<String> = buildList {
-        add("%.1f×".format(java.util.Locale.US, controller.zoom))
-        when (uiMode) {
-            UiMode.Photo -> {
-                add(PhotoPath.label(mode))
-                if (compare) add("Compare")
-            }
-
-            UiMode.Pro -> add("Manual")
-
-            UiMode.Video -> {
-                videoOption?.let { add(it.label) }
-                if (!micGranted) add("No mic")
-            }
-        }
-        if (uiMode != UiMode.Pro && controller.aeSteps != 0) add("EV ${controller.aeSteps}")
-        if (controller.locks.afLocked) add("AF-L")
-        if (controller.locks.aeLocked) add("AE-L")
-    }
-
-    /** Mode chips: Video, Photo, Pro; the current one in the accent. Alt+Left/Right step them. */
-    @androidx.compose.runtime.Composable
-    private fun ModeSelector(avail: List<UiMode>, modifier: Modifier) {
-        val locked = launch == LaunchKind.ImageCapture
-        Row(modifier) {
-            avail.forEach { m ->
-                val current = m == uiMode
-                Text(
-                    m.label,
-                    fontSize = 13.sp,
-                    color = if (current) sableCyan else Color.White,
-                    modifier = Modifier
-                        .padding(horizontal = 3.dp)
-                        .border(
-                            1.dp,
-                            if (current) sableCyan else chipBorder,
-                            RoundedCornerShape(12.dp)
-                        )
-                        .clickable(enabled = recState == RecState.Idle && !locked) {
-                            report?.let { switchUi(m, it) }
-                        }
-                        .padding(horizontal = 12.dp, vertical = 4.dp)
-                )
-            }
+/** Mode chips: Video, Photo, Pro; the current one in the accent. Alt+Left/Right step them. */
+@Composable
+fun ModeSelector(
+    avail: List<UiMode>,
+    current: UiMode,
+    enabled: Boolean,
+    onSelect: (UiMode) -> Unit,
+    modifier: Modifier
+) {
+    Row(modifier) {
+        avail.forEach { m ->
+            val selected = m == current
+            Text(
+                m.label,
+                fontSize = 13.sp,
+                color = if (selected) sableCyan else Color.White,
+                modifier = Modifier
+                    .padding(horizontal = 3.dp)
+                    .border(
+                        1.dp,
+                        if (selected) sableCyan else chipBorder,
+                        RoundedCornerShape(12.dp)
+                    )
+                    .clickable(enabled = enabled) { onSelect(m) }
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
+            )
         }
     }
 }
@@ -1137,9 +1038,6 @@ private fun toggleLock(a: CameraAction, locks: CameraController.LockControls): S
     } else {
         if (locks.toggleAe()) "AE locked: hold E again to release" else "AE unlocked"
     }
-
-private fun lockBadges(locks: CameraController.LockControls): String =
-    (if (locks.afLocked) " · AF-L" else "") + (if (locks.aeLocked) " · AE-L" else "")
 
 /**
  * The transient layer over the preview: the parameter strip (bottom, above touch chrome) and the

@@ -75,7 +75,10 @@ class VaultModelTest {
 
     @Test fun importIsReportedAsCopy() {
         val o = ImportOutcome(listOf("a.jpg"), listOf("b.jpg (no access)"))
-        assertEquals("Imported 1 file(s) as copies. Could not import: b.jpg (no access).", o.message())
+        assertEquals(
+            "Imported 1 file(s) as copies. Could not import: b.jpg (no access).",
+            o.message()
+        )
     }
 
     @Test fun sizes() {

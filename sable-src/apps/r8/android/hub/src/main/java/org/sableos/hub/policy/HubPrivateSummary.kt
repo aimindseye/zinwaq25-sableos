@@ -112,10 +112,13 @@ object HubPrivacyBadge {
         val state =
             when {
                 privacy.deviceLocked -> "Locked"
+
                 privacy.privateMode -> "Private mode"
+
                 conversation.source == HubConversationSource.ConnectedApp &&
                     conversation.lastBody.isBlank() &&
                     conversation.lastDateMillis > 0L -> "Preview hidden"
+
                 else -> VISIBLE
             }
         return listOfNotNull(source, conversation.profileBadge, state).joinToString(" · ")

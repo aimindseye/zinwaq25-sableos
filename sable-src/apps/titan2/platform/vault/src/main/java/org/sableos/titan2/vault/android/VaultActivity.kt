@@ -56,14 +56,18 @@ class VaultActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(px(PAD), px(PAD), px(PAD), px(PAD))
         }
-        setContentView(ScrollView(this).apply {
-            setBackgroundColor(BG)
-            isFocusable = false
-            addView(body)
-        })
+        setContentView(
+            ScrollView(this).apply {
+                setBackgroundColor(BG)
+                isFocusable = false
+                addView(body)
+            }
+        )
         // Android 16 apps get Back through the dispatcher (predictive back), not as a key event:
         // Back cancels a pending confirmation, otherwise leaves.
-        onBackInvokedDispatcher.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT) {
+        onBackInvokedDispatcher.registerOnBackInvokedCallback(
+            OnBackInvokedDispatcher.PRIORITY_DEFAULT
+        ) {
             if (pending != null) cancel() else finish()
         }
     }
@@ -107,20 +111,40 @@ class VaultActivity : Activity() {
 
     private fun toKey(keyCode: Int, event: KeyEvent): VaultKeys.Key = when (keyCode) {
         KeyEvent.KEYCODE_DPAD_UP -> VaultKeys.Key.Up
+
         KeyEvent.KEYCODE_DPAD_DOWN -> VaultKeys.Key.Down
+
         KeyEvent.KEYCODE_DPAD_LEFT -> VaultKeys.Key.Left
+
         KeyEvent.KEYCODE_DPAD_RIGHT -> VaultKeys.Key.Right
-        KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER, KeyEvent.KEYCODE_DPAD_CENTER -> VaultKeys.Key.Enter
+
+        KeyEvent.KEYCODE_ENTER,
+        KeyEvent.KEYCODE_NUMPAD_ENTER,
+        KeyEvent.KEYCODE_DPAD_CENTER
+        -> VaultKeys.Key.Enter
+
         KeyEvent.KEYCODE_FORWARD_DEL, KeyEvent.KEYCODE_DEL -> VaultKeys.Key.Delete
+
         KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ESCAPE -> VaultKeys.Key.Back
+
         else -> letter(event)
     }
 
     /** Plain letters only: Alt+letter is a digit on the Q25 and Sym (Right Alt) is paging, so both are ignored. */
     private fun letter(event: KeyEvent): VaultKeys.Key {
-        if (event.isAltPressed || event.isCtrlPressed || event.isMetaPressed) return VaultKeys.Key.Other
+        if (event.isAltPressed || event.isCtrlPressed ||
+            event.isMetaPressed
+        ) {
+            return VaultKeys.Key.Other
+        }
         val c = event.getUnicodeChar(0)
-        return if (c > 0 && Character.isLetter(c)) VaultKeys.Key.Letter(c.toChar()) else VaultKeys.Key.Other
+        return if (c > 0 &&
+            Character.isLetter(c)
+        ) {
+            VaultKeys.Key.Letter(c.toChar())
+        } else {
+            VaultKeys.Key.Other
+        }
     }
 
     private fun perform(action: VaultAction) {
@@ -180,11 +204,14 @@ class VaultActivity : Activity() {
         pendingItem = null
         when (c.kind) {
             Confirmation.Kind.Open -> item?.let { openItem(it) }
+
             Confirmation.Kind.Export -> item?.let { startExport(it) }
+
             Confirmation.Kind.Delete -> item?.let {
                 val deleted = store.delete(section, it.name)
                 message = if (deleted) "Deleted ${it.name}." else "Could not delete ${it.name}."
             }
+
             Confirmation.Kind.DeleteOriginals -> {
                 val removed = store.deleteOriginals(pendingOriginals)
                 message = "Deleted $removed of ${pendingOriginals.size} original(s). " +
@@ -290,9 +317,10 @@ class VaultActivity : Activity() {
         finishAndRemoveTask()
     }
 
-    private fun mimeOf(name: String): String =
-        MimeTypeMap.getSingleton().getMimeTypeFromExtension(name.substringAfterLast('.', "").lowercase())
-            ?: "application/octet-stream"
+    private fun mimeOf(name: String): String = MimeTypeMap.getSingleton().getMimeTypeFromExtension(
+        name.substringAfterLast('.', "").lowercase()
+    )
+        ?: "application/octet-stream"
 
     // ---- rendering ----
 
@@ -301,7 +329,11 @@ class VaultActivity : Activity() {
         body.addView(text(VaultText.TITLE, TITLE_SP, TEXT, bold = true))
         body.addView(text(VaultText.SUBTITLE, SMALL_SP, MUTED))
         if (!privateProfile) {
-            body.addView(text(VaultText.NOT_PRIVATE, BODY_SP, WARN).apply { setPadding(0, px(GAP), 0, 0) })
+            body.addView(
+                text(VaultText.NOT_PRIVATE, BODY_SP, WARN).apply {
+                    setPadding(0, px(GAP), 0, 0)
+                }
+            )
             return
         }
         body.addView(tabs())
@@ -322,10 +354,23 @@ class VaultActivity : Activity() {
         orientation = LinearLayout.HORIZONTAL
         setPadding(0, px(GAP), 0, px(GAP))
         Section.entries.forEach { s ->
-            addView(text(s.title, BODY_SP, if (s == section) ACCENT else MUTED, bold = s == section).apply {
-                setPadding(0, 0, px(GAP * 2), 0)
-                setOnClickListener { show(s) }
-            })
+            addView(
+                text(
+                    s.title,
+                    BODY_SP,
+                    if (s ==
+                        section
+                    ) {
+                        ACCENT
+                    } else {
+                        MUTED
+                    },
+                    bold = s == section
+                ).apply {
+                    setPadding(0, 0, px(GAP * 2), 0)
+                    setOnClickListener { show(s) }
+                }
+            )
         }
     }
 
@@ -347,10 +392,12 @@ class VaultActivity : Activity() {
         background = box(SURFACE, WARN)
         addView(text(c.title, BODY_SP, TEXT, bold = true))
         addView(text(c.detail, SMALL_SP, MUTED))
-        addView(LinearLayout(this@VaultActivity).apply {
-            addView(button("Yes") { confirm() })
-            addView(button("No") { cancel() })
-        })
+        addView(
+            LinearLayout(this@VaultActivity).apply {
+                addView(button("Yes") { confirm() })
+                addView(button("No") { cancel() })
+            }
+        )
     }
 
     private fun buttons(): View = LinearLayout(this).apply {
@@ -369,12 +416,13 @@ class VaultActivity : Activity() {
         setOnClickListener { onClick() }
     }
 
-    private fun text(s: String, sp: Float, color: Int, bold: Boolean = false): TextView = TextView(this).apply {
-        text = s
-        textSize = sp
-        setTextColor(color)
-        if (bold) typeface = Typeface.DEFAULT_BOLD
-    }
+    private fun text(s: String, sp: Float, color: Int, bold: Boolean = false): TextView =
+        TextView(this).apply {
+            text = s
+            textSize = sp
+            setTextColor(color)
+            if (bold) typeface = Typeface.DEFAULT_BOLD
+        }
 
     private fun box(fill: Int, stroke: Int) = GradientDrawable().apply {
         setColor(fill)

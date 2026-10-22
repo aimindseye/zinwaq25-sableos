@@ -122,7 +122,13 @@ object PhotoPath {
     fun rawToggle(cur: CaptureMode, cam: CameraReport): CaptureMode? {
         val target = listOf(CaptureMode.Raw, CaptureMode.HighRes)
             .firstOrNull { cam.modes[it]?.ok == true } ?: return null
-        return if (cur == CaptureMode.Raw || cur == CaptureMode.HighRes) CaptureMode.Auto else target
+        return if (cur == CaptureMode.Raw ||
+            cur == CaptureMode.HighRes
+        ) {
+            CaptureMode.Auto
+        } else {
+            target
+        }
     }
 
     /** Short name for the mode chip and the title: AUTO, HIGH-RES, RAW. */

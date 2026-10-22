@@ -114,15 +114,7 @@ class HubRepository(
                 smsPrivacy = smsPrivacy,
                 privacyFor = connected.privacyFor,
             )
-        val calls =
-            if (capabilities.canReadCallLog) {
-                HubCallRedaction.apply(
-                    calls = loadCalls(namesByNumber),
-                    level = maxOf(smsPrivacy.listLevel, smsPrivacy.contentLevel),
-                )
-            } else {
-                emptyList()
-            }
+        val calls = visibleCalls(capabilities, namesByNumber, smsPrivacy)
 
         return HubSnapshot(
             capabilities = capabilities,
@@ -139,13 +131,31 @@ class HubRepository(
             people = people,
             mail = loadMailSnapshot(),
             calls = calls,
-            privacy =
-                HubPrivacyState(
-                    deviceLocked = privacyReader.deviceLocked(),
-                    privateMode = HubPreferences(context).privateMode(),
-                ),
+            privacy = privacyState(),
         )
     }
+
+    /** The call log under the same privacy level as Hub's own SMS; empty without READ_CALL_LOG. */
+    private fun visibleCalls(
+        capabilities: HubCapabilities,
+        namesByNumber: Map<String, String>,
+        smsPrivacy: HubSourcePrivacy,
+    ): List<HubCall> =
+        if (capabilities.canReadCallLog) {
+            HubCallRedaction.apply(
+                calls = loadCalls(namesByNumber),
+                level = maxOf(smsPrivacy.listLevel, smsPrivacy.contentLevel),
+            )
+        } else {
+            emptyList()
+        }
+
+    /** Locked device and Hub private mode as of this snapshot. */
+    private fun privacyState(): HubPrivacyState =
+        HubPrivacyState(
+            deviceLocked = privacyReader.deviceLocked(),
+            privateMode = HubPreferences(context).privateMode(),
+        )
 
     /** Privacy for Hub's own SMS: personal-profile data, redacted by the locked device and private mode. */
     private fun smsPrivacy(): HubSourcePrivacy {

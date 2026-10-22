@@ -74,7 +74,8 @@
   speaker/headphones, mute, scan, starred presets on Alt+1-9, the `org.sableos.media.action.FM_RADIO`
   action Sable Tools and the FM notification open), 0062 Sable Start keeps Private Space tasks out of
   Active Frames, as All Apps does, 0063 Secure Vault says when a failed import leaves a partial
-  copy behind. Applied in order to a
+  copy behind, 0064 the ktlint and detekt fixes for Camera, Secure Vault, Display compatibility,
+  Hub and Calendar (no behaviour change). Applied in order to a
   fresh import they reproduce `sable-src/` exactly. Regenerate a patch with `git diff` against a
   fresh import when you change these files.
 

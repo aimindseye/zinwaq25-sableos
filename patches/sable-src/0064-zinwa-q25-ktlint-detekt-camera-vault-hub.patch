@@ -1,0 +1,2359 @@
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarWeek.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarWeek.kt
+index 54cd111..faf8304 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarWeek.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarWeek.kt
+@@ -187,8 +187,7 @@ object WeekLayout {
+     }
+ 
+     /** "Mon 28" for a column header. */
+-    fun columnLabel(day: LocalDate): String =
+-        abbreviation(day.dayOfWeek.name) + " " + day.dayOfMonth
++    fun columnLabel(day: LocalDate): String = abbreviation(day.dayOfWeek.name) + " " + day.dayOfMonth
+ 
+     private const val ABBREVIATION_LENGTH = 3
+ 
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
+index 268cae5..e8ca2a8 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
+@@ -41,6 +41,7 @@ import androidx.compose.material3.Text
+ import androidx.compose.material3.TextButton
+ import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.LaunchedEffect
++import androidx.compose.runtime.SideEffect
+ import androidx.compose.runtime.getValue
+ import androidx.compose.runtime.mutableIntStateOf
+ import androidx.compose.runtime.mutableStateOf
+@@ -48,7 +49,6 @@ import androidx.compose.runtime.produceState
+ import androidx.compose.runtime.remember
+ import androidx.compose.runtime.rememberCoroutineScope
+ import androidx.compose.runtime.setValue
+-import androidx.compose.runtime.SideEffect
+ import androidx.compose.runtime.withFrameNanos
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+@@ -276,19 +276,30 @@ private class CalendarAppState {
+     ): Boolean {
+         if (pendingDelete != null || mode == CalendarMode.NewEvent || mode == CalendarMode.Edit) return false
+         when (key) {
+-            CalendarScreenKey.Create -> startNewEvent()
++            CalendarScreenKey.Create -> {
++                startNewEvent()
++            }
++
+             CalendarScreenKey.Today -> {
+                 status = null
+                 selectedDate = LocalDate.now()
+                 mode = CalendarMode.Agenda
+             }
++
+             CalendarScreenKey.View -> {
+                 status = null
+                 mode = CalendarMode.Agenda
+                 view = view.next()
+             }
+-            CalendarScreenKey.Next -> step(forward = true)
+-            CalendarScreenKey.Previous -> step(forward = false)
++
++            CalendarScreenKey.Next -> {
++                step(forward = true)
++            }
++
++            CalendarScreenKey.Previous -> {
++                step(forward = false)
++            }
++
+             CalendarScreenKey.Refresh -> {
+                 onRefresh()
+                 status = "Refreshed."
+@@ -479,15 +490,25 @@ private fun CalendarModeContent(
+     onRequestPermissions: () -> Unit,
+ ) {
+     when (state.mode) {
+-        CalendarMode.Agenda ->
++        CalendarMode.Agenda -> {
+             when (state.view) {
+                 CalendarView.Agenda -> AgendaPane(state)
+                 CalendarView.Week -> WeekPane(state)
+                 CalendarView.Month -> MonthPane(state)
+             }
+-        CalendarMode.NewEvent -> NewEventPane(state, repository, onRefresh, onRequestPermissions)
+-        CalendarMode.Detail -> DetailPane(state)
+-        CalendarMode.Edit -> EditPane(state, repository, onRefresh)
++        }
++
++        CalendarMode.NewEvent -> {
++            NewEventPane(state, repository, onRefresh, onRequestPermissions)
++        }
++
++        CalendarMode.Detail -> {
++            DetailPane(state)
++        }
++
++        CalendarMode.Edit -> {
++            EditPane(state, repository, onRefresh)
++        }
+     }
+ }
+ 
+@@ -1341,14 +1362,17 @@ private fun AgendaDetailPreview(
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+             when {
+-                event == null ->
++                event == null -> {
+                     Text(
+                         text = "No event selected. J/K move through the day.",
+                         style = MaterialTheme.typography.bodyMedium,
+                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                     )
++                }
+ 
+-                detail == null || detail.id != event.id -> LoadingLine()
++                detail == null || detail.id != event.id -> {
++                    LoadingLine()
++                }
+ 
+                 else -> {
+                     Text(text = detail.title, style = MaterialTheme.typography.titleLarge)
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt
+index 355496c..5adc32e 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt
+@@ -114,15 +114,7 @@ class HubRepository(
+                 smsPrivacy = smsPrivacy,
+                 privacyFor = connected.privacyFor,
+             )
+-        val calls =
+-            if (capabilities.canReadCallLog) {
+-                HubCallRedaction.apply(
+-                    calls = loadCalls(namesByNumber),
+-                    level = maxOf(smsPrivacy.listLevel, smsPrivacy.contentLevel),
+-                )
+-            } else {
+-                emptyList()
+-            }
++        val calls = visibleCalls(capabilities, namesByNumber, smsPrivacy)
+ 
+         return HubSnapshot(
+             capabilities = capabilities,
+@@ -139,14 +131,32 @@ class HubRepository(
+             people = people,
+             mail = loadMailSnapshot(),
+             calls = calls,
+-            privacy =
+-                HubPrivacyState(
+-                    deviceLocked = privacyReader.deviceLocked(),
+-                    privateMode = HubPreferences(context).privateMode(),
+-                ),
++            privacy = privacyState(),
+         )
+     }
+ 
++    /** The call log under the same privacy level as Hub's own SMS; empty without READ_CALL_LOG. */
++    private fun visibleCalls(
++        capabilities: HubCapabilities,
++        namesByNumber: Map<String, String>,
++        smsPrivacy: HubSourcePrivacy,
++    ): List<HubCall> =
++        if (capabilities.canReadCallLog) {
++            HubCallRedaction.apply(
++                calls = loadCalls(namesByNumber),
++                level = maxOf(smsPrivacy.listLevel, smsPrivacy.contentLevel),
++            )
++        } else {
++            emptyList()
++        }
++
++    /** Locked device and Hub private mode as of this snapshot. */
++    private fun privacyState(): HubPrivacyState =
++        HubPrivacyState(
++            deviceLocked = privacyReader.deviceLocked(),
++            privateMode = HubPreferences(context).privateMode(),
++        )
++
+     /** Privacy for Hub's own SMS: personal-profile data, redacted by the locked device and private mode. */
+     private fun smsPrivacy(): HubSourcePrivacy {
+         val privacy =
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt
+index 501116d..d9546da 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt
+@@ -268,9 +268,9 @@ class MainActivity : ComponentActivity() {
+ 
+     /** Command's search text and/or Start's filter (ACTION_MAIN extras); null for a plain launch. */
+     private fun launchQueryFrom(intent: Intent?): HubLaunchQuery? {
+-        val launch = intent?.takeIf { it.action == Intent.ACTION_MAIN } ?: return null
+-        val query = HubIntents.launchQuery(launch.getStringExtra(HubIntents.EXTRA_QUERY))
+-        val filter = HubIntents.launchFilter(launch.getStringExtra(HubIntents.EXTRA_FILTER))
++        val launch = intent?.takeIf { it.action == Intent.ACTION_MAIN }
++        val query = launch?.let { HubIntents.launchQuery(it.getStringExtra(HubIntents.EXTRA_QUERY)) }
++        val filter = launch?.let { HubIntents.launchFilter(it.getStringExtra(HubIntents.EXTRA_FILTER)) }
+         if (query == null && filter == null) return null
+         launchQuerySequence += 1
+         return HubLaunchQuery(query.orEmpty(), launchQuerySequence, filter)
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubInbox.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubInbox.kt
+index 02d1baf..e2242fd 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubInbox.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubInbox.kt
+@@ -62,22 +62,29 @@ sealed interface HubInboxItem {
+     }
+ }
+ 
++/** What [HubInbox.items] reads besides the rows: [people] for People, [todayStartMillis] for `today`. */
++data class HubInboxContext(
++    val people: List<HubPerson> = emptyList(),
++    val todayStartMillis: Long = 0L,
++)
++
+ object HubInbox {
+     /**
+      * Rows for [filter] matching [query], newest first. The query is a [HubSearch] query: words
+      * match name, number, text or source; `unread`, `missed`, `today`, `from:` and `app:` narrow.
+-     * [people] (address-book numbers) serve the People filter; [todayStartMillis] the `today` word.
++     * [context] holds the address-book numbers the People filter needs and the start of today
++     * the `today` word needs.
+      */
+     fun items(
+         conversations: List<HubConversation>,
+         calls: List<HubCall>,
+         filter: HubInboxFilter,
+         query: String = "",
+-        people: List<HubPerson> = emptyList(),
+-        todayStartMillis: Long = 0L,
++        context: HubInboxContext = HubInboxContext(),
+     ): List<HubInboxItem> {
+         val search = HubSearch.parse(query)
+-        val known = knownNumbers(people, filter)
++        val todayStartMillis = context.todayStartMillis
++        val known = knownNumbers(context.people, filter)
+         val conversationItems =
+             conversations
+                 .filter { conversation -> filter.includes(conversation, known) }
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubIntents.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubIntents.kt
+index b9b1fe6..c4979d4 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubIntents.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubIntents.kt
+@@ -70,7 +70,12 @@ object HubIntents {
+ 
+     /** The inbox filter to open on, or null for a normal launch. */
+     fun launchFilter(raw: String?): HubInboxFilter? {
+-        val name = raw?.trim()?.lowercase()?.replace('-', '_')?.replace(' ', '_') ?: return null
++        val name =
++            raw
++                ?.trim()
++                ?.lowercase()
++                ?.replace('-', '_')
++                ?.replace(' ', '_') ?: return null
+         return HubInboxFilter.entries.firstOrNull { it.name.lowercase() == name } ?: FILTER_ALIASES[name]
+     }
+ 
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubPrivateSummary.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubPrivateSummary.kt
+index 5048832..013e3f6 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubPrivateSummary.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubPrivateSummary.kt
+@@ -112,10 +112,13 @@ object HubPrivacyBadge {
+         val state =
+             when {
+                 privacy.deviceLocked -> "Locked"
++
+                 privacy.privateMode -> "Private mode"
++
+                 conversation.source == HubConversationSource.ConnectedApp &&
+                     conversation.lastBody.isBlank() &&
+                     conversation.lastDateMillis > 0L -> "Preview hidden"
++
+                 else -> VISIBLE
+             }
+         return listOfNotNull(source, conversation.profileBadge, state).joinToString(" · ")
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubSearch.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubSearch.kt
+index db439db..2f3eda0 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubSearch.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubSearch.kt
+@@ -29,25 +29,23 @@ data class HubSearch(
+     fun matches(
+         conversation: HubConversation,
+         todayStartMillis: Long,
+-    ): Boolean {
+-        if (missed) return false
+-        if (unread && conversation.unreadCount <= 0) return false
+-        if (today && conversation.lastDateMillis < todayStartMillis) return false
+-        if (from != null && !conversation.isFrom(from)) return false
+-        if (app != null && !sourceLabel(conversation).contains(app, ignoreCase = true)) return false
+-        return words.all { word -> conversation.hasText(word) }
+-    }
++    ): Boolean =
++        !missed &&
++            (!unread || conversation.unreadCount > 0) &&
++            (!today || conversation.lastDateMillis >= todayStartMillis) &&
++            (from == null || conversation.isFrom(from)) &&
++            (app == null || sourceLabel(conversation).contains(app, ignoreCase = true)) &&
++            words.all { word -> conversation.hasText(word) }
+ 
+     fun matches(
+         call: HubCall,
+         todayStartMillis: Long,
+-    ): Boolean {
+-        if ((unread || missed) && !call.kind.needsAttention) return false
+-        if (today && call.dateMillis < todayStartMillis) return false
+-        if (from != null && !call.isFrom(from)) return false
+-        if (app != null && !CALLS_SOURCE.contains(app, ignoreCase = true)) return false
+-        return words.all { word -> call.isFrom(word) }
+-    }
++    ): Boolean =
++        (!(unread || missed) || call.kind.needsAttention) &&
++            (!today || call.dateMillis >= todayStartMillis) &&
++            (from == null || call.isFrom(from)) &&
++            (app == null || CALLS_SOURCE.contains(app, ignoreCase = true)) &&
++            words.all { word -> call.isFrom(word) }
+ 
+     companion object {
+         const val UNREAD = "unread"
+@@ -69,13 +67,26 @@ data class HubSearch(
+                 val lower = token.lowercase()
+                 search =
+                     when {
+-                        lower == UNREAD -> search.copy(unread = true)
+-                        lower == MISSED -> search.copy(missed = true)
+-                        lower == TODAY -> search.copy(today = true)
+-                        lower.startsWith(FROM_PREFIX) && lower.length > FROM_PREFIX.length ->
++                        lower == UNREAD -> {
++                            search.copy(unread = true)
++                        }
++
++                        lower == MISSED -> {
++                            search.copy(missed = true)
++                        }
++
++                        lower == TODAY -> {
++                            search.copy(today = true)
++                        }
++
++                        lower.startsWith(FROM_PREFIX) && lower.length > FROM_PREFIX.length -> {
+                             search.copy(from = token.substring(FROM_PREFIX.length))
+-                        lower.startsWith(APP_PREFIX) && lower.length > APP_PREFIX.length ->
++                        }
++
++                        lower.startsWith(APP_PREFIX) && lower.length > APP_PREFIX.length -> {
+                             search.copy(app = token.substring(APP_PREFIX.length))
++                        }
++
+                         else -> {
+                             words += token
+                             search
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubThreadKeys.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubThreadKeys.kt
+index 32c3c9b..0d6c8f1 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubThreadKeys.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubThreadKeys.kt
+@@ -59,37 +59,41 @@ object HubThreadKeys {
+     fun decide(
+         key: HubThreadKey,
+         context: HubThreadKeyContext,
+-    ): HubThreadCommand {
+-        if (context.meta) return HubThreadCommand.None
+-        if (key == HubThreadKey.LetterL) {
+-            return if (context.ctrl && !context.alt) HubThreadCommand.Latest else HubThreadCommand.None
++    ): HubThreadCommand =
++        when {
++            context.meta -> HubThreadCommand.None
++            key == HubThreadKey.LetterL -> ctrlLatest(context)
++            context.ctrl || context.alt -> HubThreadCommand.None
++            blocked(key, context) -> HubThreadCommand.None
++            else -> commandFor(key)
+         }
+-        if (context.ctrl || context.alt) return HubThreadCommand.None
+-        val typingDraft = context.composerFocused && !context.draftEmpty
+-        return when (key) {
+-            HubThreadKey.End -> {
+-                if (context.shift || typingDraft) HubThreadCommand.None else HubThreadCommand.Latest
+-            }
+-
+-            HubThreadKey.Escape -> {
+-                if (context.atLatest && !context.searchOpen) HubThreadCommand.None else HubThreadCommand.Latest
+-            }
+-
+-            HubThreadKey.PageUp -> {
+-                if (context.shift) HubThreadCommand.None else HubThreadCommand.OlderPage
+-            }
+-
+-            HubThreadKey.PageDown -> {
+-                if (context.shift) HubThreadCommand.None else HubThreadCommand.NewerPage
+-            }
+ 
+-            HubThreadKey.Slash -> {
+-                if (typingDraft || context.searchOpen) HubThreadCommand.None else HubThreadCommand.Search
+-            }
++    /** Ctrl+L returns to latest; L with Alt (or without Ctrl) is not ours. */
++    private fun ctrlLatest(context: HubThreadKeyContext): HubThreadCommand =
++        if (context.ctrl && !context.alt) HubThreadCommand.Latest else HubThreadCommand.None
++
++    /** What an unmodified [key] does when nothing in [context] keeps it. */
++    private fun commandFor(key: HubThreadKey): HubThreadCommand =
++        when (key) {
++            HubThreadKey.End, HubThreadKey.Escape -> HubThreadCommand.Latest
++            HubThreadKey.PageUp -> HubThreadCommand.OlderPage
++            HubThreadKey.PageDown -> HubThreadCommand.NewerPage
++            HubThreadKey.Slash -> HubThreadCommand.Search
++            HubThreadKey.LetterL, HubThreadKey.Other -> HubThreadCommand.None
++        }
+ 
+-            HubThreadKey.LetterL, HubThreadKey.Other -> {
+-                HubThreadCommand.None
+-            }
++    /** True when [context] leaves [key] to the focused control (or Back). */
++    private fun blocked(
++        key: HubThreadKey,
++        context: HubThreadKeyContext,
++    ): Boolean {
++        val typingDraft = context.composerFocused && !context.draftEmpty
++        return when (key) {
++            HubThreadKey.End -> context.shift || typingDraft
++            HubThreadKey.Escape -> context.atLatest && !context.searchOpen
++            HubThreadKey.PageUp, HubThreadKey.PageDown -> context.shift
++            HubThreadKey.Slash -> typingDraft || context.searchOpen
++            HubThreadKey.LetterL, HubThreadKey.Other -> false
+         }
+     }
+ 
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
+index 453c69f..a09c8af 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
+@@ -116,6 +116,7 @@ import org.sableos.hub.policy.HubDockSource
+ import org.sableos.hub.policy.HubDrafts
+ import org.sableos.hub.policy.HubInbox
+ import org.sableos.hub.policy.HubInboxCluster
++import org.sableos.hub.policy.HubInboxContext
+ import org.sableos.hub.policy.HubInboxDivider
+ import org.sableos.hub.policy.HubInboxFilter
+ import org.sableos.hub.policy.HubInboxItem
+@@ -224,24 +225,6 @@ private class HubUiState {
+         statusMessage = null
+     }
+ 
+-    /** Contacts' Hub route chip: the person's SMS thread, or a new one for the number. */
+-    fun openAddress(address: String) {
+-        statusMessage = null
+-        route =
+-            HubRoute.Conversation(
+-                threadId = HubThreadResolver.NEW_THREAD_ID,
+-                address = address,
+-            )
+-    }
+-
+-    /** "/" from anywhere in the root view: the inbox search, focused. */
+-    fun focusSearch() {
+-        if ((route as? HubRoute.Root)?.pivot != HubPivot.Inbox) {
+-            route = HubRoute.Root(HubPivot.Inbox)
+-        }
+-        searchFocusRequest += 1
+-    }
+-
+     /** Hardware Back/Esc goes up one level (BACK_RETURNS_ONE_LOGICAL_LAYER); only the root leaves Hub. */
+     fun back() {
+         when (val current = route) {
+@@ -312,6 +295,24 @@ private fun HubUiState.selectDockSource(source: HubDockSource) {
+     statusMessage = null
+ }
+ 
++/** "/" from anywhere in the root view: the inbox search, focused. */
++private fun HubUiState.focusSearch() {
++    if ((route as? HubRoute.Root)?.pivot != HubPivot.Inbox) {
++        route = HubRoute.Root(HubPivot.Inbox)
++    }
++    searchFocusRequest += 1
++}
++
++/** Contacts' Hub route chip: the person's SMS thread, or a new one for the number. */
++private fun HubUiState.openAddress(address: String) {
++    statusMessage = null
++    route =
++        HubRoute.Conversation(
++            threadId = HubThreadResolver.NEW_THREAD_ID,
++            address = address,
++        )
++}
++
+ private fun mmsHandoffStatus(opened: Boolean): String =
+     if (opened) "Opened the system MMS composer." else "MMS composer is unavailable."
+ 
+@@ -608,7 +609,14 @@ private fun HubPrivateCountsView(
+         if (privacy.canShowList) {
+             SableActionButton(
+                 text = if (counts.isEmpty()) "Show list" else "Show list without previews",
+-                modifier = if (counts.isEmpty()) Modifier.fillMaxWidth().focusRequester(first) else Modifier.fillMaxWidth(),
++                modifier =
++                    if (counts.isEmpty()) {
++                        Modifier.fillMaxWidth().focusRequester(
++                            first,
++                        )
++                    } else {
++                        Modifier.fillMaxWidth()
++                    },
+                 primary = false,
+                 onClick = { onShowList(HubInboxFilter.All) },
+             )
+@@ -1110,7 +1118,13 @@ private fun ColumnScope.InboxPivot(
+     val items =
+         remember(snapshot, filter, query, dockSource) {
+             HubSourceDock.narrow(
+-                HubInbox.items(snapshot.conversations, snapshot.calls, filter, query, snapshot.people, todayStart),
++                HubInbox.items(
++                    snapshot.conversations,
++                    snapshot.calls,
++                    filter,
++                    query,
++                    HubInboxContext(snapshot.people, todayStart),
++                ),
+                 dockSource,
+             )
+         }
+@@ -1271,55 +1285,69 @@ private fun runRowAction(
+ ) {
+     state.actionsItem = null
+     when (item) {
+-        is HubInboxItem.Call -> {
+-            when (action) {
+-                HubRowAction.CallBack -> state.dial(item.call.number, actions.onDial)
+-                HubRowAction.Text -> onTextCaller(item.call)
+-                HubRowAction.PrivacyOptions -> actions.onOpenConnectedApps()
+-                else -> Unit
+-            }
+-        }
+-
+-        is HubInboxItem.Conversation -> {
+-            val conversation = item.conversation
+-            val source = connectedSourceOf(conversation)
+-            when (action) {
+-                HubRowAction.Open, HubRowAction.Reply -> {
+-                    onConversation(conversation)
+-                }
++        is HubInboxItem.Call -> runCallAction(action, item.call, state, actions, onTextCaller)
++        is HubInboxItem.Conversation -> runConversationAction(action, item.conversation, state, actions, onConversation)
++    }
++}
+ 
+-                HubRowAction.CallBack -> {
+-                    state.dial(conversation.address, actions.onDial)
+-                }
++private fun runCallAction(
++    action: HubRowAction,
++    call: HubCall,
++    state: HubUiState,
++    actions: HubActions,
++    onTextCaller: (HubCall) -> Unit,
++) {
++    when (action) {
++        HubRowAction.CallBack -> state.dial(call.number, actions.onDial)
++        HubRowAction.Text -> onTextCaller(call)
++        HubRowAction.PrivacyOptions -> actions.onOpenConnectedApps()
++        else -> Unit
++    }
++}
+ 
+-                HubRowAction.OpenInMessages -> {
+-                    state.mmsHandoff(actions.onOpenAndroidMessaging(conversation.address, null))
+-                }
++private fun runConversationAction(
++    action: HubRowAction,
++    conversation: HubConversation,
++    state: HubUiState,
++    actions: HubActions,
++    onConversation: (HubConversation) -> Unit,
++) {
++    val source = connectedSourceOf(conversation)
++    when (action) {
++        HubRowAction.Open, HubRowAction.Reply -> {
++            onConversation(conversation)
++        }
+ 
+-                HubRowAction.OpenSourceApp -> {
+-                    source?.let { (packageName, serial) ->
+-                        val opened = actions.onOpenConnectedApp(packageName, serial)
+-                        state.statusMessage = openSourceStatus(opened, conversation.sourceLabel ?: packageName)
+-                    }
+-                }
++        HubRowAction.CallBack -> {
++            state.dial(conversation.address, actions.onDial)
++        }
+ 
+-                HubRowAction.SourceNotifications -> {
+-                    source?.let { (packageName, serial) ->
+-                        if (!actions.onOpenSourceNotificationSettings(packageName, serial)) {
+-                            state.statusMessage = "Android notification settings are unavailable."
+-                        }
+-                    }
+-                }
++        HubRowAction.OpenInMessages -> {
++            state.mmsHandoff(actions.onOpenAndroidMessaging(conversation.address, null))
++        }
+ 
+-                HubRowAction.PrivacyOptions -> {
+-                    actions.onOpenConnectedApps()
+-                }
++        HubRowAction.OpenSourceApp -> {
++            source?.let { (packageName, serial) ->
++                val opened = actions.onOpenConnectedApp(packageName, serial)
++                state.statusMessage = openSourceStatus(opened, conversation.sourceLabel ?: packageName)
++            }
++        }
+ 
+-                HubRowAction.Text -> {
+-                    Unit
++        HubRowAction.SourceNotifications -> {
++            source?.let { (packageName, serial) ->
++                if (!actions.onOpenSourceNotificationSettings(packageName, serial)) {
++                    state.statusMessage = "Android notification settings are unavailable."
+                 }
+             }
+         }
++
++        HubRowAction.PrivacyOptions -> {
++            actions.onOpenConnectedApps()
++        }
++
++        HubRowAction.Text -> {
++            Unit
++        }
+     }
+ }
+ 
+@@ -1351,7 +1379,14 @@ private fun HubRowActionsSheet(
+             rowActions.forEachIndexed { index, action ->
+                 SableActionButton(
+                     text = action.label,
+-                    modifier = if (index == 0) Modifier.fillMaxWidth().focusRequester(first) else Modifier.fillMaxWidth(),
++                    modifier =
++                        if (index ==
++                            0
++                        ) {
++                            Modifier.fillMaxWidth().focusRequester(first)
++                        } else {
++                            Modifier.fillMaxWidth()
++                        },
+                     primary = index == 0,
+                     onClick = { onAction(action) },
+                 )
+@@ -2310,7 +2345,11 @@ private fun ColumnScope.ConversationView(
+         // Privacy badge (MESSAGES_CONVERSATION_UX "contact/source/privacy header").
+         Text(
+             text = HubPrivacyBadge.text(conversation, privacy),
+-            modifier = Modifier.semantics { contentDescription = "Privacy: " + HubPrivacyBadge.text(conversation, privacy) },
++            modifier =
++                Modifier.semantics {
++                    contentDescription =
++                        "Privacy: " + HubPrivacyBadge.text(conversation, privacy)
++                },
+             style = MaterialTheme.typography.labelLarge,
+             color = MaterialTheme.colorScheme.onSurfaceVariant,
+         )
+@@ -2529,7 +2568,8 @@ private fun ConversationMessages(
+     // AUTO_ADVANCE: reading history (or searching) is never yanked away, except by the user's
+     // own sent message.
+     LaunchedEffect(newest?.id) {
+-        if (newest != null && ((!historyMode && listState.firstVisibleItemIndex <= 1) || !newest.incoming)) {
++        val followingLatest = !historyMode && listState.firstVisibleItemIndex <= 1
++        if (newest != null && (followingLatest || !newest.incoming)) {
+             listState.animateScrollToItem(0)
+         }
+     }
+diff --git a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubCommsTest.kt b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubCommsTest.kt
+index e57322b..7cbe215 100644
+--- a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubCommsTest.kt
++++ b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubCommsTest.kt
+@@ -58,9 +58,21 @@ class HubCommsTest {
+             sourceNotificationKey = null,
+         )
+     private val missed =
+-        HubCall(id = 1L, number = "+1 555 010 0200", displayName = "Alex", dateMillis = 4_000L, kind = HubCallKind.Missed)
++        HubCall(
++            id = 1L,
++            number = "+1 555 010 0200",
++            displayName = "Alex",
++            dateMillis = 4_000L,
++            kind = HubCallKind.Missed,
++        )
+     private val outgoing =
+-        HubCall(id = 2L, number = "+15550100100", displayName = "Maya", dateMillis = 2_000L, kind = HubCallKind.Outgoing)
++        HubCall(
++            id = 2L,
++            number = "+15550100100",
++            displayName = "Maya",
++            dateMillis = 2_000L,
++            kind = HubCallKind.Outgoing,
++        )
+     private val conversations = listOf(maya, bank, signal, gmail)
+     private val calls = listOf(missed, outgoing)
+     private val people = listOf(HubPerson(1L, "Maya", "+1 (555) 010-0100"), HubPerson(2L, "Alex", "+15550100200"))
+@@ -69,7 +81,7 @@ class HubCommsTest {
+         filter: HubInboxFilter,
+         query: String = "",
+         today: Long = 0L,
+-    ) = HubInbox.items(conversations, calls, filter, query, people, today).map(HubInboxItem::key)
++    ) = HubInbox.items(conversations, calls, filter, query, HubInboxContext(people, today)).map(HubInboxItem::key)
+ 
+     @Test
+     fun priorityKeepsUnreadAnswerableAndMissed() {
+@@ -94,7 +106,13 @@ class HubCommsTest {
+ 
+     @Test
+     fun everyFilterHasItsOwnKey() {
+-        assertEquals(HubInboxFilter.entries.size, HubInboxFilter.entries.map { it.shortcut }.toSet().size)
++        assertEquals(
++            HubInboxFilter.entries.size,
++            HubInboxFilter.entries
++                .map { it.shortcut }
++                .toSet()
++                .size,
++        )
+         assertEquals(HubInboxFilter.Priority, HubInboxFilter.forShortcut('P'))
+         assertEquals(HubInboxFilter.People, HubInboxFilter.forShortcut('o'))
+         assertNull(HubInboxFilter.forShortcut(HubSourceDock.SHORTCUT))
+@@ -172,7 +190,10 @@ class HubCommsTest {
+     fun privacyBadgeNamesSourceAndState() {
+         assertEquals("SMS · Private OK", HubPrivacyBadge.text(maya, HubPrivacyState()))
+         assertEquals("SMS · Private mode", HubPrivacyBadge.text(maya, HubPrivacyState(privateMode = true)))
+-        assertEquals("Signal · Work · Locked", HubPrivacyBadge.text(signal.copy(profileBadge = "Work"), HubPrivacyState(true)))
++        assertEquals(
++            "Signal · Work · Locked",
++            HubPrivacyBadge.text(signal.copy(profileBadge = "Work"), HubPrivacyState(true)),
++        )
+         assertEquals("Signal · Preview hidden", HubPrivacyBadge.text(signal.copy(lastBody = ""), HubPrivacyState()))
+     }
+ 
+@@ -202,43 +223,54 @@ class HubCommsTest {
+         )
+         assertFalse(HubRowAction.Reply in HubRowActions.forConversation(gmail))
+         val locked = HubPrivacyState(deviceLocked = true)
+-        assertEquals(listOf(HubRowAction.Open, HubRowAction.PrivacyOptions), HubRowActions.forConversation(maya, locked))
+-        assertEquals(listOf(HubRowAction.CallBack, HubRowAction.Text, HubRowAction.PrivacyOptions), HubRowActions.forCall(missed))
++        assertEquals(
++            listOf(HubRowAction.Open, HubRowAction.PrivacyOptions),
++            HubRowActions.forConversation(maya, locked),
++        )
++        assertEquals(
++            listOf(HubRowAction.CallBack, HubRowAction.Text, HubRowAction.PrivacyOptions),
++            HubRowActions.forCall(missed),
++        )
+         assertEquals(listOf(HubRowAction.PrivacyOptions), HubRowActions.forCall(missed.copy(number = "")))
+     }
+ 
+-    private fun ctx(
+-        composer: Boolean = false,
+-        draftEmpty: Boolean = true,
+-        atLatest: Boolean = true,
+-        search: Boolean = false,
+-        ctrl: Boolean = false,
+-        alt: Boolean = false,
+-        shift: Boolean = false,
+-    ) = HubThreadKeyContext(composer, draftEmpty, atLatest, search, ctrl, alt, shift)
++    private val ctx =
++        HubThreadKeyContext(composerFocused = false, draftEmpty = true, atLatest = true, searchOpen = false)
+ 
+     @Test
+     fun threadKeysReturnToLatestAndPage() {
+-        assertEquals(HubThreadCommand.Latest, HubThreadKeys.decide(HubThreadKey.End, ctx(atLatest = false)))
+-        assertEquals(HubThreadCommand.Latest, HubThreadKeys.decide(HubThreadKey.End, ctx(composer = true)))
+-        assertEquals(HubThreadCommand.None, HubThreadKeys.decide(HubThreadKey.End, ctx(composer = true, draftEmpty = false)))
+-        assertEquals(HubThreadCommand.Latest, HubThreadKeys.decide(HubThreadKey.LetterL, ctx(ctrl = true)))
+-        assertEquals(HubThreadCommand.None, HubThreadKeys.decide(HubThreadKey.LetterL, ctx()))
++        assertEquals(HubThreadCommand.Latest, HubThreadKeys.decide(HubThreadKey.End, ctx.copy(atLatest = false)))
++        assertEquals(HubThreadCommand.Latest, HubThreadKeys.decide(HubThreadKey.End, ctx.copy(composerFocused = true)))
++        assertEquals(
++            HubThreadCommand.None,
++            HubThreadKeys.decide(HubThreadKey.End, ctx.copy(composerFocused = true, draftEmpty = false)),
++        )
++        assertEquals(HubThreadCommand.Latest, HubThreadKeys.decide(HubThreadKey.LetterL, ctx.copy(ctrl = true)))
++        assertEquals(HubThreadCommand.None, HubThreadKeys.decide(HubThreadKey.LetterL, ctx))
+         // Esc: out of history or search; at latest it stays Back.
+-        assertEquals(HubThreadCommand.Latest, HubThreadKeys.decide(HubThreadKey.Escape, ctx(atLatest = false)))
+-        assertEquals(HubThreadCommand.Latest, HubThreadKeys.decide(HubThreadKey.Escape, ctx(search = true)))
+-        assertEquals(HubThreadCommand.None, HubThreadKeys.decide(HubThreadKey.Escape, ctx()))
+-        assertEquals(HubThreadCommand.OlderPage, HubThreadKeys.decide(HubThreadKey.PageUp, ctx(composer = true, draftEmpty = false)))
+-        assertEquals(HubThreadCommand.NewerPage, HubThreadKeys.decide(HubThreadKey.PageDown, ctx()))
+-        assertEquals(HubThreadCommand.None, HubThreadKeys.decide(HubThreadKey.PageUp, ctx(alt = true)))
++        assertEquals(HubThreadCommand.Latest, HubThreadKeys.decide(HubThreadKey.Escape, ctx.copy(atLatest = false)))
++        assertEquals(HubThreadCommand.Latest, HubThreadKeys.decide(HubThreadKey.Escape, ctx.copy(searchOpen = true)))
++        assertEquals(HubThreadCommand.None, HubThreadKeys.decide(HubThreadKey.Escape, ctx))
++        assertEquals(
++            HubThreadCommand.OlderPage,
++            HubThreadKeys.decide(HubThreadKey.PageUp, ctx.copy(composerFocused = true, draftEmpty = false)),
++        )
++        assertEquals(HubThreadCommand.NewerPage, HubThreadKeys.decide(HubThreadKey.PageDown, ctx))
++        assertEquals(HubThreadCommand.None, HubThreadKeys.decide(HubThreadKey.PageUp, ctx.copy(alt = true)))
+     }
+ 
+     @Test
+     fun slashSearchesUnlessItWouldBeTyped() {
+-        assertEquals(HubThreadCommand.Search, HubThreadKeys.decide(HubThreadKey.Slash, ctx()))
+-        assertEquals(HubThreadCommand.Search, HubThreadKeys.decide(HubThreadKey.Slash, ctx(composer = true)))
+-        assertEquals(HubThreadCommand.None, HubThreadKeys.decide(HubThreadKey.Slash, ctx(composer = true, draftEmpty = false)))
+-        assertEquals(HubThreadCommand.None, HubThreadKeys.decide(HubThreadKey.Slash, ctx(search = true)))
++        assertEquals(HubThreadCommand.Search, HubThreadKeys.decide(HubThreadKey.Slash, ctx))
++        assertEquals(
++            HubThreadCommand.Search,
++            HubThreadKeys.decide(HubThreadKey.Slash, ctx.copy(composerFocused = true)),
++        )
++        assertEquals(
++            HubThreadCommand.None,
++            HubThreadKeys.decide(HubThreadKey.Slash, ctx.copy(composerFocused = true, draftEmpty = false)),
++        )
++        assertEquals(HubThreadCommand.None, HubThreadKeys.decide(HubThreadKey.Slash, ctx.copy(searchOpen = true)))
+     }
+ 
+     @Test
+@@ -278,7 +310,9 @@ class HubCommsTest {
+         assertTrue(HubNewMessagePill.show(atLatest = false, seenNewestId = 8L, newest = newest))
+         assertFalse(HubNewMessagePill.show(atLatest = true, seenNewestId = 8L, newest = newest))
+         assertFalse(HubNewMessagePill.show(atLatest = false, seenNewestId = 9L, newest = newest))
+-        assertFalse(HubNewMessagePill.show(atLatest = false, seenNewestId = 8L, newest = message(9, "me", incoming = false)))
++        assertFalse(
++            HubNewMessagePill.show(atLatest = false, seenNewestId = 8L, newest = message(9, "me", incoming = false)),
++        )
+         assertFalse(HubNewMessagePill.show(atLatest = false, seenNewestId = null, newest = newest))
+     }
+ }
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ActionRouter.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ActionRouter.kt
+index a2819e2..6efbbb0 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ActionRouter.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ActionRouter.kt
+@@ -122,7 +122,13 @@ object PhotoPath {
+     fun rawToggle(cur: CaptureMode, cam: CameraReport): CaptureMode? {
+         val target = listOf(CaptureMode.Raw, CaptureMode.HighRes)
+             .firstOrNull { cam.modes[it]?.ok == true } ?: return null
+-        return if (cur == CaptureMode.Raw || cur == CaptureMode.HighRes) CaptureMode.Auto else target
++        return if (cur == CaptureMode.Raw ||
++            cur == CaptureMode.HighRes
++        ) {
++            CaptureMode.Auto
++        } else {
++            target
++        }
+     }
+ 
+     /** Short name for the mode chip and the title: AUTO, HIGH-RES, RAW. */
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/CameraKeys.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/CameraKeys.kt
+index 74b691d..7ed4f4a 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/CameraKeys.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/CameraKeys.kt
+@@ -65,13 +65,20 @@ class CameraKeys(
+     fun clear() = holds.clear()
+ 
+     private fun press(name: String, alt: Boolean, repeat: Int): Boolean {
+-        if (ArrowGuard.blocks(Binding(name, alt), profile, stripFocused())) {
+-            if (repeat == 0) onGuarded()
+-            return true
++        val action = CameraKeyMap.resolve(name, alt, profile)
++        return when {
++            ArrowGuard.blocks(Binding(name, alt), profile, stripFocused()) -> {
++                if (repeat == 0) onGuarded()
++                true
++            }
++
++            action == null -> false
++
++            else -> {
++                if (repeat == 0 || action in repeatable) act(action)
++                true
++            }
+         }
+-        val action = CameraKeyMap.resolve(name, alt, profile) ?: return false
+-        if (repeat == 0 || action in repeatable) act(action)
+-        return true
+     }
+ 
+     private fun holdDown(name: String, alt: Boolean, repeat: Int) {
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/CaptureIntentHost.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/CaptureIntentHost.kt
+new file mode 100644
+index 0000000..623a8b8
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/CaptureIntentHost.kt
+@@ -0,0 +1,35 @@
++package org.sableos.titan2.camera.ui
++
++import android.app.Activity
++import org.sableos.titan2.camera.android.CaptureResult
++import org.sableos.titan2.camera.android.Saved
++import org.sableos.titan2.camera.core.LaunchIntent
++import org.sableos.titan2.camera.core.LaunchKind
++
++/**
++ * How the activity was launched. Started for IMAGE_CAPTURE, the result is cancelled until one
++ * photo has been handed to the calling app; a normal launch keeps its captures in the session.
++ */
++class CaptureIntentHost(private val activity: Activity) {
++    val launch = LaunchIntent.kind(activity.intent?.action)
++    val forApp get() = launch == LaunchKind.ImageCapture
++    private val result: CaptureResult? = if (forApp) CaptureResult(activity) else null
++
++    init {
++        if (forApp) activity.setResult(Activity.RESULT_CANCELED)
++    }
++
++    /**
++     * IMAGE_CAPTURE: hand the JPEG to the calling app and close. [onReturning] runs first.
++     * False when there is no caller to return to.
++     */
++    fun returnCapture(saved: Saved, onReturning: () -> Unit): Boolean {
++        val r = result ?: return false
++        onReturning()
++        r.deliver(saved) { code, data ->
++            activity.setResult(code, data)
++            activity.finish()
++        }
++        return true
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/MainActivity.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/MainActivity.kt
+index fdd4c10..14f560f 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/MainActivity.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/MainActivity.kt
+@@ -5,8 +5,6 @@ package org.sableos.titan2.camera.ui
+ import android.Manifest
+ import android.content.pm.PackageManager
+ import android.content.res.Configuration
+-import android.graphics.Matrix
+-import android.graphics.RectF
+ import android.graphics.SurfaceTexture
+ import android.net.Uri
+ import android.os.Bundle
+@@ -47,8 +45,8 @@ import androidx.compose.runtime.setValue
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.graphics.Color
+-import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.platform.LocalConfiguration
++import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+ import androidx.compose.ui.viewinterop.AndroidView
+@@ -58,8 +56,8 @@ import org.sableos.titan2.camera.android.CameraInfoReader
+ import org.sableos.titan2.camera.android.CaptureResult
+ import org.sableos.titan2.camera.android.MediaStoreSaver
+ import org.sableos.titan2.camera.android.RecordingSpec
+-import org.sableos.titan2.camera.android.Saved
+ import org.sableos.titan2.camera.android.ReviewActions
++import org.sableos.titan2.camera.android.Saved
+ import org.sableos.titan2.camera.android.StillCallbacks
+ import org.sableos.titan2.camera.android.SysProps
+ import org.sableos.titan2.camera.core.ActionRouter
+@@ -102,11 +100,6 @@ import org.sableos.titan2.camera.core.UiMode
+ import org.sableos.titan2.camera.core.VideoOption
+ import org.sableos.titan2.camera.core.VideoPlanner
+ 
+-private const val QUARTER_TURN = 90
+-private const val HALF_TURN = 180
+-private const val THREE_QUARTER_TURN = 270
+-private const val QUARTER_TURN_DEGREES = 90f
+-private const val HALF_TURN_DEGREES = 180f
+ private const val RECORDING_POLL_MS = 250L
+ 
+ /** Sable camera accent: the cyan of `sable-camera-capture-titan2.svg` (#6EE7F9). */
+@@ -148,8 +141,8 @@ class MainActivity : ComponentActivity() {
+     private var busy = false
+     private lateinit var review: QuickReviewHost
+     private lateinit var keys: CameraKeys
+-    private var launch = LaunchKind.Normal
+-    private var captureResult: CaptureResult? = null
++    private lateinit var captureIntent: CaptureIntentHost
++    private val launch get() = captureIntent.launch
+ 
+     override fun onCreate(savedInstanceState: Bundle?) {
+         super.onCreate(savedInstanceState)
+@@ -159,11 +152,7 @@ class MainActivity : ComponentActivity() {
+         controller = CameraController(this, reader, MediaStoreSaver(this))
+         review = QuickReviewHost(ReviewActions(this)) { status = it }
+         onBackPressedDispatcher.addCallback(this, review.back)
+-        launch = LaunchIntent.kind(intent?.action)
+-        if (launch == LaunchKind.ImageCapture) {
+-            captureResult = CaptureResult(this)
+-            setResult(RESULT_CANCELED)
+-        }
++        captureIntent = CaptureIntentHost(this)
+         keys = CameraKeys(
+             profile,
+             review,
+@@ -234,12 +223,7 @@ class MainActivity : ComponentActivity() {
+         restart()
+     }
+ 
+-    private fun degrees() = when (rotation) {
+-        Surface.ROTATION_90 -> QUARTER_TURN
+-        Surface.ROTATION_180 -> HALF_TURN
+-        Surface.ROTATION_270 -> THREE_QUARTER_TURN
+-        else -> 0
+-    }
++    private fun degrees() = rotationDegrees(rotation)
+ 
+     /**
+      * Per-camera defaults: Photo mode, auto Pro state, the default video size; falls back when a
+@@ -253,11 +237,8 @@ class MainActivity : ComponentActivity() {
+         videoOption = VideoPlanner.default(VideoPlanner.options(rep.camera.videoSizes))
+         val avail = ActionRouter.available(rep)
+         if (launch == LaunchKind.ImageCapture && UiMode.Photo in avail) uiMode = UiMode.Photo
+-        if (uiMode !in
+-            avail
+-        ) {
+-            uiMode =
+-                avail.firstOrNull { it == UiMode.Photo } ?: avail.firstOrNull() ?: UiMode.Photo
++        if (uiMode !in avail) {
++            uiMode = avail.firstOrNull { it == UiMode.Photo } ?: avail.firstOrNull() ?: UiMode.Photo
+         }
+     }
+ 
+@@ -267,19 +248,10 @@ class MainActivity : ComponentActivity() {
+         val rep = report?.camera(camId) ?: return
+         val tex = texture ?: return
+         recState = RecState.Idle
+-        val plan = CapturePlanner.single(
+-            rep,
+-            if (uiMode ==
+-                UiMode.Photo
+-            ) {
+-                mode
+-            } else {
+-                CaptureMode.Auto
+-            }
+-        )
+-        val label = if (uiMode ==
+-            UiMode.Video
+-        ) {
++        val photoMode = if (uiMode == UiMode.Photo) mode else CaptureMode.Auto
++        val plan = CapturePlanner.single(rep, photoMode)
++        val video = uiMode == UiMode.Video
++        val label = if (video) {
+             "video ${videoOption?.label ?: "?"}"
+         } else {
+             "${plan.kind.suffix} ${plan.size}"
+@@ -291,13 +263,7 @@ class MainActivity : ComponentActivity() {
+             plan,
+             tex,
+             stillCallbacks(rep),
+-            previewFor = if (uiMode ==
+-                UiMode.Video
+-            ) {
+-                (videoOption?.size ?: plan.size)
+-            } else {
+-                plan.size
+-            }
++            previewFor = if (video) videoOption?.size ?: plan.size else plan.size
+         )
+     }
+ 
+@@ -314,7 +280,11 @@ class MainActivity : ComponentActivity() {
+             runOnUiThread {
+                 busy = false
+                 status = "Saved ${saved.name}  ${saved.detail}"
+-                if (captureResult != null) returnCapture(saved) else review.remember(saved)
++                val returned = captureIntent.returnCapture(saved) {
++                    busy = true
++                    status = "Returning the photo…"
++                }
++                if (!returned) review.remember(saved)
+             }
+         },
+         onError = { msg ->
+@@ -325,84 +295,40 @@ class MainActivity : ComponentActivity() {
+         }
+     )
+ 
+-    /**
+-     * Upright preview aspect: the sensor buffer is landscape for sensor orientation 90/270, so
+-     * swap it when the display is upright.
+-     */
++    /** Upright preview aspect for the current display rotation ([uprightAspect]). */
+     private fun updateAspect(size: org.sableos.titan2.camera.core.Size, sensor: Int) {
+-        val swap = (sensor % HALF_TURN == QUARTER_TURN) == (degrees() % HALF_TURN == 0)
+-        previewAspect = if (swap) size.h.toFloat() / size.w else size.w.toFloat() / size.h
++        previewAspect = uprightAspect(size, sensor, degrees())
+         applyTransform()
+     }
+ 
+     private fun applyTransform() {
+         val tv = textureView
+         val ps = controller.previewSize
+-        if (tv != null && ps != null) transformPreview(tv, ps)
+-    }
+-
+-    private fun transformPreview(tv: TextureView, ps: org.sableos.titan2.camera.core.Size) {
+-        val vw = tv.width.toFloat()
+-        val vh = tv.height.toFloat()
+-        if (vw == 0f || vh == 0f) return
+-        val m = Matrix()
+-        val view = RectF(0f, 0f, vw, vh)
+-        val buf = RectF(0f, 0f, ps.h.toFloat(), ps.w.toFloat())
+-        val cx = view.centerX()
+-        val cy = view.centerY()
+-        when (rotation) {
+-            Surface.ROTATION_90, Surface.ROTATION_270 -> {
+-                buf.offset(cx - buf.centerX(), cy - buf.centerY())
+-                m.setRectToRect(view, buf, Matrix.ScaleToFit.FILL)
+-                val s = maxOf(vh / ps.h, vw / ps.w)
+-                m.postScale(s, s, cx, cy)
+-                m.postRotate(QUARTER_TURN_DEGREES * (rotation - 2), cx, cy)
+-            }
+-
+-            Surface.ROTATION_180 -> m.postRotate(HALF_TURN_DEGREES, cx, cy)
+-        }
+-        tv.setTransform(m)
++        if (tv != null && ps != null) tv.fitPreview(ps, rotation)
+     }
+ 
+     private fun refreshHud() {
+-        val zoomText = "%.1f".format(controller.zoom)
+-        hud = when (uiMode) {
+-            UiMode.Photo ->
+-                "cam $camId · ${mode.name}${if (compare) " +compare" else ""}" +
+-                    " · ${zoomText}x · EV ${controller.aeSteps}"
+-
+-            UiMode.Pro ->
+-                "cam $camId · Pro · ${zoomText}x" +
+-                    (
+-                        proLimits()?.let {
+-                            " · ${proField.label} ${ProControls.valueLabel(proState, proField, it)}"
+-                        }
+-                            ?: ""
+-                        )
+-
+-            UiMode.Video ->
+-                "cam $camId · ${videoOption?.label ?: "no recordable size"} · ${zoomText}x" +
+-                    if (!micGranted) " · no mic" else ""
+-        } + lockBadges(controller.locks)
++        hud = viewfinder().hud(controller)
+     }
+ 
++    private fun viewfinder() = ViewfinderInfo(
++        camId,
++        uiMode,
++        mode,
++        compare,
++        proField,
++        proLimits()?.let { ProControls.valueLabel(proState, proField, it) },
++        videoOption,
++        micGranted,
++        forApp = launch == LaunchKind.ImageCapture
++    )
++
+     private fun setPro(s: ProState) {
+         proState = s
+         controller.setPro(s, proLimits())
+         refreshHud()
+     }
+ 
+-    /** IMAGE_CAPTURE: hand the JPEG to the calling app and close. */
+-    private fun returnCapture(saved: Saved) {
+-        val result = captureResult ?: return
+-        busy = true
+-        status = "Returning the photo…"
+-        result.deliver(saved) { code, data ->
+-            setResult(code, data)
+-            finish()
+-        }
+-    }
+-
+     private fun deckContext(): DeckContext? = report?.let { rep ->
+         rep.camera(camId)?.let {
+             DeckContext(uiMode, it, rep.cameras.size, recState != RecState.Idle, proField)
+@@ -426,11 +352,20 @@ class MainActivity : ComponentActivity() {
+         val rep = report
+         val cam = rep?.camera(camId)
+         val dc = deckContext()
+-        if (rep == null || cam == null || dc == null) return
+-        if (!LaunchIntent.allows(launch, raw)) {
+-            status = LaunchIntent.CAPTURE_REFUSED
+-            return
++        when {
++            rep == null || cam == null || dc == null -> Unit
++            !LaunchIntent.allows(launch, raw) -> status = LaunchIntent.CAPTURE_REFUSED
++            else -> dispatch(raw, rep, cam, dc)
+         }
++    }
++
++    /** Legend/Back handling first; what the deck lets through is routed and may show a strip. */
++    private fun dispatch(
++        raw: CameraAction,
++        rep: org.sableos.titan2.camera.core.CapabilityReport,
++        cam: org.sableos.titan2.camera.core.CameraReport,
++        dc: DeckContext
++    ) {
+         val d = ControlDeck.dispatch(deck, raw, dc)
+         deck = d.deck
+         d.status?.let { status = it }
+@@ -540,15 +475,7 @@ class MainActivity : ComponentActivity() {
+ 
+     private fun doCaptureAction(a: CameraAction, cam: org.sableos.titan2.camera.core.CameraReport) {
+         when (a) {
+-            CameraAction.Shutter -> if (!busy) {
+-                busy = true
+-                if (compare) {
+-                    runBracket()
+-                } else {
+-                    status = "Capturing…"
+-                    controller.takePicture(degrees())
+-                }
+-            }
++            CameraAction.Shutter -> if (!busy) shoot()
+ 
+             CameraAction.VideoToggle -> toggleRecording()
+ 
+@@ -561,11 +488,7 @@ class MainActivity : ComponentActivity() {
+             }
+ 
+             CameraAction.NextCaptureMode -> {
+-                val avail = cam.modes.filter {
+-                    it.value.ok &&
+-                        it.key in listOf(CaptureMode.Auto, CaptureMode.HighRes, CaptureMode.Raw)
+-                }.keys.toList()
+-                mode = avail[(avail.indexOf(mode).coerceAtLeast(0) + 1) % avail.size]
++                mode = nextPhotoMode(mode, cam)
+                 restart()
+             }
+ 
+@@ -588,6 +511,17 @@ class MainActivity : ComponentActivity() {
+         }
+     }
+ 
++    /** One still, or the compare set when compare is on. */
++    private fun shoot() {
++        busy = true
++        if (compare) {
++            runBracket()
++        } else {
++            status = "Capturing…"
++            controller.takePicture(degrees())
++        }
++    }
++
+     private fun togglePause() {
+         recState = RecStateMachine.reduce(recState, RecEvent.TogglePause)
+         if (recState == RecState.Paused) {
+@@ -691,9 +625,7 @@ class MainActivity : ComponentActivity() {
+         val plans = CapturePlanner.bracket(cam)
+         var i = 0
+         fun next() {
+-            if (i >=
+-                plans.size
+-            ) {
++            if (i >= plans.size) {
+                 runOnUiThread {
+                     busy = false
+                     status =
+@@ -762,7 +694,7 @@ class MainActivity : ComponentActivity() {
+             if (dc != null) {
+                 FocusReticle(uiMode, controller.locks.afLocked, Modifier.align(Alignment.Center))
+             }
+-            ModeTitle(modeTitle(), Modifier.align(Alignment.TopCenter).padding(top = 6.dp))
++            ModeTitle(viewfinder().title(), Modifier.align(Alignment.TopCenter).padding(top = 6.dp))
+             StatusOverlay(
+                 hud,
+                 status,
+@@ -774,34 +706,7 @@ class MainActivity : ComponentActivity() {
+             if (recState != RecState.Idle) {
+                 RecordingBadge(recState, recMs, Modifier.align(Alignment.TopEnd).padding(8.dp))
+             }
+-            val avail = report?.camera(camId)?.let { ActionRouter.available(it) }.orEmpty()
+-            Column(
+-                Modifier.align(Alignment.BottomCenter).padding(bottom = 6.dp),
+-                horizontalAlignment = Alignment.CenterHorizontally
+-            ) {
+-                StatusChips(chips(), Modifier.padding(vertical = 2.dp))
+-                if (DeckOrientation.touchChromeVisible(presentation, deck.touchChromeRevealed)) {
+-                    ModeSelector(
+-                        avail,
+-                        Modifier.align(Alignment.CenterHorizontally).padding(vertical = 2.dp)
+-                    )
+-                    if (dc != null) {
+-                        TouchControlBar(TouchFallback.controls(dc), ::act, Modifier)
+-                    }
+-                }
+-                if (dc != null) {
+-                    HintDockBar(
+-                        HintDock.hints(dc, profile),
+-                        uiMode,
+-                        recState != RecState.Idle,
+-                        ::act,
+-                        Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+-                    )
+-                }
+-                if (launch != LaunchKind.ImageCapture) {
+-                    LastCaptureRow(review.state.latest, review::load) { act(CameraAction.OpenLast) }
+-                }
+-            }
++            BottomChrome(presentation, dc, Modifier.align(Alignment.BottomCenter))
+             DeckOverlays(
+                 deck,
+                 dc,
+@@ -813,6 +718,42 @@ class MainActivity : ComponentActivity() {
+         }
+     }
+ 
++    /** Chips, touch chrome when it shows, the hint dock and (normal launch) the last capture. */
++    @androidx.compose.runtime.Composable
++    private fun BottomChrome(presentation: DeckPresentation, dc: DeckContext?, modifier: Modifier) {
++        val avail = report?.camera(camId)?.let { ActionRouter.available(it) }.orEmpty()
++        Column(
++            modifier.padding(bottom = 6.dp),
++            horizontalAlignment = Alignment.CenterHorizontally
++        ) {
++            StatusChips(viewfinder().chips(controller), Modifier.padding(vertical = 2.dp))
++            if (DeckOrientation.touchChromeVisible(presentation, deck.touchChromeRevealed)) {
++                ModeSelector(
++                    avail,
++                    uiMode,
++                    enabled = recState == RecState.Idle && launch != LaunchKind.ImageCapture,
++                    onSelect = { m -> report?.let { switchUi(m, it) } },
++                    Modifier.align(Alignment.CenterHorizontally).padding(vertical = 2.dp)
++                )
++                if (dc != null) {
++                    TouchControlBar(TouchFallback.controls(dc), ::act, Modifier)
++                }
++            }
++            if (dc != null) {
++                HintDockBar(
++                    HintDock.hints(dc, profile),
++                    uiMode,
++                    recState != RecState.Idle,
++                    ::act,
++                    Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
++                )
++            }
++            if (launch != LaunchKind.ImageCapture) {
++                LastCaptureRow(review.state.latest, review::load) { act(CameraAction.OpenLast) }
++            }
++        }
++    }
++
+     @androidx.compose.runtime.Composable
+     private fun PreviewSurface(modifier: Modifier) {
+         AndroidView(
+@@ -820,89 +761,49 @@ class MainActivity : ComponentActivity() {
+             factory = { ctx ->
+                 TextureView(ctx).apply {
+                     textureView = this
+-                    surfaceTextureListener = previewSurfaceListener()
++                    surfaceTextureListener = PreviewSurfaceListener(
++                        onAvailable = { st ->
++                            texture = st
++                            if (report != null) restart()
++                        },
++                        onResized = ::applyTransform,
++                        onDestroyed = {
++                            texture = null
++                            controller.closeSession()
++                        }
++                    )
+                 }
+             }
+         )
+     }
++}
+ 
+-    private fun previewSurfaceListener() = object : TextureView.SurfaceTextureListener {
+-        override fun onSurfaceTextureAvailable(st: SurfaceTexture, w: Int, h: Int) {
+-            texture = st
+-            if (report != null) restart()
+-        }
+-
+-        override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) {
+-            applyTransform()
+-        }
+-
+-        override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
+-            texture = null
+-            controller.closeSession()
+-            return true
+-        }
+-
+-        override fun onSurfaceTextureUpdated(st: SurfaceTexture) {
+-            // Nothing to do per frame: the preview is drawn by the TextureView itself.
+-        }
+-    }
+-
+-    /** Header over the viewfinder, as in the design: "PHOTO · AUTO", "PRO · ISO", "VIDEO · 1080p". */
+-    private fun modeTitle(): String {
+-        val sub = when (uiMode) {
+-            UiMode.Photo -> PhotoPath.label(mode)
+-            UiMode.Pro -> proField.label.uppercase(java.util.Locale.ROOT)
+-            UiMode.Video -> videoOption?.label ?: "-"
+-        }
+-        val head = uiMode.label.uppercase(java.util.Locale.ROOT) + " · " + sub
+-        return if (launch == LaunchKind.ImageCapture) "$head · FOR APP" else head
+-    }
+-
+-    /** Chips along the bottom of the viewfinder: what the next shot will be. */
+-    private fun chips(): List<String> = buildList {
+-        add("%.1f×".format(java.util.Locale.US, controller.zoom))
+-        when (uiMode) {
+-            UiMode.Photo -> {
+-                add(PhotoPath.label(mode))
+-                if (compare) add("Compare")
+-            }
+-
+-            UiMode.Pro -> add("Manual")
+-
+-            UiMode.Video -> {
+-                videoOption?.let { add(it.label) }
+-                if (!micGranted) add("No mic")
+-            }
+-        }
+-        if (uiMode != UiMode.Pro && controller.aeSteps != 0) add("EV ${controller.aeSteps}")
+-        if (controller.locks.afLocked) add("AF-L")
+-        if (controller.locks.aeLocked) add("AE-L")
+-    }
+-
+-    /** Mode chips: Video, Photo, Pro; the current one in the accent. Alt+Left/Right step them. */
+-    @androidx.compose.runtime.Composable
+-    private fun ModeSelector(avail: List<UiMode>, modifier: Modifier) {
+-        val locked = launch == LaunchKind.ImageCapture
+-        Row(modifier) {
+-            avail.forEach { m ->
+-                val current = m == uiMode
+-                Text(
+-                    m.label,
+-                    fontSize = 13.sp,
+-                    color = if (current) sableCyan else Color.White,
+-                    modifier = Modifier
+-                        .padding(horizontal = 3.dp)
+-                        .border(
+-                            1.dp,
+-                            if (current) sableCyan else chipBorder,
+-                            RoundedCornerShape(12.dp)
+-                        )
+-                        .clickable(enabled = recState == RecState.Idle && !locked) {
+-                            report?.let { switchUi(m, it) }
+-                        }
+-                        .padding(horizontal = 12.dp, vertical = 4.dp)
+-                )
+-            }
++/** Mode chips: Video, Photo, Pro; the current one in the accent. Alt+Left/Right step them. */
++@Composable
++fun ModeSelector(
++    avail: List<UiMode>,
++    current: UiMode,
++    enabled: Boolean,
++    onSelect: (UiMode) -> Unit,
++    modifier: Modifier
++) {
++    Row(modifier) {
++        avail.forEach { m ->
++            val selected = m == current
++            Text(
++                m.label,
++                fontSize = 13.sp,
++                color = if (selected) sableCyan else Color.White,
++                modifier = Modifier
++                    .padding(horizontal = 3.dp)
++                    .border(
++                        1.dp,
++                        if (selected) sableCyan else chipBorder,
++                        RoundedCornerShape(12.dp)
++                    )
++                    .clickable(enabled = enabled) { onSelect(m) }
++                    .padding(horizontal = 12.dp, vertical = 4.dp)
++            )
+         }
+     }
+ }
+@@ -1138,9 +1039,6 @@ private fun toggleLock(a: CameraAction, locks: CameraController.LockControls): S
+         if (locks.toggleAe()) "AE locked: hold E again to release" else "AE unlocked"
+     }
+ 
+-private fun lockBadges(locks: CameraController.LockControls): String =
+-    (if (locks.afLocked) " · AF-L" else "") + (if (locks.aeLocked) " · AE-L" else "")
+-
+ /**
+  * The transient layer over the preview: the parameter strip (bottom, above touch chrome) and the
+  * legend. Both are dismissed through the callbacks, which only touch [DeckState].
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/PreviewTransform.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/PreviewTransform.kt
+new file mode 100644
+index 0000000..aacdd8f
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/PreviewTransform.kt
+@@ -0,0 +1,75 @@
++package org.sableos.titan2.camera.ui
++
++import android.graphics.Matrix
++import android.graphics.RectF
++import android.graphics.SurfaceTexture
++import android.view.Surface
++import android.view.TextureView
++import org.sableos.titan2.camera.core.Size
++
++private const val QUARTER_TURN = 90
++private const val HALF_TURN = 180
++private const val THREE_QUARTER_TURN = 270
++private const val QUARTER_TURN_DEGREES = 90f
++private const val HALF_TURN_DEGREES = 180f
++
++/** Display rotation ([Surface].ROTATION_*) in degrees. */
++internal fun rotationDegrees(rotation: Int) = when (rotation) {
++    Surface.ROTATION_90 -> QUARTER_TURN
++    Surface.ROTATION_180 -> HALF_TURN
++    Surface.ROTATION_270 -> THREE_QUARTER_TURN
++    else -> 0
++}
++
++/**
++ * Upright preview aspect: the sensor buffer is landscape for sensor orientation 90/270, so
++ * swap it when the display is upright.
++ */
++internal fun uprightAspect(size: Size, sensor: Int, displayDegrees: Int): Float {
++    val swap = (sensor % HALF_TURN == QUARTER_TURN) == (displayDegrees % HALF_TURN == 0)
++    return if (swap) size.h.toFloat() / size.w else size.w.toFloat() / size.h
++}
++
++/** Fits the preview buffer [ps] to this view for the display [rotation]. */
++internal fun TextureView.fitPreview(ps: Size, rotation: Int) {
++    val vw = width.toFloat()
++    val vh = height.toFloat()
++    if (vw == 0f || vh == 0f) return
++    val m = Matrix()
++    val view = RectF(0f, 0f, vw, vh)
++    val buf = RectF(0f, 0f, ps.h.toFloat(), ps.w.toFloat())
++    val cx = view.centerX()
++    val cy = view.centerY()
++    when (rotation) {
++        Surface.ROTATION_90, Surface.ROTATION_270 -> {
++            buf.offset(cx - buf.centerX(), cy - buf.centerY())
++            m.setRectToRect(view, buf, Matrix.ScaleToFit.FILL)
++            val s = maxOf(vh / ps.h, vw / ps.w)
++            m.postScale(s, s, cx, cy)
++            m.postRotate(QUARTER_TURN_DEGREES * (rotation - 2), cx, cy)
++        }
++
++        Surface.ROTATION_180 -> m.postRotate(HALF_TURN_DEGREES, cx, cy)
++    }
++    setTransform(m)
++}
++
++/** The viewfinder's surface lifecycle, passed on to the activity. */
++internal class PreviewSurfaceListener(
++    private val onAvailable: (SurfaceTexture) -> Unit,
++    private val onResized: () -> Unit,
++    private val onDestroyed: () -> Unit
++) : TextureView.SurfaceTextureListener {
++    override fun onSurfaceTextureAvailable(st: SurfaceTexture, w: Int, h: Int) = onAvailable(st)
++
++    override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) = onResized()
++
++    override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
++        onDestroyed()
++        return true
++    }
++
++    override fun onSurfaceTextureUpdated(st: SurfaceTexture) {
++        // Nothing to do per frame: the preview is drawn by the TextureView itself.
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/ViewfinderInfo.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/ViewfinderInfo.kt
+new file mode 100644
+index 0000000..466f098
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/ViewfinderInfo.kt
+@@ -0,0 +1,87 @@
++package org.sableos.titan2.camera.ui
++
++import org.sableos.titan2.camera.android.CameraController
++import org.sableos.titan2.camera.core.CameraReport
++import org.sableos.titan2.camera.core.CaptureMode
++import org.sableos.titan2.camera.core.PhotoPath
++import org.sableos.titan2.camera.core.ProField
++import org.sableos.titan2.camera.core.UiMode
++import org.sableos.titan2.camera.core.VideoOption
++
++/**
++ * The activity state the viewfinder text is read from: the header, the HUD line and the chips.
++ * [proValue] is the selected Pro field's value, null when this camera reports no Pro limits.
++ */
++data class ViewfinderInfo(
++    val camId: String,
++    val ui: UiMode,
++    val mode: CaptureMode,
++    val compare: Boolean,
++    val proField: ProField,
++    val proValue: String?,
++    val video: VideoOption?,
++    val micGranted: Boolean,
++    val forApp: Boolean
++) {
++    /** Header over the viewfinder, as in the design: "PHOTO · AUTO", "PRO · ISO", "VIDEO · 1080p". */
++    fun title(): String {
++        val sub = when (ui) {
++            UiMode.Photo -> PhotoPath.label(mode)
++            UiMode.Pro -> proField.label.uppercase(java.util.Locale.ROOT)
++            UiMode.Video -> video?.label ?: "-"
++        }
++        val head = ui.label.uppercase(java.util.Locale.ROOT) + " · " + sub
++        return if (forApp) "$head · FOR APP" else head
++    }
++
++    /** The HUD line: camera, mode, zoom and what the mode adjusts, then the lock badges. */
++    fun hud(controller: CameraController): String {
++        val zoomText = "%.1f".format(controller.zoom)
++        return when (ui) {
++            UiMode.Photo ->
++                "cam $camId · ${mode.name}${if (compare) " +compare" else ""}" +
++                    " · ${zoomText}x · EV ${controller.aeSteps}"
++
++            UiMode.Pro ->
++                "cam $camId · Pro · ${zoomText}x" +
++                    (proValue?.let { " · ${proField.label} $it" } ?: "")
++
++            UiMode.Video ->
++                "cam $camId · ${video?.label ?: "no recordable size"} · ${zoomText}x" +
++                    if (!micGranted) " · no mic" else ""
++        } + lockBadges(controller.locks)
++    }
++
++    /** Chips along the bottom of the viewfinder: what the next shot will be. */
++    fun chips(controller: CameraController): List<String> = buildList {
++        add("%.1f×".format(java.util.Locale.US, controller.zoom))
++        when (ui) {
++            UiMode.Photo -> {
++                add(PhotoPath.label(mode))
++                if (compare) add("Compare")
++            }
++
++            UiMode.Pro -> add("Manual")
++
++            UiMode.Video -> {
++                video?.let { add(it.label) }
++                if (!micGranted) add("No mic")
++            }
++        }
++        if (ui != UiMode.Pro && controller.aeSteps != 0) add("EV ${controller.aeSteps}")
++        if (controller.locks.afLocked) add("AF-L")
++        if (controller.locks.aeLocked) add("AE-L")
++    }
++}
++
++/** M: the next photo sub-mode (Auto, high-res, RAW) that [cam] supports, after [mode]. */
++internal fun nextPhotoMode(mode: CaptureMode, cam: CameraReport): CaptureMode {
++    val avail = cam.modes.filter {
++        it.value.ok &&
++            it.key in listOf(CaptureMode.Auto, CaptureMode.HighRes, CaptureMode.Raw)
++    }.keys.toList()
++    return avail[(avail.indexOf(mode).coerceAtLeast(0) + 1) % avail.size]
++}
++
++private fun lockBadges(locks: CameraController.LockControls): String =
++    (if (locks.afLocked) " · AF-L" else "") + (if (locks.aeLocked) " · AE-L" else "")
+diff --git a/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/Q25KeysTest.kt b/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/Q25KeysTest.kt
+index 66d0e45..066af91 100644
+--- a/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/Q25KeysTest.kt
++++ b/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/Q25KeysTest.kt
+@@ -51,7 +51,10 @@ class Q25KeysTest {
+ 
+     @Test fun rTogglesRawInPhotoOnly() {
+         assertEquals(CameraAction.RawToggle, CameraKeyMap.resolve("r", false, q25))
+-        assertEquals(Cmd.Act(CameraAction.RawToggle), ActionRouter.route(UiMode.Photo, CameraAction.RawToggle))
++        assertEquals(
++            Cmd.Act(CameraAction.RawToggle),
++            ActionRouter.route(UiMode.Photo, CameraAction.RawToggle)
++        )
+         assertEquals(Cmd.Nop, ActionRouter.route(UiMode.Video, CameraAction.RawToggle))
+         assertEquals(Cmd.Nop, ActionRouter.route(UiMode.Pro, CameraAction.RawToggle))
+         assertTrue(ControlGate.check(CameraAction.RawToggle, ctx(UiMode.Photo)).isOpen)
+@@ -125,8 +128,14 @@ class Q25KeysTest {
+     // ---- default still camera ------------------------------------------------------------------
+ 
+     @Test fun launchKindFollowsTheIntentAction() {
+-        assertEquals(LaunchKind.ImageCapture, LaunchIntent.kind("android.media.action.IMAGE_CAPTURE"))
+-        assertEquals(LaunchKind.StillCamera, LaunchIntent.kind("android.media.action.STILL_IMAGE_CAMERA"))
++        assertEquals(
++            LaunchKind.ImageCapture,
++            LaunchIntent.kind("android.media.action.IMAGE_CAPTURE")
++        )
++        assertEquals(
++            LaunchKind.StillCamera,
++            LaunchIntent.kind("android.media.action.STILL_IMAGE_CAMERA")
++        )
+         assertEquals(LaunchKind.Normal, LaunchIntent.kind("android.intent.action.MAIN"))
+         assertEquals(LaunchKind.Normal, LaunchIntent.kind(null))
+     }
+@@ -137,8 +146,12 @@ class Q25KeysTest {
+         assertTrue(LaunchIntent.allows(k, CameraAction.ZoomIn))
+         assertTrue(LaunchIntent.allows(k, CameraAction.SwitchCamera))
+         for (a in listOf(
+-            CameraAction.VideoToggle, CameraAction.NextMode, CameraAction.RawToggle,
+-            CameraAction.CompareToggle, CameraAction.OpenLast, CameraAction.NextCaptureMode
++            CameraAction.VideoToggle,
++            CameraAction.NextMode,
++            CameraAction.RawToggle,
++            CameraAction.CompareToggle,
++            CameraAction.OpenLast,
++            CameraAction.NextCaptureMode
+         )) {
+             assertFalse("$a", LaunchIntent.allows(k, a))
+             assertTrue("$a", LaunchIntent.allows(LaunchKind.StillCamera, a))
+@@ -148,6 +161,8 @@ class Q25KeysTest {
+     @Test fun thumbnailIsAtMost512OnItsLongEdge() {
+         assertEquals(1, LaunchIntent.thumbnailSample(400, 300))
+         assertEquals(8, LaunchIntent.thumbnailSample(4000, 3000))
+-        assertTrue(8160 / LaunchIntent.thumbnailSample(8160, 6144) <= LaunchIntent.THUMBNAIL_EDGE_PX)
++        assertTrue(
++            8160 / LaunchIntent.thumbnailSample(8160, 6144) <= LaunchIntent.THUMBNAIL_EDGE_PX
++        )
+     }
+ }
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt
+index 47aa22a..39c652f 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt
+@@ -40,17 +40,20 @@ class GatedPlatformBackend : DisplayBackend {
+         val sent = send(pkg, request)
+         return when {
+             sent != null -> sent
++
+             !request.hasEffect -> ApplyResult.Unsupported(
+                 "no platform equivalent for " + request.notApplied.joinToString(", ") +
+                     "; stored only, platform settings cleared"
+             )
++
+             else -> ApplyResult.Applied(request.describe() + readBack(pkg) + NEXT_LAUNCH)
+         }
+     }
+ 
+     override fun clear(pkg: String): ApplyResult {
+         if (!open()) return ApplyResult.NoOp
+-        return send(pkg, PlatformRequest.CLEAR) ?: ApplyResult.Applied("platform settings cleared$NEXT_LAUNCH")
++        return send(pkg, PlatformRequest.CLEAR)
++            ?: ApplyResult.Applied("platform settings cleared$NEXT_LAUNCH")
+     }
+ 
+     /** Sends [request]; null on success, else the failure. */
+@@ -64,7 +67,9 @@ class GatedPlatformBackend : DisplayBackend {
+         ).invoke(pm, pkg, myUserId(), request.minAspectRatio)
+         val compat = platformCompat()
+         if (request.disableOrientation.isNotEmpty()) {
+-            val cls = Class.forName("com.android.internal.compat.CompatibilityOverridesToRemoveConfig")
++            val cls = Class.forName(
++                "com.android.internal.compat.CompatibilityOverridesToRemoveConfig"
++            )
+             val config = cls.getConstructor(Set::class.java).newInstance(request.disableOrientation)
+             COMPAT_INTERFACE.getMethod("removeOverridesOnReleaseBuilds", cls, String::class.java)
+                 .invoke(compat, config, pkg)
+@@ -106,10 +111,11 @@ class GatedPlatformBackend : DisplayBackend {
+         (t.cause ?: t).javaClass.simpleName + ": " + ((t.cause ?: t).message ?: "no detail")
+     )
+ 
+-    private fun packageManagerService(): Any =
+-        requireNotNull(Class.forName("android.app.ActivityThread").getMethod("getPackageManager").invoke(null)) {
+-            "package manager unavailable"
+-        }
++    private fun packageManagerService(): Any = requireNotNull(
++        Class.forName("android.app.ActivityThread").getMethod("getPackageManager").invoke(null)
++    ) {
++        "package manager unavailable"
++    }
+ 
+     private fun platformCompat(): Any {
+         val binder = Class.forName("android.os.ServiceManager")
+@@ -127,7 +133,9 @@ class GatedPlatformBackend : DisplayBackend {
+         val builderClass = Class.forName("android.app.compat.PackageOverride\$Builder")
+         val builder = builderClass.getConstructor().newInstance()
+         builderClass.getMethod("setEnabled", Boolean::class.javaPrimitiveType).invoke(builder, true)
+-        return requireNotNull(builderClass.getMethod("build").invoke(builder)) { "no PackageOverride" }
++        return requireNotNull(builderClass.getMethod("build").invoke(builder)) {
++            "no PackageOverride"
++        }
+     }
+ 
+     private fun myUserId(): Int = Process.myUid() / PER_USER_RANGE
+@@ -138,7 +146,9 @@ class GatedPlatformBackend : DisplayBackend {
+         private const val PLATFORM_COMPAT_SERVICE = "platform_compat"
+         private const val PER_USER_RANGE = 100_000
+         private const val NEXT_LAUNCH = "; takes effect the next time the app starts"
+-        private val PM_INTERFACE: Class<*> by lazy { Class.forName("android.content.pm.IPackageManager") }
++        private val PM_INTERFACE: Class<*> by lazy {
++            Class.forName("android.content.pm.IPackageManager")
++        }
+         private val COMPAT_INTERFACE: Class<*> by lazy {
+             Class.forName("com.android.internal.compat.IPlatformCompat")
+         }
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/CanvasPlanner.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/CanvasPlanner.kt
+index f40f513..fd0a689 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/CanvasPlanner.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/CanvasPlanner.kt
+@@ -28,48 +28,45 @@ object CanvasPlanner {
+      * @param softKeyboardFraction share of the height reserved by [AspectProfile.KeyboardSafe] when the soft
+      *   keyboard may show.
+      */
+-    fun plan(
+-        display: SizePx,
+-        p: DisplayProfile,
+-        softKeyboardFraction: Float = 0.40f
+-    ): CanvasPlan = when (p.profile) {
+-        AspectProfile.Native -> plain(display, p, "Native: app and platform defaults.")
++    fun plan(display: SizePx, p: DisplayProfile, softKeyboardFraction: Float = 0.40f): CanvasPlan =
++        when (p.profile) {
++            AspectProfile.Native -> plain(display, p, "Native: app and platform defaults.")
+ 
+-        AspectProfile.FullscreenMedia -> plain(
+-            display,
+-            p,
+-            "Fullscreen media: no forced letterboxing."
+-        )
++            AspectProfile.FullscreenMedia -> plain(
++                display,
++                p,
++                "Fullscreen media: no forced letterboxing."
++            )
+ 
+-        AspectProfile.SquareSafe -> plain(
+-            display,
+-            p,
+-            "Square-safe: full display with a 1:1 minimum-aspect hint; no bars."
+-        )
++            AspectProfile.SquareSafe -> plain(
++                display,
++                p,
++                "Square-safe: full display with a 1:1 minimum-aspect hint; no bars."
++            )
+ 
+-        AspectProfile.KeyboardSafe -> keyboardSafe(display, p, softKeyboardFraction)
++            AspectProfile.KeyboardSafe -> keyboardSafe(display, p, softKeyboardFraction)
+ 
+-        AspectProfile.MiniMode -> miniMode(display, p)
++            AspectProfile.MiniMode -> miniMode(display, p)
+ 
+-        AspectProfile.Ratio16x9Letterbox -> letterbox(
+-            display,
+-            Ratio.R16_9.value,
+-            p,
+-            "16:9 letterbox"
+-        )
++            AspectProfile.Ratio16x9Letterbox -> letterbox(
++                display,
++                Ratio.R16_9.value,
++                p,
++                "16:9 letterbox"
++            )
+ 
+-        AspectProfile.Ratio4x3Letterbox -> letterbox(
+-            display,
+-            Ratio.R4_3.value,
+-            p,
+-            "4:3 letterbox"
+-        )
++            AspectProfile.Ratio4x3Letterbox -> letterbox(
++                display,
++                Ratio.R4_3.value,
++                p,
++                "4:3 letterbox"
++            )
+ 
+-        AspectProfile.Custom -> custom(display, p)
++            AspectProfile.Custom -> custom(display, p)
+ 
+-        AspectProfile.Ratio16x9Fill ->
+-            fill(display, Ratio.R16_9.value, p, RectPx(0, 0, display.w, display.h))
+-    }
++            AspectProfile.Ratio16x9Fill ->
++                fill(display, Ratio.R16_9.value, p, RectPx(0, 0, display.w, display.h))
++        }
+ 
+     private fun plain(display: SizePx, p: DisplayProfile, note: String, reserve: Int = 0) =
+         CanvasPlan(
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/PlatformMapping.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/PlatformMapping.kt
+index 9a62df5..7a93a4a 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/PlatformMapping.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/PlatformMapping.kt
+@@ -17,13 +17,20 @@ object UserMinAspectRatio {
+     /** Platform value for a profile with a real platform equivalent, else null (stored only). */
+     fun forProfile(profile: AspectProfile, custom: Ratio? = null): Int? = when (profile) {
+         AspectProfile.Native -> UNSET
++
+         AspectProfile.Ratio16x9Letterbox -> RATIO_16_9
++
+         AspectProfile.Ratio4x3Letterbox -> RATIO_4_3
++
+         AspectProfile.FullscreenMedia -> FULLSCREEN
++
+         AspectProfile.SquareSafe -> DISPLAY_SIZE
++
+         // Mini mode on a square display: the app gets a 3:2 phone-shaped window (480x720 on the Q25).
+         AspectProfile.MiniMode -> RATIO_3_2
++
+         AspectProfile.Custom -> forRatio(custom)
++
+         AspectProfile.Ratio16x9Fill, AspectProfile.KeyboardSafe -> null
+     }
+ 
+@@ -75,7 +82,10 @@ object OrientationOverrides {
+     fun forOrientation(o: OrientationPref): Set<Long>? = when (o) {
+         OrientationPref.Default -> emptySet()
+ 
+-        OrientationPref.Portrait -> setOf(OVERRIDE_ANY_ORIENTATION, OVERRIDE_UNDEFINED_ORIENTATION_TO_PORTRAIT)
++        OrientationPref.Portrait -> setOf(
++            OVERRIDE_ANY_ORIENTATION,
++            OVERRIDE_UNDEFINED_ORIENTATION_TO_PORTRAIT
++        )
+ 
+         // The platform's only landscape override is reverse landscape (270 degrees).
+         OrientationPref.Landscape ->
+@@ -108,9 +118,14 @@ data class PlatformRequest(
+     }
+ 
+     private fun orientationLabel(): String = when {
+-        OrientationOverrides.OVERRIDE_UNDEFINED_ORIENTATION_TO_PORTRAIT in enableOrientation -> "portrait"
+-        OrientationOverrides.OVERRIDE_LANDSCAPE_ORIENTATION_TO_REVERSE_LANDSCAPE in enableOrientation ->
++        OrientationOverrides.OVERRIDE_UNDEFINED_ORIENTATION_TO_PORTRAIT in
++            enableOrientation ->
++            "portrait"
++
++        OrientationOverrides.OVERRIDE_LANDSCAPE_ORIENTATION_TO_REVERSE_LANDSCAPE in
++            enableOrientation ->
+             "landscape"
++
+         else -> "app default"
+     }
+ 
+@@ -128,10 +143,18 @@ object PlatformMapping {
+         val orientation = OrientationOverrides.forOrientation(p.orientation)
+         if (orientation == null) notApplied += "orientation " + p.orientation.name.lowercase()
+         if (p.scaling != ScalingPref.Default) notApplied += "scaling"
+-        if (p.letterboxBackground != LetterboxBackground.System) notApplied += "letterbox background"
++        if (p.letterboxBackground !=
++            LetterboxBackground.System
++        ) {
++            notApplied += "letterbox background"
++        }
+         if (p.keyboardSafeArea != Tri.Default) notApplied += "keyboard-safe area"
+         if (p.statusNav != BarsPref.Default) notApplied += "status/nav bars"
+         if (p.stretch) notApplied += "stretch"
+-        return PlatformRequest(aspect ?: UserMinAspectRatio.UNSET, orientation.orEmpty(), notApplied)
++        return PlatformRequest(
++            aspect ?: UserMinAspectRatio.UNSET,
++            orientation.orEmpty(),
++            notApplied
++        )
+     }
+ }
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileStore.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileStore.kt
+index 073a04d..2a556d5 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileStore.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileStore.kt
+@@ -50,10 +50,7 @@ object NoOpBackend : DisplayBackend {
+ }
+ 
+ /** Orchestrates store, validation and backend. A profile that fails validation is never saved or applied. */
+-class ProfileController(
+-    private val store: ProfileStore,
+-    private val backend: DisplayBackend
+-) {
++class ProfileController(private val store: ProfileStore, private val backend: DisplayBackend) {
+     data class Outcome(
+         val validation: Validation,
+         val saved: Boolean,
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/EditorScreen.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/EditorScreen.kt
+index bdfb154..28bf7d3 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/EditorScreen.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/EditorScreen.kt
+@@ -279,7 +279,9 @@ fun EditorScreen(
+         // Compatibility card (connectivity artifact state 4): what the platform is asked for, and that
+         // keyboards stay out of reach of every profile.
+         Text(
+-            "Platform: " + PlatformMapping.request(st.p).describe() + " · Keyboard input: protected",
++            "Platform: " + PlatformMapping.request(
++                st.p
++            ).describe() + " · Keyboard input: protected",
+             color = C.muted,
+             fontSize = 11.sp
+         )
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/PlatformMappingTest.kt b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/PlatformMappingTest.kt
+index e14e915..bf4b79f 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/PlatformMappingTest.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/PlatformMappingTest.kt
+@@ -23,7 +23,10 @@ class PlatformMappingTest {
+     @Test fun orientationChangeIdsMatchAosp() {
+         assertEquals(265464455L, OrientationOverrides.OVERRIDE_ANY_ORIENTATION)
+         assertEquals(265452344L, OrientationOverrides.OVERRIDE_UNDEFINED_ORIENTATION_TO_PORTRAIT)
+-        assertEquals(266124927L, OrientationOverrides.OVERRIDE_LANDSCAPE_ORIENTATION_TO_REVERSE_LANDSCAPE)
++        assertEquals(
++            266124927L,
++            OrientationOverrides.OVERRIDE_LANDSCAPE_ORIENTATION_TO_REVERSE_LANDSCAPE
++        )
+     }
+ 
+     @Test fun profilesMapToMatchingRatio() {
+@@ -50,7 +53,9 @@ class PlatformMappingTest {
+     }
+ 
+     @Test fun portraitAndLandscapeUseTheOverrideAnyPairs() {
+-        val portrait = PlatformMapping.request(DisplayProfile(orientation = OrientationPref.Portrait))
++        val portrait = PlatformMapping.request(
++            DisplayProfile(orientation = OrientationPref.Portrait)
++        )
+         assertEquals(
+             setOf(
+                 OrientationOverrides.OVERRIDE_ANY_ORIENTATION,
+@@ -63,9 +68,12 @@ class PlatformMappingTest {
+             portrait.disableOrientation
+         )
+         assertTrue(portrait.hasEffect)
+-        val landscape = PlatformMapping.request(DisplayProfile(orientation = OrientationPref.Landscape))
++        val landscape = PlatformMapping.request(
++            DisplayProfile(orientation = OrientationPref.Landscape)
++        )
+         assertTrue(
+-            OrientationOverrides.OVERRIDE_LANDSCAPE_ORIENTATION_TO_REVERSE_LANDSCAPE in landscape.enableOrientation
++            OrientationOverrides.OVERRIDE_LANDSCAPE_ORIENTATION_TO_REVERSE_LANDSCAPE in
++                landscape.enableOrientation
+         )
+         assertTrue(landscape.describe().contains("orientation landscape"))
+     }
+diff --git a/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultActivity.kt b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultActivity.kt
+index b0fe61c..ce4774b 100644
+--- a/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultActivity.kt
++++ b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultActivity.kt
+@@ -56,14 +56,18 @@ class VaultActivity : Activity() {
+             orientation = LinearLayout.VERTICAL
+             setPadding(px(PAD), px(PAD), px(PAD), px(PAD))
+         }
+-        setContentView(ScrollView(this).apply {
+-            setBackgroundColor(BG)
+-            isFocusable = false
+-            addView(body)
+-        })
++        setContentView(
++            ScrollView(this).apply {
++                setBackgroundColor(BG)
++                isFocusable = false
++                addView(body)
++            }
++        )
+         // Android 16 apps get Back through the dispatcher (predictive back), not as a key event:
+         // Back cancels a pending confirmation, otherwise leaves.
+-        onBackInvokedDispatcher.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT) {
++        onBackInvokedDispatcher.registerOnBackInvokedCallback(
++            OnBackInvokedDispatcher.PRIORITY_DEFAULT
++        ) {
+             if (pending != null) cancel() else finish()
+         }
+     }
+@@ -107,20 +111,40 @@ class VaultActivity : Activity() {
+ 
+     private fun toKey(keyCode: Int, event: KeyEvent): VaultKeys.Key = when (keyCode) {
+         KeyEvent.KEYCODE_DPAD_UP -> VaultKeys.Key.Up
++
+         KeyEvent.KEYCODE_DPAD_DOWN -> VaultKeys.Key.Down
++
+         KeyEvent.KEYCODE_DPAD_LEFT -> VaultKeys.Key.Left
++
+         KeyEvent.KEYCODE_DPAD_RIGHT -> VaultKeys.Key.Right
+-        KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER, KeyEvent.KEYCODE_DPAD_CENTER -> VaultKeys.Key.Enter
++
++        KeyEvent.KEYCODE_ENTER,
++        KeyEvent.KEYCODE_NUMPAD_ENTER,
++        KeyEvent.KEYCODE_DPAD_CENTER
++        -> VaultKeys.Key.Enter
++
+         KeyEvent.KEYCODE_FORWARD_DEL, KeyEvent.KEYCODE_DEL -> VaultKeys.Key.Delete
++
+         KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ESCAPE -> VaultKeys.Key.Back
++
+         else -> letter(event)
+     }
+ 
+     /** Plain letters only: Alt+letter is a digit on the Q25 and Sym (Right Alt) is paging, so both are ignored. */
+     private fun letter(event: KeyEvent): VaultKeys.Key {
+-        if (event.isAltPressed || event.isCtrlPressed || event.isMetaPressed) return VaultKeys.Key.Other
++        if (event.isAltPressed || event.isCtrlPressed ||
++            event.isMetaPressed
++        ) {
++            return VaultKeys.Key.Other
++        }
+         val c = event.getUnicodeChar(0)
+-        return if (c > 0 && Character.isLetter(c)) VaultKeys.Key.Letter(c.toChar()) else VaultKeys.Key.Other
++        return if (c > 0 &&
++            Character.isLetter(c)
++        ) {
++            VaultKeys.Key.Letter(c.toChar())
++        } else {
++            VaultKeys.Key.Other
++        }
+     }
+ 
+     private fun perform(action: VaultAction) {
+@@ -180,11 +204,14 @@ class VaultActivity : Activity() {
+         pendingItem = null
+         when (c.kind) {
+             Confirmation.Kind.Open -> item?.let { openItem(it) }
++
+             Confirmation.Kind.Export -> item?.let { startExport(it) }
++
+             Confirmation.Kind.Delete -> item?.let {
+                 val deleted = store.delete(section, it.name)
+                 message = if (deleted) "Deleted ${it.name}." else "Could not delete ${it.name}."
+             }
++
+             Confirmation.Kind.DeleteOriginals -> {
+                 val removed = store.deleteOriginals(pendingOriginals)
+                 message = "Deleted $removed of ${pendingOriginals.size} original(s). " +
+@@ -290,9 +317,10 @@ class VaultActivity : Activity() {
+         finishAndRemoveTask()
+     }
+ 
+-    private fun mimeOf(name: String): String =
+-        MimeTypeMap.getSingleton().getMimeTypeFromExtension(name.substringAfterLast('.', "").lowercase())
+-            ?: "application/octet-stream"
++    private fun mimeOf(name: String): String = MimeTypeMap.getSingleton().getMimeTypeFromExtension(
++        name.substringAfterLast('.', "").lowercase()
++    )
++        ?: "application/octet-stream"
+ 
+     // ---- rendering ----
+ 
+@@ -301,7 +329,11 @@ class VaultActivity : Activity() {
+         body.addView(text(VaultText.TITLE, TITLE_SP, TEXT, bold = true))
+         body.addView(text(VaultText.SUBTITLE, SMALL_SP, MUTED))
+         if (!privateProfile) {
+-            body.addView(text(VaultText.NOT_PRIVATE, BODY_SP, WARN).apply { setPadding(0, px(GAP), 0, 0) })
++            body.addView(
++                text(VaultText.NOT_PRIVATE, BODY_SP, WARN).apply {
++                    setPadding(0, px(GAP), 0, 0)
++                }
++            )
+             return
+         }
+         body.addView(tabs())
+@@ -322,10 +354,23 @@ class VaultActivity : Activity() {
+         orientation = LinearLayout.HORIZONTAL
+         setPadding(0, px(GAP), 0, px(GAP))
+         Section.entries.forEach { s ->
+-            addView(text(s.title, BODY_SP, if (s == section) ACCENT else MUTED, bold = s == section).apply {
+-                setPadding(0, 0, px(GAP * 2), 0)
+-                setOnClickListener { show(s) }
+-            })
++            addView(
++                text(
++                    s.title,
++                    BODY_SP,
++                    if (s ==
++                        section
++                    ) {
++                        ACCENT
++                    } else {
++                        MUTED
++                    },
++                    bold = s == section
++                ).apply {
++                    setPadding(0, 0, px(GAP * 2), 0)
++                    setOnClickListener { show(s) }
++                }
++            )
+         }
+     }
+ 
+@@ -347,10 +392,12 @@ class VaultActivity : Activity() {
+         background = box(SURFACE, WARN)
+         addView(text(c.title, BODY_SP, TEXT, bold = true))
+         addView(text(c.detail, SMALL_SP, MUTED))
+-        addView(LinearLayout(this@VaultActivity).apply {
+-            addView(button("Yes") { confirm() })
+-            addView(button("No") { cancel() })
+-        })
++        addView(
++            LinearLayout(this@VaultActivity).apply {
++                addView(button("Yes") { confirm() })
++                addView(button("No") { cancel() })
++            }
++        )
+     }
+ 
+     private fun buttons(): View = LinearLayout(this).apply {
+@@ -369,12 +416,13 @@ class VaultActivity : Activity() {
+         setOnClickListener { onClick() }
+     }
+ 
+-    private fun text(s: String, sp: Float, color: Int, bold: Boolean = false): TextView = TextView(this).apply {
+-        text = s
+-        textSize = sp
+-        setTextColor(color)
+-        if (bold) typeface = Typeface.DEFAULT_BOLD
+-    }
++    private fun text(s: String, sp: Float, color: Int, bold: Boolean = false): TextView =
++        TextView(this).apply {
++            text = s
++            textSize = sp
++            setTextColor(color)
++            if (bold) typeface = Typeface.DEFAULT_BOLD
++        }
+ 
+     private fun box(fill: Int, stroke: Int) = GradientDrawable().apply {
+         setColor(fill)
+diff --git a/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultStore.kt b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultStore.kt
+index ee5bf35..964844e 100644
+--- a/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultStore.kt
++++ b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultStore.kt
+@@ -21,11 +21,10 @@ class VaultStore(private val context: Context) {
+ 
+     fun dir(section: Section): File = File(root, section.id).apply { mkdirs() }
+ 
+-    fun list(section: Section): List<VaultItem> =
+-        dir(section).listFiles().orEmpty()
+-            .filter { it.isFile }
+-            .sortedByDescending { it.lastModified() }
+-            .map { VaultItem(it.name, it.length(), it.lastModified()) }
++    fun list(section: Section): List<VaultItem> = dir(section).listFiles().orEmpty()
++        .filter { it.isFile }
++        .sortedByDescending { it.lastModified() }
++        .map { VaultItem(it.name, it.length(), it.lastModified()) }
+ 
+     /** The stored file for [name], only when it is a direct child of the section folder. */
+     fun file(section: Section, name: String): File? {
+@@ -46,9 +45,11 @@ class VaultStore(private val context: Context) {
+                 copyIn(uri, target)
+                 imported += name
+             } catch (e: IOException) {
+-                failed += (display ?: name) + " (" + (e.message ?: "read error") + discard(target) + ")"
++                failed +=
++                    (display ?: name) + " (" + (e.message ?: "read error") + discard(target) + ")"
+             } catch (e: IllegalStateException) {
+-                failed += (display ?: name) + " (" + (e.message ?: "unreadable") + discard(target) + ")"
++                failed +=
++                    (display ?: name) + " (" + (e.message ?: "unreadable") + discard(target) + ")"
+             } catch (_: SecurityException) {
+                 failed += (display ?: name) + " (no access" + discard(target) + ")"
+             }
+@@ -68,7 +69,8 @@ class VaultStore(private val context: Context) {
+     /** Writes a copy of [name] to [target], a document the user just created in the system picker. */
+     fun export(section: Section, name: String, target: Uri): Boolean = runCatching {
+         val src = checkNotNull(file(section, name)) { "missing" }
+-        val out = checkNotNull(context.contentResolver.openOutputStream(target, "wt")) { "no stream" }
++        val out =
++            checkNotNull(context.contentResolver.openOutputStream(target, "wt")) { "no stream" }
+         out.use { o -> src.inputStream().use { it.copyTo(o) } }
+         true
+     }.getOrDefault(false)
+@@ -77,11 +79,19 @@ class VaultStore(private val context: Context) {
+ 
+     /** Deletes picked originals the provider allows deleting; returns how many were removed. */
+     fun deleteOriginals(uris: List<Uri>): Int = uris.count { uri ->
+-        runCatching { DocumentsContract.deleteDocument(context.contentResolver, uri) }.getOrDefault(false)
++        runCatching {
++            DocumentsContract.deleteDocument(context.contentResolver, uri)
++        }.getOrDefault(false)
+     }
+ 
+     private fun displayName(uri: Uri): String? = runCatching {
+-        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
++        context.contentResolver.query(
++            uri,
++            arrayOf(OpenableColumns.DISPLAY_NAME),
++            null,
++            null,
++            null
++        )?.use { c ->
+             if (c.moveToFirst()) c.getString(0) else null
+         }
+     }.getOrNull()
+diff --git a/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/core/VaultModel.kt b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/core/VaultModel.kt
+index 3110642..fada210 100644
+--- a/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/core/VaultModel.kt
++++ b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/core/VaultModel.kt
+@@ -33,22 +33,33 @@ object FileNames {
+      */
+     fun sanitize(displayName: String?): String {
+         val cleaned = displayName.orEmpty()
+-            .map { c -> if (c == '/' || c == '\\' || c == ':' || c.isISOControl()) '_' else c }
++            .map { c -> if (isUnsafe(c)) '_' else c }
+             .joinToString("")
+             .trim()
+             .trimStart('.')
+             .trim()
+         return when {
+             cleaned.isEmpty() -> FALLBACK
++
+             cleaned.length <= MAX_LENGTH -> cleaned
++
+             else -> {
+                 val dot = cleaned.lastIndexOf('.')
+-                val ext = if (dot > 0 && cleaned.length - dot <= MAX_EXTENSION) cleaned.substring(dot) else ""
++                val ext = if (dot > 0 &&
++                    cleaned.length - dot <= MAX_EXTENSION
++                ) {
++                    cleaned.substring(dot)
++                } else {
++                    ""
++                }
+                 cleaned.take(MAX_LENGTH - ext.length) + ext
+             }
+         }
+     }
+ 
++    /** Path separators, the drive/stream colon and control characters never reach a file name. */
++    private fun isUnsafe(c: Char): Boolean = c in UNSAFE || c.isISOControl()
++
+     /** [name], or "base (2).ext", "base (3).ext"... when [taken] already has it. Never overwrites. */
+     fun unique(name: String, taken: Set<String>): String {
+         if (name !in taken) return name
+@@ -61,6 +72,7 @@ object FileNames {
+     }
+ 
+     private const val MAX_EXTENSION = 10
++    private const val UNSAFE = "/\\:"
+ }
+ 
+ /** What a key does on the vault list. Letters are plain letters on the Q25 (no Ctrl, no Fn). */
+@@ -110,12 +122,15 @@ object VaultKeys {
+     /** Enter or Y confirms; Back, Esc or N cancels; anything else does nothing (no accidental confirm). */
+     fun confirm(key: Key): ConfirmAction? = when (key) {
+         Key.Enter -> ConfirmAction.Confirm
++
+         Key.Back -> ConfirmAction.Cancel
++
+         is Key.Letter -> when (key.c.lowercaseChar()) {
+             'y' -> ConfirmAction.Confirm
+             'n' -> ConfirmAction.Cancel
+             else -> null
+         }
++
+         else -> null
+     }
+ 
+@@ -173,7 +188,11 @@ data class Confirmation(val kind: Kind, val title: String, val detail: String) {
+ data class ImportOutcome(val imported: List<String>, val failed: List<String>) {
+     fun message(): String = buildString {
+         append("Imported ${imported.size} file(s) as copies.")
+-        if (failed.isNotEmpty()) append(" Could not import: ").append(failed.joinToString(", ")).append('.')
++        if (failed.isNotEmpty()) {
++            append(
++                " Could not import: "
++            ).append(failed.joinToString(", ")).append('.')
++        }
+     }
+ }
+ 
+@@ -181,10 +200,12 @@ object VaultText {
+     const val TITLE = "Secure Vault"
+     const val SUBTITLE = "Private Space · Photos · Documents · Recordings · import/export explicit"
+     const val NOT_PRIVATE =
+-        "Secure Vault works only inside Private Space. Unlock Private Space in Sable Start (All apps) " +
++        "Secure Vault works only inside Private Space. " +
++            "Unlock Private Space in Sable Start (All apps) " +
+             "and open Secure Vault there. Nothing is stored outside it."
+     const val EMPTY = "Nothing here yet. Press I to import a copy of a file."
+-    const val LOCK_FALLBACK = "Could not lock Private Space from here; lock it from Sable Start. The vault closed."
++    const val LOCK_FALLBACK =
++        "Could not lock Private Space from here; lock it from Sable Start. The vault closed."
+ 
+     fun size(bytes: Long): String = when {
+         bytes < KIB -> "$bytes B"
+diff --git a/sable-src/apps/titan2/platform/vault/src/test/java/org/sableos/titan2/vault/core/VaultModelTest.kt b/sable-src/apps/titan2/platform/vault/src/test/java/org/sableos/titan2/vault/core/VaultModelTest.kt
+index 6f87d04..7f57eaa 100644
+--- a/sable-src/apps/titan2/platform/vault/src/test/java/org/sableos/titan2/vault/core/VaultModelTest.kt
++++ b/sable-src/apps/titan2/platform/vault/src/test/java/org/sableos/titan2/vault/core/VaultModelTest.kt
+@@ -75,7 +75,10 @@ class VaultModelTest {
+ 
+     @Test fun importIsReportedAsCopy() {
+         val o = ImportOutcome(listOf("a.jpg"), listOf("b.jpg (no access)"))
+-        assertEquals("Imported 1 file(s) as copies. Could not import: b.jpg (no access).", o.message())
++        assertEquals(
++            "Imported 1 file(s) as copies. Could not import: b.jpg (no access).",
++            o.message()
++        )
+     }
+ 
+     @Test fun sizes() {

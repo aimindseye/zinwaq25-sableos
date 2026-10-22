@@ -29,25 +29,23 @@ data class HubSearch(
     fun matches(
         conversation: HubConversation,
         todayStartMillis: Long,
-    ): Boolean {
-        if (missed) return false
-        if (unread && conversation.unreadCount <= 0) return false
-        if (today && conversation.lastDateMillis < todayStartMillis) return false
-        if (from != null && !conversation.isFrom(from)) return false
-        if (app != null && !sourceLabel(conversation).contains(app, ignoreCase = true)) return false
-        return words.all { word -> conversation.hasText(word) }
-    }
+    ): Boolean =
+        !missed &&
+            (!unread || conversation.unreadCount > 0) &&
+            (!today || conversation.lastDateMillis >= todayStartMillis) &&
+            (from == null || conversation.isFrom(from)) &&
+            (app == null || sourceLabel(conversation).contains(app, ignoreCase = true)) &&
+            words.all { word -> conversation.hasText(word) }
 
     fun matches(
         call: HubCall,
         todayStartMillis: Long,
-    ): Boolean {
-        if ((unread || missed) && !call.kind.needsAttention) return false
-        if (today && call.dateMillis < todayStartMillis) return false
-        if (from != null && !call.isFrom(from)) return false
-        if (app != null && !CALLS_SOURCE.contains(app, ignoreCase = true)) return false
-        return words.all { word -> call.isFrom(word) }
-    }
+    ): Boolean =
+        (!(unread || missed) || call.kind.needsAttention) &&
+            (!today || call.dateMillis >= todayStartMillis) &&
+            (from == null || call.isFrom(from)) &&
+            (app == null || CALLS_SOURCE.contains(app, ignoreCase = true)) &&
+            words.all { word -> call.isFrom(word) }
 
     companion object {
         const val UNREAD = "unread"
@@ -69,13 +67,26 @@ data class HubSearch(
                 val lower = token.lowercase()
                 search =
                     when {
-                        lower == UNREAD -> search.copy(unread = true)
-                        lower == MISSED -> search.copy(missed = true)
-                        lower == TODAY -> search.copy(today = true)
-                        lower.startsWith(FROM_PREFIX) && lower.length > FROM_PREFIX.length ->
+                        lower == UNREAD -> {
+                            search.copy(unread = true)
+                        }
+
+                        lower == MISSED -> {
+                            search.copy(missed = true)
+                        }
+
+                        lower == TODAY -> {
+                            search.copy(today = true)
+                        }
+
+                        lower.startsWith(FROM_PREFIX) && lower.length > FROM_PREFIX.length -> {
                             search.copy(from = token.substring(FROM_PREFIX.length))
-                        lower.startsWith(APP_PREFIX) && lower.length > APP_PREFIX.length ->
+                        }
+
+                        lower.startsWith(APP_PREFIX) && lower.length > APP_PREFIX.length -> {
                             search.copy(app = token.substring(APP_PREFIX.length))
+                        }
+
                         else -> {
                             words += token
                             search

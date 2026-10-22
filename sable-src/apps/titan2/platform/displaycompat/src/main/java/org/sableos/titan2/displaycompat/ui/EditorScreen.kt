@@ -279,7 +279,9 @@ fun EditorScreen(
         // Compatibility card (connectivity artifact state 4): what the platform is asked for, and that
         // keyboards stay out of reach of every profile.
         Text(
-            "Platform: " + PlatformMapping.request(st.p).describe() + " · Keyboard input: protected",
+            "Platform: " + PlatformMapping.request(
+                st.p
+            ).describe() + " · Keyboard input: protected",
             color = C.muted,
             fontSize = 11.sp
         )

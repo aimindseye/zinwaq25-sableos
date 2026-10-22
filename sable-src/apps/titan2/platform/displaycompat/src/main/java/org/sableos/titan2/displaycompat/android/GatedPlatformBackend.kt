@@ -40,17 +40,20 @@ class GatedPlatformBackend : DisplayBackend {
         val sent = send(pkg, request)
         return when {
             sent != null -> sent
+
             !request.hasEffect -> ApplyResult.Unsupported(
                 "no platform equivalent for " + request.notApplied.joinToString(", ") +
                     "; stored only, platform settings cleared"
             )
+
             else -> ApplyResult.Applied(request.describe() + readBack(pkg) + NEXT_LAUNCH)
         }
     }
 
     override fun clear(pkg: String): ApplyResult {
         if (!open()) return ApplyResult.NoOp
-        return send(pkg, PlatformRequest.CLEAR) ?: ApplyResult.Applied("platform settings cleared$NEXT_LAUNCH")
+        return send(pkg, PlatformRequest.CLEAR)
+            ?: ApplyResult.Applied("platform settings cleared$NEXT_LAUNCH")
     }
 
     /** Sends [request]; null on success, else the failure. */
@@ -64,7 +67,9 @@ class GatedPlatformBackend : DisplayBackend {
         ).invoke(pm, pkg, myUserId(), request.minAspectRatio)
         val compat = platformCompat()
         if (request.disableOrientation.isNotEmpty()) {
-            val cls = Class.forName("com.android.internal.compat.CompatibilityOverridesToRemoveConfig")
+            val cls = Class.forName(
+                "com.android.internal.compat.CompatibilityOverridesToRemoveConfig"
+            )
             val config = cls.getConstructor(Set::class.java).newInstance(request.disableOrientation)
             COMPAT_INTERFACE.getMethod("removeOverridesOnReleaseBuilds", cls, String::class.java)
                 .invoke(compat, config, pkg)
@@ -106,10 +111,11 @@ class GatedPlatformBackend : DisplayBackend {
         (t.cause ?: t).javaClass.simpleName + ": " + ((t.cause ?: t).message ?: "no detail")
     )
 
-    private fun packageManagerService(): Any =
-        requireNotNull(Class.forName("android.app.ActivityThread").getMethod("getPackageManager").invoke(null)) {
-            "package manager unavailable"
-        }
+    private fun packageManagerService(): Any = requireNotNull(
+        Class.forName("android.app.ActivityThread").getMethod("getPackageManager").invoke(null)
+    ) {
+        "package manager unavailable"
+    }
 
     private fun platformCompat(): Any {
         val binder = Class.forName("android.os.ServiceManager")
@@ -127,7 +133,9 @@ class GatedPlatformBackend : DisplayBackend {
         val builderClass = Class.forName("android.app.compat.PackageOverride\$Builder")
         val builder = builderClass.getConstructor().newInstance()
         builderClass.getMethod("setEnabled", Boolean::class.javaPrimitiveType).invoke(builder, true)
-        return requireNotNull(builderClass.getMethod("build").invoke(builder)) { "no PackageOverride" }
+        return requireNotNull(builderClass.getMethod("build").invoke(builder)) {
+            "no PackageOverride"
+        }
     }
 
     private fun myUserId(): Int = Process.myUid() / PER_USER_RANGE
@@ -138,7 +146,9 @@ class GatedPlatformBackend : DisplayBackend {
         private const val PLATFORM_COMPAT_SERVICE = "platform_compat"
         private const val PER_USER_RANGE = 100_000
         private const val NEXT_LAUNCH = "; takes effect the next time the app starts"
-        private val PM_INTERFACE: Class<*> by lazy { Class.forName("android.content.pm.IPackageManager") }
+        private val PM_INTERFACE: Class<*> by lazy {
+            Class.forName("android.content.pm.IPackageManager")
+        }
         private val COMPAT_INTERFACE: Class<*> by lazy {
             Class.forName("com.android.internal.compat.IPlatformCompat")
         }

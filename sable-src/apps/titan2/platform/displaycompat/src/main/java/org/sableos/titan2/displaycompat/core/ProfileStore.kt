@@ -50,10 +50,7 @@ object NoOpBackend : DisplayBackend {
 }
 
 /** Orchestrates store, validation and backend. A profile that fails validation is never saved or applied. */
-class ProfileController(
-    private val store: ProfileStore,
-    private val backend: DisplayBackend
-) {
+class ProfileController(private val store: ProfileStore, private val backend: DisplayBackend) {
     data class Outcome(
         val validation: Validation,
         val saved: Boolean,

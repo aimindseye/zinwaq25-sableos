@@ -62,22 +62,29 @@ sealed interface HubInboxItem {
     }
 }
 
+/** What [HubInbox.items] reads besides the rows: [people] for People, [todayStartMillis] for `today`. */
+data class HubInboxContext(
+    val people: List<HubPerson> = emptyList(),
+    val todayStartMillis: Long = 0L,
+)
+
 object HubInbox {
     /**
      * Rows for [filter] matching [query], newest first. The query is a [HubSearch] query: words
      * match name, number, text or source; `unread`, `missed`, `today`, `from:` and `app:` narrow.
-     * [people] (address-book numbers) serve the People filter; [todayStartMillis] the `today` word.
+     * [context] holds the address-book numbers the People filter needs and the start of today
+     * the `today` word needs.
      */
     fun items(
         conversations: List<HubConversation>,
         calls: List<HubCall>,
         filter: HubInboxFilter,
         query: String = "",
-        people: List<HubPerson> = emptyList(),
-        todayStartMillis: Long = 0L,
+        context: HubInboxContext = HubInboxContext(),
     ): List<HubInboxItem> {
         val search = HubSearch.parse(query)
-        val known = knownNumbers(people, filter)
+        val todayStartMillis = context.todayStartMillis
+        val known = knownNumbers(context.people, filter)
         val conversationItems =
             conversations
                 .filter { conversation -> filter.includes(conversation, known) }

@@ -65,13 +65,20 @@ class CameraKeys(
     fun clear() = holds.clear()
 
     private fun press(name: String, alt: Boolean, repeat: Int): Boolean {
-        if (ArrowGuard.blocks(Binding(name, alt), profile, stripFocused())) {
-            if (repeat == 0) onGuarded()
-            return true
+        val action = CameraKeyMap.resolve(name, alt, profile)
+        return when {
+            ArrowGuard.blocks(Binding(name, alt), profile, stripFocused()) -> {
+                if (repeat == 0) onGuarded()
+                true
+            }
+
+            action == null -> false
+
+            else -> {
+                if (repeat == 0 || action in repeatable) act(action)
+                true
+            }
         }
-        val action = CameraKeyMap.resolve(name, alt, profile) ?: return false
-        if (repeat == 0 || action in repeatable) act(action)
-        return true
     }
 
     private fun holdDown(name: String, alt: Boolean, repeat: Int) {

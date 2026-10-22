@@ -58,9 +58,21 @@ class HubCommsTest {
             sourceNotificationKey = null,
         )
     private val missed =
-        HubCall(id = 1L, number = "+1 555 010 0200", displayName = "Alex", dateMillis = 4_000L, kind = HubCallKind.Missed)
+        HubCall(
+            id = 1L,
+            number = "+1 555 010 0200",
+            displayName = "Alex",
+            dateMillis = 4_000L,
+            kind = HubCallKind.Missed,
+        )
     private val outgoing =
-        HubCall(id = 2L, number = "+15550100100", displayName = "Maya", dateMillis = 2_000L, kind = HubCallKind.Outgoing)
+        HubCall(
+            id = 2L,
+            number = "+15550100100",
+            displayName = "Maya",
+            dateMillis = 2_000L,
+            kind = HubCallKind.Outgoing,
+        )
     private val conversations = listOf(maya, bank, signal, gmail)
     private val calls = listOf(missed, outgoing)
     private val people = listOf(HubPerson(1L, "Maya", "+1 (555) 010-0100"), HubPerson(2L, "Alex", "+15550100200"))
@@ -69,7 +81,7 @@ class HubCommsTest {
         filter: HubInboxFilter,
         query: String = "",
         today: Long = 0L,
-    ) = HubInbox.items(conversations, calls, filter, query, people, today).map(HubInboxItem::key)
+    ) = HubInbox.items(conversations, calls, filter, query, HubInboxContext(people, today)).map(HubInboxItem::key)
 
     @Test
     fun priorityKeepsUnreadAnswerableAndMissed() {
@@ -94,7 +106,13 @@ class HubCommsTest {
 
     @Test
     fun everyFilterHasItsOwnKey() {
-        assertEquals(HubInboxFilter.entries.size, HubInboxFilter.entries.map { it.shortcut }.toSet().size)
+        assertEquals(
+            HubInboxFilter.entries.size,
+            HubInboxFilter.entries
+                .map { it.shortcut }
+                .toSet()
+                .size,
+        )
         assertEquals(HubInboxFilter.Priority, HubInboxFilter.forShortcut('P'))
         assertEquals(HubInboxFilter.People, HubInboxFilter.forShortcut('o'))
         assertNull(HubInboxFilter.forShortcut(HubSourceDock.SHORTCUT))
@@ -172,7 +190,10 @@ class HubCommsTest {
     fun privacyBadgeNamesSourceAndState() {
         assertEquals("SMS · Private OK", HubPrivacyBadge.text(maya, HubPrivacyState()))
         assertEquals("SMS · Private mode", HubPrivacyBadge.text(maya, HubPrivacyState(privateMode = true)))
-        assertEquals("Signal · Work · Locked", HubPrivacyBadge.text(signal.copy(profileBadge = "Work"), HubPrivacyState(true)))
+        assertEquals(
+            "Signal · Work · Locked",
+            HubPrivacyBadge.text(signal.copy(profileBadge = "Work"), HubPrivacyState(true)),
+        )
         assertEquals("Signal · Preview hidden", HubPrivacyBadge.text(signal.copy(lastBody = ""), HubPrivacyState()))
     }
 
@@ -202,43 +223,54 @@ class HubCommsTest {
         )
         assertFalse(HubRowAction.Reply in HubRowActions.forConversation(gmail))
         val locked = HubPrivacyState(deviceLocked = true)
-        assertEquals(listOf(HubRowAction.Open, HubRowAction.PrivacyOptions), HubRowActions.forConversation(maya, locked))
-        assertEquals(listOf(HubRowAction.CallBack, HubRowAction.Text, HubRowAction.PrivacyOptions), HubRowActions.forCall(missed))
+        assertEquals(
+            listOf(HubRowAction.Open, HubRowAction.PrivacyOptions),
+            HubRowActions.forConversation(maya, locked),
+        )
+        assertEquals(
+            listOf(HubRowAction.CallBack, HubRowAction.Text, HubRowAction.PrivacyOptions),
+            HubRowActions.forCall(missed),
+        )
         assertEquals(listOf(HubRowAction.PrivacyOptions), HubRowActions.forCall(missed.copy(number = "")))
     }
 
-    private fun ctx(
-        composer: Boolean = false,
-        draftEmpty: Boolean = true,
-        atLatest: Boolean = true,
-        search: Boolean = false,
-        ctrl: Boolean = false,
-        alt: Boolean = false,
-        shift: Boolean = false,
-    ) = HubThreadKeyContext(composer, draftEmpty, atLatest, search, ctrl, alt, shift)
+    private val ctx =
+        HubThreadKeyContext(composerFocused = false, draftEmpty = true, atLatest = true, searchOpen = false)
 
     @Test
     fun threadKeysReturnToLatestAndPage() {
-        assertEquals(HubThreadCommand.Latest, HubThreadKeys.decide(HubThreadKey.End, ctx(atLatest = false)))
-        assertEquals(HubThreadCommand.Latest, HubThreadKeys.decide(HubThreadKey.End, ctx(composer = true)))
-        assertEquals(HubThreadCommand.None, HubThreadKeys.decide(HubThreadKey.End, ctx(composer = true, draftEmpty = false)))
-        assertEquals(HubThreadCommand.Latest, HubThreadKeys.decide(HubThreadKey.LetterL, ctx(ctrl = true)))
-        assertEquals(HubThreadCommand.None, HubThreadKeys.decide(HubThreadKey.LetterL, ctx()))
+        assertEquals(HubThreadCommand.Latest, HubThreadKeys.decide(HubThreadKey.End, ctx.copy(atLatest = false)))
+        assertEquals(HubThreadCommand.Latest, HubThreadKeys.decide(HubThreadKey.End, ctx.copy(composerFocused = true)))
+        assertEquals(
+            HubThreadCommand.None,
+            HubThreadKeys.decide(HubThreadKey.End, ctx.copy(composerFocused = true, draftEmpty = false)),
+        )
+        assertEquals(HubThreadCommand.Latest, HubThreadKeys.decide(HubThreadKey.LetterL, ctx.copy(ctrl = true)))
+        assertEquals(HubThreadCommand.None, HubThreadKeys.decide(HubThreadKey.LetterL, ctx))
         // Esc: out of history or search; at latest it stays Back.
-        assertEquals(HubThreadCommand.Latest, HubThreadKeys.decide(HubThreadKey.Escape, ctx(atLatest = false)))
-        assertEquals(HubThreadCommand.Latest, HubThreadKeys.decide(HubThreadKey.Escape, ctx(search = true)))
-        assertEquals(HubThreadCommand.None, HubThreadKeys.decide(HubThreadKey.Escape, ctx()))
-        assertEquals(HubThreadCommand.OlderPage, HubThreadKeys.decide(HubThreadKey.PageUp, ctx(composer = true, draftEmpty = false)))
-        assertEquals(HubThreadCommand.NewerPage, HubThreadKeys.decide(HubThreadKey.PageDown, ctx()))
-        assertEquals(HubThreadCommand.None, HubThreadKeys.decide(HubThreadKey.PageUp, ctx(alt = true)))
+        assertEquals(HubThreadCommand.Latest, HubThreadKeys.decide(HubThreadKey.Escape, ctx.copy(atLatest = false)))
+        assertEquals(HubThreadCommand.Latest, HubThreadKeys.decide(HubThreadKey.Escape, ctx.copy(searchOpen = true)))
+        assertEquals(HubThreadCommand.None, HubThreadKeys.decide(HubThreadKey.Escape, ctx))
+        assertEquals(
+            HubThreadCommand.OlderPage,
+            HubThreadKeys.decide(HubThreadKey.PageUp, ctx.copy(composerFocused = true, draftEmpty = false)),
+        )
+        assertEquals(HubThreadCommand.NewerPage, HubThreadKeys.decide(HubThreadKey.PageDown, ctx))
+        assertEquals(HubThreadCommand.None, HubThreadKeys.decide(HubThreadKey.PageUp, ctx.copy(alt = true)))
     }
 
     @Test
     fun slashSearchesUnlessItWouldBeTyped() {
-        assertEquals(HubThreadCommand.Search, HubThreadKeys.decide(HubThreadKey.Slash, ctx()))
-        assertEquals(HubThreadCommand.Search, HubThreadKeys.decide(HubThreadKey.Slash, ctx(composer = true)))
-        assertEquals(HubThreadCommand.None, HubThreadKeys.decide(HubThreadKey.Slash, ctx(composer = true, draftEmpty = false)))
-        assertEquals(HubThreadCommand.None, HubThreadKeys.decide(HubThreadKey.Slash, ctx(search = true)))
+        assertEquals(HubThreadCommand.Search, HubThreadKeys.decide(HubThreadKey.Slash, ctx))
+        assertEquals(
+            HubThreadCommand.Search,
+            HubThreadKeys.decide(HubThreadKey.Slash, ctx.copy(composerFocused = true)),
+        )
+        assertEquals(
+            HubThreadCommand.None,
+            HubThreadKeys.decide(HubThreadKey.Slash, ctx.copy(composerFocused = true, draftEmpty = false)),
+        )
+        assertEquals(HubThreadCommand.None, HubThreadKeys.decide(HubThreadKey.Slash, ctx.copy(searchOpen = true)))
     }
 
     @Test
@@ -278,7 +310,9 @@ class HubCommsTest {
         assertTrue(HubNewMessagePill.show(atLatest = false, seenNewestId = 8L, newest = newest))
         assertFalse(HubNewMessagePill.show(atLatest = true, seenNewestId = 8L, newest = newest))
         assertFalse(HubNewMessagePill.show(atLatest = false, seenNewestId = 9L, newest = newest))
-        assertFalse(HubNewMessagePill.show(atLatest = false, seenNewestId = 8L, newest = message(9, "me", incoming = false)))
+        assertFalse(
+            HubNewMessagePill.show(atLatest = false, seenNewestId = 8L, newest = message(9, "me", incoming = false)),
+        )
         assertFalse(HubNewMessagePill.show(atLatest = false, seenNewestId = null, newest = newest))
     }
 }

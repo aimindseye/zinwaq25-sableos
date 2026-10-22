@@ -28,48 +28,45 @@ object CanvasPlanner {
      * @param softKeyboardFraction share of the height reserved by [AspectProfile.KeyboardSafe] when the soft
      *   keyboard may show.
      */
-    fun plan(
-        display: SizePx,
-        p: DisplayProfile,
-        softKeyboardFraction: Float = 0.40f
-    ): CanvasPlan = when (p.profile) {
-        AspectProfile.Native -> plain(display, p, "Native: app and platform defaults.")
+    fun plan(display: SizePx, p: DisplayProfile, softKeyboardFraction: Float = 0.40f): CanvasPlan =
+        when (p.profile) {
+            AspectProfile.Native -> plain(display, p, "Native: app and platform defaults.")
 
-        AspectProfile.FullscreenMedia -> plain(
-            display,
-            p,
-            "Fullscreen media: no forced letterboxing."
-        )
+            AspectProfile.FullscreenMedia -> plain(
+                display,
+                p,
+                "Fullscreen media: no forced letterboxing."
+            )
 
-        AspectProfile.SquareSafe -> plain(
-            display,
-            p,
-            "Square-safe: full display with a 1:1 minimum-aspect hint; no bars."
-        )
+            AspectProfile.SquareSafe -> plain(
+                display,
+                p,
+                "Square-safe: full display with a 1:1 minimum-aspect hint; no bars."
+            )
 
-        AspectProfile.KeyboardSafe -> keyboardSafe(display, p, softKeyboardFraction)
+            AspectProfile.KeyboardSafe -> keyboardSafe(display, p, softKeyboardFraction)
 
-        AspectProfile.MiniMode -> miniMode(display, p)
+            AspectProfile.MiniMode -> miniMode(display, p)
 
-        AspectProfile.Ratio16x9Letterbox -> letterbox(
-            display,
-            Ratio.R16_9.value,
-            p,
-            "16:9 letterbox"
-        )
+            AspectProfile.Ratio16x9Letterbox -> letterbox(
+                display,
+                Ratio.R16_9.value,
+                p,
+                "16:9 letterbox"
+            )
 
-        AspectProfile.Ratio4x3Letterbox -> letterbox(
-            display,
-            Ratio.R4_3.value,
-            p,
-            "4:3 letterbox"
-        )
+            AspectProfile.Ratio4x3Letterbox -> letterbox(
+                display,
+                Ratio.R4_3.value,
+                p,
+                "4:3 letterbox"
+            )
 
-        AspectProfile.Custom -> custom(display, p)
+            AspectProfile.Custom -> custom(display, p)
 
-        AspectProfile.Ratio16x9Fill ->
-            fill(display, Ratio.R16_9.value, p, RectPx(0, 0, display.w, display.h))
-    }
+            AspectProfile.Ratio16x9Fill ->
+                fill(display, Ratio.R16_9.value, p, RectPx(0, 0, display.w, display.h))
+        }
 
     private fun plain(display: SizePx, p: DisplayProfile, note: String, reserve: Int = 0) =
         CanvasPlan(

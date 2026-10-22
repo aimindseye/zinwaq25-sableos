@@ -70,7 +70,12 @@ object HubIntents {
 
     /** The inbox filter to open on, or null for a normal launch. */
     fun launchFilter(raw: String?): HubInboxFilter? {
-        val name = raw?.trim()?.lowercase()?.replace('-', '_')?.replace(' ', '_') ?: return null
+        val name =
+            raw
+                ?.trim()
+                ?.lowercase()
+                ?.replace('-', '_')
+                ?.replace(' ', '_') ?: return null
         return HubInboxFilter.entries.firstOrNull { it.name.lowercase() == name } ?: FILTER_ALIASES[name]
     }
 

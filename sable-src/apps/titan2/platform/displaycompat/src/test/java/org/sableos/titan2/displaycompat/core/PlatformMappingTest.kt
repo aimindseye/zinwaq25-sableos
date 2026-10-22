@@ -23,7 +23,10 @@ class PlatformMappingTest {
     @Test fun orientationChangeIdsMatchAosp() {
         assertEquals(265464455L, OrientationOverrides.OVERRIDE_ANY_ORIENTATION)
         assertEquals(265452344L, OrientationOverrides.OVERRIDE_UNDEFINED_ORIENTATION_TO_PORTRAIT)
-        assertEquals(266124927L, OrientationOverrides.OVERRIDE_LANDSCAPE_ORIENTATION_TO_REVERSE_LANDSCAPE)
+        assertEquals(
+            266124927L,
+            OrientationOverrides.OVERRIDE_LANDSCAPE_ORIENTATION_TO_REVERSE_LANDSCAPE
+        )
     }
 
     @Test fun profilesMapToMatchingRatio() {
@@ -50,7 +53,9 @@ class PlatformMappingTest {
     }
 
     @Test fun portraitAndLandscapeUseTheOverrideAnyPairs() {
-        val portrait = PlatformMapping.request(DisplayProfile(orientation = OrientationPref.Portrait))
+        val portrait = PlatformMapping.request(
+            DisplayProfile(orientation = OrientationPref.Portrait)
+        )
         assertEquals(
             setOf(
                 OrientationOverrides.OVERRIDE_ANY_ORIENTATION,
@@ -63,9 +68,12 @@ class PlatformMappingTest {
             portrait.disableOrientation
         )
         assertTrue(portrait.hasEffect)
-        val landscape = PlatformMapping.request(DisplayProfile(orientation = OrientationPref.Landscape))
+        val landscape = PlatformMapping.request(
+            DisplayProfile(orientation = OrientationPref.Landscape)
+        )
         assertTrue(
-            OrientationOverrides.OVERRIDE_LANDSCAPE_ORIENTATION_TO_REVERSE_LANDSCAPE in landscape.enableOrientation
+            OrientationOverrides.OVERRIDE_LANDSCAPE_ORIENTATION_TO_REVERSE_LANDSCAPE in
+                landscape.enableOrientation
         )
         assertTrue(landscape.describe().contains("orientation landscape"))
     }

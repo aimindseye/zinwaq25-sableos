@@ -59,37 +59,41 @@ object HubThreadKeys {
     fun decide(
         key: HubThreadKey,
         context: HubThreadKeyContext,
-    ): HubThreadCommand {
-        if (context.meta) return HubThreadCommand.None
-        if (key == HubThreadKey.LetterL) {
-            return if (context.ctrl && !context.alt) HubThreadCommand.Latest else HubThreadCommand.None
+    ): HubThreadCommand =
+        when {
+            context.meta -> HubThreadCommand.None
+            key == HubThreadKey.LetterL -> ctrlLatest(context)
+            context.ctrl || context.alt -> HubThreadCommand.None
+            blocked(key, context) -> HubThreadCommand.None
+            else -> commandFor(key)
         }
-        if (context.ctrl || context.alt) return HubThreadCommand.None
+
+    /** Ctrl+L returns to latest; L with Alt (or without Ctrl) is not ours. */
+    private fun ctrlLatest(context: HubThreadKeyContext): HubThreadCommand =
+        if (context.ctrl && !context.alt) HubThreadCommand.Latest else HubThreadCommand.None
+
+    /** What an unmodified [key] does when nothing in [context] keeps it. */
+    private fun commandFor(key: HubThreadKey): HubThreadCommand =
+        when (key) {
+            HubThreadKey.End, HubThreadKey.Escape -> HubThreadCommand.Latest
+            HubThreadKey.PageUp -> HubThreadCommand.OlderPage
+            HubThreadKey.PageDown -> HubThreadCommand.NewerPage
+            HubThreadKey.Slash -> HubThreadCommand.Search
+            HubThreadKey.LetterL, HubThreadKey.Other -> HubThreadCommand.None
+        }
+
+    /** True when [context] leaves [key] to the focused control (or Back). */
+    private fun blocked(
+        key: HubThreadKey,
+        context: HubThreadKeyContext,
+    ): Boolean {
         val typingDraft = context.composerFocused && !context.draftEmpty
         return when (key) {
-            HubThreadKey.End -> {
-                if (context.shift || typingDraft) HubThreadCommand.None else HubThreadCommand.Latest
-            }
-
-            HubThreadKey.Escape -> {
-                if (context.atLatest && !context.searchOpen) HubThreadCommand.None else HubThreadCommand.Latest
-            }
-
-            HubThreadKey.PageUp -> {
-                if (context.shift) HubThreadCommand.None else HubThreadCommand.OlderPage
-            }
-
-            HubThreadKey.PageDown -> {
-                if (context.shift) HubThreadCommand.None else HubThreadCommand.NewerPage
-            }
-
-            HubThreadKey.Slash -> {
-                if (typingDraft || context.searchOpen) HubThreadCommand.None else HubThreadCommand.Search
-            }
-
-            HubThreadKey.LetterL, HubThreadKey.Other -> {
-                HubThreadCommand.None
-            }
+            HubThreadKey.End -> context.shift || typingDraft
+            HubThreadKey.Escape -> context.atLatest && !context.searchOpen
+            HubThreadKey.PageUp, HubThreadKey.PageDown -> context.shift
+            HubThreadKey.Slash -> typingDraft || context.searchOpen
+            HubThreadKey.LetterL, HubThreadKey.Other -> false
         }
     }
 

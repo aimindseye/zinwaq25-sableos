@@ -116,6 +116,7 @@ import org.sableos.hub.policy.HubDockSource
 import org.sableos.hub.policy.HubDrafts
 import org.sableos.hub.policy.HubInbox
 import org.sableos.hub.policy.HubInboxCluster
+import org.sableos.hub.policy.HubInboxContext
 import org.sableos.hub.policy.HubInboxDivider
 import org.sableos.hub.policy.HubInboxFilter
 import org.sableos.hub.policy.HubInboxItem
@@ -224,24 +225,6 @@ private class HubUiState {
         statusMessage = null
     }
 
-    /** Contacts' Hub route chip: the person's SMS thread, or a new one for the number. */
-    fun openAddress(address: String) {
-        statusMessage = null
-        route =
-            HubRoute.Conversation(
-                threadId = HubThreadResolver.NEW_THREAD_ID,
-                address = address,
-            )
-    }
-
-    /** "/" from anywhere in the root view: the inbox search, focused. */
-    fun focusSearch() {
-        if ((route as? HubRoute.Root)?.pivot != HubPivot.Inbox) {
-            route = HubRoute.Root(HubPivot.Inbox)
-        }
-        searchFocusRequest += 1
-    }
-
     /** Hardware Back/Esc goes up one level (BACK_RETURNS_ONE_LOGICAL_LAYER); only the root leaves Hub. */
     fun back() {
         when (val current = route) {
@@ -310,6 +293,24 @@ private fun HubUiState.selectDockSource(source: HubDockSource) {
     inboxFilter = HubInboxFilter.All
     dockSource = HubSourceDock.toggle(dockSource, source)
     statusMessage = null
+}
+
+/** "/" from anywhere in the root view: the inbox search, focused. */
+private fun HubUiState.focusSearch() {
+    if ((route as? HubRoute.Root)?.pivot != HubPivot.Inbox) {
+        route = HubRoute.Root(HubPivot.Inbox)
+    }
+    searchFocusRequest += 1
+}
+
+/** Contacts' Hub route chip: the person's SMS thread, or a new one for the number. */
+private fun HubUiState.openAddress(address: String) {
+    statusMessage = null
+    route =
+        HubRoute.Conversation(
+            threadId = HubThreadResolver.NEW_THREAD_ID,
+            address = address,
+        )
 }
 
 private fun mmsHandoffStatus(opened: Boolean): String =
@@ -608,7 +609,14 @@ private fun HubPrivateCountsView(
         if (privacy.canShowList) {
             SableActionButton(
                 text = if (counts.isEmpty()) "Show list" else "Show list without previews",
-                modifier = if (counts.isEmpty()) Modifier.fillMaxWidth().focusRequester(first) else Modifier.fillMaxWidth(),
+                modifier =
+                    if (counts.isEmpty()) {
+                        Modifier.fillMaxWidth().focusRequester(
+                            first,
+                        )
+                    } else {
+                        Modifier.fillMaxWidth()
+                    },
                 primary = false,
                 onClick = { onShowList(HubInboxFilter.All) },
             )
@@ -1110,7 +1118,13 @@ private fun ColumnScope.InboxPivot(
     val items =
         remember(snapshot, filter, query, dockSource) {
             HubSourceDock.narrow(
-                HubInbox.items(snapshot.conversations, snapshot.calls, filter, query, snapshot.people, todayStart),
+                HubInbox.items(
+                    snapshot.conversations,
+                    snapshot.calls,
+                    filter,
+                    query,
+                    HubInboxContext(snapshot.people, todayStart),
+                ),
                 dockSource,
             )
         }
@@ -1271,54 +1285,68 @@ private fun runRowAction(
 ) {
     state.actionsItem = null
     when (item) {
-        is HubInboxItem.Call -> {
-            when (action) {
-                HubRowAction.CallBack -> state.dial(item.call.number, actions.onDial)
-                HubRowAction.Text -> onTextCaller(item.call)
-                HubRowAction.PrivacyOptions -> actions.onOpenConnectedApps()
-                else -> Unit
+        is HubInboxItem.Call -> runCallAction(action, item.call, state, actions, onTextCaller)
+        is HubInboxItem.Conversation -> runConversationAction(action, item.conversation, state, actions, onConversation)
+    }
+}
+
+private fun runCallAction(
+    action: HubRowAction,
+    call: HubCall,
+    state: HubUiState,
+    actions: HubActions,
+    onTextCaller: (HubCall) -> Unit,
+) {
+    when (action) {
+        HubRowAction.CallBack -> state.dial(call.number, actions.onDial)
+        HubRowAction.Text -> onTextCaller(call)
+        HubRowAction.PrivacyOptions -> actions.onOpenConnectedApps()
+        else -> Unit
+    }
+}
+
+private fun runConversationAction(
+    action: HubRowAction,
+    conversation: HubConversation,
+    state: HubUiState,
+    actions: HubActions,
+    onConversation: (HubConversation) -> Unit,
+) {
+    val source = connectedSourceOf(conversation)
+    when (action) {
+        HubRowAction.Open, HubRowAction.Reply -> {
+            onConversation(conversation)
+        }
+
+        HubRowAction.CallBack -> {
+            state.dial(conversation.address, actions.onDial)
+        }
+
+        HubRowAction.OpenInMessages -> {
+            state.mmsHandoff(actions.onOpenAndroidMessaging(conversation.address, null))
+        }
+
+        HubRowAction.OpenSourceApp -> {
+            source?.let { (packageName, serial) ->
+                val opened = actions.onOpenConnectedApp(packageName, serial)
+                state.statusMessage = openSourceStatus(opened, conversation.sourceLabel ?: packageName)
             }
         }
 
-        is HubInboxItem.Conversation -> {
-            val conversation = item.conversation
-            val source = connectedSourceOf(conversation)
-            when (action) {
-                HubRowAction.Open, HubRowAction.Reply -> {
-                    onConversation(conversation)
-                }
-
-                HubRowAction.CallBack -> {
-                    state.dial(conversation.address, actions.onDial)
-                }
-
-                HubRowAction.OpenInMessages -> {
-                    state.mmsHandoff(actions.onOpenAndroidMessaging(conversation.address, null))
-                }
-
-                HubRowAction.OpenSourceApp -> {
-                    source?.let { (packageName, serial) ->
-                        val opened = actions.onOpenConnectedApp(packageName, serial)
-                        state.statusMessage = openSourceStatus(opened, conversation.sourceLabel ?: packageName)
-                    }
-                }
-
-                HubRowAction.SourceNotifications -> {
-                    source?.let { (packageName, serial) ->
-                        if (!actions.onOpenSourceNotificationSettings(packageName, serial)) {
-                            state.statusMessage = "Android notification settings are unavailable."
-                        }
-                    }
-                }
-
-                HubRowAction.PrivacyOptions -> {
-                    actions.onOpenConnectedApps()
-                }
-
-                HubRowAction.Text -> {
-                    Unit
+        HubRowAction.SourceNotifications -> {
+            source?.let { (packageName, serial) ->
+                if (!actions.onOpenSourceNotificationSettings(packageName, serial)) {
+                    state.statusMessage = "Android notification settings are unavailable."
                 }
             }
+        }
+
+        HubRowAction.PrivacyOptions -> {
+            actions.onOpenConnectedApps()
+        }
+
+        HubRowAction.Text -> {
+            Unit
         }
     }
 }
@@ -1351,7 +1379,14 @@ private fun HubRowActionsSheet(
             rowActions.forEachIndexed { index, action ->
                 SableActionButton(
                     text = action.label,
-                    modifier = if (index == 0) Modifier.fillMaxWidth().focusRequester(first) else Modifier.fillMaxWidth(),
+                    modifier =
+                        if (index ==
+                            0
+                        ) {
+                            Modifier.fillMaxWidth().focusRequester(first)
+                        } else {
+                            Modifier.fillMaxWidth()
+                        },
                     primary = index == 0,
                     onClick = { onAction(action) },
                 )
@@ -2310,7 +2345,11 @@ private fun ColumnScope.ConversationView(
         // Privacy badge (MESSAGES_CONVERSATION_UX "contact/source/privacy header").
         Text(
             text = HubPrivacyBadge.text(conversation, privacy),
-            modifier = Modifier.semantics { contentDescription = "Privacy: " + HubPrivacyBadge.text(conversation, privacy) },
+            modifier =
+                Modifier.semantics {
+                    contentDescription =
+                        "Privacy: " + HubPrivacyBadge.text(conversation, privacy)
+                },
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -2529,7 +2568,8 @@ private fun ConversationMessages(
     // AUTO_ADVANCE: reading history (or searching) is never yanked away, except by the user's
     // own sent message.
     LaunchedEffect(newest?.id) {
-        if (newest != null && ((!historyMode && listState.firstVisibleItemIndex <= 1) || !newest.incoming)) {
+        val followingLatest = !historyMode && listState.firstVisibleItemIndex <= 1
+        if (newest != null && (followingLatest || !newest.incoming)) {
             listState.animateScrollToItem(0)
         }
     }

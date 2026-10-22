@@ -41,6 +41,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -48,7 +49,6 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -276,19 +276,30 @@ private class CalendarAppState {
     ): Boolean {
         if (pendingDelete != null || mode == CalendarMode.NewEvent || mode == CalendarMode.Edit) return false
         when (key) {
-            CalendarScreenKey.Create -> startNewEvent()
+            CalendarScreenKey.Create -> {
+                startNewEvent()
+            }
+
             CalendarScreenKey.Today -> {
                 status = null
                 selectedDate = LocalDate.now()
                 mode = CalendarMode.Agenda
             }
+
             CalendarScreenKey.View -> {
                 status = null
                 mode = CalendarMode.Agenda
                 view = view.next()
             }
-            CalendarScreenKey.Next -> step(forward = true)
-            CalendarScreenKey.Previous -> step(forward = false)
+
+            CalendarScreenKey.Next -> {
+                step(forward = true)
+            }
+
+            CalendarScreenKey.Previous -> {
+                step(forward = false)
+            }
+
             CalendarScreenKey.Refresh -> {
                 onRefresh()
                 status = "Refreshed."
@@ -479,15 +490,25 @@ private fun CalendarModeContent(
     onRequestPermissions: () -> Unit,
 ) {
     when (state.mode) {
-        CalendarMode.Agenda ->
+        CalendarMode.Agenda -> {
             when (state.view) {
                 CalendarView.Agenda -> AgendaPane(state)
                 CalendarView.Week -> WeekPane(state)
                 CalendarView.Month -> MonthPane(state)
             }
-        CalendarMode.NewEvent -> NewEventPane(state, repository, onRefresh, onRequestPermissions)
-        CalendarMode.Detail -> DetailPane(state)
-        CalendarMode.Edit -> EditPane(state, repository, onRefresh)
+        }
+
+        CalendarMode.NewEvent -> {
+            NewEventPane(state, repository, onRefresh, onRequestPermissions)
+        }
+
+        CalendarMode.Detail -> {
+            DetailPane(state)
+        }
+
+        CalendarMode.Edit -> {
+            EditPane(state, repository, onRefresh)
+        }
     }
 }
 
@@ -1341,14 +1362,17 @@ private fun AgendaDetailPreview(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             when {
-                event == null ->
+                event == null -> {
                     Text(
                         text = "No event selected. J/K move through the day.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
 
-                detail == null || detail.id != event.id -> LoadingLine()
+                detail == null || detail.id != event.id -> {
+                    LoadingLine()
+                }
 
                 else -> {
                     Text(text = detail.title, style = MaterialTheme.typography.titleLarge)

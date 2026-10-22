@@ -187,8 +187,7 @@ object WeekLayout {
     }
 
     /** "Mon 28" for a column header. */
-    fun columnLabel(day: LocalDate): String =
-        abbreviation(day.dayOfWeek.name) + " " + day.dayOfMonth
+    fun columnLabel(day: LocalDate): String = abbreviation(day.dayOfWeek.name) + " " + day.dayOfMonth
 
     private const val ABBREVIATION_LENGTH = 3
 

@@ -268,9 +268,9 @@ class MainActivity : ComponentActivity() {
 
     /** Command's search text and/or Start's filter (ACTION_MAIN extras); null for a plain launch. */
     private fun launchQueryFrom(intent: Intent?): HubLaunchQuery? {
-        val launch = intent?.takeIf { it.action == Intent.ACTION_MAIN } ?: return null
-        val query = HubIntents.launchQuery(launch.getStringExtra(HubIntents.EXTRA_QUERY))
-        val filter = HubIntents.launchFilter(launch.getStringExtra(HubIntents.EXTRA_FILTER))
+        val launch = intent?.takeIf { it.action == Intent.ACTION_MAIN }
+        val query = launch?.let { HubIntents.launchQuery(it.getStringExtra(HubIntents.EXTRA_QUERY)) }
+        val filter = launch?.let { HubIntents.launchFilter(it.getStringExtra(HubIntents.EXTRA_FILTER)) }
         if (query == null && filter == null) return null
         launchQuerySequence += 1
         return HubLaunchQuery(query.orEmpty(), launchQuerySequence, filter)

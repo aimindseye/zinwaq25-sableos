@@ -33,21 +33,32 @@ object FileNames {
      */
     fun sanitize(displayName: String?): String {
         val cleaned = displayName.orEmpty()
-            .map { c -> if (c == '/' || c == '\\' || c == ':' || c.isISOControl()) '_' else c }
+            .map { c -> if (isUnsafe(c)) '_' else c }
             .joinToString("")
             .trim()
             .trimStart('.')
             .trim()
         return when {
             cleaned.isEmpty() -> FALLBACK
+
             cleaned.length <= MAX_LENGTH -> cleaned
+
             else -> {
                 val dot = cleaned.lastIndexOf('.')
-                val ext = if (dot > 0 && cleaned.length - dot <= MAX_EXTENSION) cleaned.substring(dot) else ""
+                val ext = if (dot > 0 &&
+                    cleaned.length - dot <= MAX_EXTENSION
+                ) {
+                    cleaned.substring(dot)
+                } else {
+                    ""
+                }
                 cleaned.take(MAX_LENGTH - ext.length) + ext
             }
         }
     }
+
+    /** Path separators, the drive/stream colon and control characters never reach a file name. */
+    private fun isUnsafe(c: Char): Boolean = c in UNSAFE || c.isISOControl()
 
     /** [name], or "base (2).ext", "base (3).ext"... when [taken] already has it. Never overwrites. */
     fun unique(name: String, taken: Set<String>): String {
@@ -61,6 +72,7 @@ object FileNames {
     }
 
     private const val MAX_EXTENSION = 10
+    private const val UNSAFE = "/\\:"
 }
 
 /** What a key does on the vault list. Letters are plain letters on the Q25 (no Ctrl, no Fn). */
@@ -110,12 +122,15 @@ object VaultKeys {
     /** Enter or Y confirms; Back, Esc or N cancels; anything else does nothing (no accidental confirm). */
     fun confirm(key: Key): ConfirmAction? = when (key) {
         Key.Enter -> ConfirmAction.Confirm
+
         Key.Back -> ConfirmAction.Cancel
+
         is Key.Letter -> when (key.c.lowercaseChar()) {
             'y' -> ConfirmAction.Confirm
             'n' -> ConfirmAction.Cancel
             else -> null
         }
+
         else -> null
     }
 
@@ -173,7 +188,11 @@ data class Confirmation(val kind: Kind, val title: String, val detail: String) {
 data class ImportOutcome(val imported: List<String>, val failed: List<String>) {
     fun message(): String = buildString {
         append("Imported ${imported.size} file(s) as copies.")
-        if (failed.isNotEmpty()) append(" Could not import: ").append(failed.joinToString(", ")).append('.')
+        if (failed.isNotEmpty()) {
+            append(
+                " Could not import: "
+            ).append(failed.joinToString(", ")).append('.')
+        }
     }
 }
 
@@ -181,10 +200,12 @@ object VaultText {
     const val TITLE = "Secure Vault"
     const val SUBTITLE = "Private Space · Photos · Documents · Recordings · import/export explicit"
     const val NOT_PRIVATE =
-        "Secure Vault works only inside Private Space. Unlock Private Space in Sable Start (All apps) " +
+        "Secure Vault works only inside Private Space. " +
+            "Unlock Private Space in Sable Start (All apps) " +
             "and open Secure Vault there. Nothing is stored outside it."
     const val EMPTY = "Nothing here yet. Press I to import a copy of a file."
-    const val LOCK_FALLBACK = "Could not lock Private Space from here; lock it from Sable Start. The vault closed."
+    const val LOCK_FALLBACK =
+        "Could not lock Private Space from here; lock it from Sable Start. The vault closed."
 
     fun size(bytes: Long): String = when {
         bytes < KIB -> "$bytes B"

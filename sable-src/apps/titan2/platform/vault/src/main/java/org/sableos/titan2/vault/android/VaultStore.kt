@@ -21,11 +21,10 @@ class VaultStore(private val context: Context) {
 
     fun dir(section: Section): File = File(root, section.id).apply { mkdirs() }
 
-    fun list(section: Section): List<VaultItem> =
-        dir(section).listFiles().orEmpty()
-            .filter { it.isFile }
-            .sortedByDescending { it.lastModified() }
-            .map { VaultItem(it.name, it.length(), it.lastModified()) }
+    fun list(section: Section): List<VaultItem> = dir(section).listFiles().orEmpty()
+        .filter { it.isFile }
+        .sortedByDescending { it.lastModified() }
+        .map { VaultItem(it.name, it.length(), it.lastModified()) }
 
     /** The stored file for [name], only when it is a direct child of the section folder. */
     fun file(section: Section, name: String): File? {
@@ -46,9 +45,11 @@ class VaultStore(private val context: Context) {
                 copyIn(uri, target)
                 imported += name
             } catch (e: IOException) {
-                failed += (display ?: name) + " (" + (e.message ?: "read error") + discard(target) + ")"
+                failed +=
+                    (display ?: name) + " (" + (e.message ?: "read error") + discard(target) + ")"
             } catch (e: IllegalStateException) {
-                failed += (display ?: name) + " (" + (e.message ?: "unreadable") + discard(target) + ")"
+                failed +=
+                    (display ?: name) + " (" + (e.message ?: "unreadable") + discard(target) + ")"
             } catch (_: SecurityException) {
                 failed += (display ?: name) + " (no access" + discard(target) + ")"
             }
@@ -68,7 +69,8 @@ class VaultStore(private val context: Context) {
     /** Writes a copy of [name] to [target], a document the user just created in the system picker. */
     fun export(section: Section, name: String, target: Uri): Boolean = runCatching {
         val src = checkNotNull(file(section, name)) { "missing" }
-        val out = checkNotNull(context.contentResolver.openOutputStream(target, "wt")) { "no stream" }
+        val out =
+            checkNotNull(context.contentResolver.openOutputStream(target, "wt")) { "no stream" }
         out.use { o -> src.inputStream().use { it.copyTo(o) } }
         true
     }.getOrDefault(false)
@@ -77,11 +79,19 @@ class VaultStore(private val context: Context) {
 
     /** Deletes picked originals the provider allows deleting; returns how many were removed. */
     fun deleteOriginals(uris: List<Uri>): Int = uris.count { uri ->
-        runCatching { DocumentsContract.deleteDocument(context.contentResolver, uri) }.getOrDefault(false)
+        runCatching {
+            DocumentsContract.deleteDocument(context.contentResolver, uri)
+        }.getOrDefault(false)
     }
 
     private fun displayName(uri: Uri): String? = runCatching {
-        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+        context.contentResolver.query(
+            uri,
+            arrayOf(OpenableColumns.DISPLAY_NAME),
+            null,
+            null,
+            null
+        )?.use { c ->
             if (c.moveToFirst()) c.getString(0) else null
         }
     }.getOrNull()
