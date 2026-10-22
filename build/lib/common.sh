@@ -83,3 +83,27 @@ sable_utc_stamp() {
     date -u +%Y%m%dT%H%M%SZ
     return
 }
+
+# The Sable lock screen (frameworks/base 0304-0307: type-ahead, PIN keys, the
+# locked glance, the bouncer cues) is written for the legacy keyguard. With
+# com.android.systemui.scene_container enabled SystemUI uses the scene
+# container keyguard instead and those changes silently disappear (only the
+# Alt+Space emergency shortcut works on both). Reads `aconfig dump` output
+# ("name=ENABLED|DISABLED" or "name=true|false", one flag per line) on stdin
+# and fails when the flag is enabled or missing.
+sable_check_scene_container_off() {
+    local line state
+    line="$(grep -E '^com\.android\.systemui\.scene_container[=: ]' || true)"
+    [[ -n "$line" ]] || {
+        sable_log "scene_container flag not found in the aconfig dump"
+        return 1
+    }
+    state="${line#*[=: ]}"
+    case "$state" in
+        *ENABLED* | *true*)
+            sable_log "com.android.systemui.scene_container is enabled: the Sable lock screen needs the legacy keyguard"
+            return 1
+            ;;
+    esac
+    return 0
+}
