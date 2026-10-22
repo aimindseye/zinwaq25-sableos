@@ -92,6 +92,8 @@
 | `framework/frameworks/base/0501-SableOS-notification-light-for-every-alerting-channe.patch` | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` + 0101-0305 | Notification LED (BlackBerry style): `NotificationRecord.calculateLights()` also gives a light to a channel whose app did not enable lights, when the device has the LED (`config_intrusiveNotificationLed`), the user has not set the channel's light (`USER_LOCKED_LIGHTS`) and importance is Default or higher. Color 0, so lineage-sdk supplies the default (`SableLedOverlay` red, 250/2750 ms). "Blink light" off in a channel still opts out; pre-channel apps unchanged. Four `NotificationRecordTest` cases (LED / no LED / user-locked / Low); `NotificationAttentionHelperTest` no-lights records lock the channel light. Touches no file of 0101-0305. Not built or run. |
 | `framework/lineage-sdk/0502-SableOS-default-notification-light-color-unless-the-.patch` | `c94553c624ef88c7de67b224d1daa7ed10ec7081` | Notification LED: `LineageNotificationLights` reads `NOTIFICATION_LIGHT_COLOR_AUTO` with default 0, so a notification without a color uses the default color (red) instead of one picked from the app icon. "Automagic", app colors and per-app colors still work. Not built. |
 | `framework/packages/apps/LineageParts/0503-SableOS-show-Automagic-notification-light-color-off-.patch` | `b2302d1542846a65403a8ccdb3fe98c5af985bf5` | Notification LED: Settings > Notifications > Notification light shows "Automagic" off by default (XML `defaultValue`, page summary, initial color of a new per-app entry), matching lineage-sdk 0502. Not built. |
+| `framework/lineage-sdk/0504-SableOS-battery-light-blinks-while-charging-solid-gr.patch` | `c94553c624ef88c7de67b224d1daa7ed10ec7081` + 0502 | Battery LED: charging below 100 % blinks the charging color (amber on the Q25) with the new `config_batteryChargingLedOn/Off` (1000/1000 ms; 0 keeps it solid); solid full color (green) only when plugged in and completely charged (status FULL, or level 100 while charging/not charging), not from 90 %; stays on while plugged in (`BATTERY_LIGHT_FULL_CHARGE_DISABLED` default 0). Low battery not charging still flashes. Pure `sable/SableBatteryLightPolicy` with a host test (`tests/framework/lineage-sdk`). Not built. |
+| `framework/packages/apps/LineageParts/0504-SableOS-keep-the-battery-light-on-when-fully-charged.patch` | `b2302d1542846a65403a8ccdb3fe98c5af985bf5` + 0503 | Battery LED: "Turn off when fully charged" off by default (XML, switch default, Reset to defaults), matching lineage-sdk 0504. Not built. |
 
 Patch ranges: 0001-0099 HOME/Recents, 0100-0199 KF-B (SystemUI styling and
 branding), 0200-0299 Battery, 0300-0399 KF-A (notification policy, attention,
@@ -111,10 +113,12 @@ synced tree with `git format-patch -1` and update the base above.
 
 `lineage-sdk` and `packages/apps/LineageParts` are not pinned in
 `manifests/local_manifests/sable_q25.xml` (they follow the LineageOS
-lineage-23.2 manifest); 0502 and 0503 were made on the lineage-23.2 heads of
+lineage-23.2 manifest); 0502-0504 were made on the lineage-23.2 heads of
 2026-10-15 (`c94553c624ef88c7de67b224d1daa7ed10ec7081`,
-`b2302d1542846a65403a8ccdb3fe98c5af985bf5`). Each changes a one-line default,
-so `apply-framework-patches.sh check` should keep passing on later heads.
+`b2302d1542846a65403a8ccdb3fe98c5af985bf5`). 0502, 0503 and LineageParts 0504 each
+change a one-line default; lineage-sdk 0504 touches only `LineageBatteryLights`, two
+resources and a new class, so `apply-framework-patches.sh check` should keep passing on
+later heads.
 
 The optional 50 MP camera kernel patch is not here: it lives with the rest of
 that option in `product/q25/camera-50mp/` and is applied by

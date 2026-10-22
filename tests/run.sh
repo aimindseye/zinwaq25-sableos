@@ -316,7 +316,20 @@ if [[ -f "${led_parts[0]}" ]]; then
     grep -qF '+            android:defaultValue="false" />' "${led_parts[0]}" || led_missing="$led_missing parts:xml-default"
     [[ "$(grep -cF 'NOTIFICATION_LIGHT_COLOR_AUTO, 0) == 1' "${led_parts[0]}")" == 2 ]] || led_missing="$led_missing parts:java-default"
 fi
-if [[ -z "$led_missing" ]]; then pass "notification LED: red default, lit alerting channels (frameworks/base 0501, lineage-sdk 0502, LineageParts 0503)"; else fail "notification LED:$led_missing"; fi
+# Battery light: blinking amber while charging, solid green only at 100 % and kept on.
+led_sdk2=(patches/framework/lineage-sdk/0504-*.patch)
+led_parts2=(patches/framework/packages/apps/LineageParts/0504-*.patch)
+if [[ -f "${led_sdk2[0]}" ]]; then
+    grep -qF '+        return level >= FULL_LEVEL' "${led_sdk2[0]}" || led_missing="$led_missing sdk:full-at-100"
+    grep -qF -- '-            if (isCharged || level >= 90) {' "${led_sdk2[0]}" || led_missing="$led_missing sdk:no-90"
+    grep -qF '+                    0, UserHandle.USER_CURRENT) != 0;' "${led_sdk2[0]}" || led_missing="$led_missing sdk:full-stays-on"
+    grep -qF '+    <integer name="config_batteryChargingLedOn">1000</integer>' "${led_sdk2[0]}" || led_missing="$led_missing sdk:charging-blink"
+else led_missing="$led_missing file:lineage-sdk/0504"; fi
+if [[ -f "${led_parts2[0]}" ]]; then
+    grep -qF '+    private static final boolean DEFAULT_LIGHT_FULL_CHARGE_DISABLED_PREF = false;' "${led_parts2[0]}" || led_missing="$led_missing parts:full-default"
+else led_missing="$led_missing file:LineageParts/0504"; fi
+grep -q 'name="config_notificationsBatteryFullARGB">0xFF00FF00<' "$led_ov" || led_missing="$led_missing overlay:full-green"
+if [[ -z "$led_missing" ]]; then pass "notification LED: red default, lit alerting channels, blinking charge light and green only at 100 % (frameworks/base 0501, lineage-sdk 0502/0504, LineageParts 0503/0504)"; else fail "notification LED:$led_missing"; fi
 
 tools_link=sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
 missing=""

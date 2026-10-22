@@ -1,0 +1,287 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 21 Oct 2026 23:07:48 +0000
+Subject: [PATCH] SableOS: battery light blinks while charging, solid green
+ only at 100 %
+
+BlackBerry-style battery light. While charging below 100 % the charging
+color (medium, or low when the level is low) blinks with the new
+config_batteryChargingLedOn/Off pattern (1000/1000 ms) on devices whose
+lights blink; 0 for either keeps it solid as before. The full color is
+shown only when the battery is completely charged (status FULL, or level
+100 while charging or not charging, so a charger is attached), not from
+90 % any more, and it stays on while plugged in:
+BATTERY_LIGHT_FULL_CHARGE_DISABLED now defaults to 0. Low battery while
+not charging still flashes with the BatteryService pulse when "Pulse"
+is on. Unplugged, the light is off.
+
+The decision is a pure class, sable/SableBatteryLightPolicy, so it is
+unit tested off-device; LineageBatteryLights maps it to colors and
+times.
+---
+ lineage/res/res/values/config.xml             |  7 ++
+ lineage/res/res/values/symbols.xml            |  2 +
+ .../notification/LineageBatteryLights.java    | 71 ++++++++++++------
+ .../sable/SableBatteryLightPolicy.java        | 75 +++++++++++++++++++
+ 4 files changed, 132 insertions(+), 23 deletions(-)
+ create mode 100644 sdk/src/java/org/lineageos/internal/notification/sable/SableBatteryLightPolicy.java
+
+diff --git a/lineage/res/res/values/config.xml b/lineage/res/res/values/config.xml
+index e729073..009c062 100644
+--- a/lineage/res/res/values/config.xml
++++ b/lineage/res/res/values/config.xml
+@@ -97,6 +97,13 @@
+          pulsating and RGB control would set this config to 75. -->
+     <integer name="config_deviceLightCapabilities">8</integer>
+ 
++    <!-- Battery light blink pattern while charging below 100 %, in milliseconds, on
++         devices whose lights blink (LIGHTS_PULSATING_LED or LIGHTS_BREATHING_LED).
++         0 for either keeps the charging light solid. The full color is shown solid
++         only at 100 %. -->
++    <integer name="config_batteryChargingLedOn">1000</integer>
++    <integer name="config_batteryChargingLedOff">1000</integer>
++
+     <!-- Defines external services to be started by the LineageSystemServer at boot. The service itself
+          should publish as a binder services in its onStart -->
+     <string-array name="config_externalLineageServices">
+diff --git a/lineage/res/res/values/symbols.xml b/lineage/res/res/values/symbols.xml
+index 289d9b6..92e0b8e 100644
+--- a/lineage/res/res/values/symbols.xml
++++ b/lineage/res/res/values/symbols.xml
+@@ -68,6 +68,8 @@
+ 
+     <!-- On-device lights (LED) capabilities -->
+     <java-symbol type="integer" name="config_deviceLightCapabilities" />
++    <java-symbol type="integer" name="config_batteryChargingLedOn" />
++    <java-symbol type="integer" name="config_batteryChargingLedOff" />
+ 
+     <!-- External Lineage specific core services -->
+     <java-symbol type="array" name="config_externalLineageServices" />
+diff --git a/sdk/src/java/org/lineageos/internal/notification/LineageBatteryLights.java b/sdk/src/java/org/lineageos/internal/notification/LineageBatteryLights.java
+index 5118b3a..6f43527 100644
+--- a/sdk/src/java/org/lineageos/internal/notification/LineageBatteryLights.java
++++ b/sdk/src/java/org/lineageos/internal/notification/LineageBatteryLights.java
+@@ -13,7 +13,6 @@ import android.content.Intent;
+ import android.content.IntentFilter;
+ import android.content.res.Resources;
+ import android.database.ContentObserver;
+-import android.os.BatteryManager;
+ import android.os.Handler;
+ import android.os.Looper;
+ import android.os.UserHandle;
+@@ -22,6 +21,8 @@ import android.util.Slog;
+ 
+ import lineageos.providers.LineageSettings;
+ 
++import org.lineageos.internal.notification.sable.SableBatteryLightPolicy;
++
+ public final class LineageBatteryLights {
+     private final String TAG = "LineageBatteryLights";
+     private final boolean DEBUG = false;
+@@ -35,6 +36,9 @@ public final class LineageBatteryLights {
+     // (via HAL or via modifying RGB values).
+     private final boolean mCanAdjustBrightness;
+     private final boolean mUseSegmentedBatteryLed;
++    // Blink pattern while charging (below full); 0 for either means solid.
++    private final int mChargingLedOnMs;
++    private final int mChargingLedOffMs;
+ 
+     // Battery light intended operational state.
+     private boolean mLightEnabled = false; // Disable until observer is started
+@@ -80,6 +84,18 @@ public final class LineageBatteryLights {
+         mUseSegmentedBatteryLed = LightsCapabilities.supports(
+                 mContext, LightsCapabilities.LIGHTS_SEGMENTED_BATTERY_LED);
+ 
++        // Charging blinks (BlackBerry style) when the light can blink; the battery is
++        // "done" only at 100 %, shown solid in the full color.
++        final Resources res = mContext.getResources();
++        final int chargingOnMs = res.getInteger(
++                org.lineageos.platform.internal.R.integer.config_batteryChargingLedOn);
++        final int chargingOffMs = res.getInteger(
++                org.lineageos.platform.internal.R.integer.config_batteryChargingLedOff);
++        final boolean blinks = SableBatteryLightPolicy.chargingBlinks(
++                LightsCapabilities.blinks(mContext), chargingOnMs, chargingOffMs);
++        mChargingLedOnMs = blinks ? chargingOnMs : 0;
++        mChargingLedOffMs = blinks ? chargingOffMs : 0;
++
+         // Watch for zen mode changes
+         mNotificationManager = mContext.getSystemService(NotificationManager.class);
+         IntentFilter filter = new IntentFilter(
+@@ -119,9 +135,8 @@ public final class LineageBatteryLights {
+             );
+         }
+ 
+-        final boolean isChargingOrFull = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+-                status == BatteryManager.BATTERY_STATUS_FULL;
+-        final boolean isCharged = status == BatteryManager.BATTERY_STATUS_FULL || level >= 100;
++        final SableBatteryLightPolicy.Light light = SableBatteryLightPolicy.decide(level,
++                status, low, mLightEnabled, mLightFullChargeDisabled, mLedPulseEnabled);
+ 
+         // The only meaningful ledValues values received by frameworks BatteryService
+         // are the pulse times (for low battery). Explicitly set enabled state and
+@@ -129,7 +144,7 @@ public final class LineageBatteryLights {
+         ledValues.setEnabled(false);
+         ledValues.setColor(0);
+ 
+-        if (!mLightEnabled || (mLightFullChargeDisabled && isCharged)) {
++        if (light == SableBatteryLightPolicy.Light.OFF) {
+             return;
+         }
+ 
+@@ -146,26 +161,27 @@ public final class LineageBatteryLights {
+         }
+         ledValues.setBrightness(brightness);
+ 
+-        if (low) {
+-            if (status == BatteryManager.BATTERY_STATUS_CHARGING) {
+-                // Battery is charging and low.
+-                ledValues.setColor(mBatteryLowARGB);
++        switch (light) {
++            case FULL:
++                // Completely charged and still plugged in: solid full color.
++                ledValues.setColor(mBatteryFullARGB);
+                 ledValues.setSolid();
+-            } else if (mLedPulseEnabled) {
++                break;
++            case CHARGING:
++                ledValues.setColor(mBatteryMediumARGB);
++                setChargingPattern(ledValues);
++                break;
++            case LOW_CHARGING:
++                ledValues.setColor(mBatteryLowARGB);
++                setChargingPattern(ledValues);
++                break;
++            case LOW_FLASH:
+                 // Battery is low, not charging and pulse is enabled
+                 // (pulsing values are set by frameworks BatteryService).
+                 ledValues.setColor(mBatteryLowARGB);
+-            }
+-        } else if (isChargingOrFull) {
+-            if (isCharged || level >= 90) {
+-                // Battery is full or charging and nearly full.
+-                ledValues.setColor(mBatteryFullARGB);
+-                ledValues.setSolid();
+-            } else {
+-                // Battery is charging and not nearly full.
+-                ledValues.setColor(mBatteryMediumARGB);
+-                ledValues.setSolid();
+-            }
++                break;
++            default:
++                break;
+         }
+ 
+         // If a color was set, enable light.
+@@ -197,6 +213,14 @@ public final class LineageBatteryLights {
+         }
+     }
+ 
++    private void setChargingPattern(LedValues ledValues) {
++        if (mChargingLedOnMs > 0) {
++            ledValues.setPulsed(mChargingLedOnMs, mChargingLedOffMs);
++        } else {
++            ledValues.setSolid();
++        }
++    }
++
+     class SettingsObserver extends ContentObserver {
+         SettingsObserver(Handler handler) {
+             super(handler);
+@@ -261,10 +285,11 @@ public final class LineageBatteryLights {
+                     LineageSettings.System.BATTERY_LIGHT_ENABLED,
+                     1, UserHandle.USER_CURRENT) != 0;
+ 
+-            // Battery light disabled if fully charged
++            // Battery light disabled if fully charged (default off: solid full color
++            // while plugged in at 100 %)
+             mLightFullChargeDisabled = LineageSettings.System.getIntForUser(resolver,
+                     LineageSettings.System.BATTERY_LIGHT_FULL_CHARGE_DISABLED,
+-                    1, UserHandle.USER_CURRENT) != 0;
++                    0, UserHandle.USER_CURRENT) != 0;
+ 
+             // Low battery pulse
+             mLedPulseEnabled = LineageSettings.System.getIntForUser(resolver,
+diff --git a/sdk/src/java/org/lineageos/internal/notification/sable/SableBatteryLightPolicy.java b/sdk/src/java/org/lineageos/internal/notification/sable/SableBatteryLightPolicy.java
+new file mode 100644
+index 0000000..6f1f487
+--- /dev/null
++++ b/sdk/src/java/org/lineageos/internal/notification/sable/SableBatteryLightPolicy.java
+@@ -0,0 +1,75 @@
++/*
++ * SPDX-FileCopyrightText: The SableOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++package org.lineageos.internal.notification.sable;
++
++/**
++ * BlackBerry-style battery light decision, without Android dependencies so it can be unit
++ * tested off-device. {@code LineageBatteryLights} maps the result to a color and pattern.
++ *
++ * <ul>
++ *   <li>Plugged in and completely charged (status FULL, or level 100 while charging or not
++ *       charging): the full color, solid, unless "Turn off when fully charged" is on.
++ *   <li>Charging below that: the charging color (the low color when the level is low),
++ *       blinking where the light can blink, otherwise solid.
++ *   <li>Not charging and low: the low color, flashed by BatteryService when pulse is on.
++ *   <li>Anything else, or the battery light switched off: off.
++ * </ul>
++ */
++public final class SableBatteryLightPolicy {
++    // android.os.BatteryManager.BATTERY_STATUS_* values.
++    public static final int STATUS_UNKNOWN = 1;
++    public static final int STATUS_CHARGING = 2;
++    public static final int STATUS_DISCHARGING = 3;
++    public static final int STATUS_NOT_CHARGING = 4;
++    public static final int STATUS_FULL = 5;
++
++    public static final int FULL_LEVEL = 100;
++
++    public enum Light {
++        OFF,
++        /** Low color, pulse times from BatteryService (125/2875 ms by default). */
++        LOW_FLASH,
++        /** Low color, charging pattern. */
++        LOW_CHARGING,
++        /** Charging (medium) color, charging pattern. */
++        CHARGING,
++        /** Full color, solid. */
++        FULL,
++    }
++
++    private SableBatteryLightPolicy() {}
++
++    /** True when a charger is attached and the battery is completely charged. */
++    public static boolean isPluggedAndFull(int level, int status) {
++        if (status == STATUS_FULL) {
++            return true;
++        }
++        return level >= FULL_LEVEL
++                && (status == STATUS_CHARGING || status == STATUS_NOT_CHARGING);
++    }
++
++    public static Light decide(int level, int status, boolean low, boolean lightEnabled,
++            boolean fullChargeDisabled, boolean lowPulseEnabled) {
++        if (!lightEnabled) {
++            return Light.OFF;
++        }
++        if (isPluggedAndFull(level, status)) {
++            return fullChargeDisabled ? Light.OFF : Light.FULL;
++        }
++        if (status == STATUS_CHARGING) {
++            return low ? Light.LOW_CHARGING : Light.CHARGING;
++        }
++        if (low && lowPulseEnabled) {
++            return Light.LOW_FLASH;
++        }
++        return Light.OFF;
++    }
++
++    /** True when the charging pattern blinks (both times positive). */
++    public static boolean chargingBlinks(boolean canBlink, int onMs, int offMs) {
++        return canBlink && onMs > 0 && offMs > 0;
++    }
++}
+-- 
+2.43.0
+
