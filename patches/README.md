@@ -28,8 +28,17 @@
   the user's ordered Home apps with a filled focus bar, tiles as an optional touch mode, base bar Phone ·
   Hub · Command · Apps), Hub right (All / Messages / Calls tabs); one Edit Home mode (Menu, long press,
   `EDIT_HOME` / `EDIT_QUICK_BAR`) reorders apps, bar and widgets by drag, Enter pick-up or Alt+arrows;
-  Hub slot options and Space peek, digits on the Phone slot dial.
-  Applied in order to a
+  Hub slot options and Space peek, digits on the Phone slot dial; 0022 Sable Start in the BlackBerry 10
+  layout (owner request): Hub | Active Frames | app grid pages with BB10 page dots and a Phone · Search ·
+  Camera bar (Alt+1..3, Search required); Active Frames show up to eight recent tasks as live cards
+  (snapshot or summary; Enter resumes, X/Backspace closes; REAL_GET_TASKS, REORDER_TASKS, REMOVE_TASKS,
+  START_TASKS_FROM_RECENTS, READ_FRAME_BUFFER, hidden calls by reflection, fail-soft) under the status
+  dials and Settings gear (on by default) and the weather with the date (no clock, no greeting), or the
+  Glance widgets while none run; a four-column boxed icon grid in the user's order (Edit Home reorders it
+  with all four arrows); All Apps privacy filter chips, base-bar slot picker, Alt+Enter = actions;
+  Command Best match, permission matches group, per-result actions, group chips on Left/Right, locked
+  Private Space state, `/private` `/dual` `/work`; clone-profile apps badged "Dual", Shift+Enter opens the
+  other instance. Applied in order to a
   fresh import they reproduce `sable-src/` exactly. Regenerate a patch with `git diff` against a
   fresh import when you change these files.
 
