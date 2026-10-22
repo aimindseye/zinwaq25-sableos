@@ -16,6 +16,10 @@ android_app_import {
     // Privileged for the location provider and push wake-ups; the allowlist
     // is privapp-permissions-sable-microg.xml.
     privileged: true,
+    // microG ships its dex compressed. Soong's presigned check requires a
+    // privileged APK's dex stored uncompressed, and rewriting the APK would
+    // break the release signature, so the check is skipped for this one APK.
+    skip_preprocessed_apk_checks: true,
     // The library lists follow lineageos4microg's vendor/partner_gms. The
     // check against the APK's manifest is off: dexpreopt is off, so no class
     // loader context is built from them, and a new microG release may add an
