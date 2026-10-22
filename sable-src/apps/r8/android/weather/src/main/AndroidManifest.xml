@@ -27,6 +27,9 @@
             </intent-filter>
         </activity>
 
+        <!-- query(): Start/Live snapshot, org.sableos.launcher only. call(): Sable Setup's city
+             hand-off (search the catalog, set the active city), org.sableos.titan2.setup only.
+             Both entry points check the calling uid in code. -->
         <provider
             android:name=".WeatherSnapshotProvider"
             android:authorities="org.sableos.weather.snapshot"

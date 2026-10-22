@@ -3,7 +3,8 @@ package org.sableos.titan2.setup.core
 object SetupModel {
     const val TITLE = "Sable setup"
     const val SELF_DESCRIPTION =
-        "Post-provisioning readiness helper. Not the Android Setup Wizard; it changes no settings."
+        "Post-provisioning readiness helper. Not the Android Setup Wizard; " +
+            "it changes no system settings."
     const val FOOTNOTE =
         "Observation only. HOME (IR-003), keyboard default (IR-005) and " +
             "profile identity (IR-001) " +

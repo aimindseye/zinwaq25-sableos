@@ -190,9 +190,13 @@ Other files:
 ## Notification LED (Q25, BlackBerry style)
 
 The Q25 status LED (red, green and blue GPIO LEDs, on/off only; the device overlay sets
-`config_intrusiveNotificationLed`) behaves like a BlackBerry's:
+`config_intrusiveNotificationLed`) behaves like a BlackBerry's, within what the hardware can
+show. Measured on the phone (2026-10-22): the "red" and "green" GPIOs both light green and
+only blue lights blue, so red and amber are impossible; and while charging, board hardware
+blinks the LED green on its own (the UPM6922 STAT pin and the MT6366 current sinks were both
+off and it still blinked), so Android cannot stop or recolour that blink.
 
-- **New notification, screen off:** a short red flash (250 ms) every 3 s (2750 ms off) for
+- **New notification, screen off:** a short blue flash (250 ms) every 3 s (2750 ms off) for
   every channel at Default importance or higher. The light stops while the screen is on
   (Settings > Notifications > Notification light > "Screen on" stays off) and is turned off
   when the user unlocks. Until the shade is opened or the notification is dismissed, it is
@@ -201,12 +205,12 @@ The Q25 status LED (red, green and blue GPIO LEDs, on/off only; the device overl
   it off locks the field (`USER_LOCKED_LIGHTS`) and that channel never lights. Settings >
   Notifications > Notification light turns the LED off for everything and still offers
   per-app colors and "Automagic" (icon colors), now off by default.
-- **Colors:** a channel that names no color gets the default red; an app that sets its own
+- **Colors:** a channel that names no color gets the default blue; an app that sets its own
   channel color, or a per-app color in Notification light, still wins.
-- **Battery (no notification lit):** amber (yellow) blinking while charging (1 s on, 1 s off),
-  solid green only when the battery is completely charged (100 % or the charger reports full)
-  and stays green while the phone is plugged in; off when unplugged; low battery not charging
-  flashes amber (red is kept for notifications). A lit notification shows over the battery
+- **Battery (no notification lit):** while charging Android's light is off and only the
+  hardware green blink shows; solid green only when the battery is completely charged (100 %
+  or the charger reports full) and stays green while the phone is plugged in; off when
+  unplugged; low battery not charging flashes blue. A lit notification shows over the battery
   color. Settings > Notifications > Battery light > "Turn off when fully charged" (now off by
   default) turns the green light off.
 
@@ -214,7 +218,7 @@ Where it comes from:
 
 | Piece | Change |
 | --- | --- |
-| `product/common/overlay/SableLedOverlay` | Default color `#ffff0000`, 250/2750 ms, low battery amber. |
+| `product/common/overlay/SableLedOverlay` | Default color `#ff0000ff` (blue), 250/2750 ms, low battery blue, charging off (black), full green. |
 | frameworks/base 0501 | `NotificationRecord.calculateLights()` also lights a channel whose app did not enable lights, when the device has the LED, the user has not set the channel's light and importance is Default or higher; color 0 so lineage-sdk picks the default. Pre-channel apps keep `FLAG_SHOW_LIGHTS`. |
 | lineage-sdk 0502 | `NOTIFICATION_LIGHT_COLOR_AUTO` defaults to 0, so the default color is used instead of an icon color. |
 | LineageParts 0503 | The Automagic switch, the page summary and new per-app entries read the same default (off). |

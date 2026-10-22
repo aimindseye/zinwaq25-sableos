@@ -359,7 +359,9 @@ grep -q 'COMPACT_STRIP_PROP = "ro.sable.keyboard.compact_strip"' sable-src/apps/
 grep -q 'ro.config.wallpaper=/product/media/wallpaper/sable_default_wallpaper.png' scripts/stage-product.sh || q4_bad="$q4_bad wallpaper-prop"
 python3 -I -c 'import struct,sys; d=open(sys.argv[1],"rb").read(24); sys.exit(0 if d[:8]==b"\x89PNG\r\n\x1a\n" and struct.unpack(">II",d[16:24])==(720,720) else 1)' product/q25/wallpaper/sable_default_wallpaper.png || q4_bad="$q4_bad wallpaper-png"
 grep -qF '+            SableActiveFrames.open(touchInteractionService)' patches/framework/packages/apps/Launcher3/0003-*.patch || q4_bad="$q4_bad recents-frames"
-for g in DENSITY GAMES KEYBOARD-STRIP WALLPAPER APPS WEATHER DISPLAYCOMPAT RECENTS; do grep -q "^| Q4-REVIEW-$g |" docs/QUALIFICATION.md || q4_bad="$q4_bad gate:$g"; done
+grep -q 'METHOD_SELECT = "setup_select_city"' sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherSetupAccess.kt || q4_bad="$q4_bad weather-setup-call"
+grep -q 'android:authorities="org.sableos.weather.snapshot"' sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml || q4_bad="$q4_bad setup-queries"
+for g in DENSITY GAMES KEYBOARD-STRIP WALLPAPER APPS WEATHER WEATHER-CITY DISPLAYCOMPAT RECENTS; do grep -q "^| Q4-REVIEW-$g |" docs/QUALIFICATION.md || q4_bad="$q4_bad gate:$g"; done
 if [[ -z "$q4_bad" ]]; then pass "Q4 review fixes (overrides, AudioFX, weather, display compat, games, keyboard strip, wallpaper)"; else fail "Q4 review fixes:$q4_bad"; fi
 
 # 6b2. Optional 50 MP camera: the patcher on a synthetic vendor tree, and off by default.
@@ -525,7 +527,7 @@ if [[ -z "$kbd_missing" ]]; then pass "keyboard backlight names agree (init, dri
 # in that default color unless the user turned the channel's light off.
 led_missing=""
 led_ov=product/common/overlay/SableLedOverlay/res/values/config.xml
-grep -q 'name="config_defaultNotificationColor">#ffff0000<' "$led_ov" || led_missing="$led_missing overlay:color"
+grep -q 'name="config_defaultNotificationColor">#ff0000ff<' "$led_ov" || led_missing="$led_missing overlay:color"
 grep -q 'name="config_defaultNotificationLedOn">250<' "$led_ov" || led_missing="$led_missing overlay:on"
 grep -q 'name="config_defaultNotificationLedOff">2750<' "$led_ov" || led_missing="$led_missing overlay:off"
 led_fwb=(patches/framework/frameworks/base/0501-*.patch)
