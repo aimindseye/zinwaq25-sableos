@@ -37,7 +37,7 @@ can't reach the value.
 | QS tile shapes (pill and morph replaced by 12dp/8dp) | frameworks/base patch 0102 (constants are hard-coded in Compose) |
 | System accent equals Sable accent | RRO `SableFrameworkOverlay` (`theming_defaults`, first boot) + Settings patch 0101 (accent choice seeds the system palette) |
 | One light/dark source | Settings patch 0101: the Sable authority always reports `follow-system`; light and dark belong to Android's Dark theme |
-| Sable branding in Setup | RRO `SableSetupWizardOverlay` (welcome title in 49 locales, restore and recovery text, Sable logo) and SetupWizard patch 0408 (no LineageOS features step) |
+| Sable branding in Setup | RRO `SableSetupWizardOverlay` (welcome title in 49 locales, the "Zinwa Q25 first boot" line, restore and recovery text, Sable logo, navy card and cyan focus-ring colours for SetupWizard 0409, Welcome sizes for the square screen) and SetupWizard patch 0408 (no LineageOS features step) |
 | Sable branding in About | Settings patch 0102 (SableOS version row) |
 | Density | One value, `SABLE_LCD_DENSITY` in `product/q25/sable-q25.mk` |
 

@@ -7,4 +7,5 @@
     <string name="update_recovery_title">Update recovery</string>
     <string name="update_recovery_description">Updates the recovery on the first boot after every system update.</string>
     <string name="update_recovery_setting">Update recovery alongside the system</string>
+    <string name="sable_welcome_device">Zinwa Q25 first boot</string>
 </resources>

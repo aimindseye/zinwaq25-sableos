@@ -1,0 +1,424 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 21 Oct 2026 13:04:27 +0000
+Subject: [PATCH] SableOS: keyboard check on Welcome, keyboard steps only when
+ needed
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Setup design (sable-setup-wizard-titan2, "Welcome + keyboard
+verification"): Welcome names the phone and checks the physical
+keyboard before Language, so Wi-Fi is step 3 of 8.
+
+Welcome now shows, under "Welcome to SableOS": the device line
+(sable_welcome_device, "First boot" here; SableSetupWizardOverlay says
+"Zinwa Q25 first boot"), a card "Check physical keyboard · Type A 7 @
+then press Enter" with one field, a Software keyboard link (physical
+keyboard settings with Use on-screen keyboard, else input methods;
+shown only when the screen exists) beside Accessibility, and the line
+"Tab/arrows focus · Enter select · Back previous". Emergency and Start
+are unchanged in the button bar.
+
+The field takes focus when Welcome opens, so the first key types into
+it. Start, and Enter in the field (0401's last-field rule), check it
+with the pure sable/SableQuickCheck: "A 7 @" (spaces ignored, either
+case) says "Keyboard works." and continues; an empty field continues;
+anything else says it did not match (7 is Alt+Z) and stays, with the
+field cleared. Nothing typed is kept; the field is not saved,
+autofilled, suggested or learned.
+
+The keyboard steps stay in the owner script but only show when needed:
+the readiness step (0402) only when there is something to fix
+(SableKeyboardState.showStep: not when Sable Keyboard is selected or
+not in the build), and the full keyboard test (0404) only when the
+Welcome check did not pass, as the recovery path with its on-screen
+keyboard and Accessibility links. Both still count as step 2.
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01UvjoefgeNVBxmkGXzTTNYS
+---
+ res/layout/welcome_activity.xml               | 78 ++++++++++++++++++-
+ res/values/sable_strings.xml                  | 11 +++
+ .../setupwizard/SableKeyboardActivity.java    |  6 ++
+ .../SableKeyboardTestActivity.java            | 12 ++-
+ .../setupwizard/WelcomeActivity.java          | 60 +++++++++++++-
+ .../setupwizard/sable/SableKeyboardState.java | 10 +++
+ .../setupwizard/sable/SableQuickCheck.java    | 53 +++++++++++++
+ 7 files changed, 226 insertions(+), 4 deletions(-)
+ create mode 100644 src/org/lineageos/setupwizard/sable/SableQuickCheck.java
+
+diff --git a/res/layout/welcome_activity.xml b/res/layout/welcome_activity.xml
+index b5b3ef0..4e31347 100644
+--- a/res/layout/welcome_activity.xml
++++ b/res/layout/welcome_activity.xml
+@@ -57,13 +57,74 @@
+                 android:paddingEnd="@dimen/welcome_content_container_padding_end"
+                 android:paddingBottom="@dimen/welcome_content_container_padding_bottom">
+ 
++                <!-- SableOS: "Step 1 of 8" (BaseSetupWizardActivity). -->
++                <TextView
++                    android:id="@+id/sable_step"
++                    android:layout_width="fill_parent"
++                    android:layout_height="wrap_content"
++                    android:textAppearance="@style/SableSetupStep"
++                    android:visibility="gone" />
++
+                 <TextView
+                     style="@style/WelcomeTitle"
+                     android:id="@+id/welcome_title"
+                     android:layout_width="fill_parent"
+                     android:layout_height="wrap_content"
+-                    android:hyphenationFrequency="none"
+-                    android:paddingBottom="@dimen/welcome_content_container_padding_bottom" />
++                    android:hyphenationFrequency="none" />
++
++                <!-- SableOS: which phone this is ("Zinwa Q25 first boot" from SableSetupWizardOverlay). -->
++                <TextView
++                    android:id="@+id/sable_welcome_device"
++                    android:layout_width="fill_parent"
++                    android:layout_height="wrap_content"
++                    android:paddingBottom="8dp"
++                    android:text="@string/sable_welcome_device"
++                    android:textColor="?android:attr/textColorSecondary" />
++
++                <!-- SableOS keyboard check (setup design "Check physical keyboard"). Enter in
++                     the field is Start (0401), which checks what was typed. -->
++                <LinearLayout
++                    android:layout_width="fill_parent"
++                    android:layout_height="wrap_content"
++                    android:layout_marginBottom="8dp"
++                    android:background="@drawable/sable_setup_card"
++                    android:orientation="vertical"
++                    android:padding="@dimen/sable_setup_card_padding">
++
++                    <TextView
++                        android:layout_width="fill_parent"
++                        android:layout_height="wrap_content"
++                        android:accessibilityHeading="true"
++                        android:text="@string/sable_check_title"
++                        android:textAppearance="?android:attr/textAppearanceMedium"
++                        android:textColor="?android:attr/textColorPrimary" />
++
++                    <TextView
++                        android:layout_width="fill_parent"
++                        android:layout_height="wrap_content"
++                        android:text="@string/sable_check_prompt"
++                        android:textColor="?android:attr/textColorSecondary" />
++
++                    <!-- Typed text is never saved, autofilled, suggested or learned. -->
++                    <org.lineageos.setupwizard.widget.SableKeyTestField
++                        android:id="@+id/sable_check_field"
++                        android:layout_width="fill_parent"
++                        android:layout_height="wrap_content"
++                        android:minHeight="48dp"
++                        android:hint="@string/sable_check_hint"
++                        android:inputType="text|textNoSuggestions"
++                        android:imeOptions="actionDone|flagNoExtractUi|flagNoPersonalizedLearning"
++                        android:importantForAutofill="no"
++                        android:saveEnabled="false" />
++
++                    <TextView
++                        android:id="@+id/sable_check_status"
++                        android:layout_width="fill_parent"
++                        android:layout_height="wrap_content"
++                        android:accessibilityLiveRegion="polite"
++                        android:textColor="?android:attr/textColorPrimary"
++                        android:visibility="gone" />
++                </LinearLayout>
+ 
+                 <LinearLayout
+                     android:layout_width="fill_parent"
+@@ -85,6 +146,19 @@
+                         android:textSize="@dimen/welcome_accessibility_text_size"
+                         android:textColor="?android:textColorPrimary"
+                         android:text="@string/accessibility_settings" />
++
++                    <!-- SableOS: the on-screen keyboard fallback; shown when its screen exists. -->
++                    <Button
++                        android:id="@+id/sable_check_soft"
++                        style="@style/SableSetupLink"
++                        android:text="@string/sable_check_soft" />
++
++                    <TextView
++                        android:layout_width="fill_parent"
++                        android:layout_height="wrap_content"
++                        android:paddingTop="4dp"
++                        android:text="@string/sable_welcome_keys"
++                        android:textAppearance="@style/SableSetupStep" />
+                 </LinearLayout>
+             </LinearLayout>
+ 
+diff --git a/res/values/sable_strings.xml b/res/values/sable_strings.xml
+index f9f75fb..f9425d7 100644
+--- a/res/values/sable_strings.xml
++++ b/res/values/sable_strings.xml
+@@ -11,6 +11,17 @@
+     <!-- Wi-Fi passwords on the Q25 keys. The Q25 has no Fn key; Sym is the right Alt key. -->
+     <string name="sable_wifi_hint">Alt/Sym for symbols · software keyboard fallback</string>
+ 
++    <!-- SableOS Welcome screen (setup design "Welcome + keyboard verification"). -->
++    <!-- Which phone this is; SableSetupWizardOverlay names the device. -->
++    <string name="sable_welcome_device">First boot</string>
++    <string name="sable_welcome_keys">Tab/arrows focus · Enter select · Back previous</string>
++    <string name="sable_check_title">Check physical keyboard</string>
++    <string name="sable_check_prompt">Type A 7 @ then press Enter</string>
++    <string name="sable_check_hint">A 7 @</string>
++    <string name="sable_check_pass">Keyboard works.</string>
++    <string name="sable_check_mismatch">That did not match. Type A, then 7 (Alt+Z), then @, and press Enter. Or press Start with the field empty to test the keys on the next screens.</string>
++    <string name="sable_check_soft">Software keyboard</string>
++
+     <!-- SableOS keyboard readiness step (IR-014). -->
+     <string name="setup_sable_keyboard">Keyboard</string>
+     <string name="sable_keyboard_summary">Sable Keyboard types with the physical keys, including Wi‑Fi passwords and PINs in the next steps.</string>
+diff --git a/src/org/lineageos/setupwizard/SableKeyboardActivity.java b/src/org/lineageos/setupwizard/SableKeyboardActivity.java
+index ca67a89..c6ad03a 100644
+--- a/src/org/lineageos/setupwizard/SableKeyboardActivity.java
++++ b/src/org/lineageos/setupwizard/SableKeyboardActivity.java
+@@ -5,6 +5,8 @@
+ 
+ package org.lineageos.setupwizard;
+ 
++import static com.google.android.setupcompat.util.ResultCodes.RESULT_SKIP;
++
+ import android.annotation.Nullable;
+ import android.content.ComponentName;
+ import android.content.Intent;
+@@ -43,6 +45,10 @@ public class SableKeyboardActivity extends BaseSetupWizardActivity {
+         mStatus = findViewById(R.id.sable_keyboard_status);
+         mOffer = findViewById(R.id.sable_keyboard_offer);
+         setNextAllowed(true);
++        // SableOS setup design: no separate keyboard screen when Sable Keyboard is ready.
++        if (savedInstanceState == null && !SableKeyboardState.showStep(readAvailability())) {
++            finishAction(RESULT_SKIP);
++        }
+     }
+ 
+     @Override
+diff --git a/src/org/lineageos/setupwizard/SableKeyboardTestActivity.java b/src/org/lineageos/setupwizard/SableKeyboardTestActivity.java
+index 91bbfa6..47fda91 100644
+--- a/src/org/lineageos/setupwizard/SableKeyboardTestActivity.java
++++ b/src/org/lineageos/setupwizard/SableKeyboardTestActivity.java
+@@ -5,6 +5,8 @@
+ 
+ package org.lineageos.setupwizard;
+ 
++import static com.google.android.setupcompat.util.ResultCodes.RESULT_SKIP;
++
+ import android.annotation.Nullable;
+ import android.content.Intent;
+ import android.content.res.ColorStateList;
+@@ -21,6 +23,7 @@ import android.widget.TextView;
+ import com.android.settingslib.Utils;
+ 
+ import org.lineageos.setupwizard.sable.SableKeyTest;
++import org.lineageos.setupwizard.sable.SableQuickCheck;
+ import org.lineageos.setupwizard.sable.SableKeyTest.Check;
+ import org.lineageos.setupwizard.sable.SableKeyTest.State;
+ import org.lineageos.setupwizard.widget.SableKeyTestField;
+@@ -49,6 +52,13 @@ public class SableKeyboardTestActivity extends BaseSetupWizardActivity {
+     @Override
+     protected void onCreate(@Nullable Bundle savedInstanceState) {
+         super.onCreate(savedInstanceState);
++        // SableOS setup design: the Welcome check stands in for this test when it passed;
++        // otherwise this is the recovery path.
++        if (savedInstanceState == null && !SableQuickCheck.showFullTest(
++                SetupWizardApp.getSettingsBundle().getBoolean(SableQuickCheck.KEY_PASSED))) {
++            finishAction(RESULT_SKIP);
++            return;
++        }
+         getGlifLayout().setDescriptionText(getString(R.string.sable_key_test_summary));
+         setNextAllowed(true);
+ 
+@@ -96,7 +106,7 @@ public class SableKeyboardTestActivity extends BaseSetupWizardActivity {
+     protected void onResume() {
+         super.onResume();
+         // Typing works at once: the first key goes into the field, not into finding focus.
+-        if (getCurrentFocus() == null) mField.requestFocus();
++        if (mField != null && getCurrentFocus() == null) mField.requestFocus();
+     }
+ 
+     private void buildRows(GridLayout grid) {
+diff --git a/src/org/lineageos/setupwizard/WelcomeActivity.java b/src/org/lineageos/setupwizard/WelcomeActivity.java
+index e7693c0..21482bc 100644
+--- a/src/org/lineageos/setupwizard/WelcomeActivity.java
++++ b/src/org/lineageos/setupwizard/WelcomeActivity.java
+@@ -11,14 +11,18 @@ import static org.lineageos.setupwizard.SetupWizardApp.ACTION_EMERGENCY_DIAL;
+ import android.content.Intent;
+ import android.os.Bundle;
+ import android.os.Build;
++import android.provider.Settings;
+ import android.view.View;
++import android.view.inputmethod.EditorInfo;
+ import android.widget.Button;
+ import android.widget.TextView;
+ 
+ import com.google.android.setupcompat.template.FooterButtonStyleUtils;
+ import com.google.android.setupcompat.util.SystemBarHelper;
+ 
++import org.lineageos.setupwizard.sable.SableQuickCheck;
+ import org.lineageos.setupwizard.util.SetupWizardUtils;
++import org.lineageos.setupwizard.widget.SableKeyTestField;
+ 
+ public class WelcomeActivity extends SubBaseActivity {
+ 
+@@ -29,6 +33,9 @@ public class WelcomeActivity extends SubBaseActivity {
+     protected void onStartSubactivity() {
+     }
+ 
++    private SableKeyTestField mCheckField;
++    private TextView mCheckStatus;
++
+     @Override
+     protected void onCreate(Bundle savedInstanceState) {
+         super.onCreate(savedInstanceState);
+@@ -38,7 +45,20 @@ public class WelcomeActivity extends SubBaseActivity {
+         Button startButton = findViewById(R.id.start);
+         Button emergButton = findViewById(R.id.emerg_dialer);
+         Button skipButton = findViewById(R.id.skip);
+-        startButton.setOnClickListener(view -> onNextPressed());
++        // SableOS: Start (and Enter in the check field, 0401) checks what was typed first.
++        startButton.setOnClickListener(view -> onStartPressed());
++        mCheckField = findViewById(R.id.sable_check_field);
++        mCheckStatus = findViewById(R.id.sable_check_status);
++        mCheckField.setOnEditorActionListener((v, actionId, event) -> {
++            if (actionId == EditorInfo.IME_ACTION_DONE || actionId == EditorInfo.IME_ACTION_NEXT) {
++                onStartPressed();
++                return true;
++            }
++            return false;
++        });
++        SableLinks.bind(this, findViewById(R.id.sable_check_soft),
++                new Intent(Settings.ACTION_HARD_KEYBOARD_SETTINGS),
++                new Intent(Settings.ACTION_INPUT_METHOD_SETTINGS));
+         findViewById(R.id.launch_accessibility)
+                 .setOnClickListener(
+                         view -> startSubactivity(new Intent(ACTION_ACCESSIBILITY_SETTINGS)));
+@@ -71,6 +91,44 @@ public class WelcomeActivity extends SubBaseActivity {
+         }
+     }
+ 
++    @Override
++    protected void onResume() {
++        super.onResume();
++        // The check's first key goes into the field, not into finding focus.
++        if (mCheckField != null && getCurrentFocus() == null) mCheckField.requestFocus();
++    }
++
++    /**
++     * SableOS keyboard check: "A 7 @" passes and continues without the full keyboard test;
++     * an empty field continues and the full test follows; anything else says so and stays.
++     * Nothing typed is kept.
++     */
++    private void onStartPressed() {
++        final SableQuickCheck.Result result = SableQuickCheck.evaluate(mCheckField.getText());
++        switch (result) {
++            case PASS:
++                SetupWizardApp.getSettingsBundle().putBoolean(SableQuickCheck.KEY_PASSED, true);
++                showCheckStatus(R.string.sable_check_pass);
++                mCheckField.setText(null);
++                onNextPressed();
++                break;
++            case MISMATCH:
++                showCheckStatus(R.string.sable_check_mismatch);
++                mCheckField.setText(null);
++                mCheckField.requestFocus();
++                break;
++            case EMPTY:
++            default:
++                onNextPressed();
++                break;
++        }
++    }
++
++    private void showCheckStatus(int resId) {
++        mCheckStatus.setText(resId);
++        mCheckStatus.setVisibility(View.VISIBLE);
++    }
++
+     /** SableOS: Accessibility and Emergency open from Welcome; they are not a setup step. */
+     @Override
+     protected CharSequence getSableSubactivityNote() {
+diff --git a/src/org/lineageos/setupwizard/sable/SableKeyboardState.java b/src/org/lineageos/setupwizard/sable/SableKeyboardState.java
+index b58852f..c4cb0f6 100644
+--- a/src/org/lineageos/setupwizard/sable/SableKeyboardState.java
++++ b/src/org/lineageos/setupwizard/sable/SableKeyboardState.java
+@@ -86,6 +86,16 @@ public final class SableKeyboardState {
+         return true;
+     }
+ 
++    /**
++     * The readiness step shows only when there is something to fix: Sable Keyboard selected
++     * needs nothing, and a build without it has nothing to offer. Welcome already says how
++     * the keys move and select.
++     */
++    public static boolean showStep(Availability availability) {
++        return availability != Availability.SABLE_SELECTED
++                && availability != Availability.UNAVAILABLE;
++    }
++
+     /**
+      * A physical keyboard never forces the on-screen keyboard open; without one, the
+      * on-screen keyboard is always offered.
+diff --git a/src/org/lineageos/setupwizard/sable/SableQuickCheck.java b/src/org/lineageos/setupwizard/sable/SableQuickCheck.java
+new file mode 100644
+index 0000000..8094c19
+--- /dev/null
++++ b/src/org/lineageos/setupwizard/sable/SableQuickCheck.java
+@@ -0,0 +1,53 @@
++/*
++ * SPDX-FileCopyrightText: The SableOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++package org.lineageos.setupwizard.sable;
++
++/**
++ * The keyboard check on the Welcome screen (setup design: "Check physical keyboard · Type A 7 @
++ * then press Enter"). Pure Java.
++ *
++ * <p>A letter, a digit (Alt+Z on the Q25) and a symbol (Alt or Sym) show that the keys type
++ * all three layers before Wi-Fi passwords and the PIN. Spaces are ignored and the letter may
++ * be either case. When the check passes, the full keyboard test step is left out; when it is
++ * skipped or does not pass, the full test follows as the recovery path.
++ */
++public final class SableQuickCheck {
++
++    public enum Result {
++        /** Nothing typed: Start continues and the full keyboard test follows. */
++        EMPTY,
++        /** "A 7 @" typed: the keys work. */
++        PASS,
++        /** Something else typed: say so and stay on Welcome. */
++        MISMATCH
++    }
++
++    /** Setup-wide flag (SetupWizardApp settings bundle): the Welcome check passed. */
++    public static final String KEY_PASSED = "sable_keyboard_check_passed";
++
++    private static final String TARGET = "a7@";
++
++    private SableQuickCheck() {}
++
++    public static Result evaluate(CharSequence typed) {
++        if (typed == null) return Result.EMPTY;
++        final StringBuilder sb = new StringBuilder();
++        final String s = typed.toString();
++        for (int i = 0; i < s.length(); ) {
++            final int c = s.codePointAt(i);
++            i += Character.charCount(c);
++            if (Character.isWhitespace(c) || Character.isSpaceChar(c)) continue;
++            sb.appendCodePoint(Character.toLowerCase(c));
++        }
++        if (sb.length() == 0) return Result.EMPTY;
++        return TARGET.contentEquals(sb) ? Result.PASS : Result.MISMATCH;
++    }
++
++    /** The full keyboard test step shows only when the Welcome check did not pass. */
++    public static boolean showFullTest(boolean welcomePassed) {
++        return !welcomePassed;
++    }
++}
+-- 
+2.43.0
+

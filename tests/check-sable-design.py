@@ -396,6 +396,7 @@ SETUP_STRINGS = {
     "update_recovery_title",
     "update_recovery_description",
     "update_recovery_setting",
+    "sable_welcome_device",
 }
 sw = OVERLAY / "SableSetupWizardOverlay/res"
 names, leaks, by_locale = set(), [], {}
@@ -410,7 +411,7 @@ for strings in sorted(sw.glob("values*/strings.xml")):
             name == "setup_welcome_message" and "SableOS" not in value
         ):
             leaks.append(f"{strings.parent.name}/{name}: {value}")
-report(names <= SETUP_STRINGS, "SetupWizard overlay changes only the welcome, restore and recovery strings", str(names - SETUP_STRINGS))
+report(names <= SETUP_STRINGS, "SetupWizard overlay changes only the welcome, device line, restore and recovery strings", str(names - SETUP_STRINGS))
 report(not leaks, "overlaid Setup strings name no LineageOS and leave no placeholder; welcome names SableOS", "; ".join(leaks[:5]))
 default = by_locale.get("values", {})
 english_drift = [
@@ -444,6 +445,40 @@ added = [
 ]
 lineage_text = [f"{n}: {l[:80]}" for n, l in added if re.search(r">[^<]*lineage", l, re.I)]
 report(added and not lineage_text, "Sable SetupWizard strings name no LineageOS", "; ".join(lineage_text[:3]))
+# setup-wizard-titan2 (SetupWizard 0409-0413 + SableSetupWizardOverlay theme values).
+def suw_added(num, needle):
+    return any(l.startswith("+") and needle in l for l in suw.get(num, "").splitlines())
+night = sw / "values-night/sable_setup_theme.xml"
+night_colors = {el.get("name"): (el.text or "").upper() for el in ET.parse(night).getroot()} if night.is_file() else {}
+report(
+    suw_added("0409", "class SableFocusRing")
+    and suw_added("0409", 'name="sable_setup_card"')
+    and night_colors.get("sable_setup_card") == "#FF121B28"
+    and night_colors.get("sable_setup_focus") == "#FF2FD0FF",
+    "Setup cards and focus ring are SetupWizard resources the overlay colours navy and cyan",
+    str(night_colors),
+)
+report(
+    suw_added("0410", "class SableSteps")
+    and suw_added("0410", 'name="sable_step">Step')
+    and suw_added("0410", "Alt/Sym for symbols · software keyboard fallback"),
+    "every owner setup step shows Step n of N; the Wi-Fi step carries the Alt/Sym hint",
+)
+report(
+    suw_added("0411", "Type A 7 @ then press Enter")
+    and suw_added("0411", 'name="sable_check_soft">Software keyboard')
+    and default.get("sable_welcome_device") == "Zinwa Q25 first boot",
+    "Welcome names the Q25 and checks the keyboard (A 7 @, Software keyboard fallback)",
+)
+report(
+    suw_added("0412", '<bool name="sable_restore_validated">false</bool>')
+    and suw_added("0412", "fail-closed until validated")
+    and not any("sable_restore_validated" in f.read_text(encoding="utf-8") for f in sw.rglob("*.xml")),
+    "Setup restore is hidden until validated (fail-closed) and the overlay does not open it",
+)
+ready = ("Home opens Start · type to search", "Swipe left for Hub · right for apps",
+         "Command, All Apps, Settings available")
+report(all(suw_added("0413", r) for r in ready), "Ready screen rows follow the setup design and BB10 Start")
 lock = [l for n, l in added if 'name="sable_privacy_lock_screen"' in l]
 report(
     len(lock) == 1 and "hidden until you unlock" in lock[0] and "shows notification content" not in lock[0],

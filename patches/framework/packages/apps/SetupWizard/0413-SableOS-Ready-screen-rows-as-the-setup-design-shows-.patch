@@ -1,0 +1,124 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 21 Oct 2026 13:05:40 +0000
+Subject: [PATCH] SableOS: Ready screen rows as the setup design shows them
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Setup design (sable-setup-wizard-titan2, "Ready to Start"): "Setup
+complete", "Ready for Sable Start", then three rows and Start.
+
+The final page keeps its logo, Start button and finish animation. The
+0407 text block becomes "Step 8 of 8" (owner flow only), "Setup
+complete", the heading "Ready for Sable Start" and three cards:
+
+  Home opens Start · type to search
+  Swipe left for Hub · right for apps
+  Command, All Apps, Settings available
+
+The page line follows the BlackBerry 10 Start layout the owner chose
+(Hub on the left, Active Frames home, app grid pages on the right). The
+rows stay in a focusable scroll view; Start is still the first focus.
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01UvjoefgeNVBxmkGXzTTNYS
+---
+ res/layout/finish_activity.xml | 37 ++++++++++++++++++++--------------
+ res/values/sable_strings.xml   | 15 +++++++-------
+ 2 files changed, 30 insertions(+), 22 deletions(-)
+
+diff --git a/res/layout/finish_activity.xml b/res/layout/finish_activity.xml
+index 2446f16..26c4e8d 100644
+--- a/res/layout/finish_activity.xml
++++ b/res/layout/finish_activity.xml
+@@ -39,8 +39,9 @@
+             android:gravity="center"
+             android:padding="@dimen/content_margin_left"/>
+ 
+-        <!-- SableOS Ready screen: how the phone works after setup. The text scrolls with the
+-             arrow keys when focused; Start stays the first focus. -->
++        <!-- SableOS Ready screen (setup design "Ready to Start"): one card per row, then
++             Start. The rows scroll with the arrow keys when focused; Start stays the first
++             focus. -->
+         <ScrollView
+             android:id="@+id/sable_ready"
+             android:layout_width="match_parent"
+@@ -54,31 +55,37 @@
+                 android:layout_width="match_parent"
+                 android:layout_height="wrap_content">
+ 
++                <!-- "Step 8 of 8" (BaseSetupWizardActivity). -->
+                 <TextView
+-                    style="@style/SableSetupItem"
+-                    android:text="@string/sable_ready_title"
+-                    android:textAppearance="?android:attr/textAppearanceLarge"
+-                    android:accessibilityHeading="true" />
++                    android:id="@+id/sable_step"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:textAppearance="@style/SableSetupStep"
++                    android:visibility="gone" />
+ 
+                 <TextView
+-                    style="@style/SableSetupItem"
+-                    android:text="@string/sable_ready_home" />
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:text="@string/sable_ready_done"
++                    android:textAppearance="@style/SableSetupStep" />
+ 
+                 <TextView
+                     style="@style/SableSetupItem"
+-                    android:text="@string/sable_ready_bar" />
++                    android:text="@string/sable_ready_title"
++                    android:textAppearance="?android:attr/textAppearanceLarge"
++                    android:accessibilityHeading="true" />
+ 
+                 <TextView
+-                    style="@style/SableSetupItem"
+-                    android:text="@string/sable_ready_hub" />
++                    style="@style/SableSetupCard"
++                    android:text="@string/sable_ready_home" />
+ 
+                 <TextView
+-                    style="@style/SableSetupItem"
+-                    android:text="@string/sable_ready_shade" />
++                    style="@style/SableSetupCard"
++                    android:text="@string/sable_ready_pages" />
+ 
+                 <TextView
+-                    style="@style/SableSetupItem"
+-                    android:text="@string/sable_ready_keys" />
++                    style="@style/SableSetupCard"
++                    android:text="@string/sable_ready_command" />
+ 
+             </LinearLayout>
+         </ScrollView>
+diff --git a/res/values/sable_strings.xml b/res/values/sable_strings.xml
+index b4ab399..ff27e92 100644
+--- a/res/values/sable_strings.xml
++++ b/res/values/sable_strings.xml
+@@ -84,11 +84,12 @@
+         <item>Slate</item>
+     </string-array>
+ 
+-    <!-- SableOS Ready screen on the final setup page (SETUP_WIZARD_FIRST_BOOT_UX "Ready screen"). -->
+-    <string name="sable_ready_title">Ready to start</string>
+-    <string name="sable_ready_home"><b>Home</b> opens Sable Start, your home screen.</string>
+-    <string name="sable_ready_bar"><b>The bar at the bottom of Start</b> opens Phone, Hub, Command and All apps. Command searches apps and settings and runs actions.</string>
+-    <string name="sable_ready_hub"><b>Sable Hub</b> gathers your messages and notifications in one list.</string>
+-    <string name="sable_ready_shade"><b>Notifications and Quick Settings:</b> swipe down from the top of the screen.</string>
+-    <string name="sable_ready_keys"><b>Keys:</b> the arrows or trackpad move, Enter opens, Back returns. Sable Tools has the full keyboard test.</string>
++    <!-- SableOS Ready screen on the final setup page (setup design "Ready to Start"). Sable
++         Start is laid out BlackBerry 10 style: Hub on the left, Active Frames home, app pages
++         on the right. -->
++    <string name="sable_ready_done">Setup complete</string>
++    <string name="sable_ready_title">Ready for Sable Start</string>
++    <string name="sable_ready_home">Home opens Start · type to search</string>
++    <string name="sable_ready_pages">Swipe left for Hub · right for apps</string>
++    <string name="sable_ready_command">Command, All Apps, Settings available</string>
+ </resources>
+-- 
+2.43.0
+
