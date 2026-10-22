@@ -68,13 +68,22 @@ internal fun Game2048Screen() {
         score = 0L
     }
 
+    GameKeyHandler(GameKind.Game2048) { command ->
+        when (command) {
+            is GameCommand.Move -> slide(GameKeymap.slideDirection(command))
+            GameCommand.NewGame -> reset()
+            else -> return@GameKeyHandler false
+        }
+        true
+    }
+
     Column(
         verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
     ) {
         SableValuePanel(
             label = "score",
             value = score.toString(),
-            supportingText = "Swipe the board to move every tile.",
+            supportingText = "Swipe the board or use the arrows (trackpad) to move every tile; N starts over.",
         )
 
         Game2048Board(
