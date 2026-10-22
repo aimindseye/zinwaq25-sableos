@@ -343,6 +343,18 @@ grep -qF '+        return isDebuggable() || SystemProperties.getBoolean(SABLE_MI
 grep -E '^[-+]' "${sp[0]}" | grep -v '^+++\|^---' | grep -q 'MICROG_REAL_SIGNATURE\|MICROG_FAKE_SIGNATURE\|getPackageName' && mg_bad="$mg_bad 0550:touches-checks"
 if [[ -z "$mg_bad" ]]; then pass "microG pins, battery and location defaults, permissions and spoofing gate"; else fail "microG product files:$mg_bad"; fi
 
+# 6b1. Q4 device review fixes: Sable apps replace their LineageOS twins, Start hides AudioFX, Weather
+# refreshes in the background, and display compatibility rows open on a tap.
+q4_bad=""
+awk -F'\t' '$1 == "SableCalendar" && $8 == "Etar"' product/q25/apps.tsv | grep -q . || q4_bad="$q4_bad etar"
+awk -F'\t' '$1 == "SableMedia" && $8 == "Twelve"' product/q25/apps.tsv | grep -q . || q4_bad="$q4_bad twelve"
+grep -q '"org.lineageos.audiofx"' sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LauncherAppsRepository.kt || q4_bad="$q4_bad audiofx"
+wx=sable-src/apps/r8/android/weather/src/main
+grep -A3 'name=".WeatherRefreshJob"' "$wx/AndroidManifest.xml" | grep -q 'BIND_JOB_SERVICE' || q4_bad="$q4_bad weather-job"
+grep -q 'WeatherRefreshJob.ensureScheduled' "$wx/java/org/sableos/weather/WeatherSnapshotProvider.kt" || q4_bad="$q4_bad weather-provider"
+grep -q '\.clickable { onClick() }' sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt || q4_bad="$q4_bad displaycompat-tap"
+if [[ -z "$q4_bad" ]]; then pass "Q4 review fixes (overrides, AudioFX, weather refresh, display compat tap)"; else fail "Q4 review fixes:$q4_bad"; fi
+
 # 6b2. Optional 50 MP camera: the patcher on a synthetic vendor tree, and off by default.
 if python3 -I tests/test_camera_50mp.py >"$tmp/cam50" 2>&1; then
     pass "camera 50 MP patcher ($(grep -o 'Ran [0-9]* tests' "$tmp/cam50"))"

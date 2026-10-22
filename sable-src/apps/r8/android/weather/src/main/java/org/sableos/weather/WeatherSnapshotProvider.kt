@@ -31,6 +31,11 @@ class WeatherSnapshotProvider : ContentProvider() {
         val appContext = context?.applicationContext ?: return null
         val state = WeatherRepository(appContext).load()
         val snapshot = state.snapshot
+        // Start reads this on every home screen visit: fetch in the background when nothing current is cached.
+        WeatherRefreshJob.ensureScheduled(
+            appContext,
+            needsFetch = snapshot == null || state.availability != WeatherAvailability.Live,
+        )
 
         val cursor =
             MatrixCursor(

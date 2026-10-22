@@ -222,7 +222,12 @@ fun AppListScreen(
         LazyColumn(Modifier.weight(1f), state = list) {
             itemsIndexed(rows, key = { _, e -> e.pkg }) { i, e ->
                 val p = remember(st.version, e.pkg) { app.store.get(e.pkg) }
-                AppRow(e.label, p, !st.styleFocused && i == st.sel)
+                // A tap selects the row and opens its editor, like the arrow keys and Enter.
+                AppRow(e.label, p, !st.styleFocused && i == st.sel) {
+                    st.styleFocused = false
+                    st.sel = i
+                    onOpen(e)
+                }
             }
         }
         st.msg?.let { Text(it, color = messageTint(it), fontSize = 11.sp) }
@@ -268,7 +273,7 @@ private fun FilterField(query: String, onQueryChange: (String) -> Unit, fr: Focu
 }
 
 @Composable
-private fun AppRow(label: String, p: DisplayProfile, selected: Boolean) {
+private fun AppRow(label: String, p: DisplayProfile, selected: Boolean, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().padding(vertical = 2.dp)
             .background(if (selected) C.surface else C.window, RoundedCornerShape(6.dp))
@@ -277,6 +282,7 @@ private fun AppRow(label: String, p: DisplayProfile, selected: Boolean) {
                 if (selected) C.accent else C.window,
                 RoundedCornerShape(6.dp)
             )
+            .clickable { onClick() }
             .padding(10.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
