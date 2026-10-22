@@ -359,11 +359,15 @@ class SableStartActivity : ComponentActivity() {
         }
     }
 
+    /** Private Space never shows as an Active Frame, locked or not. */
+    private fun privateUsers(): Set<Int> =
+        runCatching { setOfNotNull(launcherAppsRepository.privateSpace()?.identifier) }.getOrDefault(emptySet())
+
     /** Reads the recent tasks off the main thread; the snapshots repaint with them. */
     private fun refreshFrames() {
         runCatching {
             framesExecutor.execute {
-                val frames = recentTasksRepository.loadFrames()
+                val frames = recentTasksRepository.loadFrames(privateUsers())
                 runOnUiThread {
                     if (!isDestroyed) {
                         framesState.value = frames
@@ -393,7 +397,7 @@ class SableStartActivity : ComponentActivity() {
         runCatching {
             framesExecutor.execute {
                 recentTasksRepository.close(frame.taskId)
-                val frames = recentTasksRepository.loadFrames()
+                val frames = recentTasksRepository.loadFrames(privateUsers())
                 runOnUiThread { if (!isDestroyed) framesState.value = frames }
             }
         }

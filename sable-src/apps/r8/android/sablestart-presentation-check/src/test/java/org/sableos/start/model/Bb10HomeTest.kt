@@ -24,6 +24,13 @@ class Bb10HomeTest {
     }
 
     @Test
+    fun privateSpaceTasksNeverBecomeFrames() {
+        val tasks = listOf(frame(1, "a"), frame(2, "b").copy(userId = 11), frame(3, "c"))
+        assertEquals(listOf(1, 3), ActiveFrames.select(tasks, emptySet(), setOf(11)).map { it.taskId })
+        assertEquals(listOf(1, 2, 3), ActiveFrames.select(tasks, emptySet()).map { it.taskId })
+    }
+
+    @Test
     fun xOrBackspaceCloseAFrame() {
         assertTrue(ActiveFrames.isCloseKey(52, 0))
         assertTrue(ActiveFrames.isCloseKey(67, 0))

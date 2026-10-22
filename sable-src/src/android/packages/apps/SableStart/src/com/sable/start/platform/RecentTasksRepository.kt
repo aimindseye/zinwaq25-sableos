@@ -33,8 +33,11 @@ class RecentTasksRepository(
     private val appContext = context.applicationContext
     private val activityManager = appContext.getSystemService(ActivityManager::class.java)
 
-    /** Most recent first, without Start, Recents and System UI, at most [ActiveFrames.MAX]. */
-    fun loadFrames(): List<ActiveFrame> {
+    /**
+     * Most recent first, without Start, Recents and System UI, at most [ActiveFrames.MAX].
+     * Tasks of [hiddenUsers] (the Private Space profile) are left out.
+     */
+    fun loadFrames(hiddenUsers: Set<Int> = emptySet()): List<ActiveFrame> {
         val tasks =
             runCatching {
                 @Suppress("DEPRECATION")
@@ -52,7 +55,7 @@ class RecentTasksRepository(
                     running = info.isRunning,
                 )
             }
-        return ActiveFrames.select(frames, excludedPackages + appContext.packageName)
+        return ActiveFrames.select(frames, excludedPackages + appContext.packageName, hiddenUsers)
     }
 
     /** The task's last picture (low resolution first), or null when Android has none for it. */

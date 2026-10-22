@@ -33,14 +33,16 @@ object ActiveFrames {
 
     /**
      * Recent tasks, most recent first, without Start itself, Recents and
-     * System UI, one frame per task, at most [MAX].
+     * System UI, one frame per task, at most [MAX]. Tasks of [hiddenUsers]
+     * (the Private Space profile) never become frames, as in All Apps.
      */
     fun select(
         tasks: List<ActiveFrame>,
         excludedPackages: Set<String>,
+        hiddenUsers: Set<Int> = emptySet(),
     ): List<ActiveFrame> =
         tasks
-            .filterNot { it.packageName in excludedPackages || it.packageName.isEmpty() }
+            .filterNot { it.packageName in excludedPackages || it.packageName.isEmpty() || it.userId in hiddenUsers }
             .distinctBy { it.taskId }
             .take(MAX)
 
