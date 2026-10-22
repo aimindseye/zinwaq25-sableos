@@ -36,7 +36,9 @@ SableSetup	platform	apps/titan2/platform	:setup:assembleRelease	setup/build/outp
 SableVault	platform	apps/titan2/platform	:vault:assembleRelease	vault/build/outputs/apk/release/*.apk	org.sableos.titan2.vault	privileged	-	yes
 SableRadioDiag	platform	apps/titan2/platform	:radiodiag:assembleRelease	radiodiag/build/outputs/apk/release/*.apk	org.sableos.titan2.radiodiag	unsigned	-	no
 SableTools	platform	apps/titan2/platform	:tools:assembleRelease	tools/build/outputs/apk/release/*.apk	org.sableos.tools	unsigned	SableRadioDiag	yes
-SableCalculator	common	apps/r8/android	:calculator:assembleDebug	calculator/build/outputs/apk/debug/calculator-debug.apk	org.sableos.calculator	presigned	ExactCalculator	yes
+# Sable Calculator ships as a shrunk release build for the same reason: Q4 with microG overflowed the
+# dynamic partitions by 0.86 MiB with its ~30 MB debug APK.
+SableCalculator	common	apps/r8/android	:calculator:assembleRelease	calculator/build/outputs/apk/release/*.apk	org.sableos.calculator	unsigned	ExactCalculator	yes
 # Sable Games (Sudoku, Minesweeper, 2048; SableOS ships them as three flavors of one module, never an
 # aggregate SableGames package). They were off for the first Q2 flash because the ~29 MB debug APKs
 # overflowed the Q25 dynamic partitions by ~29.4 MiB; they now ship as shrunk (R8 + resource
