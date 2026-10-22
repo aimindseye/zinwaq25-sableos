@@ -35,18 +35,38 @@ object ProfileValidator {
             out.add(
                 Issue(
                     Severity.Info,
-                    "MINI_SIZE",
-                    "Mini mode applies only once this device's mini size has been captured."
+                    "MINI_WINDOW",
+                    "Mini mode opens the app in a 3:2 phone-shaped window (480x720 on a 720x720 screen)."
                 )
             )
         }
+        checkOrientation(traits, p, out)
+        return Validation(out)
+    }
+
+    private fun checkOrientation(traits: AppTraits, p: DisplayProfile, out: MutableList<Issue>) {
         if (p.orientation.locksOrientation() && traits.isCamera) {
             out.warn(
                 "CAMERA_ORIENTATION",
                 "Locking orientation can rotate the camera preview unexpectedly."
             )
         }
-        return Validation(out)
+        if (p.orientation == OrientationPref.Landscape) {
+            out.warn(
+                "LANDSCAPE_SIDEWAYS",
+                "Landscape turns the app sideways (reverse landscape) above the keyboard. Typing still works.",
+                ack = true
+            )
+        }
+        if (p.orientation == OrientationPref.Auto) {
+            out.add(
+                Issue(
+                    Severity.Info,
+                    "AUTO_NOT_PER_APP",
+                    "Auto has no per-app platform override here; the app follows its own rotation request."
+                )
+            )
+        }
     }
 
     private fun MutableList<Issue>.block(code: String, msg: String) =

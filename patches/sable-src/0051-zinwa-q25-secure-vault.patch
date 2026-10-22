@@ -1,0 +1,1131 @@
+diff --git a/sable-src/apps/titan2/platform/settings.gradle.kts b/sable-src/apps/titan2/platform/settings.gradle.kts
+index 91b012d..58bb16e 100644
+--- a/sable-src/apps/titan2/platform/settings.gradle.kts
++++ b/sable-src/apps/titan2/platform/settings.gradle.kts
+@@ -13,4 +13,4 @@ dependencyResolutionManagement {
+     }
+ }
+ rootProject.name = "sable-titan2-platform"
+-include(":displaycompat", ":keyboard", ":camera", ":setup", ":radiodiag", ":tools")
++include(":displaycompat", ":keyboard", ":camera", ":setup", ":radiodiag", ":tools", ":vault")
+diff --git a/sable-src/apps/titan2/platform/vault/build.gradle.kts b/sable-src/apps/titan2/platform/vault/build.gradle.kts
+new file mode 100644
+index 0000000..c23f8ee
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/vault/build.gradle.kts
+@@ -0,0 +1,37 @@
++plugins {
++    alias(libs.plugins.android.application)
++    alias(libs.plugins.kotlin.android)
++}
++
++android {
++    namespace = "org.sableos.titan2.vault"
++    compileSdk = 36
++    defaultConfig {
++        applicationId = "org.sableos.titan2.vault"
++        // Platform apps ship only on Android 16+ images; Private Space needs Android 15+.
++        minSdk = 36
++        targetSdk = 36
++        versionCode = 1
++        versionName = "0.1.0"
++    }
++    buildTypes {
++        release {
++            // R8 shrinks and obfuscates the shipped (privileged) release APK.
++            isMinifyEnabled = true
++            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
++        }
++    }
++    compileOptions {
++        sourceCompatibility = JavaVersion.VERSION_17
++        targetCompatibility =
++            JavaVersion.VERSION_17
++    }
++    kotlinOptions { jvmTarget = "17" }
++}
++
++dependencies {
++    // FileProvider for "Open" (a one-file, read-only, temporary grant the user confirms).
++    implementation(libs.androidx.core.ktx)
++
++    testImplementation(libs.junit)
++}
+diff --git a/sable-src/apps/titan2/platform/vault/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/vault/src/main/AndroidManifest.xml
+new file mode 100644
+index 0000000..9e571b1
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/vault/src/main/AndroidManifest.xml
+@@ -0,0 +1,46 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Secure Vault: the file layer of Private Space. Installed only in the private profile
++     (product/q25/sysconfig/preinstalled-packages-sable-vault.xml). No network, no storage or media
++     permissions, no backup: files live in this app's credential-encrypted storage in the private
++     profile and lock with it. Import and export go through the system document picker the user drives;
++     "Open" grants one file, read-only, to an app the user picks. -->
++<manifest xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:tools="http://schemas.android.com/tools">
++
++    <!-- Lock now: quiet mode for this (private) profile. Privileged; allowlisted in
++         product/q25/permissions/privapp-permissions-sable-q25.xml. -->
++    <uses-permission android:name="android.permission.MODIFY_QUIET_MODE" tools:ignore="ProtectedPermissions" />
++
++    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
++
++    <application
++        android:allowBackup="false"
++        android:fullBackupContent="false"
++        android:dataExtractionRules="@xml/data_extraction_rules"
++        android:usesCleartextTraffic="false"
++        android:icon="@mipmap/ic_sable_vault"
++        android:roundIcon="@mipmap/ic_sable_vault_round"
++        android:label="@string/app_name"
++        android:supportsRtl="true"
++        android:theme="@android:style/Theme.Material.NoActionBar">
++        <activity
++            android:name=".android.VaultActivity"
++            android:exported="true"
++            android:excludeFromRecents="false"
++            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|smallestScreenSize|screenLayout|uiMode">
++            <intent-filter>
++                <action android:name="android.intent.action.MAIN" />
++                <category android:name="android.intent.category.LAUNCHER" />
++            </intent-filter>
++        </activity>
++        <provider
++            android:name="androidx.core.content.FileProvider"
++            android:authorities="org.sableos.titan2.vault.files"
++            android:exported="false"
++            android:grantUriPermissions="true">
++            <meta-data
++                android:name="android.support.FILE_PROVIDER_PATHS"
++                android:resource="@xml/vault_paths" />
++        </provider>
++    </application>
++</manifest>
+diff --git a/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/PrivateSpace.kt b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/PrivateSpace.kt
+new file mode 100644
+index 0000000..ad4e9c7
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/PrivateSpace.kt
+@@ -0,0 +1,27 @@
++package org.sableos.titan2.vault.android
++
++import android.content.Context
++import android.os.Process
++import android.os.UserManager
++
++/** The private profile this app runs in. */
++object PrivateSpace {
++    /**
++     * True only when this app runs in Android's private profile. `UserManager.isPrivateProfile()` is a system API
++     * (no permission needed for the caller's own profile group), reached by reflection. Anything unexpected reads as
++     * false, so the vault fails closed and stores nothing.
++     */
++    fun isPrivateProfile(context: Context): Boolean = runCatching {
++        val um = context.getSystemService(UserManager::class.java)
++        UserManager::class.java.getMethod("isPrivateProfile").invoke(um) as Boolean
++    }.getOrDefault(false)
++
++    /**
++     * Locks Private Space now (quiet mode on for this profile; MODIFY_QUIET_MODE, privileged and allowlisted).
++     * Returns false when the platform refused; the caller then closes the vault and says so.
++     */
++    fun lockNow(context: Context): Boolean = runCatching {
++        context.getSystemService(UserManager::class.java)
++            .requestQuietModeEnabled(true, Process.myUserHandle())
++    }.getOrDefault(false)
++}
+diff --git a/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultActivity.kt b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultActivity.kt
+new file mode 100644
+index 0000000..b0fe61c
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultActivity.kt
+@@ -0,0 +1,407 @@
++package org.sableos.titan2.vault.android
++
++import android.app.Activity
++import android.content.ActivityNotFoundException
++import android.content.Intent
++import android.graphics.Color
++import android.graphics.Typeface
++import android.graphics.drawable.GradientDrawable
++import android.net.Uri
++import android.os.Bundle
++import android.view.KeyEvent
++import android.view.View
++import android.view.WindowManager
++import android.webkit.MimeTypeMap
++import android.widget.Button
++import android.widget.LinearLayout
++import android.widget.ScrollView
++import android.widget.TextView
++import android.widget.Toast
++import android.window.OnBackInvokedDispatcher
++import androidx.core.content.FileProvider
++import org.sableos.titan2.vault.core.ConfirmAction
++import org.sableos.titan2.vault.core.Confirmation
++import org.sableos.titan2.vault.core.Section
++import org.sableos.titan2.vault.core.VaultAction
++import org.sableos.titan2.vault.core.VaultItem
++import org.sableos.titan2.vault.core.VaultKeys
++import org.sableos.titan2.vault.core.VaultText
++
++/**
++ * Keyboard-first Secure Vault. Every key has a touch twin (rows and the Import / Export / Lock now buttons).
++ * The window is FLAG_SECURE: no screenshots, and Recents shows no preview.
++ */
++class VaultActivity : Activity() {
++    private lateinit var store: VaultStore
++    private lateinit var body: LinearLayout
++    private var section = Section.Photos
++    private var selected = 0
++    private var items: List<VaultItem> = emptyList()
++    private var message: String? = null
++    private var pending: Confirmation? = null
++    private var pendingItem: VaultItem? = null
++    private var pendingOriginals: List<Uri> = emptyList()
++    private var exporting: VaultItem? = null
++    private var privateProfile = false
++    private val dp by lazy { resources.displayMetrics.density }
++
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
++        setRecentsScreenshotEnabled(false)
++        store = VaultStore(this)
++        privateProfile = PrivateSpace.isPrivateProfile(this)
++        section = Section.fromId(savedInstanceState?.getString(STATE_SECTION))
++        body = LinearLayout(this).apply {
++            orientation = LinearLayout.VERTICAL
++            setPadding(px(PAD), px(PAD), px(PAD), px(PAD))
++        }
++        setContentView(ScrollView(this).apply {
++            setBackgroundColor(BG)
++            isFocusable = false
++            addView(body)
++        })
++        // Android 16 apps get Back through the dispatcher (predictive back), not as a key event:
++        // Back cancels a pending confirmation, otherwise leaves.
++        onBackInvokedDispatcher.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT) {
++            if (pending != null) cancel() else finish()
++        }
++    }
++
++    override fun onSaveInstanceState(outState: Bundle) {
++        super.onSaveInstanceState(outState)
++        outState.putString(STATE_SECTION, section.id)
++    }
++
++    override fun onResume() {
++        super.onResume()
++        render()
++    }
++
++    // ---- keys ----
++
++    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
++        val key = toKey(keyCode, event)
++        val action = if (privateProfile) VaultKeys.action(key) else leaveOnly(key)
++        return when {
++            pending != null -> {
++                when (VaultKeys.confirm(key)) {
++                    ConfirmAction.Confirm -> confirm()
++                    ConfirmAction.Cancel -> cancel()
++                    null -> Unit
++                }
++                true
++            }
++
++            action != null -> {
++                perform(action)
++                true
++            }
++
++            else -> super.onKeyDown(keyCode, event)
++        }
++    }
++
++    private fun leaveOnly(key: VaultKeys.Key): VaultAction? =
++        if (key == VaultKeys.Key.Back) VaultAction.Leave else null
++
++    private fun toKey(keyCode: Int, event: KeyEvent): VaultKeys.Key = when (keyCode) {
++        KeyEvent.KEYCODE_DPAD_UP -> VaultKeys.Key.Up
++        KeyEvent.KEYCODE_DPAD_DOWN -> VaultKeys.Key.Down
++        KeyEvent.KEYCODE_DPAD_LEFT -> VaultKeys.Key.Left
++        KeyEvent.KEYCODE_DPAD_RIGHT -> VaultKeys.Key.Right
++        KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER, KeyEvent.KEYCODE_DPAD_CENTER -> VaultKeys.Key.Enter
++        KeyEvent.KEYCODE_FORWARD_DEL, KeyEvent.KEYCODE_DEL -> VaultKeys.Key.Delete
++        KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ESCAPE -> VaultKeys.Key.Back
++        else -> letter(event)
++    }
++
++    /** Plain letters only: Alt+letter is a digit on the Q25 and Sym (Right Alt) is paging, so both are ignored. */
++    private fun letter(event: KeyEvent): VaultKeys.Key {
++        if (event.isAltPressed || event.isCtrlPressed || event.isMetaPressed) return VaultKeys.Key.Other
++        val c = event.getUnicodeChar(0)
++        return if (c > 0 && Character.isLetter(c)) VaultKeys.Key.Letter(c.toChar()) else VaultKeys.Key.Other
++    }
++
++    private fun perform(action: VaultAction) {
++        when (action) {
++            VaultAction.Up -> move(-1)
++            VaultAction.Down -> move(1)
++            VaultAction.PrevSection -> show(section.next(-1))
++            VaultAction.NextSection -> show(section.next(1))
++            VaultAction.Photos -> show(Section.Photos)
++            VaultAction.Docs -> show(Section.Docs)
++            VaultAction.Recordings -> show(Section.Recordings)
++            VaultAction.Open -> ask(Confirmation::open)
++            VaultAction.Import -> startImport()
++            VaultAction.Export -> ask(Confirmation::export)
++            VaultAction.Delete -> ask(Confirmation::delete)
++            VaultAction.Lock -> lockNow()
++            VaultAction.Leave -> finish()
++        }
++    }
++
++    private fun move(dir: Int) {
++        if (items.isEmpty()) return
++        selected = (selected + dir).coerceIn(0, items.lastIndex)
++        render()
++    }
++
++    private fun show(s: Section) {
++        section = s
++        selected = 0
++        message = null
++        render()
++    }
++
++    private fun current(): VaultItem? = items.getOrNull(selected)
++
++    // ---- confirmations: nothing leaves or is removed without one ----
++
++    private fun ask(build: (VaultItem) -> Confirmation) {
++        val item = current() ?: return
++        pendingItem = item
++        pending = build(item)
++        render()
++    }
++
++    private fun cancel() {
++        pending = null
++        pendingItem = null
++        pendingOriginals = emptyList()
++        message = "Cancelled. Nothing changed."
++        render()
++    }
++
++    private fun confirm() {
++        val c = pending ?: return
++        val item = pendingItem
++        pending = null
++        pendingItem = null
++        when (c.kind) {
++            Confirmation.Kind.Open -> item?.let { openItem(it) }
++            Confirmation.Kind.Export -> item?.let { startExport(it) }
++            Confirmation.Kind.Delete -> item?.let {
++                val deleted = store.delete(section, it.name)
++                message = if (deleted) "Deleted ${it.name}." else "Could not delete ${it.name}."
++            }
++            Confirmation.Kind.DeleteOriginals -> {
++                val removed = store.deleteOriginals(pendingOriginals)
++                message = "Deleted $removed of ${pendingOriginals.size} original(s). " +
++                    "Any not deleted are still where they were."
++                pendingOriginals = emptyList()
++            }
++        }
++        render()
++    }
++
++    // ---- import / export / open ----
++
++    private fun startImport() {
++        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
++            addCategory(Intent.CATEGORY_OPENABLE)
++            type = "*/*"
++            putExtra(Intent.EXTRA_MIME_TYPES, section.mimeTypes.toTypedArray())
++            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
++        }
++        launch(intent, REQUEST_IMPORT)
++    }
++
++    private fun startExport(item: VaultItem) {
++        exporting = item
++        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
++            addCategory(Intent.CATEGORY_OPENABLE)
++            type = mimeOf(item.name)
++            putExtra(Intent.EXTRA_TITLE, item.name)
++        }
++        launch(intent, REQUEST_EXPORT)
++    }
++
++    private fun openItem(item: VaultItem) {
++        val file = store.file(section, item.name) ?: return
++        val uri = FileProvider.getUriForFile(this, AUTHORITY, file)
++        val view = Intent(Intent.ACTION_VIEW).apply {
++            setDataAndType(uri, mimeOf(item.name))
++            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
++        }
++        try {
++            startActivity(Intent.createChooser(view, "Open ${item.name} with"))
++            message = "Opened ${item.name} (read-only, this file only)."
++        } catch (_: ActivityNotFoundException) {
++            message = "No app in Private Space can open ${item.name}."
++        }
++    }
++
++    private fun launch(intent: Intent, request: Int) {
++        try {
++            startActivityForResult(intent, request)
++        } catch (_: ActivityNotFoundException) {
++            message = "The system file picker is not available."
++            render()
++        }
++    }
++
++    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
++        super.onActivityResult(requestCode, resultCode, data)
++        if (resultCode != RESULT_OK || data == null) {
++            message = "Cancelled. Nothing changed."
++            exporting = null
++            return
++        }
++        when (requestCode) {
++            REQUEST_IMPORT -> finishImport(picked(data))
++            REQUEST_EXPORT -> finishExport(data.data)
++        }
++    }
++
++    private fun picked(data: Intent): List<Uri> {
++        val clip = data.clipData
++        return if (clip != null) {
++            (0 until clip.itemCount).map { clip.getItemAt(it).uri }
++        } else {
++            listOfNotNull(data.data)
++        }
++    }
++
++    private fun finishImport(uris: List<Uri>) {
++        val outcome = store.import(section, uris)
++        message = outcome.message()
++        if (outcome.imported.isNotEmpty()) {
++            pendingOriginals = uris
++            pending = Confirmation.deleteOriginals(outcome.imported.size)
++        }
++    }
++
++    private fun finishExport(target: Uri?) {
++        val item = exporting ?: return
++        exporting = null
++        message = if (target != null && store.export(section, item.name, target)) {
++            "Exported a copy of ${item.name}. It is no longer protected by the vault."
++        } else {
++            "Export failed. Nothing was written."
++        }
++    }
++
++    private fun lockNow() {
++        pending = null
++        if (!PrivateSpace.lockNow(this)) {
++            Toast.makeText(this, VaultText.LOCK_FALLBACK, Toast.LENGTH_LONG).show()
++        }
++        finishAndRemoveTask()
++    }
++
++    private fun mimeOf(name: String): String =
++        MimeTypeMap.getSingleton().getMimeTypeFromExtension(name.substringAfterLast('.', "").lowercase())
++            ?: "application/octet-stream"
++
++    // ---- rendering ----
++
++    private fun render() {
++        body.removeAllViews()
++        body.addView(text(VaultText.TITLE, TITLE_SP, TEXT, bold = true))
++        body.addView(text(VaultText.SUBTITLE, SMALL_SP, MUTED))
++        if (!privateProfile) {
++            body.addView(text(VaultText.NOT_PRIVATE, BODY_SP, WARN).apply { setPadding(0, px(GAP), 0, 0) })
++            return
++        }
++        body.addView(tabs())
++        items = store.list(section)
++        selected = selected.coerceIn(0, (items.size - 1).coerceAtLeast(0))
++        if (items.isEmpty()) body.addView(text(VaultText.EMPTY, BODY_SP, MUTED))
++        items.forEachIndexed { i, item -> body.addView(row(i, item)) }
++        pending?.let { body.addView(confirmBox(it)) }
++        message?.let { body.addView(text(it, SMALL_SP, if (isCaution(it)) WARN else OK)) }
++        body.addView(buttons())
++        body.addView(text(VaultKeys.HINT, SMALL_SP, MUTED).apply { setPadding(0, px(GAP), 0, 0) })
++    }
++
++    private fun isCaution(msg: String): Boolean =
++        listOf("Could", "failed", "Cancelled", "No app", "not available").any { msg.contains(it) }
++
++    private fun tabs(): View = LinearLayout(this).apply {
++        orientation = LinearLayout.HORIZONTAL
++        setPadding(0, px(GAP), 0, px(GAP))
++        Section.entries.forEach { s ->
++            addView(text(s.title, BODY_SP, if (s == section) ACCENT else MUTED, bold = s == section).apply {
++                setPadding(0, 0, px(GAP * 2), 0)
++                setOnClickListener { show(s) }
++            })
++        }
++    }
++
++    private fun row(i: Int, item: VaultItem): View {
++        val on = i == selected
++        return text("${item.name}  ·  ${VaultText.size(item.sizeBytes)}", BODY_SP, TEXT).apply {
++            setPadding(px(GAP), px(GAP), px(GAP), px(GAP))
++            background = box(if (on) SURFACE else BG, if (on) ACCENT else BG)
++            setOnClickListener {
++                selected = i
++                render()
++            }
++        }
++    }
++
++    private fun confirmBox(c: Confirmation): View = LinearLayout(this).apply {
++        orientation = LinearLayout.VERTICAL
++        setPadding(px(GAP), px(GAP), px(GAP), px(GAP))
++        background = box(SURFACE, WARN)
++        addView(text(c.title, BODY_SP, TEXT, bold = true))
++        addView(text(c.detail, SMALL_SP, MUTED))
++        addView(LinearLayout(this@VaultActivity).apply {
++            addView(button("Yes") { confirm() })
++            addView(button("No") { cancel() })
++        })
++    }
++
++    private fun buttons(): View = LinearLayout(this).apply {
++        orientation = LinearLayout.HORIZONTAL
++        setPadding(0, px(GAP), 0, 0)
++        addView(button("Import") { perform(VaultAction.Import) })
++        addView(button("Export") { perform(VaultAction.Export) })
++        addView(button("Lock now") { perform(VaultAction.Lock) })
++    }
++
++    private fun button(label: String, onClick: () -> Unit): Button = Button(this).apply {
++        text = label
++        isAllCaps = false
++        // Keys go to the vault list, not to a focused button (the trackpad sends arrow keys).
++        isFocusable = false
++        setOnClickListener { onClick() }
++    }
++
++    private fun text(s: String, sp: Float, color: Int, bold: Boolean = false): TextView = TextView(this).apply {
++        text = s
++        textSize = sp
++        setTextColor(color)
++        if (bold) typeface = Typeface.DEFAULT_BOLD
++    }
++
++    private fun box(fill: Int, stroke: Int) = GradientDrawable().apply {
++        setColor(fill)
++        cornerRadius = CORNER * dp
++        setStroke(px(STROKE), stroke)
++    }
++
++    private fun px(v: Int): Int = (v * dp).toInt()
++
++    private companion object {
++        const val AUTHORITY = "org.sableos.titan2.vault.files"
++        const val STATE_SECTION = "section"
++        const val REQUEST_IMPORT = 1
++        const val REQUEST_EXPORT = 2
++        const val PAD = 12
++        const val GAP = 6
++        const val STROKE = 2
++        const val CORNER = 6f
++        const val TITLE_SP = 18f
++        const val BODY_SP = 14f
++        const val SMALL_SP = 11f
++        val BG = Color.rgb(0x06, 0x12, 0x1D)
++        val SURFACE = Color.rgb(0x0C, 0x1E, 0x2D)
++        val TEXT = Color.rgb(0xEE, 0xF8, 0xFF)
++        val MUTED = Color.rgb(0x8B, 0xA6, 0xB8)
++        val ACCENT = Color.rgb(0x15, 0x87, 0xFF)
++        val WARN = Color.rgb(0xFF, 0xB7, 0x4D)
++        val OK = Color.rgb(0x4C, 0xC3, 0x8A)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultStore.kt b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultStore.kt
+new file mode 100644
+index 0000000..27a820c
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultStore.kt
+@@ -0,0 +1,91 @@
++package org.sableos.titan2.vault.android
++
++import android.content.Context
++import android.net.Uri
++import android.provider.DocumentsContract
++import android.provider.OpenableColumns
++import java.io.File
++import java.io.IOException
++import org.sableos.titan2.vault.core.FileNames
++import org.sableos.titan2.vault.core.ImportOutcome
++import org.sableos.titan2.vault.core.Section
++import org.sableos.titan2.vault.core.VaultItem
++
++/**
++ * Files live in this app's credential-encrypted storage (Context.filesDir) of the private profile, one folder per
++ * section. That storage is unreadable while Private Space is locked, so the vault locks with it. Nothing here
++ * uses the network, shared storage, MediaStore or backup.
++ */
++class VaultStore(private val context: Context) {
++    private val root: File get() = File(context.filesDir, ROOT_DIR)
++
++    fun dir(section: Section): File = File(root, section.id).apply { mkdirs() }
++
++    fun list(section: Section): List<VaultItem> =
++        dir(section).listFiles().orEmpty()
++            .filter { it.isFile }
++            .sortedByDescending { it.lastModified() }
++            .map { VaultItem(it.name, it.length(), it.lastModified()) }
++
++    /** The stored file for [name], only when it is a direct child of the section folder. */
++    fun file(section: Section, name: String): File? {
++        val f = File(dir(section), name)
++        return f.takeIf { it.isFile && it.parentFile?.canonicalPath == dir(section).canonicalPath }
++    }
++
++    /** Copies each document in; the originals are left alone (the caller asks before deleting them). */
++    fun import(section: Section, uris: List<Uri>): ImportOutcome {
++        val imported = mutableListOf<String>()
++        val failed = mutableListOf<String>()
++        for (uri in uris) {
++            val display = displayName(uri)
++            val taken = dir(section).list().orEmpty().toSet()
++            val name = FileNames.unique(FileNames.sanitize(display), taken)
++            val target = File(dir(section), name)
++            try {
++                copyIn(uri, target)
++                imported += name
++            } catch (e: IOException) {
++                target.delete()
++                failed += (display ?: name) + " (" + (e.message ?: "read error") + ")"
++            } catch (e: IllegalStateException) {
++                target.delete()
++                failed += (display ?: name) + " (" + (e.message ?: "unreadable") + ")"
++            } catch (_: SecurityException) {
++                target.delete()
++                failed += (display ?: name) + " (no access)"
++            }
++        }
++        return ImportOutcome(imported, failed)
++    }
++
++    private fun copyIn(uri: Uri, target: File) {
++        val input = checkNotNull(context.contentResolver.openInputStream(uri)) { "no stream" }
++        input.use { inp -> target.outputStream().use { out -> inp.copyTo(out) } }
++    }
++
++    /** Writes a copy of [name] to [target], a document the user just created in the system picker. */
++    fun export(section: Section, name: String, target: Uri): Boolean = runCatching {
++        val src = checkNotNull(file(section, name)) { "missing" }
++        val out = checkNotNull(context.contentResolver.openOutputStream(target, "wt")) { "no stream" }
++        out.use { o -> src.inputStream().use { it.copyTo(o) } }
++        true
++    }.getOrDefault(false)
++
++    fun delete(section: Section, name: String): Boolean = file(section, name)?.delete() == true
++
++    /** Deletes picked originals the provider allows deleting; returns how many were removed. */
++    fun deleteOriginals(uris: List<Uri>): Int = uris.count { uri ->
++        runCatching { DocumentsContract.deleteDocument(context.contentResolver, uri) }.getOrDefault(false)
++    }
++
++    private fun displayName(uri: Uri): String? = runCatching {
++        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
++            if (c.moveToFirst()) c.getString(0) else null
++        }
++    }.getOrNull()
++
++    companion object {
++        const val ROOT_DIR = "vault"
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/core/VaultModel.kt b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/core/VaultModel.kt
+new file mode 100644
+index 0000000..3110642
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/core/VaultModel.kt
+@@ -0,0 +1,199 @@
++package org.sableos.titan2.vault.core
++
++/**
++ * Secure Vault (PRIVATE_SPACE_DUAL_APPS_WORK_PROFILE_UX, "Secure Vault"; artifact
++ * sable-private-space-dual-work-titan2.svg panel 1). Pure Kotlin: no Android imports.
++ *
++ * The vault is the file layer of Private Space. The app is installed only in the private profile and keeps its
++ * files in its own credential-encrypted storage there, so the files lock when Private Space locks.
++ * Import copies in; Export and Open each need an explicit confirmation; nothing leaves silently.
++ */
++enum class Section(val id: String, val title: String, val key: Char, val mimeTypes: List<String>) {
++    Photos("photos", "Photos", 'p', listOf("image/*", "video/*")),
++    Docs("docs", "Documents", 'd', listOf("*/*")),
++    Recordings("recordings", "Recordings", 'r', listOf("audio/*"));
++
++    fun next(dir: Int): Section = entries[(ordinal + dir + entries.size) % entries.size]
++
++    companion object {
++        fun fromId(id: String?): Section = entries.firstOrNull { it.id == id } ?: Photos
++    }
++}
++
++/** One stored file, as listed. */
++data class VaultItem(val name: String, val sizeBytes: Long, val modifiedMillis: Long)
++
++object FileNames {
++    private const val MAX_LENGTH = 120
++    private const val FALLBACK = "file"
++
++    /**
++     * A safe single path segment from a provider's display name: no separators, no control characters, no
++     * leading dots (no hidden files, no "." or ".."), bounded length with the extension kept.
++     */
++    fun sanitize(displayName: String?): String {
++        val cleaned = displayName.orEmpty()
++            .map { c -> if (c == '/' || c == '\\' || c == ':' || c.isISOControl()) '_' else c }
++            .joinToString("")
++            .trim()
++            .trimStart('.')
++            .trim()
++        return when {
++            cleaned.isEmpty() -> FALLBACK
++            cleaned.length <= MAX_LENGTH -> cleaned
++            else -> {
++                val dot = cleaned.lastIndexOf('.')
++                val ext = if (dot > 0 && cleaned.length - dot <= MAX_EXTENSION) cleaned.substring(dot) else ""
++                cleaned.take(MAX_LENGTH - ext.length) + ext
++            }
++        }
++    }
++
++    /** [name], or "base (2).ext", "base (3).ext"... when [taken] already has it. Never overwrites. */
++    fun unique(name: String, taken: Set<String>): String {
++        if (name !in taken) return name
++        val dot = name.lastIndexOf('.')
++        val base = if (dot > 0) name.substring(0, dot) else name
++        val ext = if (dot > 0) name.substring(dot) else ""
++        var n = 2
++        while ("$base ($n)$ext" in taken) n++
++        return "$base ($n)$ext"
++    }
++
++    private const val MAX_EXTENSION = 10
++}
++
++/** What a key does on the vault list. Letters are plain letters on the Q25 (no Ctrl, no Fn). */
++enum class VaultAction {
++    Up,
++    Down,
++    PrevSection,
++    NextSection,
++    Photos,
++    Docs,
++    Recordings,
++    Open,
++    Import,
++    Export,
++    Delete,
++    Lock,
++    Leave
++}
++
++/** What a key does while a confirmation is showing. */
++enum class ConfirmAction { Confirm, Cancel }
++
++object VaultKeys {
++    fun action(key: Key): VaultAction? = when (key) {
++        Key.Up -> VaultAction.Up
++        Key.Down -> VaultAction.Down
++        Key.Left -> VaultAction.PrevSection
++        Key.Right -> VaultAction.NextSection
++        Key.Enter -> VaultAction.Open
++        Key.Delete -> VaultAction.Delete
++        Key.Back -> VaultAction.Leave
++        is Key.Letter -> letter(key.c.lowercaseChar())
++        Key.Other -> null
++    }
++
++    private fun letter(c: Char): VaultAction? = when (c) {
++        Section.Photos.key -> VaultAction.Photos
++        Section.Docs.key -> VaultAction.Docs
++        Section.Recordings.key -> VaultAction.Recordings
++        'i' -> VaultAction.Import
++        'e' -> VaultAction.Export
++        'x' -> VaultAction.Delete
++        'l' -> VaultAction.Lock
++        else -> null
++    }
++
++    /** Enter or Y confirms; Back, Esc or N cancels; anything else does nothing (no accidental confirm). */
++    fun confirm(key: Key): ConfirmAction? = when (key) {
++        Key.Enter -> ConfirmAction.Confirm
++        Key.Back -> ConfirmAction.Cancel
++        is Key.Letter -> when (key.c.lowercaseChar()) {
++            'y' -> ConfirmAction.Confirm
++            'n' -> ConfirmAction.Cancel
++            else -> null
++        }
++        else -> null
++    }
++
++    /** Keys as the Android glue reports them. */
++    sealed interface Key {
++        data object Up : Key
++        data object Down : Key
++        data object Left : Key
++        data object Right : Key
++        data object Enter : Key
++        data object Delete : Key
++        data object Back : Key
++        data object Other : Key
++        data class Letter(val c: Char) : Key
++    }
++
++    const val HINT =
++        "↑↓ file · ←→ or P D R section · Enter open · I import · E export · X delete · L lock now"
++}
++
++/** A question the user must answer before anything leaves the vault or is removed. */
++data class Confirmation(val kind: Kind, val title: String, val detail: String) {
++    enum class Kind { Open, Export, Delete, DeleteOriginals }
++
++    companion object {
++        fun open(item: VaultItem) = Confirmation(
++            Kind.Open,
++            "Open ${item.name}?",
++            "The app you pick (inside Private Space) can read this one file until it closes it. " +
++                "Enter or Y opens · Back or N cancels."
++        )
++
++        fun export(item: VaultItem) = Confirmation(
++            Kind.Export,
++            "Export ${item.name}?",
++            "A copy is written where you choose next and is no longer protected by the vault. " +
++                "The vault copy stays. Enter or Y continues · Back or N cancels."
++        )
++
++        fun delete(item: VaultItem) = Confirmation(
++            Kind.Delete,
++            "Delete ${item.name} from the vault?",
++            "It cannot be recovered. Enter or Y deletes · Back or N cancels."
++        )
++
++        fun deleteOriginals(count: Int) = Confirmation(
++            Kind.DeleteOriginals,
++            "Imported $count file(s) as copies. Delete the originals?",
++            "The originals are still where they were. Enter or Y deletes them · Back or N keeps them."
++        )
++    }
++}
++
++/** Import results: copies are never reported as moves. */
++data class ImportOutcome(val imported: List<String>, val failed: List<String>) {
++    fun message(): String = buildString {
++        append("Imported ${imported.size} file(s) as copies.")
++        if (failed.isNotEmpty()) append(" Could not import: ").append(failed.joinToString(", ")).append('.')
++    }
++}
++
++object VaultText {
++    const val TITLE = "Secure Vault"
++    const val SUBTITLE = "Private Space · Photos · Documents · Recordings · import/export explicit"
++    const val NOT_PRIVATE =
++        "Secure Vault works only inside Private Space. Unlock Private Space in Sable Start (All apps) " +
++            "and open Secure Vault there. Nothing is stored outside it."
++    const val EMPTY = "Nothing here yet. Press I to import a copy of a file."
++    const val LOCK_FALLBACK = "Could not lock Private Space from here; lock it from Sable Start. The vault closed."
++
++    fun size(bytes: Long): String = when {
++        bytes < KIB -> "$bytes B"
++        bytes < MIB -> "${bytes / KIB} KB"
++        bytes < GIB -> "${bytes / MIB} MB"
++        else -> "${bytes / GIB} GB"
++    }
++
++    private const val KIB = 1024L
++    private const val MIB = KIB * 1024L
++    private const val GIB = MIB * 1024L
++}
+diff --git a/sable-src/apps/titan2/platform/vault/src/main/res/drawable/ic_sable_vault.xml b/sable-src/apps/titan2/platform/vault/src/main/res/drawable/ic_sable_vault.xml
+new file mode 100644
+index 0000000..1bd796e
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/vault/src/main/res/drawable/ic_sable_vault.xml
+@@ -0,0 +1,21 @@
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="48dp"
++    android:height="48dp"
++    android:viewportWidth="256"
++    android:viewportHeight="256">
++    <path
++        android:fillColor="#161C24"
++        android:pathData="M32,16h192c8.8,0 16,7.2 16,16v192c0,8.8 -7.2,16 -16,16H32c-8.8,0 -16,-7.2 -16,-16V32c0,-8.8 7.2,-16 16,-16z" />
++    <group
++        android:scaleX="0.70"
++        android:scaleY="0.70"
++        android:translateX="38.4"
++        android:translateY="34">
++        <path
++            android:fillColor="#F7F9FC"
++            android:pathData="M216,40H40A16,16,0,0,0,24,56V192a16,16,0,0,0,16,16H56v16a8,8,0,0,0,16,0V208H184v16a8,8,0,0,0,16,0V208h16a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,152H40V56H216v64H199.32a48,48,0,1,0,0,16H216v56Zm-50.16-72a16,16,0,1,0,0,16H183a32,32,0,1,1,0-16Z" />
++    </group>
++    <path
++        android:fillColor="#8B5CF6"
++        android:pathData="M28,226h200v6H28z" />
++</vector>
+diff --git a/sable-src/apps/titan2/platform/vault/src/main/res/drawable/ic_sable_vault_background.xml b/sable-src/apps/titan2/platform/vault/src/main/res/drawable/ic_sable_vault_background.xml
+new file mode 100644
+index 0000000..811854a
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/vault/src/main/res/drawable/ic_sable_vault_background.xml
+@@ -0,0 +1,10 @@
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="108dp"
++    android:height="108dp"
++    android:viewportWidth="108"
++    android:viewportHeight="108">
++    <path
++        android:fillColor="#161C24"
++        android:pathData="M0,0h108v108H0z" />
++</vector>
+diff --git a/sable-src/apps/titan2/platform/vault/src/main/res/drawable/ic_sable_vault_foreground.xml b/sable-src/apps/titan2/platform/vault/src/main/res/drawable/ic_sable_vault_foreground.xml
+new file mode 100644
+index 0000000..1c11a14
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/vault/src/main/res/drawable/ic_sable_vault_foreground.xml
+@@ -0,0 +1,19 @@
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="108dp"
++    android:height="108dp"
++    android:viewportWidth="108"
++    android:viewportHeight="108">
++    <group
++        android:scaleX="0.171875"
++        android:scaleY="0.171875"
++        android:translateX="32"
++        android:translateY="32">
++        <path
++            android:fillColor="#F7F9FC"
++            android:pathData="M216,40H40A16,16,0,0,0,24,56V192a16,16,0,0,0,16,16H56v16a8,8,0,0,0,16,0V208H184v16a8,8,0,0,0,16,0V208h16a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,152H40V56H216v64H199.32a48,48,0,1,0,0,16H216v56Zm-50.16-72a16,16,0,1,0,0,16H183a32,32,0,1,1,0-16Z" />
++    </group>
++    <path
++        android:fillColor="#8B5CF6"
++        android:pathData="M38,76.5h32v1.5H38z" />
++</vector>
+diff --git a/sable-src/apps/titan2/platform/vault/src/main/res/drawable/ic_sable_vault_monochrome.xml b/sable-src/apps/titan2/platform/vault/src/main/res/drawable/ic_sable_vault_monochrome.xml
+new file mode 100644
+index 0000000..6279b3b
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/vault/src/main/res/drawable/ic_sable_vault_monochrome.xml
+@@ -0,0 +1,16 @@
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="108dp"
++    android:height="108dp"
++    android:viewportWidth="108"
++    android:viewportHeight="108">
++    <group
++        android:scaleX="0.171875"
++        android:scaleY="0.171875"
++        android:translateX="32"
++        android:translateY="32">
++        <path
++            android:fillColor="#FFFFFFFF"
++            android:pathData="M216,40H40A16,16,0,0,0,24,56V192a16,16,0,0,0,16,16H56v16a8,8,0,0,0,16,0V208H184v16a8,8,0,0,0,16,0V208h16a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,152H40V56H216v64H199.32a48,48,0,1,0,0,16H216v56Zm-50.16-72a16,16,0,1,0,0,16H183a32,32,0,1,1,0-16Z" />
++    </group>
++</vector>
+diff --git a/sable-src/apps/titan2/platform/vault/src/main/res/mipmap-anydpi-v26/ic_sable_vault.xml b/sable-src/apps/titan2/platform/vault/src/main/res/mipmap-anydpi-v26/ic_sable_vault.xml
+new file mode 100644
+index 0000000..33e9179
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/vault/src/main/res/mipmap-anydpi-v26/ic_sable_vault.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
++    <background android:drawable="@drawable/ic_sable_vault_background" />
++    <foreground android:drawable="@drawable/ic_sable_vault_foreground" />
++    <monochrome android:drawable="@drawable/ic_sable_vault_monochrome" />
++</adaptive-icon>
+diff --git a/sable-src/apps/titan2/platform/vault/src/main/res/mipmap-anydpi-v26/ic_sable_vault_round.xml b/sable-src/apps/titan2/platform/vault/src/main/res/mipmap-anydpi-v26/ic_sable_vault_round.xml
+new file mode 100644
+index 0000000..33e9179
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/vault/src/main/res/mipmap-anydpi-v26/ic_sable_vault_round.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
++    <background android:drawable="@drawable/ic_sable_vault_background" />
++    <foreground android:drawable="@drawable/ic_sable_vault_foreground" />
++    <monochrome android:drawable="@drawable/ic_sable_vault_monochrome" />
++</adaptive-icon>
+diff --git a/sable-src/apps/titan2/platform/vault/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/vault/src/main/res/values/strings.xml
+new file mode 100644
+index 0000000..63ec2f2
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/vault/src/main/res/values/strings.xml
+@@ -0,0 +1 @@
++<resources><string name="app_name">Secure Vault</string></resources>
+diff --git a/sable-src/apps/titan2/platform/vault/src/main/res/xml/data_extraction_rules.xml b/sable-src/apps/titan2/platform/vault/src/main/res/xml/data_extraction_rules.xml
+new file mode 100644
+index 0000000..0509233
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/vault/src/main/res/xml/data_extraction_rules.xml
+@@ -0,0 +1,18 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Nothing in the vault is backed up or transferred to another device. -->
++<data-extraction-rules>
++    <cloud-backup>
++        <exclude domain="root" />
++        <exclude domain="file" />
++        <exclude domain="database" />
++        <exclude domain="sharedpref" />
++        <exclude domain="external" />
++    </cloud-backup>
++    <device-transfer>
++        <exclude domain="root" />
++        <exclude domain="file" />
++        <exclude domain="database" />
++        <exclude domain="sharedpref" />
++        <exclude domain="external" />
++    </device-transfer>
++</data-extraction-rules>
+diff --git a/sable-src/apps/titan2/platform/vault/src/main/res/xml/vault_paths.xml b/sable-src/apps/titan2/platform/vault/src/main/res/xml/vault_paths.xml
+new file mode 100644
+index 0000000..59b856e
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/vault/src/main/res/xml/vault_paths.xml
+@@ -0,0 +1,5 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Only the vault folder can be granted (one file at a time, read-only, after a confirmation). -->
++<paths>
++    <files-path name="vault" path="vault/" />
++</paths>
+diff --git a/sable-src/apps/titan2/platform/vault/src/test/java/org/sableos/titan2/vault/core/VaultModelTest.kt b/sable-src/apps/titan2/platform/vault/src/test/java/org/sableos/titan2/vault/core/VaultModelTest.kt
+new file mode 100644
+index 0000000..6f87d04
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/vault/src/test/java/org/sableos/titan2/vault/core/VaultModelTest.kt
+@@ -0,0 +1,86 @@
++package org.sableos.titan2.vault.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class VaultModelTest {
++    @Test fun sanitizeKeepsOneSafeSegment() {
++        assertEquals("a_b_c.jpg", FileNames.sanitize("a/b\\c.jpg"))
++        assertEquals("passwd", FileNames.sanitize("../passwd").removePrefix("_"))
++        assertEquals("hidden", FileNames.sanitize(".hidden"))
++        assertEquals("file", FileNames.sanitize(null))
++        assertEquals("file", FileNames.sanitize(" .. "))
++        assertFalse(FileNames.sanitize("x\u0000y").contains('\u0000'))
++    }
++
++    @Test fun sanitizeBoundsLengthAndKeepsExtension() {
++        val long = "a".repeat(300) + ".pdf"
++        val s = FileNames.sanitize(long)
++        assertEquals(120, s.length)
++        assertTrue(s.endsWith(".pdf"))
++    }
++
++    @Test fun uniqueNeverOverwrites() {
++        assertEquals("a.jpg", FileNames.unique("a.jpg", setOf("b.jpg")))
++        assertEquals("a (2).jpg", FileNames.unique("a.jpg", setOf("a.jpg")))
++        assertEquals("a (3).jpg", FileNames.unique("a.jpg", setOf("a.jpg", "a (2).jpg")))
++        assertEquals("notes (2)", FileNames.unique("notes", setOf("notes")))
++    }
++
++    @Test fun sectionsCycleAndHaveLetters() {
++        assertEquals(Section.Docs, Section.Photos.next(1))
++        assertEquals(Section.Recordings, Section.Photos.next(-1))
++        assertEquals(listOf('p', 'd', 'r'), Section.entries.map { it.key })
++        assertEquals(Section.Photos, Section.fromId("nope"))
++        assertEquals(listOf("audio/*"), Section.Recordings.mimeTypes)
++    }
++
++    @Test fun keysMatchTheHint() {
++        val k = VaultKeys
++        assertEquals(VaultAction.Import, k.action(VaultKeys.Key.Letter('I')))
++        assertEquals(VaultAction.Export, k.action(VaultKeys.Key.Letter('e')))
++        assertEquals(VaultAction.Lock, k.action(VaultKeys.Key.Letter('l')))
++        assertEquals(VaultAction.Delete, k.action(VaultKeys.Key.Letter('x')))
++        assertEquals(VaultAction.Delete, k.action(VaultKeys.Key.Delete))
++        assertEquals(VaultAction.Open, k.action(VaultKeys.Key.Enter))
++        assertEquals(VaultAction.Recordings, k.action(VaultKeys.Key.Letter('r')))
++        assertEquals(VaultAction.NextSection, k.action(VaultKeys.Key.Right))
++        assertEquals(VaultAction.Leave, k.action(VaultKeys.Key.Back))
++        assertNull(k.action(VaultKeys.Key.Letter('q')))
++        assertNull(k.action(VaultKeys.Key.Other))
++    }
++
++    @Test fun confirmationNeedsAnExplicitYes() {
++        assertEquals(ConfirmAction.Confirm, VaultKeys.confirm(VaultKeys.Key.Enter))
++        assertEquals(ConfirmAction.Confirm, VaultKeys.confirm(VaultKeys.Key.Letter('Y')))
++        assertEquals(ConfirmAction.Cancel, VaultKeys.confirm(VaultKeys.Key.Back))
++        assertEquals(ConfirmAction.Cancel, VaultKeys.confirm(VaultKeys.Key.Letter('n')))
++        // The keys that started the action never confirm it.
++        assertNull(VaultKeys.confirm(VaultKeys.Key.Letter('e')))
++        assertNull(VaultKeys.confirm(VaultKeys.Key.Letter('x')))
++        assertNull(VaultKeys.confirm(VaultKeys.Key.Delete))
++        assertNull(VaultKeys.confirm(VaultKeys.Key.Down))
++    }
++
++    @Test fun confirmationsSayWhatLeavesTheVault() {
++        val item = VaultItem("scan.pdf", 10, 0)
++        assertTrue(Confirmation.export(item).detail.contains("no longer protected"))
++        assertTrue(Confirmation.open(item).detail.contains("this one file"))
++        assertTrue(Confirmation.delete(item).detail.contains("cannot be recovered"))
++        assertTrue(Confirmation.deleteOriginals(2).title.contains("copies"))
++    }
++
++    @Test fun importIsReportedAsCopy() {
++        val o = ImportOutcome(listOf("a.jpg"), listOf("b.jpg (no access)"))
++        assertEquals("Imported 1 file(s) as copies. Could not import: b.jpg (no access).", o.message())
++    }
++
++    @Test fun sizes() {
++        assertEquals("512 B", VaultText.size(512))
++        assertEquals("2 KB", VaultText.size(2048))
++        assertEquals("3 MB", VaultText.size(3L * 1024 * 1024))
++    }
++}
+diff --git a/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv b/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
+index c96c773..b5d5381 100644
+--- a/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
++++ b/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
+@@ -17,3 +17,4 @@ messages	ic_sable_messages	chat-text	efdb68b49cb030dcc6d04abf6f4e9368a0a9e7870d0
+ reader	ic_sable_reader	book-open-text	5eb0c8daceb5a6ffa004118720ea712a3eb8b7d2b6ab5bae750c3efca9d35450	#35C66B	R9_PANTHER_GLYPH_PHOSPHOR_REGULAR	ic_sable_reader	apps/common/reader/leisure/src/main/res	none
+ mail	ic_sable_mail	envelope-simple	f114441afbd3c3da8aee24ba4cddea1576cf55aa304eb507410fca494c8ee169	#64748B	R9_PANTHER_GLYPH_PHOSPHOR_REGULAR	ic_sable_mail	apps/r8/mail/res	mipmap
+ textreader	ic_sable_text_reader	text-align-left	4d166977720d3beb386288a8607fbb36134fef06fdd99496ab09cf2d2da211b5	#4D9CFF	R9_ART_REPLACED_BY_PHOSPHOR_REGULAR	ic_sable_text_reader	apps/r8/textreader/res	none
++vault	ic_sable_vault	vault	f4cedeb0419725587ff38c725cd2e0f05e888aa4b3d526d652bc61123d98e136	#8B5CF6	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/titan2/platform/vault/src/main/res	none
+diff --git a/sable-src/third_party/phosphor-icons/PROVENANCE.md b/sable-src/third_party/phosphor-icons/PROVENANCE.md
+index 080363c..f43f545 100644
+--- a/sable-src/third_party/phosphor-icons/PROVENANCE.md
++++ b/sable-src/third_party/phosphor-icons/PROVENANCE.md
+@@ -28,5 +28,6 @@ adaptive launcher icon (background, foreground, monochrome layers and `mipmap-an
+ Glyphs added for the Q25 adaptive-icon work (verbatim `assets/regular/<name>.svg` at the pinned commit, fetched
+ from raw.githubusercontent.com): bomb, book-open-text, calculator, calendar-dots, chat-circle-dots, chat-text,
+ cloud-sun, envelope-simple, grid-four, grid-nine, music-notes, text-align-left, wrench.
++Added for Secure Vault (Private Space file layer, `origin=NEW_TITAN_GLYPH_PHOSPHOR_REGULAR`): vault.
+ 
+ SableScreens is a prototype and has no product icon.
+diff --git a/sable-src/third_party/phosphor-icons/glyphs/vault.svg b/sable-src/third_party/phosphor-icons/glyphs/vault.svg
+new file mode 100644
+index 0000000..9a47130
+--- /dev/null
++++ b/sable-src/third_party/phosphor-icons/glyphs/vault.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M216,40H40A16,16,0,0,0,24,56V192a16,16,0,0,0,16,16H56v16a8,8,0,0,0,16,0V208H184v16a8,8,0,0,0,16,0V208h16a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,152H40V56H216v64H199.32a48,48,0,1,0,0,16H216v56Zm-50.16-72a16,16,0,1,0,0,16H183a32,32,0,1,1,0-16Z"/></svg>
+\ No newline at end of file

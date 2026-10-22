@@ -9,8 +9,12 @@
 #   gradle_task   task that produces the APK
 #   apk           APK path relative to gradle_root (one glob match required)
 #   package       expected application id
-#   signing       unsigned  = release APK, signed by the platform build (default dev cert)
-#                 presigned = APK already signed (debug-signed engineering APK)
+#   signing       unsigned   = release APK, signed by the platform build (default dev cert)
+#                 presigned  = APK already signed (debug-signed engineering APK)
+#                 platform   = release APK signed with the platform certificate, privileged (Q4+ only;
+#                              the app runs as android.uid.system, so it is not staged before Q4)
+#                 privileged = release APK, default dev cert, privileged from Q4 (ordinary before)
+#                 Privileged permissions: product/q25/permissions/privapp-permissions-sable-q25.xml
 #   overrides     comma-separated modules this app replaces, or -
 #   enabled       yes/no: whether scripts/build-apps.sh builds it by default
 #
@@ -27,8 +31,9 @@
 module	group	gradle_root	gradle_task	apk	package	signing	overrides	enabled
 SableKeyboard	platform	apps/titan2/platform	:keyboard:assembleRelease	keyboard/build/outputs/apk/release/*.apk	org.sableos.titan2.keyboard	unsigned	-	yes
 SableCamera	platform	apps/titan2/platform	:camera:assembleRelease	camera/build/outputs/apk/release/*.apk	org.sableos.titan2.camera	unsigned	-	yes
-SableDisplayCompat	platform	apps/titan2/platform	:displaycompat:assembleRelease	displaycompat/build/outputs/apk/release/*.apk	org.sableos.titan2.displaycompat	unsigned	-	yes
+SableDisplayCompat	platform	apps/titan2/platform	:displaycompat:assembleRelease	displaycompat/build/outputs/apk/release/*.apk	org.sableos.titan2.displaycompat	platform	-	yes
 SableSetup	platform	apps/titan2/platform	:setup:assembleRelease	setup/build/outputs/apk/release/*.apk	org.sableos.titan2.setup	unsigned	-	yes
+SableVault	platform	apps/titan2/platform	:vault:assembleRelease	vault/build/outputs/apk/release/*.apk	org.sableos.titan2.vault	privileged	-	yes
 SableRadioDiag	platform	apps/titan2/platform	:radiodiag:assembleRelease	radiodiag/build/outputs/apk/release/*.apk	org.sableos.titan2.radiodiag	unsigned	-	no
 SableTools	platform	apps/titan2/platform	:tools:assembleRelease	tools/build/outputs/apk/release/*.apk	org.sableos.tools	unsigned	SableRadioDiag	yes
 SableCalculator	common	apps/r8/android	:calculator:assembleDebug	calculator/build/outputs/apk/debug/calculator-debug.apk	org.sableos.calculator	presigned	ExactCalculator	yes

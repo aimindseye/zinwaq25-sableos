@@ -52,8 +52,7 @@ object NoOpBackend : DisplayBackend {
 /** Orchestrates store, validation and backend. A profile that fails validation is never saved or applied. */
 class ProfileController(
     private val store: ProfileStore,
-    private val backend: DisplayBackend,
-    private val miniSize: SizePx? = null
+    private val backend: DisplayBackend
 ) {
     data class Outcome(
         val validation: Validation,
@@ -129,7 +128,7 @@ class ProfileController(
                     pkg
                 )
             } else {
-                backend.apply(pkg, CanvasPlanner.plan(display, p, miniSize), p)
+                backend.apply(pkg, CanvasPlanner.plan(display, p), p)
             }
         }
 

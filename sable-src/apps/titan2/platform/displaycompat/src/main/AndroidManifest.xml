@@ -1,7 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<!-- Runs as the system UID: IPackageManager.setUserMinAspectRatio only lets the system UID set another
+     package's aspect ratio (PackageManagerService.enforceOwnerRights). Platform-signed and privileged on the
+     image (apps.tsv signing "platform"); the privileged permissions below are allowlisted in
+     product/q25/permissions/privapp-permissions-sable-q25.xml. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:sharedUserId="android.uid.system"
+    tools:ignore="SharedUserId">
 
-    <!-- No permissions. App discovery uses a <queries> launcher intent, not QUERY_ALL_PACKAGES.
+    <!-- Per-app aspect ratio (IPackageManager.setUserMinAspectRatio). -->
+    <uses-permission android:name="android.permission.INSTALL_PACKAGES" tools:ignore="ProtectedPermissions" />
+    <!-- Per-app orientation (IPlatformCompat.putOverridesOnReleaseBuilds). -->
+    <uses-permission
+        android:name="android.permission.OVERRIDE_COMPAT_CHANGE_CONFIG_ON_RELEASE_BUILD"
+        tools:ignore="ProtectedPermissions" />
+
+    <!-- App discovery uses a <queries> launcher intent, not QUERY_ALL_PACKAGES.
          The Sable appearance authority (Settings) holds the global Sable app corner style. -->
     <queries>
         <provider android:authorities="org.sableos.appearance" />

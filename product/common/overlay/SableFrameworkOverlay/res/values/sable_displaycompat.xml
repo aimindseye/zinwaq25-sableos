@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App display compatibility (org.sableos.titan2.displaycompat) sets per-app user aspect ratios
+     with IPackageManager.setUserMinAspectRatio. WindowManager honours them only when these are true
+     (AppCompatConfiguration: enable_app_compat_aspect_ratio_user_settings and
+     enable_app_compat_user_aspect_ratio_fullscreen). LineageOS 23.2 ships both false. -->
+<resources>
+    <bool name="config_appCompatUserAppAspectRatioSettingsIsEnabled">true</bool>
+    <bool name="config_appCompatUserAppAspectRatioFullscreenIsEnabled">true</bool>
+</resources>
