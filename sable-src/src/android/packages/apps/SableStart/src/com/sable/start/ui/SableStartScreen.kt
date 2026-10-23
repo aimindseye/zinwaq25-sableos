@@ -145,12 +145,17 @@ import org.sableos.start.model.CoreAppIdentity
 import org.sableos.start.model.GlanceWidgets
 import org.sableos.start.model.HomeApps
 import org.sableos.start.model.HomeLayout
+import org.sableos.start.model.HubBar
+import org.sableos.start.model.HubFilter
+import org.sableos.start.model.HubPeople
+import org.sableos.start.model.HubPerson
 import org.sableos.start.model.QuickBar
 import org.sableos.start.model.StartPages
 import org.sableos.start.model.StartTypeToSearch
 import org.sableos.start.model.inLauncherUser
 import org.sableos.start.model.stableKey
 import org.sableos.start.platform.LiveSurfaceRepository
+import org.sableos.start.platform.PeopleRepository
 import org.sableos.start.privacy.AllAppsKeyAction
 import org.sableos.start.privacy.AllAppsKeyPolicy
 import org.sableos.start.privacy.AppAction
@@ -172,15 +177,6 @@ private enum class SableStartDestination {
 
     /** All Apps "Choose base bar slot" for an app when the bar is full. */
     SlotPicker,
-}
-
-/** Hub page tabs: "All · Messages · Calls". */
-private enum class HubFilter(
-    val label: String,
-) {
-    All("All"),
-    Messages("Messages"),
-    Calls("Calls"),
 }
 
 /** One quick bar slot resolved against the installed apps. */
@@ -296,6 +292,12 @@ fun SableStartScreen(
     /** null: no private space on this device; true: locked; false: unlocked. */
     privateSpaceLocked: Boolean? = null,
     onTogglePrivateSpace: () -> Unit = {},
+    /** Counts up for each "show the Hub page" request (org.sableos.start.action.SHOW_HUB). */
+    hubGeneration: Int = 0,
+    /** The tab that request asked for ([HubFilter] by name), or null for All. */
+    hubRequestFilter: String? = null,
+    /** The Contacts tab asks for READ_CONTACTS; the activity bumps [refreshGeneration] after. */
+    onRequestContactsPermission: () -> Unit = {},
 ) {
     var destination by remember(initialScreen) {
         mutableStateOf(destinationFor(initialScreen))
@@ -415,13 +417,14 @@ fun SableStartScreen(
         destination = backDestination(destination, returnDestination)
     }
 
-    fun openHubApp(query: String = "") {
-        onStartIntent(
-            Intent(Intent.ACTION_MAIN)
-                .setPackage(HUB_PACKAGE)
-                .addCategory(Intent.CATEGORY_LAUNCHER)
-                .putExtra(HUB_EXTRA_QUERY, query),
-        )
+    /** Hub's sources, private mode and history (Hub has no launcher entry of its own). */
+    fun openHubSettings() {
+        onStartIntent(hubSettingsIntent())
+    }
+
+    fun showHub(filter: HubFilter) {
+        hubFilter = filter
+        showPage(StartPages.HUB)
     }
 
     fun dial(digits: String) {
@@ -432,6 +435,8 @@ fun SableStartScreen(
         when (slot.token) {
             QuickBar.COMMAND -> openSearch(SableStartDestination.Start)
             QuickBar.ALL_APPS -> destination = SableStartDestination.Apps
+            // The Hub slot is Start's own Hub page; the Sable Hub app has no screen to open.
+            QuickBar.HUB -> showHub(HubFilter.All)
             else -> slot.app?.let(::launchApp)
         }
     }
@@ -446,6 +451,15 @@ fun SableStartScreen(
             returnDestination = SableStartDestination.Start
             selectedApp = null
             startPager.animateScrollToPage(StartPages.HOME)
+        }
+    }
+
+    LaunchedEffect(hubGeneration) {
+        if (hubGeneration > 0) {
+            destination = SableStartDestination.Start
+            selectedApp = null
+            hubFilter = HubFilter.fromName(hubRequestFilter) ?: HubFilter.All
+            startPager.animateScrollToPage(StartPages.HUB)
         }
     }
 
@@ -515,8 +529,10 @@ fun SableStartScreen(
                                                 active = startPager.settledPage == StartPages.HUB,
                                                 onFilter = { hubFilter = it },
                                                 onLaunchApp = ::launchApp,
-                                                onOpenHub = { openHubApp() },
+                                                onOpenHubSettings = ::openHubSettings,
                                                 onStartIntent = onStartIntent,
+                                                refreshGeneration = refreshGeneration,
+                                                onRequestContactsPermission = onRequestContactsPermission,
                                             )
                                         }
                                     page == StartPages.HOME ->
@@ -537,6 +553,7 @@ fun SableStartScreen(
                                             onLaunchApp = ::launchApp,
                                             onStartIntent = onStartIntent,
                                             onRequestPermissions = onRequestLivePermissions,
+                                            onShowHub = { showHub(HubFilter.All) },
                                         )
                                     else -> {
                                         val index = page - StartPages.FIRST_GRID
@@ -568,13 +585,10 @@ fun SableStartScreen(
                                     destination = SableStartDestination.Start
                                     activateSlot(slot)
                                 },
-                                onHubFilter = { filter ->
-                                    hubFilter = filter
-                                    showPage(StartPages.HUB)
-                                },
-                                onOpenHub = {
+                                onHubFilter = ::showHub,
+                                onOpenHubSettings = {
                                     destination = SableStartDestination.Start
-                                    openHubApp()
+                                    openHubSettings()
                                 },
                                 onStartIntent = { intent ->
                                     destination = SableStartDestination.Start
@@ -695,7 +709,7 @@ fun SableStartScreen(
                             },
                             onFrames = { showPage(StartPages.HOME) },
                             onGrid = { showPage(StartPages.FIRST_GRID) },
-                            onHub = { showPage(StartPages.HUB) },
+                            onHub = ::showHub,
                             onEditHome = {
                                 destination = SableStartDestination.EditHome
                             },
@@ -988,6 +1002,7 @@ private fun ActiveFramesPage(
     onLaunchApp: (AppEntry) -> Unit,
     onStartIntent: (Intent) -> Unit,
     onRequestPermissions: () -> Unit,
+    onShowHub: () -> Unit,
 ) {
     val requesters = remember { mutableMapOf<Int, FocusRequester>() }
     val firstWidgetFocus = remember { FocusRequester() }
@@ -1046,6 +1061,7 @@ private fun ActiveFramesPage(
             onLaunchApp = onLaunchApp,
             onStartIntent = onStartIntent,
             onRequestPermissions = onRequestPermissions,
+            onShowHub = onShowHub,
         )
     }
 }
@@ -1150,6 +1166,7 @@ private fun ColumnScope.ActiveFramesGrid(
     onLaunchApp: (AppEntry) -> Unit,
     onStartIntent: (Intent) -> Unit,
     onRequestPermissions: () -> Unit,
+    onShowHub: () -> Unit,
 ) {
     BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
         val cardHeight =
@@ -1165,6 +1182,7 @@ private fun ColumnScope.ActiveFramesGrid(
                 onLaunchApp = onLaunchApp,
                 onStartIntent = onStartIntent,
                 onRequestPermissions = onRequestPermissions,
+                onShowHub = onShowHub,
             )
             return@BoxWithConstraints
         }
@@ -1319,6 +1337,7 @@ private fun GlanceFrames(
     onLaunchApp: (AppEntry) -> Unit,
     onStartIntent: (Intent) -> Unit,
     onRequestPermissions: () -> Unit,
+    onShowHub: () -> Unit,
 ) {
     val context = LocalContext.current
     val battery by
@@ -1352,17 +1371,7 @@ private fun GlanceFrames(
                             val (headline, detail) = weatherLines(snapshot.weather)
                             GlanceFrameCard("Weather", headline, detail, SableSun, { open(WEATHER_PACKAGE) }, modifier)
                         }
-                        GlanceWidgets.BATTERY -> {
-                            val (level, charging) = battery
-                            GlanceFrameCard(
-                                title = "Battery",
-                                headline = level?.let { "$it%" } ?: "--",
-                                detail = if (level == null) "unavailable" else if (charging) "charging" else "",
-                                accent = SableGreen,
-                                onClick = { onStartIntent(Intent(Intent.ACTION_POWER_USAGE_SUMMARY)) },
-                                modifier = modifier,
-                            )
-                        }
+                        GlanceWidgets.BATTERY -> BatteryGlanceFrame(battery, onStartIntent, modifier)
                         GlanceWidgets.PHOTOS -> {
                             val datum = snapshot.photos
                             val needsPermission = datum.availability == LiveAvailability.PERMISSION_REQUIRED
@@ -1375,29 +1384,59 @@ private fun GlanceFrames(
                                 modifier = modifier,
                             )
                         }
-                        else -> {
-                            val (datum, packageName, accent) =
-                                when (widget) {
-                                    GlanceWidgets.CALENDAR -> Triple(snapshot.calendar, CALENDAR_PACKAGE, SableBlue)
-                                    GlanceWidgets.MEDIA -> Triple(snapshot.music, MEDIA_PACKAGE, SablePurple)
-                                    GlanceWidgets.HUB -> Triple(snapshot.messages, HUB_PACKAGE, SableGreen)
-                                    else -> Triple(snapshot.mail, MAIL_PACKAGE, SableOrange)
-                                }
-                            GlanceFrameCard(
-                                title = GlanceWidgets.label(widget),
-                                headline = liveDetail(datum, findLiveApp(apps, packageName)),
-                                detail = "",
-                                accent = accent,
-                                onClick = { open(packageName) },
-                                modifier = modifier,
-                            )
-                        }
+                        else -> LiveGlanceFrame(widget, snapshot, apps, { open(it) }, onShowHub, modifier)
                     }
                 }
                 repeat(ActiveFrames.COLUMNS - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
     }
+}
+
+/** The Battery Glance frame: level and charging state; Enter opens battery usage. */
+@Composable
+private fun BatteryGlanceFrame(
+    battery: Pair<Int?, Boolean>,
+    onStartIntent: (Intent) -> Unit,
+    modifier: Modifier,
+) {
+    val (level, charging) = battery
+    GlanceFrameCard(
+        title = "Battery",
+        headline = level?.let { "$it%" } ?: "--",
+        detail = if (level == null) "unavailable" else if (charging) "charging" else "",
+        accent = SableGreen,
+        onClick = { onStartIntent(Intent(Intent.ACTION_POWER_USAGE_SUMMARY)) },
+        modifier = modifier,
+    )
+}
+
+/** Calendar, Media, Hub and Mail Glance frames: the live snapshot's line for that app. */
+@Composable
+private fun LiveGlanceFrame(
+    widget: String,
+    snapshot: LiveSurfaceSnapshot,
+    apps: List<AppEntry>,
+    open: (String) -> Unit,
+    onShowHub: () -> Unit,
+    modifier: Modifier,
+) {
+    val (datum, packageName, accent) =
+        when (widget) {
+            GlanceWidgets.CALENDAR -> Triple(snapshot.calendar, CALENDAR_PACKAGE, SableBlue)
+            GlanceWidgets.MEDIA -> Triple(snapshot.music, MEDIA_PACKAGE, SablePurple)
+            GlanceWidgets.HUB -> Triple(snapshot.messages, HUB_PACKAGE, SableGreen)
+            else -> Triple(snapshot.mail, MAIL_PACKAGE, SableOrange)
+        }
+    GlanceFrameCard(
+        title = GlanceWidgets.label(widget),
+        headline = liveDetail(datum, findLiveApp(apps, packageName)),
+        detail = "",
+        accent = accent,
+        // The Hub widget opens Start's own Hub page (Sable Hub has no screen of its own).
+        onClick = { if (widget == GlanceWidgets.HUB) onShowHub() else open(packageName) },
+        modifier = modifier,
+    )
 }
 
 /** A Glance widget drawn as an Active Frame: its value large, its name along the bottom. */
@@ -1722,9 +1761,11 @@ private fun GlanceCard(
 }
 
 /**
- * Hub page (left of Active Frames; visual "5. Hub"): Sable Hub's close communications with the
- * All / Messages / Calls tabs. Start shows counts only (the snapshots carry
- * no message text) and opens Sable Hub or the owning app for the rest.
+ * Hub page (left of Active Frames; visual "5. Hub"): the one Sable Hub. Under the "Sable Hub"
+ * title the unread bar (after the Ripe launcher's BB7 row: each app with unread notifications as
+ * its small icon and count, "+N" for the rest, from Sable Hub's listener), then the All /
+ * Messages / Calls / Contacts tabs. Start shows counts and names only (the snapshots carry no
+ * message text) and opens Sable Messages, Phone, Contacts or the owning app for the rest.
  */
 @Composable
 private fun HubPage(
@@ -1734,24 +1775,95 @@ private fun HubPage(
     active: Boolean,
     onFilter: (HubFilter) -> Unit,
     onLaunchApp: (AppEntry) -> Unit,
-    onOpenHub: () -> Unit,
+    onOpenHubSettings: () -> Unit,
     onStartIntent: (Intent) -> Unit,
+    refreshGeneration: Int,
+    onRequestContactsPermission: () -> Unit,
 ) {
-    val hubApp = findLiveApp(apps, HUB_PACKAGE)
+    val context = LocalContext.current
+    val messagesApp = findLiveApp(apps, MESSAGES_PACKAGE)
     val mailApp = findLiveApp(apps, MAIL_PACKAGE)
+    val contactsApp = findLiveApp(apps, CONTACTS_PACKAGE)
+    // Hub has no launcher entry; its snapshot provider answering is how Start knows it is there.
+    val hubInstalled = snapshot.messages.availability != LiveAvailability.UNAVAILABLE
+    val personalApps = remember(apps) { apps.filter { it.inLauncherUser }.associateBy { it.component.packageName } }
+    val barItems = remember(snapshot.hubApps, personalApps) { HubBar.items(snapshot.hubApps) { it in personalApps } }
+    val peopleRepository = remember(context) { PeopleRepository(context) }
+    val contactsTab = filter == HubFilter.Contacts
+    val canReadContacts = remember(refreshGeneration, contactsTab) { peopleRepository.hasPermission() }
+    // Kept across reloads (live refreshes, Start coming back) so the list never blinks empty.
+    var people by remember { mutableStateOf(emptyList<HubPerson>()) }
+    var peopleLoaded by remember { mutableStateOf(false) }
+    LaunchedEffect(contactsTab, canReadContacts, refreshGeneration) {
+        if (contactsTab) {
+            people = if (canReadContacts) peopleRepository.load() else emptyList()
+            peopleLoaded = true
+        }
+    }
     val tabFocus = remember { FocusRequester() }
+    val personFocus = remember { mutableMapOf<Long, FocusRequester>() }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
     LaunchedEffect(active) {
         if (active) {
             withFrameNanos { }
             runCatching { tabFocus.requestFocus() }
         }
     }
+
+    fun requesterFor(person: HubPerson): FocusRequester = personFocus.getOrPut(person.id) { FocusRequester() }
+
+    fun openMessages() {
+        val app = messagesApp
+        if (app != null) {
+            onLaunchApp(app)
+        } else {
+            onStartIntent(Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_MESSAGING))
+        }
+    }
+
+    fun openBarItem(item: HubBar.Item) {
+        when (val target = HubBar.target(item.packageName)) {
+            is HubBar.Target.Tab -> onFilter(target.filter)
+            HubBar.Target.Private -> onOpenHubSettings()
+            HubBar.Target.OpenApp -> personalApps[item.packageName]?.let(onLaunchApp)
+        }
+    }
+
+    val actions =
+        HubActions(
+            onLaunchApp = onLaunchApp,
+            onStartIntent = onStartIntent,
+            onOpenMessages = ::openMessages,
+            onOpenHubSettings = onOpenHubSettings,
+            onRequestContactsPermission = onRequestContactsPermission,
+        )
+
+    /** Contacts tab: a letter (or digit) key jumps to the first person of that letter. */
+    fun jumpKey(event: KeyEvent): Boolean {
+        val native = event.nativeKeyEvent
+        if (!contactsTab || people.isEmpty() || native.metaState and HUB_JUMP_BLOCKING_META != 0) return false
+        val char = native.unicodeChar.takeIf { it > 0 }?.toChar() ?: return false
+        val index = HubPeople.jump(people, char) ?: return false
+        if (event.type == KeyEventType.KeyDown) {
+            val person = people[index]
+            scope.launch {
+                // The header item comes first, so a person's list index is one more than theirs.
+                listState.scrollToItem(index + 1)
+                withFrameNanos { }
+                runCatching { requesterFor(person).requestFocus() }
+            }
+        }
+        return true
+    }
+
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().onPreviewKeyEvent(::jumpKey),
+        state = listState,
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        item {
+        item(key = "header") {
             Text(
                 text = HUB_LABEL,
                 style = MaterialTheme.typography.headlineSmall,
@@ -1760,76 +1872,390 @@ private fun HubPage(
                 color = Color.White,
                 modifier = Modifier.semantics { heading() },
             )
+            Spacer(Modifier.height(6.dp))
+            HubUnreadBar(
+                items = barItems,
+                appFor = { personalApps[it] },
+                onOpen = ::openBarItem,
+            )
             Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HubFilter.entries.forEach { tab ->
-                    val selected = tab == filter
-                    Text(
-                        text = tab.label,
-                        modifier =
-                            Modifier
-                                .then(if (tab == HubFilter.All) Modifier.focusRequester(tabFocus) else Modifier)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(
-                                    if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                                ).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
-                                .sableFocusRing()
-                                .clickable { onFilter(tab) }
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                    )
+            HubTabs(filter = filter, firstTab = tabFocus, onFilter = onFilter)
+        }
+        if (contactsTab) {
+            hubContactsItems(
+                people = people,
+                loaded = peopleLoaded,
+                canRead = canReadContacts,
+                contactsApp = contactsApp,
+                messagesPackage = messagesApp?.component?.packageName,
+                requesterFor = ::requesterFor,
+                actions = actions,
+            )
+        } else {
+            hubSummaryItems(
+                filter = filter,
+                snapshot = snapshot,
+                summary = if (hubInstalled) HubBar.summary(barItems) else null,
+                messagesApp = messagesApp,
+                mailApp = mailApp,
+                actions = actions,
+            )
+        }
+    }
+}
+
+/**
+ * The Hub page's unread bar: one item per app (its icon and count), most unread first, "+N" in
+ * the last slot when they do not all fit; Enter or a tap on "+N" shows every app. While the device
+ * is locked or Sable private mode is on, Hub sends one total without app names (a lock mark).
+ */
+@Composable
+private fun HubUnreadBar(
+    items: List<HubBar.Item>,
+    appFor: (String) -> AppEntry?,
+    onOpen: (HubBar.Item) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val slots = HubBar.slots(maxWidth.value.toInt())
+        val layout = HubBar.layout(items, slots)
+        val rows = if (expanded) items.chunked(slots) else listOf(layout.visible)
+        val overflow = if (expanded) 0 else layout.overflow
+        if (items.isEmpty()) {
+            Text(
+                text = "no new notifications",
+                style = MaterialTheme.typography.labelLarge,
+                color = Bb10Muted,
+                modifier = Modifier.height(HUB_BAR_ITEM_HEIGHT).padding(vertical = 6.dp),
+            )
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                rows.forEachIndexed { rowIndex, row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(HubBar.GAP_DP.dp)) {
+                        row.forEach { item ->
+                            HubBarItem(
+                                item = item,
+                                app = appFor(item.packageName),
+                                onOpen = { onOpen(item) },
+                            )
+                        }
+                        if (rowIndex == rows.lastIndex && overflow > 0) {
+                            HubBarChip(
+                                description = "$overflow more apps with notifications",
+                                onClick = { expanded = true },
+                            ) {
+                                Text(
+                                    text = HubBar.overflowLabel(overflow),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = Color.White,
+                                    maxLines = 1,
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
-        val showMessages = filter != HubFilter.Calls
-        val showCalls = filter != HubFilter.Messages
-        if (showMessages) {
-            item(key = "messages") {
-                GlanceCard(
-                    title = "Messages",
-                    detail = liveDetail(snapshot.messages, hubApp),
-                    accent = SableBlue,
-                    onClick = hubApp?.let { { onLaunchApp(it) } },
-                )
-            }
-            item(key = "mail") {
-                GlanceCard(
-                    title = "Mail",
-                    detail = liveDetail(snapshot.mail, mailApp),
-                    accent = Color(0xFFE5484D),
-                    onClick = mailApp?.let { { onLaunchApp(it) } },
-                )
-            }
+    }
+}
+
+@Composable
+private fun HubBarItem(
+    item: HubBar.Item,
+    app: AppEntry?,
+    onOpen: () -> Unit,
+) {
+    val count = HubBar.countLabel(item.count)
+    val description =
+        if (item.redacted) {
+            "$count new notifications, apps hidden"
+        } else {
+            "${app?.label ?: item.packageName}, $count new"
         }
-        if (showCalls) {
-            item(key = "calls") {
-                // Start holds no call-log permission: the Phone app shows the missed calls.
-                GlanceCard(
-                    title = "Missed calls",
-                    detail = "recent calls in Phone",
-                    accent = SableGreen,
-                    onClick = { onStartIntent(Intent(Intent.ACTION_VIEW, CallLog.Calls.CONTENT_URI)) },
-                )
-            }
+    HubBarChip(description = description, onClick = onOpen) {
+        if (app != null) {
+            AppMark(app = app, size = HUB_BAR_ICON_DP)
+        } else {
+            HubLockMark()
         }
-        if (filter == HubFilter.All) {
-            item(key = "notifications") {
-                GlanceCard(
-                    title = "Notifications",
-                    detail = if (hubApp == null) "not installed" else "in Sable Hub",
-                    accent = SableSun,
-                    onClick = if (hubApp == null) null else onOpenHub,
-                )
-            }
-        }
-        if (hubApp != null) {
-            item(key = "open") {
-                Spacer(Modifier.height(4.dp))
-                MetroLink(text = "open Sable Hub", onClick = onOpenHub)
-            }
+        Text(
+            text = count,
+            style = MaterialTheme.typography.labelLarge,
+            color = Color.White,
+            maxLines = 1,
+        )
+    }
+}
+
+/** One fixed-width, focusable slot of the unread bar; the focused one is BB10 blue. */
+@Composable
+private fun HubBarChip(
+    description: String,
+    onClick: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(6.dp)
+    Row(
+        modifier =
+            Modifier
+                .width(HubBar.ITEM_DP.dp)
+                .height(HUB_BAR_ITEM_HEIGHT)
+                .onFocusChanged { focused = it.isFocused }
+                .clip(shape)
+                .background(if (focused) Bb10Blue else Bb10Card)
+                .border(1.dp, Bb10Line, shape)
+                .clickable(onClick = onClick)
+                .semantics { contentDescription = description }
+                .padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        // 56dp: 4 + 20dp icon + 4 + room for "99+" + 4.
+        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
+    ) {
+        content()
+    }
+}
+
+/** A small padlock: Hub's counts-only total (locked device or Sable private mode). */
+@Composable
+private fun HubLockMark() {
+    ComposeCanvas(Modifier.size(HUB_BAR_ICON_DP.dp)) {
+        val unit = size.minDimension
+        val stroke = unit * 0.12f
+        drawArc(
+            color = Color.White,
+            startAngle = 180f,
+            sweepAngle = 180f,
+            useCenter = false,
+            topLeft = Offset(unit * 0.3f, unit * 0.12f),
+            size = Size(unit * 0.4f, unit * 0.44f),
+            style = Stroke(stroke),
+        )
+        drawRoundRect(
+            color = Color.White,
+            topLeft = Offset(unit * 0.2f, unit * 0.42f),
+            size = Size(unit * 0.6f, unit * 0.46f),
+            cornerRadius = CornerRadius(unit * 0.08f),
+        )
+    }
+}
+
+/** What the Hub page's tabs and cards open. */
+private class HubActions(
+    val onLaunchApp: (AppEntry) -> Unit,
+    val onStartIntent: (Intent) -> Unit,
+    val onOpenMessages: () -> Unit,
+    val onOpenHubSettings: () -> Unit,
+    val onRequestContactsPermission: () -> Unit,
+)
+
+/** The Hub page tabs: All · Messages · Calls · Contacts; All takes focus when the page opens. */
+@Composable
+private fun HubTabs(
+    filter: HubFilter,
+    firstTab: FocusRequester,
+    onFilter: (HubFilter) -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        HubFilter.entries.forEach { tab ->
+            val selected = tab == filter
+            Text(
+                text = tab.label,
+                modifier =
+                    Modifier
+                        .then(if (tab == HubFilter.All) Modifier.focusRequester(firstTab) else Modifier)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(
+                            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                        ).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
+                        .sableFocusRing()
+                        .clickable { onFilter(tab) }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                style = MaterialTheme.typography.labelLarge,
+                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+            )
         }
     }
+}
+
+/**
+ * The All, Messages and Calls tabs: Messages and Mail, Missed calls, and on All the notification
+ * summary ([summary] is null when Sable Hub is absent, which also hides Hub settings).
+ */
+private fun androidx.compose.foundation.lazy.LazyListScope.hubSummaryItems(
+    filter: HubFilter,
+    snapshot: LiveSurfaceSnapshot,
+    summary: String?,
+    messagesApp: AppEntry?,
+    mailApp: AppEntry?,
+    actions: HubActions,
+) {
+    val showMessages = filter != HubFilter.Calls
+    val showCalls = filter != HubFilter.Messages
+    if (showMessages) {
+        item(key = "messages") {
+            GlanceCard(
+                title = "Messages",
+                detail = liveDetail(snapshot.messages, messagesApp),
+                accent = SableBlue,
+                onClick = actions.onOpenMessages,
+            )
+        }
+        item(key = "mail") {
+            GlanceCard(
+                title = "Mail",
+                detail = liveDetail(snapshot.mail, mailApp),
+                accent = Color(0xFFE5484D),
+                onClick = mailApp?.let { { actions.onLaunchApp(it) } },
+            )
+        }
+    }
+    if (showCalls) {
+        item(key = "calls") {
+            // Start holds no call-log permission: the Phone app shows the missed calls.
+            GlanceCard(
+                title = "Missed calls",
+                detail = "recent calls in Phone",
+                accent = SableGreen,
+                onClick = { actions.onStartIntent(Intent(Intent.ACTION_VIEW, CallLog.Calls.CONTENT_URI)) },
+            )
+        }
+    }
+    if (filter == HubFilter.All) {
+        item(key = "notifications") {
+            // Android owns the notifications; its history lists what was dismissed too.
+            GlanceCard(
+                title = "Notifications",
+                detail = summary ?: "Sable Hub not installed",
+                accent = SableSun,
+                onClick = { actions.onStartIntent(Intent(ACTION_NOTIFICATION_HISTORY)) },
+            )
+        }
+    }
+    if (summary != null) {
+        item(key = "settings") {
+            Spacer(Modifier.height(4.dp))
+            MetroLink(text = "Hub settings", onClick = actions.onOpenHubSettings)
+        }
+    }
+}
+
+/**
+ * The Contacts tab: favourites, then A to Z, as in the Contacts app. Enter opens the contact,
+ * Call and Message act on its default number (Message in Sable Messages); a letter key jumps
+ * ([HubPage]). Without READ_CONTACTS the tab offers to allow it, or the Contacts app.
+ */
+private fun androidx.compose.foundation.lazy.LazyListScope.hubContactsItems(
+    people: List<HubPerson>,
+    loaded: Boolean,
+    canRead: Boolean,
+    contactsApp: AppEntry?,
+    messagesPackage: String?,
+    requesterFor: (HubPerson) -> FocusRequester,
+    actions: HubActions,
+) {
+    val onStartIntent = actions.onStartIntent
+    val openContacts = contactsApp?.let { app -> { actions.onLaunchApp(app) } }
+    if (!canRead || people.isEmpty()) {
+        item(key = "contacts-empty") {
+            if (!canRead) {
+                GlanceCard(
+                    title = "Allow contacts",
+                    detail = "Start shows names here; nothing leaves the phone",
+                    accent = SablePurple,
+                    onClick = actions.onRequestContactsPermission,
+                )
+            } else {
+                EmptyState(if (loaded) "No contacts yet." else "Loading contacts…")
+            }
+        }
+        if (openContacts != null) {
+            item(key = "contacts-open") {
+                MetroLink(text = "open Contacts", onClick = openContacts)
+            }
+        }
+        return
+    }
+    itemsIndexed(items = people, key = { _, person -> "person:" + person.id }) { index, person ->
+        if (HubPeople.startsSection(people, index)) {
+            Text(
+                text = HubPeople.sectionOf(person),
+                style = MaterialTheme.typography.titleMedium,
+                color = Bb10Blue,
+                modifier = Modifier.padding(top = 4.dp).semantics { heading() },
+            )
+        }
+        val number = person.number
+        HubPersonRow(
+            person = person,
+            nameModifier = Modifier.focusRequester(requesterFor(person)),
+            onOpen = { onStartIntent(PeopleRepository.viewIntent(person)) },
+            onCall = number?.let { { onStartIntent(PeopleRepository.callIntent(it)) } },
+            onMessage = number?.let { { onStartIntent(PeopleRepository.messageIntent(it, messagesPackage)) } },
+        )
+    }
+}
+
+@Composable
+private fun HubPersonRow(
+    person: HubPerson,
+    nameModifier: Modifier,
+    onOpen: () -> Unit,
+    onCall: (() -> Unit)?,
+    onMessage: (() -> Unit)?,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(6.dp)
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = (if (person.starred) "★ " else "") + person.name,
+            modifier =
+                nameModifier
+                    .weight(1f)
+                    .onFocusChanged { focused = it.isFocused }
+                    .clip(shape)
+                    .background(if (focused) Bb10Blue else Color.Transparent)
+                    .clickable(onClick = onOpen)
+                    .semantics { contentDescription = person.name + if (person.starred) ", favourite" else "" }
+                    .padding(horizontal = 8.dp, vertical = 10.dp),
+            style = MaterialTheme.typography.titleMedium,
+            color = Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (onCall != null) HubPersonAction(label = "call", description = "Call ${person.name}", onClick = onCall)
+        if (onMessage != null) HubPersonAction(label = "text", description = "Message ${person.name}", onClick = onMessage)
+    }
+}
+
+@Composable
+private fun HubPersonAction(
+    label: String,
+    description: String,
+    onClick: () -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(6.dp)
+    Text(
+        text = label,
+        modifier =
+            Modifier
+                .onFocusChanged { focused = it.isFocused }
+                .clip(shape)
+                .background(if (focused) Bb10Blue else Bb10Card)
+                .border(1.dp, Bb10Line, shape)
+                .clickable(onClick = onClick)
+                .semantics { contentDescription = description }
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+        style = MaterialTheme.typography.labelLarge,
+        color = Color.White,
+        maxLines = 1,
+    )
 }
 
 /**
@@ -1844,7 +2270,7 @@ private fun SlotOptionsScreen(
     onBack: () -> Unit,
     onOpen: () -> Unit,
     onHubFilter: (HubFilter) -> Unit,
-    onOpenHub: () -> Unit,
+    onOpenHubSettings: () -> Unit,
     onStartIntent: (Intent) -> Unit,
     onLaunchApp: (AppEntry) -> Unit,
     onAppInfo: (AppEntry) -> Unit,
@@ -1873,7 +2299,7 @@ private fun SlotOptionsScreen(
                     HubFilter.entries.forEach { filter ->
                         ContextAction(mark = "◇", label = "Hub page · ${filter.label}", onClick = { onHubFilter(filter) })
                     }
-                    ContextAction(mark = "◉", label = "open Sable Hub", onClick = onOpenHub)
+                    ContextAction(mark = "⚙", label = "Hub settings", onClick = onOpenHubSettings)
                 }
                 QuickBar.PHONE -> {
                     ContextAction(mark = "☎", label = "dial pad", onClick = { onStartIntent(Intent(Intent.ACTION_DIAL)) })
@@ -1972,7 +2398,9 @@ private fun QuickSlotMark(
     monochrome: Boolean = false,
 ) {
     val app = slot.app
-    val glyph = slot.token in setOf(QuickBar.COMMAND, QuickBar.ALL_APPS) || (monochrome && slot.token in setOf(QuickBar.PHONE, QuickBar.CAMERA))
+    val glyph =
+        slot.token in setOf(QuickBar.COMMAND, QuickBar.ALL_APPS, QuickBar.HUB) ||
+            (monochrome && slot.token in setOf(QuickBar.PHONE, QuickBar.CAMERA))
     if (app != null && !glyph) {
         AppMark(app = app, size = size)
         return
@@ -2016,6 +2444,12 @@ private fun QuickSlotMark(
                     )
                 }
             }
+            QuickBar.HUB ->
+                // Hub: three short lines, as on the page indicator.
+                for (line in 0..2) {
+                    val y = unit * (0.25f + line * 0.25f)
+                    drawLine(color, Offset(unit * 0.12f, y), Offset(unit * 0.88f, y), strokeWidth = stroke, cap = StrokeCap.Round)
+                }
             QuickBar.CAMERA -> {
                 // Camera body, viewfinder bump and lens.
                 drawRoundRect(
@@ -2804,8 +3238,8 @@ private fun resolveQuickSlot(
         QuickBar.ALL_APPS -> QuickSlot(token, "All apps", null)
         QuickBar.PHONE ->
             role(listOf(DIALER_PACKAGE), listOf("Phone"))?.let { QuickSlot(token, "Phone", it) }
-        QuickBar.HUB ->
-            role(listOf(HUB_PACKAGE), listOf(HUB_LABEL, "Hub"))?.let { QuickSlot(token, "Hub", it) }
+        // Start's own Hub page: always available, whatever messaging apps are installed.
+        QuickBar.HUB -> QuickSlot(token, "Hub", null)
         QuickBar.CAMERA ->
             role(CoreAppIdentity.startTileCandidates(CoreAppIdentity.CAMERA), listOf("Camera"))
                 ?.let { QuickSlot(token, "Camera", it) }
@@ -3187,7 +3621,7 @@ private fun SearchScreen(
     onAppearance: () -> Unit,
     onFrames: () -> Unit,
     onGrid: () -> Unit,
-    onHub: () -> Unit,
+    onHub: (HubFilter) -> Unit,
     onEditHome: () -> Unit,
     onOpenSettings: () -> Unit,
     onStartIntent: (Intent) -> Unit,
@@ -3249,7 +3683,7 @@ private fun SearchScreen(
             SearchCommand("All apps", "A to Z with privacy summaries", "A", "Start", onAllApps),
             SearchCommand("Active Frames", "Open apps, Home", "▦", "Start", onFrames),
             SearchCommand("App grid", "Every app, in your order", "▤", "Start", onGrid),
-            SearchCommand("Hub page", "Messages, mail, missed calls and notifications", "◇", "Start", onHub),
+            SearchCommand("Hub page", "Messages, mail, calls, contacts and notifications", "◇", "Start", { onHub(HubFilter.All) }),
             SearchCommand("Edit Home", "Order the app grid, the bar and the empty frames", "▭", "Start", onEditHome),
             SearchCommand("Appearance", "Theme and Sable accent", "◐", "Start", onAppearance),
             SearchCommand("System Settings", "Open Android settings", "⚙", "Settings", onOpenSettings),
@@ -3265,8 +3699,8 @@ private fun SearchScreen(
             }
         }
     val settingsResults = if (parsed.profileScope) emptyList() else settingsResults(parsed, onStartIntent, onOpenSettings)
-    val peopleResults = if (parsed.profileScope) emptyList() else peopleResults(parsed, onStartIntent)
-    val hubResults = if (parsed.profileScope) emptyList() else hubResults(parsed, onStartIntent)
+    val peopleResults = if (parsed.profileScope) emptyList() else peopleResults(parsed, onStartIntent, onHub)
+    val hubResults = if (parsed.profileScope) emptyList() else hubResults(parsed, onHub)
     val firstOther =
         (filteredCommands.takeIf { term.isNotEmpty() }.orEmpty() + settingsResults + peopleResults + hubResults)
             .firstOrNull()
@@ -3536,6 +3970,7 @@ private fun settingsResults(
 private fun peopleResults(
     parsed: CommandQuery,
     onStartIntent: (Intent) -> Unit,
+    onHub: (HubFilter) -> Unit,
 ): List<SearchCommand> {
     val term = parsed.term
     if (term.isEmpty() || !parsed.includes(CommandScope.People)) return emptyList()
@@ -3576,36 +4011,39 @@ private fun peopleResults(
             mark = "@",
             source = "Contacts",
             onClick = find,
-            actions = listOf("find in Contacts" to find, "search Hub for “$term”" to { onStartIntent(hubIntent(term)) }),
+            actions = listOf("find in Contacts" to find, "Hub page · Contacts" to { onHub(HubFilter.Contacts) }),
         ).takeIf { parsed.scope == CommandScope.People || term.length >= 2 }
     return listOfNotNull(dial, contacts)
 }
 
-private fun hubIntent(query: String): Intent =
-    Intent(Intent.ACTION_MAIN)
-        .setPackage(HUB_PACKAGE)
-        .addCategory(Intent.CATEGORY_LAUNCHER)
-        .putExtra(HUB_EXTRA_QUERY, query)
-
-/** Hub search hands the term to Sable Hub; Start never shows message, mail or call content. */
+/**
+ * Hub results open Start's own Hub page on a tab (Start never shows message, mail or call
+ * content). Shown for "/hub", or when the term names Hub or one of its tabs.
+ */
 private fun hubResults(
     parsed: CommandQuery,
-    onStartIntent: (Intent) -> Unit,
+    onHub: (HubFilter) -> Unit,
 ): List<SearchCommand> {
-    val term = parsed.term
-    if (!parsed.includes(CommandScope.Hub) || (term.isEmpty() && parsed.scope != CommandScope.Hub)) return emptyList()
-    val open = { onStartIntent(hubIntent(term)) }
+    if (!parsed.includes(CommandScope.Hub)) return emptyList()
+    val term = parsed.term.lowercase(Locale.ROOT)
+    val tab = HubFilter.entries.firstOrNull { term.isNotEmpty() && it.label.lowercase(Locale.ROOT).startsWith(term) }
+    val named = term.isNotEmpty() && ("hub".startsWith(term) || tab != null)
+    if (parsed.scope != CommandScope.Hub && !named) return emptyList()
+    val target = tab ?: HubFilter.All
     return listOf(
         SearchCommand(
-            title = if (term.isEmpty()) "Open Hub" else "Search Hub for “$term”",
-            subtitle = "Messages, calls and notifications",
+            title = if (target == HubFilter.All) "Open Hub" else "Hub · ${target.label}",
+            subtitle = "Messages, calls, contacts and notifications",
             mark = "◉",
             source = "Hub",
-            onClick = open,
-            actions = listOf("open in Hub" to open, "open Hub" to { onStartIntent(hubIntent("")) }),
+            onClick = { onHub(target) },
+            actions = HubFilter.entries.map { filter -> "Hub · ${filter.label}" to { onHub(filter) } },
         ),
     )
 }
+
+/** Hub's own settings: connected apps, private mode, history (org.sableos.hub). */
+private fun hubSettingsIntent(): Intent = Intent(HUB_ACTION_CONNECTED_APPS).setPackage(HUB_PACKAGE)
 
 @Composable
 private fun SableSearchField(
@@ -4635,7 +5073,7 @@ private fun liveDatumForApp(
 ): LiveDatum? =
     when (CoreAppIdentity.canonicalPackage(app.component.packageName)) {
         CALENDAR_PACKAGE -> snapshot.calendar
-        HUB_PACKAGE -> snapshot.messages
+        HUB_PACKAGE, MESSAGES_PACKAGE -> snapshot.messages
         MAIL_PACKAGE -> snapshot.mail
         WEATHER_PACKAGE -> snapshot.weather
         MEDIA_PACKAGE -> snapshot.music
@@ -4652,8 +5090,8 @@ private data class PreferredStartAppGroup(
 private val HOME_APP_DEFAULT_GROUPS =
     listOf(
         PreferredStartAppGroup(
-            packageNames = listOf(HUB_PACKAGE),
-            labels = listOf(HUB_LABEL, "Hub", MESSAGES_LABEL, "Messages"),
+            packageNames = listOf(MESSAGES_PACKAGE, HUB_PACKAGE),
+            labels = listOf(MESSAGES_LABEL, "Messages", HUB_LABEL, "Hub"),
         ),
         PreferredStartAppGroup(
             packageNames = listOf(MAIL_PACKAGE),
@@ -4680,6 +5118,14 @@ private val HOME_APP_DEFAULT_GROUPS =
 private const val MAX_SESSION_RECENTS = 8
 private const val KEYCODE_DEL = 67
 private const val HUB_PACKAGE = "org.sableos.hub"
+private const val MESSAGES_PACKAGE = HubBar.MESSAGES_PACKAGE
+private const val HUB_ACTION_CONNECTED_APPS = "org.sableos.hub.action.CONNECTED_APPS"
+private const val ACTION_NOTIFICATION_HISTORY = "android.settings.NOTIFICATION_HISTORY"
+private const val HUB_BAR_ICON_DP = 20
+private val HUB_BAR_ITEM_HEIGHT = 32.dp
+
+/** Alt, Sym, Fn, Ctrl and Meta: with these held a letter is not a Contacts-tab jump. */
+private const val HUB_JUMP_BLOCKING_META = 0x02 or 0x04 or 0x08 or 0x1000 or 0x10000
 private const val MAIL_PACKAGE = "org.sableos.mail"
 private const val CALENDAR_PACKAGE = "org.sableos.calendar"
 private const val WEATHER_PACKAGE = "org.sableos.weather"
@@ -4698,7 +5144,6 @@ private val EditRowStep = 48.dp
 
 // Matches LauncherAppsRepository.PROFILE_PRIVATE.
 private const val PROFILE_PRIVATE_LABEL = "private"
-private const val HUB_EXTRA_QUERY = "org.sableos.hub.extra.QUERY"
 private const val LAUNCHER_ICON_CACHE_ENTRIES = 160
 private const val ADAPTIVE_CANVAS_DP = 108f
 private const val ADAPTIVE_SAFE_ZONE_DP = 66f

@@ -59,6 +59,10 @@ class SableStartActivity : ComponentActivity() {
     private val homeGeneration = mutableStateOf(0)
     private val backGeneration = mutableStateOf(0)
 
+    /** "Show the Hub page" requests (ACTION_SHOW_HUB) and the tab each asked for. */
+    private val hubGeneration = mutableStateOf(0)
+    private val hubRequestFilter = mutableStateOf<String?>(null)
+
     /** Screen asked for by Settings (EDIT_HOME, EDIT_QUICK_BAR), and a serial so a repeat opens it again. */
     private val startRequest = mutableStateOf(StartRequest(SCREEN_START, 0))
 
@@ -191,6 +195,7 @@ class SableStartActivity : ComponentActivity() {
         // A recreated activity keeps its own place instead of reopening the requested screen.
         if (savedInstanceState == null) {
             startRequest.value = StartRequest(screenFor(intent), 0)
+            if (intent?.action == ACTION_SHOW_HUB) requestHub(intent)
         }
 
         setContent {
@@ -266,6 +271,9 @@ class SableStartActivity : ComponentActivity() {
                     onRefreshLive = {
                         liveRefreshGeneration.value += 1
                     },
+                    hubGeneration = hubGeneration.value,
+                    hubRequestFilter = hubRequestFilter.value,
+                    onRequestContactsPermission = ::requestContactsPermission,
                 )
             }
         }
@@ -296,6 +304,7 @@ class SableStartActivity : ComponentActivity() {
                 // counts above zero, so they restart from zero rather than undo the request at once.
                 homeGeneration.value = 0
                 backGeneration.value = 0
+                hubGeneration.value = 0
                 startRequest.value = StartRequest(screenFor(intent), startRequest.value.serial + 1)
             }
             // Home, and the Recents key (Active Frames are the BB10 Recents): close anything open
@@ -304,6 +313,8 @@ class SableStartActivity : ComponentActivity() {
                 homeGeneration.value += 1
                 refreshFrames()
             }
+            // The one Hub is Start's Hub page (the Sable Hub app has no launcher entry).
+            ACTION_SHOW_HUB -> requestHub(intent)
         }
     }
 
@@ -339,7 +350,7 @@ class SableStartActivity : ComponentActivity() {
         grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == LIVE_PERMISSION_REQUEST_CODE) {
+        if (requestCode == LIVE_PERMISSION_REQUEST_CODE || requestCode == CONTACTS_PERMISSION_REQUEST_CODE) {
             liveRefreshGeneration.value += 1
         }
     }
@@ -480,6 +491,16 @@ class SableStartActivity : ComponentActivity() {
         )
     }
 
+    /** The Hub page's Contacts tab: names, favourites and numbers, read on the device only. */
+    private fun requestContactsPermission() {
+        requestPermissions(arrayOf(Manifest.permission.READ_CONTACTS), CONTACTS_PERMISSION_REQUEST_CODE)
+    }
+
+    private fun requestHub(intent: Intent) {
+        hubRequestFilter.value = intent.getStringExtra(EXTRA_HUB_FILTER)
+        hubGeneration.value += 1
+    }
+
     private data class StartRequest(
         val screen: String,
         val serial: Int,
@@ -487,6 +508,11 @@ class SableStartActivity : ComponentActivity() {
 
     private companion object {
         const val LIVE_PERMISSION_REQUEST_CODE = 0x534D
+        const val CONTACTS_PERMISSION_REQUEST_CODE = 0x534E
+
+        /** Show the Hub page; [EXTRA_HUB_FILTER] picks the tab ("all", "messages", "calls", "contacts"). */
+        const val ACTION_SHOW_HUB = "org.sableos.start.action.SHOW_HUB"
+        const val EXTRA_HUB_FILTER = "org.sableos.start.extra.HUB_FILTER"
 
         /** Settings > Sable > Quick bar: Edit Home (the quick bar is edited there with the Home apps). */
         const val ACTION_EDIT_QUICK_BAR = "org.sableos.start.action.EDIT_QUICK_BAR"

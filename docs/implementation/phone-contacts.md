@@ -11,13 +11,15 @@ and the Titan 2 screen references (`titan2-temp` 7570470,
 ```text
 PACKAGE=phone-contacts
 SURFACES=Phone (packages/apps/Dialer) contacts tab, Contacts (packages/apps/Contacts) list
-PATCHES=Dialer 0701-0702, Contacts 0751-0752 (range 0700-0799)
+PATCHES=Dialer 0701-0708, Contacts 0751-0755 (range 0700-0799; look: Dialer 0707-0708, Contacts 0755)
 CONTACT_DATA_OWNER=ContactsProvider (unchanged)
 SECOND_CONTACT_INDEX_OR_DATABASE=NO
 SUBTITLE_NUMBER_CACHE=in-memory, read-only, bounded (5000 contacts / 20000 rows), rebuilt per load
 ALPHABET_RAILS_PER_LIST=1 (reads the upstream section index)
 ACCOUNTS_SYNC_PERMISSIONS_CONTACT_SEMANTICS=UNCHANGED
-TELEPHONY_DIALPAD_INCALL_CALL_END_KEYS=UNTOUCHED
+TELEPHONY_DIALPAD_INCALL_CALL_END_KEYS=UNTOUCHED (0707/0708/0755 change only how they look)
+LOOK=dark only, Sable tokens, accent from system_accent1_*, 2dp accent focus outline
+RESOURCE_LINK=aapt2 link PASS (both apps, against android-36 + AndroidX/Material res)
 PURE_HOST_TESTS=PASS (20 per app copy)
 TYPE_CHECK=javac against android-all API 36 + project sources (see below)
 BUILD_TESTED=NO   DEVICE_TESTED=NO
@@ -44,8 +46,8 @@ generated `R`) were stubbed (see "Type check").
 
 | Project | Base commit (lineage-23.2) | Patches |
 |---|---|---|
-| `packages/apps/Dialer` | `6da8042323a97d5b3cba1fd975709cc42f29916f` (2026-09-18) | `0701` pure model, `0702` contacts tab |
-| `packages/apps/Contacts` | `02bbe49b4ed8e8094d9573ff52747ff8050d9813` (2026-06-01) | `0751` pure model, `0752` list |
+| `packages/apps/Dialer` | `6da8042323a97d5b3cba1fd975709cc42f29916f` (2026-09-18) | `0701` pure model, `0702` contacts tab, `0703`-`0706` keys and Recents privacy, `0707`-`0708` Sable look |
+| `packages/apps/Contacts` | `02bbe49b4ed8e8094d9573ff52747ff8050d9813` (2026-06-01) | `0751` pure model, `0752` list, `0753`-`0754` routes and privacy, `0755` Sable look |
 
 Each project's patches apply in order to a clean checkout of its base with
 `git apply` and reproduce the committed tree exactly.
@@ -90,7 +92,7 @@ The R9 patcher's transforms, and what happened to each on LineageOS 23.2:
 | Dialer/Contacts hard-coded colours (`#4D9CFF`, `#45515F`, neutral backgrounds) | Not ported. LineageOS already maps these colours to `system_accent1_*` / `system_neutral1_*`, and KF-B (`Settings/0101`) applies the Sable accent to the system palette, so both apps follow the Sable accent without a hard-coded value (which would ignore the user's accent choice). |
 | Dialer toolbar background transparent, elevation 0 | Elevation is already 0 upstream. The rounded search-field background is kept: it is the explicit search field (`SEARCH_FIELD_EXPLICIT`). |
 | Dialer bottom nav elevation 8dp → 0 | Ported. |
-| Dialpad key background → transparent | Not ported: it removes the pressed/focused feedback, and the design requires visible focus and touch targets on the onscreen dialpad. |
+| Dialpad key background → transparent | Not ported: it removes the pressed/focused feedback, and the design requires visible focus and touch targets on the onscreen dialpad. 0708 makes each key an outlined pill tile with an accent focus border instead. |
 | Contacts toolbar elevation → 0, `SectionHeaderStyle` 22sp light | Ported. |
 | Dialer `ContactsAdapter.getPositionForHeader`, Contacts `IndexerListAdapter.getListPositionForSection` | Replaced by the pure `SableAlphabetIndex` built from the same section index. The R9 Contacts position ignored the ListView header view (search header) and was off by one; the port adds `getHeaderViewsCount()`. No change to `IndexerListAdapter`. |
 | A-Z `LinearLayout` rail built inline in each fragment | One `SableAlphabetRail` view class per app; letters without contacts dimmed/unfocusable; upstream thumb hidden while shown (R9 left both visible). |
@@ -102,6 +104,83 @@ Dialer codes (`HARDWARE_DIAGNOSTICS_AND_DIALER_CODES.md`): the policy is
 `RAW_DIALER_CODE_COMPATIBILITY=PRESERVE_WHERE_AVAILABLE`. LineageOS Dialer's
 secret-code handling (`*#*#...#*#*` broadcast) is unchanged, so the Sable Tools
 code keeps working as KF-C describes; no Dialer change is needed for it.
+
+## Sable look (Dialer 0707-0708, Contacts 0755)
+
+Visual match to `sable-phone-dialer-titan2` and `sable-contacts-people-titan2`
+(see `PHONE_DIALER_VISUAL_CONFIRMATION.md`, `CONTACTS_PEOPLE_VISUAL_CONFIRMATION.md`),
+sized for the 411 dp square screen. Resources, styles and drawables only,
+except two lines in Contacts (below).
+
+**One dark palette.** Both apps were light themes that the platform
+force-darkens at night (`forceDarkAllowed` + `isLightTheme`). The design is
+dark only, so both now inherit the dark AppCompat/Material themes, never
+force-darken, and their colour resources point at `sable_colors.xml`
+(identical in both apps):
+
+| Token | Value | Source |
+|---|---|---|
+| `sable_background` | `#05070A` | `SableSystemTokens.Dark.surfaceBase` (window, lists, bars) |
+| `sable_surface` | `#0D1117` | `surfaceRaised` (bottom bar, dial pad, navigation bar) |
+| `sable_surface_raised` | `#161C24` | `surfaceOverlay` (cards, search, sheets, dialogs, popups, keys) |
+| `sable_text` / `_muted` / `_disabled` | `#F7F9FC` / `#AAB4C0` / `#7D8896` | `textPrimary` / `textSecondary` / `textDisabled` |
+| `sable_outline` / `_variant` | `#526170` / `#26313D` | SableTheme dark `outline` / `outlineVariant` |
+| `sable_accent` | `system_accent1_200` | system palette, seeded by the Sable accent (KF-B, Settings 0101) |
+| `sable_accent_container`, `sable_on_accent` | `system_accent1_900` | same |
+| `sable_call`, `sable_danger` | `#4ADE80`, `#FF8A80` | `success`, `danger`; containers `#1D4D39`, `#4D2328` from the design |
+
+The accent is never a hex value (earlier decision kept); the -night copies
+of the touched colours, themes and launch screen are removed because they
+would now repeat the defaults.
+
+**Focus.** The themes' `selectableItemBackground` (and the Contacts list
+selector) is `sable_selectable_item`: a ripple for touch and, only while the
+view has keyboard or trackpad focus, a 2dp accent outline around a dark
+accent fill, inset 2dp, 12dp corners (`FOCUS_STROKE_DP`, `CARD_RADIUS_DP`).
+Every upstream row that already used the selectable background gets it
+(Phone contacts tab, search results, Recents actions, favourites and
+suggestions, settings; People list, search, Quick Contact entries, editor
+rows); 0708 adds it to the Recents caller row and the bottom bar tabs.
+Focus order and focusability are unchanged.
+
+**Controls and type (0708, 0755).**
+
+* Phone header: "Phone" (the app label, 22sp medium = `SableTypeRole.ScreenTitle`)
+  at the start of the top bar, not focusable, a heading for TalkBack; the
+  search pill beside it has an outline-tone border, accent on focus. Contacts:
+  flat toolbar on the page background, title 22sp medium (the label stays
+  "Contacts", see Left).
+* Section labels: Recents day groups and the Favorites/Suggestions headers
+  (Phone), directory headers (Contacts) are 12sp caps, letter-spaced, accent.
+  Contacts section letters keep 0752's 22sp light, now in the accent.
+* Pills: favourites "Add" and the Contacts empty-state "Add contact" are
+  outlined pills (raised fill, outline border, accent on focus, 48dp high).
+* Dial pad: each key is an outlined pill tile inset in its cell (the whole
+  cell stays the touch target), accent border on focus, white digits; the
+  number sits in an accent-outlined field. `btn_dialpad_key` stays a
+  `RippleDrawable` because `DialpadView` casts it.
+* In-call: Mute, Keypad, Audio (speaker), Add, Hold, Video are rounded panels
+  holding icon and label (accent fill when on, accent border on focus, 4dp
+  apart); End is a flat 112dp × 48dp danger pill (dark red, light red border
+  and icon). Labels are upstream ("Speaker" is the Audio route button).
+* Contacts Java: `PeopleActivity.resetToolBarStatusBarColor` and
+  `MaterialColorMapUtils.getToolBarColor` paint the bar with
+  `sable_toolbar_color` instead of `primary_color`, which is now the accent.
+
+**Validation.** Every XML file was parsed; both apps' full resource sets
+(Android.bp `resource_dirs` order) were compiled and linked with `aapt2`
+36.0.0 against `android-36/android.jar` and the AndroidX/Material resources
+from the Gradle cache (`--auto-add-overlay`, as the build does). The bases
+with 0701-0706 / 0751-0754 link cleanly and so do the restyled trees; a
+deliberately wrong colour name fails the link, so every `@color`, `@dimen`,
+`@drawable`, `@style`, `@string` and `?attr` the patches use exists. The two
+changed Contacts Java files were compiled with `javac` against android-36,
+the AndroidX jars and the generated `R`: no error in `MaterialColorMapUtils`;
+`PeopleActivity` only reports the missing `androidx.swiperefreshlayout` jar,
+as at base. `tests/check-phone-contacts-style.py` checks the patches statically
+(tokens equal `SableSystemTokens`, accent only from `system_accent1_*`, focus
+geometry, dark parents, no force dark, no -night palette left, key ripple,
+End pill, in-call panels, title).
 
 ## File map
 
@@ -237,6 +316,19 @@ snapshot immutability, subtitle text with bidi isolates and label truncation,
 and the key policy (search/selection/modifier/held/`/`/digits).
 
 ## Left (needs the phone or a later decision)
+
+* Sable look on the device: contrast and outline visibility at 280 dpi,
+  the dial pad tile insets on 720x720, the in-call panel row height, any
+  upstream screen not reviewed here that still draws a hard-coded light colour
+  (RTT and the "device number" row keep their own white panels with dark text).
+* Pills that need Java or new views: the dial pad Call button stays the round
+  Material FAB (green, dark icon; a FAB measures square), the search result
+  call icon stays an icon, Quick Contact Call/Message/Mail/Hub stay
+  upstream entry rows with the 0754 Hub action rather than a pill row.
+* The incoming-call answer/decline buttons use the new call/danger tones but
+  keep their upstream shape.
+* Owner decision: the Contacts title reads "Contacts" (app label); the design
+  says "People". Renaming the app label is a product change, not done here.
 
 * All of Q4-PHONE-CONTACTS, Q4-PHONE-CONTACTS-OWNER and Q4-PHONE-CORE: runtime
   look at 720x720, rail letter height on the chosen density, TalkBack, key
