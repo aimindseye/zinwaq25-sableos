@@ -101,10 +101,10 @@ index bc65ad476c37..25ae6a502408 100644
      }
  
 diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyCommands.kt b/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyCommands.kt
-index ebd9b5de0b00..509ad8e8b04a 100644
+index d3209cc814b5..6761927bd4f1 100644
 --- a/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyCommands.kt
 +++ b/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyCommands.kt
-@@ -44,6 +44,12 @@ object SableNotificationKeyCommands {
+@@ -42,6 +42,12 @@ object SableNotificationKeyCommands {
          KeyEvent.META_ALT_MASK or KeyEvent.META_CTRL_MASK or KeyEvent.META_META_MASK or
              KeyEvent.META_SHIFT_MASK or KeyEvent.META_SYM_ON or KeyEvent.META_FUNCTION_ON
  
@@ -117,7 +117,7 @@ index ebd9b5de0b00..509ad8e8b04a 100644
      @JvmStatic
      fun onKeyDown(
          row: ExpandableNotificationRow,
-@@ -51,6 +57,9 @@ object SableNotificationKeyCommands {
+@@ -49,6 +55,9 @@ object SableNotificationKeyCommands {
          event: KeyEvent,
      ): Boolean {
          val command = commandFor(row, keyCode, event)
@@ -127,7 +127,7 @@ index ebd9b5de0b00..509ad8e8b04a 100644
          return when (command) {
              SableNotificationCommand.PassThrough -> false
              SableNotificationCommand.Consume -> true
-@@ -64,7 +73,13 @@ object SableNotificationKeyCommands {
+@@ -62,7 +71,13 @@ object SableNotificationKeyCommands {
          row: ExpandableNotificationRow,
          keyCode: Int,
          event: KeyEvent,
@@ -142,15 +142,15 @@ index ebd9b5de0b00..509ad8e8b04a 100644
  
      private fun commandFor(
          row: ExpandableNotificationRow,
-@@ -85,6 +100,7 @@ object SableNotificationKeyCommands {
+@@ -83,6 +98,7 @@ object SableNotificationKeyCommands {
                  canDismiss = row.canViewBeDismissed(),
                  canOpenMenu = row.provider != null,
-                 hubAvailable = sbn != null && sbn.packageName != HUB_PACKAGE && hubResolves(row),
+                 hubAvailable = sbn != null && hubResolves(row),
 +                altOnly = event.hasModifiers(KeyEvent.META_ALT_ON),
              )
          val command = SableNotificationKeyRouter.route(key, context)
          return if (command == SableNotificationCommand.Settings && sbn == null) {
-@@ -103,7 +119,9 @@ object SableNotificationKeyCommands {
+@@ -101,7 +117,9 @@ object SableNotificationKeyCommands {
              SableNotificationCommand.Reply -> findReplyButton(row)?.performClick()
              SableNotificationCommand.Dismiss -> row.performDismiss(false)
              SableNotificationCommand.Snooze -> row.performAccessibilityAction(R.id.action_snooze, null)
@@ -162,12 +162,12 @@ index ebd9b5de0b00..509ad8e8b04a 100644
              SableNotificationCommand.OpenInHub -> sbnOf(row)?.let { openInHub(row, it) }
              SableNotificationCommand.PassThrough,
 diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouter.kt b/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouter.kt
-index 292e691193c4..5e02fc694220 100644
+index 2562afa7b735..0360cf6f87ab 100644
 --- a/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouter.kt
 +++ b/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouter.kt
 @@ -50,6 +50,11 @@ data class SableNotificationKeyContext(
      val canOpenMenu: Boolean,
-     /** Sable Hub is installed and may be asked about this notification. */
+     /** Sable Start can show its Hub page (the one Hub) for this notification. */
      val hubAvailable: Boolean,
 +    /**
 +     * Alt is the only modifier held (lock states aside): Alt+Enter is the design's Fn+Enter on
