@@ -11,46 +11,48 @@ People design (contacts-people-titan2):
 
 * Route subtitle: under each local contact, the default number as
   before followed by the person's other routes, "Mail" when they have an
-  email address and "Hub" when Sable Hub is installed and they have a
-  number ("Mobile · +1 555 0101 · Mail · Hub"). Email presence comes
-  from one bounded read-only Email query in a new loader next to the
-  numbers loader; nothing is written.
+  email address and "Messages" when Sable Messages is installed and they
+  have a number ("Mobile · +1 555 0101 · Mail · Messages"). Email
+  presence comes from one bounded read-only Email query in a new loader
+  next to the numbers loader; nothing is written.
 * Locked and private states: while the device is locked or Sable private
   mode is on (Sable Hub > Connected apps, read from Hub's read-only
   org.sableos.hub.privacy provider; observed, and re-read on resume),
-  the number is left out ("Phone · Mail · Hub") and a line above the
+  the number is left out ("Phone · Mail · Messages") and a line above the
   list says why: "12 people · Details hidden until unlock" ("3 people
   matched · …" in search) or "Private mode · Numbers hidden". Without
   Hub there is no private mode.
-* Hub route chip: QuickContact gets a "Hub" toolbar action, shown when
-  Hub can open a conversation and the person has a number; it opens the
-  conversation for the default number (else the first) in Hub with
-  org.sableos.hub.action.OPEN_CONVERSATION. It only navigates.
+* Message route chip: QuickContact gets a "Message" toolbar action,
+  shown when Sable Messages is installed and the person has a number; it
+  opens the conversation for the default number (else the first) in Sable
+  Messages (ACTION_SENDTO smsto:, package org.sableos.messages; Sable
+  Hub's inbox is Sable Start's Hub page). It only navigates.
 
 ContactsProvider stays the owner of contact data; editing, linking and
 accounts are unchanged.
 ---
- AndroidManifest.xml                           |   4 +
+ AndroidManifest.xml                           |   5 +
  res/menu/quickcontact.xml                     |   7 +
- res/values/sable_dimens.xml                   |  20 +++
- res/values/sable_strings.xml                  |  20 +++
+ res/values/sable_dimens.xml                   |  20 ++
+ res/values/sable_strings.xml                  |  20 ++
  .../DefaultContactBrowseListFragment.java     |  77 ++++++++
  .../list/DefaultContactListAdapter.java       |  45 ++++-
- .../contacts/list/SableRouteLoader.java       | 169 ++++++++++++++++++
- .../quickcontact/QuickContactActivity.java    |  50 ++++++
- 8 files changed, 388 insertions(+), 4 deletions(-)
+ .../contacts/list/SableRouteLoader.java       | 180 ++++++++++++++++++
+ .../quickcontact/QuickContactActivity.java    |  56 ++++++
+ 8 files changed, 406 insertions(+), 4 deletions(-)
  create mode 100644 res/values/sable_dimens.xml
  create mode 100644 src/com/android/contacts/list/SableRouteLoader.java
 
 diff --git a/AndroidManifest.xml b/AndroidManifest.xml
-index db16cf1..4b254f7 100644
+index db16cf1..2a025ce 100644
 --- a/AndroidManifest.xml
 +++ b/AndroidManifest.xml
-@@ -635,6 +635,10 @@
+@@ -635,6 +635,11 @@
          <!-- ContactsProvider2 -->
          <package android:name="com.android.providers.contacts"/>
  
-+        <!-- Sable: Hub route chip and Sable private mode (read-only). -->
++        <!-- Sable: Message route chip (Sable Messages) and Sable private mode (Hub, read-only). -->
++        <package android:name="org.sableos.messages"/>
 +        <package android:name="org.sableos.hub"/>
 +        <provider android:authorities="org.sableos.hub.privacy"/>
 +
@@ -58,14 +60,14 @@ index db16cf1..4b254f7 100644
          <intent>
              <action android:name="android.intent.action.SENDTO" />
 diff --git a/res/menu/quickcontact.xml b/res/menu/quickcontact.xml
-index 7d87708..cd60c78 100644
+index 7d87708..30c1fa0 100644
 --- a/res/menu/quickcontact.xml
 +++ b/res/menu/quickcontact.xml
 @@ -25,6 +25,13 @@
          android:id="@+id/menu_edit"
          android:showAsAction="always" />
  
-+    <!-- Sable: the Hub route chip (shown when Sable Hub is installed and there is a number). -->
++    <!-- Sable: the Message route chip (Sable Messages installed and a number). -->
 +    <item
 +        android:id="@+id/menu_sable_hub"
 +        android:title="@string/sable_menu_open_in_hub"
@@ -102,19 +104,19 @@ index 0000000..5dc433a
 +    <dimen name="sable_privacy_banner_padding">12dp</dimen>
 +</resources>
 diff --git a/res/values/sable_strings.xml b/res/values/sable_strings.xml
-index c18cd30..f8dbc31 100644
+index c18cd30..2f0ac01 100644
 --- a/res/values/sable_strings.xml
 +++ b/res/values/sable_strings.xml
 @@ -19,4 +19,24 @@
      <string name="sable_alphabet_jump_to">Jump to <xliff:g id="letter" example="A">%1$s</xliff:g></string>
      <!-- Shown when a letter key is pressed and no contact files under it. [CHAR LIMIT=40] -->
      <string name="sable_alphabet_no_contacts">No contacts under <xliff:g id="letter" example="Q">%1$s</xliff:g></string>
-+    <!-- Route words under a contact's name ("Mobile · 555 0101 · Mail · Hub"). [CHAR LIMIT=12] -->
++    <!-- Route words under a contact's name ("Mobile · 555 0101 · Mail · Messages"). [CHAR LIMIT=12] -->
 +    <string name="sable_route_phone">Phone</string>
 +    <!-- Route word: the contact has an email address. [CHAR LIMIT=12] -->
 +    <string name="sable_route_mail">Mail</string>
-+    <!-- Route word: Sable Hub can open a conversation with the contact. [CHAR LIMIT=12] -->
-+    <string name="sable_route_hub">Hub</string>
++    <!-- Route word: Sable Messages can open a conversation with the contact. [CHAR LIMIT=12] -->
++    <string name="sable_route_hub">Messages</string>
 +    <!-- List line while the device is locked. [CHAR LIMIT=60] -->
 +    <plurals name="sable_people_locked">
 +        <item quantity="one"><xliff:g id="count" example="1">%1$d</xliff:g> person · Details hidden until unlock</item>
@@ -127,8 +129,8 @@ index c18cd30..f8dbc31 100644
 +    </plurals>
 +    <!-- List line while Sable private mode (set in Sable Hub) is on. [CHAR LIMIT=60] -->
 +    <string name="sable_private_mode_numbers_hidden">Private mode · Numbers hidden</string>
-+    <!-- QuickContact toolbar action: open this person's conversation in Sable Hub. [CHAR LIMIT=12] -->
-+    <string name="sable_menu_open_in_hub">Hub</string>
++    <!-- QuickContact toolbar action: this person's thread in Sable Messages. [CHAR LIMIT=12] -->
++    <string name="sable_menu_open_in_hub">Message</string>
  </resources>
 diff --git a/src/com/android/contacts/list/DefaultContactBrowseListFragment.java b/src/com/android/contacts/list/DefaultContactBrowseListFragment.java
 index 6b69904..c39fdc8 100644
@@ -338,10 +340,10 @@ index b3f57d3..4e9cead 100644
      private boolean isCustomFilterForPhoneNumbersOnly() {
 diff --git a/src/com/android/contacts/list/SableRouteLoader.java b/src/com/android/contacts/list/SableRouteLoader.java
 new file mode 100644
-index 0000000..6fed74a
+index 0000000..f554b36
 --- /dev/null
 +++ b/src/com/android/contacts/list/SableRouteLoader.java
-@@ -0,0 +1,169 @@
+@@ -0,0 +1,180 @@
 +/*
 + * Copyright (C) 2026 The SableOS Project
 + *
@@ -378,9 +380,10 @@ index 0000000..6fed74a
 +
 +/**
 + * Sable: what the route subtitle needs beyond the default number, loaded off the main thread
-+ * with read-only queries: which contacts have an email address (bounded), whether Sable Hub can
-+ * open a conversation, and whether rows hide numbers (locked device or Sable private mode, read
-+ * from Hub's read-only provider). Reloads on Email data and private mode changes. Writes nothing.
++ * with read-only queries: which contacts have an email address (bounded), whether Sable
++ * Messages can open a conversation, and whether rows hide numbers (locked device or Sable private
++ * mode, read from Hub's read-only provider). Reloads on Email data and private mode changes.
++ * Writes nothing.
 + */
 +final class SableRouteLoader extends AsyncTaskLoader<SableRouteLoader.Data> {
 +
@@ -449,9 +452,19 @@ index 0000000..6fed74a
 +    }
 +
 +    static boolean hubAvailable(Context context) {
-+        final Intent open = new Intent(SableRoutes.ACTION_OPEN_CONVERSATION)
-+                .setPackage(SableRoutes.HUB_PACKAGE);
-+        return context.getPackageManager().resolveActivity(open, 0) != null;
++        return context.getPackageManager().resolveActivity(messagesIntent("0"), 0) != null;
++    }
++
++    /** Sable Messages, where a person's conversation lives (Sable Hub's inbox is Start's page). */
++    static final String MESSAGES_PACKAGE = "org.sableos.messages";
++
++    /**
++     * Sable: the person's conversation in Sable Messages (a new message to {@code address} when
++     * there is none yet). It only navigates; nothing is sent.
++     */
++    static Intent messagesIntent(String address) {
++        return new Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", address, null))
++                .setPackage(MESSAGES_PACKAGE);
 +    }
 +
 +    static boolean privateMode(Context context) {
@@ -512,7 +525,7 @@ index 0000000..6fed74a
 +    }
 +}
 diff --git a/src/com/android/contacts/quickcontact/QuickContactActivity.java b/src/com/android/contacts/quickcontact/QuickContactActivity.java
-index eeaf115..7281d72 100644
+index eeaf115..bc88f00 100644
 --- a/src/com/android/contacts/quickcontact/QuickContactActivity.java
 +++ b/src/com/android/contacts/quickcontact/QuickContactActivity.java
 @@ -157,6 +157,7 @@ import com.android.contacts.quickcontact.ExpandingEntryCardView.EntryContextMenu
@@ -523,20 +536,26 @@ index eeaf115..7281d72 100644
  import com.android.contacts.util.DateUtils;
  import com.android.contacts.util.ImageViewDrawableSetter;
  import com.android.contacts.util.ImplicitIntentsUtil;
-@@ -2639,6 +2640,41 @@ public class QuickContactActivity extends ContactsActivity {
+@@ -2639,6 +2640,47 @@ public class QuickContactActivity extends ContactsActivity {
          return true;
      }
  
-+    /** Sable: Hub's conversation hand-off (sable-src 0030 HubIntents.ACTION_OPEN_CONVERSATION). */
-+    private static Intent sableHubIntent() {
-+        return new Intent(SableRoutes.ACTION_OPEN_CONVERSATION).setPackage(SableRoutes.HUB_PACKAGE);
++    /**
++     * Sable: the person's conversation in Sable Messages (a new message to {@code address} when
++     * there is none yet; Sable Hub's inbox is Sable Start's Hub page). It only navigates.
++     */
++    private static Intent sableMessagesIntent(String address) {
++        return new Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", address, null))
++                .setPackage(SABLE_MESSAGES_PACKAGE);
 +    }
++
++    private static final String SABLE_MESSAGES_PACKAGE = "org.sableos.messages";
 +
 +    private boolean sableHubAvailable() {
-+        return getPackageManager().resolveActivity(sableHubIntent(), 0) != null;
++        return getPackageManager().resolveActivity(sableMessagesIntent("0"), 0) != null;
 +    }
 +
-+    /** Sable: the number the Hub route opens: the default (super-primary) number, else the first. */
++    /** Sable: the number the Message route opens: the default (super-primary), else the first. */
 +    private String sableHubAddress() {
 +        if (mContactData == null || mContactData.isDirectoryEntry()) {
 +            return null;
@@ -565,27 +584,27 @@ index eeaf115..7281d72 100644
      @Override
      public boolean onPrepareOptionsMenu(Menu menu) {
          if (mContactData != null) {
-@@ -2704,6 +2740,10 @@ public class QuickContactActivity extends ContactsActivity {
+@@ -2704,6 +2746,10 @@ public class QuickContactActivity extends ContactsActivity {
              final MenuItem helpMenu = menu.findItem(R.id.menu_help);
              helpMenu.setVisible(HelpUtils.isHelpAndFeedbackAvailable());
  
-+            // Sable: the Hub route chip, when Sable Hub is installed and the person has a number.
++            // Sable: the Message route chip, when Sable Messages is installed and there's a number.
 +            final MenuItem hubMenuItem = menu.findItem(R.id.menu_sable_hub);
 +            hubMenuItem.setVisible(sableHubAddress() != null && sableHubAvailable());
 +
              return true;
          }
          return false;
-@@ -2846,6 +2886,16 @@ public class QuickContactActivity extends ContactsActivity {
+@@ -2846,6 +2892,16 @@ public class QuickContactActivity extends ContactsActivity {
                      ContactSaveService.createSetSendToVoicemail(
                              this, mLookupUri, mSendToVoicemailState);
              this.startService(intent);
 +        } else if (id == R.id.menu_sable_hub) {
-+            // Sable: open this person's conversation in Sable Hub (it only navigates there).
++            // Sable: open this person's conversation in Sable Messages (it only navigates there).
 +            final String address = sableHubAddress();
 +            if (address != null) {
 +                try {
-+                    startActivity(sableHubIntent().putExtra(SableRoutes.EXTRA_ADDRESS, address));
++                    startActivity(sableMessagesIntent(address));
 +                } catch (ActivityNotFoundException e) {
 +                    Toast.makeText(this, R.string.missing_app, Toast.LENGTH_SHORT).show();
 +                }
