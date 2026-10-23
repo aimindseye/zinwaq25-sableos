@@ -1371,17 +1371,7 @@ private fun GlanceFrames(
                             val (headline, detail) = weatherLines(snapshot.weather)
                             GlanceFrameCard("Weather", headline, detail, SableSun, { open(WEATHER_PACKAGE) }, modifier)
                         }
-                        GlanceWidgets.BATTERY -> {
-                            val (level, charging) = battery
-                            GlanceFrameCard(
-                                title = "Battery",
-                                headline = level?.let { "$it%" } ?: "--",
-                                detail = if (level == null) "unavailable" else if (charging) "charging" else "",
-                                accent = SableGreen,
-                                onClick = { onStartIntent(Intent(Intent.ACTION_POWER_USAGE_SUMMARY)) },
-                                modifier = modifier,
-                            )
-                        }
+                        GlanceWidgets.BATTERY -> BatteryGlanceFrame(battery, onStartIntent, modifier)
                         GlanceWidgets.PHOTOS -> {
                             val datum = snapshot.photos
                             val needsPermission = datum.availability == LiveAvailability.PERMISSION_REQUIRED
@@ -1394,30 +1384,59 @@ private fun GlanceFrames(
                                 modifier = modifier,
                             )
                         }
-                        else -> {
-                            val (datum, packageName, accent) =
-                                when (widget) {
-                                    GlanceWidgets.CALENDAR -> Triple(snapshot.calendar, CALENDAR_PACKAGE, SableBlue)
-                                    GlanceWidgets.MEDIA -> Triple(snapshot.music, MEDIA_PACKAGE, SablePurple)
-                                    GlanceWidgets.HUB -> Triple(snapshot.messages, HUB_PACKAGE, SableGreen)
-                                    else -> Triple(snapshot.mail, MAIL_PACKAGE, SableOrange)
-                                }
-                            GlanceFrameCard(
-                                title = GlanceWidgets.label(widget),
-                                headline = liveDetail(datum, findLiveApp(apps, packageName)),
-                                detail = "",
-                                accent = accent,
-                                // The Hub widget opens Start's own Hub page (Sable Hub has no screen of its own).
-                                onClick = { if (widget == GlanceWidgets.HUB) onShowHub() else open(packageName) },
-                                modifier = modifier,
-                            )
-                        }
+                        else -> LiveGlanceFrame(widget, snapshot, apps, { open(it) }, onShowHub, modifier)
                     }
                 }
                 repeat(ActiveFrames.COLUMNS - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
     }
+}
+
+/** The Battery Glance frame: level and charging state; Enter opens battery usage. */
+@Composable
+private fun BatteryGlanceFrame(
+    battery: Pair<Int?, Boolean>,
+    onStartIntent: (Intent) -> Unit,
+    modifier: Modifier,
+) {
+    val (level, charging) = battery
+    GlanceFrameCard(
+        title = "Battery",
+        headline = level?.let { "$it%" } ?: "--",
+        detail = if (level == null) "unavailable" else if (charging) "charging" else "",
+        accent = SableGreen,
+        onClick = { onStartIntent(Intent(Intent.ACTION_POWER_USAGE_SUMMARY)) },
+        modifier = modifier,
+    )
+}
+
+/** Calendar, Media, Hub and Mail Glance frames: the live snapshot's line for that app. */
+@Composable
+private fun LiveGlanceFrame(
+    widget: String,
+    snapshot: LiveSurfaceSnapshot,
+    apps: List<AppEntry>,
+    open: (String) -> Unit,
+    onShowHub: () -> Unit,
+    modifier: Modifier,
+) {
+    val (datum, packageName, accent) =
+        when (widget) {
+            GlanceWidgets.CALENDAR -> Triple(snapshot.calendar, CALENDAR_PACKAGE, SableBlue)
+            GlanceWidgets.MEDIA -> Triple(snapshot.music, MEDIA_PACKAGE, SablePurple)
+            GlanceWidgets.HUB -> Triple(snapshot.messages, HUB_PACKAGE, SableGreen)
+            else -> Triple(snapshot.mail, MAIL_PACKAGE, SableOrange)
+        }
+    GlanceFrameCard(
+        title = GlanceWidgets.label(widget),
+        headline = liveDetail(datum, findLiveApp(apps, packageName)),
+        detail = "",
+        accent = accent,
+        // The Hub widget opens Start's own Hub page (Sable Hub has no screen of its own).
+        onClick = { if (widget == GlanceWidgets.HUB) onShowHub() else open(packageName) },
+        modifier = modifier,
+    )
 }
 
 /** A Glance widget drawn as an Active Frame: its value large, its name along the bottom. */
@@ -1811,6 +1830,15 @@ private fun HubPage(
         }
     }
 
+    val actions =
+        HubActions(
+            onLaunchApp = onLaunchApp,
+            onStartIntent = onStartIntent,
+            onOpenMessages = ::openMessages,
+            onOpenHubSettings = onOpenHubSettings,
+            onRequestContactsPermission = onRequestContactsPermission,
+        )
+
     /** Contacts tab: a letter (or digit) key jumps to the first person of that letter. */
     fun jumpKey(event: KeyEvent): Boolean {
         val native = event.nativeKeyEvent
@@ -1851,27 +1879,7 @@ private fun HubPage(
                 onOpen = ::openBarItem,
             )
             Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HubFilter.entries.forEach { tab ->
-                    val selected = tab == filter
-                    Text(
-                        text = tab.label,
-                        modifier =
-                            Modifier
-                                .then(if (tab == HubFilter.All) Modifier.focusRequester(tabFocus) else Modifier)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(
-                                    if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                                ).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
-                                .sableFocusRing()
-                                .clickable { onFilter(tab) }
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                    )
-                }
-            }
+            HubTabs(filter = filter, firstTab = tabFocus, onFilter = onFilter)
         }
         if (contactsTab) {
             hubContactsItems(
@@ -1881,59 +1889,17 @@ private fun HubPage(
                 contactsApp = contactsApp,
                 messagesPackage = messagesApp?.component?.packageName,
                 requesterFor = ::requesterFor,
-                onRequestPermission = onRequestContactsPermission,
-                onLaunchApp = onLaunchApp,
-                onStartIntent = onStartIntent,
+                actions = actions,
             )
         } else {
-            val showMessages = filter != HubFilter.Calls
-            val showCalls = filter != HubFilter.Messages
-            if (showMessages) {
-                item(key = "messages") {
-                    GlanceCard(
-                        title = "Messages",
-                        detail = liveDetail(snapshot.messages, messagesApp),
-                        accent = SableBlue,
-                        onClick = ::openMessages,
-                    )
-                }
-                item(key = "mail") {
-                    GlanceCard(
-                        title = "Mail",
-                        detail = liveDetail(snapshot.mail, mailApp),
-                        accent = Color(0xFFE5484D),
-                        onClick = mailApp?.let { { onLaunchApp(it) } },
-                    )
-                }
-            }
-            if (showCalls) {
-                item(key = "calls") {
-                    // Start holds no call-log permission: the Phone app shows the missed calls.
-                    GlanceCard(
-                        title = "Missed calls",
-                        detail = "recent calls in Phone",
-                        accent = SableGreen,
-                        onClick = { onStartIntent(Intent(Intent.ACTION_VIEW, CallLog.Calls.CONTENT_URI)) },
-                    )
-                }
-            }
-            if (filter == HubFilter.All) {
-                item(key = "notifications") {
-                    // Android owns the notifications; its history lists what was dismissed too.
-                    GlanceCard(
-                        title = "Notifications",
-                        detail = if (hubInstalled) HubBar.summary(barItems) else "Sable Hub not installed",
-                        accent = SableSun,
-                        onClick = { onStartIntent(Intent(ACTION_NOTIFICATION_HISTORY)) },
-                    )
-                }
-            }
-            if (hubInstalled) {
-                item(key = "settings") {
-                    Spacer(Modifier.height(4.dp))
-                    MetroLink(text = "Hub settings", onClick = onOpenHubSettings)
-                }
-            }
+            hubSummaryItems(
+                filter = filter,
+                snapshot = snapshot,
+                summary = if (hubInstalled) HubBar.summary(barItems) else null,
+                messagesApp = messagesApp,
+                mailApp = mailApp,
+                actions = actions,
+            )
         }
     }
 }
@@ -2074,6 +2040,107 @@ private fun HubLockMark() {
     }
 }
 
+/** What the Hub page's tabs and cards open. */
+private class HubActions(
+    val onLaunchApp: (AppEntry) -> Unit,
+    val onStartIntent: (Intent) -> Unit,
+    val onOpenMessages: () -> Unit,
+    val onOpenHubSettings: () -> Unit,
+    val onRequestContactsPermission: () -> Unit,
+)
+
+/** The Hub page tabs: All · Messages · Calls · Contacts; All takes focus when the page opens. */
+@Composable
+private fun HubTabs(
+    filter: HubFilter,
+    firstTab: FocusRequester,
+    onFilter: (HubFilter) -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        HubFilter.entries.forEach { tab ->
+            val selected = tab == filter
+            Text(
+                text = tab.label,
+                modifier =
+                    Modifier
+                        .then(if (tab == HubFilter.All) Modifier.focusRequester(firstTab) else Modifier)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(
+                            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                        ).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
+                        .sableFocusRing()
+                        .clickable { onFilter(tab) }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                style = MaterialTheme.typography.labelLarge,
+                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+/**
+ * The All, Messages and Calls tabs: Messages and Mail, Missed calls, and on All the notification
+ * summary ([summary] is null when Sable Hub is absent, which also hides Hub settings).
+ */
+private fun androidx.compose.foundation.lazy.LazyListScope.hubSummaryItems(
+    filter: HubFilter,
+    snapshot: LiveSurfaceSnapshot,
+    summary: String?,
+    messagesApp: AppEntry?,
+    mailApp: AppEntry?,
+    actions: HubActions,
+) {
+    val showMessages = filter != HubFilter.Calls
+    val showCalls = filter != HubFilter.Messages
+    if (showMessages) {
+        item(key = "messages") {
+            GlanceCard(
+                title = "Messages",
+                detail = liveDetail(snapshot.messages, messagesApp),
+                accent = SableBlue,
+                onClick = actions.onOpenMessages,
+            )
+        }
+        item(key = "mail") {
+            GlanceCard(
+                title = "Mail",
+                detail = liveDetail(snapshot.mail, mailApp),
+                accent = Color(0xFFE5484D),
+                onClick = mailApp?.let { { actions.onLaunchApp(it) } },
+            )
+        }
+    }
+    if (showCalls) {
+        item(key = "calls") {
+            // Start holds no call-log permission: the Phone app shows the missed calls.
+            GlanceCard(
+                title = "Missed calls",
+                detail = "recent calls in Phone",
+                accent = SableGreen,
+                onClick = { actions.onStartIntent(Intent(Intent.ACTION_VIEW, CallLog.Calls.CONTENT_URI)) },
+            )
+        }
+    }
+    if (filter == HubFilter.All) {
+        item(key = "notifications") {
+            // Android owns the notifications; its history lists what was dismissed too.
+            GlanceCard(
+                title = "Notifications",
+                detail = summary ?: "Sable Hub not installed",
+                accent = SableSun,
+                onClick = { actions.onStartIntent(Intent(ACTION_NOTIFICATION_HISTORY)) },
+            )
+        }
+    }
+    if (summary != null) {
+        item(key = "settings") {
+            Spacer(Modifier.height(4.dp))
+            MetroLink(text = "Hub settings", onClick = actions.onOpenHubSettings)
+        }
+    }
+}
+
 /**
  * The Contacts tab: favourites, then A to Z, as in the Contacts app. Enter opens the contact,
  * Call and Message act on its default number (Message in Sable Messages); a letter key jumps
@@ -2086,11 +2153,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hubContactsItems(
     contactsApp: AppEntry?,
     messagesPackage: String?,
     requesterFor: (HubPerson) -> FocusRequester,
-    onRequestPermission: () -> Unit,
-    onLaunchApp: (AppEntry) -> Unit,
-    onStartIntent: (Intent) -> Unit,
+    actions: HubActions,
 ) {
-    val openContacts = contactsApp?.let { app -> { onLaunchApp(app) } }
+    val onStartIntent = actions.onStartIntent
+    val openContacts = contactsApp?.let { app -> { actions.onLaunchApp(app) } }
     if (!canRead || people.isEmpty()) {
         item(key = "contacts-empty") {
             if (!canRead) {
@@ -2098,7 +2164,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hubContactsItems(
                     title = "Allow contacts",
                     detail = "Start shows names here; nothing leaves the phone",
                     accent = SablePurple,
-                    onClick = onRequestPermission,
+                    onClick = actions.onRequestContactsPermission,
                 )
             } else {
                 EmptyState(if (loaded) "No contacts yet." else "Loading contacts…")
