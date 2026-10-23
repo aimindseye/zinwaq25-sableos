@@ -339,16 +339,18 @@ private fun AppRow(label: String, p: DisplayProfile, selected: Boolean, onClick:
     }
 }
 
+private const val STORED = " · stored"
+
 private fun badge(p: DisplayProfile): String = when {
     p.isNative -> "Native"
 
     p.canvas != TallCanvas.Native && p.profile == AspectProfile.Native ->
-        "tall " + p.canvas.shape + " · stored"
+        "tall " + p.canvas.shape + STORED
 
     p.canvas != TallCanvas.Native ->
-        p.profile.id.replace('_', ' ') + " + tall " + p.canvas.shape + " · stored"
+        p.profile.id.replace('_', ' ') + " + tall " + p.canvas.shape + STORED
 
-    else -> p.profile.id.replace('_', ' ') + " · stored"
+    else -> p.profile.id.replace('_', ' ') + STORED
 }
 
 /** Entry to Display tools: system rotation and the hotkey's favourite sizes, shown in one line. */

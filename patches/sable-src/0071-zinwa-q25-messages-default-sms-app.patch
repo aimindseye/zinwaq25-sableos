@@ -2127,7 +2127,7 @@ index 66cf923..0000000
 -    )
 diff --git a/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/core/Addresses.kt b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/core/Addresses.kt
 new file mode 100644
-index 0000000..4001310
+index 0000000..349998a
 --- /dev/null
 +++ b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/core/Addresses.kt
 @@ -0,0 +1,97 @@
@@ -2224,8 +2224,8 @@ index 0000000..4001310
 +                .split('&')
 +                .firstOrNull { it.startsWith("body=") }
 +                ?.removePrefix("body=")
-+        val body = smsBodyExtra ?: queryBody ?: textExtra
-+        return ComposeRequest(recipients = recipients, body = body.orEmpty())
++        val body = listOf(smsBodyExtra, queryBody, textExtra).firstNotNullOfOrNull { it }.orEmpty()
++        return ComposeRequest(recipients = recipients, body = body)
 +    }
 +}
 diff --git a/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/core/IncomingNotice.kt b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/core/IncomingNotice.kt
@@ -4560,7 +4560,7 @@ index 0000000..6aed8f5
 +}
 diff --git a/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/receive/MmsReceivers.kt b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/receive/MmsReceivers.kt
 new file mode 100644
-index 0000000..14838fc
+index 0000000..d995dbc
 --- /dev/null
 +++ b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/receive/MmsReceivers.kt
 @@ -0,0 +1,224 @@
@@ -4759,7 +4759,7 @@ index 0000000..14838fc
 +            try {
 +                notificationUri?.let { finishDownload(context, file, it, subscriptionId, ok) }
 +            } finally {
-+                file.delete()
++                if (file.exists() && !file.delete()) Log.w(TAG, "MMS download file not deleted")
 +            }
 +        }
 +    }

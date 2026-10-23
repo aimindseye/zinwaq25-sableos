@@ -85,7 +85,7 @@ object DisplayPolicy {
             size = size,
             density = size?.let { CanvasMath.compactDensity(it, display.densityDpi) },
             rotation = rotation,
-            ignoreOrientationRequest = if (locked || s.anyAspectProfile) true else null
+            ignoreOrientationRequest = (locked || s.anyAspectProfile).takeIf { it }
         )
     }
 

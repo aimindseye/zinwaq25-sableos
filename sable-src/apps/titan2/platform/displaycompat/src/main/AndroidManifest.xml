@@ -72,11 +72,13 @@
             android:name=".android.DisplayToolsService"
             android:exported="false" />
 
-        <!-- Gives held display settings back at boot, before the first unlock too. -->
+        <!-- Gives held display settings back at boot, before the first unlock too. Not
+             exported: the app runs as android.uid.system, the same uid that sends the boot
+             broadcasts, so they still arrive. -->
         <receiver
             android:name=".android.BootReceiver"
             android:directBootAware="true"
-            android:exported="true">
+            android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

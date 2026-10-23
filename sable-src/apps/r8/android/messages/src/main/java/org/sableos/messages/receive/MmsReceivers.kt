@@ -193,7 +193,7 @@ class MmsDownloadedReceiver : BroadcastReceiver() {
             try {
                 notificationUri?.let { finishDownload(context, file, it, subscriptionId, ok) }
             } finally {
-                file.delete()
+                if (file.exists() && !file.delete()) Log.w(TAG, "MMS download file not deleted")
             }
         }
     }

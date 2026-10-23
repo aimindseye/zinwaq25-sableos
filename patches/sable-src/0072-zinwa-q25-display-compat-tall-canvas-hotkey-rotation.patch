@@ -1,5 +1,5 @@
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml
-index 0437e648cd1cb1a4f9326c16794aa28064d80f1a..8b16b1fb319dee5f9c23f8d4d99b358f1fbd8b41 100644
+index 0437e64..c240653 100644
 --- a/sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml
 +++ b/sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml
 @@ -14,6 +14,16 @@
@@ -19,7 +19,7 @@ index 0437e648cd1cb1a4f9326c16794aa28064d80f1a..8b16b1fb319dee5f9c23f8d4d99b358f
  
      <!-- App discovery uses a <queries> launcher intent, not QUERY_ALL_PACKAGES.
           The Sable appearance authority (Settings) holds the global Sable app corner style. -->
-@@ -56,5 +66,31 @@
+@@ -56,5 +66,33 @@
                  <data android:scheme="package" />
              </intent-filter>
          </activity>
@@ -29,11 +29,13 @@ index 0437e648cd1cb1a4f9326c16794aa28064d80f1a..8b16b1fb319dee5f9c23f8d4d99b358f
 +            android:name=".android.DisplayToolsService"
 +            android:exported="false" />
 +
-+        <!-- Gives held display settings back at boot, before the first unlock too. -->
++        <!-- Gives held display settings back at boot, before the first unlock too. Not
++             exported: the app runs as android.uid.system, the same uid that sends the boot
++             broadcasts, so they still arrive. -->
 +        <receiver
 +            android:name=".android.BootReceiver"
 +            android:directBootAware="true"
-+            android:exported="true">
++            android:exported="false">
 +            <intent-filter>
 +                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
 +                <action android:name="android.intent.action.BOOT_COMPLETED" />
@@ -53,7 +55,7 @@ index 0437e648cd1cb1a4f9326c16794aa28064d80f1a..8b16b1fb319dee5f9c23f8d4d99b358f
  </manifest>
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/BootReceiver.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/BootReceiver.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..c158ee3c25d17125502957cefab13a52f21bac19
+index 0000000..c158ee3
 --- /dev/null
 +++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/BootReceiver.kt
 @@ -0,0 +1,43 @@
@@ -102,7 +104,7 @@ index 0000000000000000000000000000000000000000..c158ee3c25d17125502957cefab13a52
 +}
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/CanvasHotkeyReceiver.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/CanvasHotkeyReceiver.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..30e328f3cd4fc9c915128f6110cc204c76d978ea
+index 0000000..30e328f
 --- /dev/null
 +++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/CanvasHotkeyReceiver.kt
 @@ -0,0 +1,36 @@
@@ -144,7 +146,7 @@ index 0000000000000000000000000000000000000000..30e328f3cd4fc9c915128f6110cc204c
 +}
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DeviceMoment.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DeviceMoment.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..9a9befbc6278ea53ce44f9744d7a5814f3960d2d
+index 0000000..9a9befb
 --- /dev/null
 +++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DeviceMoment.kt
 @@ -0,0 +1,50 @@
@@ -199,7 +201,7 @@ index 0000000000000000000000000000000000000000..9a9befbc6278ea53ce44f9744d7a5814
 +    private const val USER_SETUP_COMPLETE = "user_setup_complete"
 +}
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt
-index 3815eea15bab65d5dd7739576306f494980bfefd..5ccd8ee78a1128056b88e8941848dd17e311fbc2 100644
+index 3815eea..5ccd8ee 100644
 --- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt
 +++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt
 @@ -2,29 +2,64 @@ package org.sableos.titan2.displaycompat.android
@@ -283,7 +285,7 @@ index 3815eea15bab65d5dd7739576306f494980bfefd..5ccd8ee78a1128056b88e8941848dd17
  
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayToolsService.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayToolsService.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..078c2be1e5bcc9f115a0b3ffe22a2774d225a7be
+index 0000000..078c2be
 --- /dev/null
 +++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayToolsService.kt
 @@ -0,0 +1,108 @@
@@ -396,7 +398,7 @@ index 0000000000000000000000000000000000000000..078c2be1e5bcc9f115a0b3ffe22a2774
 +    }
 +}
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt
-index 39c652ff3f873e6464e55c9f8e2c3d8d41ab5b6e..a2a24be424cbc1180b68c5271c824d28db927c0e 100644
+index 39c652f..a2a24be 100644
 --- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt
 +++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt
 @@ -32,7 +32,7 @@ class GatedPlatformBackend : DisplayBackend {
@@ -439,7 +441,7 @@ index 39c652ff3f873e6464e55c9f8e2c3d8d41ab5b6e..a2a24be424cbc1180b68c5271c824d28
          }
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/PrefsToolsSettings.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/PrefsToolsSettings.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..d7ab55ab7149467cc30470e15d94bd65429171bf
+index 0000000..d7ab55a
 --- /dev/null
 +++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/PrefsToolsSettings.kt
 @@ -0,0 +1,64 @@
@@ -509,7 +511,7 @@ index 0000000000000000000000000000000000000000..d7ab55ab7149467cc30470e15d94bd65
 +}
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/WmDisplayPort.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/WmDisplayPort.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..effc0a52c6dd143fd2c4273e7706ce354fba3fe3
+index 0000000..effc0a5
 --- /dev/null
 +++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/WmDisplayPort.kt
 @@ -0,0 +1,105 @@
@@ -620,7 +622,7 @@ index 0000000000000000000000000000000000000000..effc0a52c6dd143fd2c4273e7706ce35
 +}
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayPolicy.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayPolicy.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..cb5627b64680660272dc58b670613d401518eee2
+index 0000000..1d874f7
 --- /dev/null
 +++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayPolicy.kt
 @@ -0,0 +1,113 @@
@@ -711,7 +713,7 @@ index 0000000000000000000000000000000000000000..cb5627b64680660272dc58b670613d40
 +            size = size,
 +            density = size?.let { CanvasMath.compactDensity(it, display.densityDpi) },
 +            rotation = rotation,
-+            ignoreOrientationRequest = if (locked || s.anyAspectProfile) true else null
++            ignoreOrientationRequest = (locked || s.anyAspectProfile).takeIf { it }
 +        )
 +    }
 +
@@ -739,7 +741,7 @@ index 0000000000000000000000000000000000000000..cb5627b64680660272dc58b670613d40
 +}
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayTools.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayTools.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..d5bd0cc0883d6def74aa37ad3e1447e4a8619563
+index 0000000..d5bd0cc
 --- /dev/null
 +++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayTools.kt
 @@ -0,0 +1,207 @@
@@ -951,7 +953,7 @@ index 0000000000000000000000000000000000000000..d5bd0cc0883d6def74aa37ad3e1447e4
 +    }
 +}
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/Model.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/Model.kt
-index 249021208f2365c34ac9ae2452e9c3a2c242f4d4..e23d40af9071c2f3e61044b59eef37accdad35fc 100644
+index 2490212..e23d40a 100644
 --- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/Model.kt
 +++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/Model.kt
 @@ -68,7 +68,12 @@ data class DisplayProfile(
@@ -969,7 +971,7 @@ index 249021208f2365c34ac9ae2452e9c3a2c242f4d4..e23d40af9071c2f3e61044b59eef37ac
      val isNative: Boolean get() = this == NATIVE
      companion object {
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/PlatformMapping.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/PlatformMapping.kt
-index 7a93a4ace0c750700319780eb0924a2ee7d5ef1b..1733dc156b7a60ce6d519b95fb991b53751bc070 100644
+index 7a93a4a..1733dc1 100644
 --- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/PlatformMapping.kt
 +++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/PlatformMapping.kt
 @@ -78,8 +78,8 @@ object OrientationOverrides {
@@ -1045,7 +1047,7 @@ index 7a93a4ace0c750700319780eb0924a2ee7d5ef1b..1733dc156b7a60ce6d519b95fb991b53
 +    }
  }
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileCodec.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileCodec.kt
-index 1caa094af237a83c65faa04800f223855a58b6ea..76b484b50e70b2d7cc4d370ca0d61f80c6dbadac 100644
+index 1caa094..76b484b 100644
 --- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileCodec.kt
 +++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileCodec.kt
 @@ -15,6 +15,7 @@ object ProfileCodec {
@@ -1067,7 +1069,7 @@ index 1caa094af237a83c65faa04800f223855a58b6ea..76b484b50e70b2d7cc4d370ca0d61f80
  }
  
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileValidator.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileValidator.kt
-index 426172bc69bc37cd8fb5f1fb7e8ae7ce5d34b0ea..e0babd1ea208974f1250df5a438933554c26a233 100644
+index 426172b..e0babd1 100644
 --- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileValidator.kt
 +++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileValidator.kt
 @@ -41,9 +41,45 @@ object ProfileValidator {
@@ -1155,7 +1157,7 @@ index 426172bc69bc37cd8fb5f1fb7e8ae7ce5d34b0ea..e0babd1ea208974f1250df5a43893355
          pkg == it ||
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/Reconciler.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/Reconciler.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..c4e37944b35b567b59619afb897e95dc72484667
+index 0000000..c4e3794
 --- /dev/null
 +++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/Reconciler.kt
 @@ -0,0 +1,161 @@
@@ -1322,7 +1324,7 @@ index 0000000000000000000000000000000000000000..c4e37944b35b567b59619afb897e95dc
 +}
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/TallCanvas.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/TallCanvas.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..7933a9ba0e4e057951d43b4904b13b8955de1bbd
+index 0000000..7933a9b
 --- /dev/null
 +++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/TallCanvas.kt
 @@ -0,0 +1,111 @@
@@ -1438,7 +1440,7 @@ index 0000000000000000000000000000000000000000..7933a9ba0e4e057951d43b4904b13b89
 +    }
 +}
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt
-index 82993be5647f62c89a29ea2fd373ccdc0fa75226..88c49cca2453ae6627bd3e378023f8316240c7c6 100644
+index 82993be..487c547 100644
 --- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt
 +++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt
 @@ -47,8 +47,10 @@ import org.sableos.titan2.displaycompat.core.AppCornerStyle
@@ -1622,7 +1624,7 @@ index 82993be5647f62c89a29ea2fd373ccdc0fa75226..88c49cca2453ae6627bd3e378023f831
  private fun emptyListMessage(noAppsAtAll: Boolean, query: String): String = if (noAppsAtAll) {
      "No launchable apps were found for this user."
  } else {
-@@ -288,13 +332,50 @@ private fun AppRow(label: String, p: DisplayProfile, selected: Boolean, onClick:
+@@ -288,13 +332,52 @@ private fun AppRow(label: String, p: DisplayProfile, selected: Boolean, onClick:
      ) {
          Text(label, color = C.text, fontSize = 14.sp)
          Text(
@@ -1634,16 +1636,18 @@ index 82993be5647f62c89a29ea2fd373ccdc0fa75226..88c49cca2453ae6627bd3e378023f831
      }
  }
  
++private const val STORED = " · stored"
++
 +private fun badge(p: DisplayProfile): String = when {
 +    p.isNative -> "Native"
 +
 +    p.canvas != TallCanvas.Native && p.profile == AspectProfile.Native ->
-+        "tall " + p.canvas.shape + " · stored"
++        "tall " + p.canvas.shape + STORED
 +
 +    p.canvas != TallCanvas.Native ->
-+        p.profile.id.replace('_', ' ') + " + tall " + p.canvas.shape + " · stored"
++        p.profile.id.replace('_', ' ') + " + tall " + p.canvas.shape + STORED
 +
-+    else -> p.profile.id.replace('_', ' ') + " · stored"
++    else -> p.profile.id.replace('_', ' ') + STORED
 +}
 +
 +/** Entry to Display tools: system rotation and the hotkey's favourite sizes, shown in one line. */
@@ -1674,7 +1678,7 @@ index 82993be5647f62c89a29ea2fd373ccdc0fa75226..88c49cca2453ae6627bd3e378023f831
  @Composable
  private fun ListFooter(confirmReset: Boolean, styleFocused: Boolean, onReset: () -> Unit) {
      Row(
-@@ -303,7 +384,7 @@ private fun ListFooter(confirmReset: Boolean, styleFocused: Boolean, onReset: ()
+@@ -303,7 +386,7 @@ private fun ListFooter(confirmReset: Boolean, styleFocused: Boolean, onReset: ()
      ) {
          Text(
              if (styleFocused) {
@@ -1684,7 +1688,7 @@ index 82993be5647f62c89a29ea2fd373ccdc0fa75226..88c49cca2453ae6627bd3e378023f831
                  "↑↓ select · Enter edit · Esc back"
              },
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/EditorScreen.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/EditorScreen.kt
-index 28bf7d318dab0ab58eae95146dcfd1c503342416..c7db9eef6bc0bba81bfd65770a095e68fb839157 100644
+index 28bf7d3..c7db9ee 100644
 --- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/EditorScreen.kt
 +++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/EditorScreen.kt
 @@ -58,6 +58,7 @@ import org.sableos.titan2.displaycompat.core.Ratio
@@ -1780,7 +1784,7 @@ index 28bf7d318dab0ab58eae95146dcfd1c503342416..c7db9eef6bc0bba81bfd65770a095e68
      val fr = remember { FocusRequester() }
      LaunchedEffect(Unit) { fr.requestFocus() }
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/MainActivity.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/MainActivity.kt
-index f691b073f2ad0f42da5ca0e692dcb2b8bf3547e4..5d751b7d60d02f417adfcf27ca87500de1f69316 100644
+index f691b07..5d751b7 100644
 --- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/MainActivity.kt
 +++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/MainActivity.kt
 @@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
@@ -1830,7 +1834,7 @@ index f691b073f2ad0f42da5ca0e692dcb2b8bf3547e4..5d751b7d60d02f417adfcf27ca87500d
                  EditorScreen(app, resolver, e, display, onDone = closeEditor)
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/ToolsScreen.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/ToolsScreen.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..c297ffd3f8aedf19e3d2e0381a2b3d466f4e11b5
+index 0000000..c297ffd
 --- /dev/null
 +++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/ToolsScreen.kt
 @@ -0,0 +1,232 @@
@@ -2068,7 +2072,7 @@ index 0000000000000000000000000000000000000000..c297ffd3f8aedf19e3d2e0381a2b3d46
 +}
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/DisplayToolsTest.kt b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/DisplayToolsTest.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..0baad056bc3c86463a6856e752d5d2a08d26a391
+index 0000000..0baad05
 --- /dev/null
 +++ b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/DisplayToolsTest.kt
 @@ -0,0 +1,494 @@
@@ -2567,7 +2571,7 @@ index 0000000000000000000000000000000000000000..0baad056bc3c86463a6856e752d5d2a0
 +    }
 +}
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/PlatformMappingTest.kt b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/PlatformMappingTest.kt
-index bf4b79fede6d5e4d2f40bbc9d2aa9db7de793361..34340845269121043ee5c7317baf9e649706dddc 100644
+index bf4b79f..3434084 100644
 --- a/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/PlatformMappingTest.kt
 +++ b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/PlatformMappingTest.kt
 @@ -78,12 +78,21 @@ class PlatformMappingTest {

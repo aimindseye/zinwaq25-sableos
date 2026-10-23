@@ -91,7 +91,7 @@ object SmsLinks {
                 .split('&')
                 .firstOrNull { it.startsWith("body=") }
                 ?.removePrefix("body=")
-        val body = smsBodyExtra ?: queryBody ?: textExtra
-        return ComposeRequest(recipients = recipients, body = body.orEmpty())
+        val body = listOf(smsBodyExtra, queryBody, textExtra).firstNotNullOfOrNull { it }.orEmpty()
+        return ComposeRequest(recipients = recipients, body = body)
     }
 }
