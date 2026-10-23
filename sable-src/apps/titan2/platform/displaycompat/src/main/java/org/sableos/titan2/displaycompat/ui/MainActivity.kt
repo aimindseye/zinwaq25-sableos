@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import org.sableos.titan2.displaycompat.android.TraitsResolver
 import org.sableos.titan2.displaycompat.android.displayCompat
 import org.sableos.titan2.displaycompat.core.ProfileLink
+import org.sableos.titan2.displaycompat.core.SizePx
 
 class MainActivity : ComponentActivity() {
     /** Set when Settings > App info opened one app's profile: Done and Back return there. */
@@ -39,12 +40,11 @@ class MainActivity : ComponentActivity() {
     private fun Root() {
         val app = displayCompat
         val resolver = remember { TraitsResolver(this) }
-        val metrics = resources.displayMetrics
-        val display = org.sableos.titan2.displaycompat.core.SizePx(
-            metrics.widthPixels,
-            metrics.heightPixels
-        )
+        // The whole display (this app is never given a Tall canvas, so this is the native size).
+        val bounds = windowManager.maximumWindowMetrics.bounds
+        val display = SizePx(bounds.width(), bounds.height())
         var editing by remember { mutableStateOf(linked) }
+        var tools by remember { mutableStateOf(false) }
         val closeEditor: () -> Unit = {
             if (linked != null) {
                 finish()
@@ -54,8 +54,17 @@ class MainActivity : ComponentActivity() {
         }
         Box(Modifier.fillMaxSize().background(C.window).safeDrawingPadding()) {
             val e = editing
-            if (e == null) {
-                AppListScreen(app, resolver, onOpen = { editing = it }, onExit = { finish() })
+            if (tools) {
+                BackHandler { tools = false }
+                ToolsScreen(app, display, onDone = { tools = false })
+            } else if (e == null) {
+                AppListScreen(
+                    app,
+                    resolver,
+                    onOpen = { editing = it },
+                    onTools = { tools = true },
+                    onExit = { finish() }
+                )
             } else {
                 BackHandler { closeEditor() }
                 EditorScreen(app, resolver, e, display, onDone = closeEditor)

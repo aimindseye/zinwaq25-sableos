@@ -1,0 +1,143 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 23 Oct 2026 09:00:00 +0000
+Subject: [PATCH] SableOS: Alt+Shift+R cycles the Tall canvas of the app in
+ front
+
+Sable Display Compat gives an app a taller, phone-shaped logical display
+(Tall canvas: 720x772, 720x960, 720x1280 or 720x1440 on the Q25) while
+it is in front. The resolution hotkey cycles the app in front through
+the user's favourite sizes and back to native.
+
+The Q25 keyboard has Alt, Shift, Sym and letters but no Ctrl or Fn, and
+Alt+letter types digits and symbols, so the chord is Alt+Shift+R (Sym is
+Right Alt, so Sym+Shift+R too). Android 16 has no system shortcut on it.
+
+* PhoneWindowManager.interceptSystemKeysAndShortcuts takes the chord
+  from a physical keyboard only, after setup and off the keyguard, and
+  sends org.sableos.titan2.displaycompat.action.CYCLE_CANVAS to that
+  package for the current user. Its receiver is not exported, so only
+  the system UID can reach it; it applies the size, saves it for the app
+  and shows a toast. Pure policy: policy/sable/SableDisplayKeys.java.
+---
+ .../server/policy/PhoneWindowManager.java     | 22 +++++++
+ .../server/policy/sable/SableDisplayKeys.java | 60 +++++++++++++++++++
+ 2 files changed, 82 insertions(+)
+ create mode 100644 services/core/java/com/android/server/policy/sable/SableDisplayKeys.java
+
+diff --git a/services/core/java/com/android/server/policy/PhoneWindowManager.java b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+index e5b1da34..97010c1a 100644
+--- a/services/core/java/com/android/server/policy/PhoneWindowManager.java
++++ b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+@@ -265,6 +265,7 @@ import com.android.server.pm.UserManagerInternal;
+ import com.android.server.policy.keyguard.KeyguardServiceDelegate;
+ import com.android.server.policy.keyguard.KeyguardServiceDelegate.DrawnListener;
+ import com.android.server.policy.keyguard.KeyguardStateMonitor.StateCallback;
++import com.android.server.policy.sable.SableDisplayKeys;
+ import com.android.server.policy.sable.SableShadeKeys;
+ import com.android.server.statusbar.StatusBarManagerInternal;
+ import com.android.server.vr.VrManagerInternal;
+@@ -4007,6 +4008,19 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+                 }
+                 return true;
+             }
++            case KeyEvent.KEYCODE_R: {
++                // Sable: Alt+Shift+R (Sym+Shift+R) cycles the app in front through the user's
++                // favourite Tall canvas sizes in Sable Display Compat, which applies the size,
++                // saves it for that app and shows a toast. Not on the keyguard or before setup.
++                if (!SableDisplayKeys.isCanvasCycleChord(keyCode, event.getMetaState(), virtualKey)
++                        || keyguardOn || !isUserSetupComplete()) {
++                    break;
++                }
++                if (down && repeatCount == 0) {
++                    mHandler.post(this::sendSableCanvasCycle);
++                }
++                return true;
++            }
+         }
+         if (isValidGlobalKey(keyCode)
+                 && mGlobalKeyManager.handleGlobalKey(mContext, keyCode, event)) {
+@@ -4019,6 +4033,14 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+         return false;
+     }
+ 
++    /** Sable resolution hotkey: Sable Display Compat cycles the app in front (see above). */
++    private void sendSableCanvasCycle() {
++        final Intent intent = new Intent(SableDisplayKeys.ACTION_CYCLE_CANVAS)
++                .setPackage(SableDisplayKeys.DISPLAY_COMPAT_PACKAGE)
++                .addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
++        mContext.sendBroadcastAsUser(intent, UserHandle.CURRENT);
++    }
++
+     @SuppressLint("MissingPermission")
+     private void initKeyGestures() {
+         List<Integer> supportedGestures = new ArrayList<>(List.of(
+diff --git a/services/core/java/com/android/server/policy/sable/SableDisplayKeys.java b/services/core/java/com/android/server/policy/sable/SableDisplayKeys.java
+new file mode 100644
+index 00000000..e836b670
+--- /dev/null
++++ b/services/core/java/com/android/server/policy/sable/SableDisplayKeys.java
+@@ -0,0 +1,60 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.server.policy.sable;
++
++/**
++ * Sable resolution hotkey for keyboards without Ctrl or Fn (the Q25: Alt, Shift, Sym and letters).
++ *
++ * <p>Alt+Shift+R (Sym is Right Alt, so Sym+Shift+R too) asks Sable Display Compat to move the app
++ * in front to its next favourite Tall canvas size. Alt+R types 3 and Shift+R types R, so only the
++ * three-key chord is taken; Ctrl, Meta, Fn or the Sym meta state keep the key's own meaning, and
++ * software keyboards never trigger it. Android 16 has no system shortcut on Alt+Shift+R.
++ *
++ * <p>Pure: android.view.KeyEvent values are copied so that it can be tested off-device.
++ */
++public final class SableDisplayKeys {
++    /** {@code KeyEvent.KEYCODE_R}. */
++    public static final int KEYCODE_R = 46;
++    /** Sent to {@link #DISPLAY_COMPAT_PACKAGE}; its receiver is not exported (system UID only). */
++    public static final String ACTION_CYCLE_CANVAS =
++            "org.sableos.titan2.displaycompat.action.CYCLE_CANVAS";
++    public static final String DISPLAY_COMPAT_PACKAGE = "org.sableos.titan2.displaycompat";
++
++    // android.view.KeyEvent meta state bits.
++    private static final int META_SHIFT_MASK = 0x01 | 0x40 | 0x80;
++    private static final int META_ALT_MASK = 0x02 | 0x10 | 0x20;
++    private static final int META_SYM_ON = 0x04;
++    private static final int META_FUNCTION_ON = 0x08;
++    private static final int META_CTRL_MASK = 0x1000 | 0x2000 | 0x4000;
++    private static final int META_META_MASK = 0x10000 | 0x20000 | 0x40000;
++    private static final int OTHER_MODIFIERS =
++            META_SYM_ON | META_FUNCTION_ON | META_CTRL_MASK | META_META_MASK;
++
++    private SableDisplayKeys() {}
++
++    /**
++     * True when this key is the Alt+Shift+R chord from a physical keyboard. Lock states (Caps,
++     * Num, Scroll) are ignored, as in {@code KeyEvent.hasModifiers}.
++     */
++    public static boolean isCanvasCycleChord(int keyCode, int metaState, boolean virtualKey) {
++        return !virtualKey
++                && keyCode == KEYCODE_R
++                && (metaState & META_ALT_MASK) != 0
++                && (metaState & META_SHIFT_MASK) != 0
++                && (metaState & OTHER_MODIFIERS) == 0;
++    }
++}
+-- 
+2.43.0
+

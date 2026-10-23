@@ -58,6 +58,7 @@ import org.sableos.titan2.displaycompat.core.Ratio
 import org.sableos.titan2.displaycompat.core.ScalingPref
 import org.sableos.titan2.displaycompat.core.Severity
 import org.sableos.titan2.displaycompat.core.SizePx
+import org.sableos.titan2.displaycompat.core.TallCanvas
 import org.sableos.titan2.displaycompat.core.Tri
 
 private fun <T> cycle(values: List<T>, cur: T, dir: Int): T = values[
@@ -79,6 +80,7 @@ private val defaultLetterboxBackdrop = Color(0xFF1B2F40)
 
 private enum class EditorRow(val title: String) {
     Profile("Profile"),
+    Canvas("Tall canvas"),
     Orientation("Orientation"),
     Scaling("Scaling"),
     Background("Letterbox background"),
@@ -94,7 +96,7 @@ private enum class EditorRow(val title: String) {
 }
 
 /** Observable editor state; every property is Compose snapshot state so reads recompose as before. */
-private class EditorState(initial: DisplayProfile) {
+private class EditorState(initial: DisplayProfile, private val display: SizePx) {
     var p by mutableStateOf(initial)
     var advanced by mutableStateOf(false)
     var ack by mutableStateOf(false)
@@ -106,6 +108,11 @@ private class EditorState(initial: DisplayProfile) {
 
     fun valueOf(r: EditorRow): String = when (r) {
         EditorRow.Profile -> p.profile.id.replace('_', ' ')
+        EditorRow.Canvas -> p.canvas.label(display)
+        else -> otherValue(r)
+    }
+
+    private fun otherValue(r: EditorRow): String = when (r) {
         EditorRow.Orientation -> p.orientation.name
         EditorRow.Scaling -> p.scaling.name
         EditorRow.Background -> p.letterboxBackground.name
@@ -115,7 +122,7 @@ private class EditorState(initial: DisplayProfile) {
         EditorRow.Custom -> p.customRatio?.toString() ?: "choose"
         EditorRow.Advanced -> onOff(advanced)
         EditorRow.Ack -> if (ack) "Yes" else "No"
-        EditorRow.Save, EditorRow.Reset, EditorRow.Back -> ""
+        else -> ""
     }
 
     fun cycleField(r: EditorRow, dir: Int) {
@@ -124,6 +131,14 @@ private class EditorState(initial: DisplayProfile) {
                 profile = cycle(
                     AspectProfile.entries.filter { it != AspectProfile.Custom || advanced },
                     p.profile,
+                    dir
+                )
+            )
+
+            EditorRow.Canvas -> p = p.copy(
+                canvas = cycle(
+                    listOf(TallCanvas.Native) + TallCanvas.usable(display),
+                    p.canvas,
                     dir
                 )
             )
@@ -173,9 +188,12 @@ private class EditorActions(
 
             EditorRow.Ack -> st.ack = !st.ack
 
-            EditorRow.Save ->
+            EditorRow.Save -> {
                 st.msg =
                     app.controller.save(traits, st.p, display, st.advanced, st.ack).message()
+                // Tall canvas, live rotation and the aspect-ratio display setting follow at once.
+                app.refreshDisplay()
+            }
 
             EditorRow.Reset -> reset()
 
@@ -226,6 +244,7 @@ private class EditorActions(
 
     private fun reset() {
         val outcome = app.controller.resetChecked(pkg)
+        app.refreshDisplay()
         if (outcome.storeCleared) {
             st.p = DisplayProfile.NATIVE
             st.ack = false
@@ -255,7 +274,7 @@ fun EditorScreen(
 ) {
     val traits = remember(entry.pkg) { resolver.resolve(entry.pkg) }
     val loaded = remember(entry.pkg) { app.controller.load(traits) }
-    val st = remember { EditorState(loaded.profile).also { it.msg = loaded.message() } }
+    val st = remember { EditorState(loaded.profile, display).also { it.msg = loaded.message() } }
     val rows = remember(st.p.profile) { st.visibleRows() }
     val fr = remember { FocusRequester() }
     LaunchedEffect(Unit) { fr.requestFocus() }

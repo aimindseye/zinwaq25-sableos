@@ -4,10 +4,18 @@
      app's manifest requests; tests/run.sh checks the two match. -->
 <permissions>
     <!-- App display compatibility: per-app aspect ratio (IPackageManager.setUserMinAspectRatio)
-         and per-app orientation (IPlatformCompat release-build overrides). Runs as android.uid.system. -->
+         and per-app orientation (IPlatformCompat release-build overrides). Runs as android.uid.system.
+         Display tools: Tall canvas (IWindowManager forced size and density), the display's
+         ignore-orientation-request setting, forced rotation, the app in front and the boot restore. -->
     <privapp-permissions package="org.sableos.titan2.displaycompat">
         <permission name="android.permission.INSTALL_PACKAGES" />
         <permission name="android.permission.OVERRIDE_COMPAT_CHANGE_CONFIG_ON_RELEASE_BUILD" />
+        <permission name="android.permission.WRITE_SECURE_SETTINGS" />
+        <permission name="android.permission.WRITE_SETTINGS" />
+        <permission name="android.permission.SET_ORIENTATION" />
+        <permission name="android.permission.MANAGE_ACTIVITY_TASKS" />
+        <permission name="android.permission.REAL_GET_TASKS" />
+        <permission name="android.permission.RECEIVE_BOOT_COMPLETED" />
     </privapp-permissions>
 
     <!-- Secure Vault: "Lock now" turns quiet mode on for its own Private Space profile. -->
