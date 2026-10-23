@@ -377,6 +377,18 @@ grep -q 'fixed="true"' product/q25/permissions/default-permissions-sable-q25.xml
 grep -q "^| Q4-HUB-ONE |" docs/QUALIFICATION.md || hub_bad="$hub_bad gate"
 if [[ -z "$hub_bad" ]]; then pass "one Hub: Start's Hub page (bar, Contacts tab), Hub headless"; else fail "one Hub:$hub_bad"; fi
 
+# 6b1b. Sable Messages is the default SMS app: shipped, set as the SMS role default, granted, and
+# declares every component the SMS role requires.
+msg_bad=""
+grep -qP '^SableMessages\tcommon\tapps/r8/android\t:messages:assembleRelease\tmessages/build/outputs/apk/release/\*\.apk\torg\.sableos\.messages\tunsigned\tmessaging\tyes$' product/q25/apps.tsv || msg_bad="$msg_bad apps.tsv"
+grep -q '<string name="config_defaultSms"[^>]*>org.sableos.messages<' product/common/overlay/SableFrameworkOverlay/res/values/sable_messages.xml || msg_bad="$msg_bad default-sms"
+grep -A10 'package="org.sableos.messages"' product/q25/permissions/default-permissions-sable-q25.xml | grep -q 'android.permission.SEND_SMS' || msg_bad="$msg_bad grants"
+msg_m=sable-src/apps/r8/android/messages/src/main/AndroidManifest.xml
+for s in android.provider.Telephony.SMS_DELIVER android.provider.Telephony.WAP_PUSH_DELIVER android.intent.action.RESPOND_VIA_MESSAGE android.permission.BROADCAST_SMS android.permission.BROADCAST_WAP_PUSH android.permission.SEND_RESPOND_VIA_MESSAGE android.intent.action.SENDTO smsto; do
+    grep -q "$s" "$msg_m" || msg_bad="$msg_bad manifest:$s"
+done
+if [[ -z "$msg_bad" ]]; then pass "Sable Messages is the default SMS app (role default, grants, SMS/MMS components)"; else fail "Sable Messages default SMS:$msg_bad"; fi
+
 # 6b2. Optional 50 MP camera: the patcher on a synthetic vendor tree, and off by default.
 if python3 -I tests/test_camera_50mp.py >"$tmp/cam50" 2>&1; then
     pass "camera 50 MP patcher ($(grep -o 'Ran [0-9]* tests' "$tmp/cam50"))"

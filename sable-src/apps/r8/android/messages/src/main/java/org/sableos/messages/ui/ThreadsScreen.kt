@@ -1,0 +1,247 @@
+@file:Suppress("FunctionNaming")
+
+package org.sableos.messages.ui
+
+import android.view.KeyEvent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import org.sableos.design.SableActionButton
+import org.sableos.design.SableSize
+import org.sableos.design.SableSpacing
+import org.sableos.design.sableFocusRing
+import org.sableos.messages.core.ThreadSummary
+
+/** Conversation list, newest first; letters filter it, Enter opens the first match at latest. */
+@Composable
+internal fun ColumnScope.ThreadsScreen(
+    state: MessagesUiState,
+    threads: List<ThreadSummary>,
+    actions: MessagesActions,
+) {
+    ThreadsHeader(state.threads, actions)
+    ThreadsBanners(state.access, actions)
+    FilterField(state.filter, threads, actions)
+    if (state.threadsLoaded && threads.isEmpty()) {
+        Text(
+            text =
+                if (state.filter.isBlank()) {
+                    "No conversations yet. Choose New to text someone."
+                } else {
+                    "No conversation matches."
+                },
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    LazyColumn(
+        modifier = Modifier.weight(1f).fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
+    ) {
+        items(threads, key = { it.threadId }) { thread -> ThreadRow(thread) { actions.openThread(thread) } }
+    }
+}
+
+@Composable
+private fun ThreadsHeader(
+    threads: List<ThreadSummary>,
+    actions: MessagesActions,
+) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Messages",
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            val unread = threads.sumOf { it.unreadCount }
+            Text(
+                text =
+                    if (unread >
+                        0
+                    ) {
+                        "${threads.size} conversations · $unread unread"
+                    } else {
+                        "${threads.size} conversations"
+                    },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        SableActionButton(text = "New", onClick = actions.newMessage)
+    }
+}
+
+@Composable
+private fun ThreadsBanners(
+    access: Access,
+    actions: MessagesActions,
+) {
+    if (!access.hasTelephony) {
+        Banner("No mobile network on this device: texts can't be sent or received.", null) {}
+    } else if (access.roleAvailable && !access.isDefault) {
+        Banner(
+            "Another app is the default SMS app, so it receives texts and pictures. " +
+                "Make Sable Messages the default to get them here.",
+            "Make default",
+            actions.requestDefaultRole,
+        )
+    }
+    if (!access.canReadContacts) {
+        Banner(
+            "Contact names are hidden until Sable Messages may read contacts.",
+            "Show names",
+            actions.requestPermissions,
+        )
+    }
+}
+
+@Composable
+private fun FilterField(
+    filter: String,
+    threads: List<ThreadSummary>,
+    actions: MessagesActions,
+) {
+    val focus = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    OutlinedTextField(
+        value = filter,
+        onValueChange = actions.setFilter,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .focusRequester(focus)
+                .onPreviewKeyEvent { event ->
+                    if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    when (event.nativeKeyEvent.keyCode) {
+                        KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                            threads.firstOrNull()?.let(actions.openThread)
+                            true
+                        }
+
+                        KeyEvent.KEYCODE_DPAD_DOWN -> {
+                            focusManager.moveFocus(FocusDirection.Down)
+                        }
+
+                        KeyEvent.KEYCODE_ESCAPE -> {
+                            filter.isNotEmpty().also { if (it) actions.setFilter("") }
+                        }
+
+                        else -> {
+                            false
+                        }
+                    }
+                },
+        singleLine = true,
+        placeholder = { Text("Type to filter · Enter opens") },
+    )
+}
+
+@Composable
+private fun ThreadRow(
+    thread: ThreadSummary,
+    onOpen: () -> Unit,
+) {
+    val unread = thread.unreadCount > 0
+    val colors = MaterialTheme.colorScheme
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.small)
+                .background(if (unread) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent)
+                .sableFocusRing()
+                .clickable(onClick = onOpen)
+                .heightIn(min = SableSize.ListRowHeight)
+                .padding(end = SableSpacing.Md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .width(SableSize.AccentBarWidth)
+                    .height(SableSpacing.Xxl)
+                    .background(
+                        if (unread) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                    ),
+        )
+        Spacer(Modifier.width(SableSpacing.Md))
+        Column(modifier = Modifier.weight(1f).padding(vertical = SableSpacing.Sm)) {
+            Text(
+                text = thread.title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = if (unread) FontWeight.Bold else FontWeight.Normal,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = if (thread.hasError) "Not sent · ${thread.snippet}" else thread.snippet,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (thread.hasError) colors.error else colors.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = shortTime(thread.dateMillis),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (unread) UnreadBadge(thread.unreadCount)
+        }
+    }
+}
+
+@Composable
+private fun UnreadBadge(count: Int) {
+    Box(
+        modifier =
+            Modifier
+                .padding(top = SableSpacing.Xs)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary)
+                .padding(horizontal = SableSpacing.Sm),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = count.toString(),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onPrimary,
+        )
+    }
+}

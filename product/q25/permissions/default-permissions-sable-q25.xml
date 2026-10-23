@@ -9,6 +9,10 @@
     Sable Hub (org.sableos.hub): it has no launcher entry since Start's Hub page became the one
       Hub, so it can no longer ask on first open. It reads unread SMS for the Messages card's
       count (counts only reach Start), contacts and the call log for its handoff screens.
+    Sable Messages (org.sableos.messages): the default SMS app (config_defaultSms in
+      SableFrameworkOverlay); the SMS role grants the same, these make the first boot not depend
+      on when the role is assigned. Exception grants also exempt the hard-restricted SMS
+      permissions (DefaultPermissionGrantPolicy whitelists them as system).
 -->
 <exceptions>
     <exception package="org.sableos.launcher">
@@ -18,5 +22,14 @@
         <permission name="android.permission.READ_SMS" fixed="false" />
         <permission name="android.permission.READ_CONTACTS" fixed="false" />
         <permission name="android.permission.READ_CALL_LOG" fixed="false" />
+    </exception>
+    <exception package="org.sableos.messages">
+        <permission name="android.permission.READ_SMS" fixed="false" />
+        <permission name="android.permission.SEND_SMS" fixed="false" />
+        <permission name="android.permission.RECEIVE_SMS" fixed="false" />
+        <permission name="android.permission.RECEIVE_MMS" fixed="false" />
+        <permission name="android.permission.RECEIVE_WAP_PUSH" fixed="false" />
+        <permission name="android.permission.READ_CONTACTS" fixed="false" />
+        <permission name="android.permission.POST_NOTIFICATIONS" fixed="false" />
     </exception>
 </exceptions>
