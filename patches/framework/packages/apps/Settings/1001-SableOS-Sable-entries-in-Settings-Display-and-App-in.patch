@@ -10,7 +10,9 @@ opens them; the settings stay in their apps.
 
 * Settings > Sable (homepage row after System): Sable Start (home
   layout), Quick bar (Sable Start's editor, action
-  org.sableos.start.action.EDIT_QUICK_BAR), Sable Hub, Diagnostics
+  org.sableos.start.action.EDIT_QUICK_BAR), Sable Hub (Hub's settings,
+  action org.sableos.hub.action.CONNECTED_APPS; the inbox is Sable
+  Start's Hub page), Diagnostics
   (Sable Tools), Hardware tests (Sable Tools OPEN_TOOL HARDWARE_TESTS)
   and App display compatibility.
 * Settings > Display > App display compatibility.
@@ -29,7 +31,7 @@ search, Home/End).
  res/drawable/ic_homepage_sable.xml            |  32 ++++
  res/drawable/ic_sable_settings_expressive.xml |  20 +++
  res/drawable/ic_sable_settings_filled.xml     |  27 ++++
- res/values/strings_sable_settings.xml         |  74 ++++++++++
+ res/values/strings_sable_settings.xml         |  74 +++++++++
  res/xml/app_info_settings.xml                 |   7 +
  res/xml/display_settings.xml                  |   8 +
  res/xml/sable_settings.xml                    |  68 +++++++++
@@ -38,10 +40,10 @@ search, Home/End).
  .../appinfo/AppInfoDashboardFragment.java     |   2 +
  ...eDisplayCompatAppPreferenceController.java |  95 ++++++++++++
  .../sable/SableLinkPreferenceController.java  |  65 ++++++++
- .../android/settings/sable/SableLinks.java    | 139 ++++++++++++++++++
+ .../android/settings/sable/SableLinks.java    | 144 ++++++++++++++++++
  .../settings/sable/SableSettingsFragment.java |  79 ++++++++++
  .../TopLevelSablePreferenceController.java    |  34 +++++
- 15 files changed, 672 insertions(+)
+ 15 files changed, 677 insertions(+)
  create mode 100644 res/drawable/ic_homepage_sable.xml
  create mode 100644 res/drawable/ic_sable_settings_expressive.xml
  create mode 100644 res/drawable/ic_sable_settings_filled.xml
@@ -152,7 +154,7 @@ index 0000000..13a0acb
 +</vector>
 diff --git a/res/values/strings_sable_settings.xml b/res/values/strings_sable_settings.xml
 new file mode 100644
-index 0000000..c56e4c6
+index 0000000..f965e6c
 --- /dev/null
 +++ b/res/values/strings_sable_settings.xml
 @@ -0,0 +1,74 @@
@@ -200,7 +202,7 @@ index 0000000..c56e4c6
 +    <!-- Settings > Sable: Sable Hub row. -->
 +    <string name="sable_hub_title">Sable Hub</string>
 +    <!-- Summary of the Sable Hub row. -->
-+    <string name="sable_hub_summary">Messages and notifications in one place, connected apps</string>
++    <string name="sable_hub_summary">Connected apps, private mode and history (the Hub is on Sable Start)</string>
 +    <!-- Search keywords for the Sable Hub row. -->
 +    <string name="sable_hub_keywords">hub, inbox, unified inbox, connected apps, notification hub</string>
 +
@@ -579,10 +581,10 @@ index 0000000..a1dce52
 +}
 diff --git a/src/com/android/settings/sable/SableLinks.java b/src/com/android/settings/sable/SableLinks.java
 new file mode 100644
-index 0000000..1c26ffc
+index 0000000..192705d
 --- /dev/null
 +++ b/src/com/android/settings/sable/SableLinks.java
-@@ -0,0 +1,139 @@
+@@ -0,0 +1,144 @@
 +/*
 + * Copyright (C) 2026 The SableOS Project
 + *
@@ -620,6 +622,11 @@ index 0000000..1c26ffc
 +    /** Opens Sable Start's quick bar editor (SableStartActivity). */
 +    public static final String ACTION_EDIT_QUICK_BAR = "org.sableos.start.action.EDIT_QUICK_BAR";
 +    public static final String HUB_PACKAGE = "org.sableos.hub";
++    /**
++     * Sable Hub's own settings (connected apps, private mode, history). Hub has no launcher entry:
++     * its inbox is Sable Start's Hub page, so the row opens these settings.
++     */
++    public static final String ACTION_HUB_SETTINGS = "org.sableos.hub.action.CONNECTED_APPS";
 +    public static final String TOOLS_PACKAGE = "org.sableos.tools";
 +    public static final String ACTION_OPEN_TOOL = "org.sableos.tools.action.OPEN_TOOL";
 +    public static final String EXTRA_TOOL = "org.sableos.tools.extra.TOOL";
@@ -659,7 +666,7 @@ index 0000000..1c26ffc
 +            case KEY_QUICK_BAR:
 +                return new Intent(ACTION_EDIT_QUICK_BAR).setPackage(START_PACKAGE);
 +            case KEY_HUB:
-+                return launcher(HUB_PACKAGE);
++                return new Intent(ACTION_HUB_SETTINGS).setPackage(HUB_PACKAGE);
 +            case KEY_DIAGNOSTICS:
 +                return launcher(TOOLS_PACKAGE);
 +            case KEY_HARDWARE_TESTS:

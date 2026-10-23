@@ -54,24 +54,46 @@ class Bb10HomeTest {
     }
 
     @Test
-    fun gridPagesHoldFourColumns() {
-        assertEquals(4, AppGrid.rowsFor(479, 112))
-        assertEquals(AppGrid.MIN_ROWS, AppGrid.rowsFor(100, 112))
-        assertEquals(AppGrid.MAX_ROWS, AppGrid.rowsFor(2000, 112))
-        assertEquals(16, AppGrid.perPage(4))
-        assertEquals(1, AppGrid.pageCount(0, 16))
-        assertEquals(2, AppGrid.pageCount(17, 16))
-        assertEquals(listOf(16, 17), AppGrid.page((0..17).toList(), 1, 16))
+    fun gridPagesHoldFiveColumns() {
+        assertEquals(5, AppGrid.COLUMNS)
+        // Q25 at density 280: about 387dp under the status bar, less dots, bar and padding.
+        assertEquals(4, AppGrid.rowsFor(387 - 72, 74))
+        assertEquals(AppGrid.MIN_ROWS, AppGrid.rowsFor(100, 74))
+        assertEquals(AppGrid.MAX_ROWS, AppGrid.rowsFor(2000, 74))
+        assertEquals(20, AppGrid.perPage(4))
+        assertEquals(1, AppGrid.pageCount(0, 20))
+        assertEquals(2, AppGrid.pageCount(21, 20))
+        assertEquals(listOf(20, 21), AppGrid.page((0..21).toList(), 1, 20))
+    }
+
+    @Test
+    fun gridIconsFollowTheCell() {
+        // 411dp less 8dp padding over five columns, four rows of ~79dp, a 31dp label block.
+        assertEquals(44, AppGrid.iconSizeFor(80, 78, 31))
+        assertEquals(40, AppGrid.iconSizeFor(80, 71, 31))
+        assertEquals(AppGrid.MIN_ICON_DP, AppGrid.iconSizeFor(40, 40, 31))
+        assertEquals(AppGrid.MAX_ICON_DP, AppGrid.iconSizeFor(200, 200, 31))
+    }
+
+    @Test
+    fun gridLabelsDropTheSablePrefixUnlessTheNameIsTaken() {
+        assertEquals("Calculator", AppGrid.gridLabel("Sable Calculator"))
+        assertEquals("2048", AppGrid.gridLabel(" Sable 2048 "))
+        assertEquals("Files", AppGrid.gridLabel("Files"))
+        assertEquals("Sable", AppGrid.gridLabel("Sable"))
+        assertEquals("Sablefish", AppGrid.gridLabel("Sablefish"))
+        assertEquals("Sable Camera", AppGrid.gridLabel("Sable Camera", setOf("Sable Camera", "camera")))
+        assertEquals("Hub", AppGrid.gridLabel("Sable Hub", setOf("Sable Hub", "Camera")))
     }
 
     @Test
     fun gridMovesShiftLikeADraggedIcon() {
         val keys = listOf("a", "b", "c", "d", "e", "f")
         assertEquals(listOf("b", "a", "c", "d", "e", "f"), AppGrid.move(keys, 0, 1))
-        assertEquals(listOf("b", "c", "d", "e", "a", "f"), AppGrid.move(keys, 0, AppGrid.COLUMNS))
+        assertEquals(listOf("b", "c", "d", "e", "f", "a"), AppGrid.move(keys, 0, AppGrid.COLUMNS))
         assertEquals(listOf("f", "a", "b", "c", "d", "e"), AppGrid.move(keys, 5, -10))
         assertEquals(keys, AppGrid.move(keys, 0, -1))
-        assertEquals(-4, AppGrid.arrowDelta(19))
+        assertEquals(-5, AppGrid.arrowDelta(19))
         assertEquals(1, AppGrid.arrowDelta(22))
         assertNull(AppGrid.arrowDelta(66))
     }

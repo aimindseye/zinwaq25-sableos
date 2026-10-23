@@ -32,7 +32,10 @@ sealed interface Observed {
     object Failed : Observed
 }
 
-/** Where a row's button goes. Every destination is an Android screen the user confirms in; nothing is mutated. */
+/**
+ * Where a row's button goes. Every destination is an Android screen the user confirms in; nothing
+ * is mutated, except the Weather city the user explicitly picks, which Sable Weather stores.
+ */
 enum class Action(val label: String) {
     None(""),
     HomeSettings("Home settings"),
@@ -40,7 +43,10 @@ enum class Action(val label: String) {
     KeyboardPicker("Keyboard picker"),
     DisplayCompat("Display compatibility"),
     RadioDiag("Radio diagnostics"),
-    NetworkSettings("Network settings")
+    NetworkSettings("Network settings"),
+
+    /** Opens Setup's own Weather city step; the only action whose choice is written (by Sable Weather). */
+    WeatherCity("Weather city")
 }
 
 /** Whether the destination of an [Action] could be resolved before it was offered. */

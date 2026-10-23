@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -24,10 +26,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import kotlin.math.abs
 import org.sableos.design.SableActionButton
 import org.sableos.design.SableSpacing
 import org.sableos.design.SableValuePanel
-import kotlin.math.abs
 
 private val TileEmpty = Color(0xFF10161D)
 private val Tile2 = Color(0xFF26384B)
@@ -118,6 +120,8 @@ private fun Game2048Board(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .wrapContentWidth(Alignment.CenterHorizontally)
+                .widthIn(max = boardMaxSide())
                 .pointerInput(Unit) {
                     detectDragGestures(
                         onDragStart = {

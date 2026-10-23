@@ -14,32 +14,33 @@ repository holds everything needed to build SableOS for the **Zinwa Q25** (the
 BlackBerry Classic restomod, codename `Q25`), without needing the Pixel 7,
 Titan 2 or Q27 SableOS lanes.
 
-> **Status: Q4 boots on a Q25; the design-completion image is built, not flashed yet.** On
+> **Status: the PR #28 Q4 image runs on a Q25; PR #32 fixes what it showed.** On
 > 2026-10-15/17 a real Q25 (board `q20_v12_factory`, stock `Q25_20.01.2026`) was
 > backed up, restored to stock, unlocked, and flashed with the Q1 control image,
-> the Q2 image and then the first Q4 image. Q4 boots into the Sable setup wizard
-> and then Sable Start as HOME. PR #25 fixed what that build showed (PIN typing,
-> keyboard light, LED, LineageOS leftovers). PR #28 (2026-10-22) then completed the
-> design artifacts in source: the BlackBerry 10 style Sable Start, lock screen,
-> Quick Settings, Settings, setup, Hub and the stock-app keys, plus the charging
-> LED, battery health, FM in Sable Media, Sable Games and microG with Aurora
-> Store. Its Q4 image was built on ai-g732 on 2026-10-22 after three fixes from
-> that run (PR #31: the microG APK check, a 0.86 MiB partition overflow and the
-> lock-screen flag check). It has not been flashed yet, so its Q4-* gates are
-> `NOT_RUN`. Install steps: [`docs/INSTALL.md`](docs/INSTALL.md).
+> the Q2 image and then the first Q4 image. PR #25 fixed what that build showed.
+> PR #28 completed the design artifacts in source, and its Q4 image (built with
+> the PR #31 fixes) was flashed and reviewed on 2026-10-22. PR #32 answers that
+> review: density 280, a Sable wallpaper, one tile-free icon style and a
+> 5-column grid in Sable Start, the Recents key opening Active Frames, Sable
+> Calendar and Media replacing Etar and Twelve, background weather with a city
+> step in setup, games sized to the square screen, LED colours the Q25 can show,
+> Phone and Contacts in the Sable dark look, Start's Hub page as the one Hub
+> (Contacts tab and a Ripe-style unread bar), and Sable Messages as the default
+> SMS app (send, receive SMS and MMS). PR #32 is not built into an image yet, so
+> its Q4-* gates are `NOT_RUN`. Install steps: [`docs/INSTALL.md`](docs/INSTALL.md).
 > Gates and evidence: [`docs/QUALIFICATION.md`](docs/QUALIFICATION.md). Design
 > status per artifact: [`docs/DESIGN_CONFORMANCE_Q25.md`](docs/DESIGN_CONFORMANCE_Q25.md).
 > What is still open: [`docs/SABLEOS_GAP_REVIEW.md`](docs/SABLEOS_GAP_REVIEW.md).
 
 ```text
 DEVICE=Q25
-PHASE=R0, Q1, Q2 PASS on a Q25; Q4 boots (2026-10-17); PR #28 Q4 image built, flash next
+PHASE=R0, Q1, Q2 PASS on a Q25; PR #28 Q4 image flashed and reviewed 2026-10-22; PR #32 fixes not built yet
 BASE=LineageOS 23.2 (Android 16 QPR2), official lineage_Q25 device (not a GSI)
 SABLE_LAYER=vendor/extra/product.mk -> vendor/sable/q25 (+ patches/framework at Q4)
 APPS_BUILD=PASS in GitHub Actions (Gradle build, unit tests, Lint, detekt, ktlint)
 IMAGE_BUILD_TESTED=Q1, Q2 (ai-g732, 2026-10-15); Q4 (2026-10-17); PR #28 Q4 (2026-10-22, with PR #31)
-FRAMEWORK_PATCHES=88 patches; all apply in order and compile (Q4 build, 2026-10-22)
-BOOT_TESTED=Q1, Q2 on a Q25 (2026-10-16/17); Q4 (2026-10-17); PR #28 build not flashed yet
+FRAMEWORK_PATCHES=93 patch files; all apply in order (PR #28's 88 compiled in the 2026-10-22 Q4 build)
+BOOT_TESTED=Q1, Q2 on a Q25 (2026-10-16/17); Q4 (2026-10-17); PR #28 Q4 (2026-10-22)
 FLASH_SCRIPT=NONE (manual, documented steps in docs/INSTALL.md; tested for Q1, Q2 and Q4)
 ```
 
@@ -80,8 +81,8 @@ More: [`docs/DEVICE_INFO.md`](docs/DEVICE_INFO.md).
 | [Keyboard and input](docs/KEYBOARD_AND_INPUT.md) | Q25 keyboard, trackpad and key profile |
 | [Qualification](docs/QUALIFICATION.md) | Gates each phase must pass |
 | [Crash evidence](docs/CRASH_EVIDENCE.md) | Capture crash logs over adb before anything is cleared |
-| [Implementation notes](docs/implementation/) | What each Sable design package (KF-A..D, Battery, T3, corners, icons, settings-ui5, Phone + Contacts, daily driver, Hub dock, power) changed and what still needs the phone |
-| [Patches](patches/README.md) | Q25 changes to the Sable app sources (`sable-src` 0001-0011) and the LineageOS framework patches |
+| [Implementation notes](docs/implementation/) | What each Sable design package (KF-A..D, Battery, T3, corners, icons, settings-ui5, Phone + Contacts, daily driver, Hub dock, power, Q4 review fixes) changed and what still needs the phone |
+| [Patches](patches/README.md) | Q25 changes to the Sable app sources (`sable-src` 0001-0071) and the LineageOS framework patches |
 | [Stock basis](docs/STOCK_BASIS.md) | Firmware facts to record before flashing |
 | [Sources](docs/SOURCES.md) | Every upstream with its pin and licence |
 | [Lessons from Titan 2](docs/LESSONS_FROM_TITAN2.md) | Mistakes not to repeat |
@@ -129,7 +130,7 @@ product/q25/              Sable product layer copied to vendor/sable/q25
 device-profile/           Q25 hardware capability profile and key map
 apps/                     how the Sable application sources are managed
 sable-src/                Sable app sources imported from SableOS (pinned commit)
-patches/sable-src/        Q25 changes re-applied to sable-src/ after every import (0001-0019)
+patches/sable-src/        Q25 changes re-applied to sable-src/ after every import (0001-0071)
 patches/framework/        Q4 patches to LineageOS 23.2 projects (Settings, SystemUI, Dialer, ...)
 product/common/overlay/   Q4 static overlays (framework, SystemUI, SetupWizard, Glimpse, Gallery2)
 docs/                     guides
@@ -180,8 +181,14 @@ components keep their own licences: see
 Other projects this port uses or learned from:
 
 * [nozerorma/q25toolbox](https://github.com/nozerorma/q25toolbox): the GMS Sensor
-  Guard recipe and the Q25 battery facts (static cycle count, FULL never reported,
-  health near 100%). Facts only; no code copied, as the repo has no licence.
+  Guard recipe, the Q25 battery facts (static cycle count, FULL never reported,
+  health near 100%) and the per-app resolution, resolution hotkey and rotation
+  ideas behind Display compatibility's tall canvas. Ideas and facts only; no code
+  copied, as the repo has no licence.
+* [benjamindaines/q25-led](https://github.com/benjamindaines/q25-led) and
+  [mybabysexy/q25-led](https://github.com/mybabysexy/q25-led): checked for LED
+  control. They drive the same three `/sys/class/leds` switches the Lights HAL
+  uses, so they add nothing the port lacks ([kf-a](docs/implementation/kf-a.md)).
   IvanTheTolerable (Discord) first found the GMS Sensor Guard fix.
 * [patproport/Q25EdgeTrackpad](https://github.com/patproport/Q25EdgeTrackpad)
   (GPL-3.0): the `/proc/q20_switch_key_mouse` switch, edge scrolling and the touch
@@ -198,6 +205,8 @@ Other projects this port uses or learned from:
   keyboard backlight.
 * [eqbirvin/Conduit](https://github.com/eqbirvin/Conduit) (GPL-3.0): the Hub dock
   idea.
+* Ripe Launcher (Ripe 7 and Ripe 10): the BB7-style unread bar on Start's Hub
+  page and the 5-column app grid. Looked at, not copied.
 * [TheMuppets/proprietary_vendor_xelex_Q25](https://github.com/TheMuppets/proprietary_vendor_xelex_Q25):
   the vendor blobs.
 * [microG](https://github.com/microg) (GmsCore, FakeStore),

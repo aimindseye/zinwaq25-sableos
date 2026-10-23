@@ -20,17 +20,24 @@ PRODUCT_SYSTEM_EXT_PROPERTIES += \
     ro.sable.device=Q25 \
     ro.sable.base=lineage-23.2
 
+# Sable Keyboard: no compact status strip over apps on the small square screen;
+# an active Shift, Alt, Sym or Nav shows as a status bar icon instead. The
+# strip can still be turned on in the keyboard settings.
+PRODUCT_SYSTEM_EXT_PROPERTIES += \
+    ro.sable.keyboard.compact_strip=false
+
 -include $(SABLE_Q25_PATH)/release.mk
 
-# Display density: the one value for the open decision in
-# device-profile/DISPLAY.md. Empty keeps the LineageOS device value
-# (TARGET_SCREEN_DENSITY 193, about 596 dp wide). Set it to the density chosen
-# on hardware (for example 240 for 480 dp or 280 for 411 dp). It is written to
+# Display density, chosen for the Q25 panel (device-profile/DISPLAY.md): 280
+# matches its ~290 ppi, so a dp is close to its nominal 1/160 inch and the
+# 720x720 screen is 411 dp square. Empty would keep the LineageOS device value
+# (TARGET_SCREEN_DENSITY 193, about 596 dp wide, text about two thirds of its
+# usual size). It is written to
 # the product partition, whose build.prop init loads after vendor's, so it
 # replaces the device value. Sable layouts follow from the resulting display
 # size and resource qualifiers (sw<N>dp, notlong), never from the device model.
 # tests/check-sable-design.py checks the value.
-SABLE_LCD_DENSITY :=
+SABLE_LCD_DENSITY := 280
 ifneq ($(SABLE_LCD_DENSITY),)
 PRODUCT_PRODUCT_PROPERTIES += \
     ro.sf.lcd_density=$(SABLE_LCD_DENSITY)

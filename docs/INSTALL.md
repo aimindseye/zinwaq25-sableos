@@ -1,7 +1,7 @@
 # Install SableOS on the Zinwa Q25
 
-> **Tested for Q1, Q2 (2026-10-16/17) and the first Q4 image (2026-10-17).** The
-> 2026-10-22 Q4 image (PR #28 to #31) has been built but not flashed yet. These
+> **Tested for Q1, Q2 (2026-10-16/17), the first Q4 image (2026-10-17) and the
+> PR #28 Q4 image (2026-10-22).** These
 > steps follow the official LineageOS Q25 install flow, which is the same image
 > layout this build produces. Do not follow them unless you can recover the device yourself (see
 > [`RETURN_TO_STOCK.md`](RETURN_TO_STOCK.md)).

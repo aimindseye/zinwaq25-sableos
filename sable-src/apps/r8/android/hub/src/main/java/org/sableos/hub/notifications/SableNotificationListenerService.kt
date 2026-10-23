@@ -21,7 +21,9 @@ import org.sableos.hub.ConnectedAppPolicy
 import org.sableos.hub.ConnectedAppsInventory
 import org.sableos.hub.ConnectedAppsRepository
 import org.sableos.hub.ConnectedNotificationHistoryStore
+import org.sableos.hub.policy.ActiveNotificationFacts
 import org.sableos.hub.policy.AndroidVisibility
+import org.sableos.hub.policy.HubAppCounts
 import org.sableos.hub.policy.HubMailSources
 import org.sableos.hub.policy.ReplyActionFacts
 import org.sableos.hub.policy.ReplyEligibility
@@ -81,6 +83,7 @@ class SableNotificationListenerService : NotificationListenerService() {
 
     override fun onListenerConnected() {
         super.onListenerConnected()
+        seedUnreadCounts()
         notifyHiddenAppsChanged()
         refreshPoliciesAndReprocess()
     }
@@ -91,7 +94,40 @@ class SableNotificationListenerService : NotificationListenerService() {
     ) {
         val ranking = rankingMap?.let { map -> Ranking().takeIf { map.getRanking(sbn.key, it) } }
         attention.onPosted(sbn, ranking)
+        if (ActiveNotificationCountRegistry.put(sbn.key, countedFor(sbn))) notifySnapshotChanged()
         onNotificationPostedForHub(sbn, ranking)
+    }
+
+    /** Sable Start's unread bar: the app and a weight, never the notification's text. */
+    private fun countedFor(sbn: StatusBarNotification) =
+        userManager
+            .getSerialNumberForUser(sbn.user)
+            .takeIf { it >= 0L }
+            ?.let { serial ->
+                val flags = sbn.notification.flags
+                HubAppCounts.counted(
+                    ActiveNotificationFacts(
+                        packageName = sbn.packageName,
+                        userSerial = serial,
+                        ongoing = sbn.isOngoing,
+                        foregroundService = flags and Notification.FLAG_FOREGROUND_SERVICE != 0,
+                        clearable = sbn.isClearable,
+                        groupSummary = flags and Notification.FLAG_GROUP_SUMMARY != 0,
+                        category = sbn.notification.category,
+                        number = sbn.notification.number,
+                    ),
+                )
+            }
+
+    /** Rebuilds the unread counts from what Android has posted now. */
+    private fun seedUnreadCounts() {
+        val entries =
+            runCatching { activeNotifications.orEmpty() }
+                .getOrDefault(emptyArray())
+                .mapNotNull { sbn -> countedFor(sbn)?.let { sbn.key to it } }
+                .toMap()
+        ActiveNotificationCountRegistry.replaceAll(entries)
+        notifySnapshotChanged()
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
@@ -447,11 +483,13 @@ class SableNotificationListenerService : NotificationListenerService() {
         notificationGenerations.remove(sbn.key)
         ConnectedReplyRegistry.remove(sbn.key)
         ConnectedNotificationActivityRegistry.remove(sbn.key)
+        ActiveNotificationCountRegistry.remove(sbn.key)
         notifyHubDataChanged()
     }
 
     override fun onListenerDisconnected() {
         ConnectedNotificationActivityRegistry.clear()
+        ActiveNotificationCountRegistry.clear()
         ConnectedReplyRegistry.clear()
         notifyHubDataChanged()
         notifyHiddenAppsChanged()
@@ -463,6 +501,13 @@ class SableNotificationListenerService : NotificationListenerService() {
             ConnectedAppsRepository.HISTORY_URI,
             null,
         )
+        applicationContext.contentResolver.notifyChange(
+            org.sableos.hub.HubSnapshotProvider.SNAPSHOT_URI,
+            null,
+        )
+    }
+
+    private fun notifySnapshotChanged() {
         applicationContext.contentResolver.notifyChange(
             org.sableos.hub.HubSnapshotProvider.SNAPSHOT_URI,
             null,

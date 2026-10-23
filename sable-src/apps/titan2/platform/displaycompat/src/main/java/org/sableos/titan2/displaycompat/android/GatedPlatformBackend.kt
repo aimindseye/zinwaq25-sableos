@@ -32,7 +32,7 @@ class GatedPlatformBackend : DisplayBackend {
     override val availability: BackendAvailability
         get() = if (open()) BackendAvailability.OPEN_UNVERIFIED else BackendAvailability.CLOSED
 
-    private fun open() = SysProps.get(GATE_PROPERTY) == GATE_OPEN
+    private fun open() = isOpen()
 
     override fun apply(pkg: String, plan: CanvasPlan, p: DisplayProfile): ApplyResult {
         if (!open()) return ApplyResult.NoOp
@@ -41,10 +41,12 @@ class GatedPlatformBackend : DisplayBackend {
         return when {
             sent != null -> sent
 
-            !request.hasEffect -> ApplyResult.Unsupported(
+            !request.hasEffect && request.live.isEmpty() -> ApplyResult.Unsupported(
                 "no platform equivalent for " + request.notApplied.joinToString(", ") +
                     "; stored only, platform settings cleared"
             )
+
+            !request.hasEffect -> ApplyResult.Applied(request.describe() + LIVE)
 
             else -> ApplyResult.Applied(request.describe() + readBack(pkg) + NEXT_LAUNCH)
         }
@@ -143,9 +145,13 @@ class GatedPlatformBackend : DisplayBackend {
     companion object {
         const val GATE_PROPERTY = "persist.sable.displaycompat.backend"
         const val GATE_OPEN = "validated"
+
+        /** The same gate closes the display tools (Tall canvas, hotkey, forced rotation). */
+        fun isOpen(): Boolean = SysProps.get(GATE_PROPERTY) == GATE_OPEN
         private const val PLATFORM_COMPAT_SERVICE = "platform_compat"
         private const val PER_USER_RANGE = 100_000
         private const val NEXT_LAUNCH = "; takes effect the next time the app starts"
+        private const val LIVE = "; the display tools service holds it while the app is in front"
         private val PM_INTERFACE: Class<*> by lazy {
             Class.forName("android.content.pm.IPackageManager")
         }

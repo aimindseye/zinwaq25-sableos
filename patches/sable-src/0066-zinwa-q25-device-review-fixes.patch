@@ -1,0 +1,169 @@
+diff --git a/sable-src/apps/r8/android/weather/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/weather/src/main/AndroidManifest.xml
+index ba502d7..2c4b4e5 100644
+--- a/sable-src/apps/r8/android/weather/src/main/AndroidManifest.xml
++++ b/sable-src/apps/r8/android/weather/src/main/AndroidManifest.xml
+@@ -2,6 +2,8 @@
+ <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+     <uses-permission android:name="android.permission.INTERNET" />
+     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
++    <!-- Keeps the periodic background refresh scheduled across reboots. -->
++    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+ 
+     <queries>
+         <provider android:authorities="org.sableos.appearance" />
+@@ -30,5 +32,10 @@
+             android:authorities="org.sableos.weather.snapshot"
+             android:exported="true"
+             android:grantUriPermissions="false" />
++
++        <service
++            android:name=".WeatherRefreshJob"
++            android:exported="false"
++            android:permission="android.permission.BIND_JOB_SERVICE" />
+     </application>
+ </manifest>
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRefreshJob.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRefreshJob.kt
+new file mode 100644
+index 0000000..44c2161
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRefreshJob.kt
+@@ -0,0 +1,62 @@
++package org.sableos.weather
++
++import android.app.job.JobInfo
++import android.app.job.JobParameters
++import android.app.job.JobScheduler
++import android.app.job.JobService
++import android.content.ComponentName
++import android.content.Context
++import android.os.Binder
++
++/**
++ * Fetches the active city's forecast in the background, so Start and Live show the weather without
++ * Sable Weather being opened first. A periodic job keeps the cache fresh; a one-off job fills an empty
++ * or stale cache as soon as a network is available. A successful refresh notifies the snapshot URI.
++ */
++class WeatherRefreshJob : JobService() {
++    override fun onStartJob(params: JobParameters): Boolean {
++        Thread({
++            val repository = WeatherRepository(applicationContext)
++            val result = runCatching { repository.refresh(repository.loadLocation()) }.getOrNull()
++            val fetched = result?.availability == WeatherAvailability.Live
++            // A failed one-off fetch is retried with back-off; the periodic job just waits for its next run.
++            jobFinished(params, !fetched && params.jobId == ONE_OFF_JOB_ID)
++        }, "sable-weather-refresh").start()
++        return true
++    }
++
++    override fun onStopJob(params: JobParameters): Boolean = true
++
++    companion object {
++        private const val PERIODIC_JOB_ID = 1
++        private const val ONE_OFF_JOB_ID = 2
++        private const val PERIOD_MS = 3L * 60 * 60 * 1000
++
++        /** Keeps the periodic refresh scheduled, and asks for a fetch now when nothing current is cached. */
++        fun ensureScheduled(context: Context, needsFetch: Boolean) {
++            val token = Binder.clearCallingIdentity()
++            try {
++                val scheduler = context.getSystemService(JobScheduler::class.java) ?: return
++                val component = ComponentName(context, WeatherRefreshJob::class.java)
++                if (scheduler.getPendingJob(PERIODIC_JOB_ID) == null) {
++                    scheduler.schedule(
++                        JobInfo.Builder(PERIODIC_JOB_ID, component)
++                            .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
++                            .setPeriodic(PERIOD_MS)
++                            .setPersisted(true)
++                            .build(),
++                    )
++                }
++                if (needsFetch && scheduler.getPendingJob(ONE_OFF_JOB_ID) == null) {
++                    scheduler.schedule(
++                        JobInfo.Builder(ONE_OFF_JOB_ID, component)
++                            .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
++                            .build(),
++                    )
++                }
++            } finally {
++                Binder.restoreCallingIdentity(token)
++            }
++        }
++    }
++}
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherSnapshotProvider.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherSnapshotProvider.kt
+index f48d782..b79bf3d 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherSnapshotProvider.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherSnapshotProvider.kt
+@@ -31,6 +31,11 @@ class WeatherSnapshotProvider : ContentProvider() {
+         val appContext = context?.applicationContext ?: return null
+         val state = WeatherRepository(appContext).load()
+         val snapshot = state.snapshot
++        // Start reads this on every home screen visit: fetch in the background when nothing current is cached.
++        WeatherRefreshJob.ensureScheduled(
++            appContext,
++            needsFetch = snapshot == null || state.availability != WeatherAvailability.Live,
++        )
+ 
+         val cursor =
+             MatrixCursor(
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt
+index c6161be..82993be 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt
+@@ -222,7 +222,12 @@ fun AppListScreen(
+         LazyColumn(Modifier.weight(1f), state = list) {
+             itemsIndexed(rows, key = { _, e -> e.pkg }) { i, e ->
+                 val p = remember(st.version, e.pkg) { app.store.get(e.pkg) }
+-                AppRow(e.label, p, !st.styleFocused && i == st.sel)
++                // A tap selects the row and opens its editor, like the arrow keys and Enter.
++                AppRow(e.label, p, !st.styleFocused && i == st.sel) {
++                    st.styleFocused = false
++                    st.sel = i
++                    onOpen(e)
++                }
+             }
+         }
+         st.msg?.let { Text(it, color = messageTint(it), fontSize = 11.sp) }
+@@ -268,7 +273,7 @@ private fun FilterField(query: String, onQueryChange: (String) -> Unit, fr: Focu
+ }
+ 
+ @Composable
+-private fun AppRow(label: String, p: DisplayProfile, selected: Boolean) {
++private fun AppRow(label: String, p: DisplayProfile, selected: Boolean, onClick: () -> Unit) {
+     Row(
+         Modifier.fillMaxWidth().padding(vertical = 2.dp)
+             .background(if (selected) C.surface else C.window, RoundedCornerShape(6.dp))
+@@ -277,6 +282,7 @@ private fun AppRow(label: String, p: DisplayProfile, selected: Boolean) {
+                 if (selected) C.accent else C.window,
+                 RoundedCornerShape(6.dp)
+             )
++            .clickable { onClick() }
+             .padding(10.dp),
+         horizontalArrangement = Arrangement.SpaceBetween
+     ) {
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LauncherAppsRepository.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LauncherAppsRepository.kt
+index 5b4e325..6f62014 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LauncherAppsRepository.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LauncherAppsRepository.kt
+@@ -70,7 +70,7 @@ class LauncherAppsRepository(
+                         .filter { info ->
+                             val packageName = info.componentName.packageName
+                             packageName != appContext.packageName &&
+-                                packageName != GRAPHENE_MESSAGING_PACKAGE &&
++                                packageName !in SYSTEM_HIDDEN_PACKAGES &&
+                                 HiddenAppKey(packageName, userSerial) !in hiddenApps
+                         }.map { info ->
+                             val packageName = info.componentName.packageName
+@@ -283,7 +283,11 @@ class LauncherAppsRepository(
+         /** UserManager.USER_TYPE_PROFILE_CLONE (a system API string). */
+         private const val USER_TYPE_PROFILE_CLONE = "android.os.usertype.profile.CLONE"
+ 
+-        private const val GRAPHENE_MESSAGING_PACKAGE = "com.android.messaging"
++        /**
++         * Platform packages Start never lists: AOSP Messaging (Hub is the SMS surface) and LineageOS
++         * AudioFX (the audio effects backend, not an app people open).
++         */
++        private val SYSTEM_HIDDEN_PACKAGES = setOf("com.android.messaging", "org.lineageos.audiofx")
+         private const val HIDDEN_PACKAGE_COLUMN = "package_name"
+         private const val HIDDEN_USER_COLUMN = "user_serial"
+         private val HIDDEN_APP_COLUMNS =

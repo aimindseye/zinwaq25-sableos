@@ -1,0 +1,1537 @@
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts b/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
+index 56798ac..126a984 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
+@@ -48,6 +48,7 @@ val canonicalPresentationSources =
+     listOf(
+         "com/sable/start/live/LiveSurfaceModels.kt",
+         "com/sable/start/model/AppEntry.kt",
++        "com/sable/start/model/AppGlyphs.kt",
+         "com/sable/start/model/Bb10Home.kt",
+         "com/sable/start/model/CommandQuery.kt",
+         "com/sable/start/model/CoreAppIdentity.kt",
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/AppGlyphsTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/AppGlyphsTest.kt
+new file mode 100644
+index 0000000..76c7a64
+--- /dev/null
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/AppGlyphsTest.kt
+@@ -0,0 +1,72 @@
++package org.sableos.start.model
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++/** One tile-free glyph per shipped app, chosen by package only (Q4 device review, Q7). */
++class AppGlyphsTest {
++    @Test
++    fun everyShippedSableAppHasAGlyph() {
++        // product/q25/apps.tsv packages (enabled and disabled rows).
++        val sable =
++            listOf(
++                "org.sableos.titan2.keyboard",
++                "org.sableos.titan2.camera",
++                "org.sableos.titan2.displaycompat",
++                "org.sableos.titan2.setup",
++                "org.sableos.titan2.vault",
++                "org.sableos.titan2.radiodiag",
++                "org.sableos.tools",
++                "org.sableos.calculator",
++                "org.sableos.sudoku",
++                "org.sableos.minesweeper",
++                "org.sableos.game2048",
++                "org.sableos.media",
++                "org.sableos.hub",
++                "org.sableos.weather",
++                "org.sableos.calendar",
++                "org.sableos.messages",
++                "org.sableos.reader",
++                "org.sableos.mail",
++                "org.sableos.textreader",
++            )
++        sable.forEach { assertTrue(it, AppGlyphs.forPackage(it) != null) }
++    }
++
++    @Test
++    fun keptLineageAppsMapByPackage() {
++        assertEquals(AppGlyph.PHONE, AppGlyphs.forPackage("com.android.dialer"))
++        assertEquals(AppGlyph.CONTACTS, AppGlyphs.forPackage("com.android.contacts"))
++        assertEquals(AppGlyph.SETTINGS, AppGlyphs.forPackage("com.android.settings"))
++        assertEquals(AppGlyph.PHOTOS, AppGlyphs.forPackage("org.lineageos.glimpse"))
++        assertEquals(AppGlyph.BROWSER, AppGlyphs.forPackage("org.lineageos.jelly"))
++        assertEquals(AppGlyph.FILES, AppGlyphs.forPackage("com.android.documentsui"))
++        assertEquals(AppGlyph.CLOCK, AppGlyphs.forPackage("com.android.deskclock"))
++        assertEquals(AppGlyph.RECORDER, AppGlyphs.forPackage("org.lineageos.recorder"))
++        assertEquals(AppGlyph.SERVICES, AppGlyphs.forPackage("com.google.android.gms"))
++        assertEquals(AppGlyph.STORE, AppGlyphs.forPackage("com.aurora.store"))
++    }
++
++    @Test
++    fun sableCameraAndTheBaseCameraLookDifferent() {
++        assertEquals(AppGlyph.CAMERA, AppGlyphs.forPackage(CoreAppIdentity.SABLE_CAMERA))
++        assertEquals(AppGlyph.VIDEO_CAMERA, AppGlyphs.forPackage("org.lineageos.aperture"))
++    }
++
++    @Test
++    fun otherAppsDrawTheirOwnIcon() {
++        // LineageOS Calendar (Etar) is not Sable Calendar, whatever its label says.
++        assertNull(AppGlyphs.forPackage("org.lineageos.etar"))
++        assertNull(AppGlyphs.forPackage("org.lineageos.twelve"))
++        assertNull(AppGlyphs.forPackage("com.example.chat"))
++    }
++
++    @Test
++    fun glyphsAreDistinctPhosphorGlyphsWithOpaqueAccents() {
++        val names = AppGlyph.entries.map { it.phosphor }
++        assertEquals(AppGlyph.entries.size, names.toSet().size)
++        AppGlyph.entries.forEach { assertEquals(it.name, 0xFF000000, it.accent and 0xFF000000) }
++    }
++}
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb10HomeTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb10HomeTest.kt
+index 86ca9f9..ebcd238 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb10HomeTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb10HomeTest.kt
+@@ -54,24 +54,46 @@ class Bb10HomeTest {
+     }
+ 
+     @Test
+-    fun gridPagesHoldFourColumns() {
+-        assertEquals(4, AppGrid.rowsFor(479, 112))
+-        assertEquals(AppGrid.MIN_ROWS, AppGrid.rowsFor(100, 112))
+-        assertEquals(AppGrid.MAX_ROWS, AppGrid.rowsFor(2000, 112))
+-        assertEquals(16, AppGrid.perPage(4))
+-        assertEquals(1, AppGrid.pageCount(0, 16))
+-        assertEquals(2, AppGrid.pageCount(17, 16))
+-        assertEquals(listOf(16, 17), AppGrid.page((0..17).toList(), 1, 16))
++    fun gridPagesHoldFiveColumns() {
++        assertEquals(5, AppGrid.COLUMNS)
++        // Q25 at density 280: about 387dp under the status bar, less dots, bar and padding.
++        assertEquals(4, AppGrid.rowsFor(387 - 72, 74))
++        assertEquals(AppGrid.MIN_ROWS, AppGrid.rowsFor(100, 74))
++        assertEquals(AppGrid.MAX_ROWS, AppGrid.rowsFor(2000, 74))
++        assertEquals(20, AppGrid.perPage(4))
++        assertEquals(1, AppGrid.pageCount(0, 20))
++        assertEquals(2, AppGrid.pageCount(21, 20))
++        assertEquals(listOf(20, 21), AppGrid.page((0..21).toList(), 1, 20))
++    }
++
++    @Test
++    fun gridIconsFollowTheCell() {
++        // 411dp less 8dp padding over five columns, four rows of ~79dp, a 31dp label block.
++        assertEquals(44, AppGrid.iconSizeFor(80, 78, 31))
++        assertEquals(40, AppGrid.iconSizeFor(80, 71, 31))
++        assertEquals(AppGrid.MIN_ICON_DP, AppGrid.iconSizeFor(40, 40, 31))
++        assertEquals(AppGrid.MAX_ICON_DP, AppGrid.iconSizeFor(200, 200, 31))
++    }
++
++    @Test
++    fun gridLabelsDropTheSablePrefixUnlessTheNameIsTaken() {
++        assertEquals("Calculator", AppGrid.gridLabel("Sable Calculator"))
++        assertEquals("2048", AppGrid.gridLabel(" Sable 2048 "))
++        assertEquals("Files", AppGrid.gridLabel("Files"))
++        assertEquals("Sable", AppGrid.gridLabel("Sable"))
++        assertEquals("Sablefish", AppGrid.gridLabel("Sablefish"))
++        assertEquals("Sable Camera", AppGrid.gridLabel("Sable Camera", setOf("Sable Camera", "camera")))
++        assertEquals("Hub", AppGrid.gridLabel("Sable Hub", setOf("Sable Hub", "Camera")))
+     }
+ 
+     @Test
+     fun gridMovesShiftLikeADraggedIcon() {
+         val keys = listOf("a", "b", "c", "d", "e", "f")
+         assertEquals(listOf("b", "a", "c", "d", "e", "f"), AppGrid.move(keys, 0, 1))
+-        assertEquals(listOf("b", "c", "d", "e", "a", "f"), AppGrid.move(keys, 0, AppGrid.COLUMNS))
++        assertEquals(listOf("b", "c", "d", "e", "f", "a"), AppGrid.move(keys, 0, AppGrid.COLUMNS))
+         assertEquals(listOf("f", "a", "b", "c", "d", "e"), AppGrid.move(keys, 5, -10))
+         assertEquals(keys, AppGrid.move(keys, 0, -1))
+-        assertEquals(-4, AppGrid.arrowDelta(19))
++        assertEquals(-5, AppGrid.arrowDelta(19))
+         assertEquals(1, AppGrid.arrowDelta(22))
+         assertNull(AppGrid.arrowDelta(66))
+     }
+diff --git a/sable-src/src/android/packages/apps/SableStart/Android.bp b/sable-src/src/android/packages/apps/SableStart/Android.bp
+index 6ce8898..42219aa 100644
+--- a/sable-src/src/android/packages/apps/SableStart/Android.bp
++++ b/sable-src/src/android/packages/apps/SableStart/Android.bp
+@@ -8,6 +8,7 @@ filegroup {
+     srcs: [
+         "src/com/sable/start/live/LiveSurfaceModels.kt",
+         "src/com/sable/start/model/AppEntry.kt",
++        "src/com/sable/start/model/AppGlyphs.kt",
+         "src/com/sable/start/model/Bb10Home.kt",
+         "src/com/sable/start/model/CommandQuery.kt",
+         "src/com/sable/start/model/CoreAppIdentity.kt",
+diff --git a/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml b/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml
+index b6f1096..e4bb727 100644
+--- a/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml
++++ b/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml
+@@ -78,6 +78,13 @@
+                 <action android:name="org.sableos.start.action.EDIT_HOME" />
+                 <category android:name="android.intent.category.DEFAULT" />
+             </intent-filter>
++
++            <!-- The Recents key and button (Launcher3QuickStep, setPackage org.sableos.launcher):
++                 Active Frames instead of Android's overview. -->
++            <intent-filter>
++                <action android:name="org.sableos.start.action.SHOW_ACTIVE_FRAMES" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
+         </activity>
+     </application>
+ </manifest>
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+index dbe81c1..a619b21 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+@@ -290,15 +290,20 @@ class SableStartActivity : ComponentActivity() {
+     override fun onNewIntent(intent: Intent) {
+         super.onNewIntent(intent)
+         setIntent(intent)
+-        if (intent.action == ACTION_EDIT_QUICK_BAR || intent.action == ACTION_EDIT_HOME) {
+-            // The Screen is recomposed fresh for the request: its Home/Back effects act only on
+-            // counts above zero, so they restart from zero rather than undo the request at once.
+-            homeGeneration.value = 0
+-            backGeneration.value = 0
+-            startRequest.value = StartRequest(screenFor(intent), startRequest.value.serial + 1)
+-        } else if (intent.action == Intent.ACTION_MAIN) {
+-            homeGeneration.value += 1
+-            refreshFrames()
++        when (intent.action) {
++            ACTION_EDIT_QUICK_BAR, ACTION_EDIT_HOME -> {
++                // The Screen is recomposed fresh for the request: its Home/Back effects act only on
++                // counts above zero, so they restart from zero rather than undo the request at once.
++                homeGeneration.value = 0
++                backGeneration.value = 0
++                startRequest.value = StartRequest(screenFor(intent), startRequest.value.serial + 1)
++            }
++            // Home, and the Recents key (Active Frames are the BB10 Recents): close anything open
++            // over the pages and show Active Frames.
++            Intent.ACTION_MAIN, ACTION_SHOW_ACTIVE_FRAMES -> {
++                homeGeneration.value += 1
++                refreshFrames()
++            }
+         }
+     }
+ 
+@@ -488,6 +493,9 @@ class SableStartActivity : ComponentActivity() {
+ 
+         /** Settings > Sable Start > Home layout: Edit Home. */
+         const val ACTION_EDIT_HOME = "org.sableos.start.action.EDIT_HOME"
++
++        /** The Recents key or button (sent by Launcher3QuickStep): Active Frames, the BB10 Recents. */
++        const val ACTION_SHOW_ACTIVE_FRAMES = "org.sableos.start.action.SHOW_ACTIVE_FRAMES"
+         const val SCREEN_START = "start"
+         const val SCREEN_EDIT_HOME = "home"
+ 
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/AppGlyphs.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/AppGlyphs.kt
+new file mode 100644
+index 0000000..d003791
+--- /dev/null
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/AppGlyphs.kt
+@@ -0,0 +1,99 @@
++package org.sableos.start.model
++
++/**
++ * One Start glyph per app the Q25 image ships (Q4 device review, icon style
++ * Q7: one tile-free glyph set, Ripe-like). The glyph geometry is Phosphor
++ * regular at the commit pinned in third_party/phosphor-icons (drawn in
++ * ui/SableGlyphIcon.kt); [accent] tints the glyph's lower half and matches the
++ * app's own launcher icon accent (ICON_MANIFEST.tsv) for Sable apps.
++ */
++enum class AppGlyph(
++    /** The Phosphor regular glyph name, as in third_party/phosphor-icons. */
++    val phosphor: String,
++    /** ARGB accent. */
++    val accent: Long,
++) {
++    PHONE("phone-call", 0xFF4D9CFF),
++    CONTACTS("address-book", 0xFFF28C45),
++    MESSAGES("chat-circle-dots", 0xFF35C66B),
++    MAIL("envelope-simple", 0xFF64748B),
++    CALENDAR("calendar-dots", 0xFFF28C45),
++    WEATHER("cloud-sun", 0xFF4D9CFF),
++    PHOTOS("image-square", 0xFF7A42E8),
++    MEDIA("music-notes", 0xFF7A42E8),
++    CAMERA("camera", 0xFFE8458F),
++
++    /** The base camera beside Sable Camera: Aperture keeps video and the secure camera on the Q25. */
++    VIDEO_CAMERA("video-camera", 0xFFE8458F),
++    CALCULATOR("calculator", 0xFF4D9CFF),
++    FILES("folder-simple", 0xFFF5C542),
++    CLOCK("clock", 0xFF64748B),
++    BROWSER("globe", 0xFF4D9CFF),
++    SETTINGS("gear-six", 0xFF64748B),
++    RECORDER("microphone", 0xFFE5534B),
++    READER("book-open-text", 0xFF35C66B),
++    TEXT_READER("text-align-left", 0xFF4D9CFF),
++    SUDOKU("grid-nine", 0xFF4D9CFF),
++    MINESWEEPER("bomb", 0xFFF28C45),
++    GAME_2048("grid-four", 0xFF64748B),
++    VAULT("vault", 0xFF8B5CF6),
++    TOOLS("wrench", 0xFFE5534B),
++    RADIO("cell-signal-high", 0xFFE5534B),
++    KEYBOARD("keyboard", 0xFFE8B931),
++    DISPLAY("frame-corners", 0xFF34C8E8),
++    SETUP("list-checks", 0xFF2BB5A0),
++    STORE("shopping-bag", 0xFF35C66B),
++    SERVICES("puzzle-piece", 0xFF4D9CFF),
++}
++
++/**
++ * Package -> glyph, by package only: a label never picks a glyph, so the
++ * LineageOS "Calendar" (Etar) can no longer borrow Sable Calendar's mark.
++ * Apps not listed here draw their own icon ([AppGlyph] style: their themed
++ * monochrome layer when they have one, else the icon itself, no tile).
++ *
++ * Pure Kotlin; unit tested in apps/r8/android/sablestart-presentation-check.
++ */
++object AppGlyphs {
++    /** Canonical packages ([CoreAppIdentity.canonicalPackage]); LineageOS equivalents resolve through it. */
++    val BY_PACKAGE: Map<String, AppGlyph> =
++        mapOf(
++            // Sable apps (product/q25/apps.tsv).
++            "org.sableos.hub" to AppGlyph.MESSAGES,
++            "org.sableos.messages" to AppGlyph.MESSAGES,
++            "org.sableos.mail" to AppGlyph.MAIL,
++            "org.sableos.calendar" to AppGlyph.CALENDAR,
++            "org.sableos.weather" to AppGlyph.WEATHER,
++            "org.sableos.media" to AppGlyph.MEDIA,
++            "org.sableos.calculator" to AppGlyph.CALCULATOR,
++            "org.sableos.reader" to AppGlyph.READER,
++            "org.sableos.textreader" to AppGlyph.TEXT_READER,
++            "org.sableos.sudoku" to AppGlyph.SUDOKU,
++            "org.sableos.minesweeper" to AppGlyph.MINESWEEPER,
++            "org.sableos.game2048" to AppGlyph.GAME_2048,
++            "org.sableos.tools" to AppGlyph.TOOLS,
++            CoreAppIdentity.SABLE_CAMERA to AppGlyph.CAMERA,
++            "org.sableos.titan2.vault" to AppGlyph.VAULT,
++            "org.sableos.titan2.radiodiag" to AppGlyph.RADIO,
++            "org.sableos.titan2.keyboard" to AppGlyph.KEYBOARD,
++            "org.sableos.titan2.displaycompat" to AppGlyph.DISPLAY,
++            "org.sableos.titan2.setup" to AppGlyph.SETUP,
++            // LineageOS apps the image keeps (Aperture, Glimpse and Jelly via CoreAppIdentity).
++            "com.android.dialer" to AppGlyph.PHONE,
++            "com.android.contacts" to AppGlyph.CONTACTS,
++            "com.android.messaging" to AppGlyph.MESSAGES,
++            "com.android.settings" to AppGlyph.SETTINGS,
++            CoreAppIdentity.PHOTOS to AppGlyph.PHOTOS,
++            CoreAppIdentity.CAMERA to AppGlyph.VIDEO_CAMERA,
++            CoreAppIdentity.BROWSER to AppGlyph.BROWSER,
++            CoreAppIdentity.FILES to AppGlyph.FILES,
++            CoreAppIdentity.CLOCK to AppGlyph.CLOCK,
++            "org.lineageos.recorder" to AppGlyph.RECORDER,
++            // microG Settings and Aurora Store (product/q25/microg).
++            "com.google.android.gms" to AppGlyph.SERVICES,
++            "com.aurora.store" to AppGlyph.STORE,
++        )
++
++    /** The glyph for [packageName], or null when the app draws its own icon. */
++    fun forPackage(packageName: String): AppGlyph? = BY_PACKAGE[CoreAppIdentity.canonicalPackage(packageName)]
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt
+index 8dba5f1..f70afc2 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt
+@@ -65,13 +65,22 @@ object ActiveFrames {
+ 
+ /**
+  * The app grid pages: every app (Private Space apps stay in All Apps) in the
+- * user's order, four columns of labelled, boxed icons, as many rows as fit.
++ * user's order, five columns of labelled, tile-free icons (Ripe 10's grid,
++ * owner decision Q10, sized for the Q25's 411dp square), as many rows as fit.
+  */
+ object AppGrid {
+-    const val COLUMNS = 4
++    /** Five per row: a 40-48dp icon and a one-line label in about 80dp on a 411dp square. */
++    const val COLUMNS = 5
+     const val MIN_ROWS = 3
+     const val MAX_ROWS = 5
+ 
++    const val MIN_ICON_DP = 32
++    const val MAX_ICON_DP = 56
++
++    /** The share of a cell's width the icon takes, so neighbours keep a gap (Ripe: 92px in ~150px). */
++    private const val ICON_WIDTH_SHARE = 0.56f
++    private const val SABLE_PREFIX = "Sable "
++
+     private const val KEYCODE_DPAD_UP = 19
+     private const val KEYCODE_DPAD_DOWN = 20
+     private const val KEYCODE_DPAD_LEFT = 21
+@@ -101,6 +110,35 @@ object AppGrid {
+ 
+     fun perPage(rows: Int): Int = COLUMNS * rows
+ 
++    /**
++     * The icon size for a cell of [cellWidthDp] x [cellHeightDp]: a share of
++     * the width, no taller than the height less the label ([labelDp]), kept
++     * within [MIN_ICON_DP]..[MAX_ICON_DP].
++     */
++    fun iconSizeFor(
++        cellWidthDp: Int,
++        cellHeightDp: Int,
++        labelDp: Int,
++    ): Int = minOf((cellWidthDp * ICON_WIDTH_SHARE).toInt(), cellHeightDp - labelDp).coerceIn(MIN_ICON_DP, MAX_ICON_DP)
++
++    /**
++     * The one-line grid label: "Sable Calculator" shows as "Calculator", as
++     * BB10 and Ripe name apps under their icons, unless another app on the
++     * grid is already called that ([gridLabels], any case): "Sable Camera"
++     * stays whole beside Aperture's "Camera". Search, All Apps and the spoken
++     * description keep the full name.
++     */
++    fun gridLabel(
++        label: String,
++        gridLabels: Set<String> = emptySet(),
++    ): String {
++        val trimmed = label.trim()
++        if (!trimmed.startsWith(SABLE_PREFIX)) return trimmed
++        val short = trimmed.removePrefix(SABLE_PREFIX).trim()
++        val taken = gridLabels.any { it.trim().equals(short, ignoreCase = true) }
++        return if (short.isEmpty() || taken) trimmed else short
++    }
++
+     /** Number of grid pages for [count] apps (always at least one). */
+     fun pageCount(
+         count: Int,
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableGlyphIcon.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableGlyphIcon.kt
+index 6842754..1d104f3 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableGlyphIcon.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableGlyphIcon.kt
+@@ -1,172 +1,158 @@
+ package org.sableos.start.ui
+ 
+ import androidx.compose.foundation.Canvas
+-import androidx.compose.foundation.background
+-import androidx.compose.foundation.border
+-import androidx.compose.foundation.layout.Box
+-import androidx.compose.foundation.layout.fillMaxSize
+-import androidx.compose.foundation.layout.fillMaxWidth
+-import androidx.compose.foundation.layout.height
+-import androidx.compose.foundation.layout.padding
+-import androidx.compose.foundation.shape.RoundedCornerShape
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.remember
+-import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+-import androidx.compose.ui.draw.clip
+-import androidx.compose.ui.draw.shadow
++import androidx.compose.ui.geometry.Offset
++import androidx.compose.ui.graphics.BlendMode
+ import androidx.compose.ui.graphics.Brush
+ import androidx.compose.ui.graphics.Color
+-import androidx.compose.ui.geometry.Offset
++import androidx.compose.ui.graphics.ColorFilter
++import androidx.compose.ui.graphics.CompositingStrategy
++import androidx.compose.ui.graphics.ImageBitmap
+ import androidx.compose.ui.graphics.Path
+ import androidx.compose.ui.graphics.addSvg
+ import androidx.compose.ui.graphics.drawscope.scale
+ import androidx.compose.ui.graphics.drawscope.translate
+-import androidx.compose.ui.unit.dp
+-import org.sableos.start.model.CoreAppIdentity
+-
+-internal data class SableGlyphSpec(
+-    val pathData: String,
+-)
+-
+-private object SableGlyphs {
+-    val Phone =
+-        SableGlyphSpec(
+-            "M144.27,45.93a8,8,0,0,1,9.8-5.66,86.22,86.22,0,0,1,61.66,61.66,8,8,0,0,1-5.66,9.8A8.23,8.23,0,0,1,208,112a8,8,0,0,1-7.73-5.94,70.35,70.35,0,0,0-50.33-50.33A8,8,0,0,1,144.27,45.93Zm-2.33,41.8c13.79,3.68,22.65,12.54,26.33,26.33A8,8,0,0,0,176,120a8.23,8.23,0,0,0,2.07-.27,8,8,0,0,0,5.66-9.8c-5.12-19.16-18.5-32.54-37.66-37.66a8,8,0,1,0-4.13,15.46Zm81.94,95.35A56.26,56.26,0,0,1,168,232C88.6,232,24,167.4,24,88A56.26,56.26,0,0,1,72.92,32.12a16,16,0,0,1,16.62,9.52l21.12,47.15,0,.12A16,16,0,0,1,109.39,104c-.18.27-.37.52-.57.77L88,129.45c7.49,15.22,23.41,31,38.83,38.51l24.34-20.71a8.12,8.12,0,0,1,.75-.56,16,16,0,0,1,15.17-1.4l.13.06,47.11,21.11A16,16,0,0,1,223.88,183.08Zm-15.88-2s-.07,0-.11,0h0l-47-21.05-24.35,20.71a8.44,8.44,0,0,1-.74.56,16,16,0,0,1-15.75,1.14c-18.73-9.05-37.4-27.58-46.46-46.11a16,16,0,0,1,1-15.7,6.13,6.13,0,0,1,.57-.77L96,95.15l-21-47a.61.61,0,0,1,0-.12A40.2,40.2,0,0,0,40,88,128.14,128.14,0,0,0,168,216,40.21,40.21,0,0,0,208,181.07Z",
+-        )
+-    val Messages =
+-        SableGlyphSpec(
+-            "M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128ZM84,116a12,12,0,1,0,12,12A12,12,0,0,0,84,116Zm88,0a12,12,0,1,0,12,12A12,12,0,0,0,172,116Zm60,12A104,104,0,0,1,79.12,219.82L45.07,231.17a16,16,0,0,1-20.24-20.24l11.35-34.05A104,104,0,1,1,232,128Zm-16,0A88,88,0,1,0,51.81,172.06a8,8,0,0,1,.66,6.54L40,216,77.4,203.53a7.85,7.85,0,0,1,2.53-.42,8,8,0,0,1,4,1.08A88,88,0,0,0,216,128Z",
+-        )
+-    val Mail =
+-        SableGlyphSpec(
+-            "M224,48H32a8,8,0,0,0-8,8V192a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A8,8,0,0,0,224,48ZM203.43,64,128,133.15,52.57,64ZM216,192H40V74.19l82.59,75.71a8,8,0,0,0,10.82,0L216,74.19V192Z",
+-        )
+-    val Calendar =
+-        SableGlyphSpec(
+-            "M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Zm-68-76a12,12,0,1,1-12-12A12,12,0,0,1,140,132Zm44,0a12,12,0,1,1-12-12A12,12,0,0,1,184,132ZM96,172a12,12,0,1,1-12-12A12,12,0,0,1,96,172Zm44,0a12,12,0,1,1-12-12A12,12,0,0,1,140,172Zm44,0a12,12,0,1,1-12-12A12,12,0,0,1,184,172Z",
+-        )
+-    val Weather =
+-        SableGlyphSpec(
+-            "M164,72a76.2,76.2,0,0,0-20.26,2.73,55.63,55.63,0,0,0-9.41-11.54l9.51-13.57a8,8,0,1,0-13.11-9.18L121.22,54A55.9,55.9,0,0,0,96,48c-.58,0-1.16,0-1.74,0L91.37,31.71a8,8,0,1,0-15.75,2.77L78.5,50.82A56.1,56.1,0,0,0,55.23,65.67L41.61,56.14a8,8,0,1,0-9.17,13.11L46,78.77A55.55,55.55,0,0,0,40,104c0,.57,0,1.15,0,1.72L23.71,108.6a8,8,0,0,0,1.38,15.88,8.24,8.24,0,0,0,1.39-.12l16.32-2.88a55.74,55.74,0,0,0,5.86,12.42A52,52,0,0,0,84,224h80a76,76,0,0,0,0-152ZM56,104a40,40,0,0,1,72.54-23.24,76.26,76.26,0,0,0-35.62,40,52.14,52.14,0,0,0-31,4.17A40,40,0,0,1,56,104ZM164,208H84a36,36,0,1,1,4.78-71.69c-.37,2.37-.63,4.79-.77,7.23a8,8,0,0,0,16,.92,58.91,58.91,0,0,1,1.88-11.81c0-.16.09-.32.12-.48A60.06,60.06,0,1,1,164,208Z",
+-        )
+-    val Photos =
+-        SableGlyphSpec(
+-            "M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM48,48H208v77.38l-24.69-24.7a16,16,0,0,0-22.62,0L53.37,208H48ZM208,208H76l96-96,36,36v60ZM96,120A24,24,0,1,0,72,96,24,24,0,0,0,96,120Zm0-32a8,8,0,1,1-8,8A8,8,0,0,1,96,88Z",
+-        )
+-    val Media =
+-        SableGlyphSpec(
+-            "M212.92,17.69a8,8,0,0,0-6.86-1.45l-128,32A8,8,0,0,0,72,56V166.08A36,36,0,1,0,88,196V110.25l112-28v51.83A36,36,0,1,0,216,164V24A8,8,0,0,0,212.92,17.69ZM52,216a20,20,0,1,1,20-20A20,20,0,0,1,52,216ZM88,93.75V62.25l112-28v31.5ZM180,184a20,20,0,1,1,20-20A20,20,0,0,1,180,184Z",
+-        )
+-    val Camera =
+-        SableGlyphSpec(
+-            "M208,56H180.28L166.65,35.56A8,8,0,0,0,160,32H96a8,8,0,0,0-6.65,3.56L75.71,56H48A24,24,0,0,0,24,80V192a24,24,0,0,0,24,24H208a24,24,0,0,0,24-24V80A24,24,0,0,0,208,56Zm8,136a8,8,0,0,1-8,8H48a8,8,0,0,1-8-8V80a8,8,0,0,1,8-8H80a8,8,0,0,0,6.66-3.56L100.28,48h55.43l13.63,20.44A8,8,0,0,0,176,72h32a8,8,0,0,1,8,8ZM128,88a44,44,0,1,0,44,44A44.05,44.05,0,0,0,128,88Zm0,72a28,28,0,1,1,28-28A28,28,0,0,1,128,160Z",
+-        )
+-    val Calculator =
+-        SableGlyphSpec(
+-            "M80,120h96a8,8,0,0,0,8-8V64a8,8,0,0,0-8-8H80a8,8,0,0,0-8,8v48A8,8,0,0,0,80,120Zm8-48h80v32H88ZM200,24H56A16,16,0,0,0,40,40V216a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V40A16,16,0,0,0,200,24Zm0,192H56V40H200ZM100,148a12,12,0,1,1-12-12A12,12,0,0,1,100,148Zm40,0a12,12,0,1,1-12-12A12,12,0,0,1,140,148Zm40,0a12,12,0,1,1-12-12A12,12,0,0,1,180,148Zm-80,40a12,12,0,1,1-12-12A12,12,0,0,1,100,188Zm40,0a12,12,0,1,1-12-12A12,12,0,0,1,140,188Zm40,0a12,12,0,1,1-12-12A12,12,0,0,1,180,188Z",
+-        )
+-    val Files =
+-        SableGlyphSpec(
+-            "M216,72H130.67L102.93,51.2a16.12,16.12,0,0,0-9.6-3.2H40A16,16,0,0,0,24,64V200a16,16,0,0,0,16,16H216.89A15.13,15.13,0,0,0,232,200.89V88A16,16,0,0,0,216,72Zm0,128H40V64H93.33L123.2,86.4A8,8,0,0,0,128,88h88Z",
+-        )
+-    val Clock =
+-        SableGlyphSpec(
+-            "M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z",
+-        )
+-    val Browser =
+-        SableGlyphSpec(
+-            "M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,16V88H40V56Zm0,144H40V104H216v96Z",
+-        )
+-    val Settings =
+-        SableGlyphSpec(
+-            "M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm109.94-52.79a8,8,0,0,0-3.89-5.4l-29.83-17-.12-33.62a8,8,0,0,0-2.83-6.08,111.91,111.91,0,0,0-36.72-20.67,8,8,0,0,0-6.46.59L128,41.85,97.88,25a8,8,0,0,0-6.47-.6A112.1,112.1,0,0,0,54.73,45.15a8,8,0,0,0-2.83,6.07l-.15,33.65-29.83,17a8,8,0,0,0-3.89,5.4,106.47,106.47,0,0,0,0,41.56,8,8,0,0,0,3.89,5.4l29.83,17,.12,33.62a8,8,0,0,0,2.83,6.08,111.91,111.91,0,0,0,36.72,20.67,8,8,0,0,0,6.46-.59L128,214.15,158.12,231a7.91,7.91,0,0,0,3.9,1,8.09,8.09,0,0,0,2.57-.42,112.1,112.1,0,0,0,36.68-20.73,8,8,0,0,0,2.83-6.07l.15-33.65,29.83-17a8,8,0,0,0,3.89-5.4A106.47,106.47,0,0,0,237.94,107.21Zm-15,34.91-28.57,16.25a8,8,0,0,0-3,3c-.58,1-1.19,2.06-1.81,3.06a7.94,7.94,0,0,0-1.22,4.21l-.15,32.25a95.89,95.89,0,0,1-25.37,14.3L134,199.13a8,8,0,0,0-3.91-1h-.19c-1.21,0-2.43,0-3.64,0a8.08,8.08,0,0,0-4.1,1l-28.84,16.1A96,96,0,0,1,67.88,201l-.11-32.2a8,8,0,0,0-1.22-4.22c-.62-1-1.23-2-1.8-3.06a8.09,8.09,0,0,0-3-3.06l-28.6-16.29a90.49,90.49,0,0,1,0-28.26L61.67,97.63a8,8,0,0,0,3-3c.58-1,1.19-2.06,1.81-3.06a7.94,7.94,0,0,0,1.22-4.21l.15-32.25a95.89,95.89,0,0,1,25.37-14.3L122,56.87a8,8,0,0,0,4.1,1c1.21,0,2.43,0,3.64,0a8.08,8.08,0,0,0,4.1-1l28.84-16.1A96,96,0,0,1,188.12,55l.11,32.2a8,8,0,0,0,1.22,4.22c.62,1,1.23,2,1.8,3.06a8.09,8.09,0,0,0,3,3.06l28.6,16.29A90.49,90.49,0,0,1,222.9,142.12Z",
+-        )
+-}
+-
+-internal fun sableGlyphForPackage(packageName: String): SableGlyphSpec? =
+-    when (CoreAppIdentity.canonicalPackage(packageName)) {
+-        "com.android.dialer" -> SableGlyphs.Phone
+-        "org.sableos.hub" -> SableGlyphs.Messages
+-        "org.sableos.mail" -> SableGlyphs.Mail
+-        "org.sableos.calendar" -> SableGlyphs.Calendar
+-        "org.sableos.weather" -> SableGlyphs.Weather
+-        "com.android.gallery3d" -> SableGlyphs.Photos
+-        "org.sableos.media" -> SableGlyphs.Media
+-        "app.grapheneos.camera",
+-        CoreAppIdentity.SABLE_CAMERA -> SableGlyphs.Camera
+-        "org.sableos.calculator" -> SableGlyphs.Calculator
+-        "com.android.documentsui" -> SableGlyphs.Files
+-        "com.android.deskclock" -> SableGlyphs.Clock
+-        "app.vanadium.browser" -> SableGlyphs.Browser
+-        "com.android.settings" -> SableGlyphs.Settings
+-        else -> null
+-    }
++import androidx.compose.ui.graphics.graphicsLayer
++import androidx.compose.ui.graphics.lerp
++import androidx.compose.ui.graphics.luminance
++import androidx.compose.ui.unit.IntOffset
++import androidx.compose.ui.unit.IntSize
++import org.sableos.start.model.AppGlyph
+ 
++/**
++ * Start's one icon style (Q4 device review, Q7): a tile-free glyph, lit like
++ * the BlackBerry OS 7 / Ripe glyphs: white at the top shading to a silver
++ * tinted with the app's accent, over a soft drop shadow, straight on the BB10
++ * background. No coloured tile, no border, no rail. On a light surface (All
++ * Apps or Search in the light appearance) the same glyph is graphite shading
++ * to the accent, so it keeps its contrast.
++ */
+ @Composable
+ internal fun SableGlyphIcon(
+-    packageName: String,
+-    accent: Color,
++    glyph: AppGlyph,
+     modifier: Modifier = Modifier,
+-    compact: Boolean = false,
+ ) {
+-    val spec = sableGlyphForPackage(packageName) ?: return
+-    val shape = RoundedCornerShape(if (compact) 11.dp else 15.dp)
+-    val glyphPath =
+-        remember(spec.pathData) {
+-            Path().apply {
+-                addSvg(spec.pathData)
+-            }
+-        }
+-    val contentColor = MaterialTheme.colorScheme.onSurface
+-
+-    Box(
+-        modifier =
+-            modifier
+-                .shadow(if (compact) 2.dp else 4.dp, shape)
+-                .clip(shape)
+-                .background(
+-                    Brush.linearGradient(
+-                        listOf(
+-                            MaterialTheme.colorScheme.surfaceVariant,
+-                            accent.copy(alpha = 0.30f),
+-                        ),
+-                    ),
+-                )
+-                .border(1.dp, accent.copy(alpha = 0.55f), shape),
+-        contentAlignment = Alignment.Center,
+-    ) {
+-        Canvas(
+-            modifier =
+-                Modifier
+-                    .fillMaxSize()
+-                    .padding(if (compact) 10.dp else 14.dp),
+-        ) {
+-            val iconSize = size.minDimension * 0.86f
+-            val scale = iconSize / 256f
+-            val dx = (size.width - iconSize) / 2f
+-            val dy = (size.height - iconSize) / 2f
+-            translate(left = dx, top = dy) {
+-                scale(
+-                    scaleX = scale,
+-                    scaleY = scale,
+-                    pivot = Offset.Zero,
+-                ) {
+-                    drawPath(
+-                        path = glyphPath,
+-                        color = contentColor,
+-                    )
++    val pathData = sableGlyphPath(glyph)
++    val glyphPath = remember(pathData) { Path().apply { addSvg(pathData) } }
++    val accent = Color(glyph.accent)
++    val onLight = MaterialTheme.colorScheme.surface.luminance() > LIGHT_SURFACE_LUMINANCE
++    Canvas(modifier = modifier) {
++        val scale = size.minDimension / GLYPH_VIEWPORT
++        val dx = (size.width - size.minDimension) / 2f
++        val dy = (size.height - size.minDimension) / 2f
++        translate(left = dx, top = dy) {
++            scale(scaleX = scale, scaleY = scale, pivot = Offset.Zero) {
++                // The shadow, then the lit glyph; the gradient spans the 256-unit glyph box.
++                translate(top = GLYPH_VIEWPORT * SHADOW_DROP) {
++                    drawPath(path = glyphPath, color = if (onLight) GlyphShadowOnLight else GlyphShadow)
+                 }
++                drawPath(path = glyphPath, brush = sableGlyphBrush(accent, 0f, GLYPH_VIEWPORT, onLight))
+             }
+         }
+-        Box(
+-            modifier =
+-                Modifier
+-                    .align(Alignment.BottomCenter)
+-                    .fillMaxWidth()
+-                    .height(3.dp)
+-                    .background(accent),
++    }
++}
++
++/**
++ * An app's own monochrome (themed icon) layer, drawn in the glyph style: the
++ * layer is used as a mask for the same shading and shadow as [SableGlyphIcon].
++ */
++@Composable
++internal fun SableMonochromeIcon(
++    mask: ImageBitmap,
++    accent: Color,
++    modifier: Modifier = Modifier,
++) {
++    val onLight = MaterialTheme.colorScheme.surface.luminance() > LIGHT_SURFACE_LUMINANCE
++    Canvas(modifier = modifier.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }) {
++        val box = IntSize(size.width.toInt(), size.height.toInt())
++        // Shade only the glyph (the gradient is kept where the mask is opaque), then put the shadow behind it.
++        drawImage(image = mask, dstSize = box)
++        drawRect(
++            brush = sableGlyphBrush(accent, 0f, size.height, onLight),
++            blendMode = BlendMode.SrcAtop,
++        )
++        drawImage(
++            image = mask,
++            dstOffset = IntOffset(0, (size.minDimension * SHADOW_DROP).toInt()),
++            dstSize = box,
++            colorFilter = ColorFilter.tint(if (onLight) GlyphShadowOnLight else GlyphShadow),
++            blendMode = BlendMode.DstOver,
+         )
+     }
+ }
++
++/**
++ * White at the top to an accent-tinted silver at the bottom, between [top]
++ * and [bottom]; [onLight] gives graphite to an accent-tinted slate instead.
++ */
++internal fun sableGlyphBrush(
++    accent: Color,
++    top: Float,
++    bottom: Float,
++    onLight: Boolean = false,
++): Brush =
++    if (onLight) {
++        Brush.verticalGradient(
++            0f to GlyphGraphite,
++            0.45f to GlyphGraphite,
++            1f to lerp(GlyphGraphite, accent, ACCENT_TINT),
++            startY = top,
++            endY = bottom,
++        )
++    } else {
++        Brush.verticalGradient(
++            0f to Color.White,
++            0.45f to GlyphSilverLight,
++            1f to lerp(GlyphSilver, accent, ACCENT_TINT),
++            startY = top,
++            endY = bottom,
++        )
++    }
++
++private const val GLYPH_VIEWPORT = 256f
++private const val SHADOW_DROP = 0.035f
++private const val ACCENT_TINT = 0.6f
++private const val LIGHT_SURFACE_LUMINANCE = 0.5f
++private val GlyphShadow = Color(0x99000000)
++private val GlyphShadowOnLight = Color(0x26000000)
++private val GlyphGraphite = Color(0xFF2B3138)
++private val GlyphSilverLight = Color(0xFFE6E9EE)
++private val GlyphSilver = Color(0xFFB4BAC4)
++
++/** Phosphor regular glyph geometry ([AppGlyph.phosphor]) at the commit pinned in third_party/phosphor-icons. */
++internal fun sableGlyphPath(glyph: AppGlyph): String =
++    when (glyph) {
++        AppGlyph.PHONE -> "M144.27,45.93a8,8,0,0,1,9.8-5.66,86.22,86.22,0,0,1,61.66,61.66,8,8,0,0,1-5.66,9.8A8.23,8.23,0,0,1,208,112a8,8,0,0,1-7.73-5.94,70.35,70.35,0,0,0-50.33-50.33A8,8,0,0,1,144.27,45.93Zm-2.33,41.8c13.79,3.68,22.65,12.54,26.33,26.33A8,8,0,0,0,176,120a8.23,8.23,0,0,0,2.07-.27,8,8,0,0,0,5.66-9.8c-5.12-19.16-18.5-32.54-37.66-37.66a8,8,0,1,0-4.13,15.46Zm81.94,95.35A56.26,56.26,0,0,1,168,232C88.6,232,24,167.4,24,88A56.26,56.26,0,0,1,72.92,32.12a16,16,0,0,1,16.62,9.52l21.12,47.15,0,.12A16,16,0,0,1,109.39,104c-.18.27-.37.52-.57.77L88,129.45c7.49,15.22,23.41,31,38.83,38.51l24.34-20.71a8.12,8.12,0,0,1,.75-.56,16,16,0,0,1,15.17-1.4l.13.06,47.11,21.11A16,16,0,0,1,223.88,183.08Zm-15.88-2s-.07,0-.11,0h0l-47-21.05-24.35,20.71a8.44,8.44,0,0,1-.74.56,16,16,0,0,1-15.75,1.14c-18.73-9.05-37.4-27.58-46.46-46.11a16,16,0,0,1,1-15.7,6.13,6.13,0,0,1,.57-.77L96,95.15l-21-47a.61.61,0,0,1,0-.12A40.2,40.2,0,0,0,40,88,128.14,128.14,0,0,0,168,216,40.21,40.21,0,0,0,208,181.07Z"
++        AppGlyph.CONTACTS -> "M83.19,174.4a8,8,0,0,0,11.21-1.6,52,52,0,0,1,83.2,0,8,8,0,1,0,12.8-9.6A67.88,67.88,0,0,0,163,141.51a40,40,0,1,0-53.94,0A67.88,67.88,0,0,0,81.6,163.2,8,8,0,0,0,83.19,174.4ZM112,112a24,24,0,1,1,24,24A24,24,0,0,1,112,112Zm96-88H64A16,16,0,0,0,48,40V64H32a8,8,0,0,0,0,16H48v40H32a8,8,0,0,0,0,16H48v40H32a8,8,0,0,0,0,16H48v24a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V40A16,16,0,0,0,208,24Zm0,192H64V40H208Z"
++        AppGlyph.MESSAGES -> "M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128ZM84,116a12,12,0,1,0,12,12A12,12,0,0,0,84,116Zm88,0a12,12,0,1,0,12,12A12,12,0,0,0,172,116Zm60,12A104,104,0,0,1,79.12,219.82L45.07,231.17a16,16,0,0,1-20.24-20.24l11.35-34.05A104,104,0,1,1,232,128Zm-16,0A88,88,0,1,0,51.81,172.06a8,8,0,0,1,.66,6.54L40,216,77.4,203.53a7.85,7.85,0,0,1,2.53-.42,8,8,0,0,1,4,1.08A88,88,0,0,0,216,128Z"
++        AppGlyph.MAIL -> "M224,48H32a8,8,0,0,0-8,8V192a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A8,8,0,0,0,224,48ZM203.43,64,128,133.15,52.57,64ZM216,192H40V74.19l82.59,75.71a8,8,0,0,0,10.82,0L216,74.19V192Z"
++        AppGlyph.CALENDAR -> "M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Zm-68-76a12,12,0,1,1-12-12A12,12,0,0,1,140,132Zm44,0a12,12,0,1,1-12-12A12,12,0,0,1,184,132ZM96,172a12,12,0,1,1-12-12A12,12,0,0,1,96,172Zm44,0a12,12,0,1,1-12-12A12,12,0,0,1,140,172Zm44,0a12,12,0,1,1-12-12A12,12,0,0,1,184,172Z"
++        AppGlyph.WEATHER -> "M164,72a76.2,76.2,0,0,0-20.26,2.73,55.63,55.63,0,0,0-9.41-11.54l9.51-13.57a8,8,0,1,0-13.11-9.18L121.22,54A55.9,55.9,0,0,0,96,48c-.58,0-1.16,0-1.74,0L91.37,31.71a8,8,0,1,0-15.75,2.77L78.5,50.82A56.1,56.1,0,0,0,55.23,65.67L41.61,56.14a8,8,0,1,0-9.17,13.11L46,78.77A55.55,55.55,0,0,0,40,104c0,.57,0,1.15,0,1.72L23.71,108.6a8,8,0,0,0,1.38,15.88,8.24,8.24,0,0,0,1.39-.12l16.32-2.88a55.74,55.74,0,0,0,5.86,12.42A52,52,0,0,0,84,224h80a76,76,0,0,0,0-152ZM56,104a40,40,0,0,1,72.54-23.24,76.26,76.26,0,0,0-35.62,40,52.14,52.14,0,0,0-31,4.17A40,40,0,0,1,56,104ZM164,208H84a36,36,0,1,1,4.78-71.69c-.37,2.37-.63,4.79-.77,7.23a8,8,0,0,0,16,.92,58.91,58.91,0,0,1,1.88-11.81c0-.16.09-.32.12-.48A60.06,60.06,0,1,1,164,208Z"
++        AppGlyph.PHOTOS -> "M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM48,48H208v77.38l-24.69-24.7a16,16,0,0,0-22.62,0L53.37,208H48ZM208,208H76l96-96,36,36v60ZM96,120A24,24,0,1,0,72,96,24,24,0,0,0,96,120Zm0-32a8,8,0,1,1-8,8A8,8,0,0,1,96,88Z"
++        AppGlyph.MEDIA -> "M212.92,17.69a8,8,0,0,0-6.86-1.45l-128,32A8,8,0,0,0,72,56V166.08A36,36,0,1,0,88,196V110.25l112-28v51.83A36,36,0,1,0,216,164V24A8,8,0,0,0,212.92,17.69ZM52,216a20,20,0,1,1,20-20A20,20,0,0,1,52,216ZM88,93.75V62.25l112-28v31.5ZM180,184a20,20,0,1,1,20-20A20,20,0,0,1,180,184Z"
++        AppGlyph.CAMERA -> "M208,56H180.28L166.65,35.56A8,8,0,0,0,160,32H96a8,8,0,0,0-6.65,3.56L75.71,56H48A24,24,0,0,0,24,80V192a24,24,0,0,0,24,24H208a24,24,0,0,0,24-24V80A24,24,0,0,0,208,56Zm8,136a8,8,0,0,1-8,8H48a8,8,0,0,1-8-8V80a8,8,0,0,1,8-8H80a8,8,0,0,0,6.66-3.56L100.28,48h55.43l13.63,20.44A8,8,0,0,0,176,72h32a8,8,0,0,1,8,8ZM128,88a44,44,0,1,0,44,44A44.05,44.05,0,0,0,128,88Zm0,72a28,28,0,1,1,28-28A28,28,0,0,1,128,160Z"
++        AppGlyph.VIDEO_CAMERA -> "M251.77,73a8,8,0,0,0-8.21.39L208,97.05V72a16,16,0,0,0-16-16H32A16,16,0,0,0,16,72V184a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V159l35.56,23.71A8,8,0,0,0,248,184a8,8,0,0,0,8-8V80A8,8,0,0,0,251.77,73ZM192,184H32V72H192V184Zm48-22.95-32-21.33V116.28L240,95Z"
++        AppGlyph.CALCULATOR -> "M80,120h96a8,8,0,0,0,8-8V64a8,8,0,0,0-8-8H80a8,8,0,0,0-8,8v48A8,8,0,0,0,80,120Zm8-48h80v32H88ZM200,24H56A16,16,0,0,0,40,40V216a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V40A16,16,0,0,0,200,24Zm0,192H56V40H200ZM100,148a12,12,0,1,1-12-12A12,12,0,0,1,100,148Zm40,0a12,12,0,1,1-12-12A12,12,0,0,1,140,148Zm40,0a12,12,0,1,1-12-12A12,12,0,0,1,180,148Zm-80,40a12,12,0,1,1-12-12A12,12,0,0,1,100,188Zm40,0a12,12,0,1,1-12-12A12,12,0,0,1,140,188Zm40,0a12,12,0,1,1-12-12A12,12,0,0,1,180,188Z"
++        AppGlyph.FILES -> "M216,72H130.67L102.93,51.2a16.12,16.12,0,0,0-9.6-3.2H40A16,16,0,0,0,24,64V200a16,16,0,0,0,16,16H216.89A15.13,15.13,0,0,0,232,200.89V88A16,16,0,0,0,216,72Zm0,128H40V64H93.33L123.2,86.4A8,8,0,0,0,128,88h88Z"
++        AppGlyph.CLOCK -> "M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z"
++        AppGlyph.BROWSER -> "M128,24h0A104,104,0,1,0,232,128,104.12,104.12,0,0,0,128,24Zm88,104a87.61,87.61,0,0,1-3.33,24H174.16a157.44,157.44,0,0,0,0-48h38.51A87.61,87.61,0,0,1,216,128ZM102,168H154a115.11,115.11,0,0,1-26,45A115.27,115.27,0,0,1,102,168Zm-3.9-16a140.84,140.84,0,0,1,0-48h59.88a140.84,140.84,0,0,1,0,48ZM40,128a87.61,87.61,0,0,1,3.33-24H81.84a157.44,157.44,0,0,0,0,48H43.33A87.61,87.61,0,0,1,40,128ZM154,88H102a115.11,115.11,0,0,1,26-45A115.27,115.27,0,0,1,154,88Zm52.33,0H170.71a135.28,135.28,0,0,0-22.3-45.6A88.29,88.29,0,0,1,206.37,88ZM107.59,42.4A135.28,135.28,0,0,0,85.29,88H49.63A88.29,88.29,0,0,1,107.59,42.4ZM49.63,168H85.29a135.28,135.28,0,0,0,22.3,45.6A88.29,88.29,0,0,1,49.63,168Zm98.78,45.6a135.28,135.28,0,0,0,22.3-45.6h35.66A88.29,88.29,0,0,1,148.41,213.6Z"
++        AppGlyph.SETTINGS -> "M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm109.94-52.79a8,8,0,0,0-3.89-5.4l-29.83-17-.12-33.62a8,8,0,0,0-2.83-6.08,111.91,111.91,0,0,0-36.72-20.67,8,8,0,0,0-6.46.59L128,41.85,97.88,25a8,8,0,0,0-6.47-.6A112.1,112.1,0,0,0,54.73,45.15a8,8,0,0,0-2.83,6.07l-.15,33.65-29.83,17a8,8,0,0,0-3.89,5.4,106.47,106.47,0,0,0,0,41.56,8,8,0,0,0,3.89,5.4l29.83,17,.12,33.62a8,8,0,0,0,2.83,6.08,111.91,111.91,0,0,0,36.72,20.67,8,8,0,0,0,6.46-.59L128,214.15,158.12,231a7.91,7.91,0,0,0,3.9,1,8.09,8.09,0,0,0,2.57-.42,112.1,112.1,0,0,0,36.68-20.73,8,8,0,0,0,2.83-6.07l.15-33.65,29.83-17a8,8,0,0,0,3.89-5.4A106.47,106.47,0,0,0,237.94,107.21Zm-15,34.91-28.57,16.25a8,8,0,0,0-3,3c-.58,1-1.19,2.06-1.81,3.06a7.94,7.94,0,0,0-1.22,4.21l-.15,32.25a95.89,95.89,0,0,1-25.37,14.3L134,199.13a8,8,0,0,0-3.91-1h-.19c-1.21,0-2.43,0-3.64,0a8.08,8.08,0,0,0-4.1,1l-28.84,16.1A96,96,0,0,1,67.88,201l-.11-32.2a8,8,0,0,0-1.22-4.22c-.62-1-1.23-2-1.8-3.06a8.09,8.09,0,0,0-3-3.06l-28.6-16.29a90.49,90.49,0,0,1,0-28.26L61.67,97.63a8,8,0,0,0,3-3c.58-1,1.19-2.06,1.81-3.06a7.94,7.94,0,0,0,1.22-4.21l.15-32.25a95.89,95.89,0,0,1,25.37-14.3L122,56.87a8,8,0,0,0,4.1,1c1.21,0,2.43,0,3.64,0a8.08,8.08,0,0,0,4.1-1l28.84-16.1A96,96,0,0,1,188.12,55l.11,32.2a8,8,0,0,0,1.22,4.22c.62,1,1.23,2,1.8,3.06a8.09,8.09,0,0,0,3,3.06l28.6,16.29A90.49,90.49,0,0,1,222.9,142.12Z"
++        AppGlyph.RECORDER -> "M128,176a48.05,48.05,0,0,0,48-48V64a48,48,0,0,0-96,0v64A48.05,48.05,0,0,0,128,176ZM96,64a32,32,0,0,1,64,0v64a32,32,0,0,1-64,0Zm40,143.6V240a8,8,0,0,1-16,0V207.6A80.11,80.11,0,0,1,48,128a8,8,0,0,1,16,0,64,64,0,0,0,128,0,8,8,0,0,1,16,0A80.11,80.11,0,0,1,136,207.6Z"
++        AppGlyph.READER -> "M232,48H160a40,40,0,0,0-32,16A40,40,0,0,0,96,48H24a8,8,0,0,0-8,8V200a8,8,0,0,0,8,8H96a24,24,0,0,1,24,24,8,8,0,0,0,16,0,24,24,0,0,1,24-24h72a8,8,0,0,0,8-8V56A8,8,0,0,0,232,48ZM96,192H32V64H96a24,24,0,0,1,24,24V200A39.81,39.81,0,0,0,96,192Zm128,0H160a39.81,39.81,0,0,0-24,8V88a24,24,0,0,1,24-24h64ZM160,88h40a8,8,0,0,1,0,16H160a8,8,0,0,1,0-16Zm48,40a8,8,0,0,1-8,8H160a8,8,0,0,1,0-16h40A8,8,0,0,1,208,128Zm0,32a8,8,0,0,1-8,8H160a8,8,0,0,1,0-16h40A8,8,0,0,1,208,160Z"
++        AppGlyph.TEXT_READER -> "M32,64a8,8,0,0,1,8-8H216a8,8,0,0,1,0,16H40A8,8,0,0,1,32,64Zm8,48H168a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16Zm176,24H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Zm-48,40H40a8,8,0,0,0,0,16H168a8,8,0,0,0,0-16Z"
++        AppGlyph.SUDOKU -> "M216,48H40A16,16,0,0,0,24,64V192a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V64A16,16,0,0,0,216,48ZM104,144V112h48v32Zm48,16v32H104V160ZM40,112H88v32H40Zm64-16V64h48V96Zm64,16h48v32H168Zm48-16H168V64h48ZM88,64V96H40V64ZM40,160H88v32H40Zm176,32H168V160h48v32Z"
++        AppGlyph.MINESWEEPER -> "M248,32h0a8,8,0,0,0-8,8,52.66,52.66,0,0,1-3.57,17.39C232.38,67.22,225.7,72,216,72c-11.06,0-18.85-9.76-29.49-24.65C176,32.66,164.12,16,144,16c-16.39,0-29,8.89-35.43,25a66.07,66.07,0,0,0-3.9,15H88A16,16,0,0,0,72,72v9.59A88,88,0,0,0,112,248h1.59A88,88,0,0,0,152,81.59V72a16,16,0,0,0-16-16H120.88a46.76,46.76,0,0,1,2.69-9.37C127.62,36.78,134.3,32,144,32c11.06,0,18.85,9.76,29.49,24.65C184,71.34,195.88,88,216,88c16.39,0,29-8.89,35.43-25A68.69,68.69,0,0,0,256,40,8,8,0,0,0,248,32ZM140.8,94a72,72,0,1,1-57.6,0A8,8,0,0,0,88,86.66V72h48V86.66A8,8,0,0,0,140.8,94ZM111.89,209.32A8,8,0,0,1,104,216a8.52,8.52,0,0,1-1.33-.11,57.5,57.5,0,0,1-46.57-46.57,8,8,0,1,1,15.78-2.64,41.29,41.29,0,0,0,33.43,33.43A8,8,0,0,1,111.89,209.32Z"
++        AppGlyph.GAME_2048 -> "M200,40H56A16,16,0,0,0,40,56V200a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V56A16,16,0,0,0,200,40Zm0,80H136V56h64ZM120,56v64H56V56ZM56,136h64v64H56Zm144,64H136V136h64v64Z"
++        AppGlyph.VAULT -> "M216,40H40A16,16,0,0,0,24,56V192a16,16,0,0,0,16,16H56v16a8,8,0,0,0,16,0V208H184v16a8,8,0,0,0,16,0V208h16a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,152H40V56H216v64H199.32a48,48,0,1,0,0,16H216v56Zm-50.16-72a16,16,0,1,0,0,16H183a32,32,0,1,1,0-16Z"
++        AppGlyph.TOOLS -> "M226.76,69a8,8,0,0,0-12.84-2.88l-40.3,37.19-17.23-3.7-3.7-17.23,37.19-40.3A8,8,0,0,0,187,29.24,72,72,0,0,0,88,96,72.34,72.34,0,0,0,94,124.94L33.79,177c-.15.12-.29.26-.43.39a32,32,0,0,0,45.26,45.26c.13-.13.27-.28.39-.42L131.06,162A72,72,0,0,0,232,96,71.56,71.56,0,0,0,226.76,69ZM160,152a56.14,56.14,0,0,1-27.07-7,8,8,0,0,0-9.92,1.77L67.11,211.51a16,16,0,0,1-22.62-22.62L109.18,133a8,8,0,0,0,1.77-9.93,56,56,0,0,1,58.36-82.31l-31.2,33.81a8,8,0,0,0-1.94,7.1L141.83,108a8,8,0,0,0,6.14,6.14l26.35,5.66a8,8,0,0,0,7.1-1.94l33.81-31.2A56.06,56.06,0,0,1,160,152Z"
++        AppGlyph.RADIO -> "M168,72V200a8,8,0,0,1-16,0V72a8,8,0,0,1,16,0Zm-48,32a8,8,0,0,0-8,8v88a8,8,0,0,0,16,0V112A8,8,0,0,0,120,104ZM80,144a8,8,0,0,0-8,8v48a8,8,0,0,0,16,0V152A8,8,0,0,0,80,144ZM40,184a8,8,0,0,0-8,8v8a8,8,0,0,0,16,0v-8A8,8,0,0,0,40,184Z"
++        AppGlyph.KEYBOARD -> "M224,48H32A16,16,0,0,0,16,64V192a16,16,0,0,0,16,16H224a16,16,0,0,0,16-16V64A16,16,0,0,0,224,48Zm0,144H32V64H224V192Zm-16-64a8,8,0,0,1-8,8H56a8,8,0,0,1,0-16H200A8,8,0,0,1,208,128Zm0-32a8,8,0,0,1-8,8H56a8,8,0,0,1,0-16H200A8,8,0,0,1,208,96ZM72,160a8,8,0,0,1-8,8H56a8,8,0,0,1,0-16h8A8,8,0,0,1,72,160Zm96,0a8,8,0,0,1-8,8H96a8,8,0,0,1,0-16h64A8,8,0,0,1,168,160Zm40,0a8,8,0,0,1-8,8h-8a8,8,0,0,1,0-16h8A8,8,0,0,1,208,160Z"
++        AppGlyph.DISPLAY -> "M200,80v32a8,8,0,0,1-16,0V88H160a8,8,0,0,1,0-16h32A8,8,0,0,1,200,80ZM96,168H72V144a8,8,0,0,0-16,0v32a8,8,0,0,0,8,8H96a8,8,0,0,0,0-16ZM232,56V200a16,16,0,0,1-16,16H40a16,16,0,0,1-16-16V56A16,16,0,0,1,40,40H216A16,16,0,0,1,232,56ZM216,200V56H40V200H216Z"
++        AppGlyph.SETUP -> "M224,128a8,8,0,0,1-8,8H128a8,8,0,0,1,0-16h88A8,8,0,0,1,224,128ZM128,72h88a8,8,0,0,0,0-16H128a8,8,0,0,0,0,16Zm88,112H128a8,8,0,0,0,0,16h88a8,8,0,0,0,0-16ZM82.34,42.34,56,68.69,45.66,58.34A8,8,0,0,0,34.34,69.66l16,16a8,8,0,0,0,11.32,0l32-32A8,8,0,0,0,82.34,42.34Zm0,64L56,132.69,45.66,122.34a8,8,0,0,0-11.32,11.32l16,16a8,8,0,0,0,11.32,0l32-32a8,8,0,0,0-11.32-11.32Zm0,64L56,196.69,45.66,186.34a8,8,0,0,0-11.32,11.32l16,16a8,8,0,0,0,11.32,0l32-32a8,8,0,0,0-11.32-11.32Z"
++        AppGlyph.STORE -> "M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,160H40V56H216V200ZM176,88a48,48,0,0,1-96,0,8,8,0,0,1,16,0,32,32,0,0,0,64,0,8,8,0,0,1,16,0Z"
++        AppGlyph.SERVICES -> "M220.27,158.54a8,8,0,0,0-7.7-.46,20,20,0,1,1,0-36.16A8,8,0,0,0,224,114.69V72a16,16,0,0,0-16-16H171.78a35.36,35.36,0,0,0,.22-4,36.11,36.11,0,0,0-11.36-26.24,36,36,0,0,0-60.55,23.62,36.56,36.56,0,0,0,.14,6.62H64A16,16,0,0,0,48,72v32.22a35.36,35.36,0,0,0-4-.22,36.12,36.12,0,0,0-26.24,11.36,35.7,35.7,0,0,0-9.69,27,36.08,36.08,0,0,0,33.31,33.6,35.68,35.68,0,0,0,6.62-.14V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V165.31A8,8,0,0,0,220.27,158.54ZM208,208H64V165.31a8,8,0,0,0-11.43-7.23,20,20,0,1,1,0-36.16A8,8,0,0,0,64,114.69V72h46.69a8,8,0,0,0,7.23-11.43,20,20,0,1,1,36.16,0A8,8,0,0,0,161.31,72H208v32.23a35.68,35.68,0,0,0-6.62-.14A36,36,0,0,0,204,176a35.36,35.36,0,0,0,4-.22Z"
++    }
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+index a484dea..e9f4dea 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+@@ -7,8 +7,10 @@ import android.content.IntentFilter
+ import android.content.pm.LauncherApps
+ import android.graphics.Bitmap
+ import android.graphics.Canvas
++import android.graphics.drawable.AdaptiveIconDrawable
+ import android.net.Uri
+ import android.os.BatteryManager
++import android.os.Build
+ import android.os.SystemClock
+ import android.provider.CallLog
+ import android.util.LruCache
+@@ -106,6 +108,7 @@ import androidx.compose.ui.input.pointer.pointerInput
+ import androidx.compose.ui.layout.ContentScale
+ import androidx.compose.ui.platform.LocalContext
+ import androidx.compose.ui.platform.LocalDensity
++import androidx.compose.ui.platform.LocalWindowInfo
+ import androidx.compose.ui.semantics.contentDescription
+ import androidx.compose.ui.semantics.heading
+ import androidx.compose.ui.semantics.semantics
+@@ -134,6 +137,7 @@ import org.sableos.start.live.LiveAvailability
+ import org.sableos.start.live.LiveDatum
+ import org.sableos.start.live.LiveSurfaceSnapshot
+ import org.sableos.start.model.AppEntry
++import org.sableos.start.model.AppGlyphs
+ import org.sableos.start.model.CommandQuery
+ import org.sableos.start.model.CommandRanking
+ import org.sableos.start.model.CommandScope
+@@ -340,11 +344,12 @@ fun SableStartScreen(
+             installed = gridCandidates.map { it.stableKey() },
+         )
+     val gridApps = gridKeys.mapNotNull(appByKey::get)
++    val gridLabels = gridApps.mapTo(HashSet()) { it.label }
+     val quickSlots =
+         quickBarTokens.mapNotNull { token ->
+             resolveQuickSlot(token, apps, appByKey)
+         }
+-    val gridRows = AppGrid.rowsFor(LocalConfiguration.current.screenHeightDp - START_CHROME_DP, GRID_CELL_MIN_DP)
++    val gridRows = AppGrid.rowsFor(startGridHeightDp(), GRID_CELL_MIN_DP)
+     val gridPerPage = AppGrid.perPage(gridRows)
+     val gridPages = AppGrid.pageCount(gridApps.size, gridPerPage)
+     val pageCount = StartPages.count(gridPages)
+@@ -538,6 +543,7 @@ fun SableStartScreen(
+                                         AppGridPage(
+                                             apps = AppGrid.page(gridApps, index, gridPerPage),
+                                             rows = gridRows,
++                                            gridLabels = gridLabels,
+                                             active = startPager.settledPage == page,
+                                             onLaunchApp = ::launchApp,
+                                             onLaunchSecond = ::launchSecond,
+@@ -769,6 +775,26 @@ private fun Bb10Theme(content: @Composable () -> Unit) {
+     )
+ }
+ 
++/**
++ * The app grid's height in dp: the window (LocalWindowInfo, so the Q25's
++ * square and any other size alike) less the system bars, the page dots, the
++ * bar and the grid's padding. Before the window is measured, the
++ * configuration's screen height stands in.
++ */
++@Composable
++private fun startGridHeightDp(): Int {
++    val density = LocalDensity.current
++    val windowHeightPx = LocalWindowInfo.current.containerSize.height
++    val insets = WindowInsets.safeDrawing
++    val contentDp =
++        if (windowHeightPx > 0) {
++            with(density) { (windowHeightPx - insets.getTop(density) - insets.getBottom(density)).toDp().value.toInt() }
++        } else {
++            LocalConfiguration.current.screenHeightDp - STATUS_BAR_FALLBACK_DP
++        }
++    return contentDp - START_CHROME_DP
++}
++
+ /**
+  * The horizontal strip (BB10 layout): pages, the BB10 page indicator and the
+  * Phone · Search · Camera bar.
+@@ -892,11 +918,11 @@ private fun Bb10PageIndicator(
+             Box(
+                 modifier =
+                     Modifier
+-                        .size(18.dp)
++                        .size(width = INDICATOR_SLOT_DP.dp, height = INDICATOR_HEIGHT_DP.dp)
+                         .clickable { onShowPage(page) },
+                 contentAlignment = Alignment.Center,
+             ) {
+-                ComposeCanvas(Modifier.size(if (page < StartPages.FIRST_GRID) 12.dp else 7.dp)) {
++                ComposeCanvas(Modifier.size(if (page < StartPages.FIRST_GRID) 10.dp else 6.dp)) {
+                     val unit = size.minDimension
+                     when (page) {
+                         StartPages.HUB ->
+@@ -1028,18 +1054,18 @@ private fun ActiveFramesPage(
+ @Composable
+ private fun StatusDialsRow(onOpenSettings: () -> Unit) {
+     Row(
+-        modifier = Modifier.fillMaxWidth().padding(start = FRAME_PADDING, end = 4.dp, top = 6.dp),
++        modifier = Modifier.fillMaxWidth().padding(start = FRAME_PADDING, end = 2.dp, top = 4.dp),
+         verticalAlignment = Alignment.CenterVertically,
+     ) {
+-        SableStatusRings(modifier = Modifier.weight(1f), ringSize = 38.dp)
++        SableStatusRings(modifier = Modifier.weight(1f), ringSize = STATUS_RING_SIZE)
+         Text(
+             text = "⚙",
+-            fontSize = 24.sp,
++            fontSize = 22.sp,
+             color = Color.White,
+             modifier =
+                 Modifier
+-                    .heightIn(min = 48.dp)
+-                    .width(48.dp)
++                    .heightIn(min = 44.dp)
++                    .width(44.dp)
+                     .sableFocusRing()
+                     .clickable(onClick = onOpenSettings)
+                     .semantics { contentDescription = "Settings" }
+@@ -1089,18 +1115,18 @@ private fun WeatherDateHeader(
+                 .sableFocusRing()
+                 .clickable(onClick = onOpen)
+                 .semantics { contentDescription = "$line. $dateText" }
+-                .padding(vertical = 4.dp),
++                .padding(vertical = 2.dp),
+     ) {
+         Text(
+             text = line,
+-            style = MaterialTheme.typography.titleLarge,
++            style = MaterialTheme.typography.titleMedium,
+             color = Color.White,
+             maxLines = 1,
+             overflow = TextOverflow.Ellipsis,
+         )
+         Text(
+             text = dateText,
+-            style = MaterialTheme.typography.bodyMedium,
++            style = MaterialTheme.typography.bodySmall,
+             color = Bb10Muted,
+             maxLines = 1,
+         )
+@@ -1231,8 +1257,8 @@ private fun FrameCard(
+                 horizontalAlignment = Alignment.CenterHorizontally,
+                 verticalArrangement = Arrangement.Center,
+             ) {
+-                if (app != null) AppMark(app = app, size = 48)
+-                Spacer(Modifier.height(8.dp))
++                if (app != null) AppMark(app = app, size = FRAME_ICON_DP)
++                Spacer(Modifier.height(6.dp))
+                 Text(
+                     text =
+                         live?.takeIf { it.availability == LiveAvailability.LIVE }?.detail
+@@ -1400,21 +1426,21 @@ private fun GlanceFrameCard(
+             modifier =
+                 Modifier
+                     .fillMaxSize()
+-                    .padding(start = 12.dp, end = 12.dp, top = 14.dp, bottom = FRAME_LABEL_HEIGHT),
++                    .padding(start = 10.dp, end = 10.dp, top = 8.dp, bottom = FRAME_LABEL_HEIGHT),
+             verticalArrangement = Arrangement.Center,
+         ) {
+             Text(
+                 text = headline,
+-                style = MaterialTheme.typography.titleLarge,
++                style = MaterialTheme.typography.titleMedium,
+                 color = Color.White,
+-                maxLines = 3,
++                maxLines = 2,
+                 overflow = TextOverflow.Ellipsis,
+             )
+             if (detail.isNotBlank()) {
+-                Spacer(Modifier.height(4.dp))
++                Spacer(Modifier.height(2.dp))
+                 Text(
+                     text = detail,
+-                    style = MaterialTheme.typography.bodyMedium,
++                    style = MaterialTheme.typography.bodySmall,
+                     color = Bb10Muted,
+                     maxLines = 2,
+                     overflow = TextOverflow.Ellipsis,
+@@ -1429,7 +1455,7 @@ private fun GlanceFrameCard(
+                     .fillMaxWidth()
+                     .height(FRAME_LABEL_HEIGHT)
+                     .background(if (focused) Bb10Blue else Color(0xE6000000))
+-                    .padding(horizontal = 8.dp, vertical = 6.dp),
++                    .padding(horizontal = 8.dp, vertical = 3.dp),
+             style = MaterialTheme.typography.labelLarge,
+             color = Color.White,
+             maxLines = 1,
+@@ -1447,15 +1473,19 @@ private fun weatherLines(datum: LiveDatum): Pair<String, String> {
+ }
+ 
+ /**
+- * One app grid page: four columns of labelled, boxed icons in the user's
+- * order (Edit Home reorders them). Arrows move focus, Enter opens, Shift+Enter
+- * opens the Dual copy, Space, Menu or Alt+Enter opens the app's actions, long
+- * press on an icon its actions and on an empty place Edit Home; typing searches.
++ * One app grid page (Ripe 10 / BB10 page model): five columns of labelled,
++ * tile-free icons in the user's order (Edit Home reorders them), as many rows
++ * as the window fits ([AppGrid.rowsFor]); the icon size follows the cell.
++ * Arrows move focus, Enter opens, Shift+Enter opens the Dual copy, Space, Menu
++ * or Alt+Enter opens the app's actions, long press on an icon its actions and
++ * on an empty place Edit Home; typing searches.
+  */
+ @Composable
+ private fun AppGridPage(
+     apps: List<AppEntry>,
+     rows: Int,
++    /** Every grid app's name, so a shortened name never repeats another ([AppGrid.gridLabel]). */
++    gridLabels: Set<String>,
+     active: Boolean,
+     onLaunchApp: (AppEntry) -> Unit,
+     onLaunchSecond: (AppEntry) -> Unit,
+@@ -1469,31 +1499,41 @@ private fun AppGridPage(
+             runCatching { firstFocus.requestFocus() }
+         }
+     }
+-    Column(
++    BoxWithConstraints(
+         modifier =
+             Modifier
+                 .fillMaxSize()
+                 .pointerInput(Unit) { detectTapGestures(onLongPress = { onEditHome() }) }
+-                .padding(horizontal = 8.dp, vertical = 6.dp),
++                .padding(horizontal = GRID_PADDING, vertical = GRID_PADDING),
+     ) {
+-        for (row in 0 until rows) {
+-            Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+-                for (column in 0 until AppGrid.COLUMNS) {
+-                    val app = apps.getOrNull(row * AppGrid.COLUMNS + column)
+-                    if (app == null) {
+-                        Spacer(Modifier.weight(1f))
+-                    } else {
+-                        GridCell(
+-                            app = app,
+-                            onOpen = { onLaunchApp(app) },
+-                            onOpenSecond = { onLaunchSecond(app) },
+-                            onActions = { onOpenPeek(app) },
+-                            modifier =
+-                                Modifier
+-                                    .weight(1f)
+-                                    .fillMaxHeight()
+-                                    .then(if (row == 0 && column == 0) Modifier.focusRequester(firstFocus) else Modifier),
+-                        )
++        val iconDp =
++            AppGrid.iconSizeFor(
++                cellWidthDp = (maxWidth / AppGrid.COLUMNS).value.toInt(),
++                cellHeightDp = (maxHeight / rows).value.toInt(),
++                labelDp = GRID_LABEL_LINE_DP + GRID_CELL_CHROME_DP,
++            )
++        Column(modifier = Modifier.fillMaxSize()) {
++            for (row in 0 until rows) {
++                Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
++                    for (column in 0 until AppGrid.COLUMNS) {
++                        val app = apps.getOrNull(row * AppGrid.COLUMNS + column)
++                        if (app == null) {
++                            Spacer(Modifier.weight(1f))
++                        } else {
++                            GridCell(
++                                app = app,
++                                label = AppGrid.gridLabel(app.label, gridLabels),
++                                iconDp = iconDp,
++                                onOpen = { onLaunchApp(app) },
++                                onOpenSecond = { onLaunchSecond(app) },
++                                onActions = { onOpenPeek(app) },
++                                modifier =
++                                    Modifier
++                                        .weight(1f)
++                                        .fillMaxHeight()
++                                        .then(if (row == 0 && column == 0) Modifier.focusRequester(firstFocus) else Modifier),
++                            )
++                        }
+                     }
+                 }
+             }
+@@ -1501,10 +1541,15 @@ private fun AppGridPage(
+     }
+ }
+ 
+-/** A BB10 grid icon: the app icon in a dark box with its name under it; focus fills the cell BB10 blue. */
++/**
++ * A grid icon: the app's glyph (no tile) with its short name on one line
++ * under it ([AppGrid.gridLabel]); focus fills the cell BB10 blue.
++ */
+ @Composable
+ private fun GridCell(
+     app: AppEntry,
++    label: String,
++    iconDp: Int,
+     onOpen: () -> Unit,
+     onOpenSecond: () -> Unit,
+     onActions: () -> Unit,
+@@ -1515,7 +1560,7 @@ private fun GridCell(
+     Column(
+         modifier =
+             modifier
+-                .padding(3.dp)
++                .padding(GRID_CELL_GAP)
+                 .onFocusChanged { focused = it.isFocused }
+                 .clip(shape)
+                 .background(if (focused) Bb10Blue.copy(alpha = 0.32f) else Color.Transparent)
+@@ -1540,22 +1585,12 @@ private fun GridCell(
+                 }.combinedClickable(onClick = onOpen, onLongClick = onActions)
+                 .semantics {
+                     contentDescription = app.label + (app.profileLabel?.let { ", ${AppProfiles.badge(it)}" } ?: "")
+-                }.padding(vertical = 6.dp, horizontal = 2.dp),
++                }.padding(vertical = GRID_CELL_INNER_PADDING, horizontal = 1.dp),
+         horizontalAlignment = Alignment.CenterHorizontally,
+         verticalArrangement = Arrangement.Center,
+     ) {
+         Box {
+-            Box(
+-                modifier =
+-                    Modifier
+-                        .size(GRID_ICON_BOX_DP.dp)
+-                        .clip(RoundedCornerShape(10.dp))
+-                        .background(Bb10Tile)
+-                        .border(1.dp, Bb10Line, RoundedCornerShape(10.dp)),
+-                contentAlignment = Alignment.Center,
+-            ) {
+-                AppMark(app = app, size = GRID_ICON_DP)
+-            }
++            AppMark(app = app, size = iconDp)
+             val badge = app.profileLabel
+             if (badge != null) {
+                 Text(
+@@ -1566,20 +1601,21 @@ private fun GridCell(
+                             .clip(RoundedCornerShape(6.dp))
+                             .background(Color.Black)
+                             .border(1.dp, Bb10Muted, RoundedCornerShape(6.dp))
+-                            .padding(horizontal = 4.dp),
+-                    fontSize = 9.sp,
++                            .padding(horizontal = 3.dp),
++                    fontSize = 8.sp,
+                     color = Color.White,
+                     maxLines = 1,
+                 )
+             }
+         }
+-        Spacer(Modifier.height(4.dp))
++        Spacer(Modifier.height(GRID_ICON_LABEL_GAP))
+         Text(
+-            text = app.label,
+-            style = MaterialTheme.typography.labelMedium,
++            text = label,
++            // No tracking: "Minesweeper" fits a fifth of 411dp on one line.
++            style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.sp),
+             color = Color.White,
+             textAlign = TextAlign.Center,
+-            maxLines = 2,
++            maxLines = 1,
+             overflow = TextOverflow.Ellipsis,
+         )
+     }
+@@ -1720,6 +1756,8 @@ private fun HubPage(
+                 text = HUB_LABEL,
+                 style = MaterialTheme.typography.headlineSmall,
+                 fontWeight = FontWeight.Medium,
++                // The strip is always BB10 dark, whatever the appearance's content colour.
++                color = Color.White,
+                 modifier = Modifier.semantics { heading() },
+             )
+             Spacer(Modifier.height(8.dp))
+@@ -1880,7 +1918,7 @@ private fun Bb10ActionBar(
+                 .height(BAR_HEIGHT_DP.dp)
+                 .background(Brush.verticalGradient(listOf(Bb10BarTop, Bb10BarBottom)))
+                 .border(1.dp, Bb10Line)
+-                .padding(horizontal = 24.dp, vertical = 6.dp),
++                .padding(horizontal = 16.dp, vertical = 4.dp),
+         horizontalArrangement = Arrangement.spacedBy(12.dp),
+     ) {
+         slots.forEachIndexed { index, slot ->
+@@ -1917,7 +1955,7 @@ private fun Bb10ActionBar(
+                         },
+                 contentAlignment = Alignment.Center,
+             ) {
+-                QuickSlotMark(slot = slot, size = 30, monochrome = true)
++                QuickSlotMark(slot = slot, size = BAR_GLYPH_DP, monochrome = true)
+             }
+         }
+     }
+@@ -3932,21 +3970,20 @@ private fun CompactAppRow(
+     }
+ }
+ 
++/**
++ * An app's icon in Start's one style (Q4 device review, Q7): the app's Sable
++ * glyph when it has one ([AppGlyphs], by package only), else its own themed
++ * monochrome layer shaded like the glyphs, else its own icon at the same size.
++ * Never a tile behind it.
++ */
+ @Composable
+ private fun AppMark(
+     app: AppEntry,
+     size: Int,
+-    fallbackContentColor: Color = MaterialTheme.colorScheme.onSurface,
+-    showFallbackSurface: Boolean = true,
+ ) {
+-    val glyphPackage = approvedGlyphPackage(app)
+-    if (glyphPackage != null) {
+-        SableGlyphIcon(
+-            packageName = glyphPackage,
+-            accent = appColor(app),
+-            modifier = Modifier.size(size.dp),
+-            compact = size <= 46,
+-        )
++    val glyph = AppGlyphs.forPackage(app.component.packageName)
++    if (glyph != null) {
++        SableGlyphIcon(glyph = glyph, modifier = Modifier.size(size.dp))
+         return
+     }
+ 
+@@ -3956,7 +3993,7 @@ private fun AppMark(
+     // Loaded off the main thread and cached for the process: binding a row never
+     // waits on LauncherApps (ROW_BIND_BLOCKING_QUERY=NO).
+     val icon by
+-        produceState<Bitmap?>(initialValue = LauncherIconCache.get(iconKey), iconKey) {
++        produceState<LauncherIcon?>(initialValue = LauncherIconCache.get(iconKey), iconKey) {
+             if (value == null) {
+                 value =
+                     withContext(Dispatchers.IO) {
+@@ -3966,78 +4003,53 @@ private fun AppMark(
+         }
+ 
+     val loadedIcon = icon
+-    if (loadedIcon != null) {
+-        Image(
+-            bitmap = loadedIcon.asImageBitmap(),
+-            contentDescription = null,
+-            modifier =
+-                Modifier
+-                    .size(size.dp)
+-                    .clip(RoundedCornerShape(8.dp)),
+-            contentScale = ContentScale.Fit,
+-        )
+-    } else {
+-        Box(
+-            modifier =
+-                Modifier
+-                    .size(size.dp)
+-                    .clip(RoundedCornerShape(6.dp))
+-                    .then(
+-                        if (showFallbackSurface) {
+-                            Modifier.background(appColor(app))
+-                        } else {
+-                            Modifier
+-                        },
+-                    ),
+-            contentAlignment = Alignment.Center,
+-        ) {
+-            Text(
+-                text = appMark(app),
+-                fontWeight = FontWeight.Bold,
+-                color = fallbackContentColor,
++    when {
++        loadedIcon == null ->
++            // Until the icon loads: the first letter in the glyph colours, no tile.
++            Box(modifier = Modifier.size(size.dp), contentAlignment = Alignment.Center) {
++                Text(
++                    text = appMark(app),
++                    fontWeight = FontWeight.Bold,
++                    fontSize = (size * 0.5f).sp,
++                    color = MaterialTheme.colorScheme.onSurface,
++                )
++            }
++        loadedIcon.monochrome ->
++            SableMonochromeIcon(
++                mask = loadedIcon.bitmap.asImageBitmap(),
++                accent = appColor(app),
++                modifier = Modifier.size(size.dp),
++            )
++        else ->
++            Image(
++                bitmap = loadedIcon.bitmap.asImageBitmap(),
++                contentDescription = null,
++                modifier = Modifier.size(size.dp),
++                contentScale = ContentScale.Fit,
+             )
+-        }
+     }
+ }
+ 
+-private fun approvedGlyphPackage(app: AppEntry): String? {
+-    val packageName = app.component.packageName
+-    if (sableGlyphForPackage(packageName) != null) return packageName
+-
+-    return when {
+-        app.label.equals("Phone", ignoreCase = true) -> DIALER_PACKAGE
+-        app.label.equals(HUB_LABEL, ignoreCase = true) ||
+-            app.label.equals("Hub", ignoreCase = true) ||
+-            app.label.equals(MESSAGES_LABEL, ignoreCase = true) ||
+-            app.label.equals("Messages", ignoreCase = true) -> HUB_PACKAGE
+-        app.label.equals(MAIL_LABEL, ignoreCase = true) ||
+-            app.label.equals("Mail", ignoreCase = true) -> MAIL_PACKAGE
+-        app.label.equals("Sable Calendar", ignoreCase = true) ||
+-            app.label.equals("Calendar", ignoreCase = true) -> CALENDAR_PACKAGE
+-        app.label.equals(WEATHER_LABEL, ignoreCase = true) ||
+-            app.label.equals("Weather", ignoreCase = true) -> WEATHER_PACKAGE
+-        app.label.equals("Photos", ignoreCase = true) ||
+-            app.label.equals("Gallery", ignoreCase = true) -> GALLERY_PACKAGE
+-        app.label.equals(MEDIA_LABEL, ignoreCase = true) ||
+-            app.label.equals("Media", ignoreCase = true) -> MEDIA_PACKAGE
+-        app.label.equals("Camera", ignoreCase = true) -> "app.grapheneos.camera"
+-        app.label.equals(CALCULATOR_LABEL, ignoreCase = true) ||
+-            app.label.equals("Calculator", ignoreCase = true) -> CALCULATOR_PACKAGE
+-        app.label.equals("Files", ignoreCase = true) -> FILES_PACKAGE
+-        app.label.equals("Clock", ignoreCase = true) -> "com.android.deskclock"
+-        app.label.equals("Vanadium", ignoreCase = true) -> "app.vanadium.browser"
+-        app.label.equals("Settings", ignoreCase = true) -> SETTINGS_PACKAGE
+-        else -> null
+-    }
+-}
++/** A loaded launcher icon: the app's themed monochrome layer (a mask) or its full icon. */
++private class LauncherIcon(
++    val bitmap: Bitmap,
++    val monochrome: Boolean,
++)
+ 
+-private object LauncherIconCache : LruCache<String, Bitmap>(LAUNCHER_ICON_CACHE_ENTRIES)
++private object LauncherIconCache : LruCache<String, LauncherIcon>(LAUNCHER_ICON_CACHE_ENTRIES)
+ 
++/**
++ * The app's icon at [sizeDp]. An adaptive icon with a monochrome layer
++ * (Android 13 themed icons) gives that layer, its 66dp safe zone scaled to
++ * the glyph box so it sits at the glyphs' size; any other icon is drawn whole,
++ * inset like the glyphs' own margin. Work and clone badges come from the
++ * row's profile label, not from the icon.
++ */
+ private fun loadLauncherIcon(
+     context: Context,
+     app: AppEntry,
+     sizeDp: Int,
+-): Bitmap? =
++): LauncherIcon? =
+     runCatching {
+         val launcherApps = context.getSystemService(LauncherApps::class.java)
+         val activityInfo =
+@@ -4053,8 +4065,6 @@ private fun loadLauncherIcon(
+             (sizeDp * density)
+                 .toInt()
+                 .coerceAtLeast(1)
+-        val insetPx = (iconSizePx * 0.06f).toInt()
+-        val drawable = activityInfo.getBadgedIcon(densityDpi)
+         val bitmap =
+             Bitmap.createBitmap(
+                 iconSizePx,
+@@ -4062,7 +4072,22 @@ private fun loadLauncherIcon(
+                 Bitmap.Config.ARGB_8888,
+             )
+         val canvas = Canvas(bitmap)
+-
++        val drawable = activityInfo.getIcon(densityDpi)
++        val monochrome =
++            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && drawable is AdaptiveIconDrawable) {
++                drawable.monochrome
++            } else {
++                null
++            }
++        if (monochrome != null) {
++            // The layer spans the 108dp adaptive canvas; its 66dp safe zone fills the icon box.
++            val canvasPx = (iconSizePx * ADAPTIVE_CANVAS_DP / ADAPTIVE_SAFE_ZONE_DP).toInt()
++            val offset = (iconSizePx - canvasPx) / 2
++            monochrome.setBounds(offset, offset, offset + canvasPx, offset + canvasPx)
++            monochrome.draw(canvas)
++            return@runCatching LauncherIcon(bitmap, monochrome = true)
++        }
++        val insetPx = (iconSizePx * OWN_ICON_INSET).toInt()
+         drawable.setBounds(
+             insetPx,
+             insetPx,
+@@ -4070,7 +4095,7 @@ private fun loadLauncherIcon(
+             iconSizePx - insetPx,
+         )
+         drawable.draw(canvas)
+-        bitmap
++        LauncherIcon(bitmap, monochrome = false)
+     }.getOrNull()
+ 
+ @Composable
+@@ -4592,58 +4617,29 @@ private fun appMark(app: AppEntry): String =
+         .uppercase()
+         .ifEmpty { "•" }
+ 
+-private fun appColor(app: AppEntry): Color =
+-    when {
+-        app.component.packageName == HUB_PACKAGE ||
+-            app.label.equals(HUB_LABEL, ignoreCase = true) ||
+-            app.label.equals(MESSAGES_LABEL, ignoreCase = true) -> SableGreen
+-        app.component.packageName == MAIL_PACKAGE ||
+-            app.label.equals(MAIL_LABEL, ignoreCase = true) -> SableSlate
+-        app.component.packageName == CALENDAR_PACKAGE ||
+-            app.label.equals("Calendar", ignoreCase = true) -> SableOrange
+-        app.component.packageName == WEATHER_PACKAGE ||
+-            app.label.equals(WEATHER_LABEL, ignoreCase = true) -> SableBlue
+-        app.component.packageName == MEDIA_PACKAGE ||
+-            app.label.equals(MEDIA_LABEL, ignoreCase = true) -> SablePurple
+-        CoreAppIdentity.isRole(app.component.packageName, CoreAppIdentity.PHOTOS) ||
+-            app.label.equals("Photos", ignoreCase = true) -> SablePurple
+-        CoreAppIdentity.isRole(app.component.packageName, CoreAppIdentity.CAMERA) ||
+-            app.component.packageName == CoreAppIdentity.SABLE_CAMERA ||
+-            app.label.equals("Camera", ignoreCase = true) -> SableSlate
+-        app.component.packageName == CALCULATOR_PACKAGE ||
+-            app.label.equals(CALCULATOR_LABEL, ignoreCase = true) -> SableBlue
+-        app.component.packageName == FILES_PACKAGE ||
+-            app.label.equals("Files", ignoreCase = true) -> SableOrange
+-        app.component.packageName == DIALER_PACKAGE ||
+-            app.label.equals("Phone", ignoreCase = true) -> SableBlue
+-        else -> {
+-            val index =
+-                Math.floorMod(
+-                    app.stableKey().hashCode(),
+-                    SableTilePalette.size,
+-                )
+-            SableTilePalette[index]
+-        }
+-    }
++/** The app's accent: its glyph's ([AppGlyphs], by package), else a stable pick from the Sable palette. */
++private fun appColor(app: AppEntry): Color {
++    AppGlyphs.forPackage(app.component.packageName)?.let { return Color(it.accent) }
++    val index =
++        Math.floorMod(
++            app.stableKey().hashCode(),
++            SableTilePalette.size,
++        )
++    return SableTilePalette[index]
++}
+ 
++/** The live line for an app's Active Frame, by package only (a "Calendar" label is not Sable Calendar). */
+ private fun liveDatumForApp(
+     app: AppEntry,
+     snapshot: LiveSurfaceSnapshot,
+ ): LiveDatum? =
+-    when {
+-        app.component.packageName == CALENDAR_PACKAGE ||
+-            app.label.equals("Calendar", ignoreCase = true) -> snapshot.calendar
+-        app.component.packageName == HUB_PACKAGE ||
+-            app.label.equals(HUB_LABEL, ignoreCase = true) ||
+-            app.label.equals(MESSAGES_LABEL, ignoreCase = true) -> snapshot.messages
+-        app.component.packageName == MAIL_PACKAGE ||
+-            app.label.equals(MAIL_LABEL, ignoreCase = true) -> snapshot.mail
+-        app.component.packageName == WEATHER_PACKAGE ||
+-            app.label.equals(WEATHER_LABEL, ignoreCase = true) -> snapshot.weather
+-        app.component.packageName == MEDIA_PACKAGE ||
+-            app.label.equals(MEDIA_LABEL, ignoreCase = true) -> snapshot.music
+-        CoreAppIdentity.isRole(app.component.packageName, CoreAppIdentity.PHOTOS) ||
+-            app.label.equals("Photos", ignoreCase = true) -> snapshot.photos
++    when (CoreAppIdentity.canonicalPackage(app.component.packageName)) {
++        CALENDAR_PACKAGE -> snapshot.calendar
++        HUB_PACKAGE -> snapshot.messages
++        MAIL_PACKAGE -> snapshot.mail
++        WEATHER_PACKAGE -> snapshot.weather
++        MEDIA_PACKAGE -> snapshot.music
++        CoreAppIdentity.PHOTOS -> snapshot.photos
+         else -> null
+     }
+ 
+@@ -4690,15 +4686,10 @@ private const val WEATHER_PACKAGE = "org.sableos.weather"
+ private const val MEDIA_PACKAGE = "org.sableos.media"
+ private const val DIALER_PACKAGE = "com.android.dialer"
+ private const val GALLERY_PACKAGE = "com.android.gallery3d"
+-private const val CALCULATOR_PACKAGE = "org.sableos.calculator"
+-private const val FILES_PACKAGE = "com.android.documentsui"
+-private const val SETTINGS_PACKAGE = "com.android.settings"
+ private const val HUB_LABEL = "Sable Hub"
+ private const val WEATHER_LABEL = "Sable Weather"
+ private const val MAIL_LABEL = "Sable Mail"
+ private const val MESSAGES_LABEL = "Sable Messages"
+-private const val MEDIA_LABEL = "Sable Media"
+-private const val CALCULATOR_LABEL = "Sable Calculator"
+ private const val CONTACTS_PACKAGE = "com.android.contacts"
+ private const val KEYCODE_DPAD_LEFT = 21
+ private const val KEYCODE_DPAD_RIGHT = 22
+@@ -4709,20 +4700,46 @@ private val EditRowStep = 48.dp
+ private const val PROFILE_PRIVATE_LABEL = "private"
+ private const val HUB_EXTRA_QUERY = "org.sableos.hub.extra.QUERY"
+ private const val LAUNCHER_ICON_CACHE_ENTRIES = 160
++private const val ADAPTIVE_CANVAS_DP = 108f
++private const val ADAPTIVE_SAFE_ZONE_DP = 66f
++
++/** An app's own (non-glyph) icon keeps the margin a Phosphor glyph has in its 256-unit box. */
++private const val OWN_ICON_INSET = 0.06f
+ private const val FOCUS_SURFACE_ALL_APPS = "all-apps"
+ private val PrivacyBadgeWidth = 18.dp
+ 
+-// BB10 strip metrics (720x720 at density 193 is about 597dp square).
+-private val FRAME_PADDING = 8.dp
+-private val FRAME_GAP = 8.dp
+-private val FRAME_LABEL_HEIGHT = 30.dp
+-private val FRAME_MIN_HEIGHT = 120.dp
+-private const val GRID_CELL_MIN_DP = 112
+-private const val GRID_ICON_BOX_DP = 58
+-private const val GRID_ICON_DP = 42
+-private const val INDICATOR_HEIGHT_DP = 18
+-private const val BAR_HEIGHT_DP = 58
+-
+-/** Status bar, page indicator, bar and padding: what the grid pages do not get. */
+-private const val START_CHROME_DP = 24 + INDICATOR_HEIGHT_DP + BAR_HEIGHT_DP + 12
++// BB10 strip metrics, designed for the Q25's 720x720 panel at density 280
++// (411dp square, about 387dp tall under the status bar). The grid's rows and
++// icon size, and the Active Frames card height, come from the window.
++private val FRAME_PADDING = 6.dp
++private val FRAME_GAP = 6.dp
++private val FRAME_LABEL_HEIGHT = 26.dp
++
++/** Two rows of frames always fit under the dials and the weather on a 411dp square. */
++private val FRAME_MIN_HEIGHT = 72.dp
++private const val FRAME_ICON_DP = 40
++private val STATUS_RING_SIZE = 34.dp
++
++/** A grid cell is at least this tall: a 40dp icon, its one-line label and the focus padding. */
++private const val GRID_CELL_MIN_DP = 74
++private val GRID_PADDING = 4.dp
++private val GRID_CELL_GAP = 2.dp
++private val GRID_CELL_INNER_PADDING = 4.dp
++private val GRID_ICON_LABEL_GAP = 3.dp
++
++/** labelMedium's line height. */
++private const val GRID_LABEL_LINE_DP = 16
++
++/** Cell gap, inner padding and icon-to-label gap, top and bottom. */
++private const val GRID_CELL_CHROME_DP = 2 * 2 + 4 * 2 + 3
++private const val INDICATOR_HEIGHT_DP = 16
++private const val INDICATOR_SLOT_DP = 18
++private const val BAR_HEIGHT_DP = 48
++private const val BAR_GLYPH_DP = 26
++
++/** Before the window is measured: the status bar the configuration's height still includes. */
++private const val STATUS_BAR_FALLBACK_DP = 24
++
++/** Page indicator, bar and the grid's own padding: what the grid rows do not get. */
++private const val START_CHROME_DP = INDICATOR_HEIGHT_DP + BAR_HEIGHT_DP + 2 * 4
+ private const val NANOS_PER_MILLI = 1_000_000L
+diff --git a/sable-src/third_party/phosphor-icons/PROVENANCE.md b/sable-src/third_party/phosphor-icons/PROVENANCE.md
+index f43f545..95f62ec 100644
+--- a/sable-src/third_party/phosphor-icons/PROVENANCE.md
++++ b/sable-src/third_party/phosphor-icons/PROVENANCE.md
+@@ -29,5 +29,8 @@ Glyphs added for the Q25 adaptive-icon work (verbatim `assets/regular/<name>.svg
+ from raw.githubusercontent.com): bomb, book-open-text, calculator, calendar-dots, chat-circle-dots, chat-text,
+ cloud-sun, envelope-simple, grid-four, grid-nine, music-notes, text-align-left, wrench.
+ Added for Secure Vault (Private Space file layer, `origin=NEW_TITAN_GLYPH_PHOSPHOR_REGULAR`): vault.
++Added for Sable Start's tile-free app glyphs on the Q25 (`model/AppGlyphs.kt`, drawn by `ui/SableGlyphIcon.kt` from
++the same path data): address-book, clock, folder-simple, gear-six, globe, image-square, microphone, phone-call,
++puzzle-piece, shopping-bag, video-camera.
+ 
+ SableScreens is a prototype and has no product icon.
+diff --git a/sable-src/third_party/phosphor-icons/glyphs/address-book.svg b/sable-src/third_party/phosphor-icons/glyphs/address-book.svg
+new file mode 100644
+index 0000000..574bbac
+--- /dev/null
++++ b/sable-src/third_party/phosphor-icons/glyphs/address-book.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M83.19,174.4a8,8,0,0,0,11.21-1.6,52,52,0,0,1,83.2,0,8,8,0,1,0,12.8-9.6A67.88,67.88,0,0,0,163,141.51a40,40,0,1,0-53.94,0A67.88,67.88,0,0,0,81.6,163.2,8,8,0,0,0,83.19,174.4ZM112,112a24,24,0,1,1,24,24A24,24,0,0,1,112,112Zm96-88H64A16,16,0,0,0,48,40V64H32a8,8,0,0,0,0,16H48v40H32a8,8,0,0,0,0,16H48v40H32a8,8,0,0,0,0,16H48v24a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V40A16,16,0,0,0,208,24Zm0,192H64V40H208Z"/></svg>
+\ No newline at end of file
+diff --git a/sable-src/third_party/phosphor-icons/glyphs/clock.svg b/sable-src/third_party/phosphor-icons/glyphs/clock.svg
+new file mode 100644
+index 0000000..decf49e
+--- /dev/null
++++ b/sable-src/third_party/phosphor-icons/glyphs/clock.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z"/></svg>
+\ No newline at end of file
+diff --git a/sable-src/third_party/phosphor-icons/glyphs/folder-simple.svg b/sable-src/third_party/phosphor-icons/glyphs/folder-simple.svg
+new file mode 100644
+index 0000000..36acab2
+--- /dev/null
++++ b/sable-src/third_party/phosphor-icons/glyphs/folder-simple.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M216,72H130.67L102.93,51.2a16.12,16.12,0,0,0-9.6-3.2H40A16,16,0,0,0,24,64V200a16,16,0,0,0,16,16H216.89A15.13,15.13,0,0,0,232,200.89V88A16,16,0,0,0,216,72Zm0,128H40V64H93.33L123.2,86.4A8,8,0,0,0,128,88h88Z"/></svg>
+\ No newline at end of file
+diff --git a/sable-src/third_party/phosphor-icons/glyphs/gear-six.svg b/sable-src/third_party/phosphor-icons/glyphs/gear-six.svg
+new file mode 100644
+index 0000000..2f6e0ca
+--- /dev/null
++++ b/sable-src/third_party/phosphor-icons/glyphs/gear-six.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm109.94-52.79a8,8,0,0,0-3.89-5.4l-29.83-17-.12-33.62a8,8,0,0,0-2.83-6.08,111.91,111.91,0,0,0-36.72-20.67,8,8,0,0,0-6.46.59L128,41.85,97.88,25a8,8,0,0,0-6.47-.6A112.1,112.1,0,0,0,54.73,45.15a8,8,0,0,0-2.83,6.07l-.15,33.65-29.83,17a8,8,0,0,0-3.89,5.4,106.47,106.47,0,0,0,0,41.56,8,8,0,0,0,3.89,5.4l29.83,17,.12,33.62a8,8,0,0,0,2.83,6.08,111.91,111.91,0,0,0,36.72,20.67,8,8,0,0,0,6.46-.59L128,214.15,158.12,231a7.91,7.91,0,0,0,3.9,1,8.09,8.09,0,0,0,2.57-.42,112.1,112.1,0,0,0,36.68-20.73,8,8,0,0,0,2.83-6.07l.15-33.65,29.83-17a8,8,0,0,0,3.89-5.4A106.47,106.47,0,0,0,237.94,107.21Zm-15,34.91-28.57,16.25a8,8,0,0,0-3,3c-.58,1-1.19,2.06-1.81,3.06a7.94,7.94,0,0,0-1.22,4.21l-.15,32.25a95.89,95.89,0,0,1-25.37,14.3L134,199.13a8,8,0,0,0-3.91-1h-.19c-1.21,0-2.43,0-3.64,0a8.08,8.08,0,0,0-4.1,1l-28.84,16.1A96,96,0,0,1,67.88,201l-.11-32.2a8,8,0,0,0-1.22-4.22c-.62-1-1.23-2-1.8-3.06a8.09,8.09,0,0,0-3-3.06l-28.6-16.29a90.49,90.49,0,0,1,0-28.26L61.67,97.63a8,8,0,0,0,3-3c.58-1,1.19-2.06,1.81-3.06a7.94,7.94,0,0,0,1.22-4.21l.15-32.25a95.89,95.89,0,0,1,25.37-14.3L122,56.87a8,8,0,0,0,4.1,1c1.21,0,2.43,0,3.64,0a8.08,8.08,0,0,0,4.1-1l28.84-16.1A96,96,0,0,1,188.12,55l.11,32.2a8,8,0,0,0,1.22,4.22c.62,1,1.23,2,1.8,3.06a8.09,8.09,0,0,0,3,3.06l28.6,16.29A90.49,90.49,0,0,1,222.9,142.12Z"/></svg>
+\ No newline at end of file
+diff --git a/sable-src/third_party/phosphor-icons/glyphs/globe.svg b/sable-src/third_party/phosphor-icons/glyphs/globe.svg
+new file mode 100644
+index 0000000..83b5ba0
+--- /dev/null
++++ b/sable-src/third_party/phosphor-icons/glyphs/globe.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M128,24h0A104,104,0,1,0,232,128,104.12,104.12,0,0,0,128,24Zm88,104a87.61,87.61,0,0,1-3.33,24H174.16a157.44,157.44,0,0,0,0-48h38.51A87.61,87.61,0,0,1,216,128ZM102,168H154a115.11,115.11,0,0,1-26,45A115.27,115.27,0,0,1,102,168Zm-3.9-16a140.84,140.84,0,0,1,0-48h59.88a140.84,140.84,0,0,1,0,48ZM40,128a87.61,87.61,0,0,1,3.33-24H81.84a157.44,157.44,0,0,0,0,48H43.33A87.61,87.61,0,0,1,40,128ZM154,88H102a115.11,115.11,0,0,1,26-45A115.27,115.27,0,0,1,154,88Zm52.33,0H170.71a135.28,135.28,0,0,0-22.3-45.6A88.29,88.29,0,0,1,206.37,88ZM107.59,42.4A135.28,135.28,0,0,0,85.29,88H49.63A88.29,88.29,0,0,1,107.59,42.4ZM49.63,168H85.29a135.28,135.28,0,0,0,22.3,45.6A88.29,88.29,0,0,1,49.63,168Zm98.78,45.6a135.28,135.28,0,0,0,22.3-45.6h35.66A88.29,88.29,0,0,1,148.41,213.6Z"/></svg>
+\ No newline at end of file
+diff --git a/sable-src/third_party/phosphor-icons/glyphs/image-square.svg b/sable-src/third_party/phosphor-icons/glyphs/image-square.svg
+new file mode 100644
+index 0000000..540ebff
+--- /dev/null
++++ b/sable-src/third_party/phosphor-icons/glyphs/image-square.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM48,48H208v77.38l-24.69-24.7a16,16,0,0,0-22.62,0L53.37,208H48ZM208,208H76l96-96,36,36v60ZM96,120A24,24,0,1,0,72,96,24,24,0,0,0,96,120Zm0-32a8,8,0,1,1-8,8A8,8,0,0,1,96,88Z"/></svg>
+\ No newline at end of file
+diff --git a/sable-src/third_party/phosphor-icons/glyphs/microphone.svg b/sable-src/third_party/phosphor-icons/glyphs/microphone.svg
+new file mode 100644
+index 0000000..8af9d89
+--- /dev/null
++++ b/sable-src/third_party/phosphor-icons/glyphs/microphone.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M128,176a48.05,48.05,0,0,0,48-48V64a48,48,0,0,0-96,0v64A48.05,48.05,0,0,0,128,176ZM96,64a32,32,0,0,1,64,0v64a32,32,0,0,1-64,0Zm40,143.6V240a8,8,0,0,1-16,0V207.6A80.11,80.11,0,0,1,48,128a8,8,0,0,1,16,0,64,64,0,0,0,128,0,8,8,0,0,1,16,0A80.11,80.11,0,0,1,136,207.6Z"/></svg>
+\ No newline at end of file
+diff --git a/sable-src/third_party/phosphor-icons/glyphs/phone-call.svg b/sable-src/third_party/phosphor-icons/glyphs/phone-call.svg
+new file mode 100644
+index 0000000..b604dc4
+--- /dev/null
++++ b/sable-src/third_party/phosphor-icons/glyphs/phone-call.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M144.27,45.93a8,8,0,0,1,9.8-5.66,86.22,86.22,0,0,1,61.66,61.66,8,8,0,0,1-5.66,9.8A8.23,8.23,0,0,1,208,112a8,8,0,0,1-7.73-5.94,70.35,70.35,0,0,0-50.33-50.33A8,8,0,0,1,144.27,45.93Zm-2.33,41.8c13.79,3.68,22.65,12.54,26.33,26.33A8,8,0,0,0,176,120a8.23,8.23,0,0,0,2.07-.27,8,8,0,0,0,5.66-9.8c-5.12-19.16-18.5-32.54-37.66-37.66a8,8,0,1,0-4.13,15.46Zm81.94,95.35A56.26,56.26,0,0,1,168,232C88.6,232,24,167.4,24,88A56.26,56.26,0,0,1,72.92,32.12a16,16,0,0,1,16.62,9.52l21.12,47.15,0,.12A16,16,0,0,1,109.39,104c-.18.27-.37.52-.57.77L88,129.45c7.49,15.22,23.41,31,38.83,38.51l24.34-20.71a8.12,8.12,0,0,1,.75-.56,16,16,0,0,1,15.17-1.4l.13.06,47.11,21.11A16,16,0,0,1,223.88,183.08Zm-15.88-2s-.07,0-.11,0h0l-47-21.05-24.35,20.71a8.44,8.44,0,0,1-.74.56,16,16,0,0,1-15.75,1.14c-18.73-9.05-37.4-27.58-46.46-46.11a16,16,0,0,1,1-15.7,6.13,6.13,0,0,1,.57-.77L96,95.15l-21-47a.61.61,0,0,1,0-.12A40.2,40.2,0,0,0,40,88,128.14,128.14,0,0,0,168,216,40.21,40.21,0,0,0,208,181.07Z"/></svg>
+\ No newline at end of file
+diff --git a/sable-src/third_party/phosphor-icons/glyphs/puzzle-piece.svg b/sable-src/third_party/phosphor-icons/glyphs/puzzle-piece.svg
+new file mode 100644
+index 0000000..a024088
+--- /dev/null
++++ b/sable-src/third_party/phosphor-icons/glyphs/puzzle-piece.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M220.27,158.54a8,8,0,0,0-7.7-.46,20,20,0,1,1,0-36.16A8,8,0,0,0,224,114.69V72a16,16,0,0,0-16-16H171.78a35.36,35.36,0,0,0,.22-4,36.11,36.11,0,0,0-11.36-26.24,36,36,0,0,0-60.55,23.62,36.56,36.56,0,0,0,.14,6.62H64A16,16,0,0,0,48,72v32.22a35.36,35.36,0,0,0-4-.22,36.12,36.12,0,0,0-26.24,11.36,35.7,35.7,0,0,0-9.69,27,36.08,36.08,0,0,0,33.31,33.6,35.68,35.68,0,0,0,6.62-.14V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V165.31A8,8,0,0,0,220.27,158.54ZM208,208H64V165.31a8,8,0,0,0-11.43-7.23,20,20,0,1,1,0-36.16A8,8,0,0,0,64,114.69V72h46.69a8,8,0,0,0,7.23-11.43,20,20,0,1,1,36.16,0A8,8,0,0,0,161.31,72H208v32.23a35.68,35.68,0,0,0-6.62-.14A36,36,0,0,0,204,176a35.36,35.36,0,0,0,4-.22Z"/></svg>
+\ No newline at end of file
+diff --git a/sable-src/third_party/phosphor-icons/glyphs/shopping-bag.svg b/sable-src/third_party/phosphor-icons/glyphs/shopping-bag.svg
+new file mode 100644
+index 0000000..b85280d
+--- /dev/null
++++ b/sable-src/third_party/phosphor-icons/glyphs/shopping-bag.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,160H40V56H216V200ZM176,88a48,48,0,0,1-96,0,8,8,0,0,1,16,0,32,32,0,0,0,64,0,8,8,0,0,1,16,0Z"/></svg>
+\ No newline at end of file
+diff --git a/sable-src/third_party/phosphor-icons/glyphs/video-camera.svg b/sable-src/third_party/phosphor-icons/glyphs/video-camera.svg
+new file mode 100644
+index 0000000..de861f3
+--- /dev/null
++++ b/sable-src/third_party/phosphor-icons/glyphs/video-camera.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M251.77,73a8,8,0,0,0-8.21.39L208,97.05V72a16,16,0,0,0-16-16H32A16,16,0,0,0,16,72V184a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V159l35.56,23.71A8,8,0,0,0,248,184a8,8,0,0,0,8-8V80A8,8,0,0,0,251.77,73ZM192,184H32V72H192V184Zm48-22.95-32-21.33V116.28L240,95Z"/></svg>
+\ No newline at end of file

@@ -78,8 +78,8 @@ object OrientationOverrides {
         OVERRIDE_LANDSCAPE_ORIENTATION_TO_REVERSE_LANDSCAPE
     )
 
-    /** Changes to enable for an orientation, or null when the platform has no per-app override for it. */
-    fun forOrientation(o: OrientationPref): Set<Long>? = when (o) {
+    /** Changes to enable for an orientation (none for Default and Auto). */
+    fun forOrientation(o: OrientationPref): Set<Long> = when (o) {
         OrientationPref.Default -> emptySet()
 
         OrientationPref.Portrait -> setOf(
@@ -91,8 +91,9 @@ object OrientationOverrides {
         OrientationPref.Landscape ->
             setOf(OVERRIDE_ANY_ORIENTATION, OVERRIDE_LANDSCAPE_ORIENTATION_TO_REVERSE_LANDSCAPE)
 
-        // OVERRIDE_ANY_ORIENTATION_TO_USER only acts on displays that ignore orientation requests; a phone does not.
-        OrientationPref.Auto -> null
+        // No compat change: OVERRIDE_ANY_ORIENTATION_TO_USER only acts on displays that ignore
+        // orientation requests. Auto is held live instead (auto-rotate on while the app is in front).
+        OrientationPref.Auto -> emptySet()
     }
 }
 
@@ -103,7 +104,9 @@ object OrientationOverrides {
 data class PlatformRequest(
     val minAspectRatio: Int,
     val enableOrientation: Set<Long>,
-    val notApplied: List<String>
+    val notApplied: List<String>,
+    /** Held by the Display Compat service while the app is in front (Tall canvas, rotation). */
+    val live: List<String> = emptyList()
 ) {
     val disableOrientation: Set<Long> get() = OrientationOverrides.ALL - enableOrientation
 
@@ -114,6 +117,7 @@ data class PlatformRequest(
     fun describe(): String = buildString {
         append("aspect ").append(UserMinAspectRatio.label(minAspectRatio))
         append(", orientation ").append(orientationLabel())
+        if (live.isNotEmpty()) append("; while in front: ").append(live.joinToString(", "))
         if (notApplied.isNotEmpty()) append("; stored only: ").append(notApplied.joinToString(", "))
     }
 
@@ -141,7 +145,6 @@ object PlatformMapping {
         val aspect = UserMinAspectRatio.forProfile(p.profile, p.customRatio)
         if (aspect == null) notApplied += p.profile.id.replace('_', ' ')
         val orientation = OrientationOverrides.forOrientation(p.orientation)
-        if (orientation == null) notApplied += "orientation " + p.orientation.name.lowercase()
         if (p.scaling != ScalingPref.Default) notApplied += "scaling"
         if (p.letterboxBackground !=
             LetterboxBackground.System
@@ -153,8 +156,19 @@ object PlatformMapping {
         if (p.stretch) notApplied += "stretch"
         return PlatformRequest(
             aspect ?: UserMinAspectRatio.UNSET,
-            orientation.orEmpty(),
-            notApplied
+            orientation,
+            notApplied,
+            live(p)
         )
+    }
+
+    private fun live(p: DisplayProfile): List<String> = buildList {
+        if (p.canvas != TallCanvas.Native) add("tall canvas " + p.canvas.shape)
+        when (p.orientation) {
+            OrientationPref.Portrait -> add("rotation portrait")
+            OrientationPref.Landscape -> add("rotation landscape")
+            OrientationPref.Auto -> add("auto-rotate")
+            OrientationPref.Default -> Unit
+        }
     }
 }

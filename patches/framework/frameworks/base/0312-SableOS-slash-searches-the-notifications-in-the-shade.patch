@@ -73,12 +73,12 @@ index af00a48d..cd31d51e 100644
      }
  
 diff --git a/packages/SystemUI/res/values/sable_shade_strings.xml b/packages/SystemUI/res/values/sable_shade_strings.xml
-index 2048e13f..5b936611 100644
+index 61902ffc..fcabcfd1 100644
 --- a/packages/SystemUI/res/values/sable_shade_strings.xml
 +++ b/packages/SystemUI/res/values/sable_shade_strings.xml
 @@ -35,7 +35,13 @@
      <!-- Accessibility action of the Hub summary row. -->
-     <string name="sable_hub_summary_action">open Sable Hub</string>
+     <string name="sable_hub_summary_action">open the Hub page</string>
      <!-- Keyboard hint line under the compact shade (Q25: Alt replaces Fn). -->
 -    <string name="sable_qs_key_hint">Alt+Down expand · ↑↓ focus · Space toggle · Alt+Enter details</string>
 +    <string name="sable_qs_key_hint">Alt+Down expand · ↑↓ focus · Space toggle · Alt+Enter details · / search</string>
@@ -130,7 +130,7 @@ index 25ae6a50..998c1d71 100644
          // closed), exactly like Back. It is the design's Fn+Up on keyboards without Fn (Q25).
          // Pre-IME, so focus navigation inside the shade never takes it first. The shade window
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt b/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt
-index 3d77b76f..1e0da996 100644
+index 9f3e21ae..133c9794 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt
 +++ b/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt
 @@ -148,6 +148,7 @@ import com.android.systemui.qs.composefragment.ui.NotificationScrimClipParams
@@ -141,7 +141,7 @@ index 3d77b76f..1e0da996 100644
  import com.android.systemui.qs.composefragment.ui.quickQuickSettingsToQuickSettings
  import com.android.systemui.qs.composefragment.ui.toEditMode
  import com.android.systemui.qs.composefragment.viewmodel.QSFragmentComposeViewModel
-@@ -237,6 +238,20 @@ constructor(
+@@ -238,6 +239,20 @@ constructor(
  
          setListenerCollections()
          lifecycleScope.launch { viewModel.activate() }
@@ -162,7 +162,7 @@ index 3d77b76f..1e0da996 100644
      }
  
      override fun onCreateView(
-@@ -860,6 +875,9 @@ constructor(
+@@ -861,6 +876,9 @@ constructor(
              hubInstalled = hubInstalled,
              onOpenHub = { openSableHub(context) },
          )

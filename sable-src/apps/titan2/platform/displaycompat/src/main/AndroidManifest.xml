@@ -14,6 +14,16 @@
     <uses-permission
         android:name="android.permission.OVERRIDE_COMPAT_CHANGE_CONFIG_ON_RELEASE_BUILD"
         tools:ignore="ProtectedPermissions" />
+    <!-- Display tools: Tall canvas and its density guard (IWindowManager.setForcedDisplaySize,
+         setForcedDisplayDensityForUser), the display's ignore-orientation-request setting, forced
+         rotation (Settings.System user_rotation / accelerometer_rotation), the app in front
+         (task stack listener, running tasks of every app) and the restore at boot. -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.SET_ORIENTATION" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.MANAGE_ACTIVITY_TASKS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.REAL_GET_TASKS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- App discovery uses a <queries> launcher intent, not QUERY_ALL_PACKAGES.
          The Sable appearance authority (Settings) holds the global Sable app corner style. -->
@@ -56,5 +66,33 @@
                 <data android:scheme="package" />
             </intent-filter>
         </activity>
+
+        <!-- Follows the app in front for Tall canvas and per-app rotation (android/DisplayToolsService). -->
+        <service
+            android:name=".android.DisplayToolsService"
+            android:exported="false" />
+
+        <!-- Gives held display settings back at boot, before the first unlock too. Not
+             exported: the app runs as android.uid.system, the same uid that sends the boot
+             broadcasts, so they still arrive. -->
+        <receiver
+            android:name=".android.BootReceiver"
+            android:directBootAware="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Resolution hotkey from PhoneWindowManager (frameworks/base 0313). Not exported: only the
+             system UID (the system server) can send it. -->
+        <receiver
+            android:name=".android.CanvasHotkeyReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="org.sableos.titan2.displaycompat.action.CYCLE_CANVAS" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

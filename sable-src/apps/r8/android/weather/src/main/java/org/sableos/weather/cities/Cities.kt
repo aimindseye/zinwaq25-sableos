@@ -110,6 +110,15 @@ data class CityState(val cities: List<City>, val selectedName: String) {
         return done(copy(selectedName = found.name))
     }
 
+    /**
+     * Makes [city] the active city: a listed city at the same place (or with the same name) is selected,
+     * anything else is added and selected. Used when another app, such as Sable Setup, picks the city.
+     */
+    fun use(city: City): CityEdit {
+        val listed = cities.firstOrNull { CityRules.samePlace(it, city) }
+        return if (listed != null) select(listed.name) else add(city, select = true)
+    }
+
     /** Back to the built-in cities; the selection is kept only if it is one of them. */
     fun reset(): CityEdit {
         val keep = DefaultCities.ALL.firstOrNull { CityRules.sameName(it.name, selected.name) }

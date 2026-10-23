@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- No permissions. Reads the default dialer/SMS/home/keyboard through public APIs and opens system settings screens.
+    <!-- No permissions (and no location permission: the Weather city is typed, not detected). Reads the default dialer/SMS/home/keyboard through public APIs and opens system settings screens.
          The settings actions below are declared only so the helper can check that each screen resolves before offering it. -->
     <queries>
         <intent><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.HOME" /></intent>
@@ -10,6 +10,8 @@
         <intent><action android:name="android.settings.WIRELESS_SETTINGS" /></intent>
         <package android:name="org.sableos.titan2.displaycompat" />
         <package android:name="org.sableos.titan2.radiodiag" />
+        <!-- Sable Weather's city hand-off (ContentResolver.call); Weather allows only this package. -->
+        <provider android:authorities="org.sableos.weather.snapshot" />
     </queries>
 
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />

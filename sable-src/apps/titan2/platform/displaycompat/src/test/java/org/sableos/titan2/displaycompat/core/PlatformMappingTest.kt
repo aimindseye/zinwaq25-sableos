@@ -78,12 +78,21 @@ class PlatformMappingTest {
         assertTrue(landscape.describe().contains("orientation landscape"))
     }
 
-    @Test fun autoOrientationIsReportedNotApplied() {
+    @Test fun autoOrientationIsHeldLiveNotByACompatChange() {
         val r = PlatformMapping.request(DisplayProfile(orientation = OrientationPref.Auto))
         assertTrue(r.enableOrientation.isEmpty())
         assertEquals(OrientationOverrides.ALL, r.disableOrientation)
-        assertTrue(r.notApplied.contains("orientation auto"))
+        assertTrue(r.notApplied.isEmpty())
+        assertEquals(listOf("auto-rotate"), r.live)
         assertFalse(r.hasEffect)
+        assertTrue(r.describe().contains("while in front: auto-rotate"))
+    }
+
+    @Test fun tallCanvasIsALiveEffect() {
+        val r = PlatformMapping.request(DisplayProfile(canvas = TallCanvas.Tall9x16))
+        assertEquals(UserMinAspectRatio.UNSET, r.minAspectRatio)
+        assertEquals(listOf("tall canvas 9:16"), r.live)
+        assertTrue(r.notApplied.isEmpty())
     }
 
     @Test fun miniModeSendsThreeByTwo() {

@@ -92,6 +92,8 @@ class CityRepository(private val store: KeyValueStore) {
 
     fun reset(): CityEdit = edit { it.reset() }
 
+    fun use(city: City): CityEdit = edit { it.use(city) }
+
     private fun edit(op: (CityState) -> CityEdit): CityEdit {
         val result = op(load())
         if (result.changed) store.put(KEY, CityCodec.encode(result.state))
