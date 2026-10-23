@@ -389,6 +389,17 @@ for s in android.provider.Telephony.SMS_DELIVER android.provider.Telephony.WAP_P
 done
 if [[ -z "$msg_bad" ]]; then pass "Sable Messages is the default SMS app (role default, grants, SMS/MMS components)"; else fail "Sable Messages default SMS:$msg_bad"; fi
 
+# 6b1c. Framework Hub links open Start's Hub page, Hub settings or Sable Messages, never the old Hub UI.
+hl_bad=""
+grep -q 'org.sableos.start.action.SHOW_HUB' patches/framework/frameworks/base/0301-*.patch || hl_bad="$hl_bad 0301:show-hub"
+grep -q 'OPEN_NOTIFICATION' patches/framework/frameworks/base/0301-*.patch && hl_bad="$hl_bad 0301:old-hub"
+grep -q 'SableHubRoute' patches/framework/frameworks/base/0311-*.patch || hl_bad="$hl_bad 0311"
+grep -q 'org.sableos.hub.action.CONNECTED_APPS' patches/framework/packages/apps/Settings/1001-*.patch || hl_bad="$hl_bad 1001"
+grep -q 'org.sableos.messages' patches/framework/packages/apps/Contacts/0754-*.patch || hl_bad="$hl_bad 0754:messages"
+grep -q '"smsto"' patches/framework/packages/apps/Contacts/0754-*.patch || hl_bad="$hl_bad 0754:smsto"
+grep -q "^| Q4-HUB-LINKS |" docs/QUALIFICATION.md || hl_bad="$hl_bad gate"
+if [[ -z "$hl_bad" ]]; then pass "Framework Hub links open Start's Hub page, Hub settings or Sable Messages"; else fail "framework Hub links:$hl_bad"; fi
+
 # 6b2. Optional 50 MP camera: the patcher on a synthetic vendor tree, and off by default.
 if python3 -I tests/test_camera_50mp.py >"$tmp/cam50" 2>&1; then
     pass "camera 50 MP patcher ($(grep -o 'Ran [0-9]* tests' "$tmp/cam50"))"
