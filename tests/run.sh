@@ -400,6 +400,18 @@ grep -q '"smsto"' patches/framework/packages/apps/Contacts/0754-*.patch || hl_ba
 grep -q "^| Q4-HUB-LINKS |" docs/QUALIFICATION.md || hl_bad="$hl_bad gate"
 if [[ -z "$hl_bad" ]]; then pass "Framework Hub links open Start's Hub page, Hub settings or Sable Messages"; else fail "framework Hub links:$hl_bad"; fi
 
+# 6b1d. Display tools: Tall canvas through forced size, task listener, boot restore, Alt+Shift+R (0313).
+dcs=sable-src/apps/titan2/platform/displaycompat/src/main
+dt_bad=""
+grep -q '"setForcedDisplaySize"' "$dcs/java/org/sableos/titan2/displaycompat/android/WmDisplayPort.kt" || dt_bad="$dt_bad forced-size"
+grep -q 'registerTaskStackListener' "$dcs/java/org/sableos/titan2/displaycompat/android/DisplayToolsService.kt" || dt_bad="$dt_bad task-listener"
+grep -q 'android.intent.action.LOCKED_BOOT_COMPLETED' "$dcs/AndroidManifest.xml" || dt_bad="$dt_bad boot-restore"
+grep -A3 'CanvasHotkeyReceiver' "$dcs/AndroidManifest.xml" | grep -q 'android:exported="false"' || dt_bad="$dt_bad receiver-exported"
+grep -q 'SableDisplayKeys.isCanvasCycleChord' patches/framework/frameworks/base/0313-*.patch || dt_bad="$dt_bad 0313-chord"
+grep -q 'org.sableos.titan2.displaycompat.action.CYCLE_CANVAS' patches/framework/frameworks/base/0313-*.patch || dt_bad="$dt_bad 0313-action"
+for g in TALL-CANVAS HOTKEY ROTATION; do grep -q "^| Q4-DISPLAY-$g |" docs/QUALIFICATION.md || dt_bad="$dt_bad gate:$g"; done
+if [[ -z "$dt_bad" ]]; then pass "display tools: Tall canvas via forced size, task listener, boot restore, Alt+Shift+R (0313)"; else fail "display tools:$dt_bad"; fi
+
 # 6b2. Optional 50 MP camera: the patcher on a synthetic vendor tree, and off by default.
 if python3 -I tests/test_camera_50mp.py >"$tmp/cam50" 2>&1; then
     pass "camera 50 MP patcher ($(grep -o 'Ran [0-9]* tests' "$tmp/cam50"))"

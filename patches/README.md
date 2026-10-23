@@ -85,7 +85,12 @@
   Ripe-style unread bar from Hub's `snapshot/apps` route, Start READ_CONTACTS,
   `org.sableos.start.action.SHOW_HUB`) and Sable Hub has no launcher entry, 0071 Sable Messages
   as a real SMS app and the default SMS app (threads from the SMS/MMS provider, sending with
-  sent/failed status and retry, receiving SMS and MMS, notifications, sms:/smsto: links). Applied in order to a
+  sent/failed status and retry, receiving SMS and MMS, notifications, sms:/smsto: links), 0072
+  App display compatibility's Display tools: Tall canvas resolutions per app (720x772 to
+  720x1440 through forced display size while the app is in front), the Alt+Shift+R resolution
+  hotkey (with frameworks/base 0313), a system rotation override, live per-app orientation, and
+  ignore-orientation-request while an aspect profile is stored (Android 16 applies user aspect
+  ratios only then). Applied in order to a
   fresh import they reproduce `sable-src/` exactly. Regenerate a patch with `git diff` against a
   fresh import when you change these files.
 

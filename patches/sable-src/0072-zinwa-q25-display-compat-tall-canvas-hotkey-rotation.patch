@@ -1,0 +1,2596 @@
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml
+index 0437e648cd1cb1a4f9326c16794aa28064d80f1a..8b16b1fb319dee5f9c23f8d4d99b358f1fbd8b41 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml
+@@ -14,6 +14,16 @@
+     <uses-permission
+         android:name="android.permission.OVERRIDE_COMPAT_CHANGE_CONFIG_ON_RELEASE_BUILD"
+         tools:ignore="ProtectedPermissions" />
++    <!-- Display tools: Tall canvas and its density guard (IWindowManager.setForcedDisplaySize,
++         setForcedDisplayDensityForUser), the display's ignore-orientation-request setting, forced
++         rotation (Settings.System user_rotation / accelerometer_rotation), the app in front
++         (task stack listener, running tasks of every app) and the restore at boot. -->
++    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:ignore="ProtectedPermissions" />
++    <uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions" />
++    <uses-permission android:name="android.permission.SET_ORIENTATION" tools:ignore="ProtectedPermissions" />
++    <uses-permission android:name="android.permission.MANAGE_ACTIVITY_TASKS" tools:ignore="ProtectedPermissions" />
++    <uses-permission android:name="android.permission.REAL_GET_TASKS" tools:ignore="ProtectedPermissions" />
++    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+ 
+     <!-- App discovery uses a <queries> launcher intent, not QUERY_ALL_PACKAGES.
+          The Sable appearance authority (Settings) holds the global Sable app corner style. -->
+@@ -56,5 +66,31 @@
+                 <data android:scheme="package" />
+             </intent-filter>
+         </activity>
++
++        <!-- Follows the app in front for Tall canvas and per-app rotation (android/DisplayToolsService). -->
++        <service
++            android:name=".android.DisplayToolsService"
++            android:exported="false" />
++
++        <!-- Gives held display settings back at boot, before the first unlock too. -->
++        <receiver
++            android:name=".android.BootReceiver"
++            android:directBootAware="true"
++            android:exported="true">
++            <intent-filter>
++                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
++                <action android:name="android.intent.action.BOOT_COMPLETED" />
++            </intent-filter>
++        </receiver>
++
++        <!-- Resolution hotkey from PhoneWindowManager (frameworks/base 0313). Not exported: only the
++             system UID (the system server) can send it. -->
++        <receiver
++            android:name=".android.CanvasHotkeyReceiver"
++            android:exported="false">
++            <intent-filter>
++                <action android:name="org.sableos.titan2.displaycompat.action.CYCLE_CANVAS" />
++            </intent-filter>
++        </receiver>
+     </application>
+ </manifest>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/BootReceiver.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/BootReceiver.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..c158ee3c25d17125502957cefab13a52f21bac19
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/BootReceiver.kt
+@@ -0,0 +1,43 @@
++package org.sableos.titan2.displaycompat.android
++
++import android.content.BroadcastReceiver
++import android.content.Context
++import android.content.Intent
++import android.util.Log
++import org.sableos.titan2.displaycompat.core.PlanRunner
++
++/**
++ * Boot: whatever Display Compat still held when the device went down (a crash or a reboot while
++ * a Tall canvas or a forced rotation was on) is given back first, before the lock screen is used
++ * (LOCKED_BOOT_COMPLETED, device-protected storage only). After the unlock (BOOT_COMPLETED) the
++ * profiles are applied again and the service starts if a profile needs it.
++ */
++class BootReceiver : BroadcastReceiver() {
++    override fun onReceive(context: Context, intent: Intent) {
++        when (intent.action) {
++            Intent.ACTION_LOCKED_BOOT_COMPLETED -> restoreHeld(context)
++
++            Intent.ACTION_BOOT_COMPLETED -> {
++                restoreHeld(context)
++                val app = context.displayCompat
++                if (context.packageManager.isSafeMode) app.controller.resetAll()
++                app.refreshDisplay()
++            }
++        }
++    }
++
++    private fun restoreHeld(context: Context) {
++        val held = HeldStore(context)
++        val failed = runCatching {
++            PlanRunner.restoreAll(WmDisplayPort(context.contentResolver), held.read(), held::write)
++        }.getOrElse {
++            Log.w(TAG, "restore at boot failed", it)
++            return
++        }
++        if (failed.isNotEmpty()) Log.w(TAG, "restore at boot left $failed")
++    }
++
++    private companion object {
++        const val TAG = "SableDisplayTools"
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/CanvasHotkeyReceiver.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/CanvasHotkeyReceiver.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..30e328f3cd4fc9c915128f6110cc204c76d978ea
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/CanvasHotkeyReceiver.kt
+@@ -0,0 +1,36 @@
++package org.sableos.titan2.displaycompat.android
++
++import android.content.BroadcastReceiver
++import android.content.Context
++import android.content.Intent
++import android.content.pm.PackageManager
++import android.widget.Toast
++import org.sableos.titan2.displaycompat.core.CycleText
++
++/**
++ * The resolution hotkey (Alt+Shift+R, or Sym+Shift+R). PhoneWindowManager (frameworks/base 0313)
++ * sends [ACTION_CYCLE_CANVAS] to this package when the chord is pressed on a hardware keyboard
++ * after setup and off the keyguard. The receiver is not exported: only the system UID (the system
++ * server, and this app) can reach it. The app in front moves to its next favourite size, the
++ * choice is saved to its profile and a short toast names the new size.
++ */
++class CanvasHotkeyReceiver : BroadcastReceiver() {
++    override fun onReceive(context: Context, intent: Intent) {
++        if (intent.action != ACTION_CYCLE_CANVAS) return
++        val app = context.displayCompat
++        if (!app.unlocked()) return
++        val moment = DeviceMoment.read(context)
++        val outcome = app.tools.cycle(moment)
++        app.refreshDisplay()
++        val label = moment.frontPackage?.let { labelOf(context.packageManager, it) } ?: "this app"
++        Toast.makeText(context, CycleText.message(outcome, label), Toast.LENGTH_SHORT).show()
++    }
++
++    private fun labelOf(pm: PackageManager, pkg: String): String = runCatching {
++        pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
++    }.getOrDefault(pkg)
++
++    companion object {
++        const val ACTION_CYCLE_CANVAS = "org.sableos.titan2.displaycompat.action.CYCLE_CANVAS"
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DeviceMoment.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DeviceMoment.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..9a9befbc6278ea53ce44f9744d7a5814f3960d2d
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DeviceMoment.kt
+@@ -0,0 +1,50 @@
++package org.sableos.titan2.displaycompat.android
++
++import android.app.ActivityManager
++import android.app.KeyguardManager
++import android.content.Context
++import android.os.PowerManager
++import android.provider.Settings
++import org.sableos.titan2.displaycompat.core.Moment
++
++/** Reads [Moment] from the device: the gate, setup, screen and lock state and the app in front. */
++object DeviceMoment {
++    private const val DEFAULT_DISPLAY = 0
++    private const val TASKS = 5
++
++    fun read(context: Context): Moment {
++        val power = context.getSystemService(PowerManager::class.java)
++        val keyguard = context.getSystemService(KeyguardManager::class.java)
++        val interactive = power?.isInteractive == true && keyguard?.isKeyguardLocked != true
++        return Moment(
++            gateOpen = GatedPlatformBackend.isOpen(),
++            setupComplete =
++                Settings.Secure.getInt(context.contentResolver, USER_SETUP_COMPLETE, 0) == 1,
++            interactive = interactive,
++            frontPackage = frontPackage(context)
++        )
++    }
++
++    /**
++     * Package of the visible top task on the default display. The system UID sees every task
++     * (REAL_GET_TASKS); `displayId` and `isVisible` are hidden fields, read by reflection with the
++     * default display and "visible" as fallbacks.
++     */
++    @Suppress("DEPRECATION")
++    fun frontPackage(context: Context): String? {
++        val am = context.getSystemService(ActivityManager::class.java) ?: return null
++        val tasks = runCatching { am.getRunningTasks(TASKS) }.getOrNull().orEmpty()
++        return tasks.firstOrNull {
++            field(it, "displayId", DEFAULT_DISPLAY) == DEFAULT_DISPLAY &&
++                field(it, "isVisible", true)
++        }
++            ?.let { (it.topActivity ?: it.baseActivity)?.packageName }
++    }
++
++    private inline fun <reified T> field(o: Any, name: String, default: T): T = runCatching {
++        o.javaClass.getField(name).get(o) as? T
++    }.getOrNull() ?: default
++
++    /** `Settings.Secure.USER_SETUP_COMPLETE` (hidden constant). */
++    private const val USER_SETUP_COMPLETE = "user_setup_complete"
++}
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt
+index 3815eea15bab65d5dd7739576306f494980bfefd..5ccd8ee78a1128056b88e8941848dd17e311fbc2 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt
+@@ -2,29 +2,64 @@ package org.sableos.titan2.displaycompat.android
+ 
+ import android.app.Application
+ import android.content.Context
++import android.content.Intent
++import android.os.UserManager
++import android.util.Log
+ import org.sableos.titan2.displaycompat.core.AppStyleController
++import org.sableos.titan2.displaycompat.core.DisplayTools
+ import org.sableos.titan2.displaycompat.core.ProfileController
+ import org.sableos.titan2.displaycompat.core.ProfileStore
+ 
++/**
++ * Everything is created on first use: the boot receiver runs before the first unlock, when
++ * credential-encrypted preferences cannot be opened, and touches only [HeldStore] there.
++ */
+ class DisplayCompatApp : Application() {
+-    lateinit var store: ProfileStore
+-        private set
+-    lateinit var controller: ProfileController
+-        private set
+-    lateinit var appStyleStore: AppearanceStyleStore
+-        private set
+-    lateinit var appStyle: AppStyleController
+-        private set
++    val store: ProfileStore by lazy { PrefsProfileStore(this) }
++    val controller: ProfileController by lazy { ProfileController(store, GatedPlatformBackend()) }
++    val appStyleStore: AppearanceStyleStore by lazy { AppearanceStyleStore(this) }
++    val appStyle: AppStyleController by lazy { AppStyleController(appStyleStore) }
++    val toolsSettings: PrefsToolsSettings by lazy { PrefsToolsSettings(this) }
++    val tools: DisplayTools by lazy {
++        DisplayTools(WmDisplayPort(contentResolver), toolsSettings, store, controller) { pkg ->
++            TraitsResolver(this).resolve(pkg)
++        }
++    }
+ 
+     override fun onCreate() {
+         super.onCreate()
+-        store = PrefsProfileStore(this)
+-        appStyleStore = AppearanceStyleStore(this)
+-        appStyle = AppStyleController(appStyleStore)
+-        controller = ProfileController(store, GatedPlatformBackend())
+         // SAFE_MODE_RESET_ALL_DISPLAY_PROFILES: booting to safe mode clears every per-app profile
+-        // so a bad profile cannot trap the user.
+-        if (packageManager.isSafeMode) controller.resetAll()
++        // so a bad profile cannot trap the user. Before the first unlock the boot receiver does it.
++        if (packageManager.isSafeMode && unlocked()) {
++            controller.resetAll()
++            tools.restoreAll()
++        }
++    }
++
++    fun unlocked(): Boolean = getSystemService(UserManager::class.java)?.isUserUnlocked != false
++
++    /**
++     * Brings the display in line with the profiles and settings (after a save, a reset, a Display
++     * tools change or the hotkey) and starts or stops [DisplayToolsService] as needed.
++     */
++    fun refreshDisplay() {
++        if (reconcileNow()) {
++            startService(Intent(this, DisplayToolsService::class.java))
++        } else {
++            stopService(Intent(this, DisplayToolsService::class.java))
++        }
++    }
++
++    /** One reconcile; true while [DisplayToolsService] is needed. */
++    fun reconcileNow(): Boolean {
++        if (!unlocked()) return false
++        runCatching { tools.reconcile(DeviceMoment.read(this)) }
++            .onFailure { Log.w(TAG, "display reconcile failed", it) }
++        return tools.needsService(GatedPlatformBackend.isOpen())
++    }
++
++    private companion object {
++        const val TAG = "SableDisplayTools"
+     }
+ }
+ 
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayToolsService.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayToolsService.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..078c2be1e5bcc9f115a0b3ffe22a2774d225a7be
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayToolsService.kt
+@@ -0,0 +1,108 @@
++package org.sableos.titan2.displaycompat.android
++
++import android.app.Service
++import android.content.BroadcastReceiver
++import android.content.Context
++import android.content.Intent
++import android.content.IntentFilter
++import android.os.Binder
++import android.os.Handler
++import android.os.IBinder
++import android.os.Looper
++import android.os.Parcel
++import android.util.Log
++
++/**
++ * Small started service (no UI, no notification) that follows the app in front of the default
++ * display for Tall canvas and per-app rotation. It runs only while some profile needs it, starts at
++ * boot ([BootReceiver]) and is sticky, so after a crash it comes back and reconciles from the held
++ * originals. The system UID is exempt from background start limits.
++ *
++ * Foreground changes come from `IActivityTaskManager.registerTaskStackListener` (MANAGE_ACTIVITY_TASKS);
++ * screen off, screen on and unlock from broadcasts. Every event schedules one debounced reconcile,
++ * which reads the top task itself, so the listener never depends on which callback fired.
++ */
++class DisplayToolsService : Service() {
++    private val handler = Handler(Looper.getMainLooper())
++    private val reconcile = Runnable { if (!displayCompat.reconcileNow()) stopSelf() }
++    private val listener = StackListener { schedule() }
++    private var registered = false
++
++    private val screen = object : BroadcastReceiver() {
++        override fun onReceive(context: Context, intent: Intent) = schedule()
++    }
++
++    override fun onCreate() {
++        super.onCreate()
++        val filter = IntentFilter().apply {
++            addAction(Intent.ACTION_SCREEN_OFF)
++            addAction(Intent.ACTION_SCREEN_ON)
++            addAction(Intent.ACTION_USER_PRESENT)
++        }
++        registerReceiver(screen, filter, Context.RECEIVER_NOT_EXPORTED)
++        registered = TaskStack.register(listener)
++        if (!registered) Log.w(TAG, "task stack listener unavailable; following screen events only")
++    }
++
++    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
++        schedule()
++        return START_STICKY
++    }
++
++    override fun onDestroy() {
++        handler.removeCallbacks(reconcile)
++        unregisterReceiver(screen)
++        if (registered) TaskStack.unregister(listener)
++        super.onDestroy()
++    }
++
++    override fun onBind(intent: Intent?): IBinder? = null
++
++    private fun schedule() {
++        handler.removeCallbacks(reconcile)
++        handler.postDelayed(reconcile, DEBOUNCE_MS)
++    }
++
++    /**
++     * An `ITaskStackListener` without the hidden stub class: every one-way call is just "the task
++     * stack changed". Anything else (interface or dump transactions) goes to [Binder].
++     */
++    private class StackListener(private val onChange: () -> Unit) : Binder(DESCRIPTOR) {
++        override fun onTransact(code: Int, data: Parcel, reply: Parcel?, flags: Int): Boolean {
++            if (code in FIRST_CALL_TRANSACTION..LAST_CALL_TRANSACTION) {
++                onChange()
++                return true
++            }
++            return super.onTransact(code, data, reply, flags)
++        }
++    }
++
++    private object TaskStack {
++        private val atm: Any? by lazy {
++            runCatching {
++                Class.forName(
++                    "android.app.ActivityTaskManager"
++                ).getMethod("getService").invoke(null)
++            }.getOrNull()
++        }
++
++        private fun call(name: String, binder: IBinder): Boolean = runCatching {
++            val listenerClass = Class.forName(DESCRIPTOR)
++            val listener = Class.forName("$DESCRIPTOR\$Stub")
++                .getMethod("asInterface", IBinder::class.java).invoke(null, binder)
++            Class.forName("android.app.IActivityTaskManager").getMethod(name, listenerClass)
++                .invoke(requireNotNull(atm), listener)
++            true
++        }.onFailure { Log.w(TAG, "$name failed", it) }.getOrDefault(false)
++
++        fun register(binder: IBinder) = call("registerTaskStackListener", binder)
++
++        fun unregister(binder: IBinder) = call("unregisterTaskStackListener", binder)
++    }
++
++    private companion object {
++        const val TAG = "SableDisplayTools"
++        const val DESCRIPTOR = "android.app.ITaskStackListener"
++        const val DEBOUNCE_MS = 150L
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt
+index 39c652ff3f873e6464e55c9f8e2c3d8d41ab5b6e..a2a24be424cbc1180b68c5271c824d28db927c0e 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt
+@@ -32,7 +32,7 @@ class GatedPlatformBackend : DisplayBackend {
+     override val availability: BackendAvailability
+         get() = if (open()) BackendAvailability.OPEN_UNVERIFIED else BackendAvailability.CLOSED
+ 
+-    private fun open() = SysProps.get(GATE_PROPERTY) == GATE_OPEN
++    private fun open() = isOpen()
+ 
+     override fun apply(pkg: String, plan: CanvasPlan, p: DisplayProfile): ApplyResult {
+         if (!open()) return ApplyResult.NoOp
+@@ -41,11 +41,13 @@ class GatedPlatformBackend : DisplayBackend {
+         return when {
+             sent != null -> sent
+ 
+-            !request.hasEffect -> ApplyResult.Unsupported(
++            !request.hasEffect && request.live.isEmpty() -> ApplyResult.Unsupported(
+                 "no platform equivalent for " + request.notApplied.joinToString(", ") +
+                     "; stored only, platform settings cleared"
+             )
+ 
++            !request.hasEffect -> ApplyResult.Applied(request.describe() + LIVE)
++
+             else -> ApplyResult.Applied(request.describe() + readBack(pkg) + NEXT_LAUNCH)
+         }
+     }
+@@ -143,9 +145,13 @@ class GatedPlatformBackend : DisplayBackend {
+     companion object {
+         const val GATE_PROPERTY = "persist.sable.displaycompat.backend"
+         const val GATE_OPEN = "validated"
++
++        /** The same gate closes the display tools (Tall canvas, hotkey, forced rotation). */
++        fun isOpen(): Boolean = SysProps.get(GATE_PROPERTY) == GATE_OPEN
+         private const val PLATFORM_COMPAT_SERVICE = "platform_compat"
+         private const val PER_USER_RANGE = 100_000
+         private const val NEXT_LAUNCH = "; takes effect the next time the app starts"
++        private const val LIVE = "; the display tools service holds it while the app is in front"
+         private val PM_INTERFACE: Class<*> by lazy {
+             Class.forName("android.content.pm.IPackageManager")
+         }
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/PrefsToolsSettings.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/PrefsToolsSettings.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..d7ab55ab7149467cc30470e15d94bd65429171bf
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/PrefsToolsSettings.kt
+@@ -0,0 +1,64 @@
++package org.sableos.titan2.displaycompat.android
++
++import android.annotation.SuppressLint
++import android.content.Context
++import org.sableos.titan2.displaycompat.core.CanvasCycle
++import org.sableos.titan2.displaycompat.core.HeldCodec
++import org.sableos.titan2.displaycompat.core.HeldState
++import org.sableos.titan2.displaycompat.core.SystemRotation
++import org.sableos.titan2.displaycompat.core.TallCanvas
++import org.sableos.titan2.displaycompat.core.ToolsSettings
++
++/**
++ * Display tools settings. The held originals live in device-protected storage so the boot
++ * receiver can give them back before the user unlocks (a crash while a Tall canvas was shown must
++ * not leave the lock screen at 720x1280); they are written with commit(), never apply().
++ */
++class PrefsToolsSettings(context: Context) : ToolsSettings {
++    private val prefs = context.getSharedPreferences(TOOLS, Context.MODE_PRIVATE)
++
++    override var systemRotation: SystemRotation
++        get() = SystemRotation.fromId(prefs.getString(KEY_ROTATION, null))
++        set(value) {
++            prefs.edit().putString(KEY_ROTATION, value.id).apply()
++        }
++
++    override var favourites: Set<TallCanvas>
++        get() = CanvasCycle.decode(prefs.getString(KEY_FAVOURITES, null))
++        set(value) {
++            prefs.edit().putString(KEY_FAVOURITES, CanvasCycle.encode(value)).apply()
++        }
++
++    private val heldStore = HeldStore(context)
++
++    override var held: HeldState
++        get() = heldStore.read()
++        set(value) = heldStore.write(value)
++
++    private companion object {
++        const val TOOLS = "display_tools"
++        const val KEY_ROTATION = "system_rotation"
++        const val KEY_FAVOURITES = "canvas_favourites"
++    }
++}
++
++/** The held originals alone, in device-protected storage (usable before the first unlock). */
++class HeldStore(context: Context) {
++    private val prefs = context.createDeviceProtectedStorageContext()
++        .getSharedPreferences(HELD, Context.MODE_PRIVATE)
++
++    fun read(): HeldState = HeldCodec.decode(prefs.getString(KEY_HELD, null))
++
++    // commit(): the originals must be on disk before the display is changed.
++    @SuppressLint("ApplySharedPref")
++    fun write(h: HeldState) {
++        val edit = prefs.edit()
++        if (h.isEmpty) edit.remove(KEY_HELD) else edit.putString(KEY_HELD, HeldCodec.encode(h))
++        edit.commit()
++    }
++
++    private companion object {
++        const val HELD = "display_held"
++        const val KEY_HELD = "held"
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/WmDisplayPort.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/WmDisplayPort.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..effc0a52c6dd143fd2c4273e7706ce354fba3fe3
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/WmDisplayPort.kt
+@@ -0,0 +1,105 @@
++package org.sableos.titan2.displaycompat.android
++
++import android.content.ContentResolver
++import android.graphics.Point
++import android.os.Process
++import android.provider.Settings
++import org.sableos.titan2.displaycompat.core.CurrentDisplay
++import org.sableos.titan2.displaycompat.core.DisplayPort
++import org.sableos.titan2.displaycompat.core.DisplayStep
++import org.sableos.titan2.displaycompat.core.SizePx
++
++/**
++ * The default display through `IWindowManager` (LineageOS 23.2 / Android 16), the calls `wm size`,
++ * `wm density` and `wm set-ignore-orientation-request` make, plus the two rotation settings the
++ * Quick Settings auto-rotate tile writes. The system UID holds WRITE_SECURE_SETTINGS (forced size
++ * and density), SET_ORIENTATION (ignore orientation request) and WRITE_SETTINGS (rotation).
++ */
++class WmDisplayPort(private val resolver: ContentResolver) : DisplayPort {
++    private val wm: Any by lazy {
++        requireNotNull(
++            Class.forName("android.view.WindowManagerGlobal")
++                .getMethod("getWindowManagerService").invoke(null)
++        ) { "window manager unavailable" }
++    }
++
++    private fun method(name: String, vararg types: Class<*>) = WM_INTERFACE.getMethod(name, *types)
++
++    private fun size(name: String): SizePx {
++        val p = Point()
++        method(name, INT, Point::class.java).invoke(wm, DEFAULT_DISPLAY, p)
++        return SizePx(p.x, p.y)
++    }
++
++    private fun density(name: String): Int = method(name, INT).invoke(wm, DEFAULT_DISPLAY) as Int
++
++    override fun initialSize(): SizePx = size("getInitialDisplaySize")
++
++    override fun initialDensity(): Int = density("getInitialDisplayDensity")
++
++    override fun current(): CurrentDisplay {
++        val base = size("getBaseDisplaySize")
++        val baseDensity = density("getBaseDisplayDensity")
++        val ignore = method(
++            "getIgnoreOrientationRequest",
++            INT
++        ).invoke(wm, DEFAULT_DISPLAY) as Boolean
++        return CurrentDisplay(
++            forcedSize = base.takeIf { it != initialSize() },
++            forcedDensity = baseDensity.takeIf { it != initialDensity() },
++            autoRotate =
++                Settings.System.getInt(resolver, Settings.System.ACCELEROMETER_ROTATION, 0) == 1,
++            userRotation = Settings.System.getInt(resolver, Settings.System.USER_ROTATION, 0),
++            ignoreOrientationRequest = ignore
++        )
++    }
++
++    override fun run(step: DisplayStep) {
++        when (step) {
++            is DisplayStep.SetSize -> method("setForcedDisplaySize", INT, INT, INT)
++                .invoke(wm, DEFAULT_DISPLAY, step.size.w, step.size.h)
++
++            DisplayStep.ClearSize -> method(
++                "clearForcedDisplaySize",
++                INT
++            ).invoke(wm, DEFAULT_DISPLAY)
++
++            is DisplayStep.SetDensity -> method("setForcedDisplayDensityForUser", INT, INT, INT)
++                .invoke(wm, DEFAULT_DISPLAY, step.density, userId())
++
++            DisplayStep.ClearDensity -> method("clearForcedDisplayDensityForUser", INT, INT)
++                .invoke(wm, DEFAULT_DISPLAY, userId())
++
++            is DisplayStep.SetRotation -> {
++                // The rotation first, so a lock never shows the old rotation for a frame.
++                Settings.System.putInt(
++                    resolver,
++                    Settings.System.USER_ROTATION,
++                    step.rotation.userRotation
++                )
++                Settings.System.putInt(
++                    resolver,
++                    Settings.System.ACCELEROMETER_ROTATION,
++                    if (step.rotation.autoRotate) 1 else 0
++                )
++            }
++
++            is DisplayStep.SetIgnoreOrientationRequest ->
++                method(
++                    "setIgnoreOrientationRequest",
++                    INT,
++                    BOOL
++                ).invoke(wm, DEFAULT_DISPLAY, step.ignore)
++        }
++    }
++
++    private fun userId(): Int = Process.myUid() / PER_USER_RANGE
++
++    private companion object {
++        const val DEFAULT_DISPLAY = 0
++        const val PER_USER_RANGE = 100_000
++        val INT: Class<*> = Int::class.javaPrimitiveType!!
++        val BOOL: Class<*> = Boolean::class.javaPrimitiveType!!
++        val WM_INTERFACE: Class<*> by lazy { Class.forName("android.view.IWindowManager") }
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayPolicy.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayPolicy.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..cb5627b64680660272dc58b670613d401518eee2
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayPolicy.kt
+@@ -0,0 +1,113 @@
++package org.sableos.titan2.displaycompat.core
++
++/** System-wide rotation, in Display tools. Follow apps leaves the user's own setting alone. */
++enum class SystemRotation(val id: String, val label: String) {
++    FollowApps("follow", "Follow apps"),
++    Auto("auto", "Auto-rotate"),
++    Portrait("portrait", "Portrait"),
++    Landscape("landscape", "Landscape");
++
++    companion object {
++        fun fromId(id: String?): SystemRotation = entries.firstOrNull { it.id == id } ?: FollowApps
++    }
++}
++
++/** `Surface.ROTATION_*` values written to `Settings.System.USER_ROTATION`. */
++object Rotations {
++    const val ROTATION_0 = 0
++
++    /** Reverse landscape, the way the per-app Landscape compat override turns apps. */
++    const val ROTATION_270 = 3
++}
++
++/** A rotation the display is held at: auto-rotate on, or locked to [userRotation]. */
++data class RotationTarget(val autoRotate: Boolean, val userRotation: Int = Rotations.ROTATION_0) {
++    companion object {
++        val AUTO = RotationTarget(autoRotate = true)
++        val PORTRAIT = RotationTarget(autoRotate = false, userRotation = Rotations.ROTATION_0)
++        val LANDSCAPE = RotationTarget(autoRotate = false, userRotation = Rotations.ROTATION_270)
++    }
++}
++
++/** What the glue reads from the device. [frontProfile] is already validated (NATIVE if blocked). */
++data class Situation(
++    val gateOpen: Boolean,
++    val setupComplete: Boolean,
++    /** Screen on and keyguard not showing. */
++    val interactive: Boolean,
++    val frontPackage: String?,
++    val frontProfile: DisplayProfile,
++    val systemRotation: SystemRotation,
++    /** Some stored profile asks for a platform aspect ratio (see [DisplayPolicy]). */
++    val anyAspectProfile: Boolean
++)
++
++/** Facts about the default display, in its natural orientation. */
++data class DisplayFacts(val native: SizePx, val densityDpi: Int)
++
++/** Each field null means "not held by Display Compat: the user's own value". */
++data class DisplayTarget(
++    val size: SizePx? = null,
++    val density: Int? = null,
++    val rotation: RotationTarget? = null,
++    val ignoreOrientationRequest: Boolean? = null
++) {
++    companion object {
++        val NONE = DisplayTarget()
++    }
++}
++
++/**
++ * Restore decisions in one place:
++ *  - Tall canvas only while its app is in front, the screen is on and unlocked and setup is done;
++ *    any other app, the lock screen, a dead app (its task leaves the front) restore the display.
++ *  - Per-app orientation is held only while the app is in front; otherwise the system rotation.
++ *  - The display ignores apps' orientation requests while a rotation is locked (so a fixed-orientation
++ *    app cannot turn it) and while any app has an aspect ratio profile: on Android 16,
++ *    `AppCompatAspectRatioOverrides.shouldEnableUserAspectRatioSettings` honours user aspect ratios
++ *    only on a display that ignores orientation requests, which a phone display does not by default.
++ *  - A closed gate or unfinished setup holds nothing.
++ */
++object DisplayPolicy {
++    fun target(s: Situation, display: DisplayFacts): DisplayTarget {
++        if (!s.gateOpen || !s.setupComplete) return DisplayTarget.NONE
++        val front = if (s.interactive &&
++            s.frontPackage != null
++        ) {
++            s.frontProfile
++        } else {
++            DisplayProfile.NATIVE
++        }
++        val size = front.canvas.size(display.native)
++        val rotation = appRotation(front.orientation) ?: systemRotation(s.systemRotation)
++        val locked = rotation != null && !rotation.autoRotate
++        return DisplayTarget(
++            size = size,
++            density = size?.let { CanvasMath.compactDensity(it, display.densityDpi) },
++            rotation = rotation,
++            ignoreOrientationRequest = if (locked || s.anyAspectProfile) true else null
++        )
++    }
++
++    private fun appRotation(o: OrientationPref): RotationTarget? = when (o) {
++        OrientationPref.Default -> null
++        OrientationPref.Portrait -> RotationTarget.PORTRAIT
++        OrientationPref.Landscape -> RotationTarget.LANDSCAPE
++        OrientationPref.Auto -> RotationTarget.AUTO
++    }
++
++    private fun systemRotation(r: SystemRotation): RotationTarget? = when (r) {
++        SystemRotation.FollowApps -> null
++        SystemRotation.Auto -> RotationTarget.AUTO
++        SystemRotation.Portrait -> RotationTarget.PORTRAIT
++        SystemRotation.Landscape -> RotationTarget.LANDSCAPE
++    }
++
++    /** True when the profile sends a user aspect ratio the platform applies (not unset). */
++    fun usesAspectRatio(p: DisplayProfile): Boolean =
++        PlatformMapping.request(p).minAspectRatio != UserMinAspectRatio.UNSET
++
++    /** The service must follow the foreground app only for profiles that change while it is in front. */
++    fun needsForegroundTracking(profiles: Collection<DisplayProfile>): Boolean =
++        profiles.any { it.canvas != TallCanvas.Native || it.orientation != OrientationPref.Default }
++}
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayTools.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayTools.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..d5bd0cc0883d6def74aa37ad3e1447e4a8619563
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayTools.kt
+@@ -0,0 +1,207 @@
++package org.sableos.titan2.displaycompat.core
++
++/** The platform side of the display tools; the Android glue reflects into WindowManager. */
++interface DisplayPort {
++    /** Size and density of the default display before any forced value, natural orientation. */
++    fun initialSize(): SizePx
++    fun initialDensity(): Int
++    fun current(): CurrentDisplay
++
++    /** Throws when the platform refuses; the caller keeps the originals so it can retry. */
++    fun run(step: DisplayStep)
++}
++
++/** Display tools settings. [held] must be written synchronously (it is read back after a crash). */
++interface ToolsSettings {
++    var systemRotation: SystemRotation
++    var favourites: Set<TallCanvas>
++    var held: HeldState
++}
++
++/** What the glue reads about the moment: gate, setup, screen and the package in front. */
++data class Moment(
++    val gateOpen: Boolean,
++    val setupComplete: Boolean,
++    val interactive: Boolean,
++    val frontPackage: String?
++)
++
++sealed interface CycleOutcome {
++    data object GateClosed : CycleOutcome
++    data object NoApp : CycleOutcome
++    data object NoFavourites : CycleOutcome
++    data class Blocked(val reason: String) : CycleOutcome
++    data object NeedsConfirmation : CycleOutcome
++    data object StorageFailed : CycleOutcome
++    data class Changed(val canvas: TallCanvas, val label: String) : CycleOutcome
++}
++
++/**
++ * Tall canvas, the resolution hotkey and forced rotation. Every change goes through [reconcile]:
++ * the [DisplayPolicy] target, a [Reconciler] plan against what is held, then the steps. A failed
++ * step keeps the originals of that plan so the next reconcile (or the next boot) restores them.
++ */
++class DisplayTools(
++    private val port: DisplayPort,
++    private val settings: ToolsSettings,
++    private val store: ProfileStore,
++    private val controller: ProfileController,
++    private val traitsOf: (String) -> AppTraits
++) {
++    /** The user's own density: the forced one we hold does not count. */
++    fun facts(now: CurrentDisplay = port.current()): DisplayFacts {
++        val held = settings.held.density
++        val density = when {
++            held != null -> held.value ?: port.initialDensity()
++            else -> now.forcedDensity ?: port.initialDensity()
++        }
++        return DisplayFacts(port.initialSize(), density)
++    }
++
++    fun situation(m: Moment): Situation {
++        val front = m.frontPackage?.takeIf { PackageNames.isValid(it) }
++        val profile = front?.let { pkg ->
++            if (store.get(
++                    pkg
++                ).isNative
++            ) {
++                DisplayProfile.NATIVE
++            } else {
++                controller.load(traitsOf(pkg)).profile
++            }
++        } ?: DisplayProfile.NATIVE
++        return Situation(
++            gateOpen = m.gateOpen,
++            setupComplete = m.setupComplete,
++            interactive = m.interactive,
++            frontPackage = front,
++            frontProfile = profile,
++            systemRotation = settings.systemRotation,
++            anyAspectProfile = store.packages().any { DisplayPolicy.usesAspectRatio(store.get(it)) }
++        )
++    }
++
++    /** Brings the display to what [m] calls for. Returns the steps that failed (empty: all done). */
++    fun reconcile(m: Moment): List<DisplayStep> {
++        val now = port.current()
++        val target = DisplayPolicy.target(situation(m), facts(now))
++        return execute(Reconciler.plan(target, settings.held, now))
++    }
++
++    /** Gives every held setting back (boot, safe mode, "Restore display now"). */
++    fun restoreAll(): List<DisplayStep> =
++        PlanRunner.restoreAll(port, settings.held) { settings.held = it }
++
++    /** The service is needed only for profiles that change while their app is in front. */
++    fun needsService(gateOpen: Boolean): Boolean = gateOpen &&
++        DisplayPolicy.needsForegroundTracking(store.packages().map { store.get(it) })
++
++    /** The resolution hotkey: next favourite for the app in front, saved to its profile. */
++    fun cycle(m: Moment): CycleOutcome {
++        val pkg = m.frontPackage
++        return when {
++            !m.gateOpen -> CycleOutcome.GateClosed
++            pkg == null || !m.interactive || !m.setupComplete -> CycleOutcome.NoApp
++            else -> cycleFor(pkg, m)
++        }
++    }
++
++    private fun cycleFor(pkg: String, m: Moment): CycleOutcome {
++        val traits = traitsOf(pkg)
++        val loaded = controller.load(traits)
++        val native = port.initialSize()
++        val next = CanvasCycle.next(settings.favourites, loaded.profile.canvas, native)
++        return when {
++            loaded.state == StoredState.STORED_BLOCKED_NOT_EFFECTIVE ->
++                CycleOutcome.Blocked(loaded.reason.orEmpty())
++
++            next == null -> CycleOutcome.NoFavourites
++
++            else -> saveCanvas(traits, loaded.profile.copy(canvas = next), native, m)
++        }
++    }
++
++    private fun saveCanvas(
++        traits: AppTraits,
++        candidate: DisplayProfile,
++        native: SizePx,
++        m: Moment
++    ): CycleOutcome {
++        val next = candidate.canvas
++        val outcome = controller.save(
++            traits,
++            candidate,
++            native,
++            advanced = candidate.profile == AspectProfile.Custom,
++            acknowledged = false
++        )
++        return when (outcome.status) {
++            SaveStatus.BLOCKED -> CycleOutcome.Blocked(
++                outcome.validation.issues.firstOrNull { it.severity == Severity.Blocked }?.message
++                    .orEmpty()
++            )
++
++            SaveStatus.NEEDS_ACK -> CycleOutcome.NeedsConfirmation
++
++            SaveStatus.STORAGE_FAILED -> CycleOutcome.StorageFailed
++
++            SaveStatus.STORED -> {
++                reconcile(m)
++                CycleOutcome.Changed(next, next.label(native))
++            }
++        }
++    }
++
++    private fun execute(plan: DisplayPlan): List<DisplayStep> =
++        PlanRunner.run(plan, port, settings.held) { settings.held = it }
++}
++
++/** Runs a plan: originals are saved before the steps, and let go only when every step worked. */
++object PlanRunner {
++    fun run(
++        plan: DisplayPlan,
++        port: DisplayPort,
++        held: HeldState,
++        save: (HeldState) -> Unit
++    ): List<DisplayStep> {
++        if (plan.steps.isEmpty()) {
++            if (plan.heldAfter != held) save(plan.heldAfter)
++            return emptyList()
++        }
++        save(plan.heldDuring)
++        val failed = plan.steps.filter { step -> runCatching { port.run(step) }.isFailure }
++        if (failed.isEmpty()) save(plan.heldAfter)
++        return failed
++    }
++
++    /** Boot and safe mode: give back everything [held] lists. */
++    fun restoreAll(
++        port: DisplayPort,
++        held: HeldState,
++        save: (HeldState) -> Unit
++    ): List<DisplayStep> {
++        if (held.isEmpty) return emptyList()
++        return run(Reconciler.restoreAll(held, port.current()), port, held, save)
++    }
++}
++
++/** Toast and status wording for the hotkey. */
++object CycleText {
++    fun message(o: CycleOutcome, appLabel: String): String = when (o) {
++        CycleOutcome.GateClosed -> "Display tools are off on this build."
++
++        CycleOutcome.NoApp -> "Open an app first, then press Alt+Shift+R."
++
++        CycleOutcome.NoFavourites ->
++            "Choose favourite sizes in Display compatibility > Display tools."
++
++        is CycleOutcome.Blocked -> "Tall canvas is not available for $appLabel. ${o.reason}".trim()
++
++        CycleOutcome.NeedsConfirmation ->
++            "Confirm the warnings for $appLabel in Display compatibility first."
++
++        CycleOutcome.StorageFailed -> "Not changed: the profile could not be stored."
++
++        is CycleOutcome.Changed -> o.label + " · " + appLabel
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/Model.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/Model.kt
+index 249021208f2365c34ac9ae2452e9c3a2c242f4d4..e23d40af9071c2f3e61044b59eef37accdad35fc 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/Model.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/Model.kt
+@@ -68,7 +68,12 @@ data class DisplayProfile(
+      * Stretching distorts text, maps, camera previews, games and auth screens.
+      * Off by default; on requires a warning.
+      */
+-    val stretch: Boolean = false
++    val stretch: Boolean = false,
++    /**
++     * Tall canvas: while this app is in front the whole display gets a taller, phone-shaped
++     * logical size (the call `wm size` makes), shown smaller on the panel. Native leaves it alone.
++     */
++    val canvas: TallCanvas = TallCanvas.Native
+ ) {
+     val isNative: Boolean get() = this == NATIVE
+     companion object {
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/PlatformMapping.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/PlatformMapping.kt
+index 7a93a4ace0c750700319780eb0924a2ee7d5ef1b..1733dc156b7a60ce6d519b95fb991b53751bc070 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/PlatformMapping.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/PlatformMapping.kt
+@@ -78,8 +78,8 @@ object OrientationOverrides {
+         OVERRIDE_LANDSCAPE_ORIENTATION_TO_REVERSE_LANDSCAPE
+     )
+ 
+-    /** Changes to enable for an orientation, or null when the platform has no per-app override for it. */
+-    fun forOrientation(o: OrientationPref): Set<Long>? = when (o) {
++    /** Changes to enable for an orientation (none for Default and Auto). */
++    fun forOrientation(o: OrientationPref): Set<Long> = when (o) {
+         OrientationPref.Default -> emptySet()
+ 
+         OrientationPref.Portrait -> setOf(
+@@ -91,8 +91,9 @@ object OrientationOverrides {
+         OrientationPref.Landscape ->
+             setOf(OVERRIDE_ANY_ORIENTATION, OVERRIDE_LANDSCAPE_ORIENTATION_TO_REVERSE_LANDSCAPE)
+ 
+-        // OVERRIDE_ANY_ORIENTATION_TO_USER only acts on displays that ignore orientation requests; a phone does not.
+-        OrientationPref.Auto -> null
++        // No compat change: OVERRIDE_ANY_ORIENTATION_TO_USER only acts on displays that ignore
++        // orientation requests. Auto is held live instead (auto-rotate on while the app is in front).
++        OrientationPref.Auto -> emptySet()
+     }
+ }
+ 
+@@ -103,7 +104,9 @@ object OrientationOverrides {
+ data class PlatformRequest(
+     val minAspectRatio: Int,
+     val enableOrientation: Set<Long>,
+-    val notApplied: List<String>
++    val notApplied: List<String>,
++    /** Held by the Display Compat service while the app is in front (Tall canvas, rotation). */
++    val live: List<String> = emptyList()
+ ) {
+     val disableOrientation: Set<Long> get() = OrientationOverrides.ALL - enableOrientation
+ 
+@@ -114,6 +117,7 @@ data class PlatformRequest(
+     fun describe(): String = buildString {
+         append("aspect ").append(UserMinAspectRatio.label(minAspectRatio))
+         append(", orientation ").append(orientationLabel())
++        if (live.isNotEmpty()) append("; while in front: ").append(live.joinToString(", "))
+         if (notApplied.isNotEmpty()) append("; stored only: ").append(notApplied.joinToString(", "))
+     }
+ 
+@@ -141,7 +145,6 @@ object PlatformMapping {
+         val aspect = UserMinAspectRatio.forProfile(p.profile, p.customRatio)
+         if (aspect == null) notApplied += p.profile.id.replace('_', ' ')
+         val orientation = OrientationOverrides.forOrientation(p.orientation)
+-        if (orientation == null) notApplied += "orientation " + p.orientation.name.lowercase()
+         if (p.scaling != ScalingPref.Default) notApplied += "scaling"
+         if (p.letterboxBackground !=
+             LetterboxBackground.System
+@@ -153,8 +156,19 @@ object PlatformMapping {
+         if (p.stretch) notApplied += "stretch"
+         return PlatformRequest(
+             aspect ?: UserMinAspectRatio.UNSET,
+-            orientation.orEmpty(),
+-            notApplied
++            orientation,
++            notApplied,
++            live(p)
+         )
+     }
++
++    private fun live(p: DisplayProfile): List<String> = buildList {
++        if (p.canvas != TallCanvas.Native) add("tall canvas " + p.canvas.shape)
++        when (p.orientation) {
++            OrientationPref.Portrait -> add("rotation portrait")
++            OrientationPref.Landscape -> add("rotation landscape")
++            OrientationPref.Auto -> add("auto-rotate")
++            OrientationPref.Default -> Unit
++        }
++    }
+ }
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileCodec.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileCodec.kt
+index 1caa094af237a83c65faa04800f223855a58b6ea..76b484b50e70b2d7cc4d370ca0d61f80c6dbadac 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileCodec.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileCodec.kt
+@@ -15,6 +15,7 @@ object ProfileCodec {
+         append(";m=").append(if (p.fullscreenMediaException) 1 else 0)
+         append(";x=").append(if (p.stretch) 1 else 0)
+         p.customRatio?.let { append(";r=").append(it.w).append(':').append(it.h) }
++        if (p.canvas != TallCanvas.Native) append(";c=").append(p.canvas.id)
+     }
+ 
+     fun decode(s: String?): DisplayProfile {
+@@ -69,7 +70,8 @@ object ProfileCodec {
+             statusNav = m.enumOr("n", BarsPref.Default),
+             fullscreenMediaException = m["m"] != "0",
+             customRatio = parseRatio(m["r"]),
+-            stretch = m["x"] == "1"
++            stretch = m["x"] == "1",
++            canvas = TallCanvas.fromId(m["c"])
+         )
+ }
+ 
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileValidator.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileValidator.kt
+index 426172bc69bc37cd8fb5f1fb7e8ae7ce5d34b0ea..e0babd1ea208974f1250df5a438933554c26a233 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileValidator.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileValidator.kt
+@@ -41,9 +41,45 @@ object ProfileValidator {
+             )
+         }
+         checkOrientation(traits, p, out)
++        checkCanvas(traits, p, out)
+         return Validation(out)
+     }
+ 
++    /** Tall canvas changes the whole display while the app is in front. */
++    private fun checkCanvas(traits: AppTraits, p: DisplayProfile, out: MutableList<Issue>) {
++        if (p.canvas == TallCanvas.Native) return
++        if (traits.isDialer) {
++            out.block(
++                "DIALER_CANVAS",
++                "The phone app must keep the native display so calls stay easy to read and answer."
++            )
++        }
++        if (traits.isAuthenticatorOrPayment) {
++            out.warn(
++                "AUTH_PAYMENT_CANVAS",
++                "Check codes and prompts stay readable on the smaller tall canvas.",
++                ack = true
++            )
++        }
++        if (traits.isCamera) {
++            out.warn("CAMERA_CANVAS", "The camera preview is shown smaller on a tall canvas.")
++        }
++        if (p.profile != AspectProfile.Native) {
++            out.warn(
++                "CANVAS_WITH_ASPECT",
++                "Tall canvas already gives a phone shape; an aspect profile narrows it again."
++            )
++        }
++        out.add(
++            Issue(
++                Severity.Info,
++                "CANVAS_LIVE",
++                "Tall canvas: while this app is in front the screen gets a taller size, drawn " +
++                    "smaller. Leaving the app, locking or a crash puts the native size back."
++            )
++        )
++    }
++
+     private fun checkOrientation(traits: AppTraits, p: DisplayProfile, out: MutableList<Issue>) {
+         if (p.orientation.locksOrientation() && traits.isCamera) {
+             out.warn(
+@@ -62,11 +98,19 @@ object ProfileValidator {
+             out.add(
+                 Issue(
+                     Severity.Info,
+-                    "AUTO_NOT_PER_APP",
+-                    "Auto has no per-app platform override here; the app follows its own rotation request."
++                    "AUTO_LIVE",
++                    "Auto turns auto-rotate on while this app is in front; an app that fixes " +
++                        "its own orientation keeps it."
+                 )
+             )
+         }
++        if (p.orientation == OrientationPref.Landscape && DisplayPolicy.usesAspectRatio(p)) {
++            out.warn(
++                "ASPECT_KEEPS_PORTRAIT",
++                "With an aspect ratio Android keeps the app portrait unless the app itself asks " +
++                    "for landscape."
++            )
++        }
+     }
+ 
+     private fun MutableList<Issue>.block(code: String, msg: String) =
+@@ -200,7 +244,13 @@ object TraitHeuristics {
+             "com.android.systemui",
+             "com.android.settings",
+             "com.android.keyguard",
+-            "org.sableos.launcher"
++            "org.sableos.launcher",
++            // Setup, the Recents host and this app's own screens are never reshaped either.
++            "org.sableos.titan2.setup",
++            "org.lineageos.setupwizard",
++            "com.android.provision",
++            "com.android.launcher3",
++            "org.sableos.titan2.displaycompat"
+         )
+     fun isProtectedSystemPackage(pkg: String): Boolean = protectedPrefixes.any {
+         pkg == it ||
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/Reconciler.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/Reconciler.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..c4e37944b35b567b59619afb897e95dc72484667
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/Reconciler.kt
+@@ -0,0 +1,161 @@
++package org.sableos.titan2.displaycompat.core
++
++/** The display settings as the platform reports them now. Null size or density: not forced. */
++data class CurrentDisplay(
++    val forcedSize: SizePx?,
++    val forcedDensity: Int?,
++    val autoRotate: Boolean,
++    val userRotation: Int,
++    val ignoreOrientationRequest: Boolean
++)
++
++/**
++ * The user's own values, saved when Display Compat first changed each setting and kept until it is
++ * given back. Persisted before any change, so a crash or a reboot can still restore them. A field is
++ * null while that setting is not held; [Held.value] null means "was not forced".
++ */
++data class HeldState(
++    val size: Held<SizePx>? = null,
++    val density: Held<Int>? = null,
++    val rotation: Held<RotationTarget>? = null,
++    val ignoreOrientationRequest: Held<Boolean>? = null
++) {
++    data class Held<T>(val value: T?)
++
++    val isEmpty: Boolean get() = this == NONE
++
++    companion object {
++        val NONE = HeldState()
++    }
++}
++
++sealed interface DisplayStep {
++    data class SetSize(val size: SizePx) : DisplayStep
++    data object ClearSize : DisplayStep
++    data class SetDensity(val density: Int) : DisplayStep
++    data object ClearDensity : DisplayStep
++    data class SetRotation(val rotation: RotationTarget) : DisplayStep
++    data class SetIgnoreOrientationRequest(val ignore: Boolean) : DisplayStep
++}
++
++/**
++ * Steps to reach a target. [heldDuring] is persisted before the steps run (it keeps every original
++ * that is still needed while they run); [heldAfter] once they all succeeded.
++ */
++data class DisplayPlan(
++    val steps: List<DisplayStep>,
++    val heldDuring: HeldState,
++    val heldAfter: HeldState
++)
++
++object Reconciler {
++    fun plan(target: DisplayTarget, held: HeldState, now: CurrentDisplay): DisplayPlan {
++        val steps = mutableListOf<DisplayStep>()
++        val size = Dim(target.size, held.size, now.forcedSize) { v ->
++            v?.let { DisplayStep.SetSize(it) } ?: DisplayStep.ClearSize
++        }.resolve(steps)
++        val density = Dim(target.density, held.density, now.forcedDensity) { v ->
++            v?.let { DisplayStep.SetDensity(it) } ?: DisplayStep.ClearDensity
++        }.resolve(steps)
++        val nowRotation = RotationTarget(now.autoRotate, now.userRotation)
++        // With auto-rotate on, the stored user rotation does not matter: keep the current one.
++        val wantedRotation = target.rotation?.let {
++            if (it.autoRotate) it.copy(userRotation = now.userRotation) else it
++        }
++        val rotation = Dim(wantedRotation, held.rotation, nowRotation) { v ->
++            v?.let { DisplayStep.SetRotation(it) }
++        }.resolve(steps)
++        val ignore = Dim(
++            target.ignoreOrientationRequest,
++            held.ignoreOrientationRequest,
++            now.ignoreOrientationRequest
++        ) { v -> v?.let { DisplayStep.SetIgnoreOrientationRequest(it) } }.resolve(steps)
++        val after = HeldState(size, density, rotation, ignore)
++        val during = HeldState(
++            held.size ?: size,
++            held.density ?: density,
++            held.rotation ?: rotation,
++            held.ignoreOrientationRequest ?: ignore
++        )
++        return DisplayPlan(steps, during, after)
++    }
++
++    /** Everything held goes back to the user's value; nothing new is taken. */
++    fun restoreAll(held: HeldState, now: CurrentDisplay): DisplayPlan =
++        plan(DisplayTarget.NONE, held, now)
++
++    /**
++     * One setting; [step] makes the step that sets a value (null: clears it, when that exists).
++     * Wanted: hold it (saving the original once) and set it if it differs. Not wanted: if held,
++     * put the original back (a "not forced" original clears it), then let go.
++     */
++    private class Dim<T : Any>(
++        val wanted: T?,
++        val held: HeldState.Held<T>?,
++        val current: T?,
++        val step: (T?) -> DisplayStep?
++    ) {
++        fun resolve(steps: MutableList<DisplayStep>): HeldState.Held<T>? {
++            if (wanted != null) {
++                if (current != wanted) step(wanted)?.let { steps += it }
++                return held ?: HeldState.Held(current)
++            }
++            if (held != null && current != held.value) step(held.value)?.let { steps += it }
++            return null
++        }
++    }
++}
++
++/** Compact codec for [HeldState]: `s=720x720|-;d=280|-;r=1:0;i=0`. Unknown or bad fields are dropped. */
++object HeldCodec {
++    private const val UNFORCED = "-"
++
++    fun encode(h: HeldState): String = buildList {
++        h.size?.let { add("s=" + (it.value?.let { s -> "${s.w}x${s.h}" } ?: UNFORCED)) }
++        h.density?.let { add("d=" + (it.value?.toString() ?: UNFORCED)) }
++        h.rotation?.value?.let { add("r=" + (if (it.autoRotate) 1 else 0) + ":" + it.userRotation) }
++        h.ignoreOrientationRequest?.value?.let { add("i=" + if (it) 1 else 0) }
++    }.joinToString(";")
++
++    fun decode(raw: String?): HeldState {
++        if (raw.isNullOrBlank()) return HeldState.NONE
++        val m = raw.split(';').mapNotNull { kv ->
++            kv.split('=', limit = 2).takeIf { it.size == 2 }?.let { it[0] to it[1] }
++        }.toMap()
++        return HeldState(
++            size = m["s"]?.let { v -> held(v) { parseSize(it) } },
++            density = m["d"]?.let { v -> held(v) { it.toIntOrNull()?.takeIf { d -> d > 0 } } },
++            rotation = m["r"]?.let(::parseRotation)?.let { HeldState.Held(it) },
++            ignoreOrientationRequest = when (m["i"]) {
++                "1" -> HeldState.Held(true)
++                "0" -> HeldState.Held(false)
++                else -> null
++            }
++        )
++    }
++
++    /** "-" is a held "not forced"; an unparsable value drops the field. */
++    private fun <T : Any> held(v: String, parse: (String) -> T?): HeldState.Held<T>? =
++        if (v == UNFORCED) HeldState.Held(null) else parse(v)?.let { HeldState.Held(it) }
++
++    private fun parseSize(v: String): SizePx? {
++        val p = v.split('x').map { it.toIntOrNull() ?: 0 }
++        return if (p.size == 2 && p[0] > 0 && p[1] > 0) SizePx(p[0], p[1]) else null
++    }
++
++    private fun parseRotation(v: String): RotationTarget? {
++        val p = v.split(':')
++        val auto = p.getOrNull(0)
++        val rot =
++            p.getOrNull(1)?.toIntOrNull()?.takeIf {
++                it in
++                    Rotations.ROTATION_0..Rotations.ROTATION_270
++            }
++                ?: return null
++        return when (auto) {
++            "1" -> RotationTarget(true, rot)
++            "0" -> RotationTarget(false, rot)
++            else -> null
++        }
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/TallCanvas.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/TallCanvas.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..7933a9ba0e4e057951d43b4904b13b8955de1bbd
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/TallCanvas.kt
+@@ -0,0 +1,111 @@
++package org.sableos.titan2.displaycompat.core
++
++import kotlin.math.min
++import kotlin.math.roundToInt
++
++/**
++ * Tall canvas sizes: the display keeps its width and gets a taller logical height, so an app laid
++ * out for a phone sees a phone-shaped screen. The panel shows it scaled down with bars at the
++ * sides. Heights are a ratio of the native width, so on the Q25 (720x720) they are 720x772,
++ * 720x960, 720x1280 and 720x1440.
++ */
++enum class TallCanvas(
++    val id: String,
++    private val num: Int,
++    private val den: Int,
++    val shape: String
++) {
++    Native("native", 1, 1, "native"),
++    Taller("tall_772", TALLER_NUM, TALLER_DEN, "a bit taller"),
++    Tall3x4("tall_3_4", FOUR, THREE, "3:4"),
++    Tall9x16("tall_9_16", SIXTEEN, NINE, "9:16"),
++    Tall1x2("tall_1_2", 2, 1, "1:2");
++
++    /** Logical size on a display of [native] size, or null for Native or a size no taller. */
++    fun size(native: SizePx): SizePx? {
++        if (this == Native) return null
++        val h = (native.w.toLong() * num / den.toDouble()).roundToInt()
++        return if (h > native.h) SizePx(native.w, h) else null
++    }
++
++    /** "720x1280 (9:16)" on the given display, "Native 720x720", or "not taller here". */
++    fun label(native: SizePx): String {
++        val s = size(native)
++        return when {
++            this == Native -> "Native ${native.w}x${native.h}"
++            s == null -> "$shape (not taller here)"
++            else -> "${s.w}x${s.h} ($shape)"
++        }
++    }
++
++    companion object {
++        fun fromId(id: String?): TallCanvas = entries.firstOrNull { it.id == id } ?: Native
++
++        /** The sizes that change something on [native], in cycle order (shortest first). */
++        fun usable(native: SizePx): List<TallCanvas> = entries.filter { it.size(native) != null }
++    }
++}
++
++// 772 / 720 = 193 / 180: the "a bit taller" preset of the community Q25 resolution tools.
++private const val TALLER_NUM = 193
++private const val TALLER_DEN = 180
++private const val THREE = 3
++private const val FOUR = 4
++private const val NINE = 9
++private const val SIXTEEN = 16
++
++/**
++ * Smallest-width arithmetic for the large-screen threshold. At 600 dp Android treats the display as
++ * a tablet (Launcher3 shows its taskbar). LineageOS Launcher3 has no setting to keep the taskbar
++ * stashed, so a canvas that would cross the threshold also gets a density that keeps it under.
++ */
++object CanvasMath {
++    const val LARGE_SCREEN_DP = 600
++    private const val MDPI = 160
++
++    fun smallestWidthDp(size: SizePx, densityDpi: Int): Int =
++        min(size.w, size.h) * MDPI / densityDpi
++
++    /**
++     * Density to force with [size] so that its smallest width stays below [LARGE_SCREEN_DP], or null
++     * when [densityDpi] already keeps it there. Every Tall canvas keeps the native width, so on a
++     * square display this only matters if the user's density is already near the threshold.
++     */
++    fun compactDensity(size: SizePx, densityDpi: Int): Int? {
++        if (densityDpi <= 0 || smallestWidthDp(size, densityDpi) < LARGE_SCREEN_DP) return null
++        // smallest * 160 / d < 600  <=>  d > smallest * 160 / 600
++        return min(size.w, size.h) * MDPI / LARGE_SCREEN_DP + 1
++    }
++}
++
++/** Resolution hotkey order: Native, then the favourites shortest first, then Native again. */
++object CanvasCycle {
++    /** Favourites when the user has not chosen any: 3:4 and 9:16. */
++    val DEFAULT_FAVOURITES: Set<TallCanvas> = setOf(TallCanvas.Tall3x4, TallCanvas.Tall9x16)
++
++    fun order(favourites: Set<TallCanvas>, native: SizePx): List<TallCanvas> =
++        listOf(TallCanvas.Native) + TallCanvas.usable(native).filter { it in favourites }
++
++    /**
++     * The size after [current]; null when there is no favourite to cycle to. A [current] that is not
++     * in the cycle (favourites changed since) starts it again at the first favourite.
++     */
++    fun next(favourites: Set<TallCanvas>, current: TallCanvas, native: SizePx): TallCanvas? {
++        val order = order(favourites, native)
++        if (order.size < 2) return null
++        val i = order.indexOf(current)
++        return if (i < 0) order[1] else order[(i + 1) % order.size]
++    }
++
++    fun encode(favourites: Set<TallCanvas>): String =
++        TallCanvas.entries.filter { it in favourites && it != TallCanvas.Native }
++            .joinToString(",") { it.id }
++
++    /** Null (never saved) gives the defaults; an empty string is a saved empty choice. */
++    fun decode(raw: String?): Set<TallCanvas> = when (raw) {
++        null -> DEFAULT_FAVOURITES
++
++        else -> raw.split(',').mapNotNull { id -> TallCanvas.entries.firstOrNull { it.id == id } }
++            .filter { it != TallCanvas.Native }.toSet()
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt
+index 82993be5647f62c89a29ea2fd373ccdc0fa75226..88c49cca2453ae6627bd3e378023f8316240c7c6 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt
+@@ -47,8 +47,10 @@ import org.sableos.titan2.displaycompat.core.AppCornerStyle
+ import org.sableos.titan2.displaycompat.core.AppStyleKey
+ import org.sableos.titan2.displaycompat.core.AppStylePolicy
+ import org.sableos.titan2.displaycompat.core.AppStyleState
++import org.sableos.titan2.displaycompat.core.AspectProfile
+ import org.sableos.titan2.displaycompat.core.BackendAvailability
+ import org.sableos.titan2.displaycompat.core.DisplayProfile
++import org.sableos.titan2.displaycompat.core.TallCanvas
+ 
+ /** Observable list state; every property is Compose snapshot state so reads recompose as before. */
+ private class ListState {
+@@ -60,6 +62,9 @@ private class ListState {
+ 
+     /** The Sable app style row above the app list holds the selection (Up from the first app). */
+     var styleFocused by mutableStateOf(false)
++
++    /** The Display tools row above the style row holds the selection (Up from the style row). */
++    var toolsFocused by mutableStateOf(false)
+     var style by mutableStateOf<AppStyleState?>(null)
+ }
+ 
+@@ -69,6 +74,7 @@ private class ListActions(
+     private val st: ListState,
+     private val rows: List<TraitsResolver.Entry>,
+     private val onOpen: (TraitsResolver.Entry) -> Unit,
++    private val onTools: () -> Unit,
+     private val onExit: () -> Unit
+ ) {
+     fun doReset() {
+@@ -76,6 +82,7 @@ private class ListActions(
+             st.confirmReset = true
+         } else {
+             st.msg = app.controller.resetAllChecked().message()
++            app.refreshDisplay()
+             st.confirmReset = false
+             st.version++
+         }
+@@ -101,27 +108,18 @@ private class ListActions(
+     fun onKey(e: KeyEvent): Boolean {
+         if (e.type != KeyEventType.KeyDown) return false
+         return when (e.key) {
+-            Key.DirectionDown -> {
+-                if (st.styleFocused) {
+-                    st.styleFocused = false
+-                    st.sel = 0
+-                } else {
+-                    st.sel = (st.sel + 1).coerceAtMost((rows.size - 1).coerceAtLeast(0))
+-                }
+-                true
+-            }
++            Key.DirectionDown -> moveDown()
+ 
+-            Key.DirectionUp -> {
+-                if (st.sel == 0) st.styleFocused = true else st.sel = (st.sel - 1).coerceAtLeast(0)
+-                true
+-            }
++            Key.DirectionUp -> moveUp()
+ 
+             // Left/Right choose a style only while the style row is selected; otherwise they stay
+             // with the filter field (text input wins).
+             Key.DirectionLeft, Key.DirectionRight -> styleArrow(e.key == Key.DirectionLeft)
+ 
+             Key.Enter, Key.NumPadEnter -> {
+-                if (st.styleFocused) {
++                if (st.toolsFocused) {
++                    onTools()
++                } else if (st.styleFocused) {
+                     styleKey(
+                         AppStyleKey.ENTER
+                     )
+@@ -142,6 +140,40 @@ private class ListActions(
+         }
+     }
+ 
++    private fun moveDown(): Boolean {
++        when {
++            st.toolsFocused -> {
++                st.toolsFocused = false
++                st.styleFocused = true
++            }
++
++            st.styleFocused -> {
++                st.styleFocused = false
++                st.sel = 0
++            }
++
++            else -> st.sel = (st.sel + 1).coerceAtMost((rows.size - 1).coerceAtLeast(0))
++        }
++        return true
++    }
++
++    /** Up from the first app selects the style row, Up again the Display tools row. */
++    private fun moveUp(): Boolean {
++        when {
++            st.toolsFocused -> Unit
++
++            st.styleFocused -> {
++                st.styleFocused = false
++                st.toolsFocused = true
++            }
++
++            st.sel == 0 -> st.styleFocused = true
++
++            else -> st.sel = (st.sel - 1).coerceAtLeast(0)
++        }
++        return true
++    }
++
+     private fun styleArrow(left: Boolean): Boolean {
+         if (!st.styleFocused) return false
+         styleKey(if (left) AppStyleKey.LEFT else AppStyleKey.RIGHT)
+@@ -174,6 +206,7 @@ fun AppListScreen(
+     app: DisplayCompatApp,
+     resolver: TraitsResolver,
+     onOpen: (TraitsResolver.Entry) -> Unit,
++    onTools: () -> Unit,
+     onExit: () -> Unit
+ ) {
+     val all = remember { resolver.launchable() }
+@@ -187,7 +220,7 @@ fun AppListScreen(
+         }
+     val fr = remember { FocusRequester() }
+     val list = rememberLazyListState()
+-    val actions = ListActions(app, st, rows, onOpen, onExit)
++    val actions = ListActions(app, st, rows, onOpen, onTools, onExit)
+     LaunchedEffect(Unit) { fr.requestFocus() }
+     DisposableEffect(app) {
+         st.style = app.appStyle.load()
+@@ -202,13 +235,12 @@ fun AppListScreen(
+         Modifier.fillMaxSize().padding(12.dp)
+             .onPreviewKeyEvent { e -> actions.onKey(e) }
+     ) {
+-        Text("App display compatibility", color = C.text, fontSize = 18.sp)
+-        val availability = app.controller.backendAvailability
+-        Text(
+-            availability.banner,
+-            color = if (availability == BackendAvailability.CLOSED) C.warn else C.muted,
+-            fontSize = 11.sp
+-        )
++        ListTitle(app)
++        ToolsEntry(app, st.toolsFocused) {
++            st.toolsFocused = true
++            st.styleFocused = false
++            onTools()
++        }
+         AppStyleSection(st.style, st.styleFocused) { actions.chooseStyle(it) }
+         FilterField(st.query, { st.query = it }, fr)
+         if (rows.isEmpty()) {
+@@ -223,18 +255,30 @@ fun AppListScreen(
+             itemsIndexed(rows, key = { _, e -> e.pkg }) { i, e ->
+                 val p = remember(st.version, e.pkg) { app.store.get(e.pkg) }
+                 // A tap selects the row and opens its editor, like the arrow keys and Enter.
+-                AppRow(e.label, p, !st.styleFocused && i == st.sel) {
++                AppRow(e.label, p, !st.styleFocused && !st.toolsFocused && i == st.sel) {
+                     st.styleFocused = false
++                    st.toolsFocused = false
+                     st.sel = i
+                     onOpen(e)
+                 }
+             }
+         }
+         st.msg?.let { Text(it, color = messageTint(it), fontSize = 11.sp) }
+-        ListFooter(st.confirmReset, st.styleFocused) { actions.doReset() }
++        ListFooter(st.confirmReset, st.styleFocused || st.toolsFocused) { actions.doReset() }
+     }
+ }
+ 
++@Composable
++private fun ListTitle(app: DisplayCompatApp) {
++    Text("App display compatibility", color = C.text, fontSize = 18.sp)
++    val availability = app.controller.backendAvailability
++    Text(
++        availability.banner,
++        color = if (availability == BackendAvailability.CLOSED) C.warn else C.muted,
++        fontSize = 11.sp
++    )
++}
++
+ private fun emptyListMessage(noAppsAtAll: Boolean, query: String): String = if (noAppsAtAll) {
+     "No launchable apps were found for this user."
+ } else {
+@@ -288,13 +332,50 @@ private fun AppRow(label: String, p: DisplayProfile, selected: Boolean, onClick:
+     ) {
+         Text(label, color = C.text, fontSize = 14.sp)
+         Text(
+-            if (p.isNative) "Native" else p.profile.id.replace('_', ' ') + " · stored",
++            badge(p),
+             color = if (p.isNative) C.muted else C.accent,
+             fontSize = 12.sp
+         )
+     }
+ }
+ 
++private fun badge(p: DisplayProfile): String = when {
++    p.isNative -> "Native"
++
++    p.canvas != TallCanvas.Native && p.profile == AspectProfile.Native ->
++        "tall " + p.canvas.shape + " · stored"
++
++    p.canvas != TallCanvas.Native ->
++        p.profile.id.replace('_', ' ') + " + tall " + p.canvas.shape + " · stored"
++
++    else -> p.profile.id.replace('_', ' ') + " · stored"
++}
++
++/** Entry to Display tools: system rotation and the hotkey's favourite sizes, shown in one line. */
++@Composable
++private fun ToolsEntry(app: DisplayCompatApp, focused: Boolean, onOpen: () -> Unit) {
++    val settings = app.toolsSettings
++    Row(
++        Modifier.fillMaxWidth().padding(top = 8.dp)
++            .background(if (focused) C.surface else C.window, RoundedCornerShape(6.dp))
++            .border(
++                if (focused) 2.dp else 1.dp,
++                if (focused) C.accent else C.surface,
++                RoundedCornerShape(6.dp)
++            )
++            .clickable { onOpen() }
++            .padding(10.dp),
++        horizontalArrangement = Arrangement.SpaceBetween
++    ) {
++        Text("Display tools", color = C.text, fontSize = 14.sp)
++        Text(
++            "Rotation " + settings.systemRotation.label + " · Alt+Shift+R",
++            color = C.accent,
++            fontSize = 12.sp
++        )
++    }
++}
++
+ @Composable
+ private fun ListFooter(confirmReset: Boolean, styleFocused: Boolean, onReset: () -> Unit) {
+     Row(
+@@ -303,7 +384,7 @@ private fun ListFooter(confirmReset: Boolean, styleFocused: Boolean, onReset: ()
+     ) {
+         Text(
+             if (styleFocused) {
+-                "←→ choose · Enter switch · ↓ apps"
++                "←→ choose · Enter switch/open · ↑↓ move"
+             } else {
+                 "↑↓ select · Enter edit · Esc back"
+             },
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/EditorScreen.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/EditorScreen.kt
+index 28bf7d318dab0ab58eae95146dcfd1c503342416..c7db9eef6bc0bba81bfd65770a095e68fb839157 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/EditorScreen.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/EditorScreen.kt
+@@ -58,6 +58,7 @@ import org.sableos.titan2.displaycompat.core.Ratio
+ import org.sableos.titan2.displaycompat.core.ScalingPref
+ import org.sableos.titan2.displaycompat.core.Severity
+ import org.sableos.titan2.displaycompat.core.SizePx
++import org.sableos.titan2.displaycompat.core.TallCanvas
+ import org.sableos.titan2.displaycompat.core.Tri
+ 
+ private fun <T> cycle(values: List<T>, cur: T, dir: Int): T = values[
+@@ -79,6 +80,7 @@ private val defaultLetterboxBackdrop = Color(0xFF1B2F40)
+ 
+ private enum class EditorRow(val title: String) {
+     Profile("Profile"),
++    Canvas("Tall canvas"),
+     Orientation("Orientation"),
+     Scaling("Scaling"),
+     Background("Letterbox background"),
+@@ -94,7 +96,7 @@ private enum class EditorRow(val title: String) {
+ }
+ 
+ /** Observable editor state; every property is Compose snapshot state so reads recompose as before. */
+-private class EditorState(initial: DisplayProfile) {
++private class EditorState(initial: DisplayProfile, private val display: SizePx) {
+     var p by mutableStateOf(initial)
+     var advanced by mutableStateOf(false)
+     var ack by mutableStateOf(false)
+@@ -106,6 +108,11 @@ private class EditorState(initial: DisplayProfile) {
+ 
+     fun valueOf(r: EditorRow): String = when (r) {
+         EditorRow.Profile -> p.profile.id.replace('_', ' ')
++        EditorRow.Canvas -> p.canvas.label(display)
++        else -> otherValue(r)
++    }
++
++    private fun otherValue(r: EditorRow): String = when (r) {
+         EditorRow.Orientation -> p.orientation.name
+         EditorRow.Scaling -> p.scaling.name
+         EditorRow.Background -> p.letterboxBackground.name
+@@ -115,7 +122,7 @@ private class EditorState(initial: DisplayProfile) {
+         EditorRow.Custom -> p.customRatio?.toString() ?: "choose"
+         EditorRow.Advanced -> onOff(advanced)
+         EditorRow.Ack -> if (ack) "Yes" else "No"
+-        EditorRow.Save, EditorRow.Reset, EditorRow.Back -> ""
++        else -> ""
+     }
+ 
+     fun cycleField(r: EditorRow, dir: Int) {
+@@ -128,6 +135,14 @@ private class EditorState(initial: DisplayProfile) {
+                 )
+             )
+ 
++            EditorRow.Canvas -> p = p.copy(
++                canvas = cycle(
++                    listOf(TallCanvas.Native) + TallCanvas.usable(display),
++                    p.canvas,
++                    dir
++                )
++            )
++
+             EditorRow.Orientation ->
+                 p =
+                     p.copy(orientation = cycle(OrientationPref.entries, p.orientation, dir))
+@@ -173,9 +188,12 @@ private class EditorActions(
+ 
+             EditorRow.Ack -> st.ack = !st.ack
+ 
+-            EditorRow.Save ->
++            EditorRow.Save -> {
+                 st.msg =
+                     app.controller.save(traits, st.p, display, st.advanced, st.ack).message()
++                // Tall canvas, live rotation and the aspect-ratio display setting follow at once.
++                app.refreshDisplay()
++            }
+ 
+             EditorRow.Reset -> reset()
+ 
+@@ -226,6 +244,7 @@ private class EditorActions(
+ 
+     private fun reset() {
+         val outcome = app.controller.resetChecked(pkg)
++        app.refreshDisplay()
+         if (outcome.storeCleared) {
+             st.p = DisplayProfile.NATIVE
+             st.ack = false
+@@ -255,7 +274,7 @@ fun EditorScreen(
+ ) {
+     val traits = remember(entry.pkg) { resolver.resolve(entry.pkg) }
+     val loaded = remember(entry.pkg) { app.controller.load(traits) }
+-    val st = remember { EditorState(loaded.profile).also { it.msg = loaded.message() } }
++    val st = remember { EditorState(loaded.profile, display).also { it.msg = loaded.message() } }
+     val rows = remember(st.p.profile) { st.visibleRows() }
+     val fr = remember { FocusRequester() }
+     LaunchedEffect(Unit) { fr.requestFocus() }
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/MainActivity.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/MainActivity.kt
+index f691b073f2ad0f42da5ca0e692dcb2b8bf3547e4..5d751b7d60d02f417adfcf27ca87500de1f69316 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/MainActivity.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/MainActivity.kt
+@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
+ import org.sableos.titan2.displaycompat.android.TraitsResolver
+ import org.sableos.titan2.displaycompat.android.displayCompat
+ import org.sableos.titan2.displaycompat.core.ProfileLink
++import org.sableos.titan2.displaycompat.core.SizePx
+ 
+ class MainActivity : ComponentActivity() {
+     /** Set when Settings > App info opened one app's profile: Done and Back return there. */
+@@ -39,12 +40,11 @@ class MainActivity : ComponentActivity() {
+     private fun Root() {
+         val app = displayCompat
+         val resolver = remember { TraitsResolver(this) }
+-        val metrics = resources.displayMetrics
+-        val display = org.sableos.titan2.displaycompat.core.SizePx(
+-            metrics.widthPixels,
+-            metrics.heightPixels
+-        )
++        // The whole display (this app is never given a Tall canvas, so this is the native size).
++        val bounds = windowManager.maximumWindowMetrics.bounds
++        val display = SizePx(bounds.width(), bounds.height())
+         var editing by remember { mutableStateOf(linked) }
++        var tools by remember { mutableStateOf(false) }
+         val closeEditor: () -> Unit = {
+             if (linked != null) {
+                 finish()
+@@ -54,8 +54,17 @@ class MainActivity : ComponentActivity() {
+         }
+         Box(Modifier.fillMaxSize().background(C.window).safeDrawingPadding()) {
+             val e = editing
+-            if (e == null) {
+-                AppListScreen(app, resolver, onOpen = { editing = it }, onExit = { finish() })
++            if (tools) {
++                BackHandler { tools = false }
++                ToolsScreen(app, display, onDone = { tools = false })
++            } else if (e == null) {
++                AppListScreen(
++                    app,
++                    resolver,
++                    onOpen = { editing = it },
++                    onTools = { tools = true },
++                    onExit = { finish() }
++                )
+             } else {
+                 BackHandler { closeEditor() }
+                 EditorScreen(app, resolver, e, display, onDone = closeEditor)
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/ToolsScreen.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/ToolsScreen.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..c297ffd3f8aedf19e3d2e0381a2b3d466f4e11b5
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/ToolsScreen.kt
+@@ -0,0 +1,232 @@
++@file:Suppress("FunctionNaming")
++
++package org.sableos.titan2.displaycompat.ui
++
++import androidx.compose.foundation.background
++import androidx.compose.foundation.border
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.focusable
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.shape.RoundedCornerShape
++import androidx.compose.foundation.verticalScroll
++import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.LaunchedEffect
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableIntStateOf
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.focus.FocusRequester
++import androidx.compose.ui.focus.focusRequester
++import androidx.compose.ui.input.key.Key
++import androidx.compose.ui.input.key.KeyEvent
++import androidx.compose.ui.input.key.KeyEventType
++import androidx.compose.ui.input.key.key
++import androidx.compose.ui.input.key.onPreviewKeyEvent
++import androidx.compose.ui.input.key.type
++import androidx.compose.ui.unit.dp
++import androidx.compose.ui.unit.sp
++import org.sableos.titan2.displaycompat.android.DisplayCompatApp
++import org.sableos.titan2.displaycompat.android.GatedPlatformBackend
++import org.sableos.titan2.displaycompat.core.CanvasCycle
++import org.sableos.titan2.displaycompat.core.SizePx
++import org.sableos.titan2.displaycompat.core.SystemRotation
++import org.sableos.titan2.displaycompat.core.TallCanvas
++
++/** One row of Display tools: rotation, one favourite size each, restore, back. */
++private sealed interface ToolRow {
++    data object Rotation : ToolRow
++    data class Favourite(val canvas: TallCanvas) : ToolRow
++    data object Restore : ToolRow
++    data object Back : ToolRow
++}
++
++private class ToolsState(rotation: SystemRotation, favourites: Set<TallCanvas>) {
++    var rotation by mutableStateOf(rotation)
++    var favourites by mutableStateOf(favourites)
++    var row by mutableIntStateOf(0)
++    var msg by mutableStateOf<String?>(null)
++}
++
++/**
++ * Display tools: the system-wide rotation, the favourite Tall canvas sizes the Alt+Shift+R hotkey
++ * cycles through, and a manual restore. Up/Down choose a row, Left/Right or Enter change it, Esc
++ * leaves. Changes apply at once.
++ */
++@Composable
++fun ToolsScreen(app: DisplayCompatApp, display: SizePx, onDone: () -> Unit) {
++    val settings = app.toolsSettings
++    val st = remember { ToolsState(settings.systemRotation, settings.favourites) }
++    val rows = remember(display) {
++        listOf(ToolRow.Rotation) + TallCanvas.usable(display).map { ToolRow.Favourite(it) } +
++            listOf(ToolRow.Restore, ToolRow.Back)
++    }
++    val fr = remember { FocusRequester() }
++    LaunchedEffect(Unit) { fr.requestFocus() }
++
++    val actions = ToolsActions(app, st, display, onDone)
++
++    Column(
++        Modifier.fillMaxSize().padding(12.dp).focusRequester(fr).focusable()
++            .onPreviewKeyEvent { e -> actions.onKey(e, rows) }
++    ) {
++        Text("Display tools", color = C.text, fontSize = 18.sp)
++        if (!GatedPlatformBackend.isOpen()) {
++            Text(
++                "Enforcement backend: CLOSED. These settings are stored but not applied.",
++                color = C.warn,
++                fontSize = 11.sp
++            )
++        }
++        Text(
++            "Alt+Shift+R (Sym+Shift+R) cycles the app in front: " +
++                cycleSummary(st.favourites, display),
++            color = C.muted,
++            fontSize = 11.sp,
++            modifier = Modifier.padding(vertical = 6.dp)
++        )
++        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
++            rows.forEachIndexed { i, r ->
++                ToolRowItem(title(r, display), value(r, st), i == st.row) {
++                    st.row = i
++                    actions.act(r, 1)
++                }
++            }
++            Text(
++                "Portrait and Landscape lock the screen and make apps that ask for another " +
++                    "orientation fit instead of turning it. While any app has an aspect ratio " +
++                    "profile, apps' orientation requests are fitted the same way (Android needs " +
++                    "that for aspect ratios). A per-app orientation wins while its app is in front.",
++                color = C.muted,
++                fontSize = 11.sp,
++                modifier = Modifier.padding(top = 6.dp)
++            )
++            st.msg?.let {
++                Text(
++                    it,
++                    color = if (it.startsWith("Could not")) C.warn else C.ok,
++                    fontSize = 12.sp,
++                    modifier = Modifier.padding(top = 6.dp)
++                )
++            }
++        }
++        Text("↑↓ row · ←→ change · Enter change/act · Esc back", color = C.muted, fontSize = 11.sp)
++    }
++}
++
++/** Row actions and keys of Display tools; created per composition so it sees the latest state. */
++private class ToolsActions(
++    private val app: DisplayCompatApp,
++    private val st: ToolsState,
++    private val display: SizePx,
++    private val onDone: () -> Unit
++) {
++    private val settings get() = app.toolsSettings
++
++    private companion object {
++        val KEYS = setOf(
++            Key.DirectionDown,
++            Key.DirectionUp,
++            Key.DirectionRight,
++            Key.DirectionLeft,
++            Key.Enter,
++            Key.NumPadEnter,
++            Key.Escape
++        )
++    }
++
++    fun onKey(e: KeyEvent, rows: List<ToolRow>): Boolean {
++        val handled = e.type == KeyEventType.KeyDown && e.key in KEYS
++        if (handled) {
++            when (e.key) {
++                Key.DirectionDown -> st.row = (st.row + 1).coerceAtMost(rows.lastIndex)
++                Key.DirectionUp -> st.row = (st.row - 1).coerceAtLeast(0)
++                Key.DirectionLeft -> act(rows[st.row], -1)
++                Key.Escape -> onDone()
++                else -> act(rows[st.row], 1)
++            }
++        }
++        return handled
++    }
++
++    fun act(r: ToolRow, dir: Int) {
++        when (r) {
++            ToolRow.Rotation -> {
++                val all = SystemRotation.entries
++                st.rotation = all[(all.indexOf(st.rotation) + dir + all.size) % all.size]
++                settings.systemRotation = st.rotation
++                app.refreshDisplay()
++                st.msg = "System rotation: ${st.rotation.label}."
++            }
++
++            is ToolRow.Favourite -> {
++                st.favourites = if (r.canvas in st.favourites) {
++                    st.favourites - r.canvas
++                } else {
++                    st.favourites + r.canvas
++                }
++                settings.favourites = st.favourites
++                st.msg = cycleSummary(st.favourites, display)
++            }
++
++            ToolRow.Restore -> {
++                val failed = app.tools.restoreAll()
++                st.msg = if (failed.isEmpty()) {
++                    "Display restored. Profiles apply again when their app comes to the front."
++                } else {
++                    "Could not restore: $failed. Try again or reboot."
++                }
++            }
++
++            ToolRow.Back -> onDone()
++        }
++    }
++}
++
++private fun cycleSummary(favourites: Set<TallCanvas>, display: SizePx): String {
++    val order = CanvasCycle.order(favourites, display)
++    return if (order.size < 2) {
++        "no favourite sizes yet."
++    } else {
++        order.joinToString(" → ") { it.label(display) } + " → Native."
++    }
++}
++
++private fun title(r: ToolRow, display: SizePx): String = when (r) {
++    ToolRow.Rotation -> "System rotation"
++    is ToolRow.Favourite -> "Favourite " + r.canvas.label(display)
++    ToolRow.Restore -> "Restore the native display now"
++    ToolRow.Back -> "Back"
++}
++
++private fun value(r: ToolRow, st: ToolsState): String = when (r) {
++    ToolRow.Rotation -> st.rotation.label
++    is ToolRow.Favourite -> if (r.canvas in st.favourites) "On" else "Off"
++    ToolRow.Restore, ToolRow.Back -> ""
++}
++
++@Composable
++private fun ToolRowItem(title: String, value: String, selected: Boolean, onClick: () -> Unit) {
++    Row(
++        Modifier.fillMaxWidth().padding(vertical = 2.dp)
++            .background(if (selected) C.surface else C.window, RoundedCornerShape(6.dp))
++            .border(
++                if (selected) 2.dp else 0.dp,
++                if (selected) C.accent else C.window,
++                RoundedCornerShape(6.dp)
++            )
++            .clickable { onClick() }.padding(10.dp),
++        horizontalArrangement = Arrangement.SpaceBetween
++    ) {
++        Text(title, color = C.text, fontSize = 14.sp)
++        Text(value, color = C.accent, fontSize = 13.sp)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/DisplayToolsTest.kt b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/DisplayToolsTest.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..0baad056bc3c86463a6856e752d5d2a08d26a391
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/DisplayToolsTest.kt
+@@ -0,0 +1,494 @@
++package org.sableos.titan2.displaycompat.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++/** Tall canvas sizes, the hotkey cycle, the restore decisions and the held-originals bookkeeping. */
++class DisplayToolsTest {
++    private val q25 = SizePx(720, 720)
++    private val facts = DisplayFacts(q25, 280)
++    private val tall = DisplayProfile(canvas = TallCanvas.Tall9x16)
++
++    private fun moment(front: String? = "com.example.app", interactive: Boolean = true) = Situation(
++        gateOpen = true,
++        setupComplete = true,
++        interactive = interactive,
++        frontPackage = front,
++        frontProfile = DisplayProfile.NATIVE,
++        systemRotation = SystemRotation.FollowApps,
++        anyAspectProfile = false
++    )
++
++    // --- sizes ---
++
++    @Test fun q25PresetsMatchTheCommunityResolutions() {
++        assertEquals(
++            listOf(SizePx(720, 772), SizePx(720, 960), SizePx(720, 1280), SizePx(720, 1440)),
++            TallCanvas.usable(q25).map { it.size(q25) }
++        )
++        assertNull(TallCanvas.Native.size(q25))
++        assertEquals("720x1280 (9:16)", TallCanvas.Tall9x16.label(q25))
++        assertEquals("Native 720x720", TallCanvas.Native.label(q25))
++    }
++
++    @Test fun aSizeNoTallerThanTheScreenIsNotOffered() {
++        val phone = SizePx(720, 1280)
++        assertEquals(listOf(TallCanvas.Tall1x2), TallCanvas.usable(phone))
++        assertEquals("9:16 (not taller here)", TallCanvas.Tall9x16.label(phone))
++    }
++
++    @Test fun tallCanvasNeverCrossesTheLargeScreenThresholdAtDensity280() {
++        TallCanvas.usable(q25).forEach {
++            val s = requireNotNull(it.size(q25))
++            assertEquals(411, CanvasMath.smallestWidthDp(s, 280))
++            assertNull(it.name, CanvasMath.compactDensity(s, 280))
++        }
++    }
++
++    @Test fun aLowDensityGetsAGuardThatKeepsItUnder600dp() {
++        val s = SizePx(720, 1280)
++        assertEquals(640, CanvasMath.smallestWidthDp(s, 180))
++        val d = requireNotNull(CanvasMath.compactDensity(s, 180))
++        assertEquals(193, d)
++        assertTrue(CanvasMath.smallestWidthDp(s, d) < CanvasMath.LARGE_SCREEN_DP)
++        assertEquals(600, CanvasMath.smallestWidthDp(s, d - 1))
++    }
++
++    // --- hotkey cycle ---
++
++    @Test fun cycleGoesNativeThenFavouritesShortestFirstThenNative() {
++        val fav = setOf(TallCanvas.Tall9x16, TallCanvas.Tall3x4)
++        assertEquals(TallCanvas.Tall3x4, CanvasCycle.next(fav, TallCanvas.Native, q25))
++        assertEquals(TallCanvas.Tall9x16, CanvasCycle.next(fav, TallCanvas.Tall3x4, q25))
++        assertEquals(TallCanvas.Native, CanvasCycle.next(fav, TallCanvas.Tall9x16, q25))
++    }
++
++    @Test fun aSizeOutsideTheCycleRestartsIt() {
++        val fav = setOf(TallCanvas.Tall9x16)
++        assertEquals(TallCanvas.Tall9x16, CanvasCycle.next(fav, TallCanvas.Tall1x2, q25))
++    }
++
++    @Test fun noFavouritesMeansNothingToCycle() {
++        assertNull(CanvasCycle.next(emptySet(), TallCanvas.Native, q25))
++        assertNull(
++            CanvasCycle.next(setOf(TallCanvas.Tall9x16), TallCanvas.Native, SizePx(720, 1440))
++        )
++    }
++
++    @Test fun favouritesRoundTripAndDefault() {
++        assertEquals(CanvasCycle.DEFAULT_FAVOURITES, CanvasCycle.decode(null))
++        assertEquals(emptySet<TallCanvas>(), CanvasCycle.decode(""))
++        val fav = setOf(TallCanvas.Taller, TallCanvas.Tall1x2)
++        assertEquals("tall_772,tall_1_2", CanvasCycle.encode(fav))
++        assertEquals(fav, CanvasCycle.decode("tall_1_2,bogus,native,tall_772"))
++    }
++
++    @Test fun canvasSurvivesTheProfileCodecAndOldPayloadsStayNative() {
++        val p = DisplayProfile(AspectProfile.Native, canvas = TallCanvas.Tall3x4)
++        assertEquals(p, ProfileCodec.decode(ProfileCodec.encode(p)))
++        assertFalse(p.isNative)
++        assertEquals(TallCanvas.Native, ProfileCodec.decode("v=1;p=mini;o=Default").canvas)
++        assertEquals(TallCanvas.Native, ProfileCodec.decode("v=1;p=native;c=nope").canvas)
++    }
++
++    // --- restore decisions ---
++
++    @Test fun canvasOnlyWhileItsAppIsInFront() {
++        val t = DisplayPolicy.target(moment().copy(frontProfile = tall), facts)
++        assertEquals(SizePx(720, 1280), t.size)
++        assertNull(t.density)
++        assertNull(t.rotation)
++        assertNull(t.ignoreOrientationRequest)
++        // Another app in front: its own (native) profile, so the size is given back.
++        assertNull(DisplayPolicy.target(moment(front = "com.other"), facts).size)
++    }
++
++    @Test fun lockScreenSetupAndClosedGateRestore() {
++        val s = moment().copy(frontProfile = tall)
++        assertNull(DisplayPolicy.target(s.copy(interactive = false), facts).size)
++        assertEquals(DisplayTarget.NONE, DisplayPolicy.target(s.copy(setupComplete = false), facts))
++        assertEquals(DisplayTarget.NONE, DisplayPolicy.target(s.copy(gateOpen = false), facts))
++        assertNull(DisplayPolicy.target(s.copy(frontPackage = null), facts).size)
++    }
++
++    @Test fun systemRotationLocksAndIgnoresAppRequests() {
++        val portrait = DisplayPolicy.target(
++            moment().copy(systemRotation = SystemRotation.Portrait),
++            facts
++        )
++        assertEquals(RotationTarget.PORTRAIT, portrait.rotation)
++        assertEquals(true, portrait.ignoreOrientationRequest)
++        val landscape =
++            DisplayPolicy.target(moment().copy(systemRotation = SystemRotation.Landscape), facts)
++        assertEquals(RotationTarget(false, Rotations.ROTATION_270), landscape.rotation)
++        val auto = DisplayPolicy.target(moment().copy(systemRotation = SystemRotation.Auto), facts)
++        assertEquals(RotationTarget.AUTO, auto.rotation)
++        assertNull(auto.ignoreOrientationRequest)
++        val follow = DisplayPolicy.target(moment(), facts)
++        assertNull(follow.rotation)
++        assertNull(follow.ignoreOrientationRequest)
++    }
++
++    @Test fun perAppOrientationWinsWhileInFrontAndStaysOffTheLockScreen() {
++        val s = moment().copy(
++            systemRotation = SystemRotation.Portrait,
++            frontProfile = DisplayProfile(orientation = OrientationPref.Auto)
++        )
++        assertEquals(RotationTarget.AUTO, DisplayPolicy.target(s, facts).rotation)
++        assertEquals(
++            RotationTarget.PORTRAIT,
++            DisplayPolicy.target(s.copy(interactive = false), facts).rotation
++        )
++        val landscape = s.copy(
++            frontProfile = DisplayProfile(orientation = OrientationPref.Landscape)
++        )
++        assertEquals(RotationTarget.LANDSCAPE, DisplayPolicy.target(landscape, facts).rotation)
++    }
++
++    @Test fun anAspectProfileKeepsTheDisplayIgnoringOrientationRequests() {
++        assertEquals(
++            true,
++            DisplayPolicy.target(
++                moment().copy(anyAspectProfile = true),
++                facts
++            ).ignoreOrientationRequest
++        )
++        assertTrue(DisplayPolicy.usesAspectRatio(DisplayProfile(AspectProfile.MiniMode)))
++        assertFalse(DisplayPolicy.usesAspectRatio(DisplayProfile(AspectProfile.KeyboardSafe)))
++        assertFalse(DisplayPolicy.usesAspectRatio(tall))
++    }
++
++    @Test fun onlyCanvasAndOrientationProfilesNeedTheService() {
++        assertFalse(
++            DisplayPolicy.needsForegroundTracking(listOf(DisplayProfile(AspectProfile.MiniMode)))
++        )
++        assertTrue(DisplayPolicy.needsForegroundTracking(listOf(tall)))
++        assertTrue(
++            DisplayPolicy.needsForegroundTracking(
++                listOf(DisplayProfile(orientation = OrientationPref.Portrait))
++            )
++        )
++    }
++
++    // --- held originals ---
++
++    private val plain =
++        CurrentDisplay(
++            null,
++            null,
++            autoRotate = true,
++            userRotation = 1,
++            ignoreOrientationRequest = false
++        )
++
++    @Test fun firstChangeSavesTheOriginalAndRestoreGivesItBack() {
++        val on = Reconciler.plan(DisplayTarget(size = SizePx(720, 1280)), HeldState.NONE, plain)
++        assertEquals(listOf(DisplayStep.SetSize(SizePx(720, 1280))), on.steps)
++        assertEquals(HeldState.Held<SizePx>(null), on.heldAfter.size)
++        assertEquals(on.heldAfter, on.heldDuring)
++        val shown = plain.copy(forcedSize = SizePx(720, 1280))
++        val off = Reconciler.plan(DisplayTarget.NONE, on.heldAfter, shown)
++        assertEquals(listOf(DisplayStep.ClearSize), off.steps)
++        assertTrue(off.heldAfter.isEmpty)
++        // While the restore runs, the original is still on record.
++        assertEquals(on.heldAfter, off.heldDuring)
++    }
++
++    @Test fun switchingSizesKeepsTheFirstOriginal() {
++        val held = HeldState(size = HeldState.Held(SizePx(700, 700)))
++        val now = plain.copy(forcedSize = SizePx(720, 960))
++        val p = Reconciler.plan(DisplayTarget(size = SizePx(720, 1280)), held, now)
++        assertEquals(listOf(DisplayStep.SetSize(SizePx(720, 1280))), p.steps)
++        assertEquals(held.size, p.heldAfter.size)
++        val back = Reconciler.plan(
++            DisplayTarget.NONE,
++            p.heldAfter,
++            now.copy(forcedSize = SizePx(720, 1280))
++        )
++        assertEquals(listOf(DisplayStep.SetSize(SizePx(700, 700))), back.steps)
++    }
++
++    @Test fun rotationIsHeldAndGivenBack() {
++        val lock = Reconciler.plan(
++            DisplayTarget(rotation = RotationTarget.PORTRAIT),
++            HeldState.NONE,
++            plain
++        )
++        assertEquals(listOf(DisplayStep.SetRotation(RotationTarget.PORTRAIT)), lock.steps)
++        assertEquals(RotationTarget(true, 1), lock.heldAfter.rotation?.value)
++        val locked = plain.copy(autoRotate = false, userRotation = 0)
++        val back = Reconciler.plan(DisplayTarget.NONE, lock.heldAfter, locked)
++        assertEquals(listOf(DisplayStep.SetRotation(RotationTarget(true, 1))), back.steps)
++    }
++
++    @Test fun autoRotateDoesNotRewriteTheStoredRotation() {
++        val p = Reconciler.plan(
++            DisplayTarget(rotation = RotationTarget.AUTO),
++            HeldState.NONE,
++            plain
++        )
++        assertTrue(p.steps.isEmpty())
++    }
++
++    @Test fun nothingHeldAndNothingWantedDoesNothing() {
++        val p = Reconciler.plan(DisplayTarget.NONE, HeldState.NONE, plain)
++        assertTrue(p.steps.isEmpty())
++        assertTrue(p.heldAfter.isEmpty)
++    }
++
++    @Test fun heldCodecRoundTrips() {
++        val h = HeldState(
++            size = HeldState.Held(null),
++            density = HeldState.Held(320),
++            rotation = HeldState.Held(RotationTarget(true, 1)),
++            ignoreOrientationRequest = HeldState.Held(false)
++        )
++        assertEquals("s=-;d=320;r=1:1;i=0", HeldCodec.encode(h))
++        assertEquals(h, HeldCodec.decode(HeldCodec.encode(h)))
++        assertEquals(HeldState.NONE, HeldCodec.decode(null))
++        assertEquals(
++            HeldState(size = HeldState.Held(SizePx(720, 720))),
++            HeldCodec.decode("s=720x720;r=9:9;i=x;d=0")
++        )
++    }
++
++    // --- DisplayTools with fakes ---
++
++    private class FakePort(var now: CurrentDisplay) : DisplayPort {
++        val ran = mutableListOf<DisplayStep>()
++        var fail: (DisplayStep) -> Boolean = { false }
++        override fun initialSize() = SizePx(720, 720)
++        override fun initialDensity() = 280
++        override fun current() = now
++        override fun run(step: DisplayStep) {
++            check(!fail(step)) { "refused" }
++            ran += step
++            now = when (step) {
++                is DisplayStep.SetSize -> now.copy(forcedSize = step.size)
++
++                DisplayStep.ClearSize -> now.copy(forcedSize = null)
++
++                is DisplayStep.SetDensity -> now.copy(forcedDensity = step.density)
++
++                DisplayStep.ClearDensity -> now.copy(forcedDensity = null)
++
++                is DisplayStep.SetRotation ->
++                    now.copy(
++                        autoRotate = step.rotation.autoRotate,
++                        userRotation = step.rotation.userRotation
++                    )
++
++                is DisplayStep.SetIgnoreOrientationRequest -> now.copy(
++                    ignoreOrientationRequest = step.ignore
++                )
++            }
++        }
++    }
++
++    private class FakeSettings : ToolsSettings {
++        override var systemRotation = SystemRotation.FollowApps
++        override var favourites = CanvasCycle.DEFAULT_FAVOURITES
++        val writes = mutableListOf<HeldState>()
++        override var held: HeldState = HeldState.NONE
++            set(value) {
++                writes += value
++                field = value
++            }
++    }
++
++    private object OpenBackend : DisplayBackend {
++        override val name = "test"
++        override val availability = BackendAvailability.OPEN_UNVERIFIED
++        override fun apply(pkg: String, plan: CanvasPlan, p: DisplayProfile) =
++            ApplyResult.Applied("ok")
++        override fun clear(pkg: String) = ApplyResult.Applied("cleared")
++    }
++
++    private val protected = mapOf(
++        "org.sableos.launcher" to AppTraits("org.sableos.launcher", isHome = true),
++        "org.sableos.titan2.keyboard" to
++            AppTraits("org.sableos.titan2.keyboard", isInputMethod = true),
++        "com.android.settings" to AppTraits("com.android.settings", isSystemUiOrSettings = true),
++        "com.android.dialer" to AppTraits("com.android.dialer", isDialer = true)
++    )
++
++    private fun tools(
++        port: FakePort,
++        settings: FakeSettings = FakeSettings(),
++        store: ProfileStore = InMemoryProfileStore()
++    ) = DisplayTools(port, settings, store, ProfileController(store, OpenBackend)) { pkg ->
++        protected[pkg] ?: AppTraits(
++            pkg,
++            isSystemUiOrSettings = TraitHeuristics.isProtectedSystemPackage(pkg),
++            isAuthenticatorOrPayment = TraitHeuristics.nameLooksSensitive(pkg)
++        )
++    }
++
++    private fun m(front: String?, interactive: Boolean = true) =
++        Moment(true, true, interactive, front)
++
++    @Test fun hotkeyCyclesSavesAndAppliesForTheAppInFront() {
++        val port = FakePort(plain)
++        val store = InMemoryProfileStore()
++        val t = tools(port, store = store)
++        val first = t.cycle(m("com.example.app"))
++        assertEquals(CycleOutcome.Changed(TallCanvas.Tall3x4, "720x960 (3:4)"), first)
++        assertEquals(TallCanvas.Tall3x4, store.get("com.example.app").canvas)
++        assertEquals(SizePx(720, 960), port.now.forcedSize)
++        t.cycle(m("com.example.app"))
++        assertEquals(SizePx(720, 1280), port.now.forcedSize)
++        val back = t.cycle(m("com.example.app"))
++        assertEquals(CycleOutcome.Changed(TallCanvas.Native, "Native 720x720"), back)
++        assertTrue(store.get("com.example.app").isNative)
++        assertNull(port.now.forcedSize)
++        assertEquals(
++            "720x960 (3:4) · Example",
++            CycleText.message(first, "Example")
++        )
++    }
++
++    @Test fun hotkeyNeverReshapesStartKeyboardsSettingsSetupOrThePhone() {
++        val port = FakePort(plain)
++        val t = tools(port)
++        listOf(
++            "org.sableos.launcher",
++            "org.sableos.titan2.keyboard",
++            "com.android.settings",
++            "com.android.systemui",
++            "org.sableos.titan2.setup",
++            "org.lineageos.setupwizard",
++            "org.sableos.titan2.displaycompat",
++            "com.android.dialer"
++        ).forEach { pkg ->
++            assertTrue(pkg, t.cycle(m(pkg)) is CycleOutcome.Blocked)
++        }
++        assertTrue(port.ran.isEmpty())
++    }
++
++    @Test fun hotkeyNeedsAnUnlockedAppGateAndFavourites() {
++        val port = FakePort(plain)
++        val settings = FakeSettings()
++        val t = tools(port, settings)
++        assertEquals(CycleOutcome.NoApp, t.cycle(m(null)))
++        assertEquals(CycleOutcome.NoApp, t.cycle(m("com.example.app", interactive = false)))
++        assertEquals(CycleOutcome.GateClosed, t.cycle(Moment(false, true, true, "com.example.app")))
++        settings.favourites = emptySet()
++        assertEquals(CycleOutcome.NoFavourites, t.cycle(m("com.example.app")))
++        assertEquals(CycleOutcome.NeedsConfirmation, tools(port).cycle(m("com.example.wallet")))
++    }
++
++    @Test fun leavingTheAppOrLockingRestoresTheDisplay() {
++        val port = FakePort(plain)
++        val store = InMemoryProfileStore()
++        store.put("com.example.app", tall)
++        val settings = FakeSettings()
++        val t = tools(port, settings, store)
++        t.reconcile(m("com.example.app"))
++        assertEquals(SizePx(720, 1280), port.now.forcedSize)
++        t.reconcile(m("com.example.app", interactive = false))
++        assertNull(port.now.forcedSize)
++        t.reconcile(m("com.example.app"))
++        t.reconcile(m("org.sableos.launcher"))
++        assertNull(port.now.forcedSize)
++        assertTrue(settings.held.isEmpty)
++    }
++
++    @Test fun aRefusedRestoreKeepsTheOriginalsForTheNextTry() {
++        val port = FakePort(plain)
++        val store = InMemoryProfileStore()
++        store.put("com.example.app", tall)
++        val settings = FakeSettings()
++        val t = tools(port, settings, store)
++        t.reconcile(m("com.example.app"))
++        port.fail = { it == DisplayStep.ClearSize }
++        assertEquals(listOf<DisplayStep>(DisplayStep.ClearSize), t.reconcile(m("com.other")))
++        assertEquals(HeldState.Held<SizePx>(null), settings.held.size)
++        port.fail = { false }
++        assertTrue(t.restoreAll().isEmpty())
++        assertNull(port.now.forcedSize)
++        assertTrue(settings.held.isEmpty)
++    }
++
++    @Test fun originalsAreWrittenBeforeTheFirstChange() {
++        val port = FakePort(plain)
++        val settings = FakeSettings()
++        val store = InMemoryProfileStore()
++        store.put("com.example.app", tall)
++        port.fail = { true } // the process "dies" at the first step
++        tools(port, settings, store).reconcile(m("com.example.app"))
++        assertEquals(HeldState.Held<SizePx>(null), settings.writes.first().size)
++        assertEquals(HeldState.Held<SizePx>(null), settings.held.size)
++    }
++
++    @Test fun bootRestoreGivesBackWhateverWasHeld() {
++        val port =
++            FakePort(
++                plain.copy(forcedSize = SizePx(720, 1440), autoRotate = false, userRotation = 0)
++            )
++        var held =
++            HeldState(
++                size = HeldState.Held(null),
++                rotation = HeldState.Held(RotationTarget(true, 1))
++            )
++        val failed = PlanRunner.restoreAll(port, held) { held = it }
++        assertTrue(failed.isEmpty())
++        assertNull(port.now.forcedSize)
++        assertTrue(port.now.autoRotate)
++        assertEquals(1, port.now.userRotation)
++        assertTrue(held.isEmpty)
++        assertTrue(PlanRunner.restoreAll(port, held) { held = it }.isEmpty())
++    }
++
++    @Test fun anAspectProfileTurnsIgnoreOrientationOnAndResetGivesItBack() {
++        val port = FakePort(plain)
++        val store = InMemoryProfileStore()
++        val settings = FakeSettings()
++        val t = tools(port, settings, store)
++        store.put("com.example.video", DisplayProfile(AspectProfile.Ratio16x9Letterbox))
++        t.reconcile(m("org.sableos.launcher"))
++        assertTrue(port.now.ignoreOrientationRequest)
++        store.reset("com.example.video")
++        t.reconcile(m("org.sableos.launcher"))
++        assertFalse(port.now.ignoreOrientationRequest)
++        assertTrue(settings.held.isEmpty)
++    }
++    // --- validation ---
++
++    private fun codes(t: AppTraits, p: DisplayProfile) =
++        ProfileValidator.validate(t, p).issues.map { it.code }
++
++    @Test fun canvasRulesFollowTheProtectedAppRules() {
++        assertTrue(ProfileValidator.validate(AppTraits("x", isDialer = true), tall).blocked)
++        assertTrue(ProfileValidator.validate(AppTraits("x", isInputMethod = true), tall).blocked)
++        assertTrue(ProfileValidator.validate(AppTraits("x", isHome = true), tall).blocked)
++        val auth = ProfileValidator.validate(AppTraits("x", isAuthenticatorOrPayment = true), tall)
++        assertFalse(auth.blocked)
++        assertEquals(listOf("AUTH_PAYMENT_CANVAS"), auth.ackRequired.map { it.code })
++        assertTrue("CAMERA_CANVAS" in codes(AppTraits("x", isCamera = true), tall))
++        assertTrue(
++            "CANVAS_WITH_ASPECT" in
++                codes(AppTraits("x"), tall.copy(profile = AspectProfile.MiniMode))
++        )
++        assertTrue("CANVAS_LIVE" in codes(AppTraits("x"), tall))
++    }
++
++    @Test fun autoIsLiveAndLandscapeWithAnAspectRatioIsFlagged() {
++        val auto = codes(AppTraits("x"), DisplayProfile(orientation = OrientationPref.Auto))
++        assertEquals(listOf("AUTO_LIVE"), auto)
++        val mini = DisplayProfile(AspectProfile.MiniMode, orientation = OrientationPref.Landscape)
++        assertTrue("ASPECT_KEEPS_PORTRAIT" in codes(AppTraits("x"), mini))
++    }
++
++    @Test fun setupAndThisAppAreProtectedPackages() {
++        listOf(
++            "org.sableos.titan2.setup",
++            "org.lineageos.setupwizard",
++            "com.android.provision",
++            "com.android.launcher3",
++            "org.sableos.titan2.displaycompat"
++        ).forEach { assertTrue(it, TraitHeuristics.isProtectedSystemPackage(it)) }
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/PlatformMappingTest.kt b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/PlatformMappingTest.kt
+index bf4b79fede6d5e4d2f40bbc9d2aa9db7de793361..34340845269121043ee5c7317baf9e649706dddc 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/PlatformMappingTest.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/PlatformMappingTest.kt
+@@ -78,12 +78,21 @@ class PlatformMappingTest {
+         assertTrue(landscape.describe().contains("orientation landscape"))
+     }
+ 
+-    @Test fun autoOrientationIsReportedNotApplied() {
++    @Test fun autoOrientationIsHeldLiveNotByACompatChange() {
+         val r = PlatformMapping.request(DisplayProfile(orientation = OrientationPref.Auto))
+         assertTrue(r.enableOrientation.isEmpty())
+         assertEquals(OrientationOverrides.ALL, r.disableOrientation)
+-        assertTrue(r.notApplied.contains("orientation auto"))
++        assertTrue(r.notApplied.isEmpty())
++        assertEquals(listOf("auto-rotate"), r.live)
+         assertFalse(r.hasEffect)
++        assertTrue(r.describe().contains("while in front: auto-rotate"))
++    }
++
++    @Test fun tallCanvasIsALiveEffect() {
++        val r = PlatformMapping.request(DisplayProfile(canvas = TallCanvas.Tall9x16))
++        assertEquals(UserMinAspectRatio.UNSET, r.minAspectRatio)
++        assertEquals(listOf("tall canvas 9:16"), r.live)
++        assertTrue(r.notApplied.isEmpty())
+     }
+ 
+     @Test fun miniModeSendsThreeByTwo() {
