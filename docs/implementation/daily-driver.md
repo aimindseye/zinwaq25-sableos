@@ -157,12 +157,13 @@ this package must not do.
 
 ## Left for the device
 
-* Rendering: the Glimpse focus ring at 193 dpi, the Gallery2 editor and crop
+* Rendering: the Glimpse focus ring at density 280 (193 when this was written), the Gallery2 editor and crop
   chrome in light and dark, and the Start tiles. Proposed gates:
   `Q4-DAILY-DRIVER` and `Q4-DAILY-DRIVER-BEHAVIOUR` in
   [QUALIFICATION](../QUALIFICATION.md).
 * Density and clipping: no clipping defect could be identified from source.
-  At 193 dpi the screen is about 597dp square, below every `w600dp`, `h600dp`
+  At 193 dpi the screen was about 597dp square, and at the density 280 used
+  since PR #32 it is about 411dp; both are below every `w600dp`, `h600dp`
   and `sw600dp` qualifier these apps use, so the phone layouts apply.
   Glimpse's grid computes its span count from the display. A clipping fix
   needs a capture at font scale 1.0 and 1.3.

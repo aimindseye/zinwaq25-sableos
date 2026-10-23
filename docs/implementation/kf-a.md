@@ -258,9 +258,9 @@ Behaviour:
   shade always clears it, so the lock screen, status bar icons and heads-up are never left
   filtered. Rows whose content is hidden (sensitive) match on the app name only.
 - **No keyboard light tile:** the Q25 keyboard firmware ignores host writes (see Settings 0901).
-- **Tile size:** small tiles keep the upstream 72dp height (about 185 x 72dp at density 193), so
-  "square" means the 12dp card corners of 0102, not a 1:1 tile; 1:1 tiles would push the
-  notifications off the 597dp screen.
+- **Tile size:** small tiles keep the upstream 72dp height (about 185 x 72dp at density 193, about
+  127 x 72dp at the density 280 used since PR #32), so "square" means the 12dp card corners of
+  0102, not a 1:1 tile; 1:1 tiles would push the notifications off the screen.
 
 Not built (no Soong here); the pure policies have host tests (`SableShadeSearchTest`,
 `SableHubSummaryTest`). Device checks: Q4-QS-TITAN2, Q4-SHADE-SEARCH.

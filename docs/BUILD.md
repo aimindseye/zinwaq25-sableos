@@ -4,7 +4,9 @@ Status: **the Sable apps build and pass their quality gates in GitHub Actions
 (section 7). Q1 and Q2 images were built on ai-g732 on 2026-10-15 and boot on a
 Q25. Q4 (the framework layer) was first built on 2026-10-17 and boots. The
 PR #28 Q4 image was built on 2026-10-22 after three fixes from that run (PR #31,
-see Troubleshooting) and has not been flashed yet.**
+see Troubleshooting) and was flashed and reviewed on a Q25 the same day. PR #32
+(the review fixes, Sable Messages as the default SMS app, the one Hub page and
+the display tools) has not been built into an image yet.**
 
 ## 1. Host
 

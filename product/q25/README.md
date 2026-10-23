@@ -35,7 +35,9 @@ Vault only in the Private Space profile.
 
 `permissions/default-permissions-sable-q25.xml` (Q4+) grants at first boot, revocably: READ_CONTACTS
 to Sable Start for the Hub page's Contacts tab, and READ_SMS, READ_CONTACTS and READ_CALL_LOG to
-Sable Hub, which has no launcher entry to ask from since Start's Hub page became the one Hub.
+Sable Hub, which has no launcher entry to ask from since Start's Hub page became the one Hub, and
+the SMS, MMS, contacts and notification permissions to Sable Messages, the default SMS app (set by
+`config_defaultSms` in `SableFrameworkOverlay`).
 
 A `Q1` build stages nothing and removes `vendor/extra/product.mk`, so you get the
 plain LineageOS control image.

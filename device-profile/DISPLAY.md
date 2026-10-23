@@ -58,3 +58,14 @@ screen height so the board and its controls show together.
 
 Preview on a phone running an older image: `adb shell wm density 280`
 (undo with `adb shell wm density reset`).
+
+## Tall canvas, resolution hotkey and rotation
+
+Some phone apps expect a tall screen. App display compatibility can give one app a taller
+canvas while it is in front (720x772, 720x960, 720x1280 or 720x1440): the display's forced
+size changes, the app lays out as on a tall phone and is shrunk into the square with side bars,
+and the native 720x720 comes back as soon as another app comes forward or the screen locks.
+Every preset keeps the 720 px width, so the smallest width stays 411 dp at density 280 and the
+taskbar never appears. Alt+Shift+R cycles the app in front through the favourite sizes. A
+system rotation override (Follow apps, Auto, Portrait, Landscape) sits in the same Display tools
+screen. Details: [q4-review](../docs/implementation/q4-review.md#display-tools).
