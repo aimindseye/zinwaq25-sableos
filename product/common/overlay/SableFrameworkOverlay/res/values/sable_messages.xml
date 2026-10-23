@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Default holder of android.app.role.SMS (PermissionController roles.xml reads
+         config_defaultSms): Sable Messages receives SMS and MMS and writes them to the provider.
+         AOSP Messaging (module "messaging") is removed by the SableMessages row of
+         product/q25/apps.tsv. Before Q4 (no overlays) the role falls back to the only qualifying
+         system app, which is again Sable Messages. The user can still pick another SMS app in
+         Settings > Apps > Default apps. -->
+    <string name="config_defaultSms" translatable="false">org.sableos.messages</string>
+</resources>
