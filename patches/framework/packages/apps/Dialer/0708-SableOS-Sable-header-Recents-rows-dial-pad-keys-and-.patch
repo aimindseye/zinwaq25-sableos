@@ -1,0 +1,536 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 22 Oct 2026 19:11:46 +0000
+Subject: [PATCH] SableOS: Sable header, Recents rows, dial pad keys and
+ in-call pills
+
+Phone controls in the shape of the Sable Phone design
+(sable-phone-dialer-titan2), on the palette of the previous patch:
+
+* Header: "Phone" (the app label, 22sp ScreenTitle) at the start of the
+  top bar with the search pill beside it. The title is a heading for
+  screen readers and is not focusable. The search pill gets an
+  outline-tone border that turns accent while it has focus.
+* Recents: the caller row (primary_action_view) takes the Sable row
+  background, so the focused call shows the accent outline; cards use
+  12dp corners. Day labels ("Today") and the Favorites/Suggestions
+  headers use the Sable section label (12sp, caps, accent tone); the
+  favourites "Add" button is an outlined pill.
+* Dial pad: every key is an outlined pill tile on the dark pad (inset
+  inside its cell, so the touch target is the whole cell as before),
+  with an accent border on focus; digits are white. The number being
+  dialled sits in an accent-outlined field. The key background stays a
+  RippleDrawable, as DialpadView requires.
+* In-call: Mute, Keypad, Audio, Add, Hold and Video are rounded panels
+  (icon and label inside, accent while on, accent border on focus), and
+  End is a 112dp danger pill (dark red, light red border), flat.
+
+No Java change. Focus order, touch targets, the M/S/D and Space keys of
+the earlier patches and every upstream function are unchanged.
+---
+ .../app/res/layout/call_log_list_item.xml     |  3 +-
+ .../res/drawable/btn_dialpad_key.xml          | 40 +++++++++++++++++-
+ .../res/drawable/sable_digits_field.xml       | 15 +++++++
+ .../res/layout/dialpad_view_unthemed.xml      |  6 ++-
+ .../dialpadview/theme/res/values/styles.xml   |  5 ++-
+ ...h_bar_background_rounded_corners_shape.xml | 22 +++++++---
+ .../toolbar/res/layout/toolbar_layout.xml     | 23 +++++++++-
+ .../res/layout/speed_dial_header_layout.xml   |  8 ++--
+ .../theme/common/res/values/text_styles.xml   | 21 ++++++++++
+ .../res/drawable/sable_pill_outline.xml       | 28 +++++++++++++
+ .../res/drawable/sable_end_call_pill.xml      | 28 +++++++++++++
+ .../res/drawable/sable_incall_pill.xml        | 42 +++++++++++++++++++
+ .../commontheme/res/values/styles.xml         | 15 +++++--
+ .../impl/res/layout/incall_button_grid.xml    |  7 ++++
+ .../incallui/theme/res/values/styles.xml      |  4 +-
+ 15 files changed, 246 insertions(+), 21 deletions(-)
+ create mode 100644 java/com/android/dialer/dialpadview/res/drawable/sable_digits_field.xml
+ create mode 100644 java/com/android/dialer/theme/hidden/res/drawable/sable_pill_outline.xml
+ create mode 100644 java/com/android/incallui/commontheme/res/drawable/sable_end_call_pill.xml
+ create mode 100644 java/com/android/incallui/commontheme/res/drawable/sable_incall_pill.xml
+
+diff --git a/java/com/android/dialer/app/res/layout/call_log_list_item.xml b/java/com/android/dialer/app/res/layout/call_log_list_item.xml
+index 40db1ce..61e1da8 100644
+--- a/java/com/android/dialer/app/res/layout/call_log_list_item.xml
++++ b/java/com/android/dialer/app/res/layout/call_log_list_item.xml
+@@ -33,7 +33,7 @@
+     android:layout_marginEnd="@dimen/call_log_outer_margin"
+     android:paddingTop="@dimen/call_log_day_group_padding_top"
+     android:paddingBottom="@dimen/call_log_day_group_padding_bottom"
+-    style="@style/Dialer.TextAppearance.OVERLINE.Ellipsize"/>
++    style="@style/Dialer.TextAppearance.SableSection.Ellipsize"/>
+ 
+   <androidx.cardview.widget.CardView
+     android:id="@+id/call_log_row"
+@@ -55,6 +55,7 @@
+         android:paddingBottom="@dimen/call_log_vertical_padding"
+         android:orientation="horizontal"
+         android:gravity="center_vertical"
++        android:background="?android:attr/selectableItemBackground"
+         android:focusable="true"
+         android:nextFocusRight="@+id/call_back_action"
+         android:nextFocusLeft="@+id/quick_contact_photo">
+diff --git a/java/com/android/dialer/dialpadview/res/drawable/btn_dialpad_key.xml b/java/com/android/dialer/dialpadview/res/drawable/btn_dialpad_key.xml
+index 53cd7a8..dbe8e29 100644
+--- a/java/com/android/dialer/dialpadview/res/drawable/btn_dialpad_key.xml
++++ b/java/com/android/dialer/dialpadview/res/drawable/btn_dialpad_key.xml
+@@ -14,5 +14,43 @@
+      limitations under the License.
+ -->
+ 
++<!-- Sable dial pad key (sable-phone-dialer-titan2): an outlined pill tile on the dark pad, inset
++     so neighbouring keys stay apart; accent border while the key has keyboard or trackpad focus.
++     The whole cell stays the touch target. The root stays a ripple: DialpadView casts it to
++     RippleDrawable and sets the dial pad's ripple colour on it. -->
+ <ripple xmlns:android="http://schemas.android.com/apk/res/android"
+-  android:color="?android:attr/colorControlHighlight"/>
+\ No newline at end of file
++  android:color="?android:attr/colorControlHighlight">
++  <item
++    android:id="@android:id/mask"
++    android:left="6dp"
++    android:right="6dp"
++    android:top="3dp"
++    android:bottom="3dp">
++    <shape android:shape="rectangle">
++      <solid android:color="@android:color/white"/>
++      <corners android:radius="@dimen/sable_pill_radius"/>
++    </shape>
++  </item>
++  <item
++    android:left="6dp"
++    android:right="6dp"
++    android:top="3dp"
++    android:bottom="3dp">
++    <selector>
++      <item android:state_focused="true">
++        <shape android:shape="rectangle">
++          <solid android:color="@color/sable_accent_container"/>
++          <stroke android:width="@dimen/sable_focus_stroke" android:color="@color/sable_accent"/>
++          <corners android:radius="@dimen/sable_pill_radius"/>
++        </shape>
++      </item>
++      <item>
++        <shape android:shape="rectangle">
++          <solid android:color="@color/sable_surface_raised"/>
++          <stroke android:width="@dimen/sable_hairline" android:color="@color/sable_outline"/>
++          <corners android:radius="@dimen/sable_pill_radius"/>
++        </shape>
++      </item>
++    </selector>
++  </item>
++</ripple>
+diff --git a/java/com/android/dialer/dialpadview/res/drawable/sable_digits_field.xml b/java/com/android/dialer/dialpadview/res/drawable/sable_digits_field.xml
+new file mode 100644
+index 0000000..3cc88d2
+--- /dev/null
++++ b/java/com/android/dialer/dialpadview/res/drawable/sable_digits_field.xml
+@@ -0,0 +1,15 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++  Copyright (C) 2026 The SableOS Project
++  SPDX-License-Identifier: Apache-2.0
++-->
++<!-- The number being dialled sits in an accent-outlined field, as in the design. -->
++<inset xmlns:android="http://schemas.android.com/apk/res/android"
++    android:insetTop="6dp"
++    android:insetBottom="6dp">
++  <shape android:shape="rectangle">
++    <solid android:color="@color/sable_surface_raised"/>
++    <stroke android:width="@dimen/sable_focus_stroke" android:color="@color/sable_accent"/>
++    <corners android:radius="@dimen/sable_row_radius"/>
++  </shape>
++</inset>
+diff --git a/java/com/android/dialer/dialpadview/res/layout/dialpad_view_unthemed.xml b/java/com/android/dialer/dialpadview/res/layout/dialpad_view_unthemed.xml
+index b7fe92e..b5796fd 100644
+--- a/java/com/android/dialer/dialpadview/res/layout/dialpad_view_unthemed.xml
++++ b/java/com/android/dialer/dialpadview/res/layout/dialpad_view_unthemed.xml
+@@ -107,9 +107,13 @@
+         app:tint="@color/dialer_theme_color_light"
+         tools:visibility="visible"/>
+ 
++      <!-- Sable: accent-outlined number field. -->
+       <FrameLayout android:layout_width="0dp"
+           android:layout_height="match_parent"
+-          android:layout_weight="1">
++          android:layout_weight="1"
++          android:layout_marginStart="8dp"
++          android:layout_marginEnd="8dp"
++          android:background="@drawable/sable_digits_field">
+         <TextView android:layout_width="match_parent"
+             android:layout_height="match_parent"
+             android:id="@+id/digits_hint"
+diff --git a/java/com/android/dialer/dialpadview/theme/res/values/styles.xml b/java/com/android/dialer/dialpadview/theme/res/values/styles.xml
+index 9729b91..82fdcfa 100644
+--- a/java/com/android/dialer/dialpadview/theme/res/values/styles.xml
++++ b/java/com/android/dialer/dialpadview/theme/res/values/styles.xml
+@@ -27,8 +27,9 @@
+   </style>
+ 
+   <style name="Dialpad.Themed">
+-    <item name="dialpad_text_color">@color/dialer_theme_color_light</item>
+-    <item name="dialpad_text_color_primary">@color/dialer_theme_color_light</item>
++    <!-- Sable: white digits on the outlined keys; the accent is kept for borders. -->
++    <item name="dialpad_text_color">?android:attr/textColorPrimary</item>
++    <item name="dialpad_text_color_primary">?android:attr/textColorPrimary</item>
+     <item name="dialpad_text_color_secondary">?android:attr/textColorSecondary</item>
+     <item name="dialpad_background">@drawable/rounded_dialpad_bg</item>
+   </style>
+diff --git a/java/com/android/dialer/main/impl/toolbar/res/drawable/search_bar_background_rounded_corners_shape.xml b/java/com/android/dialer/main/impl/toolbar/res/drawable/search_bar_background_rounded_corners_shape.xml
+index 62f1e61..4c00b59 100644
+--- a/java/com/android/dialer/main/impl/toolbar/res/drawable/search_bar_background_rounded_corners_shape.xml
++++ b/java/com/android/dialer/main/impl/toolbar/res/drawable/search_bar_background_rounded_corners_shape.xml
+@@ -14,8 +14,20 @@
+   ~ See the License for the specific language governing permissions and
+   ~ limitations under the License
+   -->
+-<shape xmlns:android="http://schemas.android.com/apk/res/android"
+-  android:shape="rectangle">
+-  <solid android:color="?attr/colorBackgroundSearchBar"/>
+-  <corners android:radius="28dp"/>
+-</shape>
++<!-- Sable: the collapsed search pill has an outline-tone border, accent while focused. -->
++<selector xmlns:android="http://schemas.android.com/apk/res/android">
++  <item android:state_focused="true">
++    <shape android:shape="rectangle">
++      <solid android:color="?attr/colorBackgroundSearchBar"/>
++      <stroke android:width="@dimen/sable_focus_stroke" android:color="@color/sable_accent"/>
++      <corners android:radius="28dp"/>
++    </shape>
++  </item>
++  <item>
++    <shape android:shape="rectangle">
++      <solid android:color="?attr/colorBackgroundSearchBar"/>
++      <stroke android:width="@dimen/sable_hairline" android:color="@color/sable_outline_variant"/>
++      <corners android:radius="28dp"/>
++    </shape>
++  </item>
++</selector>
+diff --git a/java/com/android/dialer/main/impl/toolbar/res/layout/toolbar_layout.xml b/java/com/android/dialer/main/impl/toolbar/res/layout/toolbar_layout.xml
+index 0df4fa2..5ae59d6 100644
+--- a/java/com/android/dialer/main/impl/toolbar/res/layout/toolbar_layout.xml
++++ b/java/com/android/dialer/main/impl/toolbar/res/layout/toolbar_layout.xml
+@@ -22,9 +22,27 @@
+     android:layout_height="@dimen/expanded_search_bar_height"
+     app:contentInsetEnd="0dp"
+     app:contentInsetStart="0dp">
+-  <FrameLayout
++  <!-- Sable: the screen title "Phone" (22sp, SableTypeRole.ScreenTitle) at the start of the bar,
++       the search pill beside it. The title is not focusable; it stays while search is open. -->
++  <LinearLayout
+       android:layout_width="match_parent"
+-      android:layout_height="match_parent">
++      android:layout_height="match_parent"
++      android:orientation="horizontal">
++  <TextView
++      android:id="@+id/sable_screen_title"
++      android:layout_width="wrap_content"
++      android:layout_height="match_parent"
++      android:paddingStart="16dp"
++      android:paddingEnd="4dp"
++      android:gravity="center_vertical"
++      android:maxLines="1"
++      android:accessibilityHeading="true"
++      android:text="@string/applicationLabel"
++      style="@style/Dialer.TextAppearance.SableScreenTitle"/>
++  <FrameLayout
++      android:layout_width="0dp"
++      android:layout_height="match_parent"
++      android:layout_weight="1">
+     <com.android.dialer.main.impl.toolbar.SearchBarView
+         android:id="@+id/search_view_container"
+         android:layout_width="match_parent"
+@@ -133,4 +151,5 @@
+       </LinearLayout>
+     </com.android.dialer.app.list.RemoveView>
+   </FrameLayout>
++  </LinearLayout>
+ </com.android.dialer.main.impl.toolbar.MainToolbar>
+diff --git a/java/com/android/dialer/speeddial/res/layout/speed_dial_header_layout.xml b/java/com/android/dialer/speeddial/res/layout/speed_dial_header_layout.xml
+index 5897d34..08d9fc2 100644
+--- a/java/com/android/dialer/speeddial/res/layout/speed_dial_header_layout.xml
++++ b/java/com/android/dialer/speeddial/res/layout/speed_dial_header_layout.xml
+@@ -26,8 +26,7 @@
+       android:layout_width="wrap_content"
+       android:layout_height="wrap_content"
+       android:layout_centerVertical="true"
+-      android:textSize="16sp"
+-      style="@style/Dialer.TextAppearance.Secondary"/>
++      style="@style/Dialer.TextAppearance.SableSection"/>
+ 
+   <Button
+       android:id="@+id/speed_dial_add_button"
+@@ -37,10 +36,11 @@
+       android:layout_centerVertical="true"
+       android:minHeight="@dimen/dialer_touch_target_min_size"
+       android:minWidth="48dp"
+-      android:paddingStart="8dp"
+-      android:paddingEnd="8dp"
++      android:paddingStart="16dp"
++      android:paddingEnd="16dp"
+       android:text="@string/speed_dial_add_button_text"
+       android:textColor="?android:attr/colorAccent"
+       android:textAllCaps="false"
++      android:background="@drawable/sable_pill_outline"
+       style="@style/Widget.AppCompat.Button.Borderless"/>
+ </RelativeLayout>
+diff --git a/java/com/android/dialer/theme/common/res/values/text_styles.xml b/java/com/android/dialer/theme/common/res/values/text_styles.xml
+index dfda8e4..ab743f3 100644
+--- a/java/com/android/dialer/theme/common/res/values/text_styles.xml
++++ b/java/com/android/dialer/theme/common/res/values/text_styles.xml
+@@ -61,6 +61,27 @@
+     <item name="android:fontFamily">@*android:string/config_headlineFontFamilyMedium</item>
+   </style>
+ 
++  <!-- Sable section label (FAVORITES, TODAY): small caps-style label in the accent tone. -->
++  <style name="Dialer.TextAppearance.SableSection" parent="TextAppearance.AppCompat">
++    <item name="android:textColor">?android:attr/colorAccent</item>
++    <item name="android:textSize">@dimen/sable_section_label_size</item>
++    <item name="android:textAllCaps">true</item>
++    <item name="android:letterSpacing">0.12</item>
++    <item name="android:fontFamily">@*android:string/config_headlineFontFamilyMedium</item>
++  </style>
++
++  <!-- Sable screen title (Phone): SableTypeRole.ScreenTitle, 22sp. -->
++  <style name="Dialer.TextAppearance.SableScreenTitle" parent="TextAppearance.AppCompat">
++    <item name="android:textColor">?android:attr/textColorPrimary</item>
++    <item name="android:textSize">@dimen/sable_screen_title_size</item>
++    <item name="android:fontFamily">@*android:string/config_headlineFontFamilyMedium</item>
++  </style>
++
++  <style name="Dialer.TextAppearance.SableSection.Ellipsize">
++    <item name="android:ellipsize">end</item>
++    <item name="android:maxLines">1</item>
++  </style>
++
+   <style name="Dialer.TextAppearance.Header1.Ellipsize">
+     <item name="android:ellipsize">end</item>
+     <item name="android:maxLines">1</item>
+diff --git a/java/com/android/dialer/theme/hidden/res/drawable/sable_pill_outline.xml b/java/com/android/dialer/theme/hidden/res/drawable/sable_pill_outline.xml
+new file mode 100644
+index 0000000..29fd5e3
+--- /dev/null
++++ b/java/com/android/dialer/theme/hidden/res/drawable/sable_pill_outline.xml
+@@ -0,0 +1,28 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++  Copyright (C) 2026 The SableOS Project
++  SPDX-License-Identifier: Apache-2.0
++-->
++<!-- Secondary pill action (Open, Message, Add): raised fill, outline tone border; the border
++     turns accent and thicker while focused. -->
++<ripple xmlns:android="http://schemas.android.com/apk/res/android"
++    android:color="@color/sable_ripple">
++  <item>
++    <selector>
++      <item android:state_focused="true">
++        <shape android:shape="rectangle">
++          <solid android:color="@color/sable_accent_container"/>
++          <stroke android:width="@dimen/sable_focus_stroke" android:color="@color/sable_accent"/>
++          <corners android:radius="@dimen/sable_pill_radius"/>
++        </shape>
++      </item>
++      <item>
++        <shape android:shape="rectangle">
++          <solid android:color="@color/sable_surface_raised"/>
++          <stroke android:width="@dimen/sable_hairline" android:color="@color/sable_outline"/>
++          <corners android:radius="@dimen/sable_pill_radius"/>
++        </shape>
++      </item>
++    </selector>
++  </item>
++</ripple>
+diff --git a/java/com/android/incallui/commontheme/res/drawable/sable_end_call_pill.xml b/java/com/android/incallui/commontheme/res/drawable/sable_end_call_pill.xml
+new file mode 100644
+index 0000000..db36f83
+--- /dev/null
++++ b/java/com/android/incallui/commontheme/res/drawable/sable_end_call_pill.xml
+@@ -0,0 +1,28 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++  Copyright (C) 2026 The SableOS Project
++  SPDX-License-Identifier: Apache-2.0
++-->
++<!-- End: a danger pill (dark red fill, light red border, as in sable-phone-dialer-titan2);
++     a thicker border while focused. -->
++<ripple xmlns:android="http://schemas.android.com/apk/res/android"
++    android:color="@color/sable_ripple">
++  <item>
++    <selector>
++      <item android:state_focused="true">
++        <shape android:shape="rectangle">
++          <solid android:color="@color/sable_danger_container"/>
++          <stroke android:width="3dp" android:color="@color/sable_danger"/>
++          <corners android:radius="@dimen/sable_pill_radius"/>
++        </shape>
++      </item>
++      <item>
++        <shape android:shape="rectangle">
++          <solid android:color="@color/sable_danger_container"/>
++          <stroke android:width="@dimen/sable_hairline" android:color="@color/sable_danger"/>
++          <corners android:radius="@dimen/sable_pill_radius"/>
++        </shape>
++      </item>
++    </selector>
++  </item>
++</ripple>
+diff --git a/java/com/android/incallui/commontheme/res/drawable/sable_incall_pill.xml b/java/com/android/incallui/commontheme/res/drawable/sable_incall_pill.xml
+new file mode 100644
+index 0000000..a7ca061
+--- /dev/null
++++ b/java/com/android/incallui/commontheme/res/drawable/sable_incall_pill.xml
+@@ -0,0 +1,42 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++  Copyright (C) 2026 The SableOS Project
++  SPDX-License-Identifier: Apache-2.0
++-->
++<!-- In-call control (Mute, Audio, Keypad, Hold, Add): a rounded panel behind the icon and label,
++     raised fill with an outline-tone border; accent fill and border while on (checked); a 2dp
++     accent border while it has keyboard or trackpad focus. -->
++<ripple xmlns:android="http://schemas.android.com/apk/res/android"
++    android:color="@color/sable_ripple">
++  <item android:id="@android:id/mask">
++    <shape android:shape="rectangle">
++      <solid android:color="@android:color/white"/>
++      <corners android:radius="@dimen/sable_row_radius"/>
++    </shape>
++  </item>
++  <item>
++    <selector>
++      <item android:state_focused="true">
++        <shape android:shape="rectangle">
++          <solid android:color="@color/sable_accent_container"/>
++          <stroke android:width="@dimen/sable_focus_stroke" android:color="@color/sable_accent"/>
++          <corners android:radius="@dimen/sable_row_radius"/>
++        </shape>
++      </item>
++      <item android:state_checked="true">
++        <shape android:shape="rectangle">
++          <solid android:color="@color/sable_accent_container"/>
++          <stroke android:width="@dimen/sable_hairline" android:color="@color/sable_accent"/>
++          <corners android:radius="@dimen/sable_row_radius"/>
++        </shape>
++      </item>
++      <item>
++        <shape android:shape="rectangle">
++          <solid android:color="@color/sable_surface_raised"/>
++          <stroke android:width="@dimen/sable_hairline" android:color="@color/sable_outline"/>
++          <corners android:radius="@dimen/sable_row_radius"/>
++        </shape>
++      </item>
++    </selector>
++  </item>
++</ripple>
+diff --git a/java/com/android/incallui/commontheme/res/values/styles.xml b/java/com/android/incallui/commontheme/res/values/styles.xml
+index 6378273..22ba5c9 100644
+--- a/java/com/android/incallui/commontheme/res/values/styles.xml
++++ b/java/com/android/incallui/commontheme/res/values/styles.xml
+@@ -41,17 +41,26 @@
+     <item name="colorControlNormal">?android:attr/textColorSecondary</item>
+   </style>
+ 
++  <!-- Sable: End is a flat danger pill (sable_end_call_pill), 112dp wide, at least 48dp high. -->
+   <style name="Incall.Button.End" parent="android:Widget.Material.Button">
+-    <item name="android:background">@drawable/incall_end_call_background</item>
+-    <item name="android:elevation">8dp</item>
++    <item name="android:background">@drawable/sable_end_call_pill</item>
++    <item name="android:elevation">0dp</item>
+     <item name="android:layout_height">@dimen/incall_end_call_button_size</item>
+-    <item name="android:layout_width">@dimen/incall_end_call_button_size</item>
++    <item name="android:layout_width">@dimen/sable_end_call_width</item>
+     <item name="android:padding">8dp</item>
+     <item name="android:src">@drawable/quantum_ic_call_end_vd_theme_36</item>
+     <item name="android:tint">@color/incall_end_call_icon_color</item>
+     <item name="android:stateListAnimator">@animator/disabled_alpha</item>
+   </style>
+ 
++  <!-- Sable: in-call controls as rounded panels; the whole control takes keyboard focus. -->
++  <style name="SableInCallControl">
++    <item name="android:background">@drawable/sable_incall_pill</item>
++    <item name="android:layout_marginStart">4dp</item>
++    <item name="android:layout_marginEnd">4dp</item>
++    <item name="android:minHeight">@dimen/sable_pill_height</item>
++  </style>
++
+   <style name="Answer.Button" parent="android:Widget.Material.Button">
+     <item name="android:stateListAnimator">@animator/button_state</item>
+   </style>
+diff --git a/java/com/android/incallui/incall/impl/res/layout/incall_button_grid.xml b/java/com/android/incallui/incall/impl/res/layout/incall_button_grid.xml
+index 59e9944..577c527 100644
+--- a/java/com/android/incallui/incall/impl/res/layout/incall_button_grid.xml
++++ b/java/com/android/incallui/incall/impl/res/layout/incall_button_grid.xml
+@@ -7,6 +7,7 @@
+   android:layout_marginStart="@dimen/incall_window_margin_horizontal"
+   android:layout_marginEnd="@dimen/incall_window_margin_horizontal"
+   tools:showIn="@layout/frag_incall_voice">
++  <!-- Sable: each control is a rounded panel (SableInCallControl) with 4dp between panels. -->
+   <GridLayout
+     android:layout_width="match_parent"
+     android:layout_height="wrap_content"
+@@ -14,6 +15,7 @@
+     android:columnCount="3"
+     android:orientation="horizontal">
+     <com.android.incallui.incall.impl.CheckableLabeledButton
++      style="@style/SableInCallControl"
+       android:id="@+id/incall_first_button"
+       android:layout_width="0dp"
+       android:layout_columnWeight="1"
+@@ -24,6 +26,7 @@
+       tools:layout_height="@dimen/tools_button_height"
+       tools:layout_width="@dimen/incall_labeled_button_size"/>
+     <com.android.incallui.incall.impl.CheckableLabeledButton
++      style="@style/SableInCallControl"
+       android:id="@+id/incall_second_button"
+       android:layout_width="0dp"
+       android:layout_columnWeight="1"
+@@ -34,6 +37,7 @@
+       tools:layout_height="@dimen/tools_button_height"
+       tools:layout_width="@dimen/incall_labeled_button_size"/>
+     <com.android.incallui.incall.impl.CheckableLabeledButton
++      style="@style/SableInCallControl"
+       android:id="@+id/incall_third_button"
+       android:layout_width="0dp"
+       android:layout_columnWeight="1"
+@@ -44,6 +48,7 @@
+       tools:layout_height="@dimen/tools_button_height"
+       tools:layout_width="@dimen/incall_labeled_button_size"/>
+     <com.android.incallui.incall.impl.CheckableLabeledButton
++      style="@style/SableInCallControl"
+       android:id="@+id/incall_fourth_button"
+       android:layout_marginTop="@dimen/incall_button_vertical_padding"
+       android:layout_width="0dp"
+@@ -54,6 +59,7 @@
+       tools:layout_height="@dimen/tools_button_height"
+       tools:layout_width="@dimen/incall_labeled_button_size"/>
+     <com.android.incallui.incall.impl.CheckableLabeledButton
++      style="@style/SableInCallControl"
+       android:id="@+id/incall_fifth_button"
+       android:layout_width="0dp"
+       android:layout_columnWeight="1"
+@@ -64,6 +70,7 @@
+       tools:layout_height="@dimen/tools_button_height"
+       tools:layout_width="@dimen/incall_labeled_button_size"/>
+     <com.android.incallui.incall.impl.CheckableLabeledButton
++      style="@style/SableInCallControl"
+       android:id="@+id/incall_sixth_button"
+       android:layout_width="0dp"
+       android:layout_columnWeight="1"
+diff --git a/java/com/android/incallui/theme/res/values/styles.xml b/java/com/android/incallui/theme/res/values/styles.xml
+index bfedd14..73b2704 100644
+--- a/java/com/android/incallui/theme/res/values/styles.xml
++++ b/java/com/android/incallui/theme/res/values/styles.xml
+@@ -43,8 +43,8 @@
+     <item name="dialpad_key_numbers_size">@dimen/incall_dialpad_key_numbers_size</item>
+     <item name="dialpad_end_key_spacing">@dimen/incall_end_call_spacing</item>
+     <item name="dialpad_elevation">10dp</item>
+-    <item name="dialpad_text_color">@color/dialer_theme_color_light</item>
+-    <item name="dialpad_text_color_primary">@color/dialer_theme_color_light</item>
++    <item name="dialpad_text_color">?android:attr/textColorPrimary</item>
++    <item name="dialpad_text_color_primary">?android:attr/textColorPrimary</item>
+     <item name="dialpad_text_color_secondary">@color/dialer_secondary_text_color</item>
+   </style>
+ 
+-- 
+2.43.0
+

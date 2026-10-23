@@ -53,9 +53,12 @@ val canonicalPresentationSources =
         "com/sable/start/model/CommandQuery.kt",
         "com/sable/start/model/CoreAppIdentity.kt",
         "com/sable/start/model/HomeLayout.kt",
+        "com/sable/start/model/HubBar.kt",
+        "com/sable/start/model/HubPeople.kt",
         "com/sable/start/model/QuickBar.kt",
         "com/sable/start/platform/DeviceStatsSampler.kt",
         "com/sable/start/platform/LiveSurfaceRepository.kt",
+        "com/sable/start/platform/PeopleRepository.kt",
         "com/sable/start/platform/PrivacyFactsReader.kt",
         // Public SDK plus reflection only, so the check module compiles it too.
         "com/sable/start/platform/RecentTasksRepository.kt",

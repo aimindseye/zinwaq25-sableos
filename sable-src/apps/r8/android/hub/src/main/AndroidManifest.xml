@@ -86,10 +86,9 @@
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
+            <!-- No launcher entry: Sable Start's Hub page is the one Hub (All · Messages · Calls ·
+                 Contacts, with the unread bar). Hub stays installed for its providers, its
+                 notification listener and the screens below. -->
             <!-- Shade "H" (patches/framework/frameworks/base 0301): open a notification in Hub. -->
             <intent-filter>
                 <action android:name="org.sableos.hub.action.OPEN_NOTIFICATION" />

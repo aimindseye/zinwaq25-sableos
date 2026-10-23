@@ -187,6 +187,10 @@ if [[ "$FRAMEWORK" == YES ]]; then
     # (App display compatibility, Secure Vault).
     mkdir -p "$VENDOR_SABLE/etc/permissions"
     cp "$SABLE_REPO_ROOT/product/q25/permissions/privapp-permissions-sable-q25.xml" "$VENDOR_SABLE/etc/permissions/"
+    # First-boot runtime grants (not fixed): Start's Hub page Contacts tab, and Sable Hub, which
+    # has no launcher entry to ask from now that Start's Hub page is the one Hub.
+    mkdir -p "$VENDOR_SABLE/etc/default-permissions"
+    cp "$SABLE_REPO_ROOT/product/q25/permissions/default-permissions-sable-q25.xml" "$VENDOR_SABLE/etc/default-permissions/"
     # Battery guard: turns MediaTek's userdebug pr_debug logging back off; on
     # /product so init runs it after the vendor mtklog.rc (power.md).
     cp "$SABLE_REPO_ROOT/product/q25/init/sable-power.rc" "$VENDOR_SABLE/etc/init/"
@@ -216,6 +220,7 @@ PRODUCT_PRODUCT_PROPERTIES += \
     ro.config.wallpaper=/product/media/wallpaper/sable_default_wallpaper.png
 PRODUCT_COPY_FILES += \
     vendor/sable/q25/etc/permissions/privapp-permissions-sable-q25.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/permissions/privapp-permissions-sable-q25.xml \
+    vendor/sable/q25/etc/default-permissions/default-permissions-sable-q25.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/default-permissions/default-permissions-sable-q25.xml \
     vendor/sable/q25/etc/battery/zinwa-q25.conf:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/sable/battery/zinwa-q25.conf \
     vendor/sable/q25/etc/init/sable-keyboard-backlight.rc:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/init/sable-keyboard-backlight.rc \
     vendor/sable/q25/etc/init/sable-power.rc:$(TARGET_COPY_OUT_PRODUCT)/etc/init/sable-power.rc \

@@ -35,9 +35,10 @@ from pathlib import Path
 ANDROID = "{http://schemas.android.com/apk/res/android}"
 ALL_CHECKS = ("launcher", "label", "icon", "round", "adaptive", "mono")
 PLACEHOLDER = re.compile(r"(^@mipmap/ic_launcher(_round)?$)|sym_def_app_icon|(^@android:)")
-# Modules that intentionally have no launcher entry (none today). Any extra launcher entry beyond the first is
-# reported, since a diagnostic in the app drawer is a product defect.
-HEADLESS: set[str] = set()
+# Modules that intentionally have no launcher entry. Any extra launcher entry beyond the first is
+# reported, since a diagnostic in the app drawer is a product defect. SableHub: Sable Start's Hub page
+# is the one Hub; the app keeps its providers, notification listener and settings screens only.
+HEADLESS: set[str] = {"SableHub"}
 REPO = Path(__file__).resolve().parent.parent
 # A drawable/mipmap reference (resource names are ASCII).
 RES_REF = r"@(?:drawable|mipmap)/\w+"

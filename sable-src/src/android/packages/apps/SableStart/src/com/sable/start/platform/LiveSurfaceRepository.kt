@@ -10,6 +10,7 @@ import android.text.format.DateFormat
 import java.util.Date
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.sableos.start.live.AppUnreadCount
 import org.sableos.start.live.LiveAvailability
 import org.sableos.start.live.LiveDatum
 import org.sableos.start.live.LiveSurfaceSnapshot
@@ -97,8 +98,25 @@ class LiveSurfaceRepository(
                         noun = "photo",
                     ),
                 observedAtEpochMs = nowEpochMs,
+                hubApps = hubAppCounts(),
             )
         }
+
+    /** Sable Hub's per-app unread counts (package and count only); empty when Hub cannot say. */
+    private fun hubAppCounts(): List<AppUnreadCount> =
+        runCatching {
+            resolver.query(HUB_APPS_URI, arrayOf("package", "count"), null, null, null)?.use { cursor ->
+                val pkg = cursor.getColumnIndexOrThrow("package")
+                val count = cursor.getColumnIndexOrThrow("count")
+                buildList {
+                    while (cursor.moveToNext() && size < MAX_HUB_APPS) {
+                        val name = cursor.getString(pkg)?.trim().orEmpty()
+                        val value = cursor.getInt(count)
+                        if (name.isNotEmpty() && value > 0) add(AppUnreadCount(name, value))
+                    }
+                }
+            }
+        }.getOrNull().orEmpty()
 
     private fun providerSnapshot(
         uri: Uri,
@@ -234,6 +252,11 @@ class LiveSurfaceRepository(
             Uri.parse("content://org.sableos.calendar.snapshot/current")
         val MESSAGES_URI: Uri =
             Uri.parse("content://org.sableos.hub.snapshot/current")
+
+        /** Per-app unread counts; Hub notifies [MESSAGES_URI] when they change. */
+        val HUB_APPS_URI: Uri =
+            Uri.parse("content://org.sableos.hub.snapshot/apps")
+        private const val MAX_HUB_APPS = 32
         val MAIL_URI: Uri =
             Uri.parse("content://org.sableos.mail.snapshot/current")
         val MEDIA_URI: Uri =
