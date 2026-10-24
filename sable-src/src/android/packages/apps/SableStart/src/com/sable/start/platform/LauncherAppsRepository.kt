@@ -70,7 +70,7 @@ class LauncherAppsRepository(
                         .filter { info ->
                             val packageName = info.componentName.packageName
                             packageName != appContext.packageName &&
-                                packageName != GRAPHENE_MESSAGING_PACKAGE &&
+                                packageName !in SYSTEM_HIDDEN_PACKAGES &&
                                 HiddenAppKey(packageName, userSerial) !in hiddenApps
                         }.map { info ->
                             val packageName = info.componentName.packageName
@@ -283,7 +283,11 @@ class LauncherAppsRepository(
         /** UserManager.USER_TYPE_PROFILE_CLONE (a system API string). */
         private const val USER_TYPE_PROFILE_CLONE = "android.os.usertype.profile.CLONE"
 
-        private const val GRAPHENE_MESSAGING_PACKAGE = "com.android.messaging"
+        /**
+         * Platform packages Start never lists: AOSP Messaging (Hub is the SMS surface) and LineageOS
+         * AudioFX (the audio effects backend, not an app people open).
+         */
+        private val SYSTEM_HIDDEN_PACKAGES = setOf("com.android.messaging", "org.lineageos.audiofx")
         private const val HIDDEN_PACKAGE_COLUMN = "package_name"
         private const val HIDDEN_USER_COLUMN = "user_serial"
         private val HIDDEN_APP_COLUMNS =

@@ -47,8 +47,10 @@ import org.sableos.titan2.displaycompat.core.AppCornerStyle
 import org.sableos.titan2.displaycompat.core.AppStyleKey
 import org.sableos.titan2.displaycompat.core.AppStylePolicy
 import org.sableos.titan2.displaycompat.core.AppStyleState
+import org.sableos.titan2.displaycompat.core.AspectProfile
 import org.sableos.titan2.displaycompat.core.BackendAvailability
 import org.sableos.titan2.displaycompat.core.DisplayProfile
+import org.sableos.titan2.displaycompat.core.TallCanvas
 
 /** Observable list state; every property is Compose snapshot state so reads recompose as before. */
 private class ListState {
@@ -60,6 +62,9 @@ private class ListState {
 
     /** The Sable app style row above the app list holds the selection (Up from the first app). */
     var styleFocused by mutableStateOf(false)
+
+    /** The Display tools row above the style row holds the selection (Up from the style row). */
+    var toolsFocused by mutableStateOf(false)
     var style by mutableStateOf<AppStyleState?>(null)
 }
 
@@ -69,6 +74,7 @@ private class ListActions(
     private val st: ListState,
     private val rows: List<TraitsResolver.Entry>,
     private val onOpen: (TraitsResolver.Entry) -> Unit,
+    private val onTools: () -> Unit,
     private val onExit: () -> Unit
 ) {
     fun doReset() {
@@ -76,6 +82,7 @@ private class ListActions(
             st.confirmReset = true
         } else {
             st.msg = app.controller.resetAllChecked().message()
+            app.refreshDisplay()
             st.confirmReset = false
             st.version++
         }
@@ -101,27 +108,18 @@ private class ListActions(
     fun onKey(e: KeyEvent): Boolean {
         if (e.type != KeyEventType.KeyDown) return false
         return when (e.key) {
-            Key.DirectionDown -> {
-                if (st.styleFocused) {
-                    st.styleFocused = false
-                    st.sel = 0
-                } else {
-                    st.sel = (st.sel + 1).coerceAtMost((rows.size - 1).coerceAtLeast(0))
-                }
-                true
-            }
+            Key.DirectionDown -> moveDown()
 
-            Key.DirectionUp -> {
-                if (st.sel == 0) st.styleFocused = true else st.sel = (st.sel - 1).coerceAtLeast(0)
-                true
-            }
+            Key.DirectionUp -> moveUp()
 
             // Left/Right choose a style only while the style row is selected; otherwise they stay
             // with the filter field (text input wins).
             Key.DirectionLeft, Key.DirectionRight -> styleArrow(e.key == Key.DirectionLeft)
 
             Key.Enter, Key.NumPadEnter -> {
-                if (st.styleFocused) {
+                if (st.toolsFocused) {
+                    onTools()
+                } else if (st.styleFocused) {
                     styleKey(
                         AppStyleKey.ENTER
                     )
@@ -140,6 +138,40 @@ private class ListActions(
 
             else -> false
         }
+    }
+
+    private fun moveDown(): Boolean {
+        when {
+            st.toolsFocused -> {
+                st.toolsFocused = false
+                st.styleFocused = true
+            }
+
+            st.styleFocused -> {
+                st.styleFocused = false
+                st.sel = 0
+            }
+
+            else -> st.sel = (st.sel + 1).coerceAtMost((rows.size - 1).coerceAtLeast(0))
+        }
+        return true
+    }
+
+    /** Up from the first app selects the style row, Up again the Display tools row. */
+    private fun moveUp(): Boolean {
+        when {
+            st.toolsFocused -> Unit
+
+            st.styleFocused -> {
+                st.styleFocused = false
+                st.toolsFocused = true
+            }
+
+            st.sel == 0 -> st.styleFocused = true
+
+            else -> st.sel = (st.sel - 1).coerceAtLeast(0)
+        }
+        return true
     }
 
     private fun styleArrow(left: Boolean): Boolean {
@@ -174,6 +206,7 @@ fun AppListScreen(
     app: DisplayCompatApp,
     resolver: TraitsResolver,
     onOpen: (TraitsResolver.Entry) -> Unit,
+    onTools: () -> Unit,
     onExit: () -> Unit
 ) {
     val all = remember { resolver.launchable() }
@@ -187,7 +220,7 @@ fun AppListScreen(
         }
     val fr = remember { FocusRequester() }
     val list = rememberLazyListState()
-    val actions = ListActions(app, st, rows, onOpen, onExit)
+    val actions = ListActions(app, st, rows, onOpen, onTools, onExit)
     LaunchedEffect(Unit) { fr.requestFocus() }
     DisposableEffect(app) {
         st.style = app.appStyle.load()
@@ -202,13 +235,12 @@ fun AppListScreen(
         Modifier.fillMaxSize().padding(12.dp)
             .onPreviewKeyEvent { e -> actions.onKey(e) }
     ) {
-        Text("App display compatibility", color = C.text, fontSize = 18.sp)
-        val availability = app.controller.backendAvailability
-        Text(
-            availability.banner,
-            color = if (availability == BackendAvailability.CLOSED) C.warn else C.muted,
-            fontSize = 11.sp
-        )
+        ListTitle(app)
+        ToolsEntry(app, st.toolsFocused) {
+            st.toolsFocused = true
+            st.styleFocused = false
+            onTools()
+        }
         AppStyleSection(st.style, st.styleFocused) { actions.chooseStyle(it) }
         FilterField(st.query, { st.query = it }, fr)
         if (rows.isEmpty()) {
@@ -222,12 +254,29 @@ fun AppListScreen(
         LazyColumn(Modifier.weight(1f), state = list) {
             itemsIndexed(rows, key = { _, e -> e.pkg }) { i, e ->
                 val p = remember(st.version, e.pkg) { app.store.get(e.pkg) }
-                AppRow(e.label, p, !st.styleFocused && i == st.sel)
+                // A tap selects the row and opens its editor, like the arrow keys and Enter.
+                AppRow(e.label, p, !st.styleFocused && !st.toolsFocused && i == st.sel) {
+                    st.styleFocused = false
+                    st.toolsFocused = false
+                    st.sel = i
+                    onOpen(e)
+                }
             }
         }
         st.msg?.let { Text(it, color = messageTint(it), fontSize = 11.sp) }
-        ListFooter(st.confirmReset, st.styleFocused) { actions.doReset() }
+        ListFooter(st.confirmReset, st.styleFocused || st.toolsFocused) { actions.doReset() }
     }
+}
+
+@Composable
+private fun ListTitle(app: DisplayCompatApp) {
+    Text("App display compatibility", color = C.text, fontSize = 18.sp)
+    val availability = app.controller.backendAvailability
+    Text(
+        availability.banner,
+        color = if (availability == BackendAvailability.CLOSED) C.warn else C.muted,
+        fontSize = 11.sp
+    )
 }
 
 private fun emptyListMessage(noAppsAtAll: Boolean, query: String): String = if (noAppsAtAll) {
@@ -268,7 +317,7 @@ private fun FilterField(query: String, onQueryChange: (String) -> Unit, fr: Focu
 }
 
 @Composable
-private fun AppRow(label: String, p: DisplayProfile, selected: Boolean) {
+private fun AppRow(label: String, p: DisplayProfile, selected: Boolean, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().padding(vertical = 2.dp)
             .background(if (selected) C.surface else C.window, RoundedCornerShape(6.dp))
@@ -277,13 +326,53 @@ private fun AppRow(label: String, p: DisplayProfile, selected: Boolean) {
                 if (selected) C.accent else C.window,
                 RoundedCornerShape(6.dp)
             )
+            .clickable { onClick() }
             .padding(10.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(label, color = C.text, fontSize = 14.sp)
         Text(
-            if (p.isNative) "Native" else p.profile.id.replace('_', ' ') + " · stored",
+            badge(p),
             color = if (p.isNative) C.muted else C.accent,
+            fontSize = 12.sp
+        )
+    }
+}
+
+private const val STORED = " · stored"
+
+private fun badge(p: DisplayProfile): String = when {
+    p.isNative -> "Native"
+
+    p.canvas != TallCanvas.Native && p.profile == AspectProfile.Native ->
+        "tall " + p.canvas.shape + STORED
+
+    p.canvas != TallCanvas.Native ->
+        p.profile.id.replace('_', ' ') + " + tall " + p.canvas.shape + STORED
+
+    else -> p.profile.id.replace('_', ' ') + STORED
+}
+
+/** Entry to Display tools: system rotation and the hotkey's favourite sizes, shown in one line. */
+@Composable
+private fun ToolsEntry(app: DisplayCompatApp, focused: Boolean, onOpen: () -> Unit) {
+    val settings = app.toolsSettings
+    Row(
+        Modifier.fillMaxWidth().padding(top = 8.dp)
+            .background(if (focused) C.surface else C.window, RoundedCornerShape(6.dp))
+            .border(
+                if (focused) 2.dp else 1.dp,
+                if (focused) C.accent else C.surface,
+                RoundedCornerShape(6.dp)
+            )
+            .clickable { onOpen() }
+            .padding(10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text("Display tools", color = C.text, fontSize = 14.sp)
+        Text(
+            "Rotation " + settings.systemRotation.label + " · Alt+Shift+R",
+            color = C.accent,
             fontSize = 12.sp
         )
     }
@@ -297,7 +386,7 @@ private fun ListFooter(confirmReset: Boolean, styleFocused: Boolean, onReset: ()
     ) {
         Text(
             if (styleFocused) {
-                "←→ choose · Enter switch · ↓ apps"
+                "←→ choose · Enter switch/open · ↑↓ move"
             } else {
                 "↑↓ select · Enter edit · Esc back"
             },

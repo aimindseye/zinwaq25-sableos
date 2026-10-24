@@ -68,7 +68,12 @@ data class DisplayProfile(
      * Stretching distorts text, maps, camera previews, games and auth screens.
      * Off by default; on requires a warning.
      */
-    val stretch: Boolean = false
+    val stretch: Boolean = false,
+    /**
+     * Tall canvas: while this app is in front the whole display gets a taller, phone-shaped
+     * logical size (the call `wm size` makes), shown smaller on the panel. Native leaves it alone.
+     */
+    val canvas: TallCanvas = TallCanvas.Native
 ) {
     val isNative: Boolean get() = this == NATIVE
     companion object {

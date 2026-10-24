@@ -15,7 +15,7 @@ import org.sableos.titan2.setup.core.TargetStatus
  */
 class Launcher(private val activity: Activity) {
     private fun intent(action: Action): Intent? = when (action) {
-        Action.None, Action.KeyboardPicker -> null
+        Action.None, Action.KeyboardPicker, Action.WeatherCity -> null
 
         Action.HomeSettings -> Intent(Settings.ACTION_HOME_SETTINGS)
 
@@ -30,27 +30,22 @@ class Launcher(private val activity: Activity) {
         Action.RadioDiag -> activity.packageManager.getLaunchIntentForPackage(RADIO_PACKAGE)
     }
 
-    /** Checked before a button is offered. The keyboard picker has no intent; it needs its system service. */
+    /**
+     * Checked before a button is offered. The keyboard picker has no intent; it needs its system service.
+     * The Weather city step is Setup's own screen; it needs Sable Weather's provider.
+     */
     fun resolve(action: Action): TargetStatus = try {
-        if (action == Action.KeyboardPicker) {
-            if (activity.getSystemService(InputMethodManager::class.java) != null) {
-                TargetStatus.Resolvable
-            } else {
-                TargetStatus.Missing
-            }
-        } else {
-            val target = intent(action)
-            when {
-                target == null -> TargetStatus.Missing
+        val found = when (action) {
+            Action.WeatherCity -> WeatherCityClient(activity).available()
 
-                activity.packageManager.resolveActivity(
-                    target,
-                    0
-                ) != null -> TargetStatus.Resolvable
+            Action.KeyboardPicker ->
+                activity.getSystemService(InputMethodManager::class.java) != null
 
-                else -> TargetStatus.Missing
-            }
+            else -> intent(action)?.let {
+                activity.packageManager.resolveActivity(it, 0) != null
+            } ?: false
         }
+        if (found) TargetStatus.Resolvable else TargetStatus.Missing
     } catch (_: SecurityException) {
         TargetStatus.Unverifiable
     } catch (_: RuntimeException) {

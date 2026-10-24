@@ -7,8 +7,10 @@ import android.content.IntentFilter
 import android.content.pm.LauncherApps
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.drawable.AdaptiveIconDrawable
 import android.net.Uri
 import android.os.BatteryManager
+import android.os.Build
 import android.os.SystemClock
 import android.provider.CallLog
 import android.util.LruCache
@@ -106,6 +108,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -134,6 +137,7 @@ import org.sableos.start.live.LiveAvailability
 import org.sableos.start.live.LiveDatum
 import org.sableos.start.live.LiveSurfaceSnapshot
 import org.sableos.start.model.AppEntry
+import org.sableos.start.model.AppGlyphs
 import org.sableos.start.model.CommandQuery
 import org.sableos.start.model.CommandRanking
 import org.sableos.start.model.CommandScope
@@ -141,12 +145,17 @@ import org.sableos.start.model.CoreAppIdentity
 import org.sableos.start.model.GlanceWidgets
 import org.sableos.start.model.HomeApps
 import org.sableos.start.model.HomeLayout
+import org.sableos.start.model.HubBar
+import org.sableos.start.model.HubFilter
+import org.sableos.start.model.HubPeople
+import org.sableos.start.model.HubPerson
 import org.sableos.start.model.QuickBar
 import org.sableos.start.model.StartPages
 import org.sableos.start.model.StartTypeToSearch
 import org.sableos.start.model.inLauncherUser
 import org.sableos.start.model.stableKey
 import org.sableos.start.platform.LiveSurfaceRepository
+import org.sableos.start.platform.PeopleRepository
 import org.sableos.start.privacy.AllAppsKeyAction
 import org.sableos.start.privacy.AllAppsKeyPolicy
 import org.sableos.start.privacy.AppAction
@@ -168,15 +177,6 @@ private enum class SableStartDestination {
 
     /** All Apps "Choose base bar slot" for an app when the bar is full. */
     SlotPicker,
-}
-
-/** Hub page tabs: "All · Messages · Calls". */
-private enum class HubFilter(
-    val label: String,
-) {
-    All("All"),
-    Messages("Messages"),
-    Calls("Calls"),
 }
 
 /** One quick bar slot resolved against the installed apps. */
@@ -292,6 +292,12 @@ fun SableStartScreen(
     /** null: no private space on this device; true: locked; false: unlocked. */
     privateSpaceLocked: Boolean? = null,
     onTogglePrivateSpace: () -> Unit = {},
+    /** Counts up for each "show the Hub page" request (org.sableos.start.action.SHOW_HUB). */
+    hubGeneration: Int = 0,
+    /** The tab that request asked for ([HubFilter] by name), or null for All. */
+    hubRequestFilter: String? = null,
+    /** The Contacts tab asks for READ_CONTACTS; the activity bumps [refreshGeneration] after. */
+    onRequestContactsPermission: () -> Unit = {},
 ) {
     var destination by remember(initialScreen) {
         mutableStateOf(destinationFor(initialScreen))
@@ -340,11 +346,12 @@ fun SableStartScreen(
             installed = gridCandidates.map { it.stableKey() },
         )
     val gridApps = gridKeys.mapNotNull(appByKey::get)
+    val gridLabels = gridApps.mapTo(HashSet()) { it.label }
     val quickSlots =
         quickBarTokens.mapNotNull { token ->
             resolveQuickSlot(token, apps, appByKey)
         }
-    val gridRows = AppGrid.rowsFor(LocalConfiguration.current.screenHeightDp - START_CHROME_DP, GRID_CELL_MIN_DP)
+    val gridRows = AppGrid.rowsFor(startGridHeightDp(), GRID_CELL_MIN_DP)
     val gridPerPage = AppGrid.perPage(gridRows)
     val gridPages = AppGrid.pageCount(gridApps.size, gridPerPage)
     val pageCount = StartPages.count(gridPages)
@@ -410,13 +417,14 @@ fun SableStartScreen(
         destination = backDestination(destination, returnDestination)
     }
 
-    fun openHubApp(query: String = "") {
-        onStartIntent(
-            Intent(Intent.ACTION_MAIN)
-                .setPackage(HUB_PACKAGE)
-                .addCategory(Intent.CATEGORY_LAUNCHER)
-                .putExtra(HUB_EXTRA_QUERY, query),
-        )
+    /** Hub's sources, private mode and history (Hub has no launcher entry of its own). */
+    fun openHubSettings() {
+        onStartIntent(hubSettingsIntent())
+    }
+
+    fun showHub(filter: HubFilter) {
+        hubFilter = filter
+        showPage(StartPages.HUB)
     }
 
     fun dial(digits: String) {
@@ -427,6 +435,8 @@ fun SableStartScreen(
         when (slot.token) {
             QuickBar.COMMAND -> openSearch(SableStartDestination.Start)
             QuickBar.ALL_APPS -> destination = SableStartDestination.Apps
+            // The Hub slot is Start's own Hub page; the Sable Hub app has no screen to open.
+            QuickBar.HUB -> showHub(HubFilter.All)
             else -> slot.app?.let(::launchApp)
         }
     }
@@ -441,6 +451,15 @@ fun SableStartScreen(
             returnDestination = SableStartDestination.Start
             selectedApp = null
             startPager.animateScrollToPage(StartPages.HOME)
+        }
+    }
+
+    LaunchedEffect(hubGeneration) {
+        if (hubGeneration > 0) {
+            destination = SableStartDestination.Start
+            selectedApp = null
+            hubFilter = HubFilter.fromName(hubRequestFilter) ?: HubFilter.All
+            startPager.animateScrollToPage(StartPages.HUB)
         }
     }
 
@@ -510,8 +529,10 @@ fun SableStartScreen(
                                                 active = startPager.settledPage == StartPages.HUB,
                                                 onFilter = { hubFilter = it },
                                                 onLaunchApp = ::launchApp,
-                                                onOpenHub = { openHubApp() },
+                                                onOpenHubSettings = ::openHubSettings,
                                                 onStartIntent = onStartIntent,
+                                                refreshGeneration = refreshGeneration,
+                                                onRequestContactsPermission = onRequestContactsPermission,
                                             )
                                         }
                                     page == StartPages.HOME ->
@@ -532,12 +553,14 @@ fun SableStartScreen(
                                             onLaunchApp = ::launchApp,
                                             onStartIntent = onStartIntent,
                                             onRequestPermissions = onRequestLivePermissions,
+                                            onShowHub = { showHub(HubFilter.All) },
                                         )
                                     else -> {
                                         val index = page - StartPages.FIRST_GRID
                                         AppGridPage(
                                             apps = AppGrid.page(gridApps, index, gridPerPage),
                                             rows = gridRows,
+                                            gridLabels = gridLabels,
                                             active = startPager.settledPage == page,
                                             onLaunchApp = ::launchApp,
                                             onLaunchSecond = ::launchSecond,
@@ -562,13 +585,10 @@ fun SableStartScreen(
                                     destination = SableStartDestination.Start
                                     activateSlot(slot)
                                 },
-                                onHubFilter = { filter ->
-                                    hubFilter = filter
-                                    showPage(StartPages.HUB)
-                                },
-                                onOpenHub = {
+                                onHubFilter = ::showHub,
+                                onOpenHubSettings = {
                                     destination = SableStartDestination.Start
-                                    openHubApp()
+                                    openHubSettings()
                                 },
                                 onStartIntent = { intent ->
                                     destination = SableStartDestination.Start
@@ -689,7 +709,7 @@ fun SableStartScreen(
                             },
                             onFrames = { showPage(StartPages.HOME) },
                             onGrid = { showPage(StartPages.FIRST_GRID) },
-                            onHub = { showPage(StartPages.HUB) },
+                            onHub = ::showHub,
                             onEditHome = {
                                 destination = SableStartDestination.EditHome
                             },
@@ -767,6 +787,26 @@ private fun Bb10Theme(content: @Composable () -> Unit) {
         shapes = MaterialTheme.shapes,
         content = content,
     )
+}
+
+/**
+ * The app grid's height in dp: the window (LocalWindowInfo, so the Q25's
+ * square and any other size alike) less the system bars, the page dots, the
+ * bar and the grid's padding. Before the window is measured, the
+ * configuration's screen height stands in.
+ */
+@Composable
+private fun startGridHeightDp(): Int {
+    val density = LocalDensity.current
+    val windowHeightPx = LocalWindowInfo.current.containerSize.height
+    val insets = WindowInsets.safeDrawing
+    val contentDp =
+        if (windowHeightPx > 0) {
+            with(density) { (windowHeightPx - insets.getTop(density) - insets.getBottom(density)).toDp().value.toInt() }
+        } else {
+            LocalConfiguration.current.screenHeightDp - STATUS_BAR_FALLBACK_DP
+        }
+    return contentDp - START_CHROME_DP
 }
 
 /**
@@ -892,11 +932,11 @@ private fun Bb10PageIndicator(
             Box(
                 modifier =
                     Modifier
-                        .size(18.dp)
+                        .size(width = INDICATOR_SLOT_DP.dp, height = INDICATOR_HEIGHT_DP.dp)
                         .clickable { onShowPage(page) },
                 contentAlignment = Alignment.Center,
             ) {
-                ComposeCanvas(Modifier.size(if (page < StartPages.FIRST_GRID) 12.dp else 7.dp)) {
+                ComposeCanvas(Modifier.size(if (page < StartPages.FIRST_GRID) 10.dp else 6.dp)) {
                     val unit = size.minDimension
                     when (page) {
                         StartPages.HUB ->
@@ -962,6 +1002,7 @@ private fun ActiveFramesPage(
     onLaunchApp: (AppEntry) -> Unit,
     onStartIntent: (Intent) -> Unit,
     onRequestPermissions: () -> Unit,
+    onShowHub: () -> Unit,
 ) {
     val requesters = remember { mutableMapOf<Int, FocusRequester>() }
     val firstWidgetFocus = remember { FocusRequester() }
@@ -1020,6 +1061,7 @@ private fun ActiveFramesPage(
             onLaunchApp = onLaunchApp,
             onStartIntent = onStartIntent,
             onRequestPermissions = onRequestPermissions,
+            onShowHub = onShowHub,
         )
     }
 }
@@ -1028,18 +1070,18 @@ private fun ActiveFramesPage(
 @Composable
 private fun StatusDialsRow(onOpenSettings: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(start = FRAME_PADDING, end = 4.dp, top = 6.dp),
+        modifier = Modifier.fillMaxWidth().padding(start = FRAME_PADDING, end = 2.dp, top = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SableStatusRings(modifier = Modifier.weight(1f), ringSize = 38.dp)
+        SableStatusRings(modifier = Modifier.weight(1f), ringSize = STATUS_RING_SIZE)
         Text(
             text = "⚙",
-            fontSize = 24.sp,
+            fontSize = 22.sp,
             color = Color.White,
             modifier =
                 Modifier
-                    .heightIn(min = 48.dp)
-                    .width(48.dp)
+                    .heightIn(min = 44.dp)
+                    .width(44.dp)
                     .sableFocusRing()
                     .clickable(onClick = onOpenSettings)
                     .semantics { contentDescription = "Settings" }
@@ -1089,18 +1131,18 @@ private fun WeatherDateHeader(
                 .sableFocusRing()
                 .clickable(onClick = onOpen)
                 .semantics { contentDescription = "$line. $dateText" }
-                .padding(vertical = 4.dp),
+                .padding(vertical = 2.dp),
     ) {
         Text(
             text = line,
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.titleMedium,
             color = Color.White,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         Text(
             text = dateText,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodySmall,
             color = Bb10Muted,
             maxLines = 1,
         )
@@ -1124,6 +1166,7 @@ private fun ColumnScope.ActiveFramesGrid(
     onLaunchApp: (AppEntry) -> Unit,
     onStartIntent: (Intent) -> Unit,
     onRequestPermissions: () -> Unit,
+    onShowHub: () -> Unit,
 ) {
     BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
         val cardHeight =
@@ -1139,6 +1182,7 @@ private fun ColumnScope.ActiveFramesGrid(
                 onLaunchApp = onLaunchApp,
                 onStartIntent = onStartIntent,
                 onRequestPermissions = onRequestPermissions,
+                onShowHub = onShowHub,
             )
             return@BoxWithConstraints
         }
@@ -1231,8 +1275,8 @@ private fun FrameCard(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                if (app != null) AppMark(app = app, size = 48)
-                Spacer(Modifier.height(8.dp))
+                if (app != null) AppMark(app = app, size = FRAME_ICON_DP)
+                Spacer(Modifier.height(6.dp))
                 Text(
                     text =
                         live?.takeIf { it.availability == LiveAvailability.LIVE }?.detail
@@ -1293,6 +1337,7 @@ private fun GlanceFrames(
     onLaunchApp: (AppEntry) -> Unit,
     onStartIntent: (Intent) -> Unit,
     onRequestPermissions: () -> Unit,
+    onShowHub: () -> Unit,
 ) {
     val context = LocalContext.current
     val battery by
@@ -1326,17 +1371,7 @@ private fun GlanceFrames(
                             val (headline, detail) = weatherLines(snapshot.weather)
                             GlanceFrameCard("Weather", headline, detail, SableSun, { open(WEATHER_PACKAGE) }, modifier)
                         }
-                        GlanceWidgets.BATTERY -> {
-                            val (level, charging) = battery
-                            GlanceFrameCard(
-                                title = "Battery",
-                                headline = level?.let { "$it%" } ?: "--",
-                                detail = if (level == null) "unavailable" else if (charging) "charging" else "",
-                                accent = SableGreen,
-                                onClick = { onStartIntent(Intent(Intent.ACTION_POWER_USAGE_SUMMARY)) },
-                                modifier = modifier,
-                            )
-                        }
+                        GlanceWidgets.BATTERY -> BatteryGlanceFrame(battery, onStartIntent, modifier)
                         GlanceWidgets.PHOTOS -> {
                             val datum = snapshot.photos
                             val needsPermission = datum.availability == LiveAvailability.PERMISSION_REQUIRED
@@ -1349,29 +1384,59 @@ private fun GlanceFrames(
                                 modifier = modifier,
                             )
                         }
-                        else -> {
-                            val (datum, packageName, accent) =
-                                when (widget) {
-                                    GlanceWidgets.CALENDAR -> Triple(snapshot.calendar, CALENDAR_PACKAGE, SableBlue)
-                                    GlanceWidgets.MEDIA -> Triple(snapshot.music, MEDIA_PACKAGE, SablePurple)
-                                    GlanceWidgets.HUB -> Triple(snapshot.messages, HUB_PACKAGE, SableGreen)
-                                    else -> Triple(snapshot.mail, MAIL_PACKAGE, SableOrange)
-                                }
-                            GlanceFrameCard(
-                                title = GlanceWidgets.label(widget),
-                                headline = liveDetail(datum, findLiveApp(apps, packageName)),
-                                detail = "",
-                                accent = accent,
-                                onClick = { open(packageName) },
-                                modifier = modifier,
-                            )
-                        }
+                        else -> LiveGlanceFrame(widget, snapshot, apps, { open(it) }, onShowHub, modifier)
                     }
                 }
                 repeat(ActiveFrames.COLUMNS - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
     }
+}
+
+/** The Battery Glance frame: level and charging state; Enter opens battery usage. */
+@Composable
+private fun BatteryGlanceFrame(
+    battery: Pair<Int?, Boolean>,
+    onStartIntent: (Intent) -> Unit,
+    modifier: Modifier,
+) {
+    val (level, charging) = battery
+    GlanceFrameCard(
+        title = "Battery",
+        headline = level?.let { "$it%" } ?: "--",
+        detail = if (level == null) "unavailable" else if (charging) "charging" else "",
+        accent = SableGreen,
+        onClick = { onStartIntent(Intent(Intent.ACTION_POWER_USAGE_SUMMARY)) },
+        modifier = modifier,
+    )
+}
+
+/** Calendar, Media, Hub and Mail Glance frames: the live snapshot's line for that app. */
+@Composable
+private fun LiveGlanceFrame(
+    widget: String,
+    snapshot: LiveSurfaceSnapshot,
+    apps: List<AppEntry>,
+    open: (String) -> Unit,
+    onShowHub: () -> Unit,
+    modifier: Modifier,
+) {
+    val (datum, packageName, accent) =
+        when (widget) {
+            GlanceWidgets.CALENDAR -> Triple(snapshot.calendar, CALENDAR_PACKAGE, SableBlue)
+            GlanceWidgets.MEDIA -> Triple(snapshot.music, MEDIA_PACKAGE, SablePurple)
+            GlanceWidgets.HUB -> Triple(snapshot.messages, HUB_PACKAGE, SableGreen)
+            else -> Triple(snapshot.mail, MAIL_PACKAGE, SableOrange)
+        }
+    GlanceFrameCard(
+        title = GlanceWidgets.label(widget),
+        headline = liveDetail(datum, findLiveApp(apps, packageName)),
+        detail = "",
+        accent = accent,
+        // The Hub widget opens Start's own Hub page (Sable Hub has no screen of its own).
+        onClick = { if (widget == GlanceWidgets.HUB) onShowHub() else open(packageName) },
+        modifier = modifier,
+    )
 }
 
 /** A Glance widget drawn as an Active Frame: its value large, its name along the bottom. */
@@ -1400,21 +1465,21 @@ private fun GlanceFrameCard(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(start = 12.dp, end = 12.dp, top = 14.dp, bottom = FRAME_LABEL_HEIGHT),
+                    .padding(start = 10.dp, end = 10.dp, top = 8.dp, bottom = FRAME_LABEL_HEIGHT),
             verticalArrangement = Arrangement.Center,
         ) {
             Text(
                 text = headline,
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleMedium,
                 color = Color.White,
-                maxLines = 3,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
             if (detail.isNotBlank()) {
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(2.dp))
                 Text(
                     text = detail,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = Bb10Muted,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -1429,7 +1494,7 @@ private fun GlanceFrameCard(
                     .fillMaxWidth()
                     .height(FRAME_LABEL_HEIGHT)
                     .background(if (focused) Bb10Blue else Color(0xE6000000))
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
             style = MaterialTheme.typography.labelLarge,
             color = Color.White,
             maxLines = 1,
@@ -1447,15 +1512,19 @@ private fun weatherLines(datum: LiveDatum): Pair<String, String> {
 }
 
 /**
- * One app grid page: four columns of labelled, boxed icons in the user's
- * order (Edit Home reorders them). Arrows move focus, Enter opens, Shift+Enter
- * opens the Dual copy, Space, Menu or Alt+Enter opens the app's actions, long
- * press on an icon its actions and on an empty place Edit Home; typing searches.
+ * One app grid page (Ripe 10 / BB10 page model): five columns of labelled,
+ * tile-free icons in the user's order (Edit Home reorders them), as many rows
+ * as the window fits ([AppGrid.rowsFor]); the icon size follows the cell.
+ * Arrows move focus, Enter opens, Shift+Enter opens the Dual copy, Space, Menu
+ * or Alt+Enter opens the app's actions, long press on an icon its actions and
+ * on an empty place Edit Home; typing searches.
  */
 @Composable
 private fun AppGridPage(
     apps: List<AppEntry>,
     rows: Int,
+    /** Every grid app's name, so a shortened name never repeats another ([AppGrid.gridLabel]). */
+    gridLabels: Set<String>,
     active: Boolean,
     onLaunchApp: (AppEntry) -> Unit,
     onLaunchSecond: (AppEntry) -> Unit,
@@ -1469,31 +1538,41 @@ private fun AppGridPage(
             runCatching { firstFocus.requestFocus() }
         }
     }
-    Column(
+    BoxWithConstraints(
         modifier =
             Modifier
                 .fillMaxSize()
                 .pointerInput(Unit) { detectTapGestures(onLongPress = { onEditHome() }) }
-                .padding(horizontal = 8.dp, vertical = 6.dp),
+                .padding(horizontal = GRID_PADDING, vertical = GRID_PADDING),
     ) {
-        for (row in 0 until rows) {
-            Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                for (column in 0 until AppGrid.COLUMNS) {
-                    val app = apps.getOrNull(row * AppGrid.COLUMNS + column)
-                    if (app == null) {
-                        Spacer(Modifier.weight(1f))
-                    } else {
-                        GridCell(
-                            app = app,
-                            onOpen = { onLaunchApp(app) },
-                            onOpenSecond = { onLaunchSecond(app) },
-                            onActions = { onOpenPeek(app) },
-                            modifier =
-                                Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .then(if (row == 0 && column == 0) Modifier.focusRequester(firstFocus) else Modifier),
-                        )
+        val iconDp =
+            AppGrid.iconSizeFor(
+                cellWidthDp = (maxWidth / AppGrid.COLUMNS).value.toInt(),
+                cellHeightDp = (maxHeight / rows).value.toInt(),
+                labelDp = GRID_LABEL_LINE_DP + GRID_CELL_CHROME_DP,
+            )
+        Column(modifier = Modifier.fillMaxSize()) {
+            for (row in 0 until rows) {
+                Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    for (column in 0 until AppGrid.COLUMNS) {
+                        val app = apps.getOrNull(row * AppGrid.COLUMNS + column)
+                        if (app == null) {
+                            Spacer(Modifier.weight(1f))
+                        } else {
+                            GridCell(
+                                app = app,
+                                label = AppGrid.gridLabel(app.label, gridLabels),
+                                iconDp = iconDp,
+                                onOpen = { onLaunchApp(app) },
+                                onOpenSecond = { onLaunchSecond(app) },
+                                onActions = { onOpenPeek(app) },
+                                modifier =
+                                    Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .then(if (row == 0 && column == 0) Modifier.focusRequester(firstFocus) else Modifier),
+                            )
+                        }
                     }
                 }
             }
@@ -1501,10 +1580,15 @@ private fun AppGridPage(
     }
 }
 
-/** A BB10 grid icon: the app icon in a dark box with its name under it; focus fills the cell BB10 blue. */
+/**
+ * A grid icon: the app's glyph (no tile) with its short name on one line
+ * under it ([AppGrid.gridLabel]); focus fills the cell BB10 blue.
+ */
 @Composable
 private fun GridCell(
     app: AppEntry,
+    label: String,
+    iconDp: Int,
     onOpen: () -> Unit,
     onOpenSecond: () -> Unit,
     onActions: () -> Unit,
@@ -1515,7 +1599,7 @@ private fun GridCell(
     Column(
         modifier =
             modifier
-                .padding(3.dp)
+                .padding(GRID_CELL_GAP)
                 .onFocusChanged { focused = it.isFocused }
                 .clip(shape)
                 .background(if (focused) Bb10Blue.copy(alpha = 0.32f) else Color.Transparent)
@@ -1540,22 +1624,12 @@ private fun GridCell(
                 }.combinedClickable(onClick = onOpen, onLongClick = onActions)
                 .semantics {
                     contentDescription = app.label + (app.profileLabel?.let { ", ${AppProfiles.badge(it)}" } ?: "")
-                }.padding(vertical = 6.dp, horizontal = 2.dp),
+                }.padding(vertical = GRID_CELL_INNER_PADDING, horizontal = 1.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
         Box {
-            Box(
-                modifier =
-                    Modifier
-                        .size(GRID_ICON_BOX_DP.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Bb10Tile)
-                        .border(1.dp, Bb10Line, RoundedCornerShape(10.dp)),
-                contentAlignment = Alignment.Center,
-            ) {
-                AppMark(app = app, size = GRID_ICON_DP)
-            }
+            AppMark(app = app, size = iconDp)
             val badge = app.profileLabel
             if (badge != null) {
                 Text(
@@ -1566,20 +1640,21 @@ private fun GridCell(
                             .clip(RoundedCornerShape(6.dp))
                             .background(Color.Black)
                             .border(1.dp, Bb10Muted, RoundedCornerShape(6.dp))
-                            .padding(horizontal = 4.dp),
-                    fontSize = 9.sp,
+                            .padding(horizontal = 3.dp),
+                    fontSize = 8.sp,
                     color = Color.White,
                     maxLines = 1,
                 )
             }
         }
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(GRID_ICON_LABEL_GAP))
         Text(
-            text = app.label,
-            style = MaterialTheme.typography.labelMedium,
+            text = label,
+            // No tracking: "Minesweeper" fits a fifth of 411dp on one line.
+            style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.sp),
             color = Color.White,
             textAlign = TextAlign.Center,
-            maxLines = 2,
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
     }
@@ -1686,9 +1761,11 @@ private fun GlanceCard(
 }
 
 /**
- * Hub page (left of Active Frames; visual "5. Hub"): Sable Hub's close communications with the
- * All / Messages / Calls tabs. Start shows counts only (the snapshots carry
- * no message text) and opens Sable Hub or the owning app for the rest.
+ * Hub page (left of Active Frames; visual "5. Hub"): the one Sable Hub. Under the "Sable Hub"
+ * title the unread bar (after the Ripe launcher's BB7 row: each app with unread notifications as
+ * its small icon and count, "+N" for the rest, from Sable Hub's listener), then the All /
+ * Messages / Calls / Contacts tabs. Start shows counts and names only (the snapshots carry no
+ * message text) and opens Sable Messages, Phone, Contacts or the owning app for the rest.
  */
 @Composable
 private fun HubPage(
@@ -1698,100 +1775,487 @@ private fun HubPage(
     active: Boolean,
     onFilter: (HubFilter) -> Unit,
     onLaunchApp: (AppEntry) -> Unit,
-    onOpenHub: () -> Unit,
+    onOpenHubSettings: () -> Unit,
     onStartIntent: (Intent) -> Unit,
+    refreshGeneration: Int,
+    onRequestContactsPermission: () -> Unit,
 ) {
-    val hubApp = findLiveApp(apps, HUB_PACKAGE)
+    val context = LocalContext.current
+    val messagesApp = findLiveApp(apps, MESSAGES_PACKAGE)
     val mailApp = findLiveApp(apps, MAIL_PACKAGE)
+    val contactsApp = findLiveApp(apps, CONTACTS_PACKAGE)
+    // Hub has no launcher entry; its snapshot provider answering is how Start knows it is there.
+    val hubInstalled = snapshot.messages.availability != LiveAvailability.UNAVAILABLE
+    val personalApps = remember(apps) { apps.filter { it.inLauncherUser }.associateBy { it.component.packageName } }
+    val barItems = remember(snapshot.hubApps, personalApps) { HubBar.items(snapshot.hubApps) { it in personalApps } }
+    val peopleRepository = remember(context) { PeopleRepository(context) }
+    val contactsTab = filter == HubFilter.Contacts
+    val canReadContacts = remember(refreshGeneration, contactsTab) { peopleRepository.hasPermission() }
+    // Kept across reloads (live refreshes, Start coming back) so the list never blinks empty.
+    var people by remember { mutableStateOf(emptyList<HubPerson>()) }
+    var peopleLoaded by remember { mutableStateOf(false) }
+    LaunchedEffect(contactsTab, canReadContacts, refreshGeneration) {
+        if (contactsTab) {
+            people = if (canReadContacts) peopleRepository.load() else emptyList()
+            peopleLoaded = true
+        }
+    }
     val tabFocus = remember { FocusRequester() }
+    val personFocus = remember { mutableMapOf<Long, FocusRequester>() }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
     LaunchedEffect(active) {
         if (active) {
             withFrameNanos { }
             runCatching { tabFocus.requestFocus() }
         }
     }
+
+    fun requesterFor(person: HubPerson): FocusRequester = personFocus.getOrPut(person.id) { FocusRequester() }
+
+    fun openMessages() {
+        val app = messagesApp
+        if (app != null) {
+            onLaunchApp(app)
+        } else {
+            onStartIntent(Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_MESSAGING))
+        }
+    }
+
+    fun openBarItem(item: HubBar.Item) {
+        when (val target = HubBar.target(item.packageName)) {
+            is HubBar.Target.Tab -> onFilter(target.filter)
+            HubBar.Target.Private -> onOpenHubSettings()
+            HubBar.Target.OpenApp -> personalApps[item.packageName]?.let(onLaunchApp)
+        }
+    }
+
+    val actions =
+        HubActions(
+            onLaunchApp = onLaunchApp,
+            onStartIntent = onStartIntent,
+            onOpenMessages = ::openMessages,
+            onOpenHubSettings = onOpenHubSettings,
+            onRequestContactsPermission = onRequestContactsPermission,
+        )
+
+    /** Contacts tab: a letter (or digit) key jumps to the first person of that letter. */
+    fun jumpKey(event: KeyEvent): Boolean {
+        val native = event.nativeKeyEvent
+        if (!contactsTab || people.isEmpty() || native.metaState and HUB_JUMP_BLOCKING_META != 0) return false
+        val char = native.unicodeChar.takeIf { it > 0 }?.toChar() ?: return false
+        val index = HubPeople.jump(people, char) ?: return false
+        if (event.type == KeyEventType.KeyDown) {
+            val person = people[index]
+            scope.launch {
+                // The header item comes first, so a person's list index is one more than theirs.
+                listState.scrollToItem(index + 1)
+                withFrameNanos { }
+                runCatching { requesterFor(person).requestFocus() }
+            }
+        }
+        return true
+    }
+
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().onPreviewKeyEvent(::jumpKey),
+        state = listState,
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        item {
+        item(key = "header") {
             Text(
                 text = HUB_LABEL,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Medium,
+                // The strip is always BB10 dark, whatever the appearance's content colour.
+                color = Color.White,
                 modifier = Modifier.semantics { heading() },
             )
+            Spacer(Modifier.height(6.dp))
+            HubUnreadBar(
+                items = barItems,
+                appFor = { personalApps[it] },
+                onOpen = ::openBarItem,
+            )
             Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HubFilter.entries.forEach { tab ->
-                    val selected = tab == filter
-                    Text(
-                        text = tab.label,
-                        modifier =
-                            Modifier
-                                .then(if (tab == HubFilter.All) Modifier.focusRequester(tabFocus) else Modifier)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(
-                                    if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                                ).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
-                                .sableFocusRing()
-                                .clickable { onFilter(tab) }
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                    )
+            HubTabs(filter = filter, firstTab = tabFocus, onFilter = onFilter)
+        }
+        if (contactsTab) {
+            hubContactsItems(
+                people = people,
+                loaded = peopleLoaded,
+                canRead = canReadContacts,
+                contactsApp = contactsApp,
+                messagesPackage = messagesApp?.component?.packageName,
+                requesterFor = ::requesterFor,
+                actions = actions,
+            )
+        } else {
+            hubSummaryItems(
+                filter = filter,
+                snapshot = snapshot,
+                summary = if (hubInstalled) HubBar.summary(barItems) else null,
+                messagesApp = messagesApp,
+                mailApp = mailApp,
+                actions = actions,
+            )
+        }
+    }
+}
+
+/**
+ * The Hub page's unread bar: one item per app (its icon and count), most unread first, "+N" in
+ * the last slot when they do not all fit; Enter or a tap on "+N" shows every app. While the device
+ * is locked or Sable private mode is on, Hub sends one total without app names (a lock mark).
+ */
+@Composable
+private fun HubUnreadBar(
+    items: List<HubBar.Item>,
+    appFor: (String) -> AppEntry?,
+    onOpen: (HubBar.Item) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val slots = HubBar.slots(maxWidth.value.toInt())
+        val layout = HubBar.layout(items, slots)
+        val rows = if (expanded) items.chunked(slots) else listOf(layout.visible)
+        val overflow = if (expanded) 0 else layout.overflow
+        if (items.isEmpty()) {
+            Text(
+                text = "no new notifications",
+                style = MaterialTheme.typography.labelLarge,
+                color = Bb10Muted,
+                modifier = Modifier.height(HUB_BAR_ITEM_HEIGHT).padding(vertical = 6.dp),
+            )
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                rows.forEachIndexed { rowIndex, row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(HubBar.GAP_DP.dp)) {
+                        row.forEach { item ->
+                            HubBarItem(
+                                item = item,
+                                app = appFor(item.packageName),
+                                onOpen = { onOpen(item) },
+                            )
+                        }
+                        if (rowIndex == rows.lastIndex && overflow > 0) {
+                            HubBarChip(
+                                description = "$overflow more apps with notifications",
+                                onClick = { expanded = true },
+                            ) {
+                                Text(
+                                    text = HubBar.overflowLabel(overflow),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = Color.White,
+                                    maxLines = 1,
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
-        val showMessages = filter != HubFilter.Calls
-        val showCalls = filter != HubFilter.Messages
-        if (showMessages) {
-            item(key = "messages") {
-                GlanceCard(
-                    title = "Messages",
-                    detail = liveDetail(snapshot.messages, hubApp),
-                    accent = SableBlue,
-                    onClick = hubApp?.let { { onLaunchApp(it) } },
-                )
-            }
-            item(key = "mail") {
-                GlanceCard(
-                    title = "Mail",
-                    detail = liveDetail(snapshot.mail, mailApp),
-                    accent = Color(0xFFE5484D),
-                    onClick = mailApp?.let { { onLaunchApp(it) } },
-                )
-            }
+    }
+}
+
+@Composable
+private fun HubBarItem(
+    item: HubBar.Item,
+    app: AppEntry?,
+    onOpen: () -> Unit,
+) {
+    val count = HubBar.countLabel(item.count)
+    val description =
+        if (item.redacted) {
+            "$count new notifications, apps hidden"
+        } else {
+            "${app?.label ?: item.packageName}, $count new"
         }
-        if (showCalls) {
-            item(key = "calls") {
-                // Start holds no call-log permission: the Phone app shows the missed calls.
-                GlanceCard(
-                    title = "Missed calls",
-                    detail = "recent calls in Phone",
-                    accent = SableGreen,
-                    onClick = { onStartIntent(Intent(Intent.ACTION_VIEW, CallLog.Calls.CONTENT_URI)) },
-                )
-            }
+    HubBarChip(description = description, onClick = onOpen) {
+        if (app != null) {
+            AppMark(app = app, size = HUB_BAR_ICON_DP)
+        } else {
+            HubLockMark()
         }
-        if (filter == HubFilter.All) {
-            item(key = "notifications") {
-                GlanceCard(
-                    title = "Notifications",
-                    detail = if (hubApp == null) "not installed" else "in Sable Hub",
-                    accent = SableSun,
-                    onClick = if (hubApp == null) null else onOpenHub,
-                )
-            }
-        }
-        if (hubApp != null) {
-            item(key = "open") {
-                Spacer(Modifier.height(4.dp))
-                MetroLink(text = "open Sable Hub", onClick = onOpenHub)
-            }
+        Text(
+            text = count,
+            style = MaterialTheme.typography.labelLarge,
+            color = Color.White,
+            maxLines = 1,
+        )
+    }
+}
+
+/** One fixed-width, focusable slot of the unread bar; the focused one is BB10 blue. */
+@Composable
+private fun HubBarChip(
+    description: String,
+    onClick: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(6.dp)
+    Row(
+        modifier =
+            Modifier
+                .width(HubBar.ITEM_DP.dp)
+                .height(HUB_BAR_ITEM_HEIGHT)
+                .onFocusChanged { focused = it.isFocused }
+                .clip(shape)
+                .background(if (focused) Bb10Blue else Bb10Card)
+                .border(1.dp, Bb10Line, shape)
+                .clickable(onClick = onClick)
+                .semantics { contentDescription = description }
+                .padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        // 56dp: 4 + 20dp icon + 4 + room for "99+" + 4.
+        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
+    ) {
+        content()
+    }
+}
+
+/** A small padlock: Hub's counts-only total (locked device or Sable private mode). */
+@Composable
+private fun HubLockMark() {
+    ComposeCanvas(Modifier.size(HUB_BAR_ICON_DP.dp)) {
+        val unit = size.minDimension
+        val stroke = unit * 0.12f
+        drawArc(
+            color = Color.White,
+            startAngle = 180f,
+            sweepAngle = 180f,
+            useCenter = false,
+            topLeft = Offset(unit * 0.3f, unit * 0.12f),
+            size = Size(unit * 0.4f, unit * 0.44f),
+            style = Stroke(stroke),
+        )
+        drawRoundRect(
+            color = Color.White,
+            topLeft = Offset(unit * 0.2f, unit * 0.42f),
+            size = Size(unit * 0.6f, unit * 0.46f),
+            cornerRadius = CornerRadius(unit * 0.08f),
+        )
+    }
+}
+
+/** What the Hub page's tabs and cards open. */
+private class HubActions(
+    val onLaunchApp: (AppEntry) -> Unit,
+    val onStartIntent: (Intent) -> Unit,
+    val onOpenMessages: () -> Unit,
+    val onOpenHubSettings: () -> Unit,
+    val onRequestContactsPermission: () -> Unit,
+)
+
+/** The Hub page tabs: All · Messages · Calls · Contacts; All takes focus when the page opens. */
+@Composable
+private fun HubTabs(
+    filter: HubFilter,
+    firstTab: FocusRequester,
+    onFilter: (HubFilter) -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        HubFilter.entries.forEach { tab ->
+            val selected = tab == filter
+            Text(
+                text = tab.label,
+                modifier =
+                    Modifier
+                        .then(if (tab == HubFilter.All) Modifier.focusRequester(firstTab) else Modifier)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(
+                            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                        ).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
+                        .sableFocusRing()
+                        .clickable { onFilter(tab) }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                style = MaterialTheme.typography.labelLarge,
+                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+            )
         }
     }
+}
+
+/**
+ * The All, Messages and Calls tabs: Messages and Mail, Missed calls, and on All the notification
+ * summary ([summary] is null when Sable Hub is absent, which also hides Hub settings).
+ */
+private fun androidx.compose.foundation.lazy.LazyListScope.hubSummaryItems(
+    filter: HubFilter,
+    snapshot: LiveSurfaceSnapshot,
+    summary: String?,
+    messagesApp: AppEntry?,
+    mailApp: AppEntry?,
+    actions: HubActions,
+) {
+    val showMessages = filter != HubFilter.Calls
+    val showCalls = filter != HubFilter.Messages
+    if (showMessages) {
+        item(key = "messages") {
+            GlanceCard(
+                title = "Messages",
+                detail = liveDetail(snapshot.messages, messagesApp),
+                accent = SableBlue,
+                onClick = actions.onOpenMessages,
+            )
+        }
+        item(key = "mail") {
+            GlanceCard(
+                title = "Mail",
+                detail = liveDetail(snapshot.mail, mailApp),
+                accent = Color(0xFFE5484D),
+                onClick = mailApp?.let { { actions.onLaunchApp(it) } },
+            )
+        }
+    }
+    if (showCalls) {
+        item(key = "calls") {
+            // Start holds no call-log permission: the Phone app shows the missed calls.
+            GlanceCard(
+                title = "Missed calls",
+                detail = "recent calls in Phone",
+                accent = SableGreen,
+                onClick = { actions.onStartIntent(Intent(Intent.ACTION_VIEW, CallLog.Calls.CONTENT_URI)) },
+            )
+        }
+    }
+    if (filter == HubFilter.All) {
+        item(key = "notifications") {
+            // Android owns the notifications; its history lists what was dismissed too.
+            GlanceCard(
+                title = "Notifications",
+                detail = summary ?: "Sable Hub not installed",
+                accent = SableSun,
+                onClick = { actions.onStartIntent(Intent(ACTION_NOTIFICATION_HISTORY)) },
+            )
+        }
+    }
+    if (summary != null) {
+        item(key = "settings") {
+            Spacer(Modifier.height(4.dp))
+            MetroLink(text = "Hub settings", onClick = actions.onOpenHubSettings)
+        }
+    }
+}
+
+/**
+ * The Contacts tab: favourites, then A to Z, as in the Contacts app. Enter opens the contact,
+ * Call and Message act on its default number (Message in Sable Messages); a letter key jumps
+ * ([HubPage]). Without READ_CONTACTS the tab offers to allow it, or the Contacts app.
+ */
+private fun androidx.compose.foundation.lazy.LazyListScope.hubContactsItems(
+    people: List<HubPerson>,
+    loaded: Boolean,
+    canRead: Boolean,
+    contactsApp: AppEntry?,
+    messagesPackage: String?,
+    requesterFor: (HubPerson) -> FocusRequester,
+    actions: HubActions,
+) {
+    val onStartIntent = actions.onStartIntent
+    val openContacts = contactsApp?.let { app -> { actions.onLaunchApp(app) } }
+    if (!canRead || people.isEmpty()) {
+        item(key = "contacts-empty") {
+            if (!canRead) {
+                GlanceCard(
+                    title = "Allow contacts",
+                    detail = "Start shows names here; nothing leaves the phone",
+                    accent = SablePurple,
+                    onClick = actions.onRequestContactsPermission,
+                )
+            } else {
+                EmptyState(if (loaded) "No contacts yet." else "Loading contacts…")
+            }
+        }
+        if (openContacts != null) {
+            item(key = "contacts-open") {
+                MetroLink(text = "open Contacts", onClick = openContacts)
+            }
+        }
+        return
+    }
+    itemsIndexed(items = people, key = { _, person -> "person:" + person.id }) { index, person ->
+        if (HubPeople.startsSection(people, index)) {
+            Text(
+                text = HubPeople.sectionOf(person),
+                style = MaterialTheme.typography.titleMedium,
+                color = Bb10Blue,
+                modifier = Modifier.padding(top = 4.dp).semantics { heading() },
+            )
+        }
+        val number = person.number
+        HubPersonRow(
+            person = person,
+            nameModifier = Modifier.focusRequester(requesterFor(person)),
+            onOpen = { onStartIntent(PeopleRepository.viewIntent(person)) },
+            onCall = number?.let { { onStartIntent(PeopleRepository.callIntent(it)) } },
+            onMessage = number?.let { { onStartIntent(PeopleRepository.messageIntent(it, messagesPackage)) } },
+        )
+    }
+}
+
+@Composable
+private fun HubPersonRow(
+    person: HubPerson,
+    nameModifier: Modifier,
+    onOpen: () -> Unit,
+    onCall: (() -> Unit)?,
+    onMessage: (() -> Unit)?,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(6.dp)
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = (if (person.starred) "★ " else "") + person.name,
+            modifier =
+                nameModifier
+                    .weight(1f)
+                    .onFocusChanged { focused = it.isFocused }
+                    .clip(shape)
+                    .background(if (focused) Bb10Blue else Color.Transparent)
+                    .clickable(onClick = onOpen)
+                    .semantics { contentDescription = person.name + if (person.starred) ", favourite" else "" }
+                    .padding(horizontal = 8.dp, vertical = 10.dp),
+            style = MaterialTheme.typography.titleMedium,
+            color = Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (onCall != null) HubPersonAction(label = "call", description = "Call ${person.name}", onClick = onCall)
+        if (onMessage != null) HubPersonAction(label = "text", description = "Message ${person.name}", onClick = onMessage)
+    }
+}
+
+@Composable
+private fun HubPersonAction(
+    label: String,
+    description: String,
+    onClick: () -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(6.dp)
+    Text(
+        text = label,
+        modifier =
+            Modifier
+                .onFocusChanged { focused = it.isFocused }
+                .clip(shape)
+                .background(if (focused) Bb10Blue else Bb10Card)
+                .border(1.dp, Bb10Line, shape)
+                .clickable(onClick = onClick)
+                .semantics { contentDescription = description }
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+        style = MaterialTheme.typography.labelLarge,
+        color = Color.White,
+        maxLines = 1,
+    )
 }
 
 /**
@@ -1806,7 +2270,7 @@ private fun SlotOptionsScreen(
     onBack: () -> Unit,
     onOpen: () -> Unit,
     onHubFilter: (HubFilter) -> Unit,
-    onOpenHub: () -> Unit,
+    onOpenHubSettings: () -> Unit,
     onStartIntent: (Intent) -> Unit,
     onLaunchApp: (AppEntry) -> Unit,
     onAppInfo: (AppEntry) -> Unit,
@@ -1835,7 +2299,7 @@ private fun SlotOptionsScreen(
                     HubFilter.entries.forEach { filter ->
                         ContextAction(mark = "◇", label = "Hub page · ${filter.label}", onClick = { onHubFilter(filter) })
                     }
-                    ContextAction(mark = "◉", label = "open Sable Hub", onClick = onOpenHub)
+                    ContextAction(mark = "⚙", label = "Hub settings", onClick = onOpenHubSettings)
                 }
                 QuickBar.PHONE -> {
                     ContextAction(mark = "☎", label = "dial pad", onClick = { onStartIntent(Intent(Intent.ACTION_DIAL)) })
@@ -1880,7 +2344,7 @@ private fun Bb10ActionBar(
                 .height(BAR_HEIGHT_DP.dp)
                 .background(Brush.verticalGradient(listOf(Bb10BarTop, Bb10BarBottom)))
                 .border(1.dp, Bb10Line)
-                .padding(horizontal = 24.dp, vertical = 6.dp),
+                .padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         slots.forEachIndexed { index, slot ->
@@ -1917,7 +2381,7 @@ private fun Bb10ActionBar(
                         },
                 contentAlignment = Alignment.Center,
             ) {
-                QuickSlotMark(slot = slot, size = 30, monochrome = true)
+                QuickSlotMark(slot = slot, size = BAR_GLYPH_DP, monochrome = true)
             }
         }
     }
@@ -1934,7 +2398,9 @@ private fun QuickSlotMark(
     monochrome: Boolean = false,
 ) {
     val app = slot.app
-    val glyph = slot.token in setOf(QuickBar.COMMAND, QuickBar.ALL_APPS) || (monochrome && slot.token in setOf(QuickBar.PHONE, QuickBar.CAMERA))
+    val glyph =
+        slot.token in setOf(QuickBar.COMMAND, QuickBar.ALL_APPS, QuickBar.HUB) ||
+            (monochrome && slot.token in setOf(QuickBar.PHONE, QuickBar.CAMERA))
     if (app != null && !glyph) {
         AppMark(app = app, size = size)
         return
@@ -1978,6 +2444,12 @@ private fun QuickSlotMark(
                     )
                 }
             }
+            QuickBar.HUB ->
+                // Hub: three short lines, as on the page indicator.
+                for (line in 0..2) {
+                    val y = unit * (0.25f + line * 0.25f)
+                    drawLine(color, Offset(unit * 0.12f, y), Offset(unit * 0.88f, y), strokeWidth = stroke, cap = StrokeCap.Round)
+                }
             QuickBar.CAMERA -> {
                 // Camera body, viewfinder bump and lens.
                 drawRoundRect(
@@ -2766,8 +3238,8 @@ private fun resolveQuickSlot(
         QuickBar.ALL_APPS -> QuickSlot(token, "All apps", null)
         QuickBar.PHONE ->
             role(listOf(DIALER_PACKAGE), listOf("Phone"))?.let { QuickSlot(token, "Phone", it) }
-        QuickBar.HUB ->
-            role(listOf(HUB_PACKAGE), listOf(HUB_LABEL, "Hub"))?.let { QuickSlot(token, "Hub", it) }
+        // Start's own Hub page: always available, whatever messaging apps are installed.
+        QuickBar.HUB -> QuickSlot(token, "Hub", null)
         QuickBar.CAMERA ->
             role(CoreAppIdentity.startTileCandidates(CoreAppIdentity.CAMERA), listOf("Camera"))
                 ?.let { QuickSlot(token, "Camera", it) }
@@ -3149,7 +3621,7 @@ private fun SearchScreen(
     onAppearance: () -> Unit,
     onFrames: () -> Unit,
     onGrid: () -> Unit,
-    onHub: () -> Unit,
+    onHub: (HubFilter) -> Unit,
     onEditHome: () -> Unit,
     onOpenSettings: () -> Unit,
     onStartIntent: (Intent) -> Unit,
@@ -3211,7 +3683,7 @@ private fun SearchScreen(
             SearchCommand("All apps", "A to Z with privacy summaries", "A", "Start", onAllApps),
             SearchCommand("Active Frames", "Open apps, Home", "▦", "Start", onFrames),
             SearchCommand("App grid", "Every app, in your order", "▤", "Start", onGrid),
-            SearchCommand("Hub page", "Messages, mail, missed calls and notifications", "◇", "Start", onHub),
+            SearchCommand("Hub page", "Messages, mail, calls, contacts and notifications", "◇", "Start", { onHub(HubFilter.All) }),
             SearchCommand("Edit Home", "Order the app grid, the bar and the empty frames", "▭", "Start", onEditHome),
             SearchCommand("Appearance", "Theme and Sable accent", "◐", "Start", onAppearance),
             SearchCommand("System Settings", "Open Android settings", "⚙", "Settings", onOpenSettings),
@@ -3227,8 +3699,8 @@ private fun SearchScreen(
             }
         }
     val settingsResults = if (parsed.profileScope) emptyList() else settingsResults(parsed, onStartIntent, onOpenSettings)
-    val peopleResults = if (parsed.profileScope) emptyList() else peopleResults(parsed, onStartIntent)
-    val hubResults = if (parsed.profileScope) emptyList() else hubResults(parsed, onStartIntent)
+    val peopleResults = if (parsed.profileScope) emptyList() else peopleResults(parsed, onStartIntent, onHub)
+    val hubResults = if (parsed.profileScope) emptyList() else hubResults(parsed, onHub)
     val firstOther =
         (filteredCommands.takeIf { term.isNotEmpty() }.orEmpty() + settingsResults + peopleResults + hubResults)
             .firstOrNull()
@@ -3498,6 +3970,7 @@ private fun settingsResults(
 private fun peopleResults(
     parsed: CommandQuery,
     onStartIntent: (Intent) -> Unit,
+    onHub: (HubFilter) -> Unit,
 ): List<SearchCommand> {
     val term = parsed.term
     if (term.isEmpty() || !parsed.includes(CommandScope.People)) return emptyList()
@@ -3538,36 +4011,39 @@ private fun peopleResults(
             mark = "@",
             source = "Contacts",
             onClick = find,
-            actions = listOf("find in Contacts" to find, "search Hub for “$term”" to { onStartIntent(hubIntent(term)) }),
+            actions = listOf("find in Contacts" to find, "Hub page · Contacts" to { onHub(HubFilter.Contacts) }),
         ).takeIf { parsed.scope == CommandScope.People || term.length >= 2 }
     return listOfNotNull(dial, contacts)
 }
 
-private fun hubIntent(query: String): Intent =
-    Intent(Intent.ACTION_MAIN)
-        .setPackage(HUB_PACKAGE)
-        .addCategory(Intent.CATEGORY_LAUNCHER)
-        .putExtra(HUB_EXTRA_QUERY, query)
-
-/** Hub search hands the term to Sable Hub; Start never shows message, mail or call content. */
+/**
+ * Hub results open Start's own Hub page on a tab (Start never shows message, mail or call
+ * content). Shown for "/hub", or when the term names Hub or one of its tabs.
+ */
 private fun hubResults(
     parsed: CommandQuery,
-    onStartIntent: (Intent) -> Unit,
+    onHub: (HubFilter) -> Unit,
 ): List<SearchCommand> {
-    val term = parsed.term
-    if (!parsed.includes(CommandScope.Hub) || (term.isEmpty() && parsed.scope != CommandScope.Hub)) return emptyList()
-    val open = { onStartIntent(hubIntent(term)) }
+    if (!parsed.includes(CommandScope.Hub)) return emptyList()
+    val term = parsed.term.lowercase(Locale.ROOT)
+    val tab = HubFilter.entries.firstOrNull { term.isNotEmpty() && it.label.lowercase(Locale.ROOT).startsWith(term) }
+    val named = term.isNotEmpty() && ("hub".startsWith(term) || tab != null)
+    if (parsed.scope != CommandScope.Hub && !named) return emptyList()
+    val target = tab ?: HubFilter.All
     return listOf(
         SearchCommand(
-            title = if (term.isEmpty()) "Open Hub" else "Search Hub for “$term”",
-            subtitle = "Messages, calls and notifications",
+            title = if (target == HubFilter.All) "Open Hub" else "Hub · ${target.label}",
+            subtitle = "Messages, calls, contacts and notifications",
             mark = "◉",
             source = "Hub",
-            onClick = open,
-            actions = listOf("open in Hub" to open, "open Hub" to { onStartIntent(hubIntent("")) }),
+            onClick = { onHub(target) },
+            actions = HubFilter.entries.map { filter -> "Hub · ${filter.label}" to { onHub(filter) } },
         ),
     )
 }
+
+/** Hub's own settings: connected apps, private mode, history (org.sableos.hub). */
+private fun hubSettingsIntent(): Intent = Intent(HUB_ACTION_CONNECTED_APPS).setPackage(HUB_PACKAGE)
 
 @Composable
 private fun SableSearchField(
@@ -3932,21 +4408,20 @@ private fun CompactAppRow(
     }
 }
 
+/**
+ * An app's icon in Start's one style (Q4 device review, Q7): the app's Sable
+ * glyph when it has one ([AppGlyphs], by package only), else its own themed
+ * monochrome layer shaded like the glyphs, else its own icon at the same size.
+ * Never a tile behind it.
+ */
 @Composable
 private fun AppMark(
     app: AppEntry,
     size: Int,
-    fallbackContentColor: Color = MaterialTheme.colorScheme.onSurface,
-    showFallbackSurface: Boolean = true,
 ) {
-    val glyphPackage = approvedGlyphPackage(app)
-    if (glyphPackage != null) {
-        SableGlyphIcon(
-            packageName = glyphPackage,
-            accent = appColor(app),
-            modifier = Modifier.size(size.dp),
-            compact = size <= 46,
-        )
+    val glyph = AppGlyphs.forPackage(app.component.packageName)
+    if (glyph != null) {
+        SableGlyphIcon(glyph = glyph, modifier = Modifier.size(size.dp))
         return
     }
 
@@ -3956,7 +4431,7 @@ private fun AppMark(
     // Loaded off the main thread and cached for the process: binding a row never
     // waits on LauncherApps (ROW_BIND_BLOCKING_QUERY=NO).
     val icon by
-        produceState<Bitmap?>(initialValue = LauncherIconCache.get(iconKey), iconKey) {
+        produceState<LauncherIcon?>(initialValue = LauncherIconCache.get(iconKey), iconKey) {
             if (value == null) {
                 value =
                     withContext(Dispatchers.IO) {
@@ -3966,78 +4441,53 @@ private fun AppMark(
         }
 
     val loadedIcon = icon
-    if (loadedIcon != null) {
-        Image(
-            bitmap = loadedIcon.asImageBitmap(),
-            contentDescription = null,
-            modifier =
-                Modifier
-                    .size(size.dp)
-                    .clip(RoundedCornerShape(8.dp)),
-            contentScale = ContentScale.Fit,
-        )
-    } else {
-        Box(
-            modifier =
-                Modifier
-                    .size(size.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .then(
-                        if (showFallbackSurface) {
-                            Modifier.background(appColor(app))
-                        } else {
-                            Modifier
-                        },
-                    ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = appMark(app),
-                fontWeight = FontWeight.Bold,
-                color = fallbackContentColor,
+    when {
+        loadedIcon == null ->
+            // Until the icon loads: the first letter in the glyph colours, no tile.
+            Box(modifier = Modifier.size(size.dp), contentAlignment = Alignment.Center) {
+                Text(
+                    text = appMark(app),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = (size * 0.5f).sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        loadedIcon.monochrome ->
+            SableMonochromeIcon(
+                mask = loadedIcon.bitmap.asImageBitmap(),
+                accent = appColor(app),
+                modifier = Modifier.size(size.dp),
             )
-        }
+        else ->
+            Image(
+                bitmap = loadedIcon.bitmap.asImageBitmap(),
+                contentDescription = null,
+                modifier = Modifier.size(size.dp),
+                contentScale = ContentScale.Fit,
+            )
     }
 }
 
-private fun approvedGlyphPackage(app: AppEntry): String? {
-    val packageName = app.component.packageName
-    if (sableGlyphForPackage(packageName) != null) return packageName
+/** A loaded launcher icon: the app's themed monochrome layer (a mask) or its full icon. */
+private class LauncherIcon(
+    val bitmap: Bitmap,
+    val monochrome: Boolean,
+)
 
-    return when {
-        app.label.equals("Phone", ignoreCase = true) -> DIALER_PACKAGE
-        app.label.equals(HUB_LABEL, ignoreCase = true) ||
-            app.label.equals("Hub", ignoreCase = true) ||
-            app.label.equals(MESSAGES_LABEL, ignoreCase = true) ||
-            app.label.equals("Messages", ignoreCase = true) -> HUB_PACKAGE
-        app.label.equals(MAIL_LABEL, ignoreCase = true) ||
-            app.label.equals("Mail", ignoreCase = true) -> MAIL_PACKAGE
-        app.label.equals("Sable Calendar", ignoreCase = true) ||
-            app.label.equals("Calendar", ignoreCase = true) -> CALENDAR_PACKAGE
-        app.label.equals(WEATHER_LABEL, ignoreCase = true) ||
-            app.label.equals("Weather", ignoreCase = true) -> WEATHER_PACKAGE
-        app.label.equals("Photos", ignoreCase = true) ||
-            app.label.equals("Gallery", ignoreCase = true) -> GALLERY_PACKAGE
-        app.label.equals(MEDIA_LABEL, ignoreCase = true) ||
-            app.label.equals("Media", ignoreCase = true) -> MEDIA_PACKAGE
-        app.label.equals("Camera", ignoreCase = true) -> "app.grapheneos.camera"
-        app.label.equals(CALCULATOR_LABEL, ignoreCase = true) ||
-            app.label.equals("Calculator", ignoreCase = true) -> CALCULATOR_PACKAGE
-        app.label.equals("Files", ignoreCase = true) -> FILES_PACKAGE
-        app.label.equals("Clock", ignoreCase = true) -> "com.android.deskclock"
-        app.label.equals("Vanadium", ignoreCase = true) -> "app.vanadium.browser"
-        app.label.equals("Settings", ignoreCase = true) -> SETTINGS_PACKAGE
-        else -> null
-    }
-}
+private object LauncherIconCache : LruCache<String, LauncherIcon>(LAUNCHER_ICON_CACHE_ENTRIES)
 
-private object LauncherIconCache : LruCache<String, Bitmap>(LAUNCHER_ICON_CACHE_ENTRIES)
-
+/**
+ * The app's icon at [sizeDp]. An adaptive icon with a monochrome layer
+ * (Android 13 themed icons) gives that layer, its 66dp safe zone scaled to
+ * the glyph box so it sits at the glyphs' size; any other icon is drawn whole,
+ * inset like the glyphs' own margin. Work and clone badges come from the
+ * row's profile label, not from the icon.
+ */
 private fun loadLauncherIcon(
     context: Context,
     app: AppEntry,
     sizeDp: Int,
-): Bitmap? =
+): LauncherIcon? =
     runCatching {
         val launcherApps = context.getSystemService(LauncherApps::class.java)
         val activityInfo =
@@ -4053,8 +4503,6 @@ private fun loadLauncherIcon(
             (sizeDp * density)
                 .toInt()
                 .coerceAtLeast(1)
-        val insetPx = (iconSizePx * 0.06f).toInt()
-        val drawable = activityInfo.getBadgedIcon(densityDpi)
         val bitmap =
             Bitmap.createBitmap(
                 iconSizePx,
@@ -4062,7 +4510,22 @@ private fun loadLauncherIcon(
                 Bitmap.Config.ARGB_8888,
             )
         val canvas = Canvas(bitmap)
-
+        val drawable = activityInfo.getIcon(densityDpi)
+        val monochrome =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && drawable is AdaptiveIconDrawable) {
+                drawable.monochrome
+            } else {
+                null
+            }
+        if (monochrome != null) {
+            // The layer spans the 108dp adaptive canvas; its 66dp safe zone fills the icon box.
+            val canvasPx = (iconSizePx * ADAPTIVE_CANVAS_DP / ADAPTIVE_SAFE_ZONE_DP).toInt()
+            val offset = (iconSizePx - canvasPx) / 2
+            monochrome.setBounds(offset, offset, offset + canvasPx, offset + canvasPx)
+            monochrome.draw(canvas)
+            return@runCatching LauncherIcon(bitmap, monochrome = true)
+        }
+        val insetPx = (iconSizePx * OWN_ICON_INSET).toInt()
         drawable.setBounds(
             insetPx,
             insetPx,
@@ -4070,7 +4533,7 @@ private fun loadLauncherIcon(
             iconSizePx - insetPx,
         )
         drawable.draw(canvas)
-        bitmap
+        LauncherIcon(bitmap, monochrome = false)
     }.getOrNull()
 
 @Composable
@@ -4592,58 +5055,29 @@ private fun appMark(app: AppEntry): String =
         .uppercase()
         .ifEmpty { "•" }
 
-private fun appColor(app: AppEntry): Color =
-    when {
-        app.component.packageName == HUB_PACKAGE ||
-            app.label.equals(HUB_LABEL, ignoreCase = true) ||
-            app.label.equals(MESSAGES_LABEL, ignoreCase = true) -> SableGreen
-        app.component.packageName == MAIL_PACKAGE ||
-            app.label.equals(MAIL_LABEL, ignoreCase = true) -> SableSlate
-        app.component.packageName == CALENDAR_PACKAGE ||
-            app.label.equals("Calendar", ignoreCase = true) -> SableOrange
-        app.component.packageName == WEATHER_PACKAGE ||
-            app.label.equals(WEATHER_LABEL, ignoreCase = true) -> SableBlue
-        app.component.packageName == MEDIA_PACKAGE ||
-            app.label.equals(MEDIA_LABEL, ignoreCase = true) -> SablePurple
-        CoreAppIdentity.isRole(app.component.packageName, CoreAppIdentity.PHOTOS) ||
-            app.label.equals("Photos", ignoreCase = true) -> SablePurple
-        CoreAppIdentity.isRole(app.component.packageName, CoreAppIdentity.CAMERA) ||
-            app.component.packageName == CoreAppIdentity.SABLE_CAMERA ||
-            app.label.equals("Camera", ignoreCase = true) -> SableSlate
-        app.component.packageName == CALCULATOR_PACKAGE ||
-            app.label.equals(CALCULATOR_LABEL, ignoreCase = true) -> SableBlue
-        app.component.packageName == FILES_PACKAGE ||
-            app.label.equals("Files", ignoreCase = true) -> SableOrange
-        app.component.packageName == DIALER_PACKAGE ||
-            app.label.equals("Phone", ignoreCase = true) -> SableBlue
-        else -> {
-            val index =
-                Math.floorMod(
-                    app.stableKey().hashCode(),
-                    SableTilePalette.size,
-                )
-            SableTilePalette[index]
-        }
-    }
+/** The app's accent: its glyph's ([AppGlyphs], by package), else a stable pick from the Sable palette. */
+private fun appColor(app: AppEntry): Color {
+    AppGlyphs.forPackage(app.component.packageName)?.let { return Color(it.accent) }
+    val index =
+        Math.floorMod(
+            app.stableKey().hashCode(),
+            SableTilePalette.size,
+        )
+    return SableTilePalette[index]
+}
 
+/** The live line for an app's Active Frame, by package only (a "Calendar" label is not Sable Calendar). */
 private fun liveDatumForApp(
     app: AppEntry,
     snapshot: LiveSurfaceSnapshot,
 ): LiveDatum? =
-    when {
-        app.component.packageName == CALENDAR_PACKAGE ||
-            app.label.equals("Calendar", ignoreCase = true) -> snapshot.calendar
-        app.component.packageName == HUB_PACKAGE ||
-            app.label.equals(HUB_LABEL, ignoreCase = true) ||
-            app.label.equals(MESSAGES_LABEL, ignoreCase = true) -> snapshot.messages
-        app.component.packageName == MAIL_PACKAGE ||
-            app.label.equals(MAIL_LABEL, ignoreCase = true) -> snapshot.mail
-        app.component.packageName == WEATHER_PACKAGE ||
-            app.label.equals(WEATHER_LABEL, ignoreCase = true) -> snapshot.weather
-        app.component.packageName == MEDIA_PACKAGE ||
-            app.label.equals(MEDIA_LABEL, ignoreCase = true) -> snapshot.music
-        CoreAppIdentity.isRole(app.component.packageName, CoreAppIdentity.PHOTOS) ||
-            app.label.equals("Photos", ignoreCase = true) -> snapshot.photos
+    when (CoreAppIdentity.canonicalPackage(app.component.packageName)) {
+        CALENDAR_PACKAGE -> snapshot.calendar
+        HUB_PACKAGE, MESSAGES_PACKAGE -> snapshot.messages
+        MAIL_PACKAGE -> snapshot.mail
+        WEATHER_PACKAGE -> snapshot.weather
+        MEDIA_PACKAGE -> snapshot.music
+        CoreAppIdentity.PHOTOS -> snapshot.photos
         else -> null
     }
 
@@ -4656,8 +5090,8 @@ private data class PreferredStartAppGroup(
 private val HOME_APP_DEFAULT_GROUPS =
     listOf(
         PreferredStartAppGroup(
-            packageNames = listOf(HUB_PACKAGE),
-            labels = listOf(HUB_LABEL, "Hub", MESSAGES_LABEL, "Messages"),
+            packageNames = listOf(MESSAGES_PACKAGE, HUB_PACKAGE),
+            labels = listOf(MESSAGES_LABEL, "Messages", HUB_LABEL, "Hub"),
         ),
         PreferredStartAppGroup(
             packageNames = listOf(MAIL_PACKAGE),
@@ -4684,21 +5118,24 @@ private val HOME_APP_DEFAULT_GROUPS =
 private const val MAX_SESSION_RECENTS = 8
 private const val KEYCODE_DEL = 67
 private const val HUB_PACKAGE = "org.sableos.hub"
+private const val MESSAGES_PACKAGE = HubBar.MESSAGES_PACKAGE
+private const val HUB_ACTION_CONNECTED_APPS = "org.sableos.hub.action.CONNECTED_APPS"
+private const val ACTION_NOTIFICATION_HISTORY = "android.settings.NOTIFICATION_HISTORY"
+private const val HUB_BAR_ICON_DP = 20
+private val HUB_BAR_ITEM_HEIGHT = 32.dp
+
+/** Alt, Sym, Fn, Ctrl and Meta: with these held a letter is not a Contacts-tab jump. */
+private const val HUB_JUMP_BLOCKING_META = 0x02 or 0x04 or 0x08 or 0x1000 or 0x10000
 private const val MAIL_PACKAGE = "org.sableos.mail"
 private const val CALENDAR_PACKAGE = "org.sableos.calendar"
 private const val WEATHER_PACKAGE = "org.sableos.weather"
 private const val MEDIA_PACKAGE = "org.sableos.media"
 private const val DIALER_PACKAGE = "com.android.dialer"
 private const val GALLERY_PACKAGE = "com.android.gallery3d"
-private const val CALCULATOR_PACKAGE = "org.sableos.calculator"
-private const val FILES_PACKAGE = "com.android.documentsui"
-private const val SETTINGS_PACKAGE = "com.android.settings"
 private const val HUB_LABEL = "Sable Hub"
 private const val WEATHER_LABEL = "Sable Weather"
 private const val MAIL_LABEL = "Sable Mail"
 private const val MESSAGES_LABEL = "Sable Messages"
-private const val MEDIA_LABEL = "Sable Media"
-private const val CALCULATOR_LABEL = "Sable Calculator"
 private const val CONTACTS_PACKAGE = "com.android.contacts"
 private const val KEYCODE_DPAD_LEFT = 21
 private const val KEYCODE_DPAD_RIGHT = 22
@@ -4707,22 +5144,47 @@ private val EditRowStep = 48.dp
 
 // Matches LauncherAppsRepository.PROFILE_PRIVATE.
 private const val PROFILE_PRIVATE_LABEL = "private"
-private const val HUB_EXTRA_QUERY = "org.sableos.hub.extra.QUERY"
 private const val LAUNCHER_ICON_CACHE_ENTRIES = 160
+private const val ADAPTIVE_CANVAS_DP = 108f
+private const val ADAPTIVE_SAFE_ZONE_DP = 66f
+
+/** An app's own (non-glyph) icon keeps the margin a Phosphor glyph has in its 256-unit box. */
+private const val OWN_ICON_INSET = 0.06f
 private const val FOCUS_SURFACE_ALL_APPS = "all-apps"
 private val PrivacyBadgeWidth = 18.dp
 
-// BB10 strip metrics (720x720 at density 193 is about 597dp square).
-private val FRAME_PADDING = 8.dp
-private val FRAME_GAP = 8.dp
-private val FRAME_LABEL_HEIGHT = 30.dp
-private val FRAME_MIN_HEIGHT = 120.dp
-private const val GRID_CELL_MIN_DP = 112
-private const val GRID_ICON_BOX_DP = 58
-private const val GRID_ICON_DP = 42
-private const val INDICATOR_HEIGHT_DP = 18
-private const val BAR_HEIGHT_DP = 58
+// BB10 strip metrics, designed for the Q25's 720x720 panel at density 280
+// (411dp square, about 387dp tall under the status bar). The grid's rows and
+// icon size, and the Active Frames card height, come from the window.
+private val FRAME_PADDING = 6.dp
+private val FRAME_GAP = 6.dp
+private val FRAME_LABEL_HEIGHT = 26.dp
 
-/** Status bar, page indicator, bar and padding: what the grid pages do not get. */
-private const val START_CHROME_DP = 24 + INDICATOR_HEIGHT_DP + BAR_HEIGHT_DP + 12
+/** Two rows of frames always fit under the dials and the weather on a 411dp square. */
+private val FRAME_MIN_HEIGHT = 72.dp
+private const val FRAME_ICON_DP = 40
+private val STATUS_RING_SIZE = 34.dp
+
+/** A grid cell is at least this tall: a 40dp icon, its one-line label and the focus padding. */
+private const val GRID_CELL_MIN_DP = 74
+private val GRID_PADDING = 4.dp
+private val GRID_CELL_GAP = 2.dp
+private val GRID_CELL_INNER_PADDING = 4.dp
+private val GRID_ICON_LABEL_GAP = 3.dp
+
+/** labelMedium's line height. */
+private const val GRID_LABEL_LINE_DP = 16
+
+/** Cell gap, inner padding and icon-to-label gap, top and bottom. */
+private const val GRID_CELL_CHROME_DP = 2 * 2 + 4 * 2 + 3
+private const val INDICATOR_HEIGHT_DP = 16
+private const val INDICATOR_SLOT_DP = 18
+private const val BAR_HEIGHT_DP = 48
+private const val BAR_GLYPH_DP = 26
+
+/** Before the window is measured: the status bar the configuration's height still includes. */
+private const val STATUS_BAR_FALLBACK_DP = 24
+
+/** Page indicator, bar and the grid's own padding: what the grid rows do not get. */
+private const val START_CHROME_DP = INDICATOR_HEIGHT_DP + BAR_HEIGHT_DP + 2 * 4
 private const val NANOS_PER_MILLI = 1_000_000L

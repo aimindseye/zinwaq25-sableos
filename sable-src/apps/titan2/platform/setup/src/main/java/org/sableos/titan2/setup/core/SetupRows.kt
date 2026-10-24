@@ -5,7 +5,9 @@ data class Snapshot(
     val home: Observed,
     val keyboard: Observed,
     val dialer: Observed,
-    val sms: Observed
+    val sms: Observed,
+    /** Sable Weather's active city, read through its setup hand-off. */
+    val weatherCity: Observed = Observed.Absent
 )
 
 object SetupRows {
@@ -40,7 +42,8 @@ object SetupRows {
             "Opens Android Settings",
             Readiness.Informational,
             Action.NetworkSettings
-        )
+        ),
+        WeatherCityStep.row(snapshot.weatherCity)
     ).map { applyTarget(it, targets(it.action)) }
 
     /** HOME is owned by the canonical lane (IR-003); this row never judges it. */
@@ -167,6 +170,7 @@ object SetupRows {
     fun buttonLabel(item: Item): String? = when {
         item.action == Action.None || item.state == Readiness.Satisfied -> null
         item.state == Readiness.ActionRequired -> "Fix"
+        item.action == Action.WeatherCity -> "Choose city"
         else -> "Open"
     }
 }

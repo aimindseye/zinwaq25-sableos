@@ -65,12 +65,21 @@ object ActiveFrames {
 
 /**
  * The app grid pages: every app (Private Space apps stay in All Apps) in the
- * user's order, four columns of labelled, boxed icons, as many rows as fit.
+ * user's order, five columns of labelled, tile-free icons (Ripe 10's grid,
+ * owner decision Q10, sized for the Q25's 411dp square), as many rows as fit.
  */
 object AppGrid {
-    const val COLUMNS = 4
+    /** Five per row: a 40-48dp icon and a one-line label in about 80dp on a 411dp square. */
+    const val COLUMNS = 5
     const val MIN_ROWS = 3
     const val MAX_ROWS = 5
+
+    const val MIN_ICON_DP = 32
+    const val MAX_ICON_DP = 56
+
+    /** The share of a cell's width the icon takes, so neighbours keep a gap (Ripe: 92px in ~150px). */
+    private const val ICON_WIDTH_SHARE = 0.56f
+    private const val SABLE_PREFIX = "Sable "
 
     private const val KEYCODE_DPAD_UP = 19
     private const val KEYCODE_DPAD_DOWN = 20
@@ -100,6 +109,35 @@ object AppGrid {
     ): Int = (heightDp / cellDp.coerceAtLeast(1)).coerceIn(MIN_ROWS, MAX_ROWS)
 
     fun perPage(rows: Int): Int = COLUMNS * rows
+
+    /**
+     * The icon size for a cell of [cellWidthDp] x [cellHeightDp]: a share of
+     * the width, no taller than the height less the label ([labelDp]), kept
+     * within [MIN_ICON_DP]..[MAX_ICON_DP].
+     */
+    fun iconSizeFor(
+        cellWidthDp: Int,
+        cellHeightDp: Int,
+        labelDp: Int,
+    ): Int = minOf((cellWidthDp * ICON_WIDTH_SHARE).toInt(), cellHeightDp - labelDp).coerceIn(MIN_ICON_DP, MAX_ICON_DP)
+
+    /**
+     * The one-line grid label: "Sable Calculator" shows as "Calculator", as
+     * BB10 and Ripe name apps under their icons, unless another app on the
+     * grid is already called that ([gridLabels], any case): "Sable Camera"
+     * stays whole beside Aperture's "Camera". Search, All Apps and the spoken
+     * description keep the full name.
+     */
+    fun gridLabel(
+        label: String,
+        gridLabels: Set<String> = emptySet(),
+    ): String {
+        val trimmed = label.trim()
+        if (!trimmed.startsWith(SABLE_PREFIX)) return trimmed
+        val short = trimmed.removePrefix(SABLE_PREFIX).trim()
+        val taken = gridLabels.any { it.trim().equals(short, ignoreCase = true) }
+        return if (short.isEmpty() || taken) trimmed else short
+    }
 
     /** Number of grid pages for [count] apps (always at least one). */
     fun pageCount(

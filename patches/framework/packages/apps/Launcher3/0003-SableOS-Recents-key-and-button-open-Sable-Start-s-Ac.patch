@@ -1,0 +1,117 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 22 Oct 2026 14:45:00 +0000
+Subject: [PATCH] SableOS: Recents key and button open Sable Start's Active
+ Frames
+
+On SableOS, Sable Start's Active Frames hold the Recents role. The
+Recents key (KEYCODE_RECENT_APPS), the 3-button Recents button and the
+action corner now open them through
+org.sableos.start.action.SHOW_ACTIVE_FRAMES in the ro.sable.home
+package, instead of the Quickstep overview. Alt+Tab quick switch and the
+swipe-up gesture keep the overview, and without a Sable home (or if it
+cannot show Active Frames) every command behaves as before.
+---
+ .../quickstep/OverviewCommandHelper.kt        | 12 +++++
+ .../quickstep/sable/SableActiveFrames.kt      | 53 +++++++++++++++++++
+ 2 files changed, 65 insertions(+)
+ create mode 100644 quickstep/src/com/android/quickstep/sable/SableActiveFrames.kt
+
+diff --git a/quickstep/src/com/android/quickstep/OverviewCommandHelper.kt b/quickstep/src/com/android/quickstep/OverviewCommandHelper.kt
+index d32e122..95f97f7 100644
+--- a/quickstep/src/com/android/quickstep/OverviewCommandHelper.kt
++++ b/quickstep/src/com/android/quickstep/OverviewCommandHelper.kt
+@@ -55,6 +55,7 @@ import com.android.quickstep.OverviewCommandHelper.CommandType.SHOW_WITH_FOCUS
+ import com.android.quickstep.OverviewCommandHelper.CommandType.TOGGLE
+ import com.android.quickstep.OverviewCommandHelper.CommandType.TOGGLE_OVERVIEW_PREVIOUS
+ import com.android.quickstep.OverviewCommandHelper.CommandType.TOGGLE_WITH_FOCUS
++import com.android.quickstep.sable.SableActiveFrames
+ import com.android.quickstep.util.ActiveGestureLog
+ import com.android.quickstep.util.ActiveGestureProtoLogProxy
+ import com.android.quickstep.views.DesktopTaskView
+@@ -127,6 +128,13 @@ constructor(
+         displayId: Int = DEFAULT_DISPLAY,
+         isLastOfBatch: Boolean = true,
+     ): CommandInfo? {
++        // SableOS: the Recents key and button open Sable Start's Active Frames.
++        if (type in SABLE_ACTIVE_FRAMES_COMMANDS &&
++            displayId == DEFAULT_DISPLAY &&
++            SableActiveFrames.open(touchInteractionService)
++        ) {
++            return null
++        }
+         if (commandQueue.size >= MAX_QUEUE_SIZE) {
+             OverviewCommandHelperProtoLogProxy.logCommandQueueFull(type, commandQueue)
+             return null
+@@ -844,5 +852,9 @@ constructor(
+         private const val MAX_QUEUE_SIZE = 3
+         private const val QUEUE_WAIT_DURATION_IN_MS = 5000L
+         @VisibleForTesting val TOGGLE_PREVIOUS_TIMEOUT_MS = TimeUnit.SECONDS.toMillis(5)
++
++        /** Commands from the Recents key and button; Alt+Tab and gestures keep the overview. */
++        private val SABLE_ACTIVE_FRAMES_COMMANDS =
++            setOf(CommandType.TOGGLE, CommandType.TOGGLE_WITH_FOCUS, CommandType.SHOW_WITH_FOCUS)
+     }
+ }
+diff --git a/quickstep/src/com/android/quickstep/sable/SableActiveFrames.kt b/quickstep/src/com/android/quickstep/sable/SableActiveFrames.kt
+new file mode 100644
+index 0000000..3cfbbc0
+--- /dev/null
++++ b/quickstep/src/com/android/quickstep/sable/SableActiveFrames.kt
+@@ -0,0 +1,53 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.quickstep.sable
++
++import android.content.ActivityNotFoundException
++import android.content.Context
++import android.content.Intent
++import android.os.SystemProperties
++import android.util.Log
++
++/**
++ * Sable Start's Active Frames take the Recents role on SableOS: the Recents key and the 3-button
++ * Recents button open them instead of the Quickstep overview. Alt+Tab quick switch and the
++ * swipe-up gesture keep the overview.
++ */
++object SableActiveFrames {
++    private const val TAG = "SableActiveFrames"
++    private const val HOME_PROPERTY = "ro.sable.home"
++    const val ACTION_SHOW_ACTIVE_FRAMES = "org.sableos.start.action.SHOW_ACTIVE_FRAMES"
++
++    /** The Sable home package, or null when the build has none. */
++    fun homePackage(): String? = SystemProperties.get(HOME_PROPERTY, "").ifEmpty { null }
++
++    /** Opens Active Frames in Sable Start; false when there is no Sable home to open. */
++    fun open(context: Context): Boolean {
++        val home = homePackage() ?: return false
++        val intent =
++            Intent(ACTION_SHOW_ACTIVE_FRAMES)
++                .setPackage(home)
++                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
++        return try {
++            context.startActivity(intent)
++            true
++        } catch (e: ActivityNotFoundException) {
++            Log.w(TAG, "Sable home $home cannot show Active Frames; using the overview", e)
++            false
++        }
++    }
++}
+-- 
+2.43.0
+

@@ -6,6 +6,7 @@ import android.database.Cursor
 import android.database.MatrixCursor
 import android.net.Uri
 import android.os.Binder
+import android.os.Bundle
 
 class WeatherSnapshotProvider : ContentProvider() {
     override fun onCreate(): Boolean = true
@@ -17,7 +18,7 @@ class WeatherSnapshotProvider : ContentProvider() {
         selectionArgs: Array<out String>?,
         sortOrder: String?,
     ): Cursor? {
-        if (!isAllowedCaller()) {
+        if (!isAllowedCaller(WeatherSetupContract.SNAPSHOT_CALLERS)) {
             return null
         }
 
@@ -31,6 +32,11 @@ class WeatherSnapshotProvider : ContentProvider() {
         val appContext = context?.applicationContext ?: return null
         val state = WeatherRepository(appContext).load()
         val snapshot = state.snapshot
+        // Start reads this on every home screen visit: fetch in the background when nothing current is cached.
+        WeatherRefreshJob.ensureScheduled(
+            appContext,
+            needsFetch = snapshot == null || state.availability != WeatherAvailability.Live,
+        )
 
         val cursor =
             MatrixCursor(
@@ -96,20 +102,31 @@ class WeatherSnapshotProvider : ContentProvider() {
         selectionArgs: Array<out String>?,
     ): Int = 0
 
-    private fun isAllowedCaller(): Boolean {
+    /**
+     * Sable Setup's city hand-off ([WeatherSetupContract]). Only Setup (and Weather itself) may call it; any
+     * other caller, or an unknown method, gets null.
+     */
+    override fun call(
+        method: String,
+        arg: String?,
+        extras: Bundle?,
+    ): Bundle? {
+        val appContext =
+            context?.applicationContext?.takeIf {
+                isAllowedCaller(WeatherSetupContract.SETUP_CALLERS)
+            }
+        return appContext?.let { SetupCityHandOff.handle(it, method, arg) }
+    }
+
+    private fun isAllowedCaller(allowed: Set<String>): Boolean {
         val appContext = context?.applicationContext ?: return false
         val callingUid = Binder.getCallingUid()
-
-        if (callingUid == appContext.applicationInfo.uid) {
-            return true
+        return WeatherCallers.allowed(callingUid, appContext.applicationInfo.uid, allowed) {
+            appContext.packageManager
+                .getPackagesForUid(callingUid)
+                .orEmpty()
+                .toList()
         }
-
-        return appContext.packageManager
-            .getPackagesForUid(callingUid)
-            .orEmpty()
-            .any { packageName ->
-                packageName == "org.sableos.launcher"
-            }
     }
 
     private fun conditionLabel(condition: WeatherCondition): String =

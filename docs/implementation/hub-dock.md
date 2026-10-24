@@ -1,5 +1,9 @@
 # Hub source dock, combined conversations and mail apps
 
+> **2026-10-23:** the Sable Hub app no longer has a launcher entry; Sable Start's Hub page is the
+> one Hub screen, with its own unread bar ([q4-review](q4-review.md#one-hub)). The dock below is
+> part of the Hub app's screen, which users no longer reach from Start.
+
 Status: **written and unit-tested (Hub unit tests, Lint, detekt, ktlint), not run on a device.** The
 idea comes from Conduit (github.com/eqbirvin/Conduit). Conduit is GPL-3.0, and
 this repository is Apache-2.0, so only the behaviour was reimplemented and no

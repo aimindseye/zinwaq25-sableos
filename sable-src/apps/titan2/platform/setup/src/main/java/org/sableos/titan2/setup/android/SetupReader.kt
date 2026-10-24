@@ -10,7 +10,8 @@ import org.sableos.titan2.setup.core.Snapshot
 
 /** Reads the current defaults through public APIs only. A failed read is [Observed.Failed], never "none". */
 class SetupReader(private val context: Context) {
-    fun snapshot(): Snapshot = Snapshot(home(), keyboard(), dialer(), sms())
+    fun snapshot(): Snapshot =
+        Snapshot(home(), keyboard(), dialer(), sms(), WeatherCityClient(context).current())
 
     private fun home(): Observed = observe {
         context.packageManager.resolveActivity(

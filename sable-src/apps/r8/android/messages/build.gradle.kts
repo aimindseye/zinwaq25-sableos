@@ -17,9 +17,11 @@ android {
     }
 
     buildTypes {
+        // The Q25 image ships the release variant (product/q25/apps.tsv): R8-shrunk and signed by
+        // the platform build, so it fits the dynamic partitions (a debug APK is about 30 MB).
         release {
-            // The image ships the debug variant (product/q25/apps.tsv); a release build is shrunk and obfuscated.
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
         }
     }

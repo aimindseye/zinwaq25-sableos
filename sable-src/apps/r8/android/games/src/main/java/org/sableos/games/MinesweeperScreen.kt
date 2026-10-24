@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -160,7 +162,11 @@ internal fun MinesweeperScreen() {
         }
 
         Surface(
-            modifier = Modifier.fillMaxWidth(),
+            modifier =
+                Modifier
+                .fillMaxWidth()
+                .wrapContentWidth(Alignment.CenterHorizontally)
+                .widthIn(max = boardMaxSide()),
             shape = MaterialTheme.shapes.medium,
             color = MaterialTheme.colorScheme.surface,
             border =

@@ -1,0 +1,1232 @@
+diff --git a/sable-src/apps/r8/android/weather/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/weather/src/main/AndroidManifest.xml
+index 2c4b4e5..c5dfd37 100644
+--- a/sable-src/apps/r8/android/weather/src/main/AndroidManifest.xml
++++ b/sable-src/apps/r8/android/weather/src/main/AndroidManifest.xml
+@@ -27,6 +27,9 @@
+             </intent-filter>
+         </activity>
+ 
++        <!-- query(): Start/Live snapshot, org.sableos.launcher only. call(): Sable Setup's city
++             hand-off (search the catalog, set the active city), org.sableos.titan2.setup only.
++             Both entry points check the calling uid in code. -->
+         <provider
+             android:name=".WeatherSnapshotProvider"
+             android:authorities="org.sableos.weather.snapshot"
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherSetupAccess.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherSetupAccess.kt
+new file mode 100644
+index 0000000..0fd5278
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherSetupAccess.kt
+@@ -0,0 +1,118 @@
++package org.sableos.weather
++
++import android.content.Context
++import android.os.Bundle
++import org.sableos.weather.cities.CityCatalog
++import org.sableos.weather.cities.Reason
++
++/**
++ * The `ContentProvider.call` contract Sable Setup uses to pick the Weather city (no location permission).
++ * Setup cannot read or write Weather's private preferences, so it asks this provider instead: it searches the
++ * bundled catalog here (single source of truth) and names one catalog city to make active. Only catalog
++ * cities are accepted, so a caller cannot inject arbitrary names or coordinates.
++ *
++ * Mirrored by `org.sableos.titan2.setup.core.WeatherCityContract`; both sides pin the same literals in tests.
++ */
++internal object WeatherSetupContract {
++    /** arg = typed filter text. Result: [KEY_NAMES] (catalog matches) and [KEY_SELECTED] (active city). */
++    const val METHOD_SEARCH = "setup_search_cities"
++
++    /** arg = a catalog city name. Result: [KEY_STATUS] (one of the STATUS_ values) and [KEY_SELECTED]. */
++    const val METHOD_SELECT = "setup_select_city"
++
++    const val KEY_NAMES = "names"
++    const val KEY_SELECTED = "selected"
++    const val KEY_STATUS = "status"
++
++    const val STATUS_SELECTED = "selected"
++    const val STATUS_UNCHANGED = "unchanged"
++    const val STATUS_UNKNOWN = "unknown_city"
++    const val STATUS_FULL = "list_full"
++    const val STATUS_FAILED = "failed"
++
++    /** Longest filter text read from a caller; longer input is cut, never rejected. */
++    const val MAX_QUERY = 60
++
++    const val SETUP_PACKAGE = "org.sableos.titan2.setup"
++    const val LAUNCHER_PACKAGE = "org.sableos.launcher"
++
++    /** Who may read the Start/Live snapshot. */
++    val SNAPSHOT_CALLERS: Set<String> = setOf(LAUNCHER_PACKAGE)
++
++    /** Who may search the catalog and set the active city. */
++    val SETUP_CALLERS: Set<String> = setOf(SETUP_PACKAGE)
++}
++
++/** Pure caller check shared by the provider entry points (Weather itself is always allowed). */
++internal object WeatherCallers {
++    /**
++     * True when [callingUid] is Weather's own uid, or when any package installed under that uid is in
++     * [allowed]. [packagesForUid] is only consulted for a foreign uid.
++     */
++    fun allowed(
++        callingUid: Int,
++        ownUid: Int,
++        allowed: Set<String>,
++        packagesForUid: () -> List<String>,
++    ): Boolean = callingUid == ownUid || packagesForUid().any { it in allowed }
++}
++
++/** The provider's `call` methods for Sable Setup, run after the caller check. */
++internal object SetupCityHandOff {
++    /** Null for an unknown [method]. */
++    fun handle(
++        context: Context,
++        method: String,
++        arg: String?,
++    ): Bundle? {
++        val text = arg.orEmpty().take(WeatherSetupContract.MAX_QUERY)
++        return when (method) {
++            WeatherSetupContract.METHOD_SEARCH -> search(context, text)
++            WeatherSetupContract.METHOD_SELECT -> select(context, text)
++            else -> null
++        }
++    }
++
++    /** Catalog matches only (never a manual entry), plus the active city for the step's "Current" line. */
++    private fun search(
++        context: Context,
++        query: String,
++    ): Bundle =
++        Bundle().apply {
++            val names = CityCatalog.searchListed(query).map { it.name }
++            putStringArrayList(WeatherSetupContract.KEY_NAMES, ArrayList(names))
++            putString(
++                WeatherSetupContract.KEY_SELECTED,
++                WeatherRepository(context).cities.load().selected.name,
++            )
++        }
++
++    /**
++     * Selects through [WeatherRepository.cities] and [WeatherRepository.afterCityEdit], so the Start/Live
++     * snapshot is notified, then asks [WeatherRefreshJob] for a background fetch of the new city.
++     */
++    private fun select(
++        context: Context,
++        name: String,
++    ): Bundle {
++        val repository = WeatherRepository(context)
++        val city = CityCatalog.named(name)
++        val edit = city?.let { repository.cities.use(it) }
++        if (edit != null) {
++            repository.afterCityEdit(edit)
++            if (edit.changed) WeatherRefreshJob.ensureScheduled(context, needsFetch = true)
++        }
++        val status =
++            when {
++                edit == null -> WeatherSetupContract.STATUS_UNKNOWN
++                edit.reason == Reason.TooManyCities -> WeatherSetupContract.STATUS_FULL
++                edit.reason != null -> WeatherSetupContract.STATUS_FAILED
++                edit.refresh -> WeatherSetupContract.STATUS_SELECTED
++                else -> WeatherSetupContract.STATUS_UNCHANGED
++            }
++        return Bundle().apply {
++            putString(WeatherSetupContract.KEY_STATUS, status)
++            putString(WeatherSetupContract.KEY_SELECTED, repository.cities.load().selected.name)
++        }
++    }
++}
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherSnapshotProvider.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherSnapshotProvider.kt
+index b79bf3d..b402ff0 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherSnapshotProvider.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherSnapshotProvider.kt
+@@ -6,6 +6,7 @@ import android.database.Cursor
+ import android.database.MatrixCursor
+ import android.net.Uri
+ import android.os.Binder
++import android.os.Bundle
+ 
+ class WeatherSnapshotProvider : ContentProvider() {
+     override fun onCreate(): Boolean = true
+@@ -17,7 +18,7 @@ class WeatherSnapshotProvider : ContentProvider() {
+         selectionArgs: Array<out String>?,
+         sortOrder: String?,
+     ): Cursor? {
+-        if (!isAllowedCaller()) {
++        if (!isAllowedCaller(WeatherSetupContract.SNAPSHOT_CALLERS)) {
+             return null
+         }
+ 
+@@ -101,20 +102,31 @@ class WeatherSnapshotProvider : ContentProvider() {
+         selectionArgs: Array<out String>?,
+     ): Int = 0
+ 
+-    private fun isAllowedCaller(): Boolean {
++    /**
++     * Sable Setup's city hand-off ([WeatherSetupContract]). Only Setup (and Weather itself) may call it; any
++     * other caller, or an unknown method, gets null.
++     */
++    override fun call(
++        method: String,
++        arg: String?,
++        extras: Bundle?,
++    ): Bundle? {
++        val appContext =
++            context?.applicationContext?.takeIf {
++                isAllowedCaller(WeatherSetupContract.SETUP_CALLERS)
++            }
++        return appContext?.let { SetupCityHandOff.handle(it, method, arg) }
++    }
++
++    private fun isAllowedCaller(allowed: Set<String>): Boolean {
+         val appContext = context?.applicationContext ?: return false
+         val callingUid = Binder.getCallingUid()
+-
+-        if (callingUid == appContext.applicationInfo.uid) {
+-            return true
++        return WeatherCallers.allowed(callingUid, appContext.applicationInfo.uid, allowed) {
++            appContext.packageManager
++                .getPackagesForUid(callingUid)
++                .orEmpty()
++                .toList()
+         }
+-
+-        return appContext.packageManager
+-            .getPackagesForUid(callingUid)
+-            .orEmpty()
+-            .any { packageName ->
+-                packageName == "org.sableos.launcher"
+-            }
+     }
+ 
+     private fun conditionLabel(condition: WeatherCondition): String =
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/Cities.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/Cities.kt
+index 2df6642..2f86be0 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/Cities.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/Cities.kt
+@@ -110,6 +110,15 @@ data class CityState(val cities: List<City>, val selectedName: String) {
+         return done(copy(selectedName = found.name))
+     }
+ 
++    /**
++     * Makes [city] the active city: a listed city at the same place (or with the same name) is selected,
++     * anything else is added and selected. Used when another app, such as Sable Setup, picks the city.
++     */
++    fun use(city: City): CityEdit {
++        val listed = cities.firstOrNull { CityRules.samePlace(it, city) }
++        return if (listed != null) select(listed.name) else add(city, select = true)
++    }
++
+     /** Back to the built-in cities; the selection is kept only if it is one of them. */
+     fun reset(): CityEdit {
+         val keep = DefaultCities.ALL.firstOrNull { CityRules.sameName(it.name, selected.name) }
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityCatalog.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityCatalog.kt
+index f5d843e..c7f5c3c 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityCatalog.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityCatalog.kt
+@@ -97,6 +97,12 @@ object CityCatalog {
+             .take(MAX_RESULTS)
+     }
+ 
++    /** Catalog cities only (no manual entry), in the same order as [search]. Used by Sable Setup. */
++    fun searchListed(query: String): List<City> = search(query).filter { it in ALL }
++
++    /** The catalog city with this name (case and spacing ignored), or null. */
++    fun named(name: String): City? = ALL.firstOrNull { CityRules.sameName(it.name, name) }
++
+     /** "Name, latitude, longitude, Area/Zone" -> a valid [City], or null. */
+     fun parseManual(text: String): City? {
+         val parts = text.split(',').map { it.trim() }
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityStore.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityStore.kt
+index dfd20c8..90f2659 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityStore.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityStore.kt
+@@ -92,6 +92,8 @@ class CityRepository(private val store: KeyValueStore) {
+ 
+     fun reset(): CityEdit = edit { it.reset() }
+ 
++    fun use(city: City): CityEdit = edit { it.use(city) }
++
+     private fun edit(op: (CityState) -> CityEdit): CityEdit {
+         val result = op(load())
+         if (result.changed) store.put(KEY, CityCodec.encode(result.state))
+diff --git a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/WeatherSetupAccessTest.kt b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/WeatherSetupAccessTest.kt
+new file mode 100644
+index 0000000..0e4b725
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/WeatherSetupAccessTest.kt
+@@ -0,0 +1,67 @@
++package org.sableos.weather
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class WeatherSetupAccessTest {
++    private val own = 10_050
++    private val other = 10_099
++
++    private fun allowed(uid: Int, allowed: Set<String>, vararg packages: String) =
++        WeatherCallers.allowed(uid, own, allowed) { packages.toList() }
++
++    @Test fun weatherItselfIsAlwaysAllowedWithoutAPackageLookup() {
++        assertTrue(WeatherCallers.allowed(own, own, emptySet()) { error("not consulted") })
++    }
++
++    @Test fun setupMayUseTheCityHandOff() {
++        assertTrue(allowed(other, WeatherSetupContract.SETUP_CALLERS, "org.sableos.titan2.setup"))
++    }
++
++    @Test fun otherAppsMayNot() {
++        val setup = WeatherSetupContract.SETUP_CALLERS
++        assertFalse(allowed(other, setup))
++        assertFalse(allowed(other, setup, "com.example.weather"))
++        assertFalse(allowed(other, setup, "org.sableos.titan2.setupx"))
++        assertFalse(allowed(other, setup, "org.sableos.titan2"))
++        assertFalse(allowed(other, setup, "org.sableos.launcher"))
++    }
++
++    @Test fun setupCannotReadTheLauncherSnapshotAndTheLauncherCannotSetTheCity() {
++        assertFalse(allowed(other, WeatherSetupContract.SNAPSHOT_CALLERS, "org.sableos.titan2.setup"))
++        assertTrue(allowed(other, WeatherSetupContract.SNAPSHOT_CALLERS, "org.sableos.launcher"))
++    }
++
++    @Test fun aSharedUidIsAllowedWhenAnyOfItsPackagesIs() {
++        assertTrue(
++            allowed(other, WeatherSetupContract.SETUP_CALLERS, "com.example", "org.sableos.titan2.setup"),
++        )
++    }
++
++    /** Sable Setup's WeatherCityContract mirrors these literals; changing one side breaks the hand-off. */
++    @Test fun theContractLiteralsArePinned() {
++        assertEquals("setup_search_cities", WeatherSetupContract.METHOD_SEARCH)
++        assertEquals("setup_select_city", WeatherSetupContract.METHOD_SELECT)
++        assertEquals(
++            listOf("names", "selected", "status"),
++            listOf(
++                WeatherSetupContract.KEY_NAMES,
++                WeatherSetupContract.KEY_SELECTED,
++                WeatherSetupContract.KEY_STATUS,
++            ),
++        )
++        assertEquals(
++            listOf("selected", "unchanged", "unknown_city", "list_full", "failed"),
++            listOf(
++                WeatherSetupContract.STATUS_SELECTED,
++                WeatherSetupContract.STATUS_UNCHANGED,
++                WeatherSetupContract.STATUS_UNKNOWN,
++                WeatherSetupContract.STATUS_FULL,
++                WeatherSetupContract.STATUS_FAILED,
++            ),
++        )
++        assertEquals("org.sableos.weather.snapshot", WeatherSnapshotContract.AUTHORITY)
++    }
++}
+diff --git a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/SetupCityChoiceTest.kt b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/SetupCityChoiceTest.kt
+new file mode 100644
+index 0000000..983317f
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/SetupCityChoiceTest.kt
+@@ -0,0 +1,65 @@
++package org.sableos.weather.cities
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++/** The pieces Sable Setup's city hand-off relies on: catalog-only search, lookup by name, and [CityState.use]. */
++class SetupCityChoiceTest {
++    @Test fun listedSearchNeverOffersAManualEntry() {
++        assertTrue(CityCatalog.search("Home, 10, 20, Europe/Paris").isNotEmpty())
++        assertTrue(CityCatalog.searchListed("Home, 10, 20, Europe/Paris").isEmpty())
++    }
++
++    @Test fun listedSearchKeepsPrefixMatchesFirstAndIsBounded() {
++        assertEquals("San Francisco", CityCatalog.searchListed("san").first().name)
++        assertTrue(CityCatalog.searchListed("a").size <= CityCatalog.MAX_RESULTS)
++        assertTrue(CityCatalog.searchListed("   ").isEmpty())
++    }
++
++    @Test fun listedSearchStillOffersCitiesAlreadyInTheList() {
++        assertEquals("Jersey City", CityCatalog.searchListed("jersey").single().name)
++    }
++
++    @Test fun namedFindsOnlyCatalogCities() {
++        assertEquals("Tokyo", CityCatalog.named("  tokyo ")?.name)
++        assertNull(CityCatalog.named("Atlantis"))
++        assertNull(CityCatalog.named(""))
++    }
++
++    @Test fun usingAListedCitySelectsItWithoutAddingAnother() {
++        val edit = CityState.defaults().use(CityCatalog.named("Mumbai")!!)
++        assertTrue(edit.changed)
++        assertTrue(edit.refresh)
++        assertEquals("Mumbai", edit.state.selected.name)
++        assertEquals(DefaultCities.ALL, edit.state.cities)
++    }
++
++    @Test fun usingANewCityAddsAndSelectsIt() {
++        val edit = CityState.defaults().use(CityCatalog.named("London")!!)
++        assertTrue(edit.refresh)
++        assertEquals("London", edit.state.selected.name)
++        assertEquals(DefaultCities.ALL.size + 1, edit.state.cities.size)
++    }
++
++    @Test fun usingTheActiveCityChangesNothingThatNeedsARefresh() {
++        val edit = CityState.defaults().use(CityCatalog.named("Jersey City")!!)
++        assertTrue(edit.changed)
++        assertFalse(edit.refresh)
++    }
++
++    @Test fun aFullListIsReportedAndKeepsTheSelection() {
++        val full = CityState.of(CityCatalog.ALL.drop(30).take(CityRules.MAX_CITIES), null)
++        val edit = full.use(CityCatalog.named("Amsterdam")!!)
++        assertEquals(Reason.TooManyCities, edit.reason)
++        assertEquals(full, edit.state)
++    }
++
++    @Test fun theRepositoryPersistsTheChoice() {
++        val store = MemoryStore()
++        CityRepository(store).use(CityCatalog.named("Paris")!!)
++        assertEquals("Paris", CityRepository(store).load().selected.name)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml
+index 9cbbe96..b3ac397 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+ 
+-    <!-- No permissions. Reads the default dialer/SMS/home/keyboard through public APIs and opens system settings screens.
++    <!-- No permissions (and no location permission: the Weather city is typed, not detected). Reads the default dialer/SMS/home/keyboard through public APIs and opens system settings screens.
+          The settings actions below are declared only so the helper can check that each screen resolves before offering it. -->
+     <queries>
+         <intent><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.HOME" /></intent>
+@@ -10,6 +10,8 @@
+         <intent><action android:name="android.settings.WIRELESS_SETTINGS" /></intent>
+         <package android:name="org.sableos.titan2.displaycompat" />
+         <package android:name="org.sableos.titan2.radiodiag" />
++        <!-- Sable Weather's city hand-off (ContentResolver.call); Weather allows only this package. -->
++        <provider android:authorities="org.sableos.weather.snapshot" />
+     </queries>
+ 
+     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/Launcher.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/Launcher.kt
+index 640cb0d..812dffb 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/Launcher.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/Launcher.kt
+@@ -15,7 +15,7 @@ import org.sableos.titan2.setup.core.TargetStatus
+  */
+ class Launcher(private val activity: Activity) {
+     private fun intent(action: Action): Intent? = when (action) {
+-        Action.None, Action.KeyboardPicker -> null
++        Action.None, Action.KeyboardPicker, Action.WeatherCity -> null
+ 
+         Action.HomeSettings -> Intent(Settings.ACTION_HOME_SETTINGS)
+ 
+@@ -30,27 +30,22 @@ class Launcher(private val activity: Activity) {
+         Action.RadioDiag -> activity.packageManager.getLaunchIntentForPackage(RADIO_PACKAGE)
+     }
+ 
+-    /** Checked before a button is offered. The keyboard picker has no intent; it needs its system service. */
++    /**
++     * Checked before a button is offered. The keyboard picker has no intent; it needs its system service.
++     * The Weather city step is Setup's own screen; it needs Sable Weather's provider.
++     */
+     fun resolve(action: Action): TargetStatus = try {
+-        if (action == Action.KeyboardPicker) {
+-            if (activity.getSystemService(InputMethodManager::class.java) != null) {
+-                TargetStatus.Resolvable
+-            } else {
+-                TargetStatus.Missing
+-            }
+-        } else {
+-            val target = intent(action)
+-            when {
+-                target == null -> TargetStatus.Missing
++        val found = when (action) {
++            Action.WeatherCity -> WeatherCityClient(activity).available()
+ 
+-                activity.packageManager.resolveActivity(
+-                    target,
+-                    0
+-                ) != null -> TargetStatus.Resolvable
++            Action.KeyboardPicker ->
++                activity.getSystemService(InputMethodManager::class.java) != null
+ 
+-                else -> TargetStatus.Missing
+-            }
++            else -> intent(action)?.let {
++                activity.packageManager.resolveActivity(it, 0) != null
++            } ?: false
+         }
++        if (found) TargetStatus.Resolvable else TargetStatus.Missing
+     } catch (_: SecurityException) {
+         TargetStatus.Unverifiable
+     } catch (_: RuntimeException) {
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupActivity.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupActivity.kt
+index 742f33d..5ebc1d8 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupActivity.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupActivity.kt
+@@ -1,31 +1,55 @@
+ package org.sableos.titan2.setup.android
+ 
+ import android.app.Activity
++import android.content.Context
+ import android.graphics.Color
+ import android.graphics.Typeface
+ import android.os.Bundle
++import android.view.KeyEvent
+ import android.widget.Button
+ import android.widget.LinearLayout
+ import android.widget.ScrollView
+ import android.widget.TextView
++import android.window.OnBackInvokedCallback
++import android.window.OnBackInvokedDispatcher
++import androidx.core.content.edit
++import org.sableos.titan2.setup.android.SetupStyle.BG
++import org.sableos.titan2.setup.android.SetupStyle.DETAIL_SP
++import org.sableos.titan2.setup.android.SetupStyle.DIM
++import org.sableos.titan2.setup.android.SetupStyle.KEY
++import org.sableos.titan2.setup.android.SetupStyle.PAD_H
++import org.sableos.titan2.setup.android.SetupStyle.PAD_V
++import org.sableos.titan2.setup.android.SetupStyle.ROW_TITLE_SP
++import org.sableos.titan2.setup.android.SetupStyle.SPACING
++import org.sableos.titan2.setup.android.SetupStyle.SUMMARY_SP
++import org.sableos.titan2.setup.android.SetupStyle.TITLE_SP
++import org.sableos.titan2.setup.android.SetupStyle.WARN
++import org.sableos.titan2.setup.core.Action
+ import org.sableos.titan2.setup.core.Item
+ import org.sableos.titan2.setup.core.LaunchReport
+ import org.sableos.titan2.setup.core.Readiness
+ import org.sableos.titan2.setup.core.SetupModel
+ import org.sableos.titan2.setup.core.SetupRows
++import org.sableos.titan2.setup.core.TargetStatus
+ 
+ /**
+  * Post-provisioning readiness checklist. This is not the Android Setup Wizard (that is a privileged system
+  * package and is left alone); it is a normal app that shows what it can observe and opens the matching screen.
+  * Nothing here changes a setting by itself: every action opens a screen the user confirms, and a screen that
+- * cannot be opened is shown as unavailable instead of silently doing nothing.
++ * cannot be opened is shown as unavailable instead of silently doing nothing. The one choice made in Setup
++ * itself is the Weather city, which Sable Weather stores; that step is offered once, and Skip keeps the
++ * city Weather already has.
+  */
+ class SetupActivity : Activity() {
++    private lateinit var scroll: ScrollView
+     private lateinit var body: LinearLayout
+     private lateinit var launcher: Launcher
+     private val dp by lazy { resources.displayMetrics.density }
+     private fun px(v: Int) = (v * dp).toInt()
+ 
++    private var inWeatherStep = false
++    private val backFromStep = OnBackInvokedCallback { closeWeatherStep(null) }
++
+     override fun onCreate(savedInstanceState: Bundle?) {
+         super.onCreate(savedInstanceState)
+         launcher = Launcher(this)
+@@ -34,20 +58,59 @@ class SetupActivity : Activity() {
+                 orientation = LinearLayout.VERTICAL
+                 setPadding(px(PAD_H), px(PAD_V), px(PAD_H), px(PAD_V))
+             }
+-        setContentView(
++        scroll =
+             ScrollView(this).apply {
+                 setBackgroundColor(BG)
+                 addView(body)
+             }
+-        )
++        setContentView(scroll)
+     }
+ 
+     override fun onResume() {
+         super.onResume()
+-        render(null)
++        val offerWeather = !weatherStepAsked() &&
++            launcher.resolve(Action.WeatherCity) == TargetStatus.Resolvable
++        when {
++            inWeatherStep -> Unit
++            offerWeather -> showWeatherStep()
++            else -> render(null)
++        }
++    }
++
++    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
++        if (inWeatherStep && event.keyCode == KeyEvent.KEYCODE_ESCAPE) {
++            if (event.action == KeyEvent.ACTION_UP) closeWeatherStep(null)
++            return true
++        }
++        return super.dispatchKeyEvent(event)
++    }
++
++    private fun showWeatherStep() {
++        inWeatherStep = true
++        body.removeAllViews()
++        body.addView(WeatherCityView(this, WeatherCityClient(this), ::closeWeatherStep).build())
++        scroll.scrollTo(0, 0)
++        onBackInvokedDispatcher.registerOnBackInvokedCallback(
++            OnBackInvokedDispatcher.PRIORITY_DEFAULT,
++            backFromStep
++        )
++    }
++
++    /** Back, Escape, Skip and a successful choice all end the step; it is not offered again by itself. */
++    private fun closeWeatherStep(note: String?) {
++        if (!inWeatherStep) return
++        inWeatherStep = false
++        onBackInvokedDispatcher.unregisterOnBackInvokedCallback(backFromStep)
++        prefs().edit { putBoolean(KEY_WEATHER_ASKED, true) }
++        render(null, note)
++        scroll.scrollTo(0, 0)
+     }
+ 
+-    private fun render(failure: String?) {
++    private fun prefs() = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
++
++    private fun weatherStepAsked() = prefs().getBoolean(KEY_WEATHER_ASKED, false)
++
++    private fun render(failure: String?, note: String? = null) {
+         body.removeAllViews()
+         val items = SetupRows.build(SetupReader(this).snapshot(), launcher::resolve)
+         body.addView(text(SetupModel.TITLE, TITLE_SP, Color.WHITE, true))
+@@ -61,6 +124,7 @@ class SetupActivity : Activity() {
+                 .apply { setPadding(0, px(SPACING), 0, px(SPACING)) }
+         )
+         if (failure != null) body.addView(text(failure, DETAIL_SP, WARN, true))
++        if (note != null) body.addView(text(note, DETAIL_SP, Color.WHITE, true))
+         items.forEach { addRow(it) }
+         body.addView(
+             text(SetupModel.FOOTNOTE, DETAIL_SP, DIM, false).apply {
+@@ -83,7 +147,11 @@ class SetupActivity : Activity() {
+                 setTextColor(Color.WHITE)
+                 setBackgroundColor(KEY)
+                 setOnClickListener {
+-                    render(LaunchReport.message(item.action.label, launcher.run(item.action)))
++                    if (item.action == Action.WeatherCity) {
++                        showWeatherStep()
++                    } else {
++                        render(LaunchReport.message(item.action.label, launcher.run(item.action)))
++                    }
+                 }
+             }
+         )
+@@ -105,16 +173,7 @@ class SetupActivity : Activity() {
+     }
+ 
+     private companion object {
+-        const val PAD_H = 16
+-        const val PAD_V = 18
+-        const val SPACING = 10
+-        const val TITLE_SP = 26f
+-        const val SUMMARY_SP = 15f
+-        const val ROW_TITLE_SP = 17f
+-        const val DETAIL_SP = 13f
+-        val BG = Color.parseColor("#0C1E2D")
+-        val KEY = Color.parseColor("#1E3A52")
+-        val DIM = Color.parseColor("#8FA9BF")
+-        val WARN = Color.parseColor("#FFB347")
++        const val PREFS = "sable_setup"
++        const val KEY_WEATHER_ASKED = "weather_city_step_done"
+     }
+ }
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupReader.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupReader.kt
+index 3f4a4b1..1b3c169 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupReader.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupReader.kt
+@@ -10,7 +10,8 @@ import org.sableos.titan2.setup.core.Snapshot
+ 
+ /** Reads the current defaults through public APIs only. A failed read is [Observed.Failed], never "none". */
+ class SetupReader(private val context: Context) {
+-    fun snapshot(): Snapshot = Snapshot(home(), keyboard(), dialer(), sms())
++    fun snapshot(): Snapshot =
++        Snapshot(home(), keyboard(), dialer(), sms(), WeatherCityClient(context).current())
+ 
+     private fun home(): Observed = observe {
+         context.packageManager.resolveActivity(
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupStyle.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupStyle.kt
+new file mode 100644
+index 0000000..68b2f3a
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupStyle.kt
+@@ -0,0 +1,19 @@
++package org.sableos.titan2.setup.android
++
++import androidx.core.graphics.toColorInt
++
++/** Sizes (dp, sp) and colours shared by the checklist and the Weather city step. */
++internal object SetupStyle {
++    const val PAD_H = 16
++    const val PAD_V = 18
++    const val SPACING = 10
++    const val TITLE_SP = 26f
++    const val SUMMARY_SP = 15f
++    const val ROW_TITLE_SP = 17f
++    const val DETAIL_SP = 13f
++    val BG = "#0C1E2D".toColorInt()
++    val KEY = "#1E3A52".toColorInt()
++    val FOCUS = "#2F6690".toColorInt()
++    val DIM = "#8FA9BF".toColorInt()
++    val WARN = "#FFB347".toColorInt()
++}
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/WeatherCityClient.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/WeatherCityClient.kt
+new file mode 100644
+index 0000000..e795ce2
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/WeatherCityClient.kt
+@@ -0,0 +1,51 @@
++package org.sableos.titan2.setup.android
++
++import android.content.Context
++import android.os.Bundle
++import org.sableos.titan2.setup.core.CityMatches
++import org.sableos.titan2.setup.core.Observed
++import org.sableos.titan2.setup.core.WeatherCityContract
++import org.sableos.titan2.setup.core.WeatherCityStep
++
++/**
++ * Talks to Sable Weather's setup hand-off. Weather checks that the caller is this package; Setup
++ * never touches Weather's storage. Every failure (Weather missing, refused, crashed) is null.
++ */
++class WeatherCityClient(private val context: Context) {
++    /** True when Weather's provider is installed and visible to Setup. */
++    fun available(): Boolean = try {
++        context.packageManager.resolveContentProvider(WeatherCityContract.AUTHORITY, 0) != null
++    } catch (_: RuntimeException) {
++        false
++    }
++
++    fun search(query: String): CityMatches? {
++        val result = call(WeatherCityContract.METHOD_SEARCH, WeatherCityStep.cleanQuery(query))
++            ?: return null
++        return CityMatches(
++            WeatherCityStep.cleanNames(result.getStringArrayList(WeatherCityContract.KEY_NAMES)),
++            selected(result)
++        )
++    }
++
++    fun current(): Observed {
++        val result = call(WeatherCityContract.METHOD_SEARCH, "") ?: return Observed.Failed
++        return selected(result)?.let { Observed.Value(it) } ?: Observed.Absent
++    }
++
++    /** Weather's status word for the choice, or null when it gave no answer. */
++    fun select(name: String): String? =
++        call(WeatherCityContract.METHOD_SELECT, name)?.getString(WeatherCityContract.KEY_STATUS)
++
++    private fun selected(result: Bundle): String? =
++        WeatherCityStep.cleanNames(listOf(result.getString(WeatherCityContract.KEY_SELECTED)))
++            .firstOrNull()
++
++    private fun call(method: String, arg: String): Bundle? = try {
++        context.contentResolver.call(WeatherCityContract.AUTHORITY, method, arg, null)
++    } catch (_: SecurityException) {
++        null
++    } catch (_: RuntimeException) {
++        null
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/WeatherCityView.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/WeatherCityView.kt
+new file mode 100644
+index 0000000..d7ecb6c
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/WeatherCityView.kt
+@@ -0,0 +1,189 @@
++package org.sableos.titan2.setup.android
++
++import android.app.Activity
++import android.graphics.Color
++import android.graphics.Typeface
++import android.text.Editable
++import android.text.InputType
++import android.text.TextWatcher
++import android.view.Gravity
++import android.view.KeyEvent
++import android.view.View
++import android.view.inputmethod.EditorInfo
++import android.widget.Button
++import android.widget.EditText
++import android.widget.LinearLayout
++import android.widget.TextView
++import org.sableos.titan2.setup.core.WeatherCityStep
++
++/**
++ * The Weather city step: a filter field over Sable Weather's bundled catalog, up to
++ * [WeatherCityStep.MAX_SHOWN] matches and Skip. Keyboard first: typing filters, Down moves into the
++ * matches, Up/Down move between them, Enter chooses (Enter in the field takes the first match), and
++ * typing on a match goes back to the field. [finish] gets the line to show on the checklist, or null
++ * for Skip, which leaves Weather's city as it is.
++ */
++class WeatherCityView(
++    private val activity: Activity,
++    private val client: WeatherCityClient,
++    private val finish: (String?) -> Unit
++) {
++    private val dp = activity.resources.displayMetrics.density
++    private fun px(v: Int) = (v * dp).toInt()
++
++    private val current = label(SetupStyle.DETAIL_SP, Color.WHITE, false)
++    private val status = label(SetupStyle.DETAIL_SP, SetupStyle.WARN, true)
++    private val field = EditText(activity)
++    private val results = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
++    private val skip = row("") { finish(null) }
++    private var names: List<String> = emptyList()
++
++    fun build(): View {
++        val root = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
++        root.addView(label(SetupStyle.ROW_TITLE_SP, Color.WHITE, true, WeatherCityStep.TITLE))
++        root.addView(current)
++        root.addView(label(SetupStyle.DETAIL_SP, SetupStyle.DIM, false, WeatherCityStep.HELP))
++        setUpField()
++        root.addView(field)
++        root.addView(status)
++        root.addView(results)
++        root.addView(skip)
++        refresh("")
++        field.requestFocus()
++        return root
++    }
++
++    private fun setUpField() = field.apply {
++        hint = WeatherCityStep.HINT
++        setSingleLine()
++        textSize = SetupStyle.ROW_TITLE_SP
++        setTextColor(Color.WHITE)
++        setHintTextColor(SetupStyle.DIM)
++        inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
++        imeOptions = EditorInfo.IME_ACTION_DONE
++        addTextChangedListener(
++            object : TextWatcher {
++                override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
++
++                override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
++
++                override fun afterTextChanged(s: Editable?) = refresh(s?.toString().orEmpty())
++            }
++        )
++        setOnEditorActionListener { _, _, _ ->
++            chooseFirst()
++            true
++        }
++        setOnKeyListener { _, code, event -> fieldKey(code, event) }
++    }
++
++    /** Enter chooses the first match; Down leaves the field for the matches (or Skip). */
++    private fun fieldKey(code: Int, event: KeyEvent): Boolean = when (code) {
++        KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER, KeyEvent.KEYCODE_DPAD_CENTER -> {
++            if (event.action == KeyEvent.ACTION_UP) chooseFirst()
++            true
++        }
++
++        KeyEvent.KEYCODE_DPAD_DOWN -> {
++            if (event.action == KeyEvent.ACTION_DOWN) {
++                (results.getChildAt(0) ?: skip).requestFocus()
++            }
++            true
++        }
++
++        else -> false
++    }
++
++    /** On a match, a printable key or Backspace goes back to the field so typing never gets lost. */
++    private fun matchKey(code: Int, event: KeyEvent): Boolean {
++        if (event.action != KeyEvent.ACTION_DOWN) return false
++        val typed = event.unicodeChar.takeIf { event.isPrintingKey && it != 0 }
++        return when {
++            typed != null -> {
++                field.requestFocus()
++                field.text.append(typed.toChar())
++                field.setSelection(field.length())
++                true
++            }
++
++            code == KeyEvent.KEYCODE_DEL -> {
++                field.requestFocus()
++                field.text.let { if (it.isNotEmpty()) it.delete(it.length - 1, it.length) }
++                true
++            }
++
++            else -> false
++        }
++    }
++
++    private fun refresh(query: String) {
++        val found = client.search(query)
++        names = found?.names.orEmpty()
++        current.text = WeatherCityStep.currentLine(found?.selected)
++        skip.text = WeatherCityStep.skipLabel(found?.selected)
++        val problem = when {
++            found == null -> WeatherCityStep.UNREACHABLE
++
++            names.isEmpty() && WeatherCityStep.cleanQuery(query).isNotEmpty() ->
++                WeatherCityStep.NO_MATCH
++
++            else -> null
++        }
++        show(problem)
++        results.removeAllViews()
++        names.forEach { name ->
++            results.addView(
++                row(name) { choose(name) }.apply { setOnKeyListener { _, c, e -> matchKey(c, e) } }
++            )
++        }
++    }
++
++    private fun chooseFirst() {
++        names.firstOrNull()?.let { choose(it) }
++    }
++
++    private fun choose(name: String) {
++        val answer = client.select(name)
++        val message = WeatherCityStep.resultMessage(answer, name)
++        if (WeatherCityStep.succeeded(answer)) finish(message) else show(message)
++    }
++
++    private fun show(message: String?) {
++        status.text = message.orEmpty()
++        status.visibility = if (message == null) View.GONE else View.VISIBLE
++    }
++
++    private fun row(text: String, onClick: () -> Unit) = Button(activity).apply {
++        this.text = text
++        isAllCaps = false
++        gravity = Gravity.START or Gravity.CENTER_VERTICAL
++        minHeight = 0
++        minimumHeight = 0
++        setPadding(px(ROW_PAD), px(ROW_PAD), px(ROW_PAD), px(ROW_PAD))
++        textSize = SetupStyle.SUMMARY_SP
++        setTextColor(Color.WHITE)
++        setBackgroundColor(SetupStyle.KEY)
++        // A visible focus mark: the arrow keys are the main way through this list.
++        setOnFocusChangeListener { v, focused ->
++            v.setBackgroundColor(if (focused) SetupStyle.FOCUS else SetupStyle.KEY)
++        }
++        setOnClickListener { onClick() }
++        layoutParams = LinearLayout.LayoutParams(
++            LinearLayout.LayoutParams.MATCH_PARENT,
++            LinearLayout.LayoutParams.WRAP_CONTENT
++        ).apply { topMargin = px(ROW_GAP) }
++    }
++
++    private fun label(sp: Float, color: Int, bold: Boolean, s: String = "") =
++        TextView(activity).apply {
++            text = s
++            textSize = sp
++            setTextColor(color)
++            if (bold) typeface = Typeface.DEFAULT_BOLD
++        }
++
++    private companion object {
++        const val ROW_PAD = 6
++        const val ROW_GAP = 2
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/Readiness.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/Readiness.kt
+index 69c5d75..2d8bb32 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/Readiness.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/Readiness.kt
+@@ -32,7 +32,10 @@ sealed interface Observed {
+     object Failed : Observed
+ }
+ 
+-/** Where a row's button goes. Every destination is an Android screen the user confirms in; nothing is mutated. */
++/**
++ * Where a row's button goes. Every destination is an Android screen the user confirms in; nothing
++ * is mutated, except the Weather city the user explicitly picks, which Sable Weather stores.
++ */
+ enum class Action(val label: String) {
+     None(""),
+     HomeSettings("Home settings"),
+@@ -40,7 +43,10 @@ enum class Action(val label: String) {
+     KeyboardPicker("Keyboard picker"),
+     DisplayCompat("Display compatibility"),
+     RadioDiag("Radio diagnostics"),
+-    NetworkSettings("Network settings")
++    NetworkSettings("Network settings"),
++
++    /** Opens Setup's own Weather city step; the only action whose choice is written (by Sable Weather). */
++    WeatherCity("Weather city")
+ }
+ 
+ /** Whether the destination of an [Action] could be resolved before it was offered. */
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupModel.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupModel.kt
+index ef14f23..0f0ba44 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupModel.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupModel.kt
+@@ -3,7 +3,8 @@ package org.sableos.titan2.setup.core
+ object SetupModel {
+     const val TITLE = "Sable setup"
+     const val SELF_DESCRIPTION =
+-        "Post-provisioning readiness helper. Not the Android Setup Wizard; it changes no settings."
++        "Post-provisioning readiness helper. Not the Android Setup Wizard; " +
++            "it changes no system settings."
+     const val FOOTNOTE =
+         "Observation only. HOME (IR-003), keyboard default (IR-005) and " +
+             "profile identity (IR-001) " +
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupRows.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupRows.kt
+index 818260d..646b183 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupRows.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupRows.kt
+@@ -5,7 +5,9 @@ data class Snapshot(
+     val home: Observed,
+     val keyboard: Observed,
+     val dialer: Observed,
+-    val sms: Observed
++    val sms: Observed,
++    /** Sable Weather's active city, read through its setup hand-off. */
++    val weatherCity: Observed = Observed.Absent
+ )
+ 
+ object SetupRows {
+@@ -40,7 +42,8 @@ object SetupRows {
+             "Opens Android Settings",
+             Readiness.Informational,
+             Action.NetworkSettings
+-        )
++        ),
++        WeatherCityStep.row(snapshot.weatherCity)
+     ).map { applyTarget(it, targets(it.action)) }
+ 
+     /** HOME is owned by the canonical lane (IR-003); this row never judges it. */
+@@ -167,6 +170,7 @@ object SetupRows {
+     fun buttonLabel(item: Item): String? = when {
+         item.action == Action.None || item.state == Readiness.Satisfied -> null
+         item.state == Readiness.ActionRequired -> "Fix"
++        item.action == Action.WeatherCity -> "Choose city"
+         else -> "Open"
+     }
+ }
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/WeatherCity.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/WeatherCity.kt
+new file mode 100644
+index 0000000..8a9ad94
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/WeatherCity.kt
+@@ -0,0 +1,87 @@
++package org.sableos.titan2.setup.core
++
++/**
++ * Sable Weather's city hand-off, as Setup calls it through `ContentResolver.call`. Weather owns the catalog
++ * and the city list: Setup only sends the typed filter text and one catalog name. Mirrors
++ * `org.sableos.weather.WeatherSetupContract`; both sides pin the same literals in tests.
++ */
++object WeatherCityContract {
++    const val AUTHORITY = "org.sableos.weather.snapshot"
++    const val METHOD_SEARCH = "setup_search_cities"
++    const val METHOD_SELECT = "setup_select_city"
++    const val KEY_NAMES = "names"
++    const val KEY_SELECTED = "selected"
++    const val KEY_STATUS = "status"
++    const val STATUS_SELECTED = "selected"
++    const val STATUS_UNCHANGED = "unchanged"
++    const val STATUS_UNKNOWN = "unknown_city"
++    const val STATUS_FULL = "list_full"
++}
++
++/** What Weather answered to a search. [selected] is the active city, or null when it was not reported. */
++data class CityMatches(val names: List<String>, val selected: String?)
++
++/** Pure text and list rules for the Weather city step; the Android side only draws them. */
++object WeatherCityStep {
++    const val TITLE = "Weather city"
++    const val HINT = "Type a city"
++    const val HELP = "Type to filter, ↑ ↓ to move, Enter to choose. No location permission is used."
++    const val NO_MATCH = "No listed city matches. Try a nearby larger city."
++    const val UNREACHABLE = "Sable Weather did not answer. Skip, and pick a city in Weather later."
++    const val MAX_QUERY = 60
++    const val MAX_NAME = 60
++
++    /** Rows shown at once, so the field, help and Skip fit the 411 dp square screen. */
++    const val MAX_SHOWN = 6
++
++    /** Filter text as sent to Weather: control characters dropped, spaces collapsed, length bounded. */
++    fun cleanQuery(text: CharSequence?): String = text?.toString().orEmpty()
++        .filterNot { it.isISOControl() }
++        .trim()
++        .replace(Regex("\\s+"), " ")
++        .take(MAX_QUERY)
++
++    /** Names from Weather made safe to show: no blanks or control characters, bounded, unique. */
++    fun cleanNames(raw: List<String?>?): List<String> = raw.orEmpty()
++        .mapNotNull { it?.filterNot { c -> c.isISOControl() }?.trim()?.take(MAX_NAME) }
++        .filter { it.isNotEmpty() }
++        .distinct()
++        .take(MAX_SHOWN)
++
++    fun currentLine(selected: String?): String =
++        selected?.let { "Current: ${it.take(MAX_NAME)}" } ?: "Current city not reported"
++
++    fun skipLabel(selected: String?): String =
++        selected?.let { "Skip · keep ${it.take(MAX_NAME)}" } ?: "Skip"
++
++    /** Result line after choosing [name]; null [status] means Weather gave no answer. */
++    fun resultMessage(status: String?, name: String): String = when (status) {
++        WeatherCityContract.STATUS_SELECTED ->
++            "Weather now uses $name. The forecast loads in the background."
++
++        WeatherCityContract.STATUS_UNCHANGED -> "Weather already uses $name."
++
++        WeatherCityContract.STATUS_FULL ->
++            "Weather's city list is full. Remove a city in Sable Weather, then try again."
++
++        WeatherCityContract.STATUS_UNKNOWN -> "$name is not in Weather's city list."
++
++        null -> UNREACHABLE
++
++        else -> "Weather could not switch to $name."
++    }
++
++    /** True when the step is finished and the checklist can come back. */
++    fun succeeded(status: String?): Boolean =
++        status in setOf(WeatherCityContract.STATUS_SELECTED, WeatherCityContract.STATUS_UNCHANGED)
++
++    /** Checklist row. A city is a preference, not a readiness check, so every outcome is informational. */
++    fun row(o: Observed): Item {
++        val detail = when (o) {
++            is Observed.Value -> "Forecasts for ${o.text.take(MAX_NAME)}; no location permission"
++            Observed.Absent -> "Choose the city Weather shows; no location permission"
++            Observed.Failed -> "Could not read the Weather city"
++        }
++        return Item("weather", TITLE, detail, Readiness.Informational, Action.WeatherCity)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/WeatherCityStepTest.kt b/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/WeatherCityStepTest.kt
+new file mode 100644
+index 0000000..d94365a
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/WeatherCityStepTest.kt
+@@ -0,0 +1,131 @@
++package org.sableos.titan2.setup
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++import org.sableos.titan2.setup.core.Action
++import org.sableos.titan2.setup.core.Observed
++import org.sableos.titan2.setup.core.Readiness
++import org.sableos.titan2.setup.core.SetupModel
++import org.sableos.titan2.setup.core.SetupRows
++import org.sableos.titan2.setup.core.Snapshot
++import org.sableos.titan2.setup.core.TargetStatus
++import org.sableos.titan2.setup.core.WeatherCityContract
++import org.sableos.titan2.setup.core.WeatherCityStep
++
++class WeatherCityStepTest {
++    private val v = Observed.Value("pkg.example")
++    private val ime = Observed.Value("org.sableos.titan2.keyboard/.android.SableImeService")
++
++    private fun rows(city: Observed, t: TargetStatus = TargetStatus.Resolvable) =
++        SetupRows.build(Snapshot(v, ime, v, v, city)) { t }
++
++    private fun weather(city: Observed, t: TargetStatus = TargetStatus.Resolvable) =
++        rows(city, t).first { it.id == "weather" }
++
++    // --- filter text sent to Weather ---
++
++    @Test fun queryIsTrimmedCollapsedAndBounded() {
++        assertEquals("new york", WeatherCityStep.cleanQuery("  new \t  york "))
++        assertEquals("", WeatherCityStep.cleanQuery(null))
++        assertEquals("ab", WeatherCityStep.cleanQuery("a\u0000b\n"))
++        val long = WeatherCityStep.cleanQuery("x".repeat(500))
++        assertEquals(WeatherCityStep.MAX_QUERY, long.length)
++    }
++
++    // --- names shown from Weather ---
++
++    @Test fun namesAreCleanedDeduplicatedAndCapped() {
++        val raw = listOf("Paris", null, "  ", "Paris", "Pu\u0007ne", " Rome ") +
++            List(20) { "City $it" }
++        val names = WeatherCityStep.cleanNames(raw)
++        assertEquals(listOf("Paris", "Pune", "Rome"), names.take(3))
++        assertEquals(WeatherCityStep.MAX_SHOWN, names.size)
++        assertTrue(WeatherCityStep.cleanNames(null).isEmpty())
++        assertEquals(
++            WeatherCityStep.MAX_NAME,
++            WeatherCityStep.cleanNames(listOf("y".repeat(999))).single().length
++        )
++    }
++
++    // --- step text ---
++
++    @Test fun skipKeepsTheCurrentCity() {
++        assertEquals("Skip · keep Jersey City", WeatherCityStep.skipLabel("Jersey City"))
++        assertEquals("Skip", WeatherCityStep.skipLabel(null))
++        assertEquals("Current: Jersey City", WeatherCityStep.currentLine("Jersey City"))
++    }
++
++    @Test fun onlySelectedOrUnchangedEndTheStep() {
++        assertTrue(WeatherCityStep.succeeded(WeatherCityContract.STATUS_SELECTED))
++        assertTrue(WeatherCityStep.succeeded(WeatherCityContract.STATUS_UNCHANGED))
++        listOf(WeatherCityContract.STATUS_FULL, WeatherCityContract.STATUS_UNKNOWN, "x", null)
++            .forEach { assertFalse(it, WeatherCityStep.succeeded(it)) }
++    }
++
++    @Test fun everyOutcomeHasADistinctMessage() {
++        val outcomes = listOf(
++            WeatherCityContract.STATUS_SELECTED,
++            WeatherCityContract.STATUS_UNCHANGED,
++            WeatherCityContract.STATUS_FULL,
++            WeatherCityContract.STATUS_UNKNOWN,
++            "failed",
++            null
++        )
++        val messages = outcomes.map { WeatherCityStep.resultMessage(it, "Tokyo") }
++        assertEquals(outcomes.size, messages.toSet().size)
++        assertTrue(messages.first().contains("Tokyo"))
++        assertEquals(WeatherCityStep.UNREACHABLE, WeatherCityStep.resultMessage(null, "Tokyo"))
++    }
++
++    @Test fun noStepTextAsksForLocation() {
++        val texts = listOf(WeatherCityStep.HELP, WeatherCityStep.NO_MATCH, WeatherCityStep.TITLE)
++        assertTrue(WeatherCityStep.HELP.contains("No location permission"))
++        texts.forEach { assertFalse(it, it.lowercase().contains("gps")) }
++    }
++
++    // --- checklist row ---
++
++    @Test fun theRowIsInformationalWhateverIsObserved() {
++        listOf(Observed.Value("Tokyo"), Observed.Absent, Observed.Failed).forEach {
++            val r = weather(it)
++            assertEquals(Readiness.Informational, r.state)
++            assertEquals(Action.WeatherCity, r.action)
++            assertEquals("Choose city", SetupRows.buttonLabel(r))
++        }
++        assertTrue(weather(Observed.Value("Tokyo")).detail.contains("Tokyo"))
++    }
++
++    @Test fun theRowNeverChangesReadinessWhileWeatherIsInstalled() {
++        val items = rows(Observed.Failed)
++        assertTrue(SetupModel.isReady(items))
++        assertEquals("3 of 3 confirmed", SetupModel.summary(items))
++    }
++
++    @Test fun withoutWeatherTheRowOffersNoButton() {
++        val r = weather(Observed.Failed, TargetStatus.Missing)
++        assertEquals(Readiness.Unavailable, r.state)
++        assertEquals(Action.None, r.action)
++    }
++
++    @Test fun anOlderSnapshotDefaultsToAnUnreportedCity() {
++        val r = SetupRows.build(Snapshot(v, ime, v, v)) { TargetStatus.Resolvable }
++            .first { it.id == "weather" }
++        assertEquals(WeatherCityStep.row(Observed.Absent), r)
++    }
++
++    /** Sable Weather's WeatherSetupContract pins the same literals; changing one side breaks the hand-off. */
++    @Test fun theContractLiteralsArePinned() {
++        assertEquals("org.sableos.weather.snapshot", WeatherCityContract.AUTHORITY)
++        assertEquals("setup_search_cities", WeatherCityContract.METHOD_SEARCH)
++        assertEquals("setup_select_city", WeatherCityContract.METHOD_SELECT)
++        assertEquals("names", WeatherCityContract.KEY_NAMES)
++        assertEquals("selected", WeatherCityContract.KEY_SELECTED)
++        assertEquals("status", WeatherCityContract.KEY_STATUS)
++        assertEquals("selected", WeatherCityContract.STATUS_SELECTED)
++        assertEquals("unchanged", WeatherCityContract.STATUS_UNCHANGED)
++        assertEquals("unknown_city", WeatherCityContract.STATUS_UNKNOWN)
++        assertEquals("list_full", WeatherCityContract.STATUS_FULL)
++    }
++}

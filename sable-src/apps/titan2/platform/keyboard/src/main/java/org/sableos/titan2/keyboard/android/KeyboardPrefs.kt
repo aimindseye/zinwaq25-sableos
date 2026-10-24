@@ -67,7 +67,7 @@ class KeyboardPrefs(context: Context) {
      * hidden. Turning it off restores the previous candidates-only behaviour.
      */
     var compactStrip: Boolean
-        get() = prefs.getBoolean("compactStrip", true)
+        get() = prefs.getBoolean("compactStrip", compactStripDefault())
         set(v) {
             prefs.edit().putBoolean("compactStrip", v).apply()
         }
@@ -76,4 +76,14 @@ class KeyboardPrefs(context: Context) {
         prefs.edit().putBoolean(key, v).apply()
     }
     fun getBool(key: String, d: Boolean) = prefs.getBoolean(key, d)
+
+    companion object {
+        private const val COMPACT_STRIP_PROP = "ro.sable.keyboard.compact_strip"
+
+        /**
+         * Default of the compact strip: on, unless the device sets the property to false. The Q25
+         * does: its small square screen shows modifier state as a status bar icon instead.
+         */
+        fun compactStripDefault(): Boolean = SysProps.get(COMPACT_STRIP_PROP) != "false"
+    }
 }

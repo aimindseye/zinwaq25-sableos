@@ -8,7 +8,9 @@ notification row: Space expands/collapses (it no longer opens), R opens
 the source's RemoteInput reply when the row shows one, D dismisses, Z
 opens snooze, M opens the delivery options (Android's NotificationInfo),
 C opens the notification's Android channel/conversation settings, and H
-asks Sable Hub to open the notification when Hub is installed.
+opens Sable Start's Hub page (org.sableos.start.action.SHOW_HUB, the one
+Hub) on the tab that fits: Messages for messages and mail, Calls for
+calls, else All (pure policy notification/sable/SableHubRoute).
 
 Commands are contextual: they act only when the row itself has focus,
 never with a modifier held, and a focused text editor (inline reply)
@@ -18,14 +20,16 @@ existing paths. Each command reuses an existing SystemUI path
 NotificationActivityStarter, which dismisses the keyguard first), so no
 notification policy changes here.
 ---
- .../row/SableNotificationKeyRouterTest.kt     | 149 ++++++++++++++++
+ .../row/SableNotificationKeyRouterTest.kt     | 149 +++++++++++++++
  .../row/ExpandableNotificationRow.java        |  12 ++
- .../row/SableNotificationKeyCommands.kt       | 168 ++++++++++++++++++
+ .../row/SableNotificationKeyCommands.kt       | 169 ++++++++++++++++++
  .../row/SableNotificationKeyRouter.kt         | 153 ++++++++++++++++
- 4 files changed, 482 insertions(+)
+ .../notification/sable/SableHubRoute.java     |  57 ++++++
+ 5 files changed, 540 insertions(+)
  create mode 100644 packages/SystemUI/multivalentTests/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouterTest.kt
  create mode 100644 packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyCommands.kt
  create mode 100644 packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouter.kt
+ create mode 100644 packages/SystemUI/src/com/android/systemui/statusbar/notification/sable/SableHubRoute.java
 
 diff --git a/packages/SystemUI/multivalentTests/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouterTest.kt b/packages/SystemUI/multivalentTests/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouterTest.kt
 new file mode 100644
@@ -221,10 +225,10 @@ index 8a539747f..60449e243 100644
              mTranslateAnim.cancel();
 diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyCommands.kt b/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyCommands.kt
 new file mode 100644
-index 000000000..ebd9b5de0
+index 000000000..d3209cc81
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyCommands.kt
-@@ -0,0 +1,168 @@
+@@ -0,0 +1,169 @@
 +/*
 + * Copyright (C) 2026 The SableOS Project
 + *
@@ -251,6 +255,7 @@ index 000000000..ebd9b5de0
 +import android.view.View
 +import android.view.ViewGroup
 +import com.android.systemui.res.R
++import com.android.systemui.statusbar.notification.sable.SableHubRoute
 +import com.android.systemui.statusbar.notification.shared.NotificationBundleUi
 +
 +/**
@@ -259,13 +264,10 @@ index 000000000..ebd9b5de0
 + * Every action goes through an existing SystemUI path: dismiss through the row's own dismiss,
 + * snooze and delivery options through the row's long-press menu (Android's NotificationInfo /
 + * NotificationSnooze), reply through the source's RemoteInput button (SystemUI's RemoteInput
-+ * flow handles keyguard authentication), and Settings / Hub through NotificationActivityStarter,
-+ * which dismisses the keyguard first. Nothing here changes notification policy.
++ * flow handles keyguard authentication), and Settings / Sable Start's Hub page through
++ * NotificationActivityStarter, which dismisses the keyguard first. Nothing here changes notification policy.
 + */
 +object SableNotificationKeyCommands {
-+    private const val HUB_PACKAGE = "org.sableos.hub"
-+    private const val ACTION_OPEN_IN_HUB = "org.sableos.hub.action.OPEN_NOTIFICATION"
-+    private const val EXTRA_NOTIFICATION_KEY = "org.sableos.hub.extra.NOTIFICATION_KEY"
 +    private const val EXTRA_APP_UID = "app_uid"
 +    private const val MODIFIERS =
 +        KeyEvent.META_ALT_MASK or KeyEvent.META_CTRL_MASK or KeyEvent.META_META_MASK or
@@ -311,7 +313,7 @@ index 000000000..ebd9b5de0
 +                canReply = findReplyButton(row) != null,
 +                canDismiss = row.canViewBeDismissed(),
 +                canOpenMenu = row.provider != null,
-+                hubAvailable = sbn != null && sbn.packageName != HUB_PACKAGE && hubResolves(row),
++                hubAvailable = sbn != null && hubResolves(row),
 +            )
 +        val command = SableNotificationKeyRouter.route(key, context)
 +        return if (command == SableNotificationCommand.Settings && sbn == null) {
@@ -355,27 +357,30 @@ index 000000000..ebd9b5de0
 +        row.notificationActivityStarterForSable?.startNotificationGutsIntent(intent, sbn.uid, row)
 +    }
 +
-+    /** "H": ask Hub; Hub decides whether it represents this source (it never includes one silently). */
++    /**
++     * "H": Sable Start's Hub page (the one Hub; the Sable Hub app has no screen of its own), on the
++     * tab that fits the notification (Messages for messages and mail, Calls for calls, else All).
++     */
 +    private fun openInHub(
 +        row: ExpandableNotificationRow,
 +        sbn: StatusBarNotification,
 +    ) {
 +        val intent =
-+            Intent(ACTION_OPEN_IN_HUB)
-+                .setPackage(HUB_PACKAGE)
++            Intent(SableHubRoute.ACTION_SHOW_HUB)
++                .setPackage(SableHubRoute.START_PACKAGE)
 +                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-+                .putExtra(Settings.EXTRA_APP_PACKAGE, sbn.packageName)
-+                .putExtra(EXTRA_APP_UID, sbn.uid)
-+                .putExtra(EXTRA_NOTIFICATION_KEY, sbn.key)
-+        // Hub aggregates the current user's profiles, so it runs in the current (parent) user.
-+        val hubUid = UserHandle.getUid(ActivityManager.getCurrentUser(), android.os.Process.SYSTEM_UID)
-+        row.notificationActivityStarterForSable?.startNotificationGutsIntent(intent, hubUid, row)
++                .putExtra(SableHubRoute.EXTRA_HUB_FILTER, SableHubRoute.tabFor(sbn.notification.category))
++        // Start is the current user's home, so it runs in the current (parent) user.
++        val startUid = UserHandle.getUid(ActivityManager.getCurrentUser(), android.os.Process.SYSTEM_UID)
++        row.notificationActivityStarterForSable?.startNotificationGutsIntent(intent, startUid, row)
 +    }
 +
 +    private fun hubResolves(row: ExpandableNotificationRow): Boolean =
 +        row.context.packageManager
-+            .queryIntentActivities(Intent(ACTION_OPEN_IN_HUB).setPackage(HUB_PACKAGE), 0)
-+            .isNotEmpty()
++            .queryIntentActivities(
++                Intent(SableHubRoute.ACTION_SHOW_HUB).setPackage(SableHubRoute.START_PACKAGE),
++                0,
++            ).isNotEmpty()
 +
 +    private fun sbnOf(row: ExpandableNotificationRow): StatusBarNotification? =
 +        if (NotificationBundleUi.isEnabled) row.entryAdapter.sbn else row.entryLegacy.sbn
@@ -395,7 +400,7 @@ index 000000000..ebd9b5de0
 +}
 diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouter.kt b/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouter.kt
 new file mode 100644
-index 000000000..292e69119
+index 000000000..2562afa7b
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouter.kt
 @@ -0,0 +1,153 @@
@@ -449,7 +454,7 @@ index 000000000..292e69119
 +    val canDismiss: Boolean,
 +    /** The row's long-press menu (snooze, delivery options) exists. */
 +    val canOpenMenu: Boolean,
-+    /** Sable Hub is installed and may be asked about this notification. */
++    /** Sable Start can show its Hub page (the one Hub) for this notification. */
 +    val hubAvailable: Boolean,
 +)
 +
@@ -551,6 +556,69 @@ index 000000000..292e69119
 +        command: SableNotificationCommand,
 +    ): SableNotificationCommand =
 +        if (available && !context.isRepeat) command else SableNotificationCommand.Consume
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/notification/sable/SableHubRoute.java b/packages/SystemUI/src/com/android/systemui/statusbar/notification/sable/SableHubRoute.java
+new file mode 100644
+index 000000000..08142dfcb
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/notification/sable/SableHubRoute.java
+@@ -0,0 +1,57 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.systemui.statusbar.notification.sable;
++
++/**
++ * Where SystemUI sends the user for "Hub": Sable Start's Hub page (sable-src 0070; the Sable Hub
++ * app has no screen of its own any more), on the tab that fits a notification. Pure policy, host
++ * tested in tests/framework/frameworks/base.
++ */
++public final class SableHubRoute {
++    /** Sable Start (SableLauncher). */
++    public static final String START_PACKAGE = "org.sableos.launcher";
++    /** Shows Start's Hub page; {@link #EXTRA_HUB_FILTER} picks the tab. */
++    public static final String ACTION_SHOW_HUB = "org.sableos.start.action.SHOW_HUB";
++    public static final String EXTRA_HUB_FILTER = "org.sableos.start.extra.HUB_FILTER";
++
++    public static final String TAB_ALL = "all";
++    public static final String TAB_MESSAGES = "messages";
++    public static final String TAB_CALLS = "calls";
++
++    private SableHubRoute() {
++    }
++
++    /**
++     * The Hub page tab for a notification's {@code Notification.category}: messages and email go to
++     * Messages, calls and missed calls to Calls, anything else (or none) to All.
++     */
++    public static String tabFor(String category) {
++        if (category == null) {
++            return TAB_ALL;
++        }
++        switch (category) {
++            case "msg":
++            case "email":
++                return TAB_MESSAGES;
++            case "call":
++            case "missed_call":
++                return TAB_CALLS;
++            default:
++                return TAB_ALL;
++        }
++    }
 +}
 -- 
 2.43.0

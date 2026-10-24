@@ -44,7 +44,11 @@ class KeyboardSettingsActivity : Activity() {
         sw("Alt+Space toggles Nav mode", "altSpaceNav", true)
         sw("Show on-screen keyboard for numeric/PIN fields", "softForNumeric", true)
         sw("Always show on-screen keyboard", "forceSoft", false)
-        sw("Compact status strip when the on-screen keyboard is hidden", "compactStrip", true)
+        sw(
+            "Compact status strip when the on-screen keyboard is hidden",
+            "compactStrip",
+            KeyboardPrefs.compactStripDefault()
+        )
         sw("Enter sends in apps that offer Send (Shift+Enter: new line)", ENTER_SENDS, false)
     }
 

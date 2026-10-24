@@ -22,9 +22,11 @@ count only.
   SableShadeKeyHint (measured into the QQS height, so notifications
   start below them) and adds the expanded hint under the tile grid.
 * The Hub row is focusable with the QS focus ring; Enter or a tap opens
-  Sable Hub through ActivityStarter, which asks for unlock first on the
-  lock screen. On a locked shade the row reads "N priority items ·
-  counts only". No row when Hub is not installed.
+  Sable Start's Hub page (org.sableos.start.action.SHOW_HUB; the one
+  Hub, as the Sable Hub app has no launcher entry) through
+  ActivityStarter, which asks for unlock first on the lock screen. On
+  a locked shade the row reads "N priority items · counts only". No row
+  when Start cannot show its Hub page.
 * The hint line shows only with a physical keyboard: "Alt+Down expand ·
   ↑↓ focus · Space toggle · Alt+Enter details" (Q25: Alt replaces Fn).
 
@@ -32,13 +34,13 @@ Defaults keep upstream; SableSystemUIOverlay turns it on.
 ---
  .../SystemUI/res/values/sable_qs_config.xml   |   3 +
  .../res/values/sable_shade_strings.xml        |  41 +++++
- .../qs/composefragment/QSFragmentCompose.kt   |  77 +++++++-
+ .../qs/composefragment/QSFragmentCompose.kt   |  84 ++++++++-
  .../qs/composefragment/ui/SableShadeExtras.kt | 174 ++++++++++++++++++
  .../systemui/shade/sable/SableHubSummary.java |  63 +++++++
  .../systemui/shade/sable/SableShadeState.kt   |  40 ++++
  .../coordinator/NotifCoordinators.kt          |   2 +
  .../coordinator/SableShadeCoordinator.kt      |  77 ++++++++
- 8 files changed, 471 insertions(+), 6 deletions(-)
+ 8 files changed, 478 insertions(+), 6 deletions(-)
  create mode 100644 packages/SystemUI/res/values/sable_shade_strings.xml
  create mode 100644 packages/SystemUI/src/com/android/systemui/qs/composefragment/ui/SableShadeExtras.kt
  create mode 100644 packages/SystemUI/src/com/android/systemui/shade/sable/SableHubSummary.java
@@ -59,7 +61,7 @@ index 6ff75bb1..b8aeca6d 100644
  </resources>
 diff --git a/packages/SystemUI/res/values/sable_shade_strings.xml b/packages/SystemUI/res/values/sable_shade_strings.xml
 new file mode 100644
-index 00000000..2048e13f
+index 00000000..61902ffc
 --- /dev/null
 +++ b/packages/SystemUI/res/values/sable_shade_strings.xml
 @@ -0,0 +1,41 @@
@@ -98,14 +100,14 @@ index 00000000..2048e13f
 +    <!-- Hub summary row on a locked shade: only the count, no content. -->
 +    <string name="sable_hub_summary_locked"><xliff:g id="count" example="3 priority items">%s</xliff:g> · counts only</string>
 +    <!-- Accessibility action of the Hub summary row. -->
-+    <string name="sable_hub_summary_action">open Sable Hub</string>
++    <string name="sable_hub_summary_action">open the Hub page</string>
 +    <!-- Keyboard hint line under the compact shade (Q25: Alt replaces Fn). -->
 +    <string name="sable_qs_key_hint">Alt+Down expand · ↑↓ focus · Space toggle · Alt+Enter details</string>
 +    <!-- Keyboard hint line in the expanded Quick Settings. -->
 +    <string name="sable_qs_key_hint_expanded">Alt+Up back · ↑↓←→ focus · Space toggle · Alt+Enter details</string>
 +</resources>
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt b/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt
-index 84ee87b4..3d77b76f 100644
+index 84ee87b4..9f3e21ae 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt
 +++ b/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt
 @@ -18,6 +18,7 @@ package com.android.systemui.qs.composefragment
@@ -142,16 +144,17 @@ index 84ee87b4..3d77b76f 100644
  import com.android.systemui.qs.composefragment.ui.quickQuickSettingsToQuickSettings
  import com.android.systemui.qs.composefragment.ui.toEditMode
  import com.android.systemui.qs.composefragment.viewmodel.QSFragmentComposeViewModel
-@@ -158,6 +164,8 @@ import com.android.systemui.qs.ui.composable.QuickSettingsTheme
+@@ -158,6 +164,9 @@ import com.android.systemui.qs.ui.composable.QuickSettingsTheme
  import com.android.systemui.res.R
  import com.android.systemui.shade.ShadeDisplayAware
  import com.android.systemui.shade.shared.flag.ShadeWindowGoesAround
 +import com.android.systemui.shade.sable.SableShadeState
 +import com.android.systemui.statusbar.StatusBarState
++import com.android.systemui.statusbar.notification.sable.SableHubRoute
  import com.android.systemui.statusbar.policy.ConfigurationController
  import com.android.systemui.statusbar.policy.ConfigurationController.ConfigurationListener
  import com.android.systemui.util.LifecycleFragment
-@@ -193,6 +201,8 @@ constructor(
+@@ -193,6 +202,8 @@ constructor(
      @Background private val backgroundDispatcher: CoroutineDispatcher,
      private val mediaLogger: MediaViewLogger,
      @ShadeDisplayAware private val configurationController: ConfigurationController,
@@ -160,7 +163,7 @@ index 84ee87b4..3d77b76f 100644
  ) : LifecycleFragment(), QS, Dumpable {
  
      private val scrollListener = MutableStateFlow<QS.ScrollListener?>(null)
-@@ -804,12 +814,27 @@ constructor(
+@@ -804,12 +815,27 @@ constructor(
                                  )
                                  .padding(horizontal = qsHorizontalMargin())
                      ) {
@@ -194,7 +197,7 @@ index 84ee87b4..3d77b76f 100644
                      }
                  }
              }
-@@ -817,6 +842,37 @@ constructor(
+@@ -817,6 +843,46 @@ constructor(
          }
      }
  
@@ -207,7 +210,7 @@ index 84ee87b4..3d77b76f 100644
 +        val priorityCount by sableShadeState.priorityCount.collectAsStateWithLifecycle()
 +        val shadeOpen = viewModel.isQsVisibleAndAnyShadeExpanded
 +        val context = LocalContext.current
-+        // Looked up again each time the shade opens, so installing or removing Hub is seen.
++        // Looked up again each time the shade opens, so installing or removing Start is seen.
 +        val hubInstalled =
 +            remember(shadeOpen) { sableHubIntent(context) != null }
 +        SableHubSummaryRow(
@@ -219,10 +222,19 @@ index 84ee87b4..3d77b76f 100644
 +        SableShadeKeyHint(expanded = false)
 +    }
 +
-+    private fun sableHubIntent(context: Context): Intent? =
-+        context.packageManager.getLaunchIntentForPackage(SABLE_HUB_PACKAGE)
++    /**
++     * Sable Start's Hub page (the one Hub; the Sable Hub app has no launcher entry), or null when
++     * Start is not installed.
++     */
++    private fun sableHubIntent(context: Context): Intent? {
++        val intent =
++            Intent(SableHubRoute.ACTION_SHOW_HUB)
++                .setPackage(SableHubRoute.START_PACKAGE)
++                .putExtra(SableHubRoute.EXTRA_HUB_FILTER, SableHubRoute.TAB_ALL)
++        return intent.takeIf { context.packageManager.resolveActivity(it, 0) != null }
++    }
 +
-+    /** Opens Sable Hub; on the lock screen the activity starter asks for unlock first. */
++    /** Opens Start's Hub page; on the lock screen the activity starter asks for unlock first. */
 +    private fun openSableHub(context: Context) {
 +        val intent = sableHubIntent(context) ?: return
 +        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
@@ -232,7 +244,7 @@ index 84ee87b4..3d77b76f 100644
      @Composable
      private fun ContentScope.QuickSettingsElement(modifier: Modifier = Modifier) {
          val qqsPadding = viewModel.qqsHeaderHeight
-@@ -940,6 +996,12 @@ constructor(
+@@ -940,6 +1006,12 @@ constructor(
                                  mediaInRow = viewModel.qsMediaInRow,
                              )
                          }
@@ -245,16 +257,6 @@ index 84ee87b4..3d77b76f 100644
                      }
                  }
                  QuickSettingsTheme {
-@@ -1407,6 +1469,9 @@ private class FrameLayoutTouchPassthrough(
-     }
- }
- 
-+/** Sable Hub (sable-src apps/r8/android/hub); the shade's Hub summary row opens it. */
-+private const val SABLE_HUB_PACKAGE = "org.sableos.hub"
-+
- private interface CanScrollQs {
-     fun forward(): Boolean
- 
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/composefragment/ui/SableShadeExtras.kt b/packages/SystemUI/src/com/android/systemui/qs/composefragment/ui/SableShadeExtras.kt
 new file mode 100644
 index 00000000..c9b48ea4

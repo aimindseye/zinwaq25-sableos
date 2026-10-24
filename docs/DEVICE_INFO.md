@@ -16,7 +16,7 @@ Nothing here was measured on hardware by this project yet.**
 | GPU | Mali-G57 MC2 | LineageOS wiki |
 | RAM | 12 GB (LPDDR4x per Zinwa; LPDDR5 per LineageOS wiki) | conflicting public sources |
 | Storage | 256 GB UFS 2.x, microSD | Zinwa, LineageOS wiki |
-| Display | 3.5" 720x720 IPS LCD, 1:1, about 290 ppi; build density 193 | wiki, `BoardConfig.mk` |
+| Display | 3.5" 720x720 IPS LCD, 1:1, about 290 ppi; LineageOS density 193, Sable sets 280 (411 dp) | wiki, `BoardConfig.mk` |
 | Keyboard | Built-in QWERTY, `Q25_keyboard` (kl, kcm, idc in device tree) | device tree |
 | Pointer | Optical trackpad | Wikipedia |
 | Cameras | 50 MP rear with LED flash, 8 MP front | LineageOS wiki |

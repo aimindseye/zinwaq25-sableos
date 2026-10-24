@@ -97,6 +97,12 @@ object CityCatalog {
             .take(MAX_RESULTS)
     }
 
+    /** Catalog cities only (no manual entry), in the same order as [search]. Used by Sable Setup. */
+    fun searchListed(query: String): List<City> = search(query).filter { it in ALL }
+
+    /** The catalog city with this name (case and spacing ignored), or null. */
+    fun named(name: String): City? = ALL.firstOrNull { CityRules.sameName(it.name, name) }
+
     /** "Name, latitude, longitude, Area/Zone" -> a valid [City], or null. */
     fun parseManual(text: String): City? {
         val parts = text.split(',').map { it.trim() }

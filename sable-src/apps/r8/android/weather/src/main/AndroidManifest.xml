@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Keeps the periodic background refresh scheduled across reboots. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <queries>
         <provider android:authorities="org.sableos.appearance" />
@@ -25,10 +27,18 @@
             </intent-filter>
         </activity>
 
+        <!-- query(): Start/Live snapshot, org.sableos.launcher only. call(): Sable Setup's city
+             hand-off (search the catalog, set the active city), org.sableos.titan2.setup only.
+             Both entry points check the calling uid in code. -->
         <provider
             android:name=".WeatherSnapshotProvider"
             android:authorities="org.sableos.weather.snapshot"
             android:exported="true"
             android:grantUriPermissions="false" />
+
+        <service
+            android:name=".WeatherRefreshJob"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
     </application>
 </manifest>

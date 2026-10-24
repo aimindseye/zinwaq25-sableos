@@ -343,6 +343,75 @@ grep -qF '+        return isDebuggable() || SystemProperties.getBoolean(SABLE_MI
 grep -E '^[-+]' "${sp[0]}" | grep -v '^+++\|^---' | grep -q 'MICROG_REAL_SIGNATURE\|MICROG_FAKE_SIGNATURE\|getPackageName' && mg_bad="$mg_bad 0550:touches-checks"
 if [[ -z "$mg_bad" ]]; then pass "microG pins, battery and location defaults, permissions and spoofing gate"; else fail "microG product files:$mg_bad"; fi
 
+# 6b1. Q4 device review fixes: Sable apps replace their LineageOS twins, Start hides AudioFX, Weather
+# refreshes in the background, and display compatibility rows open on a tap.
+q4_bad=""
+awk -F'\t' '$1 == "SableCalendar" && $8 == "Etar"' product/q25/apps.tsv | grep -q . || q4_bad="$q4_bad etar"
+awk -F'\t' '$1 == "SableMedia" && $8 == "Twelve"' product/q25/apps.tsv | grep -q . || q4_bad="$q4_bad twelve"
+grep -q '"org.lineageos.audiofx"' sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LauncherAppsRepository.kt || q4_bad="$q4_bad audiofx"
+wx=sable-src/apps/r8/android/weather/src/main
+grep -A3 'name=".WeatherRefreshJob"' "$wx/AndroidManifest.xml" | grep -q 'BIND_JOB_SERVICE' || q4_bad="$q4_bad weather-job"
+grep -q 'WeatherRefreshJob.ensureScheduled' "$wx/java/org/sableos/weather/WeatherSnapshotProvider.kt" || q4_bad="$q4_bad weather-provider"
+grep -q '\.clickable { onClick() }' sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt || q4_bad="$q4_bad displaycompat-tap"
+grep -q 'widthIn(max = boardMaxSide())' sable-src/apps/r8/android/games/src/main/java/org/sableos/games/SudokuScreen.kt || q4_bad="$q4_bad sudoku-board"
+grep -q 'ro.sable.keyboard.compact_strip=false' product/q25/sable-q25.mk || q4_bad="$q4_bad strip-prop"
+grep -q 'COMPACT_STRIP_PROP = "ro.sable.keyboard.compact_strip"' sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardPrefs.kt || q4_bad="$q4_bad strip-default"
+grep -q 'ro.config.wallpaper=/product/media/wallpaper/sable_default_wallpaper.png' scripts/stage-product.sh || q4_bad="$q4_bad wallpaper-prop"
+python3 -I -c 'import struct,sys; d=open(sys.argv[1],"rb").read(24); sys.exit(0 if d[:8]==b"\x89PNG\r\n\x1a\n" and struct.unpack(">II",d[16:24])==(720,720) else 1)' product/q25/wallpaper/sable_default_wallpaper.png || q4_bad="$q4_bad wallpaper-png"
+grep -qF '+            SableActiveFrames.open(touchInteractionService)' patches/framework/packages/apps/Launcher3/0003-*.patch || q4_bad="$q4_bad recents-frames"
+grep -q 'METHOD_SELECT = "setup_select_city"' sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherSetupAccess.kt || q4_bad="$q4_bad weather-setup-call"
+grep -q 'android:authorities="org.sableos.weather.snapshot"' sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml || q4_bad="$q4_bad setup-queries"
+grep -q 'org.sableos.start.action.SHOW_ACTIVE_FRAMES' sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml || q4_bad="$q4_bad start-recents-filter"
+grep -q 'const val COLUMNS = 5' sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt || q4_bad="$q4_bad start-5-columns"
+for g in DENSITY GAMES KEYBOARD-STRIP WALLPAPER APPS WEATHER WEATHER-CITY DISPLAYCOMPAT RECENTS START-ICONS; do grep -q "^| Q4-REVIEW-$g |" docs/QUALIFICATION.md || q4_bad="$q4_bad gate:$g"; done
+if [[ -z "$q4_bad" ]]; then pass "Q4 review fixes (overrides, AudioFX, weather, display compat, games, keyboard strip, wallpaper)"; else fail "Q4 review fixes:$q4_bad"; fi
+
+# 6b1a. One Hub: Start's Hub page has the Contacts tab and the unread bar; Sable Hub has no launcher entry.
+hub_bad=""
+python3 -I -c 'import re,sys; s=open(sys.argv[1]).read(); sys.exit(1 if any("category.LAUNCHER" in f for f in re.findall(r"<intent-filter.*?</intent-filter>", s, re.S)) else 0)' sable-src/apps/r8/android/hub/src/main/AndroidManifest.xml || hub_bad="$hub_bad hub-launcher"
+grep -q 'HubAppCounts.rows' sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubSnapshotProvider.kt || hub_bad="$hub_bad no-app-counts"
+grep -q 'org.sableos.start.action.SHOW_HUB' sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml || hub_bad="$hub_bad no-show-hub"
+grep -q 'Contacts("Contacts")' sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HubBar.kt || hub_bad="$hub_bad no-contacts-tab"
+grep -q 'package="org.sableos.launcher"' product/q25/permissions/default-permissions-sable-q25.xml || hub_bad="$hub_bad no-start-contacts-grant"
+grep -q 'fixed="true"' product/q25/permissions/default-permissions-sable-q25.xml && hub_bad="$hub_bad fixed-grant"
+grep -q "^| Q4-HUB-ONE |" docs/QUALIFICATION.md || hub_bad="$hub_bad gate"
+if [[ -z "$hub_bad" ]]; then pass "one Hub: Start's Hub page (bar, Contacts tab), Hub headless"; else fail "one Hub:$hub_bad"; fi
+
+# 6b1b. Sable Messages is the default SMS app: shipped, set as the SMS role default, granted, and
+# declares every component the SMS role requires.
+msg_bad=""
+grep -qP '^SableMessages\tcommon\tapps/r8/android\t:messages:assembleRelease\tmessages/build/outputs/apk/release/\*\.apk\torg\.sableos\.messages\tunsigned\tmessaging\tyes$' product/q25/apps.tsv || msg_bad="$msg_bad apps.tsv"
+grep -q '<string name="config_defaultSms"[^>]*>org.sableos.messages<' product/common/overlay/SableFrameworkOverlay/res/values/sable_messages.xml || msg_bad="$msg_bad default-sms"
+grep -A10 'package="org.sableos.messages"' product/q25/permissions/default-permissions-sable-q25.xml | grep -q 'android.permission.SEND_SMS' || msg_bad="$msg_bad grants"
+msg_m=sable-src/apps/r8/android/messages/src/main/AndroidManifest.xml
+for s in android.provider.Telephony.SMS_DELIVER android.provider.Telephony.WAP_PUSH_DELIVER android.intent.action.RESPOND_VIA_MESSAGE android.permission.BROADCAST_SMS android.permission.BROADCAST_WAP_PUSH android.permission.SEND_RESPOND_VIA_MESSAGE android.intent.action.SENDTO smsto; do
+    grep -q "$s" "$msg_m" || msg_bad="$msg_bad manifest:$s"
+done
+if [[ -z "$msg_bad" ]]; then pass "Sable Messages is the default SMS app (role default, grants, SMS/MMS components)"; else fail "Sable Messages default SMS:$msg_bad"; fi
+
+# 6b1c. Framework Hub links open Start's Hub page, Hub settings or Sable Messages, never the old Hub UI.
+hl_bad=""
+grep -q 'org.sableos.start.action.SHOW_HUB' patches/framework/frameworks/base/0301-*.patch || hl_bad="$hl_bad 0301:show-hub"
+grep -q 'OPEN_NOTIFICATION' patches/framework/frameworks/base/0301-*.patch && hl_bad="$hl_bad 0301:old-hub"
+grep -q 'SableHubRoute' patches/framework/frameworks/base/0311-*.patch || hl_bad="$hl_bad 0311"
+grep -q 'org.sableos.hub.action.CONNECTED_APPS' patches/framework/packages/apps/Settings/1001-*.patch || hl_bad="$hl_bad 1001"
+grep -q 'org.sableos.messages' patches/framework/packages/apps/Contacts/0754-*.patch || hl_bad="$hl_bad 0754:messages"
+grep -q '"smsto"' patches/framework/packages/apps/Contacts/0754-*.patch || hl_bad="$hl_bad 0754:smsto"
+grep -q "^| Q4-HUB-LINKS |" docs/QUALIFICATION.md || hl_bad="$hl_bad gate"
+if [[ -z "$hl_bad" ]]; then pass "Framework Hub links open Start's Hub page, Hub settings or Sable Messages"; else fail "framework Hub links:$hl_bad"; fi
+
+# 6b1d. Display tools: Tall canvas through forced size, task listener, boot restore, Alt+Shift+R (0313).
+dcs=sable-src/apps/titan2/platform/displaycompat/src/main
+dt_bad=""
+grep -q '"setForcedDisplaySize"' "$dcs/java/org/sableos/titan2/displaycompat/android/WmDisplayPort.kt" || dt_bad="$dt_bad forced-size"
+grep -q 'registerTaskStackListener' "$dcs/java/org/sableos/titan2/displaycompat/android/DisplayToolsService.kt" || dt_bad="$dt_bad task-listener"
+grep -q 'android.intent.action.LOCKED_BOOT_COMPLETED' "$dcs/AndroidManifest.xml" || dt_bad="$dt_bad boot-restore"
+grep -A3 'CanvasHotkeyReceiver' "$dcs/AndroidManifest.xml" | grep -q 'android:exported="false"' || dt_bad="$dt_bad receiver-exported"
+grep -q 'SableDisplayKeys.isCanvasCycleChord' patches/framework/frameworks/base/0313-*.patch || dt_bad="$dt_bad 0313-chord"
+grep -q 'org.sableos.titan2.displaycompat.action.CYCLE_CANVAS' patches/framework/frameworks/base/0313-*.patch || dt_bad="$dt_bad 0313-action"
+for g in TALL-CANVAS HOTKEY ROTATION; do grep -q "^| Q4-DISPLAY-$g |" docs/QUALIFICATION.md || dt_bad="$dt_bad gate:$g"; done
+if [[ -z "$dt_bad" ]]; then pass "display tools: Tall canvas via forced size, task listener, boot restore, Alt+Shift+R (0313)"; else fail "display tools:$dt_bad"; fi
+
 # 6b2. Optional 50 MP camera: the patcher on a synthetic vendor tree, and off by default.
 if python3 -I tests/test_camera_50mp.py >"$tmp/cam50" 2>&1; then
     pass "camera 50 MP patcher ($(grep -o 'Ran [0-9]* tests' "$tmp/cam50"))"
@@ -398,6 +467,13 @@ if python3 tests/check-daily-driver.py >"$tmp/daily" 2>&1; then
     pass "daily-driver overlays and patch ($(grep -c '^PASS' "$tmp/daily") checks)"
 else
     fail "daily-driver check: $(grep '^FAIL' "$tmp/daily" | head -5)"
+fi
+
+# 6d3. Phone/Contacts Sable look patches (Dialer 0707-0708, Contacts 0755), static.
+if python3 -I tests/check-phone-contacts-style.py >"$tmp/phonestyle" 2>&1; then
+    pass "Phone/Contacts Sable look ($(grep -c '^PASS' "$tmp/phonestyle") checks)"
+else
+    fail "Phone/Contacts look check: $(grep '^FAIL' "$tmp/phonestyle" | head -5)"
 fi
 
 # 6e. Pure Settings classes from the framework patches, compiled on the host.
@@ -506,7 +582,7 @@ if [[ -z "$kbd_missing" ]]; then pass "keyboard backlight names agree (init, dri
 # in that default color unless the user turned the channel's light off.
 led_missing=""
 led_ov=product/common/overlay/SableLedOverlay/res/values/config.xml
-grep -q 'name="config_defaultNotificationColor">#ffff0000<' "$led_ov" || led_missing="$led_missing overlay:color"
+grep -q 'name="config_defaultNotificationColor">#ff0000ff<' "$led_ov" || led_missing="$led_missing overlay:color"
 grep -q 'name="config_defaultNotificationLedOn">250<' "$led_ov" || led_missing="$led_missing overlay:on"
 grep -q 'name="config_defaultNotificationLedOff">2750<' "$led_ov" || led_missing="$led_missing overlay:off"
 led_fwb=(patches/framework/frameworks/base/0501-*.patch)

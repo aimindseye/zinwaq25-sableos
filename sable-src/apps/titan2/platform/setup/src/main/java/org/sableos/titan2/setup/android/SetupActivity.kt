@@ -1,30 +1,54 @@
 package org.sableos.titan2.setup.android
 
 import android.app.Activity
+import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
+import android.view.KeyEvent
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
+import androidx.core.content.edit
+import org.sableos.titan2.setup.android.SetupStyle.BG
+import org.sableos.titan2.setup.android.SetupStyle.DETAIL_SP
+import org.sableos.titan2.setup.android.SetupStyle.DIM
+import org.sableos.titan2.setup.android.SetupStyle.KEY
+import org.sableos.titan2.setup.android.SetupStyle.PAD_H
+import org.sableos.titan2.setup.android.SetupStyle.PAD_V
+import org.sableos.titan2.setup.android.SetupStyle.ROW_TITLE_SP
+import org.sableos.titan2.setup.android.SetupStyle.SPACING
+import org.sableos.titan2.setup.android.SetupStyle.SUMMARY_SP
+import org.sableos.titan2.setup.android.SetupStyle.TITLE_SP
+import org.sableos.titan2.setup.android.SetupStyle.WARN
+import org.sableos.titan2.setup.core.Action
 import org.sableos.titan2.setup.core.Item
 import org.sableos.titan2.setup.core.LaunchReport
 import org.sableos.titan2.setup.core.Readiness
 import org.sableos.titan2.setup.core.SetupModel
 import org.sableos.titan2.setup.core.SetupRows
+import org.sableos.titan2.setup.core.TargetStatus
 
 /**
  * Post-provisioning readiness checklist. This is not the Android Setup Wizard (that is a privileged system
  * package and is left alone); it is a normal app that shows what it can observe and opens the matching screen.
  * Nothing here changes a setting by itself: every action opens a screen the user confirms, and a screen that
- * cannot be opened is shown as unavailable instead of silently doing nothing.
+ * cannot be opened is shown as unavailable instead of silently doing nothing. The one choice made in Setup
+ * itself is the Weather city, which Sable Weather stores; that step is offered once, and Skip keeps the
+ * city Weather already has.
  */
 class SetupActivity : Activity() {
+    private lateinit var scroll: ScrollView
     private lateinit var body: LinearLayout
     private lateinit var launcher: Launcher
     private val dp by lazy { resources.displayMetrics.density }
     private fun px(v: Int) = (v * dp).toInt()
+
+    private var inWeatherStep = false
+    private val backFromStep = OnBackInvokedCallback { closeWeatherStep(null) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,20 +58,59 @@ class SetupActivity : Activity() {
                 orientation = LinearLayout.VERTICAL
                 setPadding(px(PAD_H), px(PAD_V), px(PAD_H), px(PAD_V))
             }
-        setContentView(
+        scroll =
             ScrollView(this).apply {
                 setBackgroundColor(BG)
                 addView(body)
             }
-        )
+        setContentView(scroll)
     }
 
     override fun onResume() {
         super.onResume()
-        render(null)
+        val offerWeather = !weatherStepAsked() &&
+            launcher.resolve(Action.WeatherCity) == TargetStatus.Resolvable
+        when {
+            inWeatherStep -> Unit
+            offerWeather -> showWeatherStep()
+            else -> render(null)
+        }
     }
 
-    private fun render(failure: String?) {
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (inWeatherStep && event.keyCode == KeyEvent.KEYCODE_ESCAPE) {
+            if (event.action == KeyEvent.ACTION_UP) closeWeatherStep(null)
+            return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
+    private fun showWeatherStep() {
+        inWeatherStep = true
+        body.removeAllViews()
+        body.addView(WeatherCityView(this, WeatherCityClient(this), ::closeWeatherStep).build())
+        scroll.scrollTo(0, 0)
+        onBackInvokedDispatcher.registerOnBackInvokedCallback(
+            OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+            backFromStep
+        )
+    }
+
+    /** Back, Escape, Skip and a successful choice all end the step; it is not offered again by itself. */
+    private fun closeWeatherStep(note: String?) {
+        if (!inWeatherStep) return
+        inWeatherStep = false
+        onBackInvokedDispatcher.unregisterOnBackInvokedCallback(backFromStep)
+        prefs().edit { putBoolean(KEY_WEATHER_ASKED, true) }
+        render(null, note)
+        scroll.scrollTo(0, 0)
+    }
+
+    private fun prefs() = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    private fun weatherStepAsked() = prefs().getBoolean(KEY_WEATHER_ASKED, false)
+
+    private fun render(failure: String?, note: String? = null) {
         body.removeAllViews()
         val items = SetupRows.build(SetupReader(this).snapshot(), launcher::resolve)
         body.addView(text(SetupModel.TITLE, TITLE_SP, Color.WHITE, true))
@@ -61,6 +124,7 @@ class SetupActivity : Activity() {
                 .apply { setPadding(0, px(SPACING), 0, px(SPACING)) }
         )
         if (failure != null) body.addView(text(failure, DETAIL_SP, WARN, true))
+        if (note != null) body.addView(text(note, DETAIL_SP, Color.WHITE, true))
         items.forEach { addRow(it) }
         body.addView(
             text(SetupModel.FOOTNOTE, DETAIL_SP, DIM, false).apply {
@@ -83,7 +147,11 @@ class SetupActivity : Activity() {
                 setTextColor(Color.WHITE)
                 setBackgroundColor(KEY)
                 setOnClickListener {
-                    render(LaunchReport.message(item.action.label, launcher.run(item.action)))
+                    if (item.action == Action.WeatherCity) {
+                        showWeatherStep()
+                    } else {
+                        render(LaunchReport.message(item.action.label, launcher.run(item.action)))
+                    }
                 }
             }
         )
@@ -105,16 +173,7 @@ class SetupActivity : Activity() {
     }
 
     private companion object {
-        const val PAD_H = 16
-        const val PAD_V = 18
-        const val SPACING = 10
-        const val TITLE_SP = 26f
-        const val SUMMARY_SP = 15f
-        const val ROW_TITLE_SP = 17f
-        const val DETAIL_SP = 13f
-        val BG = Color.parseColor("#0C1E2D")
-        val KEY = Color.parseColor("#1E3A52")
-        val DIM = Color.parseColor("#8FA9BF")
-        val WARN = Color.parseColor("#FFB347")
+        const val PREFS = "sable_setup"
+        const val KEY_WEATHER_ASKED = "weather_city_step_done"
     }
 }

@@ -1,0 +1,280 @@
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/BoardSize.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/BoardSize.kt
+new file mode 100644
+index 0000000..9fe3725
+--- /dev/null
++++ b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/BoardSize.kt
+@@ -0,0 +1,20 @@
++package org.sableos.games
++
++import androidx.compose.runtime.Composable
++import androidx.compose.ui.platform.LocalDensity
++import androidx.compose.ui.platform.LocalWindowInfo
++import androidx.compose.ui.unit.Dp
++
++/**
++ * Share of the window height a square board may take. On the Q25's square 411 dp screen a full-width
++ * board is as tall as the whole window, which pushes the controls and part of the board below the
++ * fold; capping it keeps the board and its main controls visible together.
++ */
++private const val BOARD_HEIGHT_SHARE = 0.6f
++
++/** The largest side a square game board may have in this window; full width still applies when smaller. */
++@Composable
++internal fun boardMaxSide(): Dp {
++    val height = LocalWindowInfo.current.containerSize.height
++    return with(LocalDensity.current) { (height * BOARD_HEIGHT_SHARE).toDp() }
++}
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/Game2048Screen.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/Game2048Screen.kt
+index d8934f8..e899737 100644
+--- a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/Game2048Screen.kt
++++ b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/Game2048Screen.kt
+@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Row
+ import androidx.compose.foundation.layout.aspectRatio
+ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.widthIn
++import androidx.compose.foundation.layout.wrapContentWidth
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.Surface
+ import androidx.compose.material3.Text
+@@ -24,10 +26,10 @@ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.input.pointer.pointerInput
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.unit.dp
++import kotlin.math.abs
+ import org.sableos.design.SableActionButton
+ import org.sableos.design.SableSpacing
+ import org.sableos.design.SableValuePanel
+-import kotlin.math.abs
+ 
+ private val TileEmpty = Color(0xFF10161D)
+ private val Tile2 = Color(0xFF26384B)
+@@ -118,6 +120,8 @@ private fun Game2048Board(
+         modifier =
+             Modifier
+                 .fillMaxWidth()
++                .wrapContentWidth(Alignment.CenterHorizontally)
++                .widthIn(max = boardMaxSide())
+                 .pointerInput(Unit) {
+                     detectDragGestures(
+                         onDragStart = {
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MinesweeperScreen.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MinesweeperScreen.kt
+index 3c1cd18..08ad12e 100644
+--- a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MinesweeperScreen.kt
++++ b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MinesweeperScreen.kt
+@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.Row
+ import androidx.compose.foundation.layout.aspectRatio
+ import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.widthIn
++import androidx.compose.foundation.layout.wrapContentWidth
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.Surface
+ import androidx.compose.material3.Text
+@@ -160,7 +162,11 @@ internal fun MinesweeperScreen() {
+         }
+ 
+         Surface(
+-            modifier = Modifier.fillMaxWidth(),
++            modifier =
++                Modifier
++                .fillMaxWidth()
++                .wrapContentWidth(Alignment.CenterHorizontally)
++                .widthIn(max = boardMaxSide()),
+             shape = MaterialTheme.shapes.medium,
+             color = MaterialTheme.colorScheme.surface,
+             border =
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/SudokuScreen.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/SudokuScreen.kt
+index 8307ced..101b462 100644
+--- a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/SudokuScreen.kt
++++ b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/SudokuScreen.kt
+@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.RowScope
+ import androidx.compose.foundation.layout.aspectRatio
+ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.heightIn
++import androidx.compose.foundation.layout.widthIn
++import androidx.compose.foundation.layout.wrapContentWidth
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.Surface
+ import androidx.compose.material3.Text
+@@ -202,7 +204,11 @@ private fun SudokuBoard(
+     onSelect: (Int, Int) -> Unit,
+ ) {
+     Column(
+-        modifier = Modifier.fillMaxWidth(),
++        modifier =
++            Modifier
++            .fillMaxWidth()
++            .wrapContentWidth(Alignment.CenterHorizontally)
++            .widthIn(max = boardMaxSide()),
+     ) {
+         (0 until 3).forEach { blockRow ->
+             Row(
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardPrefs.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardPrefs.kt
+index e3f08cc..3c7a62d 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardPrefs.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardPrefs.kt
+@@ -67,7 +67,7 @@ class KeyboardPrefs(context: Context) {
+      * hidden. Turning it off restores the previous candidates-only behaviour.
+      */
+     var compactStrip: Boolean
+-        get() = prefs.getBoolean("compactStrip", true)
++        get() = prefs.getBoolean("compactStrip", compactStripDefault())
+         set(v) {
+             prefs.edit().putBoolean("compactStrip", v).apply()
+         }
+@@ -76,4 +76,14 @@ class KeyboardPrefs(context: Context) {
+         prefs.edit().putBoolean(key, v).apply()
+     }
+     fun getBool(key: String, d: Boolean) = prefs.getBoolean(key, d)
++
++    companion object {
++        private const val COMPACT_STRIP_PROP = "ro.sable.keyboard.compact_strip"
++
++        /**
++         * Default of the compact strip: on, unless the device sets the property to false. The Q25
++         * does: its small square screen shows modifier state as a status bar icon instead.
++         */
++        fun compactStripDefault(): Boolean = SysProps.get(COMPACT_STRIP_PROP) != "false"
++    }
+ }
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardSettingsActivity.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardSettingsActivity.kt
+index 4d83d32..ecb65cb 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardSettingsActivity.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardSettingsActivity.kt
+@@ -44,7 +44,11 @@ class KeyboardSettingsActivity : Activity() {
+         sw("Alt+Space toggles Nav mode", "altSpaceNav", true)
+         sw("Show on-screen keyboard for numeric/PIN fields", "softForNumeric", true)
+         sw("Always show on-screen keyboard", "forceSoft", false)
+-        sw("Compact status strip when the on-screen keyboard is hidden", "compactStrip", true)
++        sw(
++            "Compact status strip when the on-screen keyboard is hidden",
++            "compactStrip",
++            KeyboardPrefs.compactStripDefault()
++        )
+         sw("Enter sends in apps that offer Send (Shift+Enter: new line)", ENTER_SENDS, false)
+     }
+ 
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt
+index 83ce026..384da29 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt
+@@ -9,6 +9,7 @@ import android.view.inputmethod.EditorInfo
+ import android.view.inputmethod.InputMethodManager
+ import android.view.inputmethod.InputMethodSubtype
+ import android.widget.Toast
++import org.sableos.titan2.keyboard.R
+ import org.sableos.titan2.keyboard.core.CompactStrip
+ import org.sableos.titan2.keyboard.core.Composer
+ import org.sableos.titan2.keyboard.core.Composers
+@@ -21,6 +22,7 @@ import org.sableos.titan2.keyboard.core.Key
+ import org.sableos.titan2.keyboard.core.KeyEv
+ import org.sableos.titan2.keyboard.core.KeyShortcuts
+ import org.sableos.titan2.keyboard.core.Mod
++import org.sableos.titan2.keyboard.core.ModState
+ import org.sableos.titan2.keyboard.core.Out
+ import org.sableos.titan2.keyboard.core.PinyinDict
+ import org.sableos.titan2.keyboard.core.Resolver
+@@ -167,7 +169,9 @@ class SableImeService : InputMethodService() {
+      * throws into the key path: a failed refresh must not cost the user a keystroke.
+      */
+     private fun refreshStrip() {
+-        val model = runCatching { CompactStrip.build(stripInputs()) }.getOrNull() ?: return
++        val inputs = stripInputs()
++        refreshModifierIcon(inputs)
++        val model = runCatching { CompactStrip.build(inputs) }.getOrNull() ?: return
+         strip?.render(model)
+         if (model.mode != stripMode) {
+             stripMode = model.mode
+@@ -184,6 +188,23 @@ class SableImeService : InputMethodService() {
+ 
+     private val stripRefresh = Runnable { refreshStrip() }
+ 
++    /** Status bar icon showing the active modifier while neither the strip nor the soft keyboard shows it. */
++    private var modifierIcon = 0
++
++    private fun refreshModifierIcon(i: StripInputs) {
++        val icon = when {
++            i.enabled || i.softKeyboardShown -> 0
++            i.sym != ModState.Off -> R.drawable.ic_stat_mod_sym
++            i.alt != ModState.Off -> R.drawable.ic_stat_mod_alt
++            i.shift != ModState.Off -> R.drawable.ic_stat_mod_shift
++            i.navOn -> R.drawable.ic_stat_mod_nav
++            else -> 0
++        }
++        if (icon == modifierIcon) return
++        modifierIcon = icon
++        if (icon == 0) hideStatusIcon() else showStatusIcon(icon)
++    }
++
+     private fun stripInputs(): StripInputs = StripInputs(
+         field = fieldClass,
+         softKeyboardShown = isInputViewShown,
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/res/drawable/ic_stat_mod_alt.xml b/sable-src/apps/titan2/platform/keyboard/src/main/res/drawable/ic_stat_mod_alt.xml
+new file mode 100644
+index 0000000..51073b7
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/res/drawable/ic_stat_mod_alt.xml
+@@ -0,0 +1,11 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Status bar icon: Alt is active while the compact strip is off (Q25). -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp"
++    android:height="24dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <path
++        android:fillColor="#FFFFFFFF"
++        android:pathData="M3,6H9L15,18H21V20H14L8,8H3ZM14,6H21V8H14Z" />
++</vector>
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/res/drawable/ic_stat_mod_nav.xml b/sable-src/apps/titan2/platform/keyboard/src/main/res/drawable/ic_stat_mod_nav.xml
+new file mode 100644
+index 0000000..5a74edb
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/res/drawable/ic_stat_mod_nav.xml
+@@ -0,0 +1,11 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Status bar icon: Nav mode is active while the compact strip is off (Q25). -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp"
++    android:height="24dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <path
++        android:fillColor="#FFFFFFFF"
++        android:pathData="M12,2L16,6H13V11H18V8L22,12L18,16V13H13V18H16L12,22L8,18H11V13H6V16L2,12L6,8V11H11V6H8Z" />
++</vector>
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/res/drawable/ic_stat_mod_shift.xml b/sable-src/apps/titan2/platform/keyboard/src/main/res/drawable/ic_stat_mod_shift.xml
+new file mode 100644
+index 0000000..d5588d1
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/res/drawable/ic_stat_mod_shift.xml
+@@ -0,0 +1,11 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Status bar icon: Shift is active while the compact strip is off (Q25). -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp"
++    android:height="24dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <path
++        android:fillColor="#FFFFFFFF"
++        android:pathData="M12,3L3,12H8V20H16V12H21Z" />
++</vector>
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/res/drawable/ic_stat_mod_sym.xml b/sable-src/apps/titan2/platform/keyboard/src/main/res/drawable/ic_stat_mod_sym.xml
+new file mode 100644
+index 0000000..12aeade
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/res/drawable/ic_stat_mod_sym.xml
+@@ -0,0 +1,11 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Status bar icon: Sym is active while the compact strip is off (Q25). -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp"
++    android:height="24dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <path
++        android:fillColor="#FFFFFFFF"
++        android:pathData="M9,3H11V8H14V3H16V8H20V10H16V14H20V16H16V21H14V16H11V21H9V16H5V14H9V10H5V8H9ZM11,10V14H14V10Z" />
++</vector>

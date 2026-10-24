@@ -15,10 +15,10 @@ Sable Setup is installed.
  res/values/strings_sable_mobile_manager.xml   |  2 +-
  res/values/strings_sable_settings.xml         | 48 ++++-----------
  res/xml/sable_settings.xml                    | 59 +++----------------
- .../android/settings/sable/SableLinks.java    | 40 +++----------
+ .../android/settings/sable/SableLinks.java    | 45 +++-----------
  .../settings/sable/SableSettingsFragment.java | 17 ++----
  .../TopLevelSablePreferenceController.java    |  5 +-
- 7 files changed, 35 insertions(+), 138 deletions(-)
+ 7 files changed, 35 insertions(+), 143 deletions(-)
 
 diff --git a/res/values/strings_sable_homepage_keys.xml b/res/values/strings_sable_homepage_keys.xml
 index df72de6..d6488d0 100644
@@ -47,7 +47,7 @@ index de404d5..b39e648 100644
      <!-- Summary of the Mobile Manager row. -->
      <string name="sable_mobile_manager_summary">Network access, background use, app lock, Focus mode, Private Space</string>
 diff --git a/res/values/strings_sable_settings.xml b/res/values/strings_sable_settings.xml
-index a03923f..74f04b9 100644
+index 5f05860..74f04b9 100644
 --- a/res/values/strings_sable_settings.xml
 +++ b/res/values/strings_sable_settings.xml
 @@ -18,49 +18,21 @@
@@ -87,7 +87,7 @@ index a03923f..74f04b9 100644
 -    <!-- Settings > Sable: Sable Hub row. -->
 -    <string name="sable_hub_title">Sable Hub</string>
 -    <!-- Summary of the Sable Hub row. -->
--    <string name="sable_hub_summary">Messages and notifications in one place, connected apps</string>
+-    <string name="sable_hub_summary">Connected apps, private mode and history (the Hub is on Sable Start)</string>
 -    <!-- Search keywords for the Sable Hub row. -->
 -    <string name="sable_hub_keywords">hub, inbox, unified inbox, connected apps, notification hub</string>
 -
@@ -187,10 +187,10 @@ index fb721dc..03521f1 100644
 -        android:fragment="com.android.settings.applications.sable.SableMobileManagerFragment" />
  </PreferenceScreen>
 diff --git a/src/com/android/settings/sable/SableLinks.java b/src/com/android/settings/sable/SableLinks.java
-index 1c26ffc..d54be2b 100644
+index 192705d..d54be2b 100644
 --- a/src/com/android/settings/sable/SableLinks.java
 +++ b/src/com/android/settings/sable/SableLinks.java
-@@ -26,37 +26,24 @@ import android.net.Uri;
+@@ -26,42 +26,24 @@ import android.net.Uri;
  import java.util.List;
  
  /**
@@ -206,6 +206,11 @@ index 1c26ffc..d54be2b 100644
 -    /** Opens Sable Start's quick bar editor (SableStartActivity). */
 -    public static final String ACTION_EDIT_QUICK_BAR = "org.sableos.start.action.EDIT_QUICK_BAR";
 -    public static final String HUB_PACKAGE = "org.sableos.hub";
+-    /**
+-     * Sable Hub's own settings (connected apps, private mode, history). Hub has no launcher entry:
+-     * its inbox is Sable Start's Hub page, so the row opens these settings.
+-     */
+-    public static final String ACTION_HUB_SETTINGS = "org.sableos.hub.action.CONNECTED_APPS";
 -    public static final String TOOLS_PACKAGE = "org.sableos.tools";
 -    public static final String ACTION_OPEN_TOOL = "org.sableos.tools.action.OPEN_TOOL";
 -    public static final String EXTRA_TOOL = "org.sableos.tools.extra.TOOL";
@@ -234,7 +239,7 @@ index 1c26ffc..d54be2b 100644
      };
  
      private SableLinks() {
-@@ -68,19 +55,8 @@ public final class SableLinks {
+@@ -73,19 +55,8 @@ public final class SableLinks {
              return null;
          }
          switch (key) {
@@ -244,7 +249,7 @@ index 1c26ffc..d54be2b 100644
 -            case KEY_QUICK_BAR:
 -                return new Intent(ACTION_EDIT_QUICK_BAR).setPackage(START_PACKAGE);
 -            case KEY_HUB:
--                return launcher(HUB_PACKAGE);
+-                return new Intent(ACTION_HUB_SETTINGS).setPackage(HUB_PACKAGE);
 -            case KEY_DIAGNOSTICS:
 -                return launcher(TOOLS_PACKAGE);
 -            case KEY_HARDWARE_TESTS:

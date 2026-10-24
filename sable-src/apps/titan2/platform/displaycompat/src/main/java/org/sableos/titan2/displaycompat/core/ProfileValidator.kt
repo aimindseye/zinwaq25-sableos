@@ -41,7 +41,43 @@ object ProfileValidator {
             )
         }
         checkOrientation(traits, p, out)
+        checkCanvas(traits, p, out)
         return Validation(out)
+    }
+
+    /** Tall canvas changes the whole display while the app is in front. */
+    private fun checkCanvas(traits: AppTraits, p: DisplayProfile, out: MutableList<Issue>) {
+        if (p.canvas == TallCanvas.Native) return
+        if (traits.isDialer) {
+            out.block(
+                "DIALER_CANVAS",
+                "The phone app must keep the native display so calls stay easy to read and answer."
+            )
+        }
+        if (traits.isAuthenticatorOrPayment) {
+            out.warn(
+                "AUTH_PAYMENT_CANVAS",
+                "Check codes and prompts stay readable on the smaller tall canvas.",
+                ack = true
+            )
+        }
+        if (traits.isCamera) {
+            out.warn("CAMERA_CANVAS", "The camera preview is shown smaller on a tall canvas.")
+        }
+        if (p.profile != AspectProfile.Native) {
+            out.warn(
+                "CANVAS_WITH_ASPECT",
+                "Tall canvas already gives a phone shape; an aspect profile narrows it again."
+            )
+        }
+        out.add(
+            Issue(
+                Severity.Info,
+                "CANVAS_LIVE",
+                "Tall canvas: while this app is in front the screen gets a taller size, drawn " +
+                    "smaller. Leaving the app, locking or a crash puts the native size back."
+            )
+        )
     }
 
     private fun checkOrientation(traits: AppTraits, p: DisplayProfile, out: MutableList<Issue>) {
@@ -62,9 +98,17 @@ object ProfileValidator {
             out.add(
                 Issue(
                     Severity.Info,
-                    "AUTO_NOT_PER_APP",
-                    "Auto has no per-app platform override here; the app follows its own rotation request."
+                    "AUTO_LIVE",
+                    "Auto turns auto-rotate on while this app is in front; an app that fixes " +
+                        "its own orientation keeps it."
                 )
+            )
+        }
+        if (p.orientation == OrientationPref.Landscape && DisplayPolicy.usesAspectRatio(p)) {
+            out.warn(
+                "ASPECT_KEEPS_PORTRAIT",
+                "With an aspect ratio Android keeps the app portrait unless the app itself asks " +
+                    "for landscape."
             )
         }
     }
@@ -200,7 +244,13 @@ object TraitHeuristics {
             "com.android.systemui",
             "com.android.settings",
             "com.android.keyguard",
-            "org.sableos.launcher"
+            "org.sableos.launcher",
+            // Setup, the Recents host and this app's own screens are never reshaped either.
+            "org.sableos.titan2.setup",
+            "org.lineageos.setupwizard",
+            "com.android.provision",
+            "com.android.launcher3",
+            "org.sableos.titan2.displaycompat"
         )
     fun isProtectedSystemPackage(pkg: String): Boolean = protectedPrefixes.any {
         pkg == it ||
