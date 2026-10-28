@@ -529,5 +529,5 @@ private const val SWIPE_DP = 72
 private const val ROW_DP = 64
 private const val ICON_DP = 40
 private val BANNER_SCRIM = Color(0x99000000)
-private val TRAY_SCRIM = Color(0xCC0B0D10)
+private val TRAY_SCRIM = Color(0xE6000000)
 private val BANNER_MUTED = Color(0xFFC9D1DA)

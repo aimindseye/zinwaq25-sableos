@@ -19,10 +19,11 @@ class StartPaletteTest {
     }
 
     @Test
-    fun darkIsTheBb10LookAndLightUsesLightSurfacesWithDarkText() {
+    fun darkIsPureBlackAndLightUsesLightSurfacesWithDarkText() {
         val dark = startPalette(dark = true, accent = AccentPreset.Green)
         val light = startPalette(dark = false, accent = AccentPreset.Green)
-        assertEquals(Color(0xFF121212), dark.background)
+        assertEquals(Color.Black, dark.background)
+        assertTrue(dark.card.luminance() < 0.02f)
         assertEquals(Color.White, dark.text)
         assertTrue(light.background.luminance() > 0.8f)
         assertTrue(light.card.luminance() > 0.8f)

@@ -29,6 +29,8 @@ Titan 2 or Q27 SableOS lanes.
 > alpha release. That build, alpha-20261028, booted on the Q25; PR #38 answers
 > its review (the weather fix, Sound Profiles restyled, BlackBerry 7 home dials,
 > swipes and home screen icons). Their Q4-* gates are `NOT_RUN` until the next image.
+> **Using SableOS:** [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) covers setup,
+> the keys, the apps, the privacy and security defaults and what to change.
 > Install steps: [`docs/INSTALL.md`](docs/INSTALL.md), or for a downloaded
 > release [`docs/FLASHING_RELEASE.md`](docs/FLASHING_RELEASE.md).
 > Gates and evidence: [`docs/QUALIFICATION.md`](docs/QUALIFICATION.md). Design
