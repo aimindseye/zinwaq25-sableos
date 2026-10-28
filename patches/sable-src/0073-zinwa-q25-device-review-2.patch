@@ -1,0 +1,3466 @@
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/BoardSize.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/BoardSize.kt
+deleted file mode 100644
+index 9fe3725..0000000
+--- a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/BoardSize.kt
++++ /dev/null
+@@ -1,20 +0,0 @@
+-package org.sableos.games
+-
+-import androidx.compose.runtime.Composable
+-import androidx.compose.ui.platform.LocalDensity
+-import androidx.compose.ui.platform.LocalWindowInfo
+-import androidx.compose.ui.unit.Dp
+-
+-/**
+- * Share of the window height a square board may take. On the Q25's square 411 dp screen a full-width
+- * board is as tall as the whole window, which pushes the controls and part of the board below the
+- * fold; capping it keeps the board and its main controls visible together.
+- */
+-private const val BOARD_HEIGHT_SHARE = 0.6f
+-
+-/** The largest side a square game board may have in this window; full width still applies when smaller. */
+-@Composable
+-internal fun boardMaxSide(): Dp {
+-    val height = LocalWindowInfo.current.containerSize.height
+-    return with(LocalDensity.current) { (height * BOARD_HEIGHT_SHARE).toDp() }
+-}
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/Game2048Screen.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/Game2048Screen.kt
+index e899737..b7136c8 100644
+--- a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/Game2048Screen.kt
++++ b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/Game2048Screen.kt
+@@ -9,8 +9,7 @@ import androidx.compose.foundation.layout.Row
+ import androidx.compose.foundation.layout.aspectRatio
+ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.padding
+-import androidx.compose.foundation.layout.widthIn
+-import androidx.compose.foundation.layout.wrapContentWidth
++import androidx.compose.foundation.layout.size
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.Surface
+ import androidx.compose.material3.Text
+@@ -25,13 +24,11 @@ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.input.pointer.pointerInput
+ import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.unit.Dp
+ import androidx.compose.ui.unit.dp
+-import kotlin.math.abs
+-import org.sableos.design.SableActionButton
+ import org.sableos.design.SableSpacing
+-import org.sableos.design.SableValuePanel
++import kotlin.math.abs
+ 
+-private val TileEmpty = Color(0xFF10161D)
+ private val Tile2 = Color(0xFF26384B)
+ private val Tile4 = Color(0xFF315A78)
+ private val Tile8 = Color(0xFFF08A4B)
+@@ -79,37 +76,32 @@ internal fun Game2048Screen() {
+         true
+     }
+ 
+-    Column(
+-        verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
+-    ) {
+-        SableValuePanel(
+-            label = "score",
+-            value = score.toString(),
+-            supportingText = "Swipe the board or use the arrows (trackpad) to move every tile; N starts over.",
+-        )
+-
++    GameFrame(
++        title = "2048",
++        subtitle = "Slide, merge and build the highest tile.",
++        statusLabel = "score",
++        status = score.toString(),
++        hint = "Swipe the board or use the arrows (trackpad) to move every tile; N starts over.",
++        actions = listOf(GameAction(label = "New", key = "N", onClick = ::reset)),
++        tallExtras = {
++            Text(
++                text = "Swipe left, right, up or down. Equal tiles merge into the next value.",
++                style = MaterialTheme.typography.bodyMedium,
++                color = MaterialTheme.colorScheme.onSurfaceVariant,
++            )
++        },
++    ) { side ->
+         Game2048Board(
++            side = side,
+             board = board,
+             onSlide = ::slide,
+         )
+-
+-        Text(
+-            text = "Swipe left, right, up or down. Equal tiles merge into the next value.",
+-            style = MaterialTheme.typography.bodyMedium,
+-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+-        )
+-
+-        SableActionButton(
+-            text = "New game",
+-            modifier = Modifier.fillMaxWidth(),
+-            primary = false,
+-            onClick = ::reset,
+-        )
+     }
+ }
+ 
+ @Composable
+ private fun Game2048Board(
++    side: Dp,
+     board: IntArray,
+     onSlide: (Int) -> Unit,
+ ) {
+@@ -119,9 +111,7 @@ private fun Game2048Board(
+     Surface(
+         modifier =
+             Modifier
+-                .fillMaxWidth()
+-                .wrapContentWidth(Alignment.CenterHorizontally)
+-                .widthIn(max = boardMaxSide())
++                .size(side)
+                 .pointerInput(Unit) {
+                     detectDragGestures(
+                         onDragStart = {
+@@ -184,7 +174,7 @@ private fun Tile2048(
+     value: Int,
+     modifier: Modifier = Modifier,
+ ) {
+-    val container = tileColor(value)
++    val container = if (value == 0) MaterialTheme.colorScheme.surfaceVariant else tileColor(value)
+     val content =
+         if (value >= 128) {
+             Color(0xFF071016)
+@@ -230,7 +220,6 @@ private fun Tile2048(
+ 
+ private fun tileColor(value: Int): Color =
+     when (value) {
+-        0 -> TileEmpty
+         2 -> Tile2
+         4 -> Tile4
+         8 -> Tile8
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GameFrame.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GameFrame.kt
+new file mode 100644
+index 0000000..7fdb1ab
+--- /dev/null
++++ b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GameFrame.kt
+@@ -0,0 +1,218 @@
++package org.sableos.games
++
++import androidx.compose.foundation.BorderStroke
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.BoxWithConstraints
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.ColumnScope
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.Spacer
++import androidx.compose.foundation.layout.fillMaxHeight
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.heightIn
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.safeDrawingPadding
++import androidx.compose.foundation.layout.width
++import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.verticalScroll
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.Surface
++import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.text.style.TextOverflow
++import androidx.compose.ui.unit.Dp
++import androidx.compose.ui.unit.dp
++import androidx.compose.ui.unit.min
++import org.sableos.design.SableActionButton
++import org.sableos.design.SableHeroHeader
++import org.sableos.design.SableSpacing
++import org.sableos.design.SableValuePanel
++
++private const val GAMES_EYEBROW = "Sable Games"
++
++/** A game control: the on-screen button and the key that does the same. */
++internal data class GameAction(
++    val label: String,
++    val key: String,
++    val active: Boolean = false,
++    val onClick: () -> Unit,
++)
++
++/**
++ * Where the board and controls go. A window less than [TALL_RATIO] times as tall as it is wide
++ * (the Q25's 720x720 square) puts the board on the left at the full height and the title, status
++ * and controls in a narrow rail on the right, so the whole game shows without scrolling. A tall
++ * phone keeps the header, status panel, board and buttons in one column.
++ */
++internal object GameLayout {
++    const val TALL_RATIO = 1.3f
++    val RailWidth = 88.dp
++    val Gap = 8.dp
++    val Edge = 8.dp
++
++    fun isSquare(
++        widthDp: Float,
++        heightDp: Float,
++    ): Boolean = heightDp < widthDp * TALL_RATIO
++
++    /** The board's side in a square window: the height, or the width left beside the rail. */
++    fun squareBoardSide(
++        width: Dp,
++        height: Dp,
++    ): Dp = min(height - Edge * 2, width - Edge * 2 - RailWidth - Gap)
++
++    /** The board's side in a tall window: the width, at most 60 % of the height. */
++    fun tallBoardSide(
++        width: Dp,
++        height: Dp,
++    ): Dp = min(width - SableSpacing.ScreenHorizontal * 2, height * 0.6f)
++}
++
++/** One game's screen, laid out for the window ([GameLayout]); colours come from the Sable theme. */
++@Composable
++internal fun GameFrame(
++    title: String,
++    subtitle: String,
++    statusLabel: String,
++    status: String,
++    hint: String,
++    actions: List<GameAction>,
++    tallExtras: @Composable ColumnScope.() -> Unit = {},
++    board: @Composable (side: Dp) -> Unit,
++) {
++    Surface(
++        modifier = Modifier.fillMaxSize(),
++        color = MaterialTheme.colorScheme.background,
++    ) {
++        BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding()) {
++            val width = maxWidth
++            val height = maxHeight
++            if (GameLayout.isSquare(width.value, height.value)) {
++                SquareGame(
++                    title = title,
++                    statusLabel = statusLabel,
++                    status = status,
++                    actions = actions,
++                    side = GameLayout.squareBoardSide(width, height),
++                    board = board,
++                )
++            } else {
++                Column(
++                    modifier =
++                        Modifier
++                            .fillMaxSize()
++                            .verticalScroll(rememberScrollState())
++                            .padding(
++                                horizontal = SableSpacing.ScreenHorizontal,
++                                vertical = SableSpacing.ScreenVertical,
++                            ),
++                    verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
++                ) {
++                    SableHeroHeader(eyebrow = GAMES_EYEBROW, title = title, subtitle = subtitle)
++                    SableValuePanel(label = statusLabel, value = status, supportingText = hint)
++                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
++                        board(GameLayout.tallBoardSide(width, height))
++                    }
++                    tallExtras()
++                    Row(
++                        modifier = Modifier.fillMaxWidth(),
++                        horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
++                    ) {
++                        actions.forEach { action ->
++                            SableActionButton(
++                                text = action.label,
++                                modifier = Modifier.weight(1f),
++                                primary = action.active,
++                                onClick = action.onClick,
++                            )
++                        }
++                    }
++                }
++            }
++        }
++    }
++}
++
++@Composable
++private fun SquareGame(
++    title: String,
++    statusLabel: String,
++    status: String,
++    actions: List<GameAction>,
++    side: Dp,
++    board: @Composable (side: Dp) -> Unit,
++) {
++    Row(
++        modifier = Modifier.fillMaxSize().padding(GameLayout.Edge),
++        horizontalArrangement = Arrangement.spacedBy(GameLayout.Gap),
++        verticalAlignment = Alignment.CenterVertically,
++    ) {
++        board(side)
++        Column(
++            modifier = Modifier.width(GameLayout.RailWidth).fillMaxHeight(),
++            verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
++        ) {
++            Text(
++                text = title,
++                style = MaterialTheme.typography.titleMedium,
++                color = MaterialTheme.colorScheme.onBackground,
++                maxLines = 1,
++                overflow = TextOverflow.Ellipsis,
++            )
++            Text(
++                text = statusLabel,
++                style = MaterialTheme.typography.labelMedium,
++                color = MaterialTheme.colorScheme.primary,
++                maxLines = 1,
++            )
++            Text(
++                text = status,
++                style = MaterialTheme.typography.labelLarge,
++                color = MaterialTheme.colorScheme.onBackground,
++                maxLines = 3,
++                overflow = TextOverflow.Ellipsis,
++            )
++            Spacer(Modifier.weight(1f))
++            actions.forEach { action -> RailButton(action) }
++        }
++    }
++}
++
++/** A rail control: the label, and below it the key that does the same. */
++@Composable
++private fun RailButton(action: GameAction) {
++    val colors = MaterialTheme.colorScheme
++    Surface(
++        onClick = action.onClick,
++        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
++        shape = MaterialTheme.shapes.medium,
++        color = if (action.active) colors.primary else colors.surface,
++        contentColor = if (action.active) colors.onPrimary else colors.onSurface,
++        border = BorderStroke(1.dp, if (action.active) colors.primary else colors.outlineVariant),
++        tonalElevation = 0.dp,
++    ) {
++        Column(
++            modifier = Modifier.padding(vertical = 4.dp),
++            horizontalAlignment = Alignment.CenterHorizontally,
++            verticalArrangement = Arrangement.Center,
++        ) {
++            Text(
++                text = action.label,
++                style = MaterialTheme.typography.labelLarge,
++                fontWeight = FontWeight.Medium,
++                maxLines = 1,
++            )
++            Text(
++                text = action.key,
++                style = MaterialTheme.typography.labelSmall,
++                color = if (action.active) colors.onPrimary else colors.onSurfaceVariant,
++                maxLines = 1,
++            )
++        }
++    }
++}
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MainActivity.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MainActivity.kt
+index 3d2e7bd..ff747be 100644
+--- a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MainActivity.kt
++++ b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MainActivity.kt
+@@ -8,10 +8,6 @@ import androidx.activity.compose.setContent
+ import androidx.compose.runtime.CompositionLocalProvider
+ import androidx.compose.runtime.staticCompositionLocalOf
+ import org.sableos.design.SableGlobalTheme
+-import org.sableos.design.SableHeroHeader
+-import org.sableos.design.SableScrollableScreen
+-
+-private const val GAMES_EYEBROW = "Sable Games"
+ 
+ /** The key host of the running game; screens install their handler in it. */
+ internal val LocalGameKeyHost = staticCompositionLocalOf { GameKeyHost() }
+@@ -30,41 +26,11 @@ class MainActivity : ComponentActivity() {
+         setContent {
+             SableGlobalTheme(window = window) {
+                 CompositionLocalProvider(LocalGameKeyHost provides keyHost) {
+-                    SableScrollableScreen {
+-                        when (BuildConfig.SABLE_GAME) {
+-                            "sudoku" -> {
+-                                SableHeroHeader(
+-                                    eyebrow = GAMES_EYEBROW,
+-                                    title = "sudoku",
+-                                    subtitle = "A focused number puzzle.",
+-                                )
+-                                SudokuScreen()
+-                            }
+-
+-                            "minesweeper" -> {
+-                                SableHeroHeader(
+-                                    eyebrow = GAMES_EYEBROW,
+-                                    title = "minesweeper",
+-                                    subtitle = "Clear the field without touching a mine.",
+-                                )
+-                                MinesweeperScreen()
+-                            }
+-
+-                            "2048" -> {
+-                                SableHeroHeader(
+-                                    eyebrow = GAMES_EYEBROW,
+-                                    title = "2048",
+-                                    subtitle = "Slide, merge and build the highest tile.",
+-                                )
+-                                Game2048Screen()
+-                            }
+-
+-                            else -> {
+-                                error(
+-                                    "Unsupported Sable game flavor: ${BuildConfig.SABLE_GAME}",
+-                                )
+-                            }
+-                        }
++                    when (BuildConfig.SABLE_GAME) {
++                        "sudoku" -> SudokuScreen()
++                        "minesweeper" -> MinesweeperScreen()
++                        "2048" -> Game2048Screen()
++                        else -> error("Unsupported Sable game flavor: ${BuildConfig.SABLE_GAME}")
+                     }
+                 }
+             }
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MinesweeperScreen.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MinesweeperScreen.kt
+index 08ad12e..0b7d849 100644
+--- a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MinesweeperScreen.kt
++++ b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MinesweeperScreen.kt
+@@ -1,14 +1,12 @@
+ package org.sableos.games
+ 
+ import androidx.compose.foundation.BorderStroke
+-import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.Row
+ import androidx.compose.foundation.layout.aspectRatio
+ import androidx.compose.foundation.layout.fillMaxWidth
+-import androidx.compose.foundation.layout.widthIn
+-import androidx.compose.foundation.layout.wrapContentWidth
++import androidx.compose.foundation.layout.size
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.Surface
+ import androidx.compose.material3.Text
+@@ -22,10 +20,6 @@ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.unit.dp
+-import org.sableos.design.SableActionButton
+-import org.sableos.design.SableSpacing
+-import org.sableos.design.SableTile
+-import org.sableos.design.SableValuePanel
+ 
+ private const val MINE_FIELD_SIZE = 9
+ 
+@@ -132,41 +126,21 @@ internal fun MinesweeperScreen() {
+         true
+     }
+ 
+-    Column(
+-        verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
+-    ) {
+-        SableValuePanel(
+-            label = if (flagMode) "flag mode" else "reveal mode",
+-            value = status,
+-            supportingText = "9 × 9 field · 10 mines · arrows move, Space reveals, F flags, N new field",
+-        )
+-
+-        Row(
+-            modifier = Modifier.fillMaxWidth(),
+-            horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+-        ) {
+-            SableTile(
+-                title = "Reveal",
+-                subtitle = "open a tile",
+-                active = !flagMode,
+-                modifier = Modifier.weight(1f),
+-                onClick = { flagMode = false },
+-            )
+-            SableTile(
+-                title = "Flag",
+-                subtitle = "mark a mine",
+-                active = flagMode,
+-                modifier = Modifier.weight(1f),
+-                onClick = { flagMode = true },
+-            )
+-        }
+-
++    GameFrame(
++        title = "minesweeper",
++        subtitle = "Clear the field without touching a mine.",
++        statusLabel = if (flagMode) "flag mode" else "reveal mode",
++        status = status,
++        hint = "9 × 9 field · 10 mines · arrows move, Space reveals, F flags, N new field",
++        actions =
++            listOf(
++                GameAction(label = "Reveal", key = "Space", active = !flagMode, onClick = { flagMode = false }),
++                GameAction(label = "Flag", key = "F", active = flagMode, onClick = { flagMode = true }),
++                GameAction(label = "New", key = "N", onClick = ::reset),
++            ),
++    ) { side ->
+         Surface(
+-            modifier =
+-                Modifier
+-                .fillMaxWidth()
+-                .wrapContentWidth(Alignment.CenterHorizontally)
+-                .widthIn(max = boardMaxSide()),
++            modifier = Modifier.size(side),
+             shape = MaterialTheme.shapes.medium,
+             color = MaterialTheme.colorScheme.surface,
+             border =
+@@ -197,13 +171,6 @@ internal fun MinesweeperScreen() {
+                 }
+             }
+         }
+-
+-        SableActionButton(
+-            text = "New field",
+-            modifier = Modifier.fillMaxWidth(),
+-            primary = false,
+-            onClick = ::reset,
+-        )
+     }
+ }
+ 
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/SudokuScreen.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/SudokuScreen.kt
+index 101b462..1a7dc5c 100644
+--- a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/SudokuScreen.kt
++++ b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/SudokuScreen.kt
+@@ -1,7 +1,6 @@
+ package org.sableos.games
+ 
+ import androidx.compose.foundation.BorderStroke
+-import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.Row
+@@ -9,8 +8,7 @@ import androidx.compose.foundation.layout.RowScope
+ import androidx.compose.foundation.layout.aspectRatio
+ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.heightIn
+-import androidx.compose.foundation.layout.widthIn
+-import androidx.compose.foundation.layout.wrapContentWidth
++import androidx.compose.foundation.layout.size
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.Surface
+ import androidx.compose.material3.Text
+@@ -26,9 +24,8 @@ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.graphics.RectangleShape
+ import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.unit.Dp
+ import androidx.compose.ui.unit.dp
+-import org.sableos.design.SableSpacing
+-import org.sableos.design.SableValuePanel
+ 
+ private const val SUDOKU_SIZE = 9
+ 
+@@ -142,73 +139,52 @@ internal fun SudokuScreen() {
+         true
+     }
+ 
+-    Column(
+-        verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
+-    ) {
+-        SableValuePanel(
+-            label = "puzzle",
+-            value = status,
+-            supportingText = "Arrows move, 1-9 (or W E R S D F Z X C) fill, Del erases, U undoes, N starts over.",
+-        )
+-
++    GameFrame(
++        title = "sudoku",
++        subtitle = "A focused number puzzle.",
++        statusLabel = "puzzle",
++        status = status,
++        hint = "Arrows move, 1-9 (or W E R S D F Z X C) fill, Del erases, U undoes, N starts over.",
++        actions =
++            listOf(
++                GameAction(label = "Undo", key = "U", onClick = ::undo),
++                GameAction(label = "Erase", key = "Del", onClick = ::erase),
++                GameAction(label = "New", key = "N", onClick = ::reset),
++            ),
++        tallExtras = {
++            Row(
++                modifier = Modifier.fillMaxWidth(),
++            ) {
++                (1..9).forEach { value ->
++                    SudokuNumberKey(
++                        value = value,
++                        modifier = Modifier.weight(1f),
++                        onClick = { setValue(value) },
++                    )
++                }
++            }
++        },
++    ) { side ->
+         SudokuBoard(
++            side = side,
+             board = board,
+             selectedRow = selectedRow,
+             selectedCol = selectedCol,
+             onSelect = ::select,
+         )
+-
+-        Row(
+-            modifier = Modifier.fillMaxWidth(),
+-        ) {
+-            (1..9).forEach { value ->
+-                SudokuNumberKey(
+-                    value = value,
+-                    modifier = Modifier.weight(1f),
+-                    onClick = { setValue(value) },
+-                )
+-            }
+-        }
+-
+-        Row(
+-            modifier = Modifier.fillMaxWidth(),
+-            horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+-        ) {
+-            SudokuBottomAction(
+-                symbol = "↶",
+-                label = "Undo",
+-                modifier = Modifier.weight(1f),
+-                onClick = ::undo,
+-            )
+-            SudokuBottomAction(
+-                symbol = "⌫",
+-                label = "Erase",
+-                modifier = Modifier.weight(1f),
+-                onClick = ::erase,
+-            )
+-            SudokuBottomAction(
+-                symbol = "↻",
+-                label = "New game",
+-                modifier = Modifier.weight(1f),
+-                onClick = ::reset,
+-            )
+-        }
+     }
+ }
+ 
+ @Composable
+ private fun SudokuBoard(
++    side: Dp,
+     board: String,
+     selectedRow: Int,
+     selectedCol: Int,
+     onSelect: (Int, Int) -> Unit,
+ ) {
+     Column(
+-        modifier =
+-            Modifier
+-            .fillMaxWidth()
+-            .wrapContentWidth(Alignment.CenterHorizontally)
+-            .widthIn(max = boardMaxSide()),
++        modifier = Modifier.size(side),
+     ) {
+         (0 until 3).forEach { blockRow ->
+             Row(
+@@ -369,43 +345,6 @@ private fun SudokuNumberKey(
+     }
+ }
+ 
+-@Composable
+-private fun SudokuBottomAction(
+-    symbol: String,
+-    label: String,
+-    modifier: Modifier = Modifier,
+-    onClick: () -> Unit,
+-) {
+-    Surface(
+-        onClick = onClick,
+-        modifier = modifier.heightIn(min = 56.dp),
+-        shape = MaterialTheme.shapes.medium,
+-        color = MaterialTheme.colorScheme.surface,
+-        contentColor = MaterialTheme.colorScheme.onSurface,
+-        border =
+-            BorderStroke(
+-                1.dp,
+-                MaterialTheme.colorScheme.outlineVariant,
+-            ),
+-        tonalElevation = 0.dp,
+-    ) {
+-        Column(
+-            horizontalAlignment = Alignment.CenterHorizontally,
+-            verticalArrangement = Arrangement.Center,
+-        ) {
+-            Text(
+-                text = symbol,
+-                style = MaterialTheme.typography.titleLarge,
+-                color = MaterialTheme.colorScheme.primary,
+-            )
+-            Text(
+-                text = label,
+-                style = MaterialTheme.typography.labelLarge,
+-            )
+-        }
+-    }
+-}
+-
+ private fun isGiven(
+     row: Int,
+     col: Int,
+diff --git a/sable-src/apps/r8/android/games/src/test/java/org/sableos/games/GameLayoutTest.kt b/sable-src/apps/r8/android/games/src/test/java/org/sableos/games/GameLayoutTest.kt
+new file mode 100644
+index 0000000..80c8065
+--- /dev/null
++++ b/sable-src/apps/r8/android/games/src/test/java/org/sableos/games/GameLayoutTest.kt
+@@ -0,0 +1,31 @@
++package org.sableos.games
++
++import androidx.compose.ui.unit.dp
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++/** The Q25's square window puts the board beside the controls; a tall phone stacks them. */
++class GameLayoutTest {
++    @Test
++    fun squareAndTallWindows() {
++        assertTrue(GameLayout.isSquare(widthDp = 411f, heightDp = 387f))
++        assertTrue(GameLayout.isSquare(widthDp = 411f, heightDp = 411f))
++        assertFalse(GameLayout.isSquare(widthDp = 411f, heightDp = 860f))
++    }
++
++    @Test
++    fun theSquareBoardFillsTheWidthBesideTheRailAndNeverOverflowsTheHeight() {
++        // Q25: 411 dp wide, 387 dp under the status bar.
++        assertEquals(299.dp, GameLayout.squareBoardSide(width = 411.dp, height = 387.dp))
++        // Short window: the height limits the board.
++        assertEquals(184.dp, GameLayout.squareBoardSide(width = 411.dp, height = 200.dp))
++    }
++
++    @Test
++    fun theTallBoardKeepsRoomForTheControls() {
++        assertEquals(363.dp, GameLayout.tallBoardSide(width = 411.dp, height = 900.dp))
++        assertEquals(300.dp, GameLayout.tallBoardSide(width = 411.dp, height = 500.dp))
++    }
++}
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt
+index 448dc02..be13aad 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt
+@@ -2,15 +2,20 @@ package org.sableos.hub.ui
+ 
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Column
+-import androidx.compose.foundation.layout.ColumnScope
++import androidx.compose.foundation.layout.PaddingValues
+ import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxSize
+ import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.imePadding
+ import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.safeDrawingPadding
+ import androidx.compose.foundation.lazy.LazyColumn
++import androidx.compose.foundation.lazy.LazyListScope
+ import androidx.compose.foundation.lazy.items
+ import androidx.compose.material3.HorizontalDivider
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.OutlinedTextField
++import androidx.compose.material3.Surface
+ import androidx.compose.material3.Switch
+ import androidx.compose.material3.Text
+ import androidx.compose.material3.TextButton
+@@ -27,7 +32,6 @@ import org.sableos.design.SableDestination
+ import org.sableos.design.SablePageHeader
+ import org.sableos.design.SablePanel
+ import org.sableos.design.SableRefreshableSurface
+-import org.sableos.design.SableScreen
+ import org.sableos.design.SableSpacing
+ import org.sableos.hub.ConnectedAppCandidate
+ import org.sableos.hub.ConnectedAppKey
+@@ -83,65 +87,89 @@ internal fun ConnectedAppsScreen(
+         isRefreshing = loading,
+         onRefresh = onRefresh,
+     ) {
+-        SableScreen {
+-            SablePageHeader(
+-                title = "connected apps",
+-                subtitle =
+-                    "Choose installed apps that may contribute notification-derived conversations.",
+-            )
+-
+-            NotificationAccessPanel(
+-                notificationAccessGranted = notificationAccessGranted,
+-                onOpenNotificationAccess = onOpenNotificationAccess,
+-                privateMode = privateMode,
+-                onPrivateModeChanged = onPrivateModeChanged,
+-                combineConversations = combineConversations,
+-                onCombineConversationsChanged = onCombineConversationsChanged,
+-                onOpenAttentionSettings = onOpenAttentionSettings,
+-            )
+-
+-            Text(
+-                text =
+-                    "Sable does not sign into these services. The installed app keeps " +
+-                        "networking, " +
+-                        "encryption, account state and complete history.",
+-                style = MaterialTheme.typography.bodyMedium,
+-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+-            )
+-
+-            // Opened from Android Settings for one app: show just that app's Hub/Attention.
+-            val focusedCandidate = focusedKey?.let { key -> candidates.firstOrNull { it.key == key } }
+-            when {
+-                loading -> {
+-                    Text(
+-                        text = "Loading installed apps…",
+-                        style = MaterialTheme.typography.bodyLarge,
+-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
++        // One lazy list for the header, the settings panel and the apps: on the Q25's square
++        // screen the panel alone fills the window, so a fixed header above a weighted list left
++        // no room for the apps.
++        Surface(
++            modifier = Modifier.fillMaxSize(),
++            color = MaterialTheme.colorScheme.background,
++        ) {
++            LazyColumn(
++                modifier = Modifier.fillMaxSize().safeDrawingPadding().imePadding(),
++                contentPadding =
++                    PaddingValues(
++                        horizontal = SableSpacing.ScreenHorizontal,
++                        vertical = SableSpacing.ScreenVertical,
++                    ),
++                verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
++            ) {
++                item {
++                    SablePageHeader(
++                        title = "connected apps",
++                        subtitle =
++                            "Choose installed apps that may contribute notification-derived conversations.",
+                     )
+                 }
+-
+-                focusedCandidate != null -> {
+-                    ConnectedAppRow(
+-                        candidate = focusedCandidate,
+-                        policy = policyFor(policies, focusedCandidate),
+-                        context = rowContext,
++                item {
++                    NotificationAccessPanel(
++                        notificationAccessGranted = notificationAccessGranted,
++                        onOpenNotificationAccess = onOpenNotificationAccess,
++                        privateMode = privateMode,
++                        onPrivateModeChanged = onPrivateModeChanged,
++                        combineConversations = combineConversations,
++                        onCombineConversationsChanged = onCombineConversationsChanged,
++                        onOpenAttentionSettings = onOpenAttentionSettings,
+                     )
+                 }
+-
+-                else -> {
+-                    ConnectedAppsBrowser(
+-                        candidates = candidates,
+-                        policies = policies,
+-                        pivot = pivot,
+-                        search = search,
+-                        onPivotChange = { selected ->
+-                            pivot = selected
+-                            search = ""
+-                        },
+-                        onSearchChange = { search = it },
+-                        rowContext = rowContext,
++                item {
++                    Text(
++                        text =
++                            "Sable does not sign into these services. The installed app keeps " +
++                                "networking, " +
++                                "encryption, account state and complete history.",
++                        style = MaterialTheme.typography.bodyMedium,
++                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                     )
+                 }
++
++                // Opened from Android Settings for one app: show just that app's Hub/Attention.
++                val focusedCandidate = focusedKey?.let { key -> candidates.firstOrNull { it.key == key } }
++                when {
++                    loading -> {
++                        item {
++                            Text(
++                                text = "Loading installed apps…",
++                                style = MaterialTheme.typography.bodyLarge,
++                                color = MaterialTheme.colorScheme.onSurfaceVariant,
++                            )
++                        }
++                    }
++
++                    focusedCandidate != null -> {
++                        item {
++                            ConnectedAppRow(
++                                candidate = focusedCandidate,
++                                policy = policyFor(policies, focusedCandidate),
++                                context = rowContext,
++                            )
++                        }
++                    }
++
++                    else -> {
++                        connectedAppsBrowser(
++                            candidates = candidates,
++                            policies = policies,
++                            pivot = pivot,
++                            search = search,
++                            onPivotChange = { selected ->
++                                pivot = selected
++                                search = ""
++                            },
++                            onSearchChange = { search = it },
++                            rowContext = rowContext,
++                        )
++                    }
++                }
+             }
+         }
+     }
+@@ -213,8 +241,7 @@ private fun NotificationAccessPanel(
+     }
+ }
+ 
+-@Composable
+-private fun ColumnScope.ConnectedAppsBrowser(
++private fun LazyListScope.connectedAppsBrowser(
+     candidates: List<ConnectedAppCandidate>,
+     policies: Map<ConnectedAppKey, ConnectedAppPolicy>,
+     pivot: ConnectedAppsPivot,
+@@ -223,19 +250,23 @@ private fun ColumnScope.ConnectedAppsBrowser(
+     onSearchChange: (String) -> Unit,
+     rowContext: ConnectedAppRowContext,
+ ) {
+-    ConnectedAppsPivotRow(
+-        selected = pivot,
+-        onSelect = onPivotChange,
+-    )
++    item {
++        ConnectedAppsPivotRow(
++            selected = pivot,
++            onSelect = onPivotChange,
++        )
++    }
+ 
+     if (pivot != ConnectedAppsPivot.Enabled) {
+-        OutlinedTextField(
+-            value = search,
+-            onValueChange = onSearchChange,
+-            modifier = Modifier.fillMaxWidth(),
+-            singleLine = true,
+-            label = { Text("Search installed apps") },
+-        )
++        item {
++            OutlinedTextField(
++                value = search,
++                onValueChange = onSearchChange,
++                modifier = Modifier.fillMaxWidth(),
++                singleLine = true,
++                label = { Text("Search installed apps") },
++            )
++        }
+     }
+ 
+     val visibleCandidates =
+@@ -246,37 +277,36 @@ private fun ColumnScope.ConnectedAppsBrowser(
+             search = search,
+         )
+ 
+-    MailAppsNote(
+-        candidates = candidates,
+-        policies = policies,
+-    )
+-
+-    if (visibleCandidates.isEmpty()) {
+-        Text(
+-            text = emptyCandidatesText(pivot, search),
+-            style = MaterialTheme.typography.bodyLarge,
+-            color = MaterialTheme.colorScheme.onSurfaceVariant,
++    item {
++        MailAppsNote(
++            candidates = candidates,
++            policies = policies,
+         )
+-        return
+     }
+ 
+-    LazyColumn(
+-        modifier = Modifier.weight(1f),
+-        verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
+-    ) {
+-        items(
+-            items = visibleCandidates,
+-            key = { candidate ->
+-                candidate.key.packageName + ":" + candidate.key.userSerial
+-            },
+-        ) { candidate ->
+-            ConnectedAppRow(
+-                candidate = candidate,
+-                policy = policyFor(policies, candidate),
+-                context = rowContext,
++    if (visibleCandidates.isEmpty()) {
++        item {
++            Text(
++                text = emptyCandidatesText(pivot, search),
++                style = MaterialTheme.typography.bodyLarge,
++                color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+-            HorizontalDivider()
+         }
++        return
++    }
++
++    items(
++        items = visibleCandidates,
++        key = { candidate ->
++            candidate.key.packageName + ":" + candidate.key.userSerial
++        },
++    ) { candidate ->
++        ConnectedAppRow(
++            candidate = candidate,
++            policy = policyFor(policies, candidate),
++            context = rowContext,
++        )
++        HorizontalDivider()
+     }
+ }
+ 
+@@ -291,20 +321,22 @@ private fun MailAppsNote(
+         policies.values
+             .filter { policy -> policy.normalized().includeInMessages }
+             .map { policy -> policy.key.packageName }
+-    Text(
+-        text =
+-            "Use one app per email account. Sable Mail covers Gmail, Outlook, Yahoo, iCloud and IMAP. " +
+-                "Turn on another mail app only for accounts Sable Mail can't open " +
+-                "(Proton, Tuta, managed work accounts).",
+-        style = MaterialTheme.typography.bodySmall,
+-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+-    )
+-    if (HubMailSources.duplicateAccountWarning(includedPackages)) {
++    Column(verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs)) {
+         Text(
+-            text = "More than one mail app is on; an account signed in to both will appear twice.",
++            text =
++                "Use one app per email account. Sable Mail covers Gmail, Outlook, Yahoo, iCloud and IMAP. " +
++                    "Turn on another mail app only for accounts Sable Mail can't open " +
++                    "(Proton, Tuta, managed work accounts).",
+             style = MaterialTheme.typography.bodySmall,
+             color = MaterialTheme.colorScheme.onSurfaceVariant,
+         )
++        if (HubMailSources.duplicateAccountWarning(includedPackages)) {
++            Text(
++                text = "More than one mail app is on; an account signed in to both will appear twice.",
++                style = MaterialTheme.typography.bodySmall,
++                color = MaterialTheme.colorScheme.onSurfaceVariant,
++            )
++        }
+     }
+ }
+ 
+diff --git a/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/data/SmsSender.kt b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/data/SmsSender.kt
+index c9eb24b..2911a64 100644
+--- a/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/data/SmsSender.kt
++++ b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/data/SmsSender.kt
+@@ -3,6 +3,7 @@ package org.sableos.messages.data
+ import android.Manifest
+ import android.annotation.SuppressLint
+ import android.app.PendingIntent
++import android.app.role.RoleManager
+ import android.content.BroadcastReceiver
+ import android.content.ContentValues
+ import android.content.Context
+@@ -17,8 +18,19 @@ import android.util.Log
+ import org.sableos.messages.core.Addresses
+ import org.sableos.messages.core.MessageStatus
+ 
+-/** Whether this app holds the SMS role: then it, not the framework, writes sent and received texts. */
+-fun Context.isDefaultSmsApp(): Boolean = Telephony.Sms.getDefaultSmsPackage(this) == packageName
++/**
++ * Whether this app holds the SMS role: then it, not the framework, writes sent and received texts.
++ * RoleManager answers for the role itself; Telephony.Sms.getDefaultSmsPackage can return null for
++ * a holder the role was given at first boot (seen on the Q25), so it is only the fallback.
++ */
++fun Context.isDefaultSmsApp(): Boolean {
++    val roles = getSystemService(RoleManager::class.java)
++    val held =
++        runCatching {
++            roles != null && roles.isRoleAvailable(RoleManager.ROLE_SMS) && roles.isRoleHeld(RoleManager.ROLE_SMS)
++        }.getOrDefault(false)
++    return held || Telephony.Sms.getDefaultSmsPackage(this) == packageName
++}
+ 
+ /** SmsManager for a subscription, or the default one when the id is invalid (as Sable Hub does). */
+ fun Context.smsManagerFor(subscriptionId: Int): SmsManager =
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/CommandQueryTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/CommandQueryTest.kt
+index b92afaa..974809a 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/CommandQueryTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/CommandQueryTest.kt
+@@ -50,7 +50,12 @@ class CommandQueryTest {
+         )
+         // A label-prefix match beats a recent contains match ("Cinema" holds "ma").
+         val recentCinema = mapOf("Cinema" to 0)
+-        assertEquals(listOf("Mail", "Cinema"), CommandRanking.apps(listOf("Cinema", "Mail"), { it }, { recentCinema[it] }, "ma"))
++        assertEquals(
++            listOf("Mail", "Cinema"),
++            CommandRanking.apps(listOf("Cinema", "Mail"), {
++                it
++            }, { recentCinema[it] }, "ma"),
++        )
+     }
+ }
+ 
+@@ -69,8 +74,14 @@ class CommandGroupsTest {
+         assertEquals(CommandScope.All, CommandGroups.next(CommandScope.All, -1))
+         assertEquals(CommandScope.Actions, CommandGroups.next(CommandScope.Actions, 1))
+         assertEquals(CommandScope.Apps, CommandGroups.next(CommandScope.Dual, 1))
+-        assertEquals(CommandQuery(CommandScope.People, "cam"), CommandGroups.apply(CommandQuery.parse("?cam"), CommandScope.People))
+-        assertEquals(CommandQuery.parse("/dual x"), CommandGroups.apply(CommandQuery.parse("/dual x"), CommandScope.Hub))
++        assertEquals(
++            CommandQuery(CommandScope.People, "cam"),
++            CommandGroups.apply(CommandQuery.parse("?cam"), CommandScope.People),
++        )
++        assertEquals(
++            CommandQuery.parse("/dual x"),
++            CommandGroups.apply(CommandQuery.parse("/dual x"), CommandScope.Hub),
++        )
+     }
+ 
+     @Test
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/HomeLayoutTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/HomeLayoutTest.kt
+index aeeae6c..43576d8 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/HomeLayoutTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/HomeLayoutTest.kt
+@@ -61,7 +61,10 @@ class HomeLayoutTest {
+     @Test
+     fun oldStartTilesBecomeTheFirstHomeOrder() {
+         val defaults = listOf("hub", "mail", "calendar")
+-        assertEquals(listOf("hub", "calendar", "files", "zz"), HomeApps.resolve(null, setOf("zz", "calendar", "files", "hub"), defaults))
++        assertEquals(
++            listOf("hub", "calendar", "files", "zz"),
++            HomeApps.resolve(null, setOf("zz", "calendar", "files", "hub"), defaults),
++        )
+     }
+ 
+     @Test
+@@ -85,8 +88,21 @@ class HomeLayoutTest {
+     fun glanceWidgetsHideAndShow() {
+         val shown = GlanceWidgets.toggle(GlanceWidgets.DEFAULT, GlanceWidgets.BATTERY)
+         assertEquals(listOf("weather", "calendar", "media"), shown)
+-        assertEquals(listOf("weather", "calendar", "media", "battery"), GlanceWidgets.toggle(shown, GlanceWidgets.BATTERY))
++        assertEquals(
++            listOf("weather", "calendar", "media", "battery"),
++            GlanceWidgets.toggle(shown, GlanceWidgets.BATTERY),
++        )
+         assertEquals(shown, GlanceWidgets.toggle(shown, "bogus"))
+         GlanceWidgets.ALL.forEach { assertTrue(GlanceWidgets.label(it) != it) }
+     }
++
++    @Test
++    fun weatherHeadlineGetsAnIconForItsCondition() {
++        assertEquals("☀", HomeHeader.weatherIcon("18° clear"))
++        assertEquals("⛅", HomeHeader.weatherIcon("18° partly cloudy"))
++        assertEquals("☁", HomeHeader.weatherIcon("12° cloudy"))
++        assertEquals("🌧", HomeHeader.weatherIcon("9° rain"))
++        assertEquals("⛈", HomeHeader.weatherIcon("20° storms"))
++        assertEquals("🌡", HomeHeader.weatherIcon("20° conditions unavailable"))
++    }
+ }
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/privacy/PrivacyCacheAndInteractionTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/privacy/PrivacyCacheAndInteractionTest.kt
+index 516ece5..91979bd 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/privacy/PrivacyCacheAndInteractionTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/privacy/PrivacyCacheAndInteractionTest.kt
+@@ -168,7 +168,13 @@ class PrivacyCacheAndInteractionTest {
+                 ),
+             )
+         assertEquals(
+-            listOf(AppAction.Open, AppAction.OpenSecond, AppAction.AppInfo, AppAction.NotificationSettings, AppAction.AddToBaseBar),
++            listOf(
++                AppAction.Open,
++                AppAction.OpenSecond,
++                AppAction.AppInfo,
++                AppAction.NotificationSettings,
++                AppAction.AddToBaseBar,
++            ),
+             actions,
+         )
+     }
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/privacy/PrivacySummaryPolicyTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/privacy/PrivacySummaryPolicyTest.kt
+index a4a2288..0c3fdde 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/privacy/PrivacySummaryPolicyTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/privacy/PrivacySummaryPolicyTest.kt
+@@ -31,13 +31,17 @@ class PrivacySummaryPolicyTest {
+         assertEquals("permissions · Camera", PrivacySummaryPolicy.compact(privacy(PrivacyGroup.Camera)).text)
+         assertEquals(
+             "permissions · Location · Camera · Microphone",
+-            PrivacySummaryPolicy.compact(privacy(PrivacyGroup.Microphone, PrivacyGroup.Camera, PrivacyGroup.Location)).text,
++            PrivacySummaryPolicy
++                .compact(
++                    privacy(PrivacyGroup.Microphone, PrivacyGroup.Camera, PrivacyGroup.Location),
++                ).text,
+         )
+     }
+ 
+     @Test
+     fun moreThanThreeFoldsIntoPlusN() {
+-        val maps = privacy(PrivacyGroup.Location, PrivacyGroup.Contacts, PrivacyGroup.Notifications, PrivacyGroup.Nearby)
++        val maps =
++            privacy(PrivacyGroup.Location, PrivacyGroup.Contacts, PrivacyGroup.Notifications, PrivacyGroup.Nearby)
+         val row = PrivacySummaryPolicy.compact(maps)
+         assertEquals("permissions · Location · Contacts · Nearby · +1", row.text)
+         assertEquals(3, row.labels.size)
+@@ -48,8 +52,13 @@ class PrivacySummaryPolicyTest {
+ 
+     @Test
+     fun narrowWidthDropsWholeLabelsNeverMidWord() {
+-        val maps = privacy(PrivacyGroup.Location, PrivacyGroup.Contacts, PrivacyGroup.Notifications, PrivacyGroup.Photos)
+-        val row = PrivacySummaryPolicy.compact(maps, fits = { it.length <= "permissions · Location · Contacts · +2".length })
++        val maps =
++            privacy(PrivacyGroup.Location, PrivacyGroup.Contacts, PrivacyGroup.Notifications, PrivacyGroup.Photos)
++        val row =
++            PrivacySummaryPolicy.compact(maps, fits = {
++                it.length <=
++                    "permissions · Location · Contacts · +2".length
++            })
+         assertEquals("permissions · Location · Contacts · +2", row.text)
+         val tiny = PrivacySummaryPolicy.compact(maps, fits = { false })
+         assertEquals(1, tiny.labels.size) // at least one label; the view may ellipsize
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/ui/StartPaletteTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/ui/StartPaletteTest.kt
+new file mode 100644
+index 0000000..433d4a4
+--- /dev/null
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/ui/StartPaletteTest.kt
+@@ -0,0 +1,32 @@
++package org.sableos.start.ui
++
++import androidx.compose.ui.graphics.Color
++import androidx.compose.ui.graphics.luminance
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertTrue
++import org.junit.Test
++import org.sableos.design.AccentPreset
++
++/** Start's pages follow Android's Dark theme and the Sable accent. */
++class StartPaletteTest {
++    @Test
++    fun defaultBlueKeepsTheBb10BlueAndOtherAccentsAreUsedAsIs() {
++        assertEquals(Color(0xFF00A8DF), startPalette(dark = true, accent = AccentPreset.Blue).accent)
++        for (accent in AccentPreset.entries.filter { it != AccentPreset.Blue }) {
++            assertEquals(accent.color, startPalette(dark = true, accent = accent).accent)
++            assertEquals(accent.onColor, startPalette(dark = false, accent = accent).onAccent)
++        }
++    }
++
++    @Test
++    fun darkIsTheBb10LookAndLightUsesLightSurfacesWithDarkText() {
++        val dark = startPalette(dark = true, accent = AccentPreset.Green)
++        val light = startPalette(dark = false, accent = AccentPreset.Green)
++        assertEquals(Color(0xFF121212), dark.background)
++        assertEquals(Color.White, dark.text)
++        assertTrue(light.background.luminance() > 0.8f)
++        assertTrue(light.card.luminance() > 0.8f)
++        assertTrue(light.text.luminance() < 0.1f)
++        assertTrue(light.muted.luminance() < 0.3f)
++    }
++}
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/CitiesSection.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/CitiesSection.kt
+index d0ce62d..7a71dc9 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/CitiesSection.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/CitiesSection.kt
+@@ -92,9 +92,13 @@ internal fun CitiesSection(
+             }
+ 
+             // Leaving the section: let the system handle Back, and let Tab move focus on.
+-            CityEffect.Exit, is CityEffect.FocusLeaves -> false
++            CityEffect.Exit, is CityEffect.FocusLeaves -> {
++                false
++            }
+ 
+-            CityEffect.None -> true
++            CityEffect.None -> {
++                true
++            }
+         }
+ 
+     fun onKey(event: AndroidKeyEvent): Boolean {
+@@ -147,7 +151,8 @@ internal fun CitiesSection(
+                     },
+                     onAdd = { screen = model.onTouch(screen).copy(screen = CityScreen.Add, query = "") },
+                     onReset = {
+-                        screen = model.onTouch(screen).copy(screen = CityScreen.ConfirmReset, dialog = DialogButton.Cancel)
++                        screen =
++                            model.onTouch(screen).copy(screen = CityScreen.ConfirmReset, dialog = DialogButton.Cancel)
+                     },
+                 )
+             }
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/CurrentLocation.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/CurrentLocation.kt
+new file mode 100644
+index 0000000..3d7da20
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/CurrentLocation.kt
+@@ -0,0 +1,150 @@
++package org.sableos.weather
++
++import android.Manifest
++import android.content.Context
++import android.content.SharedPreferences
++import android.content.pm.PackageManager
++import android.location.Location
++import android.location.LocationManager
++import android.os.CancellationSignal
++import org.sableos.weather.cities.City
++import org.sableos.weather.cities.CityCatalog
++import java.util.TimeZone
++import java.util.concurrent.CountDownLatch
++import java.util.concurrent.Executors
++import java.util.concurrent.TimeUnit
++import kotlin.math.asin
++import kotlin.math.cos
++import kotlin.math.pow
++import kotlin.math.roundToLong
++import kotlin.math.sin
++import kotlin.math.sqrt
++
++/**
++ * "Use current location": while it is on and coarse location is granted, the forecast is for where the
++ * phone is, not the chosen city. The background job ([WeatherRefreshJob]) finds the place and stores it
++ * here, so the Start snapshot never waits on a location fix. Choosing a city turns it off.
++ */
++internal class CurrentLocationStore(
++    private val preferences: SharedPreferences,
++) {
++    var enabled: Boolean
++        get() = preferences.getBoolean(KEY_ENABLED, true)
++        set(value) {
++            preferences.edit().putBoolean(KEY_ENABLED, value).apply()
++        }
++
++    fun lastPlace(): WeatherLocation? = CurrentPlace.decode(preferences.getString(KEY_PLACE, null))
++
++    fun save(place: WeatherLocation) {
++        preferences.edit().putString(KEY_PLACE, CurrentPlace.encode(place)).apply()
++    }
++
++    private companion object {
++        const val KEY_ENABLED = "current_location_enabled"
++        const val KEY_PLACE = "current_location_place"
++    }
++}
++
++/** Pure parts: rounding a fix to a place, naming it after the nearest listed city, and the stored form. */
++internal object CurrentPlace {
++    /** A listed city this close (km) names the place; farther away it is just "Current location". */
++    const val NEAR_KM = 40.0
++    const val UNNAMED = "Current location"
++    private const val EARTH_KM = 6371.0
++    private const val COORD_SCALE = 100.0
++
++    /** Two decimals (about 1 km): enough for a forecast, and the cache key stays put while the phone barely moves. */
++    fun round(value: Double): Double = (value * COORD_SCALE).roundToLong() / COORD_SCALE
++
++    fun place(
++        latitude: Double,
++        longitude: Double,
++        timezone: String,
++        catalog: List<City> = CityCatalog.ALL,
++    ): WeatherLocation {
++        val nearest = catalog.minByOrNull { distanceKm(latitude, longitude, it.latitude, it.longitude) }
++        val name =
++            nearest
++                ?.takeIf { distanceKm(latitude, longitude, it.latitude, it.longitude) <= NEAR_KM }
++                ?.name ?: UNNAMED
++        return WeatherLocation(name, round(latitude), round(longitude), timezone)
++    }
++
++    fun distanceKm(
++        lat1: Double,
++        lon1: Double,
++        lat2: Double,
++        lon2: Double,
++    ): Double {
++        val dLat = Math.toRadians(lat2 - lat1)
++        val dLon = Math.toRadians(lon2 - lon1)
++        val a =
++            sin(dLat / 2).pow(2) +
++                cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) * sin(dLon / 2).pow(2)
++        return 2 * EARTH_KM * asin(sqrt(a))
++    }
++
++    fun encode(place: WeatherLocation): String =
++        listOf(place.name.replace("|", " "), place.latitude, place.longitude, place.timezone).joinToString("|")
++
++    fun decode(text: String?): WeatherLocation? {
++        val parts = text?.split('|') ?: return null
++        if (parts.size != 4) return null
++        val lat = parts[1].toDoubleOrNull() ?: return null
++        val lon = parts[2].toDoubleOrNull() ?: return null
++        if (lat !in -90.0..90.0 || lon !in -180.0..180.0 || parts[3].isBlank()) return null
++        return WeatherLocation(parts[0].ifBlank { UNNAMED }, lat, lon, parts[3])
++    }
++}
++
++/** Finds where the phone is from Android's location providers, coarse only. Never throws. */
++internal object CurrentLocationFinder {
++    private const val FRESH_MS = 30L * 60 * 1000
++    private const val FIX_TIMEOUT_S = 30L
++
++    fun hasPermission(context: Context): Boolean =
++        context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
++
++    /** The newest recent last-known fix, else one fresh fix (waits up to 30 s); null when none is available. */
++    fun locate(context: Context): WeatherLocation? {
++        if (!hasPermission(context)) return null
++        val manager = context.getSystemService(LocationManager::class.java) ?: return null
++        val fix =
++            runCatching {
++                newestKnown(manager)?.takeIf { System.currentTimeMillis() - it.time < FRESH_MS }
++                    ?: freshFix(manager)
++                    ?: newestKnown(manager)
++            }.getOrNull() ?: return null
++        return CurrentPlace.place(fix.latitude, fix.longitude, TimeZone.getDefault().id)
++    }
++
++    @Suppress("MissingPermission") // hasPermission() is checked by locate().
++    private fun newestKnown(manager: LocationManager): Location? =
++        manager
++            .getProviders(true)
++            .mapNotNull { provider -> runCatching { manager.getLastKnownLocation(provider) }.getOrNull() }
++            .maxByOrNull { it.time }
++
++    @Suppress("MissingPermission") // hasPermission() is checked by locate().
++    private fun freshFix(manager: LocationManager): Location? {
++        val provider =
++            listOf(LocationManager.FUSED_PROVIDER, LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER)
++                .firstOrNull { runCatching { manager.isProviderEnabled(it) }.getOrDefault(false) }
++                ?: return null
++        val latch = CountDownLatch(1)
++        var result: Location? = null
++        val cancel = CancellationSignal()
++        val executor = Executors.newSingleThreadExecutor()
++        try {
++            manager.getCurrentLocation(provider, cancel, executor) { location ->
++                result = location
++                latch.countDown()
++            }
++            if (!latch.await(FIX_TIMEOUT_S, TimeUnit.SECONDS)) cancel.cancel()
++        } finally {
++            executor.shutdown()
++        }
++        return result
++    }
++}
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/MainActivity.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/MainActivity.kt
+index 77f5758..1e5cd32 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/MainActivity.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/MainActivity.kt
+@@ -1,9 +1,12 @@
+ package org.sableos.weather
+ 
++import android.Manifest
+ import android.os.Bundle
+ import androidx.activity.ComponentActivity
++import androidx.activity.compose.rememberLauncherForActivityResult
+ import androidx.activity.compose.setContent
+ import androidx.activity.enableEdgeToEdge
++import androidx.activity.result.contract.ActivityResultContracts
+ import androidx.compose.foundation.background
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Box
+@@ -17,9 +20,11 @@ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.size
+ import androidx.compose.foundation.layout.width
+ import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.selection.toggleable
+ import androidx.compose.foundation.verticalScroll
+ import androidx.compose.material3.HorizontalDivider
+ import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.Switch
+ import androidx.compose.material3.Text
+ import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.LaunchedEffect
+@@ -30,6 +35,7 @@ import androidx.compose.runtime.rememberCoroutineScope
+ import androidx.compose.runtime.setValue
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
++import androidx.compose.ui.semantics.Role
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.style.TextAlign
+ import androidx.compose.ui.unit.dp
+@@ -113,6 +119,38 @@ private fun WeatherApp() {
+         }
+     }
+ 
++    var useCurrent by remember {
++        mutableStateOf(repository.currentLocation.enabled && CurrentLocationFinder.hasPermission(context))
++    }
++
++    fun locateNow() {
++        scope.launch {
++            withContext(Dispatchers.IO) { repository.updateCurrentPlace() }
++            selectedLocation = repository.loadLocation()
++        }
++    }
++
++    val permissionLauncher =
++        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
++            repository.currentLocation.enabled = granted
++            useCurrent = granted
++            if (granted) locateNow()
++        }
++
++    fun setUseCurrent(on: Boolean) {
++        if (on && !CurrentLocationFinder.hasPermission(context)) {
++            permissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
++            return
++        }
++        repository.currentLocation.enabled = on
++        useCurrent = on
++        if (on) locateNow() else selectedLocation = repository.loadLocation()
++    }
++
++    LaunchedEffect(Unit) {
++        if (useCurrent) locateNow()
++    }
++
+     SableRefreshableSurface(
+         isRefreshing = refreshing,
+         onRefresh = ::refresh,
+@@ -163,9 +201,19 @@ private fun WeatherApp() {
+             }
+ 
+             Spacer(Modifier.height(SableSpacing.Xl))
++            CurrentLocationRow(
++                on = useCurrent,
++                place = selectedLocation.name.takeIf { useCurrent },
++                onChange = ::setUseCurrent,
++            )
++
++            Spacer(Modifier.height(SableSpacing.Lg))
+             CitiesSection(
+                 repository = repository,
+                 onActiveCityChanged = { location ->
++                    // Choosing a city means "show this city", not where the phone is.
++                    repository.currentLocation.enabled = false
++                    useCurrent = false
+                     selectedLocation = location
+                 },
+             )
+@@ -173,8 +221,8 @@ private fun WeatherApp() {
+             Spacer(Modifier.height(SableSpacing.Xl))
+             Text(
+                 text =
+-                    "Open-Meteo · HTTPS · cached locally · manual city by default · " +
+-                        "precise location is not required",
++                    "Open-Meteo · HTTPS · cached locally · approximate location or a chosen city · " +
++                        "precise location is never used",
+                 style = MaterialTheme.typography.labelLarge,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+@@ -182,6 +230,36 @@ private fun WeatherApp() {
+     }
+ }
+ 
++/** "Use current location": approximate location, asked for the first time it is turned on. */
++@Composable
++private fun CurrentLocationRow(
++    on: Boolean,
++    place: String?,
++    onChange: (Boolean) -> Unit,
++) {
++    Row(
++        modifier =
++            Modifier
++                .fillMaxWidth()
++                .toggleable(value = on, role = Role.Switch, onValueChange = onChange),
++        verticalAlignment = Alignment.CenterVertically,
++    ) {
++        Column(modifier = Modifier.weight(1f)) {
++            Text(
++                text = "Use current location",
++                style = MaterialTheme.typography.titleMedium,
++                color = MaterialTheme.colorScheme.onBackground,
++            )
++            Text(
++                text = if (on) place ?: "Finding where you are…" else "Off: showing the chosen city",
++                style = MaterialTheme.typography.bodyMedium,
++                color = MaterialTheme.colorScheme.onSurfaceVariant,
++            )
++        }
++        Switch(checked = on, onCheckedChange = null)
++    }
++}
++
+ @Composable
+ private fun CurrentConditions(snapshot: WeatherSnapshot) {
+     val current = snapshot.current
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRefreshJob.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRefreshJob.kt
+index 44c2161..2404771 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRefreshJob.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRefreshJob.kt
+@@ -9,7 +9,8 @@ import android.content.Context
+ import android.os.Binder
+ 
+ /**
+- * Fetches the active city's forecast in the background, so Start and Live show the weather without
++ * Finds the current place (when "Use current location" is on) and fetches its forecast, or the active
++ * city's, in the background, so Start and Live show the weather without
+  * Sable Weather being opened first. A periodic job keeps the cache fresh; a one-off job fills an empty
+  * or stale cache as soon as a network is available. A successful refresh notifies the snapshot URI.
+  */
+@@ -17,6 +18,7 @@ class WeatherRefreshJob : JobService() {
+     override fun onStartJob(params: JobParameters): Boolean {
+         Thread({
+             val repository = WeatherRepository(applicationContext)
++            runCatching { repository.updateCurrentPlace() }
+             val result = runCatching { repository.refresh(repository.loadLocation()) }.getOrNull()
+             val fetched = result?.availability == WeatherAvailability.Live
+             // A failed one-off fetch is retried with back-off; the periodic job just waits for its next run.
+@@ -33,14 +35,18 @@ class WeatherRefreshJob : JobService() {
+         private const val PERIOD_MS = 3L * 60 * 60 * 1000
+ 
+         /** Keeps the periodic refresh scheduled, and asks for a fetch now when nothing current is cached. */
+-        fun ensureScheduled(context: Context, needsFetch: Boolean) {
++        fun ensureScheduled(
++            context: Context,
++            needsFetch: Boolean,
++        ) {
+             val token = Binder.clearCallingIdentity()
+             try {
+                 val scheduler = context.getSystemService(JobScheduler::class.java) ?: return
+                 val component = ComponentName(context, WeatherRefreshJob::class.java)
+                 if (scheduler.getPendingJob(PERIODIC_JOB_ID) == null) {
+                     scheduler.schedule(
+-                        JobInfo.Builder(PERIODIC_JOB_ID, component)
++                        JobInfo
++                            .Builder(PERIODIC_JOB_ID, component)
+                             .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                             .setPeriodic(PERIOD_MS)
+                             .setPersisted(true)
+@@ -49,7 +55,8 @@ class WeatherRefreshJob : JobService() {
+                 }
+                 if (needsFetch && scheduler.getPendingJob(ONE_OFF_JOB_ID) == null) {
+                     scheduler.schedule(
+-                        JobInfo.Builder(ONE_OFF_JOB_ID, component)
++                        JobInfo
++                            .Builder(ONE_OFF_JOB_ID, component)
+                             .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                             .build(),
+                     )
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRepository.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRepository.kt
+index 7c6e49b..cd3b378 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRepository.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRepository.kt
+@@ -3,13 +3,13 @@ package org.sableos.weather
+ import android.content.Context
+ import android.content.SharedPreferences
+ import android.net.Uri
+-import java.net.URI
+-import javax.net.ssl.HttpsURLConnection
+ import org.sableos.weather.cities.CityEdit
+ import org.sableos.weather.cities.CityRepository
+ import org.sableos.weather.cities.ForecastCache
+ import org.sableos.weather.cities.KeyValueStore
+ import org.sableos.weather.cities.LegacyWeatherCache
++import java.net.URI
++import javax.net.ssl.HttpsURLConnection
+ 
+ internal class WeatherRepository(
+     context: Context,
+@@ -28,6 +28,9 @@ internal class WeatherRepository(
+     /** One cached forecast per city, keyed by coordinates and timezone (IR-015). */
+     private val forecasts = ForecastCache(store)
+ 
++    /** "Use current location" and the last place found ([CurrentLocationStore]). */
++    val currentLocation = CurrentLocationStore(preferences)
++
+     init {
+         LegacyWeatherCache.migrate(store)
+     }
+@@ -168,7 +171,24 @@ internal class WeatherRepository(
+         )
+     }
+ 
+-    fun loadLocation(): WeatherLocation = cities.load().selected.toLocation()
++    /** The current place while "Use current location" is on, granted and found; otherwise the chosen city. */
++    fun loadLocation(): WeatherLocation = currentPlaceOrNull() ?: cities.load().selected.toLocation()
++
++    private fun currentPlaceOrNull(): WeatherLocation? =
++        currentLocation.lastPlace()?.takeIf {
++            currentLocation.enabled && CurrentLocationFinder.hasPermission(appContext)
++        }
++
++    /** Finds and stores where the phone is (slow: may wait for a fix); null when off, not granted or not found. */
++    fun updateCurrentPlace(): WeatherLocation? {
++        if (!currentLocation.enabled) return null
++        val place = CurrentLocationFinder.locate(appContext) ?: return null
++        if (place != currentLocation.lastPlace()) {
++            currentLocation.save(place)
++            appContext.contentResolver.notifyChange(WeatherSnapshotContract.SNAPSHOT_URI, null)
++        }
++        return place
++    }
+ 
+     /**
+      * Applies the result of a city edit: drops cached forecasts of removed cities and, when the active city
+@@ -176,7 +196,7 @@ internal class WeatherRepository(
+      */
+     fun afterCityEdit(edit: CityEdit) {
+         if (!edit.changed) return
+-        forecasts.retainOnly(edit.state.cities)
++        forecasts.retainOnly(edit.state.cities + listOfNotNull(currentLocation.lastPlace()?.toCity()))
+         if (edit.refresh) {
+             appContext.contentResolver.notifyChange(
+                 WeatherSnapshotContract.SNAPSHOT_URI,
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherSetupAccess.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherSetupAccess.kt
+index 0fd5278..0ef9b33 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherSetupAccess.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherSetupAccess.kt
+@@ -83,7 +83,10 @@ internal object SetupCityHandOff {
+             putStringArrayList(WeatherSetupContract.KEY_NAMES, ArrayList(names))
+             putString(
+                 WeatherSetupContract.KEY_SELECTED,
+-                WeatherRepository(context).cities.load().selected.name,
++                WeatherRepository(context)
++                    .cities
++                    .load()
++                    .selected.name,
+             )
+         }
+ 
+@@ -112,7 +115,12 @@ internal object SetupCityHandOff {
+             }
+         return Bundle().apply {
+             putString(WeatherSetupContract.KEY_STATUS, status)
+-            putString(WeatherSetupContract.KEY_SELECTED, repository.cities.load().selected.name)
++            putString(
++                WeatherSetupContract.KEY_SELECTED,
++                repository.cities
++                    .load()
++                    .selected.name,
++            )
+         }
+     }
+ }
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/Cities.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/Cities.kt
+index 2f86be0..60ef4b5 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/Cities.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/Cities.kt
+@@ -6,7 +6,12 @@ import java.time.ZoneId
+ import kotlin.math.abs
+ 
+ /** A user-visible city: the only things Weather needs to ask Open-Meteo for a forecast. */
+-data class City(val name: String, val latitude: Double, val longitude: Double, val timezone: String)
++data class City(
++    val name: String,
++    val latitude: Double,
++    val longitude: Double,
++    val timezone: String,
++)
+ 
+ enum class Reason {
+     BlankName,
+@@ -18,7 +23,7 @@ enum class Reason {
+     Duplicate,
+     TooManyCities,
+     NotFound,
+-    LastCity
++    LastCity,
+ }
+ 
+ /** The four built-in cities of canonical Weather (same values as `DefaultWeatherLocations`). */
+@@ -30,7 +35,7 @@ object DefaultCities {
+             City("Jersey City", 40.7178, -74.0430, NEW_YORK_ZONE),
+             City("New York", 40.7128, -74.0060, NEW_YORK_ZONE),
+             City("Edison", 40.5187, -74.4121, NEW_YORK_ZONE),
+-            City("Mumbai", 19.0760, 72.8777, "Asia/Kolkata")
++            City("Mumbai", 19.0760, 72.8777, "Asia/Kolkata"),
+         )
+ }
+ 
+@@ -41,8 +46,10 @@ object CityRules {
+ 
+     fun normalizedName(name: String): String = name.trim().replace(Regex("\\s+"), " ")
+ 
+-    fun sameName(a: String, b: String): Boolean =
+-        normalizedName(a).equals(normalizedName(b), ignoreCase = true)
++    fun sameName(
++        a: String,
++        b: String,
++    ): Boolean = normalizedName(a).equals(normalizedName(b), ignoreCase = true)
+ 
+     fun validTimezone(timezone: String): Boolean = timezone in ZoneId.getAvailableZoneIds()
+ 
+@@ -61,9 +68,13 @@ object CityRules {
+         }
+     }
+ 
+-    fun samePlace(a: City, b: City): Boolean {
+-        val near = abs(a.latitude - b.latitude) < DUPLICATE_DEGREES &&
+-            abs(a.longitude - b.longitude) < DUPLICATE_DEGREES
++    fun samePlace(
++        a: City,
++        b: City,
++    ): Boolean {
++        val near =
++            abs(a.latitude - b.latitude) < DUPLICATE_DEGREES &&
++                abs(a.longitude - b.longitude) < DUPLICATE_DEGREES
+         return sameName(a.name, b.name) || near
+     }
+ }
+@@ -72,7 +83,7 @@ object CityRules {
+ data class CityEdit(
+     val state: CityState,
+     val reason: Reason? = null,
+-    val refresh: Boolean = false
++    val refresh: Boolean = false,
+ ) {
+     val changed: Boolean get() = reason == null
+ }
+@@ -81,11 +92,17 @@ data class CityEdit(
+  * The user's city list and the selected city. It is never empty and always has a selection.
+  * Every edit returns a new state and says whether the active city changed.
+  */
+-data class CityState(val cities: List<City>, val selectedName: String) {
++data class CityState(
++    val cities: List<City>,
++    val selectedName: String,
++) {
+     val selected: City
+         get() = cities.firstOrNull { CityRules.sameName(it.name, selectedName) } ?: cities.first()
+ 
+-    fun add(city: City, select: Boolean = true): CityEdit {
++    fun add(
++        city: City,
++        select: Boolean = true,
++    ): CityEdit {
+         val clean = city.copy(name = CityRules.normalizedName(city.name))
+         val reason = CityRules.validate(clean) ?: addConflict(clean)
+         if (reason != null) return CityEdit(this, reason)
+@@ -125,38 +142,45 @@ data class CityState(val cities: List<City>, val selectedName: String) {
+         return done(CityState(DefaultCities.ALL, (keep ?: DefaultCities.ALL.first()).name))
+     }
+ 
+-    private fun neighbour(left: List<City>, index: Int): String =
+-        left[index.coerceAtMost(left.lastIndex)].name
++    private fun neighbour(
++        left: List<City>,
++        index: Int,
++    ): String = left[index.coerceAtMost(left.lastIndex)].name
+ 
+-    private fun removeConflict(index: Int): Reason? = when {
+-        index < 0 -> Reason.NotFound
+-        cities.size == 1 -> Reason.LastCity
+-        else -> null
+-    }
++    private fun removeConflict(index: Int): Reason? =
++        when {
++            index < 0 -> Reason.NotFound
++            cities.size == 1 -> Reason.LastCity
++            else -> null
++        }
+ 
+-    private fun addConflict(city: City): Reason? = when {
+-        cities.any { CityRules.samePlace(it, city) } -> Reason.Duplicate
+-        cities.size >= CityRules.MAX_CITIES -> Reason.TooManyCities
+-        else -> null
+-    }
++    private fun addConflict(city: City): Reason? =
++        when {
++            cities.any { CityRules.samePlace(it, city) } -> Reason.Duplicate
++            cities.size >= CityRules.MAX_CITIES -> Reason.TooManyCities
++            else -> null
++        }
+ 
+-    private fun done(next: CityState) =
+-        CityEdit(next, null, StartLiveRefresh.needsRefresh(selected, next.selected))
++    private fun done(next: CityState) = CityEdit(next, null, StartLiveRefresh.needsRefresh(selected, next.selected))
+ 
+     companion object {
+         fun defaults() = CityState(DefaultCities.ALL, DefaultCities.ALL.first().name)
+ 
+         /** Repairs anything unusable: no valid city means the defaults, an unknown selection means the first. */
+-        fun of(cities: List<City>, selectedName: String?): CityState {
++        fun of(
++            cities: List<City>,
++            selectedName: String?,
++        ): CityState {
+             val valid = cities.filter { CityRules.validate(it) == null }
+-            val unique = valid.fold(emptyList<City>()) { acc, c ->
+-                if (acc.any { CityRules.samePlace(it, c) }) {
+-                    acc
+-                } else {
+-                    acc +
+-                        c
++            val unique =
++                valid.fold(emptyList<City>()) { acc, c ->
++                    if (acc.any { CityRules.samePlace(it, c) }) {
++                        acc
++                    } else {
++                        acc +
++                            c
++                    }
+                 }
+-            }
+             val list = unique.take(CityRules.MAX_CITIES)
+             if (list.isEmpty()) return defaults()
+             val chosen =
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityCatalog.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityCatalog.kt
+index c7f5c3c..0b5e9c5 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityCatalog.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityCatalog.kt
+@@ -78,7 +78,7 @@ object CityCatalog {
+             City("Vienna", 48.2082, 16.3738, "Europe/Vienna"),
+             City("Warsaw", 52.2297, 21.0122, "Europe/Warsaw"),
+             City("Washington", 38.9072, -77.0369, NEW_YORK_ZONE),
+-            City("Zurich", 47.3769, 8.5417, "Europe/Zurich")
++            City("Zurich", 47.3769, 8.5417, "Europe/Zurich"),
+         )
+ 
+     /**
+@@ -86,7 +86,10 @@ object CityCatalog {
+      * ("Name, lat, lon, Area/Zone") is offered first when it parses and validates. Cities already in [exclude] are
+      * left out. A blank query has no results.
+      */
+-    fun search(query: String, exclude: List<City> = emptyList()): List<City> {
++    fun search(
++        query: String,
++        exclude: List<City> = emptyList(),
++    ): List<City> {
+         val q = CityRules.normalizedName(query)
+         if (q.isEmpty()) return emptyList()
+         val manual = parseManual(q)?.let { listOf(it) }.orEmpty()
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityKeys.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityKeys.kt
+index 6417e4b..747e546 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityKeys.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityKeys.kt
+@@ -41,39 +41,52 @@ data class CityScreenState(
+     val pendingRemove: String? = null,
+     val dialog: DialogButton = DialogButton.Cancel,
+     val softKeyboard: Boolean = false,
+-    val focusVisible: Boolean = false
++    val focusVisible: Boolean = false,
+ )
+ 
+ sealed interface CityEffect {
+     object None : CityEffect
+ 
+-    data class Select(val name: String) : CityEffect
++    data class Select(
++        val name: String,
++    ) : CityEffect
+ 
+-    data class AddResult(val index: Int) : CityEffect
++    data class AddResult(
++        val index: Int,
++    ) : CityEffect
+ 
+-    data class Remove(val name: String) : CityEffect
++    data class Remove(
++        val name: String,
++    ) : CityEffect
+ 
+     object Reset : CityEffect
+ 
+     /** The search text changed; the host runs its own search and calls the model again with the results. */
+-    data class Search(val text: String) : CityEffect
++    data class Search(
++        val text: String,
++    ) : CityEffect
+ 
+     object Exit : CityEffect
+ 
+-    data class FocusLeaves(val forward: Boolean) : CityEffect
++    data class FocusLeaves(
++        val forward: Boolean,
++    ) : CityEffect
+ }
+ 
+ data class CityReduction(
+     val state: CityScreenState,
+     val effect: CityEffect = CityEffect.None,
+-    val consumed: Boolean = true
++    val consumed: Boolean = true,
+ )
+ 
+ /**
+  * Keyboard behaviour of the manual city screen, independent of who draws it. A printable key opens the add-city
+  * search with that first character kept; the soft keyboard is requested only by touching the search field.
+  */
+-class CityScreenModel(private val cities: List<City>, private val resultCount: Int = 0) {
++class CityScreenModel(
++    private val cities: List<City>,
++    private val resultCount: Int = 0,
++) {
+     private val ids: List<String> =
+         cities.flatMap { listOf(CityIds.row(it.name)) } + CityIds.ADD + CityIds.RESET
+ 
+@@ -91,10 +104,12 @@ class CityScreenModel(private val cities: List<City>, private val resultCount: I
+         return if (remove) id.orEmpty() else ids[focusIndex(s)]
+     }
+ 
+-    private fun rowOf(id: String) =
+-        if (CityIds.isRemove(id)) CityIds.row(CityIds.cityName(id)) else id
++    private fun rowOf(id: String) = if (CityIds.isRemove(id)) CityIds.row(CityIds.cityName(id)) else id
+ 
+-    fun reduce(s: CityScreenState, k: KeyInput): CityReduction {
++    fun reduce(
++        s: CityScreenState,
++        k: KeyInput,
++    ): CityReduction {
+         val shown = s.copy(focusVisible = true)
+         return when {
+             k.hasCommandModifier -> CityReduction(s, consumed = false)
+@@ -111,31 +126,45 @@ class CityScreenModel(private val cities: List<City>, private val resultCount: I
+     fun onSearchFieldTapped(s: CityScreenState) = s.copy(softKeyboard = true, focusVisible = false)
+ 
+     /** The host edited the search text (typing, paste, clear). */
+-    fun onQueryChanged(s: CityScreenState, text: String): CityReduction =
+-        CityReduction(s.copy(query = text, resultFocus = -1), CityEffect.Search(text))
++    fun onQueryChanged(
++        s: CityScreenState,
++        text: String,
++    ): CityReduction = CityReduction(s.copy(query = text, resultFocus = -1), CityEffect.Search(text))
+ 
+     /** After an add, remove, select or reset: back to the list with focus on [focusName] or the nearest row. */
+-    fun afterChange(s: CityScreenState, focusName: String?): CityScreenState {
+-        val base = s.copy(
+-            screen = CityScreen.List,
+-            query = "",
+-            resultFocus = -1,
+-            pendingRemove = null,
+-            softKeyboard = false
+-        )
++    fun afterChange(
++        s: CityScreenState,
++        focusName: String?,
++    ): CityScreenState {
++        val base =
++            s.copy(
++                screen = CityScreen.List,
++                query = "",
++                resultFocus = -1,
++                pendingRemove = null,
++                softKeyboard = false,
++            )
+         val id = focusName?.let { CityIds.row(it) }
+         return if (id != null && id in ids) at(base, id) else base.copy(focusId = null)
+     }
+ 
+-    private fun at(s: CityScreenState, id: String): CityScreenState {
++    private fun at(
++        s: CityScreenState,
++        id: String,
++    ): CityScreenState {
+         val i = ids.indexOf(rowOf(id)).coerceAtLeast(0)
+         return s.copy(focusId = if (CityIds.isRemove(id)) id else ids[i], focusIndex = i)
+     }
+ 
+-    private fun move(s: CityScreenState, delta: Int) =
+-        at(s, ids[(focusIndex(s) + delta).coerceIn(0, ids.lastIndex)])
++    private fun move(
++        s: CityScreenState,
++        delta: Int,
++    ) = at(s, ids[(focusIndex(s) + delta).coerceIn(0, ids.lastIndex)])
+ 
+-    private fun list(s: CityScreenState, k: KeyInput): CityReduction {
++    private fun list(
++        s: CityScreenState,
++        k: KeyInput,
++    ): CityReduction {
+         val id = focusedId(s)
+         return when (k.kind) {
+             KeyKind.Up -> CityReduction(move(s, -1))
+@@ -153,18 +182,29 @@ class CityScreenModel(private val cities: List<City>, private val resultCount: I
+         }
+     }
+ 
+-    private fun toRemove(s: CityScreenState, id: String): CityScreenState =
+-        if (CityIds.isRow(id)) at(s, CityIds.remove(CityIds.cityName(id))) else s
+-
+-    private fun toRow(s: CityScreenState, id: String): CityScreenState =
+-        if (CityIds.isRemove(id)) at(s, CityIds.row(CityIds.cityName(id))) else s
+-
+-    private fun removeRow(s: CityScreenState, id: String, k: KeyInput): CityReduction {
++    private fun toRemove(
++        s: CityScreenState,
++        id: String,
++    ): CityScreenState = if (CityIds.isRow(id)) at(s, CityIds.remove(CityIds.cityName(id))) else s
++
++    private fun toRow(
++        s: CityScreenState,
++        id: String,
++    ): CityScreenState = if (CityIds.isRemove(id)) at(s, CityIds.row(CityIds.cityName(id))) else s
++
++    private fun removeRow(
++        s: CityScreenState,
++        id: String,
++        k: KeyInput,
++    ): CityReduction {
+         val allowed = CityIds.isRow(id) && !k.repeat
+         return if (allowed) askRemove(s, id) else CityReduction(s)
+     }
+ 
+-    private fun tab(s: CityScreenState, forward: Boolean): CityReduction {
++    private fun tab(
++        s: CityScreenState,
++        forward: Boolean,
++    ): CityReduction {
+         val next = focusIndex(s) + if (forward) 1 else -1
+         return if (next in
+             ids.indices
+@@ -175,69 +215,114 @@ class CityScreenModel(private val cities: List<City>, private val resultCount: I
+         }
+     }
+ 
+-    private fun activate(s: CityScreenState, id: String): CityReduction = when {
+-        id == CityIds.ADD -> openAdd(s, "")
+-
+-        id == CityIds.RESET -> CityReduction(
+-            s.copy(screen = CityScreen.ConfirmReset, dialog = DialogButton.Cancel)
+-        )
+-
+-        CityIds.isRemove(id) -> askRemove(s, id)
+-
+-        else -> CityReduction(s, CityEffect.Select(CityIds.cityName(id)))
+-    }
++    private fun activate(
++        s: CityScreenState,
++        id: String,
++    ): CityReduction =
++        when {
++            id == CityIds.ADD -> {
++                openAdd(s, "")
++            }
++
++            id == CityIds.RESET -> {
++                CityReduction(
++                    s.copy(screen = CityScreen.ConfirmReset, dialog = DialogButton.Cancel),
++                )
++            }
++
++            CityIds.isRemove(id) -> {
++                askRemove(s, id)
++            }
++
++            else -> {
++                CityReduction(s, CityEffect.Select(CityIds.cityName(id)))
++            }
++        }
+ 
+-    private fun askRemove(s: CityScreenState, id: String) = CityReduction(
++    private fun askRemove(
++        s: CityScreenState,
++        id: String,
++    ) = CityReduction(
+         s.copy(
+             screen = CityScreen.ConfirmRemove,
+             pendingRemove = CityIds.cityName(id),
+-            dialog = DialogButton.Cancel
+-        )
++            dialog = DialogButton.Cancel,
++        ),
+     )
+ 
+-    private fun openAdd(s: CityScreenState, first: String): CityReduction {
++    private fun openAdd(
++        s: CityScreenState,
++        first: String,
++    ): CityReduction {
+         val opened = s.copy(screen = CityScreen.Add, query = first, resultFocus = -1)
+         return CityReduction(
+             opened,
+-            if (first.isEmpty()) CityEffect.None else CityEffect.Search(first)
++            if (first.isEmpty()) CityEffect.None else CityEffect.Search(first),
+         )
+     }
+ 
+-    private fun add(s: CityScreenState, k: KeyInput): CityReduction {
++    private fun add(
++        s: CityScreenState,
++        k: KeyInput,
++    ): CityReduction {
+         val onField = s.resultFocus < 0
+         val textKey = k.kind in TEXT_KINDS
+         return when {
+-            onField && textKey -> CityReduction(s, consumed = false)
+-
+-            k.kind == KeyKind.Down -> CityReduction(
+-                s.copy(resultFocus = (s.resultFocus + 1).coerceAtMost(resultCount - 1))
+-            )
+-
+-            k.kind == KeyKind.Up -> CityReduction(
+-                s.copy(resultFocus = (s.resultFocus - 1).coerceAtLeast(-1))
+-            )
+-
+-            k.kind == KeyKind.Activate || k.kind == KeyKind.Space -> chooseResult(s, k)
+-
+-            k.kind == KeyKind.MoveHome -> CityReduction(resultEdge(s, first = true))
+-
+-            k.kind == KeyKind.MoveEnd -> CityReduction(resultEdge(s, first = false))
+-
+-            k.kind == KeyKind.Tab -> CityReduction(s, CityEffect.FocusLeaves(!k.shift))
+-
+-            k.kind == KeyKind.Back || k.kind == KeyKind.Escape -> CityReduction(close(s))
+-
+-            else -> CityReduction(s, consumed = false)
++            onField && textKey -> {
++                CityReduction(s, consumed = false)
++            }
++
++            k.kind == KeyKind.Down -> {
++                CityReduction(
++                    s.copy(resultFocus = (s.resultFocus + 1).coerceAtMost(resultCount - 1)),
++                )
++            }
++
++            k.kind == KeyKind.Up -> {
++                CityReduction(
++                    s.copy(resultFocus = (s.resultFocus - 1).coerceAtLeast(-1)),
++                )
++            }
++
++            k.kind == KeyKind.Activate || k.kind == KeyKind.Space -> {
++                chooseResult(s, k)
++            }
++
++            k.kind == KeyKind.MoveHome -> {
++                CityReduction(resultEdge(s, first = true))
++            }
++
++            k.kind == KeyKind.MoveEnd -> {
++                CityReduction(resultEdge(s, first = false))
++            }
++
++            k.kind == KeyKind.Tab -> {
++                CityReduction(s, CityEffect.FocusLeaves(!k.shift))
++            }
++
++            k.kind == KeyKind.Back || k.kind == KeyKind.Escape -> {
++                CityReduction(close(s))
++            }
++
++            else -> {
++                CityReduction(s, consumed = false)
++            }
+         }
+     }
+ 
+     /** MoveHome/MoveEnd on the results (never on the search field, which keeps them). */
+-    private fun resultEdge(s: CityScreenState, first: Boolean): CityScreenState {
++    private fun resultEdge(
++        s: CityScreenState,
++        first: Boolean,
++    ): CityScreenState {
+         val index = if (first) 0 else resultCount - 1
+         return s.copy(resultFocus = if (resultCount > 0) index else -1)
+     }
+ 
+-    private fun chooseResult(s: CityScreenState, k: KeyInput): CityReduction {
++    private fun chooseResult(
++        s: CityScreenState,
++        k: KeyInput,
++    ): CityReduction {
+         val index = if (s.resultFocus >= 0) s.resultFocus else 0
+         val none = resultCount == 0 || k.repeat
+         return if (none) CityReduction(s) else CityReduction(s, CityEffect.AddResult(index))
+@@ -245,7 +330,10 @@ class CityScreenModel(private val cities: List<City>, private val resultCount: I
+ 
+     private fun close(s: CityScreenState) = afterChange(s, s.focusId?.let { CityIds.cityName(it) })
+ 
+-    private fun dialog(s: CityScreenState, k: KeyInput): CityReduction {
++    private fun dialog(
++        s: CityScreenState,
++        k: KeyInput,
++    ): CityReduction {
+         val toggle =
+             k.kind in setOf(KeyKind.Left, KeyKind.Right, KeyKind.Up, KeyKind.Down, KeyKind.Tab)
+         return when {
+@@ -256,18 +344,22 @@ class CityScreenModel(private val cities: List<City>, private val resultCount: I
+         }
+     }
+ 
+-    private fun other(b: DialogButton) = if (b ==
+-        DialogButton.Cancel
+-    ) {
+-        DialogButton.Confirm
+-    } else {
+-        DialogButton.Cancel
+-    }
++    private fun other(b: DialogButton) =
++        if (b ==
++            DialogButton.Cancel
++        ) {
++            DialogButton.Confirm
++        } else {
++            DialogButton.Cancel
++        }
+ 
+     private fun cancel(s: CityScreenState) =
+         s.copy(screen = CityScreen.List, pendingRemove = null, dialog = DialogButton.Cancel)
+ 
+-    private fun confirm(s: CityScreenState, k: KeyInput): CityReduction {
++    private fun confirm(
++        s: CityScreenState,
++        k: KeyInput,
++    ): CityReduction {
+         if (k.repeat) return CityReduction(s)
+         if (s.dialog == DialogButton.Cancel) return CityReduction(cancel(s))
+         val effect = s.pendingRemove?.let { CityEffect.Remove(it) } ?: CityEffect.Reset
+@@ -285,7 +377,7 @@ class CityScreenModel(private val cities: List<City>, private val resultCount: I
+                 KeyKind.MoveHome,
+                 KeyKind.MoveEnd,
+                 KeyKind.PageUp,
+-                KeyKind.PageDown
++                KeyKind.PageDown,
+             )
+ 
+         /** System HOME (Other) and PageUp/PageDown have no city behaviour: they stay unhandled, state unchanged. */
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityStore.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityStore.kt
+index 90f2659..b666655 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityStore.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/CityStore.kt
+@@ -9,7 +9,10 @@ package org.sableos.weather.cities
+ interface KeyValueStore {
+     fun get(key: String): String?
+ 
+-    fun put(key: String, value: String)
++    fun put(
++        key: String,
++        value: String,
++    )
+ 
+     fun remove(key: String) {
+         // Optional: a store that never needs cache cleanup can keep entries; the default does nothing.
+@@ -36,9 +39,11 @@ object CityCodec {
+     fun decode(text: String?): CityState {
+         val lines = text?.lines().orEmpty()
+         if (lines.firstOrNull() != HEADER) return CityState.defaults()
+-        val selected = lines.firstOrNull {
+-            it.startsWith("$SELECTED|")
+-        }?.let { unescape(it.substringAfter('|')) }
++        val selected =
++            lines
++                .firstOrNull {
++                    it.startsWith("$SELECTED|")
++                }?.let { unescape(it.substringAfter('|')) }
+         val cities = lines.mapNotNull { city(it) }
+         return CityState.of(cities, selected)
+     }
+@@ -58,7 +63,11 @@ object CityCodec {
+     }
+ 
+     private fun escape(s: String) =
+-        s.replace("\\", "\\\\").replace("|", "\\p").replace("\n", "\\n").replace("\r", "\\r")
++        s
++            .replace("\\", "\\\\")
++            .replace("|", "\\p")
++            .replace("\n", "\\n")
++            .replace("\r", "\\r")
+ 
+     private fun unescape(s: String): String {
+         val out = StringBuilder()
+@@ -66,13 +75,14 @@ object CityCodec {
+         while (i < s.length) {
+             val c = s[i]
+             val next = if (c == '\\' && i + 1 < s.length) s[i + 1] else null
+-            val mapped = when (next) {
+-                'p' -> '|'
+-                'n' -> '\n'
+-                'r' -> '\r'
+-                '\\' -> '\\'
+-                else -> null
+-            }
++            val mapped =
++                when (next) {
++                    'p' -> '|'
++                    'n' -> '\n'
++                    'r' -> '\r'
++                    '\\' -> '\\'
++                    else -> null
++                }
+             out.append(mapped ?: c)
+             i += if (mapped != null) 2 else 1
+         }
+@@ -81,10 +91,15 @@ object CityCodec {
+ }
+ 
+ /** Load, edit and save. Every successful edit is written before it is reported, so a restart sees it. */
+-class CityRepository(private val store: KeyValueStore) {
++class CityRepository(
++    private val store: KeyValueStore,
++) {
+     fun load(): CityState = CityCodec.decode(store.get(KEY))
+ 
+-    fun add(city: City, select: Boolean = true): CityEdit = edit { it.add(city, select) }
++    fun add(
++        city: City,
++        select: Boolean = true,
++    ): CityEdit = edit { it.add(city, select) }
+ 
+     fun remove(name: String): CityEdit = edit { it.remove(name) }
+ 
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/ForecastCache.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/ForecastCache.kt
+index b5f7c0f..68c407a 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/ForecastCache.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/ForecastCache.kt
+@@ -4,7 +4,11 @@ package org.sableos.weather.cities
+  * A cached forecast for exactly one city. [cacheKey] is [StartLiveRefresh.cacheKey] of the city it was fetched
+  * for, so a forecast can never be shown under another city's name.
+  */
+-data class CachedForecast(val cacheKey: String, val protocol: String, val observedEpochSeconds: Long)
++data class CachedForecast(
++    val cacheKey: String,
++    val protocol: String,
++    val observedEpochSeconds: Long,
++)
+ 
+ /**
+  * Per-city forecast cache over the same [KeyValueStore] as the city list (IR-015).
+@@ -13,7 +17,9 @@ data class CachedForecast(val cacheKey: String, val protocol: String, val observ
+  * [read] returns it only when that key matches the active city ([StartLiveRefresh.cacheValidFor]). Entries of
+  * cities that are no longer in the list are dropped by [retainOnly].
+  */
+-class ForecastCache(private val store: KeyValueStore) {
++class ForecastCache(
++    private val store: KeyValueStore,
++) {
+     fun read(city: City): CachedForecast? {
+         val text = store.get(entryKey(city)) ?: return null
+         val entry = decode(text) ?: return null
+@@ -24,7 +30,11 @@ class ForecastCache(private val store: KeyValueStore) {
+         return if (valid) entry else null
+     }
+ 
+-    fun write(city: City, protocol: String, observedEpochSeconds: Long): CachedForecast {
++    fun write(
++        city: City,
++        protocol: String,
++        observedEpochSeconds: Long,
++    ): CachedForecast {
+         val entry = CachedForecast(StartLiveRefresh.cacheKey(city), protocol, observedEpochSeconds)
+         store.put(entryKey(city), encode(entry))
+         return entry
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/StartLiveRefresh.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/StartLiveRefresh.kt
+index ecb9f47..5a5a006 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/StartLiveRefresh.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/cities/StartLiveRefresh.kt
+@@ -14,7 +14,10 @@ object StartLiveRefresh {
+     /** Locale-independent identity of what a forecast was fetched for. */
+     fun cacheKey(city: City): String = "${city.latitude},${city.longitude},${city.timezone}"
+ 
+-    fun needsRefresh(before: City?, after: City?): Boolean {
++    fun needsRefresh(
++        before: City?,
++        after: City?,
++    ): Boolean {
+         if (after == null) return false
+         return before == null || cacheKey(before) != cacheKey(after) || before.name != after.name
+     }
+@@ -23,6 +26,8 @@ object StartLiveRefresh {
+      * A cached forecast belongs to one city. Showing it under another city's name would be wrong, so it is
+      * valid only when the stored key matches the active city.
+      */
+-    fun cacheValidFor(storedKey: String?, active: City): Boolean =
+-        storedKey != null && storedKey == cacheKey(active)
++    fun cacheValidFor(
++        storedKey: String?,
++        active: City,
++    ): Boolean = storedKey != null && storedKey == cacheKey(active)
+ }
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/input/KeyInput.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/input/KeyInput.kt
+index 27ee7f2..839406d 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/input/KeyInput.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/input/KeyInput.kt
+@@ -19,7 +19,7 @@ enum class KeyKind {
+     Tab,
+     Backspace,
+     Printable,
+-    Other
++    Other,
+ }
+ 
+ /**
+@@ -35,7 +35,7 @@ data class KeyInput(
+     val alt: Boolean = false,
+     val meta: Boolean = false,
+     val repeat: Boolean = false,
+-    val editableFocused: Boolean = false
++    val editableFocused: Boolean = false,
+ ) {
+     val hasCommandModifier: Boolean get() = ctrl || meta
+ 
+@@ -45,7 +45,12 @@ data class KeyInput(
+ }
+ 
+ /** A platform key event reduced to integers so the mapper stays pure (no framework types). */
+-data class RawKey(val keyCode: Int, val unicode: Int, val metaState: Int, val repeat: Boolean)
++data class RawKey(
++    val keyCode: Int,
++    val unicode: Int,
++    val metaState: Int,
++    val repeat: Boolean,
++)
+ 
+ /**
+  * Maps public Android key codes and meta flags to [KeyInput]. Only documented, device-independent codes appear
+@@ -75,7 +80,10 @@ object KeyMapper {
+     const val META_META_ON = 0x10000
+     private const val COMBINING_ACCENT_MASK = 0x80000000.toInt()
+ 
+-    fun map(raw: RawKey, editableFocused: Boolean = false): KeyInput {
++    fun map(
++        raw: RawKey,
++        editableFocused: Boolean = false,
++    ): KeyInput {
+         val kind = kindOf(raw)
+         val char = if (kind == KeyKind.Printable) raw.unicode.toChar() else KeyInput.NO_CHAR
+         return KeyInput(
+@@ -86,28 +94,29 @@ object KeyMapper {
+             alt = raw.metaState and META_ALT_ON != 0,
+             meta = raw.metaState and META_META_ON != 0,
+             repeat = raw.repeat,
+-            editableFocused = editableFocused
++            editableFocused = editableFocused,
+         )
+     }
+ 
+-    private fun kindOf(raw: RawKey): KeyKind = when (raw.keyCode) {
+-        KEYCODE_DPAD_UP -> KeyKind.Up
+-        KEYCODE_DPAD_DOWN -> KeyKind.Down
+-        KEYCODE_DPAD_LEFT -> KeyKind.Left
+-        KEYCODE_DPAD_RIGHT -> KeyKind.Right
+-        KEYCODE_DPAD_CENTER, KEYCODE_ENTER, KEYCODE_NUMPAD_ENTER -> KeyKind.Activate
+-        KEYCODE_SPACE -> KeyKind.Space
+-        KEYCODE_BACK -> KeyKind.Back
+-        KEYCODE_ESCAPE -> KeyKind.Escape
+-        KEYCODE_HOME -> KeyKind.Other
+-        KEYCODE_MOVE_HOME -> KeyKind.MoveHome
+-        KEYCODE_MOVE_END -> KeyKind.MoveEnd
+-        KEYCODE_PAGE_UP -> KeyKind.PageUp
+-        KEYCODE_PAGE_DOWN -> KeyKind.PageDown
+-        KEYCODE_TAB -> KeyKind.Tab
+-        KEYCODE_DEL -> KeyKind.Backspace
+-        else -> if (isPrintable(raw.unicode)) KeyKind.Printable else KeyKind.Other
+-    }
++    private fun kindOf(raw: RawKey): KeyKind =
++        when (raw.keyCode) {
++            KEYCODE_DPAD_UP -> KeyKind.Up
++            KEYCODE_DPAD_DOWN -> KeyKind.Down
++            KEYCODE_DPAD_LEFT -> KeyKind.Left
++            KEYCODE_DPAD_RIGHT -> KeyKind.Right
++            KEYCODE_DPAD_CENTER, KEYCODE_ENTER, KEYCODE_NUMPAD_ENTER -> KeyKind.Activate
++            KEYCODE_SPACE -> KeyKind.Space
++            KEYCODE_BACK -> KeyKind.Back
++            KEYCODE_ESCAPE -> KeyKind.Escape
++            KEYCODE_HOME -> KeyKind.Other
++            KEYCODE_MOVE_HOME -> KeyKind.MoveHome
++            KEYCODE_MOVE_END -> KeyKind.MoveEnd
++            KEYCODE_PAGE_UP -> KeyKind.PageUp
++            KEYCODE_PAGE_DOWN -> KeyKind.PageDown
++            KEYCODE_TAB -> KeyKind.Tab
++            KEYCODE_DEL -> KeyKind.Backspace
++            else -> if (isPrintable(raw.unicode)) KeyKind.Printable else KeyKind.Other
++        }
+ 
+     private fun isPrintable(unicode: Int): Boolean =
+         unicode > 0 && unicode and COMBINING_ACCENT_MASK == 0 && unicode <= Char.MAX_VALUE.code &&
+diff --git a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/CurrentPlaceTest.kt b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/CurrentPlaceTest.kt
+new file mode 100644
+index 0000000..20ecfa3
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/CurrentPlaceTest.kt
+@@ -0,0 +1,45 @@
++package org.sableos.weather
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Test
++import org.sableos.weather.cities.City
++
++/** "Use current location": a fix becomes a rounded place named after a listed city nearby. */
++class CurrentPlaceTest {
++    private val catalog =
++        listOf(
++            City("Edison", 40.5187, -74.4121, "America/New_York"),
++            City("Boston", 42.3601, -71.0589, "America/New_York"),
++        )
++
++    @Test
++    fun aFixNearAListedCityTakesItsNameAndIsRoundedToAboutAKilometre() {
++        val place = CurrentPlace.place(40.53456, -74.39871, "America/New_York", catalog)
++        assertEquals("Edison", place.name)
++        assertEquals(40.53, place.latitude, 0.0)
++        assertEquals(-74.4, place.longitude, 0.0)
++        assertEquals("America/New_York", place.timezone)
++    }
++
++    @Test
++    fun aFixFarFromEveryListedCityIsCurrentLocation() {
++        assertEquals(CurrentPlace.UNNAMED, CurrentPlace.place(0.0, 0.0, "UTC", catalog).name)
++    }
++
++    @Test
++    fun theStoredPlaceRoundTripsAndBadTextIsIgnored() {
++        val place = WeatherLocation("Edison", 40.53, -74.4, "America/New_York")
++        assertEquals(place, CurrentPlace.decode(CurrentPlace.encode(place)))
++        assertNull(CurrentPlace.decode(null))
++        assertNull(CurrentPlace.decode("Edison|95|0|UTC"))
++        assertNull(CurrentPlace.decode("Edison|x|0|UTC"))
++    }
++
++    @Test
++    fun distanceIsGreatCircleKilometres() {
++        // Edison to Boston is about 346 km in a straight line.
++        val km = CurrentPlace.distanceKm(40.5187, -74.4121, 42.3601, -71.0589)
++        assertEquals(346.0, km, 5.0)
++    }
++}
+diff --git a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/WeatherSetupAccessTest.kt b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/WeatherSetupAccessTest.kt
+index 0e4b725..8bc1d92 100644
+--- a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/WeatherSetupAccessTest.kt
++++ b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/WeatherSetupAccessTest.kt
+@@ -9,8 +9,11 @@ class WeatherSetupAccessTest {
+     private val own = 10_050
+     private val other = 10_099
+ 
+-    private fun allowed(uid: Int, allowed: Set<String>, vararg packages: String) =
+-        WeatherCallers.allowed(uid, own, allowed) { packages.toList() }
++    private fun allowed(
++        uid: Int,
++        allowed: Set<String>,
++        vararg packages: String,
++    ) = WeatherCallers.allowed(uid, own, allowed) { packages.toList() }
+ 
+     @Test fun weatherItselfIsAlwaysAllowedWithoutAPackageLookup() {
+         assertTrue(WeatherCallers.allowed(own, own, emptySet()) { error("not consulted") })
+diff --git a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityCatalogTest.kt b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityCatalogTest.kt
+index 4149dc9..3df21c5 100644
+--- a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityCatalogTest.kt
++++ b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityCatalogTest.kt
+@@ -10,7 +10,13 @@ class CityCatalogTest {
+         CityCatalog.ALL.forEach { assertEquals(it.name, null, CityRules.validate(it)) }
+         val state = CityState.of(CityCatalog.ALL, null)
+         assertEquals(CityRules.MAX_CITIES, state.cities.size)
+-        assertEquals(CityCatalog.ALL.size, CityCatalog.ALL.map { it.name.lowercase() }.toSet().size)
++        assertEquals(
++            CityCatalog.ALL.size,
++            CityCatalog.ALL
++                .map { it.name.lowercase() }
++                .toSet()
++                .size,
++        )
+     }
+ 
+     @Test fun theBuiltInCitiesAreInTheCatalogWithTheSameCoordinates() {
+diff --git a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityKeysTest.kt b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityKeysTest.kt
+index 80870f8..f5bdf8c 100644
+--- a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityKeysTest.kt
++++ b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityKeysTest.kt
+@@ -18,14 +18,17 @@ class CityKeysTest {
+         shift: Boolean = false,
+         ctrl: Boolean = false,
+         repeat: Boolean = false,
+-        editable: Boolean = false
++        editable: Boolean = false,
+     ) = KeyInput(kind, c, shift = shift, ctrl = ctrl, repeat = repeat, editableFocused = editable)
+ 
+-    private fun CityScreenModel.press(s: CityScreenState, kind: KeyKind) = reduce(s, key(kind))
++    private fun CityScreenModel.press(
++        s: CityScreenState,
++        kind: KeyKind,
++    ) = reduce(s, key(kind))
+ 
+     private fun CityScreenModel.pressAll(
+         s0: CityScreenState,
+-        vararg kinds: KeyKind
++        vararg kinds: KeyKind,
+     ): CityScreenState = kinds.fold(s0) { s, k -> reduce(s, key(k)).state }
+ 
+     // --- focus ---
+@@ -56,9 +59,9 @@ class CityKeysTest {
+                 "city:Edison",
+                 "city:Mumbai",
+                 "add_city",
+-                "reset_defaults"
++                "reset_defaults",
+             ),
+-            seen.distinct()
++            seen.distinct(),
+         )
+         assertEquals("reset_defaults", seen.last())
+         repeat(9) { s = model.press(s, KeyKind.Up).state }
+@@ -76,7 +79,7 @@ class CityKeysTest {
+         assertEquals("city:Jersey City:remove", onRemove.focusId)
+         assertEquals(
+             "reset_defaults",
+-            model.focusedId(model.press(onRemove, KeyKind.MoveEnd).state)
++            model.focusedId(model.press(onRemove, KeyKind.MoveEnd).state),
+         )
+     }
+ 
+@@ -138,10 +141,11 @@ class CityKeysTest {
+         assertEquals(2, model.press(onResult, KeyKind.MoveEnd).state.resultFocus)
+         assertEquals(
+             0,
+-            model.press(
+-                model.press(onResult, KeyKind.MoveEnd).state,
+-                KeyKind.MoveHome
+-            ).state.resultFocus
++            model
++                .press(
++                    model.press(onResult, KeyKind.MoveEnd).state,
++                    KeyKind.MoveHome,
++                ).state.resultFocus,
+         )
+     }
+ 
+@@ -161,7 +165,7 @@ class CityKeysTest {
+     @Test fun tabWalksAndHandsFocusOutAtTheEndsInsteadOfTrapping() {
+         assertEquals(
+             CityEffect.FocusLeaves(false),
+-            model.reduce(start, key(KeyKind.Tab, shift = true)).effect
++            model.reduce(start, key(KeyKind.Tab, shift = true)).effect,
+         )
+         var s = start
+         repeat(5) { s = model.press(s, KeyKind.Tab).state }
+@@ -174,7 +178,7 @@ class CityKeysTest {
+         assertEquals("city:Jersey City:remove", s.focusId)
+         assertEquals(
+             "city:Jersey City",
+-            model.focusedId(model.press(s, KeyKind.Left).state).removeSuffix(":remove")
++            model.focusedId(model.press(s, KeyKind.Left).state).removeSuffix(":remove"),
+         )
+     }
+ 
+@@ -190,7 +194,7 @@ class CityKeysTest {
+     @Test fun heldEnterDoesNotActivateRepeatedly() {
+         assertEquals(
+             CityEffect.None,
+-            model.reduce(start, key(KeyKind.Activate, repeat = true)).effect
++            model.reduce(start, key(KeyKind.Activate, repeat = true)).effect,
+         )
+     }
+ 
+@@ -212,14 +216,15 @@ class CityKeysTest {
+     @Test fun aKeyboardOpenedSearchNeverAsksForTheSoftKeyboard() {
+         assertFalse(model.reduce(start, key(KeyKind.Printable, 'p')).state.softKeyboard)
+         assertFalse(
+-            model.pressAll(
+-                start,
+-                KeyKind.Down,
+-                KeyKind.Down,
+-                KeyKind.Down,
+-                KeyKind.Down,
+-                KeyKind.Activate
+-            ).softKeyboard
++            model
++                .pressAll(
++                    start,
++                    KeyKind.Down,
++                    KeyKind.Down,
++                    KeyKind.Down,
++                    KeyKind.Down,
++                    KeyKind.Activate,
++                ).softKeyboard,
+         )
+     }
+ 
+@@ -240,7 +245,7 @@ class CityKeysTest {
+             KeyKind.Space,
+             KeyKind.Backspace,
+             KeyKind.Left,
+-            KeyKind.Right
++            KeyKind.Right,
+         ).forEach {
+             val r = model.reduce(open, key(it, 'a'))
+             assertFalse(it.name, r.consumed)
+@@ -370,7 +375,7 @@ class CityKeysTest {
+         val dlg = model.press(start, KeyKind.Backspace).state
+         assertEquals(
+             CityScreen.ConfirmRemove,
+-            model.reduce(dlg, key(KeyKind.Printable, 'q')).state.screen
++            model.reduce(dlg, key(KeyKind.Printable, 'q')).state.screen,
+         )
+     }
+ 
+diff --git a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityStateTest.kt b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityStateTest.kt
+index f9c6c5b..9ce8b8d 100644
+--- a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityStateTest.kt
++++ b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityStateTest.kt
+@@ -29,7 +29,11 @@ class CityStateTest {
+     }
+ 
+     @Test fun anAddedCityKeepsNameCoordinatesAndTimezone() {
+-        val c = CityState.defaults().add(tokyo).state.selected
++        val c =
++            CityState
++                .defaults()
++                .add(tokyo)
++                .state.selected
+         assertEquals(tokyo, c)
+     }
+ 
+@@ -69,7 +73,7 @@ class CityStateTest {
+                 paris.copy(latitude = Double.NaN) to Reason.NotFinite,
+                 paris.copy(longitude = Double.POSITIVE_INFINITY) to Reason.NotFinite,
+                 paris.copy(timezone = "") to Reason.BadTimezone,
+-                paris.copy(timezone = "Mars/Olympus") to Reason.BadTimezone
++                paris.copy(timezone = "Mars/Olympus") to Reason.BadTimezone,
+             )
+         cases.forEach { (city, reason) ->
+             val e = s.add(city)
+@@ -110,7 +114,12 @@ class CityStateTest {
+         val e = s.remove("New York")
+         assertEquals("Edison", e.state.selected.name)
+         assertTrue(e.refresh)
+-        val last = CityState.defaults().select("Mumbai").state.remove("Mumbai")
++        val last =
++            CityState
++                .defaults()
++                .select("Mumbai")
++                .state
++                .remove("Mumbai")
+         assertEquals("Edison", last.state.selected.name)
+     }
+ 
+@@ -142,19 +151,36 @@ class CityStateTest {
+     }
+ 
+     @Test fun resetRestoresTheDefaultsAndDropsUserCities() {
+-        val s = CityState.defaults().add(paris).state.remove("Edison").state
++        val s =
++            CityState
++                .defaults()
++                .add(paris)
++                .state
++                .remove("Edison")
++                .state
+         val e = s.reset()
+         assertEquals(DefaultCities.ALL, e.state.cities)
+         assertTrue(DefaultCities.ALL.all { d -> e.state.cities.any { it == d } })
+     }
+ 
+     @Test fun resetKeepsABuiltInSelectionAndFallsBackToTheFirstOtherwise() {
+-        val onMumbai = CityState.defaults().select(
+-            "Mumbai"
+-        ).state.add(paris, select = false).state.reset()
++        val onMumbai =
++            CityState
++                .defaults()
++                .select(
++                    "Mumbai",
++                ).state
++                .add(paris, select = false)
++                .state
++                .reset()
+         assertEquals("Mumbai", onMumbai.state.selected.name)
+         assertFalse(onMumbai.refresh)
+-        val onParis = CityState.defaults().add(paris).state.reset()
++        val onParis =
++            CityState
++                .defaults()
++                .add(paris)
++                .state
++                .reset()
+         assertEquals("Jersey City", onParis.state.selected.name)
+         assertTrue(onParis.refresh)
+     }
+diff --git a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityStoreTest.kt b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityStoreTest.kt
+index 68d0e04..f5c4750 100644
+--- a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityStoreTest.kt
++++ b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/CityStoreTest.kt
+@@ -13,7 +13,10 @@ class CityStoreTest {
+ 
+         override fun get(key: String): String? = data[key]
+ 
+-        override fun put(key: String, value: String) {
++        override fun put(
++            key: String,
++            value: String,
++        ) {
+             writes += 1
+             data[key] = value
+         }
+@@ -82,9 +85,12 @@ class CityStoreTest {
+         val odd = City("A|B\\C\nD", -33.8688, 151.2093, "Australia/Sydney")
+         val s = CityState(listOf(odd), odd.name)
+         assertEquals(s, CityCodec.decode(CityCodec.encode(s)))
+-        val piped = CityState.defaults().add(
+-            City("A|B\\C", -33.8688, 151.2093, "Australia/Sydney")
+-        ).state
++        val piped =
++            CityState
++                .defaults()
++                .add(
++                    City("A|B\\C", -33.8688, 151.2093, "Australia/Sydney"),
++                ).state
+         assertEquals(piped, CityCodec.decode(CityCodec.encode(piped)))
+     }
+ 
+@@ -92,7 +98,7 @@ class CityStoreTest {
+         val c = City("Exact", 12.345678901234, -98.765432109876, "UTC")
+         assertEquals(
+             c,
+-            CityCodec.decode(CityCodec.encode(CityState.of(listOf(c), "Exact"))).selected
++            CityCodec.decode(CityCodec.encode(CityState.of(listOf(c), "Exact"))).selected,
+         )
+     }
+ 
+@@ -111,7 +117,7 @@ class CityStoreTest {
+                 "CITY|Paris|48.8|2.3|Europe/Paris",
+                 "CITY|Bad|abc|2|UTC",
+                 "CITY|Far|100|2|UTC",
+-                "CITY|x"
++                "CITY|x",
+             ).joinToString("\n")
+         val s = CityCodec.decode(text)
+         assertEquals(listOf("Paris"), s.cities.map { it.name })
+@@ -124,7 +130,7 @@ class CityStoreTest {
+                 "SABLE_CITIES_V1",
+                 "SELECTED|Gone",
+                 "CITY|Paris|48.8|2.3|Europe/Paris",
+-                "CITY|Rome|41.9|12.5|Europe/Rome"
++                "CITY|Rome|41.9|12.5|Europe/Rome",
+             ).joinToString("\n")
+         assertEquals("Paris", CityCodec.decode(text).selected.name)
+     }
+@@ -137,7 +143,7 @@ class CityStoreTest {
+             text.lines().all {
+                 it.startsWith("SABLE_CITIES_V1") || it.startsWith("SELECTED|") ||
+                     it.startsWith("CITY|")
+-            }
++            },
+         )
+     }
+ }
+diff --git a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/ForecastCacheTest.kt b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/ForecastCacheTest.kt
+index 9ddb0ce..f8fb87f 100644
+--- a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/ForecastCacheTest.kt
++++ b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/ForecastCacheTest.kt
+@@ -86,6 +86,8 @@ class ForecastCacheTest {
+         val edit = repo.select("Mumbai")
+         assertTrue(edit.refresh)
+         assertNull(cache.read(edit.state.selected))
+-        assertFalse(StartLiveRefresh.cacheValidFor(StartLiveRefresh.cacheKey(DefaultCities.ALL[0]), edit.state.selected))
++        assertFalse(
++            StartLiveRefresh.cacheValidFor(StartLiveRefresh.cacheKey(DefaultCities.ALL[0]), edit.state.selected),
++        )
+     }
+ }
+diff --git a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/LegacyWeatherCacheTest.kt b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/LegacyWeatherCacheTest.kt
+index 8ede734..015763e 100644
+--- a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/LegacyWeatherCacheTest.kt
++++ b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/LegacyWeatherCacheTest.kt
+@@ -13,7 +13,7 @@ class LegacyWeatherCacheTest {
+                 put(LegacyWeatherCache.KEY_PROTOCOL, "OK\nCURRENT|1|1|1|1|1|1|CLEAR")
+                 put(LegacyWeatherCache.KEY_OBSERVED_EPOCH_SECONDS, "123")
+                 if (name != null) put(LegacyWeatherCache.KEY_LOCATION_NAME, name)
+-            }
++            },
+         )
+ 
+     @Test fun aFreshInstallHasNothingToMigrate() {
+diff --git a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/MemoryStore.kt b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/MemoryStore.kt
+index 064105f..0a876c3 100644
+--- a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/MemoryStore.kt
++++ b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/MemoryStore.kt
+@@ -1,12 +1,17 @@
+ package org.sableos.weather.cities
+ 
+ /** In-memory [KeyValueStore] for tests, standing in for Weather's private preferences. */
+-class MemoryStore(initial: Map<String, String> = emptyMap()) : KeyValueStore {
++class MemoryStore(
++    initial: Map<String, String> = emptyMap(),
++) : KeyValueStore {
+     val data = initial.toMutableMap()
+ 
+     override fun get(key: String): String? = data[key]
+ 
+-    override fun put(key: String, value: String) {
++    override fun put(
++        key: String,
++        value: String,
++    ) {
+         data[key] = value
+     }
+ 
+diff --git a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/WeatherCitiesContractTest.kt b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/WeatherCitiesContractTest.kt
+index e076ff7..e585ba9 100644
+--- a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/WeatherCitiesContractTest.kt
++++ b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/cities/WeatherCitiesContractTest.kt
+@@ -1,11 +1,11 @@
+ package org.sableos.weather.cities
+ 
+-import java.io.File
+ import org.junit.Assert.assertEquals
+ import org.junit.Assert.assertFalse
+ import org.junit.Assert.assertTrue
+ import org.junit.Test
+ import org.sableos.weather.DefaultWeatherLocations
++import java.io.File
+ 
+ /** Source-level negatives for the pure city/cache/key layers: no framework, network, permission or device identity. */
+ class WeatherCitiesContractTest {
+@@ -23,7 +23,10 @@ class WeatherCitiesContractTest {
+ 
+     private fun pureSources(): List<File> =
+         listOf("cities", "input").flatMap { sub ->
+-            File(weatherDir() ?: File("/nonexistent"), sub).walkTopDown().filter { it.isFile && it.name.endsWith(".kt") }.toList()
++            File(
++                weatherDir() ?: File("/nonexistent"),
++                sub,
++            ).walkTopDown().filter { it.isFile && it.name.endsWith(".kt") }.toList()
+         }
+ 
+     @Test fun thePureLayersExist() {
+@@ -42,7 +45,7 @@ class WeatherCitiesContractTest {
+                 "SystemProperties",
+                 "LocationManager",
+                 "ACCESS_" + "FINE_LOCATION",
+-                "http"
++                "http",
+             )
+         pureSources().forEach { f -> banned.forEach { assertFalse("${f.name}: $it", f.readText().contains(it)) } }
+     }
+@@ -55,7 +58,7 @@ class WeatherCitiesContractTest {
+         assertEquals(DefaultCities.ALL.map { it.name }, DefaultWeatherLocations.map { it.name })
+         assertEquals(
+             listOf("Jersey City", "New York", "Edison", "Mumbai"),
+-            DefaultCities.ALL.map { it.name }
++            DefaultCities.ALL.map { it.name },
+         )
+     }
+ }
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HomeLayout.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HomeLayout.kt
+index e24336c..12c90f4 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HomeLayout.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HomeLayout.kt
+@@ -173,6 +173,24 @@ object HomeHeader {
+         return headline to place
+     }
+ 
++    /**
++     * A weather symbol for the condition in a [weather] headline ("18° partly cloudy" gives ⛅), so the
++     * home header reads as icon and temperature; an unknown condition gets a thermometer.
++     */
++    fun weatherIcon(headline: String): String {
++        val text = headline.lowercase()
++        return when {
++            "storm" in text -> "⛈"
++            "snow" in text -> "❄"
++            "rain" in text -> "🌧"
++            "fog" in text -> "🌫"
++            "partly" in text -> "⛅"
++            "cloud" in text -> "☁"
++            "clear" in text -> "☀"
++            else -> "🌡"
++        }
++    }
++
+     /** Milliseconds from [nowMillisOfDay] to the next midnight, when the date line changes. */
+     fun millisToMidnight(nowMillisOfDay: Long): Long = (DAY_MS - nowMillisOfDay.mod(DAY_MS)).coerceAtLeast(1L)
+ 
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+index c98c957..7f814ea 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+@@ -15,6 +15,7 @@ import android.os.SystemClock
+ import android.provider.CallLog
+ import android.util.LruCache
+ import androidx.compose.foundation.Image
++import androidx.compose.foundation.isSystemInDarkTheme
+ import androidx.compose.foundation.layout.ColumnScope
+ import androidx.compose.ui.platform.LocalConfiguration
+ import androidx.compose.ui.unit.Dp
+@@ -68,12 +69,16 @@ import androidx.compose.foundation.rememberScrollState
+ import androidx.compose.foundation.shape.CircleShape
+ import androidx.compose.foundation.shape.RoundedCornerShape
+ import androidx.compose.foundation.verticalScroll
++import androidx.compose.material3.LocalContentColor
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.Surface
+ import androidx.compose.material3.Text
+ import androidx.compose.material3.TextButton
+ import androidx.compose.runtime.Composable
++import androidx.compose.runtime.CompositionLocalProvider
++import androidx.compose.runtime.Immutable
+ import androidx.compose.runtime.LaunchedEffect
++import androidx.compose.runtime.ReadOnlyComposable
+ import androidx.compose.runtime.derivedStateOf
+ import androidx.compose.runtime.getValue
+ import androidx.compose.runtime.key
+@@ -83,6 +88,7 @@ import androidx.compose.runtime.remember
+ import androidx.compose.runtime.rememberCoroutineScope
+ import androidx.compose.runtime.rememberUpdatedState
+ import androidx.compose.runtime.setValue
++import androidx.compose.runtime.staticCompositionLocalOf
+ import androidx.compose.runtime.withFrameNanos
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+@@ -227,18 +233,89 @@ private val SableTilePalette =
+         SableSlate,
+     )
+ 
+-// BlackBerry 10 look on the Start pages: dark background, white text, the BB10
+-// blue as the focus highlight. Values from the public BB10 look; the UI
+-// Guidelines PDF has the exact tokens.
+-private val Bb10Blue = Color(0xFF00A8DF)
+-private val Bb10Background = Color(0xFF121212)
+-private val Bb10Card = Color(0xFF262626)
+-private val Bb10Tile = Color(0xFF2E2E2E)
+-private val Bb10Line = Color(0xFF3A3A3A)
+-private val Bb10BarTop = Color(0xFF2A2A2A)
+-private val Bb10BarBottom = Color(0xFF141414)
+-private val Bb10Muted = Color(0xFF9E9E9E)
+-private val Bb10Dim = Color(0xFF5E5E5E)
++// BlackBerry 10 look on the Start pages. Values from the public BB10 look; the UI
++// Guidelines PDF has the exact tokens. The pages follow Android's Dark theme and the
++// Sable accent: dark is the BB10 look, light keeps the layout on light surfaces, and the
++// focus highlight is the accent (BB10 blue for the default Sable Blue).
++private val Bb10DefaultBlue = Color(0xFF00A8DF)
++
++/** Start's page colours for one Dark theme state and accent. */
++@Immutable
++internal data class StartPalette(
++    val accent: Color,
++    val onAccent: Color,
++    val background: Color,
++    val card: Color,
++    val tile: Color,
++    val line: Color,
++    val barTop: Color,
++    val barBottom: Color,
++    val text: Color,
++    val muted: Color,
++    val dim: Color,
++)
++
++internal fun startPalette(
++    dark: Boolean,
++    accent: AccentPreset,
++): StartPalette {
++    val accentColor = if (accent == AccentPreset.Blue) Bb10DefaultBlue else accent.color
++    val onAccent = if (accent == AccentPreset.Blue) Color.White else accent.onColor
++    return if (dark) {
++        StartPalette(
++            accent = accentColor,
++            onAccent = onAccent,
++            background = Color(0xFF121212),
++            card = Color(0xFF262626),
++            tile = Color(0xFF2E2E2E),
++            line = Color(0xFF3A3A3A),
++            barTop = Color(0xFF2A2A2A),
++            barBottom = Color(0xFF141414),
++            text = Color.White,
++            muted = Color(0xFF9E9E9E),
++            dim = Color(0xFF5E5E5E),
++        )
++    } else {
++        StartPalette(
++            accent = accentColor,
++            onAccent = onAccent,
++            background = Color(0xFFF2F4F7),
++            card = Color.White,
++            tile = Color(0xFFE6E9EE),
++            line = Color(0xFFCBD1D8),
++            barTop = Color(0xFFF7F8FA),
++            barBottom = Color(0xFFDDE1E6),
++            text = Color(0xFF12171C),
++            muted = Color(0xFF515B66),
++            dim = Color(0xFFA3ABB4),
++        )
++    }
++}
++
++private val LocalStartPalette = staticCompositionLocalOf { startPalette(dark = true, accent = AccentPreset.Blue) }
++
++private val Bb10Blue: Color
++    @Composable @ReadOnlyComposable get() = LocalStartPalette.current.accent
++private val Bb10OnBlue: Color
++    @Composable @ReadOnlyComposable get() = LocalStartPalette.current.onAccent
++private val Bb10Background: Color
++    @Composable @ReadOnlyComposable get() = LocalStartPalette.current.background
++private val Bb10Card: Color
++    @Composable @ReadOnlyComposable get() = LocalStartPalette.current.card
++private val Bb10Tile: Color
++    @Composable @ReadOnlyComposable get() = LocalStartPalette.current.tile
++private val Bb10Line: Color
++    @Composable @ReadOnlyComposable get() = LocalStartPalette.current.line
++private val Bb10BarTop: Color
++    @Composable @ReadOnlyComposable get() = LocalStartPalette.current.barTop
++private val Bb10BarBottom: Color
++    @Composable @ReadOnlyComposable get() = LocalStartPalette.current.barBottom
++private val Bb10Text: Color
++    @Composable @ReadOnlyComposable get() = LocalStartPalette.current.text
++private val Bb10Muted: Color
++    @Composable @ReadOnlyComposable get() = LocalStartPalette.current.muted
++private val Bb10Dim: Color
++    @Composable @ReadOnlyComposable get() = LocalStartPalette.current.dim
+ 
+ /**
+  * Production Sable Start UI in the BlackBerry 10 layout (owner request, after
+@@ -498,7 +575,7 @@ fun SableStartScreen(
+             ) {
+                 when (destination) {
+                     SableStartDestination.Start ->
+-                        Bb10Theme {
++                        Bb10Theme(appearance) {
+                             StartStrip(
+                                 state = startPager,
+                                 pageCount = pageCount,
+@@ -764,29 +841,41 @@ fun SableStartScreen(
+ }
+ 
+ /**
+- * The BB10 look over the Start pages: dark background, white text and the
+- * BB10 blue as the accent, so the focus fill and rings are BB10 blue.
++ * The BB10 look over the Start pages, in the user's Dark theme and Sable accent: the
++ * focus fill and rings are the accent ([startPalette]).
+  */
+ @Composable
+-private fun Bb10Theme(content: @Composable () -> Unit) {
++private fun Bb10Theme(
++    appearance: SableAppearance,
++    content: @Composable () -> Unit,
++) {
++    val dark =
++        when (appearance.mode) {
++            AppearanceMode.FollowSystem -> isSystemInDarkTheme()
++            AppearanceMode.Light -> false
++            AppearanceMode.Dark -> true
++        }
++    val palette = remember(dark, appearance.accent) { startPalette(dark, appearance.accent) }
+     val base = MaterialTheme.colorScheme
+-    MaterialTheme(
+-        colorScheme =
+-            base.copy(
+-                primary = Bb10Blue,
+-                onPrimary = Color.White,
+-                background = Bb10Background,
+-                onBackground = Color.White,
+-                surface = Bb10Card,
+-                onSurface = Color.White,
+-                surfaceVariant = Bb10Tile,
+-                onSurfaceVariant = Bb10Muted,
+-                outlineVariant = Bb10Line,
+-            ),
+-        typography = MaterialTheme.typography,
+-        shapes = MaterialTheme.shapes,
+-        content = content,
+-    )
++    CompositionLocalProvider(LocalStartPalette provides palette) {
++        MaterialTheme(
++            colorScheme =
++                base.copy(
++                    primary = palette.accent,
++                    onPrimary = palette.onAccent,
++                    background = palette.background,
++                    onBackground = palette.text,
++                    surface = palette.card,
++                    onSurface = palette.text,
++                    surfaceVariant = palette.tile,
++                    onSurfaceVariant = palette.muted,
++                    outlineVariant = palette.line,
++                ),
++            typography = MaterialTheme.typography,
++            shapes = MaterialTheme.shapes,
++            content = content,
++        )
++    }
+ }
+ 
+ /**
+@@ -928,7 +1017,7 @@ private fun Bb10PageIndicator(
+         verticalAlignment = Alignment.CenterVertically,
+     ) {
+         for (page in 0 until count) {
+-            val color = if (page == current) Color.White else Bb10Dim
++            val color = if (page == current) Bb10Text else Bb10Dim
+             Box(
+                 modifier =
+                     Modifier
+@@ -1077,7 +1166,7 @@ private fun StatusDialsRow(onOpenSettings: () -> Unit) {
+         Text(
+             text = "⚙",
+             fontSize = 22.sp,
+-            color = Color.White,
++            color = Bb10Text,
+             modifier =
+                 Modifier
+                     .heightIn(min = 44.dp)
+@@ -1119,9 +1208,9 @@ private fun WeatherDateHeader(
+         datum.takeIf { it.availability == LiveAvailability.LIVE }?.let { HomeHeader.weather(it.detail) }
+     val line =
+         when {
+-            weather == null -> if (datum.availability == LiveAvailability.LOADING) "Weather" else "Weather · open Sable Weather"
+-            weather.second.isBlank() -> weather.first
+-            else -> "${weather.first} · ${weather.second}"
++            weather == null -> if (datum.availability == LiveAvailability.LOADING) "Weather" else "Weather · no forecast yet"
++            weather.second.isBlank() -> HomeHeader.weatherIcon(weather.first) + " " + weather.first
++            else -> HomeHeader.weatherIcon(weather.first) + " " + weather.first + " · " + weather.second
+         }
+     Column(
+         modifier =
+@@ -1136,7 +1225,7 @@ private fun WeatherDateHeader(
+         Text(
+             text = line,
+             style = MaterialTheme.typography.titleMedium,
+-            color = Color.White,
++            color = Bb10Text,
+             maxLines = 1,
+             overflow = TextOverflow.Ellipsis,
+         )
+@@ -1303,14 +1392,14 @@ private fun FrameCard(
+                 text = label,
+                 modifier = Modifier.weight(1f),
+                 style = MaterialTheme.typography.labelLarge,
+-                color = Color.White,
++                color = if (focused) Bb10OnBlue else Color.White,
+                 maxLines = 1,
+                 overflow = TextOverflow.Ellipsis,
+             )
+             Text(
+                 text = "×",
+                 fontSize = 20.sp,
+-                color = Color.White,
++                color = if (focused) Bb10OnBlue else Color.White,
+                 modifier =
+                     Modifier
+                         .clickable(onClick = onClose)
+@@ -1471,7 +1560,7 @@ private fun GlanceFrameCard(
+             Text(
+                 text = headline,
+                 style = MaterialTheme.typography.titleMedium,
+-                color = Color.White,
++                color = Bb10Text,
+                 maxLines = 2,
+                 overflow = TextOverflow.Ellipsis,
+             )
+@@ -1496,7 +1585,7 @@ private fun GlanceFrameCard(
+                     .background(if (focused) Bb10Blue else Color(0xE6000000))
+                     .padding(horizontal = 8.dp, vertical = 3.dp),
+             style = MaterialTheme.typography.labelLarge,
+-            color = Color.White,
++            color = if (focused) Bb10OnBlue else Color.White,
+             maxLines = 1,
+         )
+     }
+@@ -1652,7 +1741,7 @@ private fun GridCell(
+             text = label,
+             // No tracking: "Minesweeper" fits a fifth of 411dp on one line.
+             style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.sp),
+-            color = Color.White,
++            color = Bb10Text,
+             textAlign = TextAlign.Center,
+             maxLines = 1,
+             overflow = TextOverflow.Ellipsis,
+@@ -1868,8 +1957,8 @@ private fun HubPage(
+                 text = HUB_LABEL,
+                 style = MaterialTheme.typography.headlineSmall,
+                 fontWeight = FontWeight.Medium,
+-                // The strip is always BB10 dark, whatever the appearance's content colour.
+-                color = Color.White,
++                // The strip's own text colour (BB10 palette), not the appearance's content colour.
++                color = Bb10Text,
+                 modifier = Modifier.semantics { heading() },
+             )
+             Spacer(Modifier.height(6.dp))
+@@ -1947,7 +2036,7 @@ private fun HubUnreadBar(
+                                 Text(
+                                     text = HubBar.overflowLabel(overflow),
+                                     style = MaterialTheme.typography.labelLarge,
+-                                    color = Color.White,
++                                    color = LocalContentColor.current,
+                                     maxLines = 1,
+                                 )
+                             }
+@@ -1981,7 +2070,7 @@ private fun HubBarItem(
+         Text(
+             text = count,
+             style = MaterialTheme.typography.labelLarge,
+-            color = Color.White,
++            color = LocalContentColor.current,
+             maxLines = 1,
+         )
+     }
+@@ -2012,18 +2101,21 @@ private fun HubBarChip(
+         // 56dp: 4 + 20dp icon + 4 + room for "99+" + 4.
+         horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
+     ) {
+-        content()
++        CompositionLocalProvider(LocalContentColor provides if (focused) Bb10OnBlue else Bb10Text) {
++            content()
++        }
+     }
+ }
+ 
+ /** A small padlock: Hub's counts-only total (locked device or Sable private mode). */
+ @Composable
+ private fun HubLockMark() {
++    val ink = LocalContentColor.current
+     ComposeCanvas(Modifier.size(HUB_BAR_ICON_DP.dp)) {
+         val unit = size.minDimension
+         val stroke = unit * 0.12f
+         drawArc(
+-            color = Color.White,
++            color = ink,
+             startAngle = 180f,
+             sweepAngle = 180f,
+             useCenter = false,
+@@ -2032,7 +2124,7 @@ private fun HubLockMark() {
+             style = Stroke(stroke),
+         )
+         drawRoundRect(
+-            color = Color.White,
++            color = ink,
+             topLeft = Offset(unit * 0.2f, unit * 0.42f),
+             size = Size(unit * 0.6f, unit * 0.46f),
+             cornerRadius = CornerRadius(unit * 0.08f),
+@@ -2224,7 +2316,7 @@ private fun HubPersonRow(
+                     .semantics { contentDescription = person.name + if (person.starred) ", favourite" else "" }
+                     .padding(horizontal = 8.dp, vertical = 10.dp),
+             style = MaterialTheme.typography.titleMedium,
+-            color = Color.White,
++            color = if (focused) Bb10OnBlue else Bb10Text,
+             maxLines = 1,
+             overflow = TextOverflow.Ellipsis,
+         )
+@@ -2253,7 +2345,7 @@ private fun HubPersonAction(
+                 .semantics { contentDescription = description }
+                 .padding(horizontal = 10.dp, vertical = 8.dp),
+         style = MaterialTheme.typography.labelLarge,
+-        color = Color.White,
++        color = if (focused) Bb10OnBlue else Bb10Text,
+         maxLines = 1,
+     )
+ }
+@@ -2381,7 +2473,9 @@ private fun Bb10ActionBar(
+                         },
+                 contentAlignment = Alignment.Center,
+             ) {
+-                QuickSlotMark(slot = slot, size = BAR_GLYPH_DP, monochrome = true)
++                CompositionLocalProvider(LocalContentColor provides if (focused) Bb10OnBlue else Bb10Text) {
++                    QuickSlotMark(slot = slot, size = BAR_GLYPH_DP, monochrome = true)
++                }
+             }
+         }
+     }
+@@ -2389,7 +2483,7 @@ private fun Bb10ActionBar(
+ 
+ /**
+  * A slot's mark. Phone, Search, Camera and All Apps are drawn as BB10-style
+- * glyphs ([monochrome] white on the bar); app slots show the app's icon.
++ * glyphs ([monochrome] in the bar's content colour); app slots show the app's icon.
+  */
+ @Composable
+ private fun QuickSlotMark(
+@@ -2405,7 +2499,7 @@ private fun QuickSlotMark(
+         AppMark(app = app, size = size)
+         return
+     }
+-    val color = if (monochrome) Color.White else MaterialTheme.colorScheme.primary
++    val color = if (monochrome) LocalContentColor.current else MaterialTheme.colorScheme.primary
+     ComposeCanvas(Modifier.size(size.dp)) {
+         val unit = this.size.minDimension
+         val stroke = unit * 0.1f
