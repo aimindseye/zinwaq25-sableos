@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Sound Profiles (org.sableos.titan2.profiles) sets Do Not Disturb for the Phone calls only
+         and All alerts off profiles, so it has Do Not Disturb access from first boot instead of
+         sending the user to Settings > Notifications > Do Not Disturb access. -->
+    <string name="config_defaultDndAccessPackages" translatable="false">org.sableos.titan2.profiles</string>
+</resources>

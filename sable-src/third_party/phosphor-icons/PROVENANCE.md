@@ -29,6 +29,7 @@ Glyphs added for the Q25 adaptive-icon work (verbatim `assets/regular/<name>.svg
 from raw.githubusercontent.com): bomb, book-open-text, calculator, calendar-dots, chat-circle-dots, chat-text,
 cloud-sun, envelope-simple, grid-four, grid-nine, music-notes, text-align-left, wrench.
 Added for Secure Vault (Private Space file layer, `origin=NEW_TITAN_GLYPH_PHOSPHOR_REGULAR`): vault.
+Added for Sound Profiles (`origin=NEW_TITAN_GLYPH_PHOSPHOR_REGULAR`): speaker-high.
 Added for Sable Start's tile-free app glyphs on the Q25 (`model/AppGlyphs.kt`, drawn by `ui/SableGlyphIcon.kt` from
 the same path data): address-book, clock, folder-simple, gear-six, globe, image-square, microphone, phone-call,
 puzzle-piece, shopping-bag, video-camera.
