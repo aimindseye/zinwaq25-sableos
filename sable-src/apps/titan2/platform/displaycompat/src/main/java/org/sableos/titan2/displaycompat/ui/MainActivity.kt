@@ -21,6 +21,7 @@ import org.sableos.titan2.displaycompat.android.TraitsResolver
 import org.sableos.titan2.displaycompat.android.displayCompat
 import org.sableos.titan2.displaycompat.core.ProfileLink
 import org.sableos.titan2.displaycompat.core.SizePx
+import org.sableos.titan2.theme.SablePalette
 
 class MainActivity : ComponentActivity() {
     /** Set when Settings > App info opened one app's profile: Done and Back return there. */

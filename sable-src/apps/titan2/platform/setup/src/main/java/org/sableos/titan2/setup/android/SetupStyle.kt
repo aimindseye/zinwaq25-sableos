@@ -1,5 +1,7 @@
 package org.sableos.titan2.setup.android
 
+import org.sableos.titan2.theme.SablePalette
+
 /** Sizes (dp, sp) and colours shared by the checklist and the Weather city step; colours follow [palette]. */
 internal object SetupStyle {
     const val PAD_H = 16

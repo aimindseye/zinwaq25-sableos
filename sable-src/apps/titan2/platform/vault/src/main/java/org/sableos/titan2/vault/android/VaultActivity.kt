@@ -18,6 +18,7 @@ import android.widget.TextView
 import android.widget.Toast
 import android.window.OnBackInvokedDispatcher
 import androidx.core.content.FileProvider
+import org.sableos.titan2.theme.SablePalette
 import org.sableos.titan2.vault.core.ConfirmAction
 import org.sableos.titan2.vault.core.Confirmation
 import org.sableos.titan2.vault.core.Section

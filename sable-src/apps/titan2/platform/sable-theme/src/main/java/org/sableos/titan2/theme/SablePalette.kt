@@ -1,4 +1,4 @@
-package org.sableos.titan2.vault.android
+package org.sableos.titan2.theme
 
 import android.app.Activity
 import android.content.Context
@@ -10,8 +10,10 @@ import android.view.WindowInsetsController
  * The colours of the Sable theme for a View-based platform app: dark or light from the system
  * Dark theme, the accent from the Sable appearance authority (Settings > Display > Sable appearance),
  * the same as every Compose Sable app. A build without the authority reads Sable Blue.
+ *
+ * One copy for every platform app: each module adds `../sable-theme/src/main/java` as a source dir.
  */
-internal data class SablePalette(
+data class SablePalette(
     val dark: Boolean,
     val window: Int,
     val surface: Int,

@@ -1,6 +1,7 @@
 package org.sableos.titan2.displaycompat.ui
 
 import androidx.compose.ui.graphics.Color
+import org.sableos.titan2.theme.SablePalette
 
 /**
  * The Sable theme's colours: dark or light from the system Dark theme, the accent from the Sable

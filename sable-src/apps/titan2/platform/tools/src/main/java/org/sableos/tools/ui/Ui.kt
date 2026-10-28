@@ -11,6 +11,7 @@ import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
+import org.sableos.titan2.theme.SablePalette
 
 /**
  * Minimal view kit for Sable Tools: plain framework views (no Compose), dense rows readable on a 720x720 square
