@@ -75,9 +75,11 @@ dozing, and right after unlock, is the 0306 case.
 ## Keyboard firmware
 
 The keyboard and trackpad run their own firmware on a separate controller.
-Neither SableOS nor `restore-stock.sh` touches it. The community *Update
-Keyboard Firmware* guide (PDF shared in the project, not stored here) updates
-it from **stock** Android:
+`restore-stock.sh` does not touch it. SableOS has the stock update screen:
+dial `*#*#1122#*#*` or open Settings > System > Keyboard > Keyboard firmware
+(Settings 1501, device tree 1502), then follow the same steps as the community
+*Update Keyboard Firmware* guide (PDF shared in the project, not stored here)
+for **stock** Android:
 
 1. Get the firmware file from Zinwa (through the community mods).
 2. Dial `*#*#1122#*#*` to open the hidden menu and press **Turn off**.
@@ -88,10 +90,14 @@ it from **stock** Android:
 
 Consequences for SableOS:
 
-* Update the keyboard firmware **on stock before installing SableOS**. The
-  `*#*#1122#*#*` menu is a stock app that LineageOS-based builds don't
-  include, so later updates mean returning to stock or porting that tool
-  (open item, Q3).
+* The stock menu is a vendor app LineageOS lacks; SableOS's screen drives the
+  same kernel switch, `/proc/firmware_upgrade` (1 off, 2 download mode with
+  USB handed to the keyboard, 0 normal). From a root shell the same steps
+  work: `echo 1`, then hold Hang Up while `echo 2`; the computer sees
+  `2e8a:0003 Raspberry Pi RP2 Boot` and a 128 MB RPI-RP2 drive (seen
+  2026-10-28). Restarting the phone also returns the keyboard to normal.
+* `picotool save -a` while in download mode backs up the installed
+  firmware; there is no other copy of the stock image.
 * Record the keyboard firmware version with the Q3 key captures, because
   scan codes and trackpad behaviour can change between firmware versions.
 * The guide notes that in this mode the keyboard and trackpad work as a USB
