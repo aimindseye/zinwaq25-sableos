@@ -44,8 +44,9 @@ Lights HAL to round colours to pure red, green or blue.
 
 ## Phone and Contacts look
 
-Dialer 0707-0708 and Contacts 0755 give both apps the Sable dark look from
-`sable-phone-dialer-titan2` and `sable-contacts-people-titan2`: dark in any system setting, an
+Dialer 0707-0709 and Contacts 0755-0756 give both apps the Sable look from
+`sable-phone-dialer-titan2` and `sable-contacts-people-titan2`: light or dark with the system
+Dark theme like every Sable app (the call screen stays dark), an
 accent outline on the focused row, a "Phone" header, accent section labels, pill dial-pad keys,
 in-call panels and an End pill. The accent comes from the system palette, so it follows the
 user's Sable accent. Details and what stays upstream: [phone-contacts](phone-contacts.md).

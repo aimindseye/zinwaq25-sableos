@@ -41,7 +41,12 @@ product-policy change is explicitly listed below.
 - inherited Thunderbird OAuth client IDs are removed from every build variant;
 - generic IMAP/SMTP remains available;
 - Gmail/Microsoft provider OAuth remains disabled until SableOS owns and
-  qualifies its own OAuth client registrations and redirect URIs;
+  qualifies its own OAuth client registrations and redirect URIs, except
+  Gmail with the owner's own Google client: when the build host sets
+  `SABLE_MAIL_GOOGLE_CLIENT_ID` (Android client for `org.sableos.mail`,
+  custom URI scheme, redirect `org.sableos.mail:/oauth2redirect`), the flavor
+  writes that one Gmail configuration; the verifier allows only it and rejects
+  every upstream client id (setup: `docs/MAIL_GMAIL_SIGNIN.md` in the Q25 repo);
 - Follow system / Light / Dark and Sable Blue / Green / Purple / Orange /
   Slate are read from the read-only SableStart appearance provider;
 - upstream received-message remote network content remains blocked until the

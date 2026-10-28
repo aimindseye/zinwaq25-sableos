@@ -10,7 +10,13 @@ class CityCatalogTest {
         CityCatalog.ALL.forEach { assertEquals(it.name, null, CityRules.validate(it)) }
         val state = CityState.of(CityCatalog.ALL, null)
         assertEquals(CityRules.MAX_CITIES, state.cities.size)
-        assertEquals(CityCatalog.ALL.size, CityCatalog.ALL.map { it.name.lowercase() }.toSet().size)
+        assertEquals(
+            CityCatalog.ALL.size,
+            CityCatalog.ALL
+                .map { it.name.lowercase() }
+                .toSet()
+                .size,
+        )
     }
 
     @Test fun theBuiltInCitiesAreInTheCatalogWithTheSameCoordinates() {

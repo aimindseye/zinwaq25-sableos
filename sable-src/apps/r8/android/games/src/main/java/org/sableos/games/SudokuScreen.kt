@@ -1,7 +1,6 @@
 package org.sableos.games
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,8 +8,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -26,9 +24,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import org.sableos.design.SableSpacing
-import org.sableos.design.SableValuePanel
 
 private const val SUDOKU_SIZE = 9
 
@@ -142,73 +139,52 @@ internal fun SudokuScreen() {
         true
     }
 
-    Column(
-        verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
-    ) {
-        SableValuePanel(
-            label = "puzzle",
-            value = status,
-            supportingText = "Arrows move, 1-9 (or W E R S D F Z X C) fill, Del erases, U undoes, N starts over.",
-        )
-
+    GameFrame(
+        title = "sudoku",
+        subtitle = "A focused number puzzle.",
+        statusLabel = "puzzle",
+        status = status,
+        hint = "Arrows move, 1-9 (or W E R S D F Z X C) fill, Del erases, U undoes, N starts over.",
+        actions =
+            listOf(
+                GameAction(label = "Undo", key = "U", onClick = ::undo),
+                GameAction(label = "Erase", key = "Del", onClick = ::erase),
+                GameAction(label = "New", key = "N", onClick = ::reset),
+            ),
+        tallExtras = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                (1..9).forEach { value ->
+                    SudokuNumberKey(
+                        value = value,
+                        modifier = Modifier.weight(1f),
+                        onClick = { setValue(value) },
+                    )
+                }
+            }
+        },
+    ) { side ->
         SudokuBoard(
+            side = side,
             board = board,
             selectedRow = selectedRow,
             selectedCol = selectedCol,
             onSelect = ::select,
         )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            (1..9).forEach { value ->
-                SudokuNumberKey(
-                    value = value,
-                    modifier = Modifier.weight(1f),
-                    onClick = { setValue(value) },
-                )
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
-        ) {
-            SudokuBottomAction(
-                symbol = "↶",
-                label = "Undo",
-                modifier = Modifier.weight(1f),
-                onClick = ::undo,
-            )
-            SudokuBottomAction(
-                symbol = "⌫",
-                label = "Erase",
-                modifier = Modifier.weight(1f),
-                onClick = ::erase,
-            )
-            SudokuBottomAction(
-                symbol = "↻",
-                label = "New game",
-                modifier = Modifier.weight(1f),
-                onClick = ::reset,
-            )
-        }
     }
 }
 
 @Composable
 private fun SudokuBoard(
+    side: Dp,
     board: String,
     selectedRow: Int,
     selectedCol: Int,
     onSelect: (Int, Int) -> Unit,
 ) {
     Column(
-        modifier =
-            Modifier
-            .fillMaxWidth()
-            .wrapContentWidth(Alignment.CenterHorizontally)
-            .widthIn(max = boardMaxSide()),
+        modifier = Modifier.size(side),
     ) {
         (0 until 3).forEach { blockRow ->
             Row(
@@ -364,43 +340,6 @@ private fun SudokuNumberKey(
                 text = value.toString(),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Medium,
-            )
-        }
-    }
-}
-
-@Composable
-private fun SudokuBottomAction(
-    symbol: String,
-    label: String,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    Surface(
-        onClick = onClick,
-        modifier = modifier.heightIn(min = 56.dp),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surface,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        border =
-            BorderStroke(
-                1.dp,
-                MaterialTheme.colorScheme.outlineVariant,
-            ),
-        tonalElevation = 0.dp,
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Text(
-                text = symbol,
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
             )
         }
     }

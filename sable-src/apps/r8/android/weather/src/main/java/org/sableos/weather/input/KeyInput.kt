@@ -19,7 +19,7 @@ enum class KeyKind {
     Tab,
     Backspace,
     Printable,
-    Other
+    Other,
 }
 
 /**
@@ -35,7 +35,7 @@ data class KeyInput(
     val alt: Boolean = false,
     val meta: Boolean = false,
     val repeat: Boolean = false,
-    val editableFocused: Boolean = false
+    val editableFocused: Boolean = false,
 ) {
     val hasCommandModifier: Boolean get() = ctrl || meta
 
@@ -45,7 +45,12 @@ data class KeyInput(
 }
 
 /** A platform key event reduced to integers so the mapper stays pure (no framework types). */
-data class RawKey(val keyCode: Int, val unicode: Int, val metaState: Int, val repeat: Boolean)
+data class RawKey(
+    val keyCode: Int,
+    val unicode: Int,
+    val metaState: Int,
+    val repeat: Boolean,
+)
 
 /**
  * Maps public Android key codes and meta flags to [KeyInput]. Only documented, device-independent codes appear
@@ -75,7 +80,10 @@ object KeyMapper {
     const val META_META_ON = 0x10000
     private const val COMBINING_ACCENT_MASK = 0x80000000.toInt()
 
-    fun map(raw: RawKey, editableFocused: Boolean = false): KeyInput {
+    fun map(
+        raw: RawKey,
+        editableFocused: Boolean = false,
+    ): KeyInput {
         val kind = kindOf(raw)
         val char = if (kind == KeyKind.Printable) raw.unicode.toChar() else KeyInput.NO_CHAR
         return KeyInput(
@@ -86,28 +94,29 @@ object KeyMapper {
             alt = raw.metaState and META_ALT_ON != 0,
             meta = raw.metaState and META_META_ON != 0,
             repeat = raw.repeat,
-            editableFocused = editableFocused
+            editableFocused = editableFocused,
         )
     }
 
-    private fun kindOf(raw: RawKey): KeyKind = when (raw.keyCode) {
-        KEYCODE_DPAD_UP -> KeyKind.Up
-        KEYCODE_DPAD_DOWN -> KeyKind.Down
-        KEYCODE_DPAD_LEFT -> KeyKind.Left
-        KEYCODE_DPAD_RIGHT -> KeyKind.Right
-        KEYCODE_DPAD_CENTER, KEYCODE_ENTER, KEYCODE_NUMPAD_ENTER -> KeyKind.Activate
-        KEYCODE_SPACE -> KeyKind.Space
-        KEYCODE_BACK -> KeyKind.Back
-        KEYCODE_ESCAPE -> KeyKind.Escape
-        KEYCODE_HOME -> KeyKind.Other
-        KEYCODE_MOVE_HOME -> KeyKind.MoveHome
-        KEYCODE_MOVE_END -> KeyKind.MoveEnd
-        KEYCODE_PAGE_UP -> KeyKind.PageUp
-        KEYCODE_PAGE_DOWN -> KeyKind.PageDown
-        KEYCODE_TAB -> KeyKind.Tab
-        KEYCODE_DEL -> KeyKind.Backspace
-        else -> if (isPrintable(raw.unicode)) KeyKind.Printable else KeyKind.Other
-    }
+    private fun kindOf(raw: RawKey): KeyKind =
+        when (raw.keyCode) {
+            KEYCODE_DPAD_UP -> KeyKind.Up
+            KEYCODE_DPAD_DOWN -> KeyKind.Down
+            KEYCODE_DPAD_LEFT -> KeyKind.Left
+            KEYCODE_DPAD_RIGHT -> KeyKind.Right
+            KEYCODE_DPAD_CENTER, KEYCODE_ENTER, KEYCODE_NUMPAD_ENTER -> KeyKind.Activate
+            KEYCODE_SPACE -> KeyKind.Space
+            KEYCODE_BACK -> KeyKind.Back
+            KEYCODE_ESCAPE -> KeyKind.Escape
+            KEYCODE_HOME -> KeyKind.Other
+            KEYCODE_MOVE_HOME -> KeyKind.MoveHome
+            KEYCODE_MOVE_END -> KeyKind.MoveEnd
+            KEYCODE_PAGE_UP -> KeyKind.PageUp
+            KEYCODE_PAGE_DOWN -> KeyKind.PageDown
+            KEYCODE_TAB -> KeyKind.Tab
+            KEYCODE_DEL -> KeyKind.Backspace
+            else -> if (isPrintable(raw.unicode)) KeyKind.Printable else KeyKind.Other
+        }
 
     private fun isPrintable(unicode: Int): Boolean =
         unicode > 0 && unicode and COMBINING_ACCENT_MASK == 0 && unicode <= Char.MAX_VALUE.code &&

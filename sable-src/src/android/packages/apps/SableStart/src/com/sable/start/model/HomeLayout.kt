@@ -173,6 +173,24 @@ object HomeHeader {
         return headline to place
     }
 
+    /**
+     * A weather symbol for the condition in a [weather] headline ("18° partly cloudy" gives ⛅), so the
+     * home header reads as icon and temperature; an unknown condition gets a thermometer.
+     */
+    fun weatherIcon(headline: String): String {
+        val text = headline.lowercase()
+        return when {
+            "storm" in text -> "⛈"
+            "snow" in text -> "❄"
+            "rain" in text -> "🌧"
+            "fog" in text -> "🌫"
+            "partly" in text -> "⛅"
+            "cloud" in text -> "☁"
+            "clear" in text -> "☀"
+            else -> "🌡"
+        }
+    }
+
     /** Milliseconds from [nowMillisOfDay] to the next midnight, when the date line changes. */
     fun millisToMidnight(nowMillisOfDay: Long): Long = (DAY_MS - nowMillisOfDay.mod(DAY_MS)).coerceAtLeast(1L)
 

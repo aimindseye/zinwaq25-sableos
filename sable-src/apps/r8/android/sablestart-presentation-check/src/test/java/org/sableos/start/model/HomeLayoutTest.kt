@@ -61,7 +61,10 @@ class HomeLayoutTest {
     @Test
     fun oldStartTilesBecomeTheFirstHomeOrder() {
         val defaults = listOf("hub", "mail", "calendar")
-        assertEquals(listOf("hub", "calendar", "files", "zz"), HomeApps.resolve(null, setOf("zz", "calendar", "files", "hub"), defaults))
+        assertEquals(
+            listOf("hub", "calendar", "files", "zz"),
+            HomeApps.resolve(null, setOf("zz", "calendar", "files", "hub"), defaults),
+        )
     }
 
     @Test
@@ -85,8 +88,21 @@ class HomeLayoutTest {
     fun glanceWidgetsHideAndShow() {
         val shown = GlanceWidgets.toggle(GlanceWidgets.DEFAULT, GlanceWidgets.BATTERY)
         assertEquals(listOf("weather", "calendar", "media"), shown)
-        assertEquals(listOf("weather", "calendar", "media", "battery"), GlanceWidgets.toggle(shown, GlanceWidgets.BATTERY))
+        assertEquals(
+            listOf("weather", "calendar", "media", "battery"),
+            GlanceWidgets.toggle(shown, GlanceWidgets.BATTERY),
+        )
         assertEquals(shown, GlanceWidgets.toggle(shown, "bogus"))
         GlanceWidgets.ALL.forEach { assertTrue(GlanceWidgets.label(it) != it) }
+    }
+
+    @Test
+    fun weatherHeadlineGetsAnIconForItsCondition() {
+        assertEquals("☀", HomeHeader.weatherIcon("18° clear"))
+        assertEquals("⛅", HomeHeader.weatherIcon("18° partly cloudy"))
+        assertEquals("☁", HomeHeader.weatherIcon("12° cloudy"))
+        assertEquals("🌧", HomeHeader.weatherIcon("9° rain"))
+        assertEquals("⛈", HomeHeader.weatherIcon("20° storms"))
+        assertEquals("🌡", HomeHeader.weatherIcon("20° conditions unavailable"))
     }
 }

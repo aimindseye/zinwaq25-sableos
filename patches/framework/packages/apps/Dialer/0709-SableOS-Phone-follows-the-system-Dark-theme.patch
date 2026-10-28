@@ -1,0 +1,294 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 28 Oct 2026 13:29:26 +0000
+Subject: [PATCH] SableOS: Phone follows the system Dark theme
+
+Phone now looks like every other Sable app: light while the system Dark
+theme is off, dark while it is on, instead of dark whatever the setting.
+
+* sable_colors.xml holds a light Sable palette (light surfaces, dark text,
+  system_accent1_600 accent on a system_accent1_100 container); the dark
+  palette from 0707 moves unchanged to values-night. Every 0707/0708
+  resource already points at these tokens, so rows, the search pill, the
+  dial pad, pills and the focus outline follow without further change.
+* The Dialer base and alert dialog themes inherit the AppCompat DayNight
+  themes, the action bar overlays are DayNight, the status and navigation
+  bar icons are dark on the light palette (sable_light_bars) and bottom
+  sheets use the light or dark design sheet (SableBottomSheetDialog).
+* The call screen stays dark, as upstream (its text is white on the call
+  background): InCallActivity resolves its resources as in the Dark theme.
+* The disabled voicemail icon tint uses the disabled text token.
+
+No behaviour change.
+---
+ .../android/dialer/app/res/values/colors.xml  |  2 +-
+ .../base/res/values/theme_dialer_light.xml    | 16 +++----
+ .../hidden/res/values-night/sable_colors.xml  | 35 ++++++++++++++
+ .../hidden/res/values-night/sable_theme.xml   | 10 ++++
+ .../theme/hidden/res/values/sable_colors.xml  | 48 +++++++++----------
+ .../theme/hidden/res/values/sable_theme.xml   | 11 +++++
+ .../dialer/theme/hidden/res/values/styles.xml |  8 ++--
+ java/com/android/incallui/InCallActivity.java | 12 +++++
+ 8 files changed, 105 insertions(+), 37 deletions(-)
+ create mode 100644 java/com/android/dialer/theme/hidden/res/values-night/sable_colors.xml
+ create mode 100644 java/com/android/dialer/theme/hidden/res/values-night/sable_theme.xml
+ create mode 100644 java/com/android/dialer/theme/hidden/res/values/sable_theme.xml
+
+diff --git a/java/com/android/dialer/app/res/values/colors.xml b/java/com/android/dialer/app/res/values/colors.xml
+index 9593fef2a..df9d4e5c7 100644
+--- a/java/com/android/dialer/app/res/values/colors.xml
++++ b/java/com/android/dialer/app/res/values/colors.xml
+@@ -15,7 +15,7 @@
+ -->
+ 
+ <resources>
+-  <color name="voicemail_icon_disabled_tint">#80FFFFFF</color>
++  <color name="voicemail_icon_disabled_tint">@color/sable_text_disabled</color>
+ 
+   <color name="call_record_playback_icon_color">@color/sable_text_muted</color>
+ 
+diff --git a/java/com/android/dialer/theme/base/res/values/theme_dialer_light.xml b/java/com/android/dialer/theme/base/res/values/theme_dialer_light.xml
+index c282e4746..3c6077040 100644
+--- a/java/com/android/dialer/theme/base/res/values/theme_dialer_light.xml
++++ b/java/com/android/dialer/theme/base/res/values/theme_dialer_light.xml
+@@ -23,13 +23,13 @@
+     <item name="actionBarSize">@dimen/action_bar_height</item>
+ 
+     <!-- Pulled from Theme.AppCompat.Light.DarkActionbar-->
+-    <item name="actionBarPopupTheme">@style/ThemeOverlay.AppCompat.Dark</item>
++    <item name="actionBarPopupTheme">@style/ThemeOverlay.AppCompat.DayNight</item>
+     <item name="actionBarWidgetTheme">@null</item>
+     <item name="actionBarTheme">@style/DialerActionBarBaseTheme</item>
+     <item name="listChoiceBackgroundIndicator">@drawable/abc_list_selector_holo_dark</item>
+ 
+     <item name="colorControlHighlight">@color/dialer_ripple_color</item>
+-    <item name="android:windowLightStatusBar">false</item>
++    <item name="android:windowLightStatusBar">@bool/sable_light_bars</item>
+   </style>
+ 
+   <style name="Dialer.ThemeBase.NoActionBar">
+@@ -39,25 +39,25 @@
+     <item name="windowNoTitle">true</item>
+ 
+     <item name="colorControlHighlight">@color/dialer_ripple_color</item>
+-    <item name="android:windowLightStatusBar">false</item>
++    <item name="android:windowLightStatusBar">@bool/sable_light_bars</item>
+   </style>
+ 
+   <!-- Activities and Applications should inherit from one of the themes above. -->
+   <style name="Dialer.ThemeBase">
+-    <!-- Sable: one dark palette (sable_colors.xml); never force-darkened. -->
++    <!-- Sable: the light or dark Sable palette (sable_colors.xml); never force-darkened. -->
+     <item name="android:forceDarkAllowed">false</item>
+     <item name="android:windowBackground">@color/sable_background</item>
+     <item name="android:statusBarColor">@color/sable_background</item>
+     <item name="android:navigationBarColor">@color/sable_surface</item>
+-    <item name="android:windowLightNavigationBar">false</item>
++    <item name="android:windowLightNavigationBar">@bool/sable_light_bars</item>
+     <!-- Every row and action that uses the selectable background gets a ripple for touch and a
+          2dp accent outline while it has keyboard or trackpad focus. -->
+     <item name="android:selectableItemBackground">@drawable/sable_selectable_item</item>
+     <item name="selectableItemBackground">@drawable/sable_selectable_item</item>
+     <item name="android:colorControlNormal">@color/sable_text_muted</item>
+     <item name="colorControlNormal">@color/sable_text_muted</item>
+-    <!-- Bottom sheets (favourite actions) follow the dark theme too. -->
+-    <item name="bottomSheetDialogTheme">@style/Theme.Design.BottomSheetDialog</item>
++    <!-- Bottom sheets (favourite actions) follow the Dark theme too. -->
++    <item name="bottomSheetDialogTheme">@style/SableBottomSheetDialog</item>
+     <!-- These values should be used to color all backgrounds. -->
+     <item name="android:colorBackground">@color/dialer_background_color</item>
+     <item name="android:colorBackgroundFloating">@color/dialer_background_floating</item>
+@@ -105,7 +105,7 @@
+     <item name="android:background">?android:attr/colorPrimary</item>
+     <item name="background">?android:attr/colorPrimary</item>
+   </style>
+-  <style name="DialerActionBarBaseTheme" parent="@style/ThemeOverlay.AppCompat.Dark.ActionBar" />
++  <style name="DialerActionBarBaseTheme" parent="@style/ThemeOverlay.AppCompat.DayNight.ActionBar" />
+ 
+   <style name="Dialer.Settings.PreferenceTheme" parent="@style/PreferenceThemeOverlay">
+     <item name="switchPreferenceCompatStyle">@style/Dialer.SwitchPreferenceCompat</item>
+diff --git a/java/com/android/dialer/theme/hidden/res/values-night/sable_colors.xml b/java/com/android/dialer/theme/hidden/res/values-night/sable_colors.xml
+new file mode 100644
+index 000000000..83a4030bc
+--- /dev/null
++++ b/java/com/android/dialer/theme/hidden/res/values-night/sable_colors.xml
+@@ -0,0 +1,35 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++  Copyright (C) 2026 The SableOS Project
++  SPDX-License-Identifier: Apache-2.0
++-->
++<!-- Sable dark palette (sable-phone-dialer-titan2), used while the system Dark theme is on:
++     values of SableSystemTokens.Dark and SableTheme's dark outline tones. The accent is never
++     hard-coded: it comes from the system palette (system_accent1_*), which the Sable accent
++     seeds. The light palette with the same names is in values/sable_colors.xml. -->
++<resources>
++  <!-- surfaceBase, surfaceRaised, surfaceOverlay -->
++  <color name="sable_background">#FF05070A</color>
++  <color name="sable_surface">#FF0D1117</color>
++  <color name="sable_surface_raised">#FF161C24</color>
++  <!-- textPrimary, textSecondary, textDisabled -->
++  <color name="sable_text">#FFF7F9FC</color>
++  <color name="sable_text_muted">#FFAAB4C0</color>
++  <color name="sable_text_disabled">#FF7D8896</color>
++  <!-- outline, outlineVariant -->
++  <color name="sable_outline">#FF526170</color>
++  <color name="sable_outline_variant">#FF26313D</color>
++  <!-- Accent tones from the system palette: the outline/text tone for dark surfaces, a dark
++       container for selected and focused fills, and the tone drawn on the accent. -->
++  <color name="sable_accent">@android:color/system_accent1_200</color>
++  <color name="sable_accent_container">@android:color/system_accent1_900</color>
++  <color name="sable_on_accent">@android:color/system_accent1_900</color>
++  <!-- success / danger roles and their dark containers (call and end pills). -->
++  <color name="sable_call">#FF4ADE80</color>
++  <color name="sable_on_call">#FF04140A</color>
++  <color name="sable_call_container">#FF1D4D39</color>
++  <color name="sable_danger">#FFFF8A80</color>
++  <color name="sable_danger_container">#FF4D2328</color>
++  <!-- Touch ripple on dark surfaces (16% white). -->
++  <color name="sable_ripple">#29FFFFFF</color>
++</resources>
+diff --git a/java/com/android/dialer/theme/hidden/res/values-night/sable_theme.xml b/java/com/android/dialer/theme/hidden/res/values-night/sable_theme.xml
+new file mode 100644
+index 000000000..d9aa0e334
+--- /dev/null
++++ b/java/com/android/dialer/theme/hidden/res/values-night/sable_theme.xml
+@@ -0,0 +1,10 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++  Copyright (C) 2026 The SableOS Project
++  SPDX-License-Identifier: Apache-2.0
++-->
++<!-- Dark theme copy of values/sable_theme.xml: light bar icons and the dark bottom sheet. -->
++<resources>
++  <bool name="sable_light_bars">false</bool>
++  <style name="SableBottomSheetDialog" parent="Theme.Design.BottomSheetDialog" />
++</resources>
+diff --git a/java/com/android/dialer/theme/hidden/res/values/sable_colors.xml b/java/com/android/dialer/theme/hidden/res/values/sable_colors.xml
+index 33f301215..019a9a7bc 100644
+--- a/java/com/android/dialer/theme/hidden/res/values/sable_colors.xml
++++ b/java/com/android/dialer/theme/hidden/res/values/sable_colors.xml
+@@ -3,33 +3,33 @@
+   Copyright (C) 2026 The SableOS Project
+   SPDX-License-Identifier: Apache-2.0
+ -->
+-<!-- Sable dark palette (sable-phone-dialer-titan2): values of SableSystemTokens.Dark and
+-     SableTheme's dark outline tones. The design is dark only, so these are used whatever the
+-     system light/dark setting is. The accent is never hard-coded: it comes from the system
+-     palette (system_accent1_*), which the Sable accent seeds. -->
++<!-- Sable light palette, used while the system Dark theme is off (the dark palette with the same
++     names is in values-night/sable_colors.xml), so Phone looks like every other Sable app. The
++     accent is never hard-coded: it comes from the system palette (system_accent1_*), which the
++     Sable accent seeds. -->
+ <resources>
+   <!-- surfaceBase, surfaceRaised, surfaceOverlay -->
+-  <color name="sable_background">#FF05070A</color>
+-  <color name="sable_surface">#FF0D1117</color>
+-  <color name="sable_surface_raised">#FF161C24</color>
++  <color name="sable_background">#FFF2F4F7</color>
++  <color name="sable_surface">#FFFFFFFF</color>
++  <color name="sable_surface_raised">#FFE8ECF1</color>
+   <!-- textPrimary, textSecondary, textDisabled -->
+-  <color name="sable_text">#FFF7F9FC</color>
+-  <color name="sable_text_muted">#FFAAB4C0</color>
+-  <color name="sable_text_disabled">#FF7D8896</color>
++  <color name="sable_text">#FF12171C</color>
++  <color name="sable_text_muted">#FF56636F</color>
++  <color name="sable_text_disabled">#FF8A949E</color>
+   <!-- outline, outlineVariant -->
+-  <color name="sable_outline">#FF526170</color>
+-  <color name="sable_outline_variant">#FF26313D</color>
+-  <!-- Accent tones from the system palette: the outline/text tone for dark surfaces, a dark
++  <color name="sable_outline">#FF8A96A3</color>
++  <color name="sable_outline_variant">#FFD5DBE2</color>
++  <!-- Accent tones from the system palette: the outline/text tone for light surfaces, a light
+        container for selected and focused fills, and the tone drawn on the accent. -->
+-  <color name="sable_accent">@android:color/system_accent1_200</color>
+-  <color name="sable_accent_container">@android:color/system_accent1_900</color>
+-  <color name="sable_on_accent">@android:color/system_accent1_900</color>
+-  <!-- success / danger roles and their dark containers (call and end pills). -->
+-  <color name="sable_call">#FF4ADE80</color>
+-  <color name="sable_on_call">#FF04140A</color>
+-  <color name="sable_call_container">#FF1D4D39</color>
+-  <color name="sable_danger">#FFFF8A80</color>
+-  <color name="sable_danger_container">#FF4D2328</color>
+-  <!-- Touch ripple on dark surfaces (16% white). -->
+-  <color name="sable_ripple">#29FFFFFF</color>
++  <color name="sable_accent">@android:color/system_accent1_600</color>
++  <color name="sable_accent_container">@android:color/system_accent1_100</color>
++  <color name="sable_on_accent">@android:color/system_accent1_0</color>
++  <!-- success / danger roles and their light containers (call and end pills). -->
++  <color name="sable_call">#FF1E8E4E</color>
++  <color name="sable_on_call">#FFFFFFFF</color>
++  <color name="sable_call_container">#FFD3F2DF</color>
++  <color name="sable_danger">#FFC62828</color>
++  <color name="sable_danger_container">#FFFBDADA</color>
++  <!-- Touch ripple on light surfaces (12% black). -->
++  <color name="sable_ripple">#1F000000</color>
+ </resources>
+diff --git a/java/com/android/dialer/theme/hidden/res/values/sable_theme.xml b/java/com/android/dialer/theme/hidden/res/values/sable_theme.xml
+new file mode 100644
+index 000000000..71e34963f
+--- /dev/null
++++ b/java/com/android/dialer/theme/hidden/res/values/sable_theme.xml
+@@ -0,0 +1,11 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++  Copyright (C) 2026 The SableOS Project
++  SPDX-License-Identifier: Apache-2.0
++-->
++<!-- What changes with the system Dark theme besides the colours (values-night has the dark copy):
++     dark status and navigation bar icons on the light palette, and the light bottom sheet. -->
++<resources>
++  <bool name="sable_light_bars">true</bool>
++  <style name="SableBottomSheetDialog" parent="Theme.Design.Light.BottomSheetDialog" />
++</resources>
+diff --git a/java/com/android/dialer/theme/hidden/res/values/styles.xml b/java/com/android/dialer/theme/hidden/res/values/styles.xml
+index 49466eb35..2d6a5484c 100644
+--- a/java/com/android/dialer/theme/hidden/res/values/styles.xml
++++ b/java/com/android/dialer/theme/hidden/res/values/styles.xml
+@@ -16,9 +16,9 @@
+   -->
+ <resources>
+   <!-- Update to Theme.AppCompat.Light.NoActionBar once we no longer depend on ActionBars. -->
+-  <!-- Sable: the Phone app is dark only (sable-phone-dialer-titan2), so the base is the dark
+-       AppCompat theme whatever the system light/dark setting. -->
+-  <style name="Dialer" parent="Theme.AppCompat">
++  <!-- Sable: Phone follows the system Dark theme like every Sable app; the colours come from
++       sable_colors.xml (light) and values-night/sable_colors.xml (dark). -->
++  <style name="Dialer" parent="Theme.AppCompat.DayNight">
+     <!-- Used to automatically style all buttons in Dialer -->
+     <item name="android:textAppearanceButton">@style/DialerButtonTextStyle</item>
+     <item name="android:colorButtonNormal">?android:attr/colorPrimary</item>
+@@ -52,7 +52,7 @@
+ 
+   <!-- Used to style all Dialer's AlertDialogs. Every button is awarded this for free if the parent
+      activity's theme extends from Dialer.ThemeBase(.NoActionBar) or doesn't specify a theme. -->
+-  <style name="AlertDialogTheme" parent="Theme.AppCompat.Dialog.Alert">
++  <style name="AlertDialogTheme" parent="Theme.AppCompat.DayNight.Dialog.Alert">
+     <item name="android:textColorPrimary">@color/dialer_primary_text_color</item>
+     <item name="android:colorAccent">@color/dialer_theme_color</item>
+     <item name="colorAccent">@color/dialer_theme_color</item>
+diff --git a/java/com/android/incallui/InCallActivity.java b/java/com/android/incallui/InCallActivity.java
+index 89578dcd6..2f8e92604 100644
+--- a/java/com/android/incallui/InCallActivity.java
++++ b/java/com/android/incallui/InCallActivity.java
+@@ -177,6 +177,18 @@ public class InCallActivity extends TransactionSafeFragmentActivity
+     }
+   }
+ 
++  /**
++   * Sable: the call screen is always dark (white text on the call background, as upstream), so
++   * its resources resolve as in the Dark theme even while the rest of Phone is light.
++   */
++  @Override
++  protected void attachBaseContext(Context base) {
++    Configuration config = new Configuration(base.getResources().getConfiguration());
++    config.uiMode =
++        (config.uiMode & ~Configuration.UI_MODE_NIGHT_MASK) | Configuration.UI_MODE_NIGHT_YES;
++    super.attachBaseContext(base.createConfigurationContext(config));
++  }
++
+   @Override
+   protected void onCreate(Bundle bundle) {
+     Trace.beginSection("InCallActivity.onCreate");

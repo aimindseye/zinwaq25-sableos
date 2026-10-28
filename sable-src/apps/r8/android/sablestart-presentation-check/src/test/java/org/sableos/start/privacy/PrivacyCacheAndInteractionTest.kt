@@ -168,7 +168,13 @@ class PrivacyCacheAndInteractionTest {
                 ),
             )
         assertEquals(
-            listOf(AppAction.Open, AppAction.OpenSecond, AppAction.AppInfo, AppAction.NotificationSettings, AppAction.AddToBaseBar),
+            listOf(
+                AppAction.Open,
+                AppAction.OpenSecond,
+                AppAction.AppInfo,
+                AppAction.NotificationSettings,
+                AppAction.AddToBaseBar,
+            ),
             actions,
         )
     }

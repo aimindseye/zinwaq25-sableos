@@ -1,0 +1,78 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 28 Oct 2026 13:35:48 +0000
+Subject: [PATCH] SableOS: seed the system palette from the Sable accent once
+
+On a fresh install nothing had written the Sable accent into
+THEME_CUSTOMIZATION_OVERLAY_PACKAGES, so Android kept the wallpaper
+colours (color_source home_wallpaper): Phone, Contacts, Settings and
+other system apps showed a different accent from Sable Start and the
+Sable apps until the owner picked an accent in Settings.
+
+The first read of the appearance authority (Sable Start reads it at
+every boot) now seeds the system palette from the stored Sable accent
+once, unless it already is a preset. A device-protected flag records
+that it ran, so a later wallpaper or colour choice in the picker is
+never overridden; picking a Sable accent still seeds it as before.
+---
+ .../sable/SableAppearanceProvider.java        | 30 +++++++++++++++++++
+ 1 file changed, 30 insertions(+)
+
+diff --git a/src/com/android/settings/sable/SableAppearanceProvider.java b/src/com/android/settings/sable/SableAppearanceProvider.java
+index b56f8da..0e7fe32 100644
+--- a/src/com/android/settings/sable/SableAppearanceProvider.java
++++ b/src/com/android/settings/sable/SableAppearanceProvider.java
+@@ -50,6 +50,7 @@ public final class SableAppearanceProvider extends ContentProvider {
+     private static final String TAG = "SableAppearance";
+     private static final String PREFS = "sable_system_appearance";
+     private static final String KEY_ACCENT = "accent";
++    private static final String KEY_PALETTE_SEEDED = "palette_seeded";
+     private static final String KEY_CORNER_STYLE = "corner_style";
+ 
+     public static final Uri CONTENT_URI = Uri.parse(
+@@ -130,6 +131,34 @@ public final class SableAppearanceProvider extends ContentProvider {
+         }
+     }
+ 
++    /**
++     * On a fresh install nothing has written the Sable accent to the system palette yet, so
++     * Android still takes its colours from the wallpaper and Phone, Contacts and Settings show
++     * a different accent from Sable Start and the Sable apps. The first read (Sable Start reads
++     * at every boot) seeds the palette from the stored accent once, unless it already is a
++     * preset; a later wallpaper or colour choice in the picker is never overridden.
++     */
++    private static synchronized void seedSystemPaletteOnce(Context context) {
++        SharedPreferences prefs = prefs(context);
++        if (prefs.getBoolean(KEY_PALETTE_SEEDED, false)) {
++            return;
++        }
++        String current = Settings.Secure.getString(context.getContentResolver(),
++                Settings.Secure.THEME_CUSTOMIZATION_OVERLAY_PACKAGES);
++        boolean preset = false;
++        try {
++            preset = current != null && !current.isEmpty()
++                    && SableAppearancePolicy.COLOR_SOURCE_PRESET.equals(new JSONObject(current)
++                            .optString(SableAppearancePolicy.KEY_COLOR_SOURCE));
++        } catch (JSONException e) {
++            Log.w(TAG, "Unreadable system palette; seeding it from the Sable accent", e);
++        }
++        if (!preset) {
++            applySystemPalette(context, readAccent(context));
++        }
++        prefs.edit().putBoolean(KEY_PALETTE_SEEDED, true).apply();
++    }
++
+     private static void applySystemPalette(Context context, String accent) {
+         String current = Settings.Secure.getString(context.getContentResolver(),
+                 Settings.Secure.THEME_CUSTOMIZATION_OVERLAY_PACKAGES);
+@@ -158,6 +187,7 @@ public final class SableAppearanceProvider extends ContentProvider {
+                 SableAppearancePolicy.COLUMN_CORNER_STYLE}, 1);
+         final long token = Binder.clearCallingIdentity();
+         try {
++            seedSystemPaletteOnce(context);
+             cursor.addRow(new Object[] {SableAppearancePolicy.reportedMode(), readAccent(context),
+                     readCornerStyle(context)});
+         } finally {
+-- 
+2.43.0
+

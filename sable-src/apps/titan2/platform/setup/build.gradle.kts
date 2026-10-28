@@ -4,6 +4,8 @@ plugins {
 }
 
 android {
+    // The Sable theme palette shared by the platform apps (one copy, see sable-theme/).
+    sourceSets["main"].java.srcDir("../sable-theme/src/main/java")
     namespace = "org.sableos.titan2.setup"
     compileSdk = 36
     defaultConfig {

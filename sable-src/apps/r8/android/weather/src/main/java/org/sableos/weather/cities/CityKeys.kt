@@ -41,39 +41,52 @@ data class CityScreenState(
     val pendingRemove: String? = null,
     val dialog: DialogButton = DialogButton.Cancel,
     val softKeyboard: Boolean = false,
-    val focusVisible: Boolean = false
+    val focusVisible: Boolean = false,
 )
 
 sealed interface CityEffect {
     object None : CityEffect
 
-    data class Select(val name: String) : CityEffect
+    data class Select(
+        val name: String,
+    ) : CityEffect
 
-    data class AddResult(val index: Int) : CityEffect
+    data class AddResult(
+        val index: Int,
+    ) : CityEffect
 
-    data class Remove(val name: String) : CityEffect
+    data class Remove(
+        val name: String,
+    ) : CityEffect
 
     object Reset : CityEffect
 
     /** The search text changed; the host runs its own search and calls the model again with the results. */
-    data class Search(val text: String) : CityEffect
+    data class Search(
+        val text: String,
+    ) : CityEffect
 
     object Exit : CityEffect
 
-    data class FocusLeaves(val forward: Boolean) : CityEffect
+    data class FocusLeaves(
+        val forward: Boolean,
+    ) : CityEffect
 }
 
 data class CityReduction(
     val state: CityScreenState,
     val effect: CityEffect = CityEffect.None,
-    val consumed: Boolean = true
+    val consumed: Boolean = true,
 )
 
 /**
  * Keyboard behaviour of the manual city screen, independent of who draws it. A printable key opens the add-city
  * search with that first character kept; the soft keyboard is requested only by touching the search field.
  */
-class CityScreenModel(private val cities: List<City>, private val resultCount: Int = 0) {
+class CityScreenModel(
+    private val cities: List<City>,
+    private val resultCount: Int = 0,
+) {
     private val ids: List<String> =
         cities.flatMap { listOf(CityIds.row(it.name)) } + CityIds.ADD + CityIds.RESET
 
@@ -91,10 +104,12 @@ class CityScreenModel(private val cities: List<City>, private val resultCount: I
         return if (remove) id.orEmpty() else ids[focusIndex(s)]
     }
 
-    private fun rowOf(id: String) =
-        if (CityIds.isRemove(id)) CityIds.row(CityIds.cityName(id)) else id
+    private fun rowOf(id: String) = if (CityIds.isRemove(id)) CityIds.row(CityIds.cityName(id)) else id
 
-    fun reduce(s: CityScreenState, k: KeyInput): CityReduction {
+    fun reduce(
+        s: CityScreenState,
+        k: KeyInput,
+    ): CityReduction {
         val shown = s.copy(focusVisible = true)
         return when {
             k.hasCommandModifier -> CityReduction(s, consumed = false)
@@ -111,31 +126,45 @@ class CityScreenModel(private val cities: List<City>, private val resultCount: I
     fun onSearchFieldTapped(s: CityScreenState) = s.copy(softKeyboard = true, focusVisible = false)
 
     /** The host edited the search text (typing, paste, clear). */
-    fun onQueryChanged(s: CityScreenState, text: String): CityReduction =
-        CityReduction(s.copy(query = text, resultFocus = -1), CityEffect.Search(text))
+    fun onQueryChanged(
+        s: CityScreenState,
+        text: String,
+    ): CityReduction = CityReduction(s.copy(query = text, resultFocus = -1), CityEffect.Search(text))
 
     /** After an add, remove, select or reset: back to the list with focus on [focusName] or the nearest row. */
-    fun afterChange(s: CityScreenState, focusName: String?): CityScreenState {
-        val base = s.copy(
-            screen = CityScreen.List,
-            query = "",
-            resultFocus = -1,
-            pendingRemove = null,
-            softKeyboard = false
-        )
+    fun afterChange(
+        s: CityScreenState,
+        focusName: String?,
+    ): CityScreenState {
+        val base =
+            s.copy(
+                screen = CityScreen.List,
+                query = "",
+                resultFocus = -1,
+                pendingRemove = null,
+                softKeyboard = false,
+            )
         val id = focusName?.let { CityIds.row(it) }
         return if (id != null && id in ids) at(base, id) else base.copy(focusId = null)
     }
 
-    private fun at(s: CityScreenState, id: String): CityScreenState {
+    private fun at(
+        s: CityScreenState,
+        id: String,
+    ): CityScreenState {
         val i = ids.indexOf(rowOf(id)).coerceAtLeast(0)
         return s.copy(focusId = if (CityIds.isRemove(id)) id else ids[i], focusIndex = i)
     }
 
-    private fun move(s: CityScreenState, delta: Int) =
-        at(s, ids[(focusIndex(s) + delta).coerceIn(0, ids.lastIndex)])
+    private fun move(
+        s: CityScreenState,
+        delta: Int,
+    ) = at(s, ids[(focusIndex(s) + delta).coerceIn(0, ids.lastIndex)])
 
-    private fun list(s: CityScreenState, k: KeyInput): CityReduction {
+    private fun list(
+        s: CityScreenState,
+        k: KeyInput,
+    ): CityReduction {
         val id = focusedId(s)
         return when (k.kind) {
             KeyKind.Up -> CityReduction(move(s, -1))
@@ -153,18 +182,29 @@ class CityScreenModel(private val cities: List<City>, private val resultCount: I
         }
     }
 
-    private fun toRemove(s: CityScreenState, id: String): CityScreenState =
-        if (CityIds.isRow(id)) at(s, CityIds.remove(CityIds.cityName(id))) else s
+    private fun toRemove(
+        s: CityScreenState,
+        id: String,
+    ): CityScreenState = if (CityIds.isRow(id)) at(s, CityIds.remove(CityIds.cityName(id))) else s
 
-    private fun toRow(s: CityScreenState, id: String): CityScreenState =
-        if (CityIds.isRemove(id)) at(s, CityIds.row(CityIds.cityName(id))) else s
+    private fun toRow(
+        s: CityScreenState,
+        id: String,
+    ): CityScreenState = if (CityIds.isRemove(id)) at(s, CityIds.row(CityIds.cityName(id))) else s
 
-    private fun removeRow(s: CityScreenState, id: String, k: KeyInput): CityReduction {
+    private fun removeRow(
+        s: CityScreenState,
+        id: String,
+        k: KeyInput,
+    ): CityReduction {
         val allowed = CityIds.isRow(id) && !k.repeat
         return if (allowed) askRemove(s, id) else CityReduction(s)
     }
 
-    private fun tab(s: CityScreenState, forward: Boolean): CityReduction {
+    private fun tab(
+        s: CityScreenState,
+        forward: Boolean,
+    ): CityReduction {
         val next = focusIndex(s) + if (forward) 1 else -1
         return if (next in
             ids.indices
@@ -175,69 +215,114 @@ class CityScreenModel(private val cities: List<City>, private val resultCount: I
         }
     }
 
-    private fun activate(s: CityScreenState, id: String): CityReduction = when {
-        id == CityIds.ADD -> openAdd(s, "")
+    private fun activate(
+        s: CityScreenState,
+        id: String,
+    ): CityReduction =
+        when {
+            id == CityIds.ADD -> {
+                openAdd(s, "")
+            }
 
-        id == CityIds.RESET -> CityReduction(
-            s.copy(screen = CityScreen.ConfirmReset, dialog = DialogButton.Cancel)
-        )
+            id == CityIds.RESET -> {
+                CityReduction(
+                    s.copy(screen = CityScreen.ConfirmReset, dialog = DialogButton.Cancel),
+                )
+            }
 
-        CityIds.isRemove(id) -> askRemove(s, id)
+            CityIds.isRemove(id) -> {
+                askRemove(s, id)
+            }
 
-        else -> CityReduction(s, CityEffect.Select(CityIds.cityName(id)))
-    }
+            else -> {
+                CityReduction(s, CityEffect.Select(CityIds.cityName(id)))
+            }
+        }
 
-    private fun askRemove(s: CityScreenState, id: String) = CityReduction(
+    private fun askRemove(
+        s: CityScreenState,
+        id: String,
+    ) = CityReduction(
         s.copy(
             screen = CityScreen.ConfirmRemove,
             pendingRemove = CityIds.cityName(id),
-            dialog = DialogButton.Cancel
-        )
+            dialog = DialogButton.Cancel,
+        ),
     )
 
-    private fun openAdd(s: CityScreenState, first: String): CityReduction {
+    private fun openAdd(
+        s: CityScreenState,
+        first: String,
+    ): CityReduction {
         val opened = s.copy(screen = CityScreen.Add, query = first, resultFocus = -1)
         return CityReduction(
             opened,
-            if (first.isEmpty()) CityEffect.None else CityEffect.Search(first)
+            if (first.isEmpty()) CityEffect.None else CityEffect.Search(first),
         )
     }
 
-    private fun add(s: CityScreenState, k: KeyInput): CityReduction {
+    private fun add(
+        s: CityScreenState,
+        k: KeyInput,
+    ): CityReduction {
         val onField = s.resultFocus < 0
         val textKey = k.kind in TEXT_KINDS
         return when {
-            onField && textKey -> CityReduction(s, consumed = false)
+            onField && textKey -> {
+                CityReduction(s, consumed = false)
+            }
 
-            k.kind == KeyKind.Down -> CityReduction(
-                s.copy(resultFocus = (s.resultFocus + 1).coerceAtMost(resultCount - 1))
-            )
+            k.kind == KeyKind.Down -> {
+                CityReduction(
+                    s.copy(resultFocus = (s.resultFocus + 1).coerceAtMost(resultCount - 1)),
+                )
+            }
 
-            k.kind == KeyKind.Up -> CityReduction(
-                s.copy(resultFocus = (s.resultFocus - 1).coerceAtLeast(-1))
-            )
+            k.kind == KeyKind.Up -> {
+                CityReduction(
+                    s.copy(resultFocus = (s.resultFocus - 1).coerceAtLeast(-1)),
+                )
+            }
 
-            k.kind == KeyKind.Activate || k.kind == KeyKind.Space -> chooseResult(s, k)
+            k.kind == KeyKind.Activate || k.kind == KeyKind.Space -> {
+                chooseResult(s, k)
+            }
 
-            k.kind == KeyKind.MoveHome -> CityReduction(resultEdge(s, first = true))
+            k.kind == KeyKind.MoveHome -> {
+                CityReduction(resultEdge(s, first = true))
+            }
 
-            k.kind == KeyKind.MoveEnd -> CityReduction(resultEdge(s, first = false))
+            k.kind == KeyKind.MoveEnd -> {
+                CityReduction(resultEdge(s, first = false))
+            }
 
-            k.kind == KeyKind.Tab -> CityReduction(s, CityEffect.FocusLeaves(!k.shift))
+            k.kind == KeyKind.Tab -> {
+                CityReduction(s, CityEffect.FocusLeaves(!k.shift))
+            }
 
-            k.kind == KeyKind.Back || k.kind == KeyKind.Escape -> CityReduction(close(s))
+            k.kind == KeyKind.Back || k.kind == KeyKind.Escape -> {
+                CityReduction(close(s))
+            }
 
-            else -> CityReduction(s, consumed = false)
+            else -> {
+                CityReduction(s, consumed = false)
+            }
         }
     }
 
     /** MoveHome/MoveEnd on the results (never on the search field, which keeps them). */
-    private fun resultEdge(s: CityScreenState, first: Boolean): CityScreenState {
+    private fun resultEdge(
+        s: CityScreenState,
+        first: Boolean,
+    ): CityScreenState {
         val index = if (first) 0 else resultCount - 1
         return s.copy(resultFocus = if (resultCount > 0) index else -1)
     }
 
-    private fun chooseResult(s: CityScreenState, k: KeyInput): CityReduction {
+    private fun chooseResult(
+        s: CityScreenState,
+        k: KeyInput,
+    ): CityReduction {
         val index = if (s.resultFocus >= 0) s.resultFocus else 0
         val none = resultCount == 0 || k.repeat
         return if (none) CityReduction(s) else CityReduction(s, CityEffect.AddResult(index))
@@ -245,7 +330,10 @@ class CityScreenModel(private val cities: List<City>, private val resultCount: I
 
     private fun close(s: CityScreenState) = afterChange(s, s.focusId?.let { CityIds.cityName(it) })
 
-    private fun dialog(s: CityScreenState, k: KeyInput): CityReduction {
+    private fun dialog(
+        s: CityScreenState,
+        k: KeyInput,
+    ): CityReduction {
         val toggle =
             k.kind in setOf(KeyKind.Left, KeyKind.Right, KeyKind.Up, KeyKind.Down, KeyKind.Tab)
         return when {
@@ -256,18 +344,22 @@ class CityScreenModel(private val cities: List<City>, private val resultCount: I
         }
     }
 
-    private fun other(b: DialogButton) = if (b ==
-        DialogButton.Cancel
-    ) {
-        DialogButton.Confirm
-    } else {
-        DialogButton.Cancel
-    }
+    private fun other(b: DialogButton) =
+        if (b ==
+            DialogButton.Cancel
+        ) {
+            DialogButton.Confirm
+        } else {
+            DialogButton.Cancel
+        }
 
     private fun cancel(s: CityScreenState) =
         s.copy(screen = CityScreen.List, pendingRemove = null, dialog = DialogButton.Cancel)
 
-    private fun confirm(s: CityScreenState, k: KeyInput): CityReduction {
+    private fun confirm(
+        s: CityScreenState,
+        k: KeyInput,
+    ): CityReduction {
         if (k.repeat) return CityReduction(s)
         if (s.dialog == DialogButton.Cancel) return CityReduction(cancel(s))
         val effect = s.pendingRemove?.let { CityEffect.Remove(it) } ?: CityEffect.Reset
@@ -285,7 +377,7 @@ class CityScreenModel(private val cities: List<City>, private val resultCount: I
                 KeyKind.MoveHome,
                 KeyKind.MoveEnd,
                 KeyKind.PageUp,
-                KeyKind.PageDown
+                KeyKind.PageDown,
             )
 
         /** System HOME (Other) and PageUp/PageDown have no city behaviour: they stay unhandled, state unchanged. */

@@ -3,7 +3,6 @@ package org.sableos.titan2.vault.android
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
@@ -19,6 +18,7 @@ import android.widget.TextView
 import android.widget.Toast
 import android.window.OnBackInvokedDispatcher
 import androidx.core.content.FileProvider
+import org.sableos.titan2.theme.SablePalette
 import org.sableos.titan2.vault.core.ConfirmAction
 import org.sableos.titan2.vault.core.Confirmation
 import org.sableos.titan2.vault.core.Section
@@ -45,8 +45,12 @@ class VaultActivity : Activity() {
     private var privateProfile = false
     private val dp by lazy { resources.displayMetrics.density }
 
+    /** The Sable theme (Dark theme and accent), read in onCreate; re-created on a Dark theme change. */
+    private var palette = SablePalette.of(dark = true, accent = null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        palette = SablePalette.read(this).also { it.applyTo(this) }
         window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         setRecentsScreenshotEnabled(false)
         store = VaultStore(this)
@@ -58,7 +62,7 @@ class VaultActivity : Activity() {
         }
         setContentView(
             ScrollView(this).apply {
-                setBackgroundColor(BG)
+                setBackgroundColor(palette.window)
                 isFocusable = false
                 addView(body)
             }
@@ -326,11 +330,11 @@ class VaultActivity : Activity() {
 
     private fun render() {
         body.removeAllViews()
-        body.addView(text(VaultText.TITLE, TITLE_SP, TEXT, bold = true))
-        body.addView(text(VaultText.SUBTITLE, SMALL_SP, MUTED))
+        body.addView(text(VaultText.TITLE, TITLE_SP, palette.text, bold = true))
+        body.addView(text(VaultText.SUBTITLE, SMALL_SP, palette.muted))
         if (!privateProfile) {
             body.addView(
-                text(VaultText.NOT_PRIVATE, BODY_SP, WARN).apply {
+                text(VaultText.NOT_PRIVATE, BODY_SP, palette.warn).apply {
                     setPadding(0, px(GAP), 0, 0)
                 }
             )
@@ -339,12 +343,18 @@ class VaultActivity : Activity() {
         body.addView(tabs())
         items = store.list(section)
         selected = selected.coerceIn(0, (items.size - 1).coerceAtLeast(0))
-        if (items.isEmpty()) body.addView(text(VaultText.EMPTY, BODY_SP, MUTED))
+        if (items.isEmpty()) body.addView(text(VaultText.EMPTY, BODY_SP, palette.muted))
         items.forEachIndexed { i, item -> body.addView(row(i, item)) }
         pending?.let { body.addView(confirmBox(it)) }
-        message?.let { body.addView(text(it, SMALL_SP, if (isCaution(it)) WARN else OK)) }
+        message?.let {
+            body.addView(text(it, SMALL_SP, if (isCaution(it)) palette.warn else palette.ok))
+        }
         body.addView(buttons())
-        body.addView(text(VaultKeys.HINT, SMALL_SP, MUTED).apply { setPadding(0, px(GAP), 0, 0) })
+        body.addView(
+            text(VaultKeys.HINT, SMALL_SP, palette.muted).apply {
+                setPadding(0, px(GAP), 0, 0)
+            }
+        )
     }
 
     private fun isCaution(msg: String): Boolean =
@@ -361,9 +371,9 @@ class VaultActivity : Activity() {
                     if (s ==
                         section
                     ) {
-                        ACCENT
+                        palette.accent
                     } else {
-                        MUTED
+                        palette.muted
                     },
                     bold = s == section
                 ).apply {
@@ -376,9 +386,17 @@ class VaultActivity : Activity() {
 
     private fun row(i: Int, item: VaultItem): View {
         val on = i == selected
-        return text("${item.name}  ·  ${VaultText.size(item.sizeBytes)}", BODY_SP, TEXT).apply {
+        return text(
+            "${item.name}  ·  ${VaultText.size(item.sizeBytes)}",
+            BODY_SP,
+            palette.text
+        ).apply {
             setPadding(px(GAP), px(GAP), px(GAP), px(GAP))
-            background = box(if (on) SURFACE else BG, if (on) ACCENT else BG)
+            background =
+                box(
+                    if (on) palette.surface else palette.window,
+                    if (on) palette.accent else palette.window
+                )
             setOnClickListener {
                 selected = i
                 render()
@@ -389,9 +407,9 @@ class VaultActivity : Activity() {
     private fun confirmBox(c: Confirmation): View = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(px(GAP), px(GAP), px(GAP), px(GAP))
-        background = box(SURFACE, WARN)
-        addView(text(c.title, BODY_SP, TEXT, bold = true))
-        addView(text(c.detail, SMALL_SP, MUTED))
+        background = box(palette.surface, palette.warn)
+        addView(text(c.title, BODY_SP, palette.text, bold = true))
+        addView(text(c.detail, SMALL_SP, palette.muted))
         addView(
             LinearLayout(this@VaultActivity).apply {
                 addView(button("Yes") { confirm() })
@@ -444,12 +462,5 @@ class VaultActivity : Activity() {
         const val TITLE_SP = 18f
         const val BODY_SP = 14f
         const val SMALL_SP = 11f
-        val BG = Color.rgb(0x06, 0x12, 0x1D)
-        val SURFACE = Color.rgb(0x0C, 0x1E, 0x2D)
-        val TEXT = Color.rgb(0xEE, 0xF8, 0xFF)
-        val MUTED = Color.rgb(0x8B, 0xA6, 0xB8)
-        val ACCENT = Color.rgb(0x15, 0x87, 0xFF)
-        val WARN = Color.rgb(0xFF, 0xB7, 0x4D)
-        val OK = Color.rgb(0x4C, 0xC3, 0x8A)
     }
 }

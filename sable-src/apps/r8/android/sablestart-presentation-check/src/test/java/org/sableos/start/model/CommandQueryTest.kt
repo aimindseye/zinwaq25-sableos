@@ -50,7 +50,12 @@ class CommandQueryTest {
         )
         // A label-prefix match beats a recent contains match ("Cinema" holds "ma").
         val recentCinema = mapOf("Cinema" to 0)
-        assertEquals(listOf("Mail", "Cinema"), CommandRanking.apps(listOf("Cinema", "Mail"), { it }, { recentCinema[it] }, "ma"))
+        assertEquals(
+            listOf("Mail", "Cinema"),
+            CommandRanking.apps(listOf("Cinema", "Mail"), {
+                it
+            }, { recentCinema[it] }, "ma"),
+        )
     }
 }
 
@@ -69,8 +74,14 @@ class CommandGroupsTest {
         assertEquals(CommandScope.All, CommandGroups.next(CommandScope.All, -1))
         assertEquals(CommandScope.Actions, CommandGroups.next(CommandScope.Actions, 1))
         assertEquals(CommandScope.Apps, CommandGroups.next(CommandScope.Dual, 1))
-        assertEquals(CommandQuery(CommandScope.People, "cam"), CommandGroups.apply(CommandQuery.parse("?cam"), CommandScope.People))
-        assertEquals(CommandQuery.parse("/dual x"), CommandGroups.apply(CommandQuery.parse("/dual x"), CommandScope.Hub))
+        assertEquals(
+            CommandQuery(CommandScope.People, "cam"),
+            CommandGroups.apply(CommandQuery.parse("?cam"), CommandScope.People),
+        )
+        assertEquals(
+            CommandQuery.parse("/dual x"),
+            CommandGroups.apply(CommandQuery.parse("/dual x"), CommandScope.Hub),
+        )
     }
 
     @Test

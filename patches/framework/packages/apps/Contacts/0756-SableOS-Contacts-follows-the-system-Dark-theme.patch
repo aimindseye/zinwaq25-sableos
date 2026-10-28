@@ -1,0 +1,391 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 28 Oct 2026 13:30:55 +0000
+Subject: [PATCH] SableOS: Contacts follows the system Dark theme
+
+Contacts now looks like Phone and every other Sable app: light while the
+system Dark theme is off, dark while it is on, instead of dark whatever
+the setting.
+
+* sable_colors.xml holds the light Sable palette (the same values as
+  Phone); the dark palette from 0755 moves unchanged to values-night.
+  Every 0755 colour resource already points at these tokens. Two faint
+  white overlays (selected navigation item, disabled button) become
+  tokens with a black light-theme copy.
+* The framework-themed styles (PeopleTheme, the dialog, selectable item
+  and background themes, the list view) inherit SableMaterial* styles
+  that are Theme.Material.Light* by day and Theme.Material* at night;
+  the AppCompat themes and the toolbar overlay inherit DayNight.
+* Status and navigation bar icons are dark on the light palette
+  (sable_light_bars).
+
+No Java change; no behaviour change.
+---
+ res/values-night/sable_colors.xml | 38 +++++++++++++++++++++++
+ res/values-night/sable_theme.xml  | 13 ++++++++
+ res/values-v27/styles.xml         | 10 +++---
+ res/values/colors.xml             | 11 +++----
+ res/values/sable_colors.xml       | 51 ++++++++++++++++---------------
+ res/values/sable_theme.xml        | 14 +++++++++
+ res/values/styles.xml             | 28 +++++++++--------
+ 7 files changed, 118 insertions(+), 47 deletions(-)
+ create mode 100644 res/values-night/sable_colors.xml
+ create mode 100644 res/values-night/sable_theme.xml
+ create mode 100644 res/values/sable_theme.xml
+
+diff --git a/res/values-night/sable_colors.xml b/res/values-night/sable_colors.xml
+new file mode 100644
+index 000000000..6d458eea3
+--- /dev/null
++++ b/res/values-night/sable_colors.xml
+@@ -0,0 +1,38 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++  Copyright (C) 2026 The SableOS Project
++  SPDX-License-Identifier: Apache-2.0
++-->
++<!-- Sable dark palette (sable-contacts-people-titan2, sable-phone-dialer-titan2), used while the system Dark theme is on:
++     values of SableSystemTokens.Dark and SableTheme's dark outline tones. The accent is never
++     hard-coded: it comes from the system palette (system_accent1_*), which the Sable accent
++     seeds. The light palette with the same names is in values/sable_colors.xml. -->
++<resources>
++  <!-- surfaceBase, surfaceRaised, surfaceOverlay -->
++  <color name="sable_background">#FF05070A</color>
++  <color name="sable_surface">#FF0D1117</color>
++  <color name="sable_surface_raised">#FF161C24</color>
++  <!-- textPrimary, textSecondary, textDisabled -->
++  <color name="sable_text">#FFF7F9FC</color>
++  <color name="sable_text_muted">#FFAAB4C0</color>
++  <color name="sable_text_disabled">#FF7D8896</color>
++  <!-- outline, outlineVariant -->
++  <color name="sable_outline">#FF526170</color>
++  <color name="sable_outline_variant">#FF26313D</color>
++  <!-- Accent tones from the system palette: the outline/text tone for dark surfaces, a dark
++       container for selected and focused fills, and the tone drawn on the accent. -->
++  <color name="sable_accent">@android:color/system_accent1_200</color>
++  <color name="sable_accent_container">@android:color/system_accent1_900</color>
++  <color name="sable_on_accent">@android:color/system_accent1_900</color>
++  <!-- success / danger roles and their dark containers (call and end pills). -->
++  <color name="sable_call">#FF4ADE80</color>
++  <color name="sable_on_call">#FF04140A</color>
++  <color name="sable_call_container">#FF1D4D39</color>
++  <color name="sable_danger">#FFFF8A80</color>
++  <color name="sable_danger_container">#FF4D2328</color>
++  <!-- Touch ripple on dark surfaces (16% white). -->
++  <color name="sable_ripple">#29FFFFFF</color>
++  <!-- Faint overlays: the selected navigation item and a disabled button. -->
++  <color name="sable_overlay_faint">#0FFFFFFF</color>
++  <color name="sable_overlay_disabled">#26FFFFFF</color>
++</resources>
+diff --git a/res/values-night/sable_theme.xml b/res/values-night/sable_theme.xml
+new file mode 100644
+index 000000000..27ef0f64f
+--- /dev/null
++++ b/res/values-night/sable_theme.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++  Copyright (C) 2026 The SableOS Project
++  SPDX-License-Identifier: Apache-2.0
++-->
++<!-- Dark theme copy of values/sable_theme.xml: the dark framework parents and light bar icons. -->
++<resources>
++  <bool name="sable_light_bars">false</bool>
++  <style name="SableMaterial" parent="@android:style/Theme.Material" />
++  <style name="SableMaterialDialog" parent="@android:style/Theme.Material.Dialog" />
++  <style name="SableMaterialDialogMinWidth" parent="@android:style/Theme.Material.Dialog.MinWidth" />
++  <style name="SableListView" parent="@android:style/Widget.Material.ListView" />
++</resources>
+diff --git a/res/values-v27/styles.xml b/res/values-v27/styles.xml
+index 0bbfe63c3..05e180b8f 100644
+--- a/res/values-v27/styles.xml
++++ b/res/values-v27/styles.xml
+@@ -1,6 +1,6 @@
+ <resources>
+ 
+-    <style name="PeopleTheme" parent="@android:style/Theme.Material">
++    <style name="PeopleTheme" parent="@style/SableMaterial">
+         <item name="android:forceDarkAllowed">false</item>
+         <item name="android:actionBarStyle">@style/ContactsActionBarStyle</item>
+         <!-- Style for the overflow button in the actionbar. -->
+@@ -19,6 +19,7 @@
+              they have keyboard or trackpad focus. -->
+         <item name="android:selectableItemBackground">@drawable/sable_selectable_item</item>
+         <item name="android:statusBarColor">@color/sable_background</item>
++        <item name="android:windowLightStatusBar">@bool/sable_light_bars</item>
+         <item name="android:colorBackground">@color/sable_background</item>
+         <item name="android:colorBackgroundFloating">@color/sable_surface_raised</item>
+         <item name="list_item_height">@dimen/contact_browser_list_item_height</item>
+@@ -56,10 +57,10 @@
+         <!-- Popup menu -->
+         <item name="android:popupMenuStyle">@style/PopupMenuStyle</item>
+         <item name="android:navigationBarColor">@color/navigation_bar_bg</item>
+-        <item name="android:windowLightNavigationBar">false</item>
++        <item name="android:windowLightNavigationBar">@bool/sable_light_bars</item>
+     </style>
+ 
+-    <style name="PeopleThemeAppCompat" parent="Theme.AppCompat">
++    <style name="PeopleThemeAppCompat" parent="Theme.AppCompat.DayNight">
+         <item name="android:forceDarkAllowed">false</item>
+         <!-- Styles that require AppCompat compatibility, remember to update both sets -->
+         <item name="android:actionBarStyle">@style/ContactsActionBarStyleAppCompat</item>
+@@ -88,6 +89,7 @@
+              they have keyboard or trackpad focus. -->
+         <item name="android:selectableItemBackground">@drawable/sable_selectable_item</item>
+         <item name="android:statusBarColor">@color/sable_background</item>
++        <item name="android:windowLightStatusBar">@bool/sable_light_bars</item>
+         <item name="android:colorBackground">@color/sable_background</item>
+         <item name="android:colorBackgroundFloating">@color/sable_surface_raised</item>
+         <item name="selectableItemBackground">@drawable/sable_selectable_item</item>
+@@ -131,7 +133,7 @@
+         <item name="android:popupMenuStyle">@style/PopupMenuStyleAppCompat</item>
+         <item name="popupMenuStyle">@style/PopupMenuStyleAppCompat</item>
+         <item name="android:navigationBarColor">@color/navigation_bar_bg</item>
+-        <item name="android:windowLightNavigationBar">false</item>
++        <item name="android:windowLightNavigationBar">@bool/sable_light_bars</item>
+     </style>
+ 
+ </resources>
+diff --git a/res/values/colors.xml b/res/values/colors.xml
+index 11b63333c..7bec04921 100644
+--- a/res/values/colors.xml
++++ b/res/values/colors.xml
+@@ -14,10 +14,9 @@
+      limitations under the License.
+ -->
+ <resources>
+-    <!-- Sable: Contacts is dark only (sable-contacts-people-titan2). The colours below point at
+-         the Sable dark tokens in sable_colors.xml whatever the system light/dark setting; there
+-         is no -night variant. primary_color is the accent (from the system palette); the bars
+-         use sable_toolbar_color. -->
++    <!-- Sable: Contacts follows the system Dark theme (sable-contacts-people-titan2). The colours
++         below point at the Sable tokens in sable_colors.xml, which has a light and a -night copy.
++         primary_color is the accent (from the system palette); the bars use sable_toolbar_color. -->
+     <color name="sable_toolbar_color">@color/sable_background</color>
+     <color name="ic_add_contact_shortcut_background">#F5F5F5</color>
+ 
+@@ -35,7 +34,7 @@
+ 
+     <color name="action_bar_background">@*android:color/system_accent1_600</color>
+ 
+-    <color name="nav_item_selected_background">#0FFFFFFF</color>
++    <color name="nav_item_selected_background">@color/sable_overlay_faint</color>
+ 
+     <color name="action_bar_button_text_color">@color/sable_text</color>
+ 
+@@ -85,7 +84,7 @@
+     <color name="disabled_button_text">@color/sable_text_disabled</color>
+ 
+     <!-- Color of background of disabled link contacts button, 15% black. -->
+-    <color name="disabled_button_background">#26FFFFFF</color>
++    <color name="disabled_button_background">@color/sable_overlay_disabled</color>
+ 
+     <!-- Color of text of people names in contact list when item is disabled. 30% black -->
+     <color name="disabled_contact_list_name_text">@color/sable_text_disabled</color>
+diff --git a/res/values/sable_colors.xml b/res/values/sable_colors.xml
+index 34852e6de..86da209ff 100644
+--- a/res/values/sable_colors.xml
++++ b/res/values/sable_colors.xml
+@@ -3,33 +3,36 @@
+   Copyright (C) 2026 The SableOS Project
+   SPDX-License-Identifier: Apache-2.0
+ -->
+-<!-- Sable dark palette (sable-contacts-people-titan2, sable-phone-dialer-titan2): values of SableSystemTokens.Dark and
+-     SableTheme's dark outline tones. The design is dark only, so these are used whatever the
+-     system light/dark setting is. The accent is never hard-coded: it comes from the system
+-     palette (system_accent1_*), which the Sable accent seeds. -->
++<!-- Sable light palette, used while the system Dark theme is off (sable-contacts-people-titan2; the dark palette with the same
++     names is in values-night/sable_colors.xml), so Contacts looks like every other Sable app. The
++     accent is never hard-coded: it comes from the system palette (system_accent1_*), which the
++     Sable accent seeds. -->
+ <resources>
+   <!-- surfaceBase, surfaceRaised, surfaceOverlay -->
+-  <color name="sable_background">#FF05070A</color>
+-  <color name="sable_surface">#FF0D1117</color>
+-  <color name="sable_surface_raised">#FF161C24</color>
++  <color name="sable_background">#FFF2F4F7</color>
++  <color name="sable_surface">#FFFFFFFF</color>
++  <color name="sable_surface_raised">#FFE8ECF1</color>
+   <!-- textPrimary, textSecondary, textDisabled -->
+-  <color name="sable_text">#FFF7F9FC</color>
+-  <color name="sable_text_muted">#FFAAB4C0</color>
+-  <color name="sable_text_disabled">#FF7D8896</color>
++  <color name="sable_text">#FF12171C</color>
++  <color name="sable_text_muted">#FF56636F</color>
++  <color name="sable_text_disabled">#FF8A949E</color>
+   <!-- outline, outlineVariant -->
+-  <color name="sable_outline">#FF526170</color>
+-  <color name="sable_outline_variant">#FF26313D</color>
+-  <!-- Accent tones from the system palette: the outline/text tone for dark surfaces, a dark
++  <color name="sable_outline">#FF8A96A3</color>
++  <color name="sable_outline_variant">#FFD5DBE2</color>
++  <!-- Accent tones from the system palette: the outline/text tone for light surfaces, a light
+        container for selected and focused fills, and the tone drawn on the accent. -->
+-  <color name="sable_accent">@android:color/system_accent1_200</color>
+-  <color name="sable_accent_container">@android:color/system_accent1_900</color>
+-  <color name="sable_on_accent">@android:color/system_accent1_900</color>
+-  <!-- success / danger roles and their dark containers (call and end pills). -->
+-  <color name="sable_call">#FF4ADE80</color>
+-  <color name="sable_on_call">#FF04140A</color>
+-  <color name="sable_call_container">#FF1D4D39</color>
+-  <color name="sable_danger">#FFFF8A80</color>
+-  <color name="sable_danger_container">#FF4D2328</color>
+-  <!-- Touch ripple on dark surfaces (16% white). -->
+-  <color name="sable_ripple">#29FFFFFF</color>
++  <color name="sable_accent">@android:color/system_accent1_600</color>
++  <color name="sable_accent_container">@android:color/system_accent1_100</color>
++  <color name="sable_on_accent">@android:color/system_accent1_0</color>
++  <!-- success / danger roles and their light containers (call and end pills). -->
++  <color name="sable_call">#FF1E8E4E</color>
++  <color name="sable_on_call">#FFFFFFFF</color>
++  <color name="sable_call_container">#FFD3F2DF</color>
++  <color name="sable_danger">#FFC62828</color>
++  <color name="sable_danger_container">#FFFBDADA</color>
++  <!-- Touch ripple on light surfaces (12% black). -->
++  <color name="sable_ripple">#1F000000</color>
++  <!-- Faint overlays: the selected navigation item and a disabled button. -->
++  <color name="sable_overlay_faint">#0F000000</color>
++  <color name="sable_overlay_disabled">#26000000</color>
+ </resources>
+diff --git a/res/values/sable_theme.xml b/res/values/sable_theme.xml
+new file mode 100644
+index 000000000..2d2163f58
+--- /dev/null
++++ b/res/values/sable_theme.xml
+@@ -0,0 +1,14 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++  Copyright (C) 2026 The SableOS Project
++  SPDX-License-Identifier: Apache-2.0
++-->
++<!-- What changes with the system Dark theme besides the colours (values-night has the dark copy):
++     the light framework theme parents, and dark status and navigation bar icons. -->
++<resources>
++  <bool name="sable_light_bars">true</bool>
++  <style name="SableMaterial" parent="@android:style/Theme.Material.Light" />
++  <style name="SableMaterialDialog" parent="@android:style/Theme.Material.Light.Dialog" />
++  <style name="SableMaterialDialogMinWidth" parent="@android:style/Theme.Material.Light.Dialog.MinWidth" />
++  <style name="SableListView" parent="@android:style/Widget.Material.Light.ListView" />
++</resources>
+diff --git a/res/values/styles.xml b/res/values/styles.xml
+index fa691e6a6..46ef6cecc 100644
+--- a/res/values/styles.xml
++++ b/res/values/styles.xml
+@@ -39,7 +39,7 @@
+         </item>
+     </style>
+ 
+-    <style name="PeopleTheme" parent="@android:style/Theme.Material">
++    <style name="PeopleTheme" parent="@style/SableMaterial">
+         <item name="android:actionBarStyle">@style/ContactsActionBarStyle</item>
+         <!-- Style for the overflow button in the actionbar. -->
+         <item name="android:actionOverflowButtonStyle">@style/ContactsActionBarOverflowQP</item>
+@@ -57,6 +57,7 @@
+              they have keyboard or trackpad focus. -->
+         <item name="android:selectableItemBackground">@drawable/sable_selectable_item</item>
+         <item name="android:statusBarColor">@color/sable_background</item>
++        <item name="android:windowLightStatusBar">@bool/sable_light_bars</item>
+         <item name="android:colorBackground">@color/sable_background</item>
+         <item name="android:colorBackgroundFloating">@color/sable_surface_raised</item>
+         <item name="list_item_height">@dimen/contact_browser_list_item_height</item>
+@@ -95,8 +96,8 @@
+         <item name="android:popupMenuStyle">@style/PopupMenuStyle</item>
+     </style>
+ 
+-    <!-- Sable: dark only (sable-contacts-people-titan2), whatever the system setting. -->
+-    <style name="LaunchScreenTheme" parent="Theme.AppCompat">
++    <!-- Sable: follows the system Dark theme (sable-contacts-people-titan2). -->
++    <style name="LaunchScreenTheme" parent="Theme.AppCompat.DayNight">
+         <item name="android:windowBackground">@drawable/quantum_launchscreen_contacts</item>
+         <item name="colorPrimaryDark">@color/primary_color_dark</item>
+         <item name="colorPrimary">@color/sable_toolbar_color</item>
+@@ -109,7 +110,7 @@
+         <item name="android:listSelector">@drawable/sable_selectable_item</item>
+     </style>
+ 
+-    <style name="PeopleThemeAppCompat" parent="Theme.AppCompat">
++    <style name="PeopleThemeAppCompat" parent="Theme.AppCompat.DayNight">
+         <!-- Styles that require AppCompat compatibility, remember to update both sets -->
+         <item name="android:actionBarStyle">@style/ContactsActionBarStyleAppCompat</item>
+         <item name="actionBarStyle">@style/ContactsActionBarStyleAppCompat</item>
+@@ -137,6 +138,7 @@
+              they have keyboard or trackpad focus. -->
+         <item name="android:selectableItemBackground">@drawable/sable_selectable_item</item>
+         <item name="android:statusBarColor">@color/sable_background</item>
++        <item name="android:windowLightStatusBar">@bool/sable_light_bars</item>
+         <item name="android:colorBackground">@color/sable_background</item>
+         <item name="android:colorBackgroundFloating">@color/sable_surface_raised</item>
+         <item name="selectableItemBackground">@drawable/sable_selectable_item</item>
+@@ -242,7 +244,7 @@
+         <item name="android:tint">?android:textColorSecondary</item>
+     </style>
+ 
+-    <style name="LightToolbarThemeOverlay" parent="@style/ThemeOverlay.AppCompat.Dark.ActionBar">
++    <style name="LightToolbarThemeOverlay" parent="@style/ThemeOverlay.AppCompat.DayNight.ActionBar">
+         <item name="toolbarNavigationButtonStyle">@style/LightToolbarNavigationButtonStyle</item>
+     </style>
+ 
+@@ -300,14 +302,14 @@
+     <style name="NonPhoneActivityTheme" parent="@android:Theme.Translucent.NoTitleBar">
+     </style>
+ 
+-    <style name="NonPhoneDialogTheme" parent="@android:Theme.Material.Dialog">
++    <style name="NonPhoneDialogTheme" parent="@style/SableMaterialDialog">
+     </style>
+ 
+-    <style name="ConfirmAddDetailDialogTheme" parent="@android:style/Theme.Material.Dialog.MinWidth">
++    <style name="ConfirmAddDetailDialogTheme" parent="@style/SableMaterialDialogMinWidth">
+         <item name="android:windowCloseOnTouchOutside">true</item>
+     </style>
+ 
+-    <style name="SelectableItem" parent="@android:style/Theme.Material">
++    <style name="SelectableItem" parent="@style/SableMaterial">
+         <item name="android:background">?android:attr/selectableItemBackground</item>
+     </style>
+ 
+@@ -346,13 +348,13 @@
+ 
+     <!-- Inherit from Theme.Material.Light.Dialog instead of Theme.Material.Light.Dialog.Alert
+         since the Alert dialog is private. They are identical anyway. -->
+-    <style name="ContactsAlertDialogTheme" parent="@android:style/Theme.Material.Dialog">
++    <style name="ContactsAlertDialogTheme" parent="@style/SableMaterialDialog">
+         <item name="android:colorBackgroundFloating">@color/sable_surface_raised</item>
+         <item name="android:colorAccent">@color/primary_color</item>
+         <item name="android:windowBackground">@drawable/dialog_background</item>
+     </style>
+ 
+-    <style name="ContactsAlertDialogThemeAppCompat" parent="Theme.AppCompat.Dialog.MinWidth">
++    <style name="ContactsAlertDialogThemeAppCompat" parent="Theme.AppCompat.DayNight.Dialog.MinWidth">
+         <item name="android:colorBackgroundFloating">@color/sable_surface_raised</item>
+         <item name="android:colorAccent">@color/primary_color</item>
+         <item name="colorAccent">@color/primary_color</item>
+@@ -475,7 +477,7 @@ background and text color. See also android:style/Widget.Holo.TextView.ListSepar
+         <item name="android:textColor">@color/sable_text_muted</item>
+     </style>
+ 
+-    <style name="ListViewStyle" parent="@android:style/Widget.Material.ListView">
++    <style name="ListViewStyle" parent="@style/SableListView">
+         <item name="android:overScrollMode">always</item>
+     </style>
+ 
+@@ -491,7 +493,7 @@ background and text color. See also android:style/Widget.Holo.TextView.ListSepar
+         <item name="android:layout_height">match_parent</item>
+     </style>
+ 
+-    <style name="BackgroundOnlyTheme" parent="@android:style/Theme.Material">
++    <style name="BackgroundOnlyTheme" parent="@style/SableMaterial">
+         <item name="android:windowBackground">@null</item>
+         <item name="android:windowContentOverlay">@null</item>
+         <item name="android:windowAnimationStyle">@null</item>
+@@ -502,7 +504,7 @@ background and text color. See also android:style/Widget.Holo.TextView.ListSepar
+         <item name="android:windowIsFloating">true</item>
+     </style>
+ 
+-    <style name="Theme.CallSubjectDialogTheme" parent="@android:style/Theme.Material.Dialog">
++    <style name="Theme.CallSubjectDialogTheme" parent="@style/SableMaterialDialog">
+         <item name="android:layout_width">match_parent</item>
+         <item name="android:layout_height">match_parent</item>
+ 
+-- 
+2.43.0
+

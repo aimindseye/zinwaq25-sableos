@@ -35,7 +35,7 @@ can't reach the value.
 | Default QS tiles, high-value controls first | RRO `SableSystemUIOverlay` (`quick_settings_tiles_default`) |
 | Three-column grid of labeled small tiles, compact row of four (`sable-quick-settings-titan2.svg`; replaced the earlier two-column large tiles) | RRO `values/sable_quick_settings.xml` + frameworks/base patches 0101 (large-tile default is a resource, set empty) and 0310 (compact columns, small-tile labels) |
 | QS tile shapes (pill and morph replaced by 12dp/8dp) | frameworks/base patch 0102 (constants are hard-coded in Compose) |
-| System accent equals Sable accent | RRO `SableFrameworkOverlay` (`theming_defaults`, first boot) + Settings patch 0101 (accent choice seeds the system palette) |
+| System accent equals Sable accent | RRO `SableFrameworkOverlay` (`theming_defaults`, first boot) + Settings patch 0101 (accent choice seeds the system palette) + Settings patch 0104 (first read of the authority seeds it once from the stored accent: a Q25 owner found `color_source: home_wallpaper` after setup, 2026-10) |
 | One light/dark source | Settings patch 0101: the Sable authority always reports `follow-system`; light and dark belong to Android's Dark theme |
 | Sable branding in Setup | RRO `SableSetupWizardOverlay` (welcome title in 49 locales, the "Zinwa Q25 first boot" line, restore and recovery text, Sable logo, navy card and cyan focus-ring colours for SetupWizard 0409, Welcome sizes for the square screen) and SetupWizard patch 0408 (no LineageOS features step) |
 | Sable branding in About | Settings patch 0102 (SableOS version row) |

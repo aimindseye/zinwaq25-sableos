@@ -13,6 +13,11 @@
 
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
+    <queries>
+        <!-- The Sable appearance authority (Settings): the accent colour every Sable app uses. -->
+        <provider android:authorities="org.sableos.appearance" />
+    </queries>
+
     <application
         android:allowBackup="false"
         android:fullBackupContent="false"

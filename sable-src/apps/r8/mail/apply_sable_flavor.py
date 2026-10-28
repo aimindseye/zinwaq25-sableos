@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -10,6 +12,81 @@ SABLE_APPLICATION_ID = "org.sableos.mail"
 SABLE_LABEL = "Sable Mail"
 THUNDERMAIL_API_DEPENDENCY = "    implementation(projects.feature.thundermail.api)\n"
 DEMO_SERVER_SETTINGS_IMPORT = "import app.k9mail.autodiscovery.demo.DemoServerSettings\n"
+
+# Gmail sign-in uses the owner's own Google Cloud OAuth client (Android type, package
+# org.sableos.mail, custom URI scheme enabled), passed by the build host and never stored in
+# the repository. Without it Sable Mail ships with no OAuth providers (app password only).
+GOOGLE_CLIENT_ID_ENV = "SABLE_MAIL_GOOGLE_CLIENT_ID"
+GOOGLE_CLIENT_ID_PATTERN = re.compile(r"\d+-[a-z0-9]+\.apps\.googleusercontent\.com")
+# Google Cloud projects of the upstream Thunderbird/K-9 Gmail clients (registered to other
+# packages and signing keys).
+INHERITED_GOOGLE_PROJECTS = ("560629489500-", "262622259280-")
+
+
+def google_client_id() -> str | None:
+    value = os.environ.get(GOOGLE_CLIENT_ID_ENV, "").strip()
+    if not value:
+        return None
+    if not GOOGLE_CLIENT_ID_PATTERN.fullmatch(value):
+        fail(f"{GOOGLE_CLIENT_ID_ENV} is not a Google OAuth client id (NNN-xxx.apps.googleusercontent.com)")
+    if value.startswith(INHERITED_GOOGLE_PROJECTS):
+        fail(f"{GOOGLE_CLIENT_ID_ENV} is an inherited Thunderbird/K-9 client; register your own")
+    return value
+
+
+def oauth_status_line() -> str:
+    if google_client_id() is None:
+        return "SABLE_MAIL_OAUTH=DISABLED_UNTIL_SABLE_CLIENT_REGISTRATION"
+    return "SABLE_MAIL_OAUTH=GMAIL_OWNER_CLIENT"
+
+
+def oauth_factory_source(client_id: str | None) -> str:
+    if client_id is None:
+        return '''package net.thunderbird.android.auth
+
+import net.thunderbird.core.common.oauth.OAuthConfiguration
+import net.thunderbird.core.common.oauth.OAuthConfigurationFactory
+
+/**
+ * Sable Mail deliberately ships without inherited Thunderbird OAuth client IDs.
+ *
+ * Generic IMAP/SMTP remains available. Gmail/Microsoft OAuth must stay hidden
+ * until Sable-owned provider registrations and redirect URIs are qualified.
+ */
+class TbOAuthConfigurationFactory : OAuthConfigurationFactory {
+    override fun createConfigurations(): Map<List<String>, OAuthConfiguration> =
+        emptyMap()
+}
+'''
+    return f'''package net.thunderbird.android.auth
+
+import net.thunderbird.android.BuildConfig
+import net.thunderbird.core.common.oauth.OAuthConfiguration
+import net.thunderbird.core.common.oauth.OAuthConfigurationFactory
+
+/**
+ * Sable Mail ships no inherited Thunderbird OAuth client IDs. Gmail sign-in uses the Sable
+ * owner's own Google OAuth client ({GOOGLE_CLIENT_ID_ENV} at build time). Every other
+ * provider stays on IMAP/SMTP with a password.
+ */
+class TbOAuthConfigurationFactory : OAuthConfigurationFactory {{
+    override fun createConfigurations(): Map<List<String>, OAuthConfiguration> =
+        mapOf(
+            listOf(
+                "imap.gmail.com",
+                "imap.googlemail.com",
+                "smtp.gmail.com",
+                "smtp.googlemail.com",
+            ) to OAuthConfiguration(
+                clientId = "{client_id}",
+                scopes = listOf("https://mail.google.com/"),
+                authorizationEndpoint = "https://accounts.google.com/o/oauth2/v2/auth",
+                tokenEndpoint = "https://oauth2.googleapis.com/token",
+                redirectUri = "${{BuildConfig.APPLICATION_ID}}:/oauth2redirect",
+            ),
+        )
+}}
+'''
 
 # The upstream checkout being flavored; every file read or written must resolve inside it.
 _checkout: Path | None = None
@@ -1002,22 +1079,7 @@ def main() -> None:
         "                definition<ThundermailContract.ViewModel>(ThundermailContract.State::class),\n",
     )
 
-    oauth_source = '''package net.thunderbird.android.auth
-
-import net.thunderbird.core.common.oauth.OAuthConfiguration
-import net.thunderbird.core.common.oauth.OAuthConfigurationFactory
-
-/**
- * Sable Mail deliberately ships without inherited Thunderbird OAuth client IDs.
- *
- * Generic IMAP/SMTP remains available. Gmail/Microsoft OAuth must stay hidden
- * until Sable-owned provider registrations and redirect URIs are qualified.
- */
-class TbOAuthConfigurationFactory : OAuthConfigurationFactory {
-    override fun createConfigurations(): Map<List<String>, OAuthConfiguration> =
-        emptyMap()
-}
-'''
+    oauth_source = oauth_factory_source(google_client_id())
 
     for variant in ("debug", "beta", "daily", "release"):
         write(
@@ -1657,7 +1719,7 @@ class SableMailSnapshotProvider : ContentProvider() {
     print("SABLE_MAIL_AUTODISCOVERY_DEMO_SOURCE_SPECIAL_CASES=REMOVED")
     print("SABLE_MAIL_ACCOUNT_ENTRY=STANDARD_IMAP_SMTP_SETUP")
     print("SABLE_MAIL_THUNDERMAIL_ROUTES=REMOVED_FROM_COMPOSED_SOURCE")
-    print("SABLE_MAIL_OAUTH=DISABLED_UNTIL_SABLE_CLIENT_REGISTRATION")
+    print(oauth_status_line())
     print("SABLE_MAIL_GENERIC_IMAP_SMTP=UPSTREAM")
     print("SABLE_MAIL_GLOBAL_APPEARANCE=FOLLOW_SYSTEM_LIGHT_DARK_PLUS_5_ACCENTS")
     print("SABLE_MAIL_KEYMAP=SABLE_SHARED_CONTRACT_INPUT_GUARDED")

@@ -1,8 +1,8 @@
 package org.sableos.titan2.setup.android
 
-import androidx.core.graphics.toColorInt
+import org.sableos.titan2.theme.SablePalette
 
-/** Sizes (dp, sp) and colours shared by the checklist and the Weather city step. */
+/** Sizes (dp, sp) and colours shared by the checklist and the Weather city step; colours follow [palette]. */
 internal object SetupStyle {
     const val PAD_H = 16
     const val PAD_V = 18
@@ -11,9 +11,14 @@ internal object SetupStyle {
     const val SUMMARY_SP = 15f
     const val ROW_TITLE_SP = 17f
     const val DETAIL_SP = 13f
-    val BG = "#0C1E2D".toColorInt()
-    val KEY = "#1E3A52".toColorInt()
-    val FOCUS = "#2F6690".toColorInt()
-    val DIM = "#8FA9BF".toColorInt()
-    val WARN = "#FFB347".toColorInt()
+
+    /** Set from the Sable theme when the activity is created (and re-created on a Dark theme change). */
+    var palette: SablePalette = SablePalette.of(dark = true, accent = null)
+    val BG get() = palette.window
+    val KEY get() = palette.surface
+    val FOCUS get() = palette.focus
+    val TEXT get() = palette.text
+    val DIM get() = palette.muted
+    val ACCENT get() = palette.accent
+    val WARN get() = palette.warn
 }

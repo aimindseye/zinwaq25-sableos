@@ -21,6 +21,7 @@ import org.sableos.titan2.displaycompat.android.TraitsResolver
 import org.sableos.titan2.displaycompat.android.displayCompat
 import org.sableos.titan2.displaycompat.core.ProfileLink
 import org.sableos.titan2.displaycompat.core.SizePx
+import org.sableos.titan2.theme.SablePalette
 
 class MainActivity : ComponentActivity() {
     /** Set when Settings > App info opened one app's profile: Done and Back return there. */
@@ -29,6 +30,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        C.palette = SablePalette.read(this).also { it.applyTo(this) }
         val data = intent?.data
         val pkg = ProfileLink.packageFrom(intent?.action, data?.scheme, data?.schemeSpecificPart)
         // Only apps the list could show (launcher apps); anything else opens the list.

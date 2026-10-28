@@ -9,7 +9,10 @@ package org.sableos.weather.cities
 interface KeyValueStore {
     fun get(key: String): String?
 
-    fun put(key: String, value: String)
+    fun put(
+        key: String,
+        value: String,
+    )
 
     fun remove(key: String) {
         // Optional: a store that never needs cache cleanup can keep entries; the default does nothing.
@@ -36,9 +39,11 @@ object CityCodec {
     fun decode(text: String?): CityState {
         val lines = text?.lines().orEmpty()
         if (lines.firstOrNull() != HEADER) return CityState.defaults()
-        val selected = lines.firstOrNull {
-            it.startsWith("$SELECTED|")
-        }?.let { unescape(it.substringAfter('|')) }
+        val selected =
+            lines
+                .firstOrNull {
+                    it.startsWith("$SELECTED|")
+                }?.let { unescape(it.substringAfter('|')) }
         val cities = lines.mapNotNull { city(it) }
         return CityState.of(cities, selected)
     }
@@ -58,7 +63,11 @@ object CityCodec {
     }
 
     private fun escape(s: String) =
-        s.replace("\\", "\\\\").replace("|", "\\p").replace("\n", "\\n").replace("\r", "\\r")
+        s
+            .replace("\\", "\\\\")
+            .replace("|", "\\p")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
 
     private fun unescape(s: String): String {
         val out = StringBuilder()
@@ -66,13 +75,14 @@ object CityCodec {
         while (i < s.length) {
             val c = s[i]
             val next = if (c == '\\' && i + 1 < s.length) s[i + 1] else null
-            val mapped = when (next) {
-                'p' -> '|'
-                'n' -> '\n'
-                'r' -> '\r'
-                '\\' -> '\\'
-                else -> null
-            }
+            val mapped =
+                when (next) {
+                    'p' -> '|'
+                    'n' -> '\n'
+                    'r' -> '\r'
+                    '\\' -> '\\'
+                    else -> null
+                }
             out.append(mapped ?: c)
             i += if (mapped != null) 2 else 1
         }
@@ -81,10 +91,15 @@ object CityCodec {
 }
 
 /** Load, edit and save. Every successful edit is written before it is reported, so a restart sees it. */
-class CityRepository(private val store: KeyValueStore) {
+class CityRepository(
+    private val store: KeyValueStore,
+) {
     fun load(): CityState = CityCodec.decode(store.get(KEY))
 
-    fun add(city: City, select: Boolean = true): CityEdit = edit { it.add(city, select) }
+    fun add(
+        city: City,
+        select: Boolean = true,
+    ): CityEdit = edit { it.add(city, select) }
 
     fun remove(name: String): CityEdit = edit { it.remove(name) }
 

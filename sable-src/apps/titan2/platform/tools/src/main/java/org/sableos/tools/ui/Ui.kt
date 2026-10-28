@@ -11,19 +11,22 @@ import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
+import org.sableos.titan2.theme.SablePalette
 
 /**
  * Minimal view kit for Sable Tools: plain framework views (no Compose), dense rows readable on a 720x720 square
  * screen, a strong visible focus ring (VISIBLE_FOCUS=REQUIRED) and touch as the secondary path.
  */
 object Ui {
-    val BG = Color.parseColor("#0E1116")
-    val SURFACE = Color.parseColor("#161C24")
-    val TEXT = Color.parseColor("#F7F9FC")
-    val MUTED = Color.parseColor("#A9B4C2")
-    val ACCENT = Color.parseColor("#E5534B")
-    val FOCUS = Color.parseColor("#2A3A4E")
-    val OK = Color.parseColor("#57AB5A")
+    /** Set from the Sable theme in each activity's onCreate (re-created on a Dark theme change). */
+    internal var palette: SablePalette = SablePalette.of(dark = true, accent = null)
+    val BG get() = palette.window
+    val SURFACE get() = palette.surface
+    val TEXT get() = palette.text
+    val MUTED get() = palette.muted
+    val ACCENT get() = palette.accent
+    val FOCUS get() = palette.focus
+    val OK get() = palette.ok
 
     const val PAD = 12
     private const val PAD_SMALL = 4

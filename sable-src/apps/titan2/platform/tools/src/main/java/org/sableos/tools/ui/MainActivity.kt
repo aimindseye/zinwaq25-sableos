@@ -11,6 +11,7 @@ import android.view.View
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import org.sableos.titan2.theme.SablePalette
 import org.sableos.tools.R
 import org.sableos.tools.android.SecretCodeSync
 import org.sableos.tools.android.ToolsEnv
@@ -40,6 +41,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Ui.palette = SablePalette.read(this).also { it.applyTo(this) }
         val col = Ui.column(this)
         col.addView(Ui.title(this, getString(R.string.app_name)))
         summary = Ui.subtitle(this, "")

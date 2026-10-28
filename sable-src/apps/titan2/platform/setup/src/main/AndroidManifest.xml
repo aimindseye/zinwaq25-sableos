@@ -8,10 +8,27 @@
         <intent><action android:name="android.settings.HOME_SETTINGS" /></intent>
         <intent><action android:name="android.settings.MANAGE_DEFAULT_APPS_SETTINGS" /></intent>
         <intent><action android:name="android.settings.WIRELESS_SETTINGS" /></intent>
+        <!-- Telephony.Sms.getDefaultSmsPackage() checks the holder's SMS-role components through
+             PackageManager, so without these the default SMS app is invisible and reads as none. -->
+        <intent><action android:name="android.provider.Telephony.SMS_DELIVER" /></intent>
+        <intent>
+            <action android:name="android.provider.Telephony.WAP_PUSH_DELIVER" />
+            <data android:mimeType="application/vnd.wap.mms-message" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.RESPOND_VIA_MESSAGE" />
+            <data android:scheme="smsto" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="smsto" />
+        </intent>
         <package android:name="org.sableos.titan2.displaycompat" />
         <package android:name="org.sableos.titan2.radiodiag" />
         <!-- Sable Weather's city hand-off (ContentResolver.call); Weather allows only this package. -->
         <provider android:authorities="org.sableos.weather.snapshot" />
+        <!-- The Sable appearance authority (Settings): the accent colour every Sable app uses. -->
+        <provider android:authorities="org.sableos.appearance" />
     </queries>
 
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />

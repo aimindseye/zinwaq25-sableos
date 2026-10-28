@@ -13,6 +13,9 @@
       SableFrameworkOverlay); the SMS role grants the same, these make the first boot not depend
       on when the role is assigned. Exception grants also exempt the hard-restricted SMS
       permissions (DefaultPermissionGrantPolicy whitelists them as system).
+    Sable Weather (org.sableos.weather): approximate location only, so Start's weather line is for
+      where the phone is ("Use current location", on by default). Revoking it, or choosing a city in
+      Sable Weather, shows the chosen city instead. Precise location is never requested.
 -->
 <exceptions>
     <exception package="org.sableos.launcher">
@@ -31,5 +34,8 @@
         <permission name="android.permission.RECEIVE_WAP_PUSH" fixed="false" />
         <permission name="android.permission.READ_CONTACTS" fixed="false" />
         <permission name="android.permission.POST_NOTIFICATIONS" fixed="false" />
+    </exception>
+    <exception package="org.sableos.weather">
+        <permission name="android.permission.ACCESS_COARSE_LOCATION" fixed="false" />
     </exception>
 </exceptions>

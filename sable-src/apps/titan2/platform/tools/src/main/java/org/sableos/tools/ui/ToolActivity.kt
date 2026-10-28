@@ -14,6 +14,7 @@ import android.view.View
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Toast
+import org.sableos.titan2.theme.SablePalette
 import org.sableos.tools.android.Collectors
 import org.sableos.tools.android.Links
 import org.sableos.tools.android.ToolsEnv
@@ -105,6 +106,7 @@ class ToolActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Ui.palette = SablePalette.read(this).also { it.applyTo(this) }
         env = ToolsEnv(this)
         var notice = intent.getStringExtra(EXTRA_NOTICE)
         tool = if (intent.action == ACTION_SEARCH) {

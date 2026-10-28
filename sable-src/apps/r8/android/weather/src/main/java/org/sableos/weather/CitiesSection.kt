@@ -92,9 +92,13 @@ internal fun CitiesSection(
             }
 
             // Leaving the section: let the system handle Back, and let Tab move focus on.
-            CityEffect.Exit, is CityEffect.FocusLeaves -> false
+            CityEffect.Exit, is CityEffect.FocusLeaves -> {
+                false
+            }
 
-            CityEffect.None -> true
+            CityEffect.None -> {
+                true
+            }
         }
 
     fun onKey(event: AndroidKeyEvent): Boolean {
@@ -147,7 +151,8 @@ internal fun CitiesSection(
                     },
                     onAdd = { screen = model.onTouch(screen).copy(screen = CityScreen.Add, query = "") },
                     onReset = {
-                        screen = model.onTouch(screen).copy(screen = CityScreen.ConfirmReset, dialog = DialogButton.Cancel)
+                        screen =
+                            model.onTouch(screen).copy(screen = CityScreen.ConfirmReset, dialog = DialogButton.Cancel)
                     },
                 )
             }

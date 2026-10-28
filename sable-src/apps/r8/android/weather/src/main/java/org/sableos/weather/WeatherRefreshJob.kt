@@ -9,7 +9,8 @@ import android.content.Context
 import android.os.Binder
 
 /**
- * Fetches the active city's forecast in the background, so Start and Live show the weather without
+ * Finds the current place (when "Use current location" is on) and fetches its forecast, or the active
+ * city's, in the background, so Start and Live show the weather without
  * Sable Weather being opened first. A periodic job keeps the cache fresh; a one-off job fills an empty
  * or stale cache as soon as a network is available. A successful refresh notifies the snapshot URI.
  */
@@ -17,6 +18,7 @@ class WeatherRefreshJob : JobService() {
     override fun onStartJob(params: JobParameters): Boolean {
         Thread({
             val repository = WeatherRepository(applicationContext)
+            runCatching { repository.updateCurrentPlace() }
             val result = runCatching { repository.refresh(repository.loadLocation()) }.getOrNull()
             val fetched = result?.availability == WeatherAvailability.Live
             // A failed one-off fetch is retried with back-off; the periodic job just waits for its next run.
@@ -33,14 +35,18 @@ class WeatherRefreshJob : JobService() {
         private const val PERIOD_MS = 3L * 60 * 60 * 1000
 
         /** Keeps the periodic refresh scheduled, and asks for a fetch now when nothing current is cached. */
-        fun ensureScheduled(context: Context, needsFetch: Boolean) {
+        fun ensureScheduled(
+            context: Context,
+            needsFetch: Boolean,
+        ) {
             val token = Binder.clearCallingIdentity()
             try {
                 val scheduler = context.getSystemService(JobScheduler::class.java) ?: return
                 val component = ComponentName(context, WeatherRefreshJob::class.java)
                 if (scheduler.getPendingJob(PERIODIC_JOB_ID) == null) {
                     scheduler.schedule(
-                        JobInfo.Builder(PERIODIC_JOB_ID, component)
+                        JobInfo
+                            .Builder(PERIODIC_JOB_ID, component)
                             .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
                             .setPeriodic(PERIOD_MS)
                             .setPersisted(true)
@@ -49,7 +55,8 @@ class WeatherRefreshJob : JobService() {
                 }
                 if (needsFetch && scheduler.getPendingJob(ONE_OFF_JOB_ID) == null) {
                     scheduler.schedule(
-                        JobInfo.Builder(ONE_OFF_JOB_ID, component)
+                        JobInfo
+                            .Builder(ONE_OFF_JOB_ID, component)
                             .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
                             .build(),
                     )

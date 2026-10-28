@@ -13,7 +13,10 @@ class CityStoreTest {
 
         override fun get(key: String): String? = data[key]
 
-        override fun put(key: String, value: String) {
+        override fun put(
+            key: String,
+            value: String,
+        ) {
             writes += 1
             data[key] = value
         }
@@ -82,9 +85,12 @@ class CityStoreTest {
         val odd = City("A|B\\C\nD", -33.8688, 151.2093, "Australia/Sydney")
         val s = CityState(listOf(odd), odd.name)
         assertEquals(s, CityCodec.decode(CityCodec.encode(s)))
-        val piped = CityState.defaults().add(
-            City("A|B\\C", -33.8688, 151.2093, "Australia/Sydney")
-        ).state
+        val piped =
+            CityState
+                .defaults()
+                .add(
+                    City("A|B\\C", -33.8688, 151.2093, "Australia/Sydney"),
+                ).state
         assertEquals(piped, CityCodec.decode(CityCodec.encode(piped)))
     }
 
@@ -92,7 +98,7 @@ class CityStoreTest {
         val c = City("Exact", 12.345678901234, -98.765432109876, "UTC")
         assertEquals(
             c,
-            CityCodec.decode(CityCodec.encode(CityState.of(listOf(c), "Exact"))).selected
+            CityCodec.decode(CityCodec.encode(CityState.of(listOf(c), "Exact"))).selected,
         )
     }
 
@@ -111,7 +117,7 @@ class CityStoreTest {
                 "CITY|Paris|48.8|2.3|Europe/Paris",
                 "CITY|Bad|abc|2|UTC",
                 "CITY|Far|100|2|UTC",
-                "CITY|x"
+                "CITY|x",
             ).joinToString("\n")
         val s = CityCodec.decode(text)
         assertEquals(listOf("Paris"), s.cities.map { it.name })
@@ -124,7 +130,7 @@ class CityStoreTest {
                 "SABLE_CITIES_V1",
                 "SELECTED|Gone",
                 "CITY|Paris|48.8|2.3|Europe/Paris",
-                "CITY|Rome|41.9|12.5|Europe/Rome"
+                "CITY|Rome|41.9|12.5|Europe/Rome",
             ).joinToString("\n")
         assertEquals("Paris", CityCodec.decode(text).selected.name)
     }
@@ -137,7 +143,7 @@ class CityStoreTest {
             text.lines().all {
                 it.startsWith("SABLE_CITIES_V1") || it.startsWith("SELECTED|") ||
                     it.startsWith("CITY|")
-            }
+            },
         )
     }
 }

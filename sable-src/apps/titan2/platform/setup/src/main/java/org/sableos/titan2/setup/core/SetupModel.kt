@@ -50,6 +50,7 @@ object SetupModel {
             clean.isEmpty() || safe.isEmpty() -> "Profile unknown (not reported by this build)"
             clean == "titan2" -> "Unihertz Titan 2"
             clean == "titan2-elite" -> "Unihertz Titan 2 Elite"
+            clean == "zinwa-q25" -> "Zinwa Q25"
             else -> "Unrecognized profile id: $safe"
         }
     }

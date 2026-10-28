@@ -6,7 +6,12 @@ import java.time.ZoneId
 import kotlin.math.abs
 
 /** A user-visible city: the only things Weather needs to ask Open-Meteo for a forecast. */
-data class City(val name: String, val latitude: Double, val longitude: Double, val timezone: String)
+data class City(
+    val name: String,
+    val latitude: Double,
+    val longitude: Double,
+    val timezone: String,
+)
 
 enum class Reason {
     BlankName,
@@ -18,7 +23,7 @@ enum class Reason {
     Duplicate,
     TooManyCities,
     NotFound,
-    LastCity
+    LastCity,
 }
 
 /** The four built-in cities of canonical Weather (same values as `DefaultWeatherLocations`). */
@@ -30,7 +35,7 @@ object DefaultCities {
             City("Jersey City", 40.7178, -74.0430, NEW_YORK_ZONE),
             City("New York", 40.7128, -74.0060, NEW_YORK_ZONE),
             City("Edison", 40.5187, -74.4121, NEW_YORK_ZONE),
-            City("Mumbai", 19.0760, 72.8777, "Asia/Kolkata")
+            City("Mumbai", 19.0760, 72.8777, "Asia/Kolkata"),
         )
 }
 
@@ -41,8 +46,10 @@ object CityRules {
 
     fun normalizedName(name: String): String = name.trim().replace(Regex("\\s+"), " ")
 
-    fun sameName(a: String, b: String): Boolean =
-        normalizedName(a).equals(normalizedName(b), ignoreCase = true)
+    fun sameName(
+        a: String,
+        b: String,
+    ): Boolean = normalizedName(a).equals(normalizedName(b), ignoreCase = true)
 
     fun validTimezone(timezone: String): Boolean = timezone in ZoneId.getAvailableZoneIds()
 
@@ -61,9 +68,13 @@ object CityRules {
         }
     }
 
-    fun samePlace(a: City, b: City): Boolean {
-        val near = abs(a.latitude - b.latitude) < DUPLICATE_DEGREES &&
-            abs(a.longitude - b.longitude) < DUPLICATE_DEGREES
+    fun samePlace(
+        a: City,
+        b: City,
+    ): Boolean {
+        val near =
+            abs(a.latitude - b.latitude) < DUPLICATE_DEGREES &&
+                abs(a.longitude - b.longitude) < DUPLICATE_DEGREES
         return sameName(a.name, b.name) || near
     }
 }
@@ -72,7 +83,7 @@ object CityRules {
 data class CityEdit(
     val state: CityState,
     val reason: Reason? = null,
-    val refresh: Boolean = false
+    val refresh: Boolean = false,
 ) {
     val changed: Boolean get() = reason == null
 }
@@ -81,11 +92,17 @@ data class CityEdit(
  * The user's city list and the selected city. It is never empty and always has a selection.
  * Every edit returns a new state and says whether the active city changed.
  */
-data class CityState(val cities: List<City>, val selectedName: String) {
+data class CityState(
+    val cities: List<City>,
+    val selectedName: String,
+) {
     val selected: City
         get() = cities.firstOrNull { CityRules.sameName(it.name, selectedName) } ?: cities.first()
 
-    fun add(city: City, select: Boolean = true): CityEdit {
+    fun add(
+        city: City,
+        select: Boolean = true,
+    ): CityEdit {
         val clean = city.copy(name = CityRules.normalizedName(city.name))
         val reason = CityRules.validate(clean) ?: addConflict(clean)
         if (reason != null) return CityEdit(this, reason)
@@ -125,38 +142,45 @@ data class CityState(val cities: List<City>, val selectedName: String) {
         return done(CityState(DefaultCities.ALL, (keep ?: DefaultCities.ALL.first()).name))
     }
 
-    private fun neighbour(left: List<City>, index: Int): String =
-        left[index.coerceAtMost(left.lastIndex)].name
+    private fun neighbour(
+        left: List<City>,
+        index: Int,
+    ): String = left[index.coerceAtMost(left.lastIndex)].name
 
-    private fun removeConflict(index: Int): Reason? = when {
-        index < 0 -> Reason.NotFound
-        cities.size == 1 -> Reason.LastCity
-        else -> null
-    }
+    private fun removeConflict(index: Int): Reason? =
+        when {
+            index < 0 -> Reason.NotFound
+            cities.size == 1 -> Reason.LastCity
+            else -> null
+        }
 
-    private fun addConflict(city: City): Reason? = when {
-        cities.any { CityRules.samePlace(it, city) } -> Reason.Duplicate
-        cities.size >= CityRules.MAX_CITIES -> Reason.TooManyCities
-        else -> null
-    }
+    private fun addConflict(city: City): Reason? =
+        when {
+            cities.any { CityRules.samePlace(it, city) } -> Reason.Duplicate
+            cities.size >= CityRules.MAX_CITIES -> Reason.TooManyCities
+            else -> null
+        }
 
-    private fun done(next: CityState) =
-        CityEdit(next, null, StartLiveRefresh.needsRefresh(selected, next.selected))
+    private fun done(next: CityState) = CityEdit(next, null, StartLiveRefresh.needsRefresh(selected, next.selected))
 
     companion object {
         fun defaults() = CityState(DefaultCities.ALL, DefaultCities.ALL.first().name)
 
         /** Repairs anything unusable: no valid city means the defaults, an unknown selection means the first. */
-        fun of(cities: List<City>, selectedName: String?): CityState {
+        fun of(
+            cities: List<City>,
+            selectedName: String?,
+        ): CityState {
             val valid = cities.filter { CityRules.validate(it) == null }
-            val unique = valid.fold(emptyList<City>()) { acc, c ->
-                if (acc.any { CityRules.samePlace(it, c) }) {
-                    acc
-                } else {
-                    acc +
-                        c
+            val unique =
+                valid.fold(emptyList<City>()) { acc, c ->
+                    if (acc.any { CityRules.samePlace(it, c) }) {
+                        acc
+                    } else {
+                        acc +
+                            c
+                    }
                 }
-            }
             val list = unique.take(CityRules.MAX_CITIES)
             if (list.isEmpty()) return defaults()
             val chosen =

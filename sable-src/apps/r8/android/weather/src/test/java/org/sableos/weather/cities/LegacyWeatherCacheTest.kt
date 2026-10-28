@@ -13,7 +13,7 @@ class LegacyWeatherCacheTest {
                 put(LegacyWeatherCache.KEY_PROTOCOL, "OK\nCURRENT|1|1|1|1|1|1|CLEAR")
                 put(LegacyWeatherCache.KEY_OBSERVED_EPOCH_SECONDS, "123")
                 if (name != null) put(LegacyWeatherCache.KEY_LOCATION_NAME, name)
-            }
+            },
         )
 
     @Test fun aFreshInstallHasNothingToMigrate() {

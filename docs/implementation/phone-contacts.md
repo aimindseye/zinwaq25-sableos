@@ -11,15 +11,15 @@ and the Titan 2 screen references (`titan2-temp` 7570470,
 ```text
 PACKAGE=phone-contacts
 SURFACES=Phone (packages/apps/Dialer) contacts tab, Contacts (packages/apps/Contacts) list
-PATCHES=Dialer 0701-0708, Contacts 0751-0755 (range 0700-0799; look: Dialer 0707-0708, Contacts 0755)
+PATCHES=Dialer 0701-0709, Contacts 0751-0756 (range 0700-0799; look: Dialer 0707-0709, Contacts 0755-0756)
 CONTACT_DATA_OWNER=ContactsProvider (unchanged)
 SECOND_CONTACT_INDEX_OR_DATABASE=NO
 SUBTITLE_NUMBER_CACHE=in-memory, read-only, bounded (5000 contacts / 20000 rows), rebuilt per load
 ALPHABET_RAILS_PER_LIST=1 (reads the upstream section index)
 ACCOUNTS_SYNC_PERMISSIONS_CONTACT_SEMANTICS=UNCHANGED
-TELEPHONY_DIALPAD_INCALL_CALL_END_KEYS=UNTOUCHED (0707/0708/0755 change only how they look)
-LOOK=dark only, Sable tokens, accent from system_accent1_*, 2dp accent focus outline
-RESOURCE_LINK=aapt2 link PASS (both apps, against android-36 + AndroidX/Material res)
+TELEPHONY_DIALPAD_INCALL_CALL_END_KEYS=UNTOUCHED (0707-0709/0755-0756 change only how they look)
+LOOK=follows the system Dark theme (0709, 0756; call screen always dark), Sable tokens, accent from system_accent1_*, 2dp accent focus outline
+RESOURCE_LINK=aapt2 link PASS for 0707/0708/0755 (both apps, against android-36 + AndroidX/Material res); 0709/0756 applied with git am and XML-checked, not yet linked
 PURE_HOST_TESTS=PASS (20 per app copy)
 TYPE_CHECK=javac against android-all API 36 + project sources (see below)
 BUILD_TESTED=NO   DEVICE_TESTED=NO
@@ -46,8 +46,8 @@ generated `R`) were stubbed (see "Type check").
 
 | Project | Base commit (lineage-23.2) | Patches |
 |---|---|---|
-| `packages/apps/Dialer` | `6da8042323a97d5b3cba1fd975709cc42f29916f` (2026-09-18) | `0701` pure model, `0702` contacts tab, `0703`-`0706` keys and Recents privacy, `0707`-`0708` Sable look |
-| `packages/apps/Contacts` | `02bbe49b4ed8e8094d9573ff52747ff8050d9813` (2026-06-01) | `0751` pure model, `0752` list, `0753`-`0754` routes and privacy, `0755` Sable look |
+| `packages/apps/Dialer` | `6da8042323a97d5b3cba1fd975709cc42f29916f` (2026-09-18) | `0701` pure model, `0702` contacts tab, `0703`-`0706` keys and Recents privacy, `0707`-`0708` Sable look, `0709` follows Dark theme |
+| `packages/apps/Contacts` | `02bbe49b4ed8e8094d9573ff52747ff8050d9813` (2026-06-01) | `0751` pure model, `0752` list, `0753`-`0754` routes and privacy, `0755` Sable look, `0756` follows Dark theme |
 
 Each project's patches apply in order to a clean checkout of its base with
 `git apply` and reproduce the committed tree exactly.
@@ -105,7 +105,7 @@ Dialer codes (`HARDWARE_DIAGNOSTICS_AND_DIALER_CODES.md`): the policy is
 secret-code handling (`*#*#...#*#*` broadcast) is unchanged, so the Sable Tools
 code keeps working as KF-C describes; no Dialer change is needed for it.
 
-## Sable look (Dialer 0707-0708, Contacts 0755)
+## Sable look (Dialer 0707-0709, Contacts 0755-0756)
 
 Visual match to `sable-phone-dialer-titan2` and `sable-contacts-people-titan2`
 (see `PHONE_DIALER_VISUAL_CONFIRMATION.md`, `CONTACTS_PEOPLE_VISUAL_CONFIRMATION.md`),
@@ -132,6 +132,20 @@ force-darken, and their colour resources point at `sable_colors.xml`
 The accent is never a hex value (earlier decision kept); the -night copies
 of the touched colours, themes and launch screen are removed because they
 would now repeat the defaults.
+
+**Light and dark (Dialer 0709, Contacts 0756).** Owner review, 2026-10: Phone
+and Contacts must look like every other Sable app in the chosen theme, so
+the table above moved to `values-night/sable_colors.xml` and `values/` holds
+a light palette with the same names (identical in both apps): background
+`#F2F4F7`, surface `#FFFFFF`, raised `#E8ECF1`, text `#12171C` / `#56636F` /
+`#8A949E`, outlines `#8A96A3` / `#D5DBE2`, accent `system_accent1_600` on a
+`system_accent1_100` container with `system_accent1_0` on it, call `#1E8E4E`,
+danger `#C62828`, ripple 12% black. Phone's themes inherit AppCompat
+DayNight; Contacts' framework themes inherit `SableMaterial*` styles
+(`Theme.Material.Light*` by day, `Theme.Material*` at night). Bar icons follow
+`sable_light_bars`. The call screen stays dark in both settings, as upstream
+(white text on the call background): `InCallActivity.attachBaseContext`
+resolves its resources as in the Dark theme.
 
 **Focus.** The themes' `selectableItemBackground` (and the Contacts list
 selector) is `sable_selectable_item`: a ripple for touch and, only while the

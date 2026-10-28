@@ -7,6 +7,8 @@ plugins {
 // Common source for every Sable keyboard-first device; device differences come only from the
 // capability profile selected by ro.sable.profile.id (core/ToolsDeviceProfile.kt).
 android {
+    // The Sable theme palette shared by the platform apps (one copy, see sable-theme/).
+    sourceSets["main"].java.srcDir("../sable-theme/src/main/java")
     namespace = "org.sableos.tools"
     compileSdk = 36
     defaultConfig {

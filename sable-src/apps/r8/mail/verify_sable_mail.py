@@ -10,6 +10,19 @@ EXPECTED_COMMIT = "c733317d933c22bcd790a4790306f30ccf2026b8"
 EXPECTED_PACKAGE = "org.sableos.mail"
 
 
+# Fragments of the upstream Thunderbird/K-9 client ids (Gmail, AOL, Yahoo, Microsoft, Fastmail).
+INHERITED_CLIENT_FRAGMENTS = (
+    "560629489500-",
+    "262622259280-",
+    "dj0yJmk9",
+    "e6f8716e-299d-4ed9-bbf3-453f192f44e5",
+    "e647013a-ada4-4114-b419-e43d250f99c5",
+    "353e41ae",
+    "353641ae",
+    "mobile-android-",
+)
+
+
 def fail(marker: str, detail: str = "") -> None:
     suffix = f" {detail}" if detail else ""
     raise SystemExit(f"{marker}=FAIL{suffix}")
@@ -25,6 +38,19 @@ def reject_text(path: pathlib.Path, needle: str, marker: str) -> None:
     text = path.read_text(encoding="utf-8")
     if needle in text:
         fail(marker, f"path={path} forbidden={needle!r}")
+
+
+def check_oauth_factory(oauth: pathlib.Path) -> None:
+    """No OAuth providers, or only the owner's own Gmail client with the Sable redirect."""
+    text = oauth.read_text(encoding="utf-8")
+    if "clientId =" not in text:
+        require_text(oauth, "emptyMap()", "SABLE_MAIL_OAUTH_DISABLED")
+        return
+    if text.count("clientId =") != 1 or "imap.gmail.com" not in text:
+        fail("SABLE_MAIL_OAUTH_PROVIDERS", f"{oauth}: only the Gmail owner client is allowed")
+    require_text(oauth, '"${BuildConfig.APPLICATION_ID}:/oauth2redirect"', "SABLE_MAIL_OAUTH_REDIRECT")
+    for inherited in INHERITED_CLIENT_FRAGMENTS:
+        reject_text(oauth, inherited, "SABLE_MAIL_INHERITED_OAUTH_CLIENT")
 
 
 def main() -> None:
@@ -342,8 +368,7 @@ def verify_product_sources(root: pathlib.Path, app: pathlib.Path) -> None:
             / f"src/{variant}/kotlin/net/thunderbird/android/auth/"
             "TbOAuthConfigurationFactory.kt"
         )
-        require_text(oauth, "emptyMap()", "SABLE_MAIL_OAUTH_DISABLED")
-        reject_text(oauth, "clientId =", "SABLE_MAIL_INHERITED_OAUTH_CLIENT")
+        check_oauth_factory(oauth)
     print("SABLE_MAIL_INHERITED_OAUTH_CLIENTS=PASS_ABSENT")
 
     appearance = (

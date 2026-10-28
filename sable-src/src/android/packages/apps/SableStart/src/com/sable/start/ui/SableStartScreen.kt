@@ -15,6 +15,7 @@ import android.os.SystemClock
 import android.provider.CallLog
 import android.util.LruCache
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Dp
@@ -68,12 +69,16 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -83,6 +88,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -227,18 +233,89 @@ private val SableTilePalette =
         SableSlate,
     )
 
-// BlackBerry 10 look on the Start pages: dark background, white text, the BB10
-// blue as the focus highlight. Values from the public BB10 look; the UI
-// Guidelines PDF has the exact tokens.
-private val Bb10Blue = Color(0xFF00A8DF)
-private val Bb10Background = Color(0xFF121212)
-private val Bb10Card = Color(0xFF262626)
-private val Bb10Tile = Color(0xFF2E2E2E)
-private val Bb10Line = Color(0xFF3A3A3A)
-private val Bb10BarTop = Color(0xFF2A2A2A)
-private val Bb10BarBottom = Color(0xFF141414)
-private val Bb10Muted = Color(0xFF9E9E9E)
-private val Bb10Dim = Color(0xFF5E5E5E)
+// BlackBerry 10 look on the Start pages. Values from the public BB10 look; the UI
+// Guidelines PDF has the exact tokens. The pages follow Android's Dark theme and the
+// Sable accent: dark is the BB10 look, light keeps the layout on light surfaces, and the
+// focus highlight is the accent (BB10 blue for the default Sable Blue).
+private val Bb10DefaultBlue = Color(0xFF00A8DF)
+
+/** Start's page colours for one Dark theme state and accent. */
+@Immutable
+internal data class StartPalette(
+    val accent: Color,
+    val onAccent: Color,
+    val background: Color,
+    val card: Color,
+    val tile: Color,
+    val line: Color,
+    val barTop: Color,
+    val barBottom: Color,
+    val text: Color,
+    val muted: Color,
+    val dim: Color,
+)
+
+internal fun startPalette(
+    dark: Boolean,
+    accent: AccentPreset,
+): StartPalette {
+    val accentColor = if (accent == AccentPreset.Blue) Bb10DefaultBlue else accent.color
+    val onAccent = if (accent == AccentPreset.Blue) Color.White else accent.onColor
+    return if (dark) {
+        StartPalette(
+            accent = accentColor,
+            onAccent = onAccent,
+            background = Color(0xFF121212),
+            card = Color(0xFF262626),
+            tile = Color(0xFF2E2E2E),
+            line = Color(0xFF3A3A3A),
+            barTop = Color(0xFF2A2A2A),
+            barBottom = Color(0xFF141414),
+            text = Color.White,
+            muted = Color(0xFF9E9E9E),
+            dim = Color(0xFF5E5E5E),
+        )
+    } else {
+        StartPalette(
+            accent = accentColor,
+            onAccent = onAccent,
+            background = Color(0xFFF2F4F7),
+            card = Color.White,
+            tile = Color(0xFFE6E9EE),
+            line = Color(0xFFCBD1D8),
+            barTop = Color(0xFFF7F8FA),
+            barBottom = Color(0xFFDDE1E6),
+            text = Color(0xFF12171C),
+            muted = Color(0xFF515B66),
+            dim = Color(0xFFA3ABB4),
+        )
+    }
+}
+
+private val LocalStartPalette = staticCompositionLocalOf { startPalette(dark = true, accent = AccentPreset.Blue) }
+
+private val Bb10Blue: Color
+    @Composable @ReadOnlyComposable get() = LocalStartPalette.current.accent
+private val Bb10OnBlue: Color
+    @Composable @ReadOnlyComposable get() = LocalStartPalette.current.onAccent
+private val Bb10Background: Color
+    @Composable @ReadOnlyComposable get() = LocalStartPalette.current.background
+private val Bb10Card: Color
+    @Composable @ReadOnlyComposable get() = LocalStartPalette.current.card
+private val Bb10Tile: Color
+    @Composable @ReadOnlyComposable get() = LocalStartPalette.current.tile
+private val Bb10Line: Color
+    @Composable @ReadOnlyComposable get() = LocalStartPalette.current.line
+private val Bb10BarTop: Color
+    @Composable @ReadOnlyComposable get() = LocalStartPalette.current.barTop
+private val Bb10BarBottom: Color
+    @Composable @ReadOnlyComposable get() = LocalStartPalette.current.barBottom
+private val Bb10Text: Color
+    @Composable @ReadOnlyComposable get() = LocalStartPalette.current.text
+private val Bb10Muted: Color
+    @Composable @ReadOnlyComposable get() = LocalStartPalette.current.muted
+private val Bb10Dim: Color
+    @Composable @ReadOnlyComposable get() = LocalStartPalette.current.dim
 
 /**
  * Production Sable Start UI in the BlackBerry 10 layout (owner request, after
@@ -498,7 +575,7 @@ fun SableStartScreen(
             ) {
                 when (destination) {
                     SableStartDestination.Start ->
-                        Bb10Theme {
+                        Bb10Theme(appearance) {
                             StartStrip(
                                 state = startPager,
                                 pageCount = pageCount,
@@ -764,29 +841,41 @@ fun SableStartScreen(
 }
 
 /**
- * The BB10 look over the Start pages: dark background, white text and the
- * BB10 blue as the accent, so the focus fill and rings are BB10 blue.
+ * The BB10 look over the Start pages, in the user's Dark theme and Sable accent: the
+ * focus fill and rings are the accent ([startPalette]).
  */
 @Composable
-private fun Bb10Theme(content: @Composable () -> Unit) {
+private fun Bb10Theme(
+    appearance: SableAppearance,
+    content: @Composable () -> Unit,
+) {
+    val dark =
+        when (appearance.mode) {
+            AppearanceMode.FollowSystem -> isSystemInDarkTheme()
+            AppearanceMode.Light -> false
+            AppearanceMode.Dark -> true
+        }
+    val palette = remember(dark, appearance.accent) { startPalette(dark, appearance.accent) }
     val base = MaterialTheme.colorScheme
-    MaterialTheme(
-        colorScheme =
-            base.copy(
-                primary = Bb10Blue,
-                onPrimary = Color.White,
-                background = Bb10Background,
-                onBackground = Color.White,
-                surface = Bb10Card,
-                onSurface = Color.White,
-                surfaceVariant = Bb10Tile,
-                onSurfaceVariant = Bb10Muted,
-                outlineVariant = Bb10Line,
-            ),
-        typography = MaterialTheme.typography,
-        shapes = MaterialTheme.shapes,
-        content = content,
-    )
+    CompositionLocalProvider(LocalStartPalette provides palette) {
+        MaterialTheme(
+            colorScheme =
+                base.copy(
+                    primary = palette.accent,
+                    onPrimary = palette.onAccent,
+                    background = palette.background,
+                    onBackground = palette.text,
+                    surface = palette.card,
+                    onSurface = palette.text,
+                    surfaceVariant = palette.tile,
+                    onSurfaceVariant = palette.muted,
+                    outlineVariant = palette.line,
+                ),
+            typography = MaterialTheme.typography,
+            shapes = MaterialTheme.shapes,
+            content = content,
+        )
+    }
 }
 
 /**
@@ -928,7 +1017,7 @@ private fun Bb10PageIndicator(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         for (page in 0 until count) {
-            val color = if (page == current) Color.White else Bb10Dim
+            val color = if (page == current) Bb10Text else Bb10Dim
             Box(
                 modifier =
                     Modifier
@@ -1077,7 +1166,7 @@ private fun StatusDialsRow(onOpenSettings: () -> Unit) {
         Text(
             text = "⚙",
             fontSize = 22.sp,
-            color = Color.White,
+            color = Bb10Text,
             modifier =
                 Modifier
                     .heightIn(min = 44.dp)
@@ -1119,9 +1208,9 @@ private fun WeatherDateHeader(
         datum.takeIf { it.availability == LiveAvailability.LIVE }?.let { HomeHeader.weather(it.detail) }
     val line =
         when {
-            weather == null -> if (datum.availability == LiveAvailability.LOADING) "Weather" else "Weather · open Sable Weather"
-            weather.second.isBlank() -> weather.first
-            else -> "${weather.first} · ${weather.second}"
+            weather == null -> if (datum.availability == LiveAvailability.LOADING) "Weather" else "Weather · no forecast yet"
+            weather.second.isBlank() -> HomeHeader.weatherIcon(weather.first) + " " + weather.first
+            else -> HomeHeader.weatherIcon(weather.first) + " " + weather.first + " · " + weather.second
         }
     Column(
         modifier =
@@ -1136,7 +1225,7 @@ private fun WeatherDateHeader(
         Text(
             text = line,
             style = MaterialTheme.typography.titleMedium,
-            color = Color.White,
+            color = Bb10Text,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -1303,14 +1392,14 @@ private fun FrameCard(
                 text = label,
                 modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.labelLarge,
-                color = Color.White,
+                color = if (focused) Bb10OnBlue else Color.White,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = "×",
                 fontSize = 20.sp,
-                color = Color.White,
+                color = if (focused) Bb10OnBlue else Color.White,
                 modifier =
                     Modifier
                         .clickable(onClick = onClose)
@@ -1471,7 +1560,7 @@ private fun GlanceFrameCard(
             Text(
                 text = headline,
                 style = MaterialTheme.typography.titleMedium,
-                color = Color.White,
+                color = Bb10Text,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -1496,7 +1585,7 @@ private fun GlanceFrameCard(
                     .background(if (focused) Bb10Blue else Color(0xE6000000))
                     .padding(horizontal = 8.dp, vertical = 3.dp),
             style = MaterialTheme.typography.labelLarge,
-            color = Color.White,
+            color = if (focused) Bb10OnBlue else Color.White,
             maxLines = 1,
         )
     }
@@ -1652,7 +1741,7 @@ private fun GridCell(
             text = label,
             // No tracking: "Minesweeper" fits a fifth of 411dp on one line.
             style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.sp),
-            color = Color.White,
+            color = Bb10Text,
             textAlign = TextAlign.Center,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -1868,8 +1957,8 @@ private fun HubPage(
                 text = HUB_LABEL,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Medium,
-                // The strip is always BB10 dark, whatever the appearance's content colour.
-                color = Color.White,
+                // The strip's own text colour (BB10 palette), not the appearance's content colour.
+                color = Bb10Text,
                 modifier = Modifier.semantics { heading() },
             )
             Spacer(Modifier.height(6.dp))
@@ -1947,7 +2036,7 @@ private fun HubUnreadBar(
                                 Text(
                                     text = HubBar.overflowLabel(overflow),
                                     style = MaterialTheme.typography.labelLarge,
-                                    color = Color.White,
+                                    color = LocalContentColor.current,
                                     maxLines = 1,
                                 )
                             }
@@ -1981,7 +2070,7 @@ private fun HubBarItem(
         Text(
             text = count,
             style = MaterialTheme.typography.labelLarge,
-            color = Color.White,
+            color = LocalContentColor.current,
             maxLines = 1,
         )
     }
@@ -2012,18 +2101,21 @@ private fun HubBarChip(
         // 56dp: 4 + 20dp icon + 4 + room for "99+" + 4.
         horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
     ) {
-        content()
+        CompositionLocalProvider(LocalContentColor provides if (focused) Bb10OnBlue else Bb10Text) {
+            content()
+        }
     }
 }
 
 /** A small padlock: Hub's counts-only total (locked device or Sable private mode). */
 @Composable
 private fun HubLockMark() {
+    val ink = LocalContentColor.current
     ComposeCanvas(Modifier.size(HUB_BAR_ICON_DP.dp)) {
         val unit = size.minDimension
         val stroke = unit * 0.12f
         drawArc(
-            color = Color.White,
+            color = ink,
             startAngle = 180f,
             sweepAngle = 180f,
             useCenter = false,
@@ -2032,7 +2124,7 @@ private fun HubLockMark() {
             style = Stroke(stroke),
         )
         drawRoundRect(
-            color = Color.White,
+            color = ink,
             topLeft = Offset(unit * 0.2f, unit * 0.42f),
             size = Size(unit * 0.6f, unit * 0.46f),
             cornerRadius = CornerRadius(unit * 0.08f),
@@ -2224,7 +2316,7 @@ private fun HubPersonRow(
                     .semantics { contentDescription = person.name + if (person.starred) ", favourite" else "" }
                     .padding(horizontal = 8.dp, vertical = 10.dp),
             style = MaterialTheme.typography.titleMedium,
-            color = Color.White,
+            color = if (focused) Bb10OnBlue else Bb10Text,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -2253,7 +2345,7 @@ private fun HubPersonAction(
                 .semantics { contentDescription = description }
                 .padding(horizontal = 10.dp, vertical = 8.dp),
         style = MaterialTheme.typography.labelLarge,
-        color = Color.White,
+        color = if (focused) Bb10OnBlue else Bb10Text,
         maxLines = 1,
     )
 }
@@ -2381,7 +2473,9 @@ private fun Bb10ActionBar(
                         },
                 contentAlignment = Alignment.Center,
             ) {
-                QuickSlotMark(slot = slot, size = BAR_GLYPH_DP, monochrome = true)
+                CompositionLocalProvider(LocalContentColor provides if (focused) Bb10OnBlue else Bb10Text) {
+                    QuickSlotMark(slot = slot, size = BAR_GLYPH_DP, monochrome = true)
+                }
             }
         }
     }
@@ -2389,7 +2483,7 @@ private fun Bb10ActionBar(
 
 /**
  * A slot's mark. Phone, Search, Camera and All Apps are drawn as BB10-style
- * glyphs ([monochrome] white on the bar); app slots show the app's icon.
+ * glyphs ([monochrome] in the bar's content colour); app slots show the app's icon.
  */
 @Composable
 private fun QuickSlotMark(
@@ -2405,7 +2499,7 @@ private fun QuickSlotMark(
         AppMark(app = app, size = size)
         return
     }
-    val color = if (monochrome) Color.White else MaterialTheme.colorScheme.primary
+    val color = if (monochrome) LocalContentColor.current else MaterialTheme.colorScheme.primary
     ComposeCanvas(Modifier.size(size.dp)) {
         val unit = this.size.minDimension
         val stroke = unit * 0.1f
