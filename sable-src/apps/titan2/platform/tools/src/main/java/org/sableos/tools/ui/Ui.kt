@@ -39,11 +39,6 @@ object Ui {
     private const val FOCUS_STROKE = 3
     private const val CORNER = 6f
 
-    /** Reads the Sable theme into [palette] and paints the window and bar icons to match. */
-    fun applyTheme(activity: android.app.Activity) {
-        palette = SablePalette.read(activity).also { it.applyTo(activity) }
-    }
-
     fun dp(ctx: Context, v: Int): Int = TypedValue.applyDimension(
         TypedValue.COMPLEX_UNIT_DIP,
         v.toFloat(),
