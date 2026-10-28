@@ -369,9 +369,12 @@ for g in DENSITY GAMES KEYBOARD-STRIP WALLPAPER APPS WEATHER WEATHER-CITY DISPLA
 # Sable boot animation instead of LineageOS's: staged, wired through TARGET_BOOTANIMATION, a stored
 # (uncompressed) zip whose desc.txt fills the 720x720 panel and names both parts.
 grep -q 'TARGET_BOOTANIMATION := vendor/sable/q25/media/bootanimation.zip' scripts/stage-product.sh || q4_bad="$q4_bad bootanimation-wiring"
-python3 -I - product/q25/bootanimation/bootanimation.zip <<'PY' || q4_bad="$q4_bad bootanimation-zip"
+ba_zip="$(mktemp)"
+python3 -I product/q25/bootanimation/pack-bootanimation.py product/q25/bootanimation/frames "$ba_zip" || q4_bad="$q4_bad bootanimation-pack"
+python3 -I - "$ba_zip" <<'PY' || q4_bad="$q4_bad bootanimation-zip"
 import sys, zipfile
 z = zipfile.ZipFile(sys.argv[1])
+assert z.namelist()[0] == "desc.txt"
 assert all(i.compress_type == zipfile.ZIP_STORED for i in z.infolist())
 desc = z.read("desc.txt").decode().split("\n")
 assert desc[0].split()[:2] == ["720", "720"]
@@ -379,6 +382,7 @@ for part in ("part0", "part1"):
     assert any(line.split()[3:4] == [part] for line in desc[1:] if line)
     assert any(n.startswith(part + "/") and n.endswith(".png") for n in z.namelist())
 PY
+rm -f "$ba_zip"
 if [[ -z "$q4_bad" ]]; then pass "Q4 review fixes (overrides, AudioFX, weather, display compat, games, keyboard strip, wallpaper, boot animation)"; else fail "Q4 review fixes:$q4_bad"; fi
 
 # 6b1a. One Hub: Start's Hub page has the Contacts tab and the unread bar; Sable Hub has no launcher entry.

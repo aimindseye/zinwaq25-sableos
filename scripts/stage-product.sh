@@ -199,10 +199,12 @@ if [[ "$FRAMEWORK" == YES ]]; then
     mkdir -p "$VENDOR_SABLE/media"
     cp "$SABLE_REPO_ROOT/product/q25/wallpaper/sable_default_wallpaper.png" "$VENDOR_SABLE/media/"
     # Boot animation: the Sable shield and wordmark (product/q25/bootanimation,
-    # gen-bootanimation.py) instead of LineageOS's. vendor/lineage's
-    # bootanimation.zip module installs TARGET_BOOTANIMATION as is when it is set;
+    # frames drawn by gen-bootanimation.py) instead of LineageOS's, packed here
+    # because the repo tracks no archives. vendor/lineage's bootanimation.zip
+    # module installs TARGET_BOOTANIMATION as is when it is set;
     # bootanimation-dark.zip is a symlink to it.
-    cp "$SABLE_REPO_ROOT/product/q25/bootanimation/bootanimation.zip" "$VENDOR_SABLE/media/"
+    python3 -I "$SABLE_REPO_ROOT/product/q25/bootanimation/pack-bootanimation.py" \
+        "$SABLE_REPO_ROOT/product/q25/bootanimation/frames" "$VENDOR_SABLE/media/bootanimation.zip"
     cat >> "$fw_mk" <<'MK'
 TARGET_BOOTANIMATION := vendor/sable/q25/media/bootanimation.zip
 PRODUCT_PACKAGES += \

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Builds the SableOS boot animation (bootanimation.zip) for the Zinwa Q25.
+"""Draws the SableOS boot animation frames for the Zinwa Q25.
 
 Replaces LineageOS's animation through TARGET_BOOTANIMATION (sable-q25.mk). The
 720x720 screen gets 360x360 frames that bootanimation scales up 2x, so the zip
@@ -8,20 +8,21 @@ window colour, then "SableOS" appears under it. part1 loops until boot ends: an
 accent bar under the wordmark sweeps left to right.
 
 Inputs: the shield from SableSetupWizardOverlay (the same mark Setup shows) and
-the Inter font. Run from the repo root:
+the Inter font. Writes frames/ (desc.txt, part0/*.png, part1/*.png), which is
+committed; scripts/stage-product.sh packs it with pack-bootanimation.py (the
+repo tracks no archives). Run from the repo root after changing the design:
     python3 product/q25/bootanimation/gen-bootanimation.py
 """
 
-import io
 import pathlib
-import zipfile
+import shutil
 
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 SHIELD = ROOT / "product/common/overlay/SableSetupWizardOverlay/res/drawable-nodpi/sableos_shield.png"
 FONT = pathlib.Path("/usr/share/fonts/opentype/inter/Inter-SemiBold.otf")
-OUT = pathlib.Path(__file__).resolve().parent / "bootanimation.zip"
+OUT = pathlib.Path(__file__).resolve().parent / "frames"
 
 SCREEN = 720
 FRAME = 360
@@ -77,10 +78,9 @@ def bar(img, offset):
     return img
 
 
-def png(img):
-    buf = io.BytesIO()
-    img.quantize(colors=128, method=Image.Quantize.FASTOCTREE).save(buf, "PNG", optimize=True)
-    return buf.getvalue()
+def save(img, path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    img.quantize(colors=128, method=Image.Quantize.FASTOCTREE).save(path, "PNG", optimize=True)
 
 
 SHIELD_IMG = Image.open(SHIELD).convert("RGBA")
@@ -100,13 +100,13 @@ def main():
 
     desc = f"{SCREEN} {SCREEN} {FPS}\nc 1 0 part0 #{BG[0]:02X}{BG[1]:02X}{BG[2]:02X}\n" \
            f"c 0 0 part1 #{BG[0]:02X}{BG[1]:02X}{BG[2]:02X}\n"
-    # bootanimation reads the zip in place: entries must be stored, not compressed.
-    with zipfile.ZipFile(OUT, "w", compression=zipfile.ZIP_STORED) as z:
-        z.writestr(zipfile.ZipInfo("desc.txt", (2026, 1, 1, 0, 0, 0)), desc)
-        for part, imgs in frames.items():
-            for n, img in enumerate(imgs):
-                z.writestr(zipfile.ZipInfo(f"{part}/{n:03d}.png", (2026, 1, 1, 0, 0, 0)), png(img))
-    print(f"BOOTANIMATION={OUT} bytes={OUT.stat().st_size}")
+    shutil.rmtree(OUT, ignore_errors=True)
+    OUT.mkdir()
+    (OUT / "desc.txt").write_text(desc)
+    for part, imgs in frames.items():
+        for n, img in enumerate(imgs):
+            save(img, OUT / part / f"{n:03d}.png")
+    print(f"BOOTANIMATION_FRAMES={OUT}")
 
 
 if __name__ == "__main__":
