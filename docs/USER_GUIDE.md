@@ -92,11 +92,29 @@ Every Sable app follows the Dark theme and your Sable accent, and has single-key
 | Camera | Sable Camera for stills; video uses Aperture | Tap the viewfinder for touch controls |
 | Media | Music, photos, FM radio | E shares |
 | Sound Profiles | Normal, Loud, Vibrate only, Phone calls only, All alerts off | Enter uses, E edits, Menu for more; Quick Settings tile |
-| Calculator, Games | Keyboard-first | Digits and operators from the keys |
+| Calculator | Keyboard-first | Digits and operators from the keys |
+| Games | Ten games, each its own app: Sudoku, Minesweeper, 2048, Bricks, Snake, Blocks, Reversi, Solitaire, Mahjong, Words | See [Games](#games) below |
 | Tools | Device reports you can save to Download/SableTools | C copy, S save, M more |
 | Vault | Private Space and app controls | |
 | App display compatibility | Taller canvas per app for apps that don't fit a square screen | Alt+Shift+R |
 | Aurora Store + microG | Install Play Store apps without Google Play | See [MICROG.md](MICROG.md) |
+
+### Games
+
+Every game plays from the keyboard or the trackpad (which sends arrow keys), and also by touch. N starts a new game in all of them except Words, where every letter types; there Enter starts the next round once one is done.
+
+| Game | How to play | Keys |
+| --- | --- | --- |
+| Sudoku | Fill the 9 x 9 grid | Arrows move; W E R S D F Z X C (or Alt+digits) enter 1-9; Del erases; U undoes |
+| Minesweeper | Clear the field without hitting a mine | Arrows move; Space reveals; F flags |
+| 2048 | Slide tiles to merge them up to 2048 | Arrows slide |
+| Bricks | Break the wall with the ball; three lives, each level faster | Left/right move the paddle; Space launches; P pauses |
+| Snake | Eat to grow; don't hit a wall or yourself | Arrows turn; P pauses; Space restarts after a crash |
+| Blocks | Falling blocks: fill whole rows to clear them | Left/right move; Up rotates; Down drops one row; Space drops; P pauses |
+| Reversi | Play dark against the phone; flip its pieces by closing lines | Arrows move; Space or Enter plays |
+| Solitaire | Klondike, one card at a time | Arrows pick a pile; Enter picks up and puts down; Space turns the stock; A sends a card to its foundation; Del lets go |
+| Mahjong | Remove matching free tiles in pairs; every deal can be cleared | Arrows move; Space or Enter picks; H shows a pair |
+| Words | Guess the five-letter word in six tries: green is right, amber is in the word elsewhere | Type the letters; Del erases; Enter guesses |
 
 ## Privacy and security defaults
 

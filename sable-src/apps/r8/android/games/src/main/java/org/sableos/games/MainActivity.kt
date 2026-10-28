@@ -30,6 +30,13 @@ class MainActivity : ComponentActivity() {
                         "sudoku" -> SudokuScreen()
                         "minesweeper" -> MinesweeperScreen()
                         "2048" -> Game2048Screen()
+                        "bricks" -> BricksScreen()
+                        "snake" -> SnakeScreen()
+                        "blocks" -> BlocksScreen()
+                        "reversi" -> ReversiScreen()
+                        "solitaire" -> SolitaireScreen()
+                        "mahjong" -> MahjongScreen()
+                        "words" -> WordsScreen()
                         else -> error("Unsupported Sable game flavor: ${BuildConfig.SABLE_GAME}")
                     }
                 }

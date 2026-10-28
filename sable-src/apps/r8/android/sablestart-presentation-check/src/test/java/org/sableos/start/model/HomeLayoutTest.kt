@@ -111,6 +111,9 @@ class HomeLayoutTest {
     fun weatherWithoutAForecastSaysWhatToDo() {
         assertEquals("Weather · updating", HomeHeader.weatherFallback(LiveAvailability.LOADING))
         assertEquals("Weather · update failed, retrying", HomeHeader.weatherFallback(LiveAvailability.ERROR))
-        assertEquals("Weather · open Sable Weather to set it up", HomeHeader.weatherFallback(LiveAvailability.UNAVAILABLE))
+        assertEquals(
+            "Weather · open Sable Weather to set it up",
+            HomeHeader.weatherFallback(LiveAvailability.UNAVAILABLE),
+        )
     }
 }

@@ -119,7 +119,7 @@ internal fun MinesweeperScreen() {
                 reset()
             }
 
-            is GameCommand.Digit, GameCommand.Erase, GameCommand.Undo -> {
+            else -> {
                 return@GameKeyHandler false
             }
         }

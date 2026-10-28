@@ -132,7 +132,7 @@ internal fun SudokuScreen() {
                 reset()
             }
 
-            GameCommand.Primary, GameCommand.Flag -> {
+            else -> {
                 return@GameKeyHandler false
             }
         }
