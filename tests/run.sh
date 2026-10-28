@@ -353,7 +353,9 @@ wx=sable-src/apps/r8/android/weather/src/main
 grep -A3 'name=".WeatherRefreshJob"' "$wx/AndroidManifest.xml" | grep -q 'BIND_JOB_SERVICE' || q4_bad="$q4_bad weather-job"
 grep -q 'WeatherRefreshJob.ensureScheduled' "$wx/java/org/sableos/weather/WeatherSnapshotProvider.kt" || q4_bad="$q4_bad weather-provider"
 grep -q '\.clickable { onClick() }' sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt || q4_bad="$q4_bad displaycompat-tap"
-grep -q 'widthIn(max = boardMaxSide())' sable-src/apps/r8/android/games/src/main/java/org/sableos/games/SudokuScreen.kt || q4_bad="$q4_bad sudoku-board"
+gm=sable-src/apps/r8/android/games/src/main/java/org/sableos/games
+grep -q 'GameLayout.isSquare(width.value, height.value)' "$gm/GameFrame.kt" || q4_bad="$q4_bad games-square"
+for g in SudokuScreen Game2048Screen MinesweeperScreen; do grep -q '^    GameFrame($' "$gm/$g.kt" || q4_bad="$q4_bad games-frame-$g"; done
 grep -q 'ro.sable.keyboard.compact_strip=false' product/q25/sable-q25.mk || q4_bad="$q4_bad strip-prop"
 grep -q 'COMPACT_STRIP_PROP = "ro.sable.keyboard.compact_strip"' sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardPrefs.kt || q4_bad="$q4_bad strip-default"
 grep -q 'ro.config.wallpaper=/product/media/wallpaper/sable_default_wallpaper.png' scripts/stage-product.sh || q4_bad="$q4_bad wallpaper-prop"

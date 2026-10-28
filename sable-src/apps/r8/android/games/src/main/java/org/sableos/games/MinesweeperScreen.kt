@@ -1,14 +1,12 @@
 package org.sableos.games
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -22,10 +20,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import org.sableos.design.SableActionButton
-import org.sableos.design.SableSpacing
-import org.sableos.design.SableTile
-import org.sableos.design.SableValuePanel
 
 private const val MINE_FIELD_SIZE = 9
 
@@ -132,41 +126,21 @@ internal fun MinesweeperScreen() {
         true
     }
 
-    Column(
-        verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
-    ) {
-        SableValuePanel(
-            label = if (flagMode) "flag mode" else "reveal mode",
-            value = status,
-            supportingText = "9 × 9 field · 10 mines · arrows move, Space reveals, F flags, N new field",
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
-        ) {
-            SableTile(
-                title = "Reveal",
-                subtitle = "open a tile",
-                active = !flagMode,
-                modifier = Modifier.weight(1f),
-                onClick = { flagMode = false },
-            )
-            SableTile(
-                title = "Flag",
-                subtitle = "mark a mine",
-                active = flagMode,
-                modifier = Modifier.weight(1f),
-                onClick = { flagMode = true },
-            )
-        }
-
+    GameFrame(
+        title = "minesweeper",
+        subtitle = "Clear the field without touching a mine.",
+        statusLabel = if (flagMode) "flag mode" else "reveal mode",
+        status = status,
+        hint = "9 × 9 field · 10 mines · arrows move, Space reveals, F flags, N new field",
+        actions =
+            listOf(
+                GameAction(label = "Reveal", key = "Space", active = !flagMode, onClick = { flagMode = false }),
+                GameAction(label = "Flag", key = "F", active = flagMode, onClick = { flagMode = true }),
+                GameAction(label = "New", key = "N", onClick = ::reset),
+            ),
+    ) { side ->
         Surface(
-            modifier =
-                Modifier
-                .fillMaxWidth()
-                .wrapContentWidth(Alignment.CenterHorizontally)
-                .widthIn(max = boardMaxSide()),
+            modifier = Modifier.size(side),
             shape = MaterialTheme.shapes.medium,
             color = MaterialTheme.colorScheme.surface,
             border =
@@ -197,13 +171,6 @@ internal fun MinesweeperScreen() {
                 }
             }
         }
-
-        SableActionButton(
-            text = "New field",
-            modifier = Modifier.fillMaxWidth(),
-            primary = false,
-            onClick = ::reset,
-        )
     }
 }
 

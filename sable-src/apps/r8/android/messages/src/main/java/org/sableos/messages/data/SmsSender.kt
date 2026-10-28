@@ -3,6 +3,7 @@ package org.sableos.messages.data
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.PendingIntent
+import android.app.role.RoleManager
 import android.content.BroadcastReceiver
 import android.content.ContentValues
 import android.content.Context
@@ -17,8 +18,19 @@ import android.util.Log
 import org.sableos.messages.core.Addresses
 import org.sableos.messages.core.MessageStatus
 
-/** Whether this app holds the SMS role: then it, not the framework, writes sent and received texts. */
-fun Context.isDefaultSmsApp(): Boolean = Telephony.Sms.getDefaultSmsPackage(this) == packageName
+/**
+ * Whether this app holds the SMS role: then it, not the framework, writes sent and received texts.
+ * RoleManager answers for the role itself; Telephony.Sms.getDefaultSmsPackage can return null for
+ * a holder the role was given at first boot (seen on the Q25), so it is only the fallback.
+ */
+fun Context.isDefaultSmsApp(): Boolean {
+    val roles = getSystemService(RoleManager::class.java)
+    val held =
+        runCatching {
+            roles != null && roles.isRoleAvailable(RoleManager.ROLE_SMS) && roles.isRoleHeld(RoleManager.ROLE_SMS)
+        }.getOrDefault(false)
+    return held || Telephony.Sms.getDefaultSmsPackage(this) == packageName
+}
 
 /** SmsManager for a subscription, or the default one when the id is invalid (as Sable Hub does). */
 fun Context.smsManagerFor(subscriptionId: Int): SmsManager =

@@ -9,8 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -25,13 +24,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import kotlin.math.abs
-import org.sableos.design.SableActionButton
 import org.sableos.design.SableSpacing
-import org.sableos.design.SableValuePanel
+import kotlin.math.abs
 
-private val TileEmpty = Color(0xFF10161D)
 private val Tile2 = Color(0xFF26384B)
 private val Tile4 = Color(0xFF315A78)
 private val Tile8 = Color(0xFFF08A4B)
@@ -79,37 +76,32 @@ internal fun Game2048Screen() {
         true
     }
 
-    Column(
-        verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
-    ) {
-        SableValuePanel(
-            label = "score",
-            value = score.toString(),
-            supportingText = "Swipe the board or use the arrows (trackpad) to move every tile; N starts over.",
-        )
-
+    GameFrame(
+        title = "2048",
+        subtitle = "Slide, merge and build the highest tile.",
+        statusLabel = "score",
+        status = score.toString(),
+        hint = "Swipe the board or use the arrows (trackpad) to move every tile; N starts over.",
+        actions = listOf(GameAction(label = "New", key = "N", onClick = ::reset)),
+        tallExtras = {
+            Text(
+                text = "Swipe left, right, up or down. Equal tiles merge into the next value.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        },
+    ) { side ->
         Game2048Board(
+            side = side,
             board = board,
             onSlide = ::slide,
-        )
-
-        Text(
-            text = "Swipe left, right, up or down. Equal tiles merge into the next value.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        SableActionButton(
-            text = "New game",
-            modifier = Modifier.fillMaxWidth(),
-            primary = false,
-            onClick = ::reset,
         )
     }
 }
 
 @Composable
 private fun Game2048Board(
+    side: Dp,
     board: IntArray,
     onSlide: (Int) -> Unit,
 ) {
@@ -119,9 +111,7 @@ private fun Game2048Board(
     Surface(
         modifier =
             Modifier
-                .fillMaxWidth()
-                .wrapContentWidth(Alignment.CenterHorizontally)
-                .widthIn(max = boardMaxSide())
+                .size(side)
                 .pointerInput(Unit) {
                     detectDragGestures(
                         onDragStart = {
@@ -184,7 +174,7 @@ private fun Tile2048(
     value: Int,
     modifier: Modifier = Modifier,
 ) {
-    val container = tileColor(value)
+    val container = if (value == 0) MaterialTheme.colorScheme.surfaceVariant else tileColor(value)
     val content =
         if (value >= 128) {
             Color(0xFF071016)
@@ -230,7 +220,6 @@ private fun Tile2048(
 
 private fun tileColor(value: Int): Color =
     when (value) {
-        0 -> TileEmpty
         2 -> Tile2
         4 -> Tile4
         8 -> Tile8

@@ -2,15 +2,20 @@ package org.sableos.hub.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -27,7 +32,6 @@ import org.sableos.design.SableDestination
 import org.sableos.design.SablePageHeader
 import org.sableos.design.SablePanel
 import org.sableos.design.SableRefreshableSurface
-import org.sableos.design.SableScreen
 import org.sableos.design.SableSpacing
 import org.sableos.hub.ConnectedAppCandidate
 import org.sableos.hub.ConnectedAppKey
@@ -83,64 +87,88 @@ internal fun ConnectedAppsScreen(
         isRefreshing = loading,
         onRefresh = onRefresh,
     ) {
-        SableScreen {
-            SablePageHeader(
-                title = "connected apps",
-                subtitle =
-                    "Choose installed apps that may contribute notification-derived conversations.",
-            )
-
-            NotificationAccessPanel(
-                notificationAccessGranted = notificationAccessGranted,
-                onOpenNotificationAccess = onOpenNotificationAccess,
-                privateMode = privateMode,
-                onPrivateModeChanged = onPrivateModeChanged,
-                combineConversations = combineConversations,
-                onCombineConversationsChanged = onCombineConversationsChanged,
-                onOpenAttentionSettings = onOpenAttentionSettings,
-            )
-
-            Text(
-                text =
-                    "Sable does not sign into these services. The installed app keeps " +
-                        "networking, " +
-                        "encryption, account state and complete history.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            // Opened from Android Settings for one app: show just that app's Hub/Attention.
-            val focusedCandidate = focusedKey?.let { key -> candidates.firstOrNull { it.key == key } }
-            when {
-                loading -> {
+        // One lazy list for the header, the settings panel and the apps: on the Q25's square
+        // screen the panel alone fills the window, so a fixed header above a weighted list left
+        // no room for the apps.
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background,
+        ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().safeDrawingPadding().imePadding(),
+                contentPadding =
+                    PaddingValues(
+                        horizontal = SableSpacing.ScreenHorizontal,
+                        vertical = SableSpacing.ScreenVertical,
+                    ),
+                verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
+            ) {
+                item {
+                    SablePageHeader(
+                        title = "connected apps",
+                        subtitle =
+                            "Choose installed apps that may contribute notification-derived conversations.",
+                    )
+                }
+                item {
+                    NotificationAccessPanel(
+                        notificationAccessGranted = notificationAccessGranted,
+                        onOpenNotificationAccess = onOpenNotificationAccess,
+                        privateMode = privateMode,
+                        onPrivateModeChanged = onPrivateModeChanged,
+                        combineConversations = combineConversations,
+                        onCombineConversationsChanged = onCombineConversationsChanged,
+                        onOpenAttentionSettings = onOpenAttentionSettings,
+                    )
+                }
+                item {
                     Text(
-                        text = "Loading installed apps…",
-                        style = MaterialTheme.typography.bodyLarge,
+                        text =
+                            "Sable does not sign into these services. The installed app keeps " +
+                                "networking, " +
+                                "encryption, account state and complete history.",
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
 
-                focusedCandidate != null -> {
-                    ConnectedAppRow(
-                        candidate = focusedCandidate,
-                        policy = policyFor(policies, focusedCandidate),
-                        context = rowContext,
-                    )
-                }
+                // Opened from Android Settings for one app: show just that app's Hub/Attention.
+                val focusedCandidate = focusedKey?.let { key -> candidates.firstOrNull { it.key == key } }
+                when {
+                    loading -> {
+                        item {
+                            Text(
+                                text = "Loading installed apps…",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
 
-                else -> {
-                    ConnectedAppsBrowser(
-                        candidates = candidates,
-                        policies = policies,
-                        pivot = pivot,
-                        search = search,
-                        onPivotChange = { selected ->
-                            pivot = selected
-                            search = ""
-                        },
-                        onSearchChange = { search = it },
-                        rowContext = rowContext,
-                    )
+                    focusedCandidate != null -> {
+                        item {
+                            ConnectedAppRow(
+                                candidate = focusedCandidate,
+                                policy = policyFor(policies, focusedCandidate),
+                                context = rowContext,
+                            )
+                        }
+                    }
+
+                    else -> {
+                        connectedAppsBrowser(
+                            candidates = candidates,
+                            policies = policies,
+                            pivot = pivot,
+                            search = search,
+                            onPivotChange = { selected ->
+                                pivot = selected
+                                search = ""
+                            },
+                            onSearchChange = { search = it },
+                            rowContext = rowContext,
+                        )
+                    }
                 }
             }
         }
@@ -213,8 +241,7 @@ private fun NotificationAccessPanel(
     }
 }
 
-@Composable
-private fun ColumnScope.ConnectedAppsBrowser(
+private fun LazyListScope.connectedAppsBrowser(
     candidates: List<ConnectedAppCandidate>,
     policies: Map<ConnectedAppKey, ConnectedAppPolicy>,
     pivot: ConnectedAppsPivot,
@@ -223,19 +250,23 @@ private fun ColumnScope.ConnectedAppsBrowser(
     onSearchChange: (String) -> Unit,
     rowContext: ConnectedAppRowContext,
 ) {
-    ConnectedAppsPivotRow(
-        selected = pivot,
-        onSelect = onPivotChange,
-    )
+    item {
+        ConnectedAppsPivotRow(
+            selected = pivot,
+            onSelect = onPivotChange,
+        )
+    }
 
     if (pivot != ConnectedAppsPivot.Enabled) {
-        OutlinedTextField(
-            value = search,
-            onValueChange = onSearchChange,
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            label = { Text("Search installed apps") },
-        )
+        item {
+            OutlinedTextField(
+                value = search,
+                onValueChange = onSearchChange,
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text("Search installed apps") },
+            )
+        }
     }
 
     val visibleCandidates =
@@ -246,37 +277,36 @@ private fun ColumnScope.ConnectedAppsBrowser(
             search = search,
         )
 
-    MailAppsNote(
-        candidates = candidates,
-        policies = policies,
-    )
+    item {
+        MailAppsNote(
+            candidates = candidates,
+            policies = policies,
+        )
+    }
 
     if (visibleCandidates.isEmpty()) {
-        Text(
-            text = emptyCandidatesText(pivot, search),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        item {
+            Text(
+                text = emptyCandidatesText(pivot, search),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         return
     }
 
-    LazyColumn(
-        modifier = Modifier.weight(1f),
-        verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
-    ) {
-        items(
-            items = visibleCandidates,
-            key = { candidate ->
-                candidate.key.packageName + ":" + candidate.key.userSerial
-            },
-        ) { candidate ->
-            ConnectedAppRow(
-                candidate = candidate,
-                policy = policyFor(policies, candidate),
-                context = rowContext,
-            )
-            HorizontalDivider()
-        }
+    items(
+        items = visibleCandidates,
+        key = { candidate ->
+            candidate.key.packageName + ":" + candidate.key.userSerial
+        },
+    ) { candidate ->
+        ConnectedAppRow(
+            candidate = candidate,
+            policy = policyFor(policies, candidate),
+            context = rowContext,
+        )
+        HorizontalDivider()
     }
 }
 
@@ -291,20 +321,22 @@ private fun MailAppsNote(
         policies.values
             .filter { policy -> policy.normalized().includeInMessages }
             .map { policy -> policy.key.packageName }
-    Text(
-        text =
-            "Use one app per email account. Sable Mail covers Gmail, Outlook, Yahoo, iCloud and IMAP. " +
-                "Turn on another mail app only for accounts Sable Mail can't open " +
-                "(Proton, Tuta, managed work accounts).",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    if (HubMailSources.duplicateAccountWarning(includedPackages)) {
+    Column(verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs)) {
         Text(
-            text = "More than one mail app is on; an account signed in to both will appear twice.",
+            text =
+                "Use one app per email account. Sable Mail covers Gmail, Outlook, Yahoo, iCloud and IMAP. " +
+                    "Turn on another mail app only for accounts Sable Mail can't open " +
+                    "(Proton, Tuta, managed work accounts).",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (HubMailSources.duplicateAccountWarning(includedPackages)) {
+            Text(
+                text = "More than one mail app is on; an account signed in to both will appear twice.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
