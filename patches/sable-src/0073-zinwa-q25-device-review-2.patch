@@ -3712,31 +3712,47 @@ index f0ea89a..cc5cdad 100644
  
      <application
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/MainActivity.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/MainActivity.kt
-index 97586f8..1573f31 100644
+index 97586f8..173865d 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/MainActivity.kt
 +++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/MainActivity.kt
-@@ -40,6 +40,7 @@ class MainActivity : Activity() {
+@@ -11,6 +11,7 @@ import android.view.View
+ import android.widget.LinearLayout
+ import android.widget.ScrollView
+ import android.widget.TextView
++import org.sableos.titan2.theme.SablePalette
+ import org.sableos.tools.R
+ import org.sableos.tools.android.SecretCodeSync
+ import org.sableos.tools.android.ToolsEnv
+@@ -40,6 +41,7 @@ class MainActivity : Activity() {
  
      override fun onCreate(savedInstanceState: Bundle?) {
          super.onCreate(savedInstanceState)
-+        Ui.applyTheme(this)
++        Ui.palette = SablePalette.read(this).also { it.applyTo(this) }
          val col = Ui.column(this)
          col.addView(Ui.title(this, getString(R.string.app_name)))
          summary = Ui.subtitle(this, "")
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ToolActivity.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ToolActivity.kt
-index ef312d9..a769556 100644
+index ef312d9..f11daff 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ToolActivity.kt
 +++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ToolActivity.kt
-@@ -105,6 +105,7 @@ class ToolActivity : Activity() {
+@@ -14,6 +14,7 @@ import android.view.View
+ import android.widget.EditText
+ import android.widget.LinearLayout
+ import android.widget.Toast
++import org.sableos.titan2.theme.SablePalette
+ import org.sableos.tools.android.Collectors
+ import org.sableos.tools.android.Links
+ import org.sableos.tools.android.ToolsEnv
+@@ -105,6 +106,7 @@ class ToolActivity : Activity() {
  
      override fun onCreate(savedInstanceState: Bundle?) {
          super.onCreate(savedInstanceState)
-+        Ui.applyTheme(this)
++        Ui.palette = SablePalette.read(this).also { it.applyTo(this) }
          env = ToolsEnv(this)
          var notice = intent.getStringExtra(EXTRA_NOTICE)
          tool = if (intent.action == ACTION_SEARCH) {
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Ui.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Ui.kt
-index 5098098..38b1e58 100644
+index 5098098..3a07720 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Ui.kt
 +++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Ui.kt
 @@ -11,19 +11,22 @@ import android.view.Gravity
@@ -3769,18 +3785,6 @@ index 5098098..38b1e58 100644
  
      const val PAD = 12
      private const val PAD_SMALL = 4
-@@ -36,6 +39,11 @@ object Ui {
-     private const val FOCUS_STROKE = 3
-     private const val CORNER = 6f
- 
-+    /** Reads the Sable theme into [palette] and paints the window and bar icons to match. */
-+    fun applyTheme(activity: android.app.Activity) {
-+        palette = SablePalette.read(activity).also { it.applyTo(activity) }
-+    }
-+
-     fun dp(ctx: Context, v: Int): Int = TypedValue.applyDimension(
-         TypedValue.COMPLEX_UNIT_DIP,
-         v.toFloat(),
 diff --git a/sable-src/apps/titan2/platform/vault/build.gradle.kts b/sable-src/apps/titan2/platform/vault/build.gradle.kts
 index c23f8ee..24bc41a 100644
 --- a/sable-src/apps/titan2/platform/vault/build.gradle.kts
@@ -3811,7 +3815,7 @@ index 9e571b1..91f2e72 100644
          android:allowBackup="false"
          android:fullBackupContent="false"
 diff --git a/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultActivity.kt b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultActivity.kt
-index ce4774b..9ed2514 100644
+index ce4774b..f03ae86 100644
 --- a/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultActivity.kt
 +++ b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultActivity.kt
 @@ -3,7 +3,6 @@ package org.sableos.titan2.vault.android
@@ -3830,19 +3834,12 @@ index ce4774b..9ed2514 100644
  import org.sableos.titan2.vault.core.ConfirmAction
  import org.sableos.titan2.vault.core.Confirmation
  import org.sableos.titan2.vault.core.Section
-@@ -45,8 +45,19 @@ class VaultActivity : Activity() {
+@@ -45,8 +45,12 @@ class VaultActivity : Activity() {
      private var privateProfile = false
      private val dp by lazy { resources.displayMetrics.density }
  
 +    /** The Sable theme (Dark theme and accent), read in onCreate; re-created on a Dark theme change. */
 +    private var palette = SablePalette.of(dark = true, accent = null)
-+    private val BG get() = palette.window
-+    private val SURFACE get() = palette.surface
-+    private val TEXT get() = palette.text
-+    private val MUTED get() = palette.muted
-+    private val ACCENT get() = palette.accent
-+    private val WARN get() = palette.warn
-+    private val OK get() = palette.ok
 +
      override fun onCreate(savedInstanceState: Bundle?) {
          super.onCreate(savedInstanceState)
@@ -3850,7 +3847,98 @@ index ce4774b..9ed2514 100644
          window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
          setRecentsScreenshotEnabled(false)
          store = VaultStore(this)
-@@ -444,12 +455,5 @@ class VaultActivity : Activity() {
+@@ -58,7 +62,7 @@ class VaultActivity : Activity() {
+         }
+         setContentView(
+             ScrollView(this).apply {
+-                setBackgroundColor(BG)
++                setBackgroundColor(palette.window)
+                 isFocusable = false
+                 addView(body)
+             }
+@@ -326,11 +330,11 @@ class VaultActivity : Activity() {
+ 
+     private fun render() {
+         body.removeAllViews()
+-        body.addView(text(VaultText.TITLE, TITLE_SP, TEXT, bold = true))
+-        body.addView(text(VaultText.SUBTITLE, SMALL_SP, MUTED))
++        body.addView(text(VaultText.TITLE, TITLE_SP, palette.text, bold = true))
++        body.addView(text(VaultText.SUBTITLE, SMALL_SP, palette.muted))
+         if (!privateProfile) {
+             body.addView(
+-                text(VaultText.NOT_PRIVATE, BODY_SP, WARN).apply {
++                text(VaultText.NOT_PRIVATE, BODY_SP, palette.warn).apply {
+                     setPadding(0, px(GAP), 0, 0)
+                 }
+             )
+@@ -339,12 +343,18 @@ class VaultActivity : Activity() {
+         body.addView(tabs())
+         items = store.list(section)
+         selected = selected.coerceIn(0, (items.size - 1).coerceAtLeast(0))
+-        if (items.isEmpty()) body.addView(text(VaultText.EMPTY, BODY_SP, MUTED))
++        if (items.isEmpty()) body.addView(text(VaultText.EMPTY, BODY_SP, palette.muted))
+         items.forEachIndexed { i, item -> body.addView(row(i, item)) }
+         pending?.let { body.addView(confirmBox(it)) }
+-        message?.let { body.addView(text(it, SMALL_SP, if (isCaution(it)) WARN else OK)) }
++        message?.let {
++            body.addView(text(it, SMALL_SP, if (isCaution(it)) palette.warn else palette.ok))
++        }
+         body.addView(buttons())
+-        body.addView(text(VaultKeys.HINT, SMALL_SP, MUTED).apply { setPadding(0, px(GAP), 0, 0) })
++        body.addView(
++            text(VaultKeys.HINT, SMALL_SP, palette.muted).apply {
++                setPadding(0, px(GAP), 0, 0)
++            }
++        )
+     }
+ 
+     private fun isCaution(msg: String): Boolean =
+@@ -361,9 +371,9 @@ class VaultActivity : Activity() {
+                     if (s ==
+                         section
+                     ) {
+-                        ACCENT
++                        palette.accent
+                     } else {
+-                        MUTED
++                        palette.muted
+                     },
+                     bold = s == section
+                 ).apply {
+@@ -376,9 +386,17 @@ class VaultActivity : Activity() {
+ 
+     private fun row(i: Int, item: VaultItem): View {
+         val on = i == selected
+-        return text("${item.name}  ·  ${VaultText.size(item.sizeBytes)}", BODY_SP, TEXT).apply {
++        return text(
++            "${item.name}  ·  ${VaultText.size(item.sizeBytes)}",
++            BODY_SP,
++            palette.text
++        ).apply {
+             setPadding(px(GAP), px(GAP), px(GAP), px(GAP))
+-            background = box(if (on) SURFACE else BG, if (on) ACCENT else BG)
++            background =
++                box(
++                    if (on) palette.surface else palette.window,
++                    if (on) palette.accent else palette.window
++                )
+             setOnClickListener {
+                 selected = i
+                 render()
+@@ -389,9 +407,9 @@ class VaultActivity : Activity() {
+     private fun confirmBox(c: Confirmation): View = LinearLayout(this).apply {
+         orientation = LinearLayout.VERTICAL
+         setPadding(px(GAP), px(GAP), px(GAP), px(GAP))
+-        background = box(SURFACE, WARN)
+-        addView(text(c.title, BODY_SP, TEXT, bold = true))
+-        addView(text(c.detail, SMALL_SP, MUTED))
++        background = box(palette.surface, palette.warn)
++        addView(text(c.title, BODY_SP, palette.text, bold = true))
++        addView(text(c.detail, SMALL_SP, palette.muted))
+         addView(
+             LinearLayout(this@VaultActivity).apply {
+                 addView(button("Yes") { confirm() })
+@@ -444,12 +462,5 @@ class VaultActivity : Activity() {
          const val TITLE_SP = 18f
          const val BODY_SP = 14f
          const val SMALL_SP = 11f
