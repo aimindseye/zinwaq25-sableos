@@ -129,3 +129,42 @@ Gates: Q4-DISPLAY-TALL-CANVAS, Q4-DISPLAY-HOTKEY, Q4-DISPLAY-ROTATION. Hotkey:
 4. Any stored aspect profile makes the display ignore apps' orientation requests everywhere.
 5. Landscape is 270 degrees, matching the per-app override.
 6. The Contacts app keeps the name "Contacts" (the design says "People").
+
+## Second device review (2026-10-28, sable-src 0074)
+
+The main image after PR #33 was flashed and reviewed. The review found that the theme was mixed
+(some apps on the old navy Sable palette, others on the neutral dark one), that Calculator and
+Camera were not laid out for the square screen, and that Start still showed "Weather · no forecast
+yet".
+
+| Area | Change | Gate |
+|---|---|---|
+| One palette | Setup, Vault, Tools, App display compatibility and the on-screen keyboard use the SableSystemTokens surfaces (#05070A, #0D1117, #161C24 dark; #F5F7F9, #FFFFFF, #E9EDF2 light) and the per-theme accent tones, the same as Start, Settings and Quick Settings. The old navy (#06121D, #0C1E2D) is gone | Q4-REVIEW2-PALETTE |
+| Square screen | In a window under 600 dp tall, every sabledesign app (Calculator, Calendar, Games, Hub, Media, Messages, Weather) gets one-line page headers, a smaller type scale and 12/8 dp screen padding | Q4-REVIEW2-SHORT |
+| Calculator | Square layout: mode tabs on one line, the display beside a keypad that fills the height, no scrolling | Q4-REVIEW2-CALCULATOR |
+| Camera | Square windows get the Control Deck: the viewfinder is clear, a tap shows the touch controls, which wrap instead of running off the right edge | Q4-REVIEW2-CAMERA |
+| Weather on Start | Sable Weather, Calendar and Media can now see Start (`<queries>`), so their providers' caller check no longer refuses it; Start says what to do when there is no forecast | Q4-REVIEW2-WEATHER |
+| BlackBerry 7 style Start | A second home style next to BlackBerry 10: clock, date, weather and Hub count on the wallpaper over a tray of Favorites that opens into All and Downloads; arrows, Enter, Space or Alt+Left/Right, typing to search, Menu for options. Hub, Active Frames and Edit Home open the BlackBerry 10 screens until Home is pressed. Chosen in Sable Setup or Start's Menu | Q4-REVIEW2-BB7 |
+| Sable Setup in Settings | The Settings homepage row "Sable Setup" opens Sable Setup directly (framework 1401). Setup now leads with choices: Home screen style, Home app (another launcher), Keyboard (any keyboard is valid), Add a keyboard (Gboard and others), Default apps | Q4-REVIEW2-SETUP |
+| Sable Tools reports | "Save to phone" writes the report as a text file in Download/SableTools, ready to attach or share. The Q25 has no Ctrl, Esc or Tab key, so every tool screen now has a visible Actions button (Copy, Save to phone, About this tool, hand-offs) and plain-letter keys: C copy, S save, M more, Back to leave. App display compatibility's hints say Back instead of Esc | Q4-REVIEW2-TOOLS-SAVE |
+| Boot animation | After the Zinwa bootloader logo, the boot animation is the Sable shield with "SableOS" and an accent bar that sweeps until boot ends, on the Sable window colour, instead of the LineageOS one (frames in product/q25/bootanimation, packed by `scripts/stage-product.sh`, installed through `TARGET_BOOTANIMATION`) | Q4-REVIEW2-BOOTANIM |
+| First-boot setup | On a window under 600 dp tall the setup page's Next (or Start) bar is pinned under the scrolling page, the header icon and Welcome logo are hidden and the title is smaller, so no step needs scrolling to reach Next (framework SetupWizard 0414) | Q4-REVIEW2-SUW-SHORT |
+| Active Frames | Each frame is the app's picture with a strip under it (icon, name, close ×), a 2 dp accent border and accent strip on focus, and the higher resolution snapshot | Q4-REVIEW2-FRAMES |
+
+Light or dark is the Theme step's Dark/Light choice in setup (Settings > Display > Dark theme
+later); the Sable accent only sets the accent colour.
+
+### App audit for the Q25 screen
+
+| App | Colours | Square-screen layout |
+|---|---|---|
+| Sable Start | Sable tokens, accent | Designed for the Q25 (BB10 layout, 5-column grid) |
+| Sable Games | Sable tokens, accent | Square layout (0067) |
+| Sable Calculator | Sable tokens, accent | Square layout (0074) |
+| Sable Camera | Always dark viewfinder | Square deck (0074) |
+| Sable Calendar, Hub, Media, Messages, Weather | Sable tokens, accent | Shared compact headers, type and padding (0074); screens are lists that scroll, no app-specific square layout yet |
+| Sable Setup, Vault, Tools, App display compatibility | Sable tokens, accent (0074) | Lists that scroll; fit at 411 dp |
+| Sable Keyboard | Sable tokens, accent (0074) | Hardware keyboard first; the on-screen keyboard is the Titan 2 layout |
+| Sable Reader | Its own copy of the Sable theme | Its own responsive layout |
+| Sable Mail, Text Reader | Upstream apps with the Sable flavour | Upstream layouts, not redesigned |
+| Settings, Phone, Contacts, Files | Android theme, Sable accent and Dark theme | AOSP/LineageOS layouts |

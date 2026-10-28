@@ -7,6 +7,10 @@
 
     <queries>
         <provider android:authorities="org.sableos.appearance" />
+        <!-- The callers its provider allows (WeatherSetupContract): getPackagesForUid only names
+             packages this app can see, so without these the caller check refuses Start and Setup. -->
+        <package android:name="org.sableos.launcher" />
+        <package android:name="org.sableos.titan2.setup" />
     </queries>
 
     <application

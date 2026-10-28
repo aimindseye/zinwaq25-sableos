@@ -34,7 +34,25 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+
+/** Screen padding: the design's 24/20 dp, or 12/8 dp in a short window so content gets the room. */
+@Composable
+fun Modifier.sableScreenPadding(): Modifier =
+    if (isSableShortWindow()) {
+        padding(horizontal = SableSpacing.ScreenHorizontalShort, vertical = SableSpacing.ScreenVerticalShort)
+    } else {
+        padding(horizontal = SableSpacing.ScreenHorizontal, vertical = SableSpacing.ScreenVertical)
+    }
+
+/** Inner padding of panels and tiles: 16 dp, or 12 dp in a short window. */
+@Composable
+fun sablePanelPadding(): Dp = if (isSableShortWindow()) SableSpacing.Md else SableSpacing.Lg
+
+/** Gap between a screen's blocks: 16 dp, or 8 dp in a short window. */
+@Composable
+fun sableScreenGap(): Dp = if (isSableShortWindow()) SableSpacing.Sm else SableSpacing.Lg
 
 @Composable
 fun SableScreen(
@@ -50,11 +68,8 @@ fun SableScreen(
                 Modifier
                     .fillMaxSize()
                     .safeDrawingPadding()
-                    .padding(
-                        horizontal = SableSpacing.ScreenHorizontal,
-                        vertical = SableSpacing.ScreenVertical,
-                    ),
-            verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
+                    .sableScreenPadding(),
+            verticalArrangement = Arrangement.spacedBy(sableScreenGap()),
             content = content,
         )
     }
@@ -76,11 +91,8 @@ fun SableScrollableScreen(
                     .safeDrawingPadding()
                     .imePadding()
                     .verticalScroll(rememberScrollState())
-                    .padding(
-                        horizontal = SableSpacing.ScreenHorizontal,
-                        vertical = SableSpacing.ScreenVertical,
-                    ),
-            verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
+                    .sableScreenPadding(),
+            verticalArrangement = Arrangement.spacedBy(sableScreenGap()),
             content = content,
         )
     }
@@ -116,7 +128,7 @@ fun SablePanel(
         tonalElevation = 0.dp,
     ) {
         Column(
-            modifier = Modifier.padding(SableSpacing.Lg),
+            modifier = Modifier.padding(sablePanelPadding()),
             verticalArrangement = Arrangement.spacedBy(SableSpacing.Md),
             content = content,
         )
@@ -155,6 +167,10 @@ fun SablePageHeader(
     subtitle: String? = null,
     modifier: Modifier = Modifier,
 ) {
+    if (isSableShortWindow()) {
+        SableShortHeader(title = title, subtitle = subtitle, modifier = modifier)
+        return
+    }
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
@@ -189,6 +205,10 @@ fun SableHeroHeader(
     eyebrow: String? = null,
     subtitle: String? = null,
 ) {
+    if (isSableShortWindow()) {
+        SableShortHeader(title = title, eyebrow = eyebrow, modifier = modifier)
+        return
+    }
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
@@ -224,6 +244,47 @@ fun SableHeroHeader(
     }
 }
 
+/**
+ * The page and hero header in a short window: one line, eyebrow then title, and the subtitle (when
+ * there is one) as one muted line, so the screen's content starts right under it.
+ */
+@Composable
+private fun SableShortHeader(
+    title: String,
+    modifier: Modifier = Modifier,
+    eyebrow: String? = null,
+    subtitle: String? = null,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm)) {
+            if (eyebrow != null) {
+                Text(
+                    text = eyebrow,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(bottom = 2.dp),
+                )
+            }
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (subtitle != null) {
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
 @Composable
 fun SableValuePanel(
     label: String,
@@ -239,8 +300,8 @@ fun SableValuePanel(
         tonalElevation = 0.dp,
     ) {
         Column(
-            modifier = Modifier.padding(SableSpacing.Lg),
-            verticalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+            modifier = Modifier.padding(sablePanelPadding()),
+            verticalArrangement = Arrangement.spacedBy(if (isSableShortWindow()) SableSpacing.Xs else SableSpacing.Sm),
         ) {
             Text(
                 text = label,
@@ -387,7 +448,7 @@ fun SableTile(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(SableSpacing.Lg),
+                    .padding(sablePanelPadding()),
             verticalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
         ) {
             Text(

@@ -59,7 +59,8 @@ class RecentTasksRepository(
     }
 
     /** The task's last picture (low resolution first), or null when Android has none for it. */
-    fun snapshot(taskId: Int): Bitmap? = snapshot(taskId, lowResolution = true) ?: snapshot(taskId, lowResolution = false)
+    /** Full resolution first: the low-resolution snapshot is too soft for text at Active Frame size. */
+    fun snapshot(taskId: Int): Bitmap? = snapshot(taskId, lowResolution = false) ?: snapshot(taskId, lowResolution = true)
 
     /**
      * Brings the task back as it was; false when Android refused (the caller then launches the app).

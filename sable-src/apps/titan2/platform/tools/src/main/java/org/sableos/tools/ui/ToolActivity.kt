@@ -17,6 +17,7 @@ import android.widget.Toast
 import org.sableos.titan2.theme.SablePalette
 import org.sableos.tools.android.Collectors
 import org.sableos.tools.android.Links
+import org.sableos.tools.android.ReportFiles
 import org.sableos.tools.android.ToolsEnv
 import org.sableos.tools.core.Capability
 import org.sableos.tools.core.Command
@@ -24,8 +25,10 @@ import org.sableos.tools.core.DialerCodes
 import org.sableos.tools.core.Handoffs
 import org.sableos.tools.core.HomeModel
 import org.sableos.tools.core.KeyCommands
+import org.sableos.tools.core.KeyHints
 import org.sableos.tools.core.KeyPress
 import org.sableos.tools.core.PermissionPlan
+import org.sableos.tools.core.ReportFile
 import org.sableos.tools.core.SettingsLink
 import org.sableos.tools.core.Tool
 import org.sableos.tools.core.ToolKind
@@ -53,6 +56,12 @@ class ToolHost(val activity: ToolActivity, val env: ToolsEnv, val tool: Tool) {
     }
 
     fun openTool(t: Tool) = activity.startActivity(ToolActivity.intent(activity, t))
+
+    /** Writes [text] to Download/SableTools and says where, so it can be shared for diagnostics. */
+    fun saveToFile(text: String) {
+        val path = ReportFiles.save(activity, tool.title, text)
+        toast(if (path == null) "Could not save the file" else "Saved to $path")
+    }
 }
 
 /** One tool screen. Views are built once; sensors/camera/mic run only between start() and stop(). */
@@ -238,30 +247,44 @@ class ToolActivity : Activity() {
             c.view(),
             LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
         )
-        col.addView(Ui.hint(this, footer()))
+        // The key line and a visible Actions button (copy, save to phone, info, hand-offs): the
+        // button is the touch and trackpad way in, M the keyboard way.
+        val hint = KeyHints.footer(tool.kind, tool.capability?.calibratable == true)
+        col.addView(
+            Ui.footer(
+                this,
+                hint,
+                if (tool.kind ==
+                    ToolKind.KEY_CAPTURE
+                ) {
+                    null
+                } else {
+                    "Actions"
+                }
+            ) { showActions(c) }
+        )
         setContentView(col)
     }
 
-    private fun footer(): String = when (tool.kind) {
-        ToolKind.MEASUREMENT -> (
-            if (tool.capability?.calibratable ==
-                true
-            ) {
-                "C calibrate · "
-            } else {
-                ""
-            }
-            ) +
-            "R reset · H hold · I info · Esc back"
-
-        ToolKind.KEY_CAPTURE -> "Every key is captured. Press Back or Esc twice to leave."
-
-        ToolKind.TEXT_TEST -> "Tab next field · Enter check · Esc back"
-
-        ToolKind.REPORT -> "Space select · Enter open · Menu actions · Esc back"
-
-        else -> "Ctrl+C copy · I info · Menu actions · Esc back"
+    private fun copy(c: ToolController) {
+        val text = c.copyText() ?: return toast("Nothing to copy yet")
+        getSystemService(
+            ClipboardManager::class.java
+        )?.setPrimaryClip(ClipData.newPlainText(tool.title, text))
+        toast("Copied (identifiers masked)")
     }
+
+    private fun save(c: ToolController) {
+        c.copyText()?.let(ToolHost(this, env, tool)::saveToFile) ?: toast("Nothing to save yet")
+    }
+
+    private fun showInfo(c: ToolController) {
+        AlertDialog.Builder(
+            this
+        ).setTitle(tool.title).setMessage(c.info()).setPositiveButton("Close", null).show()
+    }
+
+    private fun toast(text: String) = Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
 
     override fun onResume() {
         super.onResume()
@@ -311,20 +334,17 @@ class ToolActivity : Activity() {
             }
 
             Command.Info -> {
-                AlertDialog.Builder(
-                    this
-                ).setTitle(tool.title).setMessage(c.info()).setPositiveButton("Close", null).show()
+                showInfo(c)
                 true
             }
 
             Command.Copy -> {
-                val text = c.copyText()
-                if (text != null) {
-                    getSystemService(
-                        ClipboardManager::class.java
-                    )?.setPrimaryClip(ClipData.newPlainText(tool.title, text))
-                    Toast.makeText(this, "Copied (identifiers masked)", Toast.LENGTH_SHORT).show()
-                }
+                copy(c)
+                true
+            }
+
+            Command.Save -> {
+                save(c)
                 true
             }
 
@@ -341,8 +361,14 @@ class ToolActivity : Activity() {
     }
 
     private fun showActions(c: ToolController) {
+        val common =
+            listOf(
+                "Copy (C)" to { copy(c) },
+                "Save to phone, ${ReportFile.FOLDER} (S)" to { save(c) },
+                "About this tool" to { showInfo(c) }
+            )
         val items =
-            c.actions() +
+            common + c.actions() +
                 Handoffs.forTool(tool).map { l ->
                     "Open ${l.label}" to
                         { ToolHost(this, env, tool).openLink(l) }

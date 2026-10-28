@@ -845,7 +845,7 @@ fun SableStartScreen(
  * focus fill and rings are the accent ([startPalette]).
  */
 @Composable
-private fun Bb10Theme(
+internal fun Bb10Theme(
     appearance: SableAppearance,
     content: @Composable () -> Unit,
 ) {
@@ -1208,7 +1208,7 @@ private fun WeatherDateHeader(
         datum.takeIf { it.availability == LiveAvailability.LIVE }?.let { HomeHeader.weather(it.detail) }
     val line =
         when {
-            weather == null -> if (datum.availability == LiveAvailability.LOADING) "Weather" else "Weather · no forecast yet"
+            weather == null -> HomeHeader.weatherFallback(datum.availability)
             weather.second.isBlank() -> HomeHeader.weatherIcon(weather.first) + " " + weather.first
             else -> HomeHeader.weatherIcon(weather.first) + " " + weather.first + " · " + weather.second
         }
@@ -1315,7 +1315,11 @@ private fun appForFrame(
     return samePackage.firstOrNull { it.user.hashCode() == frame.userId } ?: samePackage.firstOrNull()
 }
 
-/** One Active Frame: the live picture or summary, the app name along the bottom and a close mark. */
+/**
+ * One Active Frame: the app's live picture above a title strip (app mark, name, close), so the
+ * strip never covers the app. The picture is the full-resolution snapshot, scaled to the card's
+ * width from the top. Focus is an accent outline and an accent strip.
+ */
 @Composable
 private fun FrameCard(
     frame: ActiveFrame,
@@ -1333,14 +1337,14 @@ private fun FrameCard(
         produceState<Bitmap?>(initialValue = null, frame.taskId, framesGeneration) {
             value = withContext(Dispatchers.IO) { runCatching { frameSnapshot(frame) }.getOrNull() }
         }
-    val shape = RoundedCornerShape(4.dp)
-    Box(
+    val shape = RoundedCornerShape(FRAME_CORNER)
+    Column(
         modifier =
             modifier
                 .onFocusChanged { focused = it.isFocused }
                 .clip(shape)
                 .background(Bb10Card)
-                .border(if (focused) 3.dp else 1.dp, if (focused) Bb10Blue else Bb10Line, shape)
+                .border(if (focused) 2.dp else 1.dp, if (focused) Bb10Blue else Bb10Line, shape)
                 .onPreviewKeyEvent { event ->
                     val native = event.nativeKeyEvent
                     if (!ActiveFrames.isCloseKey(native.keyCode, native.metaState)) return@onPreviewKeyEvent false
@@ -1349,63 +1353,72 @@ private fun FrameCard(
                 }.combinedClickable(onClick = onResume, onLongClick = onClose)
                 .semantics { contentDescription = "$label, Active Frame. Enter resumes, X closes" },
     ) {
-        val bitmap = picture
-        if (bitmap != null) {
-            Image(
-                bitmap = bitmap.asImageBitmap(),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-                alignment = Alignment.TopCenter,
-            )
-        } else {
-            Column(
-                modifier = Modifier.fillMaxSize().padding(bottom = FRAME_LABEL_HEIGHT),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                if (app != null) AppMark(app = app, size = FRAME_ICON_DP)
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text =
-                        live?.takeIf { it.availability == LiveAvailability.LIVE }?.detail
-                            ?: if (frame.running) "running" else "Enter opens",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Bb10Muted,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 8.dp),
+        Box(modifier = Modifier.weight(1f).fillMaxWidth().background(Bb10Background)) {
+            val bitmap = picture
+            if (bitmap != null) {
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.FillWidth,
+                    alignment = Alignment.TopCenter,
                 )
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    if (app != null) AppMark(app = app, size = FRAME_ICON_DP)
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text =
+                            live?.takeIf { it.availability == LiveAvailability.LIVE }?.detail
+                                ?: if (frame.running) "running" else "Enter opens",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Bb10Muted,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                    )
+                }
             }
         }
         Row(
             modifier =
                 Modifier
-                    .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .height(FRAME_LABEL_HEIGHT)
-                    .background(if (focused) Bb10Blue else Color(0xE6000000))
-                    .padding(start = 8.dp),
+                    .background(if (focused) Bb10Blue else Bb10BarTop)
+                    .padding(start = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (app != null) {
+                AppMark(app = app, size = FRAME_STRIP_ICON_DP)
+                Spacer(Modifier.width(6.dp))
+            }
             Text(
                 text = label,
                 modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.labelLarge,
-                color = if (focused) Bb10OnBlue else Color.White,
+                color = if (focused) Bb10OnBlue else Bb10Text,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(
-                text = "×",
-                fontSize = 20.sp,
-                color = if (focused) Bb10OnBlue else Color.White,
+            Box(
                 modifier =
                     Modifier
+                        .size(FRAME_LABEL_HEIGHT)
                         .clickable(onClick = onClose)
-                        .semantics { contentDescription = "Close $label" }
-                        .padding(horizontal = 10.dp),
-            )
+                        .semantics { contentDescription = "Close $label" },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "×",
+                    fontSize = 18.sp,
+                    color = if (focused) Bb10OnBlue else Bb10Muted,
+                )
+            }
         }
     }
 }
@@ -4509,7 +4522,7 @@ private fun CompactAppRow(
  * Never a tile behind it.
  */
 @Composable
-private fun AppMark(
+internal fun AppMark(
     app: AppEntry,
     size: Int,
 ) {
@@ -5252,7 +5265,9 @@ private val PrivacyBadgeWidth = 18.dp
 // icon size, and the Active Frames card height, come from the window.
 private val FRAME_PADDING = 6.dp
 private val FRAME_GAP = 6.dp
-private val FRAME_LABEL_HEIGHT = 26.dp
+private val FRAME_LABEL_HEIGHT = 28.dp
+private val FRAME_CORNER = 6.dp
+private const val FRAME_STRIP_ICON_DP = 18
 
 /** Two rows of frames always fit under the dials and the weather on a 411dp square. */
 private val FRAME_MIN_HEIGHT = 72.dp

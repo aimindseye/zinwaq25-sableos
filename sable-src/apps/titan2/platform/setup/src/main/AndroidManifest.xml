@@ -6,6 +6,9 @@
     <queries>
         <intent><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.HOME" /></intent>
         <intent><action android:name="android.settings.HOME_SETTINGS" /></intent>
+        <intent><action android:name="android.settings.INPUT_METHOD_SETTINGS" /></intent>
+        <!-- Sable Start's home style chooser (BlackBerry 10 or 7). -->
+        <intent><action android:name="org.sableos.start.action.CHOOSE_HOME_STYLE" /></intent>
         <intent><action android:name="android.settings.MANAGE_DEFAULT_APPS_SETTINGS" /></intent>
         <intent><action android:name="android.settings.WIRELESS_SETTINGS" /></intent>
         <!-- Telephony.Sms.getDefaultSmsPackage() checks the holder's SMS-role components through

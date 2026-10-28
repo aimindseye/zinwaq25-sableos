@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.sableos.start.live.LiveAvailability
 
 /** The Active Frames header (BB10 Home) and the Glance widgets shown as frames. */
 class HomeLayoutTest {
@@ -104,5 +105,12 @@ class HomeLayoutTest {
         assertEquals("🌧", HomeHeader.weatherIcon("9° rain"))
         assertEquals("⛈", HomeHeader.weatherIcon("20° storms"))
         assertEquals("🌡", HomeHeader.weatherIcon("20° conditions unavailable"))
+    }
+
+    @Test
+    fun weatherWithoutAForecastSaysWhatToDo() {
+        assertEquals("Weather · updating", HomeHeader.weatherFallback(LiveAvailability.LOADING))
+        assertEquals("Weather · update failed, retrying", HomeHeader.weatherFallback(LiveAvailability.ERROR))
+        assertEquals("Weather · open Sable Weather to set it up", HomeHeader.weatherFallback(LiveAvailability.UNAVAILABLE))
     }
 }

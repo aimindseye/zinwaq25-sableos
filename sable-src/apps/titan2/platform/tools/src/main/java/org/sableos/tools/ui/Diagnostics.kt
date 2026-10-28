@@ -90,7 +90,7 @@ class AttentionController(host: ToolHost) :
 class KeyViewerController(host: ToolHost) : ToolController {
     private val ctx = host.activity
     private val meta = Ui.body(ctx, "modifiers: -")
-    private val text = Ui.mono(ctx, "Press keys. Back or Esc twice leaves.")
+    private val text = Ui.mono(ctx, "Press keys. Back twice leaves.")
     private val lines = ArrayDeque<String>()
 
     override fun view(): View = LinearLayout(ctx).apply {
@@ -139,7 +139,7 @@ class PointerController(host: ToolHost) : ToolController {
     private val ctx = host.activity
     private val text = Ui.mono(
         ctx,
-        "Move the trackpad, touch the screen or press keys. Back or Esc twice leaves."
+        "Move the trackpad, touch the screen or press keys. Back twice leaves."
     )
     private val lines = ArrayDeque<String>()
 

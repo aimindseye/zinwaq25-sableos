@@ -38,9 +38,15 @@ sealed interface Observed {
  */
 enum class Action(val label: String) {
     None(""),
+
+    /** Sable Start's own chooser: BlackBerry 10 or BlackBerry 7 style. */
+    HomeStyle("Home screen style"),
     HomeSettings("Home settings"),
     DefaultApps("Default apps settings"),
     KeyboardPicker("Keyboard picker"),
+
+    /** Android's keyboard list, where Gboard or another installed keyboard is turned on. */
+    KeyboardSettings("Keyboard settings"),
     DisplayCompat("Display compatibility"),
     RadioDiag("Radio diagnostics"),
     NetworkSettings("Network settings"),

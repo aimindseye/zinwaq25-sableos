@@ -164,4 +164,14 @@ class SableResponsivePolicyTest {
         assertTrue(SableLatestContentPolicy.showReturnToCurrent(0, 4, 10, SableListOrder.NewestLast))
         assertFalse(SableLatestContentPolicy.showReturnToCurrent(0, 0, 1, SableListOrder.NewestLast))
     }
+
+    @Test
+    fun shortWindowsGetTheCompactHeadersAndType() {
+        // Zinwa Q25: 720x720 at 280 dpi is 411 dp, about 380 dp under the status bar.
+        assertTrue(SableResponsive.isShort(380))
+        assertTrue(SableResponsive.isShort(599))
+        assertFalse(SableResponsive.isShort(600))
+        assertFalse(SableResponsive.isShort(800))
+        assertFalse(SableResponsive.isShort(0))
+    }
 }

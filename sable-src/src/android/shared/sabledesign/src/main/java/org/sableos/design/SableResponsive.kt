@@ -80,6 +80,15 @@ object SableResponsive {
     const val SQUARE_MAX_RATIO = 1.25f
     const val LARGE_FONT_SCALE = 1.3f
 
+    /**
+     * Windows shorter than this (a 720x720 panel at 280 dpi is 411 dp, less the status bar) get the
+     * compact type scale, screen padding and headers, so a screen's content starts in the first third.
+     */
+    const val SHORT_MAX_HEIGHT_DP = 600
+
+    /** True for a window too short for the regular headers; 0 (unknown) is not short. */
+    fun isShort(heightDp: Int): Boolean = heightDp in 1 until SHORT_MAX_HEIGHT_DP
+
     const val MAX_COMPACT_TOP_DESTINATIONS = 3
     const val MAX_MEDIUM_TOP_DESTINATIONS = 5
     const val MAX_EXPANDED_TOP_DESTINATIONS = 7

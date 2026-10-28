@@ -16,6 +16,9 @@ sealed interface Command {
     data object Hold : Command
     data object Info : Command
     data object Copy : Command
+
+    /** Save the screen's text as a file in Download/SableTools. */
+    data object Save : Command
     data object Toggle : Command
     data object NextField : Command
     data object PrevField : Command
@@ -43,6 +46,7 @@ sealed interface KeyContext {
  * arrows          move focus          Enter        open
  * Menu / Fn+Enter actions/details     Back/Esc     return one level
  * /               explicit search     C/R/H/I      calibrate/reset/hold/info, tool context only
+ * C/S/M           copy/save/more actions in a tool (C is calibrate where a sensor calibrates)
  * ```
  * Single-letter commands are disabled while a text field owns input (TEXT_INPUT_ALWAYS_WINS).
  */
@@ -147,15 +151,30 @@ object KeyCommands {
 
     private const val FILTER_SYMBOLS = " *#"
 
+    /** Copy, save and more actions in any tool (C calibrates instead where a sensor calibrates). */
+    private val ANY_TOOL_LETTERS = mapOf(
+        'c' to Command.Copy,
+        's' to Command.Save,
+        'm' to Command.Actions
+    )
+
     private fun tool(ctx: KeyContext.InTool, k: KeyPress): Command {
         val measuring = ctx.kind == ToolKind.MEASUREMENT
         val ch = plainChar(k)
         return when {
             k.keyCode == KEYCODE_SPACE && ctx.kind == ToolKind.REPORT -> Command.Toggle
+
             ch == 'i' -> Command.Info
+
             ch == 'c' && measuring && ctx.calibratable -> Command.Calibrate
+
+            // Plain letters, because BlackBerry-style keyboards (the Q25) have no Ctrl or Esc key.
+            ch in ANY_TOOL_LETTERS -> ANY_TOOL_LETTERS.getValue(ch!!)
+
             ch == 'r' && measuring -> Command.Reset
+
             ch == 'h' && measuring -> Command.Hold
+
             else -> Command.PassThrough
         }
     }

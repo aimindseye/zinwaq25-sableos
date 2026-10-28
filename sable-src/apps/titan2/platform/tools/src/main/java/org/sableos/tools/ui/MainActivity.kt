@@ -82,7 +82,7 @@ class MainActivity : Activity() {
         summary.text = HomeModel.profileSummary(inputs, groups)
         val filtering = searching || filter.isNotEmpty()
         filterLine.visibility = if (filtering) View.VISIBLE else View.GONE
-        filterLine.text = "Filter: $filter▏  (Backspace deletes, Esc clears)"
+        filterLine.text = "Filter: $filter▏  (Del deletes, Back clears)"
         list.removeAllViews()
         rowTools.clear()
         groups.forEach { g ->

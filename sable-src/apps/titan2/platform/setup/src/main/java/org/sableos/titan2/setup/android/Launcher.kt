@@ -7,6 +7,7 @@ import android.provider.Settings
 import android.view.inputmethod.InputMethodManager
 import org.sableos.titan2.setup.core.Action
 import org.sableos.titan2.setup.core.LaunchOutcome
+import org.sableos.titan2.setup.core.SetupRows
 import org.sableos.titan2.setup.core.TargetStatus
 
 /**
@@ -17,7 +18,12 @@ class Launcher(private val activity: Activity) {
     private fun intent(action: Action): Intent? = when (action) {
         Action.None, Action.KeyboardPicker, Action.WeatherCity -> null
 
+        Action.HomeStyle ->
+            Intent(HOME_STYLE_ACTION).setPackage(SetupRows.SABLE_START_PACKAGE)
+
         Action.HomeSettings -> Intent(Settings.ACTION_HOME_SETTINGS)
+
+        Action.KeyboardSettings -> Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)
 
         Action.DefaultApps -> Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
 
@@ -79,6 +85,7 @@ class Launcher(private val activity: Activity) {
     }
 
     private companion object {
+        const val HOME_STYLE_ACTION = "org.sableos.start.action.CHOOSE_HOME_STYLE"
         const val DISPLAY_PACKAGE = "org.sableos.titan2.displaycompat"
         const val RADIO_PACKAGE = "org.sableos.titan2.radiodiag"
     }

@@ -326,7 +326,7 @@ fun EditorScreen(
                 )
             }
         }
-        Text("↑↓ row · ←→ change · Enter change/act · Esc back", color = C.muted, fontSize = 11.sp)
+        Text("↑↓ row · ←→ change · Enter change/act · Back", color = C.muted, fontSize = 11.sp)
     }
 }
 

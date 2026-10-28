@@ -5,6 +5,7 @@ plugins {
 
 android {
     namespace = "org.sableos.titan2.keyboard"
+    sourceSets["main"].java.srcDir("../sable-theme/src/main/java")
     compileSdk = 36
     defaultConfig {
         applicationId = "org.sableos.titan2.keyboard"

@@ -6,6 +6,8 @@
 
     <queries>
         <provider android:authorities="org.sableos.appearance" />
+        <!-- Start reads the snapshot; getPackagesForUid only names packages this app can see. -->
+        <package android:name="org.sableos.launcher" />
         <!-- FM mode: the SableOS FM bridge in the LineageOS FM Radio app. -->
         <intent>
             <action android:name="org.sableos.fm.action.CONTROL" />

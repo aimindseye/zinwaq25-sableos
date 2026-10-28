@@ -101,5 +101,17 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <!-- Home screen style (BlackBerry 10 or BlackBerry 7), opened by Sable Setup and Start's menu. -->
+        <activity
+            android:name="org.sableos.start.HomeStyleActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:label="Home screen style">
+            <intent-filter>
+                <action android:name="org.sableos.start.action.CHOOSE_HOME_STYLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>

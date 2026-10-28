@@ -1,0 +1,104 @@
+From 46031e2152d85647cdf425d4489773e3a61ce28c Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 28 Oct 2026 16:11:32 +0000
+Subject: [PATCH] SableOS: Settings homepage row opens Sable Setup directly
+
+The homepage row is now "Sable Setup" and opens Sable Setup itself,
+where the home screen style, keyboard and default apps are chosen,
+instead of a Settings > Sable page holding one row. The row still
+follows whether Sable Setup is installed.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01UvjoefgeNVBxmkGXzTTNYS
+---
+ res/values/strings_sable_homepage_keys.xml    |  2 +-
+ res/values/strings_sable_settings.xml         |  4 ++--
+ res/xml/top_level_settings.xml                |  2 +-
+ .../TopLevelSablePreferenceController.java    | 20 ++++++++++++++++++-
+ 4 files changed, 23 insertions(+), 5 deletions(-)
+
+diff --git a/res/values/strings_sable_homepage_keys.xml b/res/values/strings_sable_homepage_keys.xml
+index f3628d0..383b0de 100644
+--- a/res/values/strings_sable_homepage_keys.xml
++++ b/res/values/strings_sable_homepage_keys.xml
+@@ -38,7 +38,7 @@
+     <!-- Extra type-ahead words for the Settings homepage row "system". -->
+     <string name="sable_homepage_words_system">language, date, time, backup, reset, update, gestures</string>
+     <!-- Extra type-ahead words for the Settings homepage row "sable". -->
+-    <string name="sable_homepage_words_sable">setup, readiness, checklist</string>
++    <string name="sable_homepage_words_sable">setup, launcher, home screen, keyboard, default apps</string>
+     <!-- Extra type-ahead words for the Settings homepage row "security". -->
+     <string name="sable_homepage_words_security">lock, pin, password, fingerprint</string>
+     <!-- Extra type-ahead words for the Settings homepage row "privacy". -->
+diff --git a/res/values/strings_sable_settings.xml b/res/values/strings_sable_settings.xml
+index 74f04b9..01a51b2 100644
+--- a/res/values/strings_sable_settings.xml
++++ b/res/values/strings_sable_settings.xml
+@@ -19,9 +19,9 @@
+     <string name="menu_key_sable" translatable="false">top_level_sable</string>
+ 
+     <!-- Settings homepage row and page title for Sable Setup. -->
+-    <string name="sable_settings_title">Sable</string>
++    <string name="sable_settings_title">Sable Setup</string>
+     <!-- Summary of the Settings > Sable homepage row. -->
+-    <string name="sable_settings_summary">Sable Setup: home screen, keyboard and default apps</string>
++    <string name="sable_settings_summary">Home screen style, keyboard and default apps</string>
+     <!-- Search keywords for the Settings > Sable page. -->
+     <string name="sable_settings_keywords">sable, sableos, sable setup, setup, readiness, checklist</string>
+ 
+diff --git a/res/xml/top_level_settings.xml b/res/xml/top_level_settings.xml
+index 4a105db..5001431 100644
+--- a/res/xml/top_level_settings.xml
++++ b/res/xml/top_level_settings.xml
+@@ -167,7 +167,7 @@
+             android:summary="@string/system_dashboard_summary"
+             settings:highlightableMenuKey="@string/menu_key_system"/>
+ 
+-        <!-- SableOS: Sable Start, Hub, Tools diagnostics and App display compatibility. -->
++        <!-- SableOS: Sable Setup, opened straight from the homepage (TopLevelSablePreferenceController). -->
+         <com.android.settings.widget.HomepagePreference
+             android:fragment="com.android.settings.sable.SableSettingsFragment"
+             android:icon="@drawable/ic_sable_settings_filled"
+diff --git a/src/com/android/settings/sable/TopLevelSablePreferenceController.java b/src/com/android/settings/sable/TopLevelSablePreferenceController.java
+index cf739a6..f389944 100644
+--- a/src/com/android/settings/sable/TopLevelSablePreferenceController.java
++++ b/src/com/android/settings/sable/TopLevelSablePreferenceController.java
+@@ -17,11 +17,16 @@
+ package com.android.settings.sable;
+ 
+ import android.content.Context;
++import android.content.Intent;
++import android.text.TextUtils;
++
++import androidx.preference.Preference;
+ 
+ import com.android.settings.core.BasePreferenceController;
+ 
+ /**
+- * The Settings homepage "Sable" row, shown only when Sable Setup is installed.
++ * The Settings homepage "Sable Setup" row, shown only when Sable Setup is installed. A tap opens
++ * Sable Setup itself (home screen style, keyboard and default apps), with no page in between.
+  */
+ public class TopLevelSablePreferenceController extends BasePreferenceController {
+ 
+@@ -33,4 +38,17 @@ public class TopLevelSablePreferenceController extends BasePreferenceController
+     public int getAvailabilityStatus() {
+         return SableLinks.anyAvailable(mContext) ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
+     }
++
++    @Override
++    public boolean handlePreferenceTreeClick(Preference preference) {
++        if (!TextUtils.equals(preference.getKey(), getPreferenceKey())) {
++            return false;
++        }
++        final Intent setup = SableLinks.resolve(mContext, SableLinks.KEY_SETUP);
++        if (setup == null) {
++            return false;
++        }
++        mContext.startActivity(setup.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
++        return true;
++    }
+ }
+-- 
+2.43.0
+

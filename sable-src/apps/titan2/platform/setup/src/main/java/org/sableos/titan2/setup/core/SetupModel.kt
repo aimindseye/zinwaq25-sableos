@@ -1,14 +1,17 @@
 package org.sableos.titan2.setup.core
 
 object SetupModel {
-    const val TITLE = "Sable setup"
+    const val TITLE = "Sable Setup"
     const val SELF_DESCRIPTION =
-        "Post-provisioning readiness helper. Not the Android Setup Wizard; " +
-            "it changes no system settings."
+        "Choose your home screen, keyboard and default apps, and check what this phone reports. " +
+            "Not the Android Setup Wizard."
+
+    /**
+     * Setup observes and opens screens; the home app (IR-003), the default keyboard (IR-005) and the
+     * profile identity (IR-001) are only ever changed on Android's own screens.
+     */
     const val FOOTNOTE =
-        "Observation only. HOME (IR-003), keyboard default (IR-005) and " +
-            "profile identity (IR-001) " +
-            "are owned by the canonical lane."
+        "Setup changes nothing by itself: every choice is made on the screen it opens."
     const val MAX_PROFILE_ID = 32
 
     /** Rows that carry a conclusion; informational rows are not counted. */

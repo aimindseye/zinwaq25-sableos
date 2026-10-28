@@ -1,6 +1,7 @@
 package org.sableos.start
 
 import android.Manifest
+import android.app.AlertDialog
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -8,12 +9,16 @@ import android.content.IntentFilter
 import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
 import android.database.ContentObserver
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.UserHandle
 import android.provider.Settings
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
@@ -26,10 +31,12 @@ import org.sableos.design.resolveSableDarkAppearance
 import org.sableos.design.writeGlobalSableAppearance
 import org.sableos.start.model.ActiveFrame
 import org.sableos.start.model.AppEntry
+import org.sableos.start.model.HomeStyle
 import org.sableos.start.platform.LauncherAppsRepository
 import org.sableos.start.platform.LiveSurfaceRepository
 import org.sableos.start.platform.RecentTasksRepository
 import org.sableos.start.platform.StartStateRepository
+import org.sableos.start.ui.Bb7HomeScreen
 import org.sableos.start.ui.SableStartScreen
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicLong
@@ -65,6 +72,15 @@ class SableStartActivity : ComponentActivity() {
 
     /** Screen asked for by Settings (EDIT_HOME, EDIT_QUICK_BAR), and a serial so a repeat opens it again. */
     private val startRequest = mutableStateOf(StartRequest(SCREEN_START, 0))
+
+    /**
+     * The home style chosen in Sable Setup (BlackBerry 10 or 7). The BlackBerry 7 home has no Hub,
+     * Active Frames or Edit Home of its own, so those requests show the BlackBerry 10 screen
+     * ([bb10Detour]) until Home is pressed again.
+     */
+    private val homeStyle = mutableStateOf(HomeStyle.DEFAULT)
+    private val bb10Detour = mutableStateOf(false)
+    private var opaqueWindowBackground: Drawable? = null
 
     private var callbackRegistered = false
     private var canNavigateBack = false
@@ -160,6 +176,8 @@ class SableStartActivity : ComponentActivity() {
         liveSurfaceRepository = LiveSurfaceRepository(this)
         startStateRepository = StartStateRepository(this)
         recentTasksRepository = RecentTasksRepository(this)
+        homeStyle.value = startStateRepository.loadHomeStyle()
+        opaqueWindowBackground = window.decorView.background
 
         onBackPressedDispatcher.addCallback(
             this,
@@ -196,6 +214,7 @@ class SableStartActivity : ComponentActivity() {
         if (savedInstanceState == null) {
             startRequest.value = StartRequest(screenFor(intent), 0)
             if (intent?.action == ACTION_SHOW_HUB) requestHub(intent)
+            bb10Detour.value = intent?.action in BB10_ONLY_ACTIONS
         }
 
         setContent {
@@ -210,6 +229,28 @@ class SableStartActivity : ComponentActivity() {
                             appearance = appearance,
                         ),
                 )
+            }
+
+            val bb7 = homeStyle.value == HomeStyle.Bb7 && !bb10Detour.value
+            SideEffect { showWallpaper(bb7) }
+            if (bb7) {
+                Bb7HomeScreen(
+                    apps = appsState.value,
+                    favoriteKeys = startStateRepository.loadHomeApps(),
+                    liveSurfaceRepository = liveSurfaceRepository,
+                    appearance = appearance,
+                    refreshGeneration = liveRefreshGeneration.value,
+                    homeGeneration = homeGeneration.value,
+                    onLaunchApp = { entry -> launcherAppsRepository.launch(entry) },
+                    onOpenAppInfo = { entry -> launcherAppsRepository.openAppDetails(entry) },
+                    onOpenHub = {
+                        hubRequestFilter.value = null
+                        hubGeneration.value += 1
+                        bb10Detour.value = true
+                    },
+                    onOpenMenu = ::showBb7Menu,
+                )
+                return@setContent
             }
 
             val request = startRequest.value
@@ -290,6 +331,11 @@ class SableStartActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        val style = startStateRepository.loadHomeStyle()
+        if (style != homeStyle.value) {
+            homeStyle.value = style
+            bb10Detour.value = false
+        }
         scheduleInventoryRefresh()
         refreshFrames()
         liveRefreshGeneration.value += 1
@@ -306,15 +352,21 @@ class SableStartActivity : ComponentActivity() {
                 backGeneration.value = 0
                 hubGeneration.value = 0
                 startRequest.value = StartRequest(screenFor(intent), startRequest.value.serial + 1)
+                bb10Detour.value = true
             }
             // Home, and the Recents key (Active Frames are the BB10 Recents): close anything open
             // over the pages and show Active Frames.
             Intent.ACTION_MAIN, ACTION_SHOW_ACTIVE_FRAMES -> {
                 homeGeneration.value += 1
                 refreshFrames()
+                // On the BlackBerry 7 home, Home goes back to it; Recents shows the Active Frames.
+                bb10Detour.value = intent.action == ACTION_SHOW_ACTIVE_FRAMES
             }
             // The one Hub is Start's Hub page (the Sable Hub app has no launcher entry).
-            ACTION_SHOW_HUB -> requestHub(intent)
+            ACTION_SHOW_HUB -> {
+                requestHub(intent)
+                bb10Detour.value = true
+            }
         }
     }
 
@@ -471,6 +523,41 @@ class SableStartActivity : ComponentActivity() {
         }
     }
 
+    /** The BlackBerry 7 home draws on the wallpaper; the BlackBerry 10 screen paints its own. */
+    private fun showWallpaper(show: Boolean) {
+        if (show) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
+            window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
+            window.setBackgroundDrawable(opaqueWindowBackground)
+        }
+    }
+
+    /** Menu on the BlackBerry 7 home. */
+    private fun showBb7Menu() {
+        val items = arrayOf("Home screen style", "Edit favourites", "Hub", "Settings")
+        AlertDialog.Builder(this)
+            .setItems(items) { _, which ->
+                when (which) {
+                    0 -> runCatching { startActivity(Intent(this, HomeStyleActivity::class.java)) }
+                    1 -> {
+                        homeGeneration.value = 0
+                        backGeneration.value = 0
+                        hubGeneration.value = 0
+                        startRequest.value = StartRequest(SCREEN_EDIT_HOME, startRequest.value.serial + 1)
+                        bb10Detour.value = true
+                    }
+                    2 -> {
+                        hubRequestFilter.value = null
+                        hubGeneration.value += 1
+                        bb10Detour.value = true
+                    }
+                    else -> openSystemSettings()
+                }
+            }.show()
+    }
+
     private fun openSystemSettings() {
         runCatching {
             startActivity(Intent(Settings.ACTION_SETTINGS))
@@ -524,6 +611,10 @@ class SableStartActivity : ComponentActivity() {
         const val ACTION_SHOW_ACTIVE_FRAMES = "org.sableos.start.action.SHOW_ACTIVE_FRAMES"
         const val SCREEN_START = "start"
         const val SCREEN_EDIT_HOME = "home"
+
+        /** Requests the BlackBerry 7 home shows on the BlackBerry 10 screen. */
+        val BB10_ONLY_ACTIONS =
+            setOf(ACTION_EDIT_HOME, ACTION_EDIT_QUICK_BAR, ACTION_SHOW_HUB, ACTION_SHOW_ACTIVE_FRAMES)
 
         fun screenFor(intent: Intent?): String =
             when (intent?.action) {

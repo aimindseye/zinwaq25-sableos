@@ -8,6 +8,13 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -31,6 +38,9 @@ import org.sableos.design.SableScrollableScreen
 import org.sableos.design.SableSpacing
 import org.sableos.design.SableTile
 import org.sableos.design.SableValuePanel
+import org.sableos.design.isSableShortWindow
+import org.sableos.design.sableScreenGap
+import org.sableos.design.sableScreenPadding
 
 private enum class CalculatorMode(
     val label: String,
@@ -102,6 +112,11 @@ class MainActivity : ComponentActivity() {
 private fun CalculatorApp() {
     var mode by remember { mutableStateOf(CalculatorMode.Regular) }
 
+    if (isSableShortWindow()) {
+        ShortCalculator(mode = mode, onMode = { mode = it })
+        return
+    }
+
     SableScrollableScreen {
         SableHeroHeader(
             eyebrow = "Sable",
@@ -143,8 +158,75 @@ private fun CalculatorApp() {
     }
 }
 
+/**
+ * A short window (the Q25's square screen): mode tabs on one line, then the display beside a keypad
+ * that fills the height, so every key is on screen without scrolling. The converter scrolls.
+ */
 @Composable
-private fun CalculatorPad(scientific: Boolean) {
+private fun ShortCalculator(
+    mode: CalculatorMode,
+    onMode: (CalculatorMode) -> Unit,
+) {
+    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        Column(
+            modifier = Modifier.fillMaxSize().safeDrawingPadding().sableScreenPadding(),
+            verticalArrangement = Arrangement.spacedBy(sableScreenGap()),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+            ) {
+                CalculatorMode.entries.forEach { choice ->
+                    ModeTab(
+                        label = choice.label,
+                        active = mode == choice,
+                        modifier = Modifier.weight(1f),
+                        onClick = { onMode(choice) },
+                    )
+                }
+            }
+            when (mode) {
+                CalculatorMode.Regular -> CalculatorPad(scientific = false, short = true)
+                CalculatorMode.Scientific -> CalculatorPad(scientific = true, short = true)
+                CalculatorMode.Converter ->
+                    Column(
+                        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(sableScreenGap()),
+                    ) {
+                        ConverterScreen()
+                    }
+            }
+        }
+    }
+}
+
+/** One mode tab in the short layout: a 36 dp chip, the accent when active. */
+@Composable
+private fun ModeTab(
+    label: String,
+    active: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 36.dp),
+        shape = MaterialTheme.shapes.small,
+        color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+        border = if (active) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Text(text = label, style = MaterialTheme.typography.labelLarge)
+        }
+    }
+}
+
+@Composable
+private fun CalculatorPad(
+    scientific: Boolean,
+    short: Boolean = false,
+) {
     var display by remember { mutableStateOf("0") }
     var leftOperand by remember { mutableStateOf<String?>(null) }
     var operation by remember { mutableStateOf<Int?>(null) }
@@ -290,6 +372,47 @@ private fun CalculatorPad(scientific: Boolean) {
         }
     }
 
+    val keypad: @Composable ColumnScope.(Boolean) -> Unit = { fill ->
+        Keypad(
+            fill = fill,
+            onDigit = ::enterDigit,
+            onDecimal = ::enterDecimal,
+            onOperation = ::chooseOperation,
+            onEquals = ::equals,
+            onClear = ::clear,
+            onToggleSign = { display = withToggledSign(display) },
+            onBackspace = ::backspace,
+        )
+    }
+
+    if (short) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+        ) {
+            Column(
+                modifier = Modifier.weight(0.42f).fillMaxHeight(),
+                verticalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+            ) {
+                SableValuePanel(
+                    label = panelLabel(leftOperand, operation, scientific),
+                    value = display,
+                    supportingText = status,
+                )
+                if (scientific) {
+                    ScientificGrid(columns = 2, onChoice = ::applyScientific)
+                }
+            }
+            Column(
+                modifier = Modifier.weight(0.58f).fillMaxHeight(),
+                verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
+            ) {
+                keypad(true)
+            }
+        }
+        return
+    }
+
     Column(
         verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
     ) {
@@ -303,15 +426,7 @@ private fun CalculatorPad(scientific: Boolean) {
             ScientificGrid(onChoice = ::applyScientific)
         }
 
-        Keypad(
-            onDigit = ::enterDigit,
-            onDecimal = ::enterDecimal,
-            onOperation = ::chooseOperation,
-            onEquals = ::equals,
-            onClear = ::clear,
-            onToggleSign = { display = withToggledSign(display) },
-            onBackspace = ::backspace,
-        )
+        keypad(false)
 
         Text(
             text =
@@ -330,7 +445,7 @@ private fun initialStatus(scientific: Boolean): String =
     if (scientific) {
         "Scientific functions use degrees."
     } else {
-        "Exact decimal arithmetic runs in the Rust domain."
+        "Exact decimal results, never rounded."
     }
 
 private fun withDigit(
@@ -369,8 +484,11 @@ private fun panelLabel(
     }
 
 @Composable
-private fun ScientificGrid(onChoice: (ScientificChoice) -> Unit) {
-    scientificChoices.chunked(4).forEach { rowChoices ->
+private fun ScientificGrid(
+    columns: Int = 4,
+    onChoice: (ScientificChoice) -> Unit,
+) {
+    scientificChoices.chunked(columns).forEach { rowChoices ->
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
@@ -386,8 +504,10 @@ private fun ScientificGrid(onChoice: (ScientificChoice) -> Unit) {
     }
 }
 
+/** The keypad; with [fill] its rows share the height left (the short layout) instead of 58 dp keys. */
 @Composable
-private fun Keypad(
+private fun ColumnScope.Keypad(
+    fill: Boolean,
     onDigit: (String) -> Unit,
     onDecimal: () -> Unit,
     onOperation: (Int) -> Unit,
@@ -407,8 +527,8 @@ private fun Keypad(
 
     rows.forEachIndexed { rowIndex, labels ->
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+            modifier = if (fill) Modifier.fillMaxWidth().weight(1f) else Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(if (fill) SableSpacing.Xs else SableSpacing.Sm),
         ) {
             labels.forEach { label ->
                 val modifier =
@@ -423,7 +543,7 @@ private fun Keypad(
                     accent =
                         label == "=" ||
                             label in operationLabels,
-                    modifier = modifier,
+                    modifier = if (fill) modifier.fillMaxHeight() else modifier.heightIn(min = 58.dp),
                     onClick = {
                         when (label) {
                             "C" -> onClear()
@@ -467,7 +587,7 @@ private fun CalculatorKey(
 
     Surface(
         onClick = onClick,
-        modifier = modifier.heightIn(min = 58.dp),
+        modifier = modifier,
         shape = MaterialTheme.shapes.medium,
         color = container,
         contentColor = content,

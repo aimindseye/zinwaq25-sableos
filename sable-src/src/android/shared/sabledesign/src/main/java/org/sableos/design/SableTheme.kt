@@ -10,6 +10,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -85,7 +86,15 @@ object SableSpacing {
 
     val ScreenHorizontal = SableDesignContract.SCREEN_HORIZONTAL_PADDING_DP.dp
     val ScreenVertical = SableDesignContract.SCREEN_VERTICAL_PADDING_DP.dp
+
+    /** Screen padding in a short window ([SableResponsive.isShort]). */
+    val ScreenHorizontalShort = 12.dp
+    val ScreenVerticalShort = 8.dp
 }
+
+/** True while the current window is short ([SableResponsive.isShort]): compact type, padding and headers. */
+@Composable
+fun isSableShortWindow(): Boolean = SableResponsive.isShort(LocalConfiguration.current.screenHeightDp)
 
 object SableSize {
     val TouchTarget = SableDesignContract.MIN_TOUCH_TARGET_DP.dp
@@ -162,6 +171,19 @@ private val SableTypography =
             ),
     )
 
+/** The type scale in a short window: the same roles, one step smaller, display and headline the most. */
+private val SableShortTypography =
+    SableTypography.copy(
+        displayLarge = SableTypography.displayLarge.copy(fontSize = 28.sp, lineHeight = 32.sp, letterSpacing = (-0.4).sp),
+        headlineLarge = SableTypography.headlineLarge.copy(fontSize = 24.sp, lineHeight = 28.sp, letterSpacing = 0.sp),
+        headlineMedium = SableTypography.headlineMedium.copy(fontSize = 20.sp, lineHeight = 25.sp),
+        titleLarge = SableTypography.titleLarge.copy(fontSize = 18.sp, lineHeight = 23.sp),
+        titleMedium = SableTypography.titleMedium.copy(fontSize = 16.sp, lineHeight = 21.sp),
+        bodyLarge = SableTypography.bodyLarge.copy(fontSize = 15.sp, lineHeight = 21.sp),
+        bodyMedium = SableTypography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 19.sp),
+        labelLarge = SableTypography.labelLarge.copy(fontSize = 13.sp, lineHeight = 17.sp),
+    )
+
 /** Material shapes for a corner style, built from [SableShapeTable]. */
 fun sableShapes(style: SableCornerStyle): Shapes {
     val scale = SableShapeTable.forStyle(style)
@@ -223,7 +245,7 @@ fun SableTheme(
 
     MaterialTheme(
         colorScheme = colors,
-        typography = SableTypography,
+        typography = if (isSableShortWindow()) SableShortTypography else SableTypography,
         shapes = shapes,
         content = content,
     )

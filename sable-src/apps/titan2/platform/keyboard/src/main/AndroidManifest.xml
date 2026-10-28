@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- The Sable accent for the on-screen keyboard's colours (hosted by Settings). -->
+    <queries>
+        <provider android:authorities="org.sableos.appearance" />
+    </queries>
+
     <!-- No permissions. directBootAware so the keyboard works at the lockscreen before first unlock. -->
     <application
         android:allowBackup="false"

@@ -1,6 +1,7 @@
 package org.sableos.start.platform
 
 import android.content.Context
+import org.sableos.start.model.HomeStyle
 
 /**
  * Stores launcher-only presentation state.
@@ -145,6 +146,13 @@ class StartStateRepository(
         preferences.edit().putString(KEY_HOME_MODE, mode).apply()
     }
 
+    /** BlackBerry 10 or BlackBerry 7 home (HomeStyle); the BB10 layout until the user picks. */
+    fun loadHomeStyle(): HomeStyle = HomeStyle.fromStableValue(preferences.getString(KEY_HOME_STYLE, null))
+
+    fun saveHomeStyle(style: HomeStyle) {
+        preferences.edit().putString(KEY_HOME_STYLE, style.stableValue).apply()
+    }
+
     private fun loadOrdered(key: String): List<String>? =
         preferences
             .getString(key, null)
@@ -179,6 +187,7 @@ class StartStateRepository(
         // three-page Home hid them without the user choosing, so they are not read.
         const val KEY_HOME_HIDDEN_SECTIONS = "home_hidden_sections_v2"
         const val KEY_HOME_MODE = "home_mode"
+        const val KEY_HOME_STYLE = "home_style"
         const val KEY_GRID_ORDER = "grid_order"
     }
 }
