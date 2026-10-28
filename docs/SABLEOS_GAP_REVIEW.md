@@ -1,17 +1,18 @@
 # SableOS gaps for the Zinwa Q25
 
-Status: 2026-10-23. R0, Q1 and Q2 pass on a real Q25. Q4 was first booted on
+Status: 2026-10-28. R0, Q1 and Q2 pass on a real Q25. Q4 was first booted on
 2026-10-17; the PR #28 Q4 image was flashed and reviewed on 2026-10-22
-([Q4 review](implementation/q4-review.md)). PR #32 fixes that review and is not
-built into an image yet. This page lists only what is still open. What each part
+([Q4 review](implementation/q4-review.md)) and PR #32 fixed that review. The
+image built after PR #33 was flashed and reviewed on 2026-10-28. PRs #34-#36
+are not built into an image yet. This page lists only what is still open. What each part
 does, and how it was tested, is in [`implementation/`](implementation/).
 
 ## Where the port stands
 
 Every planned SableOS feature for the Q25 is written in this repository:
 
-* **Q2, Sable apps:** 19 apps in [`../product/q25/apps.tsv`](../product/q25/apps.tsv),
-  including Reader v2, Mail, Text Reader and Sable Tools (which replaces Radio
+* **Q2, Sable apps:** 20 apps in [`../product/q25/apps.tsv`](../product/q25/apps.tsv),
+  including Reader v2, Mail, Text Reader, Sound Profiles and Sable Tools (which replaces Radio
   Diag, the one row that does not ship). Sable Messages is the default SMS app
   (it replaces AOSP Messaging); Sable Calendar and Sable Media replace Etar and
   Twelve. Sable Hub ships without a launcher entry: Sable Start's Hub page is its
@@ -52,6 +53,20 @@ Every planned SableOS feature for the Q25 is written in this repository:
     the default SMS app, and tall per-app resolutions, a resolution hotkey and a
     rotation override in App display compatibility.
 
+  * Second and third review fixes (PRs #34, #35): one palette for the platform
+    apps, square-screen layouts, a BlackBerry 7 home style, Setup choices, the
+    Sable boot animation, the $ key, translatable Sable Setup (Spanish pilot,
+    [LANGUAGES](LANGUAGES.md)) and a keyboard firmware screen.
+
+  * BlackBerry features (PR #36): AutoText in Sable Keyboard, T/B/Space/N/P
+    list movement in Messages, Hub and Mail, speed dial on held letters (Phone
+    and Sable Start), and the Sound Profiles app with a Quick Settings tile. A
+    mute-key profile switch is not wired: no mute key is confirmed on the Q25.
+
+  * Releases: `bash build/sable.sh q25 Q4 release` packages a collected build as
+    a GitHub pre-release with flashing, backup and restore steps
+    ([FLASHING_RELEASE](FLASHING_RELEASE.md)). None is published yet.
+
   The framework patches are listed in [`../patches/README.md`](../patches/README.md).
 
 Nothing below is a missing feature in the plan. What remains is compiling,
@@ -68,7 +83,7 @@ which hosted runners can't hold.
 
 | What to build | Things to watch |
 |---|---|
-| Q4 image (`bash build/sable.sh q25 Q4 build`) | Built on ai-g732 on 2026-10-17 and again (PR #28) on 2026-10-22. PR #32 adds Sable Messages (a ~2 MB release build) and removes AOSP Messaging, Etar and Twelve; its Launcher3 0003, Start, Dialer 0707-0708 and Contacts 0755 changes get their first full compile in this build. The 2026-10-22 build with microG was 905,216 bytes over the 4,827,643,904-byte dynamic partition group until Sable Calculator moved to a release build (PR #31), so headroom is now about 25 MB. Watch it on every addition; the other debug-built r8 apps are the next things to shrink ([BUILD](BUILD.md#troubleshooting)). |
+| Q4 image (`bash build/sable.sh q25 Q4 build`) | Built on ai-g732 on 2026-10-17 and again (PR #28) on 2026-10-22. PR #32 adds Sable Messages (a ~2 MB release build) and removes AOSP Messaging, Etar and Twelve; its Launcher3 0003, Start, Dialer 0707-0708 and Contacts 0755 changes got their first full compile in the image built after PR #33. Dialer 0710 (speed dial) and Sound Profiles (a small release APK) get theirs in the next build. The 2026-10-22 build with microG was 905,216 bytes over the 4,827,643,904-byte dynamic partition group until Sable Calculator moved to a release build (PR #31), so headroom is now about 25 MB. Watch it on every addition; the other debug-built r8 apps are the next things to shrink ([BUILD](BUILD.md#troubleshooting)). |
 | `SableLauncher` (Sable Start as a Soong module) | Built only at Q4 staging, in the tree. CI compiles its presentation sources, not the Soong module. |
 | Framework patches | After `repo sync`, `bash scripts/apply-framework-patches.sh check` must say `APPLIES` for Launcher3, frameworks/base, Settings, SetupWizard, Dialer, Contacts and Glimpse. Then build SystemUI, Settings, SetupWizard, Dialer, Contacts, Glimpse, `SableLauncher` and the five overlays. Each patch's added and changed files were type-checked by hand against the Android 16 jar when it was written; a second pass over the whole Launcher3 and SystemUI trees was started and not finished. |
 | Settings Apps screens (0601-0604) | Type-checked against the Android 16 jar with stubbed androidx and SettingsLib; check resource linking, the `tests/sable-apps` host test module and the LineageOS `NetworkPolicyManager` calls. |
