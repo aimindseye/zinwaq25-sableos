@@ -50,11 +50,31 @@ class KeyCommandsTest {
         assertEquals(Command.Hold, KeyCommands.map(measure, ch('h')))
         assertEquals(Command.Info, KeyCommands.map(measure, ch('i')))
         val noCal = KeyContext.InTool(ToolKind.MEASUREMENT, calibratable = false)
-        assertEquals(Command.PassThrough, KeyCommands.map(noCal, ch('c')))
+        assertEquals(Command.Copy, KeyCommands.map(noCal, ch('c')))
         val info = KeyContext.InTool(ToolKind.INFO, calibratable = false)
         assertEquals(Command.PassThrough, KeyCommands.map(info, ch('r')))
         assertEquals(Command.PassThrough, KeyCommands.map(info, ch('h')))
         assertEquals(Command.Copy, KeyCommands.map(info, ch('c', KeyCommands.META_CTRL_ON)))
+    }
+
+    @Test fun plainLettersCopySaveAndOpenActionsWithoutCtrl() {
+        val info = KeyContext.InTool(ToolKind.INFO, calibratable = false)
+        assertEquals(Command.Copy, KeyCommands.map(info, ch('c')))
+        assertEquals(Command.Save, KeyCommands.map(info, ch('s')))
+        assertEquals(Command.Actions, KeyCommands.map(info, ch('m')))
+        val text = KeyContext.InTool(ToolKind.TEXT_TEST, calibratable = false)
+        assertEquals(Command.PassThrough, KeyCommands.map(text, ch('s')))
+    }
+
+    @Test fun keyHintsNameOnlyKeysTheQ25Has() {
+        ToolKind.entries.forEach { kind ->
+            listOf(true, false).forEach { cal ->
+                val hint = KeyHints.footer(kind, cal)
+                listOf("Ctrl", "Esc", "Tab", "Menu").forEach {
+                    assertFalse("$kind: $hint", hint.contains(it))
+                }
+            }
+        }
     }
 
     @Test fun textFieldWins() {

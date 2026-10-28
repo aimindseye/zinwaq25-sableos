@@ -527,6 +527,8 @@ def copy_design_sources(root: pathlib.Path) -> None:
     design_destination.mkdir(parents=True, exist_ok=True)
     for name in (
         "SableTheme.kt",
+        # SableTheme switches to the compact type scale in short windows (SableResponsive.isShort).
+        "SableResponsive.kt",
         "SableCornerStyle.kt",
         "SableGlobalAppearance.kt",
         "SableSystemBars.kt",

@@ -67,7 +67,8 @@ device-model branching in the UI.
   infix for 3+ characters).
 * `core/KeyCommands.kt`: the keyboard-first map. Printable keys filter on home, `/` explicit search,
   arrows move, Enter opens, Menu or Fn+Enter actions, Back/Esc one level, Tab/Shift+Tab fields,
-  Ctrl+C copy; C/R/H only inside measurement tools (C only when calibratable), I info in tools; all
+  Ctrl+C copy; in tools C copy, S save to phone, M more actions (keyboards without Ctrl, such as the
+  Q25's), C/R/H inside measurement tools (C calibrates when calibratable), I info in tools; all
   single letters off while a text field has focus; key-capture screens take every key and leave on a
   double Back/Esc.
 * UI: `ui/MainActivity.kt` (home, filter line, developer toggle shown only when Android developer

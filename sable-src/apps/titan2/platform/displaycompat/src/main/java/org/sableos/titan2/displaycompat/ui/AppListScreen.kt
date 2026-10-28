@@ -388,7 +388,7 @@ private fun ListFooter(confirmReset: Boolean, styleFocused: Boolean, onReset: ()
             if (styleFocused) {
                 "←→ choose · Enter switch/open · ↑↓ move"
             } else {
-                "↑↓ select · Enter edit · Esc back"
+                "↑↓ select · Enter edit · Back"
             },
             color = C.muted,
             fontSize = 11.sp

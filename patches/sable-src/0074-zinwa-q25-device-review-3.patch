@@ -391,6 +391,19 @@ index c5dfd37..45ea2e9 100644
      </queries>
  
      <application
+diff --git a/sable-src/apps/r8/textreader/apply_sable_flavor.py b/sable-src/apps/r8/textreader/apply_sable_flavor.py
+index 1ec9117..4326b2a 100644
+--- a/sable-src/apps/r8/textreader/apply_sable_flavor.py
++++ b/sable-src/apps/r8/textreader/apply_sable_flavor.py
+@@ -527,6 +527,8 @@ def copy_design_sources(root: pathlib.Path) -> None:
+     design_destination.mkdir(parents=True, exist_ok=True)
+     for name in (
+         "SableTheme.kt",
++        # SableTheme switches to the compact type scale in short windows (SableResponsive.isShort).
++        "SableResponsive.kt",
+         "SableCornerStyle.kt",
+         "SableGlobalAppearance.kt",
+         "SableSystemBars.kt",
 diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlDeck.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlDeck.kt
 index 61166a5..5783d5f 100644
 --- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlDeck.kt
@@ -479,6 +492,45 @@ index 65cdf24..a9e1374 100644
      }
  
      // ---- capability gating -------------------------------------------------------------------
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt
+index fda53e8..6ab92f9 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt
+@@ -388,7 +388,7 @@ private fun ListFooter(confirmReset: Boolean, styleFocused: Boolean, onReset: ()
+             if (styleFocused) {
+                 "←→ choose · Enter switch/open · ↑↓ move"
+             } else {
+-                "↑↓ select · Enter edit · Esc back"
++                "↑↓ select · Enter edit · Back"
+             },
+             color = C.muted,
+             fontSize = 11.sp
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/EditorScreen.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/EditorScreen.kt
+index c7db9ee..6f281d6 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/EditorScreen.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/EditorScreen.kt
+@@ -326,7 +326,7 @@ fun EditorScreen(
+                 )
+             }
+         }
+-        Text("↑↓ row · ←→ change · Enter change/act · Esc back", color = C.muted, fontSize = 11.sp)
++        Text("↑↓ row · ←→ change · Enter change/act · Back", color = C.muted, fontSize = 11.sp)
+     }
+ }
+ 
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/ToolsScreen.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/ToolsScreen.kt
+index c297ffd..3f602b0 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/ToolsScreen.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/ToolsScreen.kt
+@@ -118,7 +118,7 @@ fun ToolsScreen(app: DisplayCompatApp, display: SizePx, onDone: () -> Unit) {
+                 )
+             }
+         }
+-        Text("↑↓ row · ←→ change · Enter change/act · Esc back", color = C.muted, fontSize = 11.sp)
++        Text("↑↓ row · ←→ change · Enter change/act · Back", color = C.muted, fontSize = 11.sp)
+     }
+ }
+ 
 diff --git a/sable-src/apps/titan2/platform/keyboard/build.gradle.kts b/sable-src/apps/titan2/platform/keyboard/build.gradle.kts
 index fa76c59..474398b 100644
 --- a/sable-src/apps/titan2/platform/keyboard/build.gradle.kts
@@ -1030,6 +1082,87 @@ index 0000000..5066552
 +        return if (written) ReportFile.FOLDER + "/" + name else null
 +    }
 +}
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/KeyCommands.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/KeyCommands.kt
+index c14da60..207912f 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/KeyCommands.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/KeyCommands.kt
+@@ -16,6 +16,9 @@ sealed interface Command {
+     data object Hold : Command
+     data object Info : Command
+     data object Copy : Command
++
++    /** Save the screen's text as a file in Download/SableTools. */
++    data object Save : Command
+     data object Toggle : Command
+     data object NextField : Command
+     data object PrevField : Command
+@@ -43,6 +46,7 @@ sealed interface KeyContext {
+  * arrows          move focus          Enter        open
+  * Menu / Fn+Enter actions/details     Back/Esc     return one level
+  * /               explicit search     C/R/H/I      calibrate/reset/hold/info, tool context only
++ * C/S/M           copy/save/more actions in a tool (C is calibrate where a sensor calibrates)
+  * ```
+  * Single-letter commands are disabled while a text field owns input (TEXT_INPUT_ALWAYS_WINS).
+  */
+@@ -147,15 +151,30 @@ object KeyCommands {
+ 
+     private const val FILTER_SYMBOLS = " *#"
+ 
++    /** Copy, save and more actions in any tool (C calibrates instead where a sensor calibrates). */
++    private val ANY_TOOL_LETTERS = mapOf(
++        'c' to Command.Copy,
++        's' to Command.Save,
++        'm' to Command.Actions
++    )
++
+     private fun tool(ctx: KeyContext.InTool, k: KeyPress): Command {
+         val measuring = ctx.kind == ToolKind.MEASUREMENT
+         val ch = plainChar(k)
+         return when {
+             k.keyCode == KEYCODE_SPACE && ctx.kind == ToolKind.REPORT -> Command.Toggle
++
+             ch == 'i' -> Command.Info
++
+             ch == 'c' && measuring && ctx.calibratable -> Command.Calibrate
++
++            // Plain letters, because BlackBerry-style keyboards (the Q25) have no Ctrl or Esc key.
++            ch in ANY_TOOL_LETTERS -> ANY_TOOL_LETTERS.getValue(ch!!)
++
+             ch == 'r' && measuring -> Command.Reset
++
+             ch == 'h' && measuring -> Command.Hold
++
+             else -> Command.PassThrough
+         }
+     }
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/KeyHints.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/KeyHints.kt
+new file mode 100644
+index 0000000..de1cc77
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/KeyHints.kt
+@@ -0,0 +1,22 @@
++package org.sableos.tools.core
++
++/**
++ * The key line under a tool. It names only keys every supported keyboard has: letters, Space, Enter
++ * and Back. The Q25 (BlackBerry Classic layout) has no Ctrl, Esc or Tab key, so Ctrl+C and Esc
++ * still work where they exist but are never what the line asks for.
++ */
++object KeyHints {
++    fun footer(kind: ToolKind, calibratable: Boolean): String = when (kind) {
++        ToolKind.MEASUREMENT ->
++            (if (calibratable) "C calibrate · " else "") +
++                "R reset · H hold · M more · Back to leave"
++
++        ToolKind.KEY_CAPTURE -> "Every key is captured. Press Back twice to leave."
++
++        ToolKind.TEXT_TEST -> "Enter check · Back to leave"
++
++        ToolKind.REPORT -> "Space select · Enter open · M more · Back to leave"
++
++        else -> "C copy · S save to phone · M more · Back to leave"
++    }
++}
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ReportFile.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ReportFile.kt
 new file mode 100644
 index 0000000..2ff64cd
@@ -1058,6 +1191,41 @@ index 0000000..2ff64cd
 +        return "sable-tools-" + slug.ifEmpty { "report" } + "-" + stamp + ".txt"
 +    }
 +}
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt
+index a0b115a..72b76cf 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt
+@@ -90,7 +90,7 @@ class AttentionController(host: ToolHost) :
+ class KeyViewerController(host: ToolHost) : ToolController {
+     private val ctx = host.activity
+     private val meta = Ui.body(ctx, "modifiers: -")
+-    private val text = Ui.mono(ctx, "Press keys. Back or Esc twice leaves.")
++    private val text = Ui.mono(ctx, "Press keys. Back twice leaves.")
+     private val lines = ArrayDeque<String>()
+ 
+     override fun view(): View = LinearLayout(ctx).apply {
+@@ -139,7 +139,7 @@ class PointerController(host: ToolHost) : ToolController {
+     private val ctx = host.activity
+     private val text = Ui.mono(
+         ctx,
+-        "Move the trackpad, touch the screen or press keys. Back or Esc twice leaves."
++        "Move the trackpad, touch the screen or press keys. Back twice leaves."
+     )
+     private val lines = ArrayDeque<String>()
+ 
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/MainActivity.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/MainActivity.kt
+index 173865d..93b6fa4 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/MainActivity.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/MainActivity.kt
+@@ -82,7 +82,7 @@ class MainActivity : Activity() {
+         summary.text = HomeModel.profileSummary(inputs, groups)
+         val filtering = searching || filter.isNotEmpty()
+         filterLine.visibility = if (filtering) View.VISIBLE else View.GONE
+-        filterLine.text = "Filter: $filter▏  (Backspace deletes, Esc clears)"
++        filterLine.text = "Filter: $filter▏  (Del deletes, Back clears)"
+         list.removeAllViews()
+         rowTools.clear()
+         groups.forEach { g ->
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ReportController.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ReportController.kt
 index de03f01..61d9599 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ReportController.kt
@@ -1091,7 +1259,7 @@ index de03f01..61d9599 100644
          if (selected.isEmpty()) return host.toast(NOTHING_SELECTED)
          val send = Intent(Intent.ACTION_SEND).setType("text/plain")
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ToolActivity.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ToolActivity.kt
-index f11daff..aecdc61 100644
+index f11daff..3378edb 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ToolActivity.kt
 +++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ToolActivity.kt
 @@ -17,6 +17,7 @@ import android.widget.Toast
@@ -1102,15 +1270,18 @@ index f11daff..aecdc61 100644
  import org.sableos.tools.android.ToolsEnv
  import org.sableos.tools.core.Capability
  import org.sableos.tools.core.Command
-@@ -26,6 +27,7 @@ import org.sableos.tools.core.HomeModel
+@@ -24,8 +25,10 @@ import org.sableos.tools.core.DialerCodes
+ import org.sableos.tools.core.Handoffs
+ import org.sableos.tools.core.HomeModel
  import org.sableos.tools.core.KeyCommands
++import org.sableos.tools.core.KeyHints
  import org.sableos.tools.core.KeyPress
  import org.sableos.tools.core.PermissionPlan
 +import org.sableos.tools.core.ReportFile
  import org.sableos.tools.core.SettingsLink
  import org.sableos.tools.core.Tool
  import org.sableos.tools.core.ToolKind
-@@ -53,6 +55,12 @@ class ToolHost(val activity: ToolActivity, val env: ToolsEnv, val tool: Tool) {
+@@ -53,6 +56,12 @@ class ToolHost(val activity: ToolActivity, val env: ToolsEnv, val tool: Tool) {
      }
  
      fun openTool(t: Tool) = activity.startActivity(ToolActivity.intent(activity, t))
@@ -1123,39 +1294,223 @@ index f11daff..aecdc61 100644
  }
  
  /** One tool screen. Views are built once; sensors/camera/mic run only between start() and stop(). */
-@@ -238,7 +246,8 @@ class ToolActivity : Activity() {
+@@ -238,31 +247,45 @@ class ToolActivity : Activity() {
              c.view(),
              LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
          )
 -        col.addView(Ui.hint(this, footer()))
-+        // A tap on the key hints opens the same actions menu as the Menu key (save to phone, hand-offs).
-+        col.addView(Ui.hint(this, footer()).apply { setOnClickListener { showActions(c) } })
++        // The key line and a visible Actions button (copy, save to phone, info, hand-offs): the
++        // button is the touch and trackpad way in, M the keyboard way.
++        val hint = KeyHints.footer(tool.kind, tool.capability?.calibratable == true)
++        col.addView(
++            Ui.footer(
++                this,
++                hint,
++                if (tool.kind ==
++                    ToolKind.KEY_CAPTURE
++                ) {
++                    null
++                } else {
++                    "Actions"
++                }
++            ) { showActions(c) }
++        )
          setContentView(col)
      }
  
-@@ -260,7 +269,7 @@ class ToolActivity : Activity() {
+-    private fun footer(): String = when (tool.kind) {
+-        ToolKind.MEASUREMENT -> (
+-            if (tool.capability?.calibratable ==
+-                true
+-            ) {
+-                "C calibrate · "
+-            } else {
+-                ""
+-            }
+-            ) +
+-            "R reset · H hold · I info · Esc back"
+-
+-        ToolKind.KEY_CAPTURE -> "Every key is captured. Press Back or Esc twice to leave."
+-
+-        ToolKind.TEXT_TEST -> "Tab next field · Enter check · Esc back"
++    private fun copy(c: ToolController) {
++        val text = c.copyText() ?: return toast("Nothing to copy yet")
++        getSystemService(
++            ClipboardManager::class.java
++        )?.setPrimaryClip(ClipData.newPlainText(tool.title, text))
++        toast("Copied (identifiers masked)")
++    }
  
-         ToolKind.REPORT -> "Space select · Enter open · Menu actions · Esc back"
+-        ToolKind.REPORT -> "Space select · Enter open · Menu actions · Esc back"
++    private fun save(c: ToolController) {
++        c.copyText()?.let(ToolHost(this, env, tool)::saveToFile) ?: toast("Nothing to save yet")
++    }
  
 -        else -> "Ctrl+C copy · I info · Menu actions · Esc back"
-+        else -> "Ctrl+C copy · Menu save to phone · I info · Esc back"
++    private fun showInfo(c: ToolController) {
++        AlertDialog.Builder(
++            this
++        ).setTitle(tool.title).setMessage(c.info()).setPositiveButton("Close", null).show()
      }
  
++    private fun toast(text: String) = Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
++
      override fun onResume() {
-@@ -341,8 +350,12 @@ class ToolActivity : Activity() {
+         super.onResume()
+         started = true
+@@ -311,20 +334,17 @@ class ToolActivity : Activity() {
+             }
+ 
+             Command.Info -> {
+-                AlertDialog.Builder(
+-                    this
+-                ).setTitle(tool.title).setMessage(c.info()).setPositiveButton("Close", null).show()
++                showInfo(c)
+                 true
+             }
+ 
+             Command.Copy -> {
+-                val text = c.copyText()
+-                if (text != null) {
+-                    getSystemService(
+-                        ClipboardManager::class.java
+-                    )?.setPrimaryClip(ClipData.newPlainText(tool.title, text))
+-                    Toast.makeText(this, "Copied (identifiers masked)", Toast.LENGTH_SHORT).show()
+-                }
++                copy(c)
++                true
++            }
++
++            Command.Save -> {
++                save(c)
+                 true
+             }
+ 
+@@ -341,8 +361,14 @@ class ToolActivity : Activity() {
      }
  
      private fun showActions(c: ToolController) {
-+        val host = ToolHost(this, env, tool)
-+        val save = "Save to phone (${ReportFile.FOLDER})" to {
-+            c.copyText()?.let(host::saveToFile) ?: host.toast("Nothing to save yet")
-+        }
++        val common =
++            listOf(
++                "Copy (C)" to { copy(c) },
++                "Save to phone, ${ReportFile.FOLDER} (S)" to { save(c) },
++                "About this tool" to { showInfo(c) }
++            )
          val items =
 -            c.actions() +
-+            c.actions() + save +
++            common + c.actions() +
                  Handoffs.forTool(tool).map { l ->
                      "Open ${l.label}" to
                          { ToolHost(this, env, tool).openLink(l) }
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/UiFooter.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/UiFooter.kt
+new file mode 100644
+index 0000000..87962ca
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/UiFooter.kt
+@@ -0,0 +1,64 @@
++package org.sableos.tools.ui
++
++import android.content.Context
++import android.graphics.drawable.GradientDrawable
++import android.graphics.drawable.StateListDrawable
++import android.util.TypedValue
++import android.view.Gravity
++import android.view.View
++import android.widget.LinearLayout
++import android.widget.TextView
++
++private const val FOOTER_PAD = 8
++private const val FOOTER_SP = 16f
++private const val FOOTER_CORNER = 6
++private const val FOOTER_FOCUS_STROKE = 3
++
++/**
++ * The bottom line of a tool: its keys on the left and, when [button] is set, a focusable button
++ * on the right (the trackpad reaches it like any row; a tap works too).
++ */
++fun Ui.footer(ctx: Context, keys: String, button: String?, onButton: () -> Unit): View {
++    val l = LinearLayout(ctx).apply {
++        orientation = LinearLayout.HORIZONTAL
++        gravity = Gravity.CENTER_VERTICAL
++        setPadding(0, dp(ctx, FOOTER_PAD), 0, 0)
++    }
++    l.addView(
++        subtitle(ctx, keys),
++        LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
++    )
++    if (button != null) {
++        l.addView(
++            TextView(ctx).apply {
++                text = button
++                setTextColor(TEXT)
++                setTextSize(TypedValue.COMPLEX_UNIT_SP, FOOTER_SP)
++                isFocusable = true
++                isClickable = true
++                // A thin accent outline, thicker when the trackpad focuses it (the Sable focus ring).
++                background = StateListDrawable().apply {
++                    addState(
++                        intArrayOf(android.R.attr.state_focused),
++                        pill(ctx, FOOTER_FOCUS_STROKE)
++                    )
++                    addState(
++                        intArrayOf(android.R.attr.state_pressed),
++                        pill(ctx, FOOTER_FOCUS_STROKE)
++                    )
++                    addState(intArrayOf(), pill(ctx, 1))
++                }
++                val p = dp(ctx, FOOTER_PAD)
++                setPadding(p * 2, p, p * 2, p)
++                setOnClickListener { onButton() }
++            }
++        )
++    }
++    return l
++}
++
++private fun Ui.pill(ctx: Context, strokeDp: Int) = GradientDrawable().apply {
++    setColor(FOCUS)
++    setStroke(dp(ctx, strokeDp), ACCENT)
++    cornerRadius = dp(ctx, FOOTER_CORNER).toFloat()
++}
+diff --git a/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/KeyCommandsTest.kt b/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/KeyCommandsTest.kt
+index 30a249c..3337f3f 100644
+--- a/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/KeyCommandsTest.kt
++++ b/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/KeyCommandsTest.kt
+@@ -50,13 +50,33 @@ class KeyCommandsTest {
+         assertEquals(Command.Hold, KeyCommands.map(measure, ch('h')))
+         assertEquals(Command.Info, KeyCommands.map(measure, ch('i')))
+         val noCal = KeyContext.InTool(ToolKind.MEASUREMENT, calibratable = false)
+-        assertEquals(Command.PassThrough, KeyCommands.map(noCal, ch('c')))
++        assertEquals(Command.Copy, KeyCommands.map(noCal, ch('c')))
+         val info = KeyContext.InTool(ToolKind.INFO, calibratable = false)
+         assertEquals(Command.PassThrough, KeyCommands.map(info, ch('r')))
+         assertEquals(Command.PassThrough, KeyCommands.map(info, ch('h')))
+         assertEquals(Command.Copy, KeyCommands.map(info, ch('c', KeyCommands.META_CTRL_ON)))
+     }
+ 
++    @Test fun plainLettersCopySaveAndOpenActionsWithoutCtrl() {
++        val info = KeyContext.InTool(ToolKind.INFO, calibratable = false)
++        assertEquals(Command.Copy, KeyCommands.map(info, ch('c')))
++        assertEquals(Command.Save, KeyCommands.map(info, ch('s')))
++        assertEquals(Command.Actions, KeyCommands.map(info, ch('m')))
++        val text = KeyContext.InTool(ToolKind.TEXT_TEST, calibratable = false)
++        assertEquals(Command.PassThrough, KeyCommands.map(text, ch('s')))
++    }
++
++    @Test fun keyHintsNameOnlyKeysTheQ25Has() {
++        ToolKind.entries.forEach { kind ->
++            listOf(true, false).forEach { cal ->
++                val hint = KeyHints.footer(kind, cal)
++                listOf("Ctrl", "Esc", "Tab", "Menu").forEach {
++                    assertFalse("$kind: $hint", hint.contains(it))
++                }
++            }
++        }
++    }
++
+     @Test fun textFieldWins() {
+         listOf('c', 'r', 'h', 'i', '/', 'a').forEach {
+             assertEquals(Command.PassThrough, KeyCommands.map(KeyContext.TextField, ch(it)))
 diff --git a/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/ReportFileTest.kt b/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/ReportFileTest.kt
 new file mode 100644
 index 0000000..5df86a8

@@ -162,7 +162,7 @@ on that phone. Procedure: [`RETURN_TO_STOCK.md`](RETURN_TO_STOCK.md).
 | Q4-REVIEW2-WEATHER | With Wi-Fi on and a city chosen, Start's header shows the weather icon and temperature within a few minutes; without a forecast it says "Weather · updating" or what to do, never "no forecast yet" (sable-src 0074) | NOT_RUN |
 | Q4-REVIEW2-BB7 | Sable Setup > Home screen style > BlackBerry 7: Home shows the clock and a row of Favorites on the wallpaper; Up opens the tray, Space switches panels, typing finds an app, Enter opens it; Menu > Home screen style switches back to BlackBerry 10 (sable-src 0074) | NOT_RUN |
 | Q4-REVIEW2-SETUP | Settings homepage > Sable Setup opens Setup; its first rows are Home screen style, Home app, Keyboard, Add a keyboard and Default apps, and each opens its screen; with Gboard chosen the Keyboard row says "In use: Gboard" (framework 1401, sable-src 0074) | NOT_RUN |
-| Q4-REVIEW2-TOOLS-SAVE | Sable Tools > a report > Save to phone: a toast names Download/SableTools/sable-tools-…txt and Files opens it (sable-src 0074) | NOT_RUN |
+| Q4-REVIEW2-TOOLS-SAVE | Sable Tools > a report > Save to phone: a toast names Download/SableTools/sable-tools-…txt and Files opens it; on an info tool S saves, C copies, M or the Actions button opens Copy/Save/About, and no hint names Ctrl or Esc (sable-src 0074) | NOT_RUN |
 | Q4-REVIEW2-FRAMES | Active Frames at 411 dp: each frame shows the app's picture, its icon and name below and a close ×; the focused frame has an accent border (sable-src 0074) | NOT_RUN |
 
 Crash rule (sableos #84): after any first-boot or launcher crash, run
