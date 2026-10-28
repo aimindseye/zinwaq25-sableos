@@ -37,6 +37,8 @@
     <uses-permission android:name="android.permission.REMOVE_TASKS" />
     <uses-permission android:name="android.permission.START_TASKS_FROM_RECENTS" />
     <uses-permission android:name="android.permission.READ_FRAME_BUFFER" />
+    <!-- Phone's speed dial: which letters are assigned, and asking Phone to call one. -->
+    <uses-permission android:name="org.sableos.permission.SPEED_DIAL" />
 
     <queries>
         <intent>
@@ -50,6 +52,7 @@
         <provider android:authorities="org.sableos.hub.connected_apps" />
         <provider android:authorities="org.sableos.mail.snapshot" />
         <provider android:authorities="org.sableos.media.snapshot" />
+        <provider android:authorities="org.sableos.dialer.speeddial" />
         <!-- The Hub page's Messages card and Contacts tab Message action. -->
         <package android:name="org.sableos.messages" />
     </queries>
