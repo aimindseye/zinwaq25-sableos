@@ -17,7 +17,8 @@ Sable Setup is the pattern (`sable-src/apps/titan2/platform/setup`):
 1. Put every user-visible line in one map of resource name to English, in Android format syntax
    (`%1$s`, `%1$d`): `core/SetupText.kt`. Code calls `t("key", args)` (a `SableTexts` from
    `sable-theme`), so pure unit tests keep reading English.
-2. Repeat the map in `res/values/strings.xml`. `SetupTextTest` fails when the two differ.
+2. Repeat the map in `res/values/strings.xml`. `SetupTextTest` fails when the two differ. Name the
+   table `core/<App>Text.kt` so SonarCloud leaves it out of duplication (`sonar-project.properties`).
 3. In `onCreate`, call `SetupText.t.bindTo(this)`. Lines then come from the app's string
    resources, so the phone's language picks the translation and English is the fallback.
 4. Add `res/values-<lang>/strings.xml` with every key. `SetupTextTest` checks each translation has
