@@ -30,6 +30,23 @@ internal sealed interface GameCommand {
     data object Undo : GameCommand
 
     data object NewGame : GameCommand
+
+    /** A letter typed for a word game, upper case. */
+    data class Letter(
+        val value: Char,
+    ) : GameCommand
+
+    /** P: pause or resume a game that runs on its own (Bricks, Snake, Blocks). */
+    data object Pause : GameCommand
+
+    /** H: show a move that works (Mahjong). */
+    data object Hint : GameCommand
+
+    /** Space in Solitaire: turn the next card from the stock. */
+    data object Draw : GameCommand
+
+    /** A in Solitaire: send the selected card to its foundation. */
+    data object Auto : GameCommand
 }
 
 /** A key-down reduced to what the keymap needs, so the mapping is testable on the JVM. */
@@ -42,7 +59,7 @@ internal data class GameKeyPress(
     val repeatCount: Int = 0,
 )
 
-internal enum class GameKind { Sudoku, Minesweeper, Game2048 }
+internal enum class GameKind { Sudoku, Minesweeper, Game2048, Bricks, Snake, Blocks, Reversi, Solitaire, Mahjong, Words }
 
 internal object GameKeymap {
     /** BlackBerry-style digit keys: W E R S D F Z X C are 1-9. */
@@ -71,6 +88,11 @@ internal object GameKeymap {
             GameKind.Sudoku -> sudoku(press)
             GameKind.Minesweeper -> minesweeper(press)
             GameKind.Game2048 -> common(press)
+            GameKind.Bricks, GameKind.Snake, GameKind.Blocks -> arcade(press)
+            GameKind.Reversi -> board(press)
+            GameKind.Solitaire -> solitaire(press)
+            GameKind.Mahjong -> mahjong(press)
+            GameKind.Words -> words(press)
         }
     }
 
@@ -115,6 +137,56 @@ internal object GameKeymap {
 
             else -> common(press)
         }
+
+    private fun isPrimary(keyCode: Int): Boolean =
+        keyCode == KeyEvent.KEYCODE_SPACE || keyCode == KeyEvent.KEYCODE_ENTER ||
+            keyCode == KeyEvent.KEYCODE_DPAD_CENTER
+
+    /** Bricks, Snake and Blocks: Space or Enter launches, drops or restarts; P pauses. */
+    private fun arcade(press: GameKeyPress): GameCommand? =
+        when {
+            press.alt -> null
+            isPrimary(press.keyCode) -> GameCommand.Primary
+            press.keyCode == KeyEvent.KEYCODE_P -> GameCommand.Pause
+            else -> common(press)
+        }
+
+    private fun board(press: GameKeyPress): GameCommand? =
+        when {
+            press.alt -> null
+            isPrimary(press.keyCode) -> GameCommand.Primary
+            else -> common(press)
+        }
+
+    /** Solitaire: Enter picks up and puts down, Space turns the stock, A sends to a foundation, Del drops the pick. */
+    private fun solitaire(press: GameKeyPress): GameCommand? =
+        when {
+            press.alt -> null
+            press.keyCode == KeyEvent.KEYCODE_SPACE -> GameCommand.Draw
+            press.keyCode == KeyEvent.KEYCODE_ENTER || press.keyCode == KeyEvent.KEYCODE_DPAD_CENTER -> GameCommand.Primary
+            press.keyCode == KeyEvent.KEYCODE_A -> GameCommand.Auto
+            press.keyCode == KeyEvent.KEYCODE_DEL || press.keyCode == KeyEvent.KEYCODE_ESCAPE -> GameCommand.Erase
+            else -> common(press)
+        }
+
+    private fun mahjong(press: GameKeyPress): GameCommand? =
+        when {
+            press.alt -> null
+            isPrimary(press.keyCode) -> GameCommand.Primary
+            press.keyCode == KeyEvent.KEYCODE_H -> GameCommand.Hint
+            else -> common(press)
+        }
+
+    /** Words: every letter types, so N is a letter here; Enter guesses (or starts over when the round is done). */
+    private fun words(press: GameKeyPress): GameCommand? {
+        val letter = press.char?.takeIf { !press.alt && it.isLetter() && it.lowercaseChar() in 'a'..'z' }
+        return when {
+            letter != null -> GameCommand.Letter(letter.uppercaseChar())
+            press.keyCode == KeyEvent.KEYCODE_DEL -> GameCommand.Erase
+            press.keyCode == KeyEvent.KEYCODE_ENTER || press.keyCode == KeyEvent.KEYCODE_DPAD_CENTER -> GameCommand.Primary
+            else -> null
+        }
+    }
 
     private fun common(press: GameKeyPress): GameCommand? =
         when {

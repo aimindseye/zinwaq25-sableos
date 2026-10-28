@@ -42,13 +42,21 @@ SableTools	platform	apps/titan2/platform	:tools:assembleRelease	tools/build/outp
 # Sable Calculator ships as a shrunk release build for the same reason: Q4 with microG overflowed the
 # dynamic partitions by 0.86 MiB with its ~30 MB debug APK.
 SableCalculator	common	apps/r8/android	:calculator:assembleRelease	calculator/build/outputs/apk/release/*.apk	org.sableos.calculator	unsigned	ExactCalculator	yes
-# Sable Games (Sudoku, Minesweeper, 2048; SableOS ships them as three flavors of one module, never an
+# Sable Games (Sudoku, Minesweeper, 2048, Bricks, Snake, Blocks, Reversi, Solitaire, Mahjong, Words;
+# SableOS ships them as flavors of one module, one package per game, never an
 # aggregate SableGames package). They were off for the first Q2 flash because the ~29 MB debug APKs
 # overflowed the Q25 dynamic partitions by ~29.4 MiB; they now ship as shrunk (R8 + resource
 # shrinking) release builds signed by the platform build, a few MB each.
 SableSudoku	common	apps/r8/android	:games:assembleSudokuRelease	games/build/outputs/apk/sudoku/release/*.apk	org.sableos.sudoku	unsigned	-	yes
 SableMinesweeper	common	apps/r8/android	:games:assembleMinesweeperRelease	games/build/outputs/apk/minesweeper/release/*.apk	org.sableos.minesweeper	unsigned	-	yes
 Sable2048	common	apps/r8/android	:games:assembleGame2048Release	games/build/outputs/apk/game2048/release/*.apk	org.sableos.game2048	unsigned	-	yes
+SableBricks	common	apps/r8/android	:games:assembleBricksRelease	games/build/outputs/apk/bricks/release/*.apk	org.sableos.bricks	unsigned	-	yes
+SableSnake	common	apps/r8/android	:games:assembleSnakeRelease	games/build/outputs/apk/snake/release/*.apk	org.sableos.snake	unsigned	-	yes
+SableBlocks	common	apps/r8/android	:games:assembleBlocksRelease	games/build/outputs/apk/blocks/release/*.apk	org.sableos.blocks	unsigned	-	yes
+SableReversi	common	apps/r8/android	:games:assembleReversiRelease	games/build/outputs/apk/reversi/release/*.apk	org.sableos.reversi	unsigned	-	yes
+SableSolitaire	common	apps/r8/android	:games:assembleSolitaireRelease	games/build/outputs/apk/solitaire/release/*.apk	org.sableos.solitaire	unsigned	-	yes
+SableMahjong	common	apps/r8/android	:games:assembleMahjongRelease	games/build/outputs/apk/mahjong/release/*.apk	org.sableos.mahjong	unsigned	-	yes
+SableWords	common	apps/r8/android	:games:assembleWordsRelease	games/build/outputs/apk/words/release/*.apk	org.sableos.words	unsigned	-	yes
 # Sable Media and Sable Calendar replace LineageOS Twelve and Etar (they duplicated them in the app grid).
 SableMedia	common	apps/r8/android	:media:assembleDebug	media/build/outputs/apk/debug/media-debug.apk	org.sableos.media	presigned	Twelve	yes
 SableHub	common	apps/r8/android	:hub:assembleDebug	hub/build/outputs/apk/debug/hub-debug.apk	org.sableos.hub	presigned	-	yes

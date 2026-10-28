@@ -57,9 +57,9 @@ data class SablePalette(
             return if (dark) {
                 SablePalette(
                     dark = true,
-                    window = 0xFF05070A.toInt(),
-                    surface = 0xFF0D1117.toInt(),
-                    focus = 0xFF161C24.toInt(),
+                    window = 0xFF000000.toInt(),
+                    surface = 0xFF141414.toInt(),
+                    focus = 0xFF1C1C1C.toInt(),
                     text = 0xFFF7F9FC.toInt(),
                     muted = 0xFFAAB4C0.toInt(),
                     accent = tones[0],

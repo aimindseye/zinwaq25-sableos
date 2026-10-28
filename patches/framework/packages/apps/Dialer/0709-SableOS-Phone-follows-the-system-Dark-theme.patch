@@ -124,9 +124,9 @@ index 000000000..83a4030bc
 +     seeds. The light palette with the same names is in values/sable_colors.xml. -->
 +<resources>
 +  <!-- surfaceBase, surfaceRaised, surfaceOverlay -->
-+  <color name="sable_background">#FF05070A</color>
-+  <color name="sable_surface">#FF0D1117</color>
-+  <color name="sable_surface_raised">#FF161C24</color>
++  <color name="sable_background">#FF000000</color>
++  <color name="sable_surface">#FF141414</color>
++  <color name="sable_surface_raised">#FF1C1C1C</color>
 +  <!-- textPrimary, textSecondary, textDisabled -->
 +  <color name="sable_text">#FFF7F9FC</color>
 +  <color name="sable_text_muted">#FFAAB4C0</color>
@@ -182,9 +182,9 @@ index 33f301215..019a9a7bc 100644
 +     Sable accent seeds. -->
  <resources>
    <!-- surfaceBase, surfaceRaised, surfaceOverlay -->
--  <color name="sable_background">#FF05070A</color>
--  <color name="sable_surface">#FF0D1117</color>
--  <color name="sable_surface_raised">#FF161C24</color>
+-  <color name="sable_background">#FF000000</color>
+-  <color name="sable_surface">#FF141414</color>
+-  <color name="sable_surface_raised">#FF1C1C1C</color>
 +  <color name="sable_background">#FFF2F4F7</color>
 +  <color name="sable_surface">#FFFFFFFF</color>
 +  <color name="sable_surface_raised">#FFE8ECF1</color>

@@ -34,4 +34,7 @@ Added for Sable Start's tile-free app glyphs on the Q25 (`model/AppGlyphs.kt`, d
 the same path data): address-book, clock, folder-simple, gear-six, globe, image-square, microphone, phone-call,
 puzzle-piece, shopping-bag, video-camera.
 
+Added for the seven new Sable games (`origin=NEW_TITAN_GLYPH_PHOSPHOR_REGULAR`): wall (Bricks), path (Snake),
+squares-four (Blocks), circle-half (Reversi), cards (Solitaire), stack (Mahjong), text-aa (Words).
+
 SableScreens is a prototype and has no product icon.

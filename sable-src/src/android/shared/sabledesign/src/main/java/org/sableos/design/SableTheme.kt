@@ -104,9 +104,9 @@ object SableSize {
 }
 
 object SableColorTokens {
-    val DarkBackground = Color(0xFF05070A)
-    val DarkSurface = Color(0xFF0D1117)
-    val DarkSurfaceRaised = Color(0xFF161C24)
+    val DarkBackground = Color(0xFF000000)
+    val DarkSurface = Color(0xFF141414)
+    val DarkSurfaceRaised = Color(0xFF1C1C1C)
     val DarkText = Color(0xFFF7F9FC)
     val DarkTextMuted = Color(0xFFAAB4C0)
 

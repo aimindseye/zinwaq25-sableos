@@ -39,11 +39,53 @@ android {
             resValue("string", "app_name", "Sable 2048")
             buildConfigField("String", "SABLE_GAME", "\"2048\"")
         }
+        create("bricks") {
+            dimension = "game"
+            applicationId = "org.sableos.bricks"
+            resValue("string", "app_name", "Sable Bricks")
+            buildConfigField("String", "SABLE_GAME", "\"bricks\"")
+        }
+        create("snake") {
+            dimension = "game"
+            applicationId = "org.sableos.snake"
+            resValue("string", "app_name", "Sable Snake")
+            buildConfigField("String", "SABLE_GAME", "\"snake\"")
+        }
+        create("blocks") {
+            dimension = "game"
+            applicationId = "org.sableos.blocks"
+            resValue("string", "app_name", "Sable Blocks")
+            buildConfigField("String", "SABLE_GAME", "\"blocks\"")
+        }
+        create("reversi") {
+            dimension = "game"
+            applicationId = "org.sableos.reversi"
+            resValue("string", "app_name", "Sable Reversi")
+            buildConfigField("String", "SABLE_GAME", "\"reversi\"")
+        }
+        create("solitaire") {
+            dimension = "game"
+            applicationId = "org.sableos.solitaire"
+            resValue("string", "app_name", "Sable Solitaire")
+            buildConfigField("String", "SABLE_GAME", "\"solitaire\"")
+        }
+        create("mahjong") {
+            dimension = "game"
+            applicationId = "org.sableos.mahjong"
+            resValue("string", "app_name", "Sable Mahjong")
+            buildConfigField("String", "SABLE_GAME", "\"mahjong\"")
+        }
+        create("words") {
+            dimension = "game"
+            applicationId = "org.sableos.words"
+            resValue("string", "app_name", "Sable Words")
+            buildConfigField("String", "SABLE_GAME", "\"words\"")
+        }
     }
 
     buildTypes {
         // The Q25 image ships the release variants (product/q25/apps.tsv): shrunk and signed by
-        // the platform build, so the three games fit the dynamic partitions (the ~29 MB debug
+        // the platform build, so the games fit the dynamic partitions (the ~29 MB debug
         // APKs each overflowed them on the first Q2 build).
         release {
             isMinifyEnabled = true

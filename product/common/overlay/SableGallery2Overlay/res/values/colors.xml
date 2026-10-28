@@ -5,8 +5,8 @@
      it replaces Holo blue #33b5e5 as SableOS R9 did. -->
 <resources>
     <!-- Sable dark surface.overlay (was #333333). -->
-    <color name="primary">#FF161C24</color>
+    <color name="primary">#FF1C1C1C</color>
     <!-- Sable dark surface.base (was #000000). -->
-    <color name="primaryDark">#FF05070A</color>
+    <color name="primaryDark">#FF000000</color>
     <color name="accent">@android:color/system_accent1_400</color>
 </resources>

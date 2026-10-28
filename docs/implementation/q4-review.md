@@ -139,7 +139,7 @@ yet".
 
 | Area | Change | Gate |
 |---|---|---|
-| One palette | Setup, Vault, Tools, App display compatibility and the on-screen keyboard use the SableSystemTokens surfaces (#05070A, #0D1117, #161C24 dark; #F5F7F9, #FFFFFF, #E9EDF2 light) and the per-theme accent tones, the same as Start, Settings and Quick Settings. The old navy (#06121D, #0C1E2D) is gone | Q4-REVIEW2-PALETTE |
+| One palette | Setup, Vault, Tools, App display compatibility and the on-screen keyboard use the SableSystemTokens surfaces (#000000, #141414, #1C1C1C dark since sable-src 0077; #F5F7F9, #FFFFFF, #E9EDF2 light) and the per-theme accent tones, the same as Start, Settings and Quick Settings. The old navy (#06121D, #0C1E2D) is gone | Q4-REVIEW2-PALETTE |
 | Square screen | In a window under 600 dp tall, every sabledesign app (Calculator, Calendar, Games, Hub, Media, Messages, Weather) gets one-line page headers, a smaller type scale and 12/8 dp screen padding | Q4-REVIEW2-SHORT |
 | Calculator | Square layout: mode tabs on one line, the display beside a keypad that fills the height, no scrolling | Q4-REVIEW2-CALCULATOR |
 | Camera | Square windows get the Control Deck: the viewfinder is clear, a tap shows the touch controls, which wrap instead of running off the right edge | Q4-REVIEW2-CAMERA |
@@ -168,3 +168,22 @@ later); the Sable accent only sets the accent colour.
 | Sable Reader | Its own copy of the Sable theme | Its own responsive layout |
 | Sable Mail, Text Reader | Upstream apps with the Sable flavour | Upstream layouts, not redesigned |
 | Settings, Phone, Contacts, Files | Android theme, Sable accent and Dark theme | AOSP/LineageOS layouts |
+
+## Alpha review (2026-10-28, alpha-20261028, sable-src 0077)
+
+The alpha-20261028 image booted on the Q25. The review found three things, and the BlackBerry
+7.1 UI Guidelines (supplied by the owner) set how they were redone:
+
+| Area | Change | Gate |
+|---|---|---|
+| Weather on Start | Sable Weather declares `ACCESS_NETWORK_STATE`. Its background refresh waits for a network, and JobScheduler refuses that job without the permission; the SecurityException came back through the snapshot provider, so Start fell back to "open Sable Weather to set it up". A failed schedule no longer hides the cached forecast | Q4-ALPHA-WEATHER |
+| Sound Profiles | Rebuilt on the Sable palette (dark/light, accent), with no Android buttons on the screen: rows with one accent fill highlight, ●/○ and an accent outline for the active profile, Enter uses, E edits, Menu is a full BlackBerry 7 menu ending in Close, T/B jump, focus returns to the row you left; the editor uses check boxes (Space) for vibrate and light | Q4-ALPHA-PROFILES-LOOK |
+| BlackBerry 7 home | The big clock is gone (the status bar shows the time, as the BlackBerry 7 banner had one time); the BlackBerry 10 status dials sit in the banner over the date, weather and unread count. Hub is to the left and the apps to the right, as on the BlackBerry 10 home: swipe right or Alt+Left opens Hub, swipe left or Alt+Right opens All | Q4-ALPHA-BB7-HOME |
+| Pure black | Start's dark palette (BlackBerry 10 pages, Hub, All Apps) is #000000 with cards at #141414, and the BlackBerry 7 tray is black, and the system's Pure black (Settings > Display > Dark theme) is now on by default: it is the LineageOS setting `BERRY_BLACK_THEME`, from which SystemUI enables the `blacktheme` overlay, and lineage-sdk 0150 makes the settings provider write 1 on first boot | Q4-ALPHA-PURE-BLACK |
+| Icons on the BlackBerry 7 home | As the guide describes, users move the rows of applications up or down: the closed tray shows one to three rows (drag it, or Menu > Show More/Fewer Rows), past three opens the panel. Menu on an icon puts it on the home screen (Add to Favorites), takes it off or moves it; Favorites is the same list as the BlackBerry 10 Home apps. Menu lists the icon's items first, then Hub, Home Screen Style, Settings and Close | Q4-ALPHA-BB7-ICONS |
+| Games | Seven more games, each its own flavor of Sable Games and its own package (never an aggregate app): Bricks, Snake, Blocks, Reversi, Solitaire (Klondike), Mahjong solitaire (every deal can be cleared) and Words (a five-letter guessing game with a built-in word list, since the phone has no dictionary). The logic is pure Kotlin and unit tested; icons are new Phosphor glyphs; Start draws them as glyphs too; product/q25/apps.tsv ships the release builds | Q4-ALPHA-GAMES |
+
+The guideline pass over the other Sable apps (full menus everywhere, T/B and N/P keys, verb
+dialog buttons, Shift+Del, check boxes in settings) is proposed in the review mock-up and left for
+a later PR.
+

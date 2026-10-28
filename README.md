@@ -26,7 +26,12 @@ Titan 2 or Q27 SableOS lanes.
 > '$', makes Sable Setup translatable and adds a keyboard firmware screen. PR #36
 > adds BlackBerry AutoText, single-key list movement, speed dial on held letters
 > and the Sound Profiles app, and the tool that packages a build as a GitHub
-> alpha release. Their Q4-* gates are `NOT_RUN` until the next image.
+> alpha release. That build, alpha-20261028, booted on the Q25; PR #38 answers
+> its review (the weather fix, Sound Profiles restyled, BlackBerry 7 home dials,
+> swipes and home screen icons, pure black, and seven new games: Bricks, Snake,
+> Blocks, Reversi, Solitaire, Mahjong and Words). Their Q4-* gates are `NOT_RUN` until the next image.
+> **Using SableOS:** [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) covers setup,
+> the keys, the apps, the privacy and security defaults and what to change.
 > Install steps: [`docs/INSTALL.md`](docs/INSTALL.md), or for a downloaded
 > release [`docs/FLASHING_RELEASE.md`](docs/FLASHING_RELEASE.md).
 > Gates and evidence: [`docs/QUALIFICATION.md`](docs/QUALIFICATION.md). Design

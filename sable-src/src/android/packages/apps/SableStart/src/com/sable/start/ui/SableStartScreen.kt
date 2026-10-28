@@ -267,12 +267,14 @@ internal fun startPalette(
         StartPalette(
             accent = accentColor,
             onAccent = onAccent,
-            background = Color(0xFF121212),
-            card = Color(0xFF262626),
-            tile = Color(0xFF2E2E2E),
-            line = Color(0xFF3A3A3A),
-            barTop = Color(0xFF2A2A2A),
-            barBottom = Color(0xFF141414),
+            // Pure black, the default Dark theme on the Q25 (owner request, 2026-10-28): the
+            // pages, Hub and All Apps are #000000 and cards are a step above it.
+            background = Color.Black,
+            card = Color(0xFF141414),
+            tile = Color(0xFF1C1C1C),
+            line = Color(0xFF2A2A2A),
+            barTop = Color(0xFF1C1C1C),
+            barBottom = Color.Black,
             text = Color.White,
             muted = Color(0xFF9E9E9E),
             dim = Color(0xFF5E5E5E),

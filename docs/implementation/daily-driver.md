@@ -95,8 +95,8 @@ values.
   LineageOS translated keep their own word for "Gallery" until Sable
   translations exist.
 * `SableGallery2Overlay` targets `com.android.gallery3d`:
-  * `primary` becomes `#FF161C24` (Sable dark `surface.overlay`, was `#333333`).
-  * `primaryDark` becomes `#FF05070A` (Sable dark `surface.base`, was `#000000`).
+  * `primary` becomes `#FF1C1C1C` (Sable dark `surface.overlay`, was `#333333`).
+  * `primaryDark` becomes `#FF000000` (Sable dark `surface.base`).
   * `accent` becomes `@android:color/system_accent1_400` (was Holo blue `#33b5e5`).
 
   Every Gallery2 accent use (`popup_title_color`, `mode_selection_border`,
