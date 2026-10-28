@@ -1,0 +1,893 @@
+diff --git a/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/MainActivity.kt b/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/MainActivity.kt
+index 354c3e6..6ad7918 100644
+--- a/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/MainActivity.kt
++++ b/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/MainActivity.kt
+@@ -8,6 +8,13 @@ import androidx.activity.compose.setContent
+ import androidx.compose.foundation.BorderStroke
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.ColumnScope
++import androidx.compose.foundation.layout.fillMaxHeight
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.safeDrawingPadding
++import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.verticalScroll
+ import androidx.compose.foundation.layout.Row
+ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.heightIn
+@@ -31,6 +38,9 @@ import org.sableos.design.SableScrollableScreen
+ import org.sableos.design.SableSpacing
+ import org.sableos.design.SableTile
+ import org.sableos.design.SableValuePanel
++import org.sableos.design.isSableShortWindow
++import org.sableos.design.sableScreenGap
++import org.sableos.design.sableScreenPadding
+ 
+ private enum class CalculatorMode(
+     val label: String,
+@@ -102,6 +112,11 @@ class MainActivity : ComponentActivity() {
+ private fun CalculatorApp() {
+     var mode by remember { mutableStateOf(CalculatorMode.Regular) }
+ 
++    if (isSableShortWindow()) {
++        ShortCalculator(mode = mode, onMode = { mode = it })
++        return
++    }
++
+     SableScrollableScreen {
+         SableHeroHeader(
+             eyebrow = "Sable",
+@@ -143,8 +158,75 @@ private fun CalculatorApp() {
+     }
+ }
+ 
++/**
++ * A short window (the Q25's square screen): mode tabs on one line, then the display beside a keypad
++ * that fills the height, so every key is on screen without scrolling. The converter scrolls.
++ */
++@Composable
++private fun ShortCalculator(
++    mode: CalculatorMode,
++    onMode: (CalculatorMode) -> Unit,
++) {
++    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
++        Column(
++            modifier = Modifier.fillMaxSize().safeDrawingPadding().sableScreenPadding(),
++            verticalArrangement = Arrangement.spacedBy(sableScreenGap()),
++        ) {
++            Row(
++                modifier = Modifier.fillMaxWidth(),
++                horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
++            ) {
++                CalculatorMode.entries.forEach { choice ->
++                    ModeTab(
++                        label = choice.label,
++                        active = mode == choice,
++                        modifier = Modifier.weight(1f),
++                        onClick = { onMode(choice) },
++                    )
++                }
++            }
++            when (mode) {
++                CalculatorMode.Regular -> CalculatorPad(scientific = false, short = true)
++                CalculatorMode.Scientific -> CalculatorPad(scientific = true, short = true)
++                CalculatorMode.Converter ->
++                    Column(
++                        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
++                        verticalArrangement = Arrangement.spacedBy(sableScreenGap()),
++                    ) {
++                        ConverterScreen()
++                    }
++            }
++        }
++    }
++}
++
++/** One mode tab in the short layout: a 36 dp chip, the accent when active. */
++@Composable
++private fun ModeTab(
++    label: String,
++    active: Boolean,
++    modifier: Modifier = Modifier,
++    onClick: () -> Unit,
++) {
++    Surface(
++        onClick = onClick,
++        modifier = modifier.heightIn(min = 36.dp),
++        shape = MaterialTheme.shapes.small,
++        color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
++        contentColor = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
++        border = if (active) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
++    ) {
++        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
++            Text(text = label, style = MaterialTheme.typography.labelLarge)
++        }
++    }
++}
++
+ @Composable
+-private fun CalculatorPad(scientific: Boolean) {
++private fun CalculatorPad(
++    scientific: Boolean,
++    short: Boolean = false,
++) {
+     var display by remember { mutableStateOf("0") }
+     var leftOperand by remember { mutableStateOf<String?>(null) }
+     var operation by remember { mutableStateOf<Int?>(null) }
+@@ -290,6 +372,47 @@ private fun CalculatorPad(scientific: Boolean) {
+         }
+     }
+ 
++    val keypad: @Composable ColumnScope.(Boolean) -> Unit = { fill ->
++        Keypad(
++            fill = fill,
++            onDigit = ::enterDigit,
++            onDecimal = ::enterDecimal,
++            onOperation = ::chooseOperation,
++            onEquals = ::equals,
++            onClear = ::clear,
++            onToggleSign = { display = withToggledSign(display) },
++            onBackspace = ::backspace,
++        )
++    }
++
++    if (short) {
++        Row(
++            modifier = Modifier.fillMaxSize(),
++            horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
++        ) {
++            Column(
++                modifier = Modifier.weight(0.42f).fillMaxHeight(),
++                verticalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
++            ) {
++                SableValuePanel(
++                    label = panelLabel(leftOperand, operation, scientific),
++                    value = display,
++                    supportingText = status,
++                )
++                if (scientific) {
++                    ScientificGrid(columns = 2, onChoice = ::applyScientific)
++                }
++            }
++            Column(
++                modifier = Modifier.weight(0.58f).fillMaxHeight(),
++                verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
++            ) {
++                keypad(true)
++            }
++        }
++        return
++    }
++
+     Column(
+         verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
+     ) {
+@@ -303,15 +426,7 @@ private fun CalculatorPad(scientific: Boolean) {
+             ScientificGrid(onChoice = ::applyScientific)
+         }
+ 
+-        Keypad(
+-            onDigit = ::enterDigit,
+-            onDecimal = ::enterDecimal,
+-            onOperation = ::chooseOperation,
+-            onEquals = ::equals,
+-            onClear = ::clear,
+-            onToggleSign = { display = withToggledSign(display) },
+-            onBackspace = ::backspace,
+-        )
++        keypad(false)
+ 
+         Text(
+             text =
+@@ -330,7 +445,7 @@ private fun initialStatus(scientific: Boolean): String =
+     if (scientific) {
+         "Scientific functions use degrees."
+     } else {
+-        "Exact decimal arithmetic runs in the Rust domain."
++        "Exact decimal results, never rounded."
+     }
+ 
+ private fun withDigit(
+@@ -369,8 +484,11 @@ private fun panelLabel(
+     }
+ 
+ @Composable
+-private fun ScientificGrid(onChoice: (ScientificChoice) -> Unit) {
+-    scientificChoices.chunked(4).forEach { rowChoices ->
++private fun ScientificGrid(
++    columns: Int = 4,
++    onChoice: (ScientificChoice) -> Unit,
++) {
++    scientificChoices.chunked(columns).forEach { rowChoices ->
+         Row(
+             modifier = Modifier.fillMaxWidth(),
+             horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+@@ -386,8 +504,10 @@ private fun ScientificGrid(onChoice: (ScientificChoice) -> Unit) {
+     }
+ }
+ 
++/** The keypad; with [fill] its rows share the height left (the short layout) instead of 58 dp keys. */
+ @Composable
+-private fun Keypad(
++private fun ColumnScope.Keypad(
++    fill: Boolean,
+     onDigit: (String) -> Unit,
+     onDecimal: () -> Unit,
+     onOperation: (Int) -> Unit,
+@@ -407,8 +527,8 @@ private fun Keypad(
+ 
+     rows.forEachIndexed { rowIndex, labels ->
+         Row(
+-            modifier = Modifier.fillMaxWidth(),
+-            horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
++            modifier = if (fill) Modifier.fillMaxWidth().weight(1f) else Modifier.fillMaxWidth(),
++            horizontalArrangement = Arrangement.spacedBy(if (fill) SableSpacing.Xs else SableSpacing.Sm),
+         ) {
+             labels.forEach { label ->
+                 val modifier =
+@@ -423,7 +543,7 @@ private fun Keypad(
+                     accent =
+                         label == "=" ||
+                             label in operationLabels,
+-                    modifier = modifier,
++                    modifier = if (fill) modifier.fillMaxHeight() else modifier.heightIn(min = 58.dp),
+                     onClick = {
+                         when (label) {
+                             "C" -> onClear()
+@@ -467,7 +587,7 @@ private fun CalculatorKey(
+ 
+     Surface(
+         onClick = onClick,
+-        modifier = modifier.heightIn(min = 58.dp),
++        modifier = modifier,
+         shape = MaterialTheme.shapes.medium,
+         color = container,
+         contentColor = content,
+diff --git a/sable-src/apps/r8/android/calendar/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/calendar/src/main/AndroidManifest.xml
+index f901a7d..e37e99d 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/AndroidManifest.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/AndroidManifest.xml
+@@ -4,6 +4,8 @@
+     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
+     <queries>
+         <provider android:authorities="org.sableos.appearance" />
++        <!-- Start reads the snapshot; getPackagesForUid only names packages this app can see. -->
++        <package android:name="org.sableos.launcher" />
+     </queries>
+     <application
+         android:allowBackup="false"
+diff --git a/sable-src/apps/r8/android/design/src/test/java/org/sableos/design/SableResponsivePolicyTest.kt b/sable-src/apps/r8/android/design/src/test/java/org/sableos/design/SableResponsivePolicyTest.kt
+index ce592a0..1ab7861 100644
+--- a/sable-src/apps/r8/android/design/src/test/java/org/sableos/design/SableResponsivePolicyTest.kt
++++ b/sable-src/apps/r8/android/design/src/test/java/org/sableos/design/SableResponsivePolicyTest.kt
+@@ -164,4 +164,14 @@ class SableResponsivePolicyTest {
+         assertTrue(SableLatestContentPolicy.showReturnToCurrent(0, 4, 10, SableListOrder.NewestLast))
+         assertFalse(SableLatestContentPolicy.showReturnToCurrent(0, 0, 1, SableListOrder.NewestLast))
+     }
++
++    @Test
++    fun shortWindowsGetTheCompactHeadersAndType() {
++        // Zinwa Q25: 720x720 at 280 dpi is 411 dp, about 380 dp under the status bar.
++        assertTrue(SableResponsive.isShort(380))
++        assertTrue(SableResponsive.isShort(599))
++        assertFalse(SableResponsive.isShort(600))
++        assertFalse(SableResponsive.isShort(800))
++        assertFalse(SableResponsive.isShort(0))
++    }
+ }
+diff --git a/sable-src/apps/r8/android/media/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/media/src/main/AndroidManifest.xml
+index 9c69b98..ecfdbe2 100644
+--- a/sable-src/apps/r8/android/media/src/main/AndroidManifest.xml
++++ b/sable-src/apps/r8/android/media/src/main/AndroidManifest.xml
+@@ -6,6 +6,8 @@
+ 
+     <queries>
+         <provider android:authorities="org.sableos.appearance" />
++        <!-- Start reads the snapshot; getPackagesForUid only names packages this app can see. -->
++        <package android:name="org.sableos.launcher" />
+         <!-- FM mode: the SableOS FM bridge in the LineageOS FM Radio app. -->
+         <intent>
+             <action android:name="org.sableos.fm.action.CONTROL" />
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/HomeLayoutTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/HomeLayoutTest.kt
+index 43576d8..a1d4626 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/HomeLayoutTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/HomeLayoutTest.kt
+@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
+ import org.junit.Assert.assertFalse
+ import org.junit.Assert.assertTrue
+ import org.junit.Test
++import org.sableos.start.live.LiveAvailability
+ 
+ /** The Active Frames header (BB10 Home) and the Glance widgets shown as frames. */
+ class HomeLayoutTest {
+@@ -105,4 +106,11 @@ class HomeLayoutTest {
+         assertEquals("⛈", HomeHeader.weatherIcon("20° storms"))
+         assertEquals("🌡", HomeHeader.weatherIcon("20° conditions unavailable"))
+     }
++
++    @Test
++    fun weatherWithoutAForecastSaysWhatToDo() {
++        assertEquals("Weather · updating", HomeHeader.weatherFallback(LiveAvailability.LOADING))
++        assertEquals("Weather · update failed, retrying", HomeHeader.weatherFallback(LiveAvailability.ERROR))
++        assertEquals("Weather · open Sable Weather to set it up", HomeHeader.weatherFallback(LiveAvailability.UNAVAILABLE))
++    }
+ }
+diff --git a/sable-src/apps/r8/android/weather/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/weather/src/main/AndroidManifest.xml
+index c5dfd37..45ea2e9 100644
+--- a/sable-src/apps/r8/android/weather/src/main/AndroidManifest.xml
++++ b/sable-src/apps/r8/android/weather/src/main/AndroidManifest.xml
+@@ -7,6 +7,10 @@
+ 
+     <queries>
+         <provider android:authorities="org.sableos.appearance" />
++        <!-- The callers its provider allows (WeatherSetupContract): getPackagesForUid only names
++             packages this app can see, so without these the caller check refuses Start and Setup. -->
++        <package android:name="org.sableos.launcher" />
++        <package android:name="org.sableos.titan2.setup" />
+     </queries>
+ 
+     <application
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlDeck.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlDeck.kt
+index 61166a5..5783d5f 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlDeck.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlDeck.kt
+@@ -22,9 +22,19 @@ object DeckPolicy {
+ enum class DeckPresentation { Portrait, LandscapeDeck }
+ 
+ object DeckOrientation {
+-    /** Landscape gets the Control Deck; portrait and square stay the minimal conventional UI. */
++    /**
++     * Landscape and square windows (the Q25's 720x720) get the Control Deck: the viewfinder stays clear
++     * and the touch controls appear when it is tapped. Only a window clearly taller than wide (more than
++     * [PORTRAIT_RATIO]) keeps the always-on conventional controls.
++     */
+     fun presentation(widthPx: Int, heightPx: Int): DeckPresentation =
+-        if (widthPx > heightPx) DeckPresentation.LandscapeDeck else DeckPresentation.Portrait
++        if (heightPx > widthPx * PORTRAIT_RATIO) {
++            DeckPresentation.Portrait
++        } else {
++            DeckPresentation.LandscapeDeck
++        }
++
++    const val PORTRAIT_RATIO = 1.25f
+ 
+     /** Touch chrome is always there in portrait; in the deck it appears only when revealed. */
+     fun touchChromeVisible(p: DeckPresentation, revealed: Boolean): Boolean =
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/MainActivity.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/MainActivity.kt
+index 14f560f..4425ecd 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/MainActivity.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/MainActivity.kt
+@@ -18,10 +18,12 @@ import androidx.activity.enableEdgeToEdge
+ import androidx.compose.foundation.background
+ import androidx.compose.foundation.border
+ import androidx.compose.foundation.clickable
+-import androidx.compose.foundation.horizontalScroll
++import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.BoxScope
+ import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.ExperimentalLayoutApi
++import androidx.compose.foundation.layout.FlowRow
+ import androidx.compose.foundation.layout.Row
+ import androidx.compose.foundation.layout.aspectRatio
+ import androidx.compose.foundation.layout.fillMaxHeight
+@@ -683,8 +685,8 @@ class MainActivity : ComponentActivity() {
+         val presentation = DeckOrientation.presentation(cfg.screenWidthDp, cfg.screenHeightDp)
+         val dc = deckContext()
+         Box(Modifier.fillMaxSize().background(Color.Black).safeDrawingPadding()) {
+-            // A tap on the viewfinder reveals touch controls in the landscape deck. Portrait
+-            // always shows them, so this is a no-op there.
++            // A tap on the viewfinder reveals touch controls in the deck (landscape and square).
++            // Portrait always shows them, so this is a no-op there.
+             PreviewSurface(
+                 Modifier.align(Alignment.Center).fillMaxWidth().aspectRatio(previewAspect)
+                     .clickable(enabled = presentation == DeckPresentation.LandscapeDeck) {
+@@ -1006,13 +1008,15 @@ fun ControlLegendOverlay(
+  * Touch controls for every open semantic action. Each button calls the same handler a key does,
+  * so touch is a complete fallback. Closed controls are hidden here; the legend explains why.
+  */
++@OptIn(ExperimentalLayoutApi::class)
+ @Composable
+ fun TouchControlBar(
+     controls: List<TouchControl>,
+     onAction: (CameraAction) -> Unit,
+     modifier: Modifier
+ ) {
+-    Row(modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 6.dp)) {
++    // Wraps onto a second line rather than scrolling, so every control is on screen in a narrow window.
++    FlowRow(modifier.padding(horizontal = 6.dp), horizontalArrangement = Arrangement.Center) {
+         controls.filter { it.gate.isOpen }.forEach { c ->
+             val shutter = c.action == CameraAction.Shutter
+             Text(
+diff --git a/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/ControlDeckTest.kt b/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/ControlDeckTest.kt
+index 65cdf24..a9e1374 100644
+--- a/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/ControlDeckTest.kt
++++ b/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/core/ControlDeckTest.kt
+@@ -156,7 +156,10 @@ class ControlDeckTest {
+     @Test fun presentationFollowsTheWindowShape() {
+         assertEquals(DeckPresentation.LandscapeDeck, DeckOrientation.presentation(2000, 1000))
+         assertEquals(DeckPresentation.Portrait, DeckOrientation.presentation(1000, 2000))
+-        assertEquals(DeckPresentation.Portrait, DeckOrientation.presentation(1000, 1000))
++        // Square (Zinwa Q25, 411x380 dp under the status bar) keeps the viewfinder clear like landscape.
++        assertEquals(DeckPresentation.LandscapeDeck, DeckOrientation.presentation(1000, 1000))
++        assertEquals(DeckPresentation.LandscapeDeck, DeckOrientation.presentation(411, 380))
++        assertEquals(DeckPresentation.Portrait, DeckOrientation.presentation(1080, 1440))
+     }
+ 
+     // ---- capability gating -------------------------------------------------------------------
+diff --git a/sable-src/apps/titan2/platform/keyboard/build.gradle.kts b/sable-src/apps/titan2/platform/keyboard/build.gradle.kts
+index fa76c59..474398b 100644
+--- a/sable-src/apps/titan2/platform/keyboard/build.gradle.kts
++++ b/sable-src/apps/titan2/platform/keyboard/build.gradle.kts
+@@ -5,6 +5,7 @@ plugins {
+ 
+ android {
+     namespace = "org.sableos.titan2.keyboard"
++    sourceSets["main"].java.srcDir("../sable-theme/src/main/java")
+     compileSdk = 36
+     defaultConfig {
+         applicationId = "org.sableos.titan2.keyboard"
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/keyboard/src/main/AndroidManifest.xml
+index 17285bd..7852e36 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/AndroidManifest.xml
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/AndroidManifest.xml
+@@ -1,6 +1,11 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+ 
++    <!-- The Sable accent for the on-screen keyboard's colours (hosted by Settings). -->
++    <queries>
++        <provider android:authorities="org.sableos.appearance" />
++    </queries>
++
+     <!-- No permissions. directBootAware so the keyboard works at the lockscreen before first unlock. -->
+     <application
+         android:allowBackup="false"
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SoftKeyboardView.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SoftKeyboardView.kt
+index 4f026e0..5cbb948 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SoftKeyboardView.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SoftKeyboardView.kt
+@@ -1,7 +1,6 @@
+ package org.sableos.titan2.keyboard.android
+ 
+ import android.content.Context
+-import android.graphics.Color
+ import android.graphics.Typeface
+ import android.graphics.drawable.GradientDrawable
+ import android.os.Handler
+@@ -20,6 +19,7 @@ import org.sableos.titan2.keyboard.core.Language
+ import org.sableos.titan2.keyboard.core.Languages
+ import org.sableos.titan2.keyboard.core.SoftKeyboardGeometry
+ import org.sableos.titan2.keyboard.core.SoftShift
++import org.sableos.titan2.theme.SablePalette
+ 
+ /**
+  * On-screen keyboard: letters, an Alt layer (one-shot, shows the Alt legend on every key), a digits/symbols page,
+@@ -73,11 +73,13 @@ class SoftKeyboardView(
+     private var popup: PopupWindow? = null
+     private var alt = false
+ 
+-    private val bg = Color.parseColor("#0C1E2D")
+-    private val keyBg = Color.parseColor("#1E3A52")
+-    private val keyOn = Color.parseColor("#2F7FB8")
+-    private val fn = Color.parseColor("#2A4D6B")
+-    private val fg = Color.WHITE
++    // The Sable theme: Dark theme or light, and the Sable accent, as every Sable app.
++    private val palette = SablePalette.read(context)
++    private val bg = palette.window
++    private val keyBg = if (palette.dark) palette.focus else palette.surface
++    private val keyOn = palette.accent
++    private val fn = if (palette.dark) palette.surface else palette.focus
++    private val fg = palette.text
+     private val dp = resources.displayMetrics.density
+ 
+     init {
+@@ -334,7 +336,7 @@ class SoftKeyboardView(
+         background =
+             GradientDrawable().apply {
+                 cornerRadius = STRIP_CORNER_DP * dp
+-                setColor(Color.parseColor("#0A1824"))
++                setColor(palette.surface)
+                 setStroke(px(1), keyOn)
+             }
+     }
+@@ -392,7 +394,7 @@ class SoftKeyboardView(
+                 opts.sp ?: if (label.length > 2) LONG_LABEL_SP else KEY_SP
+             )
+             typeface = Typeface.DEFAULT_BOLD
+-            setTextColor(fg)
++            setTextColor(if (opts.active) palette.onAccent else fg)
+             setPadding(0, 0, 0, 0)
+             minWidth = 0
+             minimumWidth = 0
+diff --git a/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SablePalette.kt b/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SablePalette.kt
+index 9f246c5..5242062 100644
+--- a/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SablePalette.kt
++++ b/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SablePalette.kt
+@@ -38,53 +38,58 @@ data class SablePalette(
+         private const val AUTHORITY_URI = "content://org.sableos.appearance/appearance"
+         private const val COLUMN_ACCENT = "accent"
+ 
+-        /** Accent and the text drawn on it, by the stable value Settings stores (SableTheme AccentPreset). */
++        /**
++         * Accent tones by the stable value Settings stores: (dark accent, text on it, light accent, text on it),
++         * the same as SableAccentTokens in sabledesign so platform apps match Start, Settings and Quick Settings.
++         */
+         private val ACCENTS =
+             mapOf(
+-                "blue" to (0xFF4D9CFF.toInt() to 0xFF06111F.toInt()),
+-                "green" to (0xFF35C66B.toInt() to 0xFF04140A.toInt()),
+-                "purple" to (0xFF7A42E8.toInt() to 0xFFFFFFFF.toInt()),
+-                "orange" to (0xFFF28C45.toInt() to 0xFF1D0C02.toInt()),
+-                "slate" to (0xFF64748B.toInt() to 0xFFFFFFFF.toInt())
++                "blue" to listOf(0xFF4D9CFF, 0xFF06111F, 0xFF1F6FD1, 0xFFFFFFFF),
++                "green" to listOf(0xFF35C66B, 0xFF04140A, 0xFF1A7F45, 0xFFFFFFFF),
++                "purple" to listOf(0xFFA47CFF, 0xFF0F0526, 0xFF7A42E8, 0xFFFFFFFF),
++                "orange" to listOf(0xFFF28C45, 0xFF1D0C02, 0xFFB35410, 0xFFFFFFFF),
++                "slate" to listOf(0xFF94A3B8, 0xFF0B1220, 0xFF55657A, 0xFFFFFFFF)
+             )
+ 
++        /** Surfaces and text are SableSystemTokens (DESIGN-KF-B), the neutral palette every Sable surface uses. */
+         fun of(dark: Boolean, accent: String?): SablePalette {
+-            val (a, onA) = ACCENTS[accent] ?: ACCENTS.getValue("blue")
++            val tones = (ACCENTS[accent] ?: ACCENTS.getValue("blue")).map { it.toInt() }
+             return if (dark) {
+                 SablePalette(
+                     dark = true,
+-                    window = 0xFF06121D.toInt(),
+-                    surface = 0xFF0C1E2D.toInt(),
+-                    focus = 0xFF1E3A52.toInt(),
+-                    text = 0xFFEEF8FF.toInt(),
+-                    muted = 0xFF8BA6B8.toInt(),
+-                    accent = a,
+-                    onAccent = onA,
+-                    warn = 0xFFFFB74D.toInt(),
+-                    ok = 0xFF4CC38A.toInt(),
+-                    danger = 0xFFFF6B6B.toInt()
++                    window = 0xFF05070A.toInt(),
++                    surface = 0xFF0D1117.toInt(),
++                    focus = 0xFF161C24.toInt(),
++                    text = 0xFFF7F9FC.toInt(),
++                    muted = 0xFFAAB4C0.toInt(),
++                    accent = tones[0],
++                    onAccent = tones[1],
++                    warn = 0xFFFBBF24.toInt(),
++                    ok = 0xFF4ADE80.toInt(),
++                    danger = 0xFFFF8A80.toInt()
+                 )
+             } else {
+                 SablePalette(
+                     dark = false,
+-                    window = 0xFFF2F4F7.toInt(),
++                    window = 0xFFF5F7F9.toInt(),
+                     surface = 0xFFFFFFFF.toInt(),
+-                    focus = 0xFFDCE4EC.toInt(),
++                    focus = 0xFFE9EDF2.toInt(),
+                     text = 0xFF12171C.toInt(),
+-                    muted = 0xFF56636F.toInt(),
+-                    accent = a,
+-                    onAccent = onA,
+-                    warn = 0xFF9A5800.toInt(),
+-                    ok = 0xFF1E7A4C.toInt(),
+-                    danger = 0xFFC62828.toInt()
++                    muted = 0xFF515B66.toInt(),
++                    accent = tones[2],
++                    onAccent = tones[3],
++                    warn = 0xFF8A5A00.toInt(),
++                    ok = 0xFF1A7F45.toInt(),
++                    danger = 0xFFBA1A1A.toInt()
+                 )
+             }
+         }
+ 
+-        fun read(context: Context): SablePalette {
+-            val night = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+-            return of(night == Configuration.UI_MODE_NIGHT_YES, readAccent(context))
+-        }
++        fun read(context: Context): SablePalette = of(isNight(context), readAccent(context))
++
++        private fun isNight(context: Context): Boolean =
++            (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
++                Configuration.UI_MODE_NIGHT_YES
+ 
+         private fun readAccent(context: Context): String? = runCatching {
+             context.contentResolver.query(
+diff --git a/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SablePaletteTest.kt b/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SablePaletteTest.kt
+index f6629e4..efbfe74 100644
+--- a/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SablePaletteTest.kt
++++ b/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SablePaletteTest.kt
+@@ -22,6 +22,14 @@ class SablePaletteTest {
+         assertEquals(0xFF7A42E8.toInt(), SablePalette.of(dark = false, accent = "purple").accent)
+     }
+ 
++    @Test fun surfacesAreTheSableSystemTokens() {
++        // Same values as SableSystemTokens.Dark/Light in sabledesign: Start, Settings and Quick Settings.
++        assertEquals(0xFF05070A.toInt(), SablePalette.of(dark = true, accent = null).window)
++        assertEquals(0xFF0D1117.toInt(), SablePalette.of(dark = true, accent = null).surface)
++        assertEquals(0xFFF5F7F9.toInt(), SablePalette.of(dark = false, accent = null).window)
++        assertEquals(0xFF1F6FD1.toInt(), SablePalette.of(dark = false, accent = "blue").accent)
++    }
++
+     @Test fun unknownOrMissingAccentIsSableBlue() {
+         val blue = SablePalette.of(dark = true, accent = "blue").accent
+         assertEquals(blue, SablePalette.of(dark = true, accent = null).accent)
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HomeLayout.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HomeLayout.kt
+index 12c90f4..db65a1f 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HomeLayout.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HomeLayout.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.start.model
+ 
++import org.sableos.start.live.LiveAvailability
++
+ /**
+  * The header over Active Frames (the BB10 Home) and what Edit Home can hide.
+  * Pure policy, unit tested in
+@@ -191,6 +193,17 @@ object HomeHeader {
+         }
+     }
+ 
++    /**
++     * The header line while there is no forecast to show, saying what to do: Sable Weather could not be
++     * read (open it once to choose a city), or its last update failed (it retries on its own).
++     */
++    fun weatherFallback(availability: LiveAvailability): String =
++        when (availability) {
++            LiveAvailability.LOADING -> "Weather · updating"
++            LiveAvailability.ERROR -> "Weather · update failed, retrying"
++            else -> "Weather · open Sable Weather to set it up"
++        }
++
+     /** Milliseconds from [nowMillisOfDay] to the next midnight, when the date line changes. */
+     fun millisToMidnight(nowMillisOfDay: Long): Long = (DAY_MS - nowMillisOfDay.mod(DAY_MS)).coerceAtLeast(1L)
+ 
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+index 7f814ea..6676eae 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+@@ -1208,7 +1208,7 @@ private fun WeatherDateHeader(
+         datum.takeIf { it.availability == LiveAvailability.LIVE }?.let { HomeHeader.weather(it.detail) }
+     val line =
+         when {
+-            weather == null -> if (datum.availability == LiveAvailability.LOADING) "Weather" else "Weather · no forecast yet"
++            weather == null -> HomeHeader.weatherFallback(datum.availability)
+             weather.second.isBlank() -> HomeHeader.weatherIcon(weather.first) + " " + weather.first
+             else -> HomeHeader.weatherIcon(weather.first) + " " + weather.first + " · " + weather.second
+         }
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableComponents.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableComponents.kt
+index df8aedc..e759641 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableComponents.kt
++++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableComponents.kt
+@@ -34,8 +34,26 @@ import androidx.compose.ui.draw.clip
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.style.TextOverflow
++import androidx.compose.ui.unit.Dp
+ import androidx.compose.ui.unit.dp
+ 
++/** Screen padding: the design's 24/20 dp, or 12/8 dp in a short window so content gets the room. */
++@Composable
++fun Modifier.sableScreenPadding(): Modifier =
++    if (isSableShortWindow()) {
++        padding(horizontal = SableSpacing.ScreenHorizontalShort, vertical = SableSpacing.ScreenVerticalShort)
++    } else {
++        padding(horizontal = SableSpacing.ScreenHorizontal, vertical = SableSpacing.ScreenVertical)
++    }
++
++/** Inner padding of panels and tiles: 16 dp, or 12 dp in a short window. */
++@Composable
++fun sablePanelPadding(): Dp = if (isSableShortWindow()) SableSpacing.Md else SableSpacing.Lg
++
++/** Gap between a screen's blocks: 16 dp, or 8 dp in a short window. */
++@Composable
++fun sableScreenGap(): Dp = if (isSableShortWindow()) SableSpacing.Sm else SableSpacing.Lg
++
+ @Composable
+ fun SableScreen(
+     modifier: Modifier = Modifier,
+@@ -50,11 +68,8 @@ fun SableScreen(
+                 Modifier
+                     .fillMaxSize()
+                     .safeDrawingPadding()
+-                    .padding(
+-                        horizontal = SableSpacing.ScreenHorizontal,
+-                        vertical = SableSpacing.ScreenVertical,
+-                    ),
+-            verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
++                    .sableScreenPadding(),
++            verticalArrangement = Arrangement.spacedBy(sableScreenGap()),
+             content = content,
+         )
+     }
+@@ -76,11 +91,8 @@ fun SableScrollableScreen(
+                     .safeDrawingPadding()
+                     .imePadding()
+                     .verticalScroll(rememberScrollState())
+-                    .padding(
+-                        horizontal = SableSpacing.ScreenHorizontal,
+-                        vertical = SableSpacing.ScreenVertical,
+-                    ),
+-            verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
++                    .sableScreenPadding(),
++            verticalArrangement = Arrangement.spacedBy(sableScreenGap()),
+             content = content,
+         )
+     }
+@@ -116,7 +128,7 @@ fun SablePanel(
+         tonalElevation = 0.dp,
+     ) {
+         Column(
+-            modifier = Modifier.padding(SableSpacing.Lg),
++            modifier = Modifier.padding(sablePanelPadding()),
+             verticalArrangement = Arrangement.spacedBy(SableSpacing.Md),
+             content = content,
+         )
+@@ -155,6 +167,10 @@ fun SablePageHeader(
+     subtitle: String? = null,
+     modifier: Modifier = Modifier,
+ ) {
++    if (isSableShortWindow()) {
++        SableShortHeader(title = title, subtitle = subtitle, modifier = modifier)
++        return
++    }
+     Column(
+         modifier = modifier.fillMaxWidth(),
+         verticalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+@@ -189,6 +205,10 @@ fun SableHeroHeader(
+     eyebrow: String? = null,
+     subtitle: String? = null,
+ ) {
++    if (isSableShortWindow()) {
++        SableShortHeader(title = title, eyebrow = eyebrow, modifier = modifier)
++        return
++    }
+     Column(
+         modifier = modifier.fillMaxWidth(),
+         verticalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+@@ -224,6 +244,47 @@ fun SableHeroHeader(
+     }
+ }
+ 
++/**
++ * The page and hero header in a short window: one line, eyebrow then title, and the subtitle (when
++ * there is one) as one muted line, so the screen's content starts right under it.
++ */
++@Composable
++private fun SableShortHeader(
++    title: String,
++    modifier: Modifier = Modifier,
++    eyebrow: String? = null,
++    subtitle: String? = null,
++) {
++    Column(modifier = modifier.fillMaxWidth()) {
++        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm)) {
++            if (eyebrow != null) {
++                Text(
++                    text = eyebrow,
++                    style = MaterialTheme.typography.labelLarge,
++                    color = MaterialTheme.colorScheme.primary,
++                    modifier = Modifier.padding(bottom = 2.dp),
++                )
++            }
++            Text(
++                text = title,
++                style = MaterialTheme.typography.titleLarge,
++                color = MaterialTheme.colorScheme.onBackground,
++                maxLines = 1,
++                overflow = TextOverflow.Ellipsis,
++            )
++        }
++        if (subtitle != null) {
++            Text(
++                text = subtitle,
++                style = MaterialTheme.typography.bodyMedium,
++                color = MaterialTheme.colorScheme.onSurfaceVariant,
++                maxLines = 1,
++                overflow = TextOverflow.Ellipsis,
++            )
++        }
++    }
++}
++
+ @Composable
+ fun SableValuePanel(
+     label: String,
+@@ -239,8 +300,8 @@ fun SableValuePanel(
+         tonalElevation = 0.dp,
+     ) {
+         Column(
+-            modifier = Modifier.padding(SableSpacing.Lg),
+-            verticalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
++            modifier = Modifier.padding(sablePanelPadding()),
++            verticalArrangement = Arrangement.spacedBy(if (isSableShortWindow()) SableSpacing.Xs else SableSpacing.Sm),
+         ) {
+             Text(
+                 text = label,
+@@ -387,7 +448,7 @@ fun SableTile(
+             modifier =
+                 Modifier
+                     .fillMaxWidth()
+-                    .padding(SableSpacing.Lg),
++                    .padding(sablePanelPadding()),
+             verticalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+         ) {
+             Text(
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableResponsive.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableResponsive.kt
+index 9cc484f..c91e62a 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableResponsive.kt
++++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableResponsive.kt
+@@ -80,6 +80,15 @@ object SableResponsive {
+     const val SQUARE_MAX_RATIO = 1.25f
+     const val LARGE_FONT_SCALE = 1.3f
+ 
++    /**
++     * Windows shorter than this (a 720x720 panel at 280 dpi is 411 dp, less the status bar) get the
++     * compact type scale, screen padding and headers, so a screen's content starts in the first third.
++     */
++    const val SHORT_MAX_HEIGHT_DP = 600
++
++    /** True for a window too short for the regular headers; 0 (unknown) is not short. */
++    fun isShort(heightDp: Int): Boolean = heightDp in 1 until SHORT_MAX_HEIGHT_DP
++
+     const val MAX_COMPACT_TOP_DESTINATIONS = 3
+     const val MAX_MEDIUM_TOP_DESTINATIONS = 5
+     const val MAX_EXPANDED_TOP_DESTINATIONS = 7
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTheme.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTheme.kt
+index ffa996f..4e171b7 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTheme.kt
++++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTheme.kt
+@@ -10,6 +10,7 @@ import androidx.compose.material3.lightColorScheme
+ import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.remember
+ import androidx.compose.ui.graphics.Color
++import androidx.compose.ui.platform.LocalConfiguration
+ import androidx.compose.ui.text.TextStyle
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.unit.dp
+@@ -85,8 +86,16 @@ object SableSpacing {
+ 
+     val ScreenHorizontal = SableDesignContract.SCREEN_HORIZONTAL_PADDING_DP.dp
+     val ScreenVertical = SableDesignContract.SCREEN_VERTICAL_PADDING_DP.dp
++
++    /** Screen padding in a short window ([SableResponsive.isShort]). */
++    val ScreenHorizontalShort = 12.dp
++    val ScreenVerticalShort = 8.dp
+ }
+ 
++/** True while the current window is short ([SableResponsive.isShort]): compact type, padding and headers. */
++@Composable
++fun isSableShortWindow(): Boolean = SableResponsive.isShort(LocalConfiguration.current.screenHeightDp)
++
+ object SableSize {
+     val TouchTarget = SableDesignContract.MIN_TOUCH_TARGET_DP.dp
+     val ControlHeight = 52.dp
+@@ -162,6 +171,19 @@ private val SableTypography =
+             ),
+     )
+ 
++/** The type scale in a short window: the same roles, one step smaller, display and headline the most. */
++private val SableShortTypography =
++    SableTypography.copy(
++        displayLarge = SableTypography.displayLarge.copy(fontSize = 28.sp, lineHeight = 32.sp, letterSpacing = (-0.4).sp),
++        headlineLarge = SableTypography.headlineLarge.copy(fontSize = 24.sp, lineHeight = 28.sp, letterSpacing = 0.sp),
++        headlineMedium = SableTypography.headlineMedium.copy(fontSize = 20.sp, lineHeight = 25.sp),
++        titleLarge = SableTypography.titleLarge.copy(fontSize = 18.sp, lineHeight = 23.sp),
++        titleMedium = SableTypography.titleMedium.copy(fontSize = 16.sp, lineHeight = 21.sp),
++        bodyLarge = SableTypography.bodyLarge.copy(fontSize = 15.sp, lineHeight = 21.sp),
++        bodyMedium = SableTypography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 19.sp),
++        labelLarge = SableTypography.labelLarge.copy(fontSize = 13.sp, lineHeight = 17.sp),
++    )
++
+ /** Material shapes for a corner style, built from [SableShapeTable]. */
+ fun sableShapes(style: SableCornerStyle): Shapes {
+     val scale = SableShapeTable.forStyle(style)
+@@ -223,7 +245,7 @@ fun SableTheme(
+ 
+     MaterialTheme(
+         colorScheme = colors,
+-        typography = SableTypography,
++        typography = if (isSableShortWindow()) SableShortTypography else SableTypography,
+         shapes = shapes,
+         content = content,
+     )

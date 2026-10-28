@@ -90,7 +90,10 @@
   720x1440 through forced display size while the app is in front), the Alt+Shift+R resolution
   hotkey (with frameworks/base 0313), a system rotation override, live per-app orientation, and
   ignore-orientation-request while an aspect profile is stored (Android 16 applies user aspect
-  ratios only then). Applied in order to a
+  ratios only then), 0073 the second device review (one SablePalette for the platform apps, the
+  phone follows the theme, Hub connected apps, Gmail sign-in), 0074 the third (platform apps and
+  the on-screen keyboard on the SableSystemTokens palette, compact headers and type in short
+  windows, square Calculator and Camera layouts, Weather/Calendar/Media can see Start). Applied in order to a
   fresh import they reproduce `sable-src/` exactly. Regenerate a patch with `git diff` against a
   fresh import when you change these files.
 

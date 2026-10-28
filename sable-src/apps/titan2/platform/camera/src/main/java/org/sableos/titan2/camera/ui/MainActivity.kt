@@ -18,10 +18,12 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -683,8 +685,8 @@ class MainActivity : ComponentActivity() {
         val presentation = DeckOrientation.presentation(cfg.screenWidthDp, cfg.screenHeightDp)
         val dc = deckContext()
         Box(Modifier.fillMaxSize().background(Color.Black).safeDrawingPadding()) {
-            // A tap on the viewfinder reveals touch controls in the landscape deck. Portrait
-            // always shows them, so this is a no-op there.
+            // A tap on the viewfinder reveals touch controls in the deck (landscape and square).
+            // Portrait always shows them, so this is a no-op there.
             PreviewSurface(
                 Modifier.align(Alignment.Center).fillMaxWidth().aspectRatio(previewAspect)
                     .clickable(enabled = presentation == DeckPresentation.LandscapeDeck) {
@@ -1006,13 +1008,15 @@ fun ControlLegendOverlay(
  * Touch controls for every open semantic action. Each button calls the same handler a key does,
  * so touch is a complete fallback. Closed controls are hidden here; the legend explains why.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TouchControlBar(
     controls: List<TouchControl>,
     onAction: (CameraAction) -> Unit,
     modifier: Modifier
 ) {
-    Row(modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 6.dp)) {
+    // Wraps onto a second line rather than scrolling, so every control is on screen in a narrow window.
+    FlowRow(modifier.padding(horizontal = 6.dp), horizontalArrangement = Arrangement.Center) {
         controls.filter { it.gate.isOpen }.forEach { c ->
             val shutter = c.action == CameraAction.Shutter
             Text(

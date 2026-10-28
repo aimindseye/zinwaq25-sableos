@@ -38,53 +38,58 @@ data class SablePalette(
         private const val AUTHORITY_URI = "content://org.sableos.appearance/appearance"
         private const val COLUMN_ACCENT = "accent"
 
-        /** Accent and the text drawn on it, by the stable value Settings stores (SableTheme AccentPreset). */
+        /**
+         * Accent tones by the stable value Settings stores: (dark accent, text on it, light accent, text on it),
+         * the same as SableAccentTokens in sabledesign so platform apps match Start, Settings and Quick Settings.
+         */
         private val ACCENTS =
             mapOf(
-                "blue" to (0xFF4D9CFF.toInt() to 0xFF06111F.toInt()),
-                "green" to (0xFF35C66B.toInt() to 0xFF04140A.toInt()),
-                "purple" to (0xFF7A42E8.toInt() to 0xFFFFFFFF.toInt()),
-                "orange" to (0xFFF28C45.toInt() to 0xFF1D0C02.toInt()),
-                "slate" to (0xFF64748B.toInt() to 0xFFFFFFFF.toInt())
+                "blue" to listOf(0xFF4D9CFF, 0xFF06111F, 0xFF1F6FD1, 0xFFFFFFFF),
+                "green" to listOf(0xFF35C66B, 0xFF04140A, 0xFF1A7F45, 0xFFFFFFFF),
+                "purple" to listOf(0xFFA47CFF, 0xFF0F0526, 0xFF7A42E8, 0xFFFFFFFF),
+                "orange" to listOf(0xFFF28C45, 0xFF1D0C02, 0xFFB35410, 0xFFFFFFFF),
+                "slate" to listOf(0xFF94A3B8, 0xFF0B1220, 0xFF55657A, 0xFFFFFFFF)
             )
 
+        /** Surfaces and text are SableSystemTokens (DESIGN-KF-B), the neutral palette every Sable surface uses. */
         fun of(dark: Boolean, accent: String?): SablePalette {
-            val (a, onA) = ACCENTS[accent] ?: ACCENTS.getValue("blue")
+            val tones = (ACCENTS[accent] ?: ACCENTS.getValue("blue")).map { it.toInt() }
             return if (dark) {
                 SablePalette(
                     dark = true,
-                    window = 0xFF06121D.toInt(),
-                    surface = 0xFF0C1E2D.toInt(),
-                    focus = 0xFF1E3A52.toInt(),
-                    text = 0xFFEEF8FF.toInt(),
-                    muted = 0xFF8BA6B8.toInt(),
-                    accent = a,
-                    onAccent = onA,
-                    warn = 0xFFFFB74D.toInt(),
-                    ok = 0xFF4CC38A.toInt(),
-                    danger = 0xFFFF6B6B.toInt()
+                    window = 0xFF05070A.toInt(),
+                    surface = 0xFF0D1117.toInt(),
+                    focus = 0xFF161C24.toInt(),
+                    text = 0xFFF7F9FC.toInt(),
+                    muted = 0xFFAAB4C0.toInt(),
+                    accent = tones[0],
+                    onAccent = tones[1],
+                    warn = 0xFFFBBF24.toInt(),
+                    ok = 0xFF4ADE80.toInt(),
+                    danger = 0xFFFF8A80.toInt()
                 )
             } else {
                 SablePalette(
                     dark = false,
-                    window = 0xFFF2F4F7.toInt(),
+                    window = 0xFFF5F7F9.toInt(),
                     surface = 0xFFFFFFFF.toInt(),
-                    focus = 0xFFDCE4EC.toInt(),
+                    focus = 0xFFE9EDF2.toInt(),
                     text = 0xFF12171C.toInt(),
-                    muted = 0xFF56636F.toInt(),
-                    accent = a,
-                    onAccent = onA,
-                    warn = 0xFF9A5800.toInt(),
-                    ok = 0xFF1E7A4C.toInt(),
-                    danger = 0xFFC62828.toInt()
+                    muted = 0xFF515B66.toInt(),
+                    accent = tones[2],
+                    onAccent = tones[3],
+                    warn = 0xFF8A5A00.toInt(),
+                    ok = 0xFF1A7F45.toInt(),
+                    danger = 0xFFBA1A1A.toInt()
                 )
             }
         }
 
-        fun read(context: Context): SablePalette {
-            val night = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
-            return of(night == Configuration.UI_MODE_NIGHT_YES, readAccent(context))
-        }
+        fun read(context: Context): SablePalette = of(isNight(context), readAccent(context))
+
+        private fun isNight(context: Context): Boolean =
+            (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+                Configuration.UI_MODE_NIGHT_YES
 
         private fun readAccent(context: Context): String? = runCatching {
             context.contentResolver.query(

@@ -156,7 +156,10 @@ class ControlDeckTest {
     @Test fun presentationFollowsTheWindowShape() {
         assertEquals(DeckPresentation.LandscapeDeck, DeckOrientation.presentation(2000, 1000))
         assertEquals(DeckPresentation.Portrait, DeckOrientation.presentation(1000, 2000))
-        assertEquals(DeckPresentation.Portrait, DeckOrientation.presentation(1000, 1000))
+        // Square (Zinwa Q25, 411x380 dp under the status bar) keeps the viewfinder clear like landscape.
+        assertEquals(DeckPresentation.LandscapeDeck, DeckOrientation.presentation(1000, 1000))
+        assertEquals(DeckPresentation.LandscapeDeck, DeckOrientation.presentation(411, 380))
+        assertEquals(DeckPresentation.Portrait, DeckOrientation.presentation(1080, 1440))
     }
 
     // ---- capability gating -------------------------------------------------------------------

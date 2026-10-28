@@ -4,6 +4,8 @@
     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
     <queries>
         <provider android:authorities="org.sableos.appearance" />
+        <!-- Start reads the snapshot; getPackagesForUid only names packages this app can see. -->
+        <package android:name="org.sableos.launcher" />
     </queries>
     <application
         android:allowBackup="false"

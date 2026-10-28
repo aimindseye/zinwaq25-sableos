@@ -1,5 +1,7 @@
 package org.sableos.start.model
 
+import org.sableos.start.live.LiveAvailability
+
 /**
  * The header over Active Frames (the BB10 Home) and what Edit Home can hide.
  * Pure policy, unit tested in
@@ -190,6 +192,17 @@ object HomeHeader {
             else -> "🌡"
         }
     }
+
+    /**
+     * The header line while there is no forecast to show, saying what to do: Sable Weather could not be
+     * read (open it once to choose a city), or its last update failed (it retries on its own).
+     */
+    fun weatherFallback(availability: LiveAvailability): String =
+        when (availability) {
+            LiveAvailability.LOADING -> "Weather · updating"
+            LiveAvailability.ERROR -> "Weather · update failed, retrying"
+            else -> "Weather · open Sable Weather to set it up"
+        }
 
     /** Milliseconds from [nowMillisOfDay] to the next midnight, when the date line changes. */
     fun millisToMidnight(nowMillisOfDay: Long): Long = (DAY_MS - nowMillisOfDay.mod(DAY_MS)).coerceAtLeast(1L)

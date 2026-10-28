@@ -1,7 +1,6 @@
 package org.sableos.titan2.keyboard.android
 
 import android.content.Context
-import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
@@ -20,6 +19,7 @@ import org.sableos.titan2.keyboard.core.Language
 import org.sableos.titan2.keyboard.core.Languages
 import org.sableos.titan2.keyboard.core.SoftKeyboardGeometry
 import org.sableos.titan2.keyboard.core.SoftShift
+import org.sableos.titan2.theme.SablePalette
 
 /**
  * On-screen keyboard: letters, an Alt layer (one-shot, shows the Alt legend on every key), a digits/symbols page,
@@ -73,11 +73,13 @@ class SoftKeyboardView(
     private var popup: PopupWindow? = null
     private var alt = false
 
-    private val bg = Color.parseColor("#0C1E2D")
-    private val keyBg = Color.parseColor("#1E3A52")
-    private val keyOn = Color.parseColor("#2F7FB8")
-    private val fn = Color.parseColor("#2A4D6B")
-    private val fg = Color.WHITE
+    // The Sable theme: Dark theme or light, and the Sable accent, as every Sable app.
+    private val palette = SablePalette.read(context)
+    private val bg = palette.window
+    private val keyBg = if (palette.dark) palette.focus else palette.surface
+    private val keyOn = palette.accent
+    private val fn = if (palette.dark) palette.surface else palette.focus
+    private val fg = palette.text
     private val dp = resources.displayMetrics.density
 
     init {
@@ -334,7 +336,7 @@ class SoftKeyboardView(
         background =
             GradientDrawable().apply {
                 cornerRadius = STRIP_CORNER_DP * dp
-                setColor(Color.parseColor("#0A1824"))
+                setColor(palette.surface)
                 setStroke(px(1), keyOn)
             }
     }
@@ -392,7 +394,7 @@ class SoftKeyboardView(
                 opts.sp ?: if (label.length > 2) LONG_LABEL_SP else KEY_SP
             )
             typeface = Typeface.DEFAULT_BOLD
-            setTextColor(fg)
+            setTextColor(if (opts.active) palette.onAccent else fg)
             setPadding(0, 0, 0, 0)
             minWidth = 0
             minimumWidth = 0

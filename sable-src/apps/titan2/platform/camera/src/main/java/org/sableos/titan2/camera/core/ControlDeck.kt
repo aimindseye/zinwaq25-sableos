@@ -22,9 +22,19 @@ object DeckPolicy {
 enum class DeckPresentation { Portrait, LandscapeDeck }
 
 object DeckOrientation {
-    /** Landscape gets the Control Deck; portrait and square stay the minimal conventional UI. */
+    /**
+     * Landscape and square windows (the Q25's 720x720) get the Control Deck: the viewfinder stays clear
+     * and the touch controls appear when it is tapped. Only a window clearly taller than wide (more than
+     * [PORTRAIT_RATIO]) keeps the always-on conventional controls.
+     */
     fun presentation(widthPx: Int, heightPx: Int): DeckPresentation =
-        if (widthPx > heightPx) DeckPresentation.LandscapeDeck else DeckPresentation.Portrait
+        if (heightPx > widthPx * PORTRAIT_RATIO) {
+            DeckPresentation.Portrait
+        } else {
+            DeckPresentation.LandscapeDeck
+        }
+
+    const val PORTRAIT_RATIO = 1.25f
 
     /** Touch chrome is always there in portrait; in the deck it appears only when revealed. */
     fun touchChromeVisible(p: DeckPresentation, revealed: Boolean): Boolean =

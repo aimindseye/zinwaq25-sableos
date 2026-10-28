@@ -1208,7 +1208,7 @@ private fun WeatherDateHeader(
         datum.takeIf { it.availability == LiveAvailability.LIVE }?.let { HomeHeader.weather(it.detail) }
     val line =
         when {
-            weather == null -> if (datum.availability == LiveAvailability.LOADING) "Weather" else "Weather · no forecast yet"
+            weather == null -> HomeHeader.weatherFallback(datum.availability)
             weather.second.isBlank() -> HomeHeader.weatherIcon(weather.first) + " " + weather.first
             else -> HomeHeader.weatherIcon(weather.first) + " " + weather.first + " · " + weather.second
         }

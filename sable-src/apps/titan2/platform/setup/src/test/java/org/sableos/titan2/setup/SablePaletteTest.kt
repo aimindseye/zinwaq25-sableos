@@ -22,6 +22,14 @@ class SablePaletteTest {
         assertEquals(0xFF7A42E8.toInt(), SablePalette.of(dark = false, accent = "purple").accent)
     }
 
+    @Test fun surfacesAreTheSableSystemTokens() {
+        // Same values as SableSystemTokens.Dark/Light in sabledesign: Start, Settings and Quick Settings.
+        assertEquals(0xFF05070A.toInt(), SablePalette.of(dark = true, accent = null).window)
+        assertEquals(0xFF0D1117.toInt(), SablePalette.of(dark = true, accent = null).surface)
+        assertEquals(0xFFF5F7F9.toInt(), SablePalette.of(dark = false, accent = null).window)
+        assertEquals(0xFF1F6FD1.toInt(), SablePalette.of(dark = false, accent = "blue").accent)
+    }
+
     @Test fun unknownOrMissingAccentIsSableBlue() {
         val blue = SablePalette.of(dark = true, accent = "blue").accent
         assertEquals(blue, SablePalette.of(dark = true, accent = null).accent)
