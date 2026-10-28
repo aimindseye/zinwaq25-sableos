@@ -142,7 +142,7 @@ Each item has a gate in [`QUALIFICATION.md`](QUALIFICATION.md). R0, Q1 and Q2 ha
   away from the Sable accent until it is chosen again in Settings > Display.
 * The brightness slider has no visible text label, and the focus ring stays at
   Android's 3dp.
-* LineageOS's boot animation is kept.
+* The boot animation is Sable's (shield and SableOS wordmark, product/q25/bootanimation); LineageOS's is replaced through TARGET_BOOTANIMATION.
 * Sable app corners are a user setting (App display compatibility > Sable app
   style: Compact, the default, or Rounded). Shapes drawn through the Sable theme
   follow it. Views that hard-code a radius (parts of Sable Start, Reader, Hub,

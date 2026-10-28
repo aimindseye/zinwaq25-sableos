@@ -198,7 +198,13 @@ if [[ "$FRAMEWORK" == YES ]]; then
     # dark Sable image for the 720x720 panel instead of the LineageOS one.
     mkdir -p "$VENDOR_SABLE/media"
     cp "$SABLE_REPO_ROOT/product/q25/wallpaper/sable_default_wallpaper.png" "$VENDOR_SABLE/media/"
+    # Boot animation: the Sable shield and wordmark (product/q25/bootanimation,
+    # gen-bootanimation.py) instead of LineageOS's. vendor/lineage's
+    # bootanimation.zip module installs TARGET_BOOTANIMATION as is when it is set;
+    # bootanimation-dark.zip is a symlink to it.
+    cp "$SABLE_REPO_ROOT/product/q25/bootanimation/bootanimation.zip" "$VENDOR_SABLE/media/"
     cat >> "$fw_mk" <<'MK'
+TARGET_BOOTANIMATION := vendor/sable/q25/media/bootanimation.zip
 PRODUCT_PACKAGES += \
     SableLauncher \
     SableFrameworkOverlay \

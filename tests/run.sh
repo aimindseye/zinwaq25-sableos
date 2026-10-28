@@ -366,7 +366,20 @@ grep -q 'android:authorities="org.sableos.weather.snapshot"' sable-src/apps/tita
 grep -q 'org.sableos.start.action.SHOW_ACTIVE_FRAMES' sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml || q4_bad="$q4_bad start-recents-filter"
 grep -q 'const val COLUMNS = 5' sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt || q4_bad="$q4_bad start-5-columns"
 for g in DENSITY GAMES KEYBOARD-STRIP WALLPAPER APPS WEATHER WEATHER-CITY DISPLAYCOMPAT RECENTS START-ICONS; do grep -q "^| Q4-REVIEW-$g |" docs/QUALIFICATION.md || q4_bad="$q4_bad gate:$g"; done
-if [[ -z "$q4_bad" ]]; then pass "Q4 review fixes (overrides, AudioFX, weather, display compat, games, keyboard strip, wallpaper)"; else fail "Q4 review fixes:$q4_bad"; fi
+# Sable boot animation instead of LineageOS's: staged, wired through TARGET_BOOTANIMATION, a stored
+# (uncompressed) zip whose desc.txt fills the 720x720 panel and names both parts.
+grep -q 'TARGET_BOOTANIMATION := vendor/sable/q25/media/bootanimation.zip' scripts/stage-product.sh || q4_bad="$q4_bad bootanimation-wiring"
+python3 -I - product/q25/bootanimation/bootanimation.zip <<'PY' || q4_bad="$q4_bad bootanimation-zip"
+import sys, zipfile
+z = zipfile.ZipFile(sys.argv[1])
+assert all(i.compress_type == zipfile.ZIP_STORED for i in z.infolist())
+desc = z.read("desc.txt").decode().split("\n")
+assert desc[0].split()[:2] == ["720", "720"]
+for part in ("part0", "part1"):
+    assert any(line.split()[3:4] == [part] for line in desc[1:] if line)
+    assert any(n.startswith(part + "/") and n.endswith(".png") for n in z.namelist())
+PY
+if [[ -z "$q4_bad" ]]; then pass "Q4 review fixes (overrides, AudioFX, weather, display compat, games, keyboard strip, wallpaper, boot animation)"; else fail "Q4 review fixes:$q4_bad"; fi
 
 # 6b1a. One Hub: Start's Hub page has the Contacts tab and the unread bar; Sable Hub has no launcher entry.
 hub_bad=""

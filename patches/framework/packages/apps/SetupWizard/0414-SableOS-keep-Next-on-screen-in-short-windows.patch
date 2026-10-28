@@ -1,0 +1,150 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 28 Oct 2026 16:57:54 +0000
+Subject: [PATCH] SableOS: keep Next on screen in short windows
+
+On a window under 600 dp tall (the Zinwa Q25's 411 dp square screen) the
+Glif header and the page together ran past the bottom, so Next or Start had
+to be scrolled to. In a short window the page's button bar is pinned under
+the Glif scroll view, the header icon and the welcome logo are hidden and the
+header title is smaller. Pure decision in sable/SableShortWindow.
+---
+ res/layout/welcome_activity.xml               |  2 +
+ .../setupwizard/BaseSetupWizardActivity.java  | 48 +++++++++++++++++++
+ .../setupwizard/sable/SableShortWindow.java   | 30 ++++++++++++
+ 3 files changed, 80 insertions(+)
+ create mode 100644 src/org/lineageos/setupwizard/sable/SableShortWindow.java
+
+diff --git a/res/layout/welcome_activity.xml b/res/layout/welcome_activity.xml
+index 4e31347..45e71f0 100644
+--- a/res/layout/welcome_activity.xml
++++ b/res/layout/welcome_activity.xml
+@@ -164,7 +164,9 @@
+ 
+         </LinearLayout>
+ 
++        <!-- SableOS: the id lets a short window pin this bar under the scroll view. -->
+         <LinearLayout
++            android:id="@+id/sable_button_bar"
+             style="@style/SudGlifButtonBar.Stackable"
+             android:layout_width="fill_parent"
+             android:layout_height="wrap_content"
+diff --git a/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java b/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java
+index 55efbd0..0af23e1 100644
+--- a/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java
++++ b/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java
+@@ -27,6 +27,8 @@ import android.view.KeyEvent;
+ import android.view.View;
+ import android.view.ViewGroup;
+ import android.widget.Button;
++import android.widget.LinearLayout;
++import android.widget.ScrollView;
+ import android.widget.TextView;
+ 
+ import androidx.activity.OnBackPressedCallback;
+@@ -46,6 +48,7 @@ import org.lineageos.setupwizard.NavigationLayout.NavigationBarListener;
+ import org.lineageos.setupwizard.sable.SableFocusRing;
+ import org.lineageos.setupwizard.sable.SableKeyFocus;
+ import org.lineageos.setupwizard.sable.SableKeyPolicy;
++import org.lineageos.setupwizard.sable.SableShortWindow;
+ import org.lineageos.setupwizard.sable.SableSteps;
+ import org.lineageos.setupwizard.util.SetupWizardUtils;
+ 
+@@ -72,6 +75,7 @@ public abstract class BaseSetupWizardActivity extends AppCompatActivity implemen
+         // SableOS: the cyan keyboard focus ring on every control of every step.
+         SableFocusRing.install(this);
+         showSableStep();
++        fitShortWindow();
+         mNavigationBar = getNavigationBar();
+         if (mNavigationBar != null) {
+             mNavigationBar.setNavigationBarListener(this);
+@@ -426,6 +430,50 @@ public abstract class BaseSetupWizardActivity extends AppCompatActivity implemen
+         }
+     }
+ 
++    /**
++     * SableOS: on a short window ({@link SableShortWindow}) the page's button bar moves out of the
++     * Glif scroll view to sit under it, so Next or Start is always on screen, and the header
++     * icon and logo are hidden and the title made smaller. Never fails the step.
++     */
++    private void fitShortWindow() {
++        try {
++            if (!SableShortWindow.isShort(getResources().getConfiguration().screenHeightDp)) return;
++            final View root = findViewById(R.id.setup_wizard_layout);
++            if (!(root instanceof GlifLayout)) return;
++            final GlifLayout layout = (GlifLayout) root;
++            hideById(layout, getResources().getIdentifier("sud_layout_icon", "id", getPackageName()));
++            hideById(layout, R.id.brand_logo);
++            final TextView header = layout.getHeaderTextView();
++            if (header != null) header.setTextSize(SableShortWindow.TITLE_SP);
++            View bar = findViewById(R.id.navigation_bar);
++            if (bar == null) bar = findViewById(R.id.sable_button_bar);
++            final View scroll = layout.findViewById(
++                    getResources().getIdentifier("sud_scroll_view", "id", getPackageName()));
++            if (bar == null || !(scroll instanceof ScrollView)
++                    || !(scroll.getParent() instanceof LinearLayout)
++                    || !(bar.getParent() instanceof ViewGroup)) {
++                return;
++            }
++            final LinearLayout column = (LinearLayout) scroll.getParent();
++            if (column.getOrientation() != LinearLayout.VERTICAL) return;
++            ((ViewGroup) bar.getParent()).removeView(bar);
++            scroll.setLayoutParams(new LinearLayout.LayoutParams(
++                    ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
++            final int pad = Math.round(8 * getResources().getDisplayMetrics().density);
++            bar.setPadding(pad * 2, pad / 2, pad * 2, pad / 2);
++            column.addView(bar, column.indexOfChild(scroll) + 1, new LinearLayout.LayoutParams(
++                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
++        } catch (RuntimeException e) {
++            Log.w(TAG, "could not fit setup to the short window", e);
++        }
++    }
++
++    private static void hideById(View root, int id) {
++        if (id == 0 || id == View.NO_ID) return;
++        final View view = root.findViewById(id);
++        if (view != null) view.setVisibility(View.GONE);
++    }
++
+     protected GlifLayout getGlifLayout() {
+         return requireViewById(R.id.setup_wizard_layout);
+     }
+diff --git a/src/org/lineageos/setupwizard/sable/SableShortWindow.java b/src/org/lineageos/setupwizard/sable/SableShortWindow.java
+new file mode 100644
+index 0000000..762d0fd
+--- /dev/null
++++ b/src/org/lineageos/setupwizard/sable/SableShortWindow.java
+@@ -0,0 +1,30 @@
++/*
++ * SPDX-FileCopyrightText: The SableOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++package org.lineageos.setupwizard.sable;
++
++/**
++ * Setup on a short window, such as the Zinwa Q25's 411 dp square screen. Pure Java.
++ *
++ * <p>Every setup page sits inside the Glif layout's scroll view, below its header (icon, title,
++ * description). On a short window that header and the page together run past the bottom, so Next
++ * or Start scrolls off screen. In a short window the page's button bar is pinned under the scroll
++ * view, the header icon and the welcome/finish logo are hidden and the header title is smaller.
++ * The decision follows the window height, never the device model.
++ */
++public final class SableShortWindow {
++    /** Below this height (dp) a window is short; the same limit Sable apps use. */
++    public static final int SHORT_MAX_HEIGHT_DP = 600;
++
++    /** Header title size (sp) in a short window. */
++    public static final float TITLE_SP = 22f;
++
++    private SableShortWindow() {}
++
++    /** True for a window under {@link #SHORT_MAX_HEIGHT_DP}; an unknown height (0 or less) is not. */
++    public static boolean isShort(int heightDp) {
++        return heightDp > 0 && heightDp < SHORT_MAX_HEIGHT_DP;
++    }
++}
+-- 
+2.43.0
+
