@@ -30,6 +30,24 @@ index ed0524a..6337db4 100644
 +        assertEquals(listOf("a"), Bb7Home.toggleFavorite(listOf("a", "b"), "b"))
 +    }
  }
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/ui/StartPaletteTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/ui/StartPaletteTest.kt
+index 433d4a4..5fe61f9 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/ui/StartPaletteTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/ui/StartPaletteTest.kt
+@@ -19,10 +19,11 @@ class StartPaletteTest {
+     }
+ 
+     @Test
+-    fun darkIsTheBb10LookAndLightUsesLightSurfacesWithDarkText() {
++    fun darkIsPureBlackAndLightUsesLightSurfacesWithDarkText() {
+         val dark = startPalette(dark = true, accent = AccentPreset.Green)
+         val light = startPalette(dark = false, accent = AccentPreset.Green)
+-        assertEquals(Color(0xFF121212), dark.background)
++        assertEquals(Color.Black, dark.background)
++        assertTrue(dark.card.luminance() < 0.02f)
+         assertEquals(Color.White, dark.text)
+         assertTrue(light.background.luminance() > 0.8f)
+         assertTrue(light.card.luminance() > 0.8f)
 diff --git a/sable-src/apps/r8/android/weather/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/weather/src/main/AndroidManifest.xml
 index 45ea2e9..0ce3b2e 100644
 --- a/sable-src/apps/r8/android/weather/src/main/AndroidManifest.xml
@@ -753,7 +771,7 @@ index d8338c7..b62fabc 100644
          // v2: the BB10 Home shows the status dials by default; sets saved by the
          // three-page Home hid them without the user choosing, so they are not read.
 diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt
-index 1ac5e62..f7b8992 100644
+index 1ac5e62..a4fecf4 100644
 --- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt
 +++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt
 @@ -7,6 +7,8 @@ import androidx.compose.foundation.border
@@ -1168,7 +1186,7 @@ index 1ac5e62..f7b8992 100644
                                  RoundedCornerShape(8.dp),
                              )
                              .combinedClickable(onClick = { onLaunch(app) }, onLongClick = { onInfo(app) })
-@@ -392,7 +521,12 @@ private fun TrayArrow(
+@@ -392,8 +521,13 @@ private fun TrayArrow(
      }
  }
  
@@ -1181,4 +1199,31 @@ index 1ac5e62..f7b8992 100644
 +private const val ROW_DP = 64
  private const val ICON_DP = 40
  private val BANNER_SCRIM = Color(0x99000000)
- private val TRAY_SCRIM = Color(0xCC0B0D10)
+-private val TRAY_SCRIM = Color(0xCC0B0D10)
++private val TRAY_SCRIM = Color(0xE6000000)
+ private val BANNER_MUTED = Color(0xFFC9D1DA)
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+index 3c0b65c..9d5b914 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+@@ -267,12 +267,14 @@ internal fun startPalette(
+         StartPalette(
+             accent = accentColor,
+             onAccent = onAccent,
+-            background = Color(0xFF121212),
+-            card = Color(0xFF262626),
+-            tile = Color(0xFF2E2E2E),
+-            line = Color(0xFF3A3A3A),
+-            barTop = Color(0xFF2A2A2A),
+-            barBottom = Color(0xFF141414),
++            // Pure black, the default Dark theme on the Q25 (owner request, 2026-10-28): the
++            // pages, Hub and All Apps are #000000 and cards are a step above it.
++            background = Color.Black,
++            card = Color(0xFF141414),
++            tile = Color(0xFF1C1C1C),
++            line = Color(0xFF2A2A2A),
++            barTop = Color(0xFF1C1C1C),
++            barBottom = Color.Black,
+             text = Color.White,
+             muted = Color(0xFF9E9E9E),
+             dim = Color(0xFF5E5E5E),
