@@ -1,5 +1,7 @@
 package org.sableos.titan2.setup.core
 
+import org.sableos.titan2.setup.core.SetupText.t
+
 /** Raw observations the Android side collected. The model turns them into rows without touching Android. */
 data class Snapshot(
     val home: Observed,
@@ -11,8 +13,6 @@ data class Snapshot(
 )
 
 object SetupRows {
-    private const val HOME_TITLE = "Home app"
-
     const val SABLE_KEYBOARD_PACKAGE = "org.sableos.titan2.keyboard"
     const val SABLE_START_PACKAGE = "org.sableos.launcher"
 
@@ -28,14 +28,13 @@ object SetupRows {
         )
 
     fun displayName(pkg: String): String = KNOWN_NAMES[pkg] ?: pkg
-    const val RADIO_DETAIL =
-        "Read-only SIM and network diagnostics; IMS registration visibility requires canonical IR-007"
+    val RADIO_DETAIL get() = t("row_radio_detail")
 
     fun build(snapshot: Snapshot, targets: (Action) -> TargetStatus): List<Item> = listOf(
         Item(
             "style",
-            "Home screen style",
-            "Sable Start in the BlackBerry 10 or BlackBerry 7 style",
+            t("row_style_title"),
+            t("row_style_detail"),
             Readiness.Informational,
             Action.HomeStyle
         ),
@@ -43,38 +42,38 @@ object SetupRows {
         keyboard(snapshot.keyboard),
         Item(
             "ime_add",
-            "Add a keyboard",
-            "Turn on Gboard or another keyboard you installed, then choose it above",
+            t("row_ime_add_title"),
+            t("row_ime_add_detail"),
             Readiness.Informational,
             Action.KeyboardSettings
         ),
         Item(
             "defaults",
-            "Default apps",
-            "Browser, phone, messages and the other apps Android opens by default",
+            t("row_defaults_title"),
+            t("row_defaults_detail"),
             Readiness.Informational,
             Action.DefaultApps
         ),
-        defaultApp("dialer", "Phone app", snapshot.dialer),
-        defaultApp("sms", "Messages app", snapshot.sms),
+        defaultApp("dialer", t("row_dialer_title"), snapshot.dialer),
+        defaultApp("sms", t("row_sms_title"), snapshot.sms),
         Item(
             "display",
-            "Display compatibility",
-            "Open to choose a screen profile for apps that do not fit",
+            t("row_display_title"),
+            t("row_display_detail"),
             Readiness.Informational,
             Action.DisplayCompat
         ),
         Item(
             "radio",
-            "Radio diagnostics",
+            t("row_radio_title"),
             RADIO_DETAIL,
             Readiness.Informational,
             Action.RadioDiag
         ),
         Item(
             "network",
-            "Network and SIM settings",
-            "Opens Android Settings",
+            t("row_network_title"),
+            t("row_network_detail"),
             Readiness.Informational,
             Action.NetworkSettings
         ),
@@ -86,8 +85,8 @@ object SetupRows {
         is Observed.Value ->
             Item(
                 "home",
-                HOME_TITLE,
-                "In use: ${displayName(o.text)} · choose Sable Start or another launcher",
+                t("row_home_title"),
+                t("row_home_in_use", displayName(o.text)),
                 Readiness.Informational,
                 Action.HomeSettings
             )
@@ -95,8 +94,8 @@ object SetupRows {
         Observed.Absent ->
             Item(
                 "home",
-                HOME_TITLE,
-                "No home app resolved",
+                t("row_home_title"),
+                t("row_home_none"),
                 Readiness.Informational,
                 Action.HomeSettings
             )
@@ -104,8 +103,8 @@ object SetupRows {
         Observed.Failed ->
             Item(
                 "home",
-                HOME_TITLE,
-                "Could not read the home app",
+                t("row_home_title"),
+                t("row_home_failed"),
                 Readiness.Unknown,
                 Action.HomeSettings
             )
@@ -116,13 +115,13 @@ object SetupRows {
      * valid choice (Sable keyboard, Gboard or another), so a readable value is informational.
      */
     private fun keyboard(o: Observed): Item {
-        val title = "Keyboard"
+        val title = t("row_keyboard_title")
         return when (o) {
             is Observed.Value ->
                 Item(
                     "ime",
                     title,
-                    "In use: ${displayName(o.text.substringBefore('/'))}",
+                    t("row_keyboard_in_use", displayName(o.text.substringBefore('/'))),
                     Readiness.Informational,
                     Action.KeyboardPicker
                 )
@@ -131,7 +130,7 @@ object SetupRows {
                 Item(
                     "ime",
                     title,
-                    "No keyboard value reported",
+                    t("row_keyboard_none"),
                     Readiness.Unknown,
                     Action.KeyboardPicker
                 )
@@ -140,7 +139,7 @@ object SetupRows {
                 Item(
                     "ime",
                     title,
-                    "Could not read the keyboard setting",
+                    t("row_keyboard_failed"),
                     Readiness.Unknown,
                     Action.KeyboardPicker
                 )
@@ -153,7 +152,7 @@ object SetupRows {
             Item(
                 id,
                 title,
-                "A default app is configured: ${o.text} " + "(not checked against a specific app)",
+                t("row_default_set", o.text),
                 Readiness.Satisfied,
                 Action.DefaultApps
             )
@@ -162,7 +161,7 @@ object SetupRows {
             Item(
                 id,
                 title,
-                "No default app is configured",
+                t("row_default_none"),
                 Readiness.ActionRequired,
                 Action.DefaultApps
             )
@@ -171,7 +170,7 @@ object SetupRows {
             Item(
                 id,
                 title,
-                "Could not read the default app",
+                t("row_default_failed"),
                 Readiness.Unknown,
                 Action.DefaultApps
             )
@@ -183,7 +182,7 @@ object SetupRows {
 
         status == TargetStatus.Unverifiable ->
             item.copy(
-                detail = "${item.detail} · could not verify that this screen is available",
+                detail = t("row_unverifiable", item.detail),
                 action = Action.None
             )
 
@@ -193,16 +192,14 @@ object SetupRows {
         item.state == Readiness.ActionRequired ->
             item.copy(
                 state = Readiness.Unavailable,
-                detail =
-                    "${item.detail} · needs attention, " +
-                        "but its screen is not available on this device",
+                detail = t("row_needs_attention_unavailable", item.detail),
                 action = Action.None
             )
 
         else ->
             item.copy(
                 state = Readiness.Unavailable,
-                detail = "Not available on this device",
+                detail = t("row_not_available"),
                 action = Action.None
             )
     }
@@ -212,9 +209,9 @@ object SetupRows {
     /** Button text, or null when the row offers no action. */
     fun buttonLabel(item: Item): String? = when {
         item.action == Action.None || item.state == Readiness.Satisfied -> null
-        item.state == Readiness.ActionRequired -> "Fix"
-        item.action == Action.WeatherCity -> "Choose city"
-        item.action in CHOICES -> "Choose"
-        else -> "Open"
+        item.state == Readiness.ActionRequired -> t("button_fix")
+        item.action == Action.WeatherCity -> t("button_choose_city")
+        item.action in CHOICES -> t("button_choose")
+        else -> t("button_open")
     }
 }

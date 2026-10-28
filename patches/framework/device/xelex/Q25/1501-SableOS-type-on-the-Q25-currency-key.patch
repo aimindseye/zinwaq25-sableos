@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 28 Oct 2026 18:00:00 +0000
+Subject: [PATCH] SableOS: type $ on the Q25 currency key
+
+The Q25 keyboard sends scan code 41 (GRAVE) for its $ key and the
+keychar map had no entry for it, so apps and keyboards fell back to
+'`'. Map GRAVE to the printed '$' (plain, Shift and Caps Lock).
+Other keys and the Alt layer are unchanged.
+---
+ configs/keychars/Q25_keyboard.kcm | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/configs/keychars/Q25_keyboard.kcm b/configs/keychars/Q25_keyboard.kcm
+index 5196c3b..3bd6d8e 100644
+--- a/configs/keychars/Q25_keyboard.kcm
++++ b/configs/keychars/Q25_keyboard.kcm
+@@ -265,3 +265,12 @@ key 0 {
+     alt:                                '0'
+     shift+alt:                          '0'
+ }
++
++# SableOS: the currency key (printed $) sends scan code 41, GRAVE, which had
++# no entry here, so keyboards typed '`' or nothing. Type the printed '$' in
++# every app and keyboard; Alt+$ is left to the app (Sable Keyboard keeps '$').
++key GRAVE {
++    label:                              '$'
++    base:                               '$'
++    shift, capslock:                    '$'
++}
+-- 
+2.43.0
+

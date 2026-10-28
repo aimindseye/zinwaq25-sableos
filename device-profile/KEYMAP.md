@@ -24,10 +24,11 @@ from its own Q25 testing. Confirm each with `getevent -lt` before relying on it.
 
 | Key | Reported | Note |
 |---|---|---|
-| Currency key | scan code 41 (`GRAVE`) | Described as miswired in the keyboard firmware |
+| Currency key | scan code 41 (`GRAVE`) | Described as miswired in the keyboard firmware. Device tree 1501 makes the kcm type '$' for GRAVE, and Sable Keyboard types the kcm character (sable-src 0075) |
 | Recents key | scan code 580 (`APP_SWITCH`) | The system opens its own Overview on it even when an accessibility service consumes the key |
 | Right Shift | scan code 54 | |
 | Keylayout | `/vendor/usr/keylayout/Q25_keyboard.kl` | A replacement must be labelled `u:object_r:vendor_keylayout_file:s0`; with `vendor_file` the system silently falls back to `Generic.kl` |
 | Keyboard driver | `bbqX0kbd.ko`, i2c device `6-001f`, driver `Q25_keyboard` | Never unbind and rebind it: a panel-on event while unbound is a kernel NULL dereference. Reload with a uevent remove/add on its input node |
+| Sym and 0 | scan codes 0x1D (`KEY_RIGHTALT`) and 0x7E (`KEY_0`), seen 2026-10-28 | The driver treats Sym+0/Z/X as keyboard-light keys and writes `REG_BKL`; the RP2040 keyboard firmware ignores it (community PaBaLF firmware handles the light itself) |
 | Lock screen | Enter and keypad keys activate whatever has focus | The PIN pad needs keyboard handling (critical text entry gate) |
 

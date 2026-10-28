@@ -36,23 +36,26 @@ sealed interface Observed {
  * Where a row's button goes. Every destination is an Android screen the user confirms in; nothing
  * is mutated, except the Weather city the user explicitly picks, which Sable Weather stores.
  */
-enum class Action(val label: String) {
+enum class Action(private val labelKey: String) {
     None(""),
 
     /** Sable Start's own chooser: BlackBerry 10 or BlackBerry 7 style. */
-    HomeStyle("Home screen style"),
-    HomeSettings("Home settings"),
-    DefaultApps("Default apps settings"),
-    KeyboardPicker("Keyboard picker"),
+    HomeStyle("action_home_style"),
+    HomeSettings("action_home_settings"),
+    DefaultApps("action_default_apps"),
+    KeyboardPicker("action_keyboard_picker"),
 
     /** Android's keyboard list, where Gboard or another installed keyboard is turned on. */
-    KeyboardSettings("Keyboard settings"),
-    DisplayCompat("Display compatibility"),
-    RadioDiag("Radio diagnostics"),
-    NetworkSettings("Network settings"),
+    KeyboardSettings("action_keyboard_settings"),
+    DisplayCompat("action_display_compat"),
+    RadioDiag("action_radio_diag"),
+    NetworkSettings("action_network_settings"),
 
     /** Opens Setup's own Weather city step; the only action whose choice is written (by Sable Weather). */
-    WeatherCity("Weather city")
+    WeatherCity("action_weather_city");
+
+    /** What the button opens, for a launch failure line; empty for [None]. */
+    val label: String get() = if (labelKey.isEmpty()) "" else SetupText.t(labelKey)
 }
 
 /** Whether the destination of an [Action] could be resolved before it was offered. */
