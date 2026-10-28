@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static checks for the Sable Phone/Contacts restyle (Dialer 0707-0708, Contacts 0755).
+"""Static checks for the Sable Phone/Contacts restyle (Dialer 0707-0709, Contacts 0755-0756).
 
 No Android tree, no network. Reads the patches and checks that:
   * every XML file the patches add is well-formed;
@@ -9,8 +9,10 @@ No Android tree, no network. Reads the patches and checks that:
   * the accent is never hard-coded: sable_accent and its container come
     from the system palette (system_accent1_*), which the Sable accent seeds;
   * the focus outline uses the token geometry (2dp stroke, 12dp rows);
-  * both apps are dark only: dark parents, never force-darkened, no
-    -night colour files left to override the palette;
+  * both apps follow the system Dark theme (0709, 0756): DayNight or
+    day/night parents, never force-darkened, the dark palette in
+    values-night and a light palette with the same names in values, the
+    same in both apps, and Phone's call screen kept dark;
   * the theme's selectableItemBackground (and Contacts' list selector) is
     the Sable focus row;
   * the dial pad key stays a RippleDrawable (DialpadView casts it), End is
@@ -69,24 +71,30 @@ def parse_patch(path: pathlib.Path) -> dict[str, dict]:
     return files
 
 
-dialer = [one("Dialer/0707-*.patch"), one("Dialer/0708-*.patch")]
-contacts = [one("Contacts/0755-*.patch")]
-report(all(dialer) and all(contacts), "restyle patches present (Dialer 0707, 0708; Contacts 0755)")
+dialer = [one("Dialer/0707-*.patch"), one("Dialer/0708-*.patch"), one("Dialer/0709-*.patch")]
+contacts = [one("Contacts/0755-*.patch"), one("Contacts/0756-*.patch")]
+report(all(dialer) and all(contacts), "restyle patches present (Dialer 0707-0709; Contacts 0755, 0756)")
 if not (all(dialer) and all(contacts)):
     sys.exit(1)
 
-d_files: dict[str, dict] = {}
-for p in dialer:
-    for k, v in parse_patch(p).items():
-        prev = d_files.get(k)
-        if prev:
-            prev["added"] += v["added"]
-            prev["removed"] += v["removed"]
-            prev["new"] |= v["new"]
-            prev["deleted"] |= v["deleted"]
-        else:
-            d_files[k] = v
-c_files = parse_patch(contacts[0])
+def merge(patches: list) -> dict[str, dict]:
+    """All patches of one app in order; a later patch's lines come after the earlier ones."""
+    out: dict[str, dict] = {}
+    for p in patches:
+        for k, v in parse_patch(p).items():
+            prev = out.get(k)
+            if prev:
+                prev["added"] += v["added"]
+                prev["removed"] += v["removed"]
+                prev["new"] |= v["new"]
+                prev["deleted"] |= v["deleted"]
+            else:
+                out[k] = v
+    return out
+
+
+d_files = merge(dialer)
+c_files = merge(contacts)
 
 
 def added_text(files: dict, suffix: str) -> str:
@@ -96,8 +104,8 @@ def added_text(files: dict, suffix: str) -> str:
 
 # 1. New XML files are well-formed.
 bad = []
-for app, files in (("Dialer", d_files), ("Contacts", c_files)):
-    for name, v in files.items():
+for app, patches in (("Dialer", dialer), ("Contacts", contacts)):
+    for name, v in ((n, f) for p in patches for n, f in parse_patch(p).items()):
         if v["new"] and name.endswith(".xml"):
             try:
                 ET.fromstring("\n".join(v["added"]).encode())
@@ -110,8 +118,11 @@ def colors(text: str) -> dict[str, str]:
     return dict(re.findall(r'<color name="(sable_[a-z_]+)">([^<]+)</color>', text))
 
 
-d_colors = colors(added_text(d_files, "values/sable_colors.xml"))
-c_colors = colors(added_text(c_files, "values/sable_colors.xml"))
+# The dark palette lives in values-night (0709, 0756); values holds the light copy.
+d_colors = colors(added_text(d_files, "values-night/sable_colors.xml"))
+c_colors = colors(added_text(c_files, "values-night/sable_colors.xml"))
+d_light = colors(added_text(d_files, "/values/sable_colors.xml"))
+c_light = colors(added_text(c_files, "/values/sable_colors.xml"))
 
 # 2. Colours equal the token table, and both apps agree.
 tokens = (DESIGN / "SableSystemTokens.kt").read_text(encoding="utf-8")
@@ -138,12 +149,23 @@ mism = [
     if not v or d_colors.get(k, "").upper() != "#" + v.upper()
 ]
 report(not mism, "Sable dark colours equal SableSystemTokens.Dark and SableTheme outlines", "; ".join(mism))
-report(bool(d_colors) and d_colors == c_colors, "Phone and Contacts carry the same Sable palette")
+report(
+    bool(d_colors) and d_colors == {k: v for k, v in c_colors.items() if k in d_colors},
+    "Phone and Contacts carry the same Sable palette",
+)
+report(
+    set(d_colors) <= set(d_light) and all(d_light[k] != d_colors[k] for k in ("sable_background", "sable_text")),
+    "a light palette has every dark token name, with light surfaces and dark text",
+)
+report(
+    {k: v for k, v in d_light.items() if k in d_colors} == {k: v for k, v in c_light.items() if k in d_colors},
+    "Phone and Contacts carry the same light palette",
+)
 
 # 3. Accent from the system palette, never a hex value.
-acc = {k: v for k, v in d_colors.items() if "accent" in k}
+acc = {f"{k}{suffix}": v for pal, suffix in ((d_colors, ""), (d_light, " (light)")) for k, v in pal.items() if "accent" in k}
 report(
-    len(acc) >= 3 and all(re.fullmatch(r"@android:color/system_accent1_\d+", v) for v in acc.values()),
+    len(acc) >= 6 and all(re.fullmatch(r"@android:color/system_accent1_\d+", v) for v in acc.values()),
     "accent tokens come from system_accent1_* (no hard-coded hue)",
     str(acc),
 )
@@ -172,14 +194,29 @@ for app, files in (("Dialer", d_files), ("Contacts", c_files)):
     )
     report(bool(ok), f"{app}: focused rows get a {stroke.group(1) if stroke else '?'}dp accent outline with token radius", str(dims))
 
-# 5. Dark only.
+# 5. Follows the system Dark theme.
 d_theme = added_text(d_files, "theme/hidden/res/values/styles.xml")
-report('<style name="Dialer" parent="Theme.AppCompat">' in d_theme, "Phone base theme is dark AppCompat")
+report('<style name="Dialer" parent="Theme.AppCompat.DayNight">' in d_theme, "Phone base theme is AppCompat DayNight")
+d_bars = added_text(d_files, "theme/base/res/values/theme_dialer_light.xml")
+report(
+    '<item name="android:windowLightStatusBar">@bool/sable_light_bars</item>' in d_bars
+    and '<item name="android:windowLightNavigationBar">@bool/sable_light_bars</item>' in d_bars,
+    "Phone bar icons follow the Dark theme",
+)
+incall = added_text(d_files, "incallui/InCallActivity.java")
+report("Configuration.UI_MODE_NIGHT_YES" in incall and "attachBaseContext" in incall, "Phone call screen stays dark")
 c_v27 = added_text(c_files, "res/values-v27/styles.xml")
 report(
-    '<style name="PeopleTheme" parent="@android:style/Theme.Material">' in c_v27
-    and '<style name="PeopleThemeAppCompat" parent="Theme.AppCompat">' in c_v27,
-    "Contacts themes are dark Material/AppCompat",
+    '<style name="PeopleTheme" parent="@style/SableMaterial">' in c_v27
+    and '<style name="PeopleThemeAppCompat" parent="Theme.AppCompat.DayNight">' in c_v27,
+    "Contacts themes are day/night Material and AppCompat DayNight",
+)
+c_day = added_text(c_files, "res/values/sable_theme.xml")
+c_night = added_text(c_files, "res/values-night/sable_theme.xml")
+report(
+    'name="SableMaterial" parent="@android:style/Theme.Material.Light"' in c_day
+    and 'name="SableMaterial" parent="@android:style/Theme.Material"' in c_night,
+    "Contacts SableMaterial is light by day and dark at night",
 )
 forced = [
     f"{app}:{n}"
@@ -190,12 +227,13 @@ forced = [
 report(not forced, "no restyled theme asks to be force-darkened", ", ".join(forced))
 night_left = [
     n for n, v in list(d_files.items()) + list(c_files.items())
-    if "-night/" in n and not v["deleted"]
+    if "-night/" in n and not v["deleted"] and not re.search(r"values-night/sable_(colors|theme)\.xml$", n)
 ]
 night_gone = [
     n for n, v in list(d_files.items()) + list(c_files.items()) if "-night/" in n and v["deleted"]
 ]
-report(not night_left and len(night_gone) >= 8, "-night colour and theme files removed (one palette)", ", ".join(night_left))
+report(not night_left and len(night_gone) >= 8,
+       "upstream -night colour and theme files removed (only the Sable night palette)", ", ".join(night_left))
 
 # 6. Focus background in the themes.
 d_base = added_text(d_files, "theme/base/res/values/theme_dialer_light.xml")
