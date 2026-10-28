@@ -72,9 +72,15 @@ previous="$(git -C "$SABLE_REPO_ROOT" describe --tags --abbrev=0 "$commit^" 2>/d
 {
     echo "# SableOS for the Zinwa Q25, $TAG ($RELEASE)"
     echo
-    echo "**Alpha: for testers who can recover the phone themselves.** Installing unlocks the"
-    echo "bootloader and erases the phone. Read FLASHING.md first, and keep the way back to stock:"
-    echo "https://github.com/$REPO/blob/main/docs/RETURN_TO_STOCK.md"
+    echo "> [!WARNING]"
+    echo "> **Alpha software: you flash it entirely at your own risk.** SableOS is an unofficial"
+    echo "> community build, not made or supported by Zinwa, provided \"as is\" without warranty of"
+    echo "> any kind (Apache License 2.0). The repository owner and contributors are not responsible"
+    echo "> for anything that happens to your phone or your data, including a phone that no longer"
+    echo "> starts, lost data, lost IMEI or radio calibration, or warranty problems."
+    echo ">"
+    echo "> Installing unlocks the bootloader and erases the phone. Back up first and know the way"
+    echo "> back: both are in FLASHING.md, inside the zip."
     echo
     if [[ -n "$NOTES" ]]; then
         cat "$NOTES"
@@ -92,6 +98,30 @@ previous="$(git -C "$SABLE_REPO_ROOT" describe --tags --abbrev=0 "$commit^" 2>/d
     echo "## Flashing, in short"
     echo
     sed -n '/^<!-- short:start -->$/,/^<!-- short:end -->$/p' "$SABLE_REPO_ROOT/docs/FLASHING_RELEASE.md" | sed '1d;$d'
+    echo
+    echo "## Back up first, and the way back"
+    echo
+    echo "Before unlocking, while the phone still runs stock Android:"
+    echo
+    echo "1. Copy your photos, messages and other files off the phone: unlocking erases them."
+    echo "2. Save every partition except your data with [mtkclient](https://github.com/bkerler/mtkclient)"
+    echo "   (phone off, then plug in USB). This keeps your IMEI and radio calibration, which can"
+    echo "   never be downloaded again:"
+    echo
+    echo '   ```bash'
+    echo '   mkdir -p ~/q25-backup && cd ~/q25-backup'
+    echo '   mtk printgpt | tee printgpt.txt && mtk gpt gpt && mtk rl partitions --skip=userdata'
+    echo '   sha256sum printgpt.txt gpt/* partitions/* > SHA256SUMS.txt'
+    echo '   ```'
+    echo
+    echo "3. Download the full stock firmware package for your phone and keep it with the backup."
+    echo
+    echo "To go back to stock: flash the stock \`boot\`, \`dtbo\`, \`vendor_boot\`, \`vbmeta\`,"
+    echo "\`vbmeta_system\` and \`vbmeta_vendor\` images to both slots and \`super.img\` from fastboot,"
+    echo "then \`fastboot -w\`. If that is not enough, write your own backup back with \`mtk wl\`, and if"
+    echo "the phone does not reach fastboot use Zinwa's SP Flash Tool method. FLASHING.md (\"Going"
+    echo "back to stock\") has every command, and"
+    echo "[RETURN_TO_STOCK.md](https://github.com/$REPO/blob/main/docs/RETURN_TO_STOCK.md) the details."
     echo
     echo "## Build"
     echo
