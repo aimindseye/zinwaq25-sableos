@@ -116,6 +116,10 @@ Every game plays from the keyboard or the trackpad (which sends arrow keys), and
 | Mahjong | Remove matching free tiles in pairs; every deal can be cleared | Arrows move; Space or Enter picks; H shows a pair |
 | Words | Guess the five-letter word in six tries: green is right, amber is in the word elsewhere | Type the letters; Del erases; Enter guesses |
 
+### Making other apps dark
+
+Sable apps, Phone, Contacts, Settings and the system screens all use the same pure black. Other apps only go dark if they support Android's Dark theme, and many use their own dark grey. The clean fix is the app's own setting: look for Dark mode, Black or AMOLED theme in its settings (most chat apps and browsers have one). Developer options > Override force-dark exists, but it recolours apps that were not made for it and can leave wrong colours, invisible icons or inverted images, so SableOS leaves it off.
+
 ## Privacy and security defaults
 
 The alpha favours privacy over Google compatibility, but it is not hardened yet. The bootloader stays unlocked, and the build is not release-key signed (gate Q5-KEYS is `NOT_RUN`). Treat it as a development phone, not a phone for banking or work secrets.

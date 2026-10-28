@@ -80,9 +80,9 @@ object SableSystemTokens {
     /** Values equal SableColorTokens (base = background, raised = surface, overlay = raised surface). */
     val Dark =
         SableColorRoles(
-            surfaceBase = 0xFF05070A,
-            surfaceRaised = 0xFF0D1117,
-            surfaceOverlay = 0xFF161C24,
+            surfaceBase = 0xFF000000,
+            surfaceRaised = 0xFF141414,
+            surfaceOverlay = 0xFF1C1C1C,
             textPrimary = 0xFFF7F9FC,
             textSecondary = 0xFFAAB4C0,
             textDisabled = 0xFF7D8896,

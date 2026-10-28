@@ -1,3 +1,20 @@
+diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableTheme.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableTheme.kt
+index 13917f5..1c421a4 100644
+--- a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableTheme.kt
++++ b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableTheme.kt
+@@ -93,9 +93,9 @@ object SableSize {
+ }
+ 
+ object SableColorTokens {
+-    val DarkBackground = Color(0xFF05070A)
+-    val DarkSurface = Color(0xFF0D1117)
+-    val DarkSurfaceRaised = Color(0xFF161C24)
++    val DarkBackground = Color(0xFF000000)
++    val DarkSurface = Color(0xFF141414)
++    val DarkSurfaceRaised = Color(0xFF1C1C1C)
+     val DarkText = Color(0xFFF7F9FC)
+     val DarkTextMuted = Color(0xFFAAB4C0)
+ 
 diff --git a/sable-src/apps/r8/android/games/build.gradle.kts b/sable-src/apps/r8/android/games/build.gradle.kts
 index be30b5d..e89c97b 100644
 --- a/sable-src/apps/r8/android/games/build.gradle.kts
@@ -3761,6 +3778,53 @@ index dc32782..90c249b 100644
          const val STEP = 10
          const val FULL = 100
      }
+diff --git a/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SablePalette.kt b/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SablePalette.kt
+index 5242062..3aac529 100644
+--- a/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SablePalette.kt
++++ b/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SablePalette.kt
+@@ -57,9 +57,9 @@ data class SablePalette(
+             return if (dark) {
+                 SablePalette(
+                     dark = true,
+-                    window = 0xFF05070A.toInt(),
+-                    surface = 0xFF0D1117.toInt(),
+-                    focus = 0xFF161C24.toInt(),
++                    window = 0xFF000000.toInt(),
++                    surface = 0xFF141414.toInt(),
++                    focus = 0xFF1C1C1C.toInt(),
+                     text = 0xFFF7F9FC.toInt(),
+                     muted = 0xFFAAB4C0.toInt(),
+                     accent = tones[0],
+diff --git a/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SablePaletteTest.kt b/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SablePaletteTest.kt
+index efbfe74..5e23633 100644
+--- a/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SablePaletteTest.kt
++++ b/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SablePaletteTest.kt
+@@ -24,8 +24,8 @@ class SablePaletteTest {
+ 
+     @Test fun surfacesAreTheSableSystemTokens() {
+         // Same values as SableSystemTokens.Dark/Light in sabledesign: Start, Settings and Quick Settings.
+-        assertEquals(0xFF05070A.toInt(), SablePalette.of(dark = true, accent = null).window)
+-        assertEquals(0xFF0D1117.toInt(), SablePalette.of(dark = true, accent = null).surface)
++        assertEquals(0xFF000000.toInt(), SablePalette.of(dark = true, accent = null).window)
++        assertEquals(0xFF141414.toInt(), SablePalette.of(dark = true, accent = null).surface)
+         assertEquals(0xFFF5F7F9.toInt(), SablePalette.of(dark = false, accent = null).window)
+         assertEquals(0xFF1F6FD1.toInt(), SablePalette.of(dark = false, accent = "blue").accent)
+     }
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+index 55653dc..fe0a827 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+@@ -6,8 +6,8 @@
+         <item name="android:windowActionModeOverlay">true</item>
+         <item name="android:windowNoTitle">true</item>
+         <item name="android:colorAccent">#4D9CFF</item>
+-        <item name="android:navigationBarColor">#05070A</item>
+-        <item name="android:statusBarColor">#05070A</item>
++        <item name="android:navigationBarColor">#000000</item>
++        <item name="android:statusBarColor">#000000</item>
+         <item name="android:windowLightStatusBar">false</item>
+         <item name="android:windowLightNavigationBar">false</item>
+     </style>
 diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
 index 4a7ee5f..ddb87ff 100644
 --- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
@@ -4476,6 +4540,57 @@ index 3c0b65c..9d5b914 100644
              text = Color.White,
              muted = Color(0xFF9E9E9E),
              dim = Color(0xFF5E5E5E),
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableSystemTokens.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableSystemTokens.kt
+index d4b8312..3d0c5d3 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableSystemTokens.kt
++++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableSystemTokens.kt
+@@ -80,9 +80,9 @@ object SableSystemTokens {
+     /** Values equal SableColorTokens (base = background, raised = surface, overlay = raised surface). */
+     val Dark =
+         SableColorRoles(
+-            surfaceBase = 0xFF05070A,
+-            surfaceRaised = 0xFF0D1117,
+-            surfaceOverlay = 0xFF161C24,
++            surfaceBase = 0xFF000000,
++            surfaceRaised = 0xFF141414,
++            surfaceOverlay = 0xFF1C1C1C,
+             textPrimary = 0xFFF7F9FC,
+             textSecondary = 0xFFAAB4C0,
+             textDisabled = 0xFF7D8896,
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTheme.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTheme.kt
+index 4e171b7..d54940e 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTheme.kt
++++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTheme.kt
+@@ -104,9 +104,9 @@ object SableSize {
+ }
+ 
+ object SableColorTokens {
+-    val DarkBackground = Color(0xFF05070A)
+-    val DarkSurface = Color(0xFF0D1117)
+-    val DarkSurfaceRaised = Color(0xFF161C24)
++    val DarkBackground = Color(0xFF000000)
++    val DarkSurface = Color(0xFF141414)
++    val DarkSurfaceRaised = Color(0xFF1C1C1C)
+     val DarkText = Color(0xFFF7F9FC)
+     val DarkTextMuted = Color(0xFFAAB4C0)
+ 
+diff --git a/sable-src/src/android/shared/sabledesign/src/test/java/org/sableos/design/SableSystemTokensTest.kt b/sable-src/src/android/shared/sabledesign/src/test/java/org/sableos/design/SableSystemTokensTest.kt
+index 2b58682..eac0a01 100644
+--- a/sable-src/src/android/shared/sabledesign/src/test/java/org/sableos/design/SableSystemTokensTest.kt
++++ b/sable-src/src/android/shared/sabledesign/src/test/java/org/sableos/design/SableSystemTokensTest.kt
+@@ -56,9 +56,9 @@ class SableSystemTokensTest {
+ 
+     @Test
+     fun surfacesKeepExistingSableColorTokenValues() {
+-        assertEquals(0xFF05070AL, SableSystemTokens.Dark.surfaceBase)
+-        assertEquals(0xFF0D1117L, SableSystemTokens.Dark.surfaceRaised)
+-        assertEquals(0xFF161C24L, SableSystemTokens.Dark.surfaceOverlay)
++        assertEquals(0xFF000000L, SableSystemTokens.Dark.surfaceBase)
++        assertEquals(0xFF141414L, SableSystemTokens.Dark.surfaceRaised)
++        assertEquals(0xFF1C1C1CL, SableSystemTokens.Dark.surfaceOverlay)
+         assertEquals(0xFFF5F7F9L, SableSystemTokens.Light.surfaceBase)
+         assertEquals(0xFFFFFFFFL, SableSystemTokens.Light.surfaceRaised)
+         assertEquals(0xFFE9EDF2L, SableSystemTokens.Light.surfaceOverlay)
 diff --git a/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv b/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
 index e73c8f4..b7120f1 100644
 --- a/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv

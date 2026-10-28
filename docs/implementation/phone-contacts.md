@@ -120,9 +120,9 @@ force-darken, and their colour resources point at `sable_colors.xml`
 
 | Token | Value | Source |
 |---|---|---|
-| `sable_background` | `#05070A` | `SableSystemTokens.Dark.surfaceBase` (window, lists, bars) |
-| `sable_surface` | `#0D1117` | `surfaceRaised` (bottom bar, dial pad, navigation bar) |
-| `sable_surface_raised` | `#161C24` | `surfaceOverlay` (cards, search, sheets, dialogs, popups, keys) |
+| `sable_background` | `#000000` | `SableSystemTokens.Dark.surfaceBase` (window, lists, bars) |
+| `sable_surface` | `#141414` | `surfaceRaised` (bottom bar, dial pad, navigation bar) |
+| `sable_surface_raised` | `#1C1C1C` | `surfaceOverlay` (cards, search, sheets, dialogs, popups, keys) |
 | `sable_text` / `_muted` / `_disabled` | `#F7F9FC` / `#AAB4C0` / `#7D8896` | `textPrimary` / `textSecondary` / `textDisabled` |
 | `sable_outline` / `_variant` | `#526170` / `#26313D` | SableTheme dark `outline` / `outlineVariant` |
 | `sable_accent` | `system_accent1_200` | system palette, seeded by the Sable accent (KF-B, Settings 0101) |

@@ -56,9 +56,9 @@ class SableSystemTokensTest {
 
     @Test
     fun surfacesKeepExistingSableColorTokenValues() {
-        assertEquals(0xFF05070AL, SableSystemTokens.Dark.surfaceBase)
-        assertEquals(0xFF0D1117L, SableSystemTokens.Dark.surfaceRaised)
-        assertEquals(0xFF161C24L, SableSystemTokens.Dark.surfaceOverlay)
+        assertEquals(0xFF000000L, SableSystemTokens.Dark.surfaceBase)
+        assertEquals(0xFF141414L, SableSystemTokens.Dark.surfaceRaised)
+        assertEquals(0xFF1C1C1CL, SableSystemTokens.Dark.surfaceOverlay)
         assertEquals(0xFFF5F7F9L, SableSystemTokens.Light.surfaceBase)
         assertEquals(0xFFFFFFFFL, SableSystemTokens.Light.surfaceRaised)
         assertEquals(0xFFE9EDF2L, SableSystemTokens.Light.surfaceOverlay)

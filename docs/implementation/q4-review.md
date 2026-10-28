@@ -139,7 +139,7 @@ yet".
 
 | Area | Change | Gate |
 |---|---|---|
-| One palette | Setup, Vault, Tools, App display compatibility and the on-screen keyboard use the SableSystemTokens surfaces (#05070A, #0D1117, #161C24 dark; #F5F7F9, #FFFFFF, #E9EDF2 light) and the per-theme accent tones, the same as Start, Settings and Quick Settings. The old navy (#06121D, #0C1E2D) is gone | Q4-REVIEW2-PALETTE |
+| One palette | Setup, Vault, Tools, App display compatibility and the on-screen keyboard use the SableSystemTokens surfaces (#000000, #141414, #1C1C1C dark since sable-src 0077; #F5F7F9, #FFFFFF, #E9EDF2 light) and the per-theme accent tones, the same as Start, Settings and Quick Settings. The old navy (#06121D, #0C1E2D) is gone | Q4-REVIEW2-PALETTE |
 | Square screen | In a window under 600 dp tall, every sabledesign app (Calculator, Calendar, Games, Hub, Media, Messages, Weather) gets one-line page headers, a smaller type scale and 12/8 dp screen padding | Q4-REVIEW2-SHORT |
 | Calculator | Square layout: mode tabs on one line, the display beside a keypad that fills the height, no scrolling | Q4-REVIEW2-CALCULATOR |
 | Camera | Square windows get the Control Deck: the viewfinder is clear, a tap shows the touch controls, which wrap instead of running off the right edge | Q4-REVIEW2-CAMERA |

@@ -24,8 +24,8 @@ class SablePaletteTest {
 
     @Test fun surfacesAreTheSableSystemTokens() {
         // Same values as SableSystemTokens.Dark/Light in sabledesign: Start, Settings and Quick Settings.
-        assertEquals(0xFF05070A.toInt(), SablePalette.of(dark = true, accent = null).window)
-        assertEquals(0xFF0D1117.toInt(), SablePalette.of(dark = true, accent = null).surface)
+        assertEquals(0xFF000000.toInt(), SablePalette.of(dark = true, accent = null).window)
+        assertEquals(0xFF141414.toInt(), SablePalette.of(dark = true, accent = null).surface)
         assertEquals(0xFFF5F7F9.toInt(), SablePalette.of(dark = false, accent = null).window)
         assertEquals(0xFF1F6FD1.toInt(), SablePalette.of(dark = false, accent = "blue").accent)
     }
