@@ -3218,6 +3218,19 @@ index 6c5f870..36a0c7d 100644
      print("SABLE_MAIL_INHERITED_OAUTH_CLIENTS=PASS_ABSENT")
  
      appearance = (
+diff --git a/sable-src/apps/titan2/platform/displaycompat/build.gradle.kts b/sable-src/apps/titan2/platform/displaycompat/build.gradle.kts
+index 28df91b..526abcc 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/build.gradle.kts
++++ b/sable-src/apps/titan2/platform/displaycompat/build.gradle.kts
+@@ -5,6 +5,8 @@ plugins {
+ }
+ 
+ android {
++    // The Sable theme palette shared by the platform apps (one copy, see sable-theme/).
++    sourceSets["main"].java.srcDir("../sable-theme/src/main/java")
+     namespace = "org.sableos.titan2.displaycompat"
+     compileSdk = 36
+     defaultConfig {
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt
 index 487c547..fda53e8 100644
 --- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt
@@ -3232,12 +3245,14 @@ index 487c547..fda53e8 100644
              else -> C.muted
          },
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/C.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/C.kt
-index 0f7bf99..c441ff8 100644
+index 0f7bf99..afd92ee 100644
 --- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/C.kt
 +++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/C.kt
-@@ -2,14 +2,19 @@ package org.sableos.titan2.displaycompat.ui
+@@ -1,15 +1,21 @@
+ package org.sableos.titan2.displaycompat.ui
  
  import androidx.compose.ui.graphics.Color
++import org.sableos.titan2.theme.SablePalette
  
 -/** Local minimal palette matching the Sable dark tokens (see apps/titan2/screens ui/theme). */
 +/**
@@ -3265,10 +3280,18 @@ index 0f7bf99..c441ff8 100644
 +    val ok get() = Color(palette.ok)
  }
 diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/MainActivity.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/MainActivity.kt
-index 5d751b7..6b74c67 100644
+index 5d751b7..364b1a1 100644
 --- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/MainActivity.kt
 +++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/MainActivity.kt
-@@ -29,6 +29,7 @@ class MainActivity : ComponentActivity() {
+@@ -21,6 +21,7 @@ import org.sableos.titan2.displaycompat.android.TraitsResolver
+ import org.sableos.titan2.displaycompat.android.displayCompat
+ import org.sableos.titan2.displaycompat.core.ProfileLink
+ import org.sableos.titan2.displaycompat.core.SizePx
++import org.sableos.titan2.theme.SablePalette
+ 
+ class MainActivity : ComponentActivity() {
+     /** Set when Settings > App info opened one app's profile: Done and Back return there. */
+@@ -29,6 +30,7 @@ class MainActivity : ComponentActivity() {
      override fun onCreate(savedInstanceState: Bundle?) {
          super.onCreate(savedInstanceState)
          enableEdgeToEdge()
@@ -3276,13 +3299,13 @@ index 5d751b7..6b74c67 100644
          val data = intent?.data
          val pkg = ProfileLink.packageFrom(intent?.action, data?.scheme, data?.schemeSpecificPart)
          // Only apps the list could show (launcher apps); anything else opens the list.
-diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/SablePalette.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/SablePalette.kt
+diff --git a/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SablePalette.kt b/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SablePalette.kt
 new file mode 100644
-index 0000000..b905ba5
+index 0000000..9f246c5
 --- /dev/null
-+++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/SablePalette.kt
-@@ -0,0 +1,100 @@
-+package org.sableos.titan2.displaycompat.ui
++++ b/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SablePalette.kt
+@@ -0,0 +1,102 @@
++package org.sableos.titan2.theme
 +
 +import android.app.Activity
 +import android.content.Context
@@ -3294,8 +3317,10 @@ index 0000000..b905ba5
 + * The colours of the Sable theme for a View-based platform app: dark or light from the system
 + * Dark theme, the accent from the Sable appearance authority (Settings > Display > Sable appearance),
 + * the same as every Compose Sable app. A build without the authority reads Sable Blue.
++ *
++ * One copy for every platform app: each module adds `../sable-theme/src/main/java` as a source dir.
 + */
-+internal data class SablePalette(
++data class SablePalette(
 +    val dark: Boolean,
 +    val window: Int,
 +    val surface: Int,
@@ -3382,6 +3407,19 @@ index 0000000..b905ba5
 +        }.getOrNull()
 +    }
 +}
+diff --git a/sable-src/apps/titan2/platform/setup/build.gradle.kts b/sable-src/apps/titan2/platform/setup/build.gradle.kts
+index 04ed021..1c9259d 100644
+--- a/sable-src/apps/titan2/platform/setup/build.gradle.kts
++++ b/sable-src/apps/titan2/platform/setup/build.gradle.kts
+@@ -4,6 +4,8 @@ plugins {
+ }
+ 
+ android {
++    // The Sable theme palette shared by the platform apps (one copy, see sable-theme/).
++    sourceSets["main"].java.srcDir("../sable-theme/src/main/java")
+     namespace = "org.sableos.titan2.setup"
+     compileSdk = 36
+     defaultConfig {
 diff --git a/sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml
 index b3ac397..b3f5b99 100644
 --- a/sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml
@@ -3414,114 +3452,8 @@ index b3ac397..b3f5b99 100644
      </queries>
  
      <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
-diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SablePalette.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SablePalette.kt
-new file mode 100644
-index 0000000..c760989
---- /dev/null
-+++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SablePalette.kt
-@@ -0,0 +1,100 @@
-+package org.sableos.titan2.setup.android
-+
-+import android.app.Activity
-+import android.content.Context
-+import android.content.res.Configuration
-+import android.net.Uri
-+import android.view.WindowInsetsController
-+
-+/**
-+ * The colours of the Sable theme for a View-based platform app: dark or light from the system
-+ * Dark theme, the accent from the Sable appearance authority (Settings > Display > Sable appearance),
-+ * the same as every Compose Sable app. A build without the authority reads Sable Blue.
-+ */
-+internal data class SablePalette(
-+    val dark: Boolean,
-+    val window: Int,
-+    val surface: Int,
-+    val focus: Int,
-+    val text: Int,
-+    val muted: Int,
-+    val accent: Int,
-+    val onAccent: Int,
-+    val warn: Int,
-+    val ok: Int,
-+    val danger: Int
-+) {
-+    /** The window behind the views, and status/navigation bar icons that stay readable on it. */
-+    fun applyTo(activity: Activity) {
-+        activity.window.decorView.setBackgroundColor(window)
-+        val light = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
-+            WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
-+        activity.window.insetsController?.setSystemBarsAppearance(if (dark) 0 else light, light)
-+    }
-+
-+    companion object {
-+        private const val AUTHORITY_URI = "content://org.sableos.appearance/appearance"
-+        private const val COLUMN_ACCENT = "accent"
-+
-+        /** Accent and the text drawn on it, by the stable value Settings stores (SableTheme AccentPreset). */
-+        private val ACCENTS =
-+            mapOf(
-+                "blue" to (0xFF4D9CFF.toInt() to 0xFF06111F.toInt()),
-+                "green" to (0xFF35C66B.toInt() to 0xFF04140A.toInt()),
-+                "purple" to (0xFF7A42E8.toInt() to 0xFFFFFFFF.toInt()),
-+                "orange" to (0xFFF28C45.toInt() to 0xFF1D0C02.toInt()),
-+                "slate" to (0xFF64748B.toInt() to 0xFFFFFFFF.toInt())
-+            )
-+
-+        fun of(dark: Boolean, accent: String?): SablePalette {
-+            val (a, onA) = ACCENTS[accent] ?: ACCENTS.getValue("blue")
-+            return if (dark) {
-+                SablePalette(
-+                    dark = true,
-+                    window = 0xFF06121D.toInt(),
-+                    surface = 0xFF0C1E2D.toInt(),
-+                    focus = 0xFF1E3A52.toInt(),
-+                    text = 0xFFEEF8FF.toInt(),
-+                    muted = 0xFF8BA6B8.toInt(),
-+                    accent = a,
-+                    onAccent = onA,
-+                    warn = 0xFFFFB74D.toInt(),
-+                    ok = 0xFF4CC38A.toInt(),
-+                    danger = 0xFFFF6B6B.toInt()
-+                )
-+            } else {
-+                SablePalette(
-+                    dark = false,
-+                    window = 0xFFF2F4F7.toInt(),
-+                    surface = 0xFFFFFFFF.toInt(),
-+                    focus = 0xFFDCE4EC.toInt(),
-+                    text = 0xFF12171C.toInt(),
-+                    muted = 0xFF56636F.toInt(),
-+                    accent = a,
-+                    onAccent = onA,
-+                    warn = 0xFF9A5800.toInt(),
-+                    ok = 0xFF1E7A4C.toInt(),
-+                    danger = 0xFFC62828.toInt()
-+                )
-+            }
-+        }
-+
-+        fun read(context: Context): SablePalette {
-+            val night = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
-+            return of(night == Configuration.UI_MODE_NIGHT_YES, readAccent(context))
-+        }
-+
-+        private fun readAccent(context: Context): String? = runCatching {
-+            context.contentResolver.query(
-+                Uri.parse(AUTHORITY_URI),
-+                arrayOf(COLUMN_ACCENT),
-+                null,
-+                null,
-+                null
-+            )?.use { c ->
-+                val i = c.getColumnIndex(COLUMN_ACCENT)
-+                if (c.moveToFirst() && i >= 0) c.getString(i) else null
-+            }
-+        }.getOrNull()
-+    }
-+}
 diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupActivity.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupActivity.kt
-index 5ebc1d8..97adf8d 100644
+index 5ebc1d8..be949f6 100644
 --- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupActivity.kt
 +++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupActivity.kt
 @@ -2,7 +2,6 @@ package org.sableos.titan2.setup.android
@@ -3540,7 +3472,15 @@ index 5ebc1d8..97adf8d 100644
  import org.sableos.titan2.setup.android.SetupStyle.TITLE_SP
  import org.sableos.titan2.setup.android.SetupStyle.WARN
  import org.sableos.titan2.setup.core.Action
-@@ -52,6 +52,7 @@ class SetupActivity : Activity() {
+@@ -31,6 +31,7 @@ import org.sableos.titan2.setup.core.Readiness
+ import org.sableos.titan2.setup.core.SetupModel
+ import org.sableos.titan2.setup.core.SetupRows
+ import org.sableos.titan2.setup.core.TargetStatus
++import org.sableos.titan2.theme.SablePalette
+ 
+ /**
+  * Post-provisioning readiness checklist. This is not the Android Setup Wizard (that is a privileged system
+@@ -52,6 +53,7 @@ class SetupActivity : Activity() {
  
      override fun onCreate(savedInstanceState: Bundle?) {
          super.onCreate(savedInstanceState)
@@ -3548,7 +3488,7 @@ index 5ebc1d8..97adf8d 100644
          launcher = Launcher(this)
          body =
              LinearLayout(this).apply {
-@@ -113,18 +114,18 @@ class SetupActivity : Activity() {
+@@ -113,18 +115,18 @@ class SetupActivity : Activity() {
      private fun render(failure: String?, note: String? = null) {
          body.removeAllViews()
          val items = SetupRows.build(SetupReader(this).snapshot(), launcher::resolve)
@@ -3570,7 +3510,7 @@ index 5ebc1d8..97adf8d 100644
          items.forEach { addRow(it) }
          body.addView(
              text(SetupModel.FOOTNOTE, DETAIL_SP, DIM, false).apply {
-@@ -135,7 +136,7 @@ class SetupActivity : Activity() {
+@@ -135,7 +137,7 @@ class SetupActivity : Activity() {
  
      private fun addRow(item: Item) {
          body.addView(
@@ -3579,7 +3519,7 @@ index 5ebc1d8..97adf8d 100644
                  .apply { setPadding(0, px(SPACING), 0, 0) }
          )
          body.addView(text(item.detail, DETAIL_SP, DIM, false))
-@@ -144,7 +145,7 @@ class SetupActivity : Activity() {
+@@ -144,7 +146,7 @@ class SetupActivity : Activity() {
              Button(this).apply {
                  text = label
                  isAllCaps = false
@@ -3589,20 +3529,21 @@ index 5ebc1d8..97adf8d 100644
                  setOnClickListener {
                      if (item.action == Action.WeatherCity) {
 diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupStyle.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupStyle.kt
-index 68b2f3a..ed6800a 100644
+index 68b2f3a..2437b6f 100644
 --- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupStyle.kt
 +++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupStyle.kt
-@@ -1,8 +1,6 @@
+@@ -1,8 +1,8 @@
  package org.sableos.titan2.setup.android
  
 -import androidx.core.graphics.toColorInt
--
++import org.sableos.titan2.theme.SablePalette
+ 
 -/** Sizes (dp, sp) and colours shared by the checklist and the Weather city step. */
 +/** Sizes (dp, sp) and colours shared by the checklist and the Weather city step; colours follow [palette]. */
  internal object SetupStyle {
      const val PAD_H = 16
      const val PAD_V = 18
-@@ -11,9 +9,14 @@ internal object SetupStyle {
+@@ -11,9 +11,14 @@ internal object SetupStyle {
      const val SUMMARY_SP = 15f
      const val ROW_TITLE_SP = 17f
      const val DETAIL_SP = 13f
@@ -3684,7 +3625,7 @@ index 0f0ba44..741030c 100644
      }
 diff --git a/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SablePaletteTest.kt b/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SablePaletteTest.kt
 new file mode 100644
-index 0000000..9db62cb
+index 0000000..f6629e4
 --- /dev/null
 +++ b/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SablePaletteTest.kt
 @@ -0,0 +1,30 @@
@@ -3695,7 +3636,7 @@ index 0000000..9db62cb
 +import org.junit.Assert.assertNotEquals
 +import org.junit.Assert.assertTrue
 +import org.junit.Test
-+import org.sableos.titan2.setup.android.SablePalette
++import org.sableos.titan2.theme.SablePalette
 +
 +class SablePaletteTest {
 +    @Test fun darkAndLightFollowTheDarkTheme() {
@@ -3730,6 +3671,19 @@ index fdb014a..c92e530 100644
          assertEquals(
              "Unrecognized profile id: other-device",
              SetupModel.profileLine("other-device")
+diff --git a/sable-src/apps/titan2/platform/tools/build.gradle.kts b/sable-src/apps/titan2/platform/tools/build.gradle.kts
+index 4addebc..5e52947 100644
+--- a/sable-src/apps/titan2/platform/tools/build.gradle.kts
++++ b/sable-src/apps/titan2/platform/tools/build.gradle.kts
+@@ -7,6 +7,8 @@ plugins {
+ // Common source for every Sable keyboard-first device; device differences come only from the
+ // capability profile selected by ro.sable.profile.id (core/ToolsDeviceProfile.kt).
+ android {
++    // The Sable theme palette shared by the platform apps (one copy, see sable-theme/).
++    sourceSets["main"].java.srcDir("../sable-theme/src/main/java")
+     namespace = "org.sableos.tools"
+     compileSdk = 36
+     defaultConfig {
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml
 index f0ea89a..cc5cdad 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml
@@ -3755,112 +3709,6 @@ index 97586f8..1573f31 100644
          val col = Ui.column(this)
          col.addView(Ui.title(this, getString(R.string.app_name)))
          summary = Ui.subtitle(this, "")
-diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/SablePalette.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/SablePalette.kt
-new file mode 100644
-index 0000000..db14ee2
---- /dev/null
-+++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/SablePalette.kt
-@@ -0,0 +1,100 @@
-+package org.sableos.tools.ui
-+
-+import android.app.Activity
-+import android.content.Context
-+import android.content.res.Configuration
-+import android.net.Uri
-+import android.view.WindowInsetsController
-+
-+/**
-+ * The colours of the Sable theme for a View-based platform app: dark or light from the system
-+ * Dark theme, the accent from the Sable appearance authority (Settings > Display > Sable appearance),
-+ * the same as every Compose Sable app. A build without the authority reads Sable Blue.
-+ */
-+internal data class SablePalette(
-+    val dark: Boolean,
-+    val window: Int,
-+    val surface: Int,
-+    val focus: Int,
-+    val text: Int,
-+    val muted: Int,
-+    val accent: Int,
-+    val onAccent: Int,
-+    val warn: Int,
-+    val ok: Int,
-+    val danger: Int
-+) {
-+    /** The window behind the views, and status/navigation bar icons that stay readable on it. */
-+    fun applyTo(activity: Activity) {
-+        activity.window.decorView.setBackgroundColor(window)
-+        val light = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
-+            WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
-+        activity.window.insetsController?.setSystemBarsAppearance(if (dark) 0 else light, light)
-+    }
-+
-+    companion object {
-+        private const val AUTHORITY_URI = "content://org.sableos.appearance/appearance"
-+        private const val COLUMN_ACCENT = "accent"
-+
-+        /** Accent and the text drawn on it, by the stable value Settings stores (SableTheme AccentPreset). */
-+        private val ACCENTS =
-+            mapOf(
-+                "blue" to (0xFF4D9CFF.toInt() to 0xFF06111F.toInt()),
-+                "green" to (0xFF35C66B.toInt() to 0xFF04140A.toInt()),
-+                "purple" to (0xFF7A42E8.toInt() to 0xFFFFFFFF.toInt()),
-+                "orange" to (0xFFF28C45.toInt() to 0xFF1D0C02.toInt()),
-+                "slate" to (0xFF64748B.toInt() to 0xFFFFFFFF.toInt())
-+            )
-+
-+        fun of(dark: Boolean, accent: String?): SablePalette {
-+            val (a, onA) = ACCENTS[accent] ?: ACCENTS.getValue("blue")
-+            return if (dark) {
-+                SablePalette(
-+                    dark = true,
-+                    window = 0xFF06121D.toInt(),
-+                    surface = 0xFF0C1E2D.toInt(),
-+                    focus = 0xFF1E3A52.toInt(),
-+                    text = 0xFFEEF8FF.toInt(),
-+                    muted = 0xFF8BA6B8.toInt(),
-+                    accent = a,
-+                    onAccent = onA,
-+                    warn = 0xFFFFB74D.toInt(),
-+                    ok = 0xFF4CC38A.toInt(),
-+                    danger = 0xFFFF6B6B.toInt()
-+                )
-+            } else {
-+                SablePalette(
-+                    dark = false,
-+                    window = 0xFFF2F4F7.toInt(),
-+                    surface = 0xFFFFFFFF.toInt(),
-+                    focus = 0xFFDCE4EC.toInt(),
-+                    text = 0xFF12171C.toInt(),
-+                    muted = 0xFF56636F.toInt(),
-+                    accent = a,
-+                    onAccent = onA,
-+                    warn = 0xFF9A5800.toInt(),
-+                    ok = 0xFF1E7A4C.toInt(),
-+                    danger = 0xFFC62828.toInt()
-+                )
-+            }
-+        }
-+
-+        fun read(context: Context): SablePalette {
-+            val night = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
-+            return of(night == Configuration.UI_MODE_NIGHT_YES, readAccent(context))
-+        }
-+
-+        private fun readAccent(context: Context): String? = runCatching {
-+            context.contentResolver.query(
-+                Uri.parse(AUTHORITY_URI),
-+                arrayOf(COLUMN_ACCENT),
-+                null,
-+                null,
-+                null
-+            )?.use { c ->
-+                val i = c.getColumnIndex(COLUMN_ACCENT)
-+                if (c.moveToFirst() && i >= 0) c.getString(i) else null
-+            }
-+        }.getOrNull()
-+    }
-+}
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ToolActivity.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ToolActivity.kt
 index ef312d9..a769556 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ToolActivity.kt
@@ -3874,10 +3722,17 @@ index ef312d9..a769556 100644
          var notice = intent.getStringExtra(EXTRA_NOTICE)
          tool = if (intent.action == ACTION_SEARCH) {
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Ui.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Ui.kt
-index 5098098..cafc2a5 100644
+index 5098098..38b1e58 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Ui.kt
 +++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Ui.kt
-@@ -17,13 +17,15 @@ import android.widget.TextView
+@@ -11,19 +11,22 @@ import android.view.Gravity
+ import android.view.View
+ import android.widget.LinearLayout
+ import android.widget.TextView
++import org.sableos.titan2.theme.SablePalette
+ 
+ /**
+  * Minimal view kit for Sable Tools: plain framework views (no Compose), dense rows readable on a 720x720 square
   * screen, a strong visible focus ring (VISIBLE_FOCUS=REQUIRED) and touch as the secondary path.
   */
  object Ui {
@@ -3900,7 +3755,7 @@ index 5098098..cafc2a5 100644
  
      const val PAD = 12
      private const val PAD_SMALL = 4
-@@ -36,6 +38,11 @@ object Ui {
+@@ -36,6 +39,11 @@ object Ui {
      private const val FOCUS_STROKE = 3
      private const val CORNER = 6f
  
@@ -3912,6 +3767,19 @@ index 5098098..cafc2a5 100644
      fun dp(ctx: Context, v: Int): Int = TypedValue.applyDimension(
          TypedValue.COMPLEX_UNIT_DIP,
          v.toFloat(),
+diff --git a/sable-src/apps/titan2/platform/vault/build.gradle.kts b/sable-src/apps/titan2/platform/vault/build.gradle.kts
+index c23f8ee..24bc41a 100644
+--- a/sable-src/apps/titan2/platform/vault/build.gradle.kts
++++ b/sable-src/apps/titan2/platform/vault/build.gradle.kts
+@@ -4,6 +4,8 @@ plugins {
+ }
+ 
+ android {
++    // The Sable theme palette shared by the platform apps (one copy, see sable-theme/).
++    sourceSets["main"].java.srcDir("../sable-theme/src/main/java")
+     namespace = "org.sableos.titan2.vault"
+     compileSdk = 36
+     defaultConfig {
 diff --git a/sable-src/apps/titan2/platform/vault/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/vault/src/main/AndroidManifest.xml
 index 9e571b1..91f2e72 100644
 --- a/sable-src/apps/titan2/platform/vault/src/main/AndroidManifest.xml
@@ -3928,114 +3796,8 @@ index 9e571b1..91f2e72 100644
      <application
          android:allowBackup="false"
          android:fullBackupContent="false"
-diff --git a/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/SablePalette.kt b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/SablePalette.kt
-new file mode 100644
-index 0000000..9748326
---- /dev/null
-+++ b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/SablePalette.kt
-@@ -0,0 +1,100 @@
-+package org.sableos.titan2.vault.android
-+
-+import android.app.Activity
-+import android.content.Context
-+import android.content.res.Configuration
-+import android.net.Uri
-+import android.view.WindowInsetsController
-+
-+/**
-+ * The colours of the Sable theme for a View-based platform app: dark or light from the system
-+ * Dark theme, the accent from the Sable appearance authority (Settings > Display > Sable appearance),
-+ * the same as every Compose Sable app. A build without the authority reads Sable Blue.
-+ */
-+internal data class SablePalette(
-+    val dark: Boolean,
-+    val window: Int,
-+    val surface: Int,
-+    val focus: Int,
-+    val text: Int,
-+    val muted: Int,
-+    val accent: Int,
-+    val onAccent: Int,
-+    val warn: Int,
-+    val ok: Int,
-+    val danger: Int
-+) {
-+    /** The window behind the views, and status/navigation bar icons that stay readable on it. */
-+    fun applyTo(activity: Activity) {
-+        activity.window.decorView.setBackgroundColor(window)
-+        val light = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
-+            WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
-+        activity.window.insetsController?.setSystemBarsAppearance(if (dark) 0 else light, light)
-+    }
-+
-+    companion object {
-+        private const val AUTHORITY_URI = "content://org.sableos.appearance/appearance"
-+        private const val COLUMN_ACCENT = "accent"
-+
-+        /** Accent and the text drawn on it, by the stable value Settings stores (SableTheme AccentPreset). */
-+        private val ACCENTS =
-+            mapOf(
-+                "blue" to (0xFF4D9CFF.toInt() to 0xFF06111F.toInt()),
-+                "green" to (0xFF35C66B.toInt() to 0xFF04140A.toInt()),
-+                "purple" to (0xFF7A42E8.toInt() to 0xFFFFFFFF.toInt()),
-+                "orange" to (0xFFF28C45.toInt() to 0xFF1D0C02.toInt()),
-+                "slate" to (0xFF64748B.toInt() to 0xFFFFFFFF.toInt())
-+            )
-+
-+        fun of(dark: Boolean, accent: String?): SablePalette {
-+            val (a, onA) = ACCENTS[accent] ?: ACCENTS.getValue("blue")
-+            return if (dark) {
-+                SablePalette(
-+                    dark = true,
-+                    window = 0xFF06121D.toInt(),
-+                    surface = 0xFF0C1E2D.toInt(),
-+                    focus = 0xFF1E3A52.toInt(),
-+                    text = 0xFFEEF8FF.toInt(),
-+                    muted = 0xFF8BA6B8.toInt(),
-+                    accent = a,
-+                    onAccent = onA,
-+                    warn = 0xFFFFB74D.toInt(),
-+                    ok = 0xFF4CC38A.toInt(),
-+                    danger = 0xFFFF6B6B.toInt()
-+                )
-+            } else {
-+                SablePalette(
-+                    dark = false,
-+                    window = 0xFFF2F4F7.toInt(),
-+                    surface = 0xFFFFFFFF.toInt(),
-+                    focus = 0xFFDCE4EC.toInt(),
-+                    text = 0xFF12171C.toInt(),
-+                    muted = 0xFF56636F.toInt(),
-+                    accent = a,
-+                    onAccent = onA,
-+                    warn = 0xFF9A5800.toInt(),
-+                    ok = 0xFF1E7A4C.toInt(),
-+                    danger = 0xFFC62828.toInt()
-+                )
-+            }
-+        }
-+
-+        fun read(context: Context): SablePalette {
-+            val night = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
-+            return of(night == Configuration.UI_MODE_NIGHT_YES, readAccent(context))
-+        }
-+
-+        private fun readAccent(context: Context): String? = runCatching {
-+            context.contentResolver.query(
-+                Uri.parse(AUTHORITY_URI),
-+                arrayOf(COLUMN_ACCENT),
-+                null,
-+                null,
-+                null
-+            )?.use { c ->
-+                val i = c.getColumnIndex(COLUMN_ACCENT)
-+                if (c.moveToFirst() && i >= 0) c.getString(i) else null
-+            }
-+        }.getOrNull()
-+    }
-+}
 diff --git a/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultActivity.kt b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultActivity.kt
-index ce4774b..e30aab8 100644
+index ce4774b..9ed2514 100644
 --- a/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultActivity.kt
 +++ b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultActivity.kt
 @@ -3,7 +3,6 @@ package org.sableos.titan2.vault.android
@@ -4046,7 +3808,15 @@ index ce4774b..e30aab8 100644
  import android.graphics.Typeface
  import android.graphics.drawable.GradientDrawable
  import android.net.Uri
-@@ -45,8 +44,19 @@ class VaultActivity : Activity() {
+@@ -19,6 +18,7 @@ import android.widget.TextView
+ import android.widget.Toast
+ import android.window.OnBackInvokedDispatcher
+ import androidx.core.content.FileProvider
++import org.sableos.titan2.theme.SablePalette
+ import org.sableos.titan2.vault.core.ConfirmAction
+ import org.sableos.titan2.vault.core.Confirmation
+ import org.sableos.titan2.vault.core.Section
+@@ -45,8 +45,19 @@ class VaultActivity : Activity() {
      private var privateProfile = false
      private val dp by lazy { resources.displayMetrics.density }
  
@@ -4066,7 +3836,7 @@ index ce4774b..e30aab8 100644
          window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
          setRecentsScreenshotEnabled(false)
          store = VaultStore(this)
-@@ -444,12 +454,5 @@ class VaultActivity : Activity() {
+@@ -444,12 +455,5 @@ class VaultActivity : Activity() {
          const val TITLE_SP = 18f
          const val BODY_SP = 14f
          const val SMALL_SP = 11f
