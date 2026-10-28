@@ -14,34 +14,36 @@ repository holds everything needed to build SableOS for the **Zinwa Q25** (the
 BlackBerry Classic restomod, codename `Q25`), without needing the Pixel 7,
 Titan 2 or Q27 SableOS lanes.
 
-> **Status: the PR #28 Q4 image runs on a Q25; PR #32 fixes what it showed.** On
-> 2026-10-15/17 a real Q25 (board `q20_v12_factory`, stock `Q25_20.01.2026`) was
-> backed up, restored to stock, unlocked, and flashed with the Q1 control image,
-> the Q2 image and then the first Q4 image. PR #25 fixed what that build showed.
-> PR #28 completed the design artifacts in source, and its Q4 image (built with
-> the PR #31 fixes) was flashed and reviewed on 2026-10-22. PR #32 answers that
-> review: density 280, a Sable wallpaper, one tile-free icon style and a
-> 5-column grid in Sable Start, the Recents key opening Active Frames, Sable
-> Calendar and Media replacing Etar and Twelve, background weather with a city
-> step in setup, games sized to the square screen, LED colours the Q25 can show,
-> Phone and Contacts in the Sable dark look, Start's Hub page as the one Hub
-> (Contacts tab and a Ripe-style unread bar), and Sable Messages as the default
-> SMS app (send, receive SMS and MMS). PR #32 is not built into an image yet, so
-> its Q4-* gates are `NOT_RUN`. Install steps: [`docs/INSTALL.md`](docs/INSTALL.md).
+> **Status: the image built after PR #33 runs on a Q25; PRs #34-#36 are not built
+> yet.** On 2026-10-15/17 a real Q25 (board `q20_v12_factory`, stock
+> `Q25_20.01.2026`) was backed up, restored to stock, unlocked, and flashed with
+> the Q1 control image, the Q2 image and then the first Q4 image. The PR #28 Q4
+> image was reviewed on 2026-10-22 and PR #32 fixed that review. The image built
+> after PR #33 was flashed and reviewed on 2026-10-28
+> ([second device review](docs/implementation/q4-review.md#second-device-review-2026-10-28-sable-src-0074)).
+> PR #34 answers it (one palette, square-screen layouts, a BlackBerry 7 home
+> style, Setup choices, the Sable boot animation). PR #35 makes the $ key type
+> '$', makes Sable Setup translatable and adds a keyboard firmware screen. PR #36
+> adds BlackBerry AutoText, single-key list movement, speed dial on held letters
+> and the Sound Profiles app, and the tool that packages a build as a GitHub
+> alpha release. Their Q4-* gates are `NOT_RUN` until the next image.
+> Install steps: [`docs/INSTALL.md`](docs/INSTALL.md), or for a downloaded
+> release [`docs/FLASHING_RELEASE.md`](docs/FLASHING_RELEASE.md).
 > Gates and evidence: [`docs/QUALIFICATION.md`](docs/QUALIFICATION.md). Design
 > status per artifact: [`docs/DESIGN_CONFORMANCE_Q25.md`](docs/DESIGN_CONFORMANCE_Q25.md).
 > What is still open: [`docs/SABLEOS_GAP_REVIEW.md`](docs/SABLEOS_GAP_REVIEW.md).
 
 ```text
 DEVICE=Q25
-PHASE=R0, Q1, Q2 PASS on a Q25; PR #28 Q4 image flashed and reviewed 2026-10-22; PR #32 fixes not built yet
+PHASE=R0, Q1, Q2 PASS on a Q25; Q4 image after PR #33 flashed and reviewed 2026-10-28; PRs #34-#36 not built yet
 BASE=LineageOS 23.2 (Android 16 QPR2), official lineage_Q25 device (not a GSI)
 SABLE_LAYER=vendor/extra/product.mk -> vendor/sable/q25 (+ patches/framework at Q4)
 APPS_BUILD=PASS in GitHub Actions (Gradle build, unit tests, Lint, detekt, ktlint)
-IMAGE_BUILD_TESTED=Q1, Q2 (ai-g732, 2026-10-15); Q4 (2026-10-17); PR #28 Q4 (2026-10-22, with PR #31)
-FRAMEWORK_PATCHES=93 patch files; all apply in order (PR #28's 88 compiled in the 2026-10-22 Q4 build)
-BOOT_TESTED=Q1, Q2 on a Q25 (2026-10-16/17); Q4 (2026-10-17); PR #28 Q4 (2026-10-22)
+IMAGE_BUILD_TESTED=Q1, Q2 (ai-g732, 2026-10-15); Q4 (2026-10-17); PR #28 Q4 (2026-10-22, with PR #31); PR #33 Q4 (2026-10-28)
+FRAMEWORK_PATCHES=102 patch files; all apply in order (check with scripts/apply-framework-patches.sh check)
+BOOT_TESTED=Q1, Q2 on a Q25 (2026-10-16/17); Q4 (2026-10-17); PR #28 Q4 (2026-10-22); PR #33 Q4 (2026-10-28)
 FLASH_SCRIPT=NONE (manual, documented steps in docs/INSTALL.md; tested for Q1, Q2 and Q4)
+RELEASES=none published yet; build/sable.sh q25 Q4 release packages one as a GitHub pre-release
 ```
 
 ## Device info
@@ -74,15 +76,17 @@ More: [`docs/DEVICE_INFO.md`](docs/DEVICE_INFO.md).
 | [Roadmap](ROADMAP.md) | What's reused from SableOS, what's Q25-specific, and the phases |
 | [Build](docs/BUILD.md) | Host setup, source sync, blobs, building the image, GitHub Actions |
 | [Install](docs/INSTALL.md) | Unlock, flash, sideload (tested for Q1 and Q2) |
+| [Flash a release](docs/FLASHING_RELEASE.md) | For a downloaded alpha release: back up, flash, and go back to stock |
 | [Play Store apps](docs/MICROG.md) | microG and Aurora Store (Q4, on by default): installing LinkedIn and other apps, battery and location defaults, removing it |
 | [SableOS gaps](docs/SABLEOS_GAP_REVIEW.md) | What is still open: build, device checks, owner decisions, known limits |
 | [Return to stock](docs/RETURN_TO_STOCK.md) | Backup first, rehearse the restore, recovery ladder back to Zinwa firmware |
 | [Architecture](docs/ARCHITECTURE.md) | How the LineageOS base and Sable layer fit together |
-| [Keyboard and input](docs/KEYBOARD_AND_INPUT.md) | Q25 keyboard, trackpad and key profile |
+| [Keyboard and input](docs/KEYBOARD_AND_INPUT.md) | Q25 keyboard, trackpad, key profile, AutoText and speed dial |
+| [Languages](docs/LANGUAGES.md) | What is translated and how to translate a Sable app |
 | [Qualification](docs/QUALIFICATION.md) | Gates each phase must pass |
 | [Crash evidence](docs/CRASH_EVIDENCE.md) | Capture crash logs over adb before anything is cleared |
 | [Implementation notes](docs/implementation/) | What each Sable design package (KF-A..D, Battery, T3, corners, icons, settings-ui5, Phone + Contacts, daily driver, Hub dock, power, Q4 review fixes) changed and what still needs the phone |
-| [Patches](patches/README.md) | Q25 changes to the Sable app sources (`sable-src` 0001-0071) and the LineageOS framework patches |
+| [Patches](patches/README.md) | Q25 changes to the Sable app sources (`sable-src` 0001-0076) and the LineageOS framework patches |
 | [Stock basis](docs/STOCK_BASIS.md) | Firmware facts to record before flashing |
 | [Sources](docs/SOURCES.md) | Every upstream with its pin and licence |
 | [Lessons from Titan 2](docs/LESSONS_FROM_TITAN2.md) | Mistakes not to repeat |
@@ -108,6 +112,7 @@ NETWORK_FETCH_AUTHORIZED=YES bash build/sable.sh q25 Q4 microg      # microG + A
 bash build/sable.sh q25 Q4 stage                                   # Sable layer + framework patches
 bash build/sable.sh q25 Q4 build                                   # build image
 bash build/sable.sh q25 Q4 artifacts                               # hash outputs
+bash build/sable.sh q25 Q4 release                                 # optional: zip + notes for a GitHub pre-release
 ```
 
 `Q4` is the full SableOS build: the Sable layer plus the framework layer (Sable
@@ -124,13 +129,14 @@ above and skip `microg`. `stage` packages the APKs already in `apps-out`, so run
 build/sable.sh            entry point: bash build/sable.sh q25 <release> <function>
 build/devices/q25.sh      device adapter (capabilities, fail-closed flags)
 build/config/             storage, host tools and source pins
-scripts/                  bootstrap, apps, stage, build, artifacts, import
+scripts/                  bootstrap, apps, stage, build, artifacts, release, import
+releases/                 hand-written notes for GitHub releases (ALPHA_NOTES.md)
 manifests/local_manifests Q25 device/kernel/blob projects at pinned commits
 product/q25/              Sable product layer copied to vendor/sable/q25
 device-profile/           Q25 hardware capability profile and key map
 apps/                     how the Sable application sources are managed
 sable-src/                Sable app sources imported from SableOS (pinned commit)
-patches/sable-src/        Q25 changes re-applied to sable-src/ after every import (0001-0071)
+patches/sable-src/        Q25 changes re-applied to sable-src/ after every import (0001-0076)
 patches/framework/        Q4 patches to LineageOS 23.2 projects (Settings, SystemUI, Dialer, ...)
 product/common/overlay/   Q4 static overlays (framework, SystemUI, SetupWizard, Glimpse, Gallery2)
 docs/                     guides

@@ -11,11 +11,17 @@ driven without touching the screen.
   searches apps, contacts and commands.
 - **Sable Keyboard**, the only keyboard: Alt and Sym layers that match the Q25's
   printed legends, long-press for the Alt character, sticky Shift and Alt, 35
-  typing languages and a Nav mode. The $ key types $ in every app.
+  typing languages and a Nav mode. The $ key types $ in every app. BlackBerry
+  AutoText fixes typos and expands your own shortcuts (`ld` types the date).
 - **Sable Hub, Messages, Mail, Calendar, Weather, Media, Calculator, Tools** and
-  the other Sable apps, each with single-key shortcuts.
+  the other Sable apps, each with single-key shortcuts (T top, B bottom, Space
+  page, N/P next and previous in lists).
 - **Phone** with letter-key contact jumps, hardware digits on the dial screen,
-  M/S/D in a call and Space to answer.
+  M/S/D in a call and Space to answer, and speed dial: hold a letter on the
+  home screen or in Phone to call the contact you gave it.
+- **Sound Profiles**: Normal, Loud, Vibrate only, Phone calls only and All
+  alerts off, each with its own tones, volume, vibration and light; switch from
+  the app or the Sound profile tile in Quick Settings.
 - **Lock screen** that takes the PIN from the keyboard; Alt+Space opens the
   emergency dialer.
 - **Sable Setup**, translatable (a Spanish translation is included), and
@@ -32,3 +38,5 @@ driven without touching the screen.
 - Google sign-in through microG is still being checked; some apps that need
   Google Play services may not work.
 - Updates that keep your data are not qualified: back up before updating.
+- Sound profiles switch from the app or the Quick Settings tile only; there is
+  no mute-key shortcut. Add the tile from the shade's Edit screen.
