@@ -39,11 +39,18 @@ enum class Bb7Panel(
     Downloads("Downloads"),
 }
 
+/** Where a horizontal swipe on the BlackBerry 7 home goes: Hub is to the left, the apps to the right. */
+enum class Bb7Swipe { Hub, Apps }
+
 object Bb7Home {
     /** Icon cell width the tray is laid out from: 6 columns on the Q25's 411 dp. */
     const val CELL_DP = 64
     const val MIN_COLUMNS = 4
     const val MAX_COLUMNS = 8
+
+    /** Rows of icons the closed tray shows on the home screen; one more opens the whole panel. */
+    const val MIN_HOME_ROWS = 1
+    const val MAX_HOME_ROWS = 3
 
     /** Favourites when the user has none yet: the apps a BlackBerry 7 home tray started with. */
     val DEFAULT_FAVORITE_PACKAGES =
@@ -124,4 +131,40 @@ object Bb7Home {
         if (count <= 0) return 0
         return (index + dx + dy * columns).coerceIn(0, count - 1)
     }
+
+    /**
+     * A finished horizontal drag of [dragged] px (positive = finger moved right): far enough
+     * ([threshold] px) to the right reveals Hub, to the left the apps, as on the BlackBerry 10 home.
+     */
+    fun swipe(
+        dragged: Float,
+        threshold: Float,
+    ): Bb7Swipe? =
+        when {
+            dragged >= threshold -> Bb7Swipe.Hub
+            dragged <= -threshold -> Bb7Swipe.Apps
+            else -> null
+        }
+
+    /**
+     * The closed tray's rows after a vertical drag of [dragged] px (negative = finger moved up),
+     * one row per [threshold] px, as the BlackBerry 7 home let users drag the rows of apps up or
+     * down. Above [MAX_HOME_ROWS] means open the whole panel; the result is never under
+     * [MIN_HOME_ROWS].
+     */
+    fun resizeRows(
+        rows: Int,
+        dragged: Float,
+        threshold: Float,
+    ): Int {
+        if (threshold <= 0f) return rows
+        val steps = (-dragged / threshold).toInt()
+        return (rows + steps).coerceIn(MIN_HOME_ROWS, MAX_HOME_ROWS + 1)
+    }
+
+    /** Favourites as stable keys after adding or removing [key]; [current] is what the panel shows now. */
+    fun toggleFavorite(
+        current: List<String>,
+        key: String,
+    ): List<String> = HomeApps.toggle(current, key)
 }

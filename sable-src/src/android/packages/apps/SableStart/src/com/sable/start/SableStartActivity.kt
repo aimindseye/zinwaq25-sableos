@@ -82,6 +82,10 @@ class SableStartActivity : ComponentActivity() {
      */
     private val homeStyle = mutableStateOf(HomeStyle.DEFAULT)
     private val bb10Detour = mutableStateOf(false)
+
+    /** The BlackBerry 7 home's favourites (the Home apps) and its rows of icons, read in onCreate. */
+    private val bb7Favorites = mutableStateOf<List<String>?>(null)
+    private val bb7HomeRows = mutableStateOf(1)
     private var opaqueWindowBackground: Drawable? = null
 
     private var callbackRegistered = false
@@ -177,6 +181,8 @@ class SableStartActivity : ComponentActivity() {
         launcherAppsRepository = LauncherAppsRepository(this)
         liveSurfaceRepository = LiveSurfaceRepository(this)
         startStateRepository = StartStateRepository(this)
+        bb7Favorites.value = startStateRepository.loadHomeApps()
+        bb7HomeRows.value = startStateRepository.loadBb7HomeRows()
         recentTasksRepository = RecentTasksRepository(this)
         homeStyle.value = startStateRepository.loadHomeStyle()
         opaqueWindowBackground = window.decorView.background
@@ -238,7 +244,8 @@ class SableStartActivity : ComponentActivity() {
             if (bb7) {
                 Bb7HomeScreen(
                     apps = appsState.value,
-                    favoriteKeys = startStateRepository.loadHomeApps(),
+                    favoriteKeys = bb7Favorites.value,
+                    homeRows = bb7HomeRows.value,
                     liveSurfaceRepository = liveSurfaceRepository,
                     appearance = appearance,
                     refreshGeneration = liveRefreshGeneration.value,
@@ -249,6 +256,14 @@ class SableStartActivity : ComponentActivity() {
                         hubRequestFilter.value = null
                         hubGeneration.value += 1
                         bb10Detour.value = true
+                    },
+                    onFavoritesChanged = { keys ->
+                        bb7Favorites.value = keys
+                        startStateRepository.saveHomeApps(keys)
+                    },
+                    onHomeRowsChanged = { rows ->
+                        bb7HomeRows.value = rows
+                        startStateRepository.saveBb7HomeRows(rows)
                     },
                     onOpenMenu = ::showBb7Menu,
                 )
@@ -339,6 +354,8 @@ class SableStartActivity : ComponentActivity() {
             homeStyle.value = style
             bb10Detour.value = false
         }
+        // Edit Home on the BlackBerry 10 screen edits the same list.
+        bb7Favorites.value = startStateRepository.loadHomeApps()
         scheduleInventoryRefresh()
         refreshFrames()
         liveRefreshGeneration.value += 1
@@ -537,28 +554,28 @@ class SableStartActivity : ComponentActivity() {
         }
     }
 
-    /** Menu on the BlackBerry 7 home. */
-    private fun showBb7Menu() {
-        val items = arrayOf("Home screen style", "Edit favourites", "Hub", "Settings")
+    /**
+     * Menu on the BlackBerry 7 home, a full menu as BlackBerry 7 asks: the highlighted icon's
+     * items ([contextual]) first, then the home's own, then Close.
+     */
+    private fun showBb7Menu(contextual: List<Pair<String, () -> Unit>>) {
+        val global =
+            listOf<Pair<String, () -> Unit>>(
+                "Hub" to {
+                    hubRequestFilter.value = null
+                    hubGeneration.value += 1
+                    bb10Detour.value = true
+                },
+                "Home Screen Style" to {
+                    runCatching { startActivity(Intent(this, HomeStyleActivity::class.java)) }
+                },
+                "Settings" to ::openSystemSettings,
+                "Close" to {},
+            )
+        val items = contextual + global
         AlertDialog.Builder(this)
-            .setItems(items) { _, which ->
-                when (which) {
-                    0 -> runCatching { startActivity(Intent(this, HomeStyleActivity::class.java)) }
-                    1 -> {
-                        homeGeneration.value = 0
-                        backGeneration.value = 0
-                        hubGeneration.value = 0
-                        startRequest.value = StartRequest(SCREEN_EDIT_HOME, startRequest.value.serial + 1)
-                        bb10Detour.value = true
-                    }
-                    2 -> {
-                        hubRequestFilter.value = null
-                        hubGeneration.value += 1
-                        bb10Detour.value = true
-                    }
-                    else -> openSystemSettings()
-                }
-            }.show()
+            .setItems(items.map { it.first }.toTypedArray()) { _, which -> items[which].second() }
+            .show()
     }
 
     private fun openSystemSettings() {
