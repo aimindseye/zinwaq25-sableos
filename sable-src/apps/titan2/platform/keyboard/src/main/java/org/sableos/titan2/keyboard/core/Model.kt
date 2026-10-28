@@ -53,7 +53,9 @@ enum class InputClass { Text, Number, Phone, Password, NumberPassword, None }
 data class FieldCtx(
     val inputClass: InputClass = InputClass.Text,
     val before: String = "",
-    val autoCapAllowed: Boolean = true
+    val autoCapAllowed: Boolean = true,
+    /** The field takes AutoText (prose; not an address, password or no-suggestions field). */
+    val autoText: Boolean = false
 ) {
     val editable: Boolean get() = inputClass != InputClass.None
 }
@@ -86,6 +88,8 @@ data class KeyboardConfig(
     val autoCap: Boolean = true,
     val doubleSpacePeriod: Boolean = true,
     val longPressAlt: Boolean = true,
+    /** BlackBerry-style AutoText on Space and punctuation (core AutoText). */
+    val autoText: Boolean = true,
     /** Letters become their Alt digit in numeric/phone fields so pairing codes and PINs work with no Alt/Sym key. */
     val numericAutoAlt: Boolean = true,
     val navModeEnabled: Boolean = true,

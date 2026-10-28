@@ -1,0 +1,2571 @@
+diff --git a/sable-src/apps/r8/android/design/src/test/java/org/sableos/design/SableListKeysTest.kt b/sable-src/apps/r8/android/design/src/test/java/org/sableos/design/SableListKeysTest.kt
+new file mode 100644
+index 0000000..8422fbe
+--- /dev/null
++++ b/sable-src/apps/r8/android/design/src/test/java/org/sableos/design/SableListKeysTest.kt
+@@ -0,0 +1,54 @@
++package org.sableos.design
++
++import android.view.KeyEvent
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Test
++
++/** BlackBerry single-key list movement shared by Sable lists. */
++class SableListKeysTest {
++    private fun cmd(
++        code: Int,
++        shift: Boolean = false,
++        chord: Boolean = false,
++        owned: Set<SableListMove> = emptySet(),
++    ) = SableListKeys.command(code, shift, chord, owned)
++
++    @Test
++    fun blackBerryKeys() {
++        assertEquals(SableListMove.Top, cmd(KeyEvent.KEYCODE_T))
++        assertEquals(SableListMove.Bottom, cmd(KeyEvent.KEYCODE_B))
++        assertEquals(SableListMove.PageDown, cmd(KeyEvent.KEYCODE_SPACE))
++        assertEquals(SableListMove.PageUp, cmd(KeyEvent.KEYCODE_SPACE, shift = true))
++        assertEquals(SableListMove.Next, cmd(KeyEvent.KEYCODE_N))
++        assertEquals(SableListMove.Previous, cmd(KeyEvent.KEYCODE_P))
++    }
++
++    @Test
++    fun chordsShiftedLettersAndOwnedKeysAreLeftAlone() {
++        assertNull("Alt+T types (", cmd(KeyEvent.KEYCODE_T, chord = true))
++        assertNull(cmd(KeyEvent.KEYCODE_SPACE, chord = true))
++        assertNull(cmd(KeyEvent.KEYCODE_B, shift = true))
++        assertNull(cmd(KeyEvent.KEYCODE_A))
++        assertNull(cmd(KeyEvent.KEYCODE_N, owned = setOf(SableListMove.Next)))
++        assertEquals(SableListMove.Top, cmd(KeyEvent.KEYCODE_T, owned = setOf(SableListMove.Next)))
++    }
++
++    @Test
++    fun targetsStayInsideTheList() {
++        fun t(
++            move: SableListMove,
++            focused: Int,
++        ) = SableListKeys.target(move, focused, firstVisible = 10, lastVisible = 16, itemCount = 40)
++        assertEquals(0, t(SableListMove.Top, 12))
++        assertEquals(39, t(SableListMove.Bottom, 12))
++        assertEquals(13, t(SableListMove.Next, 12))
++        assertEquals(11, t(SableListMove.Previous, 12))
++        assertEquals(18, t(SableListMove.PageDown, 12))
++        assertEquals(6, t(SableListMove.PageUp, 12))
++        assertEquals("no focus: start at the first visible row", 10, t(SableListMove.Next, -1))
++        assertEquals(39, SableListKeys.target(SableListMove.PageDown, 38, 30, 39, 40))
++        assertEquals(0, SableListKeys.target(SableListMove.Previous, 0, 0, 5, 40))
++        assertNull(SableListKeys.target(SableListMove.Top, -1, 0, 0, 0))
++    }
++}
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
+index a09c8af..355e176 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
+@@ -79,6 +79,7 @@ import androidx.compose.ui.text.input.ImeAction
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.window.Dialog
++import kotlinx.coroutines.CoroutineScope
+ import kotlinx.coroutines.launch
+ import org.sableos.design.SableActionButton
+ import org.sableos.design.SableAdaptiveTopNav
+@@ -87,6 +88,8 @@ import org.sableos.design.SableAlphabetRail
+ import org.sableos.design.SableDestination
+ import org.sableos.design.SableFocusMemory
+ import org.sableos.design.SableLatestContentPolicy
++import org.sableos.design.SableListKeys
++import org.sableos.design.SableListMove
+ import org.sableos.design.SableListOrder
+ import org.sableos.design.SableListRow
+ import org.sableos.design.SablePageHeader
+@@ -1215,7 +1218,11 @@ private fun ColumnScope.InboxPivot(
+             Spacer(Modifier.weight(1f))
+         } else {
+             LazyColumn(
+-                modifier = Modifier.weight(1f).fillMaxWidth(),
++                modifier =
++                    Modifier
++                        .weight(1f)
++                        .fillMaxWidth()
++                        .inboxEndKeys(rowKeys, listState, requesters, scope),
+                 state = listState,
+                 verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
+             ) {
+@@ -1494,6 +1501,44 @@ private fun Modifier.clusterKeys(
+         }
+     }
+ 
++/**
++ * T and B jump to the newest and the oldest row (SableListKeys). Space, N and P keep their Hub meanings
++ * (expand a combined row, the Notifications and Priority filters).
++ */
++private fun Modifier.inboxEndKeys(
++    rowKeys: List<String>,
++    listState: LazyListState,
++    requesters: Map<String, FocusRequester>,
++    scope: CoroutineScope,
++): Modifier =
++    onPreviewKeyEvent { event ->
++        val native = event.nativeKeyEvent
++        val chord = native.isAltPressed || native.isCtrlPressed || native.isMetaPressed
++        val move = SableListKeys.command(native.keyCode, native.isShiftPressed, chord, HUB_OWNED_MOVES)
++        val target = move?.let { SableListKeys.target(it, -1, 0, 0, rowKeys.size) }
++        when {
++            target == null -> {
++                false
++            }
++
++            event.type == KeyEventType.KeyDown -> {
++                scope.launch {
++                    listState.scrollToItem(target)
++                    withFrameNanos { }
++                    runCatching { requesters[rowKeys[target]]?.requestFocus() }
++                }
++                true
++            }
++
++            else -> {
++                true
++            }
++        }
++    }
++
++private val HUB_OWNED_MOVES =
++    setOf(SableListMove.PageDown, SableListMove.PageUp, SableListMove.Next, SableListMove.Previous)
++
+ /** Focus targets of the dock: its first entry, else its expand button. */
+ private class HubDockFocus {
+     val firstEntry = FocusRequester()
+@@ -2927,7 +2972,8 @@ private val HubPillCornerRadius = 10.dp
+ 
+ private const val REVIEW_ACCESS_LABEL = "Review access"
+ private const val THREAD_KEY_HINT = "/ search · PageUp history · End latest · Esc back to latest"
+-private const val INBOX_KEY_HINT = "/ search · Alt+Enter actions · A P M X C E N O filters · D dock"
++private const val INBOX_KEY_HINT =
++    "/ search · Alt+Enter actions · A P M X C E N O filters · D dock · T/B top/bottom"
+ private const val SMS_PREVIEW_LENGTH = 120
+ private const val CONNECTED_PREVIEW_LENGTH = 100
+ private const val HUB_INLINE_COMPOSER_MAX_LINES = 4
+diff --git a/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/ui/ThreadsScreen.kt b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/ui/ThreadsScreen.kt
+index 21dbc2b..f81ff26 100644
+--- a/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/ui/ThreadsScreen.kt
++++ b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/ui/ThreadsScreen.kt
+@@ -17,7 +17,8 @@ import androidx.compose.foundation.layout.heightIn
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.width
+ import androidx.compose.foundation.lazy.LazyColumn
+-import androidx.compose.foundation.lazy.items
++import androidx.compose.foundation.lazy.itemsIndexed
++import androidx.compose.foundation.lazy.rememberLazyListState
+ import androidx.compose.foundation.shape.CircleShape
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.OutlinedTextField
+@@ -25,6 +26,7 @@ import androidx.compose.material3.Text
+ import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.LaunchedEffect
+ import androidx.compose.runtime.remember
++import androidx.compose.runtime.rememberCoroutineScope
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+@@ -39,12 +41,18 @@ import androidx.compose.ui.platform.LocalFocusManager
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.style.TextOverflow
+ import org.sableos.design.SableActionButton
++import org.sableos.design.SableListFocus
++import org.sableos.design.SableListKeys
+ import org.sableos.design.SableSize
+ import org.sableos.design.SableSpacing
+ import org.sableos.design.sableFocusRing
++import org.sableos.design.sableListKeys
+ import org.sableos.messages.core.ThreadSummary
+ 
+-/** Conversation list, newest first; letters filter it, Enter opens the first match at latest. */
++/**
++ * Conversation list, newest first; letters filter it, Enter opens the first match at latest. Down moves into the
++ * list, where T, B, Space, Shift+Space, N and P move as on a BlackBerry (SableListKeys).
++ */
+ @Composable
+ internal fun ColumnScope.ThreadsScreen(
+     state: MessagesUiState,
+@@ -66,11 +74,30 @@ internal fun ColumnScope.ThreadsScreen(
+             color = MaterialTheme.colorScheme.onSurfaceVariant,
+         )
+     }
++    val listState = rememberLazyListState()
++    val focus = remember(listState) { SableListFocus(listState) }
++    val scope = rememberCoroutineScope()
+     LazyColumn(
+-        modifier = Modifier.weight(1f).fillMaxWidth(),
++        modifier =
++            Modifier
++                .weight(1f)
++                .fillMaxWidth()
++                .sableListKeys(focus, threads.map { it.threadId }, scope),
++        state = focus.state,
+         verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
+     ) {
+-        items(threads, key = { it.threadId }) { thread -> ThreadRow(thread) { actions.openThread(thread) } }
++        itemsIndexed(threads, key = { _, thread -> thread.threadId }) { index, thread ->
++            ThreadRow(thread, focus.row(index, thread.threadId)) { actions.openThread(thread) }
++        }
++    }
++    if (threads.isNotEmpty()) {
++        Text(
++            text = SableListKeys.HINT,
++            style = MaterialTheme.typography.bodySmall,
++            color = MaterialTheme.colorScheme.onSurfaceVariant,
++            maxLines = 1,
++            overflow = TextOverflow.Ellipsis,
++        )
+     }
+ }
+ 
+@@ -173,13 +200,14 @@ private fun FilterField(
+ @Composable
+ private fun ThreadRow(
+     thread: ThreadSummary,
++    modifier: Modifier,
+     onOpen: () -> Unit,
+ ) {
+     val unread = thread.unreadCount > 0
+     val colors = MaterialTheme.colorScheme
+     Row(
+         modifier =
+-            Modifier
++            modifier
+                 .fillMaxWidth()
+                 .clip(MaterialTheme.shapes.small)
+                 .background(if (unread) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent)
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts b/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
+index b2702ac..c3d584f 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
+@@ -57,12 +57,14 @@ val canonicalPresentationSources =
+         "com/sable/start/model/HubBar.kt",
+         "com/sable/start/model/HubPeople.kt",
+         "com/sable/start/model/QuickBar.kt",
++        "com/sable/start/model/SpeedDial.kt",
+         "com/sable/start/platform/DeviceStatsSampler.kt",
+         "com/sable/start/platform/LiveSurfaceRepository.kt",
+         "com/sable/start/platform/PeopleRepository.kt",
+         "com/sable/start/platform/PrivacyFactsReader.kt",
+         // Public SDK plus reflection only, so the check module compiles it too.
+         "com/sable/start/platform/RecentTasksRepository.kt",
++        "com/sable/start/platform/SpeedDialRepository.kt",
+         "com/sable/start/platform/StartStateRepository.kt",
+         "com/sable/start/privacy/AllAppsInteraction.kt",
+         "com/sable/start/privacy/PrivacyModel.kt",
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/SpeedDialKeysTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/SpeedDialKeysTest.kt
+new file mode 100644
+index 0000000..1265444
+--- /dev/null
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/SpeedDialKeysTest.kt
+@@ -0,0 +1,63 @@
++package org.sableos.start.model
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++
++/** BlackBerry speed dial on the home screen: hold calls, a short press still searches. */
++class SpeedDialKeysTest {
++    private val keyK = 39
++    private val keyA = 29
++    private val keyB = 30
++    private val assigned = setOf('k')
++
++    private fun SpeedDialKeys.down(
++        code: Int,
++        seed: Char?,
++        repeat: Int = 0,
++        meta: Int = 0,
++    ) = onKey(code, true, repeat, meta, seed, assigned)
++
++    private fun SpeedDialKeys.up(code: Int) = onKey(code, false, 0, 0, null, assigned)
++
++    @Test
++    fun holdingAnAssignedLetterCallsOnce() {
++        val keys = SpeedDialKeys()
++        assertEquals(SpeedDialKeys.Step.Consume, keys.down(keyK, 'k'))
++        assertEquals(SpeedDialKeys.Step.Call('k'), keys.down(keyK, null, repeat = 1))
++        assertEquals(SpeedDialKeys.Step.Consume, keys.down(keyK, null, repeat = 2))
++        assertEquals(SpeedDialKeys.Step.Consume, keys.up(keyK))
++        assertEquals("next press starts fresh", SpeedDialKeys.Step.Consume, keys.down(keyK, 'k'))
++    }
++
++    @Test
++    fun aShortPressOfAnAssignedLetterSearchesOnRelease() {
++        val keys = SpeedDialKeys()
++        keys.down(keyK, 'k')
++        assertEquals(SpeedDialKeys.Step.Search("k"), keys.up(keyK))
++    }
++
++    @Test
++    fun otherKeysAndChordsSearchAtOnce() {
++        val keys = SpeedDialKeys()
++        assertEquals(SpeedDialKeys.Step.Pass, keys.down(keyA, 'a'))
++        assertEquals(SpeedDialKeys.Step.Pass, keys.up(keyA))
++        assertEquals("Shift+K", SpeedDialKeys.Step.Pass, keys.down(keyK, 'K', meta = 0x41))
++        assertEquals("Alt+K", SpeedDialKeys.Step.Pass, keys.down(keyK, '\'', meta = 0x12))
++        assertEquals("no search seed", SpeedDialKeys.Step.Pass, keys.down(keyK, null))
++    }
++
++    @Test
++    fun fastTypingKeepsBothLetters() {
++        val keys = SpeedDialKeys()
++        keys.down(keyK, 'k')
++        assertEquals(SpeedDialKeys.Step.Search("kb"), keys.down(keyB, 'b'))
++        assertEquals("the K release is the search's now", SpeedDialKeys.Step.Pass, keys.up(keyK))
++    }
++
++    @Test
++    fun lettersFollowKeyCodes() {
++        assertEquals('a', SpeedDialKeys.letterFor(29))
++        assertEquals('z', SpeedDialKeys.letterFor(54))
++        assertEquals(null, SpeedDialKeys.letterFor(62))
++    }
++}
+diff --git a/sable-src/apps/r8/mail/apply_sable_flavor.py b/sable-src/apps/r8/mail/apply_sable_flavor.py
+index a370de7..38f9036 100644
+--- a/sable-src/apps/r8/mail/apply_sable_flavor.py
++++ b/sable-src/apps/r8/mail/apply_sable_flavor.py
+@@ -226,6 +226,7 @@ def apply_keyboard_model(root: Path) -> None:
+                 if (displayMode == DisplayMode.MESSAGE_VIEW) showMessageList()
+                 moveSableListFocus(SableListMove.TOP)
+             }
++            SableMailCommand.BOTTOM -> bottomSable()
+             SableMailCommand.NEXT -> {
+                 if (message != null) showNextMessage() else moveSableListFocus(SableListMove.NEXT)
+             }
+@@ -274,6 +275,12 @@ def apply_keyboard_model(root: Path) -> None:
+         recycler.post { recycler.findViewHolderForAdapterPosition(target)?.itemView?.requestFocus() }
+     }
+ 
++    /** B: the end of the open message body, else the oldest message in the list. */
++    private fun bottomSable() {
++        val body = if (hasOpenSableMessage) findVisibleMessageBody(messageViewContainerFragment?.view) else null
++        if (body != null) body.fullScroll(View.FOCUS_DOWN) else moveSableListFocus(SableListMove.BOTTOM)
++    }
++
+     /** Space / Shift+Space: page the open message body, else page the message list. */
+     private fun pageSable(down: Boolean) {
+         val body = if (hasOpenSableMessage) findVisibleMessageBody(messageViewContainerFragment?.view) else null
+diff --git a/sable-src/apps/r8/mail/src/main/java/com/fsck/k9/activity/SableMailKeymap.kt b/sable-src/apps/r8/mail/src/main/java/com/fsck/k9/activity/SableMailKeymap.kt
+index 6d6ee9f..22af30a 100644
+--- a/sable-src/apps/r8/mail/src/main/java/com/fsck/k9/activity/SableMailKeymap.kt
++++ b/sable-src/apps/r8/mail/src/main/java/com/fsck/k9/activity/SableMailKeymap.kt
+@@ -17,6 +17,7 @@ import android.view.KeyEvent
+ enum class SableMailCommand {
+     COMPOSE,
+     TOP,
++    BOTTOM,
+     NEXT,
+     PREVIOUS,
+     REPLY,
+@@ -79,6 +80,7 @@ enum class SableListMove {
+     PAGE_DOWN,
+     PAGE_UP,
+     TOP,
++    BOTTOM,
+ }
+ 
+ object SableMailKeymap {
+@@ -153,6 +155,7 @@ object SableMailKeymap {
+         val target =
+             when (move) {
+                 SableListMove.TOP -> 0
++                SableListMove.BOTTOM -> itemCount - 1
+                 SableListMove.NEXT -> if (focused >= 0) focused + 1 else anchor
+                 SableListMove.PREVIOUS -> if (focused >= 0) focused - 1 else anchor
+                 SableListMove.PAGE_DOWN -> anchor + page
+@@ -165,6 +168,8 @@ object SableMailKeymap {
+         mapOf(
+             KeyEvent.KEYCODE_C to SableMailCommand.COMPOSE,
+             KeyEvent.KEYCODE_T to SableMailCommand.TOP,
++            // BlackBerry: B is the bottom of the list, or of the open message.
++            KeyEvent.KEYCODE_B to SableMailCommand.BOTTOM,
+             KeyEvent.KEYCODE_J to SableMailCommand.NEXT,
+             KeyEvent.KEYCODE_N to SableMailCommand.NEXT,
+             KeyEvent.KEYCODE_K to SableMailCommand.PREVIOUS,
+diff --git a/sable-src/apps/r8/mail/src/test/java/com/fsck/k9/activity/SableMailKeymapTest.kt b/sable-src/apps/r8/mail/src/test/java/com/fsck/k9/activity/SableMailKeymapTest.kt
+index 091a667..91a673d 100644
+--- a/sable-src/apps/r8/mail/src/test/java/com/fsck/k9/activity/SableMailKeymapTest.kt
++++ b/sable-src/apps/r8/mail/src/test/java/com/fsck/k9/activity/SableMailKeymapTest.kt
+@@ -26,6 +26,7 @@ class SableMailKeymapTest {
+     fun sharedContractKeys() {
+         assertEquals(SableMailCommand.COMPOSE, cmd(press(KeyEvent.KEYCODE_C, 'c')))
+         assertEquals(SableMailCommand.TOP, cmd(press(KeyEvent.KEYCODE_T, 't')))
++        assertEquals(SableMailCommand.BOTTOM, cmd(press(KeyEvent.KEYCODE_B, 'b')))
+         assertEquals(SableMailCommand.NEXT, cmd(press(KeyEvent.KEYCODE_J, 'j')))
+         assertEquals(SableMailCommand.NEXT, cmd(press(KeyEvent.KEYCODE_N, 'n')))
+         assertEquals(SableMailCommand.PREVIOUS, cmd(press(KeyEvent.KEYCODE_K, 'k')))
+@@ -171,6 +172,7 @@ class SableMailKeymapTest {
+         assertEquals(14, target(SableListMove.PAGE_DOWN))
+         assertEquals(0, target(SableListMove.PAGE_UP))
+         assertEquals(0, target(SableListMove.TOP))
++        assertEquals(19, target(SableListMove.BOTTOM))
+         // Nothing focused: the first move lands on the first visible row.
+         assertEquals(5, target(SableListMove.NEXT, focused = -1))
+         assertEquals(5, target(SableListMove.PREVIOUS, focused = -1))
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/keyboard/src/main/AndroidManifest.xml
+index 7852e36..0bfea45 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/AndroidManifest.xml
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/AndroidManifest.xml
+@@ -39,6 +39,12 @@
+             </intent-filter>
+         </activity>
+ 
++        <activity
++            android:name=".android.AutoTextActivity"
++            android:directBootAware="true"
++            android:exported="false"
++            android:label="AutoText" />
++
+         <!--
+           Diagnostic: shows the key events an ordinary app receives. Not a launcher entry (#83, DESIGN-KF-C):
+           open it from Sable Keyboard settings or Sable Tools > Diagnostics > Keyboard event viewer, or with
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/AutoTextActivity.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/AutoTextActivity.kt
+new file mode 100644
+index 0000000..76fc005
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/AutoTextActivity.kt
+@@ -0,0 +1,89 @@
++package org.sableos.titan2.keyboard.android
++
++import android.app.Activity
++import android.os.Bundle
++import android.text.InputType
++import android.view.ViewGroup
++import android.widget.Button
++import android.widget.EditText
++import android.widget.LinearLayout
++import android.widget.ScrollView
++import android.widget.TextView
++import org.sableos.titan2.keyboard.core.AutoText
++
++/**
++ * The user's AutoText list as plain text, one `shortcut=replacement` per line, so it is edited with the hardware
++ * keyboard alone. The built-in English list is shown below it, read-only.
++ */
++class AutoTextActivity : Activity() {
++    private companion object {
++        const val PAD_PX = 24
++        const val TITLE_SP = 20f
++        const val NOTE_SP = 12f
++        const val MIN_LINES = 6
++        const val HELP =
++            "One entry per line: shortcut=replacement, for example brb=be right back. " +
++                "A shortcut is one word of letters or digits. Your entries work in every " +
++                "language and replace a built-in one with the same shortcut. In a replacement, " +
++                "%D is the date, %T the time and %V the build number. Backspace straight " +
++                "after an expansion puts back what you typed."
++    }
++
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        val prefs = KeyboardPrefs(this)
++        val col = LinearLayout(this).apply {
++            orientation = LinearLayout.VERTICAL
++            setPadding(PAD_PX, PAD_PX, PAD_PX, PAD_PX)
++        }
++        fun note(s: String, size: Float = NOTE_SP) = col.addView(
++            TextView(this).apply {
++                text = s
++                textSize = size
++            }
++        )
++        note("AutoText", TITLE_SP)
++        note(HELP)
++        // no suggestions: AutoText stays out of its own editor, so "ld=%D" is not expanded while typing it
++        val edit = EditText(this).apply {
++            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or
++                InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
++            minLines = MIN_LINES
++            setText(AutoText.format(prefs.autoTextEntries))
++        }
++        col.addView(edit)
++        val status = TextView(this).apply { textSize = NOTE_SP }
++        col.addView(
++            Button(this).apply {
++                text = "Save"
++                setOnClickListener {
++                    val text = edit.text.toString()
++                    val entries = AutoText.parse(text)
++                    prefs.autoTextEntries = entries
++                    val skipped = text.lines().count { it.isNotBlank() } - entries.size
++                    status.text = "Saved ${entries.size} entries" +
++                        if (skipped >
++                            0
++                        ) {
++                            "; $skipped lines skipped (not shortcut=replacement)"
++                        } else {
++                            ""
++                        }
++                    edit.setText(AutoText.format(entries))
++                }
++            }
++        )
++        col.addView(status)
++        note("Built in (English typing language)", TITLE_SP)
++        note(AutoText.BUILT_IN.entries.joinToString("\n") { "${it.key} → ${it.value}" })
++        setContentView(
++            ScrollView(this).apply {
++                addView(
++                    col,
++                    ViewGroup.LayoutParams.MATCH_PARENT,
++                    ViewGroup.LayoutParams.WRAP_CONTENT
++                )
++            }
++        )
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/AutoTextVars.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/AutoTextVars.kt
+new file mode 100644
+index 0000000..c02bfb3
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/AutoTextVars.kt
+@@ -0,0 +1,15 @@
++package org.sableos.titan2.keyboard.android
++
++import android.content.Context
++import java.text.DateFormat
++import java.util.Date
++
++/** Fills AutoText's variables: %D the full date, %T the time in the phone's 12/24-hour style, %V the build number. */
++internal fun autoTextVar(context: Context): (Char) -> String? = { name ->
++    when (name) {
++        'D' -> DateFormat.getDateInstance(DateFormat.FULL).format(Date())
++        'T' -> android.text.format.DateFormat.getTimeFormat(context).format(Date())
++        'V' -> SysProps.get("ro.build.display.id").ifBlank { null }
++        else -> null
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardPrefs.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardPrefs.kt
+index 3c7a62d..13536d6 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardPrefs.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardPrefs.kt
+@@ -2,8 +2,12 @@ package org.sableos.titan2.keyboard.android
+ 
+ import android.content.Context
+ import android.content.SharedPreferences
++import org.sableos.titan2.keyboard.core.AutoText
+ import org.sableos.titan2.keyboard.core.KeyboardConfig
+ 
++/** AutoText on Space and punctuation (core AutoText); on by default, as on BlackBerry. */
++internal const val AUTO_TEXT = "autoText"
++
+ /** Enter performs the field's Send action (core KeyShortcuts.enterSends); off by default. */
+ internal const val ENTER_SENDS = "enterSends"
+ 
+@@ -30,6 +34,7 @@ class KeyboardPrefs(context: Context) {
+                 "longPressAlt",
+                 d.longPressAlt
+             ),
++            autoText = prefs.getBoolean(AUTO_TEXT, d.autoText),
+             numericAutoAlt = prefs.getBoolean("numericAutoAlt", d.numericAutoAlt),
+             navModeEnabled = prefs.getBoolean(
+                 "navMode",
+@@ -72,6 +77,13 @@ class KeyboardPrefs(context: Context) {
+             prefs.edit().putBoolean("compactStrip", v).apply()
+         }
+ 
++    /** The user's AutoText entries, stored as AutoText.format text. */
++    var autoTextEntries: Map<String, String>
++        get() = AutoText.parse(prefs.getString("autoTextUser", "").orEmpty())
++        set(v) {
++            prefs.edit().putString("autoTextUser", AutoText.format(v)).apply()
++        }
++
+     fun setBool(key: String, v: Boolean) {
+         prefs.edit().putBoolean(key, v).apply()
+     }
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardSettingsActivity.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardSettingsActivity.kt
+index ecb65cb..fc5d236 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardSettingsActivity.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardSettingsActivity.kt
+@@ -38,6 +38,7 @@ class KeyboardSettingsActivity : Activity() {
+         )
+         sw("Auto-capitalise sentences", "autoCap", true)
+         sw("Double space inserts period", "doubleSpace", true)
++        sw("AutoText (dont becomes don't, ld the date)", AUTO_TEXT, true)
+         sw("Long-press a letter for its Alt character", "longPressAlt", true)
+         sw("Letters type digits in numeric fields", "numericAutoAlt", true)
+         sw("Nav mode (IJKL arrows) enabled", "navMode", true)
+@@ -52,6 +53,18 @@ class KeyboardSettingsActivity : Activity() {
+         sw("Enter sends in apps that offer Send (Shift+Enter: new line)", ENTER_SENDS, false)
+     }
+ 
++    /** Buttons that open the keyboard's other screens. */
++    private fun addScreenButtons(col: LinearLayout) {
++        fun open(label: String, screen: Class<out Activity>) = col.addView(
++            Button(this).apply {
++                text = label
++                setOnClickListener { startActivity(Intent(this@KeyboardSettingsActivity, screen)) }
++            }
++        )
++        open("AutoText entries", AutoTextActivity::class.java)
++        open("Key event probe (diagnostic)", KeyProbeActivity::class.java)
++    }
++
+     override fun onCreate(savedInstanceState: Bundle?) {
+         super.onCreate(savedInstanceState)
+         val prefs = KeyboardPrefs(this)
+@@ -92,16 +105,7 @@ class KeyboardSettingsActivity : Activity() {
+                 }
+             )
+         }
+-        col.addView(
+-            Button(this).apply {
+-                text = "Key event probe (diagnostic)"
+-                setOnClickListener {
+-                    startActivity(
+-                        Intent(this@KeyboardSettingsActivity, KeyProbeActivity::class.java)
+-                    )
+-                }
+-            }
+-        )
++        addScreenButtons(col)
+         refresh()
+         refreshStatus = ::refresh
+         setContentView(
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt
+index f8774ff..d5f1456 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt
+@@ -10,6 +10,7 @@ import android.view.inputmethod.InputMethodManager
+ import android.view.inputmethod.InputMethodSubtype
+ import android.widget.Toast
+ import org.sableos.titan2.keyboard.R
++import org.sableos.titan2.keyboard.core.AutoText
+ import org.sableos.titan2.keyboard.core.CompactStrip
+ import org.sableos.titan2.keyboard.core.Composer
+ import org.sableos.titan2.keyboard.core.Composers
+@@ -44,7 +45,8 @@ class SableImeService : InputMethodService() {
+     private var fieldClass = InputClass.None
+ 
+     private companion object {
+-        const val BEFORE_CURSOR_CHARS = 3
++        // enough for an AutoText shortcut and the expansion Backspace undoes
++        const val BEFORE_CURSOR_CHARS = 64
+         const val COMPOSITION_LOST_MS = 400L
+     }
+ 
+@@ -60,11 +62,13 @@ class SableImeService : InputMethodService() {
+                 ),
+                 cfg = prefs.load()
+             )
++        resolver.autoTextVar = autoTextVar(this)
+     }
+ 
+     override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
+         super.onStartInput(attribute, restarting)
+         resolver.cfg = prefs.load()
++        resolver.autoText = AutoText(prefs.autoTextEntries)
+         if (!restarting) {
+             resolver.mods.reset()
+             handledDown.clear()
+@@ -522,7 +526,12 @@ class SableImeService : InputMethodService() {
+             ""
+         }
+         val capFlags = ei?.inputType?.and(InputType.TYPE_TEXT_FLAG_CAP_SENTENCES) ?: 0
+-        return FieldCtx(cls, before, autoCapAllowed = capFlags != 0)
++        return FieldCtx(
++            cls,
++            before,
++            autoCapAllowed = capFlags != 0,
++            autoText = FieldPolicy.autoTextAllowed(ei?.inputType)
++        )
+     }
+ 
+     private fun classify(ei: EditorInfo?): InputClass = FieldPolicy.classify(ei?.inputType)
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/AutoText.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/AutoText.kt
+new file mode 100644
+index 0000000..b290825
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/AutoText.kt
+@@ -0,0 +1,131 @@
++package org.sableos.titan2.keyboard.core
++
++/**
++ * BlackBerry-style AutoText: a short word followed by Space or punctuation is replaced with its long form
++ * ("dont " becomes "don't ", "ld " today's date). The built-in English list fixes contractions and common typos;
++ * the user's own entries work in every language and win over the built-ins. Pure, so it is unit-tested on a JVM.
++ *
++ * A replacement may hold variables the keyboard fills in when it expands: %D long date, %T time, %V SableOS
++ * build (the phone's build number), %% a percent sign. An entry whose variable is unknown is left as typed.
++ */
++class AutoText(user: Map<String, String> = emptyMap()) {
++    private val user: Map<String, String> = user.mapKeys { it.key.lowercase() }
++
++    data class Hit(val word: String, val replacement: String)
++
++    /** The replacement for the word that ends [before], or null when nothing changes. */
++    fun match(before: String, english: Boolean, vars: (Char) -> String? = { null }): Hit? {
++        val word = trailingWord(before) ?: return null
++        val key = word.lowercase()
++        val raw = user[key] ?: BUILT_IN[key]?.takeIf { english }
++        val out = raw?.let { expand(it, vars) }?.let { matchCase(word, it) }
++        return if (out == null || out == word) null else Hit(word, out)
++    }
++
++    companion object {
++        const val MAX_SHORTCUT = 32
++
++        /** Characters that end a word and trigger AutoText when typed. */
++        const val BOUNDARIES = " .,!?;:"
++
++        // a word preceded by one of these is part of an address, path, tag or number, not prose
++        private const val GLUED = "@#/\\_-.:&=+%$"
++
++        val BUILT_IN: Map<String, String> = mapOf(
++            "i" to "I",
++            "im" to "I'm",
++            "ive" to "I've",
++            "youre" to "you're",
++            "theyre" to "they're",
++            "dont" to "don't",
++            "cant" to "can't",
++            "wont" to "won't",
++            "didnt" to "didn't",
++            "doesnt" to "doesn't",
++            "isnt" to "isn't",
++            "wasnt" to "wasn't",
++            "arent" to "aren't",
++            "werent" to "weren't",
++            "havent" to "haven't",
++            "hasnt" to "hasn't",
++            "couldnt" to "couldn't",
++            "shouldnt" to "shouldn't",
++            "wouldnt" to "wouldn't",
++            "thats" to "that's",
++            "whats" to "what's",
++            "teh" to "the",
++            "hte" to "the",
++            "adn" to "and",
++            "taht" to "that",
++            "waht" to "what",
++            "becuase" to "because",
++            "recieve" to "receive",
++            "definately" to "definitely",
++            "seperate" to "separate",
++            "tommorow" to "tomorrow",
++            "untill" to "until",
++            "wierd" to "weird",
++            "alot" to "a lot",
++            "ld" to "%D",
++            "lt" to "%T",
++            "myver" to "%V"
++        )
++
++        /** True for a shortcut the user may save: 1 to 32 letters, digits or apostrophes, no spaces. */
++        fun validShortcut(s: String): Boolean = s.length in 1..MAX_SHORTCUT && s.all(::wordChar)
++
++        /** Reads the stored user list, one `shortcut=replacement` per line; bad lines are skipped. */
++        fun parse(text: String): Map<String, String> = text.lineSequence()
++            .mapNotNull { line ->
++                val eq = line.indexOf('=')
++                val short = if (eq > 0) line.substring(0, eq).trim().lowercase() else ""
++                val long = if (eq > 0) line.substring(eq + 1).trim() else ""
++                if (validShortcut(short) && long.isNotEmpty()) short to long else null
++            }
++            .toMap()
++
++        /** Writes the user list in [parse]'s format, sorted by shortcut. */
++        fun format(entries: Map<String, String>): String =
++            entries.toSortedMap().entries.joinToString("\n") { "${it.key}=${it.value}" }
++
++        private fun wordChar(c: Char) = c.isLetterOrDigit() || c == '\''
++
++        private fun trailingWord(before: String): String? {
++            var start = before.length
++            while (start > 0 && wordChar(before[start - 1])) start--
++            val word = before.substring(start)
++            val glued = start > 0 && before[start - 1] in GLUED
++            return word.takeIf { it.length in 1..MAX_SHORTCUT && it.any(Char::isLetter) && !glued }
++        }
++
++        private fun expand(raw: String, vars: (Char) -> String?): String? {
++            val sb = StringBuilder()
++            var i = 0
++            while (i < raw.length) {
++                val c = raw[i]
++                if (c == '%' && i + 1 < raw.length) {
++                    val name = raw[i + 1]
++                    sb.append(if (name == '%') "%" else vars(name) ?: return null)
++                    i += 2
++                } else {
++                    sb.append(c)
++                    i++
++                }
++            }
++            return sb.toString()
++        }
++
++        /** Typed in capitals or Capitalised: the replacement follows, unless it carries its own capitals. */
++        private fun matchCase(typed: String, repl: String): String = when {
++            repl.any(Char::isUpperCase) -> repl
++
++            typed.length > 1 && typed.filter(
++                Char::isLetter
++            ).all(Char::isUpperCase) -> repl.uppercase()
++
++            typed.first().isUpperCase() -> repl.replaceFirstChar(Char::uppercaseChar)
++
++            else -> repl
++        }
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/FieldPolicy.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/FieldPolicy.kt
+index 64ef1b2..58ae8ae 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/FieldPolicy.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/FieldPolicy.kt
+@@ -18,6 +18,11 @@ object InputTypeBits {
+     const val TEXT_VARIATION_WEB_PASSWORD = 0x000000e0
+     const val NUMBER_VARIATION_PASSWORD = 0x00000010
+     const val TEXT_FLAG_CAP_SENTENCES = 0x00004000
++    const val TEXT_VARIATION_URI = 0x00000010
++    const val TEXT_VARIATION_EMAIL_ADDRESS = 0x00000020
++    const val TEXT_VARIATION_FILTER = 0x000000b0
++    const val TEXT_VARIATION_WEB_EMAIL_ADDRESS = 0x000000d0
++    const val TEXT_FLAG_NO_SUGGESTIONS = 0x00080000
+ }
+ 
+ object FieldPolicy {
+@@ -67,6 +72,22 @@ object FieldPolicy {
+         softForNumeric: Boolean
+     ): Boolean = forceSoft || softToggled || numericFallback(cls, softForNumeric)
+ 
++    private val NO_AUTOTEXT_VARIATIONS = TEXT_PASSWORD_VARIATIONS + setOf(
++        InputTypeBits.TEXT_VARIATION_URI,
++        InputTypeBits.TEXT_VARIATION_EMAIL_ADDRESS,
++        InputTypeBits.TEXT_VARIATION_FILTER,
++        InputTypeBits.TEXT_VARIATION_WEB_EMAIL_ADDRESS
++    )
++
++    /**
++     * AutoText only in prose fields: text class, not a password, address or search filter, and not a field that
++     * asks for no suggestions (terminals, code editors).
++     */
++    fun autoTextAllowed(inputType: Int?): Boolean = inputType != null &&
++        inputType and InputTypeBits.MASK_CLASS == InputTypeBits.CLASS_TEXT &&
++        inputType and InputTypeBits.MASK_VARIATION !in NO_AUTOTEXT_VARIATIONS &&
++        inputType and InputTypeBits.TEXT_FLAG_NO_SUGGESTIONS == 0
++
+     /** Sentence-start capitalisation is requested only by text-class fields with the cap-sentences flag. */
+     fun wantsSentenceCaps(inputType: Int?): Boolean = inputType != null &&
+         inputType and InputTypeBits.MASK_CLASS == InputTypeBits.CLASS_TEXT &&
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/Model.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/Model.kt
+index cfb5f8a..6ca42c5 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/Model.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/Model.kt
+@@ -53,7 +53,9 @@ enum class InputClass { Text, Number, Phone, Password, NumberPassword, None }
+ data class FieldCtx(
+     val inputClass: InputClass = InputClass.Text,
+     val before: String = "",
+-    val autoCapAllowed: Boolean = true
++    val autoCapAllowed: Boolean = true,
++    /** The field takes AutoText (prose; not an address, password or no-suggestions field). */
++    val autoText: Boolean = false
+ ) {
+     val editable: Boolean get() = inputClass != InputClass.None
+ }
+@@ -86,6 +88,8 @@ data class KeyboardConfig(
+     val autoCap: Boolean = true,
+     val doubleSpacePeriod: Boolean = true,
+     val longPressAlt: Boolean = true,
++    /** BlackBerry-style AutoText on Space and punctuation (core AutoText). */
++    val autoText: Boolean = true,
+     /** Letters become their Alt digit in numeric/phone fields so pairing codes and PINs work with no Alt/Sym key. */
+     val numericAutoAlt: Boolean = true,
+     val navModeEnabled: Boolean = true,
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/Resolver.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/Resolver.kt
+index 1bd2739..d4ac6c9 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/Resolver.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/Resolver.kt
+@@ -41,6 +41,13 @@ class Resolver(
+         accentOptions = emptyList()
+     }
+ 
++    /** AutoText entries (built-ins plus the user's list) and the variables it fills in (%D, %T, %V). */
++    var autoText: AutoText = AutoText()
++    var autoTextVar: (Char) -> String? = { null }
++
++    // (typed text, inserted text), both with their boundary, while Backspace can still undo the expansion
++    private var lastExpansion: Pair<String, String>? = null
++
+     // letter whose long-press replacement was already committed
+     private var longPressed: Char? = null
+ 
+@@ -72,6 +79,8 @@ class Resolver(
+     }
+ 
+     private fun onKeyDown(k: Key, ev: KeyEv, ctx: FieldCtx): List<Out> {
++        val undo = lastExpansion
++        lastExpansion = null
+         if (ev.ctrlHeld || k is Key.Ctrl || !ctx.editable) return listOf(Out.Pass)
+ 
+         mods.markChordUse()
+@@ -84,8 +93,8 @@ class Resolver(
+             is Key.Letter -> letter(k.c, ev, ctx, Held(shiftOn, altOn, symOn, navAllowed(ctx)))
+             is Key.Space -> space(ev, ctx, altOn)
+             is Key.Digit -> commit(k.c.toString(), shiftOn)
+-            is Key.Punct -> punct(k, shiftOn)
+-            is Key.Backspace -> backspace(ev, shiftOn)
++            is Key.Punct -> punct(k, shiftOn, ctx)
++            is Key.Backspace -> backspace(ev, shiftOn, ctx, undo)
+             else -> listOf(Out.Pass)
+         }
+     }
+@@ -96,17 +105,46 @@ class Resolver(
+     fun navEffective(cls: InputClass): Boolean =
+         navActive && cfg.navModeEnabled && cls !in NO_NAV_CLASSES
+ 
+-    private fun punct(k: Key.Punct, shiftOn: Boolean): List<Out> = commit(
+-        (if (shiftOn) layout.shiftPunct[k.c] ?: k.c else k.c).toString(),
+-        false,
+-        spend = true
+-    )
+-
+-    private fun backspace(ev: KeyEv, shiftOn: Boolean): List<Out> = if (shiftOn && !ev.isRepeat()) {
++    private fun punct(k: Key.Punct, shiftOn: Boolean, ctx: FieldCtx): List<Out> {
++        val s = (if (shiftOn) layout.shiftPunct[k.c] ?: k.c else k.c).toString()
+         mods.consumeOneShots()
+-        listOf(Out.Send(Key.Delete))
+-    } else {
+-        listOf(Out.Pass)
++        return typeBoundary(s, ctx)
++    }
++
++    private fun backspace(
++        ev: KeyEv,
++        shiftOn: Boolean,
++        ctx: FieldCtx,
++        undo: Pair<String, String>?
++    ): List<Out> = when {
++        shiftOn && !ev.isRepeat() -> {
++            mods.consumeOneShots()
++            listOf(Out.Send(Key.Delete))
++        }
++
++        // the first Backspace after an AutoText expansion puts back what was typed
++        undo != null && !ev.isRepeat() && ctx.before.endsWith(undo.second) ->
++            listOf(Out.DeleteBefore(undo.second.length), Out.Commit(undo.first))
++
++        else -> listOf(Out.Pass)
++    }
++
++    /** Commits [s]; when it ends a word AutoText knows, replaces the word too. */
++    private fun typeBoundary(s: String, ctx: FieldCtx): List<Out> {
++        val on = cfg.autoText && ctx.autoText && ctx.inputClass == InputClass.Text &&
++            language.engine == Engine.Direct && s.length == 1 && s[0] in AutoText.BOUNDARIES
++        val hit = if (on) {
++            autoText.match(
++                ctx.before,
++                language.tag.startsWith("en"),
++                autoTextVar
++            )
++        } else {
++            null
++        }
++        if (hit == null) return listOf(Out.Commit(s))
++        lastExpansion = (hit.word + s) to (hit.replacement + s)
++        return listOf(Out.DeleteBefore(hit.word.length), Out.Commit(hit.replacement + s))
+     }
+ 
+     private fun KeyEv.isRepeat() = repeat > 0
+@@ -174,7 +212,7 @@ class Resolver(
+         return when {
+             replacement != null -> {
+                 mods.consumeOneShots()
+-                listOf(Out.Commit(replacement))
++                typeBoundary(replacement, ctx)
+             }
+ 
+             language.engine != Engine.Direct && ctx.inputClass !in FieldPolicy.SECRET_CLASSES -> {
+@@ -226,7 +264,7 @@ class Resolver(
+         ) {
+             listOf(Out.DeleteBefore(1), Out.Commit(". "))
+         } else {
+-            listOf(Out.Commit(" "))
++            typeBoundary(" ", ctx)
+         }
+ 
+     private fun endsWordSpace(b: String): Boolean =
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/core/AutoTextTest.kt b/sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/core/AutoTextTest.kt
+new file mode 100644
+index 0000000..e479e77
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/core/AutoTextTest.kt
+@@ -0,0 +1,146 @@
++package org.sableos.titan2.keyboard.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class AutoTextTest {
++    private val at = AutoText()
++    private fun hit(before: String, english: Boolean = true) =
++        at.match(before, english)?.replacement
++
++    @Test fun builtInsFixContractionsAndTypos() {
++        assertEquals("don't", hit("I dont"))
++        assertEquals("I'm", hit("im"))
++        assertEquals("the", hit("see teh"))
++        assertEquals("I", hit("so i"))
++    }
++
++    @Test fun caseFollowsTheTypedWord() {
++        assertEquals("Don't", hit("Dont"))
++        assertEquals("DON'T", hit("DONT"))
++        assertEquals("I'm", hit("IM"))
++        assertNull("already right", hit("I"))
++    }
++
++    @Test fun onlyWholeProseWords() {
++        assertNull(hit("hello"))
++        assertNull("part of a word", hit("abcdont"))
++        assertNull("after an apostrophe word", hit("o'teh"))
++        assertNull("email", hit("me@im"))
++        assertNull("path", hit("/usr/lt"))
++        assertNull("hashtag", hit("#dont"))
++        assertNull("digits only", hit("123"))
++        assertNull("nothing typed", hit(""))
++    }
++
++    @Test fun builtInsAreEnglishOnlyButUserEntriesAreNot() {
++        assertNull(hit("i", english = false))
++        val user = AutoText(mapOf("BRB" to "be right back", "i" to "y"))
++        assertEquals("be right back", user.match("brb", english = false)?.replacement)
++        assertEquals("y", user.match("i", english = true)?.replacement)
++    }
++
++    @Test fun variablesExpandAndUnknownOnesLeaveTheWord() {
++        val vars = { c: Char -> if (c == 'D') "Wednesday, October 28, 2026" else null }
++        assertEquals("Wednesday, October 28, 2026", at.match("ld", true, vars)?.replacement)
++        assertNull("no time source", at.match("lt", true, vars))
++        val user = AutoText(mapOf("pct" to "100%%"))
++        assertEquals("100%", user.match("pct", true)?.replacement)
++    }
++
++    @Test fun storedListRoundTripsAndSkipsBadLines() {
++        val parsed = AutoText.parse(
++            "brb = be right back\nno equals\n=x\ntwo words=x\nempty=\nomw=on my way"
++        )
++        assertEquals(mapOf("brb" to "be right back", "omw" to "on my way"), parsed)
++        assertEquals("brb=be right back\nomw=on my way", AutoText.format(parsed))
++        assertEquals(parsed, AutoText.parse(AutoText.format(parsed)))
++        assertTrue(AutoText.validShortcut("y'all"))
++    }
++
++    @Test fun everyBuiltInIsAValidShortcut() {
++        AutoText.BUILT_IN.keys.forEach {
++            assertTrue(
++                it,
++                AutoText.validShortcut(it) && it == it.lowercase()
++            )
++        }
++    }
++
++    // --- in the resolver ---
++
++    private var t = 0L
++    private fun Resolver.down(
++        k: Key,
++        before: String,
++        cls: InputClass = InputClass.Text,
++        autoText: Boolean = true
++    ) = onKey(KeyEv(k, true, ++t), FieldCtx(cls, before, autoText = autoText))
++
++    @Test fun spaceAndPunctuationExpand() {
++        val r = Resolver()
++        assertEquals(listOf(Out.DeleteBefore(4), Out.Commit("don't ")), r.down(Key.Space, "I dont"))
++        assertEquals(listOf(Out.DeleteBefore(3), Out.Commit("the.")), r.down(Key.Punct('.'), "teh"))
++    }
++
++    @Test fun altLayerPunctuationExpands() {
++        // Alt+M types '.' on the BlackBerry layout
++        val r = Resolver(layout = KeyLayout.ZinwaQ25Kcm)
++        r.onKey(
++            KeyEv(Key.Modifier(Mod.Alt), true, ++t),
++            FieldCtx(InputClass.Text, "dont", autoText = true)
++        )
++        assertEquals(
++            listOf(Out.DeleteBefore(4), Out.Commit("don't.")),
++            r.down(Key.Letter('m'), "dont")
++        )
++    }
++
++    @Test fun backspaceRightAfterUndoesOnce() {
++        val r = Resolver()
++        r.down(Key.Space, "dont")
++        assertEquals(
++            listOf(Out.DeleteBefore(6), Out.Commit("dont ")),
++            r.down(Key.Backspace, "don't ")
++        )
++        assertEquals(listOf(Out.Pass), r.down(Key.Backspace, "dont "))
++    }
++
++    @Test fun anotherKeyEndsTheUndo() {
++        val r = Resolver()
++        r.down(Key.Space, "dont")
++        r.down(Key.Letter('a'), "don't ")
++        assertEquals(listOf(Out.Pass), r.down(Key.Backspace, "don't a"))
++    }
++
++    @Test fun offWhereItDoesNotBelong() {
++        val r = Resolver()
++        val plain = listOf(Out.Commit(" "))
++        assertEquals("field said no", plain, r.down(Key.Space, "dont", autoText = false))
++        assertEquals("password", plain, r.down(Key.Space, "dont", InputClass.Password))
++        val off = Resolver(cfg = KeyboardConfig(autoText = false))
++        assertEquals("switched off", plain, off.down(Key.Space, "dont"))
++        val pinyin = Resolver().apply {
++            language =
++                Languages.all.first { it.engine != Engine.Direct }
++        }
++        assertEquals("composing language", plain, pinyin.down(Key.Space, "dont"))
++    }
++
++    @Test fun fieldPolicyKeepsAutoTextToProse() {
++        val text = InputTypeBits.CLASS_TEXT
++        assertTrue(FieldPolicy.autoTextAllowed(text or InputTypeBits.TEXT_FLAG_CAP_SENTENCES))
++        listOf(
++            null,
++            InputTypeBits.CLASS_NUMBER,
++            text or InputTypeBits.TEXT_VARIATION_PASSWORD,
++            text or InputTypeBits.TEXT_VARIATION_URI,
++            text or InputTypeBits.TEXT_VARIATION_EMAIL_ADDRESS,
++            text or InputTypeBits.TEXT_VARIATION_WEB_EMAIL_ADDRESS,
++            text or InputTypeBits.TEXT_VARIATION_FILTER,
++            text or InputTypeBits.TEXT_FLAG_NO_SUGGESTIONS
++        ).forEach { assertTrue("$it", !FieldPolicy.autoTextAllowed(it)) }
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/profiles/build.gradle.kts b/sable-src/apps/titan2/platform/profiles/build.gradle.kts
+new file mode 100644
+index 0000000..3995cad
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/profiles/build.gradle.kts
+@@ -0,0 +1,41 @@
++plugins {
++    alias(libs.plugins.android.application)
++    alias(libs.plugins.kotlin.android)
++}
++
++// Sound Profiles: BlackBerry sound profiles (Normal, Loud, Vibrate only, Phone calls only, All alerts
++// off), switched from the app or the Quick Settings tile. Its own app, not a Sable Tools page: Tools
++// may not write system settings or run a service (tools/core/PrivilegePolicy).
++android {
++    // The Sable theme palette shared by the platform apps (one copy, see sable-theme/).
++    sourceSets["main"].java.srcDir("../sable-theme/src/main/java")
++    namespace = "org.sableos.titan2.profiles"
++    compileSdk = 36
++    defaultConfig {
++        applicationId = "org.sableos.titan2.profiles"
++        // Platform apps ship only on Android 16+ images.
++        minSdk = 36
++        targetSdk = 36
++        versionCode = 1
++        versionName = "0.1.0"
++    }
++    buildTypes {
++        release {
++            // R8 shrinks and obfuscates the shipped release APK.
++            isMinifyEnabled = true
++            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
++        }
++    }
++    compileOptions {
++        sourceCompatibility = JavaVersion.VERSION_17
++        targetCompatibility =
++            JavaVersion.VERSION_17
++    }
++    kotlinOptions { jvmTarget = "17" }
++}
++
++dependencies {
++    implementation(libs.androidx.core.ktx)
++
++    testImplementation(libs.junit)
++}
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/profiles/src/main/AndroidManifest.xml
+new file mode 100644
+index 0000000..6499e95
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/profiles/src/main/AndroidManifest.xml
+@@ -0,0 +1,49 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Sound Profiles: BlackBerry sound profiles. Picking one sets the ringer, Do Not Disturb, the ring
++     and notification volumes, vibration, the notification light and the profile's own tones. No
++     network, no background work: the app and the Quick Settings tile change settings only when the
++     user picks a profile. Do Not Disturb access is granted by default
++     (product/common/overlay/SableFrameworkOverlay/res/values/sable_profiles.xml); system settings
++     access comes with the preinstalled app, or the user allows it once. -->
++<manifest xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:tools="http://schemas.android.com/tools">
++
++    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
++    <uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions" />
++
++    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
++
++    <application
++        android:allowBackup="false"
++        android:usesCleartextTraffic="false"
++        android:icon="@mipmap/ic_sable_profiles"
++        android:roundIcon="@mipmap/ic_sable_profiles_round"
++        android:label="@string/app_name"
++        android:supportsRtl="true"
++        android:theme="@android:style/Theme.DeviceDefault">
++        <activity
++            android:name=".android.SoundProfilesActivity"
++            android:exported="true"
++            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|smallestScreenSize|screenLayout|uiMode">
++            <intent-filter>
++                <action android:name="android.intent.action.MAIN" />
++                <category android:name="android.intent.category.LAUNCHER" />
++            </intent-filter>
++            <!-- Long-press on the Sound profile tile. -->
++            <intent-filter>
++                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
++            </intent-filter>
++        </activity>
++
++        <service
++            android:name=".android.SoundProfileTileService"
++            android:exported="true"
++            android:icon="@drawable/ic_sound_profile"
++            android:label="Sound profile"
++            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
++            <intent-filter>
++                <action android:name="android.service.quicksettings.action.QS_TILE" />
++            </intent-filter>
++        </service>
++    </application>
++</manifest>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfileApplier.kt b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfileApplier.kt
+new file mode 100644
+index 0000000..e948bda
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfileApplier.kt
+@@ -0,0 +1,131 @@
++package org.sableos.titan2.profiles.android
++
++import android.app.NotificationManager
++import android.content.Context
++import android.media.AudioManager
++import android.media.RingtoneManager
++import android.net.Uri
++import android.provider.Settings
++import org.sableos.titan2.profiles.core.Dnd
++import org.sableos.titan2.profiles.core.ProfilePlan
++import org.sableos.titan2.profiles.core.ProfileSettings
++import org.sableos.titan2.profiles.core.Ringer
++import org.sableos.titan2.profiles.core.SoundProfile
++import org.sableos.titan2.profiles.core.SoundProfiles
++
++/** Stores the chosen sound profile and each profile's own settings. */
++class SoundProfileStore(context: Context) {
++    private val prefs = context.getSharedPreferences("sound_profiles", Context.MODE_PRIVATE)
++
++    var current: SoundProfile?
++        get() = SoundProfile.fromName(prefs.getString(CURRENT, null))
++        set(v) {
++            prefs.edit().putString(CURRENT, v?.name).apply()
++        }
++
++    fun settings(profile: SoundProfile): ProfileSettings =
++        SoundProfiles.parse(prefs.getString(profile.name, null))
++
++    fun save(profile: SoundProfile, settings: ProfileSettings) {
++        prefs.edit().putString(profile.name, SoundProfiles.format(settings)).apply()
++    }
++
++    private companion object {
++        const val CURRENT = "current"
++    }
++}
++
++/** Sets a sound profile on the phone. */
++class SoundProfileApplier(private val context: Context) {
++    enum class Result {
++        APPLIED,
++
++        /** Do Not Disturb access is missing: nothing was changed. */
++        NEEDS_DND_ACCESS,
++
++        /** Sound was set, but tones, vibration or the light could not be (no settings access). */
++        PARTIAL
++    }
++
++    fun apply(profile: SoundProfile): Result {
++        val store = SoundProfileStore(context)
++        val plan = SoundProfiles.plan(profile, store.settings(profile))
++        val nm = context.getSystemService(NotificationManager::class.java)
++        val dndChanges =
++            plan.dnd != Dnd.OFF ||
++                nm.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL
++        if ((dndChanges || plan.ringer != Ringer.NORMAL) && !nm.isNotificationPolicyAccessGranted) {
++            return Result.NEEDS_DND_ACCESS
++        }
++        // Do Not Disturb off first, so the ringer mode is not overridden; on again last.
++        if (plan.dnd == Dnd.OFF &&
++            dndChanges
++        ) {
++            nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL)
++        }
++        setSound(plan)
++        setDnd(nm, plan.dnd)
++        store.current = profile
++        return if (setExtras(plan)) Result.APPLIED else Result.PARTIAL
++    }
++
++    private fun setSound(plan: ProfilePlan) {
++        val audio = context.getSystemService(AudioManager::class.java)
++        audio.ringerMode = when (plan.ringer) {
++            Ringer.NORMAL -> AudioManager.RINGER_MODE_NORMAL
++            Ringer.VIBRATE -> AudioManager.RINGER_MODE_VIBRATE
++            Ringer.SILENT -> AudioManager.RINGER_MODE_SILENT
++        }
++        val pct = plan.volumePercent ?: return
++        for (stream in intArrayOf(AudioManager.STREAM_RING, AudioManager.STREAM_NOTIFICATION)) {
++            val max = audio.getStreamMaxVolume(stream)
++            audio.setStreamVolume(stream, (max * pct + PERCENT / 2) / PERCENT, 0)
++        }
++    }
++
++    private fun setDnd(nm: NotificationManager, dnd: Dnd) {
++        when (dnd) {
++            Dnd.CALLS_ONLY -> {
++                nm.notificationPolicy = NotificationManager.Policy(
++                    NotificationManager.Policy.PRIORITY_CATEGORY_CALLS or
++                        NotificationManager.Policy.PRIORITY_CATEGORY_REPEAT_CALLERS or
++                        NotificationManager.Policy.PRIORITY_CATEGORY_ALARMS,
++                    NotificationManager.Policy.PRIORITY_SENDERS_ANY,
++                    NotificationManager.Policy.PRIORITY_SENDERS_ANY
++                )
++                nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY)
++            }
++
++            Dnd.ALARMS_ONLY -> nm.setInterruptionFilter(
++                NotificationManager.INTERRUPTION_FILTER_ALARMS
++            )
++
++            Dnd.OFF -> Unit
++        }
++    }
++
++    /** Vibration, the light and the tones; false when the system settings could not be written. */
++    private fun setExtras(plan: ProfilePlan): Boolean =
++        Settings.System.canWrite(context) && runCatching {
++            val cr = context.contentResolver
++            Settings.System.putInt(
++                cr,
++                Settings.System.VIBRATE_WHEN_RINGING,
++                if (plan.vibrateWhenRinging) 1 else 0
++            )
++            Settings.System.putInt(cr, NOTIFICATION_LIGHT_PULSE, if (plan.light) 1 else 0)
++            plan.ringtone?.let { setTone(RingtoneManager.TYPE_RINGTONE, it) }
++            plan.notificationTone?.let { setTone(RingtoneManager.TYPE_NOTIFICATION, it) }
++        }.isSuccess
++
++    private fun setTone(type: Int, uri: String) {
++        RingtoneManager.setActualDefaultRingtoneUri(context, type, Uri.parse(uri))
++    }
++
++    private companion object {
++        const val PERCENT = 100
++
++        // Settings.System.NOTIFICATION_LIGHT_PULSE (hidden in the SDK, public in the settings provider).
++        const val NOTIFICATION_LIGHT_PULSE = "notification_light_pulse"
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfileTileService.kt b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfileTileService.kt
+new file mode 100644
+index 0000000..d34e794
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfileTileService.kt
+@@ -0,0 +1,75 @@
++package org.sableos.titan2.profiles.android
++
++import android.app.AlertDialog
++import android.content.Intent
++import android.provider.Settings
++import android.service.quicksettings.Tile
++import android.service.quicksettings.TileService
++import android.widget.Toast
++import org.sableos.titan2.profiles.core.SoundProfile
++
++/** Quick Settings tile: shows the sound profile; tapping it lists the profiles to pick from. */
++class SoundProfileTileService : TileService() {
++    override fun onStartListening() {
++        super.onStartListening()
++        refresh()
++    }
++
++    override fun onClick() {
++        super.onClick()
++        val profiles = SoundProfile.entries
++        val current = SoundProfileStore(this).current
++        val dialog = AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
++            .setTitle("Sound profile")
++            .setSingleChoiceItems(
++                profiles.map {
++                    it.title
++                }.toTypedArray(),
++                current?.ordinal ?: -1
++            ) { d, which ->
++                d.dismiss()
++                pick(profiles[which])
++            }
++            .create()
++        showDialog(dialog)
++    }
++
++    private fun pick(profile: SoundProfile) {
++        when (SoundProfileApplier(this).apply(profile)) {
++            SoundProfileApplier.Result.NEEDS_DND_ACCESS -> {
++                Toast.makeText(
++                    this,
++                    "Allow Do Not Disturb access for Sound Profiles",
++                    Toast.LENGTH_LONG
++                ).show()
++                startActivityAndCollapse(
++                    android.app.PendingIntent.getActivity(
++                        this,
++                        0,
++                        Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)
++                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
++                        android.app.PendingIntent.FLAG_IMMUTABLE
++                    )
++                )
++            }
++
++            else -> refresh()
++        }
++    }
++
++    private fun refresh() {
++        val tile = qsTile ?: return
++        val current = SoundProfileStore(this).current
++        tile.label = "Sound profile"
++        tile.subtitle = current?.title ?: "Choose"
++        tile.state =
++            if (current == null ||
++                current == SoundProfile.NORMAL
++            ) {
++                Tile.STATE_INACTIVE
++            } else {
++                Tile.STATE_ACTIVE
++            }
++        tile.updateTile()
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfilesActivity.kt b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfilesActivity.kt
+new file mode 100644
+index 0000000..dc32782
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfilesActivity.kt
+@@ -0,0 +1,224 @@
++package org.sableos.titan2.profiles.android
++
++import android.app.Activity
++import android.content.Intent
++import android.media.RingtoneManager
++import android.net.Uri
++import android.os.Bundle
++import android.provider.Settings
++import android.view.ViewGroup
++import android.widget.Button
++import android.widget.LinearLayout
++import android.widget.ScrollView
++import android.widget.Switch
++import android.widget.TextView
++import org.sableos.titan2.profiles.core.ProfileSettings
++import org.sableos.titan2.profiles.core.SoundProfile
++import org.sableos.titan2.profiles.core.SoundProfiles
++
++/**
++ * BlackBerry sound profiles: Use picks one, Edit sets that profile's tones, volume, vibration and
++ * light. Plain views, so the keyboard and trackpad reach everything. Also the Quick Settings tile's
++ * long-press screen.
++ */
++class SoundProfilesActivity : Activity() {
++    private lateinit var store: SoundProfileStore
++    private lateinit var status: TextView
++    private lateinit var editor: LinearLayout
++    private val rows = mutableMapOf<SoundProfile, Button>()
++    private var editing = SoundProfile.NORMAL
++
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        store = SoundProfileStore(this)
++        editing = store.current ?: SoundProfile.NORMAL
++        val col = LinearLayout(this).apply {
++            orientation = LinearLayout.VERTICAL
++            setPadding(PAD, PAD, PAD, PAD)
++        }
++        col.addView(text("Sound profiles", TITLE_SP))
++        status = text("", NOTE_SP)
++        col.addView(status)
++        SoundProfile.entries.forEach { profile ->
++            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
++            val use = Button(this).apply { setOnClickListener { use(profile) } }
++            rows[profile] = use
++            row.addView(use, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
++            row.addView(
++                Button(this).apply {
++                    text = "Edit"
++                    setOnClickListener {
++                        editing = profile
++                        refresh()
++                    }
++                }
++            )
++            col.addView(row)
++        }
++        editor = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
++        col.addView(editor)
++        col.addView(
++            text(
++                "Add the Sound profile tile to Quick Settings to switch from the shade: pull " +
++                    "down the shade, choose Edit and drag the tile in.",
++                NOTE_SP
++            )
++        )
++        setContentView(
++            ScrollView(this).apply {
++                addView(
++                    col,
++                    ViewGroup.LayoutParams.MATCH_PARENT,
++                    ViewGroup.LayoutParams.WRAP_CONTENT
++                )
++            }
++        )
++    }
++
++    override fun onResume() {
++        super.onResume()
++        refresh()
++    }
++
++    private fun use(profile: SoundProfile) {
++        status.text = when (SoundProfileApplier(this).apply(profile)) {
++            SoundProfileApplier.Result.APPLIED -> "${profile.title} is on."
++
++            SoundProfileApplier.Result.PARTIAL -> {
++                startActivity(
++                    Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:$packageName"))
++                )
++                "${profile.title} is on. Allow changing system settings so it can set tones, " +
++                    "vibration and the light, then choose it again."
++            }
++
++            SoundProfileApplier.Result.NEEDS_DND_ACCESS -> {
++                startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
++                "Allow Do Not Disturb access for Sound Profiles, then choose ${profile.title} again."
++            }
++        }
++        refresh()
++    }
++
++    private fun refresh() {
++        val current = store.current
++        rows.forEach { (profile, button) ->
++            val mark = if (profile == current) "● " else "○ "
++            button.text = "$mark${profile.title}\n${profile.summary}"
++        }
++        buildEditor()
++    }
++
++    private fun buildEditor() {
++        editor.removeAllViews()
++        val profile = editing
++        val s = store.settings(profile)
++        val plan = SoundProfiles.plan(profile, s)
++        editor.addView(text("Edit ${profile.title}", TITLE_SP))
++        if (plan.volumePercent != null) {
++            val volume = plan.volumePercent
++            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
++            row.addView(
++                text("Volume $volume%", NOTE_SP),
++                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
++            )
++            row.addView(
++                button("−") {
++                    save(profile, s.copy(volumePercent = (volume - STEP).coerceAtLeast(0)))
++                }
++            )
++            row.addView(
++                button("+") {
++                    save(profile, s.copy(volumePercent = (volume + STEP).coerceAtMost(FULL)))
++                }
++            )
++            editor.addView(row)
++        }
++        editor.addView(
++            button("Ringtone: ${toneName(s.ringtone)}") {
++                pickTone(RingtoneManager.TYPE_RINGTONE, s.ringtone)
++            }
++        )
++        editor.addView(
++            button("Notification tone: ${toneName(s.notificationTone)}") {
++                pickTone(RingtoneManager.TYPE_NOTIFICATION, s.notificationTone)
++            }
++        )
++        editor.addView(
++            switch("Vibrate for calls", plan.vibrateWhenRinging) {
++                save(profile, s.copy(vibrate = it))
++            }
++        )
++        editor.addView(
++            switch("Notification light", plan.light) {
++                save(profile, s.copy(light = it))
++            }
++        )
++    }
++
++    private fun save(profile: SoundProfile, settings: ProfileSettings) {
++        store.save(profile, settings)
++        if (store.current == profile) SoundProfileApplier(this).apply(profile)
++        refresh()
++    }
++
++    // startActivityForResult: a plain Activity, no AndroidX result API here.
++    @Suppress("DEPRECATION")
++    private fun pickTone(type: Int, current: String?) {
++        val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER)
++            .putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, type)
++            .putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
++            .putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, false)
++            .putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, current?.let(Uri::parse))
++        startActivityForResult(intent, type)
++    }
++
++    @Deprecated("Activity result API of a plain Activity")
++    @Suppress("DEPRECATION")
++    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
++        super.onActivityResult(requestCode, resultCode, data)
++        val uri = data?.getParcelableExtra(
++            RingtoneManager.EXTRA_RINGTONE_PICKED_URI,
++            Uri::class.java
++        )
++        if (resultCode != RESULT_OK || uri == null) return
++        val s = store.settings(editing)
++        save(
++            editing,
++            if (requestCode == RingtoneManager.TYPE_RINGTONE) {
++                s.copy(ringtone = uri.toString())
++            } else {
++                s.copy(notificationTone = uri.toString())
++            }
++        )
++    }
++
++    private fun toneName(uri: String?): String = uri?.let {
++        runCatching { RingtoneManager.getRingtone(this, Uri.parse(it))?.getTitle(this) }.getOrNull()
++    } ?: "phone's current"
++
++    private fun text(s: String, size: Float) = TextView(this).apply {
++        text = s
++        textSize = size
++    }
++
++    private fun button(label: String, onClick: () -> Unit) = Button(this).apply {
++        text = label
++        setOnClickListener { onClick() }
++    }
++
++    private fun switch(label: String, on: Boolean, onChange: (Boolean) -> Unit) =
++        Switch(this).apply {
++            text = label
++            isChecked = on
++            setOnCheckedChangeListener { _, v -> onChange(v) }
++        }
++
++    private companion object {
++        const val PAD = 24
++        const val TITLE_SP = 20f
++        const val NOTE_SP = 14f
++        const val STEP = 10
++        const val FULL = 100
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/SoundProfiles.kt b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/SoundProfiles.kt
+new file mode 100644
+index 0000000..0c9cf33
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/SoundProfiles.kt
+@@ -0,0 +1,142 @@
++package org.sableos.titan2.profiles.core
++
++/**
++ * BlackBerry sound profiles. Picking one sets the ringer, Do Not Disturb, the ring and notification
++ * volumes, vibration, the notification light and, when the profile has them, its own ringtone and
++ * notification tone. Pure: [plan] says what to set and the Android side sets it.
++ */
++enum class SoundProfile(val title: String, val summary: String) {
++    NORMAL("Normal", "Rings and alerts at your volume"),
++    LOUD("Loud", "Rings and alerts at full volume"),
++    VIBRATE_ONLY("Vibrate only", "Vibrates for calls and alerts, no sound"),
++    PHONE_CALLS_ONLY("Phone calls only", "Only calls ring; messages and alerts are silent"),
++    ALL_ALERTS_OFF("All alerts off", "Nothing rings or vibrates; alarms still sound");
++
++    companion object {
++        fun fromName(name: String?): SoundProfile? = entries.firstOrNull { it.name == name }
++    }
++}
++
++enum class Ringer { NORMAL, VIBRATE, SILENT }
++
++/** Do Not Disturb as Android's interruption filters: off, priority only (calls), alarms only. */
++enum class Dnd { OFF, CALLS_ONLY, ALARMS_ONLY }
++
++/** What the user changed for one profile; null keeps the profile's default or the phone's current tone. */
++data class ProfileSettings(
++    /** Ring and notification volume, 0 to 100 percent of the stream's maximum. */
++    val volumePercent: Int? = null,
++    val vibrate: Boolean? = null,
++    val light: Boolean? = null,
++    val ringtone: String? = null,
++    val notificationTone: String? = null
++)
++
++/** Everything one profile sets. A null volume or tone leaves it as it is. */
++data class ProfilePlan(
++    val ringer: Ringer,
++    val dnd: Dnd,
++    val volumePercent: Int?,
++    val vibrateWhenRinging: Boolean,
++    val light: Boolean,
++    val ringtone: String?,
++    val notificationTone: String?
++)
++
++object SoundProfiles {
++    const val NORMAL_VOLUME = 70
++    const val FULL_VOLUME = 100
++
++    fun plan(profile: SoundProfile, settings: ProfileSettings = ProfileSettings()): ProfilePlan {
++        val base = when (profile) {
++            SoundProfile.NORMAL -> ProfilePlan(
++                Ringer.NORMAL,
++                Dnd.OFF,
++                NORMAL_VOLUME,
++                true,
++                true,
++                null,
++                null
++            )
++
++            SoundProfile.LOUD -> ProfilePlan(
++                Ringer.NORMAL,
++                Dnd.OFF,
++                FULL_VOLUME,
++                true,
++                true,
++                null,
++                null
++            )
++
++            SoundProfile.VIBRATE_ONLY -> ProfilePlan(
++                Ringer.VIBRATE,
++                Dnd.OFF,
++                null,
++                true,
++                true,
++                null,
++                null
++            )
++
++            SoundProfile.PHONE_CALLS_ONLY ->
++                ProfilePlan(Ringer.NORMAL, Dnd.CALLS_ONLY, NORMAL_VOLUME, true, false, null, null)
++
++            SoundProfile.ALL_ALERTS_OFF -> ProfilePlan(
++                Ringer.SILENT,
++                Dnd.ALARMS_ONLY,
++                null,
++                false,
++                false,
++                null,
++                null
++            )
++        }
++        // A silent or vibrating profile has no volume to set; the user's volume applies only where it rings.
++        val volume = settings.volumePercent?.coerceIn(0, FULL_VOLUME)?.takeIf {
++            base.volumePercent !=
++                null
++        }
++        return base.copy(
++            volumePercent = volume ?: base.volumePercent,
++            vibrateWhenRinging = settings.vibrate?.takeIf { profile != SoundProfile.ALL_ALERTS_OFF }
++                ?: base.vibrateWhenRinging,
++            light = settings.light ?: base.light,
++            ringtone = settings.ringtone,
++            notificationTone = settings.notificationTone
++        )
++    }
++
++    /** The next profile, for a key or tile that steps through them. */
++    fun next(current: SoundProfile?): SoundProfile {
++        val all = SoundProfile.entries
++        return if (current == null) all.first() else all[(current.ordinal + 1) % all.size]
++    }
++
++    /** Reads one profile's stored settings: `key=value` lines (volume, vibrate, light, ringtone, notification). */
++    fun parse(text: String?): ProfileSettings {
++        val map = text.orEmpty().lineSequence()
++            .mapNotNull { line ->
++                val eq = line.indexOf('=')
++                if (eq > 0) line.substring(0, eq) to line.substring(eq + 1) else null
++            }
++            .toMap()
++        return ProfileSettings(
++            volumePercent = map["volume"]?.toIntOrNull()?.coerceIn(0, FULL_VOLUME),
++            vibrate = map["vibrate"]?.toBooleanStrictOrNull(),
++            light = map["light"]?.toBooleanStrictOrNull(),
++            ringtone = map["ringtone"]?.takeIf { it.isNotBlank() },
++            notificationTone = map["notification"]?.takeIf { it.isNotBlank() }
++        )
++    }
++
++    fun format(s: ProfileSettings): String = listOfNotNull(
++        s.volumePercent?.let { "volume=$it" },
++        s.vibrate?.let { "vibrate=$it" },
++        s.light?.let { "light=$it" },
++        s.ringtone?.let { "ringtone=${oneLine(it)}" },
++        s.notificationTone?.let { "notification=${oneLine(it)}" }
++    ).joinToString("\n")
++
++    private fun oneLine(s: String) = s.replace('\n', ' ')
++}
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/drawable/ic_sable_profiles.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/drawable/ic_sable_profiles.xml
+new file mode 100644
+index 0000000..55bf3d2
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/drawable/ic_sable_profiles.xml
+@@ -0,0 +1,21 @@
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="48dp"
++    android:height="48dp"
++    android:viewportWidth="256"
++    android:viewportHeight="256">
++    <path
++        android:fillColor="#161C24"
++        android:pathData="M32,16h192c8.8,0 16,7.2 16,16v192c0,8.8 -7.2,16 -16,16H32c-8.8,0 -16,-7.2 -16,-16V32c0,-8.8 7.2,-16 16,-16z" />
++    <group
++        android:scaleX="0.70"
++        android:scaleY="0.70"
++        android:translateX="38.4"
++        android:translateY="34">
++        <path
++            android:fillColor="#F7F9FC"
++            android:pathData="M155.51,24.81a8,8,0,0,0-8.42.88L77.25,80H32A16,16,0,0,0,16,96v64a16,16,0,0,0,16,16H77.25l69.84,54.31A8,8,0,0,0,160,224V32A8,8,0,0,0,155.51,24.81ZM32,96H72v64H32ZM144,207.64,88,164.09V91.91l56-43.55Zm54-106.08a40,40,0,0,1,0,52.88,8,8,0,0,1-12-10.58,24,24,0,0,0,0-31.72,8,8,0,0,1,12-10.58ZM248,128a79.9,79.9,0,0,1-20.37,53.34,8,8,0,0,1-11.92-10.67,64,64,0,0,0,0-85.33,8,8,0,1,1,11.92-10.67A79.83,79.83,0,0,1,248,128Z" />
++    </group>
++    <path
++        android:fillColor="#F28C45"
++        android:pathData="M28,226h200v6H28z" />
++</vector>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/drawable/ic_sable_profiles_background.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/drawable/ic_sable_profiles_background.xml
+new file mode 100644
+index 0000000..811854a
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/drawable/ic_sable_profiles_background.xml
+@@ -0,0 +1,10 @@
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="108dp"
++    android:height="108dp"
++    android:viewportWidth="108"
++    android:viewportHeight="108">
++    <path
++        android:fillColor="#161C24"
++        android:pathData="M0,0h108v108H0z" />
++</vector>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/drawable/ic_sable_profiles_foreground.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/drawable/ic_sable_profiles_foreground.xml
+new file mode 100644
+index 0000000..36d1959
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/drawable/ic_sable_profiles_foreground.xml
+@@ -0,0 +1,19 @@
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="108dp"
++    android:height="108dp"
++    android:viewportWidth="108"
++    android:viewportHeight="108">
++    <group
++        android:scaleX="0.171875"
++        android:scaleY="0.171875"
++        android:translateX="32"
++        android:translateY="32">
++        <path
++            android:fillColor="#F7F9FC"
++            android:pathData="M155.51,24.81a8,8,0,0,0-8.42.88L77.25,80H32A16,16,0,0,0,16,96v64a16,16,0,0,0,16,16H77.25l69.84,54.31A8,8,0,0,0,160,224V32A8,8,0,0,0,155.51,24.81ZM32,96H72v64H32ZM144,207.64,88,164.09V91.91l56-43.55Zm54-106.08a40,40,0,0,1,0,52.88,8,8,0,0,1-12-10.58,24,24,0,0,0,0-31.72,8,8,0,0,1,12-10.58ZM248,128a79.9,79.9,0,0,1-20.37,53.34,8,8,0,0,1-11.92-10.67,64,64,0,0,0,0-85.33,8,8,0,1,1,11.92-10.67A79.83,79.83,0,0,1,248,128Z" />
++    </group>
++    <path
++        android:fillColor="#F28C45"
++        android:pathData="M38,76.5h32v1.5H38z" />
++</vector>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/drawable/ic_sable_profiles_monochrome.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/drawable/ic_sable_profiles_monochrome.xml
+new file mode 100644
+index 0000000..891e57d
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/drawable/ic_sable_profiles_monochrome.xml
+@@ -0,0 +1,16 @@
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="108dp"
++    android:height="108dp"
++    android:viewportWidth="108"
++    android:viewportHeight="108">
++    <group
++        android:scaleX="0.171875"
++        android:scaleY="0.171875"
++        android:translateX="32"
++        android:translateY="32">
++        <path
++            android:fillColor="#FFFFFFFF"
++            android:pathData="M155.51,24.81a8,8,0,0,0-8.42.88L77.25,80H32A16,16,0,0,0,16,96v64a16,16,0,0,0,16,16H77.25l69.84,54.31A8,8,0,0,0,160,224V32A8,8,0,0,0,155.51,24.81ZM32,96H72v64H32ZM144,207.64,88,164.09V91.91l56-43.55Zm54-106.08a40,40,0,0,1,0,52.88,8,8,0,0,1-12-10.58,24,24,0,0,0,0-31.72,8,8,0,0,1,12-10.58ZM248,128a79.9,79.9,0,0,1-20.37,53.34,8,8,0,0,1-11.92-10.67,64,64,0,0,0,0-85.33,8,8,0,1,1,11.92-10.67A79.83,79.83,0,0,1,248,128Z" />
++    </group>
++</vector>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/drawable/ic_sound_profile.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/drawable/ic_sound_profile.xml
+new file mode 100644
+index 0000000..cf4c12c
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/drawable/ic_sound_profile.xml
+@@ -0,0 +1,11 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Sound profile tile: a speaker (Material "volume_up" shape). -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp"
++    android:height="24dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <path
++        android:fillColor="#FFFFFFFF"
++        android:pathData="M3,9v6h4l5,5V4L7,9H3zM16.5,12c0,-1.77 -1.02,-3.29 -2.5,-4.03v8.05c1.48,-0.73 2.5,-2.25 2.5,-4.02zM14,3.23v2.06c2.89,0.86 5,3.54 5,6.71s-2.11,5.85 -5,6.71v2.06c4.01,-0.91 7,-4.49 7,-8.77s-2.99,-7.86 -7,-8.77z" />
++</vector>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/mipmap-anydpi-v26/ic_sable_profiles.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/mipmap-anydpi-v26/ic_sable_profiles.xml
+new file mode 100644
+index 0000000..d0ab4a7
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/mipmap-anydpi-v26/ic_sable_profiles.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
++    <background android:drawable="@drawable/ic_sable_profiles_background" />
++    <foreground android:drawable="@drawable/ic_sable_profiles_foreground" />
++    <monochrome android:drawable="@drawable/ic_sable_profiles_monochrome" />
++</adaptive-icon>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/mipmap-anydpi-v26/ic_sable_profiles_round.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/mipmap-anydpi-v26/ic_sable_profiles_round.xml
+new file mode 100644
+index 0000000..d0ab4a7
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/mipmap-anydpi-v26/ic_sable_profiles_round.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
++    <background android:drawable="@drawable/ic_sable_profiles_background" />
++    <foreground android:drawable="@drawable/ic_sable_profiles_foreground" />
++    <monochrome android:drawable="@drawable/ic_sable_profiles_monochrome" />
++</adaptive-icon>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/values/strings.xml
+new file mode 100644
+index 0000000..7846bc2
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/values/strings.xml
+@@ -0,0 +1 @@
++<resources><string name="app_name">Sound Profiles</string></resources>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/test/java/org/sableos/titan2/profiles/core/SoundProfilesTest.kt b/sable-src/apps/titan2/platform/profiles/src/test/java/org/sableos/titan2/profiles/core/SoundProfilesTest.kt
+new file mode 100644
+index 0000000..7f2d03a
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/profiles/src/test/java/org/sableos/titan2/profiles/core/SoundProfilesTest.kt
+@@ -0,0 +1,73 @@
++package org.sableos.titan2.profiles.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class SoundProfilesTest {
++    @Test
++    fun eachProfileSetsWhatTheBlackBerryOneDid() {
++        val normal = SoundProfiles.plan(SoundProfile.NORMAL)
++        assertEquals(Ringer.NORMAL, normal.ringer)
++        assertEquals(Dnd.OFF, normal.dnd)
++        assertEquals(SoundProfiles.NORMAL_VOLUME, normal.volumePercent)
++        assertEquals(100, SoundProfiles.plan(SoundProfile.LOUD).volumePercent)
++        val vibrate = SoundProfiles.plan(SoundProfile.VIBRATE_ONLY)
++        assertEquals(Ringer.VIBRATE, vibrate.ringer)
++        assertNull("no volume to set", vibrate.volumePercent)
++        val calls = SoundProfiles.plan(SoundProfile.PHONE_CALLS_ONLY)
++        assertEquals(Dnd.CALLS_ONLY, calls.dnd)
++        assertEquals(Ringer.NORMAL, calls.ringer)
++        val off = SoundProfiles.plan(SoundProfile.ALL_ALERTS_OFF)
++        assertEquals(Ringer.SILENT, off.ringer)
++        assertEquals(Dnd.ALARMS_ONLY, off.dnd)
++        assertFalse(off.vibrateWhenRinging)
++        assertFalse(off.light)
++    }
++
++    @Test
++    fun theUsersSettingsWinWhereTheyMakeSense() {
++        val s =
++            ProfileSettings(
++                volumePercent = 140,
++                vibrate = false,
++                light = false,
++                ringtone = "content://r/1"
++            )
++        val loud = SoundProfiles.plan(SoundProfile.LOUD, s)
++        assertEquals("clamped", 100, loud.volumePercent)
++        assertFalse(loud.vibrateWhenRinging)
++        assertFalse(loud.light)
++        assertEquals("content://r/1", loud.ringtone)
++        assertNull(
++            "vibrate only has no volume",
++            SoundProfiles.plan(SoundProfile.VIBRATE_ONLY, s).volumePercent
++        )
++        val off = SoundProfiles.plan(SoundProfile.ALL_ALERTS_OFF, ProfileSettings(vibrate = true))
++        assertFalse("all alerts off never vibrates", off.vibrateWhenRinging)
++    }
++
++    @Test
++    fun settingsRoundTrip() {
++        val s =
++            ProfileSettings(40, true, false, "content://media/ring/5", "content://media/notif/2")
++        assertEquals(s, SoundProfiles.parse(SoundProfiles.format(s)))
++        assertEquals(ProfileSettings(), SoundProfiles.parse(null))
++        assertEquals(
++            ProfileSettings(volumePercent = 100),
++            SoundProfiles.parse("volume=250\nbogus\nlight=maybe")
++        )
++    }
++
++    @Test
++    fun profilesStepAndResolveByName() {
++        assertEquals(SoundProfile.NORMAL, SoundProfiles.next(null))
++        assertEquals(SoundProfile.LOUD, SoundProfiles.next(SoundProfile.NORMAL))
++        assertEquals(SoundProfile.NORMAL, SoundProfiles.next(SoundProfile.ALL_ALERTS_OFF))
++        assertEquals(SoundProfile.PHONE_CALLS_ONLY, SoundProfile.fromName("PHONE_CALLS_ONLY"))
++        assertNull(SoundProfile.fromName("nope"))
++        assertTrue(SoundProfile.entries.size == 5)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/settings.gradle.kts b/sable-src/apps/titan2/platform/settings.gradle.kts
+index 58bb16e..7af750f 100644
+--- a/sable-src/apps/titan2/platform/settings.gradle.kts
++++ b/sable-src/apps/titan2/platform/settings.gradle.kts
+@@ -13,4 +13,4 @@ dependencyResolutionManagement {
+     }
+ }
+ rootProject.name = "sable-titan2-platform"
+-include(":displaycompat", ":keyboard", ":camera", ":setup", ":radiodiag", ":tools", ":vault")
++include(":displaycompat", ":keyboard", ":camera", ":setup", ":radiodiag", ":tools", ":vault", ":profiles")
+diff --git a/sable-src/src/android/packages/apps/SableStart/Android.bp b/sable-src/src/android/packages/apps/SableStart/Android.bp
+index 0bdba43..468533e 100644
+--- a/sable-src/src/android/packages/apps/SableStart/Android.bp
++++ b/sable-src/src/android/packages/apps/SableStart/Android.bp
+@@ -17,11 +17,13 @@ filegroup {
+         "src/com/sable/start/model/HubBar.kt",
+         "src/com/sable/start/model/HubPeople.kt",
+         "src/com/sable/start/model/QuickBar.kt",
++        "src/com/sable/start/model/SpeedDial.kt",
+         "src/com/sable/start/platform/DeviceStatsSampler.kt",
+         "src/com/sable/start/platform/LiveSurfaceRepository.kt",
+         "src/com/sable/start/platform/PeopleRepository.kt",
+         "src/com/sable/start/platform/PrivacyFactsReader.kt",
+         "src/com/sable/start/platform/RecentTasksRepository.kt",
++        "src/com/sable/start/platform/SpeedDialRepository.kt",
+         "src/com/sable/start/platform/StartStateRepository.kt",
+         // DESIGN-KF-D All Apps privacy row: pure policy (unit tested in
+         // apps/r8/android/sablestart-presentation-check/src/test).
+diff --git a/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml b/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml
+index b76df6e..2c39fda 100644
+--- a/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml
++++ b/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml
+@@ -37,6 +37,8 @@
+     <uses-permission android:name="android.permission.REMOVE_TASKS" />
+     <uses-permission android:name="android.permission.START_TASKS_FROM_RECENTS" />
+     <uses-permission android:name="android.permission.READ_FRAME_BUFFER" />
++    <!-- Phone's speed dial: which letters are assigned, and asking Phone to call one. -->
++    <uses-permission android:name="org.sableos.permission.SPEED_DIAL" />
+ 
+     <queries>
+         <intent>
+@@ -50,6 +52,7 @@
+         <provider android:authorities="org.sableos.hub.connected_apps" />
+         <provider android:authorities="org.sableos.mail.snapshot" />
+         <provider android:authorities="org.sableos.media.snapshot" />
++        <provider android:authorities="org.sableos.dialer.speeddial" />
+         <!-- The Hub page's Messages card and Contacts tab Message action. -->
+         <package android:name="org.sableos.messages" />
+     </queries>
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+index 8c1d76c..4a7ee5f 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+@@ -35,6 +35,7 @@ import org.sableos.start.model.HomeStyle
+ import org.sableos.start.platform.LauncherAppsRepository
+ import org.sableos.start.platform.LiveSurfaceRepository
+ import org.sableos.start.platform.RecentTasksRepository
++import org.sableos.start.platform.SpeedDialRepository
+ import org.sableos.start.platform.StartStateRepository
+ import org.sableos.start.ui.Bb7HomeScreen
+ import org.sableos.start.ui.SableStartScreen
+@@ -49,6 +50,7 @@ import java.util.concurrent.atomic.AtomicLong
+  */
+ class SableStartActivity : ComponentActivity() {
+     private lateinit var launcherAppsRepository: LauncherAppsRepository
++    private val speedDialRepository by lazy { SpeedDialRepository(this) }
+     private lateinit var liveSurfaceRepository: LiveSurfaceRepository
+     private lateinit var startStateRepository: StartStateRepository
+     private lateinit var recentTasksRepository: RecentTasksRepository
+@@ -257,6 +259,7 @@ class SableStartActivity : ComponentActivity() {
+             key(request.serial) {
+                 SableStartScreen(
+                     apps = appsState.value,
++                    speedDial = speedDialRepository,
+                     privateSpaceLocked = privateSpaceLockedState.value,
+                     onTogglePrivateSpace = ::togglePrivateSpace,
+                     liveSurfaceRepository = liveSurfaceRepository,
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/SpeedDial.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/SpeedDial.kt
+new file mode 100644
+index 0000000..a9713d4
+--- /dev/null
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/SpeedDial.kt
+@@ -0,0 +1,98 @@
++package org.sableos.start.model
++
++/**
++ * BlackBerry speed dial on the home screen: holding a letter that Phone has a speed dial number
++ * for calls it; a short press still starts type-to-search with that letter. Only assigned letters
++ * wait for the key's release, so every other key searches at once. Phone owns the list (Phone >
++ * Menu > Speed dial) and places the call. Pure policy, unit tested in
++ * apps/r8/android/sablestart-presentation-check/src/test.
++ */
++class SpeedDialKeys {
++    sealed interface Step {
++        /** Not a speed dial key: handle it as before. */
++        data object Pass : Step
++
++        /** Swallow the key (an assigned letter waiting for its release or long press). */
++        data object Consume : Step
++
++        data class Call(val letter: Char) : Step
++
++        /** Start search with [seed]: the waiting letter was released, or another key followed it. */
++        data class Search(val seed: String) : Step
++    }
++
++    private var pendingKey = NONE
++    private var pendingSeed = ""
++    private var called = false
++
++    /**
++     * One key event on the home screen. [seed] is what type-to-search would start with for this
++     * key ([StartTypeToSearch.seed]), or null; [assigned] the letters Phone has numbers for.
++     */
++    fun onKey(
++        keyCode: Int,
++        down: Boolean,
++        repeatCount: Int,
++        metaState: Int,
++        seed: Char?,
++        assigned: Set<Char>,
++    ): Step {
++        if (pendingKey != NONE) return onPending(keyCode, down, repeatCount, seed)
++        val letter = letterFor(keyCode)
++        val waits =
++            down && repeatCount == 0 && letter != null && letter in assigned && seed != null &&
++                metaState and CHORD_META == 0
++        if (!waits) return Step.Pass
++        pendingKey = keyCode
++        pendingSeed = seed.toString()
++        called = false
++        return Step.Consume
++    }
++
++    private fun onPending(
++        keyCode: Int,
++        down: Boolean,
++        repeatCount: Int,
++        seed: Char?,
++    ): Step {
++        if (keyCode == pendingKey) {
++            return when {
++                down && repeatCount >= 1 && !called -> {
++                    called = true
++                    Step.Call(letterFor(keyCode) ?: return Step.Consume)
++                }
++                down -> Step.Consume
++                else -> finish()
++            }
++        }
++        // Another key while the letter is still down (fast typing): search with both, in order.
++        if (!down) return Step.Pass
++        val typed = if (called) null else pendingSeed + (seed?.toString() ?: "")
++        pendingKey = NONE
++        return typed?.let { Step.Search(it) } ?: Step.Pass
++    }
++
++    private fun finish(): Step {
++        val wasCalled = called
++        pendingKey = NONE
++        return if (wasCalled) Step.Consume else Step.Search(pendingSeed)
++    }
++
++    companion object {
++        const val DIALER_PACKAGE = "com.android.dialer"
++        const val AUTHORITY = "org.sableos.dialer.speeddial"
++        const val ACTION_SPEED_DIAL = "org.sableos.dialer.action.SPEED_DIAL"
++        const val EXTRA_LETTER = "org.sableos.dialer.extra.LETTER"
++        const val COLUMN_LETTER = "letter"
++
++        private const val NONE = -1
++        private const val KEYCODE_A = 29
++        private const val KEYCODE_Z = 54
++
++        // Shift, Alt, Sym, Fn, Ctrl and Meta: a chord is never a speed dial.
++        private const val CHORD_META = 0xc1 or 0x32 or 0x4 or 0x8 or 0x7000 or 0x70000
++
++        fun letterFor(keyCode: Int): Char? =
++            if (keyCode in KEYCODE_A..KEYCODE_Z) 'a' + (keyCode - KEYCODE_A) else null
++    }
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/SpeedDialRepository.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/SpeedDialRepository.kt
+new file mode 100644
+index 0000000..c441723
+--- /dev/null
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/SpeedDialRepository.kt
+@@ -0,0 +1,38 @@
++package org.sableos.start.platform
++
++import android.content.Context
++import android.content.Intent
++import android.net.Uri
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.withContext
++import org.sableos.start.model.SpeedDialKeys
++
++/**
++ * Phone's speed dial, seen from Start: which letters have a number (Phone's read-only provider
++ * returns letters only) and the request to call one. Both need the signature permission
++ * org.sableos.permission.SPEED_DIAL; without Phone, or without it, no letter is assigned.
++ */
++class SpeedDialRepository(
++    private val context: Context,
++) {
++    suspend fun assignedLetters(): Set<Char> =
++        withContext(Dispatchers.IO) {
++            val uri = Uri.Builder().scheme("content").authority(SpeedDialKeys.AUTHORITY).build()
++            runCatching {
++                context.contentResolver.query(uri, arrayOf(SpeedDialKeys.COLUMN_LETTER), null, null, null)?.use { c ->
++                    buildSet { while (c.moveToNext()) c.getString(0)?.singleOrNull()?.let(::add) }
++                }
++            }.getOrNull() ?: emptySet()
++        }
++
++    /** Asks Phone to call [letter]'s number; false when Phone cannot be reached. */
++    fun call(letter: Char): Boolean =
++        runCatching {
++            context.startActivity(
++                Intent(SpeedDialKeys.ACTION_SPEED_DIAL)
++                    .setPackage(SpeedDialKeys.DIALER_PACKAGE)
++                    .putExtra(SpeedDialKeys.EXTRA_LETTER, letter.toString())
++                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
++            )
++        }.isSuccess
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+index d952dde..3c0b65c 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+@@ -157,11 +157,13 @@ import org.sableos.start.model.HubPeople
+ import org.sableos.start.model.HubPerson
+ import org.sableos.start.model.QuickBar
+ import org.sableos.start.model.StartPages
++import org.sableos.start.model.SpeedDialKeys
+ import org.sableos.start.model.StartTypeToSearch
+ import org.sableos.start.model.inLauncherUser
+ import org.sableos.start.model.stableKey
+ import org.sableos.start.platform.LiveSurfaceRepository
+ import org.sableos.start.platform.PeopleRepository
++import org.sableos.start.platform.SpeedDialRepository
+ import org.sableos.start.privacy.AllAppsKeyAction
+ import org.sableos.start.privacy.AllAppsKeyPolicy
+ import org.sableos.start.privacy.AppAction
+@@ -375,7 +377,13 @@ fun SableStartScreen(
+     hubRequestFilter: String? = null,
+     /** The Contacts tab asks for READ_CONTACTS; the activity bumps [refreshGeneration] after. */
+     onRequestContactsPermission: () -> Unit = {},
++    /** Phone's speed dial: holding an assigned letter on Home calls it (null: no speed dial). */
++    speedDial: SpeedDialRepository? = null,
+ ) {
++    val speedDialLetters by
++        produceState(emptySet<Char>(), refreshGeneration, speedDial) {
++            value = speedDial?.assignedLetters() ?: emptySet()
++        }
+     var destination by remember(initialScreen) {
+         mutableStateOf(destinationFor(initialScreen))
+     }
+@@ -589,7 +597,9 @@ fun SableStartScreen(
+                                 },
+                                 onHubPeek = { pagerScope.launch { startPager.animateScrollToPage(StartPages.HUB) } },
+                                 onDial = { char -> dial(char.toString()) },
+-                                onTypeToSearch = { char -> openSearch(SableStartDestination.Start, char.toString()) },
++                                onTypeToSearch = { seed -> openSearch(SableStartDestination.Start, seed) },
++                                speedDialLetters = speedDialLetters,
++                                onSpeedDial = { letter -> speedDial?.call(letter) },
+                                 onCommand = { openSearch(SableStartDestination.Start) },
+                                 onEditHome = { destination = SableStartDestination.EditHome },
+                             ) { page ->
+@@ -918,12 +928,15 @@ private fun StartStrip(
+     onSlotOptions: (QuickSlot) -> Unit,
+     onHubPeek: () -> Unit,
+     onDial: (Char) -> Unit,
+-    onTypeToSearch: (Char) -> Unit,
++    onTypeToSearch: (String) -> Unit,
++    speedDialLetters: Set<Char>,
++    onSpeedDial: (Char) -> Unit,
+     onCommand: () -> Unit,
+     onEditHome: () -> Unit,
+     page: @Composable (Int) -> Unit,
+ ) {
+     var phoneSlotFocused by remember { mutableStateOf(false) }
++    val speedDialKeys = remember { SpeedDialKeys() }
+     Column(
+         modifier =
+             Modifier
+@@ -964,14 +977,34 @@ private fun StartStrip(
+                         if (event.type == KeyEventType.KeyDown) onEditHome()
+                         return@onKeyEvent true
+                     }
+-                    if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
++                    val down = event.type == KeyEventType.KeyDown
+                     val seed =
+-                        StartTypeToSearch.seed(
+-                            unicode = native.unicodeChar,
+-                            metaState = native.metaState,
+-                            repeat = native.repeatCount > 0,
+-                        ) ?: return@onKeyEvent false
+-                    onTypeToSearch(seed)
++                        if (down) {
++                            StartTypeToSearch.seed(
++                                unicode = native.unicodeChar,
++                                metaState = native.metaState,
++                                repeat = native.repeatCount > 0,
++                            )
++                        } else {
++                            null
++                        }
++                    // Holding a speed dial letter calls it; a short press of it still searches.
++                    val step =
++                        speedDialKeys.onKey(
++                            native.keyCode,
++                            down,
++                            native.repeatCount,
++                            native.metaState,
++                            seed,
++                            speedDialLetters,
++                        )
++                    when {
++                        step is SpeedDialKeys.Step.Call -> onSpeedDial(step.letter)
++                        step is SpeedDialKeys.Step.Search -> onTypeToSearch(step.seed)
++                        step == SpeedDialKeys.Step.Consume -> Unit
++                        seed != null -> onTypeToSearch(seed.toString())
++                        else -> return@onKeyEvent false
++                    }
+                     true
+                 },
+     ) {
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableListKeys.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableListKeys.kt
+new file mode 100644
+index 0000000..ed05e1a
+--- /dev/null
++++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableListKeys.kt
+@@ -0,0 +1,146 @@
++package org.sableos.design
++
++import android.view.KeyEvent
++import androidx.compose.foundation.lazy.LazyListState
++import androidx.compose.runtime.withFrameNanos
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.focus.FocusRequester
++import androidx.compose.ui.focus.focusRequester
++import androidx.compose.ui.focus.onFocusChanged
++import androidx.compose.ui.input.key.KeyEventType
++import androidx.compose.ui.input.key.onPreviewKeyEvent
++import androidx.compose.ui.input.key.type
++import kotlinx.coroutines.CoroutineScope
++import kotlinx.coroutines.launch
++
++/** BlackBerry single-key list movement: T top, B bottom, Space page down, Shift+Space page up, N next, P previous. */
++enum class SableListMove { Top, Bottom, PageDown, PageUp, Next, Previous }
++
++/**
++ * The single-key list contract shared by Sable lists (Messages, Hub, and Mail through its own keymap). Plain keys
++ * only: an Alt, Ctrl or Meta chord types a symbol or is an app shortcut. A list passes the moves whose keys it
++ * already gives another meaning in [command]'s `owned`, so they keep it.
++ */
++object SableListKeys {
++    const val HINT = "T top · B bottom · Space page · N/P next/previous"
++
++    fun command(
++        keyCode: Int,
++        shift: Boolean,
++        chord: Boolean,
++        owned: Set<SableListMove> = emptySet(),
++    ): SableListMove? {
++        if (chord) return null
++        val move =
++            when (keyCode) {
++                KeyEvent.KEYCODE_SPACE -> if (shift) SableListMove.PageUp else SableListMove.PageDown
++                KeyEvent.KEYCODE_T -> SableListMove.Top.takeUnless { shift }
++                KeyEvent.KEYCODE_B -> SableListMove.Bottom.takeUnless { shift }
++                KeyEvent.KEYCODE_N -> SableListMove.Next.takeUnless { shift }
++                KeyEvent.KEYCODE_P -> SableListMove.Previous.takeUnless { shift }
++                else -> null
++            }
++        return move?.takeUnless { it in owned }
++    }
++
++    /**
++     * The item [move] lands on, or null for an empty list.
++     *
++     * @param focused the focused item, or -1 when no item has focus (moves start from the first visible one).
++     */
++    fun target(
++        move: SableListMove,
++        focused: Int,
++        firstVisible: Int,
++        lastVisible: Int,
++        itemCount: Int,
++    ): Int? {
++        if (itemCount <= 0) return null
++        val anchor = if (focused >= 0) focused else firstVisible.coerceAtLeast(0)
++        val page = (lastVisible - firstVisible).coerceAtLeast(1)
++        val target =
++            when (move) {
++                SableListMove.Top -> 0
++                SableListMove.Bottom -> itemCount - 1
++                SableListMove.Next -> if (focused >= 0) focused + 1 else anchor
++                SableListMove.Previous -> if (focused >= 0) focused - 1 else anchor
++                SableListMove.PageDown -> anchor + page
++                SableListMove.PageUp -> anchor - page
++            }
++        return target.coerceIn(0, itemCount - 1)
++    }
++}
++
++/** Keyboard focus of a LazyColumn's rows, so [sableListKeys] can scroll to a row and focus it. */
++class SableListFocus(
++    val state: LazyListState,
++) {
++    private val requesters = HashMap<Any, FocusRequester>()
++
++    /** Index of the row that has focus, or -1. */
++    var focused: Int = -1
++        private set
++
++    fun row(
++        index: Int,
++        key: Any,
++    ): Modifier =
++        Modifier
++            .focusRequester(requesters.getOrPut(key) { FocusRequester() })
++            .onFocusChanged {
++                if (it.hasFocus) {
++                    focused = index
++                } else if (focused == index) {
++                    focused = -1
++                }
++            }
++
++    suspend fun moveTo(
++        index: Int,
++        key: Any,
++    ) {
++        state.scrollToItem(index)
++        withFrameNanos { }
++        runCatching { requesters[key]?.requestFocus() }
++    }
++}
++
++/**
++ * Put on the LazyColumn: T, B, Space, Shift+Space, N and P move focus between its rows ([keys] are the row keys in
++ * order, the same keys given to [SableListFocus.row]). Both the down and the up of a handled key are consumed, so
++ * Space never also opens the row.
++ */
++fun Modifier.sableListKeys(
++    focus: SableListFocus,
++    keys: List<Any>,
++    scope: CoroutineScope,
++    owned: Set<SableListMove> = emptySet(),
++): Modifier =
++    onPreviewKeyEvent { event ->
++        val native = event.nativeKeyEvent
++        val chord = native.isAltPressed || native.isCtrlPressed || native.isMetaPressed
++        val move = SableListKeys.command(native.keyCode, native.isShiftPressed, chord, owned)
++        when {
++            move == null -> {
++                false
++            }
++
++            event.type != KeyEventType.KeyDown -> {
++                true
++            }
++
++            else -> {
++                val visible = focus.state.layoutInfo.visibleItemsInfo
++                val target =
++                    SableListKeys.target(
++                        move,
++                        focus.focused,
++                        visible.firstOrNull()?.index ?: 0,
++                        visible.lastOrNull()?.index ?: 0,
++                        keys.size,
++                    )
++                if (target != null) scope.launch { focus.moveTo(target, keys[target]) }
++                true
++            }
++        }
++    }
+diff --git a/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv b/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
+index b5d5381..e73c8f4 100644
+--- a/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
++++ b/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
+@@ -18,3 +18,4 @@ reader	ic_sable_reader	book-open-text	5eb0c8daceb5a6ffa004118720ea712a3eb8b7d2b6
+ mail	ic_sable_mail	envelope-simple	f114441afbd3c3da8aee24ba4cddea1576cf55aa304eb507410fca494c8ee169	#64748B	R9_PANTHER_GLYPH_PHOSPHOR_REGULAR	ic_sable_mail	apps/r8/mail/res	mipmap
+ textreader	ic_sable_text_reader	text-align-left	4d166977720d3beb386288a8607fbb36134fef06fdd99496ab09cf2d2da211b5	#4D9CFF	R9_ART_REPLACED_BY_PHOSPHOR_REGULAR	ic_sable_text_reader	apps/r8/textreader/res	none
+ vault	ic_sable_vault	vault	f4cedeb0419725587ff38c725cd2e0f05e888aa4b3d526d652bc61123d98e136	#8B5CF6	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/titan2/platform/vault/src/main/res	none
++profiles	ic_sable_profiles	speaker-high	caca5fc1ee8489ac19232301d2c96f6d4048802491d75d761bbb89d5c98e459d	#F28C45	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/titan2/platform/profiles/src/main/res	none
+diff --git a/sable-src/third_party/phosphor-icons/PROVENANCE.md b/sable-src/third_party/phosphor-icons/PROVENANCE.md
+index 95f62ec..89303a2 100644
+--- a/sable-src/third_party/phosphor-icons/PROVENANCE.md
++++ b/sable-src/third_party/phosphor-icons/PROVENANCE.md
+@@ -29,6 +29,7 @@ Glyphs added for the Q25 adaptive-icon work (verbatim `assets/regular/<name>.svg
+ from raw.githubusercontent.com): bomb, book-open-text, calculator, calendar-dots, chat-circle-dots, chat-text,
+ cloud-sun, envelope-simple, grid-four, grid-nine, music-notes, text-align-left, wrench.
+ Added for Secure Vault (Private Space file layer, `origin=NEW_TITAN_GLYPH_PHOSPHOR_REGULAR`): vault.
++Added for Sound Profiles (`origin=NEW_TITAN_GLYPH_PHOSPHOR_REGULAR`): speaker-high.
+ Added for Sable Start's tile-free app glyphs on the Q25 (`model/AppGlyphs.kt`, drawn by `ui/SableGlyphIcon.kt` from
+ the same path data): address-book, clock, folder-simple, gear-six, globe, image-square, microphone, phone-call,
+ puzzle-piece, shopping-bag, video-camera.
+diff --git a/sable-src/third_party/phosphor-icons/glyphs/speaker-high.svg b/sable-src/third_party/phosphor-icons/glyphs/speaker-high.svg
+new file mode 100644
+index 0000000..2c9885b
+--- /dev/null
++++ b/sable-src/third_party/phosphor-icons/glyphs/speaker-high.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M155.51,24.81a8,8,0,0,0-8.42.88L77.25,80H32A16,16,0,0,0,16,96v64a16,16,0,0,0,16,16H77.25l69.84,54.31A8,8,0,0,0,160,224V32A8,8,0,0,0,155.51,24.81ZM32,96H72v64H32ZM144,207.64,88,164.09V91.91l56-43.55Zm54-106.08a40,40,0,0,1,0,52.88,8,8,0,0,1-12-10.58,24,24,0,0,0,0-31.72,8,8,0,0,1,12-10.58ZM248,128a79.9,79.9,0,0,1-20.37,53.34,8,8,0,0,1-11.92-10.67,64,64,0,0,0,0-85.33,8,8,0,1,1,11.92-10.67A79.83,79.83,0,0,1,248,128Z"/></svg>
+\ No newline at end of file

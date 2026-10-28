@@ -1,0 +1,753 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 28 Oct 2026 19:30:00 +0000
+Subject: [PATCH] SableOS: speed dial on letter keys
+
+BlackBerry speed dial: each letter A-Z can hold one number.
+
+* Phone main screen (dial pad closed, no text field focused): holding a
+  plain letter calls its number through PreCall, so SIM choice and
+  emergency handling are Phone's own. A letter with no number opens the
+  speed dial list and the contact picker for it. A short press keeps its
+  list meaning (contacts A-Z jump); the hold's later repeats and release
+  are swallowed.
+* Menu > Speed dial lists A to Z: Enter picks a contact's number for a
+  letter, or offers Call, Choose another contact and Remove; a letter
+  key moves to its row.
+* Sable Start: SableSpeedDialProvider (org.sableos.dialer.speeddial)
+  returns the assigned letters only, never numbers or names, and
+  SableSpeedDialCallActivity (action org.sableos.dialer.action.SPEED_DIAL)
+  places the call, both behind the signature permission
+  org.sableos.permission.SPEED_DIAL, so Start needs no call permission.
+
+The list is Phone's own preferences file. Pure rules:
+sable/SableSpeedDial.java.
+---
+ AndroidManifest.xml                           |  31 +++
+ .../dialer/app/res/values/sable_strings.xml   |  14 ++
+ .../dialer/main/impl/MainActivity.java        |  53 ++++--
+ .../main/impl/MainSearchController.java       |   4 +
+ .../main/impl/toolbar/res/menu/main_menu.xml  |   5 +
+ .../android/dialer/sable/SableSpeedDial.java  | 135 +++++++++++++
+ .../dialer/sable/SableSpeedDialActivity.java  | 178 ++++++++++++++++++
+ .../sable/SableSpeedDialCallActivity.java     |  52 +++++
+ .../dialer/sable/SableSpeedDialProvider.java  |  64 +++++++
+ .../dialer/sable/SableSpeedDialStore.java     |  57 ++++++
+ 10 files changed, 579 insertions(+), 14 deletions(-)
+ create mode 100644 java/com/android/dialer/sable/SableSpeedDial.java
+ create mode 100644 java/com/android/dialer/sable/SableSpeedDialActivity.java
+ create mode 100644 java/com/android/dialer/sable/SableSpeedDialCallActivity.java
+ create mode 100644 java/com/android/dialer/sable/SableSpeedDialProvider.java
+ create mode 100644 java/com/android/dialer/sable/SableSpeedDialStore.java
+
+diff --git a/AndroidManifest.xml b/AndroidManifest.xml
+index de89e2102..8873bd9fe 100644
+--- a/AndroidManifest.xml
++++ b/AndroidManifest.xml
+@@ -91,6 +91,11 @@
+ 
+     <uses-permission android:name="com.android.dialer.permission.DIALER_ORIGIN" />
+ 
++    <!-- Sable speed dial: Sable Start reads which letters are assigned and asks Phone to call. -->
++    <permission
++        android:name="org.sableos.permission.SPEED_DIAL"
++        android:protectionLevel="signature" />
++
+     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+     <uses-permission android:name="android.permission.CAPTURE_AUDIO_OUTPUT" />
+@@ -760,6 +765,32 @@
+         <activity
+             android:name="com.android.voicemail.impl.configui.VoicemailSecretCodeActivity"
+             android:exported="false" />
++
++        <!-- Sable: speed dial list, call trampoline and the letters-only provider. -->
++        <activity
++            android:name="com.android.dialer.sable.SableSpeedDialActivity"
++            android:exported="false"
++            android:label="@string/sable_speed_dial_title"
++            android:theme="@style/Dialer.ThemeBase.ActionBar" />
++
++        <activity
++            android:name="com.android.dialer.sable.SableSpeedDialCallActivity"
++            android:excludeFromRecents="true"
++            android:exported="true"
++            android:noHistory="true"
++            android:permission="org.sableos.permission.SPEED_DIAL"
++            android:theme="@android:style/Theme.NoDisplay">
++            <intent-filter>
++                <action android:name="org.sableos.dialer.action.SPEED_DIAL" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
++        </activity>
++
++        <provider
++            android:name="com.android.dialer.sable.SableSpeedDialProvider"
++            android:authorities="org.sableos.dialer.speeddial"
++            android:exported="true"
++            android:readPermission="org.sableos.permission.SPEED_DIAL" />
+     </application>
+ 
+     <!-- Sable: Recents privacy reads Sable private mode from Sable Hub (read-only). -->
+diff --git a/java/com/android/dialer/app/res/values/sable_strings.xml b/java/com/android/dialer/app/res/values/sable_strings.xml
+index 4ae34f16b..8a801cca8 100644
+--- a/java/com/android/dialer/app/res/values/sable_strings.xml
++++ b/java/com/android/dialer/app/res/values/sable_strings.xml
+@@ -21,4 +21,18 @@
+     <string name="sable_space_answers_summary">Press Space on the keyboard to answer a ringing call. Space never ends a call.</string>
+     <!-- Recents row name while the phone is locked or Sable private mode is on. [CHAR LIMIT=40] -->
+     <string name="sable_contact_hidden">Contact hidden</string>
++    <!-- Speed dial list title and Phone menu item (BlackBerry speed dial on letter keys). -->
++    <string name="sable_speed_dial_title">Speed dial</string>
++    <!-- Speed dial list row for a letter with no number. -->
++    <string name="sable_speed_dial_not_set">Not set</string>
++    <!-- Speed dial row actions. -->
++    <string name="sable_speed_dial_call">Call</string>
++    <string name="sable_speed_dial_change">Choose another contact</string>
++    <string name="sable_speed_dial_remove">Remove</string>
++    <!-- Shown after a hold on a letter with no number, before the contact picker. %1$s is the letter. -->
++    <string name="sable_speed_dial_unassigned">Nothing on %1$s yet. Choose who holding %1$s calls.</string>
++    <!-- Shown once a letter has a number. %1$s is the letter, %2$s the contact's name. -->
++    <string name="sable_speed_dial_assigned">Holding %1$s now calls %2$s</string>
++    <!-- The picked contact had no phone number. -->
++    <string name="sable_speed_dial_no_number">That contact has no phone number.</string>
+ </resources>
+diff --git a/java/com/android/dialer/main/impl/MainActivity.java b/java/com/android/dialer/main/impl/MainActivity.java
+index 6b3813214..c61149c95 100644
+--- a/java/com/android/dialer/main/impl/MainActivity.java
++++ b/java/com/android/dialer/main/impl/MainActivity.java
+@@ -32,6 +32,8 @@ import com.android.dialer.blockreportspam.ShowBlockReportSpamDialogReceiver;
+ import com.android.dialer.common.LogUtil;
+ import com.android.dialer.main.MainActivityPeer;
+ import com.android.dialer.sable.SableDialpadKeys;
++import com.android.dialer.sable.SableSpeedDial;
++import com.android.dialer.sable.SableSpeedDialCallActivity;
+ import com.android.dialer.telecom.TelecomUtil;
+ import com.android.dialer.util.TransactionSafeActivity;
+ 
+@@ -118,31 +120,54 @@ public class MainActivity extends TransactionSafeActivity
+     super.onBackPressed();
+   }
+ 
++  /** Sable: the A-Z key whose hold started a speed dial; its later repeats and release are eaten. */
++  private int sableHeldKey = -1;
++
+   /**
+    * Sable: on the main screen (dial pad closed, no text field focused), a digit from the Alt
+    * layer, number row or numpad opens the dial pad with that digit, through the same dial intent
+-   * other apps use. Plain letters keep their list meaning.
++   * other apps use, and holding a plain letter speed dials it (BlackBerry speed dial; a letter
++   * with no number opens the speed dial list to assign one). A short letter press keeps its list
++   * meaning.
+    */
+   @Override
+   public boolean dispatchKeyEvent(KeyEvent event) {
+-    if (event.getAction() == KeyEvent.ACTION_DOWN
+-        && SableDialpadKeys.opensDialpad(
+-            event.getKeyCode(), event.getUnicodeChar(), event.getMetaState(), event.getRepeatCount())
+-        && !(getCurrentFocus() instanceof EditText)) {
+-      View dialpad = findViewById(R.id.dialpad_view);
+-      if (dialpad == null || !dialpad.isShown()) {
+-        char dialChar =
+-            SableDialpadKeys.dialChar(
+-                event.getKeyCode(), event.getUnicodeChar(), event.getMetaState(), false);
+-        startActivity(
+-            new Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", String.valueOf(dialChar), null))
+-                .setClass(this, MainActivity.class));
+-        return true;
++    if (sableHeldKey != -1 && event.getKeyCode() == sableHeldKey) {
++      if (event.getAction() == KeyEvent.ACTION_UP) {
++        sableHeldKey = -1;
+       }
++      return true;
++    }
++    if (event.getAction() != KeyEvent.ACTION_DOWN || !sableOnMainScreen()) {
++      return super.dispatchKeyEvent(event);
++    }
++    char held =
++        SableSpeedDial.heldLetter(event.getKeyCode(), event.getMetaState(), event.getRepeatCount());
++    if (held != 0) {
++      sableHeldKey = event.getKeyCode();
++      startActivity(
++          new Intent(this, SableSpeedDialCallActivity.class)
++              .putExtra(SableSpeedDial.EXTRA_LETTER, String.valueOf(held)));
++      return true;
++    }
++    if (SableDialpadKeys.opensDialpad(
++        event.getKeyCode(), event.getUnicodeChar(), event.getMetaState(), event.getRepeatCount())) {
++      char dialChar =
++          SableDialpadKeys.dialChar(
++              event.getKeyCode(), event.getUnicodeChar(), event.getMetaState(), false);
++      startActivity(
++          new Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", String.valueOf(dialChar), null))
++              .setClass(this, MainActivity.class));
++      return true;
+     }
+     return super.dispatchKeyEvent(event);
+   }
+ 
++  private boolean sableOnMainScreen() {
++    View dialpad = findViewById(R.id.dialpad_view);
++    return !(getCurrentFocus() instanceof EditText) && (dialpad == null || !dialpad.isShown());
++  }
++
+   @Override
+   public MainActivityPeer getPeer() {
+     return activePeer;
+diff --git a/java/com/android/dialer/main/impl/MainSearchController.java b/java/com/android/dialer/main/impl/MainSearchController.java
+index 085269598..3fc2f3908 100644
+--- a/java/com/android/dialer/main/impl/MainSearchController.java
++++ b/java/com/android/dialer/main/impl/MainSearchController.java
+@@ -38,6 +38,7 @@ import androidx.fragment.app.FragmentTransaction;
+ 
+ import com.android.contacts.common.dialog.ClearFrequentsDialog;
+ import com.android.dialer.R;
++import com.android.dialer.sable.SableSpeedDialActivity;
+ import com.android.dialer.app.calllog.CallLogActivity;
+ import com.android.dialer.app.settings.DialerSettingsActivity;
+ import com.android.dialer.callintent.CallInitiationType;
+@@ -467,6 +468,9 @@ public class MainSearchController implements SearchBarListener {
+       activity.startActivity(intent);
+     } else if (menuItem.getItemId() == R.id.menu_helplines) {
+       activity.startActivity(new Intent(activity, HelplineActivity.class));
++    } else if (menuItem.getItemId() == R.id.sable_speed_dial) {
++      activity.startActivity(new Intent(activity, SableSpeedDialActivity.class));
++      return true;
+     }
+     return false;
+   }
+diff --git a/java/com/android/dialer/main/impl/toolbar/res/menu/main_menu.xml b/java/com/android/dialer/main/impl/toolbar/res/menu/main_menu.xml
+index 465069292..635bae03e 100644
+--- a/java/com/android/dialer/main/impl/toolbar/res/menu/main_menu.xml
++++ b/java/com/android/dialer/main/impl/toolbar/res/menu/main_menu.xml
+@@ -33,6 +33,11 @@
+     android:id="@+id/menu_helplines"
+     android:title="@string/action_menu_helplines"/>
+ 
++  <item
++      android:id="@+id/sable_speed_dial"
++      android:title="@string/sable_speed_dial_title"
++      app:showAsAction="collapseActionView"/>
++
+   <item
+       android:id="@+id/settings"
+       android:title="@string/dialer_settings_label"
+diff --git a/java/com/android/dialer/sable/SableSpeedDial.java b/java/com/android/dialer/sable/SableSpeedDial.java
+new file mode 100644
+index 000000000..d116a8787
+--- /dev/null
++++ b/java/com/android/dialer/sable/SableSpeedDial.java
+@@ -0,0 +1,135 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.dialer.sable;
++
++import java.util.Map;
++import java.util.TreeMap;
++
++/**
++ * BlackBerry speed dial: each letter A-Z can hold one number. Holding the letter on the Phone main
++ * screen, or on Sable Start's home, calls it; holding a letter with no number offers to assign one.
++ * Pure Java: the held-key rule and the stored form.
++ *
++ * <p>The list lives in Phone. Sable Start learns which letters are assigned from a read-only
++ * provider that returns letters only, never numbers or names, and asks Phone to place the call, so
++ * Start needs no call permission. Both are behind a signature permission.
++ *
++ * <p>Key codes and meta masks mirror android.view.KeyEvent (stable public ABI).
++ */
++public final class SableSpeedDial {
++  public static final String AUTHORITY = "org.sableos.dialer.speeddial";
++  public static final String PERMISSION = "org.sableos.permission.SPEED_DIAL";
++  public static final String ACTION_SPEED_DIAL = "org.sableos.dialer.action.SPEED_DIAL";
++  public static final String EXTRA_LETTER = "org.sableos.dialer.extra.LETTER";
++  public static final String COLUMN_LETTER = "letter";
++
++  public static final int KEYCODE_A = 29;
++  public static final int KEYCODE_Z = 54;
++
++  /** Shift, Alt, Sym, Fn, Ctrl and Meta: a chord is never a speed dial. */
++  public static final int CHORD_META = 0xc1 | 0x32 | 0x4 | 0x8 | 0x7000 | 0x70000;
++
++  private SableSpeedDial() {}
++
++  /** One assignment: the number to call and the name shown beside the letter. */
++  public static final class Entry {
++    public final String number;
++    public final String label;
++
++    public Entry(String number, String label) {
++      this.number = number;
++      this.label = label;
++    }
++
++    @Override
++    public boolean equals(Object o) {
++      return o instanceof Entry
++          && ((Entry) o).number.equals(number)
++          && ((Entry) o).label.equals(label);
++    }
++
++    @Override
++    public int hashCode() {
++      return number.hashCode() * 31 + label.hashCode();
++    }
++
++    @Override
++    public String toString() {
++      return label + " " + number;
++    }
++  }
++
++  /**
++   * The letter a key press holds, or 0: a plain A-Z key (no modifier) on its first auto-repeat,
++   * which Android sends once the key has been held for the long-press time.
++   */
++  public static char heldLetter(int keyCode, int metaState, int repeatCount) {
++    if (repeatCount != 1 || (metaState & CHORD_META) != 0) {
++      return 0;
++    }
++    return letterForKey(keyCode);
++  }
++
++  /** The letter of an A-Z key code, or 0. */
++  public static char letterForKey(int keyCode) {
++    return keyCode >= KEYCODE_A && keyCode <= KEYCODE_Z ? (char) ('a' + keyCode - KEYCODE_A) : 0;
++  }
++
++  /** The letter as stored, a-z, or 0 for anything else. */
++  public static char normalize(char c) {
++    char lower = Character.toLowerCase(c);
++    return lower >= 'a' && lower <= 'z' ? lower : 0;
++  }
++
++  /** Reads the stored list: one {@code letter TAB number TAB label} per line; bad lines skipped. */
++  public static Map<Character, Entry> parse(String stored) {
++    Map<Character, Entry> out = new TreeMap<>();
++    if (stored == null) {
++      return out;
++    }
++    for (String line : stored.split("\n")) {
++      String[] f = line.split("\t", -1);
++      if (f.length != 3 || f[0].length() != 1) {
++        continue;
++      }
++      char letter = normalize(f[0].charAt(0));
++      String number = f[1].trim();
++      if (letter != 0 && !number.isEmpty()) {
++        out.put(letter, new Entry(number, clean(f[2]).isEmpty() ? number : clean(f[2])));
++      }
++    }
++    return out;
++  }
++
++  /** Writes the list in {@link #parse}'s form, A to Z. */
++  public static String format(Map<Character, Entry> entries) {
++    StringBuilder sb = new StringBuilder();
++    for (Map.Entry<Character, Entry> e : new TreeMap<>(entries).entrySet()) {
++      if (sb.length() > 0) {
++        sb.append('\n');
++      }
++      sb.append(e.getKey()).append('\t').append(clean(e.getValue().number)).append('\t')
++          .append(clean(e.getValue().label));
++    }
++    return sb.toString();
++  }
++
++  /** Names and numbers never carry the separators of the stored form. */
++  private static String clean(String s) {
++    return s == null ? "" : s.replace('\t', ' ').replace('\n', ' ').trim();
++  }
++}
+diff --git a/java/com/android/dialer/sable/SableSpeedDialActivity.java b/java/com/android/dialer/sable/SableSpeedDialActivity.java
+new file mode 100644
+index 000000000..373ffb922
+--- /dev/null
++++ b/java/com/android/dialer/sable/SableSpeedDialActivity.java
+@@ -0,0 +1,178 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.dialer.sable;
++
++import android.app.AlertDialog;
++import android.content.Intent;
++import android.database.Cursor;
++import android.net.Uri;
++import android.os.Bundle;
++import android.provider.ContactsContract.CommonDataKinds.Phone;
++import android.view.KeyEvent;
++import android.widget.ArrayAdapter;
++import android.widget.ListView;
++import android.widget.Toast;
++import androidx.appcompat.app.AppCompatActivity;
++import com.android.dialer.R;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.Map;
++
++/**
++ * The speed dial list, A to Z (Phone menu > Speed dial, or holding a letter with no number). Enter
++ * on a letter picks a contact's number for it; on an assigned letter it offers call, change and
++ * remove. Works with the keyboard and trackpad alone: a letter key moves to its row.
++ */
++public final class SableSpeedDialActivity extends AppCompatActivity {
++  private static final int PICK = 1;
++
++  private SableSpeedDialStore store;
++  private ArrayAdapter<String> adapter;
++  private ListView list;
++  private char picking;
++  /** Opened by holding an unassigned letter: done once that letter is set. */
++  private boolean fromHold;
++
++  @Override
++  protected void onCreate(Bundle savedInstanceState) {
++    super.onCreate(savedInstanceState);
++    setTitle(R.string.sable_speed_dial_title);
++    store = new SableSpeedDialStore(this);
++    list = new ListView(this);
++    adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, new ArrayList<>());
++    list.setAdapter(adapter);
++    list.setOnItemClickListener((parent, view, position, id) -> onLetter((char) ('a' + position)));
++    setContentView(list);
++    refresh();
++    String extra = getIntent().getStringExtra(SableSpeedDial.EXTRA_LETTER);
++    char held =
++        extra != null && extra.length() == 1 ? SableSpeedDial.normalize(extra.charAt(0)) : 0;
++    if (held != 0 && savedInstanceState == null) {
++      fromHold = true;
++      list.setSelection(held - 'a');
++      Toast.makeText(
++              this,
++              getString(R.string.sable_speed_dial_unassigned, upper(held)),
++              Toast.LENGTH_LONG)
++          .show();
++      pick(held);
++    }
++  }
++
++  @Override
++  public boolean onKeyDown(int keyCode, KeyEvent event) {
++    char letter = SableSpeedDial.letterForKey(keyCode);
++    boolean plain = (event.getMetaState() & SableSpeedDial.CHORD_META) == 0;
++    if (letter != 0 && plain && event.getRepeatCount() == 0) {
++      list.requestFocus();
++      list.setSelection(letter - 'a');
++      return true;
++    }
++    return super.onKeyDown(keyCode, event);
++  }
++
++  private void refresh() {
++    Map<Character, SableSpeedDial.Entry> all = store.load();
++    List<String> rows = new ArrayList<>();
++    for (char c = 'a'; c <= 'z'; c++) {
++      SableSpeedDial.Entry e = all.get(c);
++      String detail =
++          e == null
++              ? getString(R.string.sable_speed_dial_not_set)
++              : e.label.equals(e.number) ? e.number : e.label + " · " + e.number;
++      rows.add(upper(c) + "    " + detail);
++    }
++    adapter.clear();
++    adapter.addAll(rows);
++  }
++
++  private void onLetter(char letter) {
++    SableSpeedDial.Entry entry = store.get(letter);
++    if (entry == null) {
++      pick(letter);
++      return;
++    }
++    String[] choices = {
++      getString(R.string.sable_speed_dial_call),
++      getString(R.string.sable_speed_dial_change),
++      getString(R.string.sable_speed_dial_remove)
++    };
++    new AlertDialog.Builder(this)
++        .setTitle(upper(letter) + " · " + entry.label)
++        .setItems(
++            choices,
++            (dialog, which) -> {
++              if (which == 0) {
++                startActivity(
++                    new Intent(this, SableSpeedDialCallActivity.class)
++                        .putExtra(SableSpeedDial.EXTRA_LETTER, String.valueOf(letter)));
++              } else if (which == 1) {
++                pick(letter);
++              } else {
++                store.remove(letter);
++                refresh();
++              }
++            })
++        .show();
++  }
++
++  private void pick(char letter) {
++    picking = letter;
++    startActivityForResult(new Intent(Intent.ACTION_PICK, Phone.CONTENT_URI), PICK);
++  }
++
++  @Override
++  protected void onActivityResult(int requestCode, int resultCode, Intent data) {
++    super.onActivityResult(requestCode, resultCode, data);
++    if (requestCode != PICK) {
++      return;
++    }
++    Uri uri = data == null ? null : data.getData();
++    SableSpeedDial.Entry entry = resultCode == RESULT_OK && uri != null ? read(uri) : null;
++    if (entry != null) {
++      store.put(picking, entry);
++      refresh();
++      Toast.makeText(
++              this,
++              getString(R.string.sable_speed_dial_assigned, upper(picking), entry.label),
++              Toast.LENGTH_SHORT)
++          .show();
++    } else if (resultCode == RESULT_OK) {
++      Toast.makeText(this, R.string.sable_speed_dial_no_number, Toast.LENGTH_SHORT).show();
++    }
++    if (fromHold) {
++      finish();
++    }
++  }
++
++  private SableSpeedDial.Entry read(Uri uri) {
++    String[] projection = {Phone.NUMBER, Phone.DISPLAY_NAME};
++    try (Cursor c = getContentResolver().query(uri, projection, null, null, null)) {
++      if (c == null || !c.moveToFirst() || c.getString(0) == null) {
++        return null;
++      }
++      String name = c.getString(1);
++      return new SableSpeedDial.Entry(c.getString(0), name == null ? c.getString(0) : name);
++    } catch (SecurityException | IllegalArgumentException e) {
++      return null;
++    }
++  }
++
++  private static String upper(char c) {
++    return String.valueOf(Character.toUpperCase(c));
++  }
++}
+diff --git a/java/com/android/dialer/sable/SableSpeedDialCallActivity.java b/java/com/android/dialer/sable/SableSpeedDialCallActivity.java
+new file mode 100644
+index 000000000..dd466df8d
+--- /dev/null
++++ b/java/com/android/dialer/sable/SableSpeedDialCallActivity.java
+@@ -0,0 +1,52 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.dialer.sable;
++
++import android.app.Activity;
++import android.content.Intent;
++import android.os.Bundle;
++import com.android.dialer.callintent.CallInitiationType;
++import com.android.dialer.callintent.CallIntentBuilder;
++import com.android.dialer.precall.PreCall;
++
++/**
++ * Speed dial a letter: calls its number through Phone's normal call path (SIM choice and
++ * emergency handling included), or, with no number on the letter, opens the speed dial list to
++ * assign one. No window of its own. Callers outside Phone (Sable Start) need {@link
++ * SableSpeedDial#PERMISSION}.
++ */
++public final class SableSpeedDialCallActivity extends Activity {
++  @Override
++  protected void onCreate(Bundle savedInstanceState) {
++    super.onCreate(savedInstanceState);
++    String extra = getIntent().getStringExtra(SableSpeedDial.EXTRA_LETTER);
++    char letter =
++        extra != null && extra.length() == 1 ? SableSpeedDial.normalize(extra.charAt(0)) : 0;
++    if (letter != 0) {
++      SableSpeedDial.Entry entry = new SableSpeedDialStore(this).get(letter);
++      if (entry != null) {
++        PreCall.start(
++            this, new CallIntentBuilder(entry.number, CallInitiationType.Type.SPEED_DIAL));
++      } else {
++        startActivity(
++            new Intent(this, SableSpeedDialActivity.class)
++                .putExtra(SableSpeedDial.EXTRA_LETTER, String.valueOf(letter)));
++      }
++    }
++    finish();
++  }
++}
+diff --git a/java/com/android/dialer/sable/SableSpeedDialProvider.java b/java/com/android/dialer/sable/SableSpeedDialProvider.java
+new file mode 100644
+index 000000000..7da86c4af
+--- /dev/null
++++ b/java/com/android/dialer/sable/SableSpeedDialProvider.java
+@@ -0,0 +1,64 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.dialer.sable;
++
++import android.content.ContentProvider;
++import android.content.ContentValues;
++import android.database.Cursor;
++import android.database.MatrixCursor;
++import android.net.Uri;
++
++/**
++ * Read-only: the letters that have a speed dial number, one row each, for Sable Start's home
++ * screen. Numbers and names never leave Phone. Readers need {@link SableSpeedDial#PERMISSION}.
++ */
++public final class SableSpeedDialProvider extends ContentProvider {
++  @Override
++  public boolean onCreate() {
++    return true;
++  }
++
++  @Override
++  public Cursor query(
++      Uri uri, String[] projection, String selection, String[] selectionArgs, String sortOrder) {
++    MatrixCursor cursor = new MatrixCursor(new String[] {SableSpeedDial.COLUMN_LETTER});
++    for (char letter : new SableSpeedDialStore(getContext()).load().keySet()) {
++      cursor.addRow(new Object[] {String.valueOf(letter)});
++    }
++    return cursor;
++  }
++
++  @Override
++  public String getType(Uri uri) {
++    return null;
++  }
++
++  @Override
++  public Uri insert(Uri uri, ContentValues values) {
++    throw new UnsupportedOperationException("read-only");
++  }
++
++  @Override
++  public int delete(Uri uri, String selection, String[] selectionArgs) {
++    throw new UnsupportedOperationException("read-only");
++  }
++
++  @Override
++  public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs) {
++    throw new UnsupportedOperationException("read-only");
++  }
++}
+diff --git a/java/com/android/dialer/sable/SableSpeedDialStore.java b/java/com/android/dialer/sable/SableSpeedDialStore.java
+new file mode 100644
+index 000000000..0028025d0
+--- /dev/null
++++ b/java/com/android/dialer/sable/SableSpeedDialStore.java
+@@ -0,0 +1,57 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.dialer.sable;
++
++import android.content.Context;
++import android.content.SharedPreferences;
++import java.util.Map;
++
++/** Phone's speed dial list, in its own preferences file (SableSpeedDial's stored form). */
++public final class SableSpeedDialStore {
++  private static final String FILE = "sable_speed_dial";
++  private static final String KEY = "entries";
++
++  private final SharedPreferences prefs;
++
++  public SableSpeedDialStore(Context context) {
++    prefs = context.getApplicationContext().getSharedPreferences(FILE, Context.MODE_PRIVATE);
++  }
++
++  public Map<Character, SableSpeedDial.Entry> load() {
++    return SableSpeedDial.parse(prefs.getString(KEY, ""));
++  }
++
++  public SableSpeedDial.Entry get(char letter) {
++    return load().get(SableSpeedDial.normalize(letter));
++  }
++
++  public void put(char letter, SableSpeedDial.Entry entry) {
++    Map<Character, SableSpeedDial.Entry> all = load();
++    all.put(SableSpeedDial.normalize(letter), entry);
++    save(all);
++  }
++
++  public void remove(char letter) {
++    Map<Character, SableSpeedDial.Entry> all = load();
++    all.remove(SableSpeedDial.normalize(letter));
++    save(all);
++  }
++
++  private void save(Map<Character, SableSpeedDial.Entry> all) {
++    prefs.edit().putString(KEY, SableSpeedDial.format(all)).apply();
++  }
++}
+-- 
+2.43.0
+

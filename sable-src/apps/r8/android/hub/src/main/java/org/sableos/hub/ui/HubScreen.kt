@@ -79,6 +79,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.sableos.design.SableActionButton
 import org.sableos.design.SableAdaptiveTopNav
@@ -87,6 +88,8 @@ import org.sableos.design.SableAlphabetRail
 import org.sableos.design.SableDestination
 import org.sableos.design.SableFocusMemory
 import org.sableos.design.SableLatestContentPolicy
+import org.sableos.design.SableListKeys
+import org.sableos.design.SableListMove
 import org.sableos.design.SableListOrder
 import org.sableos.design.SableListRow
 import org.sableos.design.SablePageHeader
@@ -1215,7 +1218,11 @@ private fun ColumnScope.InboxPivot(
             Spacer(Modifier.weight(1f))
         } else {
             LazyColumn(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .inboxEndKeys(rowKeys, listState, requesters, scope),
                 state = listState,
                 verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
             ) {
@@ -1493,6 +1500,44 @@ private fun Modifier.clusterKeys(
             }
         }
     }
+
+/**
+ * T and B jump to the newest and the oldest row (SableListKeys). Space, N and P keep their Hub meanings
+ * (expand a combined row, the Notifications and Priority filters).
+ */
+private fun Modifier.inboxEndKeys(
+    rowKeys: List<String>,
+    listState: LazyListState,
+    requesters: Map<String, FocusRequester>,
+    scope: CoroutineScope,
+): Modifier =
+    onPreviewKeyEvent { event ->
+        val native = event.nativeKeyEvent
+        val chord = native.isAltPressed || native.isCtrlPressed || native.isMetaPressed
+        val move = SableListKeys.command(native.keyCode, native.isShiftPressed, chord, HUB_OWNED_MOVES)
+        val target = move?.let { SableListKeys.target(it, -1, 0, 0, rowKeys.size) }
+        when {
+            target == null -> {
+                false
+            }
+
+            event.type == KeyEventType.KeyDown -> {
+                scope.launch {
+                    listState.scrollToItem(target)
+                    withFrameNanos { }
+                    runCatching { requesters[rowKeys[target]]?.requestFocus() }
+                }
+                true
+            }
+
+            else -> {
+                true
+            }
+        }
+    }
+
+private val HUB_OWNED_MOVES =
+    setOf(SableListMove.PageDown, SableListMove.PageUp, SableListMove.Next, SableListMove.Previous)
 
 /** Focus targets of the dock: its first entry, else its expand button. */
 private class HubDockFocus {
@@ -2927,7 +2972,8 @@ private val HubPillCornerRadius = 10.dp
 
 private const val REVIEW_ACCESS_LABEL = "Review access"
 private const val THREAD_KEY_HINT = "/ search · PageUp history · End latest · Esc back to latest"
-private const val INBOX_KEY_HINT = "/ search · Alt+Enter actions · A P M X C E N O filters · D dock"
+private const val INBOX_KEY_HINT =
+    "/ search · Alt+Enter actions · A P M X C E N O filters · D dock · T/B top/bottom"
 private const val SMS_PREVIEW_LENGTH = 120
 private const val CONNECTED_PREVIEW_LENGTH = 100
 private const val HUB_INLINE_COMPOSER_MAX_LINES = 4

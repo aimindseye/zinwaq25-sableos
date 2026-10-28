@@ -38,6 +38,7 @@ class KeyboardSettingsActivity : Activity() {
         )
         sw("Auto-capitalise sentences", "autoCap", true)
         sw("Double space inserts period", "doubleSpace", true)
+        sw("AutoText (dont becomes don't, ld the date)", AUTO_TEXT, true)
         sw("Long-press a letter for its Alt character", "longPressAlt", true)
         sw("Letters type digits in numeric fields", "numericAutoAlt", true)
         sw("Nav mode (IJKL arrows) enabled", "navMode", true)
@@ -50,6 +51,18 @@ class KeyboardSettingsActivity : Activity() {
             KeyboardPrefs.compactStripDefault()
         )
         sw("Enter sends in apps that offer Send (Shift+Enter: new line)", ENTER_SENDS, false)
+    }
+
+    /** Buttons that open the keyboard's other screens. */
+    private fun addScreenButtons(col: LinearLayout) {
+        fun open(label: String, screen: Class<out Activity>) = col.addView(
+            Button(this).apply {
+                text = label
+                setOnClickListener { startActivity(Intent(this@KeyboardSettingsActivity, screen)) }
+            }
+        )
+        open("AutoText entries", AutoTextActivity::class.java)
+        open("Key event probe (diagnostic)", KeyProbeActivity::class.java)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -92,16 +105,7 @@ class KeyboardSettingsActivity : Activity() {
                 }
             )
         }
-        col.addView(
-            Button(this).apply {
-                text = "Key event probe (diagnostic)"
-                setOnClickListener {
-                    startActivity(
-                        Intent(this@KeyboardSettingsActivity, KeyProbeActivity::class.java)
-                    )
-                }
-            }
-        )
+        addScreenButtons(col)
         refresh()
         refreshStatus = ::refresh
         setContentView(

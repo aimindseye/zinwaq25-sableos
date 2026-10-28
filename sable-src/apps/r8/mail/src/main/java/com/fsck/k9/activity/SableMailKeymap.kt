@@ -17,6 +17,7 @@ import android.view.KeyEvent
 enum class SableMailCommand {
     COMPOSE,
     TOP,
+    BOTTOM,
     NEXT,
     PREVIOUS,
     REPLY,
@@ -79,6 +80,7 @@ enum class SableListMove {
     PAGE_DOWN,
     PAGE_UP,
     TOP,
+    BOTTOM,
 }
 
 object SableMailKeymap {
@@ -153,6 +155,7 @@ object SableMailKeymap {
         val target =
             when (move) {
                 SableListMove.TOP -> 0
+                SableListMove.BOTTOM -> itemCount - 1
                 SableListMove.NEXT -> if (focused >= 0) focused + 1 else anchor
                 SableListMove.PREVIOUS -> if (focused >= 0) focused - 1 else anchor
                 SableListMove.PAGE_DOWN -> anchor + page
@@ -165,6 +168,8 @@ object SableMailKeymap {
         mapOf(
             KeyEvent.KEYCODE_C to SableMailCommand.COMPOSE,
             KeyEvent.KEYCODE_T to SableMailCommand.TOP,
+            // BlackBerry: B is the bottom of the list, or of the open message.
+            KeyEvent.KEYCODE_B to SableMailCommand.BOTTOM,
             KeyEvent.KEYCODE_J to SableMailCommand.NEXT,
             KeyEvent.KEYCODE_N to SableMailCommand.NEXT,
             KeyEvent.KEYCODE_K to SableMailCommand.PREVIOUS,

@@ -18,6 +18,11 @@ object InputTypeBits {
     const val TEXT_VARIATION_WEB_PASSWORD = 0x000000e0
     const val NUMBER_VARIATION_PASSWORD = 0x00000010
     const val TEXT_FLAG_CAP_SENTENCES = 0x00004000
+    const val TEXT_VARIATION_URI = 0x00000010
+    const val TEXT_VARIATION_EMAIL_ADDRESS = 0x00000020
+    const val TEXT_VARIATION_FILTER = 0x000000b0
+    const val TEXT_VARIATION_WEB_EMAIL_ADDRESS = 0x000000d0
+    const val TEXT_FLAG_NO_SUGGESTIONS = 0x00080000
 }
 
 object FieldPolicy {
@@ -66,6 +71,22 @@ object FieldPolicy {
         softToggled: Boolean,
         softForNumeric: Boolean
     ): Boolean = forceSoft || softToggled || numericFallback(cls, softForNumeric)
+
+    private val NO_AUTOTEXT_VARIATIONS = TEXT_PASSWORD_VARIATIONS + setOf(
+        InputTypeBits.TEXT_VARIATION_URI,
+        InputTypeBits.TEXT_VARIATION_EMAIL_ADDRESS,
+        InputTypeBits.TEXT_VARIATION_FILTER,
+        InputTypeBits.TEXT_VARIATION_WEB_EMAIL_ADDRESS
+    )
+
+    /**
+     * AutoText only in prose fields: text class, not a password, address or search filter, and not a field that
+     * asks for no suggestions (terminals, code editors).
+     */
+    fun autoTextAllowed(inputType: Int?): Boolean = inputType != null &&
+        inputType and InputTypeBits.MASK_CLASS == InputTypeBits.CLASS_TEXT &&
+        inputType and InputTypeBits.MASK_VARIATION !in NO_AUTOTEXT_VARIATIONS &&
+        inputType and InputTypeBits.TEXT_FLAG_NO_SUGGESTIONS == 0
 
     /** Sentence-start capitalisation is requested only by text-class fields with the cap-sentences flag. */
     fun wantsSentenceCaps(inputType: Int?): Boolean = inputType != null &&

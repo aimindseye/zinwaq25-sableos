@@ -2,7 +2,11 @@ package org.sableos.titan2.keyboard.android
 
 import android.content.Context
 import android.content.SharedPreferences
+import org.sableos.titan2.keyboard.core.AutoText
 import org.sableos.titan2.keyboard.core.KeyboardConfig
+
+/** AutoText on Space and punctuation (core AutoText); on by default, as on BlackBerry. */
+internal const val AUTO_TEXT = "autoText"
 
 /** Enter performs the field's Send action (core KeyShortcuts.enterSends); off by default. */
 internal const val ENTER_SENDS = "enterSends"
@@ -30,6 +34,7 @@ class KeyboardPrefs(context: Context) {
                 "longPressAlt",
                 d.longPressAlt
             ),
+            autoText = prefs.getBoolean(AUTO_TEXT, d.autoText),
             numericAutoAlt = prefs.getBoolean("numericAutoAlt", d.numericAutoAlt),
             navModeEnabled = prefs.getBoolean(
                 "navMode",
@@ -70,6 +75,13 @@ class KeyboardPrefs(context: Context) {
         get() = prefs.getBoolean("compactStrip", compactStripDefault())
         set(v) {
             prefs.edit().putBoolean("compactStrip", v).apply()
+        }
+
+    /** The user's AutoText entries, stored as AutoText.format text. */
+    var autoTextEntries: Map<String, String>
+        get() = AutoText.parse(prefs.getString("autoTextUser", "").orEmpty())
+        set(v) {
+            prefs.edit().putString("autoTextUser", AutoText.format(v)).apply()
         }
 
     fun setBool(key: String, v: Boolean) {

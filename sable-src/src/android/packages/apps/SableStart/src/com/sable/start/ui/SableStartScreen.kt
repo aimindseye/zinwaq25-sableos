@@ -157,11 +157,13 @@ import org.sableos.start.model.HubPeople
 import org.sableos.start.model.HubPerson
 import org.sableos.start.model.QuickBar
 import org.sableos.start.model.StartPages
+import org.sableos.start.model.SpeedDialKeys
 import org.sableos.start.model.StartTypeToSearch
 import org.sableos.start.model.inLauncherUser
 import org.sableos.start.model.stableKey
 import org.sableos.start.platform.LiveSurfaceRepository
 import org.sableos.start.platform.PeopleRepository
+import org.sableos.start.platform.SpeedDialRepository
 import org.sableos.start.privacy.AllAppsKeyAction
 import org.sableos.start.privacy.AllAppsKeyPolicy
 import org.sableos.start.privacy.AppAction
@@ -375,7 +377,13 @@ fun SableStartScreen(
     hubRequestFilter: String? = null,
     /** The Contacts tab asks for READ_CONTACTS; the activity bumps [refreshGeneration] after. */
     onRequestContactsPermission: () -> Unit = {},
+    /** Phone's speed dial: holding an assigned letter on Home calls it (null: no speed dial). */
+    speedDial: SpeedDialRepository? = null,
 ) {
+    val speedDialLetters by
+        produceState(emptySet<Char>(), refreshGeneration, speedDial) {
+            value = speedDial?.assignedLetters() ?: emptySet()
+        }
     var destination by remember(initialScreen) {
         mutableStateOf(destinationFor(initialScreen))
     }
@@ -589,7 +597,9 @@ fun SableStartScreen(
                                 },
                                 onHubPeek = { pagerScope.launch { startPager.animateScrollToPage(StartPages.HUB) } },
                                 onDial = { char -> dial(char.toString()) },
-                                onTypeToSearch = { char -> openSearch(SableStartDestination.Start, char.toString()) },
+                                onTypeToSearch = { seed -> openSearch(SableStartDestination.Start, seed) },
+                                speedDialLetters = speedDialLetters,
+                                onSpeedDial = { letter -> speedDial?.call(letter) },
                                 onCommand = { openSearch(SableStartDestination.Start) },
                                 onEditHome = { destination = SableStartDestination.EditHome },
                             ) { page ->
@@ -918,12 +928,15 @@ private fun StartStrip(
     onSlotOptions: (QuickSlot) -> Unit,
     onHubPeek: () -> Unit,
     onDial: (Char) -> Unit,
-    onTypeToSearch: (Char) -> Unit,
+    onTypeToSearch: (String) -> Unit,
+    speedDialLetters: Set<Char>,
+    onSpeedDial: (Char) -> Unit,
     onCommand: () -> Unit,
     onEditHome: () -> Unit,
     page: @Composable (Int) -> Unit,
 ) {
     var phoneSlotFocused by remember { mutableStateOf(false) }
+    val speedDialKeys = remember { SpeedDialKeys() }
     Column(
         modifier =
             Modifier
@@ -964,14 +977,34 @@ private fun StartStrip(
                         if (event.type == KeyEventType.KeyDown) onEditHome()
                         return@onKeyEvent true
                     }
-                    if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                    val down = event.type == KeyEventType.KeyDown
                     val seed =
-                        StartTypeToSearch.seed(
-                            unicode = native.unicodeChar,
-                            metaState = native.metaState,
-                            repeat = native.repeatCount > 0,
-                        ) ?: return@onKeyEvent false
-                    onTypeToSearch(seed)
+                        if (down) {
+                            StartTypeToSearch.seed(
+                                unicode = native.unicodeChar,
+                                metaState = native.metaState,
+                                repeat = native.repeatCount > 0,
+                            )
+                        } else {
+                            null
+                        }
+                    // Holding a speed dial letter calls it; a short press of it still searches.
+                    val step =
+                        speedDialKeys.onKey(
+                            native.keyCode,
+                            down,
+                            native.repeatCount,
+                            native.metaState,
+                            seed,
+                            speedDialLetters,
+                        )
+                    when {
+                        step is SpeedDialKeys.Step.Call -> onSpeedDial(step.letter)
+                        step is SpeedDialKeys.Step.Search -> onTypeToSearch(step.seed)
+                        step == SpeedDialKeys.Step.Consume -> Unit
+                        seed != null -> onTypeToSearch(seed.toString())
+                        else -> return@onKeyEvent false
+                    }
                     true
                 },
     ) {

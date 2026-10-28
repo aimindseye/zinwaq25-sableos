@@ -41,6 +41,13 @@ class Resolver(
         accentOptions = emptyList()
     }
 
+    /** AutoText entries (built-ins plus the user's list) and the variables it fills in (%D, %T, %V). */
+    var autoText: AutoText = AutoText()
+    var autoTextVar: (Char) -> String? = { null }
+
+    // (typed text, inserted text), both with their boundary, while Backspace can still undo the expansion
+    private var lastExpansion: Pair<String, String>? = null
+
     // letter whose long-press replacement was already committed
     private var longPressed: Char? = null
 
@@ -72,6 +79,8 @@ class Resolver(
     }
 
     private fun onKeyDown(k: Key, ev: KeyEv, ctx: FieldCtx): List<Out> {
+        val undo = lastExpansion
+        lastExpansion = null
         if (ev.ctrlHeld || k is Key.Ctrl || !ctx.editable) return listOf(Out.Pass)
 
         mods.markChordUse()
@@ -84,8 +93,8 @@ class Resolver(
             is Key.Letter -> letter(k.c, ev, ctx, Held(shiftOn, altOn, symOn, navAllowed(ctx)))
             is Key.Space -> space(ev, ctx, altOn)
             is Key.Digit -> commit(k.c.toString(), shiftOn)
-            is Key.Punct -> punct(k, shiftOn)
-            is Key.Backspace -> backspace(ev, shiftOn)
+            is Key.Punct -> punct(k, shiftOn, ctx)
+            is Key.Backspace -> backspace(ev, shiftOn, ctx, undo)
             else -> listOf(Out.Pass)
         }
     }
@@ -96,17 +105,46 @@ class Resolver(
     fun navEffective(cls: InputClass): Boolean =
         navActive && cfg.navModeEnabled && cls !in NO_NAV_CLASSES
 
-    private fun punct(k: Key.Punct, shiftOn: Boolean): List<Out> = commit(
-        (if (shiftOn) layout.shiftPunct[k.c] ?: k.c else k.c).toString(),
-        false,
-        spend = true
-    )
-
-    private fun backspace(ev: KeyEv, shiftOn: Boolean): List<Out> = if (shiftOn && !ev.isRepeat()) {
+    private fun punct(k: Key.Punct, shiftOn: Boolean, ctx: FieldCtx): List<Out> {
+        val s = (if (shiftOn) layout.shiftPunct[k.c] ?: k.c else k.c).toString()
         mods.consumeOneShots()
-        listOf(Out.Send(Key.Delete))
-    } else {
-        listOf(Out.Pass)
+        return typeBoundary(s, ctx)
+    }
+
+    private fun backspace(
+        ev: KeyEv,
+        shiftOn: Boolean,
+        ctx: FieldCtx,
+        undo: Pair<String, String>?
+    ): List<Out> = when {
+        shiftOn && !ev.isRepeat() -> {
+            mods.consumeOneShots()
+            listOf(Out.Send(Key.Delete))
+        }
+
+        // the first Backspace after an AutoText expansion puts back what was typed
+        undo != null && !ev.isRepeat() && ctx.before.endsWith(undo.second) ->
+            listOf(Out.DeleteBefore(undo.second.length), Out.Commit(undo.first))
+
+        else -> listOf(Out.Pass)
+    }
+
+    /** Commits [s]; when it ends a word AutoText knows, replaces the word too. */
+    private fun typeBoundary(s: String, ctx: FieldCtx): List<Out> {
+        val on = cfg.autoText && ctx.autoText && ctx.inputClass == InputClass.Text &&
+            language.engine == Engine.Direct && s.length == 1 && s[0] in AutoText.BOUNDARIES
+        val hit = if (on) {
+            autoText.match(
+                ctx.before,
+                language.tag.startsWith("en"),
+                autoTextVar
+            )
+        } else {
+            null
+        }
+        if (hit == null) return listOf(Out.Commit(s))
+        lastExpansion = (hit.word + s) to (hit.replacement + s)
+        return listOf(Out.DeleteBefore(hit.word.length), Out.Commit(hit.replacement + s))
     }
 
     private fun KeyEv.isRepeat() = repeat > 0
@@ -174,7 +212,7 @@ class Resolver(
         return when {
             replacement != null -> {
                 mods.consumeOneShots()
-                listOf(Out.Commit(replacement))
+                typeBoundary(replacement, ctx)
             }
 
             language.engine != Engine.Direct && ctx.inputClass !in FieldPolicy.SECRET_CLASSES -> {
@@ -226,7 +264,7 @@ class Resolver(
         ) {
             listOf(Out.DeleteBefore(1), Out.Commit(". "))
         } else {
-            listOf(Out.Commit(" "))
+            typeBoundary(" ", ctx)
         }
 
     private fun endsWordSpace(b: String): Boolean =

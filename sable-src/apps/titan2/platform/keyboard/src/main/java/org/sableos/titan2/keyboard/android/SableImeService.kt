@@ -10,6 +10,7 @@ import android.view.inputmethod.InputMethodManager
 import android.view.inputmethod.InputMethodSubtype
 import android.widget.Toast
 import org.sableos.titan2.keyboard.R
+import org.sableos.titan2.keyboard.core.AutoText
 import org.sableos.titan2.keyboard.core.CompactStrip
 import org.sableos.titan2.keyboard.core.Composer
 import org.sableos.titan2.keyboard.core.Composers
@@ -44,7 +45,8 @@ class SableImeService : InputMethodService() {
     private var fieldClass = InputClass.None
 
     private companion object {
-        const val BEFORE_CURSOR_CHARS = 3
+        // enough for an AutoText shortcut and the expansion Backspace undoes
+        const val BEFORE_CURSOR_CHARS = 64
         const val COMPOSITION_LOST_MS = 400L
     }
 
@@ -60,11 +62,13 @@ class SableImeService : InputMethodService() {
                 ),
                 cfg = prefs.load()
             )
+        resolver.autoTextVar = autoTextVar(this)
     }
 
     override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
         resolver.cfg = prefs.load()
+        resolver.autoText = AutoText(prefs.autoTextEntries)
         if (!restarting) {
             resolver.mods.reset()
             handledDown.clear()
@@ -522,7 +526,12 @@ class SableImeService : InputMethodService() {
             ""
         }
         val capFlags = ei?.inputType?.and(InputType.TYPE_TEXT_FLAG_CAP_SENTENCES) ?: 0
-        return FieldCtx(cls, before, autoCapAllowed = capFlags != 0)
+        return FieldCtx(
+            cls,
+            before,
+            autoCapAllowed = capFlags != 0,
+            autoText = FieldPolicy.autoTextAllowed(ei?.inputType)
+        )
     }
 
     private fun classify(ei: EditorInfo?): InputClass = FieldPolicy.classify(ei?.inputType)

@@ -39,6 +39,12 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".android.AutoTextActivity"
+            android:directBootAware="true"
+            android:exported="false"
+            android:label="AutoText" />
+
         <!--
           Diagnostic: shows the key events an ordinary app receives. Not a launcher entry (#83, DESIGN-KF-C):
           open it from Sable Keyboard settings or Sable Tools > Diagnostics > Keyboard event viewer, or with
