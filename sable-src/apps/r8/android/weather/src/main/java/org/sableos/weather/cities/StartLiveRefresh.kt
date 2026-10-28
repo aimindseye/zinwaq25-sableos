@@ -14,7 +14,10 @@ object StartLiveRefresh {
     /** Locale-independent identity of what a forecast was fetched for. */
     fun cacheKey(city: City): String = "${city.latitude},${city.longitude},${city.timezone}"
 
-    fun needsRefresh(before: City?, after: City?): Boolean {
+    fun needsRefresh(
+        before: City?,
+        after: City?,
+    ): Boolean {
         if (after == null) return false
         return before == null || cacheKey(before) != cacheKey(after) || before.name != after.name
     }
@@ -23,6 +26,8 @@ object StartLiveRefresh {
      * A cached forecast belongs to one city. Showing it under another city's name would be wrong, so it is
      * valid only when the stored key matches the active city.
      */
-    fun cacheValidFor(storedKey: String?, active: City): Boolean =
-        storedKey != null && storedKey == cacheKey(active)
+    fun cacheValidFor(
+        storedKey: String?,
+        active: City,
+    ): Boolean = storedKey != null && storedKey == cacheKey(active)
 }

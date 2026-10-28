@@ -1,11 +1,11 @@
 package org.sableos.weather.cities
 
-import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.sableos.weather.DefaultWeatherLocations
+import java.io.File
 
 /** Source-level negatives for the pure city/cache/key layers: no framework, network, permission or device identity. */
 class WeatherCitiesContractTest {
@@ -23,7 +23,10 @@ class WeatherCitiesContractTest {
 
     private fun pureSources(): List<File> =
         listOf("cities", "input").flatMap { sub ->
-            File(weatherDir() ?: File("/nonexistent"), sub).walkTopDown().filter { it.isFile && it.name.endsWith(".kt") }.toList()
+            File(
+                weatherDir() ?: File("/nonexistent"),
+                sub,
+            ).walkTopDown().filter { it.isFile && it.name.endsWith(".kt") }.toList()
         }
 
     @Test fun thePureLayersExist() {
@@ -42,7 +45,7 @@ class WeatherCitiesContractTest {
                 "SystemProperties",
                 "LocationManager",
                 "ACCESS_" + "FINE_LOCATION",
-                "http"
+                "http",
             )
         pureSources().forEach { f -> banned.forEach { assertFalse("${f.name}: $it", f.readText().contains(it)) } }
     }
@@ -55,7 +58,7 @@ class WeatherCitiesContractTest {
         assertEquals(DefaultCities.ALL.map { it.name }, DefaultWeatherLocations.map { it.name })
         assertEquals(
             listOf("Jersey City", "New York", "Edison", "Mumbai"),
-            DefaultCities.ALL.map { it.name }
+            DefaultCities.ALL.map { it.name },
         )
     }
 }

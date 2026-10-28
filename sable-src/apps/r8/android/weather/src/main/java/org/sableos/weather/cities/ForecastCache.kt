@@ -4,7 +4,11 @@ package org.sableos.weather.cities
  * A cached forecast for exactly one city. [cacheKey] is [StartLiveRefresh.cacheKey] of the city it was fetched
  * for, so a forecast can never be shown under another city's name.
  */
-data class CachedForecast(val cacheKey: String, val protocol: String, val observedEpochSeconds: Long)
+data class CachedForecast(
+    val cacheKey: String,
+    val protocol: String,
+    val observedEpochSeconds: Long,
+)
 
 /**
  * Per-city forecast cache over the same [KeyValueStore] as the city list (IR-015).
@@ -13,7 +17,9 @@ data class CachedForecast(val cacheKey: String, val protocol: String, val observ
  * [read] returns it only when that key matches the active city ([StartLiveRefresh.cacheValidFor]). Entries of
  * cities that are no longer in the list are dropped by [retainOnly].
  */
-class ForecastCache(private val store: KeyValueStore) {
+class ForecastCache(
+    private val store: KeyValueStore,
+) {
     fun read(city: City): CachedForecast? {
         val text = store.get(entryKey(city)) ?: return null
         val entry = decode(text) ?: return null
@@ -24,7 +30,11 @@ class ForecastCache(private val store: KeyValueStore) {
         return if (valid) entry else null
     }
 
-    fun write(city: City, protocol: String, observedEpochSeconds: Long): CachedForecast {
+    fun write(
+        city: City,
+        protocol: String,
+        observedEpochSeconds: Long,
+    ): CachedForecast {
         val entry = CachedForecast(StartLiveRefresh.cacheKey(city), protocol, observedEpochSeconds)
         store.put(entryKey(city), encode(entry))
         return entry

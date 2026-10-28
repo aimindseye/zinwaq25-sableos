@@ -31,13 +31,17 @@ class PrivacySummaryPolicyTest {
         assertEquals("permissions · Camera", PrivacySummaryPolicy.compact(privacy(PrivacyGroup.Camera)).text)
         assertEquals(
             "permissions · Location · Camera · Microphone",
-            PrivacySummaryPolicy.compact(privacy(PrivacyGroup.Microphone, PrivacyGroup.Camera, PrivacyGroup.Location)).text,
+            PrivacySummaryPolicy
+                .compact(
+                    privacy(PrivacyGroup.Microphone, PrivacyGroup.Camera, PrivacyGroup.Location),
+                ).text,
         )
     }
 
     @Test
     fun moreThanThreeFoldsIntoPlusN() {
-        val maps = privacy(PrivacyGroup.Location, PrivacyGroup.Contacts, PrivacyGroup.Notifications, PrivacyGroup.Nearby)
+        val maps =
+            privacy(PrivacyGroup.Location, PrivacyGroup.Contacts, PrivacyGroup.Notifications, PrivacyGroup.Nearby)
         val row = PrivacySummaryPolicy.compact(maps)
         assertEquals("permissions · Location · Contacts · Nearby · +1", row.text)
         assertEquals(3, row.labels.size)
@@ -48,8 +52,13 @@ class PrivacySummaryPolicyTest {
 
     @Test
     fun narrowWidthDropsWholeLabelsNeverMidWord() {
-        val maps = privacy(PrivacyGroup.Location, PrivacyGroup.Contacts, PrivacyGroup.Notifications, PrivacyGroup.Photos)
-        val row = PrivacySummaryPolicy.compact(maps, fits = { it.length <= "permissions · Location · Contacts · +2".length })
+        val maps =
+            privacy(PrivacyGroup.Location, PrivacyGroup.Contacts, PrivacyGroup.Notifications, PrivacyGroup.Photos)
+        val row =
+            PrivacySummaryPolicy.compact(maps, fits = {
+                it.length <=
+                    "permissions · Location · Contacts · +2".length
+            })
         assertEquals("permissions · Location · Contacts · +2", row.text)
         val tiny = PrivacySummaryPolicy.compact(maps, fits = { false })
         assertEquals(1, tiny.labels.size) // at least one label; the view may ellipsize

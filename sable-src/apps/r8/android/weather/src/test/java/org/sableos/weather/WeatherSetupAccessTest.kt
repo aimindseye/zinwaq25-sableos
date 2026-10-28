@@ -9,8 +9,11 @@ class WeatherSetupAccessTest {
     private val own = 10_050
     private val other = 10_099
 
-    private fun allowed(uid: Int, allowed: Set<String>, vararg packages: String) =
-        WeatherCallers.allowed(uid, own, allowed) { packages.toList() }
+    private fun allowed(
+        uid: Int,
+        allowed: Set<String>,
+        vararg packages: String,
+    ) = WeatherCallers.allowed(uid, own, allowed) { packages.toList() }
 
     @Test fun weatherItselfIsAlwaysAllowedWithoutAPackageLookup() {
         assertTrue(WeatherCallers.allowed(own, own, emptySet()) { error("not consulted") })

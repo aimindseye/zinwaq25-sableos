@@ -78,7 +78,7 @@ object CityCatalog {
             City("Vienna", 48.2082, 16.3738, "Europe/Vienna"),
             City("Warsaw", 52.2297, 21.0122, "Europe/Warsaw"),
             City("Washington", 38.9072, -77.0369, NEW_YORK_ZONE),
-            City("Zurich", 47.3769, 8.5417, "Europe/Zurich")
+            City("Zurich", 47.3769, 8.5417, "Europe/Zurich"),
         )
 
     /**
@@ -86,7 +86,10 @@ object CityCatalog {
      * ("Name, lat, lon, Area/Zone") is offered first when it parses and validates. Cities already in [exclude] are
      * left out. A blank query has no results.
      */
-    fun search(query: String, exclude: List<City> = emptyList()): List<City> {
+    fun search(
+        query: String,
+        exclude: List<City> = emptyList(),
+    ): List<City> {
         val q = CityRules.normalizedName(query)
         if (q.isEmpty()) return emptyList()
         val manual = parseManual(q)?.let { listOf(it) }.orEmpty()

@@ -1,9 +1,12 @@
 package org.sableos.weather
 
+import android.Manifest
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,9 +20,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,6 +35,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -113,6 +119,38 @@ private fun WeatherApp() {
         }
     }
 
+    var useCurrent by remember {
+        mutableStateOf(repository.currentLocation.enabled && CurrentLocationFinder.hasPermission(context))
+    }
+
+    fun locateNow() {
+        scope.launch {
+            withContext(Dispatchers.IO) { repository.updateCurrentPlace() }
+            selectedLocation = repository.loadLocation()
+        }
+    }
+
+    val permissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            repository.currentLocation.enabled = granted
+            useCurrent = granted
+            if (granted) locateNow()
+        }
+
+    fun setUseCurrent(on: Boolean) {
+        if (on && !CurrentLocationFinder.hasPermission(context)) {
+            permissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+            return
+        }
+        repository.currentLocation.enabled = on
+        useCurrent = on
+        if (on) locateNow() else selectedLocation = repository.loadLocation()
+    }
+
+    LaunchedEffect(Unit) {
+        if (useCurrent) locateNow()
+    }
+
     SableRefreshableSurface(
         isRefreshing = refreshing,
         onRefresh = ::refresh,
@@ -163,9 +201,19 @@ private fun WeatherApp() {
             }
 
             Spacer(Modifier.height(SableSpacing.Xl))
+            CurrentLocationRow(
+                on = useCurrent,
+                place = selectedLocation.name.takeIf { useCurrent },
+                onChange = ::setUseCurrent,
+            )
+
+            Spacer(Modifier.height(SableSpacing.Lg))
             CitiesSection(
                 repository = repository,
                 onActiveCityChanged = { location ->
+                    // Choosing a city means "show this city", not where the phone is.
+                    repository.currentLocation.enabled = false
+                    useCurrent = false
                     selectedLocation = location
                 },
             )
@@ -173,12 +221,42 @@ private fun WeatherApp() {
             Spacer(Modifier.height(SableSpacing.Xl))
             Text(
                 text =
-                    "Open-Meteo · HTTPS · cached locally · manual city by default · " +
-                        "precise location is not required",
+                    "Open-Meteo · HTTPS · cached locally · approximate location or a chosen city · " +
+                        "precise location is never used",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+/** "Use current location": approximate location, asked for the first time it is turned on. */
+@Composable
+private fun CurrentLocationRow(
+    on: Boolean,
+    place: String?,
+    onChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .toggleable(value = on, role = Role.Switch, onValueChange = onChange),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Use current location",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                text = if (on) place ?: "Finding where you are…" else "Off: showing the chosen city",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(checked = on, onCheckedChange = null)
     }
 }
 

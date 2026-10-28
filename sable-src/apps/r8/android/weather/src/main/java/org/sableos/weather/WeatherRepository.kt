@@ -3,13 +3,13 @@ package org.sableos.weather
 import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
-import java.net.URI
-import javax.net.ssl.HttpsURLConnection
 import org.sableos.weather.cities.CityEdit
 import org.sableos.weather.cities.CityRepository
 import org.sableos.weather.cities.ForecastCache
 import org.sableos.weather.cities.KeyValueStore
 import org.sableos.weather.cities.LegacyWeatherCache
+import java.net.URI
+import javax.net.ssl.HttpsURLConnection
 
 internal class WeatherRepository(
     context: Context,
@@ -27,6 +27,9 @@ internal class WeatherRepository(
 
     /** One cached forecast per city, keyed by coordinates and timezone (IR-015). */
     private val forecasts = ForecastCache(store)
+
+    /** "Use current location" and the last place found ([CurrentLocationStore]). */
+    val currentLocation = CurrentLocationStore(preferences)
 
     init {
         LegacyWeatherCache.migrate(store)
@@ -168,7 +171,24 @@ internal class WeatherRepository(
         )
     }
 
-    fun loadLocation(): WeatherLocation = cities.load().selected.toLocation()
+    /** The current place while "Use current location" is on, granted and found; otherwise the chosen city. */
+    fun loadLocation(): WeatherLocation = currentPlaceOrNull() ?: cities.load().selected.toLocation()
+
+    private fun currentPlaceOrNull(): WeatherLocation? =
+        currentLocation.lastPlace()?.takeIf {
+            currentLocation.enabled && CurrentLocationFinder.hasPermission(appContext)
+        }
+
+    /** Finds and stores where the phone is (slow: may wait for a fix); null when off, not granted or not found. */
+    fun updateCurrentPlace(): WeatherLocation? {
+        if (!currentLocation.enabled) return null
+        val place = CurrentLocationFinder.locate(appContext) ?: return null
+        if (place != currentLocation.lastPlace()) {
+            currentLocation.save(place)
+            appContext.contentResolver.notifyChange(WeatherSnapshotContract.SNAPSHOT_URI, null)
+        }
+        return place
+    }
 
     /**
      * Applies the result of a city edit: drops cached forecasts of removed cities and, when the active city
@@ -176,7 +196,7 @@ internal class WeatherRepository(
      */
     fun afterCityEdit(edit: CityEdit) {
         if (!edit.changed) return
-        forecasts.retainOnly(edit.state.cities)
+        forecasts.retainOnly(edit.state.cities + listOfNotNull(currentLocation.lastPlace()?.toCity()))
         if (edit.refresh) {
             appContext.contentResolver.notifyChange(
                 WeatherSnapshotContract.SNAPSHOT_URI,

@@ -18,14 +18,17 @@ class CityKeysTest {
         shift: Boolean = false,
         ctrl: Boolean = false,
         repeat: Boolean = false,
-        editable: Boolean = false
+        editable: Boolean = false,
     ) = KeyInput(kind, c, shift = shift, ctrl = ctrl, repeat = repeat, editableFocused = editable)
 
-    private fun CityScreenModel.press(s: CityScreenState, kind: KeyKind) = reduce(s, key(kind))
+    private fun CityScreenModel.press(
+        s: CityScreenState,
+        kind: KeyKind,
+    ) = reduce(s, key(kind))
 
     private fun CityScreenModel.pressAll(
         s0: CityScreenState,
-        vararg kinds: KeyKind
+        vararg kinds: KeyKind,
     ): CityScreenState = kinds.fold(s0) { s, k -> reduce(s, key(k)).state }
 
     // --- focus ---
@@ -56,9 +59,9 @@ class CityKeysTest {
                 "city:Edison",
                 "city:Mumbai",
                 "add_city",
-                "reset_defaults"
+                "reset_defaults",
             ),
-            seen.distinct()
+            seen.distinct(),
         )
         assertEquals("reset_defaults", seen.last())
         repeat(9) { s = model.press(s, KeyKind.Up).state }
@@ -76,7 +79,7 @@ class CityKeysTest {
         assertEquals("city:Jersey City:remove", onRemove.focusId)
         assertEquals(
             "reset_defaults",
-            model.focusedId(model.press(onRemove, KeyKind.MoveEnd).state)
+            model.focusedId(model.press(onRemove, KeyKind.MoveEnd).state),
         )
     }
 
@@ -138,10 +141,11 @@ class CityKeysTest {
         assertEquals(2, model.press(onResult, KeyKind.MoveEnd).state.resultFocus)
         assertEquals(
             0,
-            model.press(
-                model.press(onResult, KeyKind.MoveEnd).state,
-                KeyKind.MoveHome
-            ).state.resultFocus
+            model
+                .press(
+                    model.press(onResult, KeyKind.MoveEnd).state,
+                    KeyKind.MoveHome,
+                ).state.resultFocus,
         )
     }
 
@@ -161,7 +165,7 @@ class CityKeysTest {
     @Test fun tabWalksAndHandsFocusOutAtTheEndsInsteadOfTrapping() {
         assertEquals(
             CityEffect.FocusLeaves(false),
-            model.reduce(start, key(KeyKind.Tab, shift = true)).effect
+            model.reduce(start, key(KeyKind.Tab, shift = true)).effect,
         )
         var s = start
         repeat(5) { s = model.press(s, KeyKind.Tab).state }
@@ -174,7 +178,7 @@ class CityKeysTest {
         assertEquals("city:Jersey City:remove", s.focusId)
         assertEquals(
             "city:Jersey City",
-            model.focusedId(model.press(s, KeyKind.Left).state).removeSuffix(":remove")
+            model.focusedId(model.press(s, KeyKind.Left).state).removeSuffix(":remove"),
         )
     }
 
@@ -190,7 +194,7 @@ class CityKeysTest {
     @Test fun heldEnterDoesNotActivateRepeatedly() {
         assertEquals(
             CityEffect.None,
-            model.reduce(start, key(KeyKind.Activate, repeat = true)).effect
+            model.reduce(start, key(KeyKind.Activate, repeat = true)).effect,
         )
     }
 
@@ -212,14 +216,15 @@ class CityKeysTest {
     @Test fun aKeyboardOpenedSearchNeverAsksForTheSoftKeyboard() {
         assertFalse(model.reduce(start, key(KeyKind.Printable, 'p')).state.softKeyboard)
         assertFalse(
-            model.pressAll(
-                start,
-                KeyKind.Down,
-                KeyKind.Down,
-                KeyKind.Down,
-                KeyKind.Down,
-                KeyKind.Activate
-            ).softKeyboard
+            model
+                .pressAll(
+                    start,
+                    KeyKind.Down,
+                    KeyKind.Down,
+                    KeyKind.Down,
+                    KeyKind.Down,
+                    KeyKind.Activate,
+                ).softKeyboard,
         )
     }
 
@@ -240,7 +245,7 @@ class CityKeysTest {
             KeyKind.Space,
             KeyKind.Backspace,
             KeyKind.Left,
-            KeyKind.Right
+            KeyKind.Right,
         ).forEach {
             val r = model.reduce(open, key(it, 'a'))
             assertFalse(it.name, r.consumed)
@@ -370,7 +375,7 @@ class CityKeysTest {
         val dlg = model.press(start, KeyKind.Backspace).state
         assertEquals(
             CityScreen.ConfirmRemove,
-            model.reduce(dlg, key(KeyKind.Printable, 'q')).state.screen
+            model.reduce(dlg, key(KeyKind.Printable, 'q')).state.screen,
         )
     }
 

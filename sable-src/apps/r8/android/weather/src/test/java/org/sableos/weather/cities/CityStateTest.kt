@@ -29,7 +29,11 @@ class CityStateTest {
     }
 
     @Test fun anAddedCityKeepsNameCoordinatesAndTimezone() {
-        val c = CityState.defaults().add(tokyo).state.selected
+        val c =
+            CityState
+                .defaults()
+                .add(tokyo)
+                .state.selected
         assertEquals(tokyo, c)
     }
 
@@ -69,7 +73,7 @@ class CityStateTest {
                 paris.copy(latitude = Double.NaN) to Reason.NotFinite,
                 paris.copy(longitude = Double.POSITIVE_INFINITY) to Reason.NotFinite,
                 paris.copy(timezone = "") to Reason.BadTimezone,
-                paris.copy(timezone = "Mars/Olympus") to Reason.BadTimezone
+                paris.copy(timezone = "Mars/Olympus") to Reason.BadTimezone,
             )
         cases.forEach { (city, reason) ->
             val e = s.add(city)
@@ -110,7 +114,12 @@ class CityStateTest {
         val e = s.remove("New York")
         assertEquals("Edison", e.state.selected.name)
         assertTrue(e.refresh)
-        val last = CityState.defaults().select("Mumbai").state.remove("Mumbai")
+        val last =
+            CityState
+                .defaults()
+                .select("Mumbai")
+                .state
+                .remove("Mumbai")
         assertEquals("Edison", last.state.selected.name)
     }
 
@@ -142,19 +151,36 @@ class CityStateTest {
     }
 
     @Test fun resetRestoresTheDefaultsAndDropsUserCities() {
-        val s = CityState.defaults().add(paris).state.remove("Edison").state
+        val s =
+            CityState
+                .defaults()
+                .add(paris)
+                .state
+                .remove("Edison")
+                .state
         val e = s.reset()
         assertEquals(DefaultCities.ALL, e.state.cities)
         assertTrue(DefaultCities.ALL.all { d -> e.state.cities.any { it == d } })
     }
 
     @Test fun resetKeepsABuiltInSelectionAndFallsBackToTheFirstOtherwise() {
-        val onMumbai = CityState.defaults().select(
-            "Mumbai"
-        ).state.add(paris, select = false).state.reset()
+        val onMumbai =
+            CityState
+                .defaults()
+                .select(
+                    "Mumbai",
+                ).state
+                .add(paris, select = false)
+                .state
+                .reset()
         assertEquals("Mumbai", onMumbai.state.selected.name)
         assertFalse(onMumbai.refresh)
-        val onParis = CityState.defaults().add(paris).state.reset()
+        val onParis =
+            CityState
+                .defaults()
+                .add(paris)
+                .state
+                .reset()
         assertEquals("Jersey City", onParis.state.selected.name)
         assertTrue(onParis.refresh)
     }

@@ -83,7 +83,10 @@ internal object SetupCityHandOff {
             putStringArrayList(WeatherSetupContract.KEY_NAMES, ArrayList(names))
             putString(
                 WeatherSetupContract.KEY_SELECTED,
-                WeatherRepository(context).cities.load().selected.name,
+                WeatherRepository(context)
+                    .cities
+                    .load()
+                    .selected.name,
             )
         }
 
@@ -112,7 +115,12 @@ internal object SetupCityHandOff {
             }
         return Bundle().apply {
             putString(WeatherSetupContract.KEY_STATUS, status)
-            putString(WeatherSetupContract.KEY_SELECTED, repository.cities.load().selected.name)
+            putString(
+                WeatherSetupContract.KEY_SELECTED,
+                repository.cities
+                    .load()
+                    .selected.name,
+            )
         }
     }
 }

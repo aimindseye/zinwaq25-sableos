@@ -86,6 +86,8 @@ class ForecastCacheTest {
         val edit = repo.select("Mumbai")
         assertTrue(edit.refresh)
         assertNull(cache.read(edit.state.selected))
-        assertFalse(StartLiveRefresh.cacheValidFor(StartLiveRefresh.cacheKey(DefaultCities.ALL[0]), edit.state.selected))
+        assertFalse(
+            StartLiveRefresh.cacheValidFor(StartLiveRefresh.cacheKey(DefaultCities.ALL[0]), edit.state.selected),
+        )
     }
 }
