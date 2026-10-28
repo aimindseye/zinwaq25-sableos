@@ -47,7 +47,10 @@ fi
     sable_fail "$ARTIFACTS is not a collected build (no SHA256SUMS.txt or BUILD_INFO.txt)"
 (cd "$ARTIFACTS" && sha256sum --quiet -c SHA256SUMS.txt) || sable_fail "checksums in $ARTIFACTS do not match"
 
-info() { sed -n "s/^$1=//p" "$ARTIFACTS/BUILD_INFO.txt"; }
+info() {
+    local key="$1"
+    sed -n "s/^$key=//p" "$ARTIFACTS/BUILD_INFO.txt"
+}
 commit="$(info tool_commit)"
 mapfile -t packages < <(find "$ARTIFACTS" -maxdepth 1 -name '*.zip' -printf '%f\n')
 ((${#packages[@]} == 1)) || sable_fail "expected one install package in $ARTIFACTS, found ${#packages[@]}"
