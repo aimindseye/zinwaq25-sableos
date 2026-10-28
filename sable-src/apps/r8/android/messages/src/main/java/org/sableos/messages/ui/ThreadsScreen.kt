@@ -17,7 +17,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -25,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,12 +41,18 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import org.sableos.design.SableActionButton
+import org.sableos.design.SableListFocus
+import org.sableos.design.SableListKeys
 import org.sableos.design.SableSize
 import org.sableos.design.SableSpacing
 import org.sableos.design.sableFocusRing
+import org.sableos.design.sableListKeys
 import org.sableos.messages.core.ThreadSummary
 
-/** Conversation list, newest first; letters filter it, Enter opens the first match at latest. */
+/**
+ * Conversation list, newest first; letters filter it, Enter opens the first match at latest. Down moves into the
+ * list, where T, B, Space, Shift+Space, N and P move as on a BlackBerry (SableListKeys).
+ */
 @Composable
 internal fun ColumnScope.ThreadsScreen(
     state: MessagesUiState,
@@ -66,11 +74,30 @@ internal fun ColumnScope.ThreadsScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+    val listState = rememberLazyListState()
+    val focus = remember(listState) { SableListFocus(listState) }
+    val scope = rememberCoroutineScope()
     LazyColumn(
-        modifier = Modifier.weight(1f).fillMaxWidth(),
+        modifier =
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .sableListKeys(focus, threads.map { it.threadId }, scope),
+        state = focus.state,
         verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
     ) {
-        items(threads, key = { it.threadId }) { thread -> ThreadRow(thread) { actions.openThread(thread) } }
+        itemsIndexed(threads, key = { _, thread -> thread.threadId }) { index, thread ->
+            ThreadRow(thread, focus.row(index, thread.threadId)) { actions.openThread(thread) }
+        }
+    }
+    if (threads.isNotEmpty()) {
+        Text(
+            text = SableListKeys.HINT,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -173,13 +200,14 @@ private fun FilterField(
 @Composable
 private fun ThreadRow(
     thread: ThreadSummary,
+    modifier: Modifier,
     onOpen: () -> Unit,
 ) {
     val unread = thread.unreadCount > 0
     val colors = MaterialTheme.colorScheme
     Row(
         modifier =
-            Modifier
+            modifier
                 .fillMaxWidth()
                 .clip(MaterialTheme.shapes.small)
                 .background(if (unread) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent)

@@ -26,6 +26,7 @@ class SableMailKeymapTest {
     fun sharedContractKeys() {
         assertEquals(SableMailCommand.COMPOSE, cmd(press(KeyEvent.KEYCODE_C, 'c')))
         assertEquals(SableMailCommand.TOP, cmd(press(KeyEvent.KEYCODE_T, 't')))
+        assertEquals(SableMailCommand.BOTTOM, cmd(press(KeyEvent.KEYCODE_B, 'b')))
         assertEquals(SableMailCommand.NEXT, cmd(press(KeyEvent.KEYCODE_J, 'j')))
         assertEquals(SableMailCommand.NEXT, cmd(press(KeyEvent.KEYCODE_N, 'n')))
         assertEquals(SableMailCommand.PREVIOUS, cmd(press(KeyEvent.KEYCODE_K, 'k')))
@@ -171,6 +172,7 @@ class SableMailKeymapTest {
         assertEquals(14, target(SableListMove.PAGE_DOWN))
         assertEquals(0, target(SableListMove.PAGE_UP))
         assertEquals(0, target(SableListMove.TOP))
+        assertEquals(19, target(SableListMove.BOTTOM))
         // Nothing focused: the first move lands on the first visible row.
         assertEquals(5, target(SableListMove.NEXT, focused = -1))
         assertEquals(5, target(SableListMove.PREVIOUS, focused = -1))

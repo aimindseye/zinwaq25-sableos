@@ -226,6 +226,7 @@ def apply_keyboard_model(root: Path) -> None:
                 if (displayMode == DisplayMode.MESSAGE_VIEW) showMessageList()
                 moveSableListFocus(SableListMove.TOP)
             }
+            SableMailCommand.BOTTOM -> bottomSable()
             SableMailCommand.NEXT -> {
                 if (message != null) showNextMessage() else moveSableListFocus(SableListMove.NEXT)
             }
@@ -272,6 +273,12 @@ def apply_keyboard_model(root: Path) -> None:
             ) ?: return
         layoutManager.scrollToPosition(target)
         recycler.post { recycler.findViewHolderForAdapterPosition(target)?.itemView?.requestFocus() }
+    }
+
+    /** B: the end of the open message body, else the oldest message in the list. */
+    private fun bottomSable() {
+        val body = if (hasOpenSableMessage) findVisibleMessageBody(messageViewContainerFragment?.view) else null
+        if (body != null) body.fullScroll(View.FOCUS_DOWN) else moveSableListFocus(SableListMove.BOTTOM)
     }
 
     /** Space / Shift+Space: page the open message body, else page the message list. */
