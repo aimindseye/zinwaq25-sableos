@@ -40,6 +40,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Ui.applyTheme(this)
         val col = Ui.column(this)
         col.addView(Ui.title(this, getString(R.string.app_name)))
         summary = Ui.subtitle(this, "")

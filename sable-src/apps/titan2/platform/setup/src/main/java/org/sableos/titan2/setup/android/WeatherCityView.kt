@@ -1,7 +1,6 @@
 package org.sableos.titan2.setup.android
 
 import android.app.Activity
-import android.graphics.Color
 import android.graphics.Typeface
 import android.text.Editable
 import android.text.InputType
@@ -31,7 +30,7 @@ class WeatherCityView(
     private val dp = activity.resources.displayMetrics.density
     private fun px(v: Int) = (v * dp).toInt()
 
-    private val current = label(SetupStyle.DETAIL_SP, Color.WHITE, false)
+    private val current = label(SetupStyle.DETAIL_SP, SetupStyle.TEXT, false)
     private val status = label(SetupStyle.DETAIL_SP, SetupStyle.WARN, true)
     private val field = EditText(activity)
     private val results = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
@@ -40,7 +39,7 @@ class WeatherCityView(
 
     fun build(): View {
         val root = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
-        root.addView(label(SetupStyle.ROW_TITLE_SP, Color.WHITE, true, WeatherCityStep.TITLE))
+        root.addView(label(SetupStyle.ROW_TITLE_SP, SetupStyle.TEXT, true, WeatherCityStep.TITLE))
         root.addView(current)
         root.addView(label(SetupStyle.DETAIL_SP, SetupStyle.DIM, false, WeatherCityStep.HELP))
         setUpField()
@@ -57,7 +56,7 @@ class WeatherCityView(
         hint = WeatherCityStep.HINT
         setSingleLine()
         textSize = SetupStyle.ROW_TITLE_SP
-        setTextColor(Color.WHITE)
+        setTextColor(SetupStyle.TEXT)
         setHintTextColor(SetupStyle.DIM)
         inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
         imeOptions = EditorInfo.IME_ACTION_DONE
@@ -161,7 +160,7 @@ class WeatherCityView(
         minimumHeight = 0
         setPadding(px(ROW_PAD), px(ROW_PAD), px(ROW_PAD), px(ROW_PAD))
         textSize = SetupStyle.SUMMARY_SP
-        setTextColor(Color.WHITE)
+        setTextColor(SetupStyle.TEXT)
         setBackgroundColor(SetupStyle.KEY)
         // A visible focus mark: the arrow keys are the main way through this list.
         setOnFocusChangeListener { v, focused ->

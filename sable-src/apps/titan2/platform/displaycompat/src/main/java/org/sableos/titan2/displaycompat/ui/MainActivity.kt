@@ -29,6 +29,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        C.palette = SablePalette.read(this).also { it.applyTo(this) }
         val data = intent?.data
         val pkg = ProfileLink.packageFrom(intent?.action, data?.scheme, data?.schemeSpecificPart)
         // Only apps the list could show (launcher apps); anything else opens the list.

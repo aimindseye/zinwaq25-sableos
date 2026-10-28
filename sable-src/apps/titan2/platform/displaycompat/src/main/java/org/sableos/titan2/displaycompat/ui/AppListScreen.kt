@@ -463,7 +463,7 @@ private fun StyleOption(
     Text(
         (if (selected) "● " else "") + option.label,
         color = when {
-            selected -> C.window
+            selected -> C.onAccent
             enabled -> C.text
             else -> C.muted
         },

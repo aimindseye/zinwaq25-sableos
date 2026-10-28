@@ -28,6 +28,7 @@ class SetupModelTest {
     @Test fun profileLines() {
         assertEquals("Unihertz Titan 2", SetupModel.profileLine("titan2"))
         assertEquals("Unihertz Titan 2 Elite", SetupModel.profileLine("titan2-elite"))
+        assertEquals("Zinwa Q25", SetupModel.profileLine("zinwa-q25"))
         assertEquals(
             "Unrecognized profile id: other-device",
             SetupModel.profileLine("other-device")

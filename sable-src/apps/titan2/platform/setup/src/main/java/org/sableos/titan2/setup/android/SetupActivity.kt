@@ -2,7 +2,6 @@ package org.sableos.titan2.setup.android
 
 import android.app.Activity
 import android.content.Context
-import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
 import android.view.KeyEvent
@@ -22,6 +21,7 @@ import org.sableos.titan2.setup.android.SetupStyle.PAD_V
 import org.sableos.titan2.setup.android.SetupStyle.ROW_TITLE_SP
 import org.sableos.titan2.setup.android.SetupStyle.SPACING
 import org.sableos.titan2.setup.android.SetupStyle.SUMMARY_SP
+import org.sableos.titan2.setup.android.SetupStyle.TEXT
 import org.sableos.titan2.setup.android.SetupStyle.TITLE_SP
 import org.sableos.titan2.setup.android.SetupStyle.WARN
 import org.sableos.titan2.setup.core.Action
@@ -52,6 +52,7 @@ class SetupActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        SetupStyle.palette = SablePalette.read(this).also { it.applyTo(this) }
         launcher = Launcher(this)
         body =
             LinearLayout(this).apply {
@@ -113,18 +114,18 @@ class SetupActivity : Activity() {
     private fun render(failure: String?, note: String? = null) {
         body.removeAllViews()
         val items = SetupRows.build(SetupReader(this).snapshot(), launcher::resolve)
-        body.addView(text(SetupModel.TITLE, TITLE_SP, Color.WHITE, true))
+        body.addView(text(SetupModel.TITLE, TITLE_SP, TEXT, true))
         body.addView(text(SetupModel.SELF_DESCRIPTION, DETAIL_SP, DIM, false))
         body.addView(
             text(SetupModel.profileLine(SysProps.get("ro.sable.profile.id")), DETAIL_SP, DIM, false)
         )
         val ready = if (SetupModel.isReady(items)) " · no action required" else ""
         body.addView(
-            text(SetupModel.summary(items) + ready, SUMMARY_SP, Color.WHITE, false)
+            text(SetupModel.summary(items) + ready, SUMMARY_SP, TEXT, false)
                 .apply { setPadding(0, px(SPACING), 0, px(SPACING)) }
         )
         if (failure != null) body.addView(text(failure, DETAIL_SP, WARN, true))
-        if (note != null) body.addView(text(note, DETAIL_SP, Color.WHITE, true))
+        if (note != null) body.addView(text(note, DETAIL_SP, TEXT, true))
         items.forEach { addRow(it) }
         body.addView(
             text(SetupModel.FOOTNOTE, DETAIL_SP, DIM, false).apply {
@@ -135,7 +136,7 @@ class SetupActivity : Activity() {
 
     private fun addRow(item: Item) {
         body.addView(
-            text(marker(item.state) + item.title, ROW_TITLE_SP, Color.WHITE, true)
+            text(marker(item.state) + item.title, ROW_TITLE_SP, TEXT, true)
                 .apply { setPadding(0, px(SPACING), 0, 0) }
         )
         body.addView(text(item.detail, DETAIL_SP, DIM, false))
@@ -144,7 +145,7 @@ class SetupActivity : Activity() {
             Button(this).apply {
                 text = label
                 isAllCaps = false
-                setTextColor(Color.WHITE)
+                setTextColor(TEXT)
                 setBackgroundColor(KEY)
                 setOnClickListener {
                     if (item.action == Action.WeatherCity) {

@@ -105,6 +105,7 @@ class ToolActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Ui.applyTheme(this)
         env = ToolsEnv(this)
         var notice = intent.getStringExtra(EXTRA_NOTICE)
         tool = if (intent.action == ACTION_SEARCH) {

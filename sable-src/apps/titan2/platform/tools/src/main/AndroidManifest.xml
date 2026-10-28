@@ -57,6 +57,8 @@
         <intent>
             <action android:name="org.sableos.media.action.FM_RADIO" />
         </intent>
+        <!-- The Sable appearance authority (Settings): the accent colour every Sable app uses. -->
+        <provider android:authorities="org.sableos.appearance" />
     </queries>
 
     <application

@@ -3,7 +3,6 @@ package org.sableos.titan2.vault.android
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
@@ -45,8 +44,19 @@ class VaultActivity : Activity() {
     private var privateProfile = false
     private val dp by lazy { resources.displayMetrics.density }
 
+    /** The Sable theme (Dark theme and accent), read in onCreate; re-created on a Dark theme change. */
+    private var palette = SablePalette.of(dark = true, accent = null)
+    private val BG get() = palette.window
+    private val SURFACE get() = palette.surface
+    private val TEXT get() = palette.text
+    private val MUTED get() = palette.muted
+    private val ACCENT get() = palette.accent
+    private val WARN get() = palette.warn
+    private val OK get() = palette.ok
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        palette = SablePalette.read(this).also { it.applyTo(this) }
         window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         setRecentsScreenshotEnabled(false)
         store = VaultStore(this)
@@ -444,12 +454,5 @@ class VaultActivity : Activity() {
         const val TITLE_SP = 18f
         const val BODY_SP = 14f
         const val SMALL_SP = 11f
-        val BG = Color.rgb(0x06, 0x12, 0x1D)
-        val SURFACE = Color.rgb(0x0C, 0x1E, 0x2D)
-        val TEXT = Color.rgb(0xEE, 0xF8, 0xFF)
-        val MUTED = Color.rgb(0x8B, 0xA6, 0xB8)
-        val ACCENT = Color.rgb(0x15, 0x87, 0xFF)
-        val WARN = Color.rgb(0xFF, 0xB7, 0x4D)
-        val OK = Color.rgb(0x4C, 0xC3, 0x8A)
     }
 }
