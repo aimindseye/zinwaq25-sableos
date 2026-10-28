@@ -1,0 +1,951 @@
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyMapper.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyMapper.kt
+index 5fe6b81..65183e7 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyMapper.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyMapper.kt
+@@ -1,5 +1,6 @@
+ package org.sableos.titan2.keyboard.android
+ 
++import android.view.KeyCharacterMap
+ import android.view.KeyEvent
+ import org.sableos.titan2.keyboard.core.Key
+ import org.sableos.titan2.keyboard.core.Mod
+@@ -52,6 +53,17 @@ object KeyMapper {
+         else -> special[code] ?: punctOrOther(code)
+     }
+ 
++    /**
++     * [map], but a punctuation key types what the device's own .kcm gives it (`unicode`, the key's plain character):
++     * the Zinwa Q25's currency key sends GRAVE and its kcm types '$' there.
++     */
++    fun map(code: Int, unicode: Int): Key {
++        val key = map(code)
++        val printable = unicode > ' '.code && unicode and KeyCharacterMap.COMBINING_ACCENT == 0 &&
++            !Character.isLetterOrDigit(unicode)
++        return if (key is Key.Punct && printable) Key.Punct(unicode.toChar()) else key
++    }
++
+     private fun punctOrOther(code: Int): Key {
+         val char = punct[code]
+         return if (char != null) Key.Punct(char) else Key.Other(code)
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt
+index 384da29..f8774ff 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt
+@@ -339,7 +339,7 @@ class SableImeService : InputMethodService() {
+             refreshStrip()
+             return true
+         }
+-        val key = KeyMapper.map(keyCode)
++        val key = KeyMapper.map(keyCode, event.getUnicodeChar(0))
+         val ours = !event.isCtrlPressed && !event.isMetaPressed && key !is Key.Other
+         val handled = ours && (handleComposingKey(keyCode) || resolveKeyDown(key, keyCode, event))
+         if (ours) refreshStrip()
+@@ -427,7 +427,7 @@ class SableImeService : InputMethodService() {
+     }
+ 
+     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+-        val key = KeyMapper.map(keyCode)
++        val key = KeyMapper.map(keyCode, event.getUnicodeChar(0))
+         if (key !is Key.Other) resolver.onKey(KeyEv(key, false, event.eventTime), fieldCtx())
+         if (key !is Key.Other) refreshStrip()
+         return handledDown.remove(keyCode) || super.onKeyUp(keyCode, event)
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/android/KeyMapperTest.kt b/sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/android/KeyMapperTest.kt
+new file mode 100644
+index 0000000..37c3722
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/android/KeyMapperTest.kt
+@@ -0,0 +1,27 @@
++package org.sableos.titan2.keyboard.android
++
++import android.view.KeyEvent
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.sableos.titan2.keyboard.core.Key
++
++class KeyMapperTest {
++    @Test
++    fun q25CurrencyKeyTypesTheKcmCharacter() {
++        assertEquals(Key.Punct('$'), KeyMapper.map(KeyEvent.KEYCODE_GRAVE, '$'.code))
++    }
++
++    @Test
++    fun punctuationWithoutAKcmCharacterKeepsTheStandardOne() {
++        assertEquals(Key.Punct('`'), KeyMapper.map(KeyEvent.KEYCODE_GRAVE, 0))
++        assertEquals(Key.Punct(','), KeyMapper.map(KeyEvent.KEYCODE_COMMA, ','.code))
++    }
++
++    @Test
++    fun combiningAccentsSpacesAndOtherKeysAreUnchanged() {
++        assertEquals(Key.Punct('`'), KeyMapper.map(KeyEvent.KEYCODE_GRAVE, 0x80000060.toInt()))
++        assertEquals(Key.Punct('`'), KeyMapper.map(KeyEvent.KEYCODE_GRAVE, ' '.code))
++        assertEquals(Key.Letter('a'), KeyMapper.map(KeyEvent.KEYCODE_A, '$'.code))
++        assertEquals(Key.Space, KeyMapper.map(KeyEvent.KEYCODE_SPACE, ' '.code))
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SableTexts.kt b/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SableTexts.kt
+new file mode 100644
+index 0000000..18ccc6f
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SableTexts.kt
+@@ -0,0 +1,22 @@
++package org.sableos.titan2.theme
++
++import java.util.Locale
++
++/**
++ * Translatable text for a platform app. [english] holds every user-visible line by key, in Android format syntax
++ * (`%1$s`), and is what pure tests read. On a device [lookup] is bound to the app's string resources (see
++ * [bindTo]), so a `values-<lang>/strings.xml` translation is used when the phone's language has one and English
++ * otherwise. `values/strings.xml` repeats [english]; each app's tests keep the two equal.
++ *
++ * One copy for every platform app: each module adds `../sable-theme/src/main/java` as a source dir.
++ */
++class SableTexts(val english: Map<String, String>) {
++    @Volatile
++    var lookup: (String) -> String? = { null }
++
++    /** The line [key] in the current language, with [args] filled in. An unknown key is a programming error. */
++    operator fun invoke(key: String, vararg args: Any): String {
++        val template = lookup(key) ?: english.getValue(key)
++        return if (args.isEmpty()) template else String.format(Locale.getDefault(), template, *args)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SableTextsAndroid.kt b/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SableTextsAndroid.kt
+new file mode 100644
+index 0000000..b9a45fe
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SableTextsAndroid.kt
+@@ -0,0 +1,18 @@
++package org.sableos.titan2.theme
++
++import android.annotation.SuppressLint
++import android.content.Context
++
++/**
++ * Reads [SableTexts] lines from [context]'s string resources, by the same keys, so the phone's language picks the
++ * translation. Call it in `onCreate`: a language change recreates the activity and binds again.
++ */
++@SuppressLint("DiscouragedApi")
++fun SableTexts.bindTo(context: Context) {
++    val res = context.resources
++    val pkg = context.packageName
++    lookup = { key ->
++        val id = res.getIdentifier(key, "string", pkg)
++        if (id == 0) null else res.getString(id)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupActivity.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupActivity.kt
+index be949f6..11a447e 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupActivity.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupActivity.kt
+@@ -30,8 +30,10 @@ import org.sableos.titan2.setup.core.LaunchReport
+ import org.sableos.titan2.setup.core.Readiness
+ import org.sableos.titan2.setup.core.SetupModel
+ import org.sableos.titan2.setup.core.SetupRows
++import org.sableos.titan2.setup.core.SetupText
+ import org.sableos.titan2.setup.core.TargetStatus
+ import org.sableos.titan2.theme.SablePalette
++import org.sableos.titan2.theme.bindTo
+ 
+ /**
+  * Post-provisioning readiness checklist. This is not the Android Setup Wizard (that is a privileged system
+@@ -54,6 +56,7 @@ class SetupActivity : Activity() {
+     override fun onCreate(savedInstanceState: Bundle?) {
+         super.onCreate(savedInstanceState)
+         SetupStyle.palette = SablePalette.read(this).also { it.applyTo(this) }
++        SetupText.t.bindTo(this)
+         launcher = Launcher(this)
+         body =
+             LinearLayout(this).apply {
+@@ -120,9 +123,17 @@ class SetupActivity : Activity() {
+         body.addView(
+             text(SetupModel.profileLine(SysProps.get("ro.sable.profile.id")), DETAIL_SP, DIM, false)
+         )
+-        val ready = if (SetupModel.isReady(items)) " · no action required" else ""
++        val summary = SetupModel.summary(items)
++        val line = if (SetupModel.isReady(
++                items
++            )
++        ) {
++            SetupText.t("setup_no_action_required", summary)
++        } else {
++            summary
++        }
+         body.addView(
+-            text(SetupModel.summary(items) + ready, SUMMARY_SP, TEXT, false)
++            text(line, SUMMARY_SP, TEXT, false)
+                 .apply { setPadding(0, px(SPACING), 0, px(SPACING)) }
+         )
+         if (failure != null) body.addView(text(failure, DETAIL_SP, WARN, true))
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/LaunchReport.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/LaunchReport.kt
+index fb5a693..37ded53 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/LaunchReport.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/LaunchReport.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.titan2.setup.core
+ 
++import org.sableos.titan2.setup.core.SetupText.t
++
+ /** How an attempt to open a destination ended. The exception text is never shown to the user. */
+ enum class LaunchOutcome { Launched, TargetMissing, Denied, Failed }
+ 
+@@ -9,18 +11,17 @@ object LaunchReport {
+ 
+     /** One short, bounded user-visible line for a failed launch; null when the launch worked. */
+     fun message(label: String, outcome: LaunchOutcome): String? {
+-        val name = label.trim().take(MAX_LABEL).ifBlank { "that screen" }
++        val name = label.trim().take(MAX_LABEL).ifBlank { t("launch_that_screen") }
+         val text =
+             when (outcome) {
+                 LaunchOutcome.Launched -> return null
+ 
+                 LaunchOutcome.TargetMissing ->
+-                    "Could not open $name: " +
+-                        "it is not available on this device."
++                    t("launch_missing", name)
+ 
+-                LaunchOutcome.Denied -> "Could not open $name: the system blocked it."
++                LaunchOutcome.Denied -> t("launch_denied", name)
+ 
+-                LaunchOutcome.Failed -> "Could not open $name."
++                LaunchOutcome.Failed -> t("launch_failed", name)
+             }
+         return text.take(MAX_MESSAGE)
+     }
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/Readiness.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/Readiness.kt
+index 2785098..6240013 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/Readiness.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/Readiness.kt
+@@ -36,23 +36,26 @@ sealed interface Observed {
+  * Where a row's button goes. Every destination is an Android screen the user confirms in; nothing
+  * is mutated, except the Weather city the user explicitly picks, which Sable Weather stores.
+  */
+-enum class Action(val label: String) {
++enum class Action(private val labelKey: String) {
+     None(""),
+ 
+     /** Sable Start's own chooser: BlackBerry 10 or BlackBerry 7 style. */
+-    HomeStyle("Home screen style"),
+-    HomeSettings("Home settings"),
+-    DefaultApps("Default apps settings"),
+-    KeyboardPicker("Keyboard picker"),
++    HomeStyle("action_home_style"),
++    HomeSettings("action_home_settings"),
++    DefaultApps("action_default_apps"),
++    KeyboardPicker("action_keyboard_picker"),
+ 
+     /** Android's keyboard list, where Gboard or another installed keyboard is turned on. */
+-    KeyboardSettings("Keyboard settings"),
+-    DisplayCompat("Display compatibility"),
+-    RadioDiag("Radio diagnostics"),
+-    NetworkSettings("Network settings"),
++    KeyboardSettings("action_keyboard_settings"),
++    DisplayCompat("action_display_compat"),
++    RadioDiag("action_radio_diag"),
++    NetworkSettings("action_network_settings"),
+ 
+     /** Opens Setup's own Weather city step; the only action whose choice is written (by Sable Weather). */
+-    WeatherCity("Weather city")
++    WeatherCity("action_weather_city");
++
++    /** What the button opens, for a launch failure line; empty for [None]. */
++    val label: String get() = if (labelKey.isEmpty()) "" else SetupText.t(labelKey)
+ }
+ 
+ /** Whether the destination of an [Action] could be resolved before it was offered. */
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupModel.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupModel.kt
+index a56b1ce..fb0742b 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupModel.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupModel.kt
+@@ -1,17 +1,16 @@
+ package org.sableos.titan2.setup.core
+ 
++import org.sableos.titan2.setup.core.SetupText.t
++
+ object SetupModel {
+-    const val TITLE = "Sable Setup"
+-    const val SELF_DESCRIPTION =
+-        "Choose your home screen, keyboard and default apps, and check what this phone reports. " +
+-            "Not the Android Setup Wizard."
++    val TITLE get() = t("setup_title")
++    val SELF_DESCRIPTION get() = t("setup_self_description")
+ 
+     /**
+      * Setup observes and opens screens; the home app (IR-003), the default keyboard (IR-005) and the
+      * profile identity (IR-001) are only ever changed on Android's own screens.
+      */
+-    const val FOOTNOTE =
+-        "Setup changes nothing by itself: every choice is made on the screen it opens."
++    val FOOTNOTE get() = t("setup_footnote")
+     const val MAX_PROFILE_ID = 32
+ 
+     /** Rows that carry a conclusion; informational rows are not counted. */
+@@ -24,16 +23,16 @@ object SetupModel {
+     fun summary(items: List<Item>): String {
+         val rows = counted(items)
+         val confirmed = rows.count { it.state == Readiness.Satisfied }
+-        val parts = mutableListOf("$confirmed of ${rows.size} confirmed")
++        var line = t("summary_confirmed", confirmed, rows.size)
+         listOf(
+-            Readiness.ActionRequired to "action required",
+-            Readiness.Unavailable to "unavailable",
+-            Readiness.Unknown to "unknown"
+-        ).forEach { (state, word) ->
++            Readiness.ActionRequired to "summary_action_required",
++            Readiness.Unavailable to "summary_unavailable",
++            Readiness.Unknown to "summary_unknown"
++        ).forEach { (state, key) ->
+             val n = rows.count { it.state == state }
+-            if (n > 0) parts += "$n $word"
++            if (n > 0) line = t("summary_separator", line, t(key, n))
+         }
+-        return parts.joinToString(" · ")
++        return line
+     }
+ 
+     /** True only when nothing needs action and nothing is unavailable or unknown. */
+@@ -50,11 +49,11 @@ object SetupModel {
+         val clean = id?.trim().orEmpty()
+         val safe = clean.take(MAX_PROFILE_ID).filter { it.isLetterOrDigit() || it in "-_." }
+         return when {
+-            clean.isEmpty() || safe.isEmpty() -> "Profile unknown (not reported by this build)"
++            clean.isEmpty() || safe.isEmpty() -> t("profile_unknown")
+             clean == "titan2" -> "Unihertz Titan 2"
+             clean == "titan2-elite" -> "Unihertz Titan 2 Elite"
+             clean == "zinwa-q25" -> "Zinwa Q25"
+-            else -> "Unrecognized profile id: $safe"
++            else -> t("profile_unrecognized", safe)
+         }
+     }
+ }
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupRows.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupRows.kt
+index efe4ccb..d2675e7 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupRows.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupRows.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.titan2.setup.core
+ 
++import org.sableos.titan2.setup.core.SetupText.t
++
+ /** Raw observations the Android side collected. The model turns them into rows without touching Android. */
+ data class Snapshot(
+     val home: Observed,
+@@ -11,8 +13,6 @@ data class Snapshot(
+ )
+ 
+ object SetupRows {
+-    private const val HOME_TITLE = "Home app"
+-
+     const val SABLE_KEYBOARD_PACKAGE = "org.sableos.titan2.keyboard"
+     const val SABLE_START_PACKAGE = "org.sableos.launcher"
+ 
+@@ -28,14 +28,13 @@ object SetupRows {
+         )
+ 
+     fun displayName(pkg: String): String = KNOWN_NAMES[pkg] ?: pkg
+-    const val RADIO_DETAIL =
+-        "Read-only SIM and network diagnostics; IMS registration visibility requires canonical IR-007"
++    val RADIO_DETAIL get() = t("row_radio_detail")
+ 
+     fun build(snapshot: Snapshot, targets: (Action) -> TargetStatus): List<Item> = listOf(
+         Item(
+             "style",
+-            "Home screen style",
+-            "Sable Start in the BlackBerry 10 or BlackBerry 7 style",
++            t("row_style_title"),
++            t("row_style_detail"),
+             Readiness.Informational,
+             Action.HomeStyle
+         ),
+@@ -43,38 +42,38 @@ object SetupRows {
+         keyboard(snapshot.keyboard),
+         Item(
+             "ime_add",
+-            "Add a keyboard",
+-            "Turn on Gboard or another keyboard you installed, then choose it above",
++            t("row_ime_add_title"),
++            t("row_ime_add_detail"),
+             Readiness.Informational,
+             Action.KeyboardSettings
+         ),
+         Item(
+             "defaults",
+-            "Default apps",
+-            "Browser, phone, messages and the other apps Android opens by default",
++            t("row_defaults_title"),
++            t("row_defaults_detail"),
+             Readiness.Informational,
+             Action.DefaultApps
+         ),
+-        defaultApp("dialer", "Phone app", snapshot.dialer),
+-        defaultApp("sms", "Messages app", snapshot.sms),
++        defaultApp("dialer", t("row_dialer_title"), snapshot.dialer),
++        defaultApp("sms", t("row_sms_title"), snapshot.sms),
+         Item(
+             "display",
+-            "Display compatibility",
+-            "Open to choose a screen profile for apps that do not fit",
++            t("row_display_title"),
++            t("row_display_detail"),
+             Readiness.Informational,
+             Action.DisplayCompat
+         ),
+         Item(
+             "radio",
+-            "Radio diagnostics",
++            t("row_radio_title"),
+             RADIO_DETAIL,
+             Readiness.Informational,
+             Action.RadioDiag
+         ),
+         Item(
+             "network",
+-            "Network and SIM settings",
+-            "Opens Android Settings",
++            t("row_network_title"),
++            t("row_network_detail"),
+             Readiness.Informational,
+             Action.NetworkSettings
+         ),
+@@ -86,8 +85,8 @@ object SetupRows {
+         is Observed.Value ->
+             Item(
+                 "home",
+-                HOME_TITLE,
+-                "In use: ${displayName(o.text)} · choose Sable Start or another launcher",
++                t("row_home_title"),
++                t("row_home_in_use", displayName(o.text)),
+                 Readiness.Informational,
+                 Action.HomeSettings
+             )
+@@ -95,8 +94,8 @@ object SetupRows {
+         Observed.Absent ->
+             Item(
+                 "home",
+-                HOME_TITLE,
+-                "No home app resolved",
++                t("row_home_title"),
++                t("row_home_none"),
+                 Readiness.Informational,
+                 Action.HomeSettings
+             )
+@@ -104,8 +103,8 @@ object SetupRows {
+         Observed.Failed ->
+             Item(
+                 "home",
+-                HOME_TITLE,
+-                "Could not read the home app",
++                t("row_home_title"),
++                t("row_home_failed"),
+                 Readiness.Unknown,
+                 Action.HomeSettings
+             )
+@@ -116,13 +115,13 @@ object SetupRows {
+      * valid choice (Sable keyboard, Gboard or another), so a readable value is informational.
+      */
+     private fun keyboard(o: Observed): Item {
+-        val title = "Keyboard"
++        val title = t("row_keyboard_title")
+         return when (o) {
+             is Observed.Value ->
+                 Item(
+                     "ime",
+                     title,
+-                    "In use: ${displayName(o.text.substringBefore('/'))}",
++                    t("row_keyboard_in_use", displayName(o.text.substringBefore('/'))),
+                     Readiness.Informational,
+                     Action.KeyboardPicker
+                 )
+@@ -131,7 +130,7 @@ object SetupRows {
+                 Item(
+                     "ime",
+                     title,
+-                    "No keyboard value reported",
++                    t("row_keyboard_none"),
+                     Readiness.Unknown,
+                     Action.KeyboardPicker
+                 )
+@@ -140,7 +139,7 @@ object SetupRows {
+                 Item(
+                     "ime",
+                     title,
+-                    "Could not read the keyboard setting",
++                    t("row_keyboard_failed"),
+                     Readiness.Unknown,
+                     Action.KeyboardPicker
+                 )
+@@ -153,7 +152,7 @@ object SetupRows {
+             Item(
+                 id,
+                 title,
+-                "A default app is configured: ${o.text} " + "(not checked against a specific app)",
++                t("row_default_set", o.text),
+                 Readiness.Satisfied,
+                 Action.DefaultApps
+             )
+@@ -162,7 +161,7 @@ object SetupRows {
+             Item(
+                 id,
+                 title,
+-                "No default app is configured",
++                t("row_default_none"),
+                 Readiness.ActionRequired,
+                 Action.DefaultApps
+             )
+@@ -171,7 +170,7 @@ object SetupRows {
+             Item(
+                 id,
+                 title,
+-                "Could not read the default app",
++                t("row_default_failed"),
+                 Readiness.Unknown,
+                 Action.DefaultApps
+             )
+@@ -183,7 +182,7 @@ object SetupRows {
+ 
+         status == TargetStatus.Unverifiable ->
+             item.copy(
+-                detail = "${item.detail} · could not verify that this screen is available",
++                detail = t("row_unverifiable", item.detail),
+                 action = Action.None
+             )
+ 
+@@ -193,16 +192,14 @@ object SetupRows {
+         item.state == Readiness.ActionRequired ->
+             item.copy(
+                 state = Readiness.Unavailable,
+-                detail =
+-                    "${item.detail} · needs attention, " +
+-                        "but its screen is not available on this device",
++                detail = t("row_needs_attention_unavailable", item.detail),
+                 action = Action.None
+             )
+ 
+         else ->
+             item.copy(
+                 state = Readiness.Unavailable,
+-                detail = "Not available on this device",
++                detail = t("row_not_available"),
+                 action = Action.None
+             )
+     }
+@@ -212,9 +209,9 @@ object SetupRows {
+     /** Button text, or null when the row offers no action. */
+     fun buttonLabel(item: Item): String? = when {
+         item.action == Action.None || item.state == Readiness.Satisfied -> null
+-        item.state == Readiness.ActionRequired -> "Fix"
+-        item.action == Action.WeatherCity -> "Choose city"
+-        item.action in CHOICES -> "Choose"
+-        else -> "Open"
++        item.state == Readiness.ActionRequired -> t("button_fix")
++        item.action == Action.WeatherCity -> t("button_choose_city")
++        item.action in CHOICES -> t("button_choose")
++        else -> t("button_open")
+     }
+ }
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupText.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupText.kt
+new file mode 100644
+index 0000000..817b552
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupText.kt
+@@ -0,0 +1,98 @@
++package org.sableos.titan2.setup.core
++
++import org.sableos.titan2.theme.SableTexts
++
++/**
++ * Every line Sable Setup shows, in English, by string resource name. `res/values/strings.xml` repeats them
++ * (SetupTextTest keeps the two equal) and `res/values-<lang>/strings.xml` translates them.
++ */
++object SetupText {
++    val EN: Map<String, String> = mapOf(
++        "setup_title" to "Sable Setup",
++        "setup_self_description" to
++            "Choose your home screen, keyboard and default apps, " +
++            "and check what this phone reports. Not the Android Setup Wizard.",
++        "setup_footnote" to
++            "Setup changes nothing by itself: every choice is made on the screen it opens.",
++        "setup_no_action_required" to "%1\$s · no action required",
++        "summary_confirmed" to "%1\$d of %2\$d confirmed",
++        "summary_action_required" to "%1\$d action required",
++        "summary_unavailable" to "%1\$d unavailable",
++        "summary_unknown" to "%1\$d unknown",
++        "summary_separator" to "%1\$s · %2\$s",
++        "profile_unknown" to "Profile unknown (not reported by this build)",
++        "profile_unrecognized" to "Unrecognized profile id: %1\$s",
++        "row_style_title" to "Home screen style",
++        "row_style_detail" to "Sable Start in the BlackBerry 10 or BlackBerry 7 style",
++        "row_home_title" to "Home app",
++        "row_home_in_use" to "In use: %1\$s · choose Sable Start or another launcher",
++        "row_home_none" to "No home app resolved",
++        "row_home_failed" to "Could not read the home app",
++        "row_keyboard_title" to "Keyboard",
++        "row_keyboard_in_use" to "In use: %1\$s",
++        "row_keyboard_none" to "No keyboard value reported",
++        "row_keyboard_failed" to "Could not read the keyboard setting",
++        "row_ime_add_title" to "Add a keyboard",
++        "row_ime_add_detail" to
++            "Turn on Gboard or another keyboard you installed, then choose it above",
++        "row_defaults_title" to "Default apps",
++        "row_defaults_detail" to
++            "Browser, phone, messages and the other apps Android opens by default",
++        "row_dialer_title" to "Phone app",
++        "row_sms_title" to "Messages app",
++        "row_default_set" to
++            "A default app is configured: %1\$s (not checked against a specific app)",
++        "row_default_none" to "No default app is configured",
++        "row_default_failed" to "Could not read the default app",
++        "row_display_title" to "Display compatibility",
++        "row_display_detail" to "Open to choose a screen profile for apps that do not fit",
++        "row_radio_title" to "Radio diagnostics",
++        "row_radio_detail" to
++            "Read-only SIM and network diagnostics; IMS registration visibility requires canonical IR-007",
++        "row_network_title" to "Network and SIM settings",
++        "row_network_detail" to "Opens Android Settings",
++        "row_unverifiable" to "%1\$s · could not verify that this screen is available",
++        "row_needs_attention_unavailable" to
++            "%1\$s · needs attention, but its screen is not available on this device",
++        "row_not_available" to "Not available on this device",
++        "button_fix" to "Fix",
++        "button_choose_city" to "Choose city",
++        "button_choose" to "Choose",
++        "button_open" to "Open",
++        "action_home_style" to "Home screen style",
++        "action_home_settings" to "Home settings",
++        "action_default_apps" to "Default apps settings",
++        "action_keyboard_picker" to "Keyboard picker",
++        "action_keyboard_settings" to "Keyboard settings",
++        "action_display_compat" to "Display compatibility",
++        "action_radio_diag" to "Radio diagnostics",
++        "action_network_settings" to "Network settings",
++        "action_weather_city" to "Weather city",
++        "launch_that_screen" to "that screen",
++        "launch_missing" to "Could not open %1\$s: it is not available on this device.",
++        "launch_denied" to "Could not open %1\$s: the system blocked it.",
++        "launch_failed" to "Could not open %1\$s.",
++        "weather_title" to "Weather city",
++        "weather_hint" to "Type a city",
++        "weather_help" to
++            "Type to filter, ↑ ↓ to move, Enter to choose. No location permission is used.",
++        "weather_no_match" to "No listed city matches. Try a nearby larger city.",
++        "weather_unreachable" to
++            "Sable Weather did not answer. Skip, and pick a city in Weather later.",
++        "weather_current" to "Current: %1\$s",
++        "weather_current_unknown" to "Current city not reported",
++        "weather_skip" to "Skip",
++        "weather_skip_keep" to "Skip · keep %1\$s",
++        "weather_selected" to "Weather now uses %1\$s. The forecast loads in the background.",
++        "weather_unchanged" to "Weather already uses %1\$s.",
++        "weather_full" to
++            "Weather's city list is full. Remove a city in Sable Weather, then try again.",
++        "weather_unknown_city" to "%1\$s is not in Weather's city list.",
++        "weather_failed" to "Weather could not switch to %1\$s.",
++        "weather_row_city" to "Forecasts for %1\$s; no location permission",
++        "weather_row_none" to "Choose the city Weather shows; no location permission",
++        "weather_row_failed" to "Could not read the Weather city"
++    )
++
++    val t = SableTexts(EN)
++}
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/WeatherCity.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/WeatherCity.kt
+index 8a9ad94..e50afe5 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/WeatherCity.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/WeatherCity.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.titan2.setup.core
+ 
++import org.sableos.titan2.setup.core.SetupText.t
++
+ /**
+  * Sable Weather's city hand-off, as Setup calls it through `ContentResolver.call`. Weather owns the catalog
+  * and the city list: Setup only sends the typed filter text and one catalog name. Mirrors
+@@ -23,11 +25,11 @@ data class CityMatches(val names: List<String>, val selected: String?)
+ 
+ /** Pure text and list rules for the Weather city step; the Android side only draws them. */
+ object WeatherCityStep {
+-    const val TITLE = "Weather city"
+-    const val HINT = "Type a city"
+-    const val HELP = "Type to filter, ↑ ↓ to move, Enter to choose. No location permission is used."
+-    const val NO_MATCH = "No listed city matches. Try a nearby larger city."
+-    const val UNREACHABLE = "Sable Weather did not answer. Skip, and pick a city in Weather later."
++    val TITLE get() = t("weather_title")
++    val HINT get() = t("weather_hint")
++    val HELP get() = t("weather_help")
++    val NO_MATCH get() = t("weather_no_match")
++    val UNREACHABLE get() = t("weather_unreachable")
+     const val MAX_QUERY = 60
+     const val MAX_NAME = 60
+ 
+@@ -49,26 +51,26 @@ object WeatherCityStep {
+         .take(MAX_SHOWN)
+ 
+     fun currentLine(selected: String?): String =
+-        selected?.let { "Current: ${it.take(MAX_NAME)}" } ?: "Current city not reported"
++        selected?.let { t("weather_current", it.take(MAX_NAME)) } ?: t("weather_current_unknown")
+ 
+     fun skipLabel(selected: String?): String =
+-        selected?.let { "Skip · keep ${it.take(MAX_NAME)}" } ?: "Skip"
++        selected?.let { t("weather_skip_keep", it.take(MAX_NAME)) } ?: t("weather_skip")
+ 
+     /** Result line after choosing [name]; null [status] means Weather gave no answer. */
+     fun resultMessage(status: String?, name: String): String = when (status) {
+         WeatherCityContract.STATUS_SELECTED ->
+-            "Weather now uses $name. The forecast loads in the background."
++            t("weather_selected", name)
+ 
+-        WeatherCityContract.STATUS_UNCHANGED -> "Weather already uses $name."
++        WeatherCityContract.STATUS_UNCHANGED -> t("weather_unchanged", name)
+ 
+         WeatherCityContract.STATUS_FULL ->
+-            "Weather's city list is full. Remove a city in Sable Weather, then try again."
++            t("weather_full")
+ 
+-        WeatherCityContract.STATUS_UNKNOWN -> "$name is not in Weather's city list."
++        WeatherCityContract.STATUS_UNKNOWN -> t("weather_unknown_city", name)
+ 
+         null -> UNREACHABLE
+ 
+-        else -> "Weather could not switch to $name."
++        else -> t("weather_failed", name)
+     }
+ 
+     /** True when the step is finished and the checklist can come back. */
+@@ -78,9 +80,9 @@ object WeatherCityStep {
+     /** Checklist row. A city is a preference, not a readiness check, so every outcome is informational. */
+     fun row(o: Observed): Item {
+         val detail = when (o) {
+-            is Observed.Value -> "Forecasts for ${o.text.take(MAX_NAME)}; no location permission"
+-            Observed.Absent -> "Choose the city Weather shows; no location permission"
+-            Observed.Failed -> "Could not read the Weather city"
++            is Observed.Value -> t("weather_row_city", o.text.take(MAX_NAME))
++            Observed.Absent -> t("weather_row_none")
++            Observed.Failed -> t("weather_row_failed")
+         }
+         return Item("weather", TITLE, detail, Readiness.Informational, Action.WeatherCity)
+     }
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-es/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-es/strings.xml
+new file mode 100644
+index 0000000..decacee
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-es/strings.xml
+@@ -0,0 +1,77 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Spanish (pilot translation). Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
++<resources>
++    <string name="setup_title">Sable Setup</string>
++    <string name="setup_self_description">Elige tu pantalla de inicio, tu teclado y tus aplicaciones predeterminadas, y comprueba lo que informa este teléfono. No es el asistente de configuración de Android.</string>
++    <string name="setup_footnote">Setup no cambia nada por sí solo: cada elección se hace en la pantalla que abre.</string>
++    <string name="setup_no_action_required">%1$s · no hace falta hacer nada</string>
++    <string name="summary_confirmed">%1$d de %2$d confirmados</string>
++    <string name="summary_action_required">%1$d requieren acción</string>
++    <string name="summary_unavailable">%1$d no disponibles</string>
++    <string name="summary_unknown">%1$d desconocidos</string>
++    <string name="summary_separator">%1$s · %2$s</string>
++    <string name="profile_unknown">Perfil desconocido (esta compilación no lo informa)</string>
++    <string name="profile_unrecognized">ID de perfil no reconocido: %1$s</string>
++    <string name="row_style_title">Estilo de la pantalla de inicio</string>
++    <string name="row_style_detail">Sable Start con el estilo de BlackBerry 10 o BlackBerry 7</string>
++    <string name="row_home_title">Aplicación de inicio</string>
++    <string name="row_home_in_use">En uso: %1$s · elige Sable Start u otro launcher</string>
++    <string name="row_home_none">No se encontró ninguna aplicación de inicio</string>
++    <string name="row_home_failed">No se pudo leer la aplicación de inicio</string>
++    <string name="row_keyboard_title">Teclado</string>
++    <string name="row_keyboard_in_use">En uso: %1$s</string>
++    <string name="row_keyboard_none">No se informó ningún teclado</string>
++    <string name="row_keyboard_failed">No se pudo leer el ajuste del teclado</string>
++    <string name="row_ime_add_title">Añadir un teclado</string>
++    <string name="row_ime_add_detail">Activa Gboard u otro teclado que hayas instalado y luego elígelo arriba</string>
++    <string name="row_defaults_title">Aplicaciones predeterminadas</string>
++    <string name="row_defaults_detail">Navegador, teléfono, mensajes y las demás aplicaciones que Android abre de forma predeterminada</string>
++    <string name="row_dialer_title">Aplicación de teléfono</string>
++    <string name="row_sms_title">Aplicación de mensajes</string>
++    <string name="row_default_set">Hay una aplicación predeterminada: %1$s (no se comprueba una aplicación concreta)</string>
++    <string name="row_default_none">No hay ninguna aplicación predeterminada</string>
++    <string name="row_default_failed">No se pudo leer la aplicación predeterminada</string>
++    <string name="row_display_title">Compatibilidad de pantalla</string>
++    <string name="row_display_detail">Ábrelo para elegir un perfil de pantalla para las aplicaciones que no encajan</string>
++    <string name="row_radio_title">Diagnóstico de radio</string>
++    <string name="row_radio_detail">Diagnóstico de SIM y red de solo lectura; ver el registro IMS requiere el IR-007 canónico</string>
++    <string name="row_network_title">Ajustes de red y SIM</string>
++    <string name="row_network_detail">Abre los Ajustes de Android</string>
++    <string name="row_unverifiable">%1$s · no se pudo comprobar que esta pantalla esté disponible</string>
++    <string name="row_needs_attention_unavailable">%1$s · requiere atención, pero su pantalla no está disponible en este dispositivo</string>
++    <string name="row_not_available">No disponible en este dispositivo</string>
++    <string name="button_fix">Corregir</string>
++    <string name="button_choose_city">Elegir ciudad</string>
++    <string name="button_choose">Elegir</string>
++    <string name="button_open">Abrir</string>
++    <string name="action_home_style">Estilo de la pantalla de inicio</string>
++    <string name="action_home_settings">Ajustes de inicio</string>
++    <string name="action_default_apps">Ajustes de aplicaciones predeterminadas</string>
++    <string name="action_keyboard_picker">Selector de teclado</string>
++    <string name="action_keyboard_settings">Ajustes del teclado</string>
++    <string name="action_display_compat">Compatibilidad de pantalla</string>
++    <string name="action_radio_diag">Diagnóstico de radio</string>
++    <string name="action_network_settings">Ajustes de red</string>
++    <string name="action_weather_city">Ciudad del tiempo</string>
++    <string name="launch_that_screen">esa pantalla</string>
++    <string name="launch_missing">No se pudo abrir %1$s: no está disponible en este dispositivo.</string>
++    <string name="launch_denied">No se pudo abrir %1$s: el sistema lo bloqueó.</string>
++    <string name="launch_failed">No se pudo abrir %1$s.</string>
++    <string name="weather_title">Ciudad del tiempo</string>
++    <string name="weather_hint">Escribe una ciudad</string>
++    <string name="weather_help">Escribe para filtrar, ↑ ↓ para moverte, Intro para elegir. No se usa el permiso de ubicación.</string>
++    <string name="weather_no_match">Ninguna ciudad de la lista coincide. Prueba con una ciudad grande cercana.</string>
++    <string name="weather_unreachable">Sable Weather no respondió. Omite este paso y elige una ciudad en Weather más tarde.</string>
++    <string name="weather_current">Actual: %1$s</string>
++    <string name="weather_current_unknown">No se informó la ciudad actual</string>
++    <string name="weather_skip">Omitir</string>
++    <string name="weather_skip_keep">Omitir · mantener %1$s</string>
++    <string name="weather_selected">Weather ahora usa %1$s. La previsión se carga en segundo plano.</string>
++    <string name="weather_unchanged">Weather ya usa %1$s.</string>
++    <string name="weather_full">La lista de ciudades de Weather está llena. Quita una ciudad en Sable Weather y vuelve a intentarlo.</string>
++    <string name="weather_unknown_city">%1$s no está en la lista de ciudades de Weather.</string>
++    <string name="weather_failed">Weather no pudo cambiar a %1$s.</string>
++    <string name="weather_row_city">Previsión para %1$s; sin permiso de ubicación</string>
++    <string name="weather_row_none">Elige la ciudad que muestra Weather; sin permiso de ubicación</string>
++    <string name="weather_row_failed">No se pudo leer la ciudad de Weather</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values/strings.xml
+index 07463f4..852786c 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values/strings.xml
+@@ -1 +1,78 @@
+-<resources><string name="app_name">Sable Setup</string></resources>
++<?xml version="1.0" encoding="utf-8"?>
++<!-- English. Keep equal to SetupText.EN (SetupTextTest checks); translations go in values-<lang>/. -->
++<resources>
++    <string name="app_name" translatable="false">Sable Setup</string>
++    <string name="setup_title">Sable Setup</string>
++    <string name="setup_self_description">Choose your home screen, keyboard and default apps, and check what this phone reports. Not the Android Setup Wizard.</string>
++    <string name="setup_footnote">Setup changes nothing by itself: every choice is made on the screen it opens.</string>
++    <string name="setup_no_action_required">%1$s · no action required</string>
++    <string name="summary_confirmed">%1$d of %2$d confirmed</string>
++    <string name="summary_action_required">%1$d action required</string>
++    <string name="summary_unavailable">%1$d unavailable</string>
++    <string name="summary_unknown">%1$d unknown</string>
++    <string name="summary_separator">%1$s · %2$s</string>
++    <string name="profile_unknown">Profile unknown (not reported by this build)</string>
++    <string name="profile_unrecognized">Unrecognized profile id: %1$s</string>
++    <string name="row_style_title">Home screen style</string>
++    <string name="row_style_detail">Sable Start in the BlackBerry 10 or BlackBerry 7 style</string>
++    <string name="row_home_title">Home app</string>
++    <string name="row_home_in_use">In use: %1$s · choose Sable Start or another launcher</string>
++    <string name="row_home_none">No home app resolved</string>
++    <string name="row_home_failed">Could not read the home app</string>
++    <string name="row_keyboard_title">Keyboard</string>
++    <string name="row_keyboard_in_use">In use: %1$s</string>
++    <string name="row_keyboard_none">No keyboard value reported</string>
++    <string name="row_keyboard_failed">Could not read the keyboard setting</string>
++    <string name="row_ime_add_title">Add a keyboard</string>
++    <string name="row_ime_add_detail">Turn on Gboard or another keyboard you installed, then choose it above</string>
++    <string name="row_defaults_title">Default apps</string>
++    <string name="row_defaults_detail">Browser, phone, messages and the other apps Android opens by default</string>
++    <string name="row_dialer_title">Phone app</string>
++    <string name="row_sms_title">Messages app</string>
++    <string name="row_default_set">A default app is configured: %1$s (not checked against a specific app)</string>
++    <string name="row_default_none">No default app is configured</string>
++    <string name="row_default_failed">Could not read the default app</string>
++    <string name="row_display_title">Display compatibility</string>
++    <string name="row_display_detail">Open to choose a screen profile for apps that do not fit</string>
++    <string name="row_radio_title">Radio diagnostics</string>
++    <string name="row_radio_detail">Read-only SIM and network diagnostics; IMS registration visibility requires canonical IR-007</string>
++    <string name="row_network_title">Network and SIM settings</string>
++    <string name="row_network_detail">Opens Android Settings</string>
++    <string name="row_unverifiable">%1$s · could not verify that this screen is available</string>
++    <string name="row_needs_attention_unavailable">%1$s · needs attention, but its screen is not available on this device</string>
++    <string name="row_not_available">Not available on this device</string>
++    <string name="button_fix">Fix</string>
++    <string name="button_choose_city">Choose city</string>
++    <string name="button_choose">Choose</string>
++    <string name="button_open">Open</string>
++    <string name="action_home_style">Home screen style</string>
++    <string name="action_home_settings">Home settings</string>
++    <string name="action_default_apps">Default apps settings</string>
++    <string name="action_keyboard_picker">Keyboard picker</string>
++    <string name="action_keyboard_settings">Keyboard settings</string>
++    <string name="action_display_compat">Display compatibility</string>
++    <string name="action_radio_diag">Radio diagnostics</string>
++    <string name="action_network_settings">Network settings</string>
++    <string name="action_weather_city">Weather city</string>
++    <string name="launch_that_screen">that screen</string>
++    <string name="launch_missing">Could not open %1$s: it is not available on this device.</string>
++    <string name="launch_denied">Could not open %1$s: the system blocked it.</string>
++    <string name="launch_failed">Could not open %1$s.</string>
++    <string name="weather_title">Weather city</string>
++    <string name="weather_hint">Type a city</string>
++    <string name="weather_help">Type to filter, ↑ ↓ to move, Enter to choose. No location permission is used.</string>
++    <string name="weather_no_match">No listed city matches. Try a nearby larger city.</string>
++    <string name="weather_unreachable">Sable Weather did not answer. Skip, and pick a city in Weather later.</string>
++    <string name="weather_current">Current: %1$s</string>
++    <string name="weather_current_unknown">Current city not reported</string>
++    <string name="weather_skip">Skip</string>
++    <string name="weather_skip_keep">Skip · keep %1$s</string>
++    <string name="weather_selected">Weather now uses %1$s. The forecast loads in the background.</string>
++    <string name="weather_unchanged">Weather already uses %1$s.</string>
++    <string name="weather_full">Weather\'s city list is full. Remove a city in Sable Weather, then try again.</string>
++    <string name="weather_unknown_city">%1$s is not in Weather\'s city list.</string>
++    <string name="weather_failed">Weather could not switch to %1$s.</string>
++    <string name="weather_row_city">Forecasts for %1$s; no location permission</string>
++    <string name="weather_row_none">Choose the city Weather shows; no location permission</string>
++    <string name="weather_row_failed">Could not read the Weather city</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SetupTextTest.kt b/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SetupTextTest.kt
+new file mode 100644
+index 0000000..e83558e
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SetupTextTest.kt
+@@ -0,0 +1,53 @@
++package org.sableos.titan2.setup
++
++import java.io.File
++import javax.xml.parsers.DocumentBuilderFactory
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertTrue
++import org.junit.Test
++import org.sableos.titan2.setup.core.SetupText
++
++/** The English lines in code and in `values/strings.xml` stay equal, and every translation fits them. */
++class SetupTextTest {
++    private val res = File("src/main/res")
++
++    private fun strings(file: File): Map<String, String> {
++        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
++        val nodes = doc.getElementsByTagName("string")
++        return (0 until nodes.length).map { nodes.item(it) }
++            .filter { it.attributes.getNamedItem("translatable")?.nodeValue != "false" }
++            .associate {
++                it.attributes.getNamedItem("name").nodeValue to
++                    it.textContent.replace("\\'", "'").replace("\\\"", "\"")
++            }
++    }
++
++    private fun placeholders(s: String) = Regex("%\\d+\\$[sd]").findAll(s).map {
++        it.value
++    }.toSortedSet()
++
++    @Test fun englishResourcesMatchTheCode() {
++        assertEquals(SetupText.EN, strings(File(res, "values/strings.xml")))
++    }
++
++    @Test fun translationsHaveEveryKeyAndTheSamePlaceholders() {
++        val dirs = res.listFiles { f -> f.name.startsWith("values-") }.orEmpty()
++        assertTrue("no translation found", dirs.isNotEmpty())
++        dirs.forEach { dir ->
++            val tr = strings(File(dir, "strings.xml"))
++            assertEquals(dir.name, SetupText.EN.keys, tr.keys)
++            tr.forEach { (key, text) ->
++                assertEquals(
++                    "${dir.name}/$key",
++                    placeholders(SetupText.EN.getValue(key)),
++                    placeholders(text)
++                )
++            }
++        }
++    }
++
++    @Test fun linesFillTheirArguments() {
++        assertEquals("3 of 4 confirmed", SetupText.t("summary_confirmed", 3, 4))
++        assertEquals("In use: Gboard", SetupText.t("row_keyboard_in_use", "Gboard"))
++    }
++}

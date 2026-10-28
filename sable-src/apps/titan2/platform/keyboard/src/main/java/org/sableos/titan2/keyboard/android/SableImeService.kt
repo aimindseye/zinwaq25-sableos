@@ -339,7 +339,7 @@ class SableImeService : InputMethodService() {
             refreshStrip()
             return true
         }
-        val key = KeyMapper.map(keyCode)
+        val key = KeyMapper.map(keyCode, event.getUnicodeChar(0))
         val ours = !event.isCtrlPressed && !event.isMetaPressed && key !is Key.Other
         val handled = ours && (handleComposingKey(keyCode) || resolveKeyDown(key, keyCode, event))
         if (ours) refreshStrip()
@@ -427,7 +427,7 @@ class SableImeService : InputMethodService() {
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
-        val key = KeyMapper.map(keyCode)
+        val key = KeyMapper.map(keyCode, event.getUnicodeChar(0))
         if (key !is Key.Other) resolver.onKey(KeyEv(key, false, event.eventTime), fieldCtx())
         if (key !is Key.Other) refreshStrip()
         return handledDown.remove(keyCode) || super.onKeyUp(keyCode, event)

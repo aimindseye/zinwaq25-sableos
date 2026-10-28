@@ -1,17 +1,16 @@
 package org.sableos.titan2.setup.core
 
+import org.sableos.titan2.setup.core.SetupText.t
+
 object SetupModel {
-    const val TITLE = "Sable Setup"
-    const val SELF_DESCRIPTION =
-        "Choose your home screen, keyboard and default apps, and check what this phone reports. " +
-            "Not the Android Setup Wizard."
+    val TITLE get() = t("setup_title")
+    val SELF_DESCRIPTION get() = t("setup_self_description")
 
     /**
      * Setup observes and opens screens; the home app (IR-003), the default keyboard (IR-005) and the
      * profile identity (IR-001) are only ever changed on Android's own screens.
      */
-    const val FOOTNOTE =
-        "Setup changes nothing by itself: every choice is made on the screen it opens."
+    val FOOTNOTE get() = t("setup_footnote")
     const val MAX_PROFILE_ID = 32
 
     /** Rows that carry a conclusion; informational rows are not counted. */
@@ -24,16 +23,16 @@ object SetupModel {
     fun summary(items: List<Item>): String {
         val rows = counted(items)
         val confirmed = rows.count { it.state == Readiness.Satisfied }
-        val parts = mutableListOf("$confirmed of ${rows.size} confirmed")
+        var line = t("summary_confirmed", confirmed, rows.size)
         listOf(
-            Readiness.ActionRequired to "action required",
-            Readiness.Unavailable to "unavailable",
-            Readiness.Unknown to "unknown"
-        ).forEach { (state, word) ->
+            Readiness.ActionRequired to "summary_action_required",
+            Readiness.Unavailable to "summary_unavailable",
+            Readiness.Unknown to "summary_unknown"
+        ).forEach { (state, key) ->
             val n = rows.count { it.state == state }
-            if (n > 0) parts += "$n $word"
+            if (n > 0) line = t("summary_separator", line, t(key, n))
         }
-        return parts.joinToString(" · ")
+        return line
     }
 
     /** True only when nothing needs action and nothing is unavailable or unknown. */
@@ -50,11 +49,11 @@ object SetupModel {
         val clean = id?.trim().orEmpty()
         val safe = clean.take(MAX_PROFILE_ID).filter { it.isLetterOrDigit() || it in "-_." }
         return when {
-            clean.isEmpty() || safe.isEmpty() -> "Profile unknown (not reported by this build)"
+            clean.isEmpty() || safe.isEmpty() -> t("profile_unknown")
             clean == "titan2" -> "Unihertz Titan 2"
             clean == "titan2-elite" -> "Unihertz Titan 2 Elite"
             clean == "zinwa-q25" -> "Zinwa Q25"
-            else -> "Unrecognized profile id: $safe"
+            else -> t("profile_unrecognized", safe)
         }
     }
 }

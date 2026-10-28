@@ -1,5 +1,7 @@
 package org.sableos.titan2.setup.core
 
+import org.sableos.titan2.setup.core.SetupText.t
+
 /**
  * Sable Weather's city hand-off, as Setup calls it through `ContentResolver.call`. Weather owns the catalog
  * and the city list: Setup only sends the typed filter text and one catalog name. Mirrors
@@ -23,11 +25,11 @@ data class CityMatches(val names: List<String>, val selected: String?)
 
 /** Pure text and list rules for the Weather city step; the Android side only draws them. */
 object WeatherCityStep {
-    const val TITLE = "Weather city"
-    const val HINT = "Type a city"
-    const val HELP = "Type to filter, ↑ ↓ to move, Enter to choose. No location permission is used."
-    const val NO_MATCH = "No listed city matches. Try a nearby larger city."
-    const val UNREACHABLE = "Sable Weather did not answer. Skip, and pick a city in Weather later."
+    val TITLE get() = t("weather_title")
+    val HINT get() = t("weather_hint")
+    val HELP get() = t("weather_help")
+    val NO_MATCH get() = t("weather_no_match")
+    val UNREACHABLE get() = t("weather_unreachable")
     const val MAX_QUERY = 60
     const val MAX_NAME = 60
 
@@ -49,26 +51,26 @@ object WeatherCityStep {
         .take(MAX_SHOWN)
 
     fun currentLine(selected: String?): String =
-        selected?.let { "Current: ${it.take(MAX_NAME)}" } ?: "Current city not reported"
+        selected?.let { t("weather_current", it.take(MAX_NAME)) } ?: t("weather_current_unknown")
 
     fun skipLabel(selected: String?): String =
-        selected?.let { "Skip · keep ${it.take(MAX_NAME)}" } ?: "Skip"
+        selected?.let { t("weather_skip_keep", it.take(MAX_NAME)) } ?: t("weather_skip")
 
     /** Result line after choosing [name]; null [status] means Weather gave no answer. */
     fun resultMessage(status: String?, name: String): String = when (status) {
         WeatherCityContract.STATUS_SELECTED ->
-            "Weather now uses $name. The forecast loads in the background."
+            t("weather_selected", name)
 
-        WeatherCityContract.STATUS_UNCHANGED -> "Weather already uses $name."
+        WeatherCityContract.STATUS_UNCHANGED -> t("weather_unchanged", name)
 
         WeatherCityContract.STATUS_FULL ->
-            "Weather's city list is full. Remove a city in Sable Weather, then try again."
+            t("weather_full")
 
-        WeatherCityContract.STATUS_UNKNOWN -> "$name is not in Weather's city list."
+        WeatherCityContract.STATUS_UNKNOWN -> t("weather_unknown_city", name)
 
         null -> UNREACHABLE
 
-        else -> "Weather could not switch to $name."
+        else -> t("weather_failed", name)
     }
 
     /** True when the step is finished and the checklist can come back. */
@@ -78,9 +80,9 @@ object WeatherCityStep {
     /** Checklist row. A city is a preference, not a readiness check, so every outcome is informational. */
     fun row(o: Observed): Item {
         val detail = when (o) {
-            is Observed.Value -> "Forecasts for ${o.text.take(MAX_NAME)}; no location permission"
-            Observed.Absent -> "Choose the city Weather shows; no location permission"
-            Observed.Failed -> "Could not read the Weather city"
+            is Observed.Value -> t("weather_row_city", o.text.take(MAX_NAME))
+            Observed.Absent -> t("weather_row_none")
+            Observed.Failed -> t("weather_row_failed")
         }
         return Item("weather", TITLE, detail, Readiness.Informational, Action.WeatherCity)
     }

@@ -1,5 +1,6 @@
 package org.sableos.titan2.keyboard.android
 
+import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import org.sableos.titan2.keyboard.core.Key
 import org.sableos.titan2.keyboard.core.Mod
@@ -50,6 +51,17 @@ object KeyMapper {
         in KeyEvent.KEYCODE_A..KeyEvent.KEYCODE_Z -> Key.Letter('a' + (code - KeyEvent.KEYCODE_A))
         in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9 -> Key.Digit('0' + (code - KeyEvent.KEYCODE_0))
         else -> special[code] ?: punctOrOther(code)
+    }
+
+    /**
+     * [map], but a punctuation key types what the device's own .kcm gives it (`unicode`, the key's plain character):
+     * the Zinwa Q25's currency key sends GRAVE and its kcm types '$' there.
+     */
+    fun map(code: Int, unicode: Int): Key {
+        val key = map(code)
+        val printable = unicode > ' '.code && unicode and KeyCharacterMap.COMBINING_ACCENT == 0 &&
+            !Character.isLetterOrDigit(unicode)
+        return if (key is Key.Punct && printable) Key.Punct(unicode.toChar()) else key
     }
 
     private fun punctOrOther(code: Int): Key {

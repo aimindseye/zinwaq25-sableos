@@ -37,7 +37,8 @@ Sable apps read `ro.sable.profile.id`; the Q25 layer sets it to `zinwa-q25`.
 | Menu / Back / Home | kl maps 139 MENU, 158 BACK, 172 HOME; confirm which physical keys send them | unknown |
 | Trackpad | Optical trackpad on the `bbqX0kbd` keyboard controller. From the kernel source: `/proc/q20_switch_key_mouse` picks the mode, `0` = relative pointer (`REL_X/REL_Y`, click = BTN_LEFT), `1` = arrow keys after 26 counts (click = ENTER) (`bbqX0kbd_main.c:56-75`, `config.h:23`). Sable wants DPAD focus navigation plus an optional pointer mode; ideas from Q25EdgeTrackpad (edge scrolling, bottom touch guard, per-app mode) are in [Power](implementation/power.md#learnings-from-community-projects) | source read; default mode not yet seen on a device |
 | Trackpad click | Expect `DPAD_CENTER` (353) or `BTN_MOUSE`; confirm | unknown |
-| Keyboard backlight | The keyboard firmware owns its light: Sym+0 turns it on or off, and with the PaBaLF keyboard firmware Sym+Shift+1 to 9 sets the level. On a Q25 the firmware ignores host writes to the backlight register (`bbqX0kbd` logged 0x00 and 0x1E written to `REG_BKL` 0x05; the light did not change), so Settings has no switch or slider. Settings patch 0901 adds only a read-only Keyboard light row under System > Keyboard that explains those keys, shown when `ro.sable.keyboard_backlight` is true. The kernel 0901 module parameters and `product/q25/init/sable-keyboard-backlight.rc` stay in the tree but have no visible effect | host writes ignored on device; info row written, not run on device |
+| Keyboard backlight | The keyboard is an RP2040 running i2c_puppet-style firmware, where the light is `REG_BKL` (0x05) driving one PWM pin. Sym+0 (and Sym+Z/X) reach the `bbqX0kbd` driver, which writes the level to `REG_BKL`: device log 2026-10-28 shows 0xFF and 0x00 written on each Sym+0 and the light never changes, so the stock Zinwa keyboard firmware does not drive the light from that register. The fix is the community PaBaLF keyboard firmware (ovehbe/i2c_puppet, tag PaBaLF, MIT): the firmware itself toggles the light on Sym+0, sets the level with Sym+Right Shift+1 to 9, saves it, and accepts the host's turn-off on lock while ignoring host turn-on, so the driver's own writes cannot fight it. It is flashed on stock (see Keyboard firmware below). Settings patch 0901 shows only a read-only Keyboard light row under System > Keyboard naming those keys (when `ro.sable.keyboard_backlight` is true); the 0901 module parameters and `product/q25/init/sable-keyboard-backlight.rc` stay | stock firmware ignores REG_BKL on device. PaBaLF flashed on the owner's unit 2026-10-28 from SableOS: it runs (the Sym+Right Shift+digit press is swallowed, Sym+0 toggles inside the firmware) but the keys stay dark, so on that unit the light is not on PaBaLF's PWM pin or not fitted: a hardware question for the Q25 community, not SableOS |
+| $ key | The printed $ key sends scan code 41 (`GRAVE`); the device kcm had no entry for it. Device tree 1501 maps GRAVE to '$' (plain, Shift, Caps Lock) for every app and keyboard (Gboard included), and Sable Keyboard types a punctuation key's kcm character (sable-src 0075). aesophor/q25-gboard-patch is not shipped: it also remaps Alt to Fn and A to Period, which breaks Sable's Alt shortcuts, and has no license | written, not run on device (Q4-REVIEW3-DOLLAR) |
 | Keyboard-first app shortcuts | From the q25toolbox review: Sable Calculator takes digits and operators from the keyboard (a plain key counts as its Alt character, so W E R = 1 2 3); Sable Keyboard picks candidates with Ctrl+1/2/3 or Ctrl+W/E/R and can send with Enter where the app offers Send (Settings switch, off by default); Phone in-call M mute, S speaker, D dialpad (Dialer 0703); Space answers a ringing call (setting, on by default; never hangs up) (Dialer 0704). Q25 key leads in `device-profile/KEYMAP.md` | written, not run on device |
 | Critical text entry | Lock-screen PIN/password, Wi-Fi password, SIM PIN must work from the hardware keyboard and the soft-keyboard fallback (`CRITICAL_TEXT_ENTRY_GATES.md`) | gate in `QUALIFICATION.md` |
 | Lock-screen PIN keys | The PIN bouncer (legacy `KeyguardPINView`, also SIM PIN/PUK) takes physical keys wherever focus is: `KeyguardSecurityContainerController.interceptMediaKey` (which the shade window root calls for every key before the view tree) hands them to `KeyguardPinBasedInputView.handleSableKeyEvent` while the PIN view is shown, and the view's `dispatchKeyEvent` does the same. Digits: number row and numpad, the kcm digit (Alt digit or `number:`), and for a plain or Alt press W E R S D F Z X C = 1-9 by key code, so a keyboard layout overlay that replaces the Q25 kcm's `number:`/`alt:` entries does not break it; 0 from KEY_0; Shift+letter is not a digit; Backspace deletes; Enter / numpad Enter press OK on key up. With a hardware keyboard the on-screen keys are not focusable (trackpad and Tab stay on the field) and the bouncer's message gets "Type PIN · Enter unlocks" as its second line. Entry goes through the on-screen keys; credential checking is upstream (frameworks/base 0304) | written, not run on device (Q4-LOCK-PIN-KEYS) |
@@ -74,9 +75,11 @@ dozing, and right after unlock, is the 0306 case.
 ## Keyboard firmware
 
 The keyboard and trackpad run their own firmware on a separate controller.
-Neither SableOS nor `restore-stock.sh` touches it. The community *Update
-Keyboard Firmware* guide (PDF shared in the project, not stored here) updates
-it from **stock** Android:
+`restore-stock.sh` does not touch it. SableOS has the stock update screen:
+dial `*#*#1122#*#*` or open Settings > System > Keyboard > Keyboard firmware
+(Settings 1501, device tree 1502), then follow the same steps as the community
+*Update Keyboard Firmware* guide (PDF shared in the project, not stored here)
+for **stock** Android:
 
 1. Get the firmware file from Zinwa (through the community mods).
 2. Dial `*#*#1122#*#*` to open the hidden menu and press **Turn off**.
@@ -87,15 +90,24 @@ it from **stock** Android:
 
 Consequences for SableOS:
 
-* Update the keyboard firmware **on stock before installing SableOS**. The
-  `*#*#1122#*#*` menu is a stock app that LineageOS-based builds don't
-  include, so later updates mean returning to stock or porting that tool
-  (open item, Q3).
+* The stock menu is a vendor app LineageOS lacks; SableOS's screen drives the
+  same kernel switch, `/proc/firmware_upgrade` (1 off, 2 download mode with
+  USB handed to the keyboard, 0 normal). From a root shell the same steps
+  work: `echo 1`, then hold Hang Up while `echo 2`; the computer sees
+  `2e8a:0003 Raspberry Pi RP2 Boot` and a 128 MB RPI-RP2 drive (seen
+  2026-10-28). Restarting the phone also returns the keyboard to normal.
+* `picotool save -a` while in download mode backs up the installed
+  firmware; there is no other copy of the stock image.
 * Record the keyboard firmware version with the Q3 key captures, because
   scan codes and trackpad behaviour can change between firmware versions.
 * The guide notes that in this mode the keyboard and trackpad work as a USB
   keyboard for the computer. The controller can present itself as USB HID,
   which is useful when debugging input.
+* The keyboard light is the firmware's job too: the stock firmware ignores
+  the driver's light writes, and the community PaBaLF build
+  (ovehbe/i2c_puppet, tag PaBaLF) runs the light itself (Sym+0 toggles,
+  Sym+Right Shift+1 to 9 sets and saves the level). Flash it on stock as
+  above; it is a community build, tested by its author on one unit.
 
 ## How to capture
 

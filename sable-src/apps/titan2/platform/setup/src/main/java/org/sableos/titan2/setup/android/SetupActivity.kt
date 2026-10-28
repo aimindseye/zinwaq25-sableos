@@ -30,8 +30,10 @@ import org.sableos.titan2.setup.core.LaunchReport
 import org.sableos.titan2.setup.core.Readiness
 import org.sableos.titan2.setup.core.SetupModel
 import org.sableos.titan2.setup.core.SetupRows
+import org.sableos.titan2.setup.core.SetupText
 import org.sableos.titan2.setup.core.TargetStatus
 import org.sableos.titan2.theme.SablePalette
+import org.sableos.titan2.theme.bindTo
 
 /**
  * Post-provisioning readiness checklist. This is not the Android Setup Wizard (that is a privileged system
@@ -54,6 +56,7 @@ class SetupActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         SetupStyle.palette = SablePalette.read(this).also { it.applyTo(this) }
+        SetupText.t.bindTo(this)
         launcher = Launcher(this)
         body =
             LinearLayout(this).apply {
@@ -120,9 +123,17 @@ class SetupActivity : Activity() {
         body.addView(
             text(SetupModel.profileLine(SysProps.get("ro.sable.profile.id")), DETAIL_SP, DIM, false)
         )
-        val ready = if (SetupModel.isReady(items)) " · no action required" else ""
+        val summary = SetupModel.summary(items)
+        val line = if (SetupModel.isReady(
+                items
+            )
+        ) {
+            SetupText.t("setup_no_action_required", summary)
+        } else {
+            summary
+        }
         body.addView(
-            text(SetupModel.summary(items) + ready, SUMMARY_SP, TEXT, false)
+            text(line, SUMMARY_SP, TEXT, false)
                 .apply { setPadding(0, px(SPACING), 0, px(SPACING)) }
         )
         if (failure != null) body.addView(text(failure, DETAIL_SP, WARN, true))

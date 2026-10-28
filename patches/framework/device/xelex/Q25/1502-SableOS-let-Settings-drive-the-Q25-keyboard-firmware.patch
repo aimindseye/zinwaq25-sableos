@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 28 Oct 2026 18:41:00 +0000
+Subject: [PATCH] SableOS: let Settings drive the Q25 keyboard firmware switch
+
+/proc/firmware_upgrade (bbqX0kbd) had the generic proc label, so only
+root could use it. Label it proc_sable_kbd_fw and let system_app read
+and write it, for Settings > Keyboard firmware and *#*#1122#*#*.
+---
+ sepolicy/vendor/genfs_contexts             | 3 +++
+ sepolicy/vendor/sable_keyboard_firmware.te | 5 +++++
+ 2 files changed, 8 insertions(+)
+ create mode 100644 sepolicy/vendor/sable_keyboard_firmware.te
+
+diff --git a/sepolicy/vendor/genfs_contexts b/sepolicy/vendor/genfs_contexts
+index af2e835..63f893a 100644
+--- a/sepolicy/vendor/genfs_contexts
++++ b/sepolicy/vendor/genfs_contexts
+@@ -5,3 +5,6 @@ genfscon sysfs /devices/platform/soc/11017000.i2c/i2c-5/5-006b/power_supply/upm6
+ # Wakeup
+ genfscon sysfs /devices/platform/soc/11017000.i2c/i2c-5/5-0065/power_supply/upm6722-standalone/wakeup    u:object_r:sysfs_wakeup:s0
+ genfscon sysfs /devices/platform/soc/11017000.i2c/i2c-5/5-006b/power_supply/upm6922-charger/wakeup       u:object_r:sysfs_wakeup:s0
++
++# SableOS: keyboard firmware-upgrade switch (bbqX0kbd), driven by Settings > Keyboard firmware
++genfscon proc /firmware_upgrade u:object_r:proc_sable_kbd_fw:s0
+diff --git a/sepolicy/vendor/sable_keyboard_firmware.te b/sepolicy/vendor/sable_keyboard_firmware.te
+new file mode 100644
+index 0000000..e1d9ddb
+--- /dev/null
++++ b/sepolicy/vendor/sable_keyboard_firmware.te
+@@ -0,0 +1,5 @@
++# SableOS: /proc/firmware_upgrade, the Q25 keyboard's firmware-upgrade switch (the stock
++# *#*#1122#*#* menu). Settings (system_app) writes 1 (off), 2 (download mode) or 0 (normal).
++type proc_sable_kbd_fw, fs_type, proc_type;
++
++allow system_app proc_sable_kbd_fw:file rw_file_perms;
+-- 
+2.43.0
+

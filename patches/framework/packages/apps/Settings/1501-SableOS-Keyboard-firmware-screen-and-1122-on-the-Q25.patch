@@ -1,0 +1,462 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 28 Oct 2026 18:40:00 +0000
+Subject: [PATCH] SableOS: Keyboard firmware screen and *#*#1122#*#* on the Q25
+
+The stock Zinwa Q25 menu behind *#*#1122#*#* (Turn off, Firmware
+upgrade, Exit) is not in LineageOS, so a keyboard firmware update meant
+returning to stock. The bbqX0kbd driver keeps its switch,
+/proc/firmware_upgrade (1 off, 2 download mode with USB handed to the
+keyboard, 0 back to normal), so Settings drives it:
+
+- SableKeyboardFirmwareActivity: the three steps as buttons (download
+  only after off; Exit always), touch only because the keyboard is off;
+  kept through the keyboard's own disconnect, and finishing the screen
+  in any other step writes 0 so the keyboard and USB come back.
+- SableKeyboardFirmwareCodeReceiver: *#*#1122#*#* opens it (owner user,
+  MODIFY_PHONE_STATE sender only).
+- Settings > System > Keyboard > Keyboard firmware, searchable, shown
+  only where /proc/firmware_upgrade exists.
+
+Needs the device sepolicy that lets system_app write the node.
+---
+ AndroidManifest.xml                           |  17 +++
+ .../sable_keyboard_firmware_strings.xml       |  37 +++++
+ res/xml/keyboard_settings.xml                 |  14 ++
+ .../settings/sable/SableKeyboardFirmware.java |  83 +++++++++++
+ .../sable/SableKeyboardFirmwareActivity.java  | 139 ++++++++++++++++++
+ .../SableKeyboardFirmwareCodeReceiver.java    |  44 ++++++
+ ...eKeyboardFirmwarePreferenceController.java |  37 +++++
+ 7 files changed, 371 insertions(+)
+ create mode 100644 res/values/sable_keyboard_firmware_strings.xml
+ create mode 100644 src/com/android/settings/sable/SableKeyboardFirmware.java
+ create mode 100644 src/com/android/settings/sable/SableKeyboardFirmwareActivity.java
+ create mode 100644 src/com/android/settings/sable/SableKeyboardFirmwareCodeReceiver.java
+ create mode 100644 src/com/android/settings/sable/SableKeyboardFirmwarePreferenceController.java
+
+diff --git a/AndroidManifest.xml b/AndroidManifest.xml
+index fb3e5af..dea37ac 100644
+--- a/AndroidManifest.xml
++++ b/AndroidManifest.xml
+@@ -3875,6 +3875,23 @@
+                 android:value="com.android.settings.TestingSettings" />
+         </activity>
+ 
++        <!-- SableOS: Keyboard firmware (Zinwa Q25), the stock *#*#1122#*#* menu. Kept alive through
++             the keyboard disconnecting itself, so leaving the screen is what restores it. -->
++        <activity android:name=".sable.SableKeyboardFirmwareActivity"
++            android:exported="false"
++            android:label="@string/sable_keyboard_firmware_title"
++            android:theme="@android:style/Theme.DeviceDefault.DayNight"
++            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|smallestScreenSize|screenLayout" />
++
++        <receiver android:name=".sable.SableKeyboardFirmwareCodeReceiver"
++            android:exported="true"
++            android:permission="android.permission.MODIFY_PHONE_STATE">
++            <intent-filter>
++                <action android:name="android.telephony.action.SECRET_CODE" />
++                <data android:scheme="android_secret_code" android:host="1122" />
++            </intent-filter>
++        </receiver>
++
+         <receiver android:name=".TestingSettingsBroadcastReceiver"
+             android:exported="true">
+             <intent-filter>
+diff --git a/res/values/sable_keyboard_firmware_strings.xml b/res/values/sable_keyboard_firmware_strings.xml
+new file mode 100644
+index 0000000..f42a120
+--- /dev/null
++++ b/res/values/sable_keyboard_firmware_strings.xml
+@@ -0,0 +1,37 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<resources>
++    <!-- Keyboard firmware screen (*#*#1122#*#*): title, also the Settings > System > Keyboard row. -->
++    <string name="sable_keyboard_firmware_title">Keyboard firmware</string>
++    <!-- Settings > System > Keyboard: summary of the Keyboard firmware row. -->
++    <string name="sable_keyboard_firmware_summary">Update the keyboard\'s own firmware from a computer</string>
++    <!-- Keyboard firmware screen: how to update, as in the stock Zinwa guide. -->
++    <string name="sable_keyboard_firmware_steps">1. Connect the phone to a computer with USB.\n2. Tap Turn keyboard off.\n3. Hold Hang Up and tap Firmware upgrade. A drive named RPI-RP2 appears on the computer, and the phone leaves USB while it is there.\n4. Copy the firmware .uf2 file to the drive. The drive disconnects by itself when done.\n5. Tap Exit, then restart the phone.\nThe keyboard is off until you tap Exit; use the touchscreen.</string>
++    <!-- Keyboard firmware screen: button 1. -->
++    <string name="sable_keyboard_firmware_off">Turn keyboard off</string>
++    <!-- Keyboard firmware screen: button 2. -->
++    <string name="sable_keyboard_firmware_download">Firmware upgrade (hold Hang Up)</string>
++    <!-- Keyboard firmware screen: button 3. -->
++    <string name="sable_keyboard_firmware_exit">Exit</string>
++    <!-- Keyboard firmware screen: state lines. -->
++    <string name="sable_keyboard_firmware_status_normal">Keyboard on. USB is with the phone.</string>
++    <string name="sable_keyboard_firmware_status_off">Keyboard off. Hold Hang Up and tap Firmware upgrade.</string>
++    <string name="sable_keyboard_firmware_status_download">Upgrade mode. Copy the .uf2 file to the RPI-RP2 drive, then tap Exit.</string>
++    <string name="sable_keyboard_firmware_failed">The keyboard did not answer. Tap Exit, or restart the phone.</string>
++    <string name="sable_keyboard_firmware_unsupported">This keyboard has no firmware upgrade switch.</string>
++    <!-- Search keywords for the Keyboard firmware row. [CHAR LIMIT=NONE] -->
++    <string name="keywords_sable_keyboard_firmware">keyboard firmware, uf2, 1122, firmware upgrade, PaBaLF</string>
++</resources>
+diff --git a/res/xml/keyboard_settings.xml b/res/xml/keyboard_settings.xml
+index d2463f7..2b22602 100644
+--- a/res/xml/keyboard_settings.xml
++++ b/res/xml/keyboard_settings.xml
+@@ -66,6 +66,20 @@
+         settings:keywords="@string/keywords_sable_keyboard_backlight"
+         settings:controller="com.android.settings.sable.SableKeyboardBacklightPreferenceController" />
+ 
++    <!-- SableOS: Keyboard firmware (also *#*#1122#*#*), where the keyboard driver has the
++         stock firmware-upgrade switch. -->
++    <Preference
++        android:key="sable_keyboard_firmware"
++        android:title="@string/sable_keyboard_firmware_title"
++        android:summary="@string/sable_keyboard_firmware_summary"
++        android:persistent="false"
++        settings:keywords="@string/keywords_sable_keyboard_firmware"
++        settings:controller="com.android.settings.sable.SableKeyboardFirmwarePreferenceController">
++        <intent
++            android:targetPackage="com.android.settings"
++            android:targetClass="com.android.settings.sable.SableKeyboardFirmwareActivity" />
++    </Preference>
++
+     <!-- SableOS: Sable Tools links (Keyboard & input, approved design). Each row is hidden, and
+          left out of search, when Sable Tools is not installed (SableLinkPreferenceController). -->
+     <PreferenceCategory
+diff --git a/src/com/android/settings/sable/SableKeyboardFirmware.java b/src/com/android/settings/sable/SableKeyboardFirmware.java
+new file mode 100644
+index 0000000..757c608
+--- /dev/null
++++ b/src/com/android/settings/sable/SableKeyboardFirmware.java
+@@ -0,0 +1,83 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++import java.io.File;
++import java.io.FileOutputStream;
++import java.io.IOException;
++import java.nio.charset.StandardCharsets;
++
++/**
++ * The Zinwa Q25 keyboard's firmware-upgrade switch, as the stock *#*#1122#*#* menu uses it.
++ * The bbqX0kbd driver's /proc/firmware_upgrade takes one digit: 1 powers the keyboard off,
++ * 2 powers it on in download mode and hands the phone's USB port to it (holding Hang Up at
++ * that moment makes the RP2040 start its USB drive), 0 powers it back on normally and returns
++ * USB to the phone. Pure apart from the file write, so the step logic is host-tested.
++ */
++public final class SableKeyboardFirmware {
++
++    public static final String NODE = "/proc/firmware_upgrade";
++
++    /** Where the keyboard is, as far as this screen has moved it. */
++    public enum Step {
++        NORMAL("0"),
++        OFF("1"),
++        DOWNLOAD("2");
++
++        final String command;
++
++        Step(String command) {
++            this.command = command;
++        }
++    }
++
++    private SableKeyboardFirmware() {}
++
++    /** True on devices whose keyboard driver has the switch. */
++    public static boolean isSupported() {
++        return new File(NODE).exists();
++    }
++
++    /**
++     * Download mode needs the keyboard off first, as the stock menu does; normal is always
++     * allowed, so a user can always get the keyboard and USB back.
++     */
++    public static boolean canMove(Step from, Step to) {
++        switch (to) {
++            case NORMAL:
++                return true;
++            case OFF:
++                return from == Step.NORMAL;
++            case DOWNLOAD:
++                return from == Step.OFF;
++            default:
++                return false;
++        }
++    }
++
++    /** Leaving the screen in any other step would leave the keyboard dead or USB taken. */
++    public static boolean needsRestoreOnExit(Step step) {
++        return step != Step.NORMAL;
++    }
++
++    /** Writes the step's digit to the switch. */
++    public static void write(Step step) throws IOException {
++        try (FileOutputStream out = new FileOutputStream(NODE)) {
++            out.write(step.command.getBytes(StandardCharsets.US_ASCII));
++        }
++    }
++}
+diff --git a/src/com/android/settings/sable/SableKeyboardFirmwareActivity.java b/src/com/android/settings/sable/SableKeyboardFirmwareActivity.java
+new file mode 100644
+index 0000000..ba23c45
+--- /dev/null
++++ b/src/com/android/settings/sable/SableKeyboardFirmwareActivity.java
+@@ -0,0 +1,139 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++import android.app.Activity;
++import android.os.Bundle;
++import android.util.Log;
++import android.util.TypedValue;
++import android.view.ViewGroup;
++import android.widget.Button;
++import android.widget.LinearLayout;
++import android.widget.ScrollView;
++import android.widget.TextView;
++
++import com.android.settings.R;
++import com.android.settings.sable.SableKeyboardFirmware.Step;
++
++import java.io.IOException;
++
++/**
++ * Keyboard firmware (*#*#1122#*#*, or Settings > System > Keyboard): the stock Zinwa Q25 menu's
++ * Turn off / Firmware upgrade / Exit, so a keyboard firmware .uf2 can be copied from a computer
++ * without returning to stock. Touch only while it runs, because the keyboard is off.
++ */
++public class SableKeyboardFirmwareActivity extends Activity {
++
++    private static final String TAG = "SableKbdFirmware";
++
++    private Step mStep = Step.NORMAL;
++    private TextView mStatus;
++    private Button mOff;
++    private Button mDownload;
++    private Button mExit;
++
++    @Override
++    protected void onCreate(Bundle savedInstanceState) {
++        super.onCreate(savedInstanceState);
++        int pad = dp(16);
++        LinearLayout body = new LinearLayout(this);
++        body.setOrientation(LinearLayout.VERTICAL);
++        body.setPadding(pad, pad, pad, pad);
++
++        TextView title = new TextView(this);
++        title.setText(R.string.sable_keyboard_firmware_title);
++        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
++        body.addView(title);
++
++        TextView steps = new TextView(this);
++        steps.setText(R.string.sable_keyboard_firmware_steps);
++        steps.setPadding(0, pad / 2, 0, pad / 2);
++        body.addView(steps);
++
++        mStatus = new TextView(this);
++        mStatus.setPadding(0, 0, 0, pad / 2);
++        body.addView(mStatus);
++
++        mOff = button(body, R.string.sable_keyboard_firmware_off, Step.OFF);
++        mDownload = button(body, R.string.sable_keyboard_firmware_download, Step.DOWNLOAD);
++        mExit = button(body, R.string.sable_keyboard_firmware_exit, Step.NORMAL);
++
++        ScrollView scroll = new ScrollView(this);
++        scroll.addView(body);
++        setContentView(scroll);
++        refresh(SableKeyboardFirmware.isSupported()
++                ? 0 : R.string.sable_keyboard_firmware_unsupported);
++    }
++
++    private Button button(LinearLayout parent, int label, Step target) {
++        Button b = new Button(this);
++        b.setText(label);
++        b.setAllCaps(false);
++        b.setOnClickListener(v -> move(target));
++        parent.addView(b, new LinearLayout.LayoutParams(
++                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
++        return b;
++    }
++
++    private void move(Step target) {
++        if (!SableKeyboardFirmware.canMove(mStep, target)) return;
++        try {
++            SableKeyboardFirmware.write(target);
++            mStep = target;
++            refresh(0);
++        } catch (IOException | SecurityException e) {
++            Log.w(TAG, "write " + target + " failed", e);
++            refresh(R.string.sable_keyboard_firmware_failed);
++        }
++    }
++
++    private void refresh(int error) {
++        boolean supported = SableKeyboardFirmware.isSupported();
++        if (error != 0) {
++            mStatus.setText(error);
++        } else if (mStep == Step.OFF) {
++            mStatus.setText(R.string.sable_keyboard_firmware_status_off);
++        } else if (mStep == Step.DOWNLOAD) {
++            mStatus.setText(R.string.sable_keyboard_firmware_status_download);
++        } else {
++            mStatus.setText(R.string.sable_keyboard_firmware_status_normal);
++        }
++        mOff.setEnabled(supported && SableKeyboardFirmware.canMove(mStep, Step.OFF));
++        mDownload.setEnabled(supported && SableKeyboardFirmware.canMove(mStep, Step.DOWNLOAD));
++        mExit.setEnabled(supported && mStep != Step.NORMAL);
++    }
++
++    /**
++     * Leaving the screen (Back, or finish) never leaves the keyboard off or USB with the keyboard.
++     * The manifest keeps the activity through the keyboard's own disconnect.
++     */
++    @Override
++    protected void onDestroy() {
++        if (isFinishing() && SableKeyboardFirmware.needsRestoreOnExit(mStep)) {
++            try {
++                SableKeyboardFirmware.write(Step.NORMAL);
++            } catch (IOException | SecurityException e) {
++                Log.w(TAG, "restore failed", e);
++            }
++        }
++        super.onDestroy();
++    }
++
++    private int dp(int v) {
++        return Math.round(v * getResources().getDisplayMetrics().density);
++    }
++}
+diff --git a/src/com/android/settings/sable/SableKeyboardFirmwareCodeReceiver.java b/src/com/android/settings/sable/SableKeyboardFirmwareCodeReceiver.java
+new file mode 100644
+index 0000000..24b92d5
+--- /dev/null
++++ b/src/com/android/settings/sable/SableKeyboardFirmwareCodeReceiver.java
+@@ -0,0 +1,44 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++import android.content.BroadcastReceiver;
++import android.content.Context;
++import android.content.Intent;
++import android.os.UserManager;
++import android.telephony.TelephonyManager;
++
++/**
++ * *#*#1122#*#* opens Keyboard firmware, as on the stock Zinwa Q25. Owner (system) user only,
++ * and only where the keyboard driver has the switch. The manifest requires
++ * MODIFY_PHONE_STATE, which only the telephony stack that sends SECRET_CODE holds.
++ */
++public class SableKeyboardFirmwareCodeReceiver extends BroadcastReceiver {
++
++    @Override
++    public void onReceive(Context context, Intent intent) {
++        if (intent == null
++                || !TelephonyManager.ACTION_SECRET_CODE.equals(intent.getAction())) {
++            return;
++        }
++        UserManager um = context.getSystemService(UserManager.class);
++        if (um == null || !um.isSystemUser() || !SableKeyboardFirmware.isSupported()) return;
++        Intent open = new Intent(context, SableKeyboardFirmwareActivity.class)
++                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
++        context.startActivity(open);
++    }
++}
+diff --git a/src/com/android/settings/sable/SableKeyboardFirmwarePreferenceController.java b/src/com/android/settings/sable/SableKeyboardFirmwarePreferenceController.java
+new file mode 100644
+index 0000000..88a7b54
+--- /dev/null
++++ b/src/com/android/settings/sable/SableKeyboardFirmwarePreferenceController.java
+@@ -0,0 +1,37 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++import android.content.Context;
++
++import com.android.settings.core.BasePreferenceController;
++
++/**
++ * Settings > System > Keyboard > Keyboard firmware: shown where the keyboard driver has the
++ * firmware-upgrade switch.
++ */
++public class SableKeyboardFirmwarePreferenceController extends BasePreferenceController {
++
++    public SableKeyboardFirmwarePreferenceController(Context context, String preferenceKey) {
++        super(context, preferenceKey);
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        return SableKeyboardFirmware.isSupported() ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
++    }
++}
+-- 
+2.43.0
+
