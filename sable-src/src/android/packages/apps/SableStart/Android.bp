@@ -10,6 +10,7 @@ filegroup {
         "src/com/sable/start/model/AppEntry.kt",
         "src/com/sable/start/model/AppGlyphs.kt",
         "src/com/sable/start/model/Bb10Home.kt",
+        "src/com/sable/start/model/Bb7Home.kt",
         "src/com/sable/start/model/CommandQuery.kt",
         "src/com/sable/start/model/CoreAppIdentity.kt",
         "src/com/sable/start/model/HomeLayout.kt",
@@ -29,6 +30,7 @@ filegroup {
         "src/com/sable/start/privacy/PrivacySnapshotCache.kt",
         "src/com/sable/start/privacy/PrivacySummaryPolicy.kt",
         "src/com/sable/start/ui/SableStartScreen.kt",
+        "src/com/sable/start/ui/Bb7HomeScreen.kt",
         "src/com/sable/start/ui/SableGlyphIcon.kt",
         "src/com/sable/start/ui/SableStatusRings.kt",
     ],
@@ -44,6 +46,7 @@ android_app {
         ":sable_start_presentation_srcs",
         ":sable_design_shared_srcs",
         "src/com/sable/start/SableStartActivity.kt",
+        "src/com/sable/start/HomeStyleActivity.kt",
         "src/com/sable/start/platform/LauncherAppsRepository.kt",
     ],
 

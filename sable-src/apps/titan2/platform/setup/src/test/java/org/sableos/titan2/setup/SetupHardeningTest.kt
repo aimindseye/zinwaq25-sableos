@@ -61,7 +61,7 @@ class SetupHardeningTest {
     @Test fun allSatisfiedRowsReadyAndSummaryHasNoExtraClauses() {
         val items = rows()
         assertTrue(SetupModel.isReady(items))
-        assertEquals("3 of 3 confirmed", SetupModel.summary(items))
+        assertEquals("2 of 2 confirmed", SetupModel.summary(items))
     }
 
     @Test fun summaryNamesUnavailableAndUnknownRows() {
@@ -117,12 +117,29 @@ class SetupHardeningTest {
         assertEquals(Readiness.Unknown, row("ime", rows(snap(keyboard = Observed.Absent))).state)
     }
 
-    @Test fun anotherKeyboardIsActionRequiredAndSableKeyboardIsSatisfied() {
-        assertEquals(Readiness.Satisfied, row("ime", rows()).state)
-        val other = rows(snap(keyboard = Observed.Value("com.other.ime/.Service")))
-        assertEquals(Readiness.ActionRequired, row("ime", other).state)
+    @Test fun anyKeyboardIsAValidChoiceAndIsNamed() {
+        assertEquals(Readiness.Informational, row("ime", rows()).state)
+        assertEquals("In use: Sable keyboard", row("ime", rows()).detail)
+        val gboard =
+            rows(snap(keyboard = Observed.Value("com.google.android.inputmethod.latin/.LatinIME")))
+        assertEquals(Readiness.Informational, row("ime", gboard).state)
+        assertEquals("In use: Gboard", row("ime", gboard).detail)
         val lookalike = rows(snap(keyboard = Observed.Value("org.sableos.titan2.keyboardx/.S")))
-        assertEquals(Readiness.ActionRequired, row("ime", lookalike).state)
+        assertEquals("In use: org.sableos.titan2.keyboardx", row("ime", lookalike).detail)
+    }
+
+    @Test fun launcherKeyboardAndDefaultAppsAreChoicesInThatOrder() {
+        val ids = rows().map { it.id }
+        assertEquals(listOf("style", "home", "ime", "ime_add", "defaults"), ids.take(5))
+        assertEquals(Action.HomeStyle, row("style", rows()).action)
+        assertEquals(Action.KeyboardSettings, row("ime_add", rows()).action)
+        assertEquals(Action.DefaultApps, row("defaults", rows()).action)
+        assertTrue(
+            row(
+                "home",
+                rows(snap(home = Observed.Value("org.sableos.launcher")))
+            ).detail.contains("Sable Start")
+        )
     }
 
     // --- launch targets ---
@@ -206,7 +223,10 @@ class SetupHardeningTest {
         val r = rows(snap(dialer = Observed.Absent))
         assertEquals("Fix", SetupRows.buttonLabel(row("dialer", r)))
         assertEquals("Open", SetupRows.buttonLabel(row("display", r)))
-        assertNull(SetupRows.buttonLabel(row("ime", r)))
+        assertEquals("Choose", SetupRows.buttonLabel(row("ime", r)))
+        assertEquals("Choose", SetupRows.buttonLabel(row("style", r)))
+        assertEquals("Choose", SetupRows.buttonLabel(row("home", r)))
+        assertEquals("Open", SetupRows.buttonLabel(row("ime_add", r)))
     }
 
     // --- launch failures stay bounded ---
@@ -272,7 +292,6 @@ class SetupHardeningTest {
 
     @Test fun helperDescribesItselfAsNotTheSetupWizard() {
         assertTrue(SetupModel.SELF_DESCRIPTION.contains("Not the Android Setup Wizard"))
-        assertTrue(SetupModel.SELF_DESCRIPTION.contains("Post-provisioning"))
     }
 
     @Test fun noTextClaimsWizardFirstBootOrProvisioningAuthority() {
@@ -331,11 +350,9 @@ class SetupHardeningTest {
         assertFalse(d.contains("correct") || d.contains("wrong") || d.contains("expected"))
     }
 
-    @Test fun footnoteKeepsCanonicalLedgersCanonical() {
-        listOf("IR-001", "IR-003", "IR-005").forEach {
-            assertTrue(SetupModel.FOOTNOTE.contains(it))
-        }
-        assertTrue(SetupModel.FOOTNOTE.contains("Observation only"))
+    @Test fun footnoteSaysSetupChangesNothingByItselfWithoutLedgerJargon() {
+        assertTrue(SetupModel.FOOTNOTE.contains("changes nothing by itself"))
+        assertFalse(SetupModel.FOOTNOTE.contains("IR-"))
     }
 
     // --- profile identity ---

@@ -9,6 +9,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import org.sableos.tools.core.Command
 import org.sableos.tools.core.ReportCategory
+import org.sableos.tools.core.ReportFile
 import org.sableos.tools.core.ReportPolicy
 import org.sableos.tools.core.Sensitivity
 import org.sableos.tools.core.SettingsLink
@@ -72,6 +73,7 @@ class ReportController(private val host: ToolHost) : ToolController {
         root.addView(planView)
         root.addView(Ui.row(ctx, "Preview", null) { preview() })
         root.addView(Ui.row(ctx, "Copy report", null) { copy() })
+        root.addView(Ui.row(ctx, "Save to phone", ReportFile.FOLDER) { save() })
         root.addView(Ui.row(ctx, "Share report…", null) { share() })
         updatePlan()
         rows.keys.firstOrNull()?.post { rows.keys.firstOrNull()?.requestFocus() }
@@ -138,6 +140,11 @@ class ReportController(private val host: ToolHost) : ToolController {
             ClipboardManager::class.java
         )?.setPrimaryClip(ClipData.newPlainText("Sable Tools report", render()))
         host.toast("Copied (identifiers masked)")
+    }
+
+    private fun save() {
+        if (selected.isEmpty()) return host.toast(NOTHING_SELECTED)
+        host.saveToFile(render())
     }
 
     private fun share() {

@@ -17,6 +17,7 @@ import android.widget.Toast
 import org.sableos.titan2.theme.SablePalette
 import org.sableos.tools.android.Collectors
 import org.sableos.tools.android.Links
+import org.sableos.tools.android.ReportFiles
 import org.sableos.tools.android.ToolsEnv
 import org.sableos.tools.core.Capability
 import org.sableos.tools.core.Command
@@ -26,6 +27,7 @@ import org.sableos.tools.core.HomeModel
 import org.sableos.tools.core.KeyCommands
 import org.sableos.tools.core.KeyPress
 import org.sableos.tools.core.PermissionPlan
+import org.sableos.tools.core.ReportFile
 import org.sableos.tools.core.SettingsLink
 import org.sableos.tools.core.Tool
 import org.sableos.tools.core.ToolKind
@@ -53,6 +55,12 @@ class ToolHost(val activity: ToolActivity, val env: ToolsEnv, val tool: Tool) {
     }
 
     fun openTool(t: Tool) = activity.startActivity(ToolActivity.intent(activity, t))
+
+    /** Writes [text] to Download/SableTools and says where, so it can be shared for diagnostics. */
+    fun saveToFile(text: String) {
+        val path = ReportFiles.save(activity, tool.title, text)
+        toast(if (path == null) "Could not save the file" else "Saved to $path")
+    }
 }
 
 /** One tool screen. Views are built once; sensors/camera/mic run only between start() and stop(). */
@@ -238,7 +246,8 @@ class ToolActivity : Activity() {
             c.view(),
             LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
         )
-        col.addView(Ui.hint(this, footer()))
+        // A tap on the key hints opens the same actions menu as the Menu key (save to phone, hand-offs).
+        col.addView(Ui.hint(this, footer()).apply { setOnClickListener { showActions(c) } })
         setContentView(col)
     }
 
@@ -260,7 +269,7 @@ class ToolActivity : Activity() {
 
         ToolKind.REPORT -> "Space select · Enter open · Menu actions · Esc back"
 
-        else -> "Ctrl+C copy · I info · Menu actions · Esc back"
+        else -> "Ctrl+C copy · Menu save to phone · I info · Esc back"
     }
 
     override fun onResume() {
@@ -341,8 +350,12 @@ class ToolActivity : Activity() {
     }
 
     private fun showActions(c: ToolController) {
+        val host = ToolHost(this, env, tool)
+        val save = "Save to phone (${ReportFile.FOLDER})" to {
+            c.copyText()?.let(host::saveToFile) ?: host.toast("Nothing to save yet")
+        }
         val items =
-            c.actions() +
+            c.actions() + save +
                 Handoffs.forTool(tool).map { l ->
                     "Open ${l.label}" to
                         { ToolHost(this, env, tool).openLink(l) }

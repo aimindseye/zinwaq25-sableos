@@ -289,6 +289,69 @@ index 9c69b98..ecfdbe2 100644
          <!-- FM mode: the SableOS FM bridge in the LineageOS FM Radio app. -->
          <intent>
              <action android:name="org.sableos.fm.action.CONTROL" />
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts b/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
+index c1ce84a..b2702ac 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
+@@ -50,6 +50,7 @@ val canonicalPresentationSources =
+         "com/sable/start/model/AppEntry.kt",
+         "com/sable/start/model/AppGlyphs.kt",
+         "com/sable/start/model/Bb10Home.kt",
++        "com/sable/start/model/Bb7Home.kt",
+         "com/sable/start/model/CommandQuery.kt",
+         "com/sable/start/model/CoreAppIdentity.kt",
+         "com/sable/start/model/HomeLayout.kt",
+@@ -68,6 +69,7 @@ val canonicalPresentationSources =
+         "com/sable/start/privacy/PrivacySnapshotCache.kt",
+         "com/sable/start/privacy/PrivacySummaryPolicy.kt",
+         "com/sable/start/ui/SableStartScreen.kt",
++        "com/sable/start/ui/Bb7HomeScreen.kt",
+         "com/sable/start/ui/SableGlyphIcon.kt",
+         "com/sable/start/ui/SableStatusRings.kt",
+     )
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb7HomeTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb7HomeTest.kt
+new file mode 100644
+index 0000000..ed0524a
+--- /dev/null
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb7HomeTest.kt
+@@ -0,0 +1,37 @@
++package org.sableos.start.model
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++
++/** BB7 home style: the saved choice, the tray grid and its panels. */
++class Bb7HomeTest {
++    @Test
++    fun homeStyleRoundTripsAndDefaultsToBb10() {
++        HomeStyle.entries.forEach { assertEquals(it, HomeStyle.fromStableValue(it.stableValue)) }
++        assertEquals(HomeStyle.Bb10, HomeStyle.fromStableValue(null))
++        assertEquals(HomeStyle.Bb10, HomeStyle.fromStableValue("bb5"))
++    }
++
++    @Test
++    fun trayHasSixColumnsOnTheQ25AndStaysInRange() {
++        assertEquals(6, Bb7Home.columns(411))
++        assertEquals(Bb7Home.MIN_COLUMNS, Bb7Home.columns(200))
++        assertEquals(Bb7Home.MAX_COLUMNS, Bb7Home.columns(1200))
++    }
++
++    @Test
++    fun panelsWrapBothWays() {
++        assertEquals(Bb7Panel.All, Bb7Home.step(Bb7Panel.Favorites, 1))
++        assertEquals(Bb7Panel.Downloads, Bb7Home.step(Bb7Panel.Favorites, -1))
++        assertEquals(Bb7Panel.Favorites, Bb7Home.step(Bb7Panel.Downloads, 1))
++    }
++
++    @Test
++    fun selectionMovesByCellAndRowWithinTheItems() {
++        assertEquals(1, Bb7Home.move(0, 10, 6, 1, 0))
++        assertEquals(7, Bb7Home.move(1, 10, 6, 0, 1))
++        assertEquals(9, Bb7Home.move(5, 10, 6, 0, 1))
++        assertEquals(0, Bb7Home.move(3, 10, 6, 0, -1))
++        assertEquals(0, Bb7Home.move(4, 0, 6, 1, 0))
++    }
++}
 diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/HomeLayoutTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/HomeLayoutTest.kt
 index 43576d8..a1d4626 100644
 --- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/HomeLayoutTest.kt
@@ -593,6 +656,218 @@ index 9f246c5..5242062 100644
  
          private fun readAccent(context: Context): String? = runCatching {
              context.contentResolver.query(
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml
+index b3f5b99..ba040eb 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml
+@@ -6,6 +6,9 @@
+     <queries>
+         <intent><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.HOME" /></intent>
+         <intent><action android:name="android.settings.HOME_SETTINGS" /></intent>
++        <intent><action android:name="android.settings.INPUT_METHOD_SETTINGS" /></intent>
++        <!-- Sable Start's home style chooser (BlackBerry 10 or 7). -->
++        <intent><action android:name="org.sableos.start.action.CHOOSE_HOME_STYLE" /></intent>
+         <intent><action android:name="android.settings.MANAGE_DEFAULT_APPS_SETTINGS" /></intent>
+         <intent><action android:name="android.settings.WIRELESS_SETTINGS" /></intent>
+         <!-- Telephony.Sms.getDefaultSmsPackage() checks the holder's SMS-role components through
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/Launcher.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/Launcher.kt
+index 812dffb..8486ba9 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/Launcher.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/Launcher.kt
+@@ -7,6 +7,7 @@ import android.provider.Settings
+ import android.view.inputmethod.InputMethodManager
+ import org.sableos.titan2.setup.core.Action
+ import org.sableos.titan2.setup.core.LaunchOutcome
++import org.sableos.titan2.setup.core.SetupRows
+ import org.sableos.titan2.setup.core.TargetStatus
+ 
+ /**
+@@ -17,8 +18,13 @@ class Launcher(private val activity: Activity) {
+     private fun intent(action: Action): Intent? = when (action) {
+         Action.None, Action.KeyboardPicker, Action.WeatherCity -> null
+ 
++        Action.HomeStyle ->
++            Intent(HOME_STYLE_ACTION).setPackage(SetupRows.SABLE_START_PACKAGE)
++
+         Action.HomeSettings -> Intent(Settings.ACTION_HOME_SETTINGS)
+ 
++        Action.KeyboardSettings -> Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)
++
+         Action.DefaultApps -> Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+ 
+         Action.NetworkSettings -> Intent(Settings.ACTION_WIRELESS_SETTINGS)
+@@ -79,6 +85,7 @@ class Launcher(private val activity: Activity) {
+     }
+ 
+     private companion object {
++        const val HOME_STYLE_ACTION = "org.sableos.start.action.CHOOSE_HOME_STYLE"
+         const val DISPLAY_PACKAGE = "org.sableos.titan2.displaycompat"
+         const val RADIO_PACKAGE = "org.sableos.titan2.radiodiag"
+     }
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/Readiness.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/Readiness.kt
+index 2d8bb32..2785098 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/Readiness.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/Readiness.kt
+@@ -38,9 +38,15 @@ sealed interface Observed {
+  */
+ enum class Action(val label: String) {
+     None(""),
++
++    /** Sable Start's own chooser: BlackBerry 10 or BlackBerry 7 style. */
++    HomeStyle("Home screen style"),
+     HomeSettings("Home settings"),
+     DefaultApps("Default apps settings"),
+     KeyboardPicker("Keyboard picker"),
++
++    /** Android's keyboard list, where Gboard or another installed keyboard is turned on. */
++    KeyboardSettings("Keyboard settings"),
+     DisplayCompat("Display compatibility"),
+     RadioDiag("Radio diagnostics"),
+     NetworkSettings("Network settings"),
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupModel.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupModel.kt
+index 741030c..a56b1ce 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupModel.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupModel.kt
+@@ -1,14 +1,17 @@
+ package org.sableos.titan2.setup.core
+ 
+ object SetupModel {
+-    const val TITLE = "Sable setup"
++    const val TITLE = "Sable Setup"
+     const val SELF_DESCRIPTION =
+-        "Post-provisioning readiness helper. Not the Android Setup Wizard; " +
+-            "it changes no system settings."
++        "Choose your home screen, keyboard and default apps, and check what this phone reports. " +
++            "Not the Android Setup Wizard."
++
++    /**
++     * Setup observes and opens screens; the home app (IR-003), the default keyboard (IR-005) and the
++     * profile identity (IR-001) are only ever changed on Android's own screens.
++     */
+     const val FOOTNOTE =
+-        "Observation only. HOME (IR-003), keyboard default (IR-005) and " +
+-            "profile identity (IR-001) " +
+-            "are owned by the canonical lane."
++        "Setup changes nothing by itself: every choice is made on the screen it opens."
+     const val MAX_PROFILE_ID = 32
+ 
+     /** Rows that carry a conclusion; informational rows are not counted. */
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupRows.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupRows.kt
+index 646b183..efe4ccb 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupRows.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupRows.kt
+@@ -11,15 +11,50 @@ data class Snapshot(
+ )
+ 
+ object SetupRows {
+-    private const val HOME_TITLE = "Home screen"
++    private const val HOME_TITLE = "Home app"
+ 
+     const val SABLE_KEYBOARD_PACKAGE = "org.sableos.titan2.keyboard"
++    const val SABLE_START_PACKAGE = "org.sableos.launcher"
++
++    /** Names for the packages this list commonly shows; anything else is shown as its package. */
++    private val KNOWN_NAMES =
++        mapOf(
++            SABLE_START_PACKAGE to "Sable Start",
++            "com.android.launcher3" to "Launcher3",
++            SABLE_KEYBOARD_PACKAGE to "Sable keyboard",
++            "com.google.android.inputmethod.latin" to "Gboard",
++            "com.android.inputmethod.latin" to "Android keyboard (AOSP)",
++            "com.touchtype.swiftkey" to "Microsoft SwiftKey"
++        )
++
++    fun displayName(pkg: String): String = KNOWN_NAMES[pkg] ?: pkg
+     const val RADIO_DETAIL =
+         "Read-only SIM and network diagnostics; IMS registration visibility requires canonical IR-007"
+ 
+     fun build(snapshot: Snapshot, targets: (Action) -> TargetStatus): List<Item> = listOf(
++        Item(
++            "style",
++            "Home screen style",
++            "Sable Start in the BlackBerry 10 or BlackBerry 7 style",
++            Readiness.Informational,
++            Action.HomeStyle
++        ),
+         home(snapshot.home),
+         keyboard(snapshot.keyboard),
++        Item(
++            "ime_add",
++            "Add a keyboard",
++            "Turn on Gboard or another keyboard you installed, then choose it above",
++            Readiness.Informational,
++            Action.KeyboardSettings
++        ),
++        Item(
++            "defaults",
++            "Default apps",
++            "Browser, phone, messages and the other apps Android opens by default",
++            Readiness.Informational,
++            Action.DefaultApps
++        ),
+         defaultApp("dialer", "Phone app", snapshot.dialer),
+         defaultApp("sms", "Messages app", snapshot.sms),
+         Item(
+@@ -49,7 +84,13 @@ object SetupRows {
+     /** HOME is owned by the canonical lane (IR-003); this row never judges it. */
+     private fun home(o: Observed): Item = when (o) {
+         is Observed.Value ->
+-            Item("home", HOME_TITLE, o.text, Readiness.Informational, Action.HomeSettings)
++            Item(
++                "home",
++                HOME_TITLE,
++                "In use: ${displayName(o.text)} · choose Sable Start or another launcher",
++                Readiness.Informational,
++                Action.HomeSettings
++            )
+ 
+         Observed.Absent ->
+             Item(
+@@ -70,21 +111,21 @@ object SetupRows {
+             )
+     }
+ 
+-    /** Observation only: default-keyboard configuration stays canonical (IR-005). */
++    /**
++     * Observation only: default-keyboard configuration stays canonical (IR-005). Any keyboard is a
++     * valid choice (Sable keyboard, Gboard or another), so a readable value is informational.
++     */
+     private fun keyboard(o: Observed): Item {
+-        val title = "Sable keyboard is the keyboard"
++        val title = "Keyboard"
+         return when (o) {
+-            is Observed.Value -> {
+-                val pkg = o.text.substringBefore('/')
+-                val sable = o.text.startsWith("$SABLE_KEYBOARD_PACKAGE/")
++            is Observed.Value ->
+                 Item(
+                     "ime",
+                     title,
+-                    pkg,
+-                    if (sable) Readiness.Satisfied else Readiness.ActionRequired,
++                    "In use: ${displayName(o.text.substringBefore('/'))}",
++                    Readiness.Informational,
+                     Action.KeyboardPicker
+                 )
+-            }
+ 
+             Observed.Absent ->
+                 Item(
+@@ -166,11 +207,14 @@ object SetupRows {
+             )
+     }
+ 
++    private val CHOICES = setOf(Action.HomeStyle, Action.HomeSettings, Action.KeyboardPicker)
++
+     /** Button text, or null when the row offers no action. */
+     fun buttonLabel(item: Item): String? = when {
+         item.action == Action.None || item.state == Readiness.Satisfied -> null
+         item.state == Readiness.ActionRequired -> "Fix"
+         item.action == Action.WeatherCity -> "Choose city"
++        item.action in CHOICES -> "Choose"
+         else -> "Open"
+     }
+ }
 diff --git a/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SablePaletteTest.kt b/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SablePaletteTest.kt
 index f6629e4..efbfe74 100644
 --- a/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SablePaletteTest.kt
@@ -612,6 +887,822 @@ index f6629e4..efbfe74 100644
      @Test fun unknownOrMissingAccentIsSableBlue() {
          val blue = SablePalette.of(dark = true, accent = "blue").accent
          assertEquals(blue, SablePalette.of(dark = true, accent = null).accent)
+diff --git a/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SetupHardeningTest.kt b/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SetupHardeningTest.kt
+index d05a7ff..db9f397 100644
+--- a/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SetupHardeningTest.kt
++++ b/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SetupHardeningTest.kt
+@@ -61,7 +61,7 @@ class SetupHardeningTest {
+     @Test fun allSatisfiedRowsReadyAndSummaryHasNoExtraClauses() {
+         val items = rows()
+         assertTrue(SetupModel.isReady(items))
+-        assertEquals("3 of 3 confirmed", SetupModel.summary(items))
++        assertEquals("2 of 2 confirmed", SetupModel.summary(items))
+     }
+ 
+     @Test fun summaryNamesUnavailableAndUnknownRows() {
+@@ -117,12 +117,29 @@ class SetupHardeningTest {
+         assertEquals(Readiness.Unknown, row("ime", rows(snap(keyboard = Observed.Absent))).state)
+     }
+ 
+-    @Test fun anotherKeyboardIsActionRequiredAndSableKeyboardIsSatisfied() {
+-        assertEquals(Readiness.Satisfied, row("ime", rows()).state)
+-        val other = rows(snap(keyboard = Observed.Value("com.other.ime/.Service")))
+-        assertEquals(Readiness.ActionRequired, row("ime", other).state)
++    @Test fun anyKeyboardIsAValidChoiceAndIsNamed() {
++        assertEquals(Readiness.Informational, row("ime", rows()).state)
++        assertEquals("In use: Sable keyboard", row("ime", rows()).detail)
++        val gboard =
++            rows(snap(keyboard = Observed.Value("com.google.android.inputmethod.latin/.LatinIME")))
++        assertEquals(Readiness.Informational, row("ime", gboard).state)
++        assertEquals("In use: Gboard", row("ime", gboard).detail)
+         val lookalike = rows(snap(keyboard = Observed.Value("org.sableos.titan2.keyboardx/.S")))
+-        assertEquals(Readiness.ActionRequired, row("ime", lookalike).state)
++        assertEquals("In use: org.sableos.titan2.keyboardx", row("ime", lookalike).detail)
++    }
++
++    @Test fun launcherKeyboardAndDefaultAppsAreChoicesInThatOrder() {
++        val ids = rows().map { it.id }
++        assertEquals(listOf("style", "home", "ime", "ime_add", "defaults"), ids.take(5))
++        assertEquals(Action.HomeStyle, row("style", rows()).action)
++        assertEquals(Action.KeyboardSettings, row("ime_add", rows()).action)
++        assertEquals(Action.DefaultApps, row("defaults", rows()).action)
++        assertTrue(
++            row(
++                "home",
++                rows(snap(home = Observed.Value("org.sableos.launcher")))
++            ).detail.contains("Sable Start")
++        )
+     }
+ 
+     // --- launch targets ---
+@@ -206,7 +223,10 @@ class SetupHardeningTest {
+         val r = rows(snap(dialer = Observed.Absent))
+         assertEquals("Fix", SetupRows.buttonLabel(row("dialer", r)))
+         assertEquals("Open", SetupRows.buttonLabel(row("display", r)))
+-        assertNull(SetupRows.buttonLabel(row("ime", r)))
++        assertEquals("Choose", SetupRows.buttonLabel(row("ime", r)))
++        assertEquals("Choose", SetupRows.buttonLabel(row("style", r)))
++        assertEquals("Choose", SetupRows.buttonLabel(row("home", r)))
++        assertEquals("Open", SetupRows.buttonLabel(row("ime_add", r)))
+     }
+ 
+     // --- launch failures stay bounded ---
+@@ -272,7 +292,6 @@ class SetupHardeningTest {
+ 
+     @Test fun helperDescribesItselfAsNotTheSetupWizard() {
+         assertTrue(SetupModel.SELF_DESCRIPTION.contains("Not the Android Setup Wizard"))
+-        assertTrue(SetupModel.SELF_DESCRIPTION.contains("Post-provisioning"))
+     }
+ 
+     @Test fun noTextClaimsWizardFirstBootOrProvisioningAuthority() {
+@@ -331,11 +350,9 @@ class SetupHardeningTest {
+         assertFalse(d.contains("correct") || d.contains("wrong") || d.contains("expected"))
+     }
+ 
+-    @Test fun footnoteKeepsCanonicalLedgersCanonical() {
+-        listOf("IR-001", "IR-003", "IR-005").forEach {
+-            assertTrue(SetupModel.FOOTNOTE.contains(it))
+-        }
+-        assertTrue(SetupModel.FOOTNOTE.contains("Observation only"))
++    @Test fun footnoteSaysSetupChangesNothingByItselfWithoutLedgerJargon() {
++        assertTrue(SetupModel.FOOTNOTE.contains("changes nothing by itself"))
++        assertFalse(SetupModel.FOOTNOTE.contains("IR-"))
+     }
+ 
+     // --- profile identity ---
+diff --git a/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/WeatherCityStepTest.kt b/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/WeatherCityStepTest.kt
+index d94365a..54dcfde 100644
+--- a/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/WeatherCityStepTest.kt
++++ b/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/WeatherCityStepTest.kt
+@@ -100,7 +100,7 @@ class WeatherCityStepTest {
+     @Test fun theRowNeverChangesReadinessWhileWeatherIsInstalled() {
+         val items = rows(Observed.Failed)
+         assertTrue(SetupModel.isReady(items))
+-        assertEquals("3 of 3 confirmed", SetupModel.summary(items))
++        assertEquals("2 of 2 confirmed", SetupModel.summary(items))
+     }
+ 
+     @Test fun withoutWeatherTheRowOffersNoButton() {
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/ReportFiles.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/ReportFiles.kt
+new file mode 100644
+index 0000000..5066552
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/ReportFiles.kt
+@@ -0,0 +1,41 @@
++package org.sableos.tools.android
++
++import android.content.ContentValues
++import android.content.Context
++import android.provider.MediaStore
++import org.sableos.tools.core.ReportFile
++
++/**
++ * Saves a report the user asked to save as a text file in Download/SableTools, through MediaStore (no storage
++ * permission). Files, a USB cable or any share target can take it from there. Returns the path shown to the
++ * user, or null when the file could not be written.
++ */
++object ReportFiles {
++    fun save(context: Context, title: String, text: String): String? {
++        val name = ReportFile.name(title, System.currentTimeMillis())
++        val values = ContentValues().apply {
++            put(MediaStore.Downloads.DISPLAY_NAME, name)
++            put(MediaStore.Downloads.MIME_TYPE, ReportFile.MIME)
++            put(MediaStore.Downloads.RELATIVE_PATH, ReportFile.FOLDER + "/")
++            put(MediaStore.Downloads.IS_PENDING, 1)
++        }
++        val resolver = context.contentResolver
++        val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
++        val written = uri != null && runCatching {
++            resolver.openOutputStream(uri)?.use { it.write(text.toByteArray(Charsets.UTF_8)) } !=
++                null
++        }.getOrDefault(false)
++        if (uri != null && !written) resolver.delete(uri, null, null)
++        if (uri != null && written) {
++            resolver.update(
++                uri,
++                ContentValues().apply {
++                    put(MediaStore.Downloads.IS_PENDING, 0)
++                },
++                null,
++                null
++            )
++        }
++        return if (written) ReportFile.FOLDER + "/" + name else null
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ReportFile.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ReportFile.kt
+new file mode 100644
+index 0000000..2ff64cd
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ReportFile.kt
+@@ -0,0 +1,22 @@
++package org.sableos.tools.core
++
++import java.time.Instant
++import java.time.ZoneId
++import java.time.format.DateTimeFormatter
++
++/** Where and under what name a saved report goes: Download/SableTools/sable-tools-<title>-<local time>.txt. */
++object ReportFile {
++    const val FOLDER = "Download/SableTools"
++    const val MIME = "text/plain"
++    private const val MAX_SLUG = 40
++    private val STAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
++
++    fun name(title: String, epochMillis: Long, zone: ZoneId = ZoneId.systemDefault()): String {
++        val slug = title.lowercase().replace(
++            Regex("[^a-z0-9]+"),
++            "-"
++        ).trim('-').take(MAX_SLUG).trim('-')
++        val stamp = STAMP.format(Instant.ofEpochMilli(epochMillis).atZone(zone))
++        return "sable-tools-" + slug.ifEmpty { "report" } + "-" + stamp + ".txt"
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ReportController.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ReportController.kt
+index de03f01..61d9599 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ReportController.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ReportController.kt
+@@ -9,6 +9,7 @@ import android.widget.ScrollView
+ import android.widget.TextView
+ import org.sableos.tools.core.Command
+ import org.sableos.tools.core.ReportCategory
++import org.sableos.tools.core.ReportFile
+ import org.sableos.tools.core.ReportPolicy
+ import org.sableos.tools.core.Sensitivity
+ import org.sableos.tools.core.SettingsLink
+@@ -72,6 +73,7 @@ class ReportController(private val host: ToolHost) : ToolController {
+         root.addView(planView)
+         root.addView(Ui.row(ctx, "Preview", null) { preview() })
+         root.addView(Ui.row(ctx, "Copy report", null) { copy() })
++        root.addView(Ui.row(ctx, "Save to phone", ReportFile.FOLDER) { save() })
+         root.addView(Ui.row(ctx, "Share report…", null) { share() })
+         updatePlan()
+         rows.keys.firstOrNull()?.post { rows.keys.firstOrNull()?.requestFocus() }
+@@ -140,6 +142,11 @@ class ReportController(private val host: ToolHost) : ToolController {
+         host.toast("Copied (identifiers masked)")
+     }
+ 
++    private fun save() {
++        if (selected.isEmpty()) return host.toast(NOTHING_SELECTED)
++        host.saveToFile(render())
++    }
++
+     private fun share() {
+         if (selected.isEmpty()) return host.toast(NOTHING_SELECTED)
+         val send = Intent(Intent.ACTION_SEND).setType("text/plain")
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ToolActivity.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ToolActivity.kt
+index f11daff..aecdc61 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ToolActivity.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ToolActivity.kt
+@@ -17,6 +17,7 @@ import android.widget.Toast
+ import org.sableos.titan2.theme.SablePalette
+ import org.sableos.tools.android.Collectors
+ import org.sableos.tools.android.Links
++import org.sableos.tools.android.ReportFiles
+ import org.sableos.tools.android.ToolsEnv
+ import org.sableos.tools.core.Capability
+ import org.sableos.tools.core.Command
+@@ -26,6 +27,7 @@ import org.sableos.tools.core.HomeModel
+ import org.sableos.tools.core.KeyCommands
+ import org.sableos.tools.core.KeyPress
+ import org.sableos.tools.core.PermissionPlan
++import org.sableos.tools.core.ReportFile
+ import org.sableos.tools.core.SettingsLink
+ import org.sableos.tools.core.Tool
+ import org.sableos.tools.core.ToolKind
+@@ -53,6 +55,12 @@ class ToolHost(val activity: ToolActivity, val env: ToolsEnv, val tool: Tool) {
+     }
+ 
+     fun openTool(t: Tool) = activity.startActivity(ToolActivity.intent(activity, t))
++
++    /** Writes [text] to Download/SableTools and says where, so it can be shared for diagnostics. */
++    fun saveToFile(text: String) {
++        val path = ReportFiles.save(activity, tool.title, text)
++        toast(if (path == null) "Could not save the file" else "Saved to $path")
++    }
+ }
+ 
+ /** One tool screen. Views are built once; sensors/camera/mic run only between start() and stop(). */
+@@ -238,7 +246,8 @@ class ToolActivity : Activity() {
+             c.view(),
+             LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+         )
+-        col.addView(Ui.hint(this, footer()))
++        // A tap on the key hints opens the same actions menu as the Menu key (save to phone, hand-offs).
++        col.addView(Ui.hint(this, footer()).apply { setOnClickListener { showActions(c) } })
+         setContentView(col)
+     }
+ 
+@@ -260,7 +269,7 @@ class ToolActivity : Activity() {
+ 
+         ToolKind.REPORT -> "Space select · Enter open · Menu actions · Esc back"
+ 
+-        else -> "Ctrl+C copy · I info · Menu actions · Esc back"
++        else -> "Ctrl+C copy · Menu save to phone · I info · Esc back"
+     }
+ 
+     override fun onResume() {
+@@ -341,8 +350,12 @@ class ToolActivity : Activity() {
+     }
+ 
+     private fun showActions(c: ToolController) {
++        val host = ToolHost(this, env, tool)
++        val save = "Save to phone (${ReportFile.FOLDER})" to {
++            c.copyText()?.let(host::saveToFile) ?: host.toast("Nothing to save yet")
++        }
+         val items =
+-            c.actions() +
++            c.actions() + save +
+                 Handoffs.forTool(tool).map { l ->
+                     "Open ${l.label}" to
+                         { ToolHost(this, env, tool).openLink(l) }
+diff --git a/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/ReportFileTest.kt b/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/ReportFileTest.kt
+new file mode 100644
+index 0000000..5df86a8
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/ReportFileTest.kt
+@@ -0,0 +1,27 @@
++package org.sableos.tools.core
++
++import java.time.ZoneOffset
++import org.junit.Assert.assertEquals
++import org.junit.Test
++
++class ReportFileTest {
++    @Test fun nameIsTheToolTitleAndLocalTime() {
++        // 2026-10-28 15:53:15 UTC
++        val at = 1_793_202_795_000L
++        assertEquals(
++            "sable-tools-keyboard-and-input-report-20261028-155315.txt",
++            ReportFile.name("Keyboard and input report", at, ZoneOffset.UTC)
++        )
++    }
++
++    @Test fun oddTitlesStillGiveAFileName() {
++        assertEquals(
++            "sable-tools-report-19700101-000000.txt",
++            ReportFile.name("···", 0L, ZoneOffset.UTC)
++        )
++        assertEquals(
++            "sable-tools-radio-ims-and-fm-status-19700101-000000.txt",
++            ReportFile.name("Radio, IMS and FM status", 0L, ZoneOffset.UTC)
++        )
++    }
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/Android.bp b/sable-src/src/android/packages/apps/SableStart/Android.bp
+index 02f87d1..0bdba43 100644
+--- a/sable-src/src/android/packages/apps/SableStart/Android.bp
++++ b/sable-src/src/android/packages/apps/SableStart/Android.bp
+@@ -10,6 +10,7 @@ filegroup {
+         "src/com/sable/start/model/AppEntry.kt",
+         "src/com/sable/start/model/AppGlyphs.kt",
+         "src/com/sable/start/model/Bb10Home.kt",
++        "src/com/sable/start/model/Bb7Home.kt",
+         "src/com/sable/start/model/CommandQuery.kt",
+         "src/com/sable/start/model/CoreAppIdentity.kt",
+         "src/com/sable/start/model/HomeLayout.kt",
+@@ -29,6 +30,7 @@ filegroup {
+         "src/com/sable/start/privacy/PrivacySnapshotCache.kt",
+         "src/com/sable/start/privacy/PrivacySummaryPolicy.kt",
+         "src/com/sable/start/ui/SableStartScreen.kt",
++        "src/com/sable/start/ui/Bb7HomeScreen.kt",
+         "src/com/sable/start/ui/SableGlyphIcon.kt",
+         "src/com/sable/start/ui/SableStatusRings.kt",
+     ],
+@@ -44,6 +46,7 @@ android_app {
+         ":sable_start_presentation_srcs",
+         ":sable_design_shared_srcs",
+         "src/com/sable/start/SableStartActivity.kt",
++        "src/com/sable/start/HomeStyleActivity.kt",
+         "src/com/sable/start/platform/LauncherAppsRepository.kt",
+     ],
+ 
+diff --git a/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml b/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml
+index df7414e..b76df6e 100644
+--- a/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml
++++ b/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml
+@@ -101,5 +101,17 @@
+                 <category android:name="android.intent.category.DEFAULT" />
+             </intent-filter>
+         </activity>
++
++        <!-- Home screen style (BlackBerry 10 or BlackBerry 7), opened by Sable Setup and Start's menu. -->
++        <activity
++            android:name="org.sableos.start.HomeStyleActivity"
++            android:exported="true"
++            android:excludeFromRecents="true"
++            android:label="Home screen style">
++            <intent-filter>
++                <action android:name="org.sableos.start.action.CHOOSE_HOME_STYLE" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
++        </activity>
+     </application>
+ </manifest>
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/HomeStyleActivity.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/HomeStyleActivity.kt
+new file mode 100644
+index 0000000..ea327aa
+--- /dev/null
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/HomeStyleActivity.kt
+@@ -0,0 +1,133 @@
++package org.sableos.start
++
++import android.content.Intent
++import android.os.Bundle
++import android.provider.Settings
++import androidx.activity.ComponentActivity
++import androidx.activity.compose.setContent
++import androidx.compose.foundation.BorderStroke
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.safeDrawingPadding
++import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.verticalScroll
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.Surface
++import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.LaunchedEffect
++import androidx.compose.runtime.remember
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.focus.FocusRequester
++import androidx.compose.ui.focus.focusRequester
++import androidx.compose.ui.unit.dp
++import org.sableos.design.SableGlobalTheme
++import org.sableos.design.sableFocusRing
++import org.sableos.start.model.HomeStyle
++import org.sableos.start.platform.StartStateRepository
++
++/**
++ * Chooses Sable Start's home style: BlackBerry 10 or BlackBerry 7, or another launcher (Android's
++ * Home app screen). Opened from Sable Setup (org.sableos.start.action.CHOOSE_HOME_STYLE) and from
++ * Start's own menu. The choice is Start's own setting; nothing else is changed.
++ */
++class HomeStyleActivity : ComponentActivity() {
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        val state = StartStateRepository(this)
++        setContent {
++            SableGlobalTheme(window = window) {
++                HomeStyleChooser(
++                    current = state.loadHomeStyle(),
++                    onPick = { style ->
++                        state.saveHomeStyle(style)
++                        // Show the result: Home brings Start forward in the new style.
++                        runCatching {
++                            startActivity(
++                                Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
++                                    .setPackage(packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
++                            )
++                        }
++                        finish()
++                    },
++                    onOtherLauncher = {
++                        runCatching { startActivity(Intent(Settings.ACTION_HOME_SETTINGS)) }
++                        finish()
++                    },
++                )
++            }
++        }
++    }
++}
++
++@Composable
++private fun HomeStyleChooser(
++    current: HomeStyle,
++    onPick: (HomeStyle) -> Unit,
++    onOtherLauncher: () -> Unit,
++) {
++    val first = remember { FocusRequester() }
++    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
++        Column(
++            modifier =
++                Modifier
++                    .fillMaxSize()
++                    .safeDrawingPadding()
++                    .verticalScroll(rememberScrollState())
++                    .padding(12.dp),
++            verticalArrangement = Arrangement.spacedBy(8.dp),
++        ) {
++            Text("Home screen style", style = MaterialTheme.typography.titleLarge)
++            Text(
++                "Sable Start can look like BlackBerry 10 or BlackBerry 7. Your apps, favourites and Hub stay the same.",
++                style = MaterialTheme.typography.bodyMedium,
++                color = MaterialTheme.colorScheme.onSurfaceVariant,
++            )
++            HomeStyle.entries.forEachIndexed { i, style ->
++                Choice(
++                    title = style.title + if (style == current) " · current" else "",
++                    detail = style.summary,
++                    active = style == current,
++                    modifier = if (i == 0) Modifier.focusRequester(first) else Modifier,
++                    onClick = { onPick(style) },
++                )
++            }
++            Choice(
++                title = "Another launcher…",
++                detail = "Pick any installed home app in Android's settings",
++                active = false,
++                onClick = onOtherLauncher,
++            )
++        }
++    }
++    LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
++}
++
++@Composable
++private fun Choice(
++    title: String,
++    detail: String,
++    active: Boolean,
++    modifier: Modifier = Modifier,
++    onClick: () -> Unit,
++) {
++    Surface(
++        onClick = onClick,
++        modifier = modifier.fillMaxWidth().sableFocusRing(),
++        shape = MaterialTheme.shapes.medium,
++        color = MaterialTheme.colorScheme.surfaceVariant,
++        border =
++            BorderStroke(
++                if (active) 2.dp else 1.dp,
++                if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
++            ),
++    ) {
++        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
++            Text(title, style = MaterialTheme.typography.titleMedium)
++            Text(detail, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
++        }
++    }
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+index 7ab7c90..8c1d76c 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+@@ -1,6 +1,7 @@
+ package org.sableos.start
+ 
+ import android.Manifest
++import android.app.AlertDialog
+ import android.content.BroadcastReceiver
+ import android.content.Context
+ import android.content.Intent
+@@ -8,12 +9,16 @@ import android.content.IntentFilter
+ import android.content.pm.LauncherApps
+ import android.content.pm.PackageManager
+ import android.database.ContentObserver
++import android.graphics.Color
++import android.graphics.drawable.ColorDrawable
++import android.graphics.drawable.Drawable
+ import android.os.Build
+ import android.os.Bundle
+ import android.os.Handler
+ import android.os.Looper
+ import android.os.UserHandle
+ import android.provider.Settings
++import android.view.WindowManager
+ import androidx.activity.ComponentActivity
+ import androidx.activity.OnBackPressedCallback
+ import androidx.activity.compose.setContent
+@@ -26,10 +31,12 @@ import org.sableos.design.resolveSableDarkAppearance
+ import org.sableos.design.writeGlobalSableAppearance
+ import org.sableos.start.model.ActiveFrame
+ import org.sableos.start.model.AppEntry
++import org.sableos.start.model.HomeStyle
+ import org.sableos.start.platform.LauncherAppsRepository
+ import org.sableos.start.platform.LiveSurfaceRepository
+ import org.sableos.start.platform.RecentTasksRepository
+ import org.sableos.start.platform.StartStateRepository
++import org.sableos.start.ui.Bb7HomeScreen
+ import org.sableos.start.ui.SableStartScreen
+ import java.util.concurrent.Executors
+ import java.util.concurrent.atomic.AtomicLong
+@@ -66,6 +73,15 @@ class SableStartActivity : ComponentActivity() {
+     /** Screen asked for by Settings (EDIT_HOME, EDIT_QUICK_BAR), and a serial so a repeat opens it again. */
+     private val startRequest = mutableStateOf(StartRequest(SCREEN_START, 0))
+ 
++    /**
++     * The home style chosen in Sable Setup (BlackBerry 10 or 7). The BlackBerry 7 home has no Hub,
++     * Active Frames or Edit Home of its own, so those requests show the BlackBerry 10 screen
++     * ([bb10Detour]) until Home is pressed again.
++     */
++    private val homeStyle = mutableStateOf(HomeStyle.DEFAULT)
++    private val bb10Detour = mutableStateOf(false)
++    private var opaqueWindowBackground: Drawable? = null
++
+     private var callbackRegistered = false
+     private var canNavigateBack = false
+     private val inventoryGeneration = AtomicLong(0L)
+@@ -160,6 +176,8 @@ class SableStartActivity : ComponentActivity() {
+         liveSurfaceRepository = LiveSurfaceRepository(this)
+         startStateRepository = StartStateRepository(this)
+         recentTasksRepository = RecentTasksRepository(this)
++        homeStyle.value = startStateRepository.loadHomeStyle()
++        opaqueWindowBackground = window.decorView.background
+ 
+         onBackPressedDispatcher.addCallback(
+             this,
+@@ -196,6 +214,7 @@ class SableStartActivity : ComponentActivity() {
+         if (savedInstanceState == null) {
+             startRequest.value = StartRequest(screenFor(intent), 0)
+             if (intent?.action == ACTION_SHOW_HUB) requestHub(intent)
++            bb10Detour.value = intent?.action in BB10_ONLY_ACTIONS
+         }
+ 
+         setContent {
+@@ -212,6 +231,28 @@ class SableStartActivity : ComponentActivity() {
+                 )
+             }
+ 
++            val bb7 = homeStyle.value == HomeStyle.Bb7 && !bb10Detour.value
++            SideEffect { showWallpaper(bb7) }
++            if (bb7) {
++                Bb7HomeScreen(
++                    apps = appsState.value,
++                    favoriteKeys = startStateRepository.loadHomeApps(),
++                    liveSurfaceRepository = liveSurfaceRepository,
++                    appearance = appearance,
++                    refreshGeneration = liveRefreshGeneration.value,
++                    homeGeneration = homeGeneration.value,
++                    onLaunchApp = { entry -> launcherAppsRepository.launch(entry) },
++                    onOpenAppInfo = { entry -> launcherAppsRepository.openAppDetails(entry) },
++                    onOpenHub = {
++                        hubRequestFilter.value = null
++                        hubGeneration.value += 1
++                        bb10Detour.value = true
++                    },
++                    onOpenMenu = ::showBb7Menu,
++                )
++                return@setContent
++            }
++
+             val request = startRequest.value
+             key(request.serial) {
+                 SableStartScreen(
+@@ -290,6 +331,11 @@ class SableStartActivity : ComponentActivity() {
+ 
+     override fun onResume() {
+         super.onResume()
++        val style = startStateRepository.loadHomeStyle()
++        if (style != homeStyle.value) {
++            homeStyle.value = style
++            bb10Detour.value = false
++        }
+         scheduleInventoryRefresh()
+         refreshFrames()
+         liveRefreshGeneration.value += 1
+@@ -306,15 +352,21 @@ class SableStartActivity : ComponentActivity() {
+                 backGeneration.value = 0
+                 hubGeneration.value = 0
+                 startRequest.value = StartRequest(screenFor(intent), startRequest.value.serial + 1)
++                bb10Detour.value = true
+             }
+             // Home, and the Recents key (Active Frames are the BB10 Recents): close anything open
+             // over the pages and show Active Frames.
+             Intent.ACTION_MAIN, ACTION_SHOW_ACTIVE_FRAMES -> {
+                 homeGeneration.value += 1
+                 refreshFrames()
++                // On the BlackBerry 7 home, Home goes back to it; Recents shows the Active Frames.
++                bb10Detour.value = intent.action == ACTION_SHOW_ACTIVE_FRAMES
+             }
+             // The one Hub is Start's Hub page (the Sable Hub app has no launcher entry).
+-            ACTION_SHOW_HUB -> requestHub(intent)
++            ACTION_SHOW_HUB -> {
++                requestHub(intent)
++                bb10Detour.value = true
++            }
+         }
+     }
+ 
+@@ -471,6 +523,41 @@ class SableStartActivity : ComponentActivity() {
+         }
+     }
+ 
++    /** The BlackBerry 7 home draws on the wallpaper; the BlackBerry 10 screen paints its own. */
++    private fun showWallpaper(show: Boolean) {
++        if (show) {
++            window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
++            window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
++        } else {
++            window.clearFlags(WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
++            window.setBackgroundDrawable(opaqueWindowBackground)
++        }
++    }
++
++    /** Menu on the BlackBerry 7 home. */
++    private fun showBb7Menu() {
++        val items = arrayOf("Home screen style", "Edit favourites", "Hub", "Settings")
++        AlertDialog.Builder(this)
++            .setItems(items) { _, which ->
++                when (which) {
++                    0 -> runCatching { startActivity(Intent(this, HomeStyleActivity::class.java)) }
++                    1 -> {
++                        homeGeneration.value = 0
++                        backGeneration.value = 0
++                        hubGeneration.value = 0
++                        startRequest.value = StartRequest(SCREEN_EDIT_HOME, startRequest.value.serial + 1)
++                        bb10Detour.value = true
++                    }
++                    2 -> {
++                        hubRequestFilter.value = null
++                        hubGeneration.value += 1
++                        bb10Detour.value = true
++                    }
++                    else -> openSystemSettings()
++                }
++            }.show()
++    }
++
+     private fun openSystemSettings() {
+         runCatching {
+             startActivity(Intent(Settings.ACTION_SETTINGS))
+@@ -525,6 +612,10 @@ class SableStartActivity : ComponentActivity() {
+         const val SCREEN_START = "start"
+         const val SCREEN_EDIT_HOME = "home"
+ 
++        /** Requests the BlackBerry 7 home shows on the BlackBerry 10 screen. */
++        val BB10_ONLY_ACTIONS =
++            setOf(ACTION_EDIT_HOME, ACTION_EDIT_QUICK_BAR, ACTION_SHOW_HUB, ACTION_SHOW_ACTIVE_FRAMES)
++
+         fun screenFor(intent: Intent?): String =
+             when (intent?.action) {
+                 ACTION_EDIT_QUICK_BAR, ACTION_EDIT_HOME -> SCREEN_EDIT_HOME
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb7Home.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb7Home.kt
+new file mode 100644
+index 0000000..ef11054
+--- /dev/null
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb7Home.kt
+@@ -0,0 +1,127 @@
++package org.sableos.start.model
++
++/**
++ * Sable Start's two home styles (owner request, 2026-10-28): the BlackBerry 10 layout (Hub,
++ * Active Frames and app pages) and the BlackBerry 7 one (clock and status on the wallpaper over a
++ * tray of apps). The choice is made in Sable Setup or from Start's own menu. Pure policy, unit
++ * tested in apps/r8/android/sablestart-presentation-check/src/test.
++ */
++enum class HomeStyle(
++    val stableValue: String,
++    val title: String,
++    val summary: String,
++) {
++    Bb10(
++        "bb10",
++        "BlackBerry 10 style",
++        "Hub, Active Frames and app pages side by side",
++    ),
++    Bb7(
++        "bb7",
++        "BlackBerry 7 style",
++        "Clock and status on the wallpaper, a tray of apps that opens into all apps",
++    ),
++    ;
++
++    companion object {
++        val DEFAULT = Bb10
++
++        fun fromStableValue(value: String?): HomeStyle = entries.firstOrNull { it.stableValue == value } ?: DEFAULT
++    }
++}
++
++/** The BlackBerry 7 tray's panels, switched with Alt+Left/Right or Space, as on BlackBerry 7. */
++enum class Bb7Panel(
++    val title: String,
++) {
++    Favorites("Favorites"),
++    All("All"),
++    Downloads("Downloads"),
++}
++
++object Bb7Home {
++    /** Icon cell width the tray is laid out from: 6 columns on the Q25's 411 dp. */
++    const val CELL_DP = 64
++    const val MIN_COLUMNS = 4
++    const val MAX_COLUMNS = 8
++
++    /** Favourites when the user has none yet: the apps a BlackBerry 7 home tray started with. */
++    val DEFAULT_FAVORITE_PACKAGES =
++        listOf(
++            "com.android.dialer",
++            "org.sableos.messages",
++            "org.sableos.mail",
++            "org.sableos.titan2.camera",
++            "org.sableos.calendar",
++            "org.lineageos.jelly",
++            "org.sableos.media",
++            "com.android.settings",
++        )
++
++    fun columns(widthDp: Int): Int = (widthDp / CELL_DP).coerceIn(MIN_COLUMNS, MAX_COLUMNS)
++
++    /**
++     * The apps of one panel, in order. Favorites: the user's Home apps ([favoriteKeys], stable
++     * keys) or, without any, [DEFAULT_FAVORITE_PACKAGES] that are installed; All: every app by
++     * name; Downloads: apps the user installed (removable ones).
++     */
++    fun panelApps(
++        panel: Bb7Panel,
++        apps: List<AppEntry>,
++        favoriteKeys: List<String>?,
++    ): List<AppEntry> {
++        val byName = apps.sortedBy { it.label.lowercase() }
++        return when (panel) {
++            Bb7Panel.All -> byName
++            Bb7Panel.Downloads -> byName.filter { it.canUninstall }
++            Bb7Panel.Favorites -> {
++                val byKey = apps.associateBy { it.stableKey() }
++                val chosen = favoriteKeys.orEmpty().mapNotNull { byKey[it] }
++                chosen.ifEmpty {
++                    DEFAULT_FAVORITE_PACKAGES.mapNotNull { pkg -> byName.firstOrNull { it.component.packageName == pkg } }
++                }
++            }
++        }
++    }
++
++    /** The next panel left ([step] -1) or right (+1), wrapping. */
++    fun step(
++        panel: Bb7Panel,
++        step: Int,
++    ): Bb7Panel {
++        val all = Bb7Panel.entries
++        return all[(panel.ordinal + step).mod(all.size)]
++    }
++
++    /**
++     * Typing on the home screen searches apps, as on BlackBerry 7: names starting with the text
++     * first, then names with a word starting with it, then any match.
++     */
++    fun search(
++        apps: List<AppEntry>,
++        query: String,
++    ): List<AppEntry> {
++        val q = query.trim().lowercase()
++        if (q.isEmpty()) return emptyList()
++        val byName = apps.sortedBy { it.label.lowercase() }
++        val starts = byName.filter { it.label.lowercase().startsWith(q) }
++        val word = byName.filter { it !in starts && it.label.lowercase().split(' ').any { w -> w.startsWith(q) } }
++        val any = byName.filter { it !in starts && it !in word && q in it.label.lowercase() }
++        return starts + word + any
++    }
++
++    /**
++     * Moving the selection in a grid of [count] items and [columns] columns: Left/Right by one,
++     * Up/Down by a row, clamped to the items.
++     */
++    fun move(
++        index: Int,
++        count: Int,
++        columns: Int,
++        dx: Int,
++        dy: Int,
++    ): Int {
++        if (count <= 0) return 0
++        return (index + dx + dy * columns).coerceIn(0, count - 1)
++    }
++}
 diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HomeLayout.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HomeLayout.kt
 index 12c90f4..db65a1f 100644
 --- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HomeLayout.kt
@@ -642,10 +1733,472 @@ index 12c90f4..db65a1f 100644
      /** Milliseconds from [nowMillisOfDay] to the next midnight, when the date line changes. */
      fun millisToMidnight(nowMillisOfDay: Long): Long = (DAY_MS - nowMillisOfDay.mod(DAY_MS)).coerceAtLeast(1L)
  
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/RecentTasksRepository.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/RecentTasksRepository.kt
+index 24e64f4..883aea9 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/RecentTasksRepository.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/RecentTasksRepository.kt
+@@ -59,7 +59,8 @@ class RecentTasksRepository(
+     }
+ 
+     /** The task's last picture (low resolution first), or null when Android has none for it. */
+-    fun snapshot(taskId: Int): Bitmap? = snapshot(taskId, lowResolution = true) ?: snapshot(taskId, lowResolution = false)
++    /** Full resolution first: the low-resolution snapshot is too soft for text at Active Frame size. */
++    fun snapshot(taskId: Int): Bitmap? = snapshot(taskId, lowResolution = false) ?: snapshot(taskId, lowResolution = true)
+ 
+     /**
+      * Brings the task back as it was; false when Android refused (the caller then launches the app).
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/StartStateRepository.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/StartStateRepository.kt
+index b81af8e..d8338c7 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/StartStateRepository.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/StartStateRepository.kt
+@@ -1,6 +1,7 @@
+ package org.sableos.start.platform
+ 
+ import android.content.Context
++import org.sableos.start.model.HomeStyle
+ 
+ /**
+  * Stores launcher-only presentation state.
+@@ -145,6 +146,13 @@ class StartStateRepository(
+         preferences.edit().putString(KEY_HOME_MODE, mode).apply()
+     }
+ 
++    /** BlackBerry 10 or BlackBerry 7 home (HomeStyle); the BB10 layout until the user picks. */
++    fun loadHomeStyle(): HomeStyle = HomeStyle.fromStableValue(preferences.getString(KEY_HOME_STYLE, null))
++
++    fun saveHomeStyle(style: HomeStyle) {
++        preferences.edit().putString(KEY_HOME_STYLE, style.stableValue).apply()
++    }
++
+     private fun loadOrdered(key: String): List<String>? =
+         preferences
+             .getString(key, null)
+@@ -179,6 +187,7 @@ class StartStateRepository(
+         // three-page Home hid them without the user choosing, so they are not read.
+         const val KEY_HOME_HIDDEN_SECTIONS = "home_hidden_sections_v2"
+         const val KEY_HOME_MODE = "home_mode"
++        const val KEY_HOME_STYLE = "home_style"
+         const val KEY_GRID_ORDER = "grid_order"
+     }
+ }
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt
+new file mode 100644
+index 0000000..1ac5e62
+--- /dev/null
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt
+@@ -0,0 +1,399 @@
++package org.sableos.start.ui
++
++import android.view.KeyEvent
++import androidx.compose.foundation.ExperimentalFoundationApi
++import androidx.compose.foundation.background
++import androidx.compose.foundation.border
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.combinedClickable
++import androidx.compose.foundation.focusable
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.BoxWithConstraints
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.Spacer
++import androidx.compose.foundation.layout.WindowInsets
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.height
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.safeDrawing
++import androidx.compose.foundation.layout.width
++import androidx.compose.foundation.layout.windowInsetsPadding
++import androidx.compose.foundation.lazy.grid.GridCells
++import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
++import androidx.compose.foundation.lazy.grid.itemsIndexed
++import androidx.compose.foundation.lazy.grid.rememberLazyGridState
++import androidx.compose.foundation.shape.RoundedCornerShape
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.LaunchedEffect
++import androidx.compose.runtime.SideEffect
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableIntStateOf
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.produceState
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.draw.clip
++import androidx.compose.ui.focus.FocusRequester
++import androidx.compose.ui.focus.focusRequester
++import androidx.compose.ui.graphics.Color
++import androidx.compose.ui.input.key.KeyEventType
++import androidx.compose.ui.input.key.onPreviewKeyEvent
++import androidx.compose.ui.input.key.type
++import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.text.style.TextAlign
++import androidx.compose.ui.text.style.TextOverflow
++import androidx.compose.ui.unit.dp
++import androidx.compose.ui.unit.sp
++import kotlinx.coroutines.delay
++import org.sableos.design.SableAppearance
++import org.sableos.design.SableTheme
++import org.sableos.start.live.LiveAvailability
++import org.sableos.start.model.AppEntry
++import org.sableos.start.model.Bb7Home
++import org.sableos.start.model.Bb7Panel
++import org.sableos.start.model.HomeHeader
++import org.sableos.start.platform.LiveSurfaceRepository
++import java.text.DateFormat
++import java.util.Date
++
++/**
++ * Sable Start in the BlackBerry 7 style ([org.sableos.start.model.HomeStyle.Bb7]): the clock, date,
++ * weather and unread count on the wallpaper, and a tray along the bottom with one row of
++ * Favorites that opens into the whole panel. Keys as on BlackBerry 7: arrows move, Enter opens,
++ * Up opens the tray and Escape closes it, Space or Alt+Left/Right switch panels (Favorites, All,
++ * Downloads), typing searches apps, Menu opens the home options.
++ */
++@OptIn(ExperimentalFoundationApi::class)
++@Composable
++fun Bb7HomeScreen(
++    apps: List<AppEntry>,
++    favoriteKeys: List<String>?,
++    liveSurfaceRepository: LiveSurfaceRepository,
++    appearance: SableAppearance,
++    refreshGeneration: Int,
++    homeGeneration: Int,
++    onLaunchApp: (AppEntry) -> Boolean,
++    onOpenAppInfo: (AppEntry) -> Unit,
++    onOpenHub: () -> Unit,
++    onOpenMenu: () -> Unit,
++) {
++    var panel by remember { mutableStateOf(Bb7Panel.Favorites) }
++    var open by remember { mutableStateOf(false) }
++    var query by remember { mutableStateOf("") }
++    var selected by remember { mutableIntStateOf(0) }
++
++    // Set from the laid-out width below, read by the key handler.
++    var keyColumns by remember { mutableIntStateOf(Bb7Home.MIN_COLUMNS) }
++    val focus = remember { FocusRequester() }
++
++    // Home closes the tray and any search, as the BlackBerry 7 home key did.
++    LaunchedEffect(homeGeneration) {
++        open = false
++        query = ""
++        selected = 0
++    }
++    val live by
++        produceState(liveSurfaceRepository.initialSnapshot(), refreshGeneration) {
++            value = liveSurfaceRepository.snapshot()
++        }
++    val now by
++        produceState(System.currentTimeMillis()) {
++            while (true) {
++                value = System.currentTimeMillis()
++                delay(CLOCK_TICK_MS - value % CLOCK_TICK_MS)
++            }
++        }
++
++    val searching = query.isNotEmpty()
++    val shown =
++        if (searching) Bb7Home.search(apps, query) else Bb7Home.panelApps(panel, apps, favoriteKeys)
++    val trayTitle = if (searching) "Search: $query" else panel.title
++
++    SableTheme(appearance = appearance) {
++        Bb10Theme(appearance) {
++            BoxWithConstraints(
++                modifier =
++                    Modifier
++                        .fillMaxSize()
++                        .windowInsetsPadding(WindowInsets.safeDrawing)
++                        .focusRequester(focus)
++                        .focusable()
++                        .onPreviewKeyEvent { event ->
++                            if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
++                            val native = event.nativeKeyEvent
++                            val columns = keyColumns
++                            val visible = if (open || searching) shown.size else minOf(shown.size, columns)
++                            when {
++                                native.keyCode == KeyEvent.KEYCODE_DPAD_LEFT && native.isAltPressed -> {
++                                    panel = Bb7Home.step(panel, -1)
++                                    selected = 0
++                                }
++                                native.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && native.isAltPressed -> {
++                                    panel = Bb7Home.step(panel, 1)
++                                    selected = 0
++                                }
++                                native.keyCode == KeyEvent.KEYCODE_DPAD_LEFT ->
++                                    selected = Bb7Home.move(selected, visible, columns, -1, 0)
++                                native.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT ->
++                                    selected = Bb7Home.move(selected, visible, columns, 1, 0)
++                                native.keyCode == KeyEvent.KEYCODE_DPAD_UP ->
++                                    if (open || searching) {
++                                        selected = Bb7Home.move(selected, visible, columns, 0, -1)
++                                    } else {
++                                        open = true
++                                    }
++                                native.keyCode == KeyEvent.KEYCODE_DPAD_DOWN ->
++                                    if (open && selected + columns >= visible) {
++                                        open = false
++                                        selected = selected.coerceAtMost(columns - 1)
++                                    } else {
++                                        selected = Bb7Home.move(selected, visible, columns, 0, 1)
++                                    }
++                                native.keyCode == KeyEvent.KEYCODE_ENTER ||
++                                    native.keyCode == KeyEvent.KEYCODE_DPAD_CENTER ->
++                                    shown.getOrNull(selected)?.let { onLaunchApp(it) }
++                                native.keyCode == KeyEvent.KEYCODE_SPACE && !searching -> {
++                                    panel = Bb7Home.step(panel, 1)
++                                    selected = 0
++                                }
++                                native.keyCode == KeyEvent.KEYCODE_DEL && searching -> {
++                                    query = query.dropLast(1)
++                                    selected = 0
++                                }
++                                native.keyCode == KeyEvent.KEYCODE_ESCAPE || native.keyCode == KeyEvent.KEYCODE_BACK ->
++                                    if (searching || open) {
++                                        query = ""
++                                        open = false
++                                        selected = 0
++                                    } else {
++                                        return@onPreviewKeyEvent false
++                                    }
++                                native.keyCode == KeyEvent.KEYCODE_MENU -> onOpenMenu()
++                                else -> {
++                                    val ch = native.unicodeChar.takeIf { it > 0 }?.toChar()
++                                    if (ch == null || !(ch.isLetterOrDigit() || (ch == ' ' && searching))) {
++                                        return@onPreviewKeyEvent false
++                                    }
++                                    query += ch
++                                    selected = 0
++                                }
++                            }
++                            true
++                        },
++            ) {
++                val columns = Bb7Home.columns(maxWidth.value.toInt())
++                SideEffect { keyColumns = columns }
++                Column(modifier = Modifier.fillMaxSize()) {
++                    Bb7Banner(
++                        timeText = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(now)),
++                        dateText = DateFormat.getDateInstance(DateFormat.FULL).format(Date(now)),
++                        weatherLine =
++                            live.weather.takeIf { it.availability == LiveAvailability.LIVE }
++                                ?.let { HomeHeader.weather(it.detail) }
++                                ?.let { HomeHeader.weatherIcon(it.first) + " " + it.first }
++                                ?: HomeHeader.weatherFallback(live.weather.availability),
++                        unread = live.hubApps.sumOf { it.count },
++                        compact = open || searching,
++                        onOpenHub = onOpenHub,
++                    )
++                    if (!open && !searching) Spacer(Modifier.weight(1f))
++                    Bb7Tray(
++                        title = trayTitle,
++                        apps = if (open || searching) shown else shown.take(columns),
++                        columns = columns,
++                        open = open || searching,
++                        selected = selected,
++                        modifier = if (open || searching) Modifier.weight(1f) else Modifier,
++                        onToggle = {
++                            open = !open
++                            query = ""
++                        },
++                        onStep = { step ->
++                            query = ""
++                            panel = Bb7Home.step(panel, step)
++                            selected = 0
++                        },
++                        onLaunch = { onLaunchApp(it) },
++                        onInfo = onOpenAppInfo,
++                    )
++                }
++            }
++        }
++    }
++    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
++}
++
++/** Clock, date, weather and the Hub unread count, on a scrim so they read over any wallpaper. */
++@Composable
++private fun Bb7Banner(
++    timeText: String,
++    dateText: String,
++    weatherLine: String,
++    unread: Int,
++    compact: Boolean,
++    onOpenHub: () -> Unit,
++) {
++    Row(
++        modifier =
++            Modifier
++                .fillMaxWidth()
++                .background(BANNER_SCRIM)
++                .padding(horizontal = 12.dp, vertical = if (compact) 4.dp else 10.dp),
++        verticalAlignment = Alignment.CenterVertically,
++    ) {
++        Column(modifier = Modifier.weight(1f)) {
++            Text(
++                text = timeText,
++                color = Color.White,
++                fontSize = if (compact) 22.sp else 44.sp,
++                fontWeight = FontWeight.Light,
++                maxLines = 1,
++            )
++            if (!compact) {
++                Text(text = dateText, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
++                Text(
++                    text = weatherLine,
++                    color = BANNER_MUTED,
++                    style = MaterialTheme.typography.bodyMedium,
++                    maxLines = 1,
++                    overflow = TextOverflow.Ellipsis,
++                )
++            }
++        }
++        if (unread > 0) {
++            Text(
++                text = "✉ $unread",
++                color = Color.White,
++                style = MaterialTheme.typography.titleMedium,
++                modifier =
++                    Modifier
++                        .clip(RoundedCornerShape(8.dp))
++                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.85f))
++                        .clickable(onClick = onOpenHub)
++                        .padding(horizontal = 10.dp, vertical = 4.dp),
++            )
++        }
++    }
++}
++
++/**
++ * The tray: its panel name between arrows, then one row of apps (closed) or the whole panel
++ * (open). Tapping the name opens or closes it; the arrows switch panels.
++ */
++@OptIn(ExperimentalFoundationApi::class)
++@Composable
++private fun Bb7Tray(
++    title: String,
++    apps: List<AppEntry>,
++    columns: Int,
++    open: Boolean,
++    selected: Int,
++    modifier: Modifier,
++    onToggle: () -> Unit,
++    onStep: (Int) -> Unit,
++    onLaunch: (AppEntry) -> Unit,
++    onInfo: (AppEntry) -> Unit,
++) {
++    val grid = rememberLazyGridState()
++    LaunchedEffect(selected, open) {
++        if (open && selected in apps.indices) grid.animateScrollToItem(selected)
++    }
++    Column(
++        modifier =
++            modifier
++                .fillMaxWidth()
++                .background(TRAY_SCRIM)
++                .padding(bottom = 6.dp),
++    ) {
++        Row(
++            modifier = Modifier.fillMaxWidth().height(32.dp),
++            verticalAlignment = Alignment.CenterVertically,
++        ) {
++            TrayArrow("‹") { onStep(-1) }
++            Text(
++                text = title + if (open) "  ▾" else "  ▴",
++                color = Color.White,
++                style = MaterialTheme.typography.labelLarge,
++                textAlign = TextAlign.Center,
++                maxLines = 1,
++                overflow = TextOverflow.Ellipsis,
++                modifier = Modifier.weight(1f).clickable(onClick = onToggle),
++            )
++            TrayArrow("›") { onStep(1) }
++        }
++        if (apps.isEmpty()) {
++            Text(
++                text = "No apps here",
++                color = BANNER_MUTED,
++                style = MaterialTheme.typography.bodyMedium,
++                modifier = Modifier.fillMaxWidth().padding(12.dp),
++                textAlign = TextAlign.Center,
++            )
++            return@Column
++        }
++        LazyVerticalGrid(
++            columns = GridCells.Fixed(columns),
++            state = grid,
++            userScrollEnabled = open,
++            modifier = if (open) Modifier.weight(1f) else Modifier,
++            horizontalArrangement = Arrangement.spacedBy(2.dp),
++            verticalArrangement = Arrangement.spacedBy(4.dp),
++        ) {
++            itemsIndexed(apps, key = { _, app -> app.component.flattenToString() + app.user.hashCode() }) { index, app ->
++                val isSelected = index == selected
++                Column(
++                    modifier =
++                        Modifier
++                            .clip(RoundedCornerShape(8.dp))
++                            .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.35f) else Color.Transparent)
++                            .border(
++                                if (isSelected) 2.dp else 0.dp,
++                                if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
++                                RoundedCornerShape(8.dp),
++                            )
++                            .combinedClickable(onClick = { onLaunch(app) }, onLongClick = { onInfo(app) })
++                            .padding(vertical = 4.dp),
++                    horizontalAlignment = Alignment.CenterHorizontally,
++                ) {
++                    AppMark(app = app, size = ICON_DP)
++                    Spacer(Modifier.height(2.dp))
++                    Text(
++                        text = app.label,
++                        color = Color.White,
++                        fontSize = 11.sp,
++                        maxLines = 1,
++                        overflow = TextOverflow.Ellipsis,
++                        textAlign = TextAlign.Center,
++                        modifier = Modifier.padding(horizontal = 2.dp),
++                    )
++                }
++            }
++        }
++    }
++}
++
++@Composable
++private fun TrayArrow(
++    mark: String,
++    onClick: () -> Unit,
++) {
++    Box(
++        modifier = Modifier.width(44.dp).height(32.dp).clickable(onClick = onClick),
++        contentAlignment = Alignment.Center,
++    ) {
++        Text(text = mark, color = Color.White, fontSize = 22.sp)
++    }
++}
++
++private const val CLOCK_TICK_MS = 60_000L
++private const val ICON_DP = 40
++private val BANNER_SCRIM = Color(0x99000000)
++private val TRAY_SCRIM = Color(0xCC0B0D10)
++private val BANNER_MUTED = Color(0xFFC9D1DA)
 diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
-index 7f814ea..6676eae 100644
+index 7f814ea..d952dde 100644
 --- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
 +++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+@@ -845,7 +845,7 @@ fun SableStartScreen(
+  * focus fill and rings are the accent ([startPalette]).
+  */
+ @Composable
+-private fun Bb10Theme(
++internal fun Bb10Theme(
+     appearance: SableAppearance,
+     content: @Composable () -> Unit,
+ ) {
 @@ -1208,7 +1208,7 @@ private fun WeatherDateHeader(
          datum.takeIf { it.availability == LiveAvailability.LIVE }?.let { HomeHeader.weather(it.detail) }
      val line =
@@ -655,6 +2208,167 @@ index 7f814ea..6676eae 100644
              weather.second.isBlank() -> HomeHeader.weatherIcon(weather.first) + " " + weather.first
              else -> HomeHeader.weatherIcon(weather.first) + " " + weather.first + " · " + weather.second
          }
+@@ -1315,7 +1315,11 @@ private fun appForFrame(
+     return samePackage.firstOrNull { it.user.hashCode() == frame.userId } ?: samePackage.firstOrNull()
+ }
+ 
+-/** One Active Frame: the live picture or summary, the app name along the bottom and a close mark. */
++/**
++ * One Active Frame: the app's live picture above a title strip (app mark, name, close), so the
++ * strip never covers the app. The picture is the full-resolution snapshot, scaled to the card's
++ * width from the top. Focus is an accent outline and an accent strip.
++ */
+ @Composable
+ private fun FrameCard(
+     frame: ActiveFrame,
+@@ -1333,14 +1337,14 @@ private fun FrameCard(
+         produceState<Bitmap?>(initialValue = null, frame.taskId, framesGeneration) {
+             value = withContext(Dispatchers.IO) { runCatching { frameSnapshot(frame) }.getOrNull() }
+         }
+-    val shape = RoundedCornerShape(4.dp)
+-    Box(
++    val shape = RoundedCornerShape(FRAME_CORNER)
++    Column(
+         modifier =
+             modifier
+                 .onFocusChanged { focused = it.isFocused }
+                 .clip(shape)
+                 .background(Bb10Card)
+-                .border(if (focused) 3.dp else 1.dp, if (focused) Bb10Blue else Bb10Line, shape)
++                .border(if (focused) 2.dp else 1.dp, if (focused) Bb10Blue else Bb10Line, shape)
+                 .onPreviewKeyEvent { event ->
+                     val native = event.nativeKeyEvent
+                     if (!ActiveFrames.isCloseKey(native.keyCode, native.metaState)) return@onPreviewKeyEvent false
+@@ -1349,63 +1353,72 @@ private fun FrameCard(
+                 }.combinedClickable(onClick = onResume, onLongClick = onClose)
+                 .semantics { contentDescription = "$label, Active Frame. Enter resumes, X closes" },
+     ) {
+-        val bitmap = picture
+-        if (bitmap != null) {
+-            Image(
+-                bitmap = bitmap.asImageBitmap(),
+-                contentDescription = null,
+-                modifier = Modifier.fillMaxSize(),
+-                contentScale = ContentScale.Crop,
+-                alignment = Alignment.TopCenter,
+-            )
+-        } else {
+-            Column(
+-                modifier = Modifier.fillMaxSize().padding(bottom = FRAME_LABEL_HEIGHT),
+-                horizontalAlignment = Alignment.CenterHorizontally,
+-                verticalArrangement = Arrangement.Center,
+-            ) {
+-                if (app != null) AppMark(app = app, size = FRAME_ICON_DP)
+-                Spacer(Modifier.height(6.dp))
+-                Text(
+-                    text =
+-                        live?.takeIf { it.availability == LiveAvailability.LIVE }?.detail
+-                            ?: if (frame.running) "running" else "Enter opens",
+-                    style = MaterialTheme.typography.bodyMedium,
+-                    color = Bb10Muted,
+-                    maxLines = 2,
+-                    overflow = TextOverflow.Ellipsis,
+-                    modifier = Modifier.padding(horizontal = 8.dp),
++        Box(modifier = Modifier.weight(1f).fillMaxWidth().background(Bb10Background)) {
++            val bitmap = picture
++            if (bitmap != null) {
++                Image(
++                    bitmap = bitmap.asImageBitmap(),
++                    contentDescription = null,
++                    modifier = Modifier.fillMaxSize(),
++                    contentScale = ContentScale.FillWidth,
++                    alignment = Alignment.TopCenter,
+                 )
++            } else {
++                Column(
++                    modifier = Modifier.fillMaxSize(),
++                    horizontalAlignment = Alignment.CenterHorizontally,
++                    verticalArrangement = Arrangement.Center,
++                ) {
++                    if (app != null) AppMark(app = app, size = FRAME_ICON_DP)
++                    Spacer(Modifier.height(6.dp))
++                    Text(
++                        text =
++                            live?.takeIf { it.availability == LiveAvailability.LIVE }?.detail
++                                ?: if (frame.running) "running" else "Enter opens",
++                        style = MaterialTheme.typography.bodyMedium,
++                        color = Bb10Muted,
++                        maxLines = 2,
++                        overflow = TextOverflow.Ellipsis,
++                        modifier = Modifier.padding(horizontal = 8.dp),
++                    )
++                }
+             }
+         }
+         Row(
+             modifier =
+                 Modifier
+-                    .align(Alignment.BottomCenter)
+                     .fillMaxWidth()
+                     .height(FRAME_LABEL_HEIGHT)
+-                    .background(if (focused) Bb10Blue else Color(0xE6000000))
+-                    .padding(start = 8.dp),
++                    .background(if (focused) Bb10Blue else Bb10BarTop)
++                    .padding(start = 6.dp),
+             verticalAlignment = Alignment.CenterVertically,
+         ) {
++            if (app != null) {
++                AppMark(app = app, size = FRAME_STRIP_ICON_DP)
++                Spacer(Modifier.width(6.dp))
++            }
+             Text(
+                 text = label,
+                 modifier = Modifier.weight(1f),
+                 style = MaterialTheme.typography.labelLarge,
+-                color = if (focused) Bb10OnBlue else Color.White,
++                color = if (focused) Bb10OnBlue else Bb10Text,
+                 maxLines = 1,
+                 overflow = TextOverflow.Ellipsis,
+             )
+-            Text(
+-                text = "×",
+-                fontSize = 20.sp,
+-                color = if (focused) Bb10OnBlue else Color.White,
++            Box(
+                 modifier =
+                     Modifier
++                        .size(FRAME_LABEL_HEIGHT)
+                         .clickable(onClick = onClose)
+-                        .semantics { contentDescription = "Close $label" }
+-                        .padding(horizontal = 10.dp),
+-            )
++                        .semantics { contentDescription = "Close $label" },
++                contentAlignment = Alignment.Center,
++            ) {
++                Text(
++                    text = "×",
++                    fontSize = 18.sp,
++                    color = if (focused) Bb10OnBlue else Bb10Muted,
++                )
++            }
+         }
+     }
+ }
+@@ -4509,7 +4522,7 @@ private fun CompactAppRow(
+  * Never a tile behind it.
+  */
+ @Composable
+-private fun AppMark(
++internal fun AppMark(
+     app: AppEntry,
+     size: Int,
+ ) {
+@@ -5252,7 +5265,9 @@ private val PrivacyBadgeWidth = 18.dp
+ // icon size, and the Active Frames card height, come from the window.
+ private val FRAME_PADDING = 6.dp
+ private val FRAME_GAP = 6.dp
+-private val FRAME_LABEL_HEIGHT = 26.dp
++private val FRAME_LABEL_HEIGHT = 28.dp
++private val FRAME_CORNER = 6.dp
++private const val FRAME_STRIP_ICON_DP = 18
+ 
+ /** Two rows of frames always fit under the dials and the weather on a 411dp square. */
+ private val FRAME_MIN_HEIGHT = 72.dp
 diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableComponents.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableComponents.kt
 index df8aedc..e759641 100644
 --- a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableComponents.kt

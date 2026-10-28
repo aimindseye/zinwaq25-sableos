@@ -100,7 +100,7 @@ class WeatherCityStepTest {
     @Test fun theRowNeverChangesReadinessWhileWeatherIsInstalled() {
         val items = rows(Observed.Failed)
         assertTrue(SetupModel.isReady(items))
-        assertEquals("3 of 3 confirmed", SetupModel.summary(items))
+        assertEquals("2 of 2 confirmed", SetupModel.summary(items))
     }
 
     @Test fun withoutWeatherTheRowOffersNoButton() {

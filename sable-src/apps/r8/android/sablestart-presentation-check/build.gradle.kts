@@ -50,6 +50,7 @@ val canonicalPresentationSources =
         "com/sable/start/model/AppEntry.kt",
         "com/sable/start/model/AppGlyphs.kt",
         "com/sable/start/model/Bb10Home.kt",
+        "com/sable/start/model/Bb7Home.kt",
         "com/sable/start/model/CommandQuery.kt",
         "com/sable/start/model/CoreAppIdentity.kt",
         "com/sable/start/model/HomeLayout.kt",
@@ -68,6 +69,7 @@ val canonicalPresentationSources =
         "com/sable/start/privacy/PrivacySnapshotCache.kt",
         "com/sable/start/privacy/PrivacySummaryPolicy.kt",
         "com/sable/start/ui/SableStartScreen.kt",
+        "com/sable/start/ui/Bb7HomeScreen.kt",
         "com/sable/start/ui/SableGlyphIcon.kt",
         "com/sable/start/ui/SableStatusRings.kt",
     )
