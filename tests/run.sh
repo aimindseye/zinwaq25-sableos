@@ -636,6 +636,15 @@ else led_missing="$led_missing file:LineageParts/0504"; fi
 grep -q 'name="config_notificationsBatteryFullARGB">0xFF00FF00<' "$led_ov" || led_missing="$led_missing overlay:full-green"
 if [[ -z "$led_missing" ]]; then pass "notification LED: red default, lit alerting channels, blinking charge light and green only at 100 % (frameworks/base 0501, lineage-sdk 0502/0504, LineageParts 0503/0504)"; else fail "notification LED:$led_missing"; fi
 
+# 6g2b. Pure black by default (Q4-ALPHA-PURE-BLACK): the Lineage provider writes
+# BERRY_BLACK_THEME=1 on first boot; SystemUI enables the black overlay from it.
+pb=(patches/framework/lineage-sdk/0150-*.patch)
+if [[ -f "${pb[0]}" ]] &&
+    grep -qF '+    <bool name="def_berry_black_theme">true</bool>' "${pb[0]}" &&
+    grep -qF '+            loadBooleanSetting(stmt, LineageSettings.Secure.BERRY_BLACK_THEME,' "${pb[0]}"; then
+    pass "pure black dark theme is the first-boot default (lineage-sdk 0150)"
+else fail "pure black default: lineage-sdk 0150 missing or changed"; fi
+
 # 6g3. Battery drain guards (Q4-POWER-IDLE): no Doze location prefetch, and
 # MediaTek's userdebug pr_debug switched back off from /product (after vendor).
 pw_missing=""

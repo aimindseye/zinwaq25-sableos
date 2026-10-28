@@ -153,7 +153,7 @@ Do these once after setup. The first group protects you; the second makes the Q2
 ### Using the Q25 efficiently
 
 - [ ] Pick a home style in Sable Setup (BlackBerry 10 or 7) and add your apps: Edit Home on BB10, Menu > Add to Favorites on BB7.
-- [ ] Keep the Dark theme: Start's pages, Hub and All Apps are pure black from PR #38, which suits the Q25.
+- [ ] Keep the Dark theme: from PR #38 a fresh install has Pure black on (Settings > Display > Dark theme), and Start's pages, Hub and All Apps are pure black too, which suits the Q25.
 - [ ] Set your Weather city in Sable Setup, so Start's header shows it.
 - [ ] Assign speed dial letters in Phone > Menu > Speed dial, then hold a letter on the home screen to call.
 - [ ] Add your own AutoText shortcuts (Keyboard settings > AutoText entries), such as `addr` for your address.
