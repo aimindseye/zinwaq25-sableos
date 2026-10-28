@@ -40,6 +40,19 @@ def reject_text(path: pathlib.Path, needle: str, marker: str) -> None:
         fail(marker, f"path={path} forbidden={needle!r}")
 
 
+def check_oauth_factory(oauth: pathlib.Path) -> None:
+    """No OAuth providers, or only the owner's own Gmail client with the Sable redirect."""
+    text = oauth.read_text(encoding="utf-8")
+    if "clientId =" not in text:
+        require_text(oauth, "emptyMap()", "SABLE_MAIL_OAUTH_DISABLED")
+        return
+    if text.count("clientId =") != 1 or "imap.gmail.com" not in text:
+        fail("SABLE_MAIL_OAUTH_PROVIDERS", f"{oauth}: only the Gmail owner client is allowed")
+    require_text(oauth, '"${BuildConfig.APPLICATION_ID}:/oauth2redirect"', "SABLE_MAIL_OAUTH_REDIRECT")
+    for inherited in INHERITED_CLIENT_FRAGMENTS:
+        reject_text(oauth, inherited, "SABLE_MAIL_INHERITED_OAUTH_CLIENT")
+
+
 def main() -> None:
     if len(sys.argv) not in (2, 3):
         fail("SABLE_MAIL_VERIFY_USAGE", "verify_sable_mail.py <root> [apk]")
@@ -355,16 +368,7 @@ def verify_product_sources(root: pathlib.Path, app: pathlib.Path) -> None:
             / f"src/{variant}/kotlin/net/thunderbird/android/auth/"
             "TbOAuthConfigurationFactory.kt"
         )
-        text = oauth.read_text(encoding="utf-8")
-        if "clientId =" not in text:
-            require_text(oauth, "emptyMap()", "SABLE_MAIL_OAUTH_DISABLED")
-            continue
-        # The owner's own Gmail client only: one provider, the Sable redirect, no upstream ids.
-        if text.count("clientId =") != 1 or "imap.gmail.com" not in text:
-            fail("SABLE_MAIL_OAUTH_PROVIDERS", f"{oauth}: only the Gmail owner client is allowed")
-        require_text(oauth, '"${BuildConfig.APPLICATION_ID}:/oauth2redirect"', "SABLE_MAIL_OAUTH_REDIRECT")
-        for inherited in INHERITED_CLIENT_FRAGMENTS:
-            reject_text(oauth, inherited, "SABLE_MAIL_INHERITED_OAUTH_CLIENT")
+        check_oauth_factory(oauth)
     print("SABLE_MAIL_INHERITED_OAUTH_CLIENTS=PASS_ABSENT")
 
     appearance = (
