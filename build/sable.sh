@@ -34,6 +34,10 @@ functions:
                               releases revert them
   build                       lunch + m bacon
   artifacts                   collect and hash build outputs
+  release [--tag T] [--publish]
+                              zip the collected build with flashing steps and
+                              release notes as a GitHub pre-release
+                              (docs/FLASHING_RELEASE.md, releases/)
   ci                          static repository checks
 
 example:
@@ -79,6 +83,7 @@ case "$FUNCTION" in
         exec bash "$ROOT/scripts/build.sh" "$RELEASE" "$@"
         ;;
     artifacts) exec bash "$ROOT/scripts/collect-artifacts.sh" "$RELEASE" "$@" ;;
+    release)   exec bash "$ROOT/scripts/make-release.sh" "$RELEASE" "$@" ;;
     ci)        exec bash "$ROOT/tests/run.sh" "$@" ;;
     flash)
         echo "SABLE_FLASH=BLOCKED_UNQUALIFIED device=q25: flashing is manual, see docs/INSTALL.md" >&2

@@ -150,6 +150,25 @@ pinned-manifest.xml  apps-manifest.tsv  BUILD_INFO.txt  SHA256SUMS.txt
 
 Keep the whole directory for anything you flash.
 
+### Publish a release
+
+`release` packs the newest collected build into one zip with the images, the install
+package, `SHA256SUMS.txt`, `FLASHING.md` ([`FLASHING_RELEASE.md`](FLASHING_RELEASE.md)) and
+`RELEASE_NOTES.md`, and publishes it as a GitHub pre-release:
+
+```bash
+bash build/sable.sh q25 Q4 artifacts
+bash build/sable.sh q25 Q4 release --tag alpha-20261029             # build the zip, print the gh command
+bash build/sable.sh q25 Q4 release --tag alpha-20261029 --publish   # needs gh auth login
+```
+
+The notes start with `releases/<tag>.md`, or `releases/ALPHA_NOTES.md` when there is none,
+then add the zip's SHA-256, the source commit and the commits since the previous tag. The tag
+is created on the commit the build was made from, so that commit must be pushed. GitHub limits
+a release file to 2 GiB; a bigger zip leaves the install package out and uploads it beside it.
+Boot the image on a Q25 before publishing and add `--boot-tested`; without it the notes say
+`Booted on a Q25 before upload: NO`.
+
 ## 6. Manual equivalent
 
 What the scripts do, for reference:
