@@ -52,6 +52,12 @@ Sable Notes follows the Notes part of platform_sable `docs/design/UTILITIES_NOTE
 
 One difference from the contract: the Q25 has no Ctrl or Esc key, so the contract's Ctrl+N/S/F/Enter and Esc become C in the list, the Menu key's lettered menu, Alt+Enter and Back on the Q25. The Ctrl chords still work on keyboards that have them. Locked-note and private-mode redaction are not built, because Notes has no lock-screen surface or widget yet.
 
+## Sable Terminal, not yet on a device
+
+- **Keyboard first on a keyboard without Ctrl or Esc.** Menu is a sticky Ctrl and Menu then Back is Esc, with the same lock cycle as the on-screen Ctrl; plain Back keeps its Back meaning.
+- **Upstream unchanged elsewhere.** ConnectBot's screens, settings and translations are kept, so it does not yet follow the Sable list keys (T/B/Space) or the pure black theme.
+- **Local first.** Keys and host settings stay in app storage and backup is off.
+
 ## Sable Keyboard clipboard history, not yet on a device
 
 - **Off by default.** Persistent keyboard clipboard history must not be on by default, so it is a Keyboard settings switch; turning it off forgets every entry.

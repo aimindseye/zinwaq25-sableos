@@ -69,3 +69,4 @@ SableMessages	common	apps/r8/android	:messages:assembleRelease	messages/build/ou
 SableReader	common	apps/common/reader	:leisure:assembleSableDebug	leisure/build/outputs/apk/sable/debug/*.apk	org.sableos.reader	presigned	-	yes
 SableMail	common	flavor:mail	:app-thunderbird:assembleFossRelease -Pci=true	app-thunderbird/build/outputs/apk/foss/release/*.apk	org.sableos.mail	unsigned	-	yes
 SableTextReader	common	flavor:textreader	:app:assembleDebug	app/build/outputs/apk/debug/SableTextReader-*.apk	org.sableos.textreader	presigned	-	yes
+SableTerminal	common	flavor:connectbot	:app:assembleOssRelease	app/build/outputs/apk/oss/release/*.apk	org.sableos.terminal	unsigned	-	yes

@@ -66,6 +66,23 @@ Notes are plain text with a four-line header, so an export is the text itself.
 Nothing leaves the app except through the share sheet or the file picker, and
 the manifest asks for no permissions.
 
+## Sable Terminal
+
+Sable Terminal is a `flavor:connectbot` row: the build fetches ConnectBot
+v1.10.9 (`sable-src/apps/r8/connectbot/upstream.env`, Apache-2.0) into the
+upstream cache and `apply_sable_flavor.py` changes only what the Q25 needs:
+
+```text
+ ConnectBot 1.10.9 (SSH, Telnet, local shell, termlib terminal, on-screen Ctrl/Esc/Tab row)
+   + package org.sableos.terminal, "Sable Terminal", Sable icon, fixed version, arm64 only, no backup
+   + org.connectbot.sable.SableTerminalKeys hooked into ConsoleScreen's key shortcuts:
+       Menu = sticky Ctrl (TerminalKeyListener.metaPress), Back with Ctrl on = Esc
+   - the :translations tool module (the translated strings themselves stay)
+```
+
+v1.11 is not used because its mosh feature downloads binaries at run time.
+`verify_sable_terminal.py` checks the composed checkout before every build.
+
 ## Clipboard history in Sable Keyboard
 
 Only the default keyboard (or the app in front) may read the clipboard, so

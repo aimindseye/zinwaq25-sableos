@@ -39,4 +39,6 @@ squares-four (Blocks), circle-half (Reversi), cards (Solitaire), stack (Mahjong)
 
 Added for Sable Notes (`origin=NEW_TITAN_GLYPH_PHOSPHOR_REGULAR`): notepad.
 
+Added for Sable Terminal (`origin=NEW_TITAN_GLYPH_PHOSPHOR_REGULAR`): terminal-window.
+
 SableScreens is a prototype and has no product icon.

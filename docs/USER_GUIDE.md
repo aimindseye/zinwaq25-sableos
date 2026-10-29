@@ -90,6 +90,7 @@ Every Sable app follows the Dark theme and your Sable accent, and has single-key
 | Mail | Email; Gmail sign-in is covered in [MAIL_GMAIL_SIGNIN.md](MAIL_GMAIL_SIGNIN.md) | B to bottom |
 | Calendar | Week view with a NOW line | C, T, V, J, K, R |
 | Notes | Notes and checklists with colour labels, kept on the phone | See [Notes](#notes) below; C new, S find, K tasks |
+| Terminal | SSH, Telnet and a local shell (ConnectBot) | See [Terminal](#terminal) below; Menu is Ctrl |
 | Weather | Forecast for your city, refreshed in the background | Feeds Start's header |
 | Camera | Sable Camera for stills; video uses Aperture | Tap the viewfinder for touch controls |
 | Media | Music, photos, FM radio | E shares |
@@ -140,6 +141,21 @@ The first line of a note is its title. The list shows the latest-edited note fir
 | Note | Back | Saves and goes back to the list. A note left empty is not kept |
 
 Notes save themselves as you type. On a keyboard with Ctrl, Ctrl+S, Ctrl+F, Ctrl+G, Ctrl+T, Ctrl+L, Ctrl+E and Ctrl+Enter do the same as the menu letters, and Esc goes back. A checklist item is a line that starts with `- [ ] `, or `- [x] ` once it's done, so an exported note reads the same in any text editor.
+
+### Terminal
+
+Sable Terminal is ConnectBot 1.10.9 with the Sable name and icon. It connects over SSH or Telnet, or opens a shell on the phone itself (choose Local when adding a host). Hosts and SSH keys stay on the phone, and backup is off.
+
+The Q25 has no Ctrl or Esc key, so in a session:
+
+| Key | What it does |
+| --- | --- |
+| Menu (the BlackBerry key) | Ctrl for the next key: Menu then C sends Ctrl+C. Press it twice to keep Ctrl on, three times to turn it off |
+| Menu then Back | Esc (for vi and other full-screen programs); plain Back still leaves the session |
+| Trackpad | Arrow keys |
+| Alt + letter | The digit or symbol printed on the key |
+
+The row of keys at the bottom of the screen also has Ctrl, Esc, Tab and the arrows for touch. Sable Keyboard's clipboard history (Alt+Shift+V) pastes into a session if you turned it on.
 
 ### Comics and audiobooks
 

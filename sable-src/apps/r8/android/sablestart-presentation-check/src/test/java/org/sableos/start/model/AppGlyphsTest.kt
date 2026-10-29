@@ -39,6 +39,7 @@ class AppGlyphsTest {
                 "org.sableos.mail",
                 "org.sableos.textreader",
                 "org.sableos.notes",
+                "org.sableos.terminal",
             )
         sable.forEach { assertTrue(it, AppGlyphs.forPackage(it) != null) }
     }

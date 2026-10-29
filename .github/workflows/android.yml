@@ -78,6 +78,10 @@ jobs:
             root: flavor:textreader
             java: '17'
             extra: testDebugUnitTest lintDebug
+          - name: terminal
+            root: flavor:connectbot
+            java: '21'
+            extra: ":app:testOssDebugUnitTest --tests org.connectbot.sable.* :app:lintOssRelease"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:

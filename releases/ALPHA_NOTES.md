@@ -24,6 +24,8 @@ driven without touching the screen.
   Alt+Shift and press V to paste one of your last 20 copies. It stays in
   memory only, skips copies apps mark as sensitive and never opens on the lock
   screen.
+- **Sable Terminal** (ConnectBot) for SSH, Telnet and a local shell. The Q25
+  has no Ctrl or Esc, so the Menu key is Ctrl and Menu then Back is Esc.
 - **Sable Reader** for books (EPUB), PDF, comics (CBZ or image folders, with
   manga and webtoon modes) and audiobooks (MP3, M4A/M4B, folders), each kind
   on its own tab. Audiobooks keep playing with the screen off; Space plays,

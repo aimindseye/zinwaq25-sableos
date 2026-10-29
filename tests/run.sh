@@ -947,6 +947,18 @@ grep -qi 'SharedPreferences\|openFileOutput\|filesDir' "$kb/core/ClipboardHistor
 grep -q 'uses-permission' sable-src/apps/titan2/platform/keyboard/src/main/AndroidManifest.xml && clip_bad="$clip_bad permission"
 if [[ -z "$clip_bad" ]]; then pass "Sable Keyboard clipboard history: opt-in, memory only, skips sensitive copies, not on the lock screen"; else fail "clipboard history:$clip_bad"; fi
 
+# 18. Sable Terminal (sable-src 0084): ConnectBot v1.10.9 flavor (no mosh), Menu = Ctrl, CI, Start glyph.
+cb=sable-src/apps/r8/connectbot
+term_bad=""
+grep -qP '^SableTerminal\tcommon\tflavor:connectbot\t:app:assembleOssRelease\tapp/build/outputs/apk/oss/release/\*\.apk\torg\.sableos\.terminal\tunsigned\t-\tyes$' product/q25/apps.tsv || term_bad="$term_bad apps.tsv"
+grep -qx 'CONNECTBOT_COMMIT=21ce6f47cf16785bf2314b4ea931900164c179c1' "$cb/upstream.env" || term_bad="$term_bad pin"
+grep -q 'EXPECTED_COMMIT = "21ce6f47cf16785bf2314b4ea931900164c179c1"' "$cb/apply_sable_flavor.py" "$cb/verify_sable_terminal.py" || term_bad="$term_bad script-pin"
+grep -q 'KEYCODE_MENU -> if (down && repeat == 0) SableTerminalKey.Ctrl' "$cb/src/main/kotlin/org/connectbot/sable/SableTerminalKeys.kt" || term_bad="$term_bad menu-ctrl"
+[[ -f "$cb/res/mipmap-anydpi-v26/ic_sable_terminal.xml" ]] || term_bad="$term_bad icon"
+grep -q '"org.sableos.terminal" to AppGlyph.TERMINAL' sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/AppGlyphs.kt || term_bad="$term_bad start-glyph"
+grep -q 'root: flavor:connectbot' .github/workflows/android.yml || term_bad="$term_bad ci"
+if [[ -z "$term_bad" ]]; then pass "Sable Terminal: pinned ConnectBot 1.10.9 flavor, Menu is Ctrl, Start glyph, CI"; else fail "terminal:$term_bad"; fi
+
 echo
 if ((fails)); then echo "CI=FAIL ($fails)"; exit 1; fi
 echo "CI=PASS"
