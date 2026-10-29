@@ -99,7 +99,9 @@ data class StripInputs(
     val candidates: List<Cand>,
     val variation: VariationInfo?,
     val layout: KeyLayout,
-    val nowMs: Long
+    val nowMs: Long,
+    /** Chips of the open clipboard history picker ([ClipPicker.chips]), or null when it is closed. */
+    val clips: List<String>? = null
 )
 
 sealed interface StripContent {
@@ -108,6 +110,9 @@ sealed interface StripContent {
     data class Variation(val base: Char, val options: List<String>, val selected: Int) :
         StripContent
     data class Symbols(val source: String, val items: List<String>) : StripContent
+
+    /** The clipboard history picker: chip 0 is the position, chip 1 the selected entry. */
+    data class Clips(val chips: List<String>) : StripContent
 }
 
 data class StripModel(
@@ -136,6 +141,9 @@ object CompactStrip {
     fun mode(i: StripInputs): StripMode = when {
         i.field == InputClass.None -> StripMode.Hidden
 
+        // The picker shows even where the strip is off (the Q25 default), as candidates do.
+        i.clips != null -> StripMode.CandidatesOnly
+
         i.softKeyboardShown || !i.enabled ->
             if (i.candidates.isEmpty()) StripMode.Hidden else StripMode.CandidatesOnly
 
@@ -145,7 +153,11 @@ object CompactStrip {
     fun build(i: StripInputs): StripModel {
         val mode = mode(i)
         if (mode == StripMode.Hidden) return HIDDEN
-        val content = if (mode == StripMode.Compact) compactContent(i) else candidatesOf(i)
+        val content = when {
+            i.clips != null -> StripContent.Clips(i.clips)
+            mode == StripMode.Compact -> compactContent(i)
+            else -> candidatesOf(i)
+        }
         return StripModel(
             mode,
             languageChip(i.language),

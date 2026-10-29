@@ -11,6 +11,8 @@ import android.view.inputmethod.InputMethodSubtype
 import android.widget.Toast
 import org.sableos.titan2.keyboard.R
 import org.sableos.titan2.keyboard.core.AutoText
+import org.sableos.titan2.keyboard.core.ClipAction
+import org.sableos.titan2.keyboard.core.ClipPicker
 import org.sableos.titan2.keyboard.core.CompactStrip
 import org.sableos.titan2.keyboard.core.Composer
 import org.sableos.titan2.keyboard.core.Composers
@@ -63,12 +65,19 @@ class SableImeService : InputMethodService() {
                 cfg = prefs.load()
             )
         resolver.autoTextVar = autoTextVar(this)
+        ClipboardWatcher.start(this) { prefs.getBool(CLIP_HISTORY, false) }
+    }
+
+    override fun onDestroy() {
+        ClipboardWatcher.stop()
+        super.onDestroy()
     }
 
     override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
         resolver.cfg = prefs.load()
         resolver.autoText = AutoText(prefs.autoTextEntries)
+        if (!prefs.getBool(CLIP_HISTORY, false)) ClipboardWatcher.history.clear()
         if (!restarting) {
             resolver.mods.reset()
             handledDown.clear()
@@ -130,7 +139,8 @@ class SableImeService : InputMethodService() {
             resolver.mods.consumeOneShots()
             commitOut(s)
             refreshStrip()
-        }
+        },
+        { chip -> clipSelected?.let { ClipPicker.entryForChip(chip, it) }?.let(::pasteClip) }
     ).also {
         strip = it
         refreshStrip()
@@ -222,7 +232,8 @@ class SableImeService : InputMethodService() {
         candidates = composer?.candidates ?: emptyList(),
         variation = resolver.variation(),
         layout = resolver.layout,
-        nowMs = android.os.SystemClock.uptimeMillis()
+        nowMs = android.os.SystemClock.uptimeMillis(),
+        clips = clipSelected?.let { ClipPicker.chips(ClipboardWatcher.history.entries, it) }
     )
 
     private fun dropComposition() {
@@ -258,6 +269,7 @@ class SableImeService : InputMethodService() {
 
     override fun onFinishInput() {
         super.onFinishInput()
+        clipSelected = null
         fieldClass = InputClass.None
         resolver.clearVariation()
         dropComposition()
@@ -350,9 +362,72 @@ class SableImeService : InputMethodService() {
         return handled || super.onKeyDown(keyCode, event)
     }
 
-    /** Candidate picks (Ctrl+1/2/3, Ctrl+W/E/R) and Enter-to-send; true when the key was handled here. */
-    private fun handleShortcut(keyCode: Int, event: KeyEvent): Boolean =
-        pickCandidate(keyCode, event) || sendWithEnter(keyCode, event)
+    /** History picker keys, candidate picks (Ctrl+1/2/3, Ctrl+W/E/R), Enter-to-send, Alt+Shift+V. */
+    private fun handleShortcut(keyCode: Int, event: KeyEvent): Boolean = clipKey(keyCode, event) ||
+        pickCandidate(keyCode, event) ||
+        sendWithEnter(keyCode, event) ||
+        openClips(keyCode, event)
+
+    // ---- clipboard history picker: null while closed, else the selected entry
+    private var clipSelected: Int? = null
+
+    private fun openClips(keyCode: Int, event: KeyEvent): Boolean {
+        val opens = event.repeatCount == 0 && ClipPicker.opens(
+            keyCode,
+            event.isAltPressed,
+            event.isShiftPressed,
+            event.isCtrlPressed || event.isMetaPressed
+        )
+        if (!opens) return false
+        // The held Alt and Shift were a chord: their release must not leave a one-shot.
+        resolver.mods.markChordUse()
+        when {
+            !prefs.getBool(CLIP_HISTORY, false) ->
+                toast("Turn on clipboard history in Sable Keyboard settings")
+
+            getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true ->
+                toast("Unlock to use clipboard history")
+
+            else -> clipSelected = 0
+        }
+        return true
+    }
+
+    /** A key while the picker is open; false when the picker is closed or the key should type as usual. */
+    private fun clipKey(keyCode: Int, event: KeyEvent): Boolean {
+        val selected = clipSelected ?: return false
+        val history = ClipboardWatcher.history
+        val count = history.entries.size
+        val action = ClipPicker.action(keyCode, event.isShiftPressed)
+        when (action) {
+            ClipAction.Next -> clipSelected = ClipPicker.move(selected, 1, count)
+
+            ClipAction.Previous -> clipSelected = ClipPicker.move(selected, -1, count)
+
+            ClipAction.Paste -> pasteClip(selected)
+
+            ClipAction.Remove -> {
+                history.remove(selected)
+                clipSelected = selected.coerceAtMost((count - 2).coerceAtLeast(0))
+            }
+
+            ClipAction.Close, ClipAction.CloseAndPass -> clipSelected = null
+
+            ClipAction.Ignore -> Unit
+        }
+        if (action == ClipAction.CloseAndPass) refreshStrip()
+        return action != ClipAction.Ignore && action != ClipAction.CloseAndPass
+    }
+
+    private fun pasteClip(index: Int) {
+        val text = ClipboardWatcher.history.entries.getOrNull(index)
+        clipSelected = null
+        if (text != null) {
+            composer?.let { applyComposition(it.flush()) }
+            currentInputConnection?.commitText(text, 1)
+        }
+        refreshStrip()
+    }
 
     private fun pickCandidate(keyCode: Int, event: KeyEvent): Boolean {
         val comp = composer

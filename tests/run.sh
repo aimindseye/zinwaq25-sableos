@@ -936,6 +936,17 @@ grep -q '"org.sableos.notes" to AppGlyph.NOTES' sable-src/src/android/packages/a
 grep -q ':notes:testDebugUnitTest' .github/workflows/android.yml || notes_bad="$notes_bad ci"
 if [[ -z "$notes_bad" ]]; then pass "Sable Notes: shipped, no permissions, Menu-key editor, Start glyph, CI"; else fail "notes:$notes_bad"; fi
 
+# 17. Clipboard history in Sable Keyboard (sable-src 0083): off by default, memory only, no sensitive clips.
+kb=sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard
+clip_bad=""
+grep -q 'prefs.getBool(CLIP_HISTORY, false)' "$kb/android/SableImeService.kt" || clip_bad="$clip_bad default-off"
+grep -q 'isChecked = prefs.getBool(CLIP_HISTORY, false)' "$kb/android/KeyboardSettingsActivity.kt" || clip_bad="$clip_bad settings-default"
+grep -q 'EXTRA_IS_SENSITIVE' "$kb/android/ClipboardWatcher.kt" || clip_bad="$clip_bad sensitive"
+grep -q 'isKeyguardLocked' "$kb/android/SableImeService.kt" || clip_bad="$clip_bad keyguard"
+grep -qi 'SharedPreferences\|openFileOutput\|filesDir' "$kb/core/ClipboardHistory.kt" "$kb/android/ClipboardWatcher.kt" && clip_bad="$clip_bad persisted"
+grep -q 'uses-permission' sable-src/apps/titan2/platform/keyboard/src/main/AndroidManifest.xml && clip_bad="$clip_bad permission"
+if [[ -z "$clip_bad" ]]; then pass "Sable Keyboard clipboard history: opt-in, memory only, skips sensitive copies, not on the lock screen"; else fail "clipboard history:$clip_bad"; fi
+
 echo
 if ((fails)); then echo "CI=FAIL ($fails)"; exit 1; fi
 echo "CI=PASS"

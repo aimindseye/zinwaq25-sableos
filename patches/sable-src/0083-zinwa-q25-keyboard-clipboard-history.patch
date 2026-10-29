@@ -1,0 +1,568 @@
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/ClipboardWatcher.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/ClipboardWatcher.kt
+new file mode 100644
+index 0000000..dc76d7f
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/ClipboardWatcher.kt
+@@ -0,0 +1,44 @@
++package org.sableos.titan2.keyboard.android
++
++import android.content.ClipDescription
++import android.content.ClipboardManager
++import android.content.Context
++import org.sableos.titan2.keyboard.core.ClipboardHistory
++
++/**
++ * Records copies into the in-memory [ClipboardHistory] while the keyboard runs and the user has
++ * turned history on. Only the default keyboard may read the clipboard in the background, which is
++ * why history lives here. One history per process, so Settings can clear what the service holds.
++ */
++object ClipboardWatcher {
++    val history = ClipboardHistory()
++
++    private var manager: ClipboardManager? = null
++    private var isEnabled: () -> Boolean = { false }
++    private val listener = ClipboardManager.OnPrimaryClipChangedListener { record() }
++
++    fun start(context: Context, enabled: () -> Boolean) {
++        if (manager != null) return
++        isEnabled = enabled
++        manager = context.getSystemService(ClipboardManager::class.java)?.also {
++            it.addPrimaryClipChangedListener(listener)
++        }
++    }
++
++    fun stop() {
++        manager?.removePrimaryClipChangedListener(listener)
++        manager = null
++    }
++
++    private fun record() {
++        if (!isEnabled()) {
++            history.clear()
++            return
++        }
++        val clip =
++            runCatching { manager?.primaryClip }.getOrNull()?.takeIf { it.itemCount > 0 } ?: return
++        val sensitive =
++            clip.description?.extras?.getBoolean(ClipDescription.EXTRA_IS_SENSITIVE) == true
++        history.add(clip.getItemAt(0).text, sensitive)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/CompactStripView.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/CompactStripView.kt
+index 65284ad..4aa270e 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/CompactStripView.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/CompactStripView.kt
+@@ -25,7 +25,8 @@ import org.sableos.titan2.keyboard.core.StripModel
+ class CompactStripView(
+     context: Context,
+     private val onCandidate: (Int) -> Unit,
+-    private val onSymbol: (String) -> Unit
++    private val onSymbol: (String) -> Unit,
++    private val onClipChip: (Int) -> Unit
+ ) : LinearLayout(context) {
+     private val dp = resources.displayMetrics.density
+     private val status = LinearLayout(context).apply {
+@@ -108,6 +109,7 @@ class CompactStripView(
+             is StripContent.Candidates -> content.show(c.items)
+             is StripContent.Variation -> content.showItems(c.options, c.selected, null)
+             is StripContent.Symbols -> content.showItems(c.items, -1) { onSymbol(c.items[it]) }
++            is StripContent.Clips -> content.showItems(c.chips, 1) { onClipChip(it) }
+         }
+     }
+ 
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardPrefs.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardPrefs.kt
+index 13536d6..cc9aae6 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardPrefs.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardPrefs.kt
+@@ -11,6 +11,9 @@ internal const val AUTO_TEXT = "autoText"
+ /** Enter performs the field's Send action (core KeyShortcuts.enterSends); off by default. */
+ internal const val ENTER_SENDS = "enterSends"
+ 
++/** Clipboard history (core ClipboardHistory), kept in memory only; off by default. */
++internal const val CLIP_HISTORY = "clipHistory"
++
+ /**
+  * Stored in device-protected storage so the keyboard works at the lockscreen and during direct boot
+  * (critical text entry).
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardSettingsActivity.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardSettingsActivity.kt
+index fc5d236..04ccf6c 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardSettingsActivity.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardSettingsActivity.kt
+@@ -9,6 +9,7 @@ import android.widget.LinearLayout
+ import android.widget.ScrollView
+ import android.widget.Switch
+ import android.widget.TextView
++import android.widget.Toast
+ import org.sableos.titan2.keyboard.core.ImeAction
+ import org.sableos.titan2.keyboard.core.ImeLaunchReport
+ import org.sableos.titan2.keyboard.core.ImeStatusModel
+@@ -51,6 +52,30 @@ class KeyboardSettingsActivity : Activity() {
+             KeyboardPrefs.compactStripDefault()
+         )
+         sw("Enter sends in apps that offer Send (Shift+Enter: new line)", ENTER_SENDS, false)
++        addClipboardSwitch(col, prefs)
++    }
++
++    /** Off by default. Turning it off forgets every entry; the button forgets them now. */
++    private fun addClipboardSwitch(col: LinearLayout, prefs: KeyboardPrefs) {
++        col.addView(
++            Switch(this).apply {
++                text = "Clipboard history (Alt+Shift+V; kept in memory, never saved)"
++                isChecked = prefs.getBool(CLIP_HISTORY, false)
++                setOnCheckedChangeListener { _, v ->
++                    prefs.setBool(CLIP_HISTORY, v)
++                    if (!v) ClipboardWatcher.history.clear()
++                }
++            }
++        )
++        col.addView(
++            Button(this).apply {
++                text = "Clear clipboard history"
++                setOnClickListener {
++                    ClipboardWatcher.history.clear()
++                    Toast.makeText(context, "Clipboard history cleared", Toast.LENGTH_SHORT).show()
++                }
++            }
++        )
+     }
+ 
+     /** Buttons that open the keyboard's other screens. */
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt
+index d5f1456..42b5c1e 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt
+@@ -11,6 +11,8 @@ import android.view.inputmethod.InputMethodSubtype
+ import android.widget.Toast
+ import org.sableos.titan2.keyboard.R
+ import org.sableos.titan2.keyboard.core.AutoText
++import org.sableos.titan2.keyboard.core.ClipAction
++import org.sableos.titan2.keyboard.core.ClipPicker
+ import org.sableos.titan2.keyboard.core.CompactStrip
+ import org.sableos.titan2.keyboard.core.Composer
+ import org.sableos.titan2.keyboard.core.Composers
+@@ -63,12 +65,19 @@ class SableImeService : InputMethodService() {
+                 cfg = prefs.load()
+             )
+         resolver.autoTextVar = autoTextVar(this)
++        ClipboardWatcher.start(this) { prefs.getBool(CLIP_HISTORY, false) }
++    }
++
++    override fun onDestroy() {
++        ClipboardWatcher.stop()
++        super.onDestroy()
+     }
+ 
+     override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
+         super.onStartInput(attribute, restarting)
+         resolver.cfg = prefs.load()
+         resolver.autoText = AutoText(prefs.autoTextEntries)
++        if (!prefs.getBool(CLIP_HISTORY, false)) ClipboardWatcher.history.clear()
+         if (!restarting) {
+             resolver.mods.reset()
+             handledDown.clear()
+@@ -130,7 +139,8 @@ class SableImeService : InputMethodService() {
+             resolver.mods.consumeOneShots()
+             commitOut(s)
+             refreshStrip()
+-        }
++        },
++        { chip -> clipSelected?.let { ClipPicker.entryForChip(chip, it) }?.let(::pasteClip) }
+     ).also {
+         strip = it
+         refreshStrip()
+@@ -222,7 +232,8 @@ class SableImeService : InputMethodService() {
+         candidates = composer?.candidates ?: emptyList(),
+         variation = resolver.variation(),
+         layout = resolver.layout,
+-        nowMs = android.os.SystemClock.uptimeMillis()
++        nowMs = android.os.SystemClock.uptimeMillis(),
++        clips = clipSelected?.let { ClipPicker.chips(ClipboardWatcher.history.entries, it) }
+     )
+ 
+     private fun dropComposition() {
+@@ -258,6 +269,7 @@ class SableImeService : InputMethodService() {
+ 
+     override fun onFinishInput() {
+         super.onFinishInput()
++        clipSelected = null
+         fieldClass = InputClass.None
+         resolver.clearVariation()
+         dropComposition()
+@@ -350,9 +362,72 @@ class SableImeService : InputMethodService() {
+         return handled || super.onKeyDown(keyCode, event)
+     }
+ 
+-    /** Candidate picks (Ctrl+1/2/3, Ctrl+W/E/R) and Enter-to-send; true when the key was handled here. */
+-    private fun handleShortcut(keyCode: Int, event: KeyEvent): Boolean =
+-        pickCandidate(keyCode, event) || sendWithEnter(keyCode, event)
++    /** History picker keys, candidate picks (Ctrl+1/2/3, Ctrl+W/E/R), Enter-to-send, Alt+Shift+V. */
++    private fun handleShortcut(keyCode: Int, event: KeyEvent): Boolean = clipKey(keyCode, event) ||
++        pickCandidate(keyCode, event) ||
++        sendWithEnter(keyCode, event) ||
++        openClips(keyCode, event)
++
++    // ---- clipboard history picker: null while closed, else the selected entry
++    private var clipSelected: Int? = null
++
++    private fun openClips(keyCode: Int, event: KeyEvent): Boolean {
++        val opens = event.repeatCount == 0 && ClipPicker.opens(
++            keyCode,
++            event.isAltPressed,
++            event.isShiftPressed,
++            event.isCtrlPressed || event.isMetaPressed
++        )
++        if (!opens) return false
++        // The held Alt and Shift were a chord: their release must not leave a one-shot.
++        resolver.mods.markChordUse()
++        when {
++            !prefs.getBool(CLIP_HISTORY, false) ->
++                toast("Turn on clipboard history in Sable Keyboard settings")
++
++            getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true ->
++                toast("Unlock to use clipboard history")
++
++            else -> clipSelected = 0
++        }
++        return true
++    }
++
++    /** A key while the picker is open; false when the picker is closed or the key should type as usual. */
++    private fun clipKey(keyCode: Int, event: KeyEvent): Boolean {
++        val selected = clipSelected ?: return false
++        val history = ClipboardWatcher.history
++        val count = history.entries.size
++        val action = ClipPicker.action(keyCode, event.isShiftPressed)
++        when (action) {
++            ClipAction.Next -> clipSelected = ClipPicker.move(selected, 1, count)
++
++            ClipAction.Previous -> clipSelected = ClipPicker.move(selected, -1, count)
++
++            ClipAction.Paste -> pasteClip(selected)
++
++            ClipAction.Remove -> {
++                history.remove(selected)
++                clipSelected = selected.coerceAtMost((count - 2).coerceAtLeast(0))
++            }
++
++            ClipAction.Close, ClipAction.CloseAndPass -> clipSelected = null
++
++            ClipAction.Ignore -> Unit
++        }
++        if (action == ClipAction.CloseAndPass) refreshStrip()
++        return action != ClipAction.Ignore && action != ClipAction.CloseAndPass
++    }
++
++    private fun pasteClip(index: Int) {
++        val text = ClipboardWatcher.history.entries.getOrNull(index)
++        clipSelected = null
++        if (text != null) {
++            composer?.let { applyComposition(it.flush()) }
++            currentInputConnection?.commitText(text, 1)
++        }
++        refreshStrip()
++    }
+ 
+     private fun pickCandidate(keyCode: Int, event: KeyEvent): Boolean {
+         val comp = composer
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/ClipboardHistory.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/ClipboardHistory.kt
+new file mode 100644
+index 0000000..8b53991
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/ClipboardHistory.kt
+@@ -0,0 +1,116 @@
++package org.sableos.titan2.keyboard.core
++
++/**
++ * Clipboard history (opt-in, off by default). Pure Kotlin so every rule is JVM-tested. Entries live
++ * only in memory: nothing is written to storage, so a reboot or a restart of the keyboard empties
++ * it, and turning the setting off clears it. Copies the system marks sensitive are never recorded.
++ * The interaction is a behaviour reference only; no Pastiera code is used.
++ */
++class ClipboardHistory(private val maxEntries: Int = MAX_ENTRIES) {
++    private val items = ArrayList<String>()
++
++    /** Newest first. */
++    val entries: List<String> get() = items.toList()
++
++    /**
++     * Records a copy. Blank text, sensitive clips and text over [MAX_CHARS] are skipped; copying
++     * text already in the history moves it to the top. Returns true when the history changed.
++     */
++    fun add(text: CharSequence?, sensitive: Boolean): Boolean {
++        val s = text?.toString().orEmpty()
++        val wanted =
++            !sensitive && s.isNotBlank() && s.length <= MAX_CHARS && items.firstOrNull() != s
++        if (wanted) {
++            items.remove(s)
++            items.add(0, s)
++            while (items.size > maxEntries) items.removeAt(items.lastIndex)
++        }
++        return wanted
++    }
++
++    fun remove(index: Int) {
++        if (index in items.indices) items.removeAt(index)
++    }
++
++    fun clear() = items.clear()
++
++    companion object {
++        const val MAX_ENTRIES = 20
++
++        /** Longer copies (a whole document) are left to the system clipboard. */
++        const val MAX_CHARS = 10_000
++
++        const val PREVIEW_CHARS = 24
++
++        /** One line of at most [max] characters: whitespace runs collapse to a space. */
++        fun preview(text: String, max: Int = PREVIEW_CHARS): String {
++            val line = text.trim().replace(WHITESPACE, " ")
++            return if (line.length <= max) line else line.take(max - 1).trimEnd() + "…"
++        }
++
++        private val WHITESPACE = Regex("\\s+")
++    }
++}
++
++/** What a key does while the history picker is open. */
++enum class ClipAction { Next, Previous, Paste, Remove, Close, Ignore, CloseAndPass }
++
++/**
++ * The history picker shown in the keyboard strip. Hold Alt+Shift and press V to open it (held keys
++ * only: Alt+letter types a digit or symbol and Shift+letter a capital, and the Q25 has no Ctrl).
++ * The constants mirror android.view.KeyEvent (stable public ABI).
++ */
++object ClipPicker {
++    const val KEYCODE_DPAD_UP = 19
++    const val KEYCODE_DPAD_DOWN = 20
++    const val KEYCODE_DPAD_LEFT = 21
++    const val KEYCODE_DPAD_RIGHT = 22
++    const val KEYCODE_DPAD_CENTER = 23
++    const val KEYCODE_BACK = 4
++    const val KEYCODE_V = 50
++    const val KEYCODE_SPACE = 62
++    const val KEYCODE_ENTER = 66
++    const val KEYCODE_DEL = 67
++    const val KEYCODE_ESCAPE = 111
++    const val KEYCODE_NUMPAD_ENTER = 160
++    private val MODIFIERS = setOf(57, 58, 59, 60, 63) // Alt, Shift (left, right), Sym
++
++    /** Entries shown after the position chip; the strip is one row on a 411 dp screen. */
++    const val VISIBLE = 3
++
++    fun opens(keyCode: Int, altHeld: Boolean, shiftHeld: Boolean, ctrlOrMeta: Boolean): Boolean =
++        keyCode == KEYCODE_V && altHeld && shiftHeld && !ctrlOrMeta
++
++    /**
++     * Space and the trackpad move, Enter or a trackpad click pastes, Backspace removes the entry,
++     * Back closes. Any other key closes the picker and types as usual.
++     */
++    fun action(keyCode: Int, shift: Boolean): ClipAction = when (keyCode) {
++        KEYCODE_SPACE -> if (shift) ClipAction.Previous else ClipAction.Next
++        KEYCODE_DPAD_RIGHT, KEYCODE_DPAD_DOWN -> ClipAction.Next
++        KEYCODE_DPAD_LEFT, KEYCODE_DPAD_UP -> ClipAction.Previous
++        KEYCODE_ENTER, KEYCODE_NUMPAD_ENTER, KEYCODE_DPAD_CENTER -> ClipAction.Paste
++        KEYCODE_DEL -> ClipAction.Remove
++        KEYCODE_BACK, KEYCODE_ESCAPE -> ClipAction.Close
++        in MODIFIERS -> ClipAction.Ignore
++        else -> ClipAction.CloseAndPass
++    }
++
++    /** [selected] moved by [step], wrapping round the [count] entries. */
++    fun move(selected: Int, step: Int, count: Int): Int =
++        if (count <= 0) 0 else ((selected + step) % count + count) % count
++
++    /**
++     * Chips for the strip: "2/7", then the selected entry and the ones after it. Index 0 of the
++     * result is the position chip; chip i > 0 is entry [selected] + i - 1.
++     */
++    fun chips(entries: List<String>, selected: Int): List<String> {
++        if (entries.isEmpty()) return listOf("Clipboard empty")
++        val from = selected.coerceIn(0, entries.lastIndex)
++        val shown = entries.drop(from).take(VISIBLE).map { ClipboardHistory.preview(it) }
++        return listOf("${from + 1}/${entries.size}") + shown
++    }
++
++    /** The entry a tapped chip stands for, or null for the position chip. */
++    fun entryForChip(chip: Int, selected: Int): Int? = if (chip <= 0) null else selected + chip - 1
++}
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/CompactStrip.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/CompactStrip.kt
+index 6b7f12b..2e5ad71 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/CompactStrip.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/CompactStrip.kt
+@@ -99,7 +99,9 @@ data class StripInputs(
+     val candidates: List<Cand>,
+     val variation: VariationInfo?,
+     val layout: KeyLayout,
+-    val nowMs: Long
++    val nowMs: Long,
++    /** Chips of the open clipboard history picker ([ClipPicker.chips]), or null when it is closed. */
++    val clips: List<String>? = null
+ )
+ 
+ sealed interface StripContent {
+@@ -108,6 +110,9 @@ sealed interface StripContent {
+     data class Variation(val base: Char, val options: List<String>, val selected: Int) :
+         StripContent
+     data class Symbols(val source: String, val items: List<String>) : StripContent
++
++    /** The clipboard history picker: chip 0 is the position, chip 1 the selected entry. */
++    data class Clips(val chips: List<String>) : StripContent
+ }
+ 
+ data class StripModel(
+@@ -136,6 +141,9 @@ object CompactStrip {
+     fun mode(i: StripInputs): StripMode = when {
+         i.field == InputClass.None -> StripMode.Hidden
+ 
++        // The picker shows even where the strip is off (the Q25 default), as candidates do.
++        i.clips != null -> StripMode.CandidatesOnly
++
+         i.softKeyboardShown || !i.enabled ->
+             if (i.candidates.isEmpty()) StripMode.Hidden else StripMode.CandidatesOnly
+ 
+@@ -145,7 +153,11 @@ object CompactStrip {
+     fun build(i: StripInputs): StripModel {
+         val mode = mode(i)
+         if (mode == StripMode.Hidden) return HIDDEN
+-        val content = if (mode == StripMode.Compact) compactContent(i) else candidatesOf(i)
++        val content = when {
++            i.clips != null -> StripContent.Clips(i.clips)
++            mode == StripMode.Compact -> compactContent(i)
++            else -> candidatesOf(i)
++        }
+         return StripModel(
+             mode,
+             languageChip(i.language),
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/core/ClipboardHistoryTest.kt b/sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/core/ClipboardHistoryTest.kt
+new file mode 100644
+index 0000000..309659c
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/core/ClipboardHistoryTest.kt
+@@ -0,0 +1,126 @@
++package org.sableos.titan2.keyboard.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class ClipboardHistoryTest {
++    // ---- recording ---------------------------------------------------------------------------
++
++    @Test fun newestCopyComesFirst() {
++        val h = ClipboardHistory()
++        h.add("one", false)
++        h.add("two", false)
++        assertEquals(listOf("two", "one"), h.entries)
++    }
++
++    @Test fun copyingAgainMovesTheEntryToTheTop() {
++        val h = ClipboardHistory()
++        h.add("one", false)
++        h.add("two", false)
++        assertTrue(h.add("one", false))
++        assertEquals(listOf("one", "two"), h.entries)
++        assertFalse(h.add("one", false))
++    }
++
++    @Test fun sensitiveBlankAndHugeCopiesAreNeverRecorded() {
++        val h = ClipboardHistory()
++        assertFalse(h.add("hunter2", sensitive = true))
++        assertFalse(h.add("   \n", false))
++        assertFalse(h.add(null, false))
++        assertFalse(h.add("x".repeat(ClipboardHistory.MAX_CHARS + 1), false))
++        assertTrue(h.entries.isEmpty())
++    }
++
++    @Test fun historyIsBoundedAndDropsTheOldest() {
++        val h = ClipboardHistory(maxEntries = 3)
++        listOf("a", "b", "c", "d").forEach { h.add(it, false) }
++        assertEquals(listOf("d", "c", "b"), h.entries)
++        assertEquals(20, ClipboardHistory.MAX_ENTRIES)
++    }
++
++    @Test fun removeAndClear() {
++        val h = ClipboardHistory()
++        listOf("a", "b", "c").forEach { h.add(it, false) }
++        h.remove(1)
++        h.remove(9)
++        assertEquals(listOf("c", "a"), h.entries)
++        h.clear()
++        assertTrue(h.entries.isEmpty())
++    }
++
++    @Test fun previewIsOneShortLine() {
++        assertEquals("Meet at 6", ClipboardHistory.preview("  Meet\n\tat 6 "))
++        val p = ClipboardHistory.preview("a".repeat(40))
++        assertEquals(ClipboardHistory.PREVIEW_CHARS, p.length)
++        assertTrue(p.endsWith("…"))
++    }
++
++    // ---- picker ------------------------------------------------------------------------------
++
++    private fun opens(key: Int, alt: Boolean, shift: Boolean, ctrl: Boolean = false) =
++        ClipPicker.opens(key, alt, shift, ctrl)
++
++    @Test fun onlyHeldAltShiftVOpensThePicker() {
++        val v = ClipPicker.KEYCODE_V
++        assertTrue(opens(v, alt = true, shift = true))
++        assertFalse(opens(v, alt = true, shift = false))
++        assertFalse(opens(v, alt = false, shift = true))
++        assertFalse(opens(v, alt = true, shift = true, ctrl = true))
++        assertFalse(opens(ClipPicker.KEYCODE_SPACE, alt = true, shift = true))
++    }
++
++    @Test fun pickerKeys() {
++        assertEquals(ClipAction.Next, ClipPicker.action(ClipPicker.KEYCODE_SPACE, shift = false))
++        assertEquals(ClipAction.Previous, ClipPicker.action(ClipPicker.KEYCODE_SPACE, shift = true))
++        assertEquals(
++            ClipAction.Next,
++            ClipPicker.action(ClipPicker.KEYCODE_DPAD_DOWN, shift = false)
++        )
++        assertEquals(
++            ClipAction.Previous,
++            ClipPicker.action(ClipPicker.KEYCODE_DPAD_LEFT, shift = false)
++        )
++        assertEquals(ClipAction.Paste, ClipPicker.action(ClipPicker.KEYCODE_ENTER, shift = false))
++        assertEquals(
++            ClipAction.Paste,
++            ClipPicker.action(ClipPicker.KEYCODE_DPAD_CENTER, shift = false)
++        )
++        assertEquals(ClipAction.Remove, ClipPicker.action(ClipPicker.KEYCODE_DEL, shift = false))
++        assertEquals(ClipAction.Close, ClipPicker.action(ClipPicker.KEYCODE_BACK, shift = false))
++        assertEquals(ClipAction.Ignore, ClipPicker.action(59, shift = true))
++        assertEquals(ClipAction.CloseAndPass, ClipPicker.action(29, shift = false))
++    }
++
++    @Test fun movingWrapsRound() {
++        assertEquals(1, ClipPicker.move(0, 1, 3))
++        assertEquals(0, ClipPicker.move(2, 1, 3))
++        assertEquals(2, ClipPicker.move(0, -1, 3))
++        assertEquals(0, ClipPicker.move(0, 1, 0))
++    }
++
++    @Test fun chipsShowThePositionAndTheSelectedEntryFirst() {
++        val entries = listOf("a", "b", "c", "d", "e")
++        assertEquals(listOf("2/5", "b", "c", "d"), ClipPicker.chips(entries, 1))
++        assertEquals(listOf("5/5", "e"), ClipPicker.chips(entries, 4))
++        assertEquals(listOf("Clipboard empty"), ClipPicker.chips(emptyList(), 0))
++        assertNull(ClipPicker.entryForChip(0, 1))
++        assertEquals(2, ClipPicker.entryForChip(2, 1))
++    }
++
++    @Test fun theOpenPickerShowsEvenWhereTheStripIsOff() {
++        val i = StripInputs(
++            field = InputClass.Text, softKeyboardShown = false, enabled = false,
++            language = Languages.English,
++            shift = ModState.Off, alt = ModState.Off, sym = ModState.Off, navOn = false,
++            navEffective = false, candidates = emptyList(), variation = null,
++            layout = KeyLayout.SableProvisional, nowMs = 0L, clips = listOf("1/1", "a")
++        )
++        val m = CompactStrip.build(i)
++        assertEquals(StripMode.CandidatesOnly, m.mode)
++        assertEquals(StripContent.Clips(listOf("1/1", "a")), m.content)
++        assertEquals(StripMode.Hidden, CompactStrip.build(i.copy(field = InputClass.None)).mode)
++    }
++}

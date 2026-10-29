@@ -66,6 +66,21 @@ Notes are plain text with a four-line header, so an export is the text itself.
 Nothing leaves the app except through the share sheet or the file picker, and
 the manifest asks for no permissions.
 
+## Clipboard history in Sable Keyboard
+
+Only the default keyboard (or the app in front) may read the clipboard, so
+history lives in Sable Keyboard (`sable-src/apps/titan2/platform/keyboard`):
+
+```text
+ ClipboardWatcher (one per process; primary-clip listener while the IME runs, only when the setting is on)
+   -> core ClipboardHistory (pure, tested: newest first, 20 entries, skips sensitive/blank/huge copies)
+ SableImeService: held Alt+Shift+V opens core ClipPicker in the candidates strip (StripContent.Clips)
+```
+
+It is off by default and kept in memory only, never in storage: the keyboard's
+settings live in device-protected storage, which is readable before first
+unlock, so copies are not put there.
+
 ## Sable Reader
 
 Sable Reader v2 (`sable-src/apps/common/reader`, built as `SableReader` from

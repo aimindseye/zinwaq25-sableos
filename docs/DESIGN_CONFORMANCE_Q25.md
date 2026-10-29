@@ -52,6 +52,14 @@ Sable Notes follows the Notes part of platform_sable `docs/design/UTILITIES_NOTE
 
 One difference from the contract: the Q25 has no Ctrl or Esc key, so the contract's Ctrl+N/S/F/Enter and Esc become C in the list, the Menu key's lettered menu, Alt+Enter and Back on the Q25. The Ctrl chords still work on keyboards that have them. Locked-note and private-mode redaction are not built, because Notes has no lock-screen surface or widget yet.
 
+## Sable Keyboard clipboard history, not yet on a device
+
+- **Off by default.** Persistent keyboard clipboard history must not be on by default, so it is a Keyboard settings switch; turning it off forgets every entry.
+- **Memory only.** The history is never written to storage; a reboot or keyboard restart empties it, and nothing is readable before first unlock.
+- **Private copies stay out.** Clips flagged sensitive are skipped and the picker never opens on the lock screen.
+- **Keyboard first.** Held Alt+Shift+V opens it in the strip; Space, the trackpad, Enter, Backspace and Back drive it, and any other key types as usual. Touch works too.
+- **No Pastiera code.** The behaviour is written from scratch.
+
 ## Sable Reader in PR #41, not yet on a device
 
 | Area | What changed |

@@ -9,6 +9,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.TextView
+import android.widget.Toast
 import org.sableos.titan2.keyboard.core.ImeAction
 import org.sableos.titan2.keyboard.core.ImeLaunchReport
 import org.sableos.titan2.keyboard.core.ImeStatusModel
@@ -51,6 +52,30 @@ class KeyboardSettingsActivity : Activity() {
             KeyboardPrefs.compactStripDefault()
         )
         sw("Enter sends in apps that offer Send (Shift+Enter: new line)", ENTER_SENDS, false)
+        addClipboardSwitch(col, prefs)
+    }
+
+    /** Off by default. Turning it off forgets every entry; the button forgets them now. */
+    private fun addClipboardSwitch(col: LinearLayout, prefs: KeyboardPrefs) {
+        col.addView(
+            Switch(this).apply {
+                text = "Clipboard history (Alt+Shift+V; kept in memory, never saved)"
+                isChecked = prefs.getBool(CLIP_HISTORY, false)
+                setOnCheckedChangeListener { _, v ->
+                    prefs.setBool(CLIP_HISTORY, v)
+                    if (!v) ClipboardWatcher.history.clear()
+                }
+            }
+        )
+        col.addView(
+            Button(this).apply {
+                text = "Clear clipboard history"
+                setOnClickListener {
+                    ClipboardWatcher.history.clear()
+                    Toast.makeText(context, "Clipboard history cleared", Toast.LENGTH_SHORT).show()
+                }
+            }
+        )
     }
 
     /** Buttons that open the keyboard's other screens. */
