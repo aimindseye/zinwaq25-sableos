@@ -57,4 +57,21 @@ class Bb7HomeTest {
         assertEquals(listOf("a", "b", "c"), Bb7Home.toggleFavorite(listOf("a", "b"), "c"))
         assertEquals(listOf("a"), Bb7Home.toggleFavorite(listOf("a", "b"), "b"))
     }
+
+    @Test
+    fun aHubVisitEndsBackOnTheBb7HomeOnlyAfterLeavingTheBb10HomePage() {
+        val start = Bb7Detour(returnOnHome = true)
+        // The BlackBerry 10 screen first composes on its home page, before the Hub request moves it.
+        assertEquals(false, start.endsAt(false))
+        val onHub = start.onCanNavigateBack(true)
+        assertEquals(false, onHub.endsAt(true))
+        // Swiping or Back from Hub to the BlackBerry 10 home page returns to the BlackBerry 7 home.
+        assertEquals(true, onHub.onCanNavigateBack(false).endsAt(false))
+    }
+
+    @Test
+    fun aRecentsVisitStaysOnActiveFrames() {
+        val recents = Bb7Detour(returnOnHome = false).onCanNavigateBack(true).onCanNavigateBack(false)
+        assertEquals(false, recents.endsAt(false))
+    }
 }

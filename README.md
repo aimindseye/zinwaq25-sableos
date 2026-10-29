@@ -14,22 +14,24 @@ repository holds everything needed to build SableOS for the **Zinwa Q25** (the
 BlackBerry Classic restomod, codename `Q25`), without needing the Pixel 7,
 Titan 2 or Q27 SableOS lanes.
 
-> **Status: the image built after PR #33 runs on a Q25; PRs #34-#36 are not built
-> yet.** On 2026-10-15/17 a real Q25 (board `q20_v12_factory`, stock
-> `Q25_20.01.2026`) was backed up, restored to stock, unlocked, and flashed with
-> the Q1 control image, the Q2 image and then the first Q4 image. The PR #28 Q4
-> image was reviewed on 2026-10-22 and PR #32 fixed that review. The image built
-> after PR #33 was flashed and reviewed on 2026-10-28
-> ([second device review](docs/implementation/q4-review.md#second-device-review-2026-10-28-sable-src-0074)).
-> PR #34 answers it (one palette, square-screen layouts, a BlackBerry 7 home
-> style, Setup choices, the Sable boot animation). PR #35 makes the $ key type
-> '$', makes Sable Setup translatable and adds a keyboard firmware screen. PR #36
-> adds BlackBerry AutoText, single-key list movement, speed dial on held letters
-> and the Sound Profiles app, and the tool that packages a build as a GitHub
-> alpha release. That build, alpha-20261028, booted on the Q25; PR #38 answers
-> its review (the weather fix, Sound Profiles restyled, BlackBerry 7 home dials,
-> swipes and home screen icons, pure black, and seven new games: Bricks, Snake,
-> Blocks, Reversi, Solitaire, Mahjong and Words). Their Q4-* gates are `NOT_RUN` until the next image.
+> **Status: the latest alpha release,
+> [`alpha-20261029`](https://github.com/aimindseye/zinwaq25-sableos/releases/tag/alpha-20261029),
+> is built from main after PR #38 and runs on a Q25.** On 2026-10-15/17 a real
+> Q25 (board `q20_v12_factory`, stock `Q25_20.01.2026`) was backed up, restored
+> to stock, unlocked, and flashed with the Q1 control image, the Q2 image and
+> then the first Q4 image. The device reviews on 2026-10-22 and 2026-10-28
+> ([review notes](docs/implementation/q4-review.md)) were answered by PRs #32,
+> #34-#36 and #38. The first alpha, `alpha-20261028`, booted; PR #38 answered
+> its review: the weather fix, Sound Profiles restyled, BlackBerry 7 home dials,
+> swipes and home screen icons, one pure black palette, and seven new games
+> (Bricks, Snake, Blocks, Reversi, Solitaire, Mahjong and Words).
+> On `alpha-20261029` the seven games install under /product and the Pure
+> black setting defaults to on. Two problems found on it are fixed in PR #40
+> (in the next alpha): the system black theme overlay was not applied
+> (frameworks/base 0103), and returning from Hub on the BlackBerry 7 home showed
+> the BlackBerry 10 home ([#39](https://github.com/aimindseye/zinwaq25-sableos/issues/39)).
+> Most Q4-* device gates are still `NOT_RUN`
+> ([#27](https://github.com/aimindseye/zinwaq25-sableos/issues/27) tracks them).
 > **Using SableOS:** [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) covers setup,
 > the keys, the apps, the privacy and security defaults and what to change.
 > Install steps: [`docs/INSTALL.md`](docs/INSTALL.md), or for a downloaded
@@ -40,15 +42,15 @@ Titan 2 or Q27 SableOS lanes.
 
 ```text
 DEVICE=Q25
-PHASE=R0, Q1, Q2 PASS on a Q25; Q4 image after PR #33 flashed and reviewed 2026-10-28; PRs #34-#36 not built yet
+PHASE=R0, Q1, Q2 PASS on a Q25; Q4 alpha-20261029 (main after PR #38) flashed 2026-10-29, device gates in progress
 BASE=LineageOS 23.2 (Android 16 QPR2), official lineage_Q25 device (not a GSI)
 SABLE_LAYER=vendor/extra/product.mk -> vendor/sable/q25 (+ patches/framework at Q4)
 APPS_BUILD=PASS in GitHub Actions (Gradle build, unit tests, Lint, detekt, ktlint)
-IMAGE_BUILD_TESTED=Q1, Q2 (ai-g732, 2026-10-15); Q4 (2026-10-17); PR #28 Q4 (2026-10-22, with PR #31); PR #33 Q4 (2026-10-28)
-FRAMEWORK_PATCHES=102 patch files; all apply in order (check with scripts/apply-framework-patches.sh check)
-BOOT_TESTED=Q1, Q2 on a Q25 (2026-10-16/17); Q4 (2026-10-17); PR #28 Q4 (2026-10-22); PR #33 Q4 (2026-10-28)
-FLASH_SCRIPT=NONE (manual, documented steps in docs/INSTALL.md; tested for Q1, Q2 and Q4)
-RELEASES=none published yet; build/sable.sh q25 Q4 release packages one as a GitHub pre-release
+IMAGE_BUILD_TESTED=Q1, Q2 (ai-g732, 2026-10-15); Q4 (2026-10-17); PR #28 Q4 (2026-10-22); PR #33 Q4 (2026-10-28); alpha-20261028; alpha-20261029
+FRAMEWORK_PATCHES=104 patch files; all apply in order (check with scripts/apply-framework-patches.sh check)
+BOOT_TESTED=Q1, Q2 on a Q25 (2026-10-16/17); Q4 (2026-10-17, 2026-10-22, 2026-10-28); alpha-20261028; alpha-20261029 (2026-10-29)
+FLASH_SCRIPT=NONE (manual, documented steps in docs/INSTALL.md and docs/FLASHING_RELEASE.md)
+RELEASES=alpha-20261029 (latest), alpha-20261028; GitHub pre-releases made with build/sable.sh q25 Q4 release
 ```
 
 ## Device info

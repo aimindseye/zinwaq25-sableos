@@ -187,3 +187,13 @@ The guideline pass over the other Sable apps (full menus everywhere, T/B and N/P
 dialog buttons, Shift+Del, check boxes in settings) is proposed in the review mock-up and left for
 a later PR.
 
+
+## alpha-20261029 first checks (2026-10-29, sable-src 0078)
+
+The alpha-20261029 image (main after PR #38) built, was published as a GitHub pre-release and was flashed on the Q25.
+
+| Area | Found | Fix | Gate |
+|---|---|---|---|
+| Games | All seven new games are installed under /product/app | none needed | Q4-ALPHA-GAMES |
+| Pure black | `berry_black_theme` = 1, but `org.lineageos.overlay.customization.blacktheme` is off, even after a reboot. `ThemeOverlayController` enables the overlay only when it re-evaluates the theme, and its boot pass returns early when the wallpaper colors are unchanged | frameworks/base 0103: the boot pass and the end of setup reload when Pure black and Dark theme are both on | Q4-ALPHA-PURE-BLACK |
+| BlackBerry 7 home | Swiping or Back from Hub showed the BlackBerry 10 home, because the Hub visit (`bb10Detour`) ended only on Home ([#39](https://github.com/aimindseye/zinwaq25-sableos/issues/39)) | `Bb7Detour`: a Hub or Edit Home visit ends once the BlackBerry 10 screen is back on its home page after leaving it; Recents still shows Active Frames | Q4-ALPHA2-BB7-RETURN |
