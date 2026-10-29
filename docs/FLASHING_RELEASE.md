@@ -60,6 +60,10 @@ Built on **LineageOS 23.2 (Android 16 QPR2)**. Use a Linux or macOS terminal wit
    adb sideload sableos-q25-full-*.zip
    ```
 
+   The computer may stop at 47% or say "Total xfer: 1.00x" while the phone keeps installing; both are normal, so do not unplug or cancel. Wait for recovery to say the install finished.
+
+   The fastboot step only puts the boot images on the phone (kernel, recovery, verified-boot data). The operating system itself (system, system_ext, product, vendor, the apps) is inside the install package, and only recovery can write it, which is why you sideload it as well.
+
 6. Choose *Reboot system now*. The first boot takes several minutes, then the
    setup wizard opens.
 
@@ -167,8 +171,9 @@ restore stock.
    adb sideload sableos-q25-*.zip
    ```
 
-   The computer may stop at 47% or say "Total xfer: 1.00x"; both are normal. Wait
-   for recovery to say the install finished.
+   The computer may stop at 47% or say "Total xfer: 1.00x" while the phone keeps installing; both are normal, so do not unplug or cancel. Wait for recovery to say the install finished.
+
+   The fastboot step only puts the boot images on the phone (kernel, recovery, verified-boot data). The operating system itself (system, system_ext, product, vendor, the apps) is inside the install package, and only recovery can write it, which is why you sideload it as well.
 4. Choose *Reboot system now*. The first boot takes several minutes.
 
 The phone opens Sable Setup, then Sable Start. Sable Keyboard is the keyboard,

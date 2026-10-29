@@ -92,6 +92,10 @@ fastboot reboot recovery
 adb sideload sableos-q25-full-*.zip
 ```
 
+The computer may stop at 47% or say "Total xfer: 1.00x" while the phone keeps installing; both are normal, so do not unplug or cancel. Wait for recovery to say the install finished.
+
+The fastboot step only puts the boot images on the phone (kernel, recovery, verified-boot data). The operating system itself (system, system_ext, product, vendor, the apps) is inside the install package, and only recovery can write it, which is why you sideload it as well.
+
 Back up first and read [`docs/FLASHING_RELEASE.md`](docs/FLASHING_RELEASE.md) before
 you start: unlocking erases everything, and SableOS is an unofficial community build that you flash at your own risk.
 
