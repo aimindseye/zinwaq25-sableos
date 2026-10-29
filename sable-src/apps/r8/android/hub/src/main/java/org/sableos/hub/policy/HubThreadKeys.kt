@@ -1,6 +1,7 @@
 package org.sableos.hub.policy
 
 import org.sableos.hub.HubMessage
+import org.sableos.hub.HubText.t
 
 /** Keys a conversation view reacts to, mapped from Compose keys by the screen. */
 enum class HubThreadKey {
@@ -153,8 +154,8 @@ object HubThreadSearch {
     ): String =
         when {
             query.isBlank() -> ""
-            matchCount == 0 -> "No matches"
-            else -> "${current.coerceAtLeast(0) + 1} of $matchCount"
+            matchCount == 0 -> t("no_matches")
+            else -> t("of", current.coerceAtLeast(0) + 1, matchCount)
         }
 }
 
@@ -174,5 +175,5 @@ object HubNewMessagePill {
         newest: HubMessage?,
     ): Boolean = !atLatest && newest != null && newest.incoming && seenNewestId != null && newest.id != seenNewestId
 
-    const val LABEL = "New message · Enter for latest"
+    val LABEL: String get() = t("new_message_enter_for_latest")
 }

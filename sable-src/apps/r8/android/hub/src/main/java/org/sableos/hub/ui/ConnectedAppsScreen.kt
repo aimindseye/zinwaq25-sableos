@@ -36,6 +36,7 @@ import org.sableos.design.SableSpacing
 import org.sableos.hub.ConnectedAppCandidate
 import org.sableos.hub.ConnectedAppKey
 import org.sableos.hub.ConnectedAppPolicy
+import org.sableos.hub.HubText.t
 import org.sableos.hub.policy.AttentionOutput
 import org.sableos.hub.policy.ConnectedAppsParity
 import org.sableos.hub.policy.HubMailSources
@@ -105,9 +106,9 @@ internal fun ConnectedAppsScreen(
             ) {
                 item {
                     SablePageHeader(
-                        title = "connected apps",
+                        title = t("connected_apps"),
                         subtitle =
-                            "Choose installed apps that may contribute notification-derived conversations.",
+                            t("choose_installed_apps_that_may"),
                     )
                 }
                 item {
@@ -124,9 +125,7 @@ internal fun ConnectedAppsScreen(
                 item {
                     Text(
                         text =
-                            "Sable does not sign into these services. The installed app keeps " +
-                                "networking, " +
-                                "encryption, account state and complete history.",
+                            t("sable_does_not_sign_into"),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -138,7 +137,7 @@ internal fun ConnectedAppsScreen(
                     loading -> {
                         item {
                             Text(
-                                text = "Loading installed apps…",
+                                text = t("loading_installed_apps"),
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -203,40 +202,38 @@ private fun NotificationAccessPanel(
         Text(
             text =
                 if (notificationAccessGranted) {
-                    "Notification access is enabled."
+                    t("notification_access_is_enabled")
                 } else {
-                    "Notification access is required before connected apps can " +
-                        "contribute messages."
+                    t("notification_access_is_required_before")
                 },
             style = MaterialTheme.typography.bodyMedium,
         )
         SableActionButton(
             text =
                 if (notificationAccessGranted) {
-                    "Review notification access"
+                    t("review_notification_access")
                 } else {
-                    "Enable notification access"
+                    t("enable_notification_access")
                 },
             primary = !notificationAccessGranted,
             onClick = onOpenNotificationAccess,
         )
         PolicySwitchRow(
-            label = "Private mode: Hub shows counts only, Phone hides names in Recents, Contacts hides numbers",
+            label = t("private_mode_hub_shows_counts"),
             checked = privateMode,
             enabled = true,
             onCheckedChange = onPrivateModeChanged,
         )
         PolicySwitchRow(
-            label = "Combine conversations",
+            label = t("combine_conversations"),
             detail =
-                "Group adjacent messages from the same conversation into a streamlined thread, " +
-                    "hiding duplicate titles and app icons.",
+                t("group_adjacent_messages_from_the"),
             checked = combineConversations,
             enabled = true,
             onCheckedChange = onCombineConversationsChanged,
         )
         TextButton(onClick = onOpenAttentionSettings) {
-            Text("Sable Attention")
+            Text(t("sable_attention"))
         }
     }
 }
@@ -264,7 +261,7 @@ private fun LazyListScope.connectedAppsBrowser(
                 onValueChange = onSearchChange,
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                label = { Text("Search installed apps") },
+                label = { Text(t("search_installed_apps")) },
             )
         }
     }
@@ -324,15 +321,13 @@ private fun MailAppsNote(
     Column(verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs)) {
         Text(
             text =
-                "Use one app per email account. Sable Mail covers Gmail, Outlook, Yahoo, iCloud and IMAP. " +
-                    "Turn on another mail app only for accounts Sable Mail can't open " +
-                    "(Proton, Tuta, managed work accounts).",
+                t("use_one_app_per_email"),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (HubMailSources.duplicateAccountWarning(includedPackages)) {
             Text(
-                text = "More than one mail app is on; an account signed in to both will appear twice.",
+                text = t("more_than_one_mail_app"),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -345,11 +340,11 @@ private fun emptyCandidatesText(
     search: String,
 ): String =
     when {
-        pivot == ConnectedAppsPivot.Enabled -> "No connected apps are enabled."
-        pivot == ConnectedAppsPivot.Favorites && search.isBlank() -> "No favorite apps are set."
-        pivot == ConnectedAppsPivot.Favorites -> "No favorite apps match this search."
-        search.isBlank() -> "No additional installed apps are available."
-        else -> "No installed apps match this search."
+        pivot == ConnectedAppsPivot.Enabled -> t("no_connected_apps_are_enabled")
+        pivot == ConnectedAppsPivot.Favorites && search.isBlank() -> t("no_favorite_apps_are_set")
+        pivot == ConnectedAppsPivot.Favorites -> t("no_favorite_apps_match_this")
+        search.isBlank() -> t("no_additional_installed_apps_are")
+        else -> t("no_installed_apps_match_this")
     }
 
 private fun visibleCandidates(
@@ -432,11 +427,11 @@ private fun ConnectedAppRow(
 
         // Delivery (alerting, sound, vibration, pop-up, badge, lock screen) is Android's.
         TextButton(onClick = { context.onOpenAndroidNotificationSettings(candidate.key) }) {
-            Text("Delivery: Android notification settings")
+            Text(t("delivery_android_notification_settings"))
         }
 
         PolicySwitchRow(
-            label = "Hub priority (ordering only, not a Do Not Disturb exception)",
+            label = t("hub_priority_ordering_only_not"),
             checked = policy.favorite,
             enabled = true,
             onCheckedChange = { enabled ->
@@ -507,7 +502,7 @@ private fun ConnectedAppSummary(
 }
 
 private fun mailPrefix(candidate: ConnectedAppCandidate): String =
-    if (HubMailSources.isKnownMailPackage(candidate.key.packageName)) "Mail · " else ""
+    if (HubMailSources.isKnownMailPackage(candidate.key.packageName)) t("mail") else ""
 
 @Composable
 private fun ConnectedAppMessageOptions(
@@ -515,7 +510,7 @@ private fun ConnectedAppMessageOptions(
     onPolicyChanged: (ConnectedAppPolicy) -> Unit,
 ) {
     PolicySwitchRow(
-        label = "Allow quick reply",
+        label = t("allow_quick_reply"),
         checked = policy.allowQuickReply,
         enabled = true,
         onCheckedChange = { enabled ->
@@ -523,7 +518,7 @@ private fun ConnectedAppMessageOptions(
         },
     )
     PolicySwitchRow(
-        label = "Hide from SableLauncher",
+        label = t("hide_from_sablelauncher"),
         checked = policy.hideFromLauncher,
         enabled = true,
         onCheckedChange = { enabled ->
@@ -539,14 +534,14 @@ private fun ConnectedAppMessageOptions(
             )
         },
     ) {
-        Text("History retention: ${policy.retention.label}")
+        Text(t("history_retention", policy.retention.label))
     }
     TextButton(
         onClick = {
             onPolicyChanged(policy.copy(previewPolicy = policy.previewPolicy.next()))
         },
     ) {
-        Text("Hub preview: ${policy.previewPolicy.label}")
+        Text(t("hub_preview", policy.previewPolicy.label))
     }
 }
 
@@ -560,7 +555,7 @@ private fun ConnectedAppAttentionSwitches(
     val selected = attention.selections[key].orEmpty()
     attention.selectableOutputs.forEach { output ->
         PolicySwitchRow(
-            label = "Attention: ${attentionLabel(output)}",
+            label = t("attention", attentionLabel(output)),
             checked = output in selected,
             enabled = true,
             onCheckedChange = { enabled ->
@@ -578,12 +573,12 @@ private fun toggled(
 
 internal fun attentionLabel(output: AttentionOutput): String =
     when (output) {
-        AttentionOutput.Audio -> "Sound"
-        AttentionOutput.Haptic -> "Vibration"
-        AttentionOutput.StatusLed -> "Notification light"
-        AttentionOutput.KeyboardBacklight -> "Keyboard backlight"
-        AttentionOutput.SecondaryDisplay -> "Glance display"
-        AttentionOutput.AlwaysOnDisplay -> "Always-on display"
+        AttentionOutput.Audio -> t("sound")
+        AttentionOutput.Haptic -> t("vibration")
+        AttentionOutput.StatusLed -> t("notification_light")
+        AttentionOutput.KeyboardBacklight -> t("keyboard_backlight")
+        AttentionOutput.SecondaryDisplay -> t("glance_display")
+        AttentionOutput.AlwaysOnDisplay -> t("always_on_display")
     }
 
 @Composable

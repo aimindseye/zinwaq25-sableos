@@ -3,19 +3,23 @@ package org.sableos.hub.policy
 import org.sableos.hub.HubCall
 import org.sableos.hub.HubConversation
 import org.sableos.hub.HubConversationSource
+import org.sableos.hub.HubText.t
 
 /** One entry of the row actions sheet (Menu, Alt+Enter or long press on an inbox row). */
 enum class HubRowAction(
-    val label: String,
+    private val labelKey: String,
 ) {
-    Open("Open"),
-    Reply("Reply"),
-    CallBack("Call back"),
-    Text("Text"),
-    OpenInMessages("Open in Messages"),
-    OpenSourceApp("Open source app"),
-    SourceNotifications("Notification settings"),
-    PrivacyOptions("Privacy options"),
+    Open("open"),
+    Reply("reply"),
+    CallBack("call_back"),
+    Text("text"),
+    OpenInMessages("open_in_messages"),
+    OpenSourceApp("open_source_app"),
+    SourceNotifications("notification_settings"),
+    PrivacyOptions("privacy_options"),
+    ;
+
+    val label: String get() = t(labelKey)
 }
 
 /**

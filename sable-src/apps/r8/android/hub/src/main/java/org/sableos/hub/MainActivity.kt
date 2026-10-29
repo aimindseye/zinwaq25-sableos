@@ -25,6 +25,7 @@ import androidx.lifecycle.Lifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.sableos.design.SableGlobalTheme
+import org.sableos.hub.HubText.t
 import org.sableos.hub.policy.HubDrafts
 import org.sableos.hub.policy.HubHandoffTarget
 import org.sableos.hub.policy.HubIntents
@@ -163,7 +164,7 @@ class MainActivity : ComponentActivity() {
                                 refreshGeneration += 1
                                 HubSendResult(
                                     success = true,
-                                    message = "Message handed to Android telephony.",
+                                    message = t("message_handed_to_android_telephony"),
                                 )
                             },
                             onFailure = { error ->
@@ -171,7 +172,7 @@ class MainActivity : ComponentActivity() {
                                     success = false,
                                     message =
                                         error.message
-                                            ?: "SMS send capability is unavailable.",
+                                            ?: t("sms_send_capability_is_unavailable"),
                                 )
                             },
                         )

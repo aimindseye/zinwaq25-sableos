@@ -15,6 +15,7 @@ import android.provider.Telephony
 import android.telephony.PhoneNumberUtils
 import android.telephony.SmsManager
 import android.telephony.SubscriptionManager
+import org.sableos.hub.HubText.t
 import org.sableos.hub.notifications.ConnectedNotificationActivityRegistry
 import org.sableos.hub.notifications.ConnectedReplyRegistry
 import org.sableos.hub.platform.AndroidSettingsLauncher
@@ -266,7 +267,7 @@ class HubRepository(
     private fun loadMailSnapshot(): HubMailSnapshot {
         val fallback =
             HubMailSnapshot(
-                detail = "Sable Mail is unavailable.",
+                detail = t("sable_mail_is_unavailable"),
                 available = false,
                 observedAtMillis = System.currentTimeMillis(),
             )
@@ -377,7 +378,7 @@ class HubRepository(
                         val label =
                             cursor.getString(name)?.trim()?.takeIf(String::isNotEmpty)
                                 ?: namesByNumber[normalizeAddress(dialable)].takeIf { dialable.isNotEmpty() }
-                                ?: dialable.ifEmpty { "Private number" }
+                                ?: dialable.ifEmpty { t("private_number") }
                         result +=
                             HubCall(
                                 id = cursor.getLong(id),
@@ -399,17 +400,17 @@ class HubRepository(
         body: String,
     ) {
         require(recipient.isNotBlank()) {
-            "Recipient is required."
+            t("recipient_is_required")
         }
         require(body.isNotBlank()) {
-            "Message is empty."
+            t("message_is_empty")
         }
 
         // Lint cannot infer this project-local permission predicate. Keep the
         // suppression scoped to this method and fail closed before any
         // telephony API is called.
         check(hasPermission(Manifest.permission.SEND_SMS)) {
-            "SMS sending permission is not available."
+            t("sms_sending_permission_is_not")
         }
 
         val subscriptionId =

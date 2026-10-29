@@ -2205,6 +2205,1997 @@ index 0000000..c4c0d51
 +        }
 +    }
 +}
+diff --git a/sable-src/apps/r8/android/hub/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/hub/src/main/AndroidManifest.xml
+index 186dcbb..8b3ff31 100644
+--- a/sable-src/apps/r8/android/hub/src/main/AndroidManifest.xml
++++ b/sable-src/apps/r8/android/hub/src/main/AndroidManifest.xml
+@@ -55,10 +55,11 @@
+     </queries>
+ 
+     <application
++        android:name="org.sableos.hub.HubApplication"
+         android:allowBackup="false"
+         android:icon="@mipmap/ic_sable_messages"
+         android:roundIcon="@mipmap/ic_sable_messages_round"
+-        android:label="Sable Hub"
++        android:label="@string/app_name"
+         android:supportsRtl="true"
+         android:theme="@android:style/Theme.Material.NoActionBar"
+         android:usesCleartextTraffic="false">
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppPolicy.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppPolicy.kt
+index d6fcee0..38f32dc 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppPolicy.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppPolicy.kt
+@@ -1,5 +1,6 @@
+ package org.sableos.hub
+ 
++import org.sableos.hub.HubText.t
+ import java.nio.charset.StandardCharsets
+ import java.util.Base64
+ 
+@@ -27,13 +28,15 @@ private const val THIRTY_DAY_RETENTION = 30
+  */
+ enum class HistoryRetention(
+     val days: Int,
+-    val label: String,
++    private val labelKey: String,
+ ) {
+-    OneDay(ONE_DAY_RETENTION, "1 day"),
+-    SevenDays(SEVEN_DAY_RETENTION, "7 days"),
+-    ThirtyDays(THIRTY_DAY_RETENTION, "30 days"),
++    OneDay(ONE_DAY_RETENTION, "n1_day"),
++    SevenDays(SEVEN_DAY_RETENTION, "n7_days"),
++    ThirtyDays(THIRTY_DAY_RETENTION, "n30_days"),
+     ;
+ 
++    val label: String get() = t(labelKey)
++
+     fun next(): HistoryRetention =
+         when (this) {
+             OneDay -> SevenDays
+@@ -59,18 +62,20 @@ enum class HistoryRetention(
+  * lockscreen, private-mode or source policy allows (see [org.sableos.hub.policy.PrivacyPosture]).
+  */
+ enum class HubPreviewPolicy(
+-    val label: String,
++    private val labelKey: String,
+ ) {
+     /** Sender and message text, when the device and source allow it. */
+-    ShowContent("Sender and message"),
++    ShowContent("sender_and_message"),
+ 
+     /** Sender only; message text hidden. */
+-    SenderOnly("Sender only"),
++    SenderOnly("sender_only"),
+ 
+     /** App name and count only. */
+-    SourceOnly("App and count only"),
++    SourceOnly("app_and_count_only"),
+     ;
+ 
++    val label: String get() = t(labelKey)
++
+     fun next(): HubPreviewPolicy = entries[(ordinal + 1) % entries.size]
+ }
+ 
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppsInventory.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppsInventory.kt
+index f7170dd..5a98784 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppsInventory.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppsInventory.kt
+@@ -6,6 +6,7 @@ import android.graphics.Bitmap
+ import android.graphics.Canvas
+ import android.os.UserHandle
+ import android.os.UserManager
++import org.sableos.hub.HubText.t
+ import org.sableos.hub.platform.ProfileDirectory
+ import org.sableos.hub.policy.ProfileKind
+ import java.util.Locale
+@@ -143,10 +144,10 @@ class ConnectedAppsInventory(
+         serial: Long,
+     ): String =
+         when (kind) {
+-            ProfileKind.Personal -> "Personal"
+-            ProfileKind.Work -> "Work profile"
+-            ProfileKind.Private -> "Private space"
+-            ProfileKind.Other -> "Profile $serial"
++            ProfileKind.Personal -> t("personal")
++            ProfileKind.Work -> t("work_profile")
++            ProfileKind.Private -> t("private_space")
++            ProfileKind.Other -> t("profile_2", serial)
+         }
+ 
+     private fun userForSerial(serial: Long): UserHandle? =
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubApplication.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubApplication.kt
+new file mode 100644
+index 0000000..affbf41
+--- /dev/null
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubApplication.kt
+@@ -0,0 +1,11 @@
++package org.sableos.hub
++
++import android.app.Application
++
++/** Binds [HubText] to the app's string resources once per process, so the phone's language is used. */
++class HubApplication : Application() {
++    override fun onCreate() {
++        super.onCreate()
++        HubText.t.bindTo(this)
++    }
++}
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt
+index 5adc32e..6696d63 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt
+@@ -15,6 +15,7 @@ import android.provider.Telephony
+ import android.telephony.PhoneNumberUtils
+ import android.telephony.SmsManager
+ import android.telephony.SubscriptionManager
++import org.sableos.hub.HubText.t
+ import org.sableos.hub.notifications.ConnectedNotificationActivityRegistry
+ import org.sableos.hub.notifications.ConnectedReplyRegistry
+ import org.sableos.hub.platform.AndroidSettingsLauncher
+@@ -266,7 +267,7 @@ class HubRepository(
+     private fun loadMailSnapshot(): HubMailSnapshot {
+         val fallback =
+             HubMailSnapshot(
+-                detail = "Sable Mail is unavailable.",
++                detail = t("sable_mail_is_unavailable"),
+                 available = false,
+                 observedAtMillis = System.currentTimeMillis(),
+             )
+@@ -377,7 +378,7 @@ class HubRepository(
+                         val label =
+                             cursor.getString(name)?.trim()?.takeIf(String::isNotEmpty)
+                                 ?: namesByNumber[normalizeAddress(dialable)].takeIf { dialable.isNotEmpty() }
+-                                ?: dialable.ifEmpty { "Private number" }
++                                ?: dialable.ifEmpty { t("private_number") }
+                         result +=
+                             HubCall(
+                                 id = cursor.getLong(id),
+@@ -399,17 +400,17 @@ class HubRepository(
+         body: String,
+     ) {
+         require(recipient.isNotBlank()) {
+-            "Recipient is required."
++            t("recipient_is_required")
+         }
+         require(body.isNotBlank()) {
+-            "Message is empty."
++            t("message_is_empty")
+         }
+ 
+         // Lint cannot infer this project-local permission predicate. Keep the
+         // suppression scoped to this method and fail closed before any
+         // telephony API is called.
+         check(hasPermission(Manifest.permission.SEND_SMS)) {
+-            "SMS sending permission is not available."
++            t("sms_sending_permission_is_not")
+         }
+ 
+         val subscriptionId =
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubSnapshotProvider.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubSnapshotProvider.kt
+index 35a7839..aab5daf 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubSnapshotProvider.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubSnapshotProvider.kt
+@@ -13,6 +13,7 @@ import android.os.Binder
+ import android.os.Process
+ import android.os.UserManager
+ import android.provider.Telephony
++import org.sableos.hub.HubText.t
+ import org.sableos.hub.notifications.ActiveNotificationCountRegistry
+ import org.sableos.hub.notifications.ConnectedNotificationActivityRegistry
+ import org.sableos.hub.notifications.SableNotificationListenerService
+@@ -74,15 +75,15 @@ class HubSnapshotProvider : ContentProvider() {
+             }
+         val detail =
+             when (attentionCount) {
+-                0 -> "0 active"
+-                1 -> "1 active"
++                0 -> t("n0_active")
++                1 -> t("n1_active")
+                 else -> attentionCount.toString() + " active"
+             }
+ 
+         return MatrixCursor(COLUMNS).apply {
+             addRow(
+                 arrayOf<Any?>(
+-                    "Hub",
++                    t("hub"),
+                     detail,
+                     availability,
+                     System.currentTimeMillis(),
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubText.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubText.kt
+new file mode 100644
+index 0000000..93cab1a
+--- /dev/null
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubText.kt
+@@ -0,0 +1,232 @@
++package org.sableos.hub
++
++import org.sableos.design.SableTexts
++
++/**
++ * Every line Sable Hub shows, in English, by string resource name. res/values/strings.xml repeats
++ * them (HubTextTest keeps the two equal) and res/values-<lang>/strings.xml translates them.
++ */
++object HubText {
++    val EN: Map<String, String> =
++        mapOf(
++            "this_caller_s_number_is" to "This caller's number is not available.",
++            "the_phone_app_is_unavailable" to "The Phone app is unavailable.",
++            "opened_the_system_mms_composer" to "Opened the system MMS composer.",
++            "mms_composer_is_unavailable" to "MMS composer is unavailable.",
++            "priority_messages_calls_email_and" to
++                "Priority, messages, calls, email and people, kept local to this device.",
++            "loading_conversations" to "Loading conversations…",
++            "local_communication_across_your_enabled" to
++                "Local communication across your enabled sources.",
++            "show_list" to "Show list",
++            "show_list_without_previews" to "Show list without previews",
++            "unlock_to_view_details" to "Unlock to view details",
++            "private_mode_settings" to "Private mode settings",
++            "android_notification_settings_are_unavailable" to
++                "Android notification settings are unavailable.",
++            "opened" to "Opened %1\$s.",
++            "the_source_app_is_unavailable" to "The source app is unavailable.",
++            "text_message" to "Text message",
++            "reply" to "Reply",
++            "conversation_unavailable" to "conversation unavailable",
++            "the_source_conversation_is_no" to
++                "The source conversation is no longer available in local Sable history.",
++            "back" to "Back",
++            "nothing_needs_your_attention" to "Nothing needs your attention.",
++            "email" to "Email",
++            "open_sable_mail" to "Open Sable Mail",
++            "sable_mail" to "Sable Mail",
++            "hub_reads_only_the_bounded" to
++                "Hub reads only the bounded local mail snapshot. Accounts, sync and mailbox " +
++                "storage remain in Sable Mail.",
++            "new_message" to "new message",
++            "connected_apps" to "connected apps",
++            "search_messages_calls_mail" to "/ Search messages, calls, mail",
++            "nothing_new" to "Nothing new",
++            "show_fewer_sources" to "Show fewer sources",
++            "show_all_sources" to "Show all sources",
++            "nothing_matches" to "Nothing matches “%1\$s”.",
++            "grant_sms_access_to_show" to "Grant SMS access to show conversations.",
++            "grant_call_log_access_to" to "Grant call log access to show recent calls.",
++            "no_recent_calls" to "No recent calls.",
++            "grant_call_log_access_to_2" to "Grant call log access to show missed calls.",
++            "no_missed_calls" to "No missed calls.",
++            "grant_contacts_access_to_match" to "Grant contacts access to match people.",
++            "no_conversations_or_calls_with" to "No conversations or calls with your contacts.",
++            "no_connected_app_conversations_choose" to
++                "No connected-app conversations. Choose apps under connected apps.",
++            "no_mail_notifications_turn_on" to
++                "No mail notifications. Turn on a mail app under connected apps.",
++            "no_conversations_yet" to "No conversations yet.",
++            "allow_sms_access_to_read" to
++                "Allow SMS access to read conversations and send messages.",
++            "allow_sending_access_to_send" to "Allow sending access to send SMS from Hub.",
++            "allow_call_log_access_to" to
++                "Allow call log access to show recent and missed calls. Calls stay in the Phone " +
++                "app.",
++            "access_needed" to "Access needed",
++            "call" to "Call · ",
++            "text" to "Text",
++            "sms" to "SMS · ",
++            "connected_app" to "connected app",
++            "content_hidden" to "%1\$s · content hidden",
++            "contacts_access_is_optional_and" to
++                "Contacts access is optional and only improves people matching.",
++            "search_people" to "Search people",
++            "no_matching_people_are_available" to "No matching people are available.",
++            "privacy" to "Privacy: ",
++            "call_2" to "Call",
++            "attach" to "Attach",
++            "open_app" to "Open app",
++            "notifications" to "Notifications",
++            "no_messages_yet_write_the" to "No messages yet. Write the first one below.",
++            "no_messages_yet" to "No messages yet.",
++            "search_this_conversation" to "Search this conversation",
++            "sms_sending_needs_permission" to "SMS sending needs permission.",
++            "send" to "Send",
++            "send_sms_or_hand_off" to
++                "Send SMS, or hand off to the system MMS composer for attachments.",
++            "phone_number" to "Phone number",
++            "message" to "Message",
++            "send_sms" to "Send SMS",
++            "mms_attachment" to "MMS / attachment",
++            "content_hidden_by_source_app" to "Content hidden by source app",
++            "empty_sms_body" to "Empty SMS body",
++            "handed_off" to "Handed off · ",
++            "review_access" to "Review access",
++            "search_pageup_history_end_latest" to
++                "/ search · PageUp history · End latest · Esc back to latest",
++            "search_alt_enter_actions_a" to
++                "/ search · Alt+Enter actions · A P M X C E N O filters · D dock · T/B top/bottom",
++            "choose_installed_apps_that_may" to
++                "Choose installed apps that may contribute notification-derived conversations.",
++            "sable_does_not_sign_into" to
++                "Sable does not sign into these services. The installed app keeps networking, " +
++                "encryption, account state and complete history.",
++            "loading_installed_apps" to "Loading installed apps…",
++            "notification_access_is_enabled" to "Notification access is enabled.",
++            "notification_access_is_required_before" to
++                "Notification access is required before connected apps can contribute messages.",
++            "review_notification_access" to "Review notification access",
++            "enable_notification_access" to "Enable notification access",
++            "private_mode_hub_shows_counts" to
++                "Private mode: Hub shows counts only, Phone hides names in Recents, Contacts " +
++                "hides numbers",
++            "combine_conversations" to "Combine conversations",
++            "group_adjacent_messages_from_the" to
++                "Group adjacent messages from the same conversation into a streamlined thread, " +
++                "hiding duplicate titles and app icons.",
++            "sable_attention" to "Sable Attention",
++            "search_installed_apps" to "Search installed apps",
++            "use_one_app_per_email" to
++                "Use one app per email account. Sable Mail covers Gmail, Outlook, Yahoo, iCloud " +
++                "and IMAP. Turn on another mail app only for accounts Sable Mail can't open " +
++                "(Proton, Tuta, managed work accounts).",
++            "more_than_one_mail_app" to
++                "More than one mail app is on; an account signed in to both will appear twice.",
++            "no_connected_apps_are_enabled" to "No connected apps are enabled.",
++            "no_favorite_apps_are_set" to "No favorite apps are set.",
++            "no_favorite_apps_match_this" to "No favorite apps match this search.",
++            "no_additional_installed_apps_are" to "No additional installed apps are available.",
++            "no_installed_apps_match_this" to "No installed apps match this search.",
++            "delivery_android_notification_settings" to "Delivery: Android notification settings",
++            "hub_priority_ordering_only_not" to
++                "Hub priority (ordering only, not a Do Not Disturb exception)",
++            "mail" to "Mail · ",
++            "allow_quick_reply" to "Allow quick reply",
++            "hide_from_sablelauncher" to "Hide from SableLauncher",
++            "history_retention" to "History retention: %1\$s",
++            "hub_preview" to "Hub preview: %1\$s",
++            "attention" to "Attention: %1\$s",
++            "sound" to "Sound",
++            "vibration" to "Vibration",
++            "notification_light" to "Notification light",
++            "keyboard_backlight" to "Keyboard backlight",
++            "glance_display" to "Glance display",
++            "always_on_display" to "Always-on display",
++            "sable_attention_2" to "sable attention",
++            "android_decides_whether_a_notification" to
++                "Android decides whether a notification alerts. Sable Attention only maps that " +
++                "decision to outputs this device supports, and never bypasses Do Not Disturb.",
++            "android_notification_settings" to "Android notification settings",
++            "notifications_sound_vibration_pop_up" to
++                "Notifications: sound, vibration, pop-up, lock screen",
++            "conversations" to "Conversations",
++            "do_not_disturb" to "Do Not Disturb",
++            "notification_history" to "Notification history",
++            "this_device" to "This device",
++            "this_device_profile_declares_no" to
++                "This device profile declares no Sable-controlled attention outputs, so " +
++                "notifications use only what Android provides.",
++            "off_unless_you_turn_it" to "Off unless you turn it on for an app.",
++            "on_for_apps_you_have" to
++                "On for apps you have not configured; locked and private content is redacted.",
++            "choose_apps_in_connected_apps" to "%1\$s Choose apps in Connected apps.",
++            "connected_apps_2" to "Connected apps",
++            "follows_android_notification_settings" to "Follows Android notification settings.",
++            "open_android_settings" to "Open Android settings",
++            "sable_mail_is_unavailable" to "Sable Mail is unavailable.",
++            "private_number" to "Private number",
++            "recipient_is_required" to "Recipient is required.",
++            "message_is_empty" to "Message is empty.",
++            "sms_sending_permission_is_not" to "SMS sending permission is not available.",
++            "n0_active" to "0 active",
++            "n1_active" to "1 active",
++            "hub" to "Hub",
++            "message_handed_to_android_telephony" to "Message handed to Android telephony.",
++            "sms_send_capability_is_unavailable" to "SMS send capability is unavailable.",
++            "n1_day" to "1 day",
++            "n7_days" to "7 days",
++            "n30_days" to "30 days",
++            "sender_and_message" to "Sender and message",
++            "sender_only" to "Sender only",
++            "app_and_count_only" to "App and count only",
++            "not_in_hub" to "Not in Hub",
++            "in_hub" to "In Hub",
++            "paused_android_notification_access_is" to "Paused: Android notification access is off",
++            "paused_profile_is_locked_or" to "Paused: profile is locked or paused",
++            "no_matches" to "No matches",
++            "of" to "%1\$s of %2\$s",
++            "new_message_enter_for_latest" to "New message · Enter for latest",
++            "work_profile" to "Work profile",
++            "locked" to "Locked",
++            "private_mode" to "Private mode",
++            "previews_on" to "Previews on",
++            "counts_only_unlock_to_view" to "Counts only · unlock to view details",
++            "counts_only_senders_and_text" to "Counts only · senders and text hidden",
++            "showing_what_each_source_allows" to "Showing what each source allows",
++            "messages" to "Messages",
++            "mail_2" to "Mail",
++            "missed_calls" to "Missed calls",
++            "hidden" to "%1\$s %2\$s · hidden",
++            "private_ok" to "Private OK",
++            "connected_app_2" to "Connected app",
++            "preview_hidden" to "Preview hidden",
++            "open" to "Open",
++            "call_back" to "Call back",
++            "open_in_messages" to "Open in Messages",
++            "open_source_app" to "Open source app",
++            "notification_settings" to "Notification settings",
++            "privacy_options" to "Privacy options",
++            "calls" to "Calls",
++            "phone_calls" to "Phone calls",
++            "work" to "Work",
++            "private_label" to "Private",
++            "profile" to "Profile",
++            "all" to "All",
++            "priority" to "Priority",
++            "missed" to "Missed",
++            "people" to "People",
++            "reply_is_empty" to "Reply is empty.",
++            "quick_reply_is_no_longer" to
++                "Quick reply is no longer available. Open the source app instead.",
++            "unlock_the_device_and_profile" to "Unlock the device and profile to reply.",
++            "reply_handed_to_the_source" to "Reply handed to the source app.",
++            "the_source_app_no_longer" to "The source app no longer accepts quick reply.",
++            "personal" to "Personal",
++            "private_space" to "Private space",
++            "profile_2" to "Profile %1\$s",
++        )
++
++    val t = SableTexts(EN)
++}
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt
+index d9546da..dd9ecd6 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt
+@@ -25,6 +25,7 @@ import androidx.lifecycle.Lifecycle
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.withContext
+ import org.sableos.design.SableGlobalTheme
++import org.sableos.hub.HubText.t
+ import org.sableos.hub.policy.HubDrafts
+ import org.sableos.hub.policy.HubHandoffTarget
+ import org.sableos.hub.policy.HubIntents
+@@ -163,7 +164,7 @@ class MainActivity : ComponentActivity() {
+                                 refreshGeneration += 1
+                                 HubSendResult(
+                                     success = true,
+-                                    message = "Message handed to Android telephony.",
++                                    message = t("message_handed_to_android_telephony"),
+                                 )
+                             },
+                             onFailure = { error ->
+@@ -171,7 +172,7 @@ class MainActivity : ComponentActivity() {
+                                     success = false,
+                                     message =
+                                         error.message
+-                                            ?: "SMS send capability is unavailable.",
++                                            ?: t("sms_send_capability_is_unavailable"),
+                                 )
+                             },
+                         )
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/ConnectedReplyRegistry.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/ConnectedReplyRegistry.kt
+index e7bad0e..eedc604 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/ConnectedReplyRegistry.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/ConnectedReplyRegistry.kt
+@@ -7,6 +7,7 @@ import android.content.Intent
+ import android.os.Bundle
+ import org.sableos.hub.ConnectedAppKey
+ import org.sableos.hub.HubSendResult
++import org.sableos.hub.HubText.t
+ import org.sableos.hub.platform.PrivacyReader
+ import org.sableos.hub.platform.ProfileDirectory
+ import org.sableos.hub.policy.PrivacyContext
+@@ -58,21 +59,21 @@ internal object ConnectedReplyRegistry {
+             text.isEmpty() -> {
+                 HubSendResult(
+                     success = false,
+-                    message = "Reply is empty.",
++                    message = t("reply_is_empty"),
+                 )
+             }
+ 
+             handle == null -> {
+                 HubSendResult(
+                     success = false,
+-                    message = "Quick reply is no longer available. Open the source app instead.",
++                    message = t("quick_reply_is_no_longer"),
+                 )
+             }
+ 
+             requiresUnlock(context, handle) -> {
+                 HubSendResult(
+                     success = false,
+-                    message = "Unlock the device and profile to reply.",
++                    message = t("unlock_the_device_and_profile"),
+                 )
+             }
+ 
+@@ -130,7 +131,7 @@ internal object ConnectedReplyRegistry {
+             )
+             HubSendResult(
+                 success = true,
+-                message = "Reply handed to the source app.",
++                message = t("reply_handed_to_the_source"),
+             )
+         }.getOrElse { error ->
+             remove(notificationKey)
+@@ -138,7 +139,7 @@ internal object ConnectedReplyRegistry {
+                 success = false,
+                 message =
+                     error.message
+-                        ?: "The source app no longer accepts quick reply.",
++                        ?: t("the_source_app_no_longer"),
+             )
+         }
+ }
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/ConnectedAppsParity.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/ConnectedAppsParity.kt
+index 560fd28..e319385 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/ConnectedAppsParity.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/ConnectedAppsParity.kt
+@@ -2,6 +2,7 @@ package org.sableos.hub.policy
+ 
+ import org.sableos.hub.ConnectedAppKey
+ import org.sableos.hub.ConnectedAppPolicy
++import org.sableos.hub.HubText.t
+ 
+ /** Hub-side state of one connected app, derived from Hub policy plus Android facts. */
+ enum class ConnectedAppStatus {
+@@ -64,9 +65,9 @@ object ConnectedAppsParity {
+ 
+     fun statusLabel(status: ConnectedAppStatus): String =
+         when (status) {
+-            ConnectedAppStatus.Off -> "Not in Hub"
+-            ConnectedAppStatus.Connected -> "In Hub"
+-            ConnectedAppStatus.PausedNoNotificationAccess -> "Paused: Android notification access is off"
+-            ConnectedAppStatus.PausedProfileLocked -> "Paused: profile is locked or paused"
++            ConnectedAppStatus.Off -> t("not_in_hub")
++            ConnectedAppStatus.Connected -> t("in_hub")
++            ConnectedAppStatus.PausedNoNotificationAccess -> t("paused_android_notification_access_is")
++            ConnectedAppStatus.PausedProfileLocked -> t("paused_profile_is_locked_or")
+         }
+ }
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubConversationRollup.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubConversationRollup.kt
+index f47b2eb..a3b0c6b 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubConversationRollup.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubConversationRollup.kt
+@@ -2,6 +2,7 @@ package org.sableos.hub.policy
+ 
+ import org.sableos.hub.HubConversation
+ import org.sableos.hub.HubConversationSource
++import org.sableos.hub.HubText.t
+ import java.util.Locale
+ 
+ /** A run of adjacent inbox rows from one person; [parent] is the newest, [children] follow it. */
+@@ -137,4 +138,4 @@ private fun sourceLabelOf(conversation: HubConversation): String =
+         conversation.sourceLabel?.takeIf(String::isNotBlank) ?: CONNECTED_APP_LABEL
+     }
+ 
+-private const val CONNECTED_APP_LABEL = "connected app"
++private val CONNECTED_APP_LABEL: String get() = t("connected_app")
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubInbox.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubInbox.kt
+index e2242fd..9e3aa7a 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubInbox.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubInbox.kt
+@@ -4,6 +4,7 @@ import org.sableos.hub.HubCall
+ import org.sableos.hub.HubConversation
+ import org.sableos.hub.HubConversationSource
+ import org.sableos.hub.HubPerson
++import org.sableos.hub.HubText.t
+ 
+ /**
+  * Hub inbox filters (SABLE_HUB_KEYBOARD_FIRST_UX "Filters"): one list, narrowed by source or by
+@@ -12,27 +13,29 @@ import org.sableos.hub.HubPerson
+  * Hub on one of them with [HubIntents.EXTRA_FILTER].
+  */
+ enum class HubInboxFilter(
+-    val label: String,
++    private val labelKey: String,
+     val shortcut: Char,
+ ) {
+-    All("All", 'a'),
++    All("all", 'a'),
+ 
+     /** Unread or Hub-priority conversations, answerable threads and missed calls. */
+-    Priority("Priority", 'p'),
+-    Messages("Messages", 'm'),
++    Priority("priority", 'p'),
++    Messages("messages", 'm'),
+ 
+     /** Missed calls and voicemail: the calls the user did not take. */
+-    Missed("Missed", 'x'),
+-    Calls("Calls", 'c'),
++    Missed("missed", 'x'),
++    Calls("calls", 'c'),
+ 
+     /** Connected mail apps (known mail packages or notifications in the email category). */
+-    Mail("Mail", 'e'),
+-    Notifications("Notifications", 'n'),
++    Mail("mail_2", 'e'),
++    Notifications("notifications", 'n'),
+ 
+     /** Conversations and calls with someone in the address book. */
+-    People("People", 'o'),
++    People("people", 'o'),
+     ;
+ 
++    val label: String get() = t(labelKey)
++
+     companion object {
+         fun forShortcut(typed: Char): HubInboxFilter? = entries.firstOrNull { it.shortcut == typed.lowercaseChar() }
+     }
+@@ -193,7 +196,7 @@ object HubThreadResolver {
+ 
+ /** Call-log rows under Hub privacy: the same level that governs Hub's own SMS. */
+ object HubCallRedaction {
+-    const val REDACTED_LABEL = "Call"
++    val REDACTED_LABEL: String get() = t("call_2")
+ 
+     fun apply(
+         calls: List<HubCall>,
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubPrivateSummary.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubPrivateSummary.kt
+index 013e3f6..e2eac30 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubPrivateSummary.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubPrivateSummary.kt
+@@ -3,6 +3,7 @@ package org.sableos.hub.policy
+ import org.sableos.hub.HubCall
+ import org.sableos.hub.HubConversation
+ import org.sableos.hub.HubConversationSource
++import org.sableos.hub.HubText.t
+ 
+ /**
+  * Hub-wide privacy state at snapshot time (SABLE_HUB_KEYBOARD_FIRST_UX "Privacy model"). Either
+@@ -20,18 +21,18 @@ data class HubPrivacyState(
+     val title: String
+         get() =
+             when {
+-                deviceLocked -> "Locked"
+-                privateMode -> "Private mode"
+-                else -> "Previews on"
++                deviceLocked -> t("locked")
++                privateMode -> t("private_mode")
++                else -> t("previews_on")
+             }
+ 
+     /** Line under the title. */
+     val detail: String
+         get() =
+             when {
+-                deviceLocked -> "Counts only · unlock to view details"
+-                privateMode -> "Counts only · senders and text hidden"
+-                else -> "Showing what each source allows"
++                deviceLocked -> t("counts_only_unlock_to_view")
++                privateMode -> t("counts_only_senders_and_text")
++                else -> t("showing_what_each_source_allows")
+             }
+ 
+     /** Rows can be listed (redacted) only while unlocked; a locked device shows counts alone. */
+@@ -64,17 +65,17 @@ object HubPrivateSummary {
+         val other = unread.count { it.source == HubConversationSource.ConnectedApp && !HubMailSources.isMail(it) }
+         val missed = calls.count { it.kind.needsAttention }
+         return listOfNotNull(
+-            line(HubInboxFilter.Messages, "Messages", messages, "unread"),
+-            line(HubInboxFilter.Mail, "Mail", mail, "unread"),
+-            line(HubInboxFilter.Notifications, "Notifications", other, "new"),
+-            line(HubInboxFilter.Missed, "Missed calls", missed, "missed"),
++            line(HubInboxFilter.Messages, t("messages"), messages, "unread"),
++            line(HubInboxFilter.Mail, t("mail_2"), mail, "unread"),
++            line(HubInboxFilter.Notifications, t("notifications"), other, "new"),
++            line(HubInboxFilter.Missed, t("missed_calls"), missed, "missed"),
+         )
+     }
+ 
+     /** "2 Messages · 1 Mail · 1 Missed calls" style one-line total, or "Nothing new". */
+     fun oneLine(counts: List<HubPrivateCount>): String =
+         if (counts.isEmpty()) {
+-            "Nothing new"
++            t("nothing_new")
+         } else {
+             counts.joinToString(" · ") { it.count.toString() + " " + it.label }
+         }
+@@ -88,7 +89,7 @@ object HubPrivateSummary {
+         if (count <= 0) {
+             null
+         } else {
+-            HubPrivateCount(filter, label, count, "$count $word · hidden")
++            HubPrivateCount(filter, label, count, t("hidden", count, word))
+         }
+ }
+ 
+@@ -97,7 +98,7 @@ object HubPrivateSummary {
+  * header"): "SMS · Private OK", "Signal · Work · Private mode", "SMS · Locked".
+  */
+ object HubPrivacyBadge {
+-    const val VISIBLE = "Private OK"
++    val VISIBLE: String get() = t("private_ok")
+ 
+     fun text(
+         conversation: HubConversation,
+@@ -107,17 +108,17 @@ object HubPrivacyBadge {
+             if (conversation.source == HubConversationSource.Sms) {
+                 HubRedaction.SMS_LABEL
+             } else {
+-                conversation.sourceLabel ?: "Connected app"
++                conversation.sourceLabel ?: t("connected_app_2")
+             }
+         val state =
+             when {
+-                privacy.deviceLocked -> "Locked"
++                privacy.deviceLocked -> t("locked")
+ 
+-                privacy.privateMode -> "Private mode"
++                privacy.privateMode -> t("private_mode")
+ 
+                 conversation.source == HubConversationSource.ConnectedApp &&
+                     conversation.lastBody.isBlank() &&
+-                    conversation.lastDateMillis > 0L -> "Preview hidden"
++                    conversation.lastDateMillis > 0L -> t("preview_hidden")
+ 
+                 else -> VISIBLE
+             }
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubRedaction.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubRedaction.kt
+index 19159d5..373ec83 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubRedaction.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubRedaction.kt
+@@ -4,6 +4,7 @@ import org.sableos.hub.ConnectedAppKey
+ import org.sableos.hub.HubConversation
+ import org.sableos.hub.HubConversationSource
+ import org.sableos.hub.HubMessage
++import org.sableos.hub.HubText.t
+ 
+ /** The two levels that apply to one connected source right now. */
+ data class HubSourcePrivacy(
+@@ -21,7 +22,7 @@ data class HubSourcePrivacy(
+  * Hub's own SMS rows use [smsPrivacy], so private mode and the locked device redact SMS bodies too.
+  */
+ object HubRedaction {
+-    const val WORK_PROFILE_LABEL = "Work profile"
++    val WORK_PROFILE_LABEL: String get() = t("work_profile")
+     const val SMS_LABEL = "SMS"
+ 
+     private val FULL = HubSourcePrivacy(HubContentLevel.Full, HubContentLevel.Full)
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubRowActions.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubRowActions.kt
+index 30b40d0..1d07325 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubRowActions.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubRowActions.kt
+@@ -3,19 +3,23 @@ package org.sableos.hub.policy
+ import org.sableos.hub.HubCall
+ import org.sableos.hub.HubConversation
+ import org.sableos.hub.HubConversationSource
++import org.sableos.hub.HubText.t
+ 
+ /** One entry of the row actions sheet (Menu, Alt+Enter or long press on an inbox row). */
+ enum class HubRowAction(
+-    val label: String,
++    private val labelKey: String,
+ ) {
+-    Open("Open"),
+-    Reply("Reply"),
+-    CallBack("Call back"),
+-    Text("Text"),
+-    OpenInMessages("Open in Messages"),
+-    OpenSourceApp("Open source app"),
+-    SourceNotifications("Notification settings"),
+-    PrivacyOptions("Privacy options"),
++    Open("open"),
++    Reply("reply"),
++    CallBack("call_back"),
++    Text("text"),
++    OpenInMessages("open_in_messages"),
++    OpenSourceApp("open_source_app"),
++    SourceNotifications("notification_settings"),
++    PrivacyOptions("privacy_options"),
++    ;
++
++    val label: String get() = t(labelKey)
+ }
+ 
+ /**
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubSearch.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubSearch.kt
+index 2f3eda0..c5c633d 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubSearch.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubSearch.kt
+@@ -2,6 +2,7 @@ package org.sableos.hub.policy
+ 
+ import org.sableos.hub.HubCall
+ import org.sableos.hub.HubConversation
++import org.sableos.hub.HubText.t
+ 
+ /**
+  * Hub search (SABLE_HUB_KEYBOARD_FIRST_UX "Type input and search"): local, never the web. Plain
+@@ -55,7 +56,7 @@ data class HubSearch(
+         const val APP_PREFIX = "app:"
+ 
+         /** Source label calls answer to with `app:` (the Phone app owns the call log). */
+-        const val CALLS_SOURCE = "Phone calls"
++        val CALLS_SOURCE: String get() = t("phone_calls")
+ 
+         /** Words of the search hint under the field. */
+         const val HINT = "unread · missed · today · from: · app:"
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubSourceDock.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubSourceDock.kt
+index 74cea2f..baa701c 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubSourceDock.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubSourceDock.kt
+@@ -3,6 +3,7 @@ package org.sableos.hub.policy
+ import org.sableos.hub.HubCall
+ import org.sableos.hub.HubConversation
+ import org.sableos.hub.HubConversationSource
++import org.sableos.hub.HubText.t
+ import java.util.Locale
+ 
+ /** Where an inbox row came from, as the source dock groups it. */
+@@ -142,7 +143,7 @@ object HubSourceDock {
+             }
+         }
+ 
+-    const val CALLS_LABEL = "Calls"
++    val CALLS_LABEL: String get() = t("calls")
+ 
+     /** Moves focus to the dock from a filter chip or a row (never while typing). */
+     const val SHORTCUT = 'd'
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubThreadKeys.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubThreadKeys.kt
+index 0d6c8f1..23d2bd1 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubThreadKeys.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubThreadKeys.kt
+@@ -1,6 +1,7 @@
+ package org.sableos.hub.policy
+ 
+ import org.sableos.hub.HubMessage
++import org.sableos.hub.HubText.t
+ 
+ /** Keys a conversation view reacts to, mapped from Compose keys by the screen. */
+ enum class HubThreadKey {
+@@ -153,8 +154,8 @@ object HubThreadSearch {
+     ): String =
+         when {
+             query.isBlank() -> ""
+-            matchCount == 0 -> "No matches"
+-            else -> "${current.coerceAtLeast(0) + 1} of $matchCount"
++            matchCount == 0 -> t("no_matches")
++            else -> t("of", current.coerceAtLeast(0) + 1, matchCount)
+         }
+ }
+ 
+@@ -174,5 +175,5 @@ object HubNewMessagePill {
+         newest: HubMessage?,
+     ): Boolean = !atLatest && newest != null && newest.incoming && seenNewestId != null && newest.id != seenNewestId
+ 
+-    const val LABEL = "New message · Enter for latest"
++    val LABEL: String get() = t("new_message_enter_for_latest")
+ }
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/PrivacyPosture.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/PrivacyPosture.kt
+index e83db0b..ebcedca 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/PrivacyPosture.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/PrivacyPosture.kt
+@@ -1,6 +1,7 @@
+ package org.sableos.hub.policy
+ 
+ import org.sableos.hub.HubPreviewPolicy
++import org.sableos.hub.HubText.t
+ 
+ /** Android user/profile kind of a notification's source (DESIGN-KF-A "Multi-user and work profile"). */
+ enum class ProfileKind {
+@@ -18,9 +19,9 @@ enum class ProfileKind {
+     fun badge(): String? =
+         when (this) {
+             Personal -> null
+-            Work -> "Work"
+-            Private -> "Private"
+-            Other -> "Profile"
++            Work -> t("work")
++            Private -> t("private_label")
++            Other -> t("profile")
+         }
+ 
+     companion object {
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/AttentionSettingsScreen.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/AttentionSettingsScreen.kt
+index db704d4..2336784 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/AttentionSettingsScreen.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/AttentionSettingsScreen.kt
+@@ -8,6 +8,7 @@ import org.sableos.design.SableActionButton
+ import org.sableos.design.SablePageHeader
+ import org.sableos.design.SablePanel
+ import org.sableos.design.SableScrollableScreen
++import org.sableos.hub.HubText.t
+ import org.sableos.hub.policy.AttentionDefault
+ import org.sableos.hub.policy.AttentionDefaults
+ import org.sableos.hub.policy.AttentionDeviceProfile
+@@ -24,41 +25,39 @@ internal fun AttentionSettingsScreen(
+ ) {
+     SableScrollableScreen {
+         SablePageHeader(
+-            title = "sable attention",
++            title = t("sable_attention_2"),
+             subtitle =
+-                "Android decides whether a notification alerts. Sable Attention only maps that " +
+-                    "decision to outputs this device supports, and never bypasses Do Not Disturb.",
++                t("android_decides_whether_a_notification"),
+         )
+ 
+         SablePanel {
+-            Text(text = "Android notification settings", style = MaterialTheme.typography.titleMedium)
++            Text(text = t("android_notification_settings"), style = MaterialTheme.typography.titleMedium)
+             AndroidLink(
+-                label = "Notifications: sound, vibration, pop-up, lock screen",
++                label = t("notifications_sound_vibration_pop_up"),
+                 concept = NotificationConcept.Channels,
+                 onOpenAndroid = onOpenAndroid,
+             )
+-            AndroidLink("Conversations", NotificationConcept.ConversationPriority, onOpenAndroid)
+-            AndroidLink("Do Not Disturb", NotificationConcept.DoNotDisturb, onOpenAndroid)
+-            AndroidLink("Notification history", NotificationConcept.NotificationHistory, onOpenAndroid)
++            AndroidLink(t("conversations"), NotificationConcept.ConversationPriority, onOpenAndroid)
++            AndroidLink(t("do_not_disturb"), NotificationConcept.DoNotDisturb, onOpenAndroid)
++            AndroidLink(t("notification_history"), NotificationConcept.NotificationHistory, onOpenAndroid)
+         }
+ 
+         SablePanel {
+-            Text(text = "This device", style = MaterialTheme.typography.titleMedium)
++            Text(text = t("this_device"), style = MaterialTheme.typography.titleMedium)
+             profile.visibleOutputs().forEach { output ->
+                 OutputRow(output, onOpenAndroid, onOpenConnectedApps)
+             }
+             if (profile.selectableOutputs().isEmpty()) {
+                 Text(
+                     text =
+-                        "This device profile declares no Sable-controlled attention outputs, so " +
+-                            "notifications use only what Android provides.",
++                        t("this_device_profile_declares_no"),
+                     style = MaterialTheme.typography.bodyMedium,
+                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                 )
+             }
+         }
+ 
+-        SableActionButton(text = "Back", primary = false, onClick = onBack)
++        SableActionButton(text = t("back"), primary = false, onClick = onBack)
+     }
+ }
+ 
+@@ -72,23 +71,23 @@ private fun OutputRow(
+     if (output.owner == OutputOwner.Sable) {
+         val default =
+             if (AttentionDefaults.defaultFor(output) == AttentionDefault.Off) {
+-                "Off unless you turn it on for an app."
++                t("off_unless_you_turn_it")
+             } else {
+-                "On for apps you have not configured; locked and private content is redacted."
++                t("on_for_apps_you_have")
+             }
+         Text(
+-            text = "$default Choose apps in Connected apps.",
++            text = t("choose_apps_in_connected_apps", default),
+             style = MaterialTheme.typography.bodyMedium,
+             color = MaterialTheme.colorScheme.onSurfaceVariant,
+         )
+-        TextButton(onClick = onOpenConnectedApps) { Text("Connected apps") }
++        TextButton(onClick = onOpenConnectedApps) { Text(t("connected_apps_2")) }
+     } else {
+         Text(
+-            text = "Follows Android notification settings.",
++            text = t("follows_android_notification_settings"),
+             style = MaterialTheme.typography.bodyMedium,
+             color = MaterialTheme.colorScheme.onSurfaceVariant,
+         )
+-        TextButton(onClick = { onOpenAndroid(output.concept) }) { Text("Open Android settings") }
++        TextButton(onClick = { onOpenAndroid(output.concept) }) { Text(t("open_android_settings")) }
+     }
+ }
+ 
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt
+index be13aad..6989f1d 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt
+@@ -36,6 +36,7 @@ import org.sableos.design.SableSpacing
+ import org.sableos.hub.ConnectedAppCandidate
+ import org.sableos.hub.ConnectedAppKey
+ import org.sableos.hub.ConnectedAppPolicy
++import org.sableos.hub.HubText.t
+ import org.sableos.hub.policy.AttentionOutput
+ import org.sableos.hub.policy.ConnectedAppsParity
+ import org.sableos.hub.policy.HubMailSources
+@@ -105,9 +106,9 @@ internal fun ConnectedAppsScreen(
+             ) {
+                 item {
+                     SablePageHeader(
+-                        title = "connected apps",
++                        title = t("connected_apps"),
+                         subtitle =
+-                            "Choose installed apps that may contribute notification-derived conversations.",
++                            t("choose_installed_apps_that_may"),
+                     )
+                 }
+                 item {
+@@ -124,9 +125,7 @@ internal fun ConnectedAppsScreen(
+                 item {
+                     Text(
+                         text =
+-                            "Sable does not sign into these services. The installed app keeps " +
+-                                "networking, " +
+-                                "encryption, account state and complete history.",
++                            t("sable_does_not_sign_into"),
+                         style = MaterialTheme.typography.bodyMedium,
+                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                     )
+@@ -138,7 +137,7 @@ internal fun ConnectedAppsScreen(
+                     loading -> {
+                         item {
+                             Text(
+-                                text = "Loading installed apps…",
++                                text = t("loading_installed_apps"),
+                                 style = MaterialTheme.typography.bodyLarge,
+                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                             )
+@@ -203,40 +202,38 @@ private fun NotificationAccessPanel(
+         Text(
+             text =
+                 if (notificationAccessGranted) {
+-                    "Notification access is enabled."
++                    t("notification_access_is_enabled")
+                 } else {
+-                    "Notification access is required before connected apps can " +
+-                        "contribute messages."
++                    t("notification_access_is_required_before")
+                 },
+             style = MaterialTheme.typography.bodyMedium,
+         )
+         SableActionButton(
+             text =
+                 if (notificationAccessGranted) {
+-                    "Review notification access"
++                    t("review_notification_access")
+                 } else {
+-                    "Enable notification access"
++                    t("enable_notification_access")
+                 },
+             primary = !notificationAccessGranted,
+             onClick = onOpenNotificationAccess,
+         )
+         PolicySwitchRow(
+-            label = "Private mode: Hub shows counts only, Phone hides names in Recents, Contacts hides numbers",
++            label = t("private_mode_hub_shows_counts"),
+             checked = privateMode,
+             enabled = true,
+             onCheckedChange = onPrivateModeChanged,
+         )
+         PolicySwitchRow(
+-            label = "Combine conversations",
++            label = t("combine_conversations"),
+             detail =
+-                "Group adjacent messages from the same conversation into a streamlined thread, " +
+-                    "hiding duplicate titles and app icons.",
++                t("group_adjacent_messages_from_the"),
+             checked = combineConversations,
+             enabled = true,
+             onCheckedChange = onCombineConversationsChanged,
+         )
+         TextButton(onClick = onOpenAttentionSettings) {
+-            Text("Sable Attention")
++            Text(t("sable_attention"))
+         }
+     }
+ }
+@@ -264,7 +261,7 @@ private fun LazyListScope.connectedAppsBrowser(
+                 onValueChange = onSearchChange,
+                 modifier = Modifier.fillMaxWidth(),
+                 singleLine = true,
+-                label = { Text("Search installed apps") },
++                label = { Text(t("search_installed_apps")) },
+             )
+         }
+     }
+@@ -324,15 +321,13 @@ private fun MailAppsNote(
+     Column(verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs)) {
+         Text(
+             text =
+-                "Use one app per email account. Sable Mail covers Gmail, Outlook, Yahoo, iCloud and IMAP. " +
+-                    "Turn on another mail app only for accounts Sable Mail can't open " +
+-                    "(Proton, Tuta, managed work accounts).",
++                t("use_one_app_per_email"),
+             style = MaterialTheme.typography.bodySmall,
+             color = MaterialTheme.colorScheme.onSurfaceVariant,
+         )
+         if (HubMailSources.duplicateAccountWarning(includedPackages)) {
+             Text(
+-                text = "More than one mail app is on; an account signed in to both will appear twice.",
++                text = t("more_than_one_mail_app"),
+                 style = MaterialTheme.typography.bodySmall,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+@@ -345,11 +340,11 @@ private fun emptyCandidatesText(
+     search: String,
+ ): String =
+     when {
+-        pivot == ConnectedAppsPivot.Enabled -> "No connected apps are enabled."
+-        pivot == ConnectedAppsPivot.Favorites && search.isBlank() -> "No favorite apps are set."
+-        pivot == ConnectedAppsPivot.Favorites -> "No favorite apps match this search."
+-        search.isBlank() -> "No additional installed apps are available."
+-        else -> "No installed apps match this search."
++        pivot == ConnectedAppsPivot.Enabled -> t("no_connected_apps_are_enabled")
++        pivot == ConnectedAppsPivot.Favorites && search.isBlank() -> t("no_favorite_apps_are_set")
++        pivot == ConnectedAppsPivot.Favorites -> t("no_favorite_apps_match_this")
++        search.isBlank() -> t("no_additional_installed_apps_are")
++        else -> t("no_installed_apps_match_this")
+     }
+ 
+ private fun visibleCandidates(
+@@ -432,11 +427,11 @@ private fun ConnectedAppRow(
+ 
+         // Delivery (alerting, sound, vibration, pop-up, badge, lock screen) is Android's.
+         TextButton(onClick = { context.onOpenAndroidNotificationSettings(candidate.key) }) {
+-            Text("Delivery: Android notification settings")
++            Text(t("delivery_android_notification_settings"))
+         }
+ 
+         PolicySwitchRow(
+-            label = "Hub priority (ordering only, not a Do Not Disturb exception)",
++            label = t("hub_priority_ordering_only_not"),
+             checked = policy.favorite,
+             enabled = true,
+             onCheckedChange = { enabled ->
+@@ -507,7 +502,7 @@ private fun ConnectedAppSummary(
+ }
+ 
+ private fun mailPrefix(candidate: ConnectedAppCandidate): String =
+-    if (HubMailSources.isKnownMailPackage(candidate.key.packageName)) "Mail · " else ""
++    if (HubMailSources.isKnownMailPackage(candidate.key.packageName)) t("mail") else ""
+ 
+ @Composable
+ private fun ConnectedAppMessageOptions(
+@@ -515,7 +510,7 @@ private fun ConnectedAppMessageOptions(
+     onPolicyChanged: (ConnectedAppPolicy) -> Unit,
+ ) {
+     PolicySwitchRow(
+-        label = "Allow quick reply",
++        label = t("allow_quick_reply"),
+         checked = policy.allowQuickReply,
+         enabled = true,
+         onCheckedChange = { enabled ->
+@@ -523,7 +518,7 @@ private fun ConnectedAppMessageOptions(
+         },
+     )
+     PolicySwitchRow(
+-        label = "Hide from SableLauncher",
++        label = t("hide_from_sablelauncher"),
+         checked = policy.hideFromLauncher,
+         enabled = true,
+         onCheckedChange = { enabled ->
+@@ -539,14 +534,14 @@ private fun ConnectedAppMessageOptions(
+             )
+         },
+     ) {
+-        Text("History retention: ${policy.retention.label}")
++        Text(t("history_retention", policy.retention.label))
+     }
+     TextButton(
+         onClick = {
+             onPolicyChanged(policy.copy(previewPolicy = policy.previewPolicy.next()))
+         },
+     ) {
+-        Text("Hub preview: ${policy.previewPolicy.label}")
++        Text(t("hub_preview", policy.previewPolicy.label))
+     }
+ }
+ 
+@@ -560,7 +555,7 @@ private fun ConnectedAppAttentionSwitches(
+     val selected = attention.selections[key].orEmpty()
+     attention.selectableOutputs.forEach { output ->
+         PolicySwitchRow(
+-            label = "Attention: ${attentionLabel(output)}",
++            label = t("attention", attentionLabel(output)),
+             checked = output in selected,
+             enabled = true,
+             onCheckedChange = { enabled ->
+@@ -578,12 +573,12 @@ private fun toggled(
+ 
+ internal fun attentionLabel(output: AttentionOutput): String =
+     when (output) {
+-        AttentionOutput.Audio -> "Sound"
+-        AttentionOutput.Haptic -> "Vibration"
+-        AttentionOutput.StatusLed -> "Notification light"
+-        AttentionOutput.KeyboardBacklight -> "Keyboard backlight"
+-        AttentionOutput.SecondaryDisplay -> "Glance display"
+-        AttentionOutput.AlwaysOnDisplay -> "Always-on display"
++        AttentionOutput.Audio -> t("sound")
++        AttentionOutput.Haptic -> t("vibration")
++        AttentionOutput.StatusLed -> t("notification_light")
++        AttentionOutput.KeyboardBacklight -> t("keyboard_backlight")
++        AttentionOutput.SecondaryDisplay -> t("glance_display")
++        AttentionOutput.AlwaysOnDisplay -> t("always_on_display")
+     }
+ 
+ @Composable
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
+index 355e176..b570c19 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
+@@ -110,6 +110,7 @@ import org.sableos.hub.HubLaunchQuery
+ import org.sableos.hub.HubMessage
+ import org.sableos.hub.HubSendResult
+ import org.sableos.hub.HubSnapshot
++import org.sableos.hub.HubText.t
+ import org.sableos.hub.policy.ComposerEnterAction
+ import org.sableos.hub.policy.HubAddress
+ import org.sableos.hub.policy.HubComposerKeys
+@@ -265,9 +266,9 @@ private class HubUiState {
+     ) {
+         statusMessage =
+             when {
+-                number.isBlank() -> "This caller's number is not available."
++                number.isBlank() -> t("this_caller_s_number_is")
+                 onDial(number) -> null
+-                else -> "The Phone app is unavailable."
++                else -> t("the_phone_app_is_unavailable")
+             }
+     }
+ 
+@@ -317,7 +318,7 @@ private fun HubUiState.openAddress(address: String) {
+ }
+ 
+ private fun mmsHandoffStatus(opened: Boolean): String =
+-    if (opened) "Opened the system MMS composer." else "MMS composer is unavailable."
++    if (opened) t("opened_the_system_mms_composer") else t("mms_composer_is_unavailable")
+ 
+ /** The activity's callbacks and persisted thread drafts, handed down to every route. */
+ private class HubActions(
+@@ -455,11 +456,11 @@ private fun HubLoadingView() {
+     SableScreen {
+         SablePageHeader(
+             title = "hub",
+-            subtitle = "Priority, messages, calls, email and people, kept local to this device.",
++            subtitle = t("priority_messages_calls_email_and"),
+         )
+         SablePanel {
+             Text(
+-                text = "Loading conversations…",
++                text = t("loading_conversations"),
+                 style = MaterialTheme.typography.bodyLarge,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+@@ -491,7 +492,7 @@ private fun HubRootView(
+     SableScreen(modifier = Modifier.slashOpensSearch(state::focusSearch)) {
+         SablePageHeader(
+             title = "hub",
+-            subtitle = "Local communication across your enabled sources.",
++            subtitle = t("local_communication_across_your_enabled"),
+         )
+ 
+         HubPivotRow(
+@@ -611,7 +612,7 @@ private fun HubPrivateCountsView(
+         }
+         if (privacy.canShowList) {
+             SableActionButton(
+-                text = if (counts.isEmpty()) "Show list" else "Show list without previews",
++                text = if (counts.isEmpty()) t("show_list") else t("show_list_without_previews"),
+                 modifier =
+                     if (counts.isEmpty()) {
+                         Modifier.fillMaxWidth().focusRequester(
+@@ -625,14 +626,14 @@ private fun HubPrivateCountsView(
+             )
+         } else {
+             Text(
+-                text = "Unlock to view details",
++                text = t("unlock_to_view_details"),
+                 style = MaterialTheme.typography.bodyLarge,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+         }
+         if (privacy.privateMode) {
+             SableActionButton(
+-                text = "Private mode settings",
++                text = t("private_mode_settings"),
+                 modifier = Modifier.fillMaxWidth(),
+                 primary = false,
+                 onClick = onPrivacyOptions,
+@@ -838,7 +839,7 @@ private fun ConversationRoute(
+                     {
+                         // Delivery policy is Android's: hand off, never mirror it.
+                         val opened = actions.onOpenSourceNotificationSettings(packageName, serial)
+-                        if (!opened) onStatus("Android notification settings are unavailable.")
++                        if (!opened) onStatus(t("android_notification_settings_are_unavailable"))
+                     }
+                 },
+             privacy = snapshot.privacy,
+@@ -849,7 +850,7 @@ private fun ConversationRoute(
+ private fun openSourceStatus(
+     opened: Boolean,
+     label: String,
+-): String = if (opened) "Opened $label." else "The source app is unavailable."
++): String = if (opened) t("opened", label) else t("the_source_app_is_unavailable")
+ 
+ private fun threadMessagesFor(
+     snapshot: HubSnapshot,
+@@ -893,7 +894,7 @@ private fun composerFor(
+     if (conversation.source == HubConversationSource.Sms) {
+         conversation.address.takeIf(String::isNotBlank)?.let { address ->
+             HubComposerSpec(
+-                label = "Text message",
++                label = t("text_message"),
+                 canSend = snapshot.capabilities.canSendSms,
+                 send = { body -> actions.onSendSms(address, body) },
+             )
+@@ -901,7 +902,7 @@ private fun composerFor(
+     } else {
+         conversation.sourceNotificationKey?.takeIf { conversation.canQuickReply }?.let { notificationKey ->
+             HubComposerSpec(
+-                label = "Reply",
++                label = t("reply"),
+                 canSend = true,
+                 send = { body -> actions.onReplyConnected(notificationKey, body) },
+             )
+@@ -919,11 +920,11 @@ private class HubComposerSpec(
+ private fun MissingConversationView(onBack: () -> Unit) {
+     SableScreen {
+         SablePageHeader(
+-            title = "conversation unavailable",
+-            subtitle = "The source conversation is no longer available in local Sable history.",
++            title = t("conversation_unavailable"),
++            subtitle = t("the_source_conversation_is_no"),
+         )
+         SableActionButton(
+-            text = "Back",
++            text = t("back"),
+             primary = false,
+             onClick = onBack,
+         )
+@@ -969,7 +970,7 @@ private fun ColumnScope.PriorityPivot(
+ 
+     if (conversations.isEmpty() && !hasMailAlerts) {
+         Text(
+-            text = "Nothing needs your attention.",
++            text = t("nothing_needs_your_attention"),
+             style = MaterialTheme.typography.bodyLarge,
+             color = MaterialTheme.colorScheme.onSurfaceVariant,
+         )
+@@ -979,7 +980,7 @@ private fun ColumnScope.PriorityPivot(
+     if (hasMailAlerts) {
+         SablePanel {
+             Text(
+-                text = "Email",
++                text = t("email"),
+                 style = MaterialTheme.typography.titleMedium,
+             )
+             Text(
+@@ -988,7 +989,7 @@ private fun ColumnScope.PriorityPivot(
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+             SableActionButton(
+-                text = "Open Sable Mail",
++                text = t("open_sable_mail"),
+                 primary = false,
+                 onClick = {
+                     onOpenSableMail()
+@@ -1022,7 +1023,7 @@ private fun ColumnScope.EmailPivot(
+ ) {
+     SablePanel {
+         Text(
+-            text = "Sable Mail",
++            text = t("sable_mail"),
+             style = MaterialTheme.typography.titleMedium,
+         )
+         Text(
+@@ -1032,13 +1033,12 @@ private fun ColumnScope.EmailPivot(
+         )
+         Text(
+             text =
+-                "Hub reads only the bounded local mail snapshot. " +
+-                    "Accounts, sync and mailbox storage remain in Sable Mail.",
++                t("hub_reads_only_the_bounded"),
+             style = MaterialTheme.typography.bodyMedium,
+             color = MaterialTheme.colorScheme.onSurfaceVariant,
+         )
+         SableActionButton(
+-            text = "Open Sable Mail",
++            text = t("open_sable_mail"),
+             onClick = {
+                 onOpenSableMail()
+             },
+@@ -1077,12 +1077,12 @@ private fun ColumnScope.InboxPivot(
+         horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+     ) {
+         SableActionButton(
+-            text = "new message",
++            text = t("new_message"),
+             modifier = Modifier.weight(1f),
+             onClick = onCompose,
+         )
+         SableActionButton(
+-            text = "connected apps",
++            text = t("connected_apps"),
+             modifier = Modifier.weight(1f),
+             primary = false,
+             onClick = onOpenConnectedApps,
+@@ -1111,7 +1111,7 @@ private fun ColumnScope.InboxPivot(
+                     onLeave = { runCatching { chipRequesters.getValue(filter).requestFocus() } },
+                 ),
+         singleLine = true,
+-        label = { Text("/ Search messages, calls, mail") },
++        label = { Text(t("search_messages_calls_mail")) },
+         placeholder = { Text(HubSearch.HINT, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+     )
+ 
+@@ -1264,7 +1264,7 @@ private fun ColumnScope.InboxPivot(
+                 onLongPress = { source ->
+                     if (source is HubDockSource.App) {
+                         val opened = actions.onOpenConnectedApp(source.packageName, source.userSerial)
+-                        if (!opened) state.statusMessage = "The source app is unavailable."
++                        if (!opened) state.statusMessage = t("the_source_app_is_unavailable")
+                     }
+                 },
+             )
+@@ -1343,7 +1343,7 @@ private fun runConversationAction(
+         HubRowAction.SourceNotifications -> {
+             source?.let { (packageName, serial) ->
+                 if (!actions.onOpenSourceNotificationSettings(packageName, serial)) {
+-                    state.statusMessage = "Android notification settings are unavailable."
++                    state.statusMessage = t("android_notification_settings_are_unavailable")
+                 }
+             }
+         }
+@@ -1591,7 +1591,7 @@ private fun InboxSourceDock(
+             when {
+                 visible.isEmpty() -> {
+                     Text(
+-                        text = "Nothing new",
++                        text = t("nothing_new"),
+                         modifier = Modifier.weight(1f).padding(horizontal = SableSpacing.Sm),
+                         style = MaterialTheme.typography.bodyMedium,
+                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+@@ -1633,7 +1633,7 @@ private fun DockChevron(
+     modifier: Modifier,
+     onToggle: () -> Unit,
+ ) {
+-    val description = if (expanded) "Show fewer sources" else "Show all sources"
++    val description = if (expanded) t("show_fewer_sources") else t("show_all_sources")
+     Box(
+         modifier =
+             modifier
+@@ -1869,18 +1869,18 @@ private fun inboxEmptyText(
+     query: String,
+ ): String =
+     when {
+-        query.isNotBlank() -> "Nothing matches “$query”."
+-        filter == HubInboxFilter.Messages && !capabilities.canReadSms -> "Grant SMS access to show conversations."
+-        filter == HubInboxFilter.Calls && !capabilities.canReadCallLog -> "Grant call log access to show recent calls."
+-        filter == HubInboxFilter.Calls -> "No recent calls."
+-        filter == HubInboxFilter.Missed && !capabilities.canReadCallLog -> "Grant call log access to show missed calls."
+-        filter == HubInboxFilter.Missed -> "No missed calls."
+-        filter == HubInboxFilter.Priority -> "Nothing needs your attention."
+-        filter == HubInboxFilter.People && !capabilities.canReadContacts -> "Grant contacts access to match people."
+-        filter == HubInboxFilter.People -> "No conversations or calls with your contacts."
+-        filter == HubInboxFilter.Notifications -> "No connected-app conversations. Choose apps under connected apps."
+-        filter == HubInboxFilter.Mail -> "No mail notifications. Turn on a mail app under connected apps."
+-        else -> "No conversations yet."
++        query.isNotBlank() -> t("nothing_matches", query)
++        filter == HubInboxFilter.Messages && !capabilities.canReadSms -> t("grant_sms_access_to_show")
++        filter == HubInboxFilter.Calls && !capabilities.canReadCallLog -> t("grant_call_log_access_to")
++        filter == HubInboxFilter.Calls -> t("no_recent_calls")
++        filter == HubInboxFilter.Missed && !capabilities.canReadCallLog -> t("grant_call_log_access_to_2")
++        filter == HubInboxFilter.Missed -> t("no_missed_calls")
++        filter == HubInboxFilter.Priority -> t("nothing_needs_your_attention")
++        filter == HubInboxFilter.People && !capabilities.canReadContacts -> t("grant_contacts_access_to_match")
++        filter == HubInboxFilter.People -> t("no_conversations_or_calls_with")
++        filter == HubInboxFilter.Notifications -> t("no_connected_app_conversations_choose")
++        filter == HubInboxFilter.Mail -> t("no_mail_notifications_turn_on")
++        else -> t("no_conversations_yet")
+     }
+ 
+ @Composable
+@@ -1920,14 +1920,14 @@ private fun InboxAccessPrompt(
+     val capabilities = snapshot.capabilities
+     val detail =
+         when {
+-            !capabilities.canReadSms -> "Allow SMS access to read conversations and send messages."
+-            !capabilities.canSendSms -> "Allow sending access to send SMS from Hub."
+-            else -> "Allow call log access to show recent and missed calls. Calls stay in the Phone app."
++            !capabilities.canReadSms -> t("allow_sms_access_to_read")
++            !capabilities.canSendSms -> t("allow_sending_access_to_send")
++            else -> t("allow_call_log_access_to")
+         }
+ 
+     SablePanel {
+         Text(
+-            text = "Access needed",
++            text = t("access_needed"),
+             style = MaterialTheme.typography.titleMedium,
+         )
+         Text(
+@@ -1993,7 +1993,7 @@ private fun CallRow(
+                     overflow = TextOverflow.Ellipsis,
+                 )
+                 Text(
+-                    text = "Call · " + callKindLabel(call.kind) + " · " + clockTime(call.dateMillis),
++                    text = t("call") + callKindLabel(call.kind) + " · " + clockTime(call.dateMillis),
+                     style = MaterialTheme.typography.bodyLarge,
+                     color = detailColor,
+                     maxLines = 1,
+@@ -2004,7 +2004,7 @@ private fun CallRow(
+         if (call.number.isNotBlank()) {
+             Spacer(Modifier.width(HubTrailingGap))
+             SableActionButton(
+-                text = "Text",
++                text = t("text"),
+                 primary = false,
+                 onClick = onText,
+             )
+@@ -2175,15 +2175,15 @@ private fun RollupLine(row: HubInboxRow) {
+ /** Source label on every row: the inbox mixes SMS, calls and connected apps. */
+ private fun conversationPreview(conversation: HubConversation): String {
+     if (conversation.source != HubConversationSource.ConnectedApp) {
+-        return if (conversation.lastBody.isBlank()) "SMS" else "SMS · " + conversation.lastBody.take(SMS_PREVIEW_LENGTH)
++        return if (conversation.lastBody.isBlank()) "SMS" else t("sms") + conversation.lastBody.take(SMS_PREVIEW_LENGTH)
+     }
+     val sourceLine =
+         listOfNotNull(
+-            conversation.sourceLabel ?: "connected app",
++            conversation.sourceLabel ?: t("connected_app"),
+             conversation.profileBadge,
+         ).joinToString(" · ")
+     return if (conversation.lastBody.isBlank()) {
+-        "$sourceLine · content hidden"
++        t("content_hidden", sourceLine)
+     } else {
+         "$sourceLine · " + conversation.lastBody.take(CONNECTED_PREVIEW_LENGTH)
+     }
+@@ -2211,7 +2211,7 @@ private fun ColumnScope.PeoplePivot(
+     if (!snapshot.capabilities.canReadContacts) {
+         SablePanel {
+             Text(
+-                text = "Contacts access is optional and only improves people matching.",
++                text = t("contacts_access_is_optional_and"),
+                 style = MaterialTheme.typography.bodyMedium,
+             )
+             SableActionButton(
+@@ -2227,7 +2227,7 @@ private fun ColumnScope.PeoplePivot(
+         onValueChange = onSearchChange,
+         modifier = Modifier.fillMaxWidth(),
+         singleLine = true,
+-        label = { Text("Search people") },
++        label = { Text(t("search_people")) },
+     )
+ 
+     val query = search.trim()
+@@ -2243,7 +2243,7 @@ private fun ColumnScope.PeoplePivot(
+ 
+     if (people.isEmpty()) {
+         Text(
+-            text = "No matching people are available.",
++            text = t("no_matching_people_are_available"),
+             modifier = Modifier.padding(vertical = SableSpacing.Lg),
+             style = MaterialTheme.typography.bodyLarge,
+             color = MaterialTheme.colorScheme.onSurfaceVariant,
+@@ -2393,7 +2393,7 @@ private fun ColumnScope.ConversationView(
+             modifier =
+                 Modifier.semantics {
+                     contentDescription =
+-                        "Privacy: " + HubPrivacyBadge.text(conversation, privacy)
++                        t("privacy") + HubPrivacyBadge.text(conversation, privacy)
+                 },
+             style = MaterialTheme.typography.labelLarge,
+             color = MaterialTheme.colorScheme.onSurfaceVariant,
+@@ -2404,20 +2404,20 @@ private fun ColumnScope.ConversationView(
+             horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+         ) {
+             SableActionButton(
+-                text = "Back",
++                text = t("back"),
+                 modifier = Modifier.weight(1f),
+                 primary = false,
+                 onClick = onBack,
+             )
+-            ConversationActionButton("Call", onCall)
+-            ConversationActionButton("Attach", onAttach)
+-            ConversationActionButton("Open app", onOpenSource)
++            ConversationActionButton(t("call_2"), onCall)
++            ConversationActionButton(t("attach"), onAttach)
++            ConversationActionButton(t("open_app"), onOpenSource)
+         }
+         // Its own full-width row: a third equal-width "Notifications" button wraps mid-word
+         // on the square screen (KF-D: labels never clip).
+         onOpenNotificationSettings?.let { action ->
+             SableActionButton(
+-                text = "Notifications",
++                text = t("notifications"),
+                 modifier = Modifier.fillMaxWidth(),
+                 primary = false,
+                 onClick = action,
+@@ -2445,7 +2445,7 @@ private fun ColumnScope.ConversationView(
+             modifier = Modifier.weight(1f),
+             messages = messages,
+             listState = conversationState,
+-            emptyText = if (composer != null) "No messages yet. Write the first one below." else "No messages yet.",
++            emptyText = if (composer != null) t("no_messages_yet_write_the") else t("no_messages_yet"),
+             historyMode = history.searchOpen,
+             highlighted = matches.getOrNull(history.match)?.let { index -> newestFirst.getOrNull(index)?.id },
+             onLatest = toLatest,
+@@ -2570,7 +2570,7 @@ private fun ThreadSearchField(
+                     enter
+                 },
+         singleLine = true,
+-        label = { Text("Search this conversation") },
++        label = { Text(t("search_this_conversation")) },
+         supportingText = {
+             Text(HubThreadSearch.status(history.match, matchCount, history.query))
+         },
+@@ -2683,7 +2683,7 @@ private fun ConversationComposer(
+     if (!composer.canSend) {
+         SablePanel {
+             Text(
+-                text = "SMS sending needs permission.",
++                text = t("sms_sending_needs_permission"),
+                 style = MaterialTheme.typography.bodyMedium,
+             )
+             SableActionButton(
+@@ -2776,7 +2776,7 @@ private fun HubInlineComposer(
+             keyboardActions = KeyboardActions(onSend = { send() }),
+         )
+         SableActionButton(
+-            text = "Send",
++            text = t("send"),
+             onClick = send,
+         )
+     }
+@@ -2858,8 +2858,8 @@ private fun ComposeView(
+     }
+ 
+     SablePageHeader(
+-        title = "new message",
+-        subtitle = "Send SMS, or hand off to the system MMS composer for attachments.",
++        title = t("new_message"),
++        subtitle = t("send_sms_or_hand_off"),
+     )
+ 
+     OutlinedTextField(
+@@ -2867,7 +2867,7 @@ private fun ComposeView(
+         onValueChange = { onDraftChange(draft.copy(recipient = it)) },
+         modifier = Modifier.fillMaxWidth(),
+         singleLine = true,
+-        label = { Text("Phone number") },
++        label = { Text(t("phone_number")) },
+     )
+ 
+     OutlinedTextField(
+@@ -2880,7 +2880,7 @@ private fun ComposeView(
+                     localStatus = onSendSms(recipient.trim(), body).message
+                 },
+         minLines = SMS_COMPOSE_MIN_LINES,
+-        label = { Text("Message") },
++        label = { Text(t("message")) },
+     )
+ 
+     localStatus?.let { message ->
+@@ -2893,7 +2893,7 @@ private fun ComposeView(
+ 
+     if (canSendSms) {
+         SableActionButton(
+-            text = "Send SMS",
++            text = t("send_sms"),
+             onClick = {
+                 val result = onSendSms(recipient.trim(), body)
+                 localStatus = result.message
+@@ -2902,7 +2902,7 @@ private fun ComposeView(
+     } else {
+         SablePanel {
+             Text(
+-                text = "SMS sending needs permission.",
++                text = t("sms_sending_needs_permission"),
+                 style = MaterialTheme.typography.bodyMedium,
+             )
+             SableActionButton(
+@@ -2914,7 +2914,7 @@ private fun ComposeView(
+     }
+ 
+     SableActionButton(
+-        text = "MMS / attachment",
++        text = t("mms_attachment"),
+         primary = false,
+         onClick = {
+             onOpenMmsComposer(recipient.trim(), body)
+@@ -2922,7 +2922,7 @@ private fun ComposeView(
+     )
+ 
+     SableActionButton(
+-        text = "Back",
++        text = t("back"),
+         primary = false,
+         onClick = onBack,
+     )
+@@ -2937,13 +2937,13 @@ private fun visibleSenderLabel(message: HubMessage): String? =
+ private fun messageBodyText(message: HubMessage): String =
+     when {
+         message.body.isNotBlank() -> message.body
+-        message.source == HubConversationSource.ConnectedApp -> "Content hidden by source app"
+-        else -> "Empty SMS body"
++        message.source == HubConversationSource.ConnectedApp -> t("content_hidden_by_source_app")
++        else -> t("empty_sms_body")
+     }
+ 
+ private fun messageTimeText(message: HubMessage): String =
+     if (message.handoffOnly) {
+-        "Handed off · " + relativeTime(message.dateMillis)
++        t("handed_off") + relativeTime(message.dateMillis)
+     } else {
+         relativeTime(message.dateMillis)
+     }
+@@ -2970,10 +2970,9 @@ private val HubDockIconSize = 40.dp
+ private val HubDockCornerRadius = 28.dp
+ private val HubPillCornerRadius = 10.dp
+ 
+-private const val REVIEW_ACCESS_LABEL = "Review access"
+-private const val THREAD_KEY_HINT = "/ search · PageUp history · End latest · Esc back to latest"
+-private const val INBOX_KEY_HINT =
+-    "/ search · Alt+Enter actions · A P M X C E N O filters · D dock · T/B top/bottom"
++private val REVIEW_ACCESS_LABEL: String get() = t("review_access")
++private val THREAD_KEY_HINT: String get() = t("search_pageup_history_end_latest")
++private val INBOX_KEY_HINT: String get() = t("search_alt_enter_actions_a")
+ private const val SMS_PREVIEW_LENGTH = 120
+ private const val CONNECTED_PREVIEW_LENGTH = 100
+ private const val HUB_INLINE_COMPOSER_MAX_LINES = 4
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/raw/sable_strings_keep.xml b/sable-src/apps/r8/android/hub/src/main/res/raw/sable_strings_keep.xml
+new file mode 100644
+index 0000000..4f4b368
+--- /dev/null
++++ b/sable-src/apps/r8/android/hub/src/main/res/raw/sable_strings_keep.xml
+@@ -0,0 +1,3 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableTexts looks strings up by name, which the resource shrinker cannot see: keep them all. -->
++<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@string/*" />
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values/strings.xml
+new file mode 100644
+index 0000000..44ef6a2
+--- /dev/null
++++ b/sable-src/apps/r8/android/hub/src/main/res/values/strings.xml
+@@ -0,0 +1,188 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- English. Single capital letters in hints (C new, S find) name keyboard keys: keep them as the key, translate the word.
++     English. Keep equal to HubText.EN (HubTextTest checks); translations go in values-<lang>/. -->
++<resources>
++    <string name="app_name" translatable="false">Sable Hub</string>
++    <string name="this_caller_s_number_is">This caller\'s number is not available.</string>
++    <string name="the_phone_app_is_unavailable">The Phone app is unavailable.</string>
++    <string name="opened_the_system_mms_composer">Opened the system MMS composer.</string>
++    <string name="mms_composer_is_unavailable">MMS composer is unavailable.</string>
++    <string name="priority_messages_calls_email_and">Priority, messages, calls, email and people, kept local to this device.</string>
++    <string name="loading_conversations">Loading conversations…</string>
++    <string name="local_communication_across_your_enabled">Local communication across your enabled sources.</string>
++    <string name="show_list">Show list</string>
++    <string name="show_list_without_previews">Show list without previews</string>
++    <string name="unlock_to_view_details">Unlock to view details</string>
++    <string name="private_mode_settings">Private mode settings</string>
++    <string name="android_notification_settings_are_unavailable">Android notification settings are unavailable.</string>
++    <string name="opened">Opened %1$s.</string>
++    <string name="the_source_app_is_unavailable">The source app is unavailable.</string>
++    <string name="text_message">Text message</string>
++    <string name="reply">Reply</string>
++    <string name="conversation_unavailable">conversation unavailable</string>
++    <string name="the_source_conversation_is_no">The source conversation is no longer available in local Sable history.</string>
++    <string name="back">Back</string>
++    <string name="nothing_needs_your_attention">Nothing needs your attention.</string>
++    <string name="email">Email</string>
++    <string name="open_sable_mail">Open Sable Mail</string>
++    <string name="sable_mail">Sable Mail</string>
++    <string name="hub_reads_only_the_bounded">Hub reads only the bounded local mail snapshot. Accounts, sync and mailbox storage remain in Sable Mail.</string>
++    <string name="new_message">new message</string>
++    <string name="connected_apps">connected apps</string>
++    <string name="search_messages_calls_mail">/ Search messages, calls, mail</string>
++    <string name="nothing_new">Nothing new</string>
++    <string name="show_fewer_sources">Show fewer sources</string>
++    <string name="show_all_sources">Show all sources</string>
++    <string name="nothing_matches">Nothing matches “%1$s”.</string>
++    <string name="grant_sms_access_to_show">Grant SMS access to show conversations.</string>
++    <string name="grant_call_log_access_to">Grant call log access to show recent calls.</string>
++    <string name="no_recent_calls">No recent calls.</string>
++    <string name="grant_call_log_access_to_2">Grant call log access to show missed calls.</string>
++    <string name="no_missed_calls">No missed calls.</string>
++    <string name="grant_contacts_access_to_match">Grant contacts access to match people.</string>
++    <string name="no_conversations_or_calls_with">No conversations or calls with your contacts.</string>
++    <string name="no_connected_app_conversations_choose">No connected-app conversations. Choose apps under connected apps.</string>
++    <string name="no_mail_notifications_turn_on">No mail notifications. Turn on a mail app under connected apps.</string>
++    <string name="no_conversations_yet">No conversations yet.</string>
++    <string name="allow_sms_access_to_read">Allow SMS access to read conversations and send messages.</string>
++    <string name="allow_sending_access_to_send">Allow sending access to send SMS from Hub.</string>
++    <string name="allow_call_log_access_to">Allow call log access to show recent and missed calls. Calls stay in the Phone app.</string>
++    <string name="access_needed">Access needed</string>
++    <string name="call">"Call · "</string>
++    <string name="text">Text</string>
++    <string name="sms">"SMS · "</string>
++    <string name="connected_app">connected app</string>
++    <string name="content_hidden">%1$s · content hidden</string>
++    <string name="contacts_access_is_optional_and">Contacts access is optional and only improves people matching.</string>
++    <string name="search_people">Search people</string>
++    <string name="no_matching_people_are_available">No matching people are available.</string>
++    <string name="privacy">"Privacy: "</string>
++    <string name="call_2">Call</string>
++    <string name="attach">Attach</string>
++    <string name="open_app">Open app</string>
++    <string name="notifications">Notifications</string>
++    <string name="no_messages_yet_write_the">No messages yet. Write the first one below.</string>
++    <string name="no_messages_yet">No messages yet.</string>
++    <string name="search_this_conversation">Search this conversation</string>
++    <string name="sms_sending_needs_permission">SMS sending needs permission.</string>
++    <string name="send">Send</string>
++    <string name="send_sms_or_hand_off">Send SMS, or hand off to the system MMS composer for attachments.</string>
++    <string name="phone_number">Phone number</string>
++    <string name="message">Message</string>
++    <string name="send_sms">Send SMS</string>
++    <string name="mms_attachment">MMS / attachment</string>
++    <string name="content_hidden_by_source_app">Content hidden by source app</string>
++    <string name="empty_sms_body">Empty SMS body</string>
++    <string name="handed_off">"Handed off · "</string>
++    <string name="review_access">Review access</string>
++    <string name="search_pageup_history_end_latest">/ search · PageUp history · End latest · Esc back to latest</string>
++    <string name="search_alt_enter_actions_a">/ search · Alt+Enter actions · A P M X C E N O filters · D dock · T/B top/bottom</string>
++    <string name="choose_installed_apps_that_may">Choose installed apps that may contribute notification-derived conversations.</string>
++    <string name="sable_does_not_sign_into">Sable does not sign into these services. The installed app keeps networking, encryption, account state and complete history.</string>
++    <string name="loading_installed_apps">Loading installed apps…</string>
++    <string name="notification_access_is_enabled">Notification access is enabled.</string>
++    <string name="notification_access_is_required_before">Notification access is required before connected apps can contribute messages.</string>
++    <string name="review_notification_access">Review notification access</string>
++    <string name="enable_notification_access">Enable notification access</string>
++    <string name="private_mode_hub_shows_counts">Private mode: Hub shows counts only, Phone hides names in Recents, Contacts hides numbers</string>
++    <string name="combine_conversations">Combine conversations</string>
++    <string name="group_adjacent_messages_from_the">Group adjacent messages from the same conversation into a streamlined thread, hiding duplicate titles and app icons.</string>
++    <string name="sable_attention">Sable Attention</string>
++    <string name="search_installed_apps">Search installed apps</string>
++    <string name="use_one_app_per_email">Use one app per email account. Sable Mail covers Gmail, Outlook, Yahoo, iCloud and IMAP. Turn on another mail app only for accounts Sable Mail can\'t open (Proton, Tuta, managed work accounts).</string>
++    <string name="more_than_one_mail_app">More than one mail app is on; an account signed in to both will appear twice.</string>
++    <string name="no_connected_apps_are_enabled">No connected apps are enabled.</string>
++    <string name="no_favorite_apps_are_set">No favorite apps are set.</string>
++    <string name="no_favorite_apps_match_this">No favorite apps match this search.</string>
++    <string name="no_additional_installed_apps_are">No additional installed apps are available.</string>
++    <string name="no_installed_apps_match_this">No installed apps match this search.</string>
++    <string name="delivery_android_notification_settings">Delivery: Android notification settings</string>
++    <string name="hub_priority_ordering_only_not">Hub priority (ordering only, not a Do Not Disturb exception)</string>
++    <string name="mail">"Mail · "</string>
++    <string name="allow_quick_reply">Allow quick reply</string>
++    <string name="hide_from_sablelauncher">Hide from SableLauncher</string>
++    <string name="history_retention">History retention: %1$s</string>
++    <string name="hub_preview">Hub preview: %1$s</string>
++    <string name="attention">Attention: %1$s</string>
++    <string name="sound">Sound</string>
++    <string name="vibration">Vibration</string>
++    <string name="notification_light">Notification light</string>
++    <string name="keyboard_backlight">Keyboard backlight</string>
++    <string name="glance_display">Glance display</string>
++    <string name="always_on_display">Always-on display</string>
++    <string name="sable_attention_2">sable attention</string>
++    <string name="android_decides_whether_a_notification">Android decides whether a notification alerts. Sable Attention only maps that decision to outputs this device supports, and never bypasses Do Not Disturb.</string>
++    <string name="android_notification_settings">Android notification settings</string>
++    <string name="notifications_sound_vibration_pop_up">Notifications: sound, vibration, pop-up, lock screen</string>
++    <string name="conversations">Conversations</string>
++    <string name="do_not_disturb">Do Not Disturb</string>
++    <string name="notification_history">Notification history</string>
++    <string name="this_device">This device</string>
++    <string name="this_device_profile_declares_no">This device profile declares no Sable-controlled attention outputs, so notifications use only what Android provides.</string>
++    <string name="off_unless_you_turn_it">Off unless you turn it on for an app.</string>
++    <string name="on_for_apps_you_have">On for apps you have not configured; locked and private content is redacted.</string>
++    <string name="choose_apps_in_connected_apps">%1$s Choose apps in Connected apps.</string>
++    <string name="connected_apps_2">Connected apps</string>
++    <string name="follows_android_notification_settings">Follows Android notification settings.</string>
++    <string name="open_android_settings">Open Android settings</string>
++    <string name="sable_mail_is_unavailable">Sable Mail is unavailable.</string>
++    <string name="private_number">Private number</string>
++    <string name="recipient_is_required">Recipient is required.</string>
++    <string name="message_is_empty">Message is empty.</string>
++    <string name="sms_sending_permission_is_not">SMS sending permission is not available.</string>
++    <string name="n0_active">0 active</string>
++    <string name="n1_active">1 active</string>
++    <string name="hub">Hub</string>
++    <string name="message_handed_to_android_telephony">Message handed to Android telephony.</string>
++    <string name="sms_send_capability_is_unavailable">SMS send capability is unavailable.</string>
++    <string name="n1_day">1 day</string>
++    <string name="n7_days">7 days</string>
++    <string name="n30_days">30 days</string>
++    <string name="sender_and_message">Sender and message</string>
++    <string name="sender_only">Sender only</string>
++    <string name="app_and_count_only">App and count only</string>
++    <string name="not_in_hub">Not in Hub</string>
++    <string name="in_hub">In Hub</string>
++    <string name="paused_android_notification_access_is">Paused: Android notification access is off</string>
++    <string name="paused_profile_is_locked_or">Paused: profile is locked or paused</string>
++    <string name="no_matches">No matches</string>
++    <string name="of">%1$s of %2$s</string>
++    <string name="new_message_enter_for_latest">New message · Enter for latest</string>
++    <string name="work_profile">Work profile</string>
++    <string name="locked">Locked</string>
++    <string name="private_mode">Private mode</string>
++    <string name="previews_on">Previews on</string>
++    <string name="counts_only_unlock_to_view">Counts only · unlock to view details</string>
++    <string name="counts_only_senders_and_text">Counts only · senders and text hidden</string>
++    <string name="showing_what_each_source_allows">Showing what each source allows</string>
++    <string name="messages">Messages</string>
++    <string name="mail_2">Mail</string>
++    <string name="missed_calls">Missed calls</string>
++    <string name="hidden">%1$s %2$s · hidden</string>
++    <string name="private_ok">Private OK</string>
++    <string name="connected_app_2">Connected app</string>
++    <string name="preview_hidden">Preview hidden</string>
++    <string name="open">Open</string>
++    <string name="call_back">Call back</string>
++    <string name="open_in_messages">Open in Messages</string>
++    <string name="open_source_app">Open source app</string>
++    <string name="notification_settings">Notification settings</string>
++    <string name="privacy_options">Privacy options</string>
++    <string name="calls">Calls</string>
++    <string name="phone_calls">Phone calls</string>
++    <string name="work">Work</string>
++    <string name="private_label">Private</string>
++    <string name="profile">Profile</string>
++    <string name="all">All</string>
++    <string name="priority">Priority</string>
++    <string name="missed">Missed</string>
++    <string name="people">People</string>
++    <string name="reply_is_empty">Reply is empty.</string>
++    <string name="quick_reply_is_no_longer">Quick reply is no longer available. Open the source app instead.</string>
++    <string name="unlock_the_device_and_profile">Unlock the device and profile to reply.</string>
++    <string name="reply_handed_to_the_source">Reply handed to the source app.</string>
++    <string name="the_source_app_no_longer">The source app no longer accepts quick reply.</string>
++    <string name="personal">Personal</string>
++    <string name="private_space">Private space</string>
++    <string name="profile_2">Profile %1$s</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/HubTextTest.kt b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/HubTextTest.kt
+new file mode 100644
+index 0000000..dff07cc
+--- /dev/null
++++ b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/HubTextTest.kt
+@@ -0,0 +1,58 @@
++package org.sableos.hub
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.sableos.hub.HubText
++import java.io.File
++import javax.xml.parsers.DocumentBuilderFactory
++
++/** The English lines in code and in `values/strings.xml` stay equal, and every translation fits them. */
++class HubTextTest {
++    private val res = File("src/main/res")
++
++    private fun strings(file: File): Map<String, String> {
++        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
++        val nodes = doc.getElementsByTagName("string")
++        return (0 until nodes.length)
++            .map { nodes.item(it) }
++            .filter { it.attributes.getNamedItem("translatable")?.nodeValue != "false" }
++            .associate { node ->
++                val raw =
++                    node.textContent.let {
++                        if (it.length > 1 && it.startsWith('"') &&
++                            it.endsWith('"')
++                        ) {
++                            it.drop(1).dropLast(1)
++                        } else {
++                            it
++                        }
++                    }
++                node.attributes.getNamedItem("name").nodeValue to
++                    raw
++                        .replace("\\n", "\n")
++                        .replace("\\'", "'")
++                        .replace("\\\"", "\"")
++                        .replace("\\@", "@")
++                        .replace("\\\\", "\\")
++            }
++    }
++
++    private fun placeholders(s: String) = Regex("%\\d+\\$[sd]").findAll(s).map { it.value }.toSortedSet()
++
++    @Test
++    fun englishResourcesMatchTheCode() {
++        val english = strings(File(res, "values/strings.xml"))
++        HubText.EN.forEach { (key, text) -> assertEquals(key, text, english[key]) }
++    }
++
++    @Test
++    fun translationsHaveEveryKeyAndTheSamePlaceholders() {
++        res.listFiles { f -> f.name.startsWith("values-") && File(f, "strings.xml").isFile }.orEmpty().forEach { dir ->
++            val tr = strings(File(dir, "strings.xml"))
++            assertEquals(dir.name, HubText.EN.keys, tr.keys.intersect(HubText.EN.keys))
++            HubText.EN.forEach { (key, text) ->
++                assertEquals("${dir.name}/$key", placeholders(text), placeholders(tr.getValue(key)))
++            }
++        }
++    }
++}
 diff --git a/sable-src/apps/r8/android/messages/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/messages/src/main/AndroidManifest.xml
 index c41ea96..ede38ca 100644
 --- a/sable-src/apps/r8/android/messages/src/main/AndroidManifest.xml

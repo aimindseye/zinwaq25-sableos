@@ -2,6 +2,7 @@ package org.sableos.hub.policy
 
 import org.sableos.hub.HubConversation
 import org.sableos.hub.HubConversationSource
+import org.sableos.hub.HubText.t
 import java.util.Locale
 
 /** A run of adjacent inbox rows from one person; [parent] is the newest, [children] follow it. */
@@ -137,4 +138,4 @@ private fun sourceLabelOf(conversation: HubConversation): String =
         conversation.sourceLabel?.takeIf(String::isNotBlank) ?: CONNECTED_APP_LABEL
     }
 
-private const val CONNECTED_APP_LABEL = "connected app"
+private val CONNECTED_APP_LABEL: String get() = t("connected_app")

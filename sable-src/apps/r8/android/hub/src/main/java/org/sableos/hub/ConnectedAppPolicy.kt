@@ -1,5 +1,6 @@
 package org.sableos.hub
 
+import org.sableos.hub.HubText.t
 import java.nio.charset.StandardCharsets
 import java.util.Base64
 
@@ -27,12 +28,14 @@ private const val THIRTY_DAY_RETENTION = 30
  */
 enum class HistoryRetention(
     val days: Int,
-    val label: String,
+    private val labelKey: String,
 ) {
-    OneDay(ONE_DAY_RETENTION, "1 day"),
-    SevenDays(SEVEN_DAY_RETENTION, "7 days"),
-    ThirtyDays(THIRTY_DAY_RETENTION, "30 days"),
+    OneDay(ONE_DAY_RETENTION, "n1_day"),
+    SevenDays(SEVEN_DAY_RETENTION, "n7_days"),
+    ThirtyDays(THIRTY_DAY_RETENTION, "n30_days"),
     ;
+
+    val label: String get() = t(labelKey)
 
     fun next(): HistoryRetention =
         when (this) {
@@ -59,17 +62,19 @@ enum class HistoryRetention(
  * lockscreen, private-mode or source policy allows (see [org.sableos.hub.policy.PrivacyPosture]).
  */
 enum class HubPreviewPolicy(
-    val label: String,
+    private val labelKey: String,
 ) {
     /** Sender and message text, when the device and source allow it. */
-    ShowContent("Sender and message"),
+    ShowContent("sender_and_message"),
 
     /** Sender only; message text hidden. */
-    SenderOnly("Sender only"),
+    SenderOnly("sender_only"),
 
     /** App name and count only. */
-    SourceOnly("App and count only"),
+    SourceOnly("app_and_count_only"),
     ;
+
+    val label: String get() = t(labelKey)
 
     fun next(): HubPreviewPolicy = entries[(ordinal + 1) % entries.size]
 }

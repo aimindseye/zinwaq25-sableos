@@ -1,6 +1,7 @@
 package org.sableos.hub.policy
 
 import org.sableos.hub.HubPreviewPolicy
+import org.sableos.hub.HubText.t
 
 /** Android user/profile kind of a notification's source (DESIGN-KF-A "Multi-user and work profile"). */
 enum class ProfileKind {
@@ -18,9 +19,9 @@ enum class ProfileKind {
     fun badge(): String? =
         when (this) {
             Personal -> null
-            Work -> "Work"
-            Private -> "Private"
-            Other -> "Profile"
+            Work -> t("work")
+            Private -> t("private_label")
+            Other -> t("profile")
         }
 
     companion object {

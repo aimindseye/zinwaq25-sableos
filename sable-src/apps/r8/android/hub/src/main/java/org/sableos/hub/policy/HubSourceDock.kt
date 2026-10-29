@@ -3,6 +3,7 @@ package org.sableos.hub.policy
 import org.sableos.hub.HubCall
 import org.sableos.hub.HubConversation
 import org.sableos.hub.HubConversationSource
+import org.sableos.hub.HubText.t
 import java.util.Locale
 
 /** Where an inbox row came from, as the source dock groups it. */
@@ -142,7 +143,7 @@ object HubSourceDock {
             }
         }
 
-    const val CALLS_LABEL = "Calls"
+    val CALLS_LABEL: String get() = t("calls")
 
     /** Moves focus to the dock from a filter chip or a row (never while typing). */
     const val SHORTCUT = 'd'
