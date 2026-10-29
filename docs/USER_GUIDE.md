@@ -205,7 +205,7 @@ SableOS favours privacy over Google compatibility, but it is not hardened yet. T
 | Hub access | SMS, contacts and call log granted at first boot (revocable) | Hub has no screen of its own to ask from |
 | Location | Android default, asked per app | Weather asks when you choose "current location" |
 | Bootloader | Unlocked | Needed to install SableOS. Locking it on SableOS may stop the phone from starting |
-| Build type | Debuggable build: `adb root` works when USB debugging is on | Lets you collect logs; it also lets anyone with your unlocked phone and a cable read everything |
+| Build type | `userdebug` (debuggable, `adb root` works when USB debugging is on) or `user`, as named in the release notes and the zip name | `userdebug` lets you collect logs; it also lets anyone with your unlocked phone and a cable read everything |
 | Updates | No over-the-air updates; you sideload new releases | Sable OTAs are planned for phase Q5 |
 
 ## Recommended changes for everyday use

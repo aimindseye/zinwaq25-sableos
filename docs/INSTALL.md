@@ -76,7 +76,7 @@ else, stop.
 3. On the computer:
 
 ```bash
-adb sideload sableos-q25-full-*-userdebug.zip     # or the Q1/Q2 package you built
+adb sideload sableos-q25-full-*.zip     # or the Q1/Q2 package you built
 ```
 
 4. *Reboot system now*. The first boot can take several minutes. A full (Q4) image

@@ -9,6 +9,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/build/lib/common.sh"
 
 RELEASE="${1:-}"
 sable_require_release "$RELEASE"
+sable_require_build_options
 sable_require_android_root
 
 OUT="$SABLE_ANDROID_ROOT/out/target/product/$SABLE_Q25_DEVICE"
@@ -20,12 +21,20 @@ marker="$SABLE_EVIDENCE_ROOT/last-build.env"
 [[ -f "$marker" ]] || sable_fail "no build record at $marker; run: bash build/sable.sh q25 $RELEASE build"
 built_release="$(sed -n 's/^RELEASE=//p' "$marker")"
 built_status="$(sed -n 's/^STATUS=//p' "$marker")"
+built_version="$(sed -n 's/^VERSION=//p' "$marker")"
+built_variant="$(sed -n 's/^VARIANT=//p' "$marker")"
 built_start="$(sed -n 's/^START_EPOCH=//p' "$marker")"
 [[ "$built_release" == "$RELEASE" ]] ||
     sable_fail "out/ holds a $built_release build, not $RELEASE; run: bash build/sable.sh q25 $RELEASE build"
 [[ "$built_status" == PASS ]] ||
     sable_fail "last $RELEASE build is $built_status, not PASS; see $(sed -n 's/^LOG=//p' "$marker")"
 [[ "$built_start" =~ ^[0-9]+$ ]] || sable_fail "bad START_EPOCH in $marker"
+# A build from before these were recorded has neither: those were userdebug builds.
+[[ "${built_variant:-userdebug}" == "$SABLE_Q25_BUILD_VARIANT" ]] ||
+    sable_fail "the last build is $built_variant, not $SABLE_Q25_BUILD_VARIANT; add --variant $built_variant, or build again with --variant $SABLE_Q25_BUILD_VARIANT"
+if sable_release_has_sable_layer "$RELEASE" && [[ -n "$built_version" && "$built_version" != "$SABLE_VERSION" ]]; then
+    sable_fail "the last build is version $built_version, not $SABLE_VERSION; add --version $built_version, or build again with --version $SABLE_VERSION"
+fi
 
 mapfile -t zips < <(find "$OUT" -maxdepth 1 -name 'lineage-*-Q25.zip' -printf '%T@ %p\n' | sort -n | awk '{print $2}')
 ((${#zips[@]})) || sable_fail "no lineage-*-Q25.zip in $OUT (did 'build' finish?)"
@@ -39,7 +48,7 @@ dest="$SABLE_ARTIFACTS_ROOT/q25/$RELEASE/$(sable_utc_stamp)"
 mkdir -p "$dest"
 
 if sable_release_has_sable_layer "$RELEASE"; then
-    name="sableos-q25-$RELEASE-$date_tag-$variant"
+    name="sableos-q25-$RELEASE-$SABLE_VERSION-$date_tag-$variant"
 else
     name="lineage-control-q25-$RELEASE-$date_tag-$variant"
 fi
@@ -68,6 +77,8 @@ fi
 
 {
     echo "release=$RELEASE"
+    echo "version=$SABLE_VERSION"
+    echo "variant=$variant"
     echo "lunch=$(sable_lunch_target)"
     echo "tool_commit=$(git -C "$SABLE_REPO_ROOT" rev-parse --verify -q HEAD 2>/dev/null || echo uncommitted)"
     echo "source_zip=$(basename "$zip")"

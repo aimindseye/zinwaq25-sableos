@@ -79,6 +79,18 @@ sable_target_release() {
     printf '%s\n' "$value"
 }
 
+# The release number and build type must be plain words: they end up in file names, the
+# GitHub tag and the lunch target.
+sable_require_build_options() {
+    [[ "$SABLE_VERSION" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] ||
+        sable_fail "version '$SABLE_VERSION' may only hold letters, digits, '.', '_' and '-' (example: --version 1.0)"
+    case "$SABLE_Q25_BUILD_VARIANT" in
+        user | userdebug | eng) ;;
+        *) sable_fail "variant must be user or userdebug (eng for developers): got '$SABLE_Q25_BUILD_VARIANT'" ;;
+    esac
+    return 0
+}
+
 sable_lunch_target() {
     printf '%s-%s-%s\n' "$SABLE_Q25_LUNCH_PRODUCT" "$(sable_target_release)" "$SABLE_Q25_BUILD_VARIANT"
     return

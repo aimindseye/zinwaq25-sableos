@@ -19,6 +19,15 @@ quick start (builds everything; no background needed):
   carry on after a problem. Add --release to also zip it for a GitHub release.
   Results are in ~/sable-q25/artifacts (change with SABLE_BUILD_ROOT).
 
+options for every step (put them anywhere after the function):
+  --version N     the SableOS release number, for example 1.0 (default 1.0).
+                  It names the files and the GitHub release and is written
+                  into the image as ro.sable.version.
+  --variant V     user or userdebug (default userdebug). userdebug is
+                  debuggable (adb root works); user is not.
+  Use the same values for stage, build, artifacts and release.
+  Example: bash build/sable.sh q25 all --yes --version 1.1 --variant user
+
 step by step (advanced):
   bash build/sable.sh q25 [release] <function> [options]
   The release defaults to full.
@@ -46,10 +55,9 @@ functions:
                               releases revert them
   build                       lunch + m bacon
   artifacts                   collect and hash build outputs
-  release [--tag T] [--publish]
-                              zip the collected build with flashing steps and
-                              release notes as a GitHub release
-                              (docs/FLASHING_RELEASE.md, releases/)
+  release [--publish]         zip the collected build with flashing steps and
+                              release notes as a GitHub release; the tag is
+                              the --version (docs/FLASHING_RELEASE.md, releases/)
   ci                          static repository checks
 
 example:
@@ -57,6 +65,28 @@ example:
   bash build/sable.sh q25 full doctor
 EOF
 }
+
+# --version and --variant apply to every step: take them out of the arguments and pass
+# them on as environment variables, so the steps a function runs agree.
+args=()
+while (($#)); do
+    case "$1" in
+        --version)
+            [[ -n "${2:-}" ]] || { echo "[sable-q25] FAIL --version needs a value, for example --version 1.0" >&2; exit 64; }
+            export SABLE_VERSION="$2"
+            shift 2
+            ;;
+        --version=*) export SABLE_VERSION="${1#--version=}"; shift ;;
+        --variant)
+            [[ -n "${2:-}" ]] || { echo "[sable-q25] FAIL --variant needs user or userdebug" >&2; exit 64; }
+            export SABLE_Q25_BUILD_VARIANT="$2"
+            shift 2
+            ;;
+        --variant=*) export SABLE_Q25_BUILD_VARIANT="${1#--variant=}"; shift ;;
+        *) args+=("$1"); shift ;;
+    esac
+done
+set -- "${args[@]+"${args[@]}"}"
 
 # The release is optional: "q25 <function>" means "q25 full <function>".
 if (($# >= 2)) && [[ "$2" =~ ^(all|doctor|bootstrap|import|apps|microg|stage|build|artifacts|release|ci|flash)$ ]]; then
@@ -81,10 +111,13 @@ source "$ROOT/build/lib/common.sh"
 # shellcheck source=build/devices/q25.sh
 source "$ROOT/build/devices/q25.sh"
 sable_require_release "$RELEASE"
+sable_require_build_options
 
 echo "===== SABLEOS Q25 ENTRY POINT ====="
 echo "DEVICE=$DEVICE"
 echo "RELEASE=$RELEASE"
+echo "VERSION=$SABLE_VERSION"
+echo "VARIANT=$SABLE_Q25_BUILD_VARIANT"
 echo "FUNCTION=$FUNCTION"
 echo "TOOL_SOURCE_COMMIT=$(git -C "$ROOT" rev-parse --verify -q HEAD 2>/dev/null || echo uncommitted)"
 echo "BASE=$SABLE_DEVICE_BASE"
