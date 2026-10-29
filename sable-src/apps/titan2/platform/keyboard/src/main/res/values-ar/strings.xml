@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (KeyboardTextTest checks). -->
+<resources>
+    <string name="one_entry_per_line_shortcut">إدخال واحد في كل سطر: اختصار=بديل، مثل brb=be right back. الاختصار كلمة واحدة من حروف أو أرقام. تعمل إدخالاتك في كل اللغات وتحل محل الإدخال المدمج الذي له الاختصار نفسه. في البديل، %D هو التاريخ و%T الوقت و%V رقم الإصدار. يؤدي الضغط على Backspace مباشرة بعد التوسيع إلى استعادة ما كتبته.</string>
+    <string name="save">حفظ</string>
+    <string name="saved_entries">تم حفظ %1$s إدخالًا</string>
+    <string name="lines_skipped_not_shortcut_replacement">؛ تم تخطي %1$s أسطر (ليست بصيغة اختصار=بديل)</string>
+    <string name="built_in_english_typing_language">مدمج (لغة الكتابة الإنجليزية)</string>
+    <string name="turn_on_clipboard_history_in">فعّل سجل الحافظة من إعدادات Sable Keyboard</string>
+    <string name="unlock_to_use_clipboard_history">افتح القفل لاستخدام سجل الحافظة</string>
+    <string name="nav_mode_on_alt_space">وضع التنقل مفعّل (Alt+Space للخروج)</string>
+    <string name="nav_mode_off">وضع التنقل متوقف</string>
+    <string name="enable_more_languages_in_settings">فعّل المزيد من اللغات من الإعدادات &gt; لوحة المفاتيح &gt; Sable</string>
+    <string name="auto_capitalise_sentences">كتابة بداية الجمل بحرف كبير تلقائيًا</string>
+    <string name="double_space_inserts_period">المسافة المزدوجة تُدرج نقطة</string>
+    <string name="autotext_dont_becomes_don_t">AutoText (تتحول dont إلى don\'t وld إلى التاريخ)</string>
+    <string name="long_press_a_letter_for">اضغط مطولًا على حرف للحصول على حرفه مع Alt</string>
+    <string name="letters_type_digits_in_numeric">تكتب الحروف أرقامًا في الحقول الرقمية</string>
+    <string name="nav_mode_ijkl_arrows_enabled">وضع التنقل (أسهم IJKL) مفعّل</string>
+    <string name="alt_space_toggles_nav_mode">يبدّل Alt+Space وضع التنقل</string>
+    <string name="show_on_screen_keyboard_for">إظهار لوحة المفاتيح على الشاشة للحقول الرقمية/PIN</string>
+    <string name="always_show_on_screen_keyboard">إظهار لوحة المفاتيح على الشاشة دائمًا</string>
+    <string name="compact_status_strip_when_the">شريط حالة مضغوط عند إخفاء لوحة المفاتيح على الشاشة</string>
+    <string name="enter_sends_in_apps_that">يرسل Enter في التطبيقات التي توفّر زر الإرسال (Shift+Enter: سطر جديد)</string>
+    <string name="clipboard_history_alt_shift_v">سجل الحافظة (Alt+Shift+V؛ يُحفظ في الذاكرة ولا يُخزَّن أبدًا)</string>
+    <string name="clear_clipboard_history">مسح سجل الحافظة</string>
+    <string name="clipboard_history_cleared">تم مسح سجل الحافظة</string>
+    <string name="autotext_entries">إدخالات AutoText</string>
+    <string name="key_event_probe_diagnostic">مسبار أحداث المفاتيح (تشخيص)</string>
+    <string name="sable_keyboard">Sable Keyboard</string>
+    <string name="layout_provisional_until_key_legends">التخطيط: مؤقت إلى أن يتم تسجيل رموز المفاتيح على هذا الجهاز.</string>
+    <string name="space">مسافة · %1$s%2$s</string>
+    <string name="alternate">%1$s، بديل %2$s</string>
+    <string name="clipboard_empty">الحافظة فارغة</string>
+    <string name="input_method_settings">إعدادات طريقة الإدخال</string>
+    <string name="keyboard_picker">محدّد لوحة المفاتيح</string>
+    <string name="sable_keyboard_is_the_selected">Sable Keyboard هي لوحة المفاتيح المحددة.</string>
+    <string name="another_keyboard_is_selected_your">هناك لوحة مفاتيح أخرى محددة. يُحتفظ باختيارك؛ ولا يغيّره Sable Keyboard نيابةً عنك أبدًا.</string>
+    <string name="sable_keyboard_is_not_enabled">لم يتم تفعيل Sable Keyboard بعد.</string>
+    <string name="could_not_read_which_keyboard">تعذّرت معرفة لوحة المفاتيح المحددة.</string>
+    <string name="could_not_open_not_available">تعذّر فتح %1$s: غير متاح على هذا الجهاز.</string>
+    <string name="could_not_open_blocked_by">تعذّر فتح %1$s: حظره النظام.</string>
+    <string name="could_not_open">تعذّر فتح %1$s.</string>
+</resources>

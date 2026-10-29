@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Korean. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (KeyboardTextTest checks). -->
+<resources>
+    <string name="one_entry_per_line_shortcut">한 줄에 항목 하나: 단축어=대체 텍스트, 예: brb=be right back. 단축어는 문자나 숫자로 된 한 단어입니다. 항목은 모든 언어에서 작동하며 같은 단축어의 기본 제공 항목을 대체합니다. 대체 텍스트에서 %D는 날짜, %T는 시간, %V는 빌드 번호입니다. 확장 직후 Backspace를 누르면 입력한 내용으로 되돌립니다.</string>
+    <string name="save">저장</string>
+    <string name="saved_entries">항목 %1$s개 저장됨</string>
+    <string name="lines_skipped_not_shortcut_replacement">; %1$s줄 건너뜀(단축어=대체 텍스트 형식이 아님)</string>
+    <string name="built_in_english_typing_language">기본 제공(영어 입력 언어)</string>
+    <string name="turn_on_clipboard_history_in">Sable Keyboard 설정에서 클립보드 기록을 켜세요</string>
+    <string name="unlock_to_use_clipboard_history">클립보드 기록을 사용하려면 잠금을 해제하세요</string>
+    <string name="nav_mode_on_alt_space">탐색 모드 켜짐(종료하려면 Alt+Space)</string>
+    <string name="nav_mode_off">탐색 모드 꺼짐</string>
+    <string name="enable_more_languages_in_settings">설정 &gt; 키보드 &gt; Sable에서 언어를 더 사용 설정하세요</string>
+    <string name="auto_capitalise_sentences">문장 첫 글자 자동 대문자</string>
+    <string name="double_space_inserts_period">스페이스 두 번으로 마침표 입력</string>
+    <string name="autotext_dont_becomes_don_t">AutoText(dont는 don\'t로, ld는 날짜로 바뀜)</string>
+    <string name="long_press_a_letter_for">글자를 길게 눌러 Alt 문자 입력</string>
+    <string name="letters_type_digits_in_numeric">숫자 입력란에서 글자 키로 숫자 입력</string>
+    <string name="nav_mode_ijkl_arrows_enabled">탐색 모드(IJKL 방향키) 사용</string>
+    <string name="alt_space_toggles_nav_mode">Alt+Space로 탐색 모드 전환</string>
+    <string name="show_on_screen_keyboard_for">숫자/PIN 입력란에 화상 키보드 표시</string>
+    <string name="always_show_on_screen_keyboard">화상 키보드 항상 표시</string>
+    <string name="compact_status_strip_when_the">화상 키보드가 숨겨지면 간결한 상태 표시줄 사용</string>
+    <string name="enter_sends_in_apps_that">보내기가 있는 앱에서 Enter로 전송(Shift+Enter: 줄 바꿈)</string>
+    <string name="clipboard_history_alt_shift_v">클립보드 기록(Alt+Shift+V, 메모리에만 보관되며 저장되지 않음)</string>
+    <string name="clear_clipboard_history">클립보드 기록 지우기</string>
+    <string name="clipboard_history_cleared">클립보드 기록을 지웠습니다</string>
+    <string name="autotext_entries">AutoText 항목</string>
+    <string name="key_event_probe_diagnostic">키 이벤트 프로브(진단)</string>
+    <string name="sable_keyboard">Sable Keyboard</string>
+    <string name="layout_provisional_until_key_legends">레이아웃: 이 기기에서 키 각인이 확인될 때까지 임시입니다.</string>
+    <string name="space">스페이스 · %1$s%2$s</string>
+    <string name="alternate">%1$s, 대체 %2$s</string>
+    <string name="clipboard_empty">클립보드가 비어 있음</string>
+    <string name="input_method_settings">입력 방법 설정</string>
+    <string name="keyboard_picker">키보드 선택</string>
+    <string name="sable_keyboard_is_the_selected">Sable Keyboard가 선택된 키보드입니다.</string>
+    <string name="another_keyboard_is_selected_your">다른 키보드가 선택되어 있습니다. 선택은 유지되며 Sable Keyboard가 대신 바꾸지 않습니다.</string>
+    <string name="sable_keyboard_is_not_enabled">Sable Keyboard가 아직 사용 설정되지 않았습니다.</string>
+    <string name="could_not_read_which_keyboard">선택된 키보드를 읽을 수 없습니다.</string>
+    <string name="could_not_open_not_available">%1$s을(를) 열 수 없음: 이 기기에서 사용할 수 없습니다.</string>
+    <string name="could_not_open_blocked_by">%1$s을(를) 열 수 없음: 시스템에서 차단했습니다.</string>
+    <string name="could_not_open">%1$s을(를) 열 수 없습니다.</string>
+</resources>

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (KeyboardTextTest checks). -->
+<resources>
+    <string name="one_entry_per_line_shortcut">Una entrada por línea: atajo=reemplazo, por ejemplo brb=be right back. Un atajo es una palabra de letras o dígitos. Tus entradas funcionan en todos los idiomas y sustituyen a una integrada con el mismo atajo. En un reemplazo, %D es la fecha, %T la hora y %V el número de compilación. Retroceso justo después de una expansión recupera lo que escribiste.</string>
+    <string name="save">Guardar</string>
+    <string name="saved_entries">Se guardaron %1$s entradas</string>
+    <string name="lines_skipped_not_shortcut_replacement">; se omitieron %1$s líneas (no son atajo=reemplazo)</string>
+    <string name="built_in_english_typing_language">Integrado (idioma de escritura inglés)</string>
+    <string name="turn_on_clipboard_history_in">Activa el historial del portapapeles en los ajustes de Sable Keyboard</string>
+    <string name="unlock_to_use_clipboard_history">Desbloquea para usar el historial del portapapeles</string>
+    <string name="nav_mode_on_alt_space">Modo de navegación activado (Alt+Space para salir)</string>
+    <string name="nav_mode_off">Modo de navegación desactivado</string>
+    <string name="enable_more_languages_in_settings">Activa más idiomas en Ajustes &gt; Teclado &gt; Sable</string>
+    <string name="auto_capitalise_sentences">Poner en mayúscula automáticamente las frases</string>
+    <string name="double_space_inserts_period">Doble espacio inserta un punto</string>
+    <string name="autotext_dont_becomes_don_t">AutoText (dont se convierte en don\'t, ld en la fecha)</string>
+    <string name="long_press_a_letter_for">Mantén pulsada una letra para ver su carácter con Alt</string>
+    <string name="letters_type_digits_in_numeric">Las letras escriben dígitos en los campos numéricos</string>
+    <string name="nav_mode_ijkl_arrows_enabled">Modo de navegación (flechas IJKL) activado</string>
+    <string name="alt_space_toggles_nav_mode">Alt+Space alterna el modo de navegación</string>
+    <string name="show_on_screen_keyboard_for">Mostrar el teclado en pantalla en los campos numéricos o de PIN</string>
+    <string name="always_show_on_screen_keyboard">Mostrar siempre el teclado en pantalla</string>
+    <string name="compact_status_strip_when_the">Barra de estado compacta cuando el teclado en pantalla está oculto</string>
+    <string name="enter_sends_in_apps_that">Enter envía en las aplicaciones que ofrecen Enviar (Shift+Enter: nueva línea)</string>
+    <string name="clipboard_history_alt_shift_v">Historial del portapapeles (Alt+Shift+V; se guarda en memoria, nunca en disco)</string>
+    <string name="clear_clipboard_history">Borrar el historial del portapapeles</string>
+    <string name="clipboard_history_cleared">Historial del portapapeles borrado</string>
+    <string name="autotext_entries">Entradas de AutoText</string>
+    <string name="key_event_probe_diagnostic">Sonda de eventos de teclas (diagnóstico)</string>
+    <string name="sable_keyboard">Sable Keyboard</string>
+    <string name="layout_provisional_until_key_legends">Disposición: provisional hasta que se registren las leyendas de las teclas en este dispositivo.</string>
+    <string name="space">espacio · %1$s%2$s</string>
+    <string name="alternate">%1$s, alternativa %2$s</string>
+    <string name="clipboard_empty">Portapapeles vacío</string>
+    <string name="input_method_settings">Ajustes del método de entrada</string>
+    <string name="keyboard_picker">Selector de teclado</string>
+    <string name="sable_keyboard_is_the_selected">Sable Keyboard es el teclado seleccionado.</string>
+    <string name="another_keyboard_is_selected_your">Hay otro teclado seleccionado. Tu elección se conserva; Sable Keyboard nunca la cambia por ti.</string>
+    <string name="sable_keyboard_is_not_enabled">Sable Keyboard aún no está activado.</string>
+    <string name="could_not_read_which_keyboard">No se pudo leer qué teclado está seleccionado.</string>
+    <string name="could_not_open_not_available">No se pudo abrir %1$s: no está disponible en este dispositivo.</string>
+    <string name="could_not_open_blocked_by">No se pudo abrir %1$s: bloqueado por el sistema.</string>
+    <string name="could_not_open">No se pudo abrir %1$s.</string>
+</resources>

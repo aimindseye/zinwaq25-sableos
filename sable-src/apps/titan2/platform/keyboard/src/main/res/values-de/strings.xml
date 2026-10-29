@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (KeyboardTextTest checks). -->
+<resources>
+    <string name="one_entry_per_line_shortcut">Ein Eintrag pro Zeile: Kürzel=Ersetzung, zum Beispiel brb=be right back. Ein Kürzel ist ein Wort aus Buchstaben oder Ziffern. Deine Einträge funktionieren in jeder Sprache und ersetzen einen integrierten Eintrag mit demselben Kürzel. In einer Ersetzung steht %D für das Datum, %T für die Uhrzeit und %V für die Build-Nummer. Rücktaste direkt nach einer Erweiterung stellt das Eingetippte wieder her.</string>
+    <string name="save">Speichern</string>
+    <string name="saved_entries">%1$s Einträge gespeichert</string>
+    <string name="lines_skipped_not_shortcut_replacement">; %1$s Zeilen übersprungen (nicht Kürzel=Ersetzung)</string>
+    <string name="built_in_english_typing_language">Integriert (englische Eingabesprache)</string>
+    <string name="turn_on_clipboard_history_in">Aktiviere den Zwischenablageverlauf in den Einstellungen von Sable Keyboard</string>
+    <string name="unlock_to_use_clipboard_history">Zum Verwenden des Zwischenablageverlaufs entsperren</string>
+    <string name="nav_mode_on_alt_space">Nav-Modus an (Alt+Space zum Beenden)</string>
+    <string name="nav_mode_off">Nav-Modus aus</string>
+    <string name="enable_more_languages_in_settings">Weitere Sprachen unter Einstellungen &gt; Tastatur &gt; Sable aktivieren</string>
+    <string name="auto_capitalise_sentences">Sätze automatisch großschreiben</string>
+    <string name="double_space_inserts_period">Doppeltes Leerzeichen fügt einen Punkt ein</string>
+    <string name="autotext_dont_becomes_don_t">AutoText (dont wird zu don\'t, ld zum Datum)</string>
+    <string name="long_press_a_letter_for">Buchstaben lang drücken für das Alt-Zeichen</string>
+    <string name="letters_type_digits_in_numeric">Buchstaben geben in Zahlenfeldern Ziffern ein</string>
+    <string name="nav_mode_ijkl_arrows_enabled">Nav-Modus (IJKL-Pfeile) aktiviert</string>
+    <string name="alt_space_toggles_nav_mode">Alt+Space schaltet den Nav-Modus um</string>
+    <string name="show_on_screen_keyboard_for">Bildschirmtastatur für Zahlen- und PIN-Felder anzeigen</string>
+    <string name="always_show_on_screen_keyboard">Bildschirmtastatur immer anzeigen</string>
+    <string name="compact_status_strip_when_the">Kompakte Statusleiste, wenn die Bildschirmtastatur ausgeblendet ist</string>
+    <string name="enter_sends_in_apps_that">Enter sendet in Apps mit Senden-Funktion (Shift+Enter: neue Zeile)</string>
+    <string name="clipboard_history_alt_shift_v">Zwischenablageverlauf (Alt+Shift+V; nur im Speicher, nie gespeichert)</string>
+    <string name="clear_clipboard_history">Zwischenablageverlauf löschen</string>
+    <string name="clipboard_history_cleared">Zwischenablageverlauf gelöscht</string>
+    <string name="autotext_entries">AutoText-Einträge</string>
+    <string name="key_event_probe_diagnostic">Tastenereignis-Sonde (Diagnose)</string>
+    <string name="sable_keyboard">Sable Keyboard</string>
+    <string name="layout_provisional_until_key_legends">Layout: vorläufig, bis die Tastenbeschriftungen auf diesem Gerät erfasst sind.</string>
+    <string name="space">Leertaste · %1$s%2$s</string>
+    <string name="alternate">%1$s, Alternative %2$s</string>
+    <string name="clipboard_empty">Zwischenablage leer</string>
+    <string name="input_method_settings">Eingabemethoden-Einstellungen</string>
+    <string name="keyboard_picker">Tastaturauswahl</string>
+    <string name="sable_keyboard_is_the_selected">Sable Keyboard ist die ausgewählte Tastatur.</string>
+    <string name="another_keyboard_is_selected_your">Eine andere Tastatur ist ausgewählt. Deine Auswahl bleibt erhalten; Sable Keyboard ändert sie nie von selbst.</string>
+    <string name="sable_keyboard_is_not_enabled">Sable Keyboard ist noch nicht aktiviert.</string>
+    <string name="could_not_read_which_keyboard">Die ausgewählte Tastatur konnte nicht gelesen werden.</string>
+    <string name="could_not_open_not_available">%1$s konnte nicht geöffnet werden: auf diesem Gerät nicht verfügbar.</string>
+    <string name="could_not_open_blocked_by">%1$s konnte nicht geöffnet werden: vom System blockiert.</string>
+    <string name="could_not_open">%1$s konnte nicht geöffnet werden.</string>
+</resources>

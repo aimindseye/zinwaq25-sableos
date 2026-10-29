@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Portuguese (Brazil). Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (KeyboardTextTest checks). -->
+<resources>
+    <string name="one_entry_per_line_shortcut">Uma entrada por linha: atalho=substituição, por exemplo brb=be right back. Um atalho é uma palavra de letras ou dígitos. Suas entradas funcionam em todos os idiomas e substituem uma embutida com o mesmo atalho. Em uma substituição, %D é a data, %T a hora e %V o número da versão. Backspace logo após uma expansão restaura o que você digitou.</string>
+    <string name="save">Salvar</string>
+    <string name="saved_entries">%1$s entradas salvas</string>
+    <string name="lines_skipped_not_shortcut_replacement">; %1$s linhas ignoradas (não estão no formato atalho=substituição)</string>
+    <string name="built_in_english_typing_language">Embutido (idioma de digitação inglês)</string>
+    <string name="turn_on_clipboard_history_in">Ative o histórico da área de transferência nas configurações do Sable Keyboard</string>
+    <string name="unlock_to_use_clipboard_history">Desbloqueie para usar o histórico da área de transferência</string>
+    <string name="nav_mode_on_alt_space">Modo de navegação ativado (Alt+Space para sair)</string>
+    <string name="nav_mode_off">Modo de navegação desativado</string>
+    <string name="enable_more_languages_in_settings">Ative mais idiomas em Configurações &gt; Teclado &gt; Sable</string>
+    <string name="auto_capitalise_sentences">Colocar sentenças em maiúscula automaticamente</string>
+    <string name="double_space_inserts_period">Espaço duplo insere ponto final</string>
+    <string name="autotext_dont_becomes_don_t">AutoText (dont vira don\'t, ld vira a data)</string>
+    <string name="long_press_a_letter_for">Mantenha uma letra pressionada para ver o caractere Alt</string>
+    <string name="letters_type_digits_in_numeric">As letras digitam números em campos numéricos</string>
+    <string name="nav_mode_ijkl_arrows_enabled">Modo de navegação (setas IJKL) ativado</string>
+    <string name="alt_space_toggles_nav_mode">Alt+Space alterna o modo de navegação</string>
+    <string name="show_on_screen_keyboard_for">Mostrar o teclado na tela em campos numéricos ou de PIN</string>
+    <string name="always_show_on_screen_keyboard">Sempre mostrar o teclado na tela</string>
+    <string name="compact_status_strip_when_the">Barra de status compacta quando o teclado na tela está oculto</string>
+    <string name="enter_sends_in_apps_that">Enter envia em apps que oferecem Enviar (Shift+Enter: nova linha)</string>
+    <string name="clipboard_history_alt_shift_v">Histórico da área de transferência (Alt+Shift+V; mantido na memória, nunca salvo)</string>
+    <string name="clear_clipboard_history">Limpar o histórico da área de transferência</string>
+    <string name="clipboard_history_cleared">Histórico da área de transferência limpo</string>
+    <string name="autotext_entries">Entradas do AutoText</string>
+    <string name="key_event_probe_diagnostic">Sonda de eventos de tecla (diagnóstico)</string>
+    <string name="sable_keyboard">Sable Keyboard</string>
+    <string name="layout_provisional_until_key_legends">Layout: provisório até que as legendas das teclas sejam registradas neste dispositivo.</string>
+    <string name="space">espaço · %1$s%2$s</string>
+    <string name="alternate">%1$s, alternativa %2$s</string>
+    <string name="clipboard_empty">Área de transferência vazia</string>
+    <string name="input_method_settings">Configurações do método de entrada</string>
+    <string name="keyboard_picker">Seletor de teclado</string>
+    <string name="sable_keyboard_is_the_selected">O Sable Keyboard é o teclado selecionado.</string>
+    <string name="another_keyboard_is_selected_your">Outro teclado está selecionado. Sua escolha é mantida; o Sable Keyboard nunca a troca por você.</string>
+    <string name="sable_keyboard_is_not_enabled">O Sable Keyboard ainda não está ativado.</string>
+    <string name="could_not_read_which_keyboard">Não foi possível ler qual teclado está selecionado.</string>
+    <string name="could_not_open_not_available">Não foi possível abrir %1$s: indisponível neste dispositivo.</string>
+    <string name="could_not_open_blocked_by">Não foi possível abrir %1$s: bloqueado pelo sistema.</string>
+    <string name="could_not_open">Não foi possível abrir %1$s.</string>
+</resources>

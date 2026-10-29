@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Swedish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (KeyboardTextTest checks). -->
+<resources>
+    <string name="one_entry_per_line_shortcut">En post per rad: genväg=ersättning, till exempel brb=be right back. En genväg är ett ord av bokstäver eller siffror. Dina poster fungerar på alla språk och ersätter en inbyggd post med samma genväg. I en ersättning är %D datumet, %T klockslaget och %V bygg-numret. Backsteg direkt efter en expansion återställer det du skrev.</string>
+    <string name="save">Spara</string>
+    <string name="saved_entries">Sparade %1$s poster</string>
+    <string name="lines_skipped_not_shortcut_replacement">; %1$s rader hoppades över (inte genväg=ersättning)</string>
+    <string name="built_in_english_typing_language">Inbyggd (engelskt skrivspråk)</string>
+    <string name="turn_on_clipboard_history_in">Aktivera urklippshistorik i inställningarna för Sable Keyboard</string>
+    <string name="unlock_to_use_clipboard_history">Lås upp för att använda urklippshistorik</string>
+    <string name="nav_mode_on_alt_space">Nav-läge på (Alt+Space för att avsluta)</string>
+    <string name="nav_mode_off">Nav-läge av</string>
+    <string name="enable_more_languages_in_settings">Aktivera fler språk under Inställningar &gt; Tangentbord &gt; Sable</string>
+    <string name="auto_capitalise_sentences">Automatiska versaler i meningar</string>
+    <string name="double_space_inserts_period">Dubbelt mellanslag infogar punkt</string>
+    <string name="autotext_dont_becomes_don_t">AutoText (dont blir don\'t, ld blir datumet)</string>
+    <string name="long_press_a_letter_for">Tryck länge på en bokstav för dess Alt-tecken</string>
+    <string name="letters_type_digits_in_numeric">Bokstäver skriver siffror i numeriska fält</string>
+    <string name="nav_mode_ijkl_arrows_enabled">Nav-läge (IJKL-piltangenter) aktiverat</string>
+    <string name="alt_space_toggles_nav_mode">Alt+Space växlar Nav-läge</string>
+    <string name="show_on_screen_keyboard_for">Visa skärmtangentbordet för numeriska fält och PIN-fält</string>
+    <string name="always_show_on_screen_keyboard">Visa alltid skärmtangentbordet</string>
+    <string name="compact_status_strip_when_the">Kompakt statusfält när skärmtangentbordet är dolt</string>
+    <string name="enter_sends_in_apps_that">Enter skickar i appar som erbjuder Skicka (Shift+Enter: ny rad)</string>
+    <string name="clipboard_history_alt_shift_v">Urklippshistorik (Alt+Shift+V; sparas i minnet, aldrig på disk)</string>
+    <string name="clear_clipboard_history">Rensa urklippshistorik</string>
+    <string name="clipboard_history_cleared">Urklippshistoriken rensad</string>
+    <string name="autotext_entries">AutoText-poster</string>
+    <string name="key_event_probe_diagnostic">Tangenthändelsesond (diagnostik)</string>
+    <string name="sable_keyboard">Sable Keyboard</string>
+    <string name="layout_provisional_until_key_legends">Layout: preliminär tills tangentetiketterna har registrerats på den här enheten.</string>
+    <string name="space">mellanslag · %1$s%2$s</string>
+    <string name="alternate">%1$s, alternativ %2$s</string>
+    <string name="clipboard_empty">Urklipp tomt</string>
+    <string name="input_method_settings">Inställningar för inmatningsmetod</string>
+    <string name="keyboard_picker">Tangentbordsväljare</string>
+    <string name="sable_keyboard_is_the_selected">Sable Keyboard är det valda tangentbordet.</string>
+    <string name="another_keyboard_is_selected_your">Ett annat tangentbord är valt. Ditt val behålls; Sable Keyboard ändrar det aldrig åt dig.</string>
+    <string name="sable_keyboard_is_not_enabled">Sable Keyboard är inte aktiverat ännu.</string>
+    <string name="could_not_read_which_keyboard">Kunde inte läsa vilket tangentbord som är valt.</string>
+    <string name="could_not_open_not_available">Kunde inte öppna %1$s: inte tillgängligt på den här enheten.</string>
+    <string name="could_not_open_blocked_by">Kunde inte öppna %1$s: blockerat av systemet.</string>
+    <string name="could_not_open">Kunde inte öppna %1$s.</string>
+</resources>

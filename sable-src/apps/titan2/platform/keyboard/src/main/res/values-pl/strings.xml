@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Polish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (KeyboardTextTest checks). -->
+<resources>
+    <string name="one_entry_per_line_shortcut">Jeden wpis w wierszu: skrót=zamiennik, na przykład brb=be right back. Skrót to jedno słowo z liter lub cyfr. Twoje wpisy działają w każdym języku i zastępują wbudowany wpis o tym samym skrócie. W zamienniku %D to data, %T to godzina, a %V to numer kompilacji. Backspace tuż po rozwinięciu przywraca wpisany tekst.</string>
+    <string name="save">Zapisz</string>
+    <string name="saved_entries">Zapisano wpisy: %1$s</string>
+    <string name="lines_skipped_not_shortcut_replacement">; pominięto wiersze: %1$s (nie mają formatu skrót=zamiennik)</string>
+    <string name="built_in_english_typing_language">Wbudowane (angielski język pisania)</string>
+    <string name="turn_on_clipboard_history_in">Włącz historię schowka w ustawieniach Sable Keyboard</string>
+    <string name="unlock_to_use_clipboard_history">Odblokuj, aby użyć historii schowka</string>
+    <string name="nav_mode_on_alt_space">Tryb nawigacji włączony (Alt+Space, aby wyjść)</string>
+    <string name="nav_mode_off">Tryb nawigacji wyłączony</string>
+    <string name="enable_more_languages_in_settings">Włącz więcej języków w Ustawienia &gt; Klawiatura &gt; Sable</string>
+    <string name="auto_capitalise_sentences">Automatyczne wielkie litery na początku zdań</string>
+    <string name="double_space_inserts_period">Podwójna spacja wstawia kropkę</string>
+    <string name="autotext_dont_becomes_don_t">AutoText (dont zmienia się w don\'t, ld w datę)</string>
+    <string name="long_press_a_letter_for">Przytrzymaj literę, aby wstawić jej znak z Alt</string>
+    <string name="letters_type_digits_in_numeric">Litery wpisują cyfry w polach liczbowych</string>
+    <string name="nav_mode_ijkl_arrows_enabled">Tryb nawigacji (strzałki IJKL) włączony</string>
+    <string name="alt_space_toggles_nav_mode">Alt+Space przełącza tryb nawigacji</string>
+    <string name="show_on_screen_keyboard_for">Pokazuj klawiaturę ekranową w polach liczbowych i PIN</string>
+    <string name="always_show_on_screen_keyboard">Zawsze pokazuj klawiaturę ekranową</string>
+    <string name="compact_status_strip_when_the">Kompaktowy pasek stanu, gdy klawiatura ekranowa jest ukryta</string>
+    <string name="enter_sends_in_apps_that">Enter wysyła w aplikacjach z przyciskiem Wyślij (Shift+Enter: nowy wiersz)</string>
+    <string name="clipboard_history_alt_shift_v">Historia schowka (Alt+Shift+V; trzymana w pamięci, nigdy nie zapisywana)</string>
+    <string name="clear_clipboard_history">Wyczyść historię schowka</string>
+    <string name="clipboard_history_cleared">Wyczyszczono historię schowka</string>
+    <string name="autotext_entries">Wpisy AutoText</string>
+    <string name="key_event_probe_diagnostic">Sonda zdarzeń klawiszy (diagnostyka)</string>
+    <string name="sable_keyboard">Sable Keyboard</string>
+    <string name="layout_provisional_until_key_legends">Układ: tymczasowy, dopóki opisy klawiszy nie zostaną zarejestrowane na tym urządzeniu.</string>
+    <string name="space">spacja · %1$s%2$s</string>
+    <string name="alternate">%1$s, alternatywnie %2$s</string>
+    <string name="clipboard_empty">Schowek jest pusty</string>
+    <string name="input_method_settings">Ustawienia metody wprowadzania</string>
+    <string name="keyboard_picker">Wybór klawiatury</string>
+    <string name="sable_keyboard_is_the_selected">Sable Keyboard jest wybraną klawiaturą.</string>
+    <string name="another_keyboard_is_selected_your">Wybrana jest inna klawiatura. Twój wybór zostaje zachowany; Sable Keyboard nigdy go nie zmienia.</string>
+    <string name="sable_keyboard_is_not_enabled">Sable Keyboard nie jest jeszcze włączona.</string>
+    <string name="could_not_read_which_keyboard">Nie udało się odczytać, która klawiatura jest wybrana.</string>
+    <string name="could_not_open_not_available">Nie udało się otworzyć: %1$s — niedostępne na tym urządzeniu.</string>
+    <string name="could_not_open_blocked_by">Nie udało się otworzyć: %1$s — zablokowane przez system.</string>
+    <string name="could_not_open">Nie udało się otworzyć: %1$s.</string>
+</resources>
