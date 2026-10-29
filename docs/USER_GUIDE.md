@@ -88,6 +88,7 @@ Every Sable app follows the Dark theme and your Sable accent, and has single-key
 | Hub (in Start) | One inbox for messages, calls and notifications | H on a notification opens it in Hub |
 | Mail | Email; Gmail sign-in is covered in [MAIL_GMAIL_SIGNIN.md](MAIL_GMAIL_SIGNIN.md) | B to bottom |
 | Calendar | Week view with a NOW line | C, T, V, J, K, R |
+| Notes | Notes and checklists with colour labels, kept on the phone | See [Notes](#notes) below; C new, S find, K tasks |
 | Weather | Forecast for your city, refreshed in the background | Feeds Start's header |
 | Camera | Sable Camera for stills; video uses Aperture | Tap the viewfinder for touch controls |
 | Media | Music, photos, FM radio | E shares |
@@ -116,6 +117,28 @@ Every game plays from the keyboard or the trackpad (which sends arrow keys), and
 | Solitaire | Klondike, one card at a time | Arrows pick a pile; Enter picks up and puts down; Space turns the stock; A sends a card to its foundation; Del lets go |
 | Mahjong | Remove matching free tiles in pairs; every deal can be cleared | Arrows move; Space or Enter picks; H shows a pair |
 | Words | Guess the five-letter word in six tries: green is right, amber is in the word elsewhere | Type the letters; Del erases; Enter guesses |
+
+### Notes
+
+Sable Notes is for quick notes and lists, in the spirit of BlackBerry Remember and Color Notes. Notes stay on the phone: there is no account and no sync. To move notes elsewhere, use Share or Export, and use Import to bring a text file in. Text shared from another app (Share > Sable Notes) becomes a new note.
+
+The first line of a note is its title. The list shows the latest-edited note first, with its colour, when it was edited and how many checklist items are done.
+
+| Where | Key | What it does |
+| --- | --- | --- |
+| List | C (or Ctrl+N) | New note |
+| List | S or / | Find in every note; Enter opens the first match |
+| List | K | Tasks: the open checklist items from every note. Enter ticks one, O opens its note, H shows the done ones |
+| List | L | Change the focused note's colour |
+| List | D | Delete the focused note (asks first) |
+| List | I | Import a text file as a note |
+| List | T, B, Space, N, P | Top, bottom, page, next, previous |
+| Note | Menu | The note menu. Each item has a letter: L makes the line a checklist item, T ticks it, F finds, G finds the next match, C changes the colour, S shares, E exports to a file, D deletes |
+| Note | Enter on a checklist item | Starts the next item; Enter on an empty item ends the list |
+| Note | Alt+Enter | Ticks or unticks the item the cursor is on |
+| Note | Back | Saves and goes back to the list. A note left empty is not kept |
+
+Notes save themselves as you type. On a keyboard with Ctrl, Ctrl+S, Ctrl+F, Ctrl+G, Ctrl+T, Ctrl+L, Ctrl+E and Ctrl+Enter do the same as the menu letters, and Esc goes back. A checklist item is a line that starts with `- [ ] `, or `- [x] ` once it's done, so an exported note reads the same in any text editor.
 
 ### Comics and audiobooks
 

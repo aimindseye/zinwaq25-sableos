@@ -924,6 +924,18 @@ grep -q 'override fun onKeyDown' sable-src/apps/r8/android/calendar/src/main/jav
 grep -q 'fun nowLine' "$cal_keys" || cal_bad="$cal_bad no-now-line"
 if [[ -z "$cal_bad" ]]; then pass "Sable Calendar week view, NOW line and C/T/V/J/K/R keys"; else fail "calendar:$cal_bad"; fi
 
+# 16. Sable Notes (sable-src 0081): local-first notes and checklists, no permissions, Menu-key editor.
+notes=sable-src/apps/r8/android/notes
+notes_bad=""
+grep -qP '^SableNotes\tcommon\tapps/r8/android\t:notes:assembleRelease\tnotes/build/outputs/apk/release/\*\.apk\torg\.sableos\.notes\tunsigned\t-\tyes$' product/q25/apps.tsv || notes_bad="$notes_bad apps.tsv"
+grep -q 'uses-permission' "$notes/src/main/AndroidManifest.xml" && notes_bad="$notes_bad permission"
+grep -q 'android:allowBackup="false"' "$notes/src/main/AndroidManifest.xml" || notes_bad="$notes_bad backup"
+grep -q 'KEYCODE_MENU -> EditorKey.Menu' "$notes/src/main/java/org/sableos/notes/core/NotesKeys.kt" || notes_bad="$notes_bad menu-key"
+grep -q 'android.intent.action.SEND"' "$notes/src/main/AndroidManifest.xml" || notes_bad="$notes_bad share-in"
+grep -q '"org.sableos.notes" to AppGlyph.NOTES' sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/AppGlyphs.kt || notes_bad="$notes_bad start-glyph"
+grep -q ':notes:testDebugUnitTest' .github/workflows/android.yml || notes_bad="$notes_bad ci"
+if [[ -z "$notes_bad" ]]; then pass "Sable Notes: shipped, no permissions, Menu-key editor, Start glyph, CI"; else fail "notes:$notes_bad"; fi
+
 echo
 if ((fails)); then echo "CI=FAIL ($fails)"; exit 1; fi
 echo "CI=PASS"

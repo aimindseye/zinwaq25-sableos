@@ -1,0 +1,2336 @@
+diff --git a/sable-src/apps/r8/android/notes/build.gradle.kts b/sable-src/apps/r8/android/notes/build.gradle.kts
+new file mode 100644
+index 0000000..3f0b56e
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/build.gradle.kts
+@@ -0,0 +1,75 @@
++plugins {
++    id("com.android.application")
++    id("org.jetbrains.kotlin.android")
++    id("org.jetbrains.kotlin.plugin.compose")
++}
++
++android {
++    namespace = "org.sableos.notes"
++    compileSdk = 36
++
++    defaultConfig {
++        applicationId = "org.sableos.notes"
++        minSdk = 30
++        targetSdk = 36
++        versionCode = 1
++        versionName = "0.1.0"
++    }
++
++    buildTypes {
++        // The Q25 image ships the release variant (product/q25/apps.tsv): R8-shrunk and signed by
++        // the platform build, so it fits the dynamic partitions (a debug APK is about 30 MB).
++        release {
++            isMinifyEnabled = true
++            isShrinkResources = true
++            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
++        }
++    }
++
++    buildFeatures {
++        compose = true
++    }
++
++    compileOptions {
++        sourceCompatibility = JavaVersion.VERSION_17
++        targetCompatibility = JavaVersion.VERSION_17
++    }
++
++    kotlin {
++        compilerOptions {
++            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
++            allWarningsAsErrors.set(true)
++        }
++    }
++
++    lint {
++        checkTestSources = false
++    }
++}
++
++androidComponents {
++    beforeVariants(selector().all()) { variantBuilder ->
++        variantBuilder.enableAndroidTest = false
++    }
++}
++
++dependencies {
++    implementation(project(":design"))
++    implementation(platform(libs.androidx.compose.bom))
++    implementation(libs.androidx.activity.compose)
++    implementation("androidx.compose.material3:material3")
++    implementation("androidx.compose.foundation:foundation")
++    implementation("androidx.compose.ui:ui")
++    debugImplementation("androidx.compose.ui:ui-tooling")
++
++    testImplementation(libs.junit)
++}
++
++extensions.configure<io.gitlab.arturbosch.detekt.extensions.DetektExtension> {
++    config.setFrom(rootProject.file("config/detekt.yml"))
++    ignoreFailures = false
++}
++
++extensions.configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
++    ignoreFailures.set(false)
++}
+diff --git a/sable-src/apps/r8/android/notes/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/notes/src/main/AndroidManifest.xml
+new file mode 100644
+index 0000000..15d7027
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/main/AndroidManifest.xml
+@@ -0,0 +1,33 @@
++<?xml version="1.0" encoding="utf-8"?>
++<manifest xmlns:android="http://schemas.android.com/apk/res/android">
++    <!-- No permissions: notes stay in app storage, and export, import and share go through
++         the system file picker and share sheet only when the user asks. -->
++    <queries>
++        <provider android:authorities="org.sableos.appearance" />
++    </queries>
++    <application
++        android:allowBackup="false"
++        android:usesCleartextTraffic="false"
++        android:icon="@mipmap/ic_sable_notes"
++        android:roundIcon="@mipmap/ic_sable_notes_round"
++        android:label="Sable Notes"
++        android:supportsRtl="true"
++        android:theme="@android:style/Theme.Material.NoActionBar">
++        <activity
++            android:name=".MainActivity"
++            android:exported="true"
++            android:launchMode="singleTask"
++            android:windowSoftInputMode="adjustResize">
++            <intent-filter>
++                <action android:name="android.intent.action.MAIN" />
++                <category android:name="android.intent.category.LAUNCHER" />
++            </intent-filter>
++            <!-- Text shared from another app becomes a new note. -->
++            <intent-filter>
++                <action android:name="android.intent.action.SEND" />
++                <category android:name="android.intent.category.DEFAULT" />
++                <data android:mimeType="text/plain" />
++            </intent-filter>
++        </activity>
++    </application>
++</manifest>
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/MainActivity.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/MainActivity.kt
+new file mode 100644
+index 0000000..1c32d14
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/MainActivity.kt
+@@ -0,0 +1,48 @@
++package org.sableos.notes
++
++import android.content.Intent
++import android.os.Bundle
++import android.view.KeyEvent
++import androidx.activity.ComponentActivity
++import androidx.activity.compose.setContent
++import androidx.activity.enableEdgeToEdge
++import org.sableos.design.SableGlobalTheme
++import org.sableos.notes.ui.NotesApp
++
++/**
++ * Sable Notes: local notes and checklists, typed on the keyboard. Notes stay in app storage; share,
++ * export and import happen only when asked. Text shared from another app opens as a new note.
++ */
++class MainActivity : ComponentActivity() {
++    private lateinit var controller: NotesController
++
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        enableEdgeToEdge()
++        controller = NotesController(this)
++        controller.load()
++        setContent {
++            SableGlobalTheme(window = window) {
++                NotesApp(controller.state, controller.actions)
++            }
++        }
++        if (savedInstanceState == null) controller.handleIntent(intent)
++    }
++
++    override fun onNewIntent(intent: Intent) {
++        super.onNewIntent(intent)
++        setIntent(intent)
++        controller.handleIntent(intent)
++    }
++
++    /** List and Tasks keys arrive here only when no focused view used them, so typing always wins. */
++    override fun onKeyDown(
++        keyCode: Int,
++        event: KeyEvent,
++    ): Boolean = (event.repeatCount == 0 && controller.onKey(keyCode, event)) || super.onKeyDown(keyCode, event)
++
++    override fun onPause() {
++        controller.flushAll()
++        super.onPause()
++    }
++}
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesController.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesController.kt
+new file mode 100644
+index 0000000..cc725e8
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesController.kt
+@@ -0,0 +1,293 @@
++package org.sableos.notes
++
++import android.content.Intent
++import android.net.Uri
++import android.os.Handler
++import android.os.Looper
++import android.view.KeyEvent
++import androidx.activity.ComponentActivity
++import androidx.activity.result.contract.ActivityResultContracts
++import org.sableos.notes.core.Checklist
++import org.sableos.notes.core.ListKey
++import org.sableos.notes.core.Note
++import org.sableos.notes.core.NoteStore
++import org.sableos.notes.core.NotesKeys
++import org.sableos.notes.core.Tasks
++import org.sableos.notes.core.TasksKey
++import org.sableos.notes.ui.NotesActions
++import org.sableos.notes.ui.NotesUiState
++import org.sableos.notes.ui.Screen
++import java.io.File
++import java.util.concurrent.Executors
++
++/**
++ * State and behaviour behind the screens. Notes live in memory once loaded; edits are written to
++ * [NoteStore] on one background thread, shortly after typing stops and whenever a note is closed.
++ */
++class NotesController(
++    private val activity: ComponentActivity,
++) {
++    val state = NotesUiState()
++    private val store = NoteStore(File(activity.filesDir, "notes"))
++    private val io = Executors.newSingleThreadExecutor()
++    private val main = Handler(Looper.getMainLooper())
++    private val pendingSaves = mutableMapOf<String, Runnable>()
++    private var exporting: Note? = null
++
++    private val exportLauncher =
++        activity.registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
++            val note = exporting
++            exporting = null
++            if (uri != null && note != null) writeExport(uri, note)
++        }
++
++    private val importLauncher =
++        activity.registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
++            if (uri != null) readImport(uri)
++        }
++
++    val actions =
++        NotesActions(
++            newNote = { openNew("") },
++            open = { show(Screen.Editor(it)) },
++            back = ::back,
++            edit = ::edit,
++            cycleLabel = ::cycleLabel,
++            delete = ::delete,
++            askDelete = { state.confirmDelete = it },
++            share = ::share,
++            export = ::export,
++            import = { importLauncher.launch(arrayOf("text/*")) },
++            showTasks = { show(Screen.Tasks) },
++            toggleTask = ::toggleTask,
++            setQuery = { state.query = it },
++            setSearching = { state.searching = it },
++            setShowDone = { state.showDone = it },
++            focusNote = { state.focusedId = it },
++            focusTask = { state.focusedTask = it },
++            dismissNotice = { state.notice = null },
++        )
++
++    fun load() {
++        io.execute {
++            val loaded = runCatching { store.list() }.getOrDefault(emptyList())
++            main.post {
++                // Text shared in before the load finished is already in memory; keep it.
++                val fresh = state.notes.filter { mine -> loaded.none { it.id == mine.id } }
++                state.notes = (fresh + loaded).sortedByDescending { it.updatedAt }
++                state.loaded = true
++            }
++        }
++    }
++
++    /** Text shared from another app (ACTION_SEND) becomes a new note. */
++    fun handleIntent(intent: Intent?) {
++        if (intent?.action != Intent.ACTION_SEND) return
++        val text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString().orEmpty()
++        val subject = intent.getStringExtra(Intent.EXTRA_SUBJECT).orEmpty()
++        val body = listOf(subject, text).filter { it.isNotBlank() }.joinToString("\n")
++        if (body.isNotBlank()) openNew(body)
++    }
++
++    /** Single keys of the list and Tasks screens; the editor handles its own keys. */
++    fun onKey(
++        keyCode: Int,
++        event: KeyEvent,
++    ): Boolean {
++        val chord = event.isAltPressed || event.isCtrlPressed || event.isMetaPressed
++        if (keyCode == KeyEvent.KEYCODE_ESCAPE) return back()
++        return when (state.screen) {
++            Screen.List -> NotesKeys.list(keyCode, event.isCtrlPressed, chord)?.let(::listKey) ?: false
++            Screen.Tasks -> NotesKeys.tasks(keyCode, chord)?.let(::tasksKey) ?: false
++            is Screen.Editor -> false
++        }
++    }
++
++    fun flushAll() {
++        pendingSaves.keys.toList().forEach(::flush)
++    }
++
++    /** Colour and Delete act on the focused row and do nothing without one. */
++    private fun listKey(key: ListKey): Boolean {
++        val focused = state.notes.firstOrNull { it.id == state.focusedId }
++        when (key) {
++            ListKey.New -> openNew("")
++            ListKey.Search -> state.searching = true
++            ListKey.Tasks -> show(Screen.Tasks)
++            ListKey.Import -> importLauncher.launch(arrayOf("text/*"))
++            ListKey.Label -> focused?.let { cycleLabel(it.id) }
++            ListKey.Delete -> focused?.let { state.confirmDelete = it }
++        }
++        return focused != null || (key != ListKey.Label && key != ListKey.Delete)
++    }
++
++    private fun tasksKey(key: TasksKey): Boolean {
++        when (key) {
++            TasksKey.History -> state.showDone = !state.showDone
++            TasksKey.OpenNote -> show(Screen.Editor(state.focusedTask?.noteId ?: return false))
++        }
++        return true
++    }
++
++    private fun show(screen: Screen) {
++        state.searching = false
++        state.screen = screen
++    }
++
++    /** Back: closes the editor (saving it) or Tasks, or clears a search; false when there is nothing to undo. */
++    private fun back(): Boolean {
++        when (val screen = state.screen) {
++            is Screen.Editor -> {
++                close(screen.id)
++            }
++
++            Screen.Tasks -> {
++                state.screen = Screen.List
++            }
++
++            Screen.List -> {
++                if (state.searching || state.query.isNotEmpty()) {
++                    state.query = ""
++                    state.searching = false
++                } else {
++                    return false
++                }
++            }
++        }
++        return true
++    }
++
++    private fun openNew(body: String) {
++        val now = System.currentTimeMillis()
++        val note = Note(NoteStore.newId(), body, now, now)
++        state.notes = listOf(note) + state.notes
++        if (body.isNotBlank()) scheduleSave(note.id)
++        state.screen = Screen.Editor(note.id)
++    }
++
++    /** Leaving a note saves it; one left empty is dropped, as Remember did. */
++    private fun close(id: String) {
++        val note = state.notes.firstOrNull { it.id == id }
++        if (note != null && note.body.isBlank()) remove(id) else flush(id)
++        state.focusedId = id.takeIf { note?.body?.isNotBlank() == true }
++        state.screen = Screen.List
++    }
++
++    private fun edit(
++        id: String,
++        body: String,
++    ) {
++        update(id) { it.copy(body = body, updatedAt = System.currentTimeMillis()) }
++        scheduleSave(id)
++    }
++
++    private fun cycleLabel(id: String) {
++        update(id) { it.copy(label = it.label.next(), updatedAt = System.currentTimeMillis()) }
++        scheduleSave(id)
++    }
++
++    private fun toggleTask(task: Tasks.Task) {
++        val note = state.notes.firstOrNull { it.id == task.noteId } ?: return
++        Checklist.toggleLine(note.body, task.line)?.let { edit(note.id, it) }
++    }
++
++    private fun update(
++        id: String,
++        change: (Note) -> Note,
++    ) {
++        state.notes = state.notes.map { if (it.id == id) change(it) else it }.sortedByDescending { it.updatedAt }
++    }
++
++    private fun delete(note: Note) {
++        state.confirmDelete = null
++        remove(note.id)
++        if ((state.screen as? Screen.Editor)?.id == note.id) state.screen = Screen.List
++        state.notice = "Deleted “${note.title}”"
++    }
++
++    private fun remove(id: String) {
++        pendingSaves.remove(id)?.let(main::removeCallbacks)
++        state.notes = state.notes.filterNot { it.id == id }
++        io.execute { runCatching { store.delete(id) } }
++    }
++
++    private fun scheduleSave(id: String) {
++        pendingSaves.remove(id)?.let(main::removeCallbacks)
++        val run = Runnable { flush(id) }
++        pendingSaves[id] = run
++        main.postDelayed(run, SAVE_DELAY_MS)
++    }
++
++    private fun flush(id: String) {
++        pendingSaves.remove(id)?.let(main::removeCallbacks)
++        val note = state.notes.firstOrNull { it.id == id } ?: return
++        if (note.body.isBlank()) return
++        io.execute {
++            if (runCatching { store.save(note) }.isFailure) main.post { state.notice = "Couldn't save “${note.title}”" }
++        }
++    }
++
++    private fun share(note: Note) {
++        val send =
++            Intent(Intent.ACTION_SEND)
++                .setType("text/plain")
++                .putExtra(Intent.EXTRA_SUBJECT, note.title)
++                .putExtra(Intent.EXTRA_TEXT, note.body)
++        activity.startActivity(Intent.createChooser(send, "Share note"))
++    }
++
++    private fun export(note: Note) {
++        flush(note.id)
++        exporting = note
++        exportLauncher.launch(fileName(note.title))
++    }
++
++    private fun writeExport(
++        uri: Uri,
++        note: Note,
++    ) {
++        io.execute {
++            val ok =
++                runCatching {
++                    activity.contentResolver.openOutputStream(uri, "wt")?.use { it.write(note.body.toByteArray()) }
++                        ?: error("no stream")
++                }.isSuccess
++            main.post { state.notice = if (ok) "Exported “${note.title}”" else "Export failed" }
++        }
++    }
++
++    private fun readImport(uri: Uri) {
++        io.execute {
++            val text =
++                runCatching {
++                    activity.contentResolver.openInputStream(uri)?.use { input ->
++                        val bytes = ByteArray(MAX_IMPORT_BYTES)
++                        var read = 0
++                        while (read < bytes.size) {
++                            val n = input.read(bytes, read, bytes.size - read)
++                            if (n < 0) break
++                            read += n
++                        }
++                        String(bytes, 0, read)
++                    }
++                }.getOrNull()
++            main.post {
++                if (text.isNullOrBlank()) state.notice = "Nothing to import" else openNew(text)
++            }
++        }
++    }
++
++    private companion object {
++        const val SAVE_DELAY_MS = 800L
++        const val MAX_IMPORT_BYTES = 1 shl 20
++        const val MAX_FILE_NAME_CHARS = 60
++        val UNSAFE_FILE_CHARS = Regex("[\\\\/:*?\"<>|\\p{Cntrl}]")
++
++        fun fileName(title: String): String =
++            title
++                .replace(UNSAFE_FILE_CHARS, " ")
++                .trim()
++                .take(MAX_FILE_NAME_CHARS)
++                .ifEmpty { "Note" } + ".txt"
++    }
++}
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/Checklist.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/Checklist.kt
+new file mode 100644
+index 0000000..1013e68
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/Checklist.kt
+@@ -0,0 +1,116 @@
++package org.sableos.notes.core
++
++/**
++ * Checklist lines in a note's text: "- [ ] milk" is open, "- [x] milk" is done. The text stays
++ * plain, so an exported note reads the same in any editor.
++ */
++object Checklist {
++    const val OPEN = "- [ ] "
++    const val DONE = "- [x] "
++    private val ITEM = Regex("""^(\s*)- \[([ xX])] ?(.*)$""")
++
++    data class Item(
++        val indent: String,
++        val text: String,
++        val done: Boolean,
++    )
++
++    data class Progress(
++        val done: Int,
++        val total: Int,
++    )
++
++    /** An edit to the text: the new text and where the cursor goes. */
++    data class Edit(
++        val text: String,
++        val cursor: Int,
++    )
++
++    fun parse(line: String): Item? =
++        ITEM.matchEntire(line)?.let { match ->
++            val (indent, mark, text) = match.destructured
++            Item(indent, text, mark != " ")
++        }
++
++    fun progress(body: String): Progress {
++        val items = body.lineSequence().mapNotNull(::parse).toList()
++        return Progress(items.count { it.done }, items.size)
++    }
++
++    /** Ticks or unticks the item on line [line] (0-based); null when that line is not an item. */
++    fun toggleLine(
++        body: String,
++        line: Int,
++    ): String? {
++        val lines = body.split('\n').toMutableList()
++        val item = lines.getOrNull(line)?.let(::parse) ?: return null
++        lines[line] = item.indent + (if (item.done) OPEN else DONE) + item.text
++        return lines.joinToString("\n")
++    }
++
++    /** Ctrl+Enter: ticks or unticks the item under the cursor, keeping the cursor on its line. */
++    fun toggleAt(
++        body: String,
++        cursor: Int,
++    ): Edit? {
++        val line = lineIndex(body, cursor)
++        val text = toggleLine(body, line) ?: return null
++        return Edit(text, cursor.coerceIn(0, text.length))
++    }
++
++    /** Ctrl+T: turns the line under the cursor into an open item, or an item back into plain text. */
++    fun convertAt(
++        body: String,
++        cursor: Int,
++    ): Edit {
++        val start = lineStart(body, cursor)
++        val end = lineEnd(body, cursor)
++        val line = body.substring(start, end)
++        val item = parse(line)
++        val replaced =
++            if (item != null) {
++                item.indent + item.text
++            } else {
++                val indent = line.takeWhile { it == ' ' || it == '\t' }
++                indent + OPEN + line.substring(indent.length)
++            }
++        val delta = replaced.length - line.length
++        val text = body.substring(0, start) + replaced + body.substring(end)
++        return Edit(text, (cursor + delta).coerceIn(start, start + replaced.length))
++    }
++
++    /**
++     * Enter at the end of an item starts the next open item, as list apps do; Enter on an empty item
++     * ends the list. Null when the cursor's line is not an item, so Enter types a plain newline.
++     */
++    fun newline(
++        body: String,
++        cursor: Int,
++    ): Edit? {
++        val start = lineStart(body, cursor)
++        val end = lineEnd(body, cursor)
++        return parse(body.substring(start, end))?.let { item ->
++            if (item.text.isBlank()) {
++                Edit(body.substring(0, start) + body.substring(end), start)
++            } else {
++                val insert = "\n" + item.indent + OPEN
++                Edit(body.substring(0, cursor) + insert + body.substring(cursor), cursor + insert.length)
++            }
++        }
++    }
++
++    fun lineIndex(
++        body: String,
++        cursor: Int,
++    ): Int = body.substring(0, cursor.coerceIn(0, body.length)).count { it == '\n' }
++
++    private fun lineStart(
++        body: String,
++        cursor: Int,
++    ): Int = body.lastIndexOf('\n', cursor.coerceIn(0, body.length) - 1) + 1
++
++    private fun lineEnd(
++        body: String,
++        cursor: Int,
++    ): Int = body.indexOf('\n', cursor.coerceIn(0, body.length)).let { if (it < 0) body.length else it }
++}
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/Note.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/Note.kt
+new file mode 100644
+index 0000000..23677a9
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/Note.kt
+@@ -0,0 +1,62 @@
++package org.sableos.notes.core
++
++/**
++ * One note: plain text with lightweight structure ("# " headings and [Checklist] lines) and an
++ * optional colour label. The first line that has text is the title.
++ */
++data class Note(
++    val id: String,
++    val body: String,
++    val createdAt: Long,
++    val updatedAt: Long,
++    val label: NoteLabel = NoteLabel.NONE,
++) {
++    val title: String get() = NoteText.title(body)
++}
++
++/** Colour labels, as in Color Notes and BlackBerry Remember's categories. [NONE] draws a neutral bar. */
++@Suppress("MagicNumber") // ARGB colours
++enum class NoteLabel(
++    val argb: Long,
++    val displayName: String,
++) {
++    NONE(0xFF64748B, "No colour"),
++    YELLOW(0xFFF5C542, "Yellow"),
++    ORANGE(0xFFF28C45, "Orange"),
++    RED(0xFFE5534B, "Red"),
++    PINK(0xFFE8458F, "Pink"),
++    PURPLE(0xFF7A42E8, "Purple"),
++    BLUE(0xFF4D9CFF, "Blue"),
++    GREEN(0xFF35C66B, "Green"),
++    ;
++
++    fun next(): NoteLabel = entries[(ordinal + 1) % entries.size]
++
++    companion object {
++        fun parse(name: String?): NoteLabel = entries.firstOrNull { it.name == name } ?: NONE
++    }
++}
++
++/** Title and preview text for lists. */
++object NoteText {
++    const val UNTITLED = "Empty note"
++    private const val PREVIEW_CHARS = 120
++    private val HEADING = Regex("""^#+\s*""")
++
++    fun title(body: String): String = lines(body).firstOrNull() ?: UNTITLED
++
++    /** The lines after the title, joined on one line. */
++    fun preview(body: String): String =
++        lines(body).drop(1).joinToString(" · ").let {
++            if (it.length > PREVIEW_CHARS) it.take(PREVIEW_CHARS).trimEnd() + "…" else it
++        }
++
++    /** Non-blank lines without heading or checklist markers. */
++    private fun lines(body: String): List<String> =
++        body
++            .lineSequence()
++            .map { Checklist.parse(it)?.text ?: it.replace(HEADING, "") }
++            .map { it.trim() }
++            .filter { it.isNotEmpty() }
++            .toList()
++}
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NoteCodec.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NoteCodec.kt
+new file mode 100644
+index 0000000..e03c86d
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NoteCodec.kt
+@@ -0,0 +1,48 @@
++package org.sableos.notes.core
++
++/**
++ * The on-disk form of a note: a short header, a blank line, then the text verbatim.
++ *
++ * ```
++ * sable-note 1
++ * label YELLOW
++ * created 1730000000000
++ * updated 1730000000000
++ *
++ * Shopping
++ * - [ ] milk
++ * ```
++ */
++object NoteCodec {
++    const val MAGIC = "sable-note 1"
++
++    fun encode(note: Note): String =
++        buildString {
++            append(MAGIC).append('\n')
++            append("label ").append(note.label.name).append('\n')
++            append("created ").append(note.createdAt).append('\n')
++            append("updated ").append(note.updatedAt).append('\n')
++            append('\n')
++            append(note.body)
++        }
++
++    /** Null when [text] is not a note this version writes. */
++    fun decode(
++        id: String,
++        text: String,
++    ): Note? {
++        val split = text.indexOf("\n\n")
++        val header = if (split < 0) emptyList() else text.substring(0, split).split('\n')
++        if (header.firstOrNull() != MAGIC) return null
++        val fields =
++            header
++                .drop(1)
++                .mapNotNull { line ->
++                    line.indexOf(' ').takeIf { it > 0 }?.let { line.substring(0, it) to line.substring(it + 1) }
++                }.toMap()
++        return fields["created"]?.toLongOrNull()?.let { created ->
++            val updated = fields["updated"]?.toLongOrNull() ?: created
++            Note(id, text.substring(split + 2), created, updated, NoteLabel.parse(fields["label"]))
++        }
++    }
++}
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NoteSearch.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NoteSearch.kt
+new file mode 100644
+index 0000000..3bda85b
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NoteSearch.kt
+@@ -0,0 +1,52 @@
++package org.sableos.notes.core
++
++/** Search across notes (every word must appear) and find-in-note. Case is ignored. */
++object NoteSearch {
++    private const val CONTEXT_CHARS = 24
++
++    data class Hit(
++        val note: Note,
++        /** The text around the first match, or null when the match is in the title. */
++        val context: String?,
++    )
++
++    fun search(
++        notes: List<Note>,
++        query: String,
++    ): List<Hit> {
++        val words = query.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
++        if (words.isEmpty()) return notes.map { Hit(it, null) }
++        return notes
++            .filter { note -> words.all { note.body.contains(it, ignoreCase = true) } }
++            .map { Hit(it, context(it, words.first())) }
++    }
++
++    /** The next match of [query] at or after [from], wrapping to the start; null when there is none. */
++    fun nextMatch(
++        body: String,
++        query: String,
++        from: Int,
++    ): IntRange? {
++        val start = from.coerceIn(0, body.length)
++        val at =
++            body.indexOf(query, start, ignoreCase = true).takeIf { it >= 0 }
++                ?: body.indexOf(query, 0, ignoreCase = true)
++        return if (query.isEmpty() || at < 0) null else at until at + query.length
++    }
++
++    private fun context(
++        note: Note,
++        word: String,
++    ): String? {
++        if (note.title.contains(word, ignoreCase = true)) return null
++        val at = note.body.indexOf(word, ignoreCase = true)
++        val start = (at - CONTEXT_CHARS).coerceAtLeast(0)
++        val end = (at + word.length + CONTEXT_CHARS).coerceAtMost(note.body.length)
++        val text =
++            note.body
++                .substring(start, end)
++                .replace('\n', ' ')
++                .trim()
++        return (if (start > 0) "…" else "") + text + (if (end < note.body.length) "…" else "")
++    }
++}
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NoteStore.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NoteStore.kt
+new file mode 100644
+index 0000000..a1026b2
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NoteStore.kt
+@@ -0,0 +1,45 @@
++package org.sableos.notes.core
++
++import java.io.File
++import java.util.UUID
++
++/** Notes as files in an app-private directory, one `<id>.note` file each ([NoteCodec]). */
++class NoteStore(
++    private val dir: File,
++) {
++    /** Every readable note, latest edit first. */
++    fun list(): List<Note> =
++        dir
++            .listFiles { file -> file.isFile && file.name.endsWith(SUFFIX) }
++            .orEmpty()
++            .mapNotNull { file ->
++                runCatching { NoteCodec.decode(file.name.removeSuffix(SUFFIX), file.readText()) }.getOrNull()
++            }.sortedByDescending { it.updatedAt }
++
++    /** Writes to a temporary file and renames it, so a crash never leaves half a note. */
++    fun save(note: Note) {
++        dir.mkdirs()
++        val tmp = File(dir, note.id + ".tmp")
++        tmp.writeText(NoteCodec.encode(note))
++        if (!tmp.renameTo(file(note.id))) {
++            tmp.delete()
++            error("could not save note ${note.id}")
++        }
++    }
++
++    fun delete(id: String) {
++        file(id).delete()
++    }
++
++    private fun file(id: String): File {
++        require(ID.matches(id)) { "bad note id" }
++        return File(dir, id + SUFFIX)
++    }
++
++    companion object {
++        private const val SUFFIX = ".note"
++        private val ID = Regex("[0-9a-f-]{36}")
++
++        fun newId(): String = UUID.randomUUID().toString()
++    }
++}
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NoteTime.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NoteTime.kt
+new file mode 100644
+index 0000000..0199fba
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NoteTime.kt
+@@ -0,0 +1,31 @@
++package org.sableos.notes.core
++
++import java.time.Instant
++import java.time.ZoneId
++import java.time.format.DateTimeFormatter
++import java.time.temporal.ChronoUnit
++import java.util.Locale
++
++/** Short "when edited" labels: 14:05 today, Mon this week, 3 Oct this year, 3 Oct 2025 before. */
++object NoteTime {
++    private const val WEEK_DAYS = 6L
++
++    fun label(
++        at: Long,
++        now: Long,
++        zone: ZoneId = ZoneId.systemDefault(),
++        locale: Locale = Locale.getDefault(),
++    ): String {
++        val then = Instant.ofEpochMilli(at).atZone(zone)
++        val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
++        val day = then.toLocalDate()
++        val pattern =
++            when {
++                day == today -> "HH:mm"
++                !day.isAfter(today) && ChronoUnit.DAYS.between(day, today) <= WEEK_DAYS -> "EEE"
++                day.year == today.year -> "d MMM"
++                else -> "d MMM yyyy"
++            }
++        return then.format(DateTimeFormatter.ofPattern(pattern, locale))
++    }
++}
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NotesKeys.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NotesKeys.kt
+new file mode 100644
+index 0000000..b2db2ff
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NotesKeys.kt
+@@ -0,0 +1,119 @@
++package org.sableos.notes.core
++
++import android.view.KeyEvent
++
++/** List screen keys. Single letters only reach the list when no text field has focus. */
++enum class ListKey { New, Search, Tasks, Label, Delete, Import }
++
++/**
++ * Editor keys. The Q25 has no Ctrl or Esc, so its way in is the Menu key ([EditorMenu]) and Back;
++ * the Ctrl chords are for keyboards that have them. Typing never triggers any of them.
++ */
++enum class EditorKey { Save, Find, FindNext, ToggleItem, MakeItem, Label, Export, Menu, Close }
++
++/** The editor's Menu-key menu: one letter each, as on BlackBerry menus. */
++enum class EditorMenu(
++    val key: Int,
++    val letter: Char,
++    val label: String,
++) {
++    MakeItem(KeyEvent.KEYCODE_L, 'L', "List item on this line"),
++    ToggleItem(KeyEvent.KEYCODE_T, 'T', "Tick or untick this item"),
++    Find(KeyEvent.KEYCODE_F, 'F', "Find in note"),
++    FindNext(KeyEvent.KEYCODE_G, 'G', "Find next"),
++    Label(KeyEvent.KEYCODE_C, 'C', "Colour"),
++    Share(KeyEvent.KEYCODE_S, 'S', "Share"),
++    Export(KeyEvent.KEYCODE_E, 'E', "Export to a file"),
++    Delete(KeyEvent.KEYCODE_D, 'D', "Delete note"),
++    ;
++
++    companion object {
++        fun forKey(keyCode: Int): EditorMenu? = entries.firstOrNull { it.key == keyCode }
++    }
++}
++
++/** Tasks screen keys. */
++enum class TasksKey { OpenNote, History }
++
++/**
++ * The Notes keymap (UTILITIES_NOTES_RECORDER_UX: Ctrl+N new, Ctrl+S save, Ctrl+F find, Ctrl+Enter
++ * complete checklist item, Esc leave the editor). T, B, N, P and Space stay the shared list moves
++ * ([org.sableos.design.SableListKeys]), so C composes a new note, as on BlackBerry.
++ */
++object NotesKeys {
++    const val LIST_HINT = "C new · S find · K tasks · L colour · D delete"
++    const val EDITOR_HINT = "Menu: list item, tick, find, colour, share · Back saves"
++    const val TASKS_HINT = "Enter tick · O open note · H done items · Back"
++
++    fun list(
++        keyCode: Int,
++        ctrl: Boolean,
++        chord: Boolean,
++    ): ListKey? =
++        when {
++            ctrl && keyCode == KeyEvent.KEYCODE_N -> {
++                ListKey.New
++            }
++
++            ctrl && keyCode == KeyEvent.KEYCODE_F -> {
++                ListKey.Search
++            }
++
++            chord -> {
++                null
++            }
++
++            else -> {
++                when (keyCode) {
++                    KeyEvent.KEYCODE_C -> ListKey.New
++                    KeyEvent.KEYCODE_S, KeyEvent.KEYCODE_SLASH -> ListKey.Search
++                    KeyEvent.KEYCODE_K -> ListKey.Tasks
++                    KeyEvent.KEYCODE_L -> ListKey.Label
++                    KeyEvent.KEYCODE_D, KeyEvent.KEYCODE_FORWARD_DEL -> ListKey.Delete
++                    KeyEvent.KEYCODE_I -> ListKey.Import
++                    else -> null
++                }
++            }
++        }
++
++    fun editor(
++        keyCode: Int,
++        ctrl: Boolean,
++        alt: Boolean,
++    ): EditorKey? {
++        val enter = keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER
++        return when {
++            keyCode == KeyEvent.KEYCODE_ESCAPE -> EditorKey.Close
++
++            keyCode == KeyEvent.KEYCODE_MENU -> EditorKey.Menu
++
++            // Enter has no Alt character on the Q25, so Alt+Enter ticks there.
++            enter && (ctrl || alt) -> EditorKey.ToggleItem
++
++            ctrl -> CTRL[keyCode]
++
++            else -> null
++        }
++    }
++
++    private val CTRL =
++        mapOf(
++            KeyEvent.KEYCODE_S to EditorKey.Save,
++            KeyEvent.KEYCODE_F to EditorKey.Find,
++            KeyEvent.KEYCODE_G to EditorKey.FindNext,
++            KeyEvent.KEYCODE_T to EditorKey.MakeItem,
++            KeyEvent.KEYCODE_L to EditorKey.Label,
++            KeyEvent.KEYCODE_E to EditorKey.Export,
++        )
++
++    fun tasks(
++        keyCode: Int,
++        chord: Boolean,
++    ): TasksKey? =
++        when {
++            chord -> null
++            keyCode == KeyEvent.KEYCODE_O -> TasksKey.OpenNote
++            keyCode == KeyEvent.KEYCODE_H -> TasksKey.History
++            else -> null
++        }
++}
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/Tasks.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/Tasks.kt
+new file mode 100644
+index 0000000..1451666
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/Tasks.kt
+@@ -0,0 +1,27 @@
++package org.sableos.notes.core
++
++/** Checklist items gathered from every note: the Tasks screen. */
++object Tasks {
++    data class Task(
++        val noteId: String,
++        val noteTitle: String,
++        /** The item's line in its note (0-based), for [Checklist.toggleLine]. */
++        val line: Int,
++        val text: String,
++        val done: Boolean,
++    )
++
++    /** Open items, latest-edited note first; done items too only when [withDone] (explicit history). */
++    fun collect(
++        notes: List<Note>,
++        withDone: Boolean,
++    ): List<Task> =
++        notes.sortedByDescending { it.updatedAt }.flatMap { note ->
++            note.body.split('\n').mapIndexedNotNull { line, text ->
++                Checklist
++                    .parse(text)
++                    ?.takeIf { (withDone || !it.done) && it.text.isNotBlank() }
++                    ?.let { Task(note.id, note.title, line, it.text, it.done) }
++            }
++        }
++}
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/EditorScreen.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/EditorScreen.kt
+new file mode 100644
+index 0000000..61fd6c6
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/EditorScreen.kt
+@@ -0,0 +1,351 @@
++@file:Suppress("FunctionNaming")
++
++package org.sableos.notes.ui
++
++import android.view.KeyEvent
++import androidx.activity.compose.BackHandler
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.focusable
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.ColumnScope
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.heightIn
++import androidx.compose.foundation.layout.imePadding
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.width
++import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.text.BasicTextField
++import androidx.compose.foundation.verticalScroll
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.OutlinedTextField
++import androidx.compose.material3.Surface
++import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.LaunchedEffect
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.focus.FocusRequester
++import androidx.compose.ui.focus.focusRequester
++import androidx.compose.ui.graphics.SolidColor
++import androidx.compose.ui.input.key.KeyEventType
++import androidx.compose.ui.input.key.onPreviewKeyEvent
++import androidx.compose.ui.input.key.type
++import androidx.compose.ui.text.TextRange
++import androidx.compose.ui.text.input.TextFieldValue
++import androidx.compose.ui.text.style.TextOverflow
++import androidx.compose.ui.window.Dialog
++import org.sableos.design.SableScreen
++import org.sableos.design.SableSize
++import org.sableos.design.SableSpacing
++import org.sableos.design.SableSquareAction
++import org.sableos.design.sableFocusRing
++import org.sableos.notes.core.Checklist
++import org.sableos.notes.core.EditorKey
++import org.sableos.notes.core.EditorMenu
++import org.sableos.notes.core.Note
++import org.sableos.notes.core.NoteSearch
++import org.sableos.notes.core.NoteTime
++import org.sableos.notes.core.NotesKeys
++
++/** The editor's state and commands, so the composable below only lays them out. */
++private class EditorModel(
++    var note: Note,
++    private val actions: NotesActions,
++) {
++    var value by mutableStateOf(TextFieldValue(note.body, TextRange(note.body.length)))
++    var finding by mutableStateOf(false)
++    var query by mutableStateOf("")
++    var menuOpen by mutableStateOf(false)
++    var miss by mutableStateOf(false)
++    val editorFocus = FocusRequester()
++
++    fun set(next: TextFieldValue) {
++        val changed = next.text != value.text
++        value = next
++        if (changed) actions.edit(note.id, next.text)
++    }
++
++    fun changeQuery(text: String) {
++        query = text
++        miss = false
++    }
++
++    fun focusEditor() {
++        runCatching { editorFocus.requestFocus() }
++    }
++
++    fun closeFind() {
++        finding = false
++        focusEditor()
++    }
++
++    fun findNext(): Boolean {
++        val hit = NoteSearch.nextMatch(value.text, query, value.selection.max)
++        miss = hit == null && query.isNotEmpty()
++        if (hit != null) {
++            value = value.copy(selection = TextRange(hit.first, hit.last + 1))
++            closeFind()
++        }
++        return hit != null
++    }
++
++    fun run(action: EditorMenu) {
++        menuOpen = false
++        val cursor = value.selection.start
++        when (action) {
++            EditorMenu.MakeItem -> apply(Checklist.convertAt(value.text, cursor))
++            EditorMenu.ToggleItem -> apply(Checklist.toggleAt(value.text, cursor))
++            EditorMenu.Find -> finding = true
++            EditorMenu.FindNext -> if (query.isEmpty()) finding = true else findNext()
++            EditorMenu.Label -> actions.cycleLabel(note.id)
++            EditorMenu.Share -> actions.share(note)
++            EditorMenu.Export -> actions.export(note)
++            EditorMenu.Delete -> actions.askDelete(note)
++        }
++        if (!finding) focusEditor()
++    }
++
++    /** Editor keys before the text field sees them; plain Enter continues a checklist. */
++    fun onPreviewKey(event: androidx.compose.ui.input.key.KeyEvent): Boolean {
++        val native = event.nativeKeyEvent
++        val down = event.type == KeyEventType.KeyDown
++        val key = NotesKeys.editor(native.keyCode, native.isCtrlPressed, native.isAltPressed)
++        return when {
++            key != null -> {
++                if (down && native.repeatCount == 0) onKey(key)
++                true
++            }
++
++            down && isPlainEnter(native) && value.selection.collapsed -> {
++                apply(Checklist.newline(value.text, value.selection.start))
++            }
++
++            else -> {
++                false
++            }
++        }
++    }
++
++    private fun onKey(key: EditorKey) {
++        when (key) {
++            EditorKey.Save -> actions.edit(note.id, value.text)
++            EditorKey.Find -> run(EditorMenu.Find)
++            EditorKey.FindNext -> run(EditorMenu.FindNext)
++            EditorKey.ToggleItem -> run(EditorMenu.ToggleItem)
++            EditorKey.MakeItem -> run(EditorMenu.MakeItem)
++            EditorKey.Label -> run(EditorMenu.Label)
++            EditorKey.Export -> run(EditorMenu.Export)
++            EditorKey.Menu -> menuOpen = true
++            EditorKey.Close -> actions.back()
++        }
++    }
++
++    private fun apply(edit: Checklist.Edit?): Boolean {
++        edit?.let { set(TextFieldValue(it.text, TextRange(it.cursor))) }
++        return edit != null
++    }
++}
++
++/**
++ * The full-screen editor (FULL_SCREEN_EDITOR_MODE: the Q25's square window has no room for a list
++ * beside it). Text input owns every printable key; actions sit behind the Menu key and Ctrl chords.
++ */
++@Composable
++internal fun EditorScreen(
++    note: Note,
++    actions: NotesActions,
++) {
++    val model = remember(note.id) { EditorModel(note, actions) }
++    model.note = note
++
++    // Registered after NotesApp's handler, so Back closes the find bar before it leaves the note.
++    BackHandler(enabled = model.finding) { model.closeFind() }
++    LaunchedEffect(note.id) { model.focusEditor() }
++
++    SableScreen(modifier = Modifier.imePadding()) {
++        EditorBar(note, model.value.text, onMenu = { model.menuOpen = true }, onLabel = { actions.cycleLabel(note.id) })
++        if (model.finding) {
++            FindBar(model.query, model.miss, model::changeQuery, onEnter = { model.findNext() })
++        }
++        EditorField(model)
++        Hint(NotesKeys.EDITOR_HINT)
++    }
++    if (model.menuOpen) EditorMenuDialog(onDismiss = { model.menuOpen = false }, onAction = model::run)
++}
++
++@Composable
++private fun ColumnScope.EditorField(model: EditorModel) {
++    BasicTextField(
++        value = model.value,
++        onValueChange = model::set,
++        modifier =
++            Modifier
++                .weight(1f)
++                .fillMaxWidth()
++                .focusRequester(model.editorFocus)
++                .onPreviewKeyEvent(model::onPreviewKey),
++        textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
++        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
++        decorationBox = { inner ->
++            Box {
++                if (model.value.text.isEmpty()) {
++                    Text(
++                        text = "Type your note. The first line is its title.",
++                        style = MaterialTheme.typography.bodyLarge,
++                        color = MaterialTheme.colorScheme.onSurfaceVariant,
++                    )
++                }
++                inner()
++            }
++        },
++    )
++}
++
++private fun isPlainEnter(event: KeyEvent): Boolean =
++    (event.keyCode == KeyEvent.KEYCODE_ENTER || event.keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER) &&
++        !event.isShiftPressed &&
++        !event.isAltPressed &&
++        !event.isCtrlPressed
++
++@Composable
++private fun EditorBar(
++    note: Note,
++    text: String,
++    onMenu: () -> Unit,
++    onLabel: () -> Unit,
++) {
++    val progress = Checklist.progress(text)
++    Row(
++        modifier = Modifier.fillMaxWidth(),
++        verticalAlignment = Alignment.CenterVertically,
++        horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
++    ) {
++        Box(
++            modifier =
++                Modifier
++                    .heightIn(min = SableSize.TouchTarget)
++                    .sableFocusRing()
++                    .clickable(onClickLabel = "Change colour, now ${note.label.displayName}", onClick = onLabel)
++                    .padding(horizontal = SableSpacing.Sm),
++            contentAlignment = Alignment.Center,
++        ) {
++            LabelBar(note.label)
++        }
++        Column(modifier = Modifier.weight(1f)) {
++            Text(
++                text = note.title,
++                style = MaterialTheme.typography.titleMedium,
++                color = MaterialTheme.colorScheme.onBackground,
++                maxLines = 1,
++                overflow = TextOverflow.Ellipsis,
++            )
++            val done = if (progress.total > 0) " · ☑ ${progress.done}/${progress.total}" else ""
++            Text(
++                text = "Edited ${NoteTime.label(note.updatedAt, System.currentTimeMillis())}$done",
++                style = MaterialTheme.typography.bodySmall,
++                color = MaterialTheme.colorScheme.onSurfaceVariant,
++                maxLines = 1,
++            )
++        }
++        SableSquareAction(text = "⋯", description = "Note actions (Menu key)", onClick = onMenu)
++    }
++}
++
++@Composable
++private fun FindBar(
++    query: String,
++    miss: Boolean,
++    onQuery: (String) -> Unit,
++    onEnter: () -> Unit,
++) {
++    val requester = remember { FocusRequester() }
++    LaunchedEffect(Unit) { runCatching { requester.requestFocus() } }
++    OutlinedTextField(
++        value = query,
++        onValueChange = onQuery,
++        modifier =
++            Modifier
++                .fillMaxWidth()
++                .focusRequester(requester)
++                .onPreviewKeyEvent { event ->
++                    val enter =
++                        event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_ENTER ||
++                            event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER
++                    if (enter && event.type == KeyEventType.KeyDown) onEnter()
++                    enter
++                },
++        singleLine = true,
++        isError = miss,
++        placeholder = { Text("Find in this note · Enter goes to it") },
++        supportingText = if (miss) ({ Text("Not in this note") }) else null,
++    )
++}
++
++/** The Menu-key menu: Up/Down and Enter, or the item's letter. */
++@Composable
++private fun EditorMenuDialog(
++    onDismiss: () -> Unit,
++    onAction: (EditorMenu) -> Unit,
++) {
++    val requester = remember { FocusRequester() }
++    LaunchedEffect(Unit) { runCatching { requester.requestFocus() } }
++    Dialog(onDismissRequest = onDismiss) {
++        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surface) {
++            Column(
++                modifier =
++                    Modifier
++                        .focusRequester(requester)
++                        .focusable()
++                        .onPreviewKeyEvent { event ->
++                            val native = event.nativeKeyEvent
++                            if (native.keyCode == KeyEvent.KEYCODE_MENU) {
++                                // The up of the press that opened the menu lands here too; only a new press closes it.
++                                if (event.type == KeyEventType.KeyDown) onDismiss()
++                                return@onPreviewKeyEvent true
++                            }
++                            val item = EditorMenu.forKey(native.keyCode) ?: return@onPreviewKeyEvent false
++                            if (event.type == KeyEventType.KeyUp) onAction(item)
++                            true
++                        }.verticalScroll(rememberScrollState())
++                        .padding(vertical = SableSpacing.Sm),
++            ) {
++                EditorMenu.entries.forEach { item ->
++                    Row(
++                        modifier =
++                            Modifier
++                                .fillMaxWidth()
++                                .heightIn(min = SableSize.TouchTarget)
++                                .sableFocusRing()
++                                .clickable { onAction(item) }
++                                .padding(horizontal = SableSpacing.Lg),
++                        verticalAlignment = Alignment.CenterVertically,
++                    ) {
++                        Text(
++                            text = item.letter.toString(),
++                            modifier = Modifier.width(SableSpacing.Xl),
++                            style = MaterialTheme.typography.titleMedium,
++                            color = MaterialTheme.colorScheme.primary,
++                        )
++                        Text(
++                            text = item.label,
++                            style = MaterialTheme.typography.bodyLarge,
++                            color =
++                                if (item == EditorMenu.Delete) {
++                                    MaterialTheme.colorScheme.error
++                                } else {
++                                    MaterialTheme.colorScheme.onSurface
++                                },
++                        )
++                    }
++                }
++            }
++        }
++    }
++}
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/NotesApp.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/NotesApp.kt
+new file mode 100644
+index 0000000..bbd9456
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/NotesApp.kt
+@@ -0,0 +1,437 @@
++@file:Suppress("FunctionNaming")
++
++package org.sableos.notes.ui
++
++import android.view.KeyEvent
++import androidx.activity.compose.BackHandler
++import androidx.compose.foundation.background
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.height
++import androidx.compose.foundation.layout.heightIn
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.width
++import androidx.compose.foundation.lazy.LazyColumn
++import androidx.compose.foundation.lazy.itemsIndexed
++import androidx.compose.foundation.lazy.rememberLazyListState
++import androidx.compose.material3.AlertDialog
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.OutlinedTextField
++import androidx.compose.material3.Text
++import androidx.compose.material3.TextButton
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.LaunchedEffect
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.rememberCoroutineScope
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.draw.clip
++import androidx.compose.ui.focus.FocusDirection
++import androidx.compose.ui.focus.FocusRequester
++import androidx.compose.ui.focus.focusRequester
++import androidx.compose.ui.focus.onFocusChanged
++import androidx.compose.ui.graphics.Color
++import androidx.compose.ui.input.key.KeyEventType
++import androidx.compose.ui.input.key.onPreviewKeyEvent
++import androidx.compose.ui.input.key.type
++import androidx.compose.ui.platform.LocalFocusManager
++import androidx.compose.ui.text.style.TextOverflow
++import kotlinx.coroutines.delay
++import org.sableos.design.SableActionButton
++import org.sableos.design.SableListFocus
++import org.sableos.design.SableListKeys
++import org.sableos.design.SableScreen
++import org.sableos.design.SableSize
++import org.sableos.design.SableSpacing
++import org.sableos.design.sableFocusRing
++import org.sableos.design.sableListKeys
++import org.sableos.notes.core.Checklist
++import org.sableos.notes.core.Note
++import org.sableos.notes.core.NoteLabel
++import org.sableos.notes.core.NoteSearch
++import org.sableos.notes.core.NoteText
++import org.sableos.notes.core.NoteTime
++import org.sableos.notes.core.NotesKeys
++import org.sableos.notes.core.Tasks
++
++private const val NOTICE_MS = 3_000L
++
++@Composable
++fun NotesApp(
++    state: NotesUiState,
++    actions: NotesActions,
++) {
++    BackHandler(enabled = state.screen != Screen.List || state.searching || state.query.isNotEmpty()) {
++        actions.back()
++    }
++    when (val screen = state.screen) {
++        Screen.List -> {
++            ListScreen(state, actions)
++        }
++
++        Screen.Tasks -> {
++            TasksScreen(state, actions)
++        }
++
++        is Screen.Editor -> {
++            val note = state.notes.firstOrNull { it.id == screen.id }
++            if (note == null) {
++                LaunchedEffect(screen.id) { actions.back() }
++            } else {
++                EditorScreen(note, actions)
++            }
++        }
++    }
++    state.confirmDelete?.let { note -> DeleteDialog(note, actions) }
++    state.notice?.let { notice ->
++        LaunchedEffect(notice) {
++            delay(NOTICE_MS)
++            actions.dismissNotice()
++        }
++    }
++}
++
++@Composable
++private fun ListScreen(
++    state: NotesUiState,
++    actions: NotesActions,
++) {
++    val hits = remember(state.notes, state.query) { NoteSearch.search(state.notes, state.query) }
++    SableScreen {
++        Header(
++            title = "Notes",
++            subtitle = state.notice ?: listSubtitle(state.notes),
++            action = "New",
++            onAction = actions.newNote,
++        )
++        if (state.searching || state.query.isNotEmpty()) SearchField(state, hits, actions)
++        if (state.loaded && hits.isEmpty()) {
++            Text(
++                text =
++                    if (state.query.isBlank()) {
++                        "No notes yet. Press C to write one, or I to import a text file."
++                    } else {
++                        "No note matches."
++                    },
++                style = MaterialTheme.typography.bodyLarge,
++                color = MaterialTheme.colorScheme.onSurfaceVariant,
++            )
++        }
++        val listState = rememberLazyListState()
++        val focus = remember(listState) { SableListFocus(listState) }
++        val scope = rememberCoroutineScope()
++        val now = System.currentTimeMillis()
++        LazyColumn(
++            modifier =
++                Modifier
++                    .weight(1f)
++                    .fillMaxWidth()
++                    .sableListKeys(focus, hits.map { it.note.id }, scope),
++            state = focus.state,
++            verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
++        ) {
++            itemsIndexed(hits, key = { _, hit -> hit.note.id }) { index, hit ->
++                NoteRow(
++                    hit = hit,
++                    now = now,
++                    modifier =
++                        focus
++                            .row(index, hit.note.id)
++                            .onFocusChanged { if (it.hasFocus) actions.focusNote(hit.note.id) },
++                    onClick = { actions.open(hit.note.id) },
++                )
++            }
++        }
++        Hint(if (hits.isEmpty()) "C new · I import · K tasks" else "${NotesKeys.LIST_HINT} · ${SableListKeys.HINT}")
++    }
++}
++
++private fun listSubtitle(notes: List<Note>): String {
++    val open = Tasks.collect(notes, withDone = false).size
++    val count = if (notes.size == 1) "1 note" else "${notes.size} notes"
++    return if (open > 0) "$count · $open open tasks" else count
++}
++
++@Composable
++private fun SearchField(
++    state: NotesUiState,
++    hits: List<NoteSearch.Hit>,
++    actions: NotesActions,
++) {
++    val requester = remember { FocusRequester() }
++    val focusManager = LocalFocusManager.current
++    LaunchedEffect(state.searching) { if (state.searching) runCatching { requester.requestFocus() } }
++    OutlinedTextField(
++        value = state.query,
++        onValueChange = actions.setQuery,
++        modifier =
++            Modifier
++                .fillMaxWidth()
++                .focusRequester(requester)
++                .onPreviewKeyEvent { event ->
++                    if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
++                    when (event.nativeKeyEvent.keyCode) {
++                        KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
++                            hits.firstOrNull()?.let { actions.open(it.note.id) }
++                            true
++                        }
++
++                        KeyEvent.KEYCODE_DPAD_DOWN -> {
++                            actions.setSearching(false)
++                            focusManager.moveFocus(FocusDirection.Down)
++                        }
++
++                        KeyEvent.KEYCODE_ESCAPE -> {
++                            actions.back()
++                        }
++
++                        else -> {
++                            false
++                        }
++                    }
++                },
++        singleLine = true,
++        placeholder = { Text("Find in notes · Enter opens") },
++    )
++}
++
++@Composable
++private fun NoteRow(
++    hit: NoteSearch.Hit,
++    now: Long,
++    modifier: Modifier,
++    onClick: () -> Unit,
++) {
++    val note = hit.note
++    Row(
++        modifier =
++            modifier
++                .fillMaxWidth()
++                .clip(MaterialTheme.shapes.small)
++                .sableFocusRing()
++                .clickable(onClick = onClick)
++                .heightIn(min = SableSize.ListRowHeight)
++                .padding(end = SableSpacing.Md),
++        verticalAlignment = Alignment.CenterVertically,
++    ) {
++        LabelBar(note.label)
++        Column(
++            modifier =
++                Modifier
++                    .weight(1f)
++                    .padding(horizontal = SableSpacing.Md),
++        ) {
++            Text(
++                text = note.title,
++                style = MaterialTheme.typography.bodyLarge,
++                color = MaterialTheme.colorScheme.onSurface,
++                maxLines = 1,
++                overflow = TextOverflow.Ellipsis,
++            )
++            val detail = hit.context ?: NoteText.preview(note.body)
++            if (detail.isNotEmpty()) {
++                Text(
++                    text = detail,
++                    style = MaterialTheme.typography.bodyMedium,
++                    color = MaterialTheme.colorScheme.onSurfaceVariant,
++                    maxLines = 1,
++                    overflow = TextOverflow.Ellipsis,
++                )
++            }
++        }
++        NoteRowMeta(note.updatedAt, Checklist.progress(note.body), now)
++    }
++}
++
++/** When the note was edited and, for a checklist, how much of it is done. */
++@Composable
++private fun NoteRowMeta(
++    updatedAt: Long,
++    progress: Checklist.Progress,
++    now: Long,
++) {
++    Column(horizontalAlignment = Alignment.End) {
++        Text(
++            text = NoteTime.label(updatedAt, now),
++            style = MaterialTheme.typography.labelMedium,
++            color = MaterialTheme.colorScheme.onSurfaceVariant,
++        )
++        if (progress.total > 0) {
++            Text(
++                text = "☑ ${progress.done}/${progress.total}",
++                style = MaterialTheme.typography.labelMedium,
++                color =
++                    if (progress.done == progress.total) {
++                        MaterialTheme.colorScheme.onSurfaceVariant
++                    } else {
++                        MaterialTheme.colorScheme.primary
++                    },
++            )
++        }
++    }
++}
++
++@Composable
++internal fun LabelBar(label: NoteLabel) {
++    Box(
++        modifier =
++            Modifier
++                .width(SableSpacing.Xs)
++                .height(SableSpacing.Xxl)
++                .background(
++                    if (label == NoteLabel.NONE) MaterialTheme.colorScheme.outlineVariant else Color(label.argb),
++                ),
++    )
++}
++
++@Composable
++private fun TasksScreen(
++    state: NotesUiState,
++    actions: NotesActions,
++) {
++    val tasks = remember(state.notes, state.showDone) { Tasks.collect(state.notes, state.showDone) }
++    val open = tasks.count { !it.done }
++    SableScreen {
++        Header(
++            title = "Tasks",
++            subtitle = if (state.showDone) "$open open · showing done items" else "$open open",
++            action = if (state.showDone) "Hide done" else "Show done",
++            onAction = { actions.setShowDone(!state.showDone) },
++        )
++        if (tasks.isEmpty()) {
++            Text(
++                text = "No open tasks. In a note, Menu then L turns a line into a checklist item.",
++                style = MaterialTheme.typography.bodyLarge,
++                color = MaterialTheme.colorScheme.onSurfaceVariant,
++            )
++        }
++        val listState = rememberLazyListState()
++        val focus = remember(listState) { SableListFocus(listState) }
++        val scope = rememberCoroutineScope()
++        val keys = tasks.map { "${it.noteId}:${it.line}" }
++        LazyColumn(
++            modifier =
++                Modifier
++                    .weight(1f)
++                    .fillMaxWidth()
++                    .sableListKeys(focus, keys, scope),
++            state = focus.state,
++            verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
++        ) {
++            itemsIndexed(tasks, key = { index, _ -> keys[index] }) { index, task ->
++                TaskRow(
++                    task = task,
++                    modifier =
++                        focus
++                            .row(index, keys[index])
++                            .onFocusChanged { if (it.hasFocus) actions.focusTask(task) },
++                    onClick = { actions.toggleTask(task) },
++                )
++            }
++        }
++        Hint(NotesKeys.TASKS_HINT)
++    }
++}
++
++@Composable
++private fun TaskRow(
++    task: Tasks.Task,
++    modifier: Modifier,
++    onClick: () -> Unit,
++) {
++    Row(
++        modifier =
++            modifier
++                .fillMaxWidth()
++                .clip(MaterialTheme.shapes.small)
++                .sableFocusRing()
++                .clickable(onClick = onClick)
++                .heightIn(min = SableSize.TouchTarget)
++                .padding(horizontal = SableSpacing.Sm),
++        verticalAlignment = Alignment.CenterVertically,
++        horizontalArrangement = Arrangement.spacedBy(SableSpacing.Md),
++    ) {
++        Text(
++            text = if (task.done) "☑" else "☐",
++            style = MaterialTheme.typography.titleLarge,
++            color = if (task.done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
++        )
++        Column(modifier = Modifier.weight(1f)) {
++            Text(
++                text = task.text,
++                style = MaterialTheme.typography.bodyLarge,
++                color =
++                    if (task.done) {
++                        MaterialTheme.colorScheme.onSurfaceVariant
++                    } else {
++                        MaterialTheme.colorScheme.onSurface
++                    },
++                maxLines = 2,
++                overflow = TextOverflow.Ellipsis,
++            )
++            Text(
++                text = task.noteTitle,
++                style = MaterialTheme.typography.bodySmall,
++                color = MaterialTheme.colorScheme.onSurfaceVariant,
++                maxLines = 1,
++                overflow = TextOverflow.Ellipsis,
++            )
++        }
++    }
++}
++
++/** One compact header row: the Q25's 387 dp window has no room for a large title. */
++@Composable
++internal fun Header(
++    title: String,
++    subtitle: String,
++    action: String,
++    onAction: () -> Unit,
++) {
++    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
++        Column(modifier = Modifier.weight(1f)) {
++            Text(
++                text = title,
++                style = MaterialTheme.typography.titleLarge,
++                color = MaterialTheme.colorScheme.onBackground,
++            )
++            Text(
++                text = subtitle,
++                style = MaterialTheme.typography.bodyMedium,
++                color = MaterialTheme.colorScheme.onSurfaceVariant,
++                maxLines = 1,
++                overflow = TextOverflow.Ellipsis,
++            )
++        }
++        SableActionButton(text = action, onClick = onAction)
++    }
++}
++
++@Composable
++internal fun Hint(text: String) {
++    Text(
++        text = text,
++        style = MaterialTheme.typography.bodySmall,
++        color = MaterialTheme.colorScheme.onSurfaceVariant,
++        maxLines = 1,
++        overflow = TextOverflow.Ellipsis,
++    )
++}
++
++@Composable
++private fun DeleteDialog(
++    note: Note,
++    actions: NotesActions,
++) {
++    AlertDialog(
++        onDismissRequest = { actions.askDelete(null) },
++        title = { Text("Delete note?") },
++        text = { Text("“${note.title}” will be deleted from this phone.") },
++        confirmButton = { TextButton(onClick = { actions.delete(note) }) { Text("Delete") } },
++        dismissButton = { TextButton(onClick = { actions.askDelete(null) }) { Text("Keep") } },
++    )
++}
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/NotesUiState.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/NotesUiState.kt
+new file mode 100644
+index 0000000..b76be0a
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/NotesUiState.kt
+@@ -0,0 +1,54 @@
++package org.sableos.notes.ui
++
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.setValue
++import org.sableos.notes.core.Note
++import org.sableos.notes.core.Tasks
++
++sealed interface Screen {
++    data object List : Screen
++
++    data class Editor(
++        val id: String,
++    ) : Screen
++
++    data object Tasks : Screen
++}
++
++class NotesUiState {
++    var notes by mutableStateOf(emptyList<Note>())
++    var loaded by mutableStateOf(false)
++    var screen by mutableStateOf<Screen>(Screen.List)
++    var query by mutableStateOf("")
++    var searching by mutableStateOf(false)
++    var showDone by mutableStateOf(false)
++    var confirmDelete by mutableStateOf<Note?>(null)
++    var notice by mutableStateOf<String?>(null)
++
++    /** The list row or task that has keyboard focus, for L, D and O. */
++    var focusedId: String? = null
++    var focusedTask: Tasks.Task? = null
++}
++
++/** Everything the screens can ask for; the controller implements it. */
++data class NotesActions(
++    val newNote: () -> Unit,
++    val open: (String) -> Unit,
++    val back: () -> Boolean,
++    val edit: (String, String) -> Unit,
++    val cycleLabel: (String) -> Unit,
++    val delete: (Note) -> Unit,
++    val askDelete: (Note?) -> Unit,
++    val share: (Note) -> Unit,
++    val export: (Note) -> Unit,
++    val import: () -> Unit,
++    val showTasks: () -> Unit,
++    val toggleTask: (Tasks.Task) -> Unit,
++    val setQuery: (String) -> Unit,
++    val setSearching: (Boolean) -> Unit,
++    val setShowDone: (Boolean) -> Unit,
++    val focusNote: (String?) -> Unit,
++    val focusTask: (Tasks.Task?) -> Unit,
++    val dismissNotice: () -> Unit,
++)
+diff --git a/sable-src/apps/r8/android/notes/src/main/res/drawable/ic_sable_notes.xml b/sable-src/apps/r8/android/notes/src/main/res/drawable/ic_sable_notes.xml
+new file mode 100644
+index 0000000..0154372
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/main/res/drawable/ic_sable_notes.xml
+@@ -0,0 +1,21 @@
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="48dp"
++    android:height="48dp"
++    android:viewportWidth="256"
++    android:viewportHeight="256">
++    <path
++        android:fillColor="#161C24"
++        android:pathData="M32,16h192c8.8,0 16,7.2 16,16v192c0,8.8 -7.2,16 -16,16H32c-8.8,0 -16,-7.2 -16,-16V32c0,-8.8 7.2,-16 16,-16z" />
++    <group
++        android:scaleX="0.70"
++        android:scaleY="0.70"
++        android:translateX="38.4"
++        android:translateY="34">
++        <path
++            android:fillColor="#F7F9FC"
++            android:pathData="M168,128a8,8,0,0,1-8,8H96a8,8,0,0,1,0-16h64A8,8,0,0,1,168,128Zm-8,24H96a8,8,0,0,0,0,16h64a8,8,0,0,0,0-16ZM216,40V200a32,32,0,0,1-32,32H72a32,32,0,0,1-32-32V40a8,8,0,0,1,8-8H72V24a8,8,0,0,1,16,0v8h32V24a8,8,0,0,1,16,0v8h32V24a8,8,0,0,1,16,0v8h24A8,8,0,0,1,216,40Zm-16,8H184v8a8,8,0,0,1-16,0V48H136v8a8,8,0,0,1-16,0V48H88v8a8,8,0,0,1-16,0V48H56V200a16,16,0,0,0,16,16H184a16,16,0,0,0,16-16Z" />
++    </group>
++    <path
++        android:fillColor="#F5C542"
++        android:pathData="M28,226h200v6H28z" />
++</vector>
+diff --git a/sable-src/apps/r8/android/notes/src/main/res/drawable/ic_sable_notes_background.xml b/sable-src/apps/r8/android/notes/src/main/res/drawable/ic_sable_notes_background.xml
+new file mode 100644
+index 0000000..811854a
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/main/res/drawable/ic_sable_notes_background.xml
+@@ -0,0 +1,10 @@
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="108dp"
++    android:height="108dp"
++    android:viewportWidth="108"
++    android:viewportHeight="108">
++    <path
++        android:fillColor="#161C24"
++        android:pathData="M0,0h108v108H0z" />
++</vector>
+diff --git a/sable-src/apps/r8/android/notes/src/main/res/drawable/ic_sable_notes_foreground.xml b/sable-src/apps/r8/android/notes/src/main/res/drawable/ic_sable_notes_foreground.xml
+new file mode 100644
+index 0000000..1572958
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/main/res/drawable/ic_sable_notes_foreground.xml
+@@ -0,0 +1,19 @@
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="108dp"
++    android:height="108dp"
++    android:viewportWidth="108"
++    android:viewportHeight="108">
++    <group
++        android:scaleX="0.171875"
++        android:scaleY="0.171875"
++        android:translateX="32"
++        android:translateY="32">
++        <path
++            android:fillColor="#F7F9FC"
++            android:pathData="M168,128a8,8,0,0,1-8,8H96a8,8,0,0,1,0-16h64A8,8,0,0,1,168,128Zm-8,24H96a8,8,0,0,0,0,16h64a8,8,0,0,0,0-16ZM216,40V200a32,32,0,0,1-32,32H72a32,32,0,0,1-32-32V40a8,8,0,0,1,8-8H72V24a8,8,0,0,1,16,0v8h32V24a8,8,0,0,1,16,0v8h32V24a8,8,0,0,1,16,0v8h24A8,8,0,0,1,216,40Zm-16,8H184v8a8,8,0,0,1-16,0V48H136v8a8,8,0,0,1-16,0V48H88v8a8,8,0,0,1-16,0V48H56V200a16,16,0,0,0,16,16H184a16,16,0,0,0,16-16Z" />
++    </group>
++    <path
++        android:fillColor="#F5C542"
++        android:pathData="M38,76.5h32v1.5H38z" />
++</vector>
+diff --git a/sable-src/apps/r8/android/notes/src/main/res/drawable/ic_sable_notes_monochrome.xml b/sable-src/apps/r8/android/notes/src/main/res/drawable/ic_sable_notes_monochrome.xml
+new file mode 100644
+index 0000000..d0d11fe
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/main/res/drawable/ic_sable_notes_monochrome.xml
+@@ -0,0 +1,16 @@
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="108dp"
++    android:height="108dp"
++    android:viewportWidth="108"
++    android:viewportHeight="108">
++    <group
++        android:scaleX="0.171875"
++        android:scaleY="0.171875"
++        android:translateX="32"
++        android:translateY="32">
++        <path
++            android:fillColor="#FFFFFFFF"
++            android:pathData="M168,128a8,8,0,0,1-8,8H96a8,8,0,0,1,0-16h64A8,8,0,0,1,168,128Zm-8,24H96a8,8,0,0,0,0,16h64a8,8,0,0,0,0-16ZM216,40V200a32,32,0,0,1-32,32H72a32,32,0,0,1-32-32V40a8,8,0,0,1,8-8H72V24a8,8,0,0,1,16,0v8h32V24a8,8,0,0,1,16,0v8h32V24a8,8,0,0,1,16,0v8h24A8,8,0,0,1,216,40Zm-16,8H184v8a8,8,0,0,1-16,0V48H136v8a8,8,0,0,1-16,0V48H88v8a8,8,0,0,1-16,0V48H56V200a16,16,0,0,0,16,16H184a16,16,0,0,0,16-16Z" />
++    </group>
++</vector>
+diff --git a/sable-src/apps/r8/android/notes/src/main/res/mipmap-anydpi-v26/ic_sable_notes.xml b/sable-src/apps/r8/android/notes/src/main/res/mipmap-anydpi-v26/ic_sable_notes.xml
+new file mode 100644
+index 0000000..c1e10da
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/main/res/mipmap-anydpi-v26/ic_sable_notes.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
++    <background android:drawable="@drawable/ic_sable_notes_background" />
++    <foreground android:drawable="@drawable/ic_sable_notes_foreground" />
++    <monochrome android:drawable="@drawable/ic_sable_notes_monochrome" />
++</adaptive-icon>
+diff --git a/sable-src/apps/r8/android/notes/src/main/res/mipmap-anydpi-v26/ic_sable_notes_round.xml b/sable-src/apps/r8/android/notes/src/main/res/mipmap-anydpi-v26/ic_sable_notes_round.xml
+new file mode 100644
+index 0000000..c1e10da
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/main/res/mipmap-anydpi-v26/ic_sable_notes_round.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
++    <background android:drawable="@drawable/ic_sable_notes_background" />
++    <foreground android:drawable="@drawable/ic_sable_notes_foreground" />
++    <monochrome android:drawable="@drawable/ic_sable_notes_monochrome" />
++</adaptive-icon>
+diff --git a/sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/core/ChecklistTest.kt b/sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/core/ChecklistTest.kt
+new file mode 100644
+index 0000000..6beff59
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/core/ChecklistTest.kt
+@@ -0,0 +1,53 @@
++package org.sableos.notes.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Test
++
++class ChecklistTest {
++    @Test
++    fun parsesOpenAndDoneItems() {
++        assertEquals(Checklist.Item("", "milk", false), Checklist.parse("- [ ] milk"))
++        assertEquals(Checklist.Item("  ", "eggs", true), Checklist.parse("  - [x] eggs"))
++        assertEquals(true, Checklist.parse("- [X] bread")?.done)
++        assertNull(Checklist.parse("milk"))
++        assertNull(Checklist.parse("- milk"))
++    }
++
++    @Test
++    fun countsProgress() {
++        assertEquals(Checklist.Progress(1, 3), Checklist.progress("Shop\n- [ ] a\n- [x] b\n- [ ] c"))
++        assertEquals(Checklist.Progress(0, 0), Checklist.progress("plain"))
++    }
++
++    @Test
++    fun togglesTheLineUnderTheCursor() {
++        val body = "Shop\n- [ ] milk\n- [x] eggs"
++        val edit = Checklist.toggleAt(body, body.indexOf("milk"))!!
++        assertEquals("Shop\n- [x] milk\n- [x] eggs", edit.text)
++        assertEquals("Shop\n- [ ] milk\n- [ ] eggs", Checklist.toggleLine(body, 2))
++        assertNull(Checklist.toggleAt(body, 1))
++    }
++
++    @Test
++    fun convertsALineToAnItemAndBack() {
++        val made = Checklist.convertAt("Shop\nmilk", 7)
++        assertEquals("Shop\n- [ ] milk", made.text)
++        assertEquals(13, made.cursor)
++        val back = Checklist.convertAt(made.text, made.cursor)
++        assertEquals("Shop\nmilk", back.text)
++        assertEquals(7, back.cursor)
++        assertEquals("- [ ] ", Checklist.convertAt("", 0).text)
++    }
++
++    @Test
++    fun enterContinuesAListAndAnEmptyItemEndsIt() {
++        val body = "- [ ] milk"
++        val next = Checklist.newline(body, body.length)!!
++        assertEquals("- [ ] milk\n- [ ] ", next.text)
++        assertEquals(next.text.length, next.cursor)
++        val end = Checklist.newline(next.text, next.cursor)!!
++        assertEquals("- [ ] milk\n", end.text)
++        assertNull(Checklist.newline("plain", 5))
++    }
++}
+diff --git a/sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/core/NoteCodecTest.kt b/sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/core/NoteCodecTest.kt
+new file mode 100644
+index 0000000..449bd7f
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/core/NoteCodecTest.kt
+@@ -0,0 +1,30 @@
++package org.sableos.notes.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Test
++
++class NoteCodecTest {
++    @Test
++    fun roundTripsTextVerbatim() {
++        val note = Note("id", "Title\n\n- [ ] a\n\nend\n", 10, 20, NoteLabel.BLUE)
++        assertEquals(note, NoteCodec.decode("id", NoteCodec.encode(note)))
++    }
++
++    @Test
++    fun toleratesMissingFieldsAndRejectsOtherFiles() {
++        assertEquals(NoteLabel.NONE, NoteCodec.decode("id", "sable-note 1\ncreated 5\n\nx")?.label)
++        assertEquals(5L, NoteCodec.decode("id", "sable-note 1\ncreated 5\nlabel NOPE\n\nx")?.updatedAt)
++        assertNull(NoteCodec.decode("id", "hello\n\nworld"))
++        assertNull(NoteCodec.decode("id", "sable-note 1\nupdated 5\n\nx"))
++        assertNull(NoteCodec.decode("id", "sable-note 1"))
++    }
++
++    @Test
++    fun titleAndPreviewSkipMarkers() {
++        assertEquals("Shopping", NoteText.title("\n# Shopping\n- [ ] milk\n- [x] eggs"))
++        assertEquals("milk · eggs", NoteText.preview("# Shopping\n- [ ] milk\n\n- [x] eggs"))
++        assertEquals(NoteText.UNTITLED, NoteText.title("  \n"))
++        assertEquals(NoteLabel.NONE, NoteLabel.GREEN.next())
++    }
++}
+diff --git a/sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/core/NoteSearchTest.kt b/sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/core/NoteSearchTest.kt
+new file mode 100644
+index 0000000..55387a6
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/core/NoteSearchTest.kt
+@@ -0,0 +1,33 @@
++package org.sableos.notes.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Test
++
++class NoteSearchTest {
++    private val shop = Note("a", "Shopping\n- [ ] Milk and bread", 1, 1)
++    private val work = Note("b", "Work\nCall the bank about the loan", 2, 2)
++
++    @Test
++    fun everyWordMustMatchIgnoringCase() {
++        assertEquals(listOf("a"), NoteSearch.search(listOf(shop, work), "milk BREAD").map { it.note.id })
++        assertEquals(2, NoteSearch.search(listOf(shop, work), "  ").size)
++        assertEquals(emptyList<NoteSearch.Hit>(), NoteSearch.search(listOf(shop), "milk loan"))
++    }
++
++    @Test
++    fun hitContextIsShownOnlyForBodyMatches() {
++        assertNull(NoteSearch.search(listOf(work), "work").single().context)
++        assertEquals("Work Call the bank about the loan", NoteSearch.search(listOf(work), "bank").single().context)
++    }
++
++    @Test
++    fun findInNoteWraps() {
++        val body = "one two one"
++        assertEquals(0..2, NoteSearch.nextMatch(body, "ONE", 0))
++        assertEquals(8..10, NoteSearch.nextMatch(body, "one", 1))
++        assertEquals(0..2, NoteSearch.nextMatch(body, "one", 11))
++        assertNull(NoteSearch.nextMatch(body, "three", 0))
++        assertNull(NoteSearch.nextMatch(body, "", 0))
++    }
++}
+diff --git a/sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/core/NoteStoreTest.kt b/sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/core/NoteStoreTest.kt
+new file mode 100644
+index 0000000..3d11924
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/core/NoteStoreTest.kt
+@@ -0,0 +1,30 @@
++package org.sableos.notes.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Rule
++import org.junit.Test
++import org.junit.rules.TemporaryFolder
++
++class NoteStoreTest {
++    @get:Rule
++    val folder = TemporaryFolder()
++
++    @Test
++    fun savesListsAndDeletes() {
++        val store = NoteStore(folder.root.resolve("notes"))
++        val a = Note(NoteStore.newId(), "A", 1, 1)
++        val b = Note(NoteStore.newId(), "B", 2, 5, NoteLabel.PINK)
++        store.save(a)
++        store.save(b)
++        store.save(a.copy(body = "A2", updatedAt = 3))
++        folder.root.resolve("notes/stray.txt").writeText("not a note")
++        assertEquals(listOf("B", "A2"), store.list().map { it.body })
++        store.delete(b.id)
++        assertEquals(listOf(a.id), store.list().map { it.id })
++    }
++
++    @Test(expected = IllegalArgumentException::class)
++    fun rejectsPathIds() {
++        NoteStore(folder.root).delete("../escape")
++    }
++}
+diff --git a/sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/core/NotesKeysTest.kt b/sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/core/NotesKeysTest.kt
+new file mode 100644
+index 0000000..58a60ec
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/core/NotesKeysTest.kt
+@@ -0,0 +1,44 @@
++package org.sableos.notes.core
++
++import android.view.KeyEvent
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Test
++
++class NotesKeysTest {
++    @Test
++    fun listKeysLeaveTheSharedListMovesAlone() {
++        assertEquals(ListKey.New, NotesKeys.list(KeyEvent.KEYCODE_C, ctrl = false, chord = false))
++        assertEquals(ListKey.New, NotesKeys.list(KeyEvent.KEYCODE_N, ctrl = true, chord = true))
++        assertEquals(ListKey.Search, NotesKeys.list(KeyEvent.KEYCODE_S, ctrl = false, chord = false))
++        assertEquals(ListKey.Tasks, NotesKeys.list(KeyEvent.KEYCODE_K, ctrl = false, chord = false))
++        listOf(KeyEvent.KEYCODE_T, KeyEvent.KEYCODE_B, KeyEvent.KEYCODE_N, KeyEvent.KEYCODE_P, KeyEvent.KEYCODE_SPACE)
++            .forEach { assertNull(NotesKeys.list(it, ctrl = false, chord = false)) }
++        // Alt+letter types a digit or symbol on the Q25.
++        assertNull(NotesKeys.list(KeyEvent.KEYCODE_C, ctrl = false, chord = true))
++    }
++
++    @Test
++    fun editorKeysNeverTakePlainTyping() {
++        assertNull(NotesKeys.editor(KeyEvent.KEYCODE_S, ctrl = false, alt = false))
++        assertNull(NotesKeys.editor(KeyEvent.KEYCODE_ENTER, ctrl = false, alt = false))
++        assertEquals(EditorKey.Menu, NotesKeys.editor(KeyEvent.KEYCODE_MENU, ctrl = false, alt = false))
++        assertEquals(EditorKey.ToggleItem, NotesKeys.editor(KeyEvent.KEYCODE_ENTER, ctrl = false, alt = true))
++        assertEquals(EditorKey.ToggleItem, NotesKeys.editor(KeyEvent.KEYCODE_ENTER, ctrl = true, alt = false))
++        assertEquals(EditorKey.Find, NotesKeys.editor(KeyEvent.KEYCODE_F, ctrl = true, alt = false))
++        assertEquals(EditorKey.Close, NotesKeys.editor(KeyEvent.KEYCODE_ESCAPE, ctrl = false, alt = false))
++    }
++
++    @Test
++    fun menuLettersAreDistinct() {
++        assertEquals(
++            EditorMenu.entries.size,
++            EditorMenu.entries
++                .map { it.key }
++                .toSet()
++                .size,
++        )
++        assertEquals(EditorMenu.Delete, EditorMenu.forKey(KeyEvent.KEYCODE_D))
++        assertNull(EditorMenu.forKey(KeyEvent.KEYCODE_Z))
++    }
++}
+diff --git a/sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/core/TasksAndTimeTest.kt b/sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/core/TasksAndTimeTest.kt
+new file mode 100644
+index 0000000..eeed368
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/core/TasksAndTimeTest.kt
+@@ -0,0 +1,32 @@
++package org.sableos.notes.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import java.time.LocalDateTime
++import java.time.ZoneOffset
++import java.util.Locale
++
++class TasksAndTimeTest {
++    @Test
++    fun tasksAreOpenItemsLatestNoteFirst() {
++        val old = Note("a", "Old\n- [ ] one\n- [x] two", 1, 1)
++        val new = Note("b", "New\n- [ ] three\n- [ ] ", 2, 2)
++        assertEquals(listOf("three", "one"), Tasks.collect(listOf(old, new), withDone = false).map { it.text })
++        val all = Tasks.collect(listOf(old, new), withDone = true)
++        assertEquals(listOf("three", "one", "two"), all.map { it.text })
++        assertEquals(2, all.last().line)
++        assertEquals("Old", all.last().noteTitle)
++    }
++
++    @Test
++    fun timeLabelsShortenWithAge() {
++        fun at(text: String) = LocalDateTime.parse(text).toInstant(ZoneOffset.UTC).toEpochMilli()
++        val now = at("2026-10-29T12:00:00")
++
++        fun label(text: String) = NoteTime.label(at(text), now, ZoneOffset.UTC, Locale.UK)
++        assertEquals("09:05", label("2026-10-29T09:05:00"))
++        assertEquals("Mon", label("2026-10-26T09:05:00"))
++        assertEquals("3 Oct", label("2026-10-03T09:05:00"))
++        assertEquals("3 Oct 2025", label("2025-10-03T09:05:00"))
++    }
++}
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/AppGlyphsTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/AppGlyphsTest.kt
+index 0bb5949..38b1648 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/AppGlyphsTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/AppGlyphsTest.kt
+@@ -38,6 +38,7 @@ class AppGlyphsTest {
+                 "org.sableos.reader",
+                 "org.sableos.mail",
+                 "org.sableos.textreader",
++                "org.sableos.notes",
+             )
+         sable.forEach { assertTrue(it, AppGlyphs.forPackage(it) != null) }
+     }
+diff --git a/sable-src/apps/r8/android/settings.gradle.kts b/sable-src/apps/r8/android/settings.gradle.kts
+index 5493fb9..b524e8e 100644
+--- a/sable-src/apps/r8/android/settings.gradle.kts
++++ b/sable-src/apps/r8/android/settings.gradle.kts
+@@ -26,3 +26,4 @@ include(":sablestart-presentation-check")
+ include(":sablestart-visual-review")
+ include(":weather")
+ include(":calendar")
++include(":notes")
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/AppGlyphs.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/AppGlyphs.kt
+index 9028bd2..f40aabb 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/AppGlyphs.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/AppGlyphs.kt
+@@ -33,6 +33,7 @@ enum class AppGlyph(
+     RECORDER("microphone", 0xFFE5534B),
+     READER("book-open-text", 0xFF35C66B),
+     TEXT_READER("text-align-left", 0xFF4D9CFF),
++    NOTES("notepad", 0xFFF5C542),
+     SUDOKU("grid-nine", 0xFF4D9CFF),
+     MINESWEEPER("bomb", 0xFFF28C45),
+     GAME_2048("grid-four", 0xFF64748B),
+@@ -75,6 +76,7 @@ object AppGlyphs {
+             "org.sableos.calculator" to AppGlyph.CALCULATOR,
+             "org.sableos.reader" to AppGlyph.READER,
+             "org.sableos.textreader" to AppGlyph.TEXT_READER,
++            "org.sableos.notes" to AppGlyph.NOTES,
+             "org.sableos.sudoku" to AppGlyph.SUDOKU,
+             "org.sableos.minesweeper" to AppGlyph.MINESWEEPER,
+             "org.sableos.game2048" to AppGlyph.GAME_2048,
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableGlyphIcon.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableGlyphIcon.kt
+index 3dd7ac0..bf0018c 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableGlyphIcon.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableGlyphIcon.kt
+@@ -144,6 +144,7 @@ internal fun sableGlyphPath(glyph: AppGlyph): String =
+         AppGlyph.RECORDER -> "M128,176a48.05,48.05,0,0,0,48-48V64a48,48,0,0,0-96,0v64A48.05,48.05,0,0,0,128,176ZM96,64a32,32,0,0,1,64,0v64a32,32,0,0,1-64,0Zm40,143.6V240a8,8,0,0,1-16,0V207.6A80.11,80.11,0,0,1,48,128a8,8,0,0,1,16,0,64,64,0,0,0,128,0,8,8,0,0,1,16,0A80.11,80.11,0,0,1,136,207.6Z"
+         AppGlyph.READER -> "M232,48H160a40,40,0,0,0-32,16A40,40,0,0,0,96,48H24a8,8,0,0,0-8,8V200a8,8,0,0,0,8,8H96a24,24,0,0,1,24,24,8,8,0,0,0,16,0,24,24,0,0,1,24-24h72a8,8,0,0,0,8-8V56A8,8,0,0,0,232,48ZM96,192H32V64H96a24,24,0,0,1,24,24V200A39.81,39.81,0,0,0,96,192Zm128,0H160a39.81,39.81,0,0,0-24,8V88a24,24,0,0,1,24-24h64ZM160,88h40a8,8,0,0,1,0,16H160a8,8,0,0,1,0-16Zm48,40a8,8,0,0,1-8,8H160a8,8,0,0,1,0-16h40A8,8,0,0,1,208,128Zm0,32a8,8,0,0,1-8,8H160a8,8,0,0,1,0-16h40A8,8,0,0,1,208,160Z"
+         AppGlyph.TEXT_READER -> "M32,64a8,8,0,0,1,8-8H216a8,8,0,0,1,0,16H40A8,8,0,0,1,32,64Zm8,48H168a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16Zm176,24H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Zm-48,40H40a8,8,0,0,0,0,16H168a8,8,0,0,0,0-16Z"
++        AppGlyph.NOTES -> "M168,128a8,8,0,0,1-8,8H96a8,8,0,0,1,0-16h64A8,8,0,0,1,168,128Zm-8,24H96a8,8,0,0,0,0,16h64a8,8,0,0,0,0-16ZM216,40V200a32,32,0,0,1-32,32H72a32,32,0,0,1-32-32V40a8,8,0,0,1,8-8H72V24a8,8,0,0,1,16,0v8h32V24a8,8,0,0,1,16,0v8h32V24a8,8,0,0,1,16,0v8h24A8,8,0,0,1,216,40Zm-16,8H184v8a8,8,0,0,1-16,0V48H136v8a8,8,0,0,1-16,0V48H88v8a8,8,0,0,1-16,0V48H56V200a16,16,0,0,0,16,16H184a16,16,0,0,0,16-16Z"
+         AppGlyph.SUDOKU -> "M216,48H40A16,16,0,0,0,24,64V192a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V64A16,16,0,0,0,216,48ZM104,144V112h48v32Zm48,16v32H104V160ZM40,112H88v32H40Zm64-16V64h48V96Zm64,16h48v32H168Zm48-16H168V64h48ZM88,64V96H40V64ZM40,160H88v32H40Zm176,32H168V160h48v32Z"
+         AppGlyph.MINESWEEPER -> "M248,32h0a8,8,0,0,0-8,8,52.66,52.66,0,0,1-3.57,17.39C232.38,67.22,225.7,72,216,72c-11.06,0-18.85-9.76-29.49-24.65C176,32.66,164.12,16,144,16c-16.39,0-29,8.89-35.43,25a66.07,66.07,0,0,0-3.9,15H88A16,16,0,0,0,72,72v9.59A88,88,0,0,0,112,248h1.59A88,88,0,0,0,152,81.59V72a16,16,0,0,0-16-16H120.88a46.76,46.76,0,0,1,2.69-9.37C127.62,36.78,134.3,32,144,32c11.06,0,18.85,9.76,29.49,24.65C184,71.34,195.88,88,216,88c16.39,0,29-8.89,35.43-25A68.69,68.69,0,0,0,256,40,8,8,0,0,0,248,32ZM140.8,94a72,72,0,1,1-57.6,0A8,8,0,0,0,88,86.66V72h48V86.66A8,8,0,0,0,140.8,94ZM111.89,209.32A8,8,0,0,1,104,216a8.52,8.52,0,0,1-1.33-.11,57.5,57.5,0,0,1-46.57-46.57,8,8,0,1,1,15.78-2.64,41.29,41.29,0,0,0,33.43,33.43A8,8,0,0,1,111.89,209.32Z"
+         AppGlyph.GAME_2048 -> "M200,40H56A16,16,0,0,0,40,56V200a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V56A16,16,0,0,0,200,40Zm0,80H136V56h64ZM120,56v64H56V56ZM56,136h64v64H56Zm144,64H136V136h64v64Z"
+diff --git a/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv b/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
+index b7120f1..a11b138 100644
+--- a/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
++++ b/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
+@@ -26,3 +26,4 @@ reversi	ic_sable_game	circle-half	4e5376acc240190bf951be566c4649b69936c928f679eb
+ solitaire	ic_sable_game	cards	de7215a56d6131de7ebded00390671efb03233830b77c41f7736a28baf2eb4da	#D32F45	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/games/src/solitaire/res	none
+ mahjong	ic_sable_game	stack	ee9eaaeb345e8a28c9662cf8a59147cb86080bd922e41f143444189e0116ea7e	#2E8B57	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/games/src/mahjong/res	none
+ words	ic_sable_game	text-aa	e964560ce335191f6bfc660ee8be894d6459561516152f9fceaddb0b8d00b0d2	#D9A441	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/games/src/words/res	none
++notes	ic_sable_notes	notepad	65f069445f9cbf08b9dbbcab5069512095d25c4b0a17113cf98ca9fdc380cf82	#F5C542	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/notes/src/main/res	none
+diff --git a/sable-src/third_party/phosphor-icons/PROVENANCE.md b/sable-src/third_party/phosphor-icons/PROVENANCE.md
+index 220661d..4d76acb 100644
+--- a/sable-src/third_party/phosphor-icons/PROVENANCE.md
++++ b/sable-src/third_party/phosphor-icons/PROVENANCE.md
+@@ -37,4 +37,6 @@ puzzle-piece, shopping-bag, video-camera.
+ Added for the seven new Sable games (`origin=NEW_TITAN_GLYPH_PHOSPHOR_REGULAR`): wall (Bricks), path (Snake),
+ squares-four (Blocks), circle-half (Reversi), cards (Solitaire), stack (Mahjong), text-aa (Words).
+ 
++Added for Sable Notes (`origin=NEW_TITAN_GLYPH_PHOSPHOR_REGULAR`): notepad.
++
+ SableScreens is a prototype and has no product icon.
+diff --git a/sable-src/third_party/phosphor-icons/glyphs/notepad.svg b/sable-src/third_party/phosphor-icons/glyphs/notepad.svg
+new file mode 100644
+index 0000000..f78b11e
+--- /dev/null
++++ b/sable-src/third_party/phosphor-icons/glyphs/notepad.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M168,128a8,8,0,0,1-8,8H96a8,8,0,0,1,0-16h64A8,8,0,0,1,168,128Zm-8,24H96a8,8,0,0,0,0,16h64a8,8,0,0,0,0-16ZM216,40V200a32,32,0,0,1-32,32H72a32,32,0,0,1-32-32V40a8,8,0,0,1,8-8H72V24a8,8,0,0,1,16,0v8h32V24a8,8,0,0,1,16,0v8h32V24a8,8,0,0,1,16,0v8h24A8,8,0,0,1,216,40Zm-16,8H184v8a8,8,0,0,1-16,0V48H136v8a8,8,0,0,1-16,0V48H88v8a8,8,0,0,1-16,0V48H56V200a16,16,0,0,0,16,16H184a16,16,0,0,0,16-16Z"/></svg>
+\ No newline at end of file

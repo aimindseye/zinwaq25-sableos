@@ -49,6 +49,23 @@ add packages and properties without touching LineageOS or the device tree. Our
 product keeps the name `lineage_Q25` because LineageOS's build (kernel, `bacon`
 target, version naming) keys off a `lineage_` product name.
 
+## Sable Notes
+
+Sable Notes (`sable-src/apps/r8/android/notes`, built as `SableNotes` from
+`:notes:assembleRelease`) is the Notes part of the daily-utility design
+(platform_sable `docs/design/UTILITIES_NOTES_RECORDER_UX.md`).
+
+```text
+ MainActivity -> NotesController (state, saves on one background thread, share/export/import intents)
+   ui: list (search, colour, delete), full-screen editor (Menu-key menu), Tasks
+ core (pure Kotlin, unit tested): Note + NoteLabel, NoteCodec (one <id>.note file each),
+   NoteStore (filesDir/notes, write-then-rename), Checklist ("- [ ] " lines), NoteSearch, Tasks, NotesKeys
+```
+
+Notes are plain text with a four-line header, so an export is the text itself.
+Nothing leaves the app except through the share sheet or the file picker, and
+the manifest asks for no permissions.
+
 ## Sable Reader
 
 Sable Reader v2 (`sable-src/apps/common/reader`, built as `SableReader` from

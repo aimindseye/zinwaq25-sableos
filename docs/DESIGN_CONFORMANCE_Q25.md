@@ -41,6 +41,17 @@ Status words: **Done in code** (built and unit-tested, not yet seen on a device)
 | Battery drain | No location prefetch on Doze; the keyboard driver no longer logs every key. |
 | Apps | FM Radio inside Sable Media; Sable Games back as small release builds with keyboard play; microG and Aurora Store (`SABLE_Q25_MICROG`). |
 
+## Sable Notes, not yet on a device
+
+Sable Notes follows the Notes part of platform_sable `docs/design/UTILITIES_NOTES_RECORDER_UX.md`.
+- **Local first, explicit export.** Notes live in app storage and nothing syncs. Share, Export and Import happen only when asked, through the share sheet and the file picker, and the app holds no permissions.
+- **Latest first.** The list puts the latest-edited note first, with the open checklist count in the header.
+- **Full-screen editor.** The 411 x 387 dp window has no room for a list beside the editor (FULL_SCREEN_EDITOR_MODE).
+- **Checklists and tasks.** Checklist lines are plain text, and Tasks gathers the open items, with done items only on request (COMPLETED_TASKS_EXPLICIT_HISTORY).
+- **Text input wins.** Typing owns every printable key.
+
+One difference from the contract: the Q25 has no Ctrl or Esc key, so the contract's Ctrl+N/S/F/Enter and Esc become C in the list, the Menu key's lettered menu, Alt+Enter and Back on the Q25. The Ctrl chords still work on keyboards that have them. Locked-note and private-mode redaction are not built, because Notes has no lock-screen surface or widget yet.
+
 ## Sable Reader in PR #41, not yet on a device
 
 | Area | What changed |

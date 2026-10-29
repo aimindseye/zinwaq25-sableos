@@ -26,3 +26,4 @@ reversi	ic_sable_game	circle-half	4e5376acc240190bf951be566c4649b69936c928f679eb
 solitaire	ic_sable_game	cards	de7215a56d6131de7ebded00390671efb03233830b77c41f7736a28baf2eb4da	#D32F45	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/games/src/solitaire/res	none
 mahjong	ic_sable_game	stack	ee9eaaeb345e8a28c9662cf8a59147cb86080bd922e41f143444189e0116ea7e	#2E8B57	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/games/src/mahjong/res	none
 words	ic_sable_game	text-aa	e964560ce335191f6bfc660ee8be894d6459561516152f9fceaddb0b8d00b0d2	#D9A441	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/games/src/words/res	none
+notes	ic_sable_notes	notepad	65f069445f9cbf08b9dbbcab5069512095d25c4b0a17113cf98ca9fdc380cf82	#F5C542	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/notes/src/main/res	none

@@ -16,6 +16,10 @@ driven without touching the screen.
 - **Sable Hub, Messages, Mail, Calendar, Weather, Media, Calculator, Tools** and
   the other Sable apps, each with single-key shortcuts (T top, B bottom, Space
   page, N/P next and previous in lists).
+- **Sable Notes** for notes and checklists, in the spirit of BlackBerry Remember
+  and Color Notes: colour labels, checklists that continue on Enter, a Tasks
+  view of every open item, find, and share, export and import. Notes stay on
+  the phone, with no account and no sync.
 - **Sable Reader** for books (EPUB), PDF, comics (CBZ or image folders, with
   manga and webtoon modes) and audiobooks (MP3, M4A/M4B, folders), each kind
   on its own tab. Audiobooks keep playing with the screen off; Space plays,
