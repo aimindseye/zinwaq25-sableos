@@ -302,4 +302,20 @@
     <string name="provider_credentials">sağlayıcı kimlik bilgileri</string>
     <string name="select_at_least_one_section">En az bir bölüm seçin</string>
     <string name="tv">TV</string>
+    <string name="sos_alert">SOS ve alarm</string>
+    <string name="sos_light">SOS ışığı</string>
+    <string name="sos_screen_flash">Ekran flaşı</string>
+    <string name="sos_siren">Siren</string>
+    <string name="sos_stop_all">Hepsini durdur</string>
+    <string name="sos_status">Işık %1$s, ekran %2$s, siren %3$s</string>
+    <string name="sos_info">Kamera ışığını SOS düzeninde yakıp söndürür, ekranı yanıp söndürür veya alarm ses düzeyinde siren çalar. Çıktığınızda her şey durur. Kimseyi aramaz.</string>
+    <string name="pedometer_today">Bugün: %2$d adımın %1$d adımı</string>
+    <string name="pedometer_estimates">Yaklaşık %1$s km ve %2$d kcal (tahmin)</string>
+    <string name="pedometer_last_days">Son 7 gün</string>
+    <string name="pedometer_day_steps">%1$s: %2$d adım</string>
+    <string name="pedometer_profile">Profil: %1$d cm, %2$d kg</string>
+    <string name="pedometer_set_height">Boy (cm)</string>
+    <string name="pedometer_set_weight">Kilo (kg)</string>
+    <string name="pedometer_set_goal">Günlük hedef (adım)</string>
+    <string name="pedometer_note">Menü boy, kilo ve günlük hedefi ayarlar. Günlük toplamlar arka planda yaklaşık saatte bir toplanır ve bu telefonda kalır.</string>
 </resources>

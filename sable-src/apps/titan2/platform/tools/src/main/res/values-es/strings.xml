@@ -302,4 +302,20 @@
     <string name="provider_credentials">credenciales de proveedores</string>
     <string name="select_at_least_one_section">Selecciona al menos una sección</string>
     <string name="tv">TV</string>
+    <string name="sos_alert">SOS y alarma</string>
+    <string name="sos_light">Luz SOS</string>
+    <string name="sos_screen_flash">Destello de pantalla</string>
+    <string name="sos_siren">Sirena</string>
+    <string name="sos_stop_all">Detener todo</string>
+    <string name="sos_status">Luz %1$s, pantalla %2$s, sirena %3$s</string>
+    <string name="sos_info">Hace parpadear la luz de la cámara con el patrón SOS, hace destellar la pantalla o suena una sirena al volumen de la alarma. Todo se detiene al salir. No llama a nadie.</string>
+    <string name="pedometer_today">Hoy: %1$d de %2$d pasos</string>
+    <string name="pedometer_estimates">Unos %1$s km y %2$d kcal (estimaciones)</string>
+    <string name="pedometer_last_days">Últimos 7 días</string>
+    <string name="pedometer_day_steps">%1$s: %2$d pasos</string>
+    <string name="pedometer_profile">Perfil: %1$d cm, %2$d kg</string>
+    <string name="pedometer_set_height">Altura (cm)</string>
+    <string name="pedometer_set_weight">Peso (kg)</string>
+    <string name="pedometer_set_goal">Objetivo diario (pasos)</string>
+    <string name="pedometer_note">El menú ajusta la altura, el peso y el objetivo diario. Los totales diarios se recogen aproximadamente cada hora en segundo plano y se quedan en este teléfono.</string>
 </resources>

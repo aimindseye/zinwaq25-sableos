@@ -303,5 +303,21 @@
     <string name="provider_credentials">provider credentials</string>
     <string name="select_at_least_one_section">Select at least one section</string>
     <string name="tv">TV</string>
+    <string name="sos_alert">SOS and alarm</string>
+    <string name="sos_light">SOS light</string>
+    <string name="sos_screen_flash">Screen flash</string>
+    <string name="sos_siren">Siren</string>
+    <string name="sos_stop_all">Stop everything</string>
+    <string name="sos_status">Light %1$s, screen %2$s, siren %3$s</string>
+    <string name="sos_info">Flashes the camera light in the SOS pattern, flashes the screen, or sounds a siren at alarm volume. Everything stops when you leave. It does not call anyone.</string>
+    <string name="pedometer_today">Today: %1$d of %2$d steps</string>
+    <string name="pedometer_estimates">About %1$s km and %2$d kcal (estimates)</string>
+    <string name="pedometer_last_days">Last 7 days</string>
+    <string name="pedometer_day_steps">%1$s: %2$d steps</string>
+    <string name="pedometer_profile">Profile: %1$d cm, %2$d kg</string>
+    <string name="pedometer_set_height">Height (cm)</string>
+    <string name="pedometer_set_weight">Weight (kg)</string>
+    <string name="pedometer_set_goal">Daily goal (steps)</string>
+    <string name="pedometer_note">Menu sets height, weight and the daily goal. Daily totals are collected about once an hour in the background and stay on this phone.</string>
     <string name="app_name" translatable="false">Sable Tools</string>
 </resources>

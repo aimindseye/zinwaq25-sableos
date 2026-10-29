@@ -378,7 +378,27 @@ object ToolsText {
             "precise_location_history" to "precise location history",
             "provider_credentials" to "provider credentials",
             "select_at_least_one_section" to "Select at least one section",
-            "tv" to "TV"
+            "tv" to "TV",
+            "sos_alert" to "SOS and alarm",
+            "sos_light" to "SOS light",
+            "sos_screen_flash" to "Screen flash",
+            "sos_siren" to "Siren",
+            "sos_stop_all" to "Stop everything",
+            "sos_status" to "Light %1\$s, screen %2\$s, siren %3\$s",
+            "sos_info" to
+                "Flashes the camera light in the SOS pattern, flashes the screen, or sounds a siren " +
+                "at alarm volume. Everything stops when you leave. It does not call anyone.",
+            "pedometer_today" to "Today: %1\$d of %2\$d steps",
+            "pedometer_estimates" to "About %1\$s km and %2\$d kcal (estimates)",
+            "pedometer_last_days" to "Last 7 days",
+            "pedometer_day_steps" to "%1\$s: %2\$d steps",
+            "pedometer_profile" to "Profile: %1\$d cm, %2\$d kg",
+            "pedometer_set_height" to "Height (cm)",
+            "pedometer_set_weight" to "Weight (kg)",
+            "pedometer_set_goal" to "Daily goal (steps)",
+            "pedometer_note" to
+                "Menu sets height, weight and the daily goal. Daily totals are collected about once " +
+                "an hour in the background and stay on this phone."
         )
 
     val t = SableTexts(EN)

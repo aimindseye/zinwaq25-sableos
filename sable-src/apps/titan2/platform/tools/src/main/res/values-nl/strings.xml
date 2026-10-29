@@ -302,4 +302,20 @@
     <string name="provider_credentials">inloggegevens van providers</string>
     <string name="select_at_least_one_section">Selecteer ten minste één sectie</string>
     <string name="tv">Tv</string>
+    <string name="sos_alert">SOS en alarm</string>
+    <string name="sos_light">SOS-licht</string>
+    <string name="sos_screen_flash">Schermflits</string>
+    <string name="sos_siren">Sirene</string>
+    <string name="sos_stop_all">Alles stoppen</string>
+    <string name="sos_status">Licht %1$s, scherm %2$s, sirene %3$s</string>
+    <string name="sos_info">Laat het cameralampje knipperen in het SOS-patroon, laat het scherm flitsen of laat een sirene klinken op alarmvolume. Alles stopt zodra je weggaat. Er wordt niemand gebeld.</string>
+    <string name="pedometer_today">Vandaag: %1$d van %2$d stappen</string>
+    <string name="pedometer_estimates">Ongeveer %1$s km en %2$d kcal (schattingen)</string>
+    <string name="pedometer_last_days">Laatste 7 dagen</string>
+    <string name="pedometer_day_steps">%1$s: %2$d stappen</string>
+    <string name="pedometer_profile">Profiel: %1$d cm, %2$d kg</string>
+    <string name="pedometer_set_height">Lengte (cm)</string>
+    <string name="pedometer_set_weight">Gewicht (kg)</string>
+    <string name="pedometer_set_goal">Dagdoel (stappen)</string>
+    <string name="pedometer_note">Via Menu stel je lengte, gewicht en dagdoel in. Dagtotalen worden ongeveer elk uur op de achtergrond verzameld en blijven op deze telefoon.</string>
 </resources>

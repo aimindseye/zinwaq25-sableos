@@ -302,4 +302,20 @@
     <string name="provider_credentials">بيانات اعتماد المزوّدين</string>
     <string name="select_at_least_one_section">اختر قسمًا واحدًا على الأقل</string>
     <string name="tv">التلفزيون</string>
+    <string name="sos_alert">SOS والإنذار</string>
+    <string name="sos_light">ضوء SOS</string>
+    <string name="sos_screen_flash">وميض الشاشة</string>
+    <string name="sos_siren">صفارة الإنذار</string>
+    <string name="sos_stop_all">إيقاف الكل</string>
+    <string name="sos_status">الضوء %1$s، الشاشة %2$s، الصفارة %3$s</string>
+    <string name="sos_info">يومض ضوء الكاميرا بنمط SOS، أو يومض الشاشة، أو يُصدر صفارة إنذار بمستوى صوت المنبّه. يتوقف كل شيء عند مغادرتك. لا يتصل بأحد.</string>
+    <string name="pedometer_today">اليوم: %1$d من %2$d خطوة</string>
+    <string name="pedometer_estimates">حوالي %1$s كم و%2$d سعرة حرارية (تقديرات)</string>
+    <string name="pedometer_last_days">آخر 7 أيام</string>
+    <string name="pedometer_day_steps">%1$s: %2$d خطوة</string>
+    <string name="pedometer_profile">الملف: %1$d سم، %2$d كغ</string>
+    <string name="pedometer_set_height">الطول (سم)</string>
+    <string name="pedometer_set_weight">الوزن (كغ)</string>
+    <string name="pedometer_set_goal">الهدف اليومي (خطوات)</string>
+    <string name="pedometer_note">القائمة تضبط الطول والوزن والهدف اليومي. تُجمع المجاميع اليومية مرة كل ساعة تقريبًا في الخلفية وتبقى على هذا الهاتف.</string>
 </resources>

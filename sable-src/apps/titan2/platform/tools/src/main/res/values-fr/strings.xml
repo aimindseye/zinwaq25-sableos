@@ -302,4 +302,20 @@
     <string name="provider_credentials">identifiants des fournisseurs</string>
     <string name="select_at_least_one_section">Sélectionnez au moins une section</string>
     <string name="tv">TV</string>
+    <string name="sos_alert">SOS et alarme</string>
+    <string name="sos_light">Lumière SOS</string>
+    <string name="sos_screen_flash">Flash d\'écran</string>
+    <string name="sos_siren">Sirène</string>
+    <string name="sos_stop_all">Tout arrêter</string>
+    <string name="sos_status">Lumière %1$s, écran %2$s, sirène %3$s</string>
+    <string name="sos_info">Fait clignoter la lumière de l\'appareil photo selon le signal SOS, fait clignoter l\'écran ou déclenche une sirène au volume de l\'alarme. Tout s\'arrête quand vous quittez. Aucun appel n\'est passé.</string>
+    <string name="pedometer_today">Aujourd\'hui : %1$d sur %2$d pas</string>
+    <string name="pedometer_estimates">Environ %1$s km et %2$d kcal (estimations)</string>
+    <string name="pedometer_last_days">7 derniers jours</string>
+    <string name="pedometer_day_steps">%1$s : %2$d pas</string>
+    <string name="pedometer_profile">Profil : %1$d cm, %2$d kg</string>
+    <string name="pedometer_set_height">Taille (cm)</string>
+    <string name="pedometer_set_weight">Poids (kg)</string>
+    <string name="pedometer_set_goal">Objectif quotidien (pas)</string>
+    <string name="pedometer_note">Le menu règle la taille, le poids et l\'objectif quotidien. Les totaux quotidiens sont relevés environ toutes les heures en arrière-plan et restent sur ce téléphone.</string>
 </resources>

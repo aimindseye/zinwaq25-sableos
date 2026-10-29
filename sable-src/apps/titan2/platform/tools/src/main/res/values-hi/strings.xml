@@ -302,4 +302,20 @@
     <string name="provider_credentials">प्रदाता क्रेडेंशियल</string>
     <string name="select_at_least_one_section">कम से कम एक अनुभाग चुनें</string>
     <string name="tv">टीवी</string>
+    <string name="sos_alert">SOS और अलार्म</string>
+    <string name="sos_light">SOS लाइट</string>
+    <string name="sos_screen_flash">स्क्रीन फ़्लैश</string>
+    <string name="sos_siren">सायरन</string>
+    <string name="sos_stop_all">सब बंद करें</string>
+    <string name="sos_status">लाइट %1$s, स्क्रीन %2$s, सायरन %3$s</string>
+    <string name="sos_info">कैमरे की लाइट को SOS पैटर्न में चमकाता है, स्क्रीन को चमकाता है या अलार्म वॉल्यूम पर सायरन बजाता है। बाहर निकलने पर सब बंद हो जाता है। यह किसी को कॉल नहीं करता।</string>
+    <string name="pedometer_today">आज: %2$d में से %1$d क़दम</string>
+    <string name="pedometer_estimates">लगभग %1$s किमी और %2$d kcal (अनुमान)</string>
+    <string name="pedometer_last_days">पिछले 7 दिन</string>
+    <string name="pedometer_day_steps">%1$s: %2$d क़दम</string>
+    <string name="pedometer_profile">प्रोफ़ाइल: %1$d सेमी, %2$d किग्रा</string>
+    <string name="pedometer_set_height">ऊँचाई (सेमी)</string>
+    <string name="pedometer_set_weight">वज़न (किग्रा)</string>
+    <string name="pedometer_set_goal">दैनिक लक्ष्य (क़दम)</string>
+    <string name="pedometer_note">मेन्यू से ऊँचाई, वज़न और दैनिक लक्ष्य तय करें। दैनिक कुल लगभग हर घंटे पृष्ठभूमि में जुटाए जाते हैं और इसी फ़ोन पर रहते हैं।</string>
 </resources>

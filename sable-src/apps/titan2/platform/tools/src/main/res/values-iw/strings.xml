@@ -302,4 +302,20 @@
     <string name="provider_credentials">אישורי ספקים</string>
     <string name="select_at_least_one_section">בחרו לפחות מקטע אחד</string>
     <string name="tv">טלוויזיה</string>
+    <string name="sos_alert">SOS והתראה</string>
+    <string name="sos_light">אור SOS</string>
+    <string name="sos_screen_flash">הבהוב מסך</string>
+    <string name="sos_siren">סירנה</string>
+    <string name="sos_stop_all">עצור הכול</string>
+    <string name="sos_status">אור %1$s, מסך %2$s, סירנה %3$s</string>
+    <string name="sos_info">מהבהב את אור המצלמה בתבנית SOS, מהבהב את המסך או משמיע סירנה בעוצמת השעון המעורר. הכול נעצר כשאתה יוצא. הוא לא מתקשר לאף אחד.</string>
+    <string name="pedometer_today">היום: %1$d מתוך %2$d צעדים</string>
+    <string name="pedometer_estimates">בערך %1$s ק\"מ ו-%2$d קק\"ל (הערכות)</string>
+    <string name="pedometer_last_days">7 הימים האחרונים</string>
+    <string name="pedometer_day_steps">%1$s: %2$d צעדים</string>
+    <string name="pedometer_profile">פרופיל: %1$d ס\"מ, %2$d ק\"ג</string>
+    <string name="pedometer_set_height">גובה (ס\"מ)</string>
+    <string name="pedometer_set_weight">משקל (ק\"ג)</string>
+    <string name="pedometer_set_goal">יעד יומי (צעדים)</string>
+    <string name="pedometer_note">התפריט קובע גובה, משקל ויעד יומי. הסכומים היומיים נאספים בערך פעם בשעה ברקע ונשארים בטלפון הזה.</string>
 </resources>

@@ -18,6 +18,7 @@ object Controllers {
         Tool.PICTURE_HANGING to { h -> TiltController(h, Capability.PICTURE_HANGING) },
         Tool.HEIGHT_ESTIMATE to ::HeightController,
         Tool.FLASHLIGHT to ::FlashlightController,
+        Tool.SOS_ALERT to ::SosController,
         Tool.MAGNIFIER to ::MagnifierController,
         Tool.NOISE_METER to ::NoiseController,
         Tool.SPEEDOMETER to ::SpeedController,

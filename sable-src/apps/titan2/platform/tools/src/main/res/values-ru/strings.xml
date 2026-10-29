@@ -302,4 +302,20 @@
     <string name="provider_credentials">учётные данные провайдеров</string>
     <string name="select_at_least_one_section">Выберите хотя бы один раздел</string>
     <string name="tv">ТВ</string>
+    <string name="sos_alert">SOS и сигнал тревоги</string>
+    <string name="sos_light">Свет SOS</string>
+    <string name="sos_screen_flash">Вспышка экрана</string>
+    <string name="sos_siren">Сирена</string>
+    <string name="sos_stop_all">Остановить всё</string>
+    <string name="sos_status">Свет %1$s, экран %2$s, сирена %3$s</string>
+    <string name="sos_info">Мигает подсветкой камеры по сигналу SOS, мигает экраном или включает сирену с громкостью будильника. Всё останавливается, когда вы выходите. Никому не звонит.</string>
+    <string name="pedometer_today">Сегодня: %1$d из %2$d шагов</string>
+    <string name="pedometer_estimates">Около %1$s км и %2$d ккал (оценка)</string>
+    <string name="pedometer_last_days">Последние 7 дней</string>
+    <string name="pedometer_day_steps">%1$s: %2$d шагов</string>
+    <string name="pedometer_profile">Профиль: %1$d см, %2$d кг</string>
+    <string name="pedometer_set_height">Рост (см)</string>
+    <string name="pedometer_set_weight">Вес (кг)</string>
+    <string name="pedometer_set_goal">Дневная цель (шаги)</string>
+    <string name="pedometer_note">В меню задаются рост, вес и дневная цель. Дневные итоги собираются примерно раз в час в фоне и остаются на этом телефоне.</string>
 </resources>
