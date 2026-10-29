@@ -83,7 +83,8 @@ wanted() {
 
 taken=0
 skipped=0
-while IFS=$'\t' read -r name section how caption; do
+# The list is read on fd 3: adb shell reads standard input and would swallow the rest of the list.
+while IFS=$'\t' read -r name section how caption <&3; do
     [[ -z "$name" || "$name" == \#* ]] && continue
     [[ "$name" =~ ^[a-z0-9-]+$ ]] || sable_fail "bad shot name '$name' in $LIST"
     wanted "$name" || continue
@@ -115,7 +116,7 @@ while IFS=$'\t' read -r name section how caption; do
     mv "$OUT/$name.png.part" "$OUT/$name.png"
     taken=$((taken + 1))
     printf 'ok    %s\n' "$name" >&2
-done < "$LIST"
+done 3< "$LIST"
 "${adb[@]}" shell input keyevent KEYCODE_HOME >/dev/null 2>&1 || true
 
 # The gallery lists every image that exists in the default folder.

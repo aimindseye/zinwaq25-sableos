@@ -901,6 +901,7 @@ case "${1:-}" in
     get-state) echo device ;;
     exec-out) printf '\211PNG fake\n' ;;
     shell)
+        cat > /dev/null   # a real adb shell reads standard input
         case "$2" in
             pm) printf 'package:org.sableos.weather\npackage:org.sableos.calculator\n' ;;
             *) exit 0 ;;
