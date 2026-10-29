@@ -1,1 +1,47 @@
-<resources><string name="app_name">Secure Vault</string></resources>
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English. Single capital letters in hints (C new, S find) name keyboard keys: keep them as the key, translate the word.
+     English. Keep equal to VaultLines.EN (VaultLinesTest checks); translations go in values-<lang>/. -->
+<resources>
+    <string name="app_name" translatable="false">Secure Vault</string>
+    <string name="read_error">read error</string>
+    <string name="no_access">" (no access"</string>
+    <string name="partial_copy_left">; partial copy left</string>
+    <string name="cancelled_nothing_changed">Cancelled. Nothing changed.</string>
+    <string name="deleted">Deleted %1$s.</string>
+    <string name="could_not_delete">Could not delete %1$s.</string>
+    <string name="deleted_of_original_s_any">Deleted %1$s of %2$s original(s). Any not deleted are still where they were.</string>
+    <string name="open_with">Open %1$s with</string>
+    <string name="opened_read_only_this_file">Opened %1$s (read-only, this file only).</string>
+    <string name="no_app_in_private_space">No app in Private Space can open %1$s.</string>
+    <string name="the_system_file_picker_is">The system file picker is not available.</string>
+    <string name="exported_a_copy_of_it">Exported a copy of %1$s. It is no longer protected by the vault.</string>
+    <string name="export_failed_nothing_was_written">Export failed. Nothing was written.</string>
+    <string name="could">Could</string>
+    <string name="cancelled">Cancelled</string>
+    <string name="no_app">No app</string>
+    <string name="not_available">not available</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="import_label">Import</string>
+    <string name="export">Export</string>
+    <string name="lock_now">Lock now</string>
+    <string name="photos">Photos</string>
+    <string name="documents">Documents</string>
+    <string name="recordings">Recordings</string>
+    <string name="file_or_p_d_r">↑↓ file · ←→ or P D R section · Enter open · I import · E export · X delete · L lock now</string>
+    <string name="open">Open %1$s?</string>
+    <string name="the_app_you_pick_inside">The app you pick (inside Private Space) can read this one file until it closes it. Enter or Y opens · Back or N cancels.</string>
+    <string name="export_2">Export %1$s?</string>
+    <string name="a_copy_is_written_where">A copy is written where you choose next and is no longer protected by the vault. The vault copy stays. Enter or Y continues · Back or N cancels.</string>
+    <string name="delete_from_the_vault">Delete %1$s from the vault?</string>
+    <string name="it_cannot_be_recovered_enter">It cannot be recovered. Enter or Y deletes · Back or N cancels.</string>
+    <string name="imported_file_s_as_copies">Imported %1$s file(s) as copies. Delete the originals?</string>
+    <string name="the_originals_are_still_where">The originals are still where they were. Enter or Y deletes them · Back or N keeps them.</string>
+    <string name="imported_file_s_as_copies_2">Imported %1$s file(s) as copies.</string>
+    <string name="could_not_import">" Could not import: "</string>
+    <string name="secure_vault">Secure Vault</string>
+    <string name="private_space_photos_documents_recordings">Private Space · Photos · Documents · Recordings · import/export explicit</string>
+    <string name="secure_vault_works_only_inside">Secure Vault works only inside Private Space. Unlock Private Space in Sable Start (All apps) and open Secure Vault there. Nothing is stored outside it.</string>
+    <string name="nothing_here_yet_press_i">Nothing here yet. Press I to import a copy of a file.</string>
+    <string name="could_not_lock_private_space">Could not lock Private Space from here; lock it from Sable Start. The vault closed.</string>
+</resources>

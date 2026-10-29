@@ -1,5 +1,7 @@
 package org.sableos.titan2.vault.core
 
+import org.sableos.titan2.vault.core.VaultLines.t
+
 /**
  * Secure Vault (PRIVATE_SPACE_DUAL_APPS_WORK_PROFILE_UX, "Secure Vault"; artifact
  * sable-private-space-dual-work-titan2.svg panel 1). Pure Kotlin: no Android imports.
@@ -8,10 +10,17 @@ package org.sableos.titan2.vault.core
  * files in its own credential-encrypted storage there, so the files lock when Private Space locks.
  * Import copies in; Export and Open each need an explicit confirmation; nothing leaves silently.
  */
-enum class Section(val id: String, val title: String, val key: Char, val mimeTypes: List<String>) {
-    Photos("photos", "Photos", 'p', listOf("image/*", "video/*")),
-    Docs("docs", "Documents", 'd', listOf("*/*")),
-    Recordings("recordings", "Recordings", 'r', listOf("audio/*"));
+enum class Section(
+    val id: String,
+    private val titleKey: String,
+    val key: Char,
+    val mimeTypes: List<String>
+) {
+    Photos("photos", "photos", 'p', listOf("image/*", "video/*")),
+    Docs("docs", "documents", 'd', listOf("*/*")),
+    Recordings("recordings", "recordings", 'r', listOf("audio/*"));
+
+    val title: String get() = t(titleKey)
 
     fun next(dir: Int): Section = entries[(ordinal + dir + entries.size) % entries.size]
 
@@ -147,8 +156,7 @@ object VaultKeys {
         data class Letter(val c: Char) : Key
     }
 
-    const val HINT =
-        "↑↓ file · ←→ or P D R section · Enter open · I import · E export · X delete · L lock now"
+    val HINT: String get() = t("file_or_p_d_r")
 }
 
 /** A question the user must answer before anything leaves the vault or is removed. */
@@ -158,28 +166,26 @@ data class Confirmation(val kind: Kind, val title: String, val detail: String) {
     companion object {
         fun open(item: VaultItem) = Confirmation(
             Kind.Open,
-            "Open ${item.name}?",
-            "The app you pick (inside Private Space) can read this one file until it closes it. " +
-                "Enter or Y opens · Back or N cancels."
+            t("open", item.name),
+            t("the_app_you_pick_inside")
         )
 
         fun export(item: VaultItem) = Confirmation(
             Kind.Export,
-            "Export ${item.name}?",
-            "A copy is written where you choose next and is no longer protected by the vault. " +
-                "The vault copy stays. Enter or Y continues · Back or N cancels."
+            t("export_2", item.name),
+            t("a_copy_is_written_where")
         )
 
         fun delete(item: VaultItem) = Confirmation(
             Kind.Delete,
-            "Delete ${item.name} from the vault?",
-            "It cannot be recovered. Enter or Y deletes · Back or N cancels."
+            t("delete_from_the_vault", item.name),
+            t("it_cannot_be_recovered_enter")
         )
 
         fun deleteOriginals(count: Int) = Confirmation(
             Kind.DeleteOriginals,
-            "Imported $count file(s) as copies. Delete the originals?",
-            "The originals are still where they were. Enter or Y deletes them · Back or N keeps them."
+            t("imported_file_s_as_copies", count),
+            t("the_originals_are_still_where")
         )
     }
 }
@@ -187,25 +193,21 @@ data class Confirmation(val kind: Kind, val title: String, val detail: String) {
 /** Import results: copies are never reported as moves. */
 data class ImportOutcome(val imported: List<String>, val failed: List<String>) {
     fun message(): String = buildString {
-        append("Imported ${imported.size} file(s) as copies.")
+        append(t("imported_file_s_as_copies_2", imported.size))
         if (failed.isNotEmpty()) {
             append(
-                " Could not import: "
+                t("could_not_import")
             ).append(failed.joinToString(", ")).append('.')
         }
     }
 }
 
 object VaultText {
-    const val TITLE = "Secure Vault"
-    const val SUBTITLE = "Private Space · Photos · Documents · Recordings · import/export explicit"
-    const val NOT_PRIVATE =
-        "Secure Vault works only inside Private Space. " +
-            "Unlock Private Space in Sable Start (All apps) " +
-            "and open Secure Vault there. Nothing is stored outside it."
-    const val EMPTY = "Nothing here yet. Press I to import a copy of a file."
-    const val LOCK_FALLBACK =
-        "Could not lock Private Space from here; lock it from Sable Start. The vault closed."
+    val TITLE: String get() = t("secure_vault")
+    val SUBTITLE: String get() = t("private_space_photos_documents_recordings")
+    val NOT_PRIVATE: String get() = t("secure_vault_works_only_inside")
+    val EMPTY: String get() = t("nothing_here_yet_press_i")
+    val LOCK_FALLBACK: String get() = t("could_not_lock_private_space")
 
     fun size(bytes: Long): String = when {
         bytes < KIB -> "$bytes B"

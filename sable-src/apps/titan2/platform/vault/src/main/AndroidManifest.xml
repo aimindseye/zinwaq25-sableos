@@ -19,6 +19,7 @@
     </queries>
 
     <application
+        android:name="org.sableos.titan2.vault.VaultApplication"
         android:allowBackup="false"
         android:fullBackupContent="false"
         android:dataExtractionRules="@xml/data_extraction_rules"

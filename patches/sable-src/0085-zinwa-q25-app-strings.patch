@@ -12015,6 +12015,421 @@ index 0000000..5325272
 +        }
 +    }
 +}
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/profiles/src/main/AndroidManifest.xml
+index 76d7e72..1c4df0a 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/AndroidManifest.xml
++++ b/sable-src/apps/titan2/platform/profiles/src/main/AndroidManifest.xml
+@@ -19,6 +19,7 @@
+     </queries>
+ 
+     <application
++        android:name="org.sableos.titan2.profiles.ProfilesApplication"
+         android:allowBackup="false"
+         android:usesCleartextTraffic="false"
+         android:icon="@mipmap/ic_sable_profiles"
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/ProfilesApplication.kt b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/ProfilesApplication.kt
+new file mode 100644
+index 0000000..eed1bb0
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/ProfilesApplication.kt
+@@ -0,0 +1,13 @@
++package org.sableos.titan2.profiles
++
++import android.app.Application
++import org.sableos.titan2.profiles.core.ProfilesText
++import org.sableos.titan2.theme.bindTo
++
++/** Binds [ProfilesText] to the app's string resources once per process, so the phone's language is used. */
++class ProfilesApplication : Application() {
++    override fun onCreate() {
++        super.onCreate()
++        ProfilesText.t.bindTo(this)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfileTileService.kt b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfileTileService.kt
+index d34e794..731f81b 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfileTileService.kt
++++ b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfileTileService.kt
+@@ -6,6 +6,7 @@ import android.provider.Settings
+ import android.service.quicksettings.Tile
+ import android.service.quicksettings.TileService
+ import android.widget.Toast
++import org.sableos.titan2.profiles.core.ProfilesText.t
+ import org.sableos.titan2.profiles.core.SoundProfile
+ 
+ /** Quick Settings tile: shows the sound profile; tapping it lists the profiles to pick from. */
+@@ -20,7 +21,7 @@ class SoundProfileTileService : TileService() {
+         val profiles = SoundProfile.entries
+         val current = SoundProfileStore(this).current
+         val dialog = AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+-            .setTitle("Sound profile")
++            .setTitle(t("sound_profile"))
+             .setSingleChoiceItems(
+                 profiles.map {
+                     it.title
+@@ -39,7 +40,7 @@ class SoundProfileTileService : TileService() {
+             SoundProfileApplier.Result.NEEDS_DND_ACCESS -> {
+                 Toast.makeText(
+                     this,
+-                    "Allow Do Not Disturb access for Sound Profiles",
++                    t("allow_do_not_disturb_access"),
+                     Toast.LENGTH_LONG
+                 ).show()
+                 startActivityAndCollapse(
+@@ -60,8 +61,8 @@ class SoundProfileTileService : TileService() {
+     private fun refresh() {
+         val tile = qsTile ?: return
+         val current = SoundProfileStore(this).current
+-        tile.label = "Sound profile"
+-        tile.subtitle = current?.title ?: "Choose"
++        tile.label = t("sound_profile")
++        tile.subtitle = current?.title ?: t("choose")
+         tile.state =
+             if (current == null ||
+                 current == SoundProfile.NORMAL
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfilesActivity.kt b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfilesActivity.kt
+index 90c249b..f15f0c8 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfilesActivity.kt
++++ b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfilesActivity.kt
+@@ -16,6 +16,7 @@ import android.widget.LinearLayout
+ import android.widget.ScrollView
+ import android.widget.TextView
+ import org.sableos.titan2.profiles.core.ProfileSettings
++import org.sableos.titan2.profiles.core.ProfilesText.t
+ import org.sableos.titan2.profiles.core.SoundProfile
+ import org.sableos.titan2.profiles.core.SoundProfiles
+ import org.sableos.titan2.theme.SablePalette
+@@ -84,13 +85,13 @@ class SoundProfilesActivity : Activity() {
+     private fun showMenu() {
+         val profile = focusedProfile() ?: editing
+         val items = listOf(
+-            "Use ${profile.title}" to { use(profile) },
+-            "Edit ${profile.title}" to { edit(profile) },
+-            "Quick Settings Tile" to {
+-                status = "Pull down the shade, choose Edit and drag the Sound profile tile in."
++            t("use", profile.title) to { use(profile) },
++            t("edit", profile.title) to { edit(profile) },
++            t("quick_settings_tile") to {
++                status = t("pull_down_the_shade_choose")
+                 render()
+             },
+-            "Close" to { finish() }
++            t("close") to { finish() }
+         )
+         AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+             .setItems(items.map { it.first }.toTypedArray()) { _, which -> items[which].second() }
+@@ -100,9 +101,9 @@ class SoundProfilesActivity : Activity() {
+     private fun render() {
+         focusKey = (currentFocus?.tag as? String) ?: focusKey
+         body.removeAllViews()
+-        body.addView(text("Sound Profiles", TITLE_SP, palette.text, bold = true))
++        body.addView(text(t("sound_profiles"), TITLE_SP, palette.text, bold = true))
+         body.addView(
+-            text("Enter uses a profile · E edits it · Menu for more", SMALL_SP, palette.muted)
++            text(t("enter_uses_a_profile_e"), SMALL_SP, palette.muted)
+         )
+         status?.let { body.addView(text(it, SMALL_SP, palette.warn).apply { pad(0, GAP, 0, 0) }) }
+         body.addView(gap())
+@@ -122,7 +123,7 @@ class SoundProfilesActivity : Activity() {
+         editor()
+         body.addView(
+             text(
+-                "Quick Settings: pull down the shade, choose Edit and add the Sound profile tile.",
++                t("quick_settings_pull_down_the"),
+                 SMALL_SP,
+                 palette.muted
+             ).apply { pad(0, GAP * 2, 0, 0) }
+@@ -139,13 +140,13 @@ class SoundProfilesActivity : Activity() {
+         val profile = editing
+         val s = store.settings(profile)
+         val plan = SoundProfiles.plan(profile, s)
+-        body.addView(text("Edit ${profile.title}", BODY_SP, palette.accent, bold = true))
++        body.addView(text(t("edit", profile.title), BODY_SP, palette.accent, bold = true))
+         plan.volumePercent?.let { volume ->
+             body.addView(
+                 row(
+                     key = "volume",
+-                    title = "Volume $volume%",
+-                    detail = "Enter adds 10% · Shift+Enter takes 10% off",
++                    title = t("volume", volume),
++                    detail = t("enter_adds_10_shift_enter"),
+                     onClick = { step(profile, s, volume, +STEP) }
+                 ).onLong { step(profile, s, volume, -STEP) }.apply {
+                     setOnKeyListener { _, code, ev ->
+@@ -157,12 +158,12 @@ class SoundProfilesActivity : Activity() {
+             )
+         }
+         body.addView(
+-            row("ringtone", "Ringtone", toneName(s.ringtone), onClick = {
++            row("ringtone", t("ringtone"), toneName(s.ringtone), onClick = {
+                 pickTone(RingtoneManager.TYPE_RINGTONE, s.ringtone)
+             })
+         )
+         body.addView(
+-            row("notification", "Notification tone", toneName(s.notificationTone), onClick = {
++            row("notification", t("notification_tone"), toneName(s.notificationTone), onClick = {
+                 pickTone(RingtoneManager.TYPE_NOTIFICATION, s.notificationTone)
+             })
+         )
+@@ -171,9 +172,9 @@ class SoundProfilesActivity : Activity() {
+                 "vibrate",
+                 check(
+                     plan.vibrateWhenRinging,
+-                    "Vibrate for calls"
++                    t("vibrate_for_calls")
+                 ),
+-                "Space turns it on or off",
++                t("space_turns_it_on_or"),
+                 onClick = {
+                     save(profile, s.copy(vibrate = !plan.vibrateWhenRinging))
+                 }
+@@ -184,9 +185,9 @@ class SoundProfilesActivity : Activity() {
+                 "light",
+                 check(
+                     plan.light,
+-                    "Notification light"
++                    t("notification_light")
+                 ),
+-                "Space turns it on or off",
++                t("space_turns_it_on_or"),
+                 onClick = {
+                     save(profile, s.copy(light = !plan.light))
+                 }
+@@ -203,13 +204,12 @@ class SoundProfilesActivity : Activity() {
+                 startActivity(
+                     Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:$packageName"))
+                 )
+-                "${profile.title} is on. Allow changing system settings so it can set tones, " +
+-                    "vibration and the light, then choose it again."
++                t("is_on_allow_changing_system", profile.title)
+             }
+ 
+             SoundProfileApplier.Result.NEEDS_DND_ACCESS -> {
+                 startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
+-                "Allow Do Not Disturb access for Sound Profiles, then choose ${profile.title} again."
++                t("allow_do_not_disturb_access_2", profile.title)
+             }
+         }
+         render()
+@@ -267,7 +267,7 @@ class SoundProfilesActivity : Activity() {
+ 
+     private fun toneName(uri: String?): String = uri?.let {
+         runCatching { RingtoneManager.getRingtone(this, Uri.parse(it))?.getTitle(this) }.getOrNull()
+-    } ?: "Phone's current tone"
++    } ?: t("phone_s_current_tone")
+ 
+     private fun check(on: Boolean, label: String) = (if (on) "☑ " else "☐ ") + label
+ 
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/ProfilesText.kt b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/ProfilesText.kt
+new file mode 100644
+index 0000000..a639617
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/ProfilesText.kt
+@@ -0,0 +1,52 @@
++package org.sableos.titan2.profiles.core
++
++import org.sableos.titan2.theme.SableTexts
++
++/**
++ * Every line Sound Profiles shows, in English, by string resource name. res/values/strings.xml
++ * repeats them (ProfilesTextTest keeps the two equal) and res/values-<lang>/strings.xml translates
++ * them.
++ */
++object ProfilesText {
++    val EN: Map<String, String> =
++        mapOf(
++            "sound_profile" to "Sound profile",
++            "allow_do_not_disturb_access" to "Allow Do Not Disturb access for Sound Profiles",
++            "choose" to "Choose",
++            "use" to "Use %1\$s",
++            "edit" to "Edit %1\$s",
++            "quick_settings_tile" to "Quick Settings Tile",
++            "pull_down_the_shade_choose" to
++                "Pull down the shade, choose Edit and drag the Sound profile tile in.",
++            "close" to "Close",
++            "sound_profiles" to "Sound Profiles",
++            "enter_uses_a_profile_e" to "Enter uses a profile · E edits it · Menu for more",
++            "quick_settings_pull_down_the" to
++                "Quick Settings: pull down the shade, choose Edit and add the Sound profile tile.",
++            "volume" to "Volume %1\$s%%",
++            "enter_adds_10_shift_enter" to "Enter adds 10% · Shift+Enter takes 10% off",
++            "ringtone" to "Ringtone",
++            "notification_tone" to "Notification tone",
++            "vibrate_for_calls" to "Vibrate for calls",
++            "space_turns_it_on_or" to "Space turns it on or off",
++            "notification_light" to "Notification light",
++            "is_on_allow_changing_system" to
++                "%1\$s is on. Allow changing system settings so it can set tones, vibration and " +
++                "the light, then choose it again.",
++            "allow_do_not_disturb_access_2" to
++                "Allow Do Not Disturb access for Sound Profiles, then choose %1\$s again.",
++            "phone_s_current_tone" to "Phone's current tone",
++            "normal" to "Normal",
++            "rings_and_alerts_at_your" to "Rings and alerts at your volume",
++            "loud" to "Loud",
++            "rings_and_alerts_at_full" to "Rings and alerts at full volume",
++            "vibrate_only" to "Vibrate only",
++            "vibrates_for_calls_and_alerts" to "Vibrates for calls and alerts, no sound",
++            "phone_calls_only" to "Phone calls only",
++            "only_calls_ring_messages_and" to "Only calls ring; messages and alerts are silent",
++            "all_alerts_off" to "All alerts off",
++            "nothing_rings_or_vibrates_alarms" to "Nothing rings or vibrates; alarms still sound"
++        )
++
++    val t = SableTexts(EN)
++}
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/SoundProfiles.kt b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/SoundProfiles.kt
+index 0c9cf33..e0eef59 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/SoundProfiles.kt
++++ b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/SoundProfiles.kt
+@@ -1,16 +1,21 @@
+ package org.sableos.titan2.profiles.core
+ 
++import org.sableos.titan2.profiles.core.ProfilesText.t
++
+ /**
+  * BlackBerry sound profiles. Picking one sets the ringer, Do Not Disturb, the ring and notification
+  * volumes, vibration, the notification light and, when the profile has them, its own ringtone and
+  * notification tone. Pure: [plan] says what to set and the Android side sets it.
+  */
+-enum class SoundProfile(val title: String, val summary: String) {
+-    NORMAL("Normal", "Rings and alerts at your volume"),
+-    LOUD("Loud", "Rings and alerts at full volume"),
+-    VIBRATE_ONLY("Vibrate only", "Vibrates for calls and alerts, no sound"),
+-    PHONE_CALLS_ONLY("Phone calls only", "Only calls ring; messages and alerts are silent"),
+-    ALL_ALERTS_OFF("All alerts off", "Nothing rings or vibrates; alarms still sound");
++enum class SoundProfile(private val titleKey: String, private val summaryKey: String) {
++    NORMAL("normal", "rings_and_alerts_at_your"),
++    LOUD("loud", "rings_and_alerts_at_full"),
++    VIBRATE_ONLY("vibrate_only", "vibrates_for_calls_and_alerts"),
++    PHONE_CALLS_ONLY("phone_calls_only", "only_calls_ring_messages_and"),
++    ALL_ALERTS_OFF("all_alerts_off", "nothing_rings_or_vibrates_alarms");
++
++    val title: String get() = t(titleKey)
++    val summary: String get() = t(summaryKey)
+ 
+     companion object {
+         fun fromName(name: String?): SoundProfile? = entries.firstOrNull { it.name == name }
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/raw/sable_strings_keep.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/raw/sable_strings_keep.xml
+new file mode 100644
+index 0000000..4f4b368
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/raw/sable_strings_keep.xml
+@@ -0,0 +1,3 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableTexts looks strings up by name, which the resource shrinker cannot see: keep them all. -->
++<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@string/*" />
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/values/strings.xml
+index 7846bc2..98e3d82 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/res/values/strings.xml
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/values/strings.xml
+@@ -1 +1,37 @@
+-<resources><string name="app_name">Sound Profiles</string></resources>
++<?xml version="1.0" encoding="utf-8"?>
++<!-- English. Single capital letters in hints (C new, S find) name keyboard keys: keep them as the key, translate the word.
++     English. Keep equal to ProfilesText.EN (ProfilesTextTest checks); translations go in values-<lang>/. -->
++<resources>
++    <string name="app_name" translatable="false">Sound Profiles</string>
++    <string name="sound_profile">Sound profile</string>
++    <string name="allow_do_not_disturb_access">Allow Do Not Disturb access for Sound Profiles</string>
++    <string name="choose">Choose</string>
++    <string name="use">Use %1$s</string>
++    <string name="edit">Edit %1$s</string>
++    <string name="quick_settings_tile">Quick Settings Tile</string>
++    <string name="pull_down_the_shade_choose">Pull down the shade, choose Edit and drag the Sound profile tile in.</string>
++    <string name="close">Close</string>
++    <string name="sound_profiles">Sound Profiles</string>
++    <string name="enter_uses_a_profile_e">Enter uses a profile · E edits it · Menu for more</string>
++    <string name="quick_settings_pull_down_the">Quick Settings: pull down the shade, choose Edit and add the Sound profile tile.</string>
++    <string name="volume">Volume %1$s%%</string>
++    <string name="enter_adds_10_shift_enter">Enter adds 10% · Shift+Enter takes 10% off</string>
++    <string name="ringtone">Ringtone</string>
++    <string name="notification_tone">Notification tone</string>
++    <string name="vibrate_for_calls">Vibrate for calls</string>
++    <string name="space_turns_it_on_or">Space turns it on or off</string>
++    <string name="notification_light">Notification light</string>
++    <string name="is_on_allow_changing_system">%1$s is on. Allow changing system settings so it can set tones, vibration and the light, then choose it again.</string>
++    <string name="allow_do_not_disturb_access_2">Allow Do Not Disturb access for Sound Profiles, then choose %1$s again.</string>
++    <string name="phone_s_current_tone">Phone\'s current tone</string>
++    <string name="normal">Normal</string>
++    <string name="rings_and_alerts_at_your">Rings and alerts at your volume</string>
++    <string name="loud">Loud</string>
++    <string name="rings_and_alerts_at_full">Rings and alerts at full volume</string>
++    <string name="vibrate_only">Vibrate only</string>
++    <string name="vibrates_for_calls_and_alerts">Vibrates for calls and alerts, no sound</string>
++    <string name="phone_calls_only">Phone calls only</string>
++    <string name="only_calls_ring_messages_and">Only calls ring; messages and alerts are silent</string>
++    <string name="all_alerts_off">All alerts off</string>
++    <string name="nothing_rings_or_vibrates_alarms">Nothing rings or vibrates; alarms still sound</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/test/java/org/sableos/titan2/profiles/ProfilesTextTest.kt b/sable-src/apps/titan2/platform/profiles/src/test/java/org/sableos/titan2/profiles/ProfilesTextTest.kt
+new file mode 100644
+index 0000000..57a4810
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/profiles/src/test/java/org/sableos/titan2/profiles/ProfilesTextTest.kt
+@@ -0,0 +1,62 @@
++package org.sableos.titan2.profiles
++
++import java.io.File
++import javax.xml.parsers.DocumentBuilderFactory
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.sableos.titan2.profiles.core.ProfilesText
++
++/** The English lines in code and in `values/strings.xml` stay equal, and every translation fits them. */
++class ProfilesTextTest {
++    private val res = File("src/main/res")
++
++    private fun strings(file: File): Map<String, String> {
++        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
++        val nodes = doc.getElementsByTagName("string")
++        return (0 until nodes.length)
++            .map { nodes.item(it) }
++            .filter { it.attributes.getNamedItem("translatable")?.nodeValue != "false" }
++            .associate { node ->
++                val raw =
++                    node.textContent.let {
++                        if (it.length > 1 && it.startsWith('"') &&
++                            it.endsWith('"')
++                        ) {
++                            it.drop(1).dropLast(1)
++                        } else {
++                            it
++                        }
++                    }
++                node.attributes.getNamedItem("name").nodeValue to
++                    raw
++                        .replace("\\n", "\n")
++                        .replace("\\'", "'")
++                        .replace("\\\"", "\"")
++                        .replace("\\@", "@")
++                        .replace("\\\\", "\\")
++            }
++    }
++
++    private fun placeholders(s: String) = Regex("%\\d+\\$[sd]").findAll(s).map {
++        it.value
++    }.toSortedSet()
++
++    @Test
++    fun englishResourcesMatchTheCode() {
++        val english = strings(File(res, "values/strings.xml"))
++        ProfilesText.EN.forEach { (key, text) -> assertEquals(key, text, english[key]) }
++    }
++
++    @Test
++    fun translationsHaveEveryKeyAndTheSamePlaceholders() {
++        res.listFiles { f ->
++            f.name.startsWith("values-") && File(f, "strings.xml").isFile
++        }.orEmpty().forEach { dir ->
++            val tr = strings(File(dir, "strings.xml"))
++            assertEquals(dir.name, ProfilesText.EN.keys, tr.keys.intersect(ProfilesText.EN.keys))
++            ProfilesText.EN.forEach { (key, text) ->
++                assertEquals("${dir.name}/$key", placeholders(text), placeholders(tr.getValue(key)))
++            }
++        }
++    }
++}
 diff --git a/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SableTexts.kt b/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SableTexts.kt
 index 18ccc6f..9e2b612 100644
 --- a/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SableTexts.kt
@@ -14868,6 +15283,514 @@ index 0000000..717ed27
 +            val tr = strings(File(dir, "strings.xml"))
 +            assertEquals(dir.name, ToolsText.EN.keys, tr.keys.intersect(ToolsText.EN.keys))
 +            ToolsText.EN.forEach { (key, text) ->
++                assertEquals("${dir.name}/$key", placeholders(text), placeholders(tr.getValue(key)))
++            }
++        }
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/vault/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/vault/src/main/AndroidManifest.xml
+index 91f2e72..cd6394e 100644
+--- a/sable-src/apps/titan2/platform/vault/src/main/AndroidManifest.xml
++++ b/sable-src/apps/titan2/platform/vault/src/main/AndroidManifest.xml
+@@ -19,6 +19,7 @@
+     </queries>
+ 
+     <application
++        android:name="org.sableos.titan2.vault.VaultApplication"
+         android:allowBackup="false"
+         android:fullBackupContent="false"
+         android:dataExtractionRules="@xml/data_extraction_rules"
+diff --git a/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/VaultApplication.kt b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/VaultApplication.kt
+new file mode 100644
+index 0000000..9e7ceee
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/VaultApplication.kt
+@@ -0,0 +1,13 @@
++package org.sableos.titan2.vault
++
++import android.app.Application
++import org.sableos.titan2.theme.bindTo
++import org.sableos.titan2.vault.core.VaultLines
++
++/** Binds [VaultLines] to the app's string resources once per process, so the phone's language is used. */
++class VaultApplication : Application() {
++    override fun onCreate() {
++        super.onCreate()
++        VaultLines.t.bindTo(this)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultActivity.kt b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultActivity.kt
+index f03ae86..a1148b3 100644
+--- a/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultActivity.kt
++++ b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultActivity.kt
+@@ -25,6 +25,7 @@ import org.sableos.titan2.vault.core.Section
+ import org.sableos.titan2.vault.core.VaultAction
+ import org.sableos.titan2.vault.core.VaultItem
+ import org.sableos.titan2.vault.core.VaultKeys
++import org.sableos.titan2.vault.core.VaultLines.t
+ import org.sableos.titan2.vault.core.VaultText
+ 
+ /**
+@@ -197,7 +198,7 @@ class VaultActivity : Activity() {
+         pending = null
+         pendingItem = null
+         pendingOriginals = emptyList()
+-        message = "Cancelled. Nothing changed."
++        message = t("cancelled_nothing_changed")
+         render()
+     }
+ 
+@@ -213,13 +214,12 @@ class VaultActivity : Activity() {
+ 
+             Confirmation.Kind.Delete -> item?.let {
+                 val deleted = store.delete(section, it.name)
+-                message = if (deleted) "Deleted ${it.name}." else "Could not delete ${it.name}."
++                message = if (deleted) t("deleted", it.name) else t("could_not_delete", it.name)
+             }
+ 
+             Confirmation.Kind.DeleteOriginals -> {
+                 val removed = store.deleteOriginals(pendingOriginals)
+-                message = "Deleted $removed of ${pendingOriginals.size} original(s). " +
+-                    "Any not deleted are still where they were."
++                message = t("deleted_of_original_s_any", removed, pendingOriginals.size)
+                 pendingOriginals = emptyList()
+             }
+         }
+@@ -256,10 +256,10 @@ class VaultActivity : Activity() {
+             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+         }
+         try {
+-            startActivity(Intent.createChooser(view, "Open ${item.name} with"))
+-            message = "Opened ${item.name} (read-only, this file only)."
++            startActivity(Intent.createChooser(view, t("open_with", item.name)))
++            message = t("opened_read_only_this_file", item.name)
+         } catch (_: ActivityNotFoundException) {
+-            message = "No app in Private Space can open ${item.name}."
++            message = t("no_app_in_private_space", item.name)
+         }
+     }
+ 
+@@ -267,7 +267,7 @@ class VaultActivity : Activity() {
+         try {
+             startActivityForResult(intent, request)
+         } catch (_: ActivityNotFoundException) {
+-            message = "The system file picker is not available."
++            message = t("the_system_file_picker_is")
+             render()
+         }
+     }
+@@ -275,7 +275,7 @@ class VaultActivity : Activity() {
+     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+         super.onActivityResult(requestCode, resultCode, data)
+         if (resultCode != RESULT_OK || data == null) {
+-            message = "Cancelled. Nothing changed."
++            message = t("cancelled_nothing_changed")
+             exporting = null
+             return
+         }
+@@ -307,9 +307,9 @@ class VaultActivity : Activity() {
+         val item = exporting ?: return
+         exporting = null
+         message = if (target != null && store.export(section, item.name, target)) {
+-            "Exported a copy of ${item.name}. It is no longer protected by the vault."
++            t("exported_a_copy_of_it", item.name)
+         } else {
+-            "Export failed. Nothing was written."
++            t("export_failed_nothing_was_written")
+         }
+     }
+ 
+@@ -358,7 +358,9 @@ class VaultActivity : Activity() {
+     }
+ 
+     private fun isCaution(msg: String): Boolean =
+-        listOf("Could", "failed", "Cancelled", "No app", "not available").any { msg.contains(it) }
++        listOf(t("could"), "failed", t("cancelled"), t("no_app"), t("not_available")).any {
++            msg.contains(it)
++        }
+ 
+     private fun tabs(): View = LinearLayout(this).apply {
+         orientation = LinearLayout.HORIZONTAL
+@@ -412,8 +414,8 @@ class VaultActivity : Activity() {
+         addView(text(c.detail, SMALL_SP, palette.muted))
+         addView(
+             LinearLayout(this@VaultActivity).apply {
+-                addView(button("Yes") { confirm() })
+-                addView(button("No") { cancel() })
++                addView(button(t("yes")) { confirm() })
++                addView(button(t("no")) { cancel() })
+             }
+         )
+     }
+@@ -421,9 +423,9 @@ class VaultActivity : Activity() {
+     private fun buttons(): View = LinearLayout(this).apply {
+         orientation = LinearLayout.HORIZONTAL
+         setPadding(0, px(GAP), 0, 0)
+-        addView(button("Import") { perform(VaultAction.Import) })
+-        addView(button("Export") { perform(VaultAction.Export) })
+-        addView(button("Lock now") { perform(VaultAction.Lock) })
++        addView(button(t("import_label")) { perform(VaultAction.Import) })
++        addView(button(t("export")) { perform(VaultAction.Export) })
++        addView(button(t("lock_now")) { perform(VaultAction.Lock) })
+     }
+ 
+     private fun button(label: String, onClick: () -> Unit): Button = Button(this).apply {
+diff --git a/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultStore.kt b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultStore.kt
+index 964844e..0c9a733 100644
+--- a/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultStore.kt
++++ b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultStore.kt
+@@ -10,6 +10,7 @@ import org.sableos.titan2.vault.core.FileNames
+ import org.sableos.titan2.vault.core.ImportOutcome
+ import org.sableos.titan2.vault.core.Section
+ import org.sableos.titan2.vault.core.VaultItem
++import org.sableos.titan2.vault.core.VaultLines.t
+ 
+ /**
+  * Files live in this app's credential-encrypted storage (Context.filesDir) of the private profile, one folder per
+@@ -46,12 +47,13 @@ class VaultStore(private val context: Context) {
+                 imported += name
+             } catch (e: IOException) {
+                 failed +=
+-                    (display ?: name) + " (" + (e.message ?: "read error") + discard(target) + ")"
++                    (display ?: name) + " (" + (e.message ?: t("read_error")) + discard(target) +
++                    ")"
+             } catch (e: IllegalStateException) {
+                 failed +=
+                     (display ?: name) + " (" + (e.message ?: "unreadable") + discard(target) + ")"
+             } catch (_: SecurityException) {
+-                failed += (display ?: name) + " (no access" + discard(target) + ")"
++                failed += (display ?: name) + t("no_access") + discard(target) + ")"
+             }
+         }
+         return ImportOutcome(imported, failed)
+@@ -59,7 +61,7 @@ class VaultStore(private val context: Context) {
+ 
+     /** Removes a half-copied file; says so when it could not, so the user can delete it. */
+     private fun discard(target: File): String =
+-        if (target.delete() || !target.exists()) "" else "; partial copy left"
++        if (target.delete() || !target.exists()) "" else t("partial_copy_left")
+ 
+     private fun copyIn(uri: Uri, target: File) {
+         val input = checkNotNull(context.contentResolver.openInputStream(uri)) { "no stream" }
+diff --git a/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/core/VaultLines.kt b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/core/VaultLines.kt
+new file mode 100644
+index 0000000..701228a
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/core/VaultLines.kt
+@@ -0,0 +1,74 @@
++package org.sableos.titan2.vault.core
++
++import org.sableos.titan2.theme.SableTexts
++
++/**
++ * Every line Secure Vault shows, in English, by string resource name. res/values/strings.xml
++ * repeats them (VaultLinesTest keeps the two equal) and res/values-<lang>/strings.xml translates
++ * them.
++ */
++object VaultLines {
++    val EN: Map<String, String> =
++        mapOf(
++            "read_error" to "read error",
++            "no_access" to " (no access",
++            "partial_copy_left" to "; partial copy left",
++            "cancelled_nothing_changed" to "Cancelled. Nothing changed.",
++            "deleted" to "Deleted %1\$s.",
++            "could_not_delete" to "Could not delete %1\$s.",
++            "deleted_of_original_s_any" to
++                "Deleted %1\$s of %2\$s original(s). Any not deleted are still where they were.",
++            "open_with" to "Open %1\$s with",
++            "opened_read_only_this_file" to "Opened %1\$s (read-only, this file only).",
++            "no_app_in_private_space" to "No app in Private Space can open %1\$s.",
++            "the_system_file_picker_is" to "The system file picker is not available.",
++            "exported_a_copy_of_it" to
++                "Exported a copy of %1\$s. It is no longer protected by the vault.",
++            "export_failed_nothing_was_written" to "Export failed. Nothing was written.",
++            "could" to "Could",
++            "cancelled" to "Cancelled",
++            "no_app" to "No app",
++            "not_available" to "not available",
++            "yes" to "Yes",
++            "no" to "No",
++            "import_label" to "Import",
++            "export" to "Export",
++            "lock_now" to "Lock now",
++            "photos" to "Photos",
++            "documents" to "Documents",
++            "recordings" to "Recordings",
++            "file_or_p_d_r" to
++                "↑↓ file · ←→ or P D R section · Enter open · I import · E export · X delete · L " +
++                "lock now",
++            "open" to "Open %1\$s?",
++            "the_app_you_pick_inside" to
++                "The app you pick (inside Private Space) can read this one file until it closes " +
++                "it. Enter or Y opens · Back or N cancels.",
++            "export_2" to "Export %1\$s?",
++            "a_copy_is_written_where" to
++                "A copy is written where you choose next and is no longer protected by the " +
++                "vault. The vault copy stays. Enter or Y continues · Back or N cancels.",
++            "delete_from_the_vault" to "Delete %1\$s from the vault?",
++            "it_cannot_be_recovered_enter" to
++                "It cannot be recovered. Enter or Y deletes · Back or N cancels.",
++            "imported_file_s_as_copies" to
++                "Imported %1\$s file(s) as copies. Delete the originals?",
++            "the_originals_are_still_where" to
++                "The originals are still where they were. Enter or Y deletes them · Back or N " +
++                "keeps them.",
++            "imported_file_s_as_copies_2" to "Imported %1\$s file(s) as copies.",
++            "could_not_import" to " Could not import: ",
++            "secure_vault" to "Secure Vault",
++            "private_space_photos_documents_recordings" to
++                "Private Space · Photos · Documents · Recordings · import/export explicit",
++            "secure_vault_works_only_inside" to
++                "Secure Vault works only inside Private Space. Unlock Private Space in Sable " +
++                "Start (All apps) and open Secure Vault there. Nothing is stored outside it.",
++            "nothing_here_yet_press_i" to "Nothing here yet. Press I to import a copy of a file.",
++            "could_not_lock_private_space" to
++                "Could not lock Private Space from here; lock it from Sable Start. The vault " +
++                "closed."
++        )
++
++    val t = SableTexts(EN)
++}
+diff --git a/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/core/VaultModel.kt b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/core/VaultModel.kt
+index fada210..de7ac34 100644
+--- a/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/core/VaultModel.kt
++++ b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/core/VaultModel.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.titan2.vault.core
+ 
++import org.sableos.titan2.vault.core.VaultLines.t
++
+ /**
+  * Secure Vault (PRIVATE_SPACE_DUAL_APPS_WORK_PROFILE_UX, "Secure Vault"; artifact
+  * sable-private-space-dual-work-titan2.svg panel 1). Pure Kotlin: no Android imports.
+@@ -8,10 +10,17 @@ package org.sableos.titan2.vault.core
+  * files in its own credential-encrypted storage there, so the files lock when Private Space locks.
+  * Import copies in; Export and Open each need an explicit confirmation; nothing leaves silently.
+  */
+-enum class Section(val id: String, val title: String, val key: Char, val mimeTypes: List<String>) {
+-    Photos("photos", "Photos", 'p', listOf("image/*", "video/*")),
+-    Docs("docs", "Documents", 'd', listOf("*/*")),
+-    Recordings("recordings", "Recordings", 'r', listOf("audio/*"));
++enum class Section(
++    val id: String,
++    private val titleKey: String,
++    val key: Char,
++    val mimeTypes: List<String>
++) {
++    Photos("photos", "photos", 'p', listOf("image/*", "video/*")),
++    Docs("docs", "documents", 'd', listOf("*/*")),
++    Recordings("recordings", "recordings", 'r', listOf("audio/*"));
++
++    val title: String get() = t(titleKey)
+ 
+     fun next(dir: Int): Section = entries[(ordinal + dir + entries.size) % entries.size]
+ 
+@@ -147,8 +156,7 @@ object VaultKeys {
+         data class Letter(val c: Char) : Key
+     }
+ 
+-    const val HINT =
+-        "↑↓ file · ←→ or P D R section · Enter open · I import · E export · X delete · L lock now"
++    val HINT: String get() = t("file_or_p_d_r")
+ }
+ 
+ /** A question the user must answer before anything leaves the vault or is removed. */
+@@ -158,28 +166,26 @@ data class Confirmation(val kind: Kind, val title: String, val detail: String) {
+     companion object {
+         fun open(item: VaultItem) = Confirmation(
+             Kind.Open,
+-            "Open ${item.name}?",
+-            "The app you pick (inside Private Space) can read this one file until it closes it. " +
+-                "Enter or Y opens · Back or N cancels."
++            t("open", item.name),
++            t("the_app_you_pick_inside")
+         )
+ 
+         fun export(item: VaultItem) = Confirmation(
+             Kind.Export,
+-            "Export ${item.name}?",
+-            "A copy is written where you choose next and is no longer protected by the vault. " +
+-                "The vault copy stays. Enter or Y continues · Back or N cancels."
++            t("export_2", item.name),
++            t("a_copy_is_written_where")
+         )
+ 
+         fun delete(item: VaultItem) = Confirmation(
+             Kind.Delete,
+-            "Delete ${item.name} from the vault?",
+-            "It cannot be recovered. Enter or Y deletes · Back or N cancels."
++            t("delete_from_the_vault", item.name),
++            t("it_cannot_be_recovered_enter")
+         )
+ 
+         fun deleteOriginals(count: Int) = Confirmation(
+             Kind.DeleteOriginals,
+-            "Imported $count file(s) as copies. Delete the originals?",
+-            "The originals are still where they were. Enter or Y deletes them · Back or N keeps them."
++            t("imported_file_s_as_copies", count),
++            t("the_originals_are_still_where")
+         )
+     }
+ }
+@@ -187,25 +193,21 @@ data class Confirmation(val kind: Kind, val title: String, val detail: String) {
+ /** Import results: copies are never reported as moves. */
+ data class ImportOutcome(val imported: List<String>, val failed: List<String>) {
+     fun message(): String = buildString {
+-        append("Imported ${imported.size} file(s) as copies.")
++        append(t("imported_file_s_as_copies_2", imported.size))
+         if (failed.isNotEmpty()) {
+             append(
+-                " Could not import: "
++                t("could_not_import")
+             ).append(failed.joinToString(", ")).append('.')
+         }
+     }
+ }
+ 
+ object VaultText {
+-    const val TITLE = "Secure Vault"
+-    const val SUBTITLE = "Private Space · Photos · Documents · Recordings · import/export explicit"
+-    const val NOT_PRIVATE =
+-        "Secure Vault works only inside Private Space. " +
+-            "Unlock Private Space in Sable Start (All apps) " +
+-            "and open Secure Vault there. Nothing is stored outside it."
+-    const val EMPTY = "Nothing here yet. Press I to import a copy of a file."
+-    const val LOCK_FALLBACK =
+-        "Could not lock Private Space from here; lock it from Sable Start. The vault closed."
++    val TITLE: String get() = t("secure_vault")
++    val SUBTITLE: String get() = t("private_space_photos_documents_recordings")
++    val NOT_PRIVATE: String get() = t("secure_vault_works_only_inside")
++    val EMPTY: String get() = t("nothing_here_yet_press_i")
++    val LOCK_FALLBACK: String get() = t("could_not_lock_private_space")
+ 
+     fun size(bytes: Long): String = when {
+         bytes < KIB -> "$bytes B"
+diff --git a/sable-src/apps/titan2/platform/vault/src/main/res/raw/sable_strings_keep.xml b/sable-src/apps/titan2/platform/vault/src/main/res/raw/sable_strings_keep.xml
+new file mode 100644
+index 0000000..4f4b368
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/vault/src/main/res/raw/sable_strings_keep.xml
+@@ -0,0 +1,3 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableTexts looks strings up by name, which the resource shrinker cannot see: keep them all. -->
++<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@string/*" />
+diff --git a/sable-src/apps/titan2/platform/vault/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/vault/src/main/res/values/strings.xml
+index 63ec2f2..08083ad 100644
+--- a/sable-src/apps/titan2/platform/vault/src/main/res/values/strings.xml
++++ b/sable-src/apps/titan2/platform/vault/src/main/res/values/strings.xml
+@@ -1 +1,47 @@
+-<resources><string name="app_name">Secure Vault</string></resources>
++<?xml version="1.0" encoding="utf-8"?>
++<!-- English. Single capital letters in hints (C new, S find) name keyboard keys: keep them as the key, translate the word.
++     English. Keep equal to VaultLines.EN (VaultLinesTest checks); translations go in values-<lang>/. -->
++<resources>
++    <string name="app_name" translatable="false">Secure Vault</string>
++    <string name="read_error">read error</string>
++    <string name="no_access">" (no access"</string>
++    <string name="partial_copy_left">; partial copy left</string>
++    <string name="cancelled_nothing_changed">Cancelled. Nothing changed.</string>
++    <string name="deleted">Deleted %1$s.</string>
++    <string name="could_not_delete">Could not delete %1$s.</string>
++    <string name="deleted_of_original_s_any">Deleted %1$s of %2$s original(s). Any not deleted are still where they were.</string>
++    <string name="open_with">Open %1$s with</string>
++    <string name="opened_read_only_this_file">Opened %1$s (read-only, this file only).</string>
++    <string name="no_app_in_private_space">No app in Private Space can open %1$s.</string>
++    <string name="the_system_file_picker_is">The system file picker is not available.</string>
++    <string name="exported_a_copy_of_it">Exported a copy of %1$s. It is no longer protected by the vault.</string>
++    <string name="export_failed_nothing_was_written">Export failed. Nothing was written.</string>
++    <string name="could">Could</string>
++    <string name="cancelled">Cancelled</string>
++    <string name="no_app">No app</string>
++    <string name="not_available">not available</string>
++    <string name="yes">Yes</string>
++    <string name="no">No</string>
++    <string name="import_label">Import</string>
++    <string name="export">Export</string>
++    <string name="lock_now">Lock now</string>
++    <string name="photos">Photos</string>
++    <string name="documents">Documents</string>
++    <string name="recordings">Recordings</string>
++    <string name="file_or_p_d_r">↑↓ file · ←→ or P D R section · Enter open · I import · E export · X delete · L lock now</string>
++    <string name="open">Open %1$s?</string>
++    <string name="the_app_you_pick_inside">The app you pick (inside Private Space) can read this one file until it closes it. Enter or Y opens · Back or N cancels.</string>
++    <string name="export_2">Export %1$s?</string>
++    <string name="a_copy_is_written_where">A copy is written where you choose next and is no longer protected by the vault. The vault copy stays. Enter or Y continues · Back or N cancels.</string>
++    <string name="delete_from_the_vault">Delete %1$s from the vault?</string>
++    <string name="it_cannot_be_recovered_enter">It cannot be recovered. Enter or Y deletes · Back or N cancels.</string>
++    <string name="imported_file_s_as_copies">Imported %1$s file(s) as copies. Delete the originals?</string>
++    <string name="the_originals_are_still_where">The originals are still where they were. Enter or Y deletes them · Back or N keeps them.</string>
++    <string name="imported_file_s_as_copies_2">Imported %1$s file(s) as copies.</string>
++    <string name="could_not_import">" Could not import: "</string>
++    <string name="secure_vault">Secure Vault</string>
++    <string name="private_space_photos_documents_recordings">Private Space · Photos · Documents · Recordings · import/export explicit</string>
++    <string name="secure_vault_works_only_inside">Secure Vault works only inside Private Space. Unlock Private Space in Sable Start (All apps) and open Secure Vault there. Nothing is stored outside it.</string>
++    <string name="nothing_here_yet_press_i">Nothing here yet. Press I to import a copy of a file.</string>
++    <string name="could_not_lock_private_space">Could not lock Private Space from here; lock it from Sable Start. The vault closed.</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/vault/src/test/java/org/sableos/titan2/vault/VaultLinesTest.kt b/sable-src/apps/titan2/platform/vault/src/test/java/org/sableos/titan2/vault/VaultLinesTest.kt
+new file mode 100644
+index 0000000..ea31629
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/vault/src/test/java/org/sableos/titan2/vault/VaultLinesTest.kt
+@@ -0,0 +1,62 @@
++package org.sableos.titan2.vault
++
++import java.io.File
++import javax.xml.parsers.DocumentBuilderFactory
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.sableos.titan2.vault.core.VaultLines
++
++/** The English lines in code and in `values/strings.xml` stay equal, and every translation fits them. */
++class VaultLinesTest {
++    private val res = File("src/main/res")
++
++    private fun strings(file: File): Map<String, String> {
++        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
++        val nodes = doc.getElementsByTagName("string")
++        return (0 until nodes.length)
++            .map { nodes.item(it) }
++            .filter { it.attributes.getNamedItem("translatable")?.nodeValue != "false" }
++            .associate { node ->
++                val raw =
++                    node.textContent.let {
++                        if (it.length > 1 && it.startsWith('"') &&
++                            it.endsWith('"')
++                        ) {
++                            it.drop(1).dropLast(1)
++                        } else {
++                            it
++                        }
++                    }
++                node.attributes.getNamedItem("name").nodeValue to
++                    raw
++                        .replace("\\n", "\n")
++                        .replace("\\'", "'")
++                        .replace("\\\"", "\"")
++                        .replace("\\@", "@")
++                        .replace("\\\\", "\\")
++            }
++    }
++
++    private fun placeholders(s: String) = Regex("%\\d+\\$[sd]").findAll(s).map {
++        it.value
++    }.toSortedSet()
++
++    @Test
++    fun englishResourcesMatchTheCode() {
++        val english = strings(File(res, "values/strings.xml"))
++        VaultLines.EN.forEach { (key, text) -> assertEquals(key, text, english[key]) }
++    }
++
++    @Test
++    fun translationsHaveEveryKeyAndTheSamePlaceholders() {
++        res.listFiles { f ->
++            f.name.startsWith("values-") && File(f, "strings.xml").isFile
++        }.orEmpty().forEach { dir ->
++            val tr = strings(File(dir, "strings.xml"))
++            assertEquals(dir.name, VaultLines.EN.keys, tr.keys.intersect(VaultLines.EN.keys))
++            VaultLines.EN.forEach { (key, text) ->
 +                assertEquals("${dir.name}/$key", placeholders(text), placeholders(tr.getValue(key)))
 +            }
 +        }

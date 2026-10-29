@@ -25,6 +25,7 @@ import org.sableos.titan2.vault.core.Section
 import org.sableos.titan2.vault.core.VaultAction
 import org.sableos.titan2.vault.core.VaultItem
 import org.sableos.titan2.vault.core.VaultKeys
+import org.sableos.titan2.vault.core.VaultLines.t
 import org.sableos.titan2.vault.core.VaultText
 
 /**
@@ -197,7 +198,7 @@ class VaultActivity : Activity() {
         pending = null
         pendingItem = null
         pendingOriginals = emptyList()
-        message = "Cancelled. Nothing changed."
+        message = t("cancelled_nothing_changed")
         render()
     }
 
@@ -213,13 +214,12 @@ class VaultActivity : Activity() {
 
             Confirmation.Kind.Delete -> item?.let {
                 val deleted = store.delete(section, it.name)
-                message = if (deleted) "Deleted ${it.name}." else "Could not delete ${it.name}."
+                message = if (deleted) t("deleted", it.name) else t("could_not_delete", it.name)
             }
 
             Confirmation.Kind.DeleteOriginals -> {
                 val removed = store.deleteOriginals(pendingOriginals)
-                message = "Deleted $removed of ${pendingOriginals.size} original(s). " +
-                    "Any not deleted are still where they were."
+                message = t("deleted_of_original_s_any", removed, pendingOriginals.size)
                 pendingOriginals = emptyList()
             }
         }
@@ -256,10 +256,10 @@ class VaultActivity : Activity() {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         try {
-            startActivity(Intent.createChooser(view, "Open ${item.name} with"))
-            message = "Opened ${item.name} (read-only, this file only)."
+            startActivity(Intent.createChooser(view, t("open_with", item.name)))
+            message = t("opened_read_only_this_file", item.name)
         } catch (_: ActivityNotFoundException) {
-            message = "No app in Private Space can open ${item.name}."
+            message = t("no_app_in_private_space", item.name)
         }
     }
 
@@ -267,7 +267,7 @@ class VaultActivity : Activity() {
         try {
             startActivityForResult(intent, request)
         } catch (_: ActivityNotFoundException) {
-            message = "The system file picker is not available."
+            message = t("the_system_file_picker_is")
             render()
         }
     }
@@ -275,7 +275,7 @@ class VaultActivity : Activity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode != RESULT_OK || data == null) {
-            message = "Cancelled. Nothing changed."
+            message = t("cancelled_nothing_changed")
             exporting = null
             return
         }
@@ -307,9 +307,9 @@ class VaultActivity : Activity() {
         val item = exporting ?: return
         exporting = null
         message = if (target != null && store.export(section, item.name, target)) {
-            "Exported a copy of ${item.name}. It is no longer protected by the vault."
+            t("exported_a_copy_of_it", item.name)
         } else {
-            "Export failed. Nothing was written."
+            t("export_failed_nothing_was_written")
         }
     }
 
@@ -358,7 +358,9 @@ class VaultActivity : Activity() {
     }
 
     private fun isCaution(msg: String): Boolean =
-        listOf("Could", "failed", "Cancelled", "No app", "not available").any { msg.contains(it) }
+        listOf(t("could"), "failed", t("cancelled"), t("no_app"), t("not_available")).any {
+            msg.contains(it)
+        }
 
     private fun tabs(): View = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
@@ -412,8 +414,8 @@ class VaultActivity : Activity() {
         addView(text(c.detail, SMALL_SP, palette.muted))
         addView(
             LinearLayout(this@VaultActivity).apply {
-                addView(button("Yes") { confirm() })
-                addView(button("No") { cancel() })
+                addView(button(t("yes")) { confirm() })
+                addView(button(t("no")) { cancel() })
             }
         )
     }
@@ -421,9 +423,9 @@ class VaultActivity : Activity() {
     private fun buttons(): View = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         setPadding(0, px(GAP), 0, 0)
-        addView(button("Import") { perform(VaultAction.Import) })
-        addView(button("Export") { perform(VaultAction.Export) })
-        addView(button("Lock now") { perform(VaultAction.Lock) })
+        addView(button(t("import_label")) { perform(VaultAction.Import) })
+        addView(button(t("export")) { perform(VaultAction.Export) })
+        addView(button(t("lock_now")) { perform(VaultAction.Lock) })
     }
 
     private fun button(label: String, onClick: () -> Unit): Button = Button(this).apply {

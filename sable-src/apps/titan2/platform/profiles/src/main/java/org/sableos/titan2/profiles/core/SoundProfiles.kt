@@ -1,16 +1,21 @@
 package org.sableos.titan2.profiles.core
 
+import org.sableos.titan2.profiles.core.ProfilesText.t
+
 /**
  * BlackBerry sound profiles. Picking one sets the ringer, Do Not Disturb, the ring and notification
  * volumes, vibration, the notification light and, when the profile has them, its own ringtone and
  * notification tone. Pure: [plan] says what to set and the Android side sets it.
  */
-enum class SoundProfile(val title: String, val summary: String) {
-    NORMAL("Normal", "Rings and alerts at your volume"),
-    LOUD("Loud", "Rings and alerts at full volume"),
-    VIBRATE_ONLY("Vibrate only", "Vibrates for calls and alerts, no sound"),
-    PHONE_CALLS_ONLY("Phone calls only", "Only calls ring; messages and alerts are silent"),
-    ALL_ALERTS_OFF("All alerts off", "Nothing rings or vibrates; alarms still sound");
+enum class SoundProfile(private val titleKey: String, private val summaryKey: String) {
+    NORMAL("normal", "rings_and_alerts_at_your"),
+    LOUD("loud", "rings_and_alerts_at_full"),
+    VIBRATE_ONLY("vibrate_only", "vibrates_for_calls_and_alerts"),
+    PHONE_CALLS_ONLY("phone_calls_only", "only_calls_ring_messages_and"),
+    ALL_ALERTS_OFF("all_alerts_off", "nothing_rings_or_vibrates_alarms");
+
+    val title: String get() = t(titleKey)
+    val summary: String get() = t(summaryKey)
 
     companion object {
         fun fromName(name: String?): SoundProfile? = entries.firstOrNull { it.name == name }
