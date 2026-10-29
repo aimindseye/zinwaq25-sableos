@@ -5,6 +5,7 @@
     </queries>
 
     <application
+        android:name="org.sableos.games.GamesApplication"
         android:allowBackup="false"
         android:usesCleartextTraffic="false"
         android:icon="@mipmap/ic_sable_game"

@@ -1471,6 +1471,740 @@ index 0000000..5e67e1a
 +    <string name="convert_length_mass_temperature_and_volume">Length, mass, temperature and volume conversions are local and offline.</string>
 +    <string name="convert_native_bridge_failure">Native bridge failure</string>
 +</resources>
+diff --git a/sable-src/apps/r8/android/games/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/games/src/main/AndroidManifest.xml
+index 39050ba..af2fc98 100644
+--- a/sable-src/apps/r8/android/games/src/main/AndroidManifest.xml
++++ b/sable-src/apps/r8/android/games/src/main/AndroidManifest.xml
+@@ -5,6 +5,7 @@
+     </queries>
+ 
+     <application
++        android:name="org.sableos.games.GamesApplication"
+         android:allowBackup="false"
+         android:usesCleartextTraffic="false"
+         android:icon="@mipmap/ic_sable_game"
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/ArcadeScreens.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/ArcadeScreens.kt
+index 872f105..03ca6df 100644
+--- a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/ArcadeScreens.kt
++++ b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/ArcadeScreens.kt
+@@ -25,6 +25,7 @@ import androidx.compose.ui.input.pointer.pointerInput
+ import androidx.compose.ui.unit.Dp
+ import androidx.compose.ui.unit.dp
+ import kotlinx.coroutines.delay
++import org.sableos.games.GamesText.t
+ import kotlin.math.abs
+ import kotlin.random.Random
+ 
+@@ -70,8 +71,8 @@ private fun runStatus(
+     playing: String,
+ ): String =
+     when {
+-        over -> "Game over · Space plays again"
+-        paused -> "Paused · P resumes"
++        over -> t("game_over_space_plays_again")
++        paused -> t("paused_p_resumes")
+         else -> playing
+     }
+ 
+@@ -107,18 +108,18 @@ internal fun SnakeScreen() {
+     }
+ 
+     GameFrame(
+-        title = "Snake",
+-        subtitle = "Eat, grow and keep clear of the walls and your tail.",
+-        statusLabel = "score · best $best",
++        title = t("snake"),
++        subtitle = t("eat_grow_and_keep_clear"),
++        statusLabel = t("score_best", best),
+         status = runStatus(!game.alive, paused, game.score.toString()),
+-        hint = "Arrows or the trackpad turn, swipes too; P pauses, N starts over.",
++        hint = t("arrows_or_the_trackpad_turn"),
+         actions =
+             listOf(
+-                GameAction(label = if (paused) "Resume" else "Pause", key = "P", active = paused) {
++                GameAction(label = if (paused) t("resume") else t("pause"), key = "P", active = paused) {
+                     paused =
+                         !paused && game.alive
+                 },
+-                GameAction(label = "New", key = "N", onClick = ::reset),
++                GameAction(label = t("new_label"), key = "N", onClick = ::reset),
+             ),
+     ) { side ->
+         val colors = MaterialTheme.colorScheme
+@@ -217,18 +218,18 @@ internal fun BlocksScreen() {
+     }
+ 
+     GameFrame(
+-        title = "Blocks",
+-        subtitle = "Fit the falling pieces into full rows.",
+-        statusLabel = "score · level ${game.level}",
+-        status = runStatus(game.over, paused, "${game.score} · ${game.lines} rows"),
+-        hint = "Left/Right move, Up turns, Down drops a row, Space drops it; tap turns, swipes move. P pauses.",
++        title = t("blocks"),
++        subtitle = t("fit_the_falling_pieces_into"),
++        statusLabel = t("score_level", game.level),
++        status = runStatus(game.over, paused, t("rows", game.score, game.lines)),
++        hint = t("left_right_move_up_turns"),
+         actions =
+             listOf(
+-                GameAction(label = if (paused) "Resume" else "Pause", key = "P", active = paused) {
++                GameAction(label = if (paused) t("resume") else t("pause"), key = "P", active = paused) {
+                     paused =
+                         !paused && !game.over
+                 },
+-                GameAction(label = "New", key = "N", onClick = ::reset),
++                GameAction(label = t("new_label"), key = "N", onClick = ::reset),
+             ),
+     ) { side ->
+         val colors = MaterialTheme.colorScheme
+@@ -349,24 +350,24 @@ internal fun BricksScreen() {
+     }
+ 
+     GameFrame(
+-        title = "Bricks",
+-        subtitle = "Keep the ball in play and break every brick.",
+-        statusLabel = "score · lives ${game.lives} · level ${game.level}",
++        title = t("bricks"),
++        subtitle = t("keep_the_ball_in_play"),
++        statusLabel = t("score_lives_level", game.lives, game.level),
+         status =
+             when {
+-                game.over -> "Game over · Space plays again"
+-                paused -> "Paused · P resumes"
+-                !game.launched -> "${game.score} · Space launches"
++                game.over -> t("game_over_space_plays_again")
++                paused -> t("paused_p_resumes")
++                !game.launched -> t("space_launches", game.score)
+                 else -> game.score.toString()
+             },
+-        hint = "Left/Right or the trackpad move the paddle, or drag it; Space or a tap launches. P pauses.",
++        hint = t("left_right_or_the_trackpad"),
+         actions =
+             listOf(
+-                GameAction(label = if (paused) "Resume" else "Pause", key = "P", active = paused) {
++                GameAction(label = if (paused) t("resume") else t("pause"), key = "P", active = paused) {
+                     paused =
+                         !paused && game.launched
+                 },
+-                GameAction(label = "New", key = "N", onClick = ::reset),
++                GameAction(label = t("new_label"), key = "N", onClick = ::reset),
+             ),
+     ) { side ->
+         val colors = MaterialTheme.colorScheme
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/BoardScreens.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/BoardScreens.kt
+index 74b3a34..147c46b 100644
+--- a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/BoardScreens.kt
++++ b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/BoardScreens.kt
+@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.Dp
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+ import kotlinx.coroutines.delay
++import org.sableos.games.GamesText.t
+ import kotlin.random.Random
+ 
+ private val CardRed = Color(0xFFD32F45)
+@@ -115,19 +116,19 @@ internal fun ReversiScreen() {
+     val dark = game.count(ReversiGame.DARK)
+     val light = game.count(ReversiGame.LIGHT)
+     GameFrame(
+-        title = "Reversi",
+-        subtitle = "Outflank the phone's discs to turn them yours.",
+-        statusLabel = "you $dark · phone $light",
++        title = t("reversi"),
++        subtitle = t("outflank_the_phone_s_discs"),
++        statusLabel = t("you_phone", dark, light),
+         status =
+             when {
+-                game.over && dark > light -> "You win"
+-                game.over && dark < light -> "The phone wins"
+-                game.over -> "A draw"
+-                game.turn == ReversiGame.DARK -> "Your move"
+-                else -> "The phone is thinking"
++                game.over && dark > light -> t("you_win")
++                game.over && dark < light -> t("the_phone_wins")
++                game.over -> t("a_draw")
++                game.turn == ReversiGame.DARK -> t("your_move")
++                else -> t("the_phone_is_thinking")
+             },
+-        hint = "Arrows move, Enter or Space places a disc; dots show where you can play. N starts over.",
+-        actions = listOf(GameAction(label = "New", key = "N") { game = ReversiGame() }),
++        hint = t("arrows_move_enter_or_space"),
++        actions = listOf(GameAction(label = t("new_label"), key = "N") { game = ReversiGame() }),
+     ) { side ->
+         val legal = if (game.turn == ReversiGame.DARK) game.legalMoves(ReversiGame.DARK).toSet() else emptySet()
+         val colors = MaterialTheme.colorScheme
+@@ -250,7 +251,7 @@ internal fun SolitaireScreen() {
+ 
+             else -> {
+                 val moved = game.move(from, pile)
+-                if (moved != null) game = moved else note = "Can't go there"
++                if (moved != null) game = moved else note = t("can_t_go_there")
+                 picked = null
+             }
+         }
+@@ -294,21 +295,21 @@ internal fun SolitaireScreen() {
+     }
+ 
+     GameFrame(
+-        title = "Solitaire",
+-        subtitle = "Build each suit from ace to king.",
++        title = t("solitaire"),
++        subtitle = t("build_each_suit_from_ace"),
+         statusLabel = "moves",
+         status =
+             when {
+-                game.won -> "You won in ${game.moves} moves"
++                game.won -> t("you_won_in_moves", game.moves)
+                 note.isNotEmpty() -> note
+-                picked != null -> "${game.moves} · pick where it goes"
++                picked != null -> t("pick_where_it_goes", game.moves)
+                 else -> game.moves.toString()
+             },
+-        hint = "Arrows move, Enter picks up and puts down, Space turns a card, A sends it home, Del drops it. N deals again.",
++        hint = t("arrows_move_enter_picks_up"),
+         actions =
+             listOf(
+-                GameAction(label = "Turn", key = "Space") { choose(SolitaireGame.STOCK) },
+-                GameAction(label = "New", key = "N", onClick = ::reset),
++                GameAction(label = t("turn"), key = "Space") { choose(SolitaireGame.STOCK) },
++                GameAction(label = t("new_label"), key = "N", onClick = ::reset),
+             ),
+     ) { side ->
+         val colors = MaterialTheme.colorScheme
+@@ -379,7 +380,7 @@ internal fun SolitaireScreen() {
+             }
+             if (game.won) {
+                 Text(
+-                    "Well done",
++                    t("well_done"),
+                     Modifier.align(Alignment.Center),
+                     color = colors.primary,
+                     fontWeight = FontWeight.Bold,
+@@ -529,20 +530,20 @@ internal fun MahjongScreen() {
+ 
+     val stuck = !game.won && game.hint() == null
+     GameFrame(
+-        title = "Mahjong",
+-        subtitle = "Clear the pile two matching free tiles at a time.",
+-        statusLabel = "tiles left",
++        title = t("mahjong"),
++        subtitle = t("clear_the_pile_two_matching"),
++        statusLabel = t("tiles_left"),
+         status =
+             when {
+-                game.won -> "Cleared!"
+-                stuck -> "${game.tiles.size} · no pairs left, N deals again"
++                game.won -> t("cleared")
++                stuck -> t("no_pairs_left_n_deals", game.tiles.size)
+                 else -> game.tiles.size.toString()
+             },
+-        hint = "A tile is free when nothing is on it and its left or right side is open. Arrows move, Enter picks, H hints, N deals.",
++        hint = t("a_tile_is_free_when"),
+         actions =
+             listOf(
+-                GameAction(label = "Hint", key = "H") { hint = game.hint() },
+-                GameAction(label = "New", key = "N", onClick = ::reset),
++                GameAction(label = t("hint"), key = "H") { hint = game.hint() },
++                GameAction(label = t("new_label"), key = "N", onClick = ::reset),
+             ),
+     ) { side ->
+         val colors = MaterialTheme.colorScheme
+@@ -646,18 +647,18 @@ internal fun WordsScreen() {
+             .sorted()
+             .joinToString(" ")
+     GameFrame(
+-        title = "Words",
+-        subtitle = "Find the five-letter word in six guesses.",
+-        statusLabel = "guess ${minOf(game.guesses.size + 1, WordsGame.MAX_GUESSES)} of ${WordsGame.MAX_GUESSES}",
++        title = t("words"),
++        subtitle = t("find_the_five_letter_word"),
++        statusLabel = t("guess_of", minOf(game.guesses.size + 1, WordsGame.MAX_GUESSES), WordsGame.MAX_GUESSES),
+         status =
+             when {
+-                game.won -> "Got it! Enter plays again"
+-                game.over -> "It was ${game.answer} · Enter plays again"
+-                absent.isNotEmpty() -> "Not in it: $absent"
+-                else -> "Type a word, Enter guesses"
++                game.won -> t("got_it_enter_plays_again")
++                game.over -> t("it_was_enter_plays_again", game.answer)
++                absent.isNotEmpty() -> t("not_in_it", absent)
++                else -> t("type_a_word_enter_guesses")
+             },
+-        hint = "Green: right place. Amber: in the word, elsewhere. Type letters, Del erases, Enter guesses.",
+-        actions = listOf(GameAction(label = "New", key = "Enter", onClick = ::reset)),
++        hint = t("green_right_place_amber_in"),
++        actions = listOf(GameAction(label = t("new_label"), key = "Enter", onClick = ::reset)),
+     ) { side ->
+         val colors = MaterialTheme.colorScheme
+         BoardSurface(side) {
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/Game2048Screen.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/Game2048Screen.kt
+index b7136c8..85b5971 100644
+--- a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/Game2048Screen.kt
++++ b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/Game2048Screen.kt
+@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.unit.Dp
+ import androidx.compose.ui.unit.dp
+ import org.sableos.design.SableSpacing
++import org.sableos.games.GamesText.t
+ import kotlin.math.abs
+ 
+ private val Tile2 = Color(0xFF26384B)
+@@ -78,14 +79,14 @@ internal fun Game2048Screen() {
+ 
+     GameFrame(
+         title = "2048",
+-        subtitle = "Slide, merge and build the highest tile.",
++        subtitle = t("slide_merge_and_build_the"),
+         statusLabel = "score",
+         status = score.toString(),
+-        hint = "Swipe the board or use the arrows (trackpad) to move every tile; N starts over.",
+-        actions = listOf(GameAction(label = "New", key = "N", onClick = ::reset)),
++        hint = t("swipe_the_board_or_use"),
++        actions = listOf(GameAction(label = t("new_label"), key = "N", onClick = ::reset)),
+         tallExtras = {
+             Text(
+-                text = "Swipe left, right, up or down. Equal tiles merge into the next value.",
++                text = t("swipe_left_right_up_or"),
+                 style = MaterialTheme.typography.bodyMedium,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GamesApplication.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GamesApplication.kt
+new file mode 100644
+index 0000000..e42db5a
+--- /dev/null
++++ b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GamesApplication.kt
+@@ -0,0 +1,11 @@
++package org.sableos.games
++
++import android.app.Application
++
++/** Binds [GamesText] to the app's string resources once per process, so the phone's language is used. */
++class GamesApplication : Application() {
++    override fun onCreate() {
++        super.onCreate()
++        GamesText.t.bindTo(this)
++    }
++}
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GamesText.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GamesText.kt
+new file mode 100644
+index 0000000..492d0f0
+--- /dev/null
++++ b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GamesText.kt
+@@ -0,0 +1,109 @@
++package org.sableos.games
++
++import org.sableos.design.SableTexts
++
++/**
++ * Every line Sable Games shows, in English, by string resource name. res/values/strings.xml
++ * repeats them (GamesTextTest keeps the two equal) and res/values-<lang>/strings.xml translates
++ * them.
++ */
++object GamesText {
++    val EN: Map<String, String> =
++        mapOf(
++            "game_over_space_plays_again" to "Game over · Space plays again",
++            "paused_p_resumes" to "Paused · P resumes",
++            "snake" to "Snake",
++            "eat_grow_and_keep_clear" to "Eat, grow and keep clear of the walls and your tail.",
++            "score_best" to "score · best %1\$s",
++            "arrows_or_the_trackpad_turn" to
++                "Arrows or the trackpad turn, swipes too; P pauses, N starts over.",
++            "resume" to "Resume",
++            "pause" to "Pause",
++            "new_label" to "New",
++            "blocks" to "Blocks",
++            "fit_the_falling_pieces_into" to "Fit the falling pieces into full rows.",
++            "score_level" to "score · level %1\$s",
++            "rows" to "%1\$s · %2\$s rows",
++            "left_right_move_up_turns" to
++                "Left/Right move, Up turns, Down drops a row, Space drops it; tap turns, swipes " +
++                "move. P pauses.",
++            "bricks" to "Bricks",
++            "keep_the_ball_in_play" to "Keep the ball in play and break every brick.",
++            "score_lives_level" to "score · lives %1\$s · level %2\$s",
++            "space_launches" to "%1\$s · Space launches",
++            "left_right_or_the_trackpad" to
++                "Left/Right or the trackpad move the paddle, or drag it; Space or a tap " +
++                "launches. P pauses.",
++            "reversi" to "Reversi",
++            "outflank_the_phone_s_discs" to "Outflank the phone's discs to turn them yours.",
++            "you_phone" to "you %1\$s · phone %2\$s",
++            "you_win" to "You win",
++            "the_phone_wins" to "The phone wins",
++            "a_draw" to "A draw",
++            "your_move" to "Your move",
++            "the_phone_is_thinking" to "The phone is thinking",
++            "arrows_move_enter_or_space" to
++                "Arrows move, Enter or Space places a disc; dots show where you can play. N " +
++                "starts over.",
++            "can_t_go_there" to "Can't go there",
++            "solitaire" to "Solitaire",
++            "build_each_suit_from_ace" to "Build each suit from ace to king.",
++            "you_won_in_moves" to "You won in %1\$s moves",
++            "pick_where_it_goes" to "%1\$s · pick where it goes",
++            "arrows_move_enter_picks_up" to
++                "Arrows move, Enter picks up and puts down, Space turns a card, A sends it home, " +
++                "Del drops it. N deals again.",
++            "turn" to "Turn",
++            "well_done" to "Well done",
++            "mahjong" to "Mahjong",
++            "clear_the_pile_two_matching" to "Clear the pile two matching free tiles at a time.",
++            "tiles_left" to "tiles left",
++            "cleared" to "Cleared!",
++            "no_pairs_left_n_deals" to "%1\$s · no pairs left, N deals again",
++            "a_tile_is_free_when" to
++                "A tile is free when nothing is on it and its left or right side is open. Arrows " +
++                "move, Enter picks, H hints, N deals.",
++            "hint" to "Hint",
++            "words" to "Words",
++            "find_the_five_letter_word" to "Find the five-letter word in six guesses.",
++            "guess_of" to "guess %1\$s of %2\$s",
++            "got_it_enter_plays_again" to "Got it! Enter plays again",
++            "it_was_enter_plays_again" to "It was %1\$s · Enter plays again",
++            "not_in_it" to "Not in it: %1\$s",
++            "type_a_word_enter_guesses" to "Type a word, Enter guesses",
++            "green_right_place_amber_in" to
++                "Green: right place. Amber: in the word, elsewhere. Type letters, Del erases, " +
++                "Enter guesses.",
++            "slide_merge_and_build_the" to "Slide, merge and build the highest tile.",
++            "swipe_the_board_or_use" to
++                "Swipe the board or use the arrows (trackpad) to move every tile; N starts over.",
++            "swipe_left_right_up_or" to
++                "Swipe left, right, up or down. Equal tiles merge into the next value.",
++            "clear_the_field" to "Clear the field",
++            "new_field" to "New field",
++            "clear_the_field_without_touching" to "Clear the field without touching a mine.",
++            "flag_mode" to "flag mode",
++            "reveal_mode" to "reveal mode",
++            "n9_9_field_10_mines" to
++                "9 × 9 field · 10 mines · arrows move, Space reveals, F flags, N new field",
++            "reveal" to "Reveal",
++            "flag" to "Flag",
++            "choose_a_cell" to "Choose a cell",
++            "new_puzzle" to "New puzzle",
++            "solved" to "Solved",
++            "cell_erased" to "Cell erased",
++            "move_accepted" to "Move accepted",
++            "nothing_to_undo" to "Nothing to undo",
++            "last_move_undone" to "Last move undone",
++            "fixed_clue" to "Fixed clue",
++            "row_column" to "Row %1\$s, column %2\$s",
++            "a_focused_number_puzzle" to "A focused number puzzle.",
++            "arrows_move_1_9_or" to
++                "Arrows move, 1-9 (or W E R S D F Z X C) fill, Del erases, U undoes, N starts " +
++                "over.",
++            "undo" to "Undo",
++            "erase" to "Erase",
++        )
++
++    val t = SableTexts(EN)
++}
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MinesweeperScreen.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MinesweeperScreen.kt
+index de86cee..c7e5a74 100644
+--- a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MinesweeperScreen.kt
++++ b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MinesweeperScreen.kt
+@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.unit.dp
++import org.sableos.games.GamesText.t
+ 
+ private const val MINE_FIELD_SIZE = 9
+ 
+@@ -49,7 +50,7 @@ internal fun MinesweeperScreen() {
+     var flagMode by remember { mutableStateOf(false) }
+     var cursorX by remember { mutableIntStateOf(MINE_FIELD_SIZE / 2) }
+     var cursorY by remember { mutableIntStateOf(MINE_FIELD_SIZE / 2) }
+-    var status by remember { mutableStateOf("Clear the field") }
++    var status by remember { mutableStateOf(t("clear_the_field")) }
+ 
+     fun reset() {
+         state =
+@@ -63,7 +64,7 @@ internal fun MinesweeperScreen() {
+             )
+         view = requireOk(NativeBridge.minesweeperView(state))
+         flagMode = false
+-        status = "New field"
++        status = t("new_field")
+     }
+ 
+     fun applyResponse(response: String) {
+@@ -128,15 +129,15 @@ internal fun MinesweeperScreen() {
+ 
+     GameFrame(
+         title = "minesweeper",
+-        subtitle = "Clear the field without touching a mine.",
+-        statusLabel = if (flagMode) "flag mode" else "reveal mode",
++        subtitle = t("clear_the_field_without_touching"),
++        statusLabel = if (flagMode) t("flag_mode") else t("reveal_mode"),
+         status = status,
+-        hint = "9 × 9 field · 10 mines · arrows move, Space reveals, F flags, N new field",
++        hint = t("n9_9_field_10_mines"),
+         actions =
+             listOf(
+-                GameAction(label = "Reveal", key = "Space", active = !flagMode, onClick = { flagMode = false }),
+-                GameAction(label = "Flag", key = "F", active = flagMode, onClick = { flagMode = true }),
+-                GameAction(label = "New", key = "N", onClick = ::reset),
++                GameAction(label = t("reveal"), key = "Space", active = !flagMode, onClick = { flagMode = false }),
++                GameAction(label = t("flag"), key = "F", active = flagMode, onClick = { flagMode = true }),
++                GameAction(label = t("new_label"), key = "N", onClick = ::reset),
+             ),
+     ) { side ->
+         Surface(
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/SudokuScreen.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/SudokuScreen.kt
+index 6e2a8b8..4ae20c3 100644
+--- a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/SudokuScreen.kt
++++ b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/SudokuScreen.kt
+@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.RectangleShape
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.unit.Dp
+ import androidx.compose.ui.unit.dp
++import org.sableos.games.GamesText.t
+ 
+ private const val SUDOKU_SIZE = 9
+ 
+@@ -42,7 +43,7 @@ internal fun SudokuScreen() {
+     }
+     var selectedRow by remember { mutableIntStateOf(0) }
+     var selectedCol by remember { mutableIntStateOf(2) }
+-    var status by remember { mutableStateOf("Choose a cell") }
++    var status by remember { mutableStateOf(t("choose_a_cell")) }
+     val history = remember { mutableStateListOf<String>() }
+ 
+     fun reset() {
+@@ -51,7 +52,7 @@ internal fun SudokuScreen() {
+         selectedRow = 0
+         selectedCol = 2
+         history.clear()
+-        status = "New puzzle"
++        status = t("new_puzzle")
+     }
+ 
+     fun setValue(value: Int) {
+@@ -69,11 +70,11 @@ internal fun SudokuScreen() {
+             board = requireOk(NativeBridge.sudokuBoard(state))
+             status =
+                 if (NativeBridge.sudokuSolved(state)) {
+-                    "Solved"
++                    t("solved")
+                 } else if (value == 0) {
+-                    "Cell erased"
++                    t("cell_erased")
+                 } else {
+-                    "Move accepted"
++                    t("move_accepted")
+                 }
+         } else {
+             status = humanize(response)
+@@ -82,13 +83,13 @@ internal fun SudokuScreen() {
+ 
+     fun undo() {
+         if (history.isEmpty()) {
+-            status = "Nothing to undo"
++            status = t("nothing_to_undo")
+             return
+         }
+ 
+         state = history.removeAt(history.lastIndex)
+         board = requireOk(NativeBridge.sudokuBoard(state))
+-        status = "Last move undone"
++        status = t("last_move_undone")
+     }
+ 
+     fun erase() {
+@@ -103,9 +104,9 @@ internal fun SudokuScreen() {
+         selectedCol = col
+         status =
+             if (isGiven(row, col)) {
+-                "Fixed clue"
++                t("fixed_clue")
+             } else {
+-                "Row ${row + 1}, column ${col + 1}"
++                t("row_column", row + 1, col + 1)
+             }
+     }
+ 
+@@ -141,15 +142,15 @@ internal fun SudokuScreen() {
+ 
+     GameFrame(
+         title = "sudoku",
+-        subtitle = "A focused number puzzle.",
++        subtitle = t("a_focused_number_puzzle"),
+         statusLabel = "puzzle",
+         status = status,
+-        hint = "Arrows move, 1-9 (or W E R S D F Z X C) fill, Del erases, U undoes, N starts over.",
++        hint = t("arrows_move_1_9_or"),
+         actions =
+             listOf(
+-                GameAction(label = "Undo", key = "U", onClick = ::undo),
+-                GameAction(label = "Erase", key = "Del", onClick = ::erase),
+-                GameAction(label = "New", key = "N", onClick = ::reset),
++                GameAction(label = t("undo"), key = "U", onClick = ::undo),
++                GameAction(label = t("erase"), key = "Del", onClick = ::erase),
++                GameAction(label = t("new_label"), key = "N", onClick = ::reset),
+             ),
+         tallExtras = {
+             Row(
+diff --git a/sable-src/apps/r8/android/games/src/main/res/raw/sable_strings_keep.xml b/sable-src/apps/r8/android/games/src/main/res/raw/sable_strings_keep.xml
+new file mode 100644
+index 0000000..4f4b368
+--- /dev/null
++++ b/sable-src/apps/r8/android/games/src/main/res/raw/sable_strings_keep.xml
+@@ -0,0 +1,3 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableTexts looks strings up by name, which the resource shrinker cannot see: keep them all. -->
++<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@string/*" />
+diff --git a/sable-src/apps/r8/android/games/src/main/res/values/strings.xml b/sable-src/apps/r8/android/games/src/main/res/values/strings.xml
+new file mode 100644
+index 0000000..f82081a
+--- /dev/null
++++ b/sable-src/apps/r8/android/games/src/main/res/values/strings.xml
+@@ -0,0 +1,80 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- English. Single capital letters in hints (C new, S find) name keyboard keys: keep them as the key, translate the word.
++     English. Keep equal to GamesText.EN (GamesTextTest checks); translations go in values-<lang>/. -->
++<resources>
++    <string name="game_over_space_plays_again">Game over · Space plays again</string>
++    <string name="paused_p_resumes">Paused · P resumes</string>
++    <string name="snake">Snake</string>
++    <string name="eat_grow_and_keep_clear">Eat, grow and keep clear of the walls and your tail.</string>
++    <string name="score_best">score · best %1$s</string>
++    <string name="arrows_or_the_trackpad_turn">Arrows or the trackpad turn, swipes too; P pauses, N starts over.</string>
++    <string name="resume">Resume</string>
++    <string name="pause">Pause</string>
++    <string name="new_label">New</string>
++    <string name="blocks">Blocks</string>
++    <string name="fit_the_falling_pieces_into">Fit the falling pieces into full rows.</string>
++    <string name="score_level">score · level %1$s</string>
++    <string name="rows">%1$s · %2$s rows</string>
++    <string name="left_right_move_up_turns">Left/Right move, Up turns, Down drops a row, Space drops it; tap turns, swipes move. P pauses.</string>
++    <string name="bricks">Bricks</string>
++    <string name="keep_the_ball_in_play">Keep the ball in play and break every brick.</string>
++    <string name="score_lives_level">score · lives %1$s · level %2$s</string>
++    <string name="space_launches">%1$s · Space launches</string>
++    <string name="left_right_or_the_trackpad">Left/Right or the trackpad move the paddle, or drag it; Space or a tap launches. P pauses.</string>
++    <string name="reversi">Reversi</string>
++    <string name="outflank_the_phone_s_discs">Outflank the phone\'s discs to turn them yours.</string>
++    <string name="you_phone">you %1$s · phone %2$s</string>
++    <string name="you_win">You win</string>
++    <string name="the_phone_wins">The phone wins</string>
++    <string name="a_draw">A draw</string>
++    <string name="your_move">Your move</string>
++    <string name="the_phone_is_thinking">The phone is thinking</string>
++    <string name="arrows_move_enter_or_space">Arrows move, Enter or Space places a disc; dots show where you can play. N starts over.</string>
++    <string name="can_t_go_there">Can\'t go there</string>
++    <string name="solitaire">Solitaire</string>
++    <string name="build_each_suit_from_ace">Build each suit from ace to king.</string>
++    <string name="you_won_in_moves">You won in %1$s moves</string>
++    <string name="pick_where_it_goes">%1$s · pick where it goes</string>
++    <string name="arrows_move_enter_picks_up">Arrows move, Enter picks up and puts down, Space turns a card, A sends it home, Del drops it. N deals again.</string>
++    <string name="turn">Turn</string>
++    <string name="well_done">Well done</string>
++    <string name="mahjong">Mahjong</string>
++    <string name="clear_the_pile_two_matching">Clear the pile two matching free tiles at a time.</string>
++    <string name="tiles_left">tiles left</string>
++    <string name="cleared">Cleared!</string>
++    <string name="no_pairs_left_n_deals">%1$s · no pairs left, N deals again</string>
++    <string name="a_tile_is_free_when">A tile is free when nothing is on it and its left or right side is open. Arrows move, Enter picks, H hints, N deals.</string>
++    <string name="hint">Hint</string>
++    <string name="words">Words</string>
++    <string name="find_the_five_letter_word">Find the five-letter word in six guesses.</string>
++    <string name="guess_of">guess %1$s of %2$s</string>
++    <string name="got_it_enter_plays_again">Got it! Enter plays again</string>
++    <string name="it_was_enter_plays_again">It was %1$s · Enter plays again</string>
++    <string name="not_in_it">Not in it: %1$s</string>
++    <string name="type_a_word_enter_guesses">Type a word, Enter guesses</string>
++    <string name="green_right_place_amber_in">Green: right place. Amber: in the word, elsewhere. Type letters, Del erases, Enter guesses.</string>
++    <string name="slide_merge_and_build_the">Slide, merge and build the highest tile.</string>
++    <string name="swipe_the_board_or_use">Swipe the board or use the arrows (trackpad) to move every tile; N starts over.</string>
++    <string name="swipe_left_right_up_or">Swipe left, right, up or down. Equal tiles merge into the next value.</string>
++    <string name="clear_the_field">Clear the field</string>
++    <string name="new_field">New field</string>
++    <string name="clear_the_field_without_touching">Clear the field without touching a mine.</string>
++    <string name="flag_mode">flag mode</string>
++    <string name="reveal_mode">reveal mode</string>
++    <string name="n9_9_field_10_mines">9 × 9 field · 10 mines · arrows move, Space reveals, F flags, N new field</string>
++    <string name="reveal">Reveal</string>
++    <string name="flag">Flag</string>
++    <string name="choose_a_cell">Choose a cell</string>
++    <string name="new_puzzle">New puzzle</string>
++    <string name="solved">Solved</string>
++    <string name="cell_erased">Cell erased</string>
++    <string name="move_accepted">Move accepted</string>
++    <string name="nothing_to_undo">Nothing to undo</string>
++    <string name="last_move_undone">Last move undone</string>
++    <string name="fixed_clue">Fixed clue</string>
++    <string name="row_column">Row %1$s, column %2$s</string>
++    <string name="a_focused_number_puzzle">A focused number puzzle.</string>
++    <string name="arrows_move_1_9_or">Arrows move, 1-9 (or W E R S D F Z X C) fill, Del erases, U undoes, N starts over.</string>
++    <string name="undo">Undo</string>
++    <string name="erase">Erase</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/games/src/test/java/org/sableos/games/GamesTextTest.kt b/sable-src/apps/r8/android/games/src/test/java/org/sableos/games/GamesTextTest.kt
+new file mode 100644
+index 0000000..c4c0d51
+--- /dev/null
++++ b/sable-src/apps/r8/android/games/src/test/java/org/sableos/games/GamesTextTest.kt
+@@ -0,0 +1,58 @@
++package org.sableos.games
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.sableos.games.GamesText
++import java.io.File
++import javax.xml.parsers.DocumentBuilderFactory
++
++/** The English lines in code and in `values/strings.xml` stay equal, and every translation fits them. */
++class GamesTextTest {
++    private val res = File("src/main/res")
++
++    private fun strings(file: File): Map<String, String> {
++        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
++        val nodes = doc.getElementsByTagName("string")
++        return (0 until nodes.length)
++            .map { nodes.item(it) }
++            .filter { it.attributes.getNamedItem("translatable")?.nodeValue != "false" }
++            .associate { node ->
++                val raw =
++                    node.textContent.let {
++                        if (it.length > 1 && it.startsWith('"') &&
++                            it.endsWith('"')
++                        ) {
++                            it.drop(1).dropLast(1)
++                        } else {
++                            it
++                        }
++                    }
++                node.attributes.getNamedItem("name").nodeValue to
++                    raw
++                        .replace("\\n", "\n")
++                        .replace("\\'", "'")
++                        .replace("\\\"", "\"")
++                        .replace("\\@", "@")
++                        .replace("\\\\", "\\")
++            }
++    }
++
++    private fun placeholders(s: String) = Regex("%\\d+\\$[sd]").findAll(s).map { it.value }.toSortedSet()
++
++    @Test
++    fun englishResourcesMatchTheCode() {
++        val english = strings(File(res, "values/strings.xml"))
++        GamesText.EN.forEach { (key, text) -> assertEquals(key, text, english[key]) }
++    }
++
++    @Test
++    fun translationsHaveEveryKeyAndTheSamePlaceholders() {
++        res.listFiles { f -> f.name.startsWith("values-") && File(f, "strings.xml").isFile }.orEmpty().forEach { dir ->
++            val tr = strings(File(dir, "strings.xml"))
++            assertEquals(dir.name, GamesText.EN.keys, tr.keys.intersect(GamesText.EN.keys))
++            GamesText.EN.forEach { (key, text) ->
++                assertEquals("${dir.name}/$key", placeholders(text), placeholders(tr.getValue(key)))
++            }
++        }
++    }
++}
 diff --git a/sable-src/apps/r8/android/messages/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/messages/src/main/AndroidManifest.xml
 index c41ea96..ede38ca 100644
 --- a/sable-src/apps/r8/android/messages/src/main/AndroidManifest.xml

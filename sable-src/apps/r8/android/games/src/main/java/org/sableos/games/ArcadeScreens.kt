@@ -25,6 +25,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import org.sableos.games.GamesText.t
 import kotlin.math.abs
 import kotlin.random.Random
 
@@ -70,8 +71,8 @@ private fun runStatus(
     playing: String,
 ): String =
     when {
-        over -> "Game over · Space plays again"
-        paused -> "Paused · P resumes"
+        over -> t("game_over_space_plays_again")
+        paused -> t("paused_p_resumes")
         else -> playing
     }
 
@@ -107,18 +108,18 @@ internal fun SnakeScreen() {
     }
 
     GameFrame(
-        title = "Snake",
-        subtitle = "Eat, grow and keep clear of the walls and your tail.",
-        statusLabel = "score · best $best",
+        title = t("snake"),
+        subtitle = t("eat_grow_and_keep_clear"),
+        statusLabel = t("score_best", best),
         status = runStatus(!game.alive, paused, game.score.toString()),
-        hint = "Arrows or the trackpad turn, swipes too; P pauses, N starts over.",
+        hint = t("arrows_or_the_trackpad_turn"),
         actions =
             listOf(
-                GameAction(label = if (paused) "Resume" else "Pause", key = "P", active = paused) {
+                GameAction(label = if (paused) t("resume") else t("pause"), key = "P", active = paused) {
                     paused =
                         !paused && game.alive
                 },
-                GameAction(label = "New", key = "N", onClick = ::reset),
+                GameAction(label = t("new_label"), key = "N", onClick = ::reset),
             ),
     ) { side ->
         val colors = MaterialTheme.colorScheme
@@ -217,18 +218,18 @@ internal fun BlocksScreen() {
     }
 
     GameFrame(
-        title = "Blocks",
-        subtitle = "Fit the falling pieces into full rows.",
-        statusLabel = "score · level ${game.level}",
-        status = runStatus(game.over, paused, "${game.score} · ${game.lines} rows"),
-        hint = "Left/Right move, Up turns, Down drops a row, Space drops it; tap turns, swipes move. P pauses.",
+        title = t("blocks"),
+        subtitle = t("fit_the_falling_pieces_into"),
+        statusLabel = t("score_level", game.level),
+        status = runStatus(game.over, paused, t("rows", game.score, game.lines)),
+        hint = t("left_right_move_up_turns"),
         actions =
             listOf(
-                GameAction(label = if (paused) "Resume" else "Pause", key = "P", active = paused) {
+                GameAction(label = if (paused) t("resume") else t("pause"), key = "P", active = paused) {
                     paused =
                         !paused && !game.over
                 },
-                GameAction(label = "New", key = "N", onClick = ::reset),
+                GameAction(label = t("new_label"), key = "N", onClick = ::reset),
             ),
     ) { side ->
         val colors = MaterialTheme.colorScheme
@@ -349,24 +350,24 @@ internal fun BricksScreen() {
     }
 
     GameFrame(
-        title = "Bricks",
-        subtitle = "Keep the ball in play and break every brick.",
-        statusLabel = "score · lives ${game.lives} · level ${game.level}",
+        title = t("bricks"),
+        subtitle = t("keep_the_ball_in_play"),
+        statusLabel = t("score_lives_level", game.lives, game.level),
         status =
             when {
-                game.over -> "Game over · Space plays again"
-                paused -> "Paused · P resumes"
-                !game.launched -> "${game.score} · Space launches"
+                game.over -> t("game_over_space_plays_again")
+                paused -> t("paused_p_resumes")
+                !game.launched -> t("space_launches", game.score)
                 else -> game.score.toString()
             },
-        hint = "Left/Right or the trackpad move the paddle, or drag it; Space or a tap launches. P pauses.",
+        hint = t("left_right_or_the_trackpad"),
         actions =
             listOf(
-                GameAction(label = if (paused) "Resume" else "Pause", key = "P", active = paused) {
+                GameAction(label = if (paused) t("resume") else t("pause"), key = "P", active = paused) {
                     paused =
                         !paused && game.launched
                 },
-                GameAction(label = "New", key = "N", onClick = ::reset),
+                GameAction(label = t("new_label"), key = "N", onClick = ::reset),
             ),
     ) { side ->
         val colors = MaterialTheme.colorScheme

@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import org.sableos.games.GamesText.t
 
 private const val SUDOKU_SIZE = 9
 
@@ -42,7 +43,7 @@ internal fun SudokuScreen() {
     }
     var selectedRow by remember { mutableIntStateOf(0) }
     var selectedCol by remember { mutableIntStateOf(2) }
-    var status by remember { mutableStateOf("Choose a cell") }
+    var status by remember { mutableStateOf(t("choose_a_cell")) }
     val history = remember { mutableStateListOf<String>() }
 
     fun reset() {
@@ -51,7 +52,7 @@ internal fun SudokuScreen() {
         selectedRow = 0
         selectedCol = 2
         history.clear()
-        status = "New puzzle"
+        status = t("new_puzzle")
     }
 
     fun setValue(value: Int) {
@@ -69,11 +70,11 @@ internal fun SudokuScreen() {
             board = requireOk(NativeBridge.sudokuBoard(state))
             status =
                 if (NativeBridge.sudokuSolved(state)) {
-                    "Solved"
+                    t("solved")
                 } else if (value == 0) {
-                    "Cell erased"
+                    t("cell_erased")
                 } else {
-                    "Move accepted"
+                    t("move_accepted")
                 }
         } else {
             status = humanize(response)
@@ -82,13 +83,13 @@ internal fun SudokuScreen() {
 
     fun undo() {
         if (history.isEmpty()) {
-            status = "Nothing to undo"
+            status = t("nothing_to_undo")
             return
         }
 
         state = history.removeAt(history.lastIndex)
         board = requireOk(NativeBridge.sudokuBoard(state))
-        status = "Last move undone"
+        status = t("last_move_undone")
     }
 
     fun erase() {
@@ -103,9 +104,9 @@ internal fun SudokuScreen() {
         selectedCol = col
         status =
             if (isGiven(row, col)) {
-                "Fixed clue"
+                t("fixed_clue")
             } else {
-                "Row ${row + 1}, column ${col + 1}"
+                t("row_column", row + 1, col + 1)
             }
     }
 
@@ -141,15 +142,15 @@ internal fun SudokuScreen() {
 
     GameFrame(
         title = "sudoku",
-        subtitle = "A focused number puzzle.",
+        subtitle = t("a_focused_number_puzzle"),
         statusLabel = "puzzle",
         status = status,
-        hint = "Arrows move, 1-9 (or W E R S D F Z X C) fill, Del erases, U undoes, N starts over.",
+        hint = t("arrows_move_1_9_or"),
         actions =
             listOf(
-                GameAction(label = "Undo", key = "U", onClick = ::undo),
-                GameAction(label = "Erase", key = "Del", onClick = ::erase),
-                GameAction(label = "New", key = "N", onClick = ::reset),
+                GameAction(label = t("undo"), key = "U", onClick = ::undo),
+                GameAction(label = t("erase"), key = "Del", onClick = ::erase),
+                GameAction(label = t("new_label"), key = "N", onClick = ::reset),
             ),
         tallExtras = {
             Row(

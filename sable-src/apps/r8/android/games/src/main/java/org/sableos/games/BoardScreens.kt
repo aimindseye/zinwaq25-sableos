@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import org.sableos.games.GamesText.t
 import kotlin.random.Random
 
 private val CardRed = Color(0xFFD32F45)
@@ -115,19 +116,19 @@ internal fun ReversiScreen() {
     val dark = game.count(ReversiGame.DARK)
     val light = game.count(ReversiGame.LIGHT)
     GameFrame(
-        title = "Reversi",
-        subtitle = "Outflank the phone's discs to turn them yours.",
-        statusLabel = "you $dark · phone $light",
+        title = t("reversi"),
+        subtitle = t("outflank_the_phone_s_discs"),
+        statusLabel = t("you_phone", dark, light),
         status =
             when {
-                game.over && dark > light -> "You win"
-                game.over && dark < light -> "The phone wins"
-                game.over -> "A draw"
-                game.turn == ReversiGame.DARK -> "Your move"
-                else -> "The phone is thinking"
+                game.over && dark > light -> t("you_win")
+                game.over && dark < light -> t("the_phone_wins")
+                game.over -> t("a_draw")
+                game.turn == ReversiGame.DARK -> t("your_move")
+                else -> t("the_phone_is_thinking")
             },
-        hint = "Arrows move, Enter or Space places a disc; dots show where you can play. N starts over.",
-        actions = listOf(GameAction(label = "New", key = "N") { game = ReversiGame() }),
+        hint = t("arrows_move_enter_or_space"),
+        actions = listOf(GameAction(label = t("new_label"), key = "N") { game = ReversiGame() }),
     ) { side ->
         val legal = if (game.turn == ReversiGame.DARK) game.legalMoves(ReversiGame.DARK).toSet() else emptySet()
         val colors = MaterialTheme.colorScheme
@@ -250,7 +251,7 @@ internal fun SolitaireScreen() {
 
             else -> {
                 val moved = game.move(from, pile)
-                if (moved != null) game = moved else note = "Can't go there"
+                if (moved != null) game = moved else note = t("can_t_go_there")
                 picked = null
             }
         }
@@ -294,21 +295,21 @@ internal fun SolitaireScreen() {
     }
 
     GameFrame(
-        title = "Solitaire",
-        subtitle = "Build each suit from ace to king.",
+        title = t("solitaire"),
+        subtitle = t("build_each_suit_from_ace"),
         statusLabel = "moves",
         status =
             when {
-                game.won -> "You won in ${game.moves} moves"
+                game.won -> t("you_won_in_moves", game.moves)
                 note.isNotEmpty() -> note
-                picked != null -> "${game.moves} · pick where it goes"
+                picked != null -> t("pick_where_it_goes", game.moves)
                 else -> game.moves.toString()
             },
-        hint = "Arrows move, Enter picks up and puts down, Space turns a card, A sends it home, Del drops it. N deals again.",
+        hint = t("arrows_move_enter_picks_up"),
         actions =
             listOf(
-                GameAction(label = "Turn", key = "Space") { choose(SolitaireGame.STOCK) },
-                GameAction(label = "New", key = "N", onClick = ::reset),
+                GameAction(label = t("turn"), key = "Space") { choose(SolitaireGame.STOCK) },
+                GameAction(label = t("new_label"), key = "N", onClick = ::reset),
             ),
     ) { side ->
         val colors = MaterialTheme.colorScheme
@@ -379,7 +380,7 @@ internal fun SolitaireScreen() {
             }
             if (game.won) {
                 Text(
-                    "Well done",
+                    t("well_done"),
                     Modifier.align(Alignment.Center),
                     color = colors.primary,
                     fontWeight = FontWeight.Bold,
@@ -529,20 +530,20 @@ internal fun MahjongScreen() {
 
     val stuck = !game.won && game.hint() == null
     GameFrame(
-        title = "Mahjong",
-        subtitle = "Clear the pile two matching free tiles at a time.",
-        statusLabel = "tiles left",
+        title = t("mahjong"),
+        subtitle = t("clear_the_pile_two_matching"),
+        statusLabel = t("tiles_left"),
         status =
             when {
-                game.won -> "Cleared!"
-                stuck -> "${game.tiles.size} · no pairs left, N deals again"
+                game.won -> t("cleared")
+                stuck -> t("no_pairs_left_n_deals", game.tiles.size)
                 else -> game.tiles.size.toString()
             },
-        hint = "A tile is free when nothing is on it and its left or right side is open. Arrows move, Enter picks, H hints, N deals.",
+        hint = t("a_tile_is_free_when"),
         actions =
             listOf(
-                GameAction(label = "Hint", key = "H") { hint = game.hint() },
-                GameAction(label = "New", key = "N", onClick = ::reset),
+                GameAction(label = t("hint"), key = "H") { hint = game.hint() },
+                GameAction(label = t("new_label"), key = "N", onClick = ::reset),
             ),
     ) { side ->
         val colors = MaterialTheme.colorScheme
@@ -646,18 +647,18 @@ internal fun WordsScreen() {
             .sorted()
             .joinToString(" ")
     GameFrame(
-        title = "Words",
-        subtitle = "Find the five-letter word in six guesses.",
-        statusLabel = "guess ${minOf(game.guesses.size + 1, WordsGame.MAX_GUESSES)} of ${WordsGame.MAX_GUESSES}",
+        title = t("words"),
+        subtitle = t("find_the_five_letter_word"),
+        statusLabel = t("guess_of", minOf(game.guesses.size + 1, WordsGame.MAX_GUESSES), WordsGame.MAX_GUESSES),
         status =
             when {
-                game.won -> "Got it! Enter plays again"
-                game.over -> "It was ${game.answer} · Enter plays again"
-                absent.isNotEmpty() -> "Not in it: $absent"
-                else -> "Type a word, Enter guesses"
+                game.won -> t("got_it_enter_plays_again")
+                game.over -> t("it_was_enter_plays_again", game.answer)
+                absent.isNotEmpty() -> t("not_in_it", absent)
+                else -> t("type_a_word_enter_guesses")
             },
-        hint = "Green: right place. Amber: in the word, elsewhere. Type letters, Del erases, Enter guesses.",
-        actions = listOf(GameAction(label = "New", key = "Enter", onClick = ::reset)),
+        hint = t("green_right_place_amber_in"),
+        actions = listOf(GameAction(label = t("new_label"), key = "Enter", onClick = ::reset)),
     ) { side ->
         val colors = MaterialTheme.colorScheme
         BoardSurface(side) {
