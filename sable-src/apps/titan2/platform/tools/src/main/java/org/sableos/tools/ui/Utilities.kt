@@ -1,8 +1,8 @@
 package org.sableos.tools.ui
 
 import android.Manifest
-import android.app.AlertDialog
 import android.annotation.SuppressLint
+import android.app.AlertDialog
 import android.content.pm.PackageManager
 import android.graphics.SurfaceTexture
 import android.hardware.Sensor

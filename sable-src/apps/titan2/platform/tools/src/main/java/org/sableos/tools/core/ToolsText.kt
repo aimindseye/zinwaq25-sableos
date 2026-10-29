@@ -397,8 +397,8 @@ object ToolsText {
             "pedometer_set_weight" to "Weight (kg)",
             "pedometer_set_goal" to "Daily goal (steps)",
             "pedometer_note" to
-                "Menu sets height, weight and the daily goal. Steps taken while this tool is closed " +
-                "are added the next time you open it. Everything stays on this phone."
+                "Menu sets height, weight and the daily goal. Steps taken while this tool is " +
+                "closed are added the next time you open it. Everything stays on this phone."
         )
 
     val t = SableTexts(EN)
