@@ -9,6 +9,23 @@ set -euo pipefail
 # shellcheck source=build/lib/common.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/build/lib/common.sh"
 
+# Already downloaded? Then do nothing (a re-sync is only done with --update).
+UPDATE=NO
+[[ "${1:-}" == --update ]] && UPDATE=YES
+tree_complete() {
+    [[ -d "$SABLE_ANDROID_ROOT/.repo" && -f "$SABLE_ANDROID_ROOT/build/envsetup.sh" ]] || return 1
+    local path
+    for path in device/xelex/Q25 kernel/xelex/mt6789 hardware/mediatek device/mediatek/sepolicy_vndr vendor/xelex/Q25; do
+        [[ -d "$SABLE_ANDROID_ROOT/$path" ]] || return 1
+    done
+}
+if [[ "$UPDATE" == NO ]] && tree_complete; then
+    echo "LineageOS is already downloaded at $SABLE_ANDROID_ROOT; not downloading again (use --update to re-sync)"
+    echo "BOOTSTRAP=PASS"
+    echo "ANDROID_ROOT=$SABLE_ANDROID_ROOT"
+    exit 0
+fi
+
 if [[ "${NETWORK_FETCH_AUTHORIZED:-NO}" != YES ]]; then
     sable_fail "refusing network sync; set NETWORK_FETCH_AUTHORIZED=YES (about 200 GB download)"
 fi

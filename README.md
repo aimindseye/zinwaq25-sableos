@@ -163,7 +163,8 @@ That one command checks your computer and says what is missing, downloads
 LineageOS 23.2 (about 200 GB, first run only), builds the Sable apps, adds the
 Sable layer, builds the image and collects the files. The first run takes many
 hours. If it stops, read the message, fix that, and run the same command again:
-finished steps are reused. Add `--release` to also zip the result for a GitHub
+finished steps are reused, and LineageOS and microG that are already downloaded
+are never downloaded twice (`bootstrap --update` forces a new LineageOS sync). Add `--release` to also zip the result for a GitHub
 release. The files end up in `~/sable-q25/artifacts/q25/full/`; to use another
 disk, `export SABLE_BUILD_ROOT=/big/disk/sable-q25` first. Then install them
 with [`docs/INSTALL.md`](docs/INSTALL.md).

@@ -754,6 +754,12 @@ fi
 [[ "$(bash build/sable.sh q25 doctor 2>&1 || true)" == *RELEASE=full* ]] && pass "release defaults to full" || fail "release default"
 all_out="$(env -u NETWORK_FETCH_AUTHORIZED SABLE_BUILD_ROOT=/nonexistent/sable bash build/sable.sh q25 all 2>&1 || true)"
 [[ "$all_out" == *"add --yes"* ]] && pass "all explains --yes" || fail "all without --yes"
+tree_t="$(mktemp -d)"
+mkdir -p "$tree_t/.repo" "$tree_t/build" "$tree_t/device/xelex/Q25" "$tree_t/kernel/xelex/mt6789" "$tree_t/hardware/mediatek" "$tree_t/device/mediatek/sepolicy_vndr" "$tree_t/vendor/xelex/Q25"
+touch "$tree_t/build/envsetup.sh"
+boot_out="$(env -u NETWORK_FETCH_AUTHORIZED SABLE_ANDROID_ROOT="$tree_t" bash build/sable.sh q25 bootstrap 2>&1 || true)"
+[[ "$boot_out" == *"not downloading again"* ]] && pass "bootstrap skips a finished download" || fail "bootstrap re-downloads"
+rm -rf "$tree_t"
 if bash build/sable.sh q25 Q2 flash >/dev/null 2>&1; then fail "flash should be blocked"; else pass "flash blocked"; fi
 if bash build/sable.sh titan2 Q2 doctor >/dev/null 2>&1; then fail "non-q25 device accepted"; else pass "only q25 accepted"; fi
 

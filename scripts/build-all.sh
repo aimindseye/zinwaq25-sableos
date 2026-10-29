@@ -9,7 +9,8 @@
 # the same command again to carry on: finished downloads are reused.
 #
 #   --yes        allow the large downloads (about 200 GB of LineageOS source,
-#                plus microG and Aurora Store). Without it nothing is downloaded.
+#                plus microG and Aurora Store). Anything already downloaded is
+#                kept and not fetched again. Without --yes nothing is downloaded.
 #   --release    also zip the result for a GitHub pre-release
 #   --skip-apps  do not rebuild the Sable apps (use the ones already built)
 set -euo pipefail
@@ -47,7 +48,8 @@ run() {
     "$@" || sable_fail "$what failed (see the messages above). Fix that, then run the same command again."
 }
 
-if [[ "${NETWORK_FETCH_AUTHORIZED:-NO}" != YES && ! -f "$SABLE_ANDROID_ROOT/build/envsetup.sh" ]]; then
+tree_ready() { [[ -d "$SABLE_ANDROID_ROOT/.repo" && -f "$SABLE_ANDROID_ROOT/build/envsetup.sh" && -d "$SABLE_ANDROID_ROOT/device/xelex/Q25" ]]; }
+if [[ "${NETWORK_FETCH_AUTHORIZED:-NO}" != YES ]] && ! tree_ready; then
     sable_fail "the LineageOS source is not downloaded yet. It is about 200 GB; add --yes to allow it:
   bash build/sable.sh q25 all --yes"
 fi
@@ -56,11 +58,8 @@ step "check this computer"
 run "the computer check" bash "$SABLE" q25 "$RELEASE" doctor
 
 step "download LineageOS (first run only)"
-if [[ -f "$SABLE_ANDROID_ROOT/build/envsetup.sh" ]]; then
-    echo "already downloaded at $SABLE_ANDROID_ROOT"
-else
-    run "the download" bash "$SABLE" q25 "$RELEASE" bootstrap
-fi
+# bootstrap itself skips a finished download
+run "the download" bash "$SABLE" q25 "$RELEASE" bootstrap
 
 step "build the Sable apps"
 if [[ "$SKIP_APPS" == YES ]]; then
@@ -71,7 +70,11 @@ fi
 
 step "fetch microG and Aurora Store"
 if [[ "$RELEASE" == full && "$SABLE_Q25_MICROG" == YES ]]; then
-    run "fetching microG" bash "$SABLE" q25 "$RELEASE" microg
+    if bash "$SABLE" q25 "$RELEASE" microg --check >/dev/null 2>&1; then
+        echo "microG and Aurora Store already downloaded and verified; not downloading again"
+    else
+        run "fetching microG" bash "$SABLE" q25 "$RELEASE" microg
+    fi
 else
     echo "not needed for this release"
 fi
