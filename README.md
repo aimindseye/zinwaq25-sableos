@@ -14,9 +14,9 @@ repository holds everything needed to build SableOS for the **Zinwa Q25** (the
 BlackBerry Classic restomod, codename `Q25`), without needing the Pixel 7,
 Titan 2 or Q27 SableOS lanes.
 
-> **Status: the latest alpha release,
+> **Status: the next release is SableOS 1.0, built from this main. The latest published build so far is the test build
 > [`alpha-20261029`](https://github.com/aimindseye/zinwaq25-sableos/releases/tag/alpha-20261029),
-> is built from main after PR #38 and runs on a Q25.** On 2026-10-15/17 a real
+> built from main after PR #38; it runs on a Q25.** On 2026-10-15/17 a real
 > Q25 (board `q20_v12_factory`, stock `Q25_20.01.2026`) was backed up, restored
 > to stock, unlocked, and flashed with the Q1 control image, the Q2 image and
 > then the first Q4 image. The device reviews on 2026-10-22 and 2026-10-28
@@ -67,19 +67,19 @@ IMAGE_BUILD_TESTED=Q1, Q2 (ai-g732, 2026-10-15); Q4 (2026-10-17); PR #28 Q4 (202
 FRAMEWORK_PATCHES=104 patch files; all apply in order (check with scripts/apply-framework-patches.sh check)
 BOOT_TESTED=Q1, Q2 on a Q25 (2026-10-16/17); Q4 (2026-10-17, 2026-10-22, 2026-10-28); alpha-20261028; alpha-20261029 (2026-10-29)
 FLASH_SCRIPT=NONE (manual, documented steps in docs/INSTALL.md and docs/FLASHING_RELEASE.md)
-RELEASES=alpha-20261029 (latest), alpha-20261028; GitHub pre-releases made with build/sable.sh q25 full release
+RELEASES=1.0 (the first SableOS release, built from this main), earlier test builds alpha-20261029, alpha-20261028; GitHub releases made with build/sable.sh q25 full release
 ```
 
 ## Install a release
 
 Every release is built on **LineageOS 23.2 (Android 16 QPR2)** and says so in its
-release notes. Download `sableos-q25-full-alpha-YYYYMMDD.zip` from
+release notes. Download `sableos-q25-full-1.0.zip` from
 [Releases](https://github.com/aimindseye/zinwaq25-sableos/releases), then, with
 `adb` and `fastboot` installed and the phone's USB-C cable plugged in:
 
 ```bash
-unzip sableos-q25-full-alpha-YYYYMMDD.zip
-cd sableos-q25-full-alpha-YYYYMMDD
+unzip sableos-q25-full-1.0.zip
+cd sableos-q25-full-1.0
 sha256sum -c SHA256SUMS.txt                 # every line must say OK
 adb reboot bootloader
 fastboot flashing unlock                    # erases the phone; confirm on it
@@ -93,7 +93,7 @@ adb sideload sableos-q25-full-*-userdebug.zip
 ```
 
 Back up first and read [`docs/FLASHING_RELEASE.md`](docs/FLASHING_RELEASE.md) before
-you start: unlocking erases everything, and this is alpha software you flash at your own risk.
+you start: unlocking erases everything, and SableOS is an unofficial community build that you flash at your own risk.
 
 ## Device info
 
@@ -184,7 +184,7 @@ build/sable.sh            entry point: bash build/sable.sh q25 <release> <functi
 build/devices/q25.sh      device adapter (capabilities, fail-closed flags)
 build/config/             storage, host tools and source pins
 scripts/                  bootstrap, apps, stage, build, artifacts, release, import
-releases/                 hand-written notes for GitHub releases (ALPHA_NOTES.md)
+releases/                 hand-written notes for GitHub releases (1.0.md)
 manifests/local_manifests Q25 device/kernel/blob projects at pinned commits
 product/q25/              Sable product layer copied to vendor/sable/q25
 device-profile/           Q25 hardware capability profile and key map

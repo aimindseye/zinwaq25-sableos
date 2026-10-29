@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Package a collected build as a GitHub pre-release: one zip with the images,
+# Package a collected build as a GitHub release: one zip with the images,
 # the install package, checksums, flashing steps and release notes.
 #
 #   bash build/sable.sh q25 full artifacts
-#   bash build/sable.sh q25 full release [--tag alpha-YYYYMMDD] [--notes FILE]
+#   bash build/sable.sh q25 full release [--tag 1.0] [--notes FILE]
 #                                      [--artifacts DIR] [--boot-tested] [--publish]
 #
 # Without --publish it only builds the zip and prints the gh command. With
-# --publish it creates the pre-release with gh (gh auth login first). The tag
+# --publish it creates the release with gh (gh auth login first). The tag
 # is created on the commit the build was made from, which must be pushed.
 set -euo pipefail
 
@@ -18,7 +18,7 @@ RELEASE="${1:-}"
 sable_require_release "$RELEASE"
 shift
 
-TAG="alpha-$(date -u +%Y%m%d)"
+TAG="1.0"
 NOTES=""
 ARTIFACTS=""
 PUBLISH=NO
@@ -65,11 +65,9 @@ find "$ARTIFACTS" -mindepth 1 -maxdepth 1 ! -name release -exec cp -a -t "$stage
 install -m 0644 "$SABLE_REPO_ROOT/docs/FLASHING_RELEASE.md" "$stage/FLASHING.md"
 
 # Release notes: the hand-written notes, then what this build is.
-# releases/<tag>.md for this release, else the current alpha notes.
-if [[ -z "$NOTES" ]]; then
-    for f in "$SABLE_REPO_ROOT/releases/$TAG.md" "$SABLE_REPO_ROOT/releases/ALPHA_NOTES.md"; do
-        [[ -f "$f" ]] && { NOTES="$f"; break; }
-    done
+# releases/<tag>.md for this release.
+if [[ -z "$NOTES" && -f "$SABLE_REPO_ROOT/releases/$TAG.md" ]]; then
+    NOTES="$SABLE_REPO_ROOT/releases/$TAG.md"
 fi
 # The LineageOS version the image is built on: from the build's own props, else the release branch.
 lineage_version="$(sed -n 's/^ro\.lineage\.version=//p' "$ARTIFACTS/props/system/build.prop" 2>/dev/null | head -n1)"
@@ -77,10 +75,10 @@ lineage_base="LineageOS 23.2 (Android 16 QPR2)"
 [[ -n "$lineage_version" ]] && lineage_base="$lineage_base, build $lineage_version"
 previous="$(git -C "$SABLE_REPO_ROOT" describe --tags --abbrev=0 "$commit^" 2>/dev/null || true)"
 {
-    echo "# SableOS for the Zinwa Q25, $TAG ($RELEASE)"
+    echo "# SableOS $TAG for the Zinwa Q25"
     echo
     echo "> [!WARNING]"
-    echo "> **Alpha software: you flash it entirely at your own risk.** SableOS is an unofficial"
+    echo "> **You flash it entirely at your own risk.** SableOS is an unofficial"
     echo "> community build, not made or supported by Zinwa, provided \"as is\" without warranty of"
     echo "> any kind (Apache License 2.0). The repository owner and contributors are not responsible"
     echo "> for anything that happens to your phone or your data, including a phone that no longer"
@@ -164,8 +162,8 @@ sed "s|^- Source: |- \`$name.zip\` SHA-256: \`$zip_sum\`\n- Source: |" "$stage/R
 
 echo "RELEASE_ZIP=$out/$name.zip"
 echo "RELEASE_NOTES=$notes"
-gh_cmd=(gh release create "$TAG" "${assets[@]}" --repo "$REPO" --target "$commit" --prerelease
-    --title "SableOS Q25 $TAG" --notes-file "$notes")
+gh_cmd=(gh release create "$TAG" "${assets[@]}" --repo "$REPO" --target "$commit"
+    --title "SableOS $TAG" --notes-file "$notes")
 if [[ "$PUBLISH" != YES ]]; then
     echo "Not published. To publish:"
     printf ' %q' "${gh_cmd[@]}"

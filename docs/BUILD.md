@@ -171,15 +171,15 @@ Keep the whole directory for anything you flash.
 
 `release` packs the newest collected build into one zip with the images, the install
 package, `SHA256SUMS.txt`, `FLASHING.md` ([`FLASHING_RELEASE.md`](FLASHING_RELEASE.md)) and
-`RELEASE_NOTES.md`, and publishes it as a GitHub pre-release:
+`RELEASE_NOTES.md`, and publishes it as a GitHub release:
 
 ```bash
 bash build/sable.sh q25 full artifacts
-bash build/sable.sh q25 full release --tag alpha-20261029             # build the zip, print the gh command
-bash build/sable.sh q25 full release --tag alpha-20261029 --publish   # needs gh auth login
+bash build/sable.sh q25 full release --tag 1.0                         # build the zip, print the gh command
+bash build/sable.sh q25 full release --tag 1.0 --publish               # needs gh auth login
 ```
 
-The notes start with `releases/<tag>.md`, or `releases/ALPHA_NOTES.md` when there is none,
+The notes start with `releases/<tag>.md` (for 1.0, `releases/1.0.md`),
 then add the zip's SHA-256, the source commit and the commits since the previous tag. The tag
 is created on the commit the build was made from, so that commit must be pushed. GitHub limits
 a release file to 2 GiB; a bigger zip leaves the install package out and uploads it beside it.
