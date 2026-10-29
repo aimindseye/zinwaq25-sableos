@@ -10,6 +10,21 @@ the display tools) followed, and the image built after PR #33 was flashed and
 reviewed on 2026-10-28. PRs #34-#36 are not built into an image yet. Section
 "Publish a release" (section 6) packages a build for GitHub.**
 
+## The short way
+
+After installing the packages in section 1, one command does every step in this
+guide (check, download, apps, microG, stage, build, collect):
+
+```bash
+export ANDROID_HOME=/path/to/android-sdk
+bash build/sable.sh q25 all --yes      # --yes allows the ~200 GB download
+```
+
+If it stops, fix what the message says and run it again; finished steps are
+reused. Add `--release` to also make the GitHub release zip. The rest of this
+guide explains each step for when you want to run one by hand. The release
+defaults to `full` (the complete SableOS image); `Q4` is its old name.
+
 ## 1. Host
 
 * Linux x86_64 (Ubuntu 22.04/24.04 or Debian 12 are what LineageOS documents).
@@ -34,7 +49,7 @@ git lfs install
 Check everything:
 
 ```bash
-bash build/sable.sh q25 Q2 doctor
+bash build/sable.sh q25 doctor
 ```
 
 Paths default to `~/sable-q25`. Put the tree elsewhere with

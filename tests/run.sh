@@ -751,6 +751,9 @@ if (source build/lib/common.sh; sable_require_release full && sable_release_has_
 else
     fail "release name full"
 fi
+[[ "$(bash build/sable.sh q25 doctor 2>&1 || true)" == *RELEASE=full* ]] && pass "release defaults to full" || fail "release default"
+all_out="$(env -u NETWORK_FETCH_AUTHORIZED SABLE_BUILD_ROOT=/nonexistent/sable bash build/sable.sh q25 all 2>&1 || true)"
+[[ "$all_out" == *"add --yes"* ]] && pass "all explains --yes" || fail "all without --yes"
 if bash build/sable.sh q25 Q2 flash >/dev/null 2>&1; then fail "flash should be blocked"; else pass "flash blocked"; fi
 if bash build/sable.sh titan2 Q2 doctor >/dev/null 2>&1; then fail "non-q25 device accepted"; else pass "only q25 accepted"; fi
 

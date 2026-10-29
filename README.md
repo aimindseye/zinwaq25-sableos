@@ -146,31 +146,35 @@ More: [`docs/DEVICE_INFO.md`](docs/DEVICE_INFO.md).
   the boot menu shows, choose *fastboot*. Or `adb reboot bootloader`.
 * **Recovery:** same key combo, choose *recovery*.
 
-## Quick start (build)
+## Build the image yourself
+
+You need a Linux computer (Ubuntu 22.04 or newer, 32 GB RAM, 300 GB free disk)
+and the Android SDK (platform 36). The package list is in
+[`docs/BUILD.md`](docs/BUILD.md) section 1. No other background is needed.
 
 ```bash
 git clone https://github.com/aimindseye/zinwaq25-sableos
 cd zinwaq25-sableos
-# optional, tree on another disk: export SABLE_BUILD_ROOT=/big/disk/sable-q25
-export ANDROID_HOME=/path/to/android-sdk                          # platform 36, build-tools 36.0.0
-bash build/sable.sh q25 full doctor                                  # check host
-NETWORK_FETCH_AUTHORIZED=YES bash build/sable.sh q25 full bootstrap   # ~200 GB sync
-bash scripts/apply-framework-patches.sh check                      # patches still apply?
-bash build/sable.sh q25 full apps                                    # build Sable APKs (always before stage)
-NETWORK_FETCH_AUTHORIZED=YES bash build/sable.sh q25 full microg      # microG + Aurora APKs
-bash build/sable.sh q25 full stage                                   # Sable layer + framework patches
-bash build/sable.sh q25 full build                                   # build image
-bash build/sable.sh q25 full artifacts                               # hash outputs
-bash build/sable.sh q25 full release                                 # optional: zip + notes for a GitHub pre-release
+export ANDROID_HOME=/path/to/android-sdk
+bash build/sable.sh q25 all --yes
 ```
 
-`Q4` is the full SableOS build: the Sable layer plus the framework layer (Sable
-Start as HOME, Sable Keyboard as the only IME, `patches/framework`, microG unless
-`SABLE_Q25_MICROG=NO`). `Q2` adds only the Sable apps and props on stock LineageOS,
-and `Q1` builds plain `lineage_Q25` (the control image). For those, replace `Q4`
-above and skip `microg`. `stage` packages the APKs already in `apps-out`, so run
-`apps` again after pulling new sources. The Sable app sources are in `sable-src/`
-(see [`apps/README.md`](apps/README.md)). Full guide: [`docs/BUILD.md`](docs/BUILD.md).
+That one command checks your computer and says what is missing, downloads
+LineageOS 23.2 (about 200 GB, first run only), builds the Sable apps, adds the
+Sable layer, builds the image and collects the files. The first run takes many
+hours. If it stops, read the message, fix that, and run the same command again:
+finished steps are reused. Add `--release` to also zip the result for a GitHub
+release. The files end up in `~/sable-q25/artifacts/q25/full/`; to use another
+disk, `export SABLE_BUILD_ROOT=/big/disk/sable-q25` first. Then install them
+with [`docs/INSTALL.md`](docs/INSTALL.md).
+
+Advanced: `bash build/sable.sh q25 <function>` runs one step (`doctor`,
+`bootstrap`, `apps`, `microg`, `stage`, `build`, `artifacts`, `release`). The
+default release `full` is the complete SableOS image. `Q2` (Sable apps on stock
+LineageOS) and `Q1` (plain `lineage_Q25`, the control image) can be put before
+the function, as in `bash build/sable.sh q25 Q1 build`. The Sable app sources are
+in `sable-src/` (see [`apps/README.md`](apps/README.md)). Full guide:
+[`docs/BUILD.md`](docs/BUILD.md).
 
 ## Repository layout
 
