@@ -133,6 +133,7 @@ More: [`docs/DEVICE_INFO.md`](docs/DEVICE_INFO.md).
 | [Play Store apps](docs/MICROG.md) | microG and Aurora Store (Q4, on by default): installing LinkedIn and other apps, battery and location defaults, removing it |
 | [SableOS gaps](docs/SABLEOS_GAP_REVIEW.md) | What is still open: build, device checks, owner decisions, known limits |
 | [Return to stock](docs/RETURN_TO_STOCK.md) | Backup first, rehearse the restore, recovery ladder back to Zinwa firmware |
+| [Hardening plan](docs/HARDENING_PLAN.md) | GrapheneOS-style protections: what SableOS has, what can be ported, and what blocks it |
 | [Architecture](docs/ARCHITECTURE.md) | How the LineageOS base and Sable layer fit together |
 | [Keyboard and input](docs/KEYBOARD_AND_INPUT.md) | Q25 keyboard, trackpad, key profile, AutoText and speed dial |
 | [Languages](docs/LANGUAGES.md) | What is translated and how to translate a Sable app |
