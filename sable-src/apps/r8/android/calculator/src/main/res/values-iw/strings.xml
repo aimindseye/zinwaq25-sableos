@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hebrew. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
+<resources>
+    <string name="basic">בסיסי</string>
+    <string name="scientific">מדעי</string>
+    <string name="convert">המרה</string>
+    <string name="basic_scientific_and_conversion_tools">חישוב בסיסי ומדעי והמרת יחידות באפליקציה אחת.</string>
+    <string name="exact_result">תוצאה מדויקת</string>
+    <string name="choose_an_operation_first">יש לבחור תחילה פעולה.</string>
+    <string name="degrees_for_trigonometry">%1$s · מעלות לחישובים טריגונומטריים</string>
+    <string name="scientific_operations_and_the_core">פעולות מדעיות וחישובים בסיסיים מתבצעים במנוע המובנה של המחשבון.</string>
+    <string name="results_are_not_silently_rounded">התוצאות אינן מעוגלות אוטומטית לערכי נקודה צפה.</string>
+    <string name="scientific_functions_use_degrees">הפונקציות המדעיות משתמשות במעלות.</string>
+    <string name="exact_decimal_results_never_rounded">תוצאות עשרוניות מדויקות, ללא עיגול.</string>
+    <string name="native_bridge_failure">כשל בממשק המקומי</string>
+</resources>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Japanese. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
+<resources>
+    <string name="basic">基本</string>
+    <string name="scientific">関数</string>
+    <string name="convert">変換</string>
+    <string name="basic_scientific_and_conversion_tools">基本計算、関数計算、単位変換を1つのアプリで利用できます。</string>
+    <string name="exact_result">正確な結果</string>
+    <string name="choose_an_operation_first">先に計算方法を選択してください。</string>
+    <string name="degrees_for_trigonometry">%1$s · 三角関数には度数法を使用</string>
+    <string name="scientific_operations_and_the_core">関数計算と基本的な四則演算は、電卓のネイティブエンジンで実行されます。</string>
+    <string name="results_are_not_silently_rounded">計算結果が浮動小数点数に自動的に丸められることはありません。</string>
+    <string name="scientific_functions_use_degrees">関数計算には度数法を使用します。</string>
+    <string name="exact_decimal_results_never_rounded">丸め処理を行わない正確な小数結果です。</string>
+    <string name="native_bridge_failure">ネイティブ連携エラー</string>
+</resources>

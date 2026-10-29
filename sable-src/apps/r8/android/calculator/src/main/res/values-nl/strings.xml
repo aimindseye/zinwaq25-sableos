@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dutch. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
+<resources>
+    <string name="basic">Standaard</string>
+    <string name="scientific">Wetenschappelijk</string>
+    <string name="convert">Omrekenen</string>
+    <string name="basic_scientific_and_conversion_tools">Standaardberekeningen, wetenschappelijke functies en omrekeningen in één app.</string>
+    <string name="exact_result">Exact resultaat</string>
+    <string name="choose_an_operation_first">Kies eerst een bewerking.</string>
+    <string name="degrees_for_trigonometry">%1$s · graden voor goniometrie</string>
+    <string name="scientific_operations_and_the_core">Wetenschappelijke functies en elementaire berekeningen worden uitgevoerd door de ingebouwde rekenmodule.</string>
+    <string name="results_are_not_silently_rounded">Resultaten worden niet ongemerkt afgerond tot drijvendekommagetallen.</string>
+    <string name="scientific_functions_use_degrees">Wetenschappelijke functies gebruiken graden.</string>
+    <string name="exact_decimal_results_never_rounded">Exacte decimale resultaten, zonder afronding.</string>
+    <string name="native_bridge_failure">Fout in de native interface</string>
+</resources>

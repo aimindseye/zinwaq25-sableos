@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Swedish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
+<resources>
+    <string name="convert_length">Längd</string>
+    <string name="convert_mass">Massa</string>
+    <string name="convert_temperature">Temperatur</string>
+    <string name="convert_volume">Volym</string>
+    <string name="convert_millimeters">Millimeter</string>
+    <string name="convert_centimeters">Centimeter</string>
+    <string name="convert_meters">Meter</string>
+    <string name="convert_kilometers">Kilometer</string>
+    <string name="convert_inches">Tum</string>
+    <string name="convert_feet">Fot</string>
+    <string name="convert_miles">Engelska mil</string>
+    <string name="convert_grams">Gram</string>
+    <string name="convert_kilograms">Kilogram</string>
+    <string name="convert_ounces">Uns</string>
+    <string name="convert_pounds">Pund</string>
+    <string name="convert_celsius">Celsius</string>
+    <string name="convert_fahrenheit">Fahrenheit</string>
+    <string name="convert_kelvin">Kelvin</string>
+    <string name="convert_milliliters">Milliliter</string>
+    <string name="convert_liters">Liter</string>
+    <string name="convert_cups">Koppar</string>
+    <string name="convert_gallons">Gallon</string>
+    <string name="convert_ready">Klar</string>
+    <string name="convert_value">Värde</string>
+    <string name="convert_from">Från</string>
+    <string name="convert_to">Till</string>
+    <string name="convert_convert">Konvertera</string>
+    <string name="convert_enter_a_number_with_up">Ange ett tal med högst tre decimaler</string>
+    <string name="convert_length_mass_temperature_and_volume">Omvandling av längd, massa, temperatur och volym görs lokalt och offline.</string>
+    <string name="convert_native_bridge_failure">Fel i det inbyggda gränssnittet</string>
+</resources>

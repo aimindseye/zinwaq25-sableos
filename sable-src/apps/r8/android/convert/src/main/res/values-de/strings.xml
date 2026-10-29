@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
+<resources>
+    <string name="convert_length">Länge</string>
+    <string name="convert_mass">Masse</string>
+    <string name="convert_temperature">Temperatur</string>
+    <string name="convert_volume">Volumen</string>
+    <string name="convert_millimeters">Millimeter</string>
+    <string name="convert_centimeters">Zentimeter</string>
+    <string name="convert_meters">Meter</string>
+    <string name="convert_kilometers">Kilometer</string>
+    <string name="convert_inches">Zoll</string>
+    <string name="convert_feet">Fuß</string>
+    <string name="convert_miles">Meilen</string>
+    <string name="convert_grams">Gramm</string>
+    <string name="convert_kilograms">Kilogramm</string>
+    <string name="convert_ounces">Unzen</string>
+    <string name="convert_pounds">Pfund</string>
+    <string name="convert_celsius">Celsius</string>
+    <string name="convert_fahrenheit">Fahrenheit</string>
+    <string name="convert_kelvin">Kelvin</string>
+    <string name="convert_milliliters">Milliliter</string>
+    <string name="convert_liters">Liter</string>
+    <string name="convert_cups">Tassen</string>
+    <string name="convert_gallons">Gallonen</string>
+    <string name="convert_ready">Bereit</string>
+    <string name="convert_value">Wert</string>
+    <string name="convert_from">Von</string>
+    <string name="convert_to">Nach</string>
+    <string name="convert_convert">Umrechnen</string>
+    <string name="convert_enter_a_number_with_up">Zahl mit bis zu drei Nachkommastellen eingeben</string>
+    <string name="convert_length_mass_temperature_and_volume">Umrechnungen von Länge, Masse, Temperatur und Volumen erfolgen lokal und offline.</string>
+    <string name="convert_native_bridge_failure">Fehler der nativen Schnittstelle</string>
+</resources>

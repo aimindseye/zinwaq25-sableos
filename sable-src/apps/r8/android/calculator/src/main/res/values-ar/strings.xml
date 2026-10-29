@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
+<resources>
+    <string name="basic">أساسية</string>
+    <string name="scientific">علمية</string>
+    <string name="convert">تحويل</string>
+    <string name="basic_scientific_and_conversion_tools">أدوات الحساب الأساسية والعلمية وتحويل الوحدات في تطبيق واحد.</string>
+    <string name="exact_result">نتيجة دقيقة</string>
+    <string name="choose_an_operation_first">اختر عملية أولًا.</string>
+    <string name="degrees_for_trigonometry">%1$s · الدرجات للحسابات المثلثية</string>
+    <string name="scientific_operations_and_the_core">تُنفَّذ العمليات العلمية والحسابات الأساسية عبر محرّك الآلة الحاسبة الأصلي.</string>
+    <string name="results_are_not_silently_rounded">لا تُقرَّب النتائج تلقائيًا إلى قيم الفاصلة العائمة.</string>
+    <string name="scientific_functions_use_degrees">تستخدم الدوال العلمية الدرجات.</string>
+    <string name="exact_decimal_results_never_rounded">نتائج عشرية دقيقة دون تقريب.</string>
+    <string name="native_bridge_failure">فشل الواجهة الأصلية</string>
+</resources>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
+<resources>
+    <string name="convert_length">Longitud</string>
+    <string name="convert_mass">Masa</string>
+    <string name="convert_temperature">Temperatura</string>
+    <string name="convert_volume">Volumen</string>
+    <string name="convert_millimeters">Milímetros</string>
+    <string name="convert_centimeters">Centímetros</string>
+    <string name="convert_meters">Metros</string>
+    <string name="convert_kilometers">Kilómetros</string>
+    <string name="convert_inches">Pulgadas</string>
+    <string name="convert_feet">Pies</string>
+    <string name="convert_miles">Millas</string>
+    <string name="convert_grams">Gramos</string>
+    <string name="convert_kilograms">Kilogramos</string>
+    <string name="convert_ounces">Onzas</string>
+    <string name="convert_pounds">Libras</string>
+    <string name="convert_celsius">Celsius</string>
+    <string name="convert_fahrenheit">Fahrenheit</string>
+    <string name="convert_kelvin">Kelvin</string>
+    <string name="convert_milliliters">Mililitros</string>
+    <string name="convert_liters">Litros</string>
+    <string name="convert_cups">Tazas</string>
+    <string name="convert_gallons">Galones</string>
+    <string name="convert_ready">Listo</string>
+    <string name="convert_value">Valor</string>
+    <string name="convert_from">De</string>
+    <string name="convert_to">A</string>
+    <string name="convert_convert">Convertir</string>
+    <string name="convert_enter_a_number_with_up">Introduce un número con hasta tres decimales</string>
+    <string name="convert_length_mass_temperature_and_volume">Las conversiones de longitud, masa, temperatura y volumen se realizan localmente y sin conexión.</string>
+    <string name="convert_native_bridge_failure">Error de la interfaz nativa</string>
+</resources>

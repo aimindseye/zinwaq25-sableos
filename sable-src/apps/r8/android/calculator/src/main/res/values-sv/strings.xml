@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Swedish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
+<resources>
+    <string name="basic">Grundläggande</string>
+    <string name="scientific">Vetenskaplig</string>
+    <string name="convert">Konvertera</string>
+    <string name="basic_scientific_and_conversion_tools">Grundläggande och vetenskaplig beräkning samt enhetsomvandling i en app.</string>
+    <string name="exact_result">Exakt resultat</string>
+    <string name="choose_an_operation_first">Välj en räkneoperation först.</string>
+    <string name="degrees_for_trigonometry">%1$s · grader för trigonometri</string>
+    <string name="scientific_operations_and_the_core">Vetenskapliga funktioner och grundläggande aritmetik körs i räknarens inbyggda motor.</string>
+    <string name="results_are_not_silently_rounded">Resultaten avrundas inte automatiskt till flyttal.</string>
+    <string name="scientific_functions_use_degrees">Vetenskapliga funktioner använder grader.</string>
+    <string name="exact_decimal_results_never_rounded">Exakta decimalresultat utan avrundning.</string>
+    <string name="native_bridge_failure">Fel i det inbyggda gränssnittet</string>
+</resources>

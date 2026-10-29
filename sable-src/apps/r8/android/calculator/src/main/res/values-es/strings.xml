@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
+<resources>
+    <string name="basic">Básica</string>
+    <string name="scientific">Científica</string>
+    <string name="convert">Convertir</string>
+    <string name="basic_scientific_and_conversion_tools">Herramientas básicas, científicas y de conversión en una sola aplicación.</string>
+    <string name="exact_result">Resultado exacto</string>
+    <string name="choose_an_operation_first">Elige primero una operación.</string>
+    <string name="degrees_for_trigonometry">%1$s · grados para trigonometría</string>
+    <string name="scientific_operations_and_the_core">Las operaciones científicas y los cálculos aritméticos básicos se ejecutan mediante el motor nativo de la calculadora.</string>
+    <string name="results_are_not_silently_rounded">Los resultados no se redondean automáticamente a valores de coma flotante.</string>
+    <string name="scientific_functions_use_degrees">Las funciones científicas utilizan grados.</string>
+    <string name="exact_decimal_results_never_rounded">Resultados decimales exactos, sin redondeo.</string>
+    <string name="native_bridge_failure">Error de la interfaz nativa</string>
+</resources>

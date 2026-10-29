@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Polish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
+<resources>
+    <string name="basic">Podstawowy</string>
+    <string name="scientific">Naukowy</string>
+    <string name="convert">Przelicz</string>
+    <string name="basic_scientific_and_conversion_tools">Działania podstawowe, naukowe i przeliczanie jednostek w jednej aplikacji.</string>
+    <string name="exact_result">Dokładny wynik</string>
+    <string name="choose_an_operation_first">Najpierw wybierz działanie.</string>
+    <string name="degrees_for_trigonometry">%1$s · stopnie w trygonometrii</string>
+    <string name="scientific_operations_and_the_core">Działania naukowe i podstawowe obliczenia arytmetyczne wykonuje natywny moduł kalkulatora.</string>
+    <string name="results_are_not_silently_rounded">Wyniki nie są automatycznie zaokrąglane do wartości zmiennoprzecinkowych.</string>
+    <string name="scientific_functions_use_degrees">Funkcje naukowe używają stopni.</string>
+    <string name="exact_decimal_results_never_rounded">Dokładne wyniki dziesiętne bez zaokrąglania.</string>
+    <string name="native_bridge_failure">Błąd interfejsu natywnego</string>
+</resources>

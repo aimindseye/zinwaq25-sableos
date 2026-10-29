@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
+<resources>
+    <string name="convert_length">Μήκος</string>
+    <string name="convert_mass">Μάζα</string>
+    <string name="convert_temperature">Θερμοκρασία</string>
+    <string name="convert_volume">Όγκος</string>
+    <string name="convert_millimeters">Χιλιοστά</string>
+    <string name="convert_centimeters">Εκατοστά</string>
+    <string name="convert_meters">Μέτρα</string>
+    <string name="convert_kilometers">Χιλιόμετρα</string>
+    <string name="convert_inches">Ίντσες</string>
+    <string name="convert_feet">Πόδια</string>
+    <string name="convert_miles">Μίλια</string>
+    <string name="convert_grams">Γραμμάρια</string>
+    <string name="convert_kilograms">Κιλά</string>
+    <string name="convert_ounces">Ουγγιές</string>
+    <string name="convert_pounds">Λίβρες</string>
+    <string name="convert_celsius">Κελσίου</string>
+    <string name="convert_fahrenheit">Φαρενάιτ</string>
+    <string name="convert_kelvin">Κέλβιν</string>
+    <string name="convert_milliliters">Χιλιοστόλιτρα</string>
+    <string name="convert_liters">Λίτρα</string>
+    <string name="convert_cups">Φλιτζάνια</string>
+    <string name="convert_gallons">Γαλόνια</string>
+    <string name="convert_ready">Έτοιμο</string>
+    <string name="convert_value">Τιμή</string>
+    <string name="convert_from">Από</string>
+    <string name="convert_to">Σε</string>
+    <string name="convert_convert">Μετατροπή</string>
+    <string name="convert_enter_a_number_with_up">Εισαγάγετε αριθμό με έως τρία δεκαδικά ψηφία</string>
+    <string name="convert_length_mass_temperature_and_volume">Οι μετατροπές μήκους, μάζας, θερμοκρασίας και όγκου γίνονται τοπικά και χωρίς σύνδεση.</string>
+    <string name="convert_native_bridge_failure">Αποτυχία εγγενούς διεπαφής</string>
+</resources>

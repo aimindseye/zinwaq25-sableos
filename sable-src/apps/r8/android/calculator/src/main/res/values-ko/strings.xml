@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Korean. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
+<resources>
+    <string name="basic">기본</string>
+    <string name="scientific">공학용</string>
+    <string name="convert">변환</string>
+    <string name="basic_scientific_and_conversion_tools">기본 계산, 과학 계산, 단위 변환 기능을 하나의 앱에서 이용하세요.</string>
+    <string name="exact_result">정확한 결과</string>
+    <string name="choose_an_operation_first">먼저 연산을 선택하세요.</string>
+    <string name="degrees_for_trigonometry">%1$s · 삼각함수에 도 단위 사용</string>
+    <string name="scientific_operations_and_the_core">과학 연산과 기본 산술 계산은 계산기의 네이티브 엔진에서 실행됩니다.</string>
+    <string name="results_are_not_silently_rounded">결과를 부동 소수점 값으로 임의 반올림하지 않습니다.</string>
+    <string name="scientific_functions_use_degrees">과학 함수에는 도 단위가 사용됩니다.</string>
+    <string name="exact_decimal_results_never_rounded">반올림하지 않은 정확한 소수 결과입니다.</string>
+    <string name="native_bridge_failure">네이티브 인터페이스 오류</string>
+</resources>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
+<resources>
+    <string name="convert_length">Longueur</string>
+    <string name="convert_mass">Masse</string>
+    <string name="convert_temperature">Température</string>
+    <string name="convert_volume">Volume</string>
+    <string name="convert_millimeters">Millimètres</string>
+    <string name="convert_centimeters">Centimètres</string>
+    <string name="convert_meters">Mètres</string>
+    <string name="convert_kilometers">Kilomètres</string>
+    <string name="convert_inches">Pouces</string>
+    <string name="convert_feet">Pieds</string>
+    <string name="convert_miles">Miles</string>
+    <string name="convert_grams">Grammes</string>
+    <string name="convert_kilograms">Kilogrammes</string>
+    <string name="convert_ounces">Onces</string>
+    <string name="convert_pounds">Livres</string>
+    <string name="convert_celsius">Celsius</string>
+    <string name="convert_fahrenheit">Fahrenheit</string>
+    <string name="convert_kelvin">Kelvin</string>
+    <string name="convert_milliliters">Millilitres</string>
+    <string name="convert_liters">Litres</string>
+    <string name="convert_cups">Tasses</string>
+    <string name="convert_gallons">Gallons</string>
+    <string name="convert_ready">Prêt</string>
+    <string name="convert_value">Valeur</string>
+    <string name="convert_from">De</string>
+    <string name="convert_to">Vers</string>
+    <string name="convert_convert">Convertir</string>
+    <string name="convert_enter_a_number_with_up">Saisissez un nombre avec trois décimales au maximum</string>
+    <string name="convert_length_mass_temperature_and_volume">Les conversions de longueur, de masse, de température et de volume sont effectuées sur l’appareil, hors ligne.</string>
+    <string name="convert_native_bridge_failure">Échec de l’interface native</string>
+</resources>

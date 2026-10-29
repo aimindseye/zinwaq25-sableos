@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
+<resources>
+    <string name="basic">Standard</string>
+    <string name="scientific">Wissenschaftlich</string>
+    <string name="convert">Umrechnen</string>
+    <string name="basic_scientific_and_conversion_tools">Grundrechenarten, wissenschaftliche Funktionen und Umrechnungen in einer App.</string>
+    <string name="exact_result">Exaktes Ergebnis</string>
+    <string name="choose_an_operation_first">Wähle zuerst eine Rechenoperation.</string>
+    <string name="degrees_for_trigonometry">%1$s · Grad für trigonometrische Funktionen</string>
+    <string name="scientific_operations_and_the_core">Wissenschaftliche Funktionen und grundlegende Rechenoperationen werden in der nativen Rechnerkomponente ausgeführt.</string>
+    <string name="results_are_not_silently_rounded">Ergebnisse werden nicht unbemerkt in Gleitkommawerte gerundet.</string>
+    <string name="scientific_functions_use_degrees">Wissenschaftliche Funktionen verwenden Grad.</string>
+    <string name="exact_decimal_results_never_rounded">Exakte Dezimalergebnisse ohne Rundung.</string>
+    <string name="native_bridge_failure">Fehler der nativen Schnittstelle</string>
+</resources>

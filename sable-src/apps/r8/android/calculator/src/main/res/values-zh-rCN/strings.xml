@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
+<resources>
+    <string name="basic">基础</string>
+    <string name="scientific">科学</string>
+    <string name="convert">换算</string>
+    <string name="basic_scientific_and_conversion_tools">一款应用集成基础计算、科学计算与单位换算工具。</string>
+    <string name="exact_result">精确结果</string>
+    <string name="choose_an_operation_first">请先选择运算。</string>
+    <string name="degrees_for_trigonometry">%1$s · 三角函数使用角度制</string>
+    <string name="scientific_operations_and_the_core">科学运算和基本算术计算由计算器的原生引擎执行。</string>
+    <string name="results_are_not_silently_rounded">结果不会被自动舍入为浮点数。</string>
+    <string name="scientific_functions_use_degrees">科学函数使用角度制。</string>
+    <string name="exact_decimal_results_never_rounded">精确的小数结果，不进行舍入。</string>
+    <string name="native_bridge_failure">原生接口故障</string>
+</resources>

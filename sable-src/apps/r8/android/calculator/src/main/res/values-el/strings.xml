@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
+<resources>
+    <string name="basic">Βασική</string>
+    <string name="scientific">Επιστημονική</string>
+    <string name="convert">Μετατροπή</string>
+    <string name="basic_scientific_and_conversion_tools">Βασικοί και επιστημονικοί υπολογισμοί και μετατροπές σε μία εφαρμογή.</string>
+    <string name="exact_result">Ακριβές αποτέλεσμα</string>
+    <string name="choose_an_operation_first">Επιλέξτε πρώτα μια πράξη.</string>
+    <string name="degrees_for_trigonometry">%1$s · μοίρες για τριγωνομετρία</string>
+    <string name="scientific_operations_and_the_core">Οι επιστημονικές πράξεις και οι βασικοί αριθμητικοί υπολογισμοί εκτελούνται από την εγγενή μηχανή της αριθμομηχανής.</string>
+    <string name="results_are_not_silently_rounded">Τα αποτελέσματα δεν στρογγυλοποιούνται αυτόματα σε τιμές κινητής υποδιαστολής.</string>
+    <string name="scientific_functions_use_degrees">Οι επιστημονικές συναρτήσεις χρησιμοποιούν μοίρες.</string>
+    <string name="exact_decimal_results_never_rounded">Ακριβή δεκαδικά αποτελέσματα χωρίς στρογγυλοποίηση.</string>
+    <string name="native_bridge_failure">Αποτυχία εγγενούς διεπαφής</string>
+</resources>
