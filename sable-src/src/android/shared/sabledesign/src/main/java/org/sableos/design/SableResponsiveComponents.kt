@@ -1,5 +1,6 @@
 package org.sableos.design
 
+import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -50,7 +51,6 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.sableos.design.DesignText.t
-import android.view.KeyEvent as AndroidKeyEvent
 
 /*
  * Compose building blocks for DESIGN-KF-D part 2. The decisions live in the
@@ -118,13 +118,7 @@ fun SableAdaptiveTopNav(
                     metrics = metrics,
                     availableWidthDp = availableDp,
                 ) { label ->
-                    with(density) {
-                        measurer
-                            .measure(label, style, maxLines = 1)
-                            .size.width
-                            .toDp()
-                            .value
-                    }
+                    with(density) { measurer.measure(label, style, maxLines = 1).size.width.toDp().value }
                 }
             }
         var moreOpen by remember { mutableStateOf(false) }

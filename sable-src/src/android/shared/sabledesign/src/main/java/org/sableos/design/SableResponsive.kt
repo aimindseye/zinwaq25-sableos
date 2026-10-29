@@ -35,9 +35,7 @@ data class SableLayoutMetrics(
             when {
                 widthDp < SableResponsive.COMPACT_MAX_WIDTH_DP ||
                     textWidthDp < SableResponsive.COMPACT_TEXT_WIDTH_DP -> SableWidthClass.Compact
-
                 widthDp < SableResponsive.MEDIUM_MAX_WIDTH_DP -> SableWidthClass.Medium
-
                 else -> SableWidthClass.Expanded
             }
 
@@ -97,7 +95,6 @@ object SableResponsive {
 
     const val PRIMARY_TEXT_MAX_LINES = 2
     const val SECONDARY_TEXT_MAX_LINES = 1
-
     // Same value as SableDesignContract.MIN_TOUCH_TARGET_DP (kept literal so this file stays Compose-free).
     const val TOUCH_TARGET_MIN_DP = 48
 

@@ -8258,64 +8258,19 @@ index f643627..e93057c 100644
          val progress =
              if (!input.live && input.durationMs > 0L && input.state != SablePlaybackState.Stopped) {
                  (input.positionMs.toFloat() / input.durationMs.toFloat()).coerceIn(0f, 1f)
-diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableResponsive.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableResponsive.kt
-index c91e62a..17c9be0 100644
---- a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableResponsive.kt
-+++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableResponsive.kt
-@@ -35,7 +35,9 @@ data class SableLayoutMetrics(
-             when {
-                 widthDp < SableResponsive.COMPACT_MAX_WIDTH_DP ||
-                     textWidthDp < SableResponsive.COMPACT_TEXT_WIDTH_DP -> SableWidthClass.Compact
-+
-                 widthDp < SableResponsive.MEDIUM_MAX_WIDTH_DP -> SableWidthClass.Medium
-+
-                 else -> SableWidthClass.Expanded
-             }
- 
-@@ -95,6 +97,7 @@ object SableResponsive {
- 
-     const val PRIMARY_TEXT_MAX_LINES = 2
-     const val SECONDARY_TEXT_MAX_LINES = 1
-+
-     // Same value as SableDesignContract.MIN_TOUCH_TARGET_DP (kept literal so this file stays Compose-free).
-     const val TOUCH_TARGET_MIN_DP = 48
- 
 diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableResponsiveComponents.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableResponsiveComponents.kt
-index c4ad478..84d48b5 100644
+index c4ad478..f7d5e3a 100644
 --- a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableResponsiveComponents.kt
 +++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableResponsiveComponents.kt
-@@ -1,6 +1,5 @@
- package org.sableos.design
- 
--import android.view.KeyEvent as AndroidKeyEvent
- import androidx.compose.foundation.BorderStroke
- import androidx.compose.foundation.background
- import androidx.compose.foundation.border
-@@ -50,6 +49,8 @@ import androidx.compose.ui.text.font.FontWeight
+@@ -50,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
  import androidx.compose.ui.text.rememberTextMeasurer
  import androidx.compose.ui.text.style.TextOverflow
  import androidx.compose.ui.unit.dp
 +import org.sableos.design.DesignText.t
-+import android.view.KeyEvent as AndroidKeyEvent
  
  /*
   * Compose building blocks for DESIGN-KF-D part 2. The decisions live in the
-@@ -117,7 +118,13 @@ fun SableAdaptiveTopNav(
-                     metrics = metrics,
-                     availableWidthDp = availableDp,
-                 ) { label ->
--                    with(density) { measurer.measure(label, style, maxLines = 1).size.width.toDp().value }
-+                    with(density) {
-+                        measurer
-+                            .measure(label, style, maxLines = 1)
-+                            .size.width
-+                            .toDp()
-+                            .value
-+                    }
-                 }
-             }
-         var moreOpen by remember { mutableStateOf(false) }
-@@ -140,7 +147,7 @@ fun SableAdaptiveTopNav(
+@@ -140,7 +141,7 @@ fun SableAdaptiveTopNav(
                          selected = overflowSelected,
                          accent = accent,
                          description =
@@ -8324,7 +8279,7 @@ index c4ad478..84d48b5 100644
                          onClick = { moreOpen = true },
                          modifier = Modifier.fillMaxWidth(),
                      )
-@@ -278,7 +285,7 @@ fun SableMiniPlayer(
+@@ -278,7 +279,7 @@ fun SableMiniPlayer(
                  )
                  if (menuActions.isNotEmpty()) {
                      Box {
@@ -8333,7 +8288,7 @@ index c4ad478..84d48b5 100644
                          SableActionMenu(menuOpen, menuActions, { menuOpen = false }, onMenuAction)
                      }
                  }
-@@ -370,7 +377,7 @@ fun SableDenseRow(
+@@ -370,7 +371,7 @@ fun SableDenseRow(
          }
          if (split.overflow.isNotEmpty()) {
              Box {
@@ -8342,7 +8297,7 @@ index c4ad478..84d48b5 100644
                  SableActionMenu(menuOpen, split.overflow, { menuOpen = false }, onAction)
              }
          }
-@@ -483,7 +490,7 @@ fun SableAlphabetRail(
+@@ -483,7 +484,7 @@ fun SableAlphabetRail(
                      Modifier
                          .focusProperties { canFocus = false }
                          .clickable { onJump(section.firstIndex) }
@@ -8351,7 +8306,7 @@ index c4ad478..84d48b5 100644
                          .padding(horizontal = SableSpacing.Sm, vertical = 1.dp),
                  style = MaterialTheme.typography.labelMedium,
                  color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-@@ -535,7 +542,7 @@ fun SableReturnToCurrent(
+@@ -535,7 +536,7 @@ fun SableReturnToCurrent(
              modifier
                  .heightIn(min = SableSize.TouchTarget)
                  .sableFocusRing()
@@ -8360,37 +8315,6 @@ index c4ad478..84d48b5 100644
          shape = MaterialTheme.shapes.medium,
          color = MaterialTheme.colorScheme.primary,
          contentColor = MaterialTheme.colorScheme.onPrimary,
-diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableSystemTokens.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableSystemTokens.kt
-index 3d0c5d3..a2aa7ce 100644
---- a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableSystemTokens.kt
-+++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableSystemTokens.kt
-@@ -227,7 +227,7 @@ data class SableQuickSettingsLayout(
-             when (displayClass) {
-                 // sable-quick-settings-titan2: three columns of small labeled square tiles,
-                 // one compact row of four.
--                SableDisplayClass.SquareKeyboard ->
-+                SableDisplayClass.SquareKeyboard -> {
-                     SableQuickSettingsLayout(
-                         gridColumns = 3,
-                         largeTileSpan = 2,
-@@ -236,8 +236,15 @@ data class SableQuickSettingsLayout(
-                         compactColumns = 4,
-                         smallTileLabels = true,
-                     )
--                SableDisplayClass.CompactPortrait -> SableQuickSettingsLayout(4, 2, 2, allDefaultTilesLarge = false)
--                SableDisplayClass.Tall -> SableQuickSettingsLayout(4, 2, 2, allDefaultTilesLarge = false)
-+                }
-+
-+                SableDisplayClass.CompactPortrait -> {
-+                    SableQuickSettingsLayout(4, 2, 2, allDefaultTilesLarge = false)
-+                }
-+
-+                SableDisplayClass.Tall -> {
-+                    SableQuickSettingsLayout(4, 2, 2, allDefaultTilesLarge = false)
-+                }
-             }
-     }
- }
 diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTexts.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTexts.kt
 new file mode 100644
 index 0000000..ebc0f53
