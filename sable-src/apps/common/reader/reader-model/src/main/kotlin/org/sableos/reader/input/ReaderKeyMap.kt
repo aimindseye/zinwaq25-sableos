@@ -56,7 +56,7 @@ object ReaderKeyMap {
         ReaderKey.SPACE -> space(input.shift, context.surface)
         ReaderKey.ACTIVATE, ReaderKey.MENU ->
             ReaderAction.TOGGLE_CHROME.takeUnless { context.surface == ReaderSurface.AUDIO }
-        ReaderKey.CHARACTER -> letter(input.character, context.capabilities)
+        ReaderKey.CHARACTER -> letter(input.character, context)
         ReaderKey.ESCAPE, ReaderKey.BACK -> ReaderAction.DISMISS_OR_BACK
     }
 
@@ -98,12 +98,19 @@ object ReaderKeyMap {
             ReaderAction.ADVANCE
         }
 
-    private fun letter(character: Char?, capabilities: ReaderCapabilities): ReaderAction? =
-        when (character?.lowercaseChar()) {
+    // N/P are the BlackBerry next/previous keys: on an audiobook they change chapter, so keyboards without
+    // PageUp/PageDown (the Q25, the Titan 2) can still do it.
+    private fun letter(character: Char?, context: KeyContext): ReaderAction? {
+        val capabilities = context.capabilities
+        val audio = context.surface == ReaderSurface.AUDIO
+        return when (character?.lowercaseChar()) {
             'b' -> ReaderAction.TOGGLE_BOOKMARK.takeIf { capabilities.bookmarks }
             't' -> ReaderAction.OPEN_CONTENTS.takeIf { capabilities.contents }
             'f' -> ReaderAction.OPEN_FIND.takeIf { capabilities.textSearch }
             'a' -> ReaderAction.OPEN_APPEARANCE.takeIf { capabilities.appearance }
+            'n' -> ReaderAction.CHAPTER_NEXT.takeIf { audio }
+            'p' -> ReaderAction.CHAPTER_PREVIOUS.takeIf { audio }
             else -> null
         }
+    }
 }

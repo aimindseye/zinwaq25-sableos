@@ -33,6 +33,13 @@ class AudioKeyPolicyTest {
     }
 
     @Test
+    fun nAndPChangeChapterForKeyboardsWithoutPageKeys() {
+        assertEquals(AudioKeyCommand.NEXT_CHAPTER, decide(letter('n')))
+        assertEquals(AudioKeyCommand.PREVIOUS_CHAPTER, decide(letter('P')))
+        assertNull(decide(letter('n'), editing = true))
+    }
+
+    @Test
     fun keysWithoutAnAudioMeaningPassThrough() {
         assertNull(decide(key(ReaderKey.UP)))
         assertNull(decide(key(ReaderKey.DOWN)))
