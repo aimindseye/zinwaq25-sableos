@@ -4,9 +4,9 @@ As of 2026-10-28. Editable copy: [SableOS User Guide (Claude Doc)](https://claud
 
 ## About this guide
 
-SableOS is a BlackBerry-style Android for the Zinwa Q25. It is built on LineageOS 23.2 (Android 16), and almost everything can be done from the keyboard. This guide covers the alpha-20261028 release plus the changes in PR #38 (pure black Dark theme, BlackBerry 7 home icons and swipes, Sound Profiles look, weather fix).
+SableOS is a BlackBerry-style Android for the Zinwa Q25. It is built on LineageOS 23.2 (Android 16), and almost everything can be done from the keyboard. This guide covers SableOS 1.0, which includes the earlier alpha-20261028 test build plus the changes in PR #38 (pure black Dark theme, BlackBerry 7 home icons and swipes, Sound Profiles look, weather fix).
 
-This is alpha software. Features whose gate in [QUALIFICATION.md](QUALIFICATION.md) says `NOT_RUN` have not been checked on a Q25 yet. Settings marked "default" below are what a fresh install ships with.
+Features whose gate in [QUALIFICATION.md](QUALIFICATION.md) says `NOT_RUN` have not been checked on a Q25 yet. Settings marked "default" below are what a fresh install ships with.
 
 ## Install and first boot
 
@@ -191,7 +191,7 @@ Sable apps, Phone, Contacts, Settings and the system screens all use the same pu
 
 ## Privacy and security defaults
 
-The alpha favours privacy over Google compatibility, but it is not hardened yet. The bootloader stays unlocked, and the build is not release-key signed (gate Q5-KEYS is `NOT_RUN`). Treat it as a development phone, not a phone for banking or work secrets.
+SableOS favours privacy over Google compatibility, but it is not hardened yet. The bootloader stays unlocked, and the build is not release-key signed (gate Q5-KEYS is `NOT_RUN`). Treat it as a development phone, not a phone for banking or work secrets.
 
 | Area | Default on a fresh install | Why |
 | --- | --- | --- |

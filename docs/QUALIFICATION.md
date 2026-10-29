@@ -199,4 +199,4 @@ Crash rule (sableos #84): after any first-boot or launcher crash, run
 | Q5-AVB | Custom AVB key accepted with relocked bootloader (or documented as impossible) | NOT_RUN |
 | Q5-OTA | A Sable OTA updater (Q4 ships none; Q2/Q3 keep the LineageOS Updater pointed away) installs an incremental update from a Sable server | NOT_RUN |
 | Q5-RESTORE | Return-to-stock procedure tested end to end | NOT_RUN |
-| Q5-RELEASE-ALPHA | `bash build/sable.sh q25 Q4 release` on the collected build prints RELEASE_ZIP and the gh command; the zip unpacks, `sha256sum -c SHA256SUMS.txt` passes inside it, and RELEASE_NOTES.md starts with the alpha warning and has the backup and restore steps; with `--publish` the GitHub pre-release has the zip and notes (scripts/make-release.sh) | NOT_RUN |
+| Q5-RELEASE-ALPHA | `bash build/sable.sh q25 Q4 release` on the collected build prints RELEASE_ZIP and the gh command; the zip unpacks, `sha256sum -c SHA256SUMS.txt` passes inside it, and RELEASE_NOTES.md starts with the at-your-own-risk warning and has the backup and restore steps; with `--publish` the GitHub release has the zip and notes (scripts/make-release.sh) | NOT_RUN |

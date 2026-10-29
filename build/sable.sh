@@ -48,7 +48,7 @@ functions:
   artifacts                   collect and hash build outputs
   release [--tag T] [--publish]
                               zip the collected build with flashing steps and
-                              release notes as a GitHub pre-release
+                              release notes as a GitHub release
                               (docs/FLASHING_RELEASE.md, releases/)
   ci                          static repository checks
 

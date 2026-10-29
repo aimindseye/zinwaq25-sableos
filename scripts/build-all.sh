@@ -11,7 +11,7 @@
 #   --yes        allow the large downloads (about 200 GB of LineageOS source,
 #                plus microG and Aurora Store). Anything already downloaded is
 #                kept and not fetched again. Without --yes nothing is downloaded.
-#   --release    also zip the result for a GitHub pre-release
+#   --release    also zip the result for a GitHub release
 #   --skip-apps  do not rebuild the Sable apps (use the ones already built)
 set -euo pipefail
 
@@ -90,7 +90,7 @@ run "collecting the files" bash "$SABLE" q25 "$RELEASE" artifacts
 
 if [[ "$RELEASE_ZIP" == YES ]]; then
     echo
-    echo "===== Extra: zip for a GitHub pre-release ====="
+    echo "===== Extra: zip for a GitHub release ====="
     run "making the release zip" bash "$SABLE" q25 "$RELEASE" release
 fi
 

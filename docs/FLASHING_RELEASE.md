@@ -5,7 +5,7 @@ These steps are for a release zip downloaded from
 follow [`INSTALL.md`](INSTALL.md), which covers building your own image.
 
 > [!WARNING]
-> **This is alpha software. You flash it entirely at your own risk.**
+> **You flash SableOS entirely at your own risk.**
 >
 > SableOS is an unofficial community build, not made or supported by Zinwa. It
 > is provided "as is", without warranty of any kind (Apache License 2.0,
@@ -29,8 +29,8 @@ Built on **LineageOS 23.2 (Android 16 QPR2)**. Use a Linux or macOS terminal wit
 2. **Unzip the download and go into the folder** (use the real file name):
 
    ```bash
-   unzip sableos-q25-full-alpha-YYYYMMDD.zip
-   cd sableos-q25-full-alpha-YYYYMMDD
+   unzip sableos-q25-full-1.0.zip
+   cd sableos-q25-full-1.0
    sha256sum -c SHA256SUMS.txt        # every line must say OK
    ```
 
