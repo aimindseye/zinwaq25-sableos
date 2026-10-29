@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- English. Keep equal to MessagesText.EN (MessagesTextTest checks); translations go in values-<lang>/. -->
 <resources>
-    <string name="app_name">Sable Messages</string>
+    <string name="app_name" translatable="false">Sable Messages</string>
     <string name="conversation">Conversation</string>
     <string name="channel_incoming">Incoming messages</string>
     <string name="action_mark_read">Mark read</string>

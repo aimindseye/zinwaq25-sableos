@@ -66,6 +66,12 @@ One difference from the contract: the Q25 has no Ctrl or Esc key, so the contrac
 - **Keyboard first.** Held Alt+Shift+V opens it in the strip; Space, the trackpad, Enter, Backspace and Back drive it, and any other key types as usual. Touch works too.
 - **No Pastiera code.** The behaviour is written from scratch.
 
+## Translatable Sable apps, not yet on a device
+
+- **Every line in a strings file.** Each Sable app reads its text from `res/values/strings.xml`, so the phone's language picks a translation when one is added and English otherwise (sable-src 0085, [`LANGUAGES.md`](LANGUAGES.md)).
+- **Key legends stay keys.** Hints keep the Q25's printed key names and letters; translators change only the words.
+- **Support reports stay English.** Sable Tools reports and Radio diagnostics are not translated, so a report reads the same from any phone.
+
 ## Sable Reader in PR #41, not yet on a device
 
 | Area | What changed |

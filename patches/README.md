@@ -113,7 +113,10 @@
   drafts and an updated Spanish one, and 0083 Sable Keyboard's opt-in clipboard history
   (`ClipboardHistory`, `ClipPicker`, `ClipboardWatcher`, Alt+Shift+V), and 0084 Sable Terminal (the
   `connectbot` flavor: ConnectBot v1.10.9 pin, `apply_sable_flavor.py`, `SableTerminalKeys`, the
-  Phosphor terminal-window icon and Start glyph). Applied in order to a
+  Phosphor terminal-window icon and Start glyph), and 0085 every Sable app's English in
+  `res/values/strings.xml` (one `<App>Text` table per app, bound to the resources in its
+  `Application`, an `<App>TextTest` each, `DesignText` for the shared design lines and
+  `SableTexts` accepting nullable arguments; docs/LANGUAGES.md). Applied in order to a
   fresh import they reproduce `sable-src/` exactly. Regenerate a patch with `git diff` against a
   fresh import when you change these files.
 

@@ -959,6 +959,37 @@ grep -q '"org.sableos.terminal" to AppGlyph.TERMINAL' sable-src/src/android/pack
 grep -q 'root: flavor:connectbot' .github/workflows/android.yml || term_bad="$term_bad ci"
 if [[ -z "$term_bad" ]]; then pass "Sable Terminal: pinned ConnectBot 1.10.9 flavor, Menu is Ctrl, Start glyph, CI"; else fail "terminal:$term_bad"; fi
 
+# 19. Translatable Sable apps (sable-src 0085, docs/LANGUAGES.md): every app keeps its English in one
+#     table, repeats it in values/strings.xml, binds the table to the resources and tests the two equal.
+i18n_bad=""
+while read -r table strings bind test; do
+  [[ -f "$table" ]] || { i18n_bad="$i18n_bad missing:$table"; continue; }
+  obj=$(basename "$table" .kt)
+  [[ -f "$strings" ]] || i18n_bad="$i18n_bad strings:$strings"
+  grep -q "$obj.t.bindTo(this)" "$bind" || i18n_bad="$i18n_bad bind:$obj"
+  [[ -f "$test" ]] || i18n_bad="$i18n_bad test:$obj"
+done <<EOF_I18N
+sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/CalculatorText.kt sable-src/apps/r8/android/calculator/src/main/res/values/strings.xml sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/CalculatorApplication.kt sable-src/apps/r8/android/calculator/src/test/java/org/sableos/calculator/CalculatorTextTest.kt
+sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarApplication.kt sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/CalendarTextTest.kt
+sable-src/apps/r8/android/convert/src/main/java/org/sableos/convert/ConvertText.kt sable-src/apps/r8/android/convert/src/main/res/values/strings.xml sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/CalculatorApplication.kt sable-src/apps/r8/android/calculator/src/test/java/org/sableos/calculator/ConvertTextTest.kt
+sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GamesText.kt sable-src/apps/r8/android/games/src/main/res/values/strings.xml sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GamesApplication.kt sable-src/apps/r8/android/games/src/test/java/org/sableos/games/GamesTextTest.kt
+sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubText.kt sable-src/apps/r8/android/hub/src/main/res/values/strings.xml sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubApplication.kt sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/HubTextTest.kt
+sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaText.kt sable-src/apps/r8/android/media/src/main/res/values/strings.xml sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaApplication.kt sable-src/apps/r8/android/media/src/test/java/org/sableos/media/MediaTextTest.kt
+sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/core/MessagesText.kt sable-src/apps/r8/android/messages/src/main/res/values/strings.xml sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/MessagesApplication.kt sable-src/apps/r8/android/messages/src/test/java/org/sableos/messages/MessagesTextTest.kt
+sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NotesText.kt sable-src/apps/r8/android/notes/src/main/res/values/strings.xml sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesApplication.kt sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/NotesTextTest.kt
+sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherText.kt sable-src/apps/r8/android/weather/src/main/res/values/strings.xml sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherApplication.kt sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/WeatherTextTest.kt
+sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/CameraText.kt sable-src/apps/titan2/platform/camera/src/main/res/values/strings.xml sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/CameraApplication.kt sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/CameraTextTest.kt
+sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayCompatText.kt sable-src/apps/titan2/platform/displaycompat/src/main/res/values/strings.xml sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/DisplayCompatTextTest.kt
+sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/KeyboardText.kt sable-src/apps/titan2/platform/keyboard/src/main/res/values/strings.xml sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/KeyboardApplication.kt sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/KeyboardTextTest.kt
+sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/ProfilesText.kt sable-src/apps/titan2/platform/profiles/src/main/res/values/strings.xml sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/ProfilesApplication.kt sable-src/apps/titan2/platform/profiles/src/test/java/org/sableos/titan2/profiles/ProfilesTextTest.kt
+sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupText.kt sable-src/apps/titan2/platform/setup/src/main/res/values/strings.xml sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupActivity.kt sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SetupTextTest.kt
+sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ToolsApplication.kt sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/ToolsTextTest.kt
+sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/core/VaultLines.kt sable-src/apps/titan2/platform/vault/src/main/res/values/strings.xml sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/VaultApplication.kt sable-src/apps/titan2/platform/vault/src/test/java/org/sableos/titan2/vault/VaultLinesTest.kt
+sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt sable-src/src/android/packages/apps/SableStart/res/values/strings.xml sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/StartTextTest.kt
+sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/DesignText.kt sable-src/src/android/shared/sabledesign/src/main/res/values/strings.xml sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt sable-src/src/android/shared/sabledesign/src/test/java/org/sableos/design/DesignTextTest.kt
+EOF_I18N
+if [[ -z "$i18n_bad" ]]; then pass "Sable apps: English in one table per app, equal to values/strings.xml, bound to the resources"; else fail "translations:$i18n_bad"; fi
+
 echo
 if ((fails)); then echo "CI=FAIL ($fails)"; exit 1; fi
 echo "CI=PASS"

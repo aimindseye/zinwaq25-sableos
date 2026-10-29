@@ -54,3 +54,8 @@ Mail, Text Reader and Terminal are `flavor:` rows: the build fetches the pinned 
 rows someone has set to `enabled=no`. Radio Diag is disabled because Sable
 Tools (DESIGN-KF-C) carries it as Diagnostics > Radio, IMS and FM status and
 overrides the old package.
+
+Every Sable app keeps its English in `res/values/strings.xml` (Sable Start: `res/values` next to
+its sources), read through one `<App>Text` table per app; a translation is a
+`values-<lang>/strings.xml` beside it ([`docs/LANGUAGES.md`](../docs/LANGUAGES.md)). Mail, Text
+Reader, Reader and Terminal keep their upstream translations.

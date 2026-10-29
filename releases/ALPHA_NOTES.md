@@ -38,7 +38,9 @@ driven without touching the screen.
   the app or the Sound profile tile in Quick Settings.
 - **Lock screen** that takes the PIN from the keyboard; Alt+Space opens the
   emergency dialer.
-- **Sable Setup**, translatable (a Spanish translation is included), and
+- **Translatable Sable apps**: every Sable app keeps its English in one
+  strings file, so a language is one more file per app.
+- **Sable Setup**, with Spanish, French and German drafts, and
   Settings > System > Keyboard > Keyboard firmware for keyboard firmware updates
   (or dial `*#*#1122#*#*`).
 - **microG and Aurora Store** instead of Google Play.

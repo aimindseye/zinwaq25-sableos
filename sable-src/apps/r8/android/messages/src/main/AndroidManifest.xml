@@ -32,7 +32,7 @@
         android:allowBackup="false"
         android:icon="@mipmap/ic_sable_messages"
         android:roundIcon="@mipmap/ic_sable_messages_round"
-        android:label="Sable Messages"
+        android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:usesCleartextTraffic="false">

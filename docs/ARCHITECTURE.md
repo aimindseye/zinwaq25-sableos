@@ -83,6 +83,21 @@ upstream cache and `apply_sable_flavor.py` changes only what the Q25 needs:
 v1.11 is not used because its mosh feature downloads binaries at run time.
 `verify_sable_terminal.py` checks the composed checkout before every build.
 
+## Translatable Sable apps
+
+Every Sable app reads its lines through one table per app (sable-src 0085,
+[`LANGUAGES.md`](LANGUAGES.md)):
+
+```text
+ <App>Text.EN  (key -> English, Android format syntax)  ==  res/values/strings.xml   (<App>TextTest)
+ Application.onCreate: <App>Text.t.bindTo(this)  ->  t("key") reads values-<lang>/strings.xml, else English
+```
+
+Pure tests never bind, so they read English. Enum labels hold the key and look the
+text up when shown. Sable Start (Soong) has no `sabledesign` resources, so its
+`strings.xml` carries a copy of `DesignText`'s lines, checked by `StartTextTest`.
+Reports meant for support (Sable Tools reports, Radio diagnostics) stay English.
+
 ## Clipboard history in Sable Keyboard
 
 Only the default keyboard (or the app in front) may read the clipboard, so
