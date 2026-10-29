@@ -50,4 +50,20 @@ class ReaderLayoutProfileTest {
         assertTrue(ReaderLayoutProfile(750f, 1000f).isSquareish)
         assertFalse(ReaderLayoutProfile(749f, 1000f).isSquareish)
     }
+
+    @Test
+    fun keyboardSquarePhoneIsShortAndFitsFourCoversAcross() {
+        // 720x720 at density 280, minus the status bar.
+        val q25 = ReaderLayoutProfile(411f, 387f)
+        assertTrue(q25.isShort)
+        assertEquals(4, q25.libraryColumns(411f))
+    }
+
+    @Test
+    fun tallWindowsKeepFullSizeCovers() {
+        val phone = ReaderLayoutProfile(411f, 860f)
+        assertFalse(phone.isShort)
+        assertEquals(3, phone.libraryColumns(411f))
+        assertFalse(ReaderLayoutProfile(0f, 0f).isShort)
+    }
 }

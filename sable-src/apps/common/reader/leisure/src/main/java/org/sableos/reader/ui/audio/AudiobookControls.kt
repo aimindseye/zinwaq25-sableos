@@ -63,7 +63,7 @@ internal fun AudioTransport(state: AudiobookUiState, onAction: (AudioUiAction) -
     ) {
         TransportButton(
             Icons.Filled.SkipPrevious,
-            "Previous chapter (Page Up)",
+            "Previous chapter (P or Page Up)",
             { onAction(AudioUiAction.PreviousChapter) },
         )
         TransportButton(
@@ -82,7 +82,7 @@ internal fun AudioTransport(state: AudiobookUiState, onAction: (AudioUiAction) -
             "Forward ${AudioTimeFormat.interval(state.settings.skipForwardMs)} (Right)",
             { onAction(AudioUiAction.SkipForward) },
         )
-        TransportButton(Icons.Filled.SkipNext, "Next chapter (Page Down)", { onAction(AudioUiAction.NextChapter) })
+        TransportButton(Icons.Filled.SkipNext, "Next chapter (N or Page Down)", { onAction(AudioUiAction.NextChapter) })
     }
 }
 

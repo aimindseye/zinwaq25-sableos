@@ -41,6 +41,15 @@ Status words: **Done in code** (built and unit-tested, not yet seen on a device)
 | Battery drain | No location prefetch on Doze; the keyboard driver no longer logs every key. |
 | Apps | FM Radio inside Sable Media; Sable Games back as small release builds with keyboard play; microG and Aurora Store (`SABLE_Q25_MICROG`). |
 
+## Sable Reader in PR #41, not yet on a device
+
+| Area | What changed |
+|---|---|
+| Tabs | Books, Comics, Audio and Settings: Comics and Audio list only that kind of title (they said "Coming Soon"); an empty tab says how to add one. |
+| Sizing | On windows under 480 dp tall (the Q25 is about 411 x 387 dp) the tab row is one line of labels, the title row is hidden unless profiles are in use, and the library fits four covers across. The audiobook player puts the cover beside the chapter so the controls stay on screen; comic and audiobook dialogs scroll. |
+| Settings | Book > Comics & Audiobooks: default comic reading mode and fit, default audiobook speed and skip lengths. A on a title still overrides them. |
+| Keys | N/P change audiobook chapters (no PageUp/PageDown on the Q25). |
+
 ## By artifact (updated for PR #28, source only, not yet on a device)
 
 | Artifact | Status | Still open |

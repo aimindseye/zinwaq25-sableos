@@ -35,10 +35,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.sableos.reader.core.audio.AudiobookSourceLoader
-import org.sableos.reader.core.data.local.ItemViewSettingsDao
 import org.sableos.reader.engine.audio.AudioManifest
 import org.sableos.reader.engine.audio.AudioPlaybackSettings
-import org.sableos.reader.engine.audio.AudioSettingsCodec
 import org.sableos.reader.engine.audio.MonotonicClock
 import org.sableos.reader.engine.audio.PlaybackSourcePolicy
 import org.sableos.reader.model.LocatorCodec
@@ -65,7 +63,7 @@ class AudiobookPlaybackService : MediaLibraryService() {
 
     @Inject lateinit var vaultRepository: VaultRepository
 
-    @Inject lateinit var settingsDao: ItemViewSettingsDao
+    @Inject lateinit var settingsStore: AudioSettingsStore
 
     @Inject lateinit var loader: AudiobookSourceLoader
 
@@ -186,12 +184,11 @@ class AudiobookPlaybackService : MediaLibraryService() {
         profileId = vaultRepository.activeVaultId.first()
         val book = bookDao.getBookByHash(hash, profileId)
         val manifest = book?.let { withContext(Dispatchers.IO) { loader.loadOrBuild(it) } }
-        val settings = settingsDao.get(hash, profileId)?.settingsJson?.let(AudioSettingsCodec::decode)
         return if (book == null || manifest == null) {
             SessionResult(SessionError.ERROR_IO)
         } else {
             active.persist(force = true)
-            applySettings(settings ?: AudioPlaybackSettings(), active)
+            applySettings(settingsStore.load(hash, profileId), active)
             active.open(hash, manifest, mediaItems(book, manifest), resolveStart(book, startMs), play)
             SessionResult(SessionResult.RESULT_SUCCESS)
         }

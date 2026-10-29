@@ -34,6 +34,8 @@ data class BookshelfUiState(
     val isLoading: Boolean = false,
     val searchQuery: String = "",
     val activeFilter: String = "All",
+    /** The one kind this shelf shows (the Comics and Audio tabs), or null for the whole library. */
+    val scope: PublicationKind? = null,
     val availableFilters: List<String> = listOf("All"),
     val filterCounts: Map<String, Int> = emptyMap(),
     val sortOrder: SortOrder = SortOrder.PROGRESS,
@@ -51,6 +53,7 @@ data class BookshelfUiState(
 enum class SortOrder { TITLE, AUTHOR, DATE_ADDED, PROGRESS }
 
 private data class FilterState(
+    val scope: PublicationKind?,
     val query: String,
     val filter: String,
     val sort: SortOrder,
@@ -82,18 +85,20 @@ class BookshelfViewModel @Inject constructor(
 
     private val _searchQuery = MutableStateFlow("")
     private val _activeFilter = MutableStateFlow("All")
+    private val _scope = MutableStateFlow<PublicationKind?>(null)
     private val _sortOrder = MutableStateFlow(SortOrder.PROGRESS)
     private val _snackbarMessage = MutableStateFlow<String?>(null)
     private val _selectedStackName = MutableStateFlow<String?>(null)
     private val _bookmarksSheetBookUri = MutableStateFlow<String?>(null)
 
     private val filterFlow = combine(
+        _scope,
         _searchQuery,
         _activeFilter,
         _sortOrder,
         _selectedStackName
-    ) { query, filter, sort, stack ->
-        FilterState(query, filter, sort, stack)
+    ) { scope, query, filter, sort, stack ->
+        FilterState(scope, query, filter, sort, stack)
     }.distinctUntilChanged()
 
     private val prefsFlow = combine(
@@ -128,13 +133,16 @@ class BookshelfViewModel @Inject constructor(
         dialogsFlow
     ) { books, filters, prefs, dialogs ->
         withContext(AppCoroutineConfig.default) {
+            val scopedBooks = filters.scope?.let { scope ->
+                books.filter { PublicationKind.fromStableValue(it.kind) == scope }
+            } ?: books
             val searchedBooks = if (filters.query.isNotBlank()) {
-                books.filter {
+                scopedBooks.filter {
                     it.title.contains(filters.query, ignoreCase = true) ||
                             it.author.contains(filters.query, ignoreCase = true)
                 }
             } else {
-                books
+                scopedBooks
             }
 
             val filterCounts = mutableMapOf("All" to searchedBooks.size)
@@ -146,7 +154,7 @@ class BookshelfViewModel @Inject constructor(
 
             // Unified-library chips (state and kind) come first, then the language chips this shelf always had.
             val libraryCounts = LibraryViews.counts(searchedBooks.map { it.toLibraryItem() })
-            val allFilters = LibraryFilters.labels(libraryCounts) + filterCounts.keys
+            val allFilters = LibraryFilters.labels(libraryCounts, filters.scope) + filterCounts.keys
                 .filter { it != LibraryFilters.ALL }
                 .sorted()
 
@@ -175,6 +183,7 @@ class BookshelfViewModel @Inject constructor(
                 isLoading = false,
                 searchQuery = filters.query,
                 activeFilter = filters.filter,
+                scope = filters.scope,
                 availableFilters = allFilters,
                 filterCounts = filterCounts,
                 sortOrder = filters.sort,
@@ -212,6 +221,14 @@ class BookshelfViewModel @Inject constructor(
 
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
+    }
+
+    /** Narrows the shelf to one kind (null for the whole library) and starts it from a clean view. */
+    fun setScope(kind: PublicationKind?) {
+        if (_scope.value == kind) return
+        _scope.value = kind
+        _activeFilter.value = LibraryFilters.ALL
+        _selectedStackName.value = null
     }
 
     fun setFilter(filter: String) {

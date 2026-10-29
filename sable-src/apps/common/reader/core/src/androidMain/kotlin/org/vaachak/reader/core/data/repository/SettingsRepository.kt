@@ -23,6 +23,10 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import org.sableos.reader.comic.ComicViewSettings
+import org.sableos.reader.comic.ComicViewSettingsCodec
+import org.sableos.reader.engine.audio.AudioPlaybackSettings
+import org.sableos.reader.engine.audio.AudioSettingsCodec
 import org.sableos.reader.model.storage.RetiredRemoteSettings
 import org.vaachak.reader.core.domain.model.BookshelfPreferences
 import org.vaachak.reader.core.domain.model.CoverAspectRatio
@@ -57,6 +61,10 @@ class SettingsRepository @Inject constructor(
         val TTS_BACKGROUND_PLAYBACK = booleanPreferencesKey("tts_background_playback")
         val TTS_SLEEP_TIMER = intPreferencesKey("tts_sleep_timer")
         val TTS_VOICE = stringPreferencesKey("tts_voice")
+
+        // --- COMIC AND AUDIOBOOK DEFAULTS (a title's own choice, made with A while reading, always wins) ---
+        val COMIC_DEFAULT_VIEW = stringPreferencesKey("comic_default_view")
+        val AUDIO_DEFAULT_PLAYBACK = stringPreferencesKey("audio_default_playback")
 
         // --- READER PREFERENCES ---
         val READER_FONT_FAMILY = stringPreferencesKey("reader_font_family")
@@ -132,6 +140,22 @@ class SettingsRepository @Inject constructor(
             sleepTimerMinutes = preferences[TTS_SLEEP_TIMER] ?: 0,
             voice = preferences[TTS_VOICE] ?: "default"
         )
+    }
+
+    // --- COMIC AND AUDIOBOOK DEFAULT FLOWS ---
+    val comicDefaults: Flow<ComicViewSettings> = vaultPreferencesFlow.map { prefs ->
+        ComicViewSettingsCodec.decode(prefs[COMIC_DEFAULT_VIEW]) ?: ComicViewSettings()
+    }
+    val audioDefaults: Flow<AudioPlaybackSettings> = vaultPreferencesFlow.map { prefs ->
+        AudioSettingsCodec.decode(prefs[AUDIO_DEFAULT_PLAYBACK]) ?: AudioPlaybackSettings()
+    }
+
+    suspend fun setComicDefaults(settings: ComicViewSettings) {
+        editCurrentVault { it[COMIC_DEFAULT_VIEW] = ComicViewSettingsCodec.encode(settings) }
+    }
+
+    suspend fun setAudioDefaults(settings: AudioPlaybackSettings) {
+        editCurrentVault { it[AUDIO_DEFAULT_PLAYBACK] = AudioSettingsCodec.encode(settings) }
     }
 
     // --- READER PREF FLOWS ---

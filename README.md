@@ -30,6 +30,11 @@ Titan 2 or Q27 SableOS lanes.
 > (in the next alpha): the system black theme overlay was not applied
 > (frameworks/base 0103), and returning from Hub on the BlackBerry 7 home showed
 > the BlackBerry 10 home ([#39](https://github.com/aimindseye/zinwaq25-sableos/issues/39)).
+> PR #41 (also for the next alpha) finishes Sable Reader for the Q25: the
+> Comics and Audio tabs list comics and audiobooks instead of "Coming Soon",
+> N/P change audiobook chapters, Settings sets the comic and audiobook
+> defaults, and the library, audiobook player and dialogs fit the 411 dp
+> square screen.
 > Most Q4-* device gates are still `NOT_RUN`
 > ([#27](https://github.com/aimindseye/zinwaq25-sableos/issues/27) tracks them).
 > **Using SableOS:** [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) covers setup,
@@ -93,7 +98,7 @@ More: [`docs/DEVICE_INFO.md`](docs/DEVICE_INFO.md).
 | [Qualification](docs/QUALIFICATION.md) | Gates each phase must pass |
 | [Crash evidence](docs/CRASH_EVIDENCE.md) | Capture crash logs over adb before anything is cleared |
 | [Implementation notes](docs/implementation/) | What each Sable design package (KF-A..D, Battery, T3, corners, icons, settings-ui5, Phone + Contacts, daily driver, Hub dock, power, Q4 review fixes) changed and what still needs the phone |
-| [Patches](patches/README.md) | Q25 changes to the Sable app sources (`sable-src` 0001-0076) and the LineageOS framework patches |
+| [Patches](patches/README.md) | Q25 changes to the Sable app sources (`sable-src` 0001-0080) and the LineageOS framework patches |
 | [Stock basis](docs/STOCK_BASIS.md) | Firmware facts to record before flashing |
 | [Sources](docs/SOURCES.md) | Every upstream with its pin and licence |
 | [Lessons from Titan 2](docs/LESSONS_FROM_TITAN2.md) | Mistakes not to repeat |
@@ -143,7 +148,7 @@ product/q25/              Sable product layer copied to vendor/sable/q25
 device-profile/           Q25 hardware capability profile and key map
 apps/                     how the Sable application sources are managed
 sable-src/                Sable app sources imported from SableOS (pinned commit)
-patches/sable-src/        Q25 changes re-applied to sable-src/ after every import (0001-0076)
+patches/sable-src/        Q25 changes re-applied to sable-src/ after every import (0001-0080)
 patches/framework/        Q4 patches to LineageOS 23.2 projects (Settings, SystemUI, Dialer, ...)
 product/common/overlay/   Q4 static overlays (framework, SystemUI, SetupWizard, Glimpse, Gallery2)
 docs/                     guides

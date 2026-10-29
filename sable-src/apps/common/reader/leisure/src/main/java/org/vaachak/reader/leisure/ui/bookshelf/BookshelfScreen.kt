@@ -78,6 +78,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -86,6 +87,9 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.sableos.reader.layout.ReaderLayoutProfile
+import org.sableos.reader.layout.rememberReaderLayoutProfile
+import org.sableos.reader.library.LibraryFilters
 import org.vaachak.reader.core.domain.model.BookEntity
 import org.vaachak.reader.core.domain.model.CoverAspectRatio
 import org.vaachak.reader.core.domain.model.DitheringMode
@@ -191,6 +195,7 @@ fun BookshelfScreen(
 
     val containerColor = if (state.isEink) Color.White else MaterialTheme.colorScheme.background
     val contentColor = if (state.isEink) Color.Black else MaterialTheme.colorScheme.onBackground
+    val layout = rememberReaderLayoutProfile()
 
     TidScreen(Tid.Screen.bookshelf) {
         Scaffold(
@@ -212,7 +217,8 @@ fun BookshelfScreen(
                     containerColor = containerColor,
                     contentColor = contentColor,
                     viewModel = viewModel,
-                    onHighlightsClick = onHighlightsClick
+                    onHighlightsClick = onHighlightsClick,
+                    short = layout.isShort
                 )
             },
             floatingActionButton = {
@@ -228,7 +234,8 @@ fun BookshelfScreen(
             val shelf = ShelfCallbacks(
                 viewModel = viewModel,
                 onBookClick = handleBookClick,
-                onDeleteBook = { bookToDelete = it }
+                onDeleteBook = { bookToDelete = it },
+                layout = layout
             )
             BookshelfContent(
                 state = state,
@@ -263,6 +270,9 @@ fun BookshelfScreen(
     }
 }
 
+private val BAR_HEIGHT = 64.dp
+private val SHORT_BAR_HEIGHT = 48.dp
+
 private const val READING_TAB = 0
 private const val SHELF_TAB = 1
 
@@ -271,6 +281,7 @@ private class ShelfCallbacks(
     val viewModel: BookshelfViewModel,
     val onBookClick: (String) -> Unit,
     val onDeleteBook: (BookEntity) -> Unit,
+    val layout: ReaderLayoutProfile,
 )
 
 @Composable
@@ -284,9 +295,11 @@ private fun BookshelfTopBar(
     contentColor: Color,
     viewModel: BookshelfViewModel,
     onHighlightsClick: () -> Unit,
+    short: Boolean,
 ) {
     Column(modifier = Modifier.background(containerColor)) {
-        Row(modifier = Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        val barHeight = if (short) SHORT_BAR_HEIGHT else BAR_HEIGHT
+        Row(modifier = Modifier.fillMaxWidth().height(barHeight).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
 
             IconButton(onClick = { onSelectTab(READING_TAB) }) {
                 Icon(if (selectedTab == READING_TAB) Icons.Filled.Schedule else Icons.Outlined.Schedule, "Reading", tint = contentColor)
@@ -300,7 +313,7 @@ private fun BookshelfTopBar(
                 TextField(
                     value = state.searchQuery,
                     onValueChange = { viewModel.updateSearchQuery(it) },
-                    modifier = Modifier.weight(1f).height(50.dp),
+                    modifier = Modifier.weight(1f).height(barHeight - 2.dp),
                     placeholder = { Text("Search...") },
                     singleLine = true,
                     trailingIcon = {
@@ -365,8 +378,7 @@ private fun BookshelfContent(
     modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(modifier = modifier) {
-        val cardWidth = 110.dp
-        val columns = maxOf(3, (maxWidth.value / cardWidth.value).toInt())
+        val columns = shelf.layout.libraryColumns(maxWidth.value)
         val stackName = state.selectedStackName
 
         when {
@@ -383,6 +395,7 @@ private fun BookshelfContent(
                     viewModel = shelf.viewModel,
                     onBookClick = shelf.onBookClick,
                     onDeleteBook = shelf.onDeleteBook,
+                    short = shelf.layout.isShort,
                     bottomBarTextLeft = "Recent Reading: ${readingItems.size}"
                 )
             }
@@ -430,6 +443,7 @@ private fun StackContent(
             viewModel = shelf.viewModel,
             onBookClick = shelf.onBookClick,
             onDeleteBook = shelf.onDeleteBook,
+            short = shelf.layout.isShort,
             bottomBarTextLeft = "Books in series: ${stackBooks.size}"
         )
     }
@@ -451,7 +465,8 @@ private fun ShelfContent(
             .map { ShelfEntry.Book(it) }
     }
     Column(modifier = Modifier.fillMaxSize()) {
-        LazyRow(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        val chipPadding = if (shelf.layout.isShort) 0.dp else 8.dp
+        LazyRow(modifier = Modifier.fillMaxWidth().padding(vertical = chipPadding), contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(state.availableFilters) { filter ->
                 val isSelected = state.activeFilter == filter
                 Text(
@@ -471,6 +486,7 @@ private fun ShelfContent(
             viewModel = shelf.viewModel,
             onBookClick = shelf.onBookClick,
             onDeleteBook = shelf.onDeleteBook,
+            short = shelf.layout.isShort,
             bottomBarTextLeft = "Total Library: ${shelfItems.size}"
         )
     }
@@ -502,10 +518,13 @@ fun ContinuousLibraryGrid(
     viewModel: BookshelfViewModel,
     onBookClick: (String) -> Unit,
     onDeleteBook: (BookEntity) -> Unit,
-    bottomBarTextLeft: String
+    bottomBarTextLeft: String,
+    short: Boolean = false
 ) {
     if (items.isEmpty()) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("No books found", color = contentColor.copy(alpha = 0.5f)) }
+        Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+            Text(LibraryFilters.emptyHint(state.scope), color = contentColor.copy(alpha = 0.5f), textAlign = TextAlign.Center)
+        }
         return
     }
 
@@ -519,9 +538,9 @@ fun ContinuousLibraryGrid(
         LazyVerticalGrid(
             columns = GridCells.Fixed(columns),
             modifier = Modifier.weight(1f).fillMaxWidth(),
-            contentPadding = PaddingValues(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            contentPadding = PaddingValues(if (short) 12.dp else 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(if (short) 12.dp else 16.dp),
+            verticalArrangement = Arrangement.spacedBy(if (short) 12.dp else 16.dp)
         ) {
             gridItems(items) { item ->
                 when (item) {
@@ -538,7 +557,7 @@ fun ContinuousLibraryGrid(
         }
 
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = if (short) 2.dp else 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {

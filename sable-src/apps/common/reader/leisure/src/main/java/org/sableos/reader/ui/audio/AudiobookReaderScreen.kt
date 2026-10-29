@@ -11,10 +11,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bookmark
@@ -52,6 +56,8 @@ import org.sableos.reader.layout.rememberReaderLayoutProfile
 private val SCREEN_PADDING = 16.dp
 private val COVER_SIZE = 220.dp
 private val COMPACT_COVER_SIZE = 120.dp
+private val SHORT_COVER_SIZE = 88.dp
+private val SHORT_SPACING = 8.dp
 
 /**
  * Keyboard-first audiobook player. Playback runs in a foreground media service (lock screen, notification and headset
@@ -127,25 +133,42 @@ private fun PlayerContent(
     togglePlayback: () -> Unit,
     onBack: () -> Unit,
 ) {
-    val compact = rememberReaderLayoutProfile().let { it.isCompact || it.isSquareish }
+    val profile = rememberReaderLayoutProfile()
+    val compact = profile.isCompact || profile.isSquareish
+    // A 720x720 keyboard phone is about 387 dp tall: the cover sits beside the chapter title and the spacing tightens
+    // so the seek bar, transport and status all stay on screen. The column still scrolls as a last resort.
+    val spacing = if (profile.isShort) SHORT_SPACING else SCREEN_PADDING
     Column(
-        modifier = Modifier.fillMaxSize().padding(SCREEN_PADDING),
-        verticalArrangement = Arrangement.spacedBy(SCREEN_PADDING),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(spacing),
+        verticalArrangement = Arrangement.spacedBy(spacing),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         AudioTopRow(state, viewModel::onAction, onBack)
-        Cover(state, if (compact) COMPACT_COVER_SIZE else COVER_SIZE)
-        Text(
-            state.chapterTitle,
-            style = MaterialTheme.typography.titleMedium,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-        state.author?.let { Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = 1) }
+        if (profile.isShort) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Cover(state, SHORT_COVER_SIZE)
+                Spacer(Modifier.width(SCREEN_PADDING))
+                Column(Modifier.weight(1f)) { ChapterAndAuthor(state) }
+            }
+        } else {
+            Cover(state, if (compact) COMPACT_COVER_SIZE else COVER_SIZE)
+            ChapterAndAuthor(state)
+        }
         AudioSeekBar(state, viewModel::onAction)
         AudioTransport(state, viewModel::onAction, togglePlayback)
         AudioStatusRow(state, viewModel::onAction)
     }
+}
+
+@Composable
+private fun ChapterAndAuthor(state: AudiobookUiState) {
+    Text(
+        state.chapterTitle,
+        style = MaterialTheme.typography.titleMedium,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
+    )
+    state.author?.let { Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = 1) }
 }
 
 @Composable

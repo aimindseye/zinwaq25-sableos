@@ -36,7 +36,8 @@ import org.sableos.reader.input.KeyHints
 import org.sableos.reader.input.ReaderSurface
 
 private val OVERLAY_SPACING = 12.dp
-private val OVERLAY_LIST_MAX_HEIGHT = 280.dp
+// Dialogs must fit a 720x720 keyboard phone (about 387 dp tall) with their title and buttons.
+private val OVERLAY_LIST_MAX_HEIGHT = 200.dp
 private const val MS_PER_MINUTE = 60_000L
 private val SLEEP_MINUTES = listOf(5, 10, 15, 30, 45, 60)
 
@@ -190,7 +191,10 @@ private fun HintsDialog(dismiss: () -> Unit) {
         onDismissRequest = dismiss,
         title = { Text("Keyboard shortcuts") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(OVERLAY_SPACING / 2)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(OVERLAY_SPACING / 2),
+            ) {
                 hints.forEach { hint ->
                     Row(horizontalArrangement = Arrangement.spacedBy(OVERLAY_SPACING)) {
                         Text(hint.keys, style = MaterialTheme.typography.labelLarge)

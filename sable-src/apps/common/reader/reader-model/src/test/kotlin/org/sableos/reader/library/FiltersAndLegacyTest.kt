@@ -37,6 +37,15 @@ class FiltersAndLegacyTest {
     }
 
     @Test
+    fun aShelfScopedToOneKindHasNoKindChipsAndSaysHowToFillIt() {
+        val comics = counts(byKind = mapOf(PublicationKind.COMIC to 2), inProgress = 1)
+        assertEquals(listOf("All", "Continue"), LibraryFilters.labels(comics, PublicationKind.COMIC))
+        assertTrue(LibraryFilters.emptyHint(PublicationKind.COMIC).startsWith("No comics yet"))
+        assertTrue(LibraryFilters.emptyHint(PublicationKind.AUDIOBOOK).startsWith("No audiobooks yet"))
+        assertEquals("No books found", LibraryFilters.emptyHint(null))
+    }
+
+    @Test
     fun kindLabelsRoundTrip() {
         PublicationKind.entries.forEach { assertEquals(it, LibraryFilters.kindOfLabel(LibraryFilters.kindLabel(it))) }
         assertNull(LibraryFilters.kindOfLabel("All"))

@@ -86,6 +86,7 @@ import org.sableos.reader.input.EditableFocusState
 import org.sableos.reader.input.LocalEditableFocus
 import org.sableos.reader.input.LocalReaderKeyDispatcher
 import org.sableos.reader.input.ReaderKeyDispatcher
+import org.sableos.reader.layout.rememberReaderLayoutProfile
 import org.sableos.reader.model.PublicationKind
 import org.sableos.reader.model.PublicationTypes
 import org.sableos.reader.ui.audio.AudiobookReaderScreen
@@ -109,6 +110,8 @@ import org.vaachak.reader.leisure.ui.settings.LibrarySettingsScreen
 import org.vaachak.reader.leisure.ui.settings.ReaderProfilesScreen
 import org.vaachak.reader.leisure.ui.settings.SettingsScreen
 import org.vaachak.reader.leisure.ui.settings.SettingsViewModel
+import org.vaachak.reader.leisure.ui.settings.AudiobookDefaultsScreen
+import org.vaachak.reader.leisure.ui.settings.ComicDefaultsScreen
 import org.vaachak.reader.leisure.ui.settings.TtsSettingsScreen
 import org.vaachak.reader.leisure.ui.testability.Tid
 import org.vaachak.reader.leisure.ui.testability.tid
@@ -372,6 +375,8 @@ class MainActivity : AppCompatActivity() {
         composable(Screen.About.route) { AboutScreen(onBack = back) }
         composable(Screen.Appearance.route) { DefaultAppearanceScreen(onBack = back) }
         composable(Screen.TTS.route) { TtsSettingsScreen(onBack = back) }
+        composable(Screen.ComicDefaults.route) { ComicDefaultsScreen(onBack = back) }
+        composable(Screen.AudiobookDefaults.route) { AudiobookDefaultsScreen(onBack = back) }
         composable(Screen.AppAppearance.route) { AppAppearanceScreen(onBack = back) }
         composable(Screen.Dictionary.route) { DictionarySettingsScreen(onBack = back) }
         composable(Screen.Bookshelf.route) { LibrarySettingsScreen(navController = navController) }
@@ -558,21 +563,26 @@ fun MainAppScreen(
     val contentColor = if (isEink) Color.Black else MaterialTheme.colorScheme.onSurface
 
     androidx.activity.compose.BackHandler(enabled = selectedTabIndex != 0) { selectedTabIndex = 0 }
+    // Books shows the whole library; Comics and Audio are the same shelf narrowed to one kind.
+    LaunchedEffect(selectedTabIndex) { bookshelfViewModel.setScope(shelfScope(selectedTabIndex)) }
+    // A 720x720 keyboard phone has about 387 dp of height: drop the title row (unless the profile switcher needs it)
+    // and show the tabs as labels only, so the shelf keeps room for a full row of covers.
+    val short = rememberReaderLayoutProfile().isShort
 
     Scaffold(
         topBar = {
             Column {
-                Row(
+                if (!short || isMultiUser) Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .padding(horizontal = 16.dp, vertical = if (short) 4.dp else 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
                         text = "Sable Reader",
-                        style = MaterialTheme.typography.titleLarge,
+                        style = if (short) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = contentColor
                     )
@@ -620,19 +630,30 @@ fun MainAppScreen(
                             3 -> Tid.Tabs.settings
                             else -> Tid.Tabs.books
                         }
-                        Tab(
-                            selected = selectedTabIndex == index,
-                            onClick = { selectedTabIndex = index },
-                            modifier = if (index == 3) {
-                                Modifier.tids(Tid.Bookshelf.SETTINGS_TAB, Tid.Bookshelf.OPEN_SETTINGS)
-                            } else {
-                                Modifier.tid(tabTid)
-                            }.semantics(mergeDescendants = true) {
-                                contentDescription = "$title Tab, ${if (selectedTabIndex == index) "Selected" else "Not Selected"}"
-                            },
-                            text = { Text(title) },
-                            icon = { Icon(icon, contentDescription = null) }
-                        )
+                        val tabModifier = if (index == 3) {
+                            Modifier.tids(Tid.Bookshelf.SETTINGS_TAB, Tid.Bookshelf.OPEN_SETTINGS)
+                        } else {
+                            Modifier.tid(tabTid)
+                        }.semantics(mergeDescendants = true) {
+                            contentDescription = "$title Tab, ${if (selectedTabIndex == index) "Selected" else "Not Selected"}"
+                        }
+                        // Text-only tabs are 48 dp tall instead of 72; four labels fit a 411 dp width where icons beside them do not.
+                        if (short) {
+                            Tab(
+                                selected = selectedTabIndex == index,
+                                onClick = { selectedTabIndex = index },
+                                modifier = tabModifier,
+                                text = { Text(title, maxLines = 1) }
+                            )
+                        } else {
+                            Tab(
+                                selected = selectedTabIndex == index,
+                                onClick = { selectedTabIndex = index },
+                                modifier = tabModifier,
+                                text = { Text(title) },
+                                icon = { Icon(icon, contentDescription = null) }
+                            )
+                        }
                     }
                 }
             }
@@ -640,11 +661,16 @@ fun MainAppScreen(
     ) { paddingValues ->
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             when (selectedTabIndex) {
-                0 -> BookshelfScreen(viewModel = bookshelfViewModel, onBookClick = onBookClick, onHighlightsClick = onHighlightsClick)
-                1 -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("ComicShelf (Coming Soon)") }
-                2 -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("AudioShelf (Coming Soon)") }
                 3 -> SettingsScreen(navController = navController)
+                else -> BookshelfScreen(viewModel = bookshelfViewModel, onBookClick = onBookClick, onHighlightsClick = onHighlightsClick)
             }
         }
     }
+}
+
+/** The kind each library tab shows: Books is the whole library, Comics and Audio one kind each. */
+private fun shelfScope(tabIndex: Int): PublicationKind? = when (tabIndex) {
+    1 -> PublicationKind.COMIC
+    2 -> PublicationKind.AUDIOBOOK
+    else -> null
 }

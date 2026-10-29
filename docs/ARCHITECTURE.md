@@ -49,6 +49,33 @@ add packages and properties without touching LineageOS or the device tree. Our
 product keeps the name `lineage_Q25` because LineageOS's build (kernel, `bacon`
 target, version naming) keys off a `lineage_` product name.
 
+## Sable Reader
+
+Sable Reader v2 (`sable-src/apps/common/reader`, built as `SableReader` from
+`:leisure:assembleSableDebug` in `product/q25/apps.tsv`) follows
+`docs/SABLE_READER_V2_ARCHITECTURE.md` in aimindseye/sableos and
+sableos-project/platform_sable: one local library owns every publication kind,
+each kind has its own engine, and nothing goes online.
+
+```text
+ leisure (app: library, tabs, settings, readers)
+   Books tab = whole library; Comics and Audio tabs = the same shelf narrowed to one kind
+   EPUB reader (Readium) | PDF reader | ComicReaderScreen | AudiobookReaderScreen
+                                                              |
+                                          AudiobookPlaybackService (Media3 MediaLibraryService,
+                                          mediaPlayback foreground service, lock-screen controls)
+ core (Room library, per-title settings, Settings defaults, importers for files and folders)
+ reader-engine-pdf | reader-engine-comic (CBZ, image folders, ComicInfo.xml) | reader-engine-audio
+ reader-model (pure Kotlin: PublicationKind, locators, library filters, key map, layout profile)
+```
+
+Per-title choices (comic reading mode and fit; audiobook speed and skip lengths)
+are stored per title; Settings > Book > Comics & Audiobooks holds the defaults a
+title starts with. Layout comes from the window size, never the device name:
+`ReaderLayoutProfile.isShort` (under 480 dp tall; the Q25 is about 411 x 387 dp)
+selects the compact library and audiobook layouts. The Q25's own Reader changes
+are `patches/sable-src` 0079 and 0080.
+
 ## Moving off LineageOS later (Q6)
 
 An AOSP- or GrapheneOS-derived base needs replacements for what the Q25 tree

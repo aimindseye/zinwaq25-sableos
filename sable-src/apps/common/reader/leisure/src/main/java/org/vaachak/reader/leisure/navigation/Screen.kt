@@ -36,6 +36,8 @@ sealed class Screen(val route: String) {
     data object AppAppearance : Screen("settings/app_appearance")
     data object Dictionary : Screen("settings/dictionary")
     data object TTS : Screen("settings/tts")
+    data object ComicDefaults : Screen("settings/comics")
+    data object AudiobookDefaults : Screen("settings/audiobooks")
     data object Bookshelf : Screen("settings/bookshelf")
     data object ReaderProfiles : Screen("reader_profiles")
     data object About : Screen("settings/about")

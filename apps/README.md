@@ -31,7 +31,7 @@ the app build needs, keeping the sableos layout so Gradle's relative paths work:
 ```text
 sable-src/apps/titan2/platform     Keyboard, Camera, DisplayCompat, Setup, Tools, RadioDiag
 sable-src/apps/r8/android          Calculator, Games, Media, Hub, Weather, Calendar, Messages
-sable-src/apps/common/reader       Sable Reader v2 (EPUB, PDF, comics, audiobooks)      [titan2-temp]
+sable-src/apps/common/reader       Sable Reader v2 (EPUB, PDF, comics, audiobooks; Books/Comics/Audio tabs) [titan2-temp]
 sable-src/reference                Start type-to-find, Setup flow, Weather cities logic [titan2-temp]
 sable-src/apps/r8/rust             native code used by the R8 apps
 sable-src/src/android/...          Sable design tokens, Sable Start
@@ -45,7 +45,7 @@ anything looks like web-page account data. Review the diff before committing.
 ## Which apps go into the image
 
 `product/q25/apps.tsv` lists them. Enabled: the five keyboard-first platform
-apps (Keyboard, Camera, DisplayCompat, Setup, Sable Tools) and the common set (Calculator, the three games,
+apps (Keyboard, Camera, DisplayCompat, Setup, Sable Tools) and the common set (Calculator, the ten games,
 Media, Hub, Weather, Calendar, Messages, Reader v2, Mail, Text Reader).
 Mail and Text Reader are `flavor:` rows: the build fetches the pinned upstream
 (Thunderbird, Vaachak Text Reader) once into `SABLE_UPSTREAM_CACHE`, which needs

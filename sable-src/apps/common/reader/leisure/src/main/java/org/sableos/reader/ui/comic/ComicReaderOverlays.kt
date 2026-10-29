@@ -9,8 +9,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
@@ -42,7 +44,8 @@ import org.sableos.reader.input.LocalEditableFocus
 import org.sableos.reader.input.reportsEditableFocus
 
 private val OVERLAY_SPACING = 12.dp
-private val OVERLAY_LIST_MAX_HEIGHT = 240.dp
+// Dialogs must fit a 720x720 keyboard phone (about 387 dp tall) with their title and buttons.
+private val OVERLAY_LIST_MAX_HEIGHT = 160.dp
 private const val MAX_PAGE_DIGITS = 6
 
 /** All comic overlays are dialogs: they own focus, close with Escape/Back and never leave the viewer half-open. */
@@ -72,7 +75,10 @@ private fun ContentsDialog(state: ComicReaderUiState, onAction: (ComicUiAction) 
         onDismissRequest = dismiss,
         title = { Text("Contents") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(OVERLAY_SPACING)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(OVERLAY_SPACING),
+            ) {
                 OutlinedTextField(
                     value = text,
                     onValueChange = { text = it.filter(Char::isDigit).take(MAX_PAGE_DIGITS) },
@@ -152,7 +158,8 @@ private fun BookmarkRow(bookmark: ComicBookmarkUi, onAction: (ComicUiAction) -> 
     }
 }
 
-private fun modeLabel(mode: ComicReadingMode): String = when (mode) {
+/** How a reading mode is named everywhere: this dialog and the Comics defaults in Settings. */
+internal fun comicModeLabel(mode: ComicReadingMode): String = when (mode) {
     ComicReadingMode.PAGED_LTR -> "Pages, left to right"
     ComicReadingMode.PAGED_RTL -> "Pages, right to left (manga)"
     ComicReadingMode.VERTICAL_PAGER -> "Pages, top to bottom"
@@ -166,9 +173,11 @@ private fun ModeDialog(state: ComicReaderUiState, onAction: (ComicUiAction) -> U
         onDismissRequest = dismiss,
         title = { Text("Reading mode") },
         text = {
-            Column {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
                 ComicReadingMode.entries.forEach { mode ->
-                    ChoiceRow(modeLabel(mode), state.settings.mode == mode) { onAction(ComicUiAction.SetMode(mode)) }
+                    ChoiceRow(comicModeLabel(mode), state.settings.mode == mode) {
+                        onAction(ComicUiAction.SetMode(mode))
+                    }
                 }
                 if (!state.settings.mode.isContinuous) {
                     Text(
@@ -210,7 +219,10 @@ private fun HintsDialog(mode: ComicReadingMode, dismiss: () -> Unit) {
         onDismissRequest = dismiss,
         title = { Text("Keyboard shortcuts") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(OVERLAY_SPACING / 2)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(OVERLAY_SPACING / 2),
+            ) {
                 hints.forEach { hint ->
                     Row(horizontalArrangement = Arrangement.spacedBy(OVERLAY_SPACING)) {
                         Text(hint.keys, style = MaterialTheme.typography.labelLarge)

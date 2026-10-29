@@ -1,0 +1,1177 @@
+diff --git a/sable-src/apps/common/reader/core/src/androidMain/kotlin/org/vaachak/reader/core/data/repository/SettingsRepository.kt b/sable-src/apps/common/reader/core/src/androidMain/kotlin/org/vaachak/reader/core/data/repository/SettingsRepository.kt
+index 883538a..db45cf4 100644
+--- a/sable-src/apps/common/reader/core/src/androidMain/kotlin/org/vaachak/reader/core/data/repository/SettingsRepository.kt
++++ b/sable-src/apps/common/reader/core/src/androidMain/kotlin/org/vaachak/reader/core/data/repository/SettingsRepository.kt
+@@ -23,6 +23,10 @@ import kotlinx.coroutines.flow.flatMapLatest
+ import kotlinx.coroutines.flow.map
+ import kotlinx.coroutines.sync.Mutex
+ import kotlinx.coroutines.sync.withLock
++import org.sableos.reader.comic.ComicViewSettings
++import org.sableos.reader.comic.ComicViewSettingsCodec
++import org.sableos.reader.engine.audio.AudioPlaybackSettings
++import org.sableos.reader.engine.audio.AudioSettingsCodec
+ import org.sableos.reader.model.storage.RetiredRemoteSettings
+ import org.vaachak.reader.core.domain.model.BookshelfPreferences
+ import org.vaachak.reader.core.domain.model.CoverAspectRatio
+@@ -58,6 +62,10 @@ class SettingsRepository @Inject constructor(
+         val TTS_SLEEP_TIMER = intPreferencesKey("tts_sleep_timer")
+         val TTS_VOICE = stringPreferencesKey("tts_voice")
+ 
++        // --- COMIC AND AUDIOBOOK DEFAULTS (a title's own choice, made with A while reading, always wins) ---
++        val COMIC_DEFAULT_VIEW = stringPreferencesKey("comic_default_view")
++        val AUDIO_DEFAULT_PLAYBACK = stringPreferencesKey("audio_default_playback")
++
+         // --- READER PREFERENCES ---
+         val READER_FONT_FAMILY = stringPreferencesKey("reader_font_family")
+         val READER_FONT_SIZE = doublePreferencesKey("reader_font_size")
+@@ -134,6 +142,22 @@ class SettingsRepository @Inject constructor(
+         )
+     }
+ 
++    // --- COMIC AND AUDIOBOOK DEFAULT FLOWS ---
++    val comicDefaults: Flow<ComicViewSettings> = vaultPreferencesFlow.map { prefs ->
++        ComicViewSettingsCodec.decode(prefs[COMIC_DEFAULT_VIEW]) ?: ComicViewSettings()
++    }
++    val audioDefaults: Flow<AudioPlaybackSettings> = vaultPreferencesFlow.map { prefs ->
++        AudioSettingsCodec.decode(prefs[AUDIO_DEFAULT_PLAYBACK]) ?: AudioPlaybackSettings()
++    }
++
++    suspend fun setComicDefaults(settings: ComicViewSettings) {
++        editCurrentVault { it[COMIC_DEFAULT_VIEW] = ComicViewSettingsCodec.encode(settings) }
++    }
++
++    suspend fun setAudioDefaults(settings: AudioPlaybackSettings) {
++        editCurrentVault { it[AUDIO_DEFAULT_PLAYBACK] = AudioSettingsCodec.encode(settings) }
++    }
++
+     // --- READER PREF FLOWS ---
+     val readerPreferences: Flow<ReaderPreferences> = vaultPreferencesFlow.map { prefs ->
+         ReaderPreferences(
+diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/audio/AudioSettingsStore.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/audio/AudioSettingsStore.kt
+new file mode 100644
+index 0000000..cf66ae6
+--- /dev/null
++++ b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/audio/AudioSettingsStore.kt
+@@ -0,0 +1,23 @@
++package org.sableos.reader.audio
++
++import javax.inject.Inject
++import kotlinx.coroutines.flow.first
++import org.sableos.reader.core.data.local.ItemViewSettingsDao
++import org.sableos.reader.core.domain.model.ItemViewSettingsEntity
++import org.sableos.reader.engine.audio.AudioPlaybackSettings
++import org.sableos.reader.engine.audio.AudioSettingsCodec
++import org.vaachak.reader.core.data.repository.SettingsRepository
++
++/** An audiobook's own playback choices, or the Settings defaults when it has none yet. */
++class AudioSettingsStore @Inject constructor(
++    private val settingsDao: ItemViewSettingsDao,
++    private val settingsRepository: SettingsRepository,
++) {
++    suspend fun load(bookHash: String, profileId: String): AudioPlaybackSettings =
++        settingsDao.get(bookHash, profileId)?.settingsJson?.let(AudioSettingsCodec::decode)
++            ?: settingsRepository.audioDefaults.first()
++
++    suspend fun save(bookHash: String, profileId: String, settings: AudioPlaybackSettings) {
++        settingsDao.upsert(ItemViewSettingsEntity(bookHash, profileId, AudioSettingsCodec.encode(settings)))
++    }
++}
+diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/audio/AudiobookPlaybackService.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/audio/AudiobookPlaybackService.kt
+index 2517c7e..da6751d 100644
+--- a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/audio/AudiobookPlaybackService.kt
++++ b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/audio/AudiobookPlaybackService.kt
+@@ -35,10 +35,8 @@ import kotlinx.coroutines.flow.first
+ import kotlinx.coroutines.launch
+ import kotlinx.coroutines.withContext
+ import org.sableos.reader.core.audio.AudiobookSourceLoader
+-import org.sableos.reader.core.data.local.ItemViewSettingsDao
+ import org.sableos.reader.engine.audio.AudioManifest
+ import org.sableos.reader.engine.audio.AudioPlaybackSettings
+-import org.sableos.reader.engine.audio.AudioSettingsCodec
+ import org.sableos.reader.engine.audio.MonotonicClock
+ import org.sableos.reader.engine.audio.PlaybackSourcePolicy
+ import org.sableos.reader.model.LocatorCodec
+@@ -65,7 +63,7 @@ class AudiobookPlaybackService : MediaLibraryService() {
+ 
+     @Inject lateinit var vaultRepository: VaultRepository
+ 
+-    @Inject lateinit var settingsDao: ItemViewSettingsDao
++    @Inject lateinit var settingsStore: AudioSettingsStore
+ 
+     @Inject lateinit var loader: AudiobookSourceLoader
+ 
+@@ -186,12 +184,11 @@ class AudiobookPlaybackService : MediaLibraryService() {
+         profileId = vaultRepository.activeVaultId.first()
+         val book = bookDao.getBookByHash(hash, profileId)
+         val manifest = book?.let { withContext(Dispatchers.IO) { loader.loadOrBuild(it) } }
+-        val settings = settingsDao.get(hash, profileId)?.settingsJson?.let(AudioSettingsCodec::decode)
+         return if (book == null || manifest == null) {
+             SessionResult(SessionError.ERROR_IO)
+         } else {
+             active.persist(force = true)
+-            applySettings(settings ?: AudioPlaybackSettings(), active)
++            applySettings(settingsStore.load(hash, profileId), active)
+             active.open(hash, manifest, mediaItems(book, manifest), resolveStart(book, startMs), play)
+             SessionResult(SessionResult.RESULT_SUCCESS)
+         }
+diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/audio/AudiobookOverlays.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/audio/AudiobookOverlays.kt
+index 387c052..c53dfcd 100644
+--- a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/audio/AudiobookOverlays.kt
++++ b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/audio/AudiobookOverlays.kt
+@@ -36,7 +36,8 @@ import org.sableos.reader.input.KeyHints
+ import org.sableos.reader.input.ReaderSurface
+ 
+ private val OVERLAY_SPACING = 12.dp
+-private val OVERLAY_LIST_MAX_HEIGHT = 280.dp
++// Dialogs must fit a 720x720 keyboard phone (about 387 dp tall) with their title and buttons.
++private val OVERLAY_LIST_MAX_HEIGHT = 200.dp
+ private const val MS_PER_MINUTE = 60_000L
+ private val SLEEP_MINUTES = listOf(5, 10, 15, 30, 45, 60)
+ 
+@@ -190,7 +191,10 @@ private fun HintsDialog(dismiss: () -> Unit) {
+         onDismissRequest = dismiss,
+         title = { Text("Keyboard shortcuts") },
+         text = {
+-            Column(verticalArrangement = Arrangement.spacedBy(OVERLAY_SPACING / 2)) {
++            Column(
++                modifier = Modifier.verticalScroll(rememberScrollState()),
++                verticalArrangement = Arrangement.spacedBy(OVERLAY_SPACING / 2),
++            ) {
+                 hints.forEach { hint ->
+                     Row(horizontalArrangement = Arrangement.spacedBy(OVERLAY_SPACING)) {
+                         Text(hint.keys, style = MaterialTheme.typography.labelLarge)
+diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/audio/AudiobookReaderScreen.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/audio/AudiobookReaderScreen.kt
+index 42adc79..347a885 100644
+--- a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/audio/AudiobookReaderScreen.kt
++++ b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/audio/AudiobookReaderScreen.kt
+@@ -11,10 +11,14 @@ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.Spacer
+ import androidx.compose.foundation.layout.fillMaxSize
+ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.size
++import androidx.compose.foundation.layout.width
++import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.verticalScroll
+ import androidx.compose.material.icons.Icons
+ import androidx.compose.material.icons.automirrored.filled.ArrowBack
+ import androidx.compose.material.icons.filled.Bookmark
+@@ -52,6 +56,8 @@ import org.sableos.reader.layout.rememberReaderLayoutProfile
+ private val SCREEN_PADDING = 16.dp
+ private val COVER_SIZE = 220.dp
+ private val COMPACT_COVER_SIZE = 120.dp
++private val SHORT_COVER_SIZE = 88.dp
++private val SHORT_SPACING = 8.dp
+ 
+ /**
+  * Keyboard-first audiobook player. Playback runs in a foreground media service (lock screen, notification and headset
+@@ -127,27 +133,44 @@ private fun PlayerContent(
+     togglePlayback: () -> Unit,
+     onBack: () -> Unit,
+ ) {
+-    val compact = rememberReaderLayoutProfile().let { it.isCompact || it.isSquareish }
++    val profile = rememberReaderLayoutProfile()
++    val compact = profile.isCompact || profile.isSquareish
++    // A 720x720 keyboard phone is about 387 dp tall: the cover sits beside the chapter title and the spacing tightens
++    // so the seek bar, transport and status all stay on screen. The column still scrolls as a last resort.
++    val spacing = if (profile.isShort) SHORT_SPACING else SCREEN_PADDING
+     Column(
+-        modifier = Modifier.fillMaxSize().padding(SCREEN_PADDING),
+-        verticalArrangement = Arrangement.spacedBy(SCREEN_PADDING),
++        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(spacing),
++        verticalArrangement = Arrangement.spacedBy(spacing),
+         horizontalAlignment = Alignment.CenterHorizontally,
+     ) {
+         AudioTopRow(state, viewModel::onAction, onBack)
+-        Cover(state, if (compact) COMPACT_COVER_SIZE else COVER_SIZE)
+-        Text(
+-            state.chapterTitle,
+-            style = MaterialTheme.typography.titleMedium,
+-            maxLines = 2,
+-            overflow = TextOverflow.Ellipsis,
+-        )
+-        state.author?.let { Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = 1) }
++        if (profile.isShort) {
++            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
++                Cover(state, SHORT_COVER_SIZE)
++                Spacer(Modifier.width(SCREEN_PADDING))
++                Column(Modifier.weight(1f)) { ChapterAndAuthor(state) }
++            }
++        } else {
++            Cover(state, if (compact) COMPACT_COVER_SIZE else COVER_SIZE)
++            ChapterAndAuthor(state)
++        }
+         AudioSeekBar(state, viewModel::onAction)
+         AudioTransport(state, viewModel::onAction, togglePlayback)
+         AudioStatusRow(state, viewModel::onAction)
+     }
+ }
+ 
++@Composable
++private fun ChapterAndAuthor(state: AudiobookUiState) {
++    Text(
++        state.chapterTitle,
++        style = MaterialTheme.typography.titleMedium,
++        maxLines = 2,
++        overflow = TextOverflow.Ellipsis,
++    )
++    state.author?.let { Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = 1) }
++}
++
+ @Composable
+ private fun AudioTopRow(state: AudiobookUiState, onAction: (AudioUiAction) -> Unit, onBack: () -> Unit) {
+     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/audio/AudiobookReaderViewModel.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/audio/AudiobookReaderViewModel.kt
+index ffe441d..89aaa95 100644
+--- a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/audio/AudiobookReaderViewModel.kt
++++ b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/audio/AudiobookReaderViewModel.kt
+@@ -22,13 +22,11 @@ import kotlinx.coroutines.isActive
+ import kotlinx.coroutines.launch
+ import kotlinx.coroutines.withContext
+ import org.sableos.reader.audio.AudioSessionContract
++import org.sableos.reader.audio.AudioSettingsStore
+ import org.sableos.reader.core.audio.AudiobookSourceLoader
+ import org.sableos.reader.core.data.local.ItemBookmarkDao
+-import org.sableos.reader.core.data.local.ItemViewSettingsDao
+ import org.sableos.reader.core.domain.model.ItemBookmarkEntity
+-import org.sableos.reader.core.domain.model.ItemViewSettingsEntity
+ import org.sableos.reader.engine.audio.AudioPlaybackSettings
+-import org.sableos.reader.engine.audio.AudioSettingsCodec
+ import org.sableos.reader.engine.audio.AudioTimeFormat
+ import org.sableos.reader.engine.audio.AudiobookTimeline
+ import org.sableos.reader.engine.audio.SleepMode
+@@ -49,7 +47,7 @@ class AudiobookReaderViewModel @Inject constructor(
+     @ApplicationContext private val context: Context,
+     private val bookDao: BookDao,
+     private val bookmarkDao: ItemBookmarkDao,
+-    private val settingsDao: ItemViewSettingsDao,
++    private val settingsStore: AudioSettingsStore,
+     private val vaultRepository: VaultRepository,
+     private val loader: AudiobookSourceLoader,
+ ) : ViewModel() {
+@@ -80,8 +78,7 @@ class AudiobookReaderViewModel @Inject constructor(
+         }
+         val line = AudiobookTimeline(manifest)
+         timeline = line
+-        val settings = settingsDao.get(bookHash, profileId)?.settingsJson?.let(AudioSettingsCodec::decode)
+-            ?: AudioPlaybackSettings()
++        val settings = settingsStore.load(bookHash, profileId)
+         val saved = (LocatorCodec.decode(book.progressJson) as? TimeLocator)?.positionMs ?: 0L
+         mutableState.update {
+             it.copy(
+@@ -269,7 +266,7 @@ class AudiobookReaderViewModel @Inject constructor(
+         val updated = change(mutableState.value.settings)
+         mutableState.update { it.copy(settings = updated) }
+         viewModelScope.launch {
+-            settingsDao.upsert(ItemViewSettingsEntity(hash, profileId, AudioSettingsCodec.encode(updated)))
++            settingsStore.save(hash, profileId, updated)
+         }
+         val args = Bundle().apply {
+             putLong(AudioSessionContract.KEY_SKIP_BACK_MS, updated.skipBackMs)
+diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/comic/ComicReaderOverlays.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/comic/ComicReaderOverlays.kt
+index cbb83d0..fc65a6c 100644
+--- a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/comic/ComicReaderOverlays.kt
++++ b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/comic/ComicReaderOverlays.kt
+@@ -9,8 +9,10 @@ import androidx.compose.foundation.layout.heightIn
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.lazy.LazyColumn
+ import androidx.compose.foundation.lazy.items
++import androidx.compose.foundation.rememberScrollState
+ import androidx.compose.foundation.text.KeyboardActions
+ import androidx.compose.foundation.text.KeyboardOptions
++import androidx.compose.foundation.verticalScroll
+ import androidx.compose.material.icons.Icons
+ import androidx.compose.material.icons.filled.Delete
+ import androidx.compose.material3.AlertDialog
+@@ -42,7 +44,8 @@ import org.sableos.reader.input.LocalEditableFocus
+ import org.sableos.reader.input.reportsEditableFocus
+ 
+ private val OVERLAY_SPACING = 12.dp
+-private val OVERLAY_LIST_MAX_HEIGHT = 240.dp
++// Dialogs must fit a 720x720 keyboard phone (about 387 dp tall) with their title and buttons.
++private val OVERLAY_LIST_MAX_HEIGHT = 160.dp
+ private const val MAX_PAGE_DIGITS = 6
+ 
+ /** All comic overlays are dialogs: they own focus, close with Escape/Back and never leave the viewer half-open. */
+@@ -72,7 +75,10 @@ private fun ContentsDialog(state: ComicReaderUiState, onAction: (ComicUiAction)
+         onDismissRequest = dismiss,
+         title = { Text("Contents") },
+         text = {
+-            Column(verticalArrangement = Arrangement.spacedBy(OVERLAY_SPACING)) {
++            Column(
++                modifier = Modifier.verticalScroll(rememberScrollState()),
++                verticalArrangement = Arrangement.spacedBy(OVERLAY_SPACING),
++            ) {
+                 OutlinedTextField(
+                     value = text,
+                     onValueChange = { text = it.filter(Char::isDigit).take(MAX_PAGE_DIGITS) },
+@@ -152,7 +158,8 @@ private fun BookmarkRow(bookmark: ComicBookmarkUi, onAction: (ComicUiAction) ->
+     }
+ }
+ 
+-private fun modeLabel(mode: ComicReadingMode): String = when (mode) {
++/** How a reading mode is named everywhere: this dialog and the Comics defaults in Settings. */
++internal fun comicModeLabel(mode: ComicReadingMode): String = when (mode) {
+     ComicReadingMode.PAGED_LTR -> "Pages, left to right"
+     ComicReadingMode.PAGED_RTL -> "Pages, right to left (manga)"
+     ComicReadingMode.VERTICAL_PAGER -> "Pages, top to bottom"
+@@ -166,9 +173,11 @@ private fun ModeDialog(state: ComicReaderUiState, onAction: (ComicUiAction) -> U
+         onDismissRequest = dismiss,
+         title = { Text("Reading mode") },
+         text = {
+-            Column {
++            Column(Modifier.verticalScroll(rememberScrollState())) {
+                 ComicReadingMode.entries.forEach { mode ->
+-                    ChoiceRow(modeLabel(mode), state.settings.mode == mode) { onAction(ComicUiAction.SetMode(mode)) }
++                    ChoiceRow(comicModeLabel(mode), state.settings.mode == mode) {
++                        onAction(ComicUiAction.SetMode(mode))
++                    }
+                 }
+                 if (!state.settings.mode.isContinuous) {
+                     Text(
+@@ -210,7 +219,10 @@ private fun HintsDialog(mode: ComicReadingMode, dismiss: () -> Unit) {
+         onDismissRequest = dismiss,
+         title = { Text("Keyboard shortcuts") },
+         text = {
+-            Column(verticalArrangement = Arrangement.spacedBy(OVERLAY_SPACING / 2)) {
++            Column(
++                modifier = Modifier.verticalScroll(rememberScrollState()),
++                verticalArrangement = Arrangement.spacedBy(OVERLAY_SPACING / 2),
++            ) {
+                 hints.forEach { hint ->
+                     Row(horizontalArrangement = Arrangement.spacedBy(OVERLAY_SPACING)) {
+                         Text(hint.keys, style = MaterialTheme.typography.labelLarge)
+diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/comic/ComicReaderViewModel.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/comic/ComicReaderViewModel.kt
+index 76fbb77..5f58e83 100644
+--- a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/comic/ComicReaderViewModel.kt
++++ b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/comic/ComicReaderViewModel.kt
+@@ -39,6 +39,7 @@ import org.sableos.reader.model.LocatorCodec
+ import org.sableos.reader.model.PageLocator
+ import org.vaachak.reader.core.common.AppCoroutineConfig
+ import org.vaachak.reader.core.data.local.BookDao
++import org.vaachak.reader.core.data.repository.SettingsRepository
+ import org.vaachak.reader.core.data.repository.VaultRepository
+ 
+ /** What a page slot should show. */
+@@ -58,6 +59,7 @@ class ComicReaderViewModel @Inject constructor(
+     private val bookmarkDao: ItemBookmarkDao,
+     private val settingsDao: ItemViewSettingsDao,
+     private val vaultRepository: VaultRepository,
++    private val settingsRepository: SettingsRepository,
+     private val opener: ComicOpener,
+ ) : ViewModel() {
+     private val mutableState = MutableStateFlow(ComicReaderUiState())
+@@ -101,7 +103,8 @@ class ComicReaderViewModel @Inject constructor(
+             is ComicOpenOutcome.Opened -> {
+                 source = outcome.source
+                 val saved = settingsDao.get(bookHash, profileId)?.settingsJson?.let(ComicViewSettingsCodec::decode)
+-                val settings = saved ?: ComicViewDefaults.initial(outcome.source.info)
++                val settings = saved
++                    ?: ComicViewDefaults.initial(outcome.source.info, settingsRepository.comicDefaults.first())
+                 val start = (LocatorCodec.decode(book.progressJson) as? PageLocator)?.pageIndex ?: 0
+                 val nav = ComicNavigator(outcome.source.pageCount, start)
+                 navigator = nav
+diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/MainActivity.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/MainActivity.kt
+index cefc931..ad3ccff 100644
+--- a/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/MainActivity.kt
++++ b/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/MainActivity.kt
+@@ -86,6 +86,7 @@ import org.sableos.reader.input.EditableFocusState
+ import org.sableos.reader.input.LocalEditableFocus
+ import org.sableos.reader.input.LocalReaderKeyDispatcher
+ import org.sableos.reader.input.ReaderKeyDispatcher
++import org.sableos.reader.layout.rememberReaderLayoutProfile
+ import org.sableos.reader.model.PublicationKind
+ import org.sableos.reader.model.PublicationTypes
+ import org.sableos.reader.ui.audio.AudiobookReaderScreen
+@@ -109,6 +110,8 @@ import org.vaachak.reader.leisure.ui.settings.LibrarySettingsScreen
+ import org.vaachak.reader.leisure.ui.settings.ReaderProfilesScreen
+ import org.vaachak.reader.leisure.ui.settings.SettingsScreen
+ import org.vaachak.reader.leisure.ui.settings.SettingsViewModel
++import org.vaachak.reader.leisure.ui.settings.AudiobookDefaultsScreen
++import org.vaachak.reader.leisure.ui.settings.ComicDefaultsScreen
+ import org.vaachak.reader.leisure.ui.settings.TtsSettingsScreen
+ import org.vaachak.reader.leisure.ui.testability.Tid
+ import org.vaachak.reader.leisure.ui.testability.tid
+@@ -372,6 +375,8 @@ class MainActivity : AppCompatActivity() {
+         composable(Screen.About.route) { AboutScreen(onBack = back) }
+         composable(Screen.Appearance.route) { DefaultAppearanceScreen(onBack = back) }
+         composable(Screen.TTS.route) { TtsSettingsScreen(onBack = back) }
++        composable(Screen.ComicDefaults.route) { ComicDefaultsScreen(onBack = back) }
++        composable(Screen.AudiobookDefaults.route) { AudiobookDefaultsScreen(onBack = back) }
+         composable(Screen.AppAppearance.route) { AppAppearanceScreen(onBack = back) }
+         composable(Screen.Dictionary.route) { DictionarySettingsScreen(onBack = back) }
+         composable(Screen.Bookshelf.route) { LibrarySettingsScreen(navController = navController) }
+@@ -558,21 +563,26 @@ fun MainAppScreen(
+     val contentColor = if (isEink) Color.Black else MaterialTheme.colorScheme.onSurface
+ 
+     androidx.activity.compose.BackHandler(enabled = selectedTabIndex != 0) { selectedTabIndex = 0 }
++    // Books shows the whole library; Comics and Audio are the same shelf narrowed to one kind.
++    LaunchedEffect(selectedTabIndex) { bookshelfViewModel.setScope(shelfScope(selectedTabIndex)) }
++    // A 720x720 keyboard phone has about 387 dp of height: drop the title row (unless the profile switcher needs it)
++    // and show the tabs as labels only, so the shelf keeps room for a full row of covers.
++    val short = rememberReaderLayoutProfile().isShort
+ 
+     Scaffold(
+         topBar = {
+             Column {
+-                Row(
++                if (!short || isMultiUser) Row(
+                     modifier = Modifier
+                         .fillMaxWidth()
+                         .background(MaterialTheme.colorScheme.surfaceVariant)
+-                        .padding(horizontal = 16.dp, vertical = 12.dp),
++                        .padding(horizontal = 16.dp, vertical = if (short) 4.dp else 12.dp),
+                     verticalAlignment = Alignment.CenterVertically,
+                     horizontalArrangement = Arrangement.SpaceBetween
+                 ) {
+                     Text(
+                         text = "Sable Reader",
+-                        style = MaterialTheme.typography.titleLarge,
++                        style = if (short) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
+                         fontWeight = FontWeight.Bold,
+                         color = contentColor
+                     )
+@@ -620,19 +630,30 @@ fun MainAppScreen(
+                             3 -> Tid.Tabs.settings
+                             else -> Tid.Tabs.books
+                         }
+-                        Tab(
+-                            selected = selectedTabIndex == index,
+-                            onClick = { selectedTabIndex = index },
+-                            modifier = if (index == 3) {
+-                                Modifier.tids(Tid.Bookshelf.SETTINGS_TAB, Tid.Bookshelf.OPEN_SETTINGS)
+-                            } else {
+-                                Modifier.tid(tabTid)
+-                            }.semantics(mergeDescendants = true) {
+-                                contentDescription = "$title Tab, ${if (selectedTabIndex == index) "Selected" else "Not Selected"}"
+-                            },
+-                            text = { Text(title) },
+-                            icon = { Icon(icon, contentDescription = null) }
+-                        )
++                        val tabModifier = if (index == 3) {
++                            Modifier.tids(Tid.Bookshelf.SETTINGS_TAB, Tid.Bookshelf.OPEN_SETTINGS)
++                        } else {
++                            Modifier.tid(tabTid)
++                        }.semantics(mergeDescendants = true) {
++                            contentDescription = "$title Tab, ${if (selectedTabIndex == index) "Selected" else "Not Selected"}"
++                        }
++                        // Text-only tabs are 48 dp tall instead of 72; four labels fit a 411 dp width where icons beside them do not.
++                        if (short) {
++                            Tab(
++                                selected = selectedTabIndex == index,
++                                onClick = { selectedTabIndex = index },
++                                modifier = tabModifier,
++                                text = { Text(title, maxLines = 1) }
++                            )
++                        } else {
++                            Tab(
++                                selected = selectedTabIndex == index,
++                                onClick = { selectedTabIndex = index },
++                                modifier = tabModifier,
++                                text = { Text(title) },
++                                icon = { Icon(icon, contentDescription = null) }
++                            )
++                        }
+                     }
+                 }
+             }
+@@ -640,11 +661,16 @@ fun MainAppScreen(
+     ) { paddingValues ->
+         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+             when (selectedTabIndex) {
+-                0 -> BookshelfScreen(viewModel = bookshelfViewModel, onBookClick = onBookClick, onHighlightsClick = onHighlightsClick)
+-                1 -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("ComicShelf (Coming Soon)") }
+-                2 -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("AudioShelf (Coming Soon)") }
+                 3 -> SettingsScreen(navController = navController)
++                else -> BookshelfScreen(viewModel = bookshelfViewModel, onBookClick = onBookClick, onHighlightsClick = onHighlightsClick)
+             }
+         }
+     }
+ }
++
++/** The kind each library tab shows: Books is the whole library, Comics and Audio one kind each. */
++private fun shelfScope(tabIndex: Int): PublicationKind? = when (tabIndex) {
++    1 -> PublicationKind.COMIC
++    2 -> PublicationKind.AUDIOBOOK
++    else -> null
++}
+diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/navigation/Screen.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/navigation/Screen.kt
+index c22c1c1..7bbda4e 100644
+--- a/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/navigation/Screen.kt
++++ b/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/navigation/Screen.kt
+@@ -36,6 +36,8 @@ sealed class Screen(val route: String) {
+     data object AppAppearance : Screen("settings/app_appearance")
+     data object Dictionary : Screen("settings/dictionary")
+     data object TTS : Screen("settings/tts")
++    data object ComicDefaults : Screen("settings/comics")
++    data object AudiobookDefaults : Screen("settings/audiobooks")
+     data object Bookshelf : Screen("settings/bookshelf")
+     data object ReaderProfiles : Screen("reader_profiles")
+     data object About : Screen("settings/about")
+diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/ui/bookshelf/BookshelfScreen.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/ui/bookshelf/BookshelfScreen.kt
+index a64c08a..47ac676 100644
+--- a/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/ui/bookshelf/BookshelfScreen.kt
++++ b/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/ui/bookshelf/BookshelfScreen.kt
+@@ -78,6 +78,7 @@ import androidx.compose.ui.platform.LocalContext
+ import androidx.compose.ui.semantics.contentDescription
+ import androidx.compose.ui.semantics.semantics
+ import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.text.style.TextAlign
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.dp
+ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+@@ -86,6 +87,9 @@ import coil.compose.AsyncImage
+ import coil.request.ImageRequest
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.withContext
++import org.sableos.reader.layout.ReaderLayoutProfile
++import org.sableos.reader.layout.rememberReaderLayoutProfile
++import org.sableos.reader.library.LibraryFilters
+ import org.vaachak.reader.core.domain.model.BookEntity
+ import org.vaachak.reader.core.domain.model.CoverAspectRatio
+ import org.vaachak.reader.core.domain.model.DitheringMode
+@@ -191,6 +195,7 @@ fun BookshelfScreen(
+ 
+     val containerColor = if (state.isEink) Color.White else MaterialTheme.colorScheme.background
+     val contentColor = if (state.isEink) Color.Black else MaterialTheme.colorScheme.onBackground
++    val layout = rememberReaderLayoutProfile()
+ 
+     TidScreen(Tid.Screen.bookshelf) {
+         Scaffold(
+@@ -212,7 +217,8 @@ fun BookshelfScreen(
+                     containerColor = containerColor,
+                     contentColor = contentColor,
+                     viewModel = viewModel,
+-                    onHighlightsClick = onHighlightsClick
++                    onHighlightsClick = onHighlightsClick,
++                    short = layout.isShort
+                 )
+             },
+             floatingActionButton = {
+@@ -228,7 +234,8 @@ fun BookshelfScreen(
+             val shelf = ShelfCallbacks(
+                 viewModel = viewModel,
+                 onBookClick = handleBookClick,
+-                onDeleteBook = { bookToDelete = it }
++                onDeleteBook = { bookToDelete = it },
++                layout = layout
+             )
+             BookshelfContent(
+                 state = state,
+@@ -263,6 +270,9 @@ fun BookshelfScreen(
+     }
+ }
+ 
++private val BAR_HEIGHT = 64.dp
++private val SHORT_BAR_HEIGHT = 48.dp
++
+ private const val READING_TAB = 0
+ private const val SHELF_TAB = 1
+ 
+@@ -271,6 +281,7 @@ private class ShelfCallbacks(
+     val viewModel: BookshelfViewModel,
+     val onBookClick: (String) -> Unit,
+     val onDeleteBook: (BookEntity) -> Unit,
++    val layout: ReaderLayoutProfile,
+ )
+ 
+ @Composable
+@@ -284,9 +295,11 @@ private fun BookshelfTopBar(
+     contentColor: Color,
+     viewModel: BookshelfViewModel,
+     onHighlightsClick: () -> Unit,
++    short: Boolean,
+ ) {
+     Column(modifier = Modifier.background(containerColor)) {
+-        Row(modifier = Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
++        val barHeight = if (short) SHORT_BAR_HEIGHT else BAR_HEIGHT
++        Row(modifier = Modifier.fillMaxWidth().height(barHeight).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+ 
+             IconButton(onClick = { onSelectTab(READING_TAB) }) {
+                 Icon(if (selectedTab == READING_TAB) Icons.Filled.Schedule else Icons.Outlined.Schedule, "Reading", tint = contentColor)
+@@ -300,7 +313,7 @@ private fun BookshelfTopBar(
+                 TextField(
+                     value = state.searchQuery,
+                     onValueChange = { viewModel.updateSearchQuery(it) },
+-                    modifier = Modifier.weight(1f).height(50.dp),
++                    modifier = Modifier.weight(1f).height(barHeight - 2.dp),
+                     placeholder = { Text("Search...") },
+                     singleLine = true,
+                     trailingIcon = {
+@@ -365,8 +378,7 @@ private fun BookshelfContent(
+     modifier: Modifier = Modifier,
+ ) {
+     BoxWithConstraints(modifier = modifier) {
+-        val cardWidth = 110.dp
+-        val columns = maxOf(3, (maxWidth.value / cardWidth.value).toInt())
++        val columns = shelf.layout.libraryColumns(maxWidth.value)
+         val stackName = state.selectedStackName
+ 
+         when {
+@@ -383,6 +395,7 @@ private fun BookshelfContent(
+                     viewModel = shelf.viewModel,
+                     onBookClick = shelf.onBookClick,
+                     onDeleteBook = shelf.onDeleteBook,
++                    short = shelf.layout.isShort,
+                     bottomBarTextLeft = "Recent Reading: ${readingItems.size}"
+                 )
+             }
+@@ -430,6 +443,7 @@ private fun StackContent(
+             viewModel = shelf.viewModel,
+             onBookClick = shelf.onBookClick,
+             onDeleteBook = shelf.onDeleteBook,
++            short = shelf.layout.isShort,
+             bottomBarTextLeft = "Books in series: ${stackBooks.size}"
+         )
+     }
+@@ -451,7 +465,8 @@ private fun ShelfContent(
+             .map { ShelfEntry.Book(it) }
+     }
+     Column(modifier = Modifier.fillMaxSize()) {
+-        LazyRow(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
++        val chipPadding = if (shelf.layout.isShort) 0.dp else 8.dp
++        LazyRow(modifier = Modifier.fillMaxWidth().padding(vertical = chipPadding), contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+             items(state.availableFilters) { filter ->
+                 val isSelected = state.activeFilter == filter
+                 Text(
+@@ -471,6 +486,7 @@ private fun ShelfContent(
+             viewModel = shelf.viewModel,
+             onBookClick = shelf.onBookClick,
+             onDeleteBook = shelf.onDeleteBook,
++            short = shelf.layout.isShort,
+             bottomBarTextLeft = "Total Library: ${shelfItems.size}"
+         )
+     }
+@@ -502,10 +518,13 @@ fun ContinuousLibraryGrid(
+     viewModel: BookshelfViewModel,
+     onBookClick: (String) -> Unit,
+     onDeleteBook: (BookEntity) -> Unit,
+-    bottomBarTextLeft: String
++    bottomBarTextLeft: String,
++    short: Boolean = false
+ ) {
+     if (items.isEmpty()) {
+-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("No books found", color = contentColor.copy(alpha = 0.5f)) }
++        Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
++            Text(LibraryFilters.emptyHint(state.scope), color = contentColor.copy(alpha = 0.5f), textAlign = TextAlign.Center)
++        }
+         return
+     }
+ 
+@@ -519,9 +538,9 @@ fun ContinuousLibraryGrid(
+         LazyVerticalGrid(
+             columns = GridCells.Fixed(columns),
+             modifier = Modifier.weight(1f).fillMaxWidth(),
+-            contentPadding = PaddingValues(16.dp),
+-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+-            verticalArrangement = Arrangement.spacedBy(16.dp)
++            contentPadding = PaddingValues(if (short) 12.dp else 16.dp),
++            horizontalArrangement = Arrangement.spacedBy(if (short) 12.dp else 16.dp),
++            verticalArrangement = Arrangement.spacedBy(if (short) 12.dp else 16.dp)
+         ) {
+             gridItems(items) { item ->
+                 when (item) {
+@@ -538,7 +557,7 @@ fun ContinuousLibraryGrid(
+         }
+ 
+         Row(
+-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
++            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = if (short) 2.dp else 8.dp),
+             horizontalArrangement = Arrangement.SpaceBetween,
+             verticalAlignment = Alignment.CenterVertically
+         ) {
+diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/ui/bookshelf/BookshelfViewModel.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/ui/bookshelf/BookshelfViewModel.kt
+index 02a6b6f..416a12c 100644
+--- a/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/ui/bookshelf/BookshelfViewModel.kt
++++ b/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/ui/bookshelf/BookshelfViewModel.kt
+@@ -34,6 +34,8 @@ data class BookshelfUiState(
+     val isLoading: Boolean = false,
+     val searchQuery: String = "",
+     val activeFilter: String = "All",
++    /** The one kind this shelf shows (the Comics and Audio tabs), or null for the whole library. */
++    val scope: PublicationKind? = null,
+     val availableFilters: List<String> = listOf("All"),
+     val filterCounts: Map<String, Int> = emptyMap(),
+     val sortOrder: SortOrder = SortOrder.PROGRESS,
+@@ -51,6 +53,7 @@ data class BookshelfUiState(
+ enum class SortOrder { TITLE, AUTHOR, DATE_ADDED, PROGRESS }
+ 
+ private data class FilterState(
++    val scope: PublicationKind?,
+     val query: String,
+     val filter: String,
+     val sort: SortOrder,
+@@ -82,18 +85,20 @@ class BookshelfViewModel @Inject constructor(
+ 
+     private val _searchQuery = MutableStateFlow("")
+     private val _activeFilter = MutableStateFlow("All")
++    private val _scope = MutableStateFlow<PublicationKind?>(null)
+     private val _sortOrder = MutableStateFlow(SortOrder.PROGRESS)
+     private val _snackbarMessage = MutableStateFlow<String?>(null)
+     private val _selectedStackName = MutableStateFlow<String?>(null)
+     private val _bookmarksSheetBookUri = MutableStateFlow<String?>(null)
+ 
+     private val filterFlow = combine(
++        _scope,
+         _searchQuery,
+         _activeFilter,
+         _sortOrder,
+         _selectedStackName
+-    ) { query, filter, sort, stack ->
+-        FilterState(query, filter, sort, stack)
++    ) { scope, query, filter, sort, stack ->
++        FilterState(scope, query, filter, sort, stack)
+     }.distinctUntilChanged()
+ 
+     private val prefsFlow = combine(
+@@ -128,13 +133,16 @@ class BookshelfViewModel @Inject constructor(
+         dialogsFlow
+     ) { books, filters, prefs, dialogs ->
+         withContext(AppCoroutineConfig.default) {
++            val scopedBooks = filters.scope?.let { scope ->
++                books.filter { PublicationKind.fromStableValue(it.kind) == scope }
++            } ?: books
+             val searchedBooks = if (filters.query.isNotBlank()) {
+-                books.filter {
++                scopedBooks.filter {
+                     it.title.contains(filters.query, ignoreCase = true) ||
+                             it.author.contains(filters.query, ignoreCase = true)
+                 }
+             } else {
+-                books
++                scopedBooks
+             }
+ 
+             val filterCounts = mutableMapOf("All" to searchedBooks.size)
+@@ -146,7 +154,7 @@ class BookshelfViewModel @Inject constructor(
+ 
+             // Unified-library chips (state and kind) come first, then the language chips this shelf always had.
+             val libraryCounts = LibraryViews.counts(searchedBooks.map { it.toLibraryItem() })
+-            val allFilters = LibraryFilters.labels(libraryCounts) + filterCounts.keys
++            val allFilters = LibraryFilters.labels(libraryCounts, filters.scope) + filterCounts.keys
+                 .filter { it != LibraryFilters.ALL }
+                 .sorted()
+ 
+@@ -175,6 +183,7 @@ class BookshelfViewModel @Inject constructor(
+                 isLoading = false,
+                 searchQuery = filters.query,
+                 activeFilter = filters.filter,
++                scope = filters.scope,
+                 availableFilters = allFilters,
+                 filterCounts = filterCounts,
+                 sortOrder = filters.sort,
+@@ -214,6 +223,14 @@ class BookshelfViewModel @Inject constructor(
+         _searchQuery.value = query
+     }
+ 
++    /** Narrows the shelf to one kind (null for the whole library) and starts it from a clean view. */
++    fun setScope(kind: PublicationKind?) {
++        if (_scope.value == kind) return
++        _scope.value = kind
++        _activeFilter.value = LibraryFilters.ALL
++        _selectedStackName.value = null
++    }
++
+     fun setFilter(filter: String) {
+         _activeFilter.value = filter
+     }
+diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/ui/settings/MediaDefaultsScreens.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/ui/settings/MediaDefaultsScreens.kt
+new file mode 100644
+index 0000000..09c1f86
+--- /dev/null
++++ b/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/ui/settings/MediaDefaultsScreens.kt
+@@ -0,0 +1,131 @@
++package org.vaachak.reader.leisure.ui.settings
++
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.ColumnScope
++import androidx.compose.foundation.layout.FlowRow
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.verticalScroll
++import androidx.compose.material.icons.Icons
++import androidx.compose.material.icons.automirrored.filled.ArrowBack
++import androidx.compose.material3.ExperimentalMaterial3Api
++import androidx.compose.material3.HorizontalDivider
++import androidx.compose.material3.Icon
++import androidx.compose.material3.IconButton
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.Scaffold
++import androidx.compose.material3.Text
++import androidx.compose.material3.TopAppBar
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.getValue
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.unit.dp
++import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
++import androidx.lifecycle.compose.collectAsStateWithLifecycle
++import org.sableos.reader.comic.ComicFit
++import org.sableos.reader.comic.ComicReadingMode
++import org.sableos.reader.engine.audio.AudioPlaybackSettings
++import org.sableos.reader.engine.audio.AudioTimeFormat
++import org.sableos.reader.ui.comic.comicModeLabel
++import org.vaachak.reader.leisure.ui.testability.tid
++
++/** Starting reading mode and fit for comics that have no choice of their own yet. */
++@Composable
++fun ComicDefaultsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
++    val defaults by viewModel.comicDefaults.collectAsStateWithLifecycle()
++    DefaultsScaffold("Comics", "comic_defaults_back", onBack) {
++        Text(
++            "Used when you open a comic for the first time. Press A while reading to change one comic.",
++            style = MaterialTheme.typography.bodyMedium,
++        )
++        DefaultsSection("READING MODE") {
++            ComicReadingMode.entries.forEach { mode ->
++                TtsFilterOption(comicModeLabel(mode), defaults.mode == mode) {
++                    viewModel.setComicDefaults(defaults.copy(mode = mode))
++                }
++            }
++        }
++        HorizontalDivider()
++        DefaultsSection("FIT (PAGED MODES)") {
++            TtsFilterOption("Whole page", defaults.fit == ComicFit.FIT_PAGE) {
++                viewModel.setComicDefaults(defaults.copy(fit = ComicFit.FIT_PAGE))
++            }
++            TtsFilterOption("Page width", defaults.fit == ComicFit.FIT_WIDTH) {
++                viewModel.setComicDefaults(defaults.copy(fit = ComicFit.FIT_WIDTH))
++            }
++        }
++    }
++}
++
++/** Starting speed and skip lengths for audiobooks that have no choice of their own yet. */
++@Composable
++fun AudiobookDefaultsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
++    val defaults by viewModel.audioDefaults.collectAsStateWithLifecycle()
++    DefaultsScaffold("Audiobooks", "audio_defaults_back", onBack) {
++        Text(
++            "Used when you start an audiobook for the first time. Press A while listening to change one audiobook " +
++                "or set the sleep timer.",
++            style = MaterialTheme.typography.bodyMedium,
++        )
++        DefaultsSection("SPEED") {
++            AudioPlaybackSettings.SPEEDS.forEach { speed ->
++                TtsFilterOption("$speed×", defaults.speed == speed) {
++                    viewModel.setAudioDefaults(defaults.copy(speed = speed))
++                }
++            }
++        }
++        HorizontalDivider()
++        DefaultsSection("SKIP BACK (LEFT)") {
++            AudioPlaybackSettings.SKIP_BACK_CHOICES_MS.forEach { ms ->
++                TtsFilterOption(AudioTimeFormat.interval(ms), defaults.skipBackMs == ms) {
++                    viewModel.setAudioDefaults(defaults.copy(skipBackMs = ms))
++                }
++            }
++        }
++        HorizontalDivider()
++        DefaultsSection("SKIP FORWARD (RIGHT)") {
++            AudioPlaybackSettings.SKIP_FORWARD_CHOICES_MS.forEach { ms ->
++                TtsFilterOption(AudioTimeFormat.interval(ms), defaults.skipForwardMs == ms) {
++                    viewModel.setAudioDefaults(defaults.copy(skipForwardMs = ms))
++                }
++            }
++        }
++    }
++}
++
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++private fun DefaultsScaffold(title: String, backTid: String, onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
++    Scaffold(
++        topBar = {
++            TopAppBar(
++                title = { Text(title) },
++                navigationIcon = {
++                    IconButton(onClick = onBack, modifier = Modifier.tid(backTid)) {
++                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
++                    }
++                }
++            )
++        }
++    ) { padding ->
++        Column(
++            modifier = Modifier
++                .padding(padding)
++                .fillMaxSize()
++                .verticalScroll(rememberScrollState())
++                .padding(16.dp),
++            verticalArrangement = Arrangement.spacedBy(16.dp),
++            content = content
++        )
++    }
++}
++
++@Composable
++private fun DefaultsSection(label: String, chips: @Composable () -> Unit) {
++    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
++        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
++        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { chips() }
++    }
++}
+diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/ui/settings/SettingsScreen.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/ui/settings/SettingsScreen.kt
+index 316f521..21840fd 100644
+--- a/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/ui/settings/SettingsScreen.kt
++++ b/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/ui/settings/SettingsScreen.kt
+@@ -17,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
+ import androidx.compose.material.icons.Icons
+ import androidx.compose.material.icons.automirrored.filled.LibraryBooks
+ import androidx.compose.material.icons.automirrored.filled.List
++import androidx.compose.material.icons.filled.Audiotrack
+ import androidx.compose.material.icons.filled.Book
+ import androidx.compose.material.icons.filled.ChevronRight
+ import androidx.compose.material.icons.filled.Contrast
+@@ -26,6 +27,7 @@ import androidx.compose.material.icons.filled.Info
+ import androidx.compose.material.icons.filled.Person
+ import androidx.compose.material.icons.filled.RecordVoiceOver
+ import androidx.compose.material.icons.filled.SwitchAccount
++import androidx.compose.material.icons.outlined.Photo
+ import androidx.compose.material3.AlertDialog
+ import androidx.compose.material3.Card
+ import androidx.compose.material3.CardDefaults
+@@ -221,6 +223,17 @@ fun BookSettingsTab(navController: NavController) {
+             onClick = { navController.navigate("settings/dictionary") }
+         )
+     }
++
++    SettingsGroup(title = "Comics & Audiobooks") {
++        SettingsTile(
++            icon = Icons.Outlined.Photo, title = "Comics", subtitle = "Default reading mode (including manga and webtoon) and fit",
++            onClick = { navController.navigate(Screen.ComicDefaults.route) }
++        )
++        SettingsTile(
++            icon = Icons.Default.Audiotrack, title = "Audiobooks", subtitle = "Default speed and skip lengths",
++            onClick = { navController.navigate(Screen.AudiobookDefaults.route) }
++        )
++    }
+ }
+ 
+ @Composable
+diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/ui/settings/SettingsViewModel.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/ui/settings/SettingsViewModel.kt
+index 0b490e1..fa21abf 100644
+--- a/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/ui/settings/SettingsViewModel.kt
++++ b/sable-src/apps/common/reader/leisure/src/main/java/org/vaachak/reader/leisure/ui/settings/SettingsViewModel.kt
+@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
+ import kotlinx.coroutines.flow.stateIn
+ import kotlinx.coroutines.launch
+ import kotlinx.coroutines.withContext
++import org.sableos.reader.comic.ComicViewSettings
++import org.sableos.reader.engine.audio.AudioPlaybackSettings
+ import org.vaachak.reader.core.common.AppCoroutineConfig
+ import org.vaachak.reader.core.data.local.ProfileDao
+ import org.vaachak.reader.core.data.repository.SettingsRepository
+@@ -97,6 +99,17 @@ class SettingsViewModel @Inject constructor(
+     val dictionaryFolder: StateFlow<String> = settingsRepo.getDictionaryFolder()
+         .stateIn(viewModelScope, AppCoroutineConfig.whileSubscribed, "")
+ 
++    /** Starting choices for comics and audiobooks that have none of their own yet. */
++    val comicDefaults: StateFlow<ComicViewSettings> = settingsRepo.comicDefaults
++        .stateIn(viewModelScope, AppCoroutineConfig.whileSubscribed, ComicViewSettings())
++
++    val audioDefaults: StateFlow<AudioPlaybackSettings> = settingsRepo.audioDefaults
++        .stateIn(viewModelScope, AppCoroutineConfig.whileSubscribed, AudioPlaybackSettings())
++
++    fun setComicDefaults(settings: ComicViewSettings) = viewModelScope.launch { settingsRepo.setComicDefaults(settings) }
++
++    fun setAudioDefaults(settings: AudioPlaybackSettings) = viewModelScope.launch { settingsRepo.setAudioDefaults(settings) }
++
+     private val themeFlow = combine(
+         settingsRepo.themeMode,
+         settingsRepo.einkContrast,
+diff --git a/sable-src/apps/common/reader/reader-engine-comic/src/main/kotlin/org/sableos/reader/engine/comic/ComicInfo.kt b/sable-src/apps/common/reader/reader-engine-comic/src/main/kotlin/org/sableos/reader/engine/comic/ComicInfo.kt
+index 6284791..6632eb0 100644
+--- a/sable-src/apps/common/reader/reader-engine-comic/src/main/kotlin/org/sableos/reader/engine/comic/ComicInfo.kt
++++ b/sable-src/apps/common/reader/reader-engine-comic/src/main/kotlin/org/sableos/reader/engine/comic/ComicInfo.kt
+@@ -26,14 +26,17 @@ data class ComicInfo(
+     val seriesIndex: Double? get() = number?.trim()?.toDoubleOrNull()
+ }
+ 
+-/** First-open viewer choice derived from the comic's own metadata; the user's per-title choice always wins later. */
++/**
++ * First-open viewer choice: the comic's own metadata when it names a webtoon or right-to-left manga, otherwise the
++ * reader's default from Settings. The user's per-title choice always wins later.
++ */
+ object ComicViewDefaults {
+-    fun initial(info: ComicInfo?): ComicViewSettings {
++    fun initial(info: ComicInfo?, fallback: ComicViewSettings = ComicViewSettings()): ComicViewSettings {
+         val mode = when {
+             info?.format?.contains("webtoon", ignoreCase = true) == true -> ComicReadingMode.WEBTOON
+             info?.manga == MangaFlag.YES_RIGHT_TO_LEFT -> ComicReadingMode.PAGED_RTL
+-            else -> ComicReadingMode.PAGED_LTR
++            else -> return fallback
+         }
+-        return ComicViewSettings(mode)
++        return fallback.copy(mode = mode)
+     }
+ }
+diff --git a/sable-src/apps/common/reader/reader-engine-comic/src/test/kotlin/org/sableos/reader/engine/comic/ComicInfoParserTest.kt b/sable-src/apps/common/reader/reader-engine-comic/src/test/kotlin/org/sableos/reader/engine/comic/ComicInfoParserTest.kt
+index 4277b4e..81fd3d1 100644
+--- a/sable-src/apps/common/reader/reader-engine-comic/src/test/kotlin/org/sableos/reader/engine/comic/ComicInfoParserTest.kt
++++ b/sable-src/apps/common/reader/reader-engine-comic/src/test/kotlin/org/sableos/reader/engine/comic/ComicInfoParserTest.kt
+@@ -4,7 +4,9 @@ import org.junit.Assert.assertEquals
+ import org.junit.Assert.assertNotNull
+ import org.junit.Assert.assertNull
+ import org.junit.Test
++import org.sableos.reader.comic.ComicFit
+ import org.sableos.reader.comic.ComicReadingMode
++import org.sableos.reader.comic.ComicViewSettings
+ 
+ class ComicInfoParserTest {
+     private fun parse(body: String) = ComicInfoParser.parse(ComicFixtures.comicInfoXml(body))
+@@ -65,5 +67,10 @@ class ComicInfoParserTest {
+         assertEquals(ComicReadingMode.PAGED_LTR, ComicViewDefaults.initial(parse("<Manga>Yes</Manga>")).mode)
+         assertEquals(ComicReadingMode.WEBTOON, ComicViewDefaults.initial(parse("<Format>Webtoon</Format>")).mode)
+         assertEquals(ComicReadingMode.PAGED_LTR, ComicViewDefaults.initial(null).mode)
++        // Without a metadata hint the reader's own default applies; a hint still sets the mode but keeps the fit.
++        val default = ComicViewSettings(ComicReadingMode.VERTICAL_PAGER, ComicFit.FIT_WIDTH)
++        assertEquals(default, ComicViewDefaults.initial(null, default))
++        assertEquals(ComicReadingMode.PAGED_RTL, ComicViewDefaults.initial(rtl, default).mode)
++        assertEquals(ComicFit.FIT_WIDTH, ComicViewDefaults.initial(rtl, default).fit)
+     }
+ }
+diff --git a/sable-src/apps/common/reader/reader-model/src/main/kotlin/org/sableos/reader/input/KeyHints.kt b/sable-src/apps/common/reader/reader-model/src/main/kotlin/org/sableos/reader/input/KeyHints.kt
+index e76dd21..3d29a17 100644
+--- a/sable-src/apps/common/reader/reader-model/src/main/kotlin/org/sableos/reader/input/KeyHints.kt
++++ b/sable-src/apps/common/reader/reader-model/src/main/kotlin/org/sableos/reader/input/KeyHints.kt
+@@ -19,7 +19,10 @@ object KeyHints {
+             add(KeyHint("T", if (context.surface == ReaderSurface.AUDIO) "Chapters" else "Contents"))
+         }
+         if (caps.textSearch) add(KeyHint("F", "Find"))
+-        if (caps.appearance) add(KeyHint("A", "Appearance"))
++        if (caps.appearance) {
++            val what = if (context.surface == ReaderSurface.AUDIO) "Speed, skip and sleep timer" else "Appearance"
++            add(KeyHint("A", what))
++        }
+         add(KeyHint("Esc / Back", "Close, then leave"))
+     }
+ 
+@@ -41,7 +44,7 @@ object KeyHints {
+         ReaderSurface.AUDIO -> listOf(
+             KeyHint("Space", "Play / pause"),
+             KeyHint("Left / Right", "Seek"),
+-            KeyHint(PAGE_UP_DOWN, "Previous / next chapter"),
++            KeyHint("P / N or $PAGE_UP_DOWN", "Previous / next chapter"),
+         )
+     }
+ }
+diff --git a/sable-src/apps/common/reader/reader-model/src/main/kotlin/org/sableos/reader/layout/ReaderLayoutProfile.kt b/sable-src/apps/common/reader/reader-model/src/main/kotlin/org/sableos/reader/layout/ReaderLayoutProfile.kt
+index 8439638..3bc3f62 100644
+--- a/sable-src/apps/common/reader/reader-model/src/main/kotlin/org/sableos/reader/layout/ReaderLayoutProfile.kt
++++ b/sable-src/apps/common/reader/reader-model/src/main/kotlin/org/sableos/reader/layout/ReaderLayoutProfile.kt
+@@ -24,11 +24,30 @@ data class ReaderLayoutProfile(val widthDp: Float, val heightDp: Float) {
+     /** Chrome is visible on first open only when it is persistent for this profile. */
+     val chromeInitiallyVisible: Boolean get() = !transientChrome
+ 
++    /**
++     * Too little height for full-size chrome: on a 720x720 keyboard phone the window is about 411 x 387 dp, and the
++     * library header, tabs and filter row would otherwise leave less than one row of covers.
++     */
++    val isShort: Boolean get() = heightDp > 0f && heightDp < SHORT_HEIGHT_DP
++
++    /** Library cover width: narrower on short windows so a full row of covers fits under the chrome. */
++    val libraryCardWidthDp: Float get() = if (isShort) SHORT_LIBRARY_CARD_DP else LIBRARY_CARD_DP
++
++    fun libraryColumns(availableWidthDp: Float): Int =
++        maxOf(MIN_LIBRARY_COLUMNS, (availableWidthDp / libraryCardWidthDp).toInt())
++
+     companion object {
+         /** Width/height ratio at or above which a window counts as square-ish (4:3 and squarer). */
+         const val SQUARE_RATIO: Float = 0.75f
+ 
+         /** Windows whose short side is below this are compact (the Material compact-width boundary). */
+         const val COMPACT_SHORT_SIDE_DP: Float = 600f
++
++        /** Windows lower than this use the short library and audiobook layouts. */
++        const val SHORT_HEIGHT_DP: Float = 480f
++
++        const val LIBRARY_CARD_DP: Float = 110f
++        const val SHORT_LIBRARY_CARD_DP: Float = 88f
++        const val MIN_LIBRARY_COLUMNS: Int = 3
+     }
+ }
+diff --git a/sable-src/apps/common/reader/reader-model/src/main/kotlin/org/sableos/reader/library/LibraryFilters.kt b/sable-src/apps/common/reader/reader-model/src/main/kotlin/org/sableos/reader/library/LibraryFilters.kt
+index db988d9..875154c 100644
+--- a/sable-src/apps/common/reader/reader-model/src/main/kotlin/org/sableos/reader/library/LibraryFilters.kt
++++ b/sable-src/apps/common/reader/reader-model/src/main/kotlin/org/sableos/reader/library/LibraryFilters.kt
+@@ -26,13 +26,27 @@ object LibraryFilters {
+     fun isInProgress(finished: Boolean, lastOpenedAt: Long, progress: Double): Boolean =
+         !finished && lastOpenedAt > 0L && progress > 0.0
+ 
+-    /** The ordered chip labels for [counts]: state chips first, then one per kind present. */
+-    fun labels(counts: LibraryCounts): List<String> = buildList {
++    /**
++     * The ordered chip labels for [counts]: state chips first, then one per kind present. A shelf [scope]d to one kind
++     * (the Comics and Audio tabs) holds nothing else, so it has no kind chips.
++     */
++    fun labels(counts: LibraryCounts, scope: PublicationKind? = null): List<String> = buildList {
+         add(ALL)
+         if (counts.inProgress > 0) add(CONTINUE)
+         if (counts.favorites > 0) add(FAVORITES)
+         if (counts.finished > 0) add(FINISHED)
+-        PublicationKind.entries.filter { (counts.byKind[it] ?: 0) > 0 }.forEach { add(kindLabel(it)) }
++        if (scope == null) {
++            PublicationKind.entries.filter { (counts.byKind[it] ?: 0) > 0 }.forEach { add(kindLabel(it)) }
++        }
+         if (counts.unlinked > 0) add(NEEDS_FILE)
+     }
++
++    /** What an empty shelf says, so a Comics or Audio tab tells the reader how to fill it. */
++    fun emptyHint(scope: PublicationKind?): String = when (scope) {
++        PublicationKind.COMIC ->
++            "No comics yet. Press + to add a CBZ file, or the folder button to add a folder of images."
++        PublicationKind.AUDIOBOOK ->
++            "No audiobooks yet. Press + to add an audio file, or the folder button to add a folder of tracks."
++        else -> "No books found"
++    }
+ }
+diff --git a/sable-src/apps/common/reader/reader-model/src/test/kotlin/org/sableos/reader/layout/ReaderLayoutProfileTest.kt b/sable-src/apps/common/reader/reader-model/src/test/kotlin/org/sableos/reader/layout/ReaderLayoutProfileTest.kt
+index 5b9dd9b..0587b99 100644
+--- a/sable-src/apps/common/reader/reader-model/src/test/kotlin/org/sableos/reader/layout/ReaderLayoutProfileTest.kt
++++ b/sable-src/apps/common/reader/reader-model/src/test/kotlin/org/sableos/reader/layout/ReaderLayoutProfileTest.kt
+@@ -50,4 +50,20 @@ class ReaderLayoutProfileTest {
+         assertTrue(ReaderLayoutProfile(750f, 1000f).isSquareish)
+         assertFalse(ReaderLayoutProfile(749f, 1000f).isSquareish)
+     }
++
++    @Test
++    fun keyboardSquarePhoneIsShortAndFitsFourCoversAcross() {
++        // 720x720 at density 280, minus the status bar.
++        val q25 = ReaderLayoutProfile(411f, 387f)
++        assertTrue(q25.isShort)
++        assertEquals(4, q25.libraryColumns(411f))
++    }
++
++    @Test
++    fun tallWindowsKeepFullSizeCovers() {
++        val phone = ReaderLayoutProfile(411f, 860f)
++        assertFalse(phone.isShort)
++        assertEquals(3, phone.libraryColumns(411f))
++        assertFalse(ReaderLayoutProfile(0f, 0f).isShort)
++    }
+ }
+diff --git a/sable-src/apps/common/reader/reader-model/src/test/kotlin/org/sableos/reader/library/FiltersAndLegacyTest.kt b/sable-src/apps/common/reader/reader-model/src/test/kotlin/org/sableos/reader/library/FiltersAndLegacyTest.kt
+index bc1afa2..cd3ad25 100644
+--- a/sable-src/apps/common/reader/reader-model/src/test/kotlin/org/sableos/reader/library/FiltersAndLegacyTest.kt
++++ b/sable-src/apps/common/reader/reader-model/src/test/kotlin/org/sableos/reader/library/FiltersAndLegacyTest.kt
+@@ -36,6 +36,15 @@ class FiltersAndLegacyTest {
+         )
+     }
+ 
++    @Test
++    fun aShelfScopedToOneKindHasNoKindChipsAndSaysHowToFillIt() {
++        val comics = counts(byKind = mapOf(PublicationKind.COMIC to 2), inProgress = 1)
++        assertEquals(listOf("All", "Continue"), LibraryFilters.labels(comics, PublicationKind.COMIC))
++        assertTrue(LibraryFilters.emptyHint(PublicationKind.COMIC).startsWith("No comics yet"))
++        assertTrue(LibraryFilters.emptyHint(PublicationKind.AUDIOBOOK).startsWith("No audiobooks yet"))
++        assertEquals("No books found", LibraryFilters.emptyHint(null))
++    }
++
+     @Test
+     fun kindLabelsRoundTrip() {
+         PublicationKind.entries.forEach { assertEquals(it, LibraryFilters.kindOfLabel(LibraryFilters.kindLabel(it))) }
