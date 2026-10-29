@@ -244,4 +244,7 @@
     <string name="sable_more_actions_for">%1$s için diğer eylemler</string>
     <string name="sable_jump_to">%1$s öğesine git</string>
     <string name="sable_return_to">%1$s öğesine dön</string>
+    <string name="letter_shortcut">Basılı tutma kısayolu</string>
+    <string name="letter_shortcut_current">Basılı tutma kısayolu: %1$s</string>
+    <string name="letter_shortcut_press">Ana ekranda basılı tutunca bu uygulamayı açacak harfe basın. Backspace kaldırır. Aynı harfteki hızlı aramanın yerini alır.</string>
 </resources>

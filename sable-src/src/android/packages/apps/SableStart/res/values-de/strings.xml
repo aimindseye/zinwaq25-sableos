@@ -244,4 +244,7 @@
     <string name="sable_more_actions_for">Weitere Aktionen für %1$s</string>
     <string name="sable_jump_to">Zu %1$s springen</string>
     <string name="sable_return_to">Zurück zu %1$s</string>
+    <string name="letter_shortcut">Tastenkürzel (halten)</string>
+    <string name="letter_shortcut_current">Tastenkürzel (halten): %1$s</string>
+    <string name="letter_shortcut_press">Drücke den Buchstaben, der auf dem Startbildschirm gehalten diese App öffnet. Rücktaste entfernt ihn. Er ersetzt eine Kurzwahl auf demselben Buchstaben.</string>
 </resources>

@@ -136,6 +136,13 @@ enum class Tool(
         listOf(Perm.ACTIVITY_RECOGNITION),
         keywords = listOf("steps")
     ),
+    SOS_ALERT(
+        Section.UTILITIES,
+        "sos_alert",
+        ToolKind.ACTION,
+        Capability.SOS_ALERT,
+        keywords = listOf("sos", "emergency", "siren", "strobe", "alarm", "flash")
+    ),
     IR_REMOTE(
         Section.UTILITIES,
         "ir_remote",

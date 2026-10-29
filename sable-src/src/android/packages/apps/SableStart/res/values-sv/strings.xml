@@ -244,4 +244,7 @@
     <string name="sable_more_actions_for">Fler åtgärder för %1$s</string>
     <string name="sable_jump_to">Hoppa till %1$s</string>
     <string name="sable_return_to">Tillbaka till %1$s</string>
+    <string name="letter_shortcut">Genväg med nedhållen tangent</string>
+    <string name="letter_shortcut_current">Genväg med nedhållen tangent: %1$s</string>
+    <string name="letter_shortcut_press">Tryck på bokstaven som du håller nere på startskärmen för att öppna den här appen. Backsteg tar bort den. Den ersätter en snabbuppringning på samma bokstav.</string>
 </resources>

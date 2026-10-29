@@ -28,7 +28,7 @@ The first-boot setup walks through language, Wi-Fi, theme and Weather city. Ever
 | Setup row | Default | What it does |
 | --- | --- | --- |
 | Home screen style | BlackBerry 10 | BlackBerry 10 (Hub, Active Frames, app pages) or BlackBerry 7 (banner and tray of icons) |
-| Home app | Sable Start | Pick another launcher if you prefer |
+| Home app | Sable Start | Pick another launcher if you prefer. On the BlackBerry 10 home, open an app's menu and choose Hold-key shortcut, then press a letter: holding that letter on Home opens the app (it replaces a speed dial on the same letter; Backspace removes it) |
 | Keyboard | Sable Keyboard | Any keyboard works; Gboard shows as "In use: Gboard" |
 | Add a keyboard | none | Install Gboard or another keyboard |
 | Default apps | Sable apps | Browser, SMS (Sable Messages), Phone, Camera |
@@ -98,8 +98,8 @@ Every Sable app follows the Dark theme and your Sable accent, and has single-key
 | Reader | Books (EPUB), PDF, comics and audiobooks, all stored on the phone | See [Comics and audiobooks](#comics-and-audiobooks) below; B bookmark, T contents, A view settings |
 | Calculator | Keyboard-first | Digits and operators from the keys |
 | Games | Ten games, each its own app: Sudoku, Minesweeper, 2048, Bricks, Snake, Blocks, Reversi, Solitaire, Mahjong, Words | See [Games](#games) below |
-| Tools | Device reports you can save to Download/SableTools | C copy, S save, M more |
-| Vault | Private Space and app controls | |
+| Tools | Device reports you can save to Download/SableTools. Its utilities (SOS and alarm, pedometer with a goal and 7-day history, flashlight, compass and more) show on the Q25 only when Developer options and Tools' developer mode are on, until each is proven on the phone | C copy, S save, M more. In the pedometer, Menu sets height, weight and goal |
+| Vault | Private Space and Mobile Manager's app controls (App Control Center, Network access, Freezer, App blocker, Focus and Student mode) | App blocker: Settings > Apps > Mobile Manager > App blocker. To see what an app can do and what changed in it, open Settings > Apps > App security & privacy (signing, permissions, exposed parts, tracker signals, changes seen on this phone) |
 | App display compatibility | Taller canvas per app for apps that don't fit a square screen | Alt+Shift+R |
 | Aurora Store + microG | Install Play Store apps without Google Play | See [MICROG.md](MICROG.md) |
 
@@ -205,7 +205,7 @@ SableOS favours privacy over Google compatibility, but it is not hardened yet. T
 | Hub access | SMS, contacts and call log granted at first boot (revocable) | Hub has no screen of its own to ask from |
 | Location | Android default, asked per app | Weather asks when you choose "current location" |
 | Bootloader | Unlocked | Needed to install SableOS. Locking it on SableOS may stop the phone from starting |
-| Build type | Debuggable build: `adb root` works when USB debugging is on | Lets you collect logs; it also lets anyone with your unlocked phone and a cable read everything |
+| Build type | `userdebug` (debuggable, `adb root` works when USB debugging is on) or `user`, as named in the release notes and the zip name | `userdebug` lets you collect logs; it also lets anyone with your unlocked phone and a cable read everything |
 | Updates | No over-the-air updates; you sideload new releases | Sable OTAs are planned for phase Q5 |
 
 ## Recommended changes for everyday use

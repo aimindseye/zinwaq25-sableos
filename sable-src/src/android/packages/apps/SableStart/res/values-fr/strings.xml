@@ -244,4 +244,7 @@
     <string name="sable_more_actions_for">Plus d’actions pour %1$s</string>
     <string name="sable_jump_to">Aller à %1$s</string>
     <string name="sable_return_to">Revenir à %1$s</string>
+    <string name="letter_shortcut">Raccourci par appui long</string>
+    <string name="letter_shortcut_current">Raccourci par appui long : %1$s</string>
+    <string name="letter_shortcut_press">Appuyez sur la lettre à maintenir sur l\'accueil pour ouvrir cette appli. Retour arrière la supprime. Elle remplace une numérotation rapide sur la même lettre.</string>
 </resources>

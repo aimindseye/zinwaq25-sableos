@@ -244,4 +244,7 @@
     <string name="sable_more_actions_for">Ещё действия для: %1$s</string>
     <string name="sable_jump_to">Перейти: %1$s</string>
     <string name="sable_return_to">Вернуться: %1$s</string>
+    <string name="letter_shortcut">Ярлык по удержанию клавиши</string>
+    <string name="letter_shortcut_current">Ярлык по удержанию клавиши: %1$s</string>
+    <string name="letter_shortcut_press">Нажмите букву, удержание которой на главном экране откроет это приложение. Backspace удаляет её. Заменяет быстрый набор на той же букве.</string>
 </resources>

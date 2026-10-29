@@ -2,9 +2,14 @@
 # Package a collected build as a GitHub release: one zip with the images,
 # the install package, checksums, flashing steps and release notes.
 #
-#   bash build/sable.sh q25 full artifacts
-#   bash build/sable.sh q25 full release [--tag 1.0] [--notes FILE]
+#   bash build/sable.sh q25 full artifacts --version 1.0
+#   bash build/sable.sh q25 full release --version 1.0 [--notes FILE]
 #                                      [--artifacts DIR] [--boot-tested] [--publish]
+#
+# The release number is --version (default 1.0): it is the GitHub tag and part of the
+# zip name, and it must be the version the build was made with. --tag TAG sets the tag
+# alone (for example 1.0-user when one version is published as two build types).
+# The build type (user or userdebug) is read from the collected build.
 #
 # Without --publish it only builds the zip and prints the gh command. With
 # --publish it creates the release with gh (gh auth login first). The tag
@@ -16,9 +21,10 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/build/lib/common.sh"
 
 RELEASE="${1:-}"
 sable_require_release "$RELEASE"
+sable_require_build_options
 shift
 
-TAG="1.0"
+TAG="$SABLE_VERSION"
 NOTES=""
 ARTIFACTS=""
 PUBLISH=NO
@@ -52,10 +58,22 @@ info() {
     sed -n "s/^$key=//p" "$ARTIFACTS/BUILD_INFO.txt"
 }
 commit="$(info tool_commit)"
+# Builds collected before the version and build type were recorded were 1.0 userdebug.
+built_version="$(info version)"
+variant="$(info variant)"
+variant="${variant:-userdebug}"
+if [[ -n "$built_version" && "$built_version" != "$SABLE_VERSION" ]] && sable_release_has_sable_layer "$RELEASE"; then
+    sable_fail "the collected build is version $built_version, not $SABLE_VERSION; use --version $built_version, or build and collect again with --version $SABLE_VERSION"
+fi
+case "$variant" in
+    userdebug) build_type="userdebug: debuggable, \`adb root\` works when USB debugging is on" ;;
+    user) build_type="user: not debuggable (no \`adb root\`)" ;;
+    *) build_type="$variant" ;;
+esac
 mapfile -t packages < <(find "$ARTIFACTS" -maxdepth 1 -name '*.zip' -printf '%f\n')
 ((${#packages[@]} == 1)) || sable_fail "expected one install package in $ARTIFACTS, found ${#packages[@]}"
 package="${packages[0]}"
-name="sableos-q25-$RELEASE-$TAG"
+name="sableos-q25-$RELEASE-$SABLE_VERSION-$variant"
 
 stage="$ARTIFACTS/release/$name"
 rm -rf "$ARTIFACTS/release"
@@ -66,9 +84,11 @@ install -m 0644 "$SABLE_REPO_ROOT/docs/FLASHING_RELEASE.md" "$stage/FLASHING.md"
 
 # Release notes: the hand-written notes, then what this build is.
 # releases/<tag>.md for this release.
-if [[ -z "$NOTES" && -f "$SABLE_REPO_ROOT/releases/$TAG.md" ]]; then
-    NOTES="$SABLE_REPO_ROOT/releases/$TAG.md"
-fi
+for candidate in "$TAG" "$SABLE_VERSION"; do
+    if [[ -z "$NOTES" && -f "$SABLE_REPO_ROOT/releases/$candidate.md" ]]; then
+        NOTES="$SABLE_REPO_ROOT/releases/$candidate.md"
+    fi
+done
 # The LineageOS version the image is built on: from the build's own props, else the release branch.
 lineage_version="$(sed -n 's/^ro\.lineage\.version=//p' "$ARTIFACTS/props/system/build.prop" 2>/dev/null | head -n1)"
 lineage_base="LineageOS 23.2 (Android 16 QPR2)"
@@ -133,7 +153,8 @@ previous="$(git -C "$SABLE_REPO_ROOT" describe --tags --abbrev=0 "$commit^" 2>/d
     echo "## Build"
     echo
     echo "- Base: $lineage_base"
-    echo "- Release: $RELEASE, lunch \`$(info lunch)\`"
+    echo "- Release: $RELEASE $SABLE_VERSION, lunch \`$(info lunch)\`"
+    echo "- Build type: $build_type"
     echo "- Source: [\`${commit:0:12}\`](https://github.com/$REPO/commit/$commit)"
     echo "- Booted on a Q25 before upload: ${BOOT_TESTED:-$(info boot_tested)}"
     if [[ -n "$previous" ]]; then

@@ -244,4 +244,7 @@
     <string name="sable_more_actions_for">Altre azioni per %1$s</string>
     <string name="sable_jump_to">Vai a %1$s</string>
     <string name="sable_return_to">Torna a %1$s</string>
+    <string name="letter_shortcut">Scorciatoia a tasto premuto</string>
+    <string name="letter_shortcut_current">Scorciatoia a tasto premuto: %1$s</string>
+    <string name="letter_shortcut_press">Premi la lettera da tenere premuta nella Home per aprire questa app. Backspace la rimuove. Sostituisce una selezione rapida sulla stessa lettera.</string>
 </resources>

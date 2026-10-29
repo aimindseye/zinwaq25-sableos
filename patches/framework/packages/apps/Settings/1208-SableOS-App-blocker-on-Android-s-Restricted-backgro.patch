@@ -1,0 +1,582 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 29 Oct 2026 16:30:00 +0000
+Subject: [PATCH] SableOS: App blocker on Android's Restricted background mode
+
+Mobile Manager > App blocker: one switch per launcher app. On sets the
+app to Android's Restricted background mode (the RUN_ANY_IN_BACKGROUND
+app op ignored, exactly what Battery > Background use > Restricted sets
+and reads) and stops the app now; Off allows background use again. The
+platform holds the state, so Settings keeps no list of its own and the
+battery page, Mobile Manager and the App Control Center always agree.
+The apps the phone needs (home, dialer, SMS, keyboard, Settings) are
+never listed. A blocked app can still be opened by hand; Freezer is the
+way to stop that. The page warns that notifications, sync and sign-in
+can stop.
+
+Pure AppBlockerPolicy with host tests in tests/sable-apps.
+
+---
+diff --git a/res/values/strings_sable_app_blocker.xml b/res/values/strings_sable_app_blocker.xml
+new file mode 100644
+index 0000000..ec30e01
+--- /dev/null
++++ b/res/values/strings_sable_app_blocker.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<resources>
++    <!-- ===== App blocker ===== -->
++
++    <!-- App blocker page and Mobile Manager row title. -->
++    <string name="sable_blocker_title">App blocker</string>
++    <!-- App blocker row summary in Mobile Manager. -->
++    <string name="sable_blocker_summary">Stop an app and keep it from running in the background</string>
++    <!-- App blocker search keywords. -->
++    <string name="sable_blocker_keywords">app blocker, block app, stop app, restricted, restrict background, kill app, stop background apps</string>
++    <!-- App blocker page: what a switch does. -->
++    <string name="sable_blocker_explanation">Blocking an app stops it now and sets it to Restricted, so it cannot run in the background, sync or wake the phone. You can still open it yourself. To make an app impossible to open, use Freezer.</string>
++    <!-- App blocker page: the app list heading. -->
++    <string name="sable_blocker_apps_title">Apps</string>
++    <!-- App blocker: summary of a blocked app. -->
++    <string name="sable_blocker_app_blocked">Blocked: stopped, restricted in the background</string>
++    <!-- App blocker page: breakage note. -->
++    <string name="sable_blocker_note">Notifications, sync and sign-in can stop for a blocked app. Messaging, mail and calendar apps are the most affected. This is Android\'s Restricted mode, the same setting as Battery &gt; Background use. The home screen, phone, messages, keyboard and Settings cannot be blocked.</string>
++</resources>
+diff --git a/res/xml/sable_app_blocker.xml b/res/xml/sable_app_blocker.xml
+new file mode 100644
+index 0000000..58f941f
+--- /dev/null
++++ b/res/xml/sable_app_blocker.xml
+@@ -0,0 +1,42 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<!-- App blocker: one switch per launcher app (filled in by SableAppBlockerFragment). -->
++<PreferenceScreen
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:settings="http://schemas.android.com/apk/res-auto"
++    android:key="sable_blocker_screen"
++    android:title="@string/sable_blocker_title"
++    settings:keywords="@string/sable_blocker_keywords">
++
++    <Preference
++        android:key="sable_blocker_explanation"
++        android:summary="@string/sable_blocker_explanation"
++        android:selectable="false"
++        settings:searchable="false" />
++
++    <PreferenceCategory
++        android:key="sable_blocker_apps"
++        android:title="@string/sable_blocker_apps_title"
++        settings:searchable="false" />
++
++    <Preference
++        android:key="sable_blocker_note"
++        android:summary="@string/sable_blocker_note"
++        android:selectable="false"
++        settings:searchable="false" />
++
++</PreferenceScreen>
+diff --git a/res/xml/sable_mobile_manager.xml b/res/xml/sable_mobile_manager.xml
+index 629d535..fcf974a 100644
+--- a/res/xml/sable_mobile_manager.xml
++++ b/res/xml/sable_mobile_manager.xml
+@@ -49,6 +49,13 @@
+         settings:keywords="@string/sable_freezer_keywords"
+         android:fragment="com.android.settings.applications.sable.SableFreezerFragment" />
+ 
++    <Preference
++        android:key="sable_mm_blocker"
++        android:title="@string/sable_blocker_title"
++        android:summary="@string/sable_blocker_summary"
++        settings:keywords="@string/sable_blocker_keywords"
++        android:fragment="com.android.settings.applications.sable.SableAppBlockerFragment" />
++
+     <Preference
+         android:key="sable_mm_background"
+         android:title="@string/sable_mm_background_title"
+diff --git a/src/com/android/settings/applications/sable/SableAppBlocker.java b/src/com/android/settings/applications/sable/SableAppBlocker.java
+new file mode 100644
+index 0000000..9770894
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/SableAppBlocker.java
+@@ -0,0 +1,79 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable;
++
++import android.app.ActivityManager;
++import android.app.AppOpsManager;
++import android.content.Context;
++import android.content.pm.PackageManager;
++import android.util.Log;
++
++import com.android.settings.applications.sable.model.AppBlockerPolicy;
++
++/**
++ * App blocker: a blocked app is in Android's Restricted background mode (the app op
++ * {@code RUN_ANY_IN_BACKGROUND} ignored, which is what Settings &gt; Battery &gt; Background
++ * use &gt; Restricted sets and reads) and is stopped when it is blocked. It can still be opened
++ * by hand. The platform holds the state, so Settings keeps no list of its own and the battery
++ * page, Mobile Manager and this page always agree.
++ */
++final class SableAppBlocker {
++    private static final String TAG = "SableAppBlocker";
++
++    private SableAppBlocker() {
++    }
++
++    /** Whether Android holds the app in Restricted background mode. */
++    static boolean isBlocked(Context context, int uid, String pkg) {
++        try {
++            final AppOpsManager ops = context.getSystemService(AppOpsManager.class);
++            return ops != null && ops.checkOpNoThrow(
++                    AppOpsManager.OPSTR_RUN_ANY_IN_BACKGROUND, uid, pkg)
++                    == AppOpsManager.MODE_IGNORED;
++        } catch (RuntimeException e) {
++            return false;
++        }
++    }
++
++    /**
++     * Blocks or unblocks {@code pkg}. Blocking also stops it now. Returns false when the app may
++     * not be blocked or Android refused.
++     */
++    static boolean setBlocked(Context context, String pkg, boolean blocked) {
++        if (blocked && !AppBlockerPolicy.canBlock(pkg,
++                SableAppControls.protectedPackages(context))) {
++            return false;
++        }
++        try {
++            final int uid = context.getPackageManager().getPackageUid(pkg,
++                    PackageManager.PackageInfoFlags.of(0));
++            final AppOpsManager ops = context.getSystemService(AppOpsManager.class);
++            if (ops == null) {
++                return false;
++            }
++            ops.setMode(AppOpsManager.OPSTR_RUN_ANY_IN_BACKGROUND, uid, pkg,
++                    blocked ? AppOpsManager.MODE_IGNORED : AppOpsManager.MODE_ALLOWED);
++            if (blocked) {
++                context.getSystemService(ActivityManager.class).forceStopPackage(pkg);
++            }
++            return true;
++        } catch (PackageManager.NameNotFoundException | RuntimeException e) {
++            Log.e(TAG, "Cannot " + (blocked ? "block " : "unblock ") + pkg, e);
++            return false;
++        }
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/SableAppBlockerFragment.java b/src/com/android/settings/applications/sable/SableAppBlockerFragment.java
+new file mode 100644
+index 0000000..853820f
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/SableAppBlockerFragment.java
+@@ -0,0 +1,172 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable;
++
++import android.app.settings.SettingsEnums;
++import android.content.Context;
++import android.os.Bundle;
++import android.view.View;
++import android.widget.Toast;
++
++import androidx.preference.Preference;
++import androidx.preference.PreferenceCategory;
++import androidx.preference.SwitchPreferenceCompat;
++
++import com.android.settings.R;
++import com.android.settings.SettingsPreferenceFragment;
++import com.android.settings.search.BaseSearchIndexProvider;
++import com.android.settingslib.search.SearchIndexable;
++import com.android.settingslib.utils.ThreadUtils;
++
++import java.util.ArrayList;
++import java.util.List;
++import java.util.Set;
++
++/**
++ * App blocker (Mobile Manager &gt; App blocker): one switch per launcher app. On puts the app in
++ * Android's Restricted background mode and stops it ({@link SableAppBlocker}); Off allows
++ * background use again. Apps the phone needs are not listed. Whether an app is blocked is read
++ * from Android each time the page opens, so changes made in Battery or the App Control Center
++ * show here too.
++ */
++@SearchIndexable
++public class SableAppBlockerFragment extends SettingsPreferenceFragment
++        implements Preference.OnPreferenceChangeListener {
++    private static final String KEY_APPS = "sable_blocker_apps";
++    private static final String PREFIX = "sable_block:";
++
++    private PreferenceCategory mApps;
++    private SableAppListKeyboard mKeyboard;
++    private int mLoadGeneration;
++
++    /** One app row. */
++    private static final class AppData {
++        final SableAppControls.LauncherApp app;
++        final boolean blocked;
++
++        AppData(SableAppControls.LauncherApp app, boolean blocked) {
++            this.app = app;
++            this.blocked = blocked;
++        }
++    }
++
++    @Override
++    public int getMetricsCategory() {
++        return SettingsEnums.MANAGE_APPLICATIONS;
++    }
++
++    @Override
++    public void onCreate(Bundle icicle) {
++        super.onCreate(icicle);
++        addPreferencesFromResource(R.xml.sable_app_blocker);
++        mApps = findPreference(KEY_APPS);
++    }
++
++    @Override
++    public void onViewCreated(View view, Bundle savedInstanceState) {
++        super.onViewCreated(view, savedInstanceState);
++        mKeyboard = SableAppListKeyboard.attach(this, getListView(), getMetricsCategory());
++    }
++
++    @Override
++    public void onDestroyView() {
++        if (mKeyboard != null) {
++            mKeyboard.detach();
++            mKeyboard = null;
++        }
++        super.onDestroyView();
++    }
++
++    @Override
++    public void onResume() {
++        super.onResume();
++        load();
++    }
++
++    private void load() {
++        final Context context = getPrefContext().getApplicationContext();
++        final int generation = ++mLoadGeneration;
++        ThreadUtils.postOnBackgroundThread(() -> {
++            final Set<String> neverBlock = SableAppControls.protectedPackages(context);
++            final List<AppData> apps = new ArrayList<>();
++            for (SableAppControls.LauncherApp app : SableAppControls.launcherApps(context, true)) {
++                if (!neverBlock.contains(app.packageName)) {
++                    apps.add(new AppData(app,
++                            SableAppBlocker.isBlocked(context, app.uid, app.packageName)));
++                }
++            }
++            ThreadUtils.postOnMainThread(() -> {
++                if (generation == mLoadGeneration && isAdded()) {
++                    show(apps);
++                }
++            });
++        });
++    }
++
++    private void show(List<AppData> apps) {
++        mApps.removeAll();
++        for (AppData data : apps) {
++            final SwitchPreferenceCompat pref = new SwitchPreferenceCompat(getPrefContext());
++            pref.setKey(PREFIX + data.app.packageName);
++            pref.setTitle(data.app.label);
++            if (data.app.icon != null) {
++                pref.setIcon(data.app.icon);
++            }
++            pref.setPersistent(false);
++            pref.setChecked(data.blocked);
++            if (data.blocked) {
++                pref.setSummary(R.string.sable_blocker_app_blocked);
++            }
++            pref.setOnPreferenceChangeListener(this);
++            mApps.addPreference(pref);
++        }
++        if (mApps.getPreferenceCount() == 0) {
++            final Preference empty = new Preference(getPrefContext());
++            empty.setTitle(R.string.sable_app_controls_empty);
++            empty.setSelectable(false);
++            mApps.addPreference(empty);
++        }
++    }
++
++    @Override
++    public boolean onPreferenceChange(Preference preference, Object newValue) {
++        final String key = preference.getKey();
++        if (key == null || !key.startsWith(PREFIX) || !(newValue instanceof Boolean)) {
++            return false;
++        }
++        final String pkg = key.substring(PREFIX.length());
++        final boolean block = (Boolean) newValue;
++        final Context context = getPrefContext().getApplicationContext();
++        ThreadUtils.postOnBackgroundThread(() -> {
++            final boolean ok = SableAppBlocker.setBlocked(context, pkg, block);
++            ThreadUtils.postOnMainThread(() -> {
++                if (!isAdded()) {
++                    return;
++                }
++                if (!ok) {
++                    Toast.makeText(getPrefContext(), R.string.sable_acc_action_failed,
++                            Toast.LENGTH_SHORT).show();
++                }
++                load();
++            });
++        });
++        return false; // load() shows what Android now holds
++    }
++
++    public static final BaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
++            new BaseSearchIndexProvider(R.xml.sable_app_blocker);
++}
+diff --git a/src/com/android/settings/applications/sable/SableMobileManagerFragment.java b/src/com/android/settings/applications/sable/SableMobileManagerFragment.java
+index ac82ac5..f7c9113 100644
+--- a/src/com/android/settings/applications/sable/SableMobileManagerFragment.java
++++ b/src/com/android/settings/applications/sable/SableMobileManagerFragment.java
+@@ -51,6 +51,7 @@ public class SableMobileManagerFragment extends SettingsPreferenceFragment {
+     static final String KEY_BACKGROUND = "sable_mm_background";
+     static final String KEY_CONTROL_CENTER = "sable_mm_control_center";
+     static final String KEY_FREEZER = "sable_mm_freezer";
++    static final String KEY_BLOCKER = "sable_mm_blocker";
+     static final String KEY_STUDENT = "sable_mm_student";
+     static final String KEY_FOCUS = "sable_mm_focus";
+     static final String KEY_SPACES = "sable_mm_spaces";
+@@ -222,6 +223,7 @@ public class SableMobileManagerFragment extends SettingsPreferenceFragment {
+                     // Indexed from their own pages.
+                     keys.add(KEY_CONTROL_CENTER);
+                     keys.add(KEY_FREEZER);
++                    keys.add(KEY_BLOCKER);
+                     keys.add(KEY_STUDENT);
+                     if (!backgroundListEnabled(context)) {
+                         keys.add(KEY_BACKGROUND);
+diff --git a/src/com/android/settings/applications/sable/model/AppBlockerPolicy.java b/src/com/android/settings/applications/sable/model/AppBlockerPolicy.java
+new file mode 100644
+index 0000000..04cdfc6
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/AppBlockerPolicy.java
+@@ -0,0 +1,67 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable.model;
++
++import java.util.Collection;
++import java.util.Set;
++import java.util.TreeSet;
++
++/**
++ * App blocker (Mobile Manager &gt; App blocker): which apps may be blocked. Blocking is Android's
++ * own Restricted background mode ({@code RUN_ANY_IN_BACKGROUND} ignored) plus a stop, so there is
++ * no second store: the platform holds the state. This is the pure part: the apps the phone needs
++ * (home, dialer, SMS, keyboard, Settings) are never blockable, and nothing but a well-formed
++ * package name is accepted.
++ */
++public final class AppBlockerPolicy {
++    private AppBlockerPolicy() {}
++
++    /** Whether {@code packageName} may be blocked, given the packages the phone needs. */
++    public static boolean canBlock(String packageName, Set<String> neverBlock) {
++        return PackageSet.isValidPackageName(packageName)
++                && (neverBlock == null || !neverBlock.contains(packageName));
++    }
++
++    /** The blockable apps among {@code launcherApps}, de-duplicated and sorted. */
++    public static Set<String> blockable(Collection<String> launcherApps, Set<String> neverBlock) {
++        final Set<String> out = new TreeSet<>();
++        if (launcherApps == null) {
++            return out;
++        }
++        for (String pkg : launcherApps) {
++            if (canBlock(pkg, neverBlock)) {
++                out.add(pkg);
++            }
++        }
++        return out;
++    }
++
++    /** Apps in {@code blocked} that are no longer blockable (the phone started needing them). */
++    public static Set<String> toRelease(Collection<String> blocked, Set<String> neverBlock) {
++        final Set<String> out = new TreeSet<>();
++        if (blocked == null) {
++            return out;
++        }
++        for (String pkg : blocked) {
++            if (PackageSet.isValidPackageName(pkg) && neverBlock != null
++                    && neverBlock.contains(pkg)) {
++                out.add(pkg);
++            }
++        }
++        return out;
++    }
++}
+diff --git a/tests/sable-apps/src/com/android/settings/applications/sable/model/AppBlockerPolicyTest.java b/tests/sable-apps/src/com/android/settings/applications/sable/model/AppBlockerPolicyTest.java
+new file mode 100644
+index 0000000..a352fdd
+--- /dev/null
++++ b/tests/sable-apps/src/com/android/settings/applications/sable/model/AppBlockerPolicyTest.java
+@@ -0,0 +1,73 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable.model;
++
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertFalse;
++import static org.junit.Assert.assertTrue;
++
++import org.junit.Test;
++
++import java.util.Arrays;
++import java.util.Collections;
++import java.util.HashSet;
++import java.util.Set;
++
++public class AppBlockerPolicyTest {
++    private static final Set<String> NEEDED = new HashSet<>(Arrays.asList(
++            "com.android.settings", "org.sableos.launcher", "com.android.dialer"));
++
++    @Test
++    public void neededAppsAreNeverBlockable() {
++        assertFalse(AppBlockerPolicy.canBlock("com.android.settings", NEEDED));
++        assertFalse(AppBlockerPolicy.canBlock("org.sableos.launcher", NEEDED));
++        assertTrue(AppBlockerPolicy.canBlock("com.example.game", NEEDED));
++    }
++
++    @Test
++    public void malformedNamesAreRefused() {
++        assertFalse(AppBlockerPolicy.canBlock(null, NEEDED));
++        assertFalse(AppBlockerPolicy.canBlock("", NEEDED));
++        assertFalse(AppBlockerPolicy.canBlock("nodots", NEEDED));
++        assertFalse(AppBlockerPolicy.canBlock("a b.c", NEEDED));
++    }
++
++    @Test
++    public void nullNeededSetBlocksNothingExtra() {
++        assertTrue(AppBlockerPolicy.canBlock("com.example.game", null));
++    }
++
++    @Test
++    public void blockableIsSortedDeduplicatedAndFiltered() {
++        final Set<String> out = AppBlockerPolicy.blockable(Arrays.asList(
++                "com.example.b", "com.android.settings", "com.example.a", "com.example.b", "bad"),
++                NEEDED);
++        assertEquals(Arrays.asList("com.example.a", "com.example.b"),
++                Arrays.asList(out.toArray(new String[0])));
++        assertTrue(AppBlockerPolicy.blockable(null, NEEDED).isEmpty());
++    }
++
++    @Test
++    public void toReleaseNamesBlockedAppsThePhoneNowNeeds() {
++        final Set<String> out = AppBlockerPolicy.toRelease(Arrays.asList(
++                "com.example.game", "com.android.dialer", "junk"), NEEDED);
++        assertEquals(Collections.singleton("com.android.dialer"), out);
++        assertTrue(AppBlockerPolicy.toRelease(null, NEEDED).isEmpty());
++        assertTrue(AppBlockerPolicy.toRelease(Arrays.asList("com.android.dialer"), null)
++                .isEmpty());
++    }
++}
+diff --git a/src/com/android/settings/core/gateway/SettingsGateway.java b/src/com/android/settings/core/gateway/SettingsGateway.java
+--- a/src/com/android/settings/core/gateway/SettingsGateway.java
++++ b/src/com/android/settings/core/gateway/SettingsGateway.java
+@@ -72,6 +72,7 @@ import com.android.settings.applications.specialaccess.pictureinpicture.PictureI
+ import com.android.settings.applications.specialaccess.premiumsms.PremiumSmsAccess;
+ import com.android.settings.applications.specialaccess.vrlistener.VrListenerSettings;
+ import com.android.settings.applications.specialaccess.zenaccess.ZenAccessDetails;
++import com.android.settings.applications.sable.SableAppBlockerFragment;
+ import com.android.settings.applications.sable.SableAppControlCenterFragment;
+ import com.android.settings.applications.sable.SableAppSecurityAppsFragment;
+ import com.android.settings.applications.sable.SableFocusModeFragment;
+@@ -241,6 +242,7 @@ public class SettingsGateway {
+             SableMobileManagerFragment.class.getName(),
+             SableAppControlCenterFragment.class.getName(),
+             SableFreezerFragment.class.getName(),
++            SableAppBlockerFragment.class.getName(),
+             SableStudentModeFragment.class.getName(),
+             SableFocusModeFragment.class.getName(),
+             SablePrivateSpaceFragment.class.getName(),
+-- 
+2.43.0
+

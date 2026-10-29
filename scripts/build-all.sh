@@ -13,6 +13,9 @@
 #                kept and not fetched again. Without --yes nothing is downloaded.
 #   --release    also zip the result for a GitHub release
 #   --skip-apps  do not rebuild the Sable apps (use the ones already built)
+#   --version N  the SableOS release number (default 1.0); names the files and the release
+#   --variant V  user or userdebug (default userdebug)
+# The last two are read by build/sable.sh, so they work on every step.
 set -euo pipefail
 
 # shellcheck source=build/lib/common.sh
@@ -29,7 +32,7 @@ while (($#)); do
         --yes) export NETWORK_FETCH_AUTHORIZED=YES; shift ;;
         --release) RELEASE_ZIP=YES; shift ;;
         --skip-apps) SKIP_APPS=YES; shift ;;
-        -h|--help) sed -n '2,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '2,18p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) sable_fail "unknown option $1 (see: bash build/sable.sh q25 all --help)" ;;
     esac
 done
@@ -95,6 +98,6 @@ if [[ "$RELEASE_ZIP" == YES ]]; then
 fi
 
 echo
-echo "BUILD_ALL=PASS release=$RELEASE"
+echo "BUILD_ALL=PASS release=$RELEASE version=$SABLE_VERSION variant=$SABLE_Q25_BUILD_VARIANT"
 echo "Your files are under: $SABLE_ARTIFACTS_ROOT/q25/$RELEASE/"
 echo "Install them on the phone with docs/INSTALL.md."

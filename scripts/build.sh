@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Build the Q25 image: lunch lineage_Q25-<release config>-<variant> and m bacon.
 #
+# Pick the release number and build type with --version and --variant (build/sable.sh).
+#
 # Q1 must be built with no Sable layer staged; Q2+ requires it. The check stops a
 # control build from silently including Sable bits (or the reverse).
 set -euo pipefail
@@ -10,6 +12,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/build/lib/common.sh"
 
 RELEASE="${1:-}"
 sable_require_release "$RELEASE"
+sable_require_build_options
 sable_require_android_root
 
 EXTRA="$SABLE_ANDROID_ROOT/vendor/extra/product.mk"
@@ -18,6 +21,8 @@ if sable_release_has_sable_layer "$RELEASE"; then
         sable_fail "Sable layer not staged; run: bash build/sable.sh q25 $RELEASE stage"
     grep -q "ro.sable.release=$RELEASE" "$SABLE_ANDROID_ROOT/vendor/sable/q25/release.mk" ||
         sable_fail "staged layer is for a different release; re-run stage for $RELEASE"
+    grep -q "ro.sable.version=$SABLE_VERSION " "$SABLE_ANDROID_ROOT/vendor/sable/q25/release.mk" ||
+        sable_fail "staged layer is for a different version; re-run: bash build/sable.sh q25 $RELEASE stage --version $SABLE_VERSION"
 else
     [[ ! -e "$EXTRA" && ! -e "$SABLE_ANDROID_ROOT/vendor/sable/q25" ]] ||
         sable_fail "Q1 is the plain control build but a Sable layer is staged; run: bash build/sable.sh q25 Q1 stage"
@@ -38,8 +43,8 @@ export CCACHE_EXEC="${CCACHE_EXEC:-$(command -v ccache || true)}"
 marker="$SABLE_EVIDENCE_ROOT/last-build.env"
 start_epoch="$(date +%s)"
 write_marker() {
-    printf 'RELEASE=%s\nSTATUS=%s\nSTART_EPOCH=%s\nLUNCH=%s\nLOG=%s\n' \
-        "$RELEASE" "$1" "$start_epoch" "$target" "$log" > "$marker"
+    printf 'RELEASE=%s\nVERSION=%s\nVARIANT=%s\nSTATUS=%s\nSTART_EPOCH=%s\nLUNCH=%s\nLOG=%s\n' \
+        "$RELEASE" "$SABLE_VERSION" "$SABLE_Q25_BUILD_VARIANT" "$1" "$start_epoch" "$target" "$log" > "$marker"
     return
 }
 write_marker RUNNING

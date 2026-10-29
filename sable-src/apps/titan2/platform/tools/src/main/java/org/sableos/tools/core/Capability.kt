@@ -44,6 +44,7 @@ enum class Capability(
     SPEEDOMETER(setOf(Hardware.LOCATION_GPS)),
     PEDOMETER(emptySet(), needsAny = setOf(Hardware.STEP_COUNTER, Hardware.ACCELEROMETER)),
     IR_REMOTE(setOf(Hardware.IR_EMITTER)),
+    SOS_ALERT(setOf(Hardware.CAMERA_FLASH)),
 
     /** Android has no public IR receive API; this stays off unless a profile proves a platform-owned path. */
     IR_LEARNING(setOf(Hardware.IR_EMITTER, Hardware.IR_RECEIVER)),

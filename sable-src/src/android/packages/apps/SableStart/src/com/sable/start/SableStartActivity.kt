@@ -37,6 +37,7 @@ import org.sableos.start.model.AppEntry
 import org.sableos.start.model.Bb7Detour
 import org.sableos.start.model.HomeStyle
 import org.sableos.start.platform.LauncherAppsRepository
+import org.sableos.start.platform.LetterShortcutRepository
 import org.sableos.start.platform.LiveSurfaceRepository
 import org.sableos.start.platform.RecentTasksRepository
 import org.sableos.start.platform.SpeedDialRepository
@@ -54,7 +55,8 @@ import java.util.concurrent.atomic.AtomicLong
  */
 class SableStartActivity : ComponentActivity() {
     private lateinit var launcherAppsRepository: LauncherAppsRepository
-    private val speedDialRepository by lazy { SpeedDialRepository(this) }
+    private val letterShortcutRepository by lazy { LetterShortcutRepository(this) }
+    private val speedDialRepository by lazy { SpeedDialRepository(this, letterShortcutRepository) }
     private lateinit var liveSurfaceRepository: LiveSurfaceRepository
     private lateinit var startStateRepository: StartStateRepository
     private lateinit var recentTasksRepository: RecentTasksRepository
@@ -284,6 +286,7 @@ class SableStartActivity : ComponentActivity() {
                 SableStartScreen(
                     apps = appsState.value,
                     speedDial = speedDialRepository,
+                    letterShortcuts = letterShortcutRepository,
                     privateSpaceLocked = privateSpaceLockedState.value,
                     onTogglePrivateSpace = ::togglePrivateSpace,
                     liveSurfaceRepository = liveSurfaceRepository,

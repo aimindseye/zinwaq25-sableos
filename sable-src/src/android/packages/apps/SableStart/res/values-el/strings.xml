@@ -244,4 +244,7 @@
     <string name="sable_more_actions_for">Περισσότερες ενέργειες για %1$s</string>
     <string name="sable_jump_to">Μετάβαση σε %1$s</string>
     <string name="sable_return_to">Επιστροφή σε %1$s</string>
+    <string name="letter_shortcut">Συντόμευση παρατεταμένου πλήκτρου</string>
+    <string name="letter_shortcut_current">Συντόμευση παρατεταμένου πλήκτρου: %1$s</string>
+    <string name="letter_shortcut_press">Πάτησε το γράμμα που θα κρατάς πατημένο στην Αρχική για να ανοίγει αυτή η εφαρμογή. Το Backspace το αφαιρεί. Αντικαθιστά τη γρήγορη κλήση στο ίδιο γράμμα.</string>
 </resources>

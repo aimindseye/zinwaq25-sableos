@@ -302,4 +302,20 @@
     <string name="provider_credentials">credenciais de provedores</string>
     <string name="select_at_least_one_section">Selecione pelo menos uma seção</string>
     <string name="tv">TV</string>
+    <string name="sos_alert">SOS e alarme</string>
+    <string name="sos_light">Luz SOS</string>
+    <string name="sos_screen_flash">Flash da tela</string>
+    <string name="sos_siren">Sirene</string>
+    <string name="sos_stop_all">Parar tudo</string>
+    <string name="sos_status">Luz %1$s, tela %2$s, sirene %3$s</string>
+    <string name="sos_info">Pisca a luz da câmera no padrão SOS, pisca a tela ou toca uma sirene no volume do alarme. Tudo para quando você sai. Não liga para ninguém.</string>
+    <string name="pedometer_today">Hoje: %1$d de %2$d passos</string>
+    <string name="pedometer_estimates">Cerca de %1$s km e %2$d kcal (estimativas)</string>
+    <string name="pedometer_last_days">Últimos 7 dias</string>
+    <string name="pedometer_day_steps">%1$s: %2$d passos</string>
+    <string name="pedometer_profile">Perfil: %1$d cm, %2$d kg</string>
+    <string name="pedometer_set_height">Altura (cm)</string>
+    <string name="pedometer_set_weight">Peso (kg)</string>
+    <string name="pedometer_set_goal">Meta diária (passos)</string>
+    <string name="pedometer_note">O menu define altura, peso e meta diária. Os passos dados com esta ferramenta fechada são somados na próxima vez que você a abrir. Tudo fica neste telefone.</string>
 </resources>

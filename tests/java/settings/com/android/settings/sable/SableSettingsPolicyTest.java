@@ -139,6 +139,12 @@ public final class SableSettingsPolicyTest {
         eq("blank parts dropped", "Q5",
                 SableBuildInfo.summary(" Q5 ", "", null, "Unknown"));
         eq("nothing set", "Unknown", SableBuildInfo.summary("", null, " ", "Unknown"));
+        eq("version first", "1.0 · full · lineage-23.2",
+                SableBuildInfo.summary("1.0", "full", "lineage-23.2", "uncommitted", "Unknown"));
+        eq("version alone", "1.1",
+                SableBuildInfo.summary(" 1.1 ", "", null, null, "Unknown"));
+        eq("no version, old builds", "Unknown",
+                SableBuildInfo.summary(null, "", null, " ", "Unknown"));
 
         System.out.println("SETTINGS_POLICY_CHECKS=" + checks + " FAILED=" + failures);
         assertEquals("failed checks", 0, failures);

@@ -302,4 +302,20 @@
     <string name="provider_credentials">leverantörsuppgifter</string>
     <string name="select_at_least_one_section">Välj minst ett avsnitt</string>
     <string name="tv">TV</string>
+    <string name="sos_alert">SOS och larm</string>
+    <string name="sos_light">SOS-ljus</string>
+    <string name="sos_screen_flash">Skärmblixt</string>
+    <string name="sos_siren">Siren</string>
+    <string name="sos_stop_all">Stoppa allt</string>
+    <string name="sos_status">Ljus %1$s, skärm %2$s, siren %3$s</string>
+    <string name="sos_info">Blinkar med kamerans ljus i SOS-mönster, blinkar med skärmen eller låter en siren ljuda med alarmvolym. Allt stannar när du lämnar. Den ringer ingen.</string>
+    <string name="pedometer_today">Idag: %1$d av %2$d steg</string>
+    <string name="pedometer_estimates">Ungefär %1$s km och %2$d kcal (uppskattningar)</string>
+    <string name="pedometer_last_days">Senaste 7 dagarna</string>
+    <string name="pedometer_day_steps">%1$s: %2$d steg</string>
+    <string name="pedometer_profile">Profil: %1$d cm, %2$d kg</string>
+    <string name="pedometer_set_height">Längd (cm)</string>
+    <string name="pedometer_set_weight">Vikt (kg)</string>
+    <string name="pedometer_set_goal">Dagligt mål (steg)</string>
+    <string name="pedometer_note">Menyn ställer in längd, vikt och dagsmål. Steg som tas medan verktyget är stängt läggs till nästa gång du öppnar det. Allt stannar på den här telefonen.</string>
 </resources>

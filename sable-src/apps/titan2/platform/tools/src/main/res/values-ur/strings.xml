@@ -302,4 +302,20 @@
     <string name="provider_credentials">فراہم کنندگان کی اسناد</string>
     <string name="select_at_least_one_section">کم از کم ایک حصہ منتخب کریں</string>
     <string name="tv">ٹی وی</string>
+    <string name="sos_alert">SOS اور الارم</string>
+    <string name="sos_light">SOS لائٹ</string>
+    <string name="sos_screen_flash">اسکرین فلیش</string>
+    <string name="sos_siren">سائرن</string>
+    <string name="sos_stop_all">سب بند کریں</string>
+    <string name="sos_status">لائٹ %1$s، اسکرین %2$s، سائرن %3$s</string>
+    <string name="sos_info">کیمرے کی لائٹ کو SOS کے انداز میں جھپکاتا ہے، اسکرین کو جھپکاتا ہے، یا الارم کی آواز پر سائرن بجاتا ہے۔ باہر نکلتے ہی سب رک جاتا ہے۔ یہ کسی کو کال نہیں کرتا۔</string>
+    <string name="pedometer_today">آج: %2$d میں سے %1$d قدم</string>
+    <string name="pedometer_estimates">تقریباً %1$s کلومیٹر اور %2$d کلو کیلوری (اندازے)</string>
+    <string name="pedometer_last_days">پچھلے 7 دن</string>
+    <string name="pedometer_day_steps">%1$s: %2$d قدم</string>
+    <string name="pedometer_profile">پروفائل: %1$d سینٹی میٹر، %2$d کلوگرام</string>
+    <string name="pedometer_set_height">قد (سینٹی میٹر)</string>
+    <string name="pedometer_set_weight">وزن (کلوگرام)</string>
+    <string name="pedometer_set_goal">روزانہ ہدف (قدم)</string>
+    <string name="pedometer_note">مینو سے قد، وزن اور روزانہ ہدف طے ہوتا ہے۔ یہ ٹول بند ہونے کے دوران اٹھائے گئے قدم اگلی بار کھولنے پر شامل ہو جاتے ہیں۔ سب کچھ اسی فون پر رہتا ہے۔</string>
 </resources>

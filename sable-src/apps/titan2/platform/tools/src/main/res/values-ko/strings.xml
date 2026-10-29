@@ -302,4 +302,20 @@
     <string name="provider_credentials">제공업체 자격 증명</string>
     <string name="select_at_least_one_section">섹션을 하나 이상 선택하세요</string>
     <string name="tv">TV</string>
+    <string name="sos_alert">SOS 및 경보</string>
+    <string name="sos_light">SOS 조명</string>
+    <string name="sos_screen_flash">화면 깜박임</string>
+    <string name="sos_siren">사이렌</string>
+    <string name="sos_stop_all">모두 중지</string>
+    <string name="sos_status">조명 %1$s, 화면 %2$s, 사이렌 %3$s</string>
+    <string name="sos_info">카메라 조명을 SOS 패턴으로 깜박이거나, 화면을 깜박이거나, 알람 음량으로 사이렌을 울립니다. 나가면 모두 멈춥니다. 누구에게도 전화하지 않습니다.</string>
+    <string name="pedometer_today">오늘: %2$d걸음 중 %1$d걸음</string>
+    <string name="pedometer_estimates">약 %1$s km, %2$d kcal(추정치)</string>
+    <string name="pedometer_last_days">최근 7일</string>
+    <string name="pedometer_day_steps">%1$s: %2$d걸음</string>
+    <string name="pedometer_profile">프로필: %1$d cm, %2$d kg</string>
+    <string name="pedometer_set_height">키(cm)</string>
+    <string name="pedometer_set_weight">몸무게(kg)</string>
+    <string name="pedometer_set_goal">일일 목표(걸음)</string>
+    <string name="pedometer_note">메뉴에서 키, 몸무게, 하루 목표를 설정합니다. 이 도구를 닫아 둔 동안의 걸음 수는 다음에 열 때 더해집니다. 모든 정보는 이 휴대전화에만 남습니다.</string>
 </resources>

@@ -244,4 +244,7 @@
     <string name="sable_more_actions_for">%1$s 的更多操作</string>
     <string name="sable_jump_to">跳转到 %1$s</string>
     <string name="sable_return_to">返回 %1$s</string>
+    <string name="letter_shortcut">长按快捷键</string>
+    <string name="letter_shortcut_current">长按快捷键：%1$s</string>
+    <string name="letter_shortcut_press">请按下要在主屏幕长按的字母，用来打开此应用。退格键可清除。它会取代同一字母上的快速拨号。</string>
 </resources>

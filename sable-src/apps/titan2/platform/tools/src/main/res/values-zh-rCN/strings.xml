@@ -302,4 +302,20 @@
     <string name="provider_credentials">提供商凭据</string>
     <string name="select_at_least_one_section">请至少选择一个部分</string>
     <string name="tv">电视</string>
+    <string name="sos_alert">SOS与警报</string>
+    <string name="sos_light">SOS灯光</string>
+    <string name="sos_screen_flash">屏幕闪烁</string>
+    <string name="sos_siren">警报声</string>
+    <string name="sos_stop_all">全部停止</string>
+    <string name="sos_status">灯光%1$s，屏幕%2$s，警报声%3$s</string>
+    <string name="sos_info">让相机灯按SOS信号闪烁、让屏幕闪烁，或以闹钟音量鸣响警报声。离开后全部停止。不会拨打任何电话。</string>
+    <string name="pedometer_today">今天：%1$d / %2$d 步</string>
+    <string name="pedometer_estimates">约%1$s公里和%2$d千卡（估算）</string>
+    <string name="pedometer_last_days">最近7天</string>
+    <string name="pedometer_day_steps">%1$s：%2$d步</string>
+    <string name="pedometer_profile">资料：%1$d厘米，%2$d公斤</string>
+    <string name="pedometer_set_height">身高（厘米）</string>
+    <string name="pedometer_set_weight">体重（公斤）</string>
+    <string name="pedometer_set_goal">每日目标（步数）</string>
+    <string name="pedometer_note">菜单可设置身高、体重和每日目标。此工具关闭期间走的步数会在下次打开时计入。所有数据都保存在这部手机上。</string>
 </resources>

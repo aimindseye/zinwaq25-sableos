@@ -43,6 +43,7 @@ data class ToolsDeviceProfile(
         )
         private val CAMERA_MIC_GPS_TOOLS = listOf(
             Capability.FLASHLIGHT,
+            Capability.SOS_ALERT,
             Capability.MAGNIFIER,
             Capability.NOISE_METER,
             Capability.SPEEDOMETER

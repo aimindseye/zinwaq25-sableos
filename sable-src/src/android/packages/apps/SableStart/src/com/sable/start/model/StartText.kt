@@ -261,6 +261,10 @@ object StartText {
             "action_open" to "open",
             "action_uninstall" to "uninstall",
             "action_disable" to "disable",
+            "letter_shortcut" to "Hold-key shortcut",
+            "letter_shortcut_current" to "Hold-key shortcut: %1\$s",
+            "letter_shortcut_press" to
+                "Press the letter to hold on Home to open this app. Backspace removes it. It replaces a speed dial on the same letter.",
         )
 
     val t = SableTexts(EN)

@@ -302,4 +302,20 @@
     <string name="provider_credentials">poświadczenia dostawców</string>
     <string name="select_at_least_one_section">Wybierz co najmniej jedną sekcję</string>
     <string name="tv">TV</string>
+    <string name="sos_alert">SOS i alarm</string>
+    <string name="sos_light">Światło SOS</string>
+    <string name="sos_screen_flash">Błysk ekranu</string>
+    <string name="sos_siren">Syrena</string>
+    <string name="sos_stop_all">Zatrzymaj wszystko</string>
+    <string name="sos_status">Światło %1$s, ekran %2$s, syrena %3$s</string>
+    <string name="sos_info">Miga światłem aparatu w rytmie SOS, miga ekranem albo włącza syrenę z głośnością alarmu. Wszystko zatrzymuje się po wyjściu. Nikt nie jest wywoływany.</string>
+    <string name="pedometer_today">Dziś: %1$d z %2$d kroków</string>
+    <string name="pedometer_estimates">Około %1$s km i %2$d kcal (szacunki)</string>
+    <string name="pedometer_last_days">Ostatnie 7 dni</string>
+    <string name="pedometer_day_steps">%1$s: %2$d kroków</string>
+    <string name="pedometer_profile">Profil: %1$d cm, %2$d kg</string>
+    <string name="pedometer_set_height">Wzrost (cm)</string>
+    <string name="pedometer_set_weight">Waga (kg)</string>
+    <string name="pedometer_set_goal">Dzienny cel (kroki)</string>
+    <string name="pedometer_note">Menu ustawia wzrost, wagę i dzienny cel. Kroki zrobione przy zamkniętym narzędziu zostaną dodane przy następnym otwarciu. Wszystko zostaje na tym telefonie.</string>
 </resources>

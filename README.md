@@ -73,13 +73,13 @@ RELEASES=1.0 (the first SableOS release, built from this main), earlier test bui
 ## Install a release
 
 Every release is built on **LineageOS 23.2 (Android 16 QPR2)** and says so in its
-release notes. Download `sableos-q25-full-1.0.zip` from
+release notes. Download `sableos-q25-full-1.0-*.zip` from
 [Releases](https://github.com/aimindseye/zinwaq25-sableos/releases), then, with
 `adb` and `fastboot` installed and the phone's USB-C cable plugged in:
 
 ```bash
-unzip sableos-q25-full-1.0.zip
-cd sableos-q25-full-1.0
+unzip sableos-q25-full-1.0-*.zip
+cd sableos-q25-full-1.0-*/
 sha256sum -c SHA256SUMS.txt                 # every line must say OK
 adb reboot bootloader
 fastboot flashing unlock                    # erases the phone; confirm on it
@@ -89,7 +89,7 @@ fastboot flash vbmeta vbmeta.img
 fastboot flash vendor_boot vendor_boot.img
 fastboot reboot recovery
 # in recovery: Factory reset > Format data, then Apply update > Apply from ADB
-adb sideload sableos-q25-full-*-userdebug.zip
+adb sideload sableos-q25-full-*.zip
 ```
 
 Back up first and read [`docs/FLASHING_RELEASE.md`](docs/FLASHING_RELEASE.md) before

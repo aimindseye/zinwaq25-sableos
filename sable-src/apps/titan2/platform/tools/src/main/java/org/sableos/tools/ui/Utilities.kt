@@ -2,6 +2,7 @@ package org.sableos.tools.ui
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.AlertDialog
 import android.content.pm.PackageManager
 import android.graphics.SurfaceTexture
 import android.hardware.Sensor
@@ -18,26 +19,37 @@ import android.hardware.camera2.params.SessionConfiguration
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioRecord
+import android.media.AudioTrack
 import android.media.MediaRecorder
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.SystemClock
+import android.text.InputType
 import android.view.Surface
 import android.view.TextureView
 import android.view.View
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import java.util.concurrent.Executor
 import kotlin.concurrent.thread
+import org.sableos.tools.android.StepStore
 import org.sableos.tools.core.AccelStepDetector
 import org.sableos.tools.core.Command
 import org.sableos.tools.core.HoldableReading
 import org.sableos.tools.core.Noise
 import org.sableos.tools.core.Perm
+import org.sableos.tools.core.SirenWave
+import org.sableos.tools.core.SosPattern
 import org.sableos.tools.core.SpeedTrip
 import org.sableos.tools.core.StepCounterSession
+import org.sableos.tools.core.StepMath
 import org.sableos.tools.core.ToolsText.t
 import org.sableos.tools.core.Vec3
 
@@ -105,6 +117,172 @@ class FlashlightController(private val host: ToolHost) : ToolController {
     }
 
     override fun info() = t("uses_the_camera_flash_in")
+}
+
+/**
+ * SOS light, screen flash and siren. Each is its own switch, they stop when the screen is left, and nothing here
+ * calls anyone. The siren plays on the alarm stream, so it follows the alarm volume.
+ */
+class SosController(private val host: ToolHost) : ToolController {
+    private val ctx = host.activity
+    private val handler = Handler(ctx.mainLooper)
+    private val cm = ctx.getSystemService(CameraManager::class.java)
+    private val torchId: String? = try {
+        cm?.cameraIdList?.firstOrNull {
+            cm.getCameraCharacteristics(it).get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+        }
+    } catch (_: android.hardware.camera2.CameraAccessException) {
+        null
+    }
+    private val state: TextView = Ui.reading(ctx)
+    private var light = false
+    private var screen = false
+    private var siren = false
+    private var step = 0
+    private var track: AudioTrack? = null
+    private var savedBackground: android.graphics.drawable.Drawable? = null
+
+    private val tick = object : Runnable {
+        override fun run() {
+            val on = SosPattern.isOn(step)
+            if (light) setTorch(on)
+            if (screen) ctx.window.decorView.setBackgroundColor(if (on) WHITE else BLACK)
+            val wait = SosPattern.STEPS[step]
+            step = SosPattern.next(step)
+            handler.postDelayed(this, wait)
+        }
+    }
+
+    override fun view(): View = readingColumn(
+        ctx,
+        state,
+        Ui.row(ctx, t("sos_light"), null) { toggleLight() }.also { it.post { it.requestFocus() } },
+        Ui.row(ctx, t("sos_screen_flash"), null) { toggleScreen() },
+        Ui.row(ctx, t("sos_siren"), null) { toggleSiren() },
+        Ui.row(ctx, t("sos_stop_all"), null) { stopAll() },
+        Ui.body(ctx, t("sos_info"))
+    ).also { refresh() }
+
+    private fun refresh() {
+        fun word(on: Boolean) = if (on) "ON" else "OFF"
+        state.text = t("sos_status", word(light), word(screen), word(siren))
+    }
+
+    private fun toggleLight() {
+        if (!light && torchId == null) return host.toast(t("no_flash_unit_found"))
+        light = !light
+        if (!light) setTorch(false)
+        sync()
+    }
+
+    private fun toggleScreen() {
+        screen = !screen
+        if (screen) {
+            savedBackground = ctx.window.decorView.background
+            setBrightness(1f)
+        } else {
+            restoreScreen()
+        }
+        sync()
+    }
+
+    private fun toggleSiren() {
+        siren = !siren
+        if (siren) startSiren() else stopSiren()
+        sync()
+    }
+
+    private fun stopAll() {
+        light = false
+        screen = false
+        siren = false
+        setTorch(false)
+        restoreScreen()
+        stopSiren()
+        sync()
+    }
+
+    /** The pattern runs while the light or the screen flash is on. */
+    private fun sync() {
+        handler.removeCallbacks(tick)
+        if (light || screen) {
+            step = 0
+            handler.post(tick)
+        }
+        refresh()
+    }
+
+    private fun setTorch(on: Boolean) {
+        val id = torchId ?: return
+        try {
+            cm?.setTorchMode(id, on)
+        } catch (_: android.hardware.camera2.CameraAccessException) {
+            light = false
+            host.toast(t("flash_busy_another_app_is"))
+        }
+    }
+
+    private fun setBrightness(level: Float) {
+        val lp = ctx.window.attributes
+        lp.screenBrightness = level
+        ctx.window.attributes = lp
+    }
+
+    private fun restoreScreen() {
+        ctx.window.decorView.background = savedBackground
+        setBrightness(android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE)
+    }
+
+    private fun startSiren() {
+        val data = SirenWave.samples()
+        val audio = AudioTrack.Builder()
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            )
+            .setAudioFormat(
+                AudioFormat.Builder()
+                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                    .setSampleRate(SirenWave.RATE)
+                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                    .build()
+            )
+            .setTransferMode(AudioTrack.MODE_STATIC)
+            .setBufferSizeInBytes(data.size * 2)
+            .build()
+        audio.write(data, 0, data.size)
+        audio.setLoopPoints(0, data.size, -1)
+        audio.play()
+        track = audio
+    }
+
+    private fun stopSiren() {
+        track?.let {
+            it.stop()
+            it.release()
+        }
+        track = null
+    }
+
+    override fun stop() {
+        stopAll()
+    }
+
+    override fun onCommand(c: Command) = if (c == Command.Toggle) {
+        toggleLight()
+        true
+    } else {
+        false
+    }
+
+    override fun info() = t("sos_info")
+
+    private companion object {
+        const val WHITE = 0xFFFFFFFF.toInt()
+        const val BLACK = 0xFF000000.toInt()
+    }
 }
 
 /** Camera preview with digital zoom. Up/Down zoom. Nothing is captured or saved; the system privacy dot shows. */
@@ -478,7 +656,11 @@ class SpeedController(private val host: ToolHost) :
     }
 }
 
-/** Step counter when allowed, accelerometer estimate otherwise. No health claims. */
+/**
+ * Step counter when allowed, accelerometer estimate otherwise. No health claims: distance and energy are estimates
+ * from the height and weight you enter. With the step counter, the day's total, the daily goal and the last seven
+ * days are kept on this phone; the counter keeps running while the tool is closed, so the gain is added on open.
+ */
 class PedometerController(private val host: ToolHost) :
     ToolController,
     SensorEventListener {
@@ -486,11 +668,17 @@ class PedometerController(private val host: ToolHost) :
     private val sm = ctx.getSystemService(SensorManager::class.java)
     private val reading = Ui.reading(ctx)
     private val state = Ui.body(ctx)
+    private val summary = Ui.body(ctx)
     private val counter = StepCounterSession()
     private val accel = AccelStepDetector()
+    private val store = StepStore(ctx)
+    private val ledger = store.ledger()
+    private var profile = store.profile()
     private var source = ""
+    private var useLedger = false
+    private var lastSaveMs = 0L
 
-    override fun view(): View = readingColumn(ctx, reading.apply { text = "0" }, state)
+    override fun view(): View = readingColumn(ctx, reading.apply { text = "0" }, state, summary)
 
     override fun start() {
         val m = sm ?: return
@@ -499,23 +687,35 @@ class PedometerController(private val host: ToolHost) :
             ctx.checkSelfPermission(Perm.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED
         ) {
             source = t("step_counter")
+            useLedger = true
             m.registerListener(this, stepSensor, SensorManager.SENSOR_DELAY_NORMAL)
         } else {
             source = t("accelerometer_estimate")
+            useLedger = false
             m.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
                 m.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
             }
         }
         state.text = t("source_counts_only_while_open", source)
+        showSummary()
     }
 
     override fun stop() {
         sm?.unregisterListener(this)
+        if (useLedger) store.save(ledger)
     }
 
     override fun onSensorChanged(e: SensorEvent) {
         val steps = if (e.sensor.type == Sensor.TYPE_STEP_COUNTER) {
-            counter.push(e.values[0].toLong())
+            val raw = e.values[0].toLong()
+            ledger.sample(raw, today())
+            val now = SystemClock.elapsedRealtime()
+            if (now - lastSaveMs > SAVE_EVERY_MS) {
+                store.save(ledger)
+                lastSaveMs = now
+            }
+            showSummary()
+            counter.push(raw)
         } else {
             accel.push(
                 Vec3(e.values[0].toDouble(), e.values[1].toDouble(), e.values[2].toDouble()).norm,
@@ -539,5 +739,79 @@ class PedometerController(private val host: ToolHost) :
         false
     }
 
+    private fun today(): Long = LocalDate.now().toEpochDay()
+
+    private fun showSummary() {
+        if (!useLedger) {
+            summary.text = t("pedometer_note")
+            return
+        }
+        val day = today()
+        val steps = ledger.steps(day)
+        val km = StepMath.distanceKm(steps, profile.heightCm)
+        val format = DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault())
+        summary.text = buildString {
+            appendLine(t("pedometer_today", steps, profile.goal))
+            appendLine(
+                t(
+                    "pedometer_estimates",
+                    String.format(Locale.getDefault(), "%.1f", km),
+                    StepMath.kcal(km, profile.weightKg)
+                )
+            )
+            appendLine(t("pedometer_profile", profile.heightCm, profile.weightKg))
+            appendLine()
+            appendLine(t("pedometer_last_days"))
+            ledger.recent(day, HISTORY_DAYS).forEach { (d, n) ->
+                appendLine(t("pedometer_day_steps", LocalDate.ofEpochDay(d).format(format), n))
+            }
+            appendLine()
+            append(t("pedometer_note"))
+        }
+    }
+
+    override fun actions(): List<Pair<String, () -> Unit>> = listOf(
+        t("pedometer_set_height") to {
+            ask("pedometer_set_height", profile.heightCm) {
+                profile = profile.copy(heightCm = it).safe
+            }
+        },
+        t("pedometer_set_weight") to {
+            ask("pedometer_set_weight", profile.weightKg) {
+                profile = profile.copy(weightKg = it).safe
+            }
+        },
+        t("pedometer_set_goal") to {
+            ask("pedometer_set_goal", profile.goal) {
+                profile = profile.copy(goal = it).safe
+            }
+        }
+    )
+
+    private fun ask(titleKey: String, current: Int, apply: (Int) -> Unit) {
+        val input = EditText(ctx).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER
+            setText(current.toString())
+            setSelection(text.length)
+        }
+        AlertDialog.Builder(ctx)
+            .setTitle(t(titleKey))
+            .setView(input)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                input.text.toString().toIntOrNull()?.let {
+                    apply(it)
+                    store.save(profile)
+                    showSummary()
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
     override fun info() = t("counts_steps_while_this_screen")
+
+    private companion object {
+        const val SAVE_EVERY_MS = 5_000L
+        const val HISTORY_DAYS = 7
+    }
 }

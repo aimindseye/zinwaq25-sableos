@@ -244,4 +244,7 @@
     <string name="sable_more_actions_for">Meer acties voor %1$s</string>
     <string name="sable_jump_to">Ga naar %1$s</string>
     <string name="sable_return_to">Terug naar %1$s</string>
+    <string name="letter_shortcut">Snelkoppeling bij ingedrukt houden</string>
+    <string name="letter_shortcut_current">Snelkoppeling bij ingedrukt houden: %1$s</string>
+    <string name="letter_shortcut_press">Druk op de letter die je op Start ingedrukt houdt om deze app te openen. Backspace verwijdert hem. Hij vervangt een snelkeuze op dezelfde letter.</string>
 </resources>

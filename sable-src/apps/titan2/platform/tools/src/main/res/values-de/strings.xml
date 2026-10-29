@@ -302,4 +302,20 @@
     <string name="provider_credentials">Anbieter-Zugangsdaten</string>
     <string name="select_at_least_one_section">Wähle mindestens einen Abschnitt</string>
     <string name="tv">TV</string>
+    <string name="sos_alert">SOS und Alarm</string>
+    <string name="sos_light">SOS-Licht</string>
+    <string name="sos_screen_flash">Bildschirmblitz</string>
+    <string name="sos_siren">Sirene</string>
+    <string name="sos_stop_all">Alles stoppen</string>
+    <string name="sos_status">Licht %1$s, Bildschirm %2$s, Sirene %3$s</string>
+    <string name="sos_info">Lässt das Kameralicht im SOS-Muster blinken, den Bildschirm blitzen oder eine Sirene in Alarmlautstärke ertönen. Alles stoppt, wenn du das Werkzeug verlässt. Es ruft niemanden an.</string>
+    <string name="pedometer_today">Heute: %1$d von %2$d Schritten</string>
+    <string name="pedometer_estimates">Etwa %1$s km und %2$d kcal (Schätzwerte)</string>
+    <string name="pedometer_last_days">Letzte 7 Tage</string>
+    <string name="pedometer_day_steps">%1$s: %2$d Schritte</string>
+    <string name="pedometer_profile">Profil: %1$d cm, %2$d kg</string>
+    <string name="pedometer_set_height">Größe (cm)</string>
+    <string name="pedometer_set_weight">Gewicht (kg)</string>
+    <string name="pedometer_set_goal">Tagesziel (Schritte)</string>
+    <string name="pedometer_note">Über Menü stellst du Größe, Gewicht und Tagesziel ein. Schritte, die du bei geschlossenem Werkzeug gehst, werden beim nächsten Öffnen hinzugefügt. Alles bleibt auf diesem Telefon.</string>
 </resources>

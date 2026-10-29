@@ -85,7 +85,7 @@ image. This is the baseline every later problem is compared against.
 
 ```bash
 bash build/sable.sh q25 Q1 stage        # makes sure no Sable layer is present
-bash build/sable.sh q25 Q1 build        # lunch lineage_Q25-bp4a-userdebug; m bacon
+bash build/sable.sh q25 Q1 build        # lunch lineage_Q25-bp4a-<variant>; m bacon
 bash build/sable.sh q25 Q1 artifacts
 ```
 
@@ -158,7 +158,7 @@ product partition. See [`MICROG.md`](MICROG.md).
 `$SABLE_BUILD_ROOT/artifacts/q25/<release>/<stamp>/` (default `~/sable-q25`):
 
 ```text
-sableos-q25-<release>-YYYYMMDD-userdebug.zip   recovery-sideloadable package
+sableos-q25-<release>-<version>-YYYYMMDD-<variant>.zip  recovery-sideloadable package
 boot.img  dtbo.img  vbmeta.img  vendor_boot.img
 super_empty.img (if produced)
 props/   build.prop files
@@ -166,6 +166,23 @@ pinned-manifest.xml  apps-manifest.tsv  BUILD_INFO.txt  SHA256SUMS.txt
 ```
 
 Keep the whole directory for anything you flash.
+
+### Release number and build type
+
+Every function takes two options (or the environment variables beside them):
+
+| Option | Variable | Default | Meaning |
+|--------|----------|---------|---------|
+| `--version N` | `SABLE_VERSION` | `1.0` | Release number: goes in `ro.sable.version`, the artifact folder, the zip name and the GitHub tag |
+| `--variant V` | `SABLE_Q25_BUILD_VARIANT` | `userdebug` | `user`, `userdebug` or `eng`: the lunch target and the name suffix |
+
+```bash
+bash build/sable.sh q25 full all --version 1.1 --variant user
+```
+
+Use the same values for `stage`, `build`, `artifacts` and `release`; `artifacts` and
+`release` stop if they differ from what the build recorded. A `user` build has not been
+tested on the phone yet.
 
 ### Publish a release
 
@@ -175,11 +192,11 @@ package, `SHA256SUMS.txt`, `FLASHING.md` ([`FLASHING_RELEASE.md`](FLASHING_RELEA
 
 ```bash
 bash build/sable.sh q25 full artifacts
-bash build/sable.sh q25 full release --tag 1.0                         # build the zip, print the gh command
-bash build/sable.sh q25 full release --tag 1.0 --publish               # needs gh auth login
+bash build/sable.sh q25 full release --version 1.0                         # build the zip, print the gh command
+bash build/sable.sh q25 full release --version 1.0 --publish               # needs gh auth login
 ```
 
-The notes start with `releases/<tag>.md` (for 1.0, `releases/1.0.md`),
+The notes start with `releases/<version>.md` (for 1.0, `releases/1.0.md`; `--tag` overrides only the git tag name),
 then add the zip's SHA-256, the source commit and the commits since the previous tag. The tag
 is created on the commit the build was made from, so that commit must be pushed. GitHub limits
 a release file to 2 GiB; a bigger zip leaves the install package out and uploads it beside it.

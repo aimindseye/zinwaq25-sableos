@@ -158,6 +158,7 @@ import org.sableos.start.model.StartPages
 import org.sableos.start.model.StartTypeToSearch
 import org.sableos.start.model.inLauncherUser
 import org.sableos.start.model.stableKey
+import org.sableos.start.platform.LetterShortcutRepository
 import org.sableos.start.platform.LiveSurfaceRepository
 import org.sableos.start.platform.PeopleRepository
 import org.sableos.start.platform.SpeedDialRepository
@@ -382,9 +383,12 @@ fun SableStartScreen(
     onRequestContactsPermission: () -> Unit = {},
     /** Phone's speed dial: holding an assigned letter on Home calls it (null: no speed dial). */
     speedDial: SpeedDialRepository? = null,
+    /** The apps held on a letter on Home; Peek ("More actions") sets and clears them. */
+    letterShortcuts: LetterShortcutRepository? = null,
 ) {
+    var shortcutVersion by remember { mutableStateOf(0) }
     val speedDialLetters by
-        produceState(emptySet<Char>(), refreshGeneration, speedDial) {
+        produceState(emptySet<Char>(), refreshGeneration, speedDial, shortcutVersion) {
             value = speedDial?.assignedLetters() ?: emptySet()
         }
     var destination by remember(initialScreen) {
@@ -844,6 +848,19 @@ fun SableStartScreen(
                                 onOpenAppInfo = { onOpenAppInfo(app) },
                                 onOpenNotificationSettings = { onOpenNotificationSettings(app) },
                                 onUninstall = { onUninstallApp(app) },
+                                letterShortcut =
+                                    remember(app, shortcutVersion) {
+                                        letterShortcuts?.load()?.letterOf(app.component.flattenToString())
+                                    },
+                                shortcutsAvailable = letterShortcuts != null && app.inLauncherUser,
+                                onSetLetterShortcut = { letter ->
+                                    if (letter == null) {
+                                        letterShortcuts?.remove(app.component)
+                                    } else {
+                                        letterShortcuts?.assign(letter, app.component)
+                                    }
+                                    shortcutVersion += 1
+                                },
                             )
                         }
                     }
@@ -4691,7 +4708,13 @@ private fun SablePeekScreen(
     onOpenAppInfo: () -> Unit,
     onOpenNotificationSettings: () -> Unit,
     onUninstall: () -> Unit,
+    /** The letter held on Home to open this app, or null. */
+    letterShortcut: Char?,
+    shortcutsAvailable: Boolean,
+    onSetLetterShortcut: (Char?) -> Unit,
 ) {
+    // Waiting for the letter to hold: a letter assigns, Backspace clears, "cancel" or Back leaves it.
+    var capturing by remember(app) { mutableStateOf(false) }
     val actions =
         remember(app, inBaseBar, hasSecondInstance) {
             AppActionPolicy.actions(
@@ -4719,7 +4742,32 @@ private fun SablePeekScreen(
         modifier =
             Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background),
+                .background(MaterialTheme.colorScheme.background)
+                .onPreviewKeyEvent { event ->
+                    val native = event.nativeKeyEvent
+                    if (!capturing || event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    val letter = SpeedDialKeys.letterFor(native.keyCode)
+                    val chord =
+                        native.metaState and
+                            (
+                                android.view.KeyEvent.META_ALT_ON or
+                                    android.view.KeyEvent.META_CTRL_ON or
+                                    android.view.KeyEvent.META_META_ON
+                            ) != 0
+                    when {
+                        native.keyCode == android.view.KeyEvent.KEYCODE_DEL -> {
+                            onSetLetterShortcut(null)
+                            capturing = false
+                            true
+                        }
+                        letter != null && !chord -> {
+                            onSetLetterShortcut(letter)
+                            capturing = false
+                            true
+                        }
+                        else -> false
+                    }
+                },
     ) {
         Text(
             text = "close",
@@ -4848,6 +4896,32 @@ private fun SablePeekScreen(
                         mark = "×",
                         label = "cancel",
                         onClick = { pendingConfirm = null },
+                    )
+                }
+            }
+
+            if (shortcutsAvailable) {
+                ContextAction(
+                    mark = "⌨",
+                    label =
+                        if (letterShortcut != null) {
+                            t("letter_shortcut_current", letterShortcut.uppercaseChar().toString())
+                        } else {
+                            t("letter_shortcut")
+                        },
+                    onClick = { capturing = !capturing },
+                )
+                if (capturing) {
+                    Text(
+                        text = t("letter_shortcut_press"),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                    ContextAction(
+                        mark = "×",
+                        label = "cancel",
+                        onClick = { capturing = false },
                     )
                 }
             }

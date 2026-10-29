@@ -244,4 +244,7 @@
     <string name="sable_more_actions_for">%1$s के लिए और कार्रवाइयाँ</string>
     <string name="sable_jump_to">%1$s पर जाएँ</string>
     <string name="sable_return_to">%1$s पर लौटें</string>
+    <string name="letter_shortcut">देर तक दबाने का शॉर्टकट</string>
+    <string name="letter_shortcut_current">देर तक दबाने का शॉर्टकट: %1$s</string>
+    <string name="letter_shortcut_press">होम पर जिस अक्षर को दबाए रखने से यह ऐप खुले, वह अक्षर दबाएँ। Backspace इसे हटाता है। यह उसी अक्षर के स्पीड डायल की जगह ले लेता है।</string>
 </resources>
