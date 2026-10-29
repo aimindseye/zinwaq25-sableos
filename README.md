@@ -70,6 +70,31 @@ FLASH_SCRIPT=NONE (manual, documented steps in docs/INSTALL.md and docs/FLASHING
 RELEASES=alpha-20261029 (latest), alpha-20261028; GitHub pre-releases made with build/sable.sh q25 Q4 release
 ```
 
+## Install a release
+
+Every release is built on **LineageOS 23.2 (Android 16 QPR2)** and says so in its
+release notes. Download `sableos-q25-Q4-alpha-YYYYMMDD.zip` from
+[Releases](https://github.com/aimindseye/zinwaq25-sableos/releases), then, with
+`adb` and `fastboot` installed and the phone's USB-C cable plugged in:
+
+```bash
+unzip sableos-q25-Q4-alpha-YYYYMMDD.zip
+cd sableos-q25-Q4-alpha-YYYYMMDD
+sha256sum -c SHA256SUMS.txt                 # every line must say OK
+adb reboot bootloader
+fastboot flashing unlock                    # erases the phone; confirm on it
+fastboot flash boot boot.img
+fastboot flash dtbo dtbo.img
+fastboot flash vbmeta vbmeta.img
+fastboot flash vendor_boot vendor_boot.img
+fastboot reboot recovery
+# in recovery: Factory reset > Format data, then Apply update > Apply from ADB
+adb sideload sableos-q25-Q4-*-userdebug.zip
+```
+
+Back up first and read [`docs/FLASHING_RELEASE.md`](docs/FLASHING_RELEASE.md) before
+you start: unlocking erases everything, and this is alpha software you flash at your own risk.
+
 ## Device info
 
 | | |
@@ -89,7 +114,7 @@ RELEASES=alpha-20261029 (latest), alpha-20261028; GitHub pre-releases made with 
 | Network | 2G/3G/4G LTE, no 5G |
 | Connectivity | Wi-Fi 6 (a/b/g/n/ac/ax), Bluetooth 5.2, NFC, USB-C, 3.5 mm jack, FM |
 | Stock OS | Android 14 |
-| SableOS base | LineageOS 23.2 (Android 16) |
+| SableOS base | LineageOS 23.2 (Android 16 QPR2) |
 
 More: [`docs/DEVICE_INFO.md`](docs/DEVICE_INFO.md).
 

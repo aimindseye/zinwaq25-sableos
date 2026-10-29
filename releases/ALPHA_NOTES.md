@@ -1,7 +1,7 @@
 ## About this alpha
 
 SableOS is a BlackBerry-style Android for the Zinwa Q25, built on LineageOS 23.2
-(Android 16). The keyboard is the centre of the phone: almost everything can be
+(Android 16 QPR2). The keyboard is the centre of the phone: almost everything can be
 driven without touching the screen.
 
 ## What's in it
