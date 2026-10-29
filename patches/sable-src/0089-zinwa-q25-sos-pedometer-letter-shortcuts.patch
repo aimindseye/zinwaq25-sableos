@@ -297,7 +297,7 @@ index 0c1df03..da95792 100644
              Capability.NOISE_METER,
              Capability.SPEEDOMETER
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
-index 7af8ca7..45af013 100644
+index 7af8ca7..d1ea76c 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
 +++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
 @@ -378,7 +378,27 @@ object ToolsText {
@@ -324,8 +324,8 @@ index 7af8ca7..45af013 100644
 +            "pedometer_set_weight" to "Weight (kg)",
 +            "pedometer_set_goal" to "Daily goal (steps)",
 +            "pedometer_note" to
-+                "Menu sets height, weight and the daily goal. Steps taken while this tool is closed " +
-+                "are added the next time you open it. Everything stays on this phone."
++                "Menu sets height, weight and the daily goal. Steps taken while this tool is " +
++                "closed are added the next time you open it. Everything stays on this phone."
          )
  
      val t = SableTexts(EN)
@@ -342,17 +342,17 @@ index a8d1396..e523a04 100644
          Tool.NOISE_METER to ::NoiseController,
          Tool.SPEEDOMETER to ::SpeedController,
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Utilities.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Utilities.kt
-index 3887771..8707c56 100644
+index 3887771..22adb04 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Utilities.kt
 +++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Utilities.kt
-@@ -1,6 +1,7 @@
- package org.sableos.tools.ui
+@@ -2,6 +2,7 @@ package org.sableos.tools.ui
  
  import android.Manifest
-+import android.app.AlertDialog
  import android.annotation.SuppressLint
++import android.app.AlertDialog
  import android.content.pm.PackageManager
  import android.graphics.SurfaceTexture
+ import android.hardware.Sensor
 @@ -18,26 +19,37 @@ import android.hardware.camera2.params.SessionConfiguration
  import android.location.Location
  import android.location.LocationListener
