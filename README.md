@@ -44,8 +44,9 @@ Titan 2 or Q27 SableOS lanes.
 > memory only and never on the lock screen.
 > Sable Terminal (sable-src 0084) is ConnectBot 1.10.9 for SSH, Telnet and a
 > local shell; on the Q25 the Menu key is Ctrl and Menu then Back is Esc.
-> Every Sable app now keeps its English in `strings.xml` (sable-src 0085), so
-> each can be translated by adding one file; see [`docs/LANGUAGES.md`](docs/LANGUAGES.md).
+> Every Sable app now keeps its English in `strings.xml` (sable-src 0085) and has
+> draft translations in 18 languages; see [`docs/LANGUAGES.md`](docs/LANGUAGES.md).
+> **Disclaimer:** Sable app translations (18 languages) are machine-assisted drafts: they have not been reviewed by fluent speakers and may contain errors or awkward wording. English is the reference text. Corrections are welcome.
 > Most Q4-* device gates are still `NOT_RUN`
 > ([#27](https://github.com/aimindseye/zinwaq25-sableos/issues/27) tracks them).
 > **Using SableOS:** [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) covers setup,

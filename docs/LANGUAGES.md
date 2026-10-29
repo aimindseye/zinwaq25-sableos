@@ -2,6 +2,8 @@
 
 What a user sees in another language, and how to add one.
 
+> **Disclaimer:** Sable app translations (18 languages) are machine-assisted drafts: they have not been reviewed by fluent speakers and may contain errors or awkward wording. English is the reference text. Corrections are welcome.
+
 ## What already works
 
 | Layer | Status |

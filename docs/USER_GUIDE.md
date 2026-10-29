@@ -44,7 +44,7 @@ The keyboard does almost everything. Typing on the home screen searches, arrows 
 - **Sticky keys:** press Shift or Alt once for the next key, twice to lock. Holding a key types its Alt character.
 - **The $ key** types $ in every app and keyboard.
 - **AutoText** (on by default) fixes typos and contractions (`dont` becomes "don't"). It also expands `ld` to the date, `lt` to the time and `myver` to the build. Backspace right after a change undoes it. Add your own in Keyboard settings > AutoText entries.
-- **Languages:** Sable Keyboard has 35 typing languages, switched from Keyboard settings. The Sable apps follow the phone's language once a translation is added (Sable Setup has Spanish, French and German drafts); until then they show English, and Android's own screens use every Android language.
+- **Languages:** Sable Keyboard has 35 typing languages, switched from Keyboard settings. The Sable apps follow the phone's language once a translation is added (18 draft languages ship; they are machine-assisted and not yet reviewed by fluent speakers, so wording may be wrong and English is the reference); until then they show English, and Android's own screens use every Android language.
 - **Clipboard history** (off until you turn it on in Keyboard settings): hold Alt and Shift and press V to see your recent copies in the strip above the keyboard. Space or the trackpad moves, Enter pastes, Backspace removes the entry and Back closes. It keeps your last 20 copies in memory only, so a restart empties it; it skips anything an app marks as sensitive (such as a copied password), never opens on the lock screen, and Keyboard settings > Clear clipboard history empties it at once.
 
 ### Sable Start, BlackBerry 10 style (default)
