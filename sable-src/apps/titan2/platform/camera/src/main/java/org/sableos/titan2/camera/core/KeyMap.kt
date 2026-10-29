@@ -1,5 +1,7 @@
 package org.sableos.titan2.camera.core
 
+import org.sableos.titan2.camera.core.CameraText.t
+
 enum class CameraAction {
     Shutter,
     Autofocus,
@@ -134,7 +136,7 @@ object ArrowGuard {
     fun shown(b: Binding, profile: CameraDeviceProfile): Boolean =
         !(profile.trackpadArrows && !b.alt && b.key in arrows)
 
-    const val HINT = "Trackpad: Alt+arrows change mode and zoom"
+    val HINT: String get() = t("trackpad_alt_arrows_change_mode")
 }
 
 /**

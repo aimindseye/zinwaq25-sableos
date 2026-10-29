@@ -2,6 +2,7 @@ package org.sableos.titan2.camera.ui
 
 import org.sableos.titan2.camera.android.CameraController
 import org.sableos.titan2.camera.core.CameraReport
+import org.sableos.titan2.camera.core.CameraText.t
 import org.sableos.titan2.camera.core.CaptureMode
 import org.sableos.titan2.camera.core.PhotoPath
 import org.sableos.titan2.camera.core.ProField
@@ -31,7 +32,7 @@ data class ViewfinderInfo(
             UiMode.Video -> video?.label ?: "-"
         }
         val head = ui.label.uppercase(java.util.Locale.ROOT) + " · " + sub
-        return if (forApp) "$head · FOR APP" else head
+        return if (forApp) t("for_app", head) else head
     }
 
     /** The HUD line: camera, mode, zoom and what the mode adjusts, then the lock badges. */
@@ -39,16 +40,22 @@ data class ViewfinderInfo(
         val zoomText = "%.1f".format(controller.zoom)
         return when (ui) {
             UiMode.Photo ->
-                "cam $camId · ${mode.name}${if (compare) " +compare" else ""}" +
-                    " · ${zoomText}x · EV ${controller.aeSteps}"
+                t(
+                    "cam_x_ev",
+                    camId,
+                    mode.name,
+                    if (compare) " +compare" else "",
+                    zoomText,
+                    controller.aeSteps
+                )
 
             UiMode.Pro ->
-                "cam $camId · Pro · ${zoomText}x" +
+                t("cam_pro_x", camId, zoomText) +
                     (proValue?.let { " · ${proField.label} $it" } ?: "")
 
             UiMode.Video ->
-                "cam $camId · ${video?.label ?: "no recordable size"} · ${zoomText}x" +
-                    if (!micGranted) " · no mic" else ""
+                t("cam_x", camId, video?.label ?: "no recordable size", zoomText) +
+                    if (!micGranted) t("no_mic") else ""
         } + lockBadges(controller.locks)
     }
 
@@ -58,14 +65,14 @@ data class ViewfinderInfo(
         when (ui) {
             UiMode.Photo -> {
                 add(PhotoPath.label(mode))
-                if (compare) add("Compare")
+                if (compare) add(t("compare_2"))
             }
 
-            UiMode.Pro -> add("Manual")
+            UiMode.Pro -> add(t("manual"))
 
             UiMode.Video -> {
                 video?.let { add(it.label) }
-                if (!micGranted) add("No mic")
+                if (!micGranted) add(t("no_mic_2"))
             }
         }
         if (ui != UiMode.Pro && controller.aeSteps != 0) add("EV ${controller.aeSteps}")
@@ -84,4 +91,4 @@ internal fun nextPhotoMode(mode: CaptureMode, cam: CameraReport): CaptureMode {
 }
 
 private fun lockBadges(locks: CameraController.LockControls): String =
-    (if (locks.afLocked) " · AF-L" else "") + (if (locks.aeLocked) " · AE-L" else "")
+    (if (locks.afLocked) t("af_l") else "") + (if (locks.aeLocked) t("ae_l") else "")

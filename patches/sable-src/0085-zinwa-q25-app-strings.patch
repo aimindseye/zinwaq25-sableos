@@ -8178,6 +8178,1716 @@ index 0000000..3802cc6
 +        }
 +    }
 +}
+diff --git a/sable-src/apps/titan2/platform/camera/build.gradle.kts b/sable-src/apps/titan2/platform/camera/build.gradle.kts
+index 0f68893..cb5a8d3 100644
+--- a/sable-src/apps/titan2/platform/camera/build.gradle.kts
++++ b/sable-src/apps/titan2/platform/camera/build.gradle.kts
+@@ -6,6 +6,8 @@ plugins {
+ 
+ android {
+     namespace = "org.sableos.titan2.camera"
++    // The shared platform text lookup (SableTexts) and palette (one copy, see sable-theme/).
++    sourceSets["main"].java.srcDir("../sable-theme/src/main/java")
+     compileSdk = 36
+     defaultConfig {
+         applicationId = "org.sableos.titan2.camera"
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/camera/src/main/AndroidManifest.xml
+index 372d510..65f7c11 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/AndroidManifest.xml
++++ b/sable-src/apps/titan2/platform/camera/src/main/AndroidManifest.xml
+@@ -14,6 +14,7 @@
+     </queries>
+ 
+     <application
++        android:name="org.sableos.titan2.camera.CameraApplication"
+         android:allowBackup="false"
+         android:usesCleartextTraffic="false"
+         android:icon="@mipmap/ic_sable_camera"
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/CameraApplication.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/CameraApplication.kt
+new file mode 100644
+index 0000000..ab365b9
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/CameraApplication.kt
+@@ -0,0 +1,13 @@
++package org.sableos.titan2.camera
++
++import android.app.Application
++import org.sableos.titan2.camera.core.CameraText
++import org.sableos.titan2.theme.bindTo
++
++/** Binds [CameraText] to the app's string resources once per process, so the phone's language is used. */
++class CameraApplication : Application() {
++    override fun onCreate() {
++        super.onCreate()
++        CameraText.t.bindTo(this)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/android/CameraController.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/android/CameraController.kt
+index 0b4fe3a..b43e387 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/android/CameraController.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/android/CameraController.kt
+@@ -29,6 +29,7 @@ import java.util.Locale
+ import java.util.concurrent.Executor
+ import org.sableos.titan2.camera.core.AutoSeed
+ import org.sableos.titan2.camera.core.CameraReport
++import org.sableos.titan2.camera.core.CameraText.t
+ import org.sableos.titan2.camera.core.CaptureOrientation
+ import org.sableos.titan2.camera.core.CapturePlanner
+ import org.sableos.titan2.camera.core.PreviewChooser
+@@ -155,7 +156,7 @@ class CameraController(
+         chars = c
+         val pv = PreviewChooser.choose(previewSizes(c), previewFor)
+         if (pv == null) {
+-            callbacks.onError("No preview size available for camera ${p.cameraId}")
++            callbacks.onError(t("no_preview_size_available_for", p.cameraId))
+             return
+         }
+         previewSize = pv
+@@ -194,18 +195,18 @@ class CameraController(
+                     override fun onDisconnected(d: CameraDevice) {
+                         d.close()
+                         device = null
+-                        errorCb?.invoke("Camera disconnected")
++                        errorCb?.invoke(t("camera_disconnected"))
+                     }
+ 
+                     override fun onError(d: CameraDevice, error: Int) {
+                         d.close()
+                         device = null
+-                        errorCb?.invoke("Camera error $error")
++                        errorCb?.invoke(t("camera_error", error))
+                     }
+                 },
+                 handler
+             )
+-        }.onFailure { callbacks.onError("Cannot open camera $cameraId: ${it.message}") }
++        }.onFailure { callbacks.onError(t("cannot_open_camera", cameraId, it.message.toString())) }
+     }
+ 
+     private fun createSession(d: CameraDevice, onReady: () -> Unit) {
+@@ -239,13 +240,13 @@ class CameraController(
+                     }
+                     override fun onConfigureFailed(s: CameraCaptureSession) {
+                         errorCb?.invoke(
+-                            "Could not configure ${p.kind} ${p.size} on camera ${p.cameraId}"
++                            t("could_not_configure_on_camera", p.kind, p.size, p.cameraId)
+                         )
+                     }
+                 }
+             )
+         runCatching { d.createCaptureSession(cfg) }
+-            .onFailure { errorCb?.invoke("Session failed: ${it.message}") }
++            .onFailure { errorCb?.invoke(t("session_failed", it.message.toString())) }
+     }
+ 
+     private val seedCallback = object : CameraCaptureSession.CaptureCallback() {
+@@ -376,7 +377,7 @@ class CameraController(
+                 set(CaptureRequest.JPEG_QUALITY, 95.toByte()) // 95 as proven in the Titan 2 MVP
+             }
+             s.capture(b.build(), stillCaptureCallback(p), handler)
+-        }.onFailure { errorCb?.invoke("Capture error: ${it.message}") }
++        }.onFailure { errorCb?.invoke(t("capture_error", it.message.toString())) }
+     }
+ 
+     private fun stillCaptureCallback(p: StillPlan) =
+@@ -397,7 +398,7 @@ class CameraController(
+                 request: CaptureRequest,
+                 failure: android.hardware.camera2.CaptureFailure
+             ) {
+-                errorCb?.invoke("Capture failed (reason ${failure.reason})")
++                errorCb?.invoke(t("capture_failed_reason", failure.reason))
+             }
+         }
+ 
+@@ -439,7 +440,7 @@ class CameraController(
+             if (uri != null) {
+                 savedCb?.invoke(Saved(uri, name, "image/jpeg", "${p.size}"))
+             } else {
+-                errorCb?.invoke("Could not save $name")
++                errorCb?.invoke(t("could_not_save", name))
+             }
+         } finally {
+             img.close()
+@@ -474,7 +475,7 @@ class CameraController(
+             if (uri != null) {
+                 savedCb?.invoke(Saved(uri, name, "image/x-adobe-dng", "${p.size}"))
+             } else {
+-                errorCb?.invoke("Could not save $name")
++                errorCb?.invoke(t("could_not_save", name))
+             }
+         } finally {
+             image.close()
+@@ -513,7 +514,7 @@ class CameraController(
+             val c = chars
+             val r = report
+             if (d == null || c == null) {
+-                onErrorCb(if (d == null) "Camera not open" else "No camera characteristics")
++                onErrorCb(if (d == null) t("camera_not_open") else t("no_camera_characteristics"))
+                 return null
+             }
+             return if (r == null || recorder != null) null else RecordingContext(d, c, r)
+@@ -524,11 +525,11 @@ class CameraController(
+             val name = VideoPlanner.fileName(job.ctx.device.id, job.spec.option.size, date, time)
+             val target = saver.createVideo(name)
+             if (target == null) {
+-                job.onError("Could not create $name")
++                job.onError(t("could_not_create", name))
+             } else {
+                 val rec = runCatching { newRecorder(job, target) }.getOrElse {
+                     saver.discard(target)
+-                    job.onError("Recorder setup failed: ${it.message}")
++                    job.onError(t("recorder_setup_failed", it.message.toString()))
+                     null
+                 }
+                 if (rec != null) attachPreview(job, name, target, rec)
+@@ -575,7 +576,7 @@ class CameraController(
+             if (pv == null) {
+                 rec.release()
+                 saver.discard(target)
+-                job.onError("No preview size for video")
++                job.onError(t("no_preview_size_for_video"))
+             } else {
+                 previewSize = pv
+                 job.texture.setDefaultBufferSize(pv.w, pv.h)
+@@ -607,7 +608,7 @@ class CameraController(
+                 )
+             runCatching { job.ctx.device.createCaptureSession(cfg) }.onFailure {
+                 abortRecording()
+-                job.onError("Session failed: ${it.message}")
++                job.onError(t("session_failed", it.message.toString()))
+             }
+         }
+ 
+@@ -642,13 +643,13 @@ class CameraController(
+                         job.onStarted()
+                     }.onFailure {
+                         abortRecording()
+-                        job.onError("Recording failed to start: ${it.message}")
++                        job.onError(t("recording_failed_to_start", it.message.toString()))
+                     }
+                 }
+ 
+                 override fun onConfigureFailed(s: CameraCaptureSession) {
+                     abortRecording()
+-                    job.onError("Could not configure ${job.spec.option.label} for recording")
++                    job.onError(t("could_not_configure_for_recording", job.spec.option.label))
+                 }
+             }
+ 
+@@ -701,7 +702,7 @@ class CameraController(
+                 onSavedCb(Saved(target.uri, name, "video/mp4", "video"))
+             } else {
+                 saver.discard(target)
+-                onErrorCb("Recording was too short to save")
++                onErrorCb(t("recording_was_too_short_to"))
+             }
+         }
+     }
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ActionRouter.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ActionRouter.kt
+index 6efbbb0..04b4017 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ActionRouter.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ActionRouter.kt
+@@ -1,10 +1,18 @@
+ package org.sableos.titan2.camera.core
+ 
++import org.sableos.titan2.camera.core.CameraText.t
++
+ /**
+  * Stock order is Timelapse, Video, Photo, Pro, More. Timelapse and More are not built, so the strip
+  * is Video, Photo, Pro.
+  */
+-enum class UiMode(val label: String) { Video("Video"), Photo("Photo"), Pro("Pro") }
++enum class UiMode(private val labelKey: String) {
++    Video("video_2"),
++    Photo("photo"),
++    Pro("pro");
++
++    val label: String get() = t(labelKey)
++}
+ 
+ sealed interface Cmd {
+     data class Act(val action: CameraAction) : Cmd
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/CameraText.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/CameraText.kt
+new file mode 100644
+index 0000000..139d48f
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/CameraText.kt
+@@ -0,0 +1,196 @@
++package org.sableos.titan2.camera.core
++
++import org.sableos.titan2.theme.SableTexts
++
++/**
++ * Every line Sable Camera shows, in English, by string resource name. res/values/strings.xml
++ * repeats them (CameraTextTest keeps the two equal) and res/values-<lang>/strings.xml translates
++ * them.
++ */
++object CameraText {
++    val EN: Map<String, String> =
++        mapOf(
++            "h_or_shows_the_controls" to "H or ? shows the controls",
++            "h_or_shows_the_controls_2" to "H or ? shows the controls · G reviews",
++            "the_file_is_removed_from" to "The file is removed from the phone.",
++            "starting" to "Starting",
++            "camera_permission_is_required" to "Camera permission is required.",
++            "no_camera_visible_to_this" to "No camera visible to this app.",
++            "video" to "video %1\$s",
++            "opening_camera" to "Opening camera %1\$s (%2\$s)",
++            "ready" to "Ready",
++            "saved" to "Saved %1\$s  %2\$s",
++            "returning_the_photo" to "Returning the photo…",
++            "up_down_change_a_auto" to "%1\$s: Up/Down change, A = Auto",
++            "is_not_adjustable_on_camera" to "%1\$s is not adjustable on camera %2\$s",
++            "is_not_available_on_camera" to "%1\$s is not available on camera %2\$s",
++            "compare_space_saves_jpeg_high" to
++                "Compare: Space saves JPEG, high-res and RAW of the same scene",
++            "compare_off" to "Compare off",
++            "capturing" to "Capturing…",
++            "focus" to "Focus",
++            "no_recordable_video_size_on" to "No recordable video size on camera %1\$s",
++            "starting_2" to "Starting…",
++            "recording" to "Recording",
++            "recording_without_sound" to "Recording without sound",
++            "saved_2" to "Saved %1\$s",
++            "compare_set_saved_files" to "Compare set saved (%1\$s files)",
++            "compare" to "Compare %1\$s/%2\$s: %3\$s",
++            "controls" to "Controls",
++            "quick_review_g_or_the" to "Quick review (G or the thumbnail)",
++            "esc_h_or_a_tap" to
++                "Esc, H or a tap closes this. Touch controls do everything the keys do.",
++            "af_locked_hold_f_again" to "AF locked: hold F again to release",
++            "af_unlocked" to "AF unlocked",
++            "ae_locked_hold_e_again" to "AE locked: hold E again to release",
++            "ae_unlocked" to "AE unlocked",
++            "profile_check" to "Profile check: %1\$s",
++            "for_app" to "%1\$s · FOR APP",
++            "cam_x_ev" to "cam %1\$s · %2\$s%3\$s · %4\$sx · EV %5\$s",
++            "cam_pro_x" to "cam %1\$s · Pro · %2\$sx",
++            "cam_x" to "cam %1\$s · %2\$s · %3\$sx",
++            "no_mic" to " · no mic",
++            "compare_2" to "Compare",
++            "manual" to "Manual",
++            "no_mic_2" to "No mic",
++            "af_l" to " · AF-L",
++            "ae_l" to " · AE-L",
++            "deleted" to "Deleted %1\$s",
++            "could_not_delete" to "Could not delete %1\$s",
++            "no_app_can_share_this" to "No app can share this",
++            "files" to "Files: %1\$s",
++            "files_is_not_available" to "Files is not available",
++            "no_app_can_open_this" to "No app can open this file",
++            "no_preview_size_available_for" to "No preview size available for camera %1\$s",
++            "camera_disconnected" to "Camera disconnected",
++            "camera_error" to "Camera error %1\$s",
++            "cannot_open_camera" to "Cannot open camera %1\$s: %2\$s",
++            "could_not_configure_on_camera" to "Could not configure %1\$s %2\$s on camera %3\$s",
++            "session_failed" to "Session failed: %1\$s",
++            "capture_error" to "Capture error: %1\$s",
++            "capture_failed_reason" to "Capture failed (reason %1\$s)",
++            "could_not_save" to "Could not save %1\$s",
++            "camera_not_open" to "Camera not open",
++            "no_camera_characteristics" to "No camera characteristics",
++            "could_not_create" to "Could not create %1\$s",
++            "recorder_setup_failed" to "Recorder setup failed: %1\$s",
++            "no_preview_size_for_video" to "No preview size for video",
++            "recording_failed_to_start" to "Recording failed to start: %1\$s",
++            "could_not_configure_for_recording" to "Could not configure %1\$s for recording",
++            "recording_was_too_short_to" to "Recording was too short to save",
++            "pro_sets_it_by_hand" to "Pro sets it by hand",
++            "fixed_focus" to "Fixed focus",
++            "no_ae_lock_on_this" to "No AE lock on this camera",
++            "no_here" to "No %1\$s here",
++            "no_recordable_video_size" to "No recordable video size",
++            "only_while_recording" to "Only while recording",
++            "only_one_video_size" to "Only one video size",
++            "only_one_photo_path" to "Only one photo path",
++            "photo_only" to "Photo only",
++            "no_raw_or_high_res" to "No RAW or high-res path",
++            "pro_only" to "Pro only",
++            "no_ev_control" to "No EV control",
++            "single_camera_or_recording" to "Single camera or recording",
++            "single_mode" to "Single mode",
++            "not_while_recording" to "Not while recording",
++            "no_zoom_range" to "No zoom range",
++            "not_adjustable" to "%1\$s not adjustable",
++            "shutter" to "Shutter",
++            "zoom" to "Zoom",
++            "photo" to "Photo",
++            "raw" to "RAW",
++            "video_2" to "Video",
++            "nothing_captured_yet_in_this" to "Nothing captured yet in this session",
++            "kept" to "Kept %1\$s",
++            "oldest_capture_of_this_session" to "Oldest capture of this session",
++            "latest_capture" to "Latest capture",
++            "delete_enter_or_y_deletes" to "Delete %1\$s? Enter or Y deletes, Esc or N keeps",
++            "another_app_is_waiting_for" to "Another app is waiting for one photo",
++            "pro" to "Pro",
++            "no_jpeg_size_larger_than" to "no JPEG size larger than the conventional %1\$s",
++            "requires_system_camera_deferred_until" to
++                "requires SYSTEM_CAMERA; deferred until evidence and access gates pass",
++            "no_jpeg_output_sizes_reported" to "no JPEG output sizes reported",
++            "raw_capability_not_reported_on" to "RAW capability not reported on this camera id",
++            "raw_reported_but_no_raw" to "RAW reported but no RAW_SENSOR output size",
++            "manual_sensor_not_supported" to "MANUAL_SENSOR not supported",
++            "iso_exposure_ranges_not_reported" to "ISO/exposure ranges not reported",
++            "no_validated_camera_profile_for" to
++                "No validated camera profile for '%1\$s': capabilities come only from what this " +
++                "device reports.",
++            "profile_is_research_evidence_not" to
++                "Profile '%1\$s' is research evidence, not validated on this build; treat " +
++                "expectations as hypotheses.",
++            "expected_public_camera_is_not" to
++                "Expected public camera %1\$s (%2\$s) is not visible to an ordinary app.",
++            "camera_reports_expected" to "Camera %1\$s reports %2\$s, expected %3\$s.",
++            "ordinary_app_sees_public_cameras" to
++                "Ordinary app sees %1\$s public cameras; profile expects %2\$s.",
++            "camera_does_not_offer_the" to
++                "Camera %1\$s does not offer the researched high-res JPEG %2\$s.",
++            "camera_does_not_offer_the_2" to
++                "Camera %1\$s does not offer the researched RAW size %2\$s.",
++            "auto" to "Auto",
++            "tungsten" to "Tungsten",
++            "fluor" to "Fluor",
++            "daylight" to "Daylight",
++            "cloudy" to "Cloudy",
++            "space" to "Space",
++            "enter" to "Enter",
++            "camera" to "Camera",
++            "tab" to "Tab",
++            "esc" to "Esc",
++            "back" to "Back",
++            "del" to "Del",
++            "delete" to "Delete",
++            "video_record" to "Video record",
++            "pause" to "Pause",
++            "autofocus" to "Autofocus",
++            "af_lock_on_off" to "AF lock on/off",
++            "ae_lock_on_off" to "AE lock on/off",
++            "exposure" to "Exposure +",
++            "exposure_2" to "Exposure -",
++            "white_balance" to "White balance",
++            "shutter_speed" to "Shutter speed",
++            "zoom_in" to "Zoom in",
++            "zoom_out" to "Zoom out",
++            "back_to_auto" to "Back to Auto",
++            "previous_mode" to "Previous mode",
++            "next_mode" to "Next mode",
++            "switch_camera" to "Switch camera",
++            "photo_size" to "Photo size",
++            "raw_high_res" to "RAW / high-res",
++            "video_quality" to "Video quality",
++            "compare_bracket" to "Compare bracket",
++            "review_last_capture" to "Review last capture",
++            "this_legend" to "This legend",
++            "close_exit" to "Close / exit",
++            "focus_manual" to "Focus (manual)",
++            "exposure_3" to "Exposure",
++            "adjust" to "Adjust +",
++            "adjust_2" to "Adjust -",
++            "record_stop" to "Record / stop",
++            "hold" to "Hold ",
++            "older_capture" to "Older capture",
++            "newer_capture" to "Newer capture",
++            "delete_asks_first" to "Delete (asks first)",
++            "share" to "Share",
++            "show_in_files" to "Show in Files",
++            "open_in_another_app" to "Open in another app",
++            "back_to_the_viewfinder" to "Back to the viewfinder",
++            "delete_it" to "Delete it",
++            "keep_it" to "Keep it",
++            "files_2" to "Files",
++            "open" to "Open",
++            "close" to "Close",
++            "keep" to "Keep",
++            "flip" to "Flip",
++            "size" to "Size",
++            "quality" to "Quality",
++            "last" to "Last",
++            "keys" to "Keys",
++            "trackpad_alt_arrows_change_mode" to "Trackpad: Alt+arrows change mode and zoom"
++        )
++
++    val t = SableTexts(EN)
++}
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/CapabilityInterpreter.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/CapabilityInterpreter.kt
+index c1f078e..b206533 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/CapabilityInterpreter.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/CapabilityInterpreter.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.titan2.camera.core
+ 
++import org.sableos.titan2.camera.core.CameraText.t
++
+ object CapabilityInterpreter {
+     private const val ASPECT_TOLERANCE = 0.02
+     private const val DEFAULT_ASPECT = 4.0 / 3.0
+@@ -59,7 +61,7 @@ object CapabilityInterpreter {
+         modes[CaptureMode.HighRes] = if (bestHigh != null) {
+             ModeAvailability.Available
+         } else {
+-            ModeAvailability.Unavailable("no JPEG size larger than the conventional $bestJpeg")
++            ModeAvailability.Unavailable(t("no_jpeg_size_larger_than", bestJpeg))
+         }
+         modes[CaptureMode.Raw] = rawAvailability(c, bestRaw)
+         modes[CaptureMode.Pro] = proAvailability(c)
+@@ -67,7 +69,7 @@ object CapabilityInterpreter {
+         // from the ordinary public-id path.
+         modes[CaptureMode.Tele] =
+             ModeAvailability.Unavailable(
+-                "requires SYSTEM_CAMERA; deferred until evidence and access gates pass"
++                t("requires_system_camera_deferred_until")
+             )
+         return CameraReport(
+             c,
+@@ -83,24 +85,24 @@ object CapabilityInterpreter {
+     private fun autoAvailability(c: CameraInfo): ModeAvailability = if (c.jpegSizes.isNotEmpty()) {
+         ModeAvailability.Available
+     } else {
+-        ModeAvailability.Unavailable("no JPEG output sizes reported")
++        ModeAvailability.Unavailable(t("no_jpeg_output_sizes_reported"))
+     }
+ 
+     private fun rawAvailability(c: CameraInfo, bestRaw: Size?): ModeAvailability = when {
+-        !c.hasRaw -> ModeAvailability.Unavailable("RAW capability not reported on this camera id")
++        !c.hasRaw -> ModeAvailability.Unavailable(t("raw_capability_not_reported_on"))
+ 
+         bestRaw == null -> ModeAvailability.Unavailable(
+-            "RAW reported but no RAW_SENSOR output size"
++            t("raw_reported_but_no_raw")
+         )
+ 
+         else -> ModeAvailability.Available
+     }
+ 
+     private fun proAvailability(c: CameraInfo): ModeAvailability = when {
+-        !c.manualSensor -> ModeAvailability.Unavailable("MANUAL_SENSOR not supported")
++        !c.manualSensor -> ModeAvailability.Unavailable(t("manual_sensor_not_supported"))
+ 
+         c.isoRange == null || c.exposureNsRange == null ->
+-            ModeAvailability.Unavailable("ISO/exposure ranges not reported")
++            ModeAvailability.Unavailable(t("iso_exposure_ranges_not_reported"))
+ 
+         else -> ModeAvailability.Available
+     }
+@@ -111,8 +113,7 @@ object CapabilityInterpreter {
+                 Mismatch(
+                     MismatchKind.Note,
+                     null,
+-                    "No validated camera profile for '${p.id}': " +
+-                        "capabilities come only from what this device reports."
++                    t("no_validated_camera_profile_for", p.id)
+                 )
+             )
+         }
+@@ -126,8 +127,7 @@ object CapabilityInterpreter {
+                 Mismatch(
+                     MismatchKind.Note,
+                     null,
+-                    "Profile '${p.id}' is research evidence, not validated on this build; " +
+-                        "treat expectations as hypotheses."
++                    t("profile_is_research_evidence_not", p.id)
+                 )
+         }
+         return out
+@@ -146,14 +146,14 @@ object CapabilityInterpreter {
+                     Mismatch(
+                         MismatchKind.MissingCamera,
+                         id,
+-                        "Expected public camera $id ($facing) is not visible to an ordinary app."
++                        t("expected_public_camera_is_not", id, facing)
+                     )
+             } else if (c.facing != facing) {
+                 out +=
+                     Mismatch(
+                         MismatchKind.MissingCamera,
+                         id,
+-                        "Camera $id reports ${c.facing}, expected $facing."
++                        t("camera_reports_expected", id, c.facing, facing)
+                     )
+             }
+         }
+@@ -162,8 +162,7 @@ object CapabilityInterpreter {
+                 Mismatch(
+                     MismatchKind.UnexpectedCameraCount,
+                     null,
+-                    "Ordinary app sees ${cams.size} public cameras; " +
+-                        "profile expects ${p.expectedPublicIds.size}."
++                    t("ordinary_app_sees_public_cameras", cams.size, p.expectedPublicIds.size)
+                 )
+         }
+         return out
+@@ -183,7 +182,7 @@ object CapabilityInterpreter {
+                     Mismatch(
+                         MismatchKind.MissingHighRes,
+                         id,
+-                        "Camera $id does not offer the researched high-res JPEG $want."
++                        t("camera_does_not_offer_the", id, want)
+                     )
+             }
+         }
+@@ -199,7 +198,7 @@ object CapabilityInterpreter {
+                     Mismatch(
+                         MismatchKind.MissingRaw,
+                         id,
+-                        "Camera $id does not offer the researched RAW size $want."
++                        t("camera_does_not_offer_the_2", id, want)
+                     )
+             }
+         }
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlDeck.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlDeck.kt
+index 5783d5f..332c088 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlDeck.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlDeck.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.titan2.camera.core
+ 
++import org.sableos.titan2.camera.core.CameraText.t
++
+ /**
+  * Sable Camera Control Deck, source architecture (docs/SABLE_CAMERA_CONTROL_DECK.md).
+  *
+@@ -66,37 +68,40 @@ object ControlGate {
+     /** Hold-F/hold-E locks belong to the auto camera; Pro sets focus and exposure by hand. */
+     private fun lockGate(a: CameraAction, c: DeckContext): Gate? = when {
+         a != CameraAction.AfLockToggle && a != CameraAction.AeLockToggle -> null
+-        c.ui == UiMode.Pro -> Gate.Closed("Pro sets it by hand")
+-        a == CameraAction.AfLockToggle -> need(hasAf(c.cam), "Fixed focus")
+-        else -> need(c.cam.camera.aeLockAvailable, "No AE lock on this camera")
++        c.ui == UiMode.Pro -> Gate.Closed(t("pro_sets_it_by_hand"))
++        a == CameraAction.AfLockToggle -> need(hasAf(c.cam), t("fixed_focus"))
++        else -> need(c.cam.camera.aeLockAvailable, t("no_ae_lock_on_this"))
+     }
+ 
+     private fun captureGate(a: CameraAction, c: DeckContext): Gate? = when (a) {
+-        CameraAction.Shutter -> need(c.ui in ActionRouter.available(c.cam), "No ${c.ui.label} here")
++        CameraAction.Shutter -> need(
++            c.ui in ActionRouter.available(c.cam),
++            t("no_here", c.ui.label)
++        )
+ 
+         CameraAction.VideoToggle ->
+-            need(UiMode.Video in ActionRouter.available(c.cam), "No recordable video size")
++            need(UiMode.Video in ActionRouter.available(c.cam), t("no_recordable_video_size"))
+ 
+         CameraAction.PauseToggle ->
+-            need(c.ui == UiMode.Video && c.recording, "Only while recording")
++            need(c.ui == UiMode.Video && c.recording, t("only_while_recording"))
+ 
+         CameraAction.QualityNext -> need(
+             c.ui == UiMode.Video && !c.recording &&
+                 VideoPlanner.options(c.cam.camera.videoSizes).size > 1,
+-            "Only one video size"
++            t("only_one_video_size")
+         )
+ 
+         CameraAction.NextCaptureMode -> need(
+             c.ui == UiMode.Photo && photoPaths(c.cam) > 1,
+-            "Only one photo path"
++            t("only_one_photo_path")
+         )
+ 
+-        CameraAction.CompareToggle -> need(c.ui == UiMode.Photo, "Photo only")
++        CameraAction.CompareToggle -> need(c.ui == UiMode.Photo, t("photo_only"))
+ 
+         CameraAction.RawToggle -> if (c.ui == UiMode.Photo) {
+-            need(PhotoPath.rawToggle(CaptureMode.Auto, c.cam) != null, "No RAW or high-res path")
++            need(PhotoPath.rawToggle(CaptureMode.Auto, c.cam) != null, t("no_raw_or_high_res"))
+         } else {
+-            Gate.Closed("Photo only")
++            Gate.Closed(t("photo_only"))
+         }
+ 
+         else -> null
+@@ -114,32 +119,32 @@ object ControlGate {
+ 
+         CameraAction.SelectShutter -> pro(ProField.Shutter, c)
+ 
+-        CameraAction.ProAuto -> need(c.ui == UiMode.Pro, "Pro only")
++        CameraAction.ProAuto -> need(c.ui == UiMode.Pro, t("pro_only"))
+ 
+         CameraAction.ExposureUp, CameraAction.ExposureDown ->
+-            if (c.ui == UiMode.Pro) pro(ProField.Ev, c) else need(hasEv(c.cam), "No EV control")
++            if (c.ui == UiMode.Pro) pro(ProField.Ev, c) else need(hasEv(c.cam), t("no_ev_control"))
+ 
+         CameraAction.Autofocus ->
+-            if (c.ui == UiMode.Pro) pro(ProField.Focus, c) else need(hasAf(c.cam), "Fixed focus")
++            if (c.ui == UiMode.Pro) pro(ProField.Focus, c) else need(hasAf(c.cam), t("fixed_focus"))
+ 
+         else -> null
+     }
+ 
+     private fun navigationGate(a: CameraAction, c: DeckContext): Gate = when (a) {
+         CameraAction.SwitchCamera ->
+-            need(c.cameraCount > 1 && !c.recording, "Single camera or recording")
++            need(c.cameraCount > 1 && !c.recording, t("single_camera_or_recording"))
+ 
+         CameraAction.NextMode, CameraAction.PrevMode ->
+-            need(ActionRouter.available(c.cam).size > 1 && !c.recording, "Single mode")
++            need(ActionRouter.available(c.cam).size > 1 && !c.recording, t("single_mode"))
+ 
+-        CameraAction.OpenLast -> need(!c.recording, "Not while recording")
++        CameraAction.OpenLast -> need(!c.recording, t("not_while_recording"))
+ 
+         else -> Gate.Open
+     }
+ 
+     private fun need(ok: Boolean, reason: String): Gate = if (ok) Gate.Open else Gate.Closed(reason)
+ 
+-    private fun zoom(c: DeckContext) = need(c.cam.zoomSteps.size > 1, "No zoom range")
++    private fun zoom(c: DeckContext) = need(c.cam.zoomSteps.size > 1, t("no_zoom_range"))
+ 
+     private fun hasEv(r: CameraReport) = r.camera.aeCompensationSteps?.let { it.hi > it.lo } == true
+ 
+@@ -153,7 +158,7 @@ object ControlGate {
+ 
+     private fun pro(f: ProField, c: DeckContext): Gate = need(
+         c.ui == UiMode.Pro && ProLimits.of(c.cam.camera).offers(f),
+-        "${f.label} not adjustable"
++        t("not_adjustable", f.label)
+     )
+ }
+ 
+@@ -193,14 +198,14 @@ object ParameterStrips {
+             ProField.Iso -> ladder("ISO", s.iso, ProControls.isoLadder(l.iso!!), Int::toString)
+ 
+             ProField.Shutter -> ladder(
+-                "Shutter",
++                t("shutter"),
+                 s.shutterNs,
+                 ProControls.shutterLadder(l.exposureNs!!),
+                 ProControls::shutterLabel
+             )
+ 
+             ProField.Focus -> ladder(
+-                "Focus",
++                t("focus"),
+                 s.focusDiopters,
+                 ProControls.focusLadder(l.minFocusDiopters),
+                 ProControls::focusLabel
+@@ -241,7 +246,7 @@ object ParameterStrips {
+         val stops = cam.zoomSteps
+         if (stops.size <= 1) return null
+         val idx = stops.indices.minBy { kotlin.math.abs(stops[it] - current) }
+-        return ParameterStrip("Zoom", stops.map { zoomLabel(it) }, idx, false)
++        return ParameterStrip(t("zoom"), stops.map { zoomLabel(it) }, idx, false)
+     }
+ 
+     private fun zoomLabel(z: Float) = if (z ==
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlLegend.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlLegend.kt
+index 11333de..fddb449 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlLegend.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ControlLegend.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.titan2.camera.core
+ 
++import org.sableos.titan2.camera.core.CameraText.t
++
+ /** One legend line: the keys that really resolve to [action], what it does, and its gate. */
+ data class LegendEntry(
+     val keys: String,
+@@ -14,12 +16,12 @@ data class LegendEntry(
+  * rather than hidden. Func1/Func2 never appear because nothing binds them.
+  */
+ object ControlLegend {
+-    private val displayName = mapOf(
+-        "space" to "Space", "enter" to "Enter", "camera" to "Camera", "up" to "↑",
++    private val displayName get() = mapOf(
++        "space" to t("space"), "enter" to t("enter"), "camera" to t("camera"), "up" to "↑",
+         "down" to "↓", "left" to "←", "right" to "→", "plus" to "+", "minus" to "-",
+-        "tab" to "Tab", "escape" to "Esc", "back" to "Back", "slash" to "/",
+-        "volume_up" to "Vol+", "volume_down" to "Vol-", "backspace" to "Del",
+-        "delete" to "Delete"
++        "tab" to t("tab"), "escape" to t("esc"), "back" to t("back"), "slash" to "/",
++        "volume_up" to "Vol+", "volume_down" to "Vol-", "backspace" to t("del"),
++        "delete" to t("delete")
+     )
+ 
+     /** Display order; every action appears once. */
+@@ -36,43 +38,43 @@ object ControlLegend {
+         CameraAction.ToggleLegend, CameraAction.Back
+     )
+ 
+-    private val baseLabels = mapOf(
+-        CameraAction.Shutter to "Shutter",
+-        CameraAction.VideoToggle to "Video record",
+-        CameraAction.PauseToggle to "Pause",
+-        CameraAction.Autofocus to "Autofocus",
+-        CameraAction.AfLockToggle to "AF lock on/off",
+-        CameraAction.AeLockToggle to "AE lock on/off",
+-        CameraAction.ExposureUp to "Exposure +",
+-        CameraAction.ExposureDown to "Exposure -",
++    private val baseLabels get() = mapOf(
++        CameraAction.Shutter to t("shutter"),
++        CameraAction.VideoToggle to t("video_record"),
++        CameraAction.PauseToggle to t("pause"),
++        CameraAction.Autofocus to t("autofocus"),
++        CameraAction.AfLockToggle to t("af_lock_on_off"),
++        CameraAction.AeLockToggle to t("ae_lock_on_off"),
++        CameraAction.ExposureUp to t("exposure"),
++        CameraAction.ExposureDown to t("exposure_2"),
+         CameraAction.SelectIso to "ISO",
+-        CameraAction.SelectWb to "White balance",
+-        CameraAction.SelectShutter to "Shutter speed",
+-        CameraAction.StepUp to "Zoom in",
+-        CameraAction.StepDown to "Zoom out",
+-        CameraAction.ProAuto to "Back to Auto",
+-        CameraAction.ZoomIn to "Zoom in",
+-        CameraAction.ZoomOut to "Zoom out",
+-        CameraAction.PrevMode to "Previous mode",
+-        CameraAction.NextMode to "Next mode",
+-        CameraAction.SwitchCamera to "Switch camera",
+-        CameraAction.NextCaptureMode to "Photo size",
+-        CameraAction.RawToggle to "RAW / high-res",
+-        CameraAction.QualityNext to "Video quality",
+-        CameraAction.CompareToggle to "Compare bracket",
+-        CameraAction.OpenLast to "Review last capture",
+-        CameraAction.ToggleLegend to "This legend",
+-        CameraAction.Back to "Close / exit"
++        CameraAction.SelectWb to t("white_balance"),
++        CameraAction.SelectShutter to t("shutter_speed"),
++        CameraAction.StepUp to t("zoom_in"),
++        CameraAction.StepDown to t("zoom_out"),
++        CameraAction.ProAuto to t("back_to_auto"),
++        CameraAction.ZoomIn to t("zoom_in"),
++        CameraAction.ZoomOut to t("zoom_out"),
++        CameraAction.PrevMode to t("previous_mode"),
++        CameraAction.NextMode to t("next_mode"),
++        CameraAction.SwitchCamera to t("switch_camera"),
++        CameraAction.NextCaptureMode to t("photo_size"),
++        CameraAction.RawToggle to t("raw_high_res"),
++        CameraAction.QualityNext to t("video_quality"),
++        CameraAction.CompareToggle to t("compare_bracket"),
++        CameraAction.OpenLast to t("review_last_capture"),
++        CameraAction.ToggleLegend to t("this_legend"),
++        CameraAction.Back to t("close_exit")
+     )
+ 
+-    private val proLabels = mapOf(
+-        CameraAction.Autofocus to "Focus (manual)",
+-        CameraAction.ExposureUp to "Exposure",
+-        CameraAction.StepUp to "Adjust +",
+-        CameraAction.StepDown to "Adjust -"
++    private val proLabels get() = mapOf(
++        CameraAction.Autofocus to t("focus_manual"),
++        CameraAction.ExposureUp to t("exposure_3"),
++        CameraAction.StepUp to t("adjust"),
++        CameraAction.StepDown to t("adjust_2")
+     )
+ 
+-    private val videoLabels = mapOf(CameraAction.Shutter to "Record / stop")
++    private val videoLabels get() = mapOf(CameraAction.Shutter to t("record_stop"))
+ 
+     fun label(a: CameraAction, ui: UiMode): String = when (ui) {
+         UiMode.Pro -> proLabels[a]
+@@ -90,7 +92,7 @@ object ControlLegend {
+         .filter { ArrowGuard.shown(it, profile) }
+         .sortedWith(compareBy({ it.hold }, { it.alt }, { it.key }))
+ 
+-    fun keyText(b: Binding): String = (if (b.hold) "Hold " else "") +
++    fun keyText(b: Binding): String = (if (b.hold) t("hold") else "") +
+         (if (b.alt) "Alt+" else "") + (displayName[b.key] ?: b.key.uppercase())
+ 
+     private val reviewOrder = listOf(
+@@ -103,16 +105,16 @@ object ControlLegend {
+         ReviewAction.Close
+     )
+ 
+-    private val reviewLabels = mapOf(
+-        ReviewAction.Older to "Older capture",
+-        ReviewAction.Newer to "Newer capture",
+-        ReviewAction.Delete to "Delete (asks first)",
+-        ReviewAction.Share to "Share",
+-        ReviewAction.ShowInFiles to "Show in Files",
+-        ReviewAction.Open to "Open in another app",
+-        ReviewAction.Close to "Back to the viewfinder",
+-        ReviewAction.Confirm to "Delete it",
+-        ReviewAction.Cancel to "Keep it"
++    private val reviewLabels get() = mapOf(
++        ReviewAction.Older to t("older_capture"),
++        ReviewAction.Newer to t("newer_capture"),
++        ReviewAction.Delete to t("delete_asks_first"),
++        ReviewAction.Share to t("share"),
++        ReviewAction.ShowInFiles to t("show_in_files"),
++        ReviewAction.Open to t("open_in_another_app"),
++        ReviewAction.Close to t("back_to_the_viewfinder"),
++        ReviewAction.Confirm to t("delete_it"),
++        ReviewAction.Cancel to t("keep_it")
+     )
+ 
+     fun reviewLabel(a: ReviewAction): String = reviewLabels.getValue(a)
+@@ -154,19 +156,19 @@ object ControlLegend {
+ 
+ /** On-screen buttons of the quick review: the same [ReviewAction]s the keys reach. */
+ object ReviewTouch {
+-    val browse: List<Pair<ReviewAction, String>> = listOf(
++    val browse: List<Pair<ReviewAction, String>> get() = listOf(
+         ReviewAction.Older to "◀",
+         ReviewAction.Newer to "▶",
+-        ReviewAction.Delete to "Delete",
+-        ReviewAction.Share to "Share",
+-        ReviewAction.ShowInFiles to "Files",
+-        ReviewAction.Open to "Open",
+-        ReviewAction.Close to "Close"
++        ReviewAction.Delete to t("delete"),
++        ReviewAction.Share to t("share"),
++        ReviewAction.ShowInFiles to t("files_2"),
++        ReviewAction.Open to t("open"),
++        ReviewAction.Close to t("close")
+     )
+ 
+-    val confirm: List<Pair<ReviewAction, String>> = listOf(
+-        ReviewAction.Confirm to "Delete",
+-        ReviewAction.Cancel to "Keep"
++    val confirm: List<Pair<ReviewAction, String>> get() = listOf(
++        ReviewAction.Confirm to t("delete"),
++        ReviewAction.Cancel to t("keep")
+     )
+ }
+ 
+@@ -177,10 +179,10 @@ object TouchFallback {
+     /** Back is the system back gesture/button; every other action has an on-screen control. */
+     val systemProvided: Set<CameraAction> = setOf(CameraAction.Back)
+ 
+-    private val labels = mapOf(
+-        CameraAction.Shutter to "Shutter",
+-        CameraAction.VideoToggle to "Video",
+-        CameraAction.PauseToggle to "Pause",
++    private val labels get() = mapOf(
++        CameraAction.Shutter to t("shutter"),
++        CameraAction.VideoToggle to t("video_2"),
++        CameraAction.PauseToggle to t("pause"),
+         CameraAction.Autofocus to "AF",
+         CameraAction.AfLockToggle to "AF-L",
+         CameraAction.AeLockToggle to "AE-L",
+@@ -191,17 +193,17 @@ object TouchFallback {
+         CameraAction.SelectShutter to "S",
+         CameraAction.StepUp to "▲",
+         CameraAction.StepDown to "▼",
+-        CameraAction.ProAuto to "Auto",
++        CameraAction.ProAuto to t("auto"),
+         CameraAction.ZoomIn to "+",
+         CameraAction.ZoomOut to "-",
+         CameraAction.PrevMode to "◀",
+         CameraAction.NextMode to "▶",
+-        CameraAction.SwitchCamera to "Flip",
+-        CameraAction.NextCaptureMode to "Size",
++        CameraAction.SwitchCamera to t("flip"),
++        CameraAction.NextCaptureMode to t("size"),
+         CameraAction.RawToggle to "RAW",
+-        CameraAction.QualityNext to "Quality",
+-        CameraAction.CompareToggle to "Compare",
+-        CameraAction.OpenLast to "Last",
++        CameraAction.QualityNext to t("quality"),
++        CameraAction.CompareToggle to t("compare_2"),
++        CameraAction.OpenLast to t("last"),
+         CameraAction.ToggleLegend to "?"
+     )
+ 
+@@ -248,12 +250,12 @@ object HintDock {
+     )
+ 
+     private val shortLabels = mapOf(
+-        CameraAction.ZoomIn to "Zoom",
++        CameraAction.ZoomIn to t("zoom"),
+         CameraAction.RawToggle to "RAW/HiRes",
+-        CameraAction.ToggleLegend to "Keys",
+-        CameraAction.ExposureUp to "Exposure",
+-        CameraAction.Autofocus to "Focus",
+-        CameraAction.QualityNext to "Quality"
++        CameraAction.ToggleLegend to t("keys"),
++        CameraAction.ExposureUp to t("exposure_3"),
++        CameraAction.Autofocus to t("focus"),
++        CameraAction.QualityNext to t("quality")
+     )
+ 
+     /** Bindings of the dock for [ui], before gating (tests check each resolves to its action). */
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/KeyMap.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/KeyMap.kt
+index 64637de..b710cad 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/KeyMap.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/KeyMap.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.titan2.camera.core
+ 
++import org.sableos.titan2.camera.core.CameraText.t
++
+ enum class CameraAction {
+     Shutter,
+     Autofocus,
+@@ -134,7 +136,7 @@ object ArrowGuard {
+     fun shown(b: Binding, profile: CameraDeviceProfile): Boolean =
+         !(profile.trackpadArrows && !b.alt && b.key in arrows)
+ 
+-    const val HINT = "Trackpad: Alt+arrows change mode and zoom"
++    val HINT: String get() = t("trackpad_alt_arrows_change_mode")
+ }
+ 
+ /**
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/LaunchIntent.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/LaunchIntent.kt
+index c830c10..66f5ff4 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/LaunchIntent.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/LaunchIntent.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.titan2.camera.core
+ 
++import org.sableos.titan2.camera.core.CameraText.t
++
+ /** How the camera was started. */
+ enum class LaunchKind {
+     /** Launcher, Sable Start or an explicit start: the full camera. */
+@@ -46,7 +48,7 @@ object LaunchIntent {
+     fun allows(kind: LaunchKind, a: CameraAction): Boolean =
+         kind != LaunchKind.ImageCapture || a !in notForCapture
+ 
+-    const val CAPTURE_REFUSED = "Another app is waiting for one photo"
++    val CAPTURE_REFUSED: String get() = t("another_app_is_waiting_for")
+ 
+     /** The longest edge of the bitmap returned when the caller gave no EXTRA_OUTPUT. */
+     const val THUMBNAIL_EDGE_PX = 512
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ProControls.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ProControls.kt
+index c37bf57..954e920 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ProControls.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/ProControls.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.titan2.camera.core
+ 
++import org.sableos.titan2.camera.core.CameraText.t
++
+ /** The five stock Pro-mode fields (WB, ISO, EV, S, F), in the order the stock strip shows them. */
+ enum class ProField(val label: String) { Wb("WB"), Iso("ISO"), Ev("EV"), Shutter("S"), Focus("F") }
+ 
+@@ -10,12 +12,14 @@ private const val AWB_MODE_DAYLIGHT = 5
+ private const val AWB_MODE_CLOUDY_DAYLIGHT = 6
+ 
+ /** Raw CONTROL_AWB_MODE_* ints are kept here so the core stays JVM-testable. */
+-enum class WbPreset(val label: String, val awbMode: Int) {
+-    Auto("Auto", AWB_MODE_AUTO),
+-    Tungsten("Tungsten", AWB_MODE_INCANDESCENT),
+-    Fluorescent("Fluor", AWB_MODE_FLUORESCENT),
+-    Daylight("Daylight", AWB_MODE_DAYLIGHT),
+-    Cloudy("Cloudy", AWB_MODE_CLOUDY_DAYLIGHT)
++enum class WbPreset(private val labelKey: String, val awbMode: Int) {
++    Auto("auto", AWB_MODE_AUTO),
++    Tungsten("tungsten", AWB_MODE_INCANDESCENT),
++    Fluorescent("fluor", AWB_MODE_FLUORESCENT),
++    Daylight("daylight", AWB_MODE_DAYLIGHT),
++    Cloudy("cloudy", AWB_MODE_CLOUDY_DAYLIGHT);
++
++    val label: String get() = t(labelKey)
+ }
+ 
+ /** Limits read from one camera. `null`/empty means "this control is not offered", never "assume a default". */
+@@ -244,10 +248,10 @@ object ProControls {
+     /** Text for one HUD cell: "Auto" or the manual value. */
+     fun valueLabel(s: ProState, f: ProField, l: ProLimits): String = when (f) {
+         ProField.Wb -> s.wb.label
+-        ProField.Iso -> s.iso?.toString() ?: "Auto"
+-        ProField.Shutter -> s.shutterNs?.let { shutterLabel(it) } ?: "Auto"
++        ProField.Iso -> s.iso?.toString() ?: t("auto")
++        ProField.Shutter -> s.shutterNs?.let { shutterLabel(it) } ?: t("auto")
+         ProField.Ev -> if (s.manualExposure) "–" else EvLabels.of(s.evSteps, l.evStep)
+-        ProField.Focus -> s.focusDiopters?.let { focusLabel(it) } ?: "Auto"
++        ProField.Focus -> s.focusDiopters?.let { focusLabel(it) } ?: t("auto")
+     }
+ }
+ 
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/QuickReview.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/QuickReview.kt
+index 269855f..117ffa1 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/QuickReview.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/QuickReview.kt
+@@ -1,10 +1,14 @@
+ package org.sableos.titan2.camera.core
+ 
++import org.sableos.titan2.camera.core.CameraText.t
++
+ /** What a saved file is, from its MIME type. Decides the share type and the review placeholder. */
+-enum class CaptureKind(val label: String) {
+-    Photo("Photo"),
+-    Raw("RAW"),
+-    Video("Video");
++enum class CaptureKind(private val labelKey: String) {
++    Photo("photo"),
++    Raw("raw"),
++    Video("video_2");
++
++    val label: String get() = t(labelKey)
+ 
+     companion object {
+         fun ofMime(mime: String): CaptureKind = when {
+@@ -85,7 +89,7 @@ object QuickReview {
+ 
+     /** G or the thumbnail: show the latest capture, or say there is none yet. */
+     fun <T> open(s: ReviewState<T>): ReviewStep<T> = if (s.captures.isEmpty()) {
+-        ReviewStep(s, status = "Nothing captured yet in this session")
++        ReviewStep(s, status = t("nothing_captured_yet_in_this"))
+     } else {
+         ReviewStep(s.copy(open = true, index = s.captures.lastIndex, confirmingDelete = false))
+     }
+@@ -109,16 +113,16 @@ object QuickReview {
+                 ReviewStep(s.copy(confirmingDelete = false), ReviewEffect.Delete(c))
+ 
+             ReviewAction.Cancel, ReviewAction.Close ->
+-                ReviewStep(s.copy(confirmingDelete = false), status = "Kept ${c.name}")
++                ReviewStep(s.copy(confirmingDelete = false), status = t("kept", c.name))
+ 
+             else -> ReviewStep(s, status = confirmText(c))
+         }
+ 
+     private fun <T> browsing(s: ReviewState<T>, c: Capture<T>, a: ReviewAction): ReviewStep<T> =
+         when (a) {
+-            ReviewAction.Older -> step(s, -1, "Oldest capture of this session")
++            ReviewAction.Older -> step(s, -1, t("oldest_capture_of_this_session"))
+ 
+-            ReviewAction.Newer -> step(s, 1, "Latest capture")
++            ReviewAction.Newer -> step(s, 1, t("latest_capture"))
+ 
+             ReviewAction.Delete ->
+                 ReviewStep(s.copy(confirmingDelete = true), status = confirmText(c))
+@@ -143,7 +147,7 @@ object QuickReview {
+         }
+     }
+ 
+-    fun confirmText(c: Capture<*>): String = "Delete ${c.name}? Enter or Y deletes, Esc or N keeps"
++    fun confirmText(c: Capture<*>): String = t("delete_enter_or_y_deletes", c.name)
+ 
+     /**
+      * After the file is gone: drop it and show its newer neighbour (or the new latest). The
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/MainActivity.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/MainActivity.kt
+index 4425ecd..a363f3d 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/MainActivity.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/MainActivity.kt
+@@ -67,6 +67,7 @@ import org.sableos.titan2.camera.core.ArrowGuard
+ import org.sableos.titan2.camera.core.BackResult
+ import org.sableos.titan2.camera.core.CameraAction
+ import org.sableos.titan2.camera.core.CameraDeviceProfile
++import org.sableos.titan2.camera.core.CameraText.t
+ import org.sableos.titan2.camera.core.CapabilityInterpreter
+ import org.sableos.titan2.camera.core.CapabilityReport
+ import org.sableos.titan2.camera.core.CaptureMode
+@@ -134,7 +135,7 @@ class MainActivity : ComponentActivity() {
+     private var videoOption by mutableStateOf<VideoOption?>(null)
+     private var micGranted = false
+     private var compare by mutableStateOf(false)
+-    private var status by mutableStateOf("Starting")
++    private var status by mutableStateOf(t("starting"))
+     private var hud by mutableStateOf("")
+     private var previewAspect by mutableStateOf(3f / 4f)
+     private var rotation by mutableStateOf(Surface.ROTATION_0)
+@@ -196,7 +197,7 @@ class MainActivity : ComponentActivity() {
+             loadCapabilities()
+         } else {
+             status =
+-                "Camera permission is required."
++                t("camera_permission_is_required")
+         }
+     }
+ 
+@@ -218,7 +219,7 @@ class MainActivity : ComponentActivity() {
+         camId =
+             rep.defaultCamera()?.camera?.id
+                 ?: run {
+-                    status = "No camera visible to this app."
++                    status = t("no_camera_visible_to_this")
+                     return
+                 }
+         resetForCamera()
+@@ -254,11 +255,11 @@ class MainActivity : ComponentActivity() {
+         val plan = CapturePlanner.single(rep, photoMode)
+         val video = uiMode == UiMode.Video
+         val label = if (video) {
+-            "video ${videoOption?.label ?: "?"}"
++            t("video", videoOption?.label ?: "?")
+         } else {
+             "${plan.kind.suffix} ${plan.size}"
+         }
+-        status = "Opening camera $camId ($label)"
++        status = t("opening_camera", camId, label)
+         controller.setPro(if (uiMode == UiMode.Pro) proState else null, proLimits())
+         controller.configure(
+             rep,
+@@ -273,7 +274,7 @@ class MainActivity : ComponentActivity() {
+         onReady = {
+             runOnUiThread {
+                 busy = false
+-                status = "Ready"
++                status = t("ready")
+                 controller.previewSize?.let { updateAspect(it, rep.camera.sensorOrientation) }
+                 refreshHud()
+             }
+@@ -281,10 +282,10 @@ class MainActivity : ComponentActivity() {
+         onSaved = { saved ->
+             runOnUiThread {
+                 busy = false
+-                status = "Saved ${saved.name}  ${saved.detail}"
++                status = t("saved", saved.name, saved.detail)
+                 val returned = captureIntent.returnCapture(saved) {
+                     busy = true
+-                    status = "Returning the photo…"
++                    status = t("returning_the_photo")
+                 }
+                 if (!returned) review.remember(saved)
+             }
+@@ -398,7 +399,7 @@ class MainActivity : ComponentActivity() {
+ 
+             is Cmd.ProSelect -> {
+                 proField = cmd.field
+-                status = "${cmd.field.label}: Up/Down change, A = Auto"
++                status = t("up_down_change_a_auto", cmd.field.label)
+             }
+ 
+             is Cmd.ProStep -> stepPro(cmd.dir)
+@@ -414,7 +415,7 @@ class MainActivity : ComponentActivity() {
+         if (l.offers(proField)) {
+             setPro(ProControls.adjust(proState, proField, dir, l, controller.autoSeed()))
+         } else {
+-            status = "${proField.label} is not adjustable on camera $camId"
++            status = t("is_not_adjustable_on_camera", proField.label, camId)
+         }
+     }
+ 
+@@ -425,7 +426,7 @@ class MainActivity : ComponentActivity() {
+             if (m !=
+                 uiMode
+             ) {
+-                status = "${m.label} is not available on camera $camId"
++                status = t("is_not_available_on_camera", m.label, camId)
+             }
+             return
+         }
+@@ -503,9 +504,9 @@ class MainActivity : ComponentActivity() {
+                 compare = !compare
+                 refreshHud()
+                 status = if (compare) {
+-                    "Compare: Space saves JPEG, high-res and RAW of the same scene"
++                    t("compare_space_saves_jpeg_high")
+                 } else {
+-                    "Compare off"
++                    t("compare_off")
+                 }
+             }
+ 
+@@ -519,7 +520,7 @@ class MainActivity : ComponentActivity() {
+         if (compare) {
+             runBracket()
+         } else {
+-            status = "Capturing…"
++            status = t("capturing")
+             controller.takePicture(degrees())
+         }
+     }
+@@ -537,7 +538,7 @@ class MainActivity : ComponentActivity() {
+         when (a) {
+             CameraAction.Autofocus -> {
+                 controller.triggerFocus()
+-                status = "Focus"
++                status = t("focus")
+                 refreshHud()
+             }
+ 
+@@ -573,12 +574,12 @@ class MainActivity : ComponentActivity() {
+     private fun toggleRecording() {
+         val opt =
+             videoOption ?: run {
+-                status = "No recordable video size on camera $camId"
++                status = t("no_recordable_video_size_on", camId)
+                 return
+             }
+         val tex = texture ?: return
+         if (recState == RecState.Idle) {
+-            status = "Starting…"
++            status = t("starting_2")
+             controller.video.start(
+                 RecordingSpec(opt, micGranted, degrees()),
+                 tex,
+@@ -587,7 +588,7 @@ class MainActivity : ComponentActivity() {
+                         recState =
+                             RecStateMachine.reduce(RecState.Idle, RecEvent.ToggleRecord)
+                         status =
+-                            if (micGranted) "Recording" else "Recording without sound"
++                            if (micGranted) t("recording") else t("recording_without_sound")
+                     }
+                 },
+                 onErrorCb = { msg ->
+@@ -605,7 +606,7 @@ class MainActivity : ComponentActivity() {
+                     runOnUiThread {
+                         recState = RecState.Idle
+                         status =
+-                            "Saved ${saved.name}"
++                            t("saved_2", saved.name)
+                         review.remember(saved)
+                         restart()
+                     }
+@@ -631,13 +632,13 @@ class MainActivity : ComponentActivity() {
+                 runOnUiThread {
+                     busy = false
+                     status =
+-                        "Compare set saved (${plans.size} files)"
++                        t("compare_set_saved_files", plans.size)
+                     restart()
+                 }
+                 return
+             }
+             val p = plans[i++]
+-            runOnUiThread { status = "Compare $i/${plans.size}: ${p.kind.suffix}" }
++            runOnUiThread { status = t("compare", i, plans.size, p.kind.suffix) }
+             controller.configure(
+                 cam,
+                 p,
+@@ -954,7 +955,7 @@ fun ControlLegendOverlay(
+         Column(
+             Modifier.align(Alignment.Center).verticalScroll(rememberScrollState()).padding(16.dp)
+         ) {
+-            Text("Controls", color = deckAccent, fontSize = 16.sp)
++            Text(t("controls"), color = deckAccent, fontSize = 16.sp)
+             note?.let { Text(it, color = deckMuted, fontSize = 12.sp) }
+             entries.forEach { e ->
+                 val closed = e.gate as? Gate.Closed
+@@ -974,7 +975,7 @@ fun ControlLegendOverlay(
+                 }
+             }
+             Text(
+-                "Quick review (G or the thumbnail)",
++                t("quick_review_g_or_the"),
+                 color = deckAccent,
+                 fontSize = 14.sp,
+                 modifier = Modifier.padding(top = 8.dp)
+@@ -996,7 +997,7 @@ fun ControlLegendOverlay(
+                 }
+             }
+             Text(
+-                "Esc, H or a tap closes this. Touch controls do everything the keys do.",
++                t("esc_h_or_a_tap"),
+                 color = deckMuted,
+                 fontSize = 11.sp
+             )
+@@ -1038,9 +1039,9 @@ private val stripBottomInset = 96.dp
+ /** Hold F / hold E: flip the lock and say what it is now. */
+ private fun toggleLock(a: CameraAction, locks: CameraController.LockControls): String =
+     if (a == CameraAction.AfLockToggle) {
+-        if (locks.toggleAf()) "AF locked: hold F again to release" else "AF unlocked"
++        if (locks.toggleAf()) t("af_locked_hold_f_again") else t("af_unlocked")
+     } else {
+-        if (locks.toggleAe()) "AE locked: hold E again to release" else "AE unlocked"
++        if (locks.toggleAe()) t("ae_locked_hold_e_again") else t("ae_unlocked")
+     }
+ 
+ /**
+@@ -1082,7 +1083,7 @@ fun StatusOverlay(hud: String, status: String, profileWarning: String?, modifier
+         Text(hud, color = Color.White, fontSize = STATUS_TEXT_SP.sp)
+         Text(status, color = deckMuted, fontSize = 12.sp)
+         profileWarning?.let {
+-            Text("Profile check: $it", color = statusWarn, fontSize = 11.sp)
++            Text(t("profile_check", it), color = statusWarn, fontSize = 11.sp)
+         }
+     }
+ }
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/QuickReviewHost.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/QuickReviewHost.kt
+index 7c60058..940366c 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/QuickReviewHost.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/QuickReviewHost.kt
+@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.withContext
+ import org.sableos.titan2.camera.android.ReviewActions
+ import org.sableos.titan2.camera.android.Saved
++import org.sableos.titan2.camera.core.CameraText.t
+ import org.sableos.titan2.camera.core.Capture
+ import org.sableos.titan2.camera.core.QuickReview
+ import org.sableos.titan2.camera.core.ReviewAction
+@@ -71,25 +72,25 @@ class QuickReviewHost(private val actions: ReviewActions, private val onStatus:
+                 val c = e.capture
+                 if (actions.delete(c)) {
+                     set(QuickReview.removed(state, c.ref))
+-                    onStatus("Deleted ${c.name}")
++                    onStatus(t("deleted", c.name))
+                 } else {
+-                    onStatus("Could not delete ${c.name}")
++                    onStatus(t("could_not_delete", c.name))
+                 }
+             }
+ 
+             is ReviewEffect.Share ->
+-                if (!actions.share(e.capture)) onStatus("No app can share this")
++                if (!actions.share(e.capture)) onStatus(t("no_app_can_share_this"))
+ 
+             is ReviewEffect.ShowInFiles -> onStatus(
+                 if (actions.showInFiles()) {
+-                    "Files: ${ReviewActions.CAPTURE_FOLDER}"
++                    t("files", ReviewActions.CAPTURE_FOLDER)
+                 } else {
+-                    "Files is not available"
++                    t("files_is_not_available")
+                 }
+             )
+ 
+             is ReviewEffect.Open ->
+-                if (!actions.open(e.capture)) onStatus("No app can open this file")
++                if (!actions.open(e.capture)) onStatus(t("no_app_can_open_this"))
+         }
+     }
+ }
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/QuickReviewOverlay.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/QuickReviewOverlay.kt
+index cbb5d1d..75b2796 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/QuickReviewOverlay.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/QuickReviewOverlay.kt
+@@ -29,6 +29,7 @@ import androidx.compose.ui.layout.ContentScale
+ import androidx.compose.ui.text.style.TextAlign
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
++import org.sableos.titan2.camera.core.CameraText.t
+ import org.sableos.titan2.camera.core.Capture
+ import org.sableos.titan2.camera.core.ControlLegend
+ import org.sableos.titan2.camera.core.QuickReview
+@@ -95,9 +96,9 @@ fun LastCaptureRow(latest: Capture<Uri>?, load: CaptureLoader, onOpen: () -> Uni
+             if (latest ==
+                 null
+             ) {
+-                "H or ? shows the controls"
++                t("h_or_shows_the_controls")
+             } else {
+-                "H or ? shows the controls · G reviews"
++                t("h_or_shows_the_controls_2")
+             },
+             color = reviewMuted,
+             fontSize = 11.sp,
+@@ -158,7 +159,7 @@ private fun DeleteConfirm(c: Capture<Uri>, onAction: (ReviewAction) -> Unit) {
+         ) {
+             Text(QuickReview.confirmText(c), color = Color.White, fontSize = 14.sp)
+             Text(
+-                "The file is removed from the phone.",
++                t("the_file_is_removed_from"),
+                 color = reviewMuted,
+                 fontSize = 12.sp,
+                 modifier = Modifier.padding(vertical = 6.dp)
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/ViewfinderInfo.kt b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/ViewfinderInfo.kt
+index 466f098..b2727c8 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/ViewfinderInfo.kt
++++ b/sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/ui/ViewfinderInfo.kt
+@@ -2,6 +2,7 @@ package org.sableos.titan2.camera.ui
+ 
+ import org.sableos.titan2.camera.android.CameraController
+ import org.sableos.titan2.camera.core.CameraReport
++import org.sableos.titan2.camera.core.CameraText.t
+ import org.sableos.titan2.camera.core.CaptureMode
+ import org.sableos.titan2.camera.core.PhotoPath
+ import org.sableos.titan2.camera.core.ProField
+@@ -31,7 +32,7 @@ data class ViewfinderInfo(
+             UiMode.Video -> video?.label ?: "-"
+         }
+         val head = ui.label.uppercase(java.util.Locale.ROOT) + " · " + sub
+-        return if (forApp) "$head · FOR APP" else head
++        return if (forApp) t("for_app", head) else head
+     }
+ 
+     /** The HUD line: camera, mode, zoom and what the mode adjusts, then the lock badges. */
+@@ -39,16 +40,22 @@ data class ViewfinderInfo(
+         val zoomText = "%.1f".format(controller.zoom)
+         return when (ui) {
+             UiMode.Photo ->
+-                "cam $camId · ${mode.name}${if (compare) " +compare" else ""}" +
+-                    " · ${zoomText}x · EV ${controller.aeSteps}"
++                t(
++                    "cam_x_ev",
++                    camId,
++                    mode.name,
++                    if (compare) " +compare" else "",
++                    zoomText,
++                    controller.aeSteps
++                )
+ 
+             UiMode.Pro ->
+-                "cam $camId · Pro · ${zoomText}x" +
++                t("cam_pro_x", camId, zoomText) +
+                     (proValue?.let { " · ${proField.label} $it" } ?: "")
+ 
+             UiMode.Video ->
+-                "cam $camId · ${video?.label ?: "no recordable size"} · ${zoomText}x" +
+-                    if (!micGranted) " · no mic" else ""
++                t("cam_x", camId, video?.label ?: "no recordable size", zoomText) +
++                    if (!micGranted) t("no_mic") else ""
+         } + lockBadges(controller.locks)
+     }
+ 
+@@ -58,14 +65,14 @@ data class ViewfinderInfo(
+         when (ui) {
+             UiMode.Photo -> {
+                 add(PhotoPath.label(mode))
+-                if (compare) add("Compare")
++                if (compare) add(t("compare_2"))
+             }
+ 
+-            UiMode.Pro -> add("Manual")
++            UiMode.Pro -> add(t("manual"))
+ 
+             UiMode.Video -> {
+                 video?.let { add(it.label) }
+-                if (!micGranted) add("No mic")
++                if (!micGranted) add(t("no_mic_2"))
+             }
+         }
+         if (ui != UiMode.Pro && controller.aeSteps != 0) add("EV ${controller.aeSteps}")
+@@ -84,4 +91,4 @@ internal fun nextPhotoMode(mode: CaptureMode, cam: CameraReport): CaptureMode {
+ }
+ 
+ private fun lockBadges(locks: CameraController.LockControls): String =
+-    (if (locks.afLocked) " · AF-L" else "") + (if (locks.aeLocked) " · AE-L" else "")
++    (if (locks.afLocked) t("af_l") else "") + (if (locks.aeLocked) t("ae_l") else "")
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/res/raw/sable_strings_keep.xml b/sable-src/apps/titan2/platform/camera/src/main/res/raw/sable_strings_keep.xml
+new file mode 100644
+index 0000000..4f4b368
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/camera/src/main/res/raw/sable_strings_keep.xml
+@@ -0,0 +1,3 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableTexts looks strings up by name, which the resource shrinker cannot see: keep them all. -->
++<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@string/*" />
+diff --git a/sable-src/apps/titan2/platform/camera/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/camera/src/main/res/values/strings.xml
+index 36e6bbc..c8da252 100644
+--- a/sable-src/apps/titan2/platform/camera/src/main/res/values/strings.xml
++++ b/sable-src/apps/titan2/platform/camera/src/main/res/values/strings.xml
+@@ -1,3 +1,175 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- English. Single capital letters in hints (C new, S find) name keyboard keys: keep them as the key, translate the word.
++     English. Keep equal to CameraText.EN (CameraTextTest checks); translations go in values-<lang>/. -->
+ <resources>
+-    <string name="app_name">Sable Camera</string>
++    <string name="h_or_shows_the_controls">H or ? shows the controls</string>
++    <string name="h_or_shows_the_controls_2">H or ? shows the controls · G reviews</string>
++    <string name="the_file_is_removed_from">The file is removed from the phone.</string>
++    <string name="starting">Starting</string>
++    <string name="camera_permission_is_required">Camera permission is required.</string>
++    <string name="no_camera_visible_to_this">No camera visible to this app.</string>
++    <string name="video">video %1$s</string>
++    <string name="opening_camera">Opening camera %1$s (%2$s)</string>
++    <string name="ready">Ready</string>
++    <string name="saved">"Saved %1$s  %2$s"</string>
++    <string name="returning_the_photo">Returning the photo…</string>
++    <string name="up_down_change_a_auto">%1$s: Up/Down change, A = Auto</string>
++    <string name="is_not_adjustable_on_camera">%1$s is not adjustable on camera %2$s</string>
++    <string name="is_not_available_on_camera">%1$s is not available on camera %2$s</string>
++    <string name="compare_space_saves_jpeg_high">Compare: Space saves JPEG, high-res and RAW of the same scene</string>
++    <string name="compare_off">Compare off</string>
++    <string name="capturing">Capturing…</string>
++    <string name="focus">Focus</string>
++    <string name="no_recordable_video_size_on">No recordable video size on camera %1$s</string>
++    <string name="starting_2">Starting…</string>
++    <string name="recording">Recording</string>
++    <string name="recording_without_sound">Recording without sound</string>
++    <string name="saved_2">Saved %1$s</string>
++    <string name="compare_set_saved_files">Compare set saved (%1$s files)</string>
++    <string name="compare">Compare %1$s/%2$s: %3$s</string>
++    <string name="controls">Controls</string>
++    <string name="quick_review_g_or_the">Quick review (G or the thumbnail)</string>
++    <string name="esc_h_or_a_tap">Esc, H or a tap closes this. Touch controls do everything the keys do.</string>
++    <string name="af_locked_hold_f_again">AF locked: hold F again to release</string>
++    <string name="af_unlocked">AF unlocked</string>
++    <string name="ae_locked_hold_e_again">AE locked: hold E again to release</string>
++    <string name="ae_unlocked">AE unlocked</string>
++    <string name="profile_check">Profile check: %1$s</string>
++    <string name="for_app">%1$s · FOR APP</string>
++    <string name="cam_x_ev">cam %1$s · %2$s%3$s · %4$sx · EV %5$s</string>
++    <string name="cam_pro_x">cam %1$s · Pro · %2$sx</string>
++    <string name="cam_x">cam %1$s · %2$s · %3$sx</string>
++    <string name="no_mic">" · no mic"</string>
++    <string name="compare_2">Compare</string>
++    <string name="manual">Manual</string>
++    <string name="no_mic_2">No mic</string>
++    <string name="af_l">" · AF-L"</string>
++    <string name="ae_l">" · AE-L"</string>
++    <string name="deleted">Deleted %1$s</string>
++    <string name="could_not_delete">Could not delete %1$s</string>
++    <string name="no_app_can_share_this">No app can share this</string>
++    <string name="files">Files: %1$s</string>
++    <string name="files_is_not_available">Files is not available</string>
++    <string name="no_app_can_open_this">No app can open this file</string>
++    <string name="no_preview_size_available_for">No preview size available for camera %1$s</string>
++    <string name="camera_disconnected">Camera disconnected</string>
++    <string name="camera_error">Camera error %1$s</string>
++    <string name="cannot_open_camera">Cannot open camera %1$s: %2$s</string>
++    <string name="could_not_configure_on_camera">Could not configure %1$s %2$s on camera %3$s</string>
++    <string name="session_failed">Session failed: %1$s</string>
++    <string name="capture_error">Capture error: %1$s</string>
++    <string name="capture_failed_reason">Capture failed (reason %1$s)</string>
++    <string name="could_not_save">Could not save %1$s</string>
++    <string name="camera_not_open">Camera not open</string>
++    <string name="no_camera_characteristics">No camera characteristics</string>
++    <string name="could_not_create">Could not create %1$s</string>
++    <string name="recorder_setup_failed">Recorder setup failed: %1$s</string>
++    <string name="no_preview_size_for_video">No preview size for video</string>
++    <string name="recording_failed_to_start">Recording failed to start: %1$s</string>
++    <string name="could_not_configure_for_recording">Could not configure %1$s for recording</string>
++    <string name="recording_was_too_short_to">Recording was too short to save</string>
++    <string name="pro_sets_it_by_hand">Pro sets it by hand</string>
++    <string name="fixed_focus">Fixed focus</string>
++    <string name="no_ae_lock_on_this">No AE lock on this camera</string>
++    <string name="no_here">No %1$s here</string>
++    <string name="no_recordable_video_size">No recordable video size</string>
++    <string name="only_while_recording">Only while recording</string>
++    <string name="only_one_video_size">Only one video size</string>
++    <string name="only_one_photo_path">Only one photo path</string>
++    <string name="photo_only">Photo only</string>
++    <string name="no_raw_or_high_res">No RAW or high-res path</string>
++    <string name="pro_only">Pro only</string>
++    <string name="no_ev_control">No EV control</string>
++    <string name="single_camera_or_recording">Single camera or recording</string>
++    <string name="single_mode">Single mode</string>
++    <string name="not_while_recording">Not while recording</string>
++    <string name="no_zoom_range">No zoom range</string>
++    <string name="not_adjustable">%1$s not adjustable</string>
++    <string name="shutter">Shutter</string>
++    <string name="zoom">Zoom</string>
++    <string name="photo">Photo</string>
++    <string name="raw">RAW</string>
++    <string name="video_2">Video</string>
++    <string name="nothing_captured_yet_in_this">Nothing captured yet in this session</string>
++    <string name="kept">Kept %1$s</string>
++    <string name="oldest_capture_of_this_session">Oldest capture of this session</string>
++    <string name="latest_capture">Latest capture</string>
++    <string name="delete_enter_or_y_deletes">Delete %1$s? Enter or Y deletes, Esc or N keeps</string>
++    <string name="another_app_is_waiting_for">Another app is waiting for one photo</string>
++    <string name="pro">Pro</string>
++    <string name="no_jpeg_size_larger_than">no JPEG size larger than the conventional %1$s</string>
++    <string name="requires_system_camera_deferred_until">requires SYSTEM_CAMERA; deferred until evidence and access gates pass</string>
++    <string name="no_jpeg_output_sizes_reported">no JPEG output sizes reported</string>
++    <string name="raw_capability_not_reported_on">RAW capability not reported on this camera id</string>
++    <string name="raw_reported_but_no_raw">RAW reported but no RAW_SENSOR output size</string>
++    <string name="manual_sensor_not_supported">MANUAL_SENSOR not supported</string>
++    <string name="iso_exposure_ranges_not_reported">ISO/exposure ranges not reported</string>
++    <string name="no_validated_camera_profile_for">No validated camera profile for \'%1$s\': capabilities come only from what this device reports.</string>
++    <string name="profile_is_research_evidence_not">Profile \'%1$s\' is research evidence, not validated on this build; treat expectations as hypotheses.</string>
++    <string name="expected_public_camera_is_not">Expected public camera %1$s (%2$s) is not visible to an ordinary app.</string>
++    <string name="camera_reports_expected">Camera %1$s reports %2$s, expected %3$s.</string>
++    <string name="ordinary_app_sees_public_cameras">Ordinary app sees %1$s public cameras; profile expects %2$s.</string>
++    <string name="camera_does_not_offer_the">Camera %1$s does not offer the researched high-res JPEG %2$s.</string>
++    <string name="camera_does_not_offer_the_2">Camera %1$s does not offer the researched RAW size %2$s.</string>
++    <string name="auto">Auto</string>
++    <string name="tungsten">Tungsten</string>
++    <string name="fluor">Fluor</string>
++    <string name="daylight">Daylight</string>
++    <string name="cloudy">Cloudy</string>
++    <string name="space">Space</string>
++    <string name="enter">Enter</string>
++    <string name="camera">Camera</string>
++    <string name="tab">Tab</string>
++    <string name="esc">Esc</string>
++    <string name="back">Back</string>
++    <string name="del">Del</string>
++    <string name="delete">Delete</string>
++    <string name="video_record">Video record</string>
++    <string name="pause">Pause</string>
++    <string name="autofocus">Autofocus</string>
++    <string name="af_lock_on_off">AF lock on/off</string>
++    <string name="ae_lock_on_off">AE lock on/off</string>
++    <string name="exposure">Exposure +</string>
++    <string name="exposure_2">Exposure -</string>
++    <string name="white_balance">White balance</string>
++    <string name="shutter_speed">Shutter speed</string>
++    <string name="zoom_in">Zoom in</string>
++    <string name="zoom_out">Zoom out</string>
++    <string name="back_to_auto">Back to Auto</string>
++    <string name="previous_mode">Previous mode</string>
++    <string name="next_mode">Next mode</string>
++    <string name="switch_camera">Switch camera</string>
++    <string name="photo_size">Photo size</string>
++    <string name="raw_high_res">RAW / high-res</string>
++    <string name="video_quality">Video quality</string>
++    <string name="compare_bracket">Compare bracket</string>
++    <string name="review_last_capture">Review last capture</string>
++    <string name="this_legend">This legend</string>
++    <string name="close_exit">Close / exit</string>
++    <string name="focus_manual">Focus (manual)</string>
++    <string name="exposure_3">Exposure</string>
++    <string name="adjust">Adjust +</string>
++    <string name="adjust_2">Adjust -</string>
++    <string name="record_stop">Record / stop</string>
++    <string name="hold">"Hold "</string>
++    <string name="older_capture">Older capture</string>
++    <string name="newer_capture">Newer capture</string>
++    <string name="delete_asks_first">Delete (asks first)</string>
++    <string name="share">Share</string>
++    <string name="show_in_files">Show in Files</string>
++    <string name="open_in_another_app">Open in another app</string>
++    <string name="back_to_the_viewfinder">Back to the viewfinder</string>
++    <string name="delete_it">Delete it</string>
++    <string name="keep_it">Keep it</string>
++    <string name="files_2">Files</string>
++    <string name="open">Open</string>
++    <string name="close">Close</string>
++    <string name="keep">Keep</string>
++    <string name="flip">Flip</string>
++    <string name="size">Size</string>
++    <string name="quality">Quality</string>
++    <string name="last">Last</string>
++    <string name="keys">Keys</string>
++    <string name="trackpad_alt_arrows_change_mode">Trackpad: Alt+arrows change mode and zoom</string>
++    <string name="app_name" translatable="false">Sable Camera</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/CameraTextTest.kt b/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/CameraTextTest.kt
+new file mode 100644
+index 0000000..1f37658
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/CameraTextTest.kt
+@@ -0,0 +1,62 @@
++package org.sableos.titan2.camera
++
++import java.io.File
++import javax.xml.parsers.DocumentBuilderFactory
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.sableos.titan2.camera.core.CameraText
++
++/** The English lines in code and in `values/strings.xml` stay equal, and every translation fits them. */
++class CameraTextTest {
++    private val res = File("src/main/res")
++
++    private fun strings(file: File): Map<String, String> {
++        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
++        val nodes = doc.getElementsByTagName("string")
++        return (0 until nodes.length)
++            .map { nodes.item(it) }
++            .filter { it.attributes.getNamedItem("translatable")?.nodeValue != "false" }
++            .associate { node ->
++                val raw =
++                    node.textContent.let {
++                        if (it.length > 1 && it.startsWith('"') &&
++                            it.endsWith('"')
++                        ) {
++                            it.drop(1).dropLast(1)
++                        } else {
++                            it
++                        }
++                    }
++                node.attributes.getNamedItem("name").nodeValue to
++                    raw
++                        .replace("\\n", "\n")
++                        .replace("\\'", "'")
++                        .replace("\\\"", "\"")
++                        .replace("\\@", "@")
++                        .replace("\\\\", "\\")
++            }
++    }
++
++    private fun placeholders(s: String) = Regex("%\\d+\\$[sd]").findAll(s).map {
++        it.value
++    }.toSortedSet()
++
++    @Test
++    fun englishResourcesMatchTheCode() {
++        val english = strings(File(res, "values/strings.xml"))
++        CameraText.EN.forEach { (key, text) -> assertEquals(key, text, english[key]) }
++    }
++
++    @Test
++    fun translationsHaveEveryKeyAndTheSamePlaceholders() {
++        res.listFiles { f ->
++            f.name.startsWith("values-") && File(f, "strings.xml").isFile
++        }.orEmpty().forEach { dir ->
++            val tr = strings(File(dir, "strings.xml"))
++            assertEquals(dir.name, CameraText.EN.keys, tr.keys.intersect(CameraText.EN.keys))
++            CameraText.EN.forEach { (key, text) ->
++                assertEquals("${dir.name}/$key", placeholders(text), placeholders(tr.getValue(key)))
++            }
++        }
++    }
++}
 diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/keyboard/src/main/AndroidManifest.xml
 index 0bfea45..c663fec 100644
 --- a/sable-src/apps/titan2/platform/keyboard/src/main/AndroidManifest.xml

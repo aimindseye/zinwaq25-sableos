@@ -29,6 +29,7 @@ import java.util.Locale
 import java.util.concurrent.Executor
 import org.sableos.titan2.camera.core.AutoSeed
 import org.sableos.titan2.camera.core.CameraReport
+import org.sableos.titan2.camera.core.CameraText.t
 import org.sableos.titan2.camera.core.CaptureOrientation
 import org.sableos.titan2.camera.core.CapturePlanner
 import org.sableos.titan2.camera.core.PreviewChooser
@@ -155,7 +156,7 @@ class CameraController(
         chars = c
         val pv = PreviewChooser.choose(previewSizes(c), previewFor)
         if (pv == null) {
-            callbacks.onError("No preview size available for camera ${p.cameraId}")
+            callbacks.onError(t("no_preview_size_available_for", p.cameraId))
             return
         }
         previewSize = pv
@@ -194,18 +195,18 @@ class CameraController(
                     override fun onDisconnected(d: CameraDevice) {
                         d.close()
                         device = null
-                        errorCb?.invoke("Camera disconnected")
+                        errorCb?.invoke(t("camera_disconnected"))
                     }
 
                     override fun onError(d: CameraDevice, error: Int) {
                         d.close()
                         device = null
-                        errorCb?.invoke("Camera error $error")
+                        errorCb?.invoke(t("camera_error", error))
                     }
                 },
                 handler
             )
-        }.onFailure { callbacks.onError("Cannot open camera $cameraId: ${it.message}") }
+        }.onFailure { callbacks.onError(t("cannot_open_camera", cameraId, it.message.toString())) }
     }
 
     private fun createSession(d: CameraDevice, onReady: () -> Unit) {
@@ -239,13 +240,13 @@ class CameraController(
                     }
                     override fun onConfigureFailed(s: CameraCaptureSession) {
                         errorCb?.invoke(
-                            "Could not configure ${p.kind} ${p.size} on camera ${p.cameraId}"
+                            t("could_not_configure_on_camera", p.kind, p.size, p.cameraId)
                         )
                     }
                 }
             )
         runCatching { d.createCaptureSession(cfg) }
-            .onFailure { errorCb?.invoke("Session failed: ${it.message}") }
+            .onFailure { errorCb?.invoke(t("session_failed", it.message.toString())) }
     }
 
     private val seedCallback = object : CameraCaptureSession.CaptureCallback() {
@@ -376,7 +377,7 @@ class CameraController(
                 set(CaptureRequest.JPEG_QUALITY, 95.toByte()) // 95 as proven in the Titan 2 MVP
             }
             s.capture(b.build(), stillCaptureCallback(p), handler)
-        }.onFailure { errorCb?.invoke("Capture error: ${it.message}") }
+        }.onFailure { errorCb?.invoke(t("capture_error", it.message.toString())) }
     }
 
     private fun stillCaptureCallback(p: StillPlan) =
@@ -397,7 +398,7 @@ class CameraController(
                 request: CaptureRequest,
                 failure: android.hardware.camera2.CaptureFailure
             ) {
-                errorCb?.invoke("Capture failed (reason ${failure.reason})")
+                errorCb?.invoke(t("capture_failed_reason", failure.reason))
             }
         }
 
@@ -439,7 +440,7 @@ class CameraController(
             if (uri != null) {
                 savedCb?.invoke(Saved(uri, name, "image/jpeg", "${p.size}"))
             } else {
-                errorCb?.invoke("Could not save $name")
+                errorCb?.invoke(t("could_not_save", name))
             }
         } finally {
             img.close()
@@ -474,7 +475,7 @@ class CameraController(
             if (uri != null) {
                 savedCb?.invoke(Saved(uri, name, "image/x-adobe-dng", "${p.size}"))
             } else {
-                errorCb?.invoke("Could not save $name")
+                errorCb?.invoke(t("could_not_save", name))
             }
         } finally {
             image.close()
@@ -513,7 +514,7 @@ class CameraController(
             val c = chars
             val r = report
             if (d == null || c == null) {
-                onErrorCb(if (d == null) "Camera not open" else "No camera characteristics")
+                onErrorCb(if (d == null) t("camera_not_open") else t("no_camera_characteristics"))
                 return null
             }
             return if (r == null || recorder != null) null else RecordingContext(d, c, r)
@@ -524,11 +525,11 @@ class CameraController(
             val name = VideoPlanner.fileName(job.ctx.device.id, job.spec.option.size, date, time)
             val target = saver.createVideo(name)
             if (target == null) {
-                job.onError("Could not create $name")
+                job.onError(t("could_not_create", name))
             } else {
                 val rec = runCatching { newRecorder(job, target) }.getOrElse {
                     saver.discard(target)
-                    job.onError("Recorder setup failed: ${it.message}")
+                    job.onError(t("recorder_setup_failed", it.message.toString()))
                     null
                 }
                 if (rec != null) attachPreview(job, name, target, rec)
@@ -575,7 +576,7 @@ class CameraController(
             if (pv == null) {
                 rec.release()
                 saver.discard(target)
-                job.onError("No preview size for video")
+                job.onError(t("no_preview_size_for_video"))
             } else {
                 previewSize = pv
                 job.texture.setDefaultBufferSize(pv.w, pv.h)
@@ -607,7 +608,7 @@ class CameraController(
                 )
             runCatching { job.ctx.device.createCaptureSession(cfg) }.onFailure {
                 abortRecording()
-                job.onError("Session failed: ${it.message}")
+                job.onError(t("session_failed", it.message.toString()))
             }
         }
 
@@ -642,13 +643,13 @@ class CameraController(
                         job.onStarted()
                     }.onFailure {
                         abortRecording()
-                        job.onError("Recording failed to start: ${it.message}")
+                        job.onError(t("recording_failed_to_start", it.message.toString()))
                     }
                 }
 
                 override fun onConfigureFailed(s: CameraCaptureSession) {
                     abortRecording()
-                    job.onError("Could not configure ${job.spec.option.label} for recording")
+                    job.onError(t("could_not_configure_for_recording", job.spec.option.label))
                 }
             }
 
@@ -701,7 +702,7 @@ class CameraController(
                 onSavedCb(Saved(target.uri, name, "video/mp4", "video"))
             } else {
                 saver.discard(target)
-                onErrorCb("Recording was too short to save")
+                onErrorCb(t("recording_was_too_short_to"))
             }
         }
     }

@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.sableos.titan2.camera.android.ReviewActions
 import org.sableos.titan2.camera.android.Saved
+import org.sableos.titan2.camera.core.CameraText.t
 import org.sableos.titan2.camera.core.Capture
 import org.sableos.titan2.camera.core.QuickReview
 import org.sableos.titan2.camera.core.ReviewAction
@@ -71,25 +72,25 @@ class QuickReviewHost(private val actions: ReviewActions, private val onStatus: 
                 val c = e.capture
                 if (actions.delete(c)) {
                     set(QuickReview.removed(state, c.ref))
-                    onStatus("Deleted ${c.name}")
+                    onStatus(t("deleted", c.name))
                 } else {
-                    onStatus("Could not delete ${c.name}")
+                    onStatus(t("could_not_delete", c.name))
                 }
             }
 
             is ReviewEffect.Share ->
-                if (!actions.share(e.capture)) onStatus("No app can share this")
+                if (!actions.share(e.capture)) onStatus(t("no_app_can_share_this"))
 
             is ReviewEffect.ShowInFiles -> onStatus(
                 if (actions.showInFiles()) {
-                    "Files: ${ReviewActions.CAPTURE_FOLDER}"
+                    t("files", ReviewActions.CAPTURE_FOLDER)
                 } else {
-                    "Files is not available"
+                    t("files_is_not_available")
                 }
             )
 
             is ReviewEffect.Open ->
-                if (!actions.open(e.capture)) onStatus("No app can open this file")
+                if (!actions.open(e.capture)) onStatus(t("no_app_can_open_this"))
         }
     }
 }

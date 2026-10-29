@@ -67,6 +67,7 @@ import org.sableos.titan2.camera.core.ArrowGuard
 import org.sableos.titan2.camera.core.BackResult
 import org.sableos.titan2.camera.core.CameraAction
 import org.sableos.titan2.camera.core.CameraDeviceProfile
+import org.sableos.titan2.camera.core.CameraText.t
 import org.sableos.titan2.camera.core.CapabilityInterpreter
 import org.sableos.titan2.camera.core.CapabilityReport
 import org.sableos.titan2.camera.core.CaptureMode
@@ -134,7 +135,7 @@ class MainActivity : ComponentActivity() {
     private var videoOption by mutableStateOf<VideoOption?>(null)
     private var micGranted = false
     private var compare by mutableStateOf(false)
-    private var status by mutableStateOf("Starting")
+    private var status by mutableStateOf(t("starting"))
     private var hud by mutableStateOf("")
     private var previewAspect by mutableStateOf(3f / 4f)
     private var rotation by mutableStateOf(Surface.ROTATION_0)
@@ -196,7 +197,7 @@ class MainActivity : ComponentActivity() {
             loadCapabilities()
         } else {
             status =
-                "Camera permission is required."
+                t("camera_permission_is_required")
         }
     }
 
@@ -218,7 +219,7 @@ class MainActivity : ComponentActivity() {
         camId =
             rep.defaultCamera()?.camera?.id
                 ?: run {
-                    status = "No camera visible to this app."
+                    status = t("no_camera_visible_to_this")
                     return
                 }
         resetForCamera()
@@ -254,11 +255,11 @@ class MainActivity : ComponentActivity() {
         val plan = CapturePlanner.single(rep, photoMode)
         val video = uiMode == UiMode.Video
         val label = if (video) {
-            "video ${videoOption?.label ?: "?"}"
+            t("video", videoOption?.label ?: "?")
         } else {
             "${plan.kind.suffix} ${plan.size}"
         }
-        status = "Opening camera $camId ($label)"
+        status = t("opening_camera", camId, label)
         controller.setPro(if (uiMode == UiMode.Pro) proState else null, proLimits())
         controller.configure(
             rep,
@@ -273,7 +274,7 @@ class MainActivity : ComponentActivity() {
         onReady = {
             runOnUiThread {
                 busy = false
-                status = "Ready"
+                status = t("ready")
                 controller.previewSize?.let { updateAspect(it, rep.camera.sensorOrientation) }
                 refreshHud()
             }
@@ -281,10 +282,10 @@ class MainActivity : ComponentActivity() {
         onSaved = { saved ->
             runOnUiThread {
                 busy = false
-                status = "Saved ${saved.name}  ${saved.detail}"
+                status = t("saved", saved.name, saved.detail)
                 val returned = captureIntent.returnCapture(saved) {
                     busy = true
-                    status = "Returning the photo…"
+                    status = t("returning_the_photo")
                 }
                 if (!returned) review.remember(saved)
             }
@@ -398,7 +399,7 @@ class MainActivity : ComponentActivity() {
 
             is Cmd.ProSelect -> {
                 proField = cmd.field
-                status = "${cmd.field.label}: Up/Down change, A = Auto"
+                status = t("up_down_change_a_auto", cmd.field.label)
             }
 
             is Cmd.ProStep -> stepPro(cmd.dir)
@@ -414,7 +415,7 @@ class MainActivity : ComponentActivity() {
         if (l.offers(proField)) {
             setPro(ProControls.adjust(proState, proField, dir, l, controller.autoSeed()))
         } else {
-            status = "${proField.label} is not adjustable on camera $camId"
+            status = t("is_not_adjustable_on_camera", proField.label, camId)
         }
     }
 
@@ -425,7 +426,7 @@ class MainActivity : ComponentActivity() {
             if (m !=
                 uiMode
             ) {
-                status = "${m.label} is not available on camera $camId"
+                status = t("is_not_available_on_camera", m.label, camId)
             }
             return
         }
@@ -503,9 +504,9 @@ class MainActivity : ComponentActivity() {
                 compare = !compare
                 refreshHud()
                 status = if (compare) {
-                    "Compare: Space saves JPEG, high-res and RAW of the same scene"
+                    t("compare_space_saves_jpeg_high")
                 } else {
-                    "Compare off"
+                    t("compare_off")
                 }
             }
 
@@ -519,7 +520,7 @@ class MainActivity : ComponentActivity() {
         if (compare) {
             runBracket()
         } else {
-            status = "Capturing…"
+            status = t("capturing")
             controller.takePicture(degrees())
         }
     }
@@ -537,7 +538,7 @@ class MainActivity : ComponentActivity() {
         when (a) {
             CameraAction.Autofocus -> {
                 controller.triggerFocus()
-                status = "Focus"
+                status = t("focus")
                 refreshHud()
             }
 
@@ -573,12 +574,12 @@ class MainActivity : ComponentActivity() {
     private fun toggleRecording() {
         val opt =
             videoOption ?: run {
-                status = "No recordable video size on camera $camId"
+                status = t("no_recordable_video_size_on", camId)
                 return
             }
         val tex = texture ?: return
         if (recState == RecState.Idle) {
-            status = "Starting…"
+            status = t("starting_2")
             controller.video.start(
                 RecordingSpec(opt, micGranted, degrees()),
                 tex,
@@ -587,7 +588,7 @@ class MainActivity : ComponentActivity() {
                         recState =
                             RecStateMachine.reduce(RecState.Idle, RecEvent.ToggleRecord)
                         status =
-                            if (micGranted) "Recording" else "Recording without sound"
+                            if (micGranted) t("recording") else t("recording_without_sound")
                     }
                 },
                 onErrorCb = { msg ->
@@ -605,7 +606,7 @@ class MainActivity : ComponentActivity() {
                     runOnUiThread {
                         recState = RecState.Idle
                         status =
-                            "Saved ${saved.name}"
+                            t("saved_2", saved.name)
                         review.remember(saved)
                         restart()
                     }
@@ -631,13 +632,13 @@ class MainActivity : ComponentActivity() {
                 runOnUiThread {
                     busy = false
                     status =
-                        "Compare set saved (${plans.size} files)"
+                        t("compare_set_saved_files", plans.size)
                     restart()
                 }
                 return
             }
             val p = plans[i++]
-            runOnUiThread { status = "Compare $i/${plans.size}: ${p.kind.suffix}" }
+            runOnUiThread { status = t("compare", i, plans.size, p.kind.suffix) }
             controller.configure(
                 cam,
                 p,
@@ -954,7 +955,7 @@ fun ControlLegendOverlay(
         Column(
             Modifier.align(Alignment.Center).verticalScroll(rememberScrollState()).padding(16.dp)
         ) {
-            Text("Controls", color = deckAccent, fontSize = 16.sp)
+            Text(t("controls"), color = deckAccent, fontSize = 16.sp)
             note?.let { Text(it, color = deckMuted, fontSize = 12.sp) }
             entries.forEach { e ->
                 val closed = e.gate as? Gate.Closed
@@ -974,7 +975,7 @@ fun ControlLegendOverlay(
                 }
             }
             Text(
-                "Quick review (G or the thumbnail)",
+                t("quick_review_g_or_the"),
                 color = deckAccent,
                 fontSize = 14.sp,
                 modifier = Modifier.padding(top = 8.dp)
@@ -996,7 +997,7 @@ fun ControlLegendOverlay(
                 }
             }
             Text(
-                "Esc, H or a tap closes this. Touch controls do everything the keys do.",
+                t("esc_h_or_a_tap"),
                 color = deckMuted,
                 fontSize = 11.sp
             )
@@ -1038,9 +1039,9 @@ private val stripBottomInset = 96.dp
 /** Hold F / hold E: flip the lock and say what it is now. */
 private fun toggleLock(a: CameraAction, locks: CameraController.LockControls): String =
     if (a == CameraAction.AfLockToggle) {
-        if (locks.toggleAf()) "AF locked: hold F again to release" else "AF unlocked"
+        if (locks.toggleAf()) t("af_locked_hold_f_again") else t("af_unlocked")
     } else {
-        if (locks.toggleAe()) "AE locked: hold E again to release" else "AE unlocked"
+        if (locks.toggleAe()) t("ae_locked_hold_e_again") else t("ae_unlocked")
     }
 
 /**
@@ -1082,7 +1083,7 @@ fun StatusOverlay(hud: String, status: String, profileWarning: String?, modifier
         Text(hud, color = Color.White, fontSize = STATUS_TEXT_SP.sp)
         Text(status, color = deckMuted, fontSize = 12.sp)
         profileWarning?.let {
-            Text("Profile check: $it", color = statusWarn, fontSize = 11.sp)
+            Text(t("profile_check", it), color = statusWarn, fontSize = 11.sp)
         }
     }
 }

@@ -1,5 +1,7 @@
 package org.sableos.titan2.camera.core
 
+import org.sableos.titan2.camera.core.CameraText.t
+
 object CapabilityInterpreter {
     private const val ASPECT_TOLERANCE = 0.02
     private const val DEFAULT_ASPECT = 4.0 / 3.0
@@ -59,7 +61,7 @@ object CapabilityInterpreter {
         modes[CaptureMode.HighRes] = if (bestHigh != null) {
             ModeAvailability.Available
         } else {
-            ModeAvailability.Unavailable("no JPEG size larger than the conventional $bestJpeg")
+            ModeAvailability.Unavailable(t("no_jpeg_size_larger_than", bestJpeg))
         }
         modes[CaptureMode.Raw] = rawAvailability(c, bestRaw)
         modes[CaptureMode.Pro] = proAvailability(c)
@@ -67,7 +69,7 @@ object CapabilityInterpreter {
         // from the ordinary public-id path.
         modes[CaptureMode.Tele] =
             ModeAvailability.Unavailable(
-                "requires SYSTEM_CAMERA; deferred until evidence and access gates pass"
+                t("requires_system_camera_deferred_until")
             )
         return CameraReport(
             c,
@@ -83,24 +85,24 @@ object CapabilityInterpreter {
     private fun autoAvailability(c: CameraInfo): ModeAvailability = if (c.jpegSizes.isNotEmpty()) {
         ModeAvailability.Available
     } else {
-        ModeAvailability.Unavailable("no JPEG output sizes reported")
+        ModeAvailability.Unavailable(t("no_jpeg_output_sizes_reported"))
     }
 
     private fun rawAvailability(c: CameraInfo, bestRaw: Size?): ModeAvailability = when {
-        !c.hasRaw -> ModeAvailability.Unavailable("RAW capability not reported on this camera id")
+        !c.hasRaw -> ModeAvailability.Unavailable(t("raw_capability_not_reported_on"))
 
         bestRaw == null -> ModeAvailability.Unavailable(
-            "RAW reported but no RAW_SENSOR output size"
+            t("raw_reported_but_no_raw")
         )
 
         else -> ModeAvailability.Available
     }
 
     private fun proAvailability(c: CameraInfo): ModeAvailability = when {
-        !c.manualSensor -> ModeAvailability.Unavailable("MANUAL_SENSOR not supported")
+        !c.manualSensor -> ModeAvailability.Unavailable(t("manual_sensor_not_supported"))
 
         c.isoRange == null || c.exposureNsRange == null ->
-            ModeAvailability.Unavailable("ISO/exposure ranges not reported")
+            ModeAvailability.Unavailable(t("iso_exposure_ranges_not_reported"))
 
         else -> ModeAvailability.Available
     }
@@ -111,8 +113,7 @@ object CapabilityInterpreter {
                 Mismatch(
                     MismatchKind.Note,
                     null,
-                    "No validated camera profile for '${p.id}': " +
-                        "capabilities come only from what this device reports."
+                    t("no_validated_camera_profile_for", p.id)
                 )
             )
         }
@@ -126,8 +127,7 @@ object CapabilityInterpreter {
                 Mismatch(
                     MismatchKind.Note,
                     null,
-                    "Profile '${p.id}' is research evidence, not validated on this build; " +
-                        "treat expectations as hypotheses."
+                    t("profile_is_research_evidence_not", p.id)
                 )
         }
         return out
@@ -146,14 +146,14 @@ object CapabilityInterpreter {
                     Mismatch(
                         MismatchKind.MissingCamera,
                         id,
-                        "Expected public camera $id ($facing) is not visible to an ordinary app."
+                        t("expected_public_camera_is_not", id, facing)
                     )
             } else if (c.facing != facing) {
                 out +=
                     Mismatch(
                         MismatchKind.MissingCamera,
                         id,
-                        "Camera $id reports ${c.facing}, expected $facing."
+                        t("camera_reports_expected", id, c.facing, facing)
                     )
             }
         }
@@ -162,8 +162,7 @@ object CapabilityInterpreter {
                 Mismatch(
                     MismatchKind.UnexpectedCameraCount,
                     null,
-                    "Ordinary app sees ${cams.size} public cameras; " +
-                        "profile expects ${p.expectedPublicIds.size}."
+                    t("ordinary_app_sees_public_cameras", cams.size, p.expectedPublicIds.size)
                 )
         }
         return out
@@ -183,7 +182,7 @@ object CapabilityInterpreter {
                     Mismatch(
                         MismatchKind.MissingHighRes,
                         id,
-                        "Camera $id does not offer the researched high-res JPEG $want."
+                        t("camera_does_not_offer_the", id, want)
                     )
             }
         }
@@ -199,7 +198,7 @@ object CapabilityInterpreter {
                     Mismatch(
                         MismatchKind.MissingRaw,
                         id,
-                        "Camera $id does not offer the researched RAW size $want."
+                        t("camera_does_not_offer_the_2", id, want)
                     )
             }
         }

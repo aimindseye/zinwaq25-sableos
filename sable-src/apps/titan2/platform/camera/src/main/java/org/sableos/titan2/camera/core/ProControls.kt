@@ -1,5 +1,7 @@
 package org.sableos.titan2.camera.core
 
+import org.sableos.titan2.camera.core.CameraText.t
+
 /** The five stock Pro-mode fields (WB, ISO, EV, S, F), in the order the stock strip shows them. */
 enum class ProField(val label: String) { Wb("WB"), Iso("ISO"), Ev("EV"), Shutter("S"), Focus("F") }
 
@@ -10,12 +12,14 @@ private const val AWB_MODE_DAYLIGHT = 5
 private const val AWB_MODE_CLOUDY_DAYLIGHT = 6
 
 /** Raw CONTROL_AWB_MODE_* ints are kept here so the core stays JVM-testable. */
-enum class WbPreset(val label: String, val awbMode: Int) {
-    Auto("Auto", AWB_MODE_AUTO),
-    Tungsten("Tungsten", AWB_MODE_INCANDESCENT),
-    Fluorescent("Fluor", AWB_MODE_FLUORESCENT),
-    Daylight("Daylight", AWB_MODE_DAYLIGHT),
-    Cloudy("Cloudy", AWB_MODE_CLOUDY_DAYLIGHT)
+enum class WbPreset(private val labelKey: String, val awbMode: Int) {
+    Auto("auto", AWB_MODE_AUTO),
+    Tungsten("tungsten", AWB_MODE_INCANDESCENT),
+    Fluorescent("fluor", AWB_MODE_FLUORESCENT),
+    Daylight("daylight", AWB_MODE_DAYLIGHT),
+    Cloudy("cloudy", AWB_MODE_CLOUDY_DAYLIGHT);
+
+    val label: String get() = t(labelKey)
 }
 
 /** Limits read from one camera. `null`/empty means "this control is not offered", never "assume a default". */
@@ -244,10 +248,10 @@ object ProControls {
     /** Text for one HUD cell: "Auto" or the manual value. */
     fun valueLabel(s: ProState, f: ProField, l: ProLimits): String = when (f) {
         ProField.Wb -> s.wb.label
-        ProField.Iso -> s.iso?.toString() ?: "Auto"
-        ProField.Shutter -> s.shutterNs?.let { shutterLabel(it) } ?: "Auto"
+        ProField.Iso -> s.iso?.toString() ?: t("auto")
+        ProField.Shutter -> s.shutterNs?.let { shutterLabel(it) } ?: t("auto")
         ProField.Ev -> if (s.manualExposure) "–" else EvLabels.of(s.evSteps, l.evStep)
-        ProField.Focus -> s.focusDiopters?.let { focusLabel(it) } ?: "Auto"
+        ProField.Focus -> s.focusDiopters?.let { focusLabel(it) } ?: t("auto")
     }
 }
 

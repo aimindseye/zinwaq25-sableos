@@ -1,10 +1,14 @@
 package org.sableos.titan2.camera.core
 
+import org.sableos.titan2.camera.core.CameraText.t
+
 /** What a saved file is, from its MIME type. Decides the share type and the review placeholder. */
-enum class CaptureKind(val label: String) {
-    Photo("Photo"),
-    Raw("RAW"),
-    Video("Video");
+enum class CaptureKind(private val labelKey: String) {
+    Photo("photo"),
+    Raw("raw"),
+    Video("video_2");
+
+    val label: String get() = t(labelKey)
 
     companion object {
         fun ofMime(mime: String): CaptureKind = when {
@@ -85,7 +89,7 @@ object QuickReview {
 
     /** G or the thumbnail: show the latest capture, or say there is none yet. */
     fun <T> open(s: ReviewState<T>): ReviewStep<T> = if (s.captures.isEmpty()) {
-        ReviewStep(s, status = "Nothing captured yet in this session")
+        ReviewStep(s, status = t("nothing_captured_yet_in_this"))
     } else {
         ReviewStep(s.copy(open = true, index = s.captures.lastIndex, confirmingDelete = false))
     }
@@ -109,16 +113,16 @@ object QuickReview {
                 ReviewStep(s.copy(confirmingDelete = false), ReviewEffect.Delete(c))
 
             ReviewAction.Cancel, ReviewAction.Close ->
-                ReviewStep(s.copy(confirmingDelete = false), status = "Kept ${c.name}")
+                ReviewStep(s.copy(confirmingDelete = false), status = t("kept", c.name))
 
             else -> ReviewStep(s, status = confirmText(c))
         }
 
     private fun <T> browsing(s: ReviewState<T>, c: Capture<T>, a: ReviewAction): ReviewStep<T> =
         when (a) {
-            ReviewAction.Older -> step(s, -1, "Oldest capture of this session")
+            ReviewAction.Older -> step(s, -1, t("oldest_capture_of_this_session"))
 
-            ReviewAction.Newer -> step(s, 1, "Latest capture")
+            ReviewAction.Newer -> step(s, 1, t("latest_capture"))
 
             ReviewAction.Delete ->
                 ReviewStep(s.copy(confirmingDelete = true), status = confirmText(c))
@@ -143,7 +147,7 @@ object QuickReview {
         }
     }
 
-    fun confirmText(c: Capture<*>): String = "Delete ${c.name}? Enter or Y deletes, Esc or N keeps"
+    fun confirmText(c: Capture<*>): String = t("delete_enter_or_y_deletes", c.name)
 
     /**
      * After the file is gone: drop it and show its newer neighbour (or the new latest). The

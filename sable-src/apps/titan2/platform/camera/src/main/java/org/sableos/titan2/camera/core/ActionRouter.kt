@@ -1,10 +1,18 @@
 package org.sableos.titan2.camera.core
 
+import org.sableos.titan2.camera.core.CameraText.t
+
 /**
  * Stock order is Timelapse, Video, Photo, Pro, More. Timelapse and More are not built, so the strip
  * is Video, Photo, Pro.
  */
-enum class UiMode(val label: String) { Video("Video"), Photo("Photo"), Pro("Pro") }
+enum class UiMode(private val labelKey: String) {
+    Video("video_2"),
+    Photo("photo"),
+    Pro("pro");
+
+    val label: String get() = t(labelKey)
+}
 
 sealed interface Cmd {
     data class Act(val action: CameraAction) : Cmd
