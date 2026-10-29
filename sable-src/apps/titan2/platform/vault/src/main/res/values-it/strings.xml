@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Italian. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (VaultLinesTest checks). -->
+<resources>
+    <string name="read_error">errore di lettura</string>
+    <string name="no_access">" (nessun accesso"</string>
+    <string name="partial_copy_left">; copia parziale rimasta</string>
+    <string name="cancelled_nothing_changed">Annullato. Nulla è cambiato.</string>
+    <string name="deleted">%1$s eliminato.</string>
+    <string name="could_not_delete">Impossibile eliminare %1$s.</string>
+    <string name="deleted_of_original_s_any">Eliminati %1$s di %2$s originali. Quelli non eliminati sono ancora dove erano.</string>
+    <string name="open_with">Apri %1$s con</string>
+    <string name="opened_read_only_this_file">%1$s aperto (sola lettura, solo questo file).</string>
+    <string name="no_app_in_private_space">Nessuna app in Private Space può aprire %1$s.</string>
+    <string name="the_system_file_picker_is">Il selettore file di sistema non è disponibile.</string>
+    <string name="exported_a_copy_of_it">Esportata una copia di %1$s. Non è più protetta dalla cassaforte.</string>
+    <string name="export_failed_nothing_was_written">Impossibile esportare. Non è stato scritto nulla.</string>
+    <string name="could">Impossibile</string>
+    <string name="cancelled">Annullato</string>
+    <string name="no_app">Nessuna app</string>
+    <string name="not_available">non è disponibile</string>
+    <string name="yes">Sì</string>
+    <string name="no">No</string>
+    <string name="import_label">Importa</string>
+    <string name="export">Esporta</string>
+    <string name="lock_now">Blocca ora</string>
+    <string name="photos">Foto</string>
+    <string name="documents">Documenti</string>
+    <string name="recordings">Registrazioni</string>
+    <string name="file_or_p_d_r">↑↓ file · ←→ o P D R sezione · Enter apri · I importa · E esporta · X elimina · L blocca ora</string>
+    <string name="open">Aprire %1$s?</string>
+    <string name="the_app_you_pick_inside">L\'app che scegli (dentro Private Space) può leggere questo solo file finché non lo chiude. Enter o Y apre · Indietro o N annulla.</string>
+    <string name="export_2">Esportare %1$s?</string>
+    <string name="a_copy_is_written_where">Una copia viene scritta dove scegli subito dopo e non è più protetta dalla cassaforte. La copia nella cassaforte resta. Enter o Y continua · Indietro o N annulla.</string>
+    <string name="delete_from_the_vault">Eliminare %1$s dalla cassaforte?</string>
+    <string name="it_cannot_be_recovered_enter">Non può essere recuperato. Enter o Y elimina · Indietro o N annulla.</string>
+    <string name="imported_file_s_as_copies">Importati %1$s file come copie. Eliminare gli originali?</string>
+    <string name="the_originals_are_still_where">Gli originali sono ancora dove erano. Enter o Y li elimina · Indietro o N li mantiene.</string>
+    <string name="imported_file_s_as_copies_2">Importati %1$s file come copie.</string>
+    <string name="could_not_import">" Impossibile importare: "</string>
+    <string name="secure_vault">Secure Vault</string>
+    <string name="private_space_photos_documents_recordings">Private Space · Foto · Documenti · Registrazioni · importazione/esportazione solo esplicite</string>
+    <string name="secure_vault_works_only_inside">Secure Vault funziona solo dentro Private Space. Sblocca Private Space in Sable Start (Tutte le app) e apri lì Secure Vault. Nulla viene salvato all\'esterno.</string>
+    <string name="nothing_here_yet_press_i">Ancora nulla. Premi I per importare una copia di un file.</string>
+    <string name="could_not_lock_private_space">Impossibile bloccare Private Space da qui; bloccalo da Sable Start. La cassaforte si è chiusa.</string>
+</resources>

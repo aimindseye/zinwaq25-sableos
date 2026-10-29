@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (VaultLinesTest checks). -->
+<resources>
+    <string name="read_error">σφάλμα ανάγνωσης</string>
+    <string name="no_access">" (χωρίς πρόσβαση"</string>
+    <string name="partial_copy_left">; έμεινε μερικό αντίγραφο</string>
+    <string name="cancelled_nothing_changed">Ακυρώθηκε. Τίποτα δεν άλλαξε.</string>
+    <string name="deleted">Το %1$s διαγράφηκε.</string>
+    <string name="could_not_delete">Αποτυχία διαγραφής του %1$s.</string>
+    <string name="deleted_of_original_s_any">Διαγράφηκαν %1$s από %2$s πρωτότυπα. Όσα δεν διαγράφηκαν παραμένουν στη θέση τους.</string>
+    <string name="open_with">Άνοιγμα του %1$s με</string>
+    <string name="opened_read_only_this_file">Το %1$s άνοιξε (μόνο για ανάγνωση, μόνο αυτό το αρχείο).</string>
+    <string name="no_app_in_private_space">Καμία εφαρμογή στο Private Space δεν μπορεί να ανοίξει το %1$s.</string>
+    <string name="the_system_file_picker_is">Ο επιλογέας αρχείων του συστήματος δεν είναι διαθέσιμος.</string>
+    <string name="exported_a_copy_of_it">Εξήχθη αντίγραφο του %1$s. Δεν προστατεύεται πλέον από το θησαυροφυλάκιο.</string>
+    <string name="export_failed_nothing_was_written">Αποτυχία εξαγωγής. Δεν γράφτηκε τίποτα.</string>
+    <string name="could">Αποτυχία</string>
+    <string name="cancelled">Ακυρώθηκε</string>
+    <string name="no_app">Καμία εφαρμογή</string>
+    <string name="not_available">δεν είναι διαθέσιμος</string>
+    <string name="yes">Ναι</string>
+    <string name="no">Όχι</string>
+    <string name="import_label">Εισαγωγή</string>
+    <string name="export">Εξαγωγή</string>
+    <string name="lock_now">Κλείδωμα τώρα</string>
+    <string name="photos">Φωτογραφίες</string>
+    <string name="documents">Έγγραφα</string>
+    <string name="recordings">Ηχογραφήσεις</string>
+    <string name="file_or_p_d_r">↑↓ αρχείο · ←→ ή P D R ενότητα · Enter άνοιγμα · I εισαγωγή · E εξαγωγή · X διαγραφή · L κλείδωμα τώρα</string>
+    <string name="open">Να ανοίξει το %1$s;</string>
+    <string name="the_app_you_pick_inside">Η εφαρμογή που θα επιλέξετε (μέσα στο Private Space) μπορεί να διαβάσει αυτό το ένα αρχείο μέχρι να το κλείσει. Enter ή Y ανοίγει · Πίσω ή N ακυρώνει.</string>
+    <string name="export_2">Να εξαχθεί το %1$s;</string>
+    <string name="a_copy_is_written_where">Ένα αντίγραφο γράφεται εκεί που θα επιλέξετε στη συνέχεια και δεν προστατεύεται πλέον από το θησαυροφυλάκιο. Το αντίγραφο στο θησαυροφυλάκιο παραμένει. Enter ή Y συνεχίζει · Πίσω ή N ακυρώνει.</string>
+    <string name="delete_from_the_vault">Να διαγραφεί το %1$s από το θησαυροφυλάκιο;</string>
+    <string name="it_cannot_be_recovered_enter">Δεν μπορεί να ανακτηθεί. Enter ή Y διαγράφει · Πίσω ή N ακυρώνει.</string>
+    <string name="imported_file_s_as_copies">Εισήχθησαν %1$s αρχεία ως αντίγραφα. Να διαγραφούν τα πρωτότυπα;</string>
+    <string name="the_originals_are_still_where">Τα πρωτότυπα παραμένουν στη θέση τους. Enter ή Y τα διαγράφει · Πίσω ή N τα διατηρεί.</string>
+    <string name="imported_file_s_as_copies_2">Εισήχθησαν %1$s αρχεία ως αντίγραφα.</string>
+    <string name="could_not_import">" Αποτυχία εισαγωγής: "</string>
+    <string name="secure_vault">Secure Vault</string>
+    <string name="private_space_photos_documents_recordings">Private Space · Φωτογραφίες · Έγγραφα · Ηχογραφήσεις · εισαγωγή/εξαγωγή μόνο ρητά</string>
+    <string name="secure_vault_works_only_inside">Το Secure Vault λειτουργεί μόνο μέσα στο Private Space. Ξεκλειδώστε το Private Space στο Sable Start (Όλες οι εφαρμογές) και ανοίξτε εκεί το Secure Vault. Τίποτα δεν αποθηκεύεται εκτός.</string>
+    <string name="nothing_here_yet_press_i">Δεν υπάρχει τίποτα ακόμη. Πατήστε I για να εισαγάγετε αντίγραφο ενός αρχείου.</string>
+    <string name="could_not_lock_private_space">Αποτυχία κλειδώματος του Private Space από εδώ· κλειδώστε το από το Sable Start. Το θησαυροφυλάκιο έκλεισε.</string>
+</resources>

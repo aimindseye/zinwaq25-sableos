@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (VaultLinesTest checks). -->
+<resources>
+    <string name="read_error">okuma hatası</string>
+    <string name="no_access">" (erişim yok"</string>
+    <string name="partial_copy_left">; kısmi kopya kaldı</string>
+    <string name="cancelled_nothing_changed">İptal edildi. Hiçbir şey değişmedi.</string>
+    <string name="deleted">%1$s silindi.</string>
+    <string name="could_not_delete">%1$s silme başarısız.</string>
+    <string name="deleted_of_original_s_any">%2$s özgünden %1$s silindi. Silinmeyenler olduğu yerde duruyor.</string>
+    <string name="open_with">%1$s şununla aç</string>
+    <string name="opened_read_only_this_file">%1$s açıldı (salt okunur, yalnızca bu dosya).</string>
+    <string name="no_app_in_private_space">Private Space içinde %1$s dosyasını açabilen uygulama yok.</string>
+    <string name="the_system_file_picker_is">Sistem dosya seçici kullanılamıyor.</string>
+    <string name="exported_a_copy_of_it">%1$s dosyasının bir kopyası dışa aktarıldı. Artık kasa tarafından korunmuyor.</string>
+    <string name="export_failed_nothing_was_written">Dışa aktarma başarısız. Hiçbir şey yazılmadı.</string>
+    <string name="could">başarısız</string>
+    <string name="cancelled">İptal edildi</string>
+    <string name="no_app">uygulama yok</string>
+    <string name="not_available">kullanılamıyor</string>
+    <string name="yes">Evet</string>
+    <string name="no">Hayır</string>
+    <string name="import_label">İçe aktar</string>
+    <string name="export">Dışa aktar</string>
+    <string name="lock_now">Şimdi kilitle</string>
+    <string name="photos">Fotoğraflar</string>
+    <string name="documents">Belgeler</string>
+    <string name="recordings">Kayıtlar</string>
+    <string name="file_or_p_d_r">↑↓ dosya · ←→ veya P D R bölüm · Enter aç · I içe aktar · E dışa aktar · X sil · L şimdi kilitle</string>
+    <string name="open">%1$s açılsın mı?</string>
+    <string name="the_app_you_pick_inside">Seçtiğin uygulama (Private Space içinde) kapatana kadar yalnızca bu dosyayı okuyabilir. Enter veya Y açar · Geri veya N iptal eder.</string>
+    <string name="export_2">%1$s dışa aktarılsın mı?</string>
+    <string name="a_copy_is_written_where">Bir kopya, sonra seçeceğin yere yazılır ve artık kasa tarafından korunmaz. Kasadaki kopya kalır. Enter veya Y devam eder · Geri veya N iptal eder.</string>
+    <string name="delete_from_the_vault">%1$s kasadan silinsin mi?</string>
+    <string name="it_cannot_be_recovered_enter">Geri alınamaz. Enter veya Y siler · Geri veya N iptal eder.</string>
+    <string name="imported_file_s_as_copies">%1$s dosya kopya olarak içe aktarıldı. Özgün dosyalar silinsin mi?</string>
+    <string name="the_originals_are_still_where">Özgün dosyalar olduğu yerde duruyor. Enter veya Y siler · Geri veya N saklar.</string>
+    <string name="imported_file_s_as_copies_2">%1$s dosya kopya olarak içe aktarıldı.</string>
+    <string name="could_not_import">" İçe aktarma başarısız: "</string>
+    <string name="secure_vault">Secure Vault</string>
+    <string name="private_space_photos_documents_recordings">Private Space · Fotoğraflar · Belgeler · Kayıtlar · içe/dışa aktarma yalnızca açıkça</string>
+    <string name="secure_vault_works_only_inside">Secure Vault yalnızca Private Space içinde çalışır. Private Space\'in kilidini Sable Start\'ta (Tüm uygulamalar) aç ve Secure Vault\'u orada başlat. Dışarıda hiçbir şey saklanmaz.</string>
+    <string name="nothing_here_yet_press_i">Henüz burada bir şey yok. Bir dosyanın kopyasını içe aktarmak için I\'ya bas.</string>
+    <string name="could_not_lock_private_space">Private Space buradan kilitleme başarısız; Sable Start\'tan kilitle. Kasa kapandı.</string>
+</resources>

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (NotesTextTest checks). -->
+<resources>
+    <string name="deleted">« %1$s » supprimée</string>
+    <string name="couldn_t_save">Impossible d’enregistrer « %1$s »</string>
+    <string name="share_note">Partager la note</string>
+    <string name="exported">« %1$s » exportée</string>
+    <string name="export_failed">Échec de l’exportation</string>
+    <string name="nothing_to_import">Rien à importer</string>
+    <string name="note">Note</string>
+    <string name="no_colour">Sans couleur</string>
+    <string name="yellow">Jaune</string>
+    <string name="orange">Orange</string>
+    <string name="red">Rouge</string>
+    <string name="pink">Rose</string>
+    <string name="purple">Violet</string>
+    <string name="blue">Bleu</string>
+    <string name="green">Vert</string>
+    <string name="empty_note">Note vide</string>
+    <string name="list_item_on_this_line">Élément de liste sur cette ligne</string>
+    <string name="tick_or_untick_this_item">Cocher ou décocher cet élément</string>
+    <string name="find_in_note">Rechercher dans la note</string>
+    <string name="find_next">Rechercher le suivant</string>
+    <string name="colour">Couleur</string>
+    <string name="share">Partager</string>
+    <string name="export_to_a_file">Exporter vers un fichier</string>
+    <string name="delete_note">Supprimer la note</string>
+    <string name="c_new_s_find_k">C nouvelle · S rechercher · K tâches · L couleur · D supprimer</string>
+    <string name="menu_list_item_tick_find">Menu : élément de liste, cocher, rechercher, couleur, partager · Retour enregistre</string>
+    <string name="enter_tick_o_open_note">Enter coche · O ouvre la note · H éléments terminés · Retour</string>
+    <string name="type_your_note_the_first">Saisissez votre note. La première ligne en est le titre.</string>
+    <string name="change_colour_now">Changer la couleur, actuellement %1$s</string>
+    <string name="edited">Modifiée %1$s%2$s</string>
+    <string name="note_actions_menu_key">Actions de la note (touche Menu)</string>
+    <string name="find_in_this_note_enter">Rechercher dans cette note · Enter y accède</string>
+    <string name="not_in_this_note">Absent de cette note</string>
+    <string name="notes">Notes</string>
+    <string name="new_label">Nouvelle</string>
+    <string name="no_notes_yet_press_c">Aucune note pour le moment. Appuyez sur C pour en écrire une, ou sur I pour importer un fichier texte.</string>
+    <string name="no_note_matches">Aucune note ne correspond.</string>
+    <string name="c_new_i_import_k">C nouvelle · I importer · K tâches</string>
+    <string name="one_note">1 note</string>
+    <string name="note_count">%1$s notes</string>
+    <string name="open_tasks">%1$s · %2$s tâches en cours</string>
+    <string name="find_in_notes_enter_opens">Rechercher dans les notes · Enter ouvre</string>
+    <string name="tasks">Tâches</string>
+    <string name="open_showing_done_items">%1$s en cours · éléments terminés affichés</string>
+    <string name="open">%1$s en cours</string>
+    <string name="hide_done">Masquer les terminés</string>
+    <string name="show_done">Afficher les terminés</string>
+    <string name="no_open_tasks_in_a">Aucune tâche en cours. Dans une note, Menu puis L transforme une ligne en élément de liste de tâches.</string>
+    <string name="delete_note_question">Supprimer la note ?</string>
+    <string name="will_be_deleted_from_this">« %1$s » sera supprimée de ce téléphone.</string>
+    <string name="delete">Supprimer</string>
+    <string name="keep">Conserver</string>
+</resources>

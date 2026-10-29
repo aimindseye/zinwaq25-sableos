@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Polish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (NotesTextTest checks). -->
+<resources>
+    <string name="deleted">Usunięto „%1$s”</string>
+    <string name="couldn_t_save">Nie udało się zapisać „%1$s”</string>
+    <string name="share_note">Udostępnij notatkę</string>
+    <string name="exported">Wyeksportowano „%1$s”</string>
+    <string name="export_failed">Eksport nie powiódł się</string>
+    <string name="nothing_to_import">Brak danych do zaimportowania</string>
+    <string name="note">Notatka</string>
+    <string name="no_colour">Bez koloru</string>
+    <string name="yellow">Żółty</string>
+    <string name="orange">Pomarańczowy</string>
+    <string name="red">Czerwony</string>
+    <string name="pink">Różowy</string>
+    <string name="purple">Fioletowy</string>
+    <string name="blue">Niebieski</string>
+    <string name="green">Zielony</string>
+    <string name="empty_note">Pusta notatka</string>
+    <string name="list_item_on_this_line">Element listy w tym wierszu</string>
+    <string name="tick_or_untick_this_item">Zaznacz lub odznacz ten element</string>
+    <string name="find_in_note">Szukaj w notatce</string>
+    <string name="find_next">Szukaj dalej</string>
+    <string name="colour">Kolor</string>
+    <string name="share">Udostępnij</string>
+    <string name="export_to_a_file">Eksportuj do pliku</string>
+    <string name="delete_note">Usuń notatkę</string>
+    <string name="c_new_s_find_k">C nowa · S szukaj · K zadania · L kolor · D usuń</string>
+    <string name="menu_list_item_tick_find">Menu: element listy, zaznaczanie, szukanie, kolor, udostępnianie · Wstecz zapisuje</string>
+    <string name="enter_tick_o_open_note">Enter zaznacza · O otwiera notatkę · H wykonane · Wstecz</string>
+    <string name="type_your_note_the_first">Wpisz notatkę. Pierwszy wiersz jest tytułem.</string>
+    <string name="change_colour_now">Zmień kolor, teraz %1$s</string>
+    <string name="edited">Edytowano %1$s%2$s</string>
+    <string name="note_actions_menu_key">Działania na notatce (klawisz Menu)</string>
+    <string name="find_in_this_note_enter">Szukaj w tej notatce · Enter przechodzi do wyniku</string>
+    <string name="not_in_this_note">Brak w tej notatce</string>
+    <string name="notes">Notatki</string>
+    <string name="new_label">Nowa</string>
+    <string name="no_notes_yet_press_c">Brak notatek. Naciśnij C, aby napisać notatkę, lub I, aby zaimportować plik tekstowy.</string>
+    <string name="no_note_matches">Żadna notatka nie pasuje.</string>
+    <string name="c_new_i_import_k">C nowa · I importuj · K zadania</string>
+    <string name="one_note">1 notatka</string>
+    <string name="note_count">Notatki: %1$s</string>
+    <string name="open_tasks">%1$s · otwarte zadania: %2$s</string>
+    <string name="find_in_notes_enter_opens">Szukaj w notatkach · Enter otwiera</string>
+    <string name="tasks">Zadania</string>
+    <string name="open_showing_done_items">Otwarte: %1$s · widoczne wykonane</string>
+    <string name="open">Otwarte: %1$s</string>
+    <string name="hide_done">Ukryj wykonane</string>
+    <string name="show_done">Pokaż wykonane</string>
+    <string name="no_open_tasks_in_a">Brak otwartych zadań. W notatce naciśnij Menu, a potem L, aby zamienić wiersz w element listy kontrolnej.</string>
+    <string name="delete_note_question">Usunąć notatkę?</string>
+    <string name="will_be_deleted_from_this">„%1$s” zostanie usunięta z tego telefonu.</string>
+    <string name="delete">Usuń</string>
+    <string name="keep">Zachowaj</string>
+</resources>

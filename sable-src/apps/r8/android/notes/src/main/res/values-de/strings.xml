@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (NotesTextTest checks). -->
+<resources>
+    <string name="deleted">„%1$s“ gelöscht</string>
+    <string name="couldn_t_save">„%1$s“ konnte nicht gespeichert werden</string>
+    <string name="share_note">Notiz teilen</string>
+    <string name="exported">„%1$s“ exportiert</string>
+    <string name="export_failed">Export fehlgeschlagen</string>
+    <string name="nothing_to_import">Nichts zu importieren</string>
+    <string name="note">Notiz</string>
+    <string name="no_colour">Keine Farbe</string>
+    <string name="yellow">Gelb</string>
+    <string name="orange">Orange</string>
+    <string name="red">Rot</string>
+    <string name="pink">Rosa</string>
+    <string name="purple">Violett</string>
+    <string name="blue">Blau</string>
+    <string name="green">Grün</string>
+    <string name="empty_note">Leere Notiz</string>
+    <string name="list_item_on_this_line">Listeneintrag in dieser Zeile</string>
+    <string name="tick_or_untick_this_item">Diesen Eintrag abhaken oder Haken entfernen</string>
+    <string name="find_in_note">In Notiz suchen</string>
+    <string name="find_next">Nächsten suchen</string>
+    <string name="colour">Farbe</string>
+    <string name="share">Teilen</string>
+    <string name="export_to_a_file">In Datei exportieren</string>
+    <string name="delete_note">Notiz löschen</string>
+    <string name="c_new_s_find_k">C neu · S suchen · K Aufgaben · L Farbe · D löschen</string>
+    <string name="menu_list_item_tick_find">Menu: Listeneintrag, abhaken, suchen, Farbe, teilen · Zurück speichert</string>
+    <string name="enter_tick_o_open_note">Enter hakt ab · O öffnet die Notiz · H erledigte Einträge · Zurück</string>
+    <string name="type_your_note_the_first">Schreibe deine Notiz. Die erste Zeile ist der Titel.</string>
+    <string name="change_colour_now">Farbe ändern, aktuell %1$s</string>
+    <string name="edited">Bearbeitet %1$s%2$s</string>
+    <string name="note_actions_menu_key">Notizaktionen (Menu-Taste)</string>
+    <string name="find_in_this_note_enter">In dieser Notiz suchen · Enter springt hin</string>
+    <string name="not_in_this_note">Nicht in dieser Notiz</string>
+    <string name="notes">Notizen</string>
+    <string name="new_label">Neu</string>
+    <string name="no_notes_yet_press_c">Noch keine Notizen. Drücke C, um eine zu schreiben, oder I, um eine Textdatei zu importieren.</string>
+    <string name="no_note_matches">Keine Notiz passt.</string>
+    <string name="c_new_i_import_k">C neu · I importieren · K Aufgaben</string>
+    <string name="one_note">1 Notiz</string>
+    <string name="note_count">%1$s Notizen</string>
+    <string name="open_tasks">%1$s · %2$s offene Aufgaben</string>
+    <string name="find_in_notes_enter_opens">In Notizen suchen · Enter öffnet</string>
+    <string name="tasks">Aufgaben</string>
+    <string name="open_showing_done_items">%1$s offen · erledigte Einträge werden angezeigt</string>
+    <string name="open">%1$s offen</string>
+    <string name="hide_done">Erledigte ausblenden</string>
+    <string name="show_done">Erledigte anzeigen</string>
+    <string name="no_open_tasks_in_a">Keine offenen Aufgaben. In einer Notiz macht Menu und dann L aus einer Zeile einen Checklisteneintrag.</string>
+    <string name="delete_note_question">Notiz löschen?</string>
+    <string name="will_be_deleted_from_this">„%1$s“ wird von diesem Telefon gelöscht.</string>
+    <string name="delete">Löschen</string>
+    <string name="keep">Behalten</string>
+</resources>

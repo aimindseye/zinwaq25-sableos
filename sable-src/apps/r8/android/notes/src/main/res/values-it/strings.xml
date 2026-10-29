@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Italian. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (NotesTextTest checks). -->
+<resources>
+    <string name="deleted">“%1$s” eliminata</string>
+    <string name="couldn_t_save">Impossibile salvare “%1$s”</string>
+    <string name="share_note">Condividi nota</string>
+    <string name="exported">“%1$s” esportata</string>
+    <string name="export_failed">Esportazione non riuscita</string>
+    <string name="nothing_to_import">Niente da importare</string>
+    <string name="note">Nota</string>
+    <string name="no_colour">Nessun colore</string>
+    <string name="yellow">Giallo</string>
+    <string name="orange">Arancione</string>
+    <string name="red">Rosso</string>
+    <string name="pink">Rosa</string>
+    <string name="purple">Viola</string>
+    <string name="blue">Blu</string>
+    <string name="green">Verde</string>
+    <string name="empty_note">Nota vuota</string>
+    <string name="list_item_on_this_line">Elemento di elenco su questa riga</string>
+    <string name="tick_or_untick_this_item">Spunta o togli la spunta a questo elemento</string>
+    <string name="find_in_note">Trova nella nota</string>
+    <string name="find_next">Trova successivo</string>
+    <string name="colour">Colore</string>
+    <string name="share">Condividi</string>
+    <string name="export_to_a_file">Esporta in un file</string>
+    <string name="delete_note">Elimina nota</string>
+    <string name="c_new_s_find_k">C nuova · S trova · K attività · L colore · D elimina</string>
+    <string name="menu_list_item_tick_find">Menu: elemento di elenco, spunta, trova, colore, condividi · Indietro salva</string>
+    <string name="enter_tick_o_open_note">Enter spunta · O apre la nota · H elementi completati · Indietro</string>
+    <string name="type_your_note_the_first">Scrivi la tua nota. La prima riga è il titolo.</string>
+    <string name="change_colour_now">Cambia colore, ora %1$s</string>
+    <string name="edited">Modificata %1$s%2$s</string>
+    <string name="note_actions_menu_key">Azioni della nota (tasto Menu)</string>
+    <string name="find_in_this_note_enter">Trova in questa nota · Enter vai al risultato</string>
+    <string name="not_in_this_note">Non in questa nota</string>
+    <string name="notes">Note</string>
+    <string name="new_label">Nuova</string>
+    <string name="no_notes_yet_press_c">Ancora nessuna nota. Premi C per scriverne una, o I per importare un file di testo.</string>
+    <string name="no_note_matches">Nessuna nota corrisponde.</string>
+    <string name="c_new_i_import_k">C nuova · I importa · K attività</string>
+    <string name="one_note">1 nota</string>
+    <string name="note_count">%1$s note</string>
+    <string name="open_tasks">%1$s · %2$s attività aperte</string>
+    <string name="find_in_notes_enter_opens">Trova nelle note · Enter apre</string>
+    <string name="tasks">Attività</string>
+    <string name="open_showing_done_items">%1$s aperte · elementi completati visibili</string>
+    <string name="open">%1$s aperte</string>
+    <string name="hide_done">Nascondi completati</string>
+    <string name="show_done">Mostra completati</string>
+    <string name="no_open_tasks_in_a">Nessuna attività aperta. In una nota, Menu poi L trasforma una riga in un elemento di checklist.</string>
+    <string name="delete_note_question">Eliminare la nota?</string>
+    <string name="will_be_deleted_from_this">“%1$s” verrà eliminata da questo telefono.</string>
+    <string name="delete">Elimina</string>
+    <string name="keep">Conserva</string>
+</resources>

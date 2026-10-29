@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (VaultLinesTest checks). -->
+<resources>
+    <string name="read_error">读取错误</string>
+    <string name="no_access">" （无法访问"</string>
+    <string name="partial_copy_left">；留有部分副本</string>
+    <string name="cancelled_nothing_changed">已取消。未更改任何内容。</string>
+    <string name="deleted">已删除 %1$s。</string>
+    <string name="could_not_delete">无法删除 %1$s。</string>
+    <string name="deleted_of_original_s_any">已删除 %2$s 个原件中的 %1$s 个。未删除的仍在原处。</string>
+    <string name="open_with">用以下应用打开 %1$s</string>
+    <string name="opened_read_only_this_file">已打开 %1$s（只读，仅此文件）。</string>
+    <string name="no_app_in_private_space">Private Space 中没有应用可以打开 %1$s。</string>
+    <string name="the_system_file_picker_is">系统文件选择器不可用。</string>
+    <string name="exported_a_copy_of_it">已导出 %1$s 的副本。它不再受保险库保护。</string>
+    <string name="export_failed_nothing_was_written">无法导出。未写入任何内容。</string>
+    <string name="could">无法</string>
+    <string name="cancelled">已取消</string>
+    <string name="no_app">没有应用</string>
+    <string name="not_available">不可用</string>
+    <string name="yes">是</string>
+    <string name="no">否</string>
+    <string name="import_label">导入</string>
+    <string name="export">导出</string>
+    <string name="lock_now">立即锁定</string>
+    <string name="photos">照片</string>
+    <string name="documents">文档</string>
+    <string name="recordings">录音</string>
+    <string name="file_or_p_d_r">↑↓ 文件 · ←→ 或 P D R 分区 · Enter 打开 · I 导入 · E 导出 · X 删除 · L 立即锁定</string>
+    <string name="open">打开 %1$s？</string>
+    <string name="the_app_you_pick_inside">你选择的应用（在 Private Space 内）在关闭前可以读取这一个文件。Enter 或 Y 打开 · 返回或 N 取消。</string>
+    <string name="export_2">导出 %1$s？</string>
+    <string name="a_copy_is_written_where">副本会写入你接下来选择的位置，且不再受保险库保护。保险库中的副本会保留。Enter 或 Y 继续 · 返回或 N 取消。</string>
+    <string name="delete_from_the_vault">从保险库中删除 %1$s？</string>
+    <string name="it_cannot_be_recovered_enter">无法恢复。Enter 或 Y 删除 · 返回或 N 取消。</string>
+    <string name="imported_file_s_as_copies">已将 %1$s 个文件作为副本导入。要删除原件吗？</string>
+    <string name="the_originals_are_still_where">原件仍在原处。Enter 或 Y 删除 · 返回或 N 保留。</string>
+    <string name="imported_file_s_as_copies_2">已将 %1$s 个文件作为副本导入。</string>
+    <string name="could_not_import">" 无法导入："</string>
+    <string name="secure_vault">Secure Vault</string>
+    <string name="private_space_photos_documents_recordings">Private Space · 照片 · 文档 · 录音 · 仅在明确操作时导入/导出</string>
+    <string name="secure_vault_works_only_inside">Secure Vault 只能在 Private Space 内使用。请在 Sable Start（全部应用）中解锁 Private Space，并在那里打开 Secure Vault。不会在其外存储任何内容。</string>
+    <string name="nothing_here_yet_press_i">这里还没有内容。按 I 导入文件的副本。</string>
+    <string name="could_not_lock_private_space">无法从此处锁定 Private Space；请在 Sable Start 中锁定。保险库已关闭。</string>
+</resources>

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Korean. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (VaultLinesTest checks). -->
+<resources>
+    <string name="read_error">읽기 오류</string>
+    <string name="no_access">" (접근 불가"</string>
+    <string name="partial_copy_left">; 일부 사본이 남아 있음</string>
+    <string name="cancelled_nothing_changed">취소했습니다. 변경된 것이 없습니다.</string>
+    <string name="deleted">%1$s을(를) 삭제했습니다.</string>
+    <string name="could_not_delete">%1$s을(를) 삭제할 수 없습니다.</string>
+    <string name="deleted_of_original_s_any">원본 %2$s개 중 %1$s개를 삭제했습니다. 삭제되지 않은 항목은 원래 위치에 있습니다.</string>
+    <string name="open_with">%1$s 열기에 사용할 앱</string>
+    <string name="opened_read_only_this_file">%1$s을(를) 열었습니다(읽기 전용, 이 파일만).</string>
+    <string name="no_app_in_private_space">Private Space에서 %1$s을(를) 열 수 있는 앱이 없습니다.</string>
+    <string name="the_system_file_picker_is">시스템 파일 선택기를 사용할 수 없습니다.</string>
+    <string name="exported_a_copy_of_it">%1$s의 사본을 내보냈습니다. 더 이상 보관함이 보호하지 않습니다.</string>
+    <string name="export_failed_nothing_was_written">내보낼 수 없습니다. 아무것도 기록되지 않았습니다.</string>
+    <string name="could">수 없습니다</string>
+    <string name="cancelled">취소했습니다</string>
+    <string name="no_app">앱이 없습니다</string>
+    <string name="not_available">사용할 수 없습니다</string>
+    <string name="yes">예</string>
+    <string name="no">아니요</string>
+    <string name="import_label">가져오기</string>
+    <string name="export">내보내기</string>
+    <string name="lock_now">지금 잠금</string>
+    <string name="photos">사진</string>
+    <string name="documents">문서</string>
+    <string name="recordings">녹음</string>
+    <string name="file_or_p_d_r">↑↓ 파일 · ←→ 또는 P D R 구역 · Enter 열기 · I 가져오기 · E 내보내기 · X 삭제 · L 지금 잠금</string>
+    <string name="open">%1$s을(를) 열까요?</string>
+    <string name="the_app_you_pick_inside">선택한 앱(Private Space 안)은 닫을 때까지 이 파일 하나만 읽을 수 있습니다. Enter 또는 Y로 열기 · 뒤로 또는 N으로 취소.</string>
+    <string name="export_2">%1$s을(를) 내보낼까요?</string>
+    <string name="a_copy_is_written_where">다음에 선택하는 위치에 사본이 기록되며 더 이상 보관함이 보호하지 않습니다. 보관함 안의 사본은 그대로 남습니다. Enter 또는 Y로 계속 · 뒤로 또는 N으로 취소.</string>
+    <string name="delete_from_the_vault">보관함에서 %1$s을(를) 삭제할까요?</string>
+    <string name="it_cannot_be_recovered_enter">복구할 수 없습니다. Enter 또는 Y로 삭제 · 뒤로 또는 N으로 취소.</string>
+    <string name="imported_file_s_as_copies">파일 %1$s개를 사본으로 가져왔습니다. 원본을 삭제할까요?</string>
+    <string name="the_originals_are_still_where">원본은 원래 위치에 그대로 있습니다. Enter 또는 Y로 삭제 · 뒤로 또는 N으로 유지.</string>
+    <string name="imported_file_s_as_copies_2">파일 %1$s개를 사본으로 가져왔습니다.</string>
+    <string name="could_not_import">" 가져올 수 없습니다: "</string>
+    <string name="secure_vault">Secure Vault</string>
+    <string name="private_space_photos_documents_recordings">Private Space · 사진 · 문서 · 녹음 · 가져오기/내보내기는 명시적으로만</string>
+    <string name="secure_vault_works_only_inside">Secure Vault는 Private Space 안에서만 작동합니다. Sable Start(모든 앱)에서 Private Space 잠금을 해제하고 그곳에서 Secure Vault를 여세요. 밖에는 아무것도 저장되지 않습니다.</string>
+    <string name="nothing_here_yet_press_i">아직 아무것도 없습니다. I를 눌러 파일 사본을 가져오세요.</string>
+    <string name="could_not_lock_private_space">여기서 Private Space를 잠글 수 없습니다. Sable Start에서 잠그세요. 보관함이 닫혔습니다.</string>
+</resources>

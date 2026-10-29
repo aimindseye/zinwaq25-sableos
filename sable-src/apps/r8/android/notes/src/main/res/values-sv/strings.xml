@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Swedish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (NotesTextTest checks). -->
+<resources>
+    <string name="deleted">”%1$s” raderades</string>
+    <string name="couldn_t_save">Det gick inte att spara ”%1$s”</string>
+    <string name="share_note">Dela anteckning</string>
+    <string name="exported">”%1$s” exporterades</string>
+    <string name="export_failed">Exporten misslyckades</string>
+    <string name="nothing_to_import">Inget att importera</string>
+    <string name="note">Anteckning</string>
+    <string name="no_colour">Ingen färg</string>
+    <string name="yellow">Gul</string>
+    <string name="orange">Orange</string>
+    <string name="red">Röd</string>
+    <string name="pink">Rosa</string>
+    <string name="purple">Lila</string>
+    <string name="blue">Blå</string>
+    <string name="green">Grön</string>
+    <string name="empty_note">Tom anteckning</string>
+    <string name="list_item_on_this_line">Listpost på den här raden</string>
+    <string name="tick_or_untick_this_item">Bocka i eller ur den här posten</string>
+    <string name="find_in_note">Sök i anteckningen</string>
+    <string name="find_next">Sök nästa</string>
+    <string name="colour">Färg</string>
+    <string name="share">Dela</string>
+    <string name="export_to_a_file">Exportera till en fil</string>
+    <string name="delete_note">Radera anteckning</string>
+    <string name="c_new_s_find_k">C ny · S sök · K uppgifter · L färg · D radera</string>
+    <string name="menu_list_item_tick_find">Menu: listpost, bocka, sök, färg, dela · Bakåt sparar</string>
+    <string name="enter_tick_o_open_note">Enter bockar · O öppnar anteckningen · H klara poster · Bakåt</string>
+    <string name="type_your_note_the_first">Skriv din anteckning. Första raden är rubriken.</string>
+    <string name="change_colour_now">Byt färg, nu %1$s</string>
+    <string name="edited">Redigerad %1$s%2$s</string>
+    <string name="note_actions_menu_key">Anteckningsåtgärder (Menu-tangenten)</string>
+    <string name="find_in_this_note_enter">Sök i den här anteckningen · Enter går dit</string>
+    <string name="not_in_this_note">Finns inte i den här anteckningen</string>
+    <string name="notes">Anteckningar</string>
+    <string name="new_label">Ny</string>
+    <string name="no_notes_yet_press_c">Inga anteckningar än. Tryck på C för att skriva en, eller I för att importera en textfil.</string>
+    <string name="no_note_matches">Ingen anteckning matchar.</string>
+    <string name="c_new_i_import_k">C ny · I importera · K uppgifter</string>
+    <string name="one_note">1 anteckning</string>
+    <string name="note_count">%1$s anteckningar</string>
+    <string name="open_tasks">%1$s · %2$s öppna uppgifter</string>
+    <string name="find_in_notes_enter_opens">Sök i anteckningar · Enter öppnar</string>
+    <string name="tasks">Uppgifter</string>
+    <string name="open_showing_done_items">%1$s öppna · visar klara poster</string>
+    <string name="open">%1$s öppna</string>
+    <string name="hide_done">Dölj klara</string>
+    <string name="show_done">Visa klara</string>
+    <string name="no_open_tasks_in_a">Inga öppna uppgifter. I en anteckning gör du en rad till en checklistepost med Menu och sedan L.</string>
+    <string name="delete_note_question">Radera anteckningen?</string>
+    <string name="will_be_deleted_from_this">”%1$s” raderas från den här telefonen.</string>
+    <string name="delete">Radera</string>
+    <string name="keep">Behåll</string>
+</resources>

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Japanese. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (NotesTextTest checks). -->
+<resources>
+    <string name="deleted">「%1$s」を削除しました</string>
+    <string name="couldn_t_save">「%1$s」を保存できませんでした</string>
+    <string name="share_note">メモを共有</string>
+    <string name="exported">「%1$s」をエクスポートしました</string>
+    <string name="export_failed">エクスポートに失敗しました</string>
+    <string name="nothing_to_import">インポートするものがありません</string>
+    <string name="note">メモ</string>
+    <string name="no_colour">色なし</string>
+    <string name="yellow">黄</string>
+    <string name="orange">オレンジ</string>
+    <string name="red">赤</string>
+    <string name="pink">ピンク</string>
+    <string name="purple">紫</string>
+    <string name="blue">青</string>
+    <string name="green">緑</string>
+    <string name="empty_note">空のメモ</string>
+    <string name="list_item_on_this_line">この行のリスト項目</string>
+    <string name="tick_or_untick_this_item">この項目のチェックを入れる／外す</string>
+    <string name="find_in_note">メモ内を検索</string>
+    <string name="find_next">次を検索</string>
+    <string name="colour">色</string>
+    <string name="share">共有</string>
+    <string name="export_to_a_file">ファイルにエクスポート</string>
+    <string name="delete_note">メモを削除</string>
+    <string name="c_new_s_find_k">C 新規 · S 検索 · K タスク · L 色 · D 削除</string>
+    <string name="menu_list_item_tick_find">Menu: リスト項目、チェック、検索、色、共有 · 戻るで保存</string>
+    <string name="enter_tick_o_open_note">Enter でチェック · O でメモを開く · H で完了項目 · 戻る</string>
+    <string name="type_your_note_the_first">メモを入力してください。1行目がタイトルになります。</string>
+    <string name="change_colour_now">色を変更（現在: %1$s）</string>
+    <string name="edited">編集: %1$s%2$s</string>
+    <string name="note_actions_menu_key">メモの操作（Menu キー）</string>
+    <string name="find_in_this_note_enter">このメモ内を検索 · Enter で移動</string>
+    <string name="not_in_this_note">このメモにはありません</string>
+    <string name="notes">メモ</string>
+    <string name="new_label">新規</string>
+    <string name="no_notes_yet_press_c">メモはまだありません。C で書き始めるか、I でテキストファイルをインポートします。</string>
+    <string name="no_note_matches">一致するメモはありません。</string>
+    <string name="c_new_i_import_k">C 新規 · I インポート · K タスク</string>
+    <string name="one_note">メモ 1 件</string>
+    <string name="note_count">メモ %1$s 件</string>
+    <string name="open_tasks">%1$s · 未完了タスク %2$s 件</string>
+    <string name="find_in_notes_enter_opens">メモを検索 · Enter で開く</string>
+    <string name="tasks">タスク</string>
+    <string name="open_showing_done_items">未完了 %1$s 件 · 完了項目を表示中</string>
+    <string name="open">未完了 %1$s 件</string>
+    <string name="hide_done">完了を非表示</string>
+    <string name="show_done">完了を表示</string>
+    <string name="no_open_tasks_in_a">未完了のタスクはありません。メモで Menu、続けて L を押すと、行をチェックリスト項目にできます。</string>
+    <string name="delete_note_question">メモを削除しますか？</string>
+    <string name="will_be_deleted_from_this">「%1$s」はこの端末から削除されます。</string>
+    <string name="delete">削除</string>
+    <string name="keep">残す</string>
+</resources>

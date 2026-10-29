@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (VaultLinesTest checks). -->
+<resources>
+    <string name="read_error">erreur de lecture</string>
+    <string name="no_access">" (accès refusé"</string>
+    <string name="partial_copy_left">; copie partielle restante</string>
+    <string name="cancelled_nothing_changed">Annulé. Rien n\'a changé.</string>
+    <string name="deleted">%1$s supprimé.</string>
+    <string name="could_not_delete">Échec de la suppression de %1$s.</string>
+    <string name="deleted_of_original_s_any">%1$s original(aux) sur %2$s supprimé(s). Ceux qui ne sont pas supprimés sont toujours à leur place.</string>
+    <string name="open_with">Ouvrir %1$s avec</string>
+    <string name="opened_read_only_this_file">%1$s ouvert (lecture seule, ce fichier uniquement).</string>
+    <string name="no_app_in_private_space">Aucune appli de Private Space ne peut ouvrir %1$s.</string>
+    <string name="the_system_file_picker_is">Le sélecteur de fichiers du système est indisponible.</string>
+    <string name="exported_a_copy_of_it">Une copie de %1$s a été exportée. Elle n\'est plus protégée par le coffre.</string>
+    <string name="export_failed_nothing_was_written">Échec de l\'exportation. Rien n\'a été écrit.</string>
+    <string name="could">Échec</string>
+    <string name="cancelled">Annulé</string>
+    <string name="no_app">Aucune appli</string>
+    <string name="not_available">indisponible</string>
+    <string name="yes">Oui</string>
+    <string name="no">Non</string>
+    <string name="import_label">Importer</string>
+    <string name="export">Exporter</string>
+    <string name="lock_now">Verrouiller maintenant</string>
+    <string name="photos">Photos</string>
+    <string name="documents">Documents</string>
+    <string name="recordings">Enregistrements</string>
+    <string name="file_or_p_d_r">↑↓ fichier · ←→ ou P D R section · Enter ouvrir · I importer · E exporter · X supprimer · L verrouiller maintenant</string>
+    <string name="open">Ouvrir %1$s ?</string>
+    <string name="the_app_you_pick_inside">L\'appli que vous choisissez (dans Private Space) peut lire ce seul fichier jusqu\'à sa fermeture. Enter ou Y ouvre · Retour ou N annule.</string>
+    <string name="export_2">Exporter %1$s ?</string>
+    <string name="a_copy_is_written_where">Une copie est écrite à l\'endroit que vous choisirez ensuite et n\'est plus protégée par le coffre. La copie du coffre reste. Enter ou Y continue · Retour ou N annule.</string>
+    <string name="delete_from_the_vault">Supprimer %1$s du coffre ?</string>
+    <string name="it_cannot_be_recovered_enter">Il est impossible de le récupérer. Enter ou Y supprime · Retour ou N annule.</string>
+    <string name="imported_file_s_as_copies">%1$s fichier(s) importé(s) en copies. Supprimer les originaux ?</string>
+    <string name="the_originals_are_still_where">Les originaux sont toujours à leur place. Enter ou Y les supprime · Retour ou N les conserve.</string>
+    <string name="imported_file_s_as_copies_2">%1$s fichier(s) importé(s) en copies.</string>
+    <string name="could_not_import">" Échec de l\'importation : "</string>
+    <string name="secure_vault">Secure Vault</string>
+    <string name="private_space_photos_documents_recordings">Private Space · Photos · Documents · Enregistrements · import/export explicites</string>
+    <string name="secure_vault_works_only_inside">Secure Vault ne fonctionne que dans Private Space. Déverrouillez Private Space dans Sable Start (Toutes les applis) et ouvrez-y Secure Vault. Rien n\'est stocké en dehors.</string>
+    <string name="nothing_here_yet_press_i">Rien pour l\'instant. Appuyez sur I pour importer une copie d\'un fichier.</string>
+    <string name="could_not_lock_private_space">Échec du verrouillage de Private Space depuis ici ; verrouillez-le depuis Sable Start. Le coffre s\'est fermé.</string>
+</resources>

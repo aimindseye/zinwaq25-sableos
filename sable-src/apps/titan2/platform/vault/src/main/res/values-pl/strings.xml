@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Polish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (VaultLinesTest checks). -->
+<resources>
+    <string name="read_error">błąd odczytu</string>
+    <string name="no_access">" (brak dostępu"</string>
+    <string name="partial_copy_left">; pozostała częściowa kopia</string>
+    <string name="cancelled_nothing_changed">Anulowano. Nic nie zmieniono.</string>
+    <string name="deleted">Usunięto %1$s.</string>
+    <string name="could_not_delete">Nie udało się usunąć %1$s.</string>
+    <string name="deleted_of_original_s_any">Usunięto %1$s z %2$s oryginałów. Te, które nie zostały usunięte, są nadal na swoim miejscu.</string>
+    <string name="open_with">Otwórz %1$s w aplikacji</string>
+    <string name="opened_read_only_this_file">Otwarto %1$s (tylko do odczytu, tylko ten plik).</string>
+    <string name="no_app_in_private_space">Żadna aplikacja w Private Space nie może otworzyć %1$s.</string>
+    <string name="the_system_file_picker_is">Systemowy selektor plików jest niedostępny.</string>
+    <string name="exported_a_copy_of_it">Wyeksportowano kopię %1$s. Nie jest już chroniona przez sejf.</string>
+    <string name="export_failed_nothing_was_written">Nie udało się wyeksportować. Nic nie zapisano.</string>
+    <string name="could">Nie udało się</string>
+    <string name="cancelled">Anulowano</string>
+    <string name="no_app">Żadna aplikacja</string>
+    <string name="not_available">niedostępny</string>
+    <string name="yes">Tak</string>
+    <string name="no">Nie</string>
+    <string name="import_label">Importuj</string>
+    <string name="export">Eksportuj</string>
+    <string name="lock_now">Zablokuj teraz</string>
+    <string name="photos">Zdjęcia</string>
+    <string name="documents">Dokumenty</string>
+    <string name="recordings">Nagrania</string>
+    <string name="file_or_p_d_r">↑↓ plik · ←→ lub P D R sekcja · Enter otwórz · I importuj · E eksportuj · X usuń · L zablokuj teraz</string>
+    <string name="open">Otworzyć %1$s?</string>
+    <string name="the_app_you_pick_inside">Wybrana aplikacja (wewnątrz Private Space) może odczytać ten jeden plik, dopóki go nie zamknie. Enter lub Y otwiera · Wstecz lub N anuluje.</string>
+    <string name="export_2">Wyeksportować %1$s?</string>
+    <string name="a_copy_is_written_where">Kopia zostanie zapisana w miejscu, które wybierzesz w następnym kroku, i nie będzie już chroniona przez sejf. Kopia w sejfie zostaje. Enter lub Y kontynuuje · Wstecz lub N anuluje.</string>
+    <string name="delete_from_the_vault">Usunąć %1$s z sejfu?</string>
+    <string name="it_cannot_be_recovered_enter">Nie można go odzyskać. Enter lub Y usuwa · Wstecz lub N anuluje.</string>
+    <string name="imported_file_s_as_copies">Zaimportowano kopie plików: %1$s. Usunąć oryginały?</string>
+    <string name="the_originals_are_still_where">Oryginały są nadal na swoim miejscu. Enter lub Y usuwa je · Wstecz lub N zachowuje.</string>
+    <string name="imported_file_s_as_copies_2">Zaimportowano kopie plików: %1$s.</string>
+    <string name="could_not_import">" Nie udało się zaimportować: "</string>
+    <string name="secure_vault">Secure Vault</string>
+    <string name="private_space_photos_documents_recordings">Private Space · Zdjęcia · Dokumenty · Nagrania · import/eksport tylko jawnie</string>
+    <string name="secure_vault_works_only_inside">Secure Vault działa tylko w Private Space. Odblokuj Private Space w Sable Start (Wszystkie aplikacje) i otwórz tam Secure Vault. Nic nie jest przechowywane poza nim.</string>
+    <string name="nothing_here_yet_press_i">Na razie nic tu nie ma. Naciśnij I, aby zaimportować kopię pliku.</string>
+    <string name="could_not_lock_private_space">Nie udało się zablokować Private Space stąd; zablokuj go w Sable Start. Sejf został zamknięty.</string>
+</resources>
