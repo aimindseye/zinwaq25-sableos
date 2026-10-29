@@ -66,10 +66,8 @@ install -m 0644 "$SABLE_REPO_ROOT/docs/FLASHING_RELEASE.md" "$stage/FLASHING.md"
 
 # Release notes: the hand-written notes, then what this build is.
 # releases/<tag>.md for this release.
-if [[ -z "$NOTES" ]]; then
-    for f in "$SABLE_REPO_ROOT/releases/$TAG.md"; do
-        [[ -f "$f" ]] && { NOTES="$f"; break; }
-    done
+if [[ -z "$NOTES" && -f "$SABLE_REPO_ROOT/releases/$TAG.md" ]]; then
+    NOTES="$SABLE_REPO_ROOT/releases/$TAG.md"
 fi
 # The LineageOS version the image is built on: from the build's own props, else the release branch.
 lineage_version="$(sed -n 's/^ro\.lineage\.version=//p' "$ARTIFACTS/props/system/build.prop" 2>/dev/null | head -n1)"
