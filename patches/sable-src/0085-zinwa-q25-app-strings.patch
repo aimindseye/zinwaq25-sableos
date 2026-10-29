@@ -18,19 +18,24 @@ index 900ca00..1c26466 100644
              <intent-filter>
 diff --git a/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/CalculatorApplication.kt b/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/CalculatorApplication.kt
 new file mode 100644
-index 0000000..f833184
+index 0000000..393a81c
 --- /dev/null
 +++ b/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/CalculatorApplication.kt
-@@ -0,0 +1,13 @@
+@@ -0,0 +1,18 @@
 +package org.sableos.calculator
 +
 +import android.app.Application
 +import org.sableos.convert.ConvertText
++import org.sableos.design.DesignText
 +
-+/** Binds [CalculatorText] and [ConvertText] to the app's string resources once per process, so the phone's language is used. */
++/**
++ * Binds this app's text and the shared design library's to the string resources once per process, so the
++ * phone's language is used.
++ */
 +class CalculatorApplication : Application() {
 +    override fun onCreate() {
 +        super.onCreate()
++        DesignText.t.bindTo(this)
 +        CalculatorText.t.bindTo(this)
 +        ConvertText.t.bindTo(this)
 +    }
@@ -393,18 +398,23 @@ index e37e99d..6cbe30c 100644
          <activity android:name=".MainActivity" android:exported="true">
 diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarApplication.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarApplication.kt
 new file mode 100644
-index 0000000..e3bd05d
+index 0000000..8200368
 --- /dev/null
 +++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarApplication.kt
-@@ -0,0 +1,11 @@
+@@ -0,0 +1,16 @@
 +package org.sableos.calendar
 +
 +import android.app.Application
++import org.sableos.design.DesignText
 +
-+/** Binds [CalendarText] to the app's string resources once per process, so the phone's language is used. */
++/**
++ * Binds this app's text and the shared design library's to the string resources once per process, so the
++ * phone's language is used.
++ */
 +class CalendarApplication : Application() {
 +    override fun onCreate() {
 +        super.onCreate()
++        DesignText.t.bindTo(this)
 +        CalendarText.t.bindTo(this)
 +    }
 +}
@@ -1471,6 +1481,40 @@ index 0000000..5e67e1a
 +    <string name="convert_length_mass_temperature_and_volume">Length, mass, temperature and volume conversions are local and offline.</string>
 +    <string name="convert_native_bridge_failure">Native bridge failure</string>
 +</resources>
+diff --git a/sable-src/apps/r8/android/design/src/test/java/org/sableos/design/SableResponsivePolicyTest.kt b/sable-src/apps/r8/android/design/src/test/java/org/sableos/design/SableResponsivePolicyTest.kt
+index 1ab7861..725e17b 100644
+--- a/sable-src/apps/r8/android/design/src/test/java/org/sableos/design/SableResponsivePolicyTest.kt
++++ b/sable-src/apps/r8/android/design/src/test/java/org/sableos/design/SableResponsivePolicyTest.kt
+@@ -79,9 +79,14 @@ class SableResponsivePolicyTest {
+         val m = measure(1.5f)
+         val layout = SableNavigationPolicy.layout(labels, "songs", squareLargeFont, labelWidthDp = m)
+         val slot = 360f / layout.slotCount
+-        val shown = layout.visible.map { it.label } + if (layout.hasOverflow) listOf(SableNavigationPolicy.MORE_LABEL) else emptyList()
++        val shown =
++            layout.visible.map { it.label } +
++                if (layout.hasOverflow) listOf(SableNavigationPolicy.MORE_LABEL) else emptyList()
+         shown.forEach { label ->
+-            assertTrue("$label clipped", m(label) + SableNavigationPolicy.TAB_HORIZONTAL_PADDING_DP <= slot || layout.visible.size == 1)
++            assertTrue(
++                "$label clipped",
++                m(label) + SableNavigationPolicy.TAB_HORIZONTAL_PADDING_DP <= slot || layout.visible.size == 1,
++            )
+         }
+         assertEquals(5, layout.visible.size + layout.overflow.size)
+     }
+@@ -125,7 +130,11 @@ class SableResponsivePolicyTest {
+     @Test
+     fun denseRowOnWideWindowMayShowMoreButLargeFontLimitsToOne() {
+         val actions =
+-            listOf(SableRowAction("play", "Play", primary = true), SableRowAction("fav", "Favorite"), SableRowAction("q", "Queue"))
++            listOf(
++                SableRowAction("play", "Play", primary = true),
++                SableRowAction("fav", "Favorite"),
++                SableRowAction("q", "Queue"),
++            )
+         assertEquals(3, SableDenseRowPolicy.split(actions, tablet).trailing.size)
+         assertEquals(1, SableDenseRowPolicy.split(actions, tablet.copy(fontScale = 1.4f)).trailing.size)
+     }
 diff --git a/sable-src/apps/r8/android/games/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/games/src/main/AndroidManifest.xml
 index 39050ba..af2fc98 100644
 --- a/sable-src/apps/r8/android/games/src/main/AndroidManifest.xml
@@ -1770,18 +1814,23 @@ index b7136c8..85b5971 100644
              )
 diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GamesApplication.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GamesApplication.kt
 new file mode 100644
-index 0000000..e42db5a
+index 0000000..830b304
 --- /dev/null
 +++ b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GamesApplication.kt
-@@ -0,0 +1,11 @@
+@@ -0,0 +1,16 @@
 +package org.sableos.games
 +
 +import android.app.Application
++import org.sableos.design.DesignText
 +
-+/** Binds [GamesText] to the app's string resources once per process, so the phone's language is used. */
++/**
++ * Binds this app's text and the shared design library's to the string resources once per process, so the
++ * phone's language is used.
++ */
 +class GamesApplication : Application() {
 +    override fun onCreate() {
 +        super.onCreate()
++        DesignText.t.bindTo(this)
 +        GamesText.t.bindTo(this)
 +    }
 +}
@@ -2307,18 +2356,23 @@ index f7170dd..5a98784 100644
      private fun userForSerial(serial: Long): UserHandle? =
 diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubApplication.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubApplication.kt
 new file mode 100644
-index 0000000..affbf41
+index 0000000..37b8199
 --- /dev/null
 +++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubApplication.kt
-@@ -0,0 +1,11 @@
+@@ -0,0 +1,16 @@
 +package org.sableos.hub
 +
 +import android.app.Application
++import org.sableos.design.DesignText
 +
-+/** Binds [HubText] to the app's string resources once per process, so the phone's language is used. */
++/**
++ * Binds this app's text and the shared design library's to the string resources once per process, so the
++ * phone's language is used.
++ */
 +class HubApplication : Application() {
 +    override fun onCreate() {
 +        super.onCreate()
++        DesignText.t.bindTo(this)
 +        HubText.t.bindTo(this)
 +    }
 +}
@@ -4624,18 +4678,23 @@ index cdb4be6..8c366f2 100644
  private fun Throwable.messageOr(fallback: String): String = message?.takeIf { it.isNotBlank() } ?: fallback
 diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaApplication.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaApplication.kt
 new file mode 100644
-index 0000000..1c7f049
+index 0000000..2402a30
 --- /dev/null
 +++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaApplication.kt
-@@ -0,0 +1,11 @@
+@@ -0,0 +1,16 @@
 +package org.sableos.media
 +
 +import android.app.Application
++import org.sableos.design.DesignText
 +
-+/** Binds [MediaText] to the app's string resources once per process, so the phone's language is used. */
++/**
++ * Binds this app's text and the shared design library's to the string resources once per process, so the
++ * phone's language is used.
++ */
 +class MediaApplication : Application() {
 +    override fun onCreate() {
 +        super.onCreate()
++        DesignText.t.bindTo(this)
 +        MediaText.t.bindTo(this)
 +    }
 +}
@@ -6326,19 +6385,21 @@ index c41ea96..ede38ca 100644
          android:roundIcon="@mipmap/ic_sable_messages_round"
 diff --git a/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/MessagesApplication.kt b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/MessagesApplication.kt
 new file mode 100644
-index 0000000..a776254
+index 0000000..d70169b
 --- /dev/null
 +++ b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/MessagesApplication.kt
-@@ -0,0 +1,12 @@
+@@ -0,0 +1,14 @@
 +package org.sableos.messages
 +
 +import android.app.Application
++import org.sableos.design.DesignText
 +import org.sableos.messages.core.MessagesText
 +
 +/** Binds [MessagesText] to the app's string resources once per process, for screens, receivers and notifications. */
 +class MessagesApplication : Application() {
 +    override fun onCreate() {
 +        super.onCreate()
++        DesignText.t.bindTo(this)
 +        MessagesText.t.bindTo(this)
 +    }
 +}
@@ -7027,19 +7088,24 @@ index 15d7027..38fd71a 100644
          <activity
 diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesApplication.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesApplication.kt
 new file mode 100644
-index 0000000..a29b155
+index 0000000..a2f33b1
 --- /dev/null
 +++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesApplication.kt
-@@ -0,0 +1,12 @@
+@@ -0,0 +1,17 @@
 +package org.sableos.notes
 +
 +import android.app.Application
++import org.sableos.design.DesignText
 +import org.sableos.notes.core.NotesText
 +
-+/** Binds [NotesText] to the app's string resources once per process, so the phone's language is used. */
++/**
++ * Binds this app's text and the shared design library's to the string resources once per process, so the
++ * phone's language is used.
++ */
 +class NotesApplication : Application() {
 +    override fun onCreate() {
 +        super.onCreate()
++        DesignText.t.bindTo(this)
 +        NotesText.t.bindTo(this)
 +    }
 +}
@@ -7784,18 +7850,23 @@ index 1e5cd32..ec6e124 100644
  private fun windDirection(degrees: Int): String {
 diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherApplication.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherApplication.kt
 new file mode 100644
-index 0000000..b0b177a
+index 0000000..8fecd17
 --- /dev/null
 +++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherApplication.kt
-@@ -0,0 +1,11 @@
+@@ -0,0 +1,16 @@
 +package org.sableos.weather
 +
 +import android.app.Application
++import org.sableos.design.DesignText
 +
-+/** Binds [WeatherText] to the app's string resources once per process, so the phone's language is used. */
++/**
++ * Binds this app's text and the shared design library's to the string resources once per process, so the
++ * phone's language is used.
++ */
 +class WeatherApplication : Application() {
 +    override fun onCreate() {
 +        super.onCreate()
++        DesignText.t.bindTo(this)
 +        WeatherText.t.bindTo(this)
 +    }
 +}
@@ -8107,6 +8178,219 @@ index 0000000..3802cc6
 +        }
 +    }
 +}
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/DesignText.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/DesignText.kt
+new file mode 100644
+index 0000000..1859eda
+--- /dev/null
++++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/DesignText.kt
+@@ -0,0 +1,23 @@
++package org.sableos.design
++
++/**
++ * Every line Sable apps (shared design library) shows, in English, by string resource name.
++ * res/values/strings.xml repeats them (DesignTextTest keeps the two equal) and
++ * res/values-<lang>/strings.xml translates them.
++ */
++object DesignText {
++    val EN: Map<String, String> =
++        mapOf(
++            "sable_playback_error" to "playback error",
++            "sable_pause" to "Pause",
++            "sable_play" to "Play",
++            "sable_t_top_b_bottom_space" to "T top · B bottom · Space page · N/P next/previous",
++            "sable_more_destinations" to "More destinations: %1\$s",
++            "sable_more_actions" to "More actions",
++            "sable_more_actions_for" to "More actions for %1\$s",
++            "sable_jump_to" to "Jump to %1\$s",
++            "sable_return_to" to "Return to %1\$s",
++        )
++
++    val t = SableTexts(EN)
++}
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableListKeys.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableListKeys.kt
+index ed05e1a..3f3ac9f 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableListKeys.kt
++++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableListKeys.kt
+@@ -12,6 +12,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
+ import androidx.compose.ui.input.key.type
+ import kotlinx.coroutines.CoroutineScope
+ import kotlinx.coroutines.launch
++import org.sableos.design.DesignText.t
+ 
+ /** BlackBerry single-key list movement: T top, B bottom, Space page down, Shift+Space page up, N next, P previous. */
+ enum class SableListMove { Top, Bottom, PageDown, PageUp, Next, Previous }
+@@ -22,7 +23,7 @@ enum class SableListMove { Top, Bottom, PageDown, PageUp, Next, Previous }
+  * already gives another meaning in [command]'s `owned`, so they keep it.
+  */
+ object SableListKeys {
+-    const val HINT = "T top · B bottom · Space page · N/P next/previous"
++    val HINT: String get() = t("sable_t_top_b_bottom_space")
+ 
+     fun command(
+         keyCode: Int,
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableMiniPlayerPolicy.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableMiniPlayerPolicy.kt
+index f643627..e93057c 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableMiniPlayerPolicy.kt
++++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableMiniPlayerPolicy.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.design
+ 
++import org.sableos.design.DesignText.t
++
+ /**
+  * Media mini-player content rules (DESIGN-KF-D part 2).
+  *
+@@ -68,7 +70,7 @@ object SableMiniPlayerPolicy {
+                 SablePlaybackState.Buffering -> "buffering"
+                 SablePlaybackState.Stopped -> "stopped"
+                 SablePlaybackState.Ended -> "finished"
+-                SablePlaybackState.Error -> "playback error"
++                SablePlaybackState.Error -> t("sable_playback_error")
+                 SablePlaybackState.Idle -> "idle"
+             }
+         val toggle =
+@@ -76,7 +78,7 @@ object SableMiniPlayerPolicy {
+                 SablePlaybackState.Playing, SablePlaybackState.Buffering -> SableMiniPlayerToggle.Pause
+                 else -> SableMiniPlayerToggle.Play
+             }
+-        val toggleLabel = if (toggle == SableMiniPlayerToggle.Pause) "Pause" else "Play"
++        val toggleLabel = if (toggle == SableMiniPlayerToggle.Pause) t("sable_pause") else t("sable_play")
+         val progress =
+             if (!input.live && input.durationMs > 0L && input.state != SablePlaybackState.Stopped) {
+                 (input.positionMs.toFloat() / input.durationMs.toFloat()).coerceIn(0f, 1f)
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableResponsive.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableResponsive.kt
+index c91e62a..17c9be0 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableResponsive.kt
++++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableResponsive.kt
+@@ -35,7 +35,9 @@ data class SableLayoutMetrics(
+             when {
+                 widthDp < SableResponsive.COMPACT_MAX_WIDTH_DP ||
+                     textWidthDp < SableResponsive.COMPACT_TEXT_WIDTH_DP -> SableWidthClass.Compact
++
+                 widthDp < SableResponsive.MEDIUM_MAX_WIDTH_DP -> SableWidthClass.Medium
++
+                 else -> SableWidthClass.Expanded
+             }
+ 
+@@ -95,6 +97,7 @@ object SableResponsive {
+ 
+     const val PRIMARY_TEXT_MAX_LINES = 2
+     const val SECONDARY_TEXT_MAX_LINES = 1
++
+     // Same value as SableDesignContract.MIN_TOUCH_TARGET_DP (kept literal so this file stays Compose-free).
+     const val TOUCH_TARGET_MIN_DP = 48
+ 
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableResponsiveComponents.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableResponsiveComponents.kt
+index c4ad478..84d48b5 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableResponsiveComponents.kt
++++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableResponsiveComponents.kt
+@@ -1,6 +1,5 @@
+ package org.sableos.design
+ 
+-import android.view.KeyEvent as AndroidKeyEvent
+ import androidx.compose.foundation.BorderStroke
+ import androidx.compose.foundation.background
+ import androidx.compose.foundation.border
+@@ -50,6 +49,8 @@ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.rememberTextMeasurer
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.dp
++import org.sableos.design.DesignText.t
++import android.view.KeyEvent as AndroidKeyEvent
+ 
+ /*
+  * Compose building blocks for DESIGN-KF-D part 2. The decisions live in the
+@@ -117,7 +118,13 @@ fun SableAdaptiveTopNav(
+                     metrics = metrics,
+                     availableWidthDp = availableDp,
+                 ) { label ->
+-                    with(density) { measurer.measure(label, style, maxLines = 1).size.width.toDp().value }
++                    with(density) {
++                        measurer
++                            .measure(label, style, maxLines = 1)
++                            .size.width
++                            .toDp()
++                            .value
++                    }
+                 }
+             }
+         var moreOpen by remember { mutableStateOf(false) }
+@@ -140,7 +147,7 @@ fun SableAdaptiveTopNav(
+                         selected = overflowSelected,
+                         accent = accent,
+                         description =
+-                            "More destinations: " + layout.overflow.joinToString(", ") { it.label },
++                            t("sable_more_destinations", layout.overflow.joinToString(", ") { it.label }),
+                         onClick = { moreOpen = true },
+                         modifier = Modifier.fillMaxWidth(),
+                     )
+@@ -278,7 +285,7 @@ fun SableMiniPlayer(
+                 )
+                 if (menuActions.isNotEmpty()) {
+                     Box {
+-                        SableSquareAction(text = "⋯", description = "More actions", onClick = { menuOpen = true })
++                        SableSquareAction(text = "⋯", description = t("sable_more_actions"), onClick = { menuOpen = true })
+                         SableActionMenu(menuOpen, menuActions, { menuOpen = false }, onMenuAction)
+                     }
+                 }
+@@ -370,7 +377,7 @@ fun SableDenseRow(
+         }
+         if (split.overflow.isNotEmpty()) {
+             Box {
+-                SableSquareAction(text = "⋯", description = "More actions for $title", onClick = { menuOpen = true })
++                SableSquareAction(text = "⋯", description = t("sable_more_actions_for", title), onClick = { menuOpen = true })
+                 SableActionMenu(menuOpen, split.overflow, { menuOpen = false }, onAction)
+             }
+         }
+@@ -483,7 +490,7 @@ fun SableAlphabetRail(
+                     Modifier
+                         .focusProperties { canFocus = false }
+                         .clickable { onJump(section.firstIndex) }
+-                        .semantics { contentDescription = "Jump to ${section.key}" }
++                        .semantics { contentDescription = t("sable_jump_to", section.key) }
+                         .padding(horizontal = SableSpacing.Sm, vertical = 1.dp),
+                 style = MaterialTheme.typography.labelMedium,
+                 color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+@@ -535,7 +542,7 @@ fun SableReturnToCurrent(
+             modifier
+                 .heightIn(min = SableSize.TouchTarget)
+                 .sableFocusRing()
+-                .semantics { contentDescription = "Return to $label" },
++                .semantics { contentDescription = t("sable_return_to", label) },
+         shape = MaterialTheme.shapes.medium,
+         color = MaterialTheme.colorScheme.primary,
+         contentColor = MaterialTheme.colorScheme.onPrimary,
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableSystemTokens.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableSystemTokens.kt
+index 3d0c5d3..a2aa7ce 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableSystemTokens.kt
++++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableSystemTokens.kt
+@@ -227,7 +227,7 @@ data class SableQuickSettingsLayout(
+             when (displayClass) {
+                 // sable-quick-settings-titan2: three columns of small labeled square tiles,
+                 // one compact row of four.
+-                SableDisplayClass.SquareKeyboard ->
++                SableDisplayClass.SquareKeyboard -> {
+                     SableQuickSettingsLayout(
+                         gridColumns = 3,
+                         largeTileSpan = 2,
+@@ -236,8 +236,15 @@ data class SableQuickSettingsLayout(
+                         compactColumns = 4,
+                         smallTileLabels = true,
+                     )
+-                SableDisplayClass.CompactPortrait -> SableQuickSettingsLayout(4, 2, 2, allDefaultTilesLarge = false)
+-                SableDisplayClass.Tall -> SableQuickSettingsLayout(4, 2, 2, allDefaultTilesLarge = false)
++                }
++
++                SableDisplayClass.CompactPortrait -> {
++                    SableQuickSettingsLayout(4, 2, 2, allDefaultTilesLarge = false)
++                }
++
++                SableDisplayClass.Tall -> {
++                    SableQuickSettingsLayout(4, 2, 2, allDefaultTilesLarge = false)
++                }
+             }
+     }
+ }
 diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTexts.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTexts.kt
 new file mode 100644
 index 0000000..ebc0f53
@@ -8153,6 +8437,99 @@ index 0000000..ebc0f53
 +        lookup = { key ->
 +            val id = res.getIdentifier(key, "string", pkg)
 +            if (id == 0) null else res.getString(id)
++        }
++    }
++}
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/raw/sable_strings_keep.xml b/sable-src/src/android/shared/sabledesign/src/main/res/raw/sable_strings_keep.xml
+new file mode 100644
+index 0000000..4f4b368
+--- /dev/null
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/raw/sable_strings_keep.xml
+@@ -0,0 +1,3 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableTexts looks strings up by name, which the resource shrinker cannot see: keep them all. -->
++<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@string/*" />
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values/strings.xml
+new file mode 100644
+index 0000000..e5a2558
+--- /dev/null
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values/strings.xml
+@@ -0,0 +1,14 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- English. Single capital letters in hints (C new, S find) name keyboard keys: keep them as the key, translate the word.
++     English. Keep equal to DesignText.EN (DesignTextTest checks); translations go in values-<lang>/. -->
++<resources>
++    <string name="sable_playback_error">playback error</string>
++    <string name="sable_pause">Pause</string>
++    <string name="sable_play">Play</string>
++    <string name="sable_t_top_b_bottom_space">T top · B bottom · Space page · N/P next/previous</string>
++    <string name="sable_more_destinations">More destinations: %1$s</string>
++    <string name="sable_more_actions">More actions</string>
++    <string name="sable_more_actions_for">More actions for %1$s</string>
++    <string name="sable_jump_to">Jump to %1$s</string>
++    <string name="sable_return_to">Return to %1$s</string>
++</resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/test/java/org/sableos/design/DesignTextTest.kt b/sable-src/src/android/shared/sabledesign/src/test/java/org/sableos/design/DesignTextTest.kt
+new file mode 100644
+index 0000000..872b08f
+--- /dev/null
++++ b/sable-src/src/android/shared/sabledesign/src/test/java/org/sableos/design/DesignTextTest.kt
+@@ -0,0 +1,58 @@
++package org.sableos.design
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.sableos.design.DesignText
++import java.io.File
++import javax.xml.parsers.DocumentBuilderFactory
++
++/** The English lines in code and in `values/strings.xml` stay equal, and every translation fits them. */
++class DesignTextTest {
++    private val res = File("src/main/res")
++
++    private fun strings(file: File): Map<String, String> {
++        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
++        val nodes = doc.getElementsByTagName("string")
++        return (0 until nodes.length)
++            .map { nodes.item(it) }
++            .filter { it.attributes.getNamedItem("translatable")?.nodeValue != "false" }
++            .associate { node ->
++                val raw =
++                    node.textContent.let {
++                        if (it.length > 1 && it.startsWith('"') &&
++                            it.endsWith('"')
++                        ) {
++                            it.drop(1).dropLast(1)
++                        } else {
++                            it
++                        }
++                    }
++                node.attributes.getNamedItem("name").nodeValue to
++                    raw
++                        .replace("\\n", "\n")
++                        .replace("\\'", "'")
++                        .replace("\\\"", "\"")
++                        .replace("\\@", "@")
++                        .replace("\\\\", "\\")
++            }
++    }
++
++    private fun placeholders(s: String) = Regex("%\\d+\\$[sd]").findAll(s).map { it.value }.toSortedSet()
++
++    @Test
++    fun englishResourcesMatchTheCode() {
++        val english = strings(File(res, "values/strings.xml"))
++        DesignText.EN.forEach { (key, text) -> assertEquals(key, text, english[key]) }
++    }
++
++    @Test
++    fun translationsHaveEveryKeyAndTheSamePlaceholders() {
++        res.listFiles { f -> f.name.startsWith("values-") && File(f, "strings.xml").isFile }.orEmpty().forEach { dir ->
++            val tr = strings(File(dir, "strings.xml"))
++            assertEquals(dir.name, DesignText.EN.keys, tr.keys.intersect(DesignText.EN.keys))
++            DesignText.EN.forEach { (key, text) ->
++                assertEquals("${dir.name}/$key", placeholders(text), placeholders(tr.getValue(key)))
++            }
 +        }
 +    }
 +}

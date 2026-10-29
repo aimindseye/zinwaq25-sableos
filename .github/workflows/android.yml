@@ -50,6 +50,7 @@ jobs:
             extra: >-
               :design:testDebugUnitTest :hub:testDebugUnitTest :messages:testDebugUnitTest :media:testDebugUnitTest
               :weather:testDebugUnitTest :notes:testDebugUnitTest :calculator:testDebugUnitTest :sablestart-presentation-check:testDebugUnitTest
+              :calendar:testDebugUnitTest :games:testSudokuDebugUnitTest
               :sablestart-visual-review:assembleDebug
               :design:lintDebug :calculator:lintDebug :convert:lintDebug
               :games:lintSudokuDebug :games:lintMinesweeperDebug :games:lintGame2048Debug

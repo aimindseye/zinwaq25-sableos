@@ -227,7 +227,7 @@ data class SableQuickSettingsLayout(
             when (displayClass) {
                 // sable-quick-settings-titan2: three columns of small labeled square tiles,
                 // one compact row of four.
-                SableDisplayClass.SquareKeyboard ->
+                SableDisplayClass.SquareKeyboard -> {
                     SableQuickSettingsLayout(
                         gridColumns = 3,
                         largeTileSpan = 2,
@@ -236,8 +236,15 @@ data class SableQuickSettingsLayout(
                         compactColumns = 4,
                         smallTileLabels = true,
                     )
-                SableDisplayClass.CompactPortrait -> SableQuickSettingsLayout(4, 2, 2, allDefaultTilesLarge = false)
-                SableDisplayClass.Tall -> SableQuickSettingsLayout(4, 2, 2, allDefaultTilesLarge = false)
+                }
+
+                SableDisplayClass.CompactPortrait -> {
+                    SableQuickSettingsLayout(4, 2, 2, allDefaultTilesLarge = false)
+                }
+
+                SableDisplayClass.Tall -> {
+                    SableQuickSettingsLayout(4, 2, 2, allDefaultTilesLarge = false)
+                }
             }
     }
 }
