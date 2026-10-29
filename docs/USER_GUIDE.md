@@ -49,6 +49,12 @@ The keyboard does almost everything. Typing on the home screen searches, arrows 
 
 ### Sable Start, BlackBerry 10 style (default)
 
+<p>
+<img src="images/q25/home-start.png" alt="Start home: Active Frames" width="220">
+<img src="images/q25/hub.png" alt="Hub" width="220">
+<img src="images/q25/app-grid.png" alt="App pages" width="220">
+</p>
+
 | Page | What it shows | Keys |
 | --- | --- | --- |
 | Hub (left) | All · Messages · Calls · Contacts, and an unread bar per app | T/B top and bottom, Enter opens |
@@ -59,6 +65,10 @@ The keyboard does almost everything. Typing on the home screen searches, arrows 
 Alt+Left and Alt+Right move between pages. Alt+Space opens Command, and any letter starts a search of apps, contacts and commands. Menu opens Edit Home, where you choose Home apps, the quick bar and widgets. The status dials at the top show Wi-Fi, Mobile, CPU, RAM, battery and Cell.
 
 ### Sable Start, BlackBerry 7 style
+
+<p>
+<img src="images/q25/home-bb7.png" alt="Start home: BlackBerry 7 style" width="220">
+</p>
 
 - The banner shows the status dials, the date, the weather and the Hub unread count. The status bar shows the time.
 - Swipe right or press Alt+Left to open Hub. Swipe left or press Alt+Right to open All apps.
@@ -90,7 +100,7 @@ Every Sable app follows the Dark theme and your Sable accent, and has single-key
 | Mail | Email; Gmail sign-in is covered in [MAIL_GMAIL_SIGNIN.md](MAIL_GMAIL_SIGNIN.md) | B to bottom |
 | Calendar | Week view with a NOW line | C, T, V, J, K, R |
 | Notes | Notes and checklists with colour labels, kept on the phone | See [Notes](#notes) below; C new, S find, K tasks |
-| Text Reader | Opens plain text files. An upstream app with the Sable name and icon | Arrows scroll |
+| Text Reader | Reads text aloud: paste text, open a file, scan a page with the camera (OCR, English or Spanish) or pick an image from the Gallery. An upstream app with the Sable name and icon | Play and stop buttons on screen |
 | Terminal | SSH, Telnet and a local shell (ConnectBot) | See [Terminal](#terminal) below; Menu is Ctrl |
 | Weather | Forecast for your city, refreshed in the background | Feeds Start's header |
 | Camera | Sable Camera for stills; video uses Aperture | Tap the viewfinder for touch controls |
@@ -103,6 +113,21 @@ Every Sable app follows the Dark theme and your Sable accent, and has single-key
 | Vault | Private Space and Mobile Manager's app controls (App Control Center, Network access, Freezer, App blocker, Focus and Student mode) | App blocker: Settings > Apps > Mobile Manager > App blocker. To see what an app can do and what changed in it, open Settings > Apps > App security & privacy (signing, permissions, exposed parts, tracker signals, changes seen on this phone) |
 | App display compatibility | Taller canvas per app for apps that don't fit a square screen | Alt+Shift+R |
 | Aurora Store + microG | Install Play Store apps without Google Play | See [MICROG.md](MICROG.md) |
+
+<p>
+<img src="images/q25/phone.png" alt="Phone" width="150">
+<img src="images/q25/messages.png" alt="Messages" width="150">
+<img src="images/q25/calendar.png" alt="Calendar" width="150">
+<img src="images/q25/notes.png" alt="Notes" width="150">
+<img src="images/q25/weather.png" alt="Weather" width="150">
+<img src="images/q25/calculator.png" alt="Calculator" width="150">
+<img src="images/q25/reader.png" alt="Text Reader" width="150">
+<img src="images/q25/sound-profiles.png" alt="Sound Profiles" width="150">
+<img src="images/q25/tools.png" alt="Tools" width="150">
+<img src="images/q25/terminal.png" alt="Terminal" width="150">
+<img src="images/q25/media.png" alt="Media" width="150">
+<img src="images/q25/mail.png" alt="Mail" width="150">
+</p>
 
 ### Games
 
@@ -120,6 +145,19 @@ Every game plays from the keyboard or the trackpad (which sends arrow keys), and
 | Solitaire | Klondike, one card at a time | Arrows pick a pile; Enter picks up and puts down; Space turns the stock; A sends a card to its foundation; Del lets go |
 | Mahjong | Remove matching free tiles in pairs; every deal can be cleared | Arrows move; Space or Enter picks; H shows a pair |
 | Words | Guess the five-letter word in six tries: green is right, amber is in the word elsewhere | Type the letters; Del erases; Enter guesses |
+
+<p>
+<img src="images/q25/sudoku.png" alt="Sudoku" width="150">
+<img src="images/q25/minesweeper.png" alt="Minesweeper" width="150">
+<img src="images/q25/game-2048.png" alt="2048" width="150">
+<img src="images/q25/bricks.png" alt="Bricks" width="150">
+<img src="images/q25/snake.png" alt="Snake" width="150">
+<img src="images/q25/blocks.png" alt="Blocks" width="150">
+<img src="images/q25/reversi.png" alt="Reversi" width="150">
+<img src="images/q25/solitaire.png" alt="Solitaire" width="150">
+<img src="images/q25/mahjong.png" alt="Mahjong" width="150">
+<img src="images/q25/words.png" alt="Words" width="150">
+</p>
 
 ### Notes
 
@@ -206,6 +244,19 @@ Settings keeps Android's layout, with SableOS additions. It is keyboard-first: w
 | Connected devices | Cards for USB / OTG, Bluetooth, NFC and Cast, moved with the arrows and opened with Enter. A card for hardware the phone lacks says "Not on this phone" |
 | Sable Setup | Home screen style, keyboard and default apps ([above](#first-boot-setup-and-sable-setup)) |
 
+<p>
+<img src="images/q25/about-phone.png" alt="About phone" width="200">
+<img src="images/q25/display-settings.png" alt="Display" width="200">
+<img src="images/q25/accent.png" alt="Accent" width="200">
+<img src="images/q25/app-style.png" alt="Sable app style" width="200">
+<img src="images/q25/battery-health.png" alt="Battery health" width="200">
+<img src="images/q25/charging-protection.png" alt="Charging and protection" width="200">
+<img src="images/q25/sable-attention.png" alt="Sable Attention" width="200">
+<img src="images/q25/keyboard-settings.png" alt="Keyboard and input" width="200">
+<img src="images/q25/keyboard-firmware.png" alt="Keyboard firmware" width="200">
+<img src="images/q25/connected-devices.png" alt="Connected devices" width="200">
+</p>
+
 ### Apps, privacy and control
 
 | Where | What it does |
@@ -220,6 +271,18 @@ Settings keeps Android's layout, with SableOS additions. It is keyboard-first: w
 | Mobile Manager > Focus mode | Only priority apps, alarms, media and repeat callers can notify you. "Pause while Focus mode is on" suspends the apps you choose. It also appears in Settings > Modes and Quick Settings |
 | Mobile Manager > Student mode | Focus mode on a schedule (days and times; weekdays 08:00-17:00 once you turn it on): every app you have not allowed is paused. Turning it off by hand lasts until the next boundary. It is a local control, not parental control or a site filter |
 | Private Space & Dual Apps | Private Space state and setup, Dual Apps (a second copy of an app, from Apps > Cloned apps) and the work profile. There is no app lock, because Android 16 on this build has no way to gate an app launch honestly; use Private Space for apps you want behind a lock |
+
+<p>
+<img src="images/q25/app-security.png" alt="App security and privacy" width="200">
+<img src="images/q25/network-access.png" alt="Network access" width="200">
+<img src="images/q25/mobile-manager.png" alt="Mobile Manager" width="200">
+<img src="images/q25/app-control-center.png" alt="App Control Center" width="200">
+<img src="images/q25/freezer.png" alt="Freezer" width="200">
+<img src="images/q25/app-blocker.png" alt="App blocker" width="200">
+<img src="images/q25/focus-mode.png" alt="Focus mode" width="200">
+<img src="images/q25/student-mode.png" alt="Student mode" width="200">
+<img src="images/q25/private-space.png" alt="Private Space and Dual Apps" width="200">
+</p>
 
 ## Privacy and security defaults
 

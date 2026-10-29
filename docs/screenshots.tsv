@@ -7,8 +7,8 @@
 #     intent:ACTION  start the Android intent ACTION (for example android.settings.DEVICE_INFO_SETTINGS)
 #     manual         the script asks you to open the screen yourself, then press Enter
 home-start	Sable Start	home	The Start home screen, BlackBerry 10 style (Active Frames)
-home-bb7	Sable Start	manual	The Start home screen, BlackBerry 7 style (set Home screen style to BlackBerry 7 in Sable Setup first, then put it back)
-about-phone	First-boot setup	intent:android.settings.DEVICE_INFO_SETTINGS	Settings > About phone, with the SableOS version row
+home-bb7	Sable Start	manual	The Start home screen, BlackBerry 7 style
+about-phone	First-boot setup	intent:android.settings.DEVICE_INFO_SETTINGS	Settings > About phone
 display-settings	Privacy and security defaults	intent:android.settings.DISPLAY_SETTINGS	Settings > Display
 security-settings	Privacy and security defaults	intent:android.settings.SECURITY_SETTINGS	Settings > Security
 app-security	Privacy and security defaults	manual	Settings > Apps > an app > App security page
