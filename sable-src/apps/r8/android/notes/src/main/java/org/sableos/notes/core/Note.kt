@@ -1,5 +1,7 @@
 package org.sableos.notes.core
 
+import org.sableos.notes.core.NotesText.t
+
 /**
  * One note: plain text with lightweight structure ("# " headings and [Checklist] lines) and an
  * optional colour label. The first line that has text is the title.
@@ -18,17 +20,19 @@ data class Note(
 @Suppress("MagicNumber") // ARGB colours
 enum class NoteLabel(
     val argb: Long,
-    val displayName: String,
+    private val nameKey: String,
 ) {
-    NONE(0xFF64748B, "No colour"),
-    YELLOW(0xFFF5C542, "Yellow"),
-    ORANGE(0xFFF28C45, "Orange"),
-    RED(0xFFE5534B, "Red"),
-    PINK(0xFFE8458F, "Pink"),
-    PURPLE(0xFF7A42E8, "Purple"),
-    BLUE(0xFF4D9CFF, "Blue"),
-    GREEN(0xFF35C66B, "Green"),
+    NONE(0xFF64748B, "no_colour"),
+    YELLOW(0xFFF5C542, "yellow"),
+    ORANGE(0xFFF28C45, "orange"),
+    RED(0xFFE5534B, "red"),
+    PINK(0xFFE8458F, "pink"),
+    PURPLE(0xFF7A42E8, "purple"),
+    BLUE(0xFF4D9CFF, "blue"),
+    GREEN(0xFF35C66B, "green"),
     ;
+
+    val displayName: String get() = t(nameKey)
 
     fun next(): NoteLabel = entries[(ordinal + 1) % entries.size]
 
@@ -39,7 +43,7 @@ enum class NoteLabel(
 
 /** Title and preview text for lists. */
 object NoteText {
-    const val UNTITLED = "Empty note"
+    val UNTITLED: String get() = t("empty_note")
     private const val PREVIEW_CHARS = 120
     private val HEADING = Regex("""^#+\s*""")
 

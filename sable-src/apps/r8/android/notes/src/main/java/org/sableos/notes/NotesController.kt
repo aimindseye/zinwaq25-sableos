@@ -12,6 +12,7 @@ import org.sableos.notes.core.ListKey
 import org.sableos.notes.core.Note
 import org.sableos.notes.core.NoteStore
 import org.sableos.notes.core.NotesKeys
+import org.sableos.notes.core.NotesText.t
 import org.sableos.notes.core.Tasks
 import org.sableos.notes.core.TasksKey
 import org.sableos.notes.ui.NotesActions
@@ -202,7 +203,7 @@ class NotesController(
         state.confirmDelete = null
         remove(note.id)
         if ((state.screen as? Screen.Editor)?.id == note.id) state.screen = Screen.List
-        state.notice = "Deleted “${note.title}”"
+        state.notice = t("deleted", note.title)
     }
 
     private fun remove(id: String) {
@@ -223,7 +224,7 @@ class NotesController(
         val note = state.notes.firstOrNull { it.id == id } ?: return
         if (note.body.isBlank()) return
         io.execute {
-            if (runCatching { store.save(note) }.isFailure) main.post { state.notice = "Couldn't save “${note.title}”" }
+            if (runCatching { store.save(note) }.isFailure) main.post { state.notice = t("couldn_t_save", note.title) }
         }
     }
 
@@ -233,7 +234,7 @@ class NotesController(
                 .setType("text/plain")
                 .putExtra(Intent.EXTRA_SUBJECT, note.title)
                 .putExtra(Intent.EXTRA_TEXT, note.body)
-        activity.startActivity(Intent.createChooser(send, "Share note"))
+        activity.startActivity(Intent.createChooser(send, t("share_note")))
     }
 
     private fun export(note: Note) {
@@ -252,7 +253,7 @@ class NotesController(
                     activity.contentResolver.openOutputStream(uri, "wt")?.use { it.write(note.body.toByteArray()) }
                         ?: error("no stream")
                 }.isSuccess
-            main.post { state.notice = if (ok) "Exported “${note.title}”" else "Export failed" }
+            main.post { state.notice = if (ok) t("exported", note.title) else t("export_failed") }
         }
     }
 
@@ -272,7 +273,7 @@ class NotesController(
                     }
                 }.getOrNull()
             main.post {
-                if (text.isNullOrBlank()) state.notice = "Nothing to import" else openNew(text)
+                if (text.isNullOrBlank()) state.notice = t("nothing_to_import") else openNew(text)
             }
         }
     }
@@ -288,6 +289,6 @@ class NotesController(
                 .replace(UNSAFE_FILE_CHARS, " ")
                 .trim()
                 .take(MAX_FILE_NAME_CHARS)
-                .ifEmpty { "Note" } + ".txt"
+                .ifEmpty { t("note") } + ".txt"
     }
 }

@@ -24,6 +24,7 @@ import org.sableos.design.SablePageHeader
 import org.sableos.design.SablePanel
 import org.sableos.design.SableSpacing
 import org.sableos.messages.MessagesController
+import org.sableos.messages.core.MessagesText.t
 import java.text.DateFormat
 
 @Composable
@@ -76,9 +77,9 @@ private fun ColumnScope.AppContent(controller: MessagesController) {
 
 @Composable
 private fun NoTelephonyScreen() {
-    SablePageHeader(title = "Sable Messages", subtitle = "No mobile network for texts")
+    SablePageHeader(title = t("sable_messages"), subtitle = t("no_mobile_network_for_texts"))
     Text(
-        text = "This device has no SMS service (no SIM or no mobile radio), so it can't send or receive texts.",
+        text = t("this_device_has_no_sms"),
         style = MaterialTheme.typography.bodyLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -89,35 +90,34 @@ private fun AccessScreen(
     access: Access,
     actions: MessagesActions,
 ) {
-    SablePageHeader(title = "Allow SMS", subtitle = "Sable Messages needs to read and send texts")
+    SablePageHeader(title = t("allow_sms"), subtitle = t("sable_messages_needs_to_read"))
     Text(
         text =
-            "Texts stay on this phone. Sable Messages reads them from Android's message store and " +
-                "sends only what you write.",
+            t("texts_stay_on_this_phone"),
         style = MaterialTheme.typography.bodyLarge,
         color = MaterialTheme.colorScheme.onSurface,
     )
     if (access.roleAvailable && !access.isDefault) {
         SableActionButton(
-            text = "Make Sable Messages the default SMS app",
+            text = t("make_sable_messages_the_default"),
             modifier = Modifier.fillMaxWidth(),
             onClick = actions.requestDefaultRole,
         )
     }
     SableActionButton(
-        text = "Allow SMS access",
+        text = t("allow_sms_access"),
         modifier = Modifier.fillMaxWidth(),
         primary = !access.roleAvailable || access.isDefault,
         onClick = actions.requestPermissions,
     )
     if (access.deniedForGood) {
         Text(
-            text = "Android won't ask again. In Settings > Apps > Sable Messages > Permissions, allow SMS.",
+            text = t("android_won_t_ask_again"),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.error,
         )
         SableActionButton(
-            text = "Open app settings",
+            text = t("open_app_settings"),
             modifier = Modifier.fillMaxWidth(),
             primary = false,
             onClick = actions.openAppSettings,

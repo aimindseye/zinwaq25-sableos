@@ -53,6 +53,7 @@ import org.sableos.notes.core.Note
 import org.sableos.notes.core.NoteSearch
 import org.sableos.notes.core.NoteTime
 import org.sableos.notes.core.NotesKeys
+import org.sableos.notes.core.NotesText.t
 
 /** The editor's state and commands, so the composable below only lays them out. */
 private class EditorModel(
@@ -197,7 +198,7 @@ private fun ColumnScope.EditorField(model: EditorModel) {
             Box {
                 if (model.value.text.isEmpty()) {
                     Text(
-                        text = "Type your note. The first line is its title.",
+                        text = t("type_your_note_the_first"),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -232,7 +233,7 @@ private fun EditorBar(
                 Modifier
                     .heightIn(min = SableSize.TouchTarget)
                     .sableFocusRing()
-                    .clickable(onClickLabel = "Change colour, now ${note.label.displayName}", onClick = onLabel)
+                    .clickable(onClickLabel = t("change_colour_now", note.label.displayName), onClick = onLabel)
                     .padding(horizontal = SableSpacing.Sm),
             contentAlignment = Alignment.Center,
         ) {
@@ -248,13 +249,13 @@ private fun EditorBar(
             )
             val done = if (progress.total > 0) " · ☑ ${progress.done}/${progress.total}" else ""
             Text(
-                text = "Edited ${NoteTime.label(note.updatedAt, System.currentTimeMillis())}$done",
+                text = t("edited", NoteTime.label(note.updatedAt, System.currentTimeMillis()), done),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
             )
         }
-        SableSquareAction(text = "⋯", description = "Note actions (Menu key)", onClick = onMenu)
+        SableSquareAction(text = "⋯", description = t("note_actions_menu_key"), onClick = onMenu)
     }
 }
 
@@ -283,8 +284,8 @@ private fun FindBar(
                 },
         singleLine = true,
         isError = miss,
-        placeholder = { Text("Find in this note · Enter goes to it") },
-        supportingText = if (miss) ({ Text("Not in this note") }) else null,
+        placeholder = { Text(t("find_in_this_note_enter")) },
+        supportingText = if (miss) ({ Text(t("not_in_this_note")) }) else null,
     )
 }
 

@@ -1,0 +1,1322 @@
+diff --git a/sable-src/apps/r8/android/messages/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/messages/src/main/AndroidManifest.xml
+index c41ea96..ede38ca 100644
+--- a/sable-src/apps/r8/android/messages/src/main/AndroidManifest.xml
++++ b/sable-src/apps/r8/android/messages/src/main/AndroidManifest.xml
+@@ -28,6 +28,7 @@
+     </queries>
+ 
+     <application
++        android:name=".MessagesApplication"
+         android:allowBackup="false"
+         android:icon="@mipmap/ic_sable_messages"
+         android:roundIcon="@mipmap/ic_sable_messages_round"
+diff --git a/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/MessagesApplication.kt b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/MessagesApplication.kt
+new file mode 100644
+index 0000000..a776254
+--- /dev/null
++++ b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/MessagesApplication.kt
+@@ -0,0 +1,12 @@
++package org.sableos.messages
++
++import android.app.Application
++import org.sableos.messages.core.MessagesText
++
++/** Binds [MessagesText] to the app's string resources once per process, for screens, receivers and notifications. */
++class MessagesApplication : Application() {
++    override fun onCreate() {
++        super.onCreate()
++        MessagesText.t.bindTo(this)
++    }
++}
+diff --git a/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/core/IncomingNotice.kt b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/core/IncomingNotice.kt
+index 3bddba4..41081b6 100644
+--- a/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/core/IncomingNotice.kt
++++ b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/core/IncomingNotice.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.messages.core
+ 
++import org.sableos.messages.core.MessagesText.t
++
+ /**
+  * Text of the new-message notification. The private version carries sender and body; the public
+  * version (shown on a locked screen that hides sensitive content) only says that messages came.
+@@ -8,9 +10,9 @@ object IncomingNotice {
+     fun title(
+         contactName: String?,
+         address: String,
+-    ): String = contactName?.takeIf { it.isNotBlank() } ?: address.ifBlank { "Unknown sender" }
++    ): String = contactName?.takeIf { it.isNotBlank() } ?: address.ifBlank { t("unknown_sender") }
+ 
+-    fun publicText(count: Int): String = if (count <= 1) "New message" else "$count new messages"
++    fun publicText(count: Int): String = if (count <= 1) t("new_message") else t("new_messages", count)
+ 
+     /** Body line for an MMS: its text, else its subject, else what it carries. */
+     fun mmsBody(
+@@ -22,12 +24,12 @@ object IncomingNotice {
+         return when {
+             text.isNotBlank() -> text
+             !subject.isNullOrBlank() -> subject
+-            attachmentTypes.isEmpty() -> "Multimedia message"
+-            images == 1 && attachmentTypes.size == 1 -> "Picture"
+-            images == attachmentTypes.size -> "$images pictures"
+-            attachmentTypes.any { it.startsWith("video/") } -> "Video"
+-            attachmentTypes.any { it.startsWith("audio/") } -> "Audio"
+-            else -> "Attachment"
++            attachmentTypes.isEmpty() -> t("multimedia_message")
++            images == 1 && attachmentTypes.size == 1 -> t("picture")
++            images == attachmentTypes.size -> t("pictures", images)
++            attachmentTypes.any { it.startsWith("video/") } -> t("video")
++            attachmentTypes.any { it.startsWith("audio/") } -> t("audio")
++            else -> t("attachment")
+         }
+     }
+ }
+diff --git a/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/core/MessageStatus.kt b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/core/MessageStatus.kt
+index 985e92b..fb4fb1a 100644
+--- a/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/core/MessageStatus.kt
++++ b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/core/MessageStatus.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.messages.core
+ 
++import org.sableos.messages.core.MessagesText.t
++
+ /**
+  * Provider and SmsManager codes to bubble states. The numbers are the public values of
+  * Telephony.TextBasedSmsColumns.MESSAGE_TYPE_*, Telephony.BaseMmsColumns.MESSAGE_BOX_*,
+@@ -89,24 +91,24 @@ object MessageStatus {
+     ): String =
+         when (state) {
+             DeliveryState.Received -> time
+-            DeliveryState.Sending -> "Sending…"
+-            DeliveryState.Sent -> "Sent $time"
+-            DeliveryState.Draft -> "Draft"
+-            DeliveryState.Failed -> "Not sent · ${failureReason(errorCode)} · Enter to retry"
+-            DeliveryState.Downloading -> "Multimedia message · downloading…"
+-            DeliveryState.DownloadFailed -> "Multimedia message not downloaded · Enter to retry"
++            DeliveryState.Sending -> t("sending")
++            DeliveryState.Sent -> t("sent", time)
++            DeliveryState.Draft -> t("draft")
++            DeliveryState.Failed -> t("not_sent_enter_to_retry", failureReason(errorCode))
++            DeliveryState.Downloading -> t("multimedia_message_downloading")
++            DeliveryState.DownloadFailed -> t("multimedia_message_not_downloaded_enter")
+         }
+ 
+     fun failureReason(errorCode: Int): String =
+         when (errorCode) {
+-            0, ERROR_GENERIC, ERROR_NULL_PDU -> "couldn't send"
+-            ERROR_RADIO_OFF -> "radio off"
+-            ERROR_NO_SERVICE -> "no service"
+-            ERROR_LIMIT_EXCEEDED -> "sending limit reached"
+-            ERROR_FDN -> "blocked by fixed dialing"
+-            ERROR_SHORT_CODE_NOT_ALLOWED, ERROR_SHORT_CODE_NEVER_ALLOWED -> "short code not allowed"
+-            ERROR_RADIO_NOT_AVAILABLE -> "radio not available"
+-            ERROR_NETWORK_REJECT -> "network rejected it"
+-            else -> "error $errorCode"
++            0, ERROR_GENERIC, ERROR_NULL_PDU -> t("couldn_t_send")
++            ERROR_RADIO_OFF -> t("radio_off")
++            ERROR_NO_SERVICE -> t("no_service")
++            ERROR_LIMIT_EXCEEDED -> t("sending_limit_reached")
++            ERROR_FDN -> t("blocked_by_fixed_dialing")
++            ERROR_SHORT_CODE_NOT_ALLOWED, ERROR_SHORT_CODE_NEVER_ALLOWED -> t("short_code_not_allowed")
++            ERROR_RADIO_NOT_AVAILABLE -> t("radio_not_available")
++            ERROR_NETWORK_REJECT -> t("network_rejected_it")
++            else -> t("error", errorCode)
+         }
+ }
+diff --git a/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/core/MessagesText.kt b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/core/MessagesText.kt
+new file mode 100644
+index 0000000..d4d6a16
+--- /dev/null
++++ b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/core/MessagesText.kt
+@@ -0,0 +1,86 @@
++package org.sableos.messages.core
++
++import org.sableos.design.SableTexts
++
++/**
++ * Every line Sable Messages shows, in English, by string resource name. `res/values/strings.xml`
++ * repeats them (MessagesTextTest keeps the two equal) and `res/values-<lang>/strings.xml`
++ * translates them.
++ */
++object MessagesText {
++    val EN: Map<String, String> =
++        mapOf(
++            "unknown_sender" to "Unknown sender",
++            "new_message" to "New message",
++            "new_messages" to "%1\$s new messages",
++            "multimedia_message" to "Multimedia message",
++            "picture" to "Picture",
++            "pictures" to "%1\$s pictures",
++            "video" to "Video",
++            "audio" to "Audio",
++            "attachment" to "Attachment",
++            "sending" to "Sending…",
++            "sent" to "Sent %1\$s",
++            "draft" to "Draft",
++            "not_sent_enter_to_retry" to "Not sent · %1\$s · Enter to retry",
++            "multimedia_message_downloading" to "Multimedia message · downloading…",
++            "multimedia_message_not_downloaded_enter" to
++                "Multimedia message not downloaded · Enter to retry",
++            "couldn_t_send" to "couldn't send",
++            "radio_off" to "radio off",
++            "no_service" to "no service",
++            "sending_limit_reached" to "sending limit reached",
++            "blocked_by_fixed_dialing" to "blocked by fixed dialing",
++            "short_code_not_allowed" to "short code not allowed",
++            "radio_not_available" to "radio not available",
++            "network_rejected_it" to "network rejected it",
++            "error" to "error %1\$s",
++            "to_name_or_number" to "To: name or number",
++            "text_message_enter_sends" to "Text message · Enter sends",
++            "send" to "Send",
++            "back" to "Back",
++            "unknown" to "Unknown",
++            "sms" to " · SMS",
++            "new_message_end_to_latest" to "New message — End to latest",
++            "attachment_2" to "Attachment · %1\$s",
++            "picture_2" to "Picture · %1\$s",
++            "group_conversation_replies_need_mms" to
++                "Group conversation: replies need MMS, which Sable Messages doesn't send yet.",
++            "sable_messages" to "Sable Messages",
++            "no_mobile_network_for_texts" to "No mobile network for texts",
++            "this_device_has_no_sms" to
++                "This device has no SMS service (no SIM or no mobile radio), so it can't send or " +
++                "receive texts.",
++            "allow_sms" to "Allow SMS",
++            "sable_messages_needs_to_read" to "Sable Messages needs to read and send texts",
++            "texts_stay_on_this_phone" to
++                "Texts stay on this phone. Sable Messages reads them from Android's message " +
++                "store and sends only what you write.",
++            "make_sable_messages_the_default" to "Make Sable Messages the default SMS app",
++            "allow_sms_access" to "Allow SMS access",
++            "android_won_t_ask_again" to
++                "Android won't ask again. In Settings > Apps > Sable Messages > Permissions, " +
++                "allow SMS.",
++            "open_app_settings" to "Open app settings",
++            "no_conversations_yet_choose_new" to
++                "No conversations yet. Choose New to text someone.",
++            "no_conversation_matches" to "No conversation matches.",
++            "messages" to "Messages",
++            "conversations_unread" to "%1\$s conversations · %2\$s unread",
++            "conversations" to "%1\$s conversations",
++            "new_label" to "New",
++            "no_mobile_network_on_this" to
++                "No mobile network on this device: texts can't be sent or received.",
++            "another_app_is_the_default" to
++                "Another app is the default SMS app, so it receives texts and pictures. Make " +
++                "Sable Messages the default to get them here.",
++            "make_default" to "Make default",
++            "contact_names_are_hidden_until" to
++                "Contact names are hidden until Sable Messages may read contacts.",
++            "show_names" to "Show names",
++            "type_to_filter_enter_opens" to "Type to filter · Enter opens",
++            "not_sent" to "Not sent · %1\$s",
++        )
++
++    val t = SableTexts(EN)
++}
+diff --git a/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/core/Threads.kt b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/core/Threads.kt
+index cd4ac00..f215fe1 100644
+--- a/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/core/Threads.kt
++++ b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/core/Threads.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.messages.core
+ 
++import org.sableos.messages.core.MessagesText.t
++
+ /** Builds the conversation list and a conversation's timeline from provider rows. */
+ object ThreadGrouping {
+     private const val MAX_TITLE_NAMES = 3
+@@ -40,7 +42,7 @@ object ThreadGrouping {
+         val shown = labels.take(MAX_TITLE_NAMES).joinToString(", ") { it.substringBefore(' ') }
+         val more = labels.size - MAX_TITLE_NAMES
+         return when {
+-            labels.isEmpty() -> "Unknown sender"
++            labels.isEmpty() -> t("unknown_sender")
+             labels.size == 1 -> labels.single()
+             more > 0 -> "$shown +$more"
+             else -> shown
+diff --git a/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/ui/ComposeScreen.kt b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/ui/ComposeScreen.kt
+index ad77cd0..5cb81b5 100644
+--- a/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/ui/ComposeScreen.kt
++++ b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/ui/ComposeScreen.kt
+@@ -36,6 +36,7 @@ import org.sableos.design.SableSize
+ import org.sableos.design.SableSpacing
+ import org.sableos.design.sableFocusRing
+ import org.sableos.messages.core.Addresses
++import org.sableos.messages.core.MessagesText.t
+ import org.sableos.messages.data.ContactNumber
+ 
+ /** New message: type a number or a name (contacts are suggested), then the text; Enter sends. */
+@@ -77,7 +78,7 @@ internal fun ColumnScope.ComposeScreen(
+                 }
+                 true
+             },
+-        label = { Text("To: name or number") },
++        label = { Text(t("to_name_or_number")) },
+         singleLine = true,
+     )
+     LazyColumn(
+@@ -111,7 +112,7 @@ private fun MessageField(
+                     if (event.type == KeyEventType.KeyDown && body.isNotBlank()) send()
+                     true
+                 },
+-            placeholder = { Text("Text message · Enter sends") },
++            placeholder = { Text(t("text_message_enter_sends")) },
+             maxLines = 4,
+         )
+         Button(
+@@ -119,7 +120,7 @@ private fun MessageField(
+             enabled = body.isNotBlank() && recipientReady,
+             modifier = Modifier.padding(start = SableSpacing.Sm),
+             shape = MaterialTheme.shapes.medium,
+-        ) { Text("Send") }
++        ) { Text(t("send")) }
+     }
+ }
+ 
+@@ -127,12 +128,12 @@ private fun MessageField(
+ private fun ComposeHeader(actions: MessagesActions) {
+     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+         Text(
+-            text = "New message",
++            text = t("new_message"),
+             modifier = Modifier.weight(1f),
+             style = MaterialTheme.typography.headlineMedium,
+             color = MaterialTheme.colorScheme.onBackground,
+         )
+-        SableActionButton(text = "Back", primary = false, onClick = actions.back)
++        SableActionButton(text = t("back"), primary = false, onClick = actions.back)
+     }
+ }
+ 
+diff --git a/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/ui/ConversationScreen.kt b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/ui/ConversationScreen.kt
+index 411350a..cc76ae4 100644
+--- a/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/ui/ConversationScreen.kt
++++ b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/ui/ConversationScreen.kt
+@@ -68,6 +68,7 @@ import org.sableos.messages.core.LatestEvent
+ import org.sableos.messages.core.LatestPolicy
+ import org.sableos.messages.core.LatestState
+ import org.sableos.messages.core.MessageStatus
++import org.sableos.messages.core.MessagesText.t
+ 
+ private val BubbleMaxWidth = 300.dp
+ private val ImageMaxHeight = 220.dp
+@@ -190,14 +191,14 @@ private fun ConversationHeader(
+                 overflow = TextOverflow.Ellipsis,
+             )
+             Text(
+-                text = (screen.addresses.joinToString(", ").ifEmpty { "Unknown" }) + " · SMS",
++                text = (screen.addresses.joinToString(", ").ifEmpty { t("unknown") }) + t("sms"),
+                 style = MaterialTheme.typography.bodySmall,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                 maxLines = 1,
+                 overflow = TextOverflow.Ellipsis,
+             )
+         }
+-        SableActionButton(text = "Back", primary = false, onClick = actions.back)
++        SableActionButton(text = t("back"), primary = false, onClick = actions.back)
+     }
+ }
+ 
+@@ -243,7 +244,7 @@ private fun LatestIndicator(
+             contentColor = MaterialTheme.colorScheme.onPrimary,
+         ) {
+             Text(
+-                text = "New message — End to latest",
++                text = t("new_message_end_to_latest"),
+                 modifier = Modifier.padding(horizontal = SableSpacing.Lg, vertical = SableSpacing.Sm),
+                 style = MaterialTheme.typography.labelLarge,
+             )
+@@ -320,7 +321,7 @@ private fun BubbleContent(
+             AttachmentImage(attachment, actions.loadImage)
+         } else {
+             Text(
+-                text = "Attachment · ${attachment.name ?: attachment.contentType}",
++                text = t("attachment_2", attachment.name ?: attachment.contentType),
+                 style = MaterialTheme.typography.bodyMedium,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+@@ -339,13 +340,13 @@ private fun AttachmentImage(
+     val image = bitmap
+     if (image == null) {
+         Text(
+-            text = "Picture · ${attachment.name ?: attachment.contentType}",
++            text = t("picture_2", attachment.name ?: attachment.contentType),
+             style = MaterialTheme.typography.bodyMedium,
+         )
+     } else {
+         Image(
+             bitmap = image.asImageBitmap(),
+-            contentDescription = attachment.name ?: "Picture",
++            contentDescription = attachment.name ?: t("picture"),
+             modifier = Modifier.fillMaxWidth().heightIn(max = ImageMaxHeight).clip(MaterialTheme.shapes.small),
+             contentScale = ContentScale.Fit,
+         )
+@@ -361,7 +362,7 @@ private fun Composer(
+ ) {
+     if (!screen.canReply) {
+         Text(
+-            text = "Group conversation: replies need MMS, which Sable Messages doesn't send yet.",
++            text = t("group_conversation_replies_need_mms"),
+             style = MaterialTheme.typography.bodyMedium,
+             color = MaterialTheme.colorScheme.onSurfaceVariant,
+         )
+@@ -392,11 +393,15 @@ private fun Composer(
+                         if (event.type == KeyEventType.KeyDown) send()
+                         true
+                     },
+-            placeholder = { Text("Text message · Enter sends") },
++            placeholder = { Text(t("text_message_enter_sends")) },
+             maxLines = COMPOSER_MAX_LINES,
+         )
+         Spacer(Modifier.width(SableSpacing.Sm))
+-        Button(onClick = send, enabled = state.draft.isNotBlank(), shape = MaterialTheme.shapes.medium) { Text("Send") }
++        Button(
++            onClick = send,
++            enabled = state.draft.isNotBlank(),
++            shape = MaterialTheme.shapes.medium,
++        ) { Text(t("send")) }
+     }
+ }
+ 
+diff --git a/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/ui/MessagesApp.kt b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/ui/MessagesApp.kt
+index 0ab2c8b..381eadd 100644
+--- a/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/ui/MessagesApp.kt
++++ b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/ui/MessagesApp.kt
+@@ -24,6 +24,7 @@ import org.sableos.design.SablePageHeader
+ import org.sableos.design.SablePanel
+ import org.sableos.design.SableSpacing
+ import org.sableos.messages.MessagesController
++import org.sableos.messages.core.MessagesText.t
+ import java.text.DateFormat
+ 
+ @Composable
+@@ -76,9 +77,9 @@ private fun ColumnScope.AppContent(controller: MessagesController) {
+ 
+ @Composable
+ private fun NoTelephonyScreen() {
+-    SablePageHeader(title = "Sable Messages", subtitle = "No mobile network for texts")
++    SablePageHeader(title = t("sable_messages"), subtitle = t("no_mobile_network_for_texts"))
+     Text(
+-        text = "This device has no SMS service (no SIM or no mobile radio), so it can't send or receive texts.",
++        text = t("this_device_has_no_sms"),
+         style = MaterialTheme.typography.bodyLarge,
+         color = MaterialTheme.colorScheme.onSurfaceVariant,
+     )
+@@ -89,35 +90,34 @@ private fun AccessScreen(
+     access: Access,
+     actions: MessagesActions,
+ ) {
+-    SablePageHeader(title = "Allow SMS", subtitle = "Sable Messages needs to read and send texts")
++    SablePageHeader(title = t("allow_sms"), subtitle = t("sable_messages_needs_to_read"))
+     Text(
+         text =
+-            "Texts stay on this phone. Sable Messages reads them from Android's message store and " +
+-                "sends only what you write.",
++            t("texts_stay_on_this_phone"),
+         style = MaterialTheme.typography.bodyLarge,
+         color = MaterialTheme.colorScheme.onSurface,
+     )
+     if (access.roleAvailable && !access.isDefault) {
+         SableActionButton(
+-            text = "Make Sable Messages the default SMS app",
++            text = t("make_sable_messages_the_default"),
+             modifier = Modifier.fillMaxWidth(),
+             onClick = actions.requestDefaultRole,
+         )
+     }
+     SableActionButton(
+-        text = "Allow SMS access",
++        text = t("allow_sms_access"),
+         modifier = Modifier.fillMaxWidth(),
+         primary = !access.roleAvailable || access.isDefault,
+         onClick = actions.requestPermissions,
+     )
+     if (access.deniedForGood) {
+         Text(
+-            text = "Android won't ask again. In Settings > Apps > Sable Messages > Permissions, allow SMS.",
++            text = t("android_won_t_ask_again"),
+             style = MaterialTheme.typography.bodyMedium,
+             color = MaterialTheme.colorScheme.error,
+         )
+         SableActionButton(
+-            text = "Open app settings",
++            text = t("open_app_settings"),
+             modifier = Modifier.fillMaxWidth(),
+             primary = false,
+             onClick = actions.openAppSettings,
+diff --git a/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/ui/ThreadsScreen.kt b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/ui/ThreadsScreen.kt
+index f81ff26..026cdfa 100644
+--- a/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/ui/ThreadsScreen.kt
++++ b/sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/ui/ThreadsScreen.kt
+@@ -47,6 +47,7 @@ import org.sableos.design.SableSize
+ import org.sableos.design.SableSpacing
+ import org.sableos.design.sableFocusRing
+ import org.sableos.design.sableListKeys
++import org.sableos.messages.core.MessagesText.t
+ import org.sableos.messages.core.ThreadSummary
+ 
+ /**
+@@ -66,9 +67,9 @@ internal fun ColumnScope.ThreadsScreen(
+         Text(
+             text =
+                 if (state.filter.isBlank()) {
+-                    "No conversations yet. Choose New to text someone."
++                    t("no_conversations_yet_choose_new")
+                 } else {
+-                    "No conversation matches."
++                    t("no_conversation_matches")
+                 },
+             style = MaterialTheme.typography.bodyLarge,
+             color = MaterialTheme.colorScheme.onSurfaceVariant,
+@@ -109,7 +110,7 @@ private fun ThreadsHeader(
+     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+         Column(modifier = Modifier.weight(1f)) {
+             Text(
+-                text = "Messages",
++                text = t("messages"),
+                 style = MaterialTheme.typography.headlineMedium,
+                 color = MaterialTheme.colorScheme.onBackground,
+             )
+@@ -119,15 +120,15 @@ private fun ThreadsHeader(
+                     if (unread >
+                         0
+                     ) {
+-                        "${threads.size} conversations · $unread unread"
++                        t("conversations_unread", threads.size, unread)
+                     } else {
+-                        "${threads.size} conversations"
++                        t("conversations", threads.size)
+                     },
+                 style = MaterialTheme.typography.bodyMedium,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+         }
+-        SableActionButton(text = "New", onClick = actions.newMessage)
++        SableActionButton(text = t("new_label"), onClick = actions.newMessage)
+     }
+ }
+ 
+@@ -137,19 +138,18 @@ private fun ThreadsBanners(
+     actions: MessagesActions,
+ ) {
+     if (!access.hasTelephony) {
+-        Banner("No mobile network on this device: texts can't be sent or received.", null) {}
++        Banner(t("no_mobile_network_on_this"), null) {}
+     } else if (access.roleAvailable && !access.isDefault) {
+         Banner(
+-            "Another app is the default SMS app, so it receives texts and pictures. " +
+-                "Make Sable Messages the default to get them here.",
+-            "Make default",
++            t("another_app_is_the_default"),
++            t("make_default"),
+             actions.requestDefaultRole,
+         )
+     }
+     if (!access.canReadContacts) {
+         Banner(
+-            "Contact names are hidden until Sable Messages may read contacts.",
+-            "Show names",
++            t("contact_names_are_hidden_until"),
++            t("show_names"),
+             actions.requestPermissions,
+         )
+     }
+@@ -193,7 +193,7 @@ private fun FilterField(
+                     }
+                 },
+         singleLine = true,
+-        placeholder = { Text("Type to filter · Enter opens") },
++        placeholder = { Text(t("type_to_filter_enter_opens")) },
+     )
+ }
+ 
+@@ -237,7 +237,7 @@ private fun ThreadRow(
+                 overflow = TextOverflow.Ellipsis,
+             )
+             Text(
+-                text = if (thread.hasError) "Not sent · ${thread.snippet}" else thread.snippet,
++                text = if (thread.hasError) t("not_sent", thread.snippet) else thread.snippet,
+                 style = MaterialTheme.typography.bodyMedium,
+                 color = if (thread.hasError) colors.error else colors.onSurfaceVariant,
+                 maxLines = 1,
+diff --git a/sable-src/apps/r8/android/messages/src/main/res/raw/sable_strings_keep.xml b/sable-src/apps/r8/android/messages/src/main/res/raw/sable_strings_keep.xml
+new file mode 100644
+index 0000000..4f4b368
+--- /dev/null
++++ b/sable-src/apps/r8/android/messages/src/main/res/raw/sable_strings_keep.xml
+@@ -0,0 +1,3 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableTexts looks strings up by name, which the resource shrinker cannot see: keep them all. -->
++<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@string/*" />
+diff --git a/sable-src/apps/r8/android/messages/src/main/res/values/strings.xml b/sable-src/apps/r8/android/messages/src/main/res/values/strings.xml
+index b413e4a..0bb05ec 100644
+--- a/sable-src/apps/r8/android/messages/src/main/res/values/strings.xml
++++ b/sable-src/apps/r8/android/messages/src/main/res/values/strings.xml
+@@ -1,4 +1,5 @@
+ <?xml version="1.0" encoding="utf-8"?>
++<!-- English. Keep equal to MessagesText.EN (MessagesTextTest checks); translations go in values-<lang>/. -->
+ <resources>
+     <string name="app_name">Sable Messages</string>
+     <string name="conversation">Conversation</string>
+@@ -11,4 +12,62 @@
+         <item quantity="other">Sent to %1$d people, one text each.</item>
+     </plurals>
+     <string name="mms_needs_default">Only the default SMS app can download multimedia messages.</string>
++    <!-- Lines the code reads through MessagesText.t -->
++    <string name="unknown_sender">Unknown sender</string>
++    <string name="new_message">New message</string>
++    <string name="new_messages">%1$s new messages</string>
++    <string name="multimedia_message">Multimedia message</string>
++    <string name="picture">Picture</string>
++    <string name="pictures">%1$s pictures</string>
++    <string name="video">Video</string>
++    <string name="audio">Audio</string>
++    <string name="attachment">Attachment</string>
++    <string name="sending">Sending…</string>
++    <string name="sent">Sent %1$s</string>
++    <string name="draft">Draft</string>
++    <string name="not_sent_enter_to_retry">Not sent · %1$s · Enter to retry</string>
++    <string name="multimedia_message_downloading">Multimedia message · downloading…</string>
++    <string name="multimedia_message_not_downloaded_enter">Multimedia message not downloaded · Enter to retry</string>
++    <string name="couldn_t_send">couldn\'t send</string>
++    <string name="radio_off">radio off</string>
++    <string name="no_service">no service</string>
++    <string name="sending_limit_reached">sending limit reached</string>
++    <string name="blocked_by_fixed_dialing">blocked by fixed dialing</string>
++    <string name="short_code_not_allowed">short code not allowed</string>
++    <string name="radio_not_available">radio not available</string>
++    <string name="network_rejected_it">network rejected it</string>
++    <string name="error">error %1$s</string>
++    <string name="to_name_or_number">To: name or number</string>
++    <string name="text_message_enter_sends">Text message · Enter sends</string>
++    <string name="send">Send</string>
++    <string name="back">Back</string>
++    <string name="unknown">Unknown</string>
++    <string name="sms">" · SMS"</string>
++    <string name="new_message_end_to_latest">New message — End to latest</string>
++    <string name="attachment_2">Attachment · %1$s</string>
++    <string name="picture_2">Picture · %1$s</string>
++    <string name="group_conversation_replies_need_mms">Group conversation: replies need MMS, which Sable Messages doesn\'t send yet.</string>
++    <string name="sable_messages">Sable Messages</string>
++    <string name="no_mobile_network_for_texts">No mobile network for texts</string>
++    <string name="this_device_has_no_sms">This device has no SMS service (no SIM or no mobile radio), so it can\'t send or receive texts.</string>
++    <string name="allow_sms">Allow SMS</string>
++    <string name="sable_messages_needs_to_read">Sable Messages needs to read and send texts</string>
++    <string name="texts_stay_on_this_phone">Texts stay on this phone. Sable Messages reads them from Android\'s message store and sends only what you write.</string>
++    <string name="make_sable_messages_the_default">Make Sable Messages the default SMS app</string>
++    <string name="allow_sms_access">Allow SMS access</string>
++    <string name="android_won_t_ask_again">Android won\'t ask again. In Settings &gt; Apps &gt; Sable Messages &gt; Permissions, allow SMS.</string>
++    <string name="open_app_settings">Open app settings</string>
++    <string name="no_conversations_yet_choose_new">No conversations yet. Choose New to text someone.</string>
++    <string name="no_conversation_matches">No conversation matches.</string>
++    <string name="messages">Messages</string>
++    <string name="conversations_unread">%1$s conversations · %2$s unread</string>
++    <string name="conversations">%1$s conversations</string>
++    <string name="new_label">New</string>
++    <string name="no_mobile_network_on_this">No mobile network on this device: texts can\'t be sent or received.</string>
++    <string name="another_app_is_the_default">Another app is the default SMS app, so it receives texts and pictures. Make Sable Messages the default to get them here.</string>
++    <string name="make_default">Make default</string>
++    <string name="contact_names_are_hidden_until">Contact names are hidden until Sable Messages may read contacts.</string>
++    <string name="show_names">Show names</string>
++    <string name="type_to_filter_enter_opens">Type to filter · Enter opens</string>
++    <string name="not_sent">Not sent · %1$s</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/messages/src/test/java/org/sableos/messages/MessagesTextTest.kt b/sable-src/apps/r8/android/messages/src/test/java/org/sableos/messages/MessagesTextTest.kt
+new file mode 100644
+index 0000000..627a341
+--- /dev/null
++++ b/sable-src/apps/r8/android/messages/src/test/java/org/sableos/messages/MessagesTextTest.kt
+@@ -0,0 +1,64 @@
++package org.sableos.messages
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.sableos.messages.core.MessagesText
++import java.io.File
++import javax.xml.parsers.DocumentBuilderFactory
++
++/** The English lines in code and in `values/strings.xml` stay equal, and every translation fits them. */
++class MessagesTextTest {
++    private val res = File("src/main/res")
++
++    private fun strings(file: File): Map<String, String> {
++        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
++        val nodes = doc.getElementsByTagName("string")
++        return (0 until nodes.length)
++            .map { nodes.item(it) }
++            .filter { it.attributes.getNamedItem("translatable")?.nodeValue != "false" }
++            .associate { node ->
++                val raw =
++                    node.textContent.let {
++                        if (it.length > 1 && it.startsWith('"') &&
++                            it.endsWith('"')
++                        ) {
++                            it.drop(1).dropLast(1)
++                        } else {
++                            it
++                        }
++                    }
++                node.attributes.getNamedItem("name").nodeValue to
++                    raw
++                        .replace("\\n", "\n")
++                        .replace("\\'", "'")
++                        .replace("\\\"", "\"")
++                        .replace("\\@", "@")
++                        .replace("\\\\", "\\")
++            }
++    }
++
++    private fun placeholders(s: String) = Regex("%\\d+\\$[sd]").findAll(s).map { it.value }.toSortedSet()
++
++    @Test
++    fun englishResourcesMatchTheCode() {
++        val english = strings(File(res, "values/strings.xml"))
++        MessagesText.EN.forEach { (key, text) -> assertEquals(key, text, english[key]) }
++    }
++
++    @Test
++    fun translationsHaveEveryKeyAndTheSamePlaceholders() {
++        res.listFiles { f -> f.name.startsWith("values-") && File(f, "strings.xml").isFile }.orEmpty().forEach { dir ->
++            val tr = strings(File(dir, "strings.xml"))
++            assertEquals(dir.name, MessagesText.EN.keys, tr.keys.intersect(MessagesText.EN.keys))
++            MessagesText.EN.forEach { (key, text) ->
++                assertEquals("${dir.name}/$key", placeholders(text), placeholders(tr.getValue(key)))
++            }
++        }
++    }
++
++    @Test
++    fun linesFillTheirArguments() {
++        assertEquals("3 new messages", MessagesText.t("new_messages", 3))
++        assertEquals("Not sent · radio off · Enter to retry", MessagesText.t("not_sent_enter_to_retry", "radio off"))
++    }
++}
+diff --git a/sable-src/apps/r8/android/notes/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/notes/src/main/AndroidManifest.xml
+index 15d7027..38fd71a 100644
+--- a/sable-src/apps/r8/android/notes/src/main/AndroidManifest.xml
++++ b/sable-src/apps/r8/android/notes/src/main/AndroidManifest.xml
+@@ -6,11 +6,12 @@
+         <provider android:authorities="org.sableos.appearance" />
+     </queries>
+     <application
++        android:name=".NotesApplication"
+         android:allowBackup="false"
+         android:usesCleartextTraffic="false"
+         android:icon="@mipmap/ic_sable_notes"
+         android:roundIcon="@mipmap/ic_sable_notes_round"
+-        android:label="Sable Notes"
++        android:label="@string/app_name"
+         android:supportsRtl="true"
+         android:theme="@android:style/Theme.Material.NoActionBar">
+         <activity
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesApplication.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesApplication.kt
+new file mode 100644
+index 0000000..a29b155
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesApplication.kt
+@@ -0,0 +1,12 @@
++package org.sableos.notes
++
++import android.app.Application
++import org.sableos.notes.core.NotesText
++
++/** Binds [NotesText] to the app's string resources once per process, so the phone's language is used. */
++class NotesApplication : Application() {
++    override fun onCreate() {
++        super.onCreate()
++        NotesText.t.bindTo(this)
++    }
++}
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesController.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesController.kt
+index cc725e8..13d1e53 100644
+--- a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesController.kt
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesController.kt
+@@ -12,6 +12,7 @@ import org.sableos.notes.core.ListKey
+ import org.sableos.notes.core.Note
+ import org.sableos.notes.core.NoteStore
+ import org.sableos.notes.core.NotesKeys
++import org.sableos.notes.core.NotesText.t
+ import org.sableos.notes.core.Tasks
+ import org.sableos.notes.core.TasksKey
+ import org.sableos.notes.ui.NotesActions
+@@ -202,7 +203,7 @@ class NotesController(
+         state.confirmDelete = null
+         remove(note.id)
+         if ((state.screen as? Screen.Editor)?.id == note.id) state.screen = Screen.List
+-        state.notice = "Deleted “${note.title}”"
++        state.notice = t("deleted", note.title)
+     }
+ 
+     private fun remove(id: String) {
+@@ -223,7 +224,7 @@ class NotesController(
+         val note = state.notes.firstOrNull { it.id == id } ?: return
+         if (note.body.isBlank()) return
+         io.execute {
+-            if (runCatching { store.save(note) }.isFailure) main.post { state.notice = "Couldn't save “${note.title}”" }
++            if (runCatching { store.save(note) }.isFailure) main.post { state.notice = t("couldn_t_save", note.title) }
+         }
+     }
+ 
+@@ -233,7 +234,7 @@ class NotesController(
+                 .setType("text/plain")
+                 .putExtra(Intent.EXTRA_SUBJECT, note.title)
+                 .putExtra(Intent.EXTRA_TEXT, note.body)
+-        activity.startActivity(Intent.createChooser(send, "Share note"))
++        activity.startActivity(Intent.createChooser(send, t("share_note")))
+     }
+ 
+     private fun export(note: Note) {
+@@ -252,7 +253,7 @@ class NotesController(
+                     activity.contentResolver.openOutputStream(uri, "wt")?.use { it.write(note.body.toByteArray()) }
+                         ?: error("no stream")
+                 }.isSuccess
+-            main.post { state.notice = if (ok) "Exported “${note.title}”" else "Export failed" }
++            main.post { state.notice = if (ok) t("exported", note.title) else t("export_failed") }
+         }
+     }
+ 
+@@ -272,7 +273,7 @@ class NotesController(
+                     }
+                 }.getOrNull()
+             main.post {
+-                if (text.isNullOrBlank()) state.notice = "Nothing to import" else openNew(text)
++                if (text.isNullOrBlank()) state.notice = t("nothing_to_import") else openNew(text)
+             }
+         }
+     }
+@@ -288,6 +289,6 @@ class NotesController(
+                 .replace(UNSAFE_FILE_CHARS, " ")
+                 .trim()
+                 .take(MAX_FILE_NAME_CHARS)
+-                .ifEmpty { "Note" } + ".txt"
++                .ifEmpty { t("note") } + ".txt"
+     }
+ }
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/Note.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/Note.kt
+index 23677a9..a26aec9 100644
+--- a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/Note.kt
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/Note.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.notes.core
+ 
++import org.sableos.notes.core.NotesText.t
++
+ /**
+  * One note: plain text with lightweight structure ("# " headings and [Checklist] lines) and an
+  * optional colour label. The first line that has text is the title.
+@@ -18,18 +20,20 @@ data class Note(
+ @Suppress("MagicNumber") // ARGB colours
+ enum class NoteLabel(
+     val argb: Long,
+-    val displayName: String,
++    private val nameKey: String,
+ ) {
+-    NONE(0xFF64748B, "No colour"),
+-    YELLOW(0xFFF5C542, "Yellow"),
+-    ORANGE(0xFFF28C45, "Orange"),
+-    RED(0xFFE5534B, "Red"),
+-    PINK(0xFFE8458F, "Pink"),
+-    PURPLE(0xFF7A42E8, "Purple"),
+-    BLUE(0xFF4D9CFF, "Blue"),
+-    GREEN(0xFF35C66B, "Green"),
++    NONE(0xFF64748B, "no_colour"),
++    YELLOW(0xFFF5C542, "yellow"),
++    ORANGE(0xFFF28C45, "orange"),
++    RED(0xFFE5534B, "red"),
++    PINK(0xFFE8458F, "pink"),
++    PURPLE(0xFF7A42E8, "purple"),
++    BLUE(0xFF4D9CFF, "blue"),
++    GREEN(0xFF35C66B, "green"),
+     ;
+ 
++    val displayName: String get() = t(nameKey)
++
+     fun next(): NoteLabel = entries[(ordinal + 1) % entries.size]
+ 
+     companion object {
+@@ -39,7 +43,7 @@ enum class NoteLabel(
+ 
+ /** Title and preview text for lists. */
+ object NoteText {
+-    const val UNTITLED = "Empty note"
++    val UNTITLED: String get() = t("empty_note")
+     private const val PREVIEW_CHARS = 120
+     private val HEADING = Regex("""^#+\s*""")
+ 
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NotesKeys.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NotesKeys.kt
+index b2db2ff..3693098 100644
+--- a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NotesKeys.kt
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NotesKeys.kt
+@@ -1,6 +1,7 @@
+ package org.sableos.notes.core
+ 
+ import android.view.KeyEvent
++import org.sableos.notes.core.NotesText.t
+ 
+ /** List screen keys. Single letters only reach the list when no text field has focus. */
+ enum class ListKey { New, Search, Tasks, Label, Delete, Import }
+@@ -15,18 +16,20 @@ enum class EditorKey { Save, Find, FindNext, ToggleItem, MakeItem, Label, Export
+ enum class EditorMenu(
+     val key: Int,
+     val letter: Char,
+-    val label: String,
++    private val labelKey: String,
+ ) {
+-    MakeItem(KeyEvent.KEYCODE_L, 'L', "List item on this line"),
+-    ToggleItem(KeyEvent.KEYCODE_T, 'T', "Tick or untick this item"),
+-    Find(KeyEvent.KEYCODE_F, 'F', "Find in note"),
+-    FindNext(KeyEvent.KEYCODE_G, 'G', "Find next"),
+-    Label(KeyEvent.KEYCODE_C, 'C', "Colour"),
+-    Share(KeyEvent.KEYCODE_S, 'S', "Share"),
+-    Export(KeyEvent.KEYCODE_E, 'E', "Export to a file"),
+-    Delete(KeyEvent.KEYCODE_D, 'D', "Delete note"),
++    MakeItem(KeyEvent.KEYCODE_L, 'L', "list_item_on_this_line"),
++    ToggleItem(KeyEvent.KEYCODE_T, 'T', "tick_or_untick_this_item"),
++    Find(KeyEvent.KEYCODE_F, 'F', "find_in_note"),
++    FindNext(KeyEvent.KEYCODE_G, 'G', "find_next"),
++    Label(KeyEvent.KEYCODE_C, 'C', "colour"),
++    Share(KeyEvent.KEYCODE_S, 'S', "share"),
++    Export(KeyEvent.KEYCODE_E, 'E', "export_to_a_file"),
++    Delete(KeyEvent.KEYCODE_D, 'D', "delete_note"),
+     ;
+ 
++    val label: String get() = t(labelKey)
++
+     companion object {
+         fun forKey(keyCode: Int): EditorMenu? = entries.firstOrNull { it.key == keyCode }
+     }
+@@ -41,9 +44,9 @@ enum class TasksKey { OpenNote, History }
+  * ([org.sableos.design.SableListKeys]), so C composes a new note, as on BlackBerry.
+  */
+ object NotesKeys {
+-    const val LIST_HINT = "C new · S find · K tasks · L colour · D delete"
+-    const val EDITOR_HINT = "Menu: list item, tick, find, colour, share · Back saves"
+-    const val TASKS_HINT = "Enter tick · O open note · H done items · Back"
++    val LIST_HINT: String get() = t("c_new_s_find_k")
++    val EDITOR_HINT: String get() = t("menu_list_item_tick_find")
++    val TASKS_HINT: String get() = t("enter_tick_o_open_note")
+ 
+     fun list(
+         keyCode: Int,
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NotesText.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NotesText.kt
+new file mode 100644
+index 0000000..19fe3fd
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NotesText.kt
+@@ -0,0 +1,70 @@
++package org.sableos.notes.core
++
++import org.sableos.design.SableTexts
++
++/**
++ * Every line Sable Notes shows, in English, by string resource name. res/values/strings.xml
++ * repeats them (NotesTextTest keeps the two equal) and res/values-<lang>/strings.xml translates
++ * them.
++ */
++object NotesText {
++    val EN: Map<String, String> =
++        mapOf(
++            "deleted" to "Deleted “%1\$s”",
++            "couldn_t_save" to "Couldn't save “%1\$s”",
++            "share_note" to "Share note",
++            "exported" to "Exported “%1\$s”",
++            "export_failed" to "Export failed",
++            "nothing_to_import" to "Nothing to import",
++            "note" to "Note",
++            "no_colour" to "No colour",
++            "yellow" to "Yellow",
++            "orange" to "Orange",
++            "red" to "Red",
++            "pink" to "Pink",
++            "purple" to "Purple",
++            "blue" to "Blue",
++            "green" to "Green",
++            "empty_note" to "Empty note",
++            "list_item_on_this_line" to "List item on this line",
++            "tick_or_untick_this_item" to "Tick or untick this item",
++            "find_in_note" to "Find in note",
++            "find_next" to "Find next",
++            "colour" to "Colour",
++            "share" to "Share",
++            "export_to_a_file" to "Export to a file",
++            "delete_note" to "Delete note",
++            "c_new_s_find_k" to "C new · S find · K tasks · L colour · D delete",
++            "menu_list_item_tick_find" to "Menu: list item, tick, find, colour, share · Back saves",
++            "enter_tick_o_open_note" to "Enter tick · O open note · H done items · Back",
++            "type_your_note_the_first" to "Type your note. The first line is its title.",
++            "change_colour_now" to "Change colour, now %1\$s",
++            "edited" to "Edited %1\$s%2\$s",
++            "note_actions_menu_key" to "Note actions (Menu key)",
++            "find_in_this_note_enter" to "Find in this note · Enter goes to it",
++            "not_in_this_note" to "Not in this note",
++            "notes" to "Notes",
++            "new_label" to "New",
++            "no_notes_yet_press_c" to
++                "No notes yet. Press C to write one, or I to import a text file.",
++            "no_note_matches" to "No note matches.",
++            "c_new_i_import_k" to "C new · I import · K tasks",
++            "one_note" to "1 note",
++            "note_count" to "%1\$s notes",
++            "open_tasks" to "%1\$s · %2\$s open tasks",
++            "find_in_notes_enter_opens" to "Find in notes · Enter opens",
++            "tasks" to "Tasks",
++            "open_showing_done_items" to "%1\$s open · showing done items",
++            "open" to "%1\$s open",
++            "hide_done" to "Hide done",
++            "show_done" to "Show done",
++            "no_open_tasks_in_a" to
++                "No open tasks. In a note, Menu then L turns a line into a checklist item.",
++            "delete_note_question" to "Delete note?",
++            "will_be_deleted_from_this" to "“%1\$s” will be deleted from this phone.",
++            "delete" to "Delete",
++            "keep" to "Keep",
++        )
++
++    val t = SableTexts(EN)
++}
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/EditorScreen.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/EditorScreen.kt
+index 61fd6c6..8eba70a 100644
+--- a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/EditorScreen.kt
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/EditorScreen.kt
+@@ -53,6 +53,7 @@ import org.sableos.notes.core.Note
+ import org.sableos.notes.core.NoteSearch
+ import org.sableos.notes.core.NoteTime
+ import org.sableos.notes.core.NotesKeys
++import org.sableos.notes.core.NotesText.t
+ 
+ /** The editor's state and commands, so the composable below only lays them out. */
+ private class EditorModel(
+@@ -197,7 +198,7 @@ private fun ColumnScope.EditorField(model: EditorModel) {
+             Box {
+                 if (model.value.text.isEmpty()) {
+                     Text(
+-                        text = "Type your note. The first line is its title.",
++                        text = t("type_your_note_the_first"),
+                         style = MaterialTheme.typography.bodyLarge,
+                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                     )
+@@ -232,7 +233,7 @@ private fun EditorBar(
+                 Modifier
+                     .heightIn(min = SableSize.TouchTarget)
+                     .sableFocusRing()
+-                    .clickable(onClickLabel = "Change colour, now ${note.label.displayName}", onClick = onLabel)
++                    .clickable(onClickLabel = t("change_colour_now", note.label.displayName), onClick = onLabel)
+                     .padding(horizontal = SableSpacing.Sm),
+             contentAlignment = Alignment.Center,
+         ) {
+@@ -248,13 +249,13 @@ private fun EditorBar(
+             )
+             val done = if (progress.total > 0) " · ☑ ${progress.done}/${progress.total}" else ""
+             Text(
+-                text = "Edited ${NoteTime.label(note.updatedAt, System.currentTimeMillis())}$done",
++                text = t("edited", NoteTime.label(note.updatedAt, System.currentTimeMillis()), done),
+                 style = MaterialTheme.typography.bodySmall,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                 maxLines = 1,
+             )
+         }
+-        SableSquareAction(text = "⋯", description = "Note actions (Menu key)", onClick = onMenu)
++        SableSquareAction(text = "⋯", description = t("note_actions_menu_key"), onClick = onMenu)
+     }
+ }
+ 
+@@ -283,8 +284,8 @@ private fun FindBar(
+                 },
+         singleLine = true,
+         isError = miss,
+-        placeholder = { Text("Find in this note · Enter goes to it") },
+-        supportingText = if (miss) ({ Text("Not in this note") }) else null,
++        placeholder = { Text(t("find_in_this_note_enter")) },
++        supportingText = if (miss) ({ Text(t("not_in_this_note")) }) else null,
+     )
+ }
+ 
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/NotesApp.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/NotesApp.kt
+index bbd9456..909fae6 100644
+--- a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/NotesApp.kt
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/NotesApp.kt
+@@ -56,6 +56,7 @@ import org.sableos.notes.core.NoteSearch
+ import org.sableos.notes.core.NoteText
+ import org.sableos.notes.core.NoteTime
+ import org.sableos.notes.core.NotesKeys
++import org.sableos.notes.core.NotesText.t
+ import org.sableos.notes.core.Tasks
+ 
+ private const val NOTICE_MS = 3_000L
+@@ -103,9 +104,9 @@ private fun ListScreen(
+     val hits = remember(state.notes, state.query) { NoteSearch.search(state.notes, state.query) }
+     SableScreen {
+         Header(
+-            title = "Notes",
++            title = t("notes"),
+             subtitle = state.notice ?: listSubtitle(state.notes),
+-            action = "New",
++            action = t("new_label"),
+             onAction = actions.newNote,
+         )
+         if (state.searching || state.query.isNotEmpty()) SearchField(state, hits, actions)
+@@ -113,9 +114,9 @@ private fun ListScreen(
+             Text(
+                 text =
+                     if (state.query.isBlank()) {
+-                        "No notes yet. Press C to write one, or I to import a text file."
++                        t("no_notes_yet_press_c")
+                     } else {
+-                        "No note matches."
++                        t("no_note_matches")
+                     },
+                 style = MaterialTheme.typography.bodyLarge,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+@@ -146,14 +147,14 @@ private fun ListScreen(
+                 )
+             }
+         }
+-        Hint(if (hits.isEmpty()) "C new · I import · K tasks" else "${NotesKeys.LIST_HINT} · ${SableListKeys.HINT}")
++        Hint(if (hits.isEmpty()) t("c_new_i_import_k") else "${NotesKeys.LIST_HINT} · ${SableListKeys.HINT}")
+     }
+ }
+ 
+ private fun listSubtitle(notes: List<Note>): String {
+     val open = Tasks.collect(notes, withDone = false).size
+-    val count = if (notes.size == 1) "1 note" else "${notes.size} notes"
+-    return if (open > 0) "$count · $open open tasks" else count
++    val count = if (notes.size == 1) t("one_note") else t("note_count", notes.size)
++    return if (open > 0) t("open_tasks", count, open) else count
+ }
+ 
+ @Composable
+@@ -195,7 +196,7 @@ private fun SearchField(
+                     }
+                 },
+         singleLine = true,
+-        placeholder = { Text("Find in notes · Enter opens") },
++        placeholder = { Text(t("find_in_notes_enter_opens")) },
+     )
+ }
+ 
+@@ -297,14 +298,14 @@ private fun TasksScreen(
+     val open = tasks.count { !it.done }
+     SableScreen {
+         Header(
+-            title = "Tasks",
+-            subtitle = if (state.showDone) "$open open · showing done items" else "$open open",
+-            action = if (state.showDone) "Hide done" else "Show done",
++            title = t("tasks"),
++            subtitle = if (state.showDone) t("open_showing_done_items", open) else t("open", open),
++            action = if (state.showDone) t("hide_done") else t("show_done"),
+             onAction = { actions.setShowDone(!state.showDone) },
+         )
+         if (tasks.isEmpty()) {
+             Text(
+-                text = "No open tasks. In a note, Menu then L turns a line into a checklist item.",
++                text = t("no_open_tasks_in_a"),
+                 style = MaterialTheme.typography.bodyLarge,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+@@ -429,9 +430,9 @@ private fun DeleteDialog(
+ ) {
+     AlertDialog(
+         onDismissRequest = { actions.askDelete(null) },
+-        title = { Text("Delete note?") },
+-        text = { Text("“${note.title}” will be deleted from this phone.") },
+-        confirmButton = { TextButton(onClick = { actions.delete(note) }) { Text("Delete") } },
+-        dismissButton = { TextButton(onClick = { actions.askDelete(null) }) { Text("Keep") } },
++        title = { Text(t("delete_note_question")) },
++        text = { Text(t("will_be_deleted_from_this", note.title)) },
++        confirmButton = { TextButton(onClick = { actions.delete(note) }) { Text(t("delete")) } },
++        dismissButton = { TextButton(onClick = { actions.askDelete(null) }) { Text(t("keep")) } },
+     )
+ }
+diff --git a/sable-src/apps/r8/android/notes/src/main/res/raw/sable_strings_keep.xml b/sable-src/apps/r8/android/notes/src/main/res/raw/sable_strings_keep.xml
+new file mode 100644
+index 0000000..4f4b368
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/main/res/raw/sable_strings_keep.xml
+@@ -0,0 +1,3 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableTexts looks strings up by name, which the resource shrinker cannot see: keep them all. -->
++<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@string/*" />
+diff --git a/sable-src/apps/r8/android/notes/src/main/res/values/strings.xml b/sable-src/apps/r8/android/notes/src/main/res/values/strings.xml
+new file mode 100644
+index 0000000..ba31a6f
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/main/res/values/strings.xml
+@@ -0,0 +1,57 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- English. Keep equal to NotesText.EN (NotesTextTest checks); translations go in values-<lang>/. -->
++<resources>
++    <string name="app_name" translatable="false">Sable Notes</string>
++    <string name="deleted">Deleted “%1$s”</string>
++    <string name="couldn_t_save">Couldn\'t save “%1$s”</string>
++    <string name="share_note">Share note</string>
++    <string name="exported">Exported “%1$s”</string>
++    <string name="export_failed">Export failed</string>
++    <string name="nothing_to_import">Nothing to import</string>
++    <string name="note">Note</string>
++    <string name="no_colour">No colour</string>
++    <string name="yellow">Yellow</string>
++    <string name="orange">Orange</string>
++    <string name="red">Red</string>
++    <string name="pink">Pink</string>
++    <string name="purple">Purple</string>
++    <string name="blue">Blue</string>
++    <string name="green">Green</string>
++    <string name="empty_note">Empty note</string>
++    <string name="list_item_on_this_line">List item on this line</string>
++    <string name="tick_or_untick_this_item">Tick or untick this item</string>
++    <string name="find_in_note">Find in note</string>
++    <string name="find_next">Find next</string>
++    <string name="colour">Colour</string>
++    <string name="share">Share</string>
++    <string name="export_to_a_file">Export to a file</string>
++    <string name="delete_note">Delete note</string>
++    <string name="c_new_s_find_k">C new · S find · K tasks · L colour · D delete</string>
++    <string name="menu_list_item_tick_find">Menu: list item, tick, find, colour, share · Back saves</string>
++    <string name="enter_tick_o_open_note">Enter tick · O open note · H done items · Back</string>
++    <string name="type_your_note_the_first">Type your note. The first line is its title.</string>
++    <string name="change_colour_now">Change colour, now %1$s</string>
++    <string name="edited">Edited %1$s%2$s</string>
++    <string name="note_actions_menu_key">Note actions (Menu key)</string>
++    <string name="find_in_this_note_enter">Find in this note · Enter goes to it</string>
++    <string name="not_in_this_note">Not in this note</string>
++    <string name="notes">Notes</string>
++    <string name="new_label">New</string>
++    <string name="no_notes_yet_press_c">No notes yet. Press C to write one, or I to import a text file.</string>
++    <string name="no_note_matches">No note matches.</string>
++    <string name="c_new_i_import_k">C new · I import · K tasks</string>
++    <string name="one_note">1 note</string>
++    <string name="note_count">%1$s notes</string>
++    <string name="open_tasks">%1$s · %2$s open tasks</string>
++    <string name="find_in_notes_enter_opens">Find in notes · Enter opens</string>
++    <string name="tasks">Tasks</string>
++    <string name="open_showing_done_items">%1$s open · showing done items</string>
++    <string name="open">%1$s open</string>
++    <string name="hide_done">Hide done</string>
++    <string name="show_done">Show done</string>
++    <string name="no_open_tasks_in_a">No open tasks. In a note, Menu then L turns a line into a checklist item.</string>
++    <string name="delete_note_question">Delete note?</string>
++    <string name="will_be_deleted_from_this">“%1$s” will be deleted from this phone.</string>
++    <string name="delete">Delete</string>
++    <string name="keep">Keep</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/NotesTextTest.kt b/sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/NotesTextTest.kt
+new file mode 100644
+index 0000000..0661335
+--- /dev/null
++++ b/sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/NotesTextTest.kt
+@@ -0,0 +1,64 @@
++package org.sableos.notes
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.sableos.notes.core.NotesText
++import java.io.File
++import javax.xml.parsers.DocumentBuilderFactory
++
++/** The English lines in code and in `values/strings.xml` stay equal, and every translation fits them. */
++class NotesTextTest {
++    private val res = File("src/main/res")
++
++    private fun strings(file: File): Map<String, String> {
++        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
++        val nodes = doc.getElementsByTagName("string")
++        return (0 until nodes.length)
++            .map { nodes.item(it) }
++            .filter { it.attributes.getNamedItem("translatable")?.nodeValue != "false" }
++            .associate { node ->
++                val raw =
++                    node.textContent.let {
++                        if (it.length > 1 && it.startsWith('"') &&
++                            it.endsWith('"')
++                        ) {
++                            it.drop(1).dropLast(1)
++                        } else {
++                            it
++                        }
++                    }
++                node.attributes.getNamedItem("name").nodeValue to
++                    raw
++                        .replace("\\n", "\n")
++                        .replace("\\'", "'")
++                        .replace("\\\"", "\"")
++                        .replace("\\@", "@")
++                        .replace("\\\\", "\\")
++            }
++    }
++
++    private fun placeholders(s: String) = Regex("%\\d+\\$[sd]").findAll(s).map { it.value }.toSortedSet()
++
++    @Test
++    fun englishResourcesMatchTheCode() {
++        val english = strings(File(res, "values/strings.xml"))
++        NotesText.EN.forEach { (key, text) -> assertEquals(key, text, english[key]) }
++    }
++
++    @Test
++    fun translationsHaveEveryKeyAndTheSamePlaceholders() {
++        res.listFiles { f -> f.name.startsWith("values-") && File(f, "strings.xml").isFile }.orEmpty().forEach { dir ->
++            val tr = strings(File(dir, "strings.xml"))
++            assertEquals(dir.name, NotesText.EN.keys, tr.keys.intersect(NotesText.EN.keys))
++            NotesText.EN.forEach { (key, text) ->
++                assertEquals("${dir.name}/$key", placeholders(text), placeholders(tr.getValue(key)))
++            }
++        }
++    }
++
++    @Test
++    fun linesFillTheirArguments() {
++        assertEquals("3 notes", NotesText.t("note_count", 3))
++        assertEquals("Deleted “Milk”", NotesText.t("deleted", "Milk"))
++    }
++}
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTexts.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTexts.kt
+new file mode 100644
+index 0000000..ebc0f53
+--- /dev/null
++++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTexts.kt
+@@ -0,0 +1,43 @@
++package org.sableos.design
++
++import android.annotation.SuppressLint
++import android.content.Context
++import java.util.Locale
++
++/**
++ * Translatable text for a Sable app (the same contract as the platform apps' SableTexts). [english] holds every
++ * user-visible line by key, in Android format syntax (`%1$s`), and is what pure tests read. On a device [lookup]
++ * is bound to the app's string resources ([bindTo]), so a `values-<lang>/strings.xml` translation is used when
++ * the phone's language has one and English otherwise. `values/strings.xml` repeats [english]; each app's tests
++ * keep the two equal.
++ */
++class SableTexts(
++    val english: Map<String, String>,
++) {
++    @Volatile
++    var lookup: (String) -> String? = { null }
++
++    /** The line [key] in the current language, with [args] filled in. An unknown key is a programming error. */
++    operator fun invoke(
++        key: String,
++        vararg args: Any,
++    ): String {
++        val template = lookup(key) ?: english.getValue(key)
++        return if (args.isEmpty()) template else String.format(Locale.getDefault(), template, *args)
++    }
++
++    /**
++     * Reads lines from [context]'s string resources, by the same keys, so the phone's language picks the
++     * translation. Call it in `onCreate` (and in receivers and services before they show text): a language
++     * change recreates the activity and binds again.
++     */
++    @SuppressLint("DiscouragedApi")
++    fun bindTo(context: Context) {
++        val res = context.resources
++        val pkg = context.packageName
++        lookup = { key ->
++            val id = res.getIdentifier(key, "string", pkg)
++            if (id == 0) null else res.getString(id)
++        }
++    }
++}

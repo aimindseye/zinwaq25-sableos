@@ -28,6 +28,7 @@
     </queries>
 
     <application
+        android:name=".MessagesApplication"
         android:allowBackup="false"
         android:icon="@mipmap/ic_sable_messages"
         android:roundIcon="@mipmap/ic_sable_messages_round"

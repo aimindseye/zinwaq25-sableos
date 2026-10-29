@@ -1,6 +1,7 @@
 package org.sableos.notes.core
 
 import android.view.KeyEvent
+import org.sableos.notes.core.NotesText.t
 
 /** List screen keys. Single letters only reach the list when no text field has focus. */
 enum class ListKey { New, Search, Tasks, Label, Delete, Import }
@@ -15,17 +16,19 @@ enum class EditorKey { Save, Find, FindNext, ToggleItem, MakeItem, Label, Export
 enum class EditorMenu(
     val key: Int,
     val letter: Char,
-    val label: String,
+    private val labelKey: String,
 ) {
-    MakeItem(KeyEvent.KEYCODE_L, 'L', "List item on this line"),
-    ToggleItem(KeyEvent.KEYCODE_T, 'T', "Tick or untick this item"),
-    Find(KeyEvent.KEYCODE_F, 'F', "Find in note"),
-    FindNext(KeyEvent.KEYCODE_G, 'G', "Find next"),
-    Label(KeyEvent.KEYCODE_C, 'C', "Colour"),
-    Share(KeyEvent.KEYCODE_S, 'S', "Share"),
-    Export(KeyEvent.KEYCODE_E, 'E', "Export to a file"),
-    Delete(KeyEvent.KEYCODE_D, 'D', "Delete note"),
+    MakeItem(KeyEvent.KEYCODE_L, 'L', "list_item_on_this_line"),
+    ToggleItem(KeyEvent.KEYCODE_T, 'T', "tick_or_untick_this_item"),
+    Find(KeyEvent.KEYCODE_F, 'F', "find_in_note"),
+    FindNext(KeyEvent.KEYCODE_G, 'G', "find_next"),
+    Label(KeyEvent.KEYCODE_C, 'C', "colour"),
+    Share(KeyEvent.KEYCODE_S, 'S', "share"),
+    Export(KeyEvent.KEYCODE_E, 'E', "export_to_a_file"),
+    Delete(KeyEvent.KEYCODE_D, 'D', "delete_note"),
     ;
+
+    val label: String get() = t(labelKey)
 
     companion object {
         fun forKey(keyCode: Int): EditorMenu? = entries.firstOrNull { it.key == keyCode }
@@ -41,9 +44,9 @@ enum class TasksKey { OpenNote, History }
  * ([org.sableos.design.SableListKeys]), so C composes a new note, as on BlackBerry.
  */
 object NotesKeys {
-    const val LIST_HINT = "C new · S find · K tasks · L colour · D delete"
-    const val EDITOR_HINT = "Menu: list item, tick, find, colour, share · Back saves"
-    const val TASKS_HINT = "Enter tick · O open note · H done items · Back"
+    val LIST_HINT: String get() = t("c_new_s_find_k")
+    val EDITOR_HINT: String get() = t("menu_list_item_tick_find")
+    val TASKS_HINT: String get() = t("enter_tick_o_open_note")
 
     fun list(
         keyCode: Int,

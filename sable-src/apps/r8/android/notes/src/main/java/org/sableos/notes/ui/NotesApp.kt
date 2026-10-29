@@ -56,6 +56,7 @@ import org.sableos.notes.core.NoteSearch
 import org.sableos.notes.core.NoteText
 import org.sableos.notes.core.NoteTime
 import org.sableos.notes.core.NotesKeys
+import org.sableos.notes.core.NotesText.t
 import org.sableos.notes.core.Tasks
 
 private const val NOTICE_MS = 3_000L
@@ -103,9 +104,9 @@ private fun ListScreen(
     val hits = remember(state.notes, state.query) { NoteSearch.search(state.notes, state.query) }
     SableScreen {
         Header(
-            title = "Notes",
+            title = t("notes"),
             subtitle = state.notice ?: listSubtitle(state.notes),
-            action = "New",
+            action = t("new_label"),
             onAction = actions.newNote,
         )
         if (state.searching || state.query.isNotEmpty()) SearchField(state, hits, actions)
@@ -113,9 +114,9 @@ private fun ListScreen(
             Text(
                 text =
                     if (state.query.isBlank()) {
-                        "No notes yet. Press C to write one, or I to import a text file."
+                        t("no_notes_yet_press_c")
                     } else {
-                        "No note matches."
+                        t("no_note_matches")
                     },
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -146,14 +147,14 @@ private fun ListScreen(
                 )
             }
         }
-        Hint(if (hits.isEmpty()) "C new · I import · K tasks" else "${NotesKeys.LIST_HINT} · ${SableListKeys.HINT}")
+        Hint(if (hits.isEmpty()) t("c_new_i_import_k") else "${NotesKeys.LIST_HINT} · ${SableListKeys.HINT}")
     }
 }
 
 private fun listSubtitle(notes: List<Note>): String {
     val open = Tasks.collect(notes, withDone = false).size
-    val count = if (notes.size == 1) "1 note" else "${notes.size} notes"
-    return if (open > 0) "$count · $open open tasks" else count
+    val count = if (notes.size == 1) t("one_note") else t("note_count", notes.size)
+    return if (open > 0) t("open_tasks", count, open) else count
 }
 
 @Composable
@@ -195,7 +196,7 @@ private fun SearchField(
                     }
                 },
         singleLine = true,
-        placeholder = { Text("Find in notes · Enter opens") },
+        placeholder = { Text(t("find_in_notes_enter_opens")) },
     )
 }
 
@@ -297,14 +298,14 @@ private fun TasksScreen(
     val open = tasks.count { !it.done }
     SableScreen {
         Header(
-            title = "Tasks",
-            subtitle = if (state.showDone) "$open open · showing done items" else "$open open",
-            action = if (state.showDone) "Hide done" else "Show done",
+            title = t("tasks"),
+            subtitle = if (state.showDone) t("open_showing_done_items", open) else t("open", open),
+            action = if (state.showDone) t("hide_done") else t("show_done"),
             onAction = { actions.setShowDone(!state.showDone) },
         )
         if (tasks.isEmpty()) {
             Text(
-                text = "No open tasks. In a note, Menu then L turns a line into a checklist item.",
+                text = t("no_open_tasks_in_a"),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -429,9 +430,9 @@ private fun DeleteDialog(
 ) {
     AlertDialog(
         onDismissRequest = { actions.askDelete(null) },
-        title = { Text("Delete note?") },
-        text = { Text("“${note.title}” will be deleted from this phone.") },
-        confirmButton = { TextButton(onClick = { actions.delete(note) }) { Text("Delete") } },
-        dismissButton = { TextButton(onClick = { actions.askDelete(null) }) { Text("Keep") } },
+        title = { Text(t("delete_note_question")) },
+        text = { Text(t("will_be_deleted_from_this", note.title)) },
+        confirmButton = { TextButton(onClick = { actions.delete(note) }) { Text(t("delete")) } },
+        dismissButton = { TextButton(onClick = { actions.askDelete(null) }) { Text(t("keep")) } },
     )
 }
