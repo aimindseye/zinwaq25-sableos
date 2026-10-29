@@ -67,19 +67,19 @@ IMAGE_BUILD_TESTED=Q1, Q2 (ai-g732, 2026-10-15); Q4 (2026-10-17); PR #28 Q4 (202
 FRAMEWORK_PATCHES=104 patch files; all apply in order (check with scripts/apply-framework-patches.sh check)
 BOOT_TESTED=Q1, Q2 on a Q25 (2026-10-16/17); Q4 (2026-10-17, 2026-10-22, 2026-10-28); alpha-20261028; alpha-20261029 (2026-10-29)
 FLASH_SCRIPT=NONE (manual, documented steps in docs/INSTALL.md and docs/FLASHING_RELEASE.md)
-RELEASES=alpha-20261029 (latest), alpha-20261028; GitHub pre-releases made with build/sable.sh q25 Q4 release
+RELEASES=alpha-20261029 (latest), alpha-20261028; GitHub pre-releases made with build/sable.sh q25 full release
 ```
 
 ## Install a release
 
 Every release is built on **LineageOS 23.2 (Android 16 QPR2)** and says so in its
-release notes. Download `sableos-q25-Q4-alpha-YYYYMMDD.zip` from
+release notes. Download `sableos-q25-full-alpha-YYYYMMDD.zip` from
 [Releases](https://github.com/aimindseye/zinwaq25-sableos/releases), then, with
 `adb` and `fastboot` installed and the phone's USB-C cable plugged in:
 
 ```bash
-unzip sableos-q25-Q4-alpha-YYYYMMDD.zip
-cd sableos-q25-Q4-alpha-YYYYMMDD
+unzip sableos-q25-full-alpha-YYYYMMDD.zip
+cd sableos-q25-full-alpha-YYYYMMDD
 sha256sum -c SHA256SUMS.txt                 # every line must say OK
 adb reboot bootloader
 fastboot flashing unlock                    # erases the phone; confirm on it
@@ -89,7 +89,7 @@ fastboot flash vbmeta vbmeta.img
 fastboot flash vendor_boot vendor_boot.img
 fastboot reboot recovery
 # in recovery: Factory reset > Format data, then Apply update > Apply from ADB
-adb sideload sableos-q25-Q4-*-userdebug.zip
+adb sideload sableos-q25-full-*-userdebug.zip
 ```
 
 Back up first and read [`docs/FLASHING_RELEASE.md`](docs/FLASHING_RELEASE.md) before
@@ -153,15 +153,15 @@ git clone https://github.com/aimindseye/zinwaq25-sableos
 cd zinwaq25-sableos
 # optional, tree on another disk: export SABLE_BUILD_ROOT=/big/disk/sable-q25
 export ANDROID_HOME=/path/to/android-sdk                          # platform 36, build-tools 36.0.0
-bash build/sable.sh q25 Q4 doctor                                  # check host
-NETWORK_FETCH_AUTHORIZED=YES bash build/sable.sh q25 Q4 bootstrap   # ~200 GB sync
+bash build/sable.sh q25 full doctor                                  # check host
+NETWORK_FETCH_AUTHORIZED=YES bash build/sable.sh q25 full bootstrap   # ~200 GB sync
 bash scripts/apply-framework-patches.sh check                      # patches still apply?
-bash build/sable.sh q25 Q4 apps                                    # build Sable APKs (always before stage)
-NETWORK_FETCH_AUTHORIZED=YES bash build/sable.sh q25 Q4 microg      # microG + Aurora APKs
-bash build/sable.sh q25 Q4 stage                                   # Sable layer + framework patches
-bash build/sable.sh q25 Q4 build                                   # build image
-bash build/sable.sh q25 Q4 artifacts                               # hash outputs
-bash build/sable.sh q25 Q4 release                                 # optional: zip + notes for a GitHub pre-release
+bash build/sable.sh q25 full apps                                    # build Sable APKs (always before stage)
+NETWORK_FETCH_AUTHORIZED=YES bash build/sable.sh q25 full microg      # microG + Aurora APKs
+bash build/sable.sh q25 full stage                                   # Sable layer + framework patches
+bash build/sable.sh q25 full build                                   # build image
+bash build/sable.sh q25 full artifacts                               # hash outputs
+bash build/sable.sh q25 full release                                 # optional: zip + notes for a GitHub pre-release
 ```
 
 `Q4` is the full SableOS build: the Sable layer plus the framework layer (Sable

@@ -2,8 +2,8 @@
 # Package a collected build as a GitHub pre-release: one zip with the images,
 # the install package, checksums, flashing steps and release notes.
 #
-#   bash build/sable.sh q25 Q4 artifacts
-#   bash build/sable.sh q25 Q4 release [--tag alpha-YYYYMMDD] [--notes FILE]
+#   bash build/sable.sh q25 full artifacts
+#   bash build/sable.sh q25 full release [--tag alpha-YYYYMMDD] [--notes FILE]
 #                                      [--artifacts DIR] [--boot-tested] [--publish]
 #
 # Without --publish it only builds the zip and prints the gh command. With

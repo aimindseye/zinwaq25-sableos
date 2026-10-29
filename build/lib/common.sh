@@ -34,6 +34,11 @@ sable_release_has_sable_layer() {
 # Sable Keyboard as the only IME, and patches/framework applied to LineageOS.
 sable_release_level() {
     local release="$1"
+    # "full" is the complete SableOS image; Q4 is its old name (same content).
+    if [[ "$release" == full ]]; then
+        printf '99\n'
+        return
+    fi
     local digits="${release#Q}"
     digits="${digits%%[!0-9]*}"
     printf '%s\n' "${digits:-0}"
@@ -49,8 +54,8 @@ sable_release_has_framework_layer() {
 
 sable_require_release() {
     local release="${1:-}"
-    [[ "$release" =~ ^Q[0-9]+[A-Za-z0-9._-]*$ ]] ||
-        sable_fail "release must look like Q1, Q2, Q2b...: got '$release'"
+    [[ "$release" == full || "$release" =~ ^Q[0-9]+[A-Za-z0-9._-]*$ ]] ||
+        sable_fail "release must be full, Q1 or Q2 (Q4 is the old name of full): got '$release'"
     return 0
 }
 

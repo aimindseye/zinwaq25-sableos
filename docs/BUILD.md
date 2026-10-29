@@ -119,8 +119,8 @@ is then the only keyboard on the phone.
 
 ```bash
 bash scripts/apply-framework-patches.sh check   # after repo sync: do the patches still apply?
-bash build/sable.sh q25 Q4 stage
-bash build/sable.sh q25 Q4 build
+bash build/sable.sh q25 full stage
+bash build/sable.sh q25 full build
 ```
 
 ### Optional: 50 MP rear camera
@@ -133,7 +133,7 @@ from source. Untested on hardware; see
 ### microG and Aurora Store (Q4)
 
 On by default (`SABLE_Q25_MICROG=YES`). Fetch the pinned, sha256-checked APKs before
-`stage`: `NETWORK_FETCH_AUTHORIZED=YES bash build/sable.sh q25 Q4 microg` (or
+`stage`: `NETWORK_FETCH_AUTHORIZED=YES bash build/sable.sh q25 full microg` (or
 `bash scripts/fetch-microg.sh --from DIR` with files downloaded elsewhere). `stage` fails if
 they are missing; `SABLE_Q25_MICROG=NO` builds without them. They add about 117 MB to the
 product partition. See [`MICROG.md`](MICROG.md).
@@ -159,9 +159,9 @@ package, `SHA256SUMS.txt`, `FLASHING.md` ([`FLASHING_RELEASE.md`](FLASHING_RELEA
 `RELEASE_NOTES.md`, and publishes it as a GitHub pre-release:
 
 ```bash
-bash build/sable.sh q25 Q4 artifacts
-bash build/sable.sh q25 Q4 release --tag alpha-20261029             # build the zip, print the gh command
-bash build/sable.sh q25 Q4 release --tag alpha-20261029 --publish   # needs gh auth login
+bash build/sable.sh q25 full artifacts
+bash build/sable.sh q25 full release --tag alpha-20261029             # build the zip, print the gh command
+bash build/sable.sh q25 full release --tag alpha-20261029 --publish   # needs gh auth login
 ```
 
 The notes start with `releases/<tag>.md`, or `releases/ALPHA_NOTES.md` when there is none,

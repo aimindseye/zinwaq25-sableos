@@ -15,10 +15,12 @@ usage:
   bash build/sable.sh q25 <release> <function> [options]
 
 releases:
+  full  the complete SableOS image: LineageOS base + Sable apps + framework
+        integration (Sable Start as HOME, Sable Keyboard as the only IME,
+        patches/framework applied to LineageOS). Use this for releases.
+        (Q4 is the old name of full and is still accepted.)
+  Q2    LineageOS base + Sable product layer and apps, no framework patches
   Q1    plain LineageOS lineage_Q25 control image (no Sable layer)
-  Q2    LineageOS base + Sable product layer and apps
-  Q4    Q2 + framework integration: Sable Start as HOME, Sable Keyboard as the
-        only IME, patches/framework applied to LineageOS (needs gate Q3-TEXT)
 
 functions:
   doctor                      check the build host
@@ -41,7 +43,7 @@ functions:
   ci                          static repository checks
 
 example:
-  bash build/sable.sh q25 Q2 doctor
+  bash build/sable.sh q25 full doctor
 EOF
 }
 
@@ -51,6 +53,7 @@ FUNCTION="${3:-}"
 shift "$(( $# >= 3 ? 3 : $# ))"
 
 [[ -n "$DEVICE" && -n "$RELEASE" && -n "$FUNCTION" ]] || { usage; exit 64; }
+[[ "$RELEASE" == Q4 ]] && RELEASE=full
 
 case "$DEVICE" in
     q25|Q25|zinwa-q25) DEVICE=q25 ;;

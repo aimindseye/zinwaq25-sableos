@@ -29,8 +29,8 @@ Built on **LineageOS 23.2 (Android 16 QPR2)**. Use a Linux or macOS terminal wit
 2. **Unzip the download and go into the folder** (use the real file name):
 
    ```bash
-   unzip sableos-q25-Q4-alpha-YYYYMMDD.zip
-   cd sableos-q25-Q4-alpha-YYYYMMDD
+   unzip sableos-q25-full-alpha-YYYYMMDD.zip
+   cd sableos-q25-full-alpha-YYYYMMDD
    sha256sum -c SHA256SUMS.txt        # every line must say OK
    ```
 
@@ -57,7 +57,7 @@ Built on **LineageOS 23.2 (Android 16 QPR2)**. Use a Linux or macOS terminal wit
    reset*, then *Apply update* > *Apply from ADB*, and on the computer:
 
    ```bash
-   adb sideload sableos-q25-Q4-*-userdebug.zip
+   adb sideload sableos-q25-full-*-userdebug.zip
    ```
 
 6. Choose *Reboot system now*. The first boot takes several minutes, then the

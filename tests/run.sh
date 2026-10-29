@@ -744,6 +744,13 @@ grep -q '<action android:name="org.sableos.media.action.FM_RADIO" />' sable-src/
 if [[ -z "$fm_bad" ]]; then pass "Sable Media FM and the FM Radio bridge agree"; else fail "FM bridge protocol:$fm_bad"; fi
 
 # 7. Entry point refuses flashing and unknown devices.
+# The complete image is called "full" (Q4 is its old name): it has the Sable and framework layers.
+if (source build/lib/common.sh; sable_require_release full && sable_release_has_sable_layer full && sable_release_has_framework_layer full && ! sable_release_has_framework_layer Q2 && sable_release_has_framework_layer Q4) >/dev/null 2>&1 &&
+    [[ "$(bash build/sable.sh q25 Q4 flash 2>&1 || true)" == *RELEASE=full* ]]; then
+    pass "release name full (Q4 still accepted)"
+else
+    fail "release name full"
+fi
 if bash build/sable.sh q25 Q2 flash >/dev/null 2>&1; then fail "flash should be blocked"; else pass "flash blocked"; fi
 if bash build/sable.sh titan2 Q2 doctor >/dev/null 2>&1; then fail "non-q25 device accepted"; else pass "only q25 accepted"; fi
 
