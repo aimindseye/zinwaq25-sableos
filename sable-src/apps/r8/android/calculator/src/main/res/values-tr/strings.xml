@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
+<resources>
+    <string name="basic">Temel</string>
+    <string name="scientific">Bilimsel</string>
+    <string name="convert">Dönüştür</string>
+    <string name="basic_scientific_and_conversion_tools">Temel işlemler, bilimsel hesaplamalar ve birim dönüştürme araçları tek uygulamada.</string>
+    <string name="exact_result">Kesin sonuç</string>
+    <string name="choose_an_operation_first">Önce bir işlem seçin.</string>
+    <string name="degrees_for_trigonometry">%1$s · trigonometrik hesaplamalarda derece</string>
+    <string name="scientific_operations_and_the_core">Bilimsel işlemler ve temel aritmetik hesaplamalar yerel hesap makinesi motorunda yürütülür.</string>
+    <string name="results_are_not_silently_rounded">Sonuçlar sessizce kayan noktalı değerlere yuvarlanmaz.</string>
+    <string name="scientific_functions_use_degrees">Bilimsel işlevlerde derece kullanılır.</string>
+    <string name="exact_decimal_results_never_rounded">Yuvarlanmamış kesin ondalık sonuçlar.</string>
+    <string name="native_bridge_failure">Yerel arayüz hatası</string>
+</resources>

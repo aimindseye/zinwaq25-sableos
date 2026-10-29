@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Urdu. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
+<resources>
+    <string name="basic">بنیادی</string>
+    <string name="scientific">سائنسی</string>
+    <string name="convert">تبدیل کریں</string>
+    <string name="basic_scientific_and_conversion_tools">بنیادی اور سائنسی حساب اور اکائیوں کی تبدیلی ایک ہی ایپ میں۔</string>
+    <string name="exact_result">بالکل درست نتیجہ</string>
+    <string name="choose_an_operation_first">پہلے کوئی عمل منتخب کریں۔</string>
+    <string name="degrees_for_trigonometry">%1$s · مثلثی حساب کے لیے درجے</string>
+    <string name="scientific_operations_and_the_core">سائنسی عمل اور بنیادی حساب کتاب کیلکولیٹر کے مقامی انجن میں انجام پاتے ہیں۔</string>
+    <string name="results_are_not_silently_rounded">نتائج کو خودکار طور پر فلوٹنگ پوائنٹ اعداد میں گول نہیں کیا جاتا۔</string>
+    <string name="scientific_functions_use_degrees">سائنسی افعال درجے استعمال کرتے ہیں۔</string>
+    <string name="exact_decimal_results_never_rounded">بالکل درست اعشاری نتائج، بغیر گول کیے۔</string>
+    <string name="native_bridge_failure">مقامی انٹرفیس ناکام ہو گیا</string>
+</resources>

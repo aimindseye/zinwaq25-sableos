@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Urdu. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ProfilesTextTest checks). -->
+<resources>
+    <string name="sound_profile">آواز کا پروفائل</string>
+    <string name="allow_do_not_disturb_access">Sound Profiles کو ڈسٹرب نہ کریں تک رسائی کی اجازت دیں</string>
+    <string name="choose">منتخب کریں</string>
+    <string name="use">%1$s استعمال کریں</string>
+    <string name="edit">%1$s میں ترمیم کریں</string>
+    <string name="quick_settings_tile">فوری ترتیبات کا ٹائل</string>
+    <string name="pull_down_the_shade_choose">اطلاعات کا پینل نیچے کھینچیں، ترمیم منتخب کریں اور آواز کے پروفائل کا ٹائل اس میں شامل کریں۔</string>
+    <string name="close">بند کریں</string>
+    <string name="sound_profiles">Sound Profiles</string>
+    <string name="enter_uses_a_profile_e">Enter پروفائل نافذ کرتا ہے · E اس میں ترمیم کرتا ہے · Menu مزید اختیارات دکھاتا ہے</string>
+    <string name="quick_settings_pull_down_the">فوری ترتیبات: پینل نیچے کھینچیں، ترمیم منتخب کریں اور آواز کے پروفائل کا ٹائل شامل کریں۔</string>
+    <string name="volume">آواز کی سطح %1$s%%</string>
+    <string name="enter_adds_10_shift_enter">Enter آواز 10% بڑھاتا ہے · Shift+Enter اسے 10% کم کرتا ہے</string>
+    <string name="ringtone">رِنگ ٹون</string>
+    <string name="notification_tone">اطلاع کی آواز</string>
+    <string name="vibrate_for_calls">کالوں پر وائبریشن</string>
+    <string name="space_turns_it_on_or">Space اسے آن یا آف کرتا ہے</string>
+    <string name="notification_light">اطلاع کی روشنی</string>
+    <string name="is_on_allow_changing_system">%1$s آن ہے۔ نظام کی ترتیبات تبدیل کرنے کی اجازت دیں تاکہ یہ آواز، وائبریشن اور روشنی طے کر سکے، پھر اسے دوبارہ منتخب کریں۔</string>
+    <string name="allow_do_not_disturb_access_2">Sound Profiles کو ڈسٹرب نہ کریں تک رسائی دیں، پھر %1$s دوبارہ منتخب کریں۔</string>
+    <string name="phone_s_current_tone">فون کی موجودہ رنگ ٹون</string>
+    <string name="normal">عام</string>
+    <string name="rings_and_alerts_at_your">کالیں اور انتباہات آپ کی منتخب آواز پر</string>
+    <string name="loud">تیز</string>
+    <string name="rings_and_alerts_at_full">کالیں اور انتباہات پوری آواز پر</string>
+    <string name="vibrate_only">صرف وائبریشن</string>
+    <string name="vibrates_for_calls_and_alerts">کالوں اور انتباہات پر وائبریشن، آواز نہیں</string>
+    <string name="phone_calls_only">صرف فون کالیں</string>
+    <string name="only_calls_ring_messages_and">صرف کالوں کی گھنٹی بجتی ہے؛ پیغامات اور انتباہات خاموش رہتے ہیں</string>
+    <string name="all_alerts_off">تمام انتباہات بند</string>
+    <string name="nothing_rings_or_vibrates_alarms">نہ آواز آتی ہے نہ وائبریشن ہوتی ہے؛ الارم بجتے رہتے ہیں</string>
+</resources>

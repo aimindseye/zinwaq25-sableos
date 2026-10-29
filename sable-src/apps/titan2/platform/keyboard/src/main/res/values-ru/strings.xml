@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (KeyboardTextTest checks). -->
+<resources>
+    <string name="one_entry_per_line_shortcut">Одна запись на строку: сокращение=замена, например brb=be right back. Сокращение — это одно слово из букв или цифр. Ваши записи работают во всех языках и заменяют встроенную запись с тем же сокращением. В замене %D — дата, %T — время, %V — номер сборки. Backspace сразу после раскрытия возвращает набранный текст.</string>
+    <string name="save">Сохранить</string>
+    <string name="saved_entries">Сохранено записей: %1$s</string>
+    <string name="lines_skipped_not_shortcut_replacement">; пропущено строк: %1$s (не в формате сокращение=замена)</string>
+    <string name="built_in_english_typing_language">Встроенная (английский язык ввода)</string>
+    <string name="turn_on_clipboard_history_in">Включите историю буфера обмена в настройках Sable Keyboard</string>
+    <string name="unlock_to_use_clipboard_history">Разблокируйте, чтобы использовать историю буфера обмена</string>
+    <string name="nav_mode_on_alt_space">Режим навигации включён (Alt+Space — выход)</string>
+    <string name="nav_mode_off">Режим навигации выключен</string>
+    <string name="enable_more_languages_in_settings">Включите другие языки в разделе «Настройки» &gt; «Клавиатура» &gt; Sable</string>
+    <string name="auto_capitalise_sentences">Автоматически делать заглавной первую букву предложения</string>
+    <string name="double_space_inserts_period">Двойной пробел вставляет точку</string>
+    <string name="autotext_dont_becomes_don_t">AutoText (dont превращается в don\'t, ld — в дату)</string>
+    <string name="long_press_a_letter_for">Долгое нажатие на букву вводит её символ с Alt</string>
+    <string name="letters_type_digits_in_numeric">Буквы вводят цифры в числовых полях</string>
+    <string name="nav_mode_ijkl_arrows_enabled">Режим навигации (стрелки IJKL) включён</string>
+    <string name="alt_space_toggles_nav_mode">Alt+Space переключает режим навигации</string>
+    <string name="show_on_screen_keyboard_for">Показывать экранную клавиатуру в числовых полях и полях PIN-кода</string>
+    <string name="always_show_on_screen_keyboard">Всегда показывать экранную клавиатуру</string>
+    <string name="compact_status_strip_when_the">Компактная строка состояния, когда экранная клавиатура скрыта</string>
+    <string name="enter_sends_in_apps_that">Enter отправляет в приложениях с кнопкой «Отправить» (Shift+Enter — новая строка)</string>
+    <string name="clipboard_history_alt_shift_v">История буфера обмена (Alt+Shift+V; хранится в памяти, не сохраняется)</string>
+    <string name="clear_clipboard_history">Очистить историю буфера обмена</string>
+    <string name="clipboard_history_cleared">История буфера обмена очищена</string>
+    <string name="autotext_entries">Записи AutoText</string>
+    <string name="key_event_probe_diagnostic">Зонд событий клавиш (диагностика)</string>
+    <string name="sable_keyboard">Sable Keyboard</string>
+    <string name="layout_provisional_until_key_legends">Раскладка: предварительная, пока на этом устройстве не записаны обозначения клавиш.</string>
+    <string name="space">пробел · %1$s%2$s</string>
+    <string name="alternate">%1$s, вариант %2$s</string>
+    <string name="clipboard_empty">Буфер обмена пуст</string>
+    <string name="input_method_settings">Настройки метода ввода</string>
+    <string name="keyboard_picker">Выбор клавиатуры</string>
+    <string name="sable_keyboard_is_the_selected">Sable Keyboard выбрана как клавиатура.</string>
+    <string name="another_keyboard_is_selected_your">Выбрана другая клавиатура. Ваш выбор сохраняется; Sable Keyboard никогда не меняет его сама.</string>
+    <string name="sable_keyboard_is_not_enabled">Sable Keyboard ещё не включена.</string>
+    <string name="could_not_read_which_keyboard">Не удалось определить, какая клавиатура выбрана.</string>
+    <string name="could_not_open_not_available">Не удалось открыть %1$s: недоступно на этом устройстве.</string>
+    <string name="could_not_open_blocked_by">Не удалось открыть %1$s: заблокировано системой.</string>
+    <string name="could_not_open">Не удалось открыть %1$s.</string>
+</resources>

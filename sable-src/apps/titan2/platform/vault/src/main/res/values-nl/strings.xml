@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dutch. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (VaultLinesTest checks). -->
+<resources>
+    <string name="read_error">leesfout</string>
+    <string name="no_access">" (geen toegang"</string>
+    <string name="partial_copy_left">; gedeeltelijke kopie over</string>
+    <string name="cancelled_nothing_changed">Geannuleerd. Er is niets gewijzigd.</string>
+    <string name="deleted">%1$s verwijderd.</string>
+    <string name="could_not_delete">Verwijderen van %1$s mislukt.</string>
+    <string name="deleted_of_original_s_any">%1$s van %2$s origineel(en) verwijderd. Wat niet is verwijderd, staat nog op de oude plek.</string>
+    <string name="open_with">%1$s openen met</string>
+    <string name="opened_read_only_this_file">%1$s geopend (alleen-lezen, alleen dit bestand).</string>
+    <string name="no_app_in_private_space">Geen app in Private Space kan %1$s openen.</string>
+    <string name="the_system_file_picker_is">De bestandskiezer van het systeem is niet beschikbaar.</string>
+    <string name="exported_a_copy_of_it">Een kopie van %1$s is geëxporteerd. Ze wordt niet meer door de kluis beschermd.</string>
+    <string name="export_failed_nothing_was_written">Exporteren mislukt. Er is niets geschreven.</string>
+    <string name="could">mislukt</string>
+    <string name="cancelled">Geannuleerd</string>
+    <string name="no_app">Geen app</string>
+    <string name="not_available">niet beschikbaar</string>
+    <string name="yes">Ja</string>
+    <string name="no">Nee</string>
+    <string name="import_label">Importeren</string>
+    <string name="export">Exporteren</string>
+    <string name="lock_now">Nu vergrendelen</string>
+    <string name="photos">Foto’s</string>
+    <string name="documents">Documenten</string>
+    <string name="recordings">Opnamen</string>
+    <string name="file_or_p_d_r">↑↓ bestand · ←→ of P D R sectie · Enter openen · I importeren · E exporteren · X verwijderen · L nu vergrendelen</string>
+    <string name="open">%1$s openen?</string>
+    <string name="the_app_you_pick_inside">De app die je kiest (binnen Private Space) kan dit ene bestand lezen totdat ze het sluit. Enter of Y opent · Terug of N annuleert.</string>
+    <string name="export_2">%1$s exporteren?</string>
+    <string name="a_copy_is_written_where">Er wordt een kopie geschreven op de plek die je hierna kiest; die is niet meer door de kluis beschermd. De kopie in de kluis blijft. Enter of Y gaat verder · Terug of N annuleert.</string>
+    <string name="delete_from_the_vault">%1$s uit de kluis verwijderen?</string>
+    <string name="it_cannot_be_recovered_enter">Dit kan niet worden hersteld. Enter of Y verwijdert · Terug of N annuleert.</string>
+    <string name="imported_file_s_as_copies">%1$s bestand(en) als kopie geïmporteerd. Originelen verwijderen?</string>
+    <string name="the_originals_are_still_where">De originelen staan nog op de oude plek. Enter of Y verwijdert ze · Terug of N bewaart ze.</string>
+    <string name="imported_file_s_as_copies_2">%1$s bestand(en) als kopie geïmporteerd.</string>
+    <string name="could_not_import">" Importeren mislukt: "</string>
+    <string name="secure_vault">Secure Vault</string>
+    <string name="private_space_photos_documents_recordings">Private Space · Foto’s · Documenten · Opnamen · importeren/exporteren alleen expliciet</string>
+    <string name="secure_vault_works_only_inside">Secure Vault werkt alleen binnen Private Space. Ontgrendel Private Space in Sable Start (Alle apps) en open daar Secure Vault. Buiten Private Space wordt niets opgeslagen.</string>
+    <string name="nothing_here_yet_press_i">Nog niets hier. Druk op I om een kopie van een bestand te importeren.</string>
+    <string name="could_not_lock_private_space">Vergrendelen van Private Space vanaf hier mislukt; vergrendel het vanuit Sable Start. De kluis is gesloten.</string>
+</resources>

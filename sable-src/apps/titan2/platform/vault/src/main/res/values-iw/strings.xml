@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hebrew. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (VaultLinesTest checks). -->
+<resources>
+    <string name="read_error">שגיאת קריאה</string>
+    <string name="no_access">" (אין גישה"</string>
+    <string name="partial_copy_left">; נשארה עותק חלקי</string>
+    <string name="cancelled_nothing_changed">בוטל. דבר לא השתנה.</string>
+    <string name="deleted">%1$s נמחק.</string>
+    <string name="could_not_delete">לא ניתן למחוק את %1$s.</string>
+    <string name="deleted_of_original_s_any">נמחקו %1$s מתוך %2$s מקורות. מה שלא נמחק נשאר במקומו.</string>
+    <string name="open_with">פתיחת %1$s באמצעות</string>
+    <string name="opened_read_only_this_file">%1$s נפתח (לקריאה בלבד, הקובץ הזה בלבד).</string>
+    <string name="no_app_in_private_space">אין אפליקציה ב-Private Space שיכולה לפתוח את %1$s.</string>
+    <string name="the_system_file_picker_is">בורר הקבצים של המערכת לא זמין.</string>
+    <string name="exported_a_copy_of_it">עותק של %1$s יוצא. הוא כבר לא מוגן על ידי הכספת.</string>
+    <string name="export_failed_nothing_was_written">לא ניתן לייצא. דבר לא נכתב.</string>
+    <string name="could">לא ניתן</string>
+    <string name="cancelled">בוטל</string>
+    <string name="no_app">אין אפליקציה</string>
+    <string name="not_available">לא זמין</string>
+    <string name="yes">כן</string>
+    <string name="no">לא</string>
+    <string name="import_label">ייבוא</string>
+    <string name="export">ייצוא</string>
+    <string name="lock_now">נעילה עכשיו</string>
+    <string name="photos">תמונות</string>
+    <string name="documents">מסמכים</string>
+    <string name="recordings">הקלטות</string>
+    <string name="file_or_p_d_r">↑↓ קובץ · ←→ או P D R מדור · Enter פתיחה · I ייבוא · E ייצוא · X מחיקה · L נעילה עכשיו</string>
+    <string name="open">לפתוח את %1$s?</string>
+    <string name="the_app_you_pick_inside">האפליקציה שתבחרו (בתוך Private Space) יכולה לקרוא את הקובץ הזה בלבד עד שתסגור אותו. Enter או Y פותח · חזרה או N מבטל.</string>
+    <string name="export_2">לייצא את %1$s?</string>
+    <string name="a_copy_is_written_where">עותק ייכתב למקום שתבחרו בשלב הבא ולא יהיה מוגן עוד על ידי הכספת. העותק בכספת נשאר. Enter או Y ממשיך · חזרה או N מבטל.</string>
+    <string name="delete_from_the_vault">למחוק את %1$s מהכספת?</string>
+    <string name="it_cannot_be_recovered_enter">לא ניתן לשחזר אותו. Enter או Y מוחק · חזרה או N מבטל.</string>
+    <string name="imported_file_s_as_copies">%1$s קבצים יובאו כעותקים. למחוק את המקוריים?</string>
+    <string name="the_originals_are_still_where">המקוריים נשארו במקומם. Enter או Y מוחק אותם · חזרה או N משאיר אותם.</string>
+    <string name="imported_file_s_as_copies_2">%1$s קבצים יובאו כעותקים.</string>
+    <string name="could_not_import">" לא ניתן לייבא: "</string>
+    <string name="secure_vault">Secure Vault</string>
+    <string name="private_space_photos_documents_recordings">Private Space · תמונות · מסמכים · הקלטות · ייבוא/ייצוא רק במפורש</string>
+    <string name="secure_vault_works_only_inside">Secure Vault פועל רק בתוך Private Space. בטלו את הנעילה של Private Space ב-Sable Start (כל האפליקציות) ופתחו שם את Secure Vault. שום דבר לא נשמר מחוץ לו.</string>
+    <string name="nothing_here_yet_press_i">עדיין אין כאן כלום. לחצו I כדי לייבא עותק של קובץ.</string>
+    <string name="could_not_lock_private_space">לא ניתן לנעול את Private Space מכאן; נעלו אותו מ-Sable Start. הכספת נסגרה.</string>
+</resources>

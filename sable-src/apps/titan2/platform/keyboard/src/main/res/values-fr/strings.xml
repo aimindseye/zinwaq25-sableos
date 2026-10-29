@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (KeyboardTextTest checks). -->
+<resources>
+    <string name="one_entry_per_line_shortcut">Une entrée par ligne : raccourci=remplacement, par exemple brb=be right back. Un raccourci est un mot composé de lettres ou de chiffres. Vos entrées fonctionnent dans toutes les langues et remplacent une entrée intégrée ayant le même raccourci. Dans un remplacement, %D est la date, %T l’heure et %V le numéro de build. Retour arrière juste après une expansion rétablit ce que vous avez saisi.</string>
+    <string name="save">Enregistrer</string>
+    <string name="saved_entries">%1$s entrées enregistrées</string>
+    <string name="lines_skipped_not_shortcut_replacement">; %1$s lignes ignorées (pas au format raccourci=remplacement)</string>
+    <string name="built_in_english_typing_language">Intégré (langue de saisie anglaise)</string>
+    <string name="turn_on_clipboard_history_in">Activez l’historique du presse-papiers dans les paramètres de Sable Keyboard</string>
+    <string name="unlock_to_use_clipboard_history">Déverrouillez pour utiliser l’historique du presse-papiers</string>
+    <string name="nav_mode_on_alt_space">Mode navigation activé (Alt+Space pour quitter)</string>
+    <string name="nav_mode_off">Mode navigation désactivé</string>
+    <string name="enable_more_languages_in_settings">Activez d’autres langues dans Paramètres &gt; Clavier &gt; Sable</string>
+    <string name="auto_capitalise_sentences">Majuscule automatique en début de phrase</string>
+    <string name="double_space_inserts_period">Un double espace insère un point</string>
+    <string name="autotext_dont_becomes_don_t">AutoText (dont devient don\'t, ld devient la date)</string>
+    <string name="long_press_a_letter_for">Appuyez longuement sur une lettre pour son caractère Alt</string>
+    <string name="letters_type_digits_in_numeric">Les lettres saisissent des chiffres dans les champs numériques</string>
+    <string name="nav_mode_ijkl_arrows_enabled">Mode navigation (flèches IJKL) activé</string>
+    <string name="alt_space_toggles_nav_mode">Alt+Space active ou désactive le mode navigation</string>
+    <string name="show_on_screen_keyboard_for">Afficher le clavier à l’écran pour les champs numériques ou de code PIN</string>
+    <string name="always_show_on_screen_keyboard">Toujours afficher le clavier à l’écran</string>
+    <string name="compact_status_strip_when_the">Barre d’état compacte lorsque le clavier à l’écran est masqué</string>
+    <string name="enter_sends_in_apps_that">Enter envoie dans les applications proposant Envoyer (Shift+Enter : nouvelle ligne)</string>
+    <string name="clipboard_history_alt_shift_v">Historique du presse-papiers (Alt+Shift+V ; conservé en mémoire, jamais enregistré)</string>
+    <string name="clear_clipboard_history">Effacer l’historique du presse-papiers</string>
+    <string name="clipboard_history_cleared">Historique du presse-papiers effacé</string>
+    <string name="autotext_entries">Entrées AutoText</string>
+    <string name="key_event_probe_diagnostic">Sonde d’événements de touches (diagnostic)</string>
+    <string name="sable_keyboard">Sable Keyboard</string>
+    <string name="layout_provisional_until_key_legends">Disposition : provisoire tant que les légendes des touches ne sont pas relevées sur cet appareil.</string>
+    <string name="space">espace · %1$s%2$s</string>
+    <string name="alternate">%1$s, alternative %2$s</string>
+    <string name="clipboard_empty">Presse-papiers vide</string>
+    <string name="input_method_settings">Paramètres de la méthode de saisie</string>
+    <string name="keyboard_picker">Sélecteur de clavier</string>
+    <string name="sable_keyboard_is_the_selected">Sable Keyboard est le clavier sélectionné.</string>
+    <string name="another_keyboard_is_selected_your">Un autre clavier est sélectionné. Votre choix est conservé ; Sable Keyboard ne le modifie jamais à votre place.</string>
+    <string name="sable_keyboard_is_not_enabled">Sable Keyboard n’est pas encore activé.</string>
+    <string name="could_not_read_which_keyboard">Impossible de lire quel clavier est sélectionné.</string>
+    <string name="could_not_open_not_available">Impossible d’ouvrir %1$s : indisponible sur cet appareil.</string>
+    <string name="could_not_open_blocked_by">Impossible d’ouvrir %1$s : bloqué par le système.</string>
+    <string name="could_not_open">Impossible d’ouvrir %1$s.</string>
+</resources>

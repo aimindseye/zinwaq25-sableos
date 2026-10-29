@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
+<resources>
+    <string name="convert_length">Uzunluk</string>
+    <string name="convert_mass">Kütle</string>
+    <string name="convert_temperature">Sıcaklık</string>
+    <string name="convert_volume">Hacim</string>
+    <string name="convert_millimeters">Milimetre</string>
+    <string name="convert_centimeters">Santimetre</string>
+    <string name="convert_meters">Metre</string>
+    <string name="convert_kilometers">Kilometre</string>
+    <string name="convert_inches">İnç</string>
+    <string name="convert_feet">Fit</string>
+    <string name="convert_miles">Mil</string>
+    <string name="convert_grams">Gram</string>
+    <string name="convert_kilograms">Kilogram</string>
+    <string name="convert_ounces">Ons</string>
+    <string name="convert_pounds">Libre</string>
+    <string name="convert_celsius">Santigrat</string>
+    <string name="convert_fahrenheit">Fahrenhayt</string>
+    <string name="convert_kelvin">Kelvin</string>
+    <string name="convert_milliliters">Mililitre</string>
+    <string name="convert_liters">Litre</string>
+    <string name="convert_cups">Bardak</string>
+    <string name="convert_gallons">Galon</string>
+    <string name="convert_ready">Hazır</string>
+    <string name="convert_value">Değer</string>
+    <string name="convert_from">Kaynak birim</string>
+    <string name="convert_to">Hedef birim</string>
+    <string name="convert_convert">Dönüştür</string>
+    <string name="convert_enter_a_number_with_up">En fazla üç ondalık basamak içeren bir sayı girin</string>
+    <string name="convert_length_mass_temperature_and_volume">Uzunluk, kütle, sıcaklık ve hacim dönüşümleri cihazda, çevrimdışı yapılır.</string>
+    <string name="convert_native_bridge_failure">Yerel arayüz hatası</string>
+</resources>

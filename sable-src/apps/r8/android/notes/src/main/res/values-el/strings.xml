@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (NotesTextTest checks). -->
+<resources>
+    <string name="deleted">Το «%1$s» διαγράφηκε</string>
+    <string name="couldn_t_save">Δεν ήταν δυνατή η αποθήκευση του «%1$s»</string>
+    <string name="share_note">Κοινοποίηση σημείωσης</string>
+    <string name="exported">Το «%1$s» εξήχθη</string>
+    <string name="export_failed">Η εξαγωγή απέτυχε</string>
+    <string name="nothing_to_import">Δεν υπάρχει τίποτα για εισαγωγή</string>
+    <string name="note">Σημείωση</string>
+    <string name="no_colour">Χωρίς χρώμα</string>
+    <string name="yellow">Κίτρινο</string>
+    <string name="orange">Πορτοκαλί</string>
+    <string name="red">Κόκκινο</string>
+    <string name="pink">Ροζ</string>
+    <string name="purple">Μωβ</string>
+    <string name="blue">Μπλε</string>
+    <string name="green">Πράσινο</string>
+    <string name="empty_note">Κενή σημείωση</string>
+    <string name="list_item_on_this_line">Στοιχείο λίστας σε αυτή τη γραμμή</string>
+    <string name="tick_or_untick_this_item">Επιλογή ή αποεπιλογή αυτού του στοιχείου</string>
+    <string name="find_in_note">Αναζήτηση στη σημείωση</string>
+    <string name="find_next">Εύρεση επόμενου</string>
+    <string name="colour">Χρώμα</string>
+    <string name="share">Κοινοποίηση</string>
+    <string name="export_to_a_file">Εξαγωγή σε αρχείο</string>
+    <string name="delete_note">Διαγραφή σημείωσης</string>
+    <string name="c_new_s_find_k">C νέα · S αναζήτηση · K εργασίες · L χρώμα · D διαγραφή</string>
+    <string name="menu_list_item_tick_find">Menu: στοιχείο λίστας, επιλογή, αναζήτηση, χρώμα, κοινοποίηση · Πίσω αποθηκεύει</string>
+    <string name="enter_tick_o_open_note">Enter επιλέγει · O ανοίγει τη σημείωση · H ολοκληρωμένα · Πίσω</string>
+    <string name="type_your_note_the_first">Γράψτε τη σημείωσή σας. Η πρώτη γραμμή είναι ο τίτλος.</string>
+    <string name="change_colour_now">Αλλαγή χρώματος, τώρα %1$s</string>
+    <string name="edited">Επεξεργάστηκε %1$s%2$s</string>
+    <string name="note_actions_menu_key">Ενέργειες σημείωσης (πλήκτρο Menu)</string>
+    <string name="find_in_this_note_enter">Αναζήτηση σε αυτή τη σημείωση · το Enter μεταβαίνει στο αποτέλεσμα</string>
+    <string name="not_in_this_note">Δεν υπάρχει σε αυτή τη σημείωση</string>
+    <string name="notes">Σημειώσεις</string>
+    <string name="new_label">Νέα</string>
+    <string name="no_notes_yet_press_c">Δεν υπάρχουν ακόμη σημειώσεις. Πατήστε C για να γράψετε μία ή I για να εισαγάγετε ένα αρχείο κειμένου.</string>
+    <string name="no_note_matches">Καμία σημείωση δεν ταιριάζει.</string>
+    <string name="c_new_i_import_k">C νέα · I εισαγωγή · K εργασίες</string>
+    <string name="one_note">1 σημείωση</string>
+    <string name="note_count">%1$s σημειώσεις</string>
+    <string name="open_tasks">%1$s · %2$s ανοιχτές εργασίες</string>
+    <string name="find_in_notes_enter_opens">Αναζήτηση στις σημειώσεις · το Enter ανοίγει</string>
+    <string name="tasks">Εργασίες</string>
+    <string name="open_showing_done_items">%1$s ανοιχτές · εμφάνιση ολοκληρωμένων</string>
+    <string name="open">%1$s ανοιχτές</string>
+    <string name="hide_done">Απόκρυψη ολοκληρωμένων</string>
+    <string name="show_done">Εμφάνιση ολοκληρωμένων</string>
+    <string name="no_open_tasks_in_a">Δεν υπάρχουν ανοιχτές εργασίες. Σε μια σημείωση, πατήστε Menu και μετά L για να μετατρέψετε μια γραμμή σε στοιχείο λίστας ελέγχου.</string>
+    <string name="delete_note_question">Διαγραφή σημείωσης;</string>
+    <string name="will_be_deleted_from_this">Το «%1$s» θα διαγραφεί από αυτό το τηλέφωνο.</string>
+    <string name="delete">Διαγραφή</string>
+    <string name="keep">Διατήρηση</string>
+</resources>

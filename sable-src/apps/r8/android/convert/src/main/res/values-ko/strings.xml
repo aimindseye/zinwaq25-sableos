@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Korean. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
+<resources>
+    <string name="convert_length">길이</string>
+    <string name="convert_mass">질량</string>
+    <string name="convert_temperature">온도</string>
+    <string name="convert_volume">부피</string>
+    <string name="convert_millimeters">밀리미터</string>
+    <string name="convert_centimeters">센티미터</string>
+    <string name="convert_meters">미터</string>
+    <string name="convert_kilometers">킬로미터</string>
+    <string name="convert_inches">인치</string>
+    <string name="convert_feet">피트</string>
+    <string name="convert_miles">마일</string>
+    <string name="convert_grams">그램</string>
+    <string name="convert_kilograms">킬로그램</string>
+    <string name="convert_ounces">온스</string>
+    <string name="convert_pounds">파운드</string>
+    <string name="convert_celsius">섭씨</string>
+    <string name="convert_fahrenheit">화씨</string>
+    <string name="convert_kelvin">켈빈</string>
+    <string name="convert_milliliters">밀리리터</string>
+    <string name="convert_liters">리터</string>
+    <string name="convert_cups">컵</string>
+    <string name="convert_gallons">갤런</string>
+    <string name="convert_ready">준비됨</string>
+    <string name="convert_value">값</string>
+    <string name="convert_from">변환 전</string>
+    <string name="convert_to">변환 후</string>
+    <string name="convert_convert">변환</string>
+    <string name="convert_enter_a_number_with_up">소수점 아래 최대 세 자리까지 숫자를 입력하세요</string>
+    <string name="convert_length_mass_temperature_and_volume">길이, 질량, 온도, 부피 변환은 기기에서 오프라인으로 처리됩니다.</string>
+    <string name="convert_native_bridge_failure">네이티브 인터페이스 오류</string>
+</resources>

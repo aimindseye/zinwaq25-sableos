@@ -11,16 +11,28 @@ usage() {
     cat >&2 <<'EOF'
 SableOS for the Zinwa Q25
 
-usage:
-  bash build/sable.sh q25 <release> <function> [options]
+quick start (builds everything; no background needed):
+  export ANDROID_HOME=/path/to/android-sdk     # Android SDK, platform 36
+  bash build/sable.sh q25 all --yes            # check, download, build, collect
+
+  --yes allows the ~200 GB LineageOS download. Run the same command again to
+  carry on after a problem. Add --release to also zip it for a GitHub release.
+  Results are in ~/sable-q25/artifacts (change with SABLE_BUILD_ROOT).
+
+step by step (advanced):
+  bash build/sable.sh q25 [release] <function> [options]
+  The release defaults to full.
 
 releases:
+  full  the complete SableOS image: LineageOS base + Sable apps + framework
+        integration (Sable Start as HOME, Sable Keyboard as the only IME,
+        patches/framework applied to LineageOS). Use this for releases.
+        (Q4 is the old name of full and is still accepted.)
+  Q2    LineageOS base + Sable product layer and apps, no framework patches
   Q1    plain LineageOS lineage_Q25 control image (no Sable layer)
-  Q2    LineageOS base + Sable product layer and apps
-  Q4    Q2 + framework integration: Sable Start as HOME, Sable Keyboard as the
-        only IME, patches/framework applied to LineageOS (needs gate Q3-TEXT)
 
 functions:
+  all [--yes] [--release]     every step below, in order (the quick start)
   doctor                      check the build host
   bootstrap                   repo init + sync (needs NETWORK_FETCH_AUTHORIZED=YES)
   import --sableos PATH       copy Sable sources from a sableos checkout
@@ -41,9 +53,15 @@ functions:
   ci                          static repository checks
 
 example:
-  bash build/sable.sh q25 Q2 doctor
+  bash build/sable.sh q25 all --yes
+  bash build/sable.sh q25 full doctor
 EOF
 }
+
+# The release is optional: "q25 <function>" means "q25 full <function>".
+if (($# >= 2)) && [[ "$2" =~ ^(all|doctor|bootstrap|import|apps|microg|stage|build|artifacts|release|ci|flash)$ ]]; then
+    set -- "$1" full "${@:2}"
+fi
 
 DEVICE="${1:-}"
 RELEASE="${2:-}"
@@ -51,6 +69,7 @@ FUNCTION="${3:-}"
 shift "$(( $# >= 3 ? 3 : $# ))"
 
 [[ -n "$DEVICE" && -n "$RELEASE" && -n "$FUNCTION" ]] || { usage; exit 64; }
+[[ "$RELEASE" == Q4 ]] && RELEASE=full
 
 case "$DEVICE" in
     q25|Q25|zinwa-q25) DEVICE=q25 ;;
@@ -72,6 +91,7 @@ echo "BASE=$SABLE_DEVICE_BASE"
 echo "SABLE_LAYER=$(sable_release_has_sable_layer "$RELEASE" && echo YES || echo NO)"
 
 case "$FUNCTION" in
+    all)       exec bash "$ROOT/scripts/build-all.sh" "$RELEASE" "$@" ;;
     doctor)    exec bash "$ROOT/scripts/doctor.sh" "$@" ;;
     bootstrap) exec bash "$ROOT/scripts/bootstrap.sh" "$@" ;;
     import)    exec bash "$ROOT/scripts/import-sable-sources.sh" "$@" ;;

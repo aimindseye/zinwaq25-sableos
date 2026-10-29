@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (VaultLinesTest checks). -->
+<resources>
+    <string name="read_error">Lesefehler</string>
+    <string name="no_access">" (kein Zugriff"</string>
+    <string name="partial_copy_left">; Teilkopie übrig</string>
+    <string name="cancelled_nothing_changed">Abgebrochen. Nichts wurde geändert.</string>
+    <string name="deleted">%1$s gelöscht.</string>
+    <string name="could_not_delete">Fehler: %1$s konnte nicht gelöscht werden.</string>
+    <string name="deleted_of_original_s_any">%1$s von %2$s Original(en) gelöscht. Nicht gelöschte Dateien liegen weiterhin an ihrem Ort.</string>
+    <string name="open_with">%1$s öffnen mit</string>
+    <string name="opened_read_only_this_file">%1$s geöffnet (schreibgeschützt, nur diese Datei).</string>
+    <string name="no_app_in_private_space">Keine App in Private Space kann %1$s öffnen.</string>
+    <string name="the_system_file_picker_is">Die Dateiauswahl des Systems ist nicht verfügbar.</string>
+    <string name="exported_a_copy_of_it">Eine Kopie von %1$s wurde exportiert. Sie ist nicht mehr durch den Tresor geschützt.</string>
+    <string name="export_failed_nothing_was_written">Fehler beim Export. Es wurde nichts geschrieben.</string>
+    <string name="could">Fehler</string>
+    <string name="cancelled">Abgebrochen</string>
+    <string name="no_app">Keine App</string>
+    <string name="not_available">nicht verfügbar</string>
+    <string name="yes">Ja</string>
+    <string name="no">Nein</string>
+    <string name="import_label">Importieren</string>
+    <string name="export">Exportieren</string>
+    <string name="lock_now">Jetzt sperren</string>
+    <string name="photos">Fotos</string>
+    <string name="documents">Dokumente</string>
+    <string name="recordings">Aufnahmen</string>
+    <string name="file_or_p_d_r">↑↓ Datei · ←→ oder P D R Bereich · Enter öffnen · I importieren · E exportieren · X löschen · L jetzt sperren</string>
+    <string name="open">%1$s öffnen?</string>
+    <string name="the_app_you_pick_inside">Die ausgewählte App (innerhalb von Private Space) kann diese eine Datei lesen, bis sie sie schließt. Enter oder Y öffnet · Zurück oder N bricht ab.</string>
+    <string name="export_2">%1$s exportieren?</string>
+    <string name="a_copy_is_written_where">Eine Kopie wird am nächsten gewählten Ort gespeichert und ist nicht mehr durch den Tresor geschützt. Die Kopie im Tresor bleibt. Enter oder Y fährt fort · Zurück oder N bricht ab.</string>
+    <string name="delete_from_the_vault">%1$s aus dem Tresor löschen?</string>
+    <string name="it_cannot_be_recovered_enter">Sie kann nicht wiederhergestellt werden. Enter oder Y löscht · Zurück oder N bricht ab.</string>
+    <string name="imported_file_s_as_copies">%1$s Datei(en) als Kopien importiert. Originale löschen?</string>
+    <string name="the_originals_are_still_where">Die Originale liegen weiterhin an ihrem Ort. Enter oder Y löscht sie · Zurück oder N behält sie.</string>
+    <string name="imported_file_s_as_copies_2">%1$s Datei(en) als Kopien importiert.</string>
+    <string name="could_not_import">" Fehler beim Import: "</string>
+    <string name="secure_vault">Secure Vault</string>
+    <string name="private_space_photos_documents_recordings">Private Space · Fotos · Dokumente · Aufnahmen · Import/Export nur ausdrücklich</string>
+    <string name="secure_vault_works_only_inside">Secure Vault funktioniert nur innerhalb von Private Space. Entsperre Private Space in Sable Start (Alle Apps) und öffne dort Secure Vault. Außerhalb wird nichts gespeichert.</string>
+    <string name="nothing_here_yet_press_i">Noch nichts vorhanden. Drücke I, um eine Kopie einer Datei zu importieren.</string>
+    <string name="could_not_lock_private_space">Fehler: Private Space konnte von hier nicht gesperrt werden; sperre es in Sable Start. Der Tresor wurde geschlossen.</string>
+</resources>

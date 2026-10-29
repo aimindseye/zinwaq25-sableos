@@ -21,17 +21,47 @@ follow [`INSTALL.md`](INSTALL.md), which covers building your own image.
 ## In short
 
 <!-- short:start -->
-1. Back up first: your files, and the phone's partitions with mtkclient
+Built on **LineageOS 23.2 (Android 16 QPR2)**. Use a Linux or macOS terminal with
+`adb` and `fastboot` installed, and the phone's USB-C cable.
+
+1. **Back up first**: your files, and the phone's partitions with mtkclient
    (FLASHING.md step 1). Keep the stock firmware package for your phone.
-2. Unpack the zip and run `sha256sum -c SHA256SUMS.txt`.
-3. Unlock the bootloader (this erases the phone): `adb reboot bootloader`, then
-   `fastboot flashing unlock` and confirm on the phone.
-4. Flash the boot images from fastboot: `boot`, `dtbo`, `vbmeta` and
-   `vendor_boot` (`fastboot flash boot boot.img`, and so on), then
-   `fastboot reboot recovery`.
-5. In recovery: *Factory reset* > *Format data / factory reset*, then
-   *Apply update* > *Apply from ADB* and `adb sideload sableos-q25-*.zip`.
-6. *Reboot system now*. The first boot takes several minutes.
+2. **Unzip the download and go into the folder** (use the real file name):
+
+   ```bash
+   unzip sableos-q25-full-alpha-YYYYMMDD.zip
+   cd sableos-q25-full-alpha-YYYYMMDD
+   sha256sum -c SHA256SUMS.txt        # every line must say OK
+   ```
+
+3. **Unlock the bootloader** (this erases the phone). On the phone turn on
+   Developer options > OEM unlocking and USB debugging, then:
+
+   ```bash
+   adb reboot bootloader
+   fastboot flashing unlock           # confirm on the phone
+   ```
+
+4. **Flash the boot images**, still inside that folder, and open recovery:
+
+   ```bash
+   adb reboot bootloader              # if the phone restarted after unlocking
+   fastboot flash boot boot.img
+   fastboot flash dtbo dtbo.img
+   fastboot flash vbmeta vbmeta.img
+   fastboot flash vendor_boot vendor_boot.img
+   fastboot reboot recovery
+   ```
+
+5. **Install SableOS.** In recovery choose *Factory reset* > *Format data / factory
+   reset*, then *Apply update* > *Apply from ADB*, and on the computer:
+
+   ```bash
+   adb sideload sableos-q25-full-*-userdebug.zip
+   ```
+
+6. Choose *Reboot system now*. The first boot takes several minutes, then the
+   setup wizard opens.
 
 Full steps, the backup commands and the way back to stock are in `FLASHING.md`
 in the zip.

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
+<resources>
+    <string name="basic">Обычный</string>
+    <string name="scientific">Инженерный</string>
+    <string name="convert">Перевести</string>
+    <string name="basic_scientific_and_conversion_tools">Обычные и инженерные вычисления и перевод единиц в одном приложении.</string>
+    <string name="exact_result">Точный результат</string>
+    <string name="choose_an_operation_first">Сначала выберите операцию.</string>
+    <string name="degrees_for_trigonometry">%1$s · градусы для тригонометрии</string>
+    <string name="scientific_operations_and_the_core">Инженерные операции и основные арифметические вычисления выполняются встроенным движком калькулятора.</string>
+    <string name="results_are_not_silently_rounded">Результаты не округляются незаметно до значений с плавающей запятой.</string>
+    <string name="scientific_functions_use_degrees">Тригонометрические функции используют градусы.</string>
+    <string name="exact_decimal_results_never_rounded">Точные десятичные результаты без округления.</string>
+    <string name="native_bridge_failure">Сбой нативного интерфейса</string>
+</resources>

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Urdu. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (KeyboardTextTest checks). -->
+<resources>
+    <string name="one_entry_per_line_shortcut">ہر سطر میں ایک اندراج: شارٹ کٹ=متبادل، مثلاً brb=be right back۔ شارٹ کٹ حروف یا ہندسوں کا ایک لفظ ہوتا ہے۔ آپ کے اندراجات ہر زبان میں کام کرتے ہیں اور اسی شارٹ کٹ والے بلٹ اِن اندراج کی جگہ لیتے ہیں۔ متبادل میں %D تاریخ، %T وقت اور %V بلڈ نمبر ہے۔ توسیع کے فوراً بعد Backspace آپ کا ٹائپ کیا ہوا واپس لے آتا ہے۔</string>
+    <string name="save">محفوظ کریں</string>
+    <string name="saved_entries">%1$s اندراجات محفوظ ہو گئے</string>
+    <string name="lines_skipped_not_shortcut_replacement">؛ %1$s سطریں چھوڑ دی گئیں (شارٹ کٹ=متبادل نہیں)</string>
+    <string name="built_in_english_typing_language">بلٹ اِن (انگریزی ٹائپنگ زبان)</string>
+    <string name="turn_on_clipboard_history_in">Sable Keyboard کی ترتیبات میں کلپ بورڈ کی تاریخ آن کریں</string>
+    <string name="unlock_to_use_clipboard_history">کلپ بورڈ کی تاریخ استعمال کرنے کے لیے انلاک کریں</string>
+    <string name="nav_mode_on_alt_space">نیویگیشن موڈ آن ہے (باہر نکلنے کے لیے Alt+Space)</string>
+    <string name="nav_mode_off">نیویگیشن موڈ بند ہے</string>
+    <string name="enable_more_languages_in_settings">ترتیبات &gt; کی بورڈ &gt; Sable میں مزید زبانیں فعال کریں</string>
+    <string name="auto_capitalise_sentences">جملوں کا پہلا حرف خودکار طور پر بڑا کریں</string>
+    <string name="double_space_inserts_period">دوہری اسپیس فل اسٹاپ ڈالتی ہے</string>
+    <string name="autotext_dont_becomes_don_t">AutoText (dont بن جاتا ہے don\'t، ld تاریخ)</string>
+    <string name="long_press_a_letter_for">کسی حرف کے Alt کریکٹر کے لیے اسے دیر تک دبائیں</string>
+    <string name="letters_type_digits_in_numeric">عددی خانوں میں حروف ہندسے ٹائپ کرتے ہیں</string>
+    <string name="nav_mode_ijkl_arrows_enabled">نیویگیشن موڈ (IJKL تیر) فعال ہے</string>
+    <string name="alt_space_toggles_nav_mode">Alt+Space نیویگیشن موڈ بدلتا ہے</string>
+    <string name="show_on_screen_keyboard_for">عددی/PIN خانوں کے لیے اسکرین کی بورڈ دکھائیں</string>
+    <string name="always_show_on_screen_keyboard">اسکرین کی بورڈ ہمیشہ دکھائیں</string>
+    <string name="compact_status_strip_when_the">اسکرین کی بورڈ چھپا ہونے پر مختصر اسٹیٹس پٹی</string>
+    <string name="enter_sends_in_apps_that">بھیجیں کی سہولت والی ایپس میں Enter بھیجتا ہے (Shift+Enter: نئی سطر)</string>
+    <string name="clipboard_history_alt_shift_v">کلپ بورڈ کی تاریخ (Alt+Shift+V؛ میموری میں رہتی ہے، کبھی محفوظ نہیں ہوتی)</string>
+    <string name="clear_clipboard_history">کلپ بورڈ کی تاریخ صاف کریں</string>
+    <string name="clipboard_history_cleared">کلپ بورڈ کی تاریخ صاف ہو گئی</string>
+    <string name="autotext_entries">AutoText اندراجات</string>
+    <string name="key_event_probe_diagnostic">کی ایونٹ پروب (تشخیصی)</string>
+    <string name="sable_keyboard">Sable Keyboard</string>
+    <string name="layout_provisional_until_key_legends">ترتیب: عارضی ہے جب تک اس آلے پر کیز کی علامتیں ریکارڈ نہ ہو جائیں۔</string>
+    <string name="space">اسپیس · %1$s%2$s</string>
+    <string name="alternate">%1$s، متبادل %2$s</string>
+    <string name="clipboard_empty">کلپ بورڈ خالی ہے</string>
+    <string name="input_method_settings">ان پٹ میتھڈ کی ترتیبات</string>
+    <string name="keyboard_picker">کی بورڈ منتخب کنندہ</string>
+    <string name="sable_keyboard_is_the_selected">Sable Keyboard منتخب کی بورڈ ہے۔</string>
+    <string name="another_keyboard_is_selected_your">کوئی اور کی بورڈ منتخب ہے۔ آپ کا انتخاب برقرار رہتا ہے؛ Sable Keyboard اسے آپ کے لیے کبھی نہیں بدلتا۔</string>
+    <string name="sable_keyboard_is_not_enabled">Sable Keyboard ابھی فعال نہیں ہے۔</string>
+    <string name="could_not_read_which_keyboard">یہ پڑھا نہیں جا سکا کہ کون سا کی بورڈ منتخب ہے۔</string>
+    <string name="could_not_open_not_available">%1$s کھولا نہیں جا سکا: اس آلے پر دستیاب نہیں۔</string>
+    <string name="could_not_open_blocked_by">%1$s کھولا نہیں جا سکا: سسٹم نے روک دیا۔</string>
+    <string name="could_not_open">%1$s کھولا نہیں جا سکا۔</string>
+</resources>

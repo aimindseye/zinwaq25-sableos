@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ProfilesTextTest checks). -->
+<resources>
+    <string name="sound_profile">Ses profili</string>
+    <string name="allow_do_not_disturb_access">Sound Profiles için Rahatsız Etmeyin erişimine izin ver</string>
+    <string name="choose">Seç</string>
+    <string name="use">%1$s kullan</string>
+    <string name="edit">%1$s düzenle</string>
+    <string name="quick_settings_tile">Hızlı Ayarlar kutucuğu</string>
+    <string name="pull_down_the_shade_choose">Paneli aşağı çekin, Düzenle’yi seçin ve Ses profili kutucuğunu buraya sürükleyin.</string>
+    <string name="close">Kapat</string>
+    <string name="sound_profiles">Sound Profiles</string>
+    <string name="enter_uses_a_profile_e">Enter profili uygular · E düzenler · Menu diğer seçenekleri açar</string>
+    <string name="quick_settings_pull_down_the">Hızlı Ayarlar: paneli aşağı çekin, Düzenle’yi seçin ve Ses profili kutucuğunu ekleyin.</string>
+    <string name="volume">Ses düzeyi %1$s%%</string>
+    <string name="enter_adds_10_shift_enter">Enter %10 artırır · Shift+Enter %10 azaltır</string>
+    <string name="ringtone">Zil sesi</string>
+    <string name="notification_tone">Bildirim sesi</string>
+    <string name="vibrate_for_calls">Aramalarda titreşim</string>
+    <string name="space_turns_it_on_or">Space açar veya kapatır</string>
+    <string name="notification_light">Bildirim ışığı</string>
+    <string name="is_on_allow_changing_system">%1$s açık. Sesleri, titreşimi ve ışığı ayarlayabilmesi için sistem ayarlarını değiştirme izni verin; ardından yeniden seçin.</string>
+    <string name="allow_do_not_disturb_access_2">Sound Profiles için Rahatsız Etmeyin erişimine izin verin, ardından %1$s öğesini yeniden seçin.</string>
+    <string name="phone_s_current_tone">Geçerli zil sesi</string>
+    <string name="normal">Normal</string>
+    <string name="rings_and_alerts_at_your">Aramalar ve uyarılar seçtiğiniz ses düzeyinde</string>
+    <string name="loud">Yüksek</string>
+    <string name="rings_and_alerts_at_full">Aramalar ve uyarılar tam ses düzeyinde</string>
+    <string name="vibrate_only">Yalnızca titreşim</string>
+    <string name="vibrates_for_calls_and_alerts">Aramalarda ve uyarılarda titreşir, ses çıkmaz</string>
+    <string name="phone_calls_only">Yalnızca telefon aramaları</string>
+    <string name="only_calls_ring_messages_and">Yalnızca aramalar çalar; mesajlar ve uyarılar sessizdir</string>
+    <string name="all_alerts_off">Tüm uyarılar kapalı</string>
+    <string name="nothing_rings_or_vibrates_alarms">Hiçbir ses veya titreşim olmaz; alarmlar çalmaya devam eder</string>
+</resources>

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Swedish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (VaultLinesTest checks). -->
+<resources>
+    <string name="read_error">läsfel</string>
+    <string name="no_access">" (ingen åtkomst"</string>
+    <string name="partial_copy_left">; delvis kopia kvar</string>
+    <string name="cancelled_nothing_changed">Avbrutet. Inget ändrades.</string>
+    <string name="deleted">%1$s raderades.</string>
+    <string name="could_not_delete">Kunde inte radera %1$s.</string>
+    <string name="deleted_of_original_s_any">Raderade %1$s av %2$s original. De som inte raderats ligger kvar där de låg.</string>
+    <string name="open_with">Öppna %1$s med</string>
+    <string name="opened_read_only_this_file">%1$s öppnades (skrivskyddad, bara den här filen).</string>
+    <string name="no_app_in_private_space">Ingen app i Private Space kan öppna %1$s.</string>
+    <string name="the_system_file_picker_is">Systemets filväljare är inte tillgänglig.</string>
+    <string name="exported_a_copy_of_it">En kopia av %1$s exporterades. Den skyddas inte längre av valvet.</string>
+    <string name="export_failed_nothing_was_written">Kunde inte exportera. Inget skrevs.</string>
+    <string name="could">Kunde inte</string>
+    <string name="cancelled">Avbrutet</string>
+    <string name="no_app">Ingen app</string>
+    <string name="not_available">inte tillgänglig</string>
+    <string name="yes">Ja</string>
+    <string name="no">Nej</string>
+    <string name="import_label">Importera</string>
+    <string name="export">Exportera</string>
+    <string name="lock_now">Lås nu</string>
+    <string name="photos">Foton</string>
+    <string name="documents">Dokument</string>
+    <string name="recordings">Inspelningar</string>
+    <string name="file_or_p_d_r">↑↓ fil · ←→ eller P D R avsnitt · Enter öppna · I importera · E exportera · X radera · L lås nu</string>
+    <string name="open">Öppna %1$s?</string>
+    <string name="the_app_you_pick_inside">Appen du väljer (inne i Private Space) kan läsa just den här filen tills den stänger den. Enter eller Y öppnar · Bakåt eller N avbryter.</string>
+    <string name="export_2">Exportera %1$s?</string>
+    <string name="a_copy_is_written_where">En kopia skrivs dit du väljer härnäst och skyddas inte längre av valvet. Kopian i valvet finns kvar. Enter eller Y fortsätter · Bakåt eller N avbryter.</string>
+    <string name="delete_from_the_vault">Radera %1$s från valvet?</string>
+    <string name="it_cannot_be_recovered_enter">Den kan inte återställas. Enter eller Y raderar · Bakåt eller N avbryter.</string>
+    <string name="imported_file_s_as_copies">Importerade %1$s fil(er) som kopior. Radera originalen?</string>
+    <string name="the_originals_are_still_where">Originalen ligger kvar där de låg. Enter eller Y raderar dem · Bakåt eller N behåller dem.</string>
+    <string name="imported_file_s_as_copies_2">Importerade %1$s fil(er) som kopior.</string>
+    <string name="could_not_import">" Kunde inte importera: "</string>
+    <string name="secure_vault">Secure Vault</string>
+    <string name="private_space_photos_documents_recordings">Private Space · Foton · Dokument · Inspelningar · import/export bara uttryckligen</string>
+    <string name="secure_vault_works_only_inside">Secure Vault fungerar bara inne i Private Space. Lås upp Private Space i Sable Start (Alla appar) och öppna Secure Vault där. Inget lagras utanför.</string>
+    <string name="nothing_here_yet_press_i">Inget här än. Tryck på I för att importera en kopia av en fil.</string>
+    <string name="could_not_lock_private_space">Kunde inte låsa Private Space härifrån; lås det från Sable Start. Valvet stängdes.</string>
+</resources>

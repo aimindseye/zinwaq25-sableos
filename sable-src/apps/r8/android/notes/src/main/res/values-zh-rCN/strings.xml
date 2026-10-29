@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (NotesTextTest checks). -->
+<resources>
+    <string name="deleted">已删除“%1$s”</string>
+    <string name="couldn_t_save">无法保存“%1$s”</string>
+    <string name="share_note">分享笔记</string>
+    <string name="exported">已导出“%1$s”</string>
+    <string name="export_failed">导出失败</string>
+    <string name="nothing_to_import">没有可导入的内容</string>
+    <string name="note">笔记</string>
+    <string name="no_colour">无颜色</string>
+    <string name="yellow">黄色</string>
+    <string name="orange">橙色</string>
+    <string name="red">红色</string>
+    <string name="pink">粉色</string>
+    <string name="purple">紫色</string>
+    <string name="blue">蓝色</string>
+    <string name="green">绿色</string>
+    <string name="empty_note">空笔记</string>
+    <string name="list_item_on_this_line">此行的列表项</string>
+    <string name="tick_or_untick_this_item">勾选或取消勾选此项</string>
+    <string name="find_in_note">在笔记中查找</string>
+    <string name="find_next">查找下一个</string>
+    <string name="colour">颜色</string>
+    <string name="share">分享</string>
+    <string name="export_to_a_file">导出到文件</string>
+    <string name="delete_note">删除笔记</string>
+    <string name="c_new_s_find_k">C 新建 · S 查找 · K 任务 · L 颜色 · D 删除</string>
+    <string name="menu_list_item_tick_find">Menu：列表项、勾选、查找、颜色、分享 · 返回即保存</string>
+    <string name="enter_tick_o_open_note">Enter 勾选 · O 打开笔记 · H 已完成项 · 返回</string>
+    <string name="type_your_note_the_first">输入笔记内容。第一行为标题。</string>
+    <string name="change_colour_now">更改颜色，当前为%1$s</string>
+    <string name="edited">已编辑 %1$s%2$s</string>
+    <string name="note_actions_menu_key">笔记操作（Menu 键）</string>
+    <string name="find_in_this_note_enter">在此笔记中查找 · Enter 跳转到结果</string>
+    <string name="not_in_this_note">此笔记中没有</string>
+    <string name="notes">笔记</string>
+    <string name="new_label">新建</string>
+    <string name="no_notes_yet_press_c">还没有笔记。按 C 写一条，或按 I 导入文本文件。</string>
+    <string name="no_note_matches">没有匹配的笔记。</string>
+    <string name="c_new_i_import_k">C 新建 · I 导入 · K 任务</string>
+    <string name="one_note">1 条笔记</string>
+    <string name="note_count">%1$s 条笔记</string>
+    <string name="open_tasks">%1$s · %2$s 项未完成任务</string>
+    <string name="find_in_notes_enter_opens">在笔记中查找 · Enter 打开</string>
+    <string name="tasks">任务</string>
+    <string name="open_showing_done_items">%1$s 项未完成 · 正在显示已完成项</string>
+    <string name="open">%1$s 项未完成</string>
+    <string name="hide_done">隐藏已完成</string>
+    <string name="show_done">显示已完成</string>
+    <string name="no_open_tasks_in_a">没有未完成的任务。在笔记中依次按 Menu 和 L，可将一行变为清单项。</string>
+    <string name="delete_note_question">删除笔记？</string>
+    <string name="will_be_deleted_from_this">“%1$s”将从此手机中删除。</string>
+    <string name="delete">删除</string>
+    <string name="keep">保留</string>
+</resources>

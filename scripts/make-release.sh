@@ -2,8 +2,8 @@
 # Package a collected build as a GitHub pre-release: one zip with the images,
 # the install package, checksums, flashing steps and release notes.
 #
-#   bash build/sable.sh q25 Q4 artifacts
-#   bash build/sable.sh q25 Q4 release [--tag alpha-YYYYMMDD] [--notes FILE]
+#   bash build/sable.sh q25 full artifacts
+#   bash build/sable.sh q25 full release [--tag alpha-YYYYMMDD] [--notes FILE]
 #                                      [--artifacts DIR] [--boot-tested] [--publish]
 #
 # Without --publish it only builds the zip and prints the gh command. With
@@ -71,6 +71,10 @@ if [[ -z "$NOTES" ]]; then
         [[ -f "$f" ]] && { NOTES="$f"; break; }
     done
 fi
+# The LineageOS version the image is built on: from the build's own props, else the release branch.
+lineage_version="$(sed -n 's/^ro\.lineage\.version=//p' "$ARTIFACTS/props/system/build.prop" 2>/dev/null | head -n1)"
+lineage_base="LineageOS 23.2 (Android 16 QPR2)"
+[[ -n "$lineage_version" ]] && lineage_base="$lineage_base, build $lineage_version"
 previous="$(git -C "$SABLE_REPO_ROOT" describe --tags --abbrev=0 "$commit^" 2>/dev/null || true)"
 {
     echo "# SableOS for the Zinwa Q25, $TAG ($RELEASE)"
@@ -84,6 +88,8 @@ previous="$(git -C "$SABLE_REPO_ROOT" describe --tags --abbrev=0 "$commit^" 2>/d
     echo ">"
     echo "> Installing unlocks the bootloader and erases the phone. Back up first and know the way"
     echo "> back: both are in FLASHING.md, inside the zip."
+    echo
+    echo "**Built on $lineage_base**, the official \`lineage_Q25\` device tree."
     echo
     if [[ -n "$NOTES" ]]; then
         cat "$NOTES"
@@ -128,6 +134,7 @@ previous="$(git -C "$SABLE_REPO_ROOT" describe --tags --abbrev=0 "$commit^" 2>/d
     echo
     echo "## Build"
     echo
+    echo "- Base: $lineage_base"
     echo "- Release: $RELEASE, lunch \`$(info lunch)\`"
     echo "- Source: [\`${commit:0:12}\`](https://github.com/$REPO/commit/$commit)"
     echo "- Booted on a Q25 before upload: ${BOOT_TESTED:-$(info boot_tested)}"

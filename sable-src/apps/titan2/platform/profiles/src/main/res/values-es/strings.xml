@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ProfilesTextTest checks). -->
+<resources>
+    <string name="sound_profile">Perfil de sonido</string>
+    <string name="allow_do_not_disturb_access">Permitir el acceso a No molestar para Sound Profiles</string>
+    <string name="choose">Elegir</string>
+    <string name="use">Usar %1$s</string>
+    <string name="edit">Editar %1$s</string>
+    <string name="quick_settings_tile">Mosaico de Ajustes rápidos</string>
+    <string name="pull_down_the_shade_choose">Desliza hacia abajo el panel, elige Editar y arrastra el mosaico Perfil de sonido.</string>
+    <string name="close">Cerrar</string>
+    <string name="sound_profiles">Sound Profiles</string>
+    <string name="enter_uses_a_profile_e">Enter aplica un perfil · E lo edita · Menu muestra más opciones</string>
+    <string name="quick_settings_pull_down_the">Ajustes rápidos: desliza hacia abajo el panel, elige Editar y añade el mosaico Perfil de sonido.</string>
+    <string name="volume">Volumen %1$s%%</string>
+    <string name="enter_adds_10_shift_enter">Enter aumenta un 10% · Shift+Enter reduce un 10%</string>
+    <string name="ringtone">Tono de llamada</string>
+    <string name="notification_tone">Tono de notificación</string>
+    <string name="vibrate_for_calls">Vibrar en las llamadas</string>
+    <string name="space_turns_it_on_or">Space lo activa o desactiva</string>
+    <string name="notification_light">Luz de notificaciones</string>
+    <string name="is_on_allow_changing_system">%1$s está activado. Permite modificar los ajustes del sistema para configurar los tonos, la vibración y la luz; después, vuelve a elegirlo.</string>
+    <string name="allow_do_not_disturb_access_2">Permite el acceso a No molestar para Sound Profiles y vuelve a elegir %1$s.</string>
+    <string name="phone_s_current_tone">Tono actual del teléfono</string>
+    <string name="normal">Normal</string>
+    <string name="rings_and_alerts_at_your">Llamadas y avisos al volumen que hayas elegido</string>
+    <string name="loud">Alto</string>
+    <string name="rings_and_alerts_at_full">Llamadas y avisos al máximo volumen</string>
+    <string name="vibrate_only">Solo vibración</string>
+    <string name="vibrates_for_calls_and_alerts">Vibra con llamadas y avisos, sin sonido</string>
+    <string name="phone_calls_only">Solo llamadas telefónicas</string>
+    <string name="only_calls_ring_messages_and">Solo suenan las llamadas; los mensajes y avisos permanecen en silencio</string>
+    <string name="all_alerts_off">Todos los avisos desactivados</string>
+    <string name="nothing_rings_or_vibrates_alarms">No suena ni vibra nada; las alarmas siguen sonando</string>
+</resources>

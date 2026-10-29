@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
+<resources>
+    <string name="city_or_name_lat_lon">город или название, широта, долгота, регион/зона</string>
+    <string name="no_match_enter_name_latitude">Совпадений нет. Введите название, широту, долготу и регион/зону.</string>
+    <string name="remove">Удалить %1$s?</string>
+    <string name="reset_to_the_built_in">Восстановить встроенные города? Добавленные города будут удалены.</string>
+    <string name="current_manual_city">текущий · город выбран вручную</string>
+    <string name="add_city">добавить город</string>
+    <string name="type_a_name_or_press">введите название или нажмите любую букву</string>
+    <string name="reset_to_built_in_cities">восстановить встроенные города</string>
+    <string name="refreshing_forecast">Обновление прогноза…</string>
+    <string name="loading_forecast">загрузка прогноза</string>
+    <string name="forecast_unavailable">прогноз недоступен</string>
+    <string name="weather_ready">погода готова</string>
+    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · локальный кэш · примерное местоположение или выбранный город · точное местоположение никогда не используется</string>
+    <string name="use_current_location">Использовать текущее местоположение</string>
+    <string name="finding_where_you_are">Определение вашего местоположения…</string>
+    <string name="off_showing_the_chosen_city">Выкл.: показ выбранного города</string>
+    <string name="feels_like">"ощущается как "</string>
+    <string name="next_hours">ближайшие часы</string>
+    <string name="n7_days">7 дней</string>
+    <string name="live">" · в реальном времени"</string>
+    <string name="cached">" · из кэша"</string>
+    <string name="fetching">" · получение"</string>
+    <string name="unavailable">" · недоступно"</string>
+    <string name="local">" · локально"</string>
+    <string name="partly_cloudy">переменная облачность</string>
+    <string name="conditions_unavailable">погодные условия недоступны</string>
+    <string name="forecast_not_loaded_yet">Прогноз ещё не загружен.</string>
+    <string name="refresh_to_load_the_forecast">Обновите данные, чтобы загрузить прогноз.</string>
+    <string name="cached_forecast_could_not_be">Не удалось прочитать прогноз из кэша.</string>
+    <string name="forecast_is_current">Прогноз актуален.</string>
+    <string name="showing_cached_forecast">Показан прогноз из кэша.</string>
+    <string name="forecast_available">Прогноз доступен.</string>
+    <string name="offline_showing_last_known_forecast">Нет сети · показан последний известный прогноз.</string>
+    <string name="forecast_unavailable_check_the_connection">Прогноз недоступен. Проверьте подключение и повторите попытку.</string>
+    <string name="provider_response_could_not_be">Не удалось преобразовать ответ поставщика в нужный формат.</string>
+    <string name="updated_from_open_meteo">Обновлено из Open-Meteo.</string>
+</resources>

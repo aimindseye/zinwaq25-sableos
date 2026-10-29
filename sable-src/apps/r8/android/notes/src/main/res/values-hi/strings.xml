@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hindi. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (NotesTextTest checks). -->
+<resources>
+    <string name="deleted">“%1$s” हटा दिया गया</string>
+    <string name="couldn_t_save">“%1$s” सहेजा नहीं जा सका</string>
+    <string name="share_note">नोट साझा करें</string>
+    <string name="exported">“%1$s” निर्यात किया गया</string>
+    <string name="export_failed">निर्यात विफल रहा</string>
+    <string name="nothing_to_import">आयात करने के लिए कुछ नहीं है</string>
+    <string name="note">नोट</string>
+    <string name="no_colour">कोई रंग नहीं</string>
+    <string name="yellow">पीला</string>
+    <string name="orange">नारंगी</string>
+    <string name="red">लाल</string>
+    <string name="pink">गुलाबी</string>
+    <string name="purple">बैंगनी</string>
+    <string name="blue">नीला</string>
+    <string name="green">हरा</string>
+    <string name="empty_note">खाली नोट</string>
+    <string name="list_item_on_this_line">इस पंक्ति में सूची आइटम</string>
+    <string name="tick_or_untick_this_item">इस आइटम को चिह्नित या अचिह्नित करें</string>
+    <string name="find_in_note">नोट में खोजें</string>
+    <string name="find_next">अगला खोजें</string>
+    <string name="colour">रंग</string>
+    <string name="share">साझा करें</string>
+    <string name="export_to_a_file">फ़ाइल में निर्यात करें</string>
+    <string name="delete_note">नोट हटाएँ</string>
+    <string name="c_new_s_find_k">C नया · S खोज · K कार्य · L रंग · D हटाएँ</string>
+    <string name="menu_list_item_tick_find">Menu: सूची आइटम, चिह्नित करें, खोज, रंग, साझा · वापस जाने पर सहेजा जाता है</string>
+    <string name="enter_tick_o_open_note">Enter चिह्नित करता है · O नोट खोलता है · H पूरे किए आइटम · वापस</string>
+    <string name="type_your_note_the_first">अपना नोट लिखें। पहली पंक्ति शीर्षक है।</string>
+    <string name="change_colour_now">रंग बदलें, अभी %1$s</string>
+    <string name="edited">संपादित %1$s%2$s</string>
+    <string name="note_actions_menu_key">नोट की कार्रवाइयाँ (Menu कुंजी)</string>
+    <string name="find_in_this_note_enter">इस नोट में खोजें · Enter परिणाम पर जाता है</string>
+    <string name="not_in_this_note">इस नोट में नहीं है</string>
+    <string name="notes">नोट्स</string>
+    <string name="new_label">नया</string>
+    <string name="no_notes_yet_press_c">अभी कोई नोट नहीं है। लिखने के लिए C दबाएँ, या टेक्स्ट फ़ाइल आयात करने के लिए I।</string>
+    <string name="no_note_matches">कोई नोट मेल नहीं खाता।</string>
+    <string name="c_new_i_import_k">C नया · I आयात · K कार्य</string>
+    <string name="one_note">1 नोट</string>
+    <string name="note_count">%1$s नोट</string>
+    <string name="open_tasks">%1$s · %2$s खुले कार्य</string>
+    <string name="find_in_notes_enter_opens">नोट्स में खोजें · Enter खोलता है</string>
+    <string name="tasks">कार्य</string>
+    <string name="open_showing_done_items">%1$s खुले · पूरे किए आइटम दिखाए जा रहे हैं</string>
+    <string name="open">%1$s खुले</string>
+    <string name="hide_done">पूरे किए छिपाएँ</string>
+    <string name="show_done">पूरे किए दिखाएँ</string>
+    <string name="no_open_tasks_in_a">कोई खुला कार्य नहीं है। किसी नोट में Menu और फिर L दबाकर पंक्ति को चेकलिस्ट आइटम बनाएँ।</string>
+    <string name="delete_note_question">नोट हटाएँ?</string>
+    <string name="will_be_deleted_from_this">“%1$s” इस फ़ोन से हटा दिया जाएगा।</string>
+    <string name="delete">हटाएँ</string>
+    <string name="keep">रखें</string>
+</resources>

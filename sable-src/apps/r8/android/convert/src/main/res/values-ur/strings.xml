@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Urdu. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
+<resources>
+    <string name="convert_length">لمبائی</string>
+    <string name="convert_mass">کمیت</string>
+    <string name="convert_temperature">درجۂ حرارت</string>
+    <string name="convert_volume">حجم</string>
+    <string name="convert_millimeters">ملی میٹر</string>
+    <string name="convert_centimeters">سینٹی میٹر</string>
+    <string name="convert_meters">میٹر</string>
+    <string name="convert_kilometers">کلومیٹر</string>
+    <string name="convert_inches">انچ</string>
+    <string name="convert_feet">فٹ</string>
+    <string name="convert_miles">میل</string>
+    <string name="convert_grams">گرام</string>
+    <string name="convert_kilograms">کلوگرام</string>
+    <string name="convert_ounces">اونس</string>
+    <string name="convert_pounds">پاؤنڈ</string>
+    <string name="convert_celsius">سیلسیئس</string>
+    <string name="convert_fahrenheit">فارن ہائیٹ</string>
+    <string name="convert_kelvin">کیلون</string>
+    <string name="convert_milliliters">ملی لیٹر</string>
+    <string name="convert_liters">لیٹر</string>
+    <string name="convert_cups">کپ</string>
+    <string name="convert_gallons">گیلن</string>
+    <string name="convert_ready">تیار</string>
+    <string name="convert_value">قدر</string>
+    <string name="convert_from">سے</string>
+    <string name="convert_to">میں</string>
+    <string name="convert_convert">تبدیل کریں</string>
+    <string name="convert_enter_a_number_with_up">زیادہ سے زیادہ تین اعشاری مقامات والا عدد درج کریں</string>
+    <string name="convert_length_mass_temperature_and_volume">لمبائی، کمیت، درجۂ حرارت اور حجم کی تبدیلی آلے پر انٹرنیٹ کے بغیر کی جاتی ہے۔</string>
+    <string name="convert_native_bridge_failure">مقامی انٹرفیس ناکام ہو گیا</string>
+</resources>

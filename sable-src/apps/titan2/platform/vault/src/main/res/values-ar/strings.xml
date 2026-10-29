@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (VaultLinesTest checks). -->
+<resources>
+    <string name="read_error">خطأ في القراءة</string>
+    <string name="no_access">" (لا يوجد وصول"</string>
+    <string name="partial_copy_left">؛ بقيت نسخة جزئية</string>
+    <string name="cancelled_nothing_changed">أُلغي الأمر. لم يتغيّر شيء.</string>
+    <string name="deleted">تم حذف %1$s.</string>
+    <string name="could_not_delete">تعذّر حذف %1$s.</string>
+    <string name="deleted_of_original_s_any">تم حذف %1$s من أصل %2$s من الملفات الأصلية. ما لم يُحذف لا يزال في مكانه.</string>
+    <string name="open_with">فتح %1$s باستخدام</string>
+    <string name="opened_read_only_this_file">تم فتح %1$s (للقراءة فقط، هذا الملف وحده).</string>
+    <string name="no_app_in_private_space">لا يوجد تطبيق في Private Space يمكنه فتح %1$s.</string>
+    <string name="the_system_file_picker_is">أداة اختيار الملفات في النظام غير متاحة.</string>
+    <string name="exported_a_copy_of_it">تم تصدير نسخة من %1$s. لم تعد محمية بواسطة الخزنة.</string>
+    <string name="export_failed_nothing_was_written">تعذّر التصدير. لم تتم كتابة أي شيء.</string>
+    <string name="could">تعذّر</string>
+    <string name="cancelled">أُلغي الأمر</string>
+    <string name="no_app">لا يوجد تطبيق</string>
+    <string name="not_available">غير متاحة</string>
+    <string name="yes">نعم</string>
+    <string name="no">لا</string>
+    <string name="import_label">استيراد</string>
+    <string name="export">تصدير</string>
+    <string name="lock_now">قفل الآن</string>
+    <string name="photos">الصور</string>
+    <string name="documents">المستندات</string>
+    <string name="recordings">التسجيلات</string>
+    <string name="file_or_p_d_r">↑↓ ملف · ←→ أو P D R قسم · Enter فتح · I استيراد · E تصدير · X حذف · L قفل الآن</string>
+    <string name="open">فتح %1$s؟</string>
+    <string name="the_app_you_pick_inside">يمكن للتطبيق الذي تختاره (داخل Private Space) قراءة هذا الملف وحده إلى أن يغلقه. Enter أو Y يفتح · رجوع أو N يلغي.</string>
+    <string name="export_2">تصدير %1$s؟</string>
+    <string name="a_copy_is_written_where">تُكتب نسخة في المكان الذي تختاره لاحقاً ولا تعود محمية بواسطة الخزنة. تبقى النسخة داخل الخزنة. Enter أو Y يتابع · رجوع أو N يلغي.</string>
+    <string name="delete_from_the_vault">حذف %1$s من الخزنة؟</string>
+    <string name="it_cannot_be_recovered_enter">لا يمكن استرجاعه. Enter أو Y يحذف · رجوع أو N يلغي.</string>
+    <string name="imported_file_s_as_copies">تم استيراد %1$s ملفات كنُسخ. هل تريد حذف الملفات الأصلية؟</string>
+    <string name="the_originals_are_still_where">الملفات الأصلية لا تزال في مكانها. Enter أو Y يحذفها · رجوع أو N يبقيها.</string>
+    <string name="imported_file_s_as_copies_2">تم استيراد %1$s ملفات كنُسخ.</string>
+    <string name="could_not_import">" تعذّر الاستيراد: "</string>
+    <string name="secure_vault">Secure Vault</string>
+    <string name="private_space_photos_documents_recordings">Private Space · الصور · المستندات · التسجيلات · الاستيراد والتصدير بطلب صريح فقط</string>
+    <string name="secure_vault_works_only_inside">يعمل Secure Vault داخل Private Space فقط. افتح قفل Private Space من Sable Start (كل التطبيقات) ثم افتح Secure Vault من هناك. لا يُخزَّن أي شيء خارجه.</string>
+    <string name="nothing_here_yet_press_i">لا يوجد شيء هنا بعد. اضغط I لاستيراد نسخة من ملف.</string>
+    <string name="could_not_lock_private_space">تعذّر قفل Private Space من هنا؛ اقفله من Sable Start. أُغلقت الخزنة.</string>
+</resources>

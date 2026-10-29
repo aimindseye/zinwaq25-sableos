@@ -44,8 +44,9 @@ Titan 2 or Q27 SableOS lanes.
 > memory only and never on the lock screen.
 > Sable Terminal (sable-src 0084) is ConnectBot 1.10.9 for SSH, Telnet and a
 > local shell; on the Q25 the Menu key is Ctrl and Menu then Back is Esc.
-> Every Sable app now keeps its English in `strings.xml` (sable-src 0085), so
-> each can be translated by adding one file; see [`docs/LANGUAGES.md`](docs/LANGUAGES.md).
+> Every Sable app now keeps its English in `strings.xml` (sable-src 0085) and has
+> draft translations in 18 languages; see [`docs/LANGUAGES.md`](docs/LANGUAGES.md).
+> **Disclaimer:** Sable app translations (18 languages) are machine-assisted drafts: they have not been reviewed by fluent speakers and may contain errors or awkward wording. English is the reference text. Corrections are welcome.
 > Most Q4-* device gates are still `NOT_RUN`
 > ([#27](https://github.com/aimindseye/zinwaq25-sableos/issues/27) tracks them).
 > **Using SableOS:** [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) covers setup,
@@ -66,8 +67,33 @@ IMAGE_BUILD_TESTED=Q1, Q2 (ai-g732, 2026-10-15); Q4 (2026-10-17); PR #28 Q4 (202
 FRAMEWORK_PATCHES=104 patch files; all apply in order (check with scripts/apply-framework-patches.sh check)
 BOOT_TESTED=Q1, Q2 on a Q25 (2026-10-16/17); Q4 (2026-10-17, 2026-10-22, 2026-10-28); alpha-20261028; alpha-20261029 (2026-10-29)
 FLASH_SCRIPT=NONE (manual, documented steps in docs/INSTALL.md and docs/FLASHING_RELEASE.md)
-RELEASES=alpha-20261029 (latest), alpha-20261028; GitHub pre-releases made with build/sable.sh q25 Q4 release
+RELEASES=alpha-20261029 (latest), alpha-20261028; GitHub pre-releases made with build/sable.sh q25 full release
 ```
+
+## Install a release
+
+Every release is built on **LineageOS 23.2 (Android 16 QPR2)** and says so in its
+release notes. Download `sableos-q25-full-alpha-YYYYMMDD.zip` from
+[Releases](https://github.com/aimindseye/zinwaq25-sableos/releases), then, with
+`adb` and `fastboot` installed and the phone's USB-C cable plugged in:
+
+```bash
+unzip sableos-q25-full-alpha-YYYYMMDD.zip
+cd sableos-q25-full-alpha-YYYYMMDD
+sha256sum -c SHA256SUMS.txt                 # every line must say OK
+adb reboot bootloader
+fastboot flashing unlock                    # erases the phone; confirm on it
+fastboot flash boot boot.img
+fastboot flash dtbo dtbo.img
+fastboot flash vbmeta vbmeta.img
+fastboot flash vendor_boot vendor_boot.img
+fastboot reboot recovery
+# in recovery: Factory reset > Format data, then Apply update > Apply from ADB
+adb sideload sableos-q25-full-*-userdebug.zip
+```
+
+Back up first and read [`docs/FLASHING_RELEASE.md`](docs/FLASHING_RELEASE.md) before
+you start: unlocking erases everything, and this is alpha software you flash at your own risk.
 
 ## Device info
 
@@ -88,7 +114,7 @@ RELEASES=alpha-20261029 (latest), alpha-20261028; GitHub pre-releases made with 
 | Network | 2G/3G/4G LTE, no 5G |
 | Connectivity | Wi-Fi 6 (a/b/g/n/ac/ax), Bluetooth 5.2, NFC, USB-C, 3.5 mm jack, FM |
 | Stock OS | Android 14 |
-| SableOS base | LineageOS 23.2 (Android 16) |
+| SableOS base | LineageOS 23.2 (Android 16 QPR2) |
 
 More: [`docs/DEVICE_INFO.md`](docs/DEVICE_INFO.md).
 
@@ -120,31 +146,36 @@ More: [`docs/DEVICE_INFO.md`](docs/DEVICE_INFO.md).
   the boot menu shows, choose *fastboot*. Or `adb reboot bootloader`.
 * **Recovery:** same key combo, choose *recovery*.
 
-## Quick start (build)
+## Build the image yourself
+
+You need a Linux computer (Ubuntu 22.04 or newer, 32 GB RAM, 300 GB free disk)
+and the Android SDK (platform 36). The package list is in
+[`docs/BUILD.md`](docs/BUILD.md) section 1. No other background is needed.
 
 ```bash
 git clone https://github.com/aimindseye/zinwaq25-sableos
 cd zinwaq25-sableos
-# optional, tree on another disk: export SABLE_BUILD_ROOT=/big/disk/sable-q25
-export ANDROID_HOME=/path/to/android-sdk                          # platform 36, build-tools 36.0.0
-bash build/sable.sh q25 Q4 doctor                                  # check host
-NETWORK_FETCH_AUTHORIZED=YES bash build/sable.sh q25 Q4 bootstrap   # ~200 GB sync
-bash scripts/apply-framework-patches.sh check                      # patches still apply?
-bash build/sable.sh q25 Q4 apps                                    # build Sable APKs (always before stage)
-NETWORK_FETCH_AUTHORIZED=YES bash build/sable.sh q25 Q4 microg      # microG + Aurora APKs
-bash build/sable.sh q25 Q4 stage                                   # Sable layer + framework patches
-bash build/sable.sh q25 Q4 build                                   # build image
-bash build/sable.sh q25 Q4 artifacts                               # hash outputs
-bash build/sable.sh q25 Q4 release                                 # optional: zip + notes for a GitHub pre-release
+export ANDROID_HOME=/path/to/android-sdk
+bash build/sable.sh q25 all --yes
 ```
 
-`Q4` is the full SableOS build: the Sable layer plus the framework layer (Sable
-Start as HOME, Sable Keyboard as the only IME, `patches/framework`, microG unless
-`SABLE_Q25_MICROG=NO`). `Q2` adds only the Sable apps and props on stock LineageOS,
-and `Q1` builds plain `lineage_Q25` (the control image). For those, replace `Q4`
-above and skip `microg`. `stage` packages the APKs already in `apps-out`, so run
-`apps` again after pulling new sources. The Sable app sources are in `sable-src/`
-(see [`apps/README.md`](apps/README.md)). Full guide: [`docs/BUILD.md`](docs/BUILD.md).
+That one command checks your computer and says what is missing, downloads
+LineageOS 23.2 (about 200 GB, first run only), builds the Sable apps, adds the
+Sable layer, builds the image and collects the files. The first run takes many
+hours. If it stops, read the message, fix that, and run the same command again:
+finished steps are reused, and LineageOS and microG that are already downloaded
+are never downloaded twice (`bootstrap --update` forces a new LineageOS sync). Add `--release` to also zip the result for a GitHub
+release. The files end up in `~/sable-q25/artifacts/q25/full/`; to use another
+disk, `export SABLE_BUILD_ROOT=/big/disk/sable-q25` first. Then install them
+with [`docs/INSTALL.md`](docs/INSTALL.md).
+
+Advanced: `bash build/sable.sh q25 <function>` runs one step (`doctor`,
+`bootstrap`, `apps`, `microg`, `stage`, `build`, `artifacts`, `release`). The
+default release `full` is the complete SableOS image. `Q2` (Sable apps on stock
+LineageOS) and `Q1` (plain `lineage_Q25`, the control image) can be put before
+the function, as in `bash build/sable.sh q25 Q1 build`. The Sable app sources are
+in `sable-src/` (see [`apps/README.md`](apps/README.md)). Full guide:
+[`docs/BUILD.md`](docs/BUILD.md).
 
 ## Repository layout
 

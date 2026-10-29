@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Polish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
+<resources>
+    <string name="convert_length">Długość</string>
+    <string name="convert_mass">Masa</string>
+    <string name="convert_temperature">Temperatura</string>
+    <string name="convert_volume">Objętość</string>
+    <string name="convert_millimeters">Milimetry</string>
+    <string name="convert_centimeters">Centymetry</string>
+    <string name="convert_meters">Metry</string>
+    <string name="convert_kilometers">Kilometry</string>
+    <string name="convert_inches">Cale</string>
+    <string name="convert_feet">Stopy</string>
+    <string name="convert_miles">Mile</string>
+    <string name="convert_grams">Gramy</string>
+    <string name="convert_kilograms">Kilogramy</string>
+    <string name="convert_ounces">Uncje</string>
+    <string name="convert_pounds">Funty</string>
+    <string name="convert_celsius">Celsjusz</string>
+    <string name="convert_fahrenheit">Fahrenheit</string>
+    <string name="convert_kelvin">Kelwin</string>
+    <string name="convert_milliliters">Mililitry</string>
+    <string name="convert_liters">Litry</string>
+    <string name="convert_cups">Filiżanki</string>
+    <string name="convert_gallons">Galony</string>
+    <string name="convert_ready">Gotowe</string>
+    <string name="convert_value">Wartość</string>
+    <string name="convert_from">Z</string>
+    <string name="convert_to">Na</string>
+    <string name="convert_convert">Przelicz</string>
+    <string name="convert_enter_a_number_with_up">Wpisz liczbę z maksymalnie trzema miejscami po przecinku</string>
+    <string name="convert_length_mass_temperature_and_volume">Przeliczanie długości, masy, temperatury i objętości odbywa się lokalnie i bez połączenia z siecią.</string>
+    <string name="convert_native_bridge_failure">Błąd interfejsu natywnego</string>
+</resources>

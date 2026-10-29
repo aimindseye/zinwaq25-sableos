@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
+<resources>
+    <string name="convert_length">长度</string>
+    <string name="convert_mass">质量</string>
+    <string name="convert_temperature">温度</string>
+    <string name="convert_volume">体积</string>
+    <string name="convert_millimeters">毫米</string>
+    <string name="convert_centimeters">厘米</string>
+    <string name="convert_meters">米</string>
+    <string name="convert_kilometers">千米</string>
+    <string name="convert_inches">英寸</string>
+    <string name="convert_feet">英尺</string>
+    <string name="convert_miles">英里</string>
+    <string name="convert_grams">克</string>
+    <string name="convert_kilograms">千克</string>
+    <string name="convert_ounces">盎司</string>
+    <string name="convert_pounds">磅</string>
+    <string name="convert_celsius">摄氏度</string>
+    <string name="convert_fahrenheit">华氏度</string>
+    <string name="convert_kelvin">开尔文</string>
+    <string name="convert_milliliters">毫升</string>
+    <string name="convert_liters">升</string>
+    <string name="convert_cups">杯</string>
+    <string name="convert_gallons">加仑</string>
+    <string name="convert_ready">就绪</string>
+    <string name="convert_value">数值</string>
+    <string name="convert_from">原单位</string>
+    <string name="convert_to">目标单位</string>
+    <string name="convert_convert">换算</string>
+    <string name="convert_enter_a_number_with_up">输入小数点后最多三位的数字</string>
+    <string name="convert_length_mass_temperature_and_volume">长度、质量、温度和体积的换算均在设备本地离线完成。</string>
+    <string name="convert_native_bridge_failure">原生接口故障</string>
+</resources>

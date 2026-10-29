@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dutch. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (KeyboardTextTest checks). -->
+<resources>
+    <string name="one_entry_per_line_shortcut">Eén item per regel: afkorting=vervanging, bijvoorbeeld brb=be right back. Een afkorting is één woord van letters of cijfers. Je items werken in elke taal en vervangen een ingebouwd item met dezelfde afkorting. In een vervanging is %D de datum, %T de tijd en %V het buildnummer. Backspace direct na een uitbreiding zet terug wat je typte.</string>
+    <string name="save">Opslaan</string>
+    <string name="saved_entries">%1$s items opgeslagen</string>
+    <string name="lines_skipped_not_shortcut_replacement">; %1$s regels overgeslagen (niet afkorting=vervanging)</string>
+    <string name="built_in_english_typing_language">Ingebouwd (Engelse typtaal)</string>
+    <string name="turn_on_clipboard_history_in">Schakel de klembordgeschiedenis in bij de instellingen van Sable Keyboard</string>
+    <string name="unlock_to_use_clipboard_history">Ontgrendel om de klembordgeschiedenis te gebruiken</string>
+    <string name="nav_mode_on_alt_space">Navigatiemodus aan (Alt+Space om te stoppen)</string>
+    <string name="nav_mode_off">Navigatiemodus uit</string>
+    <string name="enable_more_languages_in_settings">Schakel meer talen in via Instellingen &gt; Toetsenbord &gt; Sable</string>
+    <string name="auto_capitalise_sentences">Zinnen automatisch met hoofdletter beginnen</string>
+    <string name="double_space_inserts_period">Dubbele spatie voegt een punt in</string>
+    <string name="autotext_dont_becomes_don_t">AutoText (dont wordt don\'t, ld de datum)</string>
+    <string name="long_press_a_letter_for">Houd een letter ingedrukt voor het Alt-teken</string>
+    <string name="letters_type_digits_in_numeric">Letters typen cijfers in numerieke velden</string>
+    <string name="nav_mode_ijkl_arrows_enabled">Navigatiemodus (IJKL-pijlen) ingeschakeld</string>
+    <string name="alt_space_toggles_nav_mode">Alt+Space schakelt de navigatiemodus om</string>
+    <string name="show_on_screen_keyboard_for">Schermtoetsenbord tonen voor numerieke velden en pincodevelden</string>
+    <string name="always_show_on_screen_keyboard">Schermtoetsenbord altijd tonen</string>
+    <string name="compact_status_strip_when_the">Compacte statusbalk wanneer het schermtoetsenbord is verborgen</string>
+    <string name="enter_sends_in_apps_that">Enter verstuurt in apps met een Verzend-knop (Shift+Enter: nieuwe regel)</string>
+    <string name="clipboard_history_alt_shift_v">Klembordgeschiedenis (Alt+Shift+V; alleen in het geheugen bewaard, nooit opgeslagen)</string>
+    <string name="clear_clipboard_history">Klembordgeschiedenis wissen</string>
+    <string name="clipboard_history_cleared">Klembordgeschiedenis gewist</string>
+    <string name="autotext_entries">AutoText-items</string>
+    <string name="key_event_probe_diagnostic">Toetsgebeurtenissonde (diagnostiek)</string>
+    <string name="sable_keyboard">Sable Keyboard</string>
+    <string name="layout_provisional_until_key_legends">Indeling: voorlopig totdat de toetsopschriften op dit apparaat zijn vastgelegd.</string>
+    <string name="space">spatie · %1$s%2$s</string>
+    <string name="alternate">%1$s, alternatief %2$s</string>
+    <string name="clipboard_empty">Klembord leeg</string>
+    <string name="input_method_settings">Instellingen voor invoermethode</string>
+    <string name="keyboard_picker">Toetsenbordkiezer</string>
+    <string name="sable_keyboard_is_the_selected">Sable Keyboard is het geselecteerde toetsenbord.</string>
+    <string name="another_keyboard_is_selected_your">Een ander toetsenbord is geselecteerd. Je keuze blijft behouden; Sable Keyboard wijzigt die nooit voor je.</string>
+    <string name="sable_keyboard_is_not_enabled">Sable Keyboard is nog niet ingeschakeld.</string>
+    <string name="could_not_read_which_keyboard">Kan niet lezen welk toetsenbord is geselecteerd.</string>
+    <string name="could_not_open_not_available">Kan %1$s niet openen: niet beschikbaar op dit apparaat.</string>
+    <string name="could_not_open_blocked_by">Kan %1$s niet openen: geblokkeerd door het systeem.</string>
+    <string name="could_not_open">Kan %1$s niet openen.</string>
+</resources>

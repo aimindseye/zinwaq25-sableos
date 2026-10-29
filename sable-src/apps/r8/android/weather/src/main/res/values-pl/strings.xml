@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Polish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
+<resources>
+    <string name="city_or_name_lat_lon">miasto albo nazwa, szerokość, długość, obszar/strefa</string>
+    <string name="no_match_enter_name_latitude">Brak wyników. Wpisz nazwę, szerokość i długość geograficzną oraz obszar/strefę.</string>
+    <string name="remove">Usunąć %1$s?</string>
+    <string name="reset_to_the_built_in">Przywrócić wbudowane miasta? Dodane miasta zostaną usunięte.</string>
+    <string name="current_manual_city">bieżące · miasto wybrane ręcznie</string>
+    <string name="add_city">dodaj miasto</string>
+    <string name="type_a_name_or_press">wpisz nazwę lub naciśnij dowolną literę</string>
+    <string name="reset_to_built_in_cities">przywróć wbudowane miasta</string>
+    <string name="refreshing_forecast">Aktualizowanie prognozy…</string>
+    <string name="loading_forecast">wczytywanie prognozy</string>
+    <string name="forecast_unavailable">prognoza niedostępna</string>
+    <string name="weather_ready">pogoda gotowa</string>
+    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · lokalna pamięć podręczna · przybliżona lokalizacja lub wybrane miasto · dokładna lokalizacja nigdy nie jest używana</string>
+    <string name="use_current_location">Użyj bieżącej lokalizacji</string>
+    <string name="finding_where_you_are">Ustalanie Twojej lokalizacji…</string>
+    <string name="off_showing_the_chosen_city">Wyłączone: wyświetlane jest wybrane miasto</string>
+    <string name="feels_like">"odczuwalna "</string>
+    <string name="next_hours">najbliższe godziny</string>
+    <string name="n7_days">7 dni</string>
+    <string name="live">" · na żywo"</string>
+    <string name="cached">" · z pamięci podręcznej"</string>
+    <string name="fetching">" · pobieranie"</string>
+    <string name="unavailable">" · niedostępne"</string>
+    <string name="local">" · lokalne"</string>
+    <string name="partly_cloudy">częściowe zachmurzenie</string>
+    <string name="conditions_unavailable">warunki niedostępne</string>
+    <string name="forecast_not_loaded_yet">Prognoza nie została jeszcze wczytana.</string>
+    <string name="refresh_to_load_the_forecast">Odśwież, aby wczytać prognozę.</string>
+    <string name="cached_forecast_could_not_be">Nie udało się odczytać prognozy z pamięci podręcznej.</string>
+    <string name="forecast_is_current">Prognoza jest aktualna.</string>
+    <string name="showing_cached_forecast">Wyświetlanie prognozy z pamięci podręcznej.</string>
+    <string name="forecast_available">Prognoza dostępna.</string>
+    <string name="offline_showing_last_known_forecast">Offline · wyświetlana jest ostatnia znana prognoza.</string>
+    <string name="forecast_unavailable_check_the_connection">Prognoza niedostępna. Sprawdź połączenie i spróbuj ponownie.</string>
+    <string name="provider_response_could_not_be">Nie udało się znormalizować odpowiedzi dostawcy.</string>
+    <string name="updated_from_open_meteo">Zaktualizowano z Open-Meteo.</string>
+</resources>

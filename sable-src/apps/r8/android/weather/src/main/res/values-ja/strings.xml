@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Japanese. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
+<resources>
+    <string name="city_or_name_lat_lon">都市、または名前、緯度、経度、地域／タイムゾーン</string>
+    <string name="no_match_enter_name_latitude">一致する結果がありません。名前、緯度、経度、地域／タイムゾーンを入力してください。</string>
+    <string name="remove">%1$s を削除しますか？</string>
+    <string name="reset_to_the_built_in">標準の都市に戻しますか？追加した都市は削除されます。</string>
+    <string name="current_manual_city">現在 · 手動設定の都市</string>
+    <string name="add_city">都市を追加</string>
+    <string name="type_a_name_or_press">名前を入力するか、任意の文字キーを押してください</string>
+    <string name="reset_to_built_in_cities">標準の都市に戻す</string>
+    <string name="refreshing_forecast">天気予報を更新中…</string>
+    <string name="loading_forecast">天気予報を読み込み中</string>
+    <string name="forecast_unavailable">天気予報を利用できません</string>
+    <string name="weather_ready">天気情報の準備完了</string>
+    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · ローカルにキャッシュ · おおよその位置または選択した都市 · 正確な位置情報は使用しません</string>
+    <string name="use_current_location">現在地を使用</string>
+    <string name="finding_where_you_are">現在地を確認中…</string>
+    <string name="off_showing_the_chosen_city">オフ：選択した都市を表示</string>
+    <string name="feels_like">"体感温度 "</string>
+    <string name="next_hours">今後数時間</string>
+    <string name="n7_days">7日間</string>
+    <string name="live">" · リアルタイム"</string>
+    <string name="cached">" · キャッシュ済み"</string>
+    <string name="fetching">" · 取得中"</string>
+    <string name="unavailable">" · 利用不可"</string>
+    <string name="local">" · ローカル"</string>
+    <string name="partly_cloudy">晴れ時々曇り</string>
+    <string name="conditions_unavailable">天候情報を利用できません</string>
+    <string name="forecast_not_loaded_yet">天気予報はまだ読み込まれていません。</string>
+    <string name="refresh_to_load_the_forecast">更新して天気予報を読み込んでください。</string>
+    <string name="cached_forecast_could_not_be">キャッシュされた天気予報を読み取れませんでした。</string>
+    <string name="forecast_is_current">天気予報は最新です。</string>
+    <string name="showing_cached_forecast">キャッシュされた天気予報を表示しています。</string>
+    <string name="forecast_available">天気予報を利用できます。</string>
+    <string name="offline_showing_last_known_forecast">オフライン · 最後に取得した天気予報を表示しています。</string>
+    <string name="forecast_unavailable_check_the_connection">天気予報を利用できません。接続を確認して再試行してください。</string>
+    <string name="provider_response_could_not_be">提供元の応答を必要な形式に変換できませんでした。</string>
+    <string name="updated_from_open_meteo">Open-Meteo から更新しました。</string>
+</resources>

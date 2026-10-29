@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (KeyboardTextTest checks). -->
+<resources>
+    <string name="one_entry_per_line_shortcut">Her satırda bir giriş: kısayol=karşılık, örneğin brb=be right back. Kısayol, harf veya rakamlardan oluşan tek bir sözcüktür. Girişleriniz her dilde çalışır ve aynı kısayola sahip yerleşik bir girişin yerini alır. Bir karşılıkta %D tarihi, %T saati, %V ise derleme numarasını gösterir. Bir genişletmeden hemen sonra Geri Sil, yazdığınızı geri getirir.</string>
+    <string name="save">Kaydet</string>
+    <string name="saved_entries">%1$s giriş kaydedildi</string>
+    <string name="lines_skipped_not_shortcut_replacement">; %1$s satır atlandı (kısayol=karşılık biçiminde değil)</string>
+    <string name="built_in_english_typing_language">Yerleşik (İngilizce yazım dili)</string>
+    <string name="turn_on_clipboard_history_in">Pano geçmişini Sable Keyboard ayarlarından açın</string>
+    <string name="unlock_to_use_clipboard_history">Pano geçmişini kullanmak için kilidi açın</string>
+    <string name="nav_mode_on_alt_space">Gezinme modu açık (çıkmak için Alt+Space)</string>
+    <string name="nav_mode_off">Gezinme modu kapalı</string>
+    <string name="enable_more_languages_in_settings">Daha fazla dili Ayarlar &gt; Klavye &gt; Sable bölümünden etkinleştirin</string>
+    <string name="auto_capitalise_sentences">Cümleleri otomatik büyük harfle başlat</string>
+    <string name="double_space_inserts_period">Çift boşluk nokta ekler</string>
+    <string name="autotext_dont_becomes_don_t">AutoText (dont, don\'t olur; ld tarih olur)</string>
+    <string name="long_press_a_letter_for">Alt karakteri için bir harfe uzun basın</string>
+    <string name="letters_type_digits_in_numeric">Sayısal alanlarda harfler rakam yazar</string>
+    <string name="nav_mode_ijkl_arrows_enabled">Gezinme modu (IJKL okları) etkin</string>
+    <string name="alt_space_toggles_nav_mode">Alt+Space gezinme modunu açıp kapatır</string>
+    <string name="show_on_screen_keyboard_for">Sayısal/PIN alanları için ekran klavyesini göster</string>
+    <string name="always_show_on_screen_keyboard">Ekran klavyesini her zaman göster</string>
+    <string name="compact_status_strip_when_the">Ekran klavyesi gizliyken kompakt durum çubuğu</string>
+    <string name="enter_sends_in_apps_that">Gönder sunan uygulamalarda Enter gönderir (Shift+Enter: yeni satır)</string>
+    <string name="clipboard_history_alt_shift_v">Pano geçmişi (Alt+Shift+V; bellekte tutulur, asla kaydedilmez)</string>
+    <string name="clear_clipboard_history">Pano geçmişini temizle</string>
+    <string name="clipboard_history_cleared">Pano geçmişi temizlendi</string>
+    <string name="autotext_entries">AutoText girişleri</string>
+    <string name="key_event_probe_diagnostic">Tuş olayı sondası (tanılama)</string>
+    <string name="sable_keyboard">Sable Keyboard</string>
+    <string name="layout_provisional_until_key_legends">Düzen: tuş etiketleri bu cihazda yakalanana kadar geçici.</string>
+    <string name="space">boşluk · %1$s%2$s</string>
+    <string name="alternate">%1$s, alternatif %2$s</string>
+    <string name="clipboard_empty">Pano boş</string>
+    <string name="input_method_settings">Giriş yöntemi ayarları</string>
+    <string name="keyboard_picker">Klavye seçici</string>
+    <string name="sable_keyboard_is_the_selected">Sable Keyboard seçili klavyedir.</string>
+    <string name="another_keyboard_is_selected_your">Başka bir klavye seçili. Seçiminiz korunur; Sable Keyboard onu sizin yerinize asla değiştirmez.</string>
+    <string name="sable_keyboard_is_not_enabled">Sable Keyboard henüz etkinleştirilmedi.</string>
+    <string name="could_not_read_which_keyboard">Hangi klavyenin seçili olduğu okunamadı.</string>
+    <string name="could_not_open_not_available">%1$s açılamadı: bu cihazda kullanılamıyor.</string>
+    <string name="could_not_open_blocked_by">%1$s açılamadı: sistem tarafından engellendi.</string>
+    <string name="could_not_open">%1$s açılamadı.</string>
+</resources>

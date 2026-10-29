@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dutch. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
+<resources>
+    <string name="convert_length">Lengte</string>
+    <string name="convert_mass">Massa</string>
+    <string name="convert_temperature">Temperatuur</string>
+    <string name="convert_volume">Volume</string>
+    <string name="convert_millimeters">Millimeter</string>
+    <string name="convert_centimeters">Centimeter</string>
+    <string name="convert_meters">Meter</string>
+    <string name="convert_kilometers">Kilometer</string>
+    <string name="convert_inches">Inch</string>
+    <string name="convert_feet">Voet</string>
+    <string name="convert_miles">Mijl</string>
+    <string name="convert_grams">Gram</string>
+    <string name="convert_kilograms">Kilogram</string>
+    <string name="convert_ounces">Ounces (oz)</string>
+    <string name="convert_pounds">Ponden (lb)</string>
+    <string name="convert_celsius">Celsius</string>
+    <string name="convert_fahrenheit">Fahrenheit</string>
+    <string name="convert_kelvin">Kelvin</string>
+    <string name="convert_milliliters">Milliliter</string>
+    <string name="convert_liters">Liter</string>
+    <string name="convert_cups">Kopjes</string>
+    <string name="convert_gallons">Gallons</string>
+    <string name="convert_ready">Gereed</string>
+    <string name="convert_value">Waarde</string>
+    <string name="convert_from">Van</string>
+    <string name="convert_to">Naar</string>
+    <string name="convert_convert">Omrekenen</string>
+    <string name="convert_enter_a_number_with_up">Voer een getal in met maximaal drie decimalen</string>
+    <string name="convert_length_mass_temperature_and_volume">Omrekeningen van lengte, massa, temperatuur en volume worden lokaal en offline uitgevoerd.</string>
+    <string name="convert_native_bridge_failure">Fout in de native interface</string>
+</resources>

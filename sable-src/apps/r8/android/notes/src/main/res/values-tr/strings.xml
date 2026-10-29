@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (NotesTextTest checks). -->
+<resources>
+    <string name="deleted">“%1$s” silindi</string>
+    <string name="couldn_t_save">“%1$s” kaydedilemedi</string>
+    <string name="share_note">Notu paylaş</string>
+    <string name="exported">“%1$s” dışa aktarıldı</string>
+    <string name="export_failed">Dışa aktarma başarısız</string>
+    <string name="nothing_to_import">İçe aktarılacak bir şey yok</string>
+    <string name="note">Not</string>
+    <string name="no_colour">Renk yok</string>
+    <string name="yellow">Sarı</string>
+    <string name="orange">Turuncu</string>
+    <string name="red">Kırmızı</string>
+    <string name="pink">Pembe</string>
+    <string name="purple">Mor</string>
+    <string name="blue">Mavi</string>
+    <string name="green">Yeşil</string>
+    <string name="empty_note">Boş not</string>
+    <string name="list_item_on_this_line">Bu satırda liste öğesi</string>
+    <string name="tick_or_untick_this_item">Bu öğeyi işaretle veya işaretini kaldır</string>
+    <string name="find_in_note">Notta ara</string>
+    <string name="find_next">Sonrakini bul</string>
+    <string name="colour">Renk</string>
+    <string name="share">Paylaş</string>
+    <string name="export_to_a_file">Dosyaya aktar</string>
+    <string name="delete_note">Notu sil</string>
+    <string name="c_new_s_find_k">C yeni · S ara · K görevler · L renk · D sil</string>
+    <string name="menu_list_item_tick_find">Menu: liste öğesi, işaretle, ara, renk, paylaş · Geri kaydeder</string>
+    <string name="enter_tick_o_open_note">Enter işaretler · O notu açar · H tamamlananlar · Geri</string>
+    <string name="type_your_note_the_first">Notunu yaz. İlk satır başlıktır.</string>
+    <string name="change_colour_now">Rengi değiştir, şu an %1$s</string>
+    <string name="edited">Düzenlendi %1$s%2$s</string>
+    <string name="note_actions_menu_key">Not işlemleri (Menu tuşu)</string>
+    <string name="find_in_this_note_enter">Bu notta ara · Enter sonuca gider</string>
+    <string name="not_in_this_note">Bu notta yok</string>
+    <string name="notes">Notlar</string>
+    <string name="new_label">Yeni</string>
+    <string name="no_notes_yet_press_c">Henüz not yok. Yazmak için C\'ye, metin dosyası içe aktarmak için I\'ya bas.</string>
+    <string name="no_note_matches">Eşleşen not yok.</string>
+    <string name="c_new_i_import_k">C yeni · I içe aktar · K görevler</string>
+    <string name="one_note">1 not</string>
+    <string name="note_count">%1$s not</string>
+    <string name="open_tasks">%1$s · %2$s açık görev</string>
+    <string name="find_in_notes_enter_opens">Notlarda ara · Enter açar</string>
+    <string name="tasks">Görevler</string>
+    <string name="open_showing_done_items">%1$s açık · tamamlananlar gösteriliyor</string>
+    <string name="open">%1$s açık</string>
+    <string name="hide_done">Tamamlananları gizle</string>
+    <string name="show_done">Tamamlananları göster</string>
+    <string name="no_open_tasks_in_a">Açık görev yok. Bir notta Menu\'ye, sonra L\'ye basarak bir satırı denetim listesi öğesine çevir.</string>
+    <string name="delete_note_question">Not silinsin mi?</string>
+    <string name="will_be_deleted_from_this">“%1$s” bu telefondan silinecek.</string>
+    <string name="delete">Sil</string>
+    <string name="keep">Sakla</string>
+</resources>

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (VaultLinesTest checks). -->
+<resources>
+    <string name="read_error">error de lectura</string>
+    <string name="no_access">" (sin acceso"</string>
+    <string name="partial_copy_left">; queda una copia parcial</string>
+    <string name="cancelled_nothing_changed">Cancelado. No se cambió nada.</string>
+    <string name="deleted">%1$s eliminado.</string>
+    <string name="could_not_delete">No se pudo eliminar %1$s.</string>
+    <string name="deleted_of_original_s_any">Se eliminaron %1$s de %2$s originales. Los que no se eliminaron siguen donde estaban.</string>
+    <string name="open_with">Abrir %1$s con</string>
+    <string name="opened_read_only_this_file">%1$s abierto (solo lectura, solo este archivo).</string>
+    <string name="no_app_in_private_space">Ninguna app de Private Space puede abrir %1$s.</string>
+    <string name="the_system_file_picker_is">El selector de archivos del sistema no está disponible.</string>
+    <string name="exported_a_copy_of_it">Se exportó una copia de %1$s. Ya no está protegida por la bóveda.</string>
+    <string name="export_failed_nothing_was_written">No se pudo exportar. No se escribió nada.</string>
+    <string name="could">No se pudo</string>
+    <string name="cancelled">Cancelado</string>
+    <string name="no_app">Ninguna app</string>
+    <string name="not_available">no está disponible</string>
+    <string name="yes">Sí</string>
+    <string name="no">No</string>
+    <string name="import_label">Importar</string>
+    <string name="export">Exportar</string>
+    <string name="lock_now">Bloquear ahora</string>
+    <string name="photos">Fotos</string>
+    <string name="documents">Documentos</string>
+    <string name="recordings">Grabaciones</string>
+    <string name="file_or_p_d_r">↑↓ archivo · ←→ o P D R sección · Enter abrir · I importar · E exportar · X eliminar · L bloquear ahora</string>
+    <string name="open">¿Abrir %1$s?</string>
+    <string name="the_app_you_pick_inside">La app que elijas (dentro de Private Space) puede leer este archivo hasta que lo cierre. Enter o Y abre · Atrás o N cancela.</string>
+    <string name="export_2">¿Exportar %1$s?</string>
+    <string name="a_copy_is_written_where">Se escribe una copia donde elijas a continuación y deja de estar protegida por la bóveda. La copia de la bóveda se conserva. Enter o Y continúa · Atrás o N cancela.</string>
+    <string name="delete_from_the_vault">¿Eliminar %1$s de la bóveda?</string>
+    <string name="it_cannot_be_recovered_enter">No se puede recuperar. Enter o Y elimina · Atrás o N cancela.</string>
+    <string name="imported_file_s_as_copies">Se importaron %1$s archivos como copias. ¿Eliminar los originales?</string>
+    <string name="the_originals_are_still_where">Los originales siguen donde estaban. Enter o Y los elimina · Atrás o N los conserva.</string>
+    <string name="imported_file_s_as_copies_2">Se importaron %1$s archivos como copias.</string>
+    <string name="could_not_import">" No se pudo importar: "</string>
+    <string name="secure_vault">Secure Vault</string>
+    <string name="private_space_photos_documents_recordings">Private Space · Fotos · Documentos · Grabaciones · importar y exportar solo de forma explícita</string>
+    <string name="secure_vault_works_only_inside">Secure Vault solo funciona dentro de Private Space. Desbloquea Private Space en Sable Start (Todas las apps) y abre allí Secure Vault. No se guarda nada fuera.</string>
+    <string name="nothing_here_yet_press_i">Aún no hay nada. Pulsa I para importar una copia de un archivo.</string>
+    <string name="could_not_lock_private_space">No se pudo bloquear Private Space desde aquí; bloquéalo desde Sable Start. La bóveda se cerró.</string>
+</resources>

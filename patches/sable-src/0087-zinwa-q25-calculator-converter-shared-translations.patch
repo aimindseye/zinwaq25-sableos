@@ -1,0 +1,1458 @@
+diff --git a/sable-src/apps/r8/android/calculator/src/main/res/values-ar/strings.xml b/sable-src/apps/r8/android/calculator/src/main/res/values-ar/strings.xml
+new file mode 100644
+index 0000000..638883a
+--- /dev/null
++++ b/sable-src/apps/r8/android/calculator/src/main/res/values-ar/strings.xml
+@@ -0,0 +1,16 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Arabic. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
++<resources>
++    <string name="basic">أساسية</string>
++    <string name="scientific">علمية</string>
++    <string name="convert">تحويل</string>
++    <string name="basic_scientific_and_conversion_tools">أدوات الحساب الأساسية والعلمية وتحويل الوحدات في تطبيق واحد.</string>
++    <string name="exact_result">نتيجة دقيقة</string>
++    <string name="choose_an_operation_first">اختر عملية أولًا.</string>
++    <string name="degrees_for_trigonometry">%1$s · الدرجات للحسابات المثلثية</string>
++    <string name="scientific_operations_and_the_core">تُنفَّذ العمليات العلمية والحسابات الأساسية عبر محرّك الآلة الحاسبة الأصلي.</string>
++    <string name="results_are_not_silently_rounded">لا تُقرَّب النتائج تلقائيًا إلى قيم الفاصلة العائمة.</string>
++    <string name="scientific_functions_use_degrees">تستخدم الدوال العلمية الدرجات.</string>
++    <string name="exact_decimal_results_never_rounded">نتائج عشرية دقيقة دون تقريب.</string>
++    <string name="native_bridge_failure">فشل الواجهة الأصلية</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/calculator/src/main/res/values-de/strings.xml b/sable-src/apps/r8/android/calculator/src/main/res/values-de/strings.xml
+new file mode 100644
+index 0000000..e3f8581
+--- /dev/null
++++ b/sable-src/apps/r8/android/calculator/src/main/res/values-de/strings.xml
+@@ -0,0 +1,16 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- German. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
++<resources>
++    <string name="basic">Standard</string>
++    <string name="scientific">Wissenschaftlich</string>
++    <string name="convert">Umrechnen</string>
++    <string name="basic_scientific_and_conversion_tools">Grundrechenarten, wissenschaftliche Funktionen und Umrechnungen in einer App.</string>
++    <string name="exact_result">Exaktes Ergebnis</string>
++    <string name="choose_an_operation_first">Wähle zuerst eine Rechenoperation.</string>
++    <string name="degrees_for_trigonometry">%1$s · Grad für trigonometrische Funktionen</string>
++    <string name="scientific_operations_and_the_core">Wissenschaftliche Funktionen und grundlegende Rechenoperationen werden in der nativen Rechnerkomponente ausgeführt.</string>
++    <string name="results_are_not_silently_rounded">Ergebnisse werden nicht unbemerkt in Gleitkommawerte gerundet.</string>
++    <string name="scientific_functions_use_degrees">Wissenschaftliche Funktionen verwenden Grad.</string>
++    <string name="exact_decimal_results_never_rounded">Exakte Dezimalergebnisse ohne Rundung.</string>
++    <string name="native_bridge_failure">Fehler der nativen Schnittstelle</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/calculator/src/main/res/values-el/strings.xml b/sable-src/apps/r8/android/calculator/src/main/res/values-el/strings.xml
+new file mode 100644
+index 0000000..e90b7dd
+--- /dev/null
++++ b/sable-src/apps/r8/android/calculator/src/main/res/values-el/strings.xml
+@@ -0,0 +1,16 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Greek. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
++<resources>
++    <string name="basic">Βασική</string>
++    <string name="scientific">Επιστημονική</string>
++    <string name="convert">Μετατροπή</string>
++    <string name="basic_scientific_and_conversion_tools">Βασικοί και επιστημονικοί υπολογισμοί και μετατροπές σε μία εφαρμογή.</string>
++    <string name="exact_result">Ακριβές αποτέλεσμα</string>
++    <string name="choose_an_operation_first">Επιλέξτε πρώτα μια πράξη.</string>
++    <string name="degrees_for_trigonometry">%1$s · μοίρες για τριγωνομετρία</string>
++    <string name="scientific_operations_and_the_core">Οι επιστημονικές πράξεις και οι βασικοί αριθμητικοί υπολογισμοί εκτελούνται από την εγγενή μηχανή της αριθμομηχανής.</string>
++    <string name="results_are_not_silently_rounded">Τα αποτελέσματα δεν στρογγυλοποιούνται αυτόματα σε τιμές κινητής υποδιαστολής.</string>
++    <string name="scientific_functions_use_degrees">Οι επιστημονικές συναρτήσεις χρησιμοποιούν μοίρες.</string>
++    <string name="exact_decimal_results_never_rounded">Ακριβή δεκαδικά αποτελέσματα χωρίς στρογγυλοποίηση.</string>
++    <string name="native_bridge_failure">Αποτυχία εγγενούς διεπαφής</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/calculator/src/main/res/values-es/strings.xml b/sable-src/apps/r8/android/calculator/src/main/res/values-es/strings.xml
+new file mode 100644
+index 0000000..aa70e85
+--- /dev/null
++++ b/sable-src/apps/r8/android/calculator/src/main/res/values-es/strings.xml
+@@ -0,0 +1,16 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Spanish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
++<resources>
++    <string name="basic">Básica</string>
++    <string name="scientific">Científica</string>
++    <string name="convert">Convertir</string>
++    <string name="basic_scientific_and_conversion_tools">Herramientas básicas, científicas y de conversión en una sola aplicación.</string>
++    <string name="exact_result">Resultado exacto</string>
++    <string name="choose_an_operation_first">Elige primero una operación.</string>
++    <string name="degrees_for_trigonometry">%1$s · grados para trigonometría</string>
++    <string name="scientific_operations_and_the_core">Las operaciones científicas y los cálculos aritméticos básicos se ejecutan mediante el motor nativo de la calculadora.</string>
++    <string name="results_are_not_silently_rounded">Los resultados no se redondean automáticamente a valores de coma flotante.</string>
++    <string name="scientific_functions_use_degrees">Las funciones científicas utilizan grados.</string>
++    <string name="exact_decimal_results_never_rounded">Resultados decimales exactos, sin redondeo.</string>
++    <string name="native_bridge_failure">Error de la interfaz nativa</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/calculator/src/main/res/values-fr/strings.xml b/sable-src/apps/r8/android/calculator/src/main/res/values-fr/strings.xml
+new file mode 100644
+index 0000000..87403f6
+--- /dev/null
++++ b/sable-src/apps/r8/android/calculator/src/main/res/values-fr/strings.xml
+@@ -0,0 +1,16 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- French. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
++<resources>
++    <string name="basic">Standard</string>
++    <string name="scientific">Scientifique</string>
++    <string name="convert">Convertir</string>
++    <string name="basic_scientific_and_conversion_tools">Outils de calcul standard, scientifique et de conversion dans une seule application.</string>
++    <string name="exact_result">Résultat exact</string>
++    <string name="choose_an_operation_first">Choisissez d’abord une opération.</string>
++    <string name="degrees_for_trigonometry">%1$s · degrés pour la trigonométrie</string>
++    <string name="scientific_operations_and_the_core">Les opérations scientifiques et les calculs arithmétiques de base sont exécutés par le moteur natif de la calculatrice.</string>
++    <string name="results_are_not_silently_rounded">Les résultats ne sont pas arrondis automatiquement en nombres à virgule flottante.</string>
++    <string name="scientific_functions_use_degrees">Les fonctions scientifiques utilisent les degrés.</string>
++    <string name="exact_decimal_results_never_rounded">Résultats décimaux exacts, sans arrondi.</string>
++    <string name="native_bridge_failure">Échec de l’interface native</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/calculator/src/main/res/values-hi/strings.xml b/sable-src/apps/r8/android/calculator/src/main/res/values-hi/strings.xml
+new file mode 100644
+index 0000000..8cecca7
+--- /dev/null
++++ b/sable-src/apps/r8/android/calculator/src/main/res/values-hi/strings.xml
+@@ -0,0 +1,16 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Hindi. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
++<resources>
++    <string name="basic">सामान्य</string>
++    <string name="scientific">वैज्ञानिक</string>
++    <string name="convert">रूपांतरित करें</string>
++    <string name="basic_scientific_and_conversion_tools">सामान्य गणना, वैज्ञानिक गणना और इकाई रूपांतरण एक ही ऐप में।</string>
++    <string name="exact_result">सटीक परिणाम</string>
++    <string name="choose_an_operation_first">पहले कोई गणना चुनें।</string>
++    <string name="degrees_for_trigonometry">%1$s · त्रिकोणमिति के लिए डिग्री</string>
++    <string name="scientific_operations_and_the_core">वैज्ञानिक गणनाएँ और मूल अंकगणितीय प्रक्रियाएँ कैलकुलेटर के मूल इंजन में चलती हैं।</string>
++    <string name="results_are_not_silently_rounded">परिणामों को चुपचाप फ़्लोटिंग-पॉइंट मानों में पूर्णांकित नहीं किया जाता।</string>
++    <string name="scientific_functions_use_degrees">वैज्ञानिक फ़ंक्शन डिग्री का उपयोग करते हैं।</string>
++    <string name="exact_decimal_results_never_rounded">बिना पूर्णांकन के सटीक दशमलव परिणाम।</string>
++    <string name="native_bridge_failure">मूल इंटरफ़ेस विफल हुआ</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/calculator/src/main/res/values-it/strings.xml b/sable-src/apps/r8/android/calculator/src/main/res/values-it/strings.xml
+new file mode 100644
+index 0000000..e1621a5
+--- /dev/null
++++ b/sable-src/apps/r8/android/calculator/src/main/res/values-it/strings.xml
+@@ -0,0 +1,16 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Italian. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
++<resources>
++    <string name="basic">Base</string>
++    <string name="scientific">Scientifica</string>
++    <string name="convert">Converti</string>
++    <string name="basic_scientific_and_conversion_tools">Strumenti di calcolo base, scientifico e di conversione in un’unica app.</string>
++    <string name="exact_result">Risultato esatto</string>
++    <string name="choose_an_operation_first">Scegli prima un’operazione.</string>
++    <string name="degrees_for_trigonometry">%1$s · gradi per la trigonometria</string>
++    <string name="scientific_operations_and_the_core">Le operazioni scientifiche e i calcoli aritmetici di base vengono eseguiti dal motore nativo della calcolatrice.</string>
++    <string name="results_are_not_silently_rounded">I risultati non vengono arrotondati automaticamente a valori in virgola mobile.</string>
++    <string name="scientific_functions_use_degrees">Le funzioni scientifiche usano i gradi.</string>
++    <string name="exact_decimal_results_never_rounded">Risultati decimali esatti, senza arrotondamenti.</string>
++    <string name="native_bridge_failure">Errore dell’interfaccia nativa</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/calculator/src/main/res/values-iw/strings.xml b/sable-src/apps/r8/android/calculator/src/main/res/values-iw/strings.xml
+new file mode 100644
+index 0000000..1c635dc
+--- /dev/null
++++ b/sable-src/apps/r8/android/calculator/src/main/res/values-iw/strings.xml
+@@ -0,0 +1,16 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Hebrew. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
++<resources>
++    <string name="basic">בסיסי</string>
++    <string name="scientific">מדעי</string>
++    <string name="convert">המרה</string>
++    <string name="basic_scientific_and_conversion_tools">חישוב בסיסי ומדעי והמרת יחידות באפליקציה אחת.</string>
++    <string name="exact_result">תוצאה מדויקת</string>
++    <string name="choose_an_operation_first">יש לבחור תחילה פעולה.</string>
++    <string name="degrees_for_trigonometry">%1$s · מעלות לחישובים טריגונומטריים</string>
++    <string name="scientific_operations_and_the_core">פעולות מדעיות וחישובים בסיסיים מתבצעים במנוע המובנה של המחשבון.</string>
++    <string name="results_are_not_silently_rounded">התוצאות אינן מעוגלות אוטומטית לערכי נקודה צפה.</string>
++    <string name="scientific_functions_use_degrees">הפונקציות המדעיות משתמשות במעלות.</string>
++    <string name="exact_decimal_results_never_rounded">תוצאות עשרוניות מדויקות, ללא עיגול.</string>
++    <string name="native_bridge_failure">כשל בממשק המקומי</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/calculator/src/main/res/values-ja/strings.xml b/sable-src/apps/r8/android/calculator/src/main/res/values-ja/strings.xml
+new file mode 100644
+index 0000000..9f81e71
+--- /dev/null
++++ b/sable-src/apps/r8/android/calculator/src/main/res/values-ja/strings.xml
+@@ -0,0 +1,16 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Japanese. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
++<resources>
++    <string name="basic">基本</string>
++    <string name="scientific">関数</string>
++    <string name="convert">変換</string>
++    <string name="basic_scientific_and_conversion_tools">基本計算、関数計算、単位変換を1つのアプリで利用できます。</string>
++    <string name="exact_result">正確な結果</string>
++    <string name="choose_an_operation_first">先に計算方法を選択してください。</string>
++    <string name="degrees_for_trigonometry">%1$s · 三角関数には度数法を使用</string>
++    <string name="scientific_operations_and_the_core">関数計算と基本的な四則演算は、電卓のネイティブエンジンで実行されます。</string>
++    <string name="results_are_not_silently_rounded">計算結果が浮動小数点数に自動的に丸められることはありません。</string>
++    <string name="scientific_functions_use_degrees">関数計算には度数法を使用します。</string>
++    <string name="exact_decimal_results_never_rounded">丸め処理を行わない正確な小数結果です。</string>
++    <string name="native_bridge_failure">ネイティブ連携エラー</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/calculator/src/main/res/values-ko/strings.xml b/sable-src/apps/r8/android/calculator/src/main/res/values-ko/strings.xml
+new file mode 100644
+index 0000000..3c7f0f1
+--- /dev/null
++++ b/sable-src/apps/r8/android/calculator/src/main/res/values-ko/strings.xml
+@@ -0,0 +1,16 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Korean. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
++<resources>
++    <string name="basic">기본</string>
++    <string name="scientific">공학용</string>
++    <string name="convert">변환</string>
++    <string name="basic_scientific_and_conversion_tools">기본 계산, 과학 계산, 단위 변환 기능을 하나의 앱에서 이용하세요.</string>
++    <string name="exact_result">정확한 결과</string>
++    <string name="choose_an_operation_first">먼저 연산을 선택하세요.</string>
++    <string name="degrees_for_trigonometry">%1$s · 삼각함수에 도 단위 사용</string>
++    <string name="scientific_operations_and_the_core">과학 연산과 기본 산술 계산은 계산기의 네이티브 엔진에서 실행됩니다.</string>
++    <string name="results_are_not_silently_rounded">결과를 부동 소수점 값으로 임의 반올림하지 않습니다.</string>
++    <string name="scientific_functions_use_degrees">과학 함수에는 도 단위가 사용됩니다.</string>
++    <string name="exact_decimal_results_never_rounded">반올림하지 않은 정확한 소수 결과입니다.</string>
++    <string name="native_bridge_failure">네이티브 인터페이스 오류</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/calculator/src/main/res/values-nl/strings.xml b/sable-src/apps/r8/android/calculator/src/main/res/values-nl/strings.xml
+new file mode 100644
+index 0000000..873ddb5
+--- /dev/null
++++ b/sable-src/apps/r8/android/calculator/src/main/res/values-nl/strings.xml
+@@ -0,0 +1,16 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Dutch. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
++<resources>
++    <string name="basic">Standaard</string>
++    <string name="scientific">Wetenschappelijk</string>
++    <string name="convert">Omrekenen</string>
++    <string name="basic_scientific_and_conversion_tools">Standaardberekeningen, wetenschappelijke functies en omrekeningen in één app.</string>
++    <string name="exact_result">Exact resultaat</string>
++    <string name="choose_an_operation_first">Kies eerst een bewerking.</string>
++    <string name="degrees_for_trigonometry">%1$s · graden voor goniometrie</string>
++    <string name="scientific_operations_and_the_core">Wetenschappelijke functies en elementaire berekeningen worden uitgevoerd door de ingebouwde rekenmodule.</string>
++    <string name="results_are_not_silently_rounded">Resultaten worden niet ongemerkt afgerond tot drijvendekommagetallen.</string>
++    <string name="scientific_functions_use_degrees">Wetenschappelijke functies gebruiken graden.</string>
++    <string name="exact_decimal_results_never_rounded">Exacte decimale resultaten, zonder afronding.</string>
++    <string name="native_bridge_failure">Fout in de native interface</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/calculator/src/main/res/values-pl/strings.xml b/sable-src/apps/r8/android/calculator/src/main/res/values-pl/strings.xml
+new file mode 100644
+index 0000000..dadfb81
+--- /dev/null
++++ b/sable-src/apps/r8/android/calculator/src/main/res/values-pl/strings.xml
+@@ -0,0 +1,16 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Polish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
++<resources>
++    <string name="basic">Podstawowy</string>
++    <string name="scientific">Naukowy</string>
++    <string name="convert">Przelicz</string>
++    <string name="basic_scientific_and_conversion_tools">Działania podstawowe, naukowe i przeliczanie jednostek w jednej aplikacji.</string>
++    <string name="exact_result">Dokładny wynik</string>
++    <string name="choose_an_operation_first">Najpierw wybierz działanie.</string>
++    <string name="degrees_for_trigonometry">%1$s · stopnie w trygonometrii</string>
++    <string name="scientific_operations_and_the_core">Działania naukowe i podstawowe obliczenia arytmetyczne wykonuje natywny moduł kalkulatora.</string>
++    <string name="results_are_not_silently_rounded">Wyniki nie są automatycznie zaokrąglane do wartości zmiennoprzecinkowych.</string>
++    <string name="scientific_functions_use_degrees">Funkcje naukowe używają stopni.</string>
++    <string name="exact_decimal_results_never_rounded">Dokładne wyniki dziesiętne bez zaokrąglania.</string>
++    <string name="native_bridge_failure">Błąd interfejsu natywnego</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/calculator/src/main/res/values-pt/strings.xml b/sable-src/apps/r8/android/calculator/src/main/res/values-pt/strings.xml
+new file mode 100644
+index 0000000..020bdb6
+--- /dev/null
++++ b/sable-src/apps/r8/android/calculator/src/main/res/values-pt/strings.xml
+@@ -0,0 +1,16 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Portuguese (Brazil). Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
++<resources>
++    <string name="basic">Básica</string>
++    <string name="scientific">Científica</string>
++    <string name="convert">Converter</string>
++    <string name="basic_scientific_and_conversion_tools">Ferramentas básicas, científicas e de conversão em um só aplicativo.</string>
++    <string name="exact_result">Resultado exato</string>
++    <string name="choose_an_operation_first">Escolha uma operação primeiro.</string>
++    <string name="degrees_for_trigonometry">%1$s · graus para trigonometria</string>
++    <string name="scientific_operations_and_the_core">As operações científicas e os cálculos aritméticos básicos são executados pelo mecanismo nativo da calculadora.</string>
++    <string name="results_are_not_silently_rounded">Os resultados não são arredondados automaticamente para valores de ponto flutuante.</string>
++    <string name="scientific_functions_use_degrees">As funções científicas usam graus.</string>
++    <string name="exact_decimal_results_never_rounded">Resultados decimais exatos, sem arredondamento.</string>
++    <string name="native_bridge_failure">Falha na interface nativa</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/calculator/src/main/res/values-ru/strings.xml b/sable-src/apps/r8/android/calculator/src/main/res/values-ru/strings.xml
+new file mode 100644
+index 0000000..a480ef2
+--- /dev/null
++++ b/sable-src/apps/r8/android/calculator/src/main/res/values-ru/strings.xml
+@@ -0,0 +1,16 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Russian. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
++<resources>
++    <string name="basic">Обычный</string>
++    <string name="scientific">Инженерный</string>
++    <string name="convert">Перевести</string>
++    <string name="basic_scientific_and_conversion_tools">Обычные и инженерные вычисления и перевод единиц в одном приложении.</string>
++    <string name="exact_result">Точный результат</string>
++    <string name="choose_an_operation_first">Сначала выберите операцию.</string>
++    <string name="degrees_for_trigonometry">%1$s · градусы для тригонометрии</string>
++    <string name="scientific_operations_and_the_core">Инженерные операции и основные арифметические вычисления выполняются встроенным движком калькулятора.</string>
++    <string name="results_are_not_silently_rounded">Результаты не округляются незаметно до значений с плавающей запятой.</string>
++    <string name="scientific_functions_use_degrees">Тригонометрические функции используют градусы.</string>
++    <string name="exact_decimal_results_never_rounded">Точные десятичные результаты без округления.</string>
++    <string name="native_bridge_failure">Сбой нативного интерфейса</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/calculator/src/main/res/values-sv/strings.xml b/sable-src/apps/r8/android/calculator/src/main/res/values-sv/strings.xml
+new file mode 100644
+index 0000000..0754ff9
+--- /dev/null
++++ b/sable-src/apps/r8/android/calculator/src/main/res/values-sv/strings.xml
+@@ -0,0 +1,16 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Swedish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
++<resources>
++    <string name="basic">Grundläggande</string>
++    <string name="scientific">Vetenskaplig</string>
++    <string name="convert">Konvertera</string>
++    <string name="basic_scientific_and_conversion_tools">Grundläggande och vetenskaplig beräkning samt enhetsomvandling i en app.</string>
++    <string name="exact_result">Exakt resultat</string>
++    <string name="choose_an_operation_first">Välj en räkneoperation först.</string>
++    <string name="degrees_for_trigonometry">%1$s · grader för trigonometri</string>
++    <string name="scientific_operations_and_the_core">Vetenskapliga funktioner och grundläggande aritmetik körs i räknarens inbyggda motor.</string>
++    <string name="results_are_not_silently_rounded">Resultaten avrundas inte automatiskt till flyttal.</string>
++    <string name="scientific_functions_use_degrees">Vetenskapliga funktioner använder grader.</string>
++    <string name="exact_decimal_results_never_rounded">Exakta decimalresultat utan avrundning.</string>
++    <string name="native_bridge_failure">Fel i det inbyggda gränssnittet</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/calculator/src/main/res/values-tr/strings.xml b/sable-src/apps/r8/android/calculator/src/main/res/values-tr/strings.xml
+new file mode 100644
+index 0000000..1204cfd
+--- /dev/null
++++ b/sable-src/apps/r8/android/calculator/src/main/res/values-tr/strings.xml
+@@ -0,0 +1,16 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Turkish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
++<resources>
++    <string name="basic">Temel</string>
++    <string name="scientific">Bilimsel</string>
++    <string name="convert">Dönüştür</string>
++    <string name="basic_scientific_and_conversion_tools">Temel işlemler, bilimsel hesaplamalar ve birim dönüştürme araçları tek uygulamada.</string>
++    <string name="exact_result">Kesin sonuç</string>
++    <string name="choose_an_operation_first">Önce bir işlem seçin.</string>
++    <string name="degrees_for_trigonometry">%1$s · trigonometrik hesaplamalarda derece</string>
++    <string name="scientific_operations_and_the_core">Bilimsel işlemler ve temel aritmetik hesaplamalar yerel hesap makinesi motorunda yürütülür.</string>
++    <string name="results_are_not_silently_rounded">Sonuçlar sessizce kayan noktalı değerlere yuvarlanmaz.</string>
++    <string name="scientific_functions_use_degrees">Bilimsel işlevlerde derece kullanılır.</string>
++    <string name="exact_decimal_results_never_rounded">Yuvarlanmamış kesin ondalık sonuçlar.</string>
++    <string name="native_bridge_failure">Yerel arayüz hatası</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/calculator/src/main/res/values-ur/strings.xml b/sable-src/apps/r8/android/calculator/src/main/res/values-ur/strings.xml
+new file mode 100644
+index 0000000..6150c59
+--- /dev/null
++++ b/sable-src/apps/r8/android/calculator/src/main/res/values-ur/strings.xml
+@@ -0,0 +1,16 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Urdu. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
++<resources>
++    <string name="basic">بنیادی</string>
++    <string name="scientific">سائنسی</string>
++    <string name="convert">تبدیل کریں</string>
++    <string name="basic_scientific_and_conversion_tools">بنیادی اور سائنسی حساب اور اکائیوں کی تبدیلی ایک ہی ایپ میں۔</string>
++    <string name="exact_result">بالکل درست نتیجہ</string>
++    <string name="choose_an_operation_first">پہلے کوئی عمل منتخب کریں۔</string>
++    <string name="degrees_for_trigonometry">%1$s · مثلثی حساب کے لیے درجے</string>
++    <string name="scientific_operations_and_the_core">سائنسی عمل اور بنیادی حساب کتاب کیلکولیٹر کے مقامی انجن میں انجام پاتے ہیں۔</string>
++    <string name="results_are_not_silently_rounded">نتائج کو خودکار طور پر فلوٹنگ پوائنٹ اعداد میں گول نہیں کیا جاتا۔</string>
++    <string name="scientific_functions_use_degrees">سائنسی افعال درجے استعمال کرتے ہیں۔</string>
++    <string name="exact_decimal_results_never_rounded">بالکل درست اعشاری نتائج، بغیر گول کیے۔</string>
++    <string name="native_bridge_failure">مقامی انٹرفیس ناکام ہو گیا</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/calculator/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/r8/android/calculator/src/main/res/values-zh-rCN/strings.xml
+new file mode 100644
+index 0000000..4e95e6f
+--- /dev/null
++++ b/sable-src/apps/r8/android/calculator/src/main/res/values-zh-rCN/strings.xml
+@@ -0,0 +1,16 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Simplified Chinese. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CalculatorTextTest checks). -->
++<resources>
++    <string name="basic">基础</string>
++    <string name="scientific">科学</string>
++    <string name="convert">换算</string>
++    <string name="basic_scientific_and_conversion_tools">一款应用集成基础计算、科学计算与单位换算工具。</string>
++    <string name="exact_result">精确结果</string>
++    <string name="choose_an_operation_first">请先选择运算。</string>
++    <string name="degrees_for_trigonometry">%1$s · 三角函数使用角度制</string>
++    <string name="scientific_operations_and_the_core">科学运算和基本算术计算由计算器的原生引擎执行。</string>
++    <string name="results_are_not_silently_rounded">结果不会被自动舍入为浮点数。</string>
++    <string name="scientific_functions_use_degrees">科学函数使用角度制。</string>
++    <string name="exact_decimal_results_never_rounded">精确的小数结果，不进行舍入。</string>
++    <string name="native_bridge_failure">原生接口故障</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/convert/src/main/res/values-ar/strings.xml b/sable-src/apps/r8/android/convert/src/main/res/values-ar/strings.xml
+new file mode 100644
+index 0000000..25acdcc
+--- /dev/null
++++ b/sable-src/apps/r8/android/convert/src/main/res/values-ar/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Arabic. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
++<resources>
++    <string name="convert_length">الطول</string>
++    <string name="convert_mass">الكتلة</string>
++    <string name="convert_temperature">درجة الحرارة</string>
++    <string name="convert_volume">الحجم</string>
++    <string name="convert_millimeters">ملليمترات</string>
++    <string name="convert_centimeters">سنتيمترات</string>
++    <string name="convert_meters">أمتار</string>
++    <string name="convert_kilometers">كيلومترات</string>
++    <string name="convert_inches">بوصات</string>
++    <string name="convert_feet">أقدام</string>
++    <string name="convert_miles">أميال</string>
++    <string name="convert_grams">غرامات</string>
++    <string name="convert_kilograms">كيلوغرامات</string>
++    <string name="convert_ounces">أونصات</string>
++    <string name="convert_pounds">أرطال</string>
++    <string name="convert_celsius">مئوية</string>
++    <string name="convert_fahrenheit">فهرنهايت</string>
++    <string name="convert_kelvin">كلفن</string>
++    <string name="convert_milliliters">ملليلترات</string>
++    <string name="convert_liters">لترات</string>
++    <string name="convert_cups">أكواب</string>
++    <string name="convert_gallons">غالونات</string>
++    <string name="convert_ready">جاهز</string>
++    <string name="convert_value">القيمة</string>
++    <string name="convert_from">من</string>
++    <string name="convert_to">إلى</string>
++    <string name="convert_convert">تحويل</string>
++    <string name="convert_enter_a_number_with_up">أدخل رقمًا يحتوي على ثلاثة منازل عشرية كحد أقصى</string>
++    <string name="convert_length_mass_temperature_and_volume">تُجرى تحويلات الطول والكتلة ودرجة الحرارة والحجم محليًا دون اتصال بالإنترنت.</string>
++    <string name="convert_native_bridge_failure">فشل الواجهة الأصلية</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/convert/src/main/res/values-de/strings.xml b/sable-src/apps/r8/android/convert/src/main/res/values-de/strings.xml
+new file mode 100644
+index 0000000..fe3a7c4
+--- /dev/null
++++ b/sable-src/apps/r8/android/convert/src/main/res/values-de/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- German. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
++<resources>
++    <string name="convert_length">Länge</string>
++    <string name="convert_mass">Masse</string>
++    <string name="convert_temperature">Temperatur</string>
++    <string name="convert_volume">Volumen</string>
++    <string name="convert_millimeters">Millimeter</string>
++    <string name="convert_centimeters">Zentimeter</string>
++    <string name="convert_meters">Meter</string>
++    <string name="convert_kilometers">Kilometer</string>
++    <string name="convert_inches">Zoll</string>
++    <string name="convert_feet">Fuß</string>
++    <string name="convert_miles">Meilen</string>
++    <string name="convert_grams">Gramm</string>
++    <string name="convert_kilograms">Kilogramm</string>
++    <string name="convert_ounces">Unzen</string>
++    <string name="convert_pounds">Pfund</string>
++    <string name="convert_celsius">Celsius</string>
++    <string name="convert_fahrenheit">Fahrenheit</string>
++    <string name="convert_kelvin">Kelvin</string>
++    <string name="convert_milliliters">Milliliter</string>
++    <string name="convert_liters">Liter</string>
++    <string name="convert_cups">Tassen</string>
++    <string name="convert_gallons">Gallonen</string>
++    <string name="convert_ready">Bereit</string>
++    <string name="convert_value">Wert</string>
++    <string name="convert_from">Von</string>
++    <string name="convert_to">Nach</string>
++    <string name="convert_convert">Umrechnen</string>
++    <string name="convert_enter_a_number_with_up">Zahl mit bis zu drei Nachkommastellen eingeben</string>
++    <string name="convert_length_mass_temperature_and_volume">Umrechnungen von Länge, Masse, Temperatur und Volumen erfolgen lokal und offline.</string>
++    <string name="convert_native_bridge_failure">Fehler der nativen Schnittstelle</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/convert/src/main/res/values-el/strings.xml b/sable-src/apps/r8/android/convert/src/main/res/values-el/strings.xml
+new file mode 100644
+index 0000000..af12a00
+--- /dev/null
++++ b/sable-src/apps/r8/android/convert/src/main/res/values-el/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Greek. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
++<resources>
++    <string name="convert_length">Μήκος</string>
++    <string name="convert_mass">Μάζα</string>
++    <string name="convert_temperature">Θερμοκρασία</string>
++    <string name="convert_volume">Όγκος</string>
++    <string name="convert_millimeters">Χιλιοστά</string>
++    <string name="convert_centimeters">Εκατοστά</string>
++    <string name="convert_meters">Μέτρα</string>
++    <string name="convert_kilometers">Χιλιόμετρα</string>
++    <string name="convert_inches">Ίντσες</string>
++    <string name="convert_feet">Πόδια</string>
++    <string name="convert_miles">Μίλια</string>
++    <string name="convert_grams">Γραμμάρια</string>
++    <string name="convert_kilograms">Κιλά</string>
++    <string name="convert_ounces">Ουγγιές</string>
++    <string name="convert_pounds">Λίβρες</string>
++    <string name="convert_celsius">Κελσίου</string>
++    <string name="convert_fahrenheit">Φαρενάιτ</string>
++    <string name="convert_kelvin">Κέλβιν</string>
++    <string name="convert_milliliters">Χιλιοστόλιτρα</string>
++    <string name="convert_liters">Λίτρα</string>
++    <string name="convert_cups">Φλιτζάνια</string>
++    <string name="convert_gallons">Γαλόνια</string>
++    <string name="convert_ready">Έτοιμο</string>
++    <string name="convert_value">Τιμή</string>
++    <string name="convert_from">Από</string>
++    <string name="convert_to">Σε</string>
++    <string name="convert_convert">Μετατροπή</string>
++    <string name="convert_enter_a_number_with_up">Εισαγάγετε αριθμό με έως τρία δεκαδικά ψηφία</string>
++    <string name="convert_length_mass_temperature_and_volume">Οι μετατροπές μήκους, μάζας, θερμοκρασίας και όγκου γίνονται τοπικά και χωρίς σύνδεση.</string>
++    <string name="convert_native_bridge_failure">Αποτυχία εγγενούς διεπαφής</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/convert/src/main/res/values-es/strings.xml b/sable-src/apps/r8/android/convert/src/main/res/values-es/strings.xml
+new file mode 100644
+index 0000000..40dffb7
+--- /dev/null
++++ b/sable-src/apps/r8/android/convert/src/main/res/values-es/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Spanish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
++<resources>
++    <string name="convert_length">Longitud</string>
++    <string name="convert_mass">Masa</string>
++    <string name="convert_temperature">Temperatura</string>
++    <string name="convert_volume">Volumen</string>
++    <string name="convert_millimeters">Milímetros</string>
++    <string name="convert_centimeters">Centímetros</string>
++    <string name="convert_meters">Metros</string>
++    <string name="convert_kilometers">Kilómetros</string>
++    <string name="convert_inches">Pulgadas</string>
++    <string name="convert_feet">Pies</string>
++    <string name="convert_miles">Millas</string>
++    <string name="convert_grams">Gramos</string>
++    <string name="convert_kilograms">Kilogramos</string>
++    <string name="convert_ounces">Onzas</string>
++    <string name="convert_pounds">Libras</string>
++    <string name="convert_celsius">Celsius</string>
++    <string name="convert_fahrenheit">Fahrenheit</string>
++    <string name="convert_kelvin">Kelvin</string>
++    <string name="convert_milliliters">Mililitros</string>
++    <string name="convert_liters">Litros</string>
++    <string name="convert_cups">Tazas</string>
++    <string name="convert_gallons">Galones</string>
++    <string name="convert_ready">Listo</string>
++    <string name="convert_value">Valor</string>
++    <string name="convert_from">De</string>
++    <string name="convert_to">A</string>
++    <string name="convert_convert">Convertir</string>
++    <string name="convert_enter_a_number_with_up">Introduce un número con hasta tres decimales</string>
++    <string name="convert_length_mass_temperature_and_volume">Las conversiones de longitud, masa, temperatura y volumen se realizan localmente y sin conexión.</string>
++    <string name="convert_native_bridge_failure">Error de la interfaz nativa</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/convert/src/main/res/values-fr/strings.xml b/sable-src/apps/r8/android/convert/src/main/res/values-fr/strings.xml
+new file mode 100644
+index 0000000..01f0cab
+--- /dev/null
++++ b/sable-src/apps/r8/android/convert/src/main/res/values-fr/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- French. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
++<resources>
++    <string name="convert_length">Longueur</string>
++    <string name="convert_mass">Masse</string>
++    <string name="convert_temperature">Température</string>
++    <string name="convert_volume">Volume</string>
++    <string name="convert_millimeters">Millimètres</string>
++    <string name="convert_centimeters">Centimètres</string>
++    <string name="convert_meters">Mètres</string>
++    <string name="convert_kilometers">Kilomètres</string>
++    <string name="convert_inches">Pouces</string>
++    <string name="convert_feet">Pieds</string>
++    <string name="convert_miles">Miles</string>
++    <string name="convert_grams">Grammes</string>
++    <string name="convert_kilograms">Kilogrammes</string>
++    <string name="convert_ounces">Onces</string>
++    <string name="convert_pounds">Livres</string>
++    <string name="convert_celsius">Celsius</string>
++    <string name="convert_fahrenheit">Fahrenheit</string>
++    <string name="convert_kelvin">Kelvin</string>
++    <string name="convert_milliliters">Millilitres</string>
++    <string name="convert_liters">Litres</string>
++    <string name="convert_cups">Tasses</string>
++    <string name="convert_gallons">Gallons</string>
++    <string name="convert_ready">Prêt</string>
++    <string name="convert_value">Valeur</string>
++    <string name="convert_from">De</string>
++    <string name="convert_to">Vers</string>
++    <string name="convert_convert">Convertir</string>
++    <string name="convert_enter_a_number_with_up">Saisissez un nombre avec trois décimales au maximum</string>
++    <string name="convert_length_mass_temperature_and_volume">Les conversions de longueur, de masse, de température et de volume sont effectuées sur l’appareil, hors ligne.</string>
++    <string name="convert_native_bridge_failure">Échec de l’interface native</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/convert/src/main/res/values-hi/strings.xml b/sable-src/apps/r8/android/convert/src/main/res/values-hi/strings.xml
+new file mode 100644
+index 0000000..b985a3b
+--- /dev/null
++++ b/sable-src/apps/r8/android/convert/src/main/res/values-hi/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Hindi. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
++<resources>
++    <string name="convert_length">लंबाई</string>
++    <string name="convert_mass">द्रव्यमान</string>
++    <string name="convert_temperature">तापमान</string>
++    <string name="convert_volume">आयतन</string>
++    <string name="convert_millimeters">मिलीमीटर</string>
++    <string name="convert_centimeters">सेंटीमीटर</string>
++    <string name="convert_meters">मीटर</string>
++    <string name="convert_kilometers">किलोमीटर</string>
++    <string name="convert_inches">इंच</string>
++    <string name="convert_feet">फ़ुट</string>
++    <string name="convert_miles">मील</string>
++    <string name="convert_grams">ग्राम</string>
++    <string name="convert_kilograms">किलोग्राम</string>
++    <string name="convert_ounces">औंस</string>
++    <string name="convert_pounds">पाउंड</string>
++    <string name="convert_celsius">सेल्सियस</string>
++    <string name="convert_fahrenheit">फ़ारेनहाइट</string>
++    <string name="convert_kelvin">केल्विन</string>
++    <string name="convert_milliliters">मिलीलीटर</string>
++    <string name="convert_liters">लीटर</string>
++    <string name="convert_cups">कप</string>
++    <string name="convert_gallons">गैलन</string>
++    <string name="convert_ready">तैयार</string>
++    <string name="convert_value">मान</string>
++    <string name="convert_from">से</string>
++    <string name="convert_to">में</string>
++    <string name="convert_convert">रूपांतरित करें</string>
++    <string name="convert_enter_a_number_with_up">अधिकतम तीन दशमलव स्थानों वाली संख्या दर्ज करें</string>
++    <string name="convert_length_mass_temperature_and_volume">लंबाई, द्रव्यमान, तापमान और आयतन का रूपांतरण डिवाइस पर ऑफ़लाइन किया जाता है।</string>
++    <string name="convert_native_bridge_failure">मूल इंटरफ़ेस विफल हुआ</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/convert/src/main/res/values-it/strings.xml b/sable-src/apps/r8/android/convert/src/main/res/values-it/strings.xml
+new file mode 100644
+index 0000000..28561d0
+--- /dev/null
++++ b/sable-src/apps/r8/android/convert/src/main/res/values-it/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Italian. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
++<resources>
++    <string name="convert_length">Lunghezza</string>
++    <string name="convert_mass">Massa</string>
++    <string name="convert_temperature">Temperatura</string>
++    <string name="convert_volume">Volume</string>
++    <string name="convert_millimeters">Millimetri</string>
++    <string name="convert_centimeters">Centimetri</string>
++    <string name="convert_meters">Metri</string>
++    <string name="convert_kilometers">Chilometri</string>
++    <string name="convert_inches">Pollici</string>
++    <string name="convert_feet">Piedi</string>
++    <string name="convert_miles">Miglia</string>
++    <string name="convert_grams">Grammi</string>
++    <string name="convert_kilograms">Chilogrammi</string>
++    <string name="convert_ounces">Once</string>
++    <string name="convert_pounds">Libbre</string>
++    <string name="convert_celsius">Celsius</string>
++    <string name="convert_fahrenheit">Fahrenheit</string>
++    <string name="convert_kelvin">Kelvin</string>
++    <string name="convert_milliliters">Millilitri</string>
++    <string name="convert_liters">Litri</string>
++    <string name="convert_cups">Tazze</string>
++    <string name="convert_gallons">Galloni</string>
++    <string name="convert_ready">Pronto</string>
++    <string name="convert_value">Valore</string>
++    <string name="convert_from">Da</string>
++    <string name="convert_to">A</string>
++    <string name="convert_convert">Converti</string>
++    <string name="convert_enter_a_number_with_up">Inserisci un numero con un massimo di tre cifre decimali</string>
++    <string name="convert_length_mass_temperature_and_volume">Le conversioni di lunghezza, massa, temperatura e volume vengono eseguite sul dispositivo, senza connessione.</string>
++    <string name="convert_native_bridge_failure">Errore dell’interfaccia nativa</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/convert/src/main/res/values-iw/strings.xml b/sable-src/apps/r8/android/convert/src/main/res/values-iw/strings.xml
+new file mode 100644
+index 0000000..c9d9081
+--- /dev/null
++++ b/sable-src/apps/r8/android/convert/src/main/res/values-iw/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Hebrew. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
++<resources>
++    <string name="convert_length">אורך</string>
++    <string name="convert_mass">מסה</string>
++    <string name="convert_temperature">טמפרטורה</string>
++    <string name="convert_volume">נפח</string>
++    <string name="convert_millimeters">מילימטרים</string>
++    <string name="convert_centimeters">סנטימטרים</string>
++    <string name="convert_meters">מטרים</string>
++    <string name="convert_kilometers">קילומטרים</string>
++    <string name="convert_inches">אינצ׳ים</string>
++    <string name="convert_feet">רגל</string>
++    <string name="convert_miles">מיילים</string>
++    <string name="convert_grams">גרמים</string>
++    <string name="convert_kilograms">קילוגרמים</string>
++    <string name="convert_ounces">אונקיות</string>
++    <string name="convert_pounds">ליברות</string>
++    <string name="convert_celsius">צלזיוס</string>
++    <string name="convert_fahrenheit">פרנהייט</string>
++    <string name="convert_kelvin">קלווין</string>
++    <string name="convert_milliliters">מיליליטרים</string>
++    <string name="convert_liters">ליטרים</string>
++    <string name="convert_cups">כוסות</string>
++    <string name="convert_gallons">גלונים</string>
++    <string name="convert_ready">מוכן</string>
++    <string name="convert_value">ערך</string>
++    <string name="convert_from">מ־</string>
++    <string name="convert_to">ל־</string>
++    <string name="convert_convert">המרה</string>
++    <string name="convert_enter_a_number_with_up">יש להזין מספר עם עד שלוש ספרות אחרי הנקודה העשרונית</string>
++    <string name="convert_length_mass_temperature_and_volume">המרות אורך, מסה, טמפרטורה ונפח מתבצעות במכשיר ללא חיבור לאינטרנט.</string>
++    <string name="convert_native_bridge_failure">כשל בממשק המקומי</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/convert/src/main/res/values-ja/strings.xml b/sable-src/apps/r8/android/convert/src/main/res/values-ja/strings.xml
+new file mode 100644
+index 0000000..2741eea
+--- /dev/null
++++ b/sable-src/apps/r8/android/convert/src/main/res/values-ja/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Japanese. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
++<resources>
++    <string name="convert_length">長さ</string>
++    <string name="convert_mass">質量</string>
++    <string name="convert_temperature">温度</string>
++    <string name="convert_volume">体積</string>
++    <string name="convert_millimeters">ミリメートル</string>
++    <string name="convert_centimeters">センチメートル</string>
++    <string name="convert_meters">メートル</string>
++    <string name="convert_kilometers">キロメートル</string>
++    <string name="convert_inches">インチ</string>
++    <string name="convert_feet">フィート</string>
++    <string name="convert_miles">マイル</string>
++    <string name="convert_grams">グラム</string>
++    <string name="convert_kilograms">キログラム</string>
++    <string name="convert_ounces">オンス</string>
++    <string name="convert_pounds">ポンド</string>
++    <string name="convert_celsius">摂氏</string>
++    <string name="convert_fahrenheit">華氏</string>
++    <string name="convert_kelvin">ケルビン</string>
++    <string name="convert_milliliters">ミリリットル</string>
++    <string name="convert_liters">リットル</string>
++    <string name="convert_cups">カップ</string>
++    <string name="convert_gallons">ガロン</string>
++    <string name="convert_ready">準備完了</string>
++    <string name="convert_value">値</string>
++    <string name="convert_from">変換元</string>
++    <string name="convert_to">変換先</string>
++    <string name="convert_convert">変換</string>
++    <string name="convert_enter_a_number_with_up">小数点以下3桁までの数値を入力してください</string>
++    <string name="convert_length_mass_temperature_and_volume">長さ、質量、温度、体積の変換は端末内でオフライン処理されます。</string>
++    <string name="convert_native_bridge_failure">ネイティブ連携エラー</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/convert/src/main/res/values-ko/strings.xml b/sable-src/apps/r8/android/convert/src/main/res/values-ko/strings.xml
+new file mode 100644
+index 0000000..0eb7e20
+--- /dev/null
++++ b/sable-src/apps/r8/android/convert/src/main/res/values-ko/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Korean. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
++<resources>
++    <string name="convert_length">길이</string>
++    <string name="convert_mass">질량</string>
++    <string name="convert_temperature">온도</string>
++    <string name="convert_volume">부피</string>
++    <string name="convert_millimeters">밀리미터</string>
++    <string name="convert_centimeters">센티미터</string>
++    <string name="convert_meters">미터</string>
++    <string name="convert_kilometers">킬로미터</string>
++    <string name="convert_inches">인치</string>
++    <string name="convert_feet">피트</string>
++    <string name="convert_miles">마일</string>
++    <string name="convert_grams">그램</string>
++    <string name="convert_kilograms">킬로그램</string>
++    <string name="convert_ounces">온스</string>
++    <string name="convert_pounds">파운드</string>
++    <string name="convert_celsius">섭씨</string>
++    <string name="convert_fahrenheit">화씨</string>
++    <string name="convert_kelvin">켈빈</string>
++    <string name="convert_milliliters">밀리리터</string>
++    <string name="convert_liters">리터</string>
++    <string name="convert_cups">컵</string>
++    <string name="convert_gallons">갤런</string>
++    <string name="convert_ready">준비됨</string>
++    <string name="convert_value">값</string>
++    <string name="convert_from">변환 전</string>
++    <string name="convert_to">변환 후</string>
++    <string name="convert_convert">변환</string>
++    <string name="convert_enter_a_number_with_up">소수점 아래 최대 세 자리까지 숫자를 입력하세요</string>
++    <string name="convert_length_mass_temperature_and_volume">길이, 질량, 온도, 부피 변환은 기기에서 오프라인으로 처리됩니다.</string>
++    <string name="convert_native_bridge_failure">네이티브 인터페이스 오류</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/convert/src/main/res/values-nl/strings.xml b/sable-src/apps/r8/android/convert/src/main/res/values-nl/strings.xml
+new file mode 100644
+index 0000000..ea9926b
+--- /dev/null
++++ b/sable-src/apps/r8/android/convert/src/main/res/values-nl/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Dutch. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
++<resources>
++    <string name="convert_length">Lengte</string>
++    <string name="convert_mass">Massa</string>
++    <string name="convert_temperature">Temperatuur</string>
++    <string name="convert_volume">Volume</string>
++    <string name="convert_millimeters">Millimeter</string>
++    <string name="convert_centimeters">Centimeter</string>
++    <string name="convert_meters">Meter</string>
++    <string name="convert_kilometers">Kilometer</string>
++    <string name="convert_inches">Inch</string>
++    <string name="convert_feet">Voet</string>
++    <string name="convert_miles">Mijl</string>
++    <string name="convert_grams">Gram</string>
++    <string name="convert_kilograms">Kilogram</string>
++    <string name="convert_ounces">Ounces (oz)</string>
++    <string name="convert_pounds">Ponden (lb)</string>
++    <string name="convert_celsius">Celsius</string>
++    <string name="convert_fahrenheit">Fahrenheit</string>
++    <string name="convert_kelvin">Kelvin</string>
++    <string name="convert_milliliters">Milliliter</string>
++    <string name="convert_liters">Liter</string>
++    <string name="convert_cups">Kopjes</string>
++    <string name="convert_gallons">Gallons</string>
++    <string name="convert_ready">Gereed</string>
++    <string name="convert_value">Waarde</string>
++    <string name="convert_from">Van</string>
++    <string name="convert_to">Naar</string>
++    <string name="convert_convert">Omrekenen</string>
++    <string name="convert_enter_a_number_with_up">Voer een getal in met maximaal drie decimalen</string>
++    <string name="convert_length_mass_temperature_and_volume">Omrekeningen van lengte, massa, temperatuur en volume worden lokaal en offline uitgevoerd.</string>
++    <string name="convert_native_bridge_failure">Fout in de native interface</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/convert/src/main/res/values-pl/strings.xml b/sable-src/apps/r8/android/convert/src/main/res/values-pl/strings.xml
+new file mode 100644
+index 0000000..fd2ec69
+--- /dev/null
++++ b/sable-src/apps/r8/android/convert/src/main/res/values-pl/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Polish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
++<resources>
++    <string name="convert_length">Długość</string>
++    <string name="convert_mass">Masa</string>
++    <string name="convert_temperature">Temperatura</string>
++    <string name="convert_volume">Objętość</string>
++    <string name="convert_millimeters">Milimetry</string>
++    <string name="convert_centimeters">Centymetry</string>
++    <string name="convert_meters">Metry</string>
++    <string name="convert_kilometers">Kilometry</string>
++    <string name="convert_inches">Cale</string>
++    <string name="convert_feet">Stopy</string>
++    <string name="convert_miles">Mile</string>
++    <string name="convert_grams">Gramy</string>
++    <string name="convert_kilograms">Kilogramy</string>
++    <string name="convert_ounces">Uncje</string>
++    <string name="convert_pounds">Funty</string>
++    <string name="convert_celsius">Celsjusz</string>
++    <string name="convert_fahrenheit">Fahrenheit</string>
++    <string name="convert_kelvin">Kelwin</string>
++    <string name="convert_milliliters">Mililitry</string>
++    <string name="convert_liters">Litry</string>
++    <string name="convert_cups">Filiżanki</string>
++    <string name="convert_gallons">Galony</string>
++    <string name="convert_ready">Gotowe</string>
++    <string name="convert_value">Wartość</string>
++    <string name="convert_from">Z</string>
++    <string name="convert_to">Na</string>
++    <string name="convert_convert">Przelicz</string>
++    <string name="convert_enter_a_number_with_up">Wpisz liczbę z maksymalnie trzema miejscami po przecinku</string>
++    <string name="convert_length_mass_temperature_and_volume">Przeliczanie długości, masy, temperatury i objętości odbywa się lokalnie i bez połączenia z siecią.</string>
++    <string name="convert_native_bridge_failure">Błąd interfejsu natywnego</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/convert/src/main/res/values-pt/strings.xml b/sable-src/apps/r8/android/convert/src/main/res/values-pt/strings.xml
+new file mode 100644
+index 0000000..a1b09f2
+--- /dev/null
++++ b/sable-src/apps/r8/android/convert/src/main/res/values-pt/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Portuguese (Brazil). Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
++<resources>
++    <string name="convert_length">Comprimento</string>
++    <string name="convert_mass">Massa</string>
++    <string name="convert_temperature">Temperatura</string>
++    <string name="convert_volume">Volume</string>
++    <string name="convert_millimeters">Milímetros</string>
++    <string name="convert_centimeters">Centímetros</string>
++    <string name="convert_meters">Metros</string>
++    <string name="convert_kilometers">Quilômetros</string>
++    <string name="convert_inches">Polegadas</string>
++    <string name="convert_feet">Pés</string>
++    <string name="convert_miles">Milhas</string>
++    <string name="convert_grams">Gramas</string>
++    <string name="convert_kilograms">Quilogramas</string>
++    <string name="convert_ounces">Onças</string>
++    <string name="convert_pounds">Libras</string>
++    <string name="convert_celsius">Celsius</string>
++    <string name="convert_fahrenheit">Fahrenheit</string>
++    <string name="convert_kelvin">Kelvin</string>
++    <string name="convert_milliliters">Mililitros</string>
++    <string name="convert_liters">Litros</string>
++    <string name="convert_cups">Xícaras</string>
++    <string name="convert_gallons">Galões</string>
++    <string name="convert_ready">Pronto</string>
++    <string name="convert_value">Valor</string>
++    <string name="convert_from">De</string>
++    <string name="convert_to">Para</string>
++    <string name="convert_convert">Converter</string>
++    <string name="convert_enter_a_number_with_up">Digite um número com até três casas decimais</string>
++    <string name="convert_length_mass_temperature_and_volume">As conversões de comprimento, massa, temperatura e volume são feitas no dispositivo, sem conexão.</string>
++    <string name="convert_native_bridge_failure">Falha na interface nativa</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/convert/src/main/res/values-ru/strings.xml b/sable-src/apps/r8/android/convert/src/main/res/values-ru/strings.xml
+new file mode 100644
+index 0000000..c66280c
+--- /dev/null
++++ b/sable-src/apps/r8/android/convert/src/main/res/values-ru/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Russian. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
++<resources>
++    <string name="convert_length">Длина</string>
++    <string name="convert_mass">Масса</string>
++    <string name="convert_temperature">Температура</string>
++    <string name="convert_volume">Объём</string>
++    <string name="convert_millimeters">Миллиметры</string>
++    <string name="convert_centimeters">Сантиметры</string>
++    <string name="convert_meters">Метры</string>
++    <string name="convert_kilometers">Километры</string>
++    <string name="convert_inches">Дюймы</string>
++    <string name="convert_feet">Футы</string>
++    <string name="convert_miles">Мили</string>
++    <string name="convert_grams">Граммы</string>
++    <string name="convert_kilograms">Килограммы</string>
++    <string name="convert_ounces">Унции</string>
++    <string name="convert_pounds">Фунты</string>
++    <string name="convert_celsius">Цельсий</string>
++    <string name="convert_fahrenheit">Фаренгейт</string>
++    <string name="convert_kelvin">Кельвин</string>
++    <string name="convert_milliliters">Миллилитры</string>
++    <string name="convert_liters">Литры</string>
++    <string name="convert_cups">Чашки</string>
++    <string name="convert_gallons">Галлоны</string>
++    <string name="convert_ready">Готово</string>
++    <string name="convert_value">Значение</string>
++    <string name="convert_from">Из</string>
++    <string name="convert_to">В</string>
++    <string name="convert_convert">Перевести</string>
++    <string name="convert_enter_a_number_with_up">Введите число с точностью до трёх знаков после запятой</string>
++    <string name="convert_length_mass_temperature_and_volume">Перевод единиц длины, массы, температуры и объёма выполняется локально без подключения к сети.</string>
++    <string name="convert_native_bridge_failure">Сбой нативного интерфейса</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/convert/src/main/res/values-sv/strings.xml b/sable-src/apps/r8/android/convert/src/main/res/values-sv/strings.xml
+new file mode 100644
+index 0000000..1049b74
+--- /dev/null
++++ b/sable-src/apps/r8/android/convert/src/main/res/values-sv/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Swedish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
++<resources>
++    <string name="convert_length">Längd</string>
++    <string name="convert_mass">Massa</string>
++    <string name="convert_temperature">Temperatur</string>
++    <string name="convert_volume">Volym</string>
++    <string name="convert_millimeters">Millimeter</string>
++    <string name="convert_centimeters">Centimeter</string>
++    <string name="convert_meters">Meter</string>
++    <string name="convert_kilometers">Kilometer</string>
++    <string name="convert_inches">Tum</string>
++    <string name="convert_feet">Fot</string>
++    <string name="convert_miles">Engelska mil</string>
++    <string name="convert_grams">Gram</string>
++    <string name="convert_kilograms">Kilogram</string>
++    <string name="convert_ounces">Uns</string>
++    <string name="convert_pounds">Pund</string>
++    <string name="convert_celsius">Celsius</string>
++    <string name="convert_fahrenheit">Fahrenheit</string>
++    <string name="convert_kelvin">Kelvin</string>
++    <string name="convert_milliliters">Milliliter</string>
++    <string name="convert_liters">Liter</string>
++    <string name="convert_cups">Koppar</string>
++    <string name="convert_gallons">Gallon</string>
++    <string name="convert_ready">Klar</string>
++    <string name="convert_value">Värde</string>
++    <string name="convert_from">Från</string>
++    <string name="convert_to">Till</string>
++    <string name="convert_convert">Konvertera</string>
++    <string name="convert_enter_a_number_with_up">Ange ett tal med högst tre decimaler</string>
++    <string name="convert_length_mass_temperature_and_volume">Omvandling av längd, massa, temperatur och volym görs lokalt och offline.</string>
++    <string name="convert_native_bridge_failure">Fel i det inbyggda gränssnittet</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/convert/src/main/res/values-tr/strings.xml b/sable-src/apps/r8/android/convert/src/main/res/values-tr/strings.xml
+new file mode 100644
+index 0000000..0d97b02
+--- /dev/null
++++ b/sable-src/apps/r8/android/convert/src/main/res/values-tr/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Turkish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
++<resources>
++    <string name="convert_length">Uzunluk</string>
++    <string name="convert_mass">Kütle</string>
++    <string name="convert_temperature">Sıcaklık</string>
++    <string name="convert_volume">Hacim</string>
++    <string name="convert_millimeters">Milimetre</string>
++    <string name="convert_centimeters">Santimetre</string>
++    <string name="convert_meters">Metre</string>
++    <string name="convert_kilometers">Kilometre</string>
++    <string name="convert_inches">İnç</string>
++    <string name="convert_feet">Fit</string>
++    <string name="convert_miles">Mil</string>
++    <string name="convert_grams">Gram</string>
++    <string name="convert_kilograms">Kilogram</string>
++    <string name="convert_ounces">Ons</string>
++    <string name="convert_pounds">Libre</string>
++    <string name="convert_celsius">Santigrat</string>
++    <string name="convert_fahrenheit">Fahrenhayt</string>
++    <string name="convert_kelvin">Kelvin</string>
++    <string name="convert_milliliters">Mililitre</string>
++    <string name="convert_liters">Litre</string>
++    <string name="convert_cups">Bardak</string>
++    <string name="convert_gallons">Galon</string>
++    <string name="convert_ready">Hazır</string>
++    <string name="convert_value">Değer</string>
++    <string name="convert_from">Kaynak birim</string>
++    <string name="convert_to">Hedef birim</string>
++    <string name="convert_convert">Dönüştür</string>
++    <string name="convert_enter_a_number_with_up">En fazla üç ondalık basamak içeren bir sayı girin</string>
++    <string name="convert_length_mass_temperature_and_volume">Uzunluk, kütle, sıcaklık ve hacim dönüşümleri cihazda, çevrimdışı yapılır.</string>
++    <string name="convert_native_bridge_failure">Yerel arayüz hatası</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/convert/src/main/res/values-ur/strings.xml b/sable-src/apps/r8/android/convert/src/main/res/values-ur/strings.xml
+new file mode 100644
+index 0000000..d9ccc52
+--- /dev/null
++++ b/sable-src/apps/r8/android/convert/src/main/res/values-ur/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Urdu. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
++<resources>
++    <string name="convert_length">لمبائی</string>
++    <string name="convert_mass">کمیت</string>
++    <string name="convert_temperature">درجۂ حرارت</string>
++    <string name="convert_volume">حجم</string>
++    <string name="convert_millimeters">ملی میٹر</string>
++    <string name="convert_centimeters">سینٹی میٹر</string>
++    <string name="convert_meters">میٹر</string>
++    <string name="convert_kilometers">کلومیٹر</string>
++    <string name="convert_inches">انچ</string>
++    <string name="convert_feet">فٹ</string>
++    <string name="convert_miles">میل</string>
++    <string name="convert_grams">گرام</string>
++    <string name="convert_kilograms">کلوگرام</string>
++    <string name="convert_ounces">اونس</string>
++    <string name="convert_pounds">پاؤنڈ</string>
++    <string name="convert_celsius">سیلسیئس</string>
++    <string name="convert_fahrenheit">فارن ہائیٹ</string>
++    <string name="convert_kelvin">کیلون</string>
++    <string name="convert_milliliters">ملی لیٹر</string>
++    <string name="convert_liters">لیٹر</string>
++    <string name="convert_cups">کپ</string>
++    <string name="convert_gallons">گیلن</string>
++    <string name="convert_ready">تیار</string>
++    <string name="convert_value">قدر</string>
++    <string name="convert_from">سے</string>
++    <string name="convert_to">میں</string>
++    <string name="convert_convert">تبدیل کریں</string>
++    <string name="convert_enter_a_number_with_up">زیادہ سے زیادہ تین اعشاری مقامات والا عدد درج کریں</string>
++    <string name="convert_length_mass_temperature_and_volume">لمبائی، کمیت، درجۂ حرارت اور حجم کی تبدیلی آلے پر انٹرنیٹ کے بغیر کی جاتی ہے۔</string>
++    <string name="convert_native_bridge_failure">مقامی انٹرفیس ناکام ہو گیا</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/convert/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/r8/android/convert/src/main/res/values-zh-rCN/strings.xml
+new file mode 100644
+index 0000000..f9c97bd
+--- /dev/null
++++ b/sable-src/apps/r8/android/convert/src/main/res/values-zh-rCN/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Simplified Chinese. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
++<resources>
++    <string name="convert_length">长度</string>
++    <string name="convert_mass">质量</string>
++    <string name="convert_temperature">温度</string>
++    <string name="convert_volume">体积</string>
++    <string name="convert_millimeters">毫米</string>
++    <string name="convert_centimeters">厘米</string>
++    <string name="convert_meters">米</string>
++    <string name="convert_kilometers">千米</string>
++    <string name="convert_inches">英寸</string>
++    <string name="convert_feet">英尺</string>
++    <string name="convert_miles">英里</string>
++    <string name="convert_grams">克</string>
++    <string name="convert_kilograms">千克</string>
++    <string name="convert_ounces">盎司</string>
++    <string name="convert_pounds">磅</string>
++    <string name="convert_celsius">摄氏度</string>
++    <string name="convert_fahrenheit">华氏度</string>
++    <string name="convert_kelvin">开尔文</string>
++    <string name="convert_milliliters">毫升</string>
++    <string name="convert_liters">升</string>
++    <string name="convert_cups">杯</string>
++    <string name="convert_gallons">加仑</string>
++    <string name="convert_ready">就绪</string>
++    <string name="convert_value">数值</string>
++    <string name="convert_from">原单位</string>
++    <string name="convert_to">目标单位</string>
++    <string name="convert_convert">换算</string>
++    <string name="convert_enter_a_number_with_up">输入小数点后最多三位的数字</string>
++    <string name="convert_length_mass_temperature_and_volume">长度、质量、温度和体积的换算均在设备本地离线完成。</string>
++    <string name="convert_native_bridge_failure">原生接口故障</string>
++</resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-ar/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-ar/strings.xml
+new file mode 100644
+index 0000000..5bea66c
+--- /dev/null
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-ar/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Arabic. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (DesignTextTest checks). -->
++<resources>
++    <string name="sable_playback_error">خطأ في التشغيل</string>
++    <string name="sable_pause">إيقاف مؤقت</string>
++    <string name="sable_play">تشغيل</string>
++    <string name="sable_t_top_b_bottom_space">T الأعلى · B الأسفل · Space الصفحة · N/P التالي/السابق</string>
++    <string name="sable_more_destinations">وجهات أخرى: %1$s</string>
++    <string name="sable_more_actions">إجراءات أخرى</string>
++    <string name="sable_more_actions_for">إجراءات أخرى لـ %1$s</string>
++    <string name="sable_jump_to">الانتقال إلى %1$s</string>
++    <string name="sable_return_to">العودة إلى %1$s</string>
++</resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-de/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-de/strings.xml
+new file mode 100644
+index 0000000..6d7e5f4
+--- /dev/null
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-de/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- German. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (DesignTextTest checks). -->
++<resources>
++    <string name="sable_playback_error">Wiedergabefehler</string>
++    <string name="sable_pause">Pause</string>
++    <string name="sable_play">Abspielen</string>
++    <string name="sable_t_top_b_bottom_space">T oben · B unten · Space Seite · N/P nächste/vorherige</string>
++    <string name="sable_more_destinations">Weitere Ziele: %1$s</string>
++    <string name="sable_more_actions">Weitere Aktionen</string>
++    <string name="sable_more_actions_for">Weitere Aktionen für %1$s</string>
++    <string name="sable_jump_to">Zu %1$s springen</string>
++    <string name="sable_return_to">Zu %1$s zurückkehren</string>
++</resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-el/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-el/strings.xml
+new file mode 100644
+index 0000000..8cb8a7e
+--- /dev/null
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-el/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Greek. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (DesignTextTest checks). -->
++<resources>
++    <string name="sable_playback_error">σφάλμα αναπαραγωγής</string>
++    <string name="sable_pause">Παύση</string>
++    <string name="sable_play">Αναπαραγωγή</string>
++    <string name="sable_t_top_b_bottom_space">T επάνω · B κάτω · Space σελίδα · N/P επόμενη/προηγούμενη</string>
++    <string name="sable_more_destinations">Περισσότεροι προορισμοί: %1$s</string>
++    <string name="sable_more_actions">Περισσότερες ενέργειες</string>
++    <string name="sable_more_actions_for">Περισσότερες ενέργειες για %1$s</string>
++    <string name="sable_jump_to">Μετάβαση σε %1$s</string>
++    <string name="sable_return_to">Επιστροφή σε %1$s</string>
++</resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-es/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-es/strings.xml
+new file mode 100644
+index 0000000..916c647
+--- /dev/null
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-es/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Spanish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (DesignTextTest checks). -->
++<resources>
++    <string name="sable_playback_error">error de reproducción</string>
++    <string name="sable_pause">Pausar</string>
++    <string name="sable_play">Reproducir</string>
++    <string name="sable_t_top_b_bottom_space">T arriba · B abajo · Space página · N/P siguiente/anterior</string>
++    <string name="sable_more_destinations">Más destinos: %1$s</string>
++    <string name="sable_more_actions">Más acciones</string>
++    <string name="sable_more_actions_for">Más acciones para %1$s</string>
++    <string name="sable_jump_to">Ir a %1$s</string>
++    <string name="sable_return_to">Volver a %1$s</string>
++</resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-fr/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-fr/strings.xml
+new file mode 100644
+index 0000000..749a973
+--- /dev/null
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-fr/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- French. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (DesignTextTest checks). -->
++<resources>
++    <string name="sable_playback_error">erreur de lecture</string>
++    <string name="sable_pause">Pause</string>
++    <string name="sable_play">Lecture</string>
++    <string name="sable_t_top_b_bottom_space">T haut · B bas · Space page · N/P suivant/précédent</string>
++    <string name="sable_more_destinations">Autres destinations : %1$s</string>
++    <string name="sable_more_actions">Plus d’actions</string>
++    <string name="sable_more_actions_for">Plus d’actions pour %1$s</string>
++    <string name="sable_jump_to">Aller à %1$s</string>
++    <string name="sable_return_to">Revenir à %1$s</string>
++</resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-hi/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-hi/strings.xml
+new file mode 100644
+index 0000000..796b75b
+--- /dev/null
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-hi/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Hindi. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (DesignTextTest checks). -->
++<resources>
++    <string name="sable_playback_error">चलाने में त्रुटि</string>
++    <string name="sable_pause">पॉज़ करें</string>
++    <string name="sable_play">चलाएँ</string>
++    <string name="sable_t_top_b_bottom_space">T ऊपर · B नीचे · Space पेज · N/P अगला/पिछला</string>
++    <string name="sable_more_destinations">और गंतव्य: %1$s</string>
++    <string name="sable_more_actions">और कार्रवाइयाँ</string>
++    <string name="sable_more_actions_for">%1$s के लिए और कार्रवाइयाँ</string>
++    <string name="sable_jump_to">%1$s पर जाएँ</string>
++    <string name="sable_return_to">%1$s पर वापस जाएँ</string>
++</resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-it/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-it/strings.xml
+new file mode 100644
+index 0000000..b7fb503
+--- /dev/null
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-it/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Italian. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (DesignTextTest checks). -->
++<resources>
++    <string name="sable_playback_error">errore di riproduzione</string>
++    <string name="sable_pause">Pausa</string>
++    <string name="sable_play">Riproduci</string>
++    <string name="sable_t_top_b_bottom_space">T in alto · B in basso · Space pagina · N/P successiva/precedente</string>
++    <string name="sable_more_destinations">Altre destinazioni: %1$s</string>
++    <string name="sable_more_actions">Altre azioni</string>
++    <string name="sable_more_actions_for">Altre azioni per %1$s</string>
++    <string name="sable_jump_to">Vai a %1$s</string>
++    <string name="sable_return_to">Torna a %1$s</string>
++</resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-iw/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-iw/strings.xml
+new file mode 100644
+index 0000000..666cd94
+--- /dev/null
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-iw/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Hebrew. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (DesignTextTest checks). -->
++<resources>
++    <string name="sable_playback_error">שגיאת ניגון</string>
++    <string name="sable_pause">השהה</string>
++    <string name="sable_play">נגן</string>
++    <string name="sable_t_top_b_bottom_space">T למעלה · B למטה · Space עמוד · N/P הבא/הקודם</string>
++    <string name="sable_more_destinations">יעדים נוספים: %1$s</string>
++    <string name="sable_more_actions">פעולות נוספות</string>
++    <string name="sable_more_actions_for">פעולות נוספות עבור %1$s</string>
++    <string name="sable_jump_to">מעבר אל %1$s</string>
++    <string name="sable_return_to">חזרה אל %1$s</string>
++</resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-ja/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-ja/strings.xml
+new file mode 100644
+index 0000000..657283c
+--- /dev/null
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-ja/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Japanese. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (DesignTextTest checks). -->
++<resources>
++    <string name="sable_playback_error">再生エラー</string>
++    <string name="sable_pause">一時停止</string>
++    <string name="sable_play">再生</string>
++    <string name="sable_t_top_b_bottom_space">T 上端 · B 下端 · Space ページ送り · N/P 次/前</string>
++    <string name="sable_more_destinations">その他の移動先：%1$s</string>
++    <string name="sable_more_actions">その他の操作</string>
++    <string name="sable_more_actions_for">%1$s のその他の操作</string>
++    <string name="sable_jump_to">%1$s に移動</string>
++    <string name="sable_return_to">%1$s に戻る</string>
++</resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-ko/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-ko/strings.xml
+new file mode 100644
+index 0000000..5d5873a
+--- /dev/null
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-ko/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Korean. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (DesignTextTest checks). -->
++<resources>
++    <string name="sable_playback_error">재생 오류</string>
++    <string name="sable_pause">일시정지</string>
++    <string name="sable_play">재생</string>
++    <string name="sable_t_top_b_bottom_space">T 맨 위 · B 맨 아래 · Space 페이지 · N/P 다음/이전</string>
++    <string name="sable_more_destinations">추가 이동 위치: %1$s</string>
++    <string name="sable_more_actions">추가 작업</string>
++    <string name="sable_more_actions_for">%1$s의 추가 작업</string>
++    <string name="sable_jump_to">%1$s(으)로 이동</string>
++    <string name="sable_return_to">%1$s(으)로 돌아가기</string>
++</resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-nl/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-nl/strings.xml
+new file mode 100644
+index 0000000..4828a9d
+--- /dev/null
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-nl/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Dutch. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (DesignTextTest checks). -->
++<resources>
++    <string name="sable_playback_error">afspeelfout</string>
++    <string name="sable_pause">Pauzeren</string>
++    <string name="sable_play">Afspelen</string>
++    <string name="sable_t_top_b_bottom_space">T boven · B onder · Space pagina · N/P volgende/vorige</string>
++    <string name="sable_more_destinations">Meer bestemmingen: %1$s</string>
++    <string name="sable_more_actions">Meer acties</string>
++    <string name="sable_more_actions_for">Meer acties voor %1$s</string>
++    <string name="sable_jump_to">Ga naar %1$s</string>
++    <string name="sable_return_to">Terug naar %1$s</string>
++</resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-pl/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-pl/strings.xml
+new file mode 100644
+index 0000000..04ed7b5
+--- /dev/null
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-pl/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Polish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (DesignTextTest checks). -->
++<resources>
++    <string name="sable_playback_error">błąd odtwarzania</string>
++    <string name="sable_pause">Wstrzymaj</string>
++    <string name="sable_play">Odtwórz</string>
++    <string name="sable_t_top_b_bottom_space">T góra · B dół · Space strona · N/P następna/poprzednia</string>
++    <string name="sable_more_destinations">Więcej miejsc docelowych: %1$s</string>
++    <string name="sable_more_actions">Więcej działań</string>
++    <string name="sable_more_actions_for">Więcej działań dla %1$s</string>
++    <string name="sable_jump_to">Przejdź do %1$s</string>
++    <string name="sable_return_to">Wróć do %1$s</string>
++</resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-pt/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-pt/strings.xml
+new file mode 100644
+index 0000000..7fb8c27
+--- /dev/null
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-pt/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Portuguese (Brazil). Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (DesignTextTest checks). -->
++<resources>
++    <string name="sable_playback_error">erro na reprodução</string>
++    <string name="sable_pause">Pausar</string>
++    <string name="sable_play">Reproduzir</string>
++    <string name="sable_t_top_b_bottom_space">T topo · B base · Space página · N/P próxima/anterior</string>
++    <string name="sable_more_destinations">Mais destinos: %1$s</string>
++    <string name="sable_more_actions">Mais ações</string>
++    <string name="sable_more_actions_for">Mais ações para %1$s</string>
++    <string name="sable_jump_to">Ir para %1$s</string>
++    <string name="sable_return_to">Voltar para %1$s</string>
++</resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-ru/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-ru/strings.xml
+new file mode 100644
+index 0000000..591c99d
+--- /dev/null
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-ru/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Russian. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (DesignTextTest checks). -->
++<resources>
++    <string name="sable_playback_error">ошибка воспроизведения</string>
++    <string name="sable_pause">Пауза</string>
++    <string name="sable_play">Воспроизвести</string>
++    <string name="sable_t_top_b_bottom_space">T вверх · B вниз · Space страница · N/P следующая/предыдущая</string>
++    <string name="sable_more_destinations">Другие места назначения: %1$s</string>
++    <string name="sable_more_actions">Дополнительные действия</string>
++    <string name="sable_more_actions_for">Дополнительные действия для %1$s</string>
++    <string name="sable_jump_to">Перейти к %1$s</string>
++    <string name="sable_return_to">Вернуться к %1$s</string>
++</resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-sv/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-sv/strings.xml
+new file mode 100644
+index 0000000..6a36894
+--- /dev/null
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-sv/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Swedish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (DesignTextTest checks). -->
++<resources>
++    <string name="sable_playback_error">uppspelningsfel</string>
++    <string name="sable_pause">Pausa</string>
++    <string name="sable_play">Spela upp</string>
++    <string name="sable_t_top_b_bottom_space">T överst · B nederst · Space sida · N/P nästa/föregående</string>
++    <string name="sable_more_destinations">Fler destinationer: %1$s</string>
++    <string name="sable_more_actions">Fler åtgärder</string>
++    <string name="sable_more_actions_for">Fler åtgärder för %1$s</string>
++    <string name="sable_jump_to">Gå till %1$s</string>
++    <string name="sable_return_to">Återgå till %1$s</string>
++</resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-tr/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-tr/strings.xml
+new file mode 100644
+index 0000000..e667aed
+--- /dev/null
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-tr/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Turkish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (DesignTextTest checks). -->
++<resources>
++    <string name="sable_playback_error">oynatma hatası</string>
++    <string name="sable_pause">Duraklat</string>
++    <string name="sable_play">Oynat</string>
++    <string name="sable_t_top_b_bottom_space">T üst · B alt · Space sayfa · N/P sonraki/önceki</string>
++    <string name="sable_more_destinations">Diğer hedefler: %1$s</string>
++    <string name="sable_more_actions">Diğer işlemler</string>
++    <string name="sable_more_actions_for">%1$s için diğer işlemler</string>
++    <string name="sable_jump_to">%1$s konumuna git</string>
++    <string name="sable_return_to">%1$s konumuna dön</string>
++</resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-ur/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-ur/strings.xml
+new file mode 100644
+index 0000000..a1f8b3c
+--- /dev/null
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-ur/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Urdu. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (DesignTextTest checks). -->
++<resources>
++    <string name="sable_playback_error">چلانے میں خرابی</string>
++    <string name="sable_pause">وقفہ دیں</string>
++    <string name="sable_play">چلائیں</string>
++    <string name="sable_t_top_b_bottom_space">T اوپر · B نیچے · Space صفحہ · N/P اگلا/پچھلا</string>
++    <string name="sable_more_destinations">مزید منزلیں: %1$s</string>
++    <string name="sable_more_actions">مزید اقدامات</string>
++    <string name="sable_more_actions_for">%1$s کے لیے مزید اقدامات</string>
++    <string name="sable_jump_to">%1$s پر جائیں</string>
++    <string name="sable_return_to">%1$s پر واپس جائیں</string>
++</resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-zh-rCN/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-zh-rCN/strings.xml
+new file mode 100644
+index 0000000..f8a2667
+--- /dev/null
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-zh-rCN/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Simplified Chinese. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (DesignTextTest checks). -->
++<resources>
++    <string name="sable_playback_error">播放错误</string>
++    <string name="sable_pause">暂停</string>
++    <string name="sable_play">播放</string>
++    <string name="sable_t_top_b_bottom_space">T 顶部 · B 底部 · Space 翻页 · N/P 下一页/上一页</string>
++    <string name="sable_more_destinations">更多目标位置：%1$s</string>
++    <string name="sable_more_actions">更多操作</string>
++    <string name="sable_more_actions_for">针对 %1$s 的更多操作</string>
++    <string name="sable_jump_to">跳转到 %1$s</string>
++    <string name="sable_return_to">返回 %1$s</string>
++</resources>

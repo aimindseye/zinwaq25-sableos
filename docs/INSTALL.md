@@ -6,6 +6,7 @@
 > layout this build produces. Do not follow them unless you can recover the device yourself (see
 > [`RETURN_TO_STOCK.md`](RETURN_TO_STOCK.md)).
 > Unlocking the bootloader erases all data.
+> Built on LineageOS 23.2 (Android 16 QPR2).
 
 ## Before you start
 
@@ -23,7 +24,7 @@
 4. Remove Google accounts to avoid factory reset protection.
 5. Install `adb` and `fastboot`; enable Developer options > USB debugging and OEM
    unlocking.
-6. Have the build outputs from `bash build/sable.sh q25 Q4 artifacts` (or Q1/Q2)
+6. Have the build outputs from `bash build/sable.sh q25 full artifacts` (or Q1/Q2)
    and check them: `sha256sum -c SHA256SUMS.txt`. They are in
    `$SABLE_BUILD_ROOT/artifacts/q25/<release>/<stamp>/` (`~/sable-q25` unless you
    set `SABLE_BUILD_ROOT`). `artifacts` refuses to copy a build whose last
@@ -75,10 +76,10 @@ else, stop.
 3. On the computer:
 
 ```bash
-adb sideload sableos-q25-Q4-*-userdebug.zip     # or the Q1/Q2 package you built
+adb sideload sableos-q25-full-*-userdebug.zip     # or the Q1/Q2 package you built
 ```
 
-4. *Reboot system now*. The first boot can take several minutes. A Q4 image
+4. *Reboot system now*. The first boot can take several minutes. A full (Q4) image
    opens the Sable setup wizard, then Sable Start as HOME; Sable Keyboard is the
    only keyboard, and microG and Aurora Store are installed (see
    [`MICROG.md`](MICROG.md) to sign in or skip).
@@ -86,9 +87,9 @@ adb sideload sableos-q25-Q4-*-userdebug.zip     # or the Q1/Q2 package you built
 ## 4. After first boot
 
 Record the result in [`QUALIFICATION.md`](QUALIFICATION.md) (Q1/Q2-BOOT, or the
-Q4-* gates for a Q4 image), including `adb shell getprop ro.sable.profile.id`
+Q4-* gates for a full image), including `adb shell getprop ro.sable.profile.id`
 (expect `zinwa-q25`), `adb shell getprop ro.sable.release` and
-`adb shell getprop ro.build.fingerprint`. For Q4 also run
+`adb shell getprop ro.build.fingerprint`. For the full image also run
 `adb shell aflags list | grep scene_container` (expect disabled, or no line
 because read-only flags may not be listed; gate Q4-LOCK-SCENE-CONTAINER) and the microG checks in gate Q4-MICROG.
 

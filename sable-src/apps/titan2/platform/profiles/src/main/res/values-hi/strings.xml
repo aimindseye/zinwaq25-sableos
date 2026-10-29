@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hindi. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ProfilesTextTest checks). -->
+<resources>
+    <string name="sound_profile">ध्वनि प्रोफ़ाइल</string>
+    <string name="allow_do_not_disturb_access">Sound Profiles को परेशान न करें का एक्सेस दें</string>
+    <string name="choose">चुनें</string>
+    <string name="use">%1$s इस्तेमाल करें</string>
+    <string name="edit">%1$s में बदलाव करें</string>
+    <string name="quick_settings_tile">त्वरित सेटिंग टाइल</string>
+    <string name="pull_down_the_shade_choose">पैनल नीचे खींचें, संपादित करें चुनें और ध्वनि प्रोफ़ाइल टाइल उसमें खींचें।</string>
+    <string name="close">बंद करें</string>
+    <string name="sound_profiles">Sound Profiles</string>
+    <string name="enter_uses_a_profile_e">Enter प्रोफ़ाइल लागू करता है · E उसे संपादित करता है · Menu से और विकल्प मिलते हैं</string>
+    <string name="quick_settings_pull_down_the">त्वरित सेटिंग: पैनल नीचे खींचें, संपादित करें चुनें और ध्वनि प्रोफ़ाइल टाइल जोड़ें।</string>
+    <string name="volume">आवाज़ %1$s%%</string>
+    <string name="enter_adds_10_shift_enter">Enter से 10% बढ़ाएँ · Shift+Enter से 10% घटाएँ</string>
+    <string name="ringtone">रिंगटोन</string>
+    <string name="notification_tone">सूचना ध्वनि</string>
+    <string name="vibrate_for_calls">कॉल पर कंपन</string>
+    <string name="space_turns_it_on_or">Space इसे चालू या बंद करता है</string>
+    <string name="notification_light">सूचना लाइट</string>
+    <string name="is_on_allow_changing_system">%1$s चालू है। सिस्टम सेटिंग बदलने की अनुमति दें, ताकि यह रिंगटोन, कंपन और लाइट सेट कर सके। फिर इसे दोबारा चुनें।</string>
+    <string name="allow_do_not_disturb_access_2">Sound Profiles को परेशान न करें का एक्सेस दें, फिर %1$s दोबारा चुनें।</string>
+    <string name="phone_s_current_tone">फ़ोन की वर्तमान रिंगटोन</string>
+    <string name="normal">सामान्य</string>
+    <string name="rings_and_alerts_at_your">आपकी चुनी आवाज़ पर कॉल और अलर्ट</string>
+    <string name="loud">तेज़</string>
+    <string name="rings_and_alerts_at_full">पूरी आवाज़ पर कॉल और अलर्ट</string>
+    <string name="vibrate_only">केवल कंपन</string>
+    <string name="vibrates_for_calls_and_alerts">कॉल और अलर्ट पर कंपन, कोई आवाज़ नहीं</string>
+    <string name="phone_calls_only">केवल फ़ोन कॉल</string>
+    <string name="only_calls_ring_messages_and">सिर्फ कॉल बजती हैं; संदेश और अलर्ट शांत रहते हैं</string>
+    <string name="all_alerts_off">सभी अलर्ट बंद</string>
+    <string name="nothing_rings_or_vibrates_alarms">कोई घंटी या कंपन नहीं; अलार्म फिर भी बजते हैं</string>
+</resources>

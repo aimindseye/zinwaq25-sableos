@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
+<resources>
+    <string name="convert_length">الطول</string>
+    <string name="convert_mass">الكتلة</string>
+    <string name="convert_temperature">درجة الحرارة</string>
+    <string name="convert_volume">الحجم</string>
+    <string name="convert_millimeters">ملليمترات</string>
+    <string name="convert_centimeters">سنتيمترات</string>
+    <string name="convert_meters">أمتار</string>
+    <string name="convert_kilometers">كيلومترات</string>
+    <string name="convert_inches">بوصات</string>
+    <string name="convert_feet">أقدام</string>
+    <string name="convert_miles">أميال</string>
+    <string name="convert_grams">غرامات</string>
+    <string name="convert_kilograms">كيلوغرامات</string>
+    <string name="convert_ounces">أونصات</string>
+    <string name="convert_pounds">أرطال</string>
+    <string name="convert_celsius">مئوية</string>
+    <string name="convert_fahrenheit">فهرنهايت</string>
+    <string name="convert_kelvin">كلفن</string>
+    <string name="convert_milliliters">ملليلترات</string>
+    <string name="convert_liters">لترات</string>
+    <string name="convert_cups">أكواب</string>
+    <string name="convert_gallons">غالونات</string>
+    <string name="convert_ready">جاهز</string>
+    <string name="convert_value">القيمة</string>
+    <string name="convert_from">من</string>
+    <string name="convert_to">إلى</string>
+    <string name="convert_convert">تحويل</string>
+    <string name="convert_enter_a_number_with_up">أدخل رقمًا يحتوي على ثلاثة منازل عشرية كحد أقصى</string>
+    <string name="convert_length_mass_temperature_and_volume">تُجرى تحويلات الطول والكتلة ودرجة الحرارة والحجم محليًا دون اتصال بالإنترنت.</string>
+    <string name="convert_native_bridge_failure">فشل الواجهة الأصلية</string>
+</resources>

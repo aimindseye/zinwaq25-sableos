@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (KeyboardTextTest checks). -->
+<resources>
+    <string name="one_entry_per_line_shortcut">每行一条：快捷词=替换内容，例如 brb=be right back。快捷词是由字母或数字组成的一个词。您的条目适用于所有语言，并会替换具有相同快捷词的内置条目。在替换内容中，%D 表示日期，%T 表示时间，%V 表示版本号。展开后立即按 Backspace 可恢复您输入的内容。</string>
+    <string name="save">保存</string>
+    <string name="saved_entries">已保存 %1$s 条</string>
+    <string name="lines_skipped_not_shortcut_replacement">；已跳过 %1$s 行（不是“快捷词=替换内容”格式）</string>
+    <string name="built_in_english_typing_language">内置（英语输入语言）</string>
+    <string name="turn_on_clipboard_history_in">请在 Sable Keyboard 设置中开启剪贴板历史记录</string>
+    <string name="unlock_to_use_clipboard_history">解锁后才能使用剪贴板历史记录</string>
+    <string name="nav_mode_on_alt_space">导航模式已开启（按 Alt+Space 退出）</string>
+    <string name="nav_mode_off">导航模式已关闭</string>
+    <string name="enable_more_languages_in_settings">请在“设置”&gt;“键盘”&gt;“Sable”中启用更多语言</string>
+    <string name="auto_capitalise_sentences">自动将句首字母大写</string>
+    <string name="double_space_inserts_period">连按两次空格插入句号</string>
+    <string name="autotext_dont_becomes_don_t">AutoText（dont 变为 don\'t，ld 变为日期）</string>
+    <string name="long_press_a_letter_for">长按字母可输入其 Alt 字符</string>
+    <string name="letters_type_digits_in_numeric">在数字输入框中，字母键输入数字</string>
+    <string name="nav_mode_ijkl_arrows_enabled">已启用导航模式（IJKL 方向键）</string>
+    <string name="alt_space_toggles_nav_mode">Alt+Space 切换导航模式</string>
+    <string name="show_on_screen_keyboard_for">在数字/PIN 输入框中显示屏幕键盘</string>
+    <string name="always_show_on_screen_keyboard">始终显示屏幕键盘</string>
+    <string name="compact_status_strip_when_the">屏幕键盘隐藏时使用紧凑状态栏</string>
+    <string name="enter_sends_in_apps_that">在提供“发送”的应用中，Enter 发送（Shift+Enter：换行）</string>
+    <string name="clipboard_history_alt_shift_v">剪贴板历史记录（Alt+Shift+V；仅保存在内存中，从不写入存储）</string>
+    <string name="clear_clipboard_history">清除剪贴板历史记录</string>
+    <string name="clipboard_history_cleared">剪贴板历史记录已清除</string>
+    <string name="autotext_entries">AutoText 条目</string>
+    <string name="key_event_probe_diagnostic">按键事件探测（诊断）</string>
+    <string name="sable_keyboard">Sable Keyboard</string>
+    <string name="layout_provisional_until_key_legends">布局：在此设备上获取按键标识之前为临时布局。</string>
+    <string name="space">空格 · %1$s%2$s</string>
+    <string name="alternate">%1$s，备选 %2$s</string>
+    <string name="clipboard_empty">剪贴板为空</string>
+    <string name="input_method_settings">输入法设置</string>
+    <string name="keyboard_picker">键盘选择器</string>
+    <string name="sable_keyboard_is_the_selected">Sable Keyboard 是当前选中的键盘。</string>
+    <string name="another_keyboard_is_selected_your">当前选中了另一个键盘。您的选择会保留；Sable Keyboard 绝不会替您更改。</string>
+    <string name="sable_keyboard_is_not_enabled">Sable Keyboard 尚未启用。</string>
+    <string name="could_not_read_which_keyboard">无法读取当前选中的键盘。</string>
+    <string name="could_not_open_not_available">无法打开 %1$s：此设备上不可用。</string>
+    <string name="could_not_open_blocked_by">无法打开 %1$s：被系统拦截。</string>
+    <string name="could_not_open">无法打开 %1$s。</string>
+</resources>

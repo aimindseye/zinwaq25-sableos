@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Urdu. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (VaultLinesTest checks). -->
+<resources>
+    <string name="read_error">پڑھنے میں خرابی</string>
+    <string name="no_access">" (رسائی نہیں"</string>
+    <string name="partial_copy_left">؛ جزوی کاپی باقی رہی</string>
+    <string name="cancelled_nothing_changed">منسوخ۔ کچھ تبدیل نہیں ہوا۔</string>
+    <string name="deleted">%1$s حذف کر دی گئی۔</string>
+    <string name="could_not_delete">%1$s حذف کرنا ناکام رہا۔</string>
+    <string name="deleted_of_original_s_any">%2$s میں سے %1$s اصل فائلیں حذف ہوئیں۔ جو حذف نہیں ہوئیں وہ اپنی جگہ پر ہیں۔</string>
+    <string name="open_with">%1$s کو اس کے ساتھ کھولیں</string>
+    <string name="opened_read_only_this_file">%1$s کھولی گئی (صرف پڑھنے کے لیے، صرف یہی فائل)۔</string>
+    <string name="no_app_in_private_space">Private Space میں کوئی ایپ نہیں جو %1$s کھول سکے۔</string>
+    <string name="the_system_file_picker_is">سسٹم فائل چننے والا دستیاب نہیں۔</string>
+    <string name="exported_a_copy_of_it">%1$s کی ایک کاپی برآمد کی گئی۔ اب وہ والٹ سے محفوظ نہیں۔</string>
+    <string name="export_failed_nothing_was_written">برآمد ناکام رہی۔ کچھ نہیں لکھا گیا۔</string>
+    <string name="could">ناکام</string>
+    <string name="cancelled">منسوخ</string>
+    <string name="no_app">کوئی ایپ نہیں</string>
+    <string name="not_available">دستیاب نہیں</string>
+    <string name="yes">ہاں</string>
+    <string name="no">نہیں</string>
+    <string name="import_label">درآمد کریں</string>
+    <string name="export">برآمد کریں</string>
+    <string name="lock_now">ابھی لاک کریں</string>
+    <string name="photos">تصاویر</string>
+    <string name="documents">دستاویزات</string>
+    <string name="recordings">ریکارڈنگز</string>
+    <string name="file_or_p_d_r">↑↓ فائل · ←→ یا P D R حصہ · Enter کھولیں · I درآمد · E برآمد · X حذف · L ابھی لاک</string>
+    <string name="open">%1$s کھولیں؟</string>
+    <string name="the_app_you_pick_inside">آپ جو ایپ چنیں گے (Private Space کے اندر) وہ بند کرنے تک یہ ایک فائل پڑھ سکے گی۔ Enter یا Y کھولتا ہے · واپس یا N منسوخ کرتا ہے۔</string>
+    <string name="export_2">%1$s برآمد کریں؟</string>
+    <string name="a_copy_is_written_where">ایک کاپی آپ کے اگلے منتخب کردہ مقام پر لکھی جاتی ہے اور اب والٹ سے محفوظ نہیں رہتی۔ والٹ کی کاپی برقرار رہتی ہے۔ Enter یا Y جاری رکھتا ہے · واپس یا N منسوخ کرتا ہے۔</string>
+    <string name="delete_from_the_vault">%1$s کو والٹ سے حذف کریں؟</string>
+    <string name="it_cannot_be_recovered_enter">اسے بحال نہیں کیا جا سکتا۔ Enter یا Y حذف کرتا ہے · واپس یا N منسوخ کرتا ہے۔</string>
+    <string name="imported_file_s_as_copies">%1$s فائلیں کاپی کے طور پر درآمد ہوئیں۔ اصل فائلیں حذف کریں؟</string>
+    <string name="the_originals_are_still_where">اصل فائلیں اپنی جگہ پر ہیں۔ Enter یا Y انہیں حذف کرتا ہے · واپس یا N رکھتا ہے۔</string>
+    <string name="imported_file_s_as_copies_2">%1$s فائلیں کاپی کے طور پر درآمد ہوئیں۔</string>
+    <string name="could_not_import">" درآمد ناکام: "</string>
+    <string name="secure_vault">Secure Vault</string>
+    <string name="private_space_photos_documents_recordings">Private Space · تصاویر · دستاویزات · ریکارڈنگز · درآمد/برآمد صرف واضح طور پر</string>
+    <string name="secure_vault_works_only_inside">Secure Vault صرف Private Space کے اندر کام کرتا ہے۔ Sable Start (تمام ایپس) میں Private Space کھولیں اور وہاں Secure Vault کھولیں۔ اس کے باہر کچھ محفوظ نہیں ہوتا۔</string>
+    <string name="nothing_here_yet_press_i">ابھی یہاں کچھ نہیں۔ کسی فائل کی کاپی درآمد کرنے کے لیے I دبائیں۔</string>
+    <string name="could_not_lock_private_space">یہاں سے Private Space لاک کرنا ناکام رہا؛ اسے Sable Start سے لاک کریں۔ والٹ بند ہو گیا۔</string>
+</resources>

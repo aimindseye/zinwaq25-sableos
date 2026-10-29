@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Japanese. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (VaultLinesTest checks). -->
+<resources>
+    <string name="read_error">読み取りエラー</string>
+    <string name="no_access">" （アクセス不可"</string>
+    <string name="partial_copy_left">；一部のコピーが残っています</string>
+    <string name="cancelled_nothing_changed">キャンセルしました。何も変更されていません。</string>
+    <string name="deleted">%1$s を削除しました。</string>
+    <string name="could_not_delete">%1$s を削除できませんでした。</string>
+    <string name="deleted_of_original_s_any">元のファイル %2$s 件中 %1$s 件を削除しました。削除されなかったものは元の場所に残っています。</string>
+    <string name="open_with">%1$s を開くアプリ</string>
+    <string name="opened_read_only_this_file">%1$s を開きました（読み取り専用、このファイルのみ）。</string>
+    <string name="no_app_in_private_space">Private Space 内に %1$s を開けるアプリがありません。</string>
+    <string name="the_system_file_picker_is">システムのファイル選択は利用できません。</string>
+    <string name="exported_a_copy_of_it">%1$s のコピーをエクスポートしました。金庫では保護されなくなります。</string>
+    <string name="export_failed_nothing_was_written">エクスポートできませんでした。何も書き込まれていません。</string>
+    <string name="could">できませんでした</string>
+    <string name="cancelled">キャンセルしました</string>
+    <string name="no_app">アプリがありません</string>
+    <string name="not_available">利用できません</string>
+    <string name="yes">はい</string>
+    <string name="no">いいえ</string>
+    <string name="import_label">インポート</string>
+    <string name="export">エクスポート</string>
+    <string name="lock_now">今すぐロック</string>
+    <string name="photos">写真</string>
+    <string name="documents">ドキュメント</string>
+    <string name="recordings">録音</string>
+    <string name="file_or_p_d_r">↑↓ ファイル · ←→ または P D R セクション · Enter 開く · I インポート · E エクスポート · X 削除 · L 今すぐロック</string>
+    <string name="open">%1$s を開きますか？</string>
+    <string name="the_app_you_pick_inside">選んだアプリ（Private Space 内）は、閉じるまでこの1つのファイルを読み取れます。Enter または Y で開く · 戻る または N でキャンセル。</string>
+    <string name="export_2">%1$s をエクスポートしますか？</string>
+    <string name="a_copy_is_written_where">次に選ぶ場所にコピーが書き込まれ、金庫では保護されなくなります。金庫内のコピーは残ります。Enter または Y で続行 · 戻る または N でキャンセル。</string>
+    <string name="delete_from_the_vault">%1$s を金庫から削除しますか？</string>
+    <string name="it_cannot_be_recovered_enter">復元できません。Enter または Y で削除 · 戻る または N でキャンセル。</string>
+    <string name="imported_file_s_as_copies">%1$s 件のファイルをコピーとしてインポートしました。元のファイルを削除しますか？</string>
+    <string name="the_originals_are_still_where">元のファイルは元の場所に残っています。Enter または Y で削除 · 戻る または N で保持。</string>
+    <string name="imported_file_s_as_copies_2">%1$s 件のファイルをコピーとしてインポートしました。</string>
+    <string name="could_not_import">" インポートできませんでした: "</string>
+    <string name="secure_vault">Secure Vault</string>
+    <string name="private_space_photos_documents_recordings">Private Space · 写真 · ドキュメント · 録音 · インポート／エクスポートは明示的な操作のみ</string>
+    <string name="secure_vault_works_only_inside">Secure Vault は Private Space の中でのみ動作します。Sable Start（すべてのアプリ）で Private Space のロックを解除し、そこで Secure Vault を開いてください。外部には何も保存されません。</string>
+    <string name="nothing_here_yet_press_i">まだ何もありません。I を押すとファイルのコピーをインポートできます。</string>
+    <string name="could_not_lock_private_space">ここから Private Space をロックできませんでした。Sable Start からロックしてください。金庫を閉じました。</string>
+</resources>

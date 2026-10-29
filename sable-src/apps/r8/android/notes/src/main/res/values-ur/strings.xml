@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Urdu. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (NotesTextTest checks). -->
+<resources>
+    <string name="deleted">«%1$s» حذف کر دیا گیا</string>
+    <string name="couldn_t_save">«%1$s» محفوظ نہیں ہو سکا</string>
+    <string name="share_note">نوٹ شیئر کریں</string>
+    <string name="exported">«%1$s» برآمد کر دیا گیا</string>
+    <string name="export_failed">برآمد ناکام ہو گئی</string>
+    <string name="nothing_to_import">درآمد کرنے کے لیے کچھ نہیں</string>
+    <string name="note">نوٹ</string>
+    <string name="no_colour">کوئی رنگ نہیں</string>
+    <string name="yellow">پیلا</string>
+    <string name="orange">نارنجی</string>
+    <string name="red">سرخ</string>
+    <string name="pink">گلابی</string>
+    <string name="purple">جامنی</string>
+    <string name="blue">نیلا</string>
+    <string name="green">سبز</string>
+    <string name="empty_note">خالی نوٹ</string>
+    <string name="list_item_on_this_line">اس سطر میں فہرست کا آئٹم</string>
+    <string name="tick_or_untick_this_item">اس آئٹم پر نشان لگائیں یا ہٹائیں</string>
+    <string name="find_in_note">نوٹ میں تلاش کریں</string>
+    <string name="find_next">اگلا تلاش کریں</string>
+    <string name="colour">رنگ</string>
+    <string name="share">شیئر کریں</string>
+    <string name="export_to_a_file">فائل میں برآمد کریں</string>
+    <string name="delete_note">نوٹ حذف کریں</string>
+    <string name="c_new_s_find_k">C نیا · S تلاش · K کام · L رنگ · D حذف</string>
+    <string name="menu_list_item_tick_find">Menu: فہرست کا آئٹم، نشان، تلاش، رنگ، شیئر · واپس محفوظ کرتا ہے</string>
+    <string name="enter_tick_o_open_note">Enter نشان لگاتا ہے · O نوٹ کھولتا ہے · H مکمل آئٹمز · واپس</string>
+    <string name="type_your_note_the_first">اپنا نوٹ لکھیں۔ پہلی سطر عنوان ہے۔</string>
+    <string name="change_colour_now">رنگ بدلیں، اب %1$s</string>
+    <string name="edited">ترمیم %1$s%2$s</string>
+    <string name="note_actions_menu_key">نوٹ کے اعمال (Menu کلید)</string>
+    <string name="find_in_this_note_enter">اس نوٹ میں تلاش کریں · Enter نتیجے پر جاتا ہے</string>
+    <string name="not_in_this_note">اس نوٹ میں نہیں</string>
+    <string name="notes">نوٹس</string>
+    <string name="new_label">نیا</string>
+    <string name="no_notes_yet_press_c">ابھی کوئی نوٹ نہیں۔ لکھنے کے لیے C دبائیں، یا ٹیکسٹ فائل درآمد کرنے کے لیے I۔</string>
+    <string name="no_note_matches">کوئی نوٹ مماثل نہیں۔</string>
+    <string name="c_new_i_import_k">C نیا · I درآمد · K کام</string>
+    <string name="one_note">1 نوٹ</string>
+    <string name="note_count">%1$s نوٹس</string>
+    <string name="open_tasks">%1$s · %2$s کھلے کام</string>
+    <string name="find_in_notes_enter_opens">نوٹس میں تلاش کریں · Enter کھولتا ہے</string>
+    <string name="tasks">کام</string>
+    <string name="open_showing_done_items">%1$s کھلے · مکمل آئٹمز دکھائے جا رہے ہیں</string>
+    <string name="open">%1$s کھلے</string>
+    <string name="hide_done">مکمل چھپائیں</string>
+    <string name="show_done">مکمل دکھائیں</string>
+    <string name="no_open_tasks_in_a">کوئی کھلا کام نہیں۔ نوٹ میں Menu اور پھر L دبا کر سطر کو چیک لسٹ آئٹم بنائیں۔</string>
+    <string name="delete_note_question">نوٹ حذف کریں؟</string>
+    <string name="will_be_deleted_from_this">«%1$s» اس فون سے حذف کر دیا جائے گا۔</string>
+    <string name="delete">حذف کریں</string>
+    <string name="keep">رکھیں</string>
+</resources>

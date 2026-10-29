@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Italian. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (KeyboardTextTest checks). -->
+<resources>
+    <string name="one_entry_per_line_shortcut">Una voce per riga: scorciatoia=sostituzione, ad esempio brb=be right back. Una scorciatoia è una parola di lettere o cifre. Le tue voci funzionano in ogni lingua e sostituiscono una voce integrata con la stessa scorciatoia. In una sostituzione, %D è la data, %T l’ora e %V il numero di build. Backspace subito dopo un’espansione ripristina ciò che hai digitato.</string>
+    <string name="save">Salva</string>
+    <string name="saved_entries">Salvate %1$s voci</string>
+    <string name="lines_skipped_not_shortcut_replacement">; %1$s righe ignorate (non nel formato scorciatoia=sostituzione)</string>
+    <string name="built_in_english_typing_language">Integrato (lingua di digitazione inglese)</string>
+    <string name="turn_on_clipboard_history_in">Attiva la cronologia degli appunti nelle impostazioni di Sable Keyboard</string>
+    <string name="unlock_to_use_clipboard_history">Sblocca per usare la cronologia degli appunti</string>
+    <string name="nav_mode_on_alt_space">Modalità navigazione attiva (Alt+Space per uscire)</string>
+    <string name="nav_mode_off">Modalità navigazione disattivata</string>
+    <string name="enable_more_languages_in_settings">Attiva altre lingue in Impostazioni &gt; Tastiera &gt; Sable</string>
+    <string name="auto_capitalise_sentences">Maiuscola automatica a inizio frase</string>
+    <string name="double_space_inserts_period">Doppio spazio inserisce un punto</string>
+    <string name="autotext_dont_becomes_don_t">AutoText (dont diventa don\'t, ld la data)</string>
+    <string name="long_press_a_letter_for">Tieni premuta una lettera per il suo carattere Alt</string>
+    <string name="letters_type_digits_in_numeric">Le lettere digitano cifre nei campi numerici</string>
+    <string name="nav_mode_ijkl_arrows_enabled">Modalità navigazione (frecce IJKL) attiva</string>
+    <string name="alt_space_toggles_nav_mode">Alt+Space attiva o disattiva la modalità navigazione</string>
+    <string name="show_on_screen_keyboard_for">Mostra la tastiera su schermo per i campi numerici o PIN</string>
+    <string name="always_show_on_screen_keyboard">Mostra sempre la tastiera su schermo</string>
+    <string name="compact_status_strip_when_the">Barra di stato compatta quando la tastiera su schermo è nascosta</string>
+    <string name="enter_sends_in_apps_that">Enter invia nelle app che offrono Invia (Shift+Enter: nuova riga)</string>
+    <string name="clipboard_history_alt_shift_v">Cronologia degli appunti (Alt+Shift+V; conservata in memoria, mai salvata)</string>
+    <string name="clear_clipboard_history">Cancella la cronologia degli appunti</string>
+    <string name="clipboard_history_cleared">Cronologia degli appunti cancellata</string>
+    <string name="autotext_entries">Voci AutoText</string>
+    <string name="key_event_probe_diagnostic">Sonda eventi tasti (diagnostica)</string>
+    <string name="sable_keyboard">Sable Keyboard</string>
+    <string name="layout_provisional_until_key_legends">Layout: provvisorio finché le legende dei tasti non vengono rilevate su questo dispositivo.</string>
+    <string name="space">spazio · %1$s%2$s</string>
+    <string name="alternate">%1$s, alternativo %2$s</string>
+    <string name="clipboard_empty">Appunti vuoti</string>
+    <string name="input_method_settings">Impostazioni del metodo di input</string>
+    <string name="keyboard_picker">Selettore tastiera</string>
+    <string name="sable_keyboard_is_the_selected">Sable Keyboard è la tastiera selezionata.</string>
+    <string name="another_keyboard_is_selected_your">È selezionata un’altra tastiera. La tua scelta viene mantenuta; Sable Keyboard non la cambia mai al posto tuo.</string>
+    <string name="sable_keyboard_is_not_enabled">Sable Keyboard non è ancora attivata.</string>
+    <string name="could_not_read_which_keyboard">Impossibile leggere quale tastiera è selezionata.</string>
+    <string name="could_not_open_not_available">Impossibile aprire %1$s: non disponibile su questo dispositivo.</string>
+    <string name="could_not_open_blocked_by">Impossibile aprire %1$s: bloccato dal sistema.</string>
+    <string name="could_not_open">Impossibile aprire %1$s.</string>
+</resources>

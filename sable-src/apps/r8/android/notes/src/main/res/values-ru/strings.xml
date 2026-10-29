@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (NotesTextTest checks). -->
+<resources>
+    <string name="deleted">«%1$s» удалена</string>
+    <string name="couldn_t_save">Не удалось сохранить «%1$s»</string>
+    <string name="share_note">Поделиться заметкой</string>
+    <string name="exported">«%1$s» экспортирована</string>
+    <string name="export_failed">Не удалось экспортировать</string>
+    <string name="nothing_to_import">Нечего импортировать</string>
+    <string name="note">Заметка</string>
+    <string name="no_colour">Без цвета</string>
+    <string name="yellow">Жёлтый</string>
+    <string name="orange">Оранжевый</string>
+    <string name="red">Красный</string>
+    <string name="pink">Розовый</string>
+    <string name="purple">Фиолетовый</string>
+    <string name="blue">Синий</string>
+    <string name="green">Зелёный</string>
+    <string name="empty_note">Пустая заметка</string>
+    <string name="list_item_on_this_line">Элемент списка в этой строке</string>
+    <string name="tick_or_untick_this_item">Отметить или снять отметку с этого элемента</string>
+    <string name="find_in_note">Поиск в заметке</string>
+    <string name="find_next">Найти далее</string>
+    <string name="colour">Цвет</string>
+    <string name="share">Поделиться</string>
+    <string name="export_to_a_file">Экспортировать в файл</string>
+    <string name="delete_note">Удалить заметку</string>
+    <string name="c_new_s_find_k">C новая · S поиск · K задачи · L цвет · D удалить</string>
+    <string name="menu_list_item_tick_find">Menu: элемент списка, отметка, поиск, цвет, отправка · Назад сохраняет</string>
+    <string name="enter_tick_o_open_note">Enter отмечает · O открывает заметку · H выполненные · Назад</string>
+    <string name="type_your_note_the_first">Введите заметку. Первая строка — заголовок.</string>
+    <string name="change_colour_now">Сменить цвет, сейчас %1$s</string>
+    <string name="edited">Изменено %1$s%2$s</string>
+    <string name="note_actions_menu_key">Действия с заметкой (клавиша Menu)</string>
+    <string name="find_in_this_note_enter">Поиск в этой заметке · Enter переходит к результату</string>
+    <string name="not_in_this_note">В этой заметке нет</string>
+    <string name="notes">Заметки</string>
+    <string name="new_label">Новая</string>
+    <string name="no_notes_yet_press_c">Заметок пока нет. Нажмите C, чтобы написать заметку, или I, чтобы импортировать текстовый файл.</string>
+    <string name="no_note_matches">Подходящих заметок нет.</string>
+    <string name="c_new_i_import_k">C новая · I импорт · K задачи</string>
+    <string name="one_note">1 заметка</string>
+    <string name="note_count">Заметок: %1$s</string>
+    <string name="open_tasks">%1$s · открытых задач: %2$s</string>
+    <string name="find_in_notes_enter_opens">Поиск в заметках · Enter открывает</string>
+    <string name="tasks">Задачи</string>
+    <string name="open_showing_done_items">Открыто: %1$s · показаны выполненные</string>
+    <string name="open">Открыто: %1$s</string>
+    <string name="hide_done">Скрыть выполненные</string>
+    <string name="show_done">Показать выполненные</string>
+    <string name="no_open_tasks_in_a">Открытых задач нет. В заметке нажмите Menu, затем L, чтобы превратить строку в элемент списка дел.</string>
+    <string name="delete_note_question">Удалить заметку?</string>
+    <string name="will_be_deleted_from_this">«%1$s» будет удалена с этого телефона.</string>
+    <string name="delete">Удалить</string>
+    <string name="keep">Оставить</string>
+</resources>

@@ -2,13 +2,15 @@
 
 What a user sees in another language, and how to add one.
 
+> **Disclaimer:** Sable app translations (18 languages) are machine-assisted drafts: they have not been reviewed by fluent speakers and may contain errors or awkward wording. English is the reference text. Corrections are welcome.
+
 ## What already works
 
 | Layer | Status |
 |---|---|
 | Android and LineageOS (Settings, Phone, Contacts, system dialogs) | Every Android language. Pick it in first-boot setup or Settings > System > Languages |
 | Typing (Sable Keyboard) | 35 typing languages: Latin languages with accents (Español, Français, Deutsch, Português, Italiano, Polski, Türkçe, Svenska, Nederlands), Cyrillic, Greek, Arabic, Hebrew, Urdu, Hindi and nine other Indic scripts (InScript and an "ABC" phonetic layout), Korean, Japanese kana and Chinese pinyin. Add them in Sable Keyboard's settings; Ctrl+Space or the globe key switches. Non-Latin layouts are on-screen; the physical keys type Latin |
-| Sable apps | Ready to translate: every Sable app keeps its English in `res/values/strings.xml` (sable-src 0085). Only Sable Setup has translations yet (Spanish, French and German drafts, sable-src 0075, 0082); the others show English until a `values-<lang>/strings.xml` is added |
+| Sable apps | Every Sable app keeps its English in `res/values/strings.xml` (sable-src 0085) and ships draft translations in 18 languages (Arabic, Chinese (Simplified), Dutch, French, German, Greek, Hebrew, Hindi, Italian, Japanese, Korean, Polish, Portuguese (Brazil), Russian, Spanish, Swedish, Turkish, Urdu) as `values-<lang>/strings.xml` (sable-src 0086, 0087, 0088). They are drafts checked against the English, not yet reviewed by a fluent speaker; a language without a file shows English |
 | Upstream apps (Mail, Reader, Text reader, Terminal, Browser, Files, Photos) | Their upstream translations, unchanged |
 
 ## The files to translate
@@ -71,6 +73,10 @@ translate those keys with the same words the messages use.
 ## Order of work
 
 1. Sable Setup (done: Spanish, French and German drafts).
+   Sable Weather (done: ar, de, el, es, fr, hi, it, iw, ko, nl, pl, pt, ru, sv, tr, ur drafts, sable-src 0086;
+   Japanese and Chinese left out, see below).
+   Sable Calculator, its converter and the shared design lines (done: ar, de, el, es, fr, hi, it, iw, ja, ko, nl, pl,
+   pt, ru, sv, tr, ur, zh-rCN drafts, sable-src 0087; Sable Start keeps its own copy of the shared lines).
 2. Every Sable app's English moved into `strings.xml` (done, sable-src 0085).
 3. Translations, starting with the apps a new user meets first: Sable Start, Sable Hub, Messages,
    Sable Keyboard, then the rest.
@@ -80,3 +86,6 @@ The owner's 2026-10-29 drafts also covered 15 more languages (it, pt, nl, pl, sv
 he, ur, hi, ko, ja and Pinyin Chinese). They were left out because about a third of each file
 was English words mixed into the translation, which reads worse than the English fallback.
 Chinese should be Simplified Chinese (`values-zh-rCN`), not Pinyin.
+The Weather drafts for Japanese (kana only, no kanji) and Chinese (Pinyin) were left out for the same
+reason, and the owner's Sable Tools file for every language was a placeholder (`[De] Back`), so
+Sable Tools still has no translation.

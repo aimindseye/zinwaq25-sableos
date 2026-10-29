@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Italian. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
+<resources>
+    <string name="convert_length">Lunghezza</string>
+    <string name="convert_mass">Massa</string>
+    <string name="convert_temperature">Temperatura</string>
+    <string name="convert_volume">Volume</string>
+    <string name="convert_millimeters">Millimetri</string>
+    <string name="convert_centimeters">Centimetri</string>
+    <string name="convert_meters">Metri</string>
+    <string name="convert_kilometers">Chilometri</string>
+    <string name="convert_inches">Pollici</string>
+    <string name="convert_feet">Piedi</string>
+    <string name="convert_miles">Miglia</string>
+    <string name="convert_grams">Grammi</string>
+    <string name="convert_kilograms">Chilogrammi</string>
+    <string name="convert_ounces">Once</string>
+    <string name="convert_pounds">Libbre</string>
+    <string name="convert_celsius">Celsius</string>
+    <string name="convert_fahrenheit">Fahrenheit</string>
+    <string name="convert_kelvin">Kelvin</string>
+    <string name="convert_milliliters">Millilitri</string>
+    <string name="convert_liters">Litri</string>
+    <string name="convert_cups">Tazze</string>
+    <string name="convert_gallons">Galloni</string>
+    <string name="convert_ready">Pronto</string>
+    <string name="convert_value">Valore</string>
+    <string name="convert_from">Da</string>
+    <string name="convert_to">A</string>
+    <string name="convert_convert">Converti</string>
+    <string name="convert_enter_a_number_with_up">Inserisci un numero con un massimo di tre cifre decimali</string>
+    <string name="convert_length_mass_temperature_and_volume">Le conversioni di lunghezza, massa, temperatura e volume vengono eseguite sul dispositivo, senza connessione.</string>
+    <string name="convert_native_bridge_failure">Errore dell’interfaccia nativa</string>
+</resources>

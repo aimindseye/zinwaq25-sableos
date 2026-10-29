@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hebrew. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
+<resources>
+    <string name="convert_length">אורך</string>
+    <string name="convert_mass">מסה</string>
+    <string name="convert_temperature">טמפרטורה</string>
+    <string name="convert_volume">נפח</string>
+    <string name="convert_millimeters">מילימטרים</string>
+    <string name="convert_centimeters">סנטימטרים</string>
+    <string name="convert_meters">מטרים</string>
+    <string name="convert_kilometers">קילומטרים</string>
+    <string name="convert_inches">אינצ׳ים</string>
+    <string name="convert_feet">רגל</string>
+    <string name="convert_miles">מיילים</string>
+    <string name="convert_grams">גרמים</string>
+    <string name="convert_kilograms">קילוגרמים</string>
+    <string name="convert_ounces">אונקיות</string>
+    <string name="convert_pounds">ליברות</string>
+    <string name="convert_celsius">צלזיוס</string>
+    <string name="convert_fahrenheit">פרנהייט</string>
+    <string name="convert_kelvin">קלווין</string>
+    <string name="convert_milliliters">מיליליטרים</string>
+    <string name="convert_liters">ליטרים</string>
+    <string name="convert_cups">כוסות</string>
+    <string name="convert_gallons">גלונים</string>
+    <string name="convert_ready">מוכן</string>
+    <string name="convert_value">ערך</string>
+    <string name="convert_from">מ־</string>
+    <string name="convert_to">ל־</string>
+    <string name="convert_convert">המרה</string>
+    <string name="convert_enter_a_number_with_up">יש להזין מספר עם עד שלוש ספרות אחרי הנקודה העשרונית</string>
+    <string name="convert_length_mass_temperature_and_volume">המרות אורך, מסה, טמפרטורה ונפח מתבצעות במכשיר ללא חיבור לאינטרנט.</string>
+    <string name="convert_native_bridge_failure">כשל בממשק המקומי</string>
+</resources>

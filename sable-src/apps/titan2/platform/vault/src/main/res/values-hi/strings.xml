@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hindi. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (VaultLinesTest checks). -->
+<resources>
+    <string name="read_error">पढ़ने में त्रुटि</string>
+    <string name="no_access">" (पहुँच नहीं"</string>
+    <string name="partial_copy_left">; आंशिक प्रति बची है</string>
+    <string name="cancelled_nothing_changed">रद्द किया गया। कुछ नहीं बदला।</string>
+    <string name="deleted">%1$s हटा दी गई।</string>
+    <string name="could_not_delete">%1$s हटाना विफल रहा।</string>
+    <string name="deleted_of_original_s_any">%2$s में से %1$s मूल फ़ाइलें हटाईं। जो नहीं हटीं, वे अपनी जगह पर हैं।</string>
+    <string name="open_with">%1$s को इसके साथ खोलें</string>
+    <string name="opened_read_only_this_file">%1$s खोली गई (केवल पढ़ने के लिए, सिर्फ़ यही फ़ाइल)।</string>
+    <string name="no_app_in_private_space">Private Space में कोई ऐप नहीं है जो %1$s खोल सके।</string>
+    <string name="the_system_file_picker_is">सिस्टम फ़ाइल चयनकर्ता उपलब्ध नहीं है।</string>
+    <string name="exported_a_copy_of_it">%1$s की एक प्रति निर्यात की गई। अब यह वॉल्ट से सुरक्षित नहीं है।</string>
+    <string name="export_failed_nothing_was_written">निर्यात विफल रहा। कुछ नहीं लिखा गया।</string>
+    <string name="could">विफल</string>
+    <string name="cancelled">रद्द किया गया</string>
+    <string name="no_app">कोई ऐप नहीं</string>
+    <string name="not_available">उपलब्ध नहीं</string>
+    <string name="yes">हाँ</string>
+    <string name="no">नहीं</string>
+    <string name="import_label">आयात करें</string>
+    <string name="export">निर्यात करें</string>
+    <string name="lock_now">अभी लॉक करें</string>
+    <string name="photos">फ़ोटो</string>
+    <string name="documents">दस्तावेज़</string>
+    <string name="recordings">रिकॉर्डिंग</string>
+    <string name="file_or_p_d_r">↑↓ फ़ाइल · ←→ या P D R अनुभाग · Enter खोलें · I आयात · E निर्यात · X हटाएँ · L अभी लॉक करें</string>
+    <string name="open">%1$s खोलें?</string>
+    <string name="the_app_you_pick_inside">आप जो ऐप चुनेंगे (Private Space के अंदर), वह इसे बंद करने तक यही एक फ़ाइल पढ़ सकता है। Enter या Y खोलता है · वापस या N रद्द करता है।</string>
+    <string name="export_2">%1$s निर्यात करें?</string>
+    <string name="a_copy_is_written_where">अगली बार आप जहाँ चुनेंगे वहाँ एक प्रति लिखी जाती है और वह अब वॉल्ट से सुरक्षित नहीं रहती। वॉल्ट की प्रति बनी रहती है। Enter या Y जारी रखता है · वापस या N रद्द करता है।</string>
+    <string name="delete_from_the_vault">%1$s को वॉल्ट से हटाएँ?</string>
+    <string name="it_cannot_be_recovered_enter">इसे वापस नहीं पाया जा सकता। Enter या Y हटाता है · वापस या N रद्द करता है।</string>
+    <string name="imported_file_s_as_copies">%1$s फ़ाइलें प्रति के रूप में आयात हुईं। मूल फ़ाइलें हटाएँ?</string>
+    <string name="the_originals_are_still_where">मूल फ़ाइलें अपनी जगह पर हैं। Enter या Y उन्हें हटाता है · वापस या N रखता है।</string>
+    <string name="imported_file_s_as_copies_2">%1$s फ़ाइलें प्रति के रूप में आयात हुईं।</string>
+    <string name="could_not_import">" आयात विफल: "</string>
+    <string name="secure_vault">Secure Vault</string>
+    <string name="private_space_photos_documents_recordings">Private Space · फ़ोटो · दस्तावेज़ · रिकॉर्डिंग · आयात/निर्यात केवल स्पष्ट रूप से</string>
+    <string name="secure_vault_works_only_inside">Secure Vault केवल Private Space के अंदर काम करता है। Sable Start (सभी ऐप) में Private Space अनलॉक करें और वहीं Secure Vault खोलें। बाहर कुछ भी संग्रहीत नहीं होता।</string>
+    <string name="nothing_here_yet_press_i">यहाँ अभी कुछ नहीं है। किसी फ़ाइल की प्रति आयात करने के लिए I दबाएँ।</string>
+    <string name="could_not_lock_private_space">यहाँ से Private Space लॉक करना विफल रहा; इसे Sable Start से लॉक करें। वॉल्ट बंद हो गया।</string>
+</resources>

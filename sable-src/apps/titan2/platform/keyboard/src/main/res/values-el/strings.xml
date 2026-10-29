@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (KeyboardTextTest checks). -->
+<resources>
+    <string name="one_entry_per_line_shortcut">Μία καταχώριση ανά γραμμή: συντόμευση=αντικατάσταση, για παράδειγμα brb=be right back. Συντόμευση είναι μία λέξη από γράμματα ή ψηφία. Οι καταχωρίσεις σας λειτουργούν σε κάθε γλώσσα και αντικαθιστούν μια ενσωματωμένη με την ίδια συντόμευση. Σε μια αντικατάσταση, το %D είναι η ημερομηνία, το %T η ώρα και το %V ο αριθμός έκδοσης. Το Backspace αμέσως μετά από μια επέκταση επαναφέρει ό,τι πληκτρολογήσατε.</string>
+    <string name="save">Αποθήκευση</string>
+    <string name="saved_entries">Αποθηκεύτηκαν %1$s καταχωρίσεις</string>
+    <string name="lines_skipped_not_shortcut_replacement">· παραλείφθηκαν %1$s γραμμές (δεν είναι συντόμευση=αντικατάσταση)</string>
+    <string name="built_in_english_typing_language">Ενσωματωμένο (αγγλική γλώσσα πληκτρολόγησης)</string>
+    <string name="turn_on_clipboard_history_in">Ενεργοποιήστε το ιστορικό προχείρου στις ρυθμίσεις του Sable Keyboard</string>
+    <string name="unlock_to_use_clipboard_history">Ξεκλειδώστε για χρήση του ιστορικού προχείρου</string>
+    <string name="nav_mode_on_alt_space">Λειτουργία πλοήγησης ενεργή (Alt+Space για έξοδο)</string>
+    <string name="nav_mode_off">Λειτουργία πλοήγησης ανενεργή</string>
+    <string name="enable_more_languages_in_settings">Ενεργοποιήστε περισσότερες γλώσσες στις Ρυθμίσεις &gt; Πληκτρολόγιο &gt; Sable</string>
+    <string name="auto_capitalise_sentences">Αυτόματη χρήση κεφαλαίων στην αρχή προτάσεων</string>
+    <string name="double_space_inserts_period">Το διπλό διάστημα εισάγει τελεία</string>
+    <string name="autotext_dont_becomes_don_t">AutoText (το dont γίνεται don\'t, το ld η ημερομηνία)</string>
+    <string name="long_press_a_letter_for">Πατήστε παρατεταμένα ένα γράμμα για τον χαρακτήρα του με Alt</string>
+    <string name="letters_type_digits_in_numeric">Τα γράμματα πληκτρολογούν ψηφία σε αριθμητικά πεδία</string>
+    <string name="nav_mode_ijkl_arrows_enabled">Λειτουργία πλοήγησης (βέλη IJKL) ενεργοποιημένη</string>
+    <string name="alt_space_toggles_nav_mode">Το Alt+Space εναλλάσσει τη λειτουργία πλοήγησης</string>
+    <string name="show_on_screen_keyboard_for">Εμφάνιση πληκτρολογίου οθόνης για αριθμητικά πεδία/PIN</string>
+    <string name="always_show_on_screen_keyboard">Να εμφανίζεται πάντα το πληκτρολόγιο οθόνης</string>
+    <string name="compact_status_strip_when_the">Συμπαγής γραμμή κατάστασης όταν το πληκτρολόγιο οθόνης είναι κρυφό</string>
+    <string name="enter_sends_in_apps_that">Το Enter στέλνει σε εφαρμογές με επιλογή Αποστολής (Shift+Enter: νέα γραμμή)</string>
+    <string name="clipboard_history_alt_shift_v">Ιστορικό προχείρου (Alt+Shift+V· διατηρείται στη μνήμη, δεν αποθηκεύεται ποτέ)</string>
+    <string name="clear_clipboard_history">Εκκαθάριση ιστορικού προχείρου</string>
+    <string name="clipboard_history_cleared">Το ιστορικό προχείρου εκκαθαρίστηκε</string>
+    <string name="autotext_entries">Καταχωρίσεις AutoText</string>
+    <string name="key_event_probe_diagnostic">Ανιχνευτής συμβάντων πλήκτρων (διαγνωστικό)</string>
+    <string name="sable_keyboard">Sable Keyboard</string>
+    <string name="layout_provisional_until_key_legends">Διάταξη: προσωρινή μέχρι να καταγραφούν οι επιγραφές των πλήκτρων σε αυτήν τη συσκευή.</string>
+    <string name="space">διάστημα · %1$s%2$s</string>
+    <string name="alternate">%1$s, εναλλακτικό %2$s</string>
+    <string name="clipboard_empty">Το πρόχειρο είναι κενό</string>
+    <string name="input_method_settings">Ρυθμίσεις μεθόδου εισαγωγής</string>
+    <string name="keyboard_picker">Επιλογέας πληκτρολογίου</string>
+    <string name="sable_keyboard_is_the_selected">Το Sable Keyboard είναι το επιλεγμένο πληκτρολόγιο.</string>
+    <string name="another_keyboard_is_selected_your">Έχει επιλεγεί άλλο πληκτρολόγιο. Η επιλογή σας διατηρείται· το Sable Keyboard δεν την αλλάζει ποτέ για εσάς.</string>
+    <string name="sable_keyboard_is_not_enabled">Το Sable Keyboard δεν έχει ενεργοποιηθεί ακόμη.</string>
+    <string name="could_not_read_which_keyboard">Δεν ήταν δυνατή η ανάγνωση του επιλεγμένου πληκτρολογίου.</string>
+    <string name="could_not_open_not_available">Δεν ήταν δυνατό το άνοιγμα του %1$s: δεν είναι διαθέσιμο σε αυτήν τη συσκευή.</string>
+    <string name="could_not_open_blocked_by">Δεν ήταν δυνατό το άνοιγμα του %1$s: αποκλείστηκε από το σύστημα.</string>
+    <string name="could_not_open">Δεν ήταν δυνατό το άνοιγμα του %1$s.</string>
+</resources>

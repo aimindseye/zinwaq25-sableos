@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Korean. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (NotesTextTest checks). -->
+<resources>
+    <string name="deleted">“%1$s”을(를) 삭제했습니다</string>
+    <string name="couldn_t_save">“%1$s”을(를) 저장할 수 없습니다</string>
+    <string name="share_note">메모 공유</string>
+    <string name="exported">“%1$s”을(를) 내보냈습니다</string>
+    <string name="export_failed">내보내기 실패</string>
+    <string name="nothing_to_import">가져올 항목이 없습니다</string>
+    <string name="note">메모</string>
+    <string name="no_colour">색상 없음</string>
+    <string name="yellow">노랑</string>
+    <string name="orange">주황</string>
+    <string name="red">빨강</string>
+    <string name="pink">분홍</string>
+    <string name="purple">보라</string>
+    <string name="blue">파랑</string>
+    <string name="green">초록</string>
+    <string name="empty_note">빈 메모</string>
+    <string name="list_item_on_this_line">이 줄의 목록 항목</string>
+    <string name="tick_or_untick_this_item">이 항목 체크 또는 해제</string>
+    <string name="find_in_note">메모에서 찾기</string>
+    <string name="find_next">다음 찾기</string>
+    <string name="colour">색상</string>
+    <string name="share">공유</string>
+    <string name="export_to_a_file">파일로 내보내기</string>
+    <string name="delete_note">메모 삭제</string>
+    <string name="c_new_s_find_k">C 새로 만들기 · S 찾기 · K 할 일 · L 색상 · D 삭제</string>
+    <string name="menu_list_item_tick_find">Menu: 목록 항목, 체크, 찾기, 색상, 공유 · 뒤로 가면 저장</string>
+    <string name="enter_tick_o_open_note">Enter 체크 · O 메모 열기 · H 완료 항목 · 뒤로</string>
+    <string name="type_your_note_the_first">메모를 입력하세요. 첫 줄이 제목입니다.</string>
+    <string name="change_colour_now">색상 변경, 현재 %1$s</string>
+    <string name="edited">편집됨 %1$s%2$s</string>
+    <string name="note_actions_menu_key">메모 작업 (Menu 키)</string>
+    <string name="find_in_this_note_enter">이 메모에서 찾기 · Enter로 이동</string>
+    <string name="not_in_this_note">이 메모에 없음</string>
+    <string name="notes">메모</string>
+    <string name="new_label">새로 만들기</string>
+    <string name="no_notes_yet_press_c">아직 메모가 없습니다. C를 눌러 작성하거나 I를 눌러 텍스트 파일을 가져오세요.</string>
+    <string name="no_note_matches">일치하는 메모가 없습니다.</string>
+    <string name="c_new_i_import_k">C 새로 만들기 · I 가져오기 · K 할 일</string>
+    <string name="one_note">메모 1개</string>
+    <string name="note_count">메모 %1$s개</string>
+    <string name="open_tasks">%1$s · 남은 할 일 %2$s개</string>
+    <string name="find_in_notes_enter_opens">메모에서 찾기 · Enter로 열기</string>
+    <string name="tasks">할 일</string>
+    <string name="open_showing_done_items">남은 항목 %1$s개 · 완료 항목 표시 중</string>
+    <string name="open">남은 항목 %1$s개</string>
+    <string name="hide_done">완료 항목 숨기기</string>
+    <string name="show_done">완료 항목 표시</string>
+    <string name="no_open_tasks_in_a">남은 할 일이 없습니다. 메모에서 Menu를 누른 다음 L을 누르면 한 줄을 체크리스트 항목으로 바꿉니다.</string>
+    <string name="delete_note_question">메모를 삭제할까요?</string>
+    <string name="will_be_deleted_from_this">“%1$s”이(가) 이 휴대전화에서 삭제됩니다.</string>
+    <string name="delete">삭제</string>
+    <string name="keep">유지</string>
+</resources>

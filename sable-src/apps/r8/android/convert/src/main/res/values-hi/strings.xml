@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hindi. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
+<resources>
+    <string name="convert_length">लंबाई</string>
+    <string name="convert_mass">द्रव्यमान</string>
+    <string name="convert_temperature">तापमान</string>
+    <string name="convert_volume">आयतन</string>
+    <string name="convert_millimeters">मिलीमीटर</string>
+    <string name="convert_centimeters">सेंटीमीटर</string>
+    <string name="convert_meters">मीटर</string>
+    <string name="convert_kilometers">किलोमीटर</string>
+    <string name="convert_inches">इंच</string>
+    <string name="convert_feet">फ़ुट</string>
+    <string name="convert_miles">मील</string>
+    <string name="convert_grams">ग्राम</string>
+    <string name="convert_kilograms">किलोग्राम</string>
+    <string name="convert_ounces">औंस</string>
+    <string name="convert_pounds">पाउंड</string>
+    <string name="convert_celsius">सेल्सियस</string>
+    <string name="convert_fahrenheit">फ़ारेनहाइट</string>
+    <string name="convert_kelvin">केल्विन</string>
+    <string name="convert_milliliters">मिलीलीटर</string>
+    <string name="convert_liters">लीटर</string>
+    <string name="convert_cups">कप</string>
+    <string name="convert_gallons">गैलन</string>
+    <string name="convert_ready">तैयार</string>
+    <string name="convert_value">मान</string>
+    <string name="convert_from">से</string>
+    <string name="convert_to">में</string>
+    <string name="convert_convert">रूपांतरित करें</string>
+    <string name="convert_enter_a_number_with_up">अधिकतम तीन दशमलव स्थानों वाली संख्या दर्ज करें</string>
+    <string name="convert_length_mass_temperature_and_volume">लंबाई, द्रव्यमान, तापमान और आयतन का रूपांतरण डिवाइस पर ऑफ़लाइन किया जाता है।</string>
+    <string name="convert_native_bridge_failure">मूल इंटरफ़ेस विफल हुआ</string>
+</resources>

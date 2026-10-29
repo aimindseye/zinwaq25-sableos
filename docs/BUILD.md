@@ -10,6 +10,21 @@ the display tools) followed, and the image built after PR #33 was flashed and
 reviewed on 2026-10-28. PRs #34-#36 are not built into an image yet. Section
 "Publish a release" (section 6) packages a build for GitHub.**
 
+## The short way
+
+After installing the packages in section 1, one command does every step in this
+guide (check, download, apps, microG, stage, build, collect):
+
+```bash
+export ANDROID_HOME=/path/to/android-sdk
+bash build/sable.sh q25 all --yes      # --yes allows the ~200 GB download
+```
+
+If it stops, fix what the message says and run it again; finished steps are
+reused. Add `--release` to also make the GitHub release zip. The rest of this
+guide explains each step for when you want to run one by hand. The release
+defaults to `full` (the complete SableOS image); `Q4` is its old name.
+
 ## 1. Host
 
 * Linux x86_64 (Ubuntu 22.04/24.04 or Debian 12 are what LineageOS documents).
@@ -34,7 +49,7 @@ git lfs install
 Check everything:
 
 ```bash
-bash build/sable.sh q25 Q2 doctor
+bash build/sable.sh q25 doctor
 ```
 
 Paths default to `~/sable-q25`. Put the tree elsewhere with
@@ -119,8 +134,8 @@ is then the only keyboard on the phone.
 
 ```bash
 bash scripts/apply-framework-patches.sh check   # after repo sync: do the patches still apply?
-bash build/sable.sh q25 Q4 stage
-bash build/sable.sh q25 Q4 build
+bash build/sable.sh q25 full stage
+bash build/sable.sh q25 full build
 ```
 
 ### Optional: 50 MP rear camera
@@ -133,7 +148,7 @@ from source. Untested on hardware; see
 ### microG and Aurora Store (Q4)
 
 On by default (`SABLE_Q25_MICROG=YES`). Fetch the pinned, sha256-checked APKs before
-`stage`: `NETWORK_FETCH_AUTHORIZED=YES bash build/sable.sh q25 Q4 microg` (or
+`stage`: `NETWORK_FETCH_AUTHORIZED=YES bash build/sable.sh q25 full microg` (or
 `bash scripts/fetch-microg.sh --from DIR` with files downloaded elsewhere). `stage` fails if
 they are missing; `SABLE_Q25_MICROG=NO` builds without them. They add about 117 MB to the
 product partition. See [`MICROG.md`](MICROG.md).
@@ -159,9 +174,9 @@ package, `SHA256SUMS.txt`, `FLASHING.md` ([`FLASHING_RELEASE.md`](FLASHING_RELEA
 `RELEASE_NOTES.md`, and publishes it as a GitHub pre-release:
 
 ```bash
-bash build/sable.sh q25 Q4 artifacts
-bash build/sable.sh q25 Q4 release --tag alpha-20261029             # build the zip, print the gh command
-bash build/sable.sh q25 Q4 release --tag alpha-20261029 --publish   # needs gh auth login
+bash build/sable.sh q25 full artifacts
+bash build/sable.sh q25 full release --tag alpha-20261029             # build the zip, print the gh command
+bash build/sable.sh q25 full release --tag alpha-20261029 --publish   # needs gh auth login
 ```
 
 The notes start with `releases/<tag>.md`, or `releases/ALPHA_NOTES.md` when there is none,

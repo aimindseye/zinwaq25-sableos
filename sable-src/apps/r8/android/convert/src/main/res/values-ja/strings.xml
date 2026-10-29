@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Japanese. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
+<resources>
+    <string name="convert_length">長さ</string>
+    <string name="convert_mass">質量</string>
+    <string name="convert_temperature">温度</string>
+    <string name="convert_volume">体積</string>
+    <string name="convert_millimeters">ミリメートル</string>
+    <string name="convert_centimeters">センチメートル</string>
+    <string name="convert_meters">メートル</string>
+    <string name="convert_kilometers">キロメートル</string>
+    <string name="convert_inches">インチ</string>
+    <string name="convert_feet">フィート</string>
+    <string name="convert_miles">マイル</string>
+    <string name="convert_grams">グラム</string>
+    <string name="convert_kilograms">キログラム</string>
+    <string name="convert_ounces">オンス</string>
+    <string name="convert_pounds">ポンド</string>
+    <string name="convert_celsius">摂氏</string>
+    <string name="convert_fahrenheit">華氏</string>
+    <string name="convert_kelvin">ケルビン</string>
+    <string name="convert_milliliters">ミリリットル</string>
+    <string name="convert_liters">リットル</string>
+    <string name="convert_cups">カップ</string>
+    <string name="convert_gallons">ガロン</string>
+    <string name="convert_ready">準備完了</string>
+    <string name="convert_value">値</string>
+    <string name="convert_from">変換元</string>
+    <string name="convert_to">変換先</string>
+    <string name="convert_convert">変換</string>
+    <string name="convert_enter_a_number_with_up">小数点以下3桁までの数値を入力してください</string>
+    <string name="convert_length_mass_temperature_and_volume">長さ、質量、温度、体積の変換は端末内でオフライン処理されます。</string>
+    <string name="convert_native_bridge_failure">ネイティブ連携エラー</string>
+</resources>

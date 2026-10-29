@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Portuguese (Brazil). Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (NotesTextTest checks). -->
+<resources>
+    <string name="deleted">“%1$s” excluída</string>
+    <string name="couldn_t_save">Não foi possível salvar “%1$s”</string>
+    <string name="share_note">Compartilhar nota</string>
+    <string name="exported">“%1$s” exportada</string>
+    <string name="export_failed">Falha ao exportar</string>
+    <string name="nothing_to_import">Nada para importar</string>
+    <string name="note">Nota</string>
+    <string name="no_colour">Sem cor</string>
+    <string name="yellow">Amarelo</string>
+    <string name="orange">Laranja</string>
+    <string name="red">Vermelho</string>
+    <string name="pink">Rosa</string>
+    <string name="purple">Roxo</string>
+    <string name="blue">Azul</string>
+    <string name="green">Verde</string>
+    <string name="empty_note">Nota vazia</string>
+    <string name="list_item_on_this_line">Item de lista nesta linha</string>
+    <string name="tick_or_untick_this_item">Marcar ou desmarcar este item</string>
+    <string name="find_in_note">Localizar na nota</string>
+    <string name="find_next">Localizar próximo</string>
+    <string name="colour">Cor</string>
+    <string name="share">Compartilhar</string>
+    <string name="export_to_a_file">Exportar para um arquivo</string>
+    <string name="delete_note">Excluir nota</string>
+    <string name="c_new_s_find_k">C nova · S localizar · K tarefas · L cor · D excluir</string>
+    <string name="menu_list_item_tick_find">Menu: item de lista, marcar, localizar, cor, compartilhar · Voltar salva</string>
+    <string name="enter_tick_o_open_note">Enter marca · O abre a nota · H itens concluídos · Voltar</string>
+    <string name="type_your_note_the_first">Digite sua nota. A primeira linha é o título.</string>
+    <string name="change_colour_now">Alterar cor, atualmente %1$s</string>
+    <string name="edited">Editada %1$s%2$s</string>
+    <string name="note_actions_menu_key">Ações da nota (tecla Menu)</string>
+    <string name="find_in_this_note_enter">Localizar nesta nota · Enter vai até o resultado</string>
+    <string name="not_in_this_note">Não está nesta nota</string>
+    <string name="notes">Notas</string>
+    <string name="new_label">Nova</string>
+    <string name="no_notes_yet_press_c">Ainda não há notas. Pressione C para escrever uma ou I para importar um arquivo de texto.</string>
+    <string name="no_note_matches">Nenhuma nota corresponde.</string>
+    <string name="c_new_i_import_k">C nova · I importar · K tarefas</string>
+    <string name="one_note">1 nota</string>
+    <string name="note_count">%1$s notas</string>
+    <string name="open_tasks">%1$s · %2$s tarefas em aberto</string>
+    <string name="find_in_notes_enter_opens">Localizar nas notas · Enter abre</string>
+    <string name="tasks">Tarefas</string>
+    <string name="open_showing_done_items">%1$s em aberto · mostrando itens concluídos</string>
+    <string name="open">%1$s em aberto</string>
+    <string name="hide_done">Ocultar concluídos</string>
+    <string name="show_done">Mostrar concluídos</string>
+    <string name="no_open_tasks_in_a">Nenhuma tarefa em aberto. Em uma nota, Menu e depois L transforma uma linha em item de lista de tarefas.</string>
+    <string name="delete_note_question">Excluir a nota?</string>
+    <string name="will_be_deleted_from_this">“%1$s” será excluída deste telefone.</string>
+    <string name="delete">Excluir</string>
+    <string name="keep">Manter</string>
+</resources>

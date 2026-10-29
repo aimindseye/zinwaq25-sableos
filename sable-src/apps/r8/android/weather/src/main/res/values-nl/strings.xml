@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dutch. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
+<resources>
+    <string name="city_or_name_lat_lon">stad of naam, breedtegraad, lengtegraad, gebied/zone</string>
+    <string name="no_match_enter_name_latitude">Geen resultaat. Voer naam, breedtegraad, lengtegraad en gebied/zone in.</string>
+    <string name="remove">%1$s verwijderen?</string>
+    <string name="reset_to_the_built_in">Ingebouwde steden herstellen? Toegevoegde steden worden verwijderd.</string>
+    <string name="current_manual_city">huidige · handmatig gekozen stad</string>
+    <string name="add_city">stad toevoegen</string>
+    <string name="type_a_name_or_press">typ een naam of druk op een willekeurige letter</string>
+    <string name="reset_to_built_in_cities">ingebouwde steden herstellen</string>
+    <string name="refreshing_forecast">Voorspelling vernieuwen…</string>
+    <string name="loading_forecast">voorspelling laden</string>
+    <string name="forecast_unavailable">voorspelling niet beschikbaar</string>
+    <string name="weather_ready">weerbericht gereed</string>
+    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · lokaal in cache · geschatte locatie of gekozen stad · nauwkeurige locatie wordt nooit gebruikt</string>
+    <string name="use_current_location">Huidige locatie gebruiken</string>
+    <string name="finding_where_you_are">Je locatie zoeken…</string>
+    <string name="off_showing_the_chosen_city">Uit: gekozen stad wordt weergegeven</string>
+    <string name="feels_like">"voelt als "</string>
+    <string name="next_hours">komende uren</string>
+    <string name="n7_days">7 dagen</string>
+    <string name="live">" · live"</string>
+    <string name="cached">" · in cache"</string>
+    <string name="fetching">" · ophalen"</string>
+    <string name="unavailable">" · niet beschikbaar"</string>
+    <string name="local">" · lokaal"</string>
+    <string name="partly_cloudy">gedeeltelijk bewolkt</string>
+    <string name="conditions_unavailable">weersomstandigheden niet beschikbaar</string>
+    <string name="forecast_not_loaded_yet">De voorspelling is nog niet geladen.</string>
+    <string name="refresh_to_load_the_forecast">Vernieuw om de voorspelling te laden.</string>
+    <string name="cached_forecast_could_not_be">Voorspelling in cache kon niet worden gelezen.</string>
+    <string name="forecast_is_current">De voorspelling is actueel.</string>
+    <string name="showing_cached_forecast">Voorspelling uit cache wordt weergegeven.</string>
+    <string name="forecast_available">Voorspelling beschikbaar.</string>
+    <string name="offline_showing_last_known_forecast">Offline · laatst bekende voorspelling wordt weergegeven.</string>
+    <string name="forecast_unavailable_check_the_connection">Voorspelling niet beschikbaar. Controleer de verbinding en probeer opnieuw.</string>
+    <string name="provider_response_could_not_be">Reactie van aanbieder kon niet worden genormaliseerd.</string>
+    <string name="updated_from_open_meteo">Bijgewerkt vanuit Open-Meteo.</string>
+</resources>

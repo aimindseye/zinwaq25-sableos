@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (VaultLinesTest checks). -->
+<resources>
+    <string name="read_error">ошибка чтения</string>
+    <string name="no_access">" (нет доступа"</string>
+    <string name="partial_copy_left">; осталась частичная копия</string>
+    <string name="cancelled_nothing_changed">Отменено. Ничего не изменилось.</string>
+    <string name="deleted">%1$s удалён.</string>
+    <string name="could_not_delete">Не удалось удалить %1$s.</string>
+    <string name="deleted_of_original_s_any">Удалено оригиналов: %1$s из %2$s. Неудалённые остались на своих местах.</string>
+    <string name="open_with">Открыть %1$s в</string>
+    <string name="opened_read_only_this_file">%1$s открыт (только чтение, только этот файл).</string>
+    <string name="no_app_in_private_space">Ни одно приложение в Private Space не может открыть %1$s.</string>
+    <string name="the_system_file_picker_is">Системный выбор файлов недоступен.</string>
+    <string name="exported_a_copy_of_it">Копия %1$s экспортирована. Она больше не защищена хранилищем.</string>
+    <string name="export_failed_nothing_was_written">Не удалось экспортировать. Ничего не записано.</string>
+    <string name="could">Не удалось</string>
+    <string name="cancelled">Отменено</string>
+    <string name="no_app">Ни одно приложение</string>
+    <string name="not_available">недоступен</string>
+    <string name="yes">Да</string>
+    <string name="no">Нет</string>
+    <string name="import_label">Импорт</string>
+    <string name="export">Экспорт</string>
+    <string name="lock_now">Заблокировать сейчас</string>
+    <string name="photos">Фото</string>
+    <string name="documents">Документы</string>
+    <string name="recordings">Записи</string>
+    <string name="file_or_p_d_r">↑↓ файл · ←→ или P D R раздел · Enter открыть · I импорт · E экспорт · X удалить · L заблокировать сейчас</string>
+    <string name="open">Открыть %1$s?</string>
+    <string name="the_app_you_pick_inside">Выбранное вами приложение (внутри Private Space) сможет читать только этот файл, пока не закроет его. Enter или Y открывает · Назад или N отменяет.</string>
+    <string name="export_2">Экспортировать %1$s?</string>
+    <string name="a_copy_is_written_where">Копия будет записана туда, куда вы укажете далее, и больше не будет защищена хранилищем. Копия в хранилище останется. Enter или Y продолжает · Назад или N отменяет.</string>
+    <string name="delete_from_the_vault">Удалить %1$s из хранилища?</string>
+    <string name="it_cannot_be_recovered_enter">Восстановить его будет нельзя. Enter или Y удаляет · Назад или N отменяет.</string>
+    <string name="imported_file_s_as_copies">Импортировано копий файлов: %1$s. Удалить оригиналы?</string>
+    <string name="the_originals_are_still_where">Оригиналы остались на своих местах. Enter или Y удаляет их · Назад или N оставляет.</string>
+    <string name="imported_file_s_as_copies_2">Импортировано копий файлов: %1$s.</string>
+    <string name="could_not_import">" Не удалось импортировать: "</string>
+    <string name="secure_vault">Secure Vault</string>
+    <string name="private_space_photos_documents_recordings">Private Space · Фото · Документы · Записи · импорт и экспорт только по явной команде</string>
+    <string name="secure_vault_works_only_inside">Secure Vault работает только внутри Private Space. Разблокируйте Private Space в Sable Start (Все приложения) и откройте там Secure Vault. Вне него ничего не хранится.</string>
+    <string name="nothing_here_yet_press_i">Пока здесь ничего нет. Нажмите I, чтобы импортировать копию файла.</string>
+    <string name="could_not_lock_private_space">Не удалось заблокировать Private Space отсюда; заблокируйте его в Sable Start. Хранилище закрыто.</string>
+</resources>

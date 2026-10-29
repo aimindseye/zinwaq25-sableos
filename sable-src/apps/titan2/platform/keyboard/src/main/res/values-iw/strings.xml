@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hebrew. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (KeyboardTextTest checks). -->
+<resources>
+    <string name="one_entry_per_line_shortcut">רשומה אחת בכל שורה: קיצור=החלפה, לדוגמה brb=be right back. קיצור הוא מילה אחת של אותיות או ספרות. הרשומות שלכם פועלות בכל שפה ומחליפות רשומה מובנית עם אותו קיצור. בהחלפה, %D הוא התאריך, %T השעה ו-%V מספר הגרסה. הקשה על Backspace מיד אחרי הרחבה מחזירה את מה שהקלדתם.</string>
+    <string name="save">שמירה</string>
+    <string name="saved_entries">נשמרו %1$s רשומות</string>
+    <string name="lines_skipped_not_shortcut_replacement">; דולגו %1$s שורות (לא בפורמט קיצור=החלפה)</string>
+    <string name="built_in_english_typing_language">מובנה (שפת הקלדה אנגלית)</string>
+    <string name="turn_on_clipboard_history_in">הפעילו את היסטוריית הלוח בהגדרות Sable Keyboard</string>
+    <string name="unlock_to_use_clipboard_history">בטלו את הנעילה כדי להשתמש בהיסטוריית הלוח</string>
+    <string name="nav_mode_on_alt_space">מצב ניווט פועל (Alt+Space ליציאה)</string>
+    <string name="nav_mode_off">מצב ניווט כבוי</string>
+    <string name="enable_more_languages_in_settings">הפעילו שפות נוספות בהגדרות &gt; מקלדת &gt; Sable</string>
+    <string name="auto_capitalise_sentences">אותיות גדולות אוטומטיות בתחילת משפט</string>
+    <string name="double_space_inserts_period">רווח כפול מוסיף נקודה</string>
+    <string name="autotext_dont_becomes_don_t">AutoText (‏dont הופך ל-don\'t, ‏ld הופך לתאריך)</string>
+    <string name="long_press_a_letter_for">הקשה ממושכת על אות מקלידה את התו שלה עם Alt</string>
+    <string name="letters_type_digits_in_numeric">אותיות מקלידות ספרות בשדות מספריים</string>
+    <string name="nav_mode_ijkl_arrows_enabled">מצב ניווט (חצי IJKL) מופעל</string>
+    <string name="alt_space_toggles_nav_mode">Alt+Space מחליף את מצב הניווט</string>
+    <string name="show_on_screen_keyboard_for">הצגת המקלדת שעל המסך בשדות מספריים/PIN</string>
+    <string name="always_show_on_screen_keyboard">הצגת המקלדת שעל המסך תמיד</string>
+    <string name="compact_status_strip_when_the">שורת מצב קומפקטית כשהמקלדת שעל המסך מוסתרת</string>
+    <string name="enter_sends_in_apps_that">Enter שולח באפליקציות עם אפשרות שליחה (Shift+Enter: שורה חדשה)</string>
+    <string name="clipboard_history_alt_shift_v">היסטוריית הלוח (Alt+Shift+V; נשמרת בזיכרון בלבד, אף פעם לא נשמרת בקובץ)</string>
+    <string name="clear_clipboard_history">ניקוי היסטוריית הלוח</string>
+    <string name="clipboard_history_cleared">היסטוריית הלוח נוקתה</string>
+    <string name="autotext_entries">רשומות AutoText</string>
+    <string name="key_event_probe_diagnostic">בדיקת אירועי מקשים (אבחון)</string>
+    <string name="sable_keyboard">Sable Keyboard</string>
+    <string name="layout_provisional_until_key_legends">פריסה: זמנית עד שיתועדו כיתובי המקשים במכשיר הזה.</string>
+    <string name="space">רווח · %1$s%2$s</string>
+    <string name="alternate">%1$s, חלופה %2$s</string>
+    <string name="clipboard_empty">הלוח ריק</string>
+    <string name="input_method_settings">הגדרות שיטת קלט</string>
+    <string name="keyboard_picker">בורר מקלדת</string>
+    <string name="sable_keyboard_is_the_selected">Sable Keyboard היא המקלדת שנבחרה.</string>
+    <string name="another_keyboard_is_selected_your">נבחרה מקלדת אחרת. הבחירה שלכם נשמרת; Sable Keyboard לעולם לא משנה אותה במקומכם.</string>
+    <string name="sable_keyboard_is_not_enabled">Sable Keyboard עדיין לא הופעלה.</string>
+    <string name="could_not_read_which_keyboard">לא ניתן היה לקרוא איזו מקלדת נבחרה.</string>
+    <string name="could_not_open_not_available">לא ניתן לפתוח את %1$s: לא זמין במכשיר הזה.</string>
+    <string name="could_not_open_blocked_by">לא ניתן לפתוח את %1$s: נחסם על ידי המערכת.</string>
+    <string name="could_not_open">לא ניתן לפתוח את %1$s.</string>
+</resources>

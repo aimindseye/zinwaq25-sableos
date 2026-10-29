@@ -1,0 +1,736 @@
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-ar/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-ar/strings.xml
+new file mode 100644
+index 0000000..570c766
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-ar/strings.xml
+@@ -0,0 +1,40 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Arabic. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
++<resources>
++    <string name="city_or_name_lat_lon">المدينة، أو الاسم، خط العرض، خط الطول، المنطقة/النطاق</string>
++    <string name="no_match_enter_name_latitude">لا يوجد تطابق. أدخل الاسم، خط العرض، خط الطول، المنطقة/النطاق.</string>
++    <string name="remove">هل تريد إزالة %1$s؟</string>
++    <string name="reset_to_the_built_in">هل تريد إعادة الضبط إلى المدن المدمجة؟ تتم إزالة المدن المضافة.</string>
++    <string name="current_manual_city">الحالي · مدينة يدوية</string>
++    <string name="add_city">إضافة مدينة</string>
++    <string name="type_a_name_or_press">اكتب اسمًا، أو اضغط على أي حرف</string>
++    <string name="reset_to_built_in_cities">إعادة الضبط إلى المدن المدمجة</string>
++    <string name="refreshing_forecast">جارٍ تحديث التوقعات…</string>
++    <string name="loading_forecast">جارٍ تحميل التوقعات</string>
++    <string name="forecast_unavailable">التوقعات غير متوفرة</string>
++    <string name="weather_ready">الطقس جاهز</string>
++    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · مخزن مؤقتا محليا · موقع تقريبي أو مدينة مختارة · لا يستخدم الموقع الدقيق أبدا</string>
++    <string name="use_current_location">استخدام الموقع الحالي</string>
++    <string name="finding_where_you_are">جارٍ البحث عن موقعك…</string>
++    <string name="off_showing_the_chosen_city">متوقف: عرض المدينة المختارة</string>
++    <string name="feels_like">"المحسوسة "</string>
++    <string name="next_hours">الساعات القادمة</string>
++    <string name="n7_days">7 أيام</string>
++    <string name="live">" · مباشر"</string>
++    <string name="cached">" · مخزن مؤقتا"</string>
++    <string name="fetching">" · جلب"</string>
++    <string name="unavailable">" · غير متوفر"</string>
++    <string name="local">" · محلي"</string>
++    <string name="partly_cloudy">غائم جزئيا</string>
++    <string name="conditions_unavailable">الظروف غير متوفرة</string>
++    <string name="forecast_not_loaded_yet">لم يتم تحميل التوقعات بعد.</string>
++    <string name="refresh_to_load_the_forecast">قم بالتحديث لتحميل التوقعات.</string>
++    <string name="cached_forecast_could_not_be">لا يمكن قراءة التوقعات المخزنة مؤقتا.</string>
++    <string name="forecast_is_current">التوقعات حديثة.</string>
++    <string name="showing_cached_forecast">عرض التوقعات المخزنة مؤقتا.</string>
++    <string name="forecast_available">التوقعات متوفرة.</string>
++    <string name="offline_showing_last_known_forecast">غير متصل · عرض آخر توقعات معروفة.</string>
++    <string name="forecast_unavailable_check_the_connection">التوقعات غير متوفرة. تحقق من الاتصال وحاول مرة أخرى.</string>
++    <string name="provider_response_could_not_be">لا يمكن تسوية استجابة المزود.</string>
++    <string name="updated_from_open_meteo">تم التحديث من Open-Meteo.</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-de/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-de/strings.xml
+new file mode 100644
+index 0000000..4bfed42
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-de/strings.xml
+@@ -0,0 +1,40 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- German. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
++<resources>
++    <string name="city_or_name_lat_lon">Stadt, oder Name, Breitengrad, Längengrad, Gebiet/Zone</string>
++    <string name="no_match_enter_name_latitude">Kein Treffer. Name, Breitengrad, Längengrad, Gebiet/Zone eingeben.</string>
++    <string name="remove">%1$s entfernen?</string>
++    <string name="reset_to_the_built_in">Auf integrierte Städte zurücksetzen? Hinzugefügte Städte werden entfernt.</string>
++    <string name="current_manual_city">aktuell · manuelle Stadt</string>
++    <string name="add_city">Stadt hinzufügen</string>
++    <string name="type_a_name_or_press">Namen eingeben, oder beliebigen Buchstaben drücken</string>
++    <string name="reset_to_built_in_cities">auf integrierte Städte zurücksetzen</string>
++    <string name="refreshing_forecast">Wettervorhersage wird aktualisiert…</string>
++    <string name="loading_forecast">Vorhersage wird geladen</string>
++    <string name="forecast_unavailable">Vorhersage nicht verfügbar</string>
++    <string name="weather_ready">Wetter bereit</string>
++    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · lokal zwischengespeichert · ungefährer Standort oder gewählte Stadt · genauer Standort wird nie verwendet</string>
++    <string name="use_current_location">Aktuellen Standort verwenden</string>
++    <string name="finding_where_you_are">Suche nach Ihrem Standort…</string>
++    <string name="off_showing_the_chosen_city">Aus: Gewählte Stadt wird angezeigt</string>
++    <string name="feels_like">"gefühlt wie "</string>
++    <string name="next_hours">nächste Stunden</string>
++    <string name="n7_days">7 Tage</string>
++    <string name="live">" · live"</string>
++    <string name="cached">" · zwischengespeichert"</string>
++    <string name="fetching">" · wird abgerufen"</string>
++    <string name="unavailable">" · nicht verfügbar"</string>
++    <string name="local">" · lokal"</string>
++    <string name="partly_cloudy">teils bewölkt</string>
++    <string name="conditions_unavailable">Bedingungen nicht verfügbar</string>
++    <string name="forecast_not_loaded_yet">Vorhersage noch nicht geladen.</string>
++    <string name="refresh_to_load_the_forecast">Aktualisieren, um Vorhersage zu laden.</string>
++    <string name="cached_forecast_could_not_be">Zwischengespeicherte Vorhersage konnte nicht gelesen werden.</string>
++    <string name="forecast_is_current">Vorhersage ist aktuell.</string>
++    <string name="showing_cached_forecast">Zeigt zwischengespeicherte Vorhersage.</string>
++    <string name="forecast_available">Vorhersage verfügbar.</string>
++    <string name="offline_showing_last_known_forecast">Offline · letzte bekannte Vorhersage wird angezeigt.</string>
++    <string name="forecast_unavailable_check_the_connection">Vorhersage nicht verfügbar. Verbindung prüfen und erneut versuchen.</string>
++    <string name="provider_response_could_not_be">Anbieterantwort konnte nicht normalisiert werden.</string>
++    <string name="updated_from_open_meteo">Von Open-Meteo aktualisiert.</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-el/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-el/strings.xml
+new file mode 100644
+index 0000000..d8beb97
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-el/strings.xml
+@@ -0,0 +1,40 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Greek. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
++<resources>
++    <string name="city_or_name_lat_lon">πόλη, ή Όνομα, γεωγραφικό πλάτος, γεωγραφικό μήκος, Περιοχή/Ζώνη</string>
++    <string name="no_match_enter_name_latitude">Καμία αντιστοιχία. Εισαγάγετε Όνομα, πλάτος, μήκος, Περιοχή/Ζώνη.</string>
++    <string name="remove">Αφαίρεση %1$s;</string>
++    <string name="reset_to_the_built_in">Επαναφορά στις ενσωματωμένες πόλεις; Οι προστιθέμενες πόλεις αφαιρούνται.</string>
++    <string name="current_manual_city">τρέχουσα · μη αυτόματη πόλη</string>
++    <string name="add_city">προσθήκη πόλης</string>
++    <string name="type_a_name_or_press">πληκτρολογήστε ένα όνομα, ή πατήστε οποιοδήποτε γράμμα</string>
++    <string name="reset_to_built_in_cities">επαναφορά στις ενσωματωμένες πόλεις</string>
++    <string name="refreshing_forecast">Ανανέωση πρόβλεψης…</string>
++    <string name="loading_forecast">φόρτωση πρόβλεψης</string>
++    <string name="forecast_unavailable">πρόβλεψη μη διαθέσιμη</string>
++    <string name="weather_ready">καιρός έτοιμος</string>
++    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · τοπική προσωρινή μνήμη · κατά προσέγγιση τοποθεσία ή επιλεγμένη πόλη · η ακριβής τοποθεσία δεν χρησιμοποιείται ποτέ</string>
++    <string name="use_current_location">Χρήση τρέχουσας τοποθεσίας</string>
++    <string name="finding_where_you_are">Εύρεση τοποθεσίας…</string>
++    <string name="off_showing_the_chosen_city">Ανενεργό: εμφάνιση της επιλεγμένης πόλης</string>
++    <string name="feels_like">"αίσθηση "</string>
++    <string name="next_hours">επόμενες ώρες</string>
++    <string name="n7_days">7 ημέρες</string>
++    <string name="live">" · ζωντανά"</string>
++    <string name="cached">" · στην κρυφή μνήμη"</string>
++    <string name="fetching">" · λήψη"</string>
++    <string name="unavailable">" · μη διαθέσιμο"</string>
++    <string name="local">" · τοπικό"</string>
++    <string name="partly_cloudy">μερικώς νεφελώδης</string>
++    <string name="conditions_unavailable">συνθήκες μη διαθέσιμες</string>
++    <string name="forecast_not_loaded_yet">Η πρόβλεψη δεν έχει φορτωθεί ακόμα.</string>
++    <string name="refresh_to_load_the_forecast">Ανανεώστε για φόρτωση της πρόβλεψης.</string>
++    <string name="cached_forecast_could_not_be">Αδυναμία ανάγνωσης της αποθηκευμένης πρόβλεψης.</string>
++    <string name="forecast_is_current">Η πρόβλεψη είναι τρέχουσα.</string>
++    <string name="showing_cached_forecast">Εμφάνιση αποθηκευμένης πρόβλεψης.</string>
++    <string name="forecast_available">Πρόβλεψη διαθέσιμη.</string>
++    <string name="offline_showing_last_known_forecast">Εκτός σύνδεσης · εμφάνιση τελευταίας γνωστής πρόβλεψης.</string>
++    <string name="forecast_unavailable_check_the_connection">Πρόβλεψη μη διαθέσιμη. Ελέγξτε τη σύνδεση και δοκιμάστε ξανά.</string>
++    <string name="provider_response_could_not_be">Αδυναμία κανονικοποίησης της απόκρισης του παρόχου.</string>
++    <string name="updated_from_open_meteo">Ενημερώθηκε από Open-Meteo.</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-es/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-es/strings.xml
+new file mode 100644
+index 0000000..0791b74
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-es/strings.xml
+@@ -0,0 +1,40 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Spanish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
++<resources>
++    <string name="city_or_name_lat_lon">ciudad, o Nombre, lat, lon, Área/Zona</string>
++    <string name="no_match_enter_name_latitude">Sin coincidencia. Introduce Nombre, latitud, longitud, Área/Zona.</string>
++    <string name="remove">¿Eliminar %1$s?</string>
++    <string name="reset_to_the_built_in">¿Restablecer ciudades integradas? Se eliminan las ciudades añadidas.</string>
++    <string name="current_manual_city">actual · ciudad manual</string>
++    <string name="add_city">añadir ciudad</string>
++    <string name="type_a_name_or_press">escribe un nombre, o pulsa cualquier letra</string>
++    <string name="reset_to_built_in_cities">restablecer ciudades integradas</string>
++    <string name="refreshing_forecast">Actualizando pronóstico…</string>
++    <string name="loading_forecast">cargando pronóstico</string>
++    <string name="forecast_unavailable">pronóstico no disponible</string>
++    <string name="weather_ready">clima listo</string>
++    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · en caché localmente · ubicación aproximada o ciudad elegida · la ubicación precisa nunca se usa</string>
++    <string name="use_current_location">Usar ubicación actual</string>
++    <string name="finding_where_you_are">Buscando dónde estás…</string>
++    <string name="off_showing_the_chosen_city">Desactivado: mostrando la ciudad elegida</string>
++    <string name="feels_like">"sensación de "</string>
++    <string name="next_hours">próximas horas</string>
++    <string name="n7_days">7 días</string>
++    <string name="live">" · en vivo"</string>
++    <string name="cached">" · en caché"</string>
++    <string name="fetching">" · obteniendo"</string>
++    <string name="unavailable">" · no disponible"</string>
++    <string name="local">" · local"</string>
++    <string name="partly_cloudy">parcialmente nublado</string>
++    <string name="conditions_unavailable">condiciones no disponibles</string>
++    <string name="forecast_not_loaded_yet">Pronóstico aún no cargado.</string>
++    <string name="refresh_to_load_the_forecast">Actualiza para cargar el pronóstico.</string>
++    <string name="cached_forecast_could_not_be">No se pudo leer el pronóstico en caché.</string>
++    <string name="forecast_is_current">El pronóstico está actualizado.</string>
++    <string name="showing_cached_forecast">Mostrando pronóstico en caché.</string>
++    <string name="forecast_available">Pronóstico disponible.</string>
++    <string name="offline_showing_last_known_forecast">Sin conexión · mostrando último pronóstico conocido.</string>
++    <string name="forecast_unavailable_check_the_connection">Pronóstico no disponible. Comprueba la conexión y reintenta.</string>
++    <string name="provider_response_could_not_be">No se pudo normalizar la respuesta del proveedor.</string>
++    <string name="updated_from_open_meteo">Actualizado desde Open-Meteo.</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-fr/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-fr/strings.xml
+new file mode 100644
+index 0000000..0cce7c1
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-fr/strings.xml
+@@ -0,0 +1,40 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- French. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
++<resources>
++    <string name="city_or_name_lat_lon">ville, ou Nom, lat, lon, Zone/Région</string>
++    <string name="no_match_enter_name_latitude">Aucune correspondance. Entrez Nom, latitude, longitude, Zone/Région.</string>
++    <string name="remove">Supprimer %1$s ?</string>
++    <string name="reset_to_the_built_in">Réinitialiser aux villes intégrées ? Les villes ajoutées sont supprimées.</string>
++    <string name="current_manual_city">actuelle · ville manuelle</string>
++    <string name="add_city">ajouter une ville</string>
++    <string name="type_a_name_or_press">tapez un nom, ou appuyez sur n\'importe quelle lettre</string>
++    <string name="reset_to_built_in_cities">réinitialiser aux villes intégrées</string>
++    <string name="refreshing_forecast">Actualisation des prévisions…</string>
++    <string name="loading_forecast">chargement des prévisions</string>
++    <string name="forecast_unavailable">prévisions indisponibles</string>
++    <string name="weather_ready">météo prête</string>
++    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · en cache local · position approximative ou ville choisie · la position précise n\'est jamais utilisée</string>
++    <string name="use_current_location">Utiliser position actuelle</string>
++    <string name="finding_where_you_are">Recherche de votre position…</string>
++    <string name="off_showing_the_chosen_city">Désactivé : affichage de la ville choisie</string>
++    <string name="feels_like">"ressenti "</string>
++    <string name="next_hours">prochaines heures</string>
++    <string name="n7_days">7 jours</string>
++    <string name="live">" · en direct"</string>
++    <string name="cached">" · en cache"</string>
++    <string name="fetching">" · récupération"</string>
++    <string name="unavailable">" · indisponible"</string>
++    <string name="local">" · local"</string>
++    <string name="partly_cloudy">partiellement nuageux</string>
++    <string name="conditions_unavailable">conditions indisponibles</string>
++    <string name="forecast_not_loaded_yet">Prévisions pas encore chargées.</string>
++    <string name="refresh_to_load_the_forecast">Actualisez pour charger les prévisions.</string>
++    <string name="cached_forecast_could_not_be">Impossible de lire les prévisions en cache.</string>
++    <string name="forecast_is_current">Les prévisions sont à jour.</string>
++    <string name="showing_cached_forecast">Affichage des prévisions en cache.</string>
++    <string name="forecast_available">Prévisions disponibles.</string>
++    <string name="offline_showing_last_known_forecast">Hors ligne · affichage des dernières prévisions connues.</string>
++    <string name="forecast_unavailable_check_the_connection">Prévisions indisponibles. Vérifiez la connexion et réessayez.</string>
++    <string name="provider_response_could_not_be">Impossible de normaliser la réponse du fournisseur.</string>
++    <string name="updated_from_open_meteo">Mis à jour depuis Open-Meteo.</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-hi/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-hi/strings.xml
+new file mode 100644
+index 0000000..5aa2d0e
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-hi/strings.xml
+@@ -0,0 +1,40 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Hindi. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
++<resources>
++    <string name="city_or_name_lat_lon">शहर, या नाम, अक्षांश, देशांतर, क्षेत्र/ज़ोन</string>
++    <string name="no_match_enter_name_latitude">कोई मेल नहीं। नाम, अक्षांश, देशांतर, क्षेत्र/ज़ोन दर्ज करें।</string>
++    <string name="remove">क्या %1$s निकालें?</string>
++    <string name="reset_to_the_built_in">अंतर्निहित शहरों पर रीसेट करें? जोड़े गए शहर हटा दिए जाएंगे।</string>
++    <string name="current_manual_city">वर्तमान · मैनुअल शहर</string>
++    <string name="add_city">शहर जोड़ें</string>
++    <string name="type_a_name_or_press">नाम टाइप करें, या कोई भी अक्षर दबाएं</string>
++    <string name="reset_to_built_in_cities">अंतर्निहित शहरों पर रीसेट करें</string>
++    <string name="refreshing_forecast">पूर्वानुमान ताज़ा हो रहा है…</string>
++    <string name="loading_forecast">पूर्वानुमान लोड हो रहा है</string>
++    <string name="forecast_unavailable">पूर्वानुमान अनुपलब्ध</string>
++    <string name="weather_ready">मौसम तैयार</string>
++    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · स्थानीय रूप से कैश किया गया · अनुमानित स्थान या चुना हुआ शहर · सटीक स्थान कभी उपयोग नहीं किया जाता</string>
++    <string name="use_current_location">वर्तमान स्थान का उपयोग करें</string>
++    <string name="finding_where_you_are">खोज रहे हैं कि आप कहां हैं…</string>
++    <string name="off_showing_the_chosen_city">बंद: चुना हुआ शहर दिखा रहा है</string>
++    <string name="feels_like">"महसूस होता है "</string>
++    <string name="next_hours">अगले घंटे</string>
++    <string name="n7_days">7 दिन</string>
++    <string name="live">" · लाइव"</string>
++    <string name="cached">" · कैश किया गया"</string>
++    <string name="fetching">" · लाया जा रहा है"</string>
++    <string name="unavailable">" · अनुपलब्ध"</string>
++    <string name="local">" · स्थानीय"</string>
++    <string name="partly_cloudy">आंशिक रूप से बादल</string>
++    <string name="conditions_unavailable">स्थितियां अनुपलब्ध</string>
++    <string name="forecast_not_loaded_yet">पूर्वानुमान अभी लोड नहीं हुआ है।</string>
++    <string name="refresh_to_load_the_forecast">पूर्वानुमान लोड करने के लिए रीफ्रेश करें।</string>
++    <string name="cached_forecast_could_not_be">कैश किया गया पूर्वानुमान पढ़ा नहीं जा सका।</string>
++    <string name="forecast_is_current">पूर्वानुमान अद्यतन है।</string>
++    <string name="showing_cached_forecast">कैश किया गया पूर्वानुमान दिखा रहा है।</string>
++    <string name="forecast_available">पूर्वानुमान उपलब्ध है।</string>
++    <string name="offline_showing_last_known_forecast">ऑफ़लाइन · अंतिम ज्ञात पूर्वानुमान दिखा रहा है।</string>
++    <string name="forecast_unavailable_check_the_connection">पूर्वानुमान अनुपलब्ध। कनेक्शन जांचें और पुनः प्रयास करें।</string>
++    <string name="provider_response_could_not_be">प्रदाता की प्रतिक्रिया सामान्य नहीं की जा सकी।</string>
++    <string name="updated_from_open_meteo">Open-Meteo से अपडेट किया गया।</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-it/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-it/strings.xml
+new file mode 100644
+index 0000000..bfba714
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-it/strings.xml
+@@ -0,0 +1,40 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Italian. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
++<resources>
++    <string name="city_or_name_lat_lon">città, o Nome, lat, lon, Area/Zona</string>
++    <string name="no_match_enter_name_latitude">Nessuna corrispondenza. Inserisci Nome, latitudine, longitudine, Area/Zona.</string>
++    <string name="remove">Rimuovere %1$s?</string>
++    <string name="reset_to_the_built_in">Ripristinare le città integrate? Le città aggiunte vengono rimosse.</string>
++    <string name="current_manual_city">attuale · città manuale</string>
++    <string name="add_city">aggiungi città</string>
++    <string name="type_a_name_or_press">digita un nome, o premi qualsiasi lettera</string>
++    <string name="reset_to_built_in_cities">ripristina città integrate</string>
++    <string name="refreshing_forecast">Aggiornamento previsioni in corso…</string>
++    <string name="loading_forecast">caricamento previsioni</string>
++    <string name="forecast_unavailable">previsioni non disponibili</string>
++    <string name="weather_ready">meteo pronto</string>
++    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · memorizzato localmente nella cache · posizione approssimativa o città scelta · la posizione precisa non viene mai utilizzata</string>
++    <string name="use_current_location">Usa posizione attuale</string>
++    <string name="finding_where_you_are">Ricerca della tua posizione…</string>
++    <string name="off_showing_the_chosen_city">Disattivato: mostra la città scelta</string>
++    <string name="feels_like">"percepito "</string>
++    <string name="next_hours">prossime ore</string>
++    <string name="n7_days">7 giorni</string>
++    <string name="live">" · in tempo reale"</string>
++    <string name="cached">" · in cache"</string>
++    <string name="fetching">" · recupero"</string>
++    <string name="unavailable">" · non disponibile"</string>
++    <string name="local">" · locale"</string>
++    <string name="partly_cloudy">parzialmente nuvoloso</string>
++    <string name="conditions_unavailable">condizioni non disponibili</string>
++    <string name="forecast_not_loaded_yet">Previsioni non ancora caricate.</string>
++    <string name="refresh_to_load_the_forecast">Aggiorna per caricare le previsioni.</string>
++    <string name="cached_forecast_could_not_be">Impossibile leggere le previsioni nella cache.</string>
++    <string name="forecast_is_current">Le previsioni sono attuali.</string>
++    <string name="showing_cached_forecast">Mostra previsioni in cache.</string>
++    <string name="forecast_available">Previsioni disponibili.</string>
++    <string name="offline_showing_last_known_forecast">Offline · mostra le ultime previsioni note.</string>
++    <string name="forecast_unavailable_check_the_connection">Previsioni non disponibili. Controlla la connessione e riprova.</string>
++    <string name="provider_response_could_not_be">Impossibile normalizzare la risposta del provider.</string>
++    <string name="updated_from_open_meteo">Aggiornato da Open-Meteo.</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-iw/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-iw/strings.xml
+new file mode 100644
+index 0000000..71cbece
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-iw/strings.xml
+@@ -0,0 +1,40 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Hebrew. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
++<resources>
++    <string name="city_or_name_lat_lon">עיר, או שם, קו רוחב, קו אורך, אזור/סביבה</string>
++    <string name="no_match_enter_name_latitude">אין התאמה. הזן שם, קו רוחב, קו אורך, אזור/סביבה.</string>
++    <string name="remove">האם להסיר את %1$s?</string>
++    <string name="reset_to_the_built_in">לאפס לערים המובנות? ערים שנוספו יוסרו.</string>
++    <string name="current_manual_city">נוכחי · עיר ידנית</string>
++    <string name="add_city">הוסף עיר</string>
++    <string name="type_a_name_or_press">הקלד שם, או הקש על אות כלשהי</string>
++    <string name="reset_to_built_in_cities">אפס לערים מובנות</string>
++    <string name="refreshing_forecast">מרענן תחזית…</string>
++    <string name="loading_forecast">טוען תחזית</string>
++    <string name="forecast_unavailable">תחזית לא זמינה</string>
++    <string name="weather_ready">מזג אוויר מוכן</string>
++    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · שמור במטמון מקומי · מיקום משוער או עיר נבחרת · מיקום מדויק אינו בשימוש לעולם</string>
++    <string name="use_current_location">השתמש במיקום הנוכחי</string>
++    <string name="finding_where_you_are">מחפש היכן אתה…</string>
++    <string name="off_showing_the_chosen_city">כבוי: מציג את העיר הנבחרת</string>
++    <string name="feels_like">"מרגיש כמו "</string>
++    <string name="next_hours">השעות הבאות</string>
++    <string name="n7_days">7 ימים</string>
++    <string name="live">" · חי"</string>
++    <string name="cached">" · במטמון"</string>
++    <string name="fetching">" · מאחזר"</string>
++    <string name="unavailable">" · לא זמין"</string>
++    <string name="local">" · מקומי"</string>
++    <string name="partly_cloudy">מעונן חלקית</string>
++    <string name="conditions_unavailable">תנאים לא זמינים</string>
++    <string name="forecast_not_loaded_yet">תחזית טרם נטענה.</string>
++    <string name="refresh_to_load_the_forecast">רענן כדי לטעון את התחזית.</string>
++    <string name="cached_forecast_could_not_be">לא ניתן לקרוא תחזית מהמטמון.</string>
++    <string name="forecast_is_current">התחזית מעודכנת.</string>
++    <string name="showing_cached_forecast">מציג תחזית מהמטמון.</string>
++    <string name="forecast_available">תחזית זמינה.</string>
++    <string name="offline_showing_last_known_forecast">לא מקוון · מציג תחזית אחרונה ידועה.</string>
++    <string name="forecast_unavailable_check_the_connection">תחזית לא זמינה. בדוק חיבור ונסה שוב.</string>
++    <string name="provider_response_could_not_be">לא ניתן היה לנרמל את תגובת הספק.</string>
++    <string name="updated_from_open_meteo">עודכן מ-Open-Meteo.</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-ko/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-ko/strings.xml
+new file mode 100644
+index 0000000..2c42db9
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-ko/strings.xml
+@@ -0,0 +1,40 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Korean. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
++<resources>
++    <string name="city_or_name_lat_lon">도시, 또는 이름, 위도, 경도, 지역/구역</string>
++    <string name="no_match_enter_name_latitude">일치 항목 없음. 이름, 위도, 경도, 지역/구역을 입력하세요.</string>
++    <string name="remove">%1$s을(를) 삭제하시겠습니까?</string>
++    <string name="reset_to_the_built_in">기본 제공 도시로 재설정하시겠습니까? 추가된 도시는 삭제됩니다.</string>
++    <string name="current_manual_city">현재 · 수동 도시</string>
++    <string name="add_city">도시 추가</string>
++    <string name="type_a_name_or_press">이름을 입력하거나, 아무 글자나 누르세요</string>
++    <string name="reset_to_built_in_cities">기본 제공 도시로 재설정</string>
++    <string name="refreshing_forecast">예보 새로고침 중…</string>
++    <string name="loading_forecast">예보 로드 중</string>
++    <string name="forecast_unavailable">예보 사용 불가</string>
++    <string name="weather_ready">날씨 준비됨</string>
++    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · 로컬 캐시됨 · 대략적인 위치 또는 선택한 도시 · 정확한 위치는 사용되지 않음</string>
++    <string name="use_current_location">현재 위치 사용</string>
++    <string name="finding_where_you_are">현재 위치 찾는 중…</string>
++    <string name="off_showing_the_chosen_city">꺼짐: 선택한 도시 표시 중</string>
++    <string name="feels_like">"체감 "</string>
++    <string name="next_hours">다음 시간</string>
++    <string name="n7_days">7일</string>
++    <string name="live">" · 라이브"</string>
++    <string name="cached">" · 캐시됨"</string>
++    <string name="fetching">" · 가져오는 중"</string>
++    <string name="unavailable">" · 사용 불가"</string>
++    <string name="local">" · 로컬"</string>
++    <string name="partly_cloudy">구름 조금</string>
++    <string name="conditions_unavailable">상태 사용 불가</string>
++    <string name="forecast_not_loaded_yet">예보가 아직 로드되지 않았습니다.</string>
++    <string name="refresh_to_load_the_forecast">예보를 로드하려면 새로고침하세요.</string>
++    <string name="cached_forecast_could_not_be">캐시된 예보를 읽을 수 없습니다.</string>
++    <string name="forecast_is_current">예보가 최신 상태입니다.</string>
++    <string name="showing_cached_forecast">캐시된 예보 표시 중.</string>
++    <string name="forecast_available">예보 사용 가능.</string>
++    <string name="offline_showing_last_known_forecast">오프라인 · 마지막으로 알려진 예보 표시 중.</string>
++    <string name="forecast_unavailable_check_the_connection">예보 사용 불가. 연결 확인 후 다시 시도하세요.</string>
++    <string name="provider_response_could_not_be">제공자 응답을 정규화할 수 없습니다.</string>
++    <string name="updated_from_open_meteo">Open-Meteo에서 업데이트됨.</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-nl/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-nl/strings.xml
+new file mode 100644
+index 0000000..6a643b1
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-nl/strings.xml
+@@ -0,0 +1,40 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Dutch. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
++<resources>
++    <string name="city_or_name_lat_lon">stad, of Naam, lat, lon, Gebied/Zone</string>
++    <string name="no_match_enter_name_latitude">Geen overeenkomst. Voer Naam, breedtegraad, lengtegraad, Gebied/Zone in.</string>
++    <string name="remove">%1$s verwijderen?</string>
++    <string name="reset_to_the_built_in">Resetten naar ingebouwde steden? Toegevoegde steden worden verwijderd.</string>
++    <string name="current_manual_city">huidig · handmatige stad</string>
++    <string name="add_city">stad toevoegen</string>
++    <string name="type_a_name_or_press">typ een naam, of druk op een letter</string>
++    <string name="reset_to_built_in_cities">resetten naar ingebouwde steden</string>
++    <string name="refreshing_forecast">Voorspelling vernieuwen…</string>
++    <string name="loading_forecast">voorspelling laden</string>
++    <string name="forecast_unavailable">voorspelling onbeschikbaar</string>
++    <string name="weather_ready">weer gereed</string>
++    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · lokaal gecachet · geschatte locatie of gekozen stad · exacte locatie wordt nooit gebruikt</string>
++    <string name="use_current_location">Huidige locatie gebruiken</string>
++    <string name="finding_where_you_are">Zoeken waar je bent…</string>
++    <string name="off_showing_the_chosen_city">Uit: gekozen stad wordt getoond</string>
++    <string name="feels_like">"voelt als "</string>
++    <string name="next_hours">volgende uren</string>
++    <string name="n7_days">7 dagen</string>
++    <string name="live">" · live"</string>
++    <string name="cached">" · in cache"</string>
++    <string name="fetching">" · ophalen"</string>
++    <string name="unavailable">" · onbeschikbaar"</string>
++    <string name="local">" · lokaal"</string>
++    <string name="partly_cloudy">gedeeltelijk bewolkt</string>
++    <string name="conditions_unavailable">omstandigheden onbeschikbaar</string>
++    <string name="forecast_not_loaded_yet">Voorspelling nog niet geladen.</string>
++    <string name="refresh_to_load_the_forecast">Vernieuw om de voorspelling te laden.</string>
++    <string name="cached_forecast_could_not_be">Gecachete voorspelling kon niet worden gelezen.</string>
++    <string name="forecast_is_current">Voorspelling is actueel.</string>
++    <string name="showing_cached_forecast">Toont gecachete voorspelling.</string>
++    <string name="forecast_available">Voorspelling beschikbaar.</string>
++    <string name="offline_showing_last_known_forecast">Offline · toont laatst bekende voorspelling.</string>
++    <string name="forecast_unavailable_check_the_connection">Voorspelling onbeschikbaar. Controleer verbinding en probeer opnieuw.</string>
++    <string name="provider_response_could_not_be">Reactie van provider kon niet worden genormaliseerd.</string>
++    <string name="updated_from_open_meteo">Bijgewerkt via Open-Meteo.</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-pl/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-pl/strings.xml
+new file mode 100644
+index 0000000..f9b76bd
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-pl/strings.xml
+@@ -0,0 +1,40 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Polish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
++<resources>
++    <string name="city_or_name_lat_lon">miasto, lub Nazwa, szer, dł, Obszar/Strefa</string>
++    <string name="no_match_enter_name_latitude">Brak dopasowania. Wprowadź Nazwę, szerokość, długość, Obszar/Strefę.</string>
++    <string name="remove">Usunąć %1$s?</string>
++    <string name="reset_to_the_built_in">Zresetować do miast wbudowanych? Dodane miasta zostaną usunięte.</string>
++    <string name="current_manual_city">obecne · ręczne miasto</string>
++    <string name="add_city">dodaj miasto</string>
++    <string name="type_a_name_or_press">wpisz nazwę, lub naciśnij dowolną literę</string>
++    <string name="reset_to_built_in_cities">zresetuj do miast wbudowanych</string>
++    <string name="refreshing_forecast">Odświeżanie prognozy…</string>
++    <string name="loading_forecast">ładowanie prognozy</string>
++    <string name="forecast_unavailable">prognoza niedostępna</string>
++    <string name="weather_ready">pogoda gotowa</string>
++    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · buforowane lokalnie · przybliżona lokalizacja lub wybrane miasto · dokładna lokalizacja nie jest nigdy używana</string>
++    <string name="use_current_location">Użyj obecnej lokalizacji</string>
++    <string name="finding_where_you_are">Szukanie miejsca, w którym jesteś…</string>
++    <string name="off_showing_the_chosen_city">Wyłączone: pokazywanie wybranego miasta</string>
++    <string name="feels_like">"odczuwalne "</string>
++    <string name="next_hours">kolejne godziny</string>
++    <string name="n7_days">7 dni</string>
++    <string name="live">" · na żywo"</string>
++    <string name="cached">" · w buforze"</string>
++    <string name="fetching">" · pobieranie"</string>
++    <string name="unavailable">" · niedostępne"</string>
++    <string name="local">" · lokalne"</string>
++    <string name="partly_cloudy">częściowe zachmurzenie</string>
++    <string name="conditions_unavailable">warunki niedostępne</string>
++    <string name="forecast_not_loaded_yet">Prognoza jeszcze nie załadowana.</string>
++    <string name="refresh_to_load_the_forecast">Odśwież, aby załadować prognozę.</string>
++    <string name="cached_forecast_could_not_be">Nie udało się odczytać buforowanej prognozy.</string>
++    <string name="forecast_is_current">Prognoza jest aktualna.</string>
++    <string name="showing_cached_forecast">Pokazywanie buforowanej prognozy.</string>
++    <string name="forecast_available">Prognoza dostępna.</string>
++    <string name="offline_showing_last_known_forecast">Offline · pokazywanie ostatniej znanej prognozy.</string>
++    <string name="forecast_unavailable_check_the_connection">Prognoza niedostępna. Sprawdź połączenie i spróbuj ponownie.</string>
++    <string name="provider_response_could_not_be">Nie udało się znormalizować odpowiedzi dostawcy.</string>
++    <string name="updated_from_open_meteo">Zaktualizowano z Open-Meteo.</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-pt/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-pt/strings.xml
+new file mode 100644
+index 0000000..859567a
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-pt/strings.xml
+@@ -0,0 +1,40 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Portuguese (Brazil). Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
++<resources>
++    <string name="city_or_name_lat_lon">cidade, ou Nome, lat, lon, Área/Zona</string>
++    <string name="no_match_enter_name_latitude">Nenhuma correspondência. Insira Nome, latitude, longitude, Área/Zona.</string>
++    <string name="remove">Remover %1$s?</string>
++    <string name="reset_to_the_built_in">Redefinir para as cidades integradas? Cidades adicionadas são removidas.</string>
++    <string name="current_manual_city">atual · cidade manual</string>
++    <string name="add_city">adicionar cidade</string>
++    <string name="type_a_name_or_press">digite um nome, ou pressione qualquer letra</string>
++    <string name="reset_to_built_in_cities">redefinir para cidades integradas</string>
++    <string name="refreshing_forecast">Atualizando previsão…</string>
++    <string name="loading_forecast">carregando previsão</string>
++    <string name="forecast_unavailable">previsão indisponível</string>
++    <string name="weather_ready">clima pronto</string>
++    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · cache local · localização aproximada ou cidade escolhida · localização exata nunca é usada</string>
++    <string name="use_current_location">Usar localização atual</string>
++    <string name="finding_where_you_are">Buscando onde você está…</string>
++    <string name="off_showing_the_chosen_city">Desativado: mostrando a cidade escolhida</string>
++    <string name="feels_like">"sensação de "</string>
++    <string name="next_hours">próximas horas</string>
++    <string name="n7_days">7 dias</string>
++    <string name="live">" · ao vivo"</string>
++    <string name="cached">" · em cache"</string>
++    <string name="fetching">" · buscando"</string>
++    <string name="unavailable">" · indisponível"</string>
++    <string name="local">" · local"</string>
++    <string name="partly_cloudy">parcialmente nublado</string>
++    <string name="conditions_unavailable">condições indisponíveis</string>
++    <string name="forecast_not_loaded_yet">Previsão ainda não carregada.</string>
++    <string name="refresh_to_load_the_forecast">Atualize para carregar a previsão.</string>
++    <string name="cached_forecast_could_not_be">Não foi possível ler a previsão em cache.</string>
++    <string name="forecast_is_current">A previsão está atualizada.</string>
++    <string name="showing_cached_forecast">Mostrando previsão em cache.</string>
++    <string name="forecast_available">Previsão disponível.</string>
++    <string name="offline_showing_last_known_forecast">Offline · mostrando última previsão conhecida.</string>
++    <string name="forecast_unavailable_check_the_connection">Previsão indisponível. Verifique a conexão e tente novamente.</string>
++    <string name="provider_response_could_not_be">Não foi possível normalizar a resposta do provedor.</string>
++    <string name="updated_from_open_meteo">Atualizado de Open-Meteo.</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-ru/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-ru/strings.xml
+new file mode 100644
+index 0000000..8332e63
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-ru/strings.xml
+@@ -0,0 +1,40 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Russian. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
++<resources>
++    <string name="city_or_name_lat_lon">город, или Название, широта, долгота, Область/Зона</string>
++    <string name="no_match_enter_name_latitude">Нет совпадений. Введите Название, широту, долготу, Область/Зону.</string>
++    <string name="remove">Удалить %1$s?</string>
++    <string name="reset_to_the_built_in">Сбросить до встроенных городов? Добавленные города будут удалены.</string>
++    <string name="current_manual_city">текущий · добавленный город</string>
++    <string name="add_city">добавить город</string>
++    <string name="type_a_name_or_press">введите название или нажмите любую букву</string>
++    <string name="reset_to_built_in_cities">сброс до встроенных городов</string>
++    <string name="refreshing_forecast">Обновление прогноза…</string>
++    <string name="loading_forecast">загрузка прогноза</string>
++    <string name="forecast_unavailable">прогноз недоступен</string>
++    <string name="weather_ready">погода готова</string>
++    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · локальный кэш · примерное местоположение или выбранный город · точное местоположение никогда не используется</string>
++    <string name="use_current_location">Использовать текущее местоположение</string>
++    <string name="finding_where_you_are">Поиск вашего местоположения…</string>
++    <string name="off_showing_the_chosen_city">Выкл: показывается выбранный город</string>
++    <string name="feels_like">"ощущается как "</string>
++    <string name="next_hours">ближайшие часы</string>
++    <string name="n7_days">7 дней</string>
++    <string name="live">" · в реальном времени"</string>
++    <string name="cached">" · из кэша"</string>
++    <string name="fetching">" · получение"</string>
++    <string name="unavailable">" · недоступно"</string>
++    <string name="local">" · локально"</string>
++    <string name="partly_cloudy">переменная облачность</string>
++    <string name="conditions_unavailable">условия недоступны</string>
++    <string name="forecast_not_loaded_yet">Прогноз еще не загружен.</string>
++    <string name="refresh_to_load_the_forecast">Обновите для загрузки прогноза.</string>
++    <string name="cached_forecast_could_not_be">Не удалось прочитать кэшированный прогноз.</string>
++    <string name="forecast_is_current">Прогноз актуален.</string>
++    <string name="showing_cached_forecast">Показан кэшированный прогноз.</string>
++    <string name="forecast_available">Прогноз доступен.</string>
++    <string name="offline_showing_last_known_forecast">Офлайн · показан последний известный прогноз.</string>
++    <string name="forecast_unavailable_check_the_connection">Прогноз недоступен. Проверьте соединение и повторите.</string>
++    <string name="provider_response_could_not_be">Не удалось нормализовать ответ провайдера.</string>
++    <string name="updated_from_open_meteo">Обновлено с Open-Meteo.</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-sv/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-sv/strings.xml
+new file mode 100644
+index 0000000..9cf11cc
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-sv/strings.xml
+@@ -0,0 +1,40 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Swedish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
++<resources>
++    <string name="city_or_name_lat_lon">stad, eller Namn, lat, lon, Område/Zon</string>
++    <string name="no_match_enter_name_latitude">Ingen matchning. Ange Namn, latitud, longitud, Område/Zon.</string>
++    <string name="remove">Ta bort %1$s?</string>
++    <string name="reset_to_the_built_in">Återställ till inbyggda städer? Tillagda städer tas bort.</string>
++    <string name="current_manual_city">nuvarande · manuell stad</string>
++    <string name="add_city">lägg till stad</string>
++    <string name="type_a_name_or_press">skriv ett namn, eller tryck på valfri bokstav</string>
++    <string name="reset_to_built_in_cities">återställ till inbyggda städer</string>
++    <string name="refreshing_forecast">Uppdaterar prognos…</string>
++    <string name="loading_forecast">laddar prognos</string>
++    <string name="forecast_unavailable">prognos otillgänglig</string>
++    <string name="weather_ready">väder redo</string>
++    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · cachas lokalt · ungefärlig plats eller en vald stad · exakt plats används aldrig</string>
++    <string name="use_current_location">Använd nuvarande plats</string>
++    <string name="finding_where_you_are">Hittar var du är…</string>
++    <string name="off_showing_the_chosen_city">Av: visar vald stad</string>
++    <string name="feels_like">"känns som "</string>
++    <string name="next_hours">kommande timmar</string>
++    <string name="n7_days">7 dagar</string>
++    <string name="live">" · live"</string>
++    <string name="cached">" · cachad"</string>
++    <string name="fetching">" · hämtar"</string>
++    <string name="unavailable">" · otillgänglig"</string>
++    <string name="local">" · lokal"</string>
++    <string name="partly_cloudy">halvklart</string>
++    <string name="conditions_unavailable">väderförhållanden otillgängliga</string>
++    <string name="forecast_not_loaded_yet">Prognos ej laddad än.</string>
++    <string name="refresh_to_load_the_forecast">Uppdatera för att ladda prognosen.</string>
++    <string name="cached_forecast_could_not_be">Cachad prognos kunde inte läsas.</string>
++    <string name="forecast_is_current">Prognosen är aktuell.</string>
++    <string name="showing_cached_forecast">Visar cachad prognos.</string>
++    <string name="forecast_available">Prognos tillgänglig.</string>
++    <string name="offline_showing_last_known_forecast">Offline · visar senast kända prognos.</string>
++    <string name="forecast_unavailable_check_the_connection">Prognos otillgänglig. Kontrollera anslutningen och försök igen.</string>
++    <string name="provider_response_could_not_be">Leverantörssvar kunde inte normaliseras.</string>
++    <string name="updated_from_open_meteo">Uppdaterat från Open-Meteo.</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-tr/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-tr/strings.xml
+new file mode 100644
+index 0000000..e9ea1e7
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-tr/strings.xml
+@@ -0,0 +1,40 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Turkish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
++<resources>
++    <string name="city_or_name_lat_lon">şehir, veya Ad, enlem, boylam, Bölge/Alan</string>
++    <string name="no_match_enter_name_latitude">Eşleşme yok. Ad, enlem, boylam, Bölge/Alan girin.</string>
++    <string name="remove">%1$s kaldırılsın mı?</string>
++    <string name="reset_to_the_built_in">Yerleşik şehirlere sıfırlansın mı? Eklenen şehirler kaldırılır.</string>
++    <string name="current_manual_city">mevcut · manuel şehir</string>
++    <string name="add_city">şehir ekle</string>
++    <string name="type_a_name_or_press">bir ad yazın, veya herhangi bir harfe basın</string>
++    <string name="reset_to_built_in_cities">yerleşik şehirlere sıfırla</string>
++    <string name="refreshing_forecast">Tahmin yenileniyor…</string>
++    <string name="loading_forecast">tahmin yükleniyor</string>
++    <string name="forecast_unavailable">tahmin kullanılamıyor</string>
++    <string name="weather_ready">hava durumu hazır</string>
++    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · yerel olarak önbelleğe alınmış · yaklaşık konum veya seçilen şehir · kesin konum asla kullanılmaz</string>
++    <string name="use_current_location">Geçerli konumu kullan</string>
++    <string name="finding_where_you_are">Nerede olduğunuz bulunuyor…</string>
++    <string name="off_showing_the_chosen_city">Kapalı: seçilen şehir gösteriliyor</string>
++    <string name="feels_like">"hissedilen "</string>
++    <string name="next_hours">gelecek saatler</string>
++    <string name="n7_days">7 gün</string>
++    <string name="live">" · canlı"</string>
++    <string name="cached">" · önbelleğe alınmış"</string>
++    <string name="fetching">" · getiriliyor"</string>
++    <string name="unavailable">" · kullanılamıyor"</string>
++    <string name="local">" · yerel"</string>
++    <string name="partly_cloudy">parçalı bulutlu</string>
++    <string name="conditions_unavailable">koşullar kullanılamıyor</string>
++    <string name="forecast_not_loaded_yet">Tahmin henüz yüklenmedi.</string>
++    <string name="refresh_to_load_the_forecast">Tahmini yüklemek için yenileyin.</string>
++    <string name="cached_forecast_could_not_be">Önbelleğe alınmış tahmin okunamadı.</string>
++    <string name="forecast_is_current">Tahmin güncel.</string>
++    <string name="showing_cached_forecast">Önbelleğe alınmış tahmin gösteriliyor.</string>
++    <string name="forecast_available">Tahmin mevcut.</string>
++    <string name="offline_showing_last_known_forecast">Çevrimdışı · bilinen son tahmin gösteriliyor.</string>
++    <string name="forecast_unavailable_check_the_connection">Tahmin kullanılamıyor. Bağlantıyı kontrol edin ve yeniden deneyin.</string>
++    <string name="provider_response_could_not_be">Sağlayıcı yanıtı normalleştirilemedi.</string>
++    <string name="updated_from_open_meteo">Open-Meteo\'dan güncellendi.</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-ur/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-ur/strings.xml
+new file mode 100644
+index 0000000..a8221de
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-ur/strings.xml
+@@ -0,0 +1,40 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Urdu. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
++<resources>
++    <string name="city_or_name_lat_lon">شہر، یا نام، عرض بلد، طول بلد، علاقہ/زون</string>
++    <string name="no_match_enter_name_latitude">کوئی مماثلت نہیں۔ نام، عرض بلد، طول بلد، علاقہ/زون درج کریں۔</string>
++    <string name="remove">کیا %1$s کو ہٹا دیں؟</string>
++    <string name="reset_to_the_built_in">کیا بلٹ ان شہروں پر ری سیٹ کریں؟ شامل کیے گئے شہر ہٹا دیے جاتے ہیں۔</string>
++    <string name="current_manual_city">موجودہ · دستی شہر</string>
++    <string name="add_city">شہر شامل کریں</string>
++    <string name="type_a_name_or_press">نام ٹائپ کریں، یا کوئی بھی حرف دبائیں</string>
++    <string name="reset_to_built_in_cities">بلٹ ان شہروں پر ری سیٹ کریں</string>
++    <string name="refreshing_forecast">پیشن گوئی تازہ کی جا رہی ہے…</string>
++    <string name="loading_forecast">پیشن گوئی لوڈ ہو رہی ہے</string>
++    <string name="forecast_unavailable">پیشن گوئی دستیاب نہیں</string>
++    <string name="weather_ready">موسم تیار</string>
++    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · مقامی طور پر کیش شدہ · تخمینی مقام یا منتخب شہر · درست مقام کبھی استعمال نہیں ہوتا</string>
++    <string name="use_current_location">موجودہ مقام استعمال کریں</string>
++    <string name="finding_where_you_are">تلاش کیا جا رہا ہے کہ آپ کہاں ہیں…</string>
++    <string name="off_showing_the_chosen_city">بند: منتخب شہر دکھا رہا ہے</string>
++    <string name="feels_like">"احساس "</string>
++    <string name="next_hours">اگلے گھنٹے</string>
++    <string name="n7_days">7 دن</string>
++    <string name="live">" · لائیو"</string>
++    <string name="cached">" · کیش شدہ"</string>
++    <string name="fetching">" · لایا جا رہا ہے"</string>
++    <string name="unavailable">" · دستیاب نہیں"</string>
++    <string name="local">" · مقامی"</string>
++    <string name="partly_cloudy">جزوی طور پر ابر آلود</string>
++    <string name="conditions_unavailable">حالات دستیاب نہیں</string>
++    <string name="forecast_not_loaded_yet">پیشن گوئی ابھی لوڈ نہیں ہوئی۔</string>
++    <string name="refresh_to_load_the_forecast">پیشن گوئی لوڈ کرنے کے لیے ریفریش کریں۔</string>
++    <string name="cached_forecast_could_not_be">کیش شدہ پیشن گوئی نہیں پڑھی جا سکی۔</string>
++    <string name="forecast_is_current">پیشن گوئی تازہ ترین ہے۔</string>
++    <string name="showing_cached_forecast">کیش شدہ پیشن گوئی دکھا رہا ہے۔</string>
++    <string name="forecast_available">پیشن گوئی دستیاب ہے۔</string>
++    <string name="offline_showing_last_known_forecast">آف لائن · آخری معلوم پیشن گوئی دکھا رہا ہے۔</string>
++    <string name="forecast_unavailable_check_the_connection">پیشن گوئی دستیاب نہیں۔ کنکشن چیک کریں اور دوبارہ کوشش کریں۔</string>
++    <string name="provider_response_could_not_be">فراہم کنندہ کے ردعمل کو معمول پر نہیں لایا جا سکا۔</string>
++    <string name="updated_from_open_meteo">Open-Meteo سے اپ ڈیٹ کیا گیا۔</string>
++</resources>

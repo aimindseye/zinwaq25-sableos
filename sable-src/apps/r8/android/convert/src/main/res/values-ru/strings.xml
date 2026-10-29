@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ConvertTextTest checks). -->
+<resources>
+    <string name="convert_length">Длина</string>
+    <string name="convert_mass">Масса</string>
+    <string name="convert_temperature">Температура</string>
+    <string name="convert_volume">Объём</string>
+    <string name="convert_millimeters">Миллиметры</string>
+    <string name="convert_centimeters">Сантиметры</string>
+    <string name="convert_meters">Метры</string>
+    <string name="convert_kilometers">Километры</string>
+    <string name="convert_inches">Дюймы</string>
+    <string name="convert_feet">Футы</string>
+    <string name="convert_miles">Мили</string>
+    <string name="convert_grams">Граммы</string>
+    <string name="convert_kilograms">Килограммы</string>
+    <string name="convert_ounces">Унции</string>
+    <string name="convert_pounds">Фунты</string>
+    <string name="convert_celsius">Цельсий</string>
+    <string name="convert_fahrenheit">Фаренгейт</string>
+    <string name="convert_kelvin">Кельвин</string>
+    <string name="convert_milliliters">Миллилитры</string>
+    <string name="convert_liters">Литры</string>
+    <string name="convert_cups">Чашки</string>
+    <string name="convert_gallons">Галлоны</string>
+    <string name="convert_ready">Готово</string>
+    <string name="convert_value">Значение</string>
+    <string name="convert_from">Из</string>
+    <string name="convert_to">В</string>
+    <string name="convert_convert">Перевести</string>
+    <string name="convert_enter_a_number_with_up">Введите число с точностью до трёх знаков после запятой</string>
+    <string name="convert_length_mass_temperature_and_volume">Перевод единиц длины, массы, температуры и объёма выполняется локально без подключения к сети.</string>
+    <string name="convert_native_bridge_failure">Сбой нативного интерфейса</string>
+</resources>
