@@ -1,3 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English. Single capital letters in hints (C new, S find) name keyboard keys: keep them as the key, translate the word.
+     English. Keep equal to KeyboardText.EN (KeyboardTextTest checks); translations go in values-<lang>/. -->
 <resources>
-    <string name="app_name">Sable Keyboard</string>
+    <string name="one_entry_per_line_shortcut">One entry per line: shortcut=replacement, for example brb=be right back. A shortcut is one word of letters or digits. Your entries work in every language and replace a built-in one with the same shortcut. In a replacement, %D is the date, %T the time and %V the build number. Backspace straight after an expansion puts back what you typed.</string>
+    <string name="save">Save</string>
+    <string name="saved_entries">Saved %1$s entries</string>
+    <string name="lines_skipped_not_shortcut_replacement">; %1$s lines skipped (not shortcut=replacement)</string>
+    <string name="built_in_english_typing_language">Built in (English typing language)</string>
+    <string name="turn_on_clipboard_history_in">Turn on clipboard history in Sable Keyboard settings</string>
+    <string name="unlock_to_use_clipboard_history">Unlock to use clipboard history</string>
+    <string name="nav_mode_on_alt_space">Nav mode on (Alt+Space to exit)</string>
+    <string name="nav_mode_off">Nav mode off</string>
+    <string name="enable_more_languages_in_settings">Enable more languages in Settings &gt; Keyboard &gt; Sable</string>
+    <string name="auto_capitalise_sentences">Auto-capitalise sentences</string>
+    <string name="double_space_inserts_period">Double space inserts period</string>
+    <string name="autotext_dont_becomes_don_t">AutoText (dont becomes don\'t, ld the date)</string>
+    <string name="long_press_a_letter_for">Long-press a letter for its Alt character</string>
+    <string name="letters_type_digits_in_numeric">Letters type digits in numeric fields</string>
+    <string name="nav_mode_ijkl_arrows_enabled">Nav mode (IJKL arrows) enabled</string>
+    <string name="alt_space_toggles_nav_mode">Alt+Space toggles Nav mode</string>
+    <string name="show_on_screen_keyboard_for">Show on-screen keyboard for numeric/PIN fields</string>
+    <string name="always_show_on_screen_keyboard">Always show on-screen keyboard</string>
+    <string name="compact_status_strip_when_the">Compact status strip when the on-screen keyboard is hidden</string>
+    <string name="enter_sends_in_apps_that">Enter sends in apps that offer Send (Shift+Enter: new line)</string>
+    <string name="clipboard_history_alt_shift_v">Clipboard history (Alt+Shift+V; kept in memory, never saved)</string>
+    <string name="clear_clipboard_history">Clear clipboard history</string>
+    <string name="clipboard_history_cleared">Clipboard history cleared</string>
+    <string name="autotext_entries">AutoText entries</string>
+    <string name="key_event_probe_diagnostic">Key event probe (diagnostic)</string>
+    <string name="sable_keyboard">Sable Keyboard</string>
+    <string name="layout_provisional_until_key_legends">Layout: provisional until key legends are captured on this device.</string>
+    <string name="space">space · %1$s%2$s</string>
+    <string name="alternate">%1$s, alternate %2$s</string>
+    <string name="clipboard_empty">Clipboard empty</string>
+    <string name="input_method_settings">Input method settings</string>
+    <string name="keyboard_picker">Keyboard picker</string>
+    <string name="sable_keyboard_is_the_selected">Sable Keyboard is the selected keyboard.</string>
+    <string name="another_keyboard_is_selected_your">Another keyboard is selected. Your choice is kept; Sable Keyboard never switches it for you.</string>
+    <string name="sable_keyboard_is_not_enabled">Sable Keyboard is not enabled yet.</string>
+    <string name="could_not_read_which_keyboard">Could not read which keyboard is selected.</string>
+    <string name="could_not_open_not_available">Could not open %1$s: not available on this device.</string>
+    <string name="could_not_open_blocked_by">Could not open %1$s: blocked by the system.</string>
+    <string name="could_not_open">Could not open %1$s.</string>
+    <string name="app_name" translatable="false">Sable Keyboard</string>
 </resources>

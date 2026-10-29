@@ -2,6 +2,7 @@ package org.sableos.hub.policy
 
 import org.sableos.hub.HubCall
 import org.sableos.hub.HubConversation
+import org.sableos.hub.HubText.t
 
 /**
  * Hub search (SABLE_HUB_KEYBOARD_FIRST_UX "Type input and search"): local, never the web. Plain
@@ -55,7 +56,7 @@ data class HubSearch(
         const val APP_PREFIX = "app:"
 
         /** Source label calls answer to with `app:` (the Phone app owns the call log). */
-        const val CALLS_SOURCE = "Phone calls"
+        val CALLS_SOURCE: String get() = t("phone_calls")
 
         /** Words of the search hint under the field. */
         const val HINT = "unread · missed · today · from: · app:"

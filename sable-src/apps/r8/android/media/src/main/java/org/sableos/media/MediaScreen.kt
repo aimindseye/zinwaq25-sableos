@@ -57,6 +57,7 @@ import org.sableos.design.SableRowAction
 import org.sableos.design.SableSpacing
 import org.sableos.design.sableFocusRing
 import org.sableos.design.sableLetterJump
+import org.sableos.media.MediaText.t
 import java.util.Locale
 
 internal val MediaPink = Color(0xFFFF4F9A)
@@ -82,7 +83,7 @@ internal enum class MediaDestination(
 ) {
     Collection("music"),
     Podcasts("podcasts"),
-    NowPlaying("now playing"),
+    NowPlaying(t("now_playing")),
     Radio("radio"),
     Fm("fm"),
     ManageStations("manage"),
@@ -361,12 +362,12 @@ internal fun MediaScreen(
                         ) {
                             item {
                                 SableHeroHeader(
-                                    eyebrow = "Sable Media",
+                                    eyebrow = t("sable_media"),
                                     title =
                                         when (destination) {
                                             MediaDestination.Podcasts -> "podcasts"
 
-                                            MediaDestination.Fm -> "fm radio"
+                                            MediaDestination.Fm -> t("fm_radio")
 
                                             MediaDestination.Radio,
                                             MediaDestination.ManageStations,
@@ -383,7 +384,7 @@ internal fun MediaScreen(
                                             MediaDestination.PlaylistEditor,
                                             -> "media"
                                         },
-                                    subtitle = "Music, podcasts, and radio in one private playback flow.",
+                                    subtitle = t("music_podcasts_and_radio_in"),
                                 )
                             }
 
@@ -648,7 +649,7 @@ private fun MediaUtilityBar(
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         ) {
             Text(
-                text = "search  /",
+                text = t("search"),
                 modifier = Modifier.padding(MediaCompactPadding),
                 style = MaterialTheme.typography.labelLarge,
             )
@@ -661,7 +662,7 @@ private fun MediaUtilityBar(
                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             ) {
                 Text(
-                    text = "up next · $upNextCount  Q",
+                    text = t("up_next_q", upNextCount),
                     modifier = Modifier.padding(MediaCompactPadding),
                     style = MaterialTheme.typography.labelLarge,
                 )
@@ -918,9 +919,9 @@ private fun LazyListScope.collectionHeader(
 ) {
     item {
         SableHeroHeader(
-            eyebrow = "Sable Media",
+            eyebrow = t("sable_media"),
             title = "music",
-            subtitle = "Your local collection, playlists, and one continuous playback queue.",
+            subtitle = t("your_local_collection_playlists_and"),
         )
     }
 
@@ -978,12 +979,12 @@ private fun CollectionImportButtons(
         horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
     ) {
         SableActionButton(
-            text = "Add audio files",
+            text = t("add_audio_files"),
             modifier = Modifier.weight(1f),
             onClick = onAddLocalAudio,
         )
         SableActionButton(
-            text = "Import folder",
+            text = t("import_folder"),
             primary = false,
             modifier = Modifier.weight(1f),
             onClick = onAddLocalFolder,
@@ -1002,8 +1003,8 @@ private fun LazyListScope.collectionBody(
         content.loading -> {
             item {
                 C2InfoPanel(
-                    title = "Loading local collection",
-                    detail = "Indexing saved songs, artists, and albums off the UI thread.",
+                    title = t("loading_local_collection"),
+                    detail = t("indexing_saved_songs_artists_and"),
                 )
             }
         }
@@ -1011,10 +1012,9 @@ private fun LazyListScope.collectionBody(
         !content.hasItems -> {
             item {
                 EmptyPanel(
-                    title = "No local audio yet",
+                    title = t("no_local_audio_yet"),
                     detail =
-                        "Choose audio with Android's document picker. " +
-                            "Sable keeps access only to files you explicitly select.",
+                        t("choose_audio_with_android_s"),
                 )
             }
         }
@@ -1022,8 +1022,8 @@ private fun LazyListScope.collectionBody(
         index == null -> {
             item {
                 C2InfoPanel(
-                    title = "Indexing collection",
-                    detail = "Preparing songs, artists, albums, favorites, and A–Z navigation.",
+                    title = t("indexing_collection"),
+                    detail = t("preparing_songs_artists_albums_favorites"),
                 )
             }
         }
@@ -1044,8 +1044,8 @@ private fun LazyListScope.collectionResults(
     if (query.isNotBlank() && index.songs.isEmpty() && content.pivot != LibraryPivot.Playlists) {
         item {
             C2InfoPanel(
-                title = "No matches for \"${query.trim()}\"",
-                detail = "Search looks at title, artist and album. Esc closes search.",
+                title = t("no_matches_for", query.trim()),
+                detail = t("search_looks_at_title_artist"),
             )
         }
     }
@@ -1109,8 +1109,8 @@ private fun LazyListScope.favoriteItems(
     if (favorites.isEmpty()) {
         item {
             C2InfoPanel(
-                title = "No favorite tracks",
-                detail = "Mark local tracks with ★ to keep a quick local favorites view.",
+                title = t("no_favorite_tracks"),
+                detail = t("mark_local_tracks_with_to"),
             )
         }
     } else {
@@ -1126,7 +1126,7 @@ private fun LazyListScope.playlistItems(
 ) {
     item {
         SableActionButton(
-            text = "Create playlist",
+            text = t("create_playlist"),
             modifier = Modifier.fillMaxWidth(),
             onClick = actions.onCreate,
         )
@@ -1136,8 +1136,8 @@ private fun LazyListScope.playlistItems(
         item {
             C2InfoPanel(
                 title =
-                    if (query.isBlank()) "No playlists yet" else "No matching playlists",
-                detail = "Create a local playlist from audio already added to Sable Media.",
+                    if (query.isBlank()) t("no_playlists_yet") else t("no_matching_playlists"),
+                detail = t("create_a_local_playlist_from"),
             )
         }
     } else {
@@ -1234,7 +1234,7 @@ private fun buildMediaCollectionIndex(
                 val tracks = entry.value
                 MediaGroupSummary(
                     name = entry.key,
-                    detail = "${tracks.size} track${if (tracks.size == 1) "" else "s"}",
+                    detail = if (tracks.size == 1) t("n1_track") else t("tracks", tracks.size),
                     sourceIndex = sourceIndexByUri.getValue(tracks.first().uri),
                 )
             }
@@ -1306,10 +1306,10 @@ private fun LocalTrackRow(
             onClick = onPlay,
             actions =
                 listOf(
-                    SableRowAction(ROW_ACTION_PLAY, "Play", primary = true),
+                    SableRowAction(ROW_ACTION_PLAY, t("play"), primary = true),
                     SableRowAction(
                         ROW_ACTION_FAVORITE,
-                        if (favorite) "Remove from favorites ★" else "Add to favorites ☆",
+                        if (favorite) t("remove_from_favorites") else t("add_to_favorites"),
                     ),
                 ),
             onAction = { action ->
@@ -1352,13 +1352,13 @@ private fun PlaylistCard(
         Column(modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Xs)) {
             SableDenseRow(
                 title = playlist.name,
-                subtitle = "$trackCount track${if (trackCount == 1) "" else "s"}",
+                subtitle = if (trackCount == 1) t("n1_track") else t("tracks", trackCount),
                 onClick = onPlay,
                 actions =
                     listOf(
-                        SableRowAction(ROW_ACTION_PLAY, "Play", primary = true),
-                        SableRowAction(ROW_ACTION_EDIT, "Edit"),
-                        SableRowAction(ROW_ACTION_REMOVE, "Remove", destructive = true),
+                        SableRowAction(ROW_ACTION_PLAY, t("play"), primary = true),
+                        SableRowAction(ROW_ACTION_EDIT, t("edit")),
+                        SableRowAction(ROW_ACTION_REMOVE, t("remove"), destructive = true),
                     ),
                 onAction = { action ->
                     when (action.id) {
@@ -1374,7 +1374,7 @@ private fun PlaylistCard(
                     horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
                 ) {
                     SableActionButton(
-                        text = "Remove playlist",
+                        text = t("remove_playlist"),
                         modifier = Modifier.weight(1f),
                         onClick = {
                             confirmRemove = false
@@ -1382,7 +1382,7 @@ private fun PlaylistCard(
                         },
                     )
                     SableActionButton(
-                        text = "Keep",
+                        text = t("keep"),
                         primary = false,
                         modifier = Modifier.weight(1f),
                         onClick = { confirmRemove = false },
@@ -1462,7 +1462,7 @@ private fun NowPlayingScreen(
         verticalArrangement = Arrangement.spacedBy(SableSpacing.Md),
     ) {
         Text(
-            text = "now playing",
+            text = t("now_playing"),
             style = MaterialTheme.typography.headlineLarge,
         )
 
@@ -1550,7 +1550,7 @@ private fun NowPlayingScreen(
             )
             PlayerButton(
                 text = if (playback.isPlaying) "❚❚" else "▶",
-                keyLabel = "Space",
+                keyLabel = t("space"),
                 active = true,
                 modifier = Modifier.weight(1f),
                 onClick = onPlayPause,
@@ -1580,7 +1580,7 @@ private fun NowPlayingScreen(
 }
 
 /** The Now playing hint line: the keys MediaKeymap gives this screen. */
-internal const val NOW_PLAYING_KEY_HINT = "J prev · Space play · K next · Shift+J/K seek · Q queue"
+internal val NOW_PLAYING_KEY_HINT: String get() = t("j_prev_space_play_k")
 
 @Composable
 private fun RadioScreen(
@@ -1602,12 +1602,12 @@ private fun RadioScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "internet radio",
+                text = t("internet_radio"),
                 modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.headlineLarge,
             )
             SableActionButton(
-                text = "Manage",
+                text = t("manage"),
                 primary = false,
                 onClick = onManage,
             )
@@ -1672,15 +1672,15 @@ private fun RadioScreen(
             EmptyPanel(
                 title =
                     if (showFavoritesOnly) {
-                        "No favorite stations"
+                        t("no_favorite_stations")
                     } else {
-                        "No saved stations"
+                        t("no_saved_stations")
                     },
                 detail =
                     if (showFavoritesOnly) {
-                        "Mark stations with ★ to keep a quick local favorites view."
+                        t("mark_stations_with_to_keep")
                     } else {
-                        "Add a station by name and direct HTTP(S) stream URL."
+                        t("add_a_station_by_name")
                     },
             )
         } else {
@@ -1695,7 +1695,7 @@ private fun RadioScreen(
         }
 
         SableActionButton(
-            text = "Add new station",
+            text = t("add_new_station"),
             modifier = Modifier.fillMaxWidth(),
             onClick = onAdd,
         )
@@ -1727,10 +1727,10 @@ private fun RadioStationRow(
             modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Xs),
             actions =
                 listOf(
-                    SableRowAction(ROW_ACTION_PLAY, "Play", primary = true),
+                    SableRowAction(ROW_ACTION_PLAY, t("play"), primary = true),
                     SableRowAction(
                         ROW_ACTION_FAVORITE,
-                        if (favorite) "Remove from favorites ★" else "Add to favorites ☆",
+                        if (favorite) t("remove_from_favorites") else t("add_to_favorites"),
                     ),
                 ),
             onAction = { action ->
@@ -1781,7 +1781,7 @@ private fun ManageStationsScreen(
         verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
     ) {
         BackTitle(
-            title = "station management",
+            title = t("station_management"),
             onBack = onBack,
         )
 
@@ -1817,12 +1817,12 @@ private fun ManageStationsScreen(
                         )
                     }
                     SableActionButton(
-                        text = "Edit",
+                        text = t("edit"),
                         primary = false,
                         onClick = { onEdit(station) },
                     )
                     SableActionButton(
-                        text = "Remove",
+                        text = t("remove"),
                         primary = false,
                         onClick = { onDelete(station) },
                     )
@@ -1832,7 +1832,7 @@ private fun ManageStationsScreen(
 
         if (editingStation != null) {
             Text(
-                text = "edit station",
+                text = t("edit_station"),
                 style = MaterialTheme.typography.titleLarge,
             )
             StationFields(
@@ -1846,13 +1846,13 @@ private fun ManageStationsScreen(
                 horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
             ) {
                 SableActionButton(
-                    text = "Cancel edit",
+                    text = t("cancel_edit"),
                     primary = false,
                     modifier = Modifier.weight(1f),
                     onClick = onCancelEdit,
                 )
                 SableActionButton(
-                    text = "Save changes",
+                    text = t("save_changes"),
                     modifier = Modifier.weight(1f),
                     onClick = onSave,
                 )
@@ -1868,7 +1868,7 @@ private fun ManageStationsScreen(
         }
 
         Text(
-            text = "Manage edits and removes existing stations only. Use Add new station from Radio to create one.",
+            text = t("manage_edits_and_removes_existing"),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1889,12 +1889,12 @@ private fun AddStationScreen(
         verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
     ) {
         BackTitle(
-            title = "add station",
+            title = t("add_station"),
             onBack = onCancel,
         )
 
         Text(
-            text = "Add one live-radio stream. Existing stations are managed separately.",
+            text = t("add_one_live_radio_stream"),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1911,13 +1911,13 @@ private fun AddStationScreen(
             horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
         ) {
             SableActionButton(
-                text = "Cancel",
+                text = t("cancel"),
                 primary = false,
                 modifier = Modifier.weight(1f),
                 onClick = onCancel,
             )
             SableActionButton(
-                text = "Add station",
+                text = t("add_station_2"),
                 modifier = Modifier.weight(1f),
                 onClick = onSave,
             )
@@ -1945,14 +1945,14 @@ private fun StationFields(
         onValueChange = onStationNameChange,
         modifier = Modifier.fillMaxWidth().mediaTextInput(),
         singleLine = true,
-        label = { Text("Station name") },
+        label = { Text(t("station_name")) },
     )
     OutlinedTextField(
         value = stationUrl,
         onValueChange = onStationUrlChange,
         modifier = Modifier.fillMaxWidth().mediaTextInput(),
         singleLine = true,
-        label = { Text("HTTP(S) stream URL") },
+        label = { Text(t("http_s_stream_url")) },
     )
 }
 

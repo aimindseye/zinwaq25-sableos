@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import org.sableos.titan2.displaycompat.android.DisplayCompatApp
 import org.sableos.titan2.displaycompat.android.GatedPlatformBackend
 import org.sableos.titan2.displaycompat.core.CanvasCycle
+import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
 import org.sableos.titan2.displaycompat.core.SizePx
 import org.sableos.titan2.displaycompat.core.SystemRotation
 import org.sableos.titan2.displaycompat.core.TallCanvas
@@ -78,16 +79,16 @@ fun ToolsScreen(app: DisplayCompatApp, display: SizePx, onDone: () -> Unit) {
         Modifier.fillMaxSize().padding(12.dp).focusRequester(fr).focusable()
             .onPreviewKeyEvent { e -> actions.onKey(e, rows) }
     ) {
-        Text("Display tools", color = C.text, fontSize = 18.sp)
+        Text(t("display_tools"), color = C.text, fontSize = 18.sp)
         if (!GatedPlatformBackend.isOpen()) {
             Text(
-                "Enforcement backend: CLOSED. These settings are stored but not applied.",
+                t("enforcement_backend_closed_these_settings"),
                 color = C.warn,
                 fontSize = 11.sp
             )
         }
         Text(
-            "Alt+Shift+R (Sym+Shift+R) cycles the app in front: " +
+            t("alt_shift_r_sym_shift") +
                 cycleSummary(st.favourites, display),
             color = C.muted,
             fontSize = 11.sp,
@@ -101,10 +102,7 @@ fun ToolsScreen(app: DisplayCompatApp, display: SizePx, onDone: () -> Unit) {
                 }
             }
             Text(
-                "Portrait and Landscape lock the screen and make apps that ask for another " +
-                    "orientation fit instead of turning it. While any app has an aspect ratio " +
-                    "profile, apps' orientation requests are fitted the same way (Android needs " +
-                    "that for aspect ratios). A per-app orientation wins while its app is in front.",
+                t("portrait_and_landscape_lock_the"),
                 color = C.muted,
                 fontSize = 11.sp,
                 modifier = Modifier.padding(top = 6.dp)
@@ -118,7 +116,7 @@ fun ToolsScreen(app: DisplayCompatApp, display: SizePx, onDone: () -> Unit) {
                 )
             }
         }
-        Text("↑↓ row · ←→ change · Enter change/act · Back", color = C.muted, fontSize = 11.sp)
+        Text(t("row_change_enter_change_act"), color = C.muted, fontSize = 11.sp)
     }
 }
 
@@ -164,7 +162,7 @@ private class ToolsActions(
                 st.rotation = all[(all.indexOf(st.rotation) + dir + all.size) % all.size]
                 settings.systemRotation = st.rotation
                 app.refreshDisplay()
-                st.msg = "System rotation: ${st.rotation.label}."
+                st.msg = t("system_rotation", st.rotation.label)
             }
 
             is ToolRow.Favourite -> {
@@ -180,9 +178,9 @@ private class ToolsActions(
             ToolRow.Restore -> {
                 val failed = app.tools.restoreAll()
                 st.msg = if (failed.isEmpty()) {
-                    "Display restored. Profiles apply again when their app comes to the front."
+                    t("display_restored_profiles_apply_again")
                 } else {
-                    "Could not restore: $failed. Try again or reboot."
+                    t("could_not_restore_try_again", failed)
                 }
             }
 
@@ -194,22 +192,22 @@ private class ToolsActions(
 private fun cycleSummary(favourites: Set<TallCanvas>, display: SizePx): String {
     val order = CanvasCycle.order(favourites, display)
     return if (order.size < 2) {
-        "no favourite sizes yet."
+        t("no_favourite_sizes_yet")
     } else {
-        order.joinToString(" → ") { it.label(display) } + " → Native."
+        order.joinToString(" → ") { it.label(display) } + t("native_label")
     }
 }
 
 private fun title(r: ToolRow, display: SizePx): String = when (r) {
-    ToolRow.Rotation -> "System rotation"
-    is ToolRow.Favourite -> "Favourite " + r.canvas.label(display)
-    ToolRow.Restore -> "Restore the native display now"
-    ToolRow.Back -> "Back"
+    ToolRow.Rotation -> t("system_rotation_2")
+    is ToolRow.Favourite -> t("favourite") + r.canvas.label(display)
+    ToolRow.Restore -> t("restore_the_native_display_now")
+    ToolRow.Back -> t("back")
 }
 
 private fun value(r: ToolRow, st: ToolsState): String = when (r) {
     ToolRow.Rotation -> st.rotation.label
-    is ToolRow.Favourite -> if (r.canvas in st.favourites) "On" else "Off"
+    is ToolRow.Favourite -> if (r.canvas in st.favourites) t("on") else t("off")
     ToolRow.Restore, ToolRow.Back -> ""
 }
 

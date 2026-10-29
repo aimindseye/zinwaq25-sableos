@@ -32,6 +32,7 @@ import org.sableos.tools.core.ReportFile
 import org.sableos.tools.core.SettingsLink
 import org.sableos.tools.core.Tool
 import org.sableos.tools.core.ToolKind
+import org.sableos.tools.core.ToolsText.t
 
 /** In-memory only, cleared when the process dies; the report includes it only if the user selects it. */
 object Session {
@@ -52,7 +53,7 @@ class ToolHost(val activity: ToolActivity, val env: ToolsEnv, val tool: Tool) {
     fun toast(msg: String) = Toast.makeText(activity, msg, Toast.LENGTH_SHORT).show()
 
     fun openLink(link: SettingsLink, pkg: String? = null) {
-        if (!Links.open(activity, link, pkg)) toast("${link.label} is not available on this build")
+        if (!Links.open(activity, link, pkg)) toast(t("is_not_available_on_this", link.label))
     }
 
     fun openTool(t: Tool) = activity.startActivity(ToolActivity.intent(activity, t))
@@ -60,7 +61,7 @@ class ToolHost(val activity: ToolActivity, val env: ToolsEnv, val tool: Tool) {
     /** Writes [text] to Download/SableTools and says where, so it can be shared for diagnostics. */
     fun saveToFile(text: String) {
         val path = ReportFiles.save(activity, tool.title, text)
-        toast(if (path == null) "Could not save the file" else "Saved to $path")
+        toast(if (path == null) t("could_not_save_the_file") else t("saved_to", path))
     }
 }
 
@@ -156,7 +157,7 @@ class ToolActivity : Activity() {
                     HomeModel.matches(it, q) &&
                         HomeModel.isListed(it, env.resolutions, env.developerMode)
                 }
-                (hit ?: Tool.HARDWARE_TESTS) to if (hit == null) "Nothing matched \"$q\"." else null
+                (hit ?: Tool.HARDWARE_TESTS) to if (hit == null) t("nothing_matched", q) else null
             }
         }
     }
@@ -165,15 +166,14 @@ class ToolActivity : Activity() {
         val cap = tool.capability
         return when {
             tool.developerOnly && !env.developerMode ->
-                "This tool is part of the developer/service tier. Turn on Developer options " +
-                    "and Developer diagnostics in Sable Tools."
+                t("this_tool_is_part_of")
 
             cap != null -> {
                 val why = env.resolutions.getValue(cap).reason
-                "Not available on this device profile (${env.profile.id}): $why"
+                t("not_available_on_this_device", env.profile.id, why)
             }
 
-            else -> "Not available."
+            else -> t("not_available")
         }
     }
 
@@ -181,7 +181,11 @@ class ToolActivity : Activity() {
         val col = Ui.column(this)
         col.addView(Ui.title(this, t))
         col.addView(Ui.body(this, msg))
-        col.addView(Ui.row(this, "Back", null) { finish() }.also { it.post { it.requestFocus() } })
+        col.addView(
+            Ui.row(this, t("back"), null) {
+                finish()
+            }.also { it.post { it.requestFocus() } }
+        )
         setContentView(col)
     }
 
@@ -190,27 +194,26 @@ class ToolActivity : Activity() {
         col.addView(Ui.title(this, tool.title))
         val why = when (tool) {
             Tool.NOISE_METER ->
-                "The noise meter reads the microphone level while it is open. " +
-                    "No audio is recorded or kept."
+                t("the_noise_meter_reads_the")
 
             Tool.MAGNIFIER ->
-                "The magnifier shows the camera preview while it is open. Nothing is captured or saved."
+                t("the_magnifier_shows_the_camera")
 
             Tool.SPEEDOMETER ->
-                "The speedometer uses your location while it is open. Nothing is stored after you leave."
+                t("the_speedometer_uses_your_location")
 
             Tool.PEDOMETER ->
-                "The pedometer reads the step counter. Without it, an accelerometer estimate is used."
+                t("the_pedometer_reads_the_step")
 
-            else -> "This tool needs: " + missing.joinToString { it.substringAfterLast('.') }
+            else -> t("this_tool_needs") + missing.joinToString { it.substringAfterLast('.') }
         }
         col.addView(Ui.body(this, why))
         col.addView(
-            Ui.row(this, "Allow", null) {
+            Ui.row(this, t("allow"), null) {
                 requestPermissions(missing.toTypedArray(), REQ_PERMS)
             }.also { it.post { it.requestFocus() } }
         )
-        col.addView(Ui.row(this, "Not now", null) { finish() })
+        col.addView(Ui.row(this, t("not_now"), null) { finish() })
         setContentView(col)
     }
 
@@ -231,7 +234,7 @@ class ToolActivity : Activity() {
         } else {
             showMessage(
                 tool.title,
-                "Permission not granted, so this tool cannot read anything. You can change this in App info."
+                t("permission_not_granted_so_this")
             )
         }
     }
@@ -259,7 +262,7 @@ class ToolActivity : Activity() {
                 ) {
                     null
                 } else {
-                    "Actions"
+                    t("actions")
                 }
             ) { showActions(c) }
         )
@@ -267,21 +270,21 @@ class ToolActivity : Activity() {
     }
 
     private fun copy(c: ToolController) {
-        val text = c.copyText() ?: return toast("Nothing to copy yet")
+        val text = c.copyText() ?: return toast(t("nothing_to_copy_yet"))
         getSystemService(
             ClipboardManager::class.java
         )?.setPrimaryClip(ClipData.newPlainText(tool.title, text))
-        toast("Copied (identifiers masked)")
+        toast(t("copied_identifiers_masked"))
     }
 
     private fun save(c: ToolController) {
-        c.copyText()?.let(ToolHost(this, env, tool)::saveToFile) ?: toast("Nothing to save yet")
+        c.copyText()?.let(ToolHost(this, env, tool)::saveToFile) ?: toast(t("nothing_to_save_yet"))
     }
 
     private fun showInfo(c: ToolController) {
         AlertDialog.Builder(
             this
-        ).setTitle(tool.title).setMessage(c.info()).setPositiveButton("Close", null).show()
+        ).setTitle(tool.title).setMessage(c.info()).setPositiveButton(t("close"), null).show()
     }
 
     private fun toast(text: String) = Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
@@ -363,19 +366,19 @@ class ToolActivity : Activity() {
     private fun showActions(c: ToolController) {
         val common =
             listOf(
-                "Copy (C)" to { copy(c) },
-                "Save to phone, ${ReportFile.FOLDER} (S)" to { save(c) },
-                "About this tool" to { showInfo(c) }
+                t("copy_c") to { copy(c) },
+                t("save_to_phone_s", ReportFile.FOLDER) to { save(c) },
+                t("about_this_tool") to { showInfo(c) }
             )
         val items =
             common + c.actions() +
                 Handoffs.forTool(tool).map { l ->
-                    "Open ${l.label}" to
+                    t("open", l.label) to
                         { ToolHost(this, env, tool).openLink(l) }
                 }
         if (items.isEmpty()) return
         AlertDialog.Builder(this).setTitle(tool.title)
             .setItems(items.map { it.first }.toTypedArray()) { _, i -> items[i].second() }
-            .setNegativeButton("Close", null).show()
+            .setNegativeButton(t("close"), null).show()
     }
 }

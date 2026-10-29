@@ -1,5 +1,6 @@
 package org.sableos.weather
 
+import org.sableos.weather.WeatherText.t
 import org.sableos.weather.cities.City
 import org.sableos.weather.cities.DefaultCities
 
@@ -69,7 +70,7 @@ internal data class WeatherUiState(
     val location: WeatherLocation,
     val snapshot: WeatherSnapshot? = null,
     val availability: WeatherAvailability = WeatherAvailability.Local,
-    val message: String = "Forecast not loaded yet.",
+    val message: String = t("forecast_not_loaded_yet"),
 )
 
 internal object WeatherProtocol {

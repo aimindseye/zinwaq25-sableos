@@ -16,6 +16,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import org.sableos.titan2.profiles.core.ProfileSettings
+import org.sableos.titan2.profiles.core.ProfilesText.t
 import org.sableos.titan2.profiles.core.SoundProfile
 import org.sableos.titan2.profiles.core.SoundProfiles
 import org.sableos.titan2.theme.SablePalette
@@ -84,13 +85,13 @@ class SoundProfilesActivity : Activity() {
     private fun showMenu() {
         val profile = focusedProfile() ?: editing
         val items = listOf(
-            "Use ${profile.title}" to { use(profile) },
-            "Edit ${profile.title}" to { edit(profile) },
-            "Quick Settings Tile" to {
-                status = "Pull down the shade, choose Edit and drag the Sound profile tile in."
+            t("use", profile.title) to { use(profile) },
+            t("edit", profile.title) to { edit(profile) },
+            t("quick_settings_tile") to {
+                status = t("pull_down_the_shade_choose")
                 render()
             },
-            "Close" to { finish() }
+            t("close") to { finish() }
         )
         AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
             .setItems(items.map { it.first }.toTypedArray()) { _, which -> items[which].second() }
@@ -100,9 +101,9 @@ class SoundProfilesActivity : Activity() {
     private fun render() {
         focusKey = (currentFocus?.tag as? String) ?: focusKey
         body.removeAllViews()
-        body.addView(text("Sound Profiles", TITLE_SP, palette.text, bold = true))
+        body.addView(text(t("sound_profiles"), TITLE_SP, palette.text, bold = true))
         body.addView(
-            text("Enter uses a profile · E edits it · Menu for more", SMALL_SP, palette.muted)
+            text(t("enter_uses_a_profile_e"), SMALL_SP, palette.muted)
         )
         status?.let { body.addView(text(it, SMALL_SP, palette.warn).apply { pad(0, GAP, 0, 0) }) }
         body.addView(gap())
@@ -122,7 +123,7 @@ class SoundProfilesActivity : Activity() {
         editor()
         body.addView(
             text(
-                "Quick Settings: pull down the shade, choose Edit and add the Sound profile tile.",
+                t("quick_settings_pull_down_the"),
                 SMALL_SP,
                 palette.muted
             ).apply { pad(0, GAP * 2, 0, 0) }
@@ -139,13 +140,13 @@ class SoundProfilesActivity : Activity() {
         val profile = editing
         val s = store.settings(profile)
         val plan = SoundProfiles.plan(profile, s)
-        body.addView(text("Edit ${profile.title}", BODY_SP, palette.accent, bold = true))
+        body.addView(text(t("edit", profile.title), BODY_SP, palette.accent, bold = true))
         plan.volumePercent?.let { volume ->
             body.addView(
                 row(
                     key = "volume",
-                    title = "Volume $volume%",
-                    detail = "Enter adds 10% · Shift+Enter takes 10% off",
+                    title = t("volume", volume),
+                    detail = t("enter_adds_10_shift_enter"),
                     onClick = { step(profile, s, volume, +STEP) }
                 ).onLong { step(profile, s, volume, -STEP) }.apply {
                     setOnKeyListener { _, code, ev ->
@@ -157,12 +158,12 @@ class SoundProfilesActivity : Activity() {
             )
         }
         body.addView(
-            row("ringtone", "Ringtone", toneName(s.ringtone), onClick = {
+            row("ringtone", t("ringtone"), toneName(s.ringtone), onClick = {
                 pickTone(RingtoneManager.TYPE_RINGTONE, s.ringtone)
             })
         )
         body.addView(
-            row("notification", "Notification tone", toneName(s.notificationTone), onClick = {
+            row("notification", t("notification_tone"), toneName(s.notificationTone), onClick = {
                 pickTone(RingtoneManager.TYPE_NOTIFICATION, s.notificationTone)
             })
         )
@@ -171,9 +172,9 @@ class SoundProfilesActivity : Activity() {
                 "vibrate",
                 check(
                     plan.vibrateWhenRinging,
-                    "Vibrate for calls"
+                    t("vibrate_for_calls")
                 ),
-                "Space turns it on or off",
+                t("space_turns_it_on_or"),
                 onClick = {
                     save(profile, s.copy(vibrate = !plan.vibrateWhenRinging))
                 }
@@ -184,9 +185,9 @@ class SoundProfilesActivity : Activity() {
                 "light",
                 check(
                     plan.light,
-                    "Notification light"
+                    t("notification_light")
                 ),
-                "Space turns it on or off",
+                t("space_turns_it_on_or"),
                 onClick = {
                     save(profile, s.copy(light = !plan.light))
                 }
@@ -203,13 +204,12 @@ class SoundProfilesActivity : Activity() {
                 startActivity(
                     Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:$packageName"))
                 )
-                "${profile.title} is on. Allow changing system settings so it can set tones, " +
-                    "vibration and the light, then choose it again."
+                t("is_on_allow_changing_system", profile.title)
             }
 
             SoundProfileApplier.Result.NEEDS_DND_ACCESS -> {
                 startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
-                "Allow Do Not Disturb access for Sound Profiles, then choose ${profile.title} again."
+                t("allow_do_not_disturb_access_2", profile.title)
             }
         }
         render()
@@ -267,7 +267,7 @@ class SoundProfilesActivity : Activity() {
 
     private fun toneName(uri: String?): String = uri?.let {
         runCatching { RingtoneManager.getRingtone(this, Uri.parse(it))?.getTitle(this) }.getOrNull()
-    } ?: "Phone's current tone"
+    } ?: t("phone_s_current_tone")
 
     private fun check(on: Boolean, label: String) = (if (on) "☑ " else "☐ ") + label
 

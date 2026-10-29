@@ -108,7 +108,15 @@
   keys for audiobooks in Sable Reader (the Q25 has no PageUp/PageDown), and 0080 Sable Reader's
   Comics and Audio tabs (the shelf narrowed to one kind), Comics & Audiobooks defaults in Reader
   Settings (`AudioSettingsStore`, `ComicViewDefaults` fallback) and the short-window layout
-  (`ReaderLayoutProfile.isShort`) for the 411 x 387 dp screen. Applied in order to a
+  (`ReaderLayoutProfile.isShort`) for the 411 x 387 dp screen, and 0081 Sable Notes (the `notes`
+  r8 module, its Phosphor notepad icon and Start glyph), and 0082 Sable Setup's French and German
+  drafts and an updated Spanish one, and 0083 Sable Keyboard's opt-in clipboard history
+  (`ClipboardHistory`, `ClipPicker`, `ClipboardWatcher`, Alt+Shift+V), and 0084 Sable Terminal (the
+  `connectbot` flavor: ConnectBot v1.10.9 pin, `apply_sable_flavor.py`, `SableTerminalKeys`, the
+  Phosphor terminal-window icon and Start glyph), and 0085 every Sable app's English in
+  `res/values/strings.xml` (one `<App>Text` table per app, bound to the resources in its
+  `Application`, an `<App>TextTest` each, `DesignText` for the shared design lines and
+  `SableTexts` accepting nullable arguments; docs/LANGUAGES.md). Applied in order to a
   fresh import they reproduce `sable-src/` exactly. Regenerate a patch with `git diff` against a
   fresh import when you change these files.
 

@@ -1,16 +1,20 @@
 package org.sableos.tools.core
 
+import org.sableos.tools.core.ToolsText.t
+
 /**
  * Local-first IR remote (IR_REMOTE_LOCAL_FIRST): remotes live on the device, nothing is fetched or synced
  * (NETWORK_REQUIRED_FOR_REMOTE=NO). Learning is not offered: Android has no public IR receive API, so
  * LEARNING_MODE=ONLY_IF_IR_RECEIVER_PROVEN keeps it off.
  */
-enum class ApplianceType(val title: String) {
-    TV("TV"),
-    AIR_CONDITIONER("Air conditioner"),
-    PROJECTOR("Projector"),
-    AUDIO("Audio"),
-    CUSTOM("Custom")
+enum class ApplianceType(private val titleKey: String) {
+    TV("tv"),
+    AIR_CONDITIONER("air_conditioner"),
+    PROJECTOR("projector"),
+    AUDIO("audio"),
+    CUSTOM("custom");
+
+    val title: String get() = t(titleKey)
 }
 
 /** Published timings of the NEC and Samsung32 IR protocols. */
@@ -74,30 +78,30 @@ object RemoteLibrary {
     /** Small local table of widely published codes. Marked built-in/unverified; users add their own. */
     val BUILT_IN: List<Remote> = listOf(
         Remote(
-            "Samsung TV",
+            t("samsung_tv"),
             ApplianceType.TV,
             IrProtocol.SAMSUNG32,
             listOf(
-                b("Power", 0xE0E040BFL),
-                b("Volume up", 0xE0E0E01FL),
-                b("Volume down", 0xE0E0D02FL),
-                b("Mute", 0xE0E0F00FL),
-                b("Channel up", 0xE0E048B7L),
-                b("Channel down", 0xE0E008F7L)
+                b(t("power"), 0xE0E040BFL),
+                b(t("volume_up"), 0xE0E0E01FL),
+                b(t("volume_down"), 0xE0E0D02FL),
+                b(t("mute"), 0xE0E0F00FL),
+                b(t("channel_up"), 0xE0E048B7L),
+                b(t("channel_down"), 0xE0E008F7L)
             ),
             builtIn = true
         ),
         Remote(
-            "LG TV",
+            t("lg_tv"),
             ApplianceType.TV,
             IrProtocol.NEC,
             listOf(
-                b("Power", 0x20DF10EFL),
-                b("Volume up", 0x20DF40BFL),
-                b("Volume down", 0x20DFC03FL),
-                b("Mute", 0x20DF906FL),
-                b("Channel up", 0x20DF00FFL),
-                b("Channel down", 0x20DF807FL)
+                b(t("power"), 0x20DF10EFL),
+                b(t("volume_up"), 0x20DF40BFL),
+                b(t("volume_down"), 0x20DFC03FL),
+                b(t("mute"), 0x20DF906FL),
+                b(t("channel_up"), 0x20DF00FFL),
+                b(t("channel_down"), 0x20DF807FL)
             ),
             builtIn = true
         )
@@ -190,12 +194,12 @@ object IrTransmit {
         val p = remote.protocol.pattern(button.code)
         return when {
             resolution.visibility == Visibility.HIDDEN ->
-                Decision.Refuse("No IR transmitter on this device profile.")
+                Decision.Refuse(t("no_ir_transmitter_on_this"))
 
             carrierRanges.isNotEmpty() && carrierRanges.none { hz in it } ->
-                Decision.Refuse("The IR transmitter does not support ${hz / HZ_PER_KHZ} kHz.")
+                Decision.Refuse(t("the_ir_transmitter_does_not", hz / HZ_PER_KHZ))
 
-            p.sum() > IrProtocol.MAX_PATTERN_US -> Decision.Refuse("Pattern too long.")
+            p.sum() > IrProtocol.MAX_PATTERN_US -> Decision.Refuse(t("pattern_too_long"))
 
             else -> Decision.Send(hz, p)
         }

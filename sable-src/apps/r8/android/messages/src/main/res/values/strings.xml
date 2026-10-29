@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- English. Keep equal to MessagesText.EN (MessagesTextTest checks); translations go in values-<lang>/. -->
 <resources>
-    <string name="app_name">Sable Messages</string>
+    <string name="app_name" translatable="false">Sable Messages</string>
     <string name="conversation">Conversation</string>
     <string name="channel_incoming">Incoming messages</string>
     <string name="action_mark_read">Mark read</string>
@@ -11,4 +12,62 @@
         <item quantity="other">Sent to %1$d people, one text each.</item>
     </plurals>
     <string name="mms_needs_default">Only the default SMS app can download multimedia messages.</string>
+    <!-- Lines the code reads through MessagesText.t -->
+    <string name="unknown_sender">Unknown sender</string>
+    <string name="new_message">New message</string>
+    <string name="new_messages">%1$s new messages</string>
+    <string name="multimedia_message">Multimedia message</string>
+    <string name="picture">Picture</string>
+    <string name="pictures">%1$s pictures</string>
+    <string name="video">Video</string>
+    <string name="audio">Audio</string>
+    <string name="attachment">Attachment</string>
+    <string name="sending">Sending…</string>
+    <string name="sent">Sent %1$s</string>
+    <string name="draft">Draft</string>
+    <string name="not_sent_enter_to_retry">Not sent · %1$s · Enter to retry</string>
+    <string name="multimedia_message_downloading">Multimedia message · downloading…</string>
+    <string name="multimedia_message_not_downloaded_enter">Multimedia message not downloaded · Enter to retry</string>
+    <string name="couldn_t_send">couldn\'t send</string>
+    <string name="radio_off">radio off</string>
+    <string name="no_service">no service</string>
+    <string name="sending_limit_reached">sending limit reached</string>
+    <string name="blocked_by_fixed_dialing">blocked by fixed dialing</string>
+    <string name="short_code_not_allowed">short code not allowed</string>
+    <string name="radio_not_available">radio not available</string>
+    <string name="network_rejected_it">network rejected it</string>
+    <string name="error">error %1$s</string>
+    <string name="to_name_or_number">To: name or number</string>
+    <string name="text_message_enter_sends">Text message · Enter sends</string>
+    <string name="send">Send</string>
+    <string name="back">Back</string>
+    <string name="unknown">Unknown</string>
+    <string name="sms">" · SMS"</string>
+    <string name="new_message_end_to_latest">New message — End to latest</string>
+    <string name="attachment_2">Attachment · %1$s</string>
+    <string name="picture_2">Picture · %1$s</string>
+    <string name="group_conversation_replies_need_mms">Group conversation: replies need MMS, which Sable Messages doesn\'t send yet.</string>
+    <string name="sable_messages">Sable Messages</string>
+    <string name="no_mobile_network_for_texts">No mobile network for texts</string>
+    <string name="this_device_has_no_sms">This device has no SMS service (no SIM or no mobile radio), so it can\'t send or receive texts.</string>
+    <string name="allow_sms">Allow SMS</string>
+    <string name="sable_messages_needs_to_read">Sable Messages needs to read and send texts</string>
+    <string name="texts_stay_on_this_phone">Texts stay on this phone. Sable Messages reads them from Android\'s message store and sends only what you write.</string>
+    <string name="make_sable_messages_the_default">Make Sable Messages the default SMS app</string>
+    <string name="allow_sms_access">Allow SMS access</string>
+    <string name="android_won_t_ask_again">Android won\'t ask again. In Settings &gt; Apps &gt; Sable Messages &gt; Permissions, allow SMS.</string>
+    <string name="open_app_settings">Open app settings</string>
+    <string name="no_conversations_yet_choose_new">No conversations yet. Choose New to text someone.</string>
+    <string name="no_conversation_matches">No conversation matches.</string>
+    <string name="messages">Messages</string>
+    <string name="conversations_unread">%1$s conversations · %2$s unread</string>
+    <string name="conversations">%1$s conversations</string>
+    <string name="new_label">New</string>
+    <string name="no_mobile_network_on_this">No mobile network on this device: texts can\'t be sent or received.</string>
+    <string name="another_app_is_the_default">Another app is the default SMS app, so it receives texts and pictures. Make Sable Messages the default to get them here.</string>
+    <string name="make_default">Make default</string>
+    <string name="contact_names_are_hidden_until">Contact names are hidden until Sable Messages may read contacts.</string>
+    <string name="show_names">Show names</string>
+    <string name="type_to_filter_enter_opens">Type to filter · Enter opens</string>
+    <string name="not_sent">Not sent · %1$s</string>
 </resources>

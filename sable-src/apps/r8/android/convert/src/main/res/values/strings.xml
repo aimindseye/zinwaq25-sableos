@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English. Single capital letters in hints (C new, S find) name keyboard keys: keep them as the key, translate the word.
+     English. Keep equal to ConvertText.EN (ConvertTextTest checks); translations go in values-<lang>/. -->
+<resources>
+    <string name="convert_length">Length</string>
+    <string name="convert_mass">Mass</string>
+    <string name="convert_temperature">Temperature</string>
+    <string name="convert_volume">Volume</string>
+    <string name="convert_millimeters">Millimeters</string>
+    <string name="convert_centimeters">Centimeters</string>
+    <string name="convert_meters">Meters</string>
+    <string name="convert_kilometers">Kilometers</string>
+    <string name="convert_inches">Inches</string>
+    <string name="convert_feet">Feet</string>
+    <string name="convert_miles">Miles</string>
+    <string name="convert_grams">Grams</string>
+    <string name="convert_kilograms">Kilograms</string>
+    <string name="convert_ounces">Ounces</string>
+    <string name="convert_pounds">Pounds</string>
+    <string name="convert_celsius">Celsius</string>
+    <string name="convert_fahrenheit">Fahrenheit</string>
+    <string name="convert_kelvin">Kelvin</string>
+    <string name="convert_milliliters">Milliliters</string>
+    <string name="convert_liters">Liters</string>
+    <string name="convert_cups">Cups</string>
+    <string name="convert_gallons">Gallons</string>
+    <string name="convert_ready">Ready</string>
+    <string name="convert_value">Value</string>
+    <string name="convert_from">From</string>
+    <string name="convert_to">To</string>
+    <string name="convert_convert">Convert</string>
+    <string name="convert_enter_a_number_with_up">Enter a number with up to three decimal places</string>
+    <string name="convert_length_mass_temperature_and_volume">Length, mass, temperature and volume conversions are local and offline.</string>
+    <string name="convert_native_bridge_failure">Native bridge failure</string>
+</resources>

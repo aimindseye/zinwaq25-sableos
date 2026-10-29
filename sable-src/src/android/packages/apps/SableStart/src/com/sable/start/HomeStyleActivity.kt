@@ -24,6 +24,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
+import com.sable.start.model.StartText
+import com.sable.start.model.StartText.t
+import org.sableos.design.DesignText
 import org.sableos.design.SableGlobalTheme
 import org.sableos.design.sableFocusRing
 import org.sableos.start.model.HomeStyle
@@ -37,6 +40,8 @@ import org.sableos.start.platform.StartStateRepository
 class HomeStyleActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        StartText.t.bindTo(this)
+        DesignText.t.bindTo(this)
         val state = StartStateRepository(this)
         setContent {
             SableGlobalTheme(window = window) {
@@ -80,15 +85,15 @@ private fun HomeStyleChooser(
                     .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("Home screen style", style = MaterialTheme.typography.titleLarge)
+            Text(t("home_screen_style"), style = MaterialTheme.typography.titleLarge)
             Text(
-                "Sable Start can look like BlackBerry 10 or BlackBerry 7. Your apps, favourites and Hub stay the same.",
+                t("sable_start_can_look_like"),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             HomeStyle.entries.forEachIndexed { i, style ->
                 Choice(
-                    title = style.title + if (style == current) " · current" else "",
+                    title = style.title + if (style == current) t("current") else "",
                     detail = style.summary,
                     active = style == current,
                     modifier = if (i == 0) Modifier.focusRequester(first) else Modifier,
@@ -96,8 +101,8 @@ private fun HomeStyleChooser(
                 )
             }
             Choice(
-                title = "Another launcher…",
-                detail = "Pick any installed home app in Android's settings",
+                title = t("another_launcher"),
+                detail = t("pick_any_installed_home_app"),
                 active = false,
                 onClick = onOtherLauncher,
             )

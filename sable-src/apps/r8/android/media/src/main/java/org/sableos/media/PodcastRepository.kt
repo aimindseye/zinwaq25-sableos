@@ -3,6 +3,7 @@ package org.sableos.media
 import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
+import org.sableos.media.MediaText.t
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.net.HttpURLConnection
@@ -62,7 +63,7 @@ internal class PodcastRepository(
     ): List<PodcastSubscription> {
         val normalized = feedUrl.trim()
         require(isSupportedFeedUrl(normalized)) {
-            "Podcast feed must use HTTPS."
+            t("podcast_feed_must_use_https")
         }
 
         val fetched = fetch(normalized)
@@ -118,7 +119,7 @@ internal class PodcastRepository(
 
         try {
             require(connection.responseCode in HTTP_SUCCESS_RANGE) {
-                "Podcast feed returned HTTP ${connection.responseCode}."
+                t("podcast_feed_returned_http", connection.responseCode)
             }
 
             val resolvedFeedUrl =
@@ -128,7 +129,7 @@ internal class PodcastRepository(
                     ?: feedUrl
 
             require(isSupportedFeedUrl(resolvedFeedUrl)) {
-                "Podcast feed redirected to a non-HTTPS URL."
+                t("podcast_feed_redirected_to_a")
             }
 
             val bytes =
@@ -168,7 +169,7 @@ internal class PodcastRepository(
         while (read >= 0) {
             total += read
             require(total <= MAX_FEED_BYTES) {
-                "Podcast feed is larger than the Sable Media safety limit."
+                t("podcast_feed_is_larger_than")
             }
             output.write(buffer, 0, read)
             read = input.read(buffer)

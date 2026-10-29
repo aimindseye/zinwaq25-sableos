@@ -1,5 +1,7 @@
 package org.sableos.start.model
 
+import com.sable.start.model.StartText.t
+
 /**
  * Command layer query model (platform_sable SABLE_COMMAND_LAYER.md "Prefix
  * syntax" and "Result groups"). Pure policy, unit tested in
@@ -86,28 +88,28 @@ object CommandRanking {
      * Settings destinations every LineageOS build has, by their public
      * android.provider.Settings actions.
      */
-    val SETTINGS: List<SettingsDestination> =
+    val SETTINGS: List<SettingsDestination> get() =
         listOf(
             SettingsDestination("Wi-Fi", "android.settings.WIFI_SETTINGS", listOf("wifi", "wlan", "network")),
-            SettingsDestination("Bluetooth", "android.settings.BLUETOOTH_SETTINGS", listOf("pair", "headphones")),
-            SettingsDestination("Mobile network", "android.settings.NETWORK_OPERATOR_SETTINGS", listOf("sim", "data", "cellular")),
-            SettingsDestination("Airplane mode", "android.settings.AIRPLANE_MODE_SETTINGS", listOf("flight")),
-            SettingsDestination("Display", "android.settings.DISPLAY_SETTINGS", listOf("brightness", "dark", "theme", "accent")),
-            SettingsDestination("Sound", "android.settings.SOUND_SETTINGS", listOf("volume", "ringtone", "vibrate")),
-            SettingsDestination("Notifications", "android.settings.NOTIFICATION_SETTINGS", listOf("hub", "attention")),
-            SettingsDestination("Do Not Disturb", "android.settings.ZEN_MODE_SETTINGS", listOf("dnd", "quiet", "focus")),
-            SettingsDestination("Battery", "android.intent.action.POWER_USAGE_SUMMARY", listOf("power", "charging", "health")),
-            SettingsDestination("Apps", "android.settings.MANAGE_APPLICATIONS_SETTINGS", listOf("applications", "uninstall")),
-            SettingsDestination("Storage", "android.settings.INTERNAL_STORAGE_SETTINGS", listOf("space", "files")),
-            SettingsDestination("Location", "android.settings.LOCATION_SOURCE_SETTINGS", listOf("gps")),
-            SettingsDestination("Security", "android.settings.SECURITY_SETTINGS", listOf("lock", "pin", "password")),
-            SettingsDestination("Privacy", "android.settings.PRIVACY_SETTINGS", listOf("permissions")),
-            SettingsDestination("Keyboard", "android.settings.HARD_KEYBOARD_SETTINGS", listOf("physical", "layout", "backlight")),
-            SettingsDestination("Language", "android.settings.LOCALE_SETTINGS", listOf("locale")),
-            SettingsDestination("Date & time", "android.settings.DATE_SETTINGS", listOf("clock", "timezone")),
-            SettingsDestination("Accessibility", "android.settings.ACCESSIBILITY_SETTINGS", listOf("talkback", "font")),
-            SettingsDestination("Hotspot & tethering", "android.settings.TETHER_SETTINGS", listOf("tether", "hotspot")),
-            SettingsDestination("About phone", "android.settings.DEVICE_INFO_SETTINGS", listOf("version", "build", "sableos")),
+            SettingsDestination(t("bluetooth"), "android.settings.BLUETOOTH_SETTINGS", listOf("pair", "headphones")),
+            SettingsDestination(t("mobile_network"), "android.settings.NETWORK_OPERATOR_SETTINGS", listOf("sim", "data", "cellular")),
+            SettingsDestination(t("airplane_mode"), "android.settings.AIRPLANE_MODE_SETTINGS", listOf("flight")),
+            SettingsDestination(t("display"), "android.settings.DISPLAY_SETTINGS", listOf("brightness", "dark", "theme", "accent")),
+            SettingsDestination(t("sound"), "android.settings.SOUND_SETTINGS", listOf("volume", "ringtone", "vibrate")),
+            SettingsDestination(t("notifications"), "android.settings.NOTIFICATION_SETTINGS", listOf("hub", "attention")),
+            SettingsDestination(t("do_not_disturb"), "android.settings.ZEN_MODE_SETTINGS", listOf("dnd", "quiet", "focus")),
+            SettingsDestination(t("battery"), "android.intent.action.POWER_USAGE_SUMMARY", listOf("power", "charging", "health")),
+            SettingsDestination(t("apps"), "android.settings.MANAGE_APPLICATIONS_SETTINGS", listOf("applications", "uninstall")),
+            SettingsDestination(t("storage"), "android.settings.INTERNAL_STORAGE_SETTINGS", listOf("space", "files")),
+            SettingsDestination(t("location"), "android.settings.LOCATION_SOURCE_SETTINGS", listOf("gps")),
+            SettingsDestination(t("security"), "android.settings.SECURITY_SETTINGS", listOf("lock", "pin", "password")),
+            SettingsDestination(t("privacy"), "android.settings.PRIVACY_SETTINGS", listOf("permissions")),
+            SettingsDestination(t("keyboard"), "android.settings.HARD_KEYBOARD_SETTINGS", listOf("physical", "layout", "backlight")),
+            SettingsDestination(t("language"), "android.settings.LOCALE_SETTINGS", listOf("locale")),
+            SettingsDestination(t("date_time"), "android.settings.DATE_SETTINGS", listOf("clock", "timezone")),
+            SettingsDestination(t("accessibility"), "android.settings.ACCESSIBILITY_SETTINGS", listOf("talkback", "font")),
+            SettingsDestination(t("hotspot_tethering"), "android.settings.TETHER_SETTINGS", listOf("tether", "hotspot")),
+            SettingsDestination(t("about_phone"), "android.settings.DEVICE_INFO_SETTINGS", listOf("version", "build", "sableos")),
         )
 
     /** Title prefix first, then title contains, then keyword prefix. */
@@ -181,15 +183,15 @@ object CommandGroups {
 
     fun label(scope: CommandScope): String =
         when (scope) {
-            CommandScope.All -> "All"
-            CommandScope.Apps -> "Apps"
-            CommandScope.People -> "People"
-            CommandScope.Settings -> "Settings"
-            CommandScope.Hub -> "Hub"
-            CommandScope.Actions -> "Actions"
-            CommandScope.Private -> "Private"
-            CommandScope.Dual -> "Dual"
-            CommandScope.Work -> "Work"
+            CommandScope.All -> t("all")
+            CommandScope.Apps -> t("apps")
+            CommandScope.People -> t("people")
+            CommandScope.Settings -> t("settings")
+            CommandScope.Hub -> t("hub")
+            CommandScope.Actions -> t("actions")
+            CommandScope.Private -> t("private_label")
+            CommandScope.Dual -> t("dual")
+            CommandScope.Work -> t("work")
         }
 
     /** The chip [delta] away from [current], stopping at the ends; a profile scope starts from All. */

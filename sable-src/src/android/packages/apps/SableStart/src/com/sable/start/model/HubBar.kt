@@ -1,16 +1,19 @@
 package org.sableos.start.model
 
+import com.sable.start.model.StartText.t
 import org.sableos.start.live.AppUnreadCount
 
 /** Hub page tabs: "All · Messages · Calls · Contacts". */
 enum class HubFilter(
-    val label: String,
+    private val labelKey: String,
 ) {
-    All("All"),
-    Messages("Messages"),
-    Calls("Calls"),
-    Contacts("Contacts"),
+    All("all"),
+    Messages("messages"),
+    Calls("calls"),
+    Contacts("contacts"),
     ;
+
+    val label: String get() = t(labelKey)
 
     companion object {
         /** A tab by name in any case ("contacts"), or null. */
@@ -112,9 +115,9 @@ object HubBar {
     /** The Notifications card line: "3 new in 2 apps", "1 new in 1 app", or "nothing new". */
     fun summary(items: List<Item>): String {
         val total = items.sumOf { it.count }
-        if (total == 0) return "nothing new"
-        if (items.any { it.redacted }) return "$total new · apps hidden"
+        if (total == 0) return t("nothing_new")
+        if (items.any { it.redacted }) return t("new_apps_hidden", total)
         val apps = items.size
-        return "$total new in $apps " + if (apps == 1) "app" else "apps"
+        return t("new_in", total, apps) + if (apps == 1) "app" else "apps"
     }
 }

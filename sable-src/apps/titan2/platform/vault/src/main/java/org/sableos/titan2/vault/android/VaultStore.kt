@@ -10,6 +10,7 @@ import org.sableos.titan2.vault.core.FileNames
 import org.sableos.titan2.vault.core.ImportOutcome
 import org.sableos.titan2.vault.core.Section
 import org.sableos.titan2.vault.core.VaultItem
+import org.sableos.titan2.vault.core.VaultLines.t
 
 /**
  * Files live in this app's credential-encrypted storage (Context.filesDir) of the private profile, one folder per
@@ -46,12 +47,13 @@ class VaultStore(private val context: Context) {
                 imported += name
             } catch (e: IOException) {
                 failed +=
-                    (display ?: name) + " (" + (e.message ?: "read error") + discard(target) + ")"
+                    (display ?: name) + " (" + (e.message ?: t("read_error")) + discard(target) +
+                    ")"
             } catch (e: IllegalStateException) {
                 failed +=
                     (display ?: name) + " (" + (e.message ?: "unreadable") + discard(target) + ")"
             } catch (_: SecurityException) {
-                failed += (display ?: name) + " (no access" + discard(target) + ")"
+                failed += (display ?: name) + t("no_access") + discard(target) + ")"
             }
         }
         return ImportOutcome(imported, failed)
@@ -59,7 +61,7 @@ class VaultStore(private val context: Context) {
 
     /** Removes a half-copied file; says so when it could not, so the user can delete it. */
     private fun discard(target: File): String =
-        if (target.delete() || !target.exists()) "" else "; partial copy left"
+        if (target.delete() || !target.exists()) "" else t("partial_copy_left")
 
     private fun copyIn(uri: Uri, target: File) {
         val input = checkNotNull(context.contentResolver.openInputStream(uri)) { "no stream" }

@@ -12,6 +12,7 @@
 | aimindseye/titan2-temp (private) | Keyboard P2, Reader v2 (P5A-P5F), reference sources layered over the sableos import | `7570470d1c5a27ef94ed4751f5ccb91af41761fe` | as sableos |
 | [thunderbird/thunderbird-android](https://github.com/thunderbird/thunderbird-android) | Upstream for the Sable Mail flavor | `THUNDERBIRD_23_0` (`c733317d933c22bcd790a4790306f30ccf2026b8`) | Apache-2.0 |
 | [vaachak-platform/vaachak-textreader](https://github.com/vaachak-platform/vaachak-textreader) | Upstream for the Sable Text Reader flavor | `50fca365baae9869264716569830690fb62029a7` | see repo |
+| [connectbot/connectbot](https://github.com/connectbot/connectbot) | Upstream for the Sable Terminal flavor | `v1.10.9` (`21ce6f47cf16785bf2314b4ea931900164c179c1`) | Apache-2.0 |
 | [bellhopsw/q25-50mp](https://github.com/bellhopsw/q25-50mp) | Optional 50 MP camera (`product/q25/camera-50mp`, off by default) | `caf855d5adc9578f3231f73947b6872b8786db8a` | MIT (library, tools); GPL-2.0 (kernel change) |
 | [microg/GmsCore](https://github.com/microg/GmsCore) releases | microG Services and Companion APKs (`product/q25/microg`, `SABLE_Q25_MICROG`, Q4+) | `v0.3.17.252432` (`32bc8954ff872d0e1a05ddfae81561b6dbecef69`); APK sha256 in `prebuilts.tsv` | Apache-2.0 |
 | [AuroraOSS/AuroraStore](https://gitlab.com/AuroraOSS/AuroraStore) releases | Aurora Store APK (same) | `4.8.4`; APK sha256 in `prebuilts.tsv` | GPL-3.0 |
@@ -27,7 +28,7 @@
 
 To change a pin: update `build/config/q25.env` and
 `manifests/local_manifests/sable_q25.xml` together (`tests/run.sh` checks they
-match) and say why in the commit. The Mail and Text Reader pins live in
-`sable-src/apps/r8/{mail,textreader}/upstream.env`; the sableos and titan2-temp
+match) and say why in the commit. The Mail, Text Reader and Terminal pins live in
+`sable-src/apps/r8/{mail,textreader,connectbot}/upstream.env`; the sableos and titan2-temp
 pins are recorded in `sable-src/SOURCE_IMPORT.txt`. The LineageOS framework
 patches name their base commits in [`../patches/README.md`](../patches/README.md).

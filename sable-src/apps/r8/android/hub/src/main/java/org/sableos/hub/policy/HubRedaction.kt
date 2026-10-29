@@ -4,6 +4,7 @@ import org.sableos.hub.ConnectedAppKey
 import org.sableos.hub.HubConversation
 import org.sableos.hub.HubConversationSource
 import org.sableos.hub.HubMessage
+import org.sableos.hub.HubText.t
 
 /** The two levels that apply to one connected source right now. */
 data class HubSourcePrivacy(
@@ -21,7 +22,7 @@ data class HubSourcePrivacy(
  * Hub's own SMS rows use [smsPrivacy], so private mode and the locked device redact SMS bodies too.
  */
 object HubRedaction {
-    const val WORK_PROFILE_LABEL = "Work profile"
+    val WORK_PROFILE_LABEL: String get() = t("work_profile")
     const val SMS_LABEL = "SMS"
 
     private val FULL = HubSourcePrivacy(HubContentLevel.Full, HubContentLevel.Full)

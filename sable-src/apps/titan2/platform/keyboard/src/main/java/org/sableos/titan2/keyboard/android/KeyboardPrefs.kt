@@ -11,6 +11,9 @@ internal const val AUTO_TEXT = "autoText"
 /** Enter performs the field's Send action (core KeyShortcuts.enterSends); off by default. */
 internal const val ENTER_SENDS = "enterSends"
 
+/** Clipboard history (core ClipboardHistory), kept in memory only; off by default. */
+internal const val CLIP_HISTORY = "clipHistory"
+
 /**
  * Stored in device-protected storage so the keyboard works at the lockscreen and during direct boot
  * (critical text entry).

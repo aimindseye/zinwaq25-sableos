@@ -1,5 +1,7 @@
 package org.sableos.titan2.camera.core
 
+import org.sableos.titan2.camera.core.CameraText.t
+
 /**
  * Sable Camera Control Deck, source architecture (docs/SABLE_CAMERA_CONTROL_DECK.md).
  *
@@ -66,37 +68,40 @@ object ControlGate {
     /** Hold-F/hold-E locks belong to the auto camera; Pro sets focus and exposure by hand. */
     private fun lockGate(a: CameraAction, c: DeckContext): Gate? = when {
         a != CameraAction.AfLockToggle && a != CameraAction.AeLockToggle -> null
-        c.ui == UiMode.Pro -> Gate.Closed("Pro sets it by hand")
-        a == CameraAction.AfLockToggle -> need(hasAf(c.cam), "Fixed focus")
-        else -> need(c.cam.camera.aeLockAvailable, "No AE lock on this camera")
+        c.ui == UiMode.Pro -> Gate.Closed(t("pro_sets_it_by_hand"))
+        a == CameraAction.AfLockToggle -> need(hasAf(c.cam), t("fixed_focus"))
+        else -> need(c.cam.camera.aeLockAvailable, t("no_ae_lock_on_this"))
     }
 
     private fun captureGate(a: CameraAction, c: DeckContext): Gate? = when (a) {
-        CameraAction.Shutter -> need(c.ui in ActionRouter.available(c.cam), "No ${c.ui.label} here")
+        CameraAction.Shutter -> need(
+            c.ui in ActionRouter.available(c.cam),
+            t("no_here", c.ui.label)
+        )
 
         CameraAction.VideoToggle ->
-            need(UiMode.Video in ActionRouter.available(c.cam), "No recordable video size")
+            need(UiMode.Video in ActionRouter.available(c.cam), t("no_recordable_video_size"))
 
         CameraAction.PauseToggle ->
-            need(c.ui == UiMode.Video && c.recording, "Only while recording")
+            need(c.ui == UiMode.Video && c.recording, t("only_while_recording"))
 
         CameraAction.QualityNext -> need(
             c.ui == UiMode.Video && !c.recording &&
                 VideoPlanner.options(c.cam.camera.videoSizes).size > 1,
-            "Only one video size"
+            t("only_one_video_size")
         )
 
         CameraAction.NextCaptureMode -> need(
             c.ui == UiMode.Photo && photoPaths(c.cam) > 1,
-            "Only one photo path"
+            t("only_one_photo_path")
         )
 
-        CameraAction.CompareToggle -> need(c.ui == UiMode.Photo, "Photo only")
+        CameraAction.CompareToggle -> need(c.ui == UiMode.Photo, t("photo_only"))
 
         CameraAction.RawToggle -> if (c.ui == UiMode.Photo) {
-            need(PhotoPath.rawToggle(CaptureMode.Auto, c.cam) != null, "No RAW or high-res path")
+            need(PhotoPath.rawToggle(CaptureMode.Auto, c.cam) != null, t("no_raw_or_high_res"))
         } else {
-            Gate.Closed("Photo only")
+            Gate.Closed(t("photo_only"))
         }
 
         else -> null
@@ -114,32 +119,32 @@ object ControlGate {
 
         CameraAction.SelectShutter -> pro(ProField.Shutter, c)
 
-        CameraAction.ProAuto -> need(c.ui == UiMode.Pro, "Pro only")
+        CameraAction.ProAuto -> need(c.ui == UiMode.Pro, t("pro_only"))
 
         CameraAction.ExposureUp, CameraAction.ExposureDown ->
-            if (c.ui == UiMode.Pro) pro(ProField.Ev, c) else need(hasEv(c.cam), "No EV control")
+            if (c.ui == UiMode.Pro) pro(ProField.Ev, c) else need(hasEv(c.cam), t("no_ev_control"))
 
         CameraAction.Autofocus ->
-            if (c.ui == UiMode.Pro) pro(ProField.Focus, c) else need(hasAf(c.cam), "Fixed focus")
+            if (c.ui == UiMode.Pro) pro(ProField.Focus, c) else need(hasAf(c.cam), t("fixed_focus"))
 
         else -> null
     }
 
     private fun navigationGate(a: CameraAction, c: DeckContext): Gate = when (a) {
         CameraAction.SwitchCamera ->
-            need(c.cameraCount > 1 && !c.recording, "Single camera or recording")
+            need(c.cameraCount > 1 && !c.recording, t("single_camera_or_recording"))
 
         CameraAction.NextMode, CameraAction.PrevMode ->
-            need(ActionRouter.available(c.cam).size > 1 && !c.recording, "Single mode")
+            need(ActionRouter.available(c.cam).size > 1 && !c.recording, t("single_mode"))
 
-        CameraAction.OpenLast -> need(!c.recording, "Not while recording")
+        CameraAction.OpenLast -> need(!c.recording, t("not_while_recording"))
 
         else -> Gate.Open
     }
 
     private fun need(ok: Boolean, reason: String): Gate = if (ok) Gate.Open else Gate.Closed(reason)
 
-    private fun zoom(c: DeckContext) = need(c.cam.zoomSteps.size > 1, "No zoom range")
+    private fun zoom(c: DeckContext) = need(c.cam.zoomSteps.size > 1, t("no_zoom_range"))
 
     private fun hasEv(r: CameraReport) = r.camera.aeCompensationSteps?.let { it.hi > it.lo } == true
 
@@ -153,7 +158,7 @@ object ControlGate {
 
     private fun pro(f: ProField, c: DeckContext): Gate = need(
         c.ui == UiMode.Pro && ProLimits.of(c.cam.camera).offers(f),
-        "${f.label} not adjustable"
+        t("not_adjustable", f.label)
     )
 }
 
@@ -193,14 +198,14 @@ object ParameterStrips {
             ProField.Iso -> ladder("ISO", s.iso, ProControls.isoLadder(l.iso!!), Int::toString)
 
             ProField.Shutter -> ladder(
-                "Shutter",
+                t("shutter"),
                 s.shutterNs,
                 ProControls.shutterLadder(l.exposureNs!!),
                 ProControls::shutterLabel
             )
 
             ProField.Focus -> ladder(
-                "Focus",
+                t("focus"),
                 s.focusDiopters,
                 ProControls.focusLadder(l.minFocusDiopters),
                 ProControls::focusLabel
@@ -241,7 +246,7 @@ object ParameterStrips {
         val stops = cam.zoomSteps
         if (stops.size <= 1) return null
         val idx = stops.indices.minBy { kotlin.math.abs(stops[it] - current) }
-        return ParameterStrip("Zoom", stops.map { zoomLabel(it) }, idx, false)
+        return ParameterStrip(t("zoom"), stops.map { zoomLabel(it) }, idx, false)
     }
 
     private fun zoomLabel(z: Float) = if (z ==

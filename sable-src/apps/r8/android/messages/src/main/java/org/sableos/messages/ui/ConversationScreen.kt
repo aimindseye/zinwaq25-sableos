@@ -68,6 +68,7 @@ import org.sableos.messages.core.LatestEvent
 import org.sableos.messages.core.LatestPolicy
 import org.sableos.messages.core.LatestState
 import org.sableos.messages.core.MessageStatus
+import org.sableos.messages.core.MessagesText.t
 
 private val BubbleMaxWidth = 300.dp
 private val ImageMaxHeight = 220.dp
@@ -190,14 +191,14 @@ private fun ConversationHeader(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = (screen.addresses.joinToString(", ").ifEmpty { "Unknown" }) + " · SMS",
+                text = (screen.addresses.joinToString(", ").ifEmpty { t("unknown") }) + t("sms"),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        SableActionButton(text = "Back", primary = false, onClick = actions.back)
+        SableActionButton(text = t("back"), primary = false, onClick = actions.back)
     }
 }
 
@@ -243,7 +244,7 @@ private fun LatestIndicator(
             contentColor = MaterialTheme.colorScheme.onPrimary,
         ) {
             Text(
-                text = "New message — End to latest",
+                text = t("new_message_end_to_latest"),
                 modifier = Modifier.padding(horizontal = SableSpacing.Lg, vertical = SableSpacing.Sm),
                 style = MaterialTheme.typography.labelLarge,
             )
@@ -320,7 +321,7 @@ private fun BubbleContent(
             AttachmentImage(attachment, actions.loadImage)
         } else {
             Text(
-                text = "Attachment · ${attachment.name ?: attachment.contentType}",
+                text = t("attachment_2", attachment.name ?: attachment.contentType),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -339,13 +340,13 @@ private fun AttachmentImage(
     val image = bitmap
     if (image == null) {
         Text(
-            text = "Picture · ${attachment.name ?: attachment.contentType}",
+            text = t("picture_2", attachment.name ?: attachment.contentType),
             style = MaterialTheme.typography.bodyMedium,
         )
     } else {
         Image(
             bitmap = image.asImageBitmap(),
-            contentDescription = attachment.name ?: "Picture",
+            contentDescription = attachment.name ?: t("picture"),
             modifier = Modifier.fillMaxWidth().heightIn(max = ImageMaxHeight).clip(MaterialTheme.shapes.small),
             contentScale = ContentScale.Fit,
         )
@@ -361,7 +362,7 @@ private fun Composer(
 ) {
     if (!screen.canReply) {
         Text(
-            text = "Group conversation: replies need MMS, which Sable Messages doesn't send yet.",
+            text = t("group_conversation_replies_need_mms"),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -392,11 +393,15 @@ private fun Composer(
                         if (event.type == KeyEventType.KeyDown) send()
                         true
                     },
-            placeholder = { Text("Text message · Enter sends") },
+            placeholder = { Text(t("text_message_enter_sends")) },
             maxLines = COMPOSER_MAX_LINES,
         )
         Spacer(Modifier.width(SableSpacing.Sm))
-        Button(onClick = send, enabled = state.draft.isNotBlank(), shape = MaterialTheme.shapes.medium) { Text("Send") }
+        Button(
+            onClick = send,
+            enabled = state.draft.isNotBlank(),
+            shape = MaterialTheme.shapes.medium,
+        ) { Text(t("send")) }
     }
 }
 

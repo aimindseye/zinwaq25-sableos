@@ -1,5 +1,7 @@
 package org.sableos.tools.core
 
+import org.sableos.tools.core.ToolsText.t
+
 enum class Sensitivity {
     /** Device facts with identifiers masked: included by default. */
     STANDARD,
@@ -9,33 +11,36 @@ enum class Sensitivity {
 }
 
 enum class ReportCategory(
-    val title: String,
+    private val titleKey: String,
     val sensitivity: Sensitivity,
-    val warning: String? = null
+    private val warningKey: String? = null
 ) {
-    DEVICE("Device, build and security", Sensitivity.STANDARD),
-    INPUT("Keyboard and input", Sensitivity.STANDARD),
-    DISPLAY("Display geometry", Sensitivity.STANDARD),
-    SENSORS("Sensors", Sensitivity.STANDARD),
-    CAMERA("Camera capabilities", Sensitivity.STANDARD),
-    RADIO("Radio and SIM state", Sensitivity.STANDARD),
-    STORAGE("Storage summary", Sensitivity.STANDARD),
-    CAPABILITIES("Tools capability status", Sensitivity.STANDARD),
+    DEVICE("device_build_and_security", Sensitivity.STANDARD),
+    INPUT("keyboard_and_input", Sensitivity.STANDARD),
+    DISPLAY("display_geometry", Sensitivity.STANDARD),
+    SENSORS("sensors", Sensitivity.STANDARD),
+    CAMERA("camera_capabilities", Sensitivity.STANDARD),
+    RADIO("radio_and_sim_state", Sensitivity.STANDARD),
+    STORAGE("storage_summary", Sensitivity.STANDARD),
+    CAPABILITIES("tools_capability_status", Sensitivity.STANDARD),
     NETWORK(
-        "Network addresses, DNS and VPN",
+        "network_addresses_dns_and_vpn",
         Sensitivity.SENSITIVE,
-        "Includes partially masked IP and DNS addresses, which can hint at your network or location."
+        "includes_partially_masked_ip_and"
     ),
     APPS(
-        "Installed app list",
+        "installed_app_list",
         Sensitivity.SENSITIVE,
-        "Your app list can reveal your bank, health, dating or work apps."
+        "your_app_list_can_reveal"
     ),
     SESSION_LOG(
-        "Diagnostic session log",
+        "diagnostic_session_log",
         Sensitivity.SENSITIVE,
-        "Key events captured in this session can contain anything you typed while the key viewer was open."
-    )
+        "key_events_captured_in_this"
+    );
+
+    val title: String get() = t(titleKey)
+    val warning: String? get() = warningKey?.let { t(it) }
 }
 
 /**
@@ -43,13 +48,13 @@ enum class ReportCategory(
  * "Default report excludes"). Shown on the export screen so the user knows.
  */
 val NEVER_INCLUDED = listOf(
-    "message bodies",
-    "contact contents",
-    "photos and media",
-    "authentication secrets",
-    "full private logs",
-    "precise location history",
-    "provider credentials"
+    t("message_bodies"),
+    t("contact_contents"),
+    t("photos_and_media"),
+    t("authentication_secrets"),
+    t("full_private_logs"),
+    t("precise_location_history"),
+    t("provider_credentials")
 )
 
 data class ReportRow(val key: String, val value: String)

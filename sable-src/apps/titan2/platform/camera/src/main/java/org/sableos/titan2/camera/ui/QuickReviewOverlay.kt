@@ -29,6 +29,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.sableos.titan2.camera.core.CameraText.t
 import org.sableos.titan2.camera.core.Capture
 import org.sableos.titan2.camera.core.ControlLegend
 import org.sableos.titan2.camera.core.QuickReview
@@ -95,9 +96,9 @@ fun LastCaptureRow(latest: Capture<Uri>?, load: CaptureLoader, onOpen: () -> Uni
             if (latest ==
                 null
             ) {
-                "H or ? shows the controls"
+                t("h_or_shows_the_controls")
             } else {
-                "H or ? shows the controls · G reviews"
+                t("h_or_shows_the_controls_2")
             },
             color = reviewMuted,
             fontSize = 11.sp,
@@ -158,7 +159,7 @@ private fun DeleteConfirm(c: Capture<Uri>, onAction: (ReviewAction) -> Unit) {
         ) {
             Text(QuickReview.confirmText(c), color = Color.White, fontSize = 14.sp)
             Text(
-                "The file is removed from the phone.",
+                t("the_file_is_removed_from"),
                 color = reviewMuted,
                 fontSize = 12.sp,
                 modifier = Modifier.padding(vertical = 6.dp)

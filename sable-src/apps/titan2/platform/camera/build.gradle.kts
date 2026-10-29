@@ -6,6 +6,8 @@ plugins {
 
 android {
     namespace = "org.sableos.titan2.camera"
+    // The shared platform text lookup (SableTexts) and palette (one copy, see sable-theme/).
+    sourceSets["main"].java.srcDir("../sable-theme/src/main/java")
     compileSdk = 36
     defaultConfig {
         applicationId = "org.sableos.titan2.camera"

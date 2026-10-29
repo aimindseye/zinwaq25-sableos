@@ -9,15 +9,15 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -30,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import org.sableos.calculator.CalculatorText.t
 import org.sableos.convert.ConverterScreen
 import org.sableos.design.SableActionButton
 import org.sableos.design.SableGlobalTheme
@@ -45,9 +46,9 @@ import org.sableos.design.sableScreenPadding
 private enum class CalculatorMode(
     val label: String,
 ) {
-    Regular("Basic"),
-    Scientific("Scientific"),
-    Converter("Convert"),
+    Regular(t("basic")),
+    Scientific(t("scientific")),
+    Converter(t("convert")),
 }
 
 private data class ScientificChoice(
@@ -121,7 +122,7 @@ private fun CalculatorApp() {
         SableHeroHeader(
             eyebrow = "Sable",
             title = "calculator",
-            subtitle = "Basic, scientific and conversion tools in one app.",
+            subtitle = t("basic_scientific_and_conversion_tools"),
         )
 
         Row(
@@ -186,15 +187,22 @@ private fun ShortCalculator(
                 }
             }
             when (mode) {
-                CalculatorMode.Regular -> CalculatorPad(scientific = false, short = true)
-                CalculatorMode.Scientific -> CalculatorPad(scientific = true, short = true)
-                CalculatorMode.Converter ->
+                CalculatorMode.Regular -> {
+                    CalculatorPad(scientific = false, short = true)
+                }
+
+                CalculatorMode.Scientific -> {
+                    CalculatorPad(scientific = true, short = true)
+                }
+
+                CalculatorMode.Converter -> {
                     Column(
                         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(sableScreenGap()),
                     ) {
                         ConverterScreen()
                     }
+                }
             }
         }
     }
@@ -275,7 +283,7 @@ private fun CalculatorPad(
                 ),
             )
         return if (response.error == null) {
-            status = "Exact result"
+            status = t("exact_result")
             response.value
         } else {
             status = response.error
@@ -315,7 +323,7 @@ private fun CalculatorPad(
         val op = operation
 
         if (left == null || op == null) {
-            status = "Choose an operation first."
+            status = t("choose_an_operation_first")
             return
         }
 
@@ -347,7 +355,7 @@ private fun CalculatorPad(
             leftOperand = null
             operation = null
             replaceInput = true
-            status = "${choice.label} · degrees for trigonometry"
+            status = t("degrees_for_trigonometry", choice.label)
         } else {
             status = response.error
         }
@@ -431,9 +439,9 @@ private fun CalculatorPad(
         Text(
             text =
                 if (scientific) {
-                    "Scientific operations and the core arithmetic path execute through the native calculator domain."
+                    t("scientific_operations_and_the_core")
                 } else {
-                    "Results are not silently rounded into floating-point values."
+                    t("results_are_not_silently_rounded")
                 },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -443,9 +451,9 @@ private fun CalculatorPad(
 
 private fun initialStatus(scientific: Boolean): String =
     if (scientific) {
-        "Scientific functions use degrees."
+        t("scientific_functions_use_degrees")
     } else {
-        "Exact decimal results, never rounded."
+        t("exact_decimal_results_never_rounded")
     }
 
 private fun withDigit(
@@ -642,7 +650,7 @@ private fun renderResult(protocol: String): RenderedResult =
         else -> {
             RenderedResult(
                 value = "0",
-                error = "Native bridge failure",
+                error = t("native_bridge_failure"),
             )
         }
     }

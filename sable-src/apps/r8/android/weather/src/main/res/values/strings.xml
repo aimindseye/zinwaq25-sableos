@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English. Single capital letters in hints (C new, S find) name keyboard keys: keep them as the key, translate the word.
+     English. Keep equal to WeatherText.EN (WeatherTextTest checks); translations go in values-<lang>/. -->
+<resources>
+    <string name="app_name" translatable="false">Sable Weather</string>
+    <string name="city_or_name_lat_lon">city, or Name, lat, lon, Area/Zone</string>
+    <string name="no_match_enter_name_latitude">No match. Enter Name, latitude, longitude, Area/Zone.</string>
+    <string name="remove">Remove %1$s?</string>
+    <string name="reset_to_the_built_in">Reset to the built-in cities? Added cities are removed.</string>
+    <string name="current_manual_city">current · manual city</string>
+    <string name="add_city">add city</string>
+    <string name="type_a_name_or_press">type a name, or press any letter</string>
+    <string name="reset_to_built_in_cities">reset to built-in cities</string>
+    <string name="refreshing_forecast">Refreshing forecast…</string>
+    <string name="loading_forecast">loading forecast</string>
+    <string name="forecast_unavailable">forecast unavailable</string>
+    <string name="weather_ready">weather ready</string>
+    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · cached locally · approximate location or a chosen city · precise location is never used</string>
+    <string name="use_current_location">Use current location</string>
+    <string name="finding_where_you_are">Finding where you are…</string>
+    <string name="off_showing_the_chosen_city">Off: showing the chosen city</string>
+    <string name="feels_like">"feels like "</string>
+    <string name="next_hours">next hours</string>
+    <string name="n7_days">7 days</string>
+    <string name="live">" · live"</string>
+    <string name="cached">" · cached"</string>
+    <string name="fetching">" · fetching"</string>
+    <string name="unavailable">" · unavailable"</string>
+    <string name="local">" · local"</string>
+    <string name="partly_cloudy">partly cloudy</string>
+    <string name="conditions_unavailable">conditions unavailable</string>
+    <string name="forecast_not_loaded_yet">Forecast not loaded yet.</string>
+    <string name="refresh_to_load_the_forecast">Refresh to load the forecast.</string>
+    <string name="cached_forecast_could_not_be">Cached forecast could not be read.</string>
+    <string name="forecast_is_current">Forecast is current.</string>
+    <string name="showing_cached_forecast">Showing cached forecast.</string>
+    <string name="forecast_available">Forecast available.</string>
+    <string name="offline_showing_last_known_forecast">Offline · showing last known forecast.</string>
+    <string name="forecast_unavailable_check_the_connection">Forecast unavailable. Check the connection and retry.</string>
+    <string name="provider_response_could_not_be">Provider response could not be normalized.</string>
+    <string name="updated_from_open_meteo">Updated from Open-Meteo.</string>
+</resources>

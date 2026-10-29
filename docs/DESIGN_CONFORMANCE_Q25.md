@@ -41,6 +41,37 @@ Status words: **Done in code** (built and unit-tested, not yet seen on a device)
 | Battery drain | No location prefetch on Doze; the keyboard driver no longer logs every key. |
 | Apps | FM Radio inside Sable Media; Sable Games back as small release builds with keyboard play; microG and Aurora Store (`SABLE_Q25_MICROG`). |
 
+## Sable Notes, not yet on a device
+
+Sable Notes follows the Notes part of platform_sable `docs/design/UTILITIES_NOTES_RECORDER_UX.md`.
+- **Local first, explicit export.** Notes live in app storage and nothing syncs. Share, Export and Import happen only when asked, through the share sheet and the file picker, and the app holds no permissions.
+- **Latest first.** The list puts the latest-edited note first, with the open checklist count in the header.
+- **Full-screen editor.** The 411 x 387 dp window has no room for a list beside the editor (FULL_SCREEN_EDITOR_MODE).
+- **Checklists and tasks.** Checklist lines are plain text, and Tasks gathers the open items, with done items only on request (COMPLETED_TASKS_EXPLICIT_HISTORY).
+- **Text input wins.** Typing owns every printable key.
+
+One difference from the contract: the Q25 has no Ctrl or Esc key, so the contract's Ctrl+N/S/F/Enter and Esc become C in the list, the Menu key's lettered menu, Alt+Enter and Back on the Q25. The Ctrl chords still work on keyboards that have them. Locked-note and private-mode redaction are not built, because Notes has no lock-screen surface or widget yet.
+
+## Sable Terminal, not yet on a device
+
+- **Keyboard first on a keyboard without Ctrl or Esc.** Menu is a sticky Ctrl and Menu then Back is Esc, with the same lock cycle as the on-screen Ctrl; plain Back keeps its Back meaning.
+- **Upstream unchanged elsewhere.** ConnectBot's screens, settings and translations are kept, so it does not yet follow the Sable list keys (T/B/Space) or the pure black theme.
+- **Local first.** Keys and host settings stay in app storage and backup is off.
+
+## Sable Keyboard clipboard history, not yet on a device
+
+- **Off by default.** Persistent keyboard clipboard history must not be on by default, so it is a Keyboard settings switch; turning it off forgets every entry.
+- **Memory only.** The history is never written to storage; a reboot or keyboard restart empties it, and nothing is readable before first unlock.
+- **Private copies stay out.** Clips flagged sensitive are skipped and the picker never opens on the lock screen.
+- **Keyboard first.** Held Alt+Shift+V opens it in the strip; Space, the trackpad, Enter, Backspace and Back drive it, and any other key types as usual. Touch works too.
+- **No Pastiera code.** The behaviour is written from scratch.
+
+## Translatable Sable apps, not yet on a device
+
+- **Every line in a strings file.** Each Sable app reads its text from `res/values/strings.xml`, so the phone's language picks a translation when one is added and English otherwise (sable-src 0085, [`LANGUAGES.md`](LANGUAGES.md)).
+- **Key legends stay keys.** Hints keep the Q25's printed key names and letters; translators change only the words.
+- **Support reports stay English.** Sable Tools reports and Radio diagnostics are not translated, so a report reads the same from any phone.
+
 ## Sable Reader in PR #41, not yet on a device
 
 | Area | What changed |

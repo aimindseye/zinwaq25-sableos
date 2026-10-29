@@ -5,6 +5,7 @@ import android.graphics.Point
 import android.os.Process
 import android.provider.Settings
 import org.sableos.titan2.displaycompat.core.CurrentDisplay
+import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
 import org.sableos.titan2.displaycompat.core.DisplayPort
 import org.sableos.titan2.displaycompat.core.DisplayStep
 import org.sableos.titan2.displaycompat.core.SizePx
@@ -20,7 +21,7 @@ class WmDisplayPort(private val resolver: ContentResolver) : DisplayPort {
         requireNotNull(
             Class.forName("android.view.WindowManagerGlobal")
                 .getMethod("getWindowManagerService").invoke(null)
-        ) { "window manager unavailable" }
+        ) { t("window_manager_unavailable") }
     }
 
     private fun method(name: String, vararg types: Class<*>) = WM_INTERFACE.getMethod(name, *types)

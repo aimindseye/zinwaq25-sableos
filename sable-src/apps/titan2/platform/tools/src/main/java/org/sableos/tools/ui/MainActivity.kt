@@ -22,6 +22,7 @@ import org.sableos.tools.core.KeyCommands
 import org.sableos.tools.core.KeyContext
 import org.sableos.tools.core.KeyPress
 import org.sableos.tools.core.Tool
+import org.sableos.tools.core.ToolsText.t
 import org.sableos.tools.core.Visibility
 
 /**
@@ -82,7 +83,7 @@ class MainActivity : Activity() {
         summary.text = HomeModel.profileSummary(inputs, groups)
         val filtering = searching || filter.isNotEmpty()
         filterLine.visibility = if (filtering) View.VISIBLE else View.GONE
-        filterLine.text = "Filter: $filter▏  (Del deletes, Back clears)"
+        filterLine.text = t("filter_del_deletes_back_clears", filter)
         list.removeAllViews()
         rowTools.clear()
         groups.forEach { g ->
@@ -93,10 +94,10 @@ class MainActivity : Activity() {
                 list.addView(v)
             }
         }
-        if (groups.isEmpty()) list.addView(Ui.body(this, "No tool matches \"$filter\"."))
+        if (groups.isEmpty()) list.addView(Ui.body(this, t("no_tool_matches", filter)))
         if (env.systemDeveloperOptions && !filtering) {
-            list.addView(Ui.header(this, "Developer"))
-            val label = "Developer diagnostics: " + if (env.prefs.developerOptIn) "on" else "off"
+            list.addView(Ui.header(this, t("developer")))
+            val label = t("developer_diagnostics") + if (env.prefs.developerOptIn) "on" else "off"
             list.addView(
                 Ui.row(this, label, null) {
                     env.prefs.developerOptIn = !env.prefs.developerOptIn
@@ -120,16 +121,16 @@ class MainActivity : Activity() {
             if (cap != null) appendLine(env.resolutions.getValue(cap).reason)
             if (tool.permissions.isNotEmpty()) {
                 appendLine(
-                    "Asks when opened: " + tool.permissions.joinToString {
+                    t("asks_when_opened") + tool.permissions.joinToString {
                         it.substringAfterLast('.')
                     }
                 )
             }
-            if (tool.developerOnly) appendLine("Developer/service tier")
+            if (tool.developerOnly) appendLine(t("developer_service_tier"))
         }
         AlertDialog.Builder(this).setTitle(tool.title).setMessage(text.trim())
-            .setPositiveButton("Open") { _, _ -> open(tool) }
-            .setNegativeButton("Close", null).show()
+            .setPositiveButton(t("open_2")) { _, _ -> open(tool) }
+            .setNegativeButton(t("close"), null).show()
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {

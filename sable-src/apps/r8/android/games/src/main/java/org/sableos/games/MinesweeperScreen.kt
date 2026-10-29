@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import org.sableos.games.GamesText.t
 
 private const val MINE_FIELD_SIZE = 9
 
@@ -49,7 +50,7 @@ internal fun MinesweeperScreen() {
     var flagMode by remember { mutableStateOf(false) }
     var cursorX by remember { mutableIntStateOf(MINE_FIELD_SIZE / 2) }
     var cursorY by remember { mutableIntStateOf(MINE_FIELD_SIZE / 2) }
-    var status by remember { mutableStateOf("Clear the field") }
+    var status by remember { mutableStateOf(t("clear_the_field")) }
 
     fun reset() {
         state =
@@ -63,7 +64,7 @@ internal fun MinesweeperScreen() {
             )
         view = requireOk(NativeBridge.minesweeperView(state))
         flagMode = false
-        status = "New field"
+        status = t("new_field")
     }
 
     fun applyResponse(response: String) {
@@ -128,15 +129,15 @@ internal fun MinesweeperScreen() {
 
     GameFrame(
         title = "minesweeper",
-        subtitle = "Clear the field without touching a mine.",
-        statusLabel = if (flagMode) "flag mode" else "reveal mode",
+        subtitle = t("clear_the_field_without_touching"),
+        statusLabel = if (flagMode) t("flag_mode") else t("reveal_mode"),
         status = status,
-        hint = "9 × 9 field · 10 mines · arrows move, Space reveals, F flags, N new field",
+        hint = t("n9_9_field_10_mines"),
         actions =
             listOf(
-                GameAction(label = "Reveal", key = "Space", active = !flagMode, onClick = { flagMode = false }),
-                GameAction(label = "Flag", key = "F", active = flagMode, onClick = { flagMode = true }),
-                GameAction(label = "New", key = "N", onClick = ::reset),
+                GameAction(label = t("reveal"), key = "Space", active = !flagMode, onClick = { flagMode = false }),
+                GameAction(label = t("flag"), key = "F", active = flagMode, onClick = { flagMode = true }),
+                GameAction(label = t("new_label"), key = "N", onClick = ::reset),
             ),
     ) { side ->
         Surface(

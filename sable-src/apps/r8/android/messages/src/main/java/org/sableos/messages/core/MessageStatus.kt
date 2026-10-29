@@ -1,5 +1,7 @@
 package org.sableos.messages.core
 
+import org.sableos.messages.core.MessagesText.t
+
 /**
  * Provider and SmsManager codes to bubble states. The numbers are the public values of
  * Telephony.TextBasedSmsColumns.MESSAGE_TYPE_*, Telephony.BaseMmsColumns.MESSAGE_BOX_*,
@@ -89,24 +91,24 @@ object MessageStatus {
     ): String =
         when (state) {
             DeliveryState.Received -> time
-            DeliveryState.Sending -> "Sending…"
-            DeliveryState.Sent -> "Sent $time"
-            DeliveryState.Draft -> "Draft"
-            DeliveryState.Failed -> "Not sent · ${failureReason(errorCode)} · Enter to retry"
-            DeliveryState.Downloading -> "Multimedia message · downloading…"
-            DeliveryState.DownloadFailed -> "Multimedia message not downloaded · Enter to retry"
+            DeliveryState.Sending -> t("sending")
+            DeliveryState.Sent -> t("sent", time)
+            DeliveryState.Draft -> t("draft")
+            DeliveryState.Failed -> t("not_sent_enter_to_retry", failureReason(errorCode))
+            DeliveryState.Downloading -> t("multimedia_message_downloading")
+            DeliveryState.DownloadFailed -> t("multimedia_message_not_downloaded_enter")
         }
 
     fun failureReason(errorCode: Int): String =
         when (errorCode) {
-            0, ERROR_GENERIC, ERROR_NULL_PDU -> "couldn't send"
-            ERROR_RADIO_OFF -> "radio off"
-            ERROR_NO_SERVICE -> "no service"
-            ERROR_LIMIT_EXCEEDED -> "sending limit reached"
-            ERROR_FDN -> "blocked by fixed dialing"
-            ERROR_SHORT_CODE_NOT_ALLOWED, ERROR_SHORT_CODE_NEVER_ALLOWED -> "short code not allowed"
-            ERROR_RADIO_NOT_AVAILABLE -> "radio not available"
-            ERROR_NETWORK_REJECT -> "network rejected it"
-            else -> "error $errorCode"
+            0, ERROR_GENERIC, ERROR_NULL_PDU -> t("couldn_t_send")
+            ERROR_RADIO_OFF -> t("radio_off")
+            ERROR_NO_SERVICE -> t("no_service")
+            ERROR_LIMIT_EXCEEDED -> t("sending_limit_reached")
+            ERROR_FDN -> t("blocked_by_fixed_dialing")
+            ERROR_SHORT_CODE_NOT_ALLOWED, ERROR_SHORT_CODE_NEVER_ALLOWED -> t("short_code_not_allowed")
+            ERROR_RADIO_NOT_AVAILABLE -> t("radio_not_available")
+            ERROR_NETWORK_REJECT -> t("network_rejected_it")
+            else -> t("error", errorCode)
         }
 }

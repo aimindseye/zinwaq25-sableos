@@ -12,6 +12,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import org.sableos.design.DesignText.t
 
 /** BlackBerry single-key list movement: T top, B bottom, Space page down, Shift+Space page up, N next, P previous. */
 enum class SableListMove { Top, Bottom, PageDown, PageUp, Next, Previous }
@@ -22,7 +23,7 @@ enum class SableListMove { Top, Bottom, PageDown, PageUp, Next, Previous }
  * already gives another meaning in [command]'s `owned`, so they keep it.
  */
 object SableListKeys {
-    const val HINT = "T top · B bottom · Space page · N/P next/previous"
+    val HINT: String get() = t("sable_t_top_b_bottom_space")
 
     fun command(
         keyCode: Int,

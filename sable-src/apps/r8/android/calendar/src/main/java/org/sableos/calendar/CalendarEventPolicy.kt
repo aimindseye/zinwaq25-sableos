@@ -1,6 +1,7 @@
 package org.sableos.calendar
 
 import android.view.KeyEvent
+import org.sableos.calendar.CalendarText.t
 import java.time.LocalDate
 
 /** The editable fields of one event, as the editor holds them. */
@@ -44,8 +45,8 @@ object EventEditPolicy {
     /** Why [draft] cannot be saved, or null when it can. */
     fun validate(draft: EventDraft): String? =
         when {
-            draft.title.isBlank() -> "Add a title."
-            draft.endMillis <= draft.startMillis -> "The event must end after it starts."
+            draft.title.isBlank() -> t("add_a_title")
+            draft.endMillis <= draft.startMillis -> t("the_event_must_end_after")
             else -> null
         }
 
@@ -79,9 +80,9 @@ object EventEditPolicy {
         recurring: Boolean,
     ): String =
         if (recurring) {
-            "Delete every occurrence of “$title”? This cannot be undone."
+            t("delete_every_occurrence_of_this", title)
         } else {
-            "Delete “$title”? This cannot be undone."
+            t("delete_this_cannot_be_undone", title)
         }
 }
 

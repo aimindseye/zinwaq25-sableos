@@ -1,5 +1,7 @@
 package org.sableos.titan2.displaycompat.core
 
+import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
+
 enum class Severity { Info, Warning, Blocked }
 
 data class Issue(
@@ -36,7 +38,7 @@ object ProfileValidator {
                 Issue(
                     Severity.Info,
                     "MINI_WINDOW",
-                    "Mini mode opens the app in a 3:2 phone-shaped window (480x720 on a 720x720 screen)."
+                    t("mini_mode_opens_the_app")
                 )
             )
         }
@@ -51,31 +53,30 @@ object ProfileValidator {
         if (traits.isDialer) {
             out.block(
                 "DIALER_CANVAS",
-                "The phone app must keep the native display so calls stay easy to read and answer."
+                t("the_phone_app_must_keep")
             )
         }
         if (traits.isAuthenticatorOrPayment) {
             out.warn(
                 "AUTH_PAYMENT_CANVAS",
-                "Check codes and prompts stay readable on the smaller tall canvas.",
+                t("check_codes_and_prompts_stay"),
                 ack = true
             )
         }
         if (traits.isCamera) {
-            out.warn("CAMERA_CANVAS", "The camera preview is shown smaller on a tall canvas.")
+            out.warn("CAMERA_CANVAS", t("the_camera_preview_is_shown"))
         }
         if (p.profile != AspectProfile.Native) {
             out.warn(
                 "CANVAS_WITH_ASPECT",
-                "Tall canvas already gives a phone shape; an aspect profile narrows it again."
+                t("tall_canvas_already_gives_a")
             )
         }
         out.add(
             Issue(
                 Severity.Info,
                 "CANVAS_LIVE",
-                "Tall canvas: while this app is in front the screen gets a taller size, drawn " +
-                    "smaller. Leaving the app, locking or a crash puts the native size back."
+                t("tall_canvas_while_this_app")
             )
         )
     }
@@ -84,13 +85,13 @@ object ProfileValidator {
         if (p.orientation.locksOrientation() && traits.isCamera) {
             out.warn(
                 "CAMERA_ORIENTATION",
-                "Locking orientation can rotate the camera preview unexpectedly."
+                t("locking_orientation_can_rotate_the")
             )
         }
         if (p.orientation == OrientationPref.Landscape) {
             out.warn(
                 "LANDSCAPE_SIDEWAYS",
-                "Landscape turns the app sideways (reverse landscape) above the keyboard. Typing still works.",
+                t("landscape_turns_the_app_sideways"),
                 ack = true
             )
         }
@@ -99,16 +100,14 @@ object ProfileValidator {
                 Issue(
                     Severity.Info,
                     "AUTO_LIVE",
-                    "Auto turns auto-rotate on while this app is in front; an app that fixes " +
-                        "its own orientation keeps it."
+                    t("auto_turns_auto_rotate_on")
                 )
             )
         }
         if (p.orientation == OrientationPref.Landscape && DisplayPolicy.usesAspectRatio(p)) {
             out.warn(
                 "ASPECT_KEEPS_PORTRAIT",
-                "With an aspect ratio Android keeps the app portrait unless the app itself asks " +
-                    "for landscape."
+                t("with_an_aspect_ratio_android")
             )
         }
     }
@@ -143,25 +142,25 @@ object ProfileValidator {
         if (traits.isProtectedApp()) {
             out.block(
                 "PROTECTED_APP",
-                "System UI, Settings, keyboards, accessibility services and the launcher cannot use display profiles."
+                t("system_ui_settings_keyboards_accessibility")
             )
         }
         if (traits.isDialer && reshaping) {
             out.block(
                 "DIALER_RESHAPE",
-                "The phone app must keep the full display so calls and emergency dialling stay reachable."
+                t("the_phone_app_must_keep_2")
             )
         }
         if (traits.isAuthenticatorOrPayment && distorting) {
             out.block(
                 "AUTH_PAYMENT_DISTORT",
-                "Authenticator and payment apps cannot be cropped, stretched or given a custom ratio."
+                t("authenticator_and_payment_apps_cannot")
             )
         }
         if (traits.isAuthenticatorOrPayment && reshaping && !distorting) {
             out.warn(
                 "AUTH_PAYMENT_RESHAPE",
-                "Check codes and prompts stay fully visible after applying this profile.",
+                t("check_codes_and_prompts_stay_2"),
                 ack = true
             )
         }
@@ -175,13 +174,13 @@ object ProfileValidator {
         out: MutableList<Issue>
     ) {
         if (traits.isCamera && (p.profile == AspectProfile.Ratio16x9Fill || p.stretch)) {
-            out.block("CAMERA_DISTORT", "Camera preview must not be cropped or stretched.")
+            out.block("CAMERA_DISTORT", t("camera_preview_must_not_be"))
         }
         // reshaping already excludes Fullscreen media, which is the profile the hint recommends.
         if (traits.isMedia && reshaping && p.fullscreenMediaException) {
             out.warn(
                 "MEDIA_HINT",
-                "Media apps usually look best with Fullscreen media instead of bars."
+                t("media_apps_usually_look_best")
             )
         }
     }
@@ -190,14 +189,14 @@ object ProfileValidator {
         if (p.profile == AspectProfile.Ratio16x9Fill) {
             out.warn(
                 "FILL_CROP",
-                "Fill can crop edges. Use letterbox if buttons or text are missing.",
+                t("fill_can_crop_edges_use"),
                 ack = true
             )
         }
         if (p.stretch) {
             out.warn(
                 "STRETCH",
-                "Stretch distorts text, maps, camera previews and games. It is off by default.",
+                t("stretch_distorts_text_maps_camera"),
                 ack = true
             )
         }
@@ -213,18 +212,18 @@ object ProfileValidator {
             when {
                 !advancedEnabled -> out.block(
                     "CUSTOM_GATED",
-                    "Custom ratios are an advanced setting. Enable advanced profiles first."
+                    t("custom_ratios_are_an_advanced")
                 )
 
-                r == null -> out.block("CUSTOM_MISSING", "Choose a custom ratio.")
+                r == null -> out.block("CUSTOM_MISSING", t("choose_a_custom_ratio"))
 
                 r.value < Ratio.MIN || r.value > Ratio.MAX -> out.block(
                     "CUSTOM_RANGE",
-                    "Custom ratio must be between ${Ratio.MIN} and ${Ratio.MAX}."
+                    t("custom_ratio_must_be_between", Ratio.MIN, Ratio.MAX)
                 )
             }
         } else if (p.customRatio != null) {
-            out.warn("CUSTOM_IGNORED", "A custom ratio is stored but not used by this profile.")
+            out.warn("CUSTOM_IGNORED", t("a_custom_ratio_is_stored"))
         }
     }
 }

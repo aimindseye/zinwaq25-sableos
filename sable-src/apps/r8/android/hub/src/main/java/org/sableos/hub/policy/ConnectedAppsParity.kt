@@ -2,6 +2,7 @@ package org.sableos.hub.policy
 
 import org.sableos.hub.ConnectedAppKey
 import org.sableos.hub.ConnectedAppPolicy
+import org.sableos.hub.HubText.t
 
 /** Hub-side state of one connected app, derived from Hub policy plus Android facts. */
 enum class ConnectedAppStatus {
@@ -64,9 +65,9 @@ object ConnectedAppsParity {
 
     fun statusLabel(status: ConnectedAppStatus): String =
         when (status) {
-            ConnectedAppStatus.Off -> "Not in Hub"
-            ConnectedAppStatus.Connected -> "In Hub"
-            ConnectedAppStatus.PausedNoNotificationAccess -> "Paused: Android notification access is off"
-            ConnectedAppStatus.PausedProfileLocked -> "Paused: profile is locked or paused"
+            ConnectedAppStatus.Off -> t("not_in_hub")
+            ConnectedAppStatus.Connected -> t("in_hub")
+            ConnectedAppStatus.PausedNoNotificationAccess -> t("paused_android_notification_access_is")
+            ConnectedAppStatus.PausedProfileLocked -> t("paused_profile_is_locked_or")
         }
 }

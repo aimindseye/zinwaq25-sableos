@@ -1,1 +1,37 @@
-<resources><string name="app_name">Sound Profiles</string></resources>
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English. Single capital letters in hints (C new, S find) name keyboard keys: keep them as the key, translate the word.
+     English. Keep equal to ProfilesText.EN (ProfilesTextTest checks); translations go in values-<lang>/. -->
+<resources>
+    <string name="app_name" translatable="false">Sound Profiles</string>
+    <string name="sound_profile">Sound profile</string>
+    <string name="allow_do_not_disturb_access">Allow Do Not Disturb access for Sound Profiles</string>
+    <string name="choose">Choose</string>
+    <string name="use">Use %1$s</string>
+    <string name="edit">Edit %1$s</string>
+    <string name="quick_settings_tile">Quick Settings Tile</string>
+    <string name="pull_down_the_shade_choose">Pull down the shade, choose Edit and drag the Sound profile tile in.</string>
+    <string name="close">Close</string>
+    <string name="sound_profiles">Sound Profiles</string>
+    <string name="enter_uses_a_profile_e">Enter uses a profile · E edits it · Menu for more</string>
+    <string name="quick_settings_pull_down_the">Quick Settings: pull down the shade, choose Edit and add the Sound profile tile.</string>
+    <string name="volume">Volume %1$s%%</string>
+    <string name="enter_adds_10_shift_enter">Enter adds 10% · Shift+Enter takes 10% off</string>
+    <string name="ringtone">Ringtone</string>
+    <string name="notification_tone">Notification tone</string>
+    <string name="vibrate_for_calls">Vibrate for calls</string>
+    <string name="space_turns_it_on_or">Space turns it on or off</string>
+    <string name="notification_light">Notification light</string>
+    <string name="is_on_allow_changing_system">%1$s is on. Allow changing system settings so it can set tones, vibration and the light, then choose it again.</string>
+    <string name="allow_do_not_disturb_access_2">Allow Do Not Disturb access for Sound Profiles, then choose %1$s again.</string>
+    <string name="phone_s_current_tone">Phone\'s current tone</string>
+    <string name="normal">Normal</string>
+    <string name="rings_and_alerts_at_your">Rings and alerts at your volume</string>
+    <string name="loud">Loud</string>
+    <string name="rings_and_alerts_at_full">Rings and alerts at full volume</string>
+    <string name="vibrate_only">Vibrate only</string>
+    <string name="vibrates_for_calls_and_alerts">Vibrates for calls and alerts, no sound</string>
+    <string name="phone_calls_only">Phone calls only</string>
+    <string name="only_calls_ring_messages_and">Only calls ring; messages and alerts are silent</string>
+    <string name="all_alerts_off">All alerts off</string>
+    <string name="nothing_rings_or_vibrates_alarms">Nothing rings or vibrates; alarms still sound</string>
+</resources>

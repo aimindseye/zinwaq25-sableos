@@ -1,6 +1,7 @@
 package org.sableos.calendar
 
 import android.view.KeyEvent
+import org.sableos.calendar.CalendarText.t
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -42,7 +43,7 @@ object CalendarScreenKeys {
         }
 
     /** The hint dock under the agenda and week views; every key named here is mapped above. */
-    const val DOCK = "C create · T today · V view · J/K event · R refresh"
+    val DOCK: String get() = t("c_create_t_today_v")
 }
 
 /** The browsing views V cycles through: agenda (list with detail), week (5 columns), month. */
@@ -183,7 +184,7 @@ object WeekLayout {
         val first = days.first()
         val month = abbreviation(first.month.name)
         val week = first.get(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR)
-        return "$month ${first.year} · Wk $week"
+        return t("wk", month, first.year, week)
     }
 
     /** "Mon 28" for a column header. */

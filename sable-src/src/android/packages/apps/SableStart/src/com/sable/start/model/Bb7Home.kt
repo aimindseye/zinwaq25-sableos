@@ -1,5 +1,7 @@
 package org.sableos.start.model
 
+import com.sable.start.model.StartText.t
+
 /**
  * Sable Start's two home styles (owner request, 2026-10-28): the BlackBerry 10 layout (Hub,
  * Active Frames and app pages) and the BlackBerry 7 one (clock and status on the wallpaper over a
@@ -8,20 +10,23 @@ package org.sableos.start.model
  */
 enum class HomeStyle(
     val stableValue: String,
-    val title: String,
-    val summary: String,
+    private val titleKey: String,
+    private val summaryKey: String,
 ) {
     Bb10(
         "bb10",
-        "BlackBerry 10 style",
-        "Hub, Active Frames and app pages side by side",
+        "blackberry_10_style",
+        "hub_active_frames_and_app",
     ),
     Bb7(
         "bb7",
-        "BlackBerry 7 style",
-        "Clock and status on the wallpaper, a tray of apps that opens into all apps",
+        "blackberry_7_style",
+        "clock_and_status_on_the",
     ),
     ;
+
+    val title: String get() = t(titleKey)
+    val summary: String get() = t(summaryKey)
 
     companion object {
         val DEFAULT = Bb10
@@ -32,11 +37,14 @@ enum class HomeStyle(
 
 /** The BlackBerry 7 tray's panels, switched with Alt+Left/Right or Space, as on BlackBerry 7. */
 enum class Bb7Panel(
-    val title: String,
+    private val titleKey: String,
 ) {
-    Favorites("Favorites"),
-    All("All"),
-    Downloads("Downloads"),
+    Favorites("favorites"),
+    All("all"),
+    Downloads("downloads"),
+    ;
+
+    val title: String get() = t(titleKey)
 }
 
 /** Where a horizontal swipe on the BlackBerry 7 home goes: Hub is to the left, the apps to the right. */

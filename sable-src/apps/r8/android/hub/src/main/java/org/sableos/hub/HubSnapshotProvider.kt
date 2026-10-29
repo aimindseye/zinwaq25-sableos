@@ -13,6 +13,7 @@ import android.os.Binder
 import android.os.Process
 import android.os.UserManager
 import android.provider.Telephony
+import org.sableos.hub.HubText.t
 import org.sableos.hub.notifications.ActiveNotificationCountRegistry
 import org.sableos.hub.notifications.ConnectedNotificationActivityRegistry
 import org.sableos.hub.notifications.SableNotificationListenerService
@@ -74,15 +75,15 @@ class HubSnapshotProvider : ContentProvider() {
             }
         val detail =
             when (attentionCount) {
-                0 -> "0 active"
-                1 -> "1 active"
+                0 -> t("n0_active")
+                1 -> t("n1_active")
                 else -> attentionCount.toString() + " active"
             }
 
         return MatrixCursor(COLUMNS).apply {
             addRow(
                 arrayOf<Any?>(
-                    "Hub",
+                    t("hub"),
                     detail,
                     availability,
                     System.currentTimeMillis(),

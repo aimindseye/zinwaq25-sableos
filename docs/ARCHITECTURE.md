@@ -49,6 +49,70 @@ add packages and properties without touching LineageOS or the device tree. Our
 product keeps the name `lineage_Q25` because LineageOS's build (kernel, `bacon`
 target, version naming) keys off a `lineage_` product name.
 
+## Sable Notes
+
+Sable Notes (`sable-src/apps/r8/android/notes`, built as `SableNotes` from
+`:notes:assembleRelease`) is the Notes part of the daily-utility design
+(platform_sable `docs/design/UTILITIES_NOTES_RECORDER_UX.md`).
+
+```text
+ MainActivity -> NotesController (state, saves on one background thread, share/export/import intents)
+   ui: list (search, colour, delete), full-screen editor (Menu-key menu), Tasks
+ core (pure Kotlin, unit tested): Note + NoteLabel, NoteCodec (one <id>.note file each),
+   NoteStore (filesDir/notes, write-then-rename), Checklist ("- [ ] " lines), NoteSearch, Tasks, NotesKeys
+```
+
+Notes are plain text with a four-line header, so an export is the text itself.
+Nothing leaves the app except through the share sheet or the file picker, and
+the manifest asks for no permissions.
+
+## Sable Terminal
+
+Sable Terminal is a `flavor:connectbot` row: the build fetches ConnectBot
+v1.10.9 (`sable-src/apps/r8/connectbot/upstream.env`, Apache-2.0) into the
+upstream cache and `apply_sable_flavor.py` changes only what the Q25 needs:
+
+```text
+ ConnectBot 1.10.9 (SSH, Telnet, local shell, termlib terminal, on-screen Ctrl/Esc/Tab row)
+   + package org.sableos.terminal, "Sable Terminal", Sable icon, fixed version, arm64 only, no backup
+   + org.connectbot.sable.SableTerminalKeys hooked into ConsoleScreen's key shortcuts:
+       Menu = sticky Ctrl (TerminalKeyListener.metaPress), Back with Ctrl on = Esc
+   - the :translations tool module (the translated strings themselves stay)
+```
+
+v1.11 is not used because its mosh feature downloads binaries at run time.
+`verify_sable_terminal.py` checks the composed checkout before every build.
+
+## Translatable Sable apps
+
+Every Sable app reads its lines through one table per app (sable-src 0085,
+[`LANGUAGES.md`](LANGUAGES.md)):
+
+```text
+ <App>Text.EN  (key -> English, Android format syntax)  ==  res/values/strings.xml   (<App>TextTest)
+ Application.onCreate: <App>Text.t.bindTo(this)  ->  t("key") reads values-<lang>/strings.xml, else English
+```
+
+Pure tests never bind, so they read English. Enum labels hold the key and look the
+text up when shown. Sable Start (Soong) has no `sabledesign` resources, so its
+`strings.xml` carries a copy of `DesignText`'s lines, checked by `StartTextTest`.
+Reports meant for support (Sable Tools reports, Radio diagnostics) stay English.
+
+## Clipboard history in Sable Keyboard
+
+Only the default keyboard (or the app in front) may read the clipboard, so
+history lives in Sable Keyboard (`sable-src/apps/titan2/platform/keyboard`):
+
+```text
+ ClipboardWatcher (one per process; primary-clip listener while the IME runs, only when the setting is on)
+   -> core ClipboardHistory (pure, tested: newest first, 20 entries, skips sensitive/blank/huge copies)
+ SableImeService: held Alt+Shift+V opens core ClipPicker in the candidates strip (StripContent.Clips)
+```
+
+It is off by default and kept in memory only, never in storage: the keyboard's
+settings live in device-protected storage, which is readable before first
+unlock, so copies are not put there.
+
 ## Sable Reader
 
 Sable Reader v2 (`sable-src/apps/common/reader`, built as `SableReader` from

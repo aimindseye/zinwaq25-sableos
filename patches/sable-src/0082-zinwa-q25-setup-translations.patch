@@ -1,0 +1,269 @@
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-de/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-de/strings.xml
+new file mode 100644
+index 0000000..c5d2b76
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-de/strings.xml
+@@ -0,0 +1,77 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- German. Draft from the project owner (2026-10-29), not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
++<resources>
++    <string name="setup_title">Sable Setup</string>
++    <string name="setup_self_description">Wähle Startbildschirm, Tastatur und Standard-Apps aus und prüfe die Angaben dieses Telefons. Dies ist nicht der Android-Einrichtungsassistent.</string>
++    <string name="setup_footnote">Die Einrichtung ändert selbst nichts: Jede Auswahl wird auf dem geöffneten Bildschirm getroffen.</string>
++    <string name="setup_no_action_required">%1$s · nichts zu tun</string>
++    <string name="summary_confirmed">%1$d von %2$d bestätigt</string>
++    <string name="summary_action_required">%1$d erfordern eine Aktion</string>
++    <string name="summary_unavailable">%1$d nicht verfügbar</string>
++    <string name="summary_unknown">%1$d unbekannt</string>
++    <string name="summary_separator">%1$s · %2$s</string>
++    <string name="profile_unknown">Profil unbekannt (von diesem Build nicht gemeldet)</string>
++    <string name="profile_unrecognized">Unbekannte Profil-ID: %1$s</string>
++    <string name="row_style_title">Startbildschirmstil</string>
++    <string name="row_style_detail">Sable Start im Stil von BlackBerry 10 oder BlackBerry 7</string>
++    <string name="row_home_title">Start-App</string>
++    <string name="row_home_in_use">In Verwendung: %1$s · Sable Start oder einen anderen Launcher auswählen</string>
++    <string name="row_home_none">Keine Start-App ermittelt</string>
++    <string name="row_home_failed">Start-App konnte nicht gelesen werden</string>
++    <string name="row_keyboard_title">Tastatur</string>
++    <string name="row_keyboard_in_use">In Verwendung: %1$s</string>
++    <string name="row_keyboard_none">Kein Tastaturwert gemeldet</string>
++    <string name="row_keyboard_failed">Tastatureinstellung konnte nicht gelesen werden</string>
++    <string name="row_ime_add_title">Tastatur hinzufügen</string>
++    <string name="row_ime_add_detail">Aktiviere Gboard oder eine andere installierte Tastatur und wähle sie oben aus</string>
++    <string name="row_defaults_title">Standard-Apps</string>
++    <string name="row_defaults_detail">Browser, Telefon, Nachrichten und andere Apps, die Android standardmäßig öffnet</string>
++    <string name="row_dialer_title">Telefon-App</string>
++    <string name="row_sms_title">Nachrichten-App</string>
++    <string name="row_default_set">Eine Standard-App ist eingerichtet: %1$s (nicht auf eine bestimmte App geprüft)</string>
++    <string name="row_default_none">Keine Standard-App eingerichtet</string>
++    <string name="row_default_failed">Standard-App konnte nicht gelesen werden</string>
++    <string name="row_display_title">Anzeige-Kompatibilität</string>
++    <string name="row_display_detail">Öffnen, um ein Bildschirmprofil für Apps auszuwählen, die nicht passen</string>
++    <string name="row_radio_title">Funkdiagnose</string>
++    <string name="row_radio_detail">Schreibgeschützte SIM- und Netzwerkdiagnose; für die IMS-Registrierung ist das kanonische IR-007 erforderlich</string>
++    <string name="row_network_title">Netzwerk- und SIM-Einstellungen</string>
++    <string name="row_network_detail">Öffnet die Android-Einstellungen</string>
++    <string name="row_unverifiable">%1$s · Verfügbarkeit dieses Bildschirms konnte nicht bestätigt werden</string>
++    <string name="row_needs_attention_unavailable">%1$s · erfordert Aufmerksamkeit, aber dieser Bildschirm ist auf diesem Gerät nicht verfügbar</string>
++    <string name="row_not_available">Auf diesem Gerät nicht verfügbar</string>
++    <string name="button_fix">Beheben</string>
++    <string name="button_choose_city">Stadt auswählen</string>
++    <string name="button_choose">Auswählen</string>
++    <string name="button_open">Öffnen</string>
++    <string name="action_home_style">Startbildschirmstil</string>
++    <string name="action_home_settings">Startbildschirm-Einstellungen</string>
++    <string name="action_default_apps">Einstellungen für Standard-Apps</string>
++    <string name="action_keyboard_picker">Tastaturauswahl</string>
++    <string name="action_keyboard_settings">Tastatureinstellungen</string>
++    <string name="action_display_compat">Anzeige-Kompatibilität</string>
++    <string name="action_radio_diag">Funkdiagnose</string>
++    <string name="action_network_settings">Netzwerkeinstellungen</string>
++    <string name="action_weather_city">Wetterstadt</string>
++    <string name="launch_that_screen">diesen Bildschirm</string>
++    <string name="launch_missing">%1$s konnte nicht geöffnet werden: Auf diesem Gerät nicht verfügbar.</string>
++    <string name="launch_denied">%1$s konnte nicht geöffnet werden: Das System hat es blockiert.</string>
++    <string name="launch_failed">%1$s konnte nicht geöffnet werden.</string>
++    <string name="weather_title">Wetterstadt</string>
++    <string name="weather_hint">Stadt eingeben</string>
++    <string name="weather_help">Zum Filtern tippen, mit ↑ ↓ bewegen und mit Eingabe auswählen. Es wird keine Standortberechtigung verwendet.</string>
++    <string name="weather_no_match">Keine Stadt in der Liste stimmt überein. Versuche eine größere Stadt in der Nähe.</string>
++    <string name="weather_unreachable">Sable Weather hat nicht geantwortet. Überspringe den Schritt und wähle später in Weather eine Stadt.</string>
++    <string name="weather_current">Aktuell: %1$s</string>
++    <string name="weather_current_unknown">Aktuelle Stadt nicht gemeldet</string>
++    <string name="weather_skip">Überspringen</string>
++    <string name="weather_skip_keep">Überspringen · %1$s beibehalten</string>
++    <string name="weather_selected">Weather verwendet jetzt %1$s. Die Vorhersage wird im Hintergrund geladen.</string>
++    <string name="weather_unchanged">Weather verwendet bereits %1$s.</string>
++    <string name="weather_full">Die Städteliste von Weather ist voll. Entferne eine Stadt in Sable Weather und versuche es erneut.</string>
++    <string name="weather_unknown_city">%1$s ist nicht in der Städteliste von Weather.</string>
++    <string name="weather_failed">Weather konnte nicht zu %1$s wechseln.</string>
++    <string name="weather_row_city">Vorhersagen für %1$s; keine Standortberechtigung</string>
++    <string name="weather_row_none">Wähle die in Weather angezeigte Stadt; keine Standortberechtigung</string>
++    <string name="weather_row_failed">Weather-Stadt konnte nicht gelesen werden</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-es/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-es/strings.xml
+index decacee..50659ba 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-es/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-es/strings.xml
+@@ -1,50 +1,50 @@
+ <?xml version="1.0" encoding="utf-8"?>
+-<!-- Spanish (pilot translation). Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
++<!-- Spanish. Draft from the project owner (2026-10-29), not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
+ <resources>
+     <string name="setup_title">Sable Setup</string>
+-    <string name="setup_self_description">Elige tu pantalla de inicio, tu teclado y tus aplicaciones predeterminadas, y comprueba lo que informa este teléfono. No es el asistente de configuración de Android.</string>
+-    <string name="setup_footnote">Setup no cambia nada por sí solo: cada elección se hace en la pantalla que abre.</string>
++    <string name="setup_self_description">Elige la pantalla de inicio, el teclado y las aplicaciones predeterminadas, y consulta la información que muestra este teléfono. No es el asistente de configuración de Android.</string>
++    <string name="setup_footnote">La configuración no cambia nada por sí sola: cada opción se aplica en la pantalla que abre.</string>
+     <string name="setup_no_action_required">%1$s · no hace falta hacer nada</string>
+     <string name="summary_confirmed">%1$d de %2$d confirmados</string>
+     <string name="summary_action_required">%1$d requieren acción</string>
+     <string name="summary_unavailable">%1$d no disponibles</string>
+     <string name="summary_unknown">%1$d desconocidos</string>
+     <string name="summary_separator">%1$s · %2$s</string>
+-    <string name="profile_unknown">Perfil desconocido (esta compilación no lo informa)</string>
++    <string name="profile_unknown">Perfil desconocido (esta versión no lo informa)</string>
+     <string name="profile_unrecognized">ID de perfil no reconocido: %1$s</string>
+-    <string name="row_style_title">Estilo de la pantalla de inicio</string>
++    <string name="row_style_title">Estilo de pantalla de inicio</string>
+     <string name="row_style_detail">Sable Start con el estilo de BlackBerry 10 o BlackBerry 7</string>
+     <string name="row_home_title">Aplicación de inicio</string>
+-    <string name="row_home_in_use">En uso: %1$s · elige Sable Start u otro launcher</string>
+-    <string name="row_home_none">No se encontró ninguna aplicación de inicio</string>
++    <string name="row_home_in_use">En uso: %1$s · elige Sable Start u otro lanzador</string>
++    <string name="row_home_none">No se pudo identificar ninguna aplicación de inicio</string>
+     <string name="row_home_failed">No se pudo leer la aplicación de inicio</string>
+     <string name="row_keyboard_title">Teclado</string>
+     <string name="row_keyboard_in_use">En uso: %1$s</string>
+-    <string name="row_keyboard_none">No se informó ningún teclado</string>
+-    <string name="row_keyboard_failed">No se pudo leer el ajuste del teclado</string>
++    <string name="row_keyboard_none">No se informó ningún valor de teclado</string>
++    <string name="row_keyboard_failed">No se pudo leer la configuración del teclado</string>
+     <string name="row_ime_add_title">Añadir un teclado</string>
+-    <string name="row_ime_add_detail">Activa Gboard u otro teclado que hayas instalado y luego elígelo arriba</string>
++    <string name="row_ime_add_detail">Activa Gboard u otro teclado instalado y selecciónalo arriba</string>
+     <string name="row_defaults_title">Aplicaciones predeterminadas</string>
+-    <string name="row_defaults_detail">Navegador, teléfono, mensajes y las demás aplicaciones que Android abre de forma predeterminada</string>
++    <string name="row_defaults_detail">Navegador, teléfono, mensajes y otras aplicaciones que Android abre de forma predeterminada</string>
+     <string name="row_dialer_title">Aplicación de teléfono</string>
+     <string name="row_sms_title">Aplicación de mensajes</string>
+-    <string name="row_default_set">Hay una aplicación predeterminada: %1$s (no se comprueba una aplicación concreta)</string>
+-    <string name="row_default_none">No hay ninguna aplicación predeterminada</string>
++    <string name="row_default_set">Hay una aplicación predeterminada configurada: %1$s (no se ha verificado qué aplicación es)</string>
++    <string name="row_default_none">No hay ninguna aplicación predeterminada configurada</string>
+     <string name="row_default_failed">No se pudo leer la aplicación predeterminada</string>
+     <string name="row_display_title">Compatibilidad de pantalla</string>
+-    <string name="row_display_detail">Ábrelo para elegir un perfil de pantalla para las aplicaciones que no encajan</string>
++    <string name="row_display_detail">Abre para elegir un perfil de pantalla para las aplicaciones que no se ajustan</string>
+     <string name="row_radio_title">Diagnóstico de radio</string>
+-    <string name="row_radio_detail">Diagnóstico de SIM y red de solo lectura; ver el registro IMS requiere el IR-007 canónico</string>
+-    <string name="row_network_title">Ajustes de red y SIM</string>
+-    <string name="row_network_detail">Abre los Ajustes de Android</string>
+-    <string name="row_unverifiable">%1$s · no se pudo comprobar que esta pantalla esté disponible</string>
+-    <string name="row_needs_attention_unavailable">%1$s · requiere atención, pero su pantalla no está disponible en este dispositivo</string>
++    <string name="row_radio_detail">Diagnóstico de solo lectura de SIM y red; ver el registro IMS requiere IR-007 canónico</string>
++    <string name="row_network_title">Configuración de red y SIM</string>
++    <string name="row_network_detail">Abre los ajustes de Android</string>
++    <string name="row_unverifiable">%1$s · no se pudo verificar que esta pantalla esté disponible</string>
++    <string name="row_needs_attention_unavailable">%1$s · requiere atención, pero esta pantalla no está disponible en este dispositivo</string>
+     <string name="row_not_available">No disponible en este dispositivo</string>
+-    <string name="button_fix">Corregir</string>
++    <string name="button_fix">Solucionar</string>
+     <string name="button_choose_city">Elegir ciudad</string>
+     <string name="button_choose">Elegir</string>
+     <string name="button_open">Abrir</string>
+-    <string name="action_home_style">Estilo de la pantalla de inicio</string>
++    <string name="action_home_style">Estilo de pantalla de inicio</string>
+     <string name="action_home_settings">Ajustes de inicio</string>
+     <string name="action_default_apps">Ajustes de aplicaciones predeterminadas</string>
+     <string name="action_keyboard_picker">Selector de teclado</string>
+@@ -59,19 +59,19 @@
+     <string name="launch_failed">No se pudo abrir %1$s.</string>
+     <string name="weather_title">Ciudad del tiempo</string>
+     <string name="weather_hint">Escribe una ciudad</string>
+-    <string name="weather_help">Escribe para filtrar, ↑ ↓ para moverte, Intro para elegir. No se usa el permiso de ubicación.</string>
+-    <string name="weather_no_match">Ninguna ciudad de la lista coincide. Prueba con una ciudad grande cercana.</string>
+-    <string name="weather_unreachable">Sable Weather no respondió. Omite este paso y elige una ciudad en Weather más tarde.</string>
++    <string name="weather_help">Escribe para filtrar, usa ↑ ↓ para moverte y Enter para elegir. No se usa el permiso de ubicación.</string>
++    <string name="weather_no_match">Ninguna ciudad de la lista coincide. Prueba con una ciudad cercana más grande.</string>
++    <string name="weather_unreachable">Sable Weather no respondió. Omite este paso y elige una ciudad más tarde en Weather.</string>
+     <string name="weather_current">Actual: %1$s</string>
+-    <string name="weather_current_unknown">No se informó la ciudad actual</string>
++    <string name="weather_current_unknown">No se ha informado de la ciudad actual</string>
+     <string name="weather_skip">Omitir</string>
+-    <string name="weather_skip_keep">Omitir · mantener %1$s</string>
++    <string name="weather_skip_keep">Omitir · conservar %1$s</string>
+     <string name="weather_selected">Weather ahora usa %1$s. La previsión se carga en segundo plano.</string>
+     <string name="weather_unchanged">Weather ya usa %1$s.</string>
+-    <string name="weather_full">La lista de ciudades de Weather está llena. Quita una ciudad en Sable Weather y vuelve a intentarlo.</string>
++    <string name="weather_full">La lista de ciudades de Weather está llena. Elimina una ciudad en Sable Weather e inténtalo de nuevo.</string>
+     <string name="weather_unknown_city">%1$s no está en la lista de ciudades de Weather.</string>
+     <string name="weather_failed">Weather no pudo cambiar a %1$s.</string>
+-    <string name="weather_row_city">Previsión para %1$s; sin permiso de ubicación</string>
++    <string name="weather_row_city">Previsiones para %1$s; sin permiso de ubicación</string>
+     <string name="weather_row_none">Elige la ciudad que muestra Weather; sin permiso de ubicación</string>
+     <string name="weather_row_failed">No se pudo leer la ciudad de Weather</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-fr/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-fr/strings.xml
+new file mode 100644
+index 0000000..848b77b
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-fr/strings.xml
+@@ -0,0 +1,77 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- French. Draft from the project owner (2026-10-29), not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
++<resources>
++    <string name="setup_title">Sable Setup</string>
++    <string name="setup_self_description">Choisissez votre écran d’accueil, votre clavier et vos applications par défaut, et consultez les informations fournies par ce téléphone. Ce n’est pas l’assistant de configuration Android.</string>
++    <string name="setup_footnote">La configuration ne modifie rien par elle-même : chaque choix s’effectue sur l’écran qu’elle ouvre.</string>
++    <string name="setup_no_action_required">%1$s · aucune action requise</string>
++    <string name="summary_confirmed">%1$d sur %2$d confirmés</string>
++    <string name="summary_action_required">%1$d action(s) requise(s)</string>
++    <string name="summary_unavailable">%1$d indisponible(s)</string>
++    <string name="summary_unknown">%1$d inconnu(s)</string>
++    <string name="summary_separator">%1$s · %2$s</string>
++    <string name="profile_unknown">Profil inconnu (non signalé par cette version)</string>
++    <string name="profile_unrecognized">ID de profil non reconnu : %1$s</string>
++    <string name="row_style_title">Style de l’écran d’accueil</string>
++    <string name="row_style_detail">Sable Start dans le style BlackBerry 10 ou BlackBerry 7</string>
++    <string name="row_home_title">Application d’accueil</string>
++    <string name="row_home_in_use">Utilisée : %1$s · choisissez Sable Start ou un autre lanceur</string>
++    <string name="row_home_none">Aucune application d’accueil identifiée</string>
++    <string name="row_home_failed">Impossible de lire l’application d’accueil</string>
++    <string name="row_keyboard_title">Clavier</string>
++    <string name="row_keyboard_in_use">Utilisé : %1$s</string>
++    <string name="row_keyboard_none">Aucune valeur de clavier signalée</string>
++    <string name="row_keyboard_failed">Impossible de lire le paramètre du clavier</string>
++    <string name="row_ime_add_title">Ajouter un clavier</string>
++    <string name="row_ime_add_detail">Activez Gboard ou un autre clavier installé, puis sélectionnez-le ci-dessus</string>
++    <string name="row_defaults_title">Applications par défaut</string>
++    <string name="row_defaults_detail">Navigateur, téléphone, messages et autres applications ouvertes par défaut par Android</string>
++    <string name="row_dialer_title">Application Téléphone</string>
++    <string name="row_sms_title">Application Messages</string>
++    <string name="row_default_set">Une application par défaut est configurée : %1$s (sans vérification de l’application précise)</string>
++    <string name="row_default_none">Aucune application par défaut n’est configurée</string>
++    <string name="row_default_failed">Impossible de lire l’application par défaut</string>
++    <string name="row_display_title">Compatibilité de l’affichage</string>
++    <string name="row_display_detail">Ouvrez pour choisir un profil d’écran pour les applications qui ne s’adaptent pas</string>
++    <string name="row_radio_title">Diagnostic radio</string>
++    <string name="row_radio_detail">Diagnostic en lecture seule de la SIM et du réseau ; l’affichage de l’enregistrement IMS nécessite IR-007 canonique</string>
++    <string name="row_network_title">Paramètres réseau et SIM</string>
++    <string name="row_network_detail">Ouvre les paramètres Android</string>
++    <string name="row_unverifiable">%1$s · impossible de vérifier la disponibilité de cet écran</string>
++    <string name="row_needs_attention_unavailable">%1$s · nécessite une intervention, mais cet écran n’est pas disponible sur cet appareil</string>
++    <string name="row_not_available">Indisponible sur cet appareil</string>
++    <string name="button_fix">Corriger</string>
++    <string name="button_choose_city">Choisir une ville</string>
++    <string name="button_choose">Choisir</string>
++    <string name="button_open">Ouvrir</string>
++    <string name="action_home_style">Style de l’écran d’accueil</string>
++    <string name="action_home_settings">Paramètres de l’écran d’accueil</string>
++    <string name="action_default_apps">Paramètres des applications par défaut</string>
++    <string name="action_keyboard_picker">Sélecteur de clavier</string>
++    <string name="action_keyboard_settings">Paramètres du clavier</string>
++    <string name="action_display_compat">Compatibilité de l’affichage</string>
++    <string name="action_radio_diag">Diagnostic radio</string>
++    <string name="action_network_settings">Paramètres réseau</string>
++    <string name="action_weather_city">Ville météo</string>
++    <string name="launch_that_screen">cet écran</string>
++    <string name="launch_missing">Impossible d’ouvrir %1$s : cette fonction n’est pas disponible sur cet appareil.</string>
++    <string name="launch_denied">Impossible d’ouvrir %1$s : le système l’a bloqué.</string>
++    <string name="launch_failed">Impossible d’ouvrir %1$s.</string>
++    <string name="weather_title">Ville météo</string>
++    <string name="weather_hint">Saisissez une ville</string>
++    <string name="weather_help">Saisissez du texte pour filtrer, utilisez ↑ ↓ pour vous déplacer et Entrée pour choisir. Aucune autorisation de localisation n’est utilisée.</string>
++    <string name="weather_no_match">Aucune ville de la liste ne correspond. Essayez une ville plus grande à proximité.</string>
++    <string name="weather_unreachable">Sable Weather n’a pas répondu. Ignorez cette étape et choisissez une ville plus tard dans Weather.</string>
++    <string name="weather_current">Actuelle : %1$s</string>
++    <string name="weather_current_unknown">Ville actuelle non signalée</string>
++    <string name="weather_skip">Ignorer</string>
++    <string name="weather_skip_keep">Ignorer · conserver %1$s</string>
++    <string name="weather_selected">Weather utilise maintenant %1$s. Les prévisions se chargent en arrière-plan.</string>
++    <string name="weather_unchanged">Weather utilise déjà %1$s.</string>
++    <string name="weather_full">La liste des villes de Weather est pleine. Supprimez une ville dans Sable Weather, puis réessayez.</string>
++    <string name="weather_unknown_city">%1$s ne figure pas dans la liste des villes de Weather.</string>
++    <string name="weather_failed">Weather n’a pas pu passer à %1$s.</string>
++    <string name="weather_row_city">Prévisions pour %1$s ; aucune autorisation de localisation</string>
++    <string name="weather_row_none">Choisissez la ville affichée par Weather ; aucune autorisation de localisation</string>
++    <string name="weather_row_failed">Impossible de lire la ville de Weather</string>
++</resources>

@@ -1,5 +1,7 @@
 package org.sableos.titan2.keyboard.core
 
+import org.sableos.titan2.keyboard.core.KeyboardText.t
+
 /**
  * The first-party input method as the canonical lane must provision it (interface request IR-005), plus the
  * product policy around it. This is a declaration and an observation model only: nothing here, or anywhere in
@@ -33,9 +35,11 @@ object ImeContract {
 /** What the app can honestly say about the keyboard setup. [Unknown] is never turned into "not selected". */
 enum class ImeStatus { SableSelected, SableEnabledOtherSelected, SableNotEnabled, Unknown }
 
-enum class ImeAction(val label: String) {
-    OpenInputMethodSettings("Input method settings"),
-    ShowPicker("Keyboard picker")
+enum class ImeAction(private val labelKey: String) {
+    OpenInputMethodSettings("input_method_settings"),
+    ShowPicker("keyboard_picker");
+
+    val label: String get() = t(labelKey)
 }
 
 object ImeStatusModel {
@@ -47,14 +51,14 @@ object ImeStatusModel {
     }
 
     fun describe(status: ImeStatus): String = when (status) {
-        ImeStatus.SableSelected -> "Sable Keyboard is the selected keyboard."
+        ImeStatus.SableSelected -> t("sable_keyboard_is_the_selected")
 
         ImeStatus.SableEnabledOtherSelected ->
-            "Another keyboard is selected. Your choice is kept; Sable Keyboard never switches it for you."
+            t("another_keyboard_is_selected_your")
 
-        ImeStatus.SableNotEnabled -> "Sable Keyboard is not enabled yet."
+        ImeStatus.SableNotEnabled -> t("sable_keyboard_is_not_enabled")
 
-        ImeStatus.Unknown -> "Could not read which keyboard is selected."
+        ImeStatus.Unknown -> t("could_not_read_which_keyboard")
     }
 
     /** Screens the user may open. Opening one changes nothing by itself. */
@@ -81,11 +85,11 @@ object ImeLaunchReport {
                 ImeLaunchOutcome.Launched -> return null
 
                 ImeLaunchOutcome.TargetMissing ->
-                    "Could not open ${action.label}: " + "not available on this device."
+                    t("could_not_open_not_available", action.label)
 
-                ImeLaunchOutcome.Denied -> "Could not open ${action.label}: blocked by the system."
+                ImeLaunchOutcome.Denied -> t("could_not_open_blocked_by", action.label)
 
-                ImeLaunchOutcome.Failed -> "Could not open ${action.label}."
+                ImeLaunchOutcome.Failed -> t("could_not_open", action.label)
             }
         return text.take(MAX_MESSAGE)
     }

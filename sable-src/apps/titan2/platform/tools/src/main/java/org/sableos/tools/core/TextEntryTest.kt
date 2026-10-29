@@ -1,5 +1,7 @@
 package org.sableos.tools.core
 
+import org.sableos.tools.core.ToolsText.t
+
 /** The kind of field a case uses, mapped to an Android inputType by the UI. */
 enum class FieldKind { TEXT, NUMBER, NUMBER_PASSWORD, VISIBLE_PASSWORD }
 
@@ -39,15 +41,15 @@ data class TypedKey(val meta: Int, val unicode: Int)
 object TextEntryTest {
     private val SHIFT_CASE = TextEntryCase(
         "shift",
-        "Shift",
-        "Hold or lock Shift and type a capital letter",
+        t("shift"),
+        t("hold_or_lock_shift_and"),
         FieldKind.TEXT,
         modifier = Modifier.SHIFT
     )
     private val ALT_DIGITS_CASE = TextEntryCase(
         "alt_digits",
-        "Alt-layer digits",
-        "Hold or lock Alt and type: 2468",
+        t("alt_layer_digits"),
+        t("hold_or_lock_alt_and"),
         FieldKind.TEXT,
         expected = "2468",
         modifier = Modifier.ALT
@@ -55,61 +57,61 @@ object TextEntryTest {
 
     /** The spec's list (letters, numbers, symbols, Alt, Sym, Fn, ...), used as-is for [KeyboardTraits.GENERIC]. */
     val CASES: List<TextEntryCase> = listOf(
-        TextEntryCase("letters", "Letters", "Type: sable", FieldKind.TEXT, expected = "sable"),
-        TextEntryCase("numbers", "Numbers", "Type: 2468", FieldKind.NUMBER, expected = "2468"),
+        TextEntryCase("letters", t("letters"), t("type_sable"), FieldKind.TEXT, expected = "sable"),
+        TextEntryCase("numbers", t("numbers"), t("type_2468"), FieldKind.NUMBER, expected = "2468"),
         TextEntryCase(
             "symbols",
-            "Symbols",
-            "Type: @#\$%&*!?",
+            t("symbols"),
+            t("type"),
             FieldKind.TEXT,
             expected = "@#\$%&*!?"
         ),
         TextEntryCase(
             "alt",
-            "Alt layer",
-            "Hold or lock Alt and type any key printed with a second character",
+            t("alt_layer"),
+            t("hold_or_lock_alt_and_2"),
             FieldKind.TEXT,
             modifier = Modifier.ALT
         ),
         TextEntryCase(
             "sym",
-            "Sym",
-            "Use Sym to enter any symbol",
+            t("sym"),
+            t("use_sym_to_enter_any"),
             FieldKind.TEXT,
             modifier = Modifier.SYM
         ),
         TextEntryCase(
             "fn",
-            "Fn",
-            "Use Fn with any key that has an Fn character",
+            t("fn"),
+            t("use_fn_with_any_key"),
             FieldKind.TEXT,
             modifier = Modifier.FN
         ),
         TextEntryCase(
             "bt_pairing",
-            "Bluetooth pairing code",
-            "Simulated pairing dialog. Enter: 482915",
+            t("bluetooth_pairing_code"),
+            t("simulated_pairing_dialog_enter_482915"),
             FieldKind.NUMBER,
             expected = "482915"
         ),
         TextEntryCase(
             "wifi_password",
-            "Wi-Fi password",
-            "Simulated Wi-Fi password. Enter: Tr4il-mix#26!",
+            t("wi_fi_password"),
+            t("simulated_wi_fi_password_enter"),
             FieldKind.VISIBLE_PASSWORD,
             expected = "Tr4il-mix#26!"
         ),
         TextEntryCase(
             "pin",
-            "Lockscreen PIN",
-            "Simulated PIN pad. Enter: 7391",
+            t("lockscreen_pin"),
+            t("simulated_pin_pad_enter_7391"),
             FieldKind.NUMBER_PASSWORD,
             expected = "7391"
         ),
         TextEntryCase(
             "software_fallback",
-            "Software keyboard fallback",
-            "Use the on-screen keyboard to type: ok",
+            t("software_keyboard_fallback"),
+            t("use_the_on_screen_keyboard"),
             FieldKind.TEXT,
             expected = "ok",
             softwareKeyboard = true
@@ -165,8 +167,8 @@ object TextEntryTest {
         val fail = rows.count { it.value == CaseResult.FAIL.name }
         return listOf(
             ReportRow(
-                "critical text entry",
-                "$pass/${cases.size} PASS, $fail FAIL, ${cases.size - pass - fail} NOT_RUN"
+                t("critical_text_entry"),
+                t("pass_fail_not_run", pass, cases.size, fail, cases.size - pass - fail)
             )
         ) +
             rows
@@ -178,11 +180,11 @@ object SubscreenModes {
     data class Mode(val name: String, val needs: Capability?)
 
     val CURATED = listOf(
-        Mode("Compass", Capability.COMPASS),
-        Mode("Media quick control", null),
-        Mode("Safe IR quick control", Capability.IR_REMOTE),
-        Mode("Camera / magnifier preview", Capability.MAGNIFIER),
-        Mode("Battery and device status", null)
+        Mode(t("compass"), Capability.COMPASS),
+        Mode(t("media_quick_control"), null),
+        Mode(t("safe_ir_quick_control"), Capability.IR_REMOTE),
+        Mode(t("camera_magnifier_preview"), Capability.MAGNIFIER),
+        Mode(t("battery_and_device_status"), null)
     )
 
     /** Modes available on this profile: none at all without a proven SubScreen. */

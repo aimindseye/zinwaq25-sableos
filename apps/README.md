@@ -30,7 +30,7 @@ the app build needs, keeping the sableos layout so Gradle's relative paths work:
 
 ```text
 sable-src/apps/titan2/platform     Keyboard, Camera, DisplayCompat, Setup, Tools, RadioDiag
-sable-src/apps/r8/android          Calculator, Games, Media, Hub, Weather, Calendar, Messages
+sable-src/apps/r8/android          Calculator, Games, Media, Hub, Weather, Calendar, Messages, Notes
 sable-src/apps/common/reader       Sable Reader v2 (EPUB, PDF, comics, audiobooks; Books/Comics/Audio tabs) [titan2-temp]
 sable-src/reference                Start type-to-find, Setup flow, Weather cities logic [titan2-temp]
 sable-src/apps/r8/rust             native code used by the R8 apps
@@ -46,11 +46,16 @@ anything looks like web-page account data. Review the diff before committing.
 
 `product/q25/apps.tsv` lists them. Enabled: the five keyboard-first platform
 apps (Keyboard, Camera, DisplayCompat, Setup, Sable Tools) and the common set (Calculator, the ten games,
-Media, Hub, Weather, Calendar, Messages, Reader v2, Mail, Text Reader).
-Mail and Text Reader are `flavor:` rows: the build fetches the pinned upstream
-(Thunderbird, Vaachak Text Reader) once into `SABLE_UPSTREAM_CACHE`, which needs
+Media, Hub, Weather, Calendar, Messages, Notes, Reader v2, Mail, Text Reader, Terminal).
+Mail, Text Reader and Terminal are `flavor:` rows: the build fetches the pinned upstream
+(Thunderbird, Vaachak Text Reader, ConnectBot) once into `SABLE_UPSTREAM_CACHE`, which needs
 `NETWORK_FETCH_AUTHORIZED=YES`, then applies the Sable flavor scripts from
-`sable-src/apps/r8/{mail,textreader}`. `apps --all` also builds
+`sable-src/apps/r8/{mail,textreader,connectbot}`. `apps --all` also builds
 rows someone has set to `enabled=no`. Radio Diag is disabled because Sable
 Tools (DESIGN-KF-C) carries it as Diagnostics > Radio, IMS and FM status and
 overrides the old package.
+
+Every Sable app keeps its English in `res/values/strings.xml` (Sable Start: `res/values` next to
+its sources), read through one `<App>Text` table per app; a translation is a
+`values-<lang>/strings.xml` beside it ([`docs/LANGUAGES.md`](../docs/LANGUAGES.md)). Mail, Text
+Reader, Reader and Terminal keep their upstream translations.

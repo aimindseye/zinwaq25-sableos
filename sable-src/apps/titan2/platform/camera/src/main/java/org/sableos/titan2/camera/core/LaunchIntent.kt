@@ -1,5 +1,7 @@
 package org.sableos.titan2.camera.core
 
+import org.sableos.titan2.camera.core.CameraText.t
+
 /** How the camera was started. */
 enum class LaunchKind {
     /** Launcher, Sable Start or an explicit start: the full camera. */
@@ -46,7 +48,7 @@ object LaunchIntent {
     fun allows(kind: LaunchKind, a: CameraAction): Boolean =
         kind != LaunchKind.ImageCapture || a !in notForCapture
 
-    const val CAPTURE_REFUSED = "Another app is waiting for one photo"
+    val CAPTURE_REFUSED: String get() = t("another_app_is_waiting_for")
 
     /** The longest edge of the bitmap returned when the caller gave no EXTRA_OUTPUT. */
     const val THUMBNAIL_EDGE_PX = 512

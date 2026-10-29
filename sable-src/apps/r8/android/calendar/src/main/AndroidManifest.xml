@@ -8,11 +8,12 @@
         <package android:name="org.sableos.launcher" />
     </queries>
     <application
+        android:name="org.sableos.calendar.CalendarApplication"
         android:allowBackup="false"
         android:usesCleartextTraffic="false"
         android:icon="@mipmap/ic_sable_calendar"
         android:roundIcon="@mipmap/ic_sable_calendar_round"
-        android:label="Sable Calendar"
+        android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar">
         <activity android:name=".MainActivity" android:exported="true">

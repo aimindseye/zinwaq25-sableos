@@ -110,6 +110,7 @@ import org.sableos.hub.HubLaunchQuery
 import org.sableos.hub.HubMessage
 import org.sableos.hub.HubSendResult
 import org.sableos.hub.HubSnapshot
+import org.sableos.hub.HubText.t
 import org.sableos.hub.policy.ComposerEnterAction
 import org.sableos.hub.policy.HubAddress
 import org.sableos.hub.policy.HubComposerKeys
@@ -265,9 +266,9 @@ private class HubUiState {
     ) {
         statusMessage =
             when {
-                number.isBlank() -> "This caller's number is not available."
+                number.isBlank() -> t("this_caller_s_number_is")
                 onDial(number) -> null
-                else -> "The Phone app is unavailable."
+                else -> t("the_phone_app_is_unavailable")
             }
     }
 
@@ -317,7 +318,7 @@ private fun HubUiState.openAddress(address: String) {
 }
 
 private fun mmsHandoffStatus(opened: Boolean): String =
-    if (opened) "Opened the system MMS composer." else "MMS composer is unavailable."
+    if (opened) t("opened_the_system_mms_composer") else t("mms_composer_is_unavailable")
 
 /** The activity's callbacks and persisted thread drafts, handed down to every route. */
 private class HubActions(
@@ -455,11 +456,11 @@ private fun HubLoadingView() {
     SableScreen {
         SablePageHeader(
             title = "hub",
-            subtitle = "Priority, messages, calls, email and people, kept local to this device.",
+            subtitle = t("priority_messages_calls_email_and"),
         )
         SablePanel {
             Text(
-                text = "Loading conversations…",
+                text = t("loading_conversations"),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -491,7 +492,7 @@ private fun HubRootView(
     SableScreen(modifier = Modifier.slashOpensSearch(state::focusSearch)) {
         SablePageHeader(
             title = "hub",
-            subtitle = "Local communication across your enabled sources.",
+            subtitle = t("local_communication_across_your_enabled"),
         )
 
         HubPivotRow(
@@ -611,7 +612,7 @@ private fun HubPrivateCountsView(
         }
         if (privacy.canShowList) {
             SableActionButton(
-                text = if (counts.isEmpty()) "Show list" else "Show list without previews",
+                text = if (counts.isEmpty()) t("show_list") else t("show_list_without_previews"),
                 modifier =
                     if (counts.isEmpty()) {
                         Modifier.fillMaxWidth().focusRequester(
@@ -625,14 +626,14 @@ private fun HubPrivateCountsView(
             )
         } else {
             Text(
-                text = "Unlock to view details",
+                text = t("unlock_to_view_details"),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         if (privacy.privateMode) {
             SableActionButton(
-                text = "Private mode settings",
+                text = t("private_mode_settings"),
                 modifier = Modifier.fillMaxWidth(),
                 primary = false,
                 onClick = onPrivacyOptions,
@@ -838,7 +839,7 @@ private fun ConversationRoute(
                     {
                         // Delivery policy is Android's: hand off, never mirror it.
                         val opened = actions.onOpenSourceNotificationSettings(packageName, serial)
-                        if (!opened) onStatus("Android notification settings are unavailable.")
+                        if (!opened) onStatus(t("android_notification_settings_are_unavailable"))
                     }
                 },
             privacy = snapshot.privacy,
@@ -849,7 +850,7 @@ private fun ConversationRoute(
 private fun openSourceStatus(
     opened: Boolean,
     label: String,
-): String = if (opened) "Opened $label." else "The source app is unavailable."
+): String = if (opened) t("opened", label) else t("the_source_app_is_unavailable")
 
 private fun threadMessagesFor(
     snapshot: HubSnapshot,
@@ -893,7 +894,7 @@ private fun composerFor(
     if (conversation.source == HubConversationSource.Sms) {
         conversation.address.takeIf(String::isNotBlank)?.let { address ->
             HubComposerSpec(
-                label = "Text message",
+                label = t("text_message"),
                 canSend = snapshot.capabilities.canSendSms,
                 send = { body -> actions.onSendSms(address, body) },
             )
@@ -901,7 +902,7 @@ private fun composerFor(
     } else {
         conversation.sourceNotificationKey?.takeIf { conversation.canQuickReply }?.let { notificationKey ->
             HubComposerSpec(
-                label = "Reply",
+                label = t("reply"),
                 canSend = true,
                 send = { body -> actions.onReplyConnected(notificationKey, body) },
             )
@@ -919,11 +920,11 @@ private class HubComposerSpec(
 private fun MissingConversationView(onBack: () -> Unit) {
     SableScreen {
         SablePageHeader(
-            title = "conversation unavailable",
-            subtitle = "The source conversation is no longer available in local Sable history.",
+            title = t("conversation_unavailable"),
+            subtitle = t("the_source_conversation_is_no"),
         )
         SableActionButton(
-            text = "Back",
+            text = t("back"),
             primary = false,
             onClick = onBack,
         )
@@ -969,7 +970,7 @@ private fun ColumnScope.PriorityPivot(
 
     if (conversations.isEmpty() && !hasMailAlerts) {
         Text(
-            text = "Nothing needs your attention.",
+            text = t("nothing_needs_your_attention"),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -979,7 +980,7 @@ private fun ColumnScope.PriorityPivot(
     if (hasMailAlerts) {
         SablePanel {
             Text(
-                text = "Email",
+                text = t("email"),
                 style = MaterialTheme.typography.titleMedium,
             )
             Text(
@@ -988,7 +989,7 @@ private fun ColumnScope.PriorityPivot(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             SableActionButton(
-                text = "Open Sable Mail",
+                text = t("open_sable_mail"),
                 primary = false,
                 onClick = {
                     onOpenSableMail()
@@ -1022,7 +1023,7 @@ private fun ColumnScope.EmailPivot(
 ) {
     SablePanel {
         Text(
-            text = "Sable Mail",
+            text = t("sable_mail"),
             style = MaterialTheme.typography.titleMedium,
         )
         Text(
@@ -1032,13 +1033,12 @@ private fun ColumnScope.EmailPivot(
         )
         Text(
             text =
-                "Hub reads only the bounded local mail snapshot. " +
-                    "Accounts, sync and mailbox storage remain in Sable Mail.",
+                t("hub_reads_only_the_bounded"),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         SableActionButton(
-            text = "Open Sable Mail",
+            text = t("open_sable_mail"),
             onClick = {
                 onOpenSableMail()
             },
@@ -1077,12 +1077,12 @@ private fun ColumnScope.InboxPivot(
         horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
     ) {
         SableActionButton(
-            text = "new message",
+            text = t("new_message"),
             modifier = Modifier.weight(1f),
             onClick = onCompose,
         )
         SableActionButton(
-            text = "connected apps",
+            text = t("connected_apps"),
             modifier = Modifier.weight(1f),
             primary = false,
             onClick = onOpenConnectedApps,
@@ -1111,7 +1111,7 @@ private fun ColumnScope.InboxPivot(
                     onLeave = { runCatching { chipRequesters.getValue(filter).requestFocus() } },
                 ),
         singleLine = true,
-        label = { Text("/ Search messages, calls, mail") },
+        label = { Text(t("search_messages_calls_mail")) },
         placeholder = { Text(HubSearch.HINT, maxLines = 1, overflow = TextOverflow.Ellipsis) },
     )
 
@@ -1264,7 +1264,7 @@ private fun ColumnScope.InboxPivot(
                 onLongPress = { source ->
                     if (source is HubDockSource.App) {
                         val opened = actions.onOpenConnectedApp(source.packageName, source.userSerial)
-                        if (!opened) state.statusMessage = "The source app is unavailable."
+                        if (!opened) state.statusMessage = t("the_source_app_is_unavailable")
                     }
                 },
             )
@@ -1343,7 +1343,7 @@ private fun runConversationAction(
         HubRowAction.SourceNotifications -> {
             source?.let { (packageName, serial) ->
                 if (!actions.onOpenSourceNotificationSettings(packageName, serial)) {
-                    state.statusMessage = "Android notification settings are unavailable."
+                    state.statusMessage = t("android_notification_settings_are_unavailable")
                 }
             }
         }
@@ -1591,7 +1591,7 @@ private fun InboxSourceDock(
             when {
                 visible.isEmpty() -> {
                     Text(
-                        text = "Nothing new",
+                        text = t("nothing_new"),
                         modifier = Modifier.weight(1f).padding(horizontal = SableSpacing.Sm),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1633,7 +1633,7 @@ private fun DockChevron(
     modifier: Modifier,
     onToggle: () -> Unit,
 ) {
-    val description = if (expanded) "Show fewer sources" else "Show all sources"
+    val description = if (expanded) t("show_fewer_sources") else t("show_all_sources")
     Box(
         modifier =
             modifier
@@ -1869,18 +1869,18 @@ private fun inboxEmptyText(
     query: String,
 ): String =
     when {
-        query.isNotBlank() -> "Nothing matches “$query”."
-        filter == HubInboxFilter.Messages && !capabilities.canReadSms -> "Grant SMS access to show conversations."
-        filter == HubInboxFilter.Calls && !capabilities.canReadCallLog -> "Grant call log access to show recent calls."
-        filter == HubInboxFilter.Calls -> "No recent calls."
-        filter == HubInboxFilter.Missed && !capabilities.canReadCallLog -> "Grant call log access to show missed calls."
-        filter == HubInboxFilter.Missed -> "No missed calls."
-        filter == HubInboxFilter.Priority -> "Nothing needs your attention."
-        filter == HubInboxFilter.People && !capabilities.canReadContacts -> "Grant contacts access to match people."
-        filter == HubInboxFilter.People -> "No conversations or calls with your contacts."
-        filter == HubInboxFilter.Notifications -> "No connected-app conversations. Choose apps under connected apps."
-        filter == HubInboxFilter.Mail -> "No mail notifications. Turn on a mail app under connected apps."
-        else -> "No conversations yet."
+        query.isNotBlank() -> t("nothing_matches", query)
+        filter == HubInboxFilter.Messages && !capabilities.canReadSms -> t("grant_sms_access_to_show")
+        filter == HubInboxFilter.Calls && !capabilities.canReadCallLog -> t("grant_call_log_access_to")
+        filter == HubInboxFilter.Calls -> t("no_recent_calls")
+        filter == HubInboxFilter.Missed && !capabilities.canReadCallLog -> t("grant_call_log_access_to_2")
+        filter == HubInboxFilter.Missed -> t("no_missed_calls")
+        filter == HubInboxFilter.Priority -> t("nothing_needs_your_attention")
+        filter == HubInboxFilter.People && !capabilities.canReadContacts -> t("grant_contacts_access_to_match")
+        filter == HubInboxFilter.People -> t("no_conversations_or_calls_with")
+        filter == HubInboxFilter.Notifications -> t("no_connected_app_conversations_choose")
+        filter == HubInboxFilter.Mail -> t("no_mail_notifications_turn_on")
+        else -> t("no_conversations_yet")
     }
 
 @Composable
@@ -1920,14 +1920,14 @@ private fun InboxAccessPrompt(
     val capabilities = snapshot.capabilities
     val detail =
         when {
-            !capabilities.canReadSms -> "Allow SMS access to read conversations and send messages."
-            !capabilities.canSendSms -> "Allow sending access to send SMS from Hub."
-            else -> "Allow call log access to show recent and missed calls. Calls stay in the Phone app."
+            !capabilities.canReadSms -> t("allow_sms_access_to_read")
+            !capabilities.canSendSms -> t("allow_sending_access_to_send")
+            else -> t("allow_call_log_access_to")
         }
 
     SablePanel {
         Text(
-            text = "Access needed",
+            text = t("access_needed"),
             style = MaterialTheme.typography.titleMedium,
         )
         Text(
@@ -1993,7 +1993,7 @@ private fun CallRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = "Call · " + callKindLabel(call.kind) + " · " + clockTime(call.dateMillis),
+                    text = t("call") + callKindLabel(call.kind) + " · " + clockTime(call.dateMillis),
                     style = MaterialTheme.typography.bodyLarge,
                     color = detailColor,
                     maxLines = 1,
@@ -2004,7 +2004,7 @@ private fun CallRow(
         if (call.number.isNotBlank()) {
             Spacer(Modifier.width(HubTrailingGap))
             SableActionButton(
-                text = "Text",
+                text = t("text"),
                 primary = false,
                 onClick = onText,
             )
@@ -2175,15 +2175,15 @@ private fun RollupLine(row: HubInboxRow) {
 /** Source label on every row: the inbox mixes SMS, calls and connected apps. */
 private fun conversationPreview(conversation: HubConversation): String {
     if (conversation.source != HubConversationSource.ConnectedApp) {
-        return if (conversation.lastBody.isBlank()) "SMS" else "SMS · " + conversation.lastBody.take(SMS_PREVIEW_LENGTH)
+        return if (conversation.lastBody.isBlank()) "SMS" else t("sms") + conversation.lastBody.take(SMS_PREVIEW_LENGTH)
     }
     val sourceLine =
         listOfNotNull(
-            conversation.sourceLabel ?: "connected app",
+            conversation.sourceLabel ?: t("connected_app"),
             conversation.profileBadge,
         ).joinToString(" · ")
     return if (conversation.lastBody.isBlank()) {
-        "$sourceLine · content hidden"
+        t("content_hidden", sourceLine)
     } else {
         "$sourceLine · " + conversation.lastBody.take(CONNECTED_PREVIEW_LENGTH)
     }
@@ -2211,7 +2211,7 @@ private fun ColumnScope.PeoplePivot(
     if (!snapshot.capabilities.canReadContacts) {
         SablePanel {
             Text(
-                text = "Contacts access is optional and only improves people matching.",
+                text = t("contacts_access_is_optional_and"),
                 style = MaterialTheme.typography.bodyMedium,
             )
             SableActionButton(
@@ -2227,7 +2227,7 @@ private fun ColumnScope.PeoplePivot(
         onValueChange = onSearchChange,
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
-        label = { Text("Search people") },
+        label = { Text(t("search_people")) },
     )
 
     val query = search.trim()
@@ -2243,7 +2243,7 @@ private fun ColumnScope.PeoplePivot(
 
     if (people.isEmpty()) {
         Text(
-            text = "No matching people are available.",
+            text = t("no_matching_people_are_available"),
             modifier = Modifier.padding(vertical = SableSpacing.Lg),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -2393,7 +2393,7 @@ private fun ColumnScope.ConversationView(
             modifier =
                 Modifier.semantics {
                     contentDescription =
-                        "Privacy: " + HubPrivacyBadge.text(conversation, privacy)
+                        t("privacy") + HubPrivacyBadge.text(conversation, privacy)
                 },
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -2404,20 +2404,20 @@ private fun ColumnScope.ConversationView(
             horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
         ) {
             SableActionButton(
-                text = "Back",
+                text = t("back"),
                 modifier = Modifier.weight(1f),
                 primary = false,
                 onClick = onBack,
             )
-            ConversationActionButton("Call", onCall)
-            ConversationActionButton("Attach", onAttach)
-            ConversationActionButton("Open app", onOpenSource)
+            ConversationActionButton(t("call_2"), onCall)
+            ConversationActionButton(t("attach"), onAttach)
+            ConversationActionButton(t("open_app"), onOpenSource)
         }
         // Its own full-width row: a third equal-width "Notifications" button wraps mid-word
         // on the square screen (KF-D: labels never clip).
         onOpenNotificationSettings?.let { action ->
             SableActionButton(
-                text = "Notifications",
+                text = t("notifications"),
                 modifier = Modifier.fillMaxWidth(),
                 primary = false,
                 onClick = action,
@@ -2445,7 +2445,7 @@ private fun ColumnScope.ConversationView(
             modifier = Modifier.weight(1f),
             messages = messages,
             listState = conversationState,
-            emptyText = if (composer != null) "No messages yet. Write the first one below." else "No messages yet.",
+            emptyText = if (composer != null) t("no_messages_yet_write_the") else t("no_messages_yet"),
             historyMode = history.searchOpen,
             highlighted = matches.getOrNull(history.match)?.let { index -> newestFirst.getOrNull(index)?.id },
             onLatest = toLatest,
@@ -2570,7 +2570,7 @@ private fun ThreadSearchField(
                     enter
                 },
         singleLine = true,
-        label = { Text("Search this conversation") },
+        label = { Text(t("search_this_conversation")) },
         supportingText = {
             Text(HubThreadSearch.status(history.match, matchCount, history.query))
         },
@@ -2683,7 +2683,7 @@ private fun ConversationComposer(
     if (!composer.canSend) {
         SablePanel {
             Text(
-                text = "SMS sending needs permission.",
+                text = t("sms_sending_needs_permission"),
                 style = MaterialTheme.typography.bodyMedium,
             )
             SableActionButton(
@@ -2776,7 +2776,7 @@ private fun HubInlineComposer(
             keyboardActions = KeyboardActions(onSend = { send() }),
         )
         SableActionButton(
-            text = "Send",
+            text = t("send"),
             onClick = send,
         )
     }
@@ -2858,8 +2858,8 @@ private fun ComposeView(
     }
 
     SablePageHeader(
-        title = "new message",
-        subtitle = "Send SMS, or hand off to the system MMS composer for attachments.",
+        title = t("new_message"),
+        subtitle = t("send_sms_or_hand_off"),
     )
 
     OutlinedTextField(
@@ -2867,7 +2867,7 @@ private fun ComposeView(
         onValueChange = { onDraftChange(draft.copy(recipient = it)) },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
-        label = { Text("Phone number") },
+        label = { Text(t("phone_number")) },
     )
 
     OutlinedTextField(
@@ -2880,7 +2880,7 @@ private fun ComposeView(
                     localStatus = onSendSms(recipient.trim(), body).message
                 },
         minLines = SMS_COMPOSE_MIN_LINES,
-        label = { Text("Message") },
+        label = { Text(t("message")) },
     )
 
     localStatus?.let { message ->
@@ -2893,7 +2893,7 @@ private fun ComposeView(
 
     if (canSendSms) {
         SableActionButton(
-            text = "Send SMS",
+            text = t("send_sms"),
             onClick = {
                 val result = onSendSms(recipient.trim(), body)
                 localStatus = result.message
@@ -2902,7 +2902,7 @@ private fun ComposeView(
     } else {
         SablePanel {
             Text(
-                text = "SMS sending needs permission.",
+                text = t("sms_sending_needs_permission"),
                 style = MaterialTheme.typography.bodyMedium,
             )
             SableActionButton(
@@ -2914,7 +2914,7 @@ private fun ComposeView(
     }
 
     SableActionButton(
-        text = "MMS / attachment",
+        text = t("mms_attachment"),
         primary = false,
         onClick = {
             onOpenMmsComposer(recipient.trim(), body)
@@ -2922,7 +2922,7 @@ private fun ComposeView(
     )
 
     SableActionButton(
-        text = "Back",
+        text = t("back"),
         primary = false,
         onClick = onBack,
     )
@@ -2937,13 +2937,13 @@ private fun visibleSenderLabel(message: HubMessage): String? =
 private fun messageBodyText(message: HubMessage): String =
     when {
         message.body.isNotBlank() -> message.body
-        message.source == HubConversationSource.ConnectedApp -> "Content hidden by source app"
-        else -> "Empty SMS body"
+        message.source == HubConversationSource.ConnectedApp -> t("content_hidden_by_source_app")
+        else -> t("empty_sms_body")
     }
 
 private fun messageTimeText(message: HubMessage): String =
     if (message.handoffOnly) {
-        "Handed off · " + relativeTime(message.dateMillis)
+        t("handed_off") + relativeTime(message.dateMillis)
     } else {
         relativeTime(message.dateMillis)
     }
@@ -2970,10 +2970,9 @@ private val HubDockIconSize = 40.dp
 private val HubDockCornerRadius = 28.dp
 private val HubPillCornerRadius = 10.dp
 
-private const val REVIEW_ACCESS_LABEL = "Review access"
-private const val THREAD_KEY_HINT = "/ search · PageUp history · End latest · Esc back to latest"
-private const val INBOX_KEY_HINT =
-    "/ search · Alt+Enter actions · A P M X C E N O filters · D dock · T/B top/bottom"
+private val REVIEW_ACCESS_LABEL: String get() = t("review_access")
+private val THREAD_KEY_HINT: String get() = t("search_pageup_history_end_latest")
+private val INBOX_KEY_HINT: String get() = t("search_alt_enter_actions_a")
 private const val SMS_PREVIEW_LENGTH = 120
 private const val CONNECTED_PREVIEW_LENGTH = 100
 private const val HUB_INLINE_COMPOSER_MAX_LINES = 4

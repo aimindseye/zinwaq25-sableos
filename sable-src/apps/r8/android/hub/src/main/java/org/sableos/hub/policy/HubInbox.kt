@@ -4,6 +4,7 @@ import org.sableos.hub.HubCall
 import org.sableos.hub.HubConversation
 import org.sableos.hub.HubConversationSource
 import org.sableos.hub.HubPerson
+import org.sableos.hub.HubText.t
 
 /**
  * Hub inbox filters (SABLE_HUB_KEYBOARD_FIRST_UX "Filters"): one list, narrowed by source or by
@@ -12,26 +13,28 @@ import org.sableos.hub.HubPerson
  * Hub on one of them with [HubIntents.EXTRA_FILTER].
  */
 enum class HubInboxFilter(
-    val label: String,
+    private val labelKey: String,
     val shortcut: Char,
 ) {
-    All("All", 'a'),
+    All("all", 'a'),
 
     /** Unread or Hub-priority conversations, answerable threads and missed calls. */
-    Priority("Priority", 'p'),
-    Messages("Messages", 'm'),
+    Priority("priority", 'p'),
+    Messages("messages", 'm'),
 
     /** Missed calls and voicemail: the calls the user did not take. */
-    Missed("Missed", 'x'),
-    Calls("Calls", 'c'),
+    Missed("missed", 'x'),
+    Calls("calls", 'c'),
 
     /** Connected mail apps (known mail packages or notifications in the email category). */
-    Mail("Mail", 'e'),
-    Notifications("Notifications", 'n'),
+    Mail("mail_2", 'e'),
+    Notifications("notifications", 'n'),
 
     /** Conversations and calls with someone in the address book. */
-    People("People", 'o'),
+    People("people", 'o'),
     ;
+
+    val label: String get() = t(labelKey)
 
     companion object {
         fun forShortcut(typed: Char): HubInboxFilter? = entries.firstOrNull { it.shortcut == typed.lowercaseChar() }
@@ -193,7 +196,7 @@ object HubThreadResolver {
 
 /** Call-log rows under Hub privacy: the same level that governs Hub's own SMS. */
 object HubCallRedaction {
-    const val REDACTED_LABEL = "Call"
+    val REDACTED_LABEL: String get() = t("call_2")
 
     fun apply(
         calls: List<HubCall>,

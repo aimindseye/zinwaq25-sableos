@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.os.UserHandle
 import android.os.UserManager
+import org.sableos.hub.HubText.t
 import org.sableos.hub.platform.ProfileDirectory
 import org.sableos.hub.policy.ProfileKind
 import java.util.Locale
@@ -143,10 +144,10 @@ class ConnectedAppsInventory(
         serial: Long,
     ): String =
         when (kind) {
-            ProfileKind.Personal -> "Personal"
-            ProfileKind.Work -> "Work profile"
-            ProfileKind.Private -> "Private space"
-            ProfileKind.Other -> "Profile $serial"
+            ProfileKind.Personal -> t("personal")
+            ProfileKind.Work -> t("work_profile")
+            ProfileKind.Private -> t("private_space")
+            ProfileKind.Other -> t("profile_2", serial)
         }
 
     private fun userForSerial(serial: Long): UserHandle? =

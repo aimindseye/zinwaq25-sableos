@@ -390,7 +390,7 @@ hub_bad=""
 python3 -I -c 'import re,sys; s=open(sys.argv[1]).read(); sys.exit(1 if any("category.LAUNCHER" in f for f in re.findall(r"<intent-filter.*?</intent-filter>", s, re.S)) else 0)' sable-src/apps/r8/android/hub/src/main/AndroidManifest.xml || hub_bad="$hub_bad hub-launcher"
 grep -q 'HubAppCounts.rows' sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubSnapshotProvider.kt || hub_bad="$hub_bad no-app-counts"
 grep -q 'org.sableos.start.action.SHOW_HUB' sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml || hub_bad="$hub_bad no-show-hub"
-grep -q 'Contacts("Contacts")' sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HubBar.kt || hub_bad="$hub_bad no-contacts-tab"
+grep -q 'Contacts("contacts")' sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HubBar.kt || hub_bad="$hub_bad no-contacts-tab"
 grep -q 'package="org.sableos.launcher"' product/q25/permissions/default-permissions-sable-q25.xml || hub_bad="$hub_bad no-start-contacts-grant"
 grep -q 'fixed="true"' product/q25/permissions/default-permissions-sable-q25.xml && hub_bad="$hub_bad fixed-grant"
 grep -q "^| Q4-HUB-ONE |" docs/QUALIFICATION.md || hub_bad="$hub_bad gate"
@@ -923,6 +923,72 @@ for k in C T V J K R; do grep -q "KeyEvent.KEYCODE_$k -> CalendarScreenKey" "$ca
 grep -q 'override fun onKeyDown' sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt || cal_bad="$cal_bad no-activity-keys"
 grep -q 'fun nowLine' "$cal_keys" || cal_bad="$cal_bad no-now-line"
 if [[ -z "$cal_bad" ]]; then pass "Sable Calendar week view, NOW line and C/T/V/J/K/R keys"; else fail "calendar:$cal_bad"; fi
+
+# 16. Sable Notes (sable-src 0081): local-first notes and checklists, no permissions, Menu-key editor.
+notes=sable-src/apps/r8/android/notes
+notes_bad=""
+grep -qP '^SableNotes\tcommon\tapps/r8/android\t:notes:assembleRelease\tnotes/build/outputs/apk/release/\*\.apk\torg\.sableos\.notes\tunsigned\t-\tyes$' product/q25/apps.tsv || notes_bad="$notes_bad apps.tsv"
+grep -q 'uses-permission' "$notes/src/main/AndroidManifest.xml" && notes_bad="$notes_bad permission"
+grep -q 'android:allowBackup="false"' "$notes/src/main/AndroidManifest.xml" || notes_bad="$notes_bad backup"
+grep -q 'KEYCODE_MENU -> EditorKey.Menu' "$notes/src/main/java/org/sableos/notes/core/NotesKeys.kt" || notes_bad="$notes_bad menu-key"
+grep -q 'android.intent.action.SEND"' "$notes/src/main/AndroidManifest.xml" || notes_bad="$notes_bad share-in"
+grep -q '"org.sableos.notes" to AppGlyph.NOTES' sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/AppGlyphs.kt || notes_bad="$notes_bad start-glyph"
+grep -q ':notes:testDebugUnitTest' .github/workflows/android.yml || notes_bad="$notes_bad ci"
+if [[ -z "$notes_bad" ]]; then pass "Sable Notes: shipped, no permissions, Menu-key editor, Start glyph, CI"; else fail "notes:$notes_bad"; fi
+
+# 17. Clipboard history in Sable Keyboard (sable-src 0083): off by default, memory only, no sensitive clips.
+kb=sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard
+clip_bad=""
+grep -q 'prefs.getBool(CLIP_HISTORY, false)' "$kb/android/SableImeService.kt" || clip_bad="$clip_bad default-off"
+grep -q 'isChecked = prefs.getBool(CLIP_HISTORY, false)' "$kb/android/KeyboardSettingsActivity.kt" || clip_bad="$clip_bad settings-default"
+grep -q 'EXTRA_IS_SENSITIVE' "$kb/android/ClipboardWatcher.kt" || clip_bad="$clip_bad sensitive"
+grep -q 'isKeyguardLocked' "$kb/android/SableImeService.kt" || clip_bad="$clip_bad keyguard"
+grep -qi 'SharedPreferences\|openFileOutput\|filesDir' "$kb/core/ClipboardHistory.kt" "$kb/android/ClipboardWatcher.kt" && clip_bad="$clip_bad persisted"
+grep -q 'uses-permission' sable-src/apps/titan2/platform/keyboard/src/main/AndroidManifest.xml && clip_bad="$clip_bad permission"
+if [[ -z "$clip_bad" ]]; then pass "Sable Keyboard clipboard history: opt-in, memory only, skips sensitive copies, not on the lock screen"; else fail "clipboard history:$clip_bad"; fi
+
+# 18. Sable Terminal (sable-src 0084): ConnectBot v1.10.9 flavor (no mosh), Menu = Ctrl, CI, Start glyph.
+cb=sable-src/apps/r8/connectbot
+term_bad=""
+grep -qP '^SableTerminal\tcommon\tflavor:connectbot\t:app:assembleOssRelease\tapp/build/outputs/apk/oss/release/\*\.apk\torg\.sableos\.terminal\tunsigned\t-\tyes$' product/q25/apps.tsv || term_bad="$term_bad apps.tsv"
+grep -qx 'CONNECTBOT_COMMIT=21ce6f47cf16785bf2314b4ea931900164c179c1' "$cb/upstream.env" || term_bad="$term_bad pin"
+grep -q 'EXPECTED_COMMIT = "21ce6f47cf16785bf2314b4ea931900164c179c1"' "$cb/apply_sable_flavor.py" "$cb/verify_sable_terminal.py" || term_bad="$term_bad script-pin"
+grep -q 'KEYCODE_MENU -> if (down && repeat == 0) SableTerminalKey.Ctrl' "$cb/src/main/kotlin/org/connectbot/sable/SableTerminalKeys.kt" || term_bad="$term_bad menu-ctrl"
+[[ -f "$cb/res/mipmap-anydpi-v26/ic_sable_terminal.xml" ]] || term_bad="$term_bad icon"
+grep -q '"org.sableos.terminal" to AppGlyph.TERMINAL' sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/AppGlyphs.kt || term_bad="$term_bad start-glyph"
+grep -q 'root: flavor:connectbot' .github/workflows/android.yml || term_bad="$term_bad ci"
+if [[ -z "$term_bad" ]]; then pass "Sable Terminal: pinned ConnectBot 1.10.9 flavor, Menu is Ctrl, Start glyph, CI"; else fail "terminal:$term_bad"; fi
+
+# 19. Translatable Sable apps (sable-src 0085, docs/LANGUAGES.md): every app keeps its English in one
+#     table, repeats it in values/strings.xml, binds the table to the resources and tests the two equal.
+i18n_bad=""
+while read -r table strings bind test; do
+  [[ -f "$table" ]] || { i18n_bad="$i18n_bad missing:$table"; continue; }
+  obj=$(basename "$table" .kt)
+  [[ -f "$strings" ]] || i18n_bad="$i18n_bad strings:$strings"
+  grep -q "$obj.t.bindTo(this)" "$bind" || i18n_bad="$i18n_bad bind:$obj"
+  [[ -f "$test" ]] || i18n_bad="$i18n_bad test:$obj"
+done <<EOF_I18N
+sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/CalculatorText.kt sable-src/apps/r8/android/calculator/src/main/res/values/strings.xml sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/CalculatorApplication.kt sable-src/apps/r8/android/calculator/src/test/java/org/sableos/calculator/CalculatorTextTest.kt
+sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarApplication.kt sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/CalendarTextTest.kt
+sable-src/apps/r8/android/convert/src/main/java/org/sableos/convert/ConvertText.kt sable-src/apps/r8/android/convert/src/main/res/values/strings.xml sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/CalculatorApplication.kt sable-src/apps/r8/android/calculator/src/test/java/org/sableos/calculator/ConvertTextTest.kt
+sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GamesText.kt sable-src/apps/r8/android/games/src/main/res/values/strings.xml sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GamesApplication.kt sable-src/apps/r8/android/games/src/test/java/org/sableos/games/GamesTextTest.kt
+sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubText.kt sable-src/apps/r8/android/hub/src/main/res/values/strings.xml sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubApplication.kt sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/HubTextTest.kt
+sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaText.kt sable-src/apps/r8/android/media/src/main/res/values/strings.xml sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaApplication.kt sable-src/apps/r8/android/media/src/test/java/org/sableos/media/MediaTextTest.kt
+sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/core/MessagesText.kt sable-src/apps/r8/android/messages/src/main/res/values/strings.xml sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/MessagesApplication.kt sable-src/apps/r8/android/messages/src/test/java/org/sableos/messages/MessagesTextTest.kt
+sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NotesText.kt sable-src/apps/r8/android/notes/src/main/res/values/strings.xml sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesApplication.kt sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/NotesTextTest.kt
+sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherText.kt sable-src/apps/r8/android/weather/src/main/res/values/strings.xml sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherApplication.kt sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/WeatherTextTest.kt
+sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/CameraText.kt sable-src/apps/titan2/platform/camera/src/main/res/values/strings.xml sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/CameraApplication.kt sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/CameraTextTest.kt
+sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayCompatText.kt sable-src/apps/titan2/platform/displaycompat/src/main/res/values/strings.xml sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/DisplayCompatTextTest.kt
+sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/KeyboardText.kt sable-src/apps/titan2/platform/keyboard/src/main/res/values/strings.xml sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/KeyboardApplication.kt sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/KeyboardTextTest.kt
+sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/ProfilesText.kt sable-src/apps/titan2/platform/profiles/src/main/res/values/strings.xml sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/ProfilesApplication.kt sable-src/apps/titan2/platform/profiles/src/test/java/org/sableos/titan2/profiles/ProfilesTextTest.kt
+sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupText.kt sable-src/apps/titan2/platform/setup/src/main/res/values/strings.xml sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupActivity.kt sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SetupTextTest.kt
+sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ToolsApplication.kt sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/ToolsTextTest.kt
+sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/core/VaultLines.kt sable-src/apps/titan2/platform/vault/src/main/res/values/strings.xml sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/VaultApplication.kt sable-src/apps/titan2/platform/vault/src/test/java/org/sableos/titan2/vault/VaultLinesTest.kt
+sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt sable-src/src/android/packages/apps/SableStart/res/values/strings.xml sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/StartTextTest.kt
+sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/DesignText.kt sable-src/src/android/shared/sabledesign/src/main/res/values/strings.xml sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt sable-src/src/android/shared/sabledesign/src/test/java/org/sableos/design/DesignTextTest.kt
+EOF_I18N
+if [[ -z "$i18n_bad" ]]; then pass "Sable apps: English in one table per app, equal to values/strings.xml, bound to the resources"; else fail "translations:$i18n_bad"; fi
 
 echo
 if ((fails)); then echo "CI=FAIL ($fails)"; exit 1; fi

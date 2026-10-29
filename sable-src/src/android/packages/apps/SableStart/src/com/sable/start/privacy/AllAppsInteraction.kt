@@ -1,5 +1,7 @@
 package org.sableos.start.privacy
 
+import com.sable.start.model.StartText.t
+
 /**
  * All Apps keyboard behaviour (DESIGN-KF-D):
  *
@@ -114,19 +116,22 @@ object AllAppsKeyPolicy {
 
 /** App actions offered from All Apps (Menu / Fn+Enter, the row's ⋯ button, or Peek). */
 enum class AppAction(
-    val label: String,
+    private val labelKey: String,
     val destructive: Boolean = false,
 ) {
-    Open("open"),
-    OpenSecond("open Dual copy"),
-    AppInfo("app info · permissions"),
-    NotificationSettings("notification settings"),
-    PinToStart("add to Home"),
-    RemoveFromStart("remove from Home"),
-    AddToBaseBar("add to base bar"),
-    RemoveFromBaseBar("remove from base bar"),
-    Uninstall("uninstall", destructive = true),
-    Disable("disable", destructive = true),
+    Open("action_open"),
+    OpenSecond("open_dual_copy"),
+    AppInfo("app_info_permissions"),
+    NotificationSettings("notification_settings"),
+    PinToStart("add_to_home"),
+    RemoveFromStart("remove_from_home"),
+    AddToBaseBar("add_to_base_bar"),
+    RemoveFromBaseBar("remove_from_base_bar"),
+    Uninstall("action_uninstall", destructive = true),
+    Disable("action_disable", destructive = true),
+    ;
+
+    val label: String get() = t(labelKey)
 }
 
 data class AppActionContext(
@@ -165,5 +170,5 @@ object AppActionPolicy {
     /** Destructive actions need a second, explicit confirmation step (UNINSTALL_ONE_KEY=NO). */
     fun requiresConfirmation(action: AppAction): Boolean = action.destructive
 
-    fun confirmationLabel(action: AppAction): String = "confirm ${action.label}"
+    fun confirmationLabel(action: AppAction): String = t("confirm", action.label)
 }

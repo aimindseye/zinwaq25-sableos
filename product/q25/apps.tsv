@@ -62,7 +62,11 @@ SableMedia	common	apps/r8/android	:media:assembleDebug	media/build/outputs/apk/d
 SableHub	common	apps/r8/android	:hub:assembleDebug	hub/build/outputs/apk/debug/hub-debug.apk	org.sableos.hub	presigned	-	yes
 SableWeather	common	apps/r8/android	:weather:assembleDebug	weather/build/outputs/apk/debug/weather-debug.apk	org.sableos.weather	presigned	-	yes
 SableCalendar	common	apps/r8/android	:calendar:assembleDebug	calendar/build/outputs/apk/debug/calendar-debug.apk	org.sableos.calendar	presigned	Etar	yes
+# Sable Notes (BlackBerry Remember / Color Notes): local notes, checklists and colour labels, typed on
+# the keyboard; no account and no sync. Shrunk release build like Messages.
+SableNotes	common	apps/r8/android	:notes:assembleRelease	notes/build/outputs/apk/release/*.apk	org.sableos.notes	unsigned	-	yes
 SableMessages	common	apps/r8/android	:messages:assembleRelease	messages/build/outputs/apk/release/*.apk	org.sableos.messages	unsigned	messaging	yes
 SableReader	common	apps/common/reader	:leisure:assembleSableDebug	leisure/build/outputs/apk/sable/debug/*.apk	org.sableos.reader	presigned	-	yes
 SableMail	common	flavor:mail	:app-thunderbird:assembleFossRelease -Pci=true	app-thunderbird/build/outputs/apk/foss/release/*.apk	org.sableos.mail	unsigned	-	yes
 SableTextReader	common	flavor:textreader	:app:assembleDebug	app/build/outputs/apk/debug/SableTextReader-*.apk	org.sableos.textreader	presigned	-	yes
+SableTerminal	common	flavor:connectbot	:app:assembleOssRelease	app/build/outputs/apk/oss/release/*.apk	org.sableos.terminal	unsigned	-	yes

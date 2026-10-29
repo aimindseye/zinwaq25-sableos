@@ -14,6 +14,7 @@ import org.sableos.tools.core.IrTransmit
 import org.sableos.tools.core.Remote
 import org.sableos.tools.core.RemoteCodec
 import org.sableos.tools.core.RemoteLibrary
+import org.sableos.tools.core.ToolsText.t
 
 /**
  * Local-first IR remote: built-in table plus the user's own remotes, all on the device; no network. Shown only when
@@ -35,17 +36,17 @@ class IrRemoteController(private val host: ToolHost) : ToolController {
     private fun showList() {
         current = null
         root.removeAllViews()
-        root.addView(Ui.header(ctx, "Remotes"))
+        root.addView(Ui.header(ctx, t("remotes")))
         all().forEach { r ->
             root.addView(
-                Ui.row(ctx, r.name, r.type.title + if (r.builtIn) " · built-in" else "") {
+                Ui.row(ctx, r.name, r.type.title + if (r.builtIn) t("built_in") else "") {
                     showRemote(r)
                 }
             )
         }
-        root.addView(Ui.row(ctx, "Add a custom remote", null) { addRemote() })
+        root.addView(Ui.row(ctx, t("add_a_custom_remote"), null) { addRemote() })
         root.addView(
-            Ui.hint(ctx, "Built-in codes are common published codes, not verified on every model.")
+            Ui.hint(ctx, t("built_in_codes_are_common"))
         )
         root.getChildAt(1)?.post { root.getChildAt(1)?.requestFocus() }
     }
@@ -55,8 +56,8 @@ class IrRemoteController(private val host: ToolHost) : ToolController {
         root.removeAllViews()
         root.addView(Ui.header(ctx, "${r.name} · ${r.protocol.name}"))
         r.buttons.forEach { b -> root.addView(Ui.row(ctx, b.name, null) { send(r, b) }) }
-        if (!r.builtIn) root.addView(Ui.row(ctx, "Add a button", null) { addButton(r) })
-        root.addView(Ui.row(ctx, "All remotes", null) { showList() })
+        if (!r.builtIn) root.addView(Ui.row(ctx, t("add_a_button"), null) { addButton(r) })
+        root.addView(Ui.row(ctx, t("all_remotes"), null) { showList() })
         root.getChildAt(1)?.post { root.getChildAt(1)?.requestFocus() }
     }
 
@@ -71,9 +72,9 @@ class IrRemoteController(private val host: ToolHost) : ToolController {
             )
         ) {
             is IrTransmit.Decision.Send -> try {
-                ir?.transmit(d.carrierHz, d.pattern) ?: host.toast("IR service unavailable")
+                ir?.transmit(d.carrierHz, d.pattern) ?: host.toast(t("ir_service_unavailable"))
             } catch (e: IllegalArgumentException) {
-                host.toast("Transmit refused: ${e.message}")
+                host.toast(t("transmit_refused", e.message))
             }
 
             is IrTransmit.Decision.Refuse -> host.toast(d.reason)
@@ -87,18 +88,18 @@ class IrRemoteController(private val host: ToolHost) : ToolController {
     }
 
     private fun addRemote() {
-        val name = field("Remote name")
+        val name = field(t("remote_name"))
         val form = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             addView(name)
         }
         val types = ApplianceType.entries.map { it.title }.toTypedArray()
         var type = ApplianceType.CUSTOM
-        AlertDialog.Builder(ctx).setTitle("New remote (NEC codes)").setView(form)
+        AlertDialog.Builder(ctx).setTitle(t("new_remote_nec_codes")).setView(form)
             .setSingleChoiceItems(types, types.lastIndex) { _, i ->
                 type = ApplianceType.entries[i]
             }
-            .setPositiveButton("Create") { _, _ ->
+            .setPositiveButton(t("create")) { _, _ ->
                 val n = name.text.toString().trim()
                 if (n.isNotEmpty()) {
                     val r = Remote(n, type, IrProtocol.NEC, emptyList())
@@ -106,23 +107,23 @@ class IrRemoteController(private val host: ToolHost) : ToolController {
                     showRemote(r)
                 }
             }
-            .setNegativeButton("Cancel", null).show()
+            .setNegativeButton(t("cancel"), null).show()
     }
 
     private fun addButton(r: Remote) {
-        val name = field("Button name")
-        val code = field("32-bit code, e.g. 0x20DF10EF")
+        val name = field(t("button_name"))
+        val code = field(t("n32_bit_code_e_g"))
         val form = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             addView(name)
             addView(code)
         }
-        AlertDialog.Builder(ctx).setTitle("Add button to ${r.name}").setView(form)
-            .setPositiveButton("Add") { _, _ ->
+        AlertDialog.Builder(ctx).setTitle(t("add_button_to", r.name)).setView(form)
+            .setPositiveButton(t("add")) { _, _ ->
                 val c = RemoteCodec.parseCode(code.text.toString())
                 val n = name.text.toString().trim()
                 if (c == null || n.isEmpty()) {
-                    host.toast("Enter a name and a hex code up to 8 digits")
+                    host.toast(t("enter_a_name_and_a"))
                 } else {
                     val updated = r.copy(buttons = r.buttons + IrButton(n, c))
                     host.env.prefs.remotes =
@@ -130,20 +131,18 @@ class IrRemoteController(private val host: ToolHost) : ToolController {
                     showRemote(updated)
                 }
             }
-            .setNegativeButton("Cancel", null).show()
+            .setNegativeButton(t("cancel"), null).show()
     }
 
     override fun actions(): List<Pair<String, () -> Unit>> {
         val r = current?.takeUnless { it.builtIn } ?: return emptyList()
         return listOf(
-            "Delete ${r.name}" to {
+            t("delete", r.name) to {
                 host.env.prefs.remotes = host.env.prefs.remotes.filterNot { it.name == r.name }
                 showList()
             }
         )
     }
 
-    override fun info() =
-        "Remotes are stored only on this phone. No network is used. Learning from an " +
-            "original remote is not offered because Android has no public IR receiver API."
+    override fun info() = t("remotes_are_stored_only_on")
 }

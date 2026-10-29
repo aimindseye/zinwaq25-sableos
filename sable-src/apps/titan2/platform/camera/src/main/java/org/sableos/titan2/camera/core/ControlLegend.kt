@@ -1,5 +1,7 @@
 package org.sableos.titan2.camera.core
 
+import org.sableos.titan2.camera.core.CameraText.t
+
 /** One legend line: the keys that really resolve to [action], what it does, and its gate. */
 data class LegendEntry(
     val keys: String,
@@ -14,12 +16,12 @@ data class LegendEntry(
  * rather than hidden. Func1/Func2 never appear because nothing binds them.
  */
 object ControlLegend {
-    private val displayName = mapOf(
-        "space" to "Space", "enter" to "Enter", "camera" to "Camera", "up" to "↑",
+    private val displayName get() = mapOf(
+        "space" to t("space"), "enter" to t("enter"), "camera" to t("camera"), "up" to "↑",
         "down" to "↓", "left" to "←", "right" to "→", "plus" to "+", "minus" to "-",
-        "tab" to "Tab", "escape" to "Esc", "back" to "Back", "slash" to "/",
-        "volume_up" to "Vol+", "volume_down" to "Vol-", "backspace" to "Del",
-        "delete" to "Delete"
+        "tab" to t("tab"), "escape" to t("esc"), "back" to t("back"), "slash" to "/",
+        "volume_up" to "Vol+", "volume_down" to "Vol-", "backspace" to t("del"),
+        "delete" to t("delete")
     )
 
     /** Display order; every action appears once. */
@@ -36,43 +38,43 @@ object ControlLegend {
         CameraAction.ToggleLegend, CameraAction.Back
     )
 
-    private val baseLabels = mapOf(
-        CameraAction.Shutter to "Shutter",
-        CameraAction.VideoToggle to "Video record",
-        CameraAction.PauseToggle to "Pause",
-        CameraAction.Autofocus to "Autofocus",
-        CameraAction.AfLockToggle to "AF lock on/off",
-        CameraAction.AeLockToggle to "AE lock on/off",
-        CameraAction.ExposureUp to "Exposure +",
-        CameraAction.ExposureDown to "Exposure -",
+    private val baseLabels get() = mapOf(
+        CameraAction.Shutter to t("shutter"),
+        CameraAction.VideoToggle to t("video_record"),
+        CameraAction.PauseToggle to t("pause"),
+        CameraAction.Autofocus to t("autofocus"),
+        CameraAction.AfLockToggle to t("af_lock_on_off"),
+        CameraAction.AeLockToggle to t("ae_lock_on_off"),
+        CameraAction.ExposureUp to t("exposure"),
+        CameraAction.ExposureDown to t("exposure_2"),
         CameraAction.SelectIso to "ISO",
-        CameraAction.SelectWb to "White balance",
-        CameraAction.SelectShutter to "Shutter speed",
-        CameraAction.StepUp to "Zoom in",
-        CameraAction.StepDown to "Zoom out",
-        CameraAction.ProAuto to "Back to Auto",
-        CameraAction.ZoomIn to "Zoom in",
-        CameraAction.ZoomOut to "Zoom out",
-        CameraAction.PrevMode to "Previous mode",
-        CameraAction.NextMode to "Next mode",
-        CameraAction.SwitchCamera to "Switch camera",
-        CameraAction.NextCaptureMode to "Photo size",
-        CameraAction.RawToggle to "RAW / high-res",
-        CameraAction.QualityNext to "Video quality",
-        CameraAction.CompareToggle to "Compare bracket",
-        CameraAction.OpenLast to "Review last capture",
-        CameraAction.ToggleLegend to "This legend",
-        CameraAction.Back to "Close / exit"
+        CameraAction.SelectWb to t("white_balance"),
+        CameraAction.SelectShutter to t("shutter_speed"),
+        CameraAction.StepUp to t("zoom_in"),
+        CameraAction.StepDown to t("zoom_out"),
+        CameraAction.ProAuto to t("back_to_auto"),
+        CameraAction.ZoomIn to t("zoom_in"),
+        CameraAction.ZoomOut to t("zoom_out"),
+        CameraAction.PrevMode to t("previous_mode"),
+        CameraAction.NextMode to t("next_mode"),
+        CameraAction.SwitchCamera to t("switch_camera"),
+        CameraAction.NextCaptureMode to t("photo_size"),
+        CameraAction.RawToggle to t("raw_high_res"),
+        CameraAction.QualityNext to t("video_quality"),
+        CameraAction.CompareToggle to t("compare_bracket"),
+        CameraAction.OpenLast to t("review_last_capture"),
+        CameraAction.ToggleLegend to t("this_legend"),
+        CameraAction.Back to t("close_exit")
     )
 
-    private val proLabels = mapOf(
-        CameraAction.Autofocus to "Focus (manual)",
-        CameraAction.ExposureUp to "Exposure",
-        CameraAction.StepUp to "Adjust +",
-        CameraAction.StepDown to "Adjust -"
+    private val proLabels get() = mapOf(
+        CameraAction.Autofocus to t("focus_manual"),
+        CameraAction.ExposureUp to t("exposure_3"),
+        CameraAction.StepUp to t("adjust"),
+        CameraAction.StepDown to t("adjust_2")
     )
 
-    private val videoLabels = mapOf(CameraAction.Shutter to "Record / stop")
+    private val videoLabels get() = mapOf(CameraAction.Shutter to t("record_stop"))
 
     fun label(a: CameraAction, ui: UiMode): String = when (ui) {
         UiMode.Pro -> proLabels[a]
@@ -90,7 +92,7 @@ object ControlLegend {
         .filter { ArrowGuard.shown(it, profile) }
         .sortedWith(compareBy({ it.hold }, { it.alt }, { it.key }))
 
-    fun keyText(b: Binding): String = (if (b.hold) "Hold " else "") +
+    fun keyText(b: Binding): String = (if (b.hold) t("hold") else "") +
         (if (b.alt) "Alt+" else "") + (displayName[b.key] ?: b.key.uppercase())
 
     private val reviewOrder = listOf(
@@ -103,16 +105,16 @@ object ControlLegend {
         ReviewAction.Close
     )
 
-    private val reviewLabels = mapOf(
-        ReviewAction.Older to "Older capture",
-        ReviewAction.Newer to "Newer capture",
-        ReviewAction.Delete to "Delete (asks first)",
-        ReviewAction.Share to "Share",
-        ReviewAction.ShowInFiles to "Show in Files",
-        ReviewAction.Open to "Open in another app",
-        ReviewAction.Close to "Back to the viewfinder",
-        ReviewAction.Confirm to "Delete it",
-        ReviewAction.Cancel to "Keep it"
+    private val reviewLabels get() = mapOf(
+        ReviewAction.Older to t("older_capture"),
+        ReviewAction.Newer to t("newer_capture"),
+        ReviewAction.Delete to t("delete_asks_first"),
+        ReviewAction.Share to t("share"),
+        ReviewAction.ShowInFiles to t("show_in_files"),
+        ReviewAction.Open to t("open_in_another_app"),
+        ReviewAction.Close to t("back_to_the_viewfinder"),
+        ReviewAction.Confirm to t("delete_it"),
+        ReviewAction.Cancel to t("keep_it")
     )
 
     fun reviewLabel(a: ReviewAction): String = reviewLabels.getValue(a)
@@ -154,19 +156,19 @@ object ControlLegend {
 
 /** On-screen buttons of the quick review: the same [ReviewAction]s the keys reach. */
 object ReviewTouch {
-    val browse: List<Pair<ReviewAction, String>> = listOf(
+    val browse: List<Pair<ReviewAction, String>> get() = listOf(
         ReviewAction.Older to "◀",
         ReviewAction.Newer to "▶",
-        ReviewAction.Delete to "Delete",
-        ReviewAction.Share to "Share",
-        ReviewAction.ShowInFiles to "Files",
-        ReviewAction.Open to "Open",
-        ReviewAction.Close to "Close"
+        ReviewAction.Delete to t("delete"),
+        ReviewAction.Share to t("share"),
+        ReviewAction.ShowInFiles to t("files_2"),
+        ReviewAction.Open to t("open"),
+        ReviewAction.Close to t("close")
     )
 
-    val confirm: List<Pair<ReviewAction, String>> = listOf(
-        ReviewAction.Confirm to "Delete",
-        ReviewAction.Cancel to "Keep"
+    val confirm: List<Pair<ReviewAction, String>> get() = listOf(
+        ReviewAction.Confirm to t("delete"),
+        ReviewAction.Cancel to t("keep")
     )
 }
 
@@ -177,10 +179,10 @@ object TouchFallback {
     /** Back is the system back gesture/button; every other action has an on-screen control. */
     val systemProvided: Set<CameraAction> = setOf(CameraAction.Back)
 
-    private val labels = mapOf(
-        CameraAction.Shutter to "Shutter",
-        CameraAction.VideoToggle to "Video",
-        CameraAction.PauseToggle to "Pause",
+    private val labels get() = mapOf(
+        CameraAction.Shutter to t("shutter"),
+        CameraAction.VideoToggle to t("video_2"),
+        CameraAction.PauseToggle to t("pause"),
         CameraAction.Autofocus to "AF",
         CameraAction.AfLockToggle to "AF-L",
         CameraAction.AeLockToggle to "AE-L",
@@ -191,17 +193,17 @@ object TouchFallback {
         CameraAction.SelectShutter to "S",
         CameraAction.StepUp to "▲",
         CameraAction.StepDown to "▼",
-        CameraAction.ProAuto to "Auto",
+        CameraAction.ProAuto to t("auto"),
         CameraAction.ZoomIn to "+",
         CameraAction.ZoomOut to "-",
         CameraAction.PrevMode to "◀",
         CameraAction.NextMode to "▶",
-        CameraAction.SwitchCamera to "Flip",
-        CameraAction.NextCaptureMode to "Size",
+        CameraAction.SwitchCamera to t("flip"),
+        CameraAction.NextCaptureMode to t("size"),
         CameraAction.RawToggle to "RAW",
-        CameraAction.QualityNext to "Quality",
-        CameraAction.CompareToggle to "Compare",
-        CameraAction.OpenLast to "Last",
+        CameraAction.QualityNext to t("quality"),
+        CameraAction.CompareToggle to t("compare_2"),
+        CameraAction.OpenLast to t("last"),
         CameraAction.ToggleLegend to "?"
     )
 
@@ -248,12 +250,12 @@ object HintDock {
     )
 
     private val shortLabels = mapOf(
-        CameraAction.ZoomIn to "Zoom",
+        CameraAction.ZoomIn to t("zoom"),
         CameraAction.RawToggle to "RAW/HiRes",
-        CameraAction.ToggleLegend to "Keys",
-        CameraAction.ExposureUp to "Exposure",
-        CameraAction.Autofocus to "Focus",
-        CameraAction.QualityNext to "Quality"
+        CameraAction.ToggleLegend to t("keys"),
+        CameraAction.ExposureUp to t("exposure_3"),
+        CameraAction.Autofocus to t("focus"),
+        CameraAction.QualityNext to t("quality")
     )
 
     /** Bindings of the dock for [ui], before gating (tests check each resolves to its action). */

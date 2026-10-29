@@ -24,12 +24,12 @@ import org.sableos.design.SableDenseRow
 import org.sableos.design.SableRowAction
 import org.sableos.design.SableSpacing
 import org.sableos.design.SableValuePanel
+import org.sableos.media.MediaText.t
 
 /** Whether the FM destination is offered in the top navigation (the FM bridge is installed). */
 internal val LocalFmAvailable = staticCompositionLocalOf { false }
 
-private const val FM_KEY_HINT =
-    "Space on/off · J/K seek · Shift+J/K ±0.1 · Alt+1-9 presets · F star · O output · M mute · R scan"
+private val FM_KEY_HINT: String get() = t("space_on_off_j_k")
 private const val FM_ACTION_TUNE = "tune"
 private const val FM_ACTION_STAR = "star"
 private val FmBadgeSize = 48.dp
@@ -55,9 +55,9 @@ internal fun FmScreen(
     Column(verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg)) {
         if (!fm.available) {
             SableValuePanel(
-                label = "fm radio",
-                value = "Not available",
-                supportingText = "This device has no FM tuner service Sable Media can use.",
+                label = t("fm_radio"),
+                value = t("not_available"),
+                supportingText = t("this_device_has_no_fm"),
             )
         } else {
             FmTunerPanel(fm)
@@ -83,15 +83,14 @@ private fun FmTunerPanel(fm: FmUiState) {
                 .orEmpty()
         }
     SableValuePanel(
-        label = if (tuned) "${FmBand.format(fm.station)} MHz" else "fm radio",
+        label = if (tuned) "${FmBand.format(fm.station)} MHz" else t("fm_radio"),
         value = FmBand.status(fm),
         supportingText = listOf(name, fm.radioText).filter { it.isNotBlank() }.joinToString(" · ").ifBlank { null },
     )
     if (fm.connected && !fm.antenna) {
         Text(
             text =
-                "FM uses wired headphones as its antenna. Plug them in to listen; " +
-                    "Speaker then plays through the speaker with the headphones still in.",
+                t("fm_uses_wired_headphones_as"),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.error,
         )
@@ -114,19 +113,27 @@ private fun FmControls(
     val rows =
         listOf(
             listOf(
-                FmButton("◀ Seek") { actions.onSeek(false) },
-                FmButton(if (fm.powered) "Turn off" else "Turn on", primary = true, onClick = actions.onPower),
-                FmButton("Seek ▶") { actions.onSeek(true) },
+                FmButton(t("seek")) { actions.onSeek(false) },
+                FmButton(if (fm.powered) t("turn_off") else t("turn_on"), primary = true, onClick = actions.onPower),
+                FmButton(t("seek_2")) { actions.onSeek(true) },
             ),
             listOf(
                 FmButton("−0.1") { actions.onStep(false) },
-                FmButton(if (fm.speaker) "Headphones" else "Speaker", onClick = actions.onToggleSpeaker),
+                FmButton(if (fm.speaker) t("headphones") else t("speaker"), onClick = actions.onToggleSpeaker),
                 FmButton("+0.1") { actions.onStep(true) },
             ),
             listOf(
-                FmButton(if (fm.muted) "Unmute" else "Mute", onClick = actions.onToggleMute),
-                FmButton(if (fm.scanning) "Stop scan" else "Scan", onClick = actions.onScan),
-                FmButton(if (fm.station in favorites) "Unstar" else "Star") { actions.onToggleFavorite(fm.station) },
+                FmButton(if (fm.muted) t("unmute") else t("mute"), onClick = actions.onToggleMute),
+                FmButton(if (fm.scanning) t("stop_scan") else t("scan"), onClick = actions.onScan),
+                FmButton(
+                    if (fm.station in
+                        favorites
+                    ) {
+                        t("unstar")
+                    } else {
+                        t("star")
+                    },
+                ) { actions.onToggleFavorite(fm.station) },
             ),
         )
     rows.forEach { buttons ->
@@ -163,7 +170,7 @@ private fun FmStationList(
     val list = FmPresets.list(favorites, fm.stations)
     if (list.isEmpty()) {
         Text(
-            text = "No stations yet. Press R to scan, or star a station with F.",
+            text = t("no_stations_yet_press_r"),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -214,8 +221,8 @@ private fun FmStationRow(
             modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Xs),
             actions =
                 listOf(
-                    SableRowAction(FM_ACTION_TUNE, "Tune", primary = true),
-                    SableRowAction(FM_ACTION_STAR, if (starred) "Remove star ★" else "Star ☆"),
+                    SableRowAction(FM_ACTION_TUNE, t("tune"), primary = true),
+                    SableRowAction(FM_ACTION_STAR, if (starred) t("remove_star") else t("star_2")),
                 ),
             onAction = { action ->
                 when (action.id) {

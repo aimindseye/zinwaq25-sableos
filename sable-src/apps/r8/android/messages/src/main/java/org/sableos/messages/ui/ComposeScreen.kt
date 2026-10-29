@@ -36,6 +36,7 @@ import org.sableos.design.SableSize
 import org.sableos.design.SableSpacing
 import org.sableos.design.sableFocusRing
 import org.sableos.messages.core.Addresses
+import org.sableos.messages.core.MessagesText.t
 import org.sableos.messages.data.ContactNumber
 
 /** New message: type a number or a name (contacts are suggested), then the text; Enter sends. */
@@ -77,7 +78,7 @@ internal fun ColumnScope.ComposeScreen(
                 }
                 true
             },
-        label = { Text("To: name or number") },
+        label = { Text(t("to_name_or_number")) },
         singleLine = true,
     )
     LazyColumn(
@@ -111,7 +112,7 @@ private fun MessageField(
                     if (event.type == KeyEventType.KeyDown && body.isNotBlank()) send()
                     true
                 },
-            placeholder = { Text("Text message · Enter sends") },
+            placeholder = { Text(t("text_message_enter_sends")) },
             maxLines = 4,
         )
         Button(
@@ -119,7 +120,7 @@ private fun MessageField(
             enabled = body.isNotBlank() && recipientReady,
             modifier = Modifier.padding(start = SableSpacing.Sm),
             shape = MaterialTheme.shapes.medium,
-        ) { Text("Send") }
+        ) { Text(t("send")) }
     }
 }
 
@@ -127,12 +128,12 @@ private fun MessageField(
 private fun ComposeHeader(actions: MessagesActions) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(
-            text = "New message",
+            text = t("new_message"),
             modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground,
         )
-        SableActionButton(text = "Back", primary = false, onClick = actions.back)
+        SableActionButton(text = t("back"), primary = false, onClick = actions.back)
     }
 }
 

@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.sableos.design.SableSpacing
+import org.sableos.games.GamesText.t
 import kotlin.math.abs
 
 private val Tile2 = Color(0xFF26384B)
@@ -78,14 +79,14 @@ internal fun Game2048Screen() {
 
     GameFrame(
         title = "2048",
-        subtitle = "Slide, merge and build the highest tile.",
+        subtitle = t("slide_merge_and_build_the"),
         statusLabel = "score",
         status = score.toString(),
-        hint = "Swipe the board or use the arrows (trackpad) to move every tile; N starts over.",
-        actions = listOf(GameAction(label = "New", key = "N", onClick = ::reset)),
+        hint = t("swipe_the_board_or_use"),
+        actions = listOf(GameAction(label = t("new_label"), key = "N", onClick = ::reset)),
         tallExtras = {
             Text(
-                text = "Swipe left, right, up or down. Equal tiles merge into the next value.",
+                text = t("swipe_left_right_up_or"),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

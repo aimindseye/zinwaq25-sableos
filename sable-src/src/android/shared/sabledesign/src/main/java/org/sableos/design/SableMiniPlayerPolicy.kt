@@ -1,5 +1,7 @@
 package org.sableos.design
 
+import org.sableos.design.DesignText.t
+
 /**
  * Media mini-player content rules (DESIGN-KF-D part 2).
  *
@@ -68,7 +70,7 @@ object SableMiniPlayerPolicy {
                 SablePlaybackState.Buffering -> "buffering"
                 SablePlaybackState.Stopped -> "stopped"
                 SablePlaybackState.Ended -> "finished"
-                SablePlaybackState.Error -> "playback error"
+                SablePlaybackState.Error -> t("sable_playback_error")
                 SablePlaybackState.Idle -> "idle"
             }
         val toggle =
@@ -76,7 +78,7 @@ object SableMiniPlayerPolicy {
                 SablePlaybackState.Playing, SablePlaybackState.Buffering -> SableMiniPlayerToggle.Pause
                 else -> SableMiniPlayerToggle.Play
             }
-        val toggleLabel = if (toggle == SableMiniPlayerToggle.Pause) "Pause" else "Play"
+        val toggleLabel = if (toggle == SableMiniPlayerToggle.Pause) t("sable_pause") else t("sable_play")
         val progress =
             if (!input.live && input.durationMs > 0L && input.state != SablePlaybackState.Stopped) {
                 (input.positionMs.toFloat() / input.durationMs.toFloat()).coerceIn(0f, 1f)

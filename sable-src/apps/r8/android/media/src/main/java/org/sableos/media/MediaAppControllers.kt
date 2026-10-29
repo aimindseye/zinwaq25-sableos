@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.sableos.media.MediaText.t
 
 /** The event handlers behind [MediaApp], grouped by area so each stays small. */
 internal class MediaControllers(
@@ -63,7 +64,7 @@ internal class MediaLibraryController(
                 state.localItems = loadedItems
                 state.playlists = loadedPlaylists
             }.onFailure {
-                state.message = "Local collection could not be loaded."
+                state.message = t("local_collection_could_not_be")
             }
         state.localLibraryLoading = false
     }
@@ -123,11 +124,11 @@ internal class MediaLibraryController(
     fun toggleFocusedFavorite() {
         val item = state.focusedTrack
         if (item == null) {
-            toast("Move focus to a track to change its favorite.")
+            toast(t("move_focus_to_a_track"))
             return
         }
         toggleFavorite(item)
-        toast(if (item.uri in state.favoriteAudioUris) "Added to favorites." else "Removed from favorites.")
+        toast(if (item.uri in state.favoriteAudioUris) t("added_to_favorites") else t("removed_from_favorites"))
     }
 
     fun importAudio(uris: List<Uri>) {
@@ -139,7 +140,7 @@ internal class MediaLibraryController(
 
         val currentItems = state.localItems
         val currentPlaylists = state.playlists
-        state.message = "Importing ${uris.size} audio file${pluralSuffix(uris.size)}…"
+        state.message = if (uris.size == 1) t("importing_1_audio_file") else t("importing_audio_files", uris.size)
 
         scope.launch {
             runCatching {
@@ -148,9 +149,10 @@ internal class MediaLibraryController(
                 }
             }.onSuccess { (updatedItems, updatedPlaylists) ->
                 applyImport(updatedItems, updatedPlaylists)
-                state.message = "${uris.size} local audio file${pluralSuffix(uris.size)} added."
+                state.message =
+                    if (uris.size == 1) t("n1_local_audio_file_added") else t("local_audio_files_added", uris.size)
             }.onFailure {
-                state.message = "Audio import failed. Existing collection was not changed."
+                state.message = t("audio_import_failed_existing_collection")
             }
         }
     }
@@ -164,7 +166,7 @@ internal class MediaLibraryController(
 
         val currentItems = state.localItems
         val currentPlaylists = state.playlists
-        state.message = "Scanning audio folder…"
+        state.message = t("scanning_audio_folder")
 
         scope.launch {
             runCatching {
@@ -174,15 +176,21 @@ internal class MediaLibraryController(
                 }
             }.onSuccess { imported ->
                 if (imported == null) {
-                    state.message = "No audio files found in that folder."
+                    state.message = t("no_audio_files_found_in")
                 } else {
                     val (collection, importedCount) = imported
                     applyImport(collection.first, collection.second)
                     state.message =
-                        "$importedCount audio file${pluralSuffix(importedCount)} imported from folder."
+                        if (importedCount ==
+                            1
+                        ) {
+                            t("n1_audio_file_imported_from")
+                        } else {
+                            t("audio_files_imported_from_folder", importedCount)
+                        }
                 }
             }.onFailure {
-                state.message = "Folder import failed. Existing collection was not changed."
+                state.message = t("folder_import_failed_existing_collection")
             }
         }
     }
@@ -224,8 +232,8 @@ internal class MediaLibraryController(
     }
 
     private companion object {
-        const val REMOVED_MESSAGE = "Removed from the Sable Media collection."
-        const val LIBRARY_LOADING_MESSAGE = "Local collection is still loading."
+        val REMOVED_MESSAGE: String get() = t("removed_from_the_sable_media")
+        val LIBRARY_LOADING_MESSAGE: String get() = t("local_collection_is_still_loading")
     }
 }
 
@@ -255,7 +263,7 @@ internal class MediaPlaylistController(
                 current = state.playlists,
                 playlistId = playlist.id,
             )
-        state.message = "Playlist removed."
+        state.message = t("playlist_removed")
     }
 
     fun play(playlist: MediaPlaylist) {
@@ -268,7 +276,7 @@ internal class MediaPlaylistController(
                 }
 
             if (queue.isEmpty()) {
-                state.message = "This playlist has no available tracks."
+                state.message = t("this_playlist_has_no_available")
             } else {
                 host.playLocalQueue(queue, 0)
                 state.destination = MediaDestination.NowPlaying
@@ -295,7 +303,7 @@ internal class MediaPlaylistController(
                 name = state.playlistName,
                 itemUris = state.selectedPlaylistUris,
             )
-        closeEditor(message = "Playlist saved locally.")
+        closeEditor(message = t("playlist_saved_locally"))
     }
 
     fun cancel() {
@@ -325,7 +333,7 @@ internal class MediaPodcastController(
         val candidate = state.podcastFeedUrl.trim()
         when {
             state.podcastBusy -> Unit
-            !PodcastRepository.isSupportedFeedUrl(candidate) -> state.podcastMessage = "Podcast feed must use HTTPS."
+            !PodcastRepository.isSupportedFeedUrl(candidate) -> state.podcastMessage = t("podcast_feed_must_use_https")
             else -> subscribe(candidate)
         }
     }
@@ -338,7 +346,7 @@ internal class MediaPodcastController(
         val currentSubscriptions = state.podcastSubscriptions
         state.podcastBusy = true
         state.podcastRefreshing = true
-        state.podcastMessage = "Refreshing subscribed feeds…"
+        state.podcastMessage = t("refreshing_subscribed_feeds")
 
         scope.launch {
             runCatching {
@@ -349,7 +357,7 @@ internal class MediaPodcastController(
                 state.podcastSubscriptions = refresh.subscriptions
                 state.podcastMessage = refreshMessage(refresh.failedFeeds)
             }.onFailure { error ->
-                state.podcastMessage = error.messageOr("Podcast refresh failed; cached episodes were kept.")
+                state.podcastMessage = error.messageOr(t("podcast_refresh_failed_cached_episodes"))
             }
             state.podcastRefreshing = false
             state.podcastBusy = false
@@ -362,7 +370,7 @@ internal class MediaPodcastController(
                 current = state.podcastSubscriptions,
                 podcastId = subscription.id,
             )
-        state.podcastMessage = "Podcast removed from this device."
+        state.podcastMessage = t("podcast_removed_from_this_device")
     }
 
     fun play(episode: PodcastEpisode) {
@@ -382,7 +390,7 @@ internal class MediaPodcastController(
                 title = episode.title,
                 source = episode.podcastTitle,
             )
-        state.podcastMessage = if (queued) "Added to Up Next." else "Player is still connecting. Try again."
+        state.podcastMessage = if (queued) t("added_to_up_next") else t("player_is_still_connecting_try")
     }
 
     fun toggleSaved(episode: PodcastEpisode) {
@@ -396,7 +404,7 @@ internal class MediaPodcastController(
     private fun subscribe(candidate: String) {
         val currentSubscriptions = state.podcastSubscriptions
         state.podcastBusy = true
-        state.podcastMessage = "Contacting podcast feed…"
+        state.podcastMessage = t("contacting_podcast_feed")
 
         scope.launch {
             runCatching {
@@ -409,9 +417,9 @@ internal class MediaPodcastController(
             }.onSuccess { updated ->
                 state.podcastSubscriptions = updated
                 state.podcastFeedUrl = ""
-                state.podcastMessage = "Podcast subscribed. Pull down to refresh feeds."
+                state.podcastMessage = t("podcast_subscribed_pull_down_to")
             }.onFailure { error ->
-                state.podcastMessage = error.messageOr("Podcast feed could not be added.")
+                state.podcastMessage = error.messageOr(t("podcast_feed_could_not_be"))
             }
             state.podcastBusy = false
         }
@@ -419,9 +427,9 @@ internal class MediaPodcastController(
 
     private fun refreshMessage(failedFeeds: Int): String =
         if (failedFeeds == 0) {
-            "Podcasts refreshed."
+            t("podcasts_refreshed")
         } else {
-            "Podcasts refreshed with $failedFeeds feed failure(s); cached episodes were kept."
+            t("podcasts_refreshed_with_feed_failure", failedFeeds)
         }
 }
 
@@ -431,7 +439,7 @@ internal class MediaStationController(
     private val host: MediaHostServices,
 ) {
     fun play(station: RadioStation) {
-        host.playUri(Uri.parse(station.url), station.name, "live radio")
+        host.playUri(Uri.parse(station.url), station.name, t("live_radio"))
         state.destination = MediaDestination.NowPlaying
     }
 
@@ -472,7 +480,7 @@ internal class MediaStationController(
             state.clearStationForm()
         }
 
-        state.message = "Station removed."
+        state.message = t("station_removed")
     }
 
     fun saveNew() {
@@ -490,7 +498,7 @@ internal class MediaStationController(
                 url = candidate,
             )
         state.clearStationForm()
-        state.message = "Station saved locally."
+        state.message = t("station_saved_locally")
         state.destination = MediaDestination.Radio
     }
 
@@ -500,7 +508,7 @@ internal class MediaStationController(
 
         when {
             editing == null -> {
-                state.message = "Choose a station to edit."
+                state.message = t("choose_a_station_to_edit")
             }
 
             !RadioStationRepository.isSupportedUrl(candidate) -> {
@@ -516,7 +524,7 @@ internal class MediaStationController(
                         url = candidate,
                     )
                 state.clearStationForm()
-                state.message = "Station updated."
+                state.message = t("station_updated")
             }
         }
     }
@@ -530,7 +538,7 @@ internal class MediaStationController(
     }
 
     private companion object {
-        const val UNSUPPORTED_URL_MESSAGE = "Station URL must use HTTP or HTTPS."
+        val UNSUPPORTED_URL_MESSAGE: String get() = t("station_url_must_use_http")
     }
 }
 
@@ -684,7 +692,5 @@ internal class MediaKeyController(
         }
     }
 }
-
-private fun pluralSuffix(count: Int): String = if (count == 1) "" else "s"
 
 private fun Throwable.messageOr(fallback: String): String = message?.takeIf { it.isNotBlank() } ?: fallback

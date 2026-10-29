@@ -1,5 +1,7 @@
 package org.sableos.titan2.displaycompat.core
 
+import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
+
 /**
  * What can honestly be said about a profile after a save. There is deliberately no "enforced" state: this app has no
  * way to read the platform back, so the strongest claim is that the platform accepted the request. Effect on the
@@ -24,30 +26,30 @@ enum class EnforcementState {
 /** Whether the enforcement backend will send requests to the platform at all. Closed is the fail-closed default. */
 enum class BackendAvailability(val banner: String) {
     CLOSED(
-        "Enforcement backend: CLOSED. Profiles are validated and stored only; nothing is enforced."
+        t("enforcement_backend_closed_profiles_are")
     ),
     OPEN_UNVERIFIED(
-        "Enforcement backend: OPEN (gate set). Requests go to the platform; their effect is not verified here."
+        t("enforcement_backend_open_gate_set")
     )
 }
 
 /** User-facing wording. Nothing here may say a profile is "applied" or "enforced" without the qualifiers below. */
 object EnforcementText {
     fun describe(state: EnforcementState, result: ApplyResult?): String = when (state) {
-        EnforcementState.NOT_APPLICABLE_NATIVE -> "Native profile: nothing to enforce."
+        EnforcementState.NOT_APPLICABLE_NATIVE -> t("native_profile_nothing_to_enforce")
 
         EnforcementState.NOT_ENFORCED_BACKEND_CLOSED ->
-            "Stored only. NOT enforced: the platform backend is closed until it is validated on a device."
+            t("stored_only_not_enforced_the")
 
         EnforcementState.NOT_ENFORCED_UNSUPPORTED ->
-            "Stored only. NOT enforced: " +
+            t("stored_only_not_enforced") +
                 ((result as? ApplyResult.Unsupported)?.reason ?: "unsupported") +
                 "."
 
         EnforcementState.PLATFORM_CALL_ACCEPTED_UNVERIFIED ->
-            "Stored. The platform accepted the request (" +
-                ((result as? ApplyResult.Applied)?.detail ?: "no detail") +
-                "); its effect on the app is not verified."
+            t("stored_the_platform_accepted_the") +
+                ((result as? ApplyResult.Applied)?.detail ?: t("no_detail")) +
+                t("its_effect_on_the_app")
     }
 }
 
@@ -64,21 +66,20 @@ enum class SaveStatus { BLOCKED, NEEDS_ACK, STORAGE_FAILED, STORED }
 /** Result of removing a profile. A platform override that could not be cleared is reported, never hidden. */
 data class ResetOutcome(val storeCleared: Boolean, val platform: ApplyResult) {
     fun message(): String = when {
-        !storeCleared -> "Reset failed: the stored profile could not be removed."
+        !storeCleared -> t("reset_failed_the_stored_profile")
 
         platform is ApplyResult.Unsupported ->
-            "Reset to Native. The stored profile was removed, but the platform override " +
-                "could not be cleared: " + platform.reason + "."
+            t("reset_to_native_the_stored") + platform.reason + "."
 
-        else -> "Reset to Native. The app was not launched."
+        else -> t("reset_to_native_the_app")
     }
 }
 
 data class ResetAllOutcome(val count: Int, val platformFailures: List<String>) {
     fun message(): String = if (platformFailures.isEmpty()) {
-        "Reset $count profile(s) to Native."
+        t("reset_profile_s_to_native", count)
     } else {
-        "Reset $count profile(s) to Native. The platform override could not be cleared for " +
+        t("reset_profile_s_to_native_2", count) +
             platformFailures.size + " app(s): " + platformFailures.joinToString(", ") + "."
     }
 }
@@ -91,7 +92,7 @@ enum class StoredState { NONE, STORED, STORED_BLOCKED_NOT_EFFECTIVE }
  */
 data class LoadedProfile(val profile: DisplayProfile, val state: StoredState, val reason: String?) {
     fun message(): String? = if (state == StoredState.STORED_BLOCKED_NOT_EFFECTIVE) {
-        "A stored profile is no longer allowed for this app and is ignored: $reason. Save or reset to clear it."
+        t("a_stored_profile_is_no", reason)
     } else {
         null
     }

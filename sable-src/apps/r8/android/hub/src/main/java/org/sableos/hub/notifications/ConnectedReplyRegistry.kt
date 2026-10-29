@@ -7,6 +7,7 @@ import android.content.Intent
 import android.os.Bundle
 import org.sableos.hub.ConnectedAppKey
 import org.sableos.hub.HubSendResult
+import org.sableos.hub.HubText.t
 import org.sableos.hub.platform.PrivacyReader
 import org.sableos.hub.platform.ProfileDirectory
 import org.sableos.hub.policy.PrivacyContext
@@ -58,21 +59,21 @@ internal object ConnectedReplyRegistry {
             text.isEmpty() -> {
                 HubSendResult(
                     success = false,
-                    message = "Reply is empty.",
+                    message = t("reply_is_empty"),
                 )
             }
 
             handle == null -> {
                 HubSendResult(
                     success = false,
-                    message = "Quick reply is no longer available. Open the source app instead.",
+                    message = t("quick_reply_is_no_longer"),
                 )
             }
 
             requiresUnlock(context, handle) -> {
                 HubSendResult(
                     success = false,
-                    message = "Unlock the device and profile to reply.",
+                    message = t("unlock_the_device_and_profile"),
                 )
             }
 
@@ -130,7 +131,7 @@ internal object ConnectedReplyRegistry {
             )
             HubSendResult(
                 success = true,
-                message = "Reply handed to the source app.",
+                message = t("reply_handed_to_the_source"),
             )
         }.getOrElse { error ->
             remove(notificationKey)
@@ -138,7 +139,7 @@ internal object ConnectedReplyRegistry {
                 success = false,
                 message =
                     error.message
-                        ?: "The source app no longer accepts quick reply.",
+                        ?: t("the_source_app_no_longer"),
             )
         }
 }

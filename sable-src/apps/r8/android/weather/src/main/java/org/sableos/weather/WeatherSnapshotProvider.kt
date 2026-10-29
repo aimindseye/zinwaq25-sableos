@@ -7,6 +7,7 @@ import android.database.MatrixCursor
 import android.net.Uri
 import android.os.Binder
 import android.os.Bundle
+import org.sableos.weather.WeatherText.t
 
 class WeatherSnapshotProvider : ContentProvider() {
     override fun onCreate(): Boolean = true
@@ -135,12 +136,12 @@ class WeatherSnapshotProvider : ContentProvider() {
     private fun conditionLabel(condition: WeatherCondition): String =
         when (condition) {
             WeatherCondition.Clear -> "clear"
-            WeatherCondition.PartlyCloudy -> "partly cloudy"
+            WeatherCondition.PartlyCloudy -> t("partly_cloudy")
             WeatherCondition.Cloudy -> "cloudy"
             WeatherCondition.Fog -> "fog"
             WeatherCondition.Rain -> "rain"
             WeatherCondition.Snow -> "snow"
             WeatherCondition.Storm -> "storms"
-            WeatherCondition.Unknown -> "conditions unavailable"
+            WeatherCondition.Unknown -> t("conditions_unavailable")
         }
 }

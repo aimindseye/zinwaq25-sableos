@@ -3,6 +3,7 @@ package org.sableos.hub.policy
 import org.sableos.hub.HubCall
 import org.sableos.hub.HubConversation
 import org.sableos.hub.HubConversationSource
+import org.sableos.hub.HubText.t
 
 /**
  * Hub-wide privacy state at snapshot time (SABLE_HUB_KEYBOARD_FIRST_UX "Privacy model"). Either
@@ -20,18 +21,18 @@ data class HubPrivacyState(
     val title: String
         get() =
             when {
-                deviceLocked -> "Locked"
-                privateMode -> "Private mode"
-                else -> "Previews on"
+                deviceLocked -> t("locked")
+                privateMode -> t("private_mode")
+                else -> t("previews_on")
             }
 
     /** Line under the title. */
     val detail: String
         get() =
             when {
-                deviceLocked -> "Counts only · unlock to view details"
-                privateMode -> "Counts only · senders and text hidden"
-                else -> "Showing what each source allows"
+                deviceLocked -> t("counts_only_unlock_to_view")
+                privateMode -> t("counts_only_senders_and_text")
+                else -> t("showing_what_each_source_allows")
             }
 
     /** Rows can be listed (redacted) only while unlocked; a locked device shows counts alone. */
@@ -64,17 +65,17 @@ object HubPrivateSummary {
         val other = unread.count { it.source == HubConversationSource.ConnectedApp && !HubMailSources.isMail(it) }
         val missed = calls.count { it.kind.needsAttention }
         return listOfNotNull(
-            line(HubInboxFilter.Messages, "Messages", messages, "unread"),
-            line(HubInboxFilter.Mail, "Mail", mail, "unread"),
-            line(HubInboxFilter.Notifications, "Notifications", other, "new"),
-            line(HubInboxFilter.Missed, "Missed calls", missed, "missed"),
+            line(HubInboxFilter.Messages, t("messages"), messages, "unread"),
+            line(HubInboxFilter.Mail, t("mail_2"), mail, "unread"),
+            line(HubInboxFilter.Notifications, t("notifications"), other, "new"),
+            line(HubInboxFilter.Missed, t("missed_calls"), missed, "missed"),
         )
     }
 
     /** "2 Messages · 1 Mail · 1 Missed calls" style one-line total, or "Nothing new". */
     fun oneLine(counts: List<HubPrivateCount>): String =
         if (counts.isEmpty()) {
-            "Nothing new"
+            t("nothing_new")
         } else {
             counts.joinToString(" · ") { it.count.toString() + " " + it.label }
         }
@@ -88,7 +89,7 @@ object HubPrivateSummary {
         if (count <= 0) {
             null
         } else {
-            HubPrivateCount(filter, label, count, "$count $word · hidden")
+            HubPrivateCount(filter, label, count, t("hidden", count, word))
         }
 }
 
@@ -97,7 +98,7 @@ object HubPrivateSummary {
  * header"): "SMS · Private OK", "Signal · Work · Private mode", "SMS · Locked".
  */
 object HubPrivacyBadge {
-    const val VISIBLE = "Private OK"
+    val VISIBLE: String get() = t("private_ok")
 
     fun text(
         conversation: HubConversation,
@@ -107,17 +108,17 @@ object HubPrivacyBadge {
             if (conversation.source == HubConversationSource.Sms) {
                 HubRedaction.SMS_LABEL
             } else {
-                conversation.sourceLabel ?: "Connected app"
+                conversation.sourceLabel ?: t("connected_app_2")
             }
         val state =
             when {
-                privacy.deviceLocked -> "Locked"
+                privacy.deviceLocked -> t("locked")
 
-                privacy.privateMode -> "Private mode"
+                privacy.privateMode -> t("private_mode")
 
                 conversation.source == HubConversationSource.ConnectedApp &&
                     conversation.lastBody.isBlank() &&
-                    conversation.lastDateMillis > 0L -> "Preview hidden"
+                    conversation.lastDateMillis > 0L -> t("preview_hidden")
 
                 else -> VISIBLE
             }

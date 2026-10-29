@@ -1,5 +1,7 @@
 package org.sableos.messages.core
 
+import org.sableos.messages.core.MessagesText.t
+
 /** Builds the conversation list and a conversation's timeline from provider rows. */
 object ThreadGrouping {
     private const val MAX_TITLE_NAMES = 3
@@ -40,7 +42,7 @@ object ThreadGrouping {
         val shown = labels.take(MAX_TITLE_NAMES).joinToString(", ") { it.substringBefore(' ') }
         val more = labels.size - MAX_TITLE_NAMES
         return when {
-            labels.isEmpty() -> "Unknown sender"
+            labels.isEmpty() -> t("unknown_sender")
             labels.size == 1 -> labels.single()
             more > 0 -> "$shown +$more"
             else -> shown

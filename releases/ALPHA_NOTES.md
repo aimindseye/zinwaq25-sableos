@@ -16,6 +16,16 @@ driven without touching the screen.
 - **Sable Hub, Messages, Mail, Calendar, Weather, Media, Calculator, Tools** and
   the other Sable apps, each with single-key shortcuts (T top, B bottom, Space
   page, N/P next and previous in lists).
+- **Sable Notes** for notes and checklists, in the spirit of BlackBerry Remember
+  and Color Notes: colour labels, checklists that continue on Enter, a Tasks
+  view of every open item, find, and share, export and import. Notes stay on
+  the phone, with no account and no sync.
+- **Clipboard history** in Sable Keyboard, off until you turn it on: hold
+  Alt+Shift and press V to paste one of your last 20 copies. It stays in
+  memory only, skips copies apps mark as sensitive and never opens on the lock
+  screen.
+- **Sable Terminal** (ConnectBot) for SSH, Telnet and a local shell. The Q25
+  has no Ctrl or Esc, so the Menu key is Ctrl and Menu then Back is Esc.
 - **Sable Reader** for books (EPUB), PDF, comics (CBZ or image folders, with
   manga and webtoon modes) and audiobooks (MP3, M4A/M4B, folders), each kind
   on its own tab. Audiobooks keep playing with the screen off; Space plays,
@@ -28,7 +38,9 @@ driven without touching the screen.
   the app or the Sound profile tile in Quick Settings.
 - **Lock screen** that takes the PIN from the keyboard; Alt+Space opens the
   emergency dialer.
-- **Sable Setup**, translatable (a Spanish translation is included), and
+- **Translatable Sable apps**: every Sable app keeps its English in one
+  strings file, so a language is one more file per app.
+- **Sable Setup**, with Spanish, French and German drafts, and
   Settings > System > Keyboard > Keyboard firmware for keyboard firmware updates
   (or dial `*#*#1122#*#*`).
 - **microG and Aurora Store** instead of Google Play.

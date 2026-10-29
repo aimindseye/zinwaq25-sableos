@@ -79,9 +79,14 @@ class SableResponsivePolicyTest {
         val m = measure(1.5f)
         val layout = SableNavigationPolicy.layout(labels, "songs", squareLargeFont, labelWidthDp = m)
         val slot = 360f / layout.slotCount
-        val shown = layout.visible.map { it.label } + if (layout.hasOverflow) listOf(SableNavigationPolicy.MORE_LABEL) else emptyList()
+        val shown =
+            layout.visible.map { it.label } +
+                if (layout.hasOverflow) listOf(SableNavigationPolicy.MORE_LABEL) else emptyList()
         shown.forEach { label ->
-            assertTrue("$label clipped", m(label) + SableNavigationPolicy.TAB_HORIZONTAL_PADDING_DP <= slot || layout.visible.size == 1)
+            assertTrue(
+                "$label clipped",
+                m(label) + SableNavigationPolicy.TAB_HORIZONTAL_PADDING_DP <= slot || layout.visible.size == 1,
+            )
         }
         assertEquals(5, layout.visible.size + layout.overflow.size)
     }
@@ -125,7 +130,11 @@ class SableResponsivePolicyTest {
     @Test
     fun denseRowOnWideWindowMayShowMoreButLargeFontLimitsToOne() {
         val actions =
-            listOf(SableRowAction("play", "Play", primary = true), SableRowAction("fav", "Favorite"), SableRowAction("q", "Queue"))
+            listOf(
+                SableRowAction("play", "Play", primary = true),
+                SableRowAction("fav", "Favorite"),
+                SableRowAction("q", "Queue"),
+            )
         assertEquals(3, SableDenseRowPolicy.split(actions, tablet).trailing.size)
         assertEquals(1, SableDenseRowPolicy.split(actions, tablet.copy(fontScale = 1.4f)).trailing.size)
     }

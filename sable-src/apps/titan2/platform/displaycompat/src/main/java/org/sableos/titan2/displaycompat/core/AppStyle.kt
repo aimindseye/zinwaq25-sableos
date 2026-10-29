@@ -1,5 +1,7 @@
 package org.sableos.titan2.displaycompat.core
 
+import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
+
 /*
  * "Sable app style" section of App display compatibility: the global corner style every Sable
  * app reads from the appearance authority (content://org.sableos.appearance/appearance, column
@@ -14,9 +16,16 @@ package org.sableos.titan2.displaycompat.core
  * SableAppearancePolicy.CORNER_STYLES in the Settings patch (tests/check-sable-design.py compares
  * them). Compact is the default, so Sable apps look the same until the user picks Rounded.
  */
-enum class AppCornerStyle(val stableValue: String, val label: String, val summary: String) {
-    Compact("compact", "Compact", "Tight 2-6dp corners, the original Sable app look."),
-    Rounded("rounded", "Rounded", "8dp controls, 12dp cards and sheets, like Quick Settings.");
+enum class AppCornerStyle(
+    val stableValue: String,
+    private val labelKey: String,
+    private val summaryKey: String
+) {
+    Compact("compact", "compact", "tight_2_6dp_corners_the"),
+    Rounded("rounded", "rounded", "n8dp_controls_12dp_cards_and");
+
+    val label: String get() = t(labelKey)
+    val summary: String get() = t(summaryKey)
 
     companion object {
         val DEFAULT = Compact
@@ -78,13 +87,12 @@ object AppStylePolicy {
 
     /** Status line after a change. Failure text contains "could not" (the screen tints it). */
     fun message(style: AppCornerStyle, saved: Boolean): String = if (saved) {
-        "Sable apps now use ${style.label} corners."
+        t("sable_apps_now_use_corners", style.label)
     } else {
-        "Sable app style could not be saved; Sable apps keep their current corners."
+        t("sable_app_style_could_not")
     }
 
-    const val UNAVAILABLE_TEXT =
-        "Sable app style needs the SableOS appearance service in Settings; not on this build."
+    val UNAVAILABLE_TEXT: String get() = t("sable_app_style_needs_the")
 }
 
 /** Applies a choice through the store and reports the resulting state and message. */

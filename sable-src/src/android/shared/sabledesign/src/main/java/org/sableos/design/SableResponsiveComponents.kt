@@ -50,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import org.sableos.design.DesignText.t
 
 /*
  * Compose building blocks for DESIGN-KF-D part 2. The decisions live in the
@@ -140,7 +141,7 @@ fun SableAdaptiveTopNav(
                         selected = overflowSelected,
                         accent = accent,
                         description =
-                            "More destinations: " + layout.overflow.joinToString(", ") { it.label },
+                            t("sable_more_destinations", layout.overflow.joinToString(", ") { it.label }),
                         onClick = { moreOpen = true },
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -278,7 +279,7 @@ fun SableMiniPlayer(
                 )
                 if (menuActions.isNotEmpty()) {
                     Box {
-                        SableSquareAction(text = "⋯", description = "More actions", onClick = { menuOpen = true })
+                        SableSquareAction(text = "⋯", description = t("sable_more_actions"), onClick = { menuOpen = true })
                         SableActionMenu(menuOpen, menuActions, { menuOpen = false }, onMenuAction)
                     }
                 }
@@ -370,7 +371,7 @@ fun SableDenseRow(
         }
         if (split.overflow.isNotEmpty()) {
             Box {
-                SableSquareAction(text = "⋯", description = "More actions for $title", onClick = { menuOpen = true })
+                SableSquareAction(text = "⋯", description = t("sable_more_actions_for", title), onClick = { menuOpen = true })
                 SableActionMenu(menuOpen, split.overflow, { menuOpen = false }, onAction)
             }
         }
@@ -483,7 +484,7 @@ fun SableAlphabetRail(
                     Modifier
                         .focusProperties { canFocus = false }
                         .clickable { onJump(section.firstIndex) }
-                        .semantics { contentDescription = "Jump to ${section.key}" }
+                        .semantics { contentDescription = t("sable_jump_to", section.key) }
                         .padding(horizontal = SableSpacing.Sm, vertical = 1.dp),
                 style = MaterialTheme.typography.labelMedium,
                 color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -535,7 +536,7 @@ fun SableReturnToCurrent(
             modifier
                 .heightIn(min = SableSize.TouchTarget)
                 .sableFocusRing()
-                .semantics { contentDescription = "Return to $label" },
+                .semantics { contentDescription = t("sable_return_to", label) },
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.primary,
         contentColor = MaterialTheme.colorScheme.onPrimary,

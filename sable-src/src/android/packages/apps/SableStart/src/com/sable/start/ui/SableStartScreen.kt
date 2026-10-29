@@ -15,23 +15,6 @@ import android.os.SystemClock
 import android.provider.CallLog
 import android.util.LruCache
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.text.style.TextAlign
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import kotlinx.coroutines.delay
-import org.sableos.start.model.ActiveFrame
-import org.sableos.start.model.ActiveFrames
-import org.sableos.start.model.AppGrid
-import org.sableos.start.model.AppProfiles
-import org.sableos.start.model.HomeHeader
-import org.sableos.start.model.CommandGroups
-import org.sableos.start.model.CommandBestMatch
-import org.sableos.start.privacy.PrivacyFilter
-import androidx.compose.foundation.Canvas as ComposeCanvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -39,15 +22,16 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -68,6 +52,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -94,16 +79,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
@@ -112,6 +97,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -120,12 +106,16 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.sable.start.model.StartText.t
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.sableos.design.AccentPreset
@@ -142,22 +132,29 @@ import org.sableos.design.sableFocusRing
 import org.sableos.start.live.LiveAvailability
 import org.sableos.start.live.LiveDatum
 import org.sableos.start.live.LiveSurfaceSnapshot
+import org.sableos.start.model.ActiveFrame
+import org.sableos.start.model.ActiveFrames
 import org.sableos.start.model.AppEntry
 import org.sableos.start.model.AppGlyphs
+import org.sableos.start.model.AppGrid
+import org.sableos.start.model.AppProfiles
+import org.sableos.start.model.CommandBestMatch
+import org.sableos.start.model.CommandGroups
 import org.sableos.start.model.CommandQuery
 import org.sableos.start.model.CommandRanking
 import org.sableos.start.model.CommandScope
 import org.sableos.start.model.CoreAppIdentity
 import org.sableos.start.model.GlanceWidgets
 import org.sableos.start.model.HomeApps
+import org.sableos.start.model.HomeHeader
 import org.sableos.start.model.HomeLayout
 import org.sableos.start.model.HubBar
 import org.sableos.start.model.HubFilter
 import org.sableos.start.model.HubPeople
 import org.sableos.start.model.HubPerson
 import org.sableos.start.model.QuickBar
-import org.sableos.start.model.StartPages
 import org.sableos.start.model.SpeedDialKeys
+import org.sableos.start.model.StartPages
 import org.sableos.start.model.StartTypeToSearch
 import org.sableos.start.model.inLauncherUser
 import org.sableos.start.model.stableKey
@@ -169,9 +166,13 @@ import org.sableos.start.privacy.AllAppsKeyPolicy
 import org.sableos.start.privacy.AppAction
 import org.sableos.start.privacy.AppActionContext
 import org.sableos.start.privacy.AppActionPolicy
+import org.sableos.start.privacy.PrivacyFilter
 import org.sableos.start.privacy.PrivacySummaryPolicy
+import java.time.LocalDate
 import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 import java.util.Locale
+import androidx.compose.foundation.Canvas as ComposeCanvas
 
 private enum class SableStartDestination {
     /** The Start pages: Hub, Active Frames, app grid ([StartPages]). */
@@ -1092,9 +1093,9 @@ private fun Bb10PageIndicator(
 
 private fun pageDescription(page: Int): String =
     when (page) {
-        StartPages.HUB -> "Hub page"
-        StartPages.HOME -> "Active Frames"
-        else -> "App grid page ${page - StartPages.FIRST_GRID + 1}"
+        StartPages.HUB -> t("hub_page")
+        StartPages.HOME -> t("active_frames")
+        else -> t("app_grid_page", page - StartPages.FIRST_GRID + 1)
     }
 
 /**
@@ -1208,7 +1209,7 @@ private fun StatusDialsRow(onOpenSettings: () -> Unit) {
                     .width(44.dp)
                     .sableFocusRing()
                     .clickable(onClick = onOpenSettings)
-                    .semantics { contentDescription = "Settings" }
+                    .semantics { contentDescription = t("settings") }
                     .padding(top = 8.dp),
             textAlign = TextAlign.Center,
         )
@@ -1386,7 +1387,7 @@ private fun FrameCard(
                     if (event.type == KeyEventType.KeyDown && native.repeatCount == 0) onClose()
                     true
                 }.combinedClickable(onClick = onResume, onLongClick = onClose)
-                .semantics { contentDescription = "$label, Active Frame. Enter resumes, X closes" },
+                .semantics { contentDescription = t("active_frame_enter_resumes_x", label) },
     ) {
         Box(modifier = Modifier.weight(1f).fillMaxWidth().background(Bb10Background)) {
             val bitmap = picture
@@ -1409,7 +1410,7 @@ private fun FrameCard(
                     Text(
                         text =
                             live?.takeIf { it.availability == LiveAvailability.LIVE }?.detail
-                                ?: if (frame.running) "running" else "Enter opens",
+                                ?: if (frame.running) "running" else t("enter_opens"),
                         style = MaterialTheme.typography.bodyMedium,
                         color = Bb10Muted,
                         maxLines = 2,
@@ -1445,7 +1446,7 @@ private fun FrameCard(
                     Modifier
                         .size(FRAME_LABEL_HEIGHT)
                         .clickable(onClick = onClose)
-                        .semantics { contentDescription = "Close $label" },
+                        .semantics { contentDescription = t("close_2", label) },
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -1486,7 +1487,7 @@ private fun GlanceFrames(
 
     if (widgets.isEmpty()) {
         Box(Modifier.fillMaxSize().focusRequester(firstFocus).focusable(), contentAlignment = Alignment.Center) {
-            EmptyState("No apps are open. Press Menu to choose Glance widgets for this page.")
+            EmptyState(t("no_apps_are_open_press"))
         }
         return
     }
@@ -1506,16 +1507,16 @@ private fun GlanceFrames(
                     when (widget) {
                         GlanceWidgets.WEATHER -> {
                             val (headline, detail) = weatherLines(snapshot.weather)
-                            GlanceFrameCard("Weather", headline, detail, SableSun, { open(WEATHER_PACKAGE) }, modifier)
+                            GlanceFrameCard(t("weather"), headline, detail, SableSun, { open(WEATHER_PACKAGE) }, modifier)
                         }
                         GlanceWidgets.BATTERY -> BatteryGlanceFrame(battery, onStartIntent, modifier)
                         GlanceWidgets.PHOTOS -> {
                             val datum = snapshot.photos
                             val needsPermission = datum.availability == LiveAvailability.PERMISSION_REQUIRED
                             GlanceFrameCard(
-                                title = "Photos",
-                                headline = if (needsPermission) "Photos" else datum.detail,
-                                detail = if (needsPermission) "Enter to allow local photo counts" else "",
+                                title = t("photos"),
+                                headline = if (needsPermission) t("photos") else datum.detail,
+                                detail = if (needsPermission) t("enter_to_allow_local_photo") else "",
                                 accent = SablePurple,
                                 onClick = { if (needsPermission) onRequestPermissions() else open(GALLERY_PACKAGE) },
                                 modifier = modifier,
@@ -1539,7 +1540,7 @@ private fun BatteryGlanceFrame(
 ) {
     val (level, charging) = battery
     GlanceFrameCard(
-        title = "Battery",
+        title = t("battery"),
         headline = level?.let { "$it%" } ?: "--",
         detail = if (level == null) "unavailable" else if (charging) "charging" else "",
         accent = SableGreen,
@@ -1642,10 +1643,10 @@ private fun GlanceFrameCard(
 /** "72° Partly cloudy" and "Seattle" from the Weather snapshot ([HomeHeader.weather]). */
 private fun weatherLines(datum: LiveDatum): Pair<String, String> {
     if (datum.availability != LiveAvailability.LIVE && datum.availability != LiveAvailability.EMPTY) {
-        return "Weather" to datum.detail.ifBlank { "unavailable" }
+        return t("weather") to datum.detail.ifBlank { "unavailable" }
     }
-    return HomeHeader.weather(datum.detail)?.let { (headline, place) -> headline to place.ifBlank { "Weather" } }
-        ?: ("Weather" to datum.detail)
+    return HomeHeader.weather(datum.detail)?.let { (headline, place) -> headline to place.ifBlank { t("weather") } }
+        ?: (t("weather") to datum.detail)
 }
 
 /**
@@ -1804,7 +1805,7 @@ private fun liveDetail(
 ): String =
     when (datum.availability) {
         LiveAvailability.LIVE, LiveAvailability.EMPTY -> datum.detail
-        else -> if (app == null) "not installed" else "open ${app.label}"
+        else -> if (app == null) t("not_installed") else t("open_2", app.label)
     }
 
 /** Battery level and charging from the sticky battery broadcast (no receiver kept). */
@@ -2060,7 +2061,7 @@ private fun HubUnreadBar(
         val overflow = if (expanded) 0 else layout.overflow
         if (items.isEmpty()) {
             Text(
-                text = "no new notifications",
+                text = t("no_new_notifications"),
                 style = MaterialTheme.typography.labelLarge,
                 color = Bb10Muted,
                 modifier = Modifier.height(HUB_BAR_ITEM_HEIGHT).padding(vertical = 6.dp),
@@ -2078,7 +2079,7 @@ private fun HubUnreadBar(
                         }
                         if (rowIndex == rows.lastIndex && overflow > 0) {
                             HubBarChip(
-                                description = "$overflow more apps with notifications",
+                                description = t("more_apps_with_notifications", overflow),
                                 onClick = { expanded = true },
                             ) {
                                 Text(
@@ -2105,9 +2106,9 @@ private fun HubBarItem(
     val count = HubBar.countLabel(item.count)
     val description =
         if (item.redacted) {
-            "$count new notifications, apps hidden"
+            t("new_notifications_apps_hidden", count)
         } else {
-            "${app?.label ?: item.packageName}, $count new"
+            t("new_label", app?.label ?: item.packageName, count)
         }
     HubBarChip(description = description, onClick = onOpen) {
         if (app != null) {
@@ -2236,7 +2237,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hubSummaryItems(
     if (showMessages) {
         item(key = "messages") {
             GlanceCard(
-                title = "Messages",
+                title = t("messages"),
                 detail = liveDetail(snapshot.messages, messagesApp),
                 accent = SableBlue,
                 onClick = actions.onOpenMessages,
@@ -2244,7 +2245,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hubSummaryItems(
         }
         item(key = "mail") {
             GlanceCard(
-                title = "Mail",
+                title = t("mail"),
                 detail = liveDetail(snapshot.mail, mailApp),
                 accent = Color(0xFFE5484D),
                 onClick = mailApp?.let { { actions.onLaunchApp(it) } },
@@ -2255,8 +2256,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hubSummaryItems(
         item(key = "calls") {
             // Start holds no call-log permission: the Phone app shows the missed calls.
             GlanceCard(
-                title = "Missed calls",
-                detail = "recent calls in Phone",
+                title = t("missed_calls"),
+                detail = t("recent_calls_in_phone"),
                 accent = SableGreen,
                 onClick = { actions.onStartIntent(Intent(Intent.ACTION_VIEW, CallLog.Calls.CONTENT_URI)) },
             )
@@ -2266,8 +2267,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hubSummaryItems(
         item(key = "notifications") {
             // Android owns the notifications; its history lists what was dismissed too.
             GlanceCard(
-                title = "Notifications",
-                detail = summary ?: "Sable Hub not installed",
+                title = t("notifications"),
+                detail = summary ?: t("sable_hub_not_installed"),
                 accent = SableSun,
                 onClick = { actions.onStartIntent(Intent(ACTION_NOTIFICATION_HISTORY)) },
             )
@@ -2276,7 +2277,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hubSummaryItems(
     if (summary != null) {
         item(key = "settings") {
             Spacer(Modifier.height(4.dp))
-            MetroLink(text = "Hub settings", onClick = actions.onOpenHubSettings)
+            MetroLink(text = t("hub_settings"), onClick = actions.onOpenHubSettings)
         }
     }
 }
@@ -2301,18 +2302,18 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hubContactsItems(
         item(key = "contacts-empty") {
             if (!canRead) {
                 GlanceCard(
-                    title = "Allow contacts",
-                    detail = "Start shows names here; nothing leaves the phone",
+                    title = t("allow_contacts"),
+                    detail = t("start_shows_names_here_nothing"),
                     accent = SablePurple,
                     onClick = actions.onRequestContactsPermission,
                 )
             } else {
-                EmptyState(if (loaded) "No contacts yet." else "Loading contacts…")
+                EmptyState(if (loaded) t("no_contacts_yet") else t("loading_contacts"))
             }
         }
         if (openContacts != null) {
             item(key = "contacts-open") {
-                MetroLink(text = "open Contacts", onClick = openContacts)
+                MetroLink(text = t("open_contacts"), onClick = openContacts)
             }
         }
         return
@@ -2361,15 +2362,15 @@ private fun HubPersonRow(
                     .clip(shape)
                     .background(if (focused) Bb10Blue else Color.Transparent)
                     .clickable(onClick = onOpen)
-                    .semantics { contentDescription = person.name + if (person.starred) ", favourite" else "" }
+                    .semantics { contentDescription = person.name + if (person.starred) t("favourite") else "" }
                     .padding(horizontal = 8.dp, vertical = 10.dp),
             style = MaterialTheme.typography.titleMedium,
             color = if (focused) Bb10OnBlue else Bb10Text,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        if (onCall != null) HubPersonAction(label = "call", description = "Call ${person.name}", onClick = onCall)
-        if (onMessage != null) HubPersonAction(label = "text", description = "Message ${person.name}", onClick = onMessage)
+        if (onCall != null) HubPersonAction(label = "call", description = t("call", person.name), onClick = onCall)
+        if (onMessage != null) HubPersonAction(label = "text", description = t("message", person.name), onClick = onMessage)
     }
 }
 
@@ -2437,15 +2438,15 @@ private fun SlotOptionsScreen(
             when (slot.token) {
                 QuickBar.HUB -> {
                     HubFilter.entries.forEach { filter ->
-                        ContextAction(mark = "◇", label = "Hub page · ${filter.label}", onClick = { onHubFilter(filter) })
+                        ContextAction(mark = "◇", label = t("hub_page_2", filter.label), onClick = { onHubFilter(filter) })
                     }
-                    ContextAction(mark = "⚙", label = "Hub settings", onClick = onOpenHubSettings)
+                    ContextAction(mark = "⚙", label = t("hub_settings"), onClick = onOpenHubSettings)
                 }
                 QuickBar.PHONE -> {
-                    ContextAction(mark = "☎", label = "dial pad", onClick = { onStartIntent(Intent(Intent.ACTION_DIAL)) })
+                    ContextAction(mark = "☎", label = t("dial_pad"), onClick = { onStartIntent(Intent(Intent.ACTION_DIAL)) })
                     ContextAction(
                         mark = "↺",
-                        label = "recent calls",
+                        label = t("recent_calls"),
                         onClick = { onStartIntent(Intent(Intent.ACTION_VIEW, CallLog.Calls.CONTENT_URI)) },
                     )
                     findLiveApp(apps, CONTACTS_PACKAGE)?.let { contacts ->
@@ -2455,9 +2456,9 @@ private fun SlotOptionsScreen(
                 else -> Unit
             }
             slot.app?.let { app ->
-                ContextAction(mark = "ⓘ", label = "app info", onClick = { onAppInfo(app) })
+                ContextAction(mark = "ⓘ", label = t("app_info_2"), onClick = { onAppInfo(app) })
             }
-            ContextAction(mark = "▭", label = "edit Home and quick bar", onClick = onEditHome)
+            ContextAction(mark = "▭", label = t("edit_home_and_quick_bar"), onClick = onEditHome)
         }
     }
 }
@@ -2648,9 +2649,9 @@ private fun SlotPickerScreen(
         contentPadding = PaddingValues(bottom = 28.dp),
     ) {
         item {
-            MetroHeader(title = "choose bar slot", onBack = onBack)
+            MetroHeader(title = t("choose_bar_slot"), onBack = onBack)
             Text(
-                text = "Add ${app.label} to the bar",
+                text = t("add_to_the_bar", app.label),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -2692,7 +2693,7 @@ private fun SlotPickerScreen(
         item {
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "Every app stays on the app grid pages (Alt+Right).",
+                text = t("every_app_stays_on_the"),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -2857,13 +2858,13 @@ private fun EditHomeScreen(
             val choices = quickBarChoices(apps, appByKey, draft.quickBar)
             item {
                 MetroHeader(
-                    title = if (pickKind == "bar") "add a slot" else "replace slot",
+                    title = if (pickKind == "bar") t("add_a_slot") else t("replace_slot"),
                     onBack = { picking = null },
                 )
                 Spacer(Modifier.height(12.dp))
             }
             if (choices.isEmpty()) {
-                item { EmptyState("Every available app is already there.") }
+                item { EmptyState(t("every_available_app_is_already")) }
             }
             items(choices, key = { it.token }) { choice ->
                 Row(
@@ -2901,7 +2902,7 @@ private fun EditHomeScreen(
                     Text(text = "‹", fontSize = 32.sp, fontWeight = FontWeight.Light)
                 }
                 Text(
-                    text = "Edit Home",
+                    text = t("edit_home"),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.weight(1f).semantics { heading() },
@@ -2909,20 +2910,20 @@ private fun EditHomeScreen(
                 TextButton(
                     onClick = { onDone(draft) },
                     modifier = Modifier.focusRequester(doneFocus).sableFocusRing(),
-                ) { Text("Done", style = MaterialTheme.typography.titleMedium) }
+                ) { Text(t("done"), style = MaterialTheme.typography.titleMedium) }
             }
             Text(
-                text = "Drag or use keyboard order",
+                text = t("drag_or_use_keyboard_order"),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                text = "Enter picks up and drops · arrows move · Alt+arrows move at once · Menu for options · Back cancels",
+                text = t("enter_picks_up_and_drops"),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(10.dp))
-            SectionLabel("App grid")
+            SectionLabel(t("app_grid"))
             Spacer(Modifier.height(4.dp))
         }
         items(draft.gridOrder.chunked(AppGrid.COLUMNS), key = { row -> "grid:" + row.first() }) { row ->
@@ -2945,20 +2946,20 @@ private fun EditHomeScreen(
                 val index = draft.gridOrder.indexOf(open)
                 EditOptions(
                     buildList {
-                        if (index > 0) add("move left" to { move(EditSection.Grid, open, -1) })
-                        if (index < draft.gridOrder.lastIndex) add("move right" to { move(EditSection.Grid, open, 1) })
-                        if (index >= AppGrid.COLUMNS) add("move up a row" to { move(EditSection.Grid, open, -AppGrid.COLUMNS) })
+                        if (index > 0) add(t("move_left") to { move(EditSection.Grid, open, -1) })
+                        if (index < draft.gridOrder.lastIndex) add(t("move_right") to { move(EditSection.Grid, open, 1) })
+                        if (index >= AppGrid.COLUMNS) add(t("move_up_a_row") to { move(EditSection.Grid, open, -AppGrid.COLUMNS) })
                         if (index + AppGrid.COLUMNS <= draft.gridOrder.lastIndex) {
-                            add("move down a row" to { move(EditSection.Grid, open, AppGrid.COLUMNS) })
+                            add(t("move_down_a_row") to { move(EditSection.Grid, open, AppGrid.COLUMNS) })
                         }
-                        add("move to the start" to { move(EditSection.Grid, open, -index) })
+                        add(t("move_to_the_start") to { move(EditSection.Grid, open, -index) })
                     },
                 )
             }
         }
         item(key = "bar") {
             Spacer(Modifier.height(10.dp))
-            SectionLabel("Bottom bar")
+            SectionLabel(t("bottom_bar"))
             Spacer(Modifier.height(6.dp))
             EditQuickBarRow(
                 tokens = draft.quickBar,
@@ -2977,8 +2978,8 @@ private fun EditHomeScreen(
                 val required = QuickBar.isRequired(barOptions)
                 EditOptions(
                     buildList {
-                        if (index > 0) add("move left" to { move(EditSection.QuickBar, barOptions, -1) })
-                        if (index < draft.quickBar.lastIndex) add("move right" to { move(EditSection.QuickBar, barOptions, 1) })
+                        if (index > 0) add(t("move_left") to { move(EditSection.QuickBar, barOptions, -1) })
+                        if (index < draft.quickBar.lastIndex) add(t("move_right") to { move(EditSection.QuickBar, barOptions, 1) })
                         if (!required) {
                             add(
                                 "replace" to {
@@ -2997,21 +2998,21 @@ private fun EditHomeScreen(
                 )
                 if (required) {
                     Text(
-                        text = "Search always stays on the bar; it can move.",
+                        text = t("search_always_stays_on_the"),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
             if (draft.quickBar.size < QuickBar.MAX_SLOTS) {
-                MetroLink(text = "+ add a slot", onClick = { picking = "bar" })
+                MetroLink(text = t("add_a_slot_2"), onClick = { picking = "bar" })
             }
             MetroLink(
-                text = "reset bar to Phone · Search · Camera",
+                text = t("reset_bar_to_phone_search"),
                 onClick = { draft = draft.copy(quickBar = QuickBar.DEFAULT) },
             )
             Spacer(Modifier.height(10.dp))
-            SectionLabel("Frames while no app is open")
+            SectionLabel(t("frames_while_no_app_is"))
             Spacer(Modifier.height(4.dp))
         }
         itemsIndexed(draft.glanceWidgets, key = { _, widget -> "glance:$widget" }) { index, widget ->
@@ -3026,8 +3027,8 @@ private fun EditHomeScreen(
             if (optionsFor == "Glance:$widget") {
                 EditOptions(
                     listOf(
-                        "move up" to { move(EditSection.Glance, widget, -1) },
-                        "move down" to { move(EditSection.Glance, widget, 1) },
+                        t("move_up") to { move(EditSection.Glance, widget, -1) },
+                        t("move_down") to { move(EditSection.Glance, widget, 1) },
                         "hide" to {
                             draft = draft.copy(glanceWidgets = GlanceWidgets.toggle(draft.glanceWidgets, widget))
                             optionsFor = null
@@ -3039,12 +3040,12 @@ private fun EditHomeScreen(
         item(key = "glance-add") {
             GlanceWidgets.ALL.filterNot { it in draft.glanceWidgets }.forEach { widget ->
                 MetroLink(
-                    text = "+ show ${GlanceWidgets.label(widget)}",
+                    text = t("show", GlanceWidgets.label(widget)),
                     onClick = { draft = draft.copy(glanceWidgets = GlanceWidgets.toggle(draft.glanceWidgets, widget)) },
                 )
             }
             Spacer(Modifier.height(10.dp))
-            SectionLabel("Active Frames header")
+            SectionLabel(t("active_frames_header"))
             Spacer(Modifier.height(4.dp))
             val accent = MaterialTheme.colorScheme.primary
             HomeLayout.SECTIONS.forEach { section ->
@@ -3058,7 +3059,7 @@ private fun EditHomeScreen(
             }
             Spacer(Modifier.height(10.dp))
             MetroLink(text = "appearance", onClick = onAppearance)
-            MetroLink(text = "reset Home to default", onClick = { draft = defaults })
+            MetroLink(text = t("reset_home_to_default"), onClick = { draft = defaults })
         }
     }
 }
@@ -3075,7 +3076,7 @@ private fun EditGridCell(
 ) {
     val step = with(LocalDensity.current) { EditRowStep.toPx() }
     val currentStep by rememberUpdatedState(onDragStep)
-    val label = app?.label ?: "App not installed"
+    val label = app?.label ?: t("app_not_installed")
     Column(
         modifier =
             modifier
@@ -3114,7 +3115,7 @@ private fun EditGridCell(
                             travelY += step
                         }
                     }
-                }.semantics { contentDescription = "$label. Enter picks up, arrows move" }
+                }.semantics { contentDescription = t("enter_picks_up_arrows_move", label) }
                 .padding(vertical = 6.dp, horizontal = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -3190,7 +3191,7 @@ private fun EditListRow(
                                 travel += step
                             }
                         }
-                    }.semantics { contentDescription = "Drag to reorder $label" }
+                    }.semantics { contentDescription = t("drag_to_reorder", label) }
                     .padding(horizontal = 8.dp, vertical = 10.dp),
         )
     }
@@ -3376,15 +3377,15 @@ private fun resolveQuickSlot(
         } ?: personal.firstOrNull { app -> labels.any { app.label.equals(it, ignoreCase = true) } }
     }
     return when (token) {
-        QuickBar.COMMAND -> QuickSlot(token, "Search", null)
-        QuickBar.ALL_APPS -> QuickSlot(token, "All apps", null)
+        QuickBar.COMMAND -> QuickSlot(token, t("search_2"), null)
+        QuickBar.ALL_APPS -> QuickSlot(token, t("all_apps"), null)
         QuickBar.PHONE ->
-            role(listOf(DIALER_PACKAGE), listOf("Phone"))?.let { QuickSlot(token, "Phone", it) }
+            role(listOf(DIALER_PACKAGE), listOf(t("phone")))?.let { QuickSlot(token, t("phone"), it) }
         // Start's own Hub page: always available, whatever messaging apps are installed.
-        QuickBar.HUB -> QuickSlot(token, "Hub", null)
+        QuickBar.HUB -> QuickSlot(token, t("hub"), null)
         QuickBar.CAMERA ->
-            role(CoreAppIdentity.startTileCandidates(CoreAppIdentity.CAMERA), listOf("Camera"))
-                ?.let { QuickSlot(token, "Camera", it) }
+            role(CoreAppIdentity.startTileCandidates(CoreAppIdentity.CAMERA), listOf(t("camera")))
+                ?.let { QuickSlot(token, t("camera"), it) }
         else ->
             QuickBar.appKey(token)?.let(appByKey::get)?.let { QuickSlot(token, it.label, it) }
     }
@@ -3392,10 +3393,10 @@ private fun resolveQuickSlot(
 
 private fun quickSlotFallbackLabel(token: String): String =
     when (token) {
-        QuickBar.PHONE -> "Phone (not installed)"
-        QuickBar.HUB -> "Hub (not installed)"
-        QuickBar.CAMERA -> "Camera (not installed)"
-        else -> "App not installed"
+        QuickBar.PHONE -> t("phone_not_installed")
+        QuickBar.HUB -> t("hub_not_installed")
+        QuickBar.CAMERA -> t("camera_not_installed")
+        else -> t("app_not_installed")
     }
 
 @Composable
@@ -3423,13 +3424,13 @@ private fun SearchLaunchButton(
         Spacer(Modifier.width(12.dp))
         Column {
             Text(
-                text = "search + command",
+                text = t("search_command"),
                 fontSize = 20.sp,
                 lineHeight = 22.sp,
                 fontWeight = FontWeight.Medium,
             )
             Text(
-                text = "apps · settings · Sable actions",
+                text = t("apps_settings_sable_actions"),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -3556,7 +3557,7 @@ private fun AppsScreen(
                     .padding(start = 20.dp, end = if (alphabet.isEmpty) 20.dp else SableAlphabetRailWidth + 4.dp),
         ) {
             MetroHeader(
-                title = "all apps",
+                title = t("all_apps_2"),
                 onBack = onBack,
             )
             Spacer(Modifier.height(8.dp))
@@ -3566,9 +3567,9 @@ private fun AppsScreen(
             Spacer(Modifier.height(8.dp))
 
             if (rows.isEmpty() && filter != PrivacyFilter.All) {
-                EmptyState("No apps match “${filter.label}”.")
+                EmptyState(t("no_apps_match", filter.label))
             } else if (rows.isEmpty() && privateSpaceLocked == null) {
-                EmptyState("No launchable apps are available.")
+                EmptyState(t("no_launchable_apps_are_available"))
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -3660,7 +3661,7 @@ private fun PrivacyFilterChips(
                         .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
                         .sableFocusRing()
                         .clickable { onSelect(chip) }
-                        .semantics { contentDescription = "Filter ${chip.label}" + if (on) ", applied" else "" }
+                        .semantics { contentDescription = t("filter", chip.label) + if (on) t("applied") else "" }
                         .padding(horizontal = 12.dp, vertical = 6.dp),
                 style = MaterialTheme.typography.labelLarge,
                 color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
@@ -3668,7 +3669,7 @@ private fun PrivacyFilterChips(
         }
     }
     Text(
-        text = "←→ filters · Enter applies",
+        text = t("filters_enter_applies"),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -3688,7 +3689,7 @@ private fun PrivateSpaceSection(
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(top = 18.dp)) {
         Text(
-            text = "private space",
+            text = t("private_space"),
             style = MaterialTheme.typography.headlineLarge,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.semantics { heading() },
@@ -3710,16 +3711,16 @@ private fun PrivateSpaceSection(
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (locked) "Unlock private space" else "Lock private space",
+                    text = if (locked) t("unlock_private_space") else t("lock_private_space"),
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium,
                 )
                 Text(
                     text =
                         if (locked) {
-                            "Its apps stay hidden and stopped until you unlock"
+                            t("its_apps_stay_hidden_and")
                         } else {
-                            "${apps.size} apps · locking stops them and hides them again"
+                            t("apps_locking_stops_them_and", apps.size)
                         },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -3822,13 +3823,13 @@ private fun SearchScreen(
 
     val commands =
         listOf(
-            SearchCommand("All apps", "A to Z with privacy summaries", "A", "Start", onAllApps),
-            SearchCommand("Active Frames", "Open apps, Home", "▦", "Start", onFrames),
-            SearchCommand("App grid", "Every app, in your order", "▤", "Start", onGrid),
-            SearchCommand("Hub page", "Messages, mail, calls, contacts and notifications", "◇", "Start", { onHub(HubFilter.All) }),
-            SearchCommand("Edit Home", "Order the app grid, the bar and the empty frames", "▭", "Start", onEditHome),
-            SearchCommand("Appearance", "Theme and Sable accent", "◐", "Start", onAppearance),
-            SearchCommand("System Settings", "Open Android settings", "⚙", "Settings", onOpenSettings),
+            SearchCommand(t("all_apps"), t("a_to_z_with_privacy"), "A", t("start"), onAllApps),
+            SearchCommand(t("active_frames"), t("open_apps_home"), "▦", t("start"), onFrames),
+            SearchCommand(t("app_grid"), t("every_app_in_your_order"), "▤", t("start"), onGrid),
+            SearchCommand(t("hub_page"), t("messages_mail_calls_contacts_and"), "◇", t("start"), { onHub(HubFilter.All) }),
+            SearchCommand(t("edit_home"), t("order_the_app_grid_the"), "▭", t("start"), onEditHome),
+            SearchCommand(t("appearance"), t("theme_and_sable_accent"), "◐", t("start"), onAppearance),
+            SearchCommand(t("system_settings"), t("open_android_settings"), "⚙", t("settings"), onOpenSettings),
         )
     val filteredCommands =
         if (!parsed.includes(CommandScope.Actions) || parsed.profileScope) {
@@ -3855,10 +3856,10 @@ private fun SearchScreen(
         buildList {
             add("open" to { onLaunchApp(app) })
             secondInstanceOf(app)?.let { other ->
-                add((if (other.profileLabel == AppProfiles.DUAL) "open Dual copy" else "open personal app") to { onLaunchApp(other) })
+                add((if (other.profileLabel == AppProfiles.DUAL) t("open_dual_copy") else t("open_personal_app")) to { onLaunchApp(other) })
             }
-            add("app info" to { onOpenAppInfo(app) })
-            add("more actions" to { onOpenPeek(app) })
+            add(t("app_info_2") to { onOpenAppInfo(app) })
+            add(t("more_actions") to { onOpenPeek(app) })
         }
 
     @Composable
@@ -3952,7 +3953,7 @@ private fun SearchScreen(
             }
             if (bestApp != null || bestOther != null) {
                 item(key = "best") {
-                    SectionLabel("best match")
+                    SectionLabel(t("best_match"))
                     Box(
                         Modifier
                             .clip(RoundedCornerShape(8.dp))
@@ -3968,12 +3969,12 @@ private fun SearchScreen(
             }
             val apps1 = filteredApps.filterNot { it == bestApp }
             if (apps1.isNotEmpty()) {
-                item { SectionLabel(if (profileApps != null) CommandGroups.label(parsed.scope).lowercase(locale) + " apps" else if (term.isEmpty()) "recent + apps" else "apps") }
+                item { SectionLabel(if (profileApps != null) CommandGroups.label(parsed.scope).lowercase(locale) + " apps" else if (term.isEmpty()) t("recent_apps") else "apps") }
                 items(apps1, key = { "a:" + it.stableKey() }) { app -> AppResult(app) }
                 item { Spacer(Modifier.height(12.dp)) }
             }
             if (privacyMatches.isNotEmpty()) {
-                item { SectionLabel("permission matches") }
+                item { SectionLabel(t("permission_matches")) }
                 items(privacyMatches, key = { "p:" + it.stableKey() }) { app -> AppResult(app) }
                 item { Spacer(Modifier.height(12.dp)) }
             }
@@ -3981,7 +3982,7 @@ private fun SearchScreen(
                 "people" to peopleResults,
                 "settings" to settingsResults,
                 "hub" to hubResults,
-                (if (term.isEmpty()) "quick actions" else "actions") to filteredCommands,
+                (if (term.isEmpty()) t("quick_actions") else "actions") to filteredCommands,
             ).forEach { (label, rows) ->
                 val shown = rows.filterNot { it == bestOther }
                 if (shown.isNotEmpty()) {
@@ -3995,13 +3996,13 @@ private fun SearchScreen(
             ) {
                 item {
                     EmptyState(
-                        "No local results match “$term”. Prefixes: ?app @person /settings /hub !action /private /dual /work",
+                        t("no_local_results_match_prefixes", term),
                     )
                 }
             }
             item {
                 Text(
-                    text = "↑↓ results · ←→ groups · Enter opens · Shift+Enter Dual · Menu actions · Back closes",
+                    text = t("results_groups_enter_opens_shift"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -4060,18 +4061,18 @@ private fun PrivateLockedCard(
     ) {
         if (full) Text("🔒", fontSize = 28.sp)
         Text(
-            text = if (full) "Content hidden" else "Private space locked",
+            text = if (full) t("content_hidden") else t("private_space_locked"),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Medium,
         )
         Text(
-            text = "Unlock to show and search private space apps. Locked mode shows nothing from it.",
+            text = t("unlock_to_show_and_search"),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            text = "Unlock",
+            text = t("unlock"),
             modifier =
                 Modifier
                     .clip(RoundedCornerShape(6.dp))
@@ -4096,11 +4097,11 @@ private fun settingsResults(
         val open = { onStartIntent(Intent(dest.action)) }
         SearchCommand(
             title = dest.title,
-            subtitle = "Open ${dest.title} settings",
+            subtitle = t("open_settings", dest.title),
             mark = "⚙",
-            source = "Settings",
+            source = t("settings"),
             onClick = open,
-            actions = listOf("open ${dest.title}" to open, "open Settings home" to onOpenSettings),
+            actions = listOf(t("open_2", dest.title) to open, t("open_settings_home") to onOpenSettings),
         )
     }
 }
@@ -4120,16 +4121,16 @@ private fun peopleResults(
         CommandQuery.dialable(term)?.let { number ->
             val call = { onStartIntent(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number"))) }
             SearchCommand(
-                title = "Call $number",
-                subtitle = "Opens the dialer with the number",
+                title = t("call", number),
+                subtitle = t("opens_the_dialer_with_the"),
                 mark = "☎",
-                source = "Phone",
+                source = t("phone"),
                 onClick = call,
                 actions =
                     listOf(
                         "call" to call,
-                        "send a message" to { onStartIntent(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$number"))) },
-                        "add to contacts" to {
+                        t("send_a_message") to { onStartIntent(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$number"))) },
+                        t("add_to_contacts") to {
                             onStartIntent(
                                 Intent(Intent.ACTION_INSERT)
                                     .setType("vnd.android.cursor.dir/contact")
@@ -4148,12 +4149,12 @@ private fun peopleResults(
     }
     val contacts =
         SearchCommand(
-            title = "Find “$term” in Contacts",
-            subtitle = "Search people by name, number or email",
+            title = t("find_in_contacts", term),
+            subtitle = t("search_people_by_name_number"),
             mark = "@",
-            source = "Contacts",
+            source = t("contacts"),
             onClick = find,
-            actions = listOf("find in Contacts" to find, "Hub page · Contacts" to { onHub(HubFilter.Contacts) }),
+            actions = listOf(t("find_in_contacts_2") to find, t("hub_page_contacts") to { onHub(HubFilter.Contacts) }),
         ).takeIf { parsed.scope == CommandScope.People || term.length >= 2 }
     return listOfNotNull(dial, contacts)
 }
@@ -4174,12 +4175,12 @@ private fun hubResults(
     val target = tab ?: HubFilter.All
     return listOf(
         SearchCommand(
-            title = if (target == HubFilter.All) "Open Hub" else "Hub · ${target.label}",
-            subtitle = "Messages, calls, contacts and notifications",
+            title = if (target == HubFilter.All) t("open_hub") else t("hub_2", target.label),
+            subtitle = t("messages_calls_contacts_and_notifications"),
             mark = "◉",
-            source = "Hub",
+            source = t("hub"),
             onClick = { onHub(target) },
-            actions = HubFilter.entries.map { filter -> "Hub · ${filter.label}" to { onHub(filter) } },
+            actions = HubFilter.entries.map { filter -> t("hub_2", filter.label) to { onHub(filter) } },
         ),
     )
 }
@@ -4261,7 +4262,7 @@ private fun SableSearchField(
                 decorationBox = { innerTextField ->
                     if (value.text.isEmpty()) {
                         Text(
-                            text = "search apps + Sable actions",
+                            text = t("search_apps_sable_actions"),
                             style = MaterialTheme.typography.titleLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -4390,7 +4391,7 @@ private fun AppRow(
                 modifier =
                     Modifier
                         .heightIn(min = 48.dp)
-                        .semantics { contentDescription = "Actions for ${app.label}" },
+                        .semantics { contentDescription = t("actions_for", app.label) },
             ) {
                 Text(
                     text = "›",
@@ -4417,7 +4418,7 @@ private fun ProfileBadge(profile: String) {
             Modifier
                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(4.dp))
                 .padding(horizontal = 6.dp, vertical = 1.dp)
-                .semantics { contentDescription = "${AppProfiles.badge(profile)} profile" },
+                .semantics { contentDescription = t("profile", AppProfiles.badge(profile)) },
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         maxLines = 1,
@@ -4454,7 +4455,7 @@ private fun PrivacySummaryLine(app: AppEntry) {
                         Modifier
                             .width(PrivacyBadgeWidth)
                             .semantics {
-                                contentDescription = "Special access: " + row.badgeLabels.joinToString(", ")
+                                contentDescription = t("special_access") + row.badgeLabels.joinToString(", ")
                             },
                     style = style,
                     color = MaterialTheme.colorScheme.error,
@@ -4497,7 +4498,7 @@ private fun PrivacyDetail(
         }
         lines.forEach { line ->
             Text(
-                text = if (line.special) "special access · ${line.label}" else line.label,
+                text = if (line.special) t("special_access_2", line.label) else line.label,
                 style = MaterialTheme.typography.bodySmall,
                 color =
                     if (line.special) {
@@ -4766,7 +4767,7 @@ private fun SablePeekScreen(
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "privacy & security",
+                            text = t("privacy_security"),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -4852,7 +4853,7 @@ private fun SablePeekScreen(
             }
 
             Text(
-                text = "Shortcuts and notification content stay hidden until Android capability and privacy gates are wired.",
+                text = t("shortcuts_and_notification_content_stay"),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 10.dp),
@@ -4890,7 +4891,7 @@ private fun AppearanceScreen(
             AppearanceChoiceRow(
                 title =
                     when (mode) {
-                        AppearanceMode.FollowSystem -> "follow system"
+                        AppearanceMode.FollowSystem -> t("follow_system")
                         AppearanceMode.Light -> "light"
                         AppearanceMode.Dark -> "dark"
                     },
@@ -4926,7 +4927,7 @@ private fun AppearanceScreen(
         item {
             Spacer(Modifier.height(14.dp))
             Text(
-                text = "reset · follow system + Sable Blue",
+                text = t("reset_follow_system_sable_blue"),
                 modifier =
                     Modifier
                         .fillMaxWidth()

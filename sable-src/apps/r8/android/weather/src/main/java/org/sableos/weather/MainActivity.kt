@@ -46,6 +46,7 @@ import kotlinx.coroutines.withContext
 import org.sableos.design.SableGlobalTheme
 import org.sableos.design.SableRefreshableSurface
 import org.sableos.design.SableSpacing
+import org.sableos.weather.WeatherText.t
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -91,7 +92,7 @@ private fun WeatherApp() {
         state =
             state.copy(
                 availability = WeatherAvailability.Fetching,
-                message = "Refreshing forecast…",
+                message = t("refreshing_forecast"),
             )
 
         val requested = selectedLocation
@@ -184,9 +185,9 @@ private fun WeatherApp() {
                 WeatherNotice(
                     title =
                         when (state.availability) {
-                            WeatherAvailability.Fetching -> "loading forecast"
-                            WeatherAvailability.Failed -> "forecast unavailable"
-                            else -> "weather ready"
+                            WeatherAvailability.Fetching -> t("loading_forecast")
+                            WeatherAvailability.Failed -> t("forecast_unavailable")
+                            else -> t("weather_ready")
                         },
                     detail = state.message,
                 )
@@ -221,8 +222,7 @@ private fun WeatherApp() {
             Spacer(Modifier.height(SableSpacing.Xl))
             Text(
                 text =
-                    "Open-Meteo · HTTPS · cached locally · approximate location or a chosen city · " +
-                        "precise location is never used",
+                    t("open_meteo_https_cached_locally"),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -246,12 +246,12 @@ private fun CurrentLocationRow(
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "Use current location",
+                text = t("use_current_location"),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onBackground,
             )
             Text(
-                text = if (on) place ?: "Finding where you are…" else "Off: showing the chosen city",
+                text = if (on) place ?: t("finding_where_you_are") else t("off_showing_the_chosen_city"),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -282,7 +282,7 @@ private fun CurrentConditions(snapshot: WeatherSnapshot) {
             )
             Text(
                 text =
-                    "feels like " +
+                    t("feels_like") +
                         current.apparentTemperature.toInt().toString() +
                         "°",
                 style = MaterialTheme.typography.bodyMedium,
@@ -350,7 +350,7 @@ private fun Metric(
 
 @Composable
 private fun HourlySection(hourly: List<HourWeather>) {
-    SectionHeader("next hours")
+    SectionHeader(t("next_hours"))
 
     hourly.take(8).forEach { hour ->
         Row(
@@ -397,7 +397,7 @@ private fun HourlySection(hourly: List<HourWeather>) {
 
 @Composable
 private fun DailySection(daily: List<DayWeather>) {
-    SectionHeader("7 days")
+    SectionHeader(t("n7_days"))
 
     daily.take(7).forEach { day ->
         Row(
@@ -499,24 +499,24 @@ private fun Hairline() {
 private fun statusLine(state: WeatherUiState): String {
     val prefix = state.location.name
     return when (state.availability) {
-        WeatherAvailability.Live -> prefix + " · live"
-        WeatherAvailability.Stale -> prefix + " · cached"
-        WeatherAvailability.Fetching -> prefix + " · fetching"
-        WeatherAvailability.Failed -> prefix + " · unavailable"
-        WeatherAvailability.Local -> prefix + " · local"
+        WeatherAvailability.Live -> prefix + t("live")
+        WeatherAvailability.Stale -> prefix + t("cached")
+        WeatherAvailability.Fetching -> prefix + t("fetching")
+        WeatherAvailability.Failed -> prefix + t("unavailable")
+        WeatherAvailability.Local -> prefix + t("local")
     }
 }
 
 private fun conditionLabel(condition: WeatherCondition): String =
     when (condition) {
         WeatherCondition.Clear -> "clear"
-        WeatherCondition.PartlyCloudy -> "partly cloudy"
+        WeatherCondition.PartlyCloudy -> t("partly_cloudy")
         WeatherCondition.Cloudy -> "cloudy"
         WeatherCondition.Fog -> "fog"
         WeatherCondition.Rain -> "rain"
         WeatherCondition.Snow -> "snow"
         WeatherCondition.Storm -> "storms"
-        WeatherCondition.Unknown -> "conditions unavailable"
+        WeatherCondition.Unknown -> t("conditions_unavailable")
     }
 
 private fun windDirection(degrees: Int): String {

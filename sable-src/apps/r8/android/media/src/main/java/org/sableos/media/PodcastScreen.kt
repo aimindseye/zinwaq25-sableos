@@ -32,6 +32,7 @@ import org.sableos.design.SableDenseRow
 import org.sableos.design.SableDestination
 import org.sableos.design.SableRowAction
 import org.sableos.design.SableSpacing
+import org.sableos.media.MediaText.t
 import java.text.DateFormat
 import java.util.Date
 
@@ -129,9 +130,9 @@ internal fun PodcastScreen(
             PodcastPivot.Latest -> {
                 if (latest.isEmpty()) {
                     PodcastEmptyPanel(
-                        title = "No episodes yet",
+                        title = t("no_episodes_yet"),
                         detail =
-                            "Add an RSS or Atom feed. Sable Media contacts only feeds you explicitly subscribe to.",
+                            t("add_an_rss_or_atom"),
                     )
                 } else {
                     latest.forEach { episode ->
@@ -150,11 +151,9 @@ internal fun PodcastScreen(
             PodcastPivot.Shows -> {
                 if (subscriptions.isEmpty()) {
                     PodcastEmptyPanel(
-                        title = "No subscriptions",
+                        title = t("no_subscriptions"),
                         detail =
-                            "Paste a direct podcast feed URL below. " +
-                                "There is no account, recommendation profile, " +
-                                "or ambient directory lookup.",
+                            t("paste_a_direct_podcast_feed"),
                     )
                 } else {
                     subscriptions.forEach { subscription ->
@@ -169,9 +168,9 @@ internal fun PodcastScreen(
             PodcastPivot.Saved -> {
                 if (saved.isEmpty()) {
                     PodcastEmptyPanel(
-                        title = "Nothing saved",
+                        title = t("nothing_saved"),
                         detail =
-                            "Save an episode to keep it in a local listening list. Saved does not imply downloaded.",
+                            t("save_an_episode_to_keep"),
                     )
                 } else {
                     saved.forEach { episode ->
@@ -241,15 +240,15 @@ private fun PodcastStatusDeck(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
-                    text = "$subscriptionCount shows",
+                    text = t("shows", subscriptionCount),
                     style = MaterialTheme.typography.headlineSmall,
                 )
                 Text(
                     text =
                         if (episodeCount == 1) {
-                            "1 recent episode"
+                            t("n1_recent_episode")
                         } else {
-                            "$episodeCount recent episodes"
+                            t("recent_episodes", episodeCount)
                         },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -295,9 +294,9 @@ private fun PodcastEpisodeRow(
             modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Xs),
             actions =
                 listOf(
-                    SableRowAction(EPISODE_ACTION_PLAY, "Play", primary = true),
-                    SableRowAction(EPISODE_ACTION_QUEUE, "Add to up next"),
-                    SableRowAction(EPISODE_ACTION_SAVE, if (saved) "Remove from saved ★" else "Save ☆"),
+                    SableRowAction(EPISODE_ACTION_PLAY, t("play"), primary = true),
+                    SableRowAction(EPISODE_ACTION_QUEUE, t("add_to_up_next")),
+                    SableRowAction(EPISODE_ACTION_SAVE, if (saved) t("remove_from_saved") else t("save")),
                 ),
             onAction = { action ->
                 when (action.id) {
@@ -391,13 +390,13 @@ private fun PodcastSubscriptionCard(
 
             Text(
                 text =
-                    "${subscription.episodes.size} episodes · refreshed ${formatPodcastDate(subscription.refreshedAt)}",
+                    t("episodes_refreshed", subscription.episodes.size, formatPodcastDate(subscription.refreshedAt)),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             SableActionButton(
-                text = "Remove show",
+                text = t("remove_show"),
                 primary = false,
                 modifier = Modifier.fillMaxWidth(),
                 onClick = onRemove,
@@ -423,11 +422,11 @@ private fun PodcastFeedEntry(
             verticalArrangement = Arrangement.spacedBy(SableSpacing.Md),
         ) {
             Text(
-                text = "add a show",
+                text = t("add_a_show"),
                 style = MaterialTheme.typography.headlineSmall,
             )
             Text(
-                text = "Paste the publisher's RSS or Atom feed URL.",
+                text = t("paste_the_publisher_s_rss"),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -438,14 +437,14 @@ private fun PodcastFeedEntry(
                 enabled = enabled,
                 singleLine = true,
                 label = {
-                    Text("Feed URL")
+                    Text(t("feed_url"))
                 },
                 placeholder = {
                     Text("https://example.org/podcast/feed.xml")
                 },
             )
             SableActionButton(
-                text = if (enabled) "Subscribe" else "Working…",
+                text = if (enabled) t("subscribe") else t("working"),
                 modifier = Modifier.fillMaxWidth(),
                 onClick = {
                     if (enabled && value.isNotBlank()) {
@@ -463,15 +462,13 @@ private fun PodcastPrivacyNote() {
         verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
     ) {
         Text(
-            text = "network model",
+            text = t("network_model"),
             style = MaterialTheme.typography.labelLarge,
             color = MediaPink,
         )
         Text(
             text =
-                "Sable Media refreshes only feeds you add and streams only episodes you choose. " +
-                    "No podcast account, analytics SDK, recommendation profile, " +
-                    "or automatic directory query is built into this flow.",
+                t("sable_media_refreshes_only_feeds"),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -564,9 +561,9 @@ private fun podcastEpisodeMeta(episode: PodcastEpisode): String {
         val minutes = episode.durationMs / MILLIS_PER_MINUTE
         pieces +=
             when {
-                minutes < 1L -> "< 1 min"
-                minutes == 1L -> "1 min"
-                else -> "$minutes min"
+                minutes < 1L -> t("n1_min")
+                minutes == 1L -> t("n1_min_2")
+                else -> t("min", minutes)
             }
     }
 

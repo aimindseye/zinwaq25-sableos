@@ -47,6 +47,7 @@ import org.sableos.design.SableSize
 import org.sableos.design.SableSpacing
 import org.sableos.design.sableFocusRing
 import org.sableos.design.sableListKeys
+import org.sableos.messages.core.MessagesText.t
 import org.sableos.messages.core.ThreadSummary
 
 /**
@@ -66,9 +67,9 @@ internal fun ColumnScope.ThreadsScreen(
         Text(
             text =
                 if (state.filter.isBlank()) {
-                    "No conversations yet. Choose New to text someone."
+                    t("no_conversations_yet_choose_new")
                 } else {
-                    "No conversation matches."
+                    t("no_conversation_matches")
                 },
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -109,7 +110,7 @@ private fun ThreadsHeader(
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "Messages",
+                text = t("messages"),
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onBackground,
             )
@@ -119,15 +120,15 @@ private fun ThreadsHeader(
                     if (unread >
                         0
                     ) {
-                        "${threads.size} conversations · $unread unread"
+                        t("conversations_unread", threads.size, unread)
                     } else {
-                        "${threads.size} conversations"
+                        t("conversations", threads.size)
                     },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        SableActionButton(text = "New", onClick = actions.newMessage)
+        SableActionButton(text = t("new_label"), onClick = actions.newMessage)
     }
 }
 
@@ -137,19 +138,18 @@ private fun ThreadsBanners(
     actions: MessagesActions,
 ) {
     if (!access.hasTelephony) {
-        Banner("No mobile network on this device: texts can't be sent or received.", null) {}
+        Banner(t("no_mobile_network_on_this"), null) {}
     } else if (access.roleAvailable && !access.isDefault) {
         Banner(
-            "Another app is the default SMS app, so it receives texts and pictures. " +
-                "Make Sable Messages the default to get them here.",
-            "Make default",
+            t("another_app_is_the_default"),
+            t("make_default"),
             actions.requestDefaultRole,
         )
     }
     if (!access.canReadContacts) {
         Banner(
-            "Contact names are hidden until Sable Messages may read contacts.",
-            "Show names",
+            t("contact_names_are_hidden_until"),
+            t("show_names"),
             actions.requestPermissions,
         )
     }
@@ -193,7 +193,7 @@ private fun FilterField(
                     }
                 },
         singleLine = true,
-        placeholder = { Text("Type to filter · Enter opens") },
+        placeholder = { Text(t("type_to_filter_enter_opens")) },
     )
 }
 
@@ -237,7 +237,7 @@ private fun ThreadRow(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = if (thread.hasError) "Not sent · ${thread.snippet}" else thread.snippet,
+                text = if (thread.hasError) t("not_sent", thread.snippet) else thread.snippet,
                 style = MaterialTheme.typography.bodyMedium,
                 color = if (thread.hasError) colors.error else colors.onSurfaceVariant,
                 maxLines = 1,

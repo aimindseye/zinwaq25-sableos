@@ -38,6 +38,7 @@ import org.sableos.tools.core.Noise
 import org.sableos.tools.core.Perm
 import org.sableos.tools.core.SpeedTrip
 import org.sableos.tools.core.StepCounterSession
+import org.sableos.tools.core.ToolsText.t
 import org.sableos.tools.core.Vec3
 
 private fun readingColumn(ctx: android.content.Context, vararg views: View) =
@@ -71,19 +72,19 @@ class FlashlightController(private val host: ToolHost) : ToolController {
     override fun view(): View = readingColumn(
         ctx,
         state.apply { text = "OFF" },
-        Ui.row(ctx, "Turn on / off", null) { toggle() }.also { it.post { it.requestFocus() } },
+        Ui.row(ctx, t("turn_on_off"), null) { toggle() }.also { it.post { it.requestFocus() } },
         Ui.body(
             ctx,
-            "Turns off when you leave this screen. Quick Settings has a persistent flashlight."
+            t("turns_off_when_you_leave")
         )
     )
 
     private fun toggle() {
-        val i = id ?: return host.toast("No flash unit found")
+        val i = id ?: return host.toast(t("no_flash_unit_found"))
         try {
             cm?.setTorchMode(i, !on)
         } catch (_: android.hardware.camera2.CameraAccessException) {
-            host.toast("Flash busy (another app is using the camera)")
+            host.toast(t("flash_busy_another_app_is"))
         }
     }
 
@@ -103,8 +104,7 @@ class FlashlightController(private val host: ToolHost) : ToolController {
         false
     }
 
-    override fun info() =
-        "Uses the camera flash in torch mode. No camera permission is needed and no image is taken."
+    override fun info() = t("uses_the_camera_flash_in")
 }
 
 /** Camera preview with digital zoom. Up/Down zoom. Nothing is captured or saved; the system privacy dot shows. */
@@ -159,7 +159,7 @@ class MagnifierController(private val host: ToolHost) : ToolController {
         val manager = cm
         val id = if (granted && manager != null) backCameraOrNull() else null
         if (manager == null || id == null) {
-            label.text = if (granted) "No back camera" else "Camera permission not granted"
+            label.text = if (granted) t("no_back_camera") else t("camera_permission_not_granted")
             return
         }
         manager.getCameraCharacteristics(
@@ -171,7 +171,7 @@ class MagnifierController(private val host: ToolHost) : ToolController {
         try {
             manager.openCamera(id, executor, deviceCallback)
         } catch (e: android.hardware.camera2.CameraAccessException) {
-            label.text = "Camera unavailable (${e.reason})"
+            label.text = t("camera_unavailable", e.reason)
         }
     }
 
@@ -191,7 +191,7 @@ class MagnifierController(private val host: ToolHost) : ToolController {
 
         override fun onError(d: CameraDevice, error: Int) {
             d.close()
-            ctx.runOnUiThread { label.text = "Camera error $error" }
+            ctx.runOnUiThread { label.text = t("camera_error", error) }
         }
     }
 
@@ -213,7 +213,7 @@ class MagnifierController(private val host: ToolHost) : ToolController {
                     }
 
                     override fun onConfigureFailed(s: CameraCaptureSession) {
-                        ctx.runOnUiThread { label.text = "Preview not supported" }
+                        ctx.runOnUiThread { label.text = t("preview_not_supported") }
                     }
                 }
             )
@@ -238,7 +238,7 @@ class MagnifierController(private val host: ToolHost) : ToolController {
         if (ok) {
             ctx.runOnUiThread {
                 label.text =
-                    "%.1fx (Up/Down zoom)%s".format(zoom, if (flash) " · light on" else "")
+                    t("n1fx_up_down_zoom_s").format(zoom, if (flash) t("light_on") else "")
             }
         }
     }
@@ -260,13 +260,13 @@ class MagnifierController(private val host: ToolHost) : ToolController {
     }
 
     override fun actions() = listOf(
-        "Light on / off" to {
+        t("light_on_off") to {
             flash = !flash
             apply()
         }
     )
 
-    override fun info() = "Live camera preview only. Nothing is captured, recorded or saved."
+    override fun info() = t("live_camera_preview_only_nothing")
 
     private companion object {
         const val ZOOM_STEP = 0.5f
@@ -287,7 +287,7 @@ class NoiseController(private val host: ToolHost) : ToolController {
         ctx,
         reading,
         state,
-        Ui.body(ctx, "Approximate: phone microphones are not calibrated sound meters.")
+        Ui.body(ctx, t("approximate_phone_microphones_are_not"))
     )
 
     // Installed only after RECORD_AUDIO is granted; re-checked here.
@@ -327,7 +327,7 @@ class NoiseController(private val host: ToolHost) : ToolController {
             .coerceAtLeast(MIN_BUF)
         val rec = openRecorder(size)
         if (rec == null) {
-            state.text = "Microphone unavailable"
+            state.text = t("microphone_unavailable")
             return
         }
         running = true
@@ -348,10 +348,10 @@ class NoiseController(private val host: ToolHost) : ToolController {
 
     private fun show(db: Double) {
         maxDb = maxOf(maxDb, db)
-        hold.update("%.0f dB".format(db))
+        hold.update(t("n0f_db").format(db))
         reading.text = hold.shown
         state.text =
-            (if (hold.isHeld) "HELD · " else "") + "${Noise.label(db)} · max %.0f dB".format(maxDb)
+            (if (hold.isHeld) t("held") else "") + "${Noise.label(db)} · max %.0f dB".format(maxDb)
     }
 
     override fun stop() {
@@ -373,8 +373,7 @@ class NoiseController(private val host: ToolHost) : ToolController {
         else -> false
     }
 
-    override fun info() =
-        "Reads the microphone level only while open. Audio is never recorded, kept or sent."
+    override fun info() = t("reads_the_microphone_level_only")
     override fun copyText() = hold.shown
 
     private companion object {
@@ -400,7 +399,7 @@ class SpeedController(private val host: ToolHost) :
         reading.apply { text = "--" },
         state.apply {
             text =
-                "Waiting for GPS…"
+                t("waiting_for_gps")
         }
     )
 
@@ -408,7 +407,7 @@ class SpeedController(private val host: ToolHost) :
     override fun start() {
         if (ctx.checkSelfPermission(Perm.FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) return
         if (lm?.isProviderEnabled(LocationManager.GPS_PROVIDER) != true) {
-            state.text = "Location is off. Turn it on in Quick Settings."
+            state.text = t("location_is_off_turn_it")
             return
         }
         lm.requestLocationUpdates(
@@ -435,17 +434,17 @@ class SpeedController(private val host: ToolHost) :
             )
         )
         fun fmt(mps: Double) = if (mph) {
-            "%.1f mph".format(
+            t("n1f_mph").format(
                 SpeedTrip.mph(mps)
             )
         } else {
-            "%.1f km/h".format(SpeedTrip.kmh(mps))
+            t("n1f_km_h").format(SpeedTrip.kmh(mps))
         }
         hold.update(fmt(trip.currentMps))
         reading.text = hold.shown
         state.text =
-            (if (hold.isHeld) "HELD · " else "") + (if (ok) "" else "weak fix ignored · ") +
-            "distance %.2f km · max %s · avg %s · %d s".format(
+            (if (hold.isHeld) t("held") else "") + (if (ok) "" else t("weak_fix_ignored")) +
+            t("distance_2f_km_max_s").format(
                 trip.distanceM / M_PER_KM,
                 fmt(trip.maxSpeedMps),
                 fmt(trip.averageMps),
@@ -468,9 +467,8 @@ class SpeedController(private val host: ToolHost) :
         else -> false
     }
 
-    override fun actions() = listOf("Switch km/h / mph" to { mph = !mph })
-    override fun info() =
-        "GPS speed and trip distance while this screen is open. Nothing is stored or shared."
+    override fun actions() = listOf(t("switch_km_h_mph") to { mph = !mph })
+    override fun info() = t("gps_speed_and_trip_distance")
     override fun copyText() = hold.shown
 
     private companion object {
@@ -500,15 +498,15 @@ class PedometerController(private val host: ToolHost) :
         if (stepSensor != null &&
             ctx.checkSelfPermission(Perm.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED
         ) {
-            source = "step counter"
+            source = t("step_counter")
             m.registerListener(this, stepSensor, SensorManager.SENSOR_DELAY_NORMAL)
         } else {
-            source = "accelerometer estimate"
+            source = t("accelerometer_estimate")
             m.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
                 m.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
             }
         }
-        state.text = "source: $source · counts only while open"
+        state.text = t("source_counts_only_while_open", source)
     }
 
     override fun stop() {
@@ -541,6 +539,5 @@ class PedometerController(private val host: ToolHost) :
         false
     }
 
-    override fun info() =
-        "Counts steps while this screen is open. An estimate, not a health measurement."
+    override fun info() = t("counts_steps_while_this_screen")
 }

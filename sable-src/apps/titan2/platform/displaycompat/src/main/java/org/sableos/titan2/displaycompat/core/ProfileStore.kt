@@ -1,5 +1,7 @@
 package org.sableos.titan2.displaycompat.core
 
+import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
+
 /** Per-user per-package storage. Native profiles are never stored: absence means "do nothing". */
 interface ProfileStore {
     fun get(pkg: String): DisplayProfile
@@ -65,14 +67,14 @@ class ProfileController(private val store: ProfileStore, private val backend: Di
             validation.issues.firstOrNull { it.severity == Severity.Blocked }?.message.orEmpty()
 
         fun message(): String = when (status) {
-            SaveStatus.BLOCKED -> "Not saved: blocked. " + firstBlockedMessage()
+            SaveStatus.BLOCKED -> t("not_saved_blocked") + firstBlockedMessage()
 
-            SaveStatus.NEEDS_ACK -> "Not saved: acknowledge the warnings first."
+            SaveStatus.NEEDS_ACK -> t("not_saved_acknowledge_the_warnings")
 
             SaveStatus.STORAGE_FAILED ->
-                "Not saved: the profile could not be stored. Nothing was changed."
+                t("not_saved_the_profile_could")
 
-            SaveStatus.STORED -> "Saved. " + EnforcementText.describe(enforcement, result)
+            SaveStatus.STORED -> t("saved") + EnforcementText.describe(enforcement, result)
         }
     }
 
@@ -108,7 +110,7 @@ class ProfileController(private val store: ProfileStore, private val backend: Di
             ProfileValidator.validate(traits, p, advanced)
         } else {
             Validation(
-                listOf(Issue(Severity.Blocked, "PACKAGE_INVALID", "The package name is not valid."))
+                listOf(Issue(Severity.Blocked, "PACKAGE_INVALID", t("the_package_name_is_not")))
             )
         }
 
@@ -181,6 +183,6 @@ class ProfileController(private val store: ProfileStore, private val backend: Di
     }.getOrDefault(false)
 
     private fun guarded(call: () -> ApplyResult): ApplyResult = runCatching(call).getOrElse {
-        ApplyResult.Unsupported("backend error: " + (it.message ?: it.javaClass.simpleName))
+        ApplyResult.Unsupported(t("backend_error") + (it.message ?: it.javaClass.simpleName))
     }
 }

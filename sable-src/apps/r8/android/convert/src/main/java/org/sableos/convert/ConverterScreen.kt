@@ -13,6 +13,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import org.sableos.convert.ConvertText.t
 import org.sableos.design.SableActionButton
 import org.sableos.design.SableSectionHeader
 import org.sableos.design.SableSpacing
@@ -24,10 +25,10 @@ import java.math.RoundingMode
 private enum class UnitCategory(
     val label: String,
 ) {
-    Length("Length"),
-    Mass("Mass"),
-    Temperature("Temperature"),
-    Volume("Volume"),
+    Length(t("convert_length")),
+    Mass(t("convert_mass")),
+    Temperature(t("convert_temperature")),
+    Volume(t("convert_volume")),
 }
 
 private data class UnitChoice(
@@ -39,24 +40,24 @@ private data class UnitChoice(
 
 private val units =
     listOf(
-        UnitChoice(0, "Millimeters", "mm", UnitCategory.Length),
-        UnitChoice(1, "Centimeters", "cm", UnitCategory.Length),
-        UnitChoice(2, "Meters", "m", UnitCategory.Length),
-        UnitChoice(3, "Kilometers", "km", UnitCategory.Length),
-        UnitChoice(4, "Inches", "in", UnitCategory.Length),
-        UnitChoice(5, "Feet", "ft", UnitCategory.Length),
-        UnitChoice(6, "Miles", "mi", UnitCategory.Length),
-        UnitChoice(7, "Grams", "g", UnitCategory.Mass),
-        UnitChoice(8, "Kilograms", "kg", UnitCategory.Mass),
-        UnitChoice(9, "Ounces", "oz", UnitCategory.Mass),
-        UnitChoice(10, "Pounds", "lb", UnitCategory.Mass),
-        UnitChoice(11, "Celsius", "°C", UnitCategory.Temperature),
-        UnitChoice(12, "Fahrenheit", "°F", UnitCategory.Temperature),
-        UnitChoice(13, "Kelvin", "K", UnitCategory.Temperature),
-        UnitChoice(14, "Milliliters", "mL", UnitCategory.Volume),
-        UnitChoice(15, "Liters", "L", UnitCategory.Volume),
-        UnitChoice(16, "Cups", "cup", UnitCategory.Volume),
-        UnitChoice(17, "Gallons", "gal", UnitCategory.Volume),
+        UnitChoice(0, t("convert_millimeters"), "mm", UnitCategory.Length),
+        UnitChoice(1, t("convert_centimeters"), "cm", UnitCategory.Length),
+        UnitChoice(2, t("convert_meters"), "m", UnitCategory.Length),
+        UnitChoice(3, t("convert_kilometers"), "km", UnitCategory.Length),
+        UnitChoice(4, t("convert_inches"), "in", UnitCategory.Length),
+        UnitChoice(5, t("convert_feet"), "ft", UnitCategory.Length),
+        UnitChoice(6, t("convert_miles"), "mi", UnitCategory.Length),
+        UnitChoice(7, t("convert_grams"), "g", UnitCategory.Mass),
+        UnitChoice(8, t("convert_kilograms"), "kg", UnitCategory.Mass),
+        UnitChoice(9, t("convert_ounces"), "oz", UnitCategory.Mass),
+        UnitChoice(10, t("convert_pounds"), "lb", UnitCategory.Mass),
+        UnitChoice(11, t("convert_celsius"), "°C", UnitCategory.Temperature),
+        UnitChoice(12, t("convert_fahrenheit"), "°F", UnitCategory.Temperature),
+        UnitChoice(13, t("convert_kelvin"), "K", UnitCategory.Temperature),
+        UnitChoice(14, t("convert_milliliters"), "mL", UnitCategory.Volume),
+        UnitChoice(15, t("convert_liters"), "L", UnitCategory.Volume),
+        UnitChoice(16, t("convert_cups"), "cup", UnitCategory.Volume),
+        UnitChoice(17, t("convert_gallons"), "gal", UnitCategory.Volume),
     )
 
 @Composable
@@ -68,7 +69,7 @@ fun ConverterScreen(modifier: Modifier = Modifier) {
     var from by remember { mutableStateOf(units.first { it.code == 2 }) }
     var to by remember { mutableStateOf(units.first { it.code == 3 }) }
     var input by remember { mutableStateOf("1") }
-    var result by remember { mutableStateOf("Ready") }
+    var result by remember { mutableStateOf(t("convert_ready")) }
 
     Column(
         modifier = modifier,
@@ -91,7 +92,7 @@ fun ConverterScreen(modifier: Modifier = Modifier) {
                             val available = units.filter { it.category == choice }
                             from = available.first()
                             to = available.getOrElse(1) { available.first() }
-                            result = "Ready"
+                            result = t("convert_ready")
                         },
                     )
                 }
@@ -103,7 +104,7 @@ fun ConverterScreen(modifier: Modifier = Modifier) {
             onValueChange = { input = it },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            label = { Text("Value") },
+            label = { Text(t("convert_value")) },
         )
 
         val availableUnits = units.filter { it.category == category }
@@ -113,34 +114,34 @@ fun ConverterScreen(modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
         ) {
             SableTile(
-                title = "From",
+                title = t("convert_from"),
                 subtitle = "${from.label} · ${from.symbol}",
                 modifier = Modifier.weight(1f),
                 onClick = {
                     from = cycleUnit(availableUnits, from)
-                    result = "Ready"
+                    result = t("convert_ready")
                 },
             )
 
             SableTile(
-                title = "To",
+                title = t("convert_to"),
                 subtitle = "${to.label} · ${to.symbol}",
                 modifier = Modifier.weight(1f),
                 onClick = {
                     to = cycleUnit(availableUnits, to)
-                    result = "Ready"
+                    result = t("convert_ready")
                 },
             )
         }
 
         SableActionButton(
-            text = "Convert",
+            text = t("convert_convert"),
             modifier = Modifier.fillMaxWidth(),
             onClick = {
                 val valueMilli = parseMilli(input)
                 result =
                     if (valueMilli == null) {
-                        "Enter a number with up to three decimal places"
+                        t("convert_enter_a_number_with_up")
                     } else {
                         renderResult(
                             NativeBridge.convertMilli(
@@ -161,7 +162,7 @@ fun ConverterScreen(modifier: Modifier = Modifier) {
         )
 
         Text(
-            "Length, mass, temperature and volume conversions are local and offline.",
+            t("convert_length_mass_temperature_and_volume"),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -196,7 +197,7 @@ private fun renderResult(
         protocol.startsWith("OK:") -> {
             val milli = protocol.removePrefix("OK:").toLongOrNull()
             if (milli == null) {
-                "Native bridge failure"
+                t("convert_native_bridge_failure")
             } else {
                 "${formatMilli(milli)} $symbol"
             }
@@ -207,7 +208,7 @@ private fun renderResult(
         }
 
         else -> {
-            "Native bridge failure"
+            t("convert_native_bridge_failure")
         }
     }
 

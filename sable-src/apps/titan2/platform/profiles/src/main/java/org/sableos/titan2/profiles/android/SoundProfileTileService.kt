@@ -6,6 +6,7 @@ import android.provider.Settings
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.widget.Toast
+import org.sableos.titan2.profiles.core.ProfilesText.t
 import org.sableos.titan2.profiles.core.SoundProfile
 
 /** Quick Settings tile: shows the sound profile; tapping it lists the profiles to pick from. */
@@ -20,7 +21,7 @@ class SoundProfileTileService : TileService() {
         val profiles = SoundProfile.entries
         val current = SoundProfileStore(this).current
         val dialog = AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-            .setTitle("Sound profile")
+            .setTitle(t("sound_profile"))
             .setSingleChoiceItems(
                 profiles.map {
                     it.title
@@ -39,7 +40,7 @@ class SoundProfileTileService : TileService() {
             SoundProfileApplier.Result.NEEDS_DND_ACCESS -> {
                 Toast.makeText(
                     this,
-                    "Allow Do Not Disturb access for Sound Profiles",
+                    t("allow_do_not_disturb_access"),
                     Toast.LENGTH_LONG
                 ).show()
                 startActivityAndCollapse(
@@ -60,8 +61,8 @@ class SoundProfileTileService : TileService() {
     private fun refresh() {
         val tile = qsTile ?: return
         val current = SoundProfileStore(this).current
-        tile.label = "Sound profile"
-        tile.subtitle = current?.title ?: "Choose"
+        tile.label = t("sound_profile")
+        tile.subtitle = current?.title ?: t("choose")
         tile.state =
             if (current == null ||
                 current == SoundProfile.NORMAL

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English. Keep equal to NotesText.EN (NotesTextTest checks); translations go in values-<lang>/. -->
+<resources>
+    <string name="app_name" translatable="false">Sable Notes</string>
+    <string name="deleted">Deleted “%1$s”</string>
+    <string name="couldn_t_save">Couldn\'t save “%1$s”</string>
+    <string name="share_note">Share note</string>
+    <string name="exported">Exported “%1$s”</string>
+    <string name="export_failed">Export failed</string>
+    <string name="nothing_to_import">Nothing to import</string>
+    <string name="note">Note</string>
+    <string name="no_colour">No colour</string>
+    <string name="yellow">Yellow</string>
+    <string name="orange">Orange</string>
+    <string name="red">Red</string>
+    <string name="pink">Pink</string>
+    <string name="purple">Purple</string>
+    <string name="blue">Blue</string>
+    <string name="green">Green</string>
+    <string name="empty_note">Empty note</string>
+    <string name="list_item_on_this_line">List item on this line</string>
+    <string name="tick_or_untick_this_item">Tick or untick this item</string>
+    <string name="find_in_note">Find in note</string>
+    <string name="find_next">Find next</string>
+    <string name="colour">Colour</string>
+    <string name="share">Share</string>
+    <string name="export_to_a_file">Export to a file</string>
+    <string name="delete_note">Delete note</string>
+    <string name="c_new_s_find_k">C new · S find · K tasks · L colour · D delete</string>
+    <string name="menu_list_item_tick_find">Menu: list item, tick, find, colour, share · Back saves</string>
+    <string name="enter_tick_o_open_note">Enter tick · O open note · H done items · Back</string>
+    <string name="type_your_note_the_first">Type your note. The first line is its title.</string>
+    <string name="change_colour_now">Change colour, now %1$s</string>
+    <string name="edited">Edited %1$s%2$s</string>
+    <string name="note_actions_menu_key">Note actions (Menu key)</string>
+    <string name="find_in_this_note_enter">Find in this note · Enter goes to it</string>
+    <string name="not_in_this_note">Not in this note</string>
+    <string name="notes">Notes</string>
+    <string name="new_label">New</string>
+    <string name="no_notes_yet_press_c">No notes yet. Press C to write one, or I to import a text file.</string>
+    <string name="no_note_matches">No note matches.</string>
+    <string name="c_new_i_import_k">C new · I import · K tasks</string>
+    <string name="one_note">1 note</string>
+    <string name="note_count">%1$s notes</string>
+    <string name="open_tasks">%1$s · %2$s open tasks</string>
+    <string name="find_in_notes_enter_opens">Find in notes · Enter opens</string>
+    <string name="tasks">Tasks</string>
+    <string name="open_showing_done_items">%1$s open · showing done items</string>
+    <string name="open">%1$s open</string>
+    <string name="hide_done">Hide done</string>
+    <string name="show_done">Show done</string>
+    <string name="no_open_tasks_in_a">No open tasks. In a note, Menu then L turns a line into a checklist item.</string>
+    <string name="delete_note_question">Delete note?</string>
+    <string name="will_be_deleted_from_this">“%1$s” will be deleted from this phone.</string>
+    <string name="delete">Delete</string>
+    <string name="keep">Keep</string>
+</resources>

@@ -1,5 +1,7 @@
 package org.sableos.start.privacy
 
+import com.sable.start.model.StartText.t
+
 /**
  * Compact All Apps privacy row and its expanded detail (DESIGN-KF-D part 1).
  *
@@ -52,8 +54,8 @@ data class PrivacyRow(
         val everyday = PrivacySummaryPolicy.everydayLabels(privacy)
         val special = PrivacySummaryPolicy.specialLabels(privacy)
         val parts = mutableListOf<String>()
-        if (everyday.isNotEmpty()) parts += "Permissions: " + everyday.joinToString(", ")
-        if (special.isNotEmpty()) parts += "Special access: " + special.joinToString(", ")
+        if (everyday.isNotEmpty()) parts += t("permissions") + everyday.joinToString(", ")
+        if (special.isNotEmpty()) parts += t("special_access") + special.joinToString(", ")
         return parts.joinToString(". ")
     }
 
@@ -70,10 +72,10 @@ object PrivacySummaryPolicy {
     const val PREFIX = "permissions"
     const val SEPARATOR = " · "
     const val MAX_INLINE_PERMISSION_LABELS = 3
-    const val TEXT_NONE_SENSITIVE = "permissions · none sensitive"
-    const val TEXT_NOT_CONFIRMED = "permissions · see app info"
-    const val TEXT_UNAVAILABLE = "permissions · unavailable"
-    const val DETAIL_FOOTER = "App info has the full permission detail."
+    val TEXT_NONE_SENSITIVE: String get() = t("permissions_none_sensitive")
+    val TEXT_NOT_CONFIRMED: String get() = t("permissions_see_app_info")
+    val TEXT_UNAVAILABLE: String get() = t("permissions_unavailable")
+    val DETAIL_FOOTER: String get() = t("app_info_has_the_full")
 
     fun everydayLabels(privacy: AppPrivacy): List<String> =
         privacy.effective.filterNot { it.special }.map(privacy::labelFor)
@@ -150,12 +152,12 @@ object PrivacySummaryPolicy {
         when (group) {
             PrivacyGroup.Microphone -> listOf("mic")
             PrivacyGroup.Messages -> listOf("sms", "mms")
-            PrivacyGroup.Phone -> listOf("calls", "call log")
+            PrivacyGroup.Phone -> listOf("calls", t("call_log"))
             PrivacyGroup.Photos -> listOf("media", "images", "video")
             PrivacyGroup.Audio -> listOf("media", "music")
-            PrivacyGroup.Nearby -> listOf("bluetooth", "nearby devices")
-            PrivacyGroup.Overlay -> listOf("display over other apps")
-            PrivacyGroup.InstallApps -> listOf("install unknown apps")
+            PrivacyGroup.Nearby -> listOf("bluetooth", t("nearby_devices"))
+            PrivacyGroup.Overlay -> listOf(t("display_over_other_apps"))
+            PrivacyGroup.InstallApps -> listOf(t("install_unknown_apps"))
             else -> emptyList()
         }
 }
@@ -165,12 +167,14 @@ object PrivacySummaryPolicy {
  * Sensitive · All · No). Left/Right moves between the chips, Enter applies.
  */
 enum class PrivacyFilter(
-    val label: String,
+    private val labelKey: String,
 ) {
-    Sensitive("Sensitive"),
-    All("All"),
-    NoneSensitive("No sensitive"),
+    Sensitive("sensitive"),
+    All("all"),
+    NoneSensitive("no_sensitive"),
     ;
+
+    val label: String get() = t(labelKey)
 
     /**
      * Sensitive: effective Camera, Microphone or Location, or any special

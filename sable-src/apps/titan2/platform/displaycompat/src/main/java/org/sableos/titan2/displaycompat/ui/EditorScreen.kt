@@ -47,6 +47,7 @@ import org.sableos.titan2.displaycompat.core.AspectProfile
 import org.sableos.titan2.displaycompat.core.BarsPref
 import org.sableos.titan2.displaycompat.core.CanvasPlan
 import org.sableos.titan2.displaycompat.core.CanvasPlanner
+import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
 import org.sableos.titan2.displaycompat.core.DisplayProfile
 import org.sableos.titan2.displaycompat.core.Issue
 import org.sableos.titan2.displaycompat.core.LetterboxBackground
@@ -78,21 +79,23 @@ private val customChoices =
 
 private val defaultLetterboxBackdrop = Color(0xFF1B2F40)
 
-private enum class EditorRow(val title: String) {
-    Profile("Profile"),
-    Canvas("Tall canvas"),
-    Orientation("Orientation"),
-    Scaling("Scaling"),
-    Background("Letterbox background"),
-    KeyboardSafe("Keyboard-safe area"),
-    Bars("Status / nav bars"),
-    Stretch("Stretch (distorts)"),
-    Custom("Custom ratio"),
-    Advanced("Advanced profiles"),
-    Ack("Acknowledge warnings"),
-    Save("Save profile"),
-    Reset("Reset this app to Native"),
-    Back("Back")
+private enum class EditorRow(private val titleKey: String) {
+    Profile("profile"),
+    Canvas("tall_canvas"),
+    Orientation("orientation"),
+    Scaling("scaling"),
+    Background("letterbox_background"),
+    KeyboardSafe("keyboard_safe_area"),
+    Bars("status_nav_bars"),
+    Stretch("stretch_distorts"),
+    Custom("custom_ratio"),
+    Advanced("advanced_profiles"),
+    Ack("acknowledge_warnings"),
+    Save("save_profile"),
+    Reset("reset_this_app_to_native"),
+    Back("back");
+
+    val title: String get() = t(titleKey)
 }
 
 /** Observable editor state; every property is Compose snapshot state so reads recompose as before. */
@@ -121,7 +124,7 @@ private class EditorState(initial: DisplayProfile, private val display: SizePx) 
         EditorRow.Stretch -> onOff(p.stretch)
         EditorRow.Custom -> p.customRatio?.toString() ?: "choose"
         EditorRow.Advanced -> onOff(advanced)
-        EditorRow.Ack -> if (ack) "Yes" else "No"
+        EditorRow.Ack -> if (ack) t("yes") else t("no")
         else -> ""
     }
 
@@ -169,7 +172,7 @@ private class EditorState(initial: DisplayProfile, private val display: SizePx) 
         }
     }
 
-    private fun onOff(b: Boolean): String = if (b) "On" else "Off"
+    private fun onOff(b: Boolean): String = if (b) t("on") else t("off")
 }
 
 /** Row actions of the editor; created per composition so it always sees the latest parameters. */
@@ -256,7 +259,14 @@ private class EditorActions(
 /** Messages that say something was not done, or was done only partly, are not shown in the success colour. */
 private fun messageColor(msg: String): Color {
     val caution =
-        listOf("Not saved", "failed", "NOT enforced", "could not", "ignored", "not verified")
+        listOf(
+            t("not_saved"),
+            "failed",
+            t("not_enforced"),
+            t("could_not"),
+            "ignored",
+            t("not_verified")
+        )
     return if (caution.any { msg.contains(it) }) C.warn else C.ok
 }
 
@@ -298,9 +308,9 @@ fun EditorScreen(
         // Compatibility card (connectivity artifact state 4): what the platform is asked for, and that
         // keyboards stay out of reach of every profile.
         Text(
-            "Platform: " + PlatformMapping.request(
+            t("platform") + PlatformMapping.request(
                 st.p
-            ).describe() + " · Keyboard input: protected",
+            ).describe() + t("keyboard_input_protected"),
             color = C.muted,
             fontSize = 11.sp
         )
@@ -326,7 +336,7 @@ fun EditorScreen(
                 )
             }
         }
-        Text("↑↓ row · ←→ change · Enter change/act · Back", color = C.muted, fontSize = 11.sp)
+        Text(t("row_change_enter_change_act"), color = C.muted, fontSize = 11.sp)
     }
 }
 

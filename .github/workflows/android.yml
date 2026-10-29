@@ -49,17 +49,18 @@ jobs:
             # SableOS build/local-ci/run.sh run_android + quality, plus the Q25 test modules
             extra: >-
               :design:testDebugUnitTest :hub:testDebugUnitTest :messages:testDebugUnitTest :media:testDebugUnitTest
-              :weather:testDebugUnitTest :calculator:testDebugUnitTest :sablestart-presentation-check:testDebugUnitTest
+              :weather:testDebugUnitTest :notes:testDebugUnitTest :calculator:testDebugUnitTest :sablestart-presentation-check:testDebugUnitTest
+              :calendar:testDebugUnitTest :games:testSudokuDebugUnitTest
               :sablestart-visual-review:assembleDebug
               :design:lintDebug :calculator:lintDebug :convert:lintDebug
               :games:lintSudokuDebug :games:lintMinesweeperDebug :games:lintGame2048Debug
               :media:lintDebug :hub:lintDebug :messages:lintDebug :weather:lintDebug
-              :calendar:lintDebug :sablestart-presentation-check:lintDebug
+              :calendar:lintDebug :notes:lintDebug :sablestart-presentation-check:lintDebug
               :design:detekt :calculator:detekt :convert:detekt :games:detekt :media:detekt
-              :hub:detekt :messages:detekt :weather:detekt :calendar:detekt
+              :hub:detekt :messages:detekt :weather:detekt :calendar:detekt :notes:detekt
               :design:ktlintCheck :calculator:ktlintCheck :convert:ktlintCheck
               :games:ktlintCheck :media:ktlintCheck :hub:ktlintCheck :messages:ktlintCheck
-              :weather:ktlintCheck :calendar:ktlintCheck
+              :weather:ktlintCheck :calendar:ktlintCheck :notes:ktlintCheck
               :design:koverXmlReportDebug :design:koverHtmlReportDebug
           - name: reader
             root: apps/common/reader
@@ -78,6 +79,10 @@ jobs:
             root: flavor:textreader
             java: '17'
             extra: testDebugUnitTest lintDebug
+          - name: terminal
+            root: flavor:connectbot
+            java: '21'
+            extra: ":app:testOssDebugUnitTest --tests org.connectbot.sable.* :app:lintOssRelease"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
