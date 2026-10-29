@@ -58,6 +58,7 @@ val canonicalPresentationSources =
         "com/sable/start/model/HubPeople.kt",
         "com/sable/start/model/QuickBar.kt",
         "com/sable/start/model/SpeedDial.kt",
+        "com/sable/start/model/StartText.kt",
         "com/sable/start/platform/DeviceStatsSampler.kt",
         "com/sable/start/platform/LiveSurfaceRepository.kt",
         "com/sable/start/platform/PeopleRepository.kt",

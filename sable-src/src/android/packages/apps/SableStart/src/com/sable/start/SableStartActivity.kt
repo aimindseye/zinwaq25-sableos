@@ -25,6 +25,9 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import com.sable.start.model.StartText
+import com.sable.start.model.StartText.t
+import org.sableos.design.DesignText
 import org.sableos.design.applySableSystemBars
 import org.sableos.design.rememberGlobalSableAppearance
 import org.sableos.design.resolveSableDarkAppearance
@@ -179,6 +182,8 @@ class SableStartActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        StartText.t.bindTo(this)
+        DesignText.t.bindTo(this)
 
         launcherAppsRepository = LauncherAppsRepository(this)
         liveSurfaceRepository = LiveSurfaceRepository(this)
@@ -571,16 +576,16 @@ class SableStartActivity : ComponentActivity() {
     private fun showBb7Menu(contextual: List<Pair<String, () -> Unit>>) {
         val global =
             listOf<Pair<String, () -> Unit>>(
-                "Hub" to {
+                t("hub") to {
                     hubRequestFilter.value = null
                     hubGeneration.value += 1
                     startBb10Detour(returnOnHome = true)
                 },
-                "Home Screen Style" to {
+                t("home_screen_style_2") to {
                     runCatching { startActivity(Intent(this, HomeStyleActivity::class.java)) }
                 },
-                "Settings" to ::openSystemSettings,
-                "Close" to {},
+                t("settings") to ::openSystemSettings,
+                t("close") to {},
             )
         val items = contextual + global
         AlertDialog.Builder(this)

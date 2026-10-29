@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
+import com.sable.start.model.StartText.t
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -90,13 +91,13 @@ fun SableStatusRings(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         NetRing(label = "Wi-Fi", up = st.wifiUp, down = st.wifiDown, size = ringSize)
-        NetRing(label = "Mobile", up = st.mobileUp, down = st.mobileDown, size = ringSize)
+        NetRing(label = t("mobile"), up = st.mobileUp, down = st.mobileDown, size = ringSize)
         StatRing(label = "CPU", fraction = st.cpu, color = primary, size = ringSize)
         StatRing(label = "RAM", fraction = st.ram, color = RingPurple, size = ringSize)
         StatRing(
             label =
                 when {
-                    st.charging -> "⚡ BAT"
+                    st.charging -> t("bat")
                     st.hoursLeft != null -> DeviceStatsFormat.hours(st.hoursLeft) + " left"
                     else -> "BAT"
                 },
@@ -106,7 +107,7 @@ fun SableStatusRings(
             hotAbove = 2f,
         )
         StatRing(
-            label = "Cell",
+            label = t("cell"),
             fraction = st.signal,
             color = RingOrange,
             size = ringSize,

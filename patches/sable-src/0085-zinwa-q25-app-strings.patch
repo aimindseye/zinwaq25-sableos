@@ -7651,6 +7651,90 @@ index 0000000..0661335
 +        assertEquals("Deleted “Milk”", NotesText.t("deleted", "Milk"))
 +    }
 +}
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts b/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
+index c3d584f..02cb67b 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
+@@ -58,6 +58,7 @@ val canonicalPresentationSources =
+         "com/sable/start/model/HubPeople.kt",
+         "com/sable/start/model/QuickBar.kt",
+         "com/sable/start/model/SpeedDial.kt",
++        "com/sable/start/model/StartText.kt",
+         "com/sable/start/platform/DeviceStatsSampler.kt",
+         "com/sable/start/platform/LiveSurfaceRepository.kt",
+         "com/sable/start/platform/PeopleRepository.kt",
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/StartTextTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/StartTextTest.kt
+new file mode 100644
+index 0000000..6da89e7
+--- /dev/null
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/StartTextTest.kt
+@@ -0,0 +1,66 @@
++package org.sableos.start.model
++
++import com.sable.start.model.StartText
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.sableos.design.DesignText
++import java.io.File
++import javax.xml.parsers.DocumentBuilderFactory
++
++/** The English lines in code and in `values/strings.xml` stay equal, and every translation fits them. */
++class StartTextTest {
++    // Sable Start is a Soong app; its resources live with its sources.
++    private val res = File("../../../../src/android/packages/apps/SableStart/res")
++
++    private fun strings(file: File): Map<String, String> {
++        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
++        val nodes = doc.getElementsByTagName("string")
++        return (0 until nodes.length)
++            .map { nodes.item(it) }
++            .filter { it.attributes.getNamedItem("translatable")?.nodeValue != "false" }
++            .associate { node ->
++                val raw =
++                    node.textContent.let {
++                        if (it.length > 1 && it.startsWith('"') &&
++                            it.endsWith('"')
++                        ) {
++                            it.drop(1).dropLast(1)
++                        } else {
++                            it
++                        }
++                    }
++                node.attributes.getNamedItem("name").nodeValue to
++                    raw
++                        .replace("\\n", "\n")
++                        .replace("\\'", "'")
++                        .replace("\\\"", "\"")
++                        .replace("\\@", "@")
++                        .replace("\\\\", "\\")
++            }
++    }
++
++    private fun placeholders(s: String) = Regex("%\\d+\\$[sd]").findAll(s).map { it.value }.toSortedSet()
++
++    @Test
++    fun englishResourcesMatchTheCode() {
++        val english = strings(File(res, "values/strings.xml"))
++        StartText.EN.forEach { (key, text) -> assertEquals(key, text, english[key]) }
++    }
++
++    @Test
++    fun theCopyOfTheDesignLibraryLinesMatchesIt() {
++        val english = strings(File(res, "values/strings.xml"))
++        DesignText.EN.forEach { (key, text) -> assertEquals(key, text, english[key]) }
++    }
++
++    @Test
++    fun translationsHaveEveryKeyAndTheSamePlaceholders() {
++        res.listFiles { f -> f.name.startsWith("values-") && File(f, "strings.xml").isFile }.orEmpty().forEach { dir ->
++            val tr = strings(File(dir, "strings.xml"))
++            assertEquals(dir.name, StartText.EN.keys, tr.keys.intersect(StartText.EN.keys))
++            StartText.EN.forEach { (key, text) ->
++                assertEquals("${dir.name}/$key", placeholders(text), placeholders(tr.getValue(key)))
++            }
++        }
++    }
++}
 diff --git a/sable-src/apps/r8/android/weather/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/weather/src/main/AndroidManifest.xml
 index 0ce3b2e..48e0908 100644
 --- a/sable-src/apps/r8/android/weather/src/main/AndroidManifest.xml
@@ -15796,6 +15880,2359 @@ index 0000000..ea31629
 +        }
 +    }
 +}
+diff --git a/sable-src/src/android/packages/apps/SableStart/Android.bp b/sable-src/src/android/packages/apps/SableStart/Android.bp
+index 468533e..f7d2221 100644
+--- a/sable-src/src/android/packages/apps/SableStart/Android.bp
++++ b/sable-src/src/android/packages/apps/SableStart/Android.bp
+@@ -18,6 +18,7 @@ filegroup {
+         "src/com/sable/start/model/HubPeople.kt",
+         "src/com/sable/start/model/QuickBar.kt",
+         "src/com/sable/start/model/SpeedDial.kt",
++        "src/com/sable/start/model/StartText.kt",
+         "src/com/sable/start/platform/DeviceStatsSampler.kt",
+         "src/com/sable/start/platform/LiveSurfaceRepository.kt",
+         "src/com/sable/start/platform/PeopleRepository.kt",
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+index fe0a827..7494bfb 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+@@ -1,14 +1,251 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- English. Single capital letters in hints (C new, S find) name keyboard keys: keep them as the key, translate the word.
++     English. Keep equal to StartText.EN (StartTextTest checks); translations go in values-<lang>/. -->
+ <resources>
+-    <string name="app_name">Sable Start</string>
+-
+-    <style name="Theme.SableLauncher" parent="@android:style/Theme.Material.Light.NoActionBar">
+-        <item name="android:fontFamily">sans</item>
+-        <item name="android:windowActionModeOverlay">true</item>
+-        <item name="android:windowNoTitle">true</item>
+-        <item name="android:colorAccent">#4D9CFF</item>
+-        <item name="android:navigationBarColor">#000000</item>
+-        <item name="android:statusBarColor">#000000</item>
+-        <item name="android:windowLightStatusBar">false</item>
+-        <item name="android:windowLightNavigationBar">false</item>
+-    </style>
++    <string name="app_name" translatable="false">Sable Start</string>
++    <string name="home_screen_style">Home screen style</string>
++    <string name="sable_start_can_look_like">Sable Start can look like BlackBerry 10 or BlackBerry 7. Your apps, favourites and Hub stay the same.</string>
++    <string name="current">" · current"</string>
++    <string name="another_launcher">Another launcher…</string>
++    <string name="pick_any_installed_home_app">Pick any installed home app in Android\'s settings</string>
++    <string name="hub">Hub</string>
++    <string name="home_screen_style_2">Home Screen Style</string>
++    <string name="settings">Settings</string>
++    <string name="close">Close</string>
++    <string name="blackberry_10_style">BlackBerry 10 style</string>
++    <string name="hub_active_frames_and_app">Hub, Active Frames and app pages side by side</string>
++    <string name="blackberry_7_style">BlackBerry 7 style</string>
++    <string name="clock_and_status_on_the">Clock and status on the wallpaper, a tray of apps that opens into all apps</string>
++    <string name="favorites">Favorites</string>
++    <string name="all">All</string>
++    <string name="downloads">Downloads</string>
++    <string name="bluetooth">Bluetooth</string>
++    <string name="mobile_network">Mobile network</string>
++    <string name="airplane_mode">Airplane mode</string>
++    <string name="display">Display</string>
++    <string name="sound">Sound</string>
++    <string name="notifications">Notifications</string>
++    <string name="do_not_disturb">Do Not Disturb</string>
++    <string name="battery">Battery</string>
++    <string name="apps">Apps</string>
++    <string name="storage">Storage</string>
++    <string name="location">Location</string>
++    <string name="security">Security</string>
++    <string name="privacy">Privacy</string>
++    <string name="keyboard">Keyboard</string>
++    <string name="language">Language</string>
++    <string name="date_time">Date &amp; time</string>
++    <string name="accessibility">Accessibility</string>
++    <string name="hotspot_tethering">Hotspot &amp; tethering</string>
++    <string name="about_phone">About phone</string>
++    <string name="people">People</string>
++    <string name="actions">Actions</string>
++    <string name="private_label">Private</string>
++    <string name="dual">Dual</string>
++    <string name="work">Work</string>
++    <string name="weather_and_date">Weather and date</string>
++    <string name="search_or_command_row">Search or command row</string>
++    <string name="status_dials">Status dials</string>
++    <string name="temperature_condition_and_place_with">Temperature, condition and place, with the date under it</string>
++    <string name="a_command_row_under_the">A Command row under the weather; typing works without it</string>
++    <string name="wi_fi_mobile_cpu_ram">Wi-Fi, Mobile, CPU, RAM, battery time left, Cell and Settings</string>
++    <string name="weather">Weather</string>
++    <string name="calendar">Calendar</string>
++    <string name="media">Media</string>
++    <string name="mail">Mail</string>
++    <string name="photos">Photos</string>
++    <string name="weather_updating">Weather · updating</string>
++    <string name="weather_update_failed_retrying">Weather · update failed, retrying</string>
++    <string name="weather_open_sable_weather_to">Weather · open Sable Weather to set it up</string>
++    <string name="messages">Messages</string>
++    <string name="calls">Calls</string>
++    <string name="contacts">Contacts</string>
++    <string name="nothing_new">nothing new</string>
++    <string name="new_apps_hidden">%1$s new · apps hidden</string>
++    <string name="new_in">"%1$s new in %2$s "</string>
++    <string name="required_path">Required path</string>
++    <string name="replace_with">Replace with %1$s</string>
++    <string name="keep">Keep</string>
++    <string name="loading">Loading</string>
++    <string name="permission_required">permission required</string>
++    <string name="provider_error">provider error</string>
++    <string name="open_dual_copy">open Dual copy</string>
++    <string name="app_info_permissions">app info · permissions</string>
++    <string name="notification_settings">notification settings</string>
++    <string name="add_to_home">add to Home</string>
++    <string name="remove_from_home">remove from Home</string>
++    <string name="add_to_base_bar">add to base bar</string>
++    <string name="remove_from_base_bar">remove from base bar</string>
++    <string name="confirm">confirm %1$s</string>
++    <string name="camera">Camera</string>
++    <string name="microphone">Microphone</string>
++    <string name="phone">Phone</string>
++    <string name="audio">Audio</string>
++    <string name="nearby">Nearby</string>
++    <string name="device_admin">Device admin</string>
++    <string name="install_apps">Install apps</string>
++    <string name="overlay">Overlay</string>
++    <string name="usage_access">Usage access</string>
++    <string name="photos_limited">Photos limited</string>
++    <string name="location_approximate">Location approximate</string>
++    <string name="permissions">"Permissions: "</string>
++    <string name="special_access">"Special access: "</string>
++    <string name="permissions_none_sensitive">permissions · none sensitive</string>
++    <string name="permissions_see_app_info">permissions · see app info</string>
++    <string name="permissions_unavailable">permissions · unavailable</string>
++    <string name="app_info_has_the_full">App info has the full permission detail.</string>
++    <string name="call_log">call log</string>
++    <string name="nearby_devices">nearby devices</string>
++    <string name="display_over_other_apps">display over other apps</string>
++    <string name="install_unknown_apps">install unknown apps</string>
++    <string name="sensitive">Sensitive</string>
++    <string name="no_sensitive">No sensitive</string>
++    <string name="move">"Move "</string>
++    <string name="enter_to_drop">" · Enter to drop"</string>
++    <string name="search">Search: %1$s</string>
++    <string name="open">Open</string>
++    <string name="move_2">Move</string>
++    <string name="remove_from_favorites">Remove from Favorites</string>
++    <string name="add_to_favorites">Add to Favorites</string>
++    <string name="app_info">App Info</string>
++    <string name="show_more_rows">Show More Rows</string>
++    <string name="show_fewer_rows">Show Fewer Rows</string>
++    <string name="no_apps_here">No apps here</string>
++    <string name="hub_page">Hub page</string>
++    <string name="active_frames">Active Frames</string>
++    <string name="app_grid_page">App grid page %1$s</string>
++    <string name="active_frame_enter_resumes_x">%1$s, Active Frame. Enter resumes, X closes</string>
++    <string name="enter_opens">Enter opens</string>
++    <string name="close_2">Close %1$s</string>
++    <string name="no_apps_are_open_press">No apps are open. Press Menu to choose Glance widgets for this page.</string>
++    <string name="enter_to_allow_local_photo">Enter to allow local photo counts</string>
++    <string name="not_installed">not installed</string>
++    <string name="open_2">open %1$s</string>
++    <string name="no_new_notifications">no new notifications</string>
++    <string name="more_apps_with_notifications">%1$s more apps with notifications</string>
++    <string name="new_notifications_apps_hidden">%1$s new notifications, apps hidden</string>
++    <string name="new_label">%1$s, %2$s new</string>
++    <string name="missed_calls">Missed calls</string>
++    <string name="recent_calls_in_phone">recent calls in Phone</string>
++    <string name="sable_hub_not_installed">Sable Hub not installed</string>
++    <string name="hub_settings">Hub settings</string>
++    <string name="allow_contacts">Allow contacts</string>
++    <string name="start_shows_names_here_nothing">Start shows names here; nothing leaves the phone</string>
++    <string name="no_contacts_yet">No contacts yet.</string>
++    <string name="loading_contacts">Loading contacts…</string>
++    <string name="open_contacts">open Contacts</string>
++    <string name="favourite">, favourite</string>
++    <string name="call">Call %1$s</string>
++    <string name="message">Message %1$s</string>
++    <string name="hub_page_2">Hub page · %1$s</string>
++    <string name="dial_pad">dial pad</string>
++    <string name="recent_calls">recent calls</string>
++    <string name="app_info_2">app info</string>
++    <string name="edit_home_and_quick_bar">edit Home and quick bar</string>
++    <string name="choose_bar_slot">choose bar slot</string>
++    <string name="add_to_the_bar">Add %1$s to the bar</string>
++    <string name="every_app_stays_on_the">Every app stays on the app grid pages (Alt+Right).</string>
++    <string name="add_a_slot">add a slot</string>
++    <string name="replace_slot">replace slot</string>
++    <string name="every_available_app_is_already">Every available app is already there.</string>
++    <string name="edit_home">Edit Home</string>
++    <string name="done">Done</string>
++    <string name="drag_or_use_keyboard_order">Drag or use keyboard order</string>
++    <string name="enter_picks_up_and_drops">Enter picks up and drops · arrows move · Alt+arrows move at once · Menu for options · Back cancels</string>
++    <string name="app_grid">App grid</string>
++    <string name="move_left">move left</string>
++    <string name="move_right">move right</string>
++    <string name="move_up_a_row">move up a row</string>
++    <string name="move_down_a_row">move down a row</string>
++    <string name="move_to_the_start">move to the start</string>
++    <string name="bottom_bar">Bottom bar</string>
++    <string name="search_always_stays_on_the">Search always stays on the bar; it can move.</string>
++    <string name="add_a_slot_2">+ add a slot</string>
++    <string name="reset_bar_to_phone_search">reset bar to Phone · Search · Camera</string>
++    <string name="frames_while_no_app_is">Frames while no app is open</string>
++    <string name="move_up">move up</string>
++    <string name="move_down">move down</string>
++    <string name="show">+ show %1$s</string>
++    <string name="active_frames_header">Active Frames header</string>
++    <string name="reset_home_to_default">reset Home to default</string>
++    <string name="app_not_installed">App not installed</string>
++    <string name="enter_picks_up_arrows_move">%1$s. Enter picks up, arrows move</string>
++    <string name="drag_to_reorder">Drag to reorder %1$s</string>
++    <string name="search_2">Search</string>
++    <string name="all_apps">All apps</string>
++    <string name="phone_not_installed">Phone (not installed)</string>
++    <string name="hub_not_installed">Hub (not installed)</string>
++    <string name="camera_not_installed">Camera (not installed)</string>
++    <string name="search_command">search + command</string>
++    <string name="apps_settings_sable_actions">apps · settings · Sable actions</string>
++    <string name="all_apps_2">all apps</string>
++    <string name="no_apps_match">No apps match “%1$s”.</string>
++    <string name="no_launchable_apps_are_available">No launchable apps are available.</string>
++    <string name="filter">Filter %1$s</string>
++    <string name="applied">, applied</string>
++    <string name="filters_enter_applies">←→ filters · Enter applies</string>
++    <string name="private_space">private space</string>
++    <string name="unlock_private_space">Unlock private space</string>
++    <string name="lock_private_space">Lock private space</string>
++    <string name="its_apps_stay_hidden_and">Its apps stay hidden and stopped until you unlock</string>
++    <string name="apps_locking_stops_them_and">%1$s apps · locking stops them and hides them again</string>
++    <string name="a_to_z_with_privacy">A to Z with privacy summaries</string>
++    <string name="start">Start</string>
++    <string name="open_apps_home">Open apps, Home</string>
++    <string name="every_app_in_your_order">Every app, in your order</string>
++    <string name="messages_mail_calls_contacts_and">Messages, mail, calls, contacts and notifications</string>
++    <string name="order_the_app_grid_the">Order the app grid, the bar and the empty frames</string>
++    <string name="appearance">Appearance</string>
++    <string name="theme_and_sable_accent">Theme and Sable accent</string>
++    <string name="system_settings">System Settings</string>
++    <string name="open_android_settings">Open Android settings</string>
++    <string name="open_personal_app">open personal app</string>
++    <string name="more_actions">more actions</string>
++    <string name="best_match">best match</string>
++    <string name="recent_apps">recent + apps</string>
++    <string name="permission_matches">permission matches</string>
++    <string name="quick_actions">quick actions</string>
++    <string name="no_local_results_match_prefixes">No local results match “%1$s”. Prefixes: ?app @person /settings /hub !action /private /dual /work</string>
++    <string name="results_groups_enter_opens_shift">↑↓ results · ←→ groups · Enter opens · Shift+Enter Dual · Menu actions · Back closes</string>
++    <string name="content_hidden">Content hidden</string>
++    <string name="private_space_locked">Private space locked</string>
++    <string name="unlock_to_show_and_search">Unlock to show and search private space apps. Locked mode shows nothing from it.</string>
++    <string name="unlock">Unlock</string>
++    <string name="open_settings">Open %1$s settings</string>
++    <string name="open_settings_home">open Settings home</string>
++    <string name="opens_the_dialer_with_the">Opens the dialer with the number</string>
++    <string name="send_a_message">send a message</string>
++    <string name="add_to_contacts">add to contacts</string>
++    <string name="find_in_contacts">Find “%1$s” in Contacts</string>
++    <string name="search_people_by_name_number">Search people by name, number or email</string>
++    <string name="find_in_contacts_2">find in Contacts</string>
++    <string name="hub_page_contacts">Hub page · Contacts</string>
++    <string name="open_hub">Open Hub</string>
++    <string name="hub_2">Hub · %1$s</string>
++    <string name="messages_calls_contacts_and_notifications">Messages, calls, contacts and notifications</string>
++    <string name="search_apps_sable_actions">search apps + Sable actions</string>
++    <string name="actions_for">Actions for %1$s</string>
++    <string name="profile">%1$s profile</string>
++    <string name="special_access_2">special access · %1$s</string>
++    <string name="privacy_security">privacy &amp; security</string>
++    <string name="shortcuts_and_notification_content_stay">Shortcuts and notification content stay hidden until Android capability and privacy gates are wired.</string>
++    <string name="follow_system">follow system</string>
++    <string name="reset_follow_system_sable_blue">reset · follow system + Sable Blue</string>
++    <string name="mobile">Mobile</string>
++    <string name="bat">⚡ BAT</string>
++    <string name="cell">Cell</string>
++    <string name="action_open">open</string>
++    <string name="action_uninstall">uninstall</string>
++    <string name="action_disable">disable</string>
++    <!-- The shared Sable design library's lines (DesignText). Sable Start is built without that library's
++         resources, so it carries a copy; StartTextTest keeps it equal. -->
++    <string name="sable_playback_error">playback error</string>
++    <string name="sable_pause">Pause</string>
++    <string name="sable_play">Play</string>
++    <string name="sable_t_top_b_bottom_space">T top · B bottom · Space page · N/P next/previous</string>
++    <string name="sable_more_destinations">More destinations: %1$s</string>
++    <string name="sable_more_actions">More actions</string>
++    <string name="sable_more_actions_for">More actions for %1$s</string>
++    <string name="sable_jump_to">Jump to %1$s</string>
++    <string name="sable_return_to">Return to %1$s</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values/styles.xml b/sable-src/src/android/packages/apps/SableStart/res/values/styles.xml
+new file mode 100644
+index 0000000..d2a4eaf
+--- /dev/null
++++ b/sable-src/src/android/packages/apps/SableStart/res/values/styles.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <style name="Theme.SableLauncher" parent="@android:style/Theme.Material.Light.NoActionBar">
++        <item name="android:fontFamily">sans</item>
++        <item name="android:windowActionModeOverlay">true</item>
++        <item name="android:windowNoTitle">true</item>
++        <item name="android:colorAccent">#4D9CFF</item>
++        <item name="android:navigationBarColor">#000000</item>
++        <item name="android:statusBarColor">#000000</item>
++        <item name="android:windowLightStatusBar">false</item>
++        <item name="android:windowLightNavigationBar">false</item>
++    </style>
++</resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/HomeStyleActivity.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/HomeStyleActivity.kt
+index ea327aa..4958387 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/HomeStyleActivity.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/HomeStyleActivity.kt
+@@ -24,6 +24,9 @@ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.focus.FocusRequester
+ import androidx.compose.ui.focus.focusRequester
+ import androidx.compose.ui.unit.dp
++import com.sable.start.model.StartText
++import com.sable.start.model.StartText.t
++import org.sableos.design.DesignText
+ import org.sableos.design.SableGlobalTheme
+ import org.sableos.design.sableFocusRing
+ import org.sableos.start.model.HomeStyle
+@@ -37,6 +40,8 @@ import org.sableos.start.platform.StartStateRepository
+ class HomeStyleActivity : ComponentActivity() {
+     override fun onCreate(savedInstanceState: Bundle?) {
+         super.onCreate(savedInstanceState)
++        StartText.t.bindTo(this)
++        DesignText.t.bindTo(this)
+         val state = StartStateRepository(this)
+         setContent {
+             SableGlobalTheme(window = window) {
+@@ -80,15 +85,15 @@ private fun HomeStyleChooser(
+                     .padding(12.dp),
+             verticalArrangement = Arrangement.spacedBy(8.dp),
+         ) {
+-            Text("Home screen style", style = MaterialTheme.typography.titleLarge)
++            Text(t("home_screen_style"), style = MaterialTheme.typography.titleLarge)
+             Text(
+-                "Sable Start can look like BlackBerry 10 or BlackBerry 7. Your apps, favourites and Hub stay the same.",
++                t("sable_start_can_look_like"),
+                 style = MaterialTheme.typography.bodyMedium,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+             HomeStyle.entries.forEachIndexed { i, style ->
+                 Choice(
+-                    title = style.title + if (style == current) " · current" else "",
++                    title = style.title + if (style == current) t("current") else "",
+                     detail = style.summary,
+                     active = style == current,
+                     modifier = if (i == 0) Modifier.focusRequester(first) else Modifier,
+@@ -96,8 +101,8 @@ private fun HomeStyleChooser(
+                 )
+             }
+             Choice(
+-                title = "Another launcher…",
+-                detail = "Pick any installed home app in Android's settings",
++                title = t("another_launcher"),
++                detail = t("pick_any_installed_home_app"),
+                 active = false,
+                 onClick = onOtherLauncher,
+             )
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+index ea2ecfd..f42f0be 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+@@ -25,6 +25,9 @@ import androidx.activity.compose.setContent
+ import androidx.compose.runtime.SideEffect
+ import androidx.compose.runtime.key
+ import androidx.compose.runtime.mutableStateOf
++import com.sable.start.model.StartText
++import com.sable.start.model.StartText.t
++import org.sableos.design.DesignText
+ import org.sableos.design.applySableSystemBars
+ import org.sableos.design.rememberGlobalSableAppearance
+ import org.sableos.design.resolveSableDarkAppearance
+@@ -179,6 +182,8 @@ class SableStartActivity : ComponentActivity() {
+ 
+     override fun onCreate(savedInstanceState: Bundle?) {
+         super.onCreate(savedInstanceState)
++        StartText.t.bindTo(this)
++        DesignText.t.bindTo(this)
+ 
+         launcherAppsRepository = LauncherAppsRepository(this)
+         liveSurfaceRepository = LiveSurfaceRepository(this)
+@@ -571,16 +576,16 @@ class SableStartActivity : ComponentActivity() {
+     private fun showBb7Menu(contextual: List<Pair<String, () -> Unit>>) {
+         val global =
+             listOf<Pair<String, () -> Unit>>(
+-                "Hub" to {
++                t("hub") to {
+                     hubRequestFilter.value = null
+                     hubGeneration.value += 1
+                     startBb10Detour(returnOnHome = true)
+                 },
+-                "Home Screen Style" to {
++                t("home_screen_style_2") to {
+                     runCatching { startActivity(Intent(this, HomeStyleActivity::class.java)) }
+                 },
+-                "Settings" to ::openSystemSettings,
+-                "Close" to {},
++                t("settings") to ::openSystemSettings,
++                t("close") to {},
+             )
+         val items = contextual + global
+         AlertDialog.Builder(this)
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb7Home.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb7Home.kt
+index 7d5d8b9..77ea6dc 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb7Home.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb7Home.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.start.model
+ 
++import com.sable.start.model.StartText.t
++
+ /**
+  * Sable Start's two home styles (owner request, 2026-10-28): the BlackBerry 10 layout (Hub,
+  * Active Frames and app pages) and the BlackBerry 7 one (clock and status on the wallpaper over a
+@@ -8,21 +10,24 @@ package org.sableos.start.model
+  */
+ enum class HomeStyle(
+     val stableValue: String,
+-    val title: String,
+-    val summary: String,
++    private val titleKey: String,
++    private val summaryKey: String,
+ ) {
+     Bb10(
+         "bb10",
+-        "BlackBerry 10 style",
+-        "Hub, Active Frames and app pages side by side",
++        "blackberry_10_style",
++        "hub_active_frames_and_app",
+     ),
+     Bb7(
+         "bb7",
+-        "BlackBerry 7 style",
+-        "Clock and status on the wallpaper, a tray of apps that opens into all apps",
++        "blackberry_7_style",
++        "clock_and_status_on_the",
+     ),
+     ;
+ 
++    val title: String get() = t(titleKey)
++    val summary: String get() = t(summaryKey)
++
+     companion object {
+         val DEFAULT = Bb10
+ 
+@@ -32,11 +37,14 @@ enum class HomeStyle(
+ 
+ /** The BlackBerry 7 tray's panels, switched with Alt+Left/Right or Space, as on BlackBerry 7. */
+ enum class Bb7Panel(
+-    val title: String,
++    private val titleKey: String,
+ ) {
+-    Favorites("Favorites"),
+-    All("All"),
+-    Downloads("Downloads"),
++    Favorites("favorites"),
++    All("all"),
++    Downloads("downloads"),
++    ;
++
++    val title: String get() = t(titleKey)
+ }
+ 
+ /** Where a horizontal swipe on the BlackBerry 7 home goes: Hub is to the left, the apps to the right. */
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/CommandQuery.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/CommandQuery.kt
+index fb65025..0365dc2 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/CommandQuery.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/CommandQuery.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.start.model
+ 
++import com.sable.start.model.StartText.t
++
+ /**
+  * Command layer query model (platform_sable SABLE_COMMAND_LAYER.md "Prefix
+  * syntax" and "Result groups"). Pure policy, unit tested in
+@@ -86,28 +88,28 @@ object CommandRanking {
+      * Settings destinations every LineageOS build has, by their public
+      * android.provider.Settings actions.
+      */
+-    val SETTINGS: List<SettingsDestination> =
++    val SETTINGS: List<SettingsDestination> get() =
+         listOf(
+             SettingsDestination("Wi-Fi", "android.settings.WIFI_SETTINGS", listOf("wifi", "wlan", "network")),
+-            SettingsDestination("Bluetooth", "android.settings.BLUETOOTH_SETTINGS", listOf("pair", "headphones")),
+-            SettingsDestination("Mobile network", "android.settings.NETWORK_OPERATOR_SETTINGS", listOf("sim", "data", "cellular")),
+-            SettingsDestination("Airplane mode", "android.settings.AIRPLANE_MODE_SETTINGS", listOf("flight")),
+-            SettingsDestination("Display", "android.settings.DISPLAY_SETTINGS", listOf("brightness", "dark", "theme", "accent")),
+-            SettingsDestination("Sound", "android.settings.SOUND_SETTINGS", listOf("volume", "ringtone", "vibrate")),
+-            SettingsDestination("Notifications", "android.settings.NOTIFICATION_SETTINGS", listOf("hub", "attention")),
+-            SettingsDestination("Do Not Disturb", "android.settings.ZEN_MODE_SETTINGS", listOf("dnd", "quiet", "focus")),
+-            SettingsDestination("Battery", "android.intent.action.POWER_USAGE_SUMMARY", listOf("power", "charging", "health")),
+-            SettingsDestination("Apps", "android.settings.MANAGE_APPLICATIONS_SETTINGS", listOf("applications", "uninstall")),
+-            SettingsDestination("Storage", "android.settings.INTERNAL_STORAGE_SETTINGS", listOf("space", "files")),
+-            SettingsDestination("Location", "android.settings.LOCATION_SOURCE_SETTINGS", listOf("gps")),
+-            SettingsDestination("Security", "android.settings.SECURITY_SETTINGS", listOf("lock", "pin", "password")),
+-            SettingsDestination("Privacy", "android.settings.PRIVACY_SETTINGS", listOf("permissions")),
+-            SettingsDestination("Keyboard", "android.settings.HARD_KEYBOARD_SETTINGS", listOf("physical", "layout", "backlight")),
+-            SettingsDestination("Language", "android.settings.LOCALE_SETTINGS", listOf("locale")),
+-            SettingsDestination("Date & time", "android.settings.DATE_SETTINGS", listOf("clock", "timezone")),
+-            SettingsDestination("Accessibility", "android.settings.ACCESSIBILITY_SETTINGS", listOf("talkback", "font")),
+-            SettingsDestination("Hotspot & tethering", "android.settings.TETHER_SETTINGS", listOf("tether", "hotspot")),
+-            SettingsDestination("About phone", "android.settings.DEVICE_INFO_SETTINGS", listOf("version", "build", "sableos")),
++            SettingsDestination(t("bluetooth"), "android.settings.BLUETOOTH_SETTINGS", listOf("pair", "headphones")),
++            SettingsDestination(t("mobile_network"), "android.settings.NETWORK_OPERATOR_SETTINGS", listOf("sim", "data", "cellular")),
++            SettingsDestination(t("airplane_mode"), "android.settings.AIRPLANE_MODE_SETTINGS", listOf("flight")),
++            SettingsDestination(t("display"), "android.settings.DISPLAY_SETTINGS", listOf("brightness", "dark", "theme", "accent")),
++            SettingsDestination(t("sound"), "android.settings.SOUND_SETTINGS", listOf("volume", "ringtone", "vibrate")),
++            SettingsDestination(t("notifications"), "android.settings.NOTIFICATION_SETTINGS", listOf("hub", "attention")),
++            SettingsDestination(t("do_not_disturb"), "android.settings.ZEN_MODE_SETTINGS", listOf("dnd", "quiet", "focus")),
++            SettingsDestination(t("battery"), "android.intent.action.POWER_USAGE_SUMMARY", listOf("power", "charging", "health")),
++            SettingsDestination(t("apps"), "android.settings.MANAGE_APPLICATIONS_SETTINGS", listOf("applications", "uninstall")),
++            SettingsDestination(t("storage"), "android.settings.INTERNAL_STORAGE_SETTINGS", listOf("space", "files")),
++            SettingsDestination(t("location"), "android.settings.LOCATION_SOURCE_SETTINGS", listOf("gps")),
++            SettingsDestination(t("security"), "android.settings.SECURITY_SETTINGS", listOf("lock", "pin", "password")),
++            SettingsDestination(t("privacy"), "android.settings.PRIVACY_SETTINGS", listOf("permissions")),
++            SettingsDestination(t("keyboard"), "android.settings.HARD_KEYBOARD_SETTINGS", listOf("physical", "layout", "backlight")),
++            SettingsDestination(t("language"), "android.settings.LOCALE_SETTINGS", listOf("locale")),
++            SettingsDestination(t("date_time"), "android.settings.DATE_SETTINGS", listOf("clock", "timezone")),
++            SettingsDestination(t("accessibility"), "android.settings.ACCESSIBILITY_SETTINGS", listOf("talkback", "font")),
++            SettingsDestination(t("hotspot_tethering"), "android.settings.TETHER_SETTINGS", listOf("tether", "hotspot")),
++            SettingsDestination(t("about_phone"), "android.settings.DEVICE_INFO_SETTINGS", listOf("version", "build", "sableos")),
+         )
+ 
+     /** Title prefix first, then title contains, then keyword prefix. */
+@@ -181,15 +183,15 @@ object CommandGroups {
+ 
+     fun label(scope: CommandScope): String =
+         when (scope) {
+-            CommandScope.All -> "All"
+-            CommandScope.Apps -> "Apps"
+-            CommandScope.People -> "People"
+-            CommandScope.Settings -> "Settings"
+-            CommandScope.Hub -> "Hub"
+-            CommandScope.Actions -> "Actions"
+-            CommandScope.Private -> "Private"
+-            CommandScope.Dual -> "Dual"
+-            CommandScope.Work -> "Work"
++            CommandScope.All -> t("all")
++            CommandScope.Apps -> t("apps")
++            CommandScope.People -> t("people")
++            CommandScope.Settings -> t("settings")
++            CommandScope.Hub -> t("hub")
++            CommandScope.Actions -> t("actions")
++            CommandScope.Private -> t("private_label")
++            CommandScope.Dual -> t("dual")
++            CommandScope.Work -> t("work")
+         }
+ 
+     /** The chip [delta] away from [current], stopping at the ends; a profile scope starts from All. */
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HomeLayout.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HomeLayout.kt
+index db65a1f..3da4aab 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HomeLayout.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HomeLayout.kt
+@@ -1,5 +1,6 @@
+ package org.sableos.start.model
+ 
++import com.sable.start.model.StartText.t
+ import org.sableos.start.live.LiveAvailability
+ 
+ /**
+@@ -52,17 +53,17 @@ object HomeLayout {
+ 
+     fun label(section: String): String =
+         when (section) {
+-            WEATHER -> "Weather and date"
+-            SEARCH_ROW -> "Search or command row"
+-            STATUS_RINGS -> "Status dials"
++            WEATHER -> t("weather_and_date")
++            SEARCH_ROW -> t("search_or_command_row")
++            STATUS_RINGS -> t("status_dials")
+             else -> section
+         }
+ 
+     fun description(section: String): String =
+         when (section) {
+-            WEATHER -> "Temperature, condition and place, with the date under it"
+-            SEARCH_ROW -> "A Command row under the weather; typing works without it"
+-            STATUS_RINGS -> "Wi-Fi, Mobile, CPU, RAM, battery time left, Cell and Settings"
++            WEATHER -> t("temperature_condition_and_place_with")
++            SEARCH_ROW -> t("a_command_row_under_the")
++            STATUS_RINGS -> t("wi_fi_mobile_cpu_ram")
+             else -> ""
+         }
+ }
+@@ -142,13 +143,13 @@ object GlanceWidgets {
+ 
+     fun label(widget: String): String =
+         when (widget) {
+-            WEATHER -> "Weather"
+-            CALENDAR -> "Calendar"
+-            BATTERY -> "Battery"
+-            MEDIA -> "Media"
+-            HUB -> "Hub"
+-            MAIL -> "Mail"
+-            PHOTOS -> "Photos"
++            WEATHER -> t("weather")
++            CALENDAR -> t("calendar")
++            BATTERY -> t("battery")
++            MEDIA -> t("media")
++            HUB -> t("hub")
++            MAIL -> t("mail")
++            PHOTOS -> t("photos")
+             else -> widget
+         }
+ }
+@@ -199,9 +200,9 @@ object HomeHeader {
+      */
+     fun weatherFallback(availability: LiveAvailability): String =
+         when (availability) {
+-            LiveAvailability.LOADING -> "Weather · updating"
+-            LiveAvailability.ERROR -> "Weather · update failed, retrying"
+-            else -> "Weather · open Sable Weather to set it up"
++            LiveAvailability.LOADING -> t("weather_updating")
++            LiveAvailability.ERROR -> t("weather_update_failed_retrying")
++            else -> t("weather_open_sable_weather_to")
+         }
+ 
+     /** Milliseconds from [nowMillisOfDay] to the next midnight, when the date line changes. */
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HubBar.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HubBar.kt
+index f30539d..2b4d685 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HubBar.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HubBar.kt
+@@ -1,17 +1,20 @@
+ package org.sableos.start.model
+ 
++import com.sable.start.model.StartText.t
+ import org.sableos.start.live.AppUnreadCount
+ 
+ /** Hub page tabs: "All · Messages · Calls · Contacts". */
+ enum class HubFilter(
+-    val label: String,
++    private val labelKey: String,
+ ) {
+-    All("All"),
+-    Messages("Messages"),
+-    Calls("Calls"),
+-    Contacts("Contacts"),
++    All("all"),
++    Messages("messages"),
++    Calls("calls"),
++    Contacts("contacts"),
+     ;
+ 
++    val label: String get() = t(labelKey)
++
+     companion object {
+         /** A tab by name in any case ("contacts"), or null. */
+         fun fromName(name: String?): HubFilter? = entries.firstOrNull { it.name.equals(name?.trim(), ignoreCase = true) }
+@@ -112,9 +115,9 @@ object HubBar {
+     /** The Notifications card line: "3 new in 2 apps", "1 new in 1 app", or "nothing new". */
+     fun summary(items: List<Item>): String {
+         val total = items.sumOf { it.count }
+-        if (total == 0) return "nothing new"
+-        if (items.any { it.redacted }) return "$total new · apps hidden"
++        if (total == 0) return t("nothing_new")
++        if (items.any { it.redacted }) return t("new_apps_hidden", total)
+         val apps = items.size
+-        return "$total new in $apps " + if (apps == 1) "app" else "apps"
++        return t("new_in", total, apps) + if (apps == 1) "app" else "apps"
+     }
+ }
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/QuickBar.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/QuickBar.kt
+index 41c25bd..334915d 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/QuickBar.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/QuickBar.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.start.model
+ 
++import com.sable.start.model.StartText.t
++
+ /**
+  * The bottom bar of Sable Start (BlackBerry 10 layout: Phone · Search ·
+  * Camera under Active Frames and the app grid; platform_sable
+@@ -126,9 +128,9 @@ object QuickBar {
+         appLabel: String,
+     ): String =
+         when {
+-            isRequired(token) -> "Required path"
+-            focused -> "Replace with $appLabel"
+-            else -> "Keep"
++            isRequired(token) -> t("required_path")
++            focused -> t("replace_with", appLabel)
++            else -> t("keep")
+         }
+ 
+     /** Removes the slot holding [slotToken], or adds [stableKey] as an app slot when it has none. */
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+new file mode 100644
+index 0000000..4dc1a46
+--- /dev/null
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+@@ -0,0 +1,267 @@
++package com.sable.start.model
++
++import org.sableos.design.SableTexts
++
++/**
++ * Every line Sable Start shows, in English, by string resource name. res/values/strings.xml
++ * repeats them (StartTextTest in apps/r8/android/sablestart-presentation-check keeps the two
++ * equal) and res/values-<lang>/strings.xml translates them.
++ */
++object StartText {
++    val EN: Map<String, String> =
++        mapOf(
++            "home_screen_style" to "Home screen style",
++            "sable_start_can_look_like" to
++                "Sable Start can look like BlackBerry 10 or BlackBerry 7. Your apps, favourites " +
++                "and Hub stay the same.",
++            "current" to " · current",
++            "another_launcher" to "Another launcher…",
++            "pick_any_installed_home_app" to "Pick any installed home app in Android's settings",
++            "hub" to "Hub",
++            "home_screen_style_2" to "Home Screen Style",
++            "settings" to "Settings",
++            "close" to "Close",
++            "blackberry_10_style" to "BlackBerry 10 style",
++            "hub_active_frames_and_app" to "Hub, Active Frames and app pages side by side",
++            "blackberry_7_style" to "BlackBerry 7 style",
++            "clock_and_status_on_the" to
++                "Clock and status on the wallpaper, a tray of apps that opens into all apps",
++            "favorites" to "Favorites",
++            "all" to "All",
++            "downloads" to "Downloads",
++            "bluetooth" to "Bluetooth",
++            "mobile_network" to "Mobile network",
++            "airplane_mode" to "Airplane mode",
++            "display" to "Display",
++            "sound" to "Sound",
++            "notifications" to "Notifications",
++            "do_not_disturb" to "Do Not Disturb",
++            "battery" to "Battery",
++            "apps" to "Apps",
++            "storage" to "Storage",
++            "location" to "Location",
++            "security" to "Security",
++            "privacy" to "Privacy",
++            "keyboard" to "Keyboard",
++            "language" to "Language",
++            "date_time" to "Date & time",
++            "accessibility" to "Accessibility",
++            "hotspot_tethering" to "Hotspot & tethering",
++            "about_phone" to "About phone",
++            "people" to "People",
++            "actions" to "Actions",
++            "private_label" to "Private",
++            "dual" to "Dual",
++            "work" to "Work",
++            "weather_and_date" to "Weather and date",
++            "search_or_command_row" to "Search or command row",
++            "status_dials" to "Status dials",
++            "temperature_condition_and_place_with" to
++                "Temperature, condition and place, with the date under it",
++            "a_command_row_under_the" to "A Command row under the weather; typing works without it",
++            "wi_fi_mobile_cpu_ram" to
++                "Wi-Fi, Mobile, CPU, RAM, battery time left, Cell and Settings",
++            "weather" to "Weather",
++            "calendar" to "Calendar",
++            "media" to "Media",
++            "mail" to "Mail",
++            "photos" to "Photos",
++            "weather_updating" to "Weather · updating",
++            "weather_update_failed_retrying" to "Weather · update failed, retrying",
++            "weather_open_sable_weather_to" to "Weather · open Sable Weather to set it up",
++            "messages" to "Messages",
++            "calls" to "Calls",
++            "contacts" to "Contacts",
++            "nothing_new" to "nothing new",
++            "new_apps_hidden" to "%1\$s new · apps hidden",
++            "new_in" to "%1\$s new in %2\$s ",
++            "required_path" to "Required path",
++            "replace_with" to "Replace with %1\$s",
++            "keep" to "Keep",
++            "loading" to "Loading",
++            "permission_required" to "permission required",
++            "provider_error" to "provider error",
++            "open_dual_copy" to "open Dual copy",
++            "app_info_permissions" to "app info · permissions",
++            "notification_settings" to "notification settings",
++            "add_to_home" to "add to Home",
++            "remove_from_home" to "remove from Home",
++            "add_to_base_bar" to "add to base bar",
++            "remove_from_base_bar" to "remove from base bar",
++            "confirm" to "confirm %1\$s",
++            "camera" to "Camera",
++            "microphone" to "Microphone",
++            "phone" to "Phone",
++            "audio" to "Audio",
++            "nearby" to "Nearby",
++            "device_admin" to "Device admin",
++            "install_apps" to "Install apps",
++            "overlay" to "Overlay",
++            "usage_access" to "Usage access",
++            "photos_limited" to "Photos limited",
++            "location_approximate" to "Location approximate",
++            "permissions" to "Permissions: ",
++            "special_access" to "Special access: ",
++            "permissions_none_sensitive" to "permissions · none sensitive",
++            "permissions_see_app_info" to "permissions · see app info",
++            "permissions_unavailable" to "permissions · unavailable",
++            "app_info_has_the_full" to "App info has the full permission detail.",
++            "call_log" to "call log",
++            "nearby_devices" to "nearby devices",
++            "display_over_other_apps" to "display over other apps",
++            "install_unknown_apps" to "install unknown apps",
++            "sensitive" to "Sensitive",
++            "no_sensitive" to "No sensitive",
++            "move" to "Move ",
++            "enter_to_drop" to " · Enter to drop",
++            "search" to "Search: %1\$s",
++            "open" to "Open",
++            "move_2" to "Move",
++            "remove_from_favorites" to "Remove from Favorites",
++            "add_to_favorites" to "Add to Favorites",
++            "app_info" to "App Info",
++            "show_more_rows" to "Show More Rows",
++            "show_fewer_rows" to "Show Fewer Rows",
++            "no_apps_here" to "No apps here",
++            "hub_page" to "Hub page",
++            "active_frames" to "Active Frames",
++            "app_grid_page" to "App grid page %1\$s",
++            "active_frame_enter_resumes_x" to "%1\$s, Active Frame. Enter resumes, X closes",
++            "enter_opens" to "Enter opens",
++            "close_2" to "Close %1\$s",
++            "no_apps_are_open_press" to
++                "No apps are open. Press Menu to choose Glance widgets for this page.",
++            "enter_to_allow_local_photo" to "Enter to allow local photo counts",
++            "not_installed" to "not installed",
++            "open_2" to "open %1\$s",
++            "no_new_notifications" to "no new notifications",
++            "more_apps_with_notifications" to "%1\$s more apps with notifications",
++            "new_notifications_apps_hidden" to "%1\$s new notifications, apps hidden",
++            "new_label" to "%1\$s, %2\$s new",
++            "missed_calls" to "Missed calls",
++            "recent_calls_in_phone" to "recent calls in Phone",
++            "sable_hub_not_installed" to "Sable Hub not installed",
++            "hub_settings" to "Hub settings",
++            "allow_contacts" to "Allow contacts",
++            "start_shows_names_here_nothing" to "Start shows names here; nothing leaves the phone",
++            "no_contacts_yet" to "No contacts yet.",
++            "loading_contacts" to "Loading contacts…",
++            "open_contacts" to "open Contacts",
++            "favourite" to ", favourite",
++            "call" to "Call %1\$s",
++            "message" to "Message %1\$s",
++            "hub_page_2" to "Hub page · %1\$s",
++            "dial_pad" to "dial pad",
++            "recent_calls" to "recent calls",
++            "app_info_2" to "app info",
++            "edit_home_and_quick_bar" to "edit Home and quick bar",
++            "choose_bar_slot" to "choose bar slot",
++            "add_to_the_bar" to "Add %1\$s to the bar",
++            "every_app_stays_on_the" to "Every app stays on the app grid pages (Alt+Right).",
++            "add_a_slot" to "add a slot",
++            "replace_slot" to "replace slot",
++            "every_available_app_is_already" to "Every available app is already there.",
++            "edit_home" to "Edit Home",
++            "done" to "Done",
++            "drag_or_use_keyboard_order" to "Drag or use keyboard order",
++            "enter_picks_up_and_drops" to
++                "Enter picks up and drops · arrows move · Alt+arrows move at once · Menu for " +
++                "options · Back cancels",
++            "app_grid" to "App grid",
++            "move_left" to "move left",
++            "move_right" to "move right",
++            "move_up_a_row" to "move up a row",
++            "move_down_a_row" to "move down a row",
++            "move_to_the_start" to "move to the start",
++            "bottom_bar" to "Bottom bar",
++            "search_always_stays_on_the" to "Search always stays on the bar; it can move.",
++            "add_a_slot_2" to "+ add a slot",
++            "reset_bar_to_phone_search" to "reset bar to Phone · Search · Camera",
++            "frames_while_no_app_is" to "Frames while no app is open",
++            "move_up" to "move up",
++            "move_down" to "move down",
++            "show" to "+ show %1\$s",
++            "active_frames_header" to "Active Frames header",
++            "reset_home_to_default" to "reset Home to default",
++            "app_not_installed" to "App not installed",
++            "enter_picks_up_arrows_move" to "%1\$s. Enter picks up, arrows move",
++            "drag_to_reorder" to "Drag to reorder %1\$s",
++            "search_2" to "Search",
++            "all_apps" to "All apps",
++            "phone_not_installed" to "Phone (not installed)",
++            "hub_not_installed" to "Hub (not installed)",
++            "camera_not_installed" to "Camera (not installed)",
++            "search_command" to "search + command",
++            "apps_settings_sable_actions" to "apps · settings · Sable actions",
++            "all_apps_2" to "all apps",
++            "no_apps_match" to "No apps match “%1\$s”.",
++            "no_launchable_apps_are_available" to "No launchable apps are available.",
++            "filter" to "Filter %1\$s",
++            "applied" to ", applied",
++            "filters_enter_applies" to "←→ filters · Enter applies",
++            "private_space" to "private space",
++            "unlock_private_space" to "Unlock private space",
++            "lock_private_space" to "Lock private space",
++            "its_apps_stay_hidden_and" to "Its apps stay hidden and stopped until you unlock",
++            "apps_locking_stops_them_and" to "%1\$s apps · locking stops them and hides them again",
++            "a_to_z_with_privacy" to "A to Z with privacy summaries",
++            "start" to "Start",
++            "open_apps_home" to "Open apps, Home",
++            "every_app_in_your_order" to "Every app, in your order",
++            "messages_mail_calls_contacts_and" to
++                "Messages, mail, calls, contacts and notifications",
++            "order_the_app_grid_the" to "Order the app grid, the bar and the empty frames",
++            "appearance" to "Appearance",
++            "theme_and_sable_accent" to "Theme and Sable accent",
++            "system_settings" to "System Settings",
++            "open_android_settings" to "Open Android settings",
++            "open_personal_app" to "open personal app",
++            "more_actions" to "more actions",
++            "best_match" to "best match",
++            "recent_apps" to "recent + apps",
++            "permission_matches" to "permission matches",
++            "quick_actions" to "quick actions",
++            "no_local_results_match_prefixes" to
++                "No local results match “%1\$s”. Prefixes: ?app @person /settings /hub !action " +
++                "/private /dual /work",
++            "results_groups_enter_opens_shift" to
++                "↑↓ results · ←→ groups · Enter opens · Shift+Enter Dual · Menu actions · Back " +
++                "closes",
++            "content_hidden" to "Content hidden",
++            "private_space_locked" to "Private space locked",
++            "unlock_to_show_and_search" to
++                "Unlock to show and search private space apps. Locked mode shows nothing from it.",
++            "unlock" to "Unlock",
++            "open_settings" to "Open %1\$s settings",
++            "open_settings_home" to "open Settings home",
++            "opens_the_dialer_with_the" to "Opens the dialer with the number",
++            "send_a_message" to "send a message",
++            "add_to_contacts" to "add to contacts",
++            "find_in_contacts" to "Find “%1\$s” in Contacts",
++            "search_people_by_name_number" to "Search people by name, number or email",
++            "find_in_contacts_2" to "find in Contacts",
++            "hub_page_contacts" to "Hub page · Contacts",
++            "open_hub" to "Open Hub",
++            "hub_2" to "Hub · %1\$s",
++            "messages_calls_contacts_and_notifications" to
++                "Messages, calls, contacts and notifications",
++            "search_apps_sable_actions" to "search apps + Sable actions",
++            "actions_for" to "Actions for %1\$s",
++            "profile" to "%1\$s profile",
++            "special_access_2" to "special access · %1\$s",
++            "privacy_security" to "privacy & security",
++            "shortcuts_and_notification_content_stay" to
++                "Shortcuts and notification content stay hidden until Android capability and " +
++                "privacy gates are wired.",
++            "follow_system" to "follow system",
++            "reset_follow_system_sable_blue" to "reset · follow system + Sable Blue",
++            "mobile" to "Mobile",
++            "bat" to "⚡ BAT",
++            "cell" to "Cell",
++            "action_open" to "open",
++            "action_uninstall" to "uninstall",
++            "action_disable" to "disable",
++        )
++
++    val t = SableTexts(EN)
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LiveSurfaceRepository.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LiveSurfaceRepository.kt
+index 84b9528..0c62c50 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LiveSurfaceRepository.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LiveSurfaceRepository.kt
+@@ -7,13 +7,14 @@ import android.net.Uri
+ import android.os.Build
+ import android.provider.MediaStore
+ import android.text.format.DateFormat
+-import java.util.Date
++import com.sable.start.model.StartText.t
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.withContext
+ import org.sableos.start.live.AppUnreadCount
+ import org.sableos.start.live.LiveAvailability
+ import org.sableos.start.live.LiveDatum
+ import org.sableos.start.live.LiveSurfaceSnapshot
++import java.util.Date
+ 
+ class LiveSurfaceRepository(
+     context: Context,
+@@ -26,7 +27,7 @@ class LiveSurfaceRepository(
+     ): LiveSurfaceSnapshot {
+         val loading =
+             LiveDatum(
+-                title = "Loading",
++                title = t("loading"),
+                 detail = "loading",
+                 availability = LiveAvailability.LOADING,
+                 observedAtEpochMs = nowEpochMs,
+@@ -39,12 +40,12 @@ class LiveSurfaceRepository(
+             timeText =
+                 DateFormat.getTimeFormat(appContext)
+                     .format(Date(nowEpochMs)),
+-            weather = loading.copy(title = "Weather"),
+-            calendar = loading.copy(title = "Calendar"),
+-            messages = loading.copy(title = "Hub"),
+-            mail = loading.copy(title = "Mail"),
+-            music = loading.copy(title = "Media"),
+-            photos = loading.copy(title = "Photos"),
++            weather = loading.copy(title = t("weather")),
++            calendar = loading.copy(title = t("calendar")),
++            messages = loading.copy(title = t("hub")),
++            mail = loading.copy(title = t("mail")),
++            music = loading.copy(title = t("media")),
++            photos = loading.copy(title = t("photos")),
+             observedAtEpochMs = nowEpochMs,
+         )
+     }
+@@ -63,27 +64,27 @@ class LiveSurfaceRepository(
+                 weather =
+                     providerSnapshot(
+                         uri = WEATHER_URI,
+-                        fallbackTitle = "Weather",
++                        fallbackTitle = t("weather"),
+                     ),
+                 calendar =
+                     providerSnapshot(
+                         uri = CALENDAR_URI,
+-                        fallbackTitle = "Calendar",
++                        fallbackTitle = t("calendar"),
+                     ),
+                 messages =
+                     providerSnapshot(
+                         uri = MESSAGES_URI,
+-                        fallbackTitle = "Hub",
++                        fallbackTitle = t("hub"),
+                     ),
+                 mail =
+                     providerSnapshot(
+                         uri = MAIL_URI,
+-                        fallbackTitle = "Mail",
++                        fallbackTitle = t("mail"),
+                     ),
+                 music =
+                     providerSnapshot(
+                         uri = MEDIA_URI,
+-                        fallbackTitle = "Media",
++                        fallbackTitle = t("media"),
+                     ),
+                 photos =
+                     mediaCount(
+@@ -94,7 +95,7 @@ class LiveSurfaceRepository(
+                                 Manifest.permission.READ_EXTERNAL_STORAGE
+                             },
+                         uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+-                        title = "Photos",
++                        title = t("photos"),
+                         noun = "photo",
+                     ),
+                 observedAtEpochMs = nowEpochMs,
+@@ -197,7 +198,7 @@ class LiveSurfaceRepository(
+         ) {
+             return LiveDatum(
+                 title = title,
+-                detail = "permission required",
++                detail = t("permission_required"),
+                 availability = LiveAvailability.PERMISSION_REQUIRED,
+             )
+         }
+@@ -233,13 +234,13 @@ class LiveSurfaceRepository(
+         } catch (_: SecurityException) {
+             LiveDatum(
+                 title = title,
+-                detail = "permission required",
++                detail = t("permission_required"),
+                 availability = LiveAvailability.PERMISSION_REQUIRED,
+             )
+         } catch (_: RuntimeException) {
+             LiveDatum(
+                 title = title,
+-                detail = "provider error",
++                detail = t("provider_error"),
+                 availability = LiveAvailability.ERROR,
+             )
+         }
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/privacy/AllAppsInteraction.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/privacy/AllAppsInteraction.kt
+index c7f71a6..333afe8 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/privacy/AllAppsInteraction.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/privacy/AllAppsInteraction.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.start.privacy
+ 
++import com.sable.start.model.StartText.t
++
+ /**
+  * All Apps keyboard behaviour (DESIGN-KF-D):
+  *
+@@ -114,19 +116,22 @@ object AllAppsKeyPolicy {
+ 
+ /** App actions offered from All Apps (Menu / Fn+Enter, the row's ⋯ button, or Peek). */
+ enum class AppAction(
+-    val label: String,
++    private val labelKey: String,
+     val destructive: Boolean = false,
+ ) {
+-    Open("open"),
+-    OpenSecond("open Dual copy"),
+-    AppInfo("app info · permissions"),
+-    NotificationSettings("notification settings"),
+-    PinToStart("add to Home"),
+-    RemoveFromStart("remove from Home"),
+-    AddToBaseBar("add to base bar"),
+-    RemoveFromBaseBar("remove from base bar"),
+-    Uninstall("uninstall", destructive = true),
+-    Disable("disable", destructive = true),
++    Open("action_open"),
++    OpenSecond("open_dual_copy"),
++    AppInfo("app_info_permissions"),
++    NotificationSettings("notification_settings"),
++    PinToStart("add_to_home"),
++    RemoveFromStart("remove_from_home"),
++    AddToBaseBar("add_to_base_bar"),
++    RemoveFromBaseBar("remove_from_base_bar"),
++    Uninstall("action_uninstall", destructive = true),
++    Disable("action_disable", destructive = true),
++    ;
++
++    val label: String get() = t(labelKey)
+ }
+ 
+ data class AppActionContext(
+@@ -165,5 +170,5 @@ object AppActionPolicy {
+     /** Destructive actions need a second, explicit confirmation step (UNINSTALL_ONE_KEY=NO). */
+     fun requiresConfirmation(action: AppAction): Boolean = action.destructive
+ 
+-    fun confirmationLabel(action: AppAction): String = "confirm ${action.label}"
++    fun confirmationLabel(action: AppAction): String = t("confirm", action.label)
+ }
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/privacy/PrivacyModel.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/privacy/PrivacyModel.kt
+index c64e330..636f19a 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/privacy/PrivacyModel.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/privacy/PrivacyModel.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.start.privacy
+ 
++import com.sable.start.model.StartText.t
++
+ /**
+  * All Apps privacy/security model (DESIGN-KF-D part 1).
+  *
+@@ -17,30 +19,32 @@ package org.sableos.start.privacy
+  *  - SEPARATE_PERMISSION_DATABASE=NO: nothing here persists anything.
+  */
+ enum class PrivacyGroup(
+-    val label: String,
++    private val labelKey: String,
+     val special: Boolean,
+ ) {
+     // Everyday groups, in compact-row priority order (the first eleven).
+-    Location("Location", false),
+-    Camera("Camera", false),
+-    Microphone("Microphone", false),
+-    Contacts("Contacts", false),
+-    Phone("Phone", false),
+-    Messages("Messages", false),
+-    Calendar("Calendar", false),
+-    Photos("Photos", false),
+-    Audio("Audio", false),
+-    Nearby("Nearby", false),
+-    Notifications("Notifications", false),
++    Location("location", false),
++    Camera("camera", false),
++    Microphone("microphone", false),
++    Contacts("contacts", false),
++    Phone("phone", false),
++    Messages("messages", false),
++    Calendar("calendar", false),
++    Photos("photos", false),
++    Audio("audio", false),
++    Nearby("nearby", false),
++    Notifications("notifications", false),
+ 
+     // Special access: badge + expanded detail, never crowding the compact row.
+-    Accessibility("Accessibility", true),
+-    DeviceAdmin("Device admin", true),
+-    InstallApps("Install apps", true),
+-    Overlay("Overlay", true),
+-    UsageAccess("Usage access", true),
++    Accessibility("accessibility", true),
++    DeviceAdmin("device_admin", true),
++    InstallApps("install_apps", true),
++    Overlay("overlay", true),
++    UsageAccess("usage_access", true),
+     ;
+ 
++    val label: String get() = t(labelKey)
++
+     companion object {
+         val everyday: List<PrivacyGroup> = entries.filterNot { it.special }
+         val specialAccess: List<PrivacyGroup> = entries.filter { it.special }
+@@ -208,8 +212,8 @@ object PrivacyPermissions {
+ object PrivacyEvaluator {
+     const val SDK_TIRAMISU = 33
+     const val SDK_UPSIDE_DOWN_CAKE = 34
+-    const val LABEL_PHOTOS_LIMITED = "Photos limited"
+-    const val LABEL_LOCATION_APPROXIMATE = "Location approximate"
++    val LABEL_PHOTOS_LIMITED: String get() = t("photos_limited")
++    val LABEL_LOCATION_APPROXIMATE: String get() = t("location_approximate")
+ 
+     fun evaluate(facts: PrivacyFacts): AppPrivacy {
+         val groups = linkedMapOf<PrivacyGroup, GroupState>()
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/privacy/PrivacySummaryPolicy.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/privacy/PrivacySummaryPolicy.kt
+index a485a62..b27d210 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/privacy/PrivacySummaryPolicy.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/privacy/PrivacySummaryPolicy.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.start.privacy
+ 
++import com.sable.start.model.StartText.t
++
+ /**
+  * Compact All Apps privacy row and its expanded detail (DESIGN-KF-D part 1).
+  *
+@@ -52,8 +54,8 @@ data class PrivacyRow(
+         val everyday = PrivacySummaryPolicy.everydayLabels(privacy)
+         val special = PrivacySummaryPolicy.specialLabels(privacy)
+         val parts = mutableListOf<String>()
+-        if (everyday.isNotEmpty()) parts += "Permissions: " + everyday.joinToString(", ")
+-        if (special.isNotEmpty()) parts += "Special access: " + special.joinToString(", ")
++        if (everyday.isNotEmpty()) parts += t("permissions") + everyday.joinToString(", ")
++        if (special.isNotEmpty()) parts += t("special_access") + special.joinToString(", ")
+         return parts.joinToString(". ")
+     }
+ 
+@@ -70,10 +72,10 @@ object PrivacySummaryPolicy {
+     const val PREFIX = "permissions"
+     const val SEPARATOR = " · "
+     const val MAX_INLINE_PERMISSION_LABELS = 3
+-    const val TEXT_NONE_SENSITIVE = "permissions · none sensitive"
+-    const val TEXT_NOT_CONFIRMED = "permissions · see app info"
+-    const val TEXT_UNAVAILABLE = "permissions · unavailable"
+-    const val DETAIL_FOOTER = "App info has the full permission detail."
++    val TEXT_NONE_SENSITIVE: String get() = t("permissions_none_sensitive")
++    val TEXT_NOT_CONFIRMED: String get() = t("permissions_see_app_info")
++    val TEXT_UNAVAILABLE: String get() = t("permissions_unavailable")
++    val DETAIL_FOOTER: String get() = t("app_info_has_the_full")
+ 
+     fun everydayLabels(privacy: AppPrivacy): List<String> =
+         privacy.effective.filterNot { it.special }.map(privacy::labelFor)
+@@ -150,12 +152,12 @@ object PrivacySummaryPolicy {
+         when (group) {
+             PrivacyGroup.Microphone -> listOf("mic")
+             PrivacyGroup.Messages -> listOf("sms", "mms")
+-            PrivacyGroup.Phone -> listOf("calls", "call log")
++            PrivacyGroup.Phone -> listOf("calls", t("call_log"))
+             PrivacyGroup.Photos -> listOf("media", "images", "video")
+             PrivacyGroup.Audio -> listOf("media", "music")
+-            PrivacyGroup.Nearby -> listOf("bluetooth", "nearby devices")
+-            PrivacyGroup.Overlay -> listOf("display over other apps")
+-            PrivacyGroup.InstallApps -> listOf("install unknown apps")
++            PrivacyGroup.Nearby -> listOf("bluetooth", t("nearby_devices"))
++            PrivacyGroup.Overlay -> listOf(t("display_over_other_apps"))
++            PrivacyGroup.InstallApps -> listOf(t("install_unknown_apps"))
+             else -> emptyList()
+         }
+ }
+@@ -165,13 +167,15 @@ object PrivacySummaryPolicy {
+  * Sensitive · All · No). Left/Right moves between the chips, Enter applies.
+  */
+ enum class PrivacyFilter(
+-    val label: String,
++    private val labelKey: String,
+ ) {
+-    Sensitive("Sensitive"),
+-    All("All"),
+-    NoneSensitive("No sensitive"),
++    Sensitive("sensitive"),
++    All("all"),
++    NoneSensitive("no_sensitive"),
+     ;
+ 
++    val label: String get() = t(labelKey)
++
+     /**
+      * Sensitive: effective Camera, Microphone or Location, or any special
+      * access (the groups the summary highlights). No sensitive: every
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt
+index a4fecf4..21469a4 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt
+@@ -55,6 +55,7 @@ import androidx.compose.ui.text.style.TextAlign
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
++import com.sable.start.model.StartText.t
+ import kotlinx.coroutines.delay
+ import org.sableos.design.SableAppearance
+ import org.sableos.design.SableTheme
+@@ -140,8 +141,8 @@ fun Bb7HomeScreen(
+     val favorites = Bb7Home.panelApps(Bb7Panel.Favorites, apps, favoriteKeys).map { it.stableKey() }
+     val trayTitle =
+         when {
+-            moving -> "Move " + shown.getOrNull(selected)?.label.orEmpty() + " · Enter to drop"
+-            searching -> "Search: $query"
++            moving -> t("move") + shown.getOrNull(selected)?.label.orEmpty() + t("enter_to_drop")
++            searching -> t("search", query)
+             else -> panel.title
+         }
+     // Moves the favourite being moved one place ([delta] -1/+1) or a row ([delta] ±columns).
+@@ -158,20 +159,20 @@ fun Bb7HomeScreen(
+         buildList<Pair<String, () -> Unit>> {
+             if (app != null) {
+                 val key = app.stableKey()
+-                add("Open" to { onLaunchApp(app) })
++                add(t("open") to { onLaunchApp(app) })
+                 if (key in favorites) {
+-                    if (panel == Bb7Panel.Favorites && !searching) add("Move" to { moving = true })
+-                    add("Remove from Favorites" to { onFavoritesChanged(Bb7Home.toggleFavorite(favorites, key)) })
++                    if (panel == Bb7Panel.Favorites && !searching) add(t("move_2") to { moving = true })
++                    add(t("remove_from_favorites") to { onFavoritesChanged(Bb7Home.toggleFavorite(favorites, key)) })
+                 } else {
+-                    add("Add to Favorites" to { onFavoritesChanged(Bb7Home.toggleFavorite(favorites, key)) })
++                    add(t("add_to_favorites") to { onFavoritesChanged(Bb7Home.toggleFavorite(favorites, key)) })
+                 }
+-                add("App Info" to { onOpenAppInfo(app) })
++                add(t("app_info") to { onOpenAppInfo(app) })
+             }
+             if (!open && !searching && homeRows < Bb7Home.MAX_HOME_ROWS) {
+-                add("Show More Rows" to { onHomeRowsChanged(homeRows + 1) })
++                add(t("show_more_rows") to { onHomeRowsChanged(homeRows + 1) })
+             }
+             if (!open && !searching && homeRows > Bb7Home.MIN_HOME_ROWS) {
+-                add("Show Fewer Rows" to { onHomeRowsChanged(homeRows - 1) })
++                add(t("show_fewer_rows") to { onHomeRowsChanged(homeRows - 1) })
+             }
+         }
+     }
+@@ -458,7 +459,7 @@ private fun Bb7Tray(
+         }
+         if (apps.isEmpty()) {
+             Text(
+-                text = "No apps here",
++                text = t("no_apps_here"),
+                 color = BANNER_MUTED,
+                 style = MaterialTheme.typography.bodyMedium,
+                 modifier = Modifier.fillMaxWidth().padding(12.dp),
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+index 9d5b914..9275512 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+@@ -15,23 +15,6 @@ import android.os.SystemClock
+ import android.provider.CallLog
+ import android.util.LruCache
+ import androidx.compose.foundation.Image
+-import androidx.compose.foundation.isSystemInDarkTheme
+-import androidx.compose.foundation.layout.ColumnScope
+-import androidx.compose.ui.platform.LocalConfiguration
+-import androidx.compose.ui.unit.Dp
+-import androidx.compose.ui.text.style.TextAlign
+-import java.time.LocalDate
+-import java.time.format.DateTimeFormatter
+-import kotlinx.coroutines.delay
+-import org.sableos.start.model.ActiveFrame
+-import org.sableos.start.model.ActiveFrames
+-import org.sableos.start.model.AppGrid
+-import org.sableos.start.model.AppProfiles
+-import org.sableos.start.model.HomeHeader
+-import org.sableos.start.model.CommandGroups
+-import org.sableos.start.model.CommandBestMatch
+-import org.sableos.start.privacy.PrivacyFilter
+-import androidx.compose.foundation.Canvas as ComposeCanvas
+ import androidx.compose.foundation.background
+ import androidx.compose.foundation.border
+ import androidx.compose.foundation.clickable
+@@ -39,15 +22,16 @@ import androidx.compose.foundation.combinedClickable
+ import androidx.compose.foundation.focusable
+ import androidx.compose.foundation.gestures.detectDragGestures
+ import androidx.compose.foundation.gestures.detectTapGestures
++import androidx.compose.foundation.isSystemInDarkTheme
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.BoxWithConstraints
+ import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.ColumnScope
+ import androidx.compose.foundation.layout.PaddingValues
+ import androidx.compose.foundation.layout.Row
+ import androidx.compose.foundation.layout.Spacer
+ import androidx.compose.foundation.layout.WindowInsets
+-import androidx.compose.foundation.text.BasicTextField
+ import androidx.compose.foundation.layout.fillMaxHeight
+ import androidx.compose.foundation.layout.fillMaxSize
+ import androidx.compose.foundation.layout.fillMaxWidth
+@@ -68,6 +52,7 @@ import androidx.compose.foundation.pager.rememberPagerState
+ import androidx.compose.foundation.rememberScrollState
+ import androidx.compose.foundation.shape.CircleShape
+ import androidx.compose.foundation.shape.RoundedCornerShape
++import androidx.compose.foundation.text.BasicTextField
+ import androidx.compose.foundation.verticalScroll
+ import androidx.compose.material3.LocalContentColor
+ import androidx.compose.material3.MaterialTheme
+@@ -94,16 +79,16 @@ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+ import androidx.compose.ui.draw.shadow
+-import androidx.compose.ui.geometry.CornerRadius
+-import androidx.compose.ui.geometry.Offset
+-import androidx.compose.ui.geometry.Size
+ import androidx.compose.ui.focus.FocusRequester
+ import androidx.compose.ui.focus.focusRequester
+ import androidx.compose.ui.focus.onFocusChanged
++import androidx.compose.ui.geometry.CornerRadius
++import androidx.compose.ui.geometry.Offset
++import androidx.compose.ui.geometry.Size
+ import androidx.compose.ui.graphics.Brush
+ import androidx.compose.ui.graphics.Color
+-import androidx.compose.ui.graphics.asImageBitmap
+ import androidx.compose.ui.graphics.StrokeCap
++import androidx.compose.ui.graphics.asImageBitmap
+ import androidx.compose.ui.graphics.drawscope.Stroke
+ import androidx.compose.ui.input.key.KeyEvent
+ import androidx.compose.ui.input.key.KeyEventType
+@@ -112,6 +97,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
+ import androidx.compose.ui.input.key.type
+ import androidx.compose.ui.input.pointer.pointerInput
+ import androidx.compose.ui.layout.ContentScale
++import androidx.compose.ui.platform.LocalConfiguration
+ import androidx.compose.ui.platform.LocalContext
+ import androidx.compose.ui.platform.LocalDensity
+ import androidx.compose.ui.platform.LocalWindowInfo
+@@ -120,12 +106,16 @@ import androidx.compose.ui.semantics.heading
+ import androidx.compose.ui.semantics.semantics
+ import androidx.compose.ui.text.TextRange
+ import androidx.compose.ui.text.font.FontWeight
+-import androidx.compose.ui.text.rememberTextMeasurer
+ import androidx.compose.ui.text.input.TextFieldValue
++import androidx.compose.ui.text.rememberTextMeasurer
++import androidx.compose.ui.text.style.TextAlign
+ import androidx.compose.ui.text.style.TextOverflow
++import androidx.compose.ui.unit.Dp
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
++import com.sable.start.model.StartText.t
+ import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.delay
+ import kotlinx.coroutines.launch
+ import kotlinx.coroutines.withContext
+ import org.sableos.design.AccentPreset
+@@ -142,22 +132,29 @@ import org.sableos.design.sableFocusRing
+ import org.sableos.start.live.LiveAvailability
+ import org.sableos.start.live.LiveDatum
+ import org.sableos.start.live.LiveSurfaceSnapshot
++import org.sableos.start.model.ActiveFrame
++import org.sableos.start.model.ActiveFrames
+ import org.sableos.start.model.AppEntry
+ import org.sableos.start.model.AppGlyphs
++import org.sableos.start.model.AppGrid
++import org.sableos.start.model.AppProfiles
++import org.sableos.start.model.CommandBestMatch
++import org.sableos.start.model.CommandGroups
+ import org.sableos.start.model.CommandQuery
+ import org.sableos.start.model.CommandRanking
+ import org.sableos.start.model.CommandScope
+ import org.sableos.start.model.CoreAppIdentity
+ import org.sableos.start.model.GlanceWidgets
+ import org.sableos.start.model.HomeApps
++import org.sableos.start.model.HomeHeader
+ import org.sableos.start.model.HomeLayout
+ import org.sableos.start.model.HubBar
+ import org.sableos.start.model.HubFilter
+ import org.sableos.start.model.HubPeople
+ import org.sableos.start.model.HubPerson
+ import org.sableos.start.model.QuickBar
+-import org.sableos.start.model.StartPages
+ import org.sableos.start.model.SpeedDialKeys
++import org.sableos.start.model.StartPages
+ import org.sableos.start.model.StartTypeToSearch
+ import org.sableos.start.model.inLauncherUser
+ import org.sableos.start.model.stableKey
+@@ -169,9 +166,13 @@ import org.sableos.start.privacy.AllAppsKeyPolicy
+ import org.sableos.start.privacy.AppAction
+ import org.sableos.start.privacy.AppActionContext
+ import org.sableos.start.privacy.AppActionPolicy
++import org.sableos.start.privacy.PrivacyFilter
+ import org.sableos.start.privacy.PrivacySummaryPolicy
++import java.time.LocalDate
+ import java.time.LocalTime
++import java.time.format.DateTimeFormatter
+ import java.util.Locale
++import androidx.compose.foundation.Canvas as ComposeCanvas
+ 
+ private enum class SableStartDestination {
+     /** The Start pages: Hub, Active Frames, app grid ([StartPages]). */
+@@ -1092,9 +1093,9 @@ private fun Bb10PageIndicator(
+ 
+ private fun pageDescription(page: Int): String =
+     when (page) {
+-        StartPages.HUB -> "Hub page"
+-        StartPages.HOME -> "Active Frames"
+-        else -> "App grid page ${page - StartPages.FIRST_GRID + 1}"
++        StartPages.HUB -> t("hub_page")
++        StartPages.HOME -> t("active_frames")
++        else -> t("app_grid_page", page - StartPages.FIRST_GRID + 1)
+     }
+ 
+ /**
+@@ -1208,7 +1209,7 @@ private fun StatusDialsRow(onOpenSettings: () -> Unit) {
+                     .width(44.dp)
+                     .sableFocusRing()
+                     .clickable(onClick = onOpenSettings)
+-                    .semantics { contentDescription = "Settings" }
++                    .semantics { contentDescription = t("settings") }
+                     .padding(top = 8.dp),
+             textAlign = TextAlign.Center,
+         )
+@@ -1386,7 +1387,7 @@ private fun FrameCard(
+                     if (event.type == KeyEventType.KeyDown && native.repeatCount == 0) onClose()
+                     true
+                 }.combinedClickable(onClick = onResume, onLongClick = onClose)
+-                .semantics { contentDescription = "$label, Active Frame. Enter resumes, X closes" },
++                .semantics { contentDescription = t("active_frame_enter_resumes_x", label) },
+     ) {
+         Box(modifier = Modifier.weight(1f).fillMaxWidth().background(Bb10Background)) {
+             val bitmap = picture
+@@ -1409,7 +1410,7 @@ private fun FrameCard(
+                     Text(
+                         text =
+                             live?.takeIf { it.availability == LiveAvailability.LIVE }?.detail
+-                                ?: if (frame.running) "running" else "Enter opens",
++                                ?: if (frame.running) "running" else t("enter_opens"),
+                         style = MaterialTheme.typography.bodyMedium,
+                         color = Bb10Muted,
+                         maxLines = 2,
+@@ -1445,7 +1446,7 @@ private fun FrameCard(
+                     Modifier
+                         .size(FRAME_LABEL_HEIGHT)
+                         .clickable(onClick = onClose)
+-                        .semantics { contentDescription = "Close $label" },
++                        .semantics { contentDescription = t("close_2", label) },
+                 contentAlignment = Alignment.Center,
+             ) {
+                 Text(
+@@ -1486,7 +1487,7 @@ private fun GlanceFrames(
+ 
+     if (widgets.isEmpty()) {
+         Box(Modifier.fillMaxSize().focusRequester(firstFocus).focusable(), contentAlignment = Alignment.Center) {
+-            EmptyState("No apps are open. Press Menu to choose Glance widgets for this page.")
++            EmptyState(t("no_apps_are_open_press"))
+         }
+         return
+     }
+@@ -1506,16 +1507,16 @@ private fun GlanceFrames(
+                     when (widget) {
+                         GlanceWidgets.WEATHER -> {
+                             val (headline, detail) = weatherLines(snapshot.weather)
+-                            GlanceFrameCard("Weather", headline, detail, SableSun, { open(WEATHER_PACKAGE) }, modifier)
++                            GlanceFrameCard(t("weather"), headline, detail, SableSun, { open(WEATHER_PACKAGE) }, modifier)
+                         }
+                         GlanceWidgets.BATTERY -> BatteryGlanceFrame(battery, onStartIntent, modifier)
+                         GlanceWidgets.PHOTOS -> {
+                             val datum = snapshot.photos
+                             val needsPermission = datum.availability == LiveAvailability.PERMISSION_REQUIRED
+                             GlanceFrameCard(
+-                                title = "Photos",
+-                                headline = if (needsPermission) "Photos" else datum.detail,
+-                                detail = if (needsPermission) "Enter to allow local photo counts" else "",
++                                title = t("photos"),
++                                headline = if (needsPermission) t("photos") else datum.detail,
++                                detail = if (needsPermission) t("enter_to_allow_local_photo") else "",
+                                 accent = SablePurple,
+                                 onClick = { if (needsPermission) onRequestPermissions() else open(GALLERY_PACKAGE) },
+                                 modifier = modifier,
+@@ -1539,7 +1540,7 @@ private fun BatteryGlanceFrame(
+ ) {
+     val (level, charging) = battery
+     GlanceFrameCard(
+-        title = "Battery",
++        title = t("battery"),
+         headline = level?.let { "$it%" } ?: "--",
+         detail = if (level == null) "unavailable" else if (charging) "charging" else "",
+         accent = SableGreen,
+@@ -1642,10 +1643,10 @@ private fun GlanceFrameCard(
+ /** "72° Partly cloudy" and "Seattle" from the Weather snapshot ([HomeHeader.weather]). */
+ private fun weatherLines(datum: LiveDatum): Pair<String, String> {
+     if (datum.availability != LiveAvailability.LIVE && datum.availability != LiveAvailability.EMPTY) {
+-        return "Weather" to datum.detail.ifBlank { "unavailable" }
++        return t("weather") to datum.detail.ifBlank { "unavailable" }
+     }
+-    return HomeHeader.weather(datum.detail)?.let { (headline, place) -> headline to place.ifBlank { "Weather" } }
+-        ?: ("Weather" to datum.detail)
++    return HomeHeader.weather(datum.detail)?.let { (headline, place) -> headline to place.ifBlank { t("weather") } }
++        ?: (t("weather") to datum.detail)
+ }
+ 
+ /**
+@@ -1804,7 +1805,7 @@ private fun liveDetail(
+ ): String =
+     when (datum.availability) {
+         LiveAvailability.LIVE, LiveAvailability.EMPTY -> datum.detail
+-        else -> if (app == null) "not installed" else "open ${app.label}"
++        else -> if (app == null) t("not_installed") else t("open_2", app.label)
+     }
+ 
+ /** Battery level and charging from the sticky battery broadcast (no receiver kept). */
+@@ -2060,7 +2061,7 @@ private fun HubUnreadBar(
+         val overflow = if (expanded) 0 else layout.overflow
+         if (items.isEmpty()) {
+             Text(
+-                text = "no new notifications",
++                text = t("no_new_notifications"),
+                 style = MaterialTheme.typography.labelLarge,
+                 color = Bb10Muted,
+                 modifier = Modifier.height(HUB_BAR_ITEM_HEIGHT).padding(vertical = 6.dp),
+@@ -2078,7 +2079,7 @@ private fun HubUnreadBar(
+                         }
+                         if (rowIndex == rows.lastIndex && overflow > 0) {
+                             HubBarChip(
+-                                description = "$overflow more apps with notifications",
++                                description = t("more_apps_with_notifications", overflow),
+                                 onClick = { expanded = true },
+                             ) {
+                                 Text(
+@@ -2105,9 +2106,9 @@ private fun HubBarItem(
+     val count = HubBar.countLabel(item.count)
+     val description =
+         if (item.redacted) {
+-            "$count new notifications, apps hidden"
++            t("new_notifications_apps_hidden", count)
+         } else {
+-            "${app?.label ?: item.packageName}, $count new"
++            t("new_label", app?.label ?: item.packageName, count)
+         }
+     HubBarChip(description = description, onClick = onOpen) {
+         if (app != null) {
+@@ -2236,7 +2237,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hubSummaryItems(
+     if (showMessages) {
+         item(key = "messages") {
+             GlanceCard(
+-                title = "Messages",
++                title = t("messages"),
+                 detail = liveDetail(snapshot.messages, messagesApp),
+                 accent = SableBlue,
+                 onClick = actions.onOpenMessages,
+@@ -2244,7 +2245,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hubSummaryItems(
+         }
+         item(key = "mail") {
+             GlanceCard(
+-                title = "Mail",
++                title = t("mail"),
+                 detail = liveDetail(snapshot.mail, mailApp),
+                 accent = Color(0xFFE5484D),
+                 onClick = mailApp?.let { { actions.onLaunchApp(it) } },
+@@ -2255,8 +2256,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hubSummaryItems(
+         item(key = "calls") {
+             // Start holds no call-log permission: the Phone app shows the missed calls.
+             GlanceCard(
+-                title = "Missed calls",
+-                detail = "recent calls in Phone",
++                title = t("missed_calls"),
++                detail = t("recent_calls_in_phone"),
+                 accent = SableGreen,
+                 onClick = { actions.onStartIntent(Intent(Intent.ACTION_VIEW, CallLog.Calls.CONTENT_URI)) },
+             )
+@@ -2266,8 +2267,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hubSummaryItems(
+         item(key = "notifications") {
+             // Android owns the notifications; its history lists what was dismissed too.
+             GlanceCard(
+-                title = "Notifications",
+-                detail = summary ?: "Sable Hub not installed",
++                title = t("notifications"),
++                detail = summary ?: t("sable_hub_not_installed"),
+                 accent = SableSun,
+                 onClick = { actions.onStartIntent(Intent(ACTION_NOTIFICATION_HISTORY)) },
+             )
+@@ -2276,7 +2277,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hubSummaryItems(
+     if (summary != null) {
+         item(key = "settings") {
+             Spacer(Modifier.height(4.dp))
+-            MetroLink(text = "Hub settings", onClick = actions.onOpenHubSettings)
++            MetroLink(text = t("hub_settings"), onClick = actions.onOpenHubSettings)
+         }
+     }
+ }
+@@ -2301,18 +2302,18 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hubContactsItems(
+         item(key = "contacts-empty") {
+             if (!canRead) {
+                 GlanceCard(
+-                    title = "Allow contacts",
+-                    detail = "Start shows names here; nothing leaves the phone",
++                    title = t("allow_contacts"),
++                    detail = t("start_shows_names_here_nothing"),
+                     accent = SablePurple,
+                     onClick = actions.onRequestContactsPermission,
+                 )
+             } else {
+-                EmptyState(if (loaded) "No contacts yet." else "Loading contacts…")
++                EmptyState(if (loaded) t("no_contacts_yet") else t("loading_contacts"))
+             }
+         }
+         if (openContacts != null) {
+             item(key = "contacts-open") {
+-                MetroLink(text = "open Contacts", onClick = openContacts)
++                MetroLink(text = t("open_contacts"), onClick = openContacts)
+             }
+         }
+         return
+@@ -2361,15 +2362,15 @@ private fun HubPersonRow(
+                     .clip(shape)
+                     .background(if (focused) Bb10Blue else Color.Transparent)
+                     .clickable(onClick = onOpen)
+-                    .semantics { contentDescription = person.name + if (person.starred) ", favourite" else "" }
++                    .semantics { contentDescription = person.name + if (person.starred) t("favourite") else "" }
+                     .padding(horizontal = 8.dp, vertical = 10.dp),
+             style = MaterialTheme.typography.titleMedium,
+             color = if (focused) Bb10OnBlue else Bb10Text,
+             maxLines = 1,
+             overflow = TextOverflow.Ellipsis,
+         )
+-        if (onCall != null) HubPersonAction(label = "call", description = "Call ${person.name}", onClick = onCall)
+-        if (onMessage != null) HubPersonAction(label = "text", description = "Message ${person.name}", onClick = onMessage)
++        if (onCall != null) HubPersonAction(label = "call", description = t("call", person.name), onClick = onCall)
++        if (onMessage != null) HubPersonAction(label = "text", description = t("message", person.name), onClick = onMessage)
+     }
+ }
+ 
+@@ -2437,15 +2438,15 @@ private fun SlotOptionsScreen(
+             when (slot.token) {
+                 QuickBar.HUB -> {
+                     HubFilter.entries.forEach { filter ->
+-                        ContextAction(mark = "◇", label = "Hub page · ${filter.label}", onClick = { onHubFilter(filter) })
++                        ContextAction(mark = "◇", label = t("hub_page_2", filter.label), onClick = { onHubFilter(filter) })
+                     }
+-                    ContextAction(mark = "⚙", label = "Hub settings", onClick = onOpenHubSettings)
++                    ContextAction(mark = "⚙", label = t("hub_settings"), onClick = onOpenHubSettings)
+                 }
+                 QuickBar.PHONE -> {
+-                    ContextAction(mark = "☎", label = "dial pad", onClick = { onStartIntent(Intent(Intent.ACTION_DIAL)) })
++                    ContextAction(mark = "☎", label = t("dial_pad"), onClick = { onStartIntent(Intent(Intent.ACTION_DIAL)) })
+                     ContextAction(
+                         mark = "↺",
+-                        label = "recent calls",
++                        label = t("recent_calls"),
+                         onClick = { onStartIntent(Intent(Intent.ACTION_VIEW, CallLog.Calls.CONTENT_URI)) },
+                     )
+                     findLiveApp(apps, CONTACTS_PACKAGE)?.let { contacts ->
+@@ -2455,9 +2456,9 @@ private fun SlotOptionsScreen(
+                 else -> Unit
+             }
+             slot.app?.let { app ->
+-                ContextAction(mark = "ⓘ", label = "app info", onClick = { onAppInfo(app) })
++                ContextAction(mark = "ⓘ", label = t("app_info_2"), onClick = { onAppInfo(app) })
+             }
+-            ContextAction(mark = "▭", label = "edit Home and quick bar", onClick = onEditHome)
++            ContextAction(mark = "▭", label = t("edit_home_and_quick_bar"), onClick = onEditHome)
+         }
+     }
+ }
+@@ -2648,9 +2649,9 @@ private fun SlotPickerScreen(
+         contentPadding = PaddingValues(bottom = 28.dp),
+     ) {
+         item {
+-            MetroHeader(title = "choose bar slot", onBack = onBack)
++            MetroHeader(title = t("choose_bar_slot"), onBack = onBack)
+             Text(
+-                text = "Add ${app.label} to the bar",
++                text = t("add_to_the_bar", app.label),
+                 style = MaterialTheme.typography.bodyMedium,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+@@ -2692,7 +2693,7 @@ private fun SlotPickerScreen(
+         item {
+             Spacer(Modifier.height(8.dp))
+             Text(
+-                text = "Every app stays on the app grid pages (Alt+Right).",
++                text = t("every_app_stays_on_the"),
+                 style = MaterialTheme.typography.bodySmall,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+@@ -2857,13 +2858,13 @@ private fun EditHomeScreen(
+             val choices = quickBarChoices(apps, appByKey, draft.quickBar)
+             item {
+                 MetroHeader(
+-                    title = if (pickKind == "bar") "add a slot" else "replace slot",
++                    title = if (pickKind == "bar") t("add_a_slot") else t("replace_slot"),
+                     onBack = { picking = null },
+                 )
+                 Spacer(Modifier.height(12.dp))
+             }
+             if (choices.isEmpty()) {
+-                item { EmptyState("Every available app is already there.") }
++                item { EmptyState(t("every_available_app_is_already")) }
+             }
+             items(choices, key = { it.token }) { choice ->
+                 Row(
+@@ -2901,7 +2902,7 @@ private fun EditHomeScreen(
+                     Text(text = "‹", fontSize = 32.sp, fontWeight = FontWeight.Light)
+                 }
+                 Text(
+-                    text = "Edit Home",
++                    text = t("edit_home"),
+                     style = MaterialTheme.typography.headlineSmall,
+                     fontWeight = FontWeight.Medium,
+                     modifier = Modifier.weight(1f).semantics { heading() },
+@@ -2909,20 +2910,20 @@ private fun EditHomeScreen(
+                 TextButton(
+                     onClick = { onDone(draft) },
+                     modifier = Modifier.focusRequester(doneFocus).sableFocusRing(),
+-                ) { Text("Done", style = MaterialTheme.typography.titleMedium) }
++                ) { Text(t("done"), style = MaterialTheme.typography.titleMedium) }
+             }
+             Text(
+-                text = "Drag or use keyboard order",
++                text = t("drag_or_use_keyboard_order"),
+                 style = MaterialTheme.typography.bodyMedium,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+             Text(
+-                text = "Enter picks up and drops · arrows move · Alt+arrows move at once · Menu for options · Back cancels",
++                text = t("enter_picks_up_and_drops"),
+                 style = MaterialTheme.typography.bodySmall,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+             Spacer(Modifier.height(10.dp))
+-            SectionLabel("App grid")
++            SectionLabel(t("app_grid"))
+             Spacer(Modifier.height(4.dp))
+         }
+         items(draft.gridOrder.chunked(AppGrid.COLUMNS), key = { row -> "grid:" + row.first() }) { row ->
+@@ -2945,20 +2946,20 @@ private fun EditHomeScreen(
+                 val index = draft.gridOrder.indexOf(open)
+                 EditOptions(
+                     buildList {
+-                        if (index > 0) add("move left" to { move(EditSection.Grid, open, -1) })
+-                        if (index < draft.gridOrder.lastIndex) add("move right" to { move(EditSection.Grid, open, 1) })
+-                        if (index >= AppGrid.COLUMNS) add("move up a row" to { move(EditSection.Grid, open, -AppGrid.COLUMNS) })
++                        if (index > 0) add(t("move_left") to { move(EditSection.Grid, open, -1) })
++                        if (index < draft.gridOrder.lastIndex) add(t("move_right") to { move(EditSection.Grid, open, 1) })
++                        if (index >= AppGrid.COLUMNS) add(t("move_up_a_row") to { move(EditSection.Grid, open, -AppGrid.COLUMNS) })
+                         if (index + AppGrid.COLUMNS <= draft.gridOrder.lastIndex) {
+-                            add("move down a row" to { move(EditSection.Grid, open, AppGrid.COLUMNS) })
++                            add(t("move_down_a_row") to { move(EditSection.Grid, open, AppGrid.COLUMNS) })
+                         }
+-                        add("move to the start" to { move(EditSection.Grid, open, -index) })
++                        add(t("move_to_the_start") to { move(EditSection.Grid, open, -index) })
+                     },
+                 )
+             }
+         }
+         item(key = "bar") {
+             Spacer(Modifier.height(10.dp))
+-            SectionLabel("Bottom bar")
++            SectionLabel(t("bottom_bar"))
+             Spacer(Modifier.height(6.dp))
+             EditQuickBarRow(
+                 tokens = draft.quickBar,
+@@ -2977,8 +2978,8 @@ private fun EditHomeScreen(
+                 val required = QuickBar.isRequired(barOptions)
+                 EditOptions(
+                     buildList {
+-                        if (index > 0) add("move left" to { move(EditSection.QuickBar, barOptions, -1) })
+-                        if (index < draft.quickBar.lastIndex) add("move right" to { move(EditSection.QuickBar, barOptions, 1) })
++                        if (index > 0) add(t("move_left") to { move(EditSection.QuickBar, barOptions, -1) })
++                        if (index < draft.quickBar.lastIndex) add(t("move_right") to { move(EditSection.QuickBar, barOptions, 1) })
+                         if (!required) {
+                             add(
+                                 "replace" to {
+@@ -2997,21 +2998,21 @@ private fun EditHomeScreen(
+                 )
+                 if (required) {
+                     Text(
+-                        text = "Search always stays on the bar; it can move.",
++                        text = t("search_always_stays_on_the"),
+                         style = MaterialTheme.typography.bodySmall,
+                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                     )
+                 }
+             }
+             if (draft.quickBar.size < QuickBar.MAX_SLOTS) {
+-                MetroLink(text = "+ add a slot", onClick = { picking = "bar" })
++                MetroLink(text = t("add_a_slot_2"), onClick = { picking = "bar" })
+             }
+             MetroLink(
+-                text = "reset bar to Phone · Search · Camera",
++                text = t("reset_bar_to_phone_search"),
+                 onClick = { draft = draft.copy(quickBar = QuickBar.DEFAULT) },
+             )
+             Spacer(Modifier.height(10.dp))
+-            SectionLabel("Frames while no app is open")
++            SectionLabel(t("frames_while_no_app_is"))
+             Spacer(Modifier.height(4.dp))
+         }
+         itemsIndexed(draft.glanceWidgets, key = { _, widget -> "glance:$widget" }) { index, widget ->
+@@ -3026,8 +3027,8 @@ private fun EditHomeScreen(
+             if (optionsFor == "Glance:$widget") {
+                 EditOptions(
+                     listOf(
+-                        "move up" to { move(EditSection.Glance, widget, -1) },
+-                        "move down" to { move(EditSection.Glance, widget, 1) },
++                        t("move_up") to { move(EditSection.Glance, widget, -1) },
++                        t("move_down") to { move(EditSection.Glance, widget, 1) },
+                         "hide" to {
+                             draft = draft.copy(glanceWidgets = GlanceWidgets.toggle(draft.glanceWidgets, widget))
+                             optionsFor = null
+@@ -3039,12 +3040,12 @@ private fun EditHomeScreen(
+         item(key = "glance-add") {
+             GlanceWidgets.ALL.filterNot { it in draft.glanceWidgets }.forEach { widget ->
+                 MetroLink(
+-                    text = "+ show ${GlanceWidgets.label(widget)}",
++                    text = t("show", GlanceWidgets.label(widget)),
+                     onClick = { draft = draft.copy(glanceWidgets = GlanceWidgets.toggle(draft.glanceWidgets, widget)) },
+                 )
+             }
+             Spacer(Modifier.height(10.dp))
+-            SectionLabel("Active Frames header")
++            SectionLabel(t("active_frames_header"))
+             Spacer(Modifier.height(4.dp))
+             val accent = MaterialTheme.colorScheme.primary
+             HomeLayout.SECTIONS.forEach { section ->
+@@ -3058,7 +3059,7 @@ private fun EditHomeScreen(
+             }
+             Spacer(Modifier.height(10.dp))
+             MetroLink(text = "appearance", onClick = onAppearance)
+-            MetroLink(text = "reset Home to default", onClick = { draft = defaults })
++            MetroLink(text = t("reset_home_to_default"), onClick = { draft = defaults })
+         }
+     }
+ }
+@@ -3075,7 +3076,7 @@ private fun EditGridCell(
+ ) {
+     val step = with(LocalDensity.current) { EditRowStep.toPx() }
+     val currentStep by rememberUpdatedState(onDragStep)
+-    val label = app?.label ?: "App not installed"
++    val label = app?.label ?: t("app_not_installed")
+     Column(
+         modifier =
+             modifier
+@@ -3114,7 +3115,7 @@ private fun EditGridCell(
+                             travelY += step
+                         }
+                     }
+-                }.semantics { contentDescription = "$label. Enter picks up, arrows move" }
++                }.semantics { contentDescription = t("enter_picks_up_arrows_move", label) }
+                 .padding(vertical = 6.dp, horizontal = 2.dp),
+         horizontalAlignment = Alignment.CenterHorizontally,
+         verticalArrangement = Arrangement.Center,
+@@ -3190,7 +3191,7 @@ private fun EditListRow(
+                                 travel += step
+                             }
+                         }
+-                    }.semantics { contentDescription = "Drag to reorder $label" }
++                    }.semantics { contentDescription = t("drag_to_reorder", label) }
+                     .padding(horizontal = 8.dp, vertical = 10.dp),
+         )
+     }
+@@ -3376,15 +3377,15 @@ private fun resolveQuickSlot(
+         } ?: personal.firstOrNull { app -> labels.any { app.label.equals(it, ignoreCase = true) } }
+     }
+     return when (token) {
+-        QuickBar.COMMAND -> QuickSlot(token, "Search", null)
+-        QuickBar.ALL_APPS -> QuickSlot(token, "All apps", null)
++        QuickBar.COMMAND -> QuickSlot(token, t("search_2"), null)
++        QuickBar.ALL_APPS -> QuickSlot(token, t("all_apps"), null)
+         QuickBar.PHONE ->
+-            role(listOf(DIALER_PACKAGE), listOf("Phone"))?.let { QuickSlot(token, "Phone", it) }
++            role(listOf(DIALER_PACKAGE), listOf(t("phone")))?.let { QuickSlot(token, t("phone"), it) }
+         // Start's own Hub page: always available, whatever messaging apps are installed.
+-        QuickBar.HUB -> QuickSlot(token, "Hub", null)
++        QuickBar.HUB -> QuickSlot(token, t("hub"), null)
+         QuickBar.CAMERA ->
+-            role(CoreAppIdentity.startTileCandidates(CoreAppIdentity.CAMERA), listOf("Camera"))
+-                ?.let { QuickSlot(token, "Camera", it) }
++            role(CoreAppIdentity.startTileCandidates(CoreAppIdentity.CAMERA), listOf(t("camera")))
++                ?.let { QuickSlot(token, t("camera"), it) }
+         else ->
+             QuickBar.appKey(token)?.let(appByKey::get)?.let { QuickSlot(token, it.label, it) }
+     }
+@@ -3392,10 +3393,10 @@ private fun resolveQuickSlot(
+ 
+ private fun quickSlotFallbackLabel(token: String): String =
+     when (token) {
+-        QuickBar.PHONE -> "Phone (not installed)"
+-        QuickBar.HUB -> "Hub (not installed)"
+-        QuickBar.CAMERA -> "Camera (not installed)"
+-        else -> "App not installed"
++        QuickBar.PHONE -> t("phone_not_installed")
++        QuickBar.HUB -> t("hub_not_installed")
++        QuickBar.CAMERA -> t("camera_not_installed")
++        else -> t("app_not_installed")
+     }
+ 
+ @Composable
+@@ -3423,13 +3424,13 @@ private fun SearchLaunchButton(
+         Spacer(Modifier.width(12.dp))
+         Column {
+             Text(
+-                text = "search + command",
++                text = t("search_command"),
+                 fontSize = 20.sp,
+                 lineHeight = 22.sp,
+                 fontWeight = FontWeight.Medium,
+             )
+             Text(
+-                text = "apps · settings · Sable actions",
++                text = t("apps_settings_sable_actions"),
+                 style = MaterialTheme.typography.bodyMedium,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+@@ -3556,7 +3557,7 @@ private fun AppsScreen(
+                     .padding(start = 20.dp, end = if (alphabet.isEmpty) 20.dp else SableAlphabetRailWidth + 4.dp),
+         ) {
+             MetroHeader(
+-                title = "all apps",
++                title = t("all_apps_2"),
+                 onBack = onBack,
+             )
+             Spacer(Modifier.height(8.dp))
+@@ -3566,9 +3567,9 @@ private fun AppsScreen(
+             Spacer(Modifier.height(8.dp))
+ 
+             if (rows.isEmpty() && filter != PrivacyFilter.All) {
+-                EmptyState("No apps match “${filter.label}”.")
++                EmptyState(t("no_apps_match", filter.label))
+             } else if (rows.isEmpty() && privateSpaceLocked == null) {
+-                EmptyState("No launchable apps are available.")
++                EmptyState(t("no_launchable_apps_are_available"))
+             } else {
+                 LazyColumn(
+                     modifier = Modifier.fillMaxSize(),
+@@ -3660,7 +3661,7 @@ private fun PrivacyFilterChips(
+                         .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
+                         .sableFocusRing()
+                         .clickable { onSelect(chip) }
+-                        .semantics { contentDescription = "Filter ${chip.label}" + if (on) ", applied" else "" }
++                        .semantics { contentDescription = t("filter", chip.label) + if (on) t("applied") else "" }
+                         .padding(horizontal = 12.dp, vertical = 6.dp),
+                 style = MaterialTheme.typography.labelLarge,
+                 color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+@@ -3668,7 +3669,7 @@ private fun PrivacyFilterChips(
+         }
+     }
+     Text(
+-        text = "←→ filters · Enter applies",
++        text = t("filters_enter_applies"),
+         style = MaterialTheme.typography.bodySmall,
+         color = MaterialTheme.colorScheme.onSurfaceVariant,
+     )
+@@ -3688,7 +3689,7 @@ private fun PrivateSpaceSection(
+ ) {
+     Column(modifier = Modifier.fillMaxWidth().padding(top = 18.dp)) {
+         Text(
+-            text = "private space",
++            text = t("private_space"),
+             style = MaterialTheme.typography.headlineLarge,
+             color = MaterialTheme.colorScheme.primary,
+             modifier = Modifier.semantics { heading() },
+@@ -3710,16 +3711,16 @@ private fun PrivateSpaceSection(
+             )
+             Column(modifier = Modifier.weight(1f)) {
+                 Text(
+-                    text = if (locked) "Unlock private space" else "Lock private space",
++                    text = if (locked) t("unlock_private_space") else t("lock_private_space"),
+                     style = MaterialTheme.typography.bodyLarge,
+                     fontWeight = FontWeight.Medium,
+                 )
+                 Text(
+                     text =
+                         if (locked) {
+-                            "Its apps stay hidden and stopped until you unlock"
++                            t("its_apps_stay_hidden_and")
+                         } else {
+-                            "${apps.size} apps · locking stops them and hides them again"
++                            t("apps_locking_stops_them_and", apps.size)
+                         },
+                     style = MaterialTheme.typography.bodyMedium,
+                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+@@ -3822,13 +3823,13 @@ private fun SearchScreen(
+ 
+     val commands =
+         listOf(
+-            SearchCommand("All apps", "A to Z with privacy summaries", "A", "Start", onAllApps),
+-            SearchCommand("Active Frames", "Open apps, Home", "▦", "Start", onFrames),
+-            SearchCommand("App grid", "Every app, in your order", "▤", "Start", onGrid),
+-            SearchCommand("Hub page", "Messages, mail, calls, contacts and notifications", "◇", "Start", { onHub(HubFilter.All) }),
+-            SearchCommand("Edit Home", "Order the app grid, the bar and the empty frames", "▭", "Start", onEditHome),
+-            SearchCommand("Appearance", "Theme and Sable accent", "◐", "Start", onAppearance),
+-            SearchCommand("System Settings", "Open Android settings", "⚙", "Settings", onOpenSettings),
++            SearchCommand(t("all_apps"), t("a_to_z_with_privacy"), "A", t("start"), onAllApps),
++            SearchCommand(t("active_frames"), t("open_apps_home"), "▦", t("start"), onFrames),
++            SearchCommand(t("app_grid"), t("every_app_in_your_order"), "▤", t("start"), onGrid),
++            SearchCommand(t("hub_page"), t("messages_mail_calls_contacts_and"), "◇", t("start"), { onHub(HubFilter.All) }),
++            SearchCommand(t("edit_home"), t("order_the_app_grid_the"), "▭", t("start"), onEditHome),
++            SearchCommand(t("appearance"), t("theme_and_sable_accent"), "◐", t("start"), onAppearance),
++            SearchCommand(t("system_settings"), t("open_android_settings"), "⚙", t("settings"), onOpenSettings),
+         )
+     val filteredCommands =
+         if (!parsed.includes(CommandScope.Actions) || parsed.profileScope) {
+@@ -3855,10 +3856,10 @@ private fun SearchScreen(
+         buildList {
+             add("open" to { onLaunchApp(app) })
+             secondInstanceOf(app)?.let { other ->
+-                add((if (other.profileLabel == AppProfiles.DUAL) "open Dual copy" else "open personal app") to { onLaunchApp(other) })
++                add((if (other.profileLabel == AppProfiles.DUAL) t("open_dual_copy") else t("open_personal_app")) to { onLaunchApp(other) })
+             }
+-            add("app info" to { onOpenAppInfo(app) })
+-            add("more actions" to { onOpenPeek(app) })
++            add(t("app_info_2") to { onOpenAppInfo(app) })
++            add(t("more_actions") to { onOpenPeek(app) })
+         }
+ 
+     @Composable
+@@ -3952,7 +3953,7 @@ private fun SearchScreen(
+             }
+             if (bestApp != null || bestOther != null) {
+                 item(key = "best") {
+-                    SectionLabel("best match")
++                    SectionLabel(t("best_match"))
+                     Box(
+                         Modifier
+                             .clip(RoundedCornerShape(8.dp))
+@@ -3968,12 +3969,12 @@ private fun SearchScreen(
+             }
+             val apps1 = filteredApps.filterNot { it == bestApp }
+             if (apps1.isNotEmpty()) {
+-                item { SectionLabel(if (profileApps != null) CommandGroups.label(parsed.scope).lowercase(locale) + " apps" else if (term.isEmpty()) "recent + apps" else "apps") }
++                item { SectionLabel(if (profileApps != null) CommandGroups.label(parsed.scope).lowercase(locale) + " apps" else if (term.isEmpty()) t("recent_apps") else "apps") }
+                 items(apps1, key = { "a:" + it.stableKey() }) { app -> AppResult(app) }
+                 item { Spacer(Modifier.height(12.dp)) }
+             }
+             if (privacyMatches.isNotEmpty()) {
+-                item { SectionLabel("permission matches") }
++                item { SectionLabel(t("permission_matches")) }
+                 items(privacyMatches, key = { "p:" + it.stableKey() }) { app -> AppResult(app) }
+                 item { Spacer(Modifier.height(12.dp)) }
+             }
+@@ -3981,7 +3982,7 @@ private fun SearchScreen(
+                 "people" to peopleResults,
+                 "settings" to settingsResults,
+                 "hub" to hubResults,
+-                (if (term.isEmpty()) "quick actions" else "actions") to filteredCommands,
++                (if (term.isEmpty()) t("quick_actions") else "actions") to filteredCommands,
+             ).forEach { (label, rows) ->
+                 val shown = rows.filterNot { it == bestOther }
+                 if (shown.isNotEmpty()) {
+@@ -3995,13 +3996,13 @@ private fun SearchScreen(
+             ) {
+                 item {
+                     EmptyState(
+-                        "No local results match “$term”. Prefixes: ?app @person /settings /hub !action /private /dual /work",
++                        t("no_local_results_match_prefixes", term),
+                     )
+                 }
+             }
+             item {
+                 Text(
+-                    text = "↑↓ results · ←→ groups · Enter opens · Shift+Enter Dual · Menu actions · Back closes",
++                    text = t("results_groups_enter_opens_shift"),
+                     style = MaterialTheme.typography.bodySmall,
+                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                 )
+@@ -4060,18 +4061,18 @@ private fun PrivateLockedCard(
+     ) {
+         if (full) Text("🔒", fontSize = 28.sp)
+         Text(
+-            text = if (full) "Content hidden" else "Private space locked",
++            text = if (full) t("content_hidden") else t("private_space_locked"),
+             style = MaterialTheme.typography.titleMedium,
+             fontWeight = FontWeight.Medium,
+         )
+         Text(
+-            text = "Unlock to show and search private space apps. Locked mode shows nothing from it.",
++            text = t("unlock_to_show_and_search"),
+             style = MaterialTheme.typography.bodyMedium,
+             color = MaterialTheme.colorScheme.onSurfaceVariant,
+         )
+         Spacer(Modifier.height(6.dp))
+         Text(
+-            text = "Unlock",
++            text = t("unlock"),
+             modifier =
+                 Modifier
+                     .clip(RoundedCornerShape(6.dp))
+@@ -4096,11 +4097,11 @@ private fun settingsResults(
+         val open = { onStartIntent(Intent(dest.action)) }
+         SearchCommand(
+             title = dest.title,
+-            subtitle = "Open ${dest.title} settings",
++            subtitle = t("open_settings", dest.title),
+             mark = "⚙",
+-            source = "Settings",
++            source = t("settings"),
+             onClick = open,
+-            actions = listOf("open ${dest.title}" to open, "open Settings home" to onOpenSettings),
++            actions = listOf(t("open_2", dest.title) to open, t("open_settings_home") to onOpenSettings),
+         )
+     }
+ }
+@@ -4120,16 +4121,16 @@ private fun peopleResults(
+         CommandQuery.dialable(term)?.let { number ->
+             val call = { onStartIntent(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number"))) }
+             SearchCommand(
+-                title = "Call $number",
+-                subtitle = "Opens the dialer with the number",
++                title = t("call", number),
++                subtitle = t("opens_the_dialer_with_the"),
+                 mark = "☎",
+-                source = "Phone",
++                source = t("phone"),
+                 onClick = call,
+                 actions =
+                     listOf(
+                         "call" to call,
+-                        "send a message" to { onStartIntent(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$number"))) },
+-                        "add to contacts" to {
++                        t("send_a_message") to { onStartIntent(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$number"))) },
++                        t("add_to_contacts") to {
+                             onStartIntent(
+                                 Intent(Intent.ACTION_INSERT)
+                                     .setType("vnd.android.cursor.dir/contact")
+@@ -4148,12 +4149,12 @@ private fun peopleResults(
+     }
+     val contacts =
+         SearchCommand(
+-            title = "Find “$term” in Contacts",
+-            subtitle = "Search people by name, number or email",
++            title = t("find_in_contacts", term),
++            subtitle = t("search_people_by_name_number"),
+             mark = "@",
+-            source = "Contacts",
++            source = t("contacts"),
+             onClick = find,
+-            actions = listOf("find in Contacts" to find, "Hub page · Contacts" to { onHub(HubFilter.Contacts) }),
++            actions = listOf(t("find_in_contacts_2") to find, t("hub_page_contacts") to { onHub(HubFilter.Contacts) }),
+         ).takeIf { parsed.scope == CommandScope.People || term.length >= 2 }
+     return listOfNotNull(dial, contacts)
+ }
+@@ -4174,12 +4175,12 @@ private fun hubResults(
+     val target = tab ?: HubFilter.All
+     return listOf(
+         SearchCommand(
+-            title = if (target == HubFilter.All) "Open Hub" else "Hub · ${target.label}",
+-            subtitle = "Messages, calls, contacts and notifications",
++            title = if (target == HubFilter.All) t("open_hub") else t("hub_2", target.label),
++            subtitle = t("messages_calls_contacts_and_notifications"),
+             mark = "◉",
+-            source = "Hub",
++            source = t("hub"),
+             onClick = { onHub(target) },
+-            actions = HubFilter.entries.map { filter -> "Hub · ${filter.label}" to { onHub(filter) } },
++            actions = HubFilter.entries.map { filter -> t("hub_2", filter.label) to { onHub(filter) } },
+         ),
+     )
+ }
+@@ -4261,7 +4262,7 @@ private fun SableSearchField(
+                 decorationBox = { innerTextField ->
+                     if (value.text.isEmpty()) {
+                         Text(
+-                            text = "search apps + Sable actions",
++                            text = t("search_apps_sable_actions"),
+                             style = MaterialTheme.typography.titleLarge,
+                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                         )
+@@ -4390,7 +4391,7 @@ private fun AppRow(
+                 modifier =
+                     Modifier
+                         .heightIn(min = 48.dp)
+-                        .semantics { contentDescription = "Actions for ${app.label}" },
++                        .semantics { contentDescription = t("actions_for", app.label) },
+             ) {
+                 Text(
+                     text = "›",
+@@ -4417,7 +4418,7 @@ private fun ProfileBadge(profile: String) {
+             Modifier
+                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(4.dp))
+                 .padding(horizontal = 6.dp, vertical = 1.dp)
+-                .semantics { contentDescription = "${AppProfiles.badge(profile)} profile" },
++                .semantics { contentDescription = t("profile", AppProfiles.badge(profile)) },
+         style = MaterialTheme.typography.labelSmall,
+         color = MaterialTheme.colorScheme.onSurfaceVariant,
+         maxLines = 1,
+@@ -4454,7 +4455,7 @@ private fun PrivacySummaryLine(app: AppEntry) {
+                         Modifier
+                             .width(PrivacyBadgeWidth)
+                             .semantics {
+-                                contentDescription = "Special access: " + row.badgeLabels.joinToString(", ")
++                                contentDescription = t("special_access") + row.badgeLabels.joinToString(", ")
+                             },
+                     style = style,
+                     color = MaterialTheme.colorScheme.error,
+@@ -4497,7 +4498,7 @@ private fun PrivacyDetail(
+         }
+         lines.forEach { line ->
+             Text(
+-                text = if (line.special) "special access · ${line.label}" else line.label,
++                text = if (line.special) t("special_access_2", line.label) else line.label,
+                 style = MaterialTheme.typography.bodySmall,
+                 color =
+                     if (line.special) {
+@@ -4766,7 +4767,7 @@ private fun SablePeekScreen(
+                     )
+                     Row(verticalAlignment = Alignment.CenterVertically) {
+                         Text(
+-                            text = "privacy & security",
++                            text = t("privacy_security"),
+                             style = MaterialTheme.typography.bodyMedium,
+                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                         )
+@@ -4852,7 +4853,7 @@ private fun SablePeekScreen(
+             }
+ 
+             Text(
+-                text = "Shortcuts and notification content stay hidden until Android capability and privacy gates are wired.",
++                text = t("shortcuts_and_notification_content_stay"),
+                 style = MaterialTheme.typography.bodySmall,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                 modifier = Modifier.padding(top = 10.dp),
+@@ -4890,7 +4891,7 @@ private fun AppearanceScreen(
+             AppearanceChoiceRow(
+                 title =
+                     when (mode) {
+-                        AppearanceMode.FollowSystem -> "follow system"
++                        AppearanceMode.FollowSystem -> t("follow_system")
+                         AppearanceMode.Light -> "light"
+                         AppearanceMode.Dark -> "dark"
+                     },
+@@ -4926,7 +4927,7 @@ private fun AppearanceScreen(
+         item {
+             Spacer(Modifier.height(14.dp))
+             Text(
+-                text = "reset · follow system + Sable Blue",
++                text = t("reset_follow_system_sable_blue"),
+                 modifier =
+                     Modifier
+                         .fillMaxWidth()
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStatusRings.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStatusRings.kt
+index 69c0d9c..c15d0c9 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStatusRings.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStatusRings.kt
+@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.sp
+ import androidx.lifecycle.Lifecycle
+ import androidx.lifecycle.compose.LocalLifecycleOwner
+ import androidx.lifecycle.repeatOnLifecycle
++import com.sable.start.model.StartText.t
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.delay
+ import kotlinx.coroutines.withContext
+@@ -90,13 +91,13 @@ fun SableStatusRings(
+         verticalAlignment = Alignment.CenterVertically,
+     ) {
+         NetRing(label = "Wi-Fi", up = st.wifiUp, down = st.wifiDown, size = ringSize)
+-        NetRing(label = "Mobile", up = st.mobileUp, down = st.mobileDown, size = ringSize)
++        NetRing(label = t("mobile"), up = st.mobileUp, down = st.mobileDown, size = ringSize)
+         StatRing(label = "CPU", fraction = st.cpu, color = primary, size = ringSize)
+         StatRing(label = "RAM", fraction = st.ram, color = RingPurple, size = ringSize)
+         StatRing(
+             label =
+                 when {
+-                    st.charging -> "⚡ BAT"
++                    st.charging -> t("bat")
+                     st.hoursLeft != null -> DeviceStatsFormat.hours(st.hoursLeft) + " left"
+                     else -> "BAT"
+                 },
+@@ -106,7 +107,7 @@ fun SableStatusRings(
+             hotAbove = 2f,
+         )
+         StatRing(
+-            label = "Cell",
++            label = t("cell"),
+             fraction = st.signal,
+             color = RingOrange,
+             size = ringSize,
 diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/DesignText.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/DesignText.kt
 new file mode 100644
 index 0000000..1859eda

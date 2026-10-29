@@ -7,13 +7,14 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.text.format.DateFormat
-import java.util.Date
+import com.sable.start.model.StartText.t
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.sableos.start.live.AppUnreadCount
 import org.sableos.start.live.LiveAvailability
 import org.sableos.start.live.LiveDatum
 import org.sableos.start.live.LiveSurfaceSnapshot
+import java.util.Date
 
 class LiveSurfaceRepository(
     context: Context,
@@ -26,7 +27,7 @@ class LiveSurfaceRepository(
     ): LiveSurfaceSnapshot {
         val loading =
             LiveDatum(
-                title = "Loading",
+                title = t("loading"),
                 detail = "loading",
                 availability = LiveAvailability.LOADING,
                 observedAtEpochMs = nowEpochMs,
@@ -39,12 +40,12 @@ class LiveSurfaceRepository(
             timeText =
                 DateFormat.getTimeFormat(appContext)
                     .format(Date(nowEpochMs)),
-            weather = loading.copy(title = "Weather"),
-            calendar = loading.copy(title = "Calendar"),
-            messages = loading.copy(title = "Hub"),
-            mail = loading.copy(title = "Mail"),
-            music = loading.copy(title = "Media"),
-            photos = loading.copy(title = "Photos"),
+            weather = loading.copy(title = t("weather")),
+            calendar = loading.copy(title = t("calendar")),
+            messages = loading.copy(title = t("hub")),
+            mail = loading.copy(title = t("mail")),
+            music = loading.copy(title = t("media")),
+            photos = loading.copy(title = t("photos")),
             observedAtEpochMs = nowEpochMs,
         )
     }
@@ -63,27 +64,27 @@ class LiveSurfaceRepository(
                 weather =
                     providerSnapshot(
                         uri = WEATHER_URI,
-                        fallbackTitle = "Weather",
+                        fallbackTitle = t("weather"),
                     ),
                 calendar =
                     providerSnapshot(
                         uri = CALENDAR_URI,
-                        fallbackTitle = "Calendar",
+                        fallbackTitle = t("calendar"),
                     ),
                 messages =
                     providerSnapshot(
                         uri = MESSAGES_URI,
-                        fallbackTitle = "Hub",
+                        fallbackTitle = t("hub"),
                     ),
                 mail =
                     providerSnapshot(
                         uri = MAIL_URI,
-                        fallbackTitle = "Mail",
+                        fallbackTitle = t("mail"),
                     ),
                 music =
                     providerSnapshot(
                         uri = MEDIA_URI,
-                        fallbackTitle = "Media",
+                        fallbackTitle = t("media"),
                     ),
                 photos =
                     mediaCount(
@@ -94,7 +95,7 @@ class LiveSurfaceRepository(
                                 Manifest.permission.READ_EXTERNAL_STORAGE
                             },
                         uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                        title = "Photos",
+                        title = t("photos"),
                         noun = "photo",
                     ),
                 observedAtEpochMs = nowEpochMs,
@@ -197,7 +198,7 @@ class LiveSurfaceRepository(
         ) {
             return LiveDatum(
                 title = title,
-                detail = "permission required",
+                detail = t("permission_required"),
                 availability = LiveAvailability.PERMISSION_REQUIRED,
             )
         }
@@ -233,13 +234,13 @@ class LiveSurfaceRepository(
         } catch (_: SecurityException) {
             LiveDatum(
                 title = title,
-                detail = "permission required",
+                detail = t("permission_required"),
                 availability = LiveAvailability.PERMISSION_REQUIRED,
             )
         } catch (_: RuntimeException) {
             LiveDatum(
                 title = title,
-                detail = "provider error",
+                detail = t("provider_error"),
                 availability = LiveAvailability.ERROR,
             )
         }

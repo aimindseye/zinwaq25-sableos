@@ -55,6 +55,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.sable.start.model.StartText.t
 import kotlinx.coroutines.delay
 import org.sableos.design.SableAppearance
 import org.sableos.design.SableTheme
@@ -140,8 +141,8 @@ fun Bb7HomeScreen(
     val favorites = Bb7Home.panelApps(Bb7Panel.Favorites, apps, favoriteKeys).map { it.stableKey() }
     val trayTitle =
         when {
-            moving -> "Move " + shown.getOrNull(selected)?.label.orEmpty() + " · Enter to drop"
-            searching -> "Search: $query"
+            moving -> t("move") + shown.getOrNull(selected)?.label.orEmpty() + t("enter_to_drop")
+            searching -> t("search", query)
             else -> panel.title
         }
     // Moves the favourite being moved one place ([delta] -1/+1) or a row ([delta] ±columns).
@@ -158,20 +159,20 @@ fun Bb7HomeScreen(
         buildList<Pair<String, () -> Unit>> {
             if (app != null) {
                 val key = app.stableKey()
-                add("Open" to { onLaunchApp(app) })
+                add(t("open") to { onLaunchApp(app) })
                 if (key in favorites) {
-                    if (panel == Bb7Panel.Favorites && !searching) add("Move" to { moving = true })
-                    add("Remove from Favorites" to { onFavoritesChanged(Bb7Home.toggleFavorite(favorites, key)) })
+                    if (panel == Bb7Panel.Favorites && !searching) add(t("move_2") to { moving = true })
+                    add(t("remove_from_favorites") to { onFavoritesChanged(Bb7Home.toggleFavorite(favorites, key)) })
                 } else {
-                    add("Add to Favorites" to { onFavoritesChanged(Bb7Home.toggleFavorite(favorites, key)) })
+                    add(t("add_to_favorites") to { onFavoritesChanged(Bb7Home.toggleFavorite(favorites, key)) })
                 }
-                add("App Info" to { onOpenAppInfo(app) })
+                add(t("app_info") to { onOpenAppInfo(app) })
             }
             if (!open && !searching && homeRows < Bb7Home.MAX_HOME_ROWS) {
-                add("Show More Rows" to { onHomeRowsChanged(homeRows + 1) })
+                add(t("show_more_rows") to { onHomeRowsChanged(homeRows + 1) })
             }
             if (!open && !searching && homeRows > Bb7Home.MIN_HOME_ROWS) {
-                add("Show Fewer Rows" to { onHomeRowsChanged(homeRows - 1) })
+                add(t("show_fewer_rows") to { onHomeRowsChanged(homeRows - 1) })
             }
         }
     }
@@ -458,7 +459,7 @@ private fun Bb7Tray(
         }
         if (apps.isEmpty()) {
             Text(
-                text = "No apps here",
+                text = t("no_apps_here"),
                 color = BANNER_MUTED,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.fillMaxWidth().padding(12.dp),

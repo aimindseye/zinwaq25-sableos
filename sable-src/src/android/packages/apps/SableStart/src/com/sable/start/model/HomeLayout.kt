@@ -1,5 +1,6 @@
 package org.sableos.start.model
 
+import com.sable.start.model.StartText.t
 import org.sableos.start.live.LiveAvailability
 
 /**
@@ -52,17 +53,17 @@ object HomeLayout {
 
     fun label(section: String): String =
         when (section) {
-            WEATHER -> "Weather and date"
-            SEARCH_ROW -> "Search or command row"
-            STATUS_RINGS -> "Status dials"
+            WEATHER -> t("weather_and_date")
+            SEARCH_ROW -> t("search_or_command_row")
+            STATUS_RINGS -> t("status_dials")
             else -> section
         }
 
     fun description(section: String): String =
         when (section) {
-            WEATHER -> "Temperature, condition and place, with the date under it"
-            SEARCH_ROW -> "A Command row under the weather; typing works without it"
-            STATUS_RINGS -> "Wi-Fi, Mobile, CPU, RAM, battery time left, Cell and Settings"
+            WEATHER -> t("temperature_condition_and_place_with")
+            SEARCH_ROW -> t("a_command_row_under_the")
+            STATUS_RINGS -> t("wi_fi_mobile_cpu_ram")
             else -> ""
         }
 }
@@ -142,13 +143,13 @@ object GlanceWidgets {
 
     fun label(widget: String): String =
         when (widget) {
-            WEATHER -> "Weather"
-            CALENDAR -> "Calendar"
-            BATTERY -> "Battery"
-            MEDIA -> "Media"
-            HUB -> "Hub"
-            MAIL -> "Mail"
-            PHOTOS -> "Photos"
+            WEATHER -> t("weather")
+            CALENDAR -> t("calendar")
+            BATTERY -> t("battery")
+            MEDIA -> t("media")
+            HUB -> t("hub")
+            MAIL -> t("mail")
+            PHOTOS -> t("photos")
             else -> widget
         }
 }
@@ -199,9 +200,9 @@ object HomeHeader {
      */
     fun weatherFallback(availability: LiveAvailability): String =
         when (availability) {
-            LiveAvailability.LOADING -> "Weather · updating"
-            LiveAvailability.ERROR -> "Weather · update failed, retrying"
-            else -> "Weather · open Sable Weather to set it up"
+            LiveAvailability.LOADING -> t("weather_updating")
+            LiveAvailability.ERROR -> t("weather_update_failed_retrying")
+            else -> t("weather_open_sable_weather_to")
         }
 
     /** Milliseconds from [nowMillisOfDay] to the next midnight, when the date line changes. */

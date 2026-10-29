@@ -18,6 +18,7 @@ filegroup {
         "src/com/sable/start/model/HubPeople.kt",
         "src/com/sable/start/model/QuickBar.kt",
         "src/com/sable/start/model/SpeedDial.kt",
+        "src/com/sable/start/model/StartText.kt",
         "src/com/sable/start/platform/DeviceStatsSampler.kt",
         "src/com/sable/start/platform/LiveSurfaceRepository.kt",
         "src/com/sable/start/platform/PeopleRepository.kt",

@@ -1,5 +1,7 @@
 package org.sableos.start.model
 
+import com.sable.start.model.StartText.t
+
 /**
  * The bottom bar of Sable Start (BlackBerry 10 layout: Phone · Search ·
  * Camera under Active Frames and the app grid; platform_sable
@@ -126,9 +128,9 @@ object QuickBar {
         appLabel: String,
     ): String =
         when {
-            isRequired(token) -> "Required path"
-            focused -> "Replace with $appLabel"
-            else -> "Keep"
+            isRequired(token) -> t("required_path")
+            focused -> t("replace_with", appLabel)
+            else -> t("keep")
         }
 
     /** Removes the slot holding [slotToken], or adds [stableKey] as an app slot when it has none. */

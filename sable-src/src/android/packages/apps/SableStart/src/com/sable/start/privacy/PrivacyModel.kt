@@ -1,5 +1,7 @@
 package org.sableos.start.privacy
 
+import com.sable.start.model.StartText.t
+
 /**
  * All Apps privacy/security model (DESIGN-KF-D part 1).
  *
@@ -17,29 +19,31 @@ package org.sableos.start.privacy
  *  - SEPARATE_PERMISSION_DATABASE=NO: nothing here persists anything.
  */
 enum class PrivacyGroup(
-    val label: String,
+    private val labelKey: String,
     val special: Boolean,
 ) {
     // Everyday groups, in compact-row priority order (the first eleven).
-    Location("Location", false),
-    Camera("Camera", false),
-    Microphone("Microphone", false),
-    Contacts("Contacts", false),
-    Phone("Phone", false),
-    Messages("Messages", false),
-    Calendar("Calendar", false),
-    Photos("Photos", false),
-    Audio("Audio", false),
-    Nearby("Nearby", false),
-    Notifications("Notifications", false),
+    Location("location", false),
+    Camera("camera", false),
+    Microphone("microphone", false),
+    Contacts("contacts", false),
+    Phone("phone", false),
+    Messages("messages", false),
+    Calendar("calendar", false),
+    Photos("photos", false),
+    Audio("audio", false),
+    Nearby("nearby", false),
+    Notifications("notifications", false),
 
     // Special access: badge + expanded detail, never crowding the compact row.
-    Accessibility("Accessibility", true),
-    DeviceAdmin("Device admin", true),
-    InstallApps("Install apps", true),
-    Overlay("Overlay", true),
-    UsageAccess("Usage access", true),
+    Accessibility("accessibility", true),
+    DeviceAdmin("device_admin", true),
+    InstallApps("install_apps", true),
+    Overlay("overlay", true),
+    UsageAccess("usage_access", true),
     ;
+
+    val label: String get() = t(labelKey)
 
     companion object {
         val everyday: List<PrivacyGroup> = entries.filterNot { it.special }
@@ -208,8 +212,8 @@ object PrivacyPermissions {
 object PrivacyEvaluator {
     const val SDK_TIRAMISU = 33
     const val SDK_UPSIDE_DOWN_CAKE = 34
-    const val LABEL_PHOTOS_LIMITED = "Photos limited"
-    const val LABEL_LOCATION_APPROXIMATE = "Location approximate"
+    val LABEL_PHOTOS_LIMITED: String get() = t("photos_limited")
+    val LABEL_LOCATION_APPROXIMATE: String get() = t("location_approximate")
 
     fun evaluate(facts: PrivacyFacts): AppPrivacy {
         val groups = linkedMapOf<PrivacyGroup, GroupState>()
