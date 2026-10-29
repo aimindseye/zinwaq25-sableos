@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.sableos.reader.comic.ComicViewSettings
+import org.sableos.reader.engine.audio.AudioPlaybackSettings
 import org.vaachak.reader.core.common.AppCoroutineConfig
 import org.vaachak.reader.core.data.local.ProfileDao
 import org.vaachak.reader.core.data.repository.SettingsRepository
@@ -96,6 +98,17 @@ class SettingsViewModel @Inject constructor(
 
     val dictionaryFolder: StateFlow<String> = settingsRepo.getDictionaryFolder()
         .stateIn(viewModelScope, AppCoroutineConfig.whileSubscribed, "")
+
+    /** Starting choices for comics and audiobooks that have none of their own yet. */
+    val comicDefaults: StateFlow<ComicViewSettings> = settingsRepo.comicDefaults
+        .stateIn(viewModelScope, AppCoroutineConfig.whileSubscribed, ComicViewSettings())
+
+    val audioDefaults: StateFlow<AudioPlaybackSettings> = settingsRepo.audioDefaults
+        .stateIn(viewModelScope, AppCoroutineConfig.whileSubscribed, AudioPlaybackSettings())
+
+    fun setComicDefaults(settings: ComicViewSettings) = viewModelScope.launch { settingsRepo.setComicDefaults(settings) }
+
+    fun setAudioDefaults(settings: AudioPlaybackSettings) = viewModelScope.launch { settingsRepo.setAudioDefaults(settings) }
 
     private val themeFlow = combine(
         settingsRepo.themeMode,

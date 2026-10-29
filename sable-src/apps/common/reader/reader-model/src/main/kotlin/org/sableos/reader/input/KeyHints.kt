@@ -19,7 +19,9 @@ object KeyHints {
             add(KeyHint("T", if (context.surface == ReaderSurface.AUDIO) "Chapters" else "Contents"))
         }
         if (caps.textSearch) add(KeyHint("F", "Find"))
-        if (caps.appearance) add(KeyHint("A", "Appearance"))
+        if (caps.appearance) {
+            add(KeyHint("A", if (context.surface == ReaderSurface.AUDIO) "Speed, skip and sleep timer" else "Appearance"))
+        }
         add(KeyHint("Esc / Back", "Close, then leave"))
     }
 
@@ -41,7 +43,7 @@ object KeyHints {
         ReaderSurface.AUDIO -> listOf(
             KeyHint("Space", "Play / pause"),
             KeyHint("Left / Right", "Seek"),
-            KeyHint(PAGE_UP_DOWN, "Previous / next chapter"),
+            KeyHint("P / N or $PAGE_UP_DOWN", "Previous / next chapter"),
         )
     }
 }

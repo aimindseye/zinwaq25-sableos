@@ -92,7 +92,7 @@ Every Sable app follows the Dark theme and your Sable accent, and has single-key
 | Camera | Sable Camera for stills; video uses Aperture | Tap the viewfinder for touch controls |
 | Media | Music, photos, FM radio | E shares |
 | Sound Profiles | Normal, Loud, Vibrate only, Phone calls only, All alerts off | Enter uses, E edits, Menu for more; Quick Settings tile |
-| Reader | Books (EPUB), PDF, comics and audiobooks, all stored on the phone | See [Audiobooks](#audiobooks) below; B bookmark, T contents, A view settings |
+| Reader | Books (EPUB), PDF, comics and audiobooks, all stored on the phone | See [Comics and audiobooks](#comics-and-audiobooks) below; B bookmark, T contents, A view settings |
 | Calculator | Keyboard-first | Digits and operators from the keys |
 | Games | Ten games, each its own app: Sudoku, Minesweeper, 2048, Bricks, Snake, Blocks, Reversi, Solitaire, Mahjong, Words | See [Games](#games) below |
 | Tools | Device reports you can save to Download/SableTools | C copy, S save, M more |
@@ -117,12 +117,20 @@ Every game plays from the keyboard or the trackpad (which sends arrow keys), and
 | Mahjong | Remove matching free tiles in pairs; every deal can be cleared | Arrows move; Space or Enter picks; H shows a pair |
 | Words | Guess the five-letter word in six tries: green is right, amber is in the word elsewhere | Type the letters; Del erases; Enter guesses |
 
-### Audiobooks
+### Comics and audiobooks
+
+Reader has four tabs. Books shows the whole library, Comics shows only comics, Audio shows only audiobooks, and Settings holds the defaults. Each shelf has + to add one file and the folder button to add a folder.
+
+**Comics.** Add a CBZ file, or a folder of page images (one folder is one comic). Comics open one whole page at a time. Left and Right turn pages, and A picks the reading mode: pages left to right, right to left (manga), top to bottom, continuous scroll or webtoon, plus whole-page or page-width fit. A comic marked as manga or webtoon in its own ComicInfo.xml opens that way automatically.
+
+**Defaults.** Settings > Book > Comics & Audiobooks sets the reading mode and fit that new comics start with, and the speed and skip lengths that new audiobooks start with. Pressing A while reading changes just that one title, and it keeps that choice.
+
+#### Audiobooks
 
 Sable Reader plays DRM-free audiobooks from the phone's storage: MP3, AAC/M4A, M4B (with its chapters), Ogg/Opus, FLAC and WAV. A folder of audio files counts as one book, with each file as a chapter.
 
 1. Copy the book to the phone (for example to Download or Audiobooks).
-2. In Reader, tap + to add one file, or the folder button to add a folder of audio files. The book appears under Audiobooks in the library.
+2. In Reader's Audio tab, tap + to add one file, or the folder button to add a folder of audio files.
 3. Open it. Playback carries on with the screen off and shows in the notification shade and on the lock screen. Headset buttons work too.
 
 | Key | Does |

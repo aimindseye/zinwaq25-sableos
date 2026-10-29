@@ -39,6 +39,7 @@ import org.sableos.reader.model.LocatorCodec
 import org.sableos.reader.model.PageLocator
 import org.vaachak.reader.core.common.AppCoroutineConfig
 import org.vaachak.reader.core.data.local.BookDao
+import org.vaachak.reader.core.data.repository.SettingsRepository
 import org.vaachak.reader.core.data.repository.VaultRepository
 
 /** What a page slot should show. */
@@ -58,6 +59,7 @@ class ComicReaderViewModel @Inject constructor(
     private val bookmarkDao: ItemBookmarkDao,
     private val settingsDao: ItemViewSettingsDao,
     private val vaultRepository: VaultRepository,
+    private val settingsRepository: SettingsRepository,
     private val opener: ComicOpener,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(ComicReaderUiState())
@@ -101,7 +103,8 @@ class ComicReaderViewModel @Inject constructor(
             is ComicOpenOutcome.Opened -> {
                 source = outcome.source
                 val saved = settingsDao.get(bookHash, profileId)?.settingsJson?.let(ComicViewSettingsCodec::decode)
-                val settings = saved ?: ComicViewDefaults.initial(outcome.source.info)
+                val settings = saved
+                    ?: ComicViewDefaults.initial(outcome.source.info, settingsRepository.comicDefaults.first())
                 val start = (LocatorCodec.decode(book.progressJson) as? PageLocator)?.pageIndex ?: 0
                 val nav = ComicNavigator(outcome.source.pageCount, start)
                 navigator = nav

@@ -24,11 +24,30 @@ data class ReaderLayoutProfile(val widthDp: Float, val heightDp: Float) {
     /** Chrome is visible on first open only when it is persistent for this profile. */
     val chromeInitiallyVisible: Boolean get() = !transientChrome
 
+    /**
+     * Too little height for full-size chrome: on a 720x720 keyboard phone the window is about 411 x 387 dp, and the
+     * library header, tabs and filter row would otherwise leave less than one row of covers.
+     */
+    val isShort: Boolean get() = heightDp > 0f && heightDp < SHORT_HEIGHT_DP
+
+    /** Library cover width: narrower on short windows so a full row of covers fits under the chrome. */
+    val libraryCardWidthDp: Float get() = if (isShort) SHORT_LIBRARY_CARD_DP else LIBRARY_CARD_DP
+
+    fun libraryColumns(availableWidthDp: Float): Int =
+        maxOf(MIN_LIBRARY_COLUMNS, (availableWidthDp / libraryCardWidthDp).toInt())
+
     companion object {
         /** Width/height ratio at or above which a window counts as square-ish (4:3 and squarer). */
         const val SQUARE_RATIO: Float = 0.75f
 
         /** Windows whose short side is below this are compact (the Material compact-width boundary). */
         const val COMPACT_SHORT_SIDE_DP: Float = 600f
+
+        /** Windows lower than this use the short library and audiobook layouts. */
+        const val SHORT_HEIGHT_DP: Float = 480f
+
+        const val LIBRARY_CARD_DP: Float = 110f
+        const val SHORT_LIBRARY_CARD_DP: Float = 88f
+        const val MIN_LIBRARY_COLUMNS: Int = 3
     }
 }

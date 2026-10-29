@@ -4,7 +4,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
+import org.sableos.reader.comic.ComicFit
 import org.sableos.reader.comic.ComicReadingMode
+import org.sableos.reader.comic.ComicViewSettings
 
 class ComicInfoParserTest {
     private fun parse(body: String) = ComicInfoParser.parse(ComicFixtures.comicInfoXml(body))
@@ -65,5 +67,10 @@ class ComicInfoParserTest {
         assertEquals(ComicReadingMode.PAGED_LTR, ComicViewDefaults.initial(parse("<Manga>Yes</Manga>")).mode)
         assertEquals(ComicReadingMode.WEBTOON, ComicViewDefaults.initial(parse("<Format>Webtoon</Format>")).mode)
         assertEquals(ComicReadingMode.PAGED_LTR, ComicViewDefaults.initial(null).mode)
+        // Without a metadata hint the reader's own default applies; a hint still sets the mode but keeps the fit.
+        val default = ComicViewSettings(ComicReadingMode.VERTICAL_PAGER, ComicFit.FIT_WIDTH)
+        assertEquals(default, ComicViewDefaults.initial(null, default))
+        assertEquals(ComicReadingMode.PAGED_RTL, ComicViewDefaults.initial(rtl, default).mode)
+        assertEquals(ComicFit.FIT_WIDTH, ComicViewDefaults.initial(rtl, default).fit)
     }
 }

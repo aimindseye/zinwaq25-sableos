@@ -17,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Contrast
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.SwitchAccount
+import androidx.compose.material.icons.outlined.Photo
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -219,6 +221,17 @@ fun BookSettingsTab(navController: NavController) {
         SettingsTile(
             icon = Icons.Default.Book, title = "Dictionary Settings", subtitle = "Manage local and custom dictionaries",
             onClick = { navController.navigate("settings/dictionary") }
+        )
+    }
+
+    SettingsGroup(title = "Comics & Audiobooks") {
+        SettingsTile(
+            icon = Icons.Outlined.Photo, title = "Comics", subtitle = "Default reading mode (including manga and webtoon) and fit",
+            onClick = { navController.navigate(Screen.ComicDefaults.route) }
+        )
+        SettingsTile(
+            icon = Icons.Default.Audiotrack, title = "Audiobooks", subtitle = "Default speed and skip lengths",
+            onClick = { navController.navigate(Screen.AudiobookDefaults.route) }
         )
     }
 }

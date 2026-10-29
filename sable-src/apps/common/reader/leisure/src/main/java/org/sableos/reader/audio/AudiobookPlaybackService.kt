@@ -44,6 +44,7 @@ import org.sableos.reader.engine.audio.PlaybackSourcePolicy
 import org.sableos.reader.model.LocatorCodec
 import org.sableos.reader.model.TimeLocator
 import org.vaachak.reader.core.data.local.BookDao
+import org.vaachak.reader.core.data.repository.SettingsRepository
 import org.vaachak.reader.core.data.repository.VaultRepository
 import org.vaachak.reader.core.domain.model.BookEntity
 
@@ -66,6 +67,8 @@ class AudiobookPlaybackService : MediaLibraryService() {
     @Inject lateinit var vaultRepository: VaultRepository
 
     @Inject lateinit var settingsDao: ItemViewSettingsDao
+
+    @Inject lateinit var settingsRepository: SettingsRepository
 
     @Inject lateinit var loader: AudiobookSourceLoader
 
@@ -191,7 +194,7 @@ class AudiobookPlaybackService : MediaLibraryService() {
             SessionResult(SessionError.ERROR_IO)
         } else {
             active.persist(force = true)
-            applySettings(settings ?: AudioPlaybackSettings(), active)
+            applySettings(settings ?: settingsRepository.audioDefaults.first(), active)
             active.open(hash, manifest, mediaItems(book, manifest), resolveStart(book, startMs), play)
             SessionResult(SessionResult.RESULT_SUCCESS)
         }

@@ -26,13 +26,27 @@ object LibraryFilters {
     fun isInProgress(finished: Boolean, lastOpenedAt: Long, progress: Double): Boolean =
         !finished && lastOpenedAt > 0L && progress > 0.0
 
-    /** The ordered chip labels for [counts]: state chips first, then one per kind present. */
-    fun labels(counts: LibraryCounts): List<String> = buildList {
+    /**
+     * The ordered chip labels for [counts]: state chips first, then one per kind present. A shelf [scope]d to one kind
+     * (the Comics and Audio tabs) holds nothing else, so it has no kind chips.
+     */
+    fun labels(counts: LibraryCounts, scope: PublicationKind? = null): List<String> = buildList {
         add(ALL)
         if (counts.inProgress > 0) add(CONTINUE)
         if (counts.favorites > 0) add(FAVORITES)
         if (counts.finished > 0) add(FINISHED)
-        PublicationKind.entries.filter { (counts.byKind[it] ?: 0) > 0 }.forEach { add(kindLabel(it)) }
+        if (scope == null) {
+            PublicationKind.entries.filter { (counts.byKind[it] ?: 0) > 0 }.forEach { add(kindLabel(it)) }
+        }
         if (counts.unlinked > 0) add(NEEDS_FILE)
+    }
+
+    /** What an empty shelf says, so a Comics or Audio tab tells the reader how to fill it. */
+    fun emptyHint(scope: PublicationKind?): String = when (scope) {
+        PublicationKind.COMIC ->
+            "No comics yet. Press + to add a CBZ file, or the folder button to add a folder of images."
+        PublicationKind.AUDIOBOOK ->
+            "No audiobooks yet. Press + to add an audio file, or the folder button to add a folder of tracks."
+        else -> "No books found"
     }
 }

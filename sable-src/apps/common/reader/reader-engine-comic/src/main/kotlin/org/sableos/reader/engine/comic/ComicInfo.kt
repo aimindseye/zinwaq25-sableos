@@ -26,14 +26,17 @@ data class ComicInfo(
     val seriesIndex: Double? get() = number?.trim()?.toDoubleOrNull()
 }
 
-/** First-open viewer choice derived from the comic's own metadata; the user's per-title choice always wins later. */
+/**
+ * First-open viewer choice: the comic's own metadata when it names a webtoon or right-to-left manga, otherwise the
+ * reader's default from Settings. The user's per-title choice always wins later.
+ */
 object ComicViewDefaults {
-    fun initial(info: ComicInfo?): ComicViewSettings {
+    fun initial(info: ComicInfo?, fallback: ComicViewSettings = ComicViewSettings()): ComicViewSettings {
         val mode = when {
             info?.format?.contains("webtoon", ignoreCase = true) == true -> ComicReadingMode.WEBTOON
             info?.manga == MangaFlag.YES_RIGHT_TO_LEFT -> ComicReadingMode.PAGED_RTL
-            else -> ComicReadingMode.PAGED_LTR
+            else -> return fallback
         }
-        return ComicViewSettings(mode)
+        return fallback.copy(mode = mode)
     }
 }

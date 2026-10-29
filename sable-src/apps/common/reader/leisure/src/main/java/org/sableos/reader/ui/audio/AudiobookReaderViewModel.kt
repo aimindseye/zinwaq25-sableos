@@ -37,6 +37,7 @@ import org.sableos.reader.model.TimeLocator
 import org.sableos.reader.util.runCatchingCancellable
 import org.vaachak.reader.core.common.AppCoroutineConfig
 import org.vaachak.reader.core.data.local.BookDao
+import org.vaachak.reader.core.data.repository.SettingsRepository
 import org.vaachak.reader.core.data.repository.VaultRepository
 
 /**
@@ -51,6 +52,7 @@ class AudiobookReaderViewModel @Inject constructor(
     private val bookmarkDao: ItemBookmarkDao,
     private val settingsDao: ItemViewSettingsDao,
     private val vaultRepository: VaultRepository,
+    private val settingsRepository: SettingsRepository,
     private val loader: AudiobookSourceLoader,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(AudiobookUiState())
@@ -81,7 +83,7 @@ class AudiobookReaderViewModel @Inject constructor(
         val line = AudiobookTimeline(manifest)
         timeline = line
         val settings = settingsDao.get(bookHash, profileId)?.settingsJson?.let(AudioSettingsCodec::decode)
-            ?: AudioPlaybackSettings()
+            ?: settingsRepository.audioDefaults.first()
         val saved = (LocatorCodec.decode(book.progressJson) as? TimeLocator)?.positionMs ?: 0L
         mutableState.update {
             it.copy(
