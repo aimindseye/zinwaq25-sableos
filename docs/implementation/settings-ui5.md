@@ -195,3 +195,18 @@ androidx versions, and runtime behaviour.
    `git format-patch` and update the base in `patches/README.md`.
 3. Build Settings and run `atest SettingsSableAppsModelTests`.
 4. Run the gates above on the phone.
+
+## Changes seen on this phone and tracker signals (Settings 1209)
+
+The App security page keeps, per app and user, the last snapshot it saw in device-protected
+storage (`SableSecurityHistoryStore`) and lists what changed at the next look: version, signing
+certificates (Critical), requested permissions, exported components without a guarding
+permission, elevated services, target SDK and tracker signals. Classes are Info, Privacy signal,
+Review, Elevated and Critical, with no score. The first look stores a baseline only, and only apps
+whose page was opened have a record, so it reads "since this phone first looked", never "since
+install". Package-install time review is not built: it needs PackageInstaller changes.
+
+Tracker libraries use a small shipped signature list (`TrackerSignatures`, list 2026-10) matched
+on manifest component class names and `META-INF/*.version` files in the APKs. The result is
+INFERRED: a signal from names, not proof that code ran, and no match does not prove an app has
+none. Host tests: `SecurityHistoryTest`.

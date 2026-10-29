@@ -1,0 +1,1290 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 29 Oct 2026 18:30:00 +0000
+Subject: [PATCH] SableOS: security changes seen on this phone and tracker
+ signals on the App security page
+
+App security & privacy (Settings > Apps) now answers two things it
+marked unknown:
+
+* Changes seen on this phone: the page keeps, per app and user and in
+  device-protected storage, the last snapshot it saw (version, target SDK,
+  signing certificates, requested permissions, exported components with
+  no guarding permission, elevated services, tracker signals) and lists
+  what changed at the next look, classed Info, Privacy signal, Review,
+  Elevated or Critical with no score. The first look only stores a
+  baseline. Only apps whose page was opened have a record, so it reads
+  "since this phone first looked". Nothing leaves the phone.
+* Tracker libraries: a small local signature list (TrackerSignatures,
+  list 2026-10) matched against manifest component class names and the
+  META-INF/*.version files in the APKs. INFERRED: a signal from names,
+  not proof that the code ran; no match does not prove there is none.
+
+Pure models SecuritySnapshot, SecurityChanges, SecurityLedger and
+TrackerSignatures with host tests (SecurityHistoryTest). Changes only
+files created by 0601 and 0604.
+
+---
+diff --git a/res/values/strings_sable_app_security.xml b/res/values/strings_sable_app_security.xml
+index 48d2654..e796428 100644
+--- a/res/values/strings_sable_app_security.xml
++++ b/res/values/strings_sable_app_security.xml
+@@ -96,7 +96,10 @@
+     <string name="sable_security_native_format_truncated">At least <xliff:g id="count">%1$d</xliff:g> native libraries · ABIs: <xliff:g id="abis">%2$s</xliff:g> (scan limit reached)</string>
+     <string name="sable_security_shared_libraries">Shared libraries</string>
+     <string name="sable_security_trackers">Tracker libraries</string>
+-    <string name="sable_security_trackers_unknown">No tracker signature list is installed; nothing is claimed either way</string>
++    <!-- Tracker libraries: found. 1: names, 2: signature list version. -->
++    <string name="sable_security_trackers_found">%1$s (signature list %2$s). A signal from the app\'s components and library files, not proof that it ran or sent anything</string>
++    <!-- Tracker libraries: none found. 1: number of signatures, 2: list version. -->
++    <string name="sable_security_trackers_none">None of %1$d known signatures found (list %2$s). An app can still contain code this list does not see</string>
+ 
+     <string name="sable_security_internet">Requests network access</string>
+     <string name="sable_security_network_usage">Network destinations</string>
+@@ -110,6 +113,29 @@
+ 
+     <string name="sable_security_first_install">First installed</string>
+     <string name="sable_security_last_update">Last updated</string>
+-    <string name="sable_security_change_history">Permission change history</string>
+-    <string name="sable_security_change_history_unknown">Not kept on this device</string>
++
++    <!-- Changes seen on this phone (kept locally, only for apps whose page was opened). -->
++    <string name="sable_security_changes_title">Changes seen on this phone</string>
++    <string name="sable_security_changes_first">First look at this app. Later changes to its permissions, signing, exposed components and tracker signals are listed here. The record stays on this phone</string>
++    <string name="sable_security_changes_none">No changes since the last look</string>
++    <!-- 1: severity, 2: what changed. -->
++    <string name="sable_security_change_format">%1$s: %2$s</string>
++    <!-- 1: date and time, 2: version code. -->
++    <string name="sable_security_change_when_format">%1$s, version %2$d</string>
++    <string name="sable_security_severity_info">Info</string>
++    <string name="sable_security_severity_privacy">Privacy signal</string>
++    <string name="sable_security_severity_review">Review</string>
++    <string name="sable_security_severity_elevated">Elevated</string>
++    <string name="sable_security_severity_critical">Critical</string>
++    <!-- Each takes the permission, component, tracker, version or SDK as %1$s. -->
++    <string name="sable_security_change_version">Updated to version %1$s</string>
++    <string name="sable_security_change_signer">Signing certificate changed</string>
++    <string name="sable_security_change_permission_added">New permission: %1$s</string>
++    <string name="sable_security_change_permission_removed">Permission removed: %1$s</string>
++    <string name="sable_security_change_exported">Component now open to other apps: %1$s</string>
++    <string name="sable_security_change_unexported">Component no longer open to other apps: %1$s</string>
++    <string name="sable_security_change_elevated">New elevated capability: %1$s</string>
++    <string name="sable_security_change_target_sdk">Target SDK lowered to %1$s</string>
++    <string name="sable_security_change_tracker_added">New tracker signal: %1$s</string>
++    <string name="sable_security_change_tracker_removed">Tracker signal gone: %1$s</string>
+ </resources>
+diff --git a/src/com/android/settings/applications/sable/SableAppSecurityFragment.java b/src/com/android/settings/applications/sable/SableAppSecurityFragment.java
+index 0446a6a..0780094 100644
+--- a/src/com/android/settings/applications/sable/SableAppSecurityFragment.java
++++ b/src/com/android/settings/applications/sable/SableAppSecurityFragment.java
+@@ -55,6 +55,10 @@ import com.android.settings.applications.sable.model.NetworkAccessPolicy;
+ import com.android.settings.applications.sable.model.PrivacyEvaluator;
+ import com.android.settings.applications.sable.model.PrivacyFacts;
+ import com.android.settings.applications.sable.model.PrivacyGroup;
++import com.android.settings.applications.sable.model.SecurityChanges;
++import com.android.settings.applications.sable.model.SecurityLedger;
++import com.android.settings.applications.sable.model.SecuritySnapshot;
++import com.android.settings.applications.sable.model.TrackerSignatures;
+ import com.android.settings.core.SubSettingLauncher;
+ import com.android.settingslib.utils.ThreadUtils;
+ 
+@@ -63,6 +67,7 @@ import java.security.MessageDigest;
+ import java.security.NoSuchAlgorithmException;
+ import java.util.ArrayList;
+ import java.util.Arrays;
++import java.util.Collections;
+ import java.util.Enumeration;
+ import java.util.LinkedHashSet;
+ import java.util.List;
+@@ -245,9 +250,14 @@ public class SableAppSecurityFragment extends SettingsPreferenceFragment {
+         identity(res, pm, pi, ai, rows);
+         access(context, res, ai, packageName, rows);
+         components(res, pi, componentsRead, rows);
+-        code(res, ai, rows);
++        final TrackerSignatures.Scan trackers = new TrackerSignatures.Scan();
++        if (componentsRead) {
++            feedTrackers(pi, trackers);
++        }
++        final boolean trackersRead = code(res, ai, componentsRead, trackers, rows);
+         network(context, res, userContext, pi, ai, rows);
+         history(context, res, pi, rows);
++        changes(context, res, uid, pi, componentsRead, trackersRead ? trackers : null, rows);
+         return rows;
+     }
+ 
+@@ -499,7 +509,12 @@ public class SableAppSecurityFragment extends SettingsPreferenceFragment {
+                 ev(res, Evidence.DECLARED, detail), null));
+     }
+ 
+-    private static void code(Resources res, ApplicationInfo ai, List<Row> rows) {
++    /**
++     * Fills the code rows. Returns whether tracker signals were looked for: true when the
++     * manifest components or at least one APK could be read.
++     */
++    private static boolean code(Resources res, ApplicationInfo ai, boolean componentsRead,
++            TrackerSignatures.Scan trackers, List<Row> rows) {
+         final NativeCodeScan scan = new NativeCodeScan();
+         final List<String> apks = new ArrayList<>();
+         if (!TextUtils.isEmpty(ai.sourceDir)) {
+@@ -516,7 +531,9 @@ public class SableAppSecurityFragment extends SettingsPreferenceFragment {
+                 scan.apkOpened();
+                 final Enumeration<? extends ZipEntry> entries = zip.entries();
+                 while (entries.hasMoreElements()) {
+-                    if (!scan.entry(entries.nextElement().getName())) {
++                    final String entryName = entries.nextElement().getName();
++                    trackers.entry(entryName);
++                    if (!scan.entry(entryName)) {
+                         break;
+                     }
+                 }
+@@ -540,9 +557,44 @@ public class SableAppSecurityFragment extends SettingsPreferenceFragment {
+         rows.add(new Row(KEY_CODE, res.getString(R.string.sable_security_shared_libraries),
+                 ev(res, Evidence.DECLARED, Integer.toString(
+                         ai.sharedLibraryFiles == null ? 0 : ai.sharedLibraryFiles.length)), null));
++        final boolean looked = componentsRead || scan.evidence() != Evidence.UNKNOWN;
++        final String trackerDetail;
++        if (!looked) {
++            trackerDetail = res.getString(R.string.sable_security_unavailable);
++        } else if (trackers.found().isEmpty()) {
++            trackerDetail = res.getString(R.string.sable_security_trackers_none,
++                    TrackerSignatures.size(), TrackerSignatures.LIST_VERSION);
++        } else {
++            trackerDetail = res.getString(R.string.sable_security_trackers_found,
++                    TextUtils.join(", ", trackers.found()), TrackerSignatures.LIST_VERSION);
++        }
+         rows.add(new Row(KEY_CODE, res.getString(R.string.sable_security_trackers),
+-                ev(res, Evidence.UNKNOWN, res.getString(R.string.sable_security_trackers_unknown)),
+-                null));
++                ev(res, looked ? Evidence.INFERRED : Evidence.UNKNOWN, trackerDetail), null));
++        return looked;
++    }
++
++    /** Offers the class names of every manifest component to the tracker matcher. */
++    private static void feedTrackers(PackageInfo pi, TrackerSignatures.Scan trackers) {
++        if (pi.activities != null) {
++            for (ActivityInfo a : pi.activities) {
++                trackers.component(a.name);
++            }
++        }
++        if (pi.services != null) {
++            for (ServiceInfo s : pi.services) {
++                trackers.component(s.name);
++            }
++        }
++        if (pi.receivers != null) {
++            for (ActivityInfo r : pi.receivers) {
++                trackers.component(r.name);
++            }
++        }
++        if (pi.providers != null) {
++            for (ProviderInfo p : pi.providers) {
++                trackers.component(p.name);
++            }
++        }
+     }
+ 
+     private void network(Context context, Resources res, Context userContext, PackageInfo pi,
+@@ -613,9 +665,146 @@ public class SableAppSecurityFragment extends SettingsPreferenceFragment {
+                 ev(res, Evidence.OBSERVED, time(context, res, pi.firstInstallTime)), null));
+         rows.add(new Row(KEY_HISTORY, res.getString(R.string.sable_security_last_update),
+                 ev(res, Evidence.OBSERVED, time(context, res, pi.lastUpdateTime)), null));
+-        rows.add(new Row(KEY_HISTORY, res.getString(R.string.sable_security_change_history),
+-                ev(res, Evidence.UNKNOWN, res.getString(R.string.sable_security_change_history_unknown)),
+-                null));
++    }
++
++    /** Most events listed on the page; the phone keeps {@link SecurityChanges#MAX_EVENTS}. */
++    private static final int MAX_SHOWN_EVENTS = 8;
++
++    /**
++     * Compares the app with how this phone last saw it (kept on the phone, per user, only for
++     * apps whose page was opened) and lists what changed: permissions, signing, exported
++     * components, elevated services, target SDK and tracker signals.
++     */
++    private static void changes(Context context, Resources res, int uid, PackageInfo pi,
++            boolean componentsRead, TrackerSignatures.Scan trackers, List<Row> rows) {
++        final SecuritySnapshot.Builder b = new SecuritySnapshot.Builder()
++                .versionCode(pi.getLongVersionCode())
++                .targetSdk(pi.applicationInfo == null ? 0 : pi.applicationInfo.targetSdkVersion);
++        final SigningInfo signing = pi.signingInfo;
++        final Signature[] signers = signing == null ? null : signing.getApkContentsSigners();
++        if (signers != null) {
++            for (Signature signer : signers) {
++                final String digest = sha256(signer);
++                if (digest != null) {
++                    b.signers(Collections.singleton(digest));
++                }
++            }
++        }
++        if (pi.requestedPermissions != null) {
++            b.permissions(Arrays.asList(pi.requestedPermissions));
++        }
++        if (componentsRead) {
++            final List<String> exposed = new ArrayList<>();
++            final Set<String> elevated = new LinkedHashSet<>();
++            if (pi.activities != null) {
++                for (ActivityInfo a : pi.activities) {
++                    if (a.exported && TextUtils.isEmpty(a.permission)) {
++                        exposed.add(a.name);
++                    }
++                }
++            }
++            if (pi.services != null) {
++                for (ServiceInfo s : pi.services) {
++                    if (s.exported && TextUtils.isEmpty(s.permission)) {
++                        exposed.add(s.name);
++                    }
++                    final AppSecurityFacts.Elevated e = AppSecurityFacts.Elevated.of(s.permission);
++                    if (e != null) {
++                        elevated.add(e.name());
++                    }
++                }
++            }
++            if (pi.receivers != null) {
++                for (ActivityInfo r : pi.receivers) {
++                    if (r.exported && TextUtils.isEmpty(r.permission)) {
++                        exposed.add(r.name);
++                    }
++                    if (AppSecurityFacts.Elevated.of(r.permission)
++                            == AppSecurityFacts.Elevated.DEVICE_ADMIN) {
++                        elevated.add(AppSecurityFacts.Elevated.DEVICE_ADMIN.name());
++                    }
++                }
++            }
++            if (pi.providers != null) {
++                for (ProviderInfo p : pi.providers) {
++                    if (p.exported && TextUtils.isEmpty(p.readPermission)
++                            && TextUtils.isEmpty(p.writePermission)) {
++                        exposed.add(p.name);
++                    }
++                }
++            }
++            b.exposed(exposed).elevated(elevated);
++        }
++        if (trackers != null) {
++            b.trackers(trackers.found());
++        }
++        final SecurityLedger.Outcome outcome = SableSecurityHistoryStore.observe(context,
++                pi.packageName, UserHandle.getUserId(uid), b.build(), System.currentTimeMillis());
++        if (outcome.firstLook) {
++            rows.add(new Row(KEY_HISTORY, res.getString(R.string.sable_security_changes_title),
++                    ev(res, Evidence.OBSERVED,
++                            res.getString(R.string.sable_security_changes_first)), null));
++            return;
++        }
++        if (outcome.events.isEmpty()) {
++            rows.add(new Row(KEY_HISTORY, res.getString(R.string.sable_security_changes_title),
++                    ev(res, Evidence.OBSERVED,
++                            res.getString(R.string.sable_security_changes_none)), null));
++            return;
++        }
++        int shown = 0;
++        for (SecurityChanges.Event event : outcome.events) {
++            if (shown++ >= MAX_SHOWN_EVENTS) {
++                break;
++            }
++            final SecurityChanges.Change c = event.change;
++            rows.add(new Row(KEY_HISTORY, res.getString(R.string.sable_security_change_format,
++                            severityLabel(res, c.severity()), res.getString(kindRes(c.kind),
++                                    c.subject)),
++                    ev(res, Evidence.OBSERVED, res.getString(
++                            R.string.sable_security_change_when_format,
++                            time(context, res, event.timeMillis), event.versionCode)), null));
++        }
++    }
++
++    private static String severityLabel(Resources res, SecurityChanges.Severity s) {
++        switch (s) {
++            case CRITICAL:
++                return res.getString(R.string.sable_security_severity_critical);
++            case ELEVATED:
++                return res.getString(R.string.sable_security_severity_elevated);
++            case REVIEW:
++                return res.getString(R.string.sable_security_severity_review);
++            case PRIVACY:
++                return res.getString(R.string.sable_security_severity_privacy);
++            default:
++                return res.getString(R.string.sable_security_severity_info);
++        }
++    }
++
++    private static int kindRes(SecurityChanges.Kind k) {
++        switch (k) {
++            case VERSION_CHANGED:
++                return R.string.sable_security_change_version;
++            case SIGNER_CHANGED:
++                return R.string.sable_security_change_signer;
++            case PERMISSION_ADDED:
++                return R.string.sable_security_change_permission_added;
++            case PERMISSION_REMOVED:
++                return R.string.sable_security_change_permission_removed;
++            case COMPONENT_NEWLY_EXPORTED:
++                return R.string.sable_security_change_exported;
++            case COMPONENT_NO_LONGER_EXPORTED:
++                return R.string.sable_security_change_unexported;
++            case ELEVATED_ADDED:
++                return R.string.sable_security_change_elevated;
++            case TARGET_SDK_LOWERED:
++                return R.string.sable_security_change_target_sdk;
++            case TRACKER_ADDED:
++                return R.string.sable_security_change_tracker_added;
++            default:
++                return R.string.sable_security_change_tracker_removed;
++        }
+     }
+ 
+     private static String time(Context context, Resources res, long millis) {
+diff --git a/src/com/android/settings/applications/sable/SableSecurityHistoryStore.java b/src/com/android/settings/applications/sable/SableSecurityHistoryStore.java
+new file mode 100644
+index 0000000..60c7a44
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/SableSecurityHistoryStore.java
+@@ -0,0 +1,53 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable;
++
++import android.content.Context;
++import android.content.SharedPreferences;
++
++import com.android.settings.applications.sable.model.SecurityLedger;
++import com.android.settings.applications.sable.model.SecuritySnapshot;
++
++/**
++ * Where the App Security &amp; Privacy page keeps what it saw of each app: the last snapshot and
++ * the recent changes, per app and user, in device-protected storage on this phone. Nothing is
++ * sent anywhere and nothing is read from the app's own data. Only apps whose page was opened
++ * have a record, so the history reads "since this phone first looked", not "since install".
++ */
++final class SableSecurityHistoryStore {
++    private static final String PREFS = "sable_security_history";
++    private static final Object LOCK = new Object();
++
++    private SableSecurityHistoryStore() {
++    }
++
++    /** Records this look at {@code pkg} for {@code userId} and returns what it showed. */
++    static SecurityLedger.Outcome observe(Context context, String pkg, int userId,
++            SecuritySnapshot now, long nowMillis) {
++        final SharedPreferences prefs = context.createDeviceProtectedStorageContext()
++                .getSharedPreferences(PREFS, Context.MODE_PRIVATE);
++        final String id = pkg + "@" + userId;
++        synchronized (LOCK) {
++            final SecurityLedger.Outcome outcome = SecurityLedger.observe(
++                    prefs.getString("snap:" + id, null), prefs.getString("events:" + id, null),
++                    now, nowMillis);
++            prefs.edit().putString("snap:" + id, outcome.snapshotText)
++                    .putString("events:" + id, outcome.eventsText).commit();
++            return outcome;
++        }
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/model/SecurityChanges.java b/src/com/android/settings/applications/sable/model/SecurityChanges.java
+new file mode 100644
+index 0000000..c85432e
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/SecurityChanges.java
+@@ -0,0 +1,213 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable.model;
++
++import java.util.ArrayList;
++import java.util.Collections;
++import java.util.Comparator;
++import java.util.List;
++import java.util.Set;
++
++/**
++ * What changed between two {@link SecuritySnapshot}s of one app, classed as the application
++ * security policy asks (Info, Review, Elevated, Critical, Privacy signal) without a score, and
++ * the bounded list of such events kept on the phone. Pure; the Android layer only stores text.
++ */
++public final class SecurityChanges {
++    public static final int MAX_EVENTS = 40;
++
++    /** In the policy's wording; {@link #rank} orders them for display, most serious first. */
++    public enum Severity {
++        INFO(0), PRIVACY(1), REVIEW(2), ELEVATED(3), CRITICAL(4);
++
++        private final int mRank;
++
++        Severity(int rank) {
++            mRank = rank;
++        }
++
++        public int rank() {
++            return mRank;
++        }
++    }
++
++    public enum Kind {
++        VERSION_CHANGED,
++        SIGNER_CHANGED,
++        PERMISSION_ADDED,
++        PERMISSION_REMOVED,
++        COMPONENT_NEWLY_EXPORTED,
++        COMPONENT_NO_LONGER_EXPORTED,
++        ELEVATED_ADDED,
++        TARGET_SDK_LOWERED,
++        TRACKER_ADDED,
++        TRACKER_REMOVED
++    }
++
++    /** Permissions whose addition is classed Elevated rather than Review. */
++    private static final Set<String> ELEVATED_PERMISSIONS = new java.util.HashSet<>(
++            java.util.Arrays.asList(
++                    "android.permission.ACCESS_BACKGROUND_LOCATION",
++                    "android.permission.SYSTEM_ALERT_WINDOW",
++                    "android.permission.REQUEST_INSTALL_PACKAGES",
++                    "android.permission.MANAGE_EXTERNAL_STORAGE",
++                    "android.permission.BIND_ACCESSIBILITY_SERVICE",
++                    "android.permission.BIND_DEVICE_ADMIN"));
++
++    /** One difference: what kind, and the permission, component, tracker or version it names. */
++    public static final class Change {
++        public final Kind kind;
++        public final String subject;
++
++        public Change(Kind kind, String subject) {
++            this.kind = kind;
++            this.subject = subject == null ? "" : subject;
++        }
++
++        public Severity severity() {
++            return SecurityChanges.severity(kind, subject);
++        }
++    }
++
++    /** A change as kept: when it was seen and the version that showed it. */
++    public static final class Event {
++        public final long timeMillis;
++        public final long versionCode;
++        public final Change change;
++
++        public Event(long timeMillis, long versionCode, Change change) {
++            this.timeMillis = timeMillis;
++            this.versionCode = versionCode;
++            this.change = change;
++        }
++    }
++
++    private SecurityChanges() {}
++
++    public static Severity severity(Kind kind, String subject) {
++        switch (kind) {
++            case SIGNER_CHANGED:
++                return Severity.CRITICAL;
++            case ELEVATED_ADDED:
++                return Severity.ELEVATED;
++            case PERMISSION_ADDED:
++                return ELEVATED_PERMISSIONS.contains(subject) ? Severity.ELEVATED : Severity.REVIEW;
++            case COMPONENT_NEWLY_EXPORTED:
++            case TARGET_SDK_LOWERED:
++                return Severity.REVIEW;
++            case TRACKER_ADDED:
++                return Severity.PRIVACY;
++            default:
++                return Severity.INFO;
++        }
++    }
++
++    /** Differences from {@code old} to {@code now}, most serious first. Null old: none. */
++    public static List<Change> compare(SecuritySnapshot old, SecuritySnapshot now) {
++        final List<Change> out = new ArrayList<>();
++        if (old == null || now == null) {
++            return out;
++        }
++        if (old.versionCode != now.versionCode) {
++            out.add(new Change(Kind.VERSION_CHANGED, Long.toString(now.versionCode)));
++        }
++        if (!old.signers.isEmpty() && !now.signers.isEmpty() && !old.signers.equals(now.signers)) {
++            out.add(new Change(Kind.SIGNER_CHANGED, ""));
++        }
++        if (old.targetSdk > 0 && now.targetSdk > 0 && now.targetSdk < old.targetSdk) {
++            out.add(new Change(Kind.TARGET_SDK_LOWERED, Integer.toString(now.targetSdk)));
++        }
++        diff(old.permissions, now.permissions, Kind.PERMISSION_ADDED, Kind.PERMISSION_REMOVED,
++                out);
++        if (old.componentsKnown && now.componentsKnown) {
++            diff(old.exposed, now.exposed, Kind.COMPONENT_NEWLY_EXPORTED,
++                    Kind.COMPONENT_NO_LONGER_EXPORTED, out);
++            diff(old.elevated, now.elevated, Kind.ELEVATED_ADDED, null, out);
++        }
++        if (old.trackersKnown && now.trackersKnown) {
++            diff(old.trackers, now.trackers, Kind.TRACKER_ADDED, Kind.TRACKER_REMOVED, out);
++        }
++        Collections.sort(out, new Comparator<Change>() {
++            @Override
++            public int compare(Change a, Change b) {
++                final int bySeverity = b.severity().rank() - a.severity().rank();
++                if (bySeverity != 0) {
++                    return bySeverity;
++                }
++                final int byKind = a.kind.ordinal() - b.kind.ordinal();
++                return byKind != 0 ? byKind : a.subject.compareTo(b.subject);
++            }
++        });
++        return out;
++    }
++
++    private static void diff(Set<String> before, Set<String> after, Kind added, Kind removed,
++            List<Change> out) {
++        for (String s : after) {
++            if (!before.contains(s)) {
++                out.add(new Change(added, s));
++            }
++        }
++        if (removed != null) {
++            for (String s : before) {
++                if (!after.contains(s)) {
++                    out.add(new Change(removed, s));
++                }
++            }
++        }
++    }
++
++    /** One line per event: {@code time|version|KIND|subject}, newest first. */
++    public static String encodeEvents(List<Event> events) {
++        final StringBuilder sb = new StringBuilder();
++        if (events != null) {
++            for (Event e : events) {
++                if (e.change.subject.indexOf('|') >= 0 || e.change.subject.indexOf('\n') >= 0) {
++                    continue;
++                }
++                sb.append(e.timeMillis).append('|').append(e.versionCode).append('|')
++                        .append(e.change.kind.name()).append('|').append(e.change.subject)
++                        .append('\n');
++            }
++        }
++        return sb.toString();
++    }
++
++    /** Reads {@link #encodeEvents}; damaged lines are dropped, never thrown. */
++    public static List<Event> decodeEvents(String text) {
++        final List<Event> out = new ArrayList<>();
++        if (text == null) {
++            return out;
++        }
++        for (String line : text.split("\n")) {
++            final String[] parts = line.split("\\|", 4);
++            if (parts.length < 3) {
++                continue;
++            }
++            try {
++                out.add(new Event(Long.parseLong(parts[0]), Long.parseLong(parts[1]),
++                        new Change(Kind.valueOf(parts[2]), parts.length == 4 ? parts[3] : "")));
++            } catch (IllegalArgumentException e) {
++                // A damaged or unknown line is dropped.
++            }
++            if (out.size() >= MAX_EVENTS) {
++                break;
++            }
++        }
++        return out;
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/model/SecurityLedger.java b/src/com/android/settings/applications/sable/model/SecurityLedger.java
+new file mode 100644
+index 0000000..8da903b
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/SecurityLedger.java
+@@ -0,0 +1,71 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable.model;
++
++import java.util.ArrayList;
++import java.util.List;
++
++/**
++ * The local record of one app's security changes. {@link #observe} takes the stored snapshot and
++ * events (text, as kept), the app as it is now and the time, and returns what to store and what
++ * is new. The first look at an app only stores a baseline; changes are listed from the second
++ * look on, so the record says "seen since this phone first looked", never "since install".
++ */
++public final class SecurityLedger {
++    private SecurityLedger() {}
++
++    /** The result of one look. */
++    public static final class Outcome {
++        public final String snapshotText;
++        public final String eventsText;
++        public final boolean firstLook;
++        /** Changes found by this look, most serious first. */
++        public final List<SecurityChanges.Change> newChanges;
++        /** All kept events, newest first, at most {@link SecurityChanges#MAX_EVENTS}. */
++        public final List<SecurityChanges.Event> events;
++
++        Outcome(String snapshotText, String eventsText, boolean firstLook,
++                List<SecurityChanges.Change> newChanges, List<SecurityChanges.Event> events) {
++            this.snapshotText = snapshotText;
++            this.eventsText = eventsText;
++            this.firstLook = firstLook;
++            this.newChanges = newChanges;
++            this.events = events;
++        }
++    }
++
++    public static Outcome observe(String storedSnapshot, String storedEvents,
++            SecuritySnapshot now, long nowMillis) {
++        final SecuritySnapshot old = SecuritySnapshot.decode(storedSnapshot);
++        final List<SecurityChanges.Event> kept = SecurityChanges.decodeEvents(storedEvents);
++        final String snapshotText = now.encode();
++        if (old == null) {
++            return new Outcome(snapshotText, SecurityChanges.encodeEvents(kept), true,
++                    new ArrayList<SecurityChanges.Change>(), kept);
++        }
++        final List<SecurityChanges.Change> changes = SecurityChanges.compare(old, now);
++        final List<SecurityChanges.Event> all = new ArrayList<>();
++        for (SecurityChanges.Change c : changes) {
++            all.add(new SecurityChanges.Event(nowMillis, now.versionCode, c));
++        }
++        all.addAll(kept);
++        final List<SecurityChanges.Event> bounded = all.size() > SecurityChanges.MAX_EVENTS
++                ? new ArrayList<>(all.subList(0, SecurityChanges.MAX_EVENTS)) : all;
++        return new Outcome(snapshotText, SecurityChanges.encodeEvents(bounded), false, changes,
++                bounded);
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/model/SecuritySnapshot.java b/src/com/android/settings/applications/sable/model/SecuritySnapshot.java
+new file mode 100644
+index 0000000..4e9a677
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/SecuritySnapshot.java
+@@ -0,0 +1,239 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable.model;
++
++import java.util.Collection;
++import java.util.Collections;
++import java.util.Set;
++import java.util.TreeSet;
++
++/**
++ * What matters for security about one installed version of an app, kept to compare with the
++ * next look: version, target SDK, signing certificates, requested permissions, exported
++ * components without a guarding permission, elevated service kinds and tracker signals.
++ * Immutable. The text form is line based ({@code key=a;b;c}) and decoding never throws: a
++ * damaged record reads as null, so the next look counts as a first look.
++ */
++public final class SecuritySnapshot {
++    private static final String HEADER = "v1";
++
++    public final long versionCode;
++    public final int targetSdk;
++    public final Set<String> signers;
++    public final Set<String> permissions;
++    /** Exported components with no guarding permission; only meaningful if componentsKnown. */
++    public final Set<String> exposed;
++    public final Set<String> elevated;
++    public final Set<String> trackers;
++    public final boolean componentsKnown;
++    public final boolean trackersKnown;
++
++    private SecuritySnapshot(Builder b) {
++        versionCode = b.mVersionCode;
++        targetSdk = b.mTargetSdk;
++        signers = clean(b.mSigners);
++        permissions = clean(b.mPermissions);
++        exposed = clean(b.mExposed);
++        elevated = clean(b.mElevated);
++        trackers = clean(b.mTrackers);
++        componentsKnown = b.mComponentsKnown;
++        trackersKnown = b.mTrackersKnown;
++    }
++
++    /** Sorted, immutable, and without values the text form could not hold. */
++    private static Set<String> clean(Collection<String> in) {
++        final Set<String> out = new TreeSet<>();
++        if (in != null) {
++            for (String s : in) {
++                if (s != null && !s.isEmpty() && s.indexOf(';') < 0 && s.indexOf('\n') < 0
++                        && s.indexOf('\r') < 0) {
++                    out.add(s);
++                }
++            }
++        }
++        return Collections.unmodifiableSet(out);
++    }
++
++    public String encode() {
++        final StringBuilder sb = new StringBuilder(HEADER).append('\n');
++        sb.append("version=").append(versionCode).append('\n');
++        sb.append("target=").append(targetSdk).append('\n');
++        sb.append("components=").append(componentsKnown ? 1 : 0).append('\n');
++        sb.append("trackersknown=").append(trackersKnown ? 1 : 0).append('\n');
++        line(sb, "signers", signers);
++        line(sb, "permissions", permissions);
++        line(sb, "exposed", exposed);
++        line(sb, "elevated", elevated);
++        line(sb, "trackers", trackers);
++        return sb.toString();
++    }
++
++    private static void line(StringBuilder sb, String key, Set<String> values) {
++        sb.append(key).append('=');
++        boolean first = true;
++        for (String v : values) {
++            if (!first) {
++                sb.append(';');
++            }
++            sb.append(v);
++            first = false;
++        }
++        sb.append('\n');
++    }
++
++    /** The snapshot {@link #encode} wrote, or null for missing or damaged text. */
++    public static SecuritySnapshot decode(String text) {
++        if (text == null) {
++            return null;
++        }
++        final String[] lines = text.split("\n");
++        if (lines.length == 0 || !HEADER.equals(lines[0])) {
++            return null;
++        }
++        final Builder b = new Builder();
++        int seen = 0;
++        for (int i = 1; i < lines.length; i++) {
++            final int eq = lines[i].indexOf('=');
++            if (eq <= 0) {
++                continue;
++            }
++            final String key = lines[i].substring(0, eq);
++            final String value = lines[i].substring(eq + 1);
++            try {
++                switch (key) {
++                    case "version":
++                        b.versionCode(Long.parseLong(value));
++                        seen++;
++                        break;
++                    case "target":
++                        b.targetSdk(Integer.parseInt(value));
++                        seen++;
++                        break;
++                    case "components":
++                        b.componentsKnown("1".equals(value));
++                        break;
++                    case "trackersknown":
++                        b.trackersKnown("1".equals(value));
++                        break;
++                    case "signers":
++                        b.mSigners.addAll(split(value));
++                        break;
++                    case "permissions":
++                        b.mPermissions.addAll(split(value));
++                        break;
++                    case "exposed":
++                        b.mExposed.addAll(split(value));
++                        break;
++                    case "elevated":
++                        b.mElevated.addAll(split(value));
++                        break;
++                    case "trackers":
++                        b.mTrackers.addAll(split(value));
++                        break;
++                    default:
++                        break;
++                }
++            } catch (NumberFormatException e) {
++                return null;
++            }
++        }
++        return seen == 2 ? b.build() : null;
++    }
++
++    private static Set<String> split(String value) {
++        final Set<String> out = new TreeSet<>();
++        if (!value.isEmpty()) {
++            Collections.addAll(out, value.split(";"));
++        }
++        return out;
++    }
++
++    public static final class Builder {
++        private long mVersionCode;
++        private int mTargetSdk;
++        private final Set<String> mSigners = new TreeSet<>();
++        private final Set<String> mPermissions = new TreeSet<>();
++        private final Set<String> mExposed = new TreeSet<>();
++        private final Set<String> mElevated = new TreeSet<>();
++        private final Set<String> mTrackers = new TreeSet<>();
++        private boolean mComponentsKnown;
++        private boolean mTrackersKnown;
++
++        public Builder versionCode(long v) {
++            mVersionCode = v;
++            return this;
++        }
++
++        public Builder targetSdk(int v) {
++            mTargetSdk = v;
++            return this;
++        }
++
++        public Builder signers(Collection<String> v) {
++            if (v != null) {
++                mSigners.addAll(v);
++            }
++            return this;
++        }
++
++        public Builder permissions(Collection<String> v) {
++            if (v != null) {
++                mPermissions.addAll(v);
++            }
++            return this;
++        }
++
++        /** Marks the component facts as read and sets the exported-unguarded names. */
++        public Builder exposed(Collection<String> v) {
++            mComponentsKnown = true;
++            if (v != null) {
++                mExposed.addAll(v);
++            }
++            return this;
++        }
++
++        public Builder elevated(Collection<String> v) {
++            if (v != null) {
++                mElevated.addAll(v);
++            }
++            return this;
++        }
++
++        /** Marks the tracker facts as read and sets the signals found. */
++        public Builder trackers(Collection<String> v) {
++            mTrackersKnown = true;
++            if (v != null) {
++                mTrackers.addAll(v);
++            }
++            return this;
++        }
++
++        Builder componentsKnown(boolean v) {
++            mComponentsKnown = v;
++            return this;
++        }
++
++        Builder trackersKnown(boolean v) {
++            mTrackersKnown = v;
++            return this;
++        }
++
++        public SecuritySnapshot build() {
++            return new SecuritySnapshot(this);
++        }
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/model/TrackerSignatures.java b/src/com/android/settings/applications/sable/model/TrackerSignatures.java
+new file mode 100644
+index 0000000..6dddaa5
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/TrackerSignatures.java
+@@ -0,0 +1,160 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable.model;
++
++import java.util.Collection;
++import java.util.Locale;
++import java.util.Set;
++import java.util.TreeSet;
++
++/**
++ * Known tracker and analytics libraries, matched locally against what an installed app ships:
++ * the class names of its manifest components, and the Gradle module version files that build
++ * tools leave in {@code META-INF/} of the APK. A match is an INFERRED privacy signal, not proof
++ * that the code ran or sent anything; no match does not prove the app has none (code that
++ * declares no component and ships no version file is not seen). The list is small, ships with
++ * the system and is never fetched; {@link #LIST_VERSION} names it on the page.
++ */
++public final class TrackerSignatures {
++    public static final String LIST_VERSION = "2026-10";
++
++    /** One library: a display name, component package prefixes and META-INF name fragments. */
++    private static final class Signature {
++        final String name;
++        final String[] prefixes;
++        final String[] fragments;
++
++        Signature(String name, String[] prefixes, String... fragments) {
++            this.name = name;
++            this.prefixes = prefixes;
++            this.fragments = fragments;
++        }
++    }
++
++    private static String[] p(String... prefixes) {
++        return prefixes;
++    }
++
++    private static final Signature[] LIST = {
++        new Signature("Google Firebase Analytics",
++                p("com.google.firebase.analytics", "com.google.android.gms.measurement"),
++                "firebase-analytics", "play-services-measurement"),
++        new Signature("Google AdMob", p("com.google.android.gms.ads"), "play-services-ads"),
++        new Signature("Firebase Crashlytics (crash reports)",
++                p("com.google.firebase.crashlytics"), "firebase-crashlytics"),
++        new Signature("Meta Audience Network", p("com.facebook.ads"), "audience-network"),
++        new Signature("AppsFlyer", p("com.appsflyer")),
++        new Signature("Adjust", p("com.adjust.sdk")),
++        new Signature("Branch", p("io.branch")),
++        new Signature("Kochava", p("com.kochava")),
++        new Signature("Singular", p("com.singular.sdk")),
++        new Signature("Flurry", p("com.flurry")),
++        new Signature("Mixpanel", p("com.mixpanel")),
++        new Signature("Amplitude", p("com.amplitude")),
++        new Signature("Segment", p("com.segment.analytics")),
++        new Signature("Braze", p("com.braze", "com.appboy")),
++        new Signature("OneSignal", p("com.onesignal")),
++        new Signature("CleverTap", p("com.clevertap")),
++        new Signature("Unity Ads", p("com.unity3d.ads")),
++        new Signature("AppLovin", p("com.applovin")),
++        new Signature("ironSource", p("com.ironsource")),
++        new Signature("Vungle (Liftoff)", p("com.vungle")),
++        new Signature("Chartboost", p("com.chartboost")),
++        new Signature("InMobi", p("com.inmobi")),
++        new Signature("StartApp", p("com.startapp")),
++        new Signature("Tapjoy", p("com.tapjoy")),
++        new Signature("Fyber", p("com.fyber")),
++        new Signature("Bugsnag (crash reports)", p("com.bugsnag")),
++        new Signature("Microsoft App Center", p("com.microsoft.appcenter")),
++        new Signature("Yandex Metrica", p("com.yandex.metrica")),
++        new Signature("Umeng", p("com.umeng")),
++        new Signature("Baidu Mobstat", p("com.baidu.mobstat")),
++    };
++
++    private TrackerSignatures() {}
++
++    /** How many signatures the list holds. */
++    public static int size() {
++        return LIST.length;
++    }
++
++    /** The tracker libraries a package's component class names point to, sorted. */
++    public static Set<String> matchComponents(Collection<String> classNames) {
++        final Scan scan = new Scan();
++        if (classNames != null) {
++            for (String name : classNames) {
++                scan.component(name);
++            }
++        }
++        return scan.found();
++    }
++
++    /** Incremental, bounded matcher: feed component names and APK entry names, then read. */
++    public static final class Scan {
++        private final Set<String> mFound = new TreeSet<>();
++        private boolean mAny;
++
++        /** Offers one manifest component class name. */
++        public void component(String className) {
++            if (className == null || className.isEmpty()) {
++                return;
++            }
++            mAny = true;
++            for (Signature s : LIST) {
++                if (mFound.contains(s.name)) {
++                    continue;
++                }
++                for (String prefix : s.prefixes) {
++                    if (className.equals(prefix) || className.startsWith(prefix + ".")) {
++                        mFound.add(s.name);
++                        break;
++                    }
++                }
++            }
++        }
++
++        /** Offers one APK entry name; only {@code META-INF/*.version} files are looked at. */
++        public void entry(String entryName) {
++            if (entryName == null || !entryName.startsWith("META-INF/")
++                    || !entryName.endsWith(".version")) {
++                return;
++            }
++            mAny = true;
++            final String lower = entryName.toLowerCase(Locale.ROOT);
++            for (Signature s : LIST) {
++                if (mFound.contains(s.name)) {
++                    continue;
++                }
++                for (String fragment : s.fragments) {
++                    if (lower.contains(fragment)) {
++                        mFound.add(s.name);
++                        break;
++                    }
++                }
++            }
++        }
++
++        /** Whether anything was offered (names or version files) to look at. */
++        public boolean sawInput() {
++            return mAny;
++        }
++
++        public Set<String> found() {
++            return java.util.Collections.unmodifiableSet(new TreeSet<>(mFound));
++        }
++    }
++}
+diff --git a/tests/sable-apps/src/com/android/settings/applications/sable/model/SecurityHistoryTest.java b/tests/sable-apps/src/com/android/settings/applications/sable/model/SecurityHistoryTest.java
+new file mode 100644
+index 0000000..7905c58
+--- /dev/null
++++ b/tests/sable-apps/src/com/android/settings/applications/sable/model/SecurityHistoryTest.java
+@@ -0,0 +1,179 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable.model;
++
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertFalse;
++import static org.junit.Assert.assertNotNull;
++import static org.junit.Assert.assertNull;
++import static org.junit.Assert.assertTrue;
++
++import org.junit.Test;
++
++import java.util.Arrays;
++import java.util.Collections;
++import java.util.List;
++
++public class SecurityHistoryTest {
++    private static SecuritySnapshot.Builder base() {
++        return new SecuritySnapshot.Builder().versionCode(10).targetSdk(34)
++                .signers(Arrays.asList("AA:BB"))
++                .permissions(Arrays.asList("android.permission.CAMERA"))
++                .exposed(Collections.<String>emptyList())
++                .elevated(Collections.<String>emptyList())
++                .trackers(Collections.<String>emptyList());
++    }
++
++    @Test
++    public void trackerMatchByComponentPrefix() {
++        assertEquals(Arrays.asList("AppsFlyer", "Google AdMob"), new java.util.ArrayList<>(
++                TrackerSignatures.matchComponents(Arrays.asList(
++                        "com.appsflyer.internal.Foo", "com.google.android.gms.ads.AdActivity",
++                        "com.example.app.Main"))));
++        // A look-alike package is not a match.
++        assertTrue(TrackerSignatures.matchComponents(
++                Arrays.asList("com.appsflyerx.Foo", "com.adjust.sdkx.A")).isEmpty());
++        assertTrue(TrackerSignatures.matchComponents(null).isEmpty());
++    }
++
++    @Test
++    public void trackerMatchByVersionFilesOnly() {
++        final TrackerSignatures.Scan scan = new TrackerSignatures.Scan();
++        scan.entry("classes.dex");
++        scan.entry("res/layout/firebase-analytics.xml");
++        assertTrue(scan.found().isEmpty());
++        assertFalse(scan.sawInput());
++        scan.entry("META-INF/com.google.firebase_firebase-analytics.version");
++        scan.entry("META-INF/com.google.android.gms_play-services-ads.version");
++        assertEquals(Arrays.asList("Google AdMob", "Google Firebase Analytics"),
++                new java.util.ArrayList<>(scan.found()));
++        assertTrue(scan.sawInput());
++        assertTrue(TrackerSignatures.size() >= 25);
++    }
++
++    @Test
++    public void snapshotRoundTripAndDamage() {
++        final SecuritySnapshot s = new SecuritySnapshot.Builder().versionCode(10).targetSdk(34)
++                .permissions(Arrays.asList("a.b.C", "x;y", "d.E")).build();
++        // A value the text form cannot hold is dropped, the rest survive in order.
++        assertEquals(Arrays.asList("a.b.C", "d.E"), new java.util.ArrayList<>(s.permissions));
++        final SecuritySnapshot back = SecuritySnapshot.decode(s.encode());
++        assertNotNull(back);
++        assertEquals(s.encode(), back.encode());
++        assertEquals(10L, back.versionCode);
++        assertFalse(back.componentsKnown || back.trackersKnown);
++        assertNull(SecuritySnapshot.decode(null));
++        assertNull(SecuritySnapshot.decode(""));
++        assertNull(SecuritySnapshot.decode("v2\nversion=1\ntarget=1\n"));
++        assertNull(SecuritySnapshot.decode("v1\nversion=abc\ntarget=1\n"));
++        assertNull(SecuritySnapshot.decode("v1\ntarget=1\n"));
++    }
++
++    private static boolean has(List<SecurityChanges.Change> l, SecurityChanges.Kind k, String s) {
++        for (SecurityChanges.Change c : l) {
++            if (c.kind == k && c.subject.equals(s)) {
++                return true;
++            }
++        }
++        return false;
++    }
++
++    @Test
++    public void updateDeltaIsClassedAndOrdered() {
++        final SecuritySnapshot old = base().build();
++        final SecuritySnapshot now = new SecuritySnapshot.Builder().versionCode(11).targetSdk(30)
++                .signers(Arrays.asList("CC:DD"))
++                .permissions(Arrays.asList("android.permission.ACCESS_BACKGROUND_LOCATION",
++                        "android.permission.INTERNET"))
++                .exposed(Arrays.asList("com.x.Open")).elevated(Arrays.asList("VPN"))
++                .trackers(Arrays.asList("Adjust")).build();
++        final List<SecurityChanges.Change> c = SecurityChanges.compare(old, now);
++        assertEquals(SecurityChanges.Kind.SIGNER_CHANGED, c.get(0).kind);
++        assertEquals(SecurityChanges.Severity.CRITICAL, c.get(0).severity());
++        assertTrue(has(c, SecurityChanges.Kind.VERSION_CHANGED, "11"));
++        assertTrue(has(c, SecurityChanges.Kind.TARGET_SDK_LOWERED, "30"));
++        assertTrue(has(c, SecurityChanges.Kind.PERMISSION_REMOVED, "android.permission.CAMERA"));
++        assertTrue(has(c, SecurityChanges.Kind.COMPONENT_NEWLY_EXPORTED, "com.x.Open"));
++        assertTrue(has(c, SecurityChanges.Kind.ELEVATED_ADDED, "VPN"));
++        assertTrue(has(c, SecurityChanges.Kind.TRACKER_ADDED, "Adjust"));
++        assertEquals(SecurityChanges.Severity.ELEVATED, SecurityChanges.severity(
++                SecurityChanges.Kind.PERMISSION_ADDED,
++                "android.permission.ACCESS_BACKGROUND_LOCATION"));
++        assertEquals(SecurityChanges.Severity.REVIEW, SecurityChanges.severity(
++                SecurityChanges.Kind.PERMISSION_ADDED, "android.permission.INTERNET"));
++        assertEquals(SecurityChanges.Severity.PRIVACY, SecurityChanges.severity(
++                SecurityChanges.Kind.TRACKER_ADDED, "Adjust"));
++        // Most serious first.
++        for (int i = 1; i < c.size(); i++) {
++            assertTrue(c.get(i - 1).severity().rank() >= c.get(i).severity().rank());
++        }
++    }
++
++    @Test
++    public void unchangedAppAndUnknownFactsStayQuiet() {
++        assertTrue(SecurityChanges.compare(base().build(), base().build()).isEmpty());
++        // Components not read this time: no "no longer exported" noise.
++        final SecuritySnapshot old = base().exposed(Arrays.asList("com.x.Open")).build();
++        final SecuritySnapshot now = new SecuritySnapshot.Builder().versionCode(10).targetSdk(34)
++                .signers(Arrays.asList("AA:BB"))
++                .permissions(Arrays.asList("android.permission.CAMERA")).build();
++        assertTrue(SecurityChanges.compare(old, now).isEmpty());
++        assertTrue(SecurityChanges.compare(null, now).isEmpty());
++    }
++
++    @Test
++    public void ledgerFirstLookStoresBaselineThenListsChanges() {
++        final SecurityLedger.Outcome first = SecurityLedger.observe(null, null,
++                base().build(), 100);
++        assertTrue(first.firstLook);
++        assertTrue(first.events.isEmpty());
++        final SecuritySnapshot v2 = base().versionCode(11)
++                .trackers(Arrays.asList("Adjust")).build();
++        final SecurityLedger.Outcome second = SecurityLedger.observe(first.snapshotText,
++                first.eventsText, v2, 200);
++        assertFalse(second.firstLook);
++        assertEquals(2, second.newChanges.size());
++        assertEquals(200L, second.events.get(0).timeMillis);
++        // An identical look adds nothing and keeps the events.
++        final SecurityLedger.Outcome third = SecurityLedger.observe(second.snapshotText,
++                second.eventsText, v2, 300);
++        assertTrue(third.newChanges.isEmpty());
++        assertEquals(second.events.size(), third.events.size());
++        // A damaged baseline counts as a first look and keeps the events.
++        final SecurityLedger.Outcome damaged = SecurityLedger.observe("junk", second.eventsText, v2,
++                400);
++        assertTrue(damaged.firstLook);
++        assertEquals(second.events.size(), damaged.events.size());
++    }
++
++    @Test
++    public void eventsAreBoundedAndDamageTolerant() {
++        SecuritySnapshot s = base().build();
++        SecurityLedger.Outcome o = SecurityLedger.observe(null, null, s, 1);
++        for (int i = 0; i < 60; i++) {
++            s = base().versionCode(100 + i).build();
++            o = SecurityLedger.observe(o.snapshotText, o.eventsText, s, 10 + i);
++        }
++        assertEquals(SecurityChanges.MAX_EVENTS, o.events.size());
++        assertEquals(69L, o.events.get(0).timeMillis);
++        final List<SecurityChanges.Event> back = SecurityChanges.decodeEvents(
++                "garbage\n1|2|NOT_A_KIND|x\nx|2|VERSION_CHANGED|1\n5|6|PERMISSION_ADDED|a.B\n");
++        assertEquals(1, back.size());
++        assertEquals("a.B", back.get(0).change.subject);
++        assertTrue(SecurityChanges.decodeEvents(null).isEmpty());
++    }
++}
+-- 
+2.43.0
+

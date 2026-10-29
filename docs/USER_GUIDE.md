@@ -99,7 +99,7 @@ Every Sable app follows the Dark theme and your Sable accent, and has single-key
 | Calculator | Keyboard-first | Digits and operators from the keys |
 | Games | Ten games, each its own app: Sudoku, Minesweeper, 2048, Bricks, Snake, Blocks, Reversi, Solitaire, Mahjong, Words | See [Games](#games) below |
 | Tools | Device reports you can save to Download/SableTools. Its utilities (SOS and alarm, pedometer with a goal and 7-day history, flashlight, compass and more) show on the Q25 only when Developer options and Tools' developer mode are on, until each is proven on the phone | C copy, S save, M more. In the pedometer, Menu sets height, weight and goal |
-| Vault | Private Space and Mobile Manager's app controls (App Control Center, Network access, Freezer, App blocker, Focus and Student mode) | App blocker: Settings > Apps > Mobile Manager > App blocker |
+| Vault | Private Space and Mobile Manager's app controls (App Control Center, Network access, Freezer, App blocker, Focus and Student mode) | App blocker: Settings > Apps > Mobile Manager > App blocker. To see what an app can do and what changed in it, open Settings > Apps > App security & privacy (signing, permissions, exposed parts, tracker signals, changes seen on this phone) |
 | App display compatibility | Taller canvas per app for apps that don't fit a square screen | Alt+Shift+R |
 | Aurora Store + microG | Install Play Store apps without Google Play | See [MICROG.md](MICROG.md) |
 
