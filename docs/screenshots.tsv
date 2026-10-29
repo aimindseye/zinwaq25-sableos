@@ -1,0 +1,53 @@
+# Screenshots for the user guide, taken by scripts/capture-screenshots.sh.
+#
+# Columns (tab-separated): name, guide section, how to get there, what the shot shows.
+#   how to get there:
+#     home           press Home
+#     app:WORD       launch the installed org.sableos.* package whose name contains WORD
+#     intent:ACTION  start the Android intent ACTION (for example android.settings.DEVICE_INFO_SETTINGS)
+#     manual         the script asks you to open the screen yourself, then press Enter
+home-start	Sable Start	home	The Start home screen (Active Frames)
+about-phone	First-boot setup	intent:android.settings.DEVICE_INFO_SETTINGS	Settings > About phone, with the SableOS version row
+display-settings	Privacy and security defaults	intent:android.settings.DISPLAY_SETTINGS	Settings > Display
+security-settings	Privacy and security defaults	intent:android.settings.SECURITY_SETTINGS	Settings > Security
+app-security	Privacy and security defaults	manual	Settings > Apps > an app > App security page
+app-blocker	Apps	manual	Settings > Apps > Mobile Manager > App blocker
+hub	Sable Start	manual	Hub (left page of Start)
+app-grid	Sable Start	manual	App pages (right page of Start), the 5-column grid
+phone	Apps	app:phone	Phone
+messages	Apps	app:messages	Sable Messages
+calendar	Apps	app:calendar	Calendar week view
+notes	Apps	app:notes	Notes
+weather	Apps	app:weather	Weather
+calculator	Apps	app:calculator	Calculator
+reader	Apps	app:reader	Reader
+sound-profiles	Apps	app:profiles	Sound Profiles
+tools	Apps	app:tools	Tools
+terminal	Apps	app:terminal	Terminal
+sudoku	Games	app:sudoku	Sudoku
+minesweeper	Games	app:minesweeper	Minesweeper
+game-2048	Games	app:2048	2048
+bricks	Games	app:bricks	Bricks
+snake	Games	app:snake	Snake
+blocks	Games	app:blocks	Blocks
+reversi	Games	app:reversi	Reversi
+solitaire	Games	app:solitaire	Solitaire
+mahjong	Games	app:mahjong	Mahjong
+words	Games	app:words	Words
+media	Apps	app:media	Media
+mail	Apps	app:mail	Mail
+keyboard-settings	The keyboard	intent:android.settings.HARD_KEYBOARD_SETTINGS	Settings > Keyboard & input
+accent	Settings	manual	Settings > Display > Accent
+app-style	Settings	manual	Settings > Display > App display compatibility > Sable app style
+battery-health	Settings	manual	Settings > Battery > Battery health
+charging-protection	Settings	manual	Settings > Battery > Charging & protection
+sable-attention	Settings	manual	Settings > Notifications > Sable Attention
+connected-devices	Settings	intent:android.settings.BLUETOOTH_SETTINGS	Settings > Connected devices (open the top card page by hand if this opens Bluetooth)
+network-access	Settings	manual	Settings > Apps > Network access
+mobile-manager	Settings	manual	Settings > Apps > Mobile Manager
+app-control-center	Settings	manual	Mobile Manager > App Control Center
+freezer	Settings	manual	Mobile Manager > Freezer
+focus-mode	Settings	manual	Mobile Manager > Focus mode
+student-mode	Settings	manual	Mobile Manager > Student mode
+private-space	Settings	manual	Settings > Private Space & Dual Apps
+keyboard-firmware	Settings	manual	Settings > Keyboard & input > Keyboard firmware (read the screen; do not press the buttons)
