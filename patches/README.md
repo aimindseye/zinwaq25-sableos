@@ -118,7 +118,9 @@
   `Application`, an `<App>TextTest` each, `DesignText` for the shared design lines and
   `SableTexts` accepting nullable arguments; docs/LANGUAGES.md), and 0086 Sable Weather's drafts in
   16 languages (`values-<lang>/strings.xml`), and 0087 the Sable Calculator, converter and shared design
-  drafts in 18 languages. Applied in order to a
+  drafts in 18 languages, and 0088 the drafts for every other Sable app (Start, Hub, Messages, Media,
+  Notes, Calendar, Games, Keyboard, Camera, Tools, Setup, Display compatibility, Secure Vault, Sound
+  Profiles) in 18 languages, and Weather's two missing languages and extended text. Applied in order to a
   fresh import they reproduce `sable-src/` exactly. Regenerate a patch with `git diff` against a
   fresh import when you change these files.
 

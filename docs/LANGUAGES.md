@@ -8,7 +8,7 @@ What a user sees in another language, and how to add one.
 |---|---|
 | Android and LineageOS (Settings, Phone, Contacts, system dialogs) | Every Android language. Pick it in first-boot setup or Settings > System > Languages |
 | Typing (Sable Keyboard) | 35 typing languages: Latin languages with accents (Español, Français, Deutsch, Português, Italiano, Polski, Türkçe, Svenska, Nederlands), Cyrillic, Greek, Arabic, Hebrew, Urdu, Hindi and nine other Indic scripts (InScript and an "ABC" phonetic layout), Korean, Japanese kana and Chinese pinyin. Add them in Sable Keyboard's settings; Ctrl+Space or the globe key switches. Non-Latin layouts are on-screen; the physical keys type Latin |
-| Sable apps | Ready to translate: every Sable app keeps its English in `res/values/strings.xml` (sable-src 0085). Sable Setup has Spanish, French and German drafts (sable-src 0075, 0082) Sable Weather has 16 (sable-src 0086), and Sable Calculator, its unit converter and the shared design lines have 18 each (sable-src 0087); the others show English until a `values-<lang>/strings.xml` is added |
+| Sable apps | Every Sable app keeps its English in `res/values/strings.xml` (sable-src 0085) and ships draft translations in 18 languages (Arabic, Chinese (Simplified), Dutch, French, German, Greek, Hebrew, Hindi, Italian, Japanese, Korean, Polish, Portuguese (Brazil), Russian, Spanish, Swedish, Turkish, Urdu) as `values-<lang>/strings.xml` (sable-src 0086, 0087, 0088). They are drafts checked against the English, not yet reviewed by a fluent speaker; a language without a file shows English |
 | Upstream apps (Mail, Reader, Text reader, Terminal, Browser, Files, Photos) | Their upstream translations, unchanged |
 
 ## The files to translate
