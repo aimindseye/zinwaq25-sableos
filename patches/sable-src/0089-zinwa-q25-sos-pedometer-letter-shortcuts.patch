@@ -1,0 +1,1969 @@
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts b/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
+index 02cb67b..a2efe64 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
+@@ -56,10 +56,12 @@ val canonicalPresentationSources =
+         "com/sable/start/model/HomeLayout.kt",
+         "com/sable/start/model/HubBar.kt",
+         "com/sable/start/model/HubPeople.kt",
++        "com/sable/start/model/LetterShortcuts.kt",
+         "com/sable/start/model/QuickBar.kt",
+         "com/sable/start/model/SpeedDial.kt",
+         "com/sable/start/model/StartText.kt",
+         "com/sable/start/platform/DeviceStatsSampler.kt",
++        "com/sable/start/platform/LetterShortcutRepository.kt",
+         "com/sable/start/platform/LiveSurfaceRepository.kt",
+         "com/sable/start/platform/PeopleRepository.kt",
+         "com/sable/start/platform/PrivacyFactsReader.kt",
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/LetterShortcutsTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/LetterShortcutsTest.kt
+new file mode 100644
+index 0000000..5422a3b
+--- /dev/null
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/LetterShortcutsTest.kt
+@@ -0,0 +1,48 @@
++package org.sableos.start.model
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++/** Hold-a-letter app shortcuts: one app per letter, one letter per app, damage tolerant storage. */
++class LetterShortcutsTest {
++    private val mail = "com.sable.mail/com.sable.mail.Main"
++    private val notes = "com.sable.notes/.NotesActivity"
++
++    @Test fun assignAndLookupIgnoreCase() {
++        val s = LetterShortcuts.EMPTY.assign('M', mail)
++        assertEquals(mail, s.componentFor('m'))
++        assertEquals(mail, s.componentFor('M'))
++        assertEquals('m', s.letterOf(mail))
++        assertEquals(setOf('m'), s.letters)
++    }
++
++    @Test fun assigningMovesInBothDirections() {
++        val s = LetterShortcuts.EMPTY.assign('m', mail).assign('n', mail)
++        assertNull(s.componentFor('m'))
++        assertEquals('n', s.letterOf(mail))
++        val t = s.assign('n', notes)
++        assertNull(t.letterOf(mail))
++        assertEquals(notes, t.componentFor('n'))
++    }
++
++    @Test fun rejectsNonLettersAndBadComponents() {
++        assertTrue(LetterShortcuts.EMPTY.assign('1', mail).letters.isEmpty())
++        assertTrue(LetterShortcuts.EMPTY.assign('m', "no slash").letters.isEmpty())
++        assertTrue(LetterShortcuts.EMPTY.assign('m', "a/b;c=d").letters.isEmpty())
++    }
++
++    @Test fun removeFreesTheLetter() {
++        val s = LetterShortcuts.EMPTY.assign('m', mail).assign('n', notes).remove(mail)
++        assertEquals(setOf('n'), s.letters)
++    }
++
++    @Test fun encodeDecodeRoundTripAndDamage() {
++        val s = LetterShortcuts.EMPTY.assign('n', notes).assign('m', mail)
++        assertEquals(s.encode(), LetterShortcuts.decode(s.encode()).encode())
++        val damaged = LetterShortcuts.decode("zz=a/b;;x;q=bad;m=$mail;=;")
++        assertEquals(setOf('m'), damaged.letters)
++        assertTrue(LetterShortcuts.decode(null).letters.isEmpty())
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml
+index 40b77af..158692e 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml
+@@ -19,6 +19,8 @@
+     <uses-permission android:name="android.permission.READ_BASIC_PHONE_STATE" />
+     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+     <uses-permission android:name="android.permission.VIBRATE" />
++    <!-- Lets the hourly pedometer sample survive a reboot (a persisted job). -->
++    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+ 
+     <!-- Nothing is required: capability gating hides what the device lacks. -->
+     <uses-feature android:name="android.hardware.camera" android:required="false" />
+@@ -112,6 +114,12 @@
+           phone process), so the receiver requires MODIFY_PHONE_STATE, which only that signature|privileged sender
+           holds. Other apps cannot reach it.
+         -->
++        <!-- Hourly pedometer sample (android/StepSampleJob): only the system can bind it. -->
++        <service
++            android:name=".android.StepSampleJob"
++            android:exported="false"
++            android:permission="android.permission.BIND_JOB_SERVICE" />
++
+         <receiver
+             android:name=".android.SecretCodeReceiver"
+             android:enabled="true"
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/StepSampleJob.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/StepSampleJob.kt
+new file mode 100644
+index 0000000..c0537d8
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/StepSampleJob.kt
+@@ -0,0 +1,91 @@
++package org.sableos.tools.android
++
++import android.app.job.JobInfo
++import android.app.job.JobParameters
++import android.app.job.JobScheduler
++import android.app.job.JobService
++import android.content.ComponentName
++import android.content.Context
++import android.content.pm.PackageManager
++import android.hardware.Sensor
++import android.hardware.SensorEvent
++import android.hardware.SensorEventListener
++import android.hardware.SensorManager
++import android.os.Handler
++import android.os.Looper
++import java.time.LocalDate
++import java.util.concurrent.TimeUnit
++import org.sableos.tools.core.Perm
++
++/** Schedules the hourly step sample once the pedometer has been opened. */
++object StepSampling {
++    private const val JOB_ID = 3101
++
++    fun schedule(context: Context) {
++        val scheduler = context.getSystemService(JobScheduler::class.java) ?: return
++        if (scheduler.getPendingJob(JOB_ID) != null) return
++        val job = JobInfo.Builder(JOB_ID, ComponentName(context, StepSampleJob::class.java))
++            .setPeriodic(TimeUnit.HOURS.toMillis(1))
++            .setPersisted(true)
++            .build()
++        scheduler.schedule(job)
++    }
++}
++
++/**
++ * Reads the step counter once and adds the gain to today's total (StepLedger), so days fill while the pedometer is
++ * closed. It does nothing without the activity-recognition permission or a step counter, and gives up after a few
++ * seconds.
++ */
++class StepSampleJob : JobService(), SensorEventListener {
++    private val handler = Handler(Looper.getMainLooper())
++    private var running: JobParameters? = null
++    private val giveUp = Runnable { finish(reschedule = true) }
++
++    override fun onStartJob(params: JobParameters): Boolean {
++        val sm = getSystemService(SensorManager::class.java)
++        val sensor = sm?.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
++        if (sm == null || sensor == null ||
++            checkSelfPermission(Perm.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED
++        ) {
++            return false
++        }
++        running = params
++        sm.registerListener(this, sensor, SensorManager.SENSOR_DELAY_NORMAL)
++        handler.postDelayed(giveUp, GIVE_UP_MS)
++        return true
++    }
++
++    override fun onStopJob(params: JobParameters): Boolean {
++        cleanUp()
++        return true
++    }
++
++    override fun onSensorChanged(event: SensorEvent) {
++        val store = StepStore(this)
++        val ledger = store.ledger()
++        ledger.sample(event.values[0].toLong(), LocalDate.now().toEpochDay())
++        store.save(ledger)
++        finish(reschedule = false)
++    }
++
++    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
++        // step counts do not depend on accuracy
++    }
++
++    private fun finish(reschedule: Boolean) {
++        val params = running ?: return
++        cleanUp()
++        jobFinished(params, reschedule)
++    }
++
++    private fun cleanUp() {
++        handler.removeCallbacks(giveUp)
++        getSystemService(SensorManager::class.java)?.unregisterListener(this)
++        running = null
++    }
++
++    private companion object {
++        const val GIVE_UP_MS = 10_000L
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/StepStore.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/StepStore.kt
+new file mode 100644
+index 0000000..a30b515
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/StepStore.kt
+@@ -0,0 +1,39 @@
++package org.sableos.tools.android
++
++import android.content.Context
++import org.sableos.tools.core.StepLedger
++import org.sableos.tools.core.StepProfile
++
++/** The pedometer's daily totals and profile, in this app's private preferences. Never leaves the phone. */
++class StepStore(context: Context) {
++    private val prefs = context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
++
++    fun ledger(): StepLedger = StepLedger.decode(prefs.getString(KEY_LEDGER, null))
++
++    fun save(ledger: StepLedger) {
++        prefs.edit().putString(KEY_LEDGER, ledger.encode()).apply()
++    }
++
++    fun profile(): StepProfile = StepProfile(
++        prefs.getInt(KEY_HEIGHT, StepProfile.DEFAULT_HEIGHT),
++        prefs.getInt(KEY_WEIGHT, StepProfile.DEFAULT_WEIGHT),
++        prefs.getInt(KEY_GOAL, StepProfile.DEFAULT_GOAL)
++    ).safe
++
++    fun save(profile: StepProfile) {
++        val p = profile.safe
++        prefs.edit()
++            .putInt(KEY_HEIGHT, p.heightCm)
++            .putInt(KEY_WEIGHT, p.weightKg)
++            .putInt(KEY_GOAL, p.goal)
++            .apply()
++    }
++
++    private companion object {
++        const val NAME = "pedometer"
++        const val KEY_LEDGER = "ledger"
++        const val KEY_HEIGHT = "height_cm"
++        const val KEY_WEIGHT = "weight_kg"
++        const val KEY_GOAL = "goal"
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/Capability.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/Capability.kt
+index e31fa75..c898ea9 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/Capability.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/Capability.kt
+@@ -44,6 +44,7 @@ enum class Capability(
+     SPEEDOMETER(setOf(Hardware.LOCATION_GPS)),
+     PEDOMETER(emptySet(), needsAny = setOf(Hardware.STEP_COUNTER, Hardware.ACCELEROMETER)),
+     IR_REMOTE(setOf(Hardware.IR_EMITTER)),
++    SOS_ALERT(setOf(Hardware.CAMERA_FLASH)),
+ 
+     /** Android has no public IR receive API; this stays off unless a profile proves a platform-owned path. */
+     IR_LEARNING(setOf(Hardware.IR_EMITTER, Hardware.IR_RECEIVER)),
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SosPattern.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SosPattern.kt
+new file mode 100644
+index 0000000..4de833c
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SosPattern.kt
+@@ -0,0 +1,42 @@
++package org.sableos.tools.core
++
++/**
++ * The SOS signal as alternating on/off durations (three short, three long, three short, then a pause),
++ * and the siren sound. Pure data: the SOS tool plays them with the camera light, the screen and the alarm stream.
++ */
++object SosPattern {
++    const val UNIT_MS = 250L
++
++    // On, off, on, off ...: S (. . .), O (- - -), S (. . .), then a long gap before it repeats.
++    private val UNITS = listOf(1, 1, 1, 1, 1, 3, 3, 1, 3, 1, 3, 3, 1, 1, 1, 1, 1, 7)
++
++    val STEPS: List<Long> = UNITS.map { it * UNIT_MS }
++
++    /** Even steps are "on", odd steps are "off". */
++    fun isOn(step: Int): Boolean = step % 2 == 0
++
++    fun next(step: Int): Int = (step + 1) % STEPS.size
++}
++
++/** One loop of a rising and falling siren, 16-bit mono, meant to be repeated without a gap. */
++object SirenWave {
++    const val RATE = 22_050
++    const val SECONDS = 2
++    private const val LOW_HZ = 600.0
++    private const val HIGH_HZ = 1400.0
++    private const val LEVEL = 0.8
++
++    fun samples(): ShortArray {
++        val n = RATE * SECONDS
++        val out = ShortArray(n)
++        var phase = 0.0
++        for (i in 0 until n) {
++            val t = i.toDouble() / n
++            val tri = if (t < 0.5) t * 2 else (1 - t) * 2
++            val hz = LOW_HZ + (HIGH_HZ - LOW_HZ) * tri
++            phase += 2 * Math.PI * hz / RATE
++            out[i] = (Math.sin(phase) * LEVEL * Short.MAX_VALUE).toInt().toShort()
++        }
++        return out
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/StepLedger.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/StepLedger.kt
+new file mode 100644
+index 0000000..b625608
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/StepLedger.kt
+@@ -0,0 +1,85 @@
++package org.sableos.tools.core
++
++import kotlin.math.roundToInt
++
++/**
++ * Daily step totals built from samples of the cumulative step counter (steps since boot). Each sample adds what
++ * the counter gained since the previous one to the day it was taken; a lower value means the counter restarted at
++ * a reboot, so the new value is all gain. Counting starts at the first sample. Kept on the phone only.
++ */
++class StepLedger private constructor(
++    private var lastRaw: Long?,
++    private val days: MutableMap<Long, Long>
++) {
++    constructor() : this(null, mutableMapOf())
++
++    fun sample(raw: Long, day: Long) {
++        val previous = lastRaw
++        lastRaw = raw
++        if (previous == null) return
++        val gained = if (raw >= previous) raw - previous else raw
++        if (gained > 0) days[day] = (days[day] ?: 0L) + gained
++        days.keys.removeAll { it <= day - KEEP_DAYS }
++    }
++
++    fun steps(day: Long): Long = days[day] ?: 0L
++
++    /** The last [count] days ending at [today], newest first, days without steps included. */
++    fun recent(today: Long, count: Int): List<Pair<Long, Long>> =
++        (0 until count).map { today - it }.map { it to steps(it) }
++
++    fun encode(): String =
++        (lastRaw?.toString() ?: "") + "|" +
++            days.entries.sortedBy { it.key }.joinToString(",") { "${it.key}:${it.value}" }
++
++    companion object {
++        const val KEEP_DAYS = 30L
++
++        /** Reads what [encode] wrote; anything damaged is dropped, never thrown. */
++        fun decode(text: String?): StepLedger {
++            val head = text.orEmpty().substringBefore('|')
++            val tail = text.orEmpty().substringAfter('|', "")
++            val days = mutableMapOf<Long, Long>()
++            tail.split(',').forEach { part ->
++                val day = part.substringBefore(':').toLongOrNull()
++                val count = part.substringAfter(':', "").toLongOrNull()
++                if (day != null && count != null && count > 0) days[day] = count
++            }
++            return StepLedger(head.toLongOrNull()?.takeIf { it >= 0 }, days)
++        }
++    }
++}
++
++/** The numbers the distance and energy estimates use. Always shown as estimates. */
++data class StepProfile(
++    val heightCm: Int = DEFAULT_HEIGHT,
++    val weightKg: Int = DEFAULT_WEIGHT,
++    val goal: Int = DEFAULT_GOAL
++) {
++    val safe: StepProfile
++        get() = StepProfile(
++            heightCm.coerceIn(HEIGHT_RANGE),
++            weightKg.coerceIn(WEIGHT_RANGE),
++            goal.coerceIn(GOAL_RANGE)
++        )
++
++    companion object {
++        const val DEFAULT_HEIGHT = 170
++        const val DEFAULT_WEIGHT = 70
++        const val DEFAULT_GOAL = 8000
++        val HEIGHT_RANGE = 100..250
++        val WEIGHT_RANGE = 30..250
++        val GOAL_RANGE = 1000..100_000
++    }
++}
++
++object StepMath {
++    private const val STRIDE_PER_HEIGHT = 0.415
++    private const val KCAL_PER_KG_KM = 0.5
++
++    fun distanceKm(steps: Long, heightCm: Int): Double =
++        steps * (heightCm * STRIDE_PER_HEIGHT) / 100_000.0
++
++    fun kcal(distanceKm: Double, weightKg: Int): Int =
++        (distanceKm * weightKg * KCAL_PER_KG_KM).roundToInt()
++}
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt
+index 10bd5d2..40947ba 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt
+@@ -136,6 +136,13 @@ enum class Tool(
+         listOf(Perm.ACTIVITY_RECOGNITION),
+         keywords = listOf("steps")
+     ),
++    SOS_ALERT(
++        Section.UTILITIES,
++        "sos_alert",
++        ToolKind.ACTION,
++        Capability.SOS_ALERT,
++        keywords = listOf("sos", "emergency", "siren", "strobe", "alarm", "flash")
++    ),
+     IR_REMOTE(
+         Section.UTILITIES,
+         "ir_remote",
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsDeviceProfile.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsDeviceProfile.kt
+index 0c1df03..da95792 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsDeviceProfile.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsDeviceProfile.kt
+@@ -43,6 +43,7 @@ data class ToolsDeviceProfile(
+         )
+         private val CAMERA_MIC_GPS_TOOLS = listOf(
+             Capability.FLASHLIGHT,
++            Capability.SOS_ALERT,
+             Capability.MAGNIFIER,
+             Capability.NOISE_METER,
+             Capability.SPEEDOMETER
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
+index 7af8ca7..e282c4a 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
+@@ -378,7 +378,27 @@ object ToolsText {
+             "precise_location_history" to "precise location history",
+             "provider_credentials" to "provider credentials",
+             "select_at_least_one_section" to "Select at least one section",
+-            "tv" to "TV"
++            "tv" to "TV",
++            "sos_alert" to "SOS and alarm",
++            "sos_light" to "SOS light",
++            "sos_screen_flash" to "Screen flash",
++            "sos_siren" to "Siren",
++            "sos_stop_all" to "Stop everything",
++            "sos_status" to "Light %1\$s, screen %2\$s, siren %3\$s",
++            "sos_info" to
++                "Flashes the camera light in the SOS pattern, flashes the screen, or sounds a siren " +
++                "at alarm volume. Everything stops when you leave. It does not call anyone.",
++            "pedometer_today" to "Today: %1\$d of %2\$d steps",
++            "pedometer_estimates" to "About %1\$s km and %2\$d kcal (estimates)",
++            "pedometer_last_days" to "Last 7 days",
++            "pedometer_day_steps" to "%1\$s: %2\$d steps",
++            "pedometer_profile" to "Profile: %1\$d cm, %2\$d kg",
++            "pedometer_set_height" to "Height (cm)",
++            "pedometer_set_weight" to "Weight (kg)",
++            "pedometer_set_goal" to "Daily goal (steps)",
++            "pedometer_note" to
++                "Menu sets height, weight and the daily goal. Daily totals are collected about once " +
++                "an hour in the background and stay on this phone."
+         )
+ 
+     val t = SableTexts(EN)
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Controllers.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Controllers.kt
+index a8d1396..e523a04 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Controllers.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Controllers.kt
+@@ -18,6 +18,7 @@ object Controllers {
+         Tool.PICTURE_HANGING to { h -> TiltController(h, Capability.PICTURE_HANGING) },
+         Tool.HEIGHT_ESTIMATE to ::HeightController,
+         Tool.FLASHLIGHT to ::FlashlightController,
++        Tool.SOS_ALERT to ::SosController,
+         Tool.MAGNIFIER to ::MagnifierController,
+         Tool.NOISE_METER to ::NoiseController,
+         Tool.SPEEDOMETER to ::SpeedController,
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Utilities.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Utilities.kt
+index 3887771..b2a99a9 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Utilities.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Utilities.kt
+@@ -1,6 +1,7 @@
+ package org.sableos.tools.ui
+ 
+ import android.Manifest
++import android.app.AlertDialog
+ import android.annotation.SuppressLint
+ import android.content.pm.PackageManager
+ import android.graphics.SurfaceTexture
+@@ -18,25 +19,37 @@ import android.hardware.camera2.params.SessionConfiguration
+ import android.location.Location
+ import android.location.LocationListener
+ import android.location.LocationManager
++import android.media.AudioAttributes
+ import android.media.AudioFormat
+ import android.media.AudioRecord
++import android.media.AudioTrack
+ import android.media.MediaRecorder
+ import android.os.Handler
+ import android.os.HandlerThread
+ import android.os.SystemClock
++import android.text.InputType
+ import android.view.Surface
+ import android.view.TextureView
+ import android.view.View
++import android.widget.EditText
+ import android.widget.LinearLayout
+ import android.widget.TextView
++import java.time.LocalDate
++import java.time.format.DateTimeFormatter
++import java.util.Locale
+ import java.util.concurrent.Executor
+ import kotlin.concurrent.thread
++import org.sableos.tools.android.StepSampling
++import org.sableos.tools.android.StepStore
+ import org.sableos.tools.core.AccelStepDetector
+ import org.sableos.tools.core.Command
+ import org.sableos.tools.core.HoldableReading
+ import org.sableos.tools.core.Noise
+ import org.sableos.tools.core.Perm
++import org.sableos.tools.core.SirenWave
++import org.sableos.tools.core.SosPattern
+ import org.sableos.tools.core.SpeedTrip
++import org.sableos.tools.core.StepMath
+ import org.sableos.tools.core.StepCounterSession
+ import org.sableos.tools.core.ToolsText.t
+ import org.sableos.tools.core.Vec3
+@@ -107,6 +120,172 @@ class FlashlightController(private val host: ToolHost) : ToolController {
+     override fun info() = t("uses_the_camera_flash_in")
+ }
+ 
++/**
++ * SOS light, screen flash and siren. Each is its own switch, they stop when the screen is left, and nothing here
++ * calls anyone. The siren plays on the alarm stream, so it follows the alarm volume.
++ */
++class SosController(private val host: ToolHost) : ToolController {
++    private val ctx = host.activity
++    private val handler = Handler(ctx.mainLooper)
++    private val cm = ctx.getSystemService(CameraManager::class.java)
++    private val torchId: String? = try {
++        cm?.cameraIdList?.firstOrNull {
++            cm.getCameraCharacteristics(it).get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
++        }
++    } catch (_: android.hardware.camera2.CameraAccessException) {
++        null
++    }
++    private val state: TextView = Ui.reading(ctx)
++    private var light = false
++    private var screen = false
++    private var siren = false
++    private var step = 0
++    private var track: AudioTrack? = null
++    private var savedBackground: android.graphics.drawable.Drawable? = null
++
++    private val tick = object : Runnable {
++        override fun run() {
++            val on = SosPattern.isOn(step)
++            if (light) setTorch(on)
++            if (screen) ctx.window.decorView.setBackgroundColor(if (on) WHITE else BLACK)
++            val wait = SosPattern.STEPS[step]
++            step = SosPattern.next(step)
++            handler.postDelayed(this, wait)
++        }
++    }
++
++    override fun view(): View = readingColumn(
++        ctx,
++        state,
++        Ui.row(ctx, t("sos_light"), null) { toggleLight() }.also { it.post { it.requestFocus() } },
++        Ui.row(ctx, t("sos_screen_flash"), null) { toggleScreen() },
++        Ui.row(ctx, t("sos_siren"), null) { toggleSiren() },
++        Ui.row(ctx, t("sos_stop_all"), null) { stopAll() },
++        Ui.body(ctx, t("sos_info"))
++    ).also { refresh() }
++
++    private fun refresh() {
++        fun word(on: Boolean) = if (on) "ON" else "OFF"
++        state.text = t("sos_status", word(light), word(screen), word(siren))
++    }
++
++    private fun toggleLight() {
++        if (!light && torchId == null) return host.toast(t("no_flash_unit_found"))
++        light = !light
++        if (!light) setTorch(false)
++        sync()
++    }
++
++    private fun toggleScreen() {
++        screen = !screen
++        if (screen) {
++            savedBackground = ctx.window.decorView.background
++            setBrightness(1f)
++        } else {
++            restoreScreen()
++        }
++        sync()
++    }
++
++    private fun toggleSiren() {
++        siren = !siren
++        if (siren) startSiren() else stopSiren()
++        sync()
++    }
++
++    private fun stopAll() {
++        light = false
++        screen = false
++        siren = false
++        setTorch(false)
++        restoreScreen()
++        stopSiren()
++        sync()
++    }
++
++    /** The pattern runs while the light or the screen flash is on. */
++    private fun sync() {
++        handler.removeCallbacks(tick)
++        if (light || screen) {
++            step = 0
++            handler.post(tick)
++        }
++        refresh()
++    }
++
++    private fun setTorch(on: Boolean) {
++        val id = torchId ?: return
++        try {
++            cm?.setTorchMode(id, on)
++        } catch (_: android.hardware.camera2.CameraAccessException) {
++            light = false
++            host.toast(t("flash_busy_another_app_is"))
++        }
++    }
++
++    private fun setBrightness(level: Float) {
++        val lp = ctx.window.attributes
++        lp.screenBrightness = level
++        ctx.window.attributes = lp
++    }
++
++    private fun restoreScreen() {
++        ctx.window.decorView.background = savedBackground
++        setBrightness(android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE)
++    }
++
++    private fun startSiren() {
++        val data = SirenWave.samples()
++        val audio = AudioTrack.Builder()
++            .setAudioAttributes(
++                AudioAttributes.Builder()
++                    .setUsage(AudioAttributes.USAGE_ALARM)
++                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
++                    .build()
++            )
++            .setAudioFormat(
++                AudioFormat.Builder()
++                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
++                    .setSampleRate(SirenWave.RATE)
++                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
++                    .build()
++            )
++            .setTransferMode(AudioTrack.MODE_STATIC)
++            .setBufferSizeInBytes(data.size * 2)
++            .build()
++        audio.write(data, 0, data.size)
++        audio.setLoopPoints(0, data.size, -1)
++        audio.play()
++        track = audio
++    }
++
++    private fun stopSiren() {
++        track?.let {
++            it.stop()
++            it.release()
++        }
++        track = null
++    }
++
++    override fun stop() {
++        stopAll()
++    }
++
++    override fun onCommand(c: Command) = if (c == Command.Toggle) {
++        toggleLight()
++        true
++    } else {
++        false
++    }
++
++    override fun info() = t("sos_info")
++
++    private companion object {
++        const val WHITE = 0xFFFFFFFF.toInt()
++        const val BLACK = 0xFF000000.toInt()
++    }
++}
++
+ /** Camera preview with digital zoom. Up/Down zoom. Nothing is captured or saved; the system privacy dot shows. */
+ class MagnifierController(private val host: ToolHost) : ToolController {
+     private val ctx = host.activity
+@@ -478,7 +657,12 @@ class SpeedController(private val host: ToolHost) :
+     }
+ }
+ 
+-/** Step counter when allowed, accelerometer estimate otherwise. No health claims. */
++/**
++ * Step counter when allowed, accelerometer estimate otherwise. No health claims: distance and energy are estimates
++ * from the height and weight you enter. With the step counter, the day's total, the daily goal and the last seven
++ * days are kept on this phone; a background job samples the counter about once an hour so days fill while the
++ * tool is closed.
++ */
+ class PedometerController(private val host: ToolHost) :
+     ToolController,
+     SensorEventListener {
+@@ -486,11 +670,17 @@ class PedometerController(private val host: ToolHost) :
+     private val sm = ctx.getSystemService(SensorManager::class.java)
+     private val reading = Ui.reading(ctx)
+     private val state = Ui.body(ctx)
++    private val summary = Ui.body(ctx)
+     private val counter = StepCounterSession()
+     private val accel = AccelStepDetector()
++    private val store = StepStore(ctx)
++    private val ledger = store.ledger()
++    private var profile = store.profile()
+     private var source = ""
++    private var useLedger = false
++    private var lastSaveMs = 0L
+ 
+-    override fun view(): View = readingColumn(ctx, reading.apply { text = "0" }, state)
++    override fun view(): View = readingColumn(ctx, reading.apply { text = "0" }, state, summary)
+ 
+     override fun start() {
+         val m = sm ?: return
+@@ -499,23 +689,36 @@ class PedometerController(private val host: ToolHost) :
+             ctx.checkSelfPermission(Perm.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED
+         ) {
+             source = t("step_counter")
++            useLedger = true
++            StepSampling.schedule(ctx)
+             m.registerListener(this, stepSensor, SensorManager.SENSOR_DELAY_NORMAL)
+         } else {
+             source = t("accelerometer_estimate")
++            useLedger = false
+             m.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
+                 m.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
+             }
+         }
+         state.text = t("source_counts_only_while_open", source)
++        showSummary()
+     }
+ 
+     override fun stop() {
+         sm?.unregisterListener(this)
++        if (useLedger) store.save(ledger)
+     }
+ 
+     override fun onSensorChanged(e: SensorEvent) {
+         val steps = if (e.sensor.type == Sensor.TYPE_STEP_COUNTER) {
+-            counter.push(e.values[0].toLong())
++            val raw = e.values[0].toLong()
++            ledger.sample(raw, today())
++            val now = SystemClock.elapsedRealtime()
++            if (now - lastSaveMs > SAVE_EVERY_MS) {
++                store.save(ledger)
++                lastSaveMs = now
++            }
++            showSummary()
++            counter.push(raw)
+         } else {
+             accel.push(
+                 Vec3(e.values[0].toDouble(), e.values[1].toDouble(), e.values[2].toDouble()).norm,
+@@ -539,5 +742,73 @@ class PedometerController(private val host: ToolHost) :
+         false
+     }
+ 
++    private fun today(): Long = LocalDate.now().toEpochDay()
++
++    private fun showSummary() {
++        if (!useLedger) {
++            summary.text = t("pedometer_note")
++            return
++        }
++        val day = today()
++        val steps = ledger.steps(day)
++        val km = StepMath.distanceKm(steps, profile.heightCm)
++        val format = DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault())
++        summary.text = buildString {
++            appendLine(t("pedometer_today", steps, profile.goal))
++            appendLine(
++                t(
++                    "pedometer_estimates",
++                    String.format(Locale.getDefault(), "%.1f", km),
++                    StepMath.kcal(km, profile.weightKg)
++                )
++            )
++            appendLine(t("pedometer_profile", profile.heightCm, profile.weightKg))
++            appendLine()
++            appendLine(t("pedometer_last_days"))
++            ledger.recent(day, HISTORY_DAYS).forEach { (d, n) ->
++                appendLine(t("pedometer_day_steps", LocalDate.ofEpochDay(d).format(format), n))
++            }
++            appendLine()
++            append(t("pedometer_note"))
++        }
++    }
++
++    override fun actions(): List<Pair<String, () -> Unit>> = listOf(
++        t("pedometer_set_height") to {
++            ask("pedometer_set_height", profile.heightCm) { profile = profile.copy(heightCm = it).safe }
++        },
++        t("pedometer_set_weight") to {
++            ask("pedometer_set_weight", profile.weightKg) { profile = profile.copy(weightKg = it).safe }
++        },
++        t("pedometer_set_goal") to {
++            ask("pedometer_set_goal", profile.goal) { profile = profile.copy(goal = it).safe }
++        }
++    )
++
++    private fun ask(titleKey: String, current: Int, apply: (Int) -> Unit) {
++        val input = EditText(ctx).apply {
++            inputType = InputType.TYPE_CLASS_NUMBER
++            setText(current.toString())
++            setSelection(text.length)
++        }
++        AlertDialog.Builder(ctx)
++            .setTitle(t(titleKey))
++            .setView(input)
++            .setPositiveButton(android.R.string.ok) { _, _ ->
++                input.text.toString().toIntOrNull()?.let {
++                    apply(it)
++                    store.save(profile)
++                    showSummary()
++                }
++            }
++            .setNegativeButton(android.R.string.cancel, null)
++            .show()
++    }
++
+     override fun info() = t("counts_steps_while_this_screen")
++
++    private companion object {
++        const val SAVE_EVERY_MS = 5_000L
++        const val HISTORY_DAYS = 7
++    }
+ }
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml
+index 4b151d8..738838e 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml
+@@ -302,4 +302,20 @@
+     <string name="provider_credentials">بيانات اعتماد المزوّدين</string>
+     <string name="select_at_least_one_section">اختر قسمًا واحدًا على الأقل</string>
+     <string name="tv">التلفزيون</string>
++    <string name="sos_alert">SOS والإنذار</string>
++    <string name="sos_light">ضوء SOS</string>
++    <string name="sos_screen_flash">وميض الشاشة</string>
++    <string name="sos_siren">صفارة الإنذار</string>
++    <string name="sos_stop_all">إيقاف الكل</string>
++    <string name="sos_status">الضوء %1$s، الشاشة %2$s، الصفارة %3$s</string>
++    <string name="sos_info">يومض ضوء الكاميرا بنمط SOS، أو يومض الشاشة، أو يُصدر صفارة إنذار بمستوى صوت المنبّه. يتوقف كل شيء عند مغادرتك. لا يتصل بأحد.</string>
++    <string name="pedometer_today">اليوم: %1$d من %2$d خطوة</string>
++    <string name="pedometer_estimates">حوالي %1$s كم و%2$d سعرة حرارية (تقديرات)</string>
++    <string name="pedometer_last_days">آخر 7 أيام</string>
++    <string name="pedometer_day_steps">%1$s: %2$d خطوة</string>
++    <string name="pedometer_profile">الملف: %1$d سم، %2$d كغ</string>
++    <string name="pedometer_set_height">الطول (سم)</string>
++    <string name="pedometer_set_weight">الوزن (كغ)</string>
++    <string name="pedometer_set_goal">الهدف اليومي (خطوات)</string>
++    <string name="pedometer_note">القائمة تضبط الطول والوزن والهدف اليومي. تُجمع المجاميع اليومية مرة كل ساعة تقريبًا في الخلفية وتبقى على هذا الهاتف.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml
+index badeefd..4f123b4 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml
+@@ -302,4 +302,20 @@
+     <string name="provider_credentials">Anbieter-Zugangsdaten</string>
+     <string name="select_at_least_one_section">Wähle mindestens einen Abschnitt</string>
+     <string name="tv">TV</string>
++    <string name="sos_alert">SOS und Alarm</string>
++    <string name="sos_light">SOS-Licht</string>
++    <string name="sos_screen_flash">Bildschirmblitz</string>
++    <string name="sos_siren">Sirene</string>
++    <string name="sos_stop_all">Alles stoppen</string>
++    <string name="sos_status">Licht %1$s, Bildschirm %2$s, Sirene %3$s</string>
++    <string name="sos_info">Lässt das Kameralicht im SOS-Muster blinken, den Bildschirm blitzen oder eine Sirene in Alarmlautstärke ertönen. Alles stoppt, wenn du das Werkzeug verlässt. Es ruft niemanden an.</string>
++    <string name="pedometer_today">Heute: %1$d von %2$d Schritten</string>
++    <string name="pedometer_estimates">Etwa %1$s km und %2$d kcal (Schätzwerte)</string>
++    <string name="pedometer_last_days">Letzte 7 Tage</string>
++    <string name="pedometer_day_steps">%1$s: %2$d Schritte</string>
++    <string name="pedometer_profile">Profil: %1$d cm, %2$d kg</string>
++    <string name="pedometer_set_height">Größe (cm)</string>
++    <string name="pedometer_set_weight">Gewicht (kg)</string>
++    <string name="pedometer_set_goal">Tagesziel (Schritte)</string>
++    <string name="pedometer_note">Über Menü stellst du Größe, Gewicht und Tagesziel ein. Die Tageswerte werden etwa stündlich im Hintergrund erfasst und bleiben auf diesem Telefon.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml
+index ebdf77c..f58318a 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml
+@@ -302,4 +302,20 @@
+     <string name="provider_credentials">διαπιστευτήρια παρόχων</string>
+     <string name="select_at_least_one_section">Επιλέξτε τουλάχιστον μία ενότητα</string>
+     <string name="tv">Τηλεόραση</string>
++    <string name="sos_alert">SOS και συναγερμός</string>
++    <string name="sos_light">Φως SOS</string>
++    <string name="sos_screen_flash">Αναλαμπή οθόνης</string>
++    <string name="sos_siren">Σειρήνα</string>
++    <string name="sos_stop_all">Διακοπή όλων</string>
++    <string name="sos_status">Φως %1$s, οθόνη %2$s, σειρήνα %3$s</string>
++    <string name="sos_info">Αναβοσβήνει το φως της κάμερας με το σήμα SOS, αναβοσβήνει την οθόνη ή ηχεί σειρήνα στην ένταση του ξυπνητηριού. Όλα σταματούν όταν φύγεις. Δεν καλεί κανέναν.</string>
++    <string name="pedometer_today">Σήμερα: %1$d από %2$d βήματα</string>
++    <string name="pedometer_estimates">Περίπου %1$s χλμ. και %2$d kcal (εκτιμήσεις)</string>
++    <string name="pedometer_last_days">Τελευταίες 7 ημέρες</string>
++    <string name="pedometer_day_steps">%1$s: %2$d βήματα</string>
++    <string name="pedometer_profile">Προφίλ: %1$d εκ., %2$d κιλά</string>
++    <string name="pedometer_set_height">Ύψος (εκ.)</string>
++    <string name="pedometer_set_weight">Βάρος (κιλά)</string>
++    <string name="pedometer_set_goal">Ημερήσιος στόχος (βήματα)</string>
++    <string name="pedometer_note">Το Μενού ορίζει ύψος, βάρος και ημερήσιο στόχο. Τα ημερήσια σύνολα συλλέγονται περίπου μία φορά την ώρα στο παρασκήνιο και μένουν σε αυτό το τηλέφωνο.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml
+index e7004ce..c86d534 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml
+@@ -302,4 +302,20 @@
+     <string name="provider_credentials">credenciales de proveedores</string>
+     <string name="select_at_least_one_section">Selecciona al menos una sección</string>
+     <string name="tv">TV</string>
++    <string name="sos_alert">SOS y alarma</string>
++    <string name="sos_light">Luz SOS</string>
++    <string name="sos_screen_flash">Destello de pantalla</string>
++    <string name="sos_siren">Sirena</string>
++    <string name="sos_stop_all">Detener todo</string>
++    <string name="sos_status">Luz %1$s, pantalla %2$s, sirena %3$s</string>
++    <string name="sos_info">Hace parpadear la luz de la cámara con el patrón SOS, hace destellar la pantalla o suena una sirena al volumen de la alarma. Todo se detiene al salir. No llama a nadie.</string>
++    <string name="pedometer_today">Hoy: %1$d de %2$d pasos</string>
++    <string name="pedometer_estimates">Unos %1$s km y %2$d kcal (estimaciones)</string>
++    <string name="pedometer_last_days">Últimos 7 días</string>
++    <string name="pedometer_day_steps">%1$s: %2$d pasos</string>
++    <string name="pedometer_profile">Perfil: %1$d cm, %2$d kg</string>
++    <string name="pedometer_set_height">Altura (cm)</string>
++    <string name="pedometer_set_weight">Peso (kg)</string>
++    <string name="pedometer_set_goal">Objetivo diario (pasos)</string>
++    <string name="pedometer_note">El menú ajusta la altura, el peso y el objetivo diario. Los totales diarios se recogen aproximadamente cada hora en segundo plano y se quedan en este teléfono.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml
+index 2a6ae42..af69adf 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml
+@@ -302,4 +302,20 @@
+     <string name="provider_credentials">identifiants des fournisseurs</string>
+     <string name="select_at_least_one_section">Sélectionnez au moins une section</string>
+     <string name="tv">TV</string>
++    <string name="sos_alert">SOS et alarme</string>
++    <string name="sos_light">Lumière SOS</string>
++    <string name="sos_screen_flash">Flash d\'écran</string>
++    <string name="sos_siren">Sirène</string>
++    <string name="sos_stop_all">Tout arrêter</string>
++    <string name="sos_status">Lumière %1$s, écran %2$s, sirène %3$s</string>
++    <string name="sos_info">Fait clignoter la lumière de l\'appareil photo selon le signal SOS, fait clignoter l\'écran ou déclenche une sirène au volume de l\'alarme. Tout s\'arrête quand vous quittez. Aucun appel n\'est passé.</string>
++    <string name="pedometer_today">Aujourd\'hui : %1$d sur %2$d pas</string>
++    <string name="pedometer_estimates">Environ %1$s km et %2$d kcal (estimations)</string>
++    <string name="pedometer_last_days">7 derniers jours</string>
++    <string name="pedometer_day_steps">%1$s : %2$d pas</string>
++    <string name="pedometer_profile">Profil : %1$d cm, %2$d kg</string>
++    <string name="pedometer_set_height">Taille (cm)</string>
++    <string name="pedometer_set_weight">Poids (kg)</string>
++    <string name="pedometer_set_goal">Objectif quotidien (pas)</string>
++    <string name="pedometer_note">Le menu règle la taille, le poids et l\'objectif quotidien. Les totaux quotidiens sont relevés environ toutes les heures en arrière-plan et restent sur ce téléphone.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml
+index 1e6844a..d4ac411 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml
+@@ -302,4 +302,20 @@
+     <string name="provider_credentials">प्रदाता क्रेडेंशियल</string>
+     <string name="select_at_least_one_section">कम से कम एक अनुभाग चुनें</string>
+     <string name="tv">टीवी</string>
++    <string name="sos_alert">SOS और अलार्म</string>
++    <string name="sos_light">SOS लाइट</string>
++    <string name="sos_screen_flash">स्क्रीन फ़्लैश</string>
++    <string name="sos_siren">सायरन</string>
++    <string name="sos_stop_all">सब बंद करें</string>
++    <string name="sos_status">लाइट %1$s, स्क्रीन %2$s, सायरन %3$s</string>
++    <string name="sos_info">कैमरे की लाइट को SOS पैटर्न में चमकाता है, स्क्रीन को चमकाता है या अलार्म वॉल्यूम पर सायरन बजाता है। बाहर निकलने पर सब बंद हो जाता है। यह किसी को कॉल नहीं करता।</string>
++    <string name="pedometer_today">आज: %2$d में से %1$d क़दम</string>
++    <string name="pedometer_estimates">लगभग %1$s किमी और %2$d kcal (अनुमान)</string>
++    <string name="pedometer_last_days">पिछले 7 दिन</string>
++    <string name="pedometer_day_steps">%1$s: %2$d क़दम</string>
++    <string name="pedometer_profile">प्रोफ़ाइल: %1$d सेमी, %2$d किग्रा</string>
++    <string name="pedometer_set_height">ऊँचाई (सेमी)</string>
++    <string name="pedometer_set_weight">वज़न (किग्रा)</string>
++    <string name="pedometer_set_goal">दैनिक लक्ष्य (क़दम)</string>
++    <string name="pedometer_note">मेन्यू से ऊँचाई, वज़न और दैनिक लक्ष्य तय करें। दैनिक कुल लगभग हर घंटे पृष्ठभूमि में जुटाए जाते हैं और इसी फ़ोन पर रहते हैं।</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml
+index 820d143..d3ddbeb 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml
+@@ -302,4 +302,20 @@
+     <string name="provider_credentials">credenziali dei fornitori</string>
+     <string name="select_at_least_one_section">Seleziona almeno una sezione</string>
+     <string name="tv">TV</string>
++    <string name="sos_alert">SOS e allarme</string>
++    <string name="sos_light">Luce SOS</string>
++    <string name="sos_screen_flash">Lampeggio schermo</string>
++    <string name="sos_siren">Sirena</string>
++    <string name="sos_stop_all">Ferma tutto</string>
++    <string name="sos_status">Luce %1$s, schermo %2$s, sirena %3$s</string>
++    <string name="sos_info">Fa lampeggiare la luce della fotocamera con il segnale SOS, fa lampeggiare lo schermo o suona una sirena al volume della sveglia. Tutto si ferma quando esci. Non chiama nessuno.</string>
++    <string name="pedometer_today">Oggi: %1$d di %2$d passi</string>
++    <string name="pedometer_estimates">Circa %1$s km e %2$d kcal (stime)</string>
++    <string name="pedometer_last_days">Ultimi 7 giorni</string>
++    <string name="pedometer_day_steps">%1$s: %2$d passi</string>
++    <string name="pedometer_profile">Profilo: %1$d cm, %2$d kg</string>
++    <string name="pedometer_set_height">Altezza (cm)</string>
++    <string name="pedometer_set_weight">Peso (kg)</string>
++    <string name="pedometer_set_goal">Obiettivo giornaliero (passi)</string>
++    <string name="pedometer_note">Il menu imposta altezza, peso e obiettivo giornaliero. I totali giornalieri vengono raccolti circa una volta all\'ora in background e restano su questo telefono.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml
+index 77a4873..113bbf1 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml
+@@ -302,4 +302,20 @@
+     <string name="provider_credentials">אישורי ספקים</string>
+     <string name="select_at_least_one_section">בחרו לפחות מקטע אחד</string>
+     <string name="tv">טלוויזיה</string>
++    <string name="sos_alert">SOS והתראה</string>
++    <string name="sos_light">אור SOS</string>
++    <string name="sos_screen_flash">הבהוב מסך</string>
++    <string name="sos_siren">סירנה</string>
++    <string name="sos_stop_all">עצור הכול</string>
++    <string name="sos_status">אור %1$s, מסך %2$s, סירנה %3$s</string>
++    <string name="sos_info">מהבהב את אור המצלמה בתבנית SOS, מהבהב את המסך או משמיע סירנה בעוצמת השעון המעורר. הכול נעצר כשאתה יוצא. הוא לא מתקשר לאף אחד.</string>
++    <string name="pedometer_today">היום: %1$d מתוך %2$d צעדים</string>
++    <string name="pedometer_estimates">בערך %1$s ק\"מ ו-%2$d קק\"ל (הערכות)</string>
++    <string name="pedometer_last_days">7 הימים האחרונים</string>
++    <string name="pedometer_day_steps">%1$s: %2$d צעדים</string>
++    <string name="pedometer_profile">פרופיל: %1$d ס\"מ, %2$d ק\"ג</string>
++    <string name="pedometer_set_height">גובה (ס\"מ)</string>
++    <string name="pedometer_set_weight">משקל (ק\"ג)</string>
++    <string name="pedometer_set_goal">יעד יומי (צעדים)</string>
++    <string name="pedometer_note">התפריט קובע גובה, משקל ויעד יומי. הסכומים היומיים נאספים בערך פעם בשעה ברקע ונשארים בטלפון הזה.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml
+index 186aa15..cfba484 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml
+@@ -302,4 +302,20 @@
+     <string name="provider_credentials">プロバイダーの認証情報</string>
+     <string name="select_at_least_one_section">少なくとも 1 つのセクションを選択してください</string>
+     <string name="tv">テレビ</string>
++    <string name="sos_alert">SOSとアラーム</string>
++    <string name="sos_light">SOSライト</string>
++    <string name="sos_screen_flash">画面フラッシュ</string>
++    <string name="sos_siren">サイレン</string>
++    <string name="sos_stop_all">すべて停止</string>
++    <string name="sos_status">ライト %1$s、画面 %2$s、サイレン %3$s</string>
++    <string name="sos_info">カメラのライトをSOSのパターンで点滅させたり、画面を点滅させたり、アラームの音量でサイレンを鳴らしたりします。画面を離れるとすべて止まります。誰にも電話はかけません。</string>
++    <string name="pedometer_today">今日: %2$d歩中 %1$d歩</string>
++    <string name="pedometer_estimates">約%1$s kmと%2$d kcal（推定）</string>
++    <string name="pedometer_last_days">直近7日間</string>
++    <string name="pedometer_day_steps">%1$s: %2$d歩</string>
++    <string name="pedometer_profile">プロフィール: %1$d cm、%2$d kg</string>
++    <string name="pedometer_set_height">身長（cm）</string>
++    <string name="pedometer_set_weight">体重（kg）</string>
++    <string name="pedometer_set_goal">1日の目標（歩数）</string>
++    <string name="pedometer_note">メニューで身長、体重、1日の目標を設定します。1日の合計はバックグラウンドで1時間に1回ほど集計され、この端末にだけ残ります。</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml
+index 64ed8c5..3f87a09 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml
+@@ -302,4 +302,20 @@
+     <string name="provider_credentials">제공업체 자격 증명</string>
+     <string name="select_at_least_one_section">섹션을 하나 이상 선택하세요</string>
+     <string name="tv">TV</string>
++    <string name="sos_alert">SOS 및 경보</string>
++    <string name="sos_light">SOS 조명</string>
++    <string name="sos_screen_flash">화면 깜박임</string>
++    <string name="sos_siren">사이렌</string>
++    <string name="sos_stop_all">모두 중지</string>
++    <string name="sos_status">조명 %1$s, 화면 %2$s, 사이렌 %3$s</string>
++    <string name="sos_info">카메라 조명을 SOS 패턴으로 깜박이거나, 화면을 깜박이거나, 알람 음량으로 사이렌을 울립니다. 나가면 모두 멈춥니다. 누구에게도 전화하지 않습니다.</string>
++    <string name="pedometer_today">오늘: %2$d걸음 중 %1$d걸음</string>
++    <string name="pedometer_estimates">약 %1$s km, %2$d kcal(추정치)</string>
++    <string name="pedometer_last_days">최근 7일</string>
++    <string name="pedometer_day_steps">%1$s: %2$d걸음</string>
++    <string name="pedometer_profile">프로필: %1$d cm, %2$d kg</string>
++    <string name="pedometer_set_height">키(cm)</string>
++    <string name="pedometer_set_weight">몸무게(kg)</string>
++    <string name="pedometer_set_goal">일일 목표(걸음)</string>
++    <string name="pedometer_note">메뉴에서 키, 몸무게, 일일 목표를 설정합니다. 일별 합계는 백그라운드에서 약 한 시간에 한 번 수집되며 이 휴대전화에만 저장됩니다.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml
+index 9b3a3cd..52dcc9c 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml
+@@ -302,4 +302,20 @@
+     <string name="provider_credentials">inloggegevens van providers</string>
+     <string name="select_at_least_one_section">Selecteer ten minste één sectie</string>
+     <string name="tv">Tv</string>
++    <string name="sos_alert">SOS en alarm</string>
++    <string name="sos_light">SOS-licht</string>
++    <string name="sos_screen_flash">Schermflits</string>
++    <string name="sos_siren">Sirene</string>
++    <string name="sos_stop_all">Alles stoppen</string>
++    <string name="sos_status">Licht %1$s, scherm %2$s, sirene %3$s</string>
++    <string name="sos_info">Laat het cameralampje knipperen in het SOS-patroon, laat het scherm flitsen of laat een sirene klinken op alarmvolume. Alles stopt zodra je weggaat. Er wordt niemand gebeld.</string>
++    <string name="pedometer_today">Vandaag: %1$d van %2$d stappen</string>
++    <string name="pedometer_estimates">Ongeveer %1$s km en %2$d kcal (schattingen)</string>
++    <string name="pedometer_last_days">Laatste 7 dagen</string>
++    <string name="pedometer_day_steps">%1$s: %2$d stappen</string>
++    <string name="pedometer_profile">Profiel: %1$d cm, %2$d kg</string>
++    <string name="pedometer_set_height">Lengte (cm)</string>
++    <string name="pedometer_set_weight">Gewicht (kg)</string>
++    <string name="pedometer_set_goal">Dagdoel (stappen)</string>
++    <string name="pedometer_note">Via Menu stel je lengte, gewicht en dagdoel in. Dagtotalen worden ongeveer elk uur op de achtergrond verzameld en blijven op deze telefoon.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml
+index d6539ac..21a80d8 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml
+@@ -302,4 +302,20 @@
+     <string name="provider_credentials">poświadczenia dostawców</string>
+     <string name="select_at_least_one_section">Wybierz co najmniej jedną sekcję</string>
+     <string name="tv">TV</string>
++    <string name="sos_alert">SOS i alarm</string>
++    <string name="sos_light">Światło SOS</string>
++    <string name="sos_screen_flash">Błysk ekranu</string>
++    <string name="sos_siren">Syrena</string>
++    <string name="sos_stop_all">Zatrzymaj wszystko</string>
++    <string name="sos_status">Światło %1$s, ekran %2$s, syrena %3$s</string>
++    <string name="sos_info">Miga światłem aparatu w rytmie SOS, miga ekranem albo włącza syrenę z głośnością alarmu. Wszystko zatrzymuje się po wyjściu. Nikt nie jest wywoływany.</string>
++    <string name="pedometer_today">Dziś: %1$d z %2$d kroków</string>
++    <string name="pedometer_estimates">Około %1$s km i %2$d kcal (szacunki)</string>
++    <string name="pedometer_last_days">Ostatnie 7 dni</string>
++    <string name="pedometer_day_steps">%1$s: %2$d kroków</string>
++    <string name="pedometer_profile">Profil: %1$d cm, %2$d kg</string>
++    <string name="pedometer_set_height">Wzrost (cm)</string>
++    <string name="pedometer_set_weight">Waga (kg)</string>
++    <string name="pedometer_set_goal">Dzienny cel (kroki)</string>
++    <string name="pedometer_note">Menu ustawia wzrost, wagę i dzienny cel. Dzienne sumy są zbierane mniej więcej raz na godzinę w tle i zostają na tym telefonie.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml
+index febc2ac..982ee76 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml
+@@ -302,4 +302,20 @@
+     <string name="provider_credentials">credenciais de provedores</string>
+     <string name="select_at_least_one_section">Selecione pelo menos uma seção</string>
+     <string name="tv">TV</string>
++    <string name="sos_alert">SOS e alarme</string>
++    <string name="sos_light">Luz SOS</string>
++    <string name="sos_screen_flash">Flash da tela</string>
++    <string name="sos_siren">Sirene</string>
++    <string name="sos_stop_all">Parar tudo</string>
++    <string name="sos_status">Luz %1$s, tela %2$s, sirene %3$s</string>
++    <string name="sos_info">Pisca a luz da câmera no padrão SOS, pisca a tela ou toca uma sirene no volume do alarme. Tudo para quando você sai. Não liga para ninguém.</string>
++    <string name="pedometer_today">Hoje: %1$d de %2$d passos</string>
++    <string name="pedometer_estimates">Cerca de %1$s km e %2$d kcal (estimativas)</string>
++    <string name="pedometer_last_days">Últimos 7 dias</string>
++    <string name="pedometer_day_steps">%1$s: %2$d passos</string>
++    <string name="pedometer_profile">Perfil: %1$d cm, %2$d kg</string>
++    <string name="pedometer_set_height">Altura (cm)</string>
++    <string name="pedometer_set_weight">Peso (kg)</string>
++    <string name="pedometer_set_goal">Meta diária (passos)</string>
++    <string name="pedometer_note">O menu define altura, peso e a meta diária. Os totais diários são coletados cerca de uma vez por hora em segundo plano e ficam somente neste telefone.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml
+index 08c2a4f..d298818 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml
+@@ -302,4 +302,20 @@
+     <string name="provider_credentials">учётные данные провайдеров</string>
+     <string name="select_at_least_one_section">Выберите хотя бы один раздел</string>
+     <string name="tv">ТВ</string>
++    <string name="sos_alert">SOS и сигнал тревоги</string>
++    <string name="sos_light">Свет SOS</string>
++    <string name="sos_screen_flash">Вспышка экрана</string>
++    <string name="sos_siren">Сирена</string>
++    <string name="sos_stop_all">Остановить всё</string>
++    <string name="sos_status">Свет %1$s, экран %2$s, сирена %3$s</string>
++    <string name="sos_info">Мигает подсветкой камеры по сигналу SOS, мигает экраном или включает сирену с громкостью будильника. Всё останавливается, когда вы выходите. Никому не звонит.</string>
++    <string name="pedometer_today">Сегодня: %1$d из %2$d шагов</string>
++    <string name="pedometer_estimates">Около %1$s км и %2$d ккал (оценка)</string>
++    <string name="pedometer_last_days">Последние 7 дней</string>
++    <string name="pedometer_day_steps">%1$s: %2$d шагов</string>
++    <string name="pedometer_profile">Профиль: %1$d см, %2$d кг</string>
++    <string name="pedometer_set_height">Рост (см)</string>
++    <string name="pedometer_set_weight">Вес (кг)</string>
++    <string name="pedometer_set_goal">Дневная цель (шаги)</string>
++    <string name="pedometer_note">В меню задаются рост, вес и дневная цель. Дневные итоги собираются примерно раз в час в фоне и остаются на этом телефоне.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml
+index ea43d3d..4b68770 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml
+@@ -302,4 +302,20 @@
+     <string name="provider_credentials">leverantörsuppgifter</string>
+     <string name="select_at_least_one_section">Välj minst ett avsnitt</string>
+     <string name="tv">TV</string>
++    <string name="sos_alert">SOS och larm</string>
++    <string name="sos_light">SOS-ljus</string>
++    <string name="sos_screen_flash">Skärmblixt</string>
++    <string name="sos_siren">Siren</string>
++    <string name="sos_stop_all">Stoppa allt</string>
++    <string name="sos_status">Ljus %1$s, skärm %2$s, siren %3$s</string>
++    <string name="sos_info">Blinkar med kamerans ljus i SOS-mönster, blinkar med skärmen eller låter en siren ljuda med alarmvolym. Allt stannar när du lämnar. Den ringer ingen.</string>
++    <string name="pedometer_today">Idag: %1$d av %2$d steg</string>
++    <string name="pedometer_estimates">Ungefär %1$s km och %2$d kcal (uppskattningar)</string>
++    <string name="pedometer_last_days">Senaste 7 dagarna</string>
++    <string name="pedometer_day_steps">%1$s: %2$d steg</string>
++    <string name="pedometer_profile">Profil: %1$d cm, %2$d kg</string>
++    <string name="pedometer_set_height">Längd (cm)</string>
++    <string name="pedometer_set_weight">Vikt (kg)</string>
++    <string name="pedometer_set_goal">Dagligt mål (steg)</string>
++    <string name="pedometer_note">Menyn ställer in längd, vikt och dagligt mål. Dagssummor samlas in ungefär en gång i timmen i bakgrunden och stannar på den här telefonen.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml
+index 29ce279..7e22532 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml
+@@ -302,4 +302,20 @@
+     <string name="provider_credentials">sağlayıcı kimlik bilgileri</string>
+     <string name="select_at_least_one_section">En az bir bölüm seçin</string>
+     <string name="tv">TV</string>
++    <string name="sos_alert">SOS ve alarm</string>
++    <string name="sos_light">SOS ışığı</string>
++    <string name="sos_screen_flash">Ekran flaşı</string>
++    <string name="sos_siren">Siren</string>
++    <string name="sos_stop_all">Hepsini durdur</string>
++    <string name="sos_status">Işık %1$s, ekran %2$s, siren %3$s</string>
++    <string name="sos_info">Kamera ışığını SOS düzeninde yakıp söndürür, ekranı yanıp söndürür veya alarm ses düzeyinde siren çalar. Çıktığınızda her şey durur. Kimseyi aramaz.</string>
++    <string name="pedometer_today">Bugün: %2$d adımın %1$d adımı</string>
++    <string name="pedometer_estimates">Yaklaşık %1$s km ve %2$d kcal (tahmin)</string>
++    <string name="pedometer_last_days">Son 7 gün</string>
++    <string name="pedometer_day_steps">%1$s: %2$d adım</string>
++    <string name="pedometer_profile">Profil: %1$d cm, %2$d kg</string>
++    <string name="pedometer_set_height">Boy (cm)</string>
++    <string name="pedometer_set_weight">Kilo (kg)</string>
++    <string name="pedometer_set_goal">Günlük hedef (adım)</string>
++    <string name="pedometer_note">Menü boy, kilo ve günlük hedefi ayarlar. Günlük toplamlar arka planda yaklaşık saatte bir toplanır ve bu telefonda kalır.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml
+index 5827c08..33a3f1b 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml
+@@ -302,4 +302,20 @@
+     <string name="provider_credentials">فراہم کنندگان کی اسناد</string>
+     <string name="select_at_least_one_section">کم از کم ایک حصہ منتخب کریں</string>
+     <string name="tv">ٹی وی</string>
++    <string name="sos_alert">SOS اور الارم</string>
++    <string name="sos_light">SOS لائٹ</string>
++    <string name="sos_screen_flash">اسکرین فلیش</string>
++    <string name="sos_siren">سائرن</string>
++    <string name="sos_stop_all">سب بند کریں</string>
++    <string name="sos_status">لائٹ %1$s، اسکرین %2$s، سائرن %3$s</string>
++    <string name="sos_info">کیمرے کی لائٹ کو SOS کے انداز میں جھپکاتا ہے، اسکرین کو جھپکاتا ہے، یا الارم کی آواز پر سائرن بجاتا ہے۔ باہر نکلتے ہی سب رک جاتا ہے۔ یہ کسی کو کال نہیں کرتا۔</string>
++    <string name="pedometer_today">آج: %2$d میں سے %1$d قدم</string>
++    <string name="pedometer_estimates">تقریباً %1$s کلومیٹر اور %2$d کلو کیلوری (اندازے)</string>
++    <string name="pedometer_last_days">پچھلے 7 دن</string>
++    <string name="pedometer_day_steps">%1$s: %2$d قدم</string>
++    <string name="pedometer_profile">پروفائل: %1$d سینٹی میٹر، %2$d کلوگرام</string>
++    <string name="pedometer_set_height">قد (سینٹی میٹر)</string>
++    <string name="pedometer_set_weight">وزن (کلوگرام)</string>
++    <string name="pedometer_set_goal">روزانہ ہدف (قدم)</string>
++    <string name="pedometer_note">مینو سے قد، وزن اور روزانہ ہدف طے کریں۔ روزانہ کے مجموعے پس منظر میں تقریباً ہر گھنٹے جمع ہوتے ہیں اور اسی فون پر رہتے ہیں۔</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml
+index 14792b7..3ef08e0 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml
+@@ -302,4 +302,20 @@
+     <string name="provider_credentials">提供商凭据</string>
+     <string name="select_at_least_one_section">请至少选择一个部分</string>
+     <string name="tv">电视</string>
++    <string name="sos_alert">SOS与警报</string>
++    <string name="sos_light">SOS灯光</string>
++    <string name="sos_screen_flash">屏幕闪烁</string>
++    <string name="sos_siren">警报声</string>
++    <string name="sos_stop_all">全部停止</string>
++    <string name="sos_status">灯光%1$s，屏幕%2$s，警报声%3$s</string>
++    <string name="sos_info">让相机灯按SOS信号闪烁、让屏幕闪烁，或以闹钟音量鸣响警报声。离开后全部停止。不会拨打任何电话。</string>
++    <string name="pedometer_today">今天：%1$d / %2$d 步</string>
++    <string name="pedometer_estimates">约%1$s公里和%2$d千卡（估算）</string>
++    <string name="pedometer_last_days">最近7天</string>
++    <string name="pedometer_day_steps">%1$s：%2$d步</string>
++    <string name="pedometer_profile">资料：%1$d厘米，%2$d公斤</string>
++    <string name="pedometer_set_height">身高（厘米）</string>
++    <string name="pedometer_set_weight">体重（公斤）</string>
++    <string name="pedometer_set_goal">每日目标（步数）</string>
++    <string name="pedometer_note">菜单可设置身高、体重和每日目标。每日合计在后台大约每小时收集一次，只保存在这部手机上。</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml
+index aabe58c..0ba3ef2 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml
+@@ -303,5 +303,21 @@
+     <string name="provider_credentials">provider credentials</string>
+     <string name="select_at_least_one_section">Select at least one section</string>
+     <string name="tv">TV</string>
++    <string name="sos_alert">SOS and alarm</string>
++    <string name="sos_light">SOS light</string>
++    <string name="sos_screen_flash">Screen flash</string>
++    <string name="sos_siren">Siren</string>
++    <string name="sos_stop_all">Stop everything</string>
++    <string name="sos_status">Light %1$s, screen %2$s, siren %3$s</string>
++    <string name="sos_info">Flashes the camera light in the SOS pattern, flashes the screen, or sounds a siren at alarm volume. Everything stops when you leave. It does not call anyone.</string>
++    <string name="pedometer_today">Today: %1$d of %2$d steps</string>
++    <string name="pedometer_estimates">About %1$s km and %2$d kcal (estimates)</string>
++    <string name="pedometer_last_days">Last 7 days</string>
++    <string name="pedometer_day_steps">%1$s: %2$d steps</string>
++    <string name="pedometer_profile">Profile: %1$d cm, %2$d kg</string>
++    <string name="pedometer_set_height">Height (cm)</string>
++    <string name="pedometer_set_weight">Weight (kg)</string>
++    <string name="pedometer_set_goal">Daily goal (steps)</string>
++    <string name="pedometer_note">Menu sets height, weight and the daily goal. Daily totals are collected about once an hour in the background and stay on this phone.</string>
+     <string name="app_name" translatable="false">Sable Tools</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/SosAndStepsTest.kt b/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/SosAndStepsTest.kt
+new file mode 100644
+index 0000000..d41fea9
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/SosAndStepsTest.kt
+@@ -0,0 +1,77 @@
++package org.sableos.tools.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++/** The SOS pattern and siren, and the pedometer's daily ledger and estimates. */
++class SosAndStepsTest {
++    @Test fun sosIsThreeShortThreeLongThreeShort() {
++        val steps = SosPattern.STEPS
++        assertEquals(18, steps.size)
++        val on = steps.filterIndexed { i, _ -> SosPattern.isOn(i) }
++        assertEquals(listOf(1L, 1L, 1L, 3L, 3L, 3L, 1L, 1L, 1L).map { it * SosPattern.UNIT_MS }, on)
++        assertTrue(SosPattern.isOn(0))
++        assertFalse(SosPattern.isOn(1))
++        assertEquals("the pattern repeats", 0, SosPattern.next(steps.size - 1))
++    }
++
++    @Test fun sirenIsOneLoopOfRealAudio() {
++        val wave = SirenWave.samples()
++        assertEquals(SirenWave.RATE * SirenWave.SECONDS, wave.size)
++        assertTrue(wave.any { it > 10_000 })
++        assertTrue(wave.any { it < -10_000 })
++    }
++
++    @Test fun ledgerCountsGainsPerDayAndSurvivesAReboot() {
++        val ledger = StepLedger()
++        ledger.sample(1000, day = 100)
++        assertEquals("the first sample only sets the baseline", 0L, ledger.steps(100))
++        ledger.sample(1300, day = 100)
++        ledger.sample(1500, day = 101)
++        assertEquals(300L, ledger.steps(100))
++        assertEquals(200L, ledger.steps(101))
++        ledger.sample(40, day = 101)
++        assertEquals("a lower value is a restart: all of it is new", 240L, ledger.steps(101))
++        assertEquals(listOf(101L to 240L, 100L to 300L, 99L to 0L), ledger.recent(101, 3))
++    }
++
++    @Test fun ledgerRoundTripsAndIgnoresDamage() {
++        val ledger = StepLedger()
++        ledger.sample(10, 5)
++        ledger.sample(60, 5)
++        val back = StepLedger.decode(ledger.encode())
++        assertEquals(50L, back.steps(5))
++        back.sample(70, 5)
++        assertEquals("the baseline came back too", 60L, back.steps(5))
++        val broken = StepLedger.decode("x|abc,7:9,8:-2,:3,9:")
++        assertEquals(9L, broken.steps(7))
++        assertEquals(0L, broken.steps(8))
++        assertEquals(0L, StepLedger.decode(null).steps(1))
++    }
++
++    @Test fun ledgerForgetsOldDays() {
++        val ledger = StepLedger()
++        ledger.sample(0, 1)
++        ledger.sample(10, 1)
++        ledger.sample(20, 1 + StepLedger.KEEP_DAYS)
++        assertEquals(0L, ledger.steps(1))
++    }
++
++    @Test fun estimatesAreSensibleAndProfileIsClamped() {
++        val km = StepMath.distanceKm(8000, 170)
++        assertTrue(km in 5.0..6.5)
++        assertTrue(StepMath.kcal(km, 70) in 150..250)
++        val p = StepProfile(heightCm = 5, weightKg = 9000, goal = 1).safe
++        assertEquals(100, p.heightCm)
++        assertEquals(250, p.weightKg)
++        assertEquals(1000, p.goal)
++    }
++
++    @Test fun sosToolIsListedWithItsKeywords() {
++        assertTrue(HomeModel.matches(Tool.SOS_ALERT, "siren"))
++        assertTrue(HomeModel.matches(Tool.SOS_ALERT, "sos"))
++        assertEquals(Capability.SOS_ALERT, Tool.SOS_ALERT.capability)
++    }
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/Android.bp b/sable-src/src/android/packages/apps/SableStart/Android.bp
+index f7d2221..237d60a 100644
+--- a/sable-src/src/android/packages/apps/SableStart/Android.bp
++++ b/sable-src/src/android/packages/apps/SableStart/Android.bp
+@@ -16,10 +16,12 @@ filegroup {
+         "src/com/sable/start/model/HomeLayout.kt",
+         "src/com/sable/start/model/HubBar.kt",
+         "src/com/sable/start/model/HubPeople.kt",
++        "src/com/sable/start/model/LetterShortcuts.kt",
+         "src/com/sable/start/model/QuickBar.kt",
+         "src/com/sable/start/model/SpeedDial.kt",
+         "src/com/sable/start/model/StartText.kt",
+         "src/com/sable/start/platform/DeviceStatsSampler.kt",
++        "src/com/sable/start/platform/LetterShortcutRepository.kt",
+         "src/com/sable/start/platform/LiveSurfaceRepository.kt",
+         "src/com/sable/start/platform/PeopleRepository.kt",
+         "src/com/sable/start/platform/PrivacyFactsReader.kt",
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+index b5710e1..e06a9de 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+@@ -244,4 +244,7 @@
+     <string name="sable_more_actions_for">مزيد من الإجراءات لـ %1$s</string>
+     <string name="sable_jump_to">الانتقال إلى %1$s</string>
+     <string name="sable_return_to">العودة إلى %1$s</string>
++    <string name="letter_shortcut">اختصار الضغط المطوّل</string>
++    <string name="letter_shortcut_current">اختصار الضغط المطوّل: %1$s</string>
++    <string name="letter_shortcut_press">اضغط الحرف الذي ستضغط عليه مطوّلًا في الشاشة الرئيسية لفتح هذا التطبيق. مفتاح الحذف يزيله. يحلّ محلّ الاتصال السريع على الحرف نفسه.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+index bab2dec..1e8f53e 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+@@ -244,4 +244,7 @@
+     <string name="sable_more_actions_for">Weitere Aktionen für %1$s</string>
+     <string name="sable_jump_to">Zu %1$s springen</string>
+     <string name="sable_return_to">Zurück zu %1$s</string>
++    <string name="letter_shortcut">Tastenkürzel (halten)</string>
++    <string name="letter_shortcut_current">Tastenkürzel (halten): %1$s</string>
++    <string name="letter_shortcut_press">Drücke den Buchstaben, der auf dem Startbildschirm gehalten diese App öffnet. Rücktaste entfernt ihn. Er ersetzt eine Kurzwahl auf demselben Buchstaben.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+index b34dfdd..5fe857c 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+@@ -244,4 +244,7 @@
+     <string name="sable_more_actions_for">Περισσότερες ενέργειες για %1$s</string>
+     <string name="sable_jump_to">Μετάβαση σε %1$s</string>
+     <string name="sable_return_to">Επιστροφή σε %1$s</string>
++    <string name="letter_shortcut">Συντόμευση παρατεταμένου πλήκτρου</string>
++    <string name="letter_shortcut_current">Συντόμευση παρατεταμένου πλήκτρου: %1$s</string>
++    <string name="letter_shortcut_press">Πάτησε το γράμμα που θα κρατάς πατημένο στην Αρχική για να ανοίγει αυτή η εφαρμογή. Το Backspace το αφαιρεί. Αντικαθιστά τη γρήγορη κλήση στο ίδιο γράμμα.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+index ec9673d..b9f828d 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+@@ -244,4 +244,7 @@
+     <string name="sable_more_actions_for">Más acciones para %1$s</string>
+     <string name="sable_jump_to">Ir a %1$s</string>
+     <string name="sable_return_to">Volver a %1$s</string>
++    <string name="letter_shortcut">Atajo al mantener una tecla</string>
++    <string name="letter_shortcut_current">Atajo al mantener una tecla: %1$s</string>
++    <string name="letter_shortcut_press">Pulsa la letra que mantendrás pulsada en Inicio para abrir esta app. Retroceso la quita. Sustituye a una marcación rápida en la misma letra.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+index c1a1a51..f5b98e4 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+@@ -244,4 +244,7 @@
+     <string name="sable_more_actions_for">Plus d’actions pour %1$s</string>
+     <string name="sable_jump_to">Aller à %1$s</string>
+     <string name="sable_return_to">Revenir à %1$s</string>
++    <string name="letter_shortcut">Raccourci par appui long</string>
++    <string name="letter_shortcut_current">Raccourci par appui long : %1$s</string>
++    <string name="letter_shortcut_press">Appuyez sur la lettre à maintenir sur l\'accueil pour ouvrir cette appli. Retour arrière la supprime. Elle remplace une numérotation rapide sur la même lettre.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+index a510136..1b58c75 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+@@ -244,4 +244,7 @@
+     <string name="sable_more_actions_for">%1$s के लिए और कार्रवाइयाँ</string>
+     <string name="sable_jump_to">%1$s पर जाएँ</string>
+     <string name="sable_return_to">%1$s पर लौटें</string>
++    <string name="letter_shortcut">देर तक दबाने का शॉर्टकट</string>
++    <string name="letter_shortcut_current">देर तक दबाने का शॉर्टकट: %1$s</string>
++    <string name="letter_shortcut_press">होम पर जिस अक्षर को दबाए रखने से यह ऐप खुले, वह अक्षर दबाएँ। Backspace इसे हटाता है। यह उसी अक्षर के स्पीड डायल की जगह ले लेता है।</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+index 72b7ed7..a067da6 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+@@ -244,4 +244,7 @@
+     <string name="sable_more_actions_for">Altre azioni per %1$s</string>
+     <string name="sable_jump_to">Vai a %1$s</string>
+     <string name="sable_return_to">Torna a %1$s</string>
++    <string name="letter_shortcut">Scorciatoia a tasto premuto</string>
++    <string name="letter_shortcut_current">Scorciatoia a tasto premuto: %1$s</string>
++    <string name="letter_shortcut_press">Premi la lettera da tenere premuta nella Home per aprire questa app. Backspace la rimuove. Sostituisce una selezione rapida sulla stessa lettera.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+index 1f0676f..35ca00f 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+@@ -244,4 +244,7 @@
+     <string name="sable_more_actions_for">עוד פעולות עבור %1$s</string>
+     <string name="sable_jump_to">מעבר אל %1$s</string>
+     <string name="sable_return_to">חזרה אל %1$s</string>
++    <string name="letter_shortcut">קיצור בלחיצה ארוכה</string>
++    <string name="letter_shortcut_current">קיצור בלחיצה ארוכה: %1$s</string>
++    <string name="letter_shortcut_press">הקש את האות שתחזיק במסך הבית כדי לפתוח את האפליקציה הזו. מקש המחיקה מסיר אותה. היא מחליפה חיוג מהיר על אותה אות.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+index c36a834..38a5554 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+@@ -244,4 +244,7 @@
+     <string name="sable_more_actions_for">%1$s のその他の操作</string>
+     <string name="sable_jump_to">%1$s へ移動</string>
+     <string name="sable_return_to">%1$s に戻る</string>
++    <string name="letter_shortcut">長押しショートカット</string>
++    <string name="letter_shortcut_current">長押しショートカット: %1$s</string>
++    <string name="letter_shortcut_press">ホームで長押しするとこのアプリを開く文字キーを押してください。Backspaceで解除します。同じ文字のクイックダイヤルは置き換えられます。</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+index 36e7cf0..b88147f 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+@@ -244,4 +244,7 @@
+     <string name="sable_more_actions_for">%1$s 작업 더 보기</string>
+     <string name="sable_jump_to">%1$s(으)로 이동</string>
+     <string name="sable_return_to">%1$s(으)로 돌아가기</string>
++    <string name="letter_shortcut">길게 누르기 단축키</string>
++    <string name="letter_shortcut_current">길게 누르기 단축키: %1$s</string>
++    <string name="letter_shortcut_press">홈에서 길게 누르면 이 앱이 열리도록 할 글자 키를 누르세요. Backspace로 해제합니다. 같은 글자의 단축 다이얼을 대체합니다.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+index 75babf9..a3e1ac5 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+@@ -244,4 +244,7 @@
+     <string name="sable_more_actions_for">Meer acties voor %1$s</string>
+     <string name="sable_jump_to">Ga naar %1$s</string>
+     <string name="sable_return_to">Terug naar %1$s</string>
++    <string name="letter_shortcut">Snelkoppeling bij ingedrukt houden</string>
++    <string name="letter_shortcut_current">Snelkoppeling bij ingedrukt houden: %1$s</string>
++    <string name="letter_shortcut_press">Druk op de letter die je op Start ingedrukt houdt om deze app te openen. Backspace verwijdert hem. Hij vervangt een snelkeuze op dezelfde letter.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+index 200e621..8d02eaa 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+@@ -244,4 +244,7 @@
+     <string name="sable_more_actions_for">Więcej działań dla: %1$s</string>
+     <string name="sable_jump_to">Przejdź do: %1$s</string>
+     <string name="sable_return_to">Wróć do: %1$s</string>
++    <string name="letter_shortcut">Skrót przez przytrzymanie</string>
++    <string name="letter_shortcut_current">Skrót przez przytrzymanie: %1$s</string>
++    <string name="letter_shortcut_press">Naciśnij literę, którą przytrzymasz na ekranie głównym, aby otworzyć tę aplikację. Backspace ją usuwa. Zastępuje szybkie wybieranie na tej samej literze.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+index 893514d..3b3b714 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+@@ -244,4 +244,7 @@
+     <string name="sable_more_actions_for">Mais ações para %1$s</string>
+     <string name="sable_jump_to">Ir para %1$s</string>
+     <string name="sable_return_to">Voltar para %1$s</string>
++    <string name="letter_shortcut">Atalho por tecla pressionada</string>
++    <string name="letter_shortcut_current">Atalho por tecla pressionada: %1$s</string>
++    <string name="letter_shortcut_press">Pressione a letra que você vai manter pressionada no início para abrir este app. Backspace remove. Ela substitui uma discagem rápida na mesma letra.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+index 696fc86..0f77a8c 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+@@ -244,4 +244,7 @@
+     <string name="sable_more_actions_for">Ещё действия для: %1$s</string>
+     <string name="sable_jump_to">Перейти: %1$s</string>
+     <string name="sable_return_to">Вернуться: %1$s</string>
++    <string name="letter_shortcut">Ярлык по удержанию клавиши</string>
++    <string name="letter_shortcut_current">Ярлык по удержанию клавиши: %1$s</string>
++    <string name="letter_shortcut_press">Нажмите букву, удержание которой на главном экране откроет это приложение. Backspace удаляет её. Заменяет быстрый набор на той же букве.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+index 3611364..df2d579 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+@@ -244,4 +244,7 @@
+     <string name="sable_more_actions_for">Fler åtgärder för %1$s</string>
+     <string name="sable_jump_to">Hoppa till %1$s</string>
+     <string name="sable_return_to">Tillbaka till %1$s</string>
++    <string name="letter_shortcut">Genväg med nedhållen tangent</string>
++    <string name="letter_shortcut_current">Genväg med nedhållen tangent: %1$s</string>
++    <string name="letter_shortcut_press">Tryck på bokstaven som du håller nere på startskärmen för att öppna den här appen. Backsteg tar bort den. Den ersätter en snabbuppringning på samma bokstav.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+index a5ecc66..96506a3 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+@@ -244,4 +244,7 @@
+     <string name="sable_more_actions_for">%1$s için diğer eylemler</string>
+     <string name="sable_jump_to">%1$s öğesine git</string>
+     <string name="sable_return_to">%1$s öğesine dön</string>
++    <string name="letter_shortcut">Basılı tutma kısayolu</string>
++    <string name="letter_shortcut_current">Basılı tutma kısayolu: %1$s</string>
++    <string name="letter_shortcut_press">Ana ekranda basılı tutunca bu uygulamayı açacak harfe basın. Backspace kaldırır. Aynı harfteki hızlı aramanın yerini alır.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+index e25e88d..ee49ec0 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+@@ -244,4 +244,7 @@
+     <string name="sable_more_actions_for">%1$s کے لیے مزید اقدامات</string>
+     <string name="sable_jump_to">%1$s پر جائیں</string>
+     <string name="sable_return_to">%1$s پر واپس جائیں</string>
++    <string name="letter_shortcut">دیر تک دبانے کا شارٹ کٹ</string>
++    <string name="letter_shortcut_current">دیر تک دبانے کا شارٹ کٹ: %1$s</string>
++    <string name="letter_shortcut_press">ہوم پر وہ حرف دبائیں جسے دبائے رکھنے سے یہ ایپ کھلے۔ Backspace اسے ہٹاتا ہے۔ یہ اسی حرف پر اسپیڈ ڈائل کی جگہ لے لیتا ہے۔</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+index 1ce39dc..77ab10c 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+@@ -244,4 +244,7 @@
+     <string name="sable_more_actions_for">%1$s 的更多操作</string>
+     <string name="sable_jump_to">跳转到 %1$s</string>
+     <string name="sable_return_to">返回 %1$s</string>
++    <string name="letter_shortcut">长按快捷键</string>
++    <string name="letter_shortcut_current">长按快捷键：%1$s</string>
++    <string name="letter_shortcut_press">请按下要在主屏幕长按的字母，用来打开此应用。退格键可清除。它会取代同一字母上的快速拨号。</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+index 7494bfb..4c71c10 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+@@ -248,4 +248,7 @@
+     <string name="sable_more_actions_for">More actions for %1$s</string>
+     <string name="sable_jump_to">Jump to %1$s</string>
+     <string name="sable_return_to">Return to %1$s</string>
++    <string name="letter_shortcut">Hold-key shortcut</string>
++    <string name="letter_shortcut_current">Hold-key shortcut: %1$s</string>
++    <string name="letter_shortcut_press">Press the letter to hold on Home to open this app. Backspace removes it. It replaces a speed dial on the same letter.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+index f42f0be..62371c4 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+@@ -37,6 +37,7 @@ import org.sableos.start.model.AppEntry
+ import org.sableos.start.model.Bb7Detour
+ import org.sableos.start.model.HomeStyle
+ import org.sableos.start.platform.LauncherAppsRepository
++import org.sableos.start.platform.LetterShortcutRepository
+ import org.sableos.start.platform.LiveSurfaceRepository
+ import org.sableos.start.platform.RecentTasksRepository
+ import org.sableos.start.platform.SpeedDialRepository
+@@ -54,7 +55,8 @@ import java.util.concurrent.atomic.AtomicLong
+  */
+ class SableStartActivity : ComponentActivity() {
+     private lateinit var launcherAppsRepository: LauncherAppsRepository
+-    private val speedDialRepository by lazy { SpeedDialRepository(this) }
++    private val letterShortcutRepository by lazy { LetterShortcutRepository(this) }
++    private val speedDialRepository by lazy { SpeedDialRepository(this, letterShortcutRepository) }
+     private lateinit var liveSurfaceRepository: LiveSurfaceRepository
+     private lateinit var startStateRepository: StartStateRepository
+     private lateinit var recentTasksRepository: RecentTasksRepository
+@@ -284,6 +286,7 @@ class SableStartActivity : ComponentActivity() {
+                 SableStartScreen(
+                     apps = appsState.value,
+                     speedDial = speedDialRepository,
++                    letterShortcuts = letterShortcutRepository,
+                     privateSpaceLocked = privateSpaceLockedState.value,
+                     onTogglePrivateSpace = ::togglePrivateSpace,
+                     liveSurfaceRepository = liveSurfaceRepository,
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/LetterShortcuts.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/LetterShortcuts.kt
+new file mode 100644
+index 0000000..087d4f8
+--- /dev/null
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/LetterShortcuts.kt
+@@ -0,0 +1,51 @@
++package org.sableos.start.model
++
++/**
++ * Hold-a-letter app shortcuts on the home screen: holding an assigned letter opens its app, a short press still
++ * starts type-to-search (the same key handling as Phone's speed dial, see [SpeedDialKeys]). One letter per app and
++ * one app per letter, so assigning moves it. Apps are kept by their launcher component, as the text written by
++ * `ComponentName.flattenToString()`. Pure policy, unit tested in apps/r8/android/sablestart-presentation-check/src/test.
++ */
++class LetterShortcuts private constructor(
++    private val byLetter: Map<Char, String>,
++) {
++    val letters: Set<Char> get() = byLetter.keys
++
++    fun componentFor(letter: Char): String? = byLetter[letter.lowercaseChar()]
++
++    fun letterOf(component: String): Char? = byLetter.entries.firstOrNull { it.value == component }?.key
++
++    /** [letter] (a to z, any case) opens [component]; whatever either held before is released. */
++    fun assign(
++        letter: Char,
++        component: String,
++    ): LetterShortcuts {
++        val key = letter.lowercaseChar()
++        if (key !in 'a'..'z' || !valid(component)) return this
++        return LetterShortcuts(byLetter.filterValues { it != component }.filterKeys { it != key } + (key to component))
++    }
++
++    fun remove(component: String): LetterShortcuts = LetterShortcuts(byLetter.filterValues { it != component })
++
++    fun encode(): String = byLetter.entries.sortedBy { it.key }.joinToString(SEPARATOR) { "${it.key}=${it.value}" }
++
++    companion object {
++        val EMPTY = LetterShortcuts(emptyMap())
++
++        private const val SEPARATOR = ";"
++        private val COMPONENT = Regex("[A-Za-z0-9_.$]+/[A-Za-z0-9_.$]+")
++
++        private fun valid(component: String) = COMPONENT.matches(component)
++
++        /** Reads what [encode] wrote; a damaged entry is dropped, never thrown. */
++        fun decode(text: String?): LetterShortcuts {
++            var result = EMPTY
++            text.orEmpty().split(SEPARATOR).forEach { part ->
++                val letter = part.substringBefore('=').singleOrNull()
++                val component = part.substringAfter('=', "")
++                if (letter != null) result = result.assign(letter, component)
++            }
++            return result
++        }
++    }
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+index 4dc1a46..45efa89 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+@@ -261,6 +261,10 @@ object StartText {
+             "action_open" to "open",
+             "action_uninstall" to "uninstall",
+             "action_disable" to "disable",
++            "letter_shortcut" to "Hold-key shortcut",
++            "letter_shortcut_current" to "Hold-key shortcut: %1\$s",
++            "letter_shortcut_press" to
++                "Press the letter to hold on Home to open this app. Backspace removes it. It replaces a speed dial on the same letter.",
+         )
+ 
+     val t = SableTexts(EN)
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LetterShortcutRepository.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LetterShortcutRepository.kt
+new file mode 100644
+index 0000000..3d50ad0
+--- /dev/null
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LetterShortcutRepository.kt
+@@ -0,0 +1,48 @@
++package org.sableos.start.platform
++
++import android.content.ComponentName
++import android.content.Context
++import android.content.Intent
++import org.sableos.start.model.LetterShortcuts
++
++/**
++ * The letters held on the home screen to open an app, kept in Start's own preferences (never leaves the phone).
++ * Personal-profile apps only: Start offers the choice nowhere else.
++ */
++class LetterShortcutRepository(
++    context: Context,
++) {
++    private val appContext = context.applicationContext
++    private val preferences = appContext.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
++
++    fun load(): LetterShortcuts = LetterShortcuts.decode(preferences.getString(KEY_SHORTCUTS, null))
++
++    fun assign(
++        letter: Char,
++        component: ComponentName,
++    ) = save(load().assign(letter, component.flattenToString()))
++
++    fun remove(component: ComponentName) = save(load().remove(component.flattenToString()))
++
++    /** Opens the app on [letter]; false when none is set or it can no longer be started. */
++    fun launch(letter: Char): Boolean {
++        val component = load().componentFor(letter)?.let(ComponentName::unflattenFromString) ?: return false
++        return runCatching {
++            appContext.startActivity(
++                Intent(Intent.ACTION_MAIN)
++                    .addCategory(Intent.CATEGORY_LAUNCHER)
++                    .setComponent(component)
++                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
++            )
++        }.isSuccess
++    }
++
++    private fun save(shortcuts: LetterShortcuts) {
++        preferences.edit().putString(KEY_SHORTCUTS, shortcuts.encode()).apply()
++    }
++
++    private companion object {
++        const val PREFERENCES_NAME = "letter_shortcuts"
++        const val KEY_SHORTCUTS = "shortcuts"
++    }
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/SpeedDialRepository.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/SpeedDialRepository.kt
+index c441723..009b957 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/SpeedDialRepository.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/SpeedDialRepository.kt
+@@ -8,25 +8,31 @@ import kotlinx.coroutines.withContext
+ import org.sableos.start.model.SpeedDialKeys
+ 
+ /**
+- * Phone's speed dial, seen from Start: which letters have a number (Phone's read-only provider
+- * returns letters only) and the request to call one. Both need the signature permission
+- * org.sableos.permission.SPEED_DIAL; without Phone, or without it, no letter is assigned.
++ * The letters held on the home screen: Phone's speed dial (which letters have a number, Phone's read-only provider
++ * returns letters only, and the request to call one; both need the signature permission
++ * org.sableos.permission.SPEED_DIAL, so without Phone, or without it, no number is assigned) and the app shortcuts
++ * Start keeps itself ([LetterShortcutRepository]). A letter with an app opens that app, ahead of any number.
+  */
+ class SpeedDialRepository(
+     private val context: Context,
++    private val shortcuts: LetterShortcutRepository? = null,
+ ) {
+     suspend fun assignedLetters(): Set<Char> =
+-        withContext(Dispatchers.IO) {
+-            val uri = Uri.Builder().scheme("content").authority(SpeedDialKeys.AUTHORITY).build()
+-            runCatching {
+-                context.contentResolver.query(uri, arrayOf(SpeedDialKeys.COLUMN_LETTER), null, null, null)?.use { c ->
+-                    buildSet { while (c.moveToNext()) c.getString(0)?.singleOrNull()?.let(::add) }
+-                }
+-            }.getOrNull() ?: emptySet()
+-        }
++        withContext(Dispatchers.IO) { phoneLetters() + (shortcuts?.load()?.letters.orEmpty()) }
+ 
+-    /** Asks Phone to call [letter]'s number; false when Phone cannot be reached. */
+-    fun call(letter: Char): Boolean =
++    private fun phoneLetters(): Set<Char> {
++        val uri = Uri.Builder().scheme("content").authority(SpeedDialKeys.AUTHORITY).build()
++        return runCatching {
++            context.contentResolver.query(uri, arrayOf(SpeedDialKeys.COLUMN_LETTER), null, null, null)?.use { c ->
++                buildSet { while (c.moveToNext()) c.getString(0)?.singleOrNull()?.let(::add) }
++            }
++        }.getOrNull() ?: emptySet()
++    }
++
++    /** Opens [letter]'s app, else asks Phone to call its number; false when neither can be reached. */
++    fun call(letter: Char): Boolean = shortcuts?.launch(letter) == true || callPhone(letter)
++
++    private fun callPhone(letter: Char): Boolean =
+         runCatching {
+             context.startActivity(
+                 Intent(SpeedDialKeys.ACTION_SPEED_DIAL)
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+index 9275512..f0fa72f 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+@@ -158,6 +158,7 @@ import org.sableos.start.model.StartPages
+ import org.sableos.start.model.StartTypeToSearch
+ import org.sableos.start.model.inLauncherUser
+ import org.sableos.start.model.stableKey
++import org.sableos.start.platform.LetterShortcutRepository
+ import org.sableos.start.platform.LiveSurfaceRepository
+ import org.sableos.start.platform.PeopleRepository
+ import org.sableos.start.platform.SpeedDialRepository
+@@ -382,9 +383,12 @@ fun SableStartScreen(
+     onRequestContactsPermission: () -> Unit = {},
+     /** Phone's speed dial: holding an assigned letter on Home calls it (null: no speed dial). */
+     speedDial: SpeedDialRepository? = null,
++    /** The apps held on a letter on Home; Peek ("More actions") sets and clears them. */
++    letterShortcuts: LetterShortcutRepository? = null,
+ ) {
++    var shortcutVersion by remember { mutableStateOf(0) }
+     val speedDialLetters by
+-        produceState(emptySet<Char>(), refreshGeneration, speedDial) {
++        produceState(emptySet<Char>(), refreshGeneration, speedDial, shortcutVersion) {
+             value = speedDial?.assignedLetters() ?: emptySet()
+         }
+     var destination by remember(initialScreen) {
+@@ -844,6 +848,19 @@ fun SableStartScreen(
+                                 onOpenAppInfo = { onOpenAppInfo(app) },
+                                 onOpenNotificationSettings = { onOpenNotificationSettings(app) },
+                                 onUninstall = { onUninstallApp(app) },
++                                letterShortcut =
++                                    remember(app, shortcutVersion) {
++                                        letterShortcuts?.load()?.letterOf(app.component.flattenToString())
++                                    },
++                                shortcutsAvailable = letterShortcuts != null && app.inLauncherUser,
++                                onSetLetterShortcut = { letter ->
++                                    if (letter == null) {
++                                        letterShortcuts?.remove(app.component)
++                                    } else {
++                                        letterShortcuts?.assign(letter, app.component)
++                                    }
++                                    shortcutVersion += 1
++                                },
+                             )
+                         }
+                     }
+@@ -4691,7 +4708,13 @@ private fun SablePeekScreen(
+     onOpenAppInfo: () -> Unit,
+     onOpenNotificationSettings: () -> Unit,
+     onUninstall: () -> Unit,
++    /** The letter held on Home to open this app, or null. */
++    letterShortcut: Char?,
++    shortcutsAvailable: Boolean,
++    onSetLetterShortcut: (Char?) -> Unit,
+ ) {
++    // Waiting for the letter to hold: a letter assigns, Backspace clears, "cancel" or Back leaves it.
++    var capturing by remember(app) { mutableStateOf(false) }
+     val actions =
+         remember(app, inBaseBar, hasSecondInstance) {
+             AppActionPolicy.actions(
+@@ -4719,7 +4742,32 @@ private fun SablePeekScreen(
+         modifier =
+             Modifier
+                 .fillMaxSize()
+-                .background(MaterialTheme.colorScheme.background),
++                .background(MaterialTheme.colorScheme.background)
++                .onPreviewKeyEvent { event ->
++                    val native = event.nativeKeyEvent
++                    if (!capturing || event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
++                    val letter = SpeedDialKeys.letterFor(native.keyCode)
++                    val chord =
++                        native.metaState and
++                            (
++                                android.view.KeyEvent.META_ALT_ON or
++                                    android.view.KeyEvent.META_CTRL_ON or
++                                    android.view.KeyEvent.META_META_ON
++                            ) != 0
++                    when {
++                        native.keyCode == android.view.KeyEvent.KEYCODE_DEL -> {
++                            onSetLetterShortcut(null)
++                            capturing = false
++                            true
++                        }
++                        letter != null && !chord -> {
++                            onSetLetterShortcut(letter)
++                            capturing = false
++                            true
++                        }
++                        else -> false
++                    }
++                },
+     ) {
+         Text(
+             text = "close",
+@@ -4852,6 +4900,32 @@ private fun SablePeekScreen(
+                 }
+             }
+ 
++            if (shortcutsAvailable) {
++                ContextAction(
++                    mark = "⌨",
++                    label =
++                        if (letterShortcut != null) {
++                            t("letter_shortcut_current", letterShortcut.uppercaseChar().toString())
++                        } else {
++                            t("letter_shortcut")
++                        },
++                    onClick = { capturing = !capturing },
++                )
++                if (capturing) {
++                    Text(
++                        text = t("letter_shortcut_press"),
++                        style = MaterialTheme.typography.bodySmall,
++                        color = MaterialTheme.colorScheme.onSurfaceVariant,
++                        modifier = Modifier.padding(top = 6.dp),
++                    )
++                    ContextAction(
++                        mark = "×",
++                        label = "cancel",
++                        onClick = { capturing = false },
++                    )
++                }
++            }
++
+             Text(
+                 text = t("shortcuts_and_notification_content_stay"),
+                 style = MaterialTheme.typography.bodySmall,
