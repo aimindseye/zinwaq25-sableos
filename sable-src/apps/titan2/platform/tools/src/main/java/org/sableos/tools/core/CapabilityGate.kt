@@ -1,5 +1,7 @@
 package org.sableos.tools.core
 
+import org.sableos.tools.core.ToolsText.t
+
 /** Where a tool may appear. */
 enum class Visibility {
     /** Normal Utilities/Diagnostics list. */
@@ -13,12 +15,14 @@ enum class Visibility {
 }
 
 /** The capability badges DESIGN-KF-C allows. */
-enum class Badge(val label: String) {
-    AVAILABLE("Available"),
-    NEEDS_PERMISSION("Needs permission"),
-    NEEDS_CALIBRATION("Needs calibration"),
-    DEVELOPER_ONLY("Developer only"),
-    UNAVAILABLE("Unavailable on this device")
+enum class Badge(private val labelKey: String) {
+    AVAILABLE("available"),
+    NEEDS_PERMISSION("needs_permission"),
+    NEEDS_CALIBRATION("needs_calibration"),
+    DEVELOPER_ONLY("developer_only"),
+    UNAVAILABLE("unavailable_on_this_device");
+
+    val label: String get() = t(labelKey)
 }
 
 data class Resolution(
@@ -55,17 +59,17 @@ object CapabilityGate {
         val (vis, why) = when {
             d.state == Declared.UNSUPPORTED ->
                 Visibility.HIDDEN to
-                    "profile: unsupported (${d.evidence})"
+                    t("profile_unsupported", d.evidence)
 
-            rt == Probe.ABSENT -> Visibility.HIDDEN to "hardware not reported by this device"
+            rt == Probe.ABSENT -> Visibility.HIDDEN to t("hardware_not_reported_by_this")
 
-            d.state == Declared.UNKNOWN -> Visibility.HIDDEN to "profile: unproven (${d.evidence})"
+            d.state == Declared.UNKNOWN -> Visibility.HIDDEN to t("profile_unproven", d.evidence)
 
             d.state == Declared.DIAGNOSTIC_ONLY ->
                 Visibility.DEVELOPER_ONLY to
-                    "profile: diagnostic only (${d.evidence})"
+                    t("profile_diagnostic_only", d.evidence)
 
-            else -> Visibility.VISIBLE to "profile: supported (${d.evidence})"
+            else -> Visibility.VISIBLE to t("profile_supported", d.evidence)
         }
         return Resolution(c, d.state, rt, vis, why)
     }

@@ -20,7 +20,7 @@ class SableTexts(
     /** The line [key] in the current language, with [args] filled in. An unknown key is a programming error. */
     operator fun invoke(
         key: String,
-        vararg args: Any,
+        vararg args: Any?,
     ): String {
         val template = lookup(key) ?: english.getValue(key)
         return if (args.isEmpty()) template else String.format(Locale.getDefault(), template, *args)

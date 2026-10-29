@@ -1,5 +1,7 @@
 package org.sableos.tools.core
 
+import org.sableos.tools.core.ToolsText.t
+
 data class HomeItem(val tool: Tool, val badge: Badge)
 
 data class HomeGroup(val title: String, val section: Section?, val items: List<HomeItem>)
@@ -60,7 +62,7 @@ object HomeModel {
         val groups = mutableListOf<HomeGroup>()
         if (q.isEmpty()) {
             val recents = inputs.recents.distinct().filter { it in listed }.take(MAX_RECENTS)
-            if (recents.isNotEmpty()) groups.add(HomeGroup("Recent", null, recents.map(::item)))
+            if (recents.isNotEmpty()) groups.add(HomeGroup(t("recent"), null, recents.map(::item)))
         }
         Section.entries.forEach { s ->
             val items = listed.filter { it.section == s }.map(::item)
@@ -81,8 +83,8 @@ object HomeModel {
     /** "Zinwa Q25 · zinwa-q25 · 3 utilities" style summary for the home title line. */
     fun profileSummary(inputs: HomeInputs, groups: List<HomeGroup>): String {
         val utilities = groups.firstOrNull { it.section == Section.UTILITIES }?.items?.size ?: 0
-        val mode = if (inputs.developerMode) " · developer mode" else ""
-        val u = if (utilities == 1) "1 utility" else "$utilities utilities"
+        val mode = if (inputs.developerMode) t("developer_mode") else ""
+        val u = if (utilities == 1) t("n1_utility") else t("utilities_2", utilities)
         return "${inputs.profile.displayName} · ${inputs.profile.id} · $u$mode"
     }
 

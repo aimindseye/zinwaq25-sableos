@@ -15,6 +15,7 @@ import org.sableos.tools.core.Sensitivity
 import org.sableos.tools.core.SettingsLink
 import org.sableos.tools.core.TextEntryTest
 import org.sableos.tools.core.Tool
+import org.sableos.tools.core.ToolsText.t
 
 /**
  * User-authorized report export. The screen lists what will be included, the warnings for sensitive sections and
@@ -48,19 +49,17 @@ class ReportController(private val host: ToolHost) : ToolController {
             root.addView(
                 Ui.body(
                     ctx,
-                    "Full system bug reports contain private logs, so Sable Tools does " +
-                        "not collect them. Android's own bug report flow lives in Developer " +
-                        "options and asks before sharing."
+                    t("full_system_bug_reports_contain")
                 )
             )
             root.addView(
-                Ui.row(ctx, "Open Developer options", null) {
+                Ui.row(ctx, t("open_developer_options"), null) {
                     host.openLink(SettingsLink.DEVELOPER)
                 }.also { it.post { it.requestFocus() } }
             )
             return
         }
-        root.addView(Ui.header(ctx, "Sections"))
+        root.addView(Ui.header(ctx, t("sections")))
         offered().forEach { c ->
             val label =
                 (if (c in selected) "[x] " else "[ ] ") + c.title +
@@ -69,12 +68,12 @@ class ReportController(private val host: ToolHost) : ToolController {
             rows[v] = c
             root.addView(v)
         }
-        root.addView(Ui.header(ctx, "Before sharing"))
+        root.addView(Ui.header(ctx, t("before_sharing")))
         root.addView(planView)
-        root.addView(Ui.row(ctx, "Preview", null) { preview() })
-        root.addView(Ui.row(ctx, "Copy report", null) { copy() })
-        root.addView(Ui.row(ctx, "Save to phone", ReportFile.FOLDER) { save() })
-        root.addView(Ui.row(ctx, "Share report…", null) { share() })
+        root.addView(Ui.row(ctx, t("preview"), null) { preview() })
+        root.addView(Ui.row(ctx, t("copy_report"), null) { copy() })
+        root.addView(Ui.row(ctx, t("save_to_phone"), ReportFile.FOLDER) { save() })
+        root.addView(Ui.row(ctx, t("share_report"), null) { share() })
         updatePlan()
         rows.keys.firstOrNull()?.post { rows.keys.firstOrNull()?.requestFocus() }
     }
@@ -90,19 +89,19 @@ class ReportController(private val host: ToolHost) : ToolController {
         val p = ReportPolicy.plan(selected)
         planView.text = buildString {
             appendLine(
-                "Included: " + p.included.joinToString {
+                t("included") + p.included.joinToString {
                     it.title
-                }.ifEmpty { "nothing selected" }
+                }.ifEmpty { t("nothing_selected") }
             )
-            p.warnings.forEach { appendLine("Warning: $it") }
+            p.warnings.forEach { appendLine(t("warning", it)) }
             if (p.notSelected.isNotEmpty()) {
                 appendLine(
-                    "Not included unless selected: " + p.notSelected.joinToString {
+                    t("not_included_unless_selected") + p.notSelected.joinToString {
                         it.title
                     }
                 )
             }
-            append("Never included: " + p.neverIncluded.joinToString())
+            append(t("never_included") + p.neverIncluded.joinToString())
         }
     }
 
@@ -119,7 +118,7 @@ class ReportController(private val host: ToolHost) : ToolController {
         }
         lastText =
             ReportPolicy.render(
-                "Sable Tools · ${tool.title}",
+                t("sable_tools", tool.title),
                 host.env.profileLine(),
                 selected,
                 sections
@@ -131,15 +130,15 @@ class ReportController(private val host: ToolHost) : ToolController {
         if (selected.isEmpty()) return host.toast(NOTHING_SELECTED)
         android.app.AlertDialog.Builder(
             ctx
-        ).setTitle("Preview").setMessage(render()).setPositiveButton("Close", null).show()
+        ).setTitle(t("preview")).setMessage(render()).setPositiveButton(t("close"), null).show()
     }
 
     private fun copy() {
         if (selected.isEmpty()) return host.toast(NOTHING_SELECTED)
         ctx.getSystemService(
             ClipboardManager::class.java
-        )?.setPrimaryClip(ClipData.newPlainText("Sable Tools report", render()))
-        host.toast("Copied (identifiers masked)")
+        )?.setPrimaryClip(ClipData.newPlainText(t("sable_tools_report"), render()))
+        host.toast(t("copied_identifiers_masked"))
     }
 
     private fun save() {
@@ -150,9 +149,9 @@ class ReportController(private val host: ToolHost) : ToolController {
     private fun share() {
         if (selected.isEmpty()) return host.toast(NOTHING_SELECTED)
         val send = Intent(Intent.ACTION_SEND).setType("text/plain")
-            .putExtra(Intent.EXTRA_SUBJECT, "Sable Tools · ${tool.title}")
+            .putExtra(Intent.EXTRA_SUBJECT, t("sable_tools", tool.title))
             .putExtra(Intent.EXTRA_TEXT, render())
-        ctx.startActivity(Intent.createChooser(send, "Share report"))
+        ctx.startActivity(Intent.createChooser(send, t("share_report_2")))
     }
 
     override fun onCommand(c: Command): Boolean {
@@ -161,10 +160,8 @@ class ReportController(private val host: ToolHost) : ToolController {
         return cat != null
     }
 
-    override fun info() =
-        "Reports are built on this phone from read-only state. Identifiers are masked; " +
-            "sensitive sections need your selection."
+    override fun info() = t("reports_are_built_on_this")
     override fun copyText(): String? = if (selected.isEmpty()) null else render()
 }
 
-private const val NOTHING_SELECTED = "Select at least one section"
+private val NOTHING_SELECTED: String get() = t("select_at_least_one_section")

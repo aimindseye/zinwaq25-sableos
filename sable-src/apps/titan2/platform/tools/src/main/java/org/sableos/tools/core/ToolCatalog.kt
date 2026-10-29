@@ -1,10 +1,14 @@
 package org.sableos.tools.core
 
+import org.sableos.tools.core.ToolsText.t
+
 /** The three DESIGN-KF-C destinations. Recents/favorites are a home row, not a fourth domain. */
-enum class Section(val title: String) {
-    UTILITIES("Utilities"),
-    DIAGNOSTICS("Diagnostics"),
-    REPORTS("Reports")
+enum class Section(private val titleKey: String) {
+    UTILITIES("utilities"),
+    DIAGNOSTICS("diagnostics"),
+    REPORTS("reports");
+
+    val title: String get() = t(titleKey)
 }
 
 /** How a tool interprets the local single-letter commands (C/R/H). */
@@ -41,7 +45,7 @@ object Perm {
 
 enum class Tool(
     val section: Section,
-    val title: String,
+    private val titleKey: String,
     val kind: ToolKind,
     /** Null: no hardware gate (always listed in its section, subject to [developerOnly]). */
     val capability: Capability? = null,
@@ -53,49 +57,49 @@ enum class Tool(
     // Utilities
     COMPASS(
         Section.UTILITIES,
-        "Compass",
+        "compass",
         ToolKind.MEASUREMENT,
         Capability.COMPASS,
         keywords = listOf("heading", "north")
     ),
     BUBBLE_LEVEL(
         Section.UTILITIES,
-        "Bubble level",
+        "bubble_level",
         ToolKind.MEASUREMENT,
         Capability.BUBBLE_LEVEL,
         keywords = listOf("spirit", "tilt")
     ),
     PLUMB_BOB(
         Section.UTILITIES,
-        "Plumb bob",
+        "plumb_bob",
         ToolKind.MEASUREMENT,
         Capability.PLUMB_BOB,
         keywords = listOf("vertical")
     ),
     PROTRACTOR(
         Section.UTILITIES,
-        "Protractor",
+        "protractor",
         ToolKind.MEASUREMENT,
         Capability.PROTRACTOR,
         keywords = listOf("angle")
     ),
     PICTURE_HANGING(
         Section.UTILITIES,
-        "Picture hanging",
+        "picture_hanging",
         ToolKind.MEASUREMENT,
         Capability.PICTURE_HANGING,
         keywords = listOf("level guide", "frame")
     ),
     FLASHLIGHT(
         Section.UTILITIES,
-        "Flashlight",
+        "flashlight",
         ToolKind.ACTION,
         Capability.FLASHLIGHT,
         keywords = listOf("torch", "light")
     ),
     MAGNIFIER(
         Section.UTILITIES,
-        "Magnifier",
+        "magnifier",
         ToolKind.ACTION,
         Capability.MAGNIFIER,
         listOf(Perm.CAMERA),
@@ -103,14 +107,14 @@ enum class Tool(
     ),
     HEIGHT_ESTIMATE(
         Section.UTILITIES,
-        "Height estimate",
+        "height_estimate",
         ToolKind.MEASUREMENT,
         Capability.HEIGHT_ESTIMATE,
         keywords = listOf("measure", "tall")
     ),
     NOISE_METER(
         Section.UTILITIES,
-        "Noise meter",
+        "noise_meter",
         ToolKind.MEASUREMENT,
         Capability.NOISE_METER,
         listOf(Perm.RECORD_AUDIO),
@@ -118,7 +122,7 @@ enum class Tool(
     ),
     SPEEDOMETER(
         Section.UTILITIES,
-        "Speedometer",
+        "speedometer",
         ToolKind.MEASUREMENT,
         Capability.SPEEDOMETER,
         listOf(Perm.FINE_LOCATION, Perm.COARSE_LOCATION),
@@ -126,7 +130,7 @@ enum class Tool(
     ),
     PEDOMETER(
         Section.UTILITIES,
-        "Pedometer",
+        "pedometer",
         ToolKind.MEASUREMENT,
         Capability.PEDOMETER,
         listOf(Perm.ACTIVITY_RECOGNITION),
@@ -134,7 +138,7 @@ enum class Tool(
     ),
     IR_REMOTE(
         Section.UTILITIES,
-        "IR remote",
+        "ir_remote",
         ToolKind.ACTION,
         Capability.IR_REMOTE,
         keywords = listOf("infrared", "tv", "remote")
@@ -143,119 +147,121 @@ enum class Tool(
     // Diagnostics
     DEVICE_IDENTITY(
         Section.DIAGNOSTICS,
-        "Device, build and security",
+        "device_build_and_security",
         ToolKind.INFO,
         keywords = listOf("about", "fingerprint", "patch")
     ),
     KEY_VIEWER(
         Section.DIAGNOSTICS,
-        "Keyboard event viewer",
+        "keyboard_event_viewer",
         ToolKind.KEY_CAPTURE,
         keywords = listOf("key test", "keycode", "scancode", "modifier", "meta")
     ),
     KEYBOARD_PROFILE(
         Section.DIAGNOSTICS,
-        "Keyboard layout and profile",
+        "keyboard_layout_and_profile",
         ToolKind.INFO,
         keywords = listOf("keylayout", "kcm", "keymap")
     ),
     POINTER(
         Section.DIAGNOSTICS,
-        "Pointer and touch surface",
+        "pointer_and_touch_surface",
         ToolKind.KEY_CAPTURE,
         keywords = listOf("trackpad", "touchpad", "touch panel")
     ),
     DISPLAY_INPUT(
         Section.DIAGNOSTICS,
-        "Display and input geometry",
+        "display_and_input_geometry",
         ToolKind.INFO,
         keywords = listOf("lcd", "density", "screen")
     ),
     CAMERA_REPORT(
         Section.DIAGNOSTICS,
-        "Camera capabilities",
+        "camera_capabilities",
         ToolKind.INFO,
         keywords = listOf("camera")
     ),
     SENSORS(
         Section.DIAGNOSTICS,
-        "Sensor inventory",
+        "sensor_inventory",
         ToolKind.INFO,
         keywords = listOf("gravity", "gyro", "proximity")
     ),
     RADIO(
         Section.DIAGNOSTICS,
-        "Radio, IMS and FM status",
+        "radio_ims_and_fm_status",
         ToolKind.INFO,
         keywords = listOf("sim", "volte", "ims", "rf information", "fm")
     ),
     NETWORK(
         Section.DIAGNOSTICS,
-        "Network, IP, DNS and VPN",
+        "network_ip_dns_and_vpn",
         ToolKind.INFO,
         keywords = listOf("wifi", "ip", "dns", "vpn")
     ),
     STORAGE(
         Section.DIAGNOSTICS,
-        "Storage",
+        "storage",
         ToolKind.INFO,
         keywords = listOf("disk", "slot", "partition")
     ),
     APPS(
         Section.DIAGNOSTICS,
-        "Installed apps",
+        "installed_apps",
         ToolKind.INFO,
         keywords = listOf("packages", "inventory")
     ),
     TEXT_ENTRY(
         Section.DIAGNOSTICS,
-        "Critical text-entry test",
+        "critical_text_entry_test",
         ToolKind.TEXT_TEST,
         keywords = listOf("pin", "password", "pairing code")
     ),
     ATTENTION(
         Section.DIAGNOSTICS,
-        "Attention and SubScreen status",
+        "attention_and_subscreen_status",
         ToolKind.INFO,
         keywords = listOf("vibrator", "kb light", "notification light", "subscreen")
     ),
     HARDWARE_TESTS(
         Section.DIAGNOSTICS,
-        "Hardware test categories",
+        "hardware_test_categories",
         ToolKind.INFO,
         keywords = listOf("factory test", "hardware test", "single test")
     ),
     CAPABILITIES(
         Section.DIAGNOSTICS,
-        "Capability status",
+        "capability_status_2",
         ToolKind.INFO,
         keywords = listOf("profile", "unsupported")
     ),
     FACTORY_BRIDGE(
         Section.DIAGNOSTICS,
-        "Factory test bridge",
+        "factory_test_bridge",
         ToolKind.INFO,
         Capability.FACTORY_TEST_BRIDGE,
         keywords = listOf("engineering", "3377")
     ),
 
     // Reports
-    REPORT_DEVICE(Section.REPORTS, "Device report", ToolKind.REPORT),
-    REPORT_INPUT(Section.REPORTS, "Keyboard and input report", ToolKind.REPORT),
-    REPORT_RADIO(Section.REPORTS, "Radio and network report", ToolKind.REPORT),
-    REPORT_APPS(Section.REPORTS, "App inventory report", ToolKind.REPORT),
+    REPORT_DEVICE(Section.REPORTS, "device_report", ToolKind.REPORT),
+    REPORT_INPUT(Section.REPORTS, "keyboard_and_input_report", ToolKind.REPORT),
+    REPORT_RADIO(Section.REPORTS, "radio_and_network_report", ToolKind.REPORT),
+    REPORT_APPS(Section.REPORTS, "app_inventory_report", ToolKind.REPORT),
     REPORT_CUSTOM(
         Section.REPORTS,
-        "Custom report",
+        "custom_report",
         ToolKind.REPORT,
         keywords = listOf("export", "share")
     ),
     BUGREPORT(
         Section.REPORTS,
-        "System bug report",
+        "system_bug_report",
         ToolKind.REPORT,
         keywords = listOf("bugreport", "logs")
     );
+
+    val title: String get() = t(titleKey)
 
     /** Developer/service tier only (raw capability status, factory bridge, bugreport hand-off). */
     val developerOnly: Boolean get() = this in DEVELOPER_TIER

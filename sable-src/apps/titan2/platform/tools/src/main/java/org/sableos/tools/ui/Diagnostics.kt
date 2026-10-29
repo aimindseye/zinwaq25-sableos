@@ -22,6 +22,7 @@ import org.sableos.tools.core.Redactor
 import org.sableos.tools.core.ReportSection
 import org.sableos.tools.core.TextEntryTest
 import org.sableos.tools.core.Tool
+import org.sableos.tools.core.ToolsText.t
 import org.sableos.tools.core.TypedKey
 
 /** Read-only information screen built from collector sections. Ctrl+C copies the redacted text. */
@@ -52,9 +53,7 @@ open class InfoController(
         text.text = rendered
     }
 
-    override fun info() =
-        "Read-only. Values come from public Android APIs; identifiers are masked. Menu " +
-            "opens the owning Settings page."
+    override fun info() = t("read_only_values_come_from")
     override fun copyText() = rendered
 }
 
@@ -63,7 +62,7 @@ class AttentionController(host: ToolHost) :
         listOf(host.collectors.attention())
     }) {
     override fun actions(): List<Pair<String, () -> Unit>> = listOf(
-        "Vibrate once (test)" to {
+        t("vibrate_once_test") to {
             val v = ctx.getSystemService(VibratorManager::class.java)?.defaultVibrator
             if (v?.hasVibrator() ==
                 true
@@ -72,7 +71,7 @@ class AttentionController(host: ToolHost) :
                     VibrationEffect.createOneShot(VIBRATE_MS, VibrationEffect.DEFAULT_AMPLITUDE)
                 )
             } else {
-                host.toast("No vibrator")
+                host.toast(t("no_vibrator"))
             }
         }
     )
@@ -89,8 +88,8 @@ class AttentionController(host: ToolHost) :
  */
 class KeyViewerController(host: ToolHost) : ToolController {
     private val ctx = host.activity
-    private val meta = Ui.body(ctx, "modifiers: -")
-    private val text = Ui.mono(ctx, "Press keys. Back twice leaves.")
+    private val meta = Ui.body(ctx, t("modifiers"))
+    private val text = Ui.mono(ctx, t("press_keys_back_twice_leaves"))
     private val lines = ArrayDeque<String>()
 
     override fun view(): View = LinearLayout(ctx).apply {
@@ -121,12 +120,10 @@ class KeyViewerController(host: ToolHost) : ToolController {
         lines.addLast(l)
         while (lines.size > MAX_LINES) lines.removeFirst()
         text.text = lines.joinToString("\n")
-        meta.text = "modifiers: ${KeyEventFormat.metaNames(e.metaState)}"
+        meta.text = t("modifiers_2", KeyEventFormat.metaNames(e.metaState))
     }
 
-    override fun info() =
-        "Shows what an ordinary app receives. Software keyboard fallback is covered by " +
-            "the critical text-entry test."
+    override fun info() = t("shows_what_an_ordinary_app")
     override fun copyText() = lines.joinToString("\n")
 
     private companion object {
@@ -139,7 +136,7 @@ class PointerController(host: ToolHost) : ToolController {
     private val ctx = host.activity
     private val text = Ui.mono(
         ctx,
-        "Move the trackpad, touch the screen or press keys. Back twice leaves."
+        t("move_the_trackpad_touch_the")
     )
     private val lines = ArrayDeque<String>()
 
@@ -175,9 +172,7 @@ class PointerController(host: ToolHost) : ToolController {
         }
     }
 
-    override fun info() =
-        "Trackpads that report as a D-pad show up as keys; ones that report as a pointer " +
-            "show up as motion."
+    override fun info() = t("trackpads_that_report_as_a")
 
     private companion object {
         const val MAX_LINES = 40
@@ -254,8 +249,7 @@ class TextEntryController(private val host: ToolHost) : ToolController {
     }
 
     override fun info() =
-        "Covers " + cases.joinToString { it.title } + ". Only keys this keyboard has are " +
-            "tested. Press Enter in a field to check it. Only pass/fail is kept."
+        t("covers") + cases.joinToString { it.title } + t("only_keys_this_keyboard_has")
 
     override fun copyText() = TextEntryTest.summary(Session.textEntry, cases).joinToString("\n") {
         "${it.key}: ${it.value}"
@@ -274,15 +268,15 @@ class HardwareTestsController(private val host: ToolHost) : ToolController {
             target.owner to
                 { target.link?.let { host.openLink(it) } ?: Unit }
 
-        is DiagTarget.Gated -> "engineering only" to { host.toast(target.why) }
+        is DiagTarget.Gated -> t("engineering_only") to { host.toast(target.why) }
     }
 
     private fun openEntry(tool: Tool): Pair<String, () -> Unit> =
         if (HomeModel.isListed(tool, host.env.resolutions, host.env.developerMode)) {
             tool.title to { host.openTool(tool) }
         } else {
-            "not on this device" to
-                { host.toast("${tool.title} is not available on this device profile") }
+            t("not_on_this_device") to
+                { host.toast(t("is_not_available_on_this_2", tool.title)) }
         }
 
     override fun view(): View {
@@ -298,10 +292,7 @@ class HardwareTestsController(private val host: ToolHost) : ToolController {
         return ScrollView(ctx).apply { addView(col) }
     }
 
-    override fun info() =
-        "Factory test (${DialerCodes.FACTORY_TEST_DIAL}) categories mapped to Sable " +
-            "diagnostics. Calibration, logging and aging tests change device state and are " +
-            "never one-tap actions here."
+    override fun info() = t("factory_test_categories_mapped_to", DialerCodes.FACTORY_TEST_DIAL)
 }
 
 /** Developer-tier explanation of the vendor factory surface; it never launches a raw vendor tool. */
@@ -310,7 +301,7 @@ class FactoryBridgeController(host: ToolHost) :
         listOf(
             ReportSection(
                 org.sableos.tools.core.ReportCategory.CAPABILITIES,
-                "Factory test bridge",
+                t("factory_test_bridge"),
                 listOf(
                     org.sableos.tools.core.ReportRow(
                         "profile",
@@ -319,23 +310,23 @@ class FactoryBridgeController(host: ToolHost) :
                         ).reason
                     ),
                     org.sableos.tools.core.ReportRow(
-                        "raw vendor launch",
-                        "not offered (RAW_FACTORY_TEST_DIRECT_LAUNCH=NO_BY_DEFAULT)"
+                        t("raw_vendor_launch"),
+                        t("not_offered_raw_factory_test")
                     ),
                     org.sableos.tools.core.ReportRow(
-                        "calibration / logging / aging",
-                        "engineering-gated; use the vendor tool only under a service procedure"
+                        t("calibration_logging_aging"),
+                        t("engineering_gated_use_the_vendor")
                     ),
                     org.sableos.tools.core.ReportRow(
-                        "read-only equivalents",
-                        "Diagnostics > Hardware test categories"
+                        t("read_only_equivalents"),
+                        t("diagnostics_hardware_test_categories")
                     )
                 )
             )
         )
     }) {
     override fun actions(): List<Pair<String, () -> Unit>> = listOf(
-        "Hardware test categories" to {
+        t("hardware_test_categories") to {
             host.openTool(Tool.HARDWARE_TESTS)
         }
     )

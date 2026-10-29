@@ -15,6 +15,7 @@ import org.sableos.tools.core.HoldableReading
 import org.sableos.tools.core.LowPass
 import org.sableos.tools.core.Tilt
 import org.sableos.tools.core.TiltCalibration
+import org.sableos.tools.core.ToolsText.t
 import org.sableos.tools.core.Vec3
 
 private fun SensorEvent.vec() =
@@ -42,7 +43,7 @@ abstract class SensorController(protected val host: ToolHost) :
 
     override fun start() {
         val m = sm ?: run {
-            stateView.text = "Sensor service unavailable"
+            stateView.text = t("sensor_service_unavailable")
             return
         }
         sensorTypes.forEach { t ->
@@ -80,7 +81,7 @@ class TiltController(host: ToolHost, private val capability: Capability) : Senso
             Capability.BUBBLE_LEVEL -> {
                 val level = Tilt.isLevel(surface.xDeg) && Tilt.isLevel(surface.yDeg)
                 "${Tilt.display(surface.xDeg)}  ${Tilt.display(surface.yDeg)}" to
-                    if (level) "Level" else "Lay the phone on the surface"
+                    if (level) t("level") else t("lay_the_phone_on_the")
             }
 
             Capability.PICTURE_HANGING -> Tilt.display(rotation) to
@@ -88,9 +89,9 @@ class TiltController(host: ToolHost, private val capability: Capability) : Senso
                         rotation
                     )
                 ) {
-                    "Straight"
+                    t("straight")
                 } else {
-                    "Stand the phone on its edge along the frame"
+                    t("stand_the_phone_on_its")
                 }
 
             Capability.PLUMB_BOB -> Tilt.display(rotation) to
@@ -98,25 +99,25 @@ class TiltController(host: ToolHost, private val capability: Capability) : Senso
                         rotation
                     )
                 ) {
-                    "Vertical"
+                    t("vertical")
                 } else {
-                    "Hold the phone's side edge against the surface"
+                    t("hold_the_phone_s_side")
                 }
 
             else -> Tilt.display(org.sableos.tools.core.signedDeg(rotation - protractorZero)) to
-                "R sets zero here; rotate to measure"
+                t("r_sets_zero_here_rotate")
         }
         hold.update(main)
         readingView.text = hold.shown
-        stateView.text = (if (hold.isHeld) "HELD · " else "") + state
+        stateView.text = (if (hold.isHeld) t("held") else "") + state
         detailView.text =
-            "zero point: " +
+            t("zero_point") +
             if (cal ==
                 TiltCalibration()
             ) {
-                "factory (press C on a known level surface)"
+                t("factory_press_c_on_a")
             } else {
-                "user calibrated"
+                t("user_calibrated")
             }
     }
 
@@ -142,7 +143,7 @@ class TiltController(host: ToolHost, private val capability: Capability) : Senso
             last?.let {
                 cal = TiltCalibration.from(Tilt.surface(it), Tilt.screenRotation(it))
                 host.env.prefs.setCalibration(capability, cal)
-                host.toast("Calibrated: this position is now zero")
+                host.toast(t("calibrated_this_position_is_now"))
             }
             true
         }
@@ -150,10 +151,7 @@ class TiltController(host: ToolHost, private val capability: Capability) : Senso
         else -> false
     }
 
-    override fun info() =
-        "Angles are rounded to 0.1°; a phone accelerometer is good to about ±0.5° after " +
-            "calibration. C sets the current position as zero (do it on a surface you know is" +
-            " level). R clears it. H holds the reading."
+    override fun info() = t("angles_are_rounded_to_0")
 
     override fun copyText() = hold.shown
 }
@@ -180,16 +178,16 @@ class CompassController(host: ToolHost) : SensorController(host) {
         val az = Compass.azimuth(gg, mm)
         hold.update(az?.let { Compass.display(it) } ?: "--")
         readingView.text = hold.shown
-        stateView.text = (if (hold.isHeld) "HELD · " else "") +
+        stateView.text = (if (hold.isHeld) t("held") else "") +
             if (Compass.needsCalibration(
                     accuracy
                 )
             ) {
-                "Needs calibration: press C"
+                t("needs_calibration_press_c")
             } else {
-                "Hold the phone flat"
+                t("hold_the_phone_flat")
             }
-        detailView.text = "magnetic field %.0f µT · accuracy %d/3".format(mm.norm, accuracy)
+        detailView.text = t("magnetic_field_0f_t_accuracy").format(mm.norm, accuracy)
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
@@ -211,17 +209,14 @@ class CompassController(host: ToolHost) : SensorController(host) {
 
         Command.Calibrate -> {
             stateView.text =
-                "Calibrate: move the phone in a slow figure-8 for a few seconds, away from metal and magnets."
+                t("calibrate_move_the_phone_in")
             true
         }
 
         else -> false
     }
 
-    override fun info() =
-        "Heading of the phone's top edge from magnetic north (true north would need " +
-            "location, which this tool does not use). Magnet cases and nearby metal disturb " +
-            "it."
+    override fun info() = t("heading_of_the_phone_s")
 
     override fun copyText() = hold.shown
 }
@@ -247,17 +242,17 @@ class HeightController(host: ToolHost) : SensorController(host) {
                 ?: "--"
         }
         stateView.text = when {
-            b == null -> "Aim the top edge at the BASE of the object and press H"
+            b == null -> t("aim_the_top_edge_at")
 
-            t == null -> "Now aim at the TOP and press H"
+            t == null -> t("now_aim_at_the_top")
 
             else -> HeightEstimate.estimate(eyeHeightM, b, t)?.let {
-                "Estimate: " +
+                t("estimate") +
                     HeightEstimate.display(it)
             }
-                ?: "Cannot estimate from these angles; press R and try again further away"
+                ?: t("cannot_estimate_from_these_angles")
         }
-        detailView.text = "eye height %.2f m (C cycles 1.40–1.90 m)".format(eyeHeightM)
+        detailView.text = t("eye_height_2f_m_c").format(eyeHeightM)
     }
 
     override fun onCommand(c: Command): Boolean = when (c) {
@@ -284,9 +279,7 @@ class HeightController(host: ToolHost) : SensorController(host) {
         else -> false
     }
 
-    override fun info() =
-        "Estimate only: ±${HeightEstimate.ANGLE_ERROR_DEG.toInt()}° of aiming error gives" +
-            " the range shown. Stand on level ground; C sets your eye height."
+    override fun info() = t("estimate_only_of_aiming_error", HeightEstimate.ANGLE_ERROR_DEG.toInt())
 
     private companion object {
         const val DEFAULT_EYE_M = 1.60

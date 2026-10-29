@@ -62,6 +62,7 @@
     </queries>
 
     <application
+        android:name="org.sableos.tools.ToolsApplication"
         android:allowBackup="false"
         android:usesCleartextTraffic="false"
         android:icon="@mipmap/ic_sable_tools"

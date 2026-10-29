@@ -10,6 +10,7 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.math.tan
+import org.sableos.tools.core.ToolsText.t
 
 /** Android sensor vector in device coordinates (x right, y up the screen, z out of the screen). */
 data class Vec3(val x: Double, val y: Double, val z: Double) {
@@ -183,7 +184,7 @@ object Compass {
     private const val ACCURACY_MEDIUM = 2
 
     fun display(azimuth: Double): String =
-        "${normDeg(azimuth).roundToInt() % FULL_TURN.toInt()}° ${cardinal(azimuth)} (magnetic)"
+        t("magnetic", normDeg(azimuth).roundToInt() % FULL_TURN.toInt(), cardinal(azimuth))
 }
 
 /** Noise meter. Uncalibrated phone microphones only give an approximate level, and the screen says so. */
@@ -216,11 +217,11 @@ object Noise {
         (dbfs + offset).coerceAtLeast(0.0)
 
     fun label(db: Double): String = when {
-        db < QUIET -> "Quiet"
-        db < MODERATE -> "Moderate"
-        db < LOUD -> "Loud"
-        db < VERY_LOUD -> "Very loud"
-        else -> "Harmful with long exposure"
+        db < QUIET -> t("quiet")
+        db < MODERATE -> t("moderate")
+        db < LOUD -> t("loud")
+        db < VERY_LOUD -> t("very_loud")
+        else -> t("harmful_with_long_exposure")
     }
 
     private const val QUIET = 40.0
@@ -408,5 +409,5 @@ object HeightEstimate {
     }
 
     fun display(r: Result): String =
-        "about %.1f m (%.1f–%.1f m), %.1f m away".format(r.heightM, r.lowM, r.highM, r.distanceM)
+        t("about_1f_m_1f_1f").format(r.heightM, r.lowM, r.highM, r.distanceM)
 }

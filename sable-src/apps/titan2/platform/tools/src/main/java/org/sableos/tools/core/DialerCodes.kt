@@ -1,15 +1,19 @@
 package org.sableos.tools.core
 
+import org.sableos.tools.core.ToolsText.t
+
 /** HARDWARE_DIAGNOSTICS_AND_DIALER_CODES "Sable Diagnostics categories". */
-enum class DiagCategory(val title: String) {
-    DISPLAY("Display"),
-    KEYBOARD_POINTER("Keyboard & pointer"),
-    AUDIO("Audio"),
-    SENSORS("Sensors"),
-    RADIO("Radio"),
-    POWER("Power"),
-    ATTENTION("Attention"),
-    ENGINEERING("Engineering")
+enum class DiagCategory(private val titleKey: String) {
+    DISPLAY("display_2"),
+    KEYBOARD_POINTER("keyboard_pointer"),
+    AUDIO("audio"),
+    SENSORS("sensors"),
+    RADIO("radio"),
+    POWER("power"),
+    ATTENTION("attention"),
+    ENGINEERING("engineering");
+
+    val title: String get() = t(titleKey)
 }
 
 /** What a factory-test item maps to in Sable Tools. */
@@ -42,14 +46,14 @@ object DialerCodes {
     private val AGING = DiagTarget.Gated(
         "aging test stresses hardware (AGING_TEST_FROM_NORMAL_SETTINGS=NO_BY_DEFAULT)"
     )
-    private val BATTERY = DiagTarget.Elsewhere("Settings > Battery", SettingsLink.BATTERY)
+    private val BATTERY = DiagTarget.Elsewhere(t("settings_battery"), SettingsLink.BATTERY)
 
     val ITEMS: List<FactoryItem> = listOf(
         FactoryItem("LCD", DiagCategory.DISPLAY, DiagTarget.Open(Tool.DISPLAY_INPUT)),
         FactoryItem(
             "BackLED",
             DiagCategory.DISPLAY,
-            DiagTarget.Elsewhere("Settings > Display", SettingsLink.DISPLAY)
+            DiagTarget.Elsewhere(t("settings_display"), SettingsLink.DISPLAY)
         ),
         FactoryItem("TouchPanel", DiagCategory.KEYBOARD_POINTER, DiagTarget.Open(Tool.POINTER)),
         FactoryItem("TouchPad", DiagCategory.KEYBOARD_POINTER, DiagTarget.Open(Tool.POINTER)),
@@ -58,12 +62,12 @@ object DialerCodes {
         FactoryItem(
             "LoudSpeaker",
             DiagCategory.AUDIO,
-            DiagTarget.Elsewhere("Settings > Sound", SettingsLink.SOUND)
+            DiagTarget.Elsewhere(t("settings_sound"), SettingsLink.SOUND)
         ),
         FactoryItem(
             "Receiver",
             DiagCategory.AUDIO,
-            DiagTarget.Elsewhere("Settings > Sound", SettingsLink.SOUND)
+            DiagTarget.Elsewhere(t("settings_sound"), SettingsLink.SOUND)
         ),
         FactoryItem("Microphone1", DiagCategory.AUDIO, DiagTarget.Open(Tool.NOISE_METER)),
         FactoryItem("Microphone2", DiagCategory.AUDIO, DiagTarget.Open(Tool.NOISE_METER)),
@@ -81,7 +85,7 @@ object DialerCodes {
         FactoryItem("Mtklog", DiagCategory.ENGINEERING, LOGGING),
         FactoryItem("Aging Test", DiagCategory.ENGINEERING, AGING),
         FactoryItem(
-            "Factory Test bridge",
+            t("factory_test_bridge_2"),
             DiagCategory.ENGINEERING,
             DiagTarget.Open(Tool.FACTORY_BRIDGE)
         )
@@ -136,24 +140,24 @@ object DialerCodes {
         resolution.declared == Declared.UNSUPPORTED ->
             BridgeDecision(
                 false,
-                "This device has no factory test surface. Sable hardware tests are shown instead."
+                t("this_device_has_no_factory")
             )
 
         resolution.visibility == Visibility.HIDDEN ->
             BridgeDecision(
                 false,
-                "The factory test bridge is not proven on this device profile. Sable hardware tests are shown instead."
+                t("the_factory_test_bridge_is")
             )
 
         !developerMode ->
             BridgeDecision(
                 false,
-                "The factory test bridge needs developer mode. Sable hardware tests are shown instead."
+                t("the_factory_test_bridge_needs")
             )
 
         else -> BridgeDecision(
             true,
-            "Engineering surface: calibration, logging and aging actions stay gated."
+            t("engineering_surface_calibration_logging_and")
         )
     }
 

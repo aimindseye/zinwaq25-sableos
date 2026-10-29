@@ -10429,6 +10429,2864 @@ index 0000000..5325272
 +        }
 +    }
 +}
+diff --git a/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SableTexts.kt b/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SableTexts.kt
+index 18ccc6f..9e2b612 100644
+--- a/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SableTexts.kt
++++ b/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SableTexts.kt
+@@ -15,7 +15,7 @@ class SableTexts(val english: Map<String, String>) {
+     var lookup: (String) -> String? = { null }
+ 
+     /** The line [key] in the current language, with [args] filled in. An unknown key is a programming error. */
+-    operator fun invoke(key: String, vararg args: Any): String {
++    operator fun invoke(key: String, vararg args: Any?): String {
+         val template = lookup(key) ?: english.getValue(key)
+         return if (args.isEmpty()) template else String.format(Locale.getDefault(), template, *args)
+     }
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml
+index cc5cdad..40b77af 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml
+@@ -62,6 +62,7 @@
+     </queries>
+ 
+     <application
++        android:name="org.sableos.tools.ToolsApplication"
+         android:allowBackup="false"
+         android:usesCleartextTraffic="false"
+         android:icon="@mipmap/ic_sable_tools"
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ToolsApplication.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ToolsApplication.kt
+new file mode 100644
+index 0000000..24ebb1f
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ToolsApplication.kt
+@@ -0,0 +1,13 @@
++package org.sableos.tools
++
++import android.app.Application
++import org.sableos.titan2.theme.bindTo
++import org.sableos.tools.core.ToolsText
++
++/** Binds [ToolsText] to the app's string resources once per process, so the phone's language is used. */
++class ToolsApplication : Application() {
++    override fun onCreate() {
++        super.onCreate()
++        ToolsText.t.bindTo(this)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/CapabilityGate.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/CapabilityGate.kt
+index b8140bc..783a8ae 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/CapabilityGate.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/CapabilityGate.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.tools.core
+ 
++import org.sableos.tools.core.ToolsText.t
++
+ /** Where a tool may appear. */
+ enum class Visibility {
+     /** Normal Utilities/Diagnostics list. */
+@@ -13,12 +15,14 @@ enum class Visibility {
+ }
+ 
+ /** The capability badges DESIGN-KF-C allows. */
+-enum class Badge(val label: String) {
+-    AVAILABLE("Available"),
+-    NEEDS_PERMISSION("Needs permission"),
+-    NEEDS_CALIBRATION("Needs calibration"),
+-    DEVELOPER_ONLY("Developer only"),
+-    UNAVAILABLE("Unavailable on this device")
++enum class Badge(private val labelKey: String) {
++    AVAILABLE("available"),
++    NEEDS_PERMISSION("needs_permission"),
++    NEEDS_CALIBRATION("needs_calibration"),
++    DEVELOPER_ONLY("developer_only"),
++    UNAVAILABLE("unavailable_on_this_device");
++
++    val label: String get() = t(labelKey)
+ }
+ 
+ data class Resolution(
+@@ -55,17 +59,17 @@ object CapabilityGate {
+         val (vis, why) = when {
+             d.state == Declared.UNSUPPORTED ->
+                 Visibility.HIDDEN to
+-                    "profile: unsupported (${d.evidence})"
++                    t("profile_unsupported", d.evidence)
+ 
+-            rt == Probe.ABSENT -> Visibility.HIDDEN to "hardware not reported by this device"
++            rt == Probe.ABSENT -> Visibility.HIDDEN to t("hardware_not_reported_by_this")
+ 
+-            d.state == Declared.UNKNOWN -> Visibility.HIDDEN to "profile: unproven (${d.evidence})"
++            d.state == Declared.UNKNOWN -> Visibility.HIDDEN to t("profile_unproven", d.evidence)
+ 
+             d.state == Declared.DIAGNOSTIC_ONLY ->
+                 Visibility.DEVELOPER_ONLY to
+-                    "profile: diagnostic only (${d.evidence})"
++                    t("profile_diagnostic_only", d.evidence)
+ 
+-            else -> Visibility.VISIBLE to "profile: supported (${d.evidence})"
++            else -> Visibility.VISIBLE to t("profile_supported", d.evidence)
+         }
+         return Resolution(c, d.state, rt, vis, why)
+     }
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/DialerCodes.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/DialerCodes.kt
+index d8ea3d5..c61b959 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/DialerCodes.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/DialerCodes.kt
+@@ -1,15 +1,19 @@
+ package org.sableos.tools.core
+ 
++import org.sableos.tools.core.ToolsText.t
++
+ /** HARDWARE_DIAGNOSTICS_AND_DIALER_CODES "Sable Diagnostics categories". */
+-enum class DiagCategory(val title: String) {
+-    DISPLAY("Display"),
+-    KEYBOARD_POINTER("Keyboard & pointer"),
+-    AUDIO("Audio"),
+-    SENSORS("Sensors"),
+-    RADIO("Radio"),
+-    POWER("Power"),
+-    ATTENTION("Attention"),
+-    ENGINEERING("Engineering")
++enum class DiagCategory(private val titleKey: String) {
++    DISPLAY("display_2"),
++    KEYBOARD_POINTER("keyboard_pointer"),
++    AUDIO("audio"),
++    SENSORS("sensors"),
++    RADIO("radio"),
++    POWER("power"),
++    ATTENTION("attention"),
++    ENGINEERING("engineering");
++
++    val title: String get() = t(titleKey)
+ }
+ 
+ /** What a factory-test item maps to in Sable Tools. */
+@@ -42,14 +46,14 @@ object DialerCodes {
+     private val AGING = DiagTarget.Gated(
+         "aging test stresses hardware (AGING_TEST_FROM_NORMAL_SETTINGS=NO_BY_DEFAULT)"
+     )
+-    private val BATTERY = DiagTarget.Elsewhere("Settings > Battery", SettingsLink.BATTERY)
++    private val BATTERY = DiagTarget.Elsewhere(t("settings_battery"), SettingsLink.BATTERY)
+ 
+     val ITEMS: List<FactoryItem> = listOf(
+         FactoryItem("LCD", DiagCategory.DISPLAY, DiagTarget.Open(Tool.DISPLAY_INPUT)),
+         FactoryItem(
+             "BackLED",
+             DiagCategory.DISPLAY,
+-            DiagTarget.Elsewhere("Settings > Display", SettingsLink.DISPLAY)
++            DiagTarget.Elsewhere(t("settings_display"), SettingsLink.DISPLAY)
+         ),
+         FactoryItem("TouchPanel", DiagCategory.KEYBOARD_POINTER, DiagTarget.Open(Tool.POINTER)),
+         FactoryItem("TouchPad", DiagCategory.KEYBOARD_POINTER, DiagTarget.Open(Tool.POINTER)),
+@@ -58,12 +62,12 @@ object DialerCodes {
+         FactoryItem(
+             "LoudSpeaker",
+             DiagCategory.AUDIO,
+-            DiagTarget.Elsewhere("Settings > Sound", SettingsLink.SOUND)
++            DiagTarget.Elsewhere(t("settings_sound"), SettingsLink.SOUND)
+         ),
+         FactoryItem(
+             "Receiver",
+             DiagCategory.AUDIO,
+-            DiagTarget.Elsewhere("Settings > Sound", SettingsLink.SOUND)
++            DiagTarget.Elsewhere(t("settings_sound"), SettingsLink.SOUND)
+         ),
+         FactoryItem("Microphone1", DiagCategory.AUDIO, DiagTarget.Open(Tool.NOISE_METER)),
+         FactoryItem("Microphone2", DiagCategory.AUDIO, DiagTarget.Open(Tool.NOISE_METER)),
+@@ -81,7 +85,7 @@ object DialerCodes {
+         FactoryItem("Mtklog", DiagCategory.ENGINEERING, LOGGING),
+         FactoryItem("Aging Test", DiagCategory.ENGINEERING, AGING),
+         FactoryItem(
+-            "Factory Test bridge",
++            t("factory_test_bridge_2"),
+             DiagCategory.ENGINEERING,
+             DiagTarget.Open(Tool.FACTORY_BRIDGE)
+         )
+@@ -136,24 +140,24 @@ object DialerCodes {
+         resolution.declared == Declared.UNSUPPORTED ->
+             BridgeDecision(
+                 false,
+-                "This device has no factory test surface. Sable hardware tests are shown instead."
++                t("this_device_has_no_factory")
+             )
+ 
+         resolution.visibility == Visibility.HIDDEN ->
+             BridgeDecision(
+                 false,
+-                "The factory test bridge is not proven on this device profile. Sable hardware tests are shown instead."
++                t("the_factory_test_bridge_is")
+             )
+ 
+         !developerMode ->
+             BridgeDecision(
+                 false,
+-                "The factory test bridge needs developer mode. Sable hardware tests are shown instead."
++                t("the_factory_test_bridge_needs")
+             )
+ 
+         else -> BridgeDecision(
+             true,
+-            "Engineering surface: calibration, logging and aging actions stay gated."
++            t("engineering_surface_calibration_logging_and")
+         )
+     }
+ 
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/HomeModel.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/HomeModel.kt
+index 1a8fdbd..4dcf558 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/HomeModel.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/HomeModel.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.tools.core
+ 
++import org.sableos.tools.core.ToolsText.t
++
+ data class HomeItem(val tool: Tool, val badge: Badge)
+ 
+ data class HomeGroup(val title: String, val section: Section?, val items: List<HomeItem>)
+@@ -60,7 +62,7 @@ object HomeModel {
+         val groups = mutableListOf<HomeGroup>()
+         if (q.isEmpty()) {
+             val recents = inputs.recents.distinct().filter { it in listed }.take(MAX_RECENTS)
+-            if (recents.isNotEmpty()) groups.add(HomeGroup("Recent", null, recents.map(::item)))
++            if (recents.isNotEmpty()) groups.add(HomeGroup(t("recent"), null, recents.map(::item)))
+         }
+         Section.entries.forEach { s ->
+             val items = listed.filter { it.section == s }.map(::item)
+@@ -81,8 +83,8 @@ object HomeModel {
+     /** "Zinwa Q25 · zinwa-q25 · 3 utilities" style summary for the home title line. */
+     fun profileSummary(inputs: HomeInputs, groups: List<HomeGroup>): String {
+         val utilities = groups.firstOrNull { it.section == Section.UTILITIES }?.items?.size ?: 0
+-        val mode = if (inputs.developerMode) " · developer mode" else ""
+-        val u = if (utilities == 1) "1 utility" else "$utilities utilities"
++        val mode = if (inputs.developerMode) t("developer_mode") else ""
++        val u = if (utilities == 1) t("n1_utility") else t("utilities_2", utilities)
+         return "${inputs.profile.displayName} · ${inputs.profile.id} · $u$mode"
+     }
+ 
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/IrRemote.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/IrRemote.kt
+index 85f0b2d..fda685d 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/IrRemote.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/IrRemote.kt
+@@ -1,16 +1,20 @@
+ package org.sableos.tools.core
+ 
++import org.sableos.tools.core.ToolsText.t
++
+ /**
+  * Local-first IR remote (IR_REMOTE_LOCAL_FIRST): remotes live on the device, nothing is fetched or synced
+  * (NETWORK_REQUIRED_FOR_REMOTE=NO). Learning is not offered: Android has no public IR receive API, so
+  * LEARNING_MODE=ONLY_IF_IR_RECEIVER_PROVEN keeps it off.
+  */
+-enum class ApplianceType(val title: String) {
+-    TV("TV"),
+-    AIR_CONDITIONER("Air conditioner"),
+-    PROJECTOR("Projector"),
+-    AUDIO("Audio"),
+-    CUSTOM("Custom")
++enum class ApplianceType(private val titleKey: String) {
++    TV("tv"),
++    AIR_CONDITIONER("air_conditioner"),
++    PROJECTOR("projector"),
++    AUDIO("audio"),
++    CUSTOM("custom");
++
++    val title: String get() = t(titleKey)
+ }
+ 
+ /** Published timings of the NEC and Samsung32 IR protocols. */
+@@ -74,30 +78,30 @@ object RemoteLibrary {
+     /** Small local table of widely published codes. Marked built-in/unverified; users add their own. */
+     val BUILT_IN: List<Remote> = listOf(
+         Remote(
+-            "Samsung TV",
++            t("samsung_tv"),
+             ApplianceType.TV,
+             IrProtocol.SAMSUNG32,
+             listOf(
+-                b("Power", 0xE0E040BFL),
+-                b("Volume up", 0xE0E0E01FL),
+-                b("Volume down", 0xE0E0D02FL),
+-                b("Mute", 0xE0E0F00FL),
+-                b("Channel up", 0xE0E048B7L),
+-                b("Channel down", 0xE0E008F7L)
++                b(t("power"), 0xE0E040BFL),
++                b(t("volume_up"), 0xE0E0E01FL),
++                b(t("volume_down"), 0xE0E0D02FL),
++                b(t("mute"), 0xE0E0F00FL),
++                b(t("channel_up"), 0xE0E048B7L),
++                b(t("channel_down"), 0xE0E008F7L)
+             ),
+             builtIn = true
+         ),
+         Remote(
+-            "LG TV",
++            t("lg_tv"),
+             ApplianceType.TV,
+             IrProtocol.NEC,
+             listOf(
+-                b("Power", 0x20DF10EFL),
+-                b("Volume up", 0x20DF40BFL),
+-                b("Volume down", 0x20DFC03FL),
+-                b("Mute", 0x20DF906FL),
+-                b("Channel up", 0x20DF00FFL),
+-                b("Channel down", 0x20DF807FL)
++                b(t("power"), 0x20DF10EFL),
++                b(t("volume_up"), 0x20DF40BFL),
++                b(t("volume_down"), 0x20DFC03FL),
++                b(t("mute"), 0x20DF906FL),
++                b(t("channel_up"), 0x20DF00FFL),
++                b(t("channel_down"), 0x20DF807FL)
+             ),
+             builtIn = true
+         )
+@@ -190,12 +194,12 @@ object IrTransmit {
+         val p = remote.protocol.pattern(button.code)
+         return when {
+             resolution.visibility == Visibility.HIDDEN ->
+-                Decision.Refuse("No IR transmitter on this device profile.")
++                Decision.Refuse(t("no_ir_transmitter_on_this"))
+ 
+             carrierRanges.isNotEmpty() && carrierRanges.none { hz in it } ->
+-                Decision.Refuse("The IR transmitter does not support ${hz / HZ_PER_KHZ} kHz.")
++                Decision.Refuse(t("the_ir_transmitter_does_not", hz / HZ_PER_KHZ))
+ 
+-            p.sum() > IrProtocol.MAX_PATTERN_US -> Decision.Refuse("Pattern too long.")
++            p.sum() > IrProtocol.MAX_PATTERN_US -> Decision.Refuse(t("pattern_too_long"))
+ 
+             else -> Decision.Send(hz, p)
+         }
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/KeyHints.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/KeyHints.kt
+index de1cc77..208be32 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/KeyHints.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/KeyHints.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.tools.core
+ 
++import org.sableos.tools.core.ToolsText.t
++
+ /**
+  * The key line under a tool. It names only keys every supported keyboard has: letters, Space, Enter
+  * and Back. The Q25 (BlackBerry Classic layout) has no Ctrl, Esc or Tab key, so Ctrl+C and Esc
+@@ -8,15 +10,15 @@ package org.sableos.tools.core
+ object KeyHints {
+     fun footer(kind: ToolKind, calibratable: Boolean): String = when (kind) {
+         ToolKind.MEASUREMENT ->
+-            (if (calibratable) "C calibrate · " else "") +
+-                "R reset · H hold · M more · Back to leave"
++            (if (calibratable) t("c_calibrate") else "") +
++                t("r_reset_h_hold_m")
+ 
+-        ToolKind.KEY_CAPTURE -> "Every key is captured. Press Back twice to leave."
++        ToolKind.KEY_CAPTURE -> t("every_key_is_captured_press")
+ 
+-        ToolKind.TEXT_TEST -> "Enter check · Back to leave"
++        ToolKind.TEXT_TEST -> t("enter_check_back_to_leave")
+ 
+-        ToolKind.REPORT -> "Space select · Enter open · M more · Back to leave"
++        ToolKind.REPORT -> t("space_select_enter_open_m")
+ 
+-        else -> "C copy · S save to phone · M more · Back to leave"
++        else -> t("c_copy_s_save_to")
+     }
+ }
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/Measure.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/Measure.kt
+index c4c5b2e..228cb2d 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/Measure.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/Measure.kt
+@@ -10,6 +10,7 @@ import kotlin.math.roundToInt
+ import kotlin.math.sin
+ import kotlin.math.sqrt
+ import kotlin.math.tan
++import org.sableos.tools.core.ToolsText.t
+ 
+ /** Android sensor vector in device coordinates (x right, y up the screen, z out of the screen). */
+ data class Vec3(val x: Double, val y: Double, val z: Double) {
+@@ -183,7 +184,7 @@ object Compass {
+     private const val ACCURACY_MEDIUM = 2
+ 
+     fun display(azimuth: Double): String =
+-        "${normDeg(azimuth).roundToInt() % FULL_TURN.toInt()}° ${cardinal(azimuth)} (magnetic)"
++        t("magnetic", normDeg(azimuth).roundToInt() % FULL_TURN.toInt(), cardinal(azimuth))
+ }
+ 
+ /** Noise meter. Uncalibrated phone microphones only give an approximate level, and the screen says so. */
+@@ -216,11 +217,11 @@ object Noise {
+         (dbfs + offset).coerceAtLeast(0.0)
+ 
+     fun label(db: Double): String = when {
+-        db < QUIET -> "Quiet"
+-        db < MODERATE -> "Moderate"
+-        db < LOUD -> "Loud"
+-        db < VERY_LOUD -> "Very loud"
+-        else -> "Harmful with long exposure"
++        db < QUIET -> t("quiet")
++        db < MODERATE -> t("moderate")
++        db < LOUD -> t("loud")
++        db < VERY_LOUD -> t("very_loud")
++        else -> t("harmful_with_long_exposure")
+     }
+ 
+     private const val QUIET = 40.0
+@@ -408,5 +409,5 @@ object HeightEstimate {
+     }
+ 
+     fun display(r: Result): String =
+-        "about %.1f m (%.1f–%.1f m), %.1f m away".format(r.heightM, r.lowM, r.highM, r.distanceM)
++        t("about_1f_m_1f_1f").format(r.heightM, r.lowM, r.highM, r.distanceM)
+ }
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/Report.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/Report.kt
+index 8e0a7d4..9a1f443 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/Report.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/Report.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.tools.core
+ 
++import org.sableos.tools.core.ToolsText.t
++
+ enum class Sensitivity {
+     /** Device facts with identifiers masked: included by default. */
+     STANDARD,
+@@ -9,33 +11,36 @@ enum class Sensitivity {
+ }
+ 
+ enum class ReportCategory(
+-    val title: String,
++    private val titleKey: String,
+     val sensitivity: Sensitivity,
+-    val warning: String? = null
++    private val warningKey: String? = null
+ ) {
+-    DEVICE("Device, build and security", Sensitivity.STANDARD),
+-    INPUT("Keyboard and input", Sensitivity.STANDARD),
+-    DISPLAY("Display geometry", Sensitivity.STANDARD),
+-    SENSORS("Sensors", Sensitivity.STANDARD),
+-    CAMERA("Camera capabilities", Sensitivity.STANDARD),
+-    RADIO("Radio and SIM state", Sensitivity.STANDARD),
+-    STORAGE("Storage summary", Sensitivity.STANDARD),
+-    CAPABILITIES("Tools capability status", Sensitivity.STANDARD),
++    DEVICE("device_build_and_security", Sensitivity.STANDARD),
++    INPUT("keyboard_and_input", Sensitivity.STANDARD),
++    DISPLAY("display_geometry", Sensitivity.STANDARD),
++    SENSORS("sensors", Sensitivity.STANDARD),
++    CAMERA("camera_capabilities", Sensitivity.STANDARD),
++    RADIO("radio_and_sim_state", Sensitivity.STANDARD),
++    STORAGE("storage_summary", Sensitivity.STANDARD),
++    CAPABILITIES("tools_capability_status", Sensitivity.STANDARD),
+     NETWORK(
+-        "Network addresses, DNS and VPN",
++        "network_addresses_dns_and_vpn",
+         Sensitivity.SENSITIVE,
+-        "Includes partially masked IP and DNS addresses, which can hint at your network or location."
++        "includes_partially_masked_ip_and"
+     ),
+     APPS(
+-        "Installed app list",
++        "installed_app_list",
+         Sensitivity.SENSITIVE,
+-        "Your app list can reveal your bank, health, dating or work apps."
++        "your_app_list_can_reveal"
+     ),
+     SESSION_LOG(
+-        "Diagnostic session log",
++        "diagnostic_session_log",
+         Sensitivity.SENSITIVE,
+-        "Key events captured in this session can contain anything you typed while the key viewer was open."
+-    )
++        "key_events_captured_in_this"
++    );
++
++    val title: String get() = t(titleKey)
++    val warning: String? get() = warningKey?.let { t(it) }
+ }
+ 
+ /**
+@@ -43,13 +48,13 @@ enum class ReportCategory(
+  * "Default report excludes"). Shown on the export screen so the user knows.
+  */
+ val NEVER_INCLUDED = listOf(
+-    "message bodies",
+-    "contact contents",
+-    "photos and media",
+-    "authentication secrets",
+-    "full private logs",
+-    "precise location history",
+-    "provider credentials"
++    t("message_bodies"),
++    t("contact_contents"),
++    t("photos_and_media"),
++    t("authentication_secrets"),
++    t("full_private_logs"),
++    t("precise_location_history"),
++    t("provider_credentials")
+ )
+ 
+ data class ReportRow(val key: String, val value: String)
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
+index 83d3004..f2ab782 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.tools.core
+ 
++import org.sableos.tools.core.ToolsText.t
++
+ /** One way to open a target: an intent action, optionally pinned to a package, optionally with a package: URI. */
+ data class LinkIntent(val action: String, val pkg: String? = null, val packageUri: Boolean = false)
+ 
+@@ -8,71 +10,73 @@ data class LinkIntent(val action: String, val pkg: String? = null, val packageUr
+  * setting and keeps no policy store of its own; it shows effective state and hands off. Each link is a fallback chain:
+  * the Android layer opens the first candidate that resolves, and shows "not available" when none does.
+  */
+-enum class SettingsLink(val label: String, val candidates: List<LinkIntent>) {
++enum class SettingsLink(private val labelKey: String, val candidates: List<LinkIntent>) {
+     KEYBOARD(
+-        "Settings > Keyboard & input",
++        "settings_keyboard_input",
+         listOf(
+             LinkIntent("android.settings.HARD_KEYBOARD_SETTINGS"),
+             LinkIntent("android.settings.INPUT_METHOD_SETTINGS")
+         )
+     ),
+     DISPLAY_COMPAT(
+-        "Settings > Display > App display compatibility",
++        "settings_display_app_display_compatibility",
+         listOf(
+             LinkIntent("org.sableos.settings.APP_DISPLAY_COMPATIBILITY"),
+             LinkIntent("android.intent.action.MAIN", "org.sableos.titan2.displaycompat")
+         )
+     ),
+-    DISPLAY("Settings > Display", listOf(LinkIntent("android.settings.DISPLAY_SETTINGS"))),
+-    SOUND("Settings > Sound", listOf(LinkIntent("android.settings.SOUND_SETTINGS"))),
++    DISPLAY("settings_display", listOf(LinkIntent("android.settings.DISPLAY_SETTINGS"))),
++    SOUND("settings_sound", listOf(LinkIntent("android.settings.SOUND_SETTINGS"))),
+     BATTERY(
+-        "Settings > Battery",
++        "settings_battery",
+         listOf(
+             LinkIntent("android.intent.action.POWER_USAGE_SUMMARY"),
+             LinkIntent("android.settings.BATTERY_SAVER_SETTINGS")
+         )
+     ),
+     NOTIFICATIONS(
+-        "Settings > Notifications",
++        "settings_notifications",
+         listOf(LinkIntent("android.settings.NOTIFICATION_SETTINGS"))
+     ),
+     NETWORK(
+-        "Settings > Network Manager",
++        "settings_network_manager",
+         listOf(
+             LinkIntent("org.sableos.settings.NETWORK_MANAGER"),
+             LinkIntent("android.settings.WIRELESS_SETTINGS")
+         )
+     ),
+     MOBILE_NETWORK(
+-        "Settings > Mobile network",
++        "settings_mobile_network",
+         listOf(LinkIntent("android.settings.NETWORK_OPERATOR_SETTINGS"))
+     ),
+-    VPN("Settings > VPN", listOf(LinkIntent("android.settings.VPN_SETTINGS"))),
+-    STORAGE("Settings > Storage", listOf(LinkIntent("android.settings.INTERNAL_STORAGE_SETTINGS"))),
++    VPN("settings_vpn", listOf(LinkIntent("android.settings.VPN_SETTINGS"))),
++    STORAGE("settings_storage", listOf(LinkIntent("android.settings.INTERNAL_STORAGE_SETTINGS"))),
+     APP_SECURITY(
+-        "App Security & Privacy",
++        "app_security_privacy",
+         listOf(
+             LinkIntent("org.sableos.settings.APP_SECURITY"),
+             LinkIntent("android.settings.MANAGE_APPLICATIONS_SETTINGS")
+         )
+     ),
+     APP_INFO(
+-        "App info",
++        "app_info",
+         listOf(LinkIntent("android.settings.APPLICATION_DETAILS_SETTINGS", packageUri = true))
+     ),
+-    PRIVACY("Settings > Privacy", listOf(LinkIntent("android.settings.PRIVACY_SETTINGS"))),
+-    SECURITY("Settings > Security", listOf(LinkIntent("android.settings.SECURITY_SETTINGS"))),
++    PRIVACY("settings_privacy", listOf(LinkIntent("android.settings.PRIVACY_SETTINGS"))),
++    SECURITY("settings_security", listOf(LinkIntent("android.settings.SECURITY_SETTINGS"))),
+     DEVELOPER(
+-        "Settings > Developer options",
++        "settings_developer_options",
+         listOf(LinkIntent("android.settings.APPLICATION_DEVELOPMENT_SETTINGS"))
+     ),
+-    ABOUT("Settings > About phone", listOf(LinkIntent("android.settings.DEVICE_INFO_SETTINGS"))),
++    ABOUT("settings_about_phone", listOf(LinkIntent("android.settings.DEVICE_INFO_SETTINGS"))),
+ 
+     /** FM_RADIO_OWNER=Sable_Media: Tools only hands off, it never plays FM. */
+     MEDIA_FM(
+-        "Sable Media > FM radio",
++        "sable_media_fm_radio",
+         listOf(LinkIntent("org.sableos.media.action.FM_RADIO", "org.sableos.media"))
+-    )
++    );
++
++    val label: String get() = t(labelKey)
+ }
+ 
+ /** Which link each diagnostic offers as its "Open in Settings" action. */
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/TextEntryTest.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/TextEntryTest.kt
+index b98933e..8785221 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/TextEntryTest.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/TextEntryTest.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.tools.core
+ 
++import org.sableos.tools.core.ToolsText.t
++
+ /** The kind of field a case uses, mapped to an Android inputType by the UI. */
+ enum class FieldKind { TEXT, NUMBER, NUMBER_PASSWORD, VISIBLE_PASSWORD }
+ 
+@@ -39,15 +41,15 @@ data class TypedKey(val meta: Int, val unicode: Int)
+ object TextEntryTest {
+     private val SHIFT_CASE = TextEntryCase(
+         "shift",
+-        "Shift",
+-        "Hold or lock Shift and type a capital letter",
++        t("shift"),
++        t("hold_or_lock_shift_and"),
+         FieldKind.TEXT,
+         modifier = Modifier.SHIFT
+     )
+     private val ALT_DIGITS_CASE = TextEntryCase(
+         "alt_digits",
+-        "Alt-layer digits",
+-        "Hold or lock Alt and type: 2468",
++        t("alt_layer_digits"),
++        t("hold_or_lock_alt_and"),
+         FieldKind.TEXT,
+         expected = "2468",
+         modifier = Modifier.ALT
+@@ -55,61 +57,61 @@ object TextEntryTest {
+ 
+     /** The spec's list (letters, numbers, symbols, Alt, Sym, Fn, ...), used as-is for [KeyboardTraits.GENERIC]. */
+     val CASES: List<TextEntryCase> = listOf(
+-        TextEntryCase("letters", "Letters", "Type: sable", FieldKind.TEXT, expected = "sable"),
+-        TextEntryCase("numbers", "Numbers", "Type: 2468", FieldKind.NUMBER, expected = "2468"),
++        TextEntryCase("letters", t("letters"), t("type_sable"), FieldKind.TEXT, expected = "sable"),
++        TextEntryCase("numbers", t("numbers"), t("type_2468"), FieldKind.NUMBER, expected = "2468"),
+         TextEntryCase(
+             "symbols",
+-            "Symbols",
+-            "Type: @#\$%&*!?",
++            t("symbols"),
++            t("type"),
+             FieldKind.TEXT,
+             expected = "@#\$%&*!?"
+         ),
+         TextEntryCase(
+             "alt",
+-            "Alt layer",
+-            "Hold or lock Alt and type any key printed with a second character",
++            t("alt_layer"),
++            t("hold_or_lock_alt_and_2"),
+             FieldKind.TEXT,
+             modifier = Modifier.ALT
+         ),
+         TextEntryCase(
+             "sym",
+-            "Sym",
+-            "Use Sym to enter any symbol",
++            t("sym"),
++            t("use_sym_to_enter_any"),
+             FieldKind.TEXT,
+             modifier = Modifier.SYM
+         ),
+         TextEntryCase(
+             "fn",
+-            "Fn",
+-            "Use Fn with any key that has an Fn character",
++            t("fn"),
++            t("use_fn_with_any_key"),
+             FieldKind.TEXT,
+             modifier = Modifier.FN
+         ),
+         TextEntryCase(
+             "bt_pairing",
+-            "Bluetooth pairing code",
+-            "Simulated pairing dialog. Enter: 482915",
++            t("bluetooth_pairing_code"),
++            t("simulated_pairing_dialog_enter_482915"),
+             FieldKind.NUMBER,
+             expected = "482915"
+         ),
+         TextEntryCase(
+             "wifi_password",
+-            "Wi-Fi password",
+-            "Simulated Wi-Fi password. Enter: Tr4il-mix#26!",
++            t("wi_fi_password"),
++            t("simulated_wi_fi_password_enter"),
+             FieldKind.VISIBLE_PASSWORD,
+             expected = "Tr4il-mix#26!"
+         ),
+         TextEntryCase(
+             "pin",
+-            "Lockscreen PIN",
+-            "Simulated PIN pad. Enter: 7391",
++            t("lockscreen_pin"),
++            t("simulated_pin_pad_enter_7391"),
+             FieldKind.NUMBER_PASSWORD,
+             expected = "7391"
+         ),
+         TextEntryCase(
+             "software_fallback",
+-            "Software keyboard fallback",
+-            "Use the on-screen keyboard to type: ok",
++            t("software_keyboard_fallback"),
++            t("use_the_on_screen_keyboard"),
+             FieldKind.TEXT,
+             expected = "ok",
+             softwareKeyboard = true
+@@ -165,8 +167,8 @@ object TextEntryTest {
+         val fail = rows.count { it.value == CaseResult.FAIL.name }
+         return listOf(
+             ReportRow(
+-                "critical text entry",
+-                "$pass/${cases.size} PASS, $fail FAIL, ${cases.size - pass - fail} NOT_RUN"
++                t("critical_text_entry"),
++                t("pass_fail_not_run", pass, cases.size, fail, cases.size - pass - fail)
+             )
+         ) +
+             rows
+@@ -178,11 +180,11 @@ object SubscreenModes {
+     data class Mode(val name: String, val needs: Capability?)
+ 
+     val CURATED = listOf(
+-        Mode("Compass", Capability.COMPASS),
+-        Mode("Media quick control", null),
+-        Mode("Safe IR quick control", Capability.IR_REMOTE),
+-        Mode("Camera / magnifier preview", Capability.MAGNIFIER),
+-        Mode("Battery and device status", null)
++        Mode(t("compass"), Capability.COMPASS),
++        Mode(t("media_quick_control"), null),
++        Mode(t("safe_ir_quick_control"), Capability.IR_REMOTE),
++        Mode(t("camera_magnifier_preview"), Capability.MAGNIFIER),
++        Mode(t("battery_and_device_status"), null)
+     )
+ 
+     /** Modes available on this profile: none at all without a proven SubScreen. */
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt
+index 3d9008c..10bd5d2 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt
+@@ -1,10 +1,14 @@
+ package org.sableos.tools.core
+ 
++import org.sableos.tools.core.ToolsText.t
++
+ /** The three DESIGN-KF-C destinations. Recents/favorites are a home row, not a fourth domain. */
+-enum class Section(val title: String) {
+-    UTILITIES("Utilities"),
+-    DIAGNOSTICS("Diagnostics"),
+-    REPORTS("Reports")
++enum class Section(private val titleKey: String) {
++    UTILITIES("utilities"),
++    DIAGNOSTICS("diagnostics"),
++    REPORTS("reports");
++
++    val title: String get() = t(titleKey)
+ }
+ 
+ /** How a tool interprets the local single-letter commands (C/R/H). */
+@@ -41,7 +45,7 @@ object Perm {
+ 
+ enum class Tool(
+     val section: Section,
+-    val title: String,
++    private val titleKey: String,
+     val kind: ToolKind,
+     /** Null: no hardware gate (always listed in its section, subject to [developerOnly]). */
+     val capability: Capability? = null,
+@@ -53,49 +57,49 @@ enum class Tool(
+     // Utilities
+     COMPASS(
+         Section.UTILITIES,
+-        "Compass",
++        "compass",
+         ToolKind.MEASUREMENT,
+         Capability.COMPASS,
+         keywords = listOf("heading", "north")
+     ),
+     BUBBLE_LEVEL(
+         Section.UTILITIES,
+-        "Bubble level",
++        "bubble_level",
+         ToolKind.MEASUREMENT,
+         Capability.BUBBLE_LEVEL,
+         keywords = listOf("spirit", "tilt")
+     ),
+     PLUMB_BOB(
+         Section.UTILITIES,
+-        "Plumb bob",
++        "plumb_bob",
+         ToolKind.MEASUREMENT,
+         Capability.PLUMB_BOB,
+         keywords = listOf("vertical")
+     ),
+     PROTRACTOR(
+         Section.UTILITIES,
+-        "Protractor",
++        "protractor",
+         ToolKind.MEASUREMENT,
+         Capability.PROTRACTOR,
+         keywords = listOf("angle")
+     ),
+     PICTURE_HANGING(
+         Section.UTILITIES,
+-        "Picture hanging",
++        "picture_hanging",
+         ToolKind.MEASUREMENT,
+         Capability.PICTURE_HANGING,
+         keywords = listOf("level guide", "frame")
+     ),
+     FLASHLIGHT(
+         Section.UTILITIES,
+-        "Flashlight",
++        "flashlight",
+         ToolKind.ACTION,
+         Capability.FLASHLIGHT,
+         keywords = listOf("torch", "light")
+     ),
+     MAGNIFIER(
+         Section.UTILITIES,
+-        "Magnifier",
++        "magnifier",
+         ToolKind.ACTION,
+         Capability.MAGNIFIER,
+         listOf(Perm.CAMERA),
+@@ -103,14 +107,14 @@ enum class Tool(
+     ),
+     HEIGHT_ESTIMATE(
+         Section.UTILITIES,
+-        "Height estimate",
++        "height_estimate",
+         ToolKind.MEASUREMENT,
+         Capability.HEIGHT_ESTIMATE,
+         keywords = listOf("measure", "tall")
+     ),
+     NOISE_METER(
+         Section.UTILITIES,
+-        "Noise meter",
++        "noise_meter",
+         ToolKind.MEASUREMENT,
+         Capability.NOISE_METER,
+         listOf(Perm.RECORD_AUDIO),
+@@ -118,7 +122,7 @@ enum class Tool(
+     ),
+     SPEEDOMETER(
+         Section.UTILITIES,
+-        "Speedometer",
++        "speedometer",
+         ToolKind.MEASUREMENT,
+         Capability.SPEEDOMETER,
+         listOf(Perm.FINE_LOCATION, Perm.COARSE_LOCATION),
+@@ -126,7 +130,7 @@ enum class Tool(
+     ),
+     PEDOMETER(
+         Section.UTILITIES,
+-        "Pedometer",
++        "pedometer",
+         ToolKind.MEASUREMENT,
+         Capability.PEDOMETER,
+         listOf(Perm.ACTIVITY_RECOGNITION),
+@@ -134,7 +138,7 @@ enum class Tool(
+     ),
+     IR_REMOTE(
+         Section.UTILITIES,
+-        "IR remote",
++        "ir_remote",
+         ToolKind.ACTION,
+         Capability.IR_REMOTE,
+         keywords = listOf("infrared", "tv", "remote")
+@@ -143,120 +147,122 @@ enum class Tool(
+     // Diagnostics
+     DEVICE_IDENTITY(
+         Section.DIAGNOSTICS,
+-        "Device, build and security",
++        "device_build_and_security",
+         ToolKind.INFO,
+         keywords = listOf("about", "fingerprint", "patch")
+     ),
+     KEY_VIEWER(
+         Section.DIAGNOSTICS,
+-        "Keyboard event viewer",
++        "keyboard_event_viewer",
+         ToolKind.KEY_CAPTURE,
+         keywords = listOf("key test", "keycode", "scancode", "modifier", "meta")
+     ),
+     KEYBOARD_PROFILE(
+         Section.DIAGNOSTICS,
+-        "Keyboard layout and profile",
++        "keyboard_layout_and_profile",
+         ToolKind.INFO,
+         keywords = listOf("keylayout", "kcm", "keymap")
+     ),
+     POINTER(
+         Section.DIAGNOSTICS,
+-        "Pointer and touch surface",
++        "pointer_and_touch_surface",
+         ToolKind.KEY_CAPTURE,
+         keywords = listOf("trackpad", "touchpad", "touch panel")
+     ),
+     DISPLAY_INPUT(
+         Section.DIAGNOSTICS,
+-        "Display and input geometry",
++        "display_and_input_geometry",
+         ToolKind.INFO,
+         keywords = listOf("lcd", "density", "screen")
+     ),
+     CAMERA_REPORT(
+         Section.DIAGNOSTICS,
+-        "Camera capabilities",
++        "camera_capabilities",
+         ToolKind.INFO,
+         keywords = listOf("camera")
+     ),
+     SENSORS(
+         Section.DIAGNOSTICS,
+-        "Sensor inventory",
++        "sensor_inventory",
+         ToolKind.INFO,
+         keywords = listOf("gravity", "gyro", "proximity")
+     ),
+     RADIO(
+         Section.DIAGNOSTICS,
+-        "Radio, IMS and FM status",
++        "radio_ims_and_fm_status",
+         ToolKind.INFO,
+         keywords = listOf("sim", "volte", "ims", "rf information", "fm")
+     ),
+     NETWORK(
+         Section.DIAGNOSTICS,
+-        "Network, IP, DNS and VPN",
++        "network_ip_dns_and_vpn",
+         ToolKind.INFO,
+         keywords = listOf("wifi", "ip", "dns", "vpn")
+     ),
+     STORAGE(
+         Section.DIAGNOSTICS,
+-        "Storage",
++        "storage",
+         ToolKind.INFO,
+         keywords = listOf("disk", "slot", "partition")
+     ),
+     APPS(
+         Section.DIAGNOSTICS,
+-        "Installed apps",
++        "installed_apps",
+         ToolKind.INFO,
+         keywords = listOf("packages", "inventory")
+     ),
+     TEXT_ENTRY(
+         Section.DIAGNOSTICS,
+-        "Critical text-entry test",
++        "critical_text_entry_test",
+         ToolKind.TEXT_TEST,
+         keywords = listOf("pin", "password", "pairing code")
+     ),
+     ATTENTION(
+         Section.DIAGNOSTICS,
+-        "Attention and SubScreen status",
++        "attention_and_subscreen_status",
+         ToolKind.INFO,
+         keywords = listOf("vibrator", "kb light", "notification light", "subscreen")
+     ),
+     HARDWARE_TESTS(
+         Section.DIAGNOSTICS,
+-        "Hardware test categories",
++        "hardware_test_categories",
+         ToolKind.INFO,
+         keywords = listOf("factory test", "hardware test", "single test")
+     ),
+     CAPABILITIES(
+         Section.DIAGNOSTICS,
+-        "Capability status",
++        "capability_status_2",
+         ToolKind.INFO,
+         keywords = listOf("profile", "unsupported")
+     ),
+     FACTORY_BRIDGE(
+         Section.DIAGNOSTICS,
+-        "Factory test bridge",
++        "factory_test_bridge",
+         ToolKind.INFO,
+         Capability.FACTORY_TEST_BRIDGE,
+         keywords = listOf("engineering", "3377")
+     ),
+ 
+     // Reports
+-    REPORT_DEVICE(Section.REPORTS, "Device report", ToolKind.REPORT),
+-    REPORT_INPUT(Section.REPORTS, "Keyboard and input report", ToolKind.REPORT),
+-    REPORT_RADIO(Section.REPORTS, "Radio and network report", ToolKind.REPORT),
+-    REPORT_APPS(Section.REPORTS, "App inventory report", ToolKind.REPORT),
++    REPORT_DEVICE(Section.REPORTS, "device_report", ToolKind.REPORT),
++    REPORT_INPUT(Section.REPORTS, "keyboard_and_input_report", ToolKind.REPORT),
++    REPORT_RADIO(Section.REPORTS, "radio_and_network_report", ToolKind.REPORT),
++    REPORT_APPS(Section.REPORTS, "app_inventory_report", ToolKind.REPORT),
+     REPORT_CUSTOM(
+         Section.REPORTS,
+-        "Custom report",
++        "custom_report",
+         ToolKind.REPORT,
+         keywords = listOf("export", "share")
+     ),
+     BUGREPORT(
+         Section.REPORTS,
+-        "System bug report",
++        "system_bug_report",
+         ToolKind.REPORT,
+         keywords = listOf("bugreport", "logs")
+     );
+ 
++    val title: String get() = t(titleKey)
++
+     /** Developer/service tier only (raw capability status, factory bridge, bugreport hand-off). */
+     val developerOnly: Boolean get() = this in DEVELOPER_TIER
+ 
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
+new file mode 100644
+index 0000000..7af8ca7
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
+@@ -0,0 +1,385 @@
++package org.sableos.tools.core
++
++import org.sableos.titan2.theme.SableTexts
++
++/**
++ * Every line Sable Tools shows, in English, by string resource name. res/values/strings.xml
++ * repeats them (ToolsTextTest keeps the two equal) and res/values-<lang>/strings.xml translates
++ * them.
++ */
++object ToolsText {
++    val EN: Map<String, String> =
++        mapOf(
++            "is_not_available_on_this" to "%1\$s is not available on this build",
++            "could_not_save_the_file" to "Could not save the file",
++            "saved_to" to "Saved to %1\$s",
++            "nothing_matched" to "Nothing matched \"%1\$s\".",
++            "this_tool_is_part_of" to
++                "This tool is part of the developer/service tier. Turn on Developer options and " +
++                "Developer diagnostics in Sable Tools.",
++            "not_available_on_this_device" to "Not available on this device profile (%1\$s): %2\$s",
++            "not_available" to "Not available.",
++            "back" to "Back",
++            "the_noise_meter_reads_the" to
++                "The noise meter reads the microphone level while it is open. No audio is " +
++                "recorded or kept.",
++            "the_magnifier_shows_the_camera" to
++                "The magnifier shows the camera preview while it is open. Nothing is captured or " +
++                "saved.",
++            "the_speedometer_uses_your_location" to
++                "The speedometer uses your location while it is open. Nothing is stored after " +
++                "you leave.",
++            "the_pedometer_reads_the_step" to
++                "The pedometer reads the step counter. Without it, an accelerometer estimate is " +
++                "used.",
++            "this_tool_needs" to "This tool needs: ",
++            "allow" to "Allow",
++            "not_now" to "Not now",
++            "permission_not_granted_so_this" to
++                "Permission not granted, so this tool cannot read anything. You can change this " +
++                "in App info.",
++            "actions" to "Actions",
++            "nothing_to_copy_yet" to "Nothing to copy yet",
++            "copied_identifiers_masked" to "Copied (identifiers masked)",
++            "nothing_to_save_yet" to "Nothing to save yet",
++            "close" to "Close",
++            "copy_c" to "Copy (C)",
++            "save_to_phone_s" to "Save to phone, %1\$s (S)",
++            "about_this_tool" to "About this tool",
++            "open" to "Open %1\$s",
++            "filter_del_deletes_back_clears" to "Filter: %1\$s▏  (Del deletes, Back clears)",
++            "no_tool_matches" to "No tool matches \"%1\$s\".",
++            "developer" to "Developer",
++            "developer_diagnostics" to "Developer diagnostics: ",
++            "asks_when_opened" to "Asks when opened: ",
++            "developer_service_tier" to "Developer/service tier",
++            "open_2" to "Open",
++            "full_system_bug_reports_contain" to
++                "Full system bug reports contain private logs, so Sable Tools does not collect " +
++                "them. Android's own bug report flow lives in Developer options and asks before " +
++                "sharing.",
++            "open_developer_options" to "Open Developer options",
++            "sections" to "Sections",
++            "before_sharing" to "Before sharing",
++            "preview" to "Preview",
++            "copy_report" to "Copy report",
++            "save_to_phone" to "Save to phone",
++            "share_report" to "Share report…",
++            "included" to "Included: ",
++            "nothing_selected" to "nothing selected",
++            "warning" to "Warning: %1\$s",
++            "not_included_unless_selected" to "Not included unless selected: ",
++            "never_included" to "Never included: ",
++            "sable_tools" to "Sable Tools · %1\$s",
++            "sable_tools_report" to "Sable Tools report",
++            "share_report_2" to "Share report",
++            "reports_are_built_on_this" to
++                "Reports are built on this phone from read-only state. Identifiers are masked; " +
++                "sensitive sections need your selection.",
++            "sensor_service_unavailable" to "Sensor service unavailable",
++            "level" to "Level",
++            "lay_the_phone_on_the" to "Lay the phone on the surface",
++            "straight" to "Straight",
++            "stand_the_phone_on_its" to "Stand the phone on its edge along the frame",
++            "vertical" to "Vertical",
++            "hold_the_phone_s_side" to "Hold the phone's side edge against the surface",
++            "r_sets_zero_here_rotate" to "R sets zero here; rotate to measure",
++            "held" to "HELD · ",
++            "zero_point" to "zero point: ",
++            "factory_press_c_on_a" to "factory (press C on a known level surface)",
++            "user_calibrated" to "user calibrated",
++            "calibrated_this_position_is_now" to "Calibrated: this position is now zero",
++            "angles_are_rounded_to_0" to
++                "Angles are rounded to 0.1°; a phone accelerometer is good to about ±0.5° after " +
++                "calibration. C sets the current position as zero (do it on a surface you know " +
++                "is level). R clears it. H holds the reading.",
++            "needs_calibration_press_c" to "Needs calibration: press C",
++            "hold_the_phone_flat" to "Hold the phone flat",
++            "magnetic_field_0f_t_accuracy" to "magnetic field %.0f µT · accuracy %d/3",
++            "calibrate_move_the_phone_in" to
++                "Calibrate: move the phone in a slow figure-8 for a few seconds, away from metal " +
++                "and magnets.",
++            "heading_of_the_phone_s" to
++                "Heading of the phone's top edge from magnetic north (true north would need " +
++                "location, which this tool does not use). Magnet cases and nearby metal disturb " +
++                "it.",
++            "aim_the_top_edge_at" to "Aim the top edge at the BASE of the object and press H",
++            "now_aim_at_the_top" to "Now aim at the TOP and press H",
++            "estimate" to "Estimate: ",
++            "cannot_estimate_from_these_angles" to
++                "Cannot estimate from these angles; press R and try again further away",
++            "eye_height_2f_m_c" to "eye height %.2f m (C cycles 1.40–1.90 m)",
++            "estimate_only_of_aiming_error" to
++                "Estimate only: ±%1\$s° of aiming error gives the range shown. Stand on level " +
++                "ground; C sets your eye height.",
++            "remotes" to "Remotes",
++            "built_in" to " · built-in",
++            "add_a_custom_remote" to "Add a custom remote",
++            "built_in_codes_are_common" to
++                "Built-in codes are common published codes, not verified on every model.",
++            "add_a_button" to "Add a button",
++            "all_remotes" to "All remotes",
++            "ir_service_unavailable" to "IR service unavailable",
++            "transmit_refused" to "Transmit refused: %1\$s",
++            "remote_name" to "Remote name",
++            "new_remote_nec_codes" to "New remote (NEC codes)",
++            "create" to "Create",
++            "cancel" to "Cancel",
++            "button_name" to "Button name",
++            "n32_bit_code_e_g" to "32-bit code, e.g. 0x20DF10EF",
++            "add_button_to" to "Add button to %1\$s",
++            "add" to "Add",
++            "enter_a_name_and_a" to "Enter a name and a hex code up to 8 digits",
++            "delete" to "Delete %1\$s",
++            "remotes_are_stored_only_on" to
++                "Remotes are stored only on this phone. No network is used. Learning from an " +
++                "original remote is not offered because Android has no public IR receiver API.",
++            "read_only_values_come_from" to
++                "Read-only. Values come from public Android APIs; identifiers are masked. Menu " +
++                "opens the owning Settings page.",
++            "vibrate_once_test" to "Vibrate once (test)",
++            "no_vibrator" to "No vibrator",
++            "modifiers" to "modifiers: -",
++            "press_keys_back_twice_leaves" to "Press keys. Back twice leaves.",
++            "modifiers_2" to "modifiers: %1\$s",
++            "shows_what_an_ordinary_app" to
++                "Shows what an ordinary app receives. Software keyboard fallback is covered by " +
++                "the critical text-entry test.",
++            "move_the_trackpad_touch_the" to
++                "Move the trackpad, touch the screen or press keys. Back twice leaves.",
++            "trackpads_that_report_as_a" to
++                "Trackpads that report as a D-pad show up as keys; ones that report as a pointer " +
++                "show up as motion.",
++            "covers" to "Covers ",
++            "only_keys_this_keyboard_has" to
++                ". Only keys this keyboard has are tested. Press Enter in a field to check it. " +
++                "Only pass/fail is kept.",
++            "engineering_only" to "engineering only",
++            "not_on_this_device" to "not on this device",
++            "is_not_available_on_this_2" to "%1\$s is not available on this device profile",
++            "factory_test_categories_mapped_to" to
++                "Factory test (%1\$s) categories mapped to Sable diagnostics. Calibration, " +
++                "logging and aging tests change device state and are never one-tap actions here.",
++            "factory_test_bridge" to "Factory test bridge",
++            "raw_vendor_launch" to "raw vendor launch",
++            "not_offered_raw_factory_test" to
++                "not offered (RAW_FACTORY_TEST_DIRECT_LAUNCH=NO_BY_DEFAULT)",
++            "calibration_logging_aging" to "calibration / logging / aging",
++            "engineering_gated_use_the_vendor" to
++                "engineering-gated; use the vendor tool only under a service procedure",
++            "read_only_equivalents" to "read-only equivalents",
++            "diagnostics_hardware_test_categories" to "Diagnostics > Hardware test categories",
++            "hardware_test_categories" to "Hardware test categories",
++            "turn_on_off" to "Turn on / off",
++            "turns_off_when_you_leave" to
++                "Turns off when you leave this screen. Quick Settings has a persistent " +
++                "flashlight.",
++            "no_flash_unit_found" to "No flash unit found",
++            "flash_busy_another_app_is" to "Flash busy (another app is using the camera)",
++            "uses_the_camera_flash_in" to
++                "Uses the camera flash in torch mode. No camera permission is needed and no " +
++                "image is taken.",
++            "no_back_camera" to "No back camera",
++            "camera_permission_not_granted" to "Camera permission not granted",
++            "camera_unavailable" to "Camera unavailable (%1\$s)",
++            "camera_error" to "Camera error %1\$s",
++            "preview_not_supported" to "Preview not supported",
++            "n1fx_up_down_zoom_s" to "%.1fx (Up/Down zoom)%s",
++            "light_on" to " · light on",
++            "light_on_off" to "Light on / off",
++            "live_camera_preview_only_nothing" to
++                "Live camera preview only. Nothing is captured, recorded or saved.",
++            "approximate_phone_microphones_are_not" to
++                "Approximate: phone microphones are not calibrated sound meters.",
++            "microphone_unavailable" to "Microphone unavailable",
++            "n0f_db" to "%.0f dB",
++            "reads_the_microphone_level_only" to
++                "Reads the microphone level only while open. Audio is never recorded, kept or " +
++                "sent.",
++            "waiting_for_gps" to "Waiting for GPS…",
++            "location_is_off_turn_it" to "Location is off. Turn it on in Quick Settings.",
++            "n1f_mph" to "%.1f mph",
++            "n1f_km_h" to "%.1f km/h",
++            "weak_fix_ignored" to "weak fix ignored · ",
++            "distance_2f_km_max_s" to "distance %.2f km · max %s · avg %s · %d s",
++            "switch_km_h_mph" to "Switch km/h / mph",
++            "gps_speed_and_trip_distance" to
++                "GPS speed and trip distance while this screen is open. Nothing is stored or " +
++                "shared.",
++            "step_counter" to "step counter",
++            "accelerometer_estimate" to "accelerometer estimate",
++            "source_counts_only_while_open" to "source: %1\$s · counts only while open",
++            "counts_steps_while_this_screen" to
++                "Counts steps while this screen is open. An estimate, not a health measurement.",
++            "air_conditioner" to "Air conditioner",
++            "projector" to "Projector",
++            "audio" to "Audio",
++            "custom" to "Custom",
++            "samsung_tv" to "Samsung TV",
++            "power" to "Power",
++            "volume_up" to "Volume up",
++            "volume_down" to "Volume down",
++            "mute" to "Mute",
++            "channel_up" to "Channel up",
++            "channel_down" to "Channel down",
++            "lg_tv" to "LG TV",
++            "no_ir_transmitter_on_this" to "No IR transmitter on this device profile.",
++            "the_ir_transmitter_does_not" to "The IR transmitter does not support %1\$s kHz.",
++            "pattern_too_long" to "Pattern too long.",
++            "c_calibrate" to "C calibrate · ",
++            "r_reset_h_hold_m" to "R reset · H hold · M more · Back to leave",
++            "every_key_is_captured_press" to "Every key is captured. Press Back twice to leave.",
++            "enter_check_back_to_leave" to "Enter check · Back to leave",
++            "space_select_enter_open_m" to "Space select · Enter open · M more · Back to leave",
++            "c_copy_s_save_to" to "C copy · S save to phone · M more · Back to leave",
++            "display_2" to "Display",
++            "keyboard_pointer" to "Keyboard & pointer",
++            "sensors" to "Sensors",
++            "radio" to "Radio",
++            "attention" to "Attention",
++            "engineering" to "Engineering",
++            "settings_battery" to "Settings > Battery",
++            "settings_display" to "Settings > Display",
++            "settings_sound" to "Settings > Sound",
++            "factory_test_bridge_2" to "Factory Test bridge",
++            "this_device_has_no_factory" to
++                "This device has no factory test surface. Sable hardware tests are shown instead.",
++            "the_factory_test_bridge_is" to
++                "The factory test bridge is not proven on this device profile. Sable hardware " +
++                "tests are shown instead.",
++            "the_factory_test_bridge_needs" to
++                "The factory test bridge needs developer mode. Sable hardware tests are shown " +
++                "instead.",
++            "engineering_surface_calibration_logging_and" to
++                "Engineering surface: calibration, logging and aging actions stay gated.",
++            "utilities" to "Utilities",
++            "diagnostics" to "Diagnostics",
++            "reports" to "Reports",
++            "compass" to "Compass",
++            "bubble_level" to "Bubble level",
++            "plumb_bob" to "Plumb bob",
++            "protractor" to "Protractor",
++            "picture_hanging" to "Picture hanging",
++            "flashlight" to "Flashlight",
++            "magnifier" to "Magnifier",
++            "height_estimate" to "Height estimate",
++            "noise_meter" to "Noise meter",
++            "speedometer" to "Speedometer",
++            "pedometer" to "Pedometer",
++            "ir_remote" to "IR remote",
++            "device_build_and_security" to "Device, build and security",
++            "keyboard_event_viewer" to "Keyboard event viewer",
++            "keyboard_layout_and_profile" to "Keyboard layout and profile",
++            "pointer_and_touch_surface" to "Pointer and touch surface",
++            "display_and_input_geometry" to "Display and input geometry",
++            "camera_capabilities" to "Camera capabilities",
++            "sensor_inventory" to "Sensor inventory",
++            "radio_ims_and_fm_status" to "Radio, IMS and FM status",
++            "network_ip_dns_and_vpn" to "Network, IP, DNS and VPN",
++            "storage" to "Storage",
++            "installed_apps" to "Installed apps",
++            "critical_text_entry_test" to "Critical text-entry test",
++            "attention_and_subscreen_status" to "Attention and SubScreen status",
++            "capability_status_2" to "Capability status",
++            "device_report" to "Device report",
++            "keyboard_and_input_report" to "Keyboard and input report",
++            "radio_and_network_report" to "Radio and network report",
++            "app_inventory_report" to "App inventory report",
++            "custom_report" to "Custom report",
++            "system_bug_report" to "System bug report",
++            "magnetic" to "%1\$s° %2\$s (magnetic)",
++            "quiet" to "Quiet",
++            "moderate" to "Moderate",
++            "loud" to "Loud",
++            "very_loud" to "Very loud",
++            "harmful_with_long_exposure" to "Harmful with long exposure",
++            "about_1f_m_1f_1f" to "about %.1f m (%.1f–%.1f m), %.1f m away",
++            "recent" to "Recent",
++            "developer_mode" to " · developer mode",
++            "n1_utility" to "1 utility",
++            "utilities_2" to "%1\$s utilities",
++            "available" to "Available",
++            "needs_permission" to "Needs permission",
++            "needs_calibration" to "Needs calibration",
++            "developer_only" to "Developer only",
++            "unavailable_on_this_device" to "Unavailable on this device",
++            "profile_unsupported" to "profile: unsupported (%1\$s)",
++            "hardware_not_reported_by_this" to "hardware not reported by this device",
++            "profile_unproven" to "profile: unproven (%1\$s)",
++            "profile_diagnostic_only" to "profile: diagnostic only (%1\$s)",
++            "profile_supported" to "profile: supported (%1\$s)",
++            "settings_keyboard_input" to "Settings > Keyboard & input",
++            "settings_display_app_display_compatibility" to
++                "Settings > Display > App display compatibility",
++            "settings_notifications" to "Settings > Notifications",
++            "settings_network_manager" to "Settings > Network Manager",
++            "settings_mobile_network" to "Settings > Mobile network",
++            "settings_vpn" to "Settings > VPN",
++            "settings_storage" to "Settings > Storage",
++            "app_security_privacy" to "App Security & Privacy",
++            "app_info" to "App info",
++            "settings_privacy" to "Settings > Privacy",
++            "settings_security" to "Settings > Security",
++            "settings_developer_options" to "Settings > Developer options",
++            "settings_about_phone" to "Settings > About phone",
++            "sable_media_fm_radio" to "Sable Media > FM radio",
++            "shift" to "Shift",
++            "hold_or_lock_shift_and" to "Hold or lock Shift and type a capital letter",
++            "alt_layer_digits" to "Alt-layer digits",
++            "hold_or_lock_alt_and" to "Hold or lock Alt and type: 2468",
++            "letters" to "Letters",
++            "type_sable" to "Type: sable",
++            "numbers" to "Numbers",
++            "type_2468" to "Type: 2468",
++            "symbols" to "Symbols",
++            "type" to "Type: @#\$%&*!?",
++            "alt_layer" to "Alt layer",
++            "hold_or_lock_alt_and_2" to
++                "Hold or lock Alt and type any key printed with a second character",
++            "sym" to "Sym",
++            "use_sym_to_enter_any" to "Use Sym to enter any symbol",
++            "fn" to "Fn",
++            "use_fn_with_any_key" to "Use Fn with any key that has an Fn character",
++            "bluetooth_pairing_code" to "Bluetooth pairing code",
++            "simulated_pairing_dialog_enter_482915" to "Simulated pairing dialog. Enter: 482915",
++            "wi_fi_password" to "Wi-Fi password",
++            "simulated_wi_fi_password_enter" to "Simulated Wi-Fi password. Enter: Tr4il-mix#26!",
++            "lockscreen_pin" to "Lockscreen PIN",
++            "simulated_pin_pad_enter_7391" to "Simulated PIN pad. Enter: 7391",
++            "software_keyboard_fallback" to "Software keyboard fallback",
++            "use_the_on_screen_keyboard" to "Use the on-screen keyboard to type: ok",
++            "critical_text_entry" to "critical text entry",
++            "pass_fail_not_run" to "%1\$s/%2\$s PASS, %3\$s FAIL, %4\$s NOT_RUN",
++            "media_quick_control" to "Media quick control",
++            "safe_ir_quick_control" to "Safe IR quick control",
++            "camera_magnifier_preview" to "Camera / magnifier preview",
++            "battery_and_device_status" to "Battery and device status",
++            "keyboard_and_input" to "Keyboard and input",
++            "display_geometry" to "Display geometry",
++            "radio_and_sim_state" to "Radio and SIM state",
++            "storage_summary" to "Storage summary",
++            "tools_capability_status" to "Tools capability status",
++            "network_addresses_dns_and_vpn" to "Network addresses, DNS and VPN",
++            "includes_partially_masked_ip_and" to
++                "Includes partially masked IP and DNS addresses, which can hint at your network " +
++                "or location.",
++            "installed_app_list" to "Installed app list",
++            "your_app_list_can_reveal" to
++                "Your app list can reveal your bank, health, dating or work apps.",
++            "diagnostic_session_log" to "Diagnostic session log",
++            "key_events_captured_in_this" to
++                "Key events captured in this session can contain anything you typed while the " +
++                "key viewer was open.",
++            "message_bodies" to "message bodies",
++            "contact_contents" to "contact contents",
++            "photos_and_media" to "photos and media",
++            "authentication_secrets" to "authentication secrets",
++            "full_private_logs" to "full private logs",
++            "precise_location_history" to "precise location history",
++            "provider_credentials" to "provider credentials",
++            "select_at_least_one_section" to "Select at least one section",
++            "tv" to "TV"
++        )
++
++    val t = SableTexts(EN)
++}
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt
+index 72b76cf..ca6c18d 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt
+@@ -22,6 +22,7 @@ import org.sableos.tools.core.Redactor
+ import org.sableos.tools.core.ReportSection
+ import org.sableos.tools.core.TextEntryTest
+ import org.sableos.tools.core.Tool
++import org.sableos.tools.core.ToolsText.t
+ import org.sableos.tools.core.TypedKey
+ 
+ /** Read-only information screen built from collector sections. Ctrl+C copies the redacted text. */
+@@ -52,9 +53,7 @@ open class InfoController(
+         text.text = rendered
+     }
+ 
+-    override fun info() =
+-        "Read-only. Values come from public Android APIs; identifiers are masked. Menu " +
+-            "opens the owning Settings page."
++    override fun info() = t("read_only_values_come_from")
+     override fun copyText() = rendered
+ }
+ 
+@@ -63,7 +62,7 @@ class AttentionController(host: ToolHost) :
+         listOf(host.collectors.attention())
+     }) {
+     override fun actions(): List<Pair<String, () -> Unit>> = listOf(
+-        "Vibrate once (test)" to {
++        t("vibrate_once_test") to {
+             val v = ctx.getSystemService(VibratorManager::class.java)?.defaultVibrator
+             if (v?.hasVibrator() ==
+                 true
+@@ -72,7 +71,7 @@ class AttentionController(host: ToolHost) :
+                     VibrationEffect.createOneShot(VIBRATE_MS, VibrationEffect.DEFAULT_AMPLITUDE)
+                 )
+             } else {
+-                host.toast("No vibrator")
++                host.toast(t("no_vibrator"))
+             }
+         }
+     )
+@@ -89,8 +88,8 @@ class AttentionController(host: ToolHost) :
+  */
+ class KeyViewerController(host: ToolHost) : ToolController {
+     private val ctx = host.activity
+-    private val meta = Ui.body(ctx, "modifiers: -")
+-    private val text = Ui.mono(ctx, "Press keys. Back twice leaves.")
++    private val meta = Ui.body(ctx, t("modifiers"))
++    private val text = Ui.mono(ctx, t("press_keys_back_twice_leaves"))
+     private val lines = ArrayDeque<String>()
+ 
+     override fun view(): View = LinearLayout(ctx).apply {
+@@ -121,12 +120,10 @@ class KeyViewerController(host: ToolHost) : ToolController {
+         lines.addLast(l)
+         while (lines.size > MAX_LINES) lines.removeFirst()
+         text.text = lines.joinToString("\n")
+-        meta.text = "modifiers: ${KeyEventFormat.metaNames(e.metaState)}"
++        meta.text = t("modifiers_2", KeyEventFormat.metaNames(e.metaState))
+     }
+ 
+-    override fun info() =
+-        "Shows what an ordinary app receives. Software keyboard fallback is covered by " +
+-            "the critical text-entry test."
++    override fun info() = t("shows_what_an_ordinary_app")
+     override fun copyText() = lines.joinToString("\n")
+ 
+     private companion object {
+@@ -139,7 +136,7 @@ class PointerController(host: ToolHost) : ToolController {
+     private val ctx = host.activity
+     private val text = Ui.mono(
+         ctx,
+-        "Move the trackpad, touch the screen or press keys. Back twice leaves."
++        t("move_the_trackpad_touch_the")
+     )
+     private val lines = ArrayDeque<String>()
+ 
+@@ -175,9 +172,7 @@ class PointerController(host: ToolHost) : ToolController {
+         }
+     }
+ 
+-    override fun info() =
+-        "Trackpads that report as a D-pad show up as keys; ones that report as a pointer " +
+-            "show up as motion."
++    override fun info() = t("trackpads_that_report_as_a")
+ 
+     private companion object {
+         const val MAX_LINES = 40
+@@ -254,8 +249,7 @@ class TextEntryController(private val host: ToolHost) : ToolController {
+     }
+ 
+     override fun info() =
+-        "Covers " + cases.joinToString { it.title } + ". Only keys this keyboard has are " +
+-            "tested. Press Enter in a field to check it. Only pass/fail is kept."
++        t("covers") + cases.joinToString { it.title } + t("only_keys_this_keyboard_has")
+ 
+     override fun copyText() = TextEntryTest.summary(Session.textEntry, cases).joinToString("\n") {
+         "${it.key}: ${it.value}"
+@@ -274,15 +268,15 @@ class HardwareTestsController(private val host: ToolHost) : ToolController {
+             target.owner to
+                 { target.link?.let { host.openLink(it) } ?: Unit }
+ 
+-        is DiagTarget.Gated -> "engineering only" to { host.toast(target.why) }
++        is DiagTarget.Gated -> t("engineering_only") to { host.toast(target.why) }
+     }
+ 
+     private fun openEntry(tool: Tool): Pair<String, () -> Unit> =
+         if (HomeModel.isListed(tool, host.env.resolutions, host.env.developerMode)) {
+             tool.title to { host.openTool(tool) }
+         } else {
+-            "not on this device" to
+-                { host.toast("${tool.title} is not available on this device profile") }
++            t("not_on_this_device") to
++                { host.toast(t("is_not_available_on_this_2", tool.title)) }
+         }
+ 
+     override fun view(): View {
+@@ -298,10 +292,7 @@ class HardwareTestsController(private val host: ToolHost) : ToolController {
+         return ScrollView(ctx).apply { addView(col) }
+     }
+ 
+-    override fun info() =
+-        "Factory test (${DialerCodes.FACTORY_TEST_DIAL}) categories mapped to Sable " +
+-            "diagnostics. Calibration, logging and aging tests change device state and are " +
+-            "never one-tap actions here."
++    override fun info() = t("factory_test_categories_mapped_to", DialerCodes.FACTORY_TEST_DIAL)
+ }
+ 
+ /** Developer-tier explanation of the vendor factory surface; it never launches a raw vendor tool. */
+@@ -310,7 +301,7 @@ class FactoryBridgeController(host: ToolHost) :
+         listOf(
+             ReportSection(
+                 org.sableos.tools.core.ReportCategory.CAPABILITIES,
+-                "Factory test bridge",
++                t("factory_test_bridge"),
+                 listOf(
+                     org.sableos.tools.core.ReportRow(
+                         "profile",
+@@ -319,23 +310,23 @@ class FactoryBridgeController(host: ToolHost) :
+                         ).reason
+                     ),
+                     org.sableos.tools.core.ReportRow(
+-                        "raw vendor launch",
+-                        "not offered (RAW_FACTORY_TEST_DIRECT_LAUNCH=NO_BY_DEFAULT)"
++                        t("raw_vendor_launch"),
++                        t("not_offered_raw_factory_test")
+                     ),
+                     org.sableos.tools.core.ReportRow(
+-                        "calibration / logging / aging",
+-                        "engineering-gated; use the vendor tool only under a service procedure"
++                        t("calibration_logging_aging"),
++                        t("engineering_gated_use_the_vendor")
+                     ),
+                     org.sableos.tools.core.ReportRow(
+-                        "read-only equivalents",
+-                        "Diagnostics > Hardware test categories"
++                        t("read_only_equivalents"),
++                        t("diagnostics_hardware_test_categories")
+                     )
+                 )
+             )
+         )
+     }) {
+     override fun actions(): List<Pair<String, () -> Unit>> = listOf(
+-        "Hardware test categories" to {
++        t("hardware_test_categories") to {
+             host.openTool(Tool.HARDWARE_TESTS)
+         }
+     )
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/IrRemoteController.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/IrRemoteController.kt
+index 2ec38d5..05e8fae 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/IrRemoteController.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/IrRemoteController.kt
+@@ -14,6 +14,7 @@ import org.sableos.tools.core.IrTransmit
+ import org.sableos.tools.core.Remote
+ import org.sableos.tools.core.RemoteCodec
+ import org.sableos.tools.core.RemoteLibrary
++import org.sableos.tools.core.ToolsText.t
+ 
+ /**
+  * Local-first IR remote: built-in table plus the user's own remotes, all on the device; no network. Shown only when
+@@ -35,17 +36,17 @@ class IrRemoteController(private val host: ToolHost) : ToolController {
+     private fun showList() {
+         current = null
+         root.removeAllViews()
+-        root.addView(Ui.header(ctx, "Remotes"))
++        root.addView(Ui.header(ctx, t("remotes")))
+         all().forEach { r ->
+             root.addView(
+-                Ui.row(ctx, r.name, r.type.title + if (r.builtIn) " · built-in" else "") {
++                Ui.row(ctx, r.name, r.type.title + if (r.builtIn) t("built_in") else "") {
+                     showRemote(r)
+                 }
+             )
+         }
+-        root.addView(Ui.row(ctx, "Add a custom remote", null) { addRemote() })
++        root.addView(Ui.row(ctx, t("add_a_custom_remote"), null) { addRemote() })
+         root.addView(
+-            Ui.hint(ctx, "Built-in codes are common published codes, not verified on every model.")
++            Ui.hint(ctx, t("built_in_codes_are_common"))
+         )
+         root.getChildAt(1)?.post { root.getChildAt(1)?.requestFocus() }
+     }
+@@ -55,8 +56,8 @@ class IrRemoteController(private val host: ToolHost) : ToolController {
+         root.removeAllViews()
+         root.addView(Ui.header(ctx, "${r.name} · ${r.protocol.name}"))
+         r.buttons.forEach { b -> root.addView(Ui.row(ctx, b.name, null) { send(r, b) }) }
+-        if (!r.builtIn) root.addView(Ui.row(ctx, "Add a button", null) { addButton(r) })
+-        root.addView(Ui.row(ctx, "All remotes", null) { showList() })
++        if (!r.builtIn) root.addView(Ui.row(ctx, t("add_a_button"), null) { addButton(r) })
++        root.addView(Ui.row(ctx, t("all_remotes"), null) { showList() })
+         root.getChildAt(1)?.post { root.getChildAt(1)?.requestFocus() }
+     }
+ 
+@@ -71,9 +72,9 @@ class IrRemoteController(private val host: ToolHost) : ToolController {
+             )
+         ) {
+             is IrTransmit.Decision.Send -> try {
+-                ir?.transmit(d.carrierHz, d.pattern) ?: host.toast("IR service unavailable")
++                ir?.transmit(d.carrierHz, d.pattern) ?: host.toast(t("ir_service_unavailable"))
+             } catch (e: IllegalArgumentException) {
+-                host.toast("Transmit refused: ${e.message}")
++                host.toast(t("transmit_refused", e.message))
+             }
+ 
+             is IrTransmit.Decision.Refuse -> host.toast(d.reason)
+@@ -87,18 +88,18 @@ class IrRemoteController(private val host: ToolHost) : ToolController {
+     }
+ 
+     private fun addRemote() {
+-        val name = field("Remote name")
++        val name = field(t("remote_name"))
+         val form = LinearLayout(ctx).apply {
+             orientation = LinearLayout.VERTICAL
+             addView(name)
+         }
+         val types = ApplianceType.entries.map { it.title }.toTypedArray()
+         var type = ApplianceType.CUSTOM
+-        AlertDialog.Builder(ctx).setTitle("New remote (NEC codes)").setView(form)
++        AlertDialog.Builder(ctx).setTitle(t("new_remote_nec_codes")).setView(form)
+             .setSingleChoiceItems(types, types.lastIndex) { _, i ->
+                 type = ApplianceType.entries[i]
+             }
+-            .setPositiveButton("Create") { _, _ ->
++            .setPositiveButton(t("create")) { _, _ ->
+                 val n = name.text.toString().trim()
+                 if (n.isNotEmpty()) {
+                     val r = Remote(n, type, IrProtocol.NEC, emptyList())
+@@ -106,23 +107,23 @@ class IrRemoteController(private val host: ToolHost) : ToolController {
+                     showRemote(r)
+                 }
+             }
+-            .setNegativeButton("Cancel", null).show()
++            .setNegativeButton(t("cancel"), null).show()
+     }
+ 
+     private fun addButton(r: Remote) {
+-        val name = field("Button name")
+-        val code = field("32-bit code, e.g. 0x20DF10EF")
++        val name = field(t("button_name"))
++        val code = field(t("n32_bit_code_e_g"))
+         val form = LinearLayout(ctx).apply {
+             orientation = LinearLayout.VERTICAL
+             addView(name)
+             addView(code)
+         }
+-        AlertDialog.Builder(ctx).setTitle("Add button to ${r.name}").setView(form)
+-            .setPositiveButton("Add") { _, _ ->
++        AlertDialog.Builder(ctx).setTitle(t("add_button_to", r.name)).setView(form)
++            .setPositiveButton(t("add")) { _, _ ->
+                 val c = RemoteCodec.parseCode(code.text.toString())
+                 val n = name.text.toString().trim()
+                 if (c == null || n.isEmpty()) {
+-                    host.toast("Enter a name and a hex code up to 8 digits")
++                    host.toast(t("enter_a_name_and_a"))
+                 } else {
+                     val updated = r.copy(buttons = r.buttons + IrButton(n, c))
+                     host.env.prefs.remotes =
+@@ -130,20 +131,18 @@ class IrRemoteController(private val host: ToolHost) : ToolController {
+                     showRemote(updated)
+                 }
+             }
+-            .setNegativeButton("Cancel", null).show()
++            .setNegativeButton(t("cancel"), null).show()
+     }
+ 
+     override fun actions(): List<Pair<String, () -> Unit>> {
+         val r = current?.takeUnless { it.builtIn } ?: return emptyList()
+         return listOf(
+-            "Delete ${r.name}" to {
++            t("delete", r.name) to {
+                 host.env.prefs.remotes = host.env.prefs.remotes.filterNot { it.name == r.name }
+                 showList()
+             }
+         )
+     }
+ 
+-    override fun info() =
+-        "Remotes are stored only on this phone. No network is used. Learning from an " +
+-            "original remote is not offered because Android has no public IR receiver API."
++    override fun info() = t("remotes_are_stored_only_on")
+ }
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/MainActivity.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/MainActivity.kt
+index 93b6fa4..5cfa4cd 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/MainActivity.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/MainActivity.kt
+@@ -22,6 +22,7 @@ import org.sableos.tools.core.KeyCommands
+ import org.sableos.tools.core.KeyContext
+ import org.sableos.tools.core.KeyPress
+ import org.sableos.tools.core.Tool
++import org.sableos.tools.core.ToolsText.t
+ import org.sableos.tools.core.Visibility
+ 
+ /**
+@@ -82,7 +83,7 @@ class MainActivity : Activity() {
+         summary.text = HomeModel.profileSummary(inputs, groups)
+         val filtering = searching || filter.isNotEmpty()
+         filterLine.visibility = if (filtering) View.VISIBLE else View.GONE
+-        filterLine.text = "Filter: $filter▏  (Del deletes, Back clears)"
++        filterLine.text = t("filter_del_deletes_back_clears", filter)
+         list.removeAllViews()
+         rowTools.clear()
+         groups.forEach { g ->
+@@ -93,10 +94,10 @@ class MainActivity : Activity() {
+                 list.addView(v)
+             }
+         }
+-        if (groups.isEmpty()) list.addView(Ui.body(this, "No tool matches \"$filter\"."))
++        if (groups.isEmpty()) list.addView(Ui.body(this, t("no_tool_matches", filter)))
+         if (env.systemDeveloperOptions && !filtering) {
+-            list.addView(Ui.header(this, "Developer"))
+-            val label = "Developer diagnostics: " + if (env.prefs.developerOptIn) "on" else "off"
++            list.addView(Ui.header(this, t("developer")))
++            val label = t("developer_diagnostics") + if (env.prefs.developerOptIn) "on" else "off"
+             list.addView(
+                 Ui.row(this, label, null) {
+                     env.prefs.developerOptIn = !env.prefs.developerOptIn
+@@ -120,16 +121,16 @@ class MainActivity : Activity() {
+             if (cap != null) appendLine(env.resolutions.getValue(cap).reason)
+             if (tool.permissions.isNotEmpty()) {
+                 appendLine(
+-                    "Asks when opened: " + tool.permissions.joinToString {
++                    t("asks_when_opened") + tool.permissions.joinToString {
+                         it.substringAfterLast('.')
+                     }
+                 )
+             }
+-            if (tool.developerOnly) appendLine("Developer/service tier")
++            if (tool.developerOnly) appendLine(t("developer_service_tier"))
+         }
+         AlertDialog.Builder(this).setTitle(tool.title).setMessage(text.trim())
+-            .setPositiveButton("Open") { _, _ -> open(tool) }
+-            .setNegativeButton("Close", null).show()
++            .setPositiveButton(t("open_2")) { _, _ -> open(tool) }
++            .setNegativeButton(t("close"), null).show()
+     }
+ 
+     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ReportController.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ReportController.kt
+index 61d9599..bd16a90 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ReportController.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ReportController.kt
+@@ -15,6 +15,7 @@ import org.sableos.tools.core.Sensitivity
+ import org.sableos.tools.core.SettingsLink
+ import org.sableos.tools.core.TextEntryTest
+ import org.sableos.tools.core.Tool
++import org.sableos.tools.core.ToolsText.t
+ 
+ /**
+  * User-authorized report export. The screen lists what will be included, the warnings for sensitive sections and
+@@ -48,19 +49,17 @@ class ReportController(private val host: ToolHost) : ToolController {
+             root.addView(
+                 Ui.body(
+                     ctx,
+-                    "Full system bug reports contain private logs, so Sable Tools does " +
+-                        "not collect them. Android's own bug report flow lives in Developer " +
+-                        "options and asks before sharing."
++                    t("full_system_bug_reports_contain")
+                 )
+             )
+             root.addView(
+-                Ui.row(ctx, "Open Developer options", null) {
++                Ui.row(ctx, t("open_developer_options"), null) {
+                     host.openLink(SettingsLink.DEVELOPER)
+                 }.also { it.post { it.requestFocus() } }
+             )
+             return
+         }
+-        root.addView(Ui.header(ctx, "Sections"))
++        root.addView(Ui.header(ctx, t("sections")))
+         offered().forEach { c ->
+             val label =
+                 (if (c in selected) "[x] " else "[ ] ") + c.title +
+@@ -69,12 +68,12 @@ class ReportController(private val host: ToolHost) : ToolController {
+             rows[v] = c
+             root.addView(v)
+         }
+-        root.addView(Ui.header(ctx, "Before sharing"))
++        root.addView(Ui.header(ctx, t("before_sharing")))
+         root.addView(planView)
+-        root.addView(Ui.row(ctx, "Preview", null) { preview() })
+-        root.addView(Ui.row(ctx, "Copy report", null) { copy() })
+-        root.addView(Ui.row(ctx, "Save to phone", ReportFile.FOLDER) { save() })
+-        root.addView(Ui.row(ctx, "Share report…", null) { share() })
++        root.addView(Ui.row(ctx, t("preview"), null) { preview() })
++        root.addView(Ui.row(ctx, t("copy_report"), null) { copy() })
++        root.addView(Ui.row(ctx, t("save_to_phone"), ReportFile.FOLDER) { save() })
++        root.addView(Ui.row(ctx, t("share_report"), null) { share() })
+         updatePlan()
+         rows.keys.firstOrNull()?.post { rows.keys.firstOrNull()?.requestFocus() }
+     }
+@@ -90,19 +89,19 @@ class ReportController(private val host: ToolHost) : ToolController {
+         val p = ReportPolicy.plan(selected)
+         planView.text = buildString {
+             appendLine(
+-                "Included: " + p.included.joinToString {
++                t("included") + p.included.joinToString {
+                     it.title
+-                }.ifEmpty { "nothing selected" }
++                }.ifEmpty { t("nothing_selected") }
+             )
+-            p.warnings.forEach { appendLine("Warning: $it") }
++            p.warnings.forEach { appendLine(t("warning", it)) }
+             if (p.notSelected.isNotEmpty()) {
+                 appendLine(
+-                    "Not included unless selected: " + p.notSelected.joinToString {
++                    t("not_included_unless_selected") + p.notSelected.joinToString {
+                         it.title
+                     }
+                 )
+             }
+-            append("Never included: " + p.neverIncluded.joinToString())
++            append(t("never_included") + p.neverIncluded.joinToString())
+         }
+     }
+ 
+@@ -119,7 +118,7 @@ class ReportController(private val host: ToolHost) : ToolController {
+         }
+         lastText =
+             ReportPolicy.render(
+-                "Sable Tools · ${tool.title}",
++                t("sable_tools", tool.title),
+                 host.env.profileLine(),
+                 selected,
+                 sections
+@@ -131,15 +130,15 @@ class ReportController(private val host: ToolHost) : ToolController {
+         if (selected.isEmpty()) return host.toast(NOTHING_SELECTED)
+         android.app.AlertDialog.Builder(
+             ctx
+-        ).setTitle("Preview").setMessage(render()).setPositiveButton("Close", null).show()
++        ).setTitle(t("preview")).setMessage(render()).setPositiveButton(t("close"), null).show()
+     }
+ 
+     private fun copy() {
+         if (selected.isEmpty()) return host.toast(NOTHING_SELECTED)
+         ctx.getSystemService(
+             ClipboardManager::class.java
+-        )?.setPrimaryClip(ClipData.newPlainText("Sable Tools report", render()))
+-        host.toast("Copied (identifiers masked)")
++        )?.setPrimaryClip(ClipData.newPlainText(t("sable_tools_report"), render()))
++        host.toast(t("copied_identifiers_masked"))
+     }
+ 
+     private fun save() {
+@@ -150,9 +149,9 @@ class ReportController(private val host: ToolHost) : ToolController {
+     private fun share() {
+         if (selected.isEmpty()) return host.toast(NOTHING_SELECTED)
+         val send = Intent(Intent.ACTION_SEND).setType("text/plain")
+-            .putExtra(Intent.EXTRA_SUBJECT, "Sable Tools · ${tool.title}")
++            .putExtra(Intent.EXTRA_SUBJECT, t("sable_tools", tool.title))
+             .putExtra(Intent.EXTRA_TEXT, render())
+-        ctx.startActivity(Intent.createChooser(send, "Share report"))
++        ctx.startActivity(Intent.createChooser(send, t("share_report_2")))
+     }
+ 
+     override fun onCommand(c: Command): Boolean {
+@@ -161,10 +160,8 @@ class ReportController(private val host: ToolHost) : ToolController {
+         return cat != null
+     }
+ 
+-    override fun info() =
+-        "Reports are built on this phone from read-only state. Identifiers are masked; " +
+-            "sensitive sections need your selection."
++    override fun info() = t("reports_are_built_on_this")
+     override fun copyText(): String? = if (selected.isEmpty()) null else render()
+ }
+ 
+-private const val NOTHING_SELECTED = "Select at least one section"
++private val NOTHING_SELECTED: String get() = t("select_at_least_one_section")
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/SensorTools.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/SensorTools.kt
+index c41e1bf..944a8cd 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/SensorTools.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/SensorTools.kt
+@@ -15,6 +15,7 @@ import org.sableos.tools.core.HoldableReading
+ import org.sableos.tools.core.LowPass
+ import org.sableos.tools.core.Tilt
+ import org.sableos.tools.core.TiltCalibration
++import org.sableos.tools.core.ToolsText.t
+ import org.sableos.tools.core.Vec3
+ 
+ private fun SensorEvent.vec() =
+@@ -42,7 +43,7 @@ abstract class SensorController(protected val host: ToolHost) :
+ 
+     override fun start() {
+         val m = sm ?: run {
+-            stateView.text = "Sensor service unavailable"
++            stateView.text = t("sensor_service_unavailable")
+             return
+         }
+         sensorTypes.forEach { t ->
+@@ -80,7 +81,7 @@ class TiltController(host: ToolHost, private val capability: Capability) : Senso
+             Capability.BUBBLE_LEVEL -> {
+                 val level = Tilt.isLevel(surface.xDeg) && Tilt.isLevel(surface.yDeg)
+                 "${Tilt.display(surface.xDeg)}  ${Tilt.display(surface.yDeg)}" to
+-                    if (level) "Level" else "Lay the phone on the surface"
++                    if (level) t("level") else t("lay_the_phone_on_the")
+             }
+ 
+             Capability.PICTURE_HANGING -> Tilt.display(rotation) to
+@@ -88,9 +89,9 @@ class TiltController(host: ToolHost, private val capability: Capability) : Senso
+                         rotation
+                     )
+                 ) {
+-                    "Straight"
++                    t("straight")
+                 } else {
+-                    "Stand the phone on its edge along the frame"
++                    t("stand_the_phone_on_its")
+                 }
+ 
+             Capability.PLUMB_BOB -> Tilt.display(rotation) to
+@@ -98,25 +99,25 @@ class TiltController(host: ToolHost, private val capability: Capability) : Senso
+                         rotation
+                     )
+                 ) {
+-                    "Vertical"
++                    t("vertical")
+                 } else {
+-                    "Hold the phone's side edge against the surface"
++                    t("hold_the_phone_s_side")
+                 }
+ 
+             else -> Tilt.display(org.sableos.tools.core.signedDeg(rotation - protractorZero)) to
+-                "R sets zero here; rotate to measure"
++                t("r_sets_zero_here_rotate")
+         }
+         hold.update(main)
+         readingView.text = hold.shown
+-        stateView.text = (if (hold.isHeld) "HELD · " else "") + state
++        stateView.text = (if (hold.isHeld) t("held") else "") + state
+         detailView.text =
+-            "zero point: " +
++            t("zero_point") +
+             if (cal ==
+                 TiltCalibration()
+             ) {
+-                "factory (press C on a known level surface)"
++                t("factory_press_c_on_a")
+             } else {
+-                "user calibrated"
++                t("user_calibrated")
+             }
+     }
+ 
+@@ -142,7 +143,7 @@ class TiltController(host: ToolHost, private val capability: Capability) : Senso
+             last?.let {
+                 cal = TiltCalibration.from(Tilt.surface(it), Tilt.screenRotation(it))
+                 host.env.prefs.setCalibration(capability, cal)
+-                host.toast("Calibrated: this position is now zero")
++                host.toast(t("calibrated_this_position_is_now"))
+             }
+             true
+         }
+@@ -150,10 +151,7 @@ class TiltController(host: ToolHost, private val capability: Capability) : Senso
+         else -> false
+     }
+ 
+-    override fun info() =
+-        "Angles are rounded to 0.1°; a phone accelerometer is good to about ±0.5° after " +
+-            "calibration. C sets the current position as zero (do it on a surface you know is" +
+-            " level). R clears it. H holds the reading."
++    override fun info() = t("angles_are_rounded_to_0")
+ 
+     override fun copyText() = hold.shown
+ }
+@@ -180,16 +178,16 @@ class CompassController(host: ToolHost) : SensorController(host) {
+         val az = Compass.azimuth(gg, mm)
+         hold.update(az?.let { Compass.display(it) } ?: "--")
+         readingView.text = hold.shown
+-        stateView.text = (if (hold.isHeld) "HELD · " else "") +
++        stateView.text = (if (hold.isHeld) t("held") else "") +
+             if (Compass.needsCalibration(
+                     accuracy
+                 )
+             ) {
+-                "Needs calibration: press C"
++                t("needs_calibration_press_c")
+             } else {
+-                "Hold the phone flat"
++                t("hold_the_phone_flat")
+             }
+-        detailView.text = "magnetic field %.0f µT · accuracy %d/3".format(mm.norm, accuracy)
++        detailView.text = t("magnetic_field_0f_t_accuracy").format(mm.norm, accuracy)
+     }
+ 
+     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+@@ -211,17 +209,14 @@ class CompassController(host: ToolHost) : SensorController(host) {
+ 
+         Command.Calibrate -> {
+             stateView.text =
+-                "Calibrate: move the phone in a slow figure-8 for a few seconds, away from metal and magnets."
++                t("calibrate_move_the_phone_in")
+             true
+         }
+ 
+         else -> false
+     }
+ 
+-    override fun info() =
+-        "Heading of the phone's top edge from magnetic north (true north would need " +
+-            "location, which this tool does not use). Magnet cases and nearby metal disturb " +
+-            "it."
++    override fun info() = t("heading_of_the_phone_s")
+ 
+     override fun copyText() = hold.shown
+ }
+@@ -247,17 +242,17 @@ class HeightController(host: ToolHost) : SensorController(host) {
+                 ?: "--"
+         }
+         stateView.text = when {
+-            b == null -> "Aim the top edge at the BASE of the object and press H"
++            b == null -> t("aim_the_top_edge_at")
+ 
+-            t == null -> "Now aim at the TOP and press H"
++            t == null -> t("now_aim_at_the_top")
+ 
+             else -> HeightEstimate.estimate(eyeHeightM, b, t)?.let {
+-                "Estimate: " +
++                t("estimate") +
+                     HeightEstimate.display(it)
+             }
+-                ?: "Cannot estimate from these angles; press R and try again further away"
++                ?: t("cannot_estimate_from_these_angles")
+         }
+-        detailView.text = "eye height %.2f m (C cycles 1.40–1.90 m)".format(eyeHeightM)
++        detailView.text = t("eye_height_2f_m_c").format(eyeHeightM)
+     }
+ 
+     override fun onCommand(c: Command): Boolean = when (c) {
+@@ -284,9 +279,7 @@ class HeightController(host: ToolHost) : SensorController(host) {
+         else -> false
+     }
+ 
+-    override fun info() =
+-        "Estimate only: ±${HeightEstimate.ANGLE_ERROR_DEG.toInt()}° of aiming error gives" +
+-            " the range shown. Stand on level ground; C sets your eye height."
++    override fun info() = t("estimate_only_of_aiming_error", HeightEstimate.ANGLE_ERROR_DEG.toInt())
+ 
+     private companion object {
+         const val DEFAULT_EYE_M = 1.60
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ToolActivity.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ToolActivity.kt
+index 3378edb..1a5bb70 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ToolActivity.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/ToolActivity.kt
+@@ -32,6 +32,7 @@ import org.sableos.tools.core.ReportFile
+ import org.sableos.tools.core.SettingsLink
+ import org.sableos.tools.core.Tool
+ import org.sableos.tools.core.ToolKind
++import org.sableos.tools.core.ToolsText.t
+ 
+ /** In-memory only, cleared when the process dies; the report includes it only if the user selects it. */
+ object Session {
+@@ -52,7 +53,7 @@ class ToolHost(val activity: ToolActivity, val env: ToolsEnv, val tool: Tool) {
+     fun toast(msg: String) = Toast.makeText(activity, msg, Toast.LENGTH_SHORT).show()
+ 
+     fun openLink(link: SettingsLink, pkg: String? = null) {
+-        if (!Links.open(activity, link, pkg)) toast("${link.label} is not available on this build")
++        if (!Links.open(activity, link, pkg)) toast(t("is_not_available_on_this", link.label))
+     }
+ 
+     fun openTool(t: Tool) = activity.startActivity(ToolActivity.intent(activity, t))
+@@ -60,7 +61,7 @@ class ToolHost(val activity: ToolActivity, val env: ToolsEnv, val tool: Tool) {
+     /** Writes [text] to Download/SableTools and says where, so it can be shared for diagnostics. */
+     fun saveToFile(text: String) {
+         val path = ReportFiles.save(activity, tool.title, text)
+-        toast(if (path == null) "Could not save the file" else "Saved to $path")
++        toast(if (path == null) t("could_not_save_the_file") else t("saved_to", path))
+     }
+ }
+ 
+@@ -156,7 +157,7 @@ class ToolActivity : Activity() {
+                     HomeModel.matches(it, q) &&
+                         HomeModel.isListed(it, env.resolutions, env.developerMode)
+                 }
+-                (hit ?: Tool.HARDWARE_TESTS) to if (hit == null) "Nothing matched \"$q\"." else null
++                (hit ?: Tool.HARDWARE_TESTS) to if (hit == null) t("nothing_matched", q) else null
+             }
+         }
+     }
+@@ -165,15 +166,14 @@ class ToolActivity : Activity() {
+         val cap = tool.capability
+         return when {
+             tool.developerOnly && !env.developerMode ->
+-                "This tool is part of the developer/service tier. Turn on Developer options " +
+-                    "and Developer diagnostics in Sable Tools."
++                t("this_tool_is_part_of")
+ 
+             cap != null -> {
+                 val why = env.resolutions.getValue(cap).reason
+-                "Not available on this device profile (${env.profile.id}): $why"
++                t("not_available_on_this_device", env.profile.id, why)
+             }
+ 
+-            else -> "Not available."
++            else -> t("not_available")
+         }
+     }
+ 
+@@ -181,7 +181,11 @@ class ToolActivity : Activity() {
+         val col = Ui.column(this)
+         col.addView(Ui.title(this, t))
+         col.addView(Ui.body(this, msg))
+-        col.addView(Ui.row(this, "Back", null) { finish() }.also { it.post { it.requestFocus() } })
++        col.addView(
++            Ui.row(this, t("back"), null) {
++                finish()
++            }.also { it.post { it.requestFocus() } }
++        )
+         setContentView(col)
+     }
+ 
+@@ -190,27 +194,26 @@ class ToolActivity : Activity() {
+         col.addView(Ui.title(this, tool.title))
+         val why = when (tool) {
+             Tool.NOISE_METER ->
+-                "The noise meter reads the microphone level while it is open. " +
+-                    "No audio is recorded or kept."
++                t("the_noise_meter_reads_the")
+ 
+             Tool.MAGNIFIER ->
+-                "The magnifier shows the camera preview while it is open. Nothing is captured or saved."
++                t("the_magnifier_shows_the_camera")
+ 
+             Tool.SPEEDOMETER ->
+-                "The speedometer uses your location while it is open. Nothing is stored after you leave."
++                t("the_speedometer_uses_your_location")
+ 
+             Tool.PEDOMETER ->
+-                "The pedometer reads the step counter. Without it, an accelerometer estimate is used."
++                t("the_pedometer_reads_the_step")
+ 
+-            else -> "This tool needs: " + missing.joinToString { it.substringAfterLast('.') }
++            else -> t("this_tool_needs") + missing.joinToString { it.substringAfterLast('.') }
+         }
+         col.addView(Ui.body(this, why))
+         col.addView(
+-            Ui.row(this, "Allow", null) {
++            Ui.row(this, t("allow"), null) {
+                 requestPermissions(missing.toTypedArray(), REQ_PERMS)
+             }.also { it.post { it.requestFocus() } }
+         )
+-        col.addView(Ui.row(this, "Not now", null) { finish() })
++        col.addView(Ui.row(this, t("not_now"), null) { finish() })
+         setContentView(col)
+     }
+ 
+@@ -231,7 +234,7 @@ class ToolActivity : Activity() {
+         } else {
+             showMessage(
+                 tool.title,
+-                "Permission not granted, so this tool cannot read anything. You can change this in App info."
++                t("permission_not_granted_so_this")
+             )
+         }
+     }
+@@ -259,7 +262,7 @@ class ToolActivity : Activity() {
+                 ) {
+                     null
+                 } else {
+-                    "Actions"
++                    t("actions")
+                 }
+             ) { showActions(c) }
+         )
+@@ -267,21 +270,21 @@ class ToolActivity : Activity() {
+     }
+ 
+     private fun copy(c: ToolController) {
+-        val text = c.copyText() ?: return toast("Nothing to copy yet")
++        val text = c.copyText() ?: return toast(t("nothing_to_copy_yet"))
+         getSystemService(
+             ClipboardManager::class.java
+         )?.setPrimaryClip(ClipData.newPlainText(tool.title, text))
+-        toast("Copied (identifiers masked)")
++        toast(t("copied_identifiers_masked"))
+     }
+ 
+     private fun save(c: ToolController) {
+-        c.copyText()?.let(ToolHost(this, env, tool)::saveToFile) ?: toast("Nothing to save yet")
++        c.copyText()?.let(ToolHost(this, env, tool)::saveToFile) ?: toast(t("nothing_to_save_yet"))
+     }
+ 
+     private fun showInfo(c: ToolController) {
+         AlertDialog.Builder(
+             this
+-        ).setTitle(tool.title).setMessage(c.info()).setPositiveButton("Close", null).show()
++        ).setTitle(tool.title).setMessage(c.info()).setPositiveButton(t("close"), null).show()
+     }
+ 
+     private fun toast(text: String) = Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
+@@ -363,19 +366,19 @@ class ToolActivity : Activity() {
+     private fun showActions(c: ToolController) {
+         val common =
+             listOf(
+-                "Copy (C)" to { copy(c) },
+-                "Save to phone, ${ReportFile.FOLDER} (S)" to { save(c) },
+-                "About this tool" to { showInfo(c) }
++                t("copy_c") to { copy(c) },
++                t("save_to_phone_s", ReportFile.FOLDER) to { save(c) },
++                t("about_this_tool") to { showInfo(c) }
+             )
+         val items =
+             common + c.actions() +
+                 Handoffs.forTool(tool).map { l ->
+-                    "Open ${l.label}" to
++                    t("open", l.label) to
+                         { ToolHost(this, env, tool).openLink(l) }
+                 }
+         if (items.isEmpty()) return
+         AlertDialog.Builder(this).setTitle(tool.title)
+             .setItems(items.map { it.first }.toTypedArray()) { _, i -> items[i].second() }
+-            .setNegativeButton("Close", null).show()
++            .setNegativeButton(t("close"), null).show()
+     }
+ }
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Utilities.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Utilities.kt
+index 281ba01..3887771 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Utilities.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Utilities.kt
+@@ -38,6 +38,7 @@ import org.sableos.tools.core.Noise
+ import org.sableos.tools.core.Perm
+ import org.sableos.tools.core.SpeedTrip
+ import org.sableos.tools.core.StepCounterSession
++import org.sableos.tools.core.ToolsText.t
+ import org.sableos.tools.core.Vec3
+ 
+ private fun readingColumn(ctx: android.content.Context, vararg views: View) =
+@@ -71,19 +72,19 @@ class FlashlightController(private val host: ToolHost) : ToolController {
+     override fun view(): View = readingColumn(
+         ctx,
+         state.apply { text = "OFF" },
+-        Ui.row(ctx, "Turn on / off", null) { toggle() }.also { it.post { it.requestFocus() } },
++        Ui.row(ctx, t("turn_on_off"), null) { toggle() }.also { it.post { it.requestFocus() } },
+         Ui.body(
+             ctx,
+-            "Turns off when you leave this screen. Quick Settings has a persistent flashlight."
++            t("turns_off_when_you_leave")
+         )
+     )
+ 
+     private fun toggle() {
+-        val i = id ?: return host.toast("No flash unit found")
++        val i = id ?: return host.toast(t("no_flash_unit_found"))
+         try {
+             cm?.setTorchMode(i, !on)
+         } catch (_: android.hardware.camera2.CameraAccessException) {
+-            host.toast("Flash busy (another app is using the camera)")
++            host.toast(t("flash_busy_another_app_is"))
+         }
+     }
+ 
+@@ -103,8 +104,7 @@ class FlashlightController(private val host: ToolHost) : ToolController {
+         false
+     }
+ 
+-    override fun info() =
+-        "Uses the camera flash in torch mode. No camera permission is needed and no image is taken."
++    override fun info() = t("uses_the_camera_flash_in")
+ }
+ 
+ /** Camera preview with digital zoom. Up/Down zoom. Nothing is captured or saved; the system privacy dot shows. */
+@@ -159,7 +159,7 @@ class MagnifierController(private val host: ToolHost) : ToolController {
+         val manager = cm
+         val id = if (granted && manager != null) backCameraOrNull() else null
+         if (manager == null || id == null) {
+-            label.text = if (granted) "No back camera" else "Camera permission not granted"
++            label.text = if (granted) t("no_back_camera") else t("camera_permission_not_granted")
+             return
+         }
+         manager.getCameraCharacteristics(
+@@ -171,7 +171,7 @@ class MagnifierController(private val host: ToolHost) : ToolController {
+         try {
+             manager.openCamera(id, executor, deviceCallback)
+         } catch (e: android.hardware.camera2.CameraAccessException) {
+-            label.text = "Camera unavailable (${e.reason})"
++            label.text = t("camera_unavailable", e.reason)
+         }
+     }
+ 
+@@ -191,7 +191,7 @@ class MagnifierController(private val host: ToolHost) : ToolController {
+ 
+         override fun onError(d: CameraDevice, error: Int) {
+             d.close()
+-            ctx.runOnUiThread { label.text = "Camera error $error" }
++            ctx.runOnUiThread { label.text = t("camera_error", error) }
+         }
+     }
+ 
+@@ -213,7 +213,7 @@ class MagnifierController(private val host: ToolHost) : ToolController {
+                     }
+ 
+                     override fun onConfigureFailed(s: CameraCaptureSession) {
+-                        ctx.runOnUiThread { label.text = "Preview not supported" }
++                        ctx.runOnUiThread { label.text = t("preview_not_supported") }
+                     }
+                 }
+             )
+@@ -238,7 +238,7 @@ class MagnifierController(private val host: ToolHost) : ToolController {
+         if (ok) {
+             ctx.runOnUiThread {
+                 label.text =
+-                    "%.1fx (Up/Down zoom)%s".format(zoom, if (flash) " · light on" else "")
++                    t("n1fx_up_down_zoom_s").format(zoom, if (flash) t("light_on") else "")
+             }
+         }
+     }
+@@ -260,13 +260,13 @@ class MagnifierController(private val host: ToolHost) : ToolController {
+     }
+ 
+     override fun actions() = listOf(
+-        "Light on / off" to {
++        t("light_on_off") to {
+             flash = !flash
+             apply()
+         }
+     )
+ 
+-    override fun info() = "Live camera preview only. Nothing is captured, recorded or saved."
++    override fun info() = t("live_camera_preview_only_nothing")
+ 
+     private companion object {
+         const val ZOOM_STEP = 0.5f
+@@ -287,7 +287,7 @@ class NoiseController(private val host: ToolHost) : ToolController {
+         ctx,
+         reading,
+         state,
+-        Ui.body(ctx, "Approximate: phone microphones are not calibrated sound meters.")
++        Ui.body(ctx, t("approximate_phone_microphones_are_not"))
+     )
+ 
+     // Installed only after RECORD_AUDIO is granted; re-checked here.
+@@ -327,7 +327,7 @@ class NoiseController(private val host: ToolHost) : ToolController {
+             .coerceAtLeast(MIN_BUF)
+         val rec = openRecorder(size)
+         if (rec == null) {
+-            state.text = "Microphone unavailable"
++            state.text = t("microphone_unavailable")
+             return
+         }
+         running = true
+@@ -348,10 +348,10 @@ class NoiseController(private val host: ToolHost) : ToolController {
+ 
+     private fun show(db: Double) {
+         maxDb = maxOf(maxDb, db)
+-        hold.update("%.0f dB".format(db))
++        hold.update(t("n0f_db").format(db))
+         reading.text = hold.shown
+         state.text =
+-            (if (hold.isHeld) "HELD · " else "") + "${Noise.label(db)} · max %.0f dB".format(maxDb)
++            (if (hold.isHeld) t("held") else "") + "${Noise.label(db)} · max %.0f dB".format(maxDb)
+     }
+ 
+     override fun stop() {
+@@ -373,8 +373,7 @@ class NoiseController(private val host: ToolHost) : ToolController {
+         else -> false
+     }
+ 
+-    override fun info() =
+-        "Reads the microphone level only while open. Audio is never recorded, kept or sent."
++    override fun info() = t("reads_the_microphone_level_only")
+     override fun copyText() = hold.shown
+ 
+     private companion object {
+@@ -400,7 +399,7 @@ class SpeedController(private val host: ToolHost) :
+         reading.apply { text = "--" },
+         state.apply {
+             text =
+-                "Waiting for GPS…"
++                t("waiting_for_gps")
+         }
+     )
+ 
+@@ -408,7 +407,7 @@ class SpeedController(private val host: ToolHost) :
+     override fun start() {
+         if (ctx.checkSelfPermission(Perm.FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) return
+         if (lm?.isProviderEnabled(LocationManager.GPS_PROVIDER) != true) {
+-            state.text = "Location is off. Turn it on in Quick Settings."
++            state.text = t("location_is_off_turn_it")
+             return
+         }
+         lm.requestLocationUpdates(
+@@ -435,17 +434,17 @@ class SpeedController(private val host: ToolHost) :
+             )
+         )
+         fun fmt(mps: Double) = if (mph) {
+-            "%.1f mph".format(
++            t("n1f_mph").format(
+                 SpeedTrip.mph(mps)
+             )
+         } else {
+-            "%.1f km/h".format(SpeedTrip.kmh(mps))
++            t("n1f_km_h").format(SpeedTrip.kmh(mps))
+         }
+         hold.update(fmt(trip.currentMps))
+         reading.text = hold.shown
+         state.text =
+-            (if (hold.isHeld) "HELD · " else "") + (if (ok) "" else "weak fix ignored · ") +
+-            "distance %.2f km · max %s · avg %s · %d s".format(
++            (if (hold.isHeld) t("held") else "") + (if (ok) "" else t("weak_fix_ignored")) +
++            t("distance_2f_km_max_s").format(
+                 trip.distanceM / M_PER_KM,
+                 fmt(trip.maxSpeedMps),
+                 fmt(trip.averageMps),
+@@ -468,9 +467,8 @@ class SpeedController(private val host: ToolHost) :
+         else -> false
+     }
+ 
+-    override fun actions() = listOf("Switch km/h / mph" to { mph = !mph })
+-    override fun info() =
+-        "GPS speed and trip distance while this screen is open. Nothing is stored or shared."
++    override fun actions() = listOf(t("switch_km_h_mph") to { mph = !mph })
++    override fun info() = t("gps_speed_and_trip_distance")
+     override fun copyText() = hold.shown
+ 
+     private companion object {
+@@ -500,15 +498,15 @@ class PedometerController(private val host: ToolHost) :
+         if (stepSensor != null &&
+             ctx.checkSelfPermission(Perm.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED
+         ) {
+-            source = "step counter"
++            source = t("step_counter")
+             m.registerListener(this, stepSensor, SensorManager.SENSOR_DELAY_NORMAL)
+         } else {
+-            source = "accelerometer estimate"
++            source = t("accelerometer_estimate")
+             m.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
+                 m.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
+             }
+         }
+-        state.text = "source: $source · counts only while open"
++        state.text = t("source_counts_only_while_open", source)
+     }
+ 
+     override fun stop() {
+@@ -541,6 +539,5 @@ class PedometerController(private val host: ToolHost) :
+         false
+     }
+ 
+-    override fun info() =
+-        "Counts steps while this screen is open. An estimate, not a health measurement."
++    override fun info() = t("counts_steps_while_this_screen")
+ }
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/raw/sable_strings_keep.xml b/sable-src/apps/titan2/platform/tools/src/main/res/raw/sable_strings_keep.xml
+new file mode 100644
+index 0000000..4f4b368
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/raw/sable_strings_keep.xml
+@@ -0,0 +1,3 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableTexts looks strings up by name, which the resource shrinker cannot see: keep them all. -->
++<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@string/*" />
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml
+index be0d888..aabe58c 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml
+@@ -1,3 +1,307 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- English. Single capital letters in hints (C new, S find) name keyboard keys: keep them as the key, translate the word.
++     English. Keep equal to ToolsText.EN (ToolsTextTest checks); translations go in values-<lang>/. -->
+ <resources>
+-    <string name="app_name">Sable Tools</string>
++    <string name="is_not_available_on_this">%1$s is not available on this build</string>
++    <string name="could_not_save_the_file">Could not save the file</string>
++    <string name="saved_to">Saved to %1$s</string>
++    <string name="nothing_matched">Nothing matched \"%1$s\".</string>
++    <string name="this_tool_is_part_of">This tool is part of the developer/service tier. Turn on Developer options and Developer diagnostics in Sable Tools.</string>
++    <string name="not_available_on_this_device">Not available on this device profile (%1$s): %2$s</string>
++    <string name="not_available">Not available.</string>
++    <string name="back">Back</string>
++    <string name="the_noise_meter_reads_the">The noise meter reads the microphone level while it is open. No audio is recorded or kept.</string>
++    <string name="the_magnifier_shows_the_camera">The magnifier shows the camera preview while it is open. Nothing is captured or saved.</string>
++    <string name="the_speedometer_uses_your_location">The speedometer uses your location while it is open. Nothing is stored after you leave.</string>
++    <string name="the_pedometer_reads_the_step">The pedometer reads the step counter. Without it, an accelerometer estimate is used.</string>
++    <string name="this_tool_needs">"This tool needs: "</string>
++    <string name="allow">Allow</string>
++    <string name="not_now">Not now</string>
++    <string name="permission_not_granted_so_this">Permission not granted, so this tool cannot read anything. You can change this in App info.</string>
++    <string name="actions">Actions</string>
++    <string name="nothing_to_copy_yet">Nothing to copy yet</string>
++    <string name="copied_identifiers_masked">Copied (identifiers masked)</string>
++    <string name="nothing_to_save_yet">Nothing to save yet</string>
++    <string name="close">Close</string>
++    <string name="copy_c">Copy (C)</string>
++    <string name="save_to_phone_s">Save to phone, %1$s (S)</string>
++    <string name="about_this_tool">About this tool</string>
++    <string name="open">Open %1$s</string>
++    <string name="filter_del_deletes_back_clears">"Filter: %1$s▏  (Del deletes, Back clears)"</string>
++    <string name="no_tool_matches">No tool matches \"%1$s\".</string>
++    <string name="developer">Developer</string>
++    <string name="developer_diagnostics">"Developer diagnostics: "</string>
++    <string name="asks_when_opened">"Asks when opened: "</string>
++    <string name="developer_service_tier">Developer/service tier</string>
++    <string name="open_2">Open</string>
++    <string name="full_system_bug_reports_contain">Full system bug reports contain private logs, so Sable Tools does not collect them. Android\'s own bug report flow lives in Developer options and asks before sharing.</string>
++    <string name="open_developer_options">Open Developer options</string>
++    <string name="sections">Sections</string>
++    <string name="before_sharing">Before sharing</string>
++    <string name="preview">Preview</string>
++    <string name="copy_report">Copy report</string>
++    <string name="save_to_phone">Save to phone</string>
++    <string name="share_report">Share report…</string>
++    <string name="included">"Included: "</string>
++    <string name="nothing_selected">nothing selected</string>
++    <string name="warning">Warning: %1$s</string>
++    <string name="not_included_unless_selected">"Not included unless selected: "</string>
++    <string name="never_included">"Never included: "</string>
++    <string name="sable_tools">Sable Tools · %1$s</string>
++    <string name="sable_tools_report">Sable Tools report</string>
++    <string name="share_report_2">Share report</string>
++    <string name="reports_are_built_on_this">Reports are built on this phone from read-only state. Identifiers are masked; sensitive sections need your selection.</string>
++    <string name="sensor_service_unavailable">Sensor service unavailable</string>
++    <string name="level">Level</string>
++    <string name="lay_the_phone_on_the">Lay the phone on the surface</string>
++    <string name="straight">Straight</string>
++    <string name="stand_the_phone_on_its">Stand the phone on its edge along the frame</string>
++    <string name="vertical">Vertical</string>
++    <string name="hold_the_phone_s_side">Hold the phone\'s side edge against the surface</string>
++    <string name="r_sets_zero_here_rotate">R sets zero here; rotate to measure</string>
++    <string name="held">"HELD · "</string>
++    <string name="zero_point">"zero point: "</string>
++    <string name="factory_press_c_on_a">factory (press C on a known level surface)</string>
++    <string name="user_calibrated">user calibrated</string>
++    <string name="calibrated_this_position_is_now">Calibrated: this position is now zero</string>
++    <string name="angles_are_rounded_to_0">Angles are rounded to 0.1°; a phone accelerometer is good to about ±0.5° after calibration. C sets the current position as zero (do it on a surface you know is level). R clears it. H holds the reading.</string>
++    <string name="needs_calibration_press_c">Needs calibration: press C</string>
++    <string name="hold_the_phone_flat">Hold the phone flat</string>
++    <string name="magnetic_field_0f_t_accuracy">magnetic field %.0f µT · accuracy %d/3</string>
++    <string name="calibrate_move_the_phone_in">Calibrate: move the phone in a slow figure-8 for a few seconds, away from metal and magnets.</string>
++    <string name="heading_of_the_phone_s">Heading of the phone\'s top edge from magnetic north (true north would need location, which this tool does not use). Magnet cases and nearby metal disturb it.</string>
++    <string name="aim_the_top_edge_at">Aim the top edge at the BASE of the object and press H</string>
++    <string name="now_aim_at_the_top">Now aim at the TOP and press H</string>
++    <string name="estimate">"Estimate: "</string>
++    <string name="cannot_estimate_from_these_angles">Cannot estimate from these angles; press R and try again further away</string>
++    <string name="eye_height_2f_m_c">eye height %.2f m (C cycles 1.40–1.90 m)</string>
++    <string name="estimate_only_of_aiming_error">Estimate only: ±%1$s° of aiming error gives the range shown. Stand on level ground; C sets your eye height.</string>
++    <string name="remotes">Remotes</string>
++    <string name="built_in">" · built-in"</string>
++    <string name="add_a_custom_remote">Add a custom remote</string>
++    <string name="built_in_codes_are_common">Built-in codes are common published codes, not verified on every model.</string>
++    <string name="add_a_button">Add a button</string>
++    <string name="all_remotes">All remotes</string>
++    <string name="ir_service_unavailable">IR service unavailable</string>
++    <string name="transmit_refused">Transmit refused: %1$s</string>
++    <string name="remote_name">Remote name</string>
++    <string name="new_remote_nec_codes">New remote (NEC codes)</string>
++    <string name="create">Create</string>
++    <string name="cancel">Cancel</string>
++    <string name="button_name">Button name</string>
++    <string name="n32_bit_code_e_g">32-bit code, e.g. 0x20DF10EF</string>
++    <string name="add_button_to">Add button to %1$s</string>
++    <string name="add">Add</string>
++    <string name="enter_a_name_and_a">Enter a name and a hex code up to 8 digits</string>
++    <string name="delete">Delete %1$s</string>
++    <string name="remotes_are_stored_only_on">Remotes are stored only on this phone. No network is used. Learning from an original remote is not offered because Android has no public IR receiver API.</string>
++    <string name="read_only_values_come_from">Read-only. Values come from public Android APIs; identifiers are masked. Menu opens the owning Settings page.</string>
++    <string name="vibrate_once_test">Vibrate once (test)</string>
++    <string name="no_vibrator">No vibrator</string>
++    <string name="modifiers">modifiers: -</string>
++    <string name="press_keys_back_twice_leaves">Press keys. Back twice leaves.</string>
++    <string name="modifiers_2">modifiers: %1$s</string>
++    <string name="shows_what_an_ordinary_app">Shows what an ordinary app receives. Software keyboard fallback is covered by the critical text-entry test.</string>
++    <string name="move_the_trackpad_touch_the">Move the trackpad, touch the screen or press keys. Back twice leaves.</string>
++    <string name="trackpads_that_report_as_a">Trackpads that report as a D-pad show up as keys; ones that report as a pointer show up as motion.</string>
++    <string name="covers">"Covers "</string>
++    <string name="only_keys_this_keyboard_has">. Only keys this keyboard has are tested. Press Enter in a field to check it. Only pass/fail is kept.</string>
++    <string name="engineering_only">engineering only</string>
++    <string name="not_on_this_device">not on this device</string>
++    <string name="is_not_available_on_this_2">%1$s is not available on this device profile</string>
++    <string name="factory_test_categories_mapped_to">Factory test (%1$s) categories mapped to Sable diagnostics. Calibration, logging and aging tests change device state and are never one-tap actions here.</string>
++    <string name="factory_test_bridge">Factory test bridge</string>
++    <string name="raw_vendor_launch">raw vendor launch</string>
++    <string name="not_offered_raw_factory_test">not offered (RAW_FACTORY_TEST_DIRECT_LAUNCH=NO_BY_DEFAULT)</string>
++    <string name="calibration_logging_aging">calibration / logging / aging</string>
++    <string name="engineering_gated_use_the_vendor">engineering-gated; use the vendor tool only under a service procedure</string>
++    <string name="read_only_equivalents">read-only equivalents</string>
++    <string name="diagnostics_hardware_test_categories">Diagnostics &gt; Hardware test categories</string>
++    <string name="hardware_test_categories">Hardware test categories</string>
++    <string name="turn_on_off">Turn on / off</string>
++    <string name="turns_off_when_you_leave">Turns off when you leave this screen. Quick Settings has a persistent flashlight.</string>
++    <string name="no_flash_unit_found">No flash unit found</string>
++    <string name="flash_busy_another_app_is">Flash busy (another app is using the camera)</string>
++    <string name="uses_the_camera_flash_in">Uses the camera flash in torch mode. No camera permission is needed and no image is taken.</string>
++    <string name="no_back_camera">No back camera</string>
++    <string name="camera_permission_not_granted">Camera permission not granted</string>
++    <string name="camera_unavailable">Camera unavailable (%1$s)</string>
++    <string name="camera_error">Camera error %1$s</string>
++    <string name="preview_not_supported">Preview not supported</string>
++    <string name="n1fx_up_down_zoom_s">%.1fx (Up/Down zoom)%s</string>
++    <string name="light_on">" · light on"</string>
++    <string name="light_on_off">Light on / off</string>
++    <string name="live_camera_preview_only_nothing">Live camera preview only. Nothing is captured, recorded or saved.</string>
++    <string name="approximate_phone_microphones_are_not">Approximate: phone microphones are not calibrated sound meters.</string>
++    <string name="microphone_unavailable">Microphone unavailable</string>
++    <string name="n0f_db">%.0f dB</string>
++    <string name="reads_the_microphone_level_only">Reads the microphone level only while open. Audio is never recorded, kept or sent.</string>
++    <string name="waiting_for_gps">Waiting for GPS…</string>
++    <string name="location_is_off_turn_it">Location is off. Turn it on in Quick Settings.</string>
++    <string name="n1f_mph">%.1f mph</string>
++    <string name="n1f_km_h">%.1f km/h</string>
++    <string name="weak_fix_ignored">"weak fix ignored · "</string>
++    <string name="distance_2f_km_max_s">distance %.2f km · max %s · avg %s · %d s</string>
++    <string name="switch_km_h_mph">Switch km/h / mph</string>
++    <string name="gps_speed_and_trip_distance">GPS speed and trip distance while this screen is open. Nothing is stored or shared.</string>
++    <string name="step_counter">step counter</string>
++    <string name="accelerometer_estimate">accelerometer estimate</string>
++    <string name="source_counts_only_while_open">source: %1$s · counts only while open</string>
++    <string name="counts_steps_while_this_screen">Counts steps while this screen is open. An estimate, not a health measurement.</string>
++    <string name="air_conditioner">Air conditioner</string>
++    <string name="projector">Projector</string>
++    <string name="audio">Audio</string>
++    <string name="custom">Custom</string>
++    <string name="samsung_tv">Samsung TV</string>
++    <string name="power">Power</string>
++    <string name="volume_up">Volume up</string>
++    <string name="volume_down">Volume down</string>
++    <string name="mute">Mute</string>
++    <string name="channel_up">Channel up</string>
++    <string name="channel_down">Channel down</string>
++    <string name="lg_tv">LG TV</string>
++    <string name="no_ir_transmitter_on_this">No IR transmitter on this device profile.</string>
++    <string name="the_ir_transmitter_does_not">The IR transmitter does not support %1$s kHz.</string>
++    <string name="pattern_too_long">Pattern too long.</string>
++    <string name="c_calibrate">"C calibrate · "</string>
++    <string name="r_reset_h_hold_m">R reset · H hold · M more · Back to leave</string>
++    <string name="every_key_is_captured_press">Every key is captured. Press Back twice to leave.</string>
++    <string name="enter_check_back_to_leave">Enter check · Back to leave</string>
++    <string name="space_select_enter_open_m">Space select · Enter open · M more · Back to leave</string>
++    <string name="c_copy_s_save_to">C copy · S save to phone · M more · Back to leave</string>
++    <string name="display_2">Display</string>
++    <string name="keyboard_pointer">Keyboard &amp; pointer</string>
++    <string name="sensors">Sensors</string>
++    <string name="radio">Radio</string>
++    <string name="attention">Attention</string>
++    <string name="engineering">Engineering</string>
++    <string name="settings_battery">Settings &gt; Battery</string>
++    <string name="settings_display">Settings &gt; Display</string>
++    <string name="settings_sound">Settings &gt; Sound</string>
++    <string name="factory_test_bridge_2">Factory Test bridge</string>
++    <string name="this_device_has_no_factory">This device has no factory test surface. Sable hardware tests are shown instead.</string>
++    <string name="the_factory_test_bridge_is">The factory test bridge is not proven on this device profile. Sable hardware tests are shown instead.</string>
++    <string name="the_factory_test_bridge_needs">The factory test bridge needs developer mode. Sable hardware tests are shown instead.</string>
++    <string name="engineering_surface_calibration_logging_and">Engineering surface: calibration, logging and aging actions stay gated.</string>
++    <string name="utilities">Utilities</string>
++    <string name="diagnostics">Diagnostics</string>
++    <string name="reports">Reports</string>
++    <string name="compass">Compass</string>
++    <string name="bubble_level">Bubble level</string>
++    <string name="plumb_bob">Plumb bob</string>
++    <string name="protractor">Protractor</string>
++    <string name="picture_hanging">Picture hanging</string>
++    <string name="flashlight">Flashlight</string>
++    <string name="magnifier">Magnifier</string>
++    <string name="height_estimate">Height estimate</string>
++    <string name="noise_meter">Noise meter</string>
++    <string name="speedometer">Speedometer</string>
++    <string name="pedometer">Pedometer</string>
++    <string name="ir_remote">IR remote</string>
++    <string name="device_build_and_security">Device, build and security</string>
++    <string name="keyboard_event_viewer">Keyboard event viewer</string>
++    <string name="keyboard_layout_and_profile">Keyboard layout and profile</string>
++    <string name="pointer_and_touch_surface">Pointer and touch surface</string>
++    <string name="display_and_input_geometry">Display and input geometry</string>
++    <string name="camera_capabilities">Camera capabilities</string>
++    <string name="sensor_inventory">Sensor inventory</string>
++    <string name="radio_ims_and_fm_status">Radio, IMS and FM status</string>
++    <string name="network_ip_dns_and_vpn">Network, IP, DNS and VPN</string>
++    <string name="storage">Storage</string>
++    <string name="installed_apps">Installed apps</string>
++    <string name="critical_text_entry_test">Critical text-entry test</string>
++    <string name="attention_and_subscreen_status">Attention and SubScreen status</string>
++    <string name="capability_status_2">Capability status</string>
++    <string name="device_report">Device report</string>
++    <string name="keyboard_and_input_report">Keyboard and input report</string>
++    <string name="radio_and_network_report">Radio and network report</string>
++    <string name="app_inventory_report">App inventory report</string>
++    <string name="custom_report">Custom report</string>
++    <string name="system_bug_report">System bug report</string>
++    <string name="magnetic">%1$s° %2$s (magnetic)</string>
++    <string name="quiet">Quiet</string>
++    <string name="moderate">Moderate</string>
++    <string name="loud">Loud</string>
++    <string name="very_loud">Very loud</string>
++    <string name="harmful_with_long_exposure">Harmful with long exposure</string>
++    <string name="about_1f_m_1f_1f">about %.1f m (%.1f–%.1f m), %.1f m away</string>
++    <string name="recent">Recent</string>
++    <string name="developer_mode">" · developer mode"</string>
++    <string name="n1_utility">1 utility</string>
++    <string name="utilities_2">%1$s utilities</string>
++    <string name="available">Available</string>
++    <string name="needs_permission">Needs permission</string>
++    <string name="needs_calibration">Needs calibration</string>
++    <string name="developer_only">Developer only</string>
++    <string name="unavailable_on_this_device">Unavailable on this device</string>
++    <string name="profile_unsupported">profile: unsupported (%1$s)</string>
++    <string name="hardware_not_reported_by_this">hardware not reported by this device</string>
++    <string name="profile_unproven">profile: unproven (%1$s)</string>
++    <string name="profile_diagnostic_only">profile: diagnostic only (%1$s)</string>
++    <string name="profile_supported">profile: supported (%1$s)</string>
++    <string name="settings_keyboard_input">Settings &gt; Keyboard &amp; input</string>
++    <string name="settings_display_app_display_compatibility">Settings &gt; Display &gt; App display compatibility</string>
++    <string name="settings_notifications">Settings &gt; Notifications</string>
++    <string name="settings_network_manager">Settings &gt; Network Manager</string>
++    <string name="settings_mobile_network">Settings &gt; Mobile network</string>
++    <string name="settings_vpn">Settings &gt; VPN</string>
++    <string name="settings_storage">Settings &gt; Storage</string>
++    <string name="app_security_privacy">App Security &amp; Privacy</string>
++    <string name="app_info">App info</string>
++    <string name="settings_privacy">Settings &gt; Privacy</string>
++    <string name="settings_security">Settings &gt; Security</string>
++    <string name="settings_developer_options">Settings &gt; Developer options</string>
++    <string name="settings_about_phone">Settings &gt; About phone</string>
++    <string name="sable_media_fm_radio">Sable Media &gt; FM radio</string>
++    <string name="shift">Shift</string>
++    <string name="hold_or_lock_shift_and">Hold or lock Shift and type a capital letter</string>
++    <string name="alt_layer_digits">Alt-layer digits</string>
++    <string name="hold_or_lock_alt_and">Hold or lock Alt and type: 2468</string>
++    <string name="letters">Letters</string>
++    <string name="type_sable">Type: sable</string>
++    <string name="numbers">Numbers</string>
++    <string name="type_2468">Type: 2468</string>
++    <string name="symbols">Symbols</string>
++    <string name="type">Type: @#$%&amp;*!?</string>
++    <string name="alt_layer">Alt layer</string>
++    <string name="hold_or_lock_alt_and_2">Hold or lock Alt and type any key printed with a second character</string>
++    <string name="sym">Sym</string>
++    <string name="use_sym_to_enter_any">Use Sym to enter any symbol</string>
++    <string name="fn">Fn</string>
++    <string name="use_fn_with_any_key">Use Fn with any key that has an Fn character</string>
++    <string name="bluetooth_pairing_code">Bluetooth pairing code</string>
++    <string name="simulated_pairing_dialog_enter_482915">Simulated pairing dialog. Enter: 482915</string>
++    <string name="wi_fi_password">Wi-Fi password</string>
++    <string name="simulated_wi_fi_password_enter">Simulated Wi-Fi password. Enter: Tr4il-mix#26!</string>
++    <string name="lockscreen_pin">Lockscreen PIN</string>
++    <string name="simulated_pin_pad_enter_7391">Simulated PIN pad. Enter: 7391</string>
++    <string name="software_keyboard_fallback">Software keyboard fallback</string>
++    <string name="use_the_on_screen_keyboard">Use the on-screen keyboard to type: ok</string>
++    <string name="critical_text_entry">critical text entry</string>
++    <string name="pass_fail_not_run">%1$s/%2$s PASS, %3$s FAIL, %4$s NOT_RUN</string>
++    <string name="media_quick_control">Media quick control</string>
++    <string name="safe_ir_quick_control">Safe IR quick control</string>
++    <string name="camera_magnifier_preview">Camera / magnifier preview</string>
++    <string name="battery_and_device_status">Battery and device status</string>
++    <string name="keyboard_and_input">Keyboard and input</string>
++    <string name="display_geometry">Display geometry</string>
++    <string name="radio_and_sim_state">Radio and SIM state</string>
++    <string name="storage_summary">Storage summary</string>
++    <string name="tools_capability_status">Tools capability status</string>
++    <string name="network_addresses_dns_and_vpn">Network addresses, DNS and VPN</string>
++    <string name="includes_partially_masked_ip_and">Includes partially masked IP and DNS addresses, which can hint at your network or location.</string>
++    <string name="installed_app_list">Installed app list</string>
++    <string name="your_app_list_can_reveal">Your app list can reveal your bank, health, dating or work apps.</string>
++    <string name="diagnostic_session_log">Diagnostic session log</string>
++    <string name="key_events_captured_in_this">Key events captured in this session can contain anything you typed while the key viewer was open.</string>
++    <string name="message_bodies">message bodies</string>
++    <string name="contact_contents">contact contents</string>
++    <string name="photos_and_media">photos and media</string>
++    <string name="authentication_secrets">authentication secrets</string>
++    <string name="full_private_logs">full private logs</string>
++    <string name="precise_location_history">precise location history</string>
++    <string name="provider_credentials">provider credentials</string>
++    <string name="select_at_least_one_section">Select at least one section</string>
++    <string name="tv">TV</string>
++    <string name="app_name" translatable="false">Sable Tools</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/ToolsTextTest.kt b/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/ToolsTextTest.kt
+new file mode 100644
+index 0000000..717ed27
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/ToolsTextTest.kt
+@@ -0,0 +1,62 @@
++package org.sableos.tools
++
++import java.io.File
++import javax.xml.parsers.DocumentBuilderFactory
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.sableos.tools.core.ToolsText
++
++/** The English lines in code and in `values/strings.xml` stay equal, and every translation fits them. */
++class ToolsTextTest {
++    private val res = File("src/main/res")
++
++    private fun strings(file: File): Map<String, String> {
++        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
++        val nodes = doc.getElementsByTagName("string")
++        return (0 until nodes.length)
++            .map { nodes.item(it) }
++            .filter { it.attributes.getNamedItem("translatable")?.nodeValue != "false" }
++            .associate { node ->
++                val raw =
++                    node.textContent.let {
++                        if (it.length > 1 && it.startsWith('"') &&
++                            it.endsWith('"')
++                        ) {
++                            it.drop(1).dropLast(1)
++                        } else {
++                            it
++                        }
++                    }
++                node.attributes.getNamedItem("name").nodeValue to
++                    raw
++                        .replace("\\n", "\n")
++                        .replace("\\'", "'")
++                        .replace("\\\"", "\"")
++                        .replace("\\@", "@")
++                        .replace("\\\\", "\\")
++            }
++    }
++
++    private fun placeholders(s: String) = Regex("%\\d+\\$[sd]").findAll(s).map {
++        it.value
++    }.toSortedSet()
++
++    @Test
++    fun englishResourcesMatchTheCode() {
++        val english = strings(File(res, "values/strings.xml"))
++        ToolsText.EN.forEach { (key, text) -> assertEquals(key, text, english[key]) }
++    }
++
++    @Test
++    fun translationsHaveEveryKeyAndTheSamePlaceholders() {
++        res.listFiles { f ->
++            f.name.startsWith("values-") && File(f, "strings.xml").isFile
++        }.orEmpty().forEach { dir ->
++            val tr = strings(File(dir, "strings.xml"))
++            assertEquals(dir.name, ToolsText.EN.keys, tr.keys.intersect(ToolsText.EN.keys))
++            ToolsText.EN.forEach { (key, text) ->
++                assertEquals("${dir.name}/$key", placeholders(text), placeholders(tr.getValue(key)))
++            }
++        }
++    }
++}
 diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/DesignText.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/DesignText.kt
 new file mode 100644
 index 0000000..1859eda
@@ -10568,7 +13426,7 @@ index c4ad478..f7d5e3a 100644
          contentColor = MaterialTheme.colorScheme.onPrimary,
 diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTexts.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTexts.kt
 new file mode 100644
-index 0000000..ebc0f53
+index 0000000..dd26cdf
 --- /dev/null
 +++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTexts.kt
 @@ -0,0 +1,43 @@
@@ -10594,7 +13452,7 @@ index 0000000..ebc0f53
 +    /** The line [key] in the current language, with [args] filled in. An unknown key is a programming error. */
 +    operator fun invoke(
 +        key: String,
-+        vararg args: Any,
++        vararg args: Any?,
 +    ): String {
 +        val template = lookup(key) ?: english.getValue(key)
 +        return if (args.isEmpty()) template else String.format(Locale.getDefault(), template, *args)
