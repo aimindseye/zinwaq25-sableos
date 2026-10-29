@@ -7,17 +7,23 @@ To retake them: plug in a Q25 with USB debugging on, then run
 `bash scripts/capture-screenshots.sh --serial $(adb get-serialno)`. Shots listed in
 [screenshots.tsv](screenshots.tsv) open by themselves or ask you to open the screen.
 
-## The Start home screen (Active Frames)
+## The Start home screen, BlackBerry 10 style (Active Frames)
 
 Sable Start (home-start)
 
-![The Start home screen (Active Frames)](images/q25/home-start.png)
+![The Start home screen, BlackBerry 10 style (Active Frames)](images/q25/home-start.png)
 
-## Settings > About phone, with the SableOS version row
+## The Start home screen, BlackBerry 7 style
+
+Sable Start (home-bb7)
+
+![The Start home screen, BlackBerry 7 style](images/q25/home-bb7.png)
+
+## Settings > About phone
 
 First-boot setup (about-phone)
 
-![Settings > About phone, with the SableOS version row](images/q25/about-phone.png)
+![Settings > About phone](images/q25/about-phone.png)
 
 ## Settings > Display
 

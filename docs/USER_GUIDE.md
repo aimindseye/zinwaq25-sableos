@@ -66,6 +66,10 @@ Alt+Left and Alt+Right move between pages. Alt+Space opens Command, and any lett
 
 ### Sable Start, BlackBerry 7 style
 
+<p>
+<img src="images/q25/home-bb7.png" alt="Start home: BlackBerry 7 style" width="220">
+</p>
+
 - The banner shows the status dials, the date, the weather and the Hub unread count. The status bar shows the time.
 - Swipe right or press Alt+Left to open Hub. Swipe left or press Alt+Right to open All apps.
 - The tray at the bottom shows one to three rows of Favorites. Drag it up or down to change the rows. Up opens the whole tray and Esc closes it.
@@ -241,6 +245,7 @@ Settings keeps Android's layout, with SableOS additions. It is keyboard-first: w
 | Sable Setup | Home screen style, keyboard and default apps ([above](#first-boot-setup-and-sable-setup)) |
 
 <p>
+<img src="images/q25/about-phone.png" alt="About phone" width="200">
 <img src="images/q25/display-settings.png" alt="Display" width="200">
 <img src="images/q25/accent.png" alt="Accent" width="200">
 <img src="images/q25/app-style.png" alt="Sable app style" width="200">
