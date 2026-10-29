@@ -17,9 +17,9 @@ The LineageOS tree installs three files to `/vendor/usr/`:
 ### Alt layer (from `Q25_keyboard.kcm`)
 
 ```text
-Q #   W 1   E 2   R 3   T (   Y )   U _   I -   O +   P @
+Q #   W 1   E 2   R 3   T (   Z )   U _   I -   O +   P @
 A *   S 4   D 5   F 6   G /   H :   J ;   K '   L "
-Z 7   X 8   C 9   V ?   B !   N ,   M .   0 0
+Y 7   X 8   C 9   V ?   B !   N ,   M .   0 0
 ```
 
 This matches the printed BlackBerry Classic legends. SPACE has a private-use alt
