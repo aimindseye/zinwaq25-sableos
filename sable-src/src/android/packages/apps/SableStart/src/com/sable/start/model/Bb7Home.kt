@@ -168,3 +168,20 @@ object Bb7Home {
         key: String,
     ): List<String> = HomeApps.toggle(current, key)
 }
+
+/**
+ * A visit from the BlackBerry 7 home to the BlackBerry 10 screen for Hub or Edit Home. It ends,
+ * back on the BlackBerry 7 home, once the BlackBerry 10 screen has left its home page and come
+ * back to it (a swipe or Back from Hub, Done in Edit Home). A Recents visit (Active Frames, the
+ * BlackBerry 10 home page itself) does not [returnOnHome]; Home ends it.
+ */
+data class Bb7Detour(
+    val returnOnHome: Boolean = false,
+    val leftHome: Boolean = false,
+) {
+    /** The BlackBerry 10 screen reported whether Back has somewhere to go (it is off its home page). */
+    fun onCanNavigateBack(canNavigateBack: Boolean): Bb7Detour = if (canNavigateBack) copy(leftHome = true) else this
+
+    /** True when the BlackBerry 10 screen is back on its home page after leaving it. */
+    fun endsAt(canNavigateBack: Boolean): Boolean = returnOnHome && leftHome && !canNavigateBack
+}

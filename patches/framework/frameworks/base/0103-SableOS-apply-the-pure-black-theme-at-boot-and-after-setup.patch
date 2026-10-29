@@ -1,0 +1,60 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 29 Oct 2026 01:20:00 +0000
+Subject: [PATCH] SableOS: apply the pure black theme at boot and after setup
+
+LineageSettings.Secure.BERRY_BLACK_THEME is on by default (lineage-sdk
+0150), but ThemeOverlayController applies the black theme overlay only
+when it re-evaluates the theme: on a setting change, a user switch or new
+wallpaper colors. The boot pass returns early when the wallpaper colors
+did not change, so on a fresh install the setting read 1 while
+org.lineageos.overlay.customization.blacktheme stayed disabled, even
+after a reboot. Force the boot pass, and the end of setup, to reload when
+Pure black and the Dark theme are both on.
+---
+ .../systemui/theme/ThemeOverlayController.java    | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/packages/SystemUI/src/com/android/systemui/theme/ThemeOverlayController.java b/packages/SystemUI/src/com/android/systemui/theme/ThemeOverlayController.java
+index c3ce071..c3bd547 100644
+--- a/packages/SystemUI/src/com/android/systemui/theme/ThemeOverlayController.java
++++ b/packages/SystemUI/src/com/android/systemui/theme/ThemeOverlayController.java
+@@ -193,7 +193,9 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
+                     if (!mDeviceProvisionedController.isCurrentUserSetup()) {
+                         return;
+                     }
+-                    if (!mDeferredThemeEvaluation) {
++                    // SableOS: pure black is on by default (lineage-sdk 0150), a value written
++                    // with the settings database, so no setting change ever applies it.
++                    if (!mDeferredThemeEvaluation && !isSableBlackThemeWanted()) {
+                         return;
+                     }
+                     Log.i(TAG, "Applying deferred theme");
+@@ -612,7 +614,9 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
+         Runnable updateColors = () -> {
+             if (DEBUG) Log.d(TAG, "Boot colors: " + systemColor);
+             mCurrentColors.put(mUserTracker.getUserId(), systemColor);
+-            reevaluateSystemTheme(false /* forceReload */);
++            // SableOS: with unchanged wallpaper colors the boot pass returns early and the
++            // black theme overlay stays as it was; reload when pure black should be on.
++            reevaluateSystemTheme(isSableBlackThemeWanted() /* forceReload */);
+         };
+ 
+         // Whenever we're going directly to setup wizard, we need to process colors synchronously,
+@@ -692,6 +696,13 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
+         return ColorScheme.getSeedColor(wallpaperColors);
+     }
+ 
++    /** SableOS: Pure black is on and the Dark theme is on, so the black theme overlay should be. */
++    private boolean isSableBlackThemeWanted() {
++        return LineageSettings.Secure.getIntForUser(mContext.getContentResolver(),
++                LineageSettings.Secure.BERRY_BLACK_THEME, 0, mUserTracker.getUserId()) == 1
++                && isNightMode();
++    }
++
+     @VisibleForTesting
+     protected boolean isNightMode() {
+         return (mResources.getConfiguration().uiMode
+-- 
+2.43.0
+

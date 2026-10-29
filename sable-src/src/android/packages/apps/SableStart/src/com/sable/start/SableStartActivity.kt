@@ -31,6 +31,7 @@ import org.sableos.design.resolveSableDarkAppearance
 import org.sableos.design.writeGlobalSableAppearance
 import org.sableos.start.model.ActiveFrame
 import org.sableos.start.model.AppEntry
+import org.sableos.start.model.Bb7Detour
 import org.sableos.start.model.HomeStyle
 import org.sableos.start.platform.LauncherAppsRepository
 import org.sableos.start.platform.LiveSurfaceRepository
@@ -82,6 +83,7 @@ class SableStartActivity : ComponentActivity() {
      */
     private val homeStyle = mutableStateOf(HomeStyle.DEFAULT)
     private val bb10Detour = mutableStateOf(false)
+    private var bb7Detour = Bb7Detour()
 
     /** The BlackBerry 7 home's favourites (the Home apps) and its rows of icons, read in onCreate. */
     private val bb7Favorites = mutableStateOf<List<String>?>(null)
@@ -222,7 +224,9 @@ class SableStartActivity : ComponentActivity() {
         if (savedInstanceState == null) {
             startRequest.value = StartRequest(screenFor(intent), 0)
             if (intent?.action == ACTION_SHOW_HUB) requestHub(intent)
-            bb10Detour.value = intent?.action in BB10_ONLY_ACTIONS
+            if (intent?.action in BB10_ONLY_ACTIONS) {
+                startBb10Detour(returnOnHome = intent?.action != ACTION_SHOW_ACTIVE_FRAMES)
+            }
         }
 
         setContent {
@@ -255,7 +259,7 @@ class SableStartActivity : ComponentActivity() {
                     onOpenHub = {
                         hubRequestFilter.value = null
                         hubGeneration.value += 1
-                        bb10Detour.value = true
+                        startBb10Detour(returnOnHome = true)
                     },
                     onFavoritesChanged = { keys ->
                         bb7Favorites.value = keys
@@ -285,6 +289,8 @@ class SableStartActivity : ComponentActivity() {
                     initialScreen = request.screen,
                     onCanNavigateBackChanged = { value ->
                         canNavigateBack = value
+                        bb7Detour = bb7Detour.onCanNavigateBack(value)
+                        if (bb10Detour.value && bb7Detour.endsAt(value)) endBb10Detour()
                     },
                     initialStartTileKeys = startStateRepository.loadStartTileKeys(),
                     initialHomeApps = startStateRepository.loadHomeApps(),
@@ -352,7 +358,7 @@ class SableStartActivity : ComponentActivity() {
         val style = startStateRepository.loadHomeStyle()
         if (style != homeStyle.value) {
             homeStyle.value = style
-            bb10Detour.value = false
+            endBb10Detour()
         }
         // Edit Home on the BlackBerry 10 screen edits the same list.
         bb7Favorites.value = startStateRepository.loadHomeApps()
@@ -372,7 +378,7 @@ class SableStartActivity : ComponentActivity() {
                 backGeneration.value = 0
                 hubGeneration.value = 0
                 startRequest.value = StartRequest(screenFor(intent), startRequest.value.serial + 1)
-                bb10Detour.value = true
+                startBb10Detour(returnOnHome = true)
             }
             // Home, and the Recents key (Active Frames are the BB10 Recents): close anything open
             // over the pages and show Active Frames.
@@ -380,12 +386,16 @@ class SableStartActivity : ComponentActivity() {
                 homeGeneration.value += 1
                 refreshFrames()
                 // On the BlackBerry 7 home, Home goes back to it; Recents shows the Active Frames.
-                bb10Detour.value = intent.action == ACTION_SHOW_ACTIVE_FRAMES
+                if (intent.action == ACTION_SHOW_ACTIVE_FRAMES) {
+                    startBb10Detour(returnOnHome = false)
+                } else {
+                    endBb10Detour()
+                }
             }
             // The one Hub is Start's Hub page (the Sable Hub app has no launcher entry).
             ACTION_SHOW_HUB -> {
                 requestHub(intent)
-                bb10Detour.value = true
+                startBb10Detour(returnOnHome = true)
             }
         }
     }
@@ -564,7 +574,7 @@ class SableStartActivity : ComponentActivity() {
                 "Hub" to {
                     hubRequestFilter.value = null
                     hubGeneration.value += 1
-                    bb10Detour.value = true
+                    startBb10Detour(returnOnHome = true)
                 },
                 "Home Screen Style" to {
                     runCatching { startActivity(Intent(this, HomeStyleActivity::class.java)) }
@@ -601,6 +611,16 @@ class SableStartActivity : ComponentActivity() {
     /** The Hub page's Contacts tab: names, favourites and numbers, read on the device only. */
     private fun requestContactsPermission() {
         requestPermissions(arrayOf(Manifest.permission.READ_CONTACTS), CONTACTS_PERMISSION_REQUEST_CODE)
+    }
+
+    private fun startBb10Detour(returnOnHome: Boolean) {
+        bb10Detour.value = true
+        bb7Detour = Bb7Detour(returnOnHome = returnOnHome)
+    }
+
+    private fun endBb10Detour() {
+        bb10Detour.value = false
+        bb7Detour = Bb7Detour()
     }
 
     private fun requestHub(intent: Intent) {
