@@ -129,7 +129,7 @@
     <string name="saved">"保存しました。 "</string>
     <string name="the_package_name_is_not">パッケージ名が無効です。</string>
     <string name="backend_error">"バックエンドエラー: "</string>
-    <string name="enforcement_backend_closed_profiles_are">適用バックエンド: 閉。プロファイルは検証と保存のみで、何も適用されません。</string>
+    <string name="enforcement_backend_closed_profiles_are">適用バックエンド: 閉。プロファイルは検証と保存のみで、何も適用しません。</string>
     <string name="enforcement_backend_open_gate_set">適用バックエンド: 開（ゲート設定済み）。要求はプラットフォームへ送られますが、その効果はここでは未検証です。</string>
     <string name="native_profile_nothing_to_enforce">ネイティブプロファイル: 適用するものはありません。</string>
     <string name="stored_only_not_enforced_the">保存のみ。適用されません: プラットフォームのバックエンドは、端末で検証されるまで閉じたままです。</string>
