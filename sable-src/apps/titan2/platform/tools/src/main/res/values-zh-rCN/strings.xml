@@ -317,5 +317,5 @@
     <string name="pedometer_set_height">身高（厘米）</string>
     <string name="pedometer_set_weight">体重（公斤）</string>
     <string name="pedometer_set_goal">每日目标（步数）</string>
-    <string name="pedometer_note">菜单可设置身高、体重和每日目标。每日合计在后台大约每小时收集一次，只保存在这部手机上。</string>
+    <string name="pedometer_note">菜单可设置身高、体重和每日目标。此工具关闭期间走的步数会在下次打开时计入。所有数据都保存在这部手机上。</string>
 </resources>

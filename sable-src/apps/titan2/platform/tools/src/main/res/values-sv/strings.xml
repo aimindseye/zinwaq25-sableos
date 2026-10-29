@@ -317,5 +317,5 @@
     <string name="pedometer_set_height">Längd (cm)</string>
     <string name="pedometer_set_weight">Vikt (kg)</string>
     <string name="pedometer_set_goal">Dagligt mål (steg)</string>
-    <string name="pedometer_note">Menyn ställer in längd, vikt och dagligt mål. Dagssummor samlas in ungefär en gång i timmen i bakgrunden och stannar på den här telefonen.</string>
+    <string name="pedometer_note">Menyn ställer in längd, vikt och dagsmål. Steg som tas medan verktyget är stängt läggs till nästa gång du öppnar det. Allt stannar på den här telefonen.</string>
 </resources>

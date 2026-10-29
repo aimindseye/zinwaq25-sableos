@@ -69,129 +69,6 @@ index 0000000..5422a3b
 +        assertTrue(LetterShortcuts.decode(null).letters.isEmpty())
 +    }
 +}
-diff --git a/sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml
-index 40b77af..158692e 100644
---- a/sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml
-+++ b/sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml
-@@ -19,6 +19,8 @@
-     <uses-permission android:name="android.permission.READ_BASIC_PHONE_STATE" />
-     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-     <uses-permission android:name="android.permission.VIBRATE" />
-+    <!-- Lets the hourly pedometer sample survive a reboot (a persisted job). -->
-+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
- 
-     <!-- Nothing is required: capability gating hides what the device lacks. -->
-     <uses-feature android:name="android.hardware.camera" android:required="false" />
-@@ -112,6 +114,12 @@
-           phone process), so the receiver requires MODIFY_PHONE_STATE, which only that signature|privileged sender
-           holds. Other apps cannot reach it.
-         -->
-+        <!-- Hourly pedometer sample (android/StepSampleJob): only the system can bind it. -->
-+        <service
-+            android:name=".android.StepSampleJob"
-+            android:exported="false"
-+            android:permission="android.permission.BIND_JOB_SERVICE" />
-+
-         <receiver
-             android:name=".android.SecretCodeReceiver"
-             android:enabled="true"
-diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/StepSampleJob.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/StepSampleJob.kt
-new file mode 100644
-index 0000000..c0537d8
---- /dev/null
-+++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/StepSampleJob.kt
-@@ -0,0 +1,91 @@
-+package org.sableos.tools.android
-+
-+import android.app.job.JobInfo
-+import android.app.job.JobParameters
-+import android.app.job.JobScheduler
-+import android.app.job.JobService
-+import android.content.ComponentName
-+import android.content.Context
-+import android.content.pm.PackageManager
-+import android.hardware.Sensor
-+import android.hardware.SensorEvent
-+import android.hardware.SensorEventListener
-+import android.hardware.SensorManager
-+import android.os.Handler
-+import android.os.Looper
-+import java.time.LocalDate
-+import java.util.concurrent.TimeUnit
-+import org.sableos.tools.core.Perm
-+
-+/** Schedules the hourly step sample once the pedometer has been opened. */
-+object StepSampling {
-+    private const val JOB_ID = 3101
-+
-+    fun schedule(context: Context) {
-+        val scheduler = context.getSystemService(JobScheduler::class.java) ?: return
-+        if (scheduler.getPendingJob(JOB_ID) != null) return
-+        val job = JobInfo.Builder(JOB_ID, ComponentName(context, StepSampleJob::class.java))
-+            .setPeriodic(TimeUnit.HOURS.toMillis(1))
-+            .setPersisted(true)
-+            .build()
-+        scheduler.schedule(job)
-+    }
-+}
-+
-+/**
-+ * Reads the step counter once and adds the gain to today's total (StepLedger), so days fill while the pedometer is
-+ * closed. It does nothing without the activity-recognition permission or a step counter, and gives up after a few
-+ * seconds.
-+ */
-+class StepSampleJob : JobService(), SensorEventListener {
-+    private val handler = Handler(Looper.getMainLooper())
-+    private var running: JobParameters? = null
-+    private val giveUp = Runnable { finish(reschedule = true) }
-+
-+    override fun onStartJob(params: JobParameters): Boolean {
-+        val sm = getSystemService(SensorManager::class.java)
-+        val sensor = sm?.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
-+        if (sm == null || sensor == null ||
-+            checkSelfPermission(Perm.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED
-+        ) {
-+            return false
-+        }
-+        running = params
-+        sm.registerListener(this, sensor, SensorManager.SENSOR_DELAY_NORMAL)
-+        handler.postDelayed(giveUp, GIVE_UP_MS)
-+        return true
-+    }
-+
-+    override fun onStopJob(params: JobParameters): Boolean {
-+        cleanUp()
-+        return true
-+    }
-+
-+    override fun onSensorChanged(event: SensorEvent) {
-+        val store = StepStore(this)
-+        val ledger = store.ledger()
-+        ledger.sample(event.values[0].toLong(), LocalDate.now().toEpochDay())
-+        store.save(ledger)
-+        finish(reschedule = false)
-+    }
-+
-+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-+        // step counts do not depend on accuracy
-+    }
-+
-+    private fun finish(reschedule: Boolean) {
-+        val params = running ?: return
-+        cleanUp()
-+        jobFinished(params, reschedule)
-+    }
-+
-+    private fun cleanUp() {
-+        handler.removeCallbacks(giveUp)
-+        getSystemService(SensorManager::class.java)?.unregisterListener(this)
-+        running = null
-+    }
-+
-+    private companion object {
-+        const val GIVE_UP_MS = 10_000L
-+    }
-+}
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/StepStore.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/StepStore.kt
 new file mode 100644
 index 0000000..a30b515
@@ -251,10 +128,10 @@ index e31fa75..c898ea9 100644
      IR_LEARNING(setOf(Hardware.IR_EMITTER, Hardware.IR_RECEIVER)),
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SosPattern.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SosPattern.kt
 new file mode 100644
-index 0000000..4de833c
+index 0000000..7ac3eec
 --- /dev/null
 +++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SosPattern.kt
-@@ -0,0 +1,42 @@
+@@ -0,0 +1,43 @@
 +package org.sableos.tools.core
 +
 +/**
@@ -282,6 +159,7 @@ index 0000000..4de833c
 +    private const val LOW_HZ = 600.0
 +    private const val HIGH_HZ = 1400.0
 +    private const val LEVEL = 0.8
++    private const val HALF = 0.5
 +
 +    fun samples(): ShortArray {
 +        val n = RATE * SECONDS
@@ -289,7 +167,7 @@ index 0000000..4de833c
 +        var phase = 0.0
 +        for (i in 0 until n) {
 +            val t = i.toDouble() / n
-+            val tri = if (t < 0.5) t * 2 else (1 - t) * 2
++            val tri = if (t < HALF) t / HALF else (1 - t) / HALF
 +            val hz = LOW_HZ + (HIGH_HZ - LOW_HZ) * tri
 +            phase += 2 * Math.PI * hz / RATE
 +            out[i] = (Math.sin(phase) * LEVEL * Short.MAX_VALUE).toInt().toShort()
@@ -299,7 +177,7 @@ index 0000000..4de833c
 +}
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/StepLedger.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/StepLedger.kt
 new file mode 100644
-index 0000000..b625608
+index 0000000..86f7b2a
 --- /dev/null
 +++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/StepLedger.kt
 @@ -0,0 +1,85 @@
@@ -333,9 +211,8 @@ index 0000000..b625608
 +    fun recent(today: Long, count: Int): List<Pair<Long, Long>> =
 +        (0 until count).map { today - it }.map { it to steps(it) }
 +
-+    fun encode(): String =
-+        (lastRaw?.toString() ?: "") + "|" +
-+            days.entries.sortedBy { it.key }.joinToString(",") { "${it.key}:${it.value}" }
++    fun encode(): String = (lastRaw?.toString() ?: "") + "|" +
++        days.entries.sortedBy { it.key }.joinToString(",") { "${it.key}:${it.value}" }
 +
 +    companion object {
 +        const val KEEP_DAYS = 30L
@@ -381,9 +258,10 @@ index 0000000..b625608
 +object StepMath {
 +    private const val STRIDE_PER_HEIGHT = 0.415
 +    private const val KCAL_PER_KG_KM = 0.5
++    private const val CM_PER_KM = 100_000.0
 +
 +    fun distanceKm(steps: Long, heightCm: Int): Double =
-+        steps * (heightCm * STRIDE_PER_HEIGHT) / 100_000.0
++        steps * (heightCm * STRIDE_PER_HEIGHT) / CM_PER_KM
 +
 +    fun kcal(distanceKm: Double, weightKg: Int): Int =
 +        (distanceKm * weightKg * KCAL_PER_KG_KM).roundToInt()
@@ -419,7 +297,7 @@ index 0c1df03..da95792 100644
              Capability.NOISE_METER,
              Capability.SPEEDOMETER
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
-index 7af8ca7..e282c4a 100644
+index 7af8ca7..45af013 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
 +++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
 @@ -378,7 +378,27 @@ object ToolsText {
@@ -435,8 +313,8 @@ index 7af8ca7..e282c4a 100644
 +            "sos_stop_all" to "Stop everything",
 +            "sos_status" to "Light %1\$s, screen %2\$s, siren %3\$s",
 +            "sos_info" to
-+                "Flashes the camera light in the SOS pattern, flashes the screen, or sounds a siren " +
-+                "at alarm volume. Everything stops when you leave. It does not call anyone.",
++                "Flashes the camera light in the SOS pattern, flashes the screen, or sounds a " +
++                "siren at alarm volume. Everything stops when you leave. It does not call anyone.",
 +            "pedometer_today" to "Today: %1\$d of %2\$d steps",
 +            "pedometer_estimates" to "About %1\$s km and %2\$d kcal (estimates)",
 +            "pedometer_last_days" to "Last 7 days",
@@ -446,8 +324,8 @@ index 7af8ca7..e282c4a 100644
 +            "pedometer_set_weight" to "Weight (kg)",
 +            "pedometer_set_goal" to "Daily goal (steps)",
 +            "pedometer_note" to
-+                "Menu sets height, weight and the daily goal. Daily totals are collected about once " +
-+                "an hour in the background and stay on this phone."
++                "Menu sets height, weight and the daily goal. Steps taken while this tool is closed " +
++                "are added the next time you open it. Everything stays on this phone."
          )
  
      val t = SableTexts(EN)
@@ -464,7 +342,7 @@ index a8d1396..e523a04 100644
          Tool.NOISE_METER to ::NoiseController,
          Tool.SPEEDOMETER to ::SpeedController,
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Utilities.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Utilities.kt
-index 3887771..b2a99a9 100644
+index 3887771..8707c56 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Utilities.kt
 +++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Utilities.kt
 @@ -1,6 +1,7 @@
@@ -475,7 +353,7 @@ index 3887771..b2a99a9 100644
  import android.annotation.SuppressLint
  import android.content.pm.PackageManager
  import android.graphics.SurfaceTexture
-@@ -18,25 +19,37 @@ import android.hardware.camera2.params.SessionConfiguration
+@@ -18,26 +19,37 @@ import android.hardware.camera2.params.SessionConfiguration
  import android.location.Location
  import android.location.LocationListener
  import android.location.LocationManager
@@ -499,7 +377,6 @@ index 3887771..b2a99a9 100644
 +import java.util.Locale
  import java.util.concurrent.Executor
  import kotlin.concurrent.thread
-+import org.sableos.tools.android.StepSampling
 +import org.sableos.tools.android.StepStore
  import org.sableos.tools.core.AccelStepDetector
  import org.sableos.tools.core.Command
@@ -509,11 +386,12 @@ index 3887771..b2a99a9 100644
 +import org.sableos.tools.core.SirenWave
 +import org.sableos.tools.core.SosPattern
  import org.sableos.tools.core.SpeedTrip
-+import org.sableos.tools.core.StepMath
  import org.sableos.tools.core.StepCounterSession
++import org.sableos.tools.core.StepMath
  import org.sableos.tools.core.ToolsText.t
  import org.sableos.tools.core.Vec3
-@@ -107,6 +120,172 @@ class FlashlightController(private val host: ToolHost) : ToolController {
+ 
+@@ -107,6 +119,172 @@ class FlashlightController(private val host: ToolHost) : ToolController {
      override fun info() = t("uses_the_camera_flash_in")
  }
  
@@ -686,7 +564,7 @@ index 3887771..b2a99a9 100644
  /** Camera preview with digital zoom. Up/Down zoom. Nothing is captured or saved; the system privacy dot shows. */
  class MagnifierController(private val host: ToolHost) : ToolController {
      private val ctx = host.activity
-@@ -478,7 +657,12 @@ class SpeedController(private val host: ToolHost) :
+@@ -478,7 +656,11 @@ class SpeedController(private val host: ToolHost) :
      }
  }
  
@@ -694,13 +572,12 @@ index 3887771..b2a99a9 100644
 +/**
 + * Step counter when allowed, accelerometer estimate otherwise. No health claims: distance and energy are estimates
 + * from the height and weight you enter. With the step counter, the day's total, the daily goal and the last seven
-+ * days are kept on this phone; a background job samples the counter about once an hour so days fill while the
-+ * tool is closed.
++ * days are kept on this phone; the counter keeps running while the tool is closed, so the gain is added on open.
 + */
  class PedometerController(private val host: ToolHost) :
      ToolController,
      SensorEventListener {
-@@ -486,11 +670,17 @@ class PedometerController(private val host: ToolHost) :
+@@ -486,11 +668,17 @@ class PedometerController(private val host: ToolHost) :
      private val sm = ctx.getSystemService(SensorManager::class.java)
      private val reading = Ui.reading(ctx)
      private val state = Ui.body(ctx)
@@ -719,12 +596,11 @@ index 3887771..b2a99a9 100644
  
      override fun start() {
          val m = sm ?: return
-@@ -499,23 +689,36 @@ class PedometerController(private val host: ToolHost) :
+@@ -499,23 +687,35 @@ class PedometerController(private val host: ToolHost) :
              ctx.checkSelfPermission(Perm.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED
          ) {
              source = t("step_counter")
 +            useLedger = true
-+            StepSampling.schedule(ctx)
              m.registerListener(this, stepSensor, SensorManager.SENSOR_DELAY_NORMAL)
          } else {
              source = t("accelerometer_estimate")
@@ -757,7 +633,7 @@ index 3887771..b2a99a9 100644
          } else {
              accel.push(
                  Vec3(e.values[0].toDouble(), e.values[1].toDouble(), e.values[2].toDouble()).norm,
-@@ -539,5 +742,73 @@ class PedometerController(private val host: ToolHost) :
+@@ -539,5 +739,79 @@ class PedometerController(private val host: ToolHost) :
          false
      }
  
@@ -794,13 +670,19 @@ index 3887771..b2a99a9 100644
 +
 +    override fun actions(): List<Pair<String, () -> Unit>> = listOf(
 +        t("pedometer_set_height") to {
-+            ask("pedometer_set_height", profile.heightCm) { profile = profile.copy(heightCm = it).safe }
++            ask("pedometer_set_height", profile.heightCm) {
++                profile = profile.copy(heightCm = it).safe
++            }
 +        },
 +        t("pedometer_set_weight") to {
-+            ask("pedometer_set_weight", profile.weightKg) { profile = profile.copy(weightKg = it).safe }
++            ask("pedometer_set_weight", profile.weightKg) {
++                profile = profile.copy(weightKg = it).safe
++            }
 +        },
 +        t("pedometer_set_goal") to {
-+            ask("pedometer_set_goal", profile.goal) { profile = profile.copy(goal = it).safe }
++            ask("pedometer_set_goal", profile.goal) {
++                profile = profile.copy(goal = it).safe
++            }
 +        }
 +    )
 +
@@ -832,7 +714,7 @@ index 3887771..b2a99a9 100644
 +    }
  }
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml
-index 4b151d8..738838e 100644
+index 4b151d8..517f598 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml
 +++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml
 @@ -302,4 +302,20 @@
@@ -854,10 +736,10 @@ index 4b151d8..738838e 100644
 +    <string name="pedometer_set_height">الطول (سم)</string>
 +    <string name="pedometer_set_weight">الوزن (كغ)</string>
 +    <string name="pedometer_set_goal">الهدف اليومي (خطوات)</string>
-+    <string name="pedometer_note">القائمة تضبط الطول والوزن والهدف اليومي. تُجمع المجاميع اليومية مرة كل ساعة تقريبًا في الخلفية وتبقى على هذا الهاتف.</string>
++    <string name="pedometer_note">القائمة تضبط الطول والوزن والهدف اليومي. تُضاف الخطوات التي تُقطع أثناء إغلاق هذه الأداة عند فتحها في المرة التالية. كل شيء يبقى على هذا الهاتف.</string>
  </resources>
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml
-index badeefd..4f123b4 100644
+index badeefd..0c8ec4a 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml
 +++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml
 @@ -302,4 +302,20 @@
@@ -879,10 +761,10 @@ index badeefd..4f123b4 100644
 +    <string name="pedometer_set_height">Größe (cm)</string>
 +    <string name="pedometer_set_weight">Gewicht (kg)</string>
 +    <string name="pedometer_set_goal">Tagesziel (Schritte)</string>
-+    <string name="pedometer_note">Über Menü stellst du Größe, Gewicht und Tagesziel ein. Die Tageswerte werden etwa stündlich im Hintergrund erfasst und bleiben auf diesem Telefon.</string>
++    <string name="pedometer_note">Über Menü stellst du Größe, Gewicht und Tagesziel ein. Schritte, die du bei geschlossenem Werkzeug gehst, werden beim nächsten Öffnen hinzugefügt. Alles bleibt auf diesem Telefon.</string>
  </resources>
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml
-index ebdf77c..f58318a 100644
+index ebdf77c..0fe41d0 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml
 +++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml
 @@ -302,4 +302,20 @@
@@ -904,10 +786,10 @@ index ebdf77c..f58318a 100644
 +    <string name="pedometer_set_height">Ύψος (εκ.)</string>
 +    <string name="pedometer_set_weight">Βάρος (κιλά)</string>
 +    <string name="pedometer_set_goal">Ημερήσιος στόχος (βήματα)</string>
-+    <string name="pedometer_note">Το Μενού ορίζει ύψος, βάρος και ημερήσιο στόχο. Τα ημερήσια σύνολα συλλέγονται περίπου μία φορά την ώρα στο παρασκήνιο και μένουν σε αυτό το τηλέφωνο.</string>
++    <string name="pedometer_note">Το Μενού ορίζει ύψος, βάρος και ημερήσιο στόχο. Τα βήματα που γίνονται όσο το εργαλείο είναι κλειστό προστίθενται την επόμενη φορά που θα το ανοίξετε. Όλα μένουν σε αυτό το τηλέφωνο.</string>
  </resources>
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml
-index e7004ce..c86d534 100644
+index e7004ce..e295b16 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml
 +++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml
 @@ -302,4 +302,20 @@
@@ -929,10 +811,10 @@ index e7004ce..c86d534 100644
 +    <string name="pedometer_set_height">Altura (cm)</string>
 +    <string name="pedometer_set_weight">Peso (kg)</string>
 +    <string name="pedometer_set_goal">Objetivo diario (pasos)</string>
-+    <string name="pedometer_note">El menú ajusta la altura, el peso y el objetivo diario. Los totales diarios se recogen aproximadamente cada hora en segundo plano y se quedan en este teléfono.</string>
++    <string name="pedometer_note">El menú ajusta la altura, el peso y el objetivo diario. Los pasos dados con esta herramienta cerrada se suman la próxima vez que la abras. Todo se queda en este teléfono.</string>
  </resources>
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml
-index 2a6ae42..af69adf 100644
+index 2a6ae42..19b4666 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml
 +++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml
 @@ -302,4 +302,20 @@
@@ -954,10 +836,10 @@ index 2a6ae42..af69adf 100644
 +    <string name="pedometer_set_height">Taille (cm)</string>
 +    <string name="pedometer_set_weight">Poids (kg)</string>
 +    <string name="pedometer_set_goal">Objectif quotidien (pas)</string>
-+    <string name="pedometer_note">Le menu règle la taille, le poids et l\'objectif quotidien. Les totaux quotidiens sont relevés environ toutes les heures en arrière-plan et restent sur ce téléphone.</string>
++    <string name="pedometer_note">Le menu règle la taille, le poids et l\'objectif quotidien. Les pas faits quand cet outil est fermé sont ajoutés à sa prochaine ouverture. Tout reste sur ce téléphone.</string>
  </resources>
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml
-index 1e6844a..d4ac411 100644
+index 1e6844a..9766484 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml
 +++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml
 @@ -302,4 +302,20 @@
@@ -979,10 +861,10 @@ index 1e6844a..d4ac411 100644
 +    <string name="pedometer_set_height">ऊँचाई (सेमी)</string>
 +    <string name="pedometer_set_weight">वज़न (किग्रा)</string>
 +    <string name="pedometer_set_goal">दैनिक लक्ष्य (क़दम)</string>
-+    <string name="pedometer_note">मेन्यू से ऊँचाई, वज़न और दैनिक लक्ष्य तय करें। दैनिक कुल लगभग हर घंटे पृष्ठभूमि में जुटाए जाते हैं और इसी फ़ोन पर रहते हैं।</string>
++    <string name="pedometer_note">मेनू से ऊँचाई, वज़न और दैनिक लक्ष्य तय होते हैं। यह टूल बंद रहने के दौरान चले गए कदम अगली बार खोलने पर जुड़ जाते हैं। सब कुछ इसी फ़ोन पर रहता है।</string>
  </resources>
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml
-index 820d143..d3ddbeb 100644
+index 820d143..451bdbb 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml
 +++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml
 @@ -302,4 +302,20 @@
@@ -1004,10 +886,10 @@ index 820d143..d3ddbeb 100644
 +    <string name="pedometer_set_height">Altezza (cm)</string>
 +    <string name="pedometer_set_weight">Peso (kg)</string>
 +    <string name="pedometer_set_goal">Obiettivo giornaliero (passi)</string>
-+    <string name="pedometer_note">Il menu imposta altezza, peso e obiettivo giornaliero. I totali giornalieri vengono raccolti circa una volta all\'ora in background e restano su questo telefono.</string>
++    <string name="pedometer_note">Il menu imposta altezza, peso e obiettivo giornaliero. I passi fatti con lo strumento chiuso vengono aggiunti alla prossima apertura. Tutto resta su questo telefono.</string>
  </resources>
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml
-index 77a4873..113bbf1 100644
+index 77a4873..2bbaa6a 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml
 +++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml
 @@ -302,4 +302,20 @@
@@ -1029,10 +911,10 @@ index 77a4873..113bbf1 100644
 +    <string name="pedometer_set_height">גובה (ס\"מ)</string>
 +    <string name="pedometer_set_weight">משקל (ק\"ג)</string>
 +    <string name="pedometer_set_goal">יעד יומי (צעדים)</string>
-+    <string name="pedometer_note">התפריט קובע גובה, משקל ויעד יומי. הסכומים היומיים נאספים בערך פעם בשעה ברקע ונשארים בטלפון הזה.</string>
++    <string name="pedometer_note">התפריט קובע גובה, משקל ויעד יומי. צעדים שנעשו בזמן שהכלי סגור מתווספים בפעם הבאה שפותחים אותו. הכול נשאר בטלפון הזה.</string>
  </resources>
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml
-index 186aa15..cfba484 100644
+index 186aa15..8d71907 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml
 +++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml
 @@ -302,4 +302,20 @@
@@ -1054,10 +936,10 @@ index 186aa15..cfba484 100644
 +    <string name="pedometer_set_height">身長（cm）</string>
 +    <string name="pedometer_set_weight">体重（kg）</string>
 +    <string name="pedometer_set_goal">1日の目標（歩数）</string>
-+    <string name="pedometer_note">メニューで身長、体重、1日の目標を設定します。1日の合計はバックグラウンドで1時間に1回ほど集計され、この端末にだけ残ります。</string>
++    <string name="pedometer_note">メニューで身長、体重、1日の目標を設定します。このツールを閉じている間の歩数は、次に開いたときに加算されます。すべてこの端末内にとどまります。</string>
  </resources>
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml
-index 64ed8c5..3f87a09 100644
+index 64ed8c5..ab3b315 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml
 +++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml
 @@ -302,4 +302,20 @@
@@ -1079,10 +961,10 @@ index 64ed8c5..3f87a09 100644
 +    <string name="pedometer_set_height">키(cm)</string>
 +    <string name="pedometer_set_weight">몸무게(kg)</string>
 +    <string name="pedometer_set_goal">일일 목표(걸음)</string>
-+    <string name="pedometer_note">메뉴에서 키, 몸무게, 일일 목표를 설정합니다. 일별 합계는 백그라운드에서 약 한 시간에 한 번 수집되며 이 휴대전화에만 저장됩니다.</string>
++    <string name="pedometer_note">메뉴에서 키, 몸무게, 하루 목표를 설정합니다. 이 도구를 닫아 둔 동안의 걸음 수는 다음에 열 때 더해집니다. 모든 정보는 이 휴대전화에만 남습니다.</string>
  </resources>
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml
-index 9b3a3cd..52dcc9c 100644
+index 9b3a3cd..311673d 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml
 +++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml
 @@ -302,4 +302,20 @@
@@ -1104,10 +986,10 @@ index 9b3a3cd..52dcc9c 100644
 +    <string name="pedometer_set_height">Lengte (cm)</string>
 +    <string name="pedometer_set_weight">Gewicht (kg)</string>
 +    <string name="pedometer_set_goal">Dagdoel (stappen)</string>
-+    <string name="pedometer_note">Via Menu stel je lengte, gewicht en dagdoel in. Dagtotalen worden ongeveer elk uur op de achtergrond verzameld en blijven op deze telefoon.</string>
++    <string name="pedometer_note">Met Menu stel je lengte, gewicht en dagdoel in. Stappen die je zet terwijl dit hulpmiddel gesloten is, worden toegevoegd zodra je het weer opent. Alles blijft op deze telefoon.</string>
  </resources>
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml
-index d6539ac..21a80d8 100644
+index d6539ac..30f3322 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml
 +++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml
 @@ -302,4 +302,20 @@
@@ -1129,10 +1011,10 @@ index d6539ac..21a80d8 100644
 +    <string name="pedometer_set_height">Wzrost (cm)</string>
 +    <string name="pedometer_set_weight">Waga (kg)</string>
 +    <string name="pedometer_set_goal">Dzienny cel (kroki)</string>
-+    <string name="pedometer_note">Menu ustawia wzrost, wagę i dzienny cel. Dzienne sumy są zbierane mniej więcej raz na godzinę w tle i zostają na tym telefonie.</string>
++    <string name="pedometer_note">Menu ustawia wzrost, wagę i dzienny cel. Kroki zrobione przy zamkniętym narzędziu zostaną dodane przy następnym otwarciu. Wszystko zostaje na tym telefonie.</string>
  </resources>
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml
-index febc2ac..982ee76 100644
+index febc2ac..d4b99d0 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml
 +++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml
 @@ -302,4 +302,20 @@
@@ -1154,10 +1036,10 @@ index febc2ac..982ee76 100644
 +    <string name="pedometer_set_height">Altura (cm)</string>
 +    <string name="pedometer_set_weight">Peso (kg)</string>
 +    <string name="pedometer_set_goal">Meta diária (passos)</string>
-+    <string name="pedometer_note">O menu define altura, peso e a meta diária. Os totais diários são coletados cerca de uma vez por hora em segundo plano e ficam somente neste telefone.</string>
++    <string name="pedometer_note">O menu define altura, peso e meta diária. Os passos dados com esta ferramenta fechada são somados na próxima vez que você a abrir. Tudo fica neste telefone.</string>
  </resources>
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml
-index 08c2a4f..d298818 100644
+index 08c2a4f..d46db4f 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml
 +++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml
 @@ -302,4 +302,20 @@
@@ -1179,10 +1061,10 @@ index 08c2a4f..d298818 100644
 +    <string name="pedometer_set_height">Рост (см)</string>
 +    <string name="pedometer_set_weight">Вес (кг)</string>
 +    <string name="pedometer_set_goal">Дневная цель (шаги)</string>
-+    <string name="pedometer_note">В меню задаются рост, вес и дневная цель. Дневные итоги собираются примерно раз в час в фоне и остаются на этом телефоне.</string>
++    <string name="pedometer_note">Меню задаёт рост, вес и дневную цель. Шаги, сделанные при закрытом инструменте, добавляются при следующем открытии. Всё остаётся на этом телефоне.</string>
  </resources>
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml
-index ea43d3d..4b68770 100644
+index ea43d3d..1e8bcec 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml
 +++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml
 @@ -302,4 +302,20 @@
@@ -1204,10 +1086,10 @@ index ea43d3d..4b68770 100644
 +    <string name="pedometer_set_height">Längd (cm)</string>
 +    <string name="pedometer_set_weight">Vikt (kg)</string>
 +    <string name="pedometer_set_goal">Dagligt mål (steg)</string>
-+    <string name="pedometer_note">Menyn ställer in längd, vikt och dagligt mål. Dagssummor samlas in ungefär en gång i timmen i bakgrunden och stannar på den här telefonen.</string>
++    <string name="pedometer_note">Menyn ställer in längd, vikt och dagsmål. Steg som tas medan verktyget är stängt läggs till nästa gång du öppnar det. Allt stannar på den här telefonen.</string>
  </resources>
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml
-index 29ce279..7e22532 100644
+index 29ce279..0306225 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml
 +++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml
 @@ -302,4 +302,20 @@
@@ -1229,10 +1111,10 @@ index 29ce279..7e22532 100644
 +    <string name="pedometer_set_height">Boy (cm)</string>
 +    <string name="pedometer_set_weight">Kilo (kg)</string>
 +    <string name="pedometer_set_goal">Günlük hedef (adım)</string>
-+    <string name="pedometer_note">Menü boy, kilo ve günlük hedefi ayarlar. Günlük toplamlar arka planda yaklaşık saatte bir toplanır ve bu telefonda kalır.</string>
++    <string name="pedometer_note">Menü boy, kilo ve günlük hedefi ayarlar. Bu araç kapalıyken atılan adımlar bir sonraki açışınızda eklenir. Her şey bu telefonda kalır.</string>
  </resources>
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml
-index 5827c08..33a3f1b 100644
+index 5827c08..07080de 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml
 +++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml
 @@ -302,4 +302,20 @@
@@ -1254,10 +1136,10 @@ index 5827c08..33a3f1b 100644
 +    <string name="pedometer_set_height">قد (سینٹی میٹر)</string>
 +    <string name="pedometer_set_weight">وزن (کلوگرام)</string>
 +    <string name="pedometer_set_goal">روزانہ ہدف (قدم)</string>
-+    <string name="pedometer_note">مینو سے قد، وزن اور روزانہ ہدف طے کریں۔ روزانہ کے مجموعے پس منظر میں تقریباً ہر گھنٹے جمع ہوتے ہیں اور اسی فون پر رہتے ہیں۔</string>
++    <string name="pedometer_note">مینو سے قد، وزن اور روزانہ ہدف طے ہوتا ہے۔ یہ ٹول بند ہونے کے دوران اٹھائے گئے قدم اگلی بار کھولنے پر شامل ہو جاتے ہیں۔ سب کچھ اسی فون پر رہتا ہے۔</string>
  </resources>
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml
-index 14792b7..3ef08e0 100644
+index 14792b7..78cbb15 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml
 +++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml
 @@ -302,4 +302,20 @@
@@ -1279,10 +1161,10 @@ index 14792b7..3ef08e0 100644
 +    <string name="pedometer_set_height">身高（厘米）</string>
 +    <string name="pedometer_set_weight">体重（公斤）</string>
 +    <string name="pedometer_set_goal">每日目标（步数）</string>
-+    <string name="pedometer_note">菜单可设置身高、体重和每日目标。每日合计在后台大约每小时收集一次，只保存在这部手机上。</string>
++    <string name="pedometer_note">菜单可设置身高、体重和每日目标。此工具关闭期间走的步数会在下次打开时计入。所有数据都保存在这部手机上。</string>
  </resources>
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml
-index aabe58c..0ba3ef2 100644
+index aabe58c..320beb1 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml
 +++ b/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml
 @@ -303,5 +303,21 @@
@@ -1304,7 +1186,7 @@ index aabe58c..0ba3ef2 100644
 +    <string name="pedometer_set_height">Height (cm)</string>
 +    <string name="pedometer_set_weight">Weight (kg)</string>
 +    <string name="pedometer_set_goal">Daily goal (steps)</string>
-+    <string name="pedometer_note">Menu sets height, weight and the daily goal. Daily totals are collected about once an hour in the background and stay on this phone.</string>
++    <string name="pedometer_note">Menu sets height, weight and the daily goal. Steps taken while this tool is closed are added the next time you open it. Everything stays on this phone.</string>
      <string name="app_name" translatable="false">Sable Tools</string>
  </resources>
 diff --git a/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/SosAndStepsTest.kt b/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/SosAndStepsTest.kt

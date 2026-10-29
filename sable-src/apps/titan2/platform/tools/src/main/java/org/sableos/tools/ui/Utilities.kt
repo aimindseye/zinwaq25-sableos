@@ -39,7 +39,6 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.concurrent.Executor
 import kotlin.concurrent.thread
-import org.sableos.tools.android.StepSampling
 import org.sableos.tools.android.StepStore
 import org.sableos.tools.core.AccelStepDetector
 import org.sableos.tools.core.Command
@@ -49,8 +48,8 @@ import org.sableos.tools.core.Perm
 import org.sableos.tools.core.SirenWave
 import org.sableos.tools.core.SosPattern
 import org.sableos.tools.core.SpeedTrip
-import org.sableos.tools.core.StepMath
 import org.sableos.tools.core.StepCounterSession
+import org.sableos.tools.core.StepMath
 import org.sableos.tools.core.ToolsText.t
 import org.sableos.tools.core.Vec3
 
@@ -660,8 +659,7 @@ class SpeedController(private val host: ToolHost) :
 /**
  * Step counter when allowed, accelerometer estimate otherwise. No health claims: distance and energy are estimates
  * from the height and weight you enter. With the step counter, the day's total, the daily goal and the last seven
- * days are kept on this phone; a background job samples the counter about once an hour so days fill while the
- * tool is closed.
+ * days are kept on this phone; the counter keeps running while the tool is closed, so the gain is added on open.
  */
 class PedometerController(private val host: ToolHost) :
     ToolController,
@@ -690,7 +688,6 @@ class PedometerController(private val host: ToolHost) :
         ) {
             source = t("step_counter")
             useLedger = true
-            StepSampling.schedule(ctx)
             m.registerListener(this, stepSensor, SensorManager.SENSOR_DELAY_NORMAL)
         } else {
             source = t("accelerometer_estimate")
@@ -775,13 +772,19 @@ class PedometerController(private val host: ToolHost) :
 
     override fun actions(): List<Pair<String, () -> Unit>> = listOf(
         t("pedometer_set_height") to {
-            ask("pedometer_set_height", profile.heightCm) { profile = profile.copy(heightCm = it).safe }
+            ask("pedometer_set_height", profile.heightCm) {
+                profile = profile.copy(heightCm = it).safe
+            }
         },
         t("pedometer_set_weight") to {
-            ask("pedometer_set_weight", profile.weightKg) { profile = profile.copy(weightKg = it).safe }
+            ask("pedometer_set_weight", profile.weightKg) {
+                profile = profile.copy(weightKg = it).safe
+            }
         },
         t("pedometer_set_goal") to {
-            ask("pedometer_set_goal", profile.goal) { profile = profile.copy(goal = it).safe }
+            ask("pedometer_set_goal", profile.goal) {
+                profile = profile.copy(goal = it).safe
+            }
         }
     )
 

@@ -318,6 +318,6 @@
     <string name="pedometer_set_height">Height (cm)</string>
     <string name="pedometer_set_weight">Weight (kg)</string>
     <string name="pedometer_set_goal">Daily goal (steps)</string>
-    <string name="pedometer_note">Menu sets height, weight and the daily goal. Daily totals are collected about once an hour in the background and stay on this phone.</string>
+    <string name="pedometer_note">Menu sets height, weight and the daily goal. Steps taken while this tool is closed are added the next time you open it. Everything stays on this phone.</string>
     <string name="app_name" translatable="false">Sable Tools</string>
 </resources>

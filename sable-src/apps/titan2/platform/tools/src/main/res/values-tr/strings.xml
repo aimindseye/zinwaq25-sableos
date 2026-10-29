@@ -317,5 +317,5 @@
     <string name="pedometer_set_height">Boy (cm)</string>
     <string name="pedometer_set_weight">Kilo (kg)</string>
     <string name="pedometer_set_goal">Günlük hedef (adım)</string>
-    <string name="pedometer_note">Menü boy, kilo ve günlük hedefi ayarlar. Günlük toplamlar arka planda yaklaşık saatte bir toplanır ve bu telefonda kalır.</string>
+    <string name="pedometer_note">Menü boy, kilo ve günlük hedefi ayarlar. Bu araç kapalıyken atılan adımlar bir sonraki açışınızda eklenir. Her şey bu telefonda kalır.</string>
 </resources>

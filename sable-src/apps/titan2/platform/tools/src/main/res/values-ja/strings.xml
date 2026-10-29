@@ -317,5 +317,5 @@
     <string name="pedometer_set_height">身長（cm）</string>
     <string name="pedometer_set_weight">体重（kg）</string>
     <string name="pedometer_set_goal">1日の目標（歩数）</string>
-    <string name="pedometer_note">メニューで身長、体重、1日の目標を設定します。1日の合計はバックグラウンドで1時間に1回ほど集計され、この端末にだけ残ります。</string>
+    <string name="pedometer_note">メニューで身長、体重、1日の目標を設定します。このツールを閉じている間の歩数は、次に開いたときに加算されます。すべてこの端末内にとどまります。</string>
 </resources>

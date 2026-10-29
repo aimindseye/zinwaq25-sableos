@@ -317,5 +317,5 @@
     <string name="pedometer_set_height">Altura (cm)</string>
     <string name="pedometer_set_weight">Peso (kg)</string>
     <string name="pedometer_set_goal">Meta diária (passos)</string>
-    <string name="pedometer_note">O menu define altura, peso e a meta diária. Os totais diários são coletados cerca de uma vez por hora em segundo plano e ficam somente neste telefone.</string>
+    <string name="pedometer_note">O menu define altura, peso e meta diária. Os passos dados com esta ferramenta fechada são somados na próxima vez que você a abrir. Tudo fica neste telefone.</string>
 </resources>

@@ -317,5 +317,5 @@
     <string name="pedometer_set_height">גובה (ס\"מ)</string>
     <string name="pedometer_set_weight">משקל (ק\"ג)</string>
     <string name="pedometer_set_goal">יעד יומי (צעדים)</string>
-    <string name="pedometer_note">התפריט קובע גובה, משקל ויעד יומי. הסכומים היומיים נאספים בערך פעם בשעה ברקע ונשארים בטלפון הזה.</string>
+    <string name="pedometer_note">התפריט קובע גובה, משקל ויעד יומי. צעדים שנעשו בזמן שהכלי סגור מתווספים בפעם הבאה שפותחים אותו. הכול נשאר בטלפון הזה.</string>
 </resources>

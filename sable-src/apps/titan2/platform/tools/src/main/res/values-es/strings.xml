@@ -317,5 +317,5 @@
     <string name="pedometer_set_height">Altura (cm)</string>
     <string name="pedometer_set_weight">Peso (kg)</string>
     <string name="pedometer_set_goal">Objetivo diario (pasos)</string>
-    <string name="pedometer_note">El menú ajusta la altura, el peso y el objetivo diario. Los totales diarios se recogen aproximadamente cada hora en segundo plano y se quedan en este teléfono.</string>
+    <string name="pedometer_note">El menú ajusta la altura, el peso y el objetivo diario. Los pasos dados con esta herramienta cerrada se suman la próxima vez que la abras. Todo se queda en este teléfono.</string>
 </resources>

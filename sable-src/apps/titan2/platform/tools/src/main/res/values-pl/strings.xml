@@ -317,5 +317,5 @@
     <string name="pedometer_set_height">Wzrost (cm)</string>
     <string name="pedometer_set_weight">Waga (kg)</string>
     <string name="pedometer_set_goal">Dzienny cel (kroki)</string>
-    <string name="pedometer_note">Menu ustawia wzrost, wagę i dzienny cel. Dzienne sumy są zbierane mniej więcej raz na godzinę w tle i zostają na tym telefonie.</string>
+    <string name="pedometer_note">Menu ustawia wzrost, wagę i dzienny cel. Kroki zrobione przy zamkniętym narzędziu zostaną dodane przy następnym otwarciu. Wszystko zostaje na tym telefonie.</string>
 </resources>

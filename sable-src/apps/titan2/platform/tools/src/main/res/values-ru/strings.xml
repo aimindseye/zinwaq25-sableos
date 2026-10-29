@@ -317,5 +317,5 @@
     <string name="pedometer_set_height">Рост (см)</string>
     <string name="pedometer_set_weight">Вес (кг)</string>
     <string name="pedometer_set_goal">Дневная цель (шаги)</string>
-    <string name="pedometer_note">В меню задаются рост, вес и дневная цель. Дневные итоги собираются примерно раз в час в фоне и остаются на этом телефоне.</string>
+    <string name="pedometer_note">Меню задаёт рост, вес и дневную цель. Шаги, сделанные при закрытом инструменте, добавляются при следующем открытии. Всё остаётся на этом телефоне.</string>
 </resources>

@@ -317,5 +317,5 @@
     <string name="pedometer_set_height">ऊँचाई (सेमी)</string>
     <string name="pedometer_set_weight">वज़न (किग्रा)</string>
     <string name="pedometer_set_goal">दैनिक लक्ष्य (क़दम)</string>
-    <string name="pedometer_note">मेन्यू से ऊँचाई, वज़न और दैनिक लक्ष्य तय करें। दैनिक कुल लगभग हर घंटे पृष्ठभूमि में जुटाए जाते हैं और इसी फ़ोन पर रहते हैं।</string>
+    <string name="pedometer_note">मेनू से ऊँचाई, वज़न और दैनिक लक्ष्य तय होते हैं। यह टूल बंद रहने के दौरान चले गए कदम अगली बार खोलने पर जुड़ जाते हैं। सब कुछ इसी फ़ोन पर रहता है।</string>
 </resources>

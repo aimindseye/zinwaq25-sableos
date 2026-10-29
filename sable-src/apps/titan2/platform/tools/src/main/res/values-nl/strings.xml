@@ -317,5 +317,5 @@
     <string name="pedometer_set_height">Lengte (cm)</string>
     <string name="pedometer_set_weight">Gewicht (kg)</string>
     <string name="pedometer_set_goal">Dagdoel (stappen)</string>
-    <string name="pedometer_note">Via Menu stel je lengte, gewicht en dagdoel in. Dagtotalen worden ongeveer elk uur op de achtergrond verzameld en blijven op deze telefoon.</string>
+    <string name="pedometer_note">Met Menu stel je lengte, gewicht en dagdoel in. Stappen die je zet terwijl dit hulpmiddel gesloten is, worden toegevoegd zodra je het weer opent. Alles blijft op deze telefoon.</string>
 </resources>

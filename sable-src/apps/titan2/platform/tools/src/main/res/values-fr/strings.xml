@@ -317,5 +317,5 @@
     <string name="pedometer_set_height">Taille (cm)</string>
     <string name="pedometer_set_weight">Poids (kg)</string>
     <string name="pedometer_set_goal">Objectif quotidien (pas)</string>
-    <string name="pedometer_note">Le menu règle la taille, le poids et l\'objectif quotidien. Les totaux quotidiens sont relevés environ toutes les heures en arrière-plan et restent sur ce téléphone.</string>
+    <string name="pedometer_note">Le menu règle la taille, le poids et l\'objectif quotidien. Les pas faits quand cet outil est fermé sont ajoutés à sa prochaine ouverture. Tout reste sur ce téléphone.</string>
 </resources>

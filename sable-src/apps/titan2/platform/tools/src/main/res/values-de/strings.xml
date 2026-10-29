@@ -317,5 +317,5 @@
     <string name="pedometer_set_height">Größe (cm)</string>
     <string name="pedometer_set_weight">Gewicht (kg)</string>
     <string name="pedometer_set_goal">Tagesziel (Schritte)</string>
-    <string name="pedometer_note">Über Menü stellst du Größe, Gewicht und Tagesziel ein. Die Tageswerte werden etwa stündlich im Hintergrund erfasst und bleiben auf diesem Telefon.</string>
+    <string name="pedometer_note">Über Menü stellst du Größe, Gewicht und Tagesziel ein. Schritte, die du bei geschlossenem Werkzeug gehst, werden beim nächsten Öffnen hinzugefügt. Alles bleibt auf diesem Telefon.</string>
 </resources>

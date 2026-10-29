@@ -28,9 +28,8 @@ class StepLedger private constructor(
     fun recent(today: Long, count: Int): List<Pair<Long, Long>> =
         (0 until count).map { today - it }.map { it to steps(it) }
 
-    fun encode(): String =
-        (lastRaw?.toString() ?: "") + "|" +
-            days.entries.sortedBy { it.key }.joinToString(",") { "${it.key}:${it.value}" }
+    fun encode(): String = (lastRaw?.toString() ?: "") + "|" +
+        days.entries.sortedBy { it.key }.joinToString(",") { "${it.key}:${it.value}" }
 
     companion object {
         const val KEEP_DAYS = 30L
@@ -76,9 +75,10 @@ data class StepProfile(
 object StepMath {
     private const val STRIDE_PER_HEIGHT = 0.415
     private const val KCAL_PER_KG_KM = 0.5
+    private const val CM_PER_KM = 100_000.0
 
     fun distanceKm(steps: Long, heightCm: Int): Double =
-        steps * (heightCm * STRIDE_PER_HEIGHT) / 100_000.0
+        steps * (heightCm * STRIDE_PER_HEIGHT) / CM_PER_KM
 
     fun kcal(distanceKm: Double, weightKg: Int): Int =
         (distanceKm * weightKg * KCAL_PER_KG_KM).roundToInt()

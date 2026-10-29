@@ -317,5 +317,5 @@
     <string name="pedometer_set_height">키(cm)</string>
     <string name="pedometer_set_weight">몸무게(kg)</string>
     <string name="pedometer_set_goal">일일 목표(걸음)</string>
-    <string name="pedometer_note">메뉴에서 키, 몸무게, 일일 목표를 설정합니다. 일별 합계는 백그라운드에서 약 한 시간에 한 번 수집되며 이 휴대전화에만 저장됩니다.</string>
+    <string name="pedometer_note">메뉴에서 키, 몸무게, 하루 목표를 설정합니다. 이 도구를 닫아 둔 동안의 걸음 수는 다음에 열 때 더해집니다. 모든 정보는 이 휴대전화에만 남습니다.</string>
 </resources>

@@ -25,6 +25,7 @@ object SirenWave {
     private const val LOW_HZ = 600.0
     private const val HIGH_HZ = 1400.0
     private const val LEVEL = 0.8
+    private const val HALF = 0.5
 
     fun samples(): ShortArray {
         val n = RATE * SECONDS
@@ -32,7 +33,7 @@ object SirenWave {
         var phase = 0.0
         for (i in 0 until n) {
             val t = i.toDouble() / n
-            val tri = if (t < 0.5) t * 2 else (1 - t) * 2
+            val tri = if (t < HALF) t / HALF else (1 - t) / HALF
             val hz = LOW_HZ + (HIGH_HZ - LOW_HZ) * tri
             phase += 2 * Math.PI * hz / RATE
             out[i] = (Math.sin(phase) * LEVEL * Short.MAX_VALUE).toInt().toShort()

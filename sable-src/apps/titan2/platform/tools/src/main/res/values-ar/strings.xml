@@ -317,5 +317,5 @@
     <string name="pedometer_set_height">الطول (سم)</string>
     <string name="pedometer_set_weight">الوزن (كغ)</string>
     <string name="pedometer_set_goal">الهدف اليومي (خطوات)</string>
-    <string name="pedometer_note">القائمة تضبط الطول والوزن والهدف اليومي. تُجمع المجاميع اليومية مرة كل ساعة تقريبًا في الخلفية وتبقى على هذا الهاتف.</string>
+    <string name="pedometer_note">القائمة تضبط الطول والوزن والهدف اليومي. تُضاف الخطوات التي تُقطع أثناء إغلاق هذه الأداة عند فتحها في المرة التالية. كل شيء يبقى على هذا الهاتف.</string>
 </resources>

@@ -386,8 +386,8 @@ object ToolsText {
             "sos_stop_all" to "Stop everything",
             "sos_status" to "Light %1\$s, screen %2\$s, siren %3\$s",
             "sos_info" to
-                "Flashes the camera light in the SOS pattern, flashes the screen, or sounds a siren " +
-                "at alarm volume. Everything stops when you leave. It does not call anyone.",
+                "Flashes the camera light in the SOS pattern, flashes the screen, or sounds a " +
+                "siren at alarm volume. Everything stops when you leave. It does not call anyone.",
             "pedometer_today" to "Today: %1\$d of %2\$d steps",
             "pedometer_estimates" to "About %1\$s km and %2\$d kcal (estimates)",
             "pedometer_last_days" to "Last 7 days",
@@ -397,8 +397,8 @@ object ToolsText {
             "pedometer_set_weight" to "Weight (kg)",
             "pedometer_set_goal" to "Daily goal (steps)",
             "pedometer_note" to
-                "Menu sets height, weight and the daily goal. Daily totals are collected about once " +
-                "an hour in the background and stay on this phone."
+                "Menu sets height, weight and the daily goal. Steps taken while this tool is closed " +
+                "are added the next time you open it. Everything stays on this phone."
         )
 
     val t = SableTexts(EN)
