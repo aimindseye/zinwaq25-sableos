@@ -18,7 +18,7 @@ Installing erases the phone. Back up first, and keep the stock firmware package.
 4. If another phone is connected, run `export ANDROID_SERIAL=<q25-serial>` first.
 5. `adb reboot bootloader`, then `fastboot flashing unlock`. This wipes the phone.
 6. Flash `boot`, `dtbo`, `vbmeta` and `vendor_boot`, then `fastboot reboot recovery`.
-7. In recovery: Factory reset > Format data, then Apply update > Apply from ADB, and `adb sideload sableos-q25-*.zip`. Stopping at 47% is normal.
+7. In recovery: Factory reset > Format data, then Apply update > Apply from ADB, and `adb sideload sableos-q25-*.zip`. Stopping at 47% is normal: the phone is still installing, so do not unplug. The fastboot step only puts the boot images on the phone; the operating system is in this zip.
 8. Reboot system now. The first boot takes several minutes.
 
 ### First-boot setup and Sable Setup

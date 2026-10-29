@@ -79,6 +79,10 @@ else, stop.
 adb sideload sableos-q25-full-*.zip     # or the Q1/Q2 package you built
 ```
 
+The computer may stop at 47% or say "Total xfer: 1.00x" while the phone keeps installing; both are normal, so do not unplug or cancel. Wait for recovery to say the install finished.
+
+The fastboot step only puts the boot images on the phone (kernel, recovery, verified-boot data). The operating system itself (system, system_ext, product, vendor, the apps) is inside the install package, and only recovery can write it, which is why you sideload it as well.
+
 4. *Reboot system now*. The first boot can take several minutes. A full (Q4) image
    opens the Sable setup wizard, then Sable Start as HOME; Sable Keyboard is the
    only keyboard, and microG and Aurora Store are installed (see
