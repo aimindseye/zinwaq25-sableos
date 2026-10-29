@@ -891,6 +891,43 @@ else
     pass "crash evidence needs --serial"
 fi
 
+# 11b. Screenshot capture (fake adb): needs a serial, saves PNGs, writes the gallery, changes nothing on the phone.
+shotadb="$tmp/shot-adb"
+cat > "$shotadb" <<'ADB'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$FAKE_ADB_LOG"
+[[ "$1" == -s ]] && shift 2
+case "${1:-}" in
+    get-state) echo device ;;
+    exec-out) printf '\211PNG fake\n' ;;
+    shell)
+        case "$2" in
+            pm) printf 'package:org.sableos.weather\npackage:org.sableos.calculator\n' ;;
+            *) exit 0 ;;
+        esac ;;
+    *) echo "unexpected adb $*" >&2; exit 99 ;;
+esac
+ADB
+chmod +x "$shotadb"
+shotlog="$tmp/shot.log"
+: > "$shotlog"
+shotout="$tmp/shots"
+if out="$(FAKE_ADB_LOG="$shotlog" SABLE_ADB="$shotadb" bash scripts/capture-screenshots.sh --serial FAKE0001 --auto --delay 0 --out "$shotout" 2>/dev/null)"; then
+    ok=yes
+    grep -q '^SCREENSHOTS=DONE taken=' <<<"$out" || ok=no
+    [[ -s "$shotout/weather.png" && -s "$shotout/calculator.png" && -s "$shotout/home-start.png" ]] || ok=no
+    [[ ! -e "$shotout/sudoku.png" && ! -e "$shotout/app-blocker.png" ]] || ok=no
+    grep -Eq -- '(^| )(install|uninstall|clear|rm|wipe|reboot|root|push|disable)( |$)' "$shotlog" && ok=no
+    [[ "$ok" == yes ]] && pass "screenshot capture (fake adb)" || fail "screenshot capture: $out"
+else
+    fail "screenshot capture failed"
+fi
+if FAKE_ADB_LOG="$shotlog" SABLE_ADB="$shotadb" bash scripts/capture-screenshots.sh --auto --out "$shotout" >/dev/null 2>&1; then
+    fail "screenshot capture ran without naming the Q25's serial"
+else
+    pass "screenshot capture needs --serial"
+fi
+
 # 12. Static icon/launch audit (#83): launcher entry, label, Sable icon, round icon, adaptive icon and its
 #     monochrome layer are enforced for every enabled app (docs/implementation/t3.md, icon section).
 enabled_apps="$(awk -F'\t' '!/^#/ && $1 != "module" && $9 == "yes"' product/q25/apps.tsv | grep -c .)"

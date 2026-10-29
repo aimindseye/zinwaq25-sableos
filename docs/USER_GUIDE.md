@@ -90,6 +90,7 @@ Every Sable app follows the Dark theme and your Sable accent, and has single-key
 | Mail | Email; Gmail sign-in is covered in [MAIL_GMAIL_SIGNIN.md](MAIL_GMAIL_SIGNIN.md) | B to bottom |
 | Calendar | Week view with a NOW line | C, T, V, J, K, R |
 | Notes | Notes and checklists with colour labels, kept on the phone | See [Notes](#notes) below; C new, S find, K tasks |
+| Text Reader | Opens plain text files. An upstream app with the Sable name and icon | Arrows scroll |
 | Terminal | SSH, Telnet and a local shell (ConnectBot) | See [Terminal](#terminal) below; Menu is Ctrl |
 | Weather | Forecast for your city, refreshed in the background | Feeds Start's header |
 | Camera | Sable Camera for stills; video uses Aperture | Tap the viewfinder for touch controls |
@@ -188,6 +189,37 @@ Reader remembers where you stopped in each book. It never goes online, and needs
 ### Making other apps dark
 
 Sable apps, Phone, Contacts, Settings and the system screens all use the same pure black. Other apps only go dark if they support Android's Dark theme, and many use their own dark grey. The clean fix is the app's own setting: look for Dark mode, Black or AMOLED theme in its settings (most chat apps and browsers have one). Developer options > Override force-dark exists, but it recolours apps that were not made for it and can leave wrong colours, invisible icons or inverted images, so SableOS leaves it off.
+
+## Settings
+
+Settings keeps Android's layout, with SableOS additions. It is keyboard-first: with nothing selected, type the first letters of a row (S for Sound, SY for System) to jump to it, press `/` or Ctrl+K to search, and use Home, End, Page Up and Page Down to move. The focused row has an accent fill and border, and a hint at the foot of the first page shows the keys. Many pages have screenshots in [SCREENSHOTS.md](SCREENSHOTS.md).
+
+| Where | What you find |
+| --- | --- |
+| Display > Accent | Choose the Sable accent. Settings, Quick Settings, Start and the Sable apps all follow it. Dark theme is next to it |
+| Display > App display compatibility | A taller canvas per app, and **Sable app style**: compact corners (default) or rounded. Open Sable apps restyle at once |
+| About phone > SableOS version | Release number, release name, the LineageOS base and the source commit, for example `1.0 · full · lineage-23.2 · 0afdeef1c2d3`. LineageOS legal information stays under Legal information |
+| Battery > Battery health | Cycle count, capacity health, temperature and voltage, each with its source. A value the phone cannot read says "Not reported", never a guess. A chart below shows Today, 24 hours and 7 days |
+| Battery > Charging & protection | Shows what the phone can and cannot do. Charge limit and adaptive charging are listed as "not available on this device" on the Q25 |
+| Notifications > Sable Attention | Hub's hardware-attention settings. Each app's notification page also has a Sable Hub and Attention row |
+| Keyboard & input | Physical keyboard first, then the on-screen keyboard. **Keyboard light** explains the keys (Sym+0 toggles the light; with PaBaLF firmware Sym+Shift+1 to 9 sets the level). **Keyboard firmware** (also `*#*#1122#*#*` in the dialer) turns the keyboard off, puts it in download mode and brings it back. **Typing test** and **Diagnostics** open Tools |
+| Connected devices | Cards for USB / OTG, Bluetooth, NFC and Cast, moved with the arrows and opened with Enter. A card for hardware the phone lacks says "Not on this phone" |
+| Sable Setup | Home screen style, keyboard and default apps ([above](#first-boot-setup-and-sable-setup)) |
+
+### Apps, privacy and control
+
+| Where | What it does |
+| --- | --- |
+| Apps > All apps | Under each app's name, the sensitive access it has, for example `permissions · Location · Contacts · +1`. "See app info" means the phone could not tell, which is never shown as "none" |
+| Apps > Network access | One switch per app to block all networks. Wi-Fi, mobile data and VPN limits you set in App info are kept. Blocking a messaging, mail or phone app asks first. It does not filter websites |
+| Apps > App security & privacy | A read-only page per app: where it came from and who signed it, what it can do, how many entry points it exposes to other apps, packaged native code, and whether it has a known tracker library. **Changes seen on this phone** lists updates and signer changes since you first opened the page |
+| Apps > Mobile Manager | The home of the controls below, plus a plain list of what is not available yet |
+| Mobile Manager > App Control Center | Every app with its network access, background mode and paused state (Frozen, Student mode or Focus mode). Filter by network blocked, background restricted, paused, frozen or hidden. Enter on an app: Freeze, Hide, Network access, App security, App info |
+| Mobile Manager > Freezer | Freeze an app so it stops running; its data stays. You can also hide a frozen app from the launcher. Apps the phone needs cannot be frozen |
+| Mobile Manager > App blocker | Puts an app on Android's Restricted background mode and stops it now, so it only runs when you open it |
+| Mobile Manager > Focus mode | Only priority apps, alarms, media and repeat callers can notify you. "Pause while Focus mode is on" suspends the apps you choose. It also appears in Settings > Modes and Quick Settings |
+| Mobile Manager > Student mode | Focus mode on a schedule (days and times; weekdays 08:00-17:00 once you turn it on): every app you have not allowed is paused. Turning it off by hand lasts until the next boundary. It is a local control, not parental control or a site filter |
+| Private Space & Dual Apps | Private Space state and setup, Dual Apps (a second copy of an app, from Apps > Cloned apps) and the work profile. There is no app lock, because Android 16 on this build has no way to gate an app launch honestly; use Private Space for apps you want behind a lock |
 
 ## Privacy and security defaults
 
