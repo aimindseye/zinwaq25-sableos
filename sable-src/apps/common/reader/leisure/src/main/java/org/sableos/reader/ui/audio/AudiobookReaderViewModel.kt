@@ -22,13 +22,11 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.sableos.reader.audio.AudioSessionContract
+import org.sableos.reader.audio.AudioSettingsStore
 import org.sableos.reader.core.audio.AudiobookSourceLoader
 import org.sableos.reader.core.data.local.ItemBookmarkDao
-import org.sableos.reader.core.data.local.ItemViewSettingsDao
 import org.sableos.reader.core.domain.model.ItemBookmarkEntity
-import org.sableos.reader.core.domain.model.ItemViewSettingsEntity
 import org.sableos.reader.engine.audio.AudioPlaybackSettings
-import org.sableos.reader.engine.audio.AudioSettingsCodec
 import org.sableos.reader.engine.audio.AudioTimeFormat
 import org.sableos.reader.engine.audio.AudiobookTimeline
 import org.sableos.reader.engine.audio.SleepMode
@@ -37,7 +35,6 @@ import org.sableos.reader.model.TimeLocator
 import org.sableos.reader.util.runCatchingCancellable
 import org.vaachak.reader.core.common.AppCoroutineConfig
 import org.vaachak.reader.core.data.local.BookDao
-import org.vaachak.reader.core.data.repository.SettingsRepository
 import org.vaachak.reader.core.data.repository.VaultRepository
 
 /**
@@ -50,9 +47,8 @@ class AudiobookReaderViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val bookDao: BookDao,
     private val bookmarkDao: ItemBookmarkDao,
-    private val settingsDao: ItemViewSettingsDao,
+    private val settingsStore: AudioSettingsStore,
     private val vaultRepository: VaultRepository,
-    private val settingsRepository: SettingsRepository,
     private val loader: AudiobookSourceLoader,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(AudiobookUiState())
@@ -82,8 +78,7 @@ class AudiobookReaderViewModel @Inject constructor(
         }
         val line = AudiobookTimeline(manifest)
         timeline = line
-        val settings = settingsDao.get(bookHash, profileId)?.settingsJson?.let(AudioSettingsCodec::decode)
-            ?: settingsRepository.audioDefaults.first()
+        val settings = settingsStore.load(bookHash, profileId)
         val saved = (LocatorCodec.decode(book.progressJson) as? TimeLocator)?.positionMs ?: 0L
         mutableState.update {
             it.copy(
@@ -271,7 +266,7 @@ class AudiobookReaderViewModel @Inject constructor(
         val updated = change(mutableState.value.settings)
         mutableState.update { it.copy(settings = updated) }
         viewModelScope.launch {
-            settingsDao.upsert(ItemViewSettingsEntity(hash, profileId, AudioSettingsCodec.encode(updated)))
+            settingsStore.save(hash, profileId, updated)
         }
         val args = Bundle().apply {
             putLong(AudioSessionContract.KEY_SKIP_BACK_MS, updated.skipBackMs)

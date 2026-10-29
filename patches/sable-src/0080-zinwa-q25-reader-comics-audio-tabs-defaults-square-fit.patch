@@ -47,33 +47,70 @@ index 883538a..db45cf4 100644
      // --- READER PREF FLOWS ---
      val readerPreferences: Flow<ReaderPreferences> = vaultPreferencesFlow.map { prefs ->
          ReaderPreferences(
+diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/audio/AudioSettingsStore.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/audio/AudioSettingsStore.kt
+new file mode 100644
+index 0000000..cf66ae6
+--- /dev/null
++++ b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/audio/AudioSettingsStore.kt
+@@ -0,0 +1,23 @@
++package org.sableos.reader.audio
++
++import javax.inject.Inject
++import kotlinx.coroutines.flow.first
++import org.sableos.reader.core.data.local.ItemViewSettingsDao
++import org.sableos.reader.core.domain.model.ItemViewSettingsEntity
++import org.sableos.reader.engine.audio.AudioPlaybackSettings
++import org.sableos.reader.engine.audio.AudioSettingsCodec
++import org.vaachak.reader.core.data.repository.SettingsRepository
++
++/** An audiobook's own playback choices, or the Settings defaults when it has none yet. */
++class AudioSettingsStore @Inject constructor(
++    private val settingsDao: ItemViewSettingsDao,
++    private val settingsRepository: SettingsRepository,
++) {
++    suspend fun load(bookHash: String, profileId: String): AudioPlaybackSettings =
++        settingsDao.get(bookHash, profileId)?.settingsJson?.let(AudioSettingsCodec::decode)
++            ?: settingsRepository.audioDefaults.first()
++
++    suspend fun save(bookHash: String, profileId: String, settings: AudioPlaybackSettings) {
++        settingsDao.upsert(ItemViewSettingsEntity(bookHash, profileId, AudioSettingsCodec.encode(settings)))
++    }
++}
 diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/audio/AudiobookPlaybackService.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/audio/AudiobookPlaybackService.kt
-index 2517c7e..e75cc24 100644
+index 2517c7e..da6751d 100644
 --- a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/audio/AudiobookPlaybackService.kt
 +++ b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/audio/AudiobookPlaybackService.kt
-@@ -44,6 +44,7 @@ import org.sableos.reader.engine.audio.PlaybackSourcePolicy
+@@ -35,10 +35,8 @@ import kotlinx.coroutines.flow.first
+ import kotlinx.coroutines.launch
+ import kotlinx.coroutines.withContext
+ import org.sableos.reader.core.audio.AudiobookSourceLoader
+-import org.sableos.reader.core.data.local.ItemViewSettingsDao
+ import org.sableos.reader.engine.audio.AudioManifest
+ import org.sableos.reader.engine.audio.AudioPlaybackSettings
+-import org.sableos.reader.engine.audio.AudioSettingsCodec
+ import org.sableos.reader.engine.audio.MonotonicClock
+ import org.sableos.reader.engine.audio.PlaybackSourcePolicy
  import org.sableos.reader.model.LocatorCodec
- import org.sableos.reader.model.TimeLocator
- import org.vaachak.reader.core.data.local.BookDao
-+import org.vaachak.reader.core.data.repository.SettingsRepository
- import org.vaachak.reader.core.data.repository.VaultRepository
- import org.vaachak.reader.core.domain.model.BookEntity
+@@ -65,7 +63,7 @@ class AudiobookPlaybackService : MediaLibraryService() {
  
-@@ -67,6 +68,8 @@ class AudiobookPlaybackService : MediaLibraryService() {
+     @Inject lateinit var vaultRepository: VaultRepository
  
-     @Inject lateinit var settingsDao: ItemViewSettingsDao
+-    @Inject lateinit var settingsDao: ItemViewSettingsDao
++    @Inject lateinit var settingsStore: AudioSettingsStore
  
-+    @Inject lateinit var settingsRepository: SettingsRepository
-+
      @Inject lateinit var loader: AudiobookSourceLoader
  
-     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-@@ -191,7 +194,7 @@ class AudiobookPlaybackService : MediaLibraryService() {
+@@ -186,12 +184,11 @@ class AudiobookPlaybackService : MediaLibraryService() {
+         profileId = vaultRepository.activeVaultId.first()
+         val book = bookDao.getBookByHash(hash, profileId)
+         val manifest = book?.let { withContext(Dispatchers.IO) { loader.loadOrBuild(it) } }
+-        val settings = settingsDao.get(hash, profileId)?.settingsJson?.let(AudioSettingsCodec::decode)
+         return if (book == null || manifest == null) {
              SessionResult(SessionError.ERROR_IO)
          } else {
              active.persist(force = true)
 -            applySettings(settings ?: AudioPlaybackSettings(), active)
-+            applySettings(settings ?: settingsRepository.audioDefaults.first(), active)
++            applySettings(settingsStore.load(hash, profileId), active)
              active.open(hash, manifest, mediaItems(book, manifest), resolveStart(book, startMs), play)
              SessionResult(SessionResult.RESULT_SUCCESS)
          }
@@ -188,34 +225,52 @@ index 42adc79..347a885 100644
  private fun AudioTopRow(state: AudiobookUiState, onAction: (AudioUiAction) -> Unit, onBack: () -> Unit) {
      Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
 diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/audio/AudiobookReaderViewModel.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/audio/AudiobookReaderViewModel.kt
-index ffe441d..0df4bad 100644
+index ffe441d..89aaa95 100644
 --- a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/audio/AudiobookReaderViewModel.kt
 +++ b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/audio/AudiobookReaderViewModel.kt
-@@ -37,6 +37,7 @@ import org.sableos.reader.model.TimeLocator
- import org.sableos.reader.util.runCatchingCancellable
- import org.vaachak.reader.core.common.AppCoroutineConfig
- import org.vaachak.reader.core.data.local.BookDao
-+import org.vaachak.reader.core.data.repository.SettingsRepository
- import org.vaachak.reader.core.data.repository.VaultRepository
- 
- /**
-@@ -51,6 +52,7 @@ class AudiobookReaderViewModel @Inject constructor(
+@@ -22,13 +22,11 @@ import kotlinx.coroutines.isActive
+ import kotlinx.coroutines.launch
+ import kotlinx.coroutines.withContext
+ import org.sableos.reader.audio.AudioSessionContract
++import org.sableos.reader.audio.AudioSettingsStore
+ import org.sableos.reader.core.audio.AudiobookSourceLoader
+ import org.sableos.reader.core.data.local.ItemBookmarkDao
+-import org.sableos.reader.core.data.local.ItemViewSettingsDao
+ import org.sableos.reader.core.domain.model.ItemBookmarkEntity
+-import org.sableos.reader.core.domain.model.ItemViewSettingsEntity
+ import org.sableos.reader.engine.audio.AudioPlaybackSettings
+-import org.sableos.reader.engine.audio.AudioSettingsCodec
+ import org.sableos.reader.engine.audio.AudioTimeFormat
+ import org.sableos.reader.engine.audio.AudiobookTimeline
+ import org.sableos.reader.engine.audio.SleepMode
+@@ -49,7 +47,7 @@ class AudiobookReaderViewModel @Inject constructor(
+     @ApplicationContext private val context: Context,
+     private val bookDao: BookDao,
      private val bookmarkDao: ItemBookmarkDao,
-     private val settingsDao: ItemViewSettingsDao,
+-    private val settingsDao: ItemViewSettingsDao,
++    private val settingsStore: AudioSettingsStore,
      private val vaultRepository: VaultRepository,
-+    private val settingsRepository: SettingsRepository,
      private val loader: AudiobookSourceLoader,
  ) : ViewModel() {
-     private val mutableState = MutableStateFlow(AudiobookUiState())
-@@ -81,7 +83,7 @@ class AudiobookReaderViewModel @Inject constructor(
+@@ -80,8 +78,7 @@ class AudiobookReaderViewModel @Inject constructor(
+         }
          val line = AudiobookTimeline(manifest)
          timeline = line
-         val settings = settingsDao.get(bookHash, profileId)?.settingsJson?.let(AudioSettingsCodec::decode)
+-        val settings = settingsDao.get(bookHash, profileId)?.settingsJson?.let(AudioSettingsCodec::decode)
 -            ?: AudioPlaybackSettings()
-+            ?: settingsRepository.audioDefaults.first()
++        val settings = settingsStore.load(bookHash, profileId)
          val saved = (LocatorCodec.decode(book.progressJson) as? TimeLocator)?.positionMs ?: 0L
          mutableState.update {
              it.copy(
+@@ -269,7 +266,7 @@ class AudiobookReaderViewModel @Inject constructor(
+         val updated = change(mutableState.value.settings)
+         mutableState.update { it.copy(settings = updated) }
+         viewModelScope.launch {
+-            settingsDao.upsert(ItemViewSettingsEntity(hash, profileId, AudioSettingsCodec.encode(updated)))
++            settingsStore.save(hash, profileId, updated)
+         }
+         val args = Bundle().apply {
+             putLong(AudioSessionContract.KEY_SKIP_BACK_MS, updated.skipBackMs)
 diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/comic/ComicReaderOverlays.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/comic/ComicReaderOverlays.kt
 index cbb83d0..fc65a6c 100644
 --- a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/comic/ComicReaderOverlays.kt
@@ -981,21 +1036,22 @@ index 4277b4e..81fd3d1 100644
      }
  }
 diff --git a/sable-src/apps/common/reader/reader-model/src/main/kotlin/org/sableos/reader/input/KeyHints.kt b/sable-src/apps/common/reader/reader-model/src/main/kotlin/org/sableos/reader/input/KeyHints.kt
-index e76dd21..1295f86 100644
+index e76dd21..3d29a17 100644
 --- a/sable-src/apps/common/reader/reader-model/src/main/kotlin/org/sableos/reader/input/KeyHints.kt
 +++ b/sable-src/apps/common/reader/reader-model/src/main/kotlin/org/sableos/reader/input/KeyHints.kt
-@@ -19,7 +19,9 @@ object KeyHints {
+@@ -19,7 +19,10 @@ object KeyHints {
              add(KeyHint("T", if (context.surface == ReaderSurface.AUDIO) "Chapters" else "Contents"))
          }
          if (caps.textSearch) add(KeyHint("F", "Find"))
 -        if (caps.appearance) add(KeyHint("A", "Appearance"))
 +        if (caps.appearance) {
-+            add(KeyHint("A", if (context.surface == ReaderSurface.AUDIO) "Speed, skip and sleep timer" else "Appearance"))
++            val what = if (context.surface == ReaderSurface.AUDIO) "Speed, skip and sleep timer" else "Appearance"
++            add(KeyHint("A", what))
 +        }
          add(KeyHint("Esc / Back", "Close, then leave"))
      }
  
-@@ -41,7 +43,7 @@ object KeyHints {
+@@ -41,7 +44,7 @@ object KeyHints {
          ReaderSurface.AUDIO -> listOf(
              KeyHint("Space", "Play / pause"),
              KeyHint("Left / Right", "Seek"),

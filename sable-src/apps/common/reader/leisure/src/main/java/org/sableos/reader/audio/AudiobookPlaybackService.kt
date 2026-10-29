@@ -35,16 +35,13 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.sableos.reader.core.audio.AudiobookSourceLoader
-import org.sableos.reader.core.data.local.ItemViewSettingsDao
 import org.sableos.reader.engine.audio.AudioManifest
 import org.sableos.reader.engine.audio.AudioPlaybackSettings
-import org.sableos.reader.engine.audio.AudioSettingsCodec
 import org.sableos.reader.engine.audio.MonotonicClock
 import org.sableos.reader.engine.audio.PlaybackSourcePolicy
 import org.sableos.reader.model.LocatorCodec
 import org.sableos.reader.model.TimeLocator
 import org.vaachak.reader.core.data.local.BookDao
-import org.vaachak.reader.core.data.repository.SettingsRepository
 import org.vaachak.reader.core.data.repository.VaultRepository
 import org.vaachak.reader.core.domain.model.BookEntity
 
@@ -66,9 +63,7 @@ class AudiobookPlaybackService : MediaLibraryService() {
 
     @Inject lateinit var vaultRepository: VaultRepository
 
-    @Inject lateinit var settingsDao: ItemViewSettingsDao
-
-    @Inject lateinit var settingsRepository: SettingsRepository
+    @Inject lateinit var settingsStore: AudioSettingsStore
 
     @Inject lateinit var loader: AudiobookSourceLoader
 
@@ -189,12 +184,11 @@ class AudiobookPlaybackService : MediaLibraryService() {
         profileId = vaultRepository.activeVaultId.first()
         val book = bookDao.getBookByHash(hash, profileId)
         val manifest = book?.let { withContext(Dispatchers.IO) { loader.loadOrBuild(it) } }
-        val settings = settingsDao.get(hash, profileId)?.settingsJson?.let(AudioSettingsCodec::decode)
         return if (book == null || manifest == null) {
             SessionResult(SessionError.ERROR_IO)
         } else {
             active.persist(force = true)
-            applySettings(settings ?: settingsRepository.audioDefaults.first(), active)
+            applySettings(settingsStore.load(hash, profileId), active)
             active.open(hash, manifest, mediaItems(book, manifest), resolveStart(book, startMs), play)
             SessionResult(SessionResult.RESULT_SUCCESS)
         }

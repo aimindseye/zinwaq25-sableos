@@ -20,7 +20,8 @@ object KeyHints {
         }
         if (caps.textSearch) add(KeyHint("F", "Find"))
         if (caps.appearance) {
-            add(KeyHint("A", if (context.surface == ReaderSurface.AUDIO) "Speed, skip and sleep timer" else "Appearance"))
+            val what = if (context.surface == ReaderSurface.AUDIO) "Speed, skip and sleep timer" else "Appearance"
+            add(KeyHint("A", what))
         }
         add(KeyHint("Esc / Back", "Close, then leave"))
     }
